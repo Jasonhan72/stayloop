@@ -16,74 +16,77 @@ export default function LoginPage() {
 
     const { error: authError } = await supabase.auth.signInWithOtp({
       email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     })
 
     setSending(false)
-
-    if (authError) {
-      setError(authError.message)
-      return
-    }
+    if (authError) { setError(authError.message); return }
     setSent(true)
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <nav className="bg-white border-b border-gray-200 px-6 py-4">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">S</div>
-          <span className="text-lg font-bold text-blue-600">Stayloop</span>
+    <div className="min-h-screen flex flex-col text-slate-100">
+      <nav className="px-6 py-4">
+        <Link href="/" className="inline-flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">S</div>
+          <div className="text-base font-bold tracking-tight">Stayloop</div>
         </Link>
       </nav>
 
       <div className="flex-1 flex items-center justify-center px-6">
-        <div className="w-full max-w-md bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Landlord sign in</h1>
-          <p className="text-sm text-gray-500 mb-6">
-            Enter your email and we&apos;ll send you a secure magic link — no password needed.
-          </p>
+        <div className="w-full max-w-md">
+          <div className="glass rounded-2xl p-8 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-violet-500/5 pointer-events-none" />
+            <div className="relative">
+              <div className="mono text-[11px] text-cyan-400 mb-2">// LANDLORD ACCESS</div>
+              <h1 className="text-2xl font-bold tracking-tight mb-2">Sign in to Stayloop</h1>
+              <p className="text-sm text-slate-400 mb-7">
+                Enter your email — we&apos;ll send a one-time link. No password.
+              </p>
 
-          {sent ? (
-            <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg px-4 py-4 text-sm">
-              <div className="font-semibold mb-1">Check your inbox</div>
-              We sent a magic link to <span className="font-mono">{email}</span>. Click it to sign in.
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
-                <input
-                  required
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">
-                  {error}
+              {sent ? (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">✓</div>
+                    <div>
+                      <div className="font-semibold text-emerald-300 mb-1">Check your inbox</div>
+                      <div className="text-sm text-slate-300">
+                        We sent a magic link to <span className="mono text-emerald-300">{email}</span>. Click it to sign in.
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="label">Email address</label>
+                    <input
+                      required
+                      type="email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className="input"
+                    />
+                  </div>
+
+                  {error && (
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-sm px-3 py-2">
+                      {error}
+                    </div>
+                  )}
+
+                  <button type="submit" disabled={sending} className="btn-primary w-full">
+                    {sending ? 'Sending magic link...' : 'Send magic link →'}
+                  </button>
+                </form>
               )}
 
-              <button
-                type="submit"
-                disabled={sending}
-                className="w-full px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-semibold rounded-lg"
-              >
-                {sending ? 'Sending magic link...' : 'Send magic link'}
-              </button>
-            </form>
-          )}
-
-          <p className="mt-6 text-xs text-gray-400 text-center">
-            By signing in you agree to Stayloop&apos;s Terms and Privacy Policy.
-          </p>
+              <p className="mt-6 text-[11px] text-slate-500 text-center mono">
+                Encrypted · PIPEDA compliant · Built in Ontario
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@ export default function ApplyPage() {
   const params = useParams<{ slug: string }>()
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '', phone: '',
     date_of_birth: '', current_address: '',
@@ -25,23 +26,19 @@ export default function ApplyPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.consent_screening) return alert('Please provide consent to proceed.')
+    if (!form.consent_screening) { setError('Please provide consent to proceed.'); return }
+    setError(null)
     setLoading(true)
 
-    // Find listing by slug
     const { data: listing } = await supabase
       .from('listings')
       .select('id')
       .eq('slug', params.slug)
       .single()
 
-    if (!listing) {
-      alert('Listing not found.')
-      setLoading(false)
-      return
-    }
+    if (!listing) { setError('Listing not found.'); setLoading(false); return }
 
-    const { error } = await supabase.from('applications').insert({
+    const { error: insertError } = await supabase.from('applications').insert({
       listing_id: listing.id,
       ...form,
       monthly_income: parseInt(form.monthly_income) || null,
@@ -52,126 +49,135 @@ export default function ApplyPage() {
     })
 
     setLoading(false)
-    if (!error) setSubmitted(true)
-    else alert('Error submitting application. Please try again.')
+    if (!insertError) setSubmitted(true)
+    else setError('Error submitting application. Please try again.')
   }
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 max-w-md text-center">
-          <div className="text-5xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold text-green-600 mb-2">Application Submitted!</h2>
-          <p className="text-gray-500">Your application has been received. The landlord will be in touch shortly.</p>
+      <div className="min-h-screen flex items-center justify-center p-6 text-slate-100">
+        <div className="glass rounded-2xl p-10 max-w-md text-center relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 pointer-events-none" />
+          <div className="relative">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-3xl">✓</div>
+            <h2 className="text-2xl font-bold mb-2">Application submitted</h2>
+            <p className="text-sm text-slate-400">The landlord will review your application and be in touch soon.</p>
+          </div>
         </div>
       </div>
     )
   }
 
-  const Field = ({ label, children }: { label: string, children: React.ReactNode }) => (
+  const Section = ({ tag, title, children }: { tag: string; title: string; children: React.ReactNode }) => (
+    <section className="glass rounded-2xl p-6">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="mono text-xs text-cyan-400">{tag}</div>
+        <h2 className="font-semibold">{title}</h2>
+      </div>
+      {children}
+    </section>
+  )
+
+  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-1">{label}</label>
+      <label className="label">{label}</label>
       {children}
     </div>
   )
 
-  const Input = (props: any) => (
-    <input {...props} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-  )
-
+  const Input = (props: any) => <input {...props} className="input" />
   const Select = ({ value, onChange, options }: any) => (
-    <select value={value} onChange={onChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-      {options.map((o: string) => <option key={o}>{o}</option>)}
+    <select value={value} onChange={onChange} className="input">
+      {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
     </select>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen py-10 px-4 text-slate-100">
       <div className="max-w-2xl mx-auto">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-t-2xl p-6 text-white">
-          <h1 className="text-2xl font-bold mb-1">Rental Application</h1>
-          <p className="opacity-80 text-sm">Powered by Stayloop · Your data is encrypted and secure</p>
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">S</div>
+            <span className="text-base font-bold">Stayloop</span>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Rental application</h1>
+          <p className="text-sm text-slate-400 mono">encrypted · pipeda compliant · ontario</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-b-2xl border border-t-0 border-gray-200 p-6 space-y-8">
-
-          {/* Personal */}
-          <section>
-            <h2 className="text-blue-600 font-bold mb-4 pb-2 border-b border-gray-100">Personal Information</h2>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Section tag="// 01" title="Personal information">
             <div className="grid grid-cols-2 gap-4">
-              <Field label="First Name *"><Input required value={form.first_name} onChange={(e: any) => set('first_name', e.target.value)} /></Field>
-              <Field label="Last Name *"><Input required value={form.last_name} onChange={(e: any) => set('last_name', e.target.value)} /></Field>
+              <Field label="First name *"><Input required value={form.first_name} onChange={(e: any) => set('first_name', e.target.value)} /></Field>
+              <Field label="Last name *"><Input required value={form.last_name} onChange={(e: any) => set('last_name', e.target.value)} /></Field>
               <Field label="Email *"><Input required type="email" value={form.email} onChange={(e: any) => set('email', e.target.value)} /></Field>
               <Field label="Phone"><Input type="tel" value={form.phone} onChange={(e: any) => set('phone', e.target.value)} /></Field>
-              <Field label="Date of Birth"><Input type="date" value={form.date_of_birth} onChange={(e: any) => set('date_of_birth', e.target.value)} /></Field>
+              <Field label="Date of birth"><Input type="date" value={form.date_of_birth} onChange={(e: any) => set('date_of_birth', e.target.value)} /></Field>
             </div>
             <div className="mt-4">
-              <Field label="Current Address"><Input value={form.current_address} onChange={(e: any) => set('current_address', e.target.value)} /></Field>
+              <Field label="Current address"><Input value={form.current_address} onChange={(e: any) => set('current_address', e.target.value)} /></Field>
             </div>
-          </section>
+          </Section>
 
-          {/* Employment */}
-          <section>
-            <h2 className="text-blue-600 font-bold mb-4 pb-2 border-b border-gray-100">Employment & Income</h2>
+          <Section tag="// 02" title="Employment & income">
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Employment Status">
+              <Field label="Status">
                 <Select value={form.employment_status} onChange={(e: any) => set('employment_status', e.target.value)}
                   options={['Full-time employed','Part-time employed','Self-employed','Student','Retired','Other']} />
               </Field>
-              <Field label="Employer / Company *"><Input required value={form.employer_name} onChange={(e: any) => set('employer_name', e.target.value)} /></Field>
-              <Field label="Job Title"><Input value={form.job_title} onChange={(e: any) => set('job_title', e.target.value)} /></Field>
-              <Field label="Gross Monthly Income ($) *"><Input required type="number" value={form.monthly_income} onChange={(e: any) => set('monthly_income', e.target.value)} /></Field>
-              <Field label="Start Date"><Input type="date" value={form.employment_start_date} onChange={(e: any) => set('employment_start_date', e.target.value)} /></Field>
-              <Field label="Employer Phone"><Input type="tel" value={form.employer_phone} onChange={(e: any) => set('employer_phone', e.target.value)} /></Field>
+              <Field label="Employer *"><Input required value={form.employer_name} onChange={(e: any) => set('employer_name', e.target.value)} /></Field>
+              <Field label="Job title"><Input value={form.job_title} onChange={(e: any) => set('job_title', e.target.value)} /></Field>
+              <Field label="Gross monthly income $ *"><Input required type="number" value={form.monthly_income} onChange={(e: any) => set('monthly_income', e.target.value)} /></Field>
+              <Field label="Start date"><Input type="date" value={form.employment_start_date} onChange={(e: any) => set('employment_start_date', e.target.value)} /></Field>
+              <Field label="Employer phone"><Input type="tel" value={form.employer_phone} onChange={(e: any) => set('employer_phone', e.target.value)} /></Field>
             </div>
-          </section>
+          </Section>
 
-          {/* Rental History */}
-          <section>
-            <h2 className="text-blue-600 font-bold mb-4 pb-2 border-b border-gray-100">Rental History</h2>
+          <Section tag="// 03" title="Rental history">
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Previous Landlord Name"><Input value={form.prev_landlord_name} onChange={(e: any) => set('prev_landlord_name', e.target.value)} /></Field>
-              <Field label="Previous Landlord Phone"><Input type="tel" value={form.prev_landlord_phone} onChange={(e: any) => set('prev_landlord_phone', e.target.value)} /></Field>
-              <Field label="Monthly Rent Paid ($)"><Input type="number" value={form.prev_rent} onChange={(e: any) => set('prev_rent', e.target.value)} /></Field>
-              <Field label="Reason for Leaving"><Input value={form.reason_for_leaving} onChange={(e: any) => set('reason_for_leaving', e.target.value)} /></Field>
+              <Field label="Previous landlord"><Input value={form.prev_landlord_name} onChange={(e: any) => set('prev_landlord_name', e.target.value)} /></Field>
+              <Field label="Landlord phone"><Input type="tel" value={form.prev_landlord_phone} onChange={(e: any) => set('prev_landlord_phone', e.target.value)} /></Field>
+              <Field label="Monthly rent paid $"><Input type="number" value={form.prev_rent} onChange={(e: any) => set('prev_rent', e.target.value)} /></Field>
+              <Field label="Reason for leaving"><Input value={form.reason_for_leaving} onChange={(e: any) => set('reason_for_leaving', e.target.value)} /></Field>
             </div>
             <div className="mt-4">
-              <Field label="Previous Address"><Input value={form.prev_address} onChange={(e: any) => set('prev_address', e.target.value)} /></Field>
+              <Field label="Previous address"><Input value={form.prev_address} onChange={(e: any) => set('prev_address', e.target.value)} /></Field>
             </div>
-          </section>
+          </Section>
 
-          {/* Household */}
-          <section>
-            <h2 className="text-blue-600 font-bold mb-4 pb-2 border-b border-gray-100">Household Details</h2>
+          <Section tag="// 04" title="Household">
             <div className="grid grid-cols-3 gap-4">
-              <Field label="Number of Occupants"><Input type="number" min="1" value={form.num_occupants} onChange={(e: any) => set('num_occupants', e.target.value)} /></Field>
+              <Field label="Occupants"><Input type="number" min="1" value={form.num_occupants} onChange={(e: any) => set('num_occupants', e.target.value)} /></Field>
               <Field label="Pets?">
                 <Select value={form.has_pets} onChange={(e: any) => set('has_pets', e.target.value)} options={['false','true']} />
               </Field>
               <Field label="Smoker?">
                 <Select value={form.is_smoker} onChange={(e: any) => set('is_smoker', e.target.value)} options={['false','true']} />
               </Field>
-              <Field label="Desired Move-in Date"><Input type="date" value={form.move_in_date} onChange={(e: any) => set('move_in_date', e.target.value)} /></Field>
+              <Field label="Desired move-in"><Input type="date" value={form.move_in_date} onChange={(e: any) => set('move_in_date', e.target.value)} /></Field>
             </div>
-          </section>
+          </Section>
 
-          {/* Consent */}
-          <section className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-            <h3 className="font-bold text-amber-800 mb-2">⚖️ Authorization & Consent (PIPEDA)</h3>
-            <p className="text-xs text-gray-600 mb-3">By submitting, you authorize the landlord and Stayloop to verify your information, contact references, search publicly available LTB/Ontario court records, and obtain a credit report. Data retained 90 days then deleted. Compliant with the Ontario Human Rights Code.</p>
-            <label className="flex items-start gap-2 mb-2 cursor-pointer">
-              <input type="checkbox" checked={form.consent_screening} onChange={e => set('consent_screening', e.target.checked)} className="mt-1 accent-blue-600" />
-              <span className="text-sm">I agree to the above authorization and confirm all information is accurate. *</span>
+          <div className="glass rounded-2xl p-6 border-amber-500/30">
+            <div className="mono text-xs text-amber-400 mb-2">// CONSENT — PIPEDA</div>
+            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+              By submitting, you authorize the landlord and Stayloop to verify your information, contact references, search publicly available LTB and Ontario court records, and obtain a credit report. Data retained 90 days then deleted. Compliant with the Ontario Human Rights Code.
+            </p>
+            <label className="flex items-start gap-2 mb-2 cursor-pointer text-sm">
+              <input type="checkbox" checked={form.consent_screening} onChange={e => set('consent_screening', e.target.checked)} className="mt-1 accent-cyan-500" />
+              <span>I agree to the above authorization and confirm all information is accurate. *</span>
             </label>
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input type="checkbox" checked={form.consent_credit_check} onChange={e => set('consent_credit_check', e.target.checked)} className="mt-1 accent-blue-600" />
-              <span className="text-sm">I consent to a credit check being performed on my behalf.</span>
+            <label className="flex items-start gap-2 cursor-pointer text-sm">
+              <input type="checkbox" checked={form.consent_credit_check} onChange={e => set('consent_credit_check', e.target.checked)} className="mt-1 accent-cyan-500" />
+              <span>I consent to a credit check being performed on my behalf.</span>
             </label>
-          </section>
+          </div>
 
-          <button type="submit" disabled={loading}
-            className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-base hover:bg-green-700 disabled:opacity-50">
-            {loading ? 'Submitting...' : 'Submit Application'}
+          {error && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-sm px-3 py-2">{error}</div>
+          )}
+
+          <button type="submit" disabled={loading} className="btn-primary w-full text-base py-3.5">
+            {loading ? 'Submitting...' : 'Submit application →'}
           </button>
         </form>
       </div>
