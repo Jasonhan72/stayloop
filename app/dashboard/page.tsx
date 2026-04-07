@@ -1,24 +1,36 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Application } from '@/types'
+import { Application, Listing } from '@/types'
 
 export default function Dashboard() {
   const [applications, setApplications] = useState<Application[]>([])
+  const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
+  const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
+  const [origin, setOrigin] = useState('')
 
   useEffect(() => {
-    fetchApplications()
+    setOrigin(window.location.origin)
+    fetchAll()
   }, [])
 
-  async function fetchApplications() {
-    const { data, error } = await supabase
-      .from('applications')
-      .select('*, listing:listings(*)')
-      .order('created_at', { ascending: false })
-
-    if (!error && data) setApplications(data)
+  async function fetchAll() {
+    const [appsRes, listingsRes] = await Promise.all([
+      supabase.from('applications').select('*, listing:listings(*)').order('created_at', { ascending: false }),
+      supabase.from('listings').select('*').order('created_at', { ascending: false }),
+    ])
+    if (appsRes.data) setApplications(appsRes.data)
+    if (listingsRes.data) setListings(listingsRes.data)
     setLoading(false)
+  }
+
+  async function copyLink(slug: string) {
+    const url = `${origin}/apply/${slug}`
+    await navigator.clipboard.writeText(url)
+    setCopiedSlug(slug)
+    setTimeout(() => setCopiedSlug(null), 1500)
   }
 
   const scoreColor = (score?: number) => {
@@ -46,7 +58,15 @@ export default function Dashboard() {
       </nav>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <Link
+            href="/dashboard/listings/new"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg"
+          >
+            + New listing
+          </Link>
+        </div>
 
         <div className="grid grid-cols-4 gap-4 mb-8">
           {[
@@ -60,6 +80,59 @@ export default function Dashboard() {
               <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
             </div>
           ))}
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-8">
+          <div className="px-6 py-4 border-b border-gray-100 font-semibold text-gray-800 flex items-center justify-between">
+            <span>Your listings</span>
+            <span className="text-xs text-gray-400 font-normal">{listings.length} active</span>
+          </div>
+          {loading ? (
+            <div className="p-8 text-center text-gray-400">Loading...</div>
+          ) : listings.length === 0 ? (
+            <div className="p-8 text-center text-gray-400">
+              No listings yet.{' '}
+              <Link href="/dashboard/listings/new" className="text-blue-600 hover:underline">Create your first listing</Link>
+              {' '}to get a shareable application link.
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {listings.map(l => {
+                const url = `${origin}/apply/${l.slug}`
+                return (
+                  <li key={l.id} className="px-6 py-4 flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="font-medium text-gray-900 truncate">
+                        {l.address}{l.unit ? `, ${l.unit}` : ''} · {l.city}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        ${l.monthly_rent?.toLocaleString()}/mo
+                        {l.bedrooms ? ` · ${l.bedrooms} bd` : ''}
+                        {l.bathrooms ? ` · ${l.bathrooms} ba` : ''}
+                      </div>
+                      <div className="text-xs text-blue-600 mt-1 font-mono truncate">{url}</div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => copyLink(l.slug)}
+                        className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md font-medium"
+                      >
+                        {copiedSlug === l.slug ? '✓ Copied' : 'Copy link'}
+                      </button>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md font-medium"
+                      >
+                        Open
+                      </a>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
