@@ -24,6 +24,9 @@ jobs:
         run: npm ci
 
       - name: Build with @cloudflare/next-on-pages
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://upbkcbicjjpznojkpqtg.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYmtjYmljampwem5vamtwcXRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0ODQ2MzEsImV4cCI6MjA5MTA2MDYzMX0.fa6eKn6Ux-tp16rMbnsaaApesUZqeJZ67MpibJFKusw
         run: npx @cloudflare/next-on-pages@latest
 
       - name: Deploy to Cloudflare Pages
