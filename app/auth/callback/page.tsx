@@ -11,44 +11,51 @@ export default function AuthCallbackPage() {
     async function complete() {
       try {
         const url = new URL(window.location.href)
-        const code = url.searchParams.get('code')
-        const tokenHash = url.searchParams.get('token_hash')
-        const type = url.searchParams.get('type') as
-          | 'magiclink' | 'signup' | 'recovery' | 'invite' | 'email_change' | 'email' | null
+        const hash = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash
+        const hashParams = new URLSearchParams(hash)
+
+        // Surface any error from Supabase up-front
         const errorDesc =
           url.searchParams.get('error_description') ||
-          url.hash.match(/error_description=([^&]+)/)?.[1]
-
+          hashParams.get('error_description')
         if (errorDesc) {
           setStatus('Sign-in error: ' + decodeURIComponent(errorDesc))
           setTimeout(() => router.replace('/login'), 2500)
           return
         }
 
-        // 1) PKCE flow: ?code=...
-        if (code) {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-          if (exchangeError) {
-            setStatus('Verification failed: ' + exchangeError.message)
-            setTimeout(() => router.replace('/login'), 2500)
-            return
-          }
-        }
-        // 2) OTP / token_hash flow: ?token_hash=...&type=magiclink
-        else if (tokenHash && type) {
-          const { error: verifyError } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: type as any,
+        // Implicit flow: #access_token=...&refresh_token=...
+        const accessToken = hashParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token')
+        if (accessToken && refreshToken) {
+          const { error: setErr } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
           })
-          if (verifyError) {
-            setStatus('Verification failed: ' + verifyError.message)
+          if (setErr) {
+            setStatus('Verification failed: ' + setErr.message)
             setTimeout(() => router.replace('/login'), 2500)
             return
           }
         }
-        // 3) Implicit flow: #access_token=... is auto-detected by detectSessionInUrl
+        // OTP token_hash flow: ?token_hash=xxx&type=magiclink
+        else {
+          const tokenHash = url.searchParams.get('token_hash')
+          const type = url.searchParams.get('type')
+          if (tokenHash && type) {
+            const { error: verifyError } = await supabase.auth.verifyOtp({
+              token_hash: tokenHash,
+              type: type as any,
+            })
+            if (verifyError) {
+              setStatus('Verification failed: ' + verifyError.message)
+              setTimeout(() => router.replace('/login'), 2500)
+              return
+            }
+          }
+        }
 
-        // Confirm we have a session
+        // Confirm session is now established
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.user) {
           setStatus('Sign-in link invalid or expired. Redirecting...')
@@ -59,7 +66,6 @@ export default function AuthCallbackPage() {
         // Ensure landlord row is linked (server-side via SECURITY DEFINER RPC)
         const { error: claimError } = await supabase.rpc('claim_landlord')
         if (claimError) {
-          // Non-fatal: dashboard will retry. Log and continue.
           console.error('claim_landlord failed', claimError)
         }
 
