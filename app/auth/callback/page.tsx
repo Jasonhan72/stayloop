@@ -12,7 +12,12 @@ export default function AuthCallbackPage() {
       try {
         const url = new URL(window.location.href)
         const code = url.searchParams.get('code')
-        const errorDesc = url.searchParams.get('error_description') || url.hash.match(/error_description=([^&]+)/)?.[1]
+        const tokenHash = url.searchParams.get('token_hash')
+        const type = url.searchParams.get('type') as
+          | 'magiclink' | 'signup' | 'recovery' | 'invite' | 'email_change' | 'email' | null
+        const errorDesc =
+          url.searchParams.get('error_description') ||
+          url.hash.match(/error_description=([^&]+)/)?.[1]
 
         if (errorDesc) {
           setStatus('Sign-in error: ' + decodeURIComponent(errorDesc))
@@ -20,7 +25,7 @@ export default function AuthCallbackPage() {
           return
         }
 
-        // PKCE flow: exchange ?code=... for a session
+        // 1) PKCE flow: ?code=...
         if (code) {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
           if (exchangeError) {
@@ -29,47 +34,36 @@ export default function AuthCallbackPage() {
             return
           }
         }
+        // 2) OTP / token_hash flow: ?token_hash=...&type=magiclink
+        else if (tokenHash && type) {
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: type as any,
+          })
+          if (verifyError) {
+            setStatus('Verification failed: ' + verifyError.message)
+            setTimeout(() => router.replace('/login'), 2500)
+            return
+          }
+        }
+        // 3) Implicit flow: #access_token=... is auto-detected by detectSessionInUrl
 
-        // Implicit flow falls through here (session is auto-detected from URL hash)
+        // Confirm we have a session
         const { data: { session } } = await supabase.auth.getSession()
-
         if (!session?.user) {
           setStatus('Sign-in link invalid or expired. Redirecting...')
           setTimeout(() => router.replace('/login'), 2000)
           return
         }
 
-        const user = session.user
-
-        // Ensure a landlords row exists for this auth user
-        const { data: existing } = await supabase
-          .from('landlords')
-          .select('id')
-          .eq('auth_id', user.id)
-          .maybeSingle()
-
-        if (!existing) {
-          // Try linking by email first (e.g. the seeded test landlord)
-          const { data: byEmail } = await supabase
-            .from('landlords')
-            .select('id, auth_id')
-            .eq('email', user.email!)
-            .maybeSingle()
-
-          if (byEmail && !byEmail.auth_id) {
-            await supabase.from('landlords').update({ auth_id: user.id }).eq('id', byEmail.id)
-          } else if (!byEmail) {
-            await supabase.from('landlords').insert({
-              auth_id: user.id,
-              email: user.email!,
-              full_name: user.user_metadata?.full_name || null,
-              plan: 'free',
-            })
-          }
+        // Ensure landlord row is linked (server-side via SECURITY DEFINER RPC)
+        const { error: claimError } = await supabase.rpc('claim_landlord')
+        if (claimError) {
+          // Non-fatal: dashboard will retry. Log and continue.
+          console.error('claim_landlord failed', claimError)
         }
 
         setStatus('Signed in. Redirecting...')
-        // Clean URL then go to dashboard
         window.history.replaceState({}, '', '/auth/callback')
         router.replace('/dashboard')
       } catch (e: any) {

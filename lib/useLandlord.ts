@@ -26,7 +26,7 @@ export function useLandlord(redirectIfMissing = true) {
         return
       }
 
-      const { data: row } = await supabase
+      let { data: row } = await supabase
         .from('landlords')
         .select('id, email')
         .eq('auth_id', session.user.id)
@@ -35,10 +35,15 @@ export function useLandlord(redirectIfMissing = true) {
       if (!active) return
 
       if (!row) {
-        // Should have been created at callback; bounce to login as a safety net
-        setLoading(false)
-        if (redirectIfMissing) router.replace('/login')
-        return
+        // Try to claim/create via SECURITY DEFINER RPC
+        const { data: claimed, error: claimErr } = await supabase.rpc('claim_landlord')
+        if (claimErr || !claimed) {
+          console.error('claim_landlord failed', claimErr)
+          setLoading(false)
+          if (redirectIfMissing) router.replace('/login')
+          return
+        }
+        row = { id: claimed.id, email: claimed.email }
       }
 
       setLandlord({
