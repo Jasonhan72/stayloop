@@ -118,6 +118,19 @@ export default function ApplyPage() {
         .eq('id', inserted.id)
     }
 
+    // Fire-and-forget landlord email notification. We don't block the
+    // success screen on this — if Resend is misconfigured or flaky, the
+    // applicant shouldn't see an error. The endpoint is idempotent.
+    try {
+      await fetch('/api/notify-landlord', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application_id: inserted.id }),
+      })
+    } catch (err) {
+      console.warn('notify-landlord failed', err)
+    }
+
     setUploadProgress(null)
     setLoading(false)
     setSubmitted(true)

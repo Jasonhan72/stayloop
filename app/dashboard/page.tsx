@@ -14,14 +14,96 @@ export default function Dashboard() {
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
   const [origin, setOrigin] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [portalLoading, setPortalLoading] = useState(false)
+  // Post-checkout banner: 'pending' while we poll for the webhook to flip
+  // landlords.plan to 'pro', then 'success' once it lands.
+  const [checkoutBanner, setCheckoutBanner] = useState<null | 'pending' | 'success' | 'cancel'>(null)
 
   useEffect(() => {
     setOrigin(window.location.origin)
-    if (typeof window !== 'undefined' && new URL(window.location.href).searchParams.get('upgrade') === '1') {
-      setShowUpgrade(true)
+    if (typeof window !== 'undefined') {
+      const qp = new URL(window.location.href).searchParams
+      if (qp.get('upgrade') === '1') setShowUpgrade(true)
+      const checkout = qp.get('checkout')
+      if (checkout === 'success') setCheckoutBanner('pending')
+      if (checkout === 'cancel') setCheckoutBanner('cancel')
     }
     if (landlord) fetchAll()
   }, [landlord])
+
+  // Poll landlords.plan after returning from Stripe Checkout until the
+  // webhook flips us to 'pro'. Give up after ~20 tries (~20s).
+  useEffect(() => {
+    if (checkoutBanner !== 'pending' || !landlord) return
+    if (plan === 'pro' || plan === 'enterprise') {
+      setCheckoutBanner('success')
+      setShowUpgrade(false)
+      if (typeof window !== 'undefined') {
+        const u = new URL(window.location.href)
+        u.searchParams.delete('checkout')
+        u.searchParams.delete('session_id')
+        window.history.replaceState({}, '', u.toString())
+      }
+      return
+    }
+    let cancelled = false
+    let tries = 0
+    const tick = async () => {
+      if (cancelled) return
+      tries += 1
+      const { data } = await supabase
+        .from('landlords')
+        .select('plan')
+        .eq('id', landlord.landlordId)
+        .maybeSingle()
+      if (cancelled) return
+      if (data?.plan && data.plan !== plan) {
+        setPlan(data.plan as 'free' | 'pro' | 'enterprise')
+        return
+      }
+      if (tries >= 20) return
+      setTimeout(tick, 1000)
+    }
+    tick()
+    return () => { cancelled = true }
+  }, [checkoutBanner, landlord, plan])
+
+  async function startCheckout() {
+    setCheckoutLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('not signed in')
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      if (!res.ok || !data.url) throw new Error(data.error || 'checkout failed')
+      window.location.href = data.url
+    } catch (err: any) {
+      alert(`Checkout error: ${err?.message || 'unknown'}`)
+      setCheckoutLoading(false)
+    }
+  }
+
+  async function openBillingPortal() {
+    setPortalLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('not signed in')
+      const res = await fetch('/api/stripe/portal', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      if (!res.ok || !data.url) throw new Error(data.error || 'portal failed')
+      window.location.href = data.url
+    } catch (err: any) {
+      alert(`Billing portal error: ${err?.message || 'unknown'}`)
+      setPortalLoading(false)
+    }
+  }
 
   async function fetchAll() {
     const [appsRes, listingsRes, planRes] = await Promise.all([
@@ -88,6 +170,15 @@ export default function Dashboard() {
             {plan === 'free' && (
               <button onClick={() => setShowUpgrade(true)} className="text-xs px-3 py-1.5 rounded-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30">
                 Upgrade
+              </button>
+            )}
+            {(plan === 'pro' || plan === 'enterprise') && (
+              <button
+                onClick={openBillingPortal}
+                disabled={portalLoading}
+                className="text-xs px-3 py-1.5 rounded-lg font-medium border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] disabled:opacity-50"
+              >
+                {portalLoading ? 'Opening…' : 'Manage billing'}
               </button>
             )}
             <span className="mono text-xs text-slate-400 hidden sm:inline">{landlord.email}</span>
@@ -268,15 +359,47 @@ export default function Dashboard() {
                   <li>✓ Custom branded apply pages</li>
                   <li>✓ Email + Slack notifications</li>
                 </ul>
-                <a
-                  href="mailto:hello@stayloop.ai?subject=Upgrade%20to%20Pro"
-                  className="mt-5 block text-center text-sm px-4 py-2.5 rounded-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30"
+                <button
+                  onClick={startCheckout}
+                  disabled={checkoutLoading}
+                  className="mt-5 block w-full text-center text-sm px-4 py-2.5 rounded-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30 disabled:opacity-60"
                 >
-                  Contact sales →
-                </a>
+                  {checkoutLoading ? 'Redirecting to Stripe…' : 'Upgrade to Pro →'}
+                </button>
               </div>
             </div>
-            <p className="text-[10px] mono text-slate-500 mt-4 text-center">Self-serve checkout coming soon. For now, email us to enable Pro on your account.</p>
+            <p className="text-[10px] mono text-slate-500 mt-4 text-center">Secure checkout by Stripe · cancel anytime from Manage billing.</p>
+          </div>
+        </div>
+      )}
+
+      {checkoutBanner && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40">
+          <div className={`glass rounded-xl px-5 py-3 flex items-center gap-3 border ${
+            checkoutBanner === 'success' ? 'border-emerald-500/40' :
+            checkoutBanner === 'cancel'  ? 'border-slate-500/40'  :
+                                           'border-amber-500/40'
+          }`}>
+            {checkoutBanner === 'pending' && (
+              <>
+                <div className="w-4 h-4 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
+                <span className="text-xs text-slate-200">Payment received — unlocking Pro…</span>
+              </>
+            )}
+            {checkoutBanner === 'success' && (
+              <>
+                <span className="text-emerald-400">✓</span>
+                <span className="text-xs text-slate-200">Welcome to Pro!</span>
+                <button onClick={() => setCheckoutBanner(null)} className="mono text-[10px] text-slate-500 ml-2">dismiss</button>
+              </>
+            )}
+            {checkoutBanner === 'cancel' && (
+              <>
+                <span className="text-slate-400">✕</span>
+                <span className="text-xs text-slate-300">Checkout canceled — no charge was made.</span>
+                <button onClick={() => setCheckoutBanner(null)} className="mono text-[10px] text-slate-500 ml-2">dismiss</button>
+            </>
+            )}
           </div>
         </div>
       )}
