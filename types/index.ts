@@ -56,7 +56,39 @@ export interface Application {
   ai_reference_score?: number
   ltb_records_found: number
   ltb_records_json?: any
+  // 6-dimension scoring
+  ai_extracted_name?: string
+  ai_dimension_notes?: Record<string, string>
+  doc_authenticity_score?: number
+  payment_ability_score?: number
+  court_records_score?: number
+  stability_score?: number
+  behavior_signals_score?: number
+  info_consistency_score?: number
+  // Court records (Pro)
+  court_search_status?: string
+  court_search_results?: any
+  // Uploaded files
+  files?: ApplicationFile[]
   status: ApplicationStatus
   created_at: string
   listing?: Listing
+}
+
+export interface ApplicationFile {
+  kind: 'id' | 'paystub' | 'bank_statement' | 'employment_letter' | 'other'
+  path: string
+  name: string
+  size: number
+  mime: string
+}
+
+export interface Landlord {
+  id: string
+  auth_id: string
+  email: string
+  full_name?: string
+  phone?: string
+  plan: 'free' | 'pro' | 'enterprise'
+  created_at: string
 }

@@ -9,22 +9,29 @@ export default function Dashboard() {
   const { landlord, loading: authLoading, signOut } = useLandlord()
   const [applications, setApplications] = useState<Application[]>([])
   const [listings, setListings] = useState<Listing[]>([])
+  const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('free')
   const [loading, setLoading] = useState(true)
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
   const [origin, setOrigin] = useState('')
+  const [showUpgrade, setShowUpgrade] = useState(false)
 
   useEffect(() => {
     setOrigin(window.location.origin)
+    if (typeof window !== 'undefined' && new URL(window.location.href).searchParams.get('upgrade') === '1') {
+      setShowUpgrade(true)
+    }
     if (landlord) fetchAll()
   }, [landlord])
 
   async function fetchAll() {
-    const [appsRes, listingsRes] = await Promise.all([
+    const [appsRes, listingsRes, planRes] = await Promise.all([
       supabase.from('applications').select('*, listing:listings(*)').order('created_at', { ascending: false }),
       supabase.from('listings').select('*').order('created_at', { ascending: false }),
+      supabase.from('landlords').select('plan').eq('id', landlord!.landlordId).maybeSingle(),
     ])
     if (appsRes.data) setApplications(appsRes.data)
     if (listingsRes.data) setListings(listingsRes.data)
+    if (planRes.data?.plan) setPlan(planRes.data.plan)
     setLoading(false)
   }
 
@@ -73,6 +80,16 @@ export default function Dashboard() {
             </div>
           </Link>
           <div className="flex items-center gap-3">
+            <span className={`mono text-[10px] uppercase px-2 py-1 rounded-md border ${
+              plan === 'free'
+                ? 'bg-slate-500/10 text-slate-300 border-slate-500/30'
+                : 'bg-amber-500/15 text-amber-300 border-amber-500/40'
+            }`}>{plan}</span>
+            {plan === 'free' && (
+              <button onClick={() => setShowUpgrade(true)} className="text-xs px-3 py-1.5 rounded-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30">
+                Upgrade
+              </button>
+            )}
             <span className="mono text-xs text-slate-400 hidden sm:inline">{landlord.email}</span>
             <button onClick={signOut} className="btn-ghost text-xs px-3 py-1.5">Sign out</button>
           </div>
@@ -217,6 +234,52 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {showUpgrade && (
+        <div className="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowUpgrade(false)}>
+          <div className="glass rounded-2xl p-8 max-w-2xl w-full relative" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowUpgrade(false)} className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 mono text-xs">✕ close</button>
+            <div className="mono text-xs text-amber-400 mb-1">// PRICING</div>
+            <h2 className="text-2xl font-bold mb-6">Choose your plan</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div className={`rounded-xl border p-5 ${plan === 'free' ? 'border-cyan-500/40 bg-cyan-500/5' : 'border-white/10 bg-white/[0.02]'}`}>
+                <div className="text-xs uppercase tracking-wider text-slate-500 mb-1">Free</div>
+                <div className="text-3xl font-bold mb-1">$0<span className="text-sm text-slate-500">/mo</span></div>
+                <div className="text-[11px] text-slate-500 mb-4 mono">forever free</div>
+                <ul className="text-xs text-slate-300 space-y-1.5 mono">
+                  <li>✓ Unlimited listings</li>
+                  <li>✓ AI 6-dim screening</li>
+                  <li>✓ Vision OCR document analysis</li>
+                  <li>✓ CanLII LTB record search</li>
+                  <li className="text-slate-600">— Openroom cross-search</li>
+                  <li className="text-slate-600">— Bulk export</li>
+                </ul>
+              </div>
+              <div className="rounded-xl border-2 border-amber-500/50 bg-gradient-to-br from-amber-500/10 to-orange-500/5 p-5 relative">
+                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 mono text-[10px] px-2 py-0.5 rounded bg-amber-500 text-black font-bold uppercase">recommended</div>
+                <div className="text-xs uppercase tracking-wider text-amber-400 mb-1">Pro</div>
+                <div className="text-3xl font-bold mb-1">$29<span className="text-sm text-slate-500">/mo</span></div>
+                <div className="text-[11px] text-slate-500 mb-4 mono">cancel anytime</div>
+                <ul className="text-xs text-slate-200 space-y-1.5 mono">
+                  <li>✓ Everything in Free</li>
+                  <li>✓ Openroom landlord database</li>
+                  <li>✓ Priority AI scoring</li>
+                  <li>✓ Bulk CSV export</li>
+                  <li>✓ Custom branded apply pages</li>
+                  <li>✓ Email + Slack notifications</li>
+                </ul>
+                <a
+                  href="mailto:hello@stayloop.ai?subject=Upgrade%20to%20Pro"
+                  className="mt-5 block text-center text-sm px-4 py-2.5 rounded-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30"
+                >
+                  Contact sales →
+                </a>
+              </div>
+            </div>
+            <p className="text-[10px] mono text-slate-500 mt-4 text-center">Self-serve checkout coming soon. For now, email us to enable Pro on your account.</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
