@@ -1,8 +1,10 @@
 'use client'
 import { useState } from 'react'
+import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-export default function ApplyPage({ params }: { params: { slug: string } }) {
+export default function ApplyPage() {
+  const params = useParams<{ slug: string }>()
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
