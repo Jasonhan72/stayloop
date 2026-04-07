@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'edge'
 
 export async function POST(req: NextRequest) {
   const { application_id } = await req.json()
+
+  // Use the caller's session so RLS allows access only to listings the landlord owns
+  const authHeader = req.headers.get('authorization') || ''
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: authHeader } } }
+  )
 
   const { data: app, error } = await supabase
     .from('applications')
@@ -12,7 +20,7 @@ export async function POST(req: NextRequest) {
     .eq('id', application_id)
     .single()
 
-  if (error || !app) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (error || !app) return NextResponse.json({ error: error?.message || 'Not found' }, { status: 404 })
 
   const monthlyRent = app.listing?.monthly_rent || 0
   const incomeRatio = app.monthly_income ? app.monthly_income / monthlyRent : 0
@@ -29,9 +37,9 @@ Reason for leaving: ${app.reason_for_leaving || 'N/A'}
 LTB Records Found: ${app.ltb_records_found}
 Occupants: ${app.num_occupants} | Pets: ${app.has_pets} | Smoker: ${app.is_smoker}
 
-Score each category 0-100 and provide an overall score. Ontario Human Rights Code applies — do NOT factor in age, race, religion, disability, or other protected grounds.
+Score each category 0-100 and provide an overall score. Ontario Human Rights Code applies — do NOT factor in age, race, religion, disability, family status, or other protected grounds. Focus only on financial capacity, employment stability, and rental history.
 
-Respond in this exact JSON format:
+Respond with ONLY a JSON object (no markdown, no prose) in this exact format:
 {
   "overall_score": <0-100>,
   "income_score": <0-100>,
@@ -50,23 +58,30 @@ Respond in this exact JSON format:
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 500,
+      model: 'claude-sonnet-4-5',
+      max_tokens: 600,
       messages: [{ role: 'user', content: prompt }],
     }),
   })
 
-  const aiData = await response.json()
-  const text = aiData.content?.[0]?.text || '{}'
+  if (!response.ok) {
+    const errText = await response.text()
+    return NextResponse.json({ error: `Anthropic API error: ${errText}` }, { status: 500 })
+  }
+
+  const aiData = await response.json() as { content?: Array<{ text: string }> }
+  let text = aiData.content?.[0]?.text || '{}'
+  // strip ```json fences if present
+  text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
 
   let scores
   try {
     scores = JSON.parse(text)
   } catch {
-    return NextResponse.json({ error: 'AI parse error' }, { status: 500 })
+    return NextResponse.json({ error: 'AI parse error', raw: text }, { status: 500 })
   }
 
-  await supabase.from('applications').update({
+  const { error: updateError } = await supabase.from('applications').update({
     ai_score: scores.overall_score,
     ai_summary: scores.summary,
     ai_income_score: scores.income_score,
@@ -76,6 +91,8 @@ Respond in this exact JSON format:
     ai_reference_score: scores.reference_score,
     status: 'reviewing',
   }).eq('id', application_id)
+
+  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
   return NextResponse.json({ success: true, scores })
 }

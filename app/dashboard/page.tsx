@@ -170,7 +170,11 @@ export default function Dashboard() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {applications.map(app => (
-                  <tr key={app.id} className="hover:bg-gray-50 cursor-pointer">
+                  <tr
+                    key={app.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => { window.location.href = `/dashboard/applications/${app.id}` }}
+                  >
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{app.first_name} {app.last_name}</div>
                       <div className="text-xs text-gray-400">{new Date(app.created_at).toLocaleDateString()}</div>
