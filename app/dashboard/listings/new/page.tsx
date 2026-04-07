@@ -3,9 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-
-// TODO: replace with auth.uid() lookup once Supabase Auth is wired up
-const TEST_LANDLORD_ID = '62d71545-eae3-4637-a67b-d52dc73585c5'
+import { useLandlord } from '@/lib/useLandlord'
 
 function slugify(str: string) {
   return str
@@ -17,6 +15,7 @@ function slugify(str: string) {
 
 export default function NewListingPage() {
   const router = useRouter()
+  const { landlord, loading: authLoading } = useLandlord()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
@@ -36,6 +35,7 @@ export default function NewListingPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!landlord) return
     setSubmitting(true)
     setError(null)
 
@@ -45,7 +45,7 @@ export default function NewListingPage() {
     const { data, error: insertError } = await supabase
       .from('listings')
       .insert({
-        landlord_id: TEST_LANDLORD_ID,
+        landlord_id: landlord.landlordId,
         address: form.address,
         unit: form.unit || null,
         city: form.city,
@@ -68,6 +68,14 @@ export default function NewListingPage() {
     }
 
     router.push(`/dashboard?created=${data.slug}`)
+  }
+
+  if (authLoading || !landlord) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-gray-500">
+        Loading...
+      </div>
+    )
   }
 
   return (

@@ -2,9 +2,11 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { useLandlord } from '@/lib/useLandlord'
 import { Application, Listing } from '@/types'
 
 export default function Dashboard() {
+  const { landlord, loading: authLoading, signOut } = useLandlord()
   const [applications, setApplications] = useState<Application[]>([])
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
@@ -13,8 +15,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     setOrigin(window.location.origin)
-    fetchAll()
-  }, [])
+    if (landlord) fetchAll()
+  }, [landlord])
 
   async function fetchAll() {
     const [appsRes, listingsRes] = await Promise.all([
@@ -47,6 +49,14 @@ export default function Dashboard() {
     flags: applications.filter(a => (a.ltb_records_found || 0) > 0).length,
   }
 
+  if (authLoading || !landlord) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-gray-500">
+        Loading...
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
@@ -54,7 +64,12 @@ export default function Dashboard() {
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">S</div>
           <span className="text-lg font-bold text-blue-600">Stayloop</span>
         </div>
-        <span className="text-sm text-gray-500">Ontario Pro</span>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-gray-500">{landlord.email}</span>
+          <button onClick={signOut} className="text-sm text-gray-500 hover:text-gray-900">
+            Sign out
+          </button>
+        </div>
       </nav>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
