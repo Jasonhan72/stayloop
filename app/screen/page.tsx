@@ -22,6 +22,15 @@ interface Screening {
   scored_at: string | null
 }
 
+interface CourtQuery {
+  source: string
+  tier: 'free' | 'pro'
+  status: 'ok' | 'unavailable' | 'skipped' | 'coming_soon'
+  hits: number | null
+  url?: string
+  note?: string
+}
+
 interface ScoreResult {
   overall: number
   scores: {
@@ -34,20 +43,100 @@ interface ScoreResult {
   }
   notes: Record<string, string>
   extracted_name: string
+  name_was_extracted: boolean
   summary: string
+  court_records_detail: { queries: CourtQuery[]; total_hits: number; queried_name: string }
+  tier: 'free' | 'pro'
 }
 
-const DIMS: { key: keyof ScoreResult['scores']; label: string }[] = [
-  { key: 'doc_authenticity', label: 'Doc authenticity' },
-  { key: 'payment_ability', label: 'Payment ability' },
-  { key: 'court_records', label: 'Court records' },
-  { key: 'stability', label: 'Stability' },
-  { key: 'behavior_signals', label: 'Behavior signals' },
-  { key: 'info_consistency', label: 'Info consistency' },
+const DIMS: { key: keyof ScoreResult['scores']; label: string; weight: number }[] = [
+  { key: 'doc_authenticity', label: 'Document authenticity', weight: 20 },
+  { key: 'payment_ability', label: 'Payment ability', weight: 20 },
+  { key: 'court_records', label: 'Court records', weight: 20 },
+  { key: 'stability', label: 'Stability', weight: 15 },
+  { key: 'behavior_signals', label: 'Behavior signals', weight: 13 },
+  { key: 'info_consistency', label: 'Info consistency', weight: 12 },
+]
+
+interface RiskLevel {
+  label: string
+  decision: string
+  ring: string
+  text: string
+  bg: string
+  border: string
+  bar: string
+  glow: string
+}
+
+function riskLevel(score: number | null | undefined): RiskLevel {
+  const s = score ?? -1
+  if (s >= 85) return {
+    label: 'APPROVED',
+    decision: 'Strong candidate — sign with confidence',
+    ring: 'stroke-emerald-400',
+    text: 'text-emerald-300',
+    bg: 'bg-emerald-500/15',
+    border: 'border-emerald-500/40',
+    bar: 'bg-gradient-to-r from-emerald-500 to-emerald-400',
+    glow: 'shadow-emerald-500/30',
+  }
+  if (s >= 70) return {
+    label: 'LIKELY APPROVE',
+    decision: 'Looks good — light verification recommended',
+    ring: 'stroke-lime-400',
+    text: 'text-lime-300',
+    bg: 'bg-lime-500/15',
+    border: 'border-lime-500/40',
+    bar: 'bg-gradient-to-r from-lime-500 to-lime-400',
+    glow: 'shadow-lime-500/30',
+  }
+  if (s >= 50) return {
+    label: 'REVIEW',
+    decision: 'Manual review needed — significant gaps',
+    ring: 'stroke-amber-400',
+    text: 'text-amber-300',
+    bg: 'bg-amber-500/15',
+    border: 'border-amber-500/40',
+    bar: 'bg-gradient-to-r from-amber-500 to-amber-400',
+    glow: 'shadow-amber-500/30',
+  }
+  if (s >= 30) return {
+    label: 'CAUTION',
+    decision: 'High risk — require guarantor or decline',
+    ring: 'stroke-orange-400',
+    text: 'text-orange-300',
+    bg: 'bg-orange-500/15',
+    border: 'border-orange-500/40',
+    bar: 'bg-gradient-to-r from-orange-500 to-orange-400',
+    glow: 'shadow-orange-500/30',
+  }
+  return {
+    label: s < 0 ? 'PENDING' : 'REJECT',
+    decision: s < 0 ? 'Awaiting analysis' : 'Decline — unacceptable risk',
+    ring: 'stroke-red-400',
+    text: 'text-red-300',
+    bg: 'bg-red-500/15',
+    border: 'border-red-500/40',
+    bar: 'bg-gradient-to-r from-red-500 to-red-400',
+    glow: 'shadow-red-500/30',
+  }
+}
+
+type StepStatus = 'pending' | 'active' | 'done' | 'skipped'
+interface PipelineStep { key: string; label: string; status: StepStatus }
+
+const INITIAL_STEPS: PipelineStep[] = [
+  { key: 'upload', label: 'Upload tenant documents', status: 'pending' },
+  { key: 'extract', label: 'Extract candidate identity (OCR)', status: 'pending' },
+  { key: 'court', label: 'Query public court records', status: 'pending' },
+  { key: 'score', label: 'Run 6-dimension AI scoring', status: 'pending' },
+  { key: 'finalize', label: 'Finalize report', status: 'pending' },
 ]
 
 export default function ScreenPage() {
   const { landlord, loading: authLoading, signOut } = useLandlord()
+  const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('free')
   const [tenantName, setTenantName] = useState('')
   const [monthlyRent, setMonthlyRent] = useState('')
   const [monthlyIncome, setMonthlyIncome] = useState('')
@@ -56,15 +145,28 @@ export default function ScreenPage() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [progress, setProgress] = useState<string | null>(null)
+  const [steps, setSteps] = useState<PipelineStep[]>(INITIAL_STEPS)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ScoreResult | null>(null)
   const [history, setHistory] = useState<Screening[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (landlord) loadHistory()
+    if (landlord) {
+      loadHistory()
+      loadPlan()
+    }
   }, [landlord])
+
+  async function loadPlan() {
+    if (!landlord) return
+    const { data } = await supabase
+      .from('landlords')
+      .select('plan')
+      .eq('id', landlord.landlordId)
+      .maybeSingle()
+    if (data?.plan) setPlan(data.plan as any)
+  }
 
   async function loadHistory() {
     const { data } = await supabase
@@ -73,6 +175,10 @@ export default function ScreenPage() {
       .order('created_at', { ascending: false })
       .limit(20)
     if (data) setHistory(data)
+  }
+
+  function setStep(key: string, status: StepStatus) {
+    setSteps(prev => prev.map(s => s.key === key ? { ...s, status } : s))
   }
 
   function addFiles(list: FileList | File[] | null) {
@@ -107,21 +213,23 @@ export default function ScreenPage() {
     setPendingFiles([])
     setResult(null)
     setError(null)
+    setSteps(INITIAL_STEPS.map(s => ({ ...s, status: 'pending' as StepStatus })))
   }
 
   async function handleScreen() {
     if (!landlord) return
     if (pendingFiles.length === 0 && !pastedText.trim() && !tenantName.trim()) {
-      setError('Add at least one file, paste some text, or fill in the tenant name')
+      setError('Drop at least one file, paste some text, or fill in the tenant name')
       return
     }
     setSubmitting(true)
     setError(null)
     setResult(null)
+    setSteps(INITIAL_STEPS.map(s => ({ ...s, status: 'pending' as StepStatus })))
 
     try {
-      // 1. Create screening row
-      setProgress('Creating screening...')
+      // Step 1: Create screening row + upload files
+      setStep('upload', 'active')
       const { data: row, error: insertErr } = await supabase
         .from('screenings')
         .insert({
@@ -138,11 +246,9 @@ export default function ScreenPage() {
       if (insertErr || !row) throw new Error(insertErr?.message || 'Failed to create screening')
       const screeningId = row.id
 
-      // 2. Upload files
       const uploaded: UploadedFile[] = []
       for (let i = 0; i < pendingFiles.length; i++) {
         const f = pendingFiles[i]
-        setProgress(`Uploading ${i + 1} / ${pendingFiles.length}: ${f.name}`)
         const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, '_')
         const path = `screenings/${landlord.landlordId}/${screeningId}/${Date.now()}_${safeName}`
         const { error: upErr } = await supabase
@@ -160,11 +266,17 @@ export default function ScreenPage() {
       if (uploaded.length > 0) {
         await supabase.from('screenings').update({ files: uploaded }).eq('id', screeningId)
       }
+      setStep('upload', 'done')
 
-      // 3. Run AI scoring
-      setProgress('Running AI screening...')
+      // Steps 2-4 happen server-side. We mark them in sequence as a UX hint.
+      if (!tenantName.trim() && uploaded.length > 0) {
+        setStep('extract', 'active')
+      } else {
+        setStep('extract', 'skipped')
+      }
+      // Kick off the API call
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/screen-score', {
+      const fetchPromise = fetch('/api/screen-score', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -172,15 +284,27 @@ export default function ScreenPage() {
         },
         body: JSON.stringify({ screening_id: screeningId }),
       })
+      // Sequence the visual steps while the server works
+      await new Promise(r => setTimeout(r, 1500))
+      if (!tenantName.trim() && uploaded.length > 0) setStep('extract', 'done')
+      setStep('court', 'active')
+      await new Promise(r => setTimeout(r, 1500))
+      setStep('court', 'done')
+      setStep('score', 'active')
+
+      const res = await fetchPromise
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Scoring failed')
+      setStep('score', 'done')
+      setStep('finalize', 'active')
+      await new Promise(r => setTimeout(r, 400))
+      setStep('finalize', 'done')
 
       setResult(data)
-      setProgress(null)
       loadHistory()
     } catch (e: any) {
       setError(e?.message || 'Unknown error')
-      setProgress(null)
+      setSteps(prev => prev.map(s => s.status === 'active' ? { ...s, status: 'pending' } : s))
     } finally {
       setSubmitting(false)
     }
@@ -197,20 +321,6 @@ export default function ScreenPage() {
     return 'other'
   }
 
-  const scoreColor = (score?: number | null) => {
-    if (score == null) return 'text-slate-500'
-    if (score >= 75) return 'text-emerald-300'
-    if (score >= 50) return 'text-amber-300'
-    return 'text-red-300'
-  }
-
-  const scoreBg = (score?: number | null) => {
-    if (score == null) return 'bg-white/[0.04] border-white/[0.08]'
-    if (score >= 75) return 'bg-emerald-500/15 border-emerald-500/30'
-    if (score >= 50) return 'bg-amber-500/15 border-amber-500/30'
-    return 'bg-red-500/15 border-red-500/30'
-  }
-
   if (authLoading || !landlord) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -221,6 +331,10 @@ export default function ScreenPage() {
       </div>
     )
   }
+
+  const overall = result?.overall ?? null
+  const level = riskLevel(overall)
+  const isPro = plan === 'pro' || plan === 'enterprise'
 
   return (
     <div className="min-h-screen text-slate-100">
@@ -235,6 +349,7 @@ export default function ScreenPage() {
             </div>
           </Link>
           <div className="flex items-center gap-3">
+            <span className={`mono text-[10px] uppercase px-2 py-1 rounded-md border ${isPro ? 'bg-amber-500/15 text-amber-300 border-amber-500/40' : 'bg-slate-500/10 text-slate-300 border-slate-500/30'}`}>{plan}</span>
             <Link href="/dashboard" className="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/[0.04]">Listings & applications →</Link>
             <span className="mono text-xs text-slate-400 hidden sm:inline">{landlord.email}</span>
             <button onClick={signOut} className="btn-ghost text-xs px-3 py-1.5">Sign out</button>
@@ -246,7 +361,7 @@ export default function ScreenPage() {
         <div className="mb-8">
           <div className="mono text-xs text-cyan-400 mb-1">// AI SCREEN</div>
           <h1 className="text-3xl font-bold tracking-tight">Quick tenant screening</h1>
-          <p className="text-sm text-slate-400 mt-2">Drop a tenant&apos;s documents, paste their info, or both. Get a 6-dimension AI score in seconds.</p>
+          <p className="text-sm text-slate-400 mt-2">Drop a tenant&apos;s documents. We extract their identity, query public court records, and run a 6-dimension AI risk score in seconds.</p>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -271,7 +386,7 @@ export default function ScreenPage() {
               <div className="text-center">
                 <div className="text-4xl mb-3 opacity-40">⇡</div>
                 <div className="font-semibold mb-1">Drop tenant documents here</div>
-                <div className="text-xs text-slate-500 mono">PDF, JPG, PNG · up to 10 MB each · paystubs, IDs, credit reports, bank statements…</div>
+                <div className="text-xs text-slate-500 mono">PDF, JPG, PNG · up to 10 MB each · IDs, paystubs, credit reports, bank statements, employment letters</div>
               </div>
             </div>
 
@@ -293,7 +408,7 @@ export default function ScreenPage() {
             <div className="glass rounded-2xl p-5 space-y-4">
               <div className="text-[10px] uppercase tracking-wider text-slate-500">Optional context</div>
               <div className="grid sm:grid-cols-2 gap-4">
-                <Field label="Tenant name" value={tenantName} onChange={setTenantName} placeholder="Jane Doe" />
+                <Field label="Candidate name (optional — auto-extracted from files)" value={tenantName} onChange={setTenantName} placeholder="leave blank to extract from ID" />
                 <Field label="Monthly rent ($)" value={monthlyRent} onChange={setMonthlyRent} placeholder="2500" type="number" />
                 <Field label="Tenant monthly income ($)" value={monthlyIncome} onChange={setMonthlyIncome} placeholder="7500" type="number" />
                 <Field label="Notes for the AI" value={notes} onChange={setNotes} placeholder="any context" />
@@ -303,7 +418,7 @@ export default function ScreenPage() {
                 <textarea
                   value={pastedText}
                   onChange={e => setPastedText(e.target.value)}
-                  rows={6}
+                  rows={5}
                   className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 mono"
                   placeholder="Paste any text — credit report, message thread, employer email, etc."
                 />
@@ -316,12 +431,34 @@ export default function ScreenPage() {
                 disabled={submitting}
                 className="btn-primary px-6 py-3 disabled:opacity-50"
               >
-                {submitting ? (progress || 'Screening…') : 'Run AI screening →'}
+                {submitting ? 'Screening…' : 'Run AI screening →'}
               </button>
               {(result || error) && (
                 <button onClick={reset} className="btn-ghost text-xs px-4 py-2">New screening</button>
               )}
             </div>
+
+            {/* Pipeline progress */}
+            {(submitting || (result && steps.some(s => s.status === 'done'))) && (
+              <div className="glass rounded-2xl p-5">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-3">Pipeline</div>
+                <ul className="space-y-2.5">
+                  {steps.map(s => (
+                    <li key={s.key} className="flex items-center gap-3 text-sm">
+                      <StepIcon status={s.status} />
+                      <span className={
+                        s.status === 'done' ? 'text-slate-200' :
+                        s.status === 'active' ? 'text-cyan-300' :
+                        s.status === 'skipped' ? 'text-slate-600 line-through' :
+                        'text-slate-500'
+                      }>
+                        {s.label}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {error && (
               <div className="glass rounded-xl p-4 border border-red-500/30 bg-red-500/5">
@@ -329,28 +466,86 @@ export default function ScreenPage() {
               </div>
             )}
 
+            {/* RESULT */}
             {result && (
-              <div className="glass rounded-2xl p-6 border border-cyan-500/30">
-                <div className="flex items-start justify-between mb-5">
-                  <div>
-                    <div className="mono text-[10px] text-cyan-400 mb-1">// RESULT</div>
-                    <div className="text-lg font-semibold">{result.extracted_name || tenantName || 'Tenant candidate'}</div>
+              <div className="space-y-5">
+                {/* Header card with score ring */}
+                <div className={`glass rounded-2xl p-6 border ${level.border} shadow-2xl ${level.glow}`}>
+                  <div className="flex items-start gap-6">
+                    <ScoreRing score={result.overall} level={level} />
+                    <div className="flex-1 min-w-0">
+                      <div className="mono text-[10px] text-slate-500 mb-1">// CANDIDATE</div>
+                      <div className="text-2xl font-bold tracking-tight truncate">{result.extracted_name || tenantName || 'Unknown'}</div>
+                      {result.name_was_extracted && (
+                        <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-violet-300 bg-violet-500/10 border border-violet-500/30 rounded-md px-2 py-0.5">
+                          <span>📛</span>
+                          <span>Name auto-extracted from uploaded ID</span>
+                        </div>
+                      )}
+                      <div className={`mt-3 inline-flex items-center gap-2 ${level.bg} ${level.border} border rounded-lg px-3 py-1.5`}>
+                        <span className={`mono text-xs font-bold ${level.text}`}>{level.label}</span>
+                      </div>
+                      <p className={`text-xs mt-1.5 ${level.text}`}>{level.decision}</p>
+                    </div>
                   </div>
-                  <div className={`px-4 py-2 rounded-xl border text-3xl font-bold mono ${scoreBg(result.overall)} ${scoreColor(result.overall)}`}>
-                    {result.overall}
+                  <div className="mt-5 pt-5 border-t border-white/[0.06]">
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">AI summary</div>
+                    <p className="text-sm text-slate-300 leading-relaxed">{result.summary}</p>
                   </div>
                 </div>
-                <p className="text-sm text-slate-300 leading-relaxed mb-5">{result.summary}</p>
-                <div className="grid sm:grid-cols-2 gap-2.5">
-                  {DIMS.map(({ key, label }) => (
-                    <div key={key} className={`rounded-lg border px-3 py-2.5 ${scoreBg(result.scores[key])}`}>
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-xs text-slate-300">{label}</span>
-                        <span className={`mono text-sm font-bold ${scoreColor(result.scores[key])}`}>{result.scores[key]}</span>
+
+                {/* Six-dimension cards */}
+                <div className="glass rounded-2xl p-6">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-4">6-dimension breakdown</div>
+                  <div className="space-y-3">
+                    {DIMS.map(({ key, label, weight }) => {
+                      const score = result.scores[key]
+                      const lvl = riskLevel(score)
+                      return (
+                        <div key={key} className={`rounded-lg border px-4 py-3 ${lvl.bg} ${lvl.border}`}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-slate-200">{label}</span>
+                              <span className="mono text-[10px] text-slate-500">weight {weight}%</span>
+                            </div>
+                            <span className={`mono text-base font-bold ${lvl.text}`}>{score}</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-white/[0.05] overflow-hidden mb-1.5">
+                            <div className={`h-full ${lvl.bar} transition-all duration-700`} style={{ width: `${Math.max(2, score)}%` }} />
+                          </div>
+                          {result.notes?.[key] && <div className="text-[11px] text-slate-400 leading-snug">{result.notes[key]}</div>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Court records detail card */}
+                <div className="glass rounded-2xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider text-slate-500">Court records lookup</div>
+                      <div className="text-xs text-slate-400 mt-0.5">
+                        Queried name: <span className="mono text-slate-200">{result.court_records_detail?.queried_name || '—'}</span>
                       </div>
-                      <div className="text-[11px] text-slate-400 leading-snug">{result.notes?.[key]}</div>
                     </div>
-                  ))}
+                    <div className={`mono text-[10px] uppercase px-2 py-1 rounded-md border ${result.tier === 'pro' ? 'bg-amber-500/15 text-amber-300 border-amber-500/40' : 'bg-slate-500/10 text-slate-300 border-slate-500/30'}`}>{result.tier} tier</div>
+                  </div>
+                  <ul className="space-y-2">
+                    {result.court_records_detail?.queries.map((q, i) => (
+                      <CourtRow key={i} q={q} />
+                    ))}
+                  </ul>
+                  {result.court_records_detail?.total_hits > 0 && (
+                    <div className="mt-4 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
+                      ⚠ Total {result.court_records_detail.total_hits} potential match{result.court_records_detail.total_hits === 1 ? '' : 'es'} across queried sources. Review the linked CanLII pages to confirm identity before deciding.
+                    </div>
+                  )}
+                  {!isPro && (
+                    <Link href="/dashboard?upgrade=1" className="mt-4 block text-center text-xs px-3 py-2 rounded-lg border border-amber-500/40 bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-300 hover:from-amber-500/20 hover:to-orange-500/20 transition-colors">
+                      ⚡ Upgrade to Pro to unlock Ontario Courts Portal + Stayloop Verified Network
+                    </Link>
+                  )}
                 </div>
               </div>
             )}
@@ -358,7 +553,7 @@ export default function ScreenPage() {
 
           {/* RIGHT: history */}
           <div>
-            <div className="glass rounded-2xl overflow-hidden">
+            <div className="glass rounded-2xl overflow-hidden sticky top-24">
               <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
                 <span className="font-semibold text-sm">Recent screenings</span>
@@ -366,21 +561,24 @@ export default function ScreenPage() {
               {history.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-500 mono">No screenings yet</div>
               ) : (
-                <ul className="divide-y divide-white/[0.04]">
-                  {history.map(s => (
-                    <li key={s.id} className="px-5 py-3 hover:bg-white/[0.02]">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-sm text-slate-200 truncate">{s.tenant_name || '(unnamed)'}</div>
-                        {s.ai_score != null ? (
-                          <span className={`mono text-xs font-bold px-2 py-0.5 rounded border ${scoreBg(s.ai_score)} ${scoreColor(s.ai_score)}`}>{s.ai_score}</span>
-                        ) : (
-                          <span className="text-[10px] mono text-slate-600">{s.status}</span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-slate-600 mono mt-0.5">{new Date(s.created_at).toLocaleString()}</div>
-                      {s.ai_summary && <div className="text-[11px] text-slate-500 mt-1 line-clamp-2">{s.ai_summary}</div>}
-                    </li>
-                  ))}
+                <ul className="divide-y divide-white/[0.04] max-h-[70vh] overflow-y-auto">
+                  {history.map(s => {
+                    const lvl = riskLevel(s.ai_score)
+                    return (
+                      <li key={s.id} className="px-5 py-3 hover:bg-white/[0.02]">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm text-slate-200 truncate">{s.tenant_name || '(auto-extract)'}</div>
+                          {s.ai_score != null ? (
+                            <span className={`mono text-xs font-bold px-2 py-0.5 rounded border ${lvl.bg} ${lvl.border} ${lvl.text}`}>{s.ai_score}</span>
+                          ) : (
+                            <span className="text-[10px] mono text-slate-600">{s.status}</span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-600 mono mt-0.5">{new Date(s.created_at).toLocaleString()}</div>
+                        {s.ai_summary && <div className="text-[11px] text-slate-500 mt-1 line-clamp-2">{s.ai_summary}</div>}
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </div>
@@ -404,4 +602,82 @@ function Field({ label, value, onChange, placeholder, type = 'text' }: { label: 
       />
     </div>
   )
+}
+
+function StepIcon({ status }: { status: StepStatus }) {
+  if (status === 'done') return <span className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-[10px] text-emerald-300">✓</span>
+  if (status === 'active') return <span className="w-5 h-5 rounded-full border-2 border-cyan-400/30 border-t-cyan-400 animate-spin" />
+  if (status === 'skipped') return <span className="w-5 h-5 rounded-full bg-slate-700/30 border border-slate-600/40 flex items-center justify-center text-[10px] text-slate-500">—</span>
+  return <span className="w-5 h-5 rounded-full bg-white/[0.03] border border-white/10" />
+}
+
+function ScoreRing({ score, level }: { score: number; level: RiskLevel }) {
+  const r = 50
+  const c = 2 * Math.PI * r
+  const offset = c - (Math.max(0, Math.min(100, score)) / 100) * c
+  return (
+    <div className="relative w-32 h-32 shrink-0">
+      <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+        <circle cx="60" cy="60" r={r} className="stroke-white/[0.08] fill-none" strokeWidth="9" />
+        <circle
+          cx="60" cy="60" r={r}
+          className={`fill-none ${level.ring} transition-all duration-1000`}
+          strokeWidth="9"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={offset}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className={`text-4xl font-bold mono ${level.text}`}>{score}</div>
+        <div className="mono text-[9px] text-slate-500 uppercase tracking-wider">/ 100</div>
+      </div>
+    </div>
+  )
+}
+
+function CourtRow({ q }: { q: CourtQuery }) {
+  let icon: string, iconCls: string, badge: string, badgeCls: string
+  if (q.status === 'ok') {
+    if ((q.hits ?? 0) > 0) {
+      icon = '⚠'
+      iconCls = 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+      badge = `${q.hits} match${q.hits === 1 ? '' : 'es'}`
+      badgeCls = 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+    } else {
+      icon = '✓'
+      iconCls = 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+      badge = 'Clear'
+      badgeCls = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+    }
+  } else if (q.status === 'coming_soon') {
+    icon = '⋯'
+    iconCls = 'bg-slate-700/30 border-slate-600/40 text-slate-500'
+    badge = 'Coming soon'
+    badgeCls = 'bg-slate-500/10 text-slate-400 border-slate-500/30'
+  } else if (q.status === 'unavailable') {
+    icon = '!'
+    iconCls = 'bg-orange-500/20 border-orange-500/40 text-orange-300'
+    badge = 'Unavailable'
+    badgeCls = 'bg-orange-500/10 text-orange-300 border-orange-500/30'
+  } else {
+    icon = '—'
+    iconCls = 'bg-slate-700/30 border-slate-600/40 text-slate-500'
+    badge = 'Skipped'
+    badgeCls = 'bg-slate-500/10 text-slate-400 border-slate-500/30'
+  }
+  const inner = (
+    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-colors">
+      <span className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs ${iconCls}`}>{icon}</span>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-slate-200 truncate">{q.source}</div>
+        {q.note && <div className="text-[10px] text-slate-500 mono truncate">{q.note}</div>}
+      </div>
+      <span className={`mono text-[10px] uppercase px-2 py-0.5 rounded border ${badgeCls}`}>{badge}</span>
+    </div>
+  )
+  if (q.url && q.status === 'ok') {
+    return <li><a href={q.url} target="_blank" rel="noreferrer">{inner}</a></li>
+  }
+  return <li>{inner}</li>
 }
