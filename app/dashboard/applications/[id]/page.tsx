@@ -291,14 +291,14 @@ export default function ApplicationDetailPage() {
             </ul>
           )}
 
-          {/* Pro upsell — Openroom */}
+          {/* Pro upsell — Ontario Courts Portal */}
           <div className="mt-5 pt-5 border-t border-white/[0.06] flex items-center justify-between gap-4">
             <div className="text-xs text-slate-400">
               <div className="mono text-amber-400 mb-0.5">// PRO</div>
-              Cross-search Openroom landlord-reported tenant database
+              Cross-search Ontario Courts Portal + Stayloop Verified Network
             </div>
             {isPro ? (
-              <button disabled className="btn-ghost text-xs opacity-60">Openroom (coming soon)</button>
+              <button disabled className="btn-ghost text-xs opacity-60">Ontario Courts (coming soon)</button>
             ) : (
               <Link href="/dashboard?upgrade=1" className="text-xs px-3 py-1.5 rounded-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30">
                 Upgrade to Pro

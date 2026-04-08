@@ -345,7 +345,7 @@ export default function Dashboard() {
                   <li>✓ AI 6-dim screening</li>
                   <li>✓ Vision OCR document analysis</li>
                   <li>✓ CanLII LTB record search</li>
-                  <li className="text-slate-600">— Openroom cross-search</li>
+                  <li className="text-slate-600">— Ontario Courts Portal</li>
                   <li className="text-slate-600">— Bulk export</li>
                 </ul>
               </div>
@@ -356,7 +356,7 @@ export default function Dashboard() {
                 <div className="text-[11px] text-slate-500 mb-4 mono">cancel anytime</div>
                 <ul className="text-xs text-slate-200 space-y-1.5 mono">
                   <li>✓ Everything in Free</li>
-                  <li>✓ Openroom landlord database</li>
+                  <li>✓ Ontario Courts Portal lookup</li>
                   <li>✓ Priority AI scoring</li>
                   <li>✓ Bulk CSV export</li>
                   <li>✓ Custom branded apply pages</li>
