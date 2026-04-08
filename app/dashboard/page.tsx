@@ -162,6 +162,9 @@ export default function Dashboard() {
             </div>
           </Link>
           <div className="flex items-center gap-3">
+            <Link href="/screen" className="text-xs px-3 py-1.5 rounded-lg font-semibold bg-gradient-to-r from-cyan-500 to-violet-500 text-white shadow-lg shadow-cyan-500/30">
+              ⚡ Screen tenant
+            </Link>
             <span className={`mono text-[10px] uppercase px-2 py-1 rounded-md border ${
               plan === 'free'
                 ? 'bg-slate-500/10 text-slate-300 border-slate-500/30'

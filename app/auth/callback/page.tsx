@@ -71,7 +71,7 @@ export default function AuthCallbackPage() {
 
         setStatus('Signed in. Redirecting...')
         window.history.replaceState({}, '', '/auth/callback')
-        router.replace('/dashboard')
+        router.replace('/screen')
       } catch (e: any) {
         setStatus('Unexpected error: ' + (e?.message || 'unknown'))
         setTimeout(() => router.replace('/login'), 2500)
