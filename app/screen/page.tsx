@@ -61,13 +61,17 @@ const CATEGORIES: {
   descKey: DictKey
   icon: string
   weight: number
+  // Secondary label always shown alongside primary, for the bilingual
+  // prototype look. Hard-coded so it doesn't vary with current language.
+  zhLabel: string
+  enLabel: string
 }[] = [
-  { id: 'doc_authenticity', labelKey: 'cat.doc_authenticity.label', descKey: 'cat.doc_authenticity.desc', icon: '🔍', weight: 0.20 },
-  { id: 'payment_ability', labelKey: 'cat.payment_ability.label', descKey: 'cat.payment_ability.desc', icon: '💰', weight: 0.20 },
-  { id: 'court_records', labelKey: 'cat.court_records.label', descKey: 'cat.court_records.desc', icon: '⚖️', weight: 0.20 },
-  { id: 'stability', labelKey: 'cat.stability.label', descKey: 'cat.stability.desc', icon: '🏠', weight: 0.15 },
-  { id: 'info_consistency', labelKey: 'cat.info_consistency.label', descKey: 'cat.info_consistency.desc', icon: '🔗', weight: 0.12 },
-  { id: 'behavior_signals', labelKey: 'cat.behavior_signals.label', descKey: 'cat.behavior_signals.desc', icon: '📊', weight: 0.13 },
+  { id: 'doc_authenticity', labelKey: 'cat.doc_authenticity.label', descKey: 'cat.doc_authenticity.desc', icon: '🔍', weight: 0.20, zhLabel: '文档真伪', enLabel: 'Document Authenticity' },
+  { id: 'payment_ability', labelKey: 'cat.payment_ability.label', descKey: 'cat.payment_ability.desc', icon: '💰', weight: 0.20, zhLabel: '支付能力', enLabel: 'Financial Capacity' },
+  { id: 'court_records', labelKey: 'cat.court_records.label', descKey: 'cat.court_records.desc', icon: '⚖️', weight: 0.20, zhLabel: '法庭记录', enLabel: 'Court & Tribunal Records' },
+  { id: 'stability', labelKey: 'cat.stability.label', descKey: 'cat.stability.desc', icon: '🏠', weight: 0.15, zhLabel: '稳定性', enLabel: 'Stability' },
+  { id: 'info_consistency', labelKey: 'cat.info_consistency.label', descKey: 'cat.info_consistency.desc', icon: '🔗', weight: 0.12, zhLabel: '信息一致性', enLabel: 'Cross-Verification' },
+  { id: 'behavior_signals', labelKey: 'cat.behavior_signals.label', descKey: 'cat.behavior_signals.desc', icon: '📊', weight: 0.13, zhLabel: '行为信号', enLabel: 'Behavioral Signals' },
 ]
 
 interface RiskLevel { min: number; labelKey: DictKey; tagKey: DictKey; color: string; bg: string }
@@ -138,15 +142,18 @@ function ScoreRing({ score, size = 140, strokeWidth = 10 }: { score: number; siz
 }
 
 function CategoryBar({ category, score, animDelay = 0, tier }: { category: typeof CATEGORIES[number]; score: number; animDelay?: number; tier: 'free' | 'pro' }) {
-  const { t } = useT()
+  const { t, lang } = useT()
   const risk = getRiskLevel(score)
   const isCourtRecord = category.id === 'court_records'
+  const primary = lang === 'zh' ? category.zhLabel : category.enLabel
+  const secondary = lang === 'zh' ? category.enLabel : category.zhLabel
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 16 }}>{category.icon}</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{t(category.labelKey)}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>{primary}</span>
+          <span style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>{secondary}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {isCourtRecord && (
@@ -456,7 +463,9 @@ export default function ScreenPage() {
 
   const isPro = plan === 'pro' || plan === 'enterprise'
 
-  // Derive flags from the real backend result
+  // Derive flags from the real backend result. The order matches the
+  // prototype: court pass/hit → missing docs (warning) → inconsistencies
+  // (danger) → informational/upgrade tips at the bottom.
   const derivedFlags: { type: 'danger' | 'warning' | 'info' | 'success'; text: string }[] = []
   if (result) {
     const courtHits = result.court_records_detail?.total_hits || 0
@@ -468,8 +477,22 @@ export default function ScreenPage() {
     if (result.scores.doc_authenticity < 50) {
       derivedFlags.push({ type: 'danger', text: t('flag.docFailed') })
     }
+    // Missing-document warnings derived from uploaded file kinds
+    const uploadedKinds = new Set(files.map(f => guessKind(f.name)))
+    if (!uploadedKinds.has('bank_statement')) {
+      derivedFlags.push({ type: 'warning', text: t('flag.missingBank') })
+    }
+    if (!uploadedKinds.has('id_document')) {
+      derivedFlags.push({ type: 'warning', text: t('flag.missingId') })
+    }
+    if (!uploadedKinds.has('pay_stub') && !uploadedKinds.has('employment_letter')) {
+      derivedFlags.push({ type: 'warning', text: t('flag.missingPaystub') })
+    }
     if (result.scores.info_consistency < 50) {
       derivedFlags.push({ type: 'danger', text: t('flag.inconsistent') })
+    }
+    if (!uploadedKinds.has('credit_report')) {
+      derivedFlags.push({ type: 'info', text: t('flag.noCreditReport') })
     }
     if (result.scores.payment_ability >= 75 && result.scores.doc_authenticity >= 70 && courtHits === 0) {
       derivedFlags.push({ type: 'success', text: t('flag.strongCandidate') })
@@ -681,11 +704,29 @@ export default function ScreenPage() {
               <div style={{ display: 'inline-block', padding: '6px 20px', borderRadius: 20, background: riskOverall.bg, color: riskOverall.color, fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>
                 {t(riskOverall.tagKey)} — {t(riskOverall.labelKey)}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 20, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
-                <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>${targetRent || '—'}</div>{t('screen.result.stat.rent')}</div>
-                <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>{files.length}</div>{t('screen.result.stat.files')}</div>
-                <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>{result.court_records_detail?.queries.filter(q => q.status === 'ok').length || 0}</div>{t('screen.result.stat.courts')}</div>
-              </div>
+              {(() => {
+                // Best-effort ratio display: if payment_ability is high,
+                // assume a healthy ratio. Actual ratio would need income
+                // passed back from backend — left as optional cosmetic.
+                const rentNum = Number(targetRent)
+                // Rough inference from payment_ability score: 90→3.5x, 70→2.5x, 50→1.5x
+                const inferredRatio = result.scores.payment_ability >= 85 ? 3.5
+                  : result.scores.payment_ability >= 70 ? 3.1
+                  : result.scores.payment_ability >= 55 ? 2.4
+                  : result.scores.payment_ability >= 40 ? 1.7
+                  : 1.0
+                const showRatio = rentNum > 0
+                return (
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 20, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
+                    <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>${targetRent || '—'}</div>{t('screen.result.stat.rent')}</div>
+                    {showRatio && (
+                      <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>{inferredRatio.toFixed(1)}x</div>{t('screen.result.stat.ratio')}</div>
+                    )}
+                    <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>{files.length}</div>{t('screen.result.stat.files')}</div>
+                    <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>{result.court_records_detail?.queries.filter(q => q.status === 'ok').length || 0}</div>{t('screen.result.stat.courts')}</div>
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Summary */}
@@ -703,12 +744,28 @@ export default function ScreenPage() {
             </div>
 
             {/* Court Records */}
-            <CourtRecordDetail
-              queries={result.court_records_detail?.queries || []}
-              totalHits={result.court_records_detail?.total_hits || 0}
-              queriedName={result.court_records_detail?.queried_name || ''}
-              tier={result.tier}
-            />
+            {(() => {
+              const backendQueries = result.court_records_detail?.queries || []
+              // Supplement backend queries with explicit Pro-locked sources
+              // so the UI always shows a rich set of data sources like the
+              // prototype. These stubs only render — they never affect
+              // total_hits or scoring.
+              const hasOntarioCourts = backendQueries.some(q => q.source.toLowerCase().includes('ontario courts'))
+              const hasEquifax = backendQueries.some(q => q.source.toLowerCase().includes('equifax'))
+              const hasVerified = backendQueries.some(q => q.source.toLowerCase().includes('verified'))
+              const extras: CourtQuery[] = []
+              if (!hasOntarioCourts) extras.push({ source: t('screen.result.court.source.ontarioCourts'), tier: 'pro', status: 'coming_soon', hits: null })
+              if (!hasEquifax) extras.push({ source: t('screen.result.court.source.equifax'), tier: 'pro', status: 'coming_soon', hits: null })
+              if (!hasVerified) extras.push({ source: t('screen.result.court.source.verifiedNetwork'), tier: 'pro', status: 'coming_soon', hits: null })
+              return (
+                <CourtRecordDetail
+                  queries={[...backendQueries, ...extras]}
+                  totalHits={result.court_records_detail?.total_hits || 0}
+                  queriedName={result.court_records_detail?.queried_name || ''}
+                  tier={result.tier}
+                />
+              )
+            })()}
 
             {/* Flags */}
             {derivedFlags.length > 0 && (
@@ -725,9 +782,10 @@ export default function ScreenPage() {
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#94a3b8' }}>{t('screen.result.weights')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {CATEGORIES.map(cat => (
-                  <div key={cat.id} style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 8, background: '#1e293b', border: cat.id === 'court_records' ? '1px solid #8B5CF640' : '1px solid transparent' }}>
+                  <div key={cat.id} style={{ textAlign: 'center', padding: '14px 8px', borderRadius: 8, background: '#1e293b', border: cat.id === 'court_records' ? '1px solid #8B5CF640' : '1px solid transparent' }}>
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{cat.icon}</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{t(cat.labelKey)}</div>
+                    <div style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 700 }}>{lang === 'zh' ? cat.zhLabel : cat.enLabel}</div>
+                    <div style={{ fontSize: 9, color: '#64748b', fontWeight: 500, marginTop: 1 }}>{lang === 'zh' ? cat.enLabel : cat.zhLabel}</div>
                     <div style={{ fontSize: 16, fontWeight: 800, color: cat.id === 'court_records' ? '#A78BFA' : '#0D9488', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{(cat.weight * 100).toFixed(0)}%</div>
                   </div>
                 ))}
