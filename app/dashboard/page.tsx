@@ -152,80 +152,66 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen text-slate-100">
+    <div className="min-h-screen">
       {/* Nav */}
-      <nav className="sticky top-0 z-20 backdrop-blur-xl bg-[#060814]/60 border-b border-white/[0.06]">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">S</div>
-            <div>
-              <div className="text-base font-bold tracking-tight">Stayloop</div>
-              <div className="text-[10px] mono text-slate-500 -mt-0.5">{t('dash.tagline')}</div>
-            </div>
-          </Link>
-          <div className="flex items-center gap-3">
-            <LanguageToggle />
-            <Link href="/screen" className="text-xs px-3 py-1.5 rounded-lg font-semibold bg-gradient-to-r from-cyan-500 to-violet-500 text-white shadow-lg shadow-cyan-500/30">
-              {t('dash.screenTenant')}
-            </Link>
-            <span className={`mono text-[10px] uppercase px-2 py-1 rounded-md border ${
-              plan === 'free'
-                ? 'bg-slate-500/10 text-slate-300 border-slate-500/30'
-                : 'bg-amber-500/15 text-amber-300 border-amber-500/40'
-            }`}>{plan}</span>
-            {plan === 'free' && (
-              <button onClick={() => setShowUpgrade(true)} className="text-xs px-3 py-1.5 rounded-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30">
-                {t('dash.upgrade')}
-              </button>
-            )}
-            {(plan === 'pro' || plan === 'enterprise') && (
-              <button
-                onClick={openBillingPortal}
-                disabled={portalLoading}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] disabled:opacity-50"
-              >
-                {portalLoading ? t('dash.opening') : t('dash.manageBilling')}
-              </button>
-            )}
-            <span className="mono text-xs text-slate-400 hidden sm:inline">{landlord.email}</span>
-            <button onClick={signOut} className="btn-ghost text-xs px-3 py-1.5">{t('dash.signOut')}</button>
+      <nav className="nav-bar">
+        <Link href="/" className="nav-brand">
+          <div className="nav-logo">S</div>
+          <div>
+            <div className="nav-title">Stayloop</div>
+            <div className="nav-sub mono">{t('dash.tagline')}</div>
           </div>
+        </Link>
+        <div className="nav-actions" style={{ flexWrap: 'wrap' }}>
+          <LanguageToggle />
+          <Link href="/screen" className="btn btn-primary btn-sm">{t('dash.screenTenant')}</Link>
+          <span className={plan === 'free' ? 'chip mono' : 'chip chip-pro mono'} style={{ textTransform: 'uppercase' }}>{plan}</span>
+          {plan === 'free' && (
+            <button onClick={() => setShowUpgrade(true)} className="btn btn-pro btn-sm">{t('dash.upgrade')}</button>
+          )}
+          {(plan === 'pro' || plan === 'enterprise') && (
+            <button onClick={openBillingPortal} disabled={portalLoading} className="btn btn-ghost btn-sm">
+              {portalLoading ? t('dash.opening') : t('dash.manageBilling')}
+            </button>
+          )}
+          <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{landlord.email}</span>
+          <button onClick={signOut} className="btn btn-ghost btn-sm">{t('dash.signOut')}</button>
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      <div className="max-w-7xl mx-auto px-6 py-10 fade-up">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
           <div>
-            <div className="mono text-xs text-cyan-400 mb-1">{t('dash.overview')}</div>
-            <h1 className="text-3xl font-bold tracking-tight">{t('dash.title')}</h1>
+            <div className="mono" style={{ fontSize: 11, color: '#5EEAD4', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>{t('dash.overview')}</div>
+            <h1 className="h-hero">{t('dash.title')}</h1>
           </div>
-          <Link href="/dashboard/listings/new" className="btn-primary">{t('dash.newListing')}</Link>
+          <Link href="/dashboard/listings/new" className="btn btn-primary">+ {t('dash.newListing')}</Link>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
           {[
-            { l: t('dash.stat.total'), v: stats.total, c: 'text-cyan-400' },
-            { l: t('dash.stat.approved'), v: stats.approved, c: 'text-emerald-400' },
-            { l: t('dash.stat.pending'), v: stats.pending, c: 'text-amber-400' },
-            { l: t('dash.stat.flags'), v: stats.flags, c: 'text-red-400' },
+            { l: t('dash.stat.total'), v: stats.total, c: '#22D3EE' },
+            { l: t('dash.stat.approved'), v: stats.approved, c: '#34D399' },
+            { l: t('dash.stat.pending'), v: stats.pending, c: '#FBBF24' },
+            { l: t('dash.stat.flags'), v: stats.flags, c: '#F87171' },
           ].map(s => (
-            <div key={s.l} className="glass rounded-2xl p-5">
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">{s.l}</div>
-              <div className={`text-4xl font-bold mono ${s.c}`}>{s.v}</div>
+            <div key={s.l} className="card" style={{ padding: 22 }}>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 10, fontWeight: 600 }}>{s.l}</div>
+              <div className="mono" style={{ fontSize: 36, fontWeight: 800, color: s.c, letterSpacing: '-0.03em', lineHeight: 1 }}>{s.v}</div>
             </div>
           ))}
         </div>
 
         {/* Listings */}
-        <div className="glass rounded-2xl overflow-hidden mb-10">
-          <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-              <span className="font-semibold">{t('dash.yourListings')}</span>
+        <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 32 }}>
+          <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22D3EE', boxShadow: '0 0 8px rgba(34, 211, 238, 0.5)' }} />
+              <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.005em' }}>{t('dash.yourListings')}</span>
             </div>
-            <span className="mono text-[11px] text-slate-500">{t('dash.activeN', { n: listings.length })}</span>
+            <span className="mono" style={{ fontSize: 10.5, color: 'var(--text-faint)' }}>{t('dash.activeN', { n: listings.length })}</span>
           </div>
           {loading ? (
             <div className="p-10 text-center mono text-xs text-slate-500">{t('dash.loading')}</div>
@@ -236,27 +222,27 @@ export default function Dashboard() {
               <Link href="/dashboard/listings/new" className="text-cyan-400 hover:text-cyan-300 text-sm">{t('dash.createFirst')}</Link>
             </div>
           ) : (
-            <ul className="divide-y divide-white/[0.04]">
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {listings.map(l => {
                 const url = `${origin}/apply/${l.slug}`
                 return (
-                  <li key={l.id} className="px-6 py-4 flex items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
-                    <div className="min-w-0">
-                      <div className="font-medium text-slate-100 truncate">
-                        {l.address}{l.unit ? `, ${l.unit}` : ''} <span className="text-slate-500">· {l.city}</span>
+                  <li key={l.id} style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.15s' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {l.address}{l.unit ? `, ${l.unit}` : ''} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>· {l.city}</span>
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5 mono">
+                      <div className="mono" style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 4 }}>
                         ${l.monthly_rent?.toLocaleString()}/mo
                         {l.bedrooms ? ` · ${l.bedrooms}bd` : ''}
                         {l.bathrooms ? ` · ${l.bathrooms}ba` : ''}
                       </div>
-                      <div className="text-[11px] text-cyan-400/80 mt-1 mono truncate">{url}</div>
+                      <div className="mono" style={{ fontSize: 10.5, color: '#67E8F9', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{url}</div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button onClick={() => copyLink(l.slug)} className="btn-ghost text-xs px-3 py-1.5">
-                        {copiedSlug === l.slug ? t('dash.copied') : t('dash.copyLink')}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      <button onClick={() => copyLink(l.slug)} className="btn btn-ghost btn-sm">
+                        {copiedSlug === l.slug ? '✓ ' + t('dash.copied') : t('dash.copyLink')}
                       </button>
-                      <a href={url} target="_blank" rel="noreferrer" className="btn-ghost text-xs px-3 py-1.5">{t('dash.open')}</a>
+                      <a href={url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">{t('dash.open')} ↗</a>
                     </div>
                   </li>
                 )
@@ -266,10 +252,10 @@ export default function Dashboard() {
         </div>
 
         {/* Applications */}
-        <div className="glass rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-white/[0.06] flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
-            <span className="font-semibold">{t('dash.recentApps')}</span>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#A78BFA', boxShadow: '0 0 8px rgba(167, 139, 250, 0.5)' }} />
+            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.005em' }}>{t('dash.recentApps')}</span>
           </div>
           {loading ? (
             <div className="p-10 text-center mono text-xs text-slate-500">{t('dash.loading')}</div>
@@ -279,113 +265,100 @@ export default function Dashboard() {
               <div className="text-sm text-slate-400">{t('dash.noApps')}</div>
             </div>
           ) : (
-            <table className="w-full">
+            <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr className="text-[10px] uppercase tracking-wider text-slate-500 border-b border-white/[0.04]">
-                  <th className="text-left px-6 py-3 font-medium">{t('dash.col.applicant')}</th>
-                  <th className="text-left px-6 py-3 font-medium">{t('dash.col.property')}</th>
-                  <th className="text-left px-6 py-3 font-medium">{t('dash.col.income')}</th>
-                  <th className="text-left px-6 py-3 font-medium">{t('dash.col.aiScore')}</th>
-                  <th className="text-left px-6 py-3 font-medium">{t('dash.col.ltb')}</th>
-                  <th className="text-left px-6 py-3 font-medium">{t('dash.col.status')}</th>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dash.col.applicant')}</th>
+                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dash.col.property')}</th>
+                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dash.col.income')}</th>
+                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dash.col.aiScore')}</th>
+                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dash.col.ltb')}</th>
+                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dash.col.status')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+              <tbody>
                 {applications.map(app => (
                   <tr
                     key={app.id}
-                    className="hover:bg-white/[0.03] cursor-pointer transition-colors"
+                    style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.15s' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(148, 163, 184, 0.04)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent' }}
                     onClick={() => { window.location.href = `/dashboard/applications/${app.id}` }}
                   >
-                    <td className="px-6 py-4">
-                      <div className="font-medium">{app.first_name} {app.last_name}</div>
-                      <div className="text-[11px] text-slate-500 mono mt-0.5">{new Date(app.created_at).toLocaleDateString()}</div>
+                    <td style={{ padding: '16px 22px' }}>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>{app.first_name} {app.last_name}</div>
+                      <div className="mono" style={{ fontSize: 10.5, color: 'var(--text-faint)', marginTop: 3 }}>{new Date(app.created_at).toLocaleDateString()}</div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-400">{app.listing?.address}</td>
-                    <td className="px-6 py-4 text-sm mono text-slate-300">
-                      {app.monthly_income ? `$${app.monthly_income.toLocaleString()}` : '—'}
-                    </td>
-                    <td className="px-6 py-4">
+                    <td style={{ padding: '16px 22px', fontSize: 13, color: 'var(--text-secondary)' }}>{app.listing?.address}</td>
+                    <td style={{ padding: '16px 22px' }} className="mono"><span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{app.monthly_income ? `$${app.monthly_income.toLocaleString()}` : '—'}</span></td>
+                    <td style={{ padding: '16px 22px' }}>
                       {app.ai_score ? (
-                        <span className={`px-2.5 py-1 rounded-md text-xs font-bold mono border ${scoreColor(app.ai_score)}`}>
+                        <span className={`mono border ${scoreColor(app.ai_score)}`} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
                           {app.ai_score}
                         </span>
-                      ) : <span className="text-[11px] mono text-slate-600">{t('dash.scorePending')}</span>}
+                      ) : <span className="mono" style={{ fontSize: 10.5, color: 'var(--text-faint)' }}>{t('dash.scorePending')}</span>}
                     </td>
-                    <td className="px-6 py-4 text-sm">
+                    <td style={{ padding: '16px 22px' }}>
                       {app.ltb_records_found > 0
-                        ? <span className="text-red-400 mono text-xs">⚠ {app.ltb_records_found}</span>
-                        : <span className="text-emerald-400 mono text-xs">{t('dash.ltbClear')}</span>}
+                        ? <span className="mono" style={{ fontSize: 11.5, color: '#F87171' }}>⚠ {app.ltb_records_found}</span>
+                        : <span className="mono" style={{ fontSize: 11.5, color: '#34D399' }}>✓ {t('dash.ltbClear')}</span>}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-md text-[11px] font-medium mono border ${
-                        app.status === 'approved' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' :
-                        app.status === 'declined' ? 'bg-red-500/15 text-red-300 border-red-500/30' :
-                        'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
-                      }`}>{app.status}</span>
+                    <td style={{ padding: '16px 22px' }}>
+                      <span className="mono" style={{
+                        padding: '4px 10px', borderRadius: 6, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em',
+                        border: '1px solid',
+                        ...(app.status === 'approved' ? { background: 'rgba(16, 185, 129, 0.14)', color: '#34D399', borderColor: 'rgba(16, 185, 129, 0.35)' } :
+                            app.status === 'declined' ? { background: 'rgba(244, 63, 94, 0.14)', color: '#FB7185', borderColor: 'rgba(244, 63, 94, 0.35)' } :
+                            { background: 'rgba(34, 211, 238, 0.14)', color: '#67E8F9', borderColor: 'rgba(34, 211, 238, 0.35)' }),
+                      }}>{app.status}</span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
 
       {showUpgrade && (
-        <div className="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowUpgrade(false)}>
-          <div className="glass rounded-2xl p-8 max-w-2xl w-full relative" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowUpgrade(false)} className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 mono text-xs">{t('dash.close')}</button>
-            <div className="mono text-xs text-amber-400 mb-1">{t('dash.pricing.tag')}</div>
-            <h2 className="text-2xl font-bold mb-6">{t('dash.pricing.choose')}</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div className={`rounded-xl border p-5 ${plan === 'free' ? 'border-cyan-500/40 bg-cyan-500/5' : 'border-white/10 bg-white/[0.02]'}`}>
-                <div className="text-xs uppercase tracking-wider text-slate-500 mb-1">{t('dash.pricing.free')}</div>
-                <div className="text-3xl font-bold mb-1">$0<span className="text-sm text-slate-500">/mo</span></div>
-                <div className="text-[11px] text-slate-500 mb-4 mono">{t('dash.pricing.foreverFree')}</div>
-                <ul className="text-xs text-slate-300 space-y-1.5 mono">
-                  <li>{t('dash.pricing.free.f1')}</li>
-                  <li>{t('dash.pricing.free.f2')}</li>
-                  <li>{t('dash.pricing.free.f3')}</li>
-                  <li>{t('dash.pricing.free.f4')}</li>
-                  <li className="text-slate-600">{t('dash.pricing.free.f5')}</li>
-                  <li className="text-slate-600">{t('dash.pricing.free.f6')}</li>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowUpgrade(false)}>
+          <div className="card-hero fade-up" style={{ maxWidth: 680, width: '100%', position: 'relative' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowUpgrade(false)} aria-label="close" style={{ position: 'absolute', top: 14, right: 14, width: 30, height: 30, borderRadius: 8, background: 'rgba(148, 163, 184, 0.08)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 14 }}>✕</button>
+            <div className="chip chip-pro mono mb-3">{t('dash.pricing.tag')}</div>
+            <h2 className="h-section mb-6">{t('dash.pricing.choose')}</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div style={{ borderRadius: 14, padding: 22, border: '1px solid var(--border-subtle)', background: 'rgba(148, 163, 184, 0.04)' }}>
+                <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600 }}>{t('dash.pricing.free')}</div>
+                <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 4, letterSpacing: '-0.02em' }}>$0<span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>/mo</span></div>
+                <div className="mono" style={{ fontSize: 10.5, color: 'var(--text-faint)', marginBottom: 16 }}>{t('dash.pricing.foreverFree')}</div>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>
+                  {[t('dash.pricing.free.f1'), t('dash.pricing.free.f2'), t('dash.pricing.free.f3'), t('dash.pricing.free.f4')].map((f, i) => <li key={i} style={{ marginBottom: 8, display: 'flex', gap: 8 }}><span style={{ color: '#5EEAD4' }}>✓</span>{f}</li>)}
+                  {[t('dash.pricing.free.f5'), t('dash.pricing.free.f6')].map((f, i) => <li key={i} style={{ marginBottom: 8, display: 'flex', gap: 8, color: 'var(--text-faint)' }}><span>·</span>{f}</li>)}
                 </ul>
               </div>
-              <div className="rounded-xl border-2 border-amber-500/50 bg-gradient-to-br from-amber-500/10 to-orange-500/5 p-5 relative">
-                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 mono text-[10px] px-2 py-0.5 rounded bg-amber-500 text-black font-bold uppercase">{t('dash.pricing.recommended')}</div>
-                <div className="text-xs uppercase tracking-wider text-amber-400 mb-1">Pro</div>
-                <div className="text-3xl font-bold mb-1">$29<span className="text-sm text-slate-500">/mo</span></div>
-                <div className="text-[11px] text-slate-500 mb-4 mono">{t('dash.pricing.cancel')}</div>
-                <ul className="text-xs text-slate-200 space-y-1.5 mono">
-                  <li>{t('dash.pricing.pro.f1')}</li>
-                  <li>{t('dash.pricing.pro.f2')}</li>
-                  <li>{t('dash.pricing.pro.f3')}</li>
-                  <li>{t('dash.pricing.pro.f4')}</li>
-                  <li>{t('dash.pricing.pro.f5')}</li>
-                  <li>{t('dash.pricing.pro.f6')}</li>
+              <div style={{ borderRadius: 14, padding: 22, border: '1px solid rgba(139, 92, 246, 0.4)', background: 'radial-gradient(ellipse at top, rgba(139, 92, 246, 0.12), rgba(139, 92, 246, 0.04))', position: 'relative' }}>
+                <div className="chip chip-pro mono" style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)' }}>★ {t('dash.pricing.recommended')}</div>
+                <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#C4B5FD', marginBottom: 6, fontWeight: 700 }}>Pro</div>
+                <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 4, letterSpacing: '-0.02em' }}>$29<span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>/mo</span></div>
+                <div className="mono" style={{ fontSize: 10.5, color: 'var(--text-faint)', marginBottom: 16 }}>{t('dash.pricing.cancel')}</div>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: 12, color: 'var(--text-primary)' }}>
+                  {[t('dash.pricing.pro.f1'), t('dash.pricing.pro.f2'), t('dash.pricing.pro.f3'), t('dash.pricing.pro.f4'), t('dash.pricing.pro.f5'), t('dash.pricing.pro.f6')].map((f, i) => <li key={i} style={{ marginBottom: 8, display: 'flex', gap: 8 }}><span style={{ color: '#C4B5FD' }}>✓</span>{f}</li>)}
                 </ul>
-                <button
-                  onClick={startCheckout}
-                  disabled={checkoutLoading}
-                  className="mt-5 block w-full text-center text-sm px-4 py-2.5 rounded-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30 disabled:opacity-60"
-                >
-                  {checkoutLoading ? t('dash.pricing.redirecting') : t('dash.pricing.upgradeTo')}
+                <button onClick={startCheckout} disabled={checkoutLoading} className="btn btn-pro" style={{ width: '100%', marginTop: 18 }}>
+                  {checkoutLoading ? t('dash.pricing.redirecting') : t('dash.pricing.upgradeTo')} →
                 </button>
               </div>
             </div>
-            <p className="text-[10px] mono text-slate-500 mt-4 text-center">{t('dash.pricing.stripeNotice')}</p>
+            <p className="mono" style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 16, textAlign: 'center' }}>{t('dash.pricing.stripeNotice')}</p>
           </div>
         </div>
       )}
 
       {checkoutBanner && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40">
-          <div className={`glass rounded-xl px-5 py-3 flex items-center gap-3 border ${
-            checkoutBanner === 'success' ? 'border-emerald-500/40' :
-            checkoutBanner === 'cancel'  ? 'border-slate-500/40'  :
-                                           'border-amber-500/40'
-          }`}>
+        <div style={{ position: 'fixed', top: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 70 }}>
+          <div className="card fade-up" style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12, borderColor: checkoutBanner === 'success' ? 'rgba(16, 185, 129, 0.4)' : checkoutBanner === 'cancel' ? 'var(--border-strong)' : 'rgba(251, 191, 36, 0.4)' }}>
             {checkoutBanner === 'pending' && (
               <>
                 <div className="w-4 h-4 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />

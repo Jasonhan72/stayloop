@@ -151,44 +151,42 @@ export default function ApplicationDetailPage() {
   const isPro = plan === 'pro' || plan === 'enterprise'
 
   return (
-    <div className="min-h-screen text-slate-100">
-      <nav className="sticky top-0 z-20 backdrop-blur-xl bg-[#060814]/60 border-b border-white/[0.06]">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">S</div>
-            <div className="text-base font-bold tracking-tight">Stayloop</div>
-          </Link>
-          <div className="flex items-center gap-3">
-            <LanguageToggle />
-            <Link href="/dashboard" className="mono text-xs text-slate-400 hover:text-slate-200">{t('dash.backToDash')}</Link>
-          </div>
+    <div className="min-h-screen">
+      <nav className="nav-bar">
+        <Link href="/dashboard" className="nav-brand">
+          <div className="nav-logo">S</div>
+          <div className="nav-title">Stayloop</div>
+        </Link>
+        <div className="nav-actions">
+          <LanguageToggle />
+          <Link href="/dashboard" className="btn btn-ghost btn-sm">← {t('dash.backToDash')}</Link>
         </div>
       </nav>
 
-      <div className="max-w-5xl mx-auto px-6 py-10 space-y-6">
+      <div className="max-w-5xl mx-auto px-6 py-10 fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <div className="mono text-xs text-cyan-400 mb-1">// APPLICATION</div>
-            <h1 className="text-3xl font-bold tracking-tight">
+            <div className="chip chip-accent mono mb-3">// APPLICATION</div>
+            <h1 className="h-hero">
               {(app as any).ai_extracted_name || `${app.first_name} ${app.last_name}`}
             </h1>
             {(app as any).ai_extracted_name && (
-              <p className="text-xs text-slate-500 mono mt-0.5">self-reported: {app.first_name} {app.last_name}</p>
+              <p className="mono" style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>self-reported: {app.first_name} {app.last_name}</p>
             )}
-            <p className="text-sm text-slate-400 mt-1 mono">
+            <p className="mono" style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
               {new Date(app.created_at).toLocaleDateString()} · {app.listing?.address}{app.listing?.unit ? `, ${app.listing.unit}` : ''}
             </p>
           </div>
-          <span className={`px-3 py-1 rounded-md text-xs font-medium mono border ${
-            app.status === 'approved' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' :
-            app.status === 'declined' ? 'bg-red-500/15 text-red-300 border-red-500/30' :
-            'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
-          }`}>{app.status}</span>
+          <span className="mono" style={{ padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', border: '1px solid', ...(
+            app.status === 'approved' ? { background: 'rgba(16, 185, 129, 0.12)', color: '#6EE7B7', borderColor: 'rgba(16, 185, 129, 0.35)' } :
+            app.status === 'declined' ? { background: 'rgba(239, 68, 68, 0.12)', color: '#FCA5A5', borderColor: 'rgba(239, 68, 68, 0.35)' } :
+            { background: 'rgba(34, 211, 238, 0.12)', color: '#67E8F9', borderColor: 'rgba(34, 211, 238, 0.35)' }
+          ) }}>{app.status}</span>
         </div>
 
         {/* AI Screening — 6 dimensions */}
-        <div className="glass rounded-2xl p-7 relative overflow-hidden">
+        <div className="card-hero" style={{ padding: 28, position: 'relative', overflow: 'hidden' }}>
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-violet-500/5 pointer-events-none" />
           <div className="relative">
             <div className="flex items-center justify-between mb-5">
@@ -240,7 +238,7 @@ export default function ApplicationDetailPage() {
         </div>
 
         {/* Uploaded files */}
-        <div className="glass rounded-2xl p-6">
+        <div className="card" style={{ padding: 24 }}>
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
             <h3 className="font-semibold">Uploaded documents</h3>
@@ -265,7 +263,7 @@ export default function ApplicationDetailPage() {
         </div>
 
         {/* Court records */}
-        <div className="glass rounded-2xl p-6">
+        <div className="card" style={{ padding: 24 }}>
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-rose-400" />
@@ -313,7 +311,7 @@ export default function ApplicationDetailPage() {
         </div>
 
         {/* Personal */}
-        <div className="glass rounded-2xl p-6">
+        <div className="card" style={{ padding: 24 }}>
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
             <h3 className="font-semibold">Personal</h3>
@@ -327,7 +325,7 @@ export default function ApplicationDetailPage() {
         </div>
 
         {/* Employment */}
-        <div className="glass rounded-2xl p-6">
+        <div className="card" style={{ padding: 24 }}>
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
             <h3 className="font-semibold">Employment & income</h3>
@@ -343,7 +341,7 @@ export default function ApplicationDetailPage() {
         </div>
 
         {/* Rental history */}
-        <div className="glass rounded-2xl p-6">
+        <div className="card" style={{ padding: 24 }}>
           <div className="flex items-center gap-2 mb-5">
             <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
             <h3 className="font-semibold">Previous rental</h3>
@@ -359,15 +357,15 @@ export default function ApplicationDetailPage() {
         </div>
 
         {/* Decision */}
-        <div className="glass rounded-2xl p-6 flex items-center justify-between gap-4 flex-wrap">
+        <div className="card" style={{ padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div>
-            <div className="mono text-xs text-cyan-400 mb-1">// DECISION</div>
-            <h3 className="font-semibold">Update status</h3>
+            <div className="chip chip-accent mono mb-2">// DECISION</div>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Update status</h3>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setStatus('reviewing')} disabled={updating} className="btn-ghost text-xs">Reviewing</button>
-            <button onClick={() => setStatus('approved')} disabled={updating} className="text-xs px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-shadow disabled:opacity-50">Approve</button>
-            <button onClick={() => setStatus('declined')} disabled={updating} className="text-xs px-4 py-2 rounded-lg font-semibold bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-500/30 hover:shadow-red-500/50 transition-shadow disabled:opacity-50">Decline</button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={() => setStatus('reviewing')} disabled={updating} className="btn btn-ghost btn-sm">Reviewing</button>
+            <button onClick={() => setStatus('approved')} disabled={updating} className="btn btn-sm" style={{ background: 'linear-gradient(135deg, #059669, #10B981)', color: '#fff', border: '1px solid rgba(16, 185, 129, 0.5)', fontWeight: 600 }}>Approve</button>
+            <button onClick={() => setStatus('declined')} disabled={updating} className="btn btn-sm" style={{ background: 'linear-gradient(135deg, #DC2626, #EF4444)', color: '#fff', border: '1px solid rgba(239, 68, 68, 0.5)', fontWeight: 600 }}>Decline</button>
           </div>
         </div>
       </div>

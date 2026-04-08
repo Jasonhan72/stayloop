@@ -166,7 +166,7 @@ function CategoryBar({ category, score, animDelay = 0, tier }: { category: typeo
           <span style={{ fontSize: 15, fontWeight: 700, color: risk.color, fontFamily: "'JetBrains Mono', monospace" }}>{score}</span>
         </div>
       </div>
-      <div style={{ height: 6, borderRadius: 3, background: '#1e293b', overflow: 'hidden' }}>
+      <div style={{ height: 6, borderRadius: 3, background: 'rgba(148, 163, 184, 0.1)', overflow: 'hidden' }}>
         <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${risk.color}88, ${risk.color})`, width: `${score}%`, transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)', transitionDelay: `${animDelay}ms` }} />
       </div>
       <p style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{t(category.descKey)}</p>
@@ -179,7 +179,7 @@ function FileChip({ file, onRemove }: { file: File; onRemove: () => void }) {
   const isPdf = ext === 'pdf'
   const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#1e293b', borderRadius: 8, border: '1px solid #334155', fontSize: 13, color: '#cbd5e1' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(148, 163, 184, 0.08)', borderRadius: 10, border: '1px solid var(--border-subtle)', fontSize: 12.5, color: 'var(--text-primary)' }}>
       <span style={{ fontSize: 14 }}>{isPdf ? '📄' : isImage ? '🖼️' : '📎'}</span>
       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{file.name}</span>
       <span style={{ fontSize: 11, color: '#64748b' }}>{(file.size / 1024).toFixed(0)}KB</span>
@@ -207,7 +207,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier }: { queries:
   const { t } = useT()
   const availableCount = queries.filter(q => q.status === 'ok').length
   return (
-    <div className="sl-card" style={{ background: '#0f172a', border: '1px solid #1e293b', marginBottom: 20 }}>
+    <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 8, flexWrap: 'wrap' }}>
         <div>
           <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>{t('screen.result.court.title')}</div>
@@ -507,7 +507,7 @@ export default function ScreenPage() {
   const riskOverall = result ? getRiskLevel(result.overall) : null
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0b0f1a', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: '#e2e8f0' }}>
+    <div style={{ minHeight: '100vh' }}>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
       <style>{`
         .sl-header { padding: 20px 24px; }
@@ -551,28 +551,28 @@ export default function ScreenPage() {
       `}</style>
 
       {/* Header */}
-      <div className="sl-header" style={{ borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #0D9488, #2563EB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: '#fff' }}>S</div>
+      <nav className="nav-bar">
+        <Link href="/" className="nav-brand">
+          <div className="nav-logo">S</div>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.5 }}>{t('screen.title')}</div>
-            <div className="sl-brand-sub" style={{ fontSize: 11, color: '#64748b', letterSpacing: 0.5 }}>{t('screen.subtitle')}</div>
+            <div className="nav-title">{t('screen.title')}</div>
+            <div className="nav-sub mono">{t('screen.subtitle')}</div>
           </div>
         </Link>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div className="nav-actions">
           {result && (
-            <button onClick={reset} className="sl-nav-btn" style={{ borderRadius: 8, border: '1px solid #334155', background: '#1e293b', color: '#94a3b8', cursor: 'pointer', fontWeight: 500 }}>{t('screen.new')}</button>
+            <button onClick={reset} className="btn btn-ghost btn-sm">{t('screen.new')}</button>
           )}
           <LanguageToggle />
-          <Link href="/dashboard" className="sl-nav-btn" style={{ borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#94a3b8', textDecoration: 'none', fontWeight: 500 }}>{t('nav.dashboard')}</Link>
+          <Link href="/dashboard" className="btn btn-ghost btn-sm">{t('nav.dashboard')}</Link>
         </div>
-      </div>
+      </nav>
 
-      <div className="sl-container">
+      <div className="container-narrow">
         {!result && !analyzing && (
           <>
             {/* Tier Toggle */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 20, padding: 4, background: '#1e293b', borderRadius: 12, border: '1px solid #334155' }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 20, padding: 5, background: 'rgba(148, 163, 184, 0.06)', borderRadius: 14, border: '1px solid var(--border-subtle)' }}>
               {(['free', 'pro'] as const).map(key => {
                 const active = tier === key
                 const disabled = key === 'pro' && !isPro
@@ -590,16 +590,17 @@ export default function ScreenPage() {
                     }}
                     style={{
                       flex: 1,
-                      padding: '10px 16px',
-                      borderRadius: 8,
+                      padding: '11px 16px',
+                      borderRadius: 10,
                       border: 'none',
                       cursor: 'pointer',
-                      background: active ? (key === 'pro' ? 'linear-gradient(135deg, #7C3AED, #8B5CF6)' : '#334155') : 'transparent',
-                      color: active ? '#fff' : '#64748b',
+                      background: active ? (key === 'pro' ? 'var(--gradient-pro)' : 'rgba(148, 163, 184, 0.12)') : 'transparent',
+                      color: active ? '#fff' : 'var(--text-muted)',
                       fontSize: 13,
                       fontWeight: 600,
                       transition: 'all 0.2s',
                       opacity: disabled ? 0.75 : 1,
+                      boxShadow: active && key === 'pro' ? '0 6px 24px -6px rgba(139, 92, 246, 0.5)' : 'none',
                     }}
                   >
                     <div>{label} {key === 'pro' && '💎'}</div>
@@ -612,24 +613,24 @@ export default function ScreenPage() {
             {/* Input Fields */}
             <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: 240 }}>
-                <label style={{ fontSize: 12, color: '#64748b', marginBottom: 6, display: 'block' }}>{t('screen.form.name.label')}</label>
+                <label className="label">{t('screen.form.name.label')}</label>
                 <input
                   type="text"
+                  className="input"
                   placeholder={t('screen.form.name.placeholder')}
                   value={applicantName}
                   onChange={e => setApplicantName(e.target.value)}
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                 />
-                <div style={{ fontSize: 10, color: '#475569', marginTop: 4 }}>{t('screen.form.name.hint')}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-faint)', marginTop: 6 }}>{t('screen.form.name.hint')}</div>
               </div>
               <div style={{ flex: 1, minWidth: 240 }}>
-                <label style={{ fontSize: 12, color: '#64748b', marginBottom: 6, display: 'block' }}>{t('screen.form.rent.label')}</label>
+                <label className="label">{t('screen.form.rent.label')}</label>
                 <input
                   type="number"
+                  className="input"
                   placeholder="e.g. 2500"
                   value={targetRent}
                   onChange={e => setTargetRent(e.target.value)}
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                 />
               </div>
             </div>
@@ -641,13 +642,16 @@ export default function ScreenPage() {
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
               style={{
-                border: `2px dashed ${dragOver ? '#0D9488' : '#334155'}`,
-                borderRadius: 16,
-                padding: '48px 24px',
+                border: `1.5px dashed ${dragOver ? '#14B8A6' : 'var(--border-strong)'}`,
+                borderRadius: 18,
+                padding: '52px 24px',
                 textAlign: 'center',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
-                background: dragOver ? '#0D948810' : '#0f172a',
+                transition: 'all 0.2s ease',
+                background: dragOver
+                  ? 'radial-gradient(ellipse at center, rgba(20, 184, 166, 0.1), transparent 70%)'
+                  : 'rgba(14, 20, 38, 0.6)',
+                backdropFilter: 'blur(10px)',
               }}
             >
               <input
@@ -658,17 +662,17 @@ export default function ScreenPage() {
                 onChange={e => handleFiles(e.target.files)}
                 style={{ display: 'none' }}
               />
-              <div style={{ fontSize: 48, marginBottom: 12 }}>📁</div>
-              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{t('screen.drop.title')}</div>
-              <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>{t('screen.drop.sub')}</div>
-              <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', borderRadius: 8, background: '#1e293b', border: '1px solid #334155', fontSize: 13, color: '#94a3b8' }}>{t('screen.drop.pick')}</div>
+              <div style={{ width: 56, height: 56, margin: '0 auto 16px', borderRadius: 14, background: 'rgba(20, 184, 166, 0.1)', border: '1px solid rgba(20, 184, 166, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📁</div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.01em' }}>{t('screen.drop.title')}</div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{t('screen.drop.sub')}</div>
+              <div className="btn btn-ghost btn-sm" style={{ marginTop: 18, display: 'inline-flex' }}>{t('screen.drop.pick')}</div>
             </div>
 
             {/* File Types */}
             <div className="sl-file-grid" style={{ display: 'grid', gap: 8, marginTop: 16 }}>
               {FILE_TYPES.map(ft => (
-                <div key={ft.key} style={{ padding: '10px', borderRadius: 8, background: '#0f172a', border: '1px solid #1e293b', textAlign: 'center', fontSize: 11, color: '#64748b' }}>
-                  <div style={{ fontSize: 18, marginBottom: 4 }}>{ft.icon}</div>
+                <div key={ft.key} style={{ padding: '12px 10px', borderRadius: 10, background: 'rgba(14, 20, 38, 0.6)', border: '1px solid var(--border-subtle)', textAlign: 'center', fontSize: 11, color: 'var(--text-secondary)', transition: 'all 0.15s ease' }}>
+                  <div style={{ fontSize: 18, marginBottom: 5 }}>{ft.icon}</div>
                   {t(ft.labelKey)}
                 </div>
               ))}
@@ -685,7 +689,7 @@ export default function ScreenPage() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {files.map((f, i) => <FileChip key={i} file={f} onRemove={() => removeFile(i)} />)}
                 </div>
-                <div style={{ marginTop: 14, padding: '10px 14px', background: '#1e293b', borderRadius: 8, border: '1px solid #334155', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#94a3b8' }}>
+                <div style={{ marginTop: 14, padding: '12px 16px', background: 'rgba(148, 163, 184, 0.06)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-secondary)' }}>
                   <span>⚖️</span>
                   <span>
                     {applicantName.trim() ? t('screen.files.auto.name', { name: applicantName.trim() }) : t('screen.files.auto.extract')}
@@ -693,11 +697,8 @@ export default function ScreenPage() {
                     {tier === 'pro' ? t('screen.files.auto.sources.pro') : t('screen.files.auto.sources.free')}
                   </span>
                 </div>
-                <button
-                  onClick={runAnalysis}
-                  style={{ marginTop: 16, width: '100%', padding: '14px', borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #0D9488, #2563EB)', color: '#fff', fontSize: 15, fontWeight: 700, letterSpacing: 0.5 }}
-                >
-                  {t('screen.submit')}{tier === 'pro' && t('screen.submit.pro')}
+                <button onClick={runAnalysis} className="btn btn-primary btn-lg" style={{ marginTop: 18, width: '100%' }}>
+                  {t('screen.submit')}{tier === 'pro' && t('screen.submit.pro')} →
                 </button>
               </div>
             )}
@@ -709,14 +710,13 @@ export default function ScreenPage() {
           const isCourtStep = progressLabel.includes('🔍') || progressLabel.toLowerCase().includes('canlii') || progressLabel.toLowerCase().includes('court') || progressLabel.toLowerCase().includes('network') || progressLabel.includes('查询')
           const isNameStep = progressLabel.includes('📛') || progressLabel.toLowerCase().includes('extracting')
           return (
-            <div style={{ textAlign: 'center', padding: '80px 0' }}>
-              <div style={{ width: 64, height: 64, margin: '0 auto 24px', borderRadius: '50%', border: '3px solid #1e293b', borderTopColor: isCourtStep ? '#8B5CF6' : '#0D9488', animation: 'spin 1s linear infinite' }} />
-              <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: isCourtStep ? '#A78BFA' : '#e2e8f0' }}>{progressLabel || t('screen.step.start')}</div>
-              <div style={{ width: 300, height: 4, borderRadius: 2, background: '#1e293b', margin: '16px auto', overflow: 'hidden' }}>
-                <div style={{ height: '100%', borderRadius: 2, background: isCourtStep ? 'linear-gradient(90deg, #7C3AED, #8B5CF6)' : 'linear-gradient(90deg, #0D9488, #2563EB)', width: `${progress}%`, transition: 'width 0.5s ease' }} />
+            <div className="fade-up" style={{ textAlign: 'center', padding: '80px 0' }}>
+              <div className="spin" style={{ width: 64, height: 64, margin: '0 auto 24px', borderRadius: '50%', border: '3px solid rgba(148, 163, 184, 0.12)', borderTopColor: isCourtStep ? '#8B5CF6' : '#14B8A6' }} />
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10, color: isCourtStep ? '#C4B5FD' : 'var(--text-primary)', letterSpacing: '-0.01em' }}>{progressLabel || t('screen.step.start')}</div>
+              <div style={{ width: 320, maxWidth: '80%', height: 5, borderRadius: 3, background: 'rgba(148, 163, 184, 0.1)', margin: '16px auto', overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 3, background: isCourtStep ? 'var(--gradient-pro)' : 'var(--gradient-brand)', width: `${progress}%`, transition: 'width 0.5s ease' }} />
               </div>
-              <div style={{ fontSize: 12, color: '#64748b' }}>
+              <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
                 {isCourtStep
                   ? (tier === 'pro' ? t('screen.analyzing.court.pro') : t('screen.analyzing.court.free'))
                   : isNameStep
@@ -729,16 +729,16 @@ export default function ScreenPage() {
 
         {/* Results */}
         {result && riskOverall && (
-          <div>
+          <div className="fade-up">
             {/* Overall */}
-            <div className="sl-card-overall" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1a1a2e 100%)', border: '1px solid #1e293b', textAlign: 'center', marginBottom: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 12, color: '#64748b', letterSpacing: 2, textTransform: 'uppercase' }}>{t('screen.result.headline')}</span>
-                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: result.tier === 'pro' ? '#8B5CF620' : '#1e293b', color: result.tier === 'pro' ? '#A78BFA' : '#64748b', fontWeight: 600 }}>{result.tier === 'pro' ? 'PRO' : 'FREE'}</span>
+            <div className="card-hero sl-card-overall" style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 8, alignItems: 'center' }}>
+                <span className="mono" style={{ fontSize: 10.5, color: 'var(--text-muted)', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 600 }}>{t('screen.result.headline')}</span>
+                <span className={result.tier === 'pro' ? 'chip chip-pro' : 'chip'} style={{ padding: '2px 8px', fontSize: 9.5 }}>{result.tier === 'pro' ? 'PRO' : 'FREE'}</span>
               </div>
-              <div className="sl-extracted-name" style={{ fontWeight: 700, marginBottom: 4 }}>{result.extracted_name || applicantName || '—'}</div>
+              <div className="sl-extracted-name" style={{ fontWeight: 700, marginBottom: 4, letterSpacing: '-0.015em' }}>{result.extracted_name || applicantName || '—'}</div>
               {result.name_was_extracted
-                ? <div style={{ fontSize: 10, color: '#64748b', marginBottom: 16 }}>{t('screen.result.nameExtracted')}</div>
+                ? <div className="mono" style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 16, letterSpacing: '0.05em' }}>{t('screen.result.nameExtracted')}</div>
                 : <div style={{ marginBottom: 16 }} />}
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
                 <ScoreRing score={result.overall} size={160} strokeWidth={12} />
@@ -772,13 +772,13 @@ export default function ScreenPage() {
             </div>
 
             {/* Summary */}
-            <div className="sl-card" style={{ background: '#0f172a', border: '1px solid #1e293b', marginBottom: 20 }}>
+            <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
               <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: '#94a3b8' }}>{t('screen.result.summary')}</div>
               <p className="sl-summary-text" style={{ fontSize: 14, lineHeight: 1.8, color: '#cbd5e1', margin: 0 }}>{(lang === 'zh' ? (result.summary_zh || result.summary) : (result.summary_en || result.summary))}</p>
             </div>
 
             {/* Category Scores */}
-            <div className="sl-card" style={{ background: '#0f172a', border: '1px solid #1e293b', marginBottom: 20 }}>
+            <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
               <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: '#94a3b8' }}>{t('screen.result.dims')}</div>
               {CATEGORIES.map((cat, i) => (
                 <CategoryBar key={cat.id} category={cat} score={result.scores[cat.id]} animDelay={i * 150} tier={result.tier} />
@@ -811,7 +811,7 @@ export default function ScreenPage() {
 
             {/* Flags */}
             {derivedFlags.length > 0 && (
-              <div className="sl-card" style={{ background: '#0f172a', border: '1px solid #1e293b', marginBottom: 20 }}>
+              <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
                 <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#94a3b8' }}>{t('screen.result.flags')}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {derivedFlags.map((flag, i) => <Flag key={i} type={flag.type} text={flag.text} />)}
@@ -820,11 +820,11 @@ export default function ScreenPage() {
             )}
 
             {/* Weights */}
-            <div className="sl-card" style={{ background: '#0f172a', border: '1px solid #1e293b', marginBottom: 20 }}>
+            <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
               <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#94a3b8' }}>{t('screen.result.weights')}</div>
               <div className="sl-weights-grid" style={{ display: 'grid', gap: 8 }}>
                 {CATEGORIES.map(cat => (
-                  <div key={cat.id} style={{ textAlign: 'center', padding: '14px 8px', borderRadius: 8, background: '#1e293b', border: cat.id === 'court_records' ? '1px solid #8B5CF640' : '1px solid transparent' }}>
+                  <div key={cat.id} style={{ textAlign: 'center', padding: '16px 8px', borderRadius: 12, background: 'rgba(148, 163, 184, 0.06)', border: cat.id === 'court_records' ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid var(--border-subtle)' }}>
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{cat.icon}</div>
                     <div style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 700 }}>{lang === 'zh' ? cat.zhLabel : cat.enLabel}</div>
                     <div style={{ fontSize: 9, color: '#64748b', fontWeight: 500, marginTop: 1 }}>{lang === 'zh' ? cat.enLabel : cat.zhLabel}</div>
@@ -845,29 +845,29 @@ export default function ScreenPage() {
 
         {/* History */}
         {!analyzing && history.length > 0 && (
-          <div style={{ marginTop: 32, background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#8B5CF6' }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>{t('history.title')}</span>
-              <span style={{ marginLeft: 'auto', fontSize: 11, color: '#64748b', fontFamily: "'JetBrains Mono', monospace" }}>{t('history.countN', { n: history.length })}</span>
+          <div className="card" style={{ marginTop: 32, padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#8B5CF6', boxShadow: '0 0 8px rgba(139, 92, 246, 0.5)' }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '-0.005em' }}>{t('history.title')}</span>
+              <span className="mono" style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--text-faint)' }}>{t('history.countN', { n: history.length })}</span>
             </div>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: 400, overflowY: 'auto' }}>
               {history.map(s => {
                 const lvl = s.ai_score != null ? getRiskLevel(s.ai_score) : null
                 return (
-                  <li key={s.id} style={{ padding: '12px 20px', borderBottom: '1px solid #1e293b' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                      <div style={{ fontSize: 13, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                  <li key={s.id} style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.15s' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                         {s.tenant_name || t('history.autoExtracted')}
                       </div>
                       {s.ai_score != null && lvl ? (
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: `${lvl.color}20`, color: lvl.color, fontFamily: "'JetBrains Mono', monospace" }}>{s.ai_score}</span>
+                        <span className="mono" style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, background: `${lvl.color}18`, color: lvl.color, border: `1px solid ${lvl.color}30` }}>{s.ai_score}</span>
                       ) : (
-                        <span style={{ fontSize: 10, color: '#64748b', fontFamily: "'JetBrains Mono', monospace" }}>{s.status}</span>
+                        <span className="mono chip">{s.status}</span>
                       )}
                     </div>
-                    <div style={{ fontSize: 10, color: '#475569', marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>{new Date(s.created_at).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}</div>
-                    {s.ai_summary && <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.ai_summary}</div>}
+                    <div className="mono" style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 4 }}>{new Date(s.created_at).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}</div>
+                    {s.ai_summary && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.ai_summary}</div>}
                   </li>
                 )
               })}

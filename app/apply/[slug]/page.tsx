@@ -135,24 +135,21 @@ export default function ApplyPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 text-slate-100">
-        <div className="glass rounded-2xl p-10 max-w-md text-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 pointer-events-none" />
-          <div className="relative">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-3xl">✓</div>
-            <h2 className="text-2xl font-bold mb-2">{t('apply.submitted.title')}</h2>
-            <p className="text-sm text-slate-400">{t('apply.submitted.sub')}</p>
-          </div>
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="card-hero fade-up" style={{ padding: 40, maxWidth: 440, textAlign: 'center' }}>
+          <div style={{ width: 64, height: 64, margin: '0 auto 18px', borderRadius: 16, background: 'rgba(16, 185, 129, 0.14)', border: '1px solid rgba(16, 185, 129, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#34D399', fontSize: 28 }}>✓</div>
+          <h2 className="h-section" style={{ marginBottom: 8 }}>{t('apply.submitted.title')}</h2>
+          <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>{t('apply.submitted.sub')}</p>
         </div>
       </div>
     )
   }
 
   const Section = ({ tag, title, children }: { tag: string; title: string; children: React.ReactNode }) => (
-    <section className="glass rounded-2xl p-6">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="mono text-xs text-cyan-400">{tag}</div>
-        <h2 className="font-semibold">{title}</h2>
+    <section className="card" style={{ padding: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+        <div className="chip chip-accent mono" style={{ fontSize: 10 }}>{tag}</div>
+        <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, letterSpacing: '-0.01em' }}>{title}</h2>
       </div>
       {children}
     </section>
@@ -173,21 +170,22 @@ export default function ApplyPage() {
   )
 
   return (
-    <div className="min-h-screen py-10 px-4 text-slate-100">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex justify-end mb-4">
-          <LanguageToggle />
+    <div className="min-h-screen">
+      <nav className="nav-bar">
+        <div className="nav-brand">
+          <div className="nav-logo">S</div>
+          <div className="nav-title">Stayloop</div>
         </div>
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">S</div>
-            <span className="text-base font-bold">Stayloop</span>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">{t('apply.title')}</h1>
-          <p className="text-sm text-slate-400 mono">{t('apply.tagline')}</p>
+        <div className="nav-actions"><LanguageToggle /></div>
+      </nav>
+
+      <div className="max-w-2xl mx-auto px-6 py-10 fade-up">
+        <div className="text-center" style={{ marginBottom: 32 }}>
+          <div className="chip chip-accent mono mb-4">{t('apply.tagline')}</div>
+          <h1 className="h-hero" style={{ marginBottom: 8 }}>{t('apply.title')}</h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <Section tag="// 01" title={t('apply.sec.personal')}>
             <div className="grid grid-cols-2 gap-4">
               <Field label={t('apply.f.firstName')}><Input required value={form.first_name} onChange={(e: any) => set('first_name', e.target.value)} /></Field>
@@ -244,16 +242,16 @@ export default function ApplyPage() {
             <p className="text-xs text-slate-400 mb-4 leading-relaxed">
               {t('apply.docs.intro')}
             </p>
-            <div className="space-y-4">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {FILE_KINDS.map(({ kind, labelKey, hintKey }) => (
-                <div key={kind} className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
-                  <div className="flex items-center justify-between mb-1">
+                <div key={kind} style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', background: 'rgba(148, 163, 184, 0.04)', padding: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                     <div>
-                      <div className="text-sm font-medium text-slate-100">{t(labelKey)}</div>
-                      <div className="mono text-[10px] text-slate-500">{t(hintKey)}</div>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>{t(labelKey)}</div>
+                      <div className="mono" style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>{t(hintKey)}</div>
                     </div>
-                    <label className="text-xs px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 cursor-pointer hover:bg-cyan-500/15 mono">
-                      {t('apply.addFile')}
+                    <label className="mono" style={{ fontSize: 11, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(20, 184, 166, 0.3)', background: 'rgba(20, 184, 166, 0.1)', color: '#5EEAD4', cursor: 'pointer' }}>
+                      + {t('apply.addFile')}
                       <input
                         type="file"
                         multiple
@@ -264,11 +262,11 @@ export default function ApplyPage() {
                     </label>
                   </div>
                   {files[kind].length > 0 && (
-                    <ul className="mt-3 space-y-1">
+                    <ul style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 4, listStyle: 'none', padding: 0 }}>
                       {files[kind].map((f, i) => (
-                        <li key={i} className="flex items-center justify-between text-xs mono text-slate-300 bg-black/30 rounded-md px-2 py-1">
-                          <span className="truncate pr-2">{f.name} <span className="text-slate-500">· {(f.size / 1024).toFixed(0)} KB</span></span>
-                          <button type="button" onClick={() => removeFile(kind, i)} className="text-red-400 hover:text-red-300">{t('apply.remove')}</button>
+                        <li key={i} className="mono" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 11, color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: '6px 10px' }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name} <span style={{ color: 'var(--text-faint)' }}>· {(f.size / 1024).toFixed(0)} KB</span></span>
+                          <button type="button" onClick={() => removeFile(kind, i)} style={{ color: '#F87171', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11 }}>{t('apply.remove')}</button>
                         </li>
                       ))}
                     </ul>
@@ -278,31 +276,31 @@ export default function ApplyPage() {
             </div>
           </Section>
 
-          <div className="glass rounded-2xl p-6 border-amber-500/30">
-            <div className="mono text-xs text-amber-400 mb-2">{t('apply.consent.tag')}</div>
-            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+          <div className="card" style={{ padding: 24, borderColor: 'rgba(251, 191, 36, 0.28)' }}>
+            <div className="chip mono mb-3" style={{ background: 'rgba(251, 191, 36, 0.1)', borderColor: 'rgba(251, 191, 36, 0.3)', color: '#FCD34D', fontSize: 10 }}>{t('apply.consent.tag')}</div>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.65 }}>
               {t('apply.consent.body')}
             </p>
-            <label className="flex items-start gap-2 mb-2 cursor-pointer text-sm">
-              <input type="checkbox" checked={form.consent_screening} onChange={e => set('consent_screening', e.target.checked)} className="mt-1 accent-cyan-500" />
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)' }}>
+              <input type="checkbox" checked={form.consent_screening} onChange={e => set('consent_screening', e.target.checked)} style={{ marginTop: 3, accentColor: '#14B8A6' }} />
               <span>{t('apply.consent.check1')}</span>
             </label>
-            <label className="flex items-start gap-2 cursor-pointer text-sm">
-              <input type="checkbox" checked={form.consent_credit_check} onChange={e => set('consent_credit_check', e.target.checked)} className="mt-1 accent-cyan-500" />
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)' }}>
+              <input type="checkbox" checked={form.consent_credit_check} onChange={e => set('consent_credit_check', e.target.checked)} style={{ marginTop: 3, accentColor: '#14B8A6' }} />
               <span>{t('apply.consent.check2')}</span>
             </label>
           </div>
 
           {error && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-sm px-3 py-2">{error}</div>
+            <div style={{ borderRadius: 10, border: '1px solid rgba(244, 63, 94, 0.35)', background: 'rgba(244, 63, 94, 0.08)', color: '#FDA4AF', fontSize: 13, padding: '10px 14px' }}>{error}</div>
           )}
 
           {uploadProgress && (
-            <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs px-3 py-2 mono">{uploadProgress}</div>
+            <div className="mono" style={{ borderRadius: 10, border: '1px solid rgba(34, 211, 238, 0.3)', background: 'rgba(34, 211, 238, 0.08)', color: '#67E8F9', fontSize: 11, padding: '10px 14px' }}>{uploadProgress}</div>
           )}
 
-          <button type="submit" disabled={loading} className="btn-primary w-full text-base py-3.5">
-            {loading ? (uploadProgress ? t('apply.uploading') : t('apply.submitting')) : t('apply.submit')}
+          <button type="submit" disabled={loading} className="btn btn-primary btn-lg" style={{ width: '100%' }}>
+            {loading ? (uploadProgress ? t('apply.uploading') : t('apply.submitting')) : t('apply.submit') + ' →'}
           </button>
         </form>
       </div>

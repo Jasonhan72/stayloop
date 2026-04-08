@@ -66,28 +66,26 @@ export default function NewListingPage() {
   }
 
   return (
-    <div className="min-h-screen text-slate-100">
-      <nav className="sticky top-0 z-20 backdrop-blur-xl bg-[#060814]/60 border-b border-white/[0.06]">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">S</div>
-            <div className="text-base font-bold tracking-tight">Stayloop</div>
-          </Link>
-          <div className="flex items-center gap-3">
-            <LanguageToggle />
-            <Link href="/dashboard" className="mono text-xs text-slate-400 hover:text-slate-200">{t('dash.backToDash')}</Link>
-          </div>
+    <div className="min-h-screen">
+      <nav className="nav-bar">
+        <Link href="/dashboard" className="nav-brand">
+          <div className="nav-logo">S</div>
+          <div className="nav-title">Stayloop</div>
+        </Link>
+        <div className="nav-actions">
+          <LanguageToggle />
+          <Link href="/dashboard" className="btn btn-ghost btn-sm">← {t('dash.backToDash')}</Link>
         </div>
       </nav>
 
-      <div className="max-w-2xl mx-auto px-6 py-12">
-        <div className="mono text-xs text-cyan-400 mb-2">{t('newListing.tag')}</div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">{t('newListing.title')}</h1>
-        <p className="text-sm text-slate-400 mb-8">
+      <div className="max-w-2xl mx-auto px-6 py-12 fade-up">
+        <div className="chip chip-accent mono mb-4">{t('newListing.tag')}</div>
+        <h1 className="h-hero mb-2">{t('newListing.title')}</h1>
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 28, lineHeight: 1.6 }}>
           {t('newListing.sub')}
         </p>
 
-        <form onSubmit={handleSubmit} className="glass rounded-2xl p-7 space-y-5">
+        <form onSubmit={handleSubmit} className="card" style={{ padding: 28, display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div>
             <label className="label">{t('newListing.street')}</label>
             <input
@@ -132,13 +130,13 @@ export default function NewListingPage() {
           </div>
 
           {error && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-sm px-3 py-2">{error}</div>
+            <div style={{ borderRadius: 10, border: '1px solid rgba(244, 63, 94, 0.35)', background: 'rgba(244, 63, 94, 0.08)', color: '#FDA4AF', fontSize: 13, padding: '10px 14px' }}>{error}</div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <Link href="/dashboard" className="btn-ghost">{t('newListing.cancel')}</Link>
-            <button type="submit" disabled={submitting} className="btn-primary">
-              {submitting ? t('newListing.creating') : t('newListing.create')}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, paddingTop: 6 }}>
+            <Link href="/dashboard" className="btn btn-ghost">{t('newListing.cancel')}</Link>
+            <button type="submit" disabled={submitting} className="btn btn-primary">
+              {submitting ? t('newListing.creating') : t('newListing.create') + ' →'}
             </button>
           </div>
         </form>
