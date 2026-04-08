@@ -1,8 +1,10 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
+
+// ───────────────────────────────────────────────────────── Types ──
 
 interface UploadedFile {
   path: string
@@ -19,7 +21,6 @@ interface Screening {
   ai_summary: string | null
   status: string
   created_at: string
-  scored_at: string | null
 }
 
 interface CourtQuery {
@@ -49,116 +50,280 @@ interface ScoreResult {
   tier: 'free' | 'pro'
 }
 
-const DIMS: { key: keyof ScoreResult['scores']; label: string; weight: number; icon: string }[] = [
-  { key: 'doc_authenticity', label: '文档真伪', weight: 20, icon: '🛡️' },
-  { key: 'payment_ability', label: '支付能力', weight: 20, icon: '💰' },
-  { key: 'court_records', label: '法庭记录', weight: 20, icon: '⚖️' },
-  { key: 'stability', label: '稳定性', weight: 15, icon: '🏠' },
-  { key: 'behavior_signals', label: '行为信号', weight: 13, icon: '📡' },
-  { key: 'info_consistency', label: '信息一致性', weight: 12, icon: '🔗' },
-]
+// ───────────────────────────────────────────────────── Constants ──
 
-const DOC_TYPES = [
-  { id: 'employment', icon: '📄', label: 'Employment Letter' },
-  { id: 'paystub', icon: '💵', label: 'Pay Stubs' },
-  { id: 'bank', icon: '🏦', label: 'Bank Statements' },
-  { id: 'id', icon: '🪪', label: 'ID / Passport' },
-  { id: 'credit', icon: '📊', label: 'Credit Report' },
-  { id: 'offer', icon: '📋', label: 'Offer / Study Permit' },
-  { id: 'reference', icon: '✉️', label: 'Landlord Reference' },
-  { id: 'other', icon: '📎', label: 'Other Documents' },
-]
+const TIERS = {
+  free: {
+    label: 'Free',
+    labelCn: '免费版',
+    sources: 'CanLII 公开记录',
+  },
+  pro: {
+    label: 'Pro',
+    labelCn: '订阅版',
+    sources: 'CanLII + Ontario Courts + Verified Network',
+  },
+}
 
-interface RiskLevel {
+type ScoreKey = keyof ScoreResult['scores']
+
+const CATEGORIES: {
+  id: ScoreKey
   label: string
-  decision: string
-  ring: string
-  text: string
-  bg: string
-  border: string
-  bar: string
-  glow: string
-}
-
-function riskLevel(score: number | null | undefined): RiskLevel {
-  const s = score ?? -1
-  if (s >= 85) return {
-    label: 'APPROVED',
-    decision: 'Strong candidate — sign with confidence',
-    ring: 'stroke-emerald-400',
-    text: 'text-emerald-300',
-    bg: 'bg-emerald-500/15',
-    border: 'border-emerald-500/40',
-    bar: 'bg-gradient-to-r from-emerald-500 to-emerald-400',
-    glow: 'shadow-emerald-500/30',
-  }
-  if (s >= 70) return {
-    label: 'LIKELY APPROVE',
-    decision: 'Looks good — light verification recommended',
-    ring: 'stroke-lime-400',
-    text: 'text-lime-300',
-    bg: 'bg-lime-500/15',
-    border: 'border-lime-500/40',
-    bar: 'bg-gradient-to-r from-lime-500 to-lime-400',
-    glow: 'shadow-lime-500/30',
-  }
-  if (s >= 50) return {
-    label: 'REVIEW',
-    decision: 'Manual review needed — significant gaps',
-    ring: 'stroke-amber-400',
-    text: 'text-amber-300',
-    bg: 'bg-amber-500/15',
-    border: 'border-amber-500/40',
-    bar: 'bg-gradient-to-r from-amber-500 to-amber-400',
-    glow: 'shadow-amber-500/30',
-  }
-  if (s >= 30) return {
-    label: 'CAUTION',
-    decision: 'High risk — require guarantor or decline',
-    ring: 'stroke-orange-400',
-    text: 'text-orange-300',
-    bg: 'bg-orange-500/15',
-    border: 'border-orange-500/40',
-    bar: 'bg-gradient-to-r from-orange-500 to-orange-400',
-    glow: 'shadow-orange-500/30',
-  }
-  return {
-    label: s < 0 ? 'PENDING' : 'REJECT',
-    decision: s < 0 ? 'Awaiting analysis' : 'Decline — unacceptable risk',
-    ring: 'stroke-red-400',
-    text: 'text-red-300',
-    bg: 'bg-red-500/15',
-    border: 'border-red-500/40',
-    bar: 'bg-gradient-to-r from-red-500 to-red-400',
-    glow: 'shadow-red-500/30',
-  }
-}
-
-type StepStatus = 'pending' | 'active' | 'done' | 'skipped'
-interface PipelineStep { key: string; label: string; status: StepStatus }
-
-const INITIAL_STEPS: PipelineStep[] = [
-  { key: 'upload', label: '📤 上传租客申请文件', status: 'pending' },
-  { key: 'extract', label: '📛 从文件中提取申请人姓名', status: 'pending' },
-  { key: 'court', label: '⚖️ 查询公开法庭记录 (CanLII)', status: 'pending' },
-  { key: 'score', label: '🤖 运行 6 维度 AI 风控评分', status: 'pending' },
-  { key: 'finalize', label: '✅ 生成评估报告', status: 'pending' },
+  labelEn: string
+  icon: string
+  description: string
+  weight: number
+}[] = [
+  {
+    id: 'doc_authenticity',
+    label: '文档真伪',
+    labelEn: 'Document Authenticity',
+    icon: '🔍',
+    description: '元数据分析、字体一致性、模板特征、篡改痕迹检测',
+    weight: 0.20,
+  },
+  {
+    id: 'payment_ability',
+    label: '支付能力',
+    labelEn: 'Financial Capacity',
+    icon: '💰',
+    description: '收入租金比、现金流稳定性、负债水平、储蓄缓冲',
+    weight: 0.20,
+  },
+  {
+    id: 'court_records',
+    label: '法庭记录',
+    labelEn: 'Court & Tribunal Records',
+    icon: '⚖️',
+    description: 'LTB 裁决、欠租驱逐令、Small Claims 判决、民事诉讼记录',
+    weight: 0.20,
+  },
+  {
+    id: 'stability',
+    label: '稳定性',
+    labelEn: 'Stability',
+    icon: '🏠',
+    description: '就业年限、租赁历史、居住地址变动频率',
+    weight: 0.15,
+  },
+  {
+    id: 'info_consistency',
+    label: '信息一致性',
+    labelEn: 'Cross-Verification',
+    icon: '🔗',
+    description: '雇主名称/收入/银行入账交叉校验',
+    weight: 0.12,
+  },
+  {
+    id: 'behavior_signals',
+    label: '行为信号',
+    labelEn: 'Behavioral Signals',
+    icon: '📊',
+    description: '申请完整度、响应速度、沟通模式分析',
+    weight: 0.13,
+  },
 ]
+
+const RISK_LEVELS = [
+  { min: 85, label: '安全', color: '#16A34A', bg: '#F0FDF4', tag: '✅ APPROVED' },
+  { min: 70, label: '较安全', color: '#65A30D', bg: '#F7FEE7', tag: '👍 LIKELY APPROVE' },
+  { min: 50, label: '需审查', color: '#EAB308', bg: '#FEFCE8', tag: '⚠️ REVIEW' },
+  { min: 30, label: '有风险', color: '#F97316', bg: '#FFF7ED', tag: '🟠 CAUTION' },
+  { min: 0, label: '高危', color: '#DC2626', bg: '#FEF2F2', tag: '🔴 REJECT' },
+]
+
+const FILE_TYPES: Record<string, { label: string; icon: string }> = {
+  employment_letter: { label: 'Employment Letter', icon: '📄' },
+  pay_stub: { label: 'Pay Stubs', icon: '💵' },
+  bank_statement: { label: 'Bank Statements', icon: '🏦' },
+  id_document: { label: 'ID / Passport', icon: '🪪' },
+  credit_report: { label: 'Credit Report', icon: '📊' },
+  offer_letter: { label: 'Offer / Study Permit', icon: '📋' },
+  reference: { label: 'Landlord Reference', icon: '✉️' },
+  other: { label: 'Other Documents', icon: '📎' },
+}
+
+function getRiskLevel(score: number) {
+  return RISK_LEVELS.find(r => score >= r.min) || RISK_LEVELS[RISK_LEVELS.length - 1]
+}
+
+function guessKind(name: string): string {
+  const n = name.toLowerCase()
+  if (n.includes('paystub') || n.includes('pay_stub') || n.includes('payslip') || n.includes('pay')) return 'pay_stub'
+  if (n.includes('id') || n.includes('license') || n.includes('passport') || n.includes('permit')) return 'id_document'
+  if (n.includes('credit')) return 'credit_report'
+  if (n.includes('bank') || n.includes('statement')) return 'bank_statement'
+  if (n.includes('employ') || n.includes('letter') || n.includes('offer')) return 'employment_letter'
+  if (n.includes('reference')) return 'reference'
+  return 'other'
+}
+
+// ───────────────────────────────────────────────── Sub-components ──
+
+function ScoreRing({ score, size = 140, strokeWidth = 10 }: { score: number; size?: number; strokeWidth?: number }) {
+  const risk = getRiskLevel(score)
+  const radius = (size - strokeWidth) / 2
+  const circumference = 2 * Math.PI * radius
+  const offset = circumference - (score / 100) * circumference
+  return (
+    <div style={{ position: 'relative', width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#1a1a2e" strokeWidth={strokeWidth} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={risk.color}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)' }}
+        />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontSize: size * 0.32, fontWeight: 800, color: risk.color, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>{score}</span>
+        <span style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, letterSpacing: 1 }}>/ 100</span>
+      </div>
+    </div>
+  )
+}
+
+function CategoryBar({ category, score, animDelay = 0, tier }: { category: typeof CATEGORIES[number]; score: number; animDelay?: number; tier: 'free' | 'pro' }) {
+  const risk = getRiskLevel(score)
+  const isCourtRecord = category.id === 'court_records'
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 16 }}>{category.icon}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{category.label}</span>
+          <span style={{ fontSize: 11, color: '#64748b' }}>{category.labelEn}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {isCourtRecord && (
+            <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: tier === 'pro' ? '#8B5CF620' : '#334155', color: tier === 'pro' ? '#A78BFA' : '#64748b', fontWeight: 600 }}>
+              {tier === 'pro' ? 'PRO 全量' : 'FREE CanLII'}
+            </span>
+          )}
+          <span style={{ fontSize: 15, fontWeight: 700, color: risk.color, fontFamily: "'JetBrains Mono', monospace" }}>{score}</span>
+        </div>
+      </div>
+      <div style={{ height: 6, borderRadius: 3, background: '#1e293b', overflow: 'hidden' }}>
+        <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${risk.color}88, ${risk.color})`, width: `${score}%`, transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)', transitionDelay: `${animDelay}ms` }} />
+      </div>
+      <p style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{category.description}</p>
+    </div>
+  )
+}
+
+function FileChip({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const ext = file.name.split('.').pop()?.toLowerCase() || ''
+  const isPdf = ext === 'pdf'
+  const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#1e293b', borderRadius: 8, border: '1px solid #334155', fontSize: 13, color: '#cbd5e1' }}>
+      <span style={{ fontSize: 14 }}>{isPdf ? '📄' : isImage ? '🖼️' : '📎'}</span>
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{file.name}</span>
+      <span style={{ fontSize: 11, color: '#64748b' }}>{(file.size / 1024).toFixed(0)}KB</span>
+      <button onClick={onRemove} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 16, padding: 0, lineHeight: 1 }}>×</button>
+    </div>
+  )
+}
+
+function Flag({ type, text }: { type: 'danger' | 'warning' | 'info' | 'success'; text: string }) {
+  const colors = {
+    danger: { bg: '#451a1a', border: '#7f1d1d', text: '#fca5a5', icon: '⚠️' },
+    warning: { bg: '#452a1a', border: '#7c4a1d', text: '#fcd34d', icon: '⚡' },
+    info: { bg: '#1a2745', border: '#1d4a7c', text: '#93c5fd', icon: 'ℹ️' },
+    success: { bg: '#1a3a2a', border: '#1d7c4a', text: '#86efac', icon: '✓' },
+  }
+  const c = colors[type] || colors.info
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px', background: c.bg, border: `1px solid ${c.border}`, borderRadius: 8, fontSize: 13, color: c.text, lineHeight: 1.5 }}>
+      <span>{c.icon}</span><span>{text}</span>
+    </div>
+  )
+}
+
+function CourtRecordDetail({ queries, totalHits, queriedName, tier }: { queries: CourtQuery[]; totalHits: number; queriedName: string; tier: 'free' | 'pro' }) {
+  const availableCount = queries.filter(q => q.status === 'ok').length
+  return (
+    <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, padding: '20px', marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>⚖️ 法庭记录查询详情</div>
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>查询姓名: <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#cbd5e1' }}>{queriedName || '—'}</span></div>
+        </div>
+        <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, background: tier === 'pro' ? '#8B5CF620' : '#1e293b', color: tier === 'pro' ? '#A78BFA' : '#64748b', border: `1px solid ${tier === 'pro' ? '#8B5CF640' : '#334155'}`, fontWeight: 600 }}>
+          {tier === 'pro' ? 'PRO 全量查询' : 'FREE 基础查询'}
+        </span>
+      </div>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8, fontWeight: 600 }}>已查询数据源</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {queries.map((q, i) => {
+            const available = q.status === 'ok'
+            const hit = available && (q.hits ?? 0) > 0
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: available ? '#cbd5e1' : '#475569' }}>
+                <span style={{ width: 18, height: 18, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, background: available ? (hit ? '#DC262620' : '#16A34A20') : '#1e293b', color: available ? (hit ? '#FCA5A5' : '#86EFAC') : '#475569', border: `1px solid ${available ? (hit ? '#7F1D1D' : '#1D7C4A') : '#334155'}` }}>
+                  {available ? (hit ? '!' : '✓') : '🔒'}
+                </span>
+                <span style={{ flex: 1 }}>{q.source}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: available ? (hit ? '#FCA5A5' : '#86EFAC') : '#475569' }}>
+                  {available ? (hit ? `${q.hits} 条命中` : '无记录') : (q.status === 'coming_soon' ? '即将推出' : '需 Pro 版')}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      {totalHits === 0 && (
+        <div style={{ padding: '16px', textAlign: 'center', background: '#16A34A10', borderRadius: 8, border: '1px solid #1D7C4A40' }}>
+          <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
+          <div style={{ fontSize: 13, color: '#86EFAC', fontWeight: 600 }}>未发现不良记录</div>
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>在已查询的 {availableCount} 个数据源中均无命中</div>
+        </div>
+      )}
+      {totalHits > 0 && (
+        <div style={{ padding: '12px 14px', background: '#DC262610', border: '1px solid #7F1D1D60', borderRadius: 8, fontSize: 12, color: '#FCA5A5' }}>
+          ⚠ 共发现 {totalHits} 条潜在匹配。请通过 CanLII 链接核实身份后再做决定。
+        </div>
+      )}
+      {tier === 'free' && (
+        <div style={{ marginTop: 14, padding: '12px 14px', background: '#8B5CF610', border: '1px solid #8B5CF630', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 16 }}>💎</span>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#A78BFA' }}>升级 Pro 版获取全量法庭记录</div>
+            <div style={{ fontSize: 11, color: '#7C6DB5', marginTop: 2 }}>解锁 Ontario Courts Portal 民事诉讼 + Stayloop Verified Network</div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────── Main Page ──
 
 export default function ScreenPage() {
   const { landlord, loading: authLoading, signOut } = useLandlord()
+
   const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('free')
-  const [tenantName, setTenantName] = useState('')
-  const [monthlyRent, setMonthlyRent] = useState('')
-  const [monthlyIncome, setMonthlyIncome] = useState('')
-  const [notes, setNotes] = useState('')
-  const [pastedText, setPastedText] = useState('')
-  const [pendingFiles, setPendingFiles] = useState<File[]>([])
-  const [dragging, setDragging] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [steps, setSteps] = useState<PipelineStep[]>(INITIAL_STEPS)
-  const [error, setError] = useState<string | null>(null)
+  const [tier, setTier] = useState<'free' | 'pro'>('free')
+
+  const [files, setFiles] = useState<File[]>([])
+  const [dragOver, setDragOver] = useState(false)
+  const [applicantName, setApplicantName] = useState('')
+  const [targetRent, setTargetRent] = useState('')
+
+  const [analyzing, setAnalyzing] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [progressLabel, setProgressLabel] = useState('')
   const [result, setResult] = useState<ScoreResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<Screening[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -176,96 +341,119 @@ export default function ScreenPage() {
       .select('plan')
       .eq('id', landlord.landlordId)
       .maybeSingle()
-    if (data?.plan) setPlan(data.plan as any)
+    if (data?.plan) {
+      setPlan(data.plan as any)
+      if (data.plan === 'pro' || data.plan === 'enterprise') setTier('pro')
+    }
   }
 
   async function loadHistory() {
     const { data } = await supabase
       .from('screenings')
-      .select('id, tenant_name, ai_score, ai_summary, status, created_at, scored_at')
+      .select('id, tenant_name, ai_score, ai_summary, status, created_at')
       .order('created_at', { ascending: false })
       .limit(20)
     if (data) setHistory(data)
   }
 
-  function setStep(key: string, status: StepStatus) {
-    setSteps(prev => prev.map(s => s.key === key ? { ...s, status } : s))
-  }
-
-  function addFiles(list: FileList | File[] | null) {
+  const handleFiles = useCallback((list: FileList | File[] | null) => {
     if (!list) return
     const incoming = Array.from(list).filter(f => {
       if (f.size > 10 * 1024 * 1024) {
-        setError(`${f.name} is over 10 MB`)
+        setError(`${f.name} 超过 10 MB`)
         return false
       }
       return true
     })
-    setPendingFiles(prev => [...prev, ...incoming])
+    setFiles(prev => [...prev, ...incoming])
     setError(null)
-  }
+  }, [])
 
-  function removeFile(idx: number) {
-    setPendingFiles(prev => prev.filter((_, i) => i !== idx))
-  }
-
-  function onDrop(e: React.DragEvent) {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    setDragging(false)
-    addFiles(e.dataTransfer.files)
-  }
+    setDragOver(false)
+    handleFiles(e.dataTransfer.files)
+  }, [handleFiles])
 
-  function reset() {
-    setTenantName('')
-    setMonthlyRent('')
-    setMonthlyIncome('')
-    setNotes('')
-    setPastedText('')
-    setPendingFiles([])
+  const removeFile = (idx: number) => setFiles(prev => prev.filter((_, i) => i !== idx))
+
+  const reset = () => {
+    setFiles([])
     setResult(null)
+    setProgress(0)
+    setProgressLabel('')
+    setApplicantName('')
+    setTargetRent('')
     setError(null)
-    setSteps(INITIAL_STEPS.map(s => ({ ...s, status: 'pending' as StepStatus })))
   }
 
-  async function handleScreen() {
+  async function runAnalysis() {
     if (!landlord) return
-    if (pendingFiles.length === 0 && !pastedText.trim() && !tenantName.trim()) {
-      setError('Drop at least one file, paste some text, or fill in the tenant name')
+    if (files.length === 0 && !applicantName.trim()) {
+      setError('请至少上传一个文件或填写申请人姓名')
       return
     }
-    setSubmitting(true)
-    setError(null)
+    setAnalyzing(true)
     setResult(null)
-    setSteps(INITIAL_STEPS.map(s => ({ ...s, status: 'pending' as StepStatus })))
+    setError(null)
+    setProgress(0)
+
+    // Drive the progress UI while the real backend works
+    const steps = [
+      { label: '读取文档元数据...', pct: 6 },
+      { label: 'OCR 文字提取中...', pct: 14 },
+      ...(!applicantName.trim() ? [{ label: '📛 从文件中提取申请人姓名...', pct: 20 }] : []),
+      { label: '文档真伪验证...', pct: 28 },
+      { label: '财务数据分析...', pct: 40 },
+      { label: '🔍 查询 CanLII LTB 公开裁决...', pct: 50 },
+      ...(tier === 'pro'
+        ? [
+            { label: '🔍 查询 Ontario Courts 民事记录...', pct: 62 },
+            { label: '🔍 查询 Stayloop Verified Network...', pct: 70 },
+          ]
+        : []),
+      { label: '交叉信息校验...', pct: 80 },
+      { label: '行为信号分析...', pct: 88 },
+      { label: '风险模型计算...', pct: 94 },
+    ]
+
+    let cancelled = false
+    const animate = async () => {
+      for (const s of steps) {
+        if (cancelled) return
+        await new Promise(r => setTimeout(r, 450 + Math.random() * 350))
+        if (cancelled) return
+        setProgress(s.pct)
+        setProgressLabel(s.label)
+      }
+    }
+    const animPromise = animate()
 
     try {
-      // Step 1: Create screening row + upload files
-      setStep('upload', 'active')
+      // 1. Create screening row
       const { data: row, error: insertErr } = await supabase
         .from('screenings')
         .insert({
           landlord_id: landlord.landlordId,
-          tenant_name: tenantName || null,
-          monthly_rent: monthlyRent ? Number(monthlyRent) : null,
-          monthly_income: monthlyIncome ? Number(monthlyIncome) : null,
-          notes: notes || null,
-          pasted_text: pastedText || null,
+          tenant_name: applicantName || null,
+          monthly_rent: targetRent ? Number(targetRent) : null,
           status: 'uploading',
         })
         .select('id')
         .single()
-      if (insertErr || !row) throw new Error(insertErr?.message || 'Failed to create screening')
+      if (insertErr || !row) throw new Error(insertErr?.message || '无法创建评估记录')
       const screeningId = row.id
 
+      // 2. Upload files to storage
       const uploaded: UploadedFile[] = []
-      for (let i = 0; i < pendingFiles.length; i++) {
-        const f = pendingFiles[i]
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i]
         const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, '_')
         const path = `screenings/${landlord.landlordId}/${screeningId}/${Date.now()}_${safeName}`
         const { error: upErr } = await supabase
           .storage.from('tenant-files')
           .upload(path, f, { contentType: f.type, upsert: false })
-        if (upErr) throw new Error(`Upload failed for ${f.name}: ${upErr.message}`)
+        if (upErr) throw new Error(`${f.name} 上传失败: ${upErr.message}`)
         uploaded.push({
           path,
           name: f.name,
@@ -277,17 +465,10 @@ export default function ScreenPage() {
       if (uploaded.length > 0) {
         await supabase.from('screenings').update({ files: uploaded }).eq('id', screeningId)
       }
-      setStep('upload', 'done')
 
-      // Steps 2-4 happen server-side. We mark them in sequence as a UX hint.
-      if (!tenantName.trim() && uploaded.length > 0) {
-        setStep('extract', 'active')
-      } else {
-        setStep('extract', 'skipped')
-      }
-      // Kick off the API call
+      // 3. Call scoring API
       const { data: { session } } = await supabase.auth.getSession()
-      const fetchPromise = fetch('/api/screen-score', {
+      const res = await fetch('/api/screen-score', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -295,485 +476,347 @@ export default function ScreenPage() {
         },
         body: JSON.stringify({ screening_id: screeningId }),
       })
-      // Sequence the visual steps while the server works
-      await new Promise(r => setTimeout(r, 1500))
-      if (!tenantName.trim() && uploaded.length > 0) setStep('extract', 'done')
-      setStep('court', 'active')
-      await new Promise(r => setTimeout(r, 1500))
-      setStep('court', 'done')
-      setStep('score', 'active')
-
-      const res = await fetchPromise
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Scoring failed')
-      setStep('score', 'done')
-      setStep('finalize', 'active')
-      await new Promise(r => setTimeout(r, 400))
-      setStep('finalize', 'done')
+      if (!res.ok) throw new Error(data.error || '评分失败')
 
-      setResult(data)
+      await animPromise
+      setProgress(100)
+      setProgressLabel('生成评估报告...')
+      await new Promise(r => setTimeout(r, 400))
+
+      setResult(data as ScoreResult)
       loadHistory()
     } catch (e: any) {
-      setError(e?.message || 'Unknown error')
-      setSteps(prev => prev.map(s => s.status === 'active' ? { ...s, status: 'pending' } : s))
+      cancelled = true
+      setError(e?.message || '未知错误')
     } finally {
-      setSubmitting(false)
+      setAnalyzing(false)
     }
-  }
-
-  function guessKind(name: string): string {
-    const n = name.toLowerCase()
-    if (n.includes('paystub') || n.includes('pay_stub') || n.includes('payslip')) return 'paystub'
-    if (n.includes('id') || n.includes('license') || n.includes('passport')) return 'id'
-    if (n.includes('credit')) return 'credit_report'
-    if (n.includes('bank') || n.includes('statement')) return 'bank_statement'
-    if (n.includes('tax') || n.includes('t4') || n.includes('noa')) return 'tax_doc'
-    if (n.includes('reference') || n.includes('letter')) return 'reference_letter'
-    return 'other'
   }
 
   if (authLoading || !landlord) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 mx-auto mb-3 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin" />
-          <div className="mono text-xs text-slate-500">Authenticating...</div>
+      <div style={{ minHeight: '100vh', background: '#0b0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontFamily: "'Inter', sans-serif" }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: '50%', border: '3px solid #1e293b', borderTopColor: '#0D9488', animation: 'spin 1s linear infinite' }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+          <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>Authenticating...</div>
         </div>
       </div>
     )
   }
 
-  const overall = result?.overall ?? null
-  const level = riskLevel(overall)
   const isPro = plan === 'pro' || plan === 'enterprise'
 
+  // Derive flags from the real backend result
+  const derivedFlags: { type: 'danger' | 'warning' | 'info' | 'success'; text: string }[] = []
+  if (result) {
+    const courtHits = result.court_records_detail?.total_hits || 0
+    if (courtHits > 0) {
+      derivedFlags.push({ type: 'danger', text: `⚖️ 法庭记录命中！在公开数据库中发现 ${courtHits} 条潜在匹配。这是最强的违约预测指标之一，请极度谨慎并通过 CanLII 链接人工核实。` })
+    } else {
+      derivedFlags.push({ type: 'success', text: '⚖️ 法庭记录查询通过。在已检索的公开数据库中未发现 LTB 驱逐令或民事诉讼记录。' })
+    }
+    if (result.scores.doc_authenticity < 50) {
+      derivedFlags.push({ type: 'danger', text: '文档真伪验证未通过！检测到可能的篡改痕迹或异常元数据。强烈建议人工复核原始文件。' })
+    }
+    if (result.scores.info_consistency < 50) {
+      derivedFlags.push({ type: 'danger', text: '交叉校验发现不一致：文件间的雇主名称、收入金额或日期存在矛盾，存在欺诈风险。' })
+    }
+    if (result.scores.payment_ability >= 75 && result.scores.doc_authenticity >= 70 && courtHits === 0) {
+      derivedFlags.push({ type: 'success', text: '财务状况良好，收入水平充足，文档验证通过，法庭记录清白。综合风险较低。' })
+    }
+    if (tier === 'free') {
+      derivedFlags.push({ type: 'info', text: '💎 升级 Pro 版可查询 Ontario Courts Portal 民事记录 + Stayloop Verified Network，获取更完整的风险画像。' })
+    }
+  }
+
+  const riskOverall = result ? getRiskLevel(result.overall) : null
+
   return (
-    <div className="min-h-screen text-slate-100">
-      {/* Top utility bar */}
-      <nav className="sticky top-0 z-20 backdrop-blur-xl bg-[#060814]/60 border-b border-white/[0.06]">
-        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
-          <Link href="/" className="text-xs mono text-slate-500 hover:text-slate-300">← stayloop.ai</Link>
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/[0.04]">Dashboard →</Link>
-            <span className="mono text-xs text-slate-500 hidden sm:inline">{landlord.email}</span>
-            <button onClick={signOut} className="btn-ghost text-xs px-3 py-1.5">Sign out</button>
-          </div>
-        </div>
-      </nav>
+    <div style={{ minHeight: '100vh', background: '#0b0f1a', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: '#e2e8f0' }}>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
 
-      <div className="max-w-5xl mx-auto px-6 py-10">
-        {/* Big header */}
-        <div className="flex items-center gap-4 mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white text-2xl font-bold shadow-2xl shadow-cyan-500/30">S</div>
+      {/* Header */}
+      <div style={{ borderBottom: '1px solid #1e293b', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #0D9488, #2563EB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: '#fff' }}>S</div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Stayloop Screening</h1>
-            <p className="text-sm text-slate-400 mt-0.5">AI 租客风控评估系统 <span className="mono text-cyan-400">v1.1</span></p>
+            <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.5 }}>Stayloop Screening</div>
+            <div style={{ fontSize: 11, color: '#64748b', letterSpacing: 0.5 }}>AI 租客风控评估系统 v1.1</div>
           </div>
+        </Link>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {result && (
+            <button onClick={reset} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #334155', background: '#1e293b', color: '#94a3b8', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>+ 新评估</button>
+          )}
+          <Link href="/dashboard" style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#94a3b8', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>Dashboard →</Link>
         </div>
+      </div>
 
-        {/* Free / Pro tabs */}
-        <div className="grid grid-cols-2 gap-3 mb-6 p-1.5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-          <button
-            onClick={() => {/* free is always available */}}
-            className={`rounded-xl py-4 px-5 text-center transition-all ${
-              !isPro
-                ? 'bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/40 shadow-lg shadow-cyan-500/10'
-                : 'border border-transparent hover:bg-white/[0.03]'
-            }`}
-          >
-            <div className="text-base font-bold mb-1">免费版</div>
-            <div className="text-[11px] text-slate-400 mono">CanLII 公开记录</div>
-          </button>
-          <Link
-            href={isPro ? '#' : '/dashboard?upgrade=1'}
-            className={`rounded-xl py-4 px-5 text-center transition-all block ${
-              isPro
-                ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/5 border border-amber-500/40 shadow-lg shadow-amber-500/10'
-                : 'border border-transparent hover:bg-white/[0.03]'
-            }`}
-          >
-            <div className="text-base font-bold mb-1">订阅版 <span className="text-amber-400">💎</span></div>
-            <div className="text-[11px] text-slate-400 mono">CanLII + Ontario Courts + Verified Network</div>
-          </Link>
-        </div>
+      <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 16px' }}>
+        {!result && !analyzing && (
+          <>
+            {/* Tier Toggle */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20, padding: 4, background: '#1e293b', borderRadius: 12, border: '1px solid #334155' }}>
+              {(Object.entries(TIERS) as [keyof typeof TIERS, typeof TIERS[keyof typeof TIERS]][]).map(([key, t]) => {
+                const active = tier === key
+                const canUsePro = isPro
+                const disabled = key === 'pro' && !canUsePro
+                return (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      if (disabled) {
+                        window.location.href = '/dashboard?upgrade=1'
+                        return
+                      }
+                      setTier(key)
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '10px 16px',
+                      borderRadius: 8,
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: active ? (key === 'pro' ? 'linear-gradient(135deg, #7C3AED, #8B5CF6)' : '#334155') : 'transparent',
+                      color: active ? '#fff' : '#64748b',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      transition: 'all 0.2s',
+                      opacity: disabled ? 0.75 : 1,
+                    }}
+                  >
+                    <div>{t.labelCn} {key === 'pro' && '💎'}</div>
+                    <div style={{ fontSize: 10, fontWeight: 400, marginTop: 2, opacity: 0.8 }}>{t.sources}</div>
+                  </button>
+                )
+              })}
+            </div>
 
-        <div className="space-y-5">
-            {/* Name + Rent inputs (top row) */}
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-slate-300 block mb-2">申请人姓名 <span className="text-slate-500">(可选)</span></label>
+            {/* Input Fields */}
+            <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <label style={{ fontSize: 12, color: '#64748b', marginBottom: 6, display: 'block' }}>申请人姓名（可选）</label>
                 <input
                   type="text"
-                  value={tenantName}
-                  onChange={e => setTenantName(e.target.value)}
                   placeholder="留空则从文件中自动提取"
-                  className="w-full bg-[#0f172a] border border-[#1e293b] rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/60"
+                  value={applicantName}
+                  onChange={e => setApplicantName(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                 />
-                <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">未填写时，系统将从 ID / Employment Letter / Pay Stub 中自动提取姓名用于法庭记录查询</p>
+                <div style={{ fontSize: 10, color: '#475569', marginTop: 4 }}>未填写时，系统将从 ID / Employment Letter / Pay Stub 中自动提取姓名用于法庭记录查询</div>
               </div>
-              <div>
-                <label className="text-xs text-slate-300 block mb-2">目标月租金 <span className="text-slate-500">(CAD)</span></label>
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <label style={{ fontSize: 12, color: '#64748b', marginBottom: 6, display: 'block' }}>目标月租金 (CAD)</label>
                 <input
                   type="number"
-                  value={monthlyRent}
-                  onChange={e => setMonthlyRent(e.target.value)}
                   placeholder="e.g. 2500"
-                  className="w-full bg-[#0f172a] border border-[#1e293b] rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/60"
+                  value={targetRent}
+                  onChange={e => setTargetRent(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                 />
               </div>
             </div>
 
-            {/* Big drop zone */}
+            {/* Drop Zone */}
             <div
-              onDragOver={e => { e.preventDefault(); setDragging(true) }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={onDrop}
+              onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`rounded-2xl p-12 border-2 border-dashed transition-all cursor-pointer text-center ${
-                dragging
-                  ? 'border-cyan-400/70 bg-cyan-500/5 scale-[1.005]'
-                  : 'border-[#1e293b] bg-[#0f172a]/50 hover:border-cyan-500/40 hover:bg-[#0f172a]'
-              }`}
+              style={{
+                border: `2px dashed ${dragOver ? '#0D9488' : '#334155'}`,
+                borderRadius: 16,
+                padding: '48px 24px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: dragOver ? '#0D948810' : '#0f172a',
+              }}
             >
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".pdf,image/*,.doc,.docx"
-                className="hidden"
-                onChange={e => addFiles(e.target.files)}
+                accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                onChange={e => handleFiles(e.target.files)}
+                style={{ display: 'none' }}
               />
-              <div className="text-6xl mb-4">📁</div>
-              <div className="text-lg font-semibold mb-2">拖放租客申请文件到这里</div>
-              <div className="text-xs text-slate-500 mb-5">支持 PDF, JPG, PNG, DOC — Employment Letter, Pay Stubs, Bank Statements, ID, Credit Report 等</div>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1e293b] hover:bg-[#243449] border border-white/10 text-sm font-medium text-slate-200 transition-colors"
-              >
-                <span>📎</span>
-                <span>选择文件</span>
-              </button>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>📁</div>
+              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>拖放租客申请文件到这里</div>
+              <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>支持 PDF, JPG, PNG, DOC — Employment Letter, Pay Stubs, Bank Statements, ID, Credit Report 等</div>
+              <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', borderRadius: 8, background: '#1e293b', border: '1px solid #334155', fontSize: 13, color: '#94a3b8' }}>📎 选择文件</div>
             </div>
 
-            {/* Document type quick-add grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {DOC_TYPES.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center gap-2 rounded-xl bg-[#0f172a]/60 border border-[#1e293b] hover:border-cyan-500/40 hover:bg-[#0f172a] py-5 px-3 transition-all"
-                >
-                  <span className="text-2xl">{t.icon}</span>
-                  <span className="text-[11px] text-slate-400 text-center leading-tight">{t.label}</span>
-                </button>
+            {/* File Types */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 16 }}>
+              {Object.entries(FILE_TYPES).map(([key, ft]) => (
+                <div key={key} style={{ padding: '10px', borderRadius: 8, background: '#0f172a', border: '1px solid #1e293b', textAlign: 'center', fontSize: 11, color: '#64748b' }}>
+                  <div style={{ fontSize: 18, marginBottom: 4 }}>{ft.icon}</div>
+                  {ft.label}
+                </div>
               ))}
             </div>
 
-            {pendingFiles.length > 0 && (
-              <div className="rounded-2xl bg-[#0f172a]/60 border border-[#1e293b] p-4">
-                <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-2.5">已选择文件 · {pendingFiles.length}</div>
-                <ul className="space-y-1.5">
-                  {pendingFiles.map((f, i) => (
-                    <li key={i} className="flex items-center justify-between text-xs">
-                      <span className="text-slate-300 truncate flex-1">📄 {f.name} <span className="text-slate-600 mono ml-2">{(f.size / 1024).toFixed(0)} KB</span></span>
-                      <button onClick={() => removeFile(i)} className="text-slate-500 hover:text-red-400 ml-3 mono">移除</button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {error && (
+              <div style={{ marginTop: 16, padding: '10px 14px', background: '#451a1a', border: '1px solid #7f1d1d', borderRadius: 8, fontSize: 13, color: '#fca5a5' }}>⚠ {error}</div>
             )}
 
-            {/* Optional pasted context (collapsed by default would be nice but keep simple) */}
-            <details className="rounded-2xl bg-[#0f172a]/40 border border-[#1e293b] overflow-hidden">
-              <summary className="cursor-pointer px-5 py-3 text-xs text-slate-400 hover:text-slate-200 flex items-center justify-between">
-                <span>📝 补充说明 / 粘贴文本（可选）</span>
-                <span className="mono text-slate-600">expand ▾</span>
-              </summary>
-              <div className="px-5 pb-5 pt-1 space-y-3">
-                <input
-                  type="number"
-                  value={monthlyIncome}
-                  onChange={e => setMonthlyIncome(e.target.value)}
-                  placeholder="租客月收入 (可选)"
-                  className="w-full bg-[#0a0f1c] border border-[#1e293b] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50"
-                />
-                <input
-                  type="text"
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="给 AI 的额外备注 (可选)"
-                  className="w-full bg-[#0a0f1c] border border-[#1e293b] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50"
-                />
-                <textarea
-                  value={pastedText}
-                  onChange={e => setPastedText(e.target.value)}
-                  rows={4}
-                  className="w-full bg-[#0a0f1c] border border-[#1e293b] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 mono"
-                  placeholder="粘贴信用报告、邮件、聊天记录等 (可选)"
-                />
+            {/* File List & Submit */}
+            {files.length > 0 && (
+              <div style={{ marginTop: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: '#94a3b8' }}>已上传 {files.length} 个文件</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {files.map((f, i) => <FileChip key={i} file={f} onRemove={() => removeFile(i)} />)}
+                </div>
+                <div style={{ marginTop: 14, padding: '10px 14px', background: '#1e293b', borderRadius: 8, border: '1px solid #334155', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#94a3b8' }}>
+                  <span>⚖️</span>
+                  <span>{applicantName.trim() ? `将使用「${applicantName.trim()}」` : '将从文件中提取姓名'} 自动查询 {tier === 'pro' ? 'CanLII + Ontario Courts + Stayloop Verified Network' : 'CanLII LTB 公开裁决'} — 全程自动</span>
+                </div>
+                <button
+                  onClick={runAnalysis}
+                  style={{ marginTop: 16, width: '100%', padding: '14px', borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #0D9488, #2563EB)', color: '#fff', fontSize: 15, fontWeight: 700, letterSpacing: 0.5 }}
+                >
+                  🔍 开始 AI 风控分析 {tier === 'pro' && '· Pro'}
+                </button>
               </div>
-            </details>
+            )}
+          </>
+        )}
 
-            {/* Submit */}
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                onClick={handleScreen}
-                disabled={submitting}
-                className="flex-1 sm:flex-initial bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-400 hover:to-violet-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-8 py-3.5 rounded-xl shadow-lg shadow-cyan-500/30 transition-all"
-              >
-                {submitting ? '⏳ 分析中…' : '🚀 开始 AI 风控分析'}
-              </button>
-              {(result || error) && (
-                <button onClick={reset} className="text-xs text-slate-400 hover:text-slate-200 px-4 py-2 rounded-lg border border-white/10 hover:bg-white/[0.04]">↻ 重新评估</button>
-              )}
+        {/* Analyzing */}
+        {analyzing && (
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <div style={{ width: 64, height: 64, margin: '0 auto 24px', borderRadius: '50%', border: '3px solid #1e293b', borderTopColor: progressLabel.includes('查询') ? '#8B5CF6' : '#0D9488', animation: 'spin 1s linear infinite' }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: progressLabel.includes('查询') ? '#A78BFA' : '#e2e8f0' }}>{progressLabel || '启动分析...'}</div>
+            <div style={{ width: 300, height: 4, borderRadius: 2, background: '#1e293b', margin: '16px auto', overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: 2, background: progressLabel.includes('查询') ? 'linear-gradient(90deg, #7C3AED, #8B5CF6)' : 'linear-gradient(90deg, #0D9488, #2563EB)', width: `${progress}%`, transition: 'width 0.5s ease' }} />
+            </div>
+            <div style={{ fontSize: 12, color: '#64748b' }}>
+              {progressLabel.includes('查询')
+                ? `正在查询公开法庭记录 · ${tier === 'pro' ? 'Pro 全量查询' : '基础查询'}`
+                : progressLabel.includes('提取申请人')
+                  ? '正在从文件中识别申请人信息...'
+                  : `正在分析 ${files.length} 个文件...`}
+            </div>
+          </div>
+        )}
+
+        {/* Results */}
+        {result && riskOverall && (
+          <div>
+            {/* Overall */}
+            <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1a1a2e 100%)', border: '1px solid #1e293b', borderRadius: 20, padding: '32px 24px', textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 12, color: '#64748b', letterSpacing: 2, textTransform: 'uppercase' }}>综合风险评估</span>
+                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: result.tier === 'pro' ? '#8B5CF620' : '#1e293b', color: result.tier === 'pro' ? '#A78BFA' : '#64748b', fontWeight: 600 }}>{result.tier === 'pro' ? 'PRO' : 'FREE'}</span>
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{result.extracted_name || applicantName || '未识别'}</div>
+              {result.name_was_extracted
+                ? <div style={{ fontSize: 10, color: '#64748b', marginBottom: 16 }}>📛 姓名从申请文件中自动提取</div>
+                : <div style={{ marginBottom: 16 }} />}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+                <ScoreRing score={result.overall} size={160} strokeWidth={12} />
+              </div>
+              <div style={{ display: 'inline-block', padding: '6px 20px', borderRadius: 20, background: riskOverall.bg, color: riskOverall.color, fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>
+                {riskOverall.tag} — {riskOverall.label}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 20, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
+                <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>${targetRent || '—'}</div>目标月租金</div>
+                <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>{files.length}</div>文件已分析</div>
+                <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>{result.court_records_detail?.queries.filter(q => q.status === 'ok').length || 0}</div>法庭库已查</div>
+              </div>
             </div>
 
-            {/* Pipeline progress */}
-            {(submitting || (result && steps.some(s => s.status === 'done'))) && (
-              <div className="rounded-2xl bg-[#0f172a]/60 border border-[#1e293b] p-5">
-                <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-3 mono">// 分析流程</div>
-                <ul className="space-y-2.5">
-                  {steps.map(s => (
-                    <li key={s.key} className={`flex items-center gap-3 text-sm ${s.key === 'court' && s.status === 'active' ? 'text-violet-300' : ''}`}>
-                      <StepIcon status={s.status} />
-                      <span className={
-                        s.status === 'done' ? 'text-slate-200' :
-                        s.status === 'active' ? (s.key === 'court' ? 'text-violet-300 font-medium' : 'text-cyan-300 font-medium') :
-                        s.status === 'skipped' ? 'text-slate-600 line-through' :
-                        'text-slate-500'
-                      }>
-                        {s.label}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+            {/* Summary */}
+            <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, padding: '20px', marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: '#94a3b8' }}>📝 AI 风险摘要</div>
+              <p style={{ fontSize: 14, lineHeight: 1.8, color: '#cbd5e1', margin: 0 }}>{result.summary}</p>
+            </div>
+
+            {/* Category Scores */}
+            <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, padding: '20px', marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: '#94a3b8' }}>📊 分项评分明细 · 6 个维度</div>
+              {CATEGORIES.map((cat, i) => (
+                <CategoryBar key={cat.id} category={cat} score={result.scores[cat.id]} animDelay={i * 150} tier={result.tier} />
+              ))}
+            </div>
+
+            {/* Court Records */}
+            <CourtRecordDetail
+              queries={result.court_records_detail?.queries || []}
+              totalHits={result.court_records_detail?.total_hits || 0}
+              queriedName={result.court_records_detail?.queried_name || ''}
+              tier={result.tier}
+            />
+
+            {/* Flags */}
+            {derivedFlags.length > 0 && (
+              <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, padding: '20px', marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#94a3b8' }}>🚩 风险标记 & 建议</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {derivedFlags.map((flag, i) => <Flag key={i} type={flag.type} text={flag.text} />)}
+                </div>
               </div>
             )}
 
-            {error && (
-              <div className="rounded-xl p-4 border border-red-500/30 bg-red-500/5">
-                <div className="text-sm text-red-300">⚠ {error}</div>
+            {/* Weights */}
+            <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, padding: '20px', marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#94a3b8' }}>⚙️ 评分权重说明</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {CATEGORIES.map(cat => (
+                  <div key={cat.id} style={{ textAlign: 'center', padding: '12px 8px', borderRadius: 8, background: '#1e293b', border: cat.id === 'court_records' ? '1px solid #8B5CF640' : '1px solid transparent' }}>
+                    <div style={{ fontSize: 20, marginBottom: 4 }}>{cat.icon}</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{cat.label}</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: cat.id === 'court_records' ? '#A78BFA' : '#0D9488', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{(cat.weight * 100).toFixed(0)}%</div>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
 
-            {/* RESULT */}
-            {result && (
-              <div className="space-y-5">
-                {/* Header card with score ring */}
-                <div className={`rounded-2xl p-6 bg-[#0f172a]/80 border ${level.border} shadow-2xl ${level.glow}`}>
-                  <div className="flex items-start gap-6">
-                    <ScoreRing score={result.overall} level={level} />
-                    <div className="flex-1 min-w-0">
-                      <div className="mono text-[11px] text-slate-500 mb-1">// 申请人</div>
-                      <div className="text-2xl font-bold tracking-tight truncate">{result.extracted_name || tenantName || '未识别'}</div>
-                      {result.name_was_extracted && (
-                        <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-violet-300 bg-violet-500/10 border border-violet-500/30 rounded-md px-2 py-0.5">
-                          <span>📛</span>
-                          <span>姓名从申请文件中自动提取</span>
-                        </div>
+            {/* Footer */}
+            <div style={{ textAlign: 'center', padding: '16px', fontSize: 11, color: '#475569', borderTop: '1px solid #1e293b' }}>
+              Stayloop Screening v1.1 · {result.tier === 'pro' ? 'Pro' : 'Free'} · {new Date().toLocaleString('zh-CN')}<br />
+              法庭记录: CanLII (canlii.org){result.tier === 'pro' ? ' + Ontario Courts Portal' : ''}<br />
+              本报告仅供决策参考。最终租赁决定应遵守 Ontario RTA / Human Rights Code。
+            </div>
+          </div>
+        )}
+
+        {/* History */}
+        {!analyzing && history.length > 0 && (
+          <div style={{ marginTop: 32, background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#8B5CF6' }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>最近评估</span>
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: '#64748b', fontFamily: "'JetBrains Mono', monospace" }}>{history.length} 条</span>
+            </div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: 400, overflowY: 'auto' }}>
+              {history.map(s => {
+                const lvl = s.ai_score != null ? getRiskLevel(s.ai_score) : null
+                return (
+                  <li key={s.id} style={{ padding: '12px 20px', borderBottom: '1px solid #1e293b' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ fontSize: 13, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                        {s.tenant_name || '(自动提取)'}
+                      </div>
+                      {s.ai_score != null && lvl ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: `${lvl.color}20`, color: lvl.color, fontFamily: "'JetBrains Mono', monospace" }}>{s.ai_score}</span>
+                      ) : (
+                        <span style={{ fontSize: 10, color: '#64748b', fontFamily: "'JetBrains Mono', monospace" }}>{s.status}</span>
                       )}
-                      <div className={`mt-3 inline-flex items-center gap-2 ${level.bg} ${level.border} border rounded-lg px-3 py-1.5`}>
-                        <span className={`mono text-xs font-bold ${level.text}`}>{level.label}</span>
-                      </div>
-                      <p className={`text-xs mt-1.5 ${level.text}`}>{level.decision}</p>
                     </div>
-                  </div>
-                  <div className="mt-5 pt-5 border-t border-white/[0.06]">
-                    <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-2 mono">// AI 风险摘要</div>
-                    <p className="text-sm text-slate-300 leading-relaxed">{result.summary}</p>
-                  </div>
-                </div>
-
-                {/* Six-dimension cards */}
-                <div className="rounded-2xl bg-[#0f172a]/60 border border-[#1e293b] p-6">
-                  <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-4 mono">// 6 维度评分</div>
-                  <div className="space-y-3">
-                    {DIMS.map(({ key, label, weight, icon }) => {
-                      const score = result.scores[key]
-                      const lvl = riskLevel(score)
-                      const isCourt = key === 'court_records'
-                      return (
-                        <div key={key} className={`rounded-xl border px-4 py-3 ${isCourt ? 'bg-violet-500/[0.04] border-violet-500/20' : `${lvl.bg} ${lvl.border}`}`}>
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-base">{icon}</span>
-                              <span className="text-sm font-medium text-slate-200">{label}</span>
-                              <span className="mono text-[10px] text-slate-500">权重 {weight}%</span>
-                            </div>
-                            <span className={`mono text-lg font-bold ${lvl.text}`}>{score}</span>
-                          </div>
-                          <div className="h-1.5 rounded-full bg-white/[0.05] overflow-hidden mb-1.5">
-                            <div className={`h-full ${lvl.bar} transition-all duration-700`} style={{ width: `${Math.max(2, score)}%` }} />
-                          </div>
-                          {result.notes?.[key] && <div className="text-[11px] text-slate-400 leading-snug mt-1.5">{result.notes[key]}</div>}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Court records detail card */}
-                <div className="rounded-2xl bg-[#0f172a]/60 border border-[#1e293b] p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <div className="text-[11px] uppercase tracking-wider text-slate-500 mono">// 法庭记录查询详情</div>
-                      <div className="text-xs text-slate-400 mt-1">
-                        查询姓名: <span className="mono text-slate-200">{result.court_records_detail?.queried_name || '—'}</span>
-                      </div>
-                    </div>
-                    <div className={`mono text-[10px] uppercase px-2 py-1 rounded-md border ${result.tier === 'pro' ? 'bg-amber-500/15 text-amber-300 border-amber-500/40' : 'bg-slate-500/10 text-slate-300 border-slate-500/30'}`}>{result.tier === 'pro' ? '订阅版' : '免费版'}</div>
-                  </div>
-                  <ul className="space-y-2">
-                    {result.court_records_detail?.queries.map((q, i) => (
-                      <CourtRow key={i} q={q} />
-                    ))}
-                  </ul>
-                  {result.court_records_detail?.total_hits > 0 && (
-                    <div className="mt-4 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
-                      ⚠ 共在 {result.court_records_detail.total_hits} 条记录中发现潜在匹配。请通过 CanLII 链接核实身份后再做决定。
-                    </div>
-                  )}
-                  {!isPro && (
-                    <Link href="/dashboard?upgrade=1" className="mt-4 block text-center text-xs px-3 py-2.5 rounded-lg border border-amber-500/40 bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-300 hover:from-amber-500/20 hover:to-orange-500/20 transition-colors">
-                      💎 升级到订阅版以解锁 Ontario Courts Portal + Stayloop Verified Network
-                    </Link>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* History */}
-            {history.length > 0 && (
-              <div className="rounded-2xl bg-[#0f172a]/40 border border-[#1e293b] overflow-hidden mt-8">
-                <div className="px-5 py-4 border-b border-[#1e293b] flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
-                  <span className="font-semibold text-sm">最近评估</span>
-                  <span className="mono text-[11px] text-slate-500 ml-auto">{history.length} 条</span>
-                </div>
-                <ul className="divide-y divide-[#1e293b] max-h-[400px] overflow-y-auto">
-                  {history.map(s => {
-                    const lvl = riskLevel(s.ai_score)
-                    return (
-                      <li key={s.id} className="px-5 py-3 hover:bg-white/[0.02]">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="text-sm text-slate-200 truncate">{s.tenant_name || '(自动提取)'}</div>
-                          {s.ai_score != null ? (
-                            <span className={`mono text-xs font-bold px-2 py-0.5 rounded border ${lvl.bg} ${lvl.border} ${lvl.text}`}>{s.ai_score}</span>
-                          ) : (
-                            <span className="text-[10px] mono text-slate-600">{s.status}</span>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-slate-600 mono mt-0.5">{new Date(s.created_at).toLocaleString('zh-CN')}</div>
-                        {s.ai_summary && <div className="text-[11px] text-slate-500 mt-1 line-clamp-2">{s.ai_summary}</div>}
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            )}
+                    <div style={{ fontSize: 10, color: '#475569', marginTop: 2, fontFamily: "'JetBrains Mono', monospace" }}>{new Date(s.created_at).toLocaleString('zh-CN')}</div>
+                    {s.ai_summary && <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.ai_summary}</div>}
+                  </li>
+                )
+              })}
+            </ul>
           </div>
-
-          {/* Footer */}
-          <div className="mt-10 pt-6 border-t border-[#1e293b] text-center text-[11px] text-slate-600 mono">
-            Stayloop Screening v1.1 · {isPro ? 'Pro' : 'Free'} · {new Date().toLocaleDateString('zh-CN')}<br/>
-            法庭记录: CanLII (canlii.org){isPro && ' + Ontario Courts Portal'}<br/>
-            本报告仅供决策参考。最终租赁决定应遵守 Ontario RTA / Human Rights Code。
-          </div>
+        )}
       </div>
     </div>
   )
-}
-
-function Field({ label, value, onChange, placeholder, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
-  return (
-    <div>
-      <label className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1.5">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50"
-      />
-    </div>
-  )
-}
-
-function StepIcon({ status }: { status: StepStatus }) {
-  if (status === 'done') return <span className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-[10px] text-emerald-300">✓</span>
-  if (status === 'active') return <span className="w-5 h-5 rounded-full border-2 border-cyan-400/30 border-t-cyan-400 animate-spin" />
-  if (status === 'skipped') return <span className="w-5 h-5 rounded-full bg-slate-700/30 border border-slate-600/40 flex items-center justify-center text-[10px] text-slate-500">—</span>
-  return <span className="w-5 h-5 rounded-full bg-white/[0.03] border border-white/10" />
-}
-
-function ScoreRing({ score, level }: { score: number; level: RiskLevel }) {
-  const r = 50
-  const c = 2 * Math.PI * r
-  const offset = c - (Math.max(0, Math.min(100, score)) / 100) * c
-  return (
-    <div className="relative w-32 h-32 shrink-0">
-      <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
-        <circle cx="60" cy="60" r={r} className="stroke-white/[0.08] fill-none" strokeWidth="9" />
-        <circle
-          cx="60" cy="60" r={r}
-          className={`fill-none ${level.ring} transition-all duration-1000`}
-          strokeWidth="9"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={offset}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className={`text-4xl font-bold mono ${level.text}`}>{score}</div>
-        <div className="mono text-[9px] text-slate-500 uppercase tracking-wider">/ 100</div>
-      </div>
-    </div>
-  )
-}
-
-function CourtRow({ q }: { q: CourtQuery }) {
-  let icon: string, iconCls: string, badge: string, badgeCls: string
-  if (q.status === 'ok') {
-    if ((q.hits ?? 0) > 0) {
-      icon = '⚠'
-      iconCls = 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-      badge = `${q.hits} match${q.hits === 1 ? '' : 'es'}`
-      badgeCls = 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-    } else {
-      icon = '✓'
-      iconCls = 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
-      badge = 'Clear'
-      badgeCls = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-    }
-  } else if (q.status === 'coming_soon') {
-    icon = '⋯'
-    iconCls = 'bg-slate-700/30 border-slate-600/40 text-slate-500'
-    badge = 'Coming soon'
-    badgeCls = 'bg-slate-500/10 text-slate-400 border-slate-500/30'
-  } else if (q.status === 'unavailable') {
-    icon = '!'
-    iconCls = 'bg-orange-500/20 border-orange-500/40 text-orange-300'
-    badge = 'Unavailable'
-    badgeCls = 'bg-orange-500/10 text-orange-300 border-orange-500/30'
-  } else {
-    icon = '—'
-    iconCls = 'bg-slate-700/30 border-slate-600/40 text-slate-500'
-    badge = 'Skipped'
-    badgeCls = 'bg-slate-500/10 text-slate-400 border-slate-500/30'
-  }
-  const inner = (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-colors">
-      <span className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs ${iconCls}`}>{icon}</span>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm text-slate-200 truncate">{q.source}</div>
-        {q.note && <div className="text-[10px] text-slate-500 mono truncate">{q.note}</div>}
-      </div>
-      <span className={`mono text-[10px] uppercase px-2 py-0.5 rounded border ${badgeCls}`}>{badge}</span>
-    </div>
-  )
-  if (q.url && q.status === 'ok') {
-    return <li><a href={q.url} target="_blank" rel="noreferrer">{inner}</a></li>
-  }
-  return <li>{inner}</li>
 }
