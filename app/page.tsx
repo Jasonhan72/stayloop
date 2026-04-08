@@ -17,8 +17,7 @@ export default function Home() {
             </div>
           </Link>
           <div className="flex items-center gap-2">
-            <Link href="/login" className="btn-ghost hidden sm:inline-block">Sign in</Link>
-            <Link href="/login" className="btn-primary">Get started →</Link>
+            <Link href="/screen" className="btn-primary">开始使用 →</Link>
           </div>
         </div>
       </nav>
@@ -40,7 +39,7 @@ export default function Home() {
         </p>
 
         <div className="flex gap-3 justify-center">
-          <Link href="/login" className="btn-primary text-base px-7 py-3.5">
+          <Link href="/screen" className="btn-primary text-base px-7 py-3.5">
             Start screening free
           </Link>
           <a href="#features" className="btn-ghost text-base px-7 py-3.5">
@@ -168,7 +167,7 @@ export default function Home() {
               <li className="flex gap-2"><span className="text-cyan-400">✓</span> 5 AI screenings / month</li>
               <li className="flex gap-2"><span className="text-cyan-400">✓</span> LTB record search</li>
             </ul>
-            <Link href="/login" className="btn-ghost w-full inline-block text-center">Start free</Link>
+            <Link href="/screen" className="btn-ghost w-full inline-block text-center">Start free</Link>
           </div>
 
           <div className="glass rounded-2xl p-8 relative overflow-hidden">
@@ -186,7 +185,7 @@ export default function Home() {
                 <li className="flex gap-2"><span className="text-cyan-400">✓</span> LTB + court record search</li>
                 <li className="flex gap-2"><span className="text-cyan-400">✓</span> Priority support</li>
               </ul>
-              <Link href="/login" className="btn-primary w-full inline-block text-center">Upgrade to Pro</Link>
+              <Link href="/screen" className="btn-primary w-full inline-block text-center">Upgrade to Pro</Link>
             </div>
           </div>
         </div>

@@ -17,13 +17,18 @@ export function useLandlord(redirectIfMissing = true) {
   useEffect(() => {
     let active = true
     async function load() {
-      const { data: { session } } = await supabase.auth.getSession()
+      let { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) {
-        if (active) {
-          setLoading(false)
-          if (redirectIfMissing) router.replace('/login')
+        // No session — try anonymous sign-in so visitors can use the app instantly
+        const { data: anon, error: anonErr } = await supabase.auth.signInAnonymously()
+        if (anonErr || !anon?.session?.user) {
+          if (active) {
+            setLoading(false)
+            if (redirectIfMissing) router.replace('/login')
+          }
+          return
         }
-        return
+        session = anon.session
       }
 
       let { data: row } = await supabase
