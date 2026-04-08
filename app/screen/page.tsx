@@ -47,6 +47,8 @@ interface ScoreResult {
   extracted_name: string
   name_was_extracted: boolean
   summary: string
+  summary_en?: string
+  summary_zh?: string
   court_records_detail: { queries: CourtQuery[]; total_hits: number; queried_name: string }
   tier: 'free' | 'pro'
 }
@@ -152,8 +154,8 @@ function CategoryBar({ category, score, animDelay = 0, tier }: { category: typeo
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 16 }}>{category.icon}</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>{primary}</span>
-          <span style={{ fontSize: 11, fontWeight: 500, color: '#64748b' }}>{secondary}</span>
+          <span className="sl-cat-primary" style={{ fontWeight: 700, color: '#e2e8f0' }}>{primary}</span>
+          <span className="sl-cat-secondary" style={{ fontWeight: 500, color: '#64748b' }}>{secondary}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {isCourtRecord && (
@@ -205,10 +207,10 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier }: { queries:
   const { t } = useT()
   const availableCount = queries.filter(q => q.status === 'ok').length
   return (
-    <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, padding: '20px', marginBottom: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+    <div className="sl-card" style={{ background: '#0f172a', border: '1px solid #1e293b', marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 8, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>{t('screen.result.court.title')}</div>
+          <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>{t('screen.result.court.title')}</div>
           <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{t('screen.result.court.queriedName')} <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#cbd5e1' }}>{queriedName || '—'}</span></div>
         </div>
         <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, background: tier === 'pro' ? '#8B5CF620' : '#1e293b', color: tier === 'pro' ? '#A78BFA' : '#64748b', border: `1px solid ${tier === 'pro' ? '#8B5CF640' : '#334155'}`, fontWeight: 600 }}>
@@ -222,7 +224,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier }: { queries:
             const available = q.status === 'ok'
             const hit = available && (q.hits ?? 0) > 0
             return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: available ? '#cbd5e1' : '#475569' }}>
+              <div key={i} className="sl-court-source" style={{ display: 'flex', alignItems: 'center', gap: 8, color: available ? '#cbd5e1' : '#475569' }}>
                 <span style={{ width: 18, height: 18, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, background: available ? (hit ? '#DC262620' : '#16A34A20') : '#1e293b', color: available ? (hit ? '#FCA5A5' : '#86EFAC') : '#475569', border: `1px solid ${available ? (hit ? '#7F1D1D' : '#1D7C4A') : '#334155'}` }}>
                   {available ? (hit ? '!' : '✓') : '🔒'}
                 </span>
@@ -507,26 +509,66 @@ export default function ScreenPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#0b0f1a', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif", color: '#e2e8f0' }}>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
+      <style>{`
+        .sl-header { padding: 20px 24px; }
+        .sl-brand-sub { display: block; }
+        .sl-container { max-width: 800px; margin: 0 auto; padding: 24px 16px; }
+        .sl-tier-toggle { display: flex; gap: 8px; margin-bottom: 20px; padding: 4px; }
+        .sl-tier-btn-sources { font-size: 10px; }
+        .sl-card { padding: 20px; border-radius: 16px; }
+        .sl-card-overall { padding: 32px 24px; border-radius: 20px; }
+        .sl-file-grid { grid-template-columns: repeat(4, 1fr); }
+        .sl-weights-grid { grid-template-columns: repeat(3, 1fr); }
+        .sl-stats-row { gap: 24px; font-size: 12px; }
+        .sl-stats-val { font-size: 14px; }
+        .sl-score-ring-wrap { display: flex; justify-content: center; margin-bottom: 20px; }
+        .sl-cat-primary { font-size: 13px; }
+        .sl-cat-secondary { font-size: 11px; }
+        .sl-court-source { font-size: 12px; }
+        .sl-nav-btn { padding: 8px 16px; font-size: 13px; }
+        .sl-extracted-name { font-size: 18px; }
+        .sl-risk-pill { font-size: 14px; padding: 6px 20px; }
+        @media (max-width: 640px) {
+          .sl-header { padding: 14px 14px; flex-wrap: wrap; gap: 10px; }
+          .sl-brand-sub { display: none; }
+          .sl-container { padding: 16px 12px; }
+          .sl-card { padding: 14px; border-radius: 14px; }
+          .sl-card-overall { padding: 22px 14px; border-radius: 16px; }
+          .sl-file-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .sl-weights-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .sl-stats-row { gap: 14px !important; font-size: 11px !important; }
+          .sl-stats-val { font-size: 13px !important; }
+          .sl-cat-primary { font-size: 12px !important; }
+          .sl-cat-secondary { font-size: 10px !important; }
+          .sl-court-source { font-size: 11px !important; }
+          .sl-nav-btn { padding: 6px 10px !important; font-size: 12px !important; }
+          .sl-extracted-name { font-size: 16px !important; }
+          .sl-risk-pill { font-size: 12px !important; padding: 5px 14px !important; }
+          .sl-tier-btn-sources { display: none; }
+          .sl-summary-text { font-size: 13px !important; line-height: 1.7 !important; }
+          .sl-section-title { font-size: 12px !important; }
+        }
+      `}</style>
 
       {/* Header */}
-      <div style={{ borderBottom: '1px solid #1e293b', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="sl-header" style={{ borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #0D9488, #2563EB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: '#fff' }}>S</div>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.5 }}>{t('screen.title')}</div>
-            <div style={{ fontSize: 11, color: '#64748b', letterSpacing: 0.5 }}>{t('screen.subtitle')}</div>
+            <div className="sl-brand-sub" style={{ fontSize: 11, color: '#64748b', letterSpacing: 0.5 }}>{t('screen.subtitle')}</div>
           </div>
         </Link>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {result && (
-            <button onClick={reset} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #334155', background: '#1e293b', color: '#94a3b8', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>{t('screen.new')}</button>
+            <button onClick={reset} className="sl-nav-btn" style={{ borderRadius: 8, border: '1px solid #334155', background: '#1e293b', color: '#94a3b8', cursor: 'pointer', fontWeight: 500 }}>{t('screen.new')}</button>
           )}
           <LanguageToggle />
-          <Link href="/dashboard" style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#94a3b8', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>{t('nav.dashboard')}</Link>
+          <Link href="/dashboard" className="sl-nav-btn" style={{ borderRadius: 8, border: '1px solid #334155', background: 'transparent', color: '#94a3b8', textDecoration: 'none', fontWeight: 500 }}>{t('nav.dashboard')}</Link>
         </div>
       </div>
 
-      <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 16px' }}>
+      <div className="sl-container">
         {!result && !analyzing && (
           <>
             {/* Tier Toggle */}
@@ -561,7 +603,7 @@ export default function ScreenPage() {
                     }}
                   >
                     <div>{label} {key === 'pro' && '💎'}</div>
-                    <div style={{ fontSize: 10, fontWeight: 400, marginTop: 2, opacity: 0.8 }}>{sources}</div>
+                    <div className="sl-tier-btn-sources" style={{ fontSize: 10, fontWeight: 400, marginTop: 2, opacity: 0.8 }}>{sources}</div>
                   </button>
                 )
               })}
@@ -623,7 +665,7 @@ export default function ScreenPage() {
             </div>
 
             {/* File Types */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 16 }}>
+            <div className="sl-file-grid" style={{ display: 'grid', gap: 8, marginTop: 16 }}>
               {FILE_TYPES.map(ft => (
                 <div key={ft.key} style={{ padding: '10px', borderRadius: 8, background: '#0f172a', border: '1px solid #1e293b', textAlign: 'center', fontSize: 11, color: '#64748b' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>{ft.icon}</div>
@@ -689,19 +731,19 @@ export default function ScreenPage() {
         {result && riskOverall && (
           <div>
             {/* Overall */}
-            <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1a1a2e 100%)', border: '1px solid #1e293b', borderRadius: 20, padding: '32px 24px', textAlign: 'center', marginBottom: 20 }}>
+            <div className="sl-card-overall" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1a1a2e 100%)', border: '1px solid #1e293b', textAlign: 'center', marginBottom: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
                 <span style={{ fontSize: 12, color: '#64748b', letterSpacing: 2, textTransform: 'uppercase' }}>{t('screen.result.headline')}</span>
                 <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: result.tier === 'pro' ? '#8B5CF620' : '#1e293b', color: result.tier === 'pro' ? '#A78BFA' : '#64748b', fontWeight: 600 }}>{result.tier === 'pro' ? 'PRO' : 'FREE'}</span>
               </div>
-              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{result.extracted_name || applicantName || '—'}</div>
+              <div className="sl-extracted-name" style={{ fontWeight: 700, marginBottom: 4 }}>{result.extracted_name || applicantName || '—'}</div>
               {result.name_was_extracted
                 ? <div style={{ fontSize: 10, color: '#64748b', marginBottom: 16 }}>{t('screen.result.nameExtracted')}</div>
                 : <div style={{ marginBottom: 16 }} />}
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
                 <ScoreRing score={result.overall} size={160} strokeWidth={12} />
               </div>
-              <div style={{ display: 'inline-block', padding: '6px 20px', borderRadius: 20, background: riskOverall.bg, color: riskOverall.color, fontSize: 14, fontWeight: 700, letterSpacing: 1 }}>
+              <div className="sl-risk-pill" style={{ display: 'inline-block', borderRadius: 20, background: riskOverall.bg, color: riskOverall.color, fontWeight: 700, letterSpacing: 1 }}>
                 {t(riskOverall.tagKey)} — {t(riskOverall.labelKey)}
               </div>
               {(() => {
@@ -717,27 +759,27 @@ export default function ScreenPage() {
                   : 1.0
                 const showRatio = rentNum > 0
                 return (
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 20, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
-                    <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>${targetRent || '—'}</div>{t('screen.result.stat.rent')}</div>
+                  <div className="sl-stats-row" style={{ display: 'flex', justifyContent: 'center', marginTop: 20, color: '#64748b', flexWrap: 'wrap' }}>
+                    <div><div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>${targetRent || '—'}</div>{t('screen.result.stat.rent')}</div>
                     {showRatio && (
-                      <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>{inferredRatio.toFixed(1)}x</div>{t('screen.result.stat.ratio')}</div>
+                      <div><div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>{inferredRatio.toFixed(1)}x</div>{t('screen.result.stat.ratio')}</div>
                     )}
-                    <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>{files.length}</div>{t('screen.result.stat.files')}</div>
-                    <div><div style={{ color: '#94a3b8', fontWeight: 600, fontSize: 14 }}>{result.court_records_detail?.queries.filter(q => q.status === 'ok').length || 0}</div>{t('screen.result.stat.courts')}</div>
+                    <div><div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>{files.length}</div>{t('screen.result.stat.files')}</div>
+                    <div><div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>{result.court_records_detail?.queries.filter(q => q.status === 'ok').length || 0}</div>{t('screen.result.stat.courts')}</div>
                   </div>
                 )
               })()}
             </div>
 
             {/* Summary */}
-            <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, padding: '20px', marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: '#94a3b8' }}>{t('screen.result.summary')}</div>
-              <p style={{ fontSize: 14, lineHeight: 1.8, color: '#cbd5e1', margin: 0 }}>{result.summary}</p>
+            <div className="sl-card" style={{ background: '#0f172a', border: '1px solid #1e293b', marginBottom: 20 }}>
+              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: '#94a3b8' }}>{t('screen.result.summary')}</div>
+              <p className="sl-summary-text" style={{ fontSize: 14, lineHeight: 1.8, color: '#cbd5e1', margin: 0 }}>{(lang === 'zh' ? (result.summary_zh || result.summary) : (result.summary_en || result.summary))}</p>
             </div>
 
             {/* Category Scores */}
-            <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, padding: '20px', marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: '#94a3b8' }}>{t('screen.result.dims')}</div>
+            <div className="sl-card" style={{ background: '#0f172a', border: '1px solid #1e293b', marginBottom: 20 }}>
+              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: '#94a3b8' }}>{t('screen.result.dims')}</div>
               {CATEGORIES.map((cat, i) => (
                 <CategoryBar key={cat.id} category={cat} score={result.scores[cat.id]} animDelay={i * 150} tier={result.tier} />
               ))}
@@ -769,8 +811,8 @@ export default function ScreenPage() {
 
             {/* Flags */}
             {derivedFlags.length > 0 && (
-              <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, padding: '20px', marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#94a3b8' }}>{t('screen.result.flags')}</div>
+              <div className="sl-card" style={{ background: '#0f172a', border: '1px solid #1e293b', marginBottom: 20 }}>
+                <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#94a3b8' }}>{t('screen.result.flags')}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {derivedFlags.map((flag, i) => <Flag key={i} type={flag.type} text={flag.text} />)}
                 </div>
@@ -778,9 +820,9 @@ export default function ScreenPage() {
             )}
 
             {/* Weights */}
-            <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 16, padding: '20px', marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#94a3b8' }}>{t('screen.result.weights')}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            <div className="sl-card" style={{ background: '#0f172a', border: '1px solid #1e293b', marginBottom: 20 }}>
+              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#94a3b8' }}>{t('screen.result.weights')}</div>
+              <div className="sl-weights-grid" style={{ display: 'grid', gap: 8 }}>
                 {CATEGORIES.map(cat => (
                   <div key={cat.id} style={{ textAlign: 'center', padding: '14px 8px', borderRadius: 8, background: '#1e293b', border: cat.id === 'court_records' ? '1px solid #8B5CF640' : '1px solid transparent' }}>
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{cat.icon}</div>

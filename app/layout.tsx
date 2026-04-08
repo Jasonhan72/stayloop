@@ -11,6 +11,12 @@ export const metadata: Metadata = {
   description: 'Screen tenants smarter with AI-powered analysis, LTB record checks, and instant scoring. Built for Ontario landlords.',
 }
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>

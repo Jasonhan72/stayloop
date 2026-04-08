@@ -232,7 +232,7 @@ You are reviewing materials a landlord uploaded directly. Some fields will be mi
 Higher scores mean LOWER risk (FICO-style). 100 = ideal candidate, 0 = unrentable.
 Output strictly the JSON schema requested — no markdown, no prose, no preamble.`
 
-  const userInstruction = `Score this rental candidate across SIX dimensions (each 0-100, higher = safer). Then write a 2-3 sentence professional summary highlighting key risks, strengths, and a recommendation.
+  const userInstruction = `Score this rental candidate across SIX dimensions (each 0-100, higher = safer). Then write a 2-3 sentence professional summary highlighting key risks, strengths, and a recommendation — produce the summary in BOTH English and Simplified Chinese.
 
 SIX DIMENSIONS:
 1. doc_authenticity (weight 20%) — Are uploaded documents real, complete, unaltered? If no documents uploaded, score 30. Look for tampering, mismatched fonts, inconsistent dates.
@@ -263,7 +263,8 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     "behavior_signals": "<one sentence>",
     "info_consistency": "<one sentence>"
   },
-  "summary": "<2-3 sentence professional recommendation>"
+  "summary_en": "<2-3 sentence professional recommendation in English>",
+  "summary_zh": "<同样的2-3句专业推荐，用简体中文>"
 }`
 
   const userContent: any[] = [
@@ -300,7 +301,7 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
   let text = aiData.content?.[0]?.text || '{}'
   text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
 
-  let parsed: { extracted_name?: string; scores?: SixDimScores; notes?: Record<string, string>; summary?: string }
+  let parsed: { extracted_name?: string; scores?: SixDimScores; notes?: Record<string, string>; summary?: string; summary_en?: string; summary_zh?: string }
   try {
     parsed = JSON.parse(text)
   } catch {
@@ -327,7 +328,7 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
 
   const { error: updateError } = await supabase.from('screenings').update({
     ai_score: overall,
-    ai_summary: parsed.summary,
+    ai_summary: parsed.summary_en || parsed.summary,
     ai_extracted_name: finalExtractedName,
     ai_dimension_notes: parsed.notes || null,
     doc_authenticity_score: s.doc_authenticity,
@@ -349,7 +350,9 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     notes: parsed.notes,
     extracted_name: finalExtractedName,
     name_was_extracted: !screening.tenant_name && !!finalExtractedName,
-    summary: parsed.summary,
+    summary: parsed.summary_en || parsed.summary || '',
+    summary_en: parsed.summary_en || parsed.summary || '',
+    summary_zh: parsed.summary_zh || '',
     court_records_detail: courtDetail,
     tier: (plan === 'pro' || plan === 'enterprise') ? 'pro' : 'free',
   })
