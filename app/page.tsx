@@ -1,6 +1,9 @@
+'use client'
 import Link from 'next/link'
+import { useT, LanguageToggle } from '@/lib/i18n'
 
 export default function Home() {
+  const { t } = useT()
   return (
     <main className="min-h-screen text-slate-100">
       {/* Nav */}
@@ -17,7 +20,8 @@ export default function Home() {
             </div>
           </Link>
           <div className="flex items-center gap-2">
-            <Link href="/screen" className="btn-primary">开始使用 →</Link>
+            <LanguageToggle />
+            <Link href="/screen" className="btn-primary">{t('nav.getStarted')}</Link>
           </div>
         </div>
       </nav>
@@ -26,24 +30,24 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-6 pt-24 pb-32 text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass mono text-xs text-slate-300 mb-8">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
-          Built for Ontario landlords · PIPEDA compliant
+          {t('home.badge')}
         </div>
 
         <h1 className="text-6xl sm:text-7xl font-bold tracking-tight mb-6 leading-[1.05]">
-          Tenant screening,<br />
-          <span className="text-gradient">re-engineered for AI.</span>
+          {t('home.hero.line1')}<br />
+          <span className="text-gradient">{t('home.hero.line2')}</span>
         </h1>
 
         <p className="text-lg text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-          Stayloop scores every rental application in seconds — pulling income, employment, rental history, and Ontario LTB records into one clear decision.
+          {t('home.hero.sub')}
         </p>
 
         <div className="flex gap-3 justify-center">
           <Link href="/screen" className="btn-primary text-base px-7 py-3.5">
-            Start screening free
+            {t('home.cta.primary')}
           </Link>
           <a href="#features" className="btn-ghost text-base px-7 py-3.5">
-            See how it works
+            {t('home.cta.secondary')}
           </a>
         </div>
 
@@ -60,9 +64,9 @@ export default function Home() {
               </div>
               <div className="grid grid-cols-3 gap-4 mb-5">
                 {[
-                  { l: 'AI Score', v: '87', sub: '+ low risk', col: 'text-emerald-400' },
-                  { l: 'LTB Records', v: '0', sub: 'clear', col: 'text-cyan-400' },
-                  { l: 'Income / Rent', v: '3.2×', sub: 'healthy', col: 'text-violet-400' },
+                  { l: t('home.preview.score'), v: '87', sub: t('home.preview.score.sub'), col: 'text-emerald-400' },
+                  { l: t('home.preview.ltb'), v: '0', sub: t('home.preview.ltb.sub'), col: 'text-cyan-400' },
+                  { l: t('home.preview.ratio'), v: '3.2×', sub: t('home.preview.ratio.sub'), col: 'text-violet-400' },
                 ].map(s => (
                   <div key={s.l} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
                     <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">{s.l}</div>
@@ -72,10 +76,10 @@ export default function Home() {
                 ))}
               </div>
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Claude analysis</div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">{t('home.preview.analysisTitle')}</div>
                 <p className="text-sm text-slate-300 leading-relaxed">
-                  Strong income-to-rent ratio at 3.2×. Stable two-year employment history, positive prior landlord reference, and zero LTB records.{' '}
-                  <span className="text-emerald-400">Recommended for approval.</span>
+                  {t('home.preview.analysis')}
+                  <span className="text-emerald-400">{t('home.preview.recommend')}</span>
                 </p>
               </div>
             </div>
@@ -86,28 +90,28 @@ export default function Home() {
       {/* Features */}
       <section id="features" className="max-w-7xl mx-auto px-6 py-24">
         <div className="text-center mb-16">
-          <div className="mono text-xs text-cyan-400 mb-3">// FEATURES</div>
-          <h2 className="text-4xl font-bold tracking-tight">Built on a real screening stack</h2>
+          <div className="mono text-xs text-cyan-400 mb-3">{t('home.features.tag')}</div>
+          <h2 className="text-4xl font-bold tracking-tight">{t('home.features.title')}</h2>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
           {[
             {
               tag: '01',
-              title: 'AI risk scoring',
-              desc: 'Claude analyzes income, employment, rental history, LTB records and references. Returns a 0–100 score with reasoning per category.',
+              title: t('home.features.1.title'),
+              desc: t('home.features.1.desc'),
               accent: 'from-cyan-500/20 to-cyan-500/0',
             },
             {
               tag: '02',
-              title: 'LTB record search',
-              desc: 'Automatic search of Ontario Landlord and Tenant Board records to surface eviction history and prior disputes.',
+              title: t('home.features.2.title'),
+              desc: t('home.features.2.desc'),
               accent: 'from-violet-500/20 to-violet-500/0',
             },
             {
               tag: '03',
-              title: 'PIPEDA compliant',
-              desc: 'Built-in consent forms, data minimization, and 90-day retention. Aligned with the Ontario Human Rights Code from day one.',
+              title: t('home.features.3.title'),
+              desc: t('home.features.3.desc'),
               accent: 'from-emerald-500/20 to-emerald-500/0',
             },
           ].map(f => (
@@ -125,16 +129,16 @@ export default function Home() {
       {/* How it works */}
       <section className="max-w-7xl mx-auto px-6 py-24">
         <div className="text-center mb-16">
-          <div className="mono text-xs text-violet-400 mb-3">// WORKFLOW</div>
-          <h2 className="text-4xl font-bold tracking-tight">From listing to decision in minutes</h2>
+          <div className="mono text-xs text-violet-400 mb-3">{t('home.workflow.tag')}</div>
+          <h2 className="text-4xl font-bold tracking-tight">{t('home.workflow.title')}</h2>
         </div>
 
         <div className="grid md:grid-cols-4 gap-6">
           {[
-            { n: '01', t: 'Create listing', d: 'Add an address and rent. Get a unique application link.' },
-            { n: '02', t: 'Share link', d: 'Send the link to applicants — works on any device.' },
-            { n: '03', t: 'Run AI score', d: 'One click triggers Claude + LTB lookup in seconds.' },
-            { n: '04', t: 'Decide', d: 'Approve or decline with full audit trail and reasoning.' },
+            { n: '01', t: t('home.workflow.1.t'), d: t('home.workflow.1.d') },
+            { n: '02', t: t('home.workflow.2.t'), d: t('home.workflow.2.d') },
+            { n: '03', t: t('home.workflow.3.t'), d: t('home.workflow.3.d') },
+            { n: '04', t: t('home.workflow.4.t'), d: t('home.workflow.4.d') },
           ].map((s, i) => (
             <div key={s.n} className="relative">
               <div className="glass rounded-2xl p-5">
@@ -153,39 +157,39 @@ export default function Home() {
       {/* Pricing */}
       <section className="max-w-5xl mx-auto px-6 py-24">
         <div className="text-center mb-16">
-          <div className="mono text-xs text-emerald-400 mb-3">// PRICING</div>
-          <h2 className="text-4xl font-bold tracking-tight">Simple pricing for landlords</h2>
+          <div className="mono text-xs text-emerald-400 mb-3">{t('home.pricing.tag')}</div>
+          <h2 className="text-4xl font-bold tracking-tight">{t('home.pricing.title')}</h2>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
           <div className="glass rounded-2xl p-8">
-            <div className="mono text-xs text-slate-500 mb-2">FREE</div>
+            <div className="mono text-xs text-slate-500 mb-2">{t('home.pricing.free.label')}</div>
             <div className="text-4xl font-bold mb-1">$0<span className="text-base text-slate-500 font-normal">/mo</span></div>
-            <div className="text-sm text-slate-400 mb-6">Try Stayloop on your next vacancy.</div>
+            <div className="text-sm text-slate-400 mb-6">{t('home.pricing.free.sub')}</div>
             <ul className="space-y-2 text-sm text-slate-300 mb-6">
-              <li className="flex gap-2"><span className="text-cyan-400">✓</span> 1 active listing</li>
-              <li className="flex gap-2"><span className="text-cyan-400">✓</span> 5 AI screenings / month</li>
-              <li className="flex gap-2"><span className="text-cyan-400">✓</span> LTB record search</li>
+              <li className="flex gap-2"><span className="text-cyan-400">✓</span> {t('home.pricing.free.f1')}</li>
+              <li className="flex gap-2"><span className="text-cyan-400">✓</span> {t('home.pricing.free.f2')}</li>
+              <li className="flex gap-2"><span className="text-cyan-400">✓</span> {t('home.pricing.free.f3')}</li>
             </ul>
-            <Link href="/screen" className="btn-ghost w-full inline-block text-center">Start free</Link>
+            <Link href="/screen" className="btn-ghost w-full inline-block text-center">{t('home.pricing.free.cta')}</Link>
           </div>
 
           <div className="glass rounded-2xl p-8 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-violet-500/10 pointer-events-none" />
             <div className="relative">
               <div className="flex items-center justify-between mb-2">
-                <div className="mono text-xs text-cyan-400">PRO</div>
-                <div className="px-2 py-0.5 rounded-full text-[10px] mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">POPULAR</div>
+                <div className="mono text-xs text-cyan-400">{t('home.pricing.pro.label')}</div>
+                <div className="px-2 py-0.5 rounded-full text-[10px] mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">{t('home.pricing.pro.popular')}</div>
               </div>
               <div className="text-4xl font-bold mb-1">$29<span className="text-base text-slate-500 font-normal">/mo</span></div>
-              <div className="text-sm text-slate-400 mb-6">For landlords with multiple units.</div>
+              <div className="text-sm text-slate-400 mb-6">{t('home.pricing.pro.sub')}</div>
               <ul className="space-y-2 text-sm text-slate-200 mb-6">
-                <li className="flex gap-2"><span className="text-cyan-400">✓</span> Unlimited listings</li>
-                <li className="flex gap-2"><span className="text-cyan-400">✓</span> Unlimited AI screenings</li>
-                <li className="flex gap-2"><span className="text-cyan-400">✓</span> LTB + court record search</li>
-                <li className="flex gap-2"><span className="text-cyan-400">✓</span> Priority support</li>
+                <li className="flex gap-2"><span className="text-cyan-400">✓</span> {t('home.pricing.pro.f1')}</li>
+                <li className="flex gap-2"><span className="text-cyan-400">✓</span> {t('home.pricing.pro.f2')}</li>
+                <li className="flex gap-2"><span className="text-cyan-400">✓</span> {t('home.pricing.pro.f3')}</li>
+                <li className="flex gap-2"><span className="text-cyan-400">✓</span> {t('home.pricing.pro.f4')}</li>
               </ul>
-              <Link href="/screen" className="btn-primary w-full inline-block text-center">Upgrade to Pro</Link>
+              <Link href="/screen" className="btn-primary w-full inline-block text-center">{t('home.pricing.pro.cta')}</Link>
             </div>
           </div>
         </div>
@@ -196,7 +200,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <div className="w-6 h-6 rounded-md bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white text-xs font-bold">S</div>
-            <span>© 2026 Stayloop · Made for Ontario landlords</span>
+            <span>{t('home.footer.copy')}</span>
           </div>
           <div className="mono text-[11px] text-slate-600">stayloop.ai</div>
         </div>

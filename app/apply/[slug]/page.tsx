@@ -2,18 +2,20 @@
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
 import type { ApplicationFile } from '@/types'
 
 type FileKind = ApplicationFile['kind']
-const FILE_KINDS: { kind: FileKind; label: string; hint: string }[] = [
-  { kind: 'id', label: 'Government ID', hint: "Driver's licence, passport, or PR card" },
-  { kind: 'paystub', label: 'Recent pay stubs', hint: 'Last 2-3 months (PDF or photo)' },
-  { kind: 'bank_statement', label: 'Bank statement', hint: 'Most recent statement showing income deposits' },
-  { kind: 'employment_letter', label: 'Employment letter', hint: 'Optional — from your current employer' },
+const FILE_KINDS: { kind: FileKind; labelKey: DictKey; hintKey: DictKey }[] = [
+  { kind: 'id', labelKey: 'apply.filekind.id.label', hintKey: 'apply.filekind.id.hint' },
+  { kind: 'paystub', labelKey: 'apply.filekind.paystub.label', hintKey: 'apply.filekind.paystub.hint' },
+  { kind: 'bank_statement', labelKey: 'apply.filekind.bank.label', hintKey: 'apply.filekind.bank.hint' },
+  { kind: 'employment_letter', labelKey: 'apply.filekind.employment.label', hintKey: 'apply.filekind.employment.hint' },
 ]
 const MAX_BYTES = 10 * 1024 * 1024
 
 export default function ApplyPage() {
+  const { t } = useT()
   const params = useParams<{ slug: string }>()
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -42,7 +44,7 @@ export default function ApplyPage() {
     if (!fileList) return
     const incoming = Array.from(fileList)
     for (const f of incoming) {
-      if (f.size > MAX_BYTES) { setError(`${f.name} is larger than 10 MB.`); return }
+      if (f.size > MAX_BYTES) { setError(t('apply.fileTooBig', { name: f.name })); return }
     }
     setError(null)
     setFiles(prev => ({ ...prev, [kind]: [...prev[kind], ...incoming] }))
@@ -53,7 +55,7 @@ export default function ApplyPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.consent_screening) { setError('Please provide consent to proceed.'); return }
+    if (!form.consent_screening) { setError(t('apply.consentRequired')); return }
     setError(null)
     setLoading(true)
 
@@ -63,9 +65,8 @@ export default function ApplyPage() {
       .eq('slug', params.slug)
       .single()
 
-    if (!listing) { setError('Listing not found.'); setLoading(false); return }
+    if (!listing) { setError(t('apply.listingNotFound')); setLoading(false); return }
 
-    // Insert application first to get its id
     const { data: inserted, error: insertError } = await supabase
       .from('applications')
       .insert({
@@ -83,18 +84,17 @@ export default function ApplyPage() {
 
     if (insertError || !inserted) {
       setLoading(false)
-      setError('Error submitting application. Please try again.')
+      setError(t('apply.submitError'))
       return
     }
 
-    // Upload files to Supabase Storage
     const uploaded: ApplicationFile[] = []
     const allEntries: { kind: FileKind; file: File }[] = []
     ;(Object.keys(files) as FileKind[]).forEach(k => files[k].forEach(f => allEntries.push({ kind: k, file: f })))
 
     for (let i = 0; i < allEntries.length; i++) {
       const { kind, file } = allEntries[i]
-      setUploadProgress(`Uploading ${i + 1} / ${allEntries.length}: ${file.name}`)
+      setUploadProgress(t('apply.uploadProgress', { i: i + 1, n: allEntries.length, name: file.name }))
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
       const path = `${inserted.id}/${kind}/${Date.now()}_${safeName}`
       const { error: upErr } = await supabase.storage
@@ -103,7 +103,7 @@ export default function ApplyPage() {
       if (upErr) {
         setLoading(false)
         setUploadProgress(null)
-        setError(`Upload failed for ${file.name}: ${upErr.message}`)
+        setError(t('apply.uploadFailed', { name: file.name, err: upErr.message }))
         return
       }
       uploaded.push({
@@ -118,9 +118,6 @@ export default function ApplyPage() {
         .eq('id', inserted.id)
     }
 
-    // Fire-and-forget landlord email notification. We don't block the
-    // success screen on this — if Resend is misconfigured or flaky, the
-    // applicant shouldn't see an error. The endpoint is idempotent.
     try {
       await fetch('/api/notify-landlord', {
         method: 'POST',
@@ -143,8 +140,8 @@ export default function ApplyPage() {
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 pointer-events-none" />
           <div className="relative">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-3xl">✓</div>
-            <h2 className="text-2xl font-bold mb-2">Application submitted</h2>
-            <p className="text-sm text-slate-400">The landlord will review your application and be in touch soon.</p>
+            <h2 className="text-2xl font-bold mb-2">{t('apply.submitted.title')}</h2>
+            <p className="text-sm text-slate-400">{t('apply.submitted.sub')}</p>
           </div>
         </div>
       </div>
@@ -178,82 +175,85 @@ export default function ApplyPage() {
   return (
     <div className="min-h-screen py-10 px-4 text-slate-100">
       <div className="max-w-2xl mx-auto">
+        <div className="flex justify-end mb-4">
+          <LanguageToggle />
+        </div>
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">S</div>
             <span className="text-base font-bold">Stayloop</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Rental application</h1>
-          <p className="text-sm text-slate-400 mono">encrypted · pipeda compliant · ontario</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">{t('apply.title')}</h1>
+          <p className="text-sm text-slate-400 mono">{t('apply.tagline')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <Section tag="// 01" title="Personal information">
+          <Section tag="// 01" title={t('apply.sec.personal')}>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="First name *"><Input required value={form.first_name} onChange={(e: any) => set('first_name', e.target.value)} /></Field>
-              <Field label="Last name *"><Input required value={form.last_name} onChange={(e: any) => set('last_name', e.target.value)} /></Field>
-              <Field label="Email *"><Input required type="email" value={form.email} onChange={(e: any) => set('email', e.target.value)} /></Field>
-              <Field label="Phone"><Input type="tel" value={form.phone} onChange={(e: any) => set('phone', e.target.value)} /></Field>
-              <Field label="Date of birth"><Input type="date" value={form.date_of_birth} onChange={(e: any) => set('date_of_birth', e.target.value)} /></Field>
+              <Field label={t('apply.f.firstName')}><Input required value={form.first_name} onChange={(e: any) => set('first_name', e.target.value)} /></Field>
+              <Field label={t('apply.f.lastName')}><Input required value={form.last_name} onChange={(e: any) => set('last_name', e.target.value)} /></Field>
+              <Field label={t('apply.f.email')}><Input required type="email" value={form.email} onChange={(e: any) => set('email', e.target.value)} /></Field>
+              <Field label={t('apply.f.phone')}><Input type="tel" value={form.phone} onChange={(e: any) => set('phone', e.target.value)} /></Field>
+              <Field label={t('apply.f.dob')}><Input type="date" value={form.date_of_birth} onChange={(e: any) => set('date_of_birth', e.target.value)} /></Field>
             </div>
             <div className="mt-4">
-              <Field label="Current address"><Input value={form.current_address} onChange={(e: any) => set('current_address', e.target.value)} /></Field>
+              <Field label={t('apply.f.currentAddress')}><Input value={form.current_address} onChange={(e: any) => set('current_address', e.target.value)} /></Field>
             </div>
           </Section>
 
-          <Section tag="// 02" title="Employment & income">
+          <Section tag="// 02" title={t('apply.sec.employment')}>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Status">
+              <Field label={t('apply.f.status')}>
                 <Select value={form.employment_status} onChange={(e: any) => set('employment_status', e.target.value)}
                   options={['Full-time employed','Part-time employed','Self-employed','Student','Retired','Other']} />
               </Field>
-              <Field label="Employer *"><Input required value={form.employer_name} onChange={(e: any) => set('employer_name', e.target.value)} /></Field>
-              <Field label="Job title"><Input value={form.job_title} onChange={(e: any) => set('job_title', e.target.value)} /></Field>
-              <Field label="Gross monthly income $ *"><Input required type="number" value={form.monthly_income} onChange={(e: any) => set('monthly_income', e.target.value)} /></Field>
-              <Field label="Start date"><Input type="date" value={form.employment_start_date} onChange={(e: any) => set('employment_start_date', e.target.value)} /></Field>
-              <Field label="Employer phone"><Input type="tel" value={form.employer_phone} onChange={(e: any) => set('employer_phone', e.target.value)} /></Field>
+              <Field label={t('apply.f.employer')}><Input required value={form.employer_name} onChange={(e: any) => set('employer_name', e.target.value)} /></Field>
+              <Field label={t('apply.f.jobTitle')}><Input value={form.job_title} onChange={(e: any) => set('job_title', e.target.value)} /></Field>
+              <Field label={t('apply.f.monthlyIncome')}><Input required type="number" value={form.monthly_income} onChange={(e: any) => set('monthly_income', e.target.value)} /></Field>
+              <Field label={t('apply.f.startDate')}><Input type="date" value={form.employment_start_date} onChange={(e: any) => set('employment_start_date', e.target.value)} /></Field>
+              <Field label={t('apply.f.employerPhone')}><Input type="tel" value={form.employer_phone} onChange={(e: any) => set('employer_phone', e.target.value)} /></Field>
             </div>
           </Section>
 
-          <Section tag="// 03" title="Rental history">
+          <Section tag="// 03" title={t('apply.sec.rental')}>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Previous landlord"><Input value={form.prev_landlord_name} onChange={(e: any) => set('prev_landlord_name', e.target.value)} /></Field>
-              <Field label="Landlord phone"><Input type="tel" value={form.prev_landlord_phone} onChange={(e: any) => set('prev_landlord_phone', e.target.value)} /></Field>
-              <Field label="Monthly rent paid $"><Input type="number" value={form.prev_rent} onChange={(e: any) => set('prev_rent', e.target.value)} /></Field>
-              <Field label="Reason for leaving"><Input value={form.reason_for_leaving} onChange={(e: any) => set('reason_for_leaving', e.target.value)} /></Field>
+              <Field label={t('apply.f.prevLandlord')}><Input value={form.prev_landlord_name} onChange={(e: any) => set('prev_landlord_name', e.target.value)} /></Field>
+              <Field label={t('apply.f.landlordPhone')}><Input type="tel" value={form.prev_landlord_phone} onChange={(e: any) => set('prev_landlord_phone', e.target.value)} /></Field>
+              <Field label={t('apply.f.prevRent')}><Input type="number" value={form.prev_rent} onChange={(e: any) => set('prev_rent', e.target.value)} /></Field>
+              <Field label={t('apply.f.reasonLeaving')}><Input value={form.reason_for_leaving} onChange={(e: any) => set('reason_for_leaving', e.target.value)} /></Field>
             </div>
             <div className="mt-4">
-              <Field label="Previous address"><Input value={form.prev_address} onChange={(e: any) => set('prev_address', e.target.value)} /></Field>
+              <Field label={t('apply.f.prevAddress')}><Input value={form.prev_address} onChange={(e: any) => set('prev_address', e.target.value)} /></Field>
             </div>
           </Section>
 
-          <Section tag="// 04" title="Household">
+          <Section tag="// 04" title={t('apply.sec.household')}>
             <div className="grid grid-cols-3 gap-4">
-              <Field label="Occupants"><Input type="number" min="1" value={form.num_occupants} onChange={(e: any) => set('num_occupants', e.target.value)} /></Field>
-              <Field label="Pets?">
+              <Field label={t('apply.f.occupants')}><Input type="number" min="1" value={form.num_occupants} onChange={(e: any) => set('num_occupants', e.target.value)} /></Field>
+              <Field label={t('apply.f.pets')}>
                 <Select value={form.has_pets} onChange={(e: any) => set('has_pets', e.target.value)} options={['false','true']} />
               </Field>
-              <Field label="Smoker?">
+              <Field label={t('apply.f.smoker')}>
                 <Select value={form.is_smoker} onChange={(e: any) => set('is_smoker', e.target.value)} options={['false','true']} />
               </Field>
-              <Field label="Desired move-in"><Input type="date" value={form.move_in_date} onChange={(e: any) => set('move_in_date', e.target.value)} /></Field>
+              <Field label={t('apply.f.moveIn')}><Input type="date" value={form.move_in_date} onChange={(e: any) => set('move_in_date', e.target.value)} /></Field>
             </div>
           </Section>
 
-          <Section tag="// 05" title="Documents (recommended)">
+          <Section tag="// 05" title={t('apply.sec.docs')}>
             <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-              Uploading your documents lets the landlord verify your application instantly with AI. PDF, JPG, or PNG up to 10 MB each.
+              {t('apply.docs.intro')}
             </p>
             <div className="space-y-4">
-              {FILE_KINDS.map(({ kind, label, hint }) => (
+              {FILE_KINDS.map(({ kind, labelKey, hintKey }) => (
                 <div key={kind} className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
                   <div className="flex items-center justify-between mb-1">
                     <div>
-                      <div className="text-sm font-medium text-slate-100">{label}</div>
-                      <div className="mono text-[10px] text-slate-500">{hint}</div>
+                      <div className="text-sm font-medium text-slate-100">{t(labelKey)}</div>
+                      <div className="mono text-[10px] text-slate-500">{t(hintKey)}</div>
                     </div>
                     <label className="text-xs px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 cursor-pointer hover:bg-cyan-500/15 mono">
-                      + add file
+                      {t('apply.addFile')}
                       <input
                         type="file"
                         multiple
@@ -268,7 +268,7 @@ export default function ApplyPage() {
                       {files[kind].map((f, i) => (
                         <li key={i} className="flex items-center justify-between text-xs mono text-slate-300 bg-black/30 rounded-md px-2 py-1">
                           <span className="truncate pr-2">{f.name} <span className="text-slate-500">· {(f.size / 1024).toFixed(0)} KB</span></span>
-                          <button type="button" onClick={() => removeFile(kind, i)} className="text-red-400 hover:text-red-300">remove</button>
+                          <button type="button" onClick={() => removeFile(kind, i)} className="text-red-400 hover:text-red-300">{t('apply.remove')}</button>
                         </li>
                       ))}
                     </ul>
@@ -279,17 +279,17 @@ export default function ApplyPage() {
           </Section>
 
           <div className="glass rounded-2xl p-6 border-amber-500/30">
-            <div className="mono text-xs text-amber-400 mb-2">// CONSENT — PIPEDA</div>
+            <div className="mono text-xs text-amber-400 mb-2">{t('apply.consent.tag')}</div>
             <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-              By submitting, you authorize the landlord and Stayloop to verify your information, contact references, search publicly available LTB and Ontario court records, and obtain a credit report. Data retained 90 days then deleted. Compliant with the Ontario Human Rights Code.
+              {t('apply.consent.body')}
             </p>
             <label className="flex items-start gap-2 mb-2 cursor-pointer text-sm">
               <input type="checkbox" checked={form.consent_screening} onChange={e => set('consent_screening', e.target.checked)} className="mt-1 accent-cyan-500" />
-              <span>I agree to the above authorization and confirm all information is accurate. *</span>
+              <span>{t('apply.consent.check1')}</span>
             </label>
             <label className="flex items-start gap-2 cursor-pointer text-sm">
               <input type="checkbox" checked={form.consent_credit_check} onChange={e => set('consent_credit_check', e.target.checked)} className="mt-1 accent-cyan-500" />
-              <span>I consent to a credit check being performed on my behalf.</span>
+              <span>{t('apply.consent.check2')}</span>
             </label>
           </div>
 
@@ -302,7 +302,7 @@ export default function ApplyPage() {
           )}
 
           <button type="submit" disabled={loading} className="btn-primary w-full text-base py-3.5">
-            {loading ? (uploadProgress ? 'Uploading...' : 'Submitting...') : 'Submit application →'}
+            {loading ? (uploadProgress ? t('apply.uploading') : t('apply.submitting')) : t('apply.submit')}
           </button>
         </form>
       </div>

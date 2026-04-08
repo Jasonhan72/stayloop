@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
+import { useT, LanguageToggle } from '@/lib/i18n'
 import { Application, Listing } from '@/types'
 
 export default function Dashboard() {
+  const { t } = useT()
   const { landlord, loading: authLoading, signOut } = useLandlord()
   const [applications, setApplications] = useState<Application[]>([])
   const [listings, setListings] = useState<Listing[]>([])
@@ -143,7 +145,7 @@ export default function Dashboard() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-10 h-10 mx-auto mb-3 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin" />
-          <div className="mono text-xs text-slate-500">Authenticating...</div>
+          <div className="mono text-xs text-slate-500">{t('common.authenticating')}</div>
         </div>
       </div>
     )
@@ -158,12 +160,13 @@ export default function Dashboard() {
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">S</div>
             <div>
               <div className="text-base font-bold tracking-tight">Stayloop</div>
-              <div className="text-[10px] mono text-slate-500 -mt-0.5">dashboard</div>
+              <div className="text-[10px] mono text-slate-500 -mt-0.5">{t('dash.tagline')}</div>
             </div>
           </Link>
           <div className="flex items-center gap-3">
+            <LanguageToggle />
             <Link href="/screen" className="text-xs px-3 py-1.5 rounded-lg font-semibold bg-gradient-to-r from-cyan-500 to-violet-500 text-white shadow-lg shadow-cyan-500/30">
-              ⚡ Screen tenant
+              {t('dash.screenTenant')}
             </Link>
             <span className={`mono text-[10px] uppercase px-2 py-1 rounded-md border ${
               plan === 'free'
@@ -172,7 +175,7 @@ export default function Dashboard() {
             }`}>{plan}</span>
             {plan === 'free' && (
               <button onClick={() => setShowUpgrade(true)} className="text-xs px-3 py-1.5 rounded-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30">
-                Upgrade
+                {t('dash.upgrade')}
               </button>
             )}
             {(plan === 'pro' || plan === 'enterprise') && (
@@ -181,11 +184,11 @@ export default function Dashboard() {
                 disabled={portalLoading}
                 className="text-xs px-3 py-1.5 rounded-lg font-medium border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] disabled:opacity-50"
               >
-                {portalLoading ? 'Opening…' : 'Manage billing'}
+                {portalLoading ? t('dash.opening') : t('dash.manageBilling')}
               </button>
             )}
             <span className="mono text-xs text-slate-400 hidden sm:inline">{landlord.email}</span>
-            <button onClick={signOut} className="btn-ghost text-xs px-3 py-1.5">Sign out</button>
+            <button onClick={signOut} className="btn-ghost text-xs px-3 py-1.5">{t('dash.signOut')}</button>
           </div>
         </div>
       </nav>
@@ -194,19 +197,19 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <div className="mono text-xs text-cyan-400 mb-1">// OVERVIEW</div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <div className="mono text-xs text-cyan-400 mb-1">{t('dash.overview')}</div>
+            <h1 className="text-3xl font-bold tracking-tight">{t('dash.title')}</h1>
           </div>
-          <Link href="/dashboard/listings/new" className="btn-primary">+ New listing</Link>
+          <Link href="/dashboard/listings/new" className="btn-primary">{t('dash.newListing')}</Link>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
           {[
-            { l: 'Total applications', v: stats.total, c: 'text-cyan-400' },
-            { l: 'Approved', v: stats.approved, c: 'text-emerald-400' },
-            { l: 'Pending review', v: stats.pending, c: 'text-amber-400' },
-            { l: 'LTB flags', v: stats.flags, c: 'text-red-400' },
+            { l: t('dash.stat.total'), v: stats.total, c: 'text-cyan-400' },
+            { l: t('dash.stat.approved'), v: stats.approved, c: 'text-emerald-400' },
+            { l: t('dash.stat.pending'), v: stats.pending, c: 'text-amber-400' },
+            { l: t('dash.stat.flags'), v: stats.flags, c: 'text-red-400' },
           ].map(s => (
             <div key={s.l} className="glass rounded-2xl p-5">
               <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">{s.l}</div>
@@ -220,17 +223,17 @@ export default function Dashboard() {
           <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-              <span className="font-semibold">Your listings</span>
+              <span className="font-semibold">{t('dash.yourListings')}</span>
             </div>
-            <span className="mono text-[11px] text-slate-500">{listings.length} active</span>
+            <span className="mono text-[11px] text-slate-500">{t('dash.activeN', { n: listings.length })}</span>
           </div>
           {loading ? (
-            <div className="p-10 text-center mono text-xs text-slate-500">Loading...</div>
+            <div className="p-10 text-center mono text-xs text-slate-500">{t('dash.loading')}</div>
           ) : listings.length === 0 ? (
             <div className="p-12 text-center">
               <div className="text-4xl mb-3 opacity-30">▱</div>
-              <div className="text-sm text-slate-400 mb-2">No listings yet.</div>
-              <Link href="/dashboard/listings/new" className="text-cyan-400 hover:text-cyan-300 text-sm">Create your first listing →</Link>
+              <div className="text-sm text-slate-400 mb-2">{t('dash.noListings')}</div>
+              <Link href="/dashboard/listings/new" className="text-cyan-400 hover:text-cyan-300 text-sm">{t('dash.createFirst')}</Link>
             </div>
           ) : (
             <ul className="divide-y divide-white/[0.04]">
@@ -251,9 +254,9 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button onClick={() => copyLink(l.slug)} className="btn-ghost text-xs px-3 py-1.5">
-                        {copiedSlug === l.slug ? '✓ Copied' : 'Copy link'}
+                        {copiedSlug === l.slug ? t('dash.copied') : t('dash.copyLink')}
                       </button>
-                      <a href={url} target="_blank" rel="noreferrer" className="btn-ghost text-xs px-3 py-1.5">Open ↗</a>
+                      <a href={url} target="_blank" rel="noreferrer" className="btn-ghost text-xs px-3 py-1.5">{t('dash.open')}</a>
                     </div>
                   </li>
                 )
@@ -266,25 +269,25 @@ export default function Dashboard() {
         <div className="glass rounded-2xl overflow-hidden">
           <div className="px-6 py-4 border-b border-white/[0.06] flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
-            <span className="font-semibold">Recent applications</span>
+            <span className="font-semibold">{t('dash.recentApps')}</span>
           </div>
           {loading ? (
-            <div className="p-10 text-center mono text-xs text-slate-500">Loading...</div>
+            <div className="p-10 text-center mono text-xs text-slate-500">{t('dash.loading')}</div>
           ) : applications.length === 0 ? (
             <div className="p-12 text-center">
               <div className="text-4xl mb-3 opacity-30">⌖</div>
-              <div className="text-sm text-slate-400">No applications yet. Share a listing link to get started.</div>
+              <div className="text-sm text-slate-400">{t('dash.noApps')}</div>
             </div>
           ) : (
             <table className="w-full">
               <thead>
                 <tr className="text-[10px] uppercase tracking-wider text-slate-500 border-b border-white/[0.04]">
-                  <th className="text-left px-6 py-3 font-medium">Applicant</th>
-                  <th className="text-left px-6 py-3 font-medium">Property</th>
-                  <th className="text-left px-6 py-3 font-medium">Income</th>
-                  <th className="text-left px-6 py-3 font-medium">AI Score</th>
-                  <th className="text-left px-6 py-3 font-medium">LTB</th>
-                  <th className="text-left px-6 py-3 font-medium">Status</th>
+                  <th className="text-left px-6 py-3 font-medium">{t('dash.col.applicant')}</th>
+                  <th className="text-left px-6 py-3 font-medium">{t('dash.col.property')}</th>
+                  <th className="text-left px-6 py-3 font-medium">{t('dash.col.income')}</th>
+                  <th className="text-left px-6 py-3 font-medium">{t('dash.col.aiScore')}</th>
+                  <th className="text-left px-6 py-3 font-medium">{t('dash.col.ltb')}</th>
+                  <th className="text-left px-6 py-3 font-medium">{t('dash.col.status')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
@@ -307,12 +310,12 @@ export default function Dashboard() {
                         <span className={`px-2.5 py-1 rounded-md text-xs font-bold mono border ${scoreColor(app.ai_score)}`}>
                           {app.ai_score}
                         </span>
-                      ) : <span className="text-[11px] mono text-slate-600">pending</span>}
+                      ) : <span className="text-[11px] mono text-slate-600">{t('dash.scorePending')}</span>}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       {app.ltb_records_found > 0
                         ? <span className="text-red-400 mono text-xs">⚠ {app.ltb_records_found}</span>
-                        : <span className="text-emerald-400 mono text-xs">✓ clear</span>}
+                        : <span className="text-emerald-400 mono text-xs">{t('dash.ltbClear')}</span>}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-md text-[11px] font-medium mono border ${
@@ -332,46 +335,46 @@ export default function Dashboard() {
       {showUpgrade && (
         <div className="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowUpgrade(false)}>
           <div className="glass rounded-2xl p-8 max-w-2xl w-full relative" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowUpgrade(false)} className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 mono text-xs">✕ close</button>
-            <div className="mono text-xs text-amber-400 mb-1">// PRICING</div>
-            <h2 className="text-2xl font-bold mb-6">Choose your plan</h2>
+            <button onClick={() => setShowUpgrade(false)} className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 mono text-xs">{t('dash.close')}</button>
+            <div className="mono text-xs text-amber-400 mb-1">{t('dash.pricing.tag')}</div>
+            <h2 className="text-2xl font-bold mb-6">{t('dash.pricing.choose')}</h2>
             <div className="grid grid-cols-2 gap-4">
               <div className={`rounded-xl border p-5 ${plan === 'free' ? 'border-cyan-500/40 bg-cyan-500/5' : 'border-white/10 bg-white/[0.02]'}`}>
-                <div className="text-xs uppercase tracking-wider text-slate-500 mb-1">Free</div>
+                <div className="text-xs uppercase tracking-wider text-slate-500 mb-1">{t('dash.pricing.free')}</div>
                 <div className="text-3xl font-bold mb-1">$0<span className="text-sm text-slate-500">/mo</span></div>
-                <div className="text-[11px] text-slate-500 mb-4 mono">forever free</div>
+                <div className="text-[11px] text-slate-500 mb-4 mono">{t('dash.pricing.foreverFree')}</div>
                 <ul className="text-xs text-slate-300 space-y-1.5 mono">
-                  <li>✓ Unlimited listings</li>
-                  <li>✓ AI 6-dim screening</li>
-                  <li>✓ Vision OCR document analysis</li>
-                  <li>✓ CanLII LTB record search</li>
-                  <li className="text-slate-600">— Ontario Courts Portal</li>
-                  <li className="text-slate-600">— Bulk export</li>
+                  <li>{t('dash.pricing.free.f1')}</li>
+                  <li>{t('dash.pricing.free.f2')}</li>
+                  <li>{t('dash.pricing.free.f3')}</li>
+                  <li>{t('dash.pricing.free.f4')}</li>
+                  <li className="text-slate-600">{t('dash.pricing.free.f5')}</li>
+                  <li className="text-slate-600">{t('dash.pricing.free.f6')}</li>
                 </ul>
               </div>
               <div className="rounded-xl border-2 border-amber-500/50 bg-gradient-to-br from-amber-500/10 to-orange-500/5 p-5 relative">
-                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 mono text-[10px] px-2 py-0.5 rounded bg-amber-500 text-black font-bold uppercase">recommended</div>
+                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 mono text-[10px] px-2 py-0.5 rounded bg-amber-500 text-black font-bold uppercase">{t('dash.pricing.recommended')}</div>
                 <div className="text-xs uppercase tracking-wider text-amber-400 mb-1">Pro</div>
                 <div className="text-3xl font-bold mb-1">$29<span className="text-sm text-slate-500">/mo</span></div>
-                <div className="text-[11px] text-slate-500 mb-4 mono">cancel anytime</div>
+                <div className="text-[11px] text-slate-500 mb-4 mono">{t('dash.pricing.cancel')}</div>
                 <ul className="text-xs text-slate-200 space-y-1.5 mono">
-                  <li>✓ Everything in Free</li>
-                  <li>✓ Ontario Courts Portal lookup</li>
-                  <li>✓ Priority AI scoring</li>
-                  <li>✓ Bulk CSV export</li>
-                  <li>✓ Custom branded apply pages</li>
-                  <li>✓ Email + Slack notifications</li>
+                  <li>{t('dash.pricing.pro.f1')}</li>
+                  <li>{t('dash.pricing.pro.f2')}</li>
+                  <li>{t('dash.pricing.pro.f3')}</li>
+                  <li>{t('dash.pricing.pro.f4')}</li>
+                  <li>{t('dash.pricing.pro.f5')}</li>
+                  <li>{t('dash.pricing.pro.f6')}</li>
                 </ul>
                 <button
                   onClick={startCheckout}
                   disabled={checkoutLoading}
                   className="mt-5 block w-full text-center text-sm px-4 py-2.5 rounded-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30 disabled:opacity-60"
                 >
-                  {checkoutLoading ? 'Redirecting to Stripe…' : 'Upgrade to Pro →'}
+                  {checkoutLoading ? t('dash.pricing.redirecting') : t('dash.pricing.upgradeTo')}
                 </button>
               </div>
             </div>
-            <p className="text-[10px] mono text-slate-500 mt-4 text-center">Secure checkout by Stripe · cancel anytime from Manage billing.</p>
+            <p className="text-[10px] mono text-slate-500 mt-4 text-center">{t('dash.pricing.stripeNotice')}</p>
           </div>
         </div>
       )}
@@ -386,21 +389,21 @@ export default function Dashboard() {
             {checkoutBanner === 'pending' && (
               <>
                 <div className="w-4 h-4 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
-                <span className="text-xs text-slate-200">Payment received — unlocking Pro…</span>
+                <span className="text-xs text-slate-200">{t('dash.banner.pending')}</span>
               </>
             )}
             {checkoutBanner === 'success' && (
               <>
                 <span className="text-emerald-400">✓</span>
-                <span className="text-xs text-slate-200">Welcome to Pro!</span>
-                <button onClick={() => setCheckoutBanner(null)} className="mono text-[10px] text-slate-500 ml-2">dismiss</button>
+                <span className="text-xs text-slate-200">{t('dash.banner.success')}</span>
+                <button onClick={() => setCheckoutBanner(null)} className="mono text-[10px] text-slate-500 ml-2">{t('dash.banner.dismiss')}</button>
               </>
             )}
             {checkoutBanner === 'cancel' && (
               <>
                 <span className="text-slate-400">✕</span>
-                <span className="text-xs text-slate-300">Checkout canceled — no charge was made.</span>
-                <button onClick={() => setCheckoutBanner(null)} className="mono text-[10px] text-slate-500 ml-2">dismiss</button>
+                <span className="text-xs text-slate-300">{t('dash.banner.cancel')}</span>
+                <button onClick={() => setCheckoutBanner(null)} className="mono text-[10px] text-slate-500 ml-2">{t('dash.banner.dismiss')}</button>
             </>
             )}
           </div>

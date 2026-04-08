@@ -4,12 +4,14 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
+import { useT, LanguageToggle } from '@/lib/i18n'
 
 function slugify(str: string) {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)
 }
 
 export default function NewListingPage() {
+  const { t } = useT()
   const router = useRouter()
   const { landlord, loading: authLoading } = useLandlord()
   const [submitting, setSubmitting] = useState(false)
@@ -51,7 +53,7 @@ export default function NewListingPage() {
       .single()
 
     setSubmitting(false)
-    if (insertError || !data) { setError(insertError?.message || 'Failed to create listing'); return }
+    if (insertError || !data) { setError(insertError?.message || t('newListing.failed')); return }
     router.push(`/dashboard?created=${data.slug}`)
   }
 
@@ -71,20 +73,23 @@ export default function NewListingPage() {
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">S</div>
             <div className="text-base font-bold tracking-tight">Stayloop</div>
           </Link>
-          <Link href="/dashboard" className="mono text-xs text-slate-400 hover:text-slate-200">← back to dashboard</Link>
+          <div className="flex items-center gap-3">
+            <LanguageToggle />
+            <Link href="/dashboard" className="mono text-xs text-slate-400 hover:text-slate-200">{t('dash.backToDash')}</Link>
+          </div>
         </div>
       </nav>
 
       <div className="max-w-2xl mx-auto px-6 py-12">
-        <div className="mono text-xs text-cyan-400 mb-2">// NEW LISTING</div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Create a listing</h1>
+        <div className="mono text-xs text-cyan-400 mb-2">{t('newListing.tag')}</div>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">{t('newListing.title')}</h1>
         <p className="text-sm text-slate-400 mb-8">
-          You&apos;ll get a unique application link to share with prospective tenants.
+          {t('newListing.sub')}
         </p>
 
         <form onSubmit={handleSubmit} className="glass rounded-2xl p-7 space-y-5">
           <div>
-            <label className="label">Street address *</label>
+            <label className="label">{t('newListing.street')}</label>
             <input
               required
               type="text"
@@ -97,32 +102,32 @@ export default function NewListingPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label">Unit (optional)</label>
+              <label className="label">{t('newListing.unit')}</label>
               <input type="text" value={form.unit} onChange={e => update('unit', e.target.value)} placeholder="Suite 1502" className="input" />
             </div>
             <div>
-              <label className="label">City *</label>
+              <label className="label">{t('newListing.city')}</label>
               <input required type="text" value={form.city} onChange={e => update('city', e.target.value)} className="input" />
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="label">Monthly rent CAD *</label>
+              <label className="label">{t('newListing.rent')}</label>
               <input required type="number" min="0" value={form.monthly_rent} onChange={e => update('monthly_rent', e.target.value)} placeholder="2800" className="input" />
             </div>
             <div>
-              <label className="label">Bedrooms</label>
+              <label className="label">{t('newListing.bedrooms')}</label>
               <input type="number" min="0" value={form.bedrooms} onChange={e => update('bedrooms', e.target.value)} placeholder="2" className="input" />
             </div>
             <div>
-              <label className="label">Bathrooms</label>
+              <label className="label">{t('newListing.bathrooms')}</label>
               <input type="number" min="0" step="0.5" value={form.bathrooms} onChange={e => update('bathrooms', e.target.value)} placeholder="1.5" className="input" />
             </div>
           </div>
 
           <div>
-            <label className="label">Available from</label>
+            <label className="label">{t('newListing.availableFrom')}</label>
             <input type="date" value={form.available_date} onChange={e => update('available_date', e.target.value)} className="input" />
           </div>
 
@@ -131,9 +136,9 @@ export default function NewListingPage() {
           )}
 
           <div className="flex items-center justify-end gap-3 pt-2">
-            <Link href="/dashboard" className="btn-ghost">Cancel</Link>
+            <Link href="/dashboard" className="btn-ghost">{t('newListing.cancel')}</Link>
             <button type="submit" disabled={submitting} className="btn-primary">
-              {submitting ? 'Creating...' : 'Create listing →'}
+              {submitting ? t('newListing.creating') : t('newListing.create')}
             </button>
           </div>
         </form>

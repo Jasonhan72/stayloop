@@ -1,0 +1,480 @@
+'use client'
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+
+export type Lang = 'en' | 'zh'
+
+// ─── Dictionary ────────────────────────────────────────────────
+// Keys are loose strings; every key must exist in both languages.
+
+export const DICT = {
+  // Common / nav / buttons
+  'nav.signin': { en: 'Sign in', zh: '登录' },
+  'nav.getStarted': { en: 'Get started →', zh: '开始使用 →' },
+  'nav.dashboard': { en: 'Dashboard →', zh: '控制台 →' },
+  'nav.back': { en: '← stayloop.ai', zh: '← stayloop.ai' },
+  'nav.signout': { en: 'Sign out', zh: '退出' },
+  'common.loading': { en: 'Loading…', zh: '加载中…' },
+  'common.authenticating': { en: 'Authenticating…', zh: '认证中…' },
+  'common.cancel': { en: 'Cancel', zh: '取消' },
+  'common.save': { en: 'Save', zh: '保存' },
+  'common.delete': { en: 'Delete', zh: '删除' },
+  'common.upgrade': { en: 'Upgrade', zh: '升级' },
+  'common.free': { en: 'Free', zh: '免费版' },
+  'common.pro': { en: 'Pro', zh: '订阅版' },
+
+  // Home page
+  'home.badge': { en: 'Built for Ontario landlords · PIPEDA compliant', zh: '为安省房东打造 · PIPEDA 合规' },
+  'home.hero.line1': { en: 'Tenant screening,', zh: '租客风控评估，' },
+  'home.hero.line2': { en: 're-engineered for AI.', zh: '由 AI 重新定义。' },
+  'home.hero.sub': {
+    en: 'Stayloop scores every rental application in seconds — pulling income, employment, rental history, and Ontario LTB records into one clear decision.',
+    zh: 'Stayloop 在几秒钟内对每份租赁申请打分 — 整合收入、就业、租赁历史和安省 LTB 记录，给出一个清晰的决策。',
+  },
+  'home.cta.primary': { en: 'Start screening free', zh: '免费开始评估' },
+  'home.cta.secondary': { en: 'See how it works', zh: '了解工作原理' },
+  'home.preview.score': { en: 'AI Score', zh: 'AI 评分' },
+  'home.preview.score.sub': { en: '+ low risk', zh: '低风险' },
+  'home.preview.ltb': { en: 'LTB Records', zh: 'LTB 记录' },
+  'home.preview.ltb.sub': { en: 'clear', zh: '清白' },
+  'home.preview.ratio': { en: 'Income / Rent', zh: '收入 / 租金' },
+  'home.preview.ratio.sub': { en: 'healthy', zh: '良好' },
+  'home.preview.analysisTitle': { en: 'Claude analysis', zh: 'Claude 分析' },
+  'home.preview.analysis': {
+    en: 'Strong income-to-rent ratio at 3.2×. Stable two-year employment history, positive prior landlord reference, and zero LTB records.',
+    zh: '收入租金比 3.2×，表现优秀。两年稳定就业，前房东反馈良好，无 LTB 记录。',
+  },
+  'home.preview.recommend': { en: ' Recommended for approval.', zh: ' 建议通过。' },
+
+  'home.features.tag': { en: '// FEATURES', zh: '// 功能' },
+  'home.features.title': { en: 'Built on a real screening stack', zh: '构建于真实的评估栈之上' },
+  'home.features.1.title': { en: 'AI risk scoring', zh: 'AI 风险评分' },
+  'home.features.1.desc': {
+    en: 'Claude analyzes income, employment, rental history, LTB records and references. Returns a 0–100 score with reasoning per category.',
+    zh: 'Claude 分析收入、就业、租赁历史、LTB 记录和推荐信，给出 0–100 分及各维度理由。',
+  },
+  'home.features.2.title': { en: 'LTB record search', zh: 'LTB 记录查询' },
+  'home.features.2.desc': {
+    en: 'Automatic search of Ontario Landlord and Tenant Board records to surface eviction history and prior disputes.',
+    zh: '自动查询安省房东与租客管理局记录，暴露历史驱逐和纠纷。',
+  },
+  'home.features.3.title': { en: 'PIPEDA compliant', zh: 'PIPEDA 合规' },
+  'home.features.3.desc': {
+    en: 'Built-in consent forms, data minimization, and 90-day retention. Aligned with the Ontario Human Rights Code from day one.',
+    zh: '内置同意书、数据最小化、90 天保留。从第一天起就遵循安省人权法典。',
+  },
+
+  'home.workflow.tag': { en: '// WORKFLOW', zh: '// 工作流程' },
+  'home.workflow.title': { en: 'From listing to decision in minutes', zh: '从房源到决策，只需几分钟' },
+  'home.workflow.1.t': { en: 'Create listing', zh: '创建房源' },
+  'home.workflow.1.d': { en: 'Add an address and rent. Get a unique application link.', zh: '添加地址和租金，获取专属申请链接。' },
+  'home.workflow.2.t': { en: 'Share link', zh: '分享链接' },
+  'home.workflow.2.d': { en: 'Send the link to applicants — works on any device.', zh: '把链接发给申请人 — 任何设备都可用。' },
+  'home.workflow.3.t': { en: 'Run AI score', zh: '运行 AI 评分' },
+  'home.workflow.3.d': { en: 'One click triggers Claude + LTB lookup in seconds.', zh: '一键触发 Claude + LTB 查询，秒级返回。' },
+  'home.workflow.4.t': { en: 'Decide', zh: '做出决策' },
+  'home.workflow.4.d': { en: 'Approve or decline with full audit trail and reasoning.', zh: '通过或拒绝，附完整审计轨迹和理由。' },
+
+  'home.pricing.tag': { en: '// PRICING', zh: '// 价格' },
+  'home.pricing.title': { en: 'Simple pricing for landlords', zh: '为房东设计的简单定价' },
+  'home.pricing.free.label': { en: 'FREE', zh: '免费' },
+  'home.pricing.free.sub': { en: 'Try Stayloop on your next vacancy.', zh: '在下一次出租中试用 Stayloop。' },
+  'home.pricing.free.f1': { en: '1 active listing', zh: '1 个在售房源' },
+  'home.pricing.free.f2': { en: '5 AI screenings / month', zh: '每月 5 次 AI 评估' },
+  'home.pricing.free.f3': { en: 'LTB record search', zh: 'LTB 记录查询' },
+  'home.pricing.free.cta': { en: 'Start free', zh: '免费开始' },
+  'home.pricing.pro.label': { en: 'PRO', zh: '订阅' },
+  'home.pricing.pro.popular': { en: 'POPULAR', zh: '热门' },
+  'home.pricing.pro.sub': { en: 'For landlords with multiple units.', zh: '适合多套房源的房东。' },
+  'home.pricing.pro.f1': { en: 'Unlimited listings', zh: '无限房源' },
+  'home.pricing.pro.f2': { en: 'Unlimited AI screenings', zh: '无限 AI 评估' },
+  'home.pricing.pro.f3': { en: 'LTB + court record search', zh: 'LTB + 法庭记录查询' },
+  'home.pricing.pro.f4': { en: 'Priority support', zh: '优先支持' },
+  'home.pricing.pro.cta': { en: 'Upgrade to Pro', zh: '升级到 Pro' },
+  'home.footer.copy': { en: '© 2026 Stayloop · Made for Ontario landlords', zh: '© 2026 Stayloop · 为安省房东打造' },
+
+  // Screen page
+  'screen.title': { en: 'Stayloop Screening', zh: 'Stayloop Screening' },
+  'screen.subtitle': { en: 'AI Tenant Risk Assessment v1.1', zh: 'AI 租客风控评估系统 v1.1' },
+  'screen.new': { en: '+ New', zh: '+ 新评估' },
+  'screen.tier.free.sources': { en: 'CanLII public records', zh: 'CanLII 公开记录' },
+  'screen.tier.pro.sources': { en: 'CanLII + Ontario Courts + Verified Network', zh: 'CanLII + Ontario Courts + Verified Network' },
+  'screen.form.name.label': { en: 'Applicant Name (optional)', zh: '申请人姓名（可选）' },
+  'screen.form.name.placeholder': { en: 'Leave blank to auto-extract from files', zh: '留空则从文件中自动提取' },
+  'screen.form.name.hint': {
+    en: 'If blank, we extract the name from ID / Employment Letter / Pay Stub for the court records lookup.',
+    zh: '未填写时，系统将从 ID / Employment Letter / Pay Stub 中自动提取姓名用于法庭记录查询',
+  },
+  'screen.form.rent.label': { en: 'Target Monthly Rent (CAD)', zh: '目标月租金 (CAD)' },
+  'screen.drop.title': { en: 'Drop tenant application files here', zh: '拖放租客申请文件到这里' },
+  'screen.drop.sub': {
+    en: 'PDF, JPG, PNG, DOC — Employment Letter, Pay Stubs, Bank Statements, ID, Credit Report…',
+    zh: '支持 PDF, JPG, PNG, DOC — Employment Letter, Pay Stubs, Bank Statements, ID, Credit Report 等',
+  },
+  'screen.drop.pick': { en: '📎 Choose files', zh: '📎 选择文件' },
+  'screen.filetype.employment': { en: 'Employment Letter', zh: 'Employment Letter' },
+  'screen.filetype.paystub': { en: 'Pay Stubs', zh: 'Pay Stubs' },
+  'screen.filetype.bank': { en: 'Bank Statements', zh: 'Bank Statements' },
+  'screen.filetype.id': { en: 'ID / Passport', zh: 'ID / Passport' },
+  'screen.filetype.credit': { en: 'Credit Report', zh: 'Credit Report' },
+  'screen.filetype.offer': { en: 'Offer / Study Permit', zh: 'Offer / Study Permit' },
+  'screen.filetype.reference': { en: 'Landlord Reference', zh: 'Landlord Reference' },
+  'screen.filetype.other': { en: 'Other Documents', zh: 'Other Documents' },
+  'screen.files.uploadedN': { en: 'Uploaded {n} file(s)', zh: '已上传 {n} 个文件' },
+  'screen.files.auto.name': { en: `Will use "{name}"`, zh: '将使用「{name}」' },
+  'screen.files.auto.extract': { en: 'Will extract name from files', zh: '将从文件中提取姓名' },
+  'screen.files.auto.sources.pro': { en: 'and query CanLII + Ontario Courts + Verified Network automatically', zh: '自动查询 CanLII + Ontario Courts + Stayloop Verified Network — 全程自动' },
+  'screen.files.auto.sources.free': { en: 'and query CanLII LTB public rulings automatically', zh: '自动查询 CanLII LTB 公开裁决 — 全程自动' },
+  'screen.submit': { en: '🔍 Start AI Risk Analysis', zh: '🔍 开始 AI 风控分析' },
+  'screen.submit.pro': { en: ' · Pro', zh: ' · Pro' },
+  'screen.err.min': { en: 'Please upload at least one file or enter an applicant name', zh: '请至少上传一个文件或填写申请人姓名' },
+  'screen.err.tooBig': { en: '{name} is over 10 MB', zh: '{name} 超过 10 MB' },
+  'screen.err.unknown': { en: 'Unknown error', zh: '未知错误' },
+
+  // Analysis progress labels
+  'screen.step.meta': { en: 'Reading document metadata…', zh: '读取文档元数据...' },
+  'screen.step.ocr': { en: 'OCR text extraction…', zh: 'OCR 文字提取中...' },
+  'screen.step.extractName': { en: '📛 Extracting applicant name from files…', zh: '📛 从文件中提取申请人姓名...' },
+  'screen.step.auth': { en: 'Document authenticity check…', zh: '文档真伪验证...' },
+  'screen.step.finance': { en: 'Financial data analysis…', zh: '财务数据分析...' },
+  'screen.step.canlii': { en: '🔍 Querying CanLII LTB public rulings…', zh: '🔍 查询 CanLII LTB 公开裁决...' },
+  'screen.step.ontarioCourts': { en: '🔍 Querying Ontario Courts civil records…', zh: '🔍 查询 Ontario Courts 民事记录...' },
+  'screen.step.network': { en: '🔍 Querying Stayloop Verified Network…', zh: '🔍 查询 Stayloop Verified Network...' },
+  'screen.step.cross': { en: 'Cross-verification…', zh: '交叉信息校验...' },
+  'screen.step.behavior': { en: 'Behavioral signals…', zh: '行为信号分析...' },
+  'screen.step.risk': { en: 'Risk model calculation…', zh: '风险模型计算...' },
+  'screen.step.report': { en: 'Generating report…', zh: '生成评估报告...' },
+  'screen.step.start': { en: 'Starting analysis…', zh: '启动分析...' },
+  'screen.analyzing.court.pro': { en: 'Querying public court records · Pro full query', zh: '正在查询公开法庭记录 · Pro 全量查询' },
+  'screen.analyzing.court.free': { en: 'Querying public court records · Basic query', zh: '正在查询公开法庭记录 · 基础查询' },
+  'screen.analyzing.name': { en: 'Identifying applicant from files…', zh: '正在从文件中识别申请人信息...' },
+  'screen.analyzing.files': { en: 'Analyzing {n} file(s)…', zh: '正在分析 {n} 个文件...' },
+
+  // Results
+  'screen.result.headline': { en: 'OVERALL RISK ASSESSMENT', zh: '综合风险评估' },
+  'screen.result.nameExtracted': { en: '📛 Name auto-extracted from files', zh: '📛 姓名从申请文件中自动提取' },
+  'screen.result.stat.rent': { en: 'Target rent', zh: '目标月租金' },
+  'screen.result.stat.files': { en: 'Files analyzed', zh: '文件已分析' },
+  'screen.result.stat.courts': { en: 'Court DBs queried', zh: '法庭库已查' },
+  'screen.result.summary': { en: '📝 AI Risk Summary', zh: '📝 AI 风险摘要' },
+  'screen.result.dims': { en: '📊 Category breakdown · 6 dimensions', zh: '📊 分项评分明细 · 6 个维度' },
+  'screen.result.court.title': { en: '⚖️ Court Record Query Details', zh: '⚖️ 法庭记录查询详情' },
+  'screen.result.court.queriedName': { en: 'Query name:', zh: '查询姓名:' },
+  'screen.result.court.pro': { en: 'PRO full query', zh: 'PRO 全量查询' },
+  'screen.result.court.free': { en: 'FREE basic query', zh: 'FREE 基础查询' },
+  'screen.result.court.sources': { en: 'Data sources queried', zh: '已查询数据源' },
+  'screen.result.court.clean.title': { en: 'No adverse records found', zh: '未发现不良记录' },
+  'screen.result.court.clean.sub': { en: 'No hits across the {n} data source(s) queried', zh: '在已查询的 {n} 个数据源中均无命中' },
+  'screen.result.court.hits': { en: '⚠ Found {n} potential match(es). Verify identity via CanLII before deciding.', zh: '⚠ 共发现 {n} 条潜在匹配。请通过 CanLII 链接核实身份后再做决定。' },
+  'screen.result.court.hitsN': { en: '{n} hit(s)', zh: '{n} 条命中' },
+  'screen.result.court.clean': { en: 'No records', zh: '无记录' },
+  'screen.result.court.comingSoon': { en: 'Coming soon', zh: '即将推出' },
+  'screen.result.court.needPro': { en: 'Requires Pro', zh: '需 Pro 版' },
+  'screen.result.court.upgrade.title': { en: 'Upgrade to Pro for full court coverage', zh: '升级 Pro 版获取全量法庭记录' },
+  'screen.result.court.upgrade.sub': { en: 'Unlock Ontario Courts Portal civil suits + Stayloop Verified Network', zh: '解锁 Ontario Courts Portal 民事诉讼 + Stayloop Verified Network' },
+  'screen.result.flags': { en: '🚩 Flags & Recommendations', zh: '🚩 风险标记 & 建议' },
+  'screen.result.weights': { en: '⚙️ Scoring Weights', zh: '⚙️ 评分权重说明' },
+  'screen.result.footer.notice': {
+    en: 'This report is for decision support only. Final leasing decisions must comply with the Ontario RTA / Human Rights Code.',
+    zh: '本报告仅供决策参考。最终租赁决定应遵守 Ontario RTA / Human Rights Code。',
+  },
+
+  // Categories
+  'cat.doc_authenticity.label': { en: 'Document Authenticity', zh: '文档真伪' },
+  'cat.doc_authenticity.desc': {
+    en: 'Metadata analysis, font consistency, template patterns, tampering detection',
+    zh: '元数据分析、字体一致性、模板特征、篡改痕迹检测',
+  },
+  'cat.payment_ability.label': { en: 'Financial Capacity', zh: '支付能力' },
+  'cat.payment_ability.desc': {
+    en: 'Income-to-rent ratio, cashflow stability, debt levels, savings buffer',
+    zh: '收入租金比、现金流稳定性、负债水平、储蓄缓冲',
+  },
+  'cat.court_records.label': { en: 'Court & Tribunal Records', zh: '法庭记录' },
+  'cat.court_records.desc': {
+    en: 'LTB rulings, eviction orders for non-payment, Small Claims judgments, civil suits',
+    zh: 'LTB 裁决、欠租驱逐令、Small Claims 判决、民事诉讼记录',
+  },
+  'cat.stability.label': { en: 'Stability', zh: '稳定性' },
+  'cat.stability.desc': {
+    en: 'Years employed, rental history, address change frequency',
+    zh: '就业年限、租赁历史、居住地址变动频率',
+  },
+  'cat.info_consistency.label': { en: 'Cross-Verification', zh: '信息一致性' },
+  'cat.info_consistency.desc': {
+    en: 'Cross-check employer name / income / bank deposits',
+    zh: '雇主名称/收入/银行入账交叉校验',
+  },
+  'cat.behavior_signals.label': { en: 'Behavioral Signals', zh: '行为信号' },
+  'cat.behavior_signals.desc': {
+    en: 'Application completeness, response time, communication patterns',
+    zh: '申请完整度、响应速度、沟通模式分析',
+  },
+  'cat.weight': { en: 'weight', zh: '权重' },
+
+  // Risk levels
+  'risk.safe': { en: 'Safe', zh: '安全' },
+  'risk.mostlySafe': { en: 'Mostly Safe', zh: '较安全' },
+  'risk.review': { en: 'Review Needed', zh: '需审查' },
+  'risk.risky': { en: 'Risky', zh: '有风险' },
+  'risk.highRisk': { en: 'High Risk', zh: '高危' },
+  'risk.tag.safe': { en: '✅ APPROVED', zh: '✅ APPROVED' },
+  'risk.tag.mostlySafe': { en: '👍 LIKELY APPROVE', zh: '👍 LIKELY APPROVE' },
+  'risk.tag.review': { en: '⚠️ REVIEW', zh: '⚠️ REVIEW' },
+  'risk.tag.risky': { en: '🟠 CAUTION', zh: '🟠 CAUTION' },
+  'risk.tag.reject': { en: '🔴 REJECT', zh: '🔴 REJECT' },
+
+  // Flag messages
+  'flag.courtHit': { en: '⚖️ Court record hit! Found {n} potential match(es) in public databases. This is one of the strongest default predictors — verify manually via CanLII before deciding.', zh: '⚖️ 法庭记录命中！在公开数据库中发现 {n} 条潜在匹配。这是最强的违约预测指标之一，请极度谨慎并通过 CanLII 链接人工核实。' },
+  'flag.courtClean': { en: '⚖️ Court records clean. No LTB evictions or civil suits found in the queried databases.', zh: '⚖️ 法庭记录查询通过。在已检索的公开数据库中未发现 LTB 驱逐令或民事诉讼记录。' },
+  'flag.docFailed': { en: 'Document authenticity check failed! Possible tampering or abnormal metadata detected. Manual review of originals strongly recommended.', zh: '文档真伪验证未通过！检测到可能的篡改痕迹或异常元数据。强烈建议人工复核原始文件。' },
+  'flag.inconsistent': { en: 'Cross-verification flagged inconsistencies: mismatched employer name, income amounts or dates across documents — possible fraud.', zh: '交叉校验发现不一致：文件间的雇主名称、收入金额或日期存在矛盾，存在欺诈风险。' },
+  'flag.strongCandidate': { en: 'Strong financials, sufficient income, documents verified and court records clean. Low overall risk.', zh: '财务状况良好，收入水平充足，文档验证通过，法庭记录清白。综合风险较低。' },
+  'flag.upgradeCta': { en: '💎 Upgrade to Pro for Ontario Courts Portal + Stayloop Verified Network coverage and a more complete risk picture.', zh: '💎 升级 Pro 版可查询 Ontario Courts Portal 民事记录 + Stayloop Verified Network，获取更完整的风险画像。' },
+
+  // History
+  'history.title': { en: 'Recent assessments', zh: '最近评估' },
+  'history.countN': { en: '{n} entries', zh: '{n} 条' },
+  'history.autoExtracted': { en: '(auto-extracted)', zh: '(自动提取)' },
+
+  // Dashboard
+  'dash.tagline': { en: 'dashboard', zh: '控制台' },
+  'dash.screenTenant': { en: '⚡ Screen tenant', zh: '⚡ 评估租客' },
+  'dash.upgrade': { en: 'Upgrade', zh: '升级' },
+  'dash.manageBilling': { en: 'Manage billing', zh: '账单管理' },
+  'dash.opening': { en: 'Opening…', zh: '打开中…' },
+  'dash.signOut': { en: 'Sign out', zh: '退出' },
+  'dash.overview': { en: '// OVERVIEW', zh: '// 概览' },
+  'dash.title': { en: 'Dashboard', zh: '控制台' },
+  'dash.newListing': { en: '+ New listing', zh: '+ 新建房源' },
+  'dash.stat.total': { en: 'Total applications', zh: '总申请数' },
+  'dash.stat.approved': { en: 'Approved', zh: '已通过' },
+  'dash.stat.pending': { en: 'Pending review', zh: '待审核' },
+  'dash.stat.flags': { en: 'LTB flags', zh: 'LTB 标记' },
+  'dash.yourListings': { en: 'Your listings', zh: '您的房源' },
+  'dash.activeN': { en: '{n} active', zh: '{n} 个活跃' },
+  'dash.loading': { en: 'Loading...', zh: '加载中...' },
+  'dash.noListings': { en: 'No listings yet.', zh: '暂无房源。' },
+  'dash.createFirst': { en: 'Create your first listing →', zh: '创建您的第一个房源 →' },
+  'dash.copied': { en: '✓ Copied', zh: '✓ 已复制' },
+  'dash.copyLink': { en: 'Copy link', zh: '复制链接' },
+  'dash.open': { en: 'Open ↗', zh: '打开 ↗' },
+  'dash.recentApps': { en: 'Recent applications', zh: '最近申请' },
+  'dash.noApps': { en: 'No applications yet. Share a listing link to get started.', zh: '暂无申请。分享房源链接以开始。' },
+  'dash.col.applicant': { en: 'Applicant', zh: '申请人' },
+  'dash.col.property': { en: 'Property', zh: '房源' },
+  'dash.col.income': { en: 'Income', zh: '收入' },
+  'dash.col.aiScore': { en: 'AI Score', zh: 'AI 评分' },
+  'dash.col.ltb': { en: 'LTB', zh: 'LTB' },
+  'dash.col.status': { en: 'Status', zh: '状态' },
+  'dash.scorePending': { en: 'pending', zh: '待评估' },
+  'dash.ltbClear': { en: '✓ clear', zh: '✓ 清白' },
+  'dash.pricing.tag': { en: '// PRICING', zh: '// 价格' },
+  'dash.pricing.choose': { en: 'Choose your plan', zh: '选择套餐' },
+  'dash.pricing.free': { en: 'Free', zh: '免费' },
+  'dash.pricing.foreverFree': { en: 'forever free', zh: '永久免费' },
+  'dash.pricing.cancel': { en: 'cancel anytime', zh: '随时取消' },
+  'dash.pricing.recommended': { en: 'recommended', zh: '推荐' },
+  'dash.pricing.free.f1': { en: '✓ Unlimited listings', zh: '✓ 无限房源' },
+  'dash.pricing.free.f2': { en: '✓ AI 6-dim screening', zh: '✓ AI 6 维评估' },
+  'dash.pricing.free.f3': { en: '✓ Vision OCR document analysis', zh: '✓ Vision OCR 文档分析' },
+  'dash.pricing.free.f4': { en: '✓ CanLII LTB record search', zh: '✓ CanLII LTB 记录查询' },
+  'dash.pricing.free.f5': { en: '— Ontario Courts Portal', zh: '— Ontario Courts Portal' },
+  'dash.pricing.free.f6': { en: '— Bulk export', zh: '— 批量导出' },
+  'dash.pricing.pro.f1': { en: '✓ Everything in Free', zh: '✓ 免费版全部功能' },
+  'dash.pricing.pro.f2': { en: '✓ Ontario Courts Portal lookup', zh: '✓ Ontario Courts Portal 查询' },
+  'dash.pricing.pro.f3': { en: '✓ Priority AI scoring', zh: '✓ 优先 AI 评分' },
+  'dash.pricing.pro.f4': { en: '✓ Bulk CSV export', zh: '✓ CSV 批量导出' },
+  'dash.pricing.pro.f5': { en: '✓ Custom branded apply pages', zh: '✓ 自定义品牌申请页' },
+  'dash.pricing.pro.f6': { en: '✓ Email + Slack notifications', zh: '✓ Email + Slack 通知' },
+  'dash.pricing.redirecting': { en: 'Redirecting to Stripe…', zh: '跳转到 Stripe…' },
+  'dash.pricing.upgradeTo': { en: 'Upgrade to Pro →', zh: '升级到 Pro →' },
+  'dash.pricing.stripeNotice': { en: 'Secure checkout by Stripe · cancel anytime from Manage billing.', zh: 'Stripe 安全支付 · 可在账单管理中随时取消。' },
+  'dash.banner.pending': { en: 'Payment received — unlocking Pro…', zh: '付款已收到 — 正在解锁 Pro…' },
+  'dash.banner.success': { en: 'Welcome to Pro!', zh: '欢迎升级到 Pro！' },
+  'dash.banner.cancel': { en: 'Checkout canceled — no charge was made.', zh: '支付已取消 — 未产生扣款。' },
+  'dash.banner.dismiss': { en: 'dismiss', zh: '关闭' },
+  'dash.close': { en: '✕ close', zh: '✕ 关闭' },
+  'dash.backToDash': { en: '← back to dashboard', zh: '← 返回控制台' },
+  'newListing.tag': { en: '// NEW LISTING', zh: '// 新建房源' },
+  'newListing.title': { en: 'Create a listing', zh: '创建房源' },
+  'newListing.sub': { en: "You'll get a unique application link to share with prospective tenants.", zh: '您将获得一个专属的申请链接，可分享给潜在租客。' },
+  'newListing.street': { en: 'Street address *', zh: '街道地址 *' },
+  'newListing.unit': { en: 'Unit (optional)', zh: '单元 (可选)' },
+  'newListing.city': { en: 'City *', zh: '城市 *' },
+  'newListing.rent': { en: 'Monthly rent CAD *', zh: '月租金 CAD *' },
+  'newListing.bedrooms': { en: 'Bedrooms', zh: '卧室数' },
+  'newListing.bathrooms': { en: 'Bathrooms', zh: '卫生间' },
+  'newListing.availableFrom': { en: 'Available from', zh: '可入住日期' },
+  'newListing.cancel': { en: 'Cancel', zh: '取消' },
+  'newListing.creating': { en: 'Creating...', zh: '创建中...' },
+  'newListing.create': { en: 'Create listing →', zh: '创建房源 →' },
+  'newListing.failed': { en: 'Failed to create listing', zh: '创建房源失败' },
+
+  // Apply page
+  'apply.loading': { en: 'Loading…', zh: '加载中…' },
+  'apply.notFound': { en: 'Listing not found.', zh: '房源不存在。' },
+  'apply.title': { en: 'Rental application', zh: '租赁申请' },
+  'apply.tagline': { en: 'encrypted · pipeda compliant · ontario', zh: '加密 · pipeda 合规 · 安省' },
+  'apply.submitted.title': { en: 'Application submitted', zh: '申请已提交' },
+  'apply.submitted.sub': { en: 'The landlord will review your application and be in touch soon.', zh: '房东将审核您的申请并尽快联系您。' },
+  'apply.sec.personal': { en: 'Personal information', zh: '个人信息' },
+  'apply.sec.employment': { en: 'Employment & income', zh: '工作与收入' },
+  'apply.sec.rental': { en: 'Rental history', zh: '租赁历史' },
+  'apply.sec.household': { en: 'Household', zh: '家庭情况' },
+  'apply.sec.docs': { en: 'Documents (recommended)', zh: '文档（建议）' },
+  'apply.docs.intro': { en: 'Uploading your documents lets the landlord verify your application instantly with AI. PDF, JPG, or PNG up to 10 MB each.', zh: '上传文档可让房东通过 AI 即时验证您的申请。支持 PDF、JPG、PNG，单文件最大 10 MB。' },
+  'apply.f.firstName': { en: 'First name *', zh: '名 *' },
+  'apply.f.lastName': { en: 'Last name *', zh: '姓 *' },
+  'apply.f.email': { en: 'Email *', zh: '邮箱 *' },
+  'apply.f.phone': { en: 'Phone', zh: '电话' },
+  'apply.f.dob': { en: 'Date of birth', zh: '出生日期' },
+  'apply.f.currentAddress': { en: 'Current address', zh: '现居地址' },
+  'apply.f.status': { en: 'Status', zh: '状态' },
+  'apply.f.employer': { en: 'Employer *', zh: '雇主 *' },
+  'apply.f.jobTitle': { en: 'Job title', zh: '职位' },
+  'apply.f.monthlyIncome': { en: 'Gross monthly income $ *', zh: '税前月收入 $ *' },
+  'apply.f.startDate': { en: 'Start date', zh: '入职日期' },
+  'apply.f.employerPhone': { en: 'Employer phone', zh: '雇主电话' },
+  'apply.f.prevLandlord': { en: 'Previous landlord', zh: '前任房东' },
+  'apply.f.landlordPhone': { en: 'Landlord phone', zh: '房东电话' },
+  'apply.f.prevRent': { en: 'Monthly rent paid $', zh: '历史月租金 $' },
+  'apply.f.reasonLeaving': { en: 'Reason for leaving', zh: '离开原因' },
+  'apply.f.prevAddress': { en: 'Previous address', zh: '前任地址' },
+  'apply.f.occupants': { en: 'Occupants', zh: '入住人数' },
+  'apply.f.pets': { en: 'Pets?', zh: '是否有宠物？' },
+  'apply.f.smoker': { en: 'Smoker?', zh: '是否吸烟？' },
+  'apply.f.moveIn': { en: 'Desired move-in', zh: '期望入住日期' },
+  'apply.filekind.id.label': { en: 'Government ID', zh: '政府 ID' },
+  'apply.filekind.id.hint': { en: "Driver's licence, passport, or PR card", zh: '驾照、护照或 PR 卡' },
+  'apply.filekind.paystub.label': { en: 'Recent pay stubs', zh: '近期工资单' },
+  'apply.filekind.paystub.hint': { en: 'Last 2-3 months (PDF or photo)', zh: '近 2-3 个月（PDF 或照片）' },
+  'apply.filekind.bank.label': { en: 'Bank statement', zh: '银行对账单' },
+  'apply.filekind.bank.hint': { en: 'Most recent statement showing income deposits', zh: '显示收入入账的最新对账单' },
+  'apply.filekind.employment.label': { en: 'Employment letter', zh: '在职证明' },
+  'apply.filekind.employment.hint': { en: 'Optional — from your current employer', zh: '可选 — 由现任雇主出具' },
+  'apply.addFile': { en: '+ add file', zh: '+ 添加文件' },
+  'apply.remove': { en: 'remove', zh: '移除' },
+  'apply.consent.tag': { en: '// CONSENT — PIPEDA', zh: '// 同意 — PIPEDA' },
+  'apply.consent.body': { en: 'By submitting, you authorize the landlord and Stayloop to verify your information, contact references, search publicly available LTB and Ontario court records, and obtain a credit report. Data retained 90 days then deleted. Compliant with the Ontario Human Rights Code.', zh: '提交即表示您授权房东和 Stayloop 核实您的信息、联系推荐人、查询公开的 LTB 及安省法庭记录，并获取信用报告。数据保留 90 天后删除，符合《安省人权法典》。' },
+  'apply.consent.check1': { en: 'I agree to the above authorization and confirm all information is accurate. *', zh: '我同意以上授权并确认所有信息属实。*' },
+  'apply.consent.check2': { en: 'I consent to a credit check being performed on my behalf.', zh: '我同意进行信用查询。' },
+  'apply.submit': { en: 'Submit application →', zh: '提交申请 →' },
+  'apply.submitting': { en: 'Submitting...', zh: '提交中...' },
+  'apply.uploading': { en: 'Uploading...', zh: '上传中...' },
+  'apply.consentRequired': { en: 'Please provide consent to proceed.', zh: '请勾选同意项以继续。' },
+  'apply.listingNotFound': { en: 'Listing not found.', zh: '房源不存在。' },
+  'apply.submitError': { en: 'Error submitting application. Please try again.', zh: '提交申请出错，请重试。' },
+  'apply.uploadProgress': { en: 'Uploading {i} / {n}: {name}', zh: '上传中 {i} / {n}：{name}' },
+  'apply.uploadFailed': { en: 'Upload failed for {name}: {err}', zh: '{name} 上传失败：{err}' },
+  'apply.fileTooBig': { en: '{name} is larger than 10 MB.', zh: '{name} 超过 10 MB。' },
+
+  // Login
+  'login.badge': { en: '// LANDLORD ACCESS', zh: '// 房东入口' },
+  'login.title': { en: 'Sign in to Stayloop', zh: '登录 Stayloop' },
+  'login.sub': { en: "Enter your email — we'll send a one-time link. No password.", zh: '输入邮箱 — 我们会发送一次性登录链接。无需密码。' },
+  'login.email': { en: 'EMAIL ADDRESS', zh: '邮箱地址' },
+  'login.send': { en: 'Send magic link →', zh: '发送登录链接 →' },
+  'login.sent': { en: 'Check your inbox for the magic link.', zh: '请查收邮箱中的登录链接。' },
+  'login.footer': { en: 'Encrypted · PIPEDA compliant · Built in Ontario', zh: '加密 · PIPEDA 合规 · 安省出品' },
+  'login.emailLabel': { en: 'Email address', zh: '邮箱地址' },
+  'login.sending': { en: 'Sending magic link...', zh: '发送中...' },
+  'login.checkInbox': { en: 'Check your inbox', zh: '请查收邮箱' },
+  'login.sentDetail': { en: 'We sent a magic link to {email}. Click it to sign in.', zh: '我们已向 {email} 发送登录链接，点击即可登录。' },
+
+  // Language toggle
+  'lang.switch': { en: '中文', zh: 'EN' },
+} as const
+
+export type DictKey = keyof typeof DICT
+
+// ─── Context ───────────────────────────────────────────────────
+
+interface I18nCtx {
+  lang: Lang
+  setLang: (l: Lang) => void
+  t: (key: DictKey, vars?: Record<string, string | number>) => string
+}
+
+const Ctx = createContext<I18nCtx | null>(null)
+
+function format(str: string, vars?: Record<string, string | number>) {
+  if (!vars) return str
+  return str.replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : `{${k}}`))
+}
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [lang, setLangState] = useState<Lang>('zh')
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? (localStorage.getItem('stayloop_lang') as Lang | null) : null
+    if (stored === 'en' || stored === 'zh') {
+      setLangState(stored)
+    } else if (typeof navigator !== 'undefined') {
+      const browser = navigator.language || ''
+      setLangState(browser.toLowerCase().startsWith('zh') ? 'zh' : 'en')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en'
+    }
+  }, [lang])
+
+  const setLang = (l: Lang) => {
+    setLangState(l)
+    if (typeof window !== 'undefined') localStorage.setItem('stayloop_lang', l)
+  }
+
+  const t = (key: DictKey, vars?: Record<string, string | number>) => {
+    const entry = DICT[key]
+    if (!entry) return String(key)
+    return format(entry[lang] ?? entry.en, vars)
+  }
+
+  return <Ctx.Provider value={{ lang, setLang, t }}>{children}</Ctx.Provider>
+}
+
+export function useT() {
+  const ctx = useContext(Ctx)
+  if (!ctx) {
+    // Safe fallback so non-wrapped contexts still render English
+    const t = (key: DictKey, vars?: Record<string, string | number>) => {
+      const entry = DICT[key]
+      return entry ? format(entry.en, vars) : String(key)
+    }
+    return { lang: 'en' as Lang, setLang: (_: Lang) => {}, t }
+  }
+  return ctx
+}
+
+// ─── Language toggle button ────────────────────────────────────
+
+export function LanguageToggle({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  const { lang, setLang, t } = useT()
+  return (
+    <button
+      onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+      className={className}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '6px 12px',
+        borderRadius: 8,
+        border: '1px solid rgba(255,255,255,0.12)',
+        background: 'rgba(255,255,255,0.03)',
+        color: '#94a3b8',
+        fontSize: 12,
+        cursor: 'pointer',
+        fontFamily: "'JetBrains Mono', monospace",
+        ...style,
+      }}
+      title={lang === 'zh' ? 'Switch to English' : '切换到中文'}
+      aria-label="Toggle language"
+    >
+      <span>🌐</span>
+      <span>{t('lang.switch')}</span>
+    </button>
+  )
+}

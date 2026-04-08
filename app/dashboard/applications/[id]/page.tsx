@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
+import { useT, LanguageToggle } from '@/lib/i18n'
 import { Application, ApplicationFile } from '@/types'
 
 const DIMENSIONS: { key: string; label: string; weight: number }[] = [
@@ -26,6 +27,7 @@ const DIM_NOTE_KEYS: Record<string, string> = {
 interface LandlordRow { id: string; plan: 'free' | 'pro' | 'enterprise' }
 
 export default function ApplicationDetailPage() {
+  const { t } = useT()
   const params = useParams<{ id: string }>()
   const { landlord, loading: authLoading } = useLandlord()
   const [app, setApp] = useState<Application | null>(null)
@@ -156,7 +158,10 @@ export default function ApplicationDetailPage() {
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">S</div>
             <div className="text-base font-bold tracking-tight">Stayloop</div>
           </Link>
-          <Link href="/dashboard" className="mono text-xs text-slate-400 hover:text-slate-200">← back</Link>
+          <div className="flex items-center gap-3">
+            <LanguageToggle />
+            <Link href="/dashboard" className="mono text-xs text-slate-400 hover:text-slate-200">{t('dash.backToDash')}</Link>
+          </div>
         </div>
       </nav>
 
