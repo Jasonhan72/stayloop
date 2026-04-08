@@ -49,13 +49,24 @@ interface ScoreResult {
   tier: 'free' | 'pro'
 }
 
-const DIMS: { key: keyof ScoreResult['scores']; label: string; weight: number }[] = [
-  { key: 'doc_authenticity', label: 'Document authenticity', weight: 20 },
-  { key: 'payment_ability', label: 'Payment ability', weight: 20 },
-  { key: 'court_records', label: 'Court records', weight: 20 },
-  { key: 'stability', label: 'Stability', weight: 15 },
-  { key: 'behavior_signals', label: 'Behavior signals', weight: 13 },
-  { key: 'info_consistency', label: 'Info consistency', weight: 12 },
+const DIMS: { key: keyof ScoreResult['scores']; label: string; weight: number; icon: string }[] = [
+  { key: 'doc_authenticity', label: '文档真伪', weight: 20, icon: '🛡️' },
+  { key: 'payment_ability', label: '支付能力', weight: 20, icon: '💰' },
+  { key: 'court_records', label: '法庭记录', weight: 20, icon: '⚖️' },
+  { key: 'stability', label: '稳定性', weight: 15, icon: '🏠' },
+  { key: 'behavior_signals', label: '行为信号', weight: 13, icon: '📡' },
+  { key: 'info_consistency', label: '信息一致性', weight: 12, icon: '🔗' },
+]
+
+const DOC_TYPES = [
+  { id: 'employment', icon: '📄', label: 'Employment Letter' },
+  { id: 'paystub', icon: '💵', label: 'Pay Stubs' },
+  { id: 'bank', icon: '🏦', label: 'Bank Statements' },
+  { id: 'id', icon: '🪪', label: 'ID / Passport' },
+  { id: 'credit', icon: '📊', label: 'Credit Report' },
+  { id: 'offer', icon: '📋', label: 'Offer / Study Permit' },
+  { id: 'reference', icon: '✉️', label: 'Landlord Reference' },
+  { id: 'other', icon: '📎', label: 'Other Documents' },
 ]
 
 interface RiskLevel {
@@ -127,11 +138,11 @@ type StepStatus = 'pending' | 'active' | 'done' | 'skipped'
 interface PipelineStep { key: string; label: string; status: StepStatus }
 
 const INITIAL_STEPS: PipelineStep[] = [
-  { key: 'upload', label: 'Upload tenant documents', status: 'pending' },
-  { key: 'extract', label: 'Extract candidate identity (OCR)', status: 'pending' },
-  { key: 'court', label: 'Query public court records', status: 'pending' },
-  { key: 'score', label: 'Run 6-dimension AI scoring', status: 'pending' },
-  { key: 'finalize', label: 'Finalize report', status: 'pending' },
+  { key: 'upload', label: '📤 上传租客申请文件', status: 'pending' },
+  { key: 'extract', label: '📛 从文件中提取申请人姓名', status: 'pending' },
+  { key: 'court', label: '⚖️ 查询公开法庭记录 (CanLII)', status: 'pending' },
+  { key: 'score', label: '🤖 运行 6 维度 AI 风控评分', status: 'pending' },
+  { key: 'finalize', label: '✅ 生成评估报告', status: 'pending' },
 ]
 
 export default function ScreenPage() {
@@ -338,117 +349,197 @@ export default function ScreenPage() {
 
   return (
     <div className="min-h-screen text-slate-100">
-      {/* Nav */}
+      {/* Top utility bar */}
       <nav className="sticky top-0 z-20 backdrop-blur-xl bg-[#060814]/60 border-b border-white/[0.06]">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">S</div>
-            <div>
-              <div className="text-base font-bold tracking-tight">Stayloop</div>
-              <div className="text-[10px] mono text-slate-500 -mt-0.5">screen</div>
-            </div>
-          </Link>
+        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+          <Link href="/" className="text-xs mono text-slate-500 hover:text-slate-300">← stayloop.ai</Link>
           <div className="flex items-center gap-3">
-            <span className={`mono text-[10px] uppercase px-2 py-1 rounded-md border ${isPro ? 'bg-amber-500/15 text-amber-300 border-amber-500/40' : 'bg-slate-500/10 text-slate-300 border-slate-500/30'}`}>{plan}</span>
-            <Link href="/dashboard" className="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/[0.04]">Listings & applications →</Link>
-            <span className="mono text-xs text-slate-400 hidden sm:inline">{landlord.email}</span>
+            <Link href="/dashboard" className="text-xs text-slate-400 hover:text-slate-200 px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/[0.04]">Dashboard →</Link>
+            <span className="mono text-xs text-slate-500 hidden sm:inline">{landlord.email}</span>
             <button onClick={signOut} className="btn-ghost text-xs px-3 py-1.5">Sign out</button>
           </div>
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-6 py-10">
-        <div className="mb-8">
-          <div className="mono text-xs text-cyan-400 mb-1">// AI SCREEN</div>
-          <h1 className="text-3xl font-bold tracking-tight">Quick tenant screening</h1>
-          <p className="text-sm text-slate-400 mt-2">Drop a tenant&apos;s documents. We extract their identity, query public court records, and run a 6-dimension AI risk score in seconds.</p>
+      <div className="max-w-5xl mx-auto px-6 py-10">
+        {/* Big header */}
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white text-2xl font-bold shadow-2xl shadow-cyan-500/30">S</div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Stayloop Screening</h1>
+            <p className="text-sm text-slate-400 mt-0.5">AI 租客风控评估系统 <span className="mono text-cyan-400">v1.1</span></p>
+          </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* LEFT: input */}
-          <div className="lg:col-span-2 space-y-5">
-            {/* Drop zone */}
+        {/* Free / Pro tabs */}
+        <div className="grid grid-cols-2 gap-3 mb-6 p-1.5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+          <button
+            onClick={() => {/* free is always available */}}
+            className={`rounded-xl py-4 px-5 text-center transition-all ${
+              !isPro
+                ? 'bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 border border-cyan-500/40 shadow-lg shadow-cyan-500/10'
+                : 'border border-transparent hover:bg-white/[0.03]'
+            }`}
+          >
+            <div className="text-base font-bold mb-1">免费版</div>
+            <div className="text-[11px] text-slate-400 mono">CanLII 公开记录</div>
+          </button>
+          <Link
+            href={isPro ? '#' : '/dashboard?upgrade=1'}
+            className={`rounded-xl py-4 px-5 text-center transition-all block ${
+              isPro
+                ? 'bg-gradient-to-br from-amber-500/20 to-orange-500/5 border border-amber-500/40 shadow-lg shadow-amber-500/10'
+                : 'border border-transparent hover:bg-white/[0.03]'
+            }`}
+          >
+            <div className="text-base font-bold mb-1">订阅版 <span className="text-amber-400">💎</span></div>
+            <div className="text-[11px] text-slate-400 mono">CanLII + Ontario Courts + Verified Network</div>
+          </Link>
+        </div>
+
+        <div className="space-y-5">
+            {/* Name + Rent inputs (top row) */}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-slate-300 block mb-2">申请人姓名 <span className="text-slate-500">(可选)</span></label>
+                <input
+                  type="text"
+                  value={tenantName}
+                  onChange={e => setTenantName(e.target.value)}
+                  placeholder="留空则从文件中自动提取"
+                  className="w-full bg-[#0f172a] border border-[#1e293b] rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/60"
+                />
+                <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">未填写时，系统将从 ID / Employment Letter / Pay Stub 中自动提取姓名用于法庭记录查询</p>
+              </div>
+              <div>
+                <label className="text-xs text-slate-300 block mb-2">目标月租金 <span className="text-slate-500">(CAD)</span></label>
+                <input
+                  type="number"
+                  value={monthlyRent}
+                  onChange={e => setMonthlyRent(e.target.value)}
+                  placeholder="e.g. 2500"
+                  className="w-full bg-[#0f172a] border border-[#1e293b] rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/60"
+                />
+              </div>
+            </div>
+
+            {/* Big drop zone */}
             <div
               onDragOver={e => { e.preventDefault(); setDragging(true) }}
               onDragLeave={() => setDragging(false)}
               onDrop={onDrop}
-              className={`glass rounded-2xl p-8 border-2 border-dashed transition-colors cursor-pointer ${dragging ? 'border-cyan-400/60 bg-cyan-500/5' : 'border-white/10 hover:border-white/20'}`}
               onClick={() => fileInputRef.current?.click()}
+              className={`rounded-2xl p-12 border-2 border-dashed transition-all cursor-pointer text-center ${
+                dragging
+                  ? 'border-cyan-400/70 bg-cyan-500/5 scale-[1.005]'
+                  : 'border-[#1e293b] bg-[#0f172a]/50 hover:border-cyan-500/40 hover:bg-[#0f172a]'
+              }`}
             >
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".pdf,image/*"
+                accept=".pdf,image/*,.doc,.docx"
                 className="hidden"
                 onChange={e => addFiles(e.target.files)}
               />
-              <div className="text-center">
-                <div className="text-4xl mb-3 opacity-40">⇡</div>
-                <div className="font-semibold mb-1">Drop tenant documents here</div>
-                <div className="text-xs text-slate-500 mono">PDF, JPG, PNG · up to 10 MB each · IDs, paystubs, credit reports, bank statements, employment letters</div>
-              </div>
+              <div className="text-6xl mb-4">📁</div>
+              <div className="text-lg font-semibold mb-2">拖放租客申请文件到这里</div>
+              <div className="text-xs text-slate-500 mb-5">支持 PDF, JPG, PNG, DOC — Employment Letter, Pay Stubs, Bank Statements, ID, Credit Report 等</div>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1e293b] hover:bg-[#243449] border border-white/10 text-sm font-medium text-slate-200 transition-colors"
+              >
+                <span>📎</span>
+                <span>选择文件</span>
+              </button>
+            </div>
+
+            {/* Document type quick-add grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {DOC_TYPES.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center gap-2 rounded-xl bg-[#0f172a]/60 border border-[#1e293b] hover:border-cyan-500/40 hover:bg-[#0f172a] py-5 px-3 transition-all"
+                >
+                  <span className="text-2xl">{t.icon}</span>
+                  <span className="text-[11px] text-slate-400 text-center leading-tight">{t.label}</span>
+                </button>
+              ))}
             </div>
 
             {pendingFiles.length > 0 && (
-              <div className="glass rounded-2xl p-4">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Pending uploads ({pendingFiles.length})</div>
+              <div className="rounded-2xl bg-[#0f172a]/60 border border-[#1e293b] p-4">
+                <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-2.5">已选择文件 · {pendingFiles.length}</div>
                 <ul className="space-y-1.5">
                   {pendingFiles.map((f, i) => (
                     <li key={i} className="flex items-center justify-between text-xs">
-                      <span className="text-slate-300 truncate">{f.name} <span className="text-slate-600 mono">{(f.size / 1024).toFixed(0)} KB</span></span>
-                      <button onClick={() => removeFile(i)} className="text-slate-500 hover:text-red-400 ml-3">remove</button>
+                      <span className="text-slate-300 truncate flex-1">📄 {f.name} <span className="text-slate-600 mono ml-2">{(f.size / 1024).toFixed(0)} KB</span></span>
+                      <button onClick={() => removeFile(i)} className="text-slate-500 hover:text-red-400 ml-3 mono">移除</button>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
 
-            {/* Manual fields */}
-            <div className="glass rounded-2xl p-5 space-y-4">
-              <div className="text-[10px] uppercase tracking-wider text-slate-500">Optional context</div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <Field label="Candidate name (optional — auto-extracted from files)" value={tenantName} onChange={setTenantName} placeholder="leave blank to extract from ID" />
-                <Field label="Monthly rent ($)" value={monthlyRent} onChange={setMonthlyRent} placeholder="2500" type="number" />
-                <Field label="Tenant monthly income ($)" value={monthlyIncome} onChange={setMonthlyIncome} placeholder="7500" type="number" />
-                <Field label="Notes for the AI" value={notes} onChange={setNotes} placeholder="any context" />
-              </div>
-              <div>
-                <label className="text-[10px] uppercase tracking-wider text-slate-500 block mb-1.5">Paste credit report / email / chat</label>
+            {/* Optional pasted context (collapsed by default would be nice but keep simple) */}
+            <details className="rounded-2xl bg-[#0f172a]/40 border border-[#1e293b] overflow-hidden">
+              <summary className="cursor-pointer px-5 py-3 text-xs text-slate-400 hover:text-slate-200 flex items-center justify-between">
+                <span>📝 补充说明 / 粘贴文本（可选）</span>
+                <span className="mono text-slate-600">expand ▾</span>
+              </summary>
+              <div className="px-5 pb-5 pt-1 space-y-3">
+                <input
+                  type="number"
+                  value={monthlyIncome}
+                  onChange={e => setMonthlyIncome(e.target.value)}
+                  placeholder="租客月收入 (可选)"
+                  className="w-full bg-[#0a0f1c] border border-[#1e293b] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50"
+                />
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="给 AI 的额外备注 (可选)"
+                  className="w-full bg-[#0a0f1c] border border-[#1e293b] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50"
+                />
                 <textarea
                   value={pastedText}
                   onChange={e => setPastedText(e.target.value)}
-                  rows={5}
-                  className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 mono"
-                  placeholder="Paste any text — credit report, message thread, employer email, etc."
+                  rows={4}
+                  className="w-full bg-[#0a0f1c] border border-[#1e293b] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 mono"
+                  placeholder="粘贴信用报告、邮件、聊天记录等 (可选)"
                 />
               </div>
-            </div>
+            </details>
 
-            <div className="flex items-center gap-3">
+            {/* Submit */}
+            <div className="flex items-center gap-3 pt-2">
               <button
                 onClick={handleScreen}
                 disabled={submitting}
-                className="btn-primary px-6 py-3 disabled:opacity-50"
+                className="flex-1 sm:flex-initial bg-gradient-to-r from-cyan-500 to-violet-500 hover:from-cyan-400 hover:to-violet-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-8 py-3.5 rounded-xl shadow-lg shadow-cyan-500/30 transition-all"
               >
-                {submitting ? 'Screening…' : 'Run AI screening →'}
+                {submitting ? '⏳ 分析中…' : '🚀 开始 AI 风控分析'}
               </button>
               {(result || error) && (
-                <button onClick={reset} className="btn-ghost text-xs px-4 py-2">New screening</button>
+                <button onClick={reset} className="text-xs text-slate-400 hover:text-slate-200 px-4 py-2 rounded-lg border border-white/10 hover:bg-white/[0.04]">↻ 重新评估</button>
               )}
             </div>
 
             {/* Pipeline progress */}
             {(submitting || (result && steps.some(s => s.status === 'done'))) && (
-              <div className="glass rounded-2xl p-5">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-3">Pipeline</div>
+              <div className="rounded-2xl bg-[#0f172a]/60 border border-[#1e293b] p-5">
+                <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-3 mono">// 分析流程</div>
                 <ul className="space-y-2.5">
                   {steps.map(s => (
-                    <li key={s.key} className="flex items-center gap-3 text-sm">
+                    <li key={s.key} className={`flex items-center gap-3 text-sm ${s.key === 'court' && s.status === 'active' ? 'text-violet-300' : ''}`}>
                       <StepIcon status={s.status} />
                       <span className={
                         s.status === 'done' ? 'text-slate-200' :
-                        s.status === 'active' ? 'text-cyan-300' :
+                        s.status === 'active' ? (s.key === 'court' ? 'text-violet-300 font-medium' : 'text-cyan-300 font-medium') :
                         s.status === 'skipped' ? 'text-slate-600 line-through' :
                         'text-slate-500'
                       }>
@@ -461,8 +552,8 @@ export default function ScreenPage() {
             )}
 
             {error && (
-              <div className="glass rounded-xl p-4 border border-red-500/30 bg-red-500/5">
-                <div className="text-sm text-red-300">{error}</div>
+              <div className="rounded-xl p-4 border border-red-500/30 bg-red-500/5">
+                <div className="text-sm text-red-300">⚠ {error}</div>
               </div>
             )}
 
@@ -470,16 +561,16 @@ export default function ScreenPage() {
             {result && (
               <div className="space-y-5">
                 {/* Header card with score ring */}
-                <div className={`glass rounded-2xl p-6 border ${level.border} shadow-2xl ${level.glow}`}>
+                <div className={`rounded-2xl p-6 bg-[#0f172a]/80 border ${level.border} shadow-2xl ${level.glow}`}>
                   <div className="flex items-start gap-6">
                     <ScoreRing score={result.overall} level={level} />
                     <div className="flex-1 min-w-0">
-                      <div className="mono text-[10px] text-slate-500 mb-1">// CANDIDATE</div>
-                      <div className="text-2xl font-bold tracking-tight truncate">{result.extracted_name || tenantName || 'Unknown'}</div>
+                      <div className="mono text-[11px] text-slate-500 mb-1">// 申请人</div>
+                      <div className="text-2xl font-bold tracking-tight truncate">{result.extracted_name || tenantName || '未识别'}</div>
                       {result.name_was_extracted && (
                         <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-violet-300 bg-violet-500/10 border border-violet-500/30 rounded-md px-2 py-0.5">
                           <span>📛</span>
-                          <span>Name auto-extracted from uploaded ID</span>
+                          <span>姓名从申请文件中自动提取</span>
                         </div>
                       )}
                       <div className={`mt-3 inline-flex items-center gap-2 ${level.bg} ${level.border} border rounded-lg px-3 py-1.5`}>
@@ -489,31 +580,33 @@ export default function ScreenPage() {
                     </div>
                   </div>
                   <div className="mt-5 pt-5 border-t border-white/[0.06]">
-                    <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">AI summary</div>
+                    <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-2 mono">// AI 风险摘要</div>
                     <p className="text-sm text-slate-300 leading-relaxed">{result.summary}</p>
                   </div>
                 </div>
 
                 {/* Six-dimension cards */}
-                <div className="glass rounded-2xl p-6">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-4">6-dimension breakdown</div>
+                <div className="rounded-2xl bg-[#0f172a]/60 border border-[#1e293b] p-6">
+                  <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-4 mono">// 6 维度评分</div>
                   <div className="space-y-3">
-                    {DIMS.map(({ key, label, weight }) => {
+                    {DIMS.map(({ key, label, weight, icon }) => {
                       const score = result.scores[key]
                       const lvl = riskLevel(score)
+                      const isCourt = key === 'court_records'
                       return (
-                        <div key={key} className={`rounded-lg border px-4 py-3 ${lvl.bg} ${lvl.border}`}>
-                          <div className="flex items-center justify-between mb-1.5">
+                        <div key={key} className={`rounded-xl border px-4 py-3 ${isCourt ? 'bg-violet-500/[0.04] border-violet-500/20' : `${lvl.bg} ${lvl.border}`}`}>
+                          <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
+                              <span className="text-base">{icon}</span>
                               <span className="text-sm font-medium text-slate-200">{label}</span>
-                              <span className="mono text-[10px] text-slate-500">weight {weight}%</span>
+                              <span className="mono text-[10px] text-slate-500">权重 {weight}%</span>
                             </div>
-                            <span className={`mono text-base font-bold ${lvl.text}`}>{score}</span>
+                            <span className={`mono text-lg font-bold ${lvl.text}`}>{score}</span>
                           </div>
                           <div className="h-1.5 rounded-full bg-white/[0.05] overflow-hidden mb-1.5">
                             <div className={`h-full ${lvl.bar} transition-all duration-700`} style={{ width: `${Math.max(2, score)}%` }} />
                           </div>
-                          {result.notes?.[key] && <div className="text-[11px] text-slate-400 leading-snug">{result.notes[key]}</div>}
+                          {result.notes?.[key] && <div className="text-[11px] text-slate-400 leading-snug mt-1.5">{result.notes[key]}</div>}
                         </div>
                       )
                     })}
@@ -521,15 +614,15 @@ export default function ScreenPage() {
                 </div>
 
                 {/* Court records detail card */}
-                <div className="glass rounded-2xl p-6">
+                <div className="rounded-2xl bg-[#0f172a]/60 border border-[#1e293b] p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500">Court records lookup</div>
-                      <div className="text-xs text-slate-400 mt-0.5">
-                        Queried name: <span className="mono text-slate-200">{result.court_records_detail?.queried_name || '—'}</span>
+                      <div className="text-[11px] uppercase tracking-wider text-slate-500 mono">// 法庭记录查询详情</div>
+                      <div className="text-xs text-slate-400 mt-1">
+                        查询姓名: <span className="mono text-slate-200">{result.court_records_detail?.queried_name || '—'}</span>
                       </div>
                     </div>
-                    <div className={`mono text-[10px] uppercase px-2 py-1 rounded-md border ${result.tier === 'pro' ? 'bg-amber-500/15 text-amber-300 border-amber-500/40' : 'bg-slate-500/10 text-slate-300 border-slate-500/30'}`}>{result.tier} tier</div>
+                    <div className={`mono text-[10px] uppercase px-2 py-1 rounded-md border ${result.tier === 'pro' ? 'bg-amber-500/15 text-amber-300 border-amber-500/40' : 'bg-slate-500/10 text-slate-300 border-slate-500/30'}`}>{result.tier === 'pro' ? '订阅版' : '免费版'}</div>
                   </div>
                   <ul className="space-y-2">
                     {result.court_records_detail?.queries.map((q, i) => (
@@ -538,52 +631,55 @@ export default function ScreenPage() {
                   </ul>
                   {result.court_records_detail?.total_hits > 0 && (
                     <div className="mt-4 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
-                      ⚠ Total {result.court_records_detail.total_hits} potential match{result.court_records_detail.total_hits === 1 ? '' : 'es'} across queried sources. Review the linked CanLII pages to confirm identity before deciding.
+                      ⚠ 共在 {result.court_records_detail.total_hits} 条记录中发现潜在匹配。请通过 CanLII 链接核实身份后再做决定。
                     </div>
                   )}
                   {!isPro && (
-                    <Link href="/dashboard?upgrade=1" className="mt-4 block text-center text-xs px-3 py-2 rounded-lg border border-amber-500/40 bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-300 hover:from-amber-500/20 hover:to-orange-500/20 transition-colors">
-                      ⚡ Upgrade to Pro to unlock Ontario Courts Portal + Stayloop Verified Network
+                    <Link href="/dashboard?upgrade=1" className="mt-4 block text-center text-xs px-3 py-2.5 rounded-lg border border-amber-500/40 bg-gradient-to-r from-amber-500/10 to-orange-500/10 text-amber-300 hover:from-amber-500/20 hover:to-orange-500/20 transition-colors">
+                      💎 升级到订阅版以解锁 Ontario Courts Portal + Stayloop Verified Network
                     </Link>
                   )}
                 </div>
               </div>
             )}
-          </div>
 
-          {/* RIGHT: history */}
-          <div>
-            <div className="glass rounded-2xl overflow-hidden sticky top-24">
-              <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
-                <span className="font-semibold text-sm">Recent screenings</span>
-              </div>
-              {history.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-500 mono">No screenings yet</div>
-              ) : (
-                <ul className="divide-y divide-white/[0.04] max-h-[70vh] overflow-y-auto">
+            {/* History */}
+            {history.length > 0 && (
+              <div className="rounded-2xl bg-[#0f172a]/40 border border-[#1e293b] overflow-hidden mt-8">
+                <div className="px-5 py-4 border-b border-[#1e293b] flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+                  <span className="font-semibold text-sm">最近评估</span>
+                  <span className="mono text-[11px] text-slate-500 ml-auto">{history.length} 条</span>
+                </div>
+                <ul className="divide-y divide-[#1e293b] max-h-[400px] overflow-y-auto">
                   {history.map(s => {
                     const lvl = riskLevel(s.ai_score)
                     return (
                       <li key={s.id} className="px-5 py-3 hover:bg-white/[0.02]">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="text-sm text-slate-200 truncate">{s.tenant_name || '(auto-extract)'}</div>
+                          <div className="text-sm text-slate-200 truncate">{s.tenant_name || '(自动提取)'}</div>
                           {s.ai_score != null ? (
                             <span className={`mono text-xs font-bold px-2 py-0.5 rounded border ${lvl.bg} ${lvl.border} ${lvl.text}`}>{s.ai_score}</span>
                           ) : (
                             <span className="text-[10px] mono text-slate-600">{s.status}</span>
                           )}
                         </div>
-                        <div className="text-[10px] text-slate-600 mono mt-0.5">{new Date(s.created_at).toLocaleString()}</div>
+                        <div className="text-[10px] text-slate-600 mono mt-0.5">{new Date(s.created_at).toLocaleString('zh-CN')}</div>
                         {s.ai_summary && <div className="text-[11px] text-slate-500 mt-1 line-clamp-2">{s.ai_summary}</div>}
                       </li>
                     )
                   })}
                 </ul>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-        </div>
+
+          {/* Footer */}
+          <div className="mt-10 pt-6 border-t border-[#1e293b] text-center text-[11px] text-slate-600 mono">
+            Stayloop Screening v1.1 · {isPro ? 'Pro' : 'Free'} · {new Date().toLocaleDateString('zh-CN')}<br/>
+            法庭记录: CanLII (canlii.org){isPro && ' + Ontario Courts Portal'}<br/>
+            本报告仅供决策参考。最终租赁决定应遵守 Ontario RTA / Human Rights Code。
+          </div>
       </div>
     </div>
   )
