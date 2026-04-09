@@ -18,6 +18,7 @@ interface UploadedFile {
 interface Screening {
   id: string
   tenant_name: string | null
+  ai_extracted_name: string | null
   ai_score: number | null
   ai_summary: string | null
   status: string
@@ -33,6 +34,8 @@ interface CourtQuery {
   note?: string
 }
 
+interface AiFlag { type: 'danger' | 'warning' | 'info' | 'success'; text_en: string; text_zh: string }
+
 interface ScoreResult {
   overall: number
   scores: {
@@ -44,6 +47,14 @@ interface ScoreResult {
     info_consistency: number
   }
   notes: Record<string, string>
+  details_en?: Record<string, string> | null
+  details_zh?: Record<string, string> | null
+  flags?: AiFlag[]
+  detected_monthly_income?: number | null
+  effective_monthly_income?: number | null
+  income_evidence?: string | null
+  monthly_rent?: number | null
+  income_rent_ratio?: number | null
   extracted_name: string
   name_was_extracted: boolean
   summary: string
@@ -143,33 +154,72 @@ function ScoreRing({ score, size = 140, strokeWidth = 10 }: { score: number; siz
   )
 }
 
-function CategoryBar({ category, score, animDelay = 0, tier }: { category: typeof CATEGORIES[number]; score: number; animDelay?: number; tier: 'free' | 'pro' }) {
+function CategoryBar({ category, score, animDelay = 0, tier, shortNote, detail }: {
+  category: typeof CATEGORIES[number]
+  score: number
+  animDelay?: number
+  tier: 'free' | 'pro'
+  shortNote?: string
+  detail?: string
+}) {
   const { t, lang } = useT()
+  const [open, setOpen] = useState(false)
   const risk = getRiskLevel(score)
   const isCourtRecord = category.id === 'court_records'
   const primary = lang === 'zh' ? category.zhLabel : category.enLabel
   const secondary = lang === 'zh' ? category.enLabel : category.zhLabel
+  const hasDetail = !!(detail || shortNote)
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 16 }}>{category.icon}</span>
-          <span className="sl-cat-primary" style={{ fontWeight: 700, color: '#e2e8f0' }}>{primary}</span>
-          <span className="sl-cat-secondary" style={{ fontWeight: 500, color: '#64748b' }}>{secondary}</span>
+    <div style={{ marginBottom: 12, borderRadius: 10, border: open ? '1px solid rgba(148, 163, 184, 0.18)' : '1px solid transparent', background: open ? 'rgba(148, 163, 184, 0.04)' : 'transparent', transition: 'all 0.2s', padding: open ? 12 : 0 }}>
+      <button
+        type="button"
+        onClick={() => hasDetail && setOpen(o => !o)}
+        aria-expanded={open}
+        style={{ width: '100%', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: hasDetail ? 'pointer' : 'default' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 16 }}>{category.icon}</span>
+            <span className="sl-cat-primary" style={{ fontWeight: 700, color: '#e2e8f0' }}>{primary}</span>
+            <span className="sl-cat-secondary" style={{ fontWeight: 500, color: '#64748b' }}>{secondary}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {isCourtRecord && (
+              <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: tier === 'pro' ? '#8B5CF620' : '#334155', color: tier === 'pro' ? '#A78BFA' : '#64748b', fontWeight: 600 }}>
+                {tier === 'pro' ? 'PRO' : 'FREE · CanLII'}
+              </span>
+            )}
+            <span style={{ fontSize: 15, fontWeight: 700, color: risk.color, fontFamily: "'JetBrains Mono', monospace" }}>{score}</span>
+            {hasDetail && (
+              <span className="mono" style={{ fontSize: 10, color: '#64748b', width: 14, textAlign: 'center', transition: 'transform 0.2s', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0)' }}>▸</span>
+            )}
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {isCourtRecord && (
-            <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: tier === 'pro' ? '#8B5CF620' : '#334155', color: tier === 'pro' ? '#A78BFA' : '#64748b', fontWeight: 600 }}>
-              {tier === 'pro' ? 'PRO' : 'FREE · CanLII'}
-            </span>
+        <div style={{ height: 6, borderRadius: 3, background: 'rgba(148, 163, 184, 0.1)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${risk.color}88, ${risk.color})`, width: `${score}%`, transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)', transitionDelay: `${animDelay}ms` }} />
+        </div>
+        <p style={{ fontSize: 11, color: '#64748b', marginTop: 4, marginBottom: 0 }}>{t(category.descKey)}</p>
+      </button>
+      {open && hasDetail && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed rgba(148, 163, 184, 0.14)' }}>
+          {shortNote && (
+            <div className="mono" style={{ fontSize: 10.5, color: '#94a3b8', marginBottom: 8, letterSpacing: '0.02em', textTransform: 'uppercase', fontWeight: 600 }}>
+              {lang === 'zh' ? '摘要' : 'Summary'}
+            </div>
           )}
-          <span style={{ fontSize: 15, fontWeight: 700, color: risk.color, fontFamily: "'JetBrains Mono', monospace" }}>{score}</span>
+          {shortNote && (
+            <p style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.6, margin: 0, marginBottom: detail ? 12 : 0 }}>{shortNote}</p>
+          )}
+          {detail && (
+            <>
+              <div className="mono" style={{ fontSize: 10.5, color: '#94a3b8', marginBottom: 8, letterSpacing: '0.02em', textTransform: 'uppercase', fontWeight: 600 }}>
+                {lang === 'zh' ? '证据与详细分析' : 'Evidence & detailed analysis'}
+              </div>
+              <p style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{detail}</p>
+            </>
+          )}
         </div>
-      </div>
-      <div style={{ height: 6, borderRadius: 3, background: 'rgba(148, 163, 184, 0.1)', overflow: 'hidden' }}>
-        <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${risk.color}88, ${risk.color})`, width: `${score}%`, transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)', transitionDelay: `${animDelay}ms` }} />
-      </div>
-      <p style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{t(category.descKey)}</p>
+      )}
     </div>
   )
 }
@@ -307,7 +357,7 @@ export default function ScreenPage() {
   async function loadHistory() {
     const { data } = await supabase
       .from('screenings')
-      .select('id, tenant_name, ai_score, ai_summary, status, created_at')
+      .select('id, tenant_name, ai_extracted_name, ai_score, ai_summary, status, created_at')
       .order('created_at', { ascending: false })
       .limit(20)
     if (data) setHistory(data)
@@ -465,42 +515,22 @@ export default function ScreenPage() {
 
   const isPro = plan === 'pro' || plan === 'enterprise'
 
-  // Derive flags from the real backend result. The order matches the
-  // prototype: court pass/hit → missing docs (warning) → inconsistencies
-  // (danger) → informational/upgrade tips at the bottom.
-  const derivedFlags: { type: 'danger' | 'warning' | 'info' | 'success'; text: string }[] = []
+  // Flags come from the AI's actual analysis of this specific applicant
+  // (backend returns flags[] with text_en / text_zh per flag). We only
+  // tack on an informational Pro-upsell at the end so we never fabricate.
+  const aiFlags: { type: 'danger' | 'warning' | 'info' | 'success'; text: string }[] = []
   if (result) {
-    const courtHits = result.court_records_detail?.total_hits || 0
-    if (courtHits > 0) {
-      derivedFlags.push({ type: 'danger', text: t('flag.courtHit', { n: courtHits }) })
-    } else {
-      derivedFlags.push({ type: 'success', text: t('flag.courtClean') })
-    }
-    if (result.scores.doc_authenticity < 50) {
-      derivedFlags.push({ type: 'danger', text: t('flag.docFailed') })
-    }
-    // Missing-document warnings derived from uploaded file kinds
-    const uploadedKinds = new Set(files.map(f => guessKind(f.name)))
-    if (!uploadedKinds.has('bank_statement')) {
-      derivedFlags.push({ type: 'warning', text: t('flag.missingBank') })
-    }
-    if (!uploadedKinds.has('id_document')) {
-      derivedFlags.push({ type: 'warning', text: t('flag.missingId') })
-    }
-    if (!uploadedKinds.has('pay_stub') && !uploadedKinds.has('employment_letter')) {
-      derivedFlags.push({ type: 'warning', text: t('flag.missingPaystub') })
-    }
-    if (result.scores.info_consistency < 50) {
-      derivedFlags.push({ type: 'danger', text: t('flag.inconsistent') })
-    }
-    if (!uploadedKinds.has('credit_report')) {
-      derivedFlags.push({ type: 'info', text: t('flag.noCreditReport') })
-    }
-    if (result.scores.payment_ability >= 75 && result.scores.doc_authenticity >= 70 && courtHits === 0) {
-      derivedFlags.push({ type: 'success', text: t('flag.strongCandidate') })
+    const rawFlags = Array.isArray(result.flags) ? result.flags : []
+    for (const f of rawFlags) {
+      const txt = (lang === 'zh' ? f.text_zh : f.text_en) || f.text_en || f.text_zh
+      if (!txt) continue
+      const type: 'danger' | 'warning' | 'info' | 'success' =
+        f.type === 'danger' || f.type === 'warning' || f.type === 'info' || f.type === 'success'
+          ? f.type : 'info'
+      aiFlags.push({ type, text: txt })
     }
     if (tier === 'free') {
-      derivedFlags.push({ type: 'info', text: t('flag.upgradeCta') })
+      aiFlags.push({ type: 'info', text: t('flag.upgradeCta') })
     }
   }
 
@@ -747,28 +777,30 @@ export default function ScreenPage() {
                 {t(riskOverall.tagKey)} — {t(riskOverall.labelKey)}
               </div>
               {(() => {
-                // Best-effort ratio display: if payment_ability is high,
-                // assume a healthy ratio. Actual ratio would need income
-                // passed back from backend — left as optional cosmetic.
-                const rentNum = Number(targetRent)
-                // Rough inference from payment_ability score: 90→3.5x, 70→2.5x, 50→1.5x
-                const inferredRatio = result.scores.payment_ability >= 85 ? 3.5
-                  : result.scores.payment_ability >= 70 ? 3.1
-                  : result.scores.payment_ability >= 55 ? 2.4
-                  : result.scores.payment_ability >= 40 ? 1.7
-                  : 1.0
-                const showRatio = rentNum > 0
+                // Use the real income/rent ratio computed server-side
+                // from AI-detected or landlord-provided income.
+                const rentNum = result.monthly_rent ?? Number(targetRent) ?? 0
+                const realRatio = result.income_rent_ratio ?? null
                 return (
                   <div className="sl-stats-row" style={{ display: 'flex', justifyContent: 'center', marginTop: 20, color: '#64748b', flexWrap: 'wrap' }}>
-                    <div><div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>${targetRent || '—'}</div>{t('screen.result.stat.rent')}</div>
-                    {showRatio && (
-                      <div><div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>{inferredRatio.toFixed(1)}x</div>{t('screen.result.stat.ratio')}</div>
-                    )}
+                    <div><div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>${rentNum ? rentNum.toLocaleString() : '—'}</div>{t('screen.result.stat.rent')}</div>
+                    <div title={result.income_evidence || undefined}>
+                      <div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>
+                        {realRatio != null ? `${realRatio.toFixed(1)}x` : 'N/A'}
+                      </div>
+                      {t('screen.result.stat.ratio')}
+                    </div>
                     <div><div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>{files.length}</div>{t('screen.result.stat.files')}</div>
                     <div><div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>{result.court_records_detail?.queries.filter(q => q.status === 'ok').length || 0}</div>{t('screen.result.stat.courts')}</div>
                   </div>
                 )
               })()}
+              {result.effective_monthly_income != null && (
+                <div className="mono" style={{ marginTop: 10, fontSize: 10.5, color: '#64748b' }}>
+                  {lang === 'zh' ? '检测到月收入' : 'Detected monthly income'}: <span style={{ color: '#94a3b8', fontWeight: 600 }}>${result.effective_monthly_income.toLocaleString()}</span>
+                  {result.income_evidence && <span style={{ color: '#475569' }}> · {result.income_evidence}</span>}
+                </div>
+              )}
             </div>
 
             {/* Summary */}
@@ -780,9 +812,20 @@ export default function ScreenPage() {
             {/* Category Scores */}
             <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
               <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: '#94a3b8' }}>{t('screen.result.dims')}</div>
-              {CATEGORIES.map((cat, i) => (
-                <CategoryBar key={cat.id} category={cat} score={result.scores[cat.id]} animDelay={i * 150} tier={result.tier} />
-              ))}
+              {CATEGORIES.map((cat, i) => {
+                const details = lang === 'zh' ? (result.details_zh || result.details_en) : (result.details_en || result.details_zh)
+                return (
+                  <CategoryBar
+                    key={cat.id}
+                    category={cat}
+                    score={result.scores[cat.id]}
+                    animDelay={i * 150}
+                    tier={result.tier}
+                    shortNote={result.notes?.[cat.id]}
+                    detail={details?.[cat.id]}
+                  />
+                )
+              })}
             </div>
 
             {/* Court Records */}
@@ -810,11 +853,11 @@ export default function ScreenPage() {
             })()}
 
             {/* Flags */}
-            {derivedFlags.length > 0 && (
+            {aiFlags.length > 0 && (
               <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
                 <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#94a3b8' }}>{t('screen.result.flags')}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {derivedFlags.map((flag, i) => <Flag key={i} type={flag.type} text={flag.text} />)}
+                  {aiFlags.map((flag, i) => <Flag key={i} type={flag.type} text={flag.text} />)}
                 </div>
               </div>
             )}
@@ -858,7 +901,7 @@ export default function ScreenPage() {
                   <li key={s.id} style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.15s' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                        {s.tenant_name || t('history.autoExtracted')}
+                        {s.ai_extracted_name || s.tenant_name || t('history.autoExtracted')}
                       </div>
                       {s.ai_score != null && lvl ? (
                         <span className="mono" style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, background: `${lvl.color}18`, color: lvl.color, border: `1px solid ${lvl.color}30` }}>{s.ai_score}</span>

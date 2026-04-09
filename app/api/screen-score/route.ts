@@ -242,11 +242,23 @@ SIX DIMENSIONS:
 5. behavior_signals (weight 13%) — Red flags in the documents, completeness of materials, anything unusual in the pasted text.
 6. info_consistency (weight 12%) — Do names, employers, and income figures match across documents and the landlord's stated info?
 
-Also extract the candidate's full legal name from any ID document if uploaded (else use the landlord-provided name). Provide brief notes per dimension explaining your reasoning, including which evidence was missing.
+Also extract:
+- The candidate's full legal name (from ID if available, otherwise self-reported).
+- The candidate's DETECTED gross monthly income in CAD (from paystubs, bank deposits, employment letters). If you see bi-weekly or annual figures, convert to monthly. If you truly cannot determine it, return null.
+- A PER-DIMENSION detailed explanation (3-6 sentences each) that cites the SPECIFIC evidence you saw in the uploaded documents — which files, which numbers, which lines. Produce each detailed explanation in BOTH English and Simplified Chinese.
+- A list of RISK FLAGS AND RECOMMENDATIONS (3-8 items) that are each grounded in a specific piece of evidence (or a specific missing piece of evidence) from THIS applicant's file. Do not invent facts. Each flag has a type and bilingual text.
+
+Flag types:
+- "danger" — clear red flag (court hit, tampered doc, income below rent, name mismatch)
+- "warning" — missing/insufficient evidence (no bank statement, no ID, stale paystub)
+- "info" — neutral observation or upgrade tip
+- "success" — positive signal (clean court record, strong ratio, long tenure)
 
 RESPOND WITH ONLY THIS JSON (no markdown, no fences):
 {
   "extracted_name": "<full legal name from ID, or self-reported>",
+  "detected_monthly_income": <number in CAD, or null if not determinable>,
+  "income_evidence": "<one short sentence citing where the income figure came from, e.g. 'from 2 bi-weekly paystubs showing $1,850 each' — or null>",
   "scores": {
     "doc_authenticity": <0-100>,
     "payment_ability": <0-100>,
@@ -256,13 +268,32 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     "info_consistency": <0-100>
   },
   "notes": {
-    "doc_authenticity": "<one sentence>",
-    "payment_ability": "<one sentence>",
-    "court_records": "<one sentence>",
-    "stability": "<one sentence>",
-    "behavior_signals": "<one sentence>",
-    "info_consistency": "<one sentence>"
+    "doc_authenticity": "<one concise sentence>",
+    "payment_ability": "<one concise sentence>",
+    "court_records": "<one concise sentence>",
+    "stability": "<one concise sentence>",
+    "behavior_signals": "<one concise sentence>",
+    "info_consistency": "<one concise sentence>"
   },
+  "details_en": {
+    "doc_authenticity": "<3-6 sentences citing specific evidence from uploaded documents>",
+    "payment_ability": "<3-6 sentences citing specific numbers and their source>",
+    "court_records": "<3-6 sentences citing which sources were queried and their findings>",
+    "stability": "<3-6 sentences citing tenure, address history, etc.>",
+    "behavior_signals": "<3-6 sentences citing specific observations>",
+    "info_consistency": "<3-6 sentences citing which fields matched or conflicted>"
+  },
+  "details_zh": {
+    "doc_authenticity": "<同样的3-6句中文详细说明>",
+    "payment_ability": "<同样的3-6句中文详细说明>",
+    "court_records": "<同样的3-6句中文详细说明>",
+    "stability": "<同样的3-6句中文详细说明>",
+    "behavior_signals": "<同样的3-6句中文详细说明>",
+    "info_consistency": "<同样的3-6句中文详细说明>"
+  },
+  "flags": [
+    { "type": "danger|warning|info|success", "text_en": "<short finding grounded in actual evidence>", "text_zh": "<同样的简短发现，中文>" }
+  ],
   "summary_en": "<2-3 sentence professional recommendation in English>",
   "summary_zh": "<同样的2-3句专业推荐，用简体中文>"
 }`
@@ -285,7 +316,7 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
-      max_tokens: 1500,
+      max_tokens: 4000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userContent }],
     }),
@@ -301,7 +332,19 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
   let text = aiData.content?.[0]?.text || '{}'
   text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
 
-  let parsed: { extracted_name?: string; scores?: SixDimScores; notes?: Record<string, string>; summary?: string; summary_en?: string; summary_zh?: string }
+  let parsed: {
+    extracted_name?: string
+    detected_monthly_income?: number | null
+    income_evidence?: string | null
+    scores?: SixDimScores
+    notes?: Record<string, string>
+    details_en?: Record<string, string>
+    details_zh?: Record<string, string>
+    flags?: { type: string; text_en: string; text_zh: string }[]
+    summary?: string
+    summary_en?: string
+    summary_zh?: string
+  }
   try {
     parsed = JSON.parse(text)
   } catch {
@@ -325,12 +368,22 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
   )
 
   const finalExtractedName = parsed.extracted_name || prelimExtractedName || null
+  const detectedIncome = typeof parsed.detected_monthly_income === 'number' && parsed.detected_monthly_income > 0
+    ? parsed.detected_monthly_income : null
+  const effectiveIncome = detectedIncome ?? (monthlyIncome > 0 ? monthlyIncome : null)
+  const computedRatio = (effectiveIncome && monthlyRent > 0) ? effectiveIncome / monthlyRent : null
+
+  const mergedNotes: Record<string, any> = {}
+  if (parsed.notes) for (const k of Object.keys(parsed.notes)) mergedNotes[k] = parsed.notes[k]
+  if (parsed.details_en) mergedNotes._details_en = parsed.details_en
+  if (parsed.details_zh) mergedNotes._details_zh = parsed.details_zh
+  if (parsed.income_evidence) mergedNotes._income_evidence = parsed.income_evidence
 
   const { error: updateError } = await supabase.from('screenings').update({
     ai_score: overall,
     ai_summary: parsed.summary_en || parsed.summary,
     ai_extracted_name: finalExtractedName,
-    ai_dimension_notes: parsed.notes || null,
+    ai_dimension_notes: mergedNotes,
     doc_authenticity_score: s.doc_authenticity,
     payment_ability_score: s.payment_ability,
     court_records_score: s.court_records,
@@ -348,6 +401,14 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     overall,
     scores: s,
     notes: parsed.notes,
+    details_en: parsed.details_en || null,
+    details_zh: parsed.details_zh || null,
+    flags: Array.isArray(parsed.flags) ? parsed.flags : [],
+    detected_monthly_income: detectedIncome,
+    effective_monthly_income: effectiveIncome,
+    income_evidence: parsed.income_evidence || null,
+    monthly_rent: monthlyRent || null,
+    income_rent_ratio: computedRatio,
     extracted_name: finalExtractedName,
     name_was_extracted: !screening.tenant_name && !!finalExtractedName,
     summary: parsed.summary_en || parsed.summary || '',
