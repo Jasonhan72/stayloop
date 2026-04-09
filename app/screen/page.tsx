@@ -63,6 +63,39 @@ interface ScoreResult {
   summary_zh?: string
   court_records_detail: { queries: CourtQuery[]; total_hits: number; queried_name: string }
   tier: 'free' | 'pro'
+  // v3 additions — all optional so old API responses still type-check
+  model_version?: string
+  scores_v3?: {
+    ability_to_pay: number
+    credit_health: number
+    rental_history: number
+    verification: number
+    communication: number
+  }
+  v3_tier?: 'approve' | 'conditional' | 'decline'
+  tier_reason?: string
+  hard_gates_triggered?: string[]
+  red_flags?: string[]
+  red_flag_penalty?: number
+  gate_cap?: number
+  evidence_coverage?: number
+  sub_coverage?: Record<string, string>
+  action_items?: {
+    id: string
+    dimension: string
+    title_en: string
+    title_zh: string
+    details_en: string
+    details_zh: string
+    impact_on_score: string
+    status: string
+  }[]
+  compliance_audit?: {
+    protected_grounds_observed?: string[]
+    protected_grounds_used_in_scoring?: string[]
+    hrc_compliant?: boolean
+    reviewer_note?: string
+  } | null
 }
 
 // ───────────────────────────────────────────────────── Constants ──
@@ -932,6 +965,38 @@ export default function ScreenPage() {
               <div className="sl-risk-pill" style={{ display: 'inline-block', borderRadius: 20, background: riskOverall.bg, color: riskOverall.color, fontWeight: 700, letterSpacing: 1 }}>
                 {t(riskOverall.tagKey)} — {t(riskOverall.labelKey)}
               </div>
+              {/* v3 tier badge + evidence coverage bar */}
+              {result.v3_tier && (() => {
+                const tierColors: Record<string, { bg: string; fg: string; label: string }> = {
+                  approve: { bg: '#DCFCE7', fg: '#166534', label: lang === 'zh' ? '优质 · 建议通过' : 'Approve' },
+                  conditional: { bg: '#FEF9C3', fg: '#854D0E', label: lang === 'zh' ? '待定 · 附加条件' : 'Conditional' },
+                  decline: { bg: '#FEE2E2', fg: '#991B1B', label: lang === 'zh' ? '建议拒绝' : 'Decline' },
+                }
+                const tc = tierColors[result.v3_tier] || tierColors.conditional
+                const cov = typeof result.evidence_coverage === 'number' ? result.evidence_coverage : null
+                const covColor = cov == null ? '#94a3b8' : cov >= 0.75 ? '#16A34A' : cov >= 0.6 ? '#EAB308' : '#F97316'
+                return (
+                  <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                    <span style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 14, background: tc.bg, color: tc.fg, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.5 }}>
+                      {tc.label}
+                      {result.hard_gates_triggered && result.hard_gates_triggered.length > 0 && (
+                        <span style={{ marginLeft: 6, fontSize: 10 }}>· {lang === 'zh' ? '触发硬门槛' : 'hard gate'}</span>
+                      )}
+                    </span>
+                    {cov != null && (
+                      <div style={{ width: 260, maxWidth: '80%' }}>
+                        <div className="mono" style={{ fontSize: 9.5, color: '#64748b', marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                          <span>{lang === 'zh' ? '证据充足度' : 'Evidence coverage'}</span>
+                          <span style={{ color: covColor, fontWeight: 700 }}>{(cov * 100).toFixed(0)}%</span>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 2, background: 'rgba(148,163,184,0.15)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${cov * 100}%`, background: covColor, transition: 'width 0.6s ease' }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
               {(() => {
                 // Use the real income/rent ratio computed server-side
                 // from AI-detected or landlord-provided income.
@@ -1007,6 +1072,62 @@ export default function ScreenPage() {
                 />
               )
             })()}
+
+            {/* Action Items — L3 indicators that can only be resolved via landlord action */}
+            {result.action_items && result.action_items.length > 0 && (
+              <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(139, 92, 246, 0.35)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
+                <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: '#C4B5FD' }}>
+                  {lang === 'zh' ? '待人工核实清单' : 'Action Items'}
+                </div>
+                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>
+                  {lang === 'zh'
+                    ? '以下内容无法仅凭上传文档确认，需要您亲自核实。每完成一项，评分会相应调整。'
+                    : 'These items cannot be verified from documents alone. Completing each will adjust the score accordingly.'}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {result.action_items.map((item, i) => (
+                    <div key={item.id || i} style={{ padding: 12, borderRadius: 10, background: 'rgba(139, 92, 246, 0.06)', border: '1px solid rgba(139, 92, 246, 0.18)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 6 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#E9D5FF' }}>
+                          {lang === 'zh' ? item.title_zh : item.title_en}
+                        </div>
+                        <span className="mono" style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: 'rgba(139, 92, 246, 0.18)', color: '#C4B5FD', whiteSpace: 'nowrap' }}>
+                          {item.dimension}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11.5, color: '#cbd5e1', lineHeight: 1.6, marginBottom: 6 }}>
+                        {lang === 'zh' ? item.details_zh : item.details_en}
+                      </div>
+                      {item.impact_on_score && (
+                        <div className="mono" style={{ fontSize: 10, color: '#94a3b8' }}>
+                          {lang === 'zh' ? '对评分影响' : 'Score impact'}: {item.impact_on_score}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Compliance Audit — collapsed paper trail for HRC defense */}
+            {result.compliance_audit && (result.compliance_audit.protected_grounds_observed?.length || result.compliance_audit.reviewer_note) && (
+              <details className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
+                <summary style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', cursor: 'pointer', listStyle: 'none' }}>
+                  {lang === 'zh' ? '合规审计（HRC 证据链）' : 'Compliance Audit (HRC paper trail)'}
+                </summary>
+                <div style={{ marginTop: 10, fontSize: 11.5, color: '#cbd5e1', lineHeight: 1.7 }}>
+                  {result.compliance_audit.protected_grounds_observed && result.compliance_audit.protected_grounds_observed.length > 0 && (
+                    <div style={{ marginBottom: 6 }}>
+                      <span style={{ color: '#64748b' }}>{lang === 'zh' ? '观察到但未用于评分的受保护特征' : 'Protected grounds observed but excluded from scoring'}: </span>
+                      <span className="mono" style={{ color: '#94a3b8' }}>{result.compliance_audit.protected_grounds_observed.join(', ')}</span>
+                    </div>
+                  )}
+                  {result.compliance_audit.reviewer_note && (
+                    <div style={{ fontStyle: 'italic', color: '#94a3b8' }}>{result.compliance_audit.reviewer_note}</div>
+                  )}
+                </div>
+              </details>
+            )}
 
             {/* Flags */}
             {aiFlags.length > 0 && (
