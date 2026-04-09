@@ -106,16 +106,21 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
 }
 
 export async function POST(req: NextRequest) {
+  try {
   const { screening_id } = await req.json()
   if (!screening_id) {
     return NextResponse.json({ error: 'screening_id required' }, { status: 400 })
   }
 
-  const authHeader = req.headers.get('authorization') || ''
+  // Sanitize the Authorization header — any CR/LF or non-ASCII will make
+  // the Headers constructor in the edge runtime throw DOMException
+  // "The string did not match the expected pattern."
+  const rawAuth = req.headers.get('authorization') || ''
+  const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { Authorization: authHeader } } }
+    authHeader ? { global: { headers: { Authorization: authHeader } } } : {}
   )
 
   const { data: screening, error } = await supabase
@@ -157,41 +162,13 @@ export async function POST(req: NextRequest) {
   // But for the court records lookup we want to query with whatever name we have.
   // If the landlord provided one, use it for both lookup and prompt context.
   // If not, we run a quick pre-call to get the name, then court records, then full scoring.
+  // Only the landlord-provided name is used for the pre-scoring court
+  // records lookup. We skip the extra "extract the name first" Claude
+  // round-trip (which sent every document twice and roughly doubled the
+  // end-to-end latency). If no name was provided up front, we run the
+  // court-records lookup AFTER scoring using the name Claude extracts.
   let nameForLookup = (screening.tenant_name || '').trim()
   let prelimExtractedName: string | undefined
-
-  if (!nameForLookup && contentBlocks.length > 0) {
-    // Cheap extraction call: ask Claude for the name only.
-    const extractRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 200,
-        system: 'You extract the candidate full legal name from rental application documents. Output JSON only: {"name": "..."} or {"name": null} if you cannot find one.',
-        messages: [{ role: 'user', content: [
-          { type: 'text', text: 'Find the candidate full legal name in these uploaded documents (look at IDs, paystubs, employment letters first). Return ONLY {"name": "..."} JSON.' },
-          ...contentBlocks,
-        ]}],
-      }),
-    })
-    if (extractRes.ok) {
-      const ej = await extractRes.json() as any
-      let et = ej.content?.[0]?.text || '{}'
-      et = et.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
-      try {
-        const parsed = JSON.parse(et)
-        if (parsed?.name && typeof parsed.name === 'string') {
-          prelimExtractedName = parsed.name.trim()
-          nameForLookup = prelimExtractedName
-        }
-      } catch {}
-    }
-  }
 
   // ---- Stage 3: Court records lookup ----
   const courtDetail = await runCourtRecordCheck(nameForLookup, plan)
@@ -320,7 +297,7 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
-      max_tokens: 8000,
+      max_tokens: 6000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userContent }],
     }),
@@ -473,4 +450,18 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     court_records_detail: courtDetail,
     tier: (plan === 'pro' || plan === 'enterprise') ? 'pro' : 'free',
   })
+  } catch (e: any) {
+    // Any uncaught runtime error (DOMException from edge fetch,
+    // malformed header, broken signed URL, etc.) lands here with a
+    // useful message instead of a raw "The string did not match the
+    // expected pattern." bubbling up to the client.
+    console.error('[screen-score] uncaught:', e)
+    return NextResponse.json(
+      {
+        error: 'Screening failed: ' + (e?.message || String(e) || 'unknown error').slice(0, 300),
+        name: e?.name || undefined,
+      },
+      { status: 500 }
+    )
+  }
 }
