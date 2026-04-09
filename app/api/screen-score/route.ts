@@ -49,18 +49,88 @@ interface CourtQuery {
   note?: string
 }
 
-async function runCourtRecordCheck(name: string, plan: string): Promise<{ queries: CourtQuery[]; total_hits: number; queried_name: string }> {
-  // CanLII scraping is temporarily disabled — we're waiting on an official
-  // API key. All sources return "coming_soon" so the UI shows a consistent
-  // "integration pending" message.
-  const queries: CourtQuery[] = [
-    { source: 'CanLII — LTB rulings', tier: 'free', status: 'coming_soon', hits: null, note: 'Awaiting official API access' },
-    { source: 'CanLII — Small Claims Court', tier: 'free', status: 'coming_soon', hits: null, note: 'Awaiting official API access' },
-  ]
+interface CanLIIMatch {
+  title: string
+  citation: string
+  url: string
+  databaseId: string
+  caseId: string
+}
+
+async function searchCanLII(name: string, databaseId: 'onltb' | 'oncsc'): Promise<{ status: CourtQuery['status']; hits: number; records: CanLIIMatch[]; note?: string }> {
+  const apiKey = process.env.CANLII_API_KEY
+  if (!apiKey) return { status: 'unavailable', hits: 0, records: [], note: 'API key not configured' }
+  if (!name || name.length < 3) return { status: 'skipped', hits: 0, records: [], note: 'No name to query' }
+
+  try {
+    // CanLII v1 caseBrowse with fullText filter — exact-phrase search on the
+    // applicant name within the target database (onltb = LTB, oncsc = Small Claims).
+    const url = `https://api.canlii.org/v1/caseBrowse/en/${databaseId}/?api_key=${apiKey}&resultCount=20&offset=0&publishedBefore=2026-12-31&publishedAfter=2018-01-01&fullText=${encodeURIComponent(`"${name}"`)}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) {
+      return { status: 'unavailable', hits: 0, records: [], note: `HTTP ${res.status}` }
+    }
+    const data = await res.json() as { cases?: Array<{ databaseId: string; caseId: { en: string }; title: string; citation: string }> }
+    const cases = data.cases || []
+    const records: CanLIIMatch[] = cases.slice(0, 10).map(c => {
+      const cid = c.caseId?.en || ''
+      return {
+        title: c.title,
+        citation: c.citation,
+        databaseId: c.databaseId,
+        caseId: cid,
+        url: cid ? `https://www.canlii.org/en/on/${databaseId}/doc/${cid.split('.')[0] || cid}/${cid}.html` : `https://www.canlii.org/en/on/${databaseId}/`,
+      }
+    })
+    return {
+      status: cases.length === 0 ? 'ok' : 'ok',
+      hits: cases.length,
+      records,
+    }
+  } catch (e: any) {
+    return { status: 'unavailable', hits: 0, records: [], note: e?.name === 'TimeoutError' ? 'CanLII timeout' : 'CanLII error' }
+  }
+}
+
+async function runCourtRecordCheck(name: string, plan: string): Promise<{ queries: CourtQuery[]; total_hits: number; queried_name: string; records: CanLIIMatch[] }> {
+  const queries: CourtQuery[] = []
+  const allRecords: CanLIIMatch[] = []
+  let totalHits = 0
+
+  // Free-tier: CanLII LTB + Small Claims (parallel for speed)
+  const [ltb, smallClaims] = await Promise.all([
+    searchCanLII(name, 'onltb'),
+    searchCanLII(name, 'oncsc'),
+  ])
+
+  queries.push({
+    source: 'CanLII — LTB rulings',
+    tier: 'free',
+    status: ltb.status,
+    hits: ltb.hits,
+    note: ltb.note,
+    url: ltb.records[0]?.url,
+  })
+  allRecords.push(...ltb.records)
+  totalHits += ltb.hits
+
+  queries.push({
+    source: 'CanLII — Small Claims Court',
+    tier: 'free',
+    status: smallClaims.status,
+    hits: smallClaims.hits,
+    note: smallClaims.note,
+    url: smallClaims.records[0]?.url,
+  })
+  allRecords.push(...smallClaims.records)
+  totalHits += smallClaims.hits
+
+  // Pro-tier sources still pending
   const isPro = plan === 'pro' || plan === 'enterprise'
   queries.push({ source: 'Ontario Courts Portal', tier: 'pro', status: 'coming_soon', hits: null, note: isPro ? 'Integration in progress' : 'Pro feature — coming soon' })
   queries.push({ source: 'Stayloop Verified Network', tier: 'pro', status: 'coming_soon', hits: null, note: isPro ? 'Integration in progress' : 'Pro feature — coming soon' })
-  return { queries, total_hits: 0, queried_name: name || '' }
+
+  return { queries, total_hits: totalHits, queried_name: name || '', records: allRecords }
 }
 
 // Map v3's 5 dims → legacy 6 columns, so old dashboards keep working.
@@ -156,7 +226,11 @@ Landlord notes: ${screening.notes || 'N/A'}
 
 Uploaded: ${files.length === 0 ? 'NONE' : files.map(f => `${f.kind || 'doc'}(${f.name})`).join(', ')}
 
-LTB/COURT LOOKUP: automated queries currently offline (awaiting CanLII API). Score LTB sub-component as 70 neutral + note.
+LTB/COURT LOOKUP (CanLII fullText by name, 2018–2026):
+${courtDetail.queries.filter(q => q.tier === 'free').map(q => `  - ${q.source}: ${q.status === 'ok' ? `${q.hits} hit(s)` : q.status}${q.note ? ` (${q.note})` : ''}`).join('\n')}
+${courtDetail.total_hits > 0 ? `\nMATCHED CASES (treat as strong signal — but verify name collision is not a false positive):\n${courtDetail.records.slice(0, 5).map(r => `  · ${r.title} — ${r.citation}`).join('\n')}` : '\nNo CanLII LTB or Small Claims hits for this applicant name.'}
+
+Score rental_history.ltb_check based on these results: 0 hits → high score (90+), 1 hit → investigate (50-70, mark action_pending to verify identity), 2+ hits → strong negative. If 0 hits AND no landlord reference → mark ltb_check "measured" but prior_landlord_refs "action_pending".
 ${screening.pasted_text ? `\n--- PASTED TEXT ---\n${screening.pasted_text}\n` : ''}`
 
     const systemPrompt = `You are Stayloop, an AI tenant-screening analyst for Ontario, Canada landlords. Score risk using the Stayloop v3 model.
