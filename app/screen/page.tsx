@@ -324,6 +324,9 @@ export default function ScreenPage() {
   const [tier, setTier] = useState<'free' | 'pro'>('free')
 
   const [files, setFiles] = useState<File[]>([])
+  // AI-detected kinds per file (keyed by a stable file signature: name+size)
+  const [fileKinds, setFileKinds] = useState<Record<string, string[]>>({})
+  const [classifying, setClassifying] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [applicantName, setApplicantName] = useState('')
   const [targetRent, setTargetRent] = useState('')
@@ -377,7 +380,34 @@ export default function ScreenPage() {
     })
     setFiles(prev => [...prev, ...incoming])
     setError(null)
+    // Kick off classification for newly added files only
+    if (incoming.length > 0) {
+      classifyNewFiles(incoming)
+    }
   }, [t])
+
+  const fileKey = (f: { name: string; size: number }) => `${f.name}__${f.size}`
+
+  const classifyNewFiles = useCallback(async (toClassify: File[]) => {
+    try {
+      setClassifying(true)
+      const form = new FormData()
+      for (const f of toClassify) form.append('files', f, f.name)
+      const res = await fetch('/api/classify-files', { method: 'POST', body: form })
+      if (!res.ok) return
+      const data = await res.json() as { classifications?: { index: number; kinds: string[] }[] }
+      const map: Record<string, string[]> = {}
+      for (const c of data.classifications || []) {
+        const f = toClassify[c.index]
+        if (f) map[fileKey(f)] = Array.isArray(c.kinds) ? c.kinds : []
+      }
+      setFileKinds(prev => ({ ...prev, ...map }))
+    } catch {
+      // classifier is best-effort — filename heuristics remain as fallback
+    } finally {
+      setClassifying(false)
+    }
+  }, [])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -385,10 +415,21 @@ export default function ScreenPage() {
     handleFiles(e.dataTransfer.files)
   }, [handleFiles])
 
-  const removeFile = (idx: number) => setFiles(prev => prev.filter((_, i) => i !== idx))
+  const removeFile = (idx: number) => setFiles(prev => {
+    const removed = prev[idx]
+    if (removed) {
+      setFileKinds(fk => {
+        const next = { ...fk }
+        delete next[fileKey(removed)]
+        return next
+      })
+    }
+    return prev.filter((_, i) => i !== idx)
+  })
 
   const reset = () => {
     setFiles([])
+    setFileKinds({})
     setResult(null)
     setProgress(0)
     setProgressLabel('')
@@ -705,22 +746,30 @@ export default function ScreenPage() {
             {/* File Types */}
             <div className="sl-file-grid" style={{ display: 'grid', gap: 8, marginTop: 16 }}>
               {(() => {
-                // Count how many uploaded files match each type slot.
-                // Before analysis: filename-based guessing only.
-                // After analysis: union with AI-detected kinds (Claude
-                // actually opened the docs and reported what's inside,
-                // so e.g. "25729.jpg" can be identified as an ID, and
-                // a bundled "Rental Application Package.pdf" can be
-                // correctly marked as containing paystub + bank + ID).
+                // Per-file preference order:
+                //   1. AI classifier result (fileKinds) — populated
+                //      within seconds of upload. A single file may
+                //      return multiple kinds (bundled PDFs).
+                //   2. Filename heuristic fallback while classification
+                //      is still in flight, or on classifier failure.
+                //
+                // This is why "25729.jpg" (an ID photo) correctly
+                // lights up the ID / Passport slot — Claude opens the
+                // image and sees it's a passport/ID, even though the
+                // filename carries no hint.
                 const counts: Record<string, number> = {}
                 for (const f of files) {
-                  const k = guessKind(f.name)
-                  counts[k] = (counts[k] || 0) + 1
+                  const aiKinds = fileKinds[fileKey(f)]
+                  if (Array.isArray(aiKinds) && aiKinds.length > 0) {
+                    for (const k of aiKinds) counts[k] = (counts[k] || 0) + 1
+                  } else {
+                    const k = guessKind(f.name)
+                    counts[k] = (counts[k] || 0) + 1
+                  }
                 }
-                // `result` is narrowed to null in this branch, so pull
-                // AI-detected kinds from a parent-scope ref instead.
-                const aiKinds = lastDetectedKinds
-                for (const k of aiKinds) {
+                // Union with post-scoring kinds (survives re-renders
+                // after analyze completes).
+                for (const k of lastDetectedKinds) {
                   if (!counts[k]) counts[k] = 1
                 }
                 return FILE_TYPES.map(ft => {
@@ -783,7 +832,15 @@ export default function ScreenPage() {
             {/* File List & Submit */}
             {files.length > 0 && (
               <div style={{ marginTop: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: '#94a3b8' }}>{t('screen.files.uploadedN', { n: files.length })}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span>{t('screen.files.uploadedN', { n: files.length })}</span>
+                  {classifying && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#5EEAD4', fontWeight: 500 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', border: '2px solid rgba(20, 184, 166, 0.25)', borderTopColor: '#14B8A6', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+                      {lang === 'zh' ? '识别文件类型中…' : 'Classifying file types…'}
+                    </span>
+                  )}
+                </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {files.map((f, i) => <FileChip key={i} file={f} onRemove={() => removeFile(i)} />)}
                 </div>
