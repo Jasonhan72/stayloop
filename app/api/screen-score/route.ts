@@ -245,6 +245,7 @@ SIX DIMENSIONS:
 Also extract:
 - The candidate's full legal name (from ID if available, otherwise self-reported).
 - The candidate's DETECTED gross monthly income in CAD (from paystubs, bank deposits, employment letters). If you see bi-weekly or annual figures, convert to monthly. If you truly cannot determine it, return null.
+- A list of document kinds you actually SAW in the uploaded files (open each file and look — do not guess from filename). Valid kinds: "employment_letter", "pay_stub", "bank_statement", "id_document", "credit_report", "offer_letter", "reference", "other". A single PDF may contain multiple kinds (e.g. a rental application package with an ID scan, paystub, and bank statement bundled inside) — include every kind you observe.
 - A PER-DIMENSION detailed explanation (3-6 sentences each) that cites the SPECIFIC evidence you saw in the uploaded documents — which files, which numbers, which lines. Produce each detailed explanation in BOTH English and Simplified Chinese.
 - A list of RISK FLAGS AND RECOMMENDATIONS (3-8 items) that are each grounded in a specific piece of evidence (or a specific missing piece of evidence) from THIS applicant's file. Do not invent facts. Each flag has a type and bilingual text.
 
@@ -259,6 +260,7 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
   "extracted_name": "<full legal name from ID, or self-reported>",
   "detected_monthly_income": <number in CAD, or null if not determinable>,
   "income_evidence": "<one short sentence citing where the income figure came from, e.g. 'from 2 bi-weekly paystubs showing $1,850 each' — or null>",
+  "detected_document_kinds": ["<subset of: employment_letter, pay_stub, bank_statement, id_document, credit_report, offer_letter, reference, other>"],
   "scores": {
     "doc_authenticity": <0-100>,
     "payment_ability": <0-100>,
@@ -336,6 +338,7 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     extracted_name?: string
     detected_monthly_income?: number | null
     income_evidence?: string | null
+    detected_document_kinds?: string[]
     scores?: SixDimScores
     notes?: Record<string, string>
     details_en?: Record<string, string>
@@ -404,6 +407,7 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     details_en: parsed.details_en || null,
     details_zh: parsed.details_zh || null,
     flags: Array.isArray(parsed.flags) ? parsed.flags : [],
+    detected_document_kinds: Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds : [],
     detected_monthly_income: detectedIncome,
     effective_monthly_income: effectiveIncome,
     income_evidence: parsed.income_evidence || null,

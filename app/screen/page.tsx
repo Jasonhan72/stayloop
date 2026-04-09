@@ -50,6 +50,7 @@ interface ScoreResult {
   details_en?: Record<string, string> | null
   details_zh?: Record<string, string> | null
   flags?: AiFlag[]
+  detected_document_kinds?: string[]
   detected_monthly_income?: number | null
   effective_monthly_income?: number | null
   income_evidence?: string | null
@@ -113,12 +114,13 @@ function getRiskLevel(score: number): RiskLevel {
 
 function guessKind(name: string): string {
   const n = name.toLowerCase()
-  if (n.includes('paystub') || n.includes('pay_stub') || n.includes('payslip') || n.includes('pay')) return 'pay_stub'
-  if (n.includes('id') || n.includes('license') || n.includes('passport') || n.includes('permit')) return 'id_document'
+  if (n.includes('paystub') || n.includes('pay_stub') || n.includes('payslip') || n.includes('pay-stub') || n.includes('wage') || n.match(/\bpay\b/)) return 'pay_stub'
+  if (n.includes('passport') || n.includes('license') || n.includes('licence') || n.includes('permit') || n.includes('driver') || n.match(/\bid[-_. ]/) || n.match(/^id[-_. ]/) || n.endsWith('_id.jpg') || n.endsWith('_id.png')) return 'id_document'
   if (n.includes('credit')) return 'credit_report'
   if (n.includes('bank') || n.includes('statement')) return 'bank_statement'
-  if (n.includes('employ') || n.includes('letter') || n.includes('offer')) return 'employment_letter'
-  if (n.includes('reference')) return 'reference'
+  if (n.includes('contract') || n.includes('employ') || n.includes('letter')) return 'employment_letter'
+  if (n.includes('offer') || n.includes('study permit') || n.includes('admission')) return 'offer_letter'
+  if (n.includes('reference') || n.includes('landlord')) return 'reference'
   return 'other'
 }
 
@@ -330,6 +332,7 @@ export default function ScreenPage() {
   const [progress, setProgress] = useState(0)
   const [progressLabel, setProgressLabel] = useState('')
   const [result, setResult] = useState<ScoreResult | null>(null)
+  const [lastDetectedKinds, setLastDetectedKinds] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<Screening[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -492,6 +495,7 @@ export default function ScreenPage() {
       await new Promise(r => setTimeout(r, 400))
 
       setResult(data as ScoreResult)
+      setLastDetectedKinds(Array.isArray((data as ScoreResult).detected_document_kinds) ? (data as ScoreResult).detected_document_kinds! : [])
       loadHistory()
     } catch (e: any) {
       cancelled = true
@@ -701,11 +705,23 @@ export default function ScreenPage() {
             {/* File Types */}
             <div className="sl-file-grid" style={{ display: 'grid', gap: 8, marginTop: 16 }}>
               {(() => {
-                // Count how many uploaded files match each type slot
+                // Count how many uploaded files match each type slot.
+                // Before analysis: filename-based guessing only.
+                // After analysis: union with AI-detected kinds (Claude
+                // actually opened the docs and reported what's inside,
+                // so e.g. "25729.jpg" can be identified as an ID, and
+                // a bundled "Rental Application Package.pdf" can be
+                // correctly marked as containing paystub + bank + ID).
                 const counts: Record<string, number> = {}
                 for (const f of files) {
                   const k = guessKind(f.name)
                   counts[k] = (counts[k] || 0) + 1
+                }
+                // `result` is narrowed to null in this branch, so pull
+                // AI-detected kinds from a parent-scope ref instead.
+                const aiKinds = lastDetectedKinds
+                for (const k of aiKinds) {
+                  if (!counts[k]) counts[k] = 1
                 }
                 return FILE_TYPES.map(ft => {
                   const count = counts[ft.key] || 0
