@@ -246,8 +246,10 @@ Also extract:
 - The candidate's full legal name (from ID if available, otherwise self-reported).
 - The candidate's DETECTED gross monthly income in CAD (from paystubs, bank deposits, employment letters). If you see bi-weekly or annual figures, convert to monthly. If you truly cannot determine it, return null.
 - A list of document kinds you actually SAW in the uploaded files (open each file and look — do not guess from filename). Valid kinds: "employment_letter", "pay_stub", "bank_statement", "id_document", "credit_report", "offer_letter", "reference", "other". A single PDF may contain multiple kinds (e.g. a rental application package with an ID scan, paystub, and bank statement bundled inside) — include every kind you observe.
-- A PER-DIMENSION detailed explanation (3-6 sentences each) that cites the SPECIFIC evidence you saw in the uploaded documents — which files, which numbers, which lines. Produce each detailed explanation in BOTH English and Simplified Chinese.
-- A list of RISK FLAGS AND RECOMMENDATIONS (3-8 items) that are each grounded in a specific piece of evidence (or a specific missing piece of evidence) from THIS applicant's file. Do not invent facts. Each flag has a type and bilingual text.
+- A PER-DIMENSION detailed explanation (2-4 sentences each, max 400 characters) that cites SPECIFIC evidence from the uploaded documents — which file, which numbers, which lines. Produce each detailed explanation in BOTH English and Simplified Chinese. Be concise.
+- A list of 3-6 RISK FLAGS AND RECOMMENDATIONS, each grounded in a specific piece of evidence (or a specific missing piece of evidence) from THIS applicant's file. Do not invent facts. Each flag has a type and short bilingual text (max 160 chars per language).
+
+IMPORTANT: Keep your entire JSON response under 6000 tokens. Be concise — no filler prose. Emit ONLY the JSON object, no preamble, no markdown fences, no trailing commentary.
 
 Flag types:
 - "danger" — clear red flag (court hit, tampered doc, income below rent, name mismatch)
@@ -318,7 +320,7 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
-      max_tokens: 4000,
+      max_tokens: 8000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userContent }],
     }),
@@ -330,9 +332,47 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     return NextResponse.json({ error: `Anthropic API error: ${errText}` }, { status: 500 })
   }
 
-  const aiData = await response.json() as { content?: Array<{ text: string }> }
-  let text = aiData.content?.[0]?.text || '{}'
-  text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+  const aiData = await response.json() as { content?: Array<{ text: string }>; stop_reason?: string }
+  const rawText = aiData.content?.[0]?.text || ''
+  const stopReason = aiData.stop_reason || ''
+
+  // Robust JSON extraction — strip markdown fences, trim, and if the
+  // payload is still unparseable, grab the outermost balanced {...}
+  // block. Handles: fenced output, extra prose, and truncation where
+  // the closing brace is still present but prose follows.
+  function extractJson(input: string): string {
+    let t = input.trim()
+    t = t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+    // Try straight parse first
+    try { JSON.parse(t); return t } catch {}
+    // Find first { and matching closing } by depth count, ignoring
+    // braces inside strings.
+    const start = t.indexOf('{')
+    if (start < 0) return t
+    let depth = 0
+    let inStr = false
+    let esc = false
+    for (let i = start; i < t.length; i++) {
+      const ch = t[i]
+      if (inStr) {
+        if (esc) esc = false
+        else if (ch === '\\') esc = true
+        else if (ch === '"') inStr = false
+      } else {
+        if (ch === '"') inStr = true
+        else if (ch === '{') depth++
+        else if (ch === '}') {
+          depth--
+          if (depth === 0) return t.slice(start, i + 1)
+        }
+      }
+    }
+    // Truncated mid-object: return what we have so the caller can
+    // attempt best-effort recovery / surface a useful error.
+    return t.slice(start)
+  }
+
+  const text = extractJson(rawText)
 
   let parsed: {
     extracted_name?: string
@@ -350,9 +390,21 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
   }
   try {
     parsed = JSON.parse(text)
-  } catch {
-    await supabase.from('screenings').update({ status: 'error', error: 'AI parse error' }).eq('id', screening_id)
-    return NextResponse.json({ error: 'AI parse error', raw: text }, { status: 500 })
+  } catch (e: any) {
+    // Surface enough raw output to debug, and distinguish
+    // truncation from other parse failures so the UI can retry.
+    const truncated = stopReason === 'max_tokens'
+    await supabase.from('screenings').update({
+      status: 'error',
+      error: (truncated ? 'AI output truncated: ' : 'AI parse error: ') + (e?.message || 'unknown').slice(0, 200),
+    }).eq('id', screening_id)
+    return NextResponse.json({
+      error: truncated
+        ? 'AI output was truncated — please retry (the model ran out of tokens).'
+        : 'AI parse error',
+      stop_reason: stopReason,
+      raw: rawText.slice(0, 4000),
+    }, { status: 500 })
   }
 
   const s = parsed.scores
