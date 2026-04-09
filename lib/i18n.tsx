@@ -157,7 +157,7 @@ export const DICT = {
   'screen.result.stat.courts': { en: 'Court DBs queried', zh: '法庭库已查' },
   'screen.result.stat.ratio': { en: 'Income / Rent', zh: '收入/租金比' },
   'screen.result.summary': { en: '📝 AI Risk Summary', zh: '📝 AI 风险摘要' },
-  'screen.result.dims': { en: '📊 Category breakdown · 6 dimensions', zh: '📊 分项评分明细 · 6 个维度' },
+  'screen.result.dims': { en: '📊 Category breakdown · 5 dimensions', zh: '📊 分项评分明细 · 5 个维度' },
   'screen.result.court.title': { en: '⚖️ Court Record Query Details', zh: '⚖️ 法庭记录查询详情' },
   'screen.result.court.queriedName': { en: 'Query name:', zh: '查询姓名:' },
   'screen.result.court.pro': { en: 'PRO full query', zh: 'PRO 全量查询' },
@@ -184,36 +184,31 @@ export const DICT = {
     zh: '本报告仅供决策参考。最终租赁决定应遵守 Ontario RTA / Human Rights Code。',
   },
 
-  // Categories
-  'cat.doc_authenticity.label': { en: 'Document Authenticity', zh: '文档真伪' },
-  'cat.doc_authenticity.desc': {
-    en: 'Metadata analysis, font consistency, template patterns, tampering detection',
-    zh: '元数据分析、字体一致性、模板特征、篡改痕迹检测',
+  // Categories — Stayloop Risk Model v3 (2026), 5 dimensions
+  'cat.ability_to_pay.label': { en: 'Ability to Pay', zh: '付款能力' },
+  'cat.ability_to_pay.desc': {
+    en: 'Income-to-rent ratio (target ≥3x), income stability & volatility, emergency liquidity reserves',
+    zh: '收入/租金比（目标 ≥3x）、收入稳定性与波动率、应急流动性储备',
   },
-  'cat.payment_ability.label': { en: 'Financial Capacity', zh: '支付能力' },
-  'cat.payment_ability.desc': {
-    en: 'Income-to-rent ratio, cashflow stability, debt levels, savings buffer',
-    zh: '收入租金比、现金流稳定性、负债水平、储蓄缓冲',
+  'cat.credit_health.label': { en: 'Credit & Debt Health', zh: '信用健康度' },
+  'cat.credit_health.desc': {
+    en: 'Credit score (Equifax / TransUnion), debt service ratio, derogatory events',
+    zh: '信用分数（Equifax / TransUnion）、债务服务比率、不良记录',
   },
-  'cat.court_records.label': { en: 'Court & Tribunal Records', zh: '法庭记录' },
-  'cat.court_records.desc': {
-    en: 'LTB rulings, eviction orders for non-payment, Small Claims judgments, civil suits',
-    zh: 'LTB 裁决、欠租驱逐令、Small Claims 判决、民事诉讼记录',
+  'cat.rental_history.label': { en: 'Rental & Legal History', zh: '租务与司法历史' },
+  'cat.rental_history.desc': {
+    en: 'Prior landlord references, LTB eviction filings, Small Claims judgments — willingness-to-pay signal',
+    zh: '前房东评价、LTB 驱逐记录、Small Claims 判决 — 付租意愿信号',
   },
-  'cat.stability.label': { en: 'Stability', zh: '稳定性' },
-  'cat.stability.desc': {
-    en: 'Years employed, rental history, address change frequency',
-    zh: '就业年限、租赁历史、居住地址变动频率',
+  'cat.verification.label': { en: 'Identity & Employer Verification', zh: '身份与雇主核实' },
+  'cat.verification.desc': {
+    en: 'Identity cross-match across documents, employer existence, document authenticity (anti-fraud)',
+    zh: '跨文档身份交叉核验、雇主真实性、文档真伪检测（反欺诈层）',
   },
-  'cat.info_consistency.label': { en: 'Cross-Verification', zh: '信息一致性' },
-  'cat.info_consistency.desc': {
-    en: 'Cross-check employer name / income / bank deposits',
-    zh: '雇主名称/收入/银行入账交叉校验',
-  },
-  'cat.behavior_signals.label': { en: 'Behavioral Signals', zh: '行为信号' },
-  'cat.behavior_signals.desc': {
-    en: 'Application completeness, response time, communication patterns',
-    zh: '申请完整度、响应速度、沟通模式分析',
+  'cat.communication.label': { en: 'Application Quality', zh: '申请完整度与沟通' },
+  'cat.communication.desc': {
+    en: 'Completeness of submitted documents, proactive disclosure, landlord in-person impression',
+    zh: '所提交文档的完整度、主动披露意愿、房东面谈直觉印象',
   },
   'cat.weight': { en: 'weight', zh: '权重' },
 

@@ -115,11 +115,11 @@ const CATEGORIES: {
   zhLabel: string
   enLabel: string
 }[] = [
-  { id: 'ability_to_pay',  labelKey: 'cat.payment_ability.label',  descKey: 'cat.payment_ability.desc',  icon: '💰', weight: 0.40, zhLabel: '付款能力',   enLabel: 'Ability to Pay' },
-  { id: 'credit_health',   labelKey: 'cat.doc_authenticity.label', descKey: 'cat.doc_authenticity.desc', icon: '📊', weight: 0.25, zhLabel: '信用健康度', enLabel: 'Credit & Debt Health' },
-  { id: 'rental_history',  labelKey: 'cat.court_records.label',    descKey: 'cat.court_records.desc',    icon: '⚖️', weight: 0.20, zhLabel: '租务历史',   enLabel: 'Rental & Legal History' },
-  { id: 'verification',    labelKey: 'cat.info_consistency.label', descKey: 'cat.info_consistency.desc', icon: '🔍', weight: 0.10, zhLabel: '身份核实',   enLabel: 'Identity & Employer' },
-  { id: 'communication',   labelKey: 'cat.behavior_signals.label', descKey: 'cat.behavior_signals.desc', icon: '🏠', weight: 0.05, zhLabel: '申请完整度', enLabel: 'Application Quality' },
+  { id: 'ability_to_pay', labelKey: 'cat.ability_to_pay.label', descKey: 'cat.ability_to_pay.desc', icon: '💰', weight: 0.40, zhLabel: '付款能力',         enLabel: 'Ability to Pay' },
+  { id: 'credit_health',  labelKey: 'cat.credit_health.label',  descKey: 'cat.credit_health.desc',  icon: '📊', weight: 0.25, zhLabel: '信用健康度',       enLabel: 'Credit & Debt Health' },
+  { id: 'rental_history', labelKey: 'cat.rental_history.label', descKey: 'cat.rental_history.desc', icon: '⚖️', weight: 0.20, zhLabel: '租务与司法历史',   enLabel: 'Rental & Legal History' },
+  { id: 'verification',   labelKey: 'cat.verification.label',   descKey: 'cat.verification.desc',   icon: '🔍', weight: 0.10, zhLabel: '身份与雇主核实',   enLabel: 'Identity & Employer' },
+  { id: 'communication',  labelKey: 'cat.communication.label',  descKey: 'cat.communication.desc',  icon: '🏠', weight: 0.05, zhLabel: '申请完整度与沟通', enLabel: 'Application Quality' },
 ]
 
 interface RiskLevel { min: number; labelKey: DictKey; tagKey: DictKey; color: string; bg: string }
