@@ -700,12 +700,63 @@ export default function ScreenPage() {
 
             {/* File Types */}
             <div className="sl-file-grid" style={{ display: 'grid', gap: 8, marginTop: 16 }}>
-              {FILE_TYPES.map(ft => (
-                <div key={ft.key} style={{ padding: '12px 10px', borderRadius: 10, background: 'rgba(14, 20, 38, 0.6)', border: '1px solid var(--border-subtle)', textAlign: 'center', fontSize: 11, color: 'var(--text-secondary)', transition: 'all 0.15s ease' }}>
-                  <div style={{ fontSize: 18, marginBottom: 5 }}>{ft.icon}</div>
-                  {t(ft.labelKey)}
-                </div>
-              ))}
+              {(() => {
+                // Count how many uploaded files match each type slot
+                const counts: Record<string, number> = {}
+                for (const f of files) {
+                  const k = guessKind(f.name)
+                  counts[k] = (counts[k] || 0) + 1
+                }
+                return FILE_TYPES.map(ft => {
+                  const count = counts[ft.key] || 0
+                  const uploaded = count > 0
+                  return (
+                    <div
+                      key={ft.key}
+                      style={{
+                        position: 'relative',
+                        padding: '12px 10px',
+                        borderRadius: 10,
+                        background: uploaded ? 'rgba(16, 185, 129, 0.08)' : 'rgba(14, 20, 38, 0.6)',
+                        border: uploaded ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid var(--border-subtle)',
+                        boxShadow: uploaded ? '0 0 0 3px rgba(16, 185, 129, 0.08)' : 'none',
+                        textAlign: 'center',
+                        fontSize: 11,
+                        color: uploaded ? '#6EE7B7' : 'var(--text-secondary)',
+                        fontWeight: uploaded ? 600 : 500,
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      {uploaded && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: 6,
+                            right: 6,
+                            width: 18,
+                            height: 18,
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #10B981, #059669)',
+                            color: '#fff',
+                            fontSize: 10,
+                            fontWeight: 800,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.45)',
+                            lineHeight: 1,
+                          }}
+                          aria-label={`${count} uploaded`}
+                        >
+                          {count > 1 ? count : '✓'}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 18, marginBottom: 5, filter: uploaded ? 'none' : 'grayscale(0.15)' }}>{ft.icon}</div>
+                      {t(ft.labelKey)}
+                    </div>
+                  )
+                })
+              })()}
             </div>
 
             {error && (
