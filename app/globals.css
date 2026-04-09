@@ -465,3 +465,260 @@ body > * { position: relative; z-index: 1; }
   .h-display { font-size: clamp(1.75rem, 7vw, 2.25rem); }
   .h-section { font-size: 1.1rem; }
 }
+
+/* ──────────────────────────────────────────────────────────────────
+   Marketing (light) theme — scoped to .marketing wrapper only.
+   Lets the home page use a professional real-estate light style
+   without touching /screen, /dashboard or any authenticated views.
+   ────────────────────────────────────────────────────────────────── */
+.marketing {
+  /* Surfaces */
+  --mk-bg: #F7F8FB;
+  --mk-bg-alt: #EEF2F8;
+  --mk-surface: #FFFFFF;
+  --mk-surface-raised: #FFFFFF;
+  --mk-surface-tint: #F1F5FB;
+
+  /* Borders */
+  --mk-border: #E4E8F0;
+  --mk-border-strong: #CBD5E1;
+  --mk-divider: #EEF2F7;
+
+  /* Text */
+  --mk-text: #0B1736;
+  --mk-text-secondary: #475569;
+  --mk-text-muted: #64748B;
+  --mk-text-faint: #94A3B8;
+
+  /* Brand */
+  --mk-brand: #0D9488;        /* teal-600 */
+  --mk-brand-strong: #0F766E; /* teal-700 */
+  --mk-brand-soft: #CCFBF1;
+  --mk-navy: #0B1736;
+  --mk-accent-blue: #2563EB;
+  --mk-accent-violet: #7C3AED;
+  --mk-accent-amber: #F59E0B;
+  --mk-accent-rose: #E11D48;
+  --mk-accent-emerald: #059669;
+
+  /* Shadows — soft, realtor-SaaS feel */
+  --mk-shadow-xs: 0 1px 2px rgba(11, 23, 54, 0.04);
+  --mk-shadow-sm: 0 2px 8px rgba(11, 23, 54, 0.06);
+  --mk-shadow-md: 0 12px 32px -12px rgba(11, 23, 54, 0.16);
+  --mk-shadow-lg: 0 28px 80px -24px rgba(11, 23, 54, 0.24);
+
+  background: var(--mk-bg);
+  color: var(--mk-text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* Soft noise/texture to make the light bg feel premium, not flat */
+.marketing::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(1200px 600px at 12% -10%, rgba(13, 148, 136, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 92% 10%, rgba(37, 99, 235, 0.08), transparent 55%);
+  pointer-events: none;
+  z-index: 0;
+}
+.marketing > * { position: relative; z-index: 1; }
+
+/* ── Typography ── */
+.marketing .mk-display {
+  font-size: clamp(2.4rem, 5vw, 4.25rem);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  color: var(--mk-navy);
+}
+.marketing .mk-h2 {
+  font-size: clamp(1.75rem, 3.2vw, 2.5rem);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  font-weight: 800;
+  color: var(--mk-navy);
+}
+.marketing .mk-h3 {
+  font-size: clamp(1.15rem, 1.6vw, 1.35rem);
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  font-weight: 700;
+  color: var(--mk-navy);
+}
+.marketing .mk-eyebrow {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mk-brand-strong);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+.marketing .mk-lead {
+  font-size: clamp(1.02rem, 1.25vw, 1.2rem);
+  line-height: 1.65;
+  color: var(--mk-text-secondary);
+}
+.marketing .mk-muted { color: var(--mk-text-muted); }
+.marketing .mk-gradient {
+  background: linear-gradient(135deg, #0D9488 0%, #0EA5E9 60%, #2563EB 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Buttons ── */
+.marketing .mk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 22px;
+  border-radius: 10px;
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+  cursor: pointer;
+  border: 1px solid transparent;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.marketing .mk-btn-lg { padding: 16px 28px; font-size: 15.5px; border-radius: 12px; }
+.marketing .mk-btn-sm { padding: 9px 16px; font-size: 13px; border-radius: 8px; }
+.marketing .mk-btn-primary {
+  background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
+  color: #FFFFFF;
+  box-shadow: 0 8px 22px -10px rgba(13, 148, 136, 0.6), 0 1px 0 rgba(255,255,255,0.15) inset;
+}
+.marketing .mk-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px -10px rgba(13, 148, 136, 0.7), 0 1px 0 rgba(255,255,255,0.2) inset;
+}
+.marketing .mk-btn-dark {
+  background: var(--mk-navy);
+  color: #FFFFFF;
+}
+.marketing .mk-btn-dark:hover { transform: translateY(-1px); background: #14213F; }
+.marketing .mk-btn-ghost {
+  background: var(--mk-surface);
+  color: var(--mk-navy);
+  border-color: var(--mk-border);
+}
+.marketing .mk-btn-ghost:hover {
+  border-color: var(--mk-brand);
+  color: var(--mk-brand-strong);
+  box-shadow: var(--mk-shadow-sm);
+}
+.marketing .mk-btn-link {
+  color: var(--mk-brand-strong);
+  background: transparent;
+  padding: 0;
+  font-weight: 600;
+}
+.marketing .mk-btn-link:hover { color: var(--mk-brand); }
+
+/* ── Cards ── */
+.marketing .mk-card {
+  background: var(--mk-surface);
+  border: 1px solid var(--mk-border);
+  border-radius: 16px;
+  box-shadow: var(--mk-shadow-xs);
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+.marketing .mk-card-hover:hover {
+  box-shadow: var(--mk-shadow-md);
+  transform: translateY(-2px);
+  border-color: #D3DBEA;
+}
+.marketing .mk-card-raised {
+  background: var(--mk-surface-raised);
+  border: 1px solid var(--mk-border);
+  border-radius: 20px;
+  box-shadow: var(--mk-shadow-md);
+}
+
+/* ── Chip / pill ── */
+.marketing .mk-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--mk-brand-soft);
+  color: var(--mk-brand-strong);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  border: 1px solid rgba(13, 148, 136, 0.22);
+}
+.marketing .mk-chip-neutral {
+  background: var(--mk-surface-tint);
+  color: var(--mk-text-secondary);
+  border-color: var(--mk-border);
+}
+.marketing .mk-chip-amber {
+  background: #FEF3C7;
+  color: #B45309;
+  border-color: #FDE68A;
+}
+
+/* ── Nav ── */
+.marketing .mk-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(247, 248, 251, 0.82);
+  backdrop-filter: saturate(1.6) blur(14px);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  border-bottom: 1px solid var(--mk-border);
+}
+.marketing .mk-nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.marketing .mk-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--mk-text-secondary);
+}
+.marketing .mk-nav-links a { color: inherit; transition: color 0.15s; }
+.marketing .mk-nav-links a:hover { color: var(--mk-navy); }
+
+/* ── Section helpers ── */
+.marketing .mk-section { max-width: 1200px; margin: 0 auto; padding: 88px 28px; }
+.marketing .mk-section-tight { padding-top: 56px; padding-bottom: 56px; }
+.marketing .mk-section-alt { background: var(--mk-bg-alt); border-top: 1px solid var(--mk-border); border-bottom: 1px solid var(--mk-border); }
+
+/* ── Divider ── */
+.marketing .mk-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--mk-border), transparent);
+  margin: 0;
+}
+
+/* ── Utility ── */
+.marketing .mk-link-underline {
+  background-image: linear-gradient(var(--mk-brand), var(--mk-brand));
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+}
+
+@media (max-width: 760px) {
+  .marketing .mk-section { padding: 64px 20px; }
+  .marketing .mk-nav-links { display: none; }
+  .marketing .mk-nav-inner { padding: 12px 20px; }
+}

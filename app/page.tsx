@@ -4,6 +4,13 @@ import { useEffect, useState } from 'react'
 import { useT, LanguageToggle } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 
+// ─────────────────────────────────────────────────────────────────────
+// Stayloop — marketing home page
+// Light, professional real-estate SaaS theme, scoped to .marketing in
+// globals.css so /screen, /dashboard, and authenticated views keep
+// their existing dark theme untouched.
+// ─────────────────────────────────────────────────────────────────────
+
 export default function Home() {
   const { t } = useT()
   const [signedIn, setSignedIn] = useState<boolean | null>(null)
@@ -12,15 +19,12 @@ export default function Home() {
     let active = true
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return
-      // Only count non-anonymous sessions as "signed in" for CTA routing.
       const user = data.session?.user
-      const isReal = !!user && !(user as any).is_anonymous
-      setSignedIn(isReal)
+      setSignedIn(!!user && !(user as any).is_anonymous)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
       const user = sess?.user
-      const isReal = !!user && !(user as any).is_anonymous
-      setSignedIn(isReal)
+      setSignedIn(!!user && !(user as any).is_anonymous)
     })
     return () => { active = false; sub.subscription.unsubscribe() }
   }, [])
@@ -28,253 +32,750 @@ export default function Home() {
   const screenHref = signedIn ? '/screen' : '/login?next=/screen'
 
   return (
-    <main className="min-h-screen">
-      {/* Nav */}
-      <nav className="nav-bar">
-        <Link href="/" className="nav-brand">
-          <div className="relative">
-            <div className="nav-logo">S</div>
-            <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 pulse-dot" style={{ border: '2px solid #07090F' }} />
-          </div>
+    <main className="marketing">
+      <MarketingNav screenHref={screenHref} />
+      <Hero screenHref={screenHref} />
+      <TrustBar />
+      <DualAudience screenHref={screenHref} />
+      <ScreeningFeature screenHref={screenHref} />
+      <HowItWorks />
+      <Roadmap />
+      <Security />
+      <Pricing screenHref={screenHref} />
+      <FAQ />
+      <FinalCTA screenHref={screenHref} />
+      <Footer />
+    </main>
+  )
+}
+
+// ─── Nav ─────────────────────────────────────────────────────────────
+function MarketingNav({ screenHref }: { screenHref: string }) {
+  const { t } = useT()
+  return (
+    <nav className="mk-nav">
+      <div className="mk-nav-inner">
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: 9,
+            background: 'linear-gradient(135deg, #0D9488 0%, #0EA5E9 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#FFFFFF', fontWeight: 800, fontSize: 15,
+            boxShadow: '0 6px 16px -4px rgba(13, 148, 136, 0.45)',
+          }}>S</div>
           <div>
-            <div className="nav-title">Stayloop</div>
-            <div className="nav-sub mono">v0.1 · Ontario</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--mk-navy)', letterSpacing: '-0.01em' }}>Stayloop</div>
+            <div className="mono" style={{ fontSize: 10, color: 'var(--mk-text-muted)', marginTop: -1 }}>Ontario · beta</div>
           </div>
         </Link>
-        <div className="nav-actions">
+
+        <div className="mk-nav-links">
+          <a href="#product">{t('mk.nav.product')}</a>
+          <a href="#landlords">{t('mk.nav.landlords')}</a>
+          <a href="#tenants">{t('mk.nav.tenants')}</a>
+          <a href="#roadmap">{t('mk.nav.roadmap')}</a>
+          <a href="#pricing">{t('mk.nav.pricing')}</a>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <LanguageToggle />
-          <Link href={screenHref} className="btn btn-primary btn-sm">{t('nav.getStarted')}</Link>
-        </div>
-      </nav>
-
-      {/* Hero */}
-      <section className="max-w-7xl mx-auto px-6 pt-24 pb-24 text-center fade-up">
-        <div className="chip chip-accent mb-8 mono">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
-          {t('home.badge')}
-        </div>
-
-        <h1 className="h-display mb-6">
-          {t('home.hero.line1')}<br />
-          <span className="text-gradient">{t('home.hero.line2')}</span>
-        </h1>
-
-        <p className="text-lg max-w-2xl mx-auto mb-10 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-          {t('home.hero.sub')}
-        </p>
-
-        <div className="flex gap-3 justify-center flex-wrap">
-          <Link href={screenHref} className="btn btn-primary btn-lg">
-            {t('home.cta.primary')} →
+          <Link href="/login" className="mk-btn mk-btn-ghost mk-btn-sm" style={{ display: 'inline-flex' }}>
+            {t('mk.nav.signin')}
           </Link>
-          <a href="#features" className="btn btn-ghost btn-lg">
-            {t('home.cta.secondary')}
-          </a>
+          <Link href={screenHref} className="mk-btn mk-btn-primary mk-btn-sm">
+            {t('mk.nav.getStarted')} →
+          </Link>
         </div>
+      </div>
+    </nav>
+  )
+}
 
-        {/* Floating dashboard preview */}
-        <div className="mt-20 max-w-4xl mx-auto fade-up" style={{ animationDelay: '0.15s' }}>
-          <div className="card-hero" style={{ padding: 0, textAlign: 'left' }}>
-            <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444' }} />
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#eab308' }} />
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#10b981' }} />
-              <div className="mono" style={{ marginLeft: 12, fontSize: 11, color: 'var(--text-muted)' }}>stayloop.ai/dashboard</div>
-            </div>
-            <div style={{ padding: 22 }}>
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                {[
-                  { l: t('home.preview.score'), v: '87', sub: t('home.preview.score.sub'), col: '#34D399' },
-                  { l: t('home.preview.ltb'), v: '0', sub: t('home.preview.ltb.sub'), col: '#22D3EE' },
-                  { l: t('home.preview.ratio'), v: '3.2×', sub: t('home.preview.ratio.sub'), col: '#C4B5FD' },
-                ].map(s => (
-                  <div key={s.l} style={{ padding: '16px', borderRadius: 12, background: 'rgba(148, 163, 184, 0.04)', border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600 }}>{s.l}</div>
-                    <div className="mono" style={{ fontSize: 28, fontWeight: 800, color: s.col, letterSpacing: '-0.02em' }}>{s.v}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{s.sub}</div>
-                  </div>
-                ))}
+// ─── Hero ────────────────────────────────────────────────────────────
+function Hero({ screenHref }: { screenHref: string }) {
+  const { t } = useT()
+  return (
+    <section className="mk-section" style={{ paddingTop: 96, paddingBottom: 72 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.05fr) minmax(0, 0.95fr)', gap: 56, alignItems: 'center' }}>
+        <div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 999, background: 'rgba(13, 148, 136, 0.08)', border: '1px solid rgba(13, 148, 136, 0.22)', marginBottom: 24 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0D9488', boxShadow: '0 0 8px rgba(13, 148, 136, 0.6)' }} />
+            <span className="mk-eyebrow" style={{ fontSize: 10.5 }}>{t('mk.hero.eyebrow')}</span>
+          </div>
+
+          <h1 className="mk-display" style={{ marginBottom: 22 }}>
+            {t('mk.hero.title1')}<br />
+            <span className="mk-gradient">{t('mk.hero.title2')}</span>
+          </h1>
+
+          <p className="mk-lead" style={{ maxWidth: 580, marginBottom: 36 }}>
+            {t('mk.hero.sub')}
+          </p>
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
+            <Link href={screenHref} className="mk-btn mk-btn-primary mk-btn-lg">
+              {t('mk.hero.ctaPrimary')}
+            </Link>
+            <a href="#tenants" className="mk-btn mk-btn-ghost mk-btn-lg">
+              {t('mk.hero.ctaTenant')}
+            </a>
+          </div>
+
+          <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--mk-text-muted)' }}>
+            {[t('mk.hero.trust1'), t('mk.hero.trust2'), t('mk.hero.trust3')].map(txt => (
+              <div key={txt} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 18, height: 18, borderRadius: 999, background: 'rgba(5, 150, 105, 0.12)', color: '#059669', fontSize: 11, fontWeight: 800,
+                }}>✓</span>
+                <span>{txt}</span>
               </div>
-              <div style={{ padding: 16, borderRadius: 12, background: 'rgba(148, 163, 184, 0.04)', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 8, fontWeight: 600 }}>{t('home.preview.analysisTitle')}</div>
-                <p style={{ fontSize: 13.5, color: 'var(--text-primary)', lineHeight: 1.7, margin: 0 }}>
-                  {t('home.preview.analysis')}
-                  <span style={{ color: '#34D399', fontWeight: 600 }}>{t('home.preview.recommend')}</span>
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
-      </section>
 
-      {/* Dedicated free-screen entry */}
-      <section id="free-screen" className="max-w-5xl mx-auto px-6 pt-4 pb-20 fade-up">
-        <Link
-          href={screenHref}
-          className="card-hero"
-          style={{
-            display: 'block',
-            padding: 0,
-            textDecoration: 'none',
-            color: 'inherit',
-            overflow: 'hidden',
-            border: '1px solid var(--border-accent)',
-            boxShadow: '0 20px 60px -20px rgba(56, 189, 248, 0.25)',
-          }}
-        >
-          <div style={{ padding: '28px 32px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div className="chip chip-accent mono" style={{ margin: 0 }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
-              {t('home.screenEntry.tag')}
-            </div>
-            <div className="mono" style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--text-faint)' }}>
-              {t('home.screenEntry.notice')}
-            </div>
+        <HeroPreview />
+      </div>
+    </section>
+  )
+}
+
+function HeroPreview() {
+  const { t } = useT()
+  return (
+    <div className="mk-card-raised" style={{ overflow: 'hidden' }}>
+      {/* Window chrome */}
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--mk-border)', background: 'var(--mk-surface-tint)', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#F87171' }} />
+        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FBBF24' }} />
+        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#34D399' }} />
+        <div style={{ marginLeft: 12, fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: 'var(--mk-text-muted)' }}>
+          stayloop.ai / screen
+        </div>
+      </div>
+
+      <div style={{ padding: 24 }}>
+        {/* Applicant header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 12,
+            background: 'linear-gradient(135deg, #0D9488 0%, #0EA5E9 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#FFFFFF', fontWeight: 800, fontSize: 16,
+          }}>JC</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--mk-navy)' }}>{t('mk.preview.name')}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--mk-text-muted)', marginTop: 2 }}>{t('mk.preview.subtitle')}</div>
           </div>
-
-          <div style={{ padding: '32px' }}>
-            <h2 className="h-hero" style={{ marginBottom: 12 }}>
-              <span className="text-gradient">{t('home.screenEntry.title')}</span>
-            </h2>
-            <p style={{ fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.7, maxWidth: 720, marginBottom: 28 }}>
-              {t('home.screenEntry.subtitle')}
-            </p>
-
-            <div className="grid md:grid-cols-2 gap-4" style={{ marginBottom: 28 }}>
-              {[
-                { n: '01', t: t('home.screenEntry.b1.title'), d: t('home.screenEntry.b1.desc'), col: '#34D399' },
-                { n: '02', t: t('home.screenEntry.b2.title'), d: t('home.screenEntry.b2.desc'), col: '#22D3EE' },
-                { n: '03', t: t('home.screenEntry.b3.title'), d: t('home.screenEntry.b3.desc'), col: '#A78BFA' },
-                { n: '04', t: t('home.screenEntry.b4.title'), d: t('home.screenEntry.b4.desc'), col: '#F472B6' },
-              ].map(b => (
-                <div key={b.n} style={{ padding: 16, borderRadius: 12, background: 'var(--bg-card-raised)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                    <span className="mono" style={{ fontSize: 10, color: b.col, letterSpacing: '0.08em', fontWeight: 700 }}>{b.n}</span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{b.t}</span>
-                  </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{b.d}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-              <span className="btn btn-primary btn-lg" style={{ pointerEvents: 'none' }}>
-                {signedIn === false ? t('home.screenEntry.ctaLoggedOut') : t('home.screenEntry.cta')}
-              </span>
-              <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                $0 · Ontario · CanLII · Claude Sonnet 4.5
-              </span>
-            </div>
-          </div>
-        </Link>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="max-w-7xl mx-auto px-6 py-24">
-        <div className="text-center mb-14">
-          <div className="chip chip-accent mono mb-4">{t('home.features.tag')}</div>
-          <h2 className="h-hero">{t('home.features.title')}</h2>
+          <div style={{
+            padding: '5px 11px', borderRadius: 999,
+            background: 'rgba(5, 150, 105, 0.12)',
+            color: '#047857', fontSize: 11, fontWeight: 800, letterSpacing: '0.04em',
+          }}>{t('mk.preview.tier.val').toUpperCase()}</div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-5">
+        {/* Score + stats row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
+          <div style={{ padding: 14, borderRadius: 12, background: 'linear-gradient(135deg, #ECFDF5 0%, #F0FDFA 100%)', border: '1px solid #D1FAE5' }}>
+            <div className="mk-eyebrow" style={{ fontSize: 9, color: '#047857' }}>{t('mk.preview.score')}</div>
+            <div style={{ fontSize: 30, fontWeight: 800, color: '#065F46', letterSpacing: '-0.03em', marginTop: 2 }}>87</div>
+          </div>
+          <div style={{ padding: 14, borderRadius: 12, background: 'var(--mk-surface-tint)', border: '1px solid var(--mk-border)' }}>
+            <div className="mk-eyebrow" style={{ fontSize: 9, color: 'var(--mk-text-muted)' }}>{t('mk.preview.ratio')}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--mk-navy)', letterSpacing: '-0.02em', marginTop: 4 }}>3.4×</div>
+          </div>
+          <div style={{ padding: 14, borderRadius: 12, background: 'var(--mk-surface-tint)', border: '1px solid var(--mk-border)' }}>
+            <div className="mk-eyebrow" style={{ fontSize: 9, color: 'var(--mk-text-muted)' }}>{t('mk.preview.ltb')}</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--mk-navy)', marginTop: 6 }}>{t('mk.preview.ltb.val')}</div>
+          </div>
+        </div>
+
+        {/* Dimension bars */}
+        <div style={{ marginBottom: 16 }}>
           {[
-            { tag: '01', title: t('home.features.1.title'), desc: t('home.features.1.desc'), icon: '🔍', color: '#22D3EE' },
-            { tag: '02', title: t('home.features.2.title'), desc: t('home.features.2.desc'), icon: '⚖️', color: '#A78BFA' },
-            { tag: '03', title: t('home.features.3.title'), desc: t('home.features.3.desc'), icon: '📊', color: '#34D399' },
-          ].map(f => (
-            <div key={f.tag} className="card glow-border" style={{ padding: 28 }}>
-              <div style={{ display: 'inline-flex', width: 48, height: 48, borderRadius: 12, background: `${f.color}14`, border: `1px solid ${f.color}33`, alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 16 }}>
-                {f.icon}
+            { label: t('mk.preview.dim1'), val: 92, col: '#0D9488' },
+            { label: t('mk.preview.dim2'), val: 85, col: '#0EA5E9' },
+            { label: t('mk.preview.dim3'), val: 90, col: '#8B5CF6' },
+            { label: t('mk.preview.dim4'), val: 82, col: '#F59E0B' },
+          ].map(d => (
+            <div key={d.label} style={{ marginBottom: 9 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, marginBottom: 4 }}>
+                <span style={{ color: 'var(--mk-text-secondary)', fontWeight: 600 }}>{d.label}</span>
+                <span className="mono" style={{ color: 'var(--mk-navy)', fontWeight: 700 }}>{d.val}</span>
               </div>
-              <div className="mono" style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 6, letterSpacing: '0.08em' }}>{f.tag}</div>
-              <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 8, letterSpacing: '-0.01em' }}>{f.title}</h3>
-              <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.65, margin: 0 }}>{f.desc}</p>
+              <div style={{ height: 5, borderRadius: 3, background: '#EEF2F7', overflow: 'hidden' }}>
+                <div style={{ width: `${d.val}%`, height: '100%', background: d.col, borderRadius: 3 }} />
+              </div>
             </div>
           ))}
         </div>
-      </section>
 
-      {/* How it works */}
-      <section className="max-w-7xl mx-auto px-6 py-24">
-        <div className="text-center mb-14">
-          <div className="chip chip-pro mono mb-4">{t('home.workflow.tag')}</div>
-          <h2 className="h-hero">{t('home.workflow.title')}</h2>
+        {/* AI note */}
+        <div style={{ padding: 13, borderRadius: 10, background: 'var(--mk-surface-tint)', border: '1px solid var(--mk-border)' }}>
+          <div className="mk-eyebrow" style={{ fontSize: 9, marginBottom: 5, color: 'var(--mk-brand-strong)' }}>CLAUDE ANALYSIS</div>
+          <div style={{ fontSize: 12, color: 'var(--mk-text-secondary)', lineHeight: 1.6 }}>
+            {t('mk.preview.note')}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Trust bar ───────────────────────────────────────────────────────
+function TrustBar() {
+  const { t } = useT()
+  const items = [
+    t('mk.trust.claude'),
+    t('mk.trust.canlii'),
+    t('mk.trust.supabase'),
+    t('mk.trust.cloudflare'),
+    t('mk.trust.pipeda'),
+    t('mk.trust.ohrc'),
+  ]
+  return (
+    <section className="mk-section-alt">
+      <div className="mk-section mk-section-tight" style={{ paddingTop: 32, paddingBottom: 32 }}>
+        <div style={{ textAlign: 'center', marginBottom: 18, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mk-text-muted)' }}>
+          {t('mk.trust.heading')}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '14px 36px' }}>
+          {items.map(label => (
+            <div key={label} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              fontSize: 13, fontWeight: 600, color: 'var(--mk-text-secondary)',
+              padding: '8px 14px', borderRadius: 10,
+              background: 'var(--mk-surface)', border: '1px solid var(--mk-border)',
+              boxShadow: 'var(--mk-shadow-xs)',
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0D9488' }} />
+              {label}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── Dual audience ───────────────────────────────────────────────────
+function DualAudience({ screenHref }: { screenHref: string }) {
+  const { t } = useT()
+  return (
+    <section id="product" className="mk-section">
+      <div style={{ textAlign: 'center', marginBottom: 56 }}>
+        <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.dual.eyebrow')}</div>
+        <h2 className="mk-h2" style={{ maxWidth: 760, margin: '0 auto 16px' }}>{t('mk.dual.title')}</h2>
+        <p className="mk-lead" style={{ maxWidth: 720, margin: '0 auto', color: 'var(--mk-text-secondary)' }}>{t('mk.dual.sub')}</p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+        {/* Landlord card */}
+        <div id="landlords" className="mk-card mk-card-hover" style={{ padding: 36 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#FFFFFF', fontSize: 16,
+            }}>🏠</div>
+            <div className="mk-eyebrow" style={{ color: 'var(--mk-brand-strong)' }}>{t('mk.dual.landlord.tag')}</div>
+          </div>
+          <h3 className="mk-h3" style={{ marginBottom: 10 }}>{t('mk.dual.landlord.title')}</h3>
+          <p style={{ fontSize: 14, color: 'var(--mk-text-secondary)', lineHeight: 1.65, marginBottom: 22 }}>
+            {t('mk.dual.landlord.desc')}
+          </p>
+          <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 26px', display: 'grid', gap: 12 }}>
+            {[t('mk.dual.landlord.b1'), t('mk.dual.landlord.b2'), t('mk.dual.landlord.b3')].map(b => (
+              <li key={b} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13.5, color: 'var(--mk-text)' }}>
+                <CheckIcon />
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+          <Link href={screenHref} className="mk-btn mk-btn-primary">
+            {t('mk.dual.landlord.cta')}
+          </Link>
         </div>
 
-        <div className="grid md:grid-cols-4 gap-4">
-          {[
-            { n: '01', t: t('home.workflow.1.t'), d: t('home.workflow.1.d') },
-            { n: '02', t: t('home.workflow.2.t'), d: t('home.workflow.2.d') },
-            { n: '03', t: t('home.workflow.3.t'), d: t('home.workflow.3.d') },
-            { n: '04', t: t('home.workflow.4.t'), d: t('home.workflow.4.d') },
-          ].map((s, i) => (
-            <div key={s.n} className="relative">
-              <div className="card" style={{ padding: 22, height: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: 'rgba(20, 184, 166, 0.12)', border: '1px solid rgba(20, 184, 166, 0.28)', color: '#5EEAD4', fontSize: 11, fontWeight: 700, marginBottom: 14 }} className="mono">{s.n}</div>
-                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.01em' }}>{s.t}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{s.d}</div>
+        {/* Tenant card */}
+        <div id="tenants" className="mk-card mk-card-hover" style={{ padding: 36, background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#FFFFFF', fontSize: 16,
+            }}>🔑</div>
+            <div className="mk-eyebrow" style={{ color: '#6D28D9' }}>{t('mk.dual.tenant.tag')}</div>
+            <span className="mk-chip mk-chip-amber" style={{ marginLeft: 'auto' }}>{t('mk.dual.tenant.soon')}</span>
+          </div>
+          <h3 className="mk-h3" style={{ marginBottom: 10 }}>{t('mk.dual.tenant.title')}</h3>
+          <p style={{ fontSize: 14, color: 'var(--mk-text-secondary)', lineHeight: 1.65, marginBottom: 22 }}>
+            {t('mk.dual.tenant.desc')}
+          </p>
+          <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 26px', display: 'grid', gap: 12 }}>
+            {[t('mk.dual.tenant.b1'), t('mk.dual.tenant.b2'), t('mk.dual.tenant.b3')].map(b => (
+              <li key={b} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13.5, color: 'var(--mk-text)' }}>
+                <CheckIcon color="#7C3AED" />
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="mk-btn mk-btn-ghost" disabled style={{ cursor: 'not-allowed', opacity: 0.75 }}>
+            {t('mk.dual.tenant.cta')}
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function CheckIcon({ color = '#0D9488' }: { color?: string }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: 18, height: 18, borderRadius: 999, flexShrink: 0,
+      background: `${color}15`, color, fontSize: 11, fontWeight: 800, marginTop: 1,
+    }}>✓</span>
+  )
+}
+
+// ─── Screening feature ───────────────────────────────────────────────
+function ScreeningFeature({ screenHref }: { screenHref: string }) {
+  const { t } = useT()
+  const features = [
+    { title: t('mk.screening.f1.title'), desc: t('mk.screening.f1.desc'), icon: '📊', col: '#0D9488' },
+    { title: t('mk.screening.f2.title'), desc: t('mk.screening.f2.desc'), icon: '⚖️', col: '#0EA5E9' },
+    { title: t('mk.screening.f3.title'), desc: t('mk.screening.f3.desc'), icon: '🔍', col: '#8B5CF6' },
+    { title: t('mk.screening.f4.title'), desc: t('mk.screening.f4.desc'), icon: '🛡️', col: '#F59E0B' },
+    { title: t('mk.screening.f5.title'), desc: t('mk.screening.f5.desc'), icon: '💾', col: '#059669' },
+    { title: t('mk.screening.f6.title'), desc: t('mk.screening.f6.desc'), icon: '🌏', col: '#E11D48' },
+  ]
+
+  return (
+    <section className="mk-section-alt">
+      <div className="mk-section">
+        <div style={{ textAlign: 'center', marginBottom: 56 }}>
+          <div className="mk-chip" style={{ marginBottom: 16 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0D9488' }} />
+            {t('mk.screening.eyebrow')}
+          </div>
+          <h2 className="mk-h2" style={{ maxWidth: 820, margin: '0 auto 16px' }}>
+            {t('mk.screening.title')}
+          </h2>
+          <p className="mk-lead" style={{ maxWidth: 780, margin: '0 auto' }}>
+            {t('mk.screening.sub')}
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, marginBottom: 40 }}>
+          {features.map(f => (
+            <div key={f.title} className="mk-card mk-card-hover" style={{ padding: 24 }}>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 42, height: 42, borderRadius: 11,
+                background: `${f.col}12`, border: `1px solid ${f.col}33`,
+                fontSize: 18, marginBottom: 14,
+              }}>{f.icon}</div>
+              <h3 className="mk-h3" style={{ fontSize: 15.5, marginBottom: 6 }}>{f.title}</h3>
+              <p style={{ fontSize: 13, color: 'var(--mk-text-secondary)', lineHeight: 1.6, margin: 0 }}>{f.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ textAlign: 'center' }}>
+          <Link href={screenHref} className="mk-btn mk-btn-primary mk-btn-lg">
+            {t('mk.screening.cta')}
+          </Link>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── How it works ────────────────────────────────────────────────────
+function HowItWorks() {
+  const { t } = useT()
+  const steps = [
+    { n: t('mk.how.1.n'), title: t('mk.how.1.title'), desc: t('mk.how.1.desc') },
+    { n: t('mk.how.2.n'), title: t('mk.how.2.title'), desc: t('mk.how.2.desc') },
+    { n: t('mk.how.3.n'), title: t('mk.how.3.title'), desc: t('mk.how.3.desc') },
+    { n: t('mk.how.4.n'), title: t('mk.how.4.title'), desc: t('mk.how.4.desc') },
+  ]
+  return (
+    <section className="mk-section">
+      <div style={{ textAlign: 'center', marginBottom: 52 }}>
+        <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.how.eyebrow')}</div>
+        <h2 className="mk-h2" style={{ maxWidth: 760, margin: '0 auto' }}>{t('mk.how.title')}</h2>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+        {steps.map((s, i) => (
+          <div key={s.n} style={{ position: 'relative' }}>
+            <div className="mk-card" style={{ padding: 26, height: '100%' }}>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 38, height: 38, borderRadius: 10,
+                background: 'var(--mk-brand-soft)', color: 'var(--mk-brand-strong)',
+                fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 800,
+                marginBottom: 16, border: '1px solid rgba(13, 148, 136, 0.25)',
+              }}>{s.n}</div>
+              <h3 className="mk-h3" style={{ fontSize: 15.5, marginBottom: 8 }}>{s.title}</h3>
+              <p style={{ fontSize: 13, color: 'var(--mk-text-secondary)', lineHeight: 1.6, margin: 0 }}>{s.desc}</p>
+            </div>
+            {i < steps.length - 1 && (
+              <div aria-hidden style={{
+                position: 'absolute', top: 44, right: -14, width: 24, height: 2,
+                background: 'linear-gradient(90deg, rgba(13, 148, 136, 0.45), transparent)',
+                display: 'none',
+              }} className="hidden lg:block" />
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// ─── Roadmap ─────────────────────────────────────────────────────────
+function Roadmap() {
+  const { t } = useT()
+  const items = [
+    { status: 'live', title: t('mk.roadmap.1.title'), desc: t('mk.roadmap.1.desc') },
+    { status: 'beta', title: t('mk.roadmap.2.title'), desc: t('mk.roadmap.2.desc') },
+    { status: 'soon', title: t('mk.roadmap.3.title'), desc: t('mk.roadmap.3.desc') },
+    { status: 'soon', title: t('mk.roadmap.4.title'), desc: t('mk.roadmap.4.desc') },
+    { status: 'planned', title: t('mk.roadmap.5.title'), desc: t('mk.roadmap.5.desc') },
+    { status: 'planned', title: t('mk.roadmap.6.title'), desc: t('mk.roadmap.6.desc') },
+  ] as const
+
+  const statusStyles: Record<string, { bg: string; color: string; border: string; label: string }> = {
+    live: { bg: 'rgba(5, 150, 105, 0.12)', color: '#047857', border: 'rgba(5, 150, 105, 0.25)', label: t('mk.roadmap.status.live') },
+    beta: { bg: 'rgba(37, 99, 235, 0.12)', color: '#1D4ED8', border: 'rgba(37, 99, 235, 0.25)', label: t('mk.roadmap.status.beta') },
+    soon: { bg: 'rgba(245, 158, 11, 0.14)', color: '#B45309', border: 'rgba(245, 158, 11, 0.3)', label: t('mk.roadmap.status.soon') },
+    planned: { bg: 'rgba(100, 116, 139, 0.12)', color: '#475569', border: 'rgba(100, 116, 139, 0.28)', label: t('mk.roadmap.status.planned') },
+  }
+
+  return (
+    <section id="roadmap" className="mk-section">
+      <div style={{ textAlign: 'center', marginBottom: 52 }}>
+        <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.roadmap.eyebrow')}</div>
+        <h2 className="mk-h2" style={{ maxWidth: 760, margin: '0 auto 14px' }}>{t('mk.roadmap.title')}</h2>
+        <p className="mk-lead" style={{ maxWidth: 720, margin: '0 auto' }}>{t('mk.roadmap.sub')}</p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 18 }}>
+        {items.map(item => {
+          const s = statusStyles[item.status]
+          return (
+            <div key={item.title} className="mk-card mk-card-hover" style={{ padding: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span style={{
+                  padding: '4px 10px', borderRadius: 999,
+                  background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+                  fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em',
+                  fontFamily: 'JetBrains Mono, monospace',
+                }}>{s.label.toUpperCase()}</span>
               </div>
-              {i < 3 && (
-                <div className="hidden md:block" style={{ position: 'absolute', top: '50%', right: -10, width: 18, height: 1, background: 'linear-gradient(90deg, rgba(20, 184, 166, 0.4), transparent)' }} />
+              <h3 className="mk-h3" style={{ fontSize: 15.5, marginBottom: 8 }}>{item.title}</h3>
+              <p style={{ fontSize: 13, color: 'var(--mk-text-secondary)', lineHeight: 1.6, margin: 0 }}>{item.desc}</p>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+// ─── Security / compliance ───────────────────────────────────────────
+function Security() {
+  const { t } = useT()
+  const items = [
+    { title: t('mk.sec.1.title'), desc: t('mk.sec.1.desc'), icon: '🔒' },
+    { title: t('mk.sec.2.title'), desc: t('mk.sec.2.desc'), icon: '⚖️' },
+    { title: t('mk.sec.3.title'), desc: t('mk.sec.3.desc'), icon: '📜' },
+    { title: t('mk.sec.4.title'), desc: t('mk.sec.4.desc'), icon: '🛡️' },
+  ]
+  return (
+    <section className="mk-section-alt">
+      <div className="mk-section">
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.9fr) minmax(0, 1.1fr)', gap: 56, alignItems: 'start' }}>
+          <div>
+            <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.sec.eyebrow')}</div>
+            <h2 className="mk-h2" style={{ marginBottom: 18 }}>{t('mk.sec.title')}</h2>
+            <p className="mk-lead" style={{ maxWidth: 480 }}>{t('mk.sec.sub')}</p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+            {items.map(it => (
+              <div key={it.title} className="mk-card" style={{ padding: 22 }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10, marginBottom: 12,
+                  background: 'var(--mk-brand-soft)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 17,
+                }}>{it.icon}</div>
+                <h3 className="mk-h3" style={{ fontSize: 14.5, marginBottom: 6 }}>{it.title}</h3>
+                <p style={{ fontSize: 12.5, color: 'var(--mk-text-secondary)', lineHeight: 1.6, margin: 0 }}>{it.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── Pricing ─────────────────────────────────────────────────────────
+function Pricing({ screenHref }: { screenHref: string }) {
+  const { t } = useT()
+  return (
+    <section id="pricing" className="mk-section">
+      <div style={{ textAlign: 'center', marginBottom: 48 }}>
+        <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.pricing.eyebrow')}</div>
+        <h2 className="mk-h2" style={{ marginBottom: 14 }}>{t('mk.pricing.title')}</h2>
+        <p className="mk-lead" style={{ maxWidth: 560, margin: '0 auto' }}>{t('mk.pricing.sub')}</p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, maxWidth: 920, margin: '0 auto' }}>
+        {/* Free */}
+        <div className="mk-card" style={{ padding: 36 }}>
+          <div className="mk-eyebrow" style={{ color: 'var(--mk-text-muted)', marginBottom: 10 }}>{t('mk.pricing.free.label')}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
+            <span style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--mk-navy)' }}>{t('mk.pricing.free.price')}</span>
+            <span style={{ fontSize: 14, color: 'var(--mk-text-muted)', fontWeight: 500 }}>{t('mk.pricing.free.unit')}</span>
+          </div>
+          <p style={{ fontSize: 13.5, color: 'var(--mk-text-secondary)', marginBottom: 22 }}>{t('mk.pricing.free.sub')}</p>
+          <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 26px', display: 'grid', gap: 11 }}>
+            {[t('mk.pricing.free.f1'), t('mk.pricing.free.f2'), t('mk.pricing.free.f3'), t('mk.pricing.free.f4'), t('mk.pricing.free.f5')].map(f => (
+              <li key={f} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: 'var(--mk-text)' }}>
+                <CheckIcon />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+          <Link href={screenHref} className="mk-btn mk-btn-ghost" style={{ width: '100%' }}>
+            {t('mk.pricing.free.cta')}
+          </Link>
+        </div>
+
+        {/* Pro */}
+        <div className="mk-card-raised" style={{
+          padding: 36,
+          border: '1px solid rgba(13, 148, 136, 0.35)',
+          boxShadow: '0 28px 70px -22px rgba(13, 148, 136, 0.35), 0 1px 0 rgba(255,255,255,0.6) inset',
+          position: 'relative',
+        }}>
+          <div style={{
+            position: 'absolute', top: 20, right: 20,
+            padding: '4px 10px', borderRadius: 999,
+            background: 'linear-gradient(135deg, #0D9488, #0EA5E9)',
+            color: '#FFFFFF', fontSize: 10, fontWeight: 800, letterSpacing: '0.08em',
+            fontFamily: 'JetBrains Mono, monospace',
+          }}>{t('mk.pricing.pro.tag')}</div>
+          <div className="mk-eyebrow" style={{ color: 'var(--mk-brand-strong)', marginBottom: 10 }}>{t('mk.pricing.pro.label')}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
+            <span style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--mk-navy)' }}>{t('mk.pricing.pro.price')}</span>
+            <span style={{ fontSize: 14, color: 'var(--mk-text-muted)', fontWeight: 500 }}>{t('mk.pricing.pro.unit')}</span>
+          </div>
+          <p style={{ fontSize: 13.5, color: 'var(--mk-text-secondary)', marginBottom: 22 }}>{t('mk.pricing.pro.sub')}</p>
+          <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 26px', display: 'grid', gap: 11 }}>
+            {[t('mk.pricing.pro.f1'), t('mk.pricing.pro.f2'), t('mk.pricing.pro.f3'), t('mk.pricing.pro.f4'), t('mk.pricing.pro.f5')].map(f => (
+              <li key={f} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: 'var(--mk-text)' }}>
+                <CheckIcon />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+          <Link href={screenHref} className="mk-btn mk-btn-primary" style={{ width: '100%' }}>
+            {t('mk.pricing.pro.cta')}
+          </Link>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── FAQ ─────────────────────────────────────────────────────────────
+function FAQ() {
+  const { t } = useT()
+  const [open, setOpen] = useState<number | null>(0)
+  const qa: [string, string][] = [
+    [t('mk.faq.q1'), t('mk.faq.a1')],
+    [t('mk.faq.q2'), t('mk.faq.a2')],
+    [t('mk.faq.q3'), t('mk.faq.a3')],
+    [t('mk.faq.q4'), t('mk.faq.a4')],
+    [t('mk.faq.q5'), t('mk.faq.a5')],
+    [t('mk.faq.q6'), t('mk.faq.a6')],
+  ]
+  return (
+    <section className="mk-section">
+      <div style={{ textAlign: 'center', marginBottom: 48 }}>
+        <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.faq.eyebrow')}</div>
+        <h2 className="mk-h2">{t('mk.faq.title')}</h2>
+      </div>
+
+      <div style={{ maxWidth: 780, margin: '0 auto', display: 'grid', gap: 12 }}>
+        {qa.map(([q, a], i) => {
+          const isOpen = open === i
+          return (
+            <div key={q} className="mk-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <button
+                type="button"
+                onClick={() => setOpen(isOpen ? null : i)}
+                style={{
+                  width: '100%', padding: '20px 24px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+                  background: 'transparent', border: 0, cursor: 'pointer',
+                  fontSize: 15, fontWeight: 700, color: 'var(--mk-navy)', textAlign: 'left',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <span>{q}</span>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 26, height: 26, borderRadius: 999,
+                  background: isOpen ? 'var(--mk-brand)' : 'var(--mk-surface-tint)',
+                  color: isOpen ? '#FFFFFF' : 'var(--mk-text-secondary)',
+                  fontSize: 14, fontWeight: 800, flexShrink: 0,
+                  transition: 'all 0.2s',
+                }}>{isOpen ? '−' : '+'}</span>
+              </button>
+              {isOpen && (
+                <div style={{ padding: '0 24px 22px', fontSize: 13.5, color: 'var(--mk-text-secondary)', lineHeight: 1.7 }}>
+                  {a}
+                </div>
               )}
             </div>
-          ))}
-        </div>
-      </section>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
 
-      {/* Pricing */}
-      <section className="max-w-5xl mx-auto px-6 py-24">
-        <div className="text-center mb-14">
-          <div className="chip mono mb-4" style={{ background: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.3)', color: '#34D399' }}>{t('home.pricing.tag')}</div>
-          <h2 className="h-hero">{t('home.pricing.title')}</h2>
-        </div>
+// ─── Final CTA ───────────────────────────────────────────────────────
+function FinalCTA({ screenHref }: { screenHref: string }) {
+  const { t } = useT()
+  return (
+    <section className="mk-section" style={{ paddingTop: 32, paddingBottom: 96 }}>
+      <div style={{
+        position: 'relative',
+        padding: '64px 48px',
+        borderRadius: 28,
+        background: 'linear-gradient(135deg, #0B1736 0%, #101D44 60%, #0D9488 140%)',
+        color: '#FFFFFF',
+        overflow: 'hidden',
+        boxShadow: '0 40px 100px -30px rgba(11, 23, 54, 0.5)',
+      }}>
+        {/* Decorative circles */}
+        <div aria-hidden style={{
+          position: 'absolute', top: -80, right: -80, width: 280, height: 280, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(13, 148, 136, 0.35), transparent 70%)',
+        }} />
+        <div aria-hidden style={{
+          position: 'absolute', bottom: -120, left: -60, width: 360, height: 360, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(37, 99, 235, 0.22), transparent 70%)',
+        }} />
 
-        <div className="grid md:grid-cols-2 gap-5">
-          <div className="card" style={{ padding: 32 }}>
-            <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{t('home.pricing.free.label')}</div>
-            <div style={{ fontSize: 40, fontWeight: 800, marginBottom: 4, letterSpacing: '-0.03em' }}>$0<span style={{ fontSize: 15, color: 'var(--text-muted)', fontWeight: 500 }}>/mo</span></div>
-            <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', marginBottom: 24 }}>{t('home.pricing.free.sub')}</div>
-            <ul style={{ listStyle: 'none', padding: 0, marginBottom: 24 }}>
-              {[t('home.pricing.free.f1'), t('home.pricing.free.f2'), t('home.pricing.free.f3')].map((f, i) => (
-                <li key={i} style={{ display: 'flex', gap: 10, fontSize: 13.5, color: 'var(--text-primary)', marginBottom: 10, alignItems: 'center' }}>
-                  <span style={{ display: 'inline-flex', width: 18, height: 18, borderRadius: 999, background: 'rgba(20, 184, 166, 0.14)', color: '#5EEAD4', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>✓</span>
-                  {f}
-                </li>
-              ))}
-            </ul>
-            <Link href={screenHref} className="btn btn-ghost" style={{ width: '100%' }}>{t('home.pricing.free.cta')}</Link>
+        <div style={{ position: 'relative', textAlign: 'center', maxWidth: 720, margin: '0 auto' }}>
+          <h2 style={{
+            fontSize: 'clamp(1.75rem, 3vw, 2.4rem)',
+            fontWeight: 800,
+            letterSpacing: '-0.025em',
+            color: '#FFFFFF',
+            marginBottom: 14,
+          }}>
+            {t('mk.finalcta.title')}
+          </h2>
+          <p style={{ fontSize: 15.5, color: 'rgba(255, 255, 255, 0.82)', marginBottom: 28, lineHeight: 1.65 }}>
+            {t('mk.finalcta.sub')}
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <Link href={screenHref} className="mk-btn mk-btn-lg" style={{
+              background: '#FFFFFF',
+              color: '#0B1736',
+              fontWeight: 700,
+            }}>
+              {t('mk.finalcta.primary')}
+            </Link>
+            <a href="#pricing" className="mk-btn mk-btn-lg" style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: '#FFFFFF',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+            }}>
+              {t('mk.finalcta.secondary')}
+            </a>
           </div>
+        </div>
+      </div>
+    </section>
+  )
+}
 
-          <div className="card-hero" style={{ padding: 32 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div className="mono" style={{ fontSize: 11, color: '#5EEAD4', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 }}>{t('home.pricing.pro.label')}</div>
-              <div className="chip chip-accent mono">{t('home.pricing.pro.popular')}</div>
+// ─── Footer ──────────────────────────────────────────────────────────
+function Footer() {
+  const { t } = useT()
+  const col = (heading: string, links: { label: string; href: string }[]) => (
+    <div>
+      <div className="mk-eyebrow" style={{ color: 'var(--mk-text-muted)', marginBottom: 14 }}>{heading}</div>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
+        {links.map(l => (
+          <li key={l.label}>
+            <a href={l.href} style={{ fontSize: 13.5, color: 'var(--mk-text-secondary)', textDecoration: 'none', transition: 'color 0.15s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--mk-navy)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--mk-text-secondary)' }}
+            >{l.label}</a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+  return (
+    <footer style={{ background: 'var(--mk-bg-alt)', borderTop: '1px solid var(--mk-border)', marginTop: 0 }}>
+      <div className="mk-section" style={{ paddingTop: 64, paddingBottom: 40 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) repeat(3, minmax(0, 1fr))', gap: 40, marginBottom: 48 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: 9,
+                background: 'linear-gradient(135deg, #0D9488 0%, #0EA5E9 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#FFFFFF', fontWeight: 800, fontSize: 15,
+              }}>S</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--mk-navy)', letterSpacing: '-0.01em' }}>Stayloop</div>
             </div>
-            <div style={{ fontSize: 40, fontWeight: 800, marginBottom: 4, letterSpacing: '-0.03em' }}>$29<span style={{ fontSize: 15, color: 'var(--text-muted)', fontWeight: 500 }}>/mo</span></div>
-            <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', marginBottom: 24 }}>{t('home.pricing.pro.sub')}</div>
-            <ul style={{ listStyle: 'none', padding: 0, marginBottom: 24 }}>
-              {[t('home.pricing.pro.f1'), t('home.pricing.pro.f2'), t('home.pricing.pro.f3'), t('home.pricing.pro.f4')].map((f, i) => (
-                <li key={i} style={{ display: 'flex', gap: 10, fontSize: 13.5, color: 'var(--text-primary)', marginBottom: 10, alignItems: 'center' }}>
-                  <span style={{ display: 'inline-flex', width: 18, height: 18, borderRadius: 999, background: 'rgba(20, 184, 166, 0.18)', color: '#5EEAD4', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>✓</span>
-                  {f}
-                </li>
-              ))}
-            </ul>
-            <Link href={screenHref} className="btn btn-primary" style={{ width: '100%' }}>{t('home.pricing.pro.cta')}</Link>
+            <p style={{ fontSize: 13.5, color: 'var(--mk-text-secondary)', lineHeight: 1.65, maxWidth: 320, marginBottom: 16 }}>
+              {t('mk.footer.tagline')}
+            </p>
+            <div className="mono" style={{ fontSize: 11, color: 'var(--mk-text-muted)' }}>
+              {t('mk.footer.compliance')}
+            </div>
           </div>
-        </div>
-      </section>
 
-      {/* Footer */}
-      <footer style={{ borderTop: '1px solid var(--border-subtle)', marginTop: 80 }}>
-        <div className="max-w-7xl mx-auto px-6 py-10" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-muted)' }}>
-            <div style={{ width: 24, height: 24, borderRadius: 6, background: 'var(--gradient-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 800 }}>S</div>
-            <span>{t('home.footer.copy')}</span>
-          </div>
-          <div className="mono" style={{ fontSize: 11, color: 'var(--text-faint)' }}>stayloop.ai</div>
+          {col(t('mk.footer.product'), [
+            { label: t('mk.footer.screen'), href: '/screen' },
+            { label: t('mk.footer.roadmap'), href: '#roadmap' },
+            { label: t('mk.footer.pricing'), href: '#pricing' },
+          ])}
+          {col(t('mk.footer.company'), [
+            { label: t('mk.footer.about'), href: '#' },
+            { label: t('mk.footer.contact'), href: 'mailto:hello@stayloop.ai' },
+            { label: t('mk.footer.status'), href: '#' },
+          ])}
+          {col(t('mk.footer.legal'), [
+            { label: t('mk.footer.privacy'), href: '#' },
+            { label: t('mk.footer.terms'), href: '#' },
+            { label: t('mk.footer.security'), href: '#' },
+          ])}
         </div>
-      </footer>
-    </main>
+
+        <div style={{ paddingTop: 28, borderTop: '1px solid var(--mk-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ fontSize: 12, color: 'var(--mk-text-muted)' }}>{t('mk.footer.copy')}</div>
+          <div className="mono" style={{ fontSize: 11, color: 'var(--mk-text-faint)' }}>stayloop.ai</div>
+        </div>
+      </div>
+    </footer>
   )
 }
