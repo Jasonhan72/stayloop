@@ -219,69 +219,40 @@ EXTRACT these fields too:
 - bank_min_balance (number or null) — if bank statements present, lowest closing balance seen
 - identity_match_score (0-100) — cross-doc name/DOB/address consistency; if only 1 doc, return null
 
-PER-DIMENSION DETAILS: one sentence each, ≤25 English words, ≤30 Chinese chars, citing specific evidence.
+SPEED RULES — output length is the main latency driver. Stay extremely lean:
+- details_en / details_zh: 5 entries each. ≤10 English words per entry. ≤15 Chinese chars per entry. Cite one specific piece of evidence.
+- flags: 2-3 items, bilingual, text_en ≤8 words, text_zh ≤12 chars
+- action_items: 1-2 items MAX. Each has title + details in BOTH languages. title ≤6 words / ≤10 chars, details ≤18 words / ≤30 chars.
+- summary_en ≤15 words, summary_zh ≤30 chars (single sentence is fine)
+- reviewer_note ≤15 English words
+- sub_coverage: ONLY include keys whose value is "action_pending" or "missing". Omit all "measured" keys — backend defaults missing keys to measured.
 
-RISK FLAGS: 2-4 human-readable flags for UI display. Types: danger / warning / info / success.
-
-COMPLIANCE AUDIT: list protected grounds you observed (even if ignored). This creates the audit trail.
-
-EMIT ONLY this JSON — no markdown, no fences, no preamble. Stay under 3000 tokens total.
+EMIT ONLY this JSON — no markdown, no fences, no preamble.
 {
  "extracted_name":"...",
  "detected_monthly_income":<number or null>,
- "income_evidence":"... or null",
+ "income_evidence":"... or null (≤10 words)",
  "detected_document_kinds":["..."],
  "bank_min_balance":<number or null>,
  "identity_match_score":<0-100 or null>,
- "scores":{
-   "ability_to_pay":<0-100>,
-   "credit_health":<0-100>,
-   "rental_history":<0-100>,
-   "verification":<0-100>,
-   "communication":<0-100>
- },
- "sub_coverage":{
-   "income_rent_ratio":"measured|inferred|action_pending|missing",
-   "income_stability":"...",
-   "emergency_reserves":"...",
-   "credit_score":"...",
-   "dti":"...",
-   "prior_landlord_refs":"...",
-   "ltb_check":"...",
-   "employer_verify":"...",
-   "doc_authenticity":"...",
-   "identity_match":"..."
- },
+ "scores":{"ability_to_pay":<0-100>,"credit_health":<0-100>,"rental_history":<0-100>,"verification":<0-100>,"communication":<0-100>},
+ "sub_coverage":{"only_non_measured_keys":"action_pending|missing"},
  "details_en":{"ability_to_pay":"","credit_health":"","rental_history":"","verification":"","communication":""},
  "details_zh":{"ability_to_pay":"","credit_health":"","rental_history":"","verification":"","communication":""},
  "hard_gates_triggered":["..."],
- "red_flags":["rush_move_in","..."],
+ "red_flags":["..."],
  "flags":[{"type":"danger|warning|info|success","text_en":"","text_zh":""}],
- "action_items":[
-   {"id":"...","dimension":"rental_history","title_en":"","title_zh":"","details_en":"","details_zh":"","impact_on_score":"","status":"pending"}
- ],
- "compliance_audit":{
-   "protected_grounds_observed":["..."],
-   "protected_grounds_used_in_scoring":[],
-   "hrc_compliant":true,
-   "reviewer_note":"..."
- },
- "summary_en":"Exactly 2 short sentences, ≤30 words total.",
- "summary_zh":"正好两句，总长 ≤50 字。"
+ "action_items":[{"id":"...","dimension":"rental_history","title_en":"","title_zh":"","details_en":"","details_zh":"","impact_on_score":"","status":"pending"}],
+ "compliance_audit":{"protected_grounds_observed":["..."],"protected_grounds_used_in_scoring":[],"hrc_compliant":true,"reviewer_note":"..."},
+ "summary_en":"One short sentence ≤15 words",
+ "summary_zh":"一句话 ≤30 字"
 }
 
-STRICT LENGTH LIMITS (avoid truncation):
-- details_en entries: ≤20 English words each
-- details_zh entries: ≤25 Chinese chars each
-- action_items: 1-3 items MAX, each details field ≤40 words / ≤60 chars
-- summary_en: ≤30 words total, summary_zh: ≤50 chars total
-- reviewer_note: ≤40 words
-
 JSON DISCIPLINE (avoid parse errors):
-- NO unescaped newlines inside string values — use a space instead of newline
+- NO unescaped newlines inside strings (use a space)
 - NO commas inside numeric values (write 15090 not 15,090)
-- Escape any inner double quotes as \\"
-- Close every string and bracket properly before ending`
+- Escape inner double quotes as \\"
+- Close every string and bracket before ending`
 
     const userContent: any[] = [
       { type: 'text', text: userInstruction, cache_control: { type: 'ephemeral' } },
@@ -301,7 +272,11 @@ JSON DISCIPLINE (avoid parse errors):
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 6500,
+        // With the lean v3 schema (sparse sub_coverage, tight length caps
+        // on details/flags/action_items) the full output fits comfortably
+        // under 2000 tokens. 3500 gives 75% headroom without wasting
+        // decode time on excessive budget.
+        max_tokens: 3500,
         system: [
           { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
         ],
@@ -470,18 +445,34 @@ JSON DISCIPLINE (avoid parse errors):
 
     let overall = Math.round(Math.max(0, Math.min(100, Math.min(baseScore - penalty, gateCap))))
 
-    // Evidence coverage — weight each sub-coverage tag
+    // Evidence coverage — weight each sub-coverage tag. The v3 prompt
+    // now emits sub_coverage SPARSELY: only keys with action_pending or
+    // missing status are included. Any sub-component NOT listed is
+    // treated as "measured" (1.0). This cuts ~100-200 tokens off the
+    // output on a typical happy-path screening.
     const coverageWeights: Record<string, number> = {
       measured: 1.0,
       inferred: 0.6,
       action_pending: 0.3,
       missing: 0.0,
     }
-    const subCov = parsed.sub_coverage || {}
-    const subKeys = Object.keys(subCov)
-    const evidenceCoverage = subKeys.length > 0
-      ? subKeys.reduce((sum, k) => sum + (coverageWeights[subCov[k]] ?? 0), 0) / subKeys.length
-      : 0.5  // fallback when Claude omits sub_coverage
+    const ALL_SUB_COMPONENTS = [
+      'income_rent_ratio', 'income_stability', 'emergency_reserves',
+      'credit_score', 'dti',
+      'prior_landlord_refs', 'ltb_check',
+      'employer_verify', 'doc_authenticity', 'identity_match',
+    ]
+    const rawSubCov = parsed.sub_coverage || {}
+    // Materialize the full sub_coverage map: explicit entries win,
+    // otherwise default to "measured". This gives us a consistent
+    // 10-entry object to persist and a stable coverage denominator.
+    const subCov: Record<string, string> = {}
+    for (const k of ALL_SUB_COMPONENTS) {
+      subCov[k] = rawSubCov[k] || 'measured'
+    }
+    const evidenceCoverage = ALL_SUB_COMPONENTS.reduce(
+      (sum, k) => sum + (coverageWeights[subCov[k]] ?? 1.0), 0
+    ) / ALL_SUB_COMPONENTS.length
 
     // Determine tier
     let tier: 'approve' | 'conditional' | 'decline'
