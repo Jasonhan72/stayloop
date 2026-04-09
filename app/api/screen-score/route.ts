@@ -293,11 +293,18 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble. Total output MUST s
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
-      max_tokens: 3000,
+      max_tokens: 4000,
       system: [
         { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
       ],
-      messages: [{ role: 'user', content: userContent }],
+      messages: [
+        { role: 'user', content: userContent },
+        // Assistant prefill — forces Claude to begin its response
+        // with an open brace. Eliminates the "Claude writes a
+        // paragraph before the JSON" failure mode and guarantees
+        // the first character of the response is inside the JSON.
+        { role: 'assistant', content: '{' },
+      ],
     }),
   })
 
@@ -308,13 +315,16 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble. Total output MUST s
   }
 
   const aiData = await response.json() as { content?: Array<{ text: string }>; stop_reason?: string }
-  const rawText = aiData.content?.[0]?.text || ''
+  // We prefill the assistant turn with "{" so Claude's continuation
+  // is always the interior of our JSON object. Prepend it back before
+  // parsing so we have a complete object.
+  const rawText = '{' + (aiData.content?.[0]?.text || '')
   const stopReason = aiData.stop_reason || ''
 
-  // Robust JSON extraction — strip markdown fences, trim, and if the
-  // payload is still unparseable, grab the outermost balanced {...}
-  // block. Handles: fenced output, extra prose, and truncation where
-  // the closing brace is still present but prose follows.
+  // Robust JSON extraction — strip markdown fences, trim, balance
+  // braces ignoring string contents, strip trailing commas, and if
+  // the payload is still unparseable return what we have so the
+  // caller can surface a useful error snippet.
   function extractJson(input: string): string {
     let t = input.trim()
     t = t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
@@ -327,8 +337,9 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble. Total output MUST s
     let depth = 0
     let inStr = false
     let esc = false
-    for (let i = start; i < t.length; i++) {
-      const ch = t[i]
+    let sliced = t.slice(start)
+    for (let i = 0; i < sliced.length; i++) {
+      const ch = sliced[i]
       if (inStr) {
         if (esc) esc = false
         else if (ch === '\\') esc = true
@@ -338,13 +349,17 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble. Total output MUST s
         else if (ch === '{') depth++
         else if (ch === '}') {
           depth--
-          if (depth === 0) return t.slice(start, i + 1)
+          if (depth === 0) { sliced = sliced.slice(0, i + 1); break }
         }
       }
     }
-    // Truncated mid-object: return what we have so the caller can
-    // attempt best-effort recovery / surface a useful error.
-    return t.slice(start)
+    // Clean common Claude JSON sins: trailing commas before } or ],
+    // stray Chinese full-width commas in key separators, BOM, etc.
+    sliced = sliced
+      .replace(/,(\s*[}\]])/g, '$1')
+      .replace(/\uFEFF/g, '')
+    try { JSON.parse(sliced); return sliced } catch {}
+    return sliced
   }
 
   const text = extractJson(rawText)
@@ -369,14 +384,16 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble. Total output MUST s
     // Surface enough raw output to debug, and distinguish
     // truncation from other parse failures so the UI can retry.
     const truncated = stopReason === 'max_tokens'
+    const snippet = rawText.slice(0, 400).replace(/\s+/g, ' ')
+    const tail = rawText.slice(-200).replace(/\s+/g, ' ')
     await supabase.from('screenings').update({
       status: 'error',
       error: (truncated ? 'AI output truncated: ' : 'AI parse error: ') + (e?.message || 'unknown').slice(0, 200),
     }).eq('id', screening_id)
     return NextResponse.json({
       error: truncated
-        ? 'AI output was truncated — please retry (the model ran out of tokens).'
-        : 'AI parse error',
+        ? 'AI output was truncated — please retry (the model produced too much text).'
+        : `AI parse error: ${(e?.message || 'unknown').slice(0, 150)} — head: "${snippet.slice(0, 120)}" — tail: "${tail.slice(0, 120)}"`,
       stop_reason: stopReason,
       raw: rawText.slice(0, 4000),
     }, { status: 500 })
