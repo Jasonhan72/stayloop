@@ -749,22 +749,23 @@ export default function ScreenPage() {
                             position: 'absolute',
                             top: 6,
                             right: 6,
-                            width: 18,
-                            height: 18,
-                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 3,
+                            padding: '2px 6px 2px 4px',
+                            borderRadius: 10,
                             background: 'linear-gradient(135deg, #10B981, #059669)',
                             color: '#fff',
                             fontSize: 10,
                             fontWeight: 800,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
                             boxShadow: '0 2px 8px rgba(16, 185, 129, 0.45)',
                             lineHeight: 1,
+                            minHeight: 18,
                           }}
-                          aria-label={`${count} uploaded`}
+                          aria-label={`${count} file${count === 1 ? '' : 's'} uploaded`}
                         >
-                          {count > 1 ? count : '✓'}
+                          <span style={{ fontSize: 9 }}>✓</span>
+                          <span>{count}</span>
                         </div>
                       )}
                       <div style={{ fontSize: 18, marginBottom: 5, filter: uploaded ? 'none' : 'grayscale(0.15)' }}>{ft.icon}</div>
