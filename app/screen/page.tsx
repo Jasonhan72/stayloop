@@ -395,13 +395,28 @@ export default function ScreenPage() {
       for (const f of toClassify) form.append('files', f, f.name)
       const res = await fetch('/api/classify-files', { method: 'POST', body: form })
       if (!res.ok) return
-      const data = await res.json() as { classifications?: { index: number; kinds: string[] }[] }
+      const data = await res.json() as {
+        classifications?: { index: number; kinds: string[] }[]
+        applicant_name?: string | null
+        monthly_rent?: number | null
+      }
       const map: Record<string, string[]> = {}
       for (const c of data.classifications || []) {
         const f = toClassify[c.index]
         if (f) map[fileKey(f)] = Array.isArray(c.kinds) ? c.kinds : []
       }
       setFileKinds(prev => ({ ...prev, ...map }))
+
+      // Backfill applicant name + target rent if Claude found them
+      // in the uploaded documents (typically in the application form)
+      // AND the user hasn't already typed something. We never overwrite
+      // user input.
+      if (data.applicant_name) {
+        setApplicantName(prev => (prev && prev.trim() ? prev : data.applicant_name!))
+      }
+      if (typeof data.monthly_rent === 'number' && data.monthly_rent > 0) {
+        setTargetRent(prev => (prev && prev.trim() ? prev : String(data.monthly_rent)))
+      }
     } catch {
       // classifier is best-effort — filename heuristics remain as fallback
     } finally {

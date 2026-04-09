@@ -71,8 +71,17 @@ bundling an ID, a paystub and a bank statement) — list every kind you see.
 
 Valid kinds: ${VALID_KINDS.join(', ')}
 
+ALSO extract — if visible in any uploaded document — the following fields.
+Prefer rental application forms for these, then ID documents, then other sources.
+- applicant_name: the candidate's full legal name
+- monthly_rent: the monthly rent for the unit being applied to, in CAD (number only, no $ or commas). If you only see annual rent, divide by 12. If unknown, null.
+
 Return ONLY this JSON (no markdown, no prose):
-{ "files": [ { "index": <0-based index>, "kinds": ["..."] }, ... ] }`,
+{
+  "files": [ { "index": <0-based index>, "kinds": ["..."] }, ... ],
+  "applicant_name": "<name or null>",
+  "monthly_rent": <number or null>
+}`,
     },
   ]
 
@@ -109,8 +118,8 @@ Return ONLY this JSON (no markdown, no prose):
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
-      max_tokens: 600,
-      system: 'You classify uploaded rental-application documents. Output strictly the JSON schema requested. No markdown, no prose.',
+      max_tokens: 800,
+      system: 'You classify uploaded rental-application documents and extract a few header fields (applicant name, monthly rent). Output strictly the JSON schema requested. No markdown, no prose.',
       messages: [{ role: 'user', content: contentBlocks }],
     }),
   })
@@ -124,7 +133,11 @@ Return ONLY this JSON (no markdown, no prose):
   let text = aiData.content?.[0]?.text || '{}'
   text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
 
-  let parsed: { files?: { index: number; kinds: string[] }[] } = {}
+  let parsed: {
+    files?: { index: number; kinds: string[] }[]
+    applicant_name?: string | null
+    monthly_rent?: number | null
+  } = {}
   try {
     parsed = JSON.parse(text)
   } catch {
@@ -140,5 +153,18 @@ Return ONLY this JSON (no markdown, no prose):
     return { index: i, name: f.name, size: f.size, kinds }
   })
 
-  return NextResponse.json({ classifications })
+  const applicantName =
+    typeof parsed.applicant_name === 'string' && parsed.applicant_name.trim().length > 1
+      ? parsed.applicant_name.trim()
+      : null
+  const monthlyRent =
+    typeof parsed.monthly_rent === 'number' && parsed.monthly_rent > 0 && parsed.monthly_rent < 100000
+      ? Math.round(parsed.monthly_rent)
+      : null
+
+  return NextResponse.json({
+    classifications,
+    applicant_name: applicantName,
+    monthly_rent: monthlyRent,
+  })
 }
