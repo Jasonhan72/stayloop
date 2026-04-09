@@ -711,7 +711,7 @@ export default function ScreenPage() {
         {!result && !analyzing && (
           <>
             {/* Tier Toggle */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 20, padding: 5, background: 'rgba(148, 163, 184, 0.06)', borderRadius: 14, border: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 20, padding: 5, background: 'var(--bg-card-solid)', borderRadius: 14, border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-md)' }}>
               {(['free', 'pro'] as const).map(key => {
                 const active = tier === key
                 const disabled = key === 'pro' && !isPro

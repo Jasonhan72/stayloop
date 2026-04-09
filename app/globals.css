@@ -242,10 +242,9 @@ body > * { position: relative; z-index: 1; }
   align-items: center;
   justify-content: space-between;
   padding: 14px 24px;
-  background: rgba(7, 9, 15, 0.75);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border-bottom: 1px solid var(--border-subtle);
+  background: #151C33;
+  border-bottom: 1px solid var(--border-strong);
+  box-shadow: 0 4px 20px -8px rgba(0, 0, 0, 0.6);
 }
 .nav-brand {
   display: flex;
@@ -290,7 +289,7 @@ body > * { position: relative; z-index: 1; }
    ────────────────────────────────────────────────────────────────── */
 .input, .select, .textarea {
   width: 100%;
-  background: rgba(8, 11, 22, 0.7);
+  background: var(--bg-card-raised);
   border: 1px solid var(--border-strong);
   color: var(--text-primary);
   border-radius: var(--r-md);
@@ -300,15 +299,15 @@ body > * { position: relative; z-index: 1; }
   transition: all 0.15s ease;
   box-sizing: border-box;
 }
-.input::placeholder, .textarea::placeholder { color: var(--text-faint); }
+.input::placeholder, .textarea::placeholder { color: var(--text-muted); }
 .input:hover, .select:hover, .textarea:hover {
-  border-color: rgba(148, 163, 184, 0.28);
+  border-color: rgba(148, 163, 184, 0.6);
 }
 .input:focus, .select:focus, .textarea:focus {
   outline: none;
-  border-color: rgba(56, 189, 248, 0.55);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
-  background: rgba(8, 11, 22, 0.95);
+  border-color: rgba(56, 189, 248, 0.7);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+  background: #35416A;
 }
 
 .label {
