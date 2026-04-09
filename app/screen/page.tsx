@@ -100,25 +100,26 @@ interface ScoreResult {
 
 // ───────────────────────────────────────────────────── Constants ──
 
-type ScoreKey = keyof ScoreResult['scores']
+// v3 dimension key — matches scores_v3 in the API response
+type V3DimKey = 'ability_to_pay' | 'credit_health' | 'rental_history' | 'verification' | 'communication'
 
+// Keep the old key type for backward compat with CategoryBar signature;
+// we'll cast V3DimKey to any for the `id` field since CategoryBar only
+// uses id for the React key, not for index access.
 const CATEGORIES: {
-  id: ScoreKey
+  id: V3DimKey
   labelKey: DictKey
   descKey: DictKey
   icon: string
   weight: number
-  // Secondary label always shown alongside primary, for the bilingual
-  // prototype look. Hard-coded so it doesn't vary with current language.
   zhLabel: string
   enLabel: string
 }[] = [
-  { id: 'doc_authenticity', labelKey: 'cat.doc_authenticity.label', descKey: 'cat.doc_authenticity.desc', icon: '🔍', weight: 0.20, zhLabel: '文档真伪', enLabel: 'Document Authenticity' },
-  { id: 'payment_ability', labelKey: 'cat.payment_ability.label', descKey: 'cat.payment_ability.desc', icon: '💰', weight: 0.20, zhLabel: '支付能力', enLabel: 'Financial Capacity' },
-  { id: 'court_records', labelKey: 'cat.court_records.label', descKey: 'cat.court_records.desc', icon: '⚖️', weight: 0.20, zhLabel: '法庭记录', enLabel: 'Court & Tribunal Records' },
-  { id: 'stability', labelKey: 'cat.stability.label', descKey: 'cat.stability.desc', icon: '🏠', weight: 0.15, zhLabel: '稳定性', enLabel: 'Stability' },
-  { id: 'info_consistency', labelKey: 'cat.info_consistency.label', descKey: 'cat.info_consistency.desc', icon: '🔗', weight: 0.12, zhLabel: '信息一致性', enLabel: 'Cross-Verification' },
-  { id: 'behavior_signals', labelKey: 'cat.behavior_signals.label', descKey: 'cat.behavior_signals.desc', icon: '📊', weight: 0.13, zhLabel: '行为信号', enLabel: 'Behavioral Signals' },
+  { id: 'ability_to_pay',  labelKey: 'cat.payment_ability.label',  descKey: 'cat.payment_ability.desc',  icon: '💰', weight: 0.40, zhLabel: '付款能力',   enLabel: 'Ability to Pay' },
+  { id: 'credit_health',   labelKey: 'cat.doc_authenticity.label', descKey: 'cat.doc_authenticity.desc', icon: '📊', weight: 0.25, zhLabel: '信用健康度', enLabel: 'Credit & Debt Health' },
+  { id: 'rental_history',  labelKey: 'cat.court_records.label',    descKey: 'cat.court_records.desc',    icon: '⚖️', weight: 0.20, zhLabel: '租务历史',   enLabel: 'Rental & Legal History' },
+  { id: 'verification',    labelKey: 'cat.info_consistency.label', descKey: 'cat.info_consistency.desc', icon: '🔍', weight: 0.10, zhLabel: '身份核实',   enLabel: 'Identity & Employer' },
+  { id: 'communication',   labelKey: 'cat.behavior_signals.label', descKey: 'cat.behavior_signals.desc', icon: '🏠', weight: 0.05, zhLabel: '申请完整度', enLabel: 'Application Quality' },
 ]
 
 interface RiskLevel { min: number; labelKey: DictKey; tagKey: DictKey; color: string; bg: string }
@@ -200,7 +201,7 @@ function CategoryBar({ category, score, animDelay = 0, tier, shortNote, detail }
   const { t, lang } = useT()
   const [open, setOpen] = useState(false)
   const risk = getRiskLevel(score)
-  const isCourtRecord = category.id === 'court_records'
+  const isCourtRecord = category.id === 'rental_history'
   const primary = lang === 'zh' ? category.zhLabel : category.enLabel
   const secondary = lang === 'zh' ? category.enLabel : category.zhLabel
   const hasDetail = !!(detail || shortNote)
@@ -931,7 +932,12 @@ export default function ScreenPage() {
           return (
             <div className="fade-up" style={{ textAlign: 'center', padding: '80px 0' }}>
               <div className="spin" style={{ width: 64, height: 64, margin: '0 auto 24px', borderRadius: '50%', border: '3px solid rgba(148, 163, 184, 0.12)', borderTopColor: isCourtStep ? '#8B5CF6' : '#14B8A6' }} />
-              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10, color: isCourtStep ? '#C4B5FD' : 'var(--text-primary)', letterSpacing: '-0.01em' }}>{progressLabel || t('screen.step.start')}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10, color: isCourtStep ? '#C4B5FD' : 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                {progressLabel || t('screen.step.start')}
+                <span className="mono" style={{ marginLeft: 10, fontSize: 13, fontWeight: 700, color: isCourtStep ? '#A78BFA' : '#14B8A6' }}>
+                  {Math.round(progress)}%
+                </span>
+              </div>
               <div style={{ width: 320, maxWidth: '80%', height: 5, borderRadius: 3, background: 'rgba(148, 163, 184, 0.1)', margin: '16px auto', overflow: 'hidden' }}>
                 <div style={{ height: '100%', borderRadius: 3, background: isCourtStep ? 'var(--gradient-pro)' : 'var(--gradient-brand)', width: `${progress}%`, transition: 'width 0.5s ease' }} />
               </div>
@@ -1035,15 +1041,18 @@ export default function ScreenPage() {
               <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: '#94a3b8' }}>{t('screen.result.dims')}</div>
               {CATEGORIES.map((cat, i) => {
                 const details = lang === 'zh' ? (result.details_zh || result.details_en) : (result.details_en || result.details_zh)
+                // Pull from v3 scores when present; fall back to 0 for
+                // historical screenings that never ran under v3.
+                const v3Score = result.scores_v3?.[cat.id]
                 return (
                   <CategoryBar
                     key={cat.id}
-                    category={cat}
-                    score={result.scores[cat.id]}
+                    category={cat as any}
+                    score={typeof v3Score === 'number' ? v3Score : 0}
                     animDelay={i * 150}
                     tier={result.tier}
-                    shortNote={result.notes?.[cat.id]}
-                    detail={details?.[cat.id]}
+                    shortNote={(result.notes as any)?.[cat.id]}
+                    detail={(details as any)?.[cat.id]}
                   />
                 )
               })}
@@ -1144,11 +1153,11 @@ export default function ScreenPage() {
               <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#94a3b8' }}>{t('screen.result.weights')}</div>
               <div className="sl-weights-grid" style={{ display: 'grid', gap: 8 }}>
                 {CATEGORIES.map(cat => (
-                  <div key={cat.id} style={{ textAlign: 'center', padding: '16px 8px', borderRadius: 12, background: 'rgba(148, 163, 184, 0.06)', border: cat.id === 'court_records' ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid var(--border-subtle)' }}>
+                  <div key={cat.id} style={{ textAlign: 'center', padding: '16px 8px', borderRadius: 12, background: 'rgba(148, 163, 184, 0.06)', border: cat.id === 'rental_history' ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid var(--border-subtle)' }}>
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{cat.icon}</div>
                     <div style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 700 }}>{lang === 'zh' ? cat.zhLabel : cat.enLabel}</div>
                     <div style={{ fontSize: 9, color: '#64748b', fontWeight: 500, marginTop: 1 }}>{lang === 'zh' ? cat.enLabel : cat.zhLabel}</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: cat.id === 'court_records' ? '#A78BFA' : '#0D9488', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{(cat.weight * 100).toFixed(0)}%</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: cat.id === 'rental_history' ? '#A78BFA' : '#0D9488', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{(cat.weight * 100).toFixed(0)}%</div>
                   </div>
                 ))}
               </div>
