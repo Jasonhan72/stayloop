@@ -54,83 +54,121 @@ interface CanLIIMatch {
   citation: string
   url: string
   databaseId: string
+  databaseName?: string
   caseId: string
 }
 
-async function searchCanLII(name: string, databaseId: 'onltb' | 'oncsc'): Promise<{ status: CourtQuery['status']; hits: number; records: CanLIIMatch[]; note?: string }> {
-  const apiKey = process.env.CANLII_API_KEY
-  if (!apiKey) return { status: 'unavailable', hits: 0, records: [], note: 'API key not configured' }
-  if (!name || name.length < 3) return { status: 'skipped', hits: 0, records: [], note: 'No name to query' }
+interface CanLIIDatabase {
+  databaseId: string
+  jurisdiction: string
+  name: string
+}
 
+// Cache the Ontario database list across warm edge invocations
+let ontarioDbCache: { dbs: CanLIIDatabase[]; fetchedAt: number } | null = null
+const DB_CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24h
+
+async function listOntarioDatabases(apiKey: string): Promise<CanLIIDatabase[]> {
+  const now = Date.now()
+  if (ontarioDbCache && now - ontarioDbCache.fetchedAt < DB_CACHE_TTL_MS) {
+    return ontarioDbCache.dbs
+  }
   try {
-    // CanLII v1 caseBrowse with fullText filter — exact-phrase search on the
-    // applicant name within the target database (onltb = LTB, oncsc = Small Claims).
-    const url = `https://api.canlii.org/v1/caseBrowse/en/${databaseId}/?api_key=${apiKey}&resultCount=20&offset=0&publishedBefore=2026-12-31&publishedAfter=2018-01-01&fullText=${encodeURIComponent(`"${name}"`)}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
-    if (!res.ok) {
-      return { status: 'unavailable', hits: 0, records: [], note: `HTTP ${res.status}` }
-    }
+    const url = `https://api.canlii.org/v1/caseBrowse/en/?api_key=${apiKey}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
+    if (!res.ok) return ontarioDbCache?.dbs || []
+    const data = await res.json() as { caseDatabases?: CanLIIDatabase[] }
+    const dbs = (data.caseDatabases || []).filter(d => d.jurisdiction === 'on')
+    ontarioDbCache = { dbs, fetchedAt: now }
+    return dbs
+  } catch {
+    return ontarioDbCache?.dbs || []
+  }
+}
+
+async function searchCanLIIDb(name: string, db: CanLIIDatabase, apiKey: string): Promise<CanLIIMatch[]> {
+  try {
+    const url = `https://api.canlii.org/v1/caseBrowse/en/${db.databaseId}/?api_key=${apiKey}&resultCount=10&offset=0&publishedBefore=2026-12-31&publishedAfter=2015-01-01&fullText=${encodeURIComponent(`"${name}"`)}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    if (!res.ok) return []
     const data = await res.json() as { cases?: Array<{ databaseId: string; caseId: { en: string }; title: string; citation: string }> }
     const cases = data.cases || []
-    const records: CanLIIMatch[] = cases.slice(0, 10).map(c => {
+    return cases.map(c => {
       const cid = c.caseId?.en || ''
       return {
         title: c.title,
         citation: c.citation,
-        databaseId: c.databaseId,
+        databaseId: c.databaseId || db.databaseId,
+        databaseName: db.name,
         caseId: cid,
-        url: cid ? `https://www.canlii.org/en/on/${databaseId}/doc/${cid.split('.')[0] || cid}/${cid}.html` : `https://www.canlii.org/en/on/${databaseId}/`,
+        url: cid ? `https://www.canlii.org/en/on/${db.databaseId}/doc/${cid.split('.')[0] || cid}/${cid}.html` : `https://www.canlii.org/en/on/${db.databaseId}/`,
       }
     })
-    return {
-      status: cases.length === 0 ? 'ok' : 'ok',
-      hits: cases.length,
-      records,
-    }
-  } catch (e: any) {
-    return { status: 'unavailable', hits: 0, records: [], note: e?.name === 'TimeoutError' ? 'CanLII timeout' : 'CanLII error' }
+  } catch {
+    return []
   }
 }
 
-async function runCourtRecordCheck(name: string, plan: string): Promise<{ queries: CourtQuery[]; total_hits: number; queried_name: string; records: CanLIIMatch[] }> {
+async function runCourtRecordCheck(name: string, plan: string): Promise<{ queries: CourtQuery[]; total_hits: number; queried_name: string; records: CanLIIMatch[]; databases_searched: number }> {
   const queries: CourtQuery[] = []
+  const apiKey = process.env.CANLII_API_KEY
+
+  if (!apiKey) {
+    queries.push({ source: 'CanLII — all Ontario databases', tier: 'free', status: 'unavailable', hits: null, note: 'API key not configured' })
+    return { queries, total_hits: 0, queried_name: name || '', records: [], databases_searched: 0 }
+  }
+  if (!name || name.trim().length < 3) {
+    queries.push({ source: 'CanLII — all Ontario databases', tier: 'free', status: 'skipped', hits: null, note: 'No applicant name provided' })
+    return { queries, total_hits: 0, queried_name: name || '', records: [], databases_searched: 0 }
+  }
+
+  // 1. Discover every Ontario database CanLII exposes (courts + tribunals + boards)
+  const dbs = await listOntarioDatabases(apiKey)
+
+  if (dbs.length === 0) {
+    queries.push({ source: 'CanLII — all Ontario databases', tier: 'free', status: 'unavailable', hits: null, note: 'DB list fetch failed' })
+    return { queries, total_hits: 0, queried_name: name || '', records: [], databases_searched: 0 }
+  }
+
+  // 2. Query every ON database in parallel. Promise.allSettled keeps one flaky
+  //    DB from sinking the entire lookup.
+  const settled = await Promise.allSettled(dbs.map(db => searchCanLIIDb(name.trim(), db, apiKey)))
   const allRecords: CanLIIMatch[] = []
-  let totalHits = 0
+  const perDbHits: Array<{ db: CanLIIDatabase; hits: number }> = []
+  for (let i = 0; i < dbs.length; i++) {
+    const r = settled[i]
+    const hits = r.status === 'fulfilled' ? r.value : []
+    perDbHits.push({ db: dbs[i], hits: hits.length })
+    if (hits.length > 0) allRecords.push(...hits)
+  }
 
-  // Free-tier: CanLII LTB + Small Claims (parallel for speed)
-  const [ltb, smallClaims] = await Promise.all([
-    searchCanLII(name, 'onltb'),
-    searchCanLII(name, 'oncsc'),
-  ])
+  const totalHits = allRecords.length
+  const dbsWithHits = perDbHits.filter(d => d.hits > 0)
 
+  // 3. Emit one rollup query row plus one row per database that actually had hits
   queries.push({
-    source: 'CanLII — LTB rulings',
+    source: `CanLII — all Ontario databases (${dbs.length} searched)`,
     tier: 'free',
-    status: ltb.status,
-    hits: ltb.hits,
-    note: ltb.note,
-    url: ltb.records[0]?.url,
+    status: 'ok',
+    hits: totalHits,
+    note: totalHits === 0 ? 'No matches across Ontario courts, tribunals, or boards' : `Hits in ${dbsWithHits.length} database(s)`,
   })
-  allRecords.push(...ltb.records)
-  totalHits += ltb.hits
-
-  queries.push({
-    source: 'CanLII — Small Claims Court',
-    tier: 'free',
-    status: smallClaims.status,
-    hits: smallClaims.hits,
-    note: smallClaims.note,
-    url: smallClaims.records[0]?.url,
-  })
-  allRecords.push(...smallClaims.records)
-  totalHits += smallClaims.hits
+  for (const { db, hits } of dbsWithHits) {
+    queries.push({
+      source: `CanLII — ${db.name}`,
+      tier: 'free',
+      status: 'ok',
+      hits,
+      url: allRecords.find(r => r.databaseId === db.databaseId)?.url,
+    })
+  }
 
   // Pro-tier sources still pending
   const isPro = plan === 'pro' || plan === 'enterprise'
-  queries.push({ source: 'Ontario Courts Portal', tier: 'pro', status: 'coming_soon', hits: null, note: isPro ? 'Integration in progress' : 'Pro feature — coming soon' })
+  queries.push({ source: 'Ontario Courts Portal (direct)', tier: 'pro', status: 'coming_soon', hits: null, note: isPro ? 'Integration in progress' : 'Pro feature — coming soon' })
   queries.push({ source: 'Stayloop Verified Network', tier: 'pro', status: 'coming_soon', hits: null, note: isPro ? 'Integration in progress' : 'Pro feature — coming soon' })
 
-  return { queries, total_hits: totalHits, queried_name: name || '', records: allRecords }
+  return { queries, total_hits: totalHits, queried_name: name || '', records: allRecords, databases_searched: dbs.length }
 }
 
 // Map v3's 5 dims → legacy 6 columns, so old dashboards keep working.
@@ -226,11 +264,18 @@ Landlord notes: ${screening.notes || 'N/A'}
 
 Uploaded: ${files.length === 0 ? 'NONE' : files.map(f => `${f.kind || 'doc'}(${f.name})`).join(', ')}
 
-LTB/COURT LOOKUP (CanLII fullText by name, 2018–2026):
+CANLII LOOKUP — ALL ONTARIO DATABASES (${courtDetail.databases_searched} DBs incl. courts, tribunals, boards; fullText by exact name 2015–2026):
 ${courtDetail.queries.filter(q => q.tier === 'free').map(q => `  - ${q.source}: ${q.status === 'ok' ? `${q.hits} hit(s)` : q.status}${q.note ? ` (${q.note})` : ''}`).join('\n')}
-${courtDetail.total_hits > 0 ? `\nMATCHED CASES (treat as strong signal — but verify name collision is not a false positive):\n${courtDetail.records.slice(0, 5).map(r => `  · ${r.title} — ${r.citation}`).join('\n')}` : '\nNo CanLII LTB or Small Claims hits for this applicant name.'}
+${courtDetail.total_hits > 0 ? `\nMATCHED CASES (verify name collision is not a false positive — common names can false-match):\n${courtDetail.records.slice(0, 8).map(r => `  · [${r.databaseName || r.databaseId}] ${r.title} — ${r.citation}`).join('\n')}` : '\nNo hits in any Ontario CanLII database for this applicant name.'}
 
-Score rental_history.ltb_check based on these results: 0 hits → high score (90+), 1 hit → investigate (50-70, mark action_pending to verify identity), 2+ hits → strong negative. If 0 hits AND no landlord reference → mark ltb_check "measured" but prior_landlord_refs "action_pending".
+SCORING GUIDANCE for rental_history.ltb_check and red flags:
+- 0 hits across ALL Ontario DBs → high score (90+), ltb_check = "measured"
+- 1 hit in onltb (LTB) → investigate (50-70), mark "action_pending" to verify identity, consider "ltb_eviction" gate IF case is an eviction order
+- 2+ hits in onltb → strong negative, likely trigger "ltb_eviction" hard gate (caps at 40)
+- Hits in onsc / onca / onscdc (civil courts) against this person as debtor/defendant → negative signal, flag in compliance_audit but do NOT apply ltb_eviction gate
+- Hits in onhrt (Human Rights Tribunal) AGAINST this person as respondent → note only, do NOT use for scoring (HRC protected)
+- Hits in oncj criminal matters → note in reviewer_note, do NOT auto-score (landlord decides)
+- If 0 hits AND no prior landlord reference → ltb_check "measured", prior_landlord_refs "action_pending"
 ${screening.pasted_text ? `\n--- PASTED TEXT ---\n${screening.pasted_text}\n` : ''}`
 
     const systemPrompt = `You are Stayloop, an AI tenant-screening analyst for Ontario, Canada landlords. Score risk using the Stayloop v3 model.
