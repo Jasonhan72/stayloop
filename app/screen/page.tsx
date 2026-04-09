@@ -789,7 +789,7 @@ export default function ScreenPage() {
                 transition: 'all 0.2s ease',
                 background: dragOver
                   ? 'radial-gradient(ellipse at center, rgba(20, 184, 166, 0.1), transparent 70%)'
-                  : 'rgba(14, 20, 38, 0.6)',
+                  : 'var(--bg-card-solid)',
                 backdropFilter: 'blur(10px)',
               }}
             >
@@ -846,7 +846,7 @@ export default function ScreenPage() {
                         position: 'relative',
                         padding: '12px 10px',
                         borderRadius: 10,
-                        background: uploaded ? 'rgba(16, 185, 129, 0.08)' : 'rgba(14, 20, 38, 0.6)',
+                        background: uploaded ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-card-solid)',
                         border: uploaded ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid var(--border-subtle)',
                         boxShadow: uploaded ? '0 0 0 3px rgba(16, 185, 129, 0.08)' : 'none',
                         textAlign: 'center',
