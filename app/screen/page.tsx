@@ -509,24 +509,26 @@ export default function ScreenPage() {
       if (insertErr || !row) throw new Error(insertErr?.message || 'Failed to create screening record')
       const screeningId = row.id
 
-      // 2. Upload files to storage
-      const uploaded: UploadedFile[] = []
-      for (let i = 0; i < files.length; i++) {
-        const f = files[i]
+      // 2. Upload files to storage — run all uploads in PARALLEL.
+      // Sequential uploads made multi-file submissions add several
+      // extra seconds on top of the already-slow Claude call.
+      const stamp = Date.now()
+      const uploadResults = await Promise.all(files.map(async (f, i) => {
         const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-        const path = `screenings/${landlord.landlordId}/${screeningId}/${Date.now()}_${safeName}`
+        const path = `screenings/${landlord.landlordId}/${screeningId}/${stamp}_${i}_${safeName}`
         const { error: upErr } = await supabase
           .storage.from('tenant-files')
           .upload(path, f, { contentType: f.type, upsert: false })
         if (upErr) throw new Error(`${f.name}: ${upErr.message}`)
-        uploaded.push({
+        return {
           path,
           name: f.name,
           size: f.size,
           mime: f.type || 'application/octet-stream',
           kind: guessKind(f.name),
-        })
-      }
+        } as UploadedFile
+      }))
+      const uploaded: UploadedFile[] = uploadResults
       if (uploaded.length > 0) {
         await supabase.from('screenings').update({ files: uploaded }).eq('id', screeningId)
       }

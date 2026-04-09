@@ -164,19 +164,23 @@ export async function POST(req: NextRequest) {
   const files: ScreenFile[] = Array.isArray(screening.files) ? screening.files : []
 
   // ---- Stage 1: Build multimodal blocks (signed URLs to docs) ----
+  // Sign ALL files in parallel — sequential awaits added a full
+  // Supabase RTT per file on multi-file submissions.
   const contentBlocks: any[] = []
-  for (const f of files) {
-    const { data: signed } = await supabase
-      .storage.from('tenant-files').createSignedUrl(f.path, 600)
-    if (!signed?.signedUrl) continue
+  const signedResults = await Promise.all(files.map(f =>
+    supabase.storage.from('tenant-files').createSignedUrl(f.path, 600)
+      .then(r => ({ file: f, url: r.data?.signedUrl }))
+  ))
+  for (const { file: f, url } of signedResults) {
+    if (!url) continue
     if (f.mime === 'application/pdf') {
       contentBlocks.push({
         type: 'document',
-        source: { type: 'url', url: signed.signedUrl },
+        source: { type: 'url', url },
         title: `${f.kind || 'doc'}: ${f.name}`,
       })
     } else if (f.mime?.startsWith('image/')) {
-      contentBlocks.push({ type: 'image', source: { type: 'url', url: signed.signedUrl } })
+      contentBlocks.push({ type: 'image', source: { type: 'url', url } })
       contentBlocks.push({ type: 'text', text: `(file above is: ${f.kind || 'doc'} — ${f.name})` })
     }
   }
@@ -233,78 +237,46 @@ You are reviewing materials a landlord uploaded directly. Some fields will be mi
 Higher scores mean LOWER risk (FICO-style). 100 = ideal candidate, 0 = unrentable.
 Output strictly the JSON schema requested — no markdown, no prose, no preamble.`
 
-  const userInstruction = `Score this rental candidate across SIX dimensions (each 0-100, higher = safer). Then write a 2-3 sentence professional summary highlighting key risks, strengths, and a recommendation — produce the summary in BOTH English and Simplified Chinese.
+  const userInstruction = `Score this rental candidate on SIX dimensions (0-100 each, higher=safer). Write a bilingual 2-sentence summary.
 
-SIX DIMENSIONS:
-1. doc_authenticity (weight 20%) — Are uploaded documents real, complete, unaltered? If no documents uploaded, score 30. Look for tampering, mismatched fonts, inconsistent dates.
-2. payment_ability (weight 20%) — Income / rent ratio (target: 3x rent or higher), bank balance, deposit history. Cross-check paystubs and bank statements against any self-reported income.
-3. court_records (weight 20%) — Use the public court-record lookup results provided. ZERO matches across all queried sources = score 90. Each LTB hit = significant deduction (down to 20). Each Small Claims hit = moderate deduction. If no name was queryable, score 60 and call out the gap. If ALL listed sources are marked "not yet integrated", score this dimension 70 (neutral) and note that automated court-record checks are temporarily offline pending API access.
-4. stability (weight 15%) — Employment tenure, rental history length, address stability — based only on what's visible.
-5. behavior_signals (weight 13%) — Red flags in the documents, completeness of materials, anything unusual in the pasted text.
-6. info_consistency (weight 12%) — Do names, employers, and income figures match across documents and the landlord's stated info?
+DIMENSIONS + WEIGHTS: doc_authenticity 20%, payment_ability 20%, court_records 20%, stability 15%, behavior_signals 13%, info_consistency 12%.
 
-Also extract:
-- The candidate's full legal name (from ID if available, otherwise self-reported).
-- The candidate's DETECTED gross monthly income in CAD (from paystubs, bank deposits, employment letters). If you see bi-weekly or annual figures, convert to monthly. If you truly cannot determine it, return null.
-- A list of document kinds you actually SAW in the uploaded files (open each file and look — do not guess from filename). Valid kinds: "employment_letter", "pay_stub", "bank_statement", "id_document", "credit_report", "offer_letter", "reference", "other". A single PDF may contain multiple kinds (e.g. a rental application package with an ID scan, paystub, and bank statement bundled inside) — include every kind you observe.
-- A PER-DIMENSION detailed explanation (2-4 sentences each, max 400 characters) that cites SPECIFIC evidence from the uploaded documents — which file, which numbers, which lines. Produce each detailed explanation in BOTH English and Simplified Chinese. Be concise.
-- A list of 3-6 RISK FLAGS AND RECOMMENDATIONS, each grounded in a specific piece of evidence (or a specific missing piece of evidence) from THIS applicant's file. Do not invent facts. Each flag has a type and short bilingual text (max 160 chars per language).
+RULES:
+- No documents → doc_authenticity=30.
+- payment_ability: target income/rent ratio ≥3x; cross-check paystubs vs bank statements.
+- court_records: 0 hits=90; each LTB hit heavy deduction (→20); each Small Claims moderate; if ALL sources "not yet integrated" → 70 (neutral) and note checks are offline pending API access.
+- stability: employment tenure, address history from what's visible.
+- behavior_signals: document red flags, completeness.
+- info_consistency: do names/employers/income match across docs + landlord input.
+- You MUST follow Ontario Human Rights Code — ignore protected grounds (age, race, religion, disability, family status, etc).
 
-IMPORTANT: Keep your entire JSON response under 6000 tokens. Be concise — no filler prose. Emit ONLY the JSON object, no preamble, no markdown fences, no trailing commentary.
+ALSO EXTRACT:
+- extracted_name from ID if available
+- detected_monthly_income (CAD, convert bi-weekly/annual, null if unknown)
+- income_evidence: one short sentence citing source
+- detected_document_kinds: subset of [employment_letter, pay_stub, bank_statement, id_document, credit_report, offer_letter, reference, other]. One PDF may contain multiple kinds — list every kind you see.
+- Per-dim bilingual detail: ONE sentence each, ≤25 English words, ≤30 Chinese chars, citing specific evidence (filename/number/line).
+- 3-4 risk flags grounded in THIS applicant's evidence. Types: danger (red flag), warning (missing evidence), info (neutral), success (positive).
 
-Flag types:
-- "danger" — clear red flag (court hit, tampered doc, income below rent, name mismatch)
-- "warning" — missing/insufficient evidence (no bank statement, no ID, stale paystub)
-- "info" — neutral observation or upgrade tip
-- "success" — positive signal (clean court record, strong ratio, long tenure)
-
-RESPOND WITH ONLY THIS JSON (no markdown, no fences):
+EMIT ONLY this JSON — no markdown, no fences, no preamble. Total output MUST stay under 2500 tokens.
 {
-  "extracted_name": "<full legal name from ID, or self-reported>",
-  "detected_monthly_income": <number in CAD, or null if not determinable>,
-  "income_evidence": "<one short sentence citing where the income figure came from, e.g. 'from 2 bi-weekly paystubs showing $1,850 each' — or null>",
-  "detected_document_kinds": ["<subset of: employment_letter, pay_stub, bank_statement, id_document, credit_report, offer_letter, reference, other>"],
-  "scores": {
-    "doc_authenticity": <0-100>,
-    "payment_ability": <0-100>,
-    "court_records": <0-100>,
-    "stability": <0-100>,
-    "behavior_signals": <0-100>,
-    "info_consistency": <0-100>
-  },
-  "notes": {
-    "doc_authenticity": "<one concise sentence>",
-    "payment_ability": "<one concise sentence>",
-    "court_records": "<one concise sentence>",
-    "stability": "<one concise sentence>",
-    "behavior_signals": "<one concise sentence>",
-    "info_consistency": "<one concise sentence>"
-  },
-  "details_en": {
-    "doc_authenticity": "<2-3 sentences citing specific evidence from uploaded documents>",
-    "payment_ability": "<2-3 sentences citing specific numbers and their source>",
-    "court_records": "<2-3 sentences citing which sources were queried and their findings>",
-    "stability": "<2-3 sentences citing tenure, address history, etc.>",
-    "behavior_signals": "<2-3 sentences citing specific observations>",
-    "info_consistency": "<2-3 sentences citing which fields matched or conflicted>"
-  },
-  "details_zh": {
-    "doc_authenticity": "<同样的3-6句中文详细说明>",
-    "payment_ability": "<同样的3-6句中文详细说明>",
-    "court_records": "<同样的3-6句中文详细说明>",
-    "stability": "<同样的3-6句中文详细说明>",
-    "behavior_signals": "<同样的3-6句中文详细说明>",
-    "info_consistency": "<同样的3-6句中文详细说明>"
-  },
-  "flags": [
-    { "type": "danger|warning|info|success", "text_en": "<short finding grounded in actual evidence>", "text_zh": "<同样的简短发现，中文>" }
-  ],
-  "summary_en": "<2-3 sentence professional recommendation in English>",
-  "summary_zh": "<同样的2-3句专业推荐，用简体中文>"
+ "extracted_name":"...",
+ "detected_monthly_income":<number or null>,
+ "income_evidence":"... or null",
+ "detected_document_kinds":["..."],
+ "scores":{"doc_authenticity":0,"payment_ability":0,"court_records":0,"stability":0,"behavior_signals":0,"info_consistency":0},
+ "details_en":{"doc_authenticity":"","payment_ability":"","court_records":"","stability":"","behavior_signals":"","info_consistency":""},
+ "details_zh":{"doc_authenticity":"","payment_ability":"","court_records":"","stability":"","behavior_signals":"","info_consistency":""},
+ "flags":[{"type":"danger|warning|info|success","text_en":"","text_zh":""}],
+ "summary_en":"2 sentences.",
+ "summary_zh":"两句话。"
 }`
 
+  // Mark the static instruction block as cacheable — Anthropic
+  // prompt caching lets repeat screenings reuse the ~1.5KB of
+  // instructions instead of re-processing them on every call.
   const userContent: any[] = [
-    { type: 'text', text: userInstruction },
+    { type: 'text', text: userInstruction, cache_control: { type: 'ephemeral' } },
     { type: 'text', text: '\n--- SCREENING CONTEXT ---\n' + formText },
   ]
   if (contentBlocks.length > 0) {
@@ -321,8 +293,10 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
-      max_tokens: 4500,
-      system: systemPrompt,
+      max_tokens: 3000,
+      system: [
+        { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
+      ],
       messages: [{ role: 'user', content: userContent }],
     }),
   })
