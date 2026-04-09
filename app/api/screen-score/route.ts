@@ -80,13 +80,35 @@ async function searchCanLII(name: string, jurisdictionId: string, label: string)
 
 async function runCourtRecordCheck(name: string, plan: string): Promise<{ queries: CourtQuery[]; total_hits: number; queried_name: string }> {
   const queries: CourtQuery[] = []
-  // Free tier sources — run BOTH CanLII lookups in parallel (used to be sequential)
-  const [ltb, sc] = await Promise.all([
-    searchCanLII(name, 'onltb', 'CanLII — LTB rulings'),
-    searchCanLII(name, 'onscsm', 'CanLII — Small Claims Court'),
-  ])
-  queries.push(ltb)
-  queries.push(sc)
+  // CanLII scraping is temporarily disabled — we're waiting on an
+  // official API key. Both CanLII sources return as "coming_soon"
+  // (same UX as the Pro sources below). Once the API is ready,
+  // flip ENABLE_CANLII back on and the Promise.all block below
+  // will resume running.
+  const ENABLE_CANLII = false
+  if (ENABLE_CANLII) {
+    const [ltb, sc] = await Promise.all([
+      searchCanLII(name, 'onltb', 'CanLII — LTB rulings'),
+      searchCanLII(name, 'onscsm', 'CanLII — Small Claims Court'),
+    ])
+    queries.push(ltb)
+    queries.push(sc)
+  } else {
+    queries.push({
+      source: 'CanLII — LTB rulings',
+      tier: 'free',
+      status: 'coming_soon',
+      hits: null,
+      note: 'Awaiting official API access',
+    })
+    queries.push({
+      source: 'CanLII — Small Claims Court',
+      tier: 'free',
+      status: 'coming_soon',
+      hits: null,
+      note: 'Awaiting official API access',
+    })
+  }
   // Pro tier sources — shown as coming soon (no public API)
   const isPro = plan === 'pro' || plan === 'enterprise'
   queries.push({
@@ -216,7 +238,7 @@ Output strictly the JSON schema requested — no markdown, no prose, no preamble
 SIX DIMENSIONS:
 1. doc_authenticity (weight 20%) — Are uploaded documents real, complete, unaltered? If no documents uploaded, score 30. Look for tampering, mismatched fonts, inconsistent dates.
 2. payment_ability (weight 20%) — Income / rent ratio (target: 3x rent or higher), bank balance, deposit history. Cross-check paystubs and bank statements against any self-reported income.
-3. court_records (weight 20%) — Use the public court-record lookup results provided. ZERO matches across all queried sources = score 90. Each LTB hit = significant deduction (down to 20). Each Small Claims hit = moderate deduction. If no name was queryable, score 60 and call out the gap.
+3. court_records (weight 20%) — Use the public court-record lookup results provided. ZERO matches across all queried sources = score 90. Each LTB hit = significant deduction (down to 20). Each Small Claims hit = moderate deduction. If no name was queryable, score 60 and call out the gap. If ALL listed sources are marked "not yet integrated", score this dimension 70 (neutral) and note that automated court-record checks are temporarily offline pending API access.
 4. stability (weight 15%) — Employment tenure, rental history length, address stability — based only on what's visible.
 5. behavior_signals (weight 13%) — Red flags in the documents, completeness of materials, anything unusual in the pasted text.
 6. info_consistency (weight 12%) — Do names, employers, and income figures match across documents and the landlord's stated info?
