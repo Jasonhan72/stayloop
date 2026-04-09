@@ -80,6 +80,7 @@ interface ScoreResult {
   gate_cap?: number
   evidence_coverage?: number
   sub_coverage?: Record<string, string>
+  identity_match_score?: number | null
   action_items?: {
     id: string
     dimension: string
@@ -342,6 +343,168 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier }: { queries:
             <div style={{ fontSize: 12, fontWeight: 600, color: '#A78BFA' }}>{t('screen.result.court.upgrade.title')}</div>
             <div style={{ fontSize: 11, color: '#7C6DB5', marginTop: 2 }}>{t('screen.result.court.upgrade.sub')}</div>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────── Document Authenticity Card ──
+// Expandable card summarising whether uploaded documents look legit.
+// Headline uses the v3 verification dimension (which bundles doc_auth +
+// identity_match + employer_verify), and the expanded body breaks that
+// down into the three sub-components plus any triggered gates/flags.
+function AuthenticityCard({ result }: { result: ScoreResult }) {
+  const { t, lang } = useT()
+  const [open, setOpen] = useState(false)
+
+  // Headline score: verification dim is our best proxy for "did these docs check out"
+  const verificationScore = result.scores_v3?.verification
+  const identityScore = typeof result.identity_match_score === 'number' ? result.identity_match_score : null
+
+  // Authenticity score = verification dim with identity pulled in when present
+  const authScore: number | null = typeof verificationScore === 'number'
+    ? (identityScore !== null ? Math.round((verificationScore + identityScore) / 2) : verificationScore)
+    : null
+
+  const hardGates = result.hard_gates_triggered || []
+  const redFlags = result.red_flags || []
+  const subCov = result.sub_coverage || {}
+
+  // Relevant gates and flags only
+  const authGates = hardGates.filter(g => ['doc_tampering', 'identity_mismatch', 'employer_fraud'].includes(g))
+  const authFlags = redFlags.filter(f => ['cross_doc_contradictions', 'hr_phone_is_applicant', 'no_linkedin_for_professional_role', 'volunteered_sin'].includes(f))
+
+  // Status classification
+  let statusKey: 'verified' | 'concerning' | 'suspicious' = 'verified'
+  let statusColor = '#10B981'
+  let statusBg = 'rgba(16, 185, 129, 0.12)'
+  let statusBorder = 'rgba(16, 185, 129, 0.4)'
+  let statusIcon = '✓'
+  if (authGates.length > 0 || (authScore !== null && authScore < 50)) {
+    statusKey = 'suspicious'
+    statusColor = '#F87171'
+    statusBg = 'rgba(220, 38, 38, 0.12)'
+    statusBorder = 'rgba(220, 38, 38, 0.4)'
+    statusIcon = '⚠'
+  } else if (authFlags.length > 0 || (authScore !== null && authScore < 75) || subCov.doc_authenticity === 'action_pending' || subCov.identity_match === 'action_pending') {
+    statusKey = 'concerning'
+    statusColor = '#FBBF24'
+    statusBg = 'rgba(245, 158, 11, 0.12)'
+    statusBorder = 'rgba(245, 158, 11, 0.4)'
+    statusIcon = '!'
+  }
+
+  // Short status label
+  const statusLabel = t(`screen.result.authenticity.status.${statusKey}` as DictKey)
+
+  // Verification dim detail text
+  const details = lang === 'zh' ? (result.details_zh || result.details_en) : (result.details_en || result.details_zh)
+  const verificationDetail = (details as any)?.verification as string | undefined
+
+  // Coverage helper — defaults to "measured" (backend sparse emission)
+  const cov = (key: string): string => subCov[key] || 'measured'
+  const covColor = (c: string) => {
+    if (c === 'measured') return '#86EFAC'
+    if (c === 'inferred') return '#93C5FD'
+    if (c === 'action_pending') return '#FCD34D'
+    return '#94A3B8'
+  }
+  const covLabel = (c: string) => t(`screen.result.authenticity.cov.${c}` as DictKey)
+
+  const SubRow = ({ label, covKey, scoreVal }: { label: string; covKey: string; scoreVal?: number | null }) => {
+    const c = cov(covKey)
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'rgba(148, 163, 184, 0.06)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: covColor(c), flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: '#cbd5e1' }}>{label}</div>
+          <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 1 }}>{covLabel(c)}</div>
+        </div>
+        {typeof scoreVal === 'number' && (
+          <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: covColor(c) }}>{scoreVal}/100</span>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="sl-card" style={{ background: 'var(--bg-card)', border: `1px solid ${statusBorder}`, marginBottom: 18, padding: 0, overflow: 'hidden' }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{ width: '100%', background: 'none', border: 'none', padding: '18px 20px', textAlign: 'left', cursor: 'pointer', color: 'inherit', display: 'flex', alignItems: 'center', gap: 14 }}
+      >
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: statusBg, border: `1px solid ${statusBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: statusColor, flexShrink: 0 }}>
+          {statusIcon}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>{t('screen.result.authenticity.title')}</div>
+          <div style={{ fontSize: 11.5, color: statusColor, marginTop: 2, fontWeight: 600 }}>{statusLabel}</div>
+          {!open && (
+            <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 3 }}>{t('screen.result.authenticity.sub')}</div>
+          )}
+        </div>
+        {authScore !== null && (
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div className="mono" style={{ fontSize: 22, fontWeight: 800, color: statusColor, lineHeight: 1 }}>{authScore}</div>
+            <div style={{ fontSize: 9, color: '#64748b', marginTop: 2, letterSpacing: '0.05em', textTransform: 'uppercase' }}>/ 100</div>
+          </div>
+        )}
+        <span style={{ fontSize: 16, color: '#64748b', transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'none', flexShrink: 0 }}>›</span>
+      </button>
+
+      {open && (
+        <div style={{ padding: '0 20px 20px', borderTop: '1px dashed var(--border-subtle)', marginTop: -1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
+            <SubRow
+              label={t('screen.result.authenticity.docCheck')}
+              covKey="doc_authenticity"
+            />
+            <SubRow
+              label={t('screen.result.authenticity.idMatch')}
+              covKey="identity_match"
+              scoreVal={identityScore}
+            />
+            <SubRow
+              label={t('screen.result.authenticity.employerCheck')}
+              covKey="employer_verify"
+            />
+          </div>
+
+          {verificationDetail && (
+            <div style={{ marginTop: 14, padding: '12px 14px', background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: 8 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 600, color: '#60A5FA', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{t('screen.result.authenticity.aiNote')}</div>
+              <div style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.6 }}>{verificationDetail}</div>
+            </div>
+          )}
+
+          {authGates.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 600, color: '#F87171', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{t('screen.result.authenticity.gatesTriggered')}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {authGates.map(g => (
+                  <div key={g} style={{ padding: '9px 12px', background: 'rgba(220, 38, 38, 0.1)', border: '1px solid rgba(220, 38, 38, 0.3)', borderRadius: 8, fontSize: 11.5, color: '#FCA5A5', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span>⛔</span>
+                    <span>{t(`screen.result.authenticity.gate.${g}` as DictKey)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {authFlags.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 600, color: '#FBBF24', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{t('screen.result.authenticity.flagsTriggered')}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {authFlags.map(f => (
+                  <div key={f} style={{ padding: '9px 12px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.28)', borderRadius: 8, fontSize: 11.5, color: '#FCD34D', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span>⚠</span>
+                    <span>{t(`screen.result.authenticity.flag.${f}` as DictKey)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1034,6 +1197,9 @@ export default function ScreenPage() {
               <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: '#94a3b8' }}>{t('screen.result.summary')}</div>
               <p className="sl-summary-text" style={{ fontSize: 14, lineHeight: 1.8, color: '#cbd5e1', margin: 0 }}>{(lang === 'zh' ? (result.summary_zh || result.summary) : (result.summary_en || result.summary))}</p>
             </div>
+
+            {/* Document Authenticity — between AI summary and category breakdown */}
+            <AuthenticityCard result={result} />
 
             {/* Category Scores */}
             <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
