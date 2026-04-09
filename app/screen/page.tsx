@@ -1328,6 +1328,21 @@ export default function ScreenPage() {
               </div>
             </div>
 
+            {/* Legal Disclaimer — advisory-only, HRC / RTA compliance reminder, liability carve-out */}
+            <div className="sl-card" style={{ background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.3)', marginBottom: 18, padding: '18px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#FBBF24' }}>⚠</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#FCD34D' }}>{t('screen.result.disclaimer.title')}</div>
+              </div>
+              <div style={{ fontSize: 11.5, color: '#cbd5e1', lineHeight: 1.75, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <p style={{ margin: 0 }}>{t('screen.result.disclaimer.body1')}</p>
+                <p style={{ margin: 0 }}>{t('screen.result.disclaimer.body2')}</p>
+                <p style={{ margin: 0 }}>{t('screen.result.disclaimer.body3')}</p>
+                <p style={{ margin: 0 }}>{t('screen.result.disclaimer.body4')}</p>
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: 11, fontStyle: 'italic', paddingTop: 8, borderTop: '1px dashed rgba(245, 158, 11, 0.2)' }}>{t('screen.result.disclaimer.body5')}</p>
+              </div>
+            </div>
+
             {/* Footer */}
             <div style={{ textAlign: 'center', padding: '16px', fontSize: 11, color: '#475569', borderTop: '1px solid #1e293b' }}>
               Stayloop Screening v1.1 · {result.tier === 'pro' ? 'Pro' : 'Free'} · {new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}<br />
