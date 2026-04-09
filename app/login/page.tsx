@@ -1,11 +1,17 @@
 'use client'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useT, LanguageToggle } from '@/lib/i18n'
 
-export default function LoginPage() {
+function LoginInner() {
   const { t } = useT()
+  const searchParams = useSearchParams()
+  const nextParam = searchParams.get('next') || '/screen'
+  // Only allow same-origin relative paths to avoid open-redirect
+  const safeNext = nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/screen'
+
   const [email, setEmail] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
@@ -16,9 +22,11 @@ export default function LoginPage() {
     setSending(true)
     setError(null)
 
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
+
     const { error: authError } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: redirectTo },
     })
 
     setSending(false)
@@ -90,5 +98,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" />}>
+      <LoginInner />
+    </Suspense>
   )
 }

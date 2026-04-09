@@ -515,7 +515,11 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
 
 export default function ScreenPage() {
   const { t, lang } = useT()
-  const { landlord, loading: authLoading, signOut } = useLandlord()
+  const { landlord, loading: authLoading, signOut } = useLandlord({
+    redirectIfMissing: true,
+    allowAnonymous: false,
+    redirectBackTo: '/screen',
+  })
 
   const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('free')
   const [tier, setTier] = useState<'free' | 'pro'>('free')
@@ -535,6 +539,8 @@ export default function ScreenPage() {
   const [lastDetectedKinds, setLastDetectedKinds] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<Screening[]>([])
+  const [viewingHistoryId, setViewingHistoryId] = useState<string | null>(null)
+  const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -564,6 +570,91 @@ export default function ScreenPage() {
       .order('created_at', { ascending: false })
       .limit(20)
     if (data) setHistory(data)
+  }
+
+  // Reconstruct a full ScoreResult from a saved screening row. The server
+  // packs everything needed into ai_dimension_notes._v3 at scoring time
+  // (plus individual scoring columns), so this is a pure read with no AI call.
+  async function loadPastScreening(id: string) {
+    setLoadingHistoryId(id)
+    setError(null)
+    try {
+      const { data, error } = await supabase
+        .from('screenings')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
+      if (error || !data) {
+        setError(t('history.loadError'))
+        return
+      }
+      const v3 = (data.ai_dimension_notes && (data.ai_dimension_notes as any)._v3) || {}
+
+      // Legacy scores: prefer the snapshot stashed into _v3, fall back to
+      // individual columns for rows scored before we started packing it.
+      const legacyScores = v3.legacy_scores || {
+        doc_authenticity: data.doc_authenticity_score ?? 0,
+        payment_ability: data.payment_ability_score ?? 0,
+        court_records: data.court_records_score ?? 0,
+        stability: data.stability_score ?? 0,
+        behavior_signals: data.behavior_signals_score ?? 0,
+        info_consistency: data.info_consistency_score ?? 0,
+      }
+
+      const scoresV3 = v3.scores || (data.ability_to_pay_score != null ? {
+        ability_to_pay: data.ability_to_pay_score ?? 0,
+        credit_health: data.credit_health_score ?? 0,
+        rental_history: data.rental_history_score ?? 0,
+        verification: data.verification_score ?? 0,
+        communication: data.communication_score ?? 0,
+      } : undefined)
+
+      const reconstructed: ScoreResult = {
+        overall: data.ai_score ?? 0,
+        scores: legacyScores,
+        notes: {},
+        details_en: v3.details_en ?? data.ai_dimension_notes?._details_en ?? null,
+        details_zh: v3.details_zh ?? data.ai_dimension_notes?._details_zh ?? null,
+        flags: Array.isArray(v3.flags) ? v3.flags : [],
+        detected_document_kinds: Array.isArray(v3.detected_document_kinds) ? v3.detected_document_kinds : [],
+        detected_monthly_income: v3.detected_monthly_income ?? null,
+        effective_monthly_income: v3.effective_monthly_income ?? null,
+        income_evidence: v3.income_evidence ?? data.ai_dimension_notes?._income_evidence ?? null,
+        monthly_rent: v3.monthly_rent ?? null,
+        income_rent_ratio: v3.income_rent_ratio ?? null,
+        extracted_name: v3.extracted_name || data.ai_extracted_name || data.tenant_name || '',
+        name_was_extracted: !!data.ai_extracted_name,
+        summary: v3.summary_en || data.ai_summary || '',
+        summary_en: v3.summary_en || data.ai_summary || '',
+        summary_zh: v3.summary_zh || '',
+        court_records_detail: v3.court_records_detail ?? data.court_records_detail ?? { queries: [], total_hits: 0, queried_name: '' },
+        tier: (plan === 'pro' || plan === 'enterprise') ? 'pro' : 'free',
+        model_version: v3.model_version || data.model_version || undefined,
+        scores_v3: scoresV3,
+        v3_tier: v3.tier || data.v3_tier || undefined,
+        tier_reason: v3.tier_reason || data.tier_reason || undefined,
+        hard_gates_triggered: v3.hard_gates_triggered || data.hard_gates_triggered || [],
+        red_flags: v3.red_flags || data.red_flags || [],
+        red_flag_penalty: v3.red_flag_penalty ?? data.red_flag_penalty ?? 0,
+        gate_cap: v3.gate_cap ?? undefined,
+        evidence_coverage: v3.evidence_coverage ?? data.evidence_coverage ?? undefined,
+        sub_coverage: v3.sub_coverage || data.sub_coverage || {},
+        identity_match_score: v3.identity_match_score ?? data.identity_match_score ?? null,
+        action_items: v3.action_items || data.action_items || [],
+        compliance_audit: v3.compliance_audit ?? data.compliance_audit ?? null,
+      }
+
+      setResult(reconstructed)
+      setViewingHistoryId(id)
+      // Scroll to top so the user lands on the report
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    } catch (e: any) {
+      setError(t('history.loadError'))
+    } finally {
+      setLoadingHistoryId(null)
+    }
   }
 
   const handleFiles = useCallback((list: FileList | File[] | null) => {
@@ -648,6 +739,7 @@ export default function ScreenPage() {
     setApplicantName('')
     setTargetRent('')
     setError(null)
+    setViewingHistoryId(null)
   }
 
   async function runAnalysis() {
@@ -1363,8 +1455,25 @@ export default function ScreenPage() {
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: 400, overflowY: 'auto' }}>
               {history.map(s => {
                 const lvl = s.ai_score != null ? getRiskLevel(s.ai_score) : null
+                const isActive = viewingHistoryId === s.id
+                const isLoading = loadingHistoryId === s.id
+                const clickable = s.status === 'scored' || s.ai_score != null
                 return (
-                  <li key={s.id} style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.15s' }}>
+                  <li
+                    key={s.id}
+                    onClick={() => { if (clickable && !isLoading) loadPastScreening(s.id) }}
+                    style={{
+                      padding: '14px 20px',
+                      borderBottom: '1px solid var(--border-subtle)',
+                      transition: 'background 0.15s',
+                      cursor: clickable ? 'pointer' : 'default',
+                      background: isActive ? 'rgba(56, 189, 248, 0.08)' : undefined,
+                      opacity: isLoading ? 0.6 : 1,
+                    }}
+                    onMouseEnter={e => { if (clickable) (e.currentTarget as HTMLLIElement).style.background = 'rgba(148, 163, 184, 0.06)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLLIElement).style.background = isActive ? 'rgba(56, 189, 248, 0.08)' : '' }}
+                    title={clickable ? t('history.viewHint') : ''}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                         {s.ai_extracted_name || s.tenant_name || t('history.autoExtracted')}
@@ -1375,7 +1484,11 @@ export default function ScreenPage() {
                         <span className="mono chip">{s.status}</span>
                       )}
                     </div>
-                    <div className="mono" style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 4 }}>{new Date(s.created_at).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}</div>
+                    <div className="mono" style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 4 }}>
+                      {new Date(s.created_at).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}
+                      {isLoading && <span style={{ marginLeft: 8, color: '#22D3EE' }}>· {t('history.loading')}</span>}
+                      {clickable && !isLoading && <span style={{ marginLeft: 8, color: 'var(--text-muted)' }}>· {t('history.viewHint')}</span>}
+                    </div>
                     {s.ai_summary && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.ai_summary}</div>}
                   </li>
                 )

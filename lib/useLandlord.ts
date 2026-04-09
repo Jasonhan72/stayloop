@@ -7,28 +7,68 @@ export interface LandlordSession {
   authId: string
   email: string
   landlordId: string
+  isAnonymous: boolean
 }
 
-export function useLandlord(redirectIfMissing = true) {
+export interface UseLandlordOptions {
+  /** If true (default), redirect unauthenticated visitors to /login. */
+  redirectIfMissing?: boolean
+  /** If true, fall back to anonymous sign-in for visitors. Default: false (real login required). */
+  allowAnonymous?: boolean
+  /** Path to redirect back to after login completes. */
+  redirectBackTo?: string
+}
+
+export function useLandlord(
+  redirectIfMissingOrOpts: boolean | UseLandlordOptions = true,
+) {
+  const opts: UseLandlordOptions =
+    typeof redirectIfMissingOrOpts === 'boolean'
+      ? { redirectIfMissing: redirectIfMissingOrOpts }
+      : redirectIfMissingOrOpts
+  const redirectIfMissing = opts.redirectIfMissing ?? true
+  const allowAnonymous = opts.allowAnonymous ?? false
+  const redirectBackTo = opts.redirectBackTo
+
   const router = useRouter()
   const [landlord, setLandlord] = useState<LandlordSession | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let active = true
+
+    function bounceToLogin() {
+      const next = redirectBackTo ? `?next=${encodeURIComponent(redirectBackTo)}` : ''
+      router.replace(`/login${next}`)
+    }
+
     async function load() {
       let { data: { session } } = await supabase.auth.getSession()
+
       if (!session?.user) {
-        // No session — try anonymous sign-in so visitors can use the app instantly
-        const { data: anon, error: anonErr } = await supabase.auth.signInAnonymously()
-        if (anonErr || !anon?.session?.user) {
+        if (allowAnonymous) {
+          const { data: anon, error: anonErr } = await supabase.auth.signInAnonymously()
+          if (anonErr || !anon?.session?.user) {
+            if (active) {
+              setLoading(false)
+              if (redirectIfMissing) bounceToLogin()
+            }
+            return
+          }
+          session = anon.session
+        } else {
           if (active) {
             setLoading(false)
-            if (redirectIfMissing) router.replace('/login')
+            if (redirectIfMissing) bounceToLogin()
           }
           return
         }
-        session = anon.session
+      } else if (!allowAnonymous && (session.user as any).is_anonymous) {
+        if (active) {
+          setLoading(false)
+          if (redirectIfMissing) bounceToLogin()
+        }
+        return
       }
 
       let { data: row } = await supabase
@@ -40,12 +80,11 @@ export function useLandlord(redirectIfMissing = true) {
       if (!active) return
 
       if (!row) {
-        // Try to claim/create via SECURITY DEFINER RPC
         const { data: claimed, error: claimErr } = await supabase.rpc('claim_landlord')
         if (claimErr || !claimed) {
           console.error('claim_landlord failed', claimErr)
           setLoading(false)
-          if (redirectIfMissing) router.replace('/login')
+          if (redirectIfMissing) bounceToLogin()
           return
         }
         row = { id: claimed.id, email: claimed.email }
@@ -55,14 +94,17 @@ export function useLandlord(redirectIfMissing = true) {
         authId: session.user.id,
         email: row.email,
         landlordId: row.id,
+        isAnonymous: !!(session.user as any).is_anonymous,
       })
       setLoading(false)
     }
+
     load()
     return () => {
       active = false
     }
-  }, [router, redirectIfMissing])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router, redirectIfMissing, allowAnonymous, redirectBackTo])
 
   async function signOut() {
     await supabase.auth.signOut()

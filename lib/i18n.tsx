@@ -92,6 +92,25 @@ export const DICT = {
   'home.pricing.pro.cta': { en: 'Upgrade to Pro', zh: '升级到 Pro' },
   'home.footer.copy': { en: '© 2026 Stayloop · Made for Ontario landlords', zh: '© 2026 Stayloop · 为安省房东打造' },
 
+  // Dedicated free-screen entry card (between hero and features)
+  'home.screenEntry.tag': { en: '// AVAILABLE NOW', zh: '// 现已上线' },
+  'home.screenEntry.title': { en: 'Free AI Tenant Screening Report', zh: '免费 AI 租客筛查报告' },
+  'home.screenEntry.subtitle': {
+    en: 'Upload pay stubs, ID, bank statements and references. In about a minute you get a full risk report with CanLII court record search — at no cost.',
+    zh: '上传工资单、证件、银行流水和推荐信。约一分钟后即可获得完整风控报告，并自动查询 CanLII 全部安省法庭记录 — 完全免费。',
+  },
+  'home.screenEntry.b1.title': { en: '5-dimension Risk Score', zh: '5 维风险评分' },
+  'home.screenEntry.b1.desc': { en: 'Ability to pay, credit health, rental & legal history, identity & employer, application quality.', zh: '付款能力、信用健康、租务与司法历史、身份与雇主核实、申请完整度。' },
+  'home.screenEntry.b2.title': { en: 'All Ontario CanLII Records', zh: '安省全部 CanLII 记录' },
+  'home.screenEntry.b2.desc': { en: 'Searches LTB, Superior Court, Small Claims, HRT and more against the applicant name.', zh: '按申请人姓名检索 LTB、高等法院、小额法庭、人权法庭等全部安省公开数据库。' },
+  'home.screenEntry.b3.title': { en: 'AI document verification', zh: 'AI 资料真实性核验' },
+  'home.screenEntry.b3.desc': { en: 'Cross-checks IDs, pay stubs and bank statements for tampering and inconsistencies.', zh: '交叉核对证件、工资单与银行流水，识别伪造与不一致之处。' },
+  'home.screenEntry.b4.title': { en: 'Bilingual EN / 中文 report', zh: '中英双语报告' },
+  'home.screenEntry.b4.desc': { en: 'One click switches the full report between English and Chinese.', zh: '一键切换完整报告的中英文显示。' },
+  'home.screenEntry.cta': { en: 'Start a free screening →', zh: '免费开始筛查 →' },
+  'home.screenEntry.ctaLoggedOut': { en: 'Sign in to start →', zh: '登录后开始 →' },
+  'home.screenEntry.notice': { en: 'Login required · Each report saved to your history', zh: '需要登录 · 每份报告自动保存至历史记录' },
+
   // Screen page
   'screen.title': { en: 'Stayloop Screening', zh: 'Stayloop Screening' },
   'screen.subtitle': { en: 'AI Tenant Risk Assessment v1.1', zh: 'AI 租客风控评估系统 v1.1' },
@@ -286,6 +305,10 @@ export const DICT = {
   'history.title': { en: 'Recent assessments', zh: '最近评估' },
   'history.countN': { en: '{n} entries', zh: '{n} 条' },
   'history.autoExtracted': { en: '(auto-extracted)', zh: '(自动提取)' },
+  'history.viewHint': { en: 'Click to reopen', zh: '点击查看' },
+  'history.loading': { en: 'Loading saved report...', zh: '加载已保存报告...' },
+  'history.loadError': { en: 'This report could not be loaded.', zh: '此报告无法加载。' },
+  'history.back': { en: '← Back to new screening', zh: '← 返回新建评估' },
 
   // Dashboard
   'dash.tagline': { en: 'dashboard', zh: '控制台' },

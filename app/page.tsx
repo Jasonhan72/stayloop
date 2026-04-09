@@ -1,9 +1,32 @@
 'use client'
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { useT, LanguageToggle } from '@/lib/i18n'
+import { supabase } from '@/lib/supabase'
 
 export default function Home() {
   const { t } = useT()
+  const [signedIn, setSignedIn] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let active = true
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return
+      // Only count non-anonymous sessions as "signed in" for CTA routing.
+      const user = data.session?.user
+      const isReal = !!user && !(user as any).is_anonymous
+      setSignedIn(isReal)
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
+      const user = sess?.user
+      const isReal = !!user && !(user as any).is_anonymous
+      setSignedIn(isReal)
+    })
+    return () => { active = false; sub.subscription.unsubscribe() }
+  }, [])
+
+  const screenHref = signedIn ? '/screen' : '/login?next=/screen'
+
   return (
     <main className="min-h-screen">
       {/* Nav */}
@@ -20,7 +43,7 @@ export default function Home() {
         </Link>
         <div className="nav-actions">
           <LanguageToggle />
-          <Link href="/screen" className="btn btn-primary btn-sm">{t('nav.getStarted')}</Link>
+          <Link href={screenHref} className="btn btn-primary btn-sm">{t('nav.getStarted')}</Link>
         </div>
       </nav>
 
@@ -41,7 +64,7 @@ export default function Home() {
         </p>
 
         <div className="flex gap-3 justify-center flex-wrap">
-          <Link href="/screen" className="btn btn-primary btn-lg">
+          <Link href={screenHref} className="btn btn-primary btn-lg">
             {t('home.cta.primary')} →
           </Link>
           <a href="#features" className="btn btn-ghost btn-lg">
@@ -82,6 +105,68 @@ export default function Home() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Dedicated free-screen entry */}
+      <section id="free-screen" className="max-w-5xl mx-auto px-6 pt-4 pb-20 fade-up">
+        <Link
+          href={screenHref}
+          className="card-hero"
+          style={{
+            display: 'block',
+            padding: 0,
+            textDecoration: 'none',
+            color: 'inherit',
+            overflow: 'hidden',
+            border: '1px solid var(--border-accent)',
+            boxShadow: '0 20px 60px -20px rgba(56, 189, 248, 0.25)',
+          }}
+        >
+          <div style={{ padding: '28px 32px 24px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div className="chip chip-accent mono" style={{ margin: 0 }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
+              {t('home.screenEntry.tag')}
+            </div>
+            <div className="mono" style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--text-faint)' }}>
+              {t('home.screenEntry.notice')}
+            </div>
+          </div>
+
+          <div style={{ padding: '32px' }}>
+            <h2 className="h-hero" style={{ marginBottom: 12 }}>
+              <span className="text-gradient">{t('home.screenEntry.title')}</span>
+            </h2>
+            <p style={{ fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.7, maxWidth: 720, marginBottom: 28 }}>
+              {t('home.screenEntry.subtitle')}
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-4" style={{ marginBottom: 28 }}>
+              {[
+                { n: '01', t: t('home.screenEntry.b1.title'), d: t('home.screenEntry.b1.desc'), col: '#34D399' },
+                { n: '02', t: t('home.screenEntry.b2.title'), d: t('home.screenEntry.b2.desc'), col: '#22D3EE' },
+                { n: '03', t: t('home.screenEntry.b3.title'), d: t('home.screenEntry.b3.desc'), col: '#A78BFA' },
+                { n: '04', t: t('home.screenEntry.b4.title'), d: t('home.screenEntry.b4.desc'), col: '#F472B6' },
+              ].map(b => (
+                <div key={b.n} style={{ padding: 16, borderRadius: 12, background: 'var(--bg-card-raised)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <span className="mono" style={{ fontSize: 10, color: b.col, letterSpacing: '0.08em', fontWeight: 700 }}>{b.n}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{b.t}</span>
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{b.d}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+              <span className="btn btn-primary btn-lg" style={{ pointerEvents: 'none' }}>
+                {signedIn === false ? t('home.screenEntry.ctaLoggedOut') : t('home.screenEntry.cta')}
+              </span>
+              <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                $0 · Ontario · CanLII · Claude Sonnet 4.5
+              </span>
+            </div>
+          </div>
+        </Link>
       </section>
 
       {/* Features */}
@@ -157,7 +242,7 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            <Link href="/screen" className="btn btn-ghost" style={{ width: '100%' }}>{t('home.pricing.free.cta')}</Link>
+            <Link href={screenHref} className="btn btn-ghost" style={{ width: '100%' }}>{t('home.pricing.free.cta')}</Link>
           </div>
 
           <div className="card-hero" style={{ padding: 32 }}>
@@ -175,7 +260,7 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            <Link href="/screen" className="btn btn-primary" style={{ width: '100%' }}>{t('home.pricing.pro.cta')}</Link>
+            <Link href={screenHref} className="btn btn-primary" style={{ width: '100%' }}>{t('home.pricing.pro.cta')}</Link>
           </div>
         </div>
       </section>
