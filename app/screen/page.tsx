@@ -469,13 +469,27 @@ export default function ScreenPage() {
     ]
 
     let cancelled = false
+    // Real analyze latency is dominated by the Claude vision call, which
+    // can take 30-60s on multi-document uploads. Walk the canned steps
+    // first (still-fast UX), then keep the bar crawling up slowly from
+    // 94% → 98% while we wait on the real API, so the user never sees
+    // it appear "frozen" at the last step.
     const animate = async () => {
       for (const s of steps) {
         if (cancelled) return
-        await new Promise(r => setTimeout(r, 450 + Math.random() * 350))
+        await new Promise(r => setTimeout(r, 650 + Math.random() * 450))
         if (cancelled) return
         setProgress(s.pct)
         setProgressLabel(s.label)
+      }
+      // Slow crawl phase: advance ~0.25% per 800ms, capped at 98
+      let p = 94
+      while (!cancelled && p < 98) {
+        await new Promise(r => setTimeout(r, 800))
+        if (cancelled) return
+        p = Math.min(98, p + 0.25)
+        setProgress(p)
+        setProgressLabel(t('screen.step.risk'))
       }
     }
     const animPromise = animate()

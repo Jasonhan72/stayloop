@@ -80,10 +80,12 @@ async function searchCanLII(name: string, jurisdictionId: string, label: string)
 
 async function runCourtRecordCheck(name: string, plan: string): Promise<{ queries: CourtQuery[]; total_hits: number; queried_name: string }> {
   const queries: CourtQuery[] = []
-  // Free tier sources — both run for everyone
-  const ltb = await searchCanLII(name, 'onltb', 'CanLII — LTB rulings')
+  // Free tier sources — run BOTH CanLII lookups in parallel (used to be sequential)
+  const [ltb, sc] = await Promise.all([
+    searchCanLII(name, 'onltb', 'CanLII — LTB rulings'),
+    searchCanLII(name, 'onscsm', 'CanLII — Small Claims Court'),
+  ])
   queries.push(ltb)
-  const sc = await searchCanLII(name, 'onscsm', 'CanLII — Small Claims Court')
   queries.push(sc)
   // Pro tier sources — shown as coming soon (no public API)
   const isPro = plan === 'pro' || plan === 'enterprise'
@@ -257,12 +259,12 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     "info_consistency": "<one concise sentence>"
   },
   "details_en": {
-    "doc_authenticity": "<3-6 sentences citing specific evidence from uploaded documents>",
-    "payment_ability": "<3-6 sentences citing specific numbers and their source>",
-    "court_records": "<3-6 sentences citing which sources were queried and their findings>",
-    "stability": "<3-6 sentences citing tenure, address history, etc.>",
-    "behavior_signals": "<3-6 sentences citing specific observations>",
-    "info_consistency": "<3-6 sentences citing which fields matched or conflicted>"
+    "doc_authenticity": "<2-3 sentences citing specific evidence from uploaded documents>",
+    "payment_ability": "<2-3 sentences citing specific numbers and their source>",
+    "court_records": "<2-3 sentences citing which sources were queried and their findings>",
+    "stability": "<2-3 sentences citing tenure, address history, etc.>",
+    "behavior_signals": "<2-3 sentences citing specific observations>",
+    "info_consistency": "<2-3 sentences citing which fields matched or conflicted>"
   },
   "details_zh": {
     "doc_authenticity": "<同样的3-6句中文详细说明>",
@@ -297,7 +299,7 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
-      max_tokens: 6000,
+      max_tokens: 4500,
       system: systemPrompt,
       messages: [{ role: 'user', content: userContent }],
     }),
