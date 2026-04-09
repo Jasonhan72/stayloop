@@ -266,9 +266,22 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble. Stay under 3000 tok
    "hrc_compliant":true,
    "reviewer_note":"..."
  },
- "summary_en":"2 sentences.",
- "summary_zh":"两句话。"
-}`
+ "summary_en":"Exactly 2 short sentences, ≤30 words total.",
+ "summary_zh":"正好两句，总长 ≤50 字。"
+}
+
+STRICT LENGTH LIMITS (avoid truncation):
+- details_en entries: ≤20 English words each
+- details_zh entries: ≤25 Chinese chars each
+- action_items: 1-3 items MAX, each details field ≤40 words / ≤60 chars
+- summary_en: ≤30 words total, summary_zh: ≤50 chars total
+- reviewer_note: ≤40 words
+
+JSON DISCIPLINE (avoid parse errors):
+- NO unescaped newlines inside string values — use a space instead of newline
+- NO commas inside numeric values (write 15090 not 15,090)
+- Escape any inner double quotes as \\"
+- Close every string and bracket properly before ending`
 
     const userContent: any[] = [
       { type: 'text', text: userInstruction, cache_control: { type: 'ephemeral' } },
@@ -288,7 +301,7 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble. Stay under 3000 tok
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 4500,
+        max_tokens: 6500,
         system: [
           { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
         ],
@@ -309,29 +322,86 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble. Stay under 3000 tok
     const rawText = '{' + (aiData.content?.[0]?.text || '')
     const stopReason = aiData.stop_reason || ''
 
+    // Robust JSON extractor — survives four common Claude failure modes:
+    // (1) markdown code fence wrapping, (2) trailing commas before ] or },
+    // (3) truncation mid-string (unclosed quote at end of output),
+    // (4) truncation mid-field (output ends right after a value with no
+    //     closing bracket). For (3) and (4) we salvage by walking back to
+    //     the last known-good field and closing the outer braces ourselves.
     function extractJson(input: string): string {
       let t = input.trim()
       t = t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
       try { JSON.parse(t); return t } catch {}
+
       const start = t.indexOf('{')
       if (start < 0) return t
-      let depth = 0, inStr = false, esc = false
-      let sliced = t.slice(start)
-      for (let i = 0; i < sliced.length; i++) {
-        const ch = sliced[i]
+      let body = t.slice(start)
+
+      // First pass — if we find a balanced top-level object, use it verbatim.
+      {
+        let depth = 0, inStr = false, esc = false
+        for (let i = 0; i < body.length; i++) {
+          const ch = body[i]
+          if (inStr) {
+            if (esc) esc = false
+            else if (ch === '\\') esc = true
+            else if (ch === '"') inStr = false
+          } else {
+            if (ch === '"') inStr = true
+            else if (ch === '{') depth++
+            else if (ch === '}') { depth--; if (depth === 0) { body = body.slice(0, i + 1); break } }
+          }
+        }
+      }
+
+      const cleanup = (s: string) => s.replace(/,(\s*[}\]])/g, '$1').replace(/\uFEFF/g, '')
+
+      const pass1 = cleanup(body)
+      try { JSON.parse(pass1); return pass1 } catch {}
+
+      // Second pass — salvage mode. The output is incomplete. Walk
+      // forward tracking depth AND the byte offset of the last COMPLETE
+      // top-level field (i.e. the last `,` we saw at depth 1 that is
+      // NOT inside a string). Then chop to that offset and close all
+      // still-open brackets.
+      let depth = 0
+      let inStr = false
+      let esc = false
+      let lastSafeCut = -1  // offset of the last comma at depth 1 outside a string
+      const bracketStack: string[] = []  // track open brackets for later closing
+      let cutBracketStack: string[] = []
+      for (let i = 0; i < body.length; i++) {
+        const ch = body[i]
         if (inStr) {
           if (esc) esc = false
           else if (ch === '\\') esc = true
           else if (ch === '"') inStr = false
-        } else {
-          if (ch === '"') inStr = true
-          else if (ch === '{') depth++
-          else if (ch === '}') { depth--; if (depth === 0) { sliced = sliced.slice(0, i + 1); break } }
+          continue
+        }
+        if (ch === '"') { inStr = true; continue }
+        if (ch === '{' || ch === '[') { bracketStack.push(ch); depth++; continue }
+        if (ch === '}' || ch === ']') { bracketStack.pop(); depth--; continue }
+        if (ch === ',' && depth === 1) {
+          lastSafeCut = i
+          cutBracketStack = [...bracketStack]
         }
       }
-      sliced = sliced.replace(/,(\s*[}\]])/g, '$1').replace(/\uFEFF/g, '')
-      try { JSON.parse(sliced); return sliced } catch {}
-      return sliced
+
+      if (lastSafeCut > 0) {
+        // Chop off everything after the last clean field and close
+        // whatever brackets were open at that point.
+        let salvage = body.slice(0, lastSafeCut)
+        // Close each open bracket in LIFO order
+        for (let k = cutBracketStack.length - 1; k >= 0; k--) {
+          salvage += cutBracketStack[k] === '{' ? '}' : ']'
+        }
+        salvage = cleanup(salvage)
+        try { JSON.parse(salvage); return salvage } catch {}
+      }
+
+      // Last resort — return whatever we have after cleanup and let
+      // the parser error naturally (the error snippet will be logged).
+      return pass1
     }
 
     const text = extractJson(rawText)
