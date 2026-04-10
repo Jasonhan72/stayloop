@@ -348,7 +348,7 @@ export const DICT = {
   'mk.finalcta.secondary': { en: 'View roadmap', zh: '查看路线图' },
 
   // Footer
-  'mk.footer.tagline': { en: 'Institutional-grade tenant screening for Canadian landlords.', zh: '为加拿大房东打造的机构级租客背调平台。' },
+  'mk.footer.tagline': { en: 'Marketplace · Risk engine · Payments · Service network — four modules, one platform.', zh: '房源市场 · 风控引擎 · 支付与信用 · 服务网络 —— 四大模块，同一平台。' },
   'mk.footer.product': { en: 'Product', zh: '产品' },
   'mk.footer.company': { en: 'Company', zh: '公司' },
   'mk.footer.legal': { en: 'Legal', zh: '法律' },
