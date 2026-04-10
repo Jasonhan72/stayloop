@@ -444,16 +444,18 @@ function Architecture() {
           <p className="mk-lead" style={{ maxWidth: 760, margin: '0 auto' }}>{t('mk.arch.sub')}</p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 18 }}>
           {modules.map(m => (
-            <div key={m.num} className="mk-card mk-card-hover" style={{ padding: 26 }}>
+            <div key={m.num} className="mk-card mk-card-hover" style={{ padding: 26, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
               <div style={{
                 fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 11, fontWeight: 800, letterSpacing: '0.08em',
-                color: 'var(--mk-brand-strong)', marginBottom: 14,
+                fontSize: 28, fontWeight: 800, lineHeight: 1,
+                color: 'var(--mk-brand-soft)', flexShrink: 0, marginTop: 2,
               }}>{m.tag}</div>
-              <h3 className="mk-h3" style={{ fontSize: 17, marginBottom: 10 }}>{m.title}</h3>
-              <p style={{ fontSize: 13.5, color: 'var(--mk-text-secondary)', lineHeight: 1.65, margin: 0 }}>{m.desc}</p>
+              <div>
+                <h3 className="mk-h3" style={{ fontSize: 16, marginBottom: 6 }}>{m.title}</h3>
+                <p style={{ fontSize: 13, color: 'var(--mk-text-secondary)', lineHeight: 1.6, margin: 0 }}>{m.desc}</p>
+              </div>
             </div>
           ))}
         </div>

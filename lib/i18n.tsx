@@ -186,25 +186,25 @@ export const DICT = {
   'mk.dual.tenant.soon': { en: 'Q3 2026', zh: '2026 年 Q3' },
 
   // Architecture — the four interlocking modules of the Trust OS
-  'mk.arch.eyebrow': { en: 'ARCHITECTURE', zh: '系统架构' },
-  'mk.arch.title': { en: 'Four interlocking modules. One trust operating system.', zh: '四个相互咬合的模块，组成同一个信任操作系统。' },
-  'mk.arch.sub': { en: 'Stayloop is built around four modules that work as a single gear train: discovery, verification, payments and post-move-in operations — each one designed to feed the next.', zh: 'Stayloop 围绕四个模块构建，像一组齿轮咬合在一起：房源发现、申请核验、租金支付、租后运营 —— 每一个模块都为下一个模块供能。' },
+  'mk.arch.eyebrow': { en: 'TRUST OS', zh: '信任操作系统' },
+  'mk.arch.title': { en: 'Four modules. One operating system.', zh: '四大模块，一个操作系统。' },
+  'mk.arch.sub': { en: 'Discovery, verification, payment, operations — each module feeds the next.', zh: '发现、核验、支付、运营 —— 每个模块都为下一个模块供能。' },
 
-  'mk.arch.m1.tag': { en: 'MODULE 01', zh: '模块 01' },
+  'mk.arch.m1.tag': { en: '01', zh: '01' },
   'mk.arch.m1.title': { en: 'Verified marketplace', zh: '可信房源市场' },
-  'mk.arch.m1.desc': { en: 'A unified entry point for Ontario rentals. MLS integration for brokers, one-click listing migration for independent landlords, and a natural-language search experience for tenants.', zh: '面向安省租赁的统一入口：经纪人可一键导入 MLS 房源，独立房东可一键迁入既有挂牌，租客以自然语言精准检索房源。' },
+  'mk.arch.m1.desc': { en: 'MLS + Kijiji aggregation, NLP-driven search, universal tenant profiles.', zh: 'MLS + Kijiji 聚合，NLP 智能搜索，通用租客档案。' },
 
-  'mk.arch.m2.tag': { en: 'MODULE 02', zh: '模块 02' },
+  'mk.arch.m2.tag': { en: '02', zh: '02' },
   'mk.arch.m2.title': { en: 'Hybrid risk engine', zh: '双轨风控引擎' },
-  'mk.arch.m2.desc': { en: 'Two-track verification: an Open Banking path that reads real cash flow directly from the applicant\u2019s bank, and a document-forensics path that detects tampering on uploaded pay stubs, IDs and statements.', zh: '双轨核验：Open Banking 通路直接读取申请人银行流水以识别真实收入；文件鉴伪通路对上传的工资单、证件与流水进行篡改检测。' },
+  'mk.arch.m2.desc': { en: 'Open Banking cash-flow analysis + AI document forensics + CanLII court sweep.', zh: 'Open Banking 现金流分析 + AI 文件鉴伪 + CanLII 法庭记录检索。' },
 
-  'mk.arch.m3.tag': { en: 'MODULE 03', zh: '模块 03' },
-  'mk.arch.m3.title': { en: 'Rent payments & credit', zh: '租金支付与信用' },
-  'mk.arch.m3.desc': { en: 'Pre-authorized debit, card and Interac payments, with payday-aligned scheduling and credit-bureau reporting on both on-time and delinquent rent.', zh: '支持 PAD 自动划扣、信用卡与 Interac 支付，按发薪日对齐扣款，并将按时与逾期记录上报征信局。' },
+  'mk.arch.m3.tag': { en: '03', zh: '03' },
+  'mk.arch.m3.title': { en: 'Payments & credit', zh: '支付与信用' },
+  'mk.arch.m3.desc': { en: 'PAD / card / Interac, payday-aligned scheduling, two-way credit bureau reporting.', zh: 'PAD / 信用卡 / Interac，按发薪日对齐，征信局双向上报。' },
 
-  'mk.arch.m4.tag': { en: 'MODULE 04', zh: '模块 04' },
-  'mk.arch.m4.title': { en: 'Service network & legal', zh: '服务网络与法律层' },
-  'mk.arch.m4.desc': { en: 'On-the-ground listing inspections and on-demand viewings, plus an in-platform communication layer that produces an immutable evidence trail for LTB proceedings.', zh: '线下房源实勘与按需带看调度，叠加平台内强制沟通层 —— 自动留存可作为 LTB 呈堂证供的不可篡改证据链。' },
+  'mk.arch.m4.tag': { en: '04', zh: '04' },
+  'mk.arch.m4.title': { en: 'Service & legal layer', zh: '服务与法律层' },
+  'mk.arch.m4.desc': { en: 'O2O inspections & showings, CommHub evidence trail, one-click LTB dossier.', zh: 'O2O 实勘与带看，CommHub 证据链，LTB 一键证据卷宗。' },
 
   // Featured screening product
   'mk.screening.eyebrow': { en: 'LIVE TODAY', zh: '已上线' },
