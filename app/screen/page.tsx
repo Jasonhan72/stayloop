@@ -517,7 +517,7 @@ export default function ScreenPage() {
   const { t, lang } = useT()
   const { landlord, loading: authLoading, signOut } = useLandlord({
     redirectIfMissing: true,
-    allowAnonymous: false,
+    allowAnonymous: true,
     redirectBackTo: '/screen',
   })
 

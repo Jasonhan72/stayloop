@@ -1,8 +1,7 @@
 'use client'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useT, LanguageToggle } from '@/lib/i18n'
-import { supabase } from '@/lib/supabase'
 
 // ─────────────────────────────────────────────────────────────────────
 // Stayloop — marketing home page
@@ -13,23 +12,9 @@ import { supabase } from '@/lib/supabase'
 
 export default function Home() {
   const { t } = useT()
-  const [signedIn, setSignedIn] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    let active = true
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return
-      const user = data.session?.user
-      setSignedIn(!!user && !(user as any).is_anonymous)
-    })
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
-      const user = sess?.user
-      setSignedIn(!!user && !(user as any).is_anonymous)
-    })
-    return () => { active = false; sub.subscription.unsubscribe() }
-  }, [])
-
-  const screenHref = signedIn ? '/screen' : '/login?next=/screen'
+  // CTAs route directly to /screen — no login gate.
+  // Anonymous Supabase sessions are auto-created on the screen page.
+  const screenHref = '/screen'
 
   return (
     <main className="marketing">
