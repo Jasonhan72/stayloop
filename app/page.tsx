@@ -22,6 +22,7 @@ export default function Home() {
       <Hero screenHref={screenHref} />
       <TrustBar />
       <DualAudience screenHref={screenHref} />
+      <Architecture />
       <ScreeningFeature screenHref={screenHref} />
       <HowItWorks />
       <Roadmap />
@@ -425,23 +426,99 @@ function HowItWorks() {
   )
 }
 
-// ─── Roadmap ─────────────────────────────────────────────────────────
+// ─── Architecture (the four interlocking modules) ────────────────────
+function Architecture() {
+  const { t } = useT()
+  const modules = [
+    { tag: t('mk.arch.m1.tag'), title: t('mk.arch.m1.title'), desc: t('mk.arch.m1.desc'), num: '01' },
+    { tag: t('mk.arch.m2.tag'), title: t('mk.arch.m2.title'), desc: t('mk.arch.m2.desc'), num: '02' },
+    { tag: t('mk.arch.m3.tag'), title: t('mk.arch.m3.title'), desc: t('mk.arch.m3.desc'), num: '03' },
+    { tag: t('mk.arch.m4.tag'), title: t('mk.arch.m4.title'), desc: t('mk.arch.m4.desc'), num: '04' },
+  ]
+  return (
+    <section id="architecture" className="mk-section-alt">
+      <div className="mk-section">
+        <div style={{ textAlign: 'center', marginBottom: 52 }}>
+          <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.arch.eyebrow')}</div>
+          <h2 className="mk-h2" style={{ maxWidth: 820, margin: '0 auto 14px' }}>{t('mk.arch.title')}</h2>
+          <p className="mk-lead" style={{ maxWidth: 760, margin: '0 auto' }}>{t('mk.arch.sub')}</p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
+          {modules.map(m => (
+            <div key={m.num} className="mk-card mk-card-hover" style={{ padding: 26 }}>
+              <div style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 11, fontWeight: 800, letterSpacing: '0.08em',
+                color: 'var(--mk-brand-strong)', marginBottom: 14,
+              }}>{m.tag}</div>
+              <h3 className="mk-h3" style={{ fontSize: 17, marginBottom: 10 }}>{m.title}</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--mk-text-secondary)', lineHeight: 1.65, margin: 0 }}>{m.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── Roadmap — four phases over twelve months ────────────────────────
 function Roadmap() {
   const { t } = useT()
-  const items = [
-    { status: 'live', title: t('mk.roadmap.1.title'), desc: t('mk.roadmap.1.desc') },
-    { status: 'beta', title: t('mk.roadmap.2.title'), desc: t('mk.roadmap.2.desc') },
-    { status: 'soon', title: t('mk.roadmap.3.title'), desc: t('mk.roadmap.3.desc') },
-    { status: 'soon', title: t('mk.roadmap.4.title'), desc: t('mk.roadmap.4.desc') },
-    { status: 'planned', title: t('mk.roadmap.5.title'), desc: t('mk.roadmap.5.desc') },
-    { status: 'planned', title: t('mk.roadmap.6.title'), desc: t('mk.roadmap.6.desc') },
-    { status: 'planned', title: t('mk.roadmap.7.title'), desc: t('mk.roadmap.7.desc') },
+  const phases = [
+    {
+      status: 'shipping',
+      tag: t('mk.roadmap.p1.tag'),
+      title: t('mk.roadmap.p1.title'),
+      goal: t('mk.roadmap.p1.goal'),
+      items: [
+        t('mk.roadmap.p1.i1'),
+        t('mk.roadmap.p1.i2'),
+        t('mk.roadmap.p1.i3'),
+        t('mk.roadmap.p1.i4'),
+      ],
+    },
+    {
+      status: 'next',
+      tag: t('mk.roadmap.p2.tag'),
+      title: t('mk.roadmap.p2.title'),
+      goal: t('mk.roadmap.p2.goal'),
+      items: [
+        t('mk.roadmap.p2.i1'),
+        t('mk.roadmap.p2.i2'),
+        t('mk.roadmap.p2.i3'),
+        t('mk.roadmap.p2.i4'),
+      ],
+    },
+    {
+      status: 'planned',
+      tag: t('mk.roadmap.p3.tag'),
+      title: t('mk.roadmap.p3.title'),
+      goal: t('mk.roadmap.p3.goal'),
+      items: [
+        t('mk.roadmap.p3.i1'),
+        t('mk.roadmap.p3.i2'),
+        t('mk.roadmap.p3.i3'),
+        t('mk.roadmap.p3.i4'),
+      ],
+    },
+    {
+      status: 'planned',
+      tag: t('mk.roadmap.p4.tag'),
+      title: t('mk.roadmap.p4.title'),
+      goal: t('mk.roadmap.p4.goal'),
+      items: [
+        t('mk.roadmap.p4.i1'),
+        t('mk.roadmap.p4.i2'),
+        t('mk.roadmap.p4.i3'),
+        t('mk.roadmap.p4.i4'),
+      ],
+    },
   ] as const
 
   const statusStyles: Record<string, { bg: string; color: string; border: string; label: string }> = {
-    live: { bg: 'rgba(5, 150, 105, 0.12)', color: '#047857', border: 'rgba(5, 150, 105, 0.25)', label: t('mk.roadmap.status.live') },
-    beta: { bg: 'rgba(37, 99, 235, 0.12)', color: '#1D4ED8', border: 'rgba(37, 99, 235, 0.25)', label: t('mk.roadmap.status.beta') },
-    soon: { bg: 'rgba(245, 158, 11, 0.14)', color: '#B45309', border: 'rgba(245, 158, 11, 0.3)', label: t('mk.roadmap.status.soon') },
+    shipping: { bg: 'rgba(5, 150, 105, 0.12)', color: '#047857', border: 'rgba(5, 150, 105, 0.28)', label: t('mk.roadmap.status.shipping') },
+    next: { bg: 'rgba(37, 99, 235, 0.12)', color: '#1D4ED8', border: 'rgba(37, 99, 235, 0.28)', label: t('mk.roadmap.status.next') },
     planned: { bg: 'rgba(100, 116, 139, 0.12)', color: '#475569', border: 'rgba(100, 116, 139, 0.28)', label: t('mk.roadmap.status.planned') },
   }
 
@@ -449,16 +526,16 @@ function Roadmap() {
     <section id="roadmap" className="mk-section">
       <div style={{ textAlign: 'center', marginBottom: 52 }}>
         <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.roadmap.eyebrow')}</div>
-        <h2 className="mk-h2" style={{ maxWidth: 760, margin: '0 auto 14px' }}>{t('mk.roadmap.title')}</h2>
-        <p className="mk-lead" style={{ maxWidth: 720, margin: '0 auto' }}>{t('mk.roadmap.sub')}</p>
+        <h2 className="mk-h2" style={{ maxWidth: 820, margin: '0 auto 14px' }}>{t('mk.roadmap.title')}</h2>
+        <p className="mk-lead" style={{ maxWidth: 780, margin: '0 auto' }}>{t('mk.roadmap.sub')}</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 18 }}>
-        {items.map(item => {
-          const s = statusStyles[item.status]
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: 18 }}>
+        {phases.map(phase => {
+          const s = statusStyles[phase.status]
           return (
-            <div key={item.title} className="mk-card mk-card-hover" style={{ padding: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <div key={phase.title} className="mk-card mk-card-hover" style={{ padding: 26, display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
                 <span style={{
                   padding: '4px 10px', borderRadius: 999,
                   background: s.bg, color: s.color, border: `1px solid ${s.border}`,
@@ -466,8 +543,24 @@ function Roadmap() {
                   fontFamily: 'JetBrains Mono, monospace',
                 }}>{s.label.toUpperCase()}</span>
               </div>
-              <h3 className="mk-h3" style={{ fontSize: 15.5, marginBottom: 8 }}>{item.title}</h3>
-              <p style={{ fontSize: 13, color: 'var(--mk-text-secondary)', lineHeight: 1.6, margin: 0 }}>{item.desc}</p>
+              <div style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em',
+                color: 'var(--mk-text-secondary)', marginBottom: 8,
+              }}>{phase.tag}</div>
+              <h3 className="mk-h3" style={{ fontSize: 16, marginBottom: 10 }}>{phase.title}</h3>
+              <p style={{ fontSize: 13, color: 'var(--mk-text-secondary)', lineHeight: 1.6, margin: '0 0 16px', fontStyle: 'italic' }}>{phase.goal}</p>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
+                {phase.items.map(it => (
+                  <li key={it} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--mk-text)', lineHeight: 1.55 }}>
+                    <span style={{
+                      display: 'inline-block', width: 5, height: 5, borderRadius: 999,
+                      background: s.color, marginTop: 7, flexShrink: 0,
+                    }} />
+                    <span>{it}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )
         })}

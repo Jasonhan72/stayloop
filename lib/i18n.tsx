@@ -125,12 +125,12 @@ export const DICT = {
   'mk.nav.getStarted': { en: 'Start a screening', zh: '开始背调' },
 
   // Hero
-  'mk.hero.eyebrow': { en: 'Ontario · An AI-driven rental ecosystem · PIPEDA compliant', zh: '安省 · AI 驱动的租赁生态系统 · 符合 PIPEDA' },
+  'mk.hero.eyebrow': { en: 'Ontario · A trust operating system for rentals · PIPEDA compliant', zh: '安省 · 租赁市场的信任操作系统 · 符合 PIPEDA' },
   'mk.hero.title1': { en: 'The trusted, AI-driven', zh: '可信任的 AI 驱动' },
   'mk.hero.title2': { en: 'rental ecosystem.', zh: '租赁生态系统。' },
   'mk.hero.sub': {
-    en: 'Stayloop connects every step of a Canadian tenancy — applicant verification, listings, leasing, rent operations and ongoing tenant relationships — on a single trusted platform. It begins today with a fully cited applicant risk report, delivered in under 60 seconds.',
-    zh: 'Stayloop 把加拿大租赁的每一个环节 —— 申请人核验、房源管理、签约、租金运营以及租后关系 —— 串联在同一个可信任平台上。今日已上线的第一步：60 秒内出具一份附完整引用的申请人风险报告。',
+    en: 'Stayloop is a trust operating system for Canadian rentals. Four interlocking modules — a verified marketplace, a hybrid risk engine, integrated rent payments and an end-to-end service network — replace lease risk with financial certainty. Live today: a fully cited applicant risk report in under 60 seconds.',
+    zh: 'Stayloop 是面向加拿大租赁市场的信任操作系统。四个相互咬合的模块 —— 可信房源市场、双轨风控引擎、租金支付与信用、全周期服务网络 —— 用金融确定性取代租赁风险。今日已上线：60 秒内出具附完整引用的申请人风险报告。',
   },
   'mk.hero.ctaPrimary': { en: 'Start a screening', zh: '开始背调' },
   'mk.hero.ctaTenant': { en: 'For tenants', zh: '租客入口' },
@@ -155,7 +155,7 @@ export const DICT = {
   'mk.preview.note': { en: 'Employment income verified. Income/rent ratio 3.4×. No document tampering detected. No adverse records across Ontario public court archives. Full evidence trail attached.', zh: '就业收入已核验。收入租金比 3.4×。未发现文件篡改。安省公开法庭记录中无不利记录。附完整证据链。' },
 
   // Trust bar
-  'mk.trust.heading': { en: 'A trusted, fully auditable technology stack', zh: '可信任、完全可审计的技术栈' },
+  'mk.trust.heading': { en: 'A trusted, fully auditable technology stack powering the Trust OS', zh: '支撑信任操作系统的可信、完全可审计技术栈' },
   'mk.trust.claude': { en: 'Claude Sonnet 4.5', zh: 'Claude Sonnet 4.5' },
   'mk.trust.canlii': { en: 'CanLII Ontario full coverage', zh: 'CanLII 安省全库' },
   'mk.trust.supabase': { en: 'Open Banking ready', zh: '支持 Open Banking' },
@@ -169,26 +169,47 @@ export const DICT = {
   'mk.dual.sub': { en: 'Stayloop is built so landlords and tenants meet on the same trusted platform — verified, transparent, and connected end-to-end.', zh: 'Stayloop 让房东与租客在同一个可信任的平台上对接 —— 已核验、透明、全流程贯通。' },
 
   'mk.dual.landlord.tag': { en: 'LANDLORDS', zh: '房东' },
-  'mk.dual.landlord.title': { en: 'A connected operating layer for your rentals', zh: '为您的房源打造的全流程运营层' },
-  'mk.dual.landlord.desc': { en: 'From listing and verification through leasing and rent collection — every step lives on one trusted platform.', zh: '从发布房源、核验申请人，到签约和收租，每个环节都运行在同一个可信任的平台上。' },
-  'mk.dual.landlord.b1': { en: 'AI-driven applicant verification with full Ontario CanLII coverage', zh: 'AI 驱动的申请人核验，安省 CanLII 全覆盖' },
-  'mk.dual.landlord.b2': { en: 'Listings, applications and lease workflow on a single platform', zh: '房源、申请与签约在同一个平台中流转' },
-  'mk.dual.landlord.b3': { en: 'Rent collection, reconciliation and tenant relationship tools', zh: '收租、对账与租后关系管理工具' },
+  'mk.dual.landlord.title': { en: 'One operating system for the entire lease cycle', zh: '覆盖租赁全周期的操作系统' },
+  'mk.dual.landlord.desc': { en: 'List a property, verify the applicant, sign the lease, collect rent, and manage disputes — all on a single platform with an immutable evidence trail.', zh: '发布房源、核验申请人、签署租约、收取租金、处理纠纷 —— 全部在同一平台上完成，并留存不可篡改的证据链。' },
+  'mk.dual.landlord.b1': { en: 'Hybrid risk engine: Open Banking cash-flow analysis + AI document forensics', zh: '双轨风控引擎：Open Banking 现金流分析 + AI 文件鉴伪' },
+  'mk.dual.landlord.b2': { en: 'Verified marketplace, smart lease generator and automated rent collection', zh: '可信房源市场、智能租约生成与自动收租' },
+  'mk.dual.landlord.b3': { en: 'CommHub evidence trail + one-click LTB evidence dossier', zh: 'CommHub 证据链 + LTB 一键证据卷宗' },
   'mk.dual.landlord.cta': { en: 'Start a screening', zh: '开始背调' },
 
   'mk.dual.tenant.tag': { en: 'TENANTS', zh: '租客' },
-  'mk.dual.tenant.title': { en: 'A verified profile you carry with you', zh: '可随身携带的认证档案' },
-  'mk.dual.tenant.desc': { en: 'A reusable verification profile designed for newcomers, self-employed applicants and renters with limited credit history.', zh: '专为新移民、自雇人士及信用记录有限的租客设计的可复用核验档案。' },
-  'mk.dual.tenant.b1': { en: 'Tenant-owned profile, shared on the applicant\u2019s terms', zh: '档案由租客本人持有，自主决定向谁披露' },
-  'mk.dual.tenant.b2': { en: 'Verify once, reuse with multiple landlords', zh: '一次核验，可向多位房东复用' },
-  'mk.dual.tenant.b3': { en: 'Same report visible to both tenant and landlord', zh: '租客与房东看到的是同一份报告' },
+  'mk.dual.tenant.title': { en: 'A universal trusted profile you carry with you', zh: '可随身携带的通用可信档案' },
+  'mk.dual.tenant.desc': { en: 'Complete verification once, then apply to any listing on the platform with one click. Designed for newcomers, self-employed applicants and renters without a Canadian credit file.', zh: '完成一次核验，即可一键申请平台上的任意房源。专为新移民、自雇人士及缺乏加拿大征信记录的租客设计。' },
+  'mk.dual.tenant.b1': { en: 'Tenant-owned profile, shared only with your consent', zh: '档案由租客持有，仅经本人授权后共享' },
+  'mk.dual.tenant.b2': { en: 'Verify once, apply to any listing on the Stayloop marketplace', zh: '一次核验，可申请 Stayloop 市场上的任意房源' },
+  'mk.dual.tenant.b3': { en: 'On-time rent reported to credit bureaus, building your credit score', zh: '按时交租上报征信局，帮助建立信用评分' },
   'mk.dual.tenant.cta': { en: 'Request early access', zh: '申请抢先体验' },
   'mk.dual.tenant.soon': { en: 'Q3 2026', zh: '2026 年 Q3' },
 
+  // Architecture — the four interlocking modules of the Trust OS
+  'mk.arch.eyebrow': { en: 'ARCHITECTURE', zh: '系统架构' },
+  'mk.arch.title': { en: 'Four interlocking modules. One trust operating system.', zh: '四个相互咬合的模块，组成同一个信任操作系统。' },
+  'mk.arch.sub': { en: 'Stayloop is built around four modules that work as a single gear train: discovery, verification, payments and post-move-in operations — each one designed to feed the next.', zh: 'Stayloop 围绕四个模块构建，像一组齿轮咬合在一起：房源发现、申请核验、租金支付、租后运营 —— 每一个模块都为下一个模块供能。' },
+
+  'mk.arch.m1.tag': { en: 'MODULE 01', zh: '模块 01' },
+  'mk.arch.m1.title': { en: 'Verified marketplace', zh: '可信房源市场' },
+  'mk.arch.m1.desc': { en: 'A unified entry point for Ontario rentals. MLS integration for brokers, one-click listing migration for independent landlords, and a natural-language search experience for tenants.', zh: '面向安省租赁的统一入口：经纪人可一键导入 MLS 房源，独立房东可一键迁入既有挂牌，租客以自然语言精准检索房源。' },
+
+  'mk.arch.m2.tag': { en: 'MODULE 02', zh: '模块 02' },
+  'mk.arch.m2.title': { en: 'Hybrid risk engine', zh: '双轨风控引擎' },
+  'mk.arch.m2.desc': { en: 'Two-track verification: an Open Banking path that reads real cash flow directly from the applicant\u2019s bank, and a document-forensics path that detects tampering on uploaded pay stubs, IDs and statements.', zh: '双轨核验：Open Banking 通路直接读取申请人银行流水以识别真实收入；文件鉴伪通路对上传的工资单、证件与流水进行篡改检测。' },
+
+  'mk.arch.m3.tag': { en: 'MODULE 03', zh: '模块 03' },
+  'mk.arch.m3.title': { en: 'Rent payments & credit', zh: '租金支付与信用' },
+  'mk.arch.m3.desc': { en: 'Pre-authorized debit, card and Interac payments, with payday-aligned scheduling and credit-bureau reporting on both on-time and delinquent rent.', zh: '支持 PAD 自动划扣、信用卡与 Interac 支付，按发薪日对齐扣款，并将按时与逾期记录上报征信局。' },
+
+  'mk.arch.m4.tag': { en: 'MODULE 04', zh: '模块 04' },
+  'mk.arch.m4.title': { en: 'Service network & legal', zh: '服务网络与法律层' },
+  'mk.arch.m4.desc': { en: 'On-the-ground listing inspections and on-demand viewings, plus an in-platform communication layer that produces an immutable evidence trail for LTB proceedings.', zh: '线下房源实勘与按需带看调度，叠加平台内强制沟通层 —— 自动留存可作为 LTB 呈堂证供的不可篡改证据链。' },
+
   // Featured screening product
   'mk.screening.eyebrow': { en: 'LIVE TODAY', zh: '已上线' },
-  'mk.screening.title': { en: 'Step one of the ecosystem: AI-driven applicant verification', zh: '生态系统的第一步：AI 驱动的申请人核验' },
-  'mk.screening.sub': { en: 'A structured five-dimension risk report with full citations, delivered in under 60 seconds.', zh: '结构化五维风险报告，附完整引用，60 秒内出具。' },
+  'mk.screening.title': { en: 'The first gear: hybrid risk engine', zh: '第一个齿轮：双轨风控引擎' },
+  'mk.screening.sub': { en: 'An Open Banking and AI-powered verification that delivers a five-dimension risk report with full citations in under 60 seconds.', zh: '基于 Open Banking 与 AI 的核验体系，60 秒内出具附完整引用的五维风险报告。' },
   'mk.screening.f1.title': { en: 'Five-dimension risk model', zh: '五维风险模型' },
   'mk.screening.f1.desc': { en: 'Ability to pay, credit health, rental history, identity verification, and application completeness. Every report discloses the rules and warning signals that have been triggered.', zh: '还款能力、信用状况、租赁历史、身份核验、申请完整度。每份报告都会披露被触发的规则与预警信号。' },
   'mk.screening.f2.title': { en: 'Ontario court records coverage', zh: '安省法庭记录覆盖' },
@@ -219,28 +240,51 @@ export const DICT = {
   'mk.how.4.title': { en: 'Report delivery', zh: '报告出具' },
   'mk.how.4.desc': { en: 'A five-dimension risk report is issued with reasoning, compliance notice and a complete citation index.', zh: '出具五维风险报告，附评分依据、合规声明与完整引用索引。' },
 
-  // Roadmap
+  // Roadmap — four phases mirroring the V3.1 implementation plan
   'mk.roadmap.eyebrow': { en: 'ROADMAP', zh: '路线图' },
-  'mk.roadmap.title': { en: 'The full ecosystem', zh: '完整生态系统' },
-  'mk.roadmap.sub': { en: 'Each module connects to the next, so a verified applicant becomes a signed lease, an on-time rent payment, and a long-term tenant relationship.', zh: '每个模块都与下一个模块相连，让一份已核验的申请，顺畅衔接到签约、按时收租，再到长期的租后关系。' },
+  'mk.roadmap.title': { en: 'A twelve-month build, four phases', zh: '十二个月分四个阶段交付' },
+  'mk.roadmap.sub': { en: 'Built on a "risk-first, close-the-loop" principle: the verification layer ships first, then the marketplace, then the post-move-in network, then the legal and financial moats.', zh: '遵循「风控优先、闭环先行」原则：先交付核验层，再上线市场层，随后是租后运营层，最后是法律与金融层的护城河。' },
+
   'mk.roadmap.status.live': { en: 'Live', zh: '已上线' },
-  'mk.roadmap.status.beta': { en: 'Beta', zh: '内测中' },
-  'mk.roadmap.status.soon': { en: 'In development', zh: '开发中' },
+  'mk.roadmap.status.shipping': { en: 'Shipping now', zh: '正在交付' },
+  'mk.roadmap.status.next': { en: 'Up next', zh: '下一阶段' },
   'mk.roadmap.status.planned': { en: 'Planned', zh: '规划中' },
-  'mk.roadmap.1.title': { en: 'Dual-track AI screening', zh: '双轨 AI 背调' },
-  'mk.roadmap.1.desc': { en: 'Cash-flow analysis, document forensics, full Ontario CanLII coverage, five-dimension risk report.', zh: '现金流分析、文件鉴伪、安省 CanLII 全覆盖、五维风险报告。' },
-  'mk.roadmap.2.title': { en: 'Listings & applications', zh: '房源与申请管理' },
-  'mk.roadmap.2.desc': { en: 'Centralized listing publication and applicant document collection.', zh: '统一发布房源、统一收取申请材料。' },
-  'mk.roadmap.3.title': { en: 'Ontario Standard Lease generator', zh: '安省标准租约生成器' },
-  'mk.roadmap.3.desc': { en: 'Form 2229 lease generated from verified application data, with e-signature.', zh: '基于已核验的申请资料生成 Form 2229 租约，支持电子签名。' },
-  'mk.roadmap.4.title': { en: 'Rent collection & reconciliation', zh: '收租与对账' },
-  'mk.roadmap.4.desc': { en: 'Interac e-Transfer reconciliation, scheduled reminders and a delinquency workflow.', zh: 'Interac e-Transfer 对账、定时提醒，以及逾期处理流程。' },
-  'mk.roadmap.5.title': { en: 'LTB notice assistant', zh: 'LTB 通知助手' },
-  'mk.roadmap.5.desc': { en: 'Drafting of N4, N5 and N12 notices with statutory citations.', zh: '起草 N4、N5、N12 通知，并附法条引用。' },
-  'mk.roadmap.6.title': { en: 'Verified tenant profile', zh: '认证租客档案' },
-  'mk.roadmap.6.desc': { en: 'A reusable verification credential owned by the tenant.', zh: '由租客本人持有、可重复使用的核验档案。' },
-  'mk.roadmap.7.title': { en: 'Rent guarantee program', zh: '租金保障计划' },
-  'mk.roadmap.7.desc': { en: 'Capital-backed default protection built on top of the screening layer.', zh: '在背调能力之上构建的资本支撑违约保障。' },
+
+  // Phase 1 — Foundation
+  'mk.roadmap.p1.tag': { en: 'PHASE 01 · MONTHS 1\u20133', zh: '阶段 01 · 第 1\u20133 个月' },
+  'mk.roadmap.p1.title': { en: 'Foundation: hybrid risk engine', zh: '奠基阶段：双轨风控引擎' },
+  'mk.roadmap.p1.goal': { en: 'Close the verify \u2192 sign \u2192 collect minimum loop.', zh: '跑通「核验 \u2192 签约 \u2192 收租」最小闭环。' },
+  'mk.roadmap.p1.i1': { en: 'Hybrid risk radar — Open Banking (VoPay / Flinks) + AI document forensics', zh: '混合风控雷达 —— Open Banking (VoPay / Flinks) 与 AI 文件鉴伪' },
+  'mk.roadmap.p1.i2': { en: 'Five-dimension risk report with full Ontario CanLII coverage', zh: '五维风险报告，安省 CanLII 全覆盖' },
+  'mk.roadmap.p1.i3': { en: 'Compliant Ontario Standard Lease generator and Auto-N4 notice', zh: '安省标准租约生成器与 Auto-N4 通知' },
+  'mk.roadmap.p1.i4': { en: 'Pre-authorized debit (PAD) rent payment system', zh: '基础 PAD 自动收租系统' },
+
+  // Phase 2 — Marketplace
+  'mk.roadmap.p2.tag': { en: 'PHASE 02 · MONTHS 4\u20136', zh: '阶段 02 · 第 4\u20136 个月' },
+  'mk.roadmap.p2.title': { en: 'Marketplace: aggregation and connection', zh: '市场阶段：聚合与连接' },
+  'mk.roadmap.p2.goal': { en: 'Solve listings supply and activate broker referral flow.', zh: '解决房源供给，启动经纪人导流。' },
+  'mk.roadmap.p2.i1': { en: 'One-click listing migration from Kijiji and Facebook Marketplace', zh: '从 Kijiji 与 Facebook Marketplace 一键迁入房源' },
+  'mk.roadmap.p2.i2': { en: 'Natural-language tenant search assistant', zh: '租客自然语言找房助手' },
+  'mk.roadmap.p2.i3': { en: 'CommHub — in-platform communication and evidence trail (v1)', zh: 'CommHub —— 平台内沟通与证据链（首版）' },
+  'mk.roadmap.p2.i4': { en: 'Broker lead distribution back office', zh: '经纪人线索分发后台' },
+
+  // Phase 3 — Ecosystem
+  'mk.roadmap.p3.tag': { en: 'PHASE 03 · MONTHS 7\u20139', zh: '阶段 03 · 第 7\u20139 个月' },
+  'mk.roadmap.p3.title': { en: 'Ecosystem: post-move-in network', zh: '生态阶段：租后服务网络' },
+  'mk.roadmap.p3.goal': { en: 'Cover the entire occupancy cycle and add new revenue surfaces.', zh: '覆盖入住后全周期，扩展收入触点。' },
+  'mk.roadmap.p3.i1': { en: 'Embedded tenant insurance via API partners', zh: '通过 API 嵌入的租客保险' },
+  'mk.roadmap.p3.i2': { en: 'Third-party rescue financing for failed rent debits (RNPL)', zh: '扣款失败时的第三方救援分期 (RNPL)' },
+  'mk.roadmap.p3.i3': { en: 'O2O viewing dispatch — on-demand showings for DIY landlords', zh: 'O2O 带看调度 —— 为独立房东按需派遣带看' },
+  'mk.roadmap.p3.i4': { en: 'On-the-ground listing inspections with a "verified" badge', zh: '线下房源实勘与「已验证」标签' },
+
+  // Phase 4 — Depth
+  'mk.roadmap.p4.tag': { en: 'PHASE 04 · MONTHS 10\u201312', zh: '阶段 04 · 第 10\u201312 个月' },
+  'mk.roadmap.p4.title': { en: 'Depth: legal and financial moats', zh: '深化阶段：法律与金融护城河' },
+  'mk.roadmap.p4.goal': { en: 'Build the structural defensibility of the platform.', zh: '构建平台的结构性壁垒。' },
+  'mk.roadmap.p4.i1': { en: 'One-click LTB evidence dossier (chat, transfers, notices)', zh: 'LTB 一键证据卷宗（聊天、转账、通知）' },
+  'mk.roadmap.p4.i2': { en: 'Tiered legal support network for landlords', zh: '面向房东的分层法律服务网络' },
+  'mk.roadmap.p4.i3': { en: 'Tenant-owned verified profile, reusable across landlords', zh: '租客自有的可复用认证档案' },
+  'mk.roadmap.p4.i4': { en: 'Rent factoring and capital-backed default protection (R&D)', zh: '租金保理与资本支撑的违约保障（探索中）' },
 
   // Compliance & security
   'mk.sec.eyebrow': { en: 'TRUST', zh: '信任' },
@@ -286,8 +330,8 @@ export const DICT = {
   'mk.faq.title': { en: 'Frequently asked questions', zh: '常见问题' },
   'mk.faq.q1': { en: 'What is included in the Starter plan?', zh: '入门版包含什么？' },
   'mk.faq.a1': { en: 'Five screenings per month, with dual-track verification, full Ontario CanLII coverage and the complete five-dimension risk report. No credit card required.', zh: '每月 5 次背调，包含双轨核验、安省 CanLII 全覆盖与完整的五维风险报告。无需信用卡。' },
-  'mk.faq.q2': { en: 'How does Stayloop differ from enterprise platforms such as RealPage or Yardi?', zh: 'Stayloop 与 RealPage、Yardi 等企业级平台有什么不同？' },
-  'mk.faq.a2': { en: 'Stayloop is built for independent landlords and small portfolios. It only performs applicant-level screening and does not collect, share or rely on any non-public competitor rent data.', zh: 'Stayloop 专为独立房东与中小持有人打造，只针对申请人本人做背调，从不收集、共享或依赖任何非公开的同行租金数据。' },
+  'mk.faq.q2': { en: 'How does Stayloop differ from RealPage, Yardi or Naborly?', zh: 'Stayloop 与 RealPage、Yardi 或 Naborly 有什么不同？' },
+  'mk.faq.a2': { en: 'Stayloop is a full trust operating system — not just a screening tool. It covers the entire lease cycle from listings and verification through rent collection and LTB evidence, built for independent landlords and small portfolios. It does not collect or share non-public competitor rent data.', zh: 'Stayloop 是一套完整的信任操作系统，而不仅仅是背调工具。它覆盖从房源发布、核验、收租到 LTB 证据的全周期，专为独立房东与中小持有人打造，从不收集或共享非公开的同行租金数据。' },
   'mk.faq.q3': { en: 'Where is applicant data stored?', zh: '申请人数据存放在哪里？' },
   'mk.faq.a3': { en: 'All applicant documents and reports are stored in Canadian regions under PIPEDA. Account holders can delete a screening and every attached file at any time.', zh: '所有申请人材料与报告均存放在加拿大境内、遵循 PIPEDA。账户持有人可随时删除某次背调及其全部相关文件。' },
   'mk.faq.q4': { en: 'Who controls the uploaded documents?', zh: '上传的资料由谁掌握？' },
@@ -298,8 +342,8 @@ export const DICT = {
   'mk.faq.a6': { en: 'A tenant-owned verified profile is scheduled for Q3 2026, allowing renters to share verification with multiple landlords.', zh: '租客自有的认证档案计划于 2026 年 Q3 上线，可一次完成核验、向多位房东复用。' },
 
   // Final CTA
-  'mk.finalcta.title': { en: 'Screen your next applicant with confidence.', zh: '为下一位申请人开始一次可靠的背调。' },
-  'mk.finalcta.sub': { en: 'No credit card required.', zh: '无需信用卡。' },
+  'mk.finalcta.title': { en: 'Replace lease risk with financial certainty.', zh: '用金融确定性取代租赁风险。' },
+  'mk.finalcta.sub': { en: 'Start with a free applicant risk report — no credit card required.', zh: '从一份免费的申请人风险报告开始 —— 无需信用卡。' },
   'mk.finalcta.primary': { en: 'Start a screening', zh: '开始背调' },
   'mk.finalcta.secondary': { en: 'View roadmap', zh: '查看路线图' },
 
