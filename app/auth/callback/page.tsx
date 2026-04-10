@@ -86,12 +86,20 @@ export default function AuthCallbackPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const mk = {
+    bg: '#F7F8FB',
+    text: '#0B1736',
+    textMuted: '#64748B',
+    brand: '#0D9488',
+  }
+
   return (
-    <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center text-slate-200">
-      <div className="text-center">
-        <div className="w-12 h-12 mx-auto mb-4 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin" />
-        <p className="text-sm font-mono text-slate-300">{status}</p>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: mk.bg, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 48, height: 48, margin: '0 auto 16px', borderRadius: 12, border: `4px solid rgba(13,148,136,0.2)`, borderTopColor: mk.brand, animation: 'spin 1s linear infinite' }} />
+        <p style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: mk.textMuted }}>{status}</p>
       </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

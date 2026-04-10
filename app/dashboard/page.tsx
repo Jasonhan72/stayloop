@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
+import UserNav from '@/components/UserNav'
 import { Application, Listing } from '@/types'
 
 export default function Dashboard() {
@@ -154,30 +155,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen">
       {/* Nav */}
-      <nav className="nav-bar">
-        <Link href="/" className="nav-brand">
-          <div className="nav-logo">S</div>
-          <div>
-            <div className="nav-title">Stayloop</div>
-            <div className="nav-sub mono">{t('dash.tagline')}</div>
-          </div>
-        </Link>
-        <div className="nav-actions" style={{ flexWrap: 'wrap' }}>
-          <LanguageToggle />
-          <Link href="/screen" className="btn btn-primary btn-sm">{t('dash.screenTenant')}</Link>
-          <span className={plan === 'free' ? 'chip mono' : 'chip chip-pro mono'} style={{ textTransform: 'uppercase' }}>{plan}</span>
-          {plan === 'free' && (
-            <button onClick={() => setShowUpgrade(true)} className="btn btn-pro btn-sm">{t('dash.upgrade')}</button>
-          )}
-          {(plan === 'pro' || plan === 'enterprise') && (
-            <button onClick={openBillingPortal} disabled={portalLoading} className="btn btn-ghost btn-sm">
-              {portalLoading ? t('dash.opening') : t('dash.manageBilling')}
-            </button>
-          )}
-          <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{landlord.email}</span>
-          <button onClick={signOut} className="btn btn-ghost btn-sm">{t('dash.signOut')}</button>
-        </div>
-      </nav>
+      <UserNav user={landlord} signOut={signOut} />
 
       <div className="max-w-7xl mx-auto px-6 py-10 fade-up">
         {/* Header */}

@@ -3,7 +3,28 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import { useT, LanguageToggle } from '@/lib/i18n'
+import { useT } from '@/lib/i18n'
+import UserNav from '@/components/UserNav'
+
+/* ── Marketing-matching palette (mirrors .marketing CSS vars) ── */
+const mk = {
+  bg:          '#F7F8FB',
+  surface:     '#FFFFFF',
+  border:      '#E4E8F0',
+  borderStrong:'#CBD5E1',
+  text:        '#0B1736',
+  textSec:     '#475569',
+  textMuted:   '#64748B',
+  textFaint:   '#94A3B8',
+  brand:       '#0D9488',
+  brandStrong: '#0F766E',
+  brandSoft:   '#CCFBF1',
+  navy:        '#0B1736',
+  red:         '#E11D48',
+  redSoft:     '#FFF1F2',
+  greenSoft:   '#ECFDF5',
+  green:       '#059669',
+} as const
 
 interface ProfileData {
   id: string
@@ -46,7 +67,6 @@ export default function ProfilePage() {
 
       if (dbError) {
         console.error('Failed to fetch profile:', dbError)
-        // If columns don't exist, just fall back to basic data
         setFullName('')
         setPhone('')
         setRole('user')
@@ -105,108 +125,160 @@ export default function ProfilePage() {
 
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 mx-auto mb-3 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin" />
-          <div className="mono text-xs text-slate-500">{t('common.authenticating')}</div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: mk.bg, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: 10, border: `4px solid rgba(13,148,136,0.2)`, borderTopColor: mk.brand, animation: 'spin 1s linear infinite' }} />
+          <div style={{ fontSize: 12, color: mk.textMuted, fontFamily: 'JetBrains Mono, monospace' }}>{t('common.authenticating')}</div>
         </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     )
   }
 
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '12px 14px',
+    borderRadius: 10,
+    border: `1px solid ${mk.border}`,
+    background: mk.surface,
+    color: mk.text,
+    fontSize: 14,
+    transition: 'border-color .15s, box-shadow .15s',
+    outline: 'none',
+    fontFamily: 'Inter, -apple-system, system-ui, sans-serif',
+  }
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: 12,
+    fontWeight: 600,
+    color: mk.textSec,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    marginBottom: 6,
+  }
+
+  const roleButtonStyle: React.CSSProperties = {
+    padding: '12px 16px',
+    borderRadius: 10,
+    border: `1px solid ${mk.border}`,
+    background: mk.surface,
+    color: mk.text,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all .15s',
+  }
+
+  const buttonStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '13px 20px',
+    borderRadius: 10,
+    background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
+    color: '#fff',
+    fontSize: 14.5,
+    fontWeight: 650,
+    border: 'none',
+    cursor: 'pointer',
+    boxShadow: '0 8px 22px -10px rgba(13,148,136,0.6), inset 0 1px 0 rgba(255,255,255,0.15)',
+    transition: 'transform .15s, box-shadow .2s',
+    opacity: saving || loading ? 0.6 : 1,
+  }
+
   return (
-    <div className="min-h-screen text-slate-100 flex flex-col">
-      {/* Navigation Bar */}
-      <nav className="sticky top-0 z-20 backdrop-blur-xl bg-[#060814]/60 border-b border-white/[0.06]">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/30">
-              S
-            </div>
-            <div className="text-base font-bold tracking-tight">Stayloop</div>
-          </Link>
-          <div className="flex items-center gap-3">
-            <LanguageToggle />
-            <button
-              onClick={signOut}
-              className="text-xs px-3 py-1.5 rounded-lg font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
-            >
-              {t('profile.signOut')}
-            </button>
-          </div>
-        </div>
-      </nav>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: mk.bg, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
+      {/* Nav */}
+      <UserNav user={user} signOut={signOut} />
 
       {/* Main Content */}
-      <div className="flex-1 flex items-start justify-center px-6 py-10">
-        <div className="w-full max-w-2xl">
+      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 24px' }}>
+        <div style={{ width: '100%', maxWidth: 600 }}>
           {/* Header */}
-          <div className="mb-8">
-            <div className="mono text-[11px] text-cyan-400 mb-2">{t('profile.badge')}</div>
-            <h1 className="text-3xl font-bold tracking-tight">{t('profile.title')}</h1>
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontSize: 11, color: mk.brand, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+              {t('profile.badge') || 'Account Settings'}
+            </div>
+            <h1 style={{ fontSize: 32, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em', marginBottom: 0 }}>
+              {t('profile.title') || 'My Profile'}
+            </h1>
           </div>
 
           {/* Profile Form Card */}
-          <form onSubmit={handleSave} className="glass rounded-2xl p-8 relative overflow-hidden mb-6">
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-violet-500/5 pointer-events-none" />
-
-            <div className="relative space-y-6">
+          <form onSubmit={handleSave} style={{
+            background: mk.surface,
+            borderRadius: 20,
+            border: `1px solid ${mk.border}`,
+            padding: '36px 32px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)',
+            marginBottom: 24,
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
               {/* Email (Read-only) */}
               <div>
-                <label className="label">Email address</label>
+                <label style={labelStyle}>{t('profile.emailLabel') || 'Email address'}</label>
                 <input
                   type="email"
                   value={user.email}
                   disabled
-                  className="input opacity-60 cursor-not-allowed"
+                  style={{
+                    ...inputStyle,
+                    opacity: 0.6,
+                    cursor: 'not-allowed',
+                    background: '#F7F8FB',
+                  }}
                 />
-                <div className="text-[11px] text-slate-500 mt-2">Read-only</div>
+                <div style={{ fontSize: 11, color: mk.textFaint, marginTop: 8 }}>{t('profile.emailReadOnly') || 'Read-only'}</div>
               </div>
 
               {/* Full Name */}
               <div>
-                <label className="label">{t('profile.fullName')}</label>
+                <label style={labelStyle}>{t('profile.fullName') || 'Full name'}</label>
                 <input
                   type="text"
                   value={fullName}
                   onChange={e => setFullName(e.target.value)}
                   placeholder="Your full name"
-                  className="input"
+                  style={inputStyle}
+                  onFocus={e => { e.currentTarget.style.borderColor = mk.brand; e.currentTarget.style.boxShadow = `0 0 0 3px rgba(13,148,136,0.1)` }}
+                  onBlur={e => { e.currentTarget.style.borderColor = mk.border; e.currentTarget.style.boxShadow = 'none' }}
                 />
               </div>
 
               {/* Phone */}
               <div>
-                <label className="label">{t('profile.phone')}</label>
+                <label style={labelStyle}>{t('profile.phone') || 'Phone number'}</label>
                 <input
                   type="tel"
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                   placeholder="+1 (416) 555-0123"
-                  className="input"
+                  style={inputStyle}
+                  onFocus={e => { e.currentTarget.style.borderColor = mk.brand; e.currentTarget.style.boxShadow = `0 0 0 3px rgba(13,148,136,0.1)` }}
+                  onBlur={e => { e.currentTarget.style.borderColor = mk.border; e.currentTarget.style.boxShadow = 'none' }}
                 />
               </div>
 
-              {/* Role Selection Cards */}
+              {/* Role Selection */}
               <div>
-                <label className="label">{t('profile.role')}</label>
-                <div className="grid grid-cols-3 gap-3">
+                <label style={labelStyle}>{t('profile.role') || 'Role'}</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                   {[
-                    { value: 'user', label: t('register.roleLandlord') },
-                    { value: 'tenant', label: t('register.roleTenant') },
-                    { value: 'agent', label: t('register.roleAgent') },
+                    { value: 'user' as const, label: t('register.roleLandlord') || 'Landlord' },
+                    { value: 'tenant' as const, label: t('register.roleTenant') || 'Tenant' },
+                    { value: 'agent' as const, label: t('register.roleAgent') || 'Agent' },
                   ].map(opt => (
                     <button
                       key={opt.value}
                       type="button"
-                      onClick={() => setRole(opt.value as typeof role)}
-                      className={`relative px-4 py-3 rounded-lg border transition-all ${
-                        role === opt.value
-                          ? 'border-cyan-500/60 bg-cyan-500/15 text-cyan-200'
-                          : 'border-white/[0.06] bg-white/[0.02] text-slate-300 hover:border-white/[0.12] hover:bg-white/[0.04]'
-                      }`}
+                      onClick={() => setRole(opt.value)}
+                      style={{
+                        ...roleButtonStyle,
+                        background: role === opt.value ? mk.brandSoft : mk.surface,
+                        borderColor: role === opt.value ? mk.brand : mk.border,
+                        color: role === opt.value ? mk.brand : mk.text,
+                      }}
                     >
-                      <span className="text-sm font-medium">{opt.label}</span>
+                      {opt.label}
                     </button>
                   ))}
                 </div>
@@ -215,35 +287,40 @@ export default function ProfilePage() {
               {/* Company Name (only if role === 'agent') */}
               {role === 'agent' && (
                 <div>
-                  <label className="label">{t('profile.company')}</label>
+                  <label style={labelStyle}>{t('profile.company') || 'Company name'}</label>
                   <input
                     type="text"
                     value={companyName}
                     onChange={e => setCompanyName(e.target.value)}
                     placeholder="Your company name"
-                    className="input"
+                    style={inputStyle}
+                    onFocus={e => { e.currentTarget.style.borderColor = mk.brand; e.currentTarget.style.boxShadow = `0 0 0 3px rgba(13,148,136,0.1)` }}
+                    onBlur={e => { e.currentTarget.style.borderColor = mk.border; e.currentTarget.style.boxShadow = 'none' }}
                   />
                 </div>
               )}
 
               {/* Current Plan (Read-only) */}
               <div>
-                <label className="label">{t('profile.plan')}</label>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`mono text-[12px] uppercase px-3 py-1.5 rounded-lg border font-medium ${
-                      plan === 'free'
-                        ? 'bg-slate-500/10 text-slate-300 border-slate-500/30'
-                        : plan === 'pro'
-                          ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
-                          : 'bg-violet-500/15 text-violet-300 border-violet-500/40'
-                    }`}
-                  >
+                <label style={labelStyle}>{t('profile.plan') || 'Current plan'}</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: '0.05em',
+                    textTransform: 'uppercase',
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    border: `1px solid ${mk.border}`,
+                    background: mk.brandSoft,
+                    color: mk.brand,
+                    fontFamily: 'JetBrains Mono, monospace',
+                  }}>
                     {plan}
                   </span>
                   {plan === 'free' && (
-                    <Link href="/dashboard?upgrade=1" className="text-xs text-cyan-400 hover:text-cyan-300 font-medium">
-                      {t('common.upgrade')} →
+                    <Link href="/dashboard?upgrade=1" style={{ fontSize: 13, color: mk.brand, textDecoration: 'underline', fontWeight: 500 }}>
+                      {t('common.upgrade') || 'Upgrade'} →
                     </Link>
                   )}
                 </div>
@@ -251,16 +328,33 @@ export default function ProfilePage() {
 
               {/* Error Message */}
               {error && (
-                <div className="rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-sm px-3 py-2">
+                <div style={{
+                  borderRadius: 10,
+                  border: `1px solid rgba(225,29,72,0.2)`,
+                  background: mk.redSoft,
+                  color: mk.red,
+                  fontSize: 13,
+                  padding: '12px 14px',
+                }}>
                   {error}
                 </div>
               )}
 
               {/* Success Message */}
               {saved && (
-                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-sm px-3 py-2 flex items-center gap-2">
-                  <span className="text-lg">✓</span>
-                  {t('profile.saved')}
+                <div style={{
+                  borderRadius: 10,
+                  border: `1px solid rgba(5,150,105,0.25)`,
+                  background: mk.greenSoft,
+                  color: mk.green,
+                  fontSize: 13,
+                  padding: '12px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}>
+                  <span>✓</span>
+                  {t('profile.saved') || 'Saved successfully'}
                 </div>
               )}
 
@@ -268,22 +362,12 @@ export default function ProfilePage() {
               <button
                 type="submit"
                 disabled={saving || loading}
-                className="btn-primary w-full mt-2"
+                style={buttonStyle}
               >
-                {saving ? t('profile.saving') : t('profile.save')}
+                {saving ? (t('profile.saving') || 'Saving...') : (t('profile.save') || 'Save changes')}
               </button>
             </div>
           </form>
-
-          {/* Sign Out Button */}
-          <div className="flex justify-center">
-            <button
-              onClick={signOut}
-              className="text-sm px-4 py-2 rounded-lg font-medium text-red-300 hover:text-red-200 border border-red-500/20 hover:border-red-500/40 hover:bg-red-500/10 transition-colors"
-            >
-              Sign out
-            </button>
-          </div>
         </div>
       </div>
     </div>

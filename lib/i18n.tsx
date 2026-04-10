@@ -9,6 +9,11 @@ export type Lang = 'en' | 'zh'
 export const DICT = {
   // Common / nav / buttons
   'nav.signin': { en: 'Sign in', zh: '登录' },
+  'nav.register': { en: 'Register', zh: '注册' },
+  'nav.profile': { en: 'My Profile', zh: '我的资料' },
+  'nav.screenings': { en: 'Screenings', zh: '背调' },
+  'nav.signOut': { en: 'Sign out', zh: '退出登录' },
+  'nav.newScreening': { en: 'New screening', zh: '新建背调' },
   'nav.getStarted': { en: 'Get started →', zh: '开始使用 →' },
   'nav.dashboard': { en: 'Dashboard →', zh: '控制台 →' },
   'nav.back': { en: '← stayloop.ai', zh: '← stayloop.ai' },
@@ -761,6 +766,8 @@ export const DICT = {
   // Profile page
   'profile.badge': { en: '// MY PROFILE', zh: '// 我的资料' },
   'profile.title': { en: 'Profile Settings', zh: '个人资料设置' },
+  'profile.emailLabel': { en: 'Email address', zh: '电子邮件地址' },
+  'profile.emailReadOnly': { en: 'Read-only', zh: '只读' },
   'profile.fullName': { en: 'Full name', zh: '姓名' },
   'profile.phone': { en: 'Phone number', zh: '电话号码' },
   'profile.company': { en: 'Company / Organization', zh: '公司 / 机构名称' },

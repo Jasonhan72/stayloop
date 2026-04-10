@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser, useAnonTrialCheck } from '@/lib/useUser'
 import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
+import UserNav from '@/components/UserNav'
 
 // ───────────────────────────────────────────────────────── Types ──
 
@@ -1104,29 +1105,7 @@ export default function ScreenPage() {
       `}</style>
 
       {/* Header */}
-      <nav className="nav-bar">
-        <Link href="/" className="nav-brand">
-          <div className="nav-logo">S</div>
-          <div>
-            <div className="nav-title">{t('screen.title')}</div>
-            <div className="nav-sub mono">{t('screen.subtitle')}</div>
-          </div>
-        </Link>
-        <div className="nav-actions">
-          {result && (
-            <button onClick={reset} className="btn btn-ghost btn-sm">{t('screen.new')}</button>
-          )}
-          <LanguageToggle />
-          {landlord.isAnonymous ? (
-            <Link href="/register?next=/screen" className="btn btn-ghost btn-sm">{t('register.signIn')}</Link>
-          ) : (
-            <>
-              <Link href="/profile" className="btn btn-ghost btn-sm">{landlord.email.split('@')[0]}</Link>
-              <Link href="/dashboard" className="btn btn-ghost btn-sm">{t('nav.dashboard')}</Link>
-            </>
-          )}
-        </div>
-      </nav>
+      <UserNav user={landlord} signOut={signOut} showNewScreening={!!result} onNewScreening={reset} />
 
       {/* Auth gate modal — shown when anonymous user has used their 1 free trial */}
       {showAuthGate && (
