@@ -50,13 +50,20 @@ function RegisterInner() {
     setError(null)
 
     const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
-    const { error: authError } = await supabase.auth.signUp({
+    const { data, error: authError } = await supabase.auth.signUp({
       email, password,
       options: { emailRedirectTo: redirectTo, data: { role: selectedRole } },
     })
 
     setIsSubmitting(false)
     if (authError) { setError(authError.message); return }
+
+    // If a session is returned, email confirmation is disabled — redirect immediately
+    if (data?.session) {
+      window.location.href = safeNext
+      return
+    }
+    // Otherwise show "check your email" message
     setSuccessMessage(true)
   }
 
