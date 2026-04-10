@@ -114,7 +114,7 @@ Return ONLY this JSON (no markdown, no prose):
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
+      'anthropic-version': '2025-04-14',
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
