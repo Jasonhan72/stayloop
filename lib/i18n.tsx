@@ -59,8 +59,8 @@ export const DICT = {
   },
   'home.features.3.title': { en: 'PIPEDA compliant', zh: 'PIPEDA 合规' },
   'home.features.3.desc': {
-    en: 'Built-in consent forms, data minimization, and 90-day retention. Aligned with the Ontario Human Rights Code from day one.',
-    zh: '内置同意书、数据最小化、90 天保留。从第一天起就遵循安省人权法典。',
+    en: 'Built-in consent forms, data minimization, 90-day retention, and Canadian data residency from day one.',
+    zh: '内置同意书、数据最小化、90 天保留，数据自首日起即存放于加拿大境内。',
   },
 
   'home.workflow.tag': { en: '// WORKFLOW', zh: '// 工作流程' },
@@ -102,7 +102,7 @@ export const DICT = {
   'home.screenEntry.b1.title': { en: '5-dimension Risk Score', zh: '5 维风险评分' },
   'home.screenEntry.b1.desc': { en: 'Ability to pay, credit health, rental & legal history, identity & employer, application quality.', zh: '付款能力、信用健康、租务与司法历史、身份与雇主核实、申请完整度。' },
   'home.screenEntry.b2.title': { en: 'All Ontario CanLII Records', zh: '安省全部 CanLII 记录' },
-  'home.screenEntry.b2.desc': { en: 'Searches LTB, Superior Court, Small Claims, HRT and more against the applicant name.', zh: '按申请人姓名检索 LTB、高等法院、小额法庭、人权法庭等全部安省公开数据库。' },
+  'home.screenEntry.b2.desc': { en: 'Searches LTB, Superior Court, Small Claims and Court of Appeal records against the applicant name via CanLII.', zh: '通过 CanLII 按申请人姓名检索 LTB、高等法院、小额法庭与上诉法院的公开记录。' },
   'home.screenEntry.b3.title': { en: 'AI document verification', zh: 'AI 资料真实性核验' },
   'home.screenEntry.b3.desc': { en: 'Cross-checks IDs, pay stubs and bank statements for tampering and inconsistencies.', zh: '交叉核对证件、工资单与银行流水，识别伪造与不一致之处。' },
   'home.screenEntry.b4.title': { en: 'Bilingual EN / 中文 report', zh: '中英双语报告' },
@@ -125,12 +125,12 @@ export const DICT = {
   'mk.nav.getStarted': { en: 'Start a screening', zh: '开始背调' },
 
   // Hero
-  'mk.hero.eyebrow': { en: 'Ontario · Dual-track verification · PIPEDA & RTA 2006 compliant', zh: '安省 · 双轨核验 · 符合 PIPEDA 与 RTA 2006' },
-  'mk.hero.title1': { en: 'Institutional-grade tenant', zh: '为加拿大房东打造的' },
-  'mk.hero.title2': { en: 'screening for Canadian landlords.', zh: '机构级租客背调平台。' },
+  'mk.hero.eyebrow': { en: 'Ontario · An AI-driven rental ecosystem · PIPEDA compliant', zh: '安省 · AI 驱动的租赁生态系统 · 符合 PIPEDA' },
+  'mk.hero.title1': { en: 'The trusted, AI-driven', zh: '可信任的 AI 驱动' },
+  'mk.hero.title2': { en: 'rental ecosystem.', zh: '租赁生态系统。' },
   'mk.hero.sub': {
-    en: 'Dual-track verification, full coverage of Ontario public court records, and a fully cited five-dimension risk report — delivered in under 60 seconds.',
-    zh: '双轨核验、安省公开法庭记录全覆盖、附完整引用的五维风险报告 —— 60 秒内出具。',
+    en: 'Stayloop connects every step of a Canadian tenancy — applicant verification, listings, leasing, rent operations and ongoing tenant relationships — on a single trusted platform. It begins today with a fully cited applicant risk report, delivered in under 60 seconds.',
+    zh: 'Stayloop 把加拿大租赁的每一个环节 —— 申请人核验、房源管理、签约、租金运营以及租后关系 —— 串联在同一个可信任平台上。今日已上线的第一步：60 秒内出具一份附完整引用的申请人风险报告。',
   },
   'mk.hero.ctaPrimary': { en: 'Start a screening', zh: '开始背调' },
   'mk.hero.ctaTenant': { en: 'For tenants', zh: '租客入口' },
@@ -155,50 +155,50 @@ export const DICT = {
   'mk.preview.note': { en: 'Employment income verified. Income/rent ratio 3.4×. No document tampering detected. No adverse records across Ontario public court archives. Full evidence trail attached.', zh: '就业收入已核验。收入租金比 3.4×。未发现文件篡改。安省公开法庭记录中无不利记录。附完整证据链。' },
 
   // Trust bar
-  'mk.trust.heading': { en: 'A fully auditable underwriting stack', zh: '完全可审计的技术栈' },
+  'mk.trust.heading': { en: 'A trusted, fully auditable technology stack', zh: '可信任、完全可审计的技术栈' },
   'mk.trust.claude': { en: 'Claude Sonnet 4.5', zh: 'Claude Sonnet 4.5' },
   'mk.trust.canlii': { en: 'CanLII Ontario full coverage', zh: 'CanLII 安省全库' },
   'mk.trust.supabase': { en: 'Open Banking ready', zh: '支持 Open Banking' },
   'mk.trust.cloudflare': { en: 'Cloudflare edge', zh: 'Cloudflare 边缘网络' },
   'mk.trust.pipeda': { en: 'PIPEDA compliant', zh: '符合 PIPEDA' },
-  'mk.trust.ohrc': { en: 'Ontario HRC compliant', zh: '符合安省人权法' },
+  'mk.trust.ohrc': { en: 'Canadian data residency', zh: '数据存放于加拿大' },
 
   // Dual audience
-  'mk.dual.eyebrow': { en: 'PLATFORM', zh: '平台' },
-  'mk.dual.title': { en: 'Two sides of the lease. One standard of verification.', zh: '一份租约，两端共用同一套核验标准。' },
-  'mk.dual.sub': { en: 'Institutional underwriting methodology brought to residential tenancy.', zh: '把机构级风控方法引入住宅租赁。' },
+  'mk.dual.eyebrow': { en: 'ECOSYSTEM', zh: '生态系统' },
+  'mk.dual.title': { en: 'One ecosystem. Both sides of the lease.', zh: '同一个生态系统，服务租约双方。' },
+  'mk.dual.sub': { en: 'Stayloop is built so landlords and tenants meet on the same trusted platform — verified, transparent, and connected end-to-end.', zh: 'Stayloop 让房东与租客在同一个可信任的平台上对接 —— 已核验、透明、全流程贯通。' },
 
   'mk.dual.landlord.tag': { en: 'LANDLORDS', zh: '房东' },
-  'mk.dual.landlord.title': { en: 'Institutional-grade tenant screening', zh: '机构级租客背调' },
-  'mk.dual.landlord.desc': { en: 'Dual-track verification: cash-flow analysis, AI document forensics, and full Ontario public court coverage.', zh: '双轨核验：现金流分析、AI 文件鉴伪，加上安省公开法庭记录全覆盖。' },
-  'mk.dual.landlord.b1': { en: 'Full Ontario CanLII coverage: LTB, ONSC, Small Claims, Court of Appeal, HRT', zh: '安省 CanLII 全覆盖：LTB、高等法院、小额法庭、上诉法院、人权法庭' },
-  'mk.dual.landlord.b2': { en: 'Document forensics for synthetic pay stubs, altered IDs and bank statements', zh: '识别伪造工资单、篡改证件与银行流水' },
-  'mk.dual.landlord.b3': { en: 'Cash-flow analysis independent of credit bureau scoring', zh: '独立于征信局评分的现金流分析' },
+  'mk.dual.landlord.title': { en: 'A connected operating layer for your rentals', zh: '为您的房源打造的全流程运营层' },
+  'mk.dual.landlord.desc': { en: 'From listing and verification through leasing and rent collection — every step lives on one trusted platform.', zh: '从发布房源、核验申请人，到签约和收租，每个环节都运行在同一个可信任的平台上。' },
+  'mk.dual.landlord.b1': { en: 'AI-driven applicant verification with full Ontario CanLII coverage', zh: 'AI 驱动的申请人核验，安省 CanLII 全覆盖' },
+  'mk.dual.landlord.b2': { en: 'Listings, applications and lease workflow on a single platform', zh: '房源、申请与签约在同一个平台中流转' },
+  'mk.dual.landlord.b3': { en: 'Rent collection, reconciliation and tenant relationship tools', zh: '收租、对账与租后关系管理工具' },
   'mk.dual.landlord.cta': { en: 'Start a screening', zh: '开始背调' },
 
   'mk.dual.tenant.tag': { en: 'TENANTS', zh: '租客' },
-  'mk.dual.tenant.title': { en: 'Portable verified tenant profile', zh: '可携带的认证租客档案' },
-  'mk.dual.tenant.desc': { en: 'A reusable verification profile for newcomers, self-employed applicants and renters with limited credit history.', zh: '专为新移民、自雇人士及信用记录有限的租客设计的可复用核验档案。' },
+  'mk.dual.tenant.title': { en: 'A verified profile you carry with you', zh: '可随身携带的认证档案' },
+  'mk.dual.tenant.desc': { en: 'A reusable verification profile designed for newcomers, self-employed applicants and renters with limited credit history.', zh: '专为新移民、自雇人士及信用记录有限的租客设计的可复用核验档案。' },
   'mk.dual.tenant.b1': { en: 'Tenant-owned profile, shared on the applicant\u2019s terms', zh: '档案由租客本人持有，自主决定向谁披露' },
-  'mk.dual.tenant.b2': { en: 'Protected grounds excluded from all scoring inputs', zh: '受保护属性不纳入任何评分因子' },
+  'mk.dual.tenant.b2': { en: 'Verify once, reuse with multiple landlords', zh: '一次核验，可向多位房东复用' },
   'mk.dual.tenant.b3': { en: 'Same report visible to both tenant and landlord', zh: '租客与房东看到的是同一份报告' },
   'mk.dual.tenant.cta': { en: 'Request early access', zh: '申请抢先体验' },
   'mk.dual.tenant.soon': { en: 'Q3 2026', zh: '2026 年 Q3' },
 
   // Featured screening product
-  'mk.screening.eyebrow': { en: 'CORE PRODUCT', zh: '核心产品' },
-  'mk.screening.title': { en: 'AI-assisted tenant screening', zh: 'AI 辅助租客背调' },
+  'mk.screening.eyebrow': { en: 'LIVE TODAY', zh: '已上线' },
+  'mk.screening.title': { en: 'Step one of the ecosystem: AI-driven applicant verification', zh: '生态系统的第一步：AI 驱动的申请人核验' },
   'mk.screening.sub': { en: 'A structured five-dimension risk report with full citations, delivered in under 60 seconds.', zh: '结构化五维风险报告，附完整引用，60 秒内出具。' },
   'mk.screening.f1.title': { en: 'Five-dimension risk model', zh: '五维风险模型' },
-  'mk.screening.f1.desc': { en: 'Ability to pay, credit health, rental history, identity verification, and application completeness. Hard rules and warning signals are disclosed on every report.', zh: '还款能力、信用状况、租赁历史、身份核验、申请完整度。每份报告均披露触发的硬性规则与预警信号。' },
+  'mk.screening.f1.desc': { en: 'Ability to pay, credit health, rental history, identity verification, and application completeness. Every report discloses the rules and warning signals that have been triggered.', zh: '还款能力、信用状况、租赁历史、身份核验、申请完整度。每份报告都会披露被触发的规则与预警信号。' },
   'mk.screening.f2.title': { en: 'Ontario court records coverage', zh: '安省法庭记录覆盖' },
-  'mk.screening.f2.desc': { en: 'Parallel search of LTB, ONSC, Small Claims, Court of Appeal and HRT through CanLII. Every match cites the source record.', zh: '通过 CanLII 并行检索 LTB、高等法院、小额法庭、上诉法院与人权法庭。每条命中均附原始记录引用。' },
+  'mk.screening.f2.desc': { en: 'Parallel search across the LTB, Superior Court, Small Claims and Court of Appeal records through CanLII. Every match cites its source record.', zh: '通过 CanLII 并行检索 LTB、高等法院、小额法庭与上诉法院公开记录。每条命中均附原始记录引用。' },
   'mk.screening.f3.title': { en: 'Document forensics', zh: '文件鉴伪' },
   'mk.screening.f3.desc': { en: 'Cross-document identity matching, metadata analysis, and tamper detection on pay stubs, government IDs and bank statements.', zh: '跨文件身份比对、元数据分析，以及对工资单、政府证件与银行流水的篡改检测。' },
   'mk.screening.f4.title': { en: 'Cash-flow analysis', zh: '现金流分析' },
-  'mk.screening.f4.desc': { en: 'Open Banking-ready cash-flow analysis that works without a credit bureau pull. Suitable for self-employed applicants, newcomers and renters with limited credit history.', zh: '支持 Open Banking 的现金流分析，无需查询征信局也可使用。适用于自雇人士、新移民及信用记录有限的租客。' },
-  'mk.screening.f5.title': { en: 'Regulatory compliance', zh: '合规' },
-  'mk.screening.f5.desc': { en: 'Compliant with PIPEDA, RTA 2006 and the Ontario Human Rights Code. Protected grounds are excluded from all scoring inputs.', zh: '符合 PIPEDA、RTA 2006 与安省人权法。受保护属性不纳入任何评分因子。' },
+  'mk.screening.f4.desc': { en: 'Open Banking-ready cash-flow analysis that works without a credit bureau pull. Suitable for self-employed applicants, newcomers and renters with limited credit history.', zh: '支持 Open Banking 的现金流分析，无需查询征信局也能使用。适用于自雇人士、新移民及信用记录有限的租客。' },
+  'mk.screening.f5.title': { en: 'Connected to the ecosystem', zh: '与生态系统打通' },
+  'mk.screening.f5.desc': { en: 'A verified application flows directly into listings, lease generation and rent operations as those modules come online.', zh: '已核验的申请会直接流转至房源管理、租约生成与租金运营等模块（随对应模块陆续上线）。' },
   'mk.screening.f6.title': { en: 'Bilingual reports', zh: '双语报告' },
   'mk.screening.f6.desc': { en: 'Reports can be viewed in English or Simplified Chinese, switchable with one click.', zh: '报告支持中英双语，一键切换。' },
   'mk.screening.cta': { en: 'Start a screening', zh: '开始背调' },
@@ -221,8 +221,8 @@ export const DICT = {
 
   // Roadmap
   'mk.roadmap.eyebrow': { en: 'ROADMAP', zh: '路线图' },
-  'mk.roadmap.title': { en: 'Product roadmap', zh: '产品路线图' },
-  'mk.roadmap.sub': { en: 'A complete rental operating system, delivered in phases.', zh: '完整的租赁运营系统，分阶段推出。' },
+  'mk.roadmap.title': { en: 'The full ecosystem', zh: '完整生态系统' },
+  'mk.roadmap.sub': { en: 'Each module connects to the next, so a verified applicant becomes a signed lease, an on-time rent payment, and a long-term tenant relationship.', zh: '每个模块都与下一个模块相连，让一份已核验的申请，顺畅衔接到签约、按时收租，再到长期的租后关系。' },
   'mk.roadmap.status.live': { en: 'Live', zh: '已上线' },
   'mk.roadmap.status.beta': { en: 'Beta', zh: '内测中' },
   'mk.roadmap.status.soon': { en: 'In development', zh: '开发中' },
@@ -243,17 +243,17 @@ export const DICT = {
   'mk.roadmap.7.desc': { en: 'Capital-backed default protection built on top of the screening layer.', zh: '在背调能力之上构建的资本支撑违约保障。' },
 
   // Compliance & security
-  'mk.sec.eyebrow': { en: 'COMPLIANCE', zh: '合规' },
-  'mk.sec.title': { en: 'Compliance & data governance', zh: '合规与数据治理' },
-  'mk.sec.sub': { en: 'Built around Canadian privacy law and Ontario tenancy regulation.', zh: '严格遵循加拿大隐私法与安省租赁相关法规。' },
+  'mk.sec.eyebrow': { en: 'TRUST', zh: '信任' },
+  'mk.sec.title': { en: 'Built on trust and data governance', zh: '建立在信任与数据治理之上' },
+  'mk.sec.sub': { en: 'Privacy, residency and access controls designed for Canadian rental data.', zh: '面向加拿大租赁数据的隐私、存放地与访问控制。' },
   'mk.sec.1.title': { en: 'PIPEDA compliant', zh: '符合 PIPEDA' },
   'mk.sec.1.desc': { en: 'Data minimization, purpose limitation and express consent. Storage is scoped per screening and private by default.', zh: '遵循数据最小化、目的限定与明示同意原则；存储按背调隔离，默认私有。' },
-  'mk.sec.2.title': { en: 'Ontario Human Rights Code', zh: '安省人权法' },
-  'mk.sec.2.desc': { en: 'Protected grounds are excluded from all scoring inputs and model features.', zh: '受保护属性不会进入任何评分因子或模型特征。' },
-  'mk.sec.3.title': { en: 'RTA 2006 compliant', zh: '符合 RTA 2006' },
-  'mk.sec.3.desc': { en: 'Reports never recommend actions inconsistent with the Residential Tenancies Act, with statutory citations where relevant.', zh: '报告绝不建议与《居住租赁法》相抵触的操作，相关条款均附法条引用。' },
-  'mk.sec.4.title': { en: 'Pricing data boundaries', zh: '定价数据边界' },
-  'mk.sec.4.desc': { en: 'Non-public competitor rent data is never collected or shared. Pricing decisions stay with the landlord.', zh: '从不收集、也从不共享非公开的同行租金数据；定价决策始终由房东自主作出。' },
+  'mk.sec.2.title': { en: 'Canadian data residency', zh: '数据存放于加拿大' },
+  'mk.sec.2.desc': { en: 'Applicant documents and reports are stored in Canadian regions and never transferred outside without express authorization.', zh: '申请人材料与报告均存放在加拿大境内的服务区域，未经明示授权不会转出境外。' },
+  'mk.sec.3.title': { en: 'Tenant-controlled deletion', zh: '由用户决定删除' },
+  'mk.sec.3.desc': { en: 'Account holders can delete a screening — and every file attached to it — at any time. Records expire on a defined retention schedule.', zh: '账户持有人可随时删除某次背调及其全部相关文件；记录按既定保留周期自动过期。' },
+  'mk.sec.4.title': { en: 'No competitor data sharing', zh: '不共享同行数据' },
+  'mk.sec.4.desc': { en: 'Stayloop never collects or shares non-public competitor rent data. Pricing decisions stay entirely with the landlord.', zh: 'Stayloop 从不收集、也从不共享非公开的同行租金数据；定价决策完全由房东自主作出。' },
 
   // Pricing
   'mk.pricing.eyebrow': { en: 'PRICING', zh: '定价' },
@@ -288,8 +288,8 @@ export const DICT = {
   'mk.faq.a1': { en: 'Five screenings per month, with dual-track verification, full Ontario CanLII coverage and the complete five-dimension risk report. No credit card required.', zh: '每月 5 次背调，包含双轨核验、安省 CanLII 全覆盖与完整的五维风险报告。无需信用卡。' },
   'mk.faq.q2': { en: 'How does Stayloop differ from enterprise platforms such as RealPage or Yardi?', zh: 'Stayloop 与 RealPage、Yardi 等企业级平台有什么不同？' },
   'mk.faq.a2': { en: 'Stayloop is built for independent landlords and small portfolios. It only performs applicant-level screening and does not collect, share or rely on any non-public competitor rent data.', zh: 'Stayloop 专为独立房东与中小持有人打造，只针对申请人本人做背调，从不收集、共享或依赖任何非公开的同行租金数据。' },
-  'mk.faq.q3': { en: 'How does Stayloop comply with the Ontario Human Rights Code?', zh: 'Stayloop 如何符合安省人权法？' },
-  'mk.faq.a3': { en: 'Protected grounds are excluded from all scoring inputs and model features. Each report includes compliance notes and statutory citations.', zh: '受保护属性不会进入任何评分因子或模型特征。每份报告都附合规说明与法条引用。' },
+  'mk.faq.q3': { en: 'Where is applicant data stored?', zh: '申请人数据存放在哪里？' },
+  'mk.faq.a3': { en: 'All applicant documents and reports are stored in Canadian regions under PIPEDA. Account holders can delete a screening and every attached file at any time.', zh: '所有申请人材料与报告均存放在加拿大境内、遵循 PIPEDA。账户持有人可随时删除某次背调及其全部相关文件。' },
   'mk.faq.q4': { en: 'Who controls the uploaded documents?', zh: '上传的资料由谁掌握？' },
   'mk.faq.a4': { en: 'The account holder. Files are stored in private buckets with row-level security and can be deleted from the account at any time.', zh: '由账户持有人掌握。文件存储在带行级安全的私有空间，可随时从账户中删除。' },
   'mk.faq.q5': { en: 'Is Stayloop available outside Ontario?', zh: 'Stayloop 在安省以外是否可用？' },
@@ -320,7 +320,7 @@ export const DICT = {
   'mk.footer.docs': { en: 'Documentation', zh: '文档' },
   'mk.footer.status': { en: 'System status', zh: '系统状态' },
   'mk.footer.copy': { en: '© 2026 Stayloop Inc. · Built in Ontario 🇨🇦', zh: '© 2026 Stayloop Inc. · 安省出品 🇨🇦' },
-  'mk.footer.compliance': { en: 'PIPEDA · RTA 2006 · Ontario HRC aware', zh: 'PIPEDA · RTA 2006 · 安省人权法对齐' },
+  'mk.footer.compliance': { en: 'PIPEDA · RTA 2006 · Canadian data residency', zh: 'PIPEDA · RTA 2006 · 数据存放于加拿大' },
 
   // Screen page
   'screen.title': { en: 'Stayloop Screening', zh: 'Stayloop Screening' },
@@ -422,8 +422,8 @@ export const DICT = {
     zh: '最终的租赁决定完全由业主（或其授权代理人）自行做出。在做出任何决定之前，业主必须通过直接联系、官方文件及授权第三方渠道，自行核实所有关键信息 —— 包括身份、收入、工作、信用记录以及过往房东推荐。'
   },
   'screen.result.disclaimer.body3': {
-    en: 'All leasing decisions must comply with the Ontario Human Rights Code and the Residential Tenancies Act, 2006. It is prohibited to refuse an applicant on the basis of any protected ground (including but not limited to race, ancestry, place of origin, colour, ethnic origin, citizenship, creed, sex, sexual orientation, gender identity, gender expression, age, marital status, family status, disability, or receipt of public assistance).',
-    zh: '所有租赁决定必须符合《安大略人权法典》和《2006 住宅租赁法》的规定。严禁基于任何受保护特征拒绝申请人，包括但不限于：种族、血统、出生地、肤色、族裔、公民身份、信仰、性别、性取向、性别认同、性别表达、年龄、婚姻状况、家庭状况、残疾，或是否接受公共援助。'
+    en: 'All leasing decisions must comply with the Residential Tenancies Act, 2006 and applicable Canadian privacy legislation, including PIPEDA.',
+    zh: '所有租赁决定必须符合《2006 住宅租赁法》以及适用的加拿大隐私法律（包括 PIPEDA）。'
   },
   'screen.result.disclaimer.body4': {
     en: 'AI models may contain errors, biases, or omissions and may produce false positives (unfairly flagging a good applicant) or false negatives (missing genuine risks). Name-based court searches on CanLII may return matches for different individuals with similar names — identity must always be independently verified before acting on any result.',
@@ -455,8 +455,8 @@ export const DICT = {
   'screen.result.flags': { en: '🚩 Flags & Recommendations', zh: '🚩 风险标记 & 建议' },
   'screen.result.weights': { en: '⚙️ Scoring Weights', zh: '⚙️ 评分权重说明' },
   'screen.result.footer.notice': {
-    en: 'This report is for decision support only. Final leasing decisions must comply with the Ontario RTA / Human Rights Code.',
-    zh: '本报告仅供决策参考。最终租赁决定应遵守 Ontario RTA / Human Rights Code。',
+    en: 'This report is for decision support only. Final leasing decisions must comply with the Ontario Residential Tenancies Act, 2006.',
+    zh: '本报告仅供决策参考。最终租赁决定应遵守《2006 安省住宅租赁法》。',
   },
 
   // Categories — Stayloop Risk Model v3 (2026), 5 dimensions
@@ -640,7 +640,7 @@ export const DICT = {
   'apply.addFile': { en: '+ add file', zh: '+ 添加文件' },
   'apply.remove': { en: 'remove', zh: '移除' },
   'apply.consent.tag': { en: '// CONSENT — PIPEDA', zh: '// 同意 — PIPEDA' },
-  'apply.consent.body': { en: 'By submitting, you authorize the landlord and Stayloop to verify your information, contact references, search publicly available LTB and Ontario court records, and obtain a credit report. Data retained 90 days then deleted. Compliant with the Ontario Human Rights Code.', zh: '提交即表示您授权房东和 Stayloop 核实您的信息、联系推荐人、查询公开的 LTB 及安省法庭记录，并获取信用报告。数据保留 90 天后删除，符合《安省人权法典》。' },
+  'apply.consent.body': { en: 'By submitting, you authorize the landlord and Stayloop to verify your information, contact references, search publicly available LTB and Ontario court records, and obtain a credit report. Data is stored in Canadian regions, retained for 90 days and then deleted, in accordance with PIPEDA.', zh: '提交即表示您授权房东和 Stayloop 核实您的信息、联系推荐人、查询公开的 LTB 及安省法庭记录，并获取信用报告。数据存放于加拿大境内，保留 90 天后删除，遵循 PIPEDA。' },
   'apply.consent.check1': { en: 'I agree to the above authorization and confirm all information is accurate. *', zh: '我同意以上授权并确认所有信息属实。*' },
   'apply.consent.check2': { en: 'I consent to a credit check being performed on my behalf.', zh: '我同意进行信用查询。' },
   'apply.submit': { en: 'Submit application →', zh: '提交申请 →' },
