@@ -95,17 +95,34 @@ async function searchCanLIIDb(name: string, db: CanLIIDatabase, apiKey: string):
     if (!res.ok) return []
     const data = await res.json() as { cases?: Array<{ databaseId: string; caseId: { en: string }; title: string; citation: string }> }
     const cases = data.cases || []
-    return cases.map(c => {
+    // Fetch real short URLs from CanLII case metadata API in parallel
+    const results = await Promise.all(cases.map(async c => {
       const cid = c.caseId?.en || ''
+      const dbId = c.databaseId || db.databaseId
+      let caseUrl = `https://www.canlii.org/en/on/${dbId}/`
+      if (cid) {
+        try {
+          const metaRes = await fetch(`https://api.canlii.org/v1/caseBrowse/en/${dbId}/${cid}?api_key=${apiKey}`, { signal: AbortSignal.timeout(4000) })
+          if (metaRes.ok) {
+            const meta = await metaRes.json() as { url?: string }
+            caseUrl = meta.url || `https://www.canlii.org/en/on/${dbId}/doc/${cid.slice(0, 4)}/${cid}/${cid}.html`
+          } else {
+            caseUrl = `https://www.canlii.org/en/on/${dbId}/doc/${cid.slice(0, 4)}/${cid}/${cid}.html`
+          }
+        } catch {
+          caseUrl = `https://www.canlii.org/en/on/${dbId}/doc/${cid.slice(0, 4)}/${cid}/${cid}.html`
+        }
+      }
       return {
         title: c.title,
         citation: c.citation,
-        databaseId: c.databaseId || db.databaseId,
+        databaseId: dbId,
         databaseName: db.name,
         caseId: cid,
-        url: cid ? `https://www.canlii.org/en/on/${db.databaseId}/doc/${cid.split('.')[0] || cid}/${cid}.html` : `https://www.canlii.org/en/on/${db.databaseId}/`,
+        url: caseUrl,
       }
-    })
+    }))
+    return results
   } catch {
     return []
   }
