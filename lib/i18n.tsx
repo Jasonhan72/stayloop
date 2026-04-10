@@ -129,8 +129,8 @@ export const DICT = {
   'mk.hero.title1': { en: 'The trusted, AI-driven', zh: '可信任的 AI 驱动' },
   'mk.hero.title2': { en: 'rental ecosystem.', zh: '租赁生态系统。' },
   'mk.hero.sub': {
-    en: 'Stayloop is a trust operating system for Canadian rentals. Four interlocking modules — a verified marketplace, a hybrid risk engine, integrated rent payments and an end-to-end service network — replace lease risk with financial certainty. Live today: a fully cited applicant risk report in under 60 seconds.',
-    zh: 'Stayloop 是面向加拿大租赁市场的信任操作系统。四个相互咬合的模块 —— 可信房源市场、双轨风控引擎、租金支付与信用、全周期服务网络 —— 用金融确定性取代租赁风险。今日已上线：60 秒内出具附完整引用的申请人风险报告。',
+    en: 'Marketplace \u00b7 Risk engine \u00b7 Payments \u00b7 Service network — four modules, one platform. Replace lease risk with financial certainty. Live now: cited risk report in 60 s.',
+    zh: '房源市场 · 风控引擎 · 支付与信用 · 服务网络 —— 四大模块，同一平台。用金融确定性取代租赁风险。已上线：60 秒出具可引用的风险报告。',
   },
   'mk.hero.ctaPrimary': { en: 'Start a screening', zh: '开始背调' },
   'mk.hero.ctaTenant': { en: 'For tenants', zh: '租客入口' },
