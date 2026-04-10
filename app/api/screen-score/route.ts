@@ -425,6 +425,25 @@ JSON DISCIPLINE (avoid parse errors):
     function extractJson(input: string): string {
       let t = input.trim()
       t = t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+      // Fix unescaped newlines inside JSON string values — a common LLM issue.
+      // Walk char-by-char: inside a string, replace raw \n \r with a space.
+      {
+        let fixed = '', inStr = false, esc = false
+        for (let i = 0; i < t.length; i++) {
+          const ch = t[i]
+          if (inStr) {
+            if (esc) { esc = false; fixed += ch; continue }
+            if (ch === '\\') { esc = true; fixed += ch; continue }
+            if (ch === '"') { inStr = false; fixed += ch; continue }
+            if (ch === '\n' || ch === '\r') { fixed += ' '; continue }
+            fixed += ch
+          } else {
+            if (ch === '"') inStr = true
+            fixed += ch
+          }
+        }
+        t = fixed
+      }
       try { JSON.parse(t); return t } catch {}
 
       const start = t.indexOf('{')
