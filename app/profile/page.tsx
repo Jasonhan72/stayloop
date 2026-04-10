@@ -32,7 +32,7 @@ interface ProfileData {
   email: string
   phone: string | null
   plan: 'free' | 'pro' | 'enterprise'
-  role?: 'user' | 'tenant' | 'agent'
+  role?: 'landlord' | 'tenant' | 'agent'
   company_name?: string | null
 }
 
@@ -42,7 +42,7 @@ export default function ProfilePage() {
 
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
-  const [role, setRole] = useState<'user' | 'tenant' | 'agent'>('user')
+  const [role, setRole] = useState<'landlord' | 'tenant' | 'agent'>('landlord')
   const [companyName, setCompanyName] = useState('')
   const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('free')
 
@@ -69,14 +69,14 @@ export default function ProfilePage() {
         console.error('Failed to fetch profile:', dbError)
         setFullName('')
         setPhone('')
-        setRole('user')
+        setRole('landlord')
         setCompanyName('')
         setPlan('free')
       } else if (data) {
         const profileData = data as ProfileData
         setFullName(profileData.full_name || '')
         setPhone(profileData.phone || '')
-        setRole(profileData.role || 'user')
+        setRole(profileData.role || 'landlord')
         setCompanyName(profileData.company_name || '')
         setPlan(profileData.plan || 'free')
       }
@@ -263,7 +263,7 @@ export default function ProfilePage() {
                 <label style={labelStyle}>{t('profile.role') || 'Role'}</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                   {[
-                    { value: 'user' as const, label: t('register.roleLandlord') || 'Landlord' },
+                    { value: 'landlord' as const, label: t('register.roleLandlord') || 'Landlord' },
                     { value: 'tenant' as const, label: t('register.roleTenant') || 'Tenant' },
                     { value: 'agent' as const, label: t('register.roleAgent') || 'Agent' },
                   ].map(opt => (

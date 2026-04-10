@@ -588,7 +588,7 @@ export const DICT = {
   'dash.signOut': { en: 'Sign out', zh: '退出' },
   'dash.overview': { en: '// OVERVIEW', zh: '// 概览' },
   'dash.title': { en: 'Dashboard', zh: '控制台' },
-  'dash.newListing': { en: '+ New listing', zh: '+ 新建房源' },
+  'dash.newListing': { en: 'New listing', zh: '新建房源' },
   'dash.stat.total': { en: 'Total applications', zh: '总申请数' },
   'dash.stat.approved': { en: 'Approved', zh: '已通过' },
   'dash.stat.pending': { en: 'Pending review', zh: '待审核' },
@@ -650,7 +650,7 @@ export const DICT = {
   'newListing.availableFrom': { en: 'Available from', zh: '可入住日期' },
   'newListing.cancel': { en: 'Cancel', zh: '取消' },
   'newListing.creating': { en: 'Creating...', zh: '创建中...' },
-  'newListing.create': { en: 'Create listing →', zh: '创建房源 →' },
+  'newListing.create': { en: 'Create listing', zh: '创建房源' },
   'newListing.failed': { en: 'Failed to create listing', zh: '创建房源失败' },
 
   // Apply page
