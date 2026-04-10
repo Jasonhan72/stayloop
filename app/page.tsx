@@ -65,7 +65,7 @@ function MarketingNav({ screenHref }: { screenHref: string }) {
           }}>S</div>
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--mk-navy)', letterSpacing: '-0.01em' }}>Stayloop</div>
-            <div className="mono" style={{ fontSize: 10, color: 'var(--mk-text-muted)', marginTop: -1 }}>Ontario · beta</div>
+            <div className="mono mk-nav-brand-sub" style={{ fontSize: 10, color: 'var(--mk-text-muted)', marginTop: -1 }}>Ontario · beta</div>
           </div>
         </Link>
 
@@ -79,7 +79,7 @@ function MarketingNav({ screenHref }: { screenHref: string }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <LanguageToggle />
-          <Link href="/login" className="mk-btn mk-btn-ghost mk-btn-sm" style={{ display: 'inline-flex' }}>
+          <Link href="/login" className="mk-btn mk-btn-ghost mk-btn-sm mk-nav-signin" style={{ display: 'inline-flex' }}>
             {t('mk.nav.signin')}
           </Link>
           <Link href={screenHref} className="mk-btn mk-btn-primary mk-btn-sm">
@@ -96,7 +96,7 @@ function Hero({ screenHref }: { screenHref: string }) {
   const { t } = useT()
   return (
     <section className="mk-section" style={{ paddingTop: 96, paddingBottom: 72 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.05fr) minmax(0, 0.95fr)', gap: 56, alignItems: 'center' }}>
+      <div className="mk-grid-hero">
         <div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 999, background: 'rgba(13, 148, 136, 0.08)', border: '1px solid rgba(13, 148, 136, 0.22)', marginBottom: 24 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0D9488', boxShadow: '0 0 8px rgba(13, 148, 136, 0.6)' }} />
@@ -121,7 +121,7 @@ function Hero({ screenHref }: { screenHref: string }) {
             </a>
           </div>
 
-          <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--mk-text-muted)' }}>
+          <div className="mk-hero-trust-row" style={{ display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--mk-text-muted)' }}>
             {[t('mk.hero.trust1'), t('mk.hero.trust2'), t('mk.hero.trust3')].map(txt => (
               <div key={txt} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{
@@ -134,7 +134,9 @@ function Hero({ screenHref }: { screenHref: string }) {
           </div>
         </div>
 
-        <HeroPreview />
+        <div className="mk-hero-preview-wrap">
+          <HeroPreview />
+        </div>
       </div>
     </section>
   )
@@ -500,7 +502,7 @@ function Security() {
   return (
     <section className="mk-section-alt">
       <div className="mk-section">
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.9fr) minmax(0, 1.1fr)', gap: 56, alignItems: 'start' }}>
+        <div className="mk-grid-split">
           <div>
             <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.sec.eyebrow')}</div>
             <h2 className="mk-h2" style={{ marginBottom: 18 }}>{t('mk.sec.title')}</h2>
@@ -660,7 +662,7 @@ function FinalCTA({ screenHref }: { screenHref: string }) {
   const { t } = useT()
   return (
     <section className="mk-section" style={{ paddingTop: 32, paddingBottom: 96 }}>
-      <div style={{
+      <div className="mk-final-cta-inner" style={{
         position: 'relative',
         padding: '64px 48px',
         borderRadius: 28,
@@ -735,7 +737,7 @@ function Footer() {
   return (
     <footer style={{ background: 'var(--mk-bg-alt)', borderTop: '1px solid var(--mk-border)', marginTop: 0 }}>
       <div className="mk-section" style={{ paddingTop: 64, paddingBottom: 40 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) repeat(3, minmax(0, 1fr))', gap: 40, marginBottom: 48 }}>
+        <div className="mk-grid-footer">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
               <div style={{
