@@ -25,7 +25,6 @@ export default function Home() {
       <Architecture />
       <ScreeningFeature screenHref={screenHref} />
       <HowItWorks />
-      <Roadmap />
       <Security />
       <Pricing screenHref={screenHref} />
       <FAQ />
