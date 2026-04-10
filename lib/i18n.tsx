@@ -579,6 +579,22 @@ export const DICT = {
   'history.loadError': { en: 'This report could not be loaded.', zh: '此报告无法加载。' },
   'history.back': { en: '← Back to new screening', zh: '← 返回新建评估' },
 
+  // Reset Password
+  'resetPassword.badge': { en: '// RESET PASSWORD', zh: '// 重置密码' },
+  'resetPassword.title': { en: 'Set new password', zh: '设置新密码' },
+  'resetPassword.sub': { en: 'Enter your new password below.', zh: '请输入您的新密码。' },
+  'resetPassword.newPassword': { en: 'New password', zh: '新密码' },
+  'resetPassword.confirmPassword': { en: 'Confirm password', zh: '确认密码' },
+  'resetPassword.tooShort': { en: 'Password must be at least 6 characters', zh: '密码至少需要 6 个字符' },
+  'resetPassword.mismatch': { en: 'Passwords do not match', zh: '两次密码输入不一致' },
+  'resetPassword.submit': { en: 'Update password', zh: '更新密码' },
+  'resetPassword.updating': { en: 'Updating...', zh: '更新中...' },
+  'resetPassword.success': { en: 'Password updated', zh: '密码已更新' },
+  'resetPassword.successDetail': { en: 'Your password has been reset successfully. Redirecting...', zh: '您的密码已成功重置。正在跳转...' },
+  'resetPassword.invalidLink': { en: 'This reset link is invalid or has expired. Please request a new one.', zh: '此重置链接无效或已过期，请重新请求。' },
+  'resetPassword.verifying': { en: 'Verifying reset link...', zh: '验证重置链接...' },
+  'resetPassword.backToLogin': { en: 'Back to sign in', zh: '返回登录' },
+
   // Dashboard
   'dash.tagline': { en: 'dashboard', zh: '控制台' },
   'dash.screenTenant': { en: '⚡ Screen tenant', zh: '⚡ 评估租客' },

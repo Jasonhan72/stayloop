@@ -271,6 +271,26 @@ export async function POST(req: NextRequest) {
     }
 
     const plan: string = screening.landlord?.plan || 'free'
+
+    // ---- Quota enforcement for free plan ----
+    if (plan === 'free') {
+      const landlordId = screening.landlord_id
+      const now = new Date()
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+      const { count } = await supabase
+        .from('screenings')
+        .select('id', { count: 'exact', head: true })
+        .eq('landlord_id', landlordId)
+        .gte('created_at', monthStart)
+        .neq('status', 'pending') // only count completed/scoring screenings
+      if (count !== null && count >= 5) {
+        return NextResponse.json(
+          { error: 'Monthly screening limit reached (5/5). Upgrade to Pro for unlimited screenings.' },
+          { status: 429 }
+        )
+      }
+    }
+
     const monthlyRent = Number(screening.monthly_rent) || 0
     const monthlyIncome = Number(screening.monthly_income) || 0
     const incomeRatio = monthlyRent > 0 ? monthlyIncome / monthlyRent : 0
