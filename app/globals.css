@@ -771,3 +771,172 @@ body > * { position: relative; z-index: 1; }
   .marketing .mk-nav-brand-sub { display: none; }
   .marketing .mk-section { padding: 52px 16px; }
 }
+
+/* ──────────────────────────────────────────────────────────────────
+   Screen / app light theme — scoped to .screen-app wrapper.
+   Reuses the marketing palette so /screen visually matches the
+   marketing home page. Achieved by overriding the dark CSS tokens
+   that the existing screen page components consume via var(--*).
+   ────────────────────────────────────────────────────────────────── */
+body:has(.screen-app) { background: #F7F8FB; }
+body:has(.screen-app)::before,
+body:has(.screen-app)::after { display: none !important; }
+
+.screen-app {
+  /* Surfaces — flip dark tokens to light */
+  --bg-base: #F7F8FB;
+  --bg-sunk: #EEF2F8;
+  --bg-elevated: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-card-solid: #FFFFFF;
+  --bg-card-raised: #FFFFFF;
+  --bg-chip: #F1F5FB;
+
+  /* Borders — soft real-estate SaaS */
+  --border-subtle: #E4E8F0;
+  --border-strong: #CBD5E1;
+  --border-accent: rgba(13, 148, 136, 0.45);
+
+  /* Text */
+  --text-primary: #0B1736;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+  --text-faint: #94A3B8;
+
+  /* Brand gradient — keep teal→blue but lighter shadow profile */
+  --gradient-brand: linear-gradient(135deg, #0D9488 0%, #2563EB 100%);
+  --gradient-pro: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 100%);
+
+  /* Soft realtor-saas shadows */
+  --shadow-sm: 0 1px 2px rgba(11, 23, 54, 0.05);
+  --shadow-md: 0 8px 24px -12px rgba(11, 23, 54, 0.16), 0 1px 0 rgba(11, 23, 54, 0.04);
+  --shadow-lg: 0 28px 70px -24px rgba(11, 23, 54, 0.22), 0 1px 0 rgba(11, 23, 54, 0.04);
+  --shadow-glow: 0 8px 28px -10px rgba(13, 148, 136, 0.32);
+
+  background: #F7F8FB;
+  color: #0B1736;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* Soft brand-tinted ambient backdrop */
+.screen-app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(1200px 600px at 12% -10%, rgba(13, 148, 136, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 92% 10%, rgba(37, 99, 235, 0.07), transparent 55%);
+  pointer-events: none;
+  z-index: 0;
+}
+.screen-app > * { position: relative; z-index: 1; }
+
+/* Nav bar — flip from dark navy to white */
+.screen-app .nav-bar {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid #E4E8F0;
+  box-shadow: 0 1px 0 rgba(11, 23, 54, 0.04);
+}
+.screen-app .nav-title { color: #0B1736; }
+.screen-app .nav-sub { color: #64748B; }
+.screen-app .nav-logo {
+  background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
+  box-shadow: 0 6px 18px -6px rgba(13, 148, 136, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+}
+
+/* Hero card — was dark navy gradient, becomes white with brand wash */
+.screen-app .card-hero {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(13, 148, 136, 0.10), transparent 70%),
+    #FFFFFF;
+  border: 1px solid #E4E8F0;
+  box-shadow: var(--shadow-lg);
+}
+.screen-app .card-hero::before {
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.35), transparent 50%, rgba(124, 58, 237, 0.18));
+}
+
+/* Cards & glass surfaces */
+.screen-app .card,
+.screen-app .card-solid,
+.screen-app .glass {
+  background: #FFFFFF;
+  border: 1px solid #E4E8F0;
+  box-shadow: var(--shadow-md);
+}
+.screen-app .glass-strong {
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+}
+
+/* Inputs */
+.screen-app .input,
+.screen-app .select,
+.screen-app .textarea {
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  color: #0B1736;
+}
+.screen-app .input::placeholder,
+.screen-app .textarea::placeholder { color: #94A3B8; }
+.screen-app .input:hover,
+.screen-app .select:hover,
+.screen-app .textarea:hover { border-color: #94A3B8; }
+.screen-app .input:focus,
+.screen-app .select:focus,
+.screen-app .textarea:focus {
+  background: #FFFFFF;
+  border-color: #0D9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.18);
+}
+.screen-app .label { color: #475569; }
+
+/* Buttons — keep primary gradient, lighten ghost for white bg */
+.screen-app .btn-ghost {
+  background: #FFFFFF;
+  color: #0B1736;
+  border-color: #CBD5E1;
+}
+.screen-app .btn-ghost:hover:not(:disabled) {
+  background: #F1F5FB;
+  border-color: #94A3B8;
+}
+.screen-app .btn-primary {
+  box-shadow: 0 8px 22px -10px rgba(13, 148, 136, 0.55), 0 1px 0 rgba(255,255,255,0.18) inset;
+}
+.screen-app .btn-primary:hover:not(:disabled) {
+  box-shadow: 0 14px 28px -10px rgba(13, 148, 136, 0.65), 0 1px 0 rgba(255,255,255,0.25) inset;
+}
+
+/* Chips */
+.screen-app .chip {
+  background: #F1F5FB;
+  border-color: #E4E8F0;
+  color: #475569;
+}
+.screen-app .chip-accent {
+  background: rgba(13, 148, 136, 0.10);
+  border-color: rgba(13, 148, 136, 0.30);
+  color: #0F766E;
+}
+.screen-app .chip-pro {
+  background: rgba(124, 58, 237, 0.10);
+  border-color: rgba(124, 58, 237, 0.28);
+  color: #6D28D9;
+}
+.screen-app .chip-warn {
+  background: #FFFBEB;
+  border-color: #FCD34D;
+  color: #92400E;
+}
+
+/* Selection */
+.screen-app ::selection { background: rgba(13, 148, 136, 0.22); color: #0B1736; }
+
+/* Scrollbar a touch lighter */
+.screen-app ::-webkit-scrollbar-thumb { background: rgba(11, 23, 54, 0.18); background-clip: content-box; }
+.screen-app ::-webkit-scrollbar-thumb:hover { background: rgba(11, 23, 54, 0.32); background-clip: content-box; }

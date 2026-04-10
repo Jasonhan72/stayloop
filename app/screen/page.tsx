@@ -127,8 +127,8 @@ interface RiskLevel { min: number; labelKey: DictKey; tagKey: DictKey; color: st
 const RISK_LEVELS: RiskLevel[] = [
   { min: 85, labelKey: 'risk.safe', tagKey: 'risk.tag.safe', color: '#16A34A', bg: '#F0FDF4' },
   { min: 70, labelKey: 'risk.mostlySafe', tagKey: 'risk.tag.mostlySafe', color: '#65A30D', bg: '#F7FEE7' },
-  { min: 50, labelKey: 'risk.review', tagKey: 'risk.tag.review', color: '#EAB308', bg: '#FEFCE8' },
-  { min: 30, labelKey: 'risk.risky', tagKey: 'risk.tag.risky', color: '#F97316', bg: '#FFF7ED' },
+  { min: 50, labelKey: 'risk.review', tagKey: 'risk.tag.review', color: '#A16207', bg: '#FEFCE8' },
+  { min: 30, labelKey: 'risk.risky', tagKey: 'risk.tag.risky', color: '#C2410C', bg: '#FFF7ED' },
   { min: 0, labelKey: 'risk.highRisk', tagKey: 'risk.tag.reject', color: '#DC2626', bg: '#FEF2F2' },
 ]
 
@@ -185,7 +185,7 @@ function ScoreRing({ score, size = 140, strokeWidth = 10 }: { score: number; siz
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <span style={{ fontSize: size * 0.32, fontWeight: 800, color: risk.color, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>{score}</span>
-        <span style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, letterSpacing: 1 }}>/ 100</span>
+        <span style={{ fontSize: 11, color: '#64748B', marginTop: 2, letterSpacing: 1 }}>/ 100</span>
       </div>
     </div>
   )
@@ -207,7 +207,7 @@ function CategoryBar({ category, score, animDelay = 0, tier, shortNote, detail }
   const secondary = lang === 'zh' ? category.enLabel : category.zhLabel
   const hasDetail = !!(detail || shortNote)
   return (
-    <div style={{ marginBottom: 12, borderRadius: 10, border: open ? '1px solid rgba(148, 163, 184, 0.18)' : '1px solid transparent', background: open ? 'rgba(148, 163, 184, 0.04)' : 'transparent', transition: 'all 0.2s', padding: open ? 12 : 0 }}>
+    <div style={{ marginBottom: 12, borderRadius: 10, border: open ? '1px solid #E4E8F0' : '1px solid transparent', background: open ? 'rgba(11, 23, 54, 0.03)' : 'transparent', transition: 'all 0.2s', padding: open ? 12 : 0 }}>
       <button
         type="button"
         onClick={() => hasDetail && setOpen(o => !o)}
@@ -217,42 +217,42 @@ function CategoryBar({ category, score, animDelay = 0, tier, shortNote, detail }
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 16 }}>{category.icon}</span>
-            <span className="sl-cat-primary" style={{ fontWeight: 700, color: '#e2e8f0' }}>{primary}</span>
-            <span className="sl-cat-secondary" style={{ fontWeight: 500, color: '#64748b' }}>{secondary}</span>
+            <span className="sl-cat-primary" style={{ fontWeight: 700, color: '#0B1736' }}>{primary}</span>
+            <span className="sl-cat-secondary" style={{ fontWeight: 500, color: '#64748B' }}>{secondary}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {isCourtRecord && (
-              <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: tier === 'pro' ? '#8B5CF620' : '#334155', color: tier === 'pro' ? '#A78BFA' : '#64748b', fontWeight: 600 }}>
+              <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: tier === 'pro' ? '#8B5CF620' : '#E4E8F0', color: tier === 'pro' ? '#6D28D9' : '#64748B', fontWeight: 600 }}>
                 {tier === 'pro' ? 'PRO' : 'FREE · CanLII'}
               </span>
             )}
             <span style={{ fontSize: 15, fontWeight: 700, color: risk.color, fontFamily: "'JetBrains Mono', monospace" }}>{score}</span>
             {hasDetail && (
-              <span className="mono" style={{ fontSize: 10, color: '#64748b', width: 14, textAlign: 'center', transition: 'transform 0.2s', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0)' }}>▸</span>
+              <span className="mono" style={{ fontSize: 10, color: '#64748B', width: 14, textAlign: 'center', transition: 'transform 0.2s', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0)' }}>▸</span>
             )}
           </div>
         </div>
-        <div style={{ height: 6, borderRadius: 3, background: 'rgba(148, 163, 184, 0.1)', overflow: 'hidden' }}>
+        <div style={{ height: 6, borderRadius: 3, background: 'rgba(11, 23, 54, 0.06)', overflow: 'hidden' }}>
           <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${risk.color}88, ${risk.color})`, width: `${score}%`, transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)', transitionDelay: `${animDelay}ms` }} />
         </div>
-        <p style={{ fontSize: 11, color: '#64748b', marginTop: 4, marginBottom: 0 }}>{t(category.descKey)}</p>
+        <p style={{ fontSize: 11, color: '#64748B', marginTop: 4, marginBottom: 0 }}>{t(category.descKey)}</p>
       </button>
       {open && hasDetail && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed rgba(148, 163, 184, 0.14)' }}>
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed rgba(11, 23, 54, 0.10)' }}>
           {shortNote && (
-            <div className="mono" style={{ fontSize: 10.5, color: '#94a3b8', marginBottom: 8, letterSpacing: '0.02em', textTransform: 'uppercase', fontWeight: 600 }}>
+            <div className="mono" style={{ fontSize: 10.5, color: '#64748B', marginBottom: 8, letterSpacing: '0.02em', textTransform: 'uppercase', fontWeight: 600 }}>
               {lang === 'zh' ? '摘要' : 'Summary'}
             </div>
           )}
           {shortNote && (
-            <p style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.6, margin: 0, marginBottom: detail ? 12 : 0 }}>{shortNote}</p>
+            <p style={{ fontSize: 12.5, color: '#0B1736', lineHeight: 1.6, margin: 0, marginBottom: detail ? 12 : 0 }}>{shortNote}</p>
           )}
           {detail && (
             <>
-              <div className="mono" style={{ fontSize: 10.5, color: '#94a3b8', marginBottom: 8, letterSpacing: '0.02em', textTransform: 'uppercase', fontWeight: 600 }}>
+              <div className="mono" style={{ fontSize: 10.5, color: '#64748B', marginBottom: 8, letterSpacing: '0.02em', textTransform: 'uppercase', fontWeight: 600 }}>
                 {lang === 'zh' ? '证据与详细分析' : 'Evidence & detailed analysis'}
               </div>
-              <p style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{detail}</p>
+              <p style={{ fontSize: 12.5, color: '#0B1736', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{detail}</p>
             </>
           )}
         </div>
@@ -266,21 +266,21 @@ function FileChip({ file, onRemove }: { file: File; onRemove: () => void }) {
   const isPdf = ext === 'pdf'
   const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(148, 163, 184, 0.08)', borderRadius: 10, border: '1px solid var(--border-subtle)', fontSize: 12.5, color: 'var(--text-primary)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(11, 23, 54, 0.05)', borderRadius: 10, border: '1px solid var(--border-subtle)', fontSize: 12.5, color: 'var(--text-primary)' }}>
       <span style={{ fontSize: 14 }}>{isPdf ? '📄' : isImage ? '🖼️' : '📎'}</span>
       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>{file.name}</span>
-      <span style={{ fontSize: 11, color: '#64748b' }}>{(file.size / 1024).toFixed(0)}KB</span>
-      <button onClick={onRemove} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 16, padding: 0, lineHeight: 1 }}>×</button>
+      <span style={{ fontSize: 11, color: '#64748B' }}>{(file.size / 1024).toFixed(0)}KB</span>
+      <button onClick={onRemove} style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', fontSize: 16, padding: 0, lineHeight: 1 }}>×</button>
     </div>
   )
 }
 
 function Flag({ type, text }: { type: 'danger' | 'warning' | 'info' | 'success'; text: string }) {
   const colors = {
-    danger: { bg: '#451a1a', border: '#7f1d1d', text: '#fca5a5', icon: '⚠️' },
-    warning: { bg: '#452a1a', border: '#7c4a1d', text: '#fcd34d', icon: '⚡' },
-    info: { bg: '#1a2745', border: '#1d4a7c', text: '#93c5fd', icon: 'ℹ️' },
-    success: { bg: '#1a3a2a', border: '#1d7c4a', text: '#86efac', icon: '✓' },
+    danger: { bg: '#FEF2F2', border: '#FECACA', text: '#B91C1C', icon: '⚠️' },
+    warning: { bg: '#FFFBEB', border: '#92400E', text: '#92400E', icon: '⚡' },
+    info: { bg: '#EEF2F8', border: '#DBEAFE', text: '#1D4ED8', icon: 'ℹ️' },
+    success: { bg: '#F0FDF4', border: '#15803D', text: '#15803D', icon: '✓' },
   }
   const c = colors[type] || colors.info
   return (
@@ -297,26 +297,26 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier }: { queries:
     <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 8, flexWrap: 'wrap' }}>
         <div>
-          <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>{t('screen.result.court.title')}</div>
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{t('screen.result.court.queriedName')} <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#cbd5e1' }}>{queriedName || '—'}</span></div>
+          <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#64748B' }}>{t('screen.result.court.title')}</div>
+          <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>{t('screen.result.court.queriedName')} <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#0B1736' }}>{queriedName || '—'}</span></div>
         </div>
-        <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, background: tier === 'pro' ? '#8B5CF620' : '#1e293b', color: tier === 'pro' ? '#A78BFA' : '#64748b', border: `1px solid ${tier === 'pro' ? '#8B5CF640' : '#334155'}`, fontWeight: 600 }}>
+        <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, background: tier === 'pro' ? '#8B5CF620' : '#E4E8F0', color: tier === 'pro' ? '#6D28D9' : '#64748B', border: `1px solid ${tier === 'pro' ? '#8B5CF640' : '#E4E8F0'}`, fontWeight: 600 }}>
           {tier === 'pro' ? t('screen.result.court.pro') : t('screen.result.court.free')}
         </span>
       </div>
       <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8, fontWeight: 600 }}>{t('screen.result.court.sources')}</div>
+        <div style={{ fontSize: 11, color: '#64748B', marginBottom: 8, fontWeight: 600 }}>{t('screen.result.court.sources')}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {queries.map((q, i) => {
             const available = q.status === 'ok'
             const hit = available && (q.hits ?? 0) > 0
             return (
-              <div key={i} className="sl-court-source" style={{ display: 'flex', alignItems: 'center', gap: 8, color: available ? '#cbd5e1' : '#475569' }}>
-                <span style={{ width: 18, height: 18, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, background: available ? (hit ? '#DC262620' : '#16A34A20') : '#1e293b', color: available ? (hit ? '#FCA5A5' : '#86EFAC') : '#475569', border: `1px solid ${available ? (hit ? '#7F1D1D' : '#1D7C4A') : '#334155'}` }}>
+              <div key={i} className="sl-court-source" style={{ display: 'flex', alignItems: 'center', gap: 8, color: available ? '#0B1736' : '#475569' }}>
+                <span style={{ width: 18, height: 18, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, background: available ? (hit ? '#DC262620' : '#16A34A20') : '#E4E8F0', color: available ? (hit ? '#B91C1C' : '#15803D') : '#475569', border: `1px solid ${available ? (hit ? '#FECACA' : '#15803D') : '#E4E8F0'}` }}>
                   {available ? (hit ? '!' : '✓') : '🔒'}
                 </span>
                 <span style={{ flex: 1 }}>{q.source}</span>
-                <span style={{ fontSize: 10, fontWeight: 600, color: available ? (hit ? '#FCA5A5' : '#86EFAC') : '#475569' }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: available ? (hit ? '#B91C1C' : '#15803D') : '#475569' }}>
                   {available ? (hit ? t('screen.result.court.hitsN', { n: q.hits ?? 0 }) : t('screen.result.court.clean')) : (q.status === 'coming_soon' ? t('screen.result.court.comingSoon') : t('screen.result.court.needPro'))}
                 </span>
               </div>
@@ -327,12 +327,12 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier }: { queries:
       {totalHits === 0 && (
         <div style={{ padding: '16px', textAlign: 'center', background: '#16A34A10', borderRadius: 8, border: '1px solid #1D7C4A40' }}>
           <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
-          <div style={{ fontSize: 13, color: '#86EFAC', fontWeight: 600 }}>{t('screen.result.court.clean.title')}</div>
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{t('screen.result.court.clean.sub', { n: availableCount })}</div>
+          <div style={{ fontSize: 13, color: '#15803D', fontWeight: 600 }}>{t('screen.result.court.clean.title')}</div>
+          <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>{t('screen.result.court.clean.sub', { n: availableCount })}</div>
         </div>
       )}
       {totalHits > 0 && (
-        <div style={{ padding: '12px 14px', background: '#DC262610', border: '1px solid #7F1D1D60', borderRadius: 8, fontSize: 12, color: '#FCA5A5' }}>
+        <div style={{ padding: '12px 14px', background: '#DC262610', border: '1px solid #7F1D1D60', borderRadius: 8, fontSize: 12, color: '#B91C1C' }}>
           {t('screen.result.court.hits', { n: totalHits })}
         </div>
       )}
@@ -340,8 +340,8 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier }: { queries:
         <div style={{ marginTop: 14, padding: '12px 14px', background: '#8B5CF610', border: '1px solid #8B5CF630', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 16 }}>💎</span>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#A78BFA' }}>{t('screen.result.court.upgrade.title')}</div>
-            <div style={{ fontSize: 11, color: '#7C6DB5', marginTop: 2 }}>{t('screen.result.court.upgrade.sub')}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#6D28D9' }}>{t('screen.result.court.upgrade.title')}</div>
+            <div style={{ fontSize: 11, color: '#5B21B6', marginTop: 2 }}>{t('screen.result.court.upgrade.sub')}</div>
           </div>
         </div>
       )}
@@ -383,13 +383,13 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
   let statusIcon = '✓'
   if (authGates.length > 0 || (authScore !== null && authScore < 50)) {
     statusKey = 'suspicious'
-    statusColor = '#F87171'
+    statusColor = '#B91C1C'
     statusBg = 'rgba(220, 38, 38, 0.12)'
     statusBorder = 'rgba(220, 38, 38, 0.4)'
     statusIcon = '⚠'
   } else if (authFlags.length > 0 || (authScore !== null && authScore < 75) || subCov.doc_authenticity === 'action_pending' || subCov.identity_match === 'action_pending') {
     statusKey = 'concerning'
-    statusColor = '#FBBF24'
+    statusColor = '#A16207'
     statusBg = 'rgba(245, 158, 11, 0.12)'
     statusBorder = 'rgba(245, 158, 11, 0.4)'
     statusIcon = '!'
@@ -405,21 +405,21 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
   // Coverage helper — defaults to "measured" (backend sparse emission)
   const cov = (key: string): string => subCov[key] || 'measured'
   const covColor = (c: string) => {
-    if (c === 'measured') return '#86EFAC'
-    if (c === 'inferred') return '#93C5FD'
-    if (c === 'action_pending') return '#FCD34D'
-    return '#94A3B8'
+    if (c === 'measured') return '#15803D'
+    if (c === 'inferred') return '#1D4ED8'
+    if (c === 'action_pending') return '#92400E'
+    return '#64748B'
   }
   const covLabel = (c: string) => t(`screen.result.authenticity.cov.${c}` as DictKey)
 
   const SubRow = ({ label, covKey, scoreVal }: { label: string; covKey: string; scoreVal?: number | null }) => {
     const c = cov(covKey)
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'rgba(148, 163, 184, 0.06)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'rgba(11, 23, 54, 0.04)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: covColor(c), flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 600, color: '#cbd5e1' }}>{label}</div>
-          <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 1 }}>{covLabel(c)}</div>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0B1736' }}>{label}</div>
+          <div style={{ fontSize: 10.5, color: '#64748B', marginTop: 1 }}>{covLabel(c)}</div>
         </div>
         {typeof scoreVal === 'number' && (
           <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: covColor(c) }}>{scoreVal}/100</span>
@@ -438,19 +438,19 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
           {statusIcon}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>{t('screen.result.authenticity.title')}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1736' }}>{t('screen.result.authenticity.title')}</div>
           <div style={{ fontSize: 11.5, color: statusColor, marginTop: 2, fontWeight: 600 }}>{statusLabel}</div>
           {!open && (
-            <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 3 }}>{t('screen.result.authenticity.sub')}</div>
+            <div style={{ fontSize: 10.5, color: '#64748B', marginTop: 3 }}>{t('screen.result.authenticity.sub')}</div>
           )}
         </div>
         {authScore !== null && (
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div className="mono" style={{ fontSize: 22, fontWeight: 800, color: statusColor, lineHeight: 1 }}>{authScore}</div>
-            <div style={{ fontSize: 9, color: '#64748b', marginTop: 2, letterSpacing: '0.05em', textTransform: 'uppercase' }}>/ 100</div>
+            <div style={{ fontSize: 9, color: '#64748B', marginTop: 2, letterSpacing: '0.05em', textTransform: 'uppercase' }}>/ 100</div>
           </div>
         )}
-        <span style={{ fontSize: 16, color: '#64748b', transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'none', flexShrink: 0 }}>›</span>
+        <span style={{ fontSize: 16, color: '#64748B', transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'none', flexShrink: 0 }}>›</span>
       </button>
 
       {open && (
@@ -473,17 +473,17 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
 
           {verificationDetail && (
             <div style={{ marginTop: 14, padding: '12px 14px', background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: 8 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 600, color: '#60A5FA', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{t('screen.result.authenticity.aiNote')}</div>
-              <div style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.6 }}>{verificationDetail}</div>
+              <div style={{ fontSize: 10.5, fontWeight: 600, color: '#1D4ED8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{t('screen.result.authenticity.aiNote')}</div>
+              <div style={{ fontSize: 12.5, color: '#0B1736', lineHeight: 1.6 }}>{verificationDetail}</div>
             </div>
           )}
 
           {authGates.length > 0 && (
             <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 600, color: '#F87171', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{t('screen.result.authenticity.gatesTriggered')}</div>
+              <div style={{ fontSize: 10.5, fontWeight: 600, color: '#B91C1C', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{t('screen.result.authenticity.gatesTriggered')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {authGates.map(g => (
-                  <div key={g} style={{ padding: '9px 12px', background: 'rgba(220, 38, 38, 0.1)', border: '1px solid rgba(220, 38, 38, 0.3)', borderRadius: 8, fontSize: 11.5, color: '#FCA5A5', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div key={g} style={{ padding: '9px 12px', background: 'rgba(220, 38, 38, 0.1)', border: '1px solid rgba(220, 38, 38, 0.3)', borderRadius: 8, fontSize: 11.5, color: '#B91C1C', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span>⛔</span>
                     <span>{t(`screen.result.authenticity.gate.${g}` as DictKey)}</span>
                   </div>
@@ -494,10 +494,10 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
 
           {authFlags.length > 0 && (
             <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 600, color: '#FBBF24', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{t('screen.result.authenticity.flagsTriggered')}</div>
+              <div style={{ fontSize: 10.5, fontWeight: 600, color: '#A16207', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{t('screen.result.authenticity.flagsTriggered')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {authFlags.map(f => (
-                  <div key={f} style={{ padding: '9px 12px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.28)', borderRadius: 8, fontSize: 11.5, color: '#FCD34D', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div key={f} style={{ padding: '9px 12px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.28)', borderRadius: 8, fontSize: 11.5, color: '#92400E', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span>⚠</span>
                     <span>{t(`screen.result.authenticity.flag.${f}` as DictKey)}</span>
                   </div>
@@ -867,9 +867,9 @@ export default function ScreenPage() {
 
   if (authLoading || !landlord) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0b0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontFamily: "'Inter', sans-serif" }}>
+      <div className="screen-app" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontFamily: "'Inter', sans-serif" }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: '50%', border: '3px solid #1e293b', borderTopColor: '#0D9488', animation: 'spin 1s linear infinite' }} />
+          <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: '50%', border: '3px solid #E4E8F0', borderTopColor: '#0D9488', animation: 'spin 1s linear infinite' }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
           <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>Authenticating...</div>
         </div>
@@ -901,7 +901,7 @@ export default function ScreenPage() {
   const riskOverall = result ? getRiskLevel(result.overall) : null
 
   return (
-    <div style={{ minHeight: '100vh' }}>
+    <div className="screen-app" style={{ minHeight: '100vh' }}>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
       <style>{`
         .sl-header { padding: 20px 24px; }
@@ -988,7 +988,7 @@ export default function ScreenPage() {
                       borderRadius: 10,
                       border: 'none',
                       cursor: 'pointer',
-                      background: active ? (key === 'pro' ? 'var(--gradient-pro)' : 'rgba(148, 163, 184, 0.12)') : 'transparent',
+                      background: active ? (key === 'pro' ? 'var(--gradient-pro)' : 'rgba(11, 23, 54, 0.08)') : 'transparent',
                       color: active ? '#fff' : 'var(--text-muted)',
                       fontSize: 13,
                       fontWeight: 600,
@@ -1106,7 +1106,7 @@ export default function ScreenPage() {
                         boxShadow: uploaded ? '0 0 0 3px rgba(16, 185, 129, 0.08)' : 'none',
                         textAlign: 'center',
                         fontSize: 11,
-                        color: uploaded ? '#6EE7B7' : 'var(--text-secondary)',
+                        color: uploaded ? '#15803D' : 'var(--text-secondary)',
                         fontWeight: uploaded ? 600 : 500,
                         transition: 'all 0.2s ease',
                       }}
@@ -1145,16 +1145,16 @@ export default function ScreenPage() {
             </div>
 
             {error && (
-              <div style={{ marginTop: 16, padding: '10px 14px', background: '#451a1a', border: '1px solid #7f1d1d', borderRadius: 8, fontSize: 13, color: '#fca5a5' }}>⚠ {error}</div>
+              <div style={{ marginTop: 16, padding: '10px 14px', background: '#FEF2F2', border: '1px solid #7f1d1d', borderRadius: 8, fontSize: 13, color: '#B91C1C' }}>⚠ {error}</div>
             )}
 
             {/* File List & Submit */}
             {files.length > 0 && (
               <div style={{ marginTop: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: '#64748B', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span>{t('screen.files.uploadedN', { n: files.length })}</span>
                   {classifying && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#5EEAD4', fontWeight: 500 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#0F766E', fontWeight: 500 }}>
                       <span style={{ width: 10, height: 10, borderRadius: '50%', border: '2px solid rgba(20, 184, 166, 0.25)', borderTopColor: '#14B8A6', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
                       {lang === 'zh' ? '识别文件类型中…' : 'Classifying file types…'}
                     </span>
@@ -1163,7 +1163,7 @@ export default function ScreenPage() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {files.map((f, i) => <FileChip key={i} file={f} onRemove={() => removeFile(i)} />)}
                 </div>
-                <div style={{ marginTop: 14, padding: '12px 16px', background: 'rgba(148, 163, 184, 0.06)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-secondary)' }}>
+                <div style={{ marginTop: 14, padding: '12px 16px', background: 'rgba(11, 23, 54, 0.04)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-secondary)' }}>
                   <span>⚖️</span>
                   <span>
                     {applicantName.trim() ? t('screen.files.auto.name', { name: applicantName.trim() }) : t('screen.files.auto.extract')}
@@ -1185,14 +1185,14 @@ export default function ScreenPage() {
           const isNameStep = progressLabel.includes('📛') || progressLabel.toLowerCase().includes('extracting')
           return (
             <div className="fade-up" style={{ textAlign: 'center', padding: '80px 0' }}>
-              <div className="spin" style={{ width: 64, height: 64, margin: '0 auto 24px', borderRadius: '50%', border: '3px solid rgba(148, 163, 184, 0.12)', borderTopColor: isCourtStep ? '#8B5CF6' : '#14B8A6' }} />
-              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10, color: isCourtStep ? '#C4B5FD' : 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+              <div className="spin" style={{ width: 64, height: 64, margin: '0 auto 24px', borderRadius: '50%', border: '3px solid rgba(11, 23, 54, 0.08)', borderTopColor: isCourtStep ? '#8B5CF6' : '#14B8A6' }} />
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10, color: isCourtStep ? '#6D28D9' : 'var(--text-primary)', letterSpacing: '-0.01em' }}>
                 {progressLabel || t('screen.step.start')}
-                <span className="mono" style={{ marginLeft: 10, fontSize: 13, fontWeight: 700, color: isCourtStep ? '#A78BFA' : '#14B8A6' }}>
+                <span className="mono" style={{ marginLeft: 10, fontSize: 13, fontWeight: 700, color: isCourtStep ? '#6D28D9' : '#14B8A6' }}>
                   {Math.round(progress)}%
                 </span>
               </div>
-              <div style={{ width: 320, maxWidth: '80%', height: 5, borderRadius: 3, background: 'rgba(148, 163, 184, 0.1)', margin: '16px auto', overflow: 'hidden' }}>
+              <div style={{ width: 320, maxWidth: '80%', height: 5, borderRadius: 3, background: 'rgba(11, 23, 54, 0.06)', margin: '16px auto', overflow: 'hidden' }}>
                 <div style={{ height: '100%', borderRadius: 3, background: isCourtStep ? 'var(--gradient-pro)' : 'var(--gradient-brand)', width: `${progress}%`, transition: 'width 0.5s ease' }} />
               </div>
               <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
@@ -1230,11 +1230,11 @@ export default function ScreenPage() {
                 const tierColors: Record<string, { bg: string; fg: string; label: string }> = {
                   approve: { bg: '#DCFCE7', fg: '#166534', label: lang === 'zh' ? '优质 · 建议通过' : 'Approve' },
                   conditional: { bg: '#FEF9C3', fg: '#854D0E', label: lang === 'zh' ? '待定 · 附加条件' : 'Conditional' },
-                  decline: { bg: '#FEE2E2', fg: '#991B1B', label: lang === 'zh' ? '建议拒绝' : 'Decline' },
+                  decline: { bg: '#FEE2E2', fg: '#FECACA', label: lang === 'zh' ? '建议拒绝' : 'Decline' },
                 }
                 const tc = tierColors[result.v3_tier] || tierColors.conditional
                 const cov = typeof result.evidence_coverage === 'number' ? result.evidence_coverage : null
-                const covColor = cov == null ? '#94a3b8' : cov >= 0.75 ? '#16A34A' : cov >= 0.6 ? '#EAB308' : '#F97316'
+                const covColor = cov == null ? '#64748B' : cov >= 0.75 ? '#16A34A' : cov >= 0.6 ? '#A16207' : '#C2410C'
                 return (
                   <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
                     <span style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 14, background: tc.bg, color: tc.fg, fontWeight: 700, fontSize: 11.5, letterSpacing: 0.5 }}>
@@ -1245,7 +1245,7 @@ export default function ScreenPage() {
                     </span>
                     {cov != null && (
                       <div style={{ width: 260, maxWidth: '80%' }}>
-                        <div className="mono" style={{ fontSize: 9.5, color: '#64748b', marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                        <div className="mono" style={{ fontSize: 9.5, color: '#64748B', marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
                           <span>{lang === 'zh' ? '证据充足度' : 'Evidence coverage'}</span>
                           <span style={{ color: covColor, fontWeight: 700 }}>{(cov * 100).toFixed(0)}%</span>
                         </div>
@@ -1263,22 +1263,22 @@ export default function ScreenPage() {
                 const rentNum = result.monthly_rent ?? Number(targetRent) ?? 0
                 const realRatio = result.income_rent_ratio ?? null
                 return (
-                  <div className="sl-stats-row" style={{ display: 'flex', justifyContent: 'center', marginTop: 20, color: '#64748b', flexWrap: 'wrap' }}>
-                    <div><div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>${rentNum ? rentNum.toLocaleString() : '—'}</div>{t('screen.result.stat.rent')}</div>
+                  <div className="sl-stats-row" style={{ display: 'flex', justifyContent: 'center', marginTop: 20, color: '#64748B', flexWrap: 'wrap' }}>
+                    <div><div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>${rentNum ? rentNum.toLocaleString() : '—'}</div>{t('screen.result.stat.rent')}</div>
                     <div title={result.income_evidence || undefined}>
-                      <div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>
+                      <div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>
                         {realRatio != null ? `${realRatio.toFixed(1)}x` : 'N/A'}
                       </div>
                       {t('screen.result.stat.ratio')}
                     </div>
-                    <div><div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>{files.length}</div>{t('screen.result.stat.files')}</div>
-                    <div><div className="sl-stats-val" style={{ color: '#94a3b8', fontWeight: 600 }}>{result.court_records_detail?.queries.filter(q => q.status === 'ok').length || 0}</div>{t('screen.result.stat.courts')}</div>
+                    <div><div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>{files.length}</div>{t('screen.result.stat.files')}</div>
+                    <div><div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>{result.court_records_detail?.queries.filter(q => q.status === 'ok').length || 0}</div>{t('screen.result.stat.courts')}</div>
                   </div>
                 )
               })()}
               {result.effective_monthly_income != null && (
-                <div className="mono" style={{ marginTop: 10, fontSize: 10.5, color: '#64748b' }}>
-                  {lang === 'zh' ? '检测到月收入' : 'Detected monthly income'}: <span style={{ color: '#94a3b8', fontWeight: 600 }}>${result.effective_monthly_income.toLocaleString()}</span>
+                <div className="mono" style={{ marginTop: 10, fontSize: 10.5, color: '#64748B' }}>
+                  {lang === 'zh' ? '检测到月收入' : 'Detected monthly income'}: <span style={{ color: '#64748B', fontWeight: 600 }}>${result.effective_monthly_income.toLocaleString()}</span>
                   {result.income_evidence && <span style={{ color: '#475569' }}> · {result.income_evidence}</span>}
                 </div>
               )}
@@ -1286,8 +1286,8 @@ export default function ScreenPage() {
 
             {/* Summary */}
             <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
-              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: '#94a3b8' }}>{t('screen.result.summary')}</div>
-              <p className="sl-summary-text" style={{ fontSize: 14, lineHeight: 1.8, color: '#cbd5e1', margin: 0 }}>{(lang === 'zh' ? (result.summary_zh || result.summary) : (result.summary_en || result.summary))}</p>
+              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: '#64748B' }}>{t('screen.result.summary')}</div>
+              <p className="sl-summary-text" style={{ fontSize: 14, lineHeight: 1.8, color: '#0B1736', margin: 0 }}>{(lang === 'zh' ? (result.summary_zh || result.summary) : (result.summary_en || result.summary))}</p>
             </div>
 
             {/* Document Authenticity — between AI summary and category breakdown */}
@@ -1295,7 +1295,7 @@ export default function ScreenPage() {
 
             {/* Category Scores */}
             <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
-              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: '#94a3b8' }}>{t('screen.result.dims')}</div>
+              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: '#64748B' }}>{t('screen.result.dims')}</div>
               {CATEGORIES.map((cat, i) => {
                 const details = lang === 'zh' ? (result.details_zh || result.details_en) : (result.details_en || result.details_zh)
                 // Pull from v3 scores when present; fall back to 0 for
@@ -1342,10 +1342,10 @@ export default function ScreenPage() {
             {/* Action Items — L3 indicators that can only be resolved via landlord action */}
             {result.action_items && result.action_items.length > 0 && (
               <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(139, 92, 246, 0.35)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
-                <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: '#C4B5FD' }}>
+                <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: '#6D28D9' }}>
                   {lang === 'zh' ? '待人工核实清单' : 'Action Items'}
                 </div>
-                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: '#64748B', marginBottom: 12 }}>
                   {lang === 'zh'
                     ? '以下内容无法仅凭上传文档确认，需要您亲自核实。每完成一项，评分会相应调整。'
                     : 'These items cannot be verified from documents alone. Completing each will adjust the score accordingly.'}
@@ -1357,15 +1357,15 @@ export default function ScreenPage() {
                         <div style={{ fontSize: 12.5, fontWeight: 700, color: '#E9D5FF' }}>
                           {lang === 'zh' ? item.title_zh : item.title_en}
                         </div>
-                        <span className="mono" style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: 'rgba(139, 92, 246, 0.18)', color: '#C4B5FD', whiteSpace: 'nowrap' }}>
+                        <span className="mono" style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: 'rgba(139, 92, 246, 0.18)', color: '#6D28D9', whiteSpace: 'nowrap' }}>
                           {item.dimension}
                         </span>
                       </div>
-                      <div style={{ fontSize: 11.5, color: '#cbd5e1', lineHeight: 1.6, marginBottom: 6 }}>
+                      <div style={{ fontSize: 11.5, color: '#0B1736', lineHeight: 1.6, marginBottom: 6 }}>
                         {lang === 'zh' ? item.details_zh : item.details_en}
                       </div>
                       {item.impact_on_score && (
-                        <div className="mono" style={{ fontSize: 10, color: '#94a3b8' }}>
+                        <div className="mono" style={{ fontSize: 10, color: '#64748B' }}>
                           {lang === 'zh' ? '对评分影响' : 'Score impact'}: {item.impact_on_score}
                         </div>
                       )}
@@ -1378,18 +1378,18 @@ export default function ScreenPage() {
             {/* Compliance Audit — collapsed paper trail for HRC defense */}
             {result.compliance_audit && (result.compliance_audit.protected_grounds_observed?.length || result.compliance_audit.reviewer_note) && (
               <details className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
-                <summary style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', cursor: 'pointer', listStyle: 'none' }}>
+                <summary style={{ fontSize: 12, fontWeight: 700, color: '#64748B', cursor: 'pointer', listStyle: 'none' }}>
                   {lang === 'zh' ? '合规审计（HRC 证据链）' : 'Compliance Audit (HRC paper trail)'}
                 </summary>
-                <div style={{ marginTop: 10, fontSize: 11.5, color: '#cbd5e1', lineHeight: 1.7 }}>
+                <div style={{ marginTop: 10, fontSize: 11.5, color: '#0B1736', lineHeight: 1.7 }}>
                   {result.compliance_audit.protected_grounds_observed && result.compliance_audit.protected_grounds_observed.length > 0 && (
                     <div style={{ marginBottom: 6 }}>
-                      <span style={{ color: '#64748b' }}>{lang === 'zh' ? '观察到但未用于评分的受保护特征' : 'Protected grounds observed but excluded from scoring'}: </span>
-                      <span className="mono" style={{ color: '#94a3b8' }}>{result.compliance_audit.protected_grounds_observed.join(', ')}</span>
+                      <span style={{ color: '#64748B' }}>{lang === 'zh' ? '观察到但未用于评分的受保护特征' : 'Protected grounds observed but excluded from scoring'}: </span>
+                      <span className="mono" style={{ color: '#64748B' }}>{result.compliance_audit.protected_grounds_observed.join(', ')}</span>
                     </div>
                   )}
                   {result.compliance_audit.reviewer_note && (
-                    <div style={{ fontStyle: 'italic', color: '#94a3b8' }}>{result.compliance_audit.reviewer_note}</div>
+                    <div style={{ fontStyle: 'italic', color: '#64748B' }}>{result.compliance_audit.reviewer_note}</div>
                   )}
                 </div>
               </details>
@@ -1398,7 +1398,7 @@ export default function ScreenPage() {
             {/* Flags */}
             {aiFlags.length > 0 && (
               <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
-                <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#94a3b8' }}>{t('screen.result.flags')}</div>
+                <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#64748B' }}>{t('screen.result.flags')}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {aiFlags.map((flag, i) => <Flag key={i} type={flag.type} text={flag.text} />)}
                 </div>
@@ -1407,14 +1407,14 @@ export default function ScreenPage() {
 
             {/* Weights */}
             <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
-              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#94a3b8' }}>{t('screen.result.weights')}</div>
+              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#64748B' }}>{t('screen.result.weights')}</div>
               <div className="sl-weights-grid" style={{ display: 'grid', gap: 8 }}>
                 {CATEGORIES.map(cat => (
-                  <div key={cat.id} style={{ textAlign: 'center', padding: '16px 8px', borderRadius: 12, background: 'rgba(148, 163, 184, 0.06)', border: cat.id === 'rental_history' ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid var(--border-subtle)' }}>
+                  <div key={cat.id} style={{ textAlign: 'center', padding: '16px 8px', borderRadius: 12, background: 'rgba(11, 23, 54, 0.04)', border: cat.id === 'rental_history' ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid var(--border-subtle)' }}>
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{cat.icon}</div>
-                    <div style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 700 }}>{lang === 'zh' ? cat.zhLabel : cat.enLabel}</div>
-                    <div style={{ fontSize: 9, color: '#64748b', fontWeight: 500, marginTop: 1 }}>{lang === 'zh' ? cat.enLabel : cat.zhLabel}</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: cat.id === 'rental_history' ? '#A78BFA' : '#0D9488', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{(cat.weight * 100).toFixed(0)}%</div>
+                    <div style={{ fontSize: 11, color: '#0B1736', fontWeight: 700 }}>{lang === 'zh' ? cat.zhLabel : cat.enLabel}</div>
+                    <div style={{ fontSize: 9, color: '#64748B', fontWeight: 500, marginTop: 1 }}>{lang === 'zh' ? cat.enLabel : cat.zhLabel}</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: cat.id === 'rental_history' ? '#6D28D9' : '#0D9488', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{(cat.weight * 100).toFixed(0)}%</div>
                   </div>
                 ))}
               </div>
@@ -1423,15 +1423,15 @@ export default function ScreenPage() {
             {/* Legal Disclaimer — advisory-only, HRC / RTA compliance reminder, liability carve-out */}
             <div className="sl-card" style={{ background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.3)', marginBottom: 18, padding: '18px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#FBBF24' }}>⚠</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#FCD34D' }}>{t('screen.result.disclaimer.title')}</div>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#A16207' }}>⚠</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E' }}>{t('screen.result.disclaimer.title')}</div>
               </div>
-              <div style={{ fontSize: 11.5, color: '#cbd5e1', lineHeight: 1.75, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 11.5, color: '#0B1736', lineHeight: 1.75, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <p style={{ margin: 0 }}>{t('screen.result.disclaimer.body1')}</p>
                 <p style={{ margin: 0 }}>{t('screen.result.disclaimer.body2')}</p>
                 <p style={{ margin: 0 }}>{t('screen.result.disclaimer.body3')}</p>
                 <p style={{ margin: 0 }}>{t('screen.result.disclaimer.body4')}</p>
-                <p style={{ margin: 0, color: '#94a3b8', fontSize: 11, fontStyle: 'italic', paddingTop: 8, borderTop: '1px dashed rgba(245, 158, 11, 0.2)' }}>{t('screen.result.disclaimer.body5')}</p>
+                <p style={{ margin: 0, color: '#64748B', fontSize: 11, fontStyle: 'italic', paddingTop: 8, borderTop: '1px dashed rgba(245, 158, 11, 0.2)' }}>{t('screen.result.disclaimer.body5')}</p>
               </div>
             </div>
 
@@ -1470,7 +1470,7 @@ export default function ScreenPage() {
                       background: isActive ? 'rgba(56, 189, 248, 0.08)' : undefined,
                       opacity: isLoading ? 0.6 : 1,
                     }}
-                    onMouseEnter={e => { if (clickable) (e.currentTarget as HTMLLIElement).style.background = 'rgba(148, 163, 184, 0.06)' }}
+                    onMouseEnter={e => { if (clickable) (e.currentTarget as HTMLLIElement).style.background = 'rgba(11, 23, 54, 0.04)' }}
                     onMouseLeave={e => { (e.currentTarget as HTMLLIElement).style.background = isActive ? 'rgba(56, 189, 248, 0.08)' : '' }}
                     title={clickable ? t('history.viewHint') : ''}
                   >
@@ -1486,7 +1486,7 @@ export default function ScreenPage() {
                     </div>
                     <div className="mono" style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 4 }}>
                       {new Date(s.created_at).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}
-                      {isLoading && <span style={{ marginLeft: 8, color: '#22D3EE' }}>· {t('history.loading')}</span>}
+                      {isLoading && <span style={{ marginLeft: 8, color: '#0E7490' }}>· {t('history.loading')}</span>}
                       {clickable && !isLoading && <span style={{ marginLeft: 8, color: 'var(--text-muted)' }}>· {t('history.viewHint')}</span>}
                     </div>
                     {s.ai_summary && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.ai_summary}</div>}
