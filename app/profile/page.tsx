@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import UserNav from '@/components/UserNav'
+import { useIsMobile } from '@/lib/useMediaQuery'
 
 /* ── Marketing-matching palette (mirrors .marketing CSS vars) ── */
 const mk = {
@@ -39,6 +40,7 @@ interface ProfileData {
 export default function ProfilePage() {
   const { user, loading: authLoading, signOut } = useUser({ redirectIfMissing: true })
   const { t } = useT()
+  const isMobile = useIsMobile()
 
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
@@ -191,14 +193,14 @@ export default function ProfilePage() {
       <UserNav user={user} signOut={signOut} />
 
       {/* Main Content */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 24px' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: isMobile ? '20px 16px' : '32px 24px' }}>
         <div style={{ width: '100%', maxWidth: 600 }}>
           {/* Header */}
-          <div style={{ marginBottom: 32 }}>
+          <div style={{ marginBottom: isMobile ? 20 : 32 }}>
             <div style={{ fontSize: 11, color: mk.brand, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
               {t('profile.badge') || 'Account Settings'}
             </div>
-            <h1 style={{ fontSize: 32, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em', marginBottom: 0 }}>
+            <h1 style={{ fontSize: isMobile ? 24 : 32, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em', marginBottom: 0 }}>
               {t('profile.title') || 'My Profile'}
             </h1>
           </div>
@@ -206,9 +208,9 @@ export default function ProfilePage() {
           {/* Profile Form Card */}
           <form onSubmit={handleSave} style={{
             background: mk.surface,
-            borderRadius: 20,
+            borderRadius: isMobile ? 16 : 20,
             border: `1px solid ${mk.border}`,
-            padding: '36px 32px',
+            padding: isMobile ? '24px 20px' : '36px 32px',
             boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)',
             marginBottom: 24,
           }}>
@@ -261,7 +263,7 @@ export default function ProfilePage() {
               {/* Role Selection */}
               <div>
                 <label style={labelStyle}>{t('profile.role') || 'Role'}</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? 8 : 12 }}>
                   {[
                     { value: 'landlord' as const, label: t('register.roleLandlord') || 'Landlord' },
                     { value: 'tenant' as const, label: t('register.roleTenant') || 'Tenant' },

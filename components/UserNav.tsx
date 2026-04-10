@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { UserSession } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
+import { useIsMobile } from '@/lib/useMediaQuery'
 
 const mk = {
   bg:          '#F7F8FB',
@@ -33,7 +34,9 @@ export interface UserNavProps {
 
 export default function UserNav({ user, signOut, loading, showNewScreening, onNewScreening }: UserNavProps) {
   const { t } = useT()
+  const isMobile = useIsMobile(640)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown when clicking outside
@@ -46,6 +49,11 @@ export default function UserNav({ user, signOut, loading, showNewScreening, onNe
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Close mobile menu when switching to desktop
+  useEffect(() => {
+    if (!isMobile) setMobileMenuOpen(false)
+  }, [isMobile])
 
   // Get initials from user name or email
   const getInitials = (): string => {
@@ -71,35 +79,35 @@ export default function UserNav({ user, signOut, loading, showNewScreening, onNe
   const containerStyle: React.CSSProperties = {
     maxWidth: 1200,
     margin: '0 auto',
-    padding: '14px 28px',
+    padding: isMobile ? '10px 14px' : '14px 28px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
   }
 
   const logoBoxStyle: React.CSSProperties = {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: isMobile ? 32 : 36,
+    height: isMobile ? 32 : 36,
+    borderRadius: isMobile ? 8 : 10,
     background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     color: '#fff',
     fontWeight: 700,
-    fontSize: 15,
+    fontSize: isMobile ? 13 : 15,
     boxShadow: '0 4px 12px -2px rgba(13,148,136,0.35)',
   }
 
   const brandLinkStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
+    gap: isMobile ? 8 : 10,
     textDecoration: 'none',
   }
 
   const brandTextStyle: React.CSSProperties = {
-    fontSize: 15,
+    fontSize: isMobile ? 14 : 15,
     fontWeight: 700,
     color: mk.navy,
     letterSpacing: '-0.01em',
@@ -110,12 +118,13 @@ export default function UserNav({ user, signOut, loading, showNewScreening, onNe
     color: mk.textFaint,
     fontFamily: 'JetBrains Mono, monospace',
     marginTop: -1,
+    display: isMobile ? 'none' : 'block',
   }
 
   const actionsStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
-    gap: 12,
+    gap: isMobile ? 8 : 12,
   }
 
   const buttonStyle: React.CSSProperties = {
@@ -132,19 +141,20 @@ export default function UserNav({ user, signOut, loading, showNewScreening, onNe
   }
 
   const avatarStyle: React.CSSProperties = {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: isMobile ? 32 : 36,
+    height: isMobile ? 32 : 36,
+    borderRadius: isMobile ? 8 : 10,
     background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     color: '#fff',
     fontWeight: 700,
-    fontSize: 13,
+    fontSize: isMobile ? 12 : 13,
     cursor: 'pointer',
     transition: 'transform .15s',
     boxShadow: '0 4px 12px -2px rgba(13,148,136,0.35)',
+    flexShrink: 0,
   }
 
   const dropdownStyle: React.CSSProperties = {
@@ -195,9 +205,181 @@ export default function UserNav({ user, signOut, loading, showNewScreening, onNe
     color: mk.text,
   }
 
+  // Hamburger icon (3 bars)
+  const HamburgerIcon = () => (
+    <button
+      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+      style={{
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        padding: 6,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        justifyContent: 'center',
+        alignItems: 'center',
+        minWidth: 32,
+        minHeight: 32,
+      }}
+      aria-label="Toggle menu"
+    >
+      <span style={{
+        display: 'block', width: 18, height: 2, borderRadius: 1,
+        background: mk.text,
+        transition: 'all .2s',
+        transform: mobileMenuOpen ? 'translateY(6px) rotate(45deg)' : 'none',
+      }} />
+      <span style={{
+        display: 'block', width: 18, height: 2, borderRadius: 1,
+        background: mk.text,
+        transition: 'all .2s',
+        opacity: mobileMenuOpen ? 0 : 1,
+      }} />
+      <span style={{
+        display: 'block', width: 18, height: 2, borderRadius: 1,
+        background: mk.text,
+        transition: 'all .2s',
+        transform: mobileMenuOpen ? 'translateY(-6px) rotate(-45deg)' : 'none',
+      }} />
+    </button>
+  )
+
+  // Mobile slide-down menu
+  const MobileMenu = () => (
+    <div style={{
+      position: 'absolute',
+      top: '100%',
+      left: 0,
+      right: 0,
+      background: mk.surface,
+      borderBottom: `1px solid ${mk.border}`,
+      boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
+      padding: '12px 16px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 4,
+      zIndex: 100,
+    }}>
+      {user && (
+        <>
+          {/* User info */}
+          <div style={{ padding: '8px 12px', fontSize: 13, color: mk.textMuted, borderBottom: `1px solid ${mk.border}`, marginBottom: 4 }}>
+            <div style={{ fontWeight: 600, color: mk.text, marginBottom: 2 }}>
+              {user.fullName || user.email.split('@')[0]}
+            </div>
+            <div style={{ fontSize: 11, color: mk.textFaint }}>{user.email}</div>
+          </div>
+
+          {showNewScreening && onNewScreening && (
+            <button
+              onClick={() => { onNewScreening(); setMobileMenuOpen(false) }}
+              style={{
+                width: '100%', padding: '12px 14px', borderRadius: 10,
+                background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
+                color: '#fff', fontSize: 14, fontWeight: 600,
+                border: 'none', cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              {t('nav.newScreening') || 'New screening'}
+            </button>
+          )}
+
+          <Link
+            href="/dashboard"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              display: 'block', padding: '12px 14px', borderRadius: 10,
+              fontSize: 14, fontWeight: 600, color: mk.text,
+              textDecoration: 'none', transition: 'background .1s',
+            }}
+          >
+            {t('nav.dashboard') || 'Dashboard'}
+          </Link>
+
+          <Link
+            href="/screen"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              display: 'block', padding: '12px 14px', borderRadius: 10,
+              fontSize: 14, fontWeight: 600, color: mk.text,
+              textDecoration: 'none', transition: 'background .1s',
+            }}
+          >
+            {t('nav.screenings') || 'Screenings'}
+          </Link>
+
+          <Link
+            href="/profile"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              display: 'block', padding: '12px 14px', borderRadius: 10,
+              fontSize: 14, fontWeight: 600, color: mk.text,
+              textDecoration: 'none', transition: 'background .1s',
+            }}
+          >
+            {t('nav.profile') || 'My Profile'}
+          </Link>
+
+          <div style={{ height: 1, background: mk.border, margin: '4px 0' }} />
+
+          <div style={{ padding: '8px 14px' }}>
+            <LanguageToggle />
+          </div>
+
+          <button
+            onClick={async () => {
+              setMobileMenuOpen(false)
+              await signOut()
+            }}
+            style={{
+              width: '100%', padding: '12px 14px', borderRadius: 10,
+              fontSize: 14, fontWeight: 600, color: mk.red,
+              background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
+            }}
+          >
+            {t('nav.signOut') || 'Sign out'}
+          </button>
+        </>
+      )}
+
+      {!user && (
+        <>
+          <div style={{ padding: '8px 14px' }}>
+            <LanguageToggle />
+          </div>
+          <Link
+            href="/login"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              display: 'block', padding: '12px 14px', borderRadius: 10,
+              fontSize: 14, fontWeight: 600, color: mk.text,
+              textDecoration: 'none',
+            }}
+          >
+            {t('nav.signin') || 'Sign in'}
+          </Link>
+          <Link
+            href="/register"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              display: 'block', padding: '12px 14px', borderRadius: 10,
+              fontSize: 14, fontWeight: 600, color: '#fff',
+              textDecoration: 'none',
+              background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
+              textAlign: 'center',
+            }}
+          >
+            {t('nav.register') || 'Register'}
+          </Link>
+        </>
+      )}
+    </div>
+  )
+
   return (
     <nav style={navStyle}>
-      <div style={containerStyle}>
+      <div style={{ ...containerStyle, position: 'relative' }}>
         {/* Logo + Brand */}
         <Link href="/" style={brandLinkStyle}>
           <div style={logoBoxStyle}>S</div>
@@ -207,36 +389,13 @@ export default function UserNav({ user, signOut, loading, showNewScreening, onNe
           </div>
         </Link>
 
-        {/* Actions */}
-        <div style={actionsStyle}>
-          {/* New Screening button (optional) */}
-          {showNewScreening && onNewScreening && (
-            <button
-              onClick={onNewScreening}
-              style={{
-                ...buttonStyle,
-                background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
-                color: '#fff',
-                border: 'none',
-                boxShadow: '0 4px 12px -2px rgba(13,148,136,0.35)',
-              }}
-            >
-              {t('nav.newScreening') || 'New screening'}
-            </button>
-          )}
-
-          {/* Language Toggle */}
-          <LanguageToggle />
-
-          {/* Auth state */}
-          {!user ? (
-            // Anonymous or loading - show Sign in / Register
-            <>
-              <Link href="/login" style={buttonStyle}>
-                {t('nav.signin') || 'Sign in'}
-              </Link>
-              <Link
-                href="/register"
+        {/* Desktop Actions */}
+        {!isMobile && (
+          <div style={actionsStyle}>
+            {/* New Screening button (optional) */}
+            {showNewScreening && onNewScreening && (
+              <button
+                onClick={onNewScreening}
                 style={{
                   ...buttonStyle,
                   background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
@@ -245,122 +404,156 @@ export default function UserNav({ user, signOut, loading, showNewScreening, onNe
                   boxShadow: '0 4px 12px -2px rgba(13,148,136,0.35)',
                 }}
               >
-                {t('nav.register') || 'Register'}
-              </Link>
-            </>
-          ) : (
-            // Authenticated - show Dashboard link + avatar with name + dropdown
-            <>
-              {/* Dashboard shortcut link */}
-              <Link
-                href="/dashboard"
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: mk.textSec,
-                  textDecoration: 'none',
-                  padding: '6px 12px',
-                  borderRadius: 8,
-                  transition: 'color .15s, background .15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.color = mk.brand; e.currentTarget.style.background = mk.brandSoft }}
-                onMouseLeave={e => { e.currentTarget.style.color = mk.textSec; e.currentTarget.style.background = 'none' }}
-              >
-                {t('nav.dashboard') || 'Dashboard'}
-              </Link>
+                {t('nav.newScreening') || 'New screening'}
+              </button>
+            )}
 
-              <div style={{ position: 'relative' }} ref={dropdownRef}>
-                {/* Avatar + User name */}
-                <button
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
+            {/* Language Toggle */}
+            <LanguageToggle />
+
+            {/* Auth state */}
+            {!user ? (
+              <>
+                <Link href="/login" style={buttonStyle}>
+                  {t('nav.signin') || 'Sign in'}
+                </Link>
+                <Link
+                  href="/register"
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    background: 'none',
+                    ...buttonStyle,
+                    background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
+                    color: '#fff',
                     border: 'none',
-                    cursor: 'pointer',
-                    padding: 0,
-                    transition: 'transform .15s',
-                    transform: dropdownOpen ? 'scale(1.02)' : 'scale(1)',
+                    boxShadow: '0 4px 12px -2px rgba(13,148,136,0.35)',
                   }}
-                  title={user.email}
                 >
-                  <div style={avatarStyle}>
-                    {getInitials()}
-                  </div>
-                  <span style={{
+                  {t('nav.register') || 'Register'}
+                </Link>
+              </>
+            ) : (
+              <>
+                {/* Dashboard shortcut link */}
+                <Link
+                  href="/dashboard"
+                  style={{
                     fontSize: 13,
                     fontWeight: 600,
-                    color: mk.text,
-                    maxWidth: 120,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {user.fullName || user.email.split('@')[0]}
-                  </span>
-                  {/* Caret */}
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, transition: 'transform .15s', transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                    <path d="M3 4.5L6 7.5L9 4.5" stroke={mk.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
+                    color: mk.textSec,
+                    textDecoration: 'none',
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    transition: 'color .15s, background .15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.color = mk.brand; e.currentTarget.style.background = mk.brandSoft }}
+                  onMouseLeave={e => { e.currentTarget.style.color = mk.textSec; e.currentTarget.style.background = 'none' }}
+                >
+                  {t('nav.dashboard') || 'Dashboard'}
+                </Link>
 
-                {/* Dropdown Menu */}
-                <div style={dropdownStyle}>
-                  <div style={userInfoStyle}>
-                    <div style={userNameStyle}>{user.fullName || user.email.split('@')[0]}</div>
-                    <div style={{ fontSize: 11, color: mk.textFaint }}>{user.email}</div>
-                  </div>
-
-                  <Link
-                    href="/profile"
-                    style={dropdownItemBaseStyle}
-                    onMouseEnter={e => (e.currentTarget.style.background = mk.brandSoft)}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    {t('nav.profile') || 'My Profile'}
-                  </Link>
-
-                  <Link
-                    href="/dashboard"
-                    style={dropdownItemBaseStyle}
-                    onMouseEnter={e => (e.currentTarget.style.background = mk.brandSoft)}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    {t('nav.dashboard') || 'Dashboard →'}
-                  </Link>
-
-                  <Link
-                    href="/screen"
-                    style={dropdownItemBaseStyle}
-                    onMouseEnter={e => (e.currentTarget.style.background = mk.brandSoft)}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                  >
-                    {t('nav.screenings') || 'Screenings'}
-                  </Link>
-
-                  <div style={dividerStyle} />
-
+                <div style={{ position: 'relative' }} ref={dropdownRef}>
+                  {/* Avatar + User name */}
                   <button
-                    onClick={async () => {
-                      setDropdownOpen(false)
-                      await signOut()
-                    }}
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
                     style={{
-                      ...dropdownItemBaseStyle,
-                      color: mk.red,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: 0,
+                      transition: 'transform .15s',
+                      transform: dropdownOpen ? 'scale(1.02)' : 'scale(1)',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = mk.redSoft)}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                    title={user.email}
                   >
-                    {t('nav.signOut') || 'Sign out'}
+                    <div style={avatarStyle}>
+                      {getInitials()}
+                    </div>
+                    <span style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: mk.text,
+                      maxWidth: 120,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {user.fullName || user.email.split('@')[0]}
+                    </span>
+                    {/* Caret */}
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, transition: 'transform .15s', transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                      <path d="M3 4.5L6 7.5L9 4.5" stroke={mk.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                   </button>
+
+                  {/* Dropdown Menu */}
+                  <div style={dropdownStyle}>
+                    <div style={userInfoStyle}>
+                      <div style={userNameStyle}>{user.fullName || user.email.split('@')[0]}</div>
+                      <div style={{ fontSize: 11, color: mk.textFaint }}>{user.email}</div>
+                    </div>
+
+                    <Link
+                      href="/profile"
+                      style={dropdownItemBaseStyle}
+                      onMouseEnter={e => (e.currentTarget.style.background = mk.brandSoft)}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                    >
+                      {t('nav.profile') || 'My Profile'}
+                    </Link>
+
+                    <Link
+                      href="/dashboard"
+                      style={dropdownItemBaseStyle}
+                      onMouseEnter={e => (e.currentTarget.style.background = mk.brandSoft)}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                    >
+                      {t('nav.dashboard') || 'Dashboard →'}
+                    </Link>
+
+                    <Link
+                      href="/screen"
+                      style={dropdownItemBaseStyle}
+                      onMouseEnter={e => (e.currentTarget.style.background = mk.brandSoft)}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                    >
+                      {t('nav.screenings') || 'Screenings'}
+                    </Link>
+
+                    <div style={dividerStyle} />
+
+                    <button
+                      onClick={async () => {
+                        setDropdownOpen(false)
+                        await signOut()
+                      }}
+                      style={{
+                        ...dropdownItemBaseStyle,
+                        color: mk.red,
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = mk.redSoft)}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                    >
+                      {t('nav.signOut') || 'Sign out'}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
-        </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Mobile: avatar + hamburger */}
+        {isMobile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {user && <div style={avatarStyle}>{getInitials()}</div>}
+            <HamburgerIcon />
+          </div>
+        )}
+
+        {/* Mobile slide-down menu */}
+        {isMobile && mobileMenuOpen && <MobileMenu />}
       </div>
     </nav>
   )

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useT, LanguageToggle } from '@/lib/i18n'
+import { useIsMobile } from '@/lib/useMediaQuery'
 
 /* ── Marketing-matching palette (mirrors .marketing CSS vars) ── */
 const mk = {
@@ -32,6 +33,7 @@ function LoginInner() {
   const nextParam = searchParams.get('next') || '/screen'
   const safeNext = nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/screen'
 
+  const isMobile = useIsMobile()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -96,18 +98,18 @@ function LoginInner() {
         WebkitBackdropFilter: 'saturate(1.6) blur(14px)',
         borderBottom: `1px solid ${mk.border}`,
       }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: isMobile ? '10px 14px' : '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10, textDecoration: 'none' }}>
             <div style={{
-              width: 36, height: 36, borderRadius: 10,
+              width: isMobile ? 32 : 36, height: isMobile ? 32 : 36, borderRadius: isMobile ? 8 : 10,
               background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontWeight: 700, fontSize: 15,
+              color: '#fff', fontWeight: 700, fontSize: isMobile ? 13 : 15,
               boxShadow: '0 4px 12px -2px rgba(13,148,136,0.35)',
             }}>S</div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: mk.navy, letterSpacing: '-0.01em' }}>Stayloop</div>
-              <div style={{ fontSize: 10, color: mk.textFaint, fontFamily: 'JetBrains Mono, monospace', marginTop: -1 }}>Ontario · beta</div>
+              <div style={{ fontSize: isMobile ? 14 : 15, fontWeight: 700, color: mk.navy, letterSpacing: '-0.01em' }}>Stayloop</div>
+              {!isMobile && <div style={{ fontSize: 10, color: mk.textFaint, fontFamily: 'JetBrains Mono, monospace', marginTop: -1 }}>Ontario · beta</div>}
             </div>
           </Link>
           <LanguageToggle />
@@ -115,15 +117,15 @@ function LoginInner() {
       </nav>
 
       {/* ── Main ── */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 24px' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '24px 16px' : '48px 24px' }}>
         <div style={{ width: '100%', maxWidth: 420 }}>
 
           {/* Card */}
           <div style={{
             background: mk.surface,
-            borderRadius: 20,
+            borderRadius: isMobile ? 16 : 20,
             border: `1px solid ${mk.border}`,
-            padding: '36px 32px',
+            padding: isMobile ? '24px 20px' : '36px 32px',
             boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)',
           }}>
             {/* Badge */}
@@ -143,7 +145,7 @@ function LoginInner() {
               {t('login.badge')}
             </div>
 
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: mk.navy, letterSpacing: '-0.03em', marginBottom: 6 }}>
+            <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, color: mk.navy, letterSpacing: '-0.03em', marginBottom: 6 }}>
               {t('login.title')}
             </h1>
             <p style={{ fontSize: 14, color: mk.textMuted, marginBottom: 28, lineHeight: 1.6 }}>

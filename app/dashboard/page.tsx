@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
 import UserNav from '@/components/UserNav'
+import { useIsMobile } from '@/lib/useMediaQuery'
 import { Application, Listing } from '@/types'
 
 /* ── Marketing-matching light palette ── */
@@ -29,6 +30,7 @@ const mk = {
 
 export default function Dashboard() {
   const { t } = useT()
+  const isMobile = useIsMobile()
   const { user: landlord, loading: authLoading, signOut } = useUser({ redirectIfMissing: true })
   const [applications, setApplications] = useState<Application[]>([])
   const [listings, setListings] = useState<Listing[]>([])
@@ -178,34 +180,34 @@ export default function Dashboard() {
       {/* Nav */}
       <UserNav user={landlord} signOut={signOut} />
 
-      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '40px 24px' }}>
+      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '20px 14px' : '40px 24px' }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isMobile ? 20 : 32, flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div style={{ fontSize: 11, color: mk.brand, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>{t('dash.overview')}</div>
-            <h1 style={{ fontSize: 36, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em', margin: 0 }}>{t('dash.title')}</h1>
+            <h1 style={{ fontSize: isMobile ? 24 : 36, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em', margin: 0 }}>{t('dash.title')}</h1>
           </div>
           <Link href="/dashboard/listings/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 20px', borderRadius: 10, background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`, color: '#fff', fontSize: 14, fontWeight: 650, textDecoration: 'none', border: 'none', cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(13,148,136,0.6), inset 0 1px 0 rgba(255,255,255,0.15)' }}>+ {t('dash.newListing')}</Link>
         </div>
 
         {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 40 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(200px, 1fr))', gap: isMobile ? 10 : 16, marginBottom: isMobile ? 24 : 40 }}>
           {[
             { l: t('dash.stat.total'), v: stats.total, c: mk.brand },
             { l: t('dash.stat.approved'), v: stats.approved, c: mk.green },
             { l: t('dash.stat.pending'), v: stats.pending, c: '#D97706' },
             { l: t('dash.stat.flags'), v: stats.flags, c: mk.red },
           ].map(s => (
-            <div key={s.l} style={{ background: mk.surface, borderRadius: 14, border: `1px solid ${mk.border}`, padding: 22, boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)' }}>
+            <div key={s.l} style={{ background: mk.surface, borderRadius: isMobile ? 12 : 14, border: `1px solid ${mk.border}`, padding: isMobile ? 14 : 22, boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)' }}>
               <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, marginBottom: 10, fontWeight: 600 }}>{s.l}</div>
-              <div style={{ fontSize: 36, fontWeight: 800, color: s.c, letterSpacing: '-0.03em', lineHeight: 1, fontFamily: 'JetBrains Mono, monospace' }}>{s.v}</div>
+              <div style={{ fontSize: isMobile ? 24 : 36, fontWeight: 800, color: s.c, letterSpacing: '-0.03em', lineHeight: 1, fontFamily: 'JetBrains Mono, monospace' }}>{s.v}</div>
             </div>
           ))}
         </div>
 
         {/* Listings */}
         <div style={{ background: mk.surface, borderRadius: 14, border: `1px solid ${mk.border}`, overflow: 'hidden', marginBottom: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)' }}>
-          <div style={{ padding: '16px 22px', borderBottom: `1px solid ${mk.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ padding: isMobile ? '10px 12px' : '16px 22px', borderBottom: `1px solid ${mk.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: mk.brand, boxShadow: `0 0 8px rgba(13,148,136,0.5)` }} />
               <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.005em', color: mk.text }}>{t('dash.yourListings')}</span>
@@ -225,9 +227,9 @@ export default function Dashboard() {
               {listings.map(l => {
                 const url = `${origin}/apply/${l.slug}`
                 return (
-                  <li key={l.id} style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottom: `1px solid ${mk.border}`, transition: 'background 0.15s', cursor: 'pointer' }} onMouseEnter={e => { (e.currentTarget as HTMLLIElement).style.background = mk.bg }} onMouseLeave={e => { (e.currentTarget as HTMLLIElement).style.background = 'transparent' }}>
+                  <li key={l.id} style={{ padding: isMobile ? '14px 14px' : '18px 22px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between', gap: isMobile ? 10 : 16, borderBottom: `1px solid ${mk.border}`, transition: 'background 0.15s', cursor: 'pointer' }} onMouseEnter={e => { (e.currentTarget as HTMLLIElement).style.background = mk.bg }} onMouseLeave={e => { (e.currentTarget as HTMLLIElement).style.background = 'transparent' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 600, color: mk.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: isMobile ? 13.5 : 14.5, fontWeight: 600, color: mk.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {l.address}{l.unit ? `, ${l.unit}` : ''} <span style={{ color: mk.textMuted, fontWeight: 400 }}>· {l.city}</span>
                       </div>
                       <div style={{ fontSize: 11.5, color: mk.textSec, marginTop: 4, fontFamily: 'JetBrains Mono, monospace' }}>
@@ -235,13 +237,13 @@ export default function Dashboard() {
                         {l.bedrooms ? ` · ${l.bedrooms}bd` : ''}
                         {l.bathrooms ? ` · ${l.bathrooms}ba` : ''}
                       </div>
-                      <div style={{ fontSize: 10.5, color: mk.brand, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'JetBrains Mono, monospace' }}>{url}</div>
+                      {!isMobile && <div style={{ fontSize: 10.5, color: mk.brand, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'JetBrains Mono, monospace' }}>{url}</div>}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                      <button onClick={() => copyLink(l.slug)} style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${mk.border}`, background: mk.surface, color: mk.text, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'background 0.15s' }} onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = mk.bg }} onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = mk.surface }}>
+                      <button onClick={() => copyLink(l.slug)} style={{ padding: isMobile ? '10px 14px' : '8px 12px', borderRadius: 8, border: `1px solid ${mk.border}`, background: mk.surface, color: mk.text, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'background 0.15s', flex: isMobile ? 1 : 'none' }} onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = mk.bg }} onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = mk.surface }}>
                         {copiedSlug === l.slug ? '✓ ' + t('dash.copied') : t('dash.copyLink')}
                       </button>
-                      <a href={url} target="_blank" rel="noreferrer" style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${mk.border}`, background: mk.surface, color: mk.text, fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', transition: 'background 0.15s', display: 'inline-block' }} onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = mk.bg }} onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = mk.surface }}>{t('dash.open')} ↗</a>
+                      <a href={url} target="_blank" rel="noreferrer" style={{ padding: isMobile ? '10px 14px' : '8px 12px', borderRadius: 8, border: `1px solid ${mk.border}`, background: mk.surface, color: mk.text, fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', transition: 'background 0.15s', display: 'inline-block', textAlign: 'center', flex: isMobile ? 1 : 'none' }} onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = mk.bg }} onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = mk.surface }}>{t('dash.open')} ↗</a>
                     </div>
                   </li>
                 )
@@ -252,7 +254,7 @@ export default function Dashboard() {
 
         {/* Applications */}
         <div style={{ background: mk.surface, borderRadius: 14, border: `1px solid ${mk.border}`, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)' }}>
-          <div style={{ padding: '16px 22px', borderBottom: `1px solid ${mk.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ padding: isMobile ? '10px 12px' : '16px 22px', borderBottom: `1px solid ${mk.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: mk.brand, boxShadow: `0 0 8px rgba(13,148,136,0.5)` }} />
             <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.005em', color: mk.text }}>{t('dash.recentApps')}</span>
           </div>
@@ -268,12 +270,12 @@ export default function Dashboard() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${mk.border}` }}>
-                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.applicant')}</th>
-                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.property')}</th>
-                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.income')}</th>
-                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.aiScore')}</th>
-                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.ltb')}</th>
-                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.status')}</th>
+                  <th style={{ textAlign: 'left', padding: isMobile ? '10px 12px' : '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.applicant')}</th>
+                  <th style={{ textAlign: 'left', padding: isMobile ? '10px 12px' : '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.property')}</th>
+                  <th style={{ textAlign: 'left', padding: isMobile ? '10px 12px' : '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.income')}</th>
+                  <th style={{ textAlign: 'left', padding: isMobile ? '10px 12px' : '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.aiScore')}</th>
+                  <th style={{ textAlign: 'left', padding: isMobile ? '10px 12px' : '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.ltb')}</th>
+                  <th style={{ textAlign: 'left', padding: isMobile ? '10px 12px' : '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -285,25 +287,25 @@ export default function Dashboard() {
                     onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent' }}
                     onClick={() => { window.location.href = `/dashboard/applications/${app.id}` }}
                   >
-                    <td style={{ padding: '16px 22px' }}>
+                    <td style={{ padding: isMobile ? '10px 12px' : '16px 22px' }}>
                       <div style={{ fontSize: 14, fontWeight: 600, color: mk.text }}>{app.first_name} {app.last_name}</div>
                       <div style={{ fontSize: 10.5, color: mk.textFaint, marginTop: 3, fontFamily: 'JetBrains Mono, monospace' }}>{new Date(app.created_at).toLocaleDateString()}</div>
                     </td>
-                    <td style={{ padding: '16px 22px', fontSize: 13, color: mk.textSec }}>{app.listing?.address}</td>
-                    <td style={{ padding: '16px 22px', fontFamily: 'JetBrains Mono, monospace' }}><span style={{ fontSize: 13, color: mk.text }}>{app.monthly_income ? `$${app.monthly_income.toLocaleString()}` : '—'}</span></td>
-                    <td style={{ padding: '16px 22px' }}>
+                    <td style={{ padding: isMobile ? '10px 12px' : '16px 22px', fontSize: 13, color: mk.textSec }}>{app.listing?.address}</td>
+                    <td style={{ padding: isMobile ? '10px 12px' : '16px 22px', fontFamily: 'JetBrains Mono, monospace' }}><span style={{ fontSize: 13, color: mk.text }}>{app.monthly_income ? `$${app.monthly_income.toLocaleString()}` : '—'}</span></td>
+                    <td style={{ padding: isMobile ? '10px 12px' : '16px 22px' }}>
                       {app.ai_score ? (
                         <span style={{ fontFamily: 'JetBrains Mono, monospace', border: '1px solid', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, ...scoreColor(app.ai_score) }}>
                           {app.ai_score}
                         </span>
                       ) : <span style={{ fontSize: 10.5, color: mk.textFaint, fontFamily: 'JetBrains Mono, monospace' }}>{t('dash.scorePending')}</span>}
                     </td>
-                    <td style={{ padding: '16px 22px' }}>
+                    <td style={{ padding: isMobile ? '10px 12px' : '16px 22px' }}>
                       {app.ltb_records_found > 0
                         ? <span style={{ fontSize: 11.5, color: mk.red, fontFamily: 'JetBrains Mono, monospace' }}>⚠ {app.ltb_records_found}</span>
                         : <span style={{ fontSize: 11.5, color: mk.green, fontFamily: 'JetBrains Mono, monospace' }}>✓ {t('dash.ltbClear')}</span>}
                     </td>
-                    <td style={{ padding: '16px 22px' }}>
+                    <td style={{ padding: isMobile ? '10px 12px' : '16px 22px' }}>
                       <span style={{
                         fontFamily: 'JetBrains Mono, monospace',
                         padding: '4px 10px', borderRadius: 6, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em',
@@ -324,11 +326,11 @@ export default function Dashboard() {
 
       {showUpgrade && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowUpgrade(false)}>
-          <div style={{ background: mk.surface, borderRadius: 20, border: `1px solid ${mk.border}`, padding: '36px 32px', maxWidth: 680, width: '100%', position: 'relative', boxShadow: '0 20px 60px -10px rgba(0,0,0,0.1)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: mk.surface, borderRadius: isMobile ? 16 : 20, border: `1px solid ${mk.border}`, padding: isMobile ? '24px 16px' : '36px 32px', maxWidth: 680, width: '100%', position: 'relative', boxShadow: '0 20px 60px -10px rgba(0,0,0,0.1)', maxHeight: isMobile ? '85vh' : 'none', overflowY: isMobile ? 'auto' : 'visible' }} onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowUpgrade(false)} aria-label="close" style={{ position: 'absolute', top: 14, right: 14, width: 30, height: 30, borderRadius: 8, background: mk.bg, border: `1px solid ${mk.border}`, color: mk.textSec, cursor: 'pointer', fontSize: 14 }}>✕</button>
             <div style={{ fontSize: 11, color: mk.brand, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>{t('dash.pricing.tag')}</div>
-            <h2 style={{ fontSize: 28, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em', marginBottom: 24 }}>{t('dash.pricing.choose')}</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+            <h2 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em', marginBottom: isMobile ? 16 : 24 }}>{t('dash.pricing.choose')}</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
               <div style={{ borderRadius: 14, padding: 22, border: `1px solid ${mk.border}`, background: mk.bg }}>
                 <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, marginBottom: 6, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>{t('dash.pricing.free')}</div>
                 <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 4, letterSpacing: '-0.02em', color: mk.text }}>$0<span style={{ fontSize: 13, color: mk.textMuted, fontWeight: 500 }}>/mo</span></div>
