@@ -7,6 +7,26 @@ import { useT, LanguageToggle } from '@/lib/i18n'
 import UserNav from '@/components/UserNav'
 import { Application, Listing } from '@/types'
 
+/* ── Marketing-matching light palette ── */
+const mk = {
+  bg: '#F7F8FB',
+  surface: '#FFFFFF',
+  border: '#E4E8F0',
+  borderStrong: '#CBD5E1',
+  text: '#0B1736',
+  textSec: '#475569',
+  textMuted: '#64748B',
+  textFaint: '#94A3B8',
+  brand: '#0D9488',
+  brandStrong: '#0F766E',
+  brandSoft: '#CCFBF1',
+  navy: '#0B1736',
+  red: '#E11D48',
+  redSoft: '#FFF1F2',
+  greenSoft: '#ECFDF5',
+  green: '#059669',
+} as const
+
 export default function Dashboard() {
   const { t } = useT()
   const { user: landlord, loading: authLoading, signOut } = useUser({ redirectIfMissing: true })
@@ -127,11 +147,11 @@ export default function Dashboard() {
     setTimeout(() => setCopiedSlug(null), 1500)
   }
 
-  const scoreColor = (score?: number) => {
-    if (!score) return 'text-slate-500 bg-white/[0.04] border-white/[0.08]'
-    if (score >= 75) return 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30'
-    if (score >= 50) return 'text-amber-300 bg-amber-500/15 border-amber-500/30'
-    return 'text-red-300 bg-red-500/15 border-red-500/30'
+  const scoreColor = (score?: number): React.CSSProperties => {
+    if (!score) return { color: mk.textMuted, background: mk.bg, borderColor: mk.border }
+    if (score >= 75) return { color: mk.green, background: mk.greenSoft, borderColor: `rgba(5,150,105,0.25)` }
+    if (score >= 50) return { color: '#D97706', background: '#FEF3C7', borderColor: 'rgba(217,119,6,0.25)' }
+    return { color: mk.red, background: mk.redSoft, borderColor: `rgba(225,29,72,0.25)` }
   }
 
   const stats = {
@@ -143,84 +163,85 @@ export default function Dashboard() {
 
   if (authLoading || !landlord) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 mx-auto mb-3 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin" />
-          <div className="mono text-xs text-slate-500">{t('common.authenticating')}</div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: mk.bg, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: 10, border: `4px solid rgba(13,148,136,0.2)`, borderTopColor: mk.brand, animation: 'spin 1s linear infinite' }} />
+          <div style={{ fontSize: 12, color: mk.textMuted, fontFamily: 'JetBrains Mono, monospace' }}>{t('common.authenticating')}</div>
         </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen">
+    <div style={{ minHeight: '100vh', background: mk.bg, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
       {/* Nav */}
       <UserNav user={landlord} signOut={signOut} />
 
-      <div className="max-w-7xl mx-auto px-6 py-10 fade-up">
+      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '40px 24px' }}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <div className="mono" style={{ fontSize: 11, color: '#5EEAD4', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>{t('dash.overview')}</div>
-            <h1 className="h-hero">{t('dash.title')}</h1>
+            <div style={{ fontSize: 11, color: mk.brand, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>{t('dash.overview')}</div>
+            <h1 style={{ fontSize: 36, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em', margin: 0 }}>{t('dash.title')}</h1>
           </div>
-          <Link href="/dashboard/listings/new" className="btn btn-primary">+ {t('dash.newListing')}</Link>
+          <Link href="/dashboard/listings/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 20px', borderRadius: 10, background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`, color: '#fff', fontSize: 14, fontWeight: 650, textDecoration: 'none', border: 'none', cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(13,148,136,0.6), inset 0 1px 0 rgba(255,255,255,0.15)' }}>+ {t('dash.newListing')}</Link>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 40 }}>
           {[
-            { l: t('dash.stat.total'), v: stats.total, c: '#22D3EE' },
-            { l: t('dash.stat.approved'), v: stats.approved, c: '#34D399' },
-            { l: t('dash.stat.pending'), v: stats.pending, c: '#FBBF24' },
-            { l: t('dash.stat.flags'), v: stats.flags, c: '#F87171' },
+            { l: t('dash.stat.total'), v: stats.total, c: mk.brand },
+            { l: t('dash.stat.approved'), v: stats.approved, c: mk.green },
+            { l: t('dash.stat.pending'), v: stats.pending, c: '#D97706' },
+            { l: t('dash.stat.flags'), v: stats.flags, c: mk.red },
           ].map(s => (
-            <div key={s.l} className="card" style={{ padding: 22 }}>
-              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 10, fontWeight: 600 }}>{s.l}</div>
-              <div className="mono" style={{ fontSize: 36, fontWeight: 800, color: s.c, letterSpacing: '-0.03em', lineHeight: 1 }}>{s.v}</div>
+            <div key={s.l} style={{ background: mk.surface, borderRadius: 14, border: `1px solid ${mk.border}`, padding: 22, boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)' }}>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, marginBottom: 10, fontWeight: 600 }}>{s.l}</div>
+              <div style={{ fontSize: 36, fontWeight: 800, color: s.c, letterSpacing: '-0.03em', lineHeight: 1, fontFamily: 'JetBrains Mono, monospace' }}>{s.v}</div>
             </div>
           ))}
         </div>
 
         {/* Listings */}
-        <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 32 }}>
-          <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ background: mk.surface, borderRadius: 14, border: `1px solid ${mk.border}`, overflow: 'hidden', marginBottom: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)' }}>
+          <div style={{ padding: '16px 22px', borderBottom: `1px solid ${mk.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22D3EE', boxShadow: '0 0 8px rgba(34, 211, 238, 0.5)' }} />
-              <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.005em' }}>{t('dash.yourListings')}</span>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: mk.brand, boxShadow: `0 0 8px rgba(13,148,136,0.5)` }} />
+              <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.005em', color: mk.text }}>{t('dash.yourListings')}</span>
             </div>
-            <span className="mono" style={{ fontSize: 10.5, color: 'var(--text-faint)' }}>{t('dash.activeN', { n: listings.length })}</span>
+            <span style={{ fontSize: 10.5, color: mk.textFaint, fontFamily: 'JetBrains Mono, monospace' }}>{t('dash.activeN', { n: listings.length })}</span>
           </div>
           {loading ? (
-            <div className="p-10 text-center mono text-xs text-slate-500">{t('dash.loading')}</div>
+            <div style={{ padding: 40, textAlign: 'center', fontSize: 12, color: mk.textMuted, fontFamily: 'JetBrains Mono, monospace' }}>{t('dash.loading')}</div>
           ) : listings.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="text-4xl mb-3 opacity-30">▱</div>
-              <div className="text-sm text-slate-400 mb-2">{t('dash.noListings')}</div>
-              <Link href="/dashboard/listings/new" className="text-cyan-400 hover:text-cyan-300 text-sm">{t('dash.createFirst')}</Link>
+            <div style={{ padding: 48, textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.3 }}>▱</div>
+              <div style={{ fontSize: 14, color: mk.textMuted, marginBottom: 16 }}>{t('dash.noListings')}</div>
+              <Link href="/dashboard/listings/new" style={{ fontSize: 14, color: mk.brand, textDecoration: 'underline', fontWeight: 500 }}>{t('dash.createFirst')}</Link>
             </div>
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {listings.map(l => {
                 const url = `${origin}/apply/${l.slug}`
                 return (
-                  <li key={l.id} style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.15s' }}>
+                  <li key={l.id} style={{ padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottom: `1px solid ${mk.border}`, transition: 'background 0.15s', cursor: 'pointer' }} onMouseEnter={e => { (e.currentTarget as HTMLLIElement).style.background = mk.bg }} onMouseLeave={e => { (e.currentTarget as HTMLLIElement).style.background = 'transparent' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {l.address}{l.unit ? `, ${l.unit}` : ''} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>· {l.city}</span>
+                      <div style={{ fontSize: 14.5, fontWeight: 600, color: mk.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {l.address}{l.unit ? `, ${l.unit}` : ''} <span style={{ color: mk.textMuted, fontWeight: 400 }}>· {l.city}</span>
                       </div>
-                      <div className="mono" style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 4 }}>
+                      <div style={{ fontSize: 11.5, color: mk.textSec, marginTop: 4, fontFamily: 'JetBrains Mono, monospace' }}>
                         ${l.monthly_rent?.toLocaleString()}/mo
                         {l.bedrooms ? ` · ${l.bedrooms}bd` : ''}
                         {l.bathrooms ? ` · ${l.bathrooms}ba` : ''}
                       </div>
-                      <div className="mono" style={{ fontSize: 10.5, color: '#67E8F9', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{url}</div>
+                      <div style={{ fontSize: 10.5, color: mk.brand, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'JetBrains Mono, monospace' }}>{url}</div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                      <button onClick={() => copyLink(l.slug)} className="btn btn-ghost btn-sm">
+                      <button onClick={() => copyLink(l.slug)} style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${mk.border}`, background: mk.surface, color: mk.text, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'background 0.15s' }} onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = mk.bg }} onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = mk.surface }}>
                         {copiedSlug === l.slug ? '✓ ' + t('dash.copied') : t('dash.copyLink')}
                       </button>
-                      <a href={url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">{t('dash.open')} ↗</a>
+                      <a href={url} target="_blank" rel="noreferrer" style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${mk.border}`, background: mk.surface, color: mk.text, fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', transition: 'background 0.15s', display: 'inline-block' }} onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = mk.bg }} onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = mk.surface }}>{t('dash.open')} ↗</a>
                     </div>
                   </li>
                 )
@@ -230,65 +251,66 @@ export default function Dashboard() {
         </div>
 
         {/* Applications */}
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#A78BFA', boxShadow: '0 0 8px rgba(167, 139, 250, 0.5)' }} />
-            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.005em' }}>{t('dash.recentApps')}</span>
+        <div style={{ background: mk.surface, borderRadius: 14, border: `1px solid ${mk.border}`, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)' }}>
+          <div style={{ padding: '16px 22px', borderBottom: `1px solid ${mk.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: mk.brand, boxShadow: `0 0 8px rgba(13,148,136,0.5)` }} />
+            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.005em', color: mk.text }}>{t('dash.recentApps')}</span>
           </div>
           {loading ? (
-            <div className="p-10 text-center mono text-xs text-slate-500">{t('dash.loading')}</div>
+            <div style={{ padding: 40, textAlign: 'center', fontSize: 12, color: mk.textMuted, fontFamily: 'JetBrains Mono, monospace' }}>{t('dash.loading')}</div>
           ) : applications.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="text-4xl mb-3 opacity-30">⌖</div>
-              <div className="text-sm text-slate-400">{t('dash.noApps')}</div>
+            <div style={{ padding: 48, textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.3 }}>⌖</div>
+              <div style={{ fontSize: 14, color: mk.textMuted }}>{t('dash.noApps')}</div>
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dash.col.applicant')}</th>
-                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dash.col.property')}</th>
-                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dash.col.income')}</th>
-                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dash.col.aiScore')}</th>
-                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dash.col.ltb')}</th>
-                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dash.col.status')}</th>
+                <tr style={{ borderBottom: `1px solid ${mk.border}` }}>
+                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.applicant')}</th>
+                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.property')}</th>
+                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.income')}</th>
+                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.aiScore')}</th>
+                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.ltb')}</th>
+                  <th style={{ textAlign: 'left', padding: '14px 22px', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, fontWeight: 600 }}>{t('dash.col.status')}</th>
                 </tr>
               </thead>
               <tbody>
                 {applications.map(app => (
                   <tr
                     key={app.id}
-                    style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.15s' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(148, 163, 184, 0.04)' }}
+                    style={{ cursor: 'pointer', borderBottom: `1px solid ${mk.border}`, transition: 'background 0.15s' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = mk.bg }}
                     onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent' }}
                     onClick={() => { window.location.href = `/dashboard/applications/${app.id}` }}
                   >
                     <td style={{ padding: '16px 22px' }}>
-                      <div style={{ fontSize: 14, fontWeight: 600 }}>{app.first_name} {app.last_name}</div>
-                      <div className="mono" style={{ fontSize: 10.5, color: 'var(--text-faint)', marginTop: 3 }}>{new Date(app.created_at).toLocaleDateString()}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: mk.text }}>{app.first_name} {app.last_name}</div>
+                      <div style={{ fontSize: 10.5, color: mk.textFaint, marginTop: 3, fontFamily: 'JetBrains Mono, monospace' }}>{new Date(app.created_at).toLocaleDateString()}</div>
                     </td>
-                    <td style={{ padding: '16px 22px', fontSize: 13, color: 'var(--text-secondary)' }}>{app.listing?.address}</td>
-                    <td style={{ padding: '16px 22px' }} className="mono"><span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{app.monthly_income ? `$${app.monthly_income.toLocaleString()}` : '—'}</span></td>
+                    <td style={{ padding: '16px 22px', fontSize: 13, color: mk.textSec }}>{app.listing?.address}</td>
+                    <td style={{ padding: '16px 22px', fontFamily: 'JetBrains Mono, monospace' }}><span style={{ fontSize: 13, color: mk.text }}>{app.monthly_income ? `$${app.monthly_income.toLocaleString()}` : '—'}</span></td>
                     <td style={{ padding: '16px 22px' }}>
                       {app.ai_score ? (
-                        <span className={`mono border ${scoreColor(app.ai_score)}`} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                        <span style={{ fontFamily: 'JetBrains Mono, monospace', border: '1px solid', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700, ...scoreColor(app.ai_score) }}>
                           {app.ai_score}
                         </span>
-                      ) : <span className="mono" style={{ fontSize: 10.5, color: 'var(--text-faint)' }}>{t('dash.scorePending')}</span>}
+                      ) : <span style={{ fontSize: 10.5, color: mk.textFaint, fontFamily: 'JetBrains Mono, monospace' }}>{t('dash.scorePending')}</span>}
                     </td>
                     <td style={{ padding: '16px 22px' }}>
                       {app.ltb_records_found > 0
-                        ? <span className="mono" style={{ fontSize: 11.5, color: '#F87171' }}>⚠ {app.ltb_records_found}</span>
-                        : <span className="mono" style={{ fontSize: 11.5, color: '#34D399' }}>✓ {t('dash.ltbClear')}</span>}
+                        ? <span style={{ fontSize: 11.5, color: mk.red, fontFamily: 'JetBrains Mono, monospace' }}>⚠ {app.ltb_records_found}</span>
+                        : <span style={{ fontSize: 11.5, color: mk.green, fontFamily: 'JetBrains Mono, monospace' }}>✓ {t('dash.ltbClear')}</span>}
                     </td>
                     <td style={{ padding: '16px 22px' }}>
-                      <span className="mono" style={{
+                      <span style={{
+                        fontFamily: 'JetBrains Mono, monospace',
                         padding: '4px 10px', borderRadius: 6, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em',
                         border: '1px solid',
-                        ...(app.status === 'approved' ? { background: 'rgba(16, 185, 129, 0.14)', color: '#34D399', borderColor: 'rgba(16, 185, 129, 0.35)' } :
-                            app.status === 'declined' ? { background: 'rgba(244, 63, 94, 0.14)', color: '#FB7185', borderColor: 'rgba(244, 63, 94, 0.35)' } :
-                            { background: 'rgba(34, 211, 238, 0.14)', color: '#67E8F9', borderColor: 'rgba(34, 211, 238, 0.35)' }),
+                        ...(app.status === 'approved' ? { background: mk.greenSoft, color: mk.green, borderColor: `rgba(5,150,105,0.25)` } :
+                            app.status === 'declined' ? { background: mk.redSoft, color: mk.red, borderColor: `rgba(225,29,72,0.25)` } :
+                            { background: '#E0F2FE', color: mk.brand, borderColor: `rgba(13,148,136,0.25)` }),
                       }}>{app.status}</span>
                     </td>
                   </tr>
@@ -301,65 +323,66 @@ export default function Dashboard() {
       </div>
 
       {showUpgrade && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowUpgrade(false)}>
-          <div className="card-hero fade-up" style={{ maxWidth: 680, width: '100%', position: 'relative' }} onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowUpgrade(false)} aria-label="close" style={{ position: 'absolute', top: 14, right: 14, width: 30, height: 30, borderRadius: 8, background: 'rgba(148, 163, 184, 0.08)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 14 }}>✕</button>
-            <div className="chip chip-pro mono mb-3">{t('dash.pricing.tag')}</div>
-            <h2 className="h-section mb-6">{t('dash.pricing.choose')}</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div style={{ borderRadius: 14, padding: 22, border: '1px solid var(--border-subtle)', background: 'rgba(148, 163, 184, 0.04)' }}>
-                <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600 }}>{t('dash.pricing.free')}</div>
-                <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 4, letterSpacing: '-0.02em' }}>$0<span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>/mo</span></div>
-                <div className="mono" style={{ fontSize: 10.5, color: 'var(--text-faint)', marginBottom: 16 }}>{t('dash.pricing.foreverFree')}</div>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>
-                  {[t('dash.pricing.free.f1'), t('dash.pricing.free.f2'), t('dash.pricing.free.f3'), t('dash.pricing.free.f4')].map((f, i) => <li key={i} style={{ marginBottom: 8, display: 'flex', gap: 8 }}><span style={{ color: '#5EEAD4' }}>✓</span>{f}</li>)}
-                  {[t('dash.pricing.free.f5'), t('dash.pricing.free.f6')].map((f, i) => <li key={i} style={{ marginBottom: 8, display: 'flex', gap: 8, color: 'var(--text-faint)' }}><span>·</span>{f}</li>)}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowUpgrade(false)}>
+          <div style={{ background: mk.surface, borderRadius: 20, border: `1px solid ${mk.border}`, padding: '36px 32px', maxWidth: 680, width: '100%', position: 'relative', boxShadow: '0 20px 60px -10px rgba(0,0,0,0.1)' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowUpgrade(false)} aria-label="close" style={{ position: 'absolute', top: 14, right: 14, width: 30, height: 30, borderRadius: 8, background: mk.bg, border: `1px solid ${mk.border}`, color: mk.textSec, cursor: 'pointer', fontSize: 14 }}>✕</button>
+            <div style={{ fontSize: 11, color: mk.brand, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>{t('dash.pricing.tag')}</div>
+            <h2 style={{ fontSize: 28, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em', marginBottom: 24 }}>{t('dash.pricing.choose')}</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+              <div style={{ borderRadius: 14, padding: 22, border: `1px solid ${mk.border}`, background: mk.bg }}>
+                <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.textMuted, marginBottom: 6, fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>{t('dash.pricing.free')}</div>
+                <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 4, letterSpacing: '-0.02em', color: mk.text }}>$0<span style={{ fontSize: 13, color: mk.textMuted, fontWeight: 500 }}>/mo</span></div>
+                <div style={{ fontSize: 10.5, color: mk.textFaint, marginBottom: 16, fontFamily: 'JetBrains Mono, monospace' }}>{t('dash.pricing.foreverFree')}</div>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: 12, color: mk.textSec }}>
+                  {[t('dash.pricing.free.f1'), t('dash.pricing.free.f2'), t('dash.pricing.free.f3'), t('dash.pricing.free.f4')].map((f, i) => <li key={i} style={{ marginBottom: 8, display: 'flex', gap: 8 }}><span style={{ color: mk.green }}>✓</span>{f}</li>)}
+                  {[t('dash.pricing.free.f5'), t('dash.pricing.free.f6')].map((f, i) => <li key={i} style={{ marginBottom: 8, display: 'flex', gap: 8, color: mk.textFaint }}><span>·</span>{f}</li>)}
                 </ul>
               </div>
-              <div style={{ borderRadius: 14, padding: 22, border: '1px solid rgba(139, 92, 246, 0.4)', background: 'radial-gradient(ellipse at top, rgba(139, 92, 246, 0.12), rgba(139, 92, 246, 0.04))', position: 'relative' }}>
-                <div className="chip chip-pro mono" style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)' }}>★ {t('dash.pricing.recommended')}</div>
-                <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#C4B5FD', marginBottom: 6, fontWeight: 700 }}>Pro</div>
-                <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 4, letterSpacing: '-0.02em' }}>$29<span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>/mo</span></div>
-                <div className="mono" style={{ fontSize: 10.5, color: 'var(--text-faint)', marginBottom: 16 }}>{t('dash.pricing.cancel')}</div>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: 12, color: 'var(--text-primary)' }}>
-                  {[t('dash.pricing.pro.f1'), t('dash.pricing.pro.f2'), t('dash.pricing.pro.f3'), t('dash.pricing.pro.f4'), t('dash.pricing.pro.f5'), t('dash.pricing.pro.f6')].map((f, i) => <li key={i} style={{ marginBottom: 8, display: 'flex', gap: 8 }}><span style={{ color: '#C4B5FD' }}>✓</span>{f}</li>)}
+              <div style={{ borderRadius: 14, padding: 22, border: `1px solid ${mk.border}`, background: mk.brandSoft, position: 'relative' }}>
+                <div style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.08em', textTransform: 'uppercase', color: mk.brand, marginBottom: 6, fontWeight: 700, position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: mk.surface, padding: '0 8px', border: `1px solid ${mk.border}`, borderRadius: 8 }}>★ {t('dash.pricing.recommended')}</div>
+                <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: mk.brand, marginBottom: 6, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>Pro</div>
+                <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 4, letterSpacing: '-0.02em', color: mk.text }}>$29<span style={{ fontSize: 13, color: mk.textMuted, fontWeight: 500 }}>/mo</span></div>
+                <div style={{ fontSize: 10.5, color: mk.textFaint, marginBottom: 16, fontFamily: 'JetBrains Mono, monospace' }}>{t('dash.pricing.cancel')}</div>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: 12, color: mk.text }}>
+                  {[t('dash.pricing.pro.f1'), t('dash.pricing.pro.f2'), t('dash.pricing.pro.f3'), t('dash.pricing.pro.f4'), t('dash.pricing.pro.f5'), t('dash.pricing.pro.f6')].map((f, i) => <li key={i} style={{ marginBottom: 8, display: 'flex', gap: 8 }}><span style={{ color: mk.brand }}>✓</span>{f}</li>)}
                 </ul>
-                <button onClick={startCheckout} disabled={checkoutLoading} className="btn btn-pro" style={{ width: '100%', marginTop: 18 }}>
+                <button onClick={startCheckout} disabled={checkoutLoading} style={{ width: '100%', marginTop: 18, padding: '13px 20px', borderRadius: 10, background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`, color: '#fff', fontSize: 14, fontWeight: 650, border: 'none', cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(13,148,136,0.6), inset 0 1px 0 rgba(255,255,255,0.15)', transition: 'transform .15s, box-shadow .2s', opacity: checkoutLoading ? 0.6 : 1 }}>
                   {checkoutLoading ? t('dash.pricing.redirecting') : t('dash.pricing.upgradeTo')} →
                 </button>
               </div>
             </div>
-            <p className="mono" style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 16, textAlign: 'center' }}>{t('dash.pricing.stripeNotice')}</p>
+            <p style={{ fontSize: 10, color: mk.textFaint, marginTop: 16, textAlign: 'center', fontFamily: 'JetBrains Mono, monospace' }}>{t('dash.pricing.stripeNotice')}</p>
           </div>
         </div>
       )}
 
       {checkoutBanner && (
         <div style={{ position: 'fixed', top: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 70 }}>
-          <div className="card fade-up" style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12, borderColor: checkoutBanner === 'success' ? 'rgba(16, 185, 129, 0.4)' : checkoutBanner === 'cancel' ? 'var(--border-strong)' : 'rgba(251, 191, 36, 0.4)' }}>
+          <div style={{ background: mk.surface, borderRadius: 14, border: `1px solid ${checkoutBanner === 'success' ? `rgba(5,150,105,0.25)` : checkoutBanner === 'cancel' ? mk.borderStrong : `rgba(217,119,6,0.25)`}`, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)' }}>
             {checkoutBanner === 'pending' && (
               <>
-                <div className="w-4 h-4 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
-                <span className="text-xs text-slate-200">{t('dash.banner.pending')}</span>
+                <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid rgba(217,119,6,0.3)`, borderTopColor: '#D97706', animation: 'spin 1s linear infinite' }} />
+                <span style={{ fontSize: 12, color: mk.textSec }}>{t('dash.banner.pending')}</span>
               </>
             )}
             {checkoutBanner === 'success' && (
               <>
-                <span className="text-emerald-400">✓</span>
-                <span className="text-xs text-slate-200">{t('dash.banner.success')}</span>
-                <button onClick={() => setCheckoutBanner(null)} className="mono text-[10px] text-slate-500 ml-2">{t('dash.banner.dismiss')}</button>
+                <span style={{ color: mk.green }}>✓</span>
+                <span style={{ fontSize: 12, color: mk.textSec }}>{t('dash.banner.success')}</span>
+                <button onClick={() => setCheckoutBanner(null)} style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: mk.textFaint, marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer' }}>{t('dash.banner.dismiss')}</button>
               </>
             )}
             {checkoutBanner === 'cancel' && (
               <>
-                <span className="text-slate-400">✕</span>
-                <span className="text-xs text-slate-300">{t('dash.banner.cancel')}</span>
-                <button onClick={() => setCheckoutBanner(null)} className="mono text-[10px] text-slate-500 ml-2">{t('dash.banner.dismiss')}</button>
+                <span style={{ color: mk.textSec }}>✕</span>
+                <span style={{ fontSize: 12, color: mk.textSec }}>{t('dash.banner.cancel')}</span>
+                <button onClick={() => setCheckoutBanner(null)} style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: mk.textFaint, marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer' }}>{t('dash.banner.dismiss')}</button>
             </>
             )}
           </div>
         </div>
       )}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }
