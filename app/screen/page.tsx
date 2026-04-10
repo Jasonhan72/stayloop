@@ -966,7 +966,7 @@ export default function ScreenPage() {
         {!result && !analyzing && (
           <>
             {/* Tier Toggle */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 20, padding: 5, background: 'var(--bg-card-solid)', borderRadius: 14, border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-md)' }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 20, padding: 5, background: '#FFFFFF', borderRadius: 14, border: '1px solid #C8D0DE', boxShadow: '0 4px 16px -6px rgba(11, 23, 54, 0.14)' }}>
               {(['free', 'pro'] as const).map(key => {
                 const active = tier === key
                 const disabled = key === 'pro' && !isPro
@@ -988,13 +988,17 @@ export default function ScreenPage() {
                       borderRadius: 10,
                       border: 'none',
                       cursor: 'pointer',
-                      background: active ? (key === 'pro' ? 'var(--gradient-pro)' : 'rgba(11, 23, 54, 0.08)') : 'transparent',
-                      color: active ? '#fff' : 'var(--text-muted)',
+                      background: active
+                        ? (key === 'pro' ? 'var(--gradient-pro)' : 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)')
+                        : 'transparent',
+                      color: active ? '#FFFFFF' : 'var(--text-muted)',
                       fontSize: 13,
                       fontWeight: 600,
                       transition: 'all 0.2s',
                       opacity: disabled ? 0.75 : 1,
-                      boxShadow: active && key === 'pro' ? '0 6px 24px -6px rgba(139, 92, 246, 0.5)' : 'none',
+                      boxShadow: active
+                        ? (key === 'pro' ? '0 6px 24px -6px rgba(139, 92, 246, 0.5)' : '0 6px 24px -6px rgba(13, 148, 136, 0.45)')
+                        : 'none',
                     }}
                   >
                     <div>{label} {key === 'pro' && '💎'}</div>

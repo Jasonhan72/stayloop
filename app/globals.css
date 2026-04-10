@@ -835,14 +835,14 @@ body:has(.screen-app)::after { display: none !important; }
 
 /* Nav bar */
 .screen-app .nav-bar {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: saturate(180%) blur(14px);
-  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  background: #FFFFFF !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-bottom: 1px solid #C8D0DE;
   box-shadow: 0 1px 3px rgba(11, 23, 54, 0.06);
 }
-.screen-app .nav-title { color: #0A1428; font-weight: 700; }
-.screen-app .nav-sub { color: #536278; }
+.screen-app .nav-title { color: #0A1428 !important; font-weight: 700; }
+.screen-app .nav-sub { color: #536278 !important; }
 .screen-app .nav-logo {
   background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
   box-shadow: 0 6px 18px -6px rgba(13, 148, 136, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
