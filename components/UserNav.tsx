@@ -249,72 +249,116 @@ export default function UserNav({ user, signOut, loading, showNewScreening, onNe
               </Link>
             </>
           ) : (
-            // Authenticated - show avatar dropdown
-            <div style={{ position: 'relative' }} ref={dropdownRef}>
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                onMouseEnter={() => setDropdownOpen(true)}
+            // Authenticated - show Dashboard link + avatar with name + dropdown
+            <>
+              {/* Dashboard shortcut link */}
+              <Link
+                href="/dashboard"
                 style={{
-                  ...avatarStyle,
-                  transform: dropdownOpen ? 'scale(1.05)' : 'scale(1)',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: mk.textSec,
+                  textDecoration: 'none',
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  transition: 'color .15s, background .15s',
                 }}
-                title={user.email}
+                onMouseEnter={e => { e.currentTarget.style.color = mk.brand; e.currentTarget.style.background = mk.brandSoft }}
+                onMouseLeave={e => { e.currentTarget.style.color = mk.textSec; e.currentTarget.style.background = 'none' }}
               >
-                {getInitials()}
-              </button>
+                {t('nav.dashboard') || 'Dashboard'}
+              </Link>
 
-              {/* Dropdown Menu */}
-              <div style={dropdownStyle}>
-                <div style={userInfoStyle}>
-                  <div style={userNameStyle}>{user.fullName || user.email.split('@')[0]}</div>
-                  <div style={{ fontSize: 11, color: mk.textFaint }}>{user.email}</div>
-                </div>
-
-                <Link
-                  href="/profile"
-                  style={dropdownItemBaseStyle}
-                  onMouseEnter={e => (e.currentTarget.style.background = mk.brandSoft)}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                >
-                  {t('nav.profile') || 'My Profile'}
-                </Link>
-
-                <Link
-                  href="/dashboard"
-                  style={dropdownItemBaseStyle}
-                  onMouseEnter={e => (e.currentTarget.style.background = mk.brandSoft)}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                >
-                  {t('nav.dashboard') || 'Dashboard'}
-                </Link>
-
-                <Link
-                  href="/screen"
-                  style={dropdownItemBaseStyle}
-                  onMouseEnter={e => (e.currentTarget.style.background = mk.brandSoft)}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                >
-                  {t('nav.screenings') || 'Screenings'}
-                </Link>
-
-                <div style={dividerStyle} />
-
+              <div style={{ position: 'relative' }} ref={dropdownRef}>
+                {/* Avatar + User name */}
                 <button
-                  onClick={async () => {
-                    setDropdownOpen(false)
-                    await signOut()
-                  }}
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
                   style={{
-                    ...dropdownItemBaseStyle,
-                    color: mk.red,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                    transition: 'transform .15s',
+                    transform: dropdownOpen ? 'scale(1.02)' : 'scale(1)',
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = mk.redSoft)}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  title={user.email}
                 >
-                  {t('nav.signOut') || 'Sign out'}
+                  <div style={avatarStyle}>
+                    {getInitials()}
+                  </div>
+                  <span style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: mk.text,
+                    maxWidth: 120,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {user.fullName || user.email.split('@')[0]}
+                  </span>
+                  {/* Caret */}
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ flexShrink: 0, transition: 'transform .15s', transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                    <path d="M3 4.5L6 7.5L9 4.5" stroke={mk.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                 </button>
+
+                {/* Dropdown Menu */}
+                <div style={dropdownStyle}>
+                  <div style={userInfoStyle}>
+                    <div style={userNameStyle}>{user.fullName || user.email.split('@')[0]}</div>
+                    <div style={{ fontSize: 11, color: mk.textFaint }}>{user.email}</div>
+                  </div>
+
+                  <Link
+                    href="/profile"
+                    style={dropdownItemBaseStyle}
+                    onMouseEnter={e => (e.currentTarget.style.background = mk.brandSoft)}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    {t('nav.profile') || 'My Profile'}
+                  </Link>
+
+                  <Link
+                    href="/dashboard"
+                    style={dropdownItemBaseStyle}
+                    onMouseEnter={e => (e.currentTarget.style.background = mk.brandSoft)}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    {t('nav.dashboard') || 'Dashboard →'}
+                  </Link>
+
+                  <Link
+                    href="/screen"
+                    style={dropdownItemBaseStyle}
+                    onMouseEnter={e => (e.currentTarget.style.background = mk.brandSoft)}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    {t('nav.screenings') || 'Screenings'}
+                  </Link>
+
+                  <div style={dividerStyle} />
+
+                  <button
+                    onClick={async () => {
+                      setDropdownOpen(false)
+                      await signOut()
+                    }}
+                    style={{
+                      ...dropdownItemBaseStyle,
+                      color: mk.red,
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = mk.redSoft)}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    {t('nav.signOut') || 'Sign out'}
+                  </button>
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
