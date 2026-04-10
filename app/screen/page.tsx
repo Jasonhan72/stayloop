@@ -25,6 +25,15 @@ interface Screening {
   created_at: string
 }
 
+interface CanLIIMatch {
+  title: string
+  citation: string
+  url: string
+  databaseId: string
+  databaseName?: string
+  caseId: string
+}
+
 interface CourtQuery {
   source: string
   tier: 'free' | 'pro'
@@ -32,6 +41,8 @@ interface CourtQuery {
   hits: number | null
   url?: string
   note?: string
+  severity?: number  // 3=critical, 2=high, 1=medium, 0=no hits
+  records?: CanLIIMatch[]  // individual case records for this database
 }
 
 interface AiFlag { type: 'danger' | 'warning' | 'info' | 'success'; text_en: string; text_zh: string }
@@ -61,6 +72,8 @@ interface ScoreResult {
   summary: string
   summary_en?: string
   summary_zh?: string
+  court_summary_en?: string
+  court_summary_zh?: string
   court_records_detail: { queries: CourtQuery[]; total_hits: number; queried_name: string }
   tier: 'free' | 'pro'
   // v3 additions — all optional so old API responses still type-check
@@ -290,11 +303,38 @@ function Flag({ type, text }: { type: 'danger' | 'warning' | 'info' | 'success';
   )
 }
 
-function CourtRecordDetail({ queries, totalHits, queriedName, tier }: { queries: CourtQuery[]; totalHits: number; queriedName: string; tier: 'free' | 'pro' }) {
-  const { t } = useT()
-  const availableCount = queries.filter(q => q.status === 'ok').length
+function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummaryEn, courtSummaryZh }: { queries: CourtQuery[]; totalHits: number; queriedName: string; tier: 'free' | 'pro'; courtSummaryEn?: string; courtSummaryZh?: string }) {
+  const { t, lang } = useT()
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({})
+
+  // Separate rollup query from database-specific queries
+  const rollupQuery = queries[0]
+  const dbQueries = queries.slice(1).filter(q => q.status === 'ok' && (q.hits ?? 0) > 0)
+  const proQueries = queries.filter(q => q.tier === 'pro')
+
+  const toggleRow = (index: number) => {
+    setExpandedRows(prev => ({ ...prev, [index]: !prev[index] }))
+  }
+
+  const getSeverityColor = (severity?: number) => {
+    if (severity === 3) return { bg: '#B91C1C', light: '#DC262610', border: '#7F1D1D60' }
+    if (severity === 2) return { bg: '#D97706', light: '#F5911620', border: '#92400E60' }
+    if (severity === 1) return { bg: '#1D4ED8', light: '#DBEAFE60', border: '#1D4ED860' }
+    return { bg: '#64748B', light: '#E4E8F010', border: '#E4E8F060' }
+  }
+
+  const getSeverityLabel = (severity?: number): string => {
+    if (severity === 3) return t('screen.result.court.severity.critical')
+    if (severity === 2) return t('screen.result.court.severity.high')
+    if (severity === 1) return t('screen.result.court.severity.medium')
+    return ''
+  }
+
+  const courtSummary = lang === 'zh' ? (courtSummaryZh || courtSummaryEn) : (courtSummaryEn || courtSummaryZh)
+
   return (
     <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 8, flexWrap: 'wrap' }}>
         <div>
           <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#64748B' }}>{t('screen.result.court.title')}</div>
@@ -304,39 +344,132 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier }: { queries:
           {tier === 'pro' ? t('screen.result.court.pro') : t('screen.result.court.free')}
         </span>
       </div>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 11, color: '#64748B', marginBottom: 8, fontWeight: 600 }}>{t('screen.result.court.sources')}</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {queries.map((q, i) => {
-            const available = q.status === 'ok'
-            const hit = available && (q.hits ?? 0) > 0
-            return (
-              <div key={i} className="sl-court-source" style={{ display: 'flex', alignItems: 'center', gap: 8, color: available ? '#0B1736' : '#475569' }}>
-                <span style={{ width: 18, height: 18, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, background: available ? (hit ? '#DC262620' : '#16A34A20') : '#E4E8F0', color: available ? (hit ? '#B91C1C' : '#15803D') : '#475569', border: `1px solid ${available ? (hit ? '#FECACA' : '#15803D') : '#E4E8F0'}` }}>
-                  {available ? (hit ? '!' : '✓') : '🔒'}
-                </span>
-                <span style={{ flex: 1 }}>{q.source}</span>
-                <span style={{ fontSize: 10, fontWeight: 600, color: available ? (hit ? '#B91C1C' : '#15803D') : '#475569' }}>
-                  {available ? (hit ? t('screen.result.court.hitsN', { n: q.hits ?? 0 }) : t('screen.result.court.clean')) : (q.status === 'coming_soon' ? t('screen.result.court.comingSoon') : (q.tier === 'free' ? (q.status === 'skipped' ? t('screen.result.court.skipped' as DictKey) : t('screen.result.court.unavailable' as DictKey)) : t('screen.result.court.needPro')))}
-                </span>
-              </div>
-            )
-          })}
+
+      {/* AI Court Summary (if available) */}
+      {courtSummary && (
+        <div style={{ marginBottom: 14, padding: '12px 14px', background: '#EEF2F810', border: '1px solid #DBEAFE40', borderRadius: 8 }}>
+          <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginBottom: 6 }}>{t('screen.result.court.aiSummary')}</div>
+          <div style={{ fontSize: 12, color: '#0B1736', lineHeight: 1.5 }}>{courtSummary}</div>
         </div>
-      </div>
+      )}
+
+      {/* Rollup summary row */}
+      {rollupQuery && (
+        <div style={{ marginBottom: 12, padding: '12px 14px', background: '#F0FDF410', border: '1px solid #86EFAC40', borderRadius: 8, fontSize: 12, color: '#15803D' }}>
+          {rollupQuery.source} · {rollupQuery.note || `${totalHits} total match(es)`}
+        </div>
+      )}
+
+      {/* Database sources (scrollable list) */}
+      {dbQueries.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: '#64748B', marginBottom: 8, fontWeight: 600 }}>{t('screen.result.court.sources')}</div>
+          <div style={{ maxHeight: '400px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {dbQueries.map((q, i) => {
+              const isExpanded = expandedRows[i]
+              const sevColor = getSeverityColor(q.severity)
+              return (
+                <div key={i}>
+                  {/* Database row (clickable to expand) */}
+                  <div
+                    onClick={() => toggleRow(i)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '10px 12px',
+                      background: sevColor.light,
+                      border: `1px solid ${sevColor.border}`,
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                    }}
+                  >
+                    {/* Severity indicator */}
+                    <span style={{ width: 16, height: 16, borderRadius: 3, background: sevColor.bg, flexShrink: 0 }} />
+
+                    {/* Database name */}
+                    <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: '#0B1736' }}>
+                      {q.source}
+                    </span>
+
+                    {/* Severity label and hit count */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 10, color: sevColor.bg, fontWeight: 600 }}>
+                        {getSeverityLabel(q.severity)}
+                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: sevColor.bg }}>
+                        {q.hits} hit(s)
+                      </span>
+                      <span style={{ fontSize: 12, color: sevColor.bg }}>
+                        {isExpanded ? '▼' : '▶'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Expanded case records */}
+                  {isExpanded && q.records && q.records.length > 0 && (
+                    <div style={{ marginTop: 4, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {q.records.map((record, j) => (
+                        <a
+                          key={j}
+                          href={record.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontSize: 11,
+                            color: '#1D4ED8',
+                            textDecoration: 'none',
+                            padding: '8px 10px',
+                            background: '#DBEAFE20',
+                            borderRadius: 4,
+                            border: '1px solid #DBEAFE60',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={record.title}
+                        >
+                          <strong>{record.citation}</strong> — {record.title}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* No hits message */}
       {totalHits === 0 && (
-        <div style={{ padding: '16px', textAlign: 'center', background: '#16A34A10', borderRadius: 8, border: '1px solid #1D7C4A40' }}>
+        <div style={{ padding: '16px', textAlign: 'center', background: '#16A34A10', borderRadius: 8, border: '1px solid #1D7C4A40', marginBottom: 12 }}>
           <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
           <div style={{ fontSize: 13, color: '#15803D', fontWeight: 600 }}>{t('screen.result.court.clean.title')}</div>
-          <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>{t('screen.result.court.clean.sub', { n: availableCount })}</div>
+          <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>{t('screen.result.court.clean.sub', { n: queries.filter(q => q.status === 'ok').length })}</div>
         </div>
       )}
-      {totalHits > 0 && (
-        <div style={{ padding: '12px 14px', background: '#DC262610', border: '1px solid #7F1D1D60', borderRadius: 8, fontSize: 12, color: '#B91C1C' }}>
-          {t('screen.result.court.hits', { n: totalHits })}
+
+      {/* Pro sources (outside scrollable area) */}
+      {proQueries.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 12, borderTop: '1px solid var(--border-subtle)' }}>
+          {proQueries.map((q, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#475569', fontSize: 12 }}>
+              <span style={{ width: 18, height: 18, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, background: '#8B5CF620', color: '#6D28D9', border: '1px solid #8B5CF640' }}>
+                💎
+              </span>
+              <span style={{ flex: 1 }}>{q.source}</span>
+              <span style={{ fontSize: 10, fontWeight: 600, color: '#6D28D9' }}>
+                {q.status === 'coming_soon' ? t('screen.result.court.comingSoon') : t('screen.result.court.needPro')}
+              </span>
+            </div>
+          ))}
         </div>
       )}
-      {tier === 'free' && (
+
+      {/* Upgrade prompt */}
+      {tier === 'free' && proQueries.length > 0 && (
         <div style={{ marginTop: 14, padding: '12px 14px', background: '#8B5CF610', border: '1px solid #8B5CF630', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 16 }}>💎</span>
           <div>
@@ -1365,6 +1498,8 @@ export default function ScreenPage() {
                   totalHits={result.court_records_detail?.total_hits || 0}
                   queriedName={result.court_records_detail?.queried_name || ''}
                   tier={result.tier}
+                  courtSummaryEn={result.court_summary_en}
+                  courtSummaryZh={result.court_summary_zh}
                 />
               )
             })()}

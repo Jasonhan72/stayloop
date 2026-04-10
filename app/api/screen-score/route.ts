@@ -47,6 +47,8 @@ interface CourtQuery {
   hits: number | null
   url?: string
   note?: string
+  severity?: number  // 3=critical, 2=high, 1=medium, 0=no hits
+  records?: CanLIIMatch[]  // individual case records for this database
 }
 
 interface CanLIIMatch {
@@ -109,7 +111,28 @@ async function searchCanLIIDb(name: string, db: CanLIIDatabase, apiKey: string):
   }
 }
 
-async function runCourtRecordCheck(name: string, plan: string): Promise<{ queries: CourtQuery[]; total_hits: number; queried_name: string; records: CanLIIMatch[]; databases_searched: number }> {
+// Database severity mapping for rental risk relevance
+const DB_SEVERITY_MAP: Record<string, number> = {
+  // Critical (severity 3) — highest relevance to rental risk
+  'onltb': 3,          // Landlord & Tenant Board (eviction filings, disputes)
+  'onsc': 3,           // Ontario Superior Court (civil disputes, evictions)
+  'onscdc': 3,         // Divisional Court (appeals, serious cases)
+  'onscsm': 3,         // Small Claims Court (debt collection, disputes)
+  'onca': 3,           // Court of Appeal (serious escalations)
+  // High (severity 2) — significant relevance
+  'onhrt': 2,          // Human Rights Tribunal (discrimination, harassment)
+  'oncicb': 2,         // Criminal Injuries Compensation Board (violence)
+  'onorb': 2,          // Ontario Review Board (criminal matters)
+  'oncfsrb': 2,        // Child & Family Services Review Board (family disputes)
+  // Medium (severity 1) — general relevance, all others with hits
+}
+
+function getSeverity(databaseId: string, hasHits: boolean): number {
+  if (!hasHits) return 0
+  return DB_SEVERITY_MAP[databaseId] || 1  // Default to medium (1) if not mapped
+}
+
+async function runCourtRecordCheck(name: string, plan: string): Promise<{ queries: CourtQuery[]; total_hits: number; queried_name: string; records: CanLIIMatch[]; databases_searched: number; court_summary_en?: string; court_summary_zh?: string }> {
   const queries: CourtQuery[] = []
   const apiKey = process.env.CANLII_API_KEY
 
@@ -134,18 +157,18 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
   //    DB from sinking the entire lookup.
   const settled = await Promise.allSettled(dbs.map(db => searchCanLIIDb(name.trim(), db, apiKey)))
   const allRecords: CanLIIMatch[] = []
-  const perDbHits: Array<{ db: CanLIIDatabase; hits: number }> = []
+  const perDbHits: Array<{ db: CanLIIDatabase; records: CanLIIMatch[]; hits: number }> = []
   for (let i = 0; i < dbs.length; i++) {
     const r = settled[i]
-    const hits = r.status === 'fulfilled' ? r.value : []
-    perDbHits.push({ db: dbs[i], hits: hits.length })
-    if (hits.length > 0) allRecords.push(...hits)
+    const records = r.status === 'fulfilled' ? r.value : []
+    perDbHits.push({ db: dbs[i], records, hits: records.length })
+    if (records.length > 0) allRecords.push(...records)
   }
 
   const totalHits = allRecords.length
   const dbsWithHits = perDbHits.filter(d => d.hits > 0)
 
-  // 3. Emit one rollup query row plus one row per database that actually had hits
+  // 3. Create query rows with severity, sorted by severity (critical first) then hits descending
   queries.push({
     source: `CanLII — all Ontario databases (${dbs.length} searched)`,
     tier: 'free',
@@ -153,13 +176,25 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
     hits: totalHits,
     note: totalHits === 0 ? 'No matches across Ontario courts, tribunals, or boards' : `Hits in ${dbsWithHits.length} database(s)`,
   })
-  for (const { db, hits } of dbsWithHits) {
+
+  // Sort databases by severity (desc), then by hits (desc)
+  const sortedDbHits = dbsWithHits.sort((a, b) => {
+    const sevA = getSeverity(a.db.databaseId, true)
+    const sevB = getSeverity(b.db.databaseId, true)
+    if (sevA !== sevB) return sevB - sevA  // Higher severity first
+    return b.hits - a.hits  // Then more hits first
+  })
+
+  for (const { db, records, hits } of sortedDbHits) {
+    const severity = getSeverity(db.databaseId, true)
     queries.push({
       source: `CanLII — ${db.name}`,
       tier: 'free',
       status: 'ok',
       hits,
-      url: allRecords.find(r => r.databaseId === db.databaseId)?.url,
+      severity,
+      records,
+      url: records[0]?.url,
     })
   }
 
@@ -364,7 +399,9 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble.
  "action_items":[{"id":"...","dimension":"rental_history","title_en":"","title_zh":"","details_en":"","details_zh":"","impact_on_score":"","status":"pending"}],
  "compliance_audit":{"protected_grounds_observed":["..."],"protected_grounds_used_in_scoring":[],"hrc_compliant":true,"reviewer_note":"..."},
  "summary_en":"One short sentence ≤15 words",
- "summary_zh":"一句话 ≤30 字"
+ "summary_zh":"一句话 ≤30 字",
+ "court_summary_en":"Court record risk assessment ≤20 words. Assess which databases matter most (LTB > courts > tribunals), name commonality risk, overall risk from records only.",
+ "court_summary_zh":"法庭记录风险评估 ≤40 字。评估哪些库最相关（LTB > 法院 > 仲裁庭）、姓名常见度、仅从法庭记录角度的风险。"
 }
 
 JSON DISCIPLINE (avoid parse errors):
@@ -666,6 +703,8 @@ JSON DISCIPLINE (avoid parse errors):
         flags: Array.isArray(parsed.flags) ? parsed.flags : [],
         summary_en: parsed.summary_en || '',
         summary_zh: parsed.summary_zh || '',
+        court_summary_en: parsed.court_summary_en || '',
+        court_summary_zh: parsed.court_summary_zh || '',
         detected_document_kinds: Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds : [],
         detected_monthly_income: detectedIncome,
         effective_monthly_income: effectiveIncome,
@@ -679,6 +718,8 @@ JSON DISCIPLINE (avoid parse errors):
       _details_en: parsed.details_en,
       _details_zh: parsed.details_zh,
       _income_evidence: parsed.income_evidence,
+      _court_summary_en: parsed.court_summary_en,
+      _court_summary_zh: parsed.court_summary_zh,
     }
 
     const { error: updateError } = await supabase.from('screenings').update({
@@ -753,6 +794,8 @@ JSON DISCIPLINE (avoid parse errors):
       summary: parsed.summary_en || '',
       summary_en: parsed.summary_en || '',
       summary_zh: parsed.summary_zh || '',
+      court_summary_en: parsed.court_summary_en || '',
+      court_summary_zh: parsed.court_summary_zh || '',
       court_records_detail: courtDetail,
     })
   } catch (e: any) {

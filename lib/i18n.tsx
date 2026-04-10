@@ -501,6 +501,10 @@ export const DICT = {
   'screen.result.court.needPro': { en: 'Requires Pro', zh: '需 Pro 版' },
   'screen.result.court.upgrade.title': { en: 'Upgrade to Pro for full court coverage', zh: '升级 Pro 版获取全量法庭记录' },
   'screen.result.court.upgrade.sub': { en: 'Unlock Ontario Courts Portal civil suits + Stayloop Verified Network', zh: '解锁 Ontario Courts Portal 民事诉讼 + Stayloop Verified Network' },
+  'screen.result.court.severity.critical': { en: 'High risk to tenancy', zh: '租赁高风险' },
+  'screen.result.court.severity.high': { en: 'Moderate risk', zh: '中等风险' },
+  'screen.result.court.severity.medium': { en: 'Low relevance', zh: '低相关性' },
+  'screen.result.court.aiSummary': { en: 'AI Assessment', zh: 'AI 评估' },
   'screen.result.flags': { en: '🚩 Flags & Recommendations', zh: '🚩 风险标记 & 建议' },
   'screen.result.weights': { en: '⚙️ Scoring Weights', zh: '⚙️ 评分权重说明' },
   'screen.result.footer.notice': {
