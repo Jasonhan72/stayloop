@@ -387,7 +387,7 @@ JSON DISCIPLINE (avoid parse errors):
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2025-04-14',
+        'anthropic-version': '2024-10-22',
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
