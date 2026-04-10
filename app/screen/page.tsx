@@ -687,7 +687,7 @@ export default function ScreenPage() {
       if (!res.ok) {
         const errBody = await res.text().catch(() => '')
         console.error('[classify-files] HTTP', res.status, errBody)
-        setClassifyError(`Classification failed (${res.status}). ${errBody.slice(0, 120)}`)
+        setClassifyError(`Classification failed (${res.status}). ${errBody.slice(0, 500)}`)
         return
       }
       const data = await res.json() as {

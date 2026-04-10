@@ -126,7 +126,7 @@ Return ONLY this JSON (no markdown, no prose):
 
   if (!res.ok) {
     const errText = await res.text()
-    return NextResponse.json({ error: `Classifier error: ${errText.slice(0, 300)}` }, { status: 500 })
+    return NextResponse.json({ error: `Classifier error: ${errText.slice(0, 600)}` }, { status: 500 })
   }
 
   const aiData = (await res.json()) as { content?: Array<{ text: string }> }
