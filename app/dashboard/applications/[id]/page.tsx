@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { useLandlord } from '@/lib/useLandlord'
+import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
 import { Application, ApplicationFile } from '@/types'
 
@@ -29,7 +29,7 @@ interface LandlordRow { id: string; plan: 'free' | 'pro' | 'enterprise' }
 export default function ApplicationDetailPage() {
   const { t } = useT()
   const params = useParams<{ id: string }>()
-  const { landlord, loading: authLoading } = useLandlord()
+  const { user: landlord, loading: authLoading } = useUser({ redirectIfMissing: true })
   const [app, setApp] = useState<Application | null>(null)
   const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('free')
   const [loading, setLoading] = useState(true)
@@ -51,7 +51,7 @@ export default function ApplicationDetailPage() {
     const { data } = await supabase
       .from('landlords')
       .select('plan')
-      .eq('id', landlord.landlordId)
+      .eq('id', landlord.profileId)
       .maybeSingle<LandlordRow>()
     if (data?.plan) setPlan(data.plan)
   }

@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { useLandlord } from '@/lib/useLandlord'
+import { useUser, useAnonTrialCheck } from '@/lib/useUser'
 import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
 
 // ───────────────────────────────────────────────────────── Types ──
@@ -651,11 +651,12 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
 
 export default function ScreenPage() {
   const { t, lang } = useT()
-  const { landlord, loading: authLoading, signOut } = useLandlord({
+  const { user: landlord, loading: authLoading, signOut } = useUser({
     redirectIfMissing: true,
     allowAnonymous: true,
-    redirectBackTo: '/screen',
+    redirectPath: '/login?next=/screen',
   })
+  const { canScreen: anonCanScreen, trialUsed, markTrialUsed } = useAnonTrialCheck()
 
   const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('free')
   const [tier, setTier] = useState<'free' | 'pro'>('free')
@@ -678,6 +679,7 @@ export default function ScreenPage() {
   const [history, setHistory] = useState<Screening[]>([])
   const [viewingHistoryId, setViewingHistoryId] = useState<string | null>(null)
   const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null)
+  const [showAuthGate, setShowAuthGate] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -692,7 +694,7 @@ export default function ScreenPage() {
     const { data } = await supabase
       .from('landlords')
       .select('plan')
-      .eq('id', landlord.landlordId)
+      .eq('id', landlord.profileId)
       .maybeSingle()
     if (data?.plan) {
       setPlan(data.plan as any)
@@ -894,6 +896,11 @@ export default function ScreenPage() {
 
   async function runAnalysis() {
     if (!landlord) return
+    // Anonymous trial limit: 1 free screening, then must register
+    if (landlord.isAnonymous && !anonCanScreen) {
+      setShowAuthGate(true)
+      return
+    }
     if (files.length === 0 && !applicantName.trim()) {
       setError(t('screen.err.min'))
       return
@@ -952,7 +959,7 @@ export default function ScreenPage() {
       const { data: row, error: insertErr } = await supabase
         .from('screenings')
         .insert({
-          landlord_id: landlord.landlordId,
+          landlord_id: landlord.profileId,
           tenant_name: applicantName || null,
           monthly_rent: targetRent ? Number(targetRent) : null,
           status: 'uploading',
@@ -968,7 +975,7 @@ export default function ScreenPage() {
       const stamp = Date.now()
       const uploadResults = await Promise.all(files.map(async (f, i) => {
         const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-        const path = `screenings/${landlord.landlordId}/${screeningId}/${stamp}_${i}_${safeName}`
+        const path = `screenings/${landlord.profileId}/${screeningId}/${stamp}_${i}_${safeName}`
         const { error: upErr } = await supabase
           .storage.from('tenant-files')
           .upload(path, f, { contentType: f.type, upsert: false })
@@ -1006,6 +1013,8 @@ export default function ScreenPage() {
 
       setResult(data as ScoreResult)
       setLastDetectedKinds(Array.isArray((data as ScoreResult).detected_document_kinds) ? (data as ScoreResult).detected_document_kinds! : [])
+      // Mark anonymous trial as used after successful screening
+      if (landlord.isAnonymous) markTrialUsed()
       loadHistory()
     } catch (e: any) {
       cancelled = true
@@ -1108,9 +1117,30 @@ export default function ScreenPage() {
             <button onClick={reset} className="btn btn-ghost btn-sm">{t('screen.new')}</button>
           )}
           <LanguageToggle />
-          <Link href="/dashboard" className="btn btn-ghost btn-sm">{t('nav.dashboard')}</Link>
+          {landlord.isAnonymous ? (
+            <Link href="/register?next=/screen" className="btn btn-ghost btn-sm">{t('register.signIn')}</Link>
+          ) : (
+            <>
+              <Link href="/profile" className="btn btn-ghost btn-sm">{landlord.email.split('@')[0]}</Link>
+              <Link href="/dashboard" className="btn btn-ghost btn-sm">{t('nav.dashboard')}</Link>
+            </>
+          )}
         </div>
       </nav>
+
+      {/* Auth gate modal — shown when anonymous user has used their 1 free trial */}
+      {showAuthGate && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}>
+          <div style={{ background: '#fff', borderRadius: 20, padding: 32, maxWidth: 400, width: '90%', textAlign: 'center', boxShadow: '0 24px 48px rgba(0,0,0,0.2)' }}>
+            <div style={{ width: 56, height: 56, margin: '0 auto 16px', borderRadius: 16, background: 'linear-gradient(135deg, #06B6D4, #8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: '#fff', fontWeight: 800 }}>S</div>
+            <h3 style={{ fontSize: 20, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>{t('authGate.title')}</h3>
+            <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6, marginBottom: 24 }}>{t('authGate.desc')}</p>
+            <a href="/register?next=/screen" style={{ display: 'block', padding: '12px 24px', borderRadius: 12, background: 'linear-gradient(135deg, #06B6D4, #0891B2)', color: '#fff', fontWeight: 600, fontSize: 14, textDecoration: 'none', marginBottom: 12 }}>{t('authGate.cta')}</a>
+            <a href="/login?next=/screen" style={{ fontSize: 13, color: '#06B6D4', textDecoration: 'none' }}>{t('authGate.login')}</a>
+            <button onClick={() => setShowAuthGate(false)} style={{ display: 'block', margin: '16px auto 0', fontSize: 12, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
+          </div>
+        </div>
+      )}
 
       <div className="container-narrow">
         {!result && !analyzing && (

@@ -63,8 +63,10 @@ export default function AuthCallbackPage() {
           return
         }
 
-        // Ensure landlord row is linked (server-side via SECURITY DEFINER RPC)
-        const { error: claimError } = await supabase.rpc('claim_landlord')
+        // Ensure profile row is linked (server-side via SECURITY DEFINER RPC)
+        // Pass the role from signup metadata if available
+        const userRole = session.user.user_metadata?.role || 'landlord'
+        const { error: claimError } = await supabase.rpc('claim_landlord', { p_role: userRole })
         if (claimError) {
           console.error('claim_landlord failed', claimError)
         }

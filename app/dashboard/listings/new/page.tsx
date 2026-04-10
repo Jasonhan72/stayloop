@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { useLandlord } from '@/lib/useLandlord'
+import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
 
 function slugify(str: string) {
@@ -13,7 +13,7 @@ function slugify(str: string) {
 export default function NewListingPage() {
   const { t } = useT()
   const router = useRouter()
-  const { landlord, loading: authLoading } = useLandlord()
+  const { user: landlord, loading: authLoading } = useUser({ redirectIfMissing: true })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
@@ -37,7 +37,7 @@ export default function NewListingPage() {
     const { data, error: insertError } = await supabase
       .from('listings')
       .insert({
-        landlord_id: landlord.landlordId,
+        landlord_id: landlord.profileId,
         address: form.address,
         unit: form.unit || null,
         city: form.city,

@@ -2,13 +2,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { useLandlord } from '@/lib/useLandlord'
+import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
 import { Application, Listing } from '@/types'
 
 export default function Dashboard() {
   const { t } = useT()
-  const { landlord, loading: authLoading, signOut } = useLandlord()
+  const { user: landlord, loading: authLoading, signOut } = useUser({ redirectIfMissing: true })
   const [applications, setApplications] = useState<Application[]>([])
   const [listings, setListings] = useState<Listing[]>([])
   const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('free')
@@ -57,7 +57,7 @@ export default function Dashboard() {
       const { data } = await supabase
         .from('landlords')
         .select('plan')
-        .eq('id', landlord.landlordId)
+        .eq('id', landlord.profileId)
         .maybeSingle()
       if (cancelled) return
       if (data?.plan && data.plan !== plan) {
@@ -111,7 +111,7 @@ export default function Dashboard() {
     const [appsRes, listingsRes, planRes] = await Promise.all([
       supabase.from('applications').select('*, listing:listings(*)').order('created_at', { ascending: false }),
       supabase.from('listings').select('*').order('created_at', { ascending: false }),
-      supabase.from('landlords').select('plan').eq('id', landlord!.landlordId).maybeSingle(),
+      supabase.from('landlords').select('plan').eq('id', landlord!.profileId).maybeSingle(),
     ])
     if (appsRes.data) setApplications(appsRes.data)
     if (listingsRes.data) setListings(listingsRes.data)
