@@ -317,7 +317,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier }: { queries:
                 </span>
                 <span style={{ flex: 1 }}>{q.source}</span>
                 <span style={{ fontSize: 10, fontWeight: 600, color: available ? (hit ? '#B91C1C' : '#15803D') : '#475569' }}>
-                  {available ? (hit ? t('screen.result.court.hitsN', { n: q.hits ?? 0 }) : t('screen.result.court.clean')) : (q.status === 'coming_soon' ? t('screen.result.court.comingSoon') : t('screen.result.court.needPro'))}
+                  {available ? (hit ? t('screen.result.court.hitsN', { n: q.hits ?? 0 }) : t('screen.result.court.clean')) : (q.status === 'coming_soon' ? t('screen.result.court.comingSoon') : (q.tier === 'free' ? (q.status === 'skipped' ? t('screen.result.court.skipped' as DictKey) : t('screen.result.court.unavailable' as DictKey)) : t('screen.result.court.needPro')))}
                 </span>
               </div>
             )
@@ -412,14 +412,14 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
   }
   const covLabel = (c: string) => t(`screen.result.authenticity.cov.${c}` as DictKey)
 
-  const SubRow = ({ label, covKey, scoreVal }: { label: string; covKey: string; scoreVal?: number | null }) => {
+  const SubRow = ({ label, covKey, scoreVal, desc }: { label: string; covKey: string; scoreVal?: number | null; desc?: string }) => {
     const c = cov(covKey)
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'rgba(11, 23, 54, 0.04)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: covColor(c), flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0B1736' }}>{label}</div>
-          <div style={{ fontSize: 10.5, color: '#64748B', marginTop: 1 }}>{covLabel(c)}</div>
+          <div style={{ fontSize: 10.5, color: '#64748B', marginTop: 1 }}>{desc || covLabel(c)}</div>
         </div>
         {typeof scoreVal === 'number' && (
           <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: covColor(c) }}>{scoreVal}/100</span>
@@ -459,15 +459,18 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
             <SubRow
               label={t('screen.result.authenticity.docCheck')}
               covKey="doc_authenticity"
+              desc={t('screen.result.authenticity.docCheck.desc' as DictKey)}
             />
             <SubRow
               label={t('screen.result.authenticity.idMatch')}
               covKey="identity_match"
               scoreVal={identityScore}
+              desc={t('screen.result.authenticity.idMatch.desc' as DictKey)}
             />
             <SubRow
               label={t('screen.result.authenticity.employerCheck')}
               covKey="employer_verify"
+              desc={t('screen.result.authenticity.employerCheck.desc' as DictKey)}
             />
           </div>
 
