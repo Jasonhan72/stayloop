@@ -435,6 +435,7 @@ function Roadmap() {
     { status: 'soon', title: t('mk.roadmap.4.title'), desc: t('mk.roadmap.4.desc') },
     { status: 'planned', title: t('mk.roadmap.5.title'), desc: t('mk.roadmap.5.desc') },
     { status: 'planned', title: t('mk.roadmap.6.title'), desc: t('mk.roadmap.6.desc') },
+    { status: 'planned', title: t('mk.roadmap.7.title'), desc: t('mk.roadmap.7.desc') },
   ] as const
 
   const statusStyles: Record<string, { bg: string; color: string; border: string; label: string }> = {
