@@ -1178,9 +1178,13 @@ export default function ScreenPage() {
                     </span>
                   )}
                   {classifyError && !classifying && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#DC2626', fontWeight: 500, cursor: 'pointer' }} title={classifyError} onClick={() => { setClassifyError(null); classifyNewFiles(files) }}>
-                      ⚠ {lang === 'zh' ? '分类失败' : 'Classification failed'} — <span style={{ textDecoration: 'underline' }}>{lang === 'zh' ? '点击重试' : 'click to retry'}</span>
-                    </span>
+                    <div style={{ marginTop: 8, padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 12, color: '#B91C1C', lineHeight: 1.5 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>⚠ {lang === 'zh' ? '文件分类失败' : 'Classification failed'}</div>
+                      <div style={{ fontSize: 11, color: '#7F1D1D', wordBreak: 'break-all' }}>{classifyError}</div>
+                      <button onClick={() => { setClassifyError(null); classifyNewFiles(files) }} style={{ marginTop: 6, fontSize: 11, color: '#DC2626', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                        {lang === 'zh' ? '点击重试' : 'Click to retry'}
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
