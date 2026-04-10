@@ -1036,7 +1036,7 @@ export default function ScreenPage() {
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
               style={{
-                border: `1.5px dashed ${dragOver ? '#14B8A6' : 'var(--border-strong)'}`,
+                border: `2px dashed ${dragOver ? '#14B8A6' : '#B0BAC9'}`,
                 borderRadius: 18,
                 padding: '52px 24px',
                 textAlign: 'center',
@@ -1044,7 +1044,7 @@ export default function ScreenPage() {
                 transition: 'all 0.2s ease',
                 background: dragOver
                   ? 'radial-gradient(ellipse at center, rgba(20, 184, 166, 0.1), transparent 70%)'
-                  : 'var(--bg-card-solid)',
+                  : '#F5F7FB',
                 backdropFilter: 'blur(10px)',
               }}
             >
