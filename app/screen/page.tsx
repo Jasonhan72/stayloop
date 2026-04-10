@@ -528,6 +528,7 @@ export default function ScreenPage() {
   // AI-detected kinds per file (keyed by a stable file signature: name+size)
   const [fileKinds, setFileKinds] = useState<Record<string, string[]>>({})
   const [classifying, setClassifying] = useState(false)
+  const [classifyError, setClassifyError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [applicantName, setApplicantName] = useState('')
   const [targetRent, setTargetRent] = useState('')
@@ -679,14 +680,26 @@ export default function ScreenPage() {
   const classifyNewFiles = useCallback(async (toClassify: File[]) => {
     try {
       setClassifying(true)
+      setClassifyError(null)
       const form = new FormData()
       for (const f of toClassify) form.append('files', f, f.name)
       const res = await fetch('/api/classify-files', { method: 'POST', body: form })
-      if (!res.ok) return
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '')
+        console.error('[classify-files] HTTP', res.status, errBody)
+        setClassifyError(`Classification failed (${res.status}). ${errBody.slice(0, 120)}`)
+        return
+      }
       const data = await res.json() as {
         classifications?: { index: number; kinds: string[] }[]
         applicant_name?: string | null
         monthly_rent?: number | null
+        error?: string
+      }
+      if (data.error) {
+        console.error('[classify-files] API error:', data.error)
+        setClassifyError(data.error)
+        return
       }
       const map: Record<string, string[]> = {}
       for (const c of data.classifications || []) {
@@ -705,12 +718,13 @@ export default function ScreenPage() {
       if (typeof data.monthly_rent === 'number' && data.monthly_rent > 0) {
         setTargetRent(prev => (prev && prev.trim() ? prev : String(data.monthly_rent)))
       }
-    } catch {
-      // classifier is best-effort — filename heuristics remain as fallback
+    } catch (err) {
+      console.error('[classify-files] exception:', err)
+      setClassifyError(lang === 'zh' ? '文件分类请求失败，请重试' : 'File classification request failed — please retry')
     } finally {
       setClassifying(false)
     }
-  }, [])
+  }, [lang])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -1161,6 +1175,11 @@ export default function ScreenPage() {
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#0F766E', fontWeight: 500 }}>
                       <span style={{ width: 10, height: 10, borderRadius: '50%', border: '2px solid rgba(20, 184, 166, 0.25)', borderTopColor: '#14B8A6', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
                       {lang === 'zh' ? '识别文件类型中…' : 'Classifying file types…'}
+                    </span>
+                  )}
+                  {classifyError && !classifying && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#DC2626', fontWeight: 500, cursor: 'pointer' }} title={classifyError} onClick={() => { setClassifyError(null); classifyNewFiles(files) }}>
+                      ⚠ {lang === 'zh' ? '分类失败' : 'Classification failed'} — <span style={{ textDecoration: 'underline' }}>{lang === 'zh' ? '点击重试' : 'click to retry'}</span>
                     </span>
                   )}
                 </div>
