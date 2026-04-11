@@ -127,6 +127,7 @@ export const DICT = {
   'mk.nav.roadmap': { en: 'Roadmap', zh: '路线图' },
   'mk.nav.pricing': { en: 'Pricing', zh: '定价' },
   'mk.nav.signin': { en: 'Sign in', zh: '登录' },
+  'mk.nav.register': { en: 'Register', zh: '注册' },
   'mk.nav.getStarted': { en: 'Start a screening', zh: '开始背调' },
 
   // Hero

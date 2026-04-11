@@ -18,7 +18,7 @@ export default function Home() {
 
   return (
     <main className="marketing">
-      <MarketingNav screenHref={screenHref} />
+      <MarketingNav />
       <Hero screenHref={screenHref} />
       <TrustBar />
       <DualAudience screenHref={screenHref} />
@@ -35,7 +35,7 @@ export default function Home() {
 }
 
 // ─── Nav ─────────────────────────────────────────────────────────────
-function MarketingNav({ screenHref }: { screenHref: string }) {
+function MarketingNav() {
   const { t } = useT()
   return (
     <nav className="mk-nav">
@@ -67,8 +67,8 @@ function MarketingNav({ screenHref }: { screenHref: string }) {
           <Link href="/login" className="mk-btn mk-btn-ghost mk-btn-sm mk-nav-signin" style={{ display: 'inline-flex' }}>
             {t('mk.nav.signin')}
           </Link>
-          <Link href={screenHref} className="mk-btn mk-btn-primary mk-btn-sm">
-            {t('mk.nav.getStarted')} →
+          <Link href="/register" className="mk-btn mk-btn-primary mk-btn-sm">
+            {t('mk.nav.register')}
           </Link>
         </div>
       </div>
