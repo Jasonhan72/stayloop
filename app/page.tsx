@@ -64,11 +64,8 @@ function MarketingNav() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <LanguageToggle />
-          <Link href="/login" className="mk-btn mk-btn-ghost mk-btn-sm mk-nav-signin" style={{ display: 'inline-flex' }}>
+          <Link href="/login" className="mk-btn mk-btn-primary mk-btn-sm">
             {t('mk.nav.signin')}
-          </Link>
-          <Link href="/register" className="mk-btn mk-btn-primary mk-btn-sm">
-            {t('mk.nav.register')}
           </Link>
         </div>
       </div>
