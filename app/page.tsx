@@ -733,19 +733,19 @@ function FinalCTA({ screenHref }: { screenHref: string }) {
         position: 'relative',
         padding: '64px 48px',
         borderRadius: 28,
-        background: 'linear-gradient(135deg, #0B1736 0%, #101D44 60%, #0D9488 140%)',
+        background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 50%, #115E59 100%)',
         color: '#FFFFFF',
         overflow: 'hidden',
-        boxShadow: '0 40px 100px -30px rgba(11, 23, 54, 0.5)',
+        boxShadow: '0 40px 100px -30px rgba(13, 148, 136, 0.4)',
       }}>
         {/* Decorative circles */}
         <div aria-hidden style={{
           position: 'absolute', top: -80, right: -80, width: 280, height: 280, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(13, 148, 136, 0.35), transparent 70%)',
+          background: 'radial-gradient(circle, rgba(255, 255, 255, 0.12), transparent 70%)',
         }} />
         <div aria-hidden style={{
           position: 'absolute', bottom: -120, left: -60, width: 360, height: 360, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(37, 99, 235, 0.22), transparent 70%)',
+          background: 'radial-gradient(circle, rgba(255, 255, 255, 0.08), transparent 70%)',
         }} />
 
         <div style={{ position: 'relative', textAlign: 'center', maxWidth: 720, margin: '0 auto' }}>
@@ -758,21 +758,21 @@ function FinalCTA({ screenHref }: { screenHref: string }) {
           }}>
             {t('mk.finalcta.title')}
           </h2>
-          <p style={{ fontSize: 15.5, color: 'rgba(255, 255, 255, 0.82)', marginBottom: 28, lineHeight: 1.65 }}>
+          <p style={{ fontSize: 15.5, color: 'rgba(255, 255, 255, 0.85)', marginBottom: 28, lineHeight: 1.65 }}>
             {t('mk.finalcta.sub')}
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
             <Link href={screenHref} className="mk-btn mk-btn-lg" style={{
               background: '#FFFFFF',
-              color: '#0B1736',
+              color: '#0F766E',
               fontWeight: 700,
             }}>
               {t('mk.finalcta.primary')}
             </Link>
             <a href="#pricing" className="mk-btn mk-btn-lg" style={{
-              background: 'rgba(255, 255, 255, 0.08)',
+              background: 'rgba(255, 255, 255, 0.12)',
               color: '#FFFFFF',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
             }}>
               {t('mk.finalcta.secondary')}
             </a>

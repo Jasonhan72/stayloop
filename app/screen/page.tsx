@@ -1114,7 +1114,7 @@ export default function ScreenPage() {
       {showAuthGate && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}>
           <div style={{ background: '#fff', borderRadius: 20, padding: 32, maxWidth: 400, width: '90%', textAlign: 'center', boxShadow: '0 24px 48px rgba(0,0,0,0.2)' }}>
-            <div style={{ width: 56, height: 56, margin: '0 auto 16px', borderRadius: 16, background: 'linear-gradient(135deg, #0D9488, #8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: '#fff', fontWeight: 800 }}>S</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#0D9488', margin: '0 auto 16px', letterSpacing: '-0.02em' }}>Stayloop</div>
             <h3 style={{ fontSize: 20, fontWeight: 700, color: '#0B1736', marginBottom: 8 }}>{t('authGate.title')}</h3>
             <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6, marginBottom: 24 }}>{t('authGate.desc')}</p>
             <a href="/register?next=/screen" style={{ display: 'block', padding: '12px 24px', borderRadius: 12, background: 'linear-gradient(135deg, #0D9488, #0F766E)', color: '#fff', fontWeight: 600, fontSize: 14, textDecoration: 'none', marginBottom: 12 }}>{t('authGate.cta')}</a>
