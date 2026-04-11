@@ -172,9 +172,8 @@ export default function ApplyPage() {
   return (
     <div className="min-h-screen">
       <nav className="nav-bar">
-        <div className="nav-brand">
-          <div className="nav-logo">S</div>
-          <div className="nav-title">Stayloop</div>
+        <div className="nav-brand" style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>
+          Stayloop
         </div>
         <div className="nav-actions"><LanguageToggle /></div>
       </nav>

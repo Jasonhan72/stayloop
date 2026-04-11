@@ -68,9 +68,8 @@ export default function NewListingPage() {
   return (
     <div className="min-h-screen">
       <nav className="nav-bar">
-        <Link href="/dashboard" className="nav-brand">
-          <div className="nav-logo">S</div>
-          <div className="nav-title">Stayloop</div>
+        <Link href="/dashboard" className="nav-brand" style={{ textDecoration: 'none', fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>
+          Stayloop
         </Link>
         <div className="nav-actions">
           <LanguageToggle />
