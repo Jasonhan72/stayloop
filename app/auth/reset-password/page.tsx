@@ -111,18 +111,8 @@ export default function ResetPasswordPage() {
         borderBottom: `1px solid ${mk.border}`,
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10,
-              background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontWeight: 700, fontSize: 15,
-              boxShadow: '0 4px 12px -2px rgba(13,148,136,0.35)',
-            }}>S</div>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: mk.navy, letterSpacing: '-0.01em' }}>Stayloop</div>
-              <div style={{ fontSize: 10, color: mk.textFaint, fontFamily: 'JetBrains Mono, monospace', marginTop: -1 }}>Ontario · beta</div>
-            </div>
+          <Link href="/" style={{ textDecoration: 'none', fontSize: 20, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em' }}>
+            Stayloop
           </Link>
           <LanguageToggle />
         </div>

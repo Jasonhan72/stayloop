@@ -40,18 +40,8 @@ function MarketingNav() {
   return (
     <nav className="mk-nav">
       <div className="mk-nav-inner">
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 9,
-            background: 'linear-gradient(135deg, #0D9488 0%, #0EA5E9 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#FFFFFF', fontWeight: 800, fontSize: 15,
-            boxShadow: '0 6px 16px -4px rgba(13, 148, 136, 0.45)',
-          }}>S</div>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--mk-navy)', letterSpacing: '-0.01em' }}>Stayloop</div>
-            <div className="mono mk-nav-brand-sub" style={{ fontSize: 10, color: 'var(--mk-text-muted)', marginTop: -1 }}>Ontario · beta</div>
-          </div>
+        <Link href="/" style={{ textDecoration: 'none', fontSize: 20, fontWeight: 800, color: 'var(--mk-navy)', letterSpacing: '-0.02em' }}>
+          Stayloop
         </Link>
 
         <div className="mk-nav-links">
@@ -816,15 +806,7 @@ function Footer() {
       <div className="mk-section" style={{ paddingTop: 64, paddingBottom: 40 }}>
         <div className="mk-grid-footer">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-              <div style={{
-                width: 34, height: 34, borderRadius: 9,
-                background: 'linear-gradient(135deg, #0D9488 0%, #0EA5E9 100%)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#FFFFFF', fontWeight: 800, fontSize: 15,
-              }}>S</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--mk-navy)', letterSpacing: '-0.01em' }}>Stayloop</div>
-            </div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--mk-navy)', letterSpacing: '-0.02em', marginBottom: 14 }}>Stayloop</div>
             <p style={{ fontSize: 13.5, color: 'var(--mk-text-secondary)', lineHeight: 1.65, maxWidth: 320, marginBottom: 16 }}>
               {t('mk.footer.tagline')}
             </p>

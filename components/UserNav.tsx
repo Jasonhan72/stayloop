@@ -65,18 +65,8 @@ export default function UserNav({ user, signOut }: UserNavProps) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         {/* Logo */}
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 10,
-            background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 700, fontSize: 15,
-            boxShadow: '0 4px 12px -2px rgba(13,148,136,0.35)',
-          }}>S</div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: mk.navy, letterSpacing: '-0.01em' }}>Stayloop</div>
-            <div style={{ fontSize: 10, color: mk.textFaint, fontFamily: 'JetBrains Mono, monospace', marginTop: -1 }}>Ontario · beta</div>
-          </div>
+        <Link href="/" style={{ textDecoration: 'none', fontSize: 20, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em' }}>
+          Stayloop
         </Link>
 
         {/* Right side */}
