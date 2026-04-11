@@ -256,7 +256,7 @@ function DualAudience({ screenHref }: { screenHref: string }) {
         <p className="mk-lead" style={{ maxWidth: 720, margin: '0 auto', color: 'var(--mk-text-secondary)' }}>{t('mk.dual.sub')}</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 20 }}>
         {/* Landlord card */}
         <div id="landlords" className="mk-card mk-card-hover" style={{ padding: 36 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
@@ -443,7 +443,7 @@ function Architecture() {
           <p className="mk-lead" style={{ maxWidth: 760, margin: '0 auto' }}>{t('mk.arch.sub')}</p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
           {modules.map(m => (
             <div key={m.num} className="mk-card mk-card-hover" style={{ padding: 26, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
               <div style={{

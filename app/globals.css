@@ -763,6 +763,15 @@ body > * { position: relative; z-index: 1; }
   /* Nav: hide "Sign in" ghost button on very small screens — the Start free
      primary is enough, and /login is still reachable from the footer. */
   .marketing .mk-nav-signin { display: none; }
+
+  /* Card padding reductions on mobile */
+  .marketing .mk-card,
+  .marketing .mk-card-hover,
+  .marketing .mk-card-raised { padding: 22px !important; }
+
+  /* Architecture module cards — tighter on mobile */
+  .marketing #architecture .mk-card,
+  .marketing #architecture .mk-card-hover { padding: 18px !important; }
 }
 
 @media (max-width: 420px) {

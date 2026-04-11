@@ -878,14 +878,16 @@ export function LanguageToggle({ className, style }: { className?: string; style
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 6,
-        padding: '6px 12px',
+        gap: 5,
+        padding: '5px 10px',
         borderRadius: 8,
         border: '1px solid rgba(255,255,255,0.12)',
         background: 'rgba(255,255,255,0.03)',
         color: '#94a3b8',
         fontSize: 12,
         cursor: 'pointer',
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
         fontFamily: "'JetBrains Mono', monospace",
         ...style,
       }}
