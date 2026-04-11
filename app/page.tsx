@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { useT, LanguageToggle } from '@/lib/i18n'
+import AuthModal from '@/components/AuthModal'
 
 // ─────────────────────────────────────────────────────────────────────
 // Stayloop — marketing home page
@@ -37,29 +38,37 @@ export default function Home() {
 // ─── Nav ─────────────────────────────────────────────────────────────
 function MarketingNav() {
   const { t } = useT()
+  const [authOpen, setAuthOpen] = useState(false)
   return (
-    <nav className="mk-nav">
-      <div className="mk-nav-inner">
-        <Link href="/" style={{ textDecoration: 'none', fontSize: 20, fontWeight: 800, color: 'var(--mk-navy)', letterSpacing: '-0.02em' }}>
-          Stayloop
-        </Link>
-
-        <div className="mk-nav-links">
-          <a href="#product">{t('mk.nav.product')}</a>
-          <a href="#landlords">{t('mk.nav.landlords')}</a>
-          <a href="#tenants">{t('mk.nav.tenants')}</a>
-          <a href="#roadmap">{t('mk.nav.roadmap')}</a>
-          <a href="#pricing">{t('mk.nav.pricing')}</a>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <LanguageToggle />
-          <Link href="/login" className="mk-btn mk-btn-primary mk-btn-sm">
-            {t('mk.nav.signin')}
+    <>
+      <nav className="mk-nav">
+        <div className="mk-nav-inner">
+          <Link href="/" style={{ textDecoration: 'none', fontSize: 20, fontWeight: 800, color: 'var(--mk-navy)', letterSpacing: '-0.02em' }}>
+            Stayloop
           </Link>
+
+          <div className="mk-nav-links">
+            <a href="#product">{t('mk.nav.product')}</a>
+            <a href="#landlords">{t('mk.nav.landlords')}</a>
+            <a href="#tenants">{t('mk.nav.tenants')}</a>
+            <a href="#roadmap">{t('mk.nav.roadmap')}</a>
+            <a href="#pricing">{t('mk.nav.pricing')}</a>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <LanguageToggle />
+            <button
+              onClick={() => setAuthOpen(true)}
+              className="mk-btn mk-btn-primary mk-btn-sm"
+              style={{ border: 'none', cursor: 'pointer' }}
+            >
+              {t('mk.nav.signin')}
+            </button>
+          </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} defaultTab="login" />
+    </>
   )
 }
 

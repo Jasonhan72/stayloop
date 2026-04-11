@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser, useAnonTrialCheck } from '@/lib/useUser'
 import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
 import UserNav from '@/components/UserNav'
+import AuthModal from '@/components/AuthModal'
 
 // ───────────────────────────────────────────────────────── Types ──
 
@@ -1111,18 +1112,7 @@ export default function ScreenPage() {
       <UserNav user={landlord} signOut={signOut} showNewScreening={!!result} onNewScreening={reset} />
 
       {/* Auth gate modal — shown when anonymous user has used their 1 free trial */}
-      {showAuthGate && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}>
-          <div style={{ background: '#fff', borderRadius: 20, padding: 32, maxWidth: 400, width: '90%', textAlign: 'center', boxShadow: '0 24px 48px rgba(0,0,0,0.2)' }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#0D9488', margin: '0 auto 16px', letterSpacing: '-0.02em' }}>Stayloop</div>
-            <h3 style={{ fontSize: 20, fontWeight: 700, color: '#0B1736', marginBottom: 8 }}>{t('authGate.title')}</h3>
-            <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6, marginBottom: 24 }}>{t('authGate.desc')}</p>
-            <a href="/register?next=/screen" style={{ display: 'block', padding: '12px 24px', borderRadius: 12, background: 'linear-gradient(135deg, #0D9488, #0F766E)', color: '#fff', fontWeight: 600, fontSize: 14, textDecoration: 'none', marginBottom: 12 }}>{t('authGate.cta')}</a>
-            <a href="/login?next=/screen" style={{ fontSize: 13, color: '#0D9488', textDecoration: 'none' }}>{t('authGate.login')}</a>
-            <button onClick={() => setShowAuthGate(false)} style={{ display: 'block', margin: '16px auto 0', fontSize: 12, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
-          </div>
-        </div>
-      )}
+      <AuthModal open={showAuthGate} onClose={() => setShowAuthGate(false)} defaultTab="register" next="/screen" />
 
       <div className="container-narrow">
         {!result && !analyzing && (

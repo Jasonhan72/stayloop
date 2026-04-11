@@ -801,6 +801,10 @@ export const DICT = {
   'authGate.cta': { en: 'Create free account', zh: '免费注册' },
   'authGate.login': { en: 'Already have an account? Sign in', zh: '已有账户？登录' },
 
+  // Auth modal
+  'am.tabLogin': { en: 'Sign in', zh: '登录' },
+  'am.tabRegister': { en: 'Create account', zh: '注册' },
+
   // Language toggle
   'lang.switch': { en: '中文', zh: 'EN' },
 } as const
