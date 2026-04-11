@@ -12,10 +12,17 @@ export default function HashRedirect() {
   useEffect(() => {
     const hash = window.location.hash
     if (hash && hash.includes('access_token=')) {
-      // Already on the callback page — let the callback handler deal with it
-      if (window.location.pathname === '/auth/callback') return
+      const path = window.location.pathname
+      // Already on callback or reset-password — let the page handler deal with it
+      if (path === '/auth/callback' || path === '/auth/reset-password') return
 
-      // Redirect to /auth/callback, preserving the hash fragment
+      // If hash contains type=recovery, redirect to reset-password page
+      if (hash.includes('type=recovery')) {
+        window.location.replace('/auth/reset-password' + hash)
+        return
+      }
+
+      // Otherwise redirect to /auth/callback, preserving the hash fragment
       window.location.replace('/auth/callback' + hash)
     }
   }, [])

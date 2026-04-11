@@ -27,6 +27,14 @@ export default function AuthCallbackPage() {
         // Implicit flow: #access_token=...&refresh_token=...
         const accessToken = hashParams.get('access_token')
         const refreshToken = hashParams.get('refresh_token')
+        const tokenType = hashParams.get('type')
+
+        // Recovery flow — redirect to reset-password page with the hash intact
+        if (tokenType === 'recovery' && accessToken) {
+          window.location.replace('/auth/reset-password' + url.hash)
+          return
+        }
+
         if (accessToken && refreshToken) {
           const { error: setErr } = await supabase.auth.setSession({
             access_token: accessToken,
