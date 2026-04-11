@@ -1102,6 +1102,9 @@ export default function ScreenPage() {
           .sl-summary-text { font-size: 13px !important; line-height: 1.7 !important; }
           .sl-section-title { font-size: 12px !important; }
         }
+        details.sl-card > summary::-webkit-details-marker { display: none; }
+        details.sl-card > summary::marker { display: none; content: ''; }
+        details.sl-card[open] > summary svg { transform: rotate(90deg); }
       `}</style>
 
       {/* Header */}
@@ -1579,10 +1582,15 @@ export default function ScreenPage() {
               </div>
             )}
 
-            {/* Weights */}
-            <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
-              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#64748B' }}>{t('screen.result.weights')}</div>
-              <div className="sl-weights-grid" style={{ display: 'grid', gap: 8 }}>
+            {/* Weights — collapsible */}
+            <details className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
+              <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', listStyle: 'none', WebkitAppearance: 'none' as any }}>
+                <span className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#64748B', margin: 0 }}>{t('screen.result.weights')}</span>
+                <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ transition: 'transform .2s' }}><path d="M5 3.5L9 7L5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </span>
+              </summary>
+              <div className="sl-weights-grid" style={{ display: 'grid', gap: 8, marginTop: 14 }}>
                 {CATEGORIES.map(cat => (
                   <div key={cat.id} style={{ textAlign: 'center', padding: '16px 8px', borderRadius: 12, background: 'rgba(11, 23, 54, 0.04)', border: cat.id === 'rental_history' ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid var(--border-subtle)' }}>
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{cat.icon}</div>
@@ -1592,7 +1600,7 @@ export default function ScreenPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </details>
 
             {/* Legal Disclaimer — advisory-only, HRC / RTA compliance reminder, liability carve-out */}
             <div className="sl-card" style={{ background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.3)', marginBottom: 18, padding: '18px 20px' }}>
