@@ -787,43 +787,43 @@ body > * { position: relative; z-index: 1; }
    marketing home page. Achieved by overriding the dark CSS tokens
    that the existing screen page components consume via var(--*).
    ────────────────────────────────────────────────────────────────── */
-body:has(.screen-app) { background: #EDF0F7; }
+body:has(.screen-app) { background: #F7F8FB; }
 body:has(.screen-app)::before,
 body:has(.screen-app)::after { display: none !important; }
 
 .screen-app {
-  /* Surfaces — cool gray base, white cards pop */
-  --bg-base: #EDF0F7;
-  --bg-sunk: #E3E8F2;
+  /* Surfaces — matched to marketing palette */
+  --bg-base: #F7F8FB;
+  --bg-sunk: #EEF2F8;
   --bg-elevated: #FFFFFF;
   --bg-card: #FFFFFF;
   --bg-card-solid: #FFFFFF;
-  --bg-card-raised: #F8F9FC;
-  --bg-chip: #EDF0F7;
+  --bg-card-raised: #F1F5FB;
+  --bg-chip: #EEF2F8;
 
-  /* Borders — stronger for readability */
-  --border-subtle: #D0D7E3;
-  --border-strong: #B0BAC9;
+  /* Borders — lighter to match marketing */
+  --border-subtle: #E4E8F0;
+  --border-strong: #CBD5E1;
   --border-accent: rgba(13, 148, 136, 0.50);
 
-  /* Text — deeper primaries */
-  --text-primary: #0A1428;
-  --text-secondary: #3D4D65;
-  --text-muted: #536278;
-  --text-faint: #8494A7;
+  /* Text — matched to marketing */
+  --text-primary: #0B1736;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+  --text-faint: #94A3B8;
 
-  /* Brand gradient — keep teal→blue but lighter shadow profile */
-  --gradient-brand: linear-gradient(135deg, #0D9488 0%, #2563EB 100%);
+  /* Brand gradient */
+  --gradient-brand: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
   --gradient-pro: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 100%);
 
-  /* Shadows — slightly more visible on the darker base */
-  --shadow-sm: 0 1px 3px rgba(11, 23, 54, 0.08);
-  --shadow-md: 0 4px 16px -6px rgba(11, 23, 54, 0.14), 0 1px 2px rgba(11, 23, 54, 0.06);
-  --shadow-lg: 0 20px 50px -18px rgba(11, 23, 54, 0.20), 0 1px 2px rgba(11, 23, 54, 0.06);
+  /* Shadows — matched to marketing */
+  --shadow-sm: 0 1px 2px rgba(11, 23, 54, 0.04);
+  --shadow-md: 0 2px 8px rgba(11, 23, 54, 0.06);
+  --shadow-lg: 0 12px 32px -12px rgba(11, 23, 54, 0.16);
   --shadow-glow: 0 8px 28px -10px rgba(13, 148, 136, 0.32);
 
-  background: #EDF0F7;
-  color: #0A1428;
+  background: #F7F8FB;
+  color: #0B1736;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
@@ -835,8 +835,8 @@ body:has(.screen-app)::after { display: none !important; }
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(1200px 600px at 12% -10%, rgba(13, 148, 136, 0.08), transparent 60%),
-    radial-gradient(900px 500px at 92% 10%, rgba(37, 99, 235, 0.05), transparent 55%);
+    radial-gradient(1200px 600px at 12% -10%, rgba(13, 148, 136, 0.06), transparent 60%),
+    radial-gradient(900px 500px at 92% 10%, rgba(37, 99, 235, 0.04), transparent 55%);
   pointer-events: none;
   z-index: 0;
 }
@@ -844,11 +844,11 @@ body:has(.screen-app)::after { display: none !important; }
 
 /* Nav bar */
 .screen-app .nav-bar {
-  background: #FFFFFF !important;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border-bottom: 1px solid #C8D0DE;
-  box-shadow: 0 1px 3px rgba(11, 23, 54, 0.06);
+  background: rgba(247,248,251,0.82) !important;
+  backdrop-filter: saturate(1.6) blur(14px);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  border-bottom: 1px solid #E4E8F0;
+  box-shadow: none;
 }
 .screen-app .nav-title { color: #0A1428 !important; font-weight: 700; }
 .screen-app .nav-sub { color: #536278 !important; }
@@ -860,10 +860,10 @@ body:has(.screen-app)::after { display: none !important; }
 /* Hero card */
 .screen-app .card-hero {
   background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(13, 148, 136, 0.06), transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(13, 148, 136, 0.04), transparent 70%),
     #FFFFFF;
-  border: 1px solid #C8D0DE;
-  box-shadow: var(--shadow-lg);
+  border: 1px solid #E4E8F0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06);
 }
 .screen-app .card-hero::before {
   background: linear-gradient(135deg, rgba(13, 148, 136, 0.35), transparent 50%, rgba(124, 58, 237, 0.18));
@@ -874,12 +874,12 @@ body:has(.screen-app)::after { display: none !important; }
 .screen-app .card-solid,
 .screen-app .glass {
   background: #FFFFFF;
-  border: 1px solid #C8D0DE;
-  box-shadow: var(--shadow-md);
+  border: 1px solid #E4E8F0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06);
 }
 .screen-app .glass-strong {
   background: #FFFFFF;
-  border: 1px solid #B0BAC9;
+  border: 1px solid #CBD5E1;
 }
 
 /* Inputs */
@@ -887,14 +887,14 @@ body:has(.screen-app)::after { display: none !important; }
 .screen-app .select,
 .screen-app .textarea {
   background: #FFFFFF;
-  border: 1px solid #B0BAC9;
-  color: #0A1428;
+  border: 1px solid #E4E8F0;
+  color: #0B1736;
 }
 .screen-app .input::placeholder,
-.screen-app .textarea::placeholder { color: #8494A7; }
+.screen-app .textarea::placeholder { color: #94A3B8; }
 .screen-app .input:hover,
 .screen-app .select:hover,
-.screen-app .textarea:hover { border-color: #8494A7; }
+.screen-app .textarea:hover { border-color: #CBD5E1; }
 .screen-app .input:focus,
 .screen-app .select:focus,
 .screen-app .textarea:focus {
@@ -902,18 +902,18 @@ body:has(.screen-app)::after { display: none !important; }
   border-color: #0D9488;
   box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.20);
 }
-.screen-app .label { color: #3D4D65; font-weight: 600; }
+.screen-app .label { color: #475569; font-weight: 600; }
 
 /* Buttons — keep primary gradient, lighten ghost for white bg */
 .screen-app .btn-ghost {
   background: #FFFFFF;
-  color: #0A1428;
-  border-color: #B0BAC9;
+  color: #0B1736;
+  border-color: #E4E8F0;
   font-weight: 600;
 }
 .screen-app .btn-ghost:hover:not(:disabled) {
-  background: #F0F2F8;
-  border-color: #8494A7;
+  background: #F1F5FB;
+  border-color: #CBD5E1;
 }
 .screen-app .btn-primary {
   box-shadow: 0 8px 22px -10px rgba(13, 148, 136, 0.55), 0 1px 0 rgba(255,255,255,0.18) inset;
@@ -924,9 +924,9 @@ body:has(.screen-app)::after { display: none !important; }
 
 /* Chips */
 .screen-app .chip {
-  background: #EDF0F7;
-  border-color: #D0D7E3;
-  color: #3D4D65;
+  background: #EEF2F8;
+  border-color: #E4E8F0;
+  color: #475569;
 }
 .screen-app .chip-accent {
   background: rgba(13, 148, 136, 0.12);
@@ -945,16 +945,16 @@ body:has(.screen-app)::after { display: none !important; }
 }
 
 /* Selection */
-.screen-app ::selection { background: rgba(13, 148, 136, 0.25); color: #0A1428; }
+.screen-app ::selection { background: rgba(13, 148, 136, 0.25); color: #0B1736; }
 
 /* Scrollbar */
-.screen-app ::-webkit-scrollbar-thumb { background: rgba(11, 23, 54, 0.22); background-clip: content-box; }
-.screen-app ::-webkit-scrollbar-thumb:hover { background: rgba(11, 23, 54, 0.38); background-clip: content-box; }
+.screen-app ::-webkit-scrollbar-thumb { background: rgba(11, 23, 54, 0.18); background-clip: content-box; }
+.screen-app ::-webkit-scrollbar-thumb:hover { background: rgba(11, 23, 54, 0.32); background-clip: content-box; }
 
 /* ─── sl- inline-styled components – stronger overrides ────────────── */
 .screen-app .sl-card {
-  border-color: #C8D0DE !important;
-  box-shadow: var(--shadow-md);
+  border-color: #E4E8F0 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06);
 }
 
 /* ──────────────────────────────────────────────────────────────────

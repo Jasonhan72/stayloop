@@ -1111,11 +1111,11 @@ export default function ScreenPage() {
       {showAuthGate && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}>
           <div style={{ background: '#fff', borderRadius: 20, padding: 32, maxWidth: 400, width: '90%', textAlign: 'center', boxShadow: '0 24px 48px rgba(0,0,0,0.2)' }}>
-            <div style={{ width: 56, height: 56, margin: '0 auto 16px', borderRadius: 16, background: 'linear-gradient(135deg, #06B6D4, #8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: '#fff', fontWeight: 800 }}>S</div>
-            <h3 style={{ fontSize: 20, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>{t('authGate.title')}</h3>
+            <div style={{ width: 56, height: 56, margin: '0 auto 16px', borderRadius: 16, background: 'linear-gradient(135deg, #0D9488, #8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: '#fff', fontWeight: 800 }}>S</div>
+            <h3 style={{ fontSize: 20, fontWeight: 700, color: '#0B1736', marginBottom: 8 }}>{t('authGate.title')}</h3>
             <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6, marginBottom: 24 }}>{t('authGate.desc')}</p>
-            <a href="/register?next=/screen" style={{ display: 'block', padding: '12px 24px', borderRadius: 12, background: 'linear-gradient(135deg, #06B6D4, #0891B2)', color: '#fff', fontWeight: 600, fontSize: 14, textDecoration: 'none', marginBottom: 12 }}>{t('authGate.cta')}</a>
-            <a href="/login?next=/screen" style={{ fontSize: 13, color: '#06B6D4', textDecoration: 'none' }}>{t('authGate.login')}</a>
+            <a href="/register?next=/screen" style={{ display: 'block', padding: '12px 24px', borderRadius: 12, background: 'linear-gradient(135deg, #0D9488, #0F766E)', color: '#fff', fontWeight: 600, fontSize: 14, textDecoration: 'none', marginBottom: 12 }}>{t('authGate.cta')}</a>
+            <a href="/login?next=/screen" style={{ fontSize: 13, color: '#0D9488', textDecoration: 'none' }}>{t('authGate.login')}</a>
             <button onClick={() => setShowAuthGate(false)} style={{ display: 'block', margin: '16px auto 0', fontSize: 12, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
           </div>
         </div>
@@ -1125,7 +1125,7 @@ export default function ScreenPage() {
         {!result && !analyzing && (
           <>
             {/* Tier Toggle */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 20, padding: 5, background: '#FFFFFF', borderRadius: 14, border: '1px solid #C8D0DE', boxShadow: '0 4px 16px -6px rgba(11, 23, 54, 0.14)' }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 20, padding: 5, background: '#FFFFFF', borderRadius: 14, border: '1px solid #E4E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)' }}>
               {(['free', 'pro'] as const).map(key => {
                 const active = tier === key
                 const disabled = key === 'pro' && !isPro
@@ -1199,7 +1199,7 @@ export default function ScreenPage() {
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
               style={{
-                border: `2px dashed ${dragOver ? '#14B8A6' : '#B0BAC9'}`,
+                border: `2px dashed ${dragOver ? '#14B8A6' : '#CBD5E1'}`,
                 borderRadius: 18,
                 padding: '52px 24px',
                 textAlign: 'center',
