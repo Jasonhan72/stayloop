@@ -146,7 +146,7 @@ export default function UserNav({ user, signOut }: UserNavProps) {
                     {[
                       { href: '/dashboard', label: t('nav.dashboard') || 'Dashboard', icon: '🏠' },
                       { href: '/screen', label: t('nav.screenings') || 'Screenings', icon: '📋' },
-                      { href: '/profile', label: t('nav.profile') || 'My Profile', icon: '👤' },
+                      { href: '/profile', label: t('nav.profile') || 'Account settings', icon: '⚙' },
                     ].map(item => (
                       <Link
                         key={item.href}

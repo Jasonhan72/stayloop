@@ -10,7 +10,7 @@ export const DICT = {
   // Common / nav / buttons
   'nav.signin': { en: 'Sign in', zh: '登录' },
   'nav.register': { en: 'Register', zh: '注册' },
-  'nav.profile': { en: 'My Profile', zh: '我的资料' },
+  'nav.profile': { en: 'Account settings', zh: '账户设置' },
   'nav.screenings': { en: 'Screenings', zh: '背调' },
   'nav.signOut': { en: 'Sign out', zh: '退出登录' },
   'nav.newScreening': { en: 'New screening', zh: '新建背调' },
