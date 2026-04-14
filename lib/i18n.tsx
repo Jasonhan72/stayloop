@@ -805,6 +805,57 @@ export const DICT = {
   'am.tabLogin': { en: 'Sign in', zh: '登录' },
   'am.tabRegister': { en: 'Create account', zh: '注册' },
 
+  // Account settings (Airbnb-style)
+  'acct.title': { en: 'Account settings', zh: '账户设置' },
+  'acct.section.personal': { en: 'Personal information', zh: '个人资料' },
+  'acct.section.security': { en: 'Login & security', zh: '登录与安全' },
+  'acct.section.notifications': { en: 'Notifications', zh: '通知偏好' },
+  'acct.section.langplan': { en: 'Languages & plan', zh: '语言与计划' },
+
+  'acct.personal.title': { en: 'Personal information', zh: '个人资料' },
+  'acct.personal.legalName': { en: 'Legal name', zh: '姓名' },
+  'acct.personal.legalNameHint': { en: 'Your full name as it appears on ID.', zh: '与身份证件一致的姓名。' },
+  'acct.personal.phone': { en: 'Phone number', zh: '电话号码' },
+  'acct.personal.phoneHint': { en: 'Used for verification and account alerts.', zh: '用于账户验证与重要通知。' },
+  'acct.personal.email': { en: 'Email address', zh: '邮箱地址' },
+  'acct.personal.emailNote': { en: 'Contact support to change your email.', zh: '如需更改邮箱请联系客服。' },
+  'acct.personal.role': { en: 'Role', zh: '身份' },
+  'acct.personal.roleHint': { en: 'How you use Stayloop.', zh: '你在 Stayloop 上的身份。' },
+  'acct.personal.company': { en: 'Company name', zh: '公司名称' },
+
+  'acct.edit': { en: 'Edit', zh: '修改' },
+  'acct.cancel': { en: 'Cancel', zh: '取消' },
+  'acct.save': { en: 'Save', zh: '保存' },
+  'acct.saving': { en: 'Saving…', zh: '保存中…' },
+  'acct.saved': { en: 'Saved', zh: '已保存' },
+  'acct.notSet': { en: 'Not provided', zh: '未填写' },
+
+  'acct.security.title': { en: 'Login & security', zh: '登录与安全' },
+  'acct.security.password': { en: 'Password', zh: '密码' },
+  'acct.security.passwordDesc': { en: 'Last changed when you joined. We\'ll email you a secure reset link.', zh: '系统会向你的邮箱发送重置链接。' },
+  'acct.security.sendReset': { en: 'Send reset link', zh: '发送重置链接' },
+  'acct.security.resetSent': { en: 'Password reset link sent to your email.', zh: '密码重置链接已发送至你的邮箱。' },
+  'acct.security.signOutAll': { en: 'Sign out of all devices', zh: '登出所有设备' },
+  'acct.security.signOutAllDesc': { en: 'Invalidate all active sessions on other browsers and devices.', zh: '使你在其它浏览器和设备上的登录立即失效。' },
+  'acct.security.signOutAllBtn': { en: 'Sign out everywhere', zh: '立即登出全部' },
+  'acct.security.signOutConfirm': { en: 'Sign out from all devices? You\'ll need to sign in again.', zh: '确定要登出所有设备吗？你需要重新登录。' },
+
+  'acct.notif.title': { en: 'Notifications', zh: '通知偏好' },
+  'acct.notif.email': { en: 'Email notifications', zh: '邮件通知' },
+  'acct.notif.emailDesc': { en: 'Receive screening results and account updates by email.', zh: '接收背调结果和账户通知邮件。' },
+  'acct.notif.marketing': { en: 'Product updates', zh: '产品更新' },
+  'acct.notif.marketingDesc': { en: 'Occasional announcements about new features.', zh: '新功能上线的不定期公告。' },
+  'acct.notif.comingSoon': { en: 'Preference sync coming soon. Transactional emails always on.', zh: '偏好同步功能即将上线，交易类邮件始终开启。' },
+
+  'acct.langplan.title': { en: 'Languages & plan', zh: '语言与计划' },
+  'acct.langplan.language': { en: 'Language', zh: '界面语言' },
+  'acct.langplan.plan': { en: 'Current plan', zh: '当前方案' },
+  'acct.langplan.planFreeDesc': { en: '5 screenings per month. Upgrade for unlimited.', zh: '每月 5 次背调。升级解锁无限次使用。' },
+  'acct.langplan.planProDesc': { en: 'Unlimited screenings and priority AI scoring.', zh: '无限次背调与优先 AI 评分。' },
+  'acct.langplan.manage': { en: 'Manage billing', zh: '管理订阅' },
+  'acct.langplan.upgrade': { en: 'Upgrade to Pro', zh: '升级到 Pro' },
+
+
   // Language toggle
   'lang.switch': { en: '中文', zh: 'EN' },
 } as const
