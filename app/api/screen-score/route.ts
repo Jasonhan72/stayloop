@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { runForensics, forensicsToPromptBlock, type ForensicsReport } from '@/lib/forensics'
 
 export const runtime = 'edge'
 
@@ -318,11 +319,50 @@ export async function POST(req: NextRequest) {
 
     const nameForLookup = (screening.tenant_name || '').trim()
 
-    // ---- Stage 2: Court records lookup (currently all coming_soon) ----
-    const courtDetail = await runCourtRecordCheck(nameForLookup, plan)
+    // ---- Stage 2: Court records + Document Forensics (in parallel) ----
+    // Court records (CanLII) and forensics (PDF metadata + text density +
+    // paystub math + cross-doc) are independent, so run concurrently to
+    // keep total latency under the AI call's anyway-blocking ~10-15s.
+    // Try to extract applicant contact info from landlord notes / pasted_text
+    // (e.g. "Applicant: Sheila Tremblay 514-555-1234 sheila@example.com").
+    // The screenings schema doesn't have dedicated phone/email fields, but
+    // landlords often paste this context into notes.
+    const notesBlob = `${screening.notes || ''}\n${screening.pasted_text || ''}`
+    const phoneMatch = notesBlob.match(/(?:\+?1[\s.-]?)?\(?(\d{3})\)?[\s.-]?(\d{3})[\s.-]?(\d{4})/)
+    const emailMatch = notesBlob.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
+    const forensicsInput = {
+      files: signedResults
+        .filter(r => !!r.url)
+        .map(r => ({
+          name: r.file.name,
+          kind: r.file.kind || 'other',
+          mime: r.file.mime,
+          signed_url: r.url!,
+        })),
+      applicant_name: nameForLookup || undefined,
+      applicant_phone: phoneMatch ? `${phoneMatch[1]}${phoneMatch[2]}${phoneMatch[3]}` : undefined,
+      applicant_email: emailMatch ? emailMatch[0].toLowerCase() : undefined,
+      applicant_address: undefined,
+      anthropic_api_key: process.env.ANTHROPIC_API_KEY,
+    }
+
+    const [courtDetail, forensicsReport] = await Promise.all([
+      runCourtRecordCheck(nameForLookup, plan),
+      runForensics(forensicsInput).catch((e): ForensicsReport => ({
+        per_file: [],
+        cross_doc: { entities: { phones: [], emails: [], addresses: [], names: [], employers: [], deposit_amounts: [] }, unique_phones: 0, hr_phone_collision: false, deposit_paystub_perfect_match: false },
+        cross_doc_flags: [],
+        all_flags: [{ code: 'forensics_init_error', severity: 'low', evidence_en: `Forensics aborted: ${e?.message || e}`, evidence_zh: `取证模块启动失败：${e?.message || e}` }],
+        hard_gates: [],
+        severity: 'clean',
+        elapsed_ms: 0,
+        schema_version: 1,
+      })),
+    ])
 
     await supabase.from('screenings').update({
       court_records_detail: courtDetail,
+      forensics_detail: forensicsReport,
       tier: (plan === 'pro' || plan === 'enterprise') ? 'pro' : 'free',
       status: 'scoring',
     }).eq('id', screening_id)
@@ -451,6 +491,18 @@ JSON DISCIPLINE (avoid parse errors):
       { type: 'text', text: userInstruction, cache_control: { type: 'ephemeral' } },
       { type: 'text', text: '\n--- SCREENING CONTEXT ---\n' + formText },
     ]
+    // Inject forensics findings as established fact BEFORE the documents
+    // so Claude factors them into doc_authenticity / verification scoring.
+    if (forensicsReport.per_file.length > 0 || forensicsReport.cross_doc_flags.length > 0) {
+      userContent.push({
+        type: 'text',
+        text: '\n--- DOCUMENT FORENSICS (BACKEND-VERIFIED, TRUST THESE) ---\n' + forensicsToPromptBlock(forensicsReport) +
+          '\n\nUSE THESE FORENSICS FINDINGS to set verification.document_authenticity sub-score. ' +
+          'If severity is "fraud" or "likely_fraud", set verification < 30 and add "doc_tampering" to hard_gates_triggered. ' +
+          'If forensics lists hard_gates (pdf_is_screenshot, paystub_math_impossible, cross_doc_collision, producer_consumer_tool), ' +
+          'you MUST include "doc_tampering" or the matching v3 gate (employer_fraud for cross_doc_collision) in hard_gates_triggered.',
+      })
+    }
     if (contentBlocks.length > 0) {
       userContent.push({ type: 'text', text: '\n--- UPLOADED DOCUMENTS ---\n' })
       userContent.push(...contentBlocks)
@@ -621,11 +673,19 @@ JSON DISCIPLINE (avoid parse errors):
 
     // ---- Stage 4: Apply hard gates + red flag penalties + coverage ----
     const HARD_GATE_CAPS: Record<string, number> = {
+      // Existing v3 gates
       income_severe: 65,
       ltb_eviction: 40,
       doc_tampering: 55,
       identity_mismatch: 50,
       employer_fraud: 45,
+      // Forensics-derived gates (deterministic — backend-verified, not AI-inferred)
+      // Lower caps reflect higher confidence: these are mathematical/file-format
+      // proofs of forgery, not visual judgment.
+      pdf_is_screenshot: 30,         // PDF is image-only OR title says "PNG/JPEG"
+      paystub_math_impossible: 35,   // YTD inflated >1.5x or hourly×hours ≠ stated
+      cross_doc_collision: 40,       // applicant phone == employer/HR phone
+      producer_consumer_tool: 50,    // PDF Producer is Preview/Word/Skia for strict kinds
     }
     const RED_FLAG_PENALTIES: Record<string, number> = {
       rush_move_in: 4,
@@ -650,7 +710,35 @@ JSON DISCIPLINE (avoid parse errors):
       hardGates.push('income_severe')
     }
 
-    const penalty = redFlags.reduce((sum, flag) => sum + (RED_FLAG_PENALTIES[flag] || 0), 0)
+    // Merge forensics-derived hard gates (deterministic, computed by lib/forensics).
+    // These take precedence over Claude's judgment because they're proof-based:
+    // PDF metadata strings + math impossibility don't lie. We override even if
+    // Claude didn't flag the docs.
+    for (const fgate of forensicsReport.hard_gates) {
+      if (!hardGates.includes(fgate)) hardGates.push(fgate)
+    }
+    // If forensics severity is fraud/likely_fraud and Claude didn't add doc_tampering
+    // (e.g. because the visual check fooled the model), force it in.
+    if ((forensicsReport.severity === 'fraud' || forensicsReport.severity === 'likely_fraud')
+        && !hardGates.includes('doc_tampering')) {
+      hardGates.push('doc_tampering')
+    }
+    // Critical forensics flags add to red_flags too (so penalty stacks)
+    for (const f of forensicsReport.all_flags) {
+      if (f.severity === 'critical' || f.severity === 'high') {
+        if (!redFlags.includes('forensics_' + f.code)) redFlags.push('forensics_' + f.code)
+      }
+    }
+    // Apply forensics red-flag penalties (separate scale: critical=10, high=5)
+    const forensicsPenalty = forensicsReport.all_flags.reduce((sum, f) => {
+      if (f.severity === 'critical') return sum + 10
+      if (f.severity === 'high') return sum + 5
+      if (f.severity === 'medium') return sum + 2
+      return sum
+    }, 0)
+
+    const claudeRedFlagPenalty = redFlags.reduce((sum, flag) => sum + (RED_FLAG_PENALTIES[flag] || 0), 0)
+    const penalty = claudeRedFlagPenalty + forensicsPenalty
     const gateCap = hardGates.length > 0
       ? Math.min(...hardGates.map(g => HARD_GATE_CAPS[g] ?? 100))
       : 100
@@ -749,6 +837,8 @@ JSON DISCIPLINE (avoid parse errors):
         monthly_rent: monthlyRent || null,
         income_rent_ratio: computedRatio,
         court_records_detail: courtDetail,
+        forensics_detail: forensicsReport,
+        forensics_penalty: forensicsPenalty,
         extracted_name: finalExtractedName,
         legacy_scores: legacy,
       },
@@ -764,6 +854,7 @@ JSON DISCIPLINE (avoid parse errors):
       ai_summary: parsed.summary_en || '',
       ai_extracted_name: finalExtractedName,
       ai_dimension_notes: mergedNotes,
+      forensics_detail: forensicsReport,
       // Legacy 6 columns — kept populated via v3→legacy mapping
       doc_authenticity_score: legacy.doc_authenticity,
       payment_ability_score: legacy.payment_ability,
@@ -834,6 +925,8 @@ JSON DISCIPLINE (avoid parse errors):
       court_summary_en: parsed.court_summary_en || '',
       court_summary_zh: parsed.court_summary_zh || '',
       court_records_detail: courtDetail,
+      forensics_detail: forensicsReport,
+      forensics_penalty: forensicsPenalty,
     })
   } catch (e: any) {
     console.error('[screen-score] uncaught:', e)

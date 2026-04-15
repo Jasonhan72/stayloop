@@ -112,6 +112,47 @@ interface ScoreResult {
     hrc_compliant?: boolean
     reviewer_note?: string
   } | null
+  // Forensics — added 2026-04-15
+  forensics_detail?: {
+    severity: 'clean' | 'suspicious' | 'likely_fraud' | 'fraud'
+    hard_gates: string[]
+    elapsed_ms: number
+    per_file: Array<{
+      file_name: string
+      file_kind: string
+      mime: string
+      pdf_metadata?: {
+        title: string | null
+        producer: string | null
+        creator: string | null
+        creation_date: string | null
+        modification_date: string | null
+        page_count: number
+        file_size_bytes: number
+      }
+      text_density?: {
+        total_chars: number
+        page_count: number
+        chars_per_page: number
+        is_likely_image_pdf: boolean
+      }
+      paystub_math?: {
+        extraction: { annual_salary: number | null; ytd_gross: number | null; pay_date: string | null }
+        expected_ytd_gross: number | null
+        ytd_ratio: number | null
+        period_math_error_pct: number | null
+      }
+      source_specific?: {
+        equifax_authentic_markers: boolean | null
+        bank_producer_whitelisted: boolean | null
+        matched_bank: string | null
+      }
+      flags: Array<{ code: string; severity: 'critical' | 'high' | 'medium' | 'low'; evidence_en: string; evidence_zh: string; file?: string }>
+    }>
+    cross_doc_flags: Array<{ code: string; severity: 'critical' | 'high' | 'medium' | 'low'; evidence_en: string; evidence_zh: string; file?: string }>
+    all_flags: Array<{ code: string; severity: 'critical' | 'high' | 'medium' | 'low'; evidence_en: string; evidence_zh: string; file?: string }>
+  } | null
+  forensics_penalty?: number
 }
 
 // ───────────────────────────────────────────────────── Constants ──
@@ -301,6 +342,207 @@ function Flag({ type, text }: { type: 'danger' | 'warning' | 'info' | 'success';
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px', background: c.bg, border: `1px solid ${c.border}`, borderRadius: 8, fontSize: 13, color: c.text, lineHeight: 1.5 }}>
       <span>{c.icon}</span><span>{text}</span>
+    </div>
+  )
+}
+
+// ─── Document Forensics Card ──────────────────────────────────────────────
+// Renders the ForensicsReport from /api/screen-score. Designed to be the
+// FIRST thing a landlord sees when forgery is detected — a critical-severity
+// banner up top, then a per-file breakdown of what the backend verified.
+//
+// Severity colors match the rest of the app's risk palette (see RISK_LEVELS).
+function ForensicsCard({ report }: { report: NonNullable<ScoreResult['forensics_detail']> }) {
+  const { lang } = useT()
+  const [expanded, setExpanded] = useState(true)
+
+  if (!report) return null
+  const isClean = report.severity === 'clean' && report.all_flags.length === 0
+
+  const sevPalette: Record<string, { bg: string; border: string; text: string; label: string; labelZh: string; icon: string }> = {
+    fraud:        { bg: 'rgba(220, 38, 38, 0.10)',  border: 'rgba(220, 38, 38, 0.45)',  text: '#B91C1C', label: 'Likely Forged Documents', labelZh: '极可能是伪造文件', icon: '⛔' },
+    likely_fraud: { bg: 'rgba(220, 38, 38, 0.07)',  border: 'rgba(220, 38, 38, 0.35)',  text: '#B91C1C', label: 'Strong Forgery Signals',  labelZh: '强烈的伪造信号',   icon: '⚠' },
+    suspicious:   { bg: 'rgba(217, 119, 6, 0.07)',  border: 'rgba(217, 119, 6, 0.30)',  text: '#A16207', label: 'Suspicious Patterns',     labelZh: '可疑特征',         icon: '⚠' },
+    clean:        { bg: 'rgba(22, 163, 74, 0.07)',  border: 'rgba(22, 163, 74, 0.25)',  text: '#15803D', label: 'No Forensics Issues',    labelZh: '取证无异常',       icon: '✓' },
+  }
+  const p = sevPalette[report.severity] || sevPalette.clean
+
+  const flagSevBadge = (sev: string): { bg: string; text: string } => {
+    switch (sev) {
+      case 'critical': return { bg: '#DC2626', text: '#FFF' }
+      case 'high':     return { bg: '#EA580C', text: '#FFF' }
+      case 'medium':   return { bg: '#D97706', text: '#FFF' }
+      default:         return { bg: '#94A3B8', text: '#FFF' }
+    }
+  }
+  const sevLabel = (sev: string): string => {
+    if (lang === 'zh') {
+      return ({ critical: '严重', high: '高', medium: '中', low: '低' } as Record<string, string>)[sev] || sev
+    }
+    return sev.toUpperCase()
+  }
+
+  return (
+    <div className="sl-card" style={{ background: p.bg, border: `1px solid ${p.border}`, backdropFilter: 'blur(14px)', marginBottom: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', gap: 10 }} onClick={() => setExpanded(v => !v)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 22 }}>{p.icon}</span>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: p.text }}>
+              {lang === 'zh' ? '文件取证' : 'Document Forensics'}
+            </div>
+            <div style={{ fontSize: 11.5, color: p.text, fontWeight: 600, opacity: 0.85 }}>
+              {lang === 'zh' ? p.labelZh : p.label}
+              {report.all_flags.length > 0 && ` · ${report.all_flags.length} ${lang === 'zh' ? '项发现' : 'finding(s)'}`}
+              {report.hard_gates.length > 0 && ` · ${report.hard_gates.length} ${lang === 'zh' ? '硬门槛' : 'hard gate(s)'}`}
+            </div>
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: '#64748B', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="mono">{report.elapsed_ms}ms</span>
+          <span style={{ fontSize: 14 }}>{expanded ? '▾' : '▸'}</span>
+        </div>
+      </div>
+
+      {expanded && (
+        <>
+          {report.hard_gates.length > 0 && (
+            <div style={{ marginTop: 12, padding: 10, borderRadius: 8, background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.30)' }}>
+              <div style={{ fontSize: 11.5, fontWeight: 700, color: '#B91C1C', marginBottom: 6 }}>
+                {lang === 'zh' ? '已触发的硬门槛（评分上限）：' : 'Hard gates triggered (score cap):'}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {report.hard_gates.map(g => (
+                  <span key={g} className="mono" style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, background: '#B91C1C', color: '#FFF', fontWeight: 600 }}>
+                    {g}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isClean ? (
+            <div style={{ marginTop: 12, fontSize: 12, color: '#475569', fontStyle: 'italic' }}>
+              {lang === 'zh'
+                ? '所有上传文件通过 PDF 元数据、文字密度、来源指纹和跨文档一致性检查，未发现伪造特征。'
+                : 'All uploaded files passed PDF metadata, text density, source fingerprint, and cross-document consistency checks. No forgery indicators detected.'}
+            </div>
+          ) : (
+            <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {report.per_file.map((pf, i) => (
+                <div key={i} style={{ padding: 12, borderRadius: 10, background: 'rgba(255, 255, 255, 0.50)', border: '1px solid rgba(15, 23, 42, 0.08)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: '#0B1736' }}>{pf.file_name}</div>
+                      <div style={{ fontSize: 10.5, color: '#64748B', marginTop: 2 }}>
+                        {pf.file_kind} {pf.pdf_metadata && `· ${pf.pdf_metadata.page_count}p · ${Math.round(pf.pdf_metadata.file_size_bytes / 1024)}KB`}
+                      </div>
+                    </div>
+                    {pf.flags.length === 0 && (
+                      <span style={{ fontSize: 10, color: '#15803D', fontWeight: 600 }}>
+                        {lang === 'zh' ? '✓ 无异常' : '✓ Clean'}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Forensic facts table — show what was actually measured */}
+                  {(pf.pdf_metadata || pf.text_density || pf.paystub_math || pf.source_specific) && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', fontSize: 10.5, marginBottom: 10, padding: 8, background: 'rgba(15, 23, 42, 0.03)', borderRadius: 6 }}>
+                      {pf.pdf_metadata?.producer && (
+                        <>
+                          <span style={{ color: '#64748B' }}>{lang === 'zh' ? 'PDF 生成工具' : 'PDF Producer'}</span>
+                          <span className="mono" style={{ color: '#0B1736' }}>{pf.pdf_metadata.producer}</span>
+                        </>
+                      )}
+                      {pf.pdf_metadata?.title && (
+                        <>
+                          <span style={{ color: '#64748B' }}>{lang === 'zh' ? '内嵌标题' : 'PDF Title'}</span>
+                          <span className="mono" style={{ color: '#0B1736' }}>"{pf.pdf_metadata.title}"</span>
+                        </>
+                      )}
+                      {pf.text_density && (
+                        <>
+                          <span style={{ color: '#64748B' }}>{lang === 'zh' ? '文字密度' : 'Text density'}</span>
+                          <span className="mono" style={{ color: pf.text_density.is_likely_image_pdf ? '#B91C1C' : '#0B1736', fontWeight: pf.text_density.is_likely_image_pdf ? 700 : 400 }}>
+                            {pf.text_density.chars_per_page} {lang === 'zh' ? '字符/页' : 'chars/page'} {pf.text_density.is_likely_image_pdf && (lang === 'zh' ? '(图片型 PDF)' : '(image-only PDF)')}
+                          </span>
+                        </>
+                      )}
+                      {pf.paystub_math?.ytd_ratio && pf.paystub_math.expected_ytd_gross && (
+                        <>
+                          <span style={{ color: '#64748B' }}>{lang === 'zh' ? 'YTD 比例' : 'YTD ratio'}</span>
+                          <span className="mono" style={{ color: pf.paystub_math.ytd_ratio > 1.5 || pf.paystub_math.ytd_ratio < 0.5 ? '#B91C1C' : '#0B1736', fontWeight: 600 }}>
+                            {pf.paystub_math.ytd_ratio.toFixed(2)}× {lang === 'zh' ? '预期' : 'expected'} (${Math.round(pf.paystub_math.expected_ytd_gross).toLocaleString()})
+                          </span>
+                        </>
+                      )}
+                      {pf.source_specific?.matched_bank && (
+                        <>
+                          <span style={{ color: '#64748B' }}>{lang === 'zh' ? '识别银行' : 'Bank match'}</span>
+                          <span className="mono" style={{ color: pf.source_specific.bank_producer_whitelisted ? '#15803D' : '#B91C1C' }}>
+                            {pf.source_specific.matched_bank} {pf.source_specific.bank_producer_whitelisted ? '✓' : '✗ ' + (lang === 'zh' ? '工具不匹配' : 'producer mismatch')}
+                          </span>
+                        </>
+                      )}
+                      {pf.source_specific?.equifax_authentic_markers !== null && pf.source_specific?.equifax_authentic_markers !== undefined && (
+                        <>
+                          <span style={{ color: '#64748B' }}>{lang === 'zh' ? 'Equifax 标记' : 'Equifax markers'}</span>
+                          <span className="mono" style={{ color: pf.source_specific.equifax_authentic_markers ? '#15803D' : '#B91C1C' }}>
+                            {pf.source_specific.equifax_authentic_markers ? (lang === 'zh' ? '✓ 找到' : '✓ Found') : (lang === 'zh' ? '✗ 未找到' : '✗ Missing')}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Per-file flags */}
+                  {pf.flags.map((f, j) => {
+                    const badge = flagSevBadge(f.severity)
+                    return (
+                      <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 0', borderTop: j === 0 ? 'none' : '1px dashed rgba(15, 23, 42, 0.08)' }}>
+                        <span className="mono" style={{ fontSize: 9, padding: '2px 6px', borderRadius: 3, background: badge.bg, color: badge.text, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          {sevLabel(f.severity)}
+                        </span>
+                        <div style={{ flex: 1 }}>
+                          <div className="mono" style={{ fontSize: 10, color: '#64748B', marginBottom: 3 }}>{f.code}</div>
+                          <div style={{ fontSize: 11.5, color: '#0B1736', lineHeight: 1.5 }}>
+                            {lang === 'zh' ? f.evidence_zh : f.evidence_en}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+
+              {/* Cross-document flags */}
+              {report.cross_doc_flags.length > 0 && (
+                <div style={{ padding: 12, borderRadius: 10, background: 'rgba(220, 38, 38, 0.05)', border: '1px solid rgba(220, 38, 38, 0.20)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#B91C1C', marginBottom: 8 }}>
+                    {lang === 'zh' ? '跨文档检查' : 'Cross-document checks'}
+                  </div>
+                  {report.cross_doc_flags.map((f, j) => {
+                    const badge = flagSevBadge(f.severity)
+                    return (
+                      <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 0', borderTop: j === 0 ? 'none' : '1px dashed rgba(15, 23, 42, 0.08)' }}>
+                        <span className="mono" style={{ fontSize: 9, padding: '2px 6px', borderRadius: 3, background: badge.bg, color: badge.text, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          {sevLabel(f.severity)}
+                        </span>
+                        <div style={{ flex: 1 }}>
+                          <div className="mono" style={{ fontSize: 10, color: '#64748B', marginBottom: 3 }}>{f.code}</div>
+                          <div style={{ fontSize: 11.5, color: '#0B1736', lineHeight: 1.5 }}>
+                            {lang === 'zh' ? f.evidence_zh : f.evidence_en}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -1479,6 +1721,11 @@ export default function ScreenPage() {
                 )
               })}
             </div>
+
+            {/* Document Forensics — deterministic forgery detection */}
+            {result.forensics_detail && (
+              <ForensicsCard report={result.forensics_detail} />
+            )}
 
             {/* Court Records */}
             {(() => {
