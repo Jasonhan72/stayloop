@@ -671,6 +671,101 @@ JSON DISCIPLINE (avoid parse errors):
       return NextResponse.json({ error: 'Missing v3 scores', raw: text }, { status: 500 })
     }
 
+    // ---- Stage 3.5: Forensics-driven dimension zeroing ----------------
+    // If a critical/high forensics flag confirms a specific evidence file is
+    // FORGED, zero the corresponding dimension score outright. Penalties and
+    // hard gates alone are not enough: a fabricated credit report should
+    // produce credit_health=0 with an explicit reason, not credit_health=70
+    // softened by a penalty. The dimension's details_en/zh string is replaced
+    // with a clear explanation that the underlying evidence was rejected.
+
+    // Codes that, even at "high" (not "critical") severity, indicate the
+    // file itself is a forgery (vs. just being suspicious / low-quality).
+    const FORGERY_INDICATING_CODES = new Set([
+      'pdf_pure_image',                    // image-only PDF for a strict kind
+      'pdf_title_indicates_image',         // title literally says PNG/screenshot
+      'pdf_producer_consumer_tool',        // Photoshop / Word / Canva / Image2PDF
+      'paystub_ytd_inflated',              // YTD math impossible (>1.5x or <0.5x)
+      'paystub_period_math_error',         // hourly × hours ≠ stated gross
+      'credit_report_no_equifax_markers',  // claims to be Equifax, no markers
+      'bank_producer_mismatch',            // bank text but wrong PDF Producer
+    ])
+
+    // file_kind → list of v3 dimensions to zero when that file is forged
+    const KIND_TO_ZERO_DIMS: Record<string, Array<keyof V3Scores>> = {
+      credit_report:     ['credit_health'],
+      bank_statement:    ['ability_to_pay'],
+      pay_stub:          ['ability_to_pay'],
+      employment_letter: ['verification'],
+      offer_letter:      ['ability_to_pay'],
+      id_document:       ['verification'],
+    }
+    const KIND_LABEL_ZH: Record<string, string> = {
+      credit_report:     '信用报告',
+      bank_statement:    '银行流水',
+      pay_stub:          '工资单',
+      employment_letter: '雇主信',
+      offer_letter:      'Offer / 录用信',
+      id_document:       '身份证件',
+    }
+    const KIND_LABEL_EN: Record<string, string> = {
+      credit_report:     'credit report',
+      bank_statement:    'bank statement',
+      pay_stub:          'pay stub',
+      employment_letter: 'employment letter',
+      offer_letter:      'offer letter',
+      id_document:       'ID document',
+    }
+
+    type DimZeroReason = { en: string; zh: string }
+    const dimZeroReasons: Partial<Record<keyof V3Scores, DimZeroReason>> = {}
+    const sevOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+
+    for (const pf of forensicsReport.per_file) {
+      const isForged = pf.flags.some(f =>
+        f.severity === 'critical' || (f.severity === 'high' && FORGERY_INDICATING_CODES.has(f.code))
+      )
+      if (!isForged) continue
+      const dims = KIND_TO_ZERO_DIMS[pf.file_kind]
+      if (!dims) continue
+      // Pick the most severe flag as the explanation
+      const top = [...pf.flags].sort((a, b) => (sevOrder[a.severity] ?? 9) - (sevOrder[b.severity] ?? 9))[0]
+      const kindEn = KIND_LABEL_EN[pf.file_kind] || pf.file_kind.replace('_', ' ')
+      const kindZh = KIND_LABEL_ZH[pf.file_kind] || pf.file_kind
+      const reason: DimZeroReason = {
+        en: `Score forced to 0: the underlying ${kindEn} (${pf.file_name}) was determined to be forged. ${top.evidence_en}`,
+        zh: `维度被置零：作为依据的${kindZh}文件（${pf.file_name}）被判定为伪造。${top.evidence_zh}`,
+      }
+      for (const dim of dims) {
+        // First reason wins, but if multiple files of the same kind are forged,
+        // append filenames so the user knows the full scope.
+        if (!dimZeroReasons[dim]) {
+          dimZeroReasons[dim] = reason
+        } else {
+          dimZeroReasons[dim] = {
+            en: dimZeroReasons[dim]!.en + ` Additionally, ${pf.file_name} was also flagged.`,
+            zh: dimZeroReasons[dim]!.zh + ` 此外 ${pf.file_name} 也被标记。`,
+          }
+        }
+      }
+    }
+
+    // Apply the zeroing — mutate s and the parsed details so all downstream
+    // logic (baseScore, legacy mapping, DB write, response) sees zeroed values.
+    const detailsEn: Record<string, string> = (parsed.details_en && typeof parsed.details_en === 'object')
+      ? { ...parsed.details_en } : {}
+    const detailsZh: Record<string, string> = (parsed.details_zh && typeof parsed.details_zh === 'object')
+      ? { ...parsed.details_zh } : {}
+    const dimsZeroed: Array<keyof V3Scores> = []
+    for (const [dim, reason] of Object.entries(dimZeroReasons) as Array<[keyof V3Scores, DimZeroReason]>) {
+      s[dim] = 0
+      detailsEn[dim] = reason.en
+      detailsZh[dim] = reason.zh
+      dimsZeroed.push(dim)
+    }
+    parsed.details_en = detailsEn
+    parsed.details_zh = detailsZh
+
     // ---- Stage 4: Apply hard gates + red flag penalties + coverage ----
     const HARD_GATE_CAPS: Record<string, number> = {
       // Existing v3 gates
@@ -839,6 +934,7 @@ JSON DISCIPLINE (avoid parse errors):
         court_records_detail: courtDetail,
         forensics_detail: forensicsReport,
         forensics_penalty: forensicsPenalty,
+        forensics_zeroed_dims: dimsZeroed,
         extracted_name: finalExtractedName,
         legacy_scores: legacy,
       },
@@ -927,6 +1023,7 @@ JSON DISCIPLINE (avoid parse errors):
       court_records_detail: courtDetail,
       forensics_detail: forensicsReport,
       forensics_penalty: forensicsPenalty,
+      forensics_zeroed_dims: dimsZeroed,
     })
   } catch (e: any) {
     console.error('[screen-score] uncaught:', e)

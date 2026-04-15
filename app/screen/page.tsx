@@ -153,6 +153,9 @@ interface ScoreResult {
     all_flags: Array<{ code: string; severity: 'critical' | 'high' | 'medium' | 'low'; evidence_en: string; evidence_zh: string; file?: string }>
   } | null
   forensics_penalty?: number
+  // Dimensions force-zeroed because the underlying evidence file was
+  // determined to be forged (e.g. credit_report → credit_health).
+  forensics_zeroed_dims?: string[]
 }
 
 // ───────────────────────────────────────────────────── Constants ──
@@ -247,23 +250,35 @@ function ScoreRing({ score, size = 140, strokeWidth = 10 }: { score: number; siz
   )
 }
 
-function CategoryBar({ category, score, animDelay = 0, tier, shortNote, detail }: {
+function CategoryBar({ category, score, animDelay = 0, tier, shortNote, detail, zeroed = false }: {
   category: typeof CATEGORIES[number]
   score: number
   animDelay?: number
   tier: 'free' | 'pro'
   shortNote?: string
   detail?: string
+  zeroed?: boolean
 }) {
   const { t, lang } = useT()
-  const [open, setOpen] = useState(false)
+  // Open by default when the dimension has been force-zeroed so the user
+  // immediately sees WHY the score is 0.
+  const [open, setOpen] = useState(zeroed)
   const risk = getRiskLevel(score)
   const isCourtRecord = category.id === 'rental_history'
   const primary = lang === 'zh' ? category.zhLabel : category.enLabel
   const secondary = lang === 'zh' ? category.enLabel : category.zhLabel
-  const hasDetail = !!(detail || shortNote)
+  const hasDetail = !!(detail || shortNote || zeroed)
+  // When zeroed, override the entire bar palette to the high-risk red
+  const barColor = zeroed ? '#DC2626' : risk.color
   return (
-    <div style={{ marginBottom: 12, borderRadius: 10, border: open ? '1px solid #E4E8F0' : '1px solid transparent', background: open ? 'rgba(11, 23, 54, 0.03)' : 'transparent', transition: 'all 0.2s', padding: open ? 12 : 0 }}>
+    <div style={{
+      marginBottom: 12,
+      borderRadius: 10,
+      border: zeroed ? '1px solid rgba(220, 38, 38, 0.40)' : (open ? '1px solid #E4E8F0' : '1px solid transparent'),
+      background: zeroed ? 'rgba(220, 38, 38, 0.04)' : (open ? 'rgba(11, 23, 54, 0.03)' : 'transparent'),
+      transition: 'all 0.2s',
+      padding: open || zeroed ? 12 : 0,
+    }}>
       <button
         type="button"
         onClick={() => hasDetail && setOpen(o => !o)}
@@ -277,33 +292,67 @@ function CategoryBar({ category, score, animDelay = 0, tier, shortNote, detail }
             <span className="sl-cat-secondary" style={{ fontWeight: 500, color: '#64748B' }}>{secondary}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {isCourtRecord && (
+            {zeroed && (
+              <span className="mono" style={{
+                fontSize: 9,
+                padding: '2px 7px',
+                borderRadius: 4,
+                background: '#DC2626',
+                color: '#FFF',
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+              }}>
+                {lang === 'zh' ? '伪造证据 · 已置零' : 'Forged · Score 0'}
+              </span>
+            )}
+            {isCourtRecord && !zeroed && (
               <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: tier === 'pro' ? '#8B5CF620' : '#E4E8F0', color: tier === 'pro' ? '#6D28D9' : '#64748B', fontWeight: 600 }}>
                 {tier === 'pro' ? t('screen.tier.pro') : t('screen.tier.freeCanlii')}
               </span>
             )}
-            <span style={{ fontSize: 15, fontWeight: 700, color: risk.color, fontFamily: "'JetBrains Mono', monospace" }}>{score}</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: barColor, fontFamily: "'JetBrains Mono', monospace" }}>{score}</span>
             {hasDetail && (
               <span className="mono" style={{ fontSize: 10, color: '#64748B', width: 14, textAlign: 'center', transition: 'transform 0.2s', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0)' }}>▸</span>
             )}
           </div>
         </div>
         <div style={{ height: 6, borderRadius: 3, background: 'rgba(11, 23, 54, 0.06)', overflow: 'hidden' }}>
-          <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${risk.color}88, ${risk.color})`, width: `${score}%`, transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)', transitionDelay: `${animDelay}ms` }} />
+          <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${barColor}88, ${barColor})`, width: `${score}%`, transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)', transitionDelay: `${animDelay}ms` }} />
         </div>
         <p style={{ fontSize: 11, color: '#64748B', marginTop: 4, marginBottom: 0 }}>{t(category.descKey)}</p>
       </button>
       {open && hasDetail && (
         <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed rgba(11, 23, 54, 0.10)' }}>
-          {shortNote && (
+          {zeroed && detail && (
+            <div style={{
+              padding: '10px 12px',
+              background: 'rgba(220, 38, 38, 0.08)',
+              border: '1px solid rgba(220, 38, 38, 0.30)',
+              borderRadius: 8,
+              marginBottom: 12,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 8,
+            }}>
+              <span style={{ fontSize: 14, color: '#B91C1C' }}>⛔</span>
+              <div style={{ flex: 1 }}>
+                <div className="mono" style={{ fontSize: 10.5, color: '#B91C1C', marginBottom: 4, letterSpacing: '0.02em', textTransform: 'uppercase', fontWeight: 700 }}>
+                  {lang === 'zh' ? '为什么本维度为 0' : 'Why this score is 0'}
+                </div>
+                <p style={{ fontSize: 12.5, color: '#7F1D1D', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{detail}</p>
+              </div>
+            </div>
+          )}
+          {!zeroed && shortNote && (
             <div className="mono" style={{ fontSize: 10.5, color: '#64748B', marginBottom: 8, letterSpacing: '0.02em', textTransform: 'uppercase', fontWeight: 600 }}>
               {lang === 'zh' ? '摘要' : 'Summary'}
             </div>
           )}
-          {shortNote && (
+          {!zeroed && shortNote && (
             <p style={{ fontSize: 12.5, color: '#0B1736', lineHeight: 1.6, margin: 0, marginBottom: detail ? 12 : 0 }}>{shortNote}</p>
           )}
-          {detail && (
+          {!zeroed && detail && (
             <>
               <div className="mono" style={{ fontSize: 10.5, color: '#64748B', marginBottom: 8, letterSpacing: '0.02em', textTransform: 'uppercase', fontWeight: 600 }}>
                 {lang === 'zh' ? '证据与详细分析' : 'Evidence & detailed analysis'}
@@ -1981,6 +2030,8 @@ export default function ScreenPage() {
                 // Pull from v3 scores when present; fall back to 0 for
                 // historical screenings that never ran under v3.
                 const v3Score = result.scores_v3?.[cat.id]
+                const isZeroed = Array.isArray(result.forensics_zeroed_dims)
+                  && result.forensics_zeroed_dims.includes(cat.id)
                 return (
                   <CategoryBar
                     key={cat.id}
@@ -1990,6 +2041,7 @@ export default function ScreenPage() {
                     tier={result.tier}
                     shortNote={(result.notes as any)?.[cat.id]}
                     detail={(details as any)?.[cat.id]}
+                    zeroed={isZeroed}
                   />
                 )
               })}
