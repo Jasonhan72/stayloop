@@ -279,7 +279,7 @@ function CategoryBar({ category, score, animDelay = 0, tier, shortNote, detail }
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {isCourtRecord && (
               <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: tier === 'pro' ? '#8B5CF620' : '#E4E8F0', color: tier === 'pro' ? '#6D28D9' : '#64748B', fontWeight: 600 }}>
-                {tier === 'pro' ? 'PRO' : 'FREE · CanLII'}
+                {tier === 'pro' ? t('screen.tier.pro') : t('screen.tier.freeCanlii')}
               </span>
             )}
             <span style={{ fontSize: 15, fontWeight: 700, color: risk.color, fontFamily: "'JetBrains Mono', monospace" }}>{score}</span>
@@ -643,7 +643,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
                         {getSeverityLabel(q.severity)}
                       </span>
                       <span style={{ fontSize: 10, fontWeight: 600, color: sevColor.bg }}>
-                        {q.hits} hit(s)
+                        {q.hits} {t('screen.result.court.hitsLabel')}
                       </span>
                       <span style={{ fontSize: 12, color: sevColor.bg }}>
                         {isExpanded ? '▼' : '▶'}
@@ -1693,7 +1693,7 @@ export default function ScreenPage() {
                 <input
                   type="number"
                   className="input"
-                  placeholder="e.g. 2500"
+                  placeholder={t('screen.form.rent.placeholder')}
                   value={targetRent}
                   onChange={e => setTargetRent(e.target.value)}
                 />
@@ -1801,7 +1801,7 @@ export default function ScreenPage() {
                             lineHeight: 1,
                             minHeight: 18,
                           }}
-                          aria-label={`${count} file${count === 1 ? '' : 's'} uploaded`}
+                          aria-label={`${count} ${t('screen.upload.filesUploaded')}`}
                         >
                           <span style={{ fontSize: 9 }}>✓</span>
                           <span>{count}</span>
@@ -1893,7 +1893,7 @@ export default function ScreenPage() {
             <div className="card-hero sl-card-overall" style={{ textAlign: 'center', marginBottom: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 8, alignItems: 'center' }}>
                 <span className="mono" style={{ fontSize: 10.5, color: 'var(--text-muted)', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 600 }}>{t('screen.result.headline')}</span>
-                <span className={result.tier === 'pro' ? 'chip chip-pro' : 'chip'} style={{ padding: '2px 8px', fontSize: 9.5 }}>{result.tier === 'pro' ? 'PRO' : 'FREE'}</span>
+                <span className={result.tier === 'pro' ? 'chip chip-pro' : 'chip'} style={{ padding: '2px 8px', fontSize: 9.5 }}>{result.tier === 'pro' ? t('screen.tier.pro') : t('screen.tier.free')}</span>
               </div>
               <div className="sl-extracted-name" style={{ fontWeight: 700, marginBottom: 4, letterSpacing: '-0.015em' }}>{result.extracted_name || applicantName || '—'}</div>
               {result.name_was_extracted
@@ -2129,8 +2129,8 @@ export default function ScreenPage() {
 
             {/* Footer */}
             <div style={{ textAlign: 'center', padding: '16px', fontSize: 11, color: '#475569', borderTop: '1px solid #1e293b' }}>
-              Stayloop Screening v1.1 · {result.tier === 'pro' ? 'Pro' : 'Free'} · {new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}<br />
-              CanLII (canlii.org){result.tier === 'pro' ? ' + Ontario Courts Portal' : ''}<br />
+              Stayloop Screening v1.1 · {result.tier === 'pro' ? t('screen.tier.proLong') : t('screen.tier.freeLong')} · {new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}<br />
+              {t('screen.result.footer.dataSource')}{result.tier === 'pro' ? t('screen.result.footer.dataSourcePro') : ''}<br />
               {t('screen.result.footer.notice')}
             </div>
           </div>
