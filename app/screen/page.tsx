@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser, useAnonTrialCheck } from '@/lib/useUser'
@@ -734,6 +734,9 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
 function AuthenticityCard({ result }: { result: ScoreResult }) {
   const { t, lang } = useT()
   const [open, setOpen] = useState(false)
+  // Per-sub-row expanded state, keyed by covKey so each row is independent
+  const [openRows, setOpenRows] = useState<Record<string, boolean>>({})
+  const toggleRow = (key: string) => setOpenRows(s => ({ ...s, [key]: !s[key] }))
 
   // Headline score: verification dim is our best proxy for "did these docs check out"
   const verificationScore = result.scores_v3?.verification
@@ -789,17 +792,284 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
   }
   const covLabel = (c: string) => t(`screen.result.authenticity.cov.${c}` as DictKey)
 
-  const SubRow = ({ label, covKey, scoreVal, desc }: { label: string; covKey: string; scoreVal?: number | null; desc?: string }) => {
-    const c = cov(covKey)
+  // Forensics data — drives the expanded detail content for each sub-row.
+  const forensics = result.forensics_detail
+  const perFile = forensics?.per_file || []
+  const crossDocFlags = forensics?.cross_doc_flags || []
+
+  // Identity-related cross-doc flag codes (used by 身份交叉核验 detail)
+  const ID_FLAG_CODES = new Set(['cross_doc_phone_collision', 'name_spelling_variation', 'area_code_geographic_mismatch'])
+  // Employer-related per-file flag codes (used by 雇主核实 detail)
+  const EMPLOYER_FILE_KINDS = new Set(['pay_stub', 'employment_letter', 'offer_letter'])
+  const EMPLOYER_FLAG_CODES = new Set([
+    'paystub_ytd_inflated', 'paystub_ytd_undershoot', 'paystub_period_math_error', 'paystub_net_inconsistent',
+    'paystub_unknown_payroll_system', 'pdf_producer_consumer_tool', 'pdf_title_indicates_image',
+    'pdf_pure_image', 'pdf_low_text_density', 'pdf_metadata_stripped',
+  ])
+  const idCrossFlags = crossDocFlags.filter(f => ID_FLAG_CODES.has(f.code))
+  const employerCrossFlags = crossDocFlags.filter(f => f.code === 'cross_doc_phone_collision' || f.code === 'deposits_too_clean')
+  const employerPerFile = perFile.filter(pf => EMPLOYER_FILE_KINDS.has(pf.file_kind))
+
+  // Severity badge styles (shared with the detailed file rows)
+  const flagSevBadge = (sev: string): { bg: string; text: string } => {
+    switch (sev) {
+      case 'critical': return { bg: '#DC2626', text: '#FFF' }
+      case 'high':     return { bg: '#EA580C', text: '#FFF' }
+      case 'medium':   return { bg: '#D97706', text: '#FFF' }
+      default:         return { bg: '#94A3B8', text: '#FFF' }
+    }
+  }
+  const sevLabel = (sev: string): string => {
+    if (lang === 'zh') return ({ critical: '严重', high: '高', medium: '中', low: '低' } as Record<string, string>)[sev] || sev
+    return sev.toUpperCase()
+  }
+
+  // Reusable flag-row renderer
+  const FlagLine = ({ flag }: { flag: { code: string; severity: string; evidence_en: string; evidence_zh: string } }) => {
+    const badge = flagSevBadge(flag.severity)
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'rgba(11, 23, 54, 0.04)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: covColor(c), flexShrink: 0 }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0B1736' }}>{label}</div>
-          <div style={{ fontSize: 10.5, color: '#64748B', marginTop: 1 }}>{desc || covLabel(c)}</div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 0', borderTop: '1px dashed rgba(15, 23, 42, 0.08)' }}>
+        <span className="mono" style={{ fontSize: 9, padding: '2px 6px', borderRadius: 3, background: badge.bg, color: badge.text, fontWeight: 700, whiteSpace: 'nowrap' }}>
+          {sevLabel(flag.severity)}
+        </span>
+        <div style={{ flex: 1 }}>
+          <div className="mono" style={{ fontSize: 10, color: '#64748B', marginBottom: 3 }}>{flag.code}</div>
+          <div style={{ fontSize: 11.5, color: '#0B1736', lineHeight: 1.5 }}>
+            {lang === 'zh' ? flag.evidence_zh : flag.evidence_en}
+          </div>
         </div>
-        {typeof scoreVal === 'number' && (
-          <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: covColor(c) }}>{scoreVal}/100</span>
+      </div>
+    )
+  }
+
+  // ── Detail builders ─────────────────────────────────────────────
+  // Each builds the "expanded body" content for a given sub-row.
+
+  const renderDocCheckDetail = () => {
+    if (!forensics) {
+      return (
+        <div style={{ fontSize: 11.5, color: '#64748B', fontStyle: 'italic', padding: '6px 2px' }}>
+          {lang === 'zh' ? '本次未上传可分析的 PDF/图片文件。' : 'No analyzable PDF/image files were uploaded.'}
+        </div>
+      )
+    }
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {perFile.map((pf, i) => (
+          <div key={i} style={{ padding: 10, borderRadius: 8, background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(15, 23, 42, 0.08)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 6 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#0B1736', wordBreak: 'break-all' }}>{pf.file_name}</div>
+                <div style={{ fontSize: 10.5, color: '#64748B', marginTop: 1 }}>
+                  {pf.file_kind}
+                  {pf.pdf_metadata && ` · ${pf.pdf_metadata.page_count}p · ${Math.round(pf.pdf_metadata.file_size_bytes / 1024)}KB`}
+                </div>
+              </div>
+              {pf.flags.length === 0 && (
+                <span style={{ fontSize: 10, color: '#15803D', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  {lang === 'zh' ? '✓ 无异常' : '✓ Clean'}
+                </span>
+              )}
+            </div>
+            {(pf.pdf_metadata?.producer || pf.pdf_metadata?.title || pf.text_density || pf.source_specific?.matched_bank || pf.source_specific?.equifax_authentic_markers !== undefined) && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '3px 10px', fontSize: 10.5, padding: 7, background: 'rgba(15, 23, 42, 0.03)', borderRadius: 5 }}>
+                {pf.pdf_metadata?.producer && (
+                  <>
+                    <span style={{ color: '#64748B' }}>{lang === 'zh' ? 'PDF 生成工具' : 'Producer'}</span>
+                    <span className="mono" style={{ color: '#0B1736', wordBreak: 'break-all' }}>{pf.pdf_metadata.producer}</span>
+                  </>
+                )}
+                {pf.pdf_metadata?.title && (
+                  <>
+                    <span style={{ color: '#64748B' }}>{lang === 'zh' ? '内嵌标题' : 'Title'}</span>
+                    <span className="mono" style={{ color: '#0B1736', wordBreak: 'break-all' }}>"{pf.pdf_metadata.title}"</span>
+                  </>
+                )}
+                {pf.text_density && (
+                  <>
+                    <span style={{ color: '#64748B' }}>{lang === 'zh' ? '文字密度' : 'Text density'}</span>
+                    <span className="mono" style={{ color: pf.text_density.is_likely_image_pdf ? '#B91C1C' : '#0B1736', fontWeight: pf.text_density.is_likely_image_pdf ? 700 : 400 }}>
+                      {pf.text_density.chars_per_page} {lang === 'zh' ? '字符/页' : 'chars/page'}{pf.text_density.is_likely_image_pdf && (lang === 'zh' ? ' (图片型 PDF)' : ' (image-only)')}
+                    </span>
+                  </>
+                )}
+                {pf.source_specific?.matched_bank && (
+                  <>
+                    <span style={{ color: '#64748B' }}>{lang === 'zh' ? '识别银行' : 'Bank'}</span>
+                    <span className="mono" style={{ color: pf.source_specific.bank_producer_whitelisted ? '#15803D' : '#B91C1C' }}>
+                      {pf.source_specific.matched_bank} {pf.source_specific.bank_producer_whitelisted ? '✓' : '✗ ' + (lang === 'zh' ? '工具不匹配' : 'producer mismatch')}
+                    </span>
+                  </>
+                )}
+                {pf.source_specific?.equifax_authentic_markers !== null && pf.source_specific?.equifax_authentic_markers !== undefined && (
+                  <>
+                    <span style={{ color: '#64748B' }}>{lang === 'zh' ? 'Equifax 标记' : 'Equifax markers'}</span>
+                    <span className="mono" style={{ color: pf.source_specific.equifax_authentic_markers ? '#15803D' : '#B91C1C' }}>
+                      {pf.source_specific.equifax_authentic_markers ? (lang === 'zh' ? '✓ 找到' : '✓ Found') : (lang === 'zh' ? '✗ 未找到' : '✗ Missing')}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+            {pf.flags.map((f, j) => <FlagLine key={j} flag={f} />)}
+          </div>
+        ))}
+        {perFile.length === 0 && (
+          <div style={{ fontSize: 11.5, color: '#64748B', fontStyle: 'italic' }}>
+            {lang === 'zh' ? '无 PDF/图片型文件可分析。' : 'No PDF/image files to analyze.'}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderIdMatchDetail = () => {
+    const c = cov('identity_match')
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ padding: 10, borderRadius: 8, background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(15, 23, 42, 0.08)' }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#0B1736', marginBottom: 6 }}>
+            {lang === 'zh' ? '比对维度' : 'Matched dimensions'}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: 11 }}>
+            <span style={{ color: '#64748B' }}>{lang === 'zh' ? '姓名' : 'Name'}</span>
+            <span className="mono" style={{ color: '#0B1736' }}>{result.extracted_name || (lang === 'zh' ? '未提供' : 'Not provided')}</span>
+            <span style={{ color: '#64748B' }}>{lang === 'zh' ? '身份匹配评分' : 'Identity match score'}</span>
+            <span className="mono" style={{ color: typeof identityScore === 'number' ? covColor(c) : '#64748B', fontWeight: 700 }}>
+              {typeof identityScore === 'number' ? `${identityScore}/100` : (lang === 'zh' ? '未计算' : 'N/A')}
+            </span>
+            <span style={{ color: '#64748B' }}>{lang === 'zh' ? '证据等级' : 'Evidence level'}</span>
+            <span style={{ color: covColor(c), fontWeight: 600 }}>{covLabel(c)}</span>
+          </div>
+        </div>
+
+        {idCrossFlags.length > 0 ? (
+          <div style={{ padding: 10, borderRadius: 8, background: 'rgba(220, 38, 38, 0.05)', border: '1px solid rgba(220, 38, 38, 0.20)' }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: '#B91C1C', marginBottom: 4 }}>
+              {lang === 'zh' ? '检测到的不一致' : 'Detected inconsistencies'}
+            </div>
+            {idCrossFlags.map((f, i) => <FlagLine key={i} flag={f} />)}
+          </div>
+        ) : (
+          <div style={{ fontSize: 11.5, color: '#15803D', padding: '6px 2px' }}>
+            {lang === 'zh' ? '✓ 各文件中的身份信息（姓名、电话、地区码）一致。' : '✓ Identity fields (name, phone, area code) are consistent across documents.'}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderEmployerCheckDetail = () => {
+    const empFlags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string }> = []
+    employerPerFile.forEach(pf => {
+      pf.flags.forEach(f => {
+        if (EMPLOYER_FLAG_CODES.has(f.code)) empFlags.push(f)
+      })
+    })
+    employerCrossFlags.forEach(f => empFlags.push(f))
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {employerPerFile.length > 0 ? (
+          employerPerFile.map((pf, i) => (
+            <div key={i} style={{ padding: 10, borderRadius: 8, background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(15, 23, 42, 0.08)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#0B1736', marginBottom: 4, wordBreak: 'break-all' }}>{pf.file_name}</div>
+              <div style={{ fontSize: 10.5, color: '#64748B', marginBottom: 6 }}>{pf.file_kind}</div>
+              {pf.paystub_math && (pf.paystub_math.expected_ytd_gross || pf.paystub_math.ytd_ratio || pf.paystub_math.extraction?.annual_salary) && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '3px 10px', fontSize: 10.5, padding: 7, background: 'rgba(15, 23, 42, 0.03)', borderRadius: 5, marginBottom: 6 }}>
+                  {pf.paystub_math.extraction?.annual_salary && (
+                    <>
+                      <span style={{ color: '#64748B' }}>{lang === 'zh' ? '声明年薪' : 'Annual salary'}</span>
+                      <span className="mono" style={{ color: '#0B1736' }}>${pf.paystub_math.extraction.annual_salary.toLocaleString()}</span>
+                    </>
+                  )}
+                  {pf.paystub_math.extraction?.ytd_gross && (
+                    <>
+                      <span style={{ color: '#64748B' }}>{lang === 'zh' ? '声明 YTD' : 'Stated YTD'}</span>
+                      <span className="mono" style={{ color: '#0B1736' }}>${pf.paystub_math.extraction.ytd_gross.toLocaleString()}</span>
+                    </>
+                  )}
+                  {pf.paystub_math.expected_ytd_gross && (
+                    <>
+                      <span style={{ color: '#64748B' }}>{lang === 'zh' ? '预期 YTD' : 'Expected YTD'}</span>
+                      <span className="mono" style={{ color: '#0B1736' }}>${Math.round(pf.paystub_math.expected_ytd_gross).toLocaleString()}</span>
+                    </>
+                  )}
+                  {pf.paystub_math.ytd_ratio && (
+                    <>
+                      <span style={{ color: '#64748B' }}>{lang === 'zh' ? 'YTD 比例' : 'YTD ratio'}</span>
+                      <span className="mono" style={{ color: pf.paystub_math.ytd_ratio > 1.5 || pf.paystub_math.ytd_ratio < 0.5 ? '#B91C1C' : '#15803D', fontWeight: 700 }}>
+                        {pf.paystub_math.ytd_ratio.toFixed(2)}× {lang === 'zh' ? '预期' : 'expected'}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+              {pf.flags.filter(f => EMPLOYER_FLAG_CODES.has(f.code)).map((f, j) => <FlagLine key={j} flag={f} />)}
+              {pf.flags.filter(f => EMPLOYER_FLAG_CODES.has(f.code)).length === 0 && !pf.paystub_math?.expected_ytd_gross && (
+                <div style={{ fontSize: 10.5, color: '#15803D', fontWeight: 600 }}>
+                  {lang === 'zh' ? '✓ 文件结构与雇主声明一致' : '✓ File matches employer claim structure'}
+                </div>
+              )}
+            </div>
+          ))
+        ) : (
+          <div style={{ fontSize: 11.5, color: '#64748B', fontStyle: 'italic', padding: '6px 2px' }}>
+            {lang === 'zh' ? '未上传雇主信 / 工资单 / Offer。' : 'No employment letter, pay stub, or offer letter uploaded.'}
+          </div>
+        )}
+
+        {employerCrossFlags.length > 0 && (
+          <div style={{ padding: 10, borderRadius: 8, background: 'rgba(220, 38, 38, 0.05)', border: '1px solid rgba(220, 38, 38, 0.20)' }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: '#B91C1C', marginBottom: 4 }}>
+              {lang === 'zh' ? '雇主跨文档检测' : 'Employer cross-document checks'}
+            </div>
+            {employerCrossFlags.map((f, i) => <FlagLine key={i} flag={f} />)}
+          </div>
+        )}
+
+        {empFlags.length === 0 && employerPerFile.length > 0 && (
+          <div style={{ fontSize: 11.5, color: '#15803D', padding: '6px 2px' }}>
+            {lang === 'zh' ? '✓ 雇主信息（名称、入职、薪资）在各文件间一致。' : '✓ Employer info (name, start date, salary) is consistent across docs.'}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const SubRow = ({ label, covKey, scoreVal, desc, detail }: {
+    label: string
+    covKey: string
+    scoreVal?: number | null
+    desc?: string
+    detail?: ReactNode
+  }) => {
+    const c = cov(covKey)
+    const rowOpen = !!openRows[covKey]
+    const expandable = !!detail
+    return (
+      <div style={{ background: 'rgba(11, 23, 54, 0.04)', borderRadius: 8, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
+        <button
+          type="button"
+          onClick={() => expandable && toggleRow(covKey)}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'none', border: 'none', textAlign: 'left', cursor: expandable ? 'pointer' : 'default', color: 'inherit' }}
+        >
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: covColor(c), flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0B1736' }}>{label}</div>
+            <div style={{ fontSize: 10.5, color: '#64748B', marginTop: 1 }}>{desc || covLabel(c)}</div>
+          </div>
+          {typeof scoreVal === 'number' && (
+            <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: covColor(c) }}>{scoreVal}/100</span>
+          )}
+          {expandable && (
+            <span style={{ fontSize: 14, color: '#64748B', transition: 'transform 0.2s', transform: rowOpen ? 'rotate(90deg)' : 'none', flexShrink: 0 }}>›</span>
+          )}
+        </button>
+        {expandable && rowOpen && (
+          <div style={{ padding: '12px 12px 14px', borderTop: '1px dashed var(--border-subtle)', background: 'rgba(255,255,255,0.35)' }}>
+            {detail}
+          </div>
         )}
       </div>
     )
@@ -837,17 +1107,20 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
               label={t('screen.result.authenticity.docCheck')}
               covKey="doc_authenticity"
               desc={t('screen.result.authenticity.docCheck.desc' as DictKey)}
+              detail={renderDocCheckDetail()}
             />
             <SubRow
               label={t('screen.result.authenticity.idMatch')}
               covKey="identity_match"
               scoreVal={identityScore}
               desc={t('screen.result.authenticity.idMatch.desc' as DictKey)}
+              detail={renderIdMatchDetail()}
             />
             <SubRow
               label={t('screen.result.authenticity.employerCheck')}
               covKey="employer_verify"
               desc={t('screen.result.authenticity.employerCheck.desc' as DictKey)}
+              detail={renderEmployerCheckDetail()}
             />
           </div>
 
