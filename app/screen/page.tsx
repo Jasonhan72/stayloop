@@ -1425,53 +1425,93 @@ export default function ScreenPage() {
 
   const fileKey = (f: { name: string; size: number }) => `${f.name}__${f.size}`
 
-  const classifyNewFiles = useCallback(async (toClassify: File[]) => {
-    try {
-      setClassifying(true)
-      setClassifyError(null)
-      const form = new FormData()
-      for (const f of toClassify) form.append('files', f, f.name)
-      const res = await fetch('/api/classify-files', { method: 'POST', body: form })
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => '')
-        console.error('[classify-files] HTTP', res.status, errBody)
-        setClassifyError(`Classification failed (${res.status}). ${errBody.slice(0, 500)}`)
-        return
-      }
-      const data = await res.json() as {
-        classifications?: { index: number; kinds: string[] }[]
-        applicant_name?: string | null
-        monthly_rent?: number | null
-        error?: string
-      }
-      if (data.error) {
-        console.error('[classify-files] API error:', data.error)
-        setClassifyError(data.error)
-        return
-      }
-      const map: Record<string, string[]> = {}
-      for (const c of data.classifications || []) {
-        const f = toClassify[c.index]
-        if (f) map[fileKey(f)] = Array.isArray(c.kinds) ? c.kinds : []
-      }
-      setFileKinds(prev => ({ ...prev, ...map }))
+  // Send files in small batches (3 per request) so the edge function
+  // doesn't choke on a single massive FormData upload. Batches run in
+  // parallel; partial failures don't block the rest.
+  const CLASSIFY_BATCH_SIZE = 3
 
-      // Backfill applicant name + target rent if Claude found them
-      // in the uploaded documents (typically in the application form)
-      // AND the user hasn't already typed something. We never overwrite
-      // user input.
-      if (data.applicant_name) {
-        setApplicantName(prev => (prev && prev.trim() ? prev : data.applicant_name!))
-      }
-      if (typeof data.monthly_rent === 'number' && data.monthly_rent > 0) {
-        setTargetRent(prev => (prev && prev.trim() ? prev : String(data.monthly_rent)))
-      }
-    } catch (err) {
-      console.error('[classify-files] exception:', err)
-      setClassifyError(lang === 'zh' ? '文件分类请求失败，请重试' : 'File classification request failed — please retry')
-    } finally {
-      setClassifying(false)
+  const classifyNewFiles = useCallback(async (toClassify: File[]) => {
+    setClassifying(true)
+    setClassifyError(null)
+
+    // Split into small batches
+    const batches: File[][] = []
+    for (let i = 0; i < toClassify.length; i += CLASSIFY_BATCH_SIZE) {
+      batches.push(toClassify.slice(i, i + CLASSIFY_BATCH_SIZE))
     }
+
+    type BatchResult = {
+      classifications?: { index: number; kinds: string[]; name?: string }[]
+      applicant_name?: string | null
+      monthly_rent?: number | null
+      error?: string
+    }
+
+    let failCount = 0
+
+    const batchResults = await Promise.allSettled(
+      batches.map(async (batch): Promise<BatchResult> => {
+        const form = new FormData()
+        for (const f of batch) form.append('files', f, f.name)
+        const res = await fetch('/api/classify-files', { method: 'POST', body: form })
+        if (!res.ok) {
+          const errBody = await res.text().catch(() => '')
+          throw new Error(`HTTP ${res.status}: ${errBody.slice(0, 200)}`)
+        }
+        const data = await res.json() as BatchResult
+        if (data.error) throw new Error(data.error)
+        return data
+      })
+    )
+
+    // Merge results across all batches
+    const kindsMap: Record<string, string[]> = {}
+    let foundName: string | null = null
+    let foundRent: number | null = null
+
+    for (let bi = 0; bi < batches.length; bi++) {
+      const batch = batches[bi]
+      const result = batchResults[bi]
+
+      if (result.status === 'fulfilled') {
+        const data = result.value
+        for (const c of data.classifications || []) {
+          const f = batch[c.index]
+          if (f) kindsMap[fileKey(f)] = Array.isArray(c.kinds) ? c.kinds : []
+        }
+        if (!foundName && data.applicant_name) foundName = data.applicant_name
+        if (foundRent === null && typeof data.monthly_rent === 'number' && data.monthly_rent > 0) {
+          foundRent = data.monthly_rent
+        }
+      } else {
+        failCount++
+        console.error(`[classify-files] batch ${bi} failed:`, result.reason?.message || result.reason)
+        // Still populate empty kinds so filename heuristic takes over
+        for (const f of batch) kindsMap[fileKey(f)] = []
+      }
+    }
+
+    // Apply merged results
+    if (Object.keys(kindsMap).length > 0) {
+      setFileKinds(prev => ({ ...prev, ...kindsMap }))
+    }
+    if (foundName) {
+      setApplicantName(prev => (prev && prev.trim() ? prev : foundName!))
+    }
+    if (typeof foundRent === 'number' && foundRent > 0) {
+      setTargetRent(prev => (prev && prev.trim() ? prev : String(foundRent)))
+    }
+
+    // Only show error if ALL batches failed
+    if (failCount > 0 && failCount === batches.length) {
+      setClassifyError(lang === 'zh' ? '文件分类请求失败，请重试' : 'File classification request failed — please retry')
+    } else if (failCount > 0) {
+      // Partial failure — some files classified, some fell back to heuristic.
+      // Not a blocking error; just log it.
+      console.warn(`[classify-files] ${failCount}/${batches.length} batches failed, using filename heuristic for those files`)
+    }
+
+    setClassifying(false)
   }, [lang])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
