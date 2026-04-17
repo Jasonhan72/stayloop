@@ -11,9 +11,9 @@ export const DICT = {
   'nav.signin': { en: 'Sign in', zh: '登录' },
   'nav.register': { en: 'Register', zh: '注册' },
   'nav.profile': { en: 'Account settings', zh: '账户设置' },
-  'nav.screenings': { en: 'Screenings', zh: '背调' },
+  'nav.screenings': { en: 'Screenings', zh: '租客筛查' },
   'nav.signOut': { en: 'Sign out', zh: '退出登录' },
-  'nav.newScreening': { en: 'New screening', zh: '新建背调' },
+  'nav.newScreening': { en: 'New screening', zh: '新建租客筛查' },
   'nav.getStarted': { en: 'Get started →', zh: '开始使用 →' },
   'nav.dashboard': { en: 'Dashboard →', zh: '控制台 →' },
   'nav.back': { en: '← stayloop.ai', zh: '← stayloop.ai' },
@@ -128,7 +128,7 @@ export const DICT = {
   'mk.nav.pricing': { en: 'Pricing', zh: '定价' },
   'mk.nav.signin': { en: 'Sign in', zh: '登录' },
   'mk.nav.register': { en: 'Register', zh: '注册' },
-  'mk.nav.getStarted': { en: 'Start a screening', zh: '开始背调' },
+  'mk.nav.getStarted': { en: 'Start a screening', zh: '开始租客筛查' },
 
   // Hero
   'mk.hero.eyebrow': { en: 'Ontario · A trust operating system for rentals · PIPEDA compliant', zh: '安省 · 租赁市场的信任操作系统 · 符合 PIPEDA' },
@@ -138,7 +138,7 @@ export const DICT = {
     en: 'Marketplace \u00b7 Risk engine \u00b7 Payments \u00b7 Service network — four modules, one platform. Replace lease risk with financial certainty. Live now: cited risk report in 60 s.',
     zh: '房源市场 · 风控引擎 · 支付与信用 · 服务网络 —— 四大模块，同一平台。用金融确定性取代租赁风险。已上线：60 秒出具可引用的风险报告。',
   },
-  'mk.hero.ctaPrimary': { en: 'Start a screening', zh: '开始背调' },
+  'mk.hero.ctaPrimary': { en: 'Start a screening', zh: '开始租客筛查' },
   'mk.hero.ctaTenant': { en: 'For tenants', zh: '租客入口' },
   'mk.hero.trust1': { en: 'No credit card required', zh: '无需信用卡' },
   'mk.hero.trust2': { en: 'PIPEDA compliant', zh: '符合 PIPEDA' },
@@ -180,7 +180,7 @@ export const DICT = {
   'mk.dual.landlord.b1': { en: 'Hybrid risk engine: Open Banking cash-flow analysis + AI document forensics', zh: '双轨风控引擎：Open Banking 现金流分析 + AI 文件鉴伪' },
   'mk.dual.landlord.b2': { en: 'Verified marketplace, smart lease generator and automated rent collection', zh: '可信房源市场、智能租约生成与自动收租' },
   'mk.dual.landlord.b3': { en: 'CommHub evidence trail + one-click LTB evidence dossier', zh: 'CommHub 证据链 + LTB 一键证据卷宗' },
-  'mk.dual.landlord.cta': { en: 'Start a screening', zh: '开始背调' },
+  'mk.dual.landlord.cta': { en: 'Start a screening', zh: '开始租客筛查' },
 
   'mk.dual.tenant.tag': { en: 'TENANTS', zh: '租客' },
   'mk.dual.tenant.title': { en: 'A universal trusted profile you carry with you', zh: '可随身携带的通用可信档案' },
@@ -228,11 +228,11 @@ export const DICT = {
   'mk.screening.f5.desc': { en: 'A verified application flows directly into listings, lease generation and rent operations as those modules come online.', zh: '已核验的申请会直接流转至房源管理、租约生成与租金运营等模块（随对应模块陆续上线）。' },
   'mk.screening.f6.title': { en: 'Bilingual reports', zh: '双语报告' },
   'mk.screening.f6.desc': { en: 'Reports can be viewed in English or Simplified Chinese, switchable with one click.', zh: '报告支持中英双语，一键切换。' },
-  'mk.screening.cta': { en: 'Start a screening', zh: '开始背调' },
+  'mk.screening.cta': { en: 'Start a screening', zh: '开始租客筛查' },
 
   // How it works
   'mk.how.eyebrow': { en: 'PROCESS', zh: '流程' },
-  'mk.how.title': { en: 'How a screening runs', zh: '背调流程' },
+  'mk.how.title': { en: 'How a screening runs', zh: '租客筛查流程' },
   'mk.how.1.n': { en: '01', zh: '01' },
   'mk.how.1.title': { en: 'Submit documents', zh: '提交材料' },
   'mk.how.1.desc': { en: 'Upload pay stubs, bank statements, government ID, references, and self-ordered credit reports. All common formats supported.', zh: '上传工资单、银行流水、政府证件、推荐信和租客自查的信用报告，常见格式均可。' },
@@ -297,11 +297,11 @@ export const DICT = {
   'mk.sec.title': { en: 'Built on trust and data governance', zh: '建立在信任与数据治理之上' },
   'mk.sec.sub': { en: 'Privacy, residency and access controls designed for Canadian rental data.', zh: '面向加拿大租赁数据的隐私、存放地与访问控制。' },
   'mk.sec.1.title': { en: 'PIPEDA compliant', zh: '符合 PIPEDA' },
-  'mk.sec.1.desc': { en: 'Data minimization, purpose limitation and express consent. Storage is scoped per screening and private by default.', zh: '遵循数据最小化、目的限定与明示同意原则；存储按背调隔离，默认私有。' },
+  'mk.sec.1.desc': { en: 'Data minimization, purpose limitation and express consent. Storage is scoped per screening and private by default.', zh: '遵循数据最小化、目的限定与明示同意原则；存储按租客筛查隔离，默认私有。' },
   'mk.sec.2.title': { en: 'Canadian data residency', zh: '数据存放于加拿大' },
   'mk.sec.2.desc': { en: 'Applicant documents and reports are stored in Canadian regions and never transferred outside without express authorization.', zh: '申请人材料与报告均存放在加拿大境内的服务区域，未经明示授权不会转出境外。' },
   'mk.sec.3.title': { en: 'Tenant-controlled deletion', zh: '由用户决定删除' },
-  'mk.sec.3.desc': { en: 'Account holders can delete a screening — and every file attached to it — at any time. Records expire on a defined retention schedule.', zh: '账户持有人可随时删除某次背调及其全部相关文件；记录按既定保留周期自动过期。' },
+  'mk.sec.3.desc': { en: 'Account holders can delete a screening — and every file attached to it — at any time. Records expire on a defined retention schedule.', zh: '账户持有人可随时删除某次租客筛查及其全部相关文件；记录按既定保留周期自动过期。' },
   'mk.sec.4.title': { en: 'No competitor data sharing', zh: '不共享同行数据' },
   'mk.sec.4.desc': { en: 'Stayloop never collects or shares non-public competitor rent data. Pricing decisions stay entirely with the landlord.', zh: 'Stayloop 从不收集、也从不共享非公开的同行租金数据；定价决策完全由房东自主作出。' },
 
@@ -313,7 +313,7 @@ export const DICT = {
   'mk.pricing.free.price': { en: '$0', zh: '$0' },
   'mk.pricing.free.unit': { en: '/ month', zh: '/ 月' },
   'mk.pricing.free.sub': { en: 'For independent landlords with light monthly usage.', zh: '适合每月用量较少的独立房东。' },
-  'mk.pricing.free.f1': { en: '5 screenings per month', zh: '每月 5 次背调' },
+  'mk.pricing.free.f1': { en: '5 screenings per month', zh: '每月 5 次租客筛查' },
   'mk.pricing.free.f2': { en: 'Full Ontario CanLII coverage', zh: '安省 CanLII 全覆盖' },
   'mk.pricing.free.f3': { en: 'Document forensics', zh: '文件鉴伪' },
   'mk.pricing.free.f4': { en: 'Bilingual reports', zh: '中英双语报告' },
@@ -323,7 +323,7 @@ export const DICT = {
   'mk.pricing.pro.price': { en: '$29', zh: '$29' },
   'mk.pricing.pro.unit': { en: '/ month', zh: '/ 月' },
   'mk.pricing.pro.sub': { en: 'For property managers and landlords with multiple units.', zh: '适合多套房源的物业经理与房东。' },
-  'mk.pricing.pro.f1': { en: 'Unlimited screenings', zh: '无限次背调' },
+  'mk.pricing.pro.f1': { en: 'Unlimited screenings', zh: '无限次租客筛查' },
   'mk.pricing.pro.f2': { en: 'Priority court records lookup', zh: '法庭记录优先处理' },
   'mk.pricing.pro.f3': { en: 'Batch reports and team seats', zh: '批量报告与团队席位' },
   'mk.pricing.pro.f4': { en: 'Early access to listings and lease modules', zh: '抢先体验房源与租约模块' },
@@ -335,11 +335,11 @@ export const DICT = {
   'mk.faq.eyebrow': { en: 'FAQ', zh: '常见问题' },
   'mk.faq.title': { en: 'Frequently asked questions', zh: '常见问题' },
   'mk.faq.q1': { en: 'What is included in the Starter plan?', zh: '入门版包含什么？' },
-  'mk.faq.a1': { en: 'Five screenings per month, with dual-track verification, full Ontario CanLII coverage and the complete five-dimension risk report. No credit card required.', zh: '每月 5 次背调，包含双轨核验、安省 CanLII 全覆盖与完整的五维风险报告。无需信用卡。' },
+  'mk.faq.a1': { en: 'Five screenings per month, with dual-track verification, full Ontario CanLII coverage and the complete five-dimension risk report. No credit card required.', zh: '每月 5 次租客筛查，包含双轨核验、安省 CanLII 全覆盖与完整的五维风险报告。无需信用卡。' },
   'mk.faq.q2': { en: 'How does Stayloop differ from RealPage, Yardi or Naborly?', zh: 'Stayloop 与 RealPage、Yardi 或 Naborly 有什么不同？' },
-  'mk.faq.a2': { en: 'Stayloop is a full trust operating system — not just a screening tool. It covers the entire lease cycle from listings and verification through rent collection and LTB evidence, built for independent landlords and small portfolios. It does not collect or share non-public competitor rent data.', zh: 'Stayloop 是一套完整的信任操作系统，而不仅仅是背调工具。它覆盖从房源发布、核验、收租到 LTB 证据的全周期，专为独立房东与中小持有人打造，从不收集或共享非公开的同行租金数据。' },
+  'mk.faq.a2': { en: 'Stayloop is a full trust operating system — not just a screening tool. It covers the entire lease cycle from listings and verification through rent collection and LTB evidence, built for independent landlords and small portfolios. It does not collect or share non-public competitor rent data.', zh: 'Stayloop 是一套完整的信任操作系统，而不仅仅是租客筛查工具。它覆盖从房源发布、核验、收租到 LTB 证据的全周期，专为独立房东与中小持有人打造，从不收集或共享非公开的同行租金数据。' },
   'mk.faq.q3': { en: 'Where is applicant data stored?', zh: '申请人数据存放在哪里？' },
-  'mk.faq.a3': { en: 'All applicant documents and reports are stored in Canadian regions under PIPEDA. Account holders can delete a screening and every attached file at any time.', zh: '所有申请人材料与报告均存放在加拿大境内、遵循 PIPEDA。账户持有人可随时删除某次背调及其全部相关文件。' },
+  'mk.faq.a3': { en: 'All applicant documents and reports are stored in Canadian regions under PIPEDA. Account holders can delete a screening and every attached file at any time.', zh: '所有申请人材料与报告均存放在加拿大境内、遵循 PIPEDA。账户持有人可随时删除某次租客筛查及其全部相关文件。' },
   'mk.faq.q4': { en: 'Who controls the uploaded documents?', zh: '上传的资料由谁掌握？' },
   'mk.faq.a4': { en: 'The account holder. Files are stored in private buckets with row-level security and can be deleted from the account at any time.', zh: '由账户持有人掌握。文件存储在带行级安全的私有空间，可随时从账户中删除。' },
   'mk.faq.q5': { en: 'Is Stayloop available outside Ontario?', zh: 'Stayloop 在安省以外是否可用？' },
@@ -350,7 +350,7 @@ export const DICT = {
   // Final CTA
   'mk.finalcta.title': { en: 'Replace lease risk with financial certainty.', zh: '用金融确定性取代租赁风险。' },
   'mk.finalcta.sub': { en: 'Start with a free applicant risk report — no credit card required.', zh: '从一份免费的申请人风险报告开始 —— 无需信用卡。' },
-  'mk.finalcta.primary': { en: 'Start a screening', zh: '开始背调' },
+  'mk.finalcta.primary': { en: 'Start a screening', zh: '开始租客筛查' },
   'mk.finalcta.secondary': { en: 'View roadmap', zh: '查看路线图' },
 
   // Footer
@@ -754,7 +754,7 @@ export const DICT = {
   // Register page
   'register.badge': { en: '// CREATE ACCOUNT', zh: '// 创建账户' },
   'register.title': { en: 'Join Stayloop', zh: '加入 Stayloop' },
-  'register.sub': { en: 'Create an account to save your screening history and unlock all features.', zh: '创建账户以保存背调记录并解锁全部功能。' },
+  'register.sub': { en: 'Create an account to save your screening history and unlock all features.', zh: '创建账户以保存租客筛查记录并解锁全部功能。' },
   'register.emailLabel': { en: 'Email address', zh: '邮箱地址' },
   'register.passwordLabel': { en: 'Password', zh: '密码' },
   'register.passwordHint': { en: 'At least 6 characters', zh: '至少 6 个字符' },
@@ -807,7 +807,7 @@ export const DICT = {
 
   // Auth gate (anonymous limit)
   'authGate.title': { en: 'Sign up to continue', zh: '注册以继续' },
-  'authGate.desc': { en: "You've used your free trial screening. Create a free account to keep screening.", zh: '您已使用过免费体验背调。创建免费账户以继续使用。' },
+  'authGate.desc': { en: "You've used your free trial screening. Create a free account to keep screening.", zh: '您已使用过免费体验租客筛查。创建免费账户以继续使用。' },
   'authGate.cta': { en: 'Create free account', zh: '免费注册' },
   'authGate.login': { en: 'Already have an account? Sign in', zh: '已有账户？登录' },
 
@@ -880,7 +880,7 @@ export const DICT = {
 
   'acct.notif.title': { en: 'Notifications', zh: '通知偏好' },
   'acct.notif.email': { en: 'Email notifications', zh: '邮件通知' },
-  'acct.notif.emailDesc': { en: 'Receive screening results and account updates by email.', zh: '接收背调结果和账户通知邮件。' },
+  'acct.notif.emailDesc': { en: 'Receive screening results and account updates by email.', zh: '接收租客筛查结果和账户通知邮件。' },
   'acct.notif.marketing': { en: 'Product updates', zh: '产品更新' },
   'acct.notif.marketingDesc': { en: 'Occasional announcements about new features.', zh: '新功能上线的不定期公告。' },
   'acct.notif.comingSoon': { en: 'Preference sync coming soon. Transactional emails always on.', zh: '偏好同步功能即将上线，交易类邮件始终开启。' },
@@ -888,8 +888,8 @@ export const DICT = {
   'acct.langplan.title': { en: 'Languages & plan', zh: '语言与计划' },
   'acct.langplan.language': { en: 'Language', zh: '界面语言' },
   'acct.langplan.plan': { en: 'Current plan', zh: '当前方案' },
-  'acct.langplan.planFreeDesc': { en: '5 screenings per month. Upgrade for unlimited.', zh: '每月 5 次背调。升级解锁无限次使用。' },
-  'acct.langplan.planProDesc': { en: 'Unlimited screenings and priority AI scoring.', zh: '无限次背调与优先 AI 评分。' },
+  'acct.langplan.planFreeDesc': { en: '5 screenings per month. Upgrade for unlimited.', zh: '每月 5 次租客筛查。升级解锁无限次使用。' },
+  'acct.langplan.planProDesc': { en: 'Unlimited screenings and priority AI scoring.', zh: '无限次租客筛查与优先 AI 评分。' },
   'acct.langplan.manage': { en: 'Manage billing', zh: '管理订阅' },
   'acct.langplan.upgrade': { en: 'Upgrade to Pro', zh: '升级到 Pro' },
 
