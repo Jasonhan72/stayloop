@@ -1546,6 +1546,9 @@ export default function ScreenPage() {
 
   async function runAnalysis() {
     if (!landlord) return
+    // Block while classification is still in flight — concurrent classify +
+    // upload requests exhaust the browser connection pool → "Failed to fetch".
+    if (classifying) return
     // Anonymous trial limit: 1 free screening, then must register
     if (landlord.isAnonymous && !anonCanScreen) {
       setShowAuthGate(true)
@@ -2003,15 +2006,17 @@ export default function ScreenPage() {
 
                 <button
                   onClick={runAnalysis}
-                  disabled={files.length === 0 && !applicantName.trim()}
+                  disabled={(files.length === 0 && !applicantName.trim()) || classifying}
                   className="btn btn-primary"
                   style={{
                     width: '100%', padding: '13px 24px', fontSize: 14.5, borderRadius: 12,
-                    opacity: (files.length === 0 && !applicantName.trim()) ? 0.5 : 1,
+                    opacity: ((files.length === 0 && !applicantName.trim()) || classifying) ? 0.5 : 1,
                   }}
                 >
-                  {lang === 'zh' ? '🛡 开始筛查' : '🛡 Start Screening'}
-                  {isPro && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.8 }}>PRO</span>}
+                  {classifying
+                    ? (lang === 'zh' ? '⏳ 正在识别文件…' : '⏳ Classifying files…')
+                    : (lang === 'zh' ? '🛡 开始筛查' : '🛡 Start Screening')}
+                  {!classifying && isPro && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.8 }}>PRO</span>}
                 </button>
 
                 {/* What happens next — compact */}
