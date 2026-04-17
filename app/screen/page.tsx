@@ -34,6 +34,7 @@ interface CanLIIMatch {
   databaseId: string
   databaseName?: string
   caseId: string
+  nameInTitle?: boolean  // true = tenant name found in case title (likely a party)
 }
 
 interface CourtQuery {
@@ -41,6 +42,7 @@ interface CourtQuery {
   tier: 'free' | 'pro'
   status: 'ok' | 'unavailable' | 'skipped' | 'coming_soon'
   hits: number | null
+  partyHits?: number | null  // matches where tenant name is in case title
   url?: string
   note?: string
   severity?: number  // 3=critical, 2=high, 1=medium, 0=no hits
@@ -596,6 +598,64 @@ function ForensicsCard({ report }: { report: NonNullable<ScoreResult['forensics_
   )
 }
 
+function CaseRecordCard({ record, lang, sevColor, isParty }: { record: CanLIIMatch; lang: string; sevColor: { bg: string; light: string; border: string }; isParty: boolean }) {
+  return (
+    <a
+      href={record.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: 'block',
+        textDecoration: 'none',
+        padding: '10px 12px',
+        background: sevColor.light,
+        borderRadius: 6,
+        border: `1px solid ${sevColor.border}`,
+        transition: 'background .15s, border-color .15s',
+        opacity: isParty ? 1 : 0.7,
+      }}
+      title={record.title}
+      onMouseEnter={e => { e.currentTarget.style.background = '#EEF2FF'; e.currentTarget.style.borderColor = '#818CF860'; e.currentTarget.style.opacity = '1' }}
+      onMouseLeave={e => { e.currentTarget.style.background = sevColor.light; e.currentTarget.style.borderColor = sevColor.border; e.currentTarget.style.opacity = isParty ? '1' : '0.7' }}
+    >
+      {/* Row 1: match type badge + DB badge + citation */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+        {isParty ? (
+          <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: '#DC2626', color: '#fff', flexShrink: 0 }}>
+            {lang === 'zh' ? '当事人' : 'PARTY'}
+          </span>
+        ) : (
+          <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 6px', borderRadius: 3, background: '#E2E8F0', color: '#64748B', flexShrink: 0 }}>
+            {lang === 'zh' ? '提及' : 'MENTION'}
+          </span>
+        )}
+        <span style={{
+          fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+          padding: '2px 6px', borderRadius: 3,
+          background: isParty ? sevColor.bg : '#94A3B8', color: '#fff',
+          flexShrink: 0,
+        }}>
+          {record.databaseName || record.databaseId}
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#1E3A5F', fontFamily: "'JetBrains Mono', monospace" }}>
+          {record.citation}
+        </span>
+      </div>
+      {/* Row 2: Case title */}
+      <div style={{
+        fontSize: 12, color: '#334155', lineHeight: 1.4,
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden',
+      }}>
+        {record.title}
+      </div>
+      {/* Row 3: Link hint */}
+      <div style={{ fontSize: 10, color: '#6366F1', marginTop: 4, fontWeight: 500 }}>
+        {lang === 'zh' ? '点击查看 CanLII 全文 ↗' : 'View full text on CanLII ↗'}
+      </div>
+    </a>
+  )
+}
+
 function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummaryEn, courtSummaryZh }: { queries: CourtQuery[]; totalHits: number; queriedName: string; tier: 'free' | 'pro'; courtSummaryEn?: string; courtSummaryZh?: string }) {
   const { t, lang } = useT()
 
@@ -658,40 +718,60 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
       )}
 
       {/* Rollup summary row */}
-      {rollupQuery && (
-        <div style={{
-          marginBottom: 12, padding: '12px 14px', borderRadius: 8, fontSize: 12,
-          background: totalHits > 0 ? '#FEF2F210' : '#F0FDF410',
-          border: `1px solid ${totalHits > 0 ? '#FECACA60' : '#86EFAC40'}`,
-          color: totalHits > 0 ? '#991B1B' : '#15803D',
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          <span style={{ fontSize: 16 }}>{totalHits > 0 ? '⚠️' : '✅'}</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600 }}>
-              {totalHits > 0
-                ? (lang === 'zh' ? `共找到 ${totalHits} 条法院记录` : `${totalHits} court record(s) found`)
-                : (lang === 'zh' ? '未找到法院记录' : 'No court records found')
-              }
-            </div>
-            <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>
-              {rollupQuery.source} · {rollupQuery.note || `${totalHits} total match(es)`}
+      {rollupQuery && (() => {
+        const totalParty = rollupQuery.partyHits ?? 0
+        const totalMention = totalHits - totalParty
+        const hasParty = totalParty > 0
+        // Only alarming if there are actual party matches
+        const isWarning = hasParty
+        return (
+          <div style={{
+            marginBottom: 12, padding: '12px 14px', borderRadius: 8, fontSize: 12,
+            background: isWarning ? '#FEF2F210' : totalHits > 0 ? '#FFFBEB10' : '#F0FDF410',
+            border: `1px solid ${isWarning ? '#FECACA60' : totalHits > 0 ? '#FDE68A60' : '#86EFAC40'}`,
+            color: isWarning ? '#991B1B' : totalHits > 0 ? '#92400E' : '#15803D',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span style={{ fontSize: 16 }}>{isWarning ? '⚠️' : totalHits > 0 ? '🔍' : '✅'}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600 }}>
+                {totalHits === 0
+                  ? (lang === 'zh' ? '未找到法院记录' : 'No court records found')
+                  : hasParty
+                    ? (lang === 'zh'
+                      ? `找到 ${totalParty} 条当事人匹配${totalMention > 0 ? `，${totalMention} 条仅提及` : ''}`
+                      : `${totalParty} party match(es)${totalMention > 0 ? `, ${totalMention} mention(s) only` : ''}`)
+                    : (lang === 'zh'
+                      ? `找到 ${totalMention} 条提及，但未匹配到当事人（可能为同名不同人）`
+                      : `${totalMention} mention(s) found, but name not matched as a party (possible false positives)`)
+                }
+              </div>
+              <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>
+                {rollupQuery.source}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Database sources (scrollable list) */}
       {dbQueries.length > 0 && (
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 11, color: '#64748B', marginBottom: 8, fontWeight: 600 }}>{t('screen.result.court.sources')}</div>
-          <div style={{ maxHeight: '400px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ maxHeight: '500px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {dbQueries.map((q, i) => {
               const isExpanded = expandedRows[i]
               const hasHits = (q.hits ?? 0) > 0
+              const partyCount = q.partyHits ?? 0
+              const mentionCount = (q.hits ?? 0) - partyCount
               const sevColor = hasHits
                 ? getSeverityColor(q.severity)
                 : { bg: '#15803D', light: 'rgba(22, 163, 74, 0.06)', border: 'rgba(22, 163, 74, 0.25)' }
+
+              // Split records into party matches and mention-only
+              const partyRecords = (q.records || []).filter(r => r.nameInTitle)
+              const mentionRecords = (q.records || []).filter(r => !r.nameInTitle)
+
               return (
                 <div key={i}>
                   {/* Database row (clickable to expand when has hits) */}
@@ -718,18 +798,27 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
                     </span>
 
                     {/* Severity label and hit count */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       {hasHits ? (
                         <>
                           <span style={{ fontSize: 10, color: sevColor.bg, fontWeight: 600 }}>
                             {getSeverityLabel(q.severity)}
                           </span>
-                          <span style={{ fontSize: 10, fontWeight: 600, color: sevColor.bg }}>
-                            {q.hits} {t('screen.result.court.hitsLabel')}
-                          </span>
-                          <span style={{ fontSize: 12, color: sevColor.bg }}>
-                            {isExpanded ? '▼' : '▶'}
-                          </span>
+                          {partyCount > 0 && (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: sevColor.bg, padding: '1px 6px', borderRadius: 3, background: `${sevColor.bg}18` }}>
+                              {partyCount} {lang === 'zh' ? '当事人' : 'party'}
+                            </span>
+                          )}
+                          {mentionCount > 0 && (
+                            <span style={{ fontSize: 10, fontWeight: 500, color: '#94A3B8', padding: '1px 6px', borderRadius: 3, background: '#F1F5F9' }}>
+                              {mentionCount} {lang === 'zh' ? '提及' : 'mention'}
+                            </span>
+                          )}
+                          {!hasHits || (partyCount === 0 && mentionCount === 0) ? null : (
+                            <span style={{ fontSize: 12, color: sevColor.bg }}>
+                              {isExpanded ? '▼' : '▶'}
+                            </span>
+                          )}
                         </>
                       ) : (
                         <span style={{ fontSize: 10, fontWeight: 600, color: '#15803D' }}>
@@ -741,53 +830,31 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
 
                   {/* Expanded case records */}
                   {isExpanded && q.records && q.records.length > 0 && (
-                    <div style={{ marginTop: 6, paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                      {q.records.map((record, j) => (
-                        <a
-                          key={j}
-                          href={record.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            display: 'block',
-                            textDecoration: 'none',
-                            padding: '10px 12px',
-                            background: hasHits ? `${sevColor.light}` : '#DBEAFE20',
-                            borderRadius: 6,
-                            border: `1px solid ${hasHits ? sevColor.border : '#DBEAFE60'}`,
-                            transition: 'background .15s, border-color .15s',
-                          }}
-                          title={record.title}
-                          onMouseEnter={e => { e.currentTarget.style.background = '#EEF2FF'; e.currentTarget.style.borderColor = '#818CF860' }}
-                          onMouseLeave={e => { e.currentTarget.style.background = hasHits ? sevColor.light : '#DBEAFE20'; e.currentTarget.style.borderColor = hasHits ? sevColor.border : '#DBEAFE60' }}
-                        >
-                          {/* Row 1: DB badge + citation */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                            <span style={{
-                              fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
-                              padding: '2px 6px', borderRadius: 3,
-                              background: sevColor.bg, color: '#fff',
-                              flexShrink: 0,
-                            }}>
-                              {record.databaseName || record.databaseId}
-                            </span>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: '#1E3A5F', fontFamily: "'JetBrains Mono', monospace" }}>
-                              {record.citation}
-                            </span>
+                    <div style={{ marginTop: 6, paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {/* Party matches (name in title — high relevance) */}
+                      {partyRecords.length > 0 && (
+                        <>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: sevColor.bg, marginTop: 4, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: sevColor.bg }} />
+                            {lang === 'zh' ? `当事人匹配 (${partyRecords.length})` : `Party match (${partyRecords.length})`}
                           </div>
-                          {/* Row 2: Case title */}
-                          <div style={{
-                            fontSize: 12, color: '#334155', lineHeight: 1.4,
-                            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden',
-                          }}>
-                            {record.title}
+                          {partyRecords.map((record, j) => (
+                            <CaseRecordCard key={`party-${j}`} record={record} lang={lang} sevColor={sevColor} isParty />
+                          ))}
+                        </>
+                      )}
+                      {/* Mention-only matches (name in body — low relevance) */}
+                      {mentionRecords.length > 0 && (
+                        <>
+                          <div style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', marginTop: partyRecords.length > 0 ? 10 : 4, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#CBD5E1' }} />
+                            {lang === 'zh' ? `仅文中提及 — 可能非当事人 (${mentionRecords.length})` : `Mentioned in text only — may not be a party (${mentionRecords.length})`}
                           </div>
-                          {/* Row 3: Link hint */}
-                          <div style={{ fontSize: 10, color: '#6366F1', marginTop: 4, fontWeight: 500 }}>
-                            {lang === 'zh' ? '点击查看 CanLII 全文 ↗' : 'View full text on CanLII ↗'}
-                          </div>
-                        </a>
-                      ))}
+                          {mentionRecords.map((record, j) => (
+                            <CaseRecordCard key={`mention-${j}`} record={record} lang={lang} sevColor={{ bg: '#94A3B8', light: '#F8FAFC', border: '#E2E8F0' }} isParty={false} />
+                          ))}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

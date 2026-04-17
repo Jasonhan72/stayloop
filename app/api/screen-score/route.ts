@@ -46,6 +46,7 @@ interface CourtQuery {
   tier: 'free' | 'pro'
   status: 'ok' | 'unavailable' | 'skipped' | 'coming_soon'
   hits: number | null
+  partyHits?: number | null  // matches where tenant name is in case title (likely a party)
   url?: string
   note?: string
   severity?: number  // 3=critical, 2=high, 1=medium, 0=no hits
@@ -59,6 +60,7 @@ interface CanLIIMatch {
   databaseId: string
   databaseName?: string
   caseId: string
+  nameInTitle: boolean   // true = tenant name found in case title (likely a party)
 }
 
 interface CanLIIDatabase {
@@ -87,6 +89,22 @@ async function listOntarioDatabases(apiKey: string): Promise<CanLIIDatabase[]> {
   } catch {
     return ontarioDbCache?.dbs || []
   }
+}
+
+/** Check whether any part of the tenant's name appears in the case title (i.e. they're likely a party). */
+function nameMatchesTitle(searchName: string, caseTitle: string): boolean {
+  const titleLower = caseTitle.toLowerCase()
+  const fullLower = searchName.toLowerCase().trim()
+  // Full-name match
+  if (titleLower.includes(fullLower)) return true
+  // Check individual name parts (surname match is common: "Smith v. Landlord Corp")
+  const parts = fullLower.split(/\s+/).filter(p => p.length >= 2)
+  // Require at least the surname (last part) to match
+  if (parts.length > 0) {
+    const surname = parts[parts.length - 1]
+    if (titleLower.includes(surname)) return true
+  }
+  return false
 }
 
 async function searchCanLIIDb(name: string, db: CanLIIDatabase, apiKey: string): Promise<CanLIIMatch[]> {
@@ -121,8 +139,11 @@ async function searchCanLIIDb(name: string, db: CanLIIDatabase, apiKey: string):
         databaseName: db.name,
         caseId: cid,
         url: caseUrl,
+        nameInTitle: nameMatchesTitle(name, c.title),
       }
     }))
+    // Sort: party matches first, then mentions only
+    results.sort((a, b) => (b.nameInTitle ? 1 : 0) - (a.nameInTitle ? 1 : 0))
     return results
   } catch {
     return []
@@ -205,6 +226,7 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
   const allRecords: CanLIIMatch[] = []
   for (const { records } of allResults) allRecords.push(...records)
   const totalHits = allRecords.length
+  const totalPartyHits = allRecords.filter(r => r.nameInTitle).length
   const totalDbsSearched = PRIORITY_DBS.length + extraDbs.length
 
   // Rollup query row
@@ -213,21 +235,26 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
     tier: 'free',
     status: 'ok',
     hits: totalHits,
+    partyHits: totalPartyHits,
     note: totalHits === 0
       ? 'No matches across Ontario courts, tribunals, or boards'
-      : `Hits in ${allResults.filter(d => d.hits > 0).length} database(s)`,
+      : totalPartyHits > 0
+        ? `${totalPartyHits} party match(es), ${totalHits - totalPartyHits} mention(s) in ${allResults.filter(d => d.hits > 0).length} database(s)`
+        : `${totalHits} mention(s) only (name not found as party) in ${allResults.filter(d => d.hits > 0).length} database(s)`,
   })
 
   // Always show priority DBs as explicit rows (even 0-hit) so the user sees
   // that LTB and Small Claims were actually queried every time.
   for (const pr of priorityResults) {
-    const severity = getSeverity(pr.db.databaseId, pr.hits > 0)
+    const partyCount = pr.records.filter(r => r.nameInTitle).length
+    const severity = getSeverity(pr.db.databaseId, partyCount > 0)
     queries.push({
       source: `CanLII — ${pr.db.name}`,
       tier: 'free',
       status: 'ok',
       hits: pr.hits,
-      severity: pr.hits > 0 ? severity : 0,
+      partyHits: partyCount,
+      severity: partyCount > 0 ? severity : (pr.hits > 0 ? 1 : 0),  // lower severity if only mentions
       records: pr.records.length > 0 ? pr.records : undefined,
       url: pr.records[0]?.url,
     })
@@ -244,13 +271,15 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
     })
 
   for (const { db, records, hits } of extraWithHits) {
-    const severity = getSeverity(db.databaseId, true)
+    const partyCount = records.filter(r => r.nameInTitle).length
+    const severity = getSeverity(db.databaseId, partyCount > 0)
     queries.push({
       source: `CanLII — ${db.name}`,
       tier: 'free',
       status: 'ok',
       hits,
-      severity,
+      partyHits: partyCount,
+      severity: partyCount > 0 ? severity : 1,  // lower severity if only mentions
       records,
       url: records[0]?.url,
     })
