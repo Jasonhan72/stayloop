@@ -25,8 +25,9 @@ const VALID_KINDS = [
 
 type Kind = typeof VALID_KINDS[number]
 
-const MAX_FILES = 8
-const MAX_BYTES = 10 * 1024 * 1024 // 10MB per file
+const MAX_FILES_PER_BATCH = 5   // Keep each Claude call small to avoid timeouts
+const MAX_BYTES = 8 * 1024 * 1024 // 8MB per file
+const MAX_TOTAL_FILES = 20       // Absolute cap across all batches
 
 async function toBase64(buf: ArrayBuffer): Promise<string> {
   const bytes = new Uint8Array(buf)
@@ -39,28 +40,17 @@ async function toBase64(buf: ArrayBuffer): Promise<string> {
   return btoa(binary)
 }
 
-export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) {
-    return NextResponse.json({ error: 'Classifier not configured' }, { status: 500 })
-  }
-
-  let form: FormData
-  try {
-    form = await req.formData()
-  } catch {
-    return NextResponse.json({ error: 'Expected multipart/form-data' }, { status: 400 })
-  }
-
-  const rawFiles = form.getAll('files').filter((x): x is File => x instanceof File)
-  if (rawFiles.length === 0) {
-    return NextResponse.json({ classifications: [] })
-  }
-  const files = rawFiles.slice(0, MAX_FILES)
-
-  // Build content blocks for a single Claude call. Each file is
-  // introduced by a text marker "FILE #<i>:" so Claude can reference
-  // it unambiguously in its JSON response.
+// Classify a single batch of files (up to MAX_FILES_PER_BATCH).
+// Returns the raw parsed JSON from Claude.
+async function classifyBatch(
+  files: File[],
+  startIndex: number,
+  apiKey: string
+): Promise<{
+  files?: { index: number; kinds: string[] }[]
+  applicant_name?: string | null
+  monthly_rent?: number | null
+}> {
   const contentBlocks: any[] = [
     {
       type: 'text',
@@ -87,13 +77,14 @@ Return ONLY this JSON (no markdown, no prose):
 
   for (let i = 0; i < files.length; i++) {
     const f = files[i]
+    const globalIdx = startIndex + i
     if (f.size > MAX_BYTES) {
-      contentBlocks.push({ type: 'text', text: `\nFILE #${i}: ${f.name} — skipped (too large)` })
+      contentBlocks.push({ type: 'text', text: `\nFILE #${globalIdx}: ${f.name} — skipped (too large, ${Math.round(f.size / 1024 / 1024)}MB)` })
       continue
     }
     const buf = await f.arrayBuffer()
     const b64 = await toBase64(buf)
-    contentBlocks.push({ type: 'text', text: `\nFILE #${i}: ${f.name}` })
+    contentBlocks.push({ type: 'text', text: `\nFILE #${globalIdx}: ${f.name}` })
     if (f.type === 'application/pdf') {
       contentBlocks.push({
         type: 'document',
@@ -116,8 +107,9 @@ Return ONLY this JSON (no markdown, no prose):
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
+    signal: AbortSignal.timeout(30_000), // 30s timeout per batch
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 800,
       system: 'You classify uploaded rental-application documents and extract a few header fields (applicant name, monthly rent). Output strictly the JSON schema requested. No markdown, no prose.',
       messages: [{ role: 'user', content: contentBlocks }],
@@ -125,45 +117,93 @@ Return ONLY this JSON (no markdown, no prose):
   })
 
   if (!res.ok) {
-    const errText = await res.text()
-    return NextResponse.json({ error: `Classifier error: ${errText.slice(0, 600)}` }, { status: 500 })
+    const errText = await res.text().catch(() => '')
+    throw new Error(`Classifier HTTP ${res.status}: ${errText.slice(0, 300)}`)
   }
 
   const aiData = (await res.json()) as { content?: Array<{ text: string }> }
   let text = aiData.content?.[0]?.text || '{}'
   text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
 
-  let parsed: {
-    files?: { index: number; kinds: string[] }[]
-    applicant_name?: string | null
-    monthly_rent?: number | null
-  } = {}
   try {
-    parsed = JSON.parse(text)
+    return JSON.parse(text)
   } catch {
-    return NextResponse.json({ error: 'Classifier parse error', raw: text }, { status: 500 })
+    throw new Error(`Classifier parse error: ${text.slice(0, 200)}`)
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ error: 'Classifier not configured' }, { status: 500 })
   }
 
-  const validKindSet = new Set<string>(VALID_KINDS)
-  const classifications = files.map((f, i) => {
-    const entry = parsed.files?.find(x => x.index === i)
-    const kinds = Array.isArray(entry?.kinds)
-      ? (entry!.kinds.filter(k => typeof k === 'string' && validKindSet.has(k)) as Kind[])
-      : []
-    return { index: i, name: f.name, size: f.size, kinds }
-  })
+  let form: FormData
+  try {
+    form = await req.formData()
+  } catch {
+    return NextResponse.json({ error: 'Expected multipart/form-data' }, { status: 400 })
+  }
 
-  const applicantName =
-    typeof parsed.applicant_name === 'string' && parsed.applicant_name.trim().length > 1
-      ? parsed.applicant_name.trim()
-      : null
-  const monthlyRent =
-    typeof parsed.monthly_rent === 'number' && parsed.monthly_rent > 0 && parsed.monthly_rent < 100000
-      ? Math.round(parsed.monthly_rent)
-      : null
+  const rawFiles = form.getAll('files').filter((x): x is File => x instanceof File)
+  if (rawFiles.length === 0) {
+    return NextResponse.json({ classifications: [] })
+  }
+  const files = rawFiles.slice(0, MAX_TOTAL_FILES)
+
+  // Split files into batches to keep each Claude call payload small
+  // and avoid edge-function timeouts / Anthropic payload limits.
+  const batches: File[][] = []
+  for (let i = 0; i < files.length; i += MAX_FILES_PER_BATCH) {
+    batches.push(files.slice(i, i + MAX_FILES_PER_BATCH))
+  }
+
+  // Run batches in parallel (each is a separate Claude call)
+  const batchResults = await Promise.allSettled(
+    batches.map((batch, bi) => classifyBatch(batch, bi * MAX_FILES_PER_BATCH, apiKey))
+  )
+
+  // Merge results across batches
+  const validKindSet = new Set<string>(VALID_KINDS)
+  let applicantName: string | null = null
+  let monthlyRent: number | null = null
+  const allClassifications: { index: number; name: string; size: number; kinds: Kind[] }[] = []
+
+  for (let bi = 0; bi < batches.length; bi++) {
+    const batch = batches[bi]
+    const batchStart = bi * MAX_FILES_PER_BATCH
+    const result = batchResults[bi]
+
+    if (result.status === 'fulfilled') {
+      const parsed = result.value
+      // Extract name/rent from the first batch that found them
+      if (!applicantName && typeof parsed.applicant_name === 'string' && parsed.applicant_name.trim().length > 1) {
+        applicantName = parsed.applicant_name.trim()
+      }
+      if (monthlyRent === null && typeof parsed.monthly_rent === 'number' && parsed.monthly_rent > 0 && parsed.monthly_rent < 100000) {
+        monthlyRent = Math.round(parsed.monthly_rent)
+      }
+      for (let i = 0; i < batch.length; i++) {
+        const globalIdx = batchStart + i
+        const entry = parsed.files?.find(x => x.index === globalIdx)
+        const kinds = Array.isArray(entry?.kinds)
+          ? (entry!.kinds.filter(k => typeof k === 'string' && validKindSet.has(k)) as Kind[])
+          : []
+        allClassifications.push({ index: globalIdx, name: batch[i].name, size: batch[i].size, kinds })
+      }
+    } else {
+      // Batch failed — still report files with empty kinds so the UI
+      // doesn't show them as "unclassified forever". Filename-based
+      // fallback on the frontend will handle the display.
+      console.error(`[classify-files] batch ${bi} failed:`, result.reason?.message || result.reason)
+      for (let i = 0; i < batch.length; i++) {
+        allClassifications.push({ index: batchStart + i, name: batch[i].name, size: batch[i].size, kinds: [] })
+      }
+    }
+  }
 
   return NextResponse.json({
-    classifications,
+    classifications: allClassifications,
     applicant_name: applicantName,
     monthly_rent: monthlyRent,
   })
