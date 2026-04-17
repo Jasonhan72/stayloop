@@ -1619,26 +1619,37 @@ export default function ScreenPage() {
       if (insertErr || !row) throw new Error(insertErr?.message || 'Failed to create screening record')
       const screeningId = row.id
 
-      // 2. Upload files to storage — run all uploads in PARALLEL.
-      // Sequential uploads made multi-file submissions add several
-      // extra seconds on top of the already-slow Claude call.
+      // 2. Upload files to storage — batched (3 at a time) with retry.
+      // Uploading all files simultaneously can exceed the browser's
+      // per-domain connection limit (~6), causing "Failed to fetch".
       const stamp = Date.now()
-      const uploadResults = await Promise.all(files.map(async (f, i) => {
-        const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-        const path = `screenings/${landlord.profileId}/${screeningId}/${stamp}_${i}_${safeName}`
-        const { error: upErr } = await supabase
-          .storage.from('tenant-files')
-          .upload(path, f, { contentType: f.type, upsert: false })
-        if (upErr) throw new Error(`${f.name}: ${upErr.message}`)
-        return {
-          path,
-          name: f.name,
-          size: f.size,
-          mime: f.type || 'application/octet-stream',
-          kind: guessKind(f.name),
-        } as UploadedFile
-      }))
-      const uploaded: UploadedFile[] = uploadResults
+      const UPLOAD_BATCH = 3
+      const MAX_RETRIES = 2
+      const uploaded: UploadedFile[] = []
+
+      for (let bi = 0; bi < files.length; bi += UPLOAD_BATCH) {
+        const batch = files.slice(bi, bi + UPLOAD_BATCH)
+        const batchResults = await Promise.all(batch.map(async (f, localIdx) => {
+          const globalIdx = bi + localIdx
+          const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+          const path = `screenings/${landlord.profileId}/${screeningId}/${stamp}_${globalIdx}_${safeName}`
+
+          let lastErr: string | null = null
+          for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            const { error: upErr } = await supabase
+              .storage.from('tenant-files')
+              .upload(path, f, { contentType: f.type, upsert: attempt > 0 })
+            if (!upErr) {
+              return { path, name: f.name, size: f.size, mime: f.type || 'application/octet-stream', kind: guessKind(f.name) } as UploadedFile
+            }
+            lastErr = upErr.message
+            // Brief pause before retry
+            if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 800 * (attempt + 1)))
+          }
+          throw new Error(`${f.name}: ${lastErr}`)
+        }))
+        uploaded.push(...batchResults)
+      }
       if (uploaded.length > 0) {
         await supabase.from('screenings').update({ files: uploaded }).eq('id', screeningId)
       }
