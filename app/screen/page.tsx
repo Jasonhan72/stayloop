@@ -598,7 +598,6 @@ function ForensicsCard({ report }: { report: NonNullable<ScoreResult['forensics_
 
 function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummaryEn, courtSummaryZh }: { queries: CourtQuery[]; totalHits: number; queriedName: string; tier: 'free' | 'pro'; courtSummaryEn?: string; courtSummaryZh?: string }) {
   const { t, lang } = useT()
-  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({})
 
   // Separate rollup query from database-specific queries
   const rollupQuery = queries[0]
@@ -609,6 +608,13 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
     q.status === 'ok' && ((q.hits ?? 0) > 0 || ALWAYS_SHOW_DBS.some(name => q.source.includes(name)))
   )
   const proQueries = queries.filter(q => q.tier === 'pro')
+
+  // Auto-expand rows that have hits so case records are immediately visible
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>(() => {
+    const init: Record<number, boolean> = {}
+    dbQueries.forEach((q, i) => { if ((q.hits ?? 0) > 0 && q.records && q.records.length > 0) init[i] = true })
+    return init
+  })
 
   const toggleRow = (index: number) => {
     setExpandedRows(prev => ({ ...prev, [index]: !prev[index] }))
@@ -653,8 +659,25 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
 
       {/* Rollup summary row */}
       {rollupQuery && (
-        <div style={{ marginBottom: 12, padding: '12px 14px', background: '#F0FDF410', border: '1px solid #86EFAC40', borderRadius: 8, fontSize: 12, color: '#15803D' }}>
-          {rollupQuery.source} · {rollupQuery.note || `${totalHits} total match(es)`}
+        <div style={{
+          marginBottom: 12, padding: '12px 14px', borderRadius: 8, fontSize: 12,
+          background: totalHits > 0 ? '#FEF2F210' : '#F0FDF410',
+          border: `1px solid ${totalHits > 0 ? '#FECACA60' : '#86EFAC40'}`,
+          color: totalHits > 0 ? '#991B1B' : '#15803D',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: 16 }}>{totalHits > 0 ? '⚠️' : '✅'}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600 }}>
+              {totalHits > 0
+                ? (lang === 'zh' ? `共找到 ${totalHits} 条法院记录` : `${totalHits} court record(s) found`)
+                : (lang === 'zh' ? '未找到法院记录' : 'No court records found')
+              }
+            </div>
+            <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>
+              {rollupQuery.source} · {rollupQuery.note || `${totalHits} total match(es)`}
+            </div>
+          </div>
         </div>
       )}
 
@@ -718,7 +741,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
 
                   {/* Expanded case records */}
                   {isExpanded && q.records && q.records.length > 0 && (
-                    <div style={{ marginTop: 4, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ marginTop: 6, paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 5 }}>
                       {q.records.map((record, j) => (
                         <a
                           key={j}
@@ -726,20 +749,43 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{
-                            fontSize: 11,
-                            color: '#1D4ED8',
+                            display: 'block',
                             textDecoration: 'none',
-                            padding: '8px 10px',
-                            background: '#DBEAFE20',
-                            borderRadius: 4,
-                            border: '1px solid #DBEAFE60',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            padding: '10px 12px',
+                            background: hasHits ? `${sevColor.light}` : '#DBEAFE20',
+                            borderRadius: 6,
+                            border: `1px solid ${hasHits ? sevColor.border : '#DBEAFE60'}`,
+                            transition: 'background .15s, border-color .15s',
                           }}
                           title={record.title}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#EEF2FF'; e.currentTarget.style.borderColor = '#818CF860' }}
+                          onMouseLeave={e => { e.currentTarget.style.background = hasHits ? sevColor.light : '#DBEAFE20'; e.currentTarget.style.borderColor = hasHits ? sevColor.border : '#DBEAFE60' }}
                         >
-                          <strong>{record.citation}</strong> — {record.title}
+                          {/* Row 1: DB badge + citation */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                            <span style={{
+                              fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+                              padding: '2px 6px', borderRadius: 3,
+                              background: sevColor.bg, color: '#fff',
+                              flexShrink: 0,
+                            }}>
+                              {record.databaseName || record.databaseId}
+                            </span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: '#1E3A5F', fontFamily: "'JetBrains Mono', monospace" }}>
+                              {record.citation}
+                            </span>
+                          </div>
+                          {/* Row 2: Case title */}
+                          <div style={{
+                            fontSize: 12, color: '#334155', lineHeight: 1.4,
+                            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden',
+                          }}>
+                            {record.title}
+                          </div>
+                          {/* Row 3: Link hint */}
+                          <div style={{ fontSize: 10, color: '#6366F1', marginTop: 4, fontWeight: 500 }}>
+                            {lang === 'zh' ? '点击查看 CanLII 全文 ↗' : 'View full text on CanLII ↗'}
+                          </div>
                         </a>
                       ))}
                     </div>
