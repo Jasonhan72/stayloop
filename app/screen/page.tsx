@@ -1086,16 +1086,41 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
     )
   }
 
-  const SubRow = ({ label, covKey, scoreVal, desc, detail }: {
+  // Compute the worst flag severity for each sub-row so the dot color
+  // reflects actual risk instead of always being green ("measured").
+  // 'critical'|'high' → red, 'medium' → amber, 'low'/none → green.
+  const worstSev = (flags: Array<{ severity: string }>): string => {
+    const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+    let worst = 4 // none
+    for (const f of flags) worst = Math.min(worst, order[f.severity] ?? 4)
+    return worst <= 1 ? 'critical' : worst === 2 ? 'medium' : 'clean'
+  }
+  const dotColor = (sev: string): string => {
+    if (sev === 'critical') return '#DC2626' // red
+    if (sev === 'medium')   return '#D97706' // amber
+    return '#15803D'                          // green
+  }
+
+  // Per sub-row worst severity
+  const docCheckWorst = worstSev(perFile.flatMap(pf => pf.flags))
+  const idMatchWorst = worstSev(idCrossFlags)
+  const employerWorst = worstSev([
+    ...employerPerFile.flatMap(pf => pf.flags.filter(f => EMPLOYER_FLAG_CODES.has(f.code))),
+    ...employerCrossFlags,
+  ])
+
+  const SubRow = ({ label, covKey, scoreVal, desc, detail, severity = 'clean' }: {
     label: string
     covKey: string
     scoreVal?: number | null
     desc?: string
     detail?: ReactNode
+    severity?: string
   }) => {
     const c = cov(covKey)
     const rowOpen = !!openRows[covKey]
     const expandable = !!detail
+    const dot = dotColor(severity)
     return (
       <div style={{ background: 'rgba(11, 23, 54, 0.04)', borderRadius: 8, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
         <button
@@ -1103,7 +1128,7 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
           onClick={() => expandable && toggleRow(covKey)}
           style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'none', border: 'none', textAlign: 'left', cursor: expandable ? 'pointer' : 'default', color: 'inherit' }}
         >
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: covColor(c), flexShrink: 0 }} />
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0B1736' }}>{label}</div>
             <div style={{ fontSize: 10.5, color: '#64748B', marginTop: 1 }}>{desc || covLabel(c)}</div>
@@ -1157,6 +1182,7 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
               covKey="doc_authenticity"
               desc={t('screen.result.authenticity.docCheck.desc' as DictKey)}
               detail={renderDocCheckDetail()}
+              severity={docCheckWorst}
             />
             <SubRow
               label={t('screen.result.authenticity.idMatch')}
@@ -1164,12 +1190,14 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
               scoreVal={identityScore}
               desc={t('screen.result.authenticity.idMatch.desc' as DictKey)}
               detail={renderIdMatchDetail()}
+              severity={idMatchWorst}
             />
             <SubRow
               label={t('screen.result.authenticity.employerCheck')}
               covKey="employer_verify"
               desc={t('screen.result.authenticity.employerCheck.desc' as DictKey)}
               detail={renderEmployerCheckDetail()}
+              severity={employerWorst}
             />
           </div>
 
