@@ -1622,39 +1622,60 @@ export default function ScreenPage() {
       if (insertErr || !row) throw new Error(insertErr?.message || 'Failed to create screening record')
       const screeningId = row.id
 
-      // 2. Upload files to storage — batched (3 at a time) with retry.
-      // Uploading all files simultaneously can exceed the browser's
-      // per-domain connection limit (~6), causing "Failed to fetch".
+      // 2. Upload files to storage — one-at-a-time with retry.
+      // Sequential upload avoids browser connection-pool saturation
+      // that caused "Failed to fetch". Individual file failures are
+      // non-fatal: we skip the file and continue with the rest so
+      // the screening still runs on whatever files made it through.
       const stamp = Date.now()
-      const UPLOAD_BATCH = 3
       const MAX_RETRIES = 2
       const uploaded: UploadedFile[] = []
+      const failedFiles: string[] = []
 
-      for (let bi = 0; bi < files.length; bi += UPLOAD_BATCH) {
-        const batch = files.slice(bi, bi + UPLOAD_BATCH)
-        const batchResults = await Promise.all(batch.map(async (f, localIdx) => {
-          const globalIdx = bi + localIdx
-          const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-          const path = `screenings/${landlord.profileId}/${screeningId}/${stamp}_${globalIdx}_${safeName}`
+      // Refresh auth session before upload to prevent token expiry mid-upload
+      await supabase.auth.refreshSession()
 
-          let lastErr: string | null = null
-          for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i]
+        const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const path = `screenings/${landlord.profileId}/${screeningId}/${stamp}_${i}_${safeName}`
+
+        let success = false
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          try {
             const { error: upErr } = await supabase
               .storage.from('tenant-files')
               .upload(path, f, { contentType: f.type, upsert: attempt > 0 })
             if (!upErr) {
-              return { path, name: f.name, size: f.size, mime: f.type || 'application/octet-stream', kind: guessKind(f.name) } as UploadedFile
+              uploaded.push({ path, name: f.name, size: f.size, mime: f.type || 'application/octet-stream', kind: guessKind(f.name) })
+              success = true
+              break
             }
-            lastErr = upErr.message
-            // Brief pause before retry
-            if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 800 * (attempt + 1)))
+            // Supabase returned an error object — retry after pause
+            console.warn(`[upload] ${f.name} attempt ${attempt + 1} failed: ${upErr.message}`)
+          } catch (netErr: any) {
+            // Network-level failure (Failed to fetch, etc.) — retry after pause
+            console.warn(`[upload] ${f.name} attempt ${attempt + 1} network error: ${netErr?.message}`)
           }
-          throw new Error(`${f.name}: ${lastErr}`)
-        }))
-        uploaded.push(...batchResults)
+          if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 1200 * (attempt + 1)))
+        }
+        if (!success) failedFiles.push(f.name)
       }
+
+      // At least one file must have uploaded; otherwise abort
+      if (uploaded.length === 0 && files.length > 0) {
+        throw new Error(lang === 'zh'
+          ? `所有文件上传失败（${failedFiles.join('、')}），请检查网络后重试`
+          : `All files failed to upload (${failedFiles.join(', ')}). Check your network and retry.`)
+      }
+
       if (uploaded.length > 0) {
         await supabase.from('screenings').update({ files: uploaded }).eq('id', screeningId)
+      }
+
+      // Warn about skipped files (non-fatal)
+      if (failedFiles.length > 0) {
+        console.warn(`[upload] ${failedFiles.length} file(s) skipped: ${failedFiles.join(', ')}`)
       }
 
       // 3. Call scoring API
