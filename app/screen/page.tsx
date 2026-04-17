@@ -1269,7 +1269,8 @@ export default function ScreenPage() {
   const { canScreen: anonCanScreen, trialUsed, markTrialUsed } = useAnonTrialCheck()
 
   const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('free')
-  const [tier, setTier] = useState<'free' | 'pro'>('free')
+  // Tier is derived from the user's plan — no manual toggle on screen page.
+  const tier: 'free' | 'pro' = (plan === 'pro' || plan === 'enterprise') ? 'pro' : 'free'
 
   const [files, setFiles] = useState<File[]>([])
   // AI-detected kinds per file (keyed by a stable file signature: name+size)
@@ -1308,7 +1309,6 @@ export default function ScreenPage() {
       .maybeSingle()
     if (data?.plan) {
       setPlan(data.plan as any)
-      if (data.plan === 'pro' || data.plan === 'enterprise') setTier('pro')
     }
   }
 
@@ -1716,8 +1716,7 @@ export default function ScreenPage() {
         .sl-header { padding: 20px 24px; }
         .sl-brand-sub { display: block; }
         .sl-container { max-width: 800px; margin: 0 auto; padding: 24px 16px; }
-        .sl-tier-toggle { display: flex; gap: 8px; margin-bottom: 20px; padding: 4px; }
-        .sl-tier-btn-sources { font-size: 10px; }
+        .sl-scanner-panel { border-radius: 20px; }
         .sl-card { padding: 20px; border-radius: 16px; }
         .sl-card-overall { padding: 32px 24px; border-radius: 20px; }
         .sl-file-grid { grid-template-columns: repeat(4, 1fr); }
@@ -1747,7 +1746,7 @@ export default function ScreenPage() {
           .sl-nav-btn { padding: 6px 10px !important; font-size: 12px !important; }
           .sl-extracted-name { font-size: 16px !important; }
           .sl-risk-pill { font-size: 12px !important; padding: 5px 14px !important; }
-          .sl-tier-btn-sources { display: none; }
+          .sl-scanner-panel { border-radius: 14px !important; }
           .sl-summary-text { font-size: 13px !important; line-height: 1.7 !important; }
           .sl-section-title { font-size: 12px !important; }
         }
@@ -1764,256 +1763,313 @@ export default function ScreenPage() {
 
       <div className="container-narrow">
         {!result && !analyzing && (
-          <>
-            {/* Tier Toggle */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 20, padding: 5, background: '#FFFFFF', borderRadius: 14, border: '1px solid #E4E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)' }}>
-              {(['free', 'pro'] as const).map(key => {
-                const active = tier === key
-                const disabled = key === 'pro' && !isPro
-                const label = key === 'pro' ? t('common.pro') : t('common.free')
-                const sources = key === 'pro' ? t('screen.tier.pro.sources') : t('screen.tier.free.sources')
-                return (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      if (disabled) {
-                        window.location.href = '/dashboard?upgrade=1'
-                        return
-                      }
-                      setTier(key)
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '11px 16px',
-                      borderRadius: 10,
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: active
-                        ? (key === 'pro' ? 'var(--gradient-pro)' : 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)')
-                        : 'transparent',
-                      color: active ? '#FFFFFF' : 'var(--text-muted)',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      transition: 'all 0.2s',
-                      opacity: disabled ? 0.75 : 1,
-                      boxShadow: active
-                        ? (key === 'pro' ? '0 6px 24px -6px rgba(139, 92, 246, 0.5)' : '0 6px 24px -6px rgba(13, 148, 136, 0.45)')
-                        : 'none',
-                    }}
-                  >
-                    <div>{label} {key === 'pro' && '💎'}</div>
-                    <div className="sl-tier-btn-sources" style={{ fontSize: 10, fontWeight: 400, marginTop: 2, opacity: 0.8 }}>{sources}</div>
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* Input Fields */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 240 }}>
-                <label className="label">{t('screen.form.name.label')}</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder={t('screen.form.name.placeholder')}
-                  value={applicantName}
-                  onChange={e => setApplicantName(e.target.value)}
-                />
-                <div style={{ fontSize: 10.5, color: 'var(--text-faint)', marginTop: 6 }}>{t('screen.form.name.hint')}</div>
+          <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* ─── Scanner Panel ─── */}
+            <div style={{
+              background: '#FFFFFF',
+              border: '1px solid #E4E8F0',
+              borderRadius: 20,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)',
+              overflow: 'hidden',
+            }}>
+              {/* Panel Header */}
+              <div style={{
+                padding: '16px 22px',
+                borderBottom: '1px solid #E4E8F0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.04), rgba(37, 99, 235, 0.02))',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: 'linear-gradient(135deg, #0D9488, #0F766E)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 4px 12px -2px rgba(13, 148, 136, 0.4)',
+                  }}>
+                    <span style={{ fontSize: 18, filter: 'brightness(10)' }}>🛡</span>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#0B1736', letterSpacing: '-0.01em' }}>
+                      {lang === 'zh' ? '租客筛查' : 'Tenant Screening'}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 1 }}>
+                      {lang === 'zh' ? '上传文件 → AI 分析 → 风险报告' : 'Upload docs → AI analysis → Risk report'}
+                    </div>
+                  </div>
+                </div>
+                {isPro && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6,
+                    background: 'linear-gradient(135deg, #7C3AED, #8B5CF6)', color: '#FFF',
+                    letterSpacing: '0.05em', textTransform: 'uppercase',
+                  }}>PRO</span>
+                )}
               </div>
-              <div style={{ flex: 1, minWidth: 240 }}>
-                <label className="label">{t('screen.form.rent.label')}</label>
+
+              {/* Drop Zone — compact */}
+              <div
+                onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  margin: '16px 18px 0',
+                  border: `2px dashed ${dragOver ? '#14B8A6' : '#CBD5E1'}`,
+                  borderRadius: 14,
+                  padding: files.length > 0 ? '20px 16px' : '36px 16px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  background: dragOver
+                    ? 'radial-gradient(ellipse at center, rgba(20, 184, 166, 0.08), transparent 70%)'
+                    : '#FAFBFD',
+                }}
+              >
                 <input
-                  type="number"
-                  className="input"
-                  placeholder={t('screen.form.rent.placeholder')}
-                  value={targetRent}
-                  onChange={e => setTargetRent(e.target.value)}
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                  onChange={e => handleFiles(e.target.files)}
+                  style={{ display: 'none' }}
                 />
+                {files.length === 0 ? (
+                  <>
+                    <div style={{ fontSize: 32, marginBottom: 10, opacity: 0.9 }}>📁</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: '#0B1736' }}>{t('screen.drop.title')}</div>
+                    <div style={{ fontSize: 12.5, color: '#64748B', lineHeight: 1.5 }}>{t('screen.drop.sub')}</div>
+                    <div className="btn btn-ghost btn-sm" style={{ marginTop: 14, display: 'inline-flex' }}>{t('screen.drop.pick')}</div>
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#64748B', fontSize: 12.5 }}>
+                    <span style={{ fontSize: 16 }}>＋</span>
+                    <span>{lang === 'zh' ? '点击或拖拽添加更多文件' : 'Click or drag to add more files'}</span>
+                  </div>
+                )}
               </div>
-            </div>
 
-            {/* Drop Zone */}
-            <div
-              onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                border: `2px dashed ${dragOver ? '#14B8A6' : '#CBD5E1'}`,
-                borderRadius: 18,
-                padding: '52px 24px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                background: dragOver
-                  ? 'radial-gradient(ellipse at center, rgba(20, 184, 166, 0.1), transparent 70%)'
-                  : '#F5F7FB',
-                backdropFilter: 'blur(10px)',
-              }}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
-                onChange={e => handleFiles(e.target.files)}
-                style={{ display: 'none' }}
-              />
-              <div style={{ width: 56, height: 56, margin: '0 auto 16px', borderRadius: 14, background: 'rgba(20, 184, 166, 0.1)', border: '1px solid rgba(20, 184, 166, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📁</div>
-              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.01em' }}>{t('screen.drop.title')}</div>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{t('screen.drop.sub')}</div>
-              <div className="btn btn-ghost btn-sm" style={{ marginTop: 18, display: 'inline-flex' }}>{t('screen.drop.pick')}</div>
-            </div>
-
-            {/* File Types */}
-            <div className="sl-file-grid" style={{ display: 'grid', gap: 8, marginTop: 16 }}>
-              {(() => {
-                // Per-file preference order:
-                //   1. AI classifier result (fileKinds) — populated
-                //      within seconds of upload. A single file may
-                //      return multiple kinds (bundled PDFs).
-                //   2. Filename heuristic fallback while classification
-                //      is still in flight, or on classifier failure.
-                //
-                // This is why "25729.jpg" (an ID photo) correctly
-                // lights up the ID / Passport slot — Claude opens the
-                // image and sees it's a passport/ID, even though the
-                // filename carries no hint.
-                const counts: Record<string, number> = {}
-                for (const f of files) {
-                  const aiKinds = fileKinds[fileKey(f)]
-                  if (Array.isArray(aiKinds) && aiKinds.length > 0) {
-                    for (const k of aiKinds) counts[k] = (counts[k] || 0) + 1
-                  } else {
-                    const k = guessKind(f.name)
-                    counts[k] = (counts[k] || 0) + 1
+              {/* File Type Badges — compact horizontal strip */}
+              <div style={{ padding: '12px 18px 0', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {(() => {
+                  const counts: Record<string, number> = {}
+                  for (const f of files) {
+                    const aiKinds = fileKinds[fileKey(f)]
+                    if (Array.isArray(aiKinds) && aiKinds.length > 0) {
+                      for (const k of aiKinds) counts[k] = (counts[k] || 0) + 1
+                    } else {
+                      const k = guessKind(f.name)
+                      counts[k] = (counts[k] || 0) + 1
+                    }
                   }
-                }
-                // Union with post-scoring kinds (survives re-renders
-                // after analyze completes).
-                for (const k of lastDetectedKinds) {
-                  if (!counts[k]) counts[k] = 1
-                }
-                return FILE_TYPES.map(ft => {
-                  const count = counts[ft.key] || 0
-                  const uploaded = count > 0
-                  return (
-                    <div
-                      key={ft.key}
-                      style={{
-                        position: 'relative',
-                        padding: '12px 10px',
-                        borderRadius: 10,
-                        background: uploaded ? 'rgba(16, 185, 129, 0.14)' : 'var(--bg-card-raised)',
-                        border: uploaded ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid var(--border-strong)',
-                        boxShadow: uploaded ? '0 0 0 3px rgba(16, 185, 129, 0.08)' : 'none',
-                        textAlign: 'center',
-                        fontSize: 11,
-                        color: uploaded ? '#15803D' : 'var(--text-secondary)',
-                        fontWeight: uploaded ? 600 : 500,
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      {uploaded && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: 6,
-                            right: 6,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 3,
-                            padding: '2px 6px 2px 4px',
-                            borderRadius: 10,
-                            background: 'linear-gradient(135deg, #10B981, #059669)',
-                            color: '#fff',
-                            fontSize: 10,
-                            fontWeight: 800,
-                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.45)',
-                            lineHeight: 1,
-                            minHeight: 18,
-                          }}
-                          aria-label={`${count} ${t('screen.upload.filesUploaded')}`}
-                        >
-                          <span style={{ fontSize: 9 }}>✓</span>
-                          <span>{count}</span>
-                        </div>
-                      )}
-                      <div style={{ fontSize: 18, marginBottom: 5, filter: uploaded ? 'none' : 'grayscale(0.15)' }}>{ft.icon}</div>
-                      {t(ft.labelKey)}
-                    </div>
-                  )
-                })
-              })()}
-            </div>
-
-            {error && (
-              <div style={{ marginTop: 16, padding: '10px 14px', background: '#FEF2F2', border: '1px solid #7f1d1d', borderRadius: 8, fontSize: 13, color: '#B91C1C' }}>⚠ {error}</div>
-            )}
-
-            {/* File List & Submit */}
-            {files.length > 0 && (
-              <div style={{ marginTop: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: '#64748B', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span>{t('screen.files.uploadedN', { n: files.length })}</span>
-                  {classifying && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#0F766E', fontWeight: 500 }}>
-                      <span style={{ width: 10, height: 10, borderRadius: '50%', border: '2px solid rgba(20, 184, 166, 0.25)', borderTopColor: '#14B8A6', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
-                      {lang === 'zh' ? '识别文件类型中…' : 'Classifying file types…'}
-                    </span>
-                  )}
-                  {classifyError && !classifying && (
-                    <div style={{ marginTop: 8, padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 12, color: '#B91C1C', lineHeight: 1.5 }}>
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>⚠ {lang === 'zh' ? '文件分类失败' : 'Classification failed'}</div>
-                      <div style={{ fontSize: 11, color: '#7F1D1D', wordBreak: 'break-all' }}>{classifyError}</div>
-                      <button onClick={() => { setClassifyError(null); classifyNewFiles(files) }} style={{ marginTop: 6, fontSize: 11, color: '#DC2626', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                        {lang === 'zh' ? '点击重试' : 'Click to retry'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {files.map((f, i) => <FileChip key={i} file={f} onRemove={() => removeFile(i)} />)}
-                </div>
-                <div style={{ marginTop: 14, padding: '12px 16px', background: 'rgba(11, 23, 54, 0.04)', borderRadius: 10, border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-secondary)' }}>
-                  <span>⚖️</span>
-                  <span>
-                    {applicantName.trim() ? t('screen.files.auto.name', { name: applicantName.trim() }) : t('screen.files.auto.extract')}
-                    {' '}
-                    {tier === 'pro' ? t('screen.files.auto.sources.pro') : t('screen.files.auto.sources.free')}
-                  </span>
-                </div>
-                <button onClick={runAnalysis} className="btn btn-primary btn-lg" style={{ marginTop: 18, width: '100%' }}>
-                  {t('screen.submit')}{tier === 'pro' && t('screen.submit.pro')} →
-                </button>
+                  for (const k of lastDetectedKinds) {
+                    if (!counts[k]) counts[k] = 1
+                  }
+                  return FILE_TYPES.map(ft => {
+                    const count = counts[ft.key] || 0
+                    const uploaded = count > 0
+                    return (
+                      <div
+                        key={ft.key}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          padding: '6px 10px', borderRadius: 8,
+                          background: uploaded ? 'rgba(16, 185, 129, 0.12)' : '#F1F5FB',
+                          border: uploaded ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #E4E8F0',
+                          fontSize: 11, fontWeight: uploaded ? 600 : 500,
+                          color: uploaded ? '#15803D' : '#94A3B8',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        <span style={{ fontSize: 13, filter: uploaded ? 'none' : 'grayscale(0.4) opacity(0.6)' }}>{ft.icon}</span>
+                        <span>{t(ft.labelKey)}</span>
+                        {uploaded && (
+                          <span style={{
+                            fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 6,
+                            background: 'linear-gradient(135deg, #10B981, #059669)', color: '#fff',
+                            lineHeight: '14px', minWidth: 16, textAlign: 'center',
+                          }}>
+                            {count}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })
+                })()}
               </div>
-            )}
-          </>
+
+              {/* Classification progress bar */}
+              {classifying && (
+                <div style={{ margin: '12px 18px 0', padding: '10px 14px', background: '#F0FDFA', border: '1px solid rgba(20, 184, 166, 0.25)', borderRadius: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid rgba(20, 184, 166, 0.25)', borderTopColor: '#14B8A6', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#0F766E' }}>
+                      {lang === 'zh' ? '正在识别文件类型…' : 'Classifying files…'}
+                    </span>
+                  </div>
+                  <div style={{ height: 3, borderRadius: 2, background: 'rgba(20, 184, 166, 0.15)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', background: 'linear-gradient(90deg, #14B8A6, #0D9488)', width: '60%', borderRadius: 2, animation: 'shimmer 1.5s ease-in-out infinite' }} />
+                  </div>
+                </div>
+              )}
+
+              {/* Classification error */}
+              {classifyError && !classifying && (
+                <div style={{ margin: '12px 18px 0', padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, fontSize: 12, color: '#B91C1C' }}>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>⚠ {lang === 'zh' ? '文件分类失败' : 'Classification failed'}</div>
+                  <div style={{ fontSize: 11, color: '#7F1D1D' }}>{classifyError}</div>
+                  <button onClick={() => { setClassifyError(null); classifyNewFiles(files) }} style={{ marginTop: 6, fontSize: 11, color: '#DC2626', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    {lang === 'zh' ? '点击重试' : 'Click to retry'}
+                  </button>
+                </div>
+              )}
+
+              {/* Uploaded file list */}
+              {files.length > 0 && (
+                <div style={{ margin: '12px 18px 0' }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 600, color: '#64748B', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>{t('screen.files.uploadedN', { n: files.length })}</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+                    {files.map((f, i) => {
+                      const ext = f.name.split('.').pop()?.toLowerCase() || ''
+                      const isPdf = ext === 'pdf'
+                      const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
+                      const kinds = fileKinds[fileKey(f)]
+                      const kindLabel = Array.isArray(kinds) && kinds.length > 0
+                        ? kinds.map(k => FILE_TYPES.find(ft => ft.key === k)?.icon || '📎').join('')
+                        : null
+                      return (
+                        <div key={i} style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '7px 10px', background: '#FAFBFD', borderRadius: 8,
+                          border: '1px solid #EEF2F8', fontSize: 12,
+                        }}>
+                          <span style={{ fontSize: 13, flexShrink: 0 }}>{isPdf ? '📄' : isImage ? '🖼️' : '📎'}</span>
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0B1736', fontWeight: 500 }}>{f.name}</span>
+                          {kindLabel && <span style={{ fontSize: 11, flexShrink: 0 }}>{kindLabel}</span>}
+                          <span style={{ fontSize: 10, color: '#94A3B8', flexShrink: 0 }}>{(f.size / 1024).toFixed(0)}KB</span>
+                          <button onClick={(e) => { e.stopPropagation(); removeFile(i) }} style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>×</button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Input fields + Submit — inside the panel */}
+              <div style={{ padding: '16px 18px 18px' }}>
+                <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <label style={{ fontSize: 10.5, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, display: 'block' }}>{t('screen.form.name.label')}</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder={t('screen.form.name.placeholder')}
+                      value={applicantName}
+                      onChange={e => setApplicantName(e.target.value)}
+                      style={{ padding: '9px 12px', fontSize: 13 }}
+                    />
+                    <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 4 }}>{t('screen.form.name.hint')}</div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 140 }}>
+                    <label style={{ fontSize: 10.5, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, display: 'block' }}>{t('screen.form.rent.label')}</label>
+                    <input
+                      type="number"
+                      className="input"
+                      placeholder={t('screen.form.rent.placeholder')}
+                      value={targetRent}
+                      onChange={e => setTargetRent(e.target.value)}
+                      style={{ padding: '9px 12px', fontSize: 13 }}
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div style={{ marginBottom: 12, padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 12.5, color: '#B91C1C' }}>⚠ {error}</div>
+                )}
+
+                <button
+                  onClick={runAnalysis}
+                  disabled={files.length === 0 && !applicantName.trim()}
+                  className="btn btn-primary"
+                  style={{
+                    width: '100%', padding: '13px 24px', fontSize: 14.5, borderRadius: 12,
+                    opacity: (files.length === 0 && !applicantName.trim()) ? 0.5 : 1,
+                  }}
+                >
+                  {lang === 'zh' ? '🛡 开始筛查' : '🛡 Start Screening'}
+                  {isPro && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.8 }}>PRO</span>}
+                </button>
+
+                {/* What happens next — compact */}
+                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, fontSize: 10.5, color: '#94A3B8' }}>
+                  <span>📋 {lang === 'zh' ? 'AI 分析' : 'AI Analysis'}</span>
+                  <span style={{ color: '#CBD5E1' }}>→</span>
+                  <span>⚖️ {lang === 'zh' ? '法院记录' : 'Court Records'}</span>
+                  <span style={{ color: '#CBD5E1' }}>→</span>
+                  <span>🔒 {lang === 'zh' ? '取证检测' : 'Forensics'}</span>
+                  <span style={{ color: '#CBD5E1' }}>→</span>
+                  <span>📊 {lang === 'zh' ? '风险报告' : 'Risk Report'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
-        {/* Analyzing */}
+        {/* Analyzing — scanner-style progress */}
         {analyzing && (() => {
           const isCourtStep = progressLabel.includes('🔍') || progressLabel.toLowerCase().includes('canlii') || progressLabel.toLowerCase().includes('court') || progressLabel.toLowerCase().includes('network') || progressLabel.includes('查询')
-          const isNameStep = progressLabel.includes('📛') || progressLabel.toLowerCase().includes('extracting')
+          const accentColor = isCourtStep ? '#8B5CF6' : '#0D9488'
+          const accentBg = isCourtStep ? 'rgba(139, 92, 246, 0.06)' : 'rgba(13, 148, 136, 0.04)'
           return (
-            <div className="fade-up" style={{ textAlign: 'center', padding: '80px 0' }}>
-              <div className="spin" style={{ width: 64, height: 64, margin: '0 auto 24px', borderRadius: '50%', border: '3px solid rgba(11, 23, 54, 0.08)', borderTopColor: isCourtStep ? '#8B5CF6' : '#14B8A6' }} />
-              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10, color: isCourtStep ? '#6D28D9' : 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-                {progressLabel || t('screen.step.start')}
-                <span className="mono" style={{ marginLeft: 10, fontSize: 13, fontWeight: 700, color: isCourtStep ? '#6D28D9' : '#14B8A6' }}>
-                  {Math.round(progress)}%
-                </span>
+            <div className="fade-up" style={{
+              background: '#FFFFFF',
+              border: '1px solid #E4E8F0',
+              borderRadius: 20,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)',
+              overflow: 'hidden',
+            }}>
+              {/* Scanner header */}
+              <div style={{
+                padding: '16px 22px',
+                borderBottom: '1px solid #E4E8F0',
+                background: accentBg,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div className="spin" style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid rgba(11, 23, 54, 0.08)', borderTopColor: accentColor }} />
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1736' }}>
+                      {lang === 'zh' ? '正在筛查…' : 'Scanning…'}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
+                      {files.length} {lang === 'zh' ? '个文件' : 'file(s)'}
+                      {applicantName.trim() && ` · ${applicantName.trim()}`}
+                    </div>
+                  </div>
+                </div>
+                <span className="mono" style={{ fontSize: 22, fontWeight: 800, color: accentColor }}>{Math.round(progress)}%</span>
               </div>
-              <div style={{ width: 320, maxWidth: '80%', height: 5, borderRadius: 3, background: 'rgba(11, 23, 54, 0.06)', margin: '16px auto', overflow: 'hidden' }}>
-                <div style={{ height: '100%', borderRadius: 3, background: isCourtStep ? 'var(--gradient-pro)' : 'var(--gradient-brand)', width: `${progress}%`, transition: 'width 0.5s ease' }} />
+
+              {/* Progress bar */}
+              <div style={{ padding: '0 22px' }}>
+                <div style={{ height: 4, borderRadius: 2, background: 'rgba(11, 23, 54, 0.06)', margin: '16px 0 12px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, ${accentColor}88, ${accentColor})`, width: `${progress}%`, transition: 'width 0.5s ease' }} />
+                </div>
               </div>
-              <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-                {isCourtStep
-                  ? (tier === 'pro' ? t('screen.analyzing.court.pro') : t('screen.analyzing.court.free'))
-                  : isNameStep
-                    ? t('screen.analyzing.name')
+
+              {/* Current step label */}
+              <div style={{ padding: '0 22px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: accentColor, marginBottom: 6 }}>
+                  {progressLabel || t('screen.step.start')}
+                </div>
+                <div style={{ fontSize: 11.5, color: '#94A3B8' }}>
+                  {isCourtStep
+                    ? (tier === 'pro' ? t('screen.analyzing.court.pro') : t('screen.analyzing.court.free'))
                     : t('screen.analyzing.files', { n: files.length })}
+                </div>
               </div>
             </div>
           )
@@ -2024,16 +2080,13 @@ export default function ScreenPage() {
           <div className="fade-up">
             {/* Overall */}
             <div className="card-hero sl-card-overall" style={{ textAlign: 'center', marginBottom: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 8, alignItems: 'center' }}>
-                <span className="mono" style={{ fontSize: 10.5, color: 'var(--text-muted)', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 600 }}>{t('screen.result.headline')}</span>
-                <span className={result.tier === 'pro' ? 'chip chip-pro' : 'chip'} style={{ padding: '2px 8px', fontSize: 9.5 }}>{result.tier === 'pro' ? t('screen.tier.pro') : t('screen.tier.free')}</span>
-              </div>
+              <span className="mono" style={{ fontSize: 10.5, color: 'var(--text-muted)', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8, display: 'block' }}>{t('screen.result.headline')}</span>
               <div className="sl-extracted-name" style={{ fontWeight: 700, marginBottom: 4, letterSpacing: '-0.015em' }}>{result.extracted_name || applicantName || '—'}</div>
               {result.name_was_extracted
                 ? <div className="mono" style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 16, letterSpacing: '0.05em' }}>{t('screen.result.nameExtracted')}</div>
                 : <div style={{ marginBottom: 16 }} />}
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-                <ScoreRing score={result.overall} size={160} strokeWidth={12} />
+                <ScoreRing score={result.overall} size={150} strokeWidth={11} />
               </div>
               <div className="sl-risk-pill" style={{ display: 'inline-block', borderRadius: 20, background: riskOverall.bg, color: riskOverall.color, fontWeight: 700, letterSpacing: 1 }}>
                 {t(riskOverall.tagKey)} — {t(riskOverall.labelKey)}
@@ -2264,8 +2317,8 @@ export default function ScreenPage() {
             </div>
 
             {/* Footer */}
-            <div style={{ textAlign: 'center', padding: '16px', fontSize: 11, color: '#475569', borderTop: '1px solid #1e293b' }}>
-              Stayloop Screening v1.1 · {result.tier === 'pro' ? t('screen.tier.proLong') : t('screen.tier.freeLong')} · {new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}<br />
+            <div style={{ textAlign: 'center', padding: '16px', fontSize: 11, color: '#94A3B8', borderTop: '1px solid #E4E8F0' }}>
+              Stayloop Screening v1.1 · {new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}<br />
               {t('screen.result.footer.dataSource')}{result.tier === 'pro' ? t('screen.result.footer.dataSourcePro') : ''}<br />
               {t('screen.result.footer.notice')}
             </div>
