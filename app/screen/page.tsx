@@ -602,7 +602,12 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
 
   // Separate rollup query from database-specific queries
   const rollupQuery = queries[0]
-  const dbQueries = queries.slice(1).filter(q => q.status === 'ok' && (q.hits ?? 0) > 0)
+  // Show all database rows that have hits, plus LTB and Small Claims even
+  // at 0 hits so the user always sees these two priority DBs were queried.
+  const ALWAYS_SHOW_DBS = ['Landlord and Tenant Board', 'Small Claims Court']
+  const dbQueries = queries.slice(1).filter(q =>
+    q.status === 'ok' && ((q.hits ?? 0) > 0 || ALWAYS_SHOW_DBS.some(name => q.source.includes(name)))
+  )
   const proQueries = queries.filter(q => q.tier === 'pro')
 
   const toggleRow = (index: number) => {
@@ -660,12 +665,15 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
           <div style={{ maxHeight: '400px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {dbQueries.map((q, i) => {
               const isExpanded = expandedRows[i]
-              const sevColor = getSeverityColor(q.severity)
+              const hasHits = (q.hits ?? 0) > 0
+              const sevColor = hasHits
+                ? getSeverityColor(q.severity)
+                : { bg: '#15803D', light: 'rgba(22, 163, 74, 0.06)', border: 'rgba(22, 163, 74, 0.25)' }
               return (
                 <div key={i}>
-                  {/* Database row (clickable to expand) */}
+                  {/* Database row (clickable to expand when has hits) */}
                   <div
-                    onClick={() => toggleRow(i)}
+                    onClick={() => hasHits && toggleRow(i)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -674,7 +682,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
                       background: sevColor.light,
                       border: `1px solid ${sevColor.border}`,
                       borderRadius: 6,
-                      cursor: 'pointer',
+                      cursor: hasHits ? 'pointer' : 'default',
                       userSelect: 'none',
                     }}
                   >
@@ -688,15 +696,23 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
 
                     {/* Severity label and hit count */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 10, color: sevColor.bg, fontWeight: 600 }}>
-                        {getSeverityLabel(q.severity)}
-                      </span>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: sevColor.bg }}>
-                        {q.hits} {t('screen.result.court.hitsLabel')}
-                      </span>
-                      <span style={{ fontSize: 12, color: sevColor.bg }}>
-                        {isExpanded ? '▼' : '▶'}
-                      </span>
+                      {hasHits ? (
+                        <>
+                          <span style={{ fontSize: 10, color: sevColor.bg, fontWeight: 600 }}>
+                            {getSeverityLabel(q.severity)}
+                          </span>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: sevColor.bg }}>
+                            {q.hits} {t('screen.result.court.hitsLabel')}
+                          </span>
+                          <span style={{ fontSize: 12, color: sevColor.bg }}>
+                            {isExpanded ? '▼' : '▶'}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: 10, fontWeight: 600, color: '#15803D' }}>
+                          ✓ {t('screen.result.court.clean')}
+                        </span>
+                      )}
                     </div>
                   </div>
 

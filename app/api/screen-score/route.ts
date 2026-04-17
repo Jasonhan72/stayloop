@@ -150,6 +150,14 @@ function getSeverity(databaseId: string, hasHits: boolean): number {
   return DB_SEVERITY_MAP[databaseId] || 1  // Default to medium (1) if not mapped
 }
 
+// Priority databases that are ALWAYS queried by hardcoded ID, even if the
+// full DB list API call fails. These two are the most relevant for rental
+// risk: LTB covers eviction disputes, Small Claims covers debt/damage.
+const PRIORITY_DBS: CanLIIDatabase[] = [
+  { databaseId: 'onltb',  jurisdiction: 'on', name: 'Landlord and Tenant Board' },
+  { databaseId: 'onscsm', jurisdiction: 'on', name: 'Small Claims Court' },
+]
+
 async function runCourtRecordCheck(name: string, plan: string): Promise<{ queries: CourtQuery[]; total_hits: number; queried_name: string; records: CanLIIMatch[]; databases_searched: number; court_summary_en?: string; court_summary_zh?: string }> {
   const queries: CourtQuery[] = []
   const apiKey = process.env.CANLII_API_KEY
@@ -163,47 +171,79 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
     return { queries, total_hits: 0, queried_name: name || '', records: [], databases_searched: 0 }
   }
 
-  // 1. Discover every Ontario database CanLII exposes (courts + tribunals + boards)
-  const dbs = await listOntarioDatabases(apiKey)
+  const searchName = name.trim()
 
-  if (dbs.length === 0) {
-    queries.push({ source: 'CanLII — all Ontario databases', tier: 'free', status: 'unavailable', hits: null, note: 'DB list fetch failed' })
-    return { queries, total_hits: 0, queried_name: name || '', records: [], databases_searched: 0 }
-  }
-
-  // 2. Query every ON database in parallel. Promise.allSettled keeps one flaky
-  //    DB from sinking the entire lookup.
-  const settled = await Promise.allSettled(dbs.map(db => searchCanLIIDb(name.trim(), db, apiKey)))
-  const allRecords: CanLIIMatch[] = []
-  const perDbHits: Array<{ db: CanLIIDatabase; records: CanLIIMatch[]; hits: number }> = []
-  for (let i = 0; i < dbs.length; i++) {
-    const r = settled[i]
+  // ── Step 1: ALWAYS query the two priority databases (LTB + Small Claims) ──
+  // These are hardcoded so they fire even if the full DB list fetch fails.
+  const prioritySettled = await Promise.allSettled(
+    PRIORITY_DBS.map(db => searchCanLIIDb(searchName, db, apiKey))
+  )
+  const priorityDbIds = new Set(PRIORITY_DBS.map(d => d.databaseId))
+  const priorityResults: Array<{ db: CanLIIDatabase; records: CanLIIMatch[]; hits: number }> = []
+  for (let i = 0; i < PRIORITY_DBS.length; i++) {
+    const r = prioritySettled[i]
     const records = r.status === 'fulfilled' ? r.value : []
-    perDbHits.push({ db: dbs[i], records, hits: records.length })
-    if (records.length > 0) allRecords.push(...records)
+    priorityResults.push({ db: PRIORITY_DBS[i], records, hits: records.length })
   }
 
-  const totalHits = allRecords.length
-  const dbsWithHits = perDbHits.filter(d => d.hits > 0)
+  // ── Step 2: Discover remaining Ontario databases and query them ──
+  const allDbs = await listOntarioDatabases(apiKey)
+  // Exclude already-queried priority DBs
+  const extraDbs = allDbs.filter(db => !priorityDbIds.has(db.databaseId))
+  const extraSettled = await Promise.allSettled(
+    extraDbs.map(db => searchCanLIIDb(searchName, db, apiKey))
+  )
+  const extraResults: Array<{ db: CanLIIDatabase; records: CanLIIMatch[]; hits: number }> = []
+  for (let i = 0; i < extraDbs.length; i++) {
+    const r = extraSettled[i]
+    const records = r.status === 'fulfilled' ? r.value : []
+    extraResults.push({ db: extraDbs[i], records, hits: records.length })
+  }
 
-  // 3. Create query rows with severity, sorted by severity (critical first) then hits descending
+  // ── Step 3: Merge and build response ──
+  const allResults = [...priorityResults, ...extraResults]
+  const allRecords: CanLIIMatch[] = []
+  for (const { records } of allResults) allRecords.push(...records)
+  const totalHits = allRecords.length
+  const totalDbsSearched = PRIORITY_DBS.length + extraDbs.length
+
+  // Rollup query row
   queries.push({
-    source: `CanLII — all Ontario databases (${dbs.length} searched)`,
+    source: `CanLII — all Ontario databases (${totalDbsSearched} searched)`,
     tier: 'free',
     status: 'ok',
     hits: totalHits,
-    note: totalHits === 0 ? 'No matches across Ontario courts, tribunals, or boards' : `Hits in ${dbsWithHits.length} database(s)`,
+    note: totalHits === 0
+      ? 'No matches across Ontario courts, tribunals, or boards'
+      : `Hits in ${allResults.filter(d => d.hits > 0).length} database(s)`,
   })
 
-  // Sort databases by severity (desc), then by hits (desc)
-  const sortedDbHits = dbsWithHits.sort((a, b) => {
-    const sevA = getSeverity(a.db.databaseId, true)
-    const sevB = getSeverity(b.db.databaseId, true)
-    if (sevA !== sevB) return sevB - sevA  // Higher severity first
-    return b.hits - a.hits  // Then more hits first
-  })
+  // Always show priority DBs as explicit rows (even 0-hit) so the user sees
+  // that LTB and Small Claims were actually queried every time.
+  for (const pr of priorityResults) {
+    const severity = getSeverity(pr.db.databaseId, pr.hits > 0)
+    queries.push({
+      source: `CanLII — ${pr.db.name}`,
+      tier: 'free',
+      status: 'ok',
+      hits: pr.hits,
+      severity: pr.hits > 0 ? severity : 0,
+      records: pr.records.length > 0 ? pr.records : undefined,
+      url: pr.records[0]?.url,
+    })
+  }
 
-  for (const { db, records, hits } of sortedDbHits) {
+  // Extra DBs with hits, sorted by severity desc then hit count desc
+  const extraWithHits = extraResults
+    .filter(d => d.hits > 0)
+    .sort((a, b) => {
+      const sevA = getSeverity(a.db.databaseId, true)
+      const sevB = getSeverity(b.db.databaseId, true)
+      if (sevA !== sevB) return sevB - sevA
+      return b.hits - a.hits
+    })
+
+  for (const { db, records, hits } of extraWithHits) {
     const severity = getSeverity(db.databaseId, true)
     queries.push({
       source: `CanLII — ${db.name}`,
@@ -221,7 +261,7 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
   queries.push({ source: 'Ontario Courts Portal (direct)', tier: 'pro', status: 'coming_soon', hits: null, note: isPro ? 'Integration in progress' : 'Pro feature — coming soon' })
   queries.push({ source: 'Stayloop Verified Network', tier: 'pro', status: 'coming_soon', hits: null, note: isPro ? 'Integration in progress' : 'Pro feature — coming soon' })
 
-  return { queries, total_hits: totalHits, queried_name: name || '', records: allRecords, databases_searched: dbs.length }
+  return { queries, total_hits: totalHits, queried_name: name || '', records: allRecords, databases_searched: totalDbsSearched }
 }
 
 // Map v3's 5 dims → legacy 6 columns, so old dashboards keep working.
@@ -681,8 +721,10 @@ JSON DISCIPLINE (avoid parse errors):
 
     // Codes that, even at "high" (not "critical") severity, indicate the
     // file itself is a forgery (vs. just being suspicious / low-quality).
+    // NOTE: pdf_pure_image is deliberately NOT here — an image-only PDF
+    // could be a legitimate scan/photo. Only when combined with screenshot
+    // tool metadata (pdf_producer_consumer_tool) does it become conclusive.
     const FORGERY_INDICATING_CODES = new Set([
-      'pdf_pure_image',                    // image-only PDF for a strict kind
       'pdf_title_indicates_image',         // title literally says PNG/screenshot
       'pdf_producer_consumer_tool',        // Photoshop / Word / Canva / Image2PDF
       'paystub_ytd_inflated',              // YTD math impossible (>1.5x or <0.5x)

@@ -75,15 +75,20 @@ export function checkTextDensity(
   const sizePerPageKB = fileSizeBytes / density.page_count / 1024
 
   // ---------------------------------------------------------------------------
-  // Rule 1: Pure image PDF for a strict kind. This is the smoking gun.
+  // Rule 1: Pure image PDF for a strict kind. Suspicious but NOT conclusive
+  // on its own — the document could be a legitimate scan or photo of a real
+  // document. Severity is MEDIUM. If the metadata also shows a screenshot
+  // tool (Quartz, Preview, Photoshop) or the PDF title says "PNG/screenshot",
+  // the combination triggers the hard gate `pdf_is_screenshot` in index.ts
+  // which IS conclusive.
   // ---------------------------------------------------------------------------
   if (density.is_likely_image_pdf && isStrict) {
     flags.push({
       code: 'pdf_pure_image',
-      severity: 'critical',
+      severity: 'medium',
       file,
-      evidence_en: `${kind} PDF contains only ${density.chars_per_page} chars/page (essentially zero extractable text). Authentic ${kind} PDFs are server-generated text PDFs with 1000+ chars/page. This file is an image embedded in a PDF wrapper.`,
-      evidence_zh: `${zhKind(kind)}的 PDF 每页只有 ${density.chars_per_page} 个可提取字符（几乎为零）。真实的${zhKind(kind)}是服务器生成的文字 PDF，每页通常 1000+ 字符。这份文件是把图片包了一层 PDF 外壳。`,
+      evidence_en: `${kind} PDF contains only ${density.chars_per_page} chars/page (essentially zero extractable text). Authentic ${kind} PDFs are usually server-generated text PDFs with 1000+ chars/page. This file may be a scan/photo of a real document, or an image of a fabricated one — check PDF Producer metadata for confirmation.`,
+      evidence_zh: `${zhKind(kind)}的 PDF 每页只有 ${density.chars_per_page} 个可提取字符（几乎为零）。真实的${zhKind(kind)}通常是服务器生成的文字 PDF，每页 1000+ 字符。此文件可能是真实文件的扫描/拍照，也可能是伪造文件的图片——需结合 PDF 生成工具元数据进一步判断。`,
     })
   } else if (density.is_likely_image_pdf) {
     // Not a strict kind, but still notable

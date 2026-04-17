@@ -46,14 +46,21 @@ export interface ForensicsInput {
 
 const HARD_GATE_RULES: Array<{
   gate: string
-  /** if any of these flag codes appear, trigger the gate */
+  /** Trigger mode: 'any' = gate fires if ANY trigger code is present;
+   *  'all' = gate fires only if ALL trigger codes are present. */
+  mode: 'any' | 'all'
   triggers: string[]
 }> = [
-  // Catastrophic — almost certainly a forged document
-  { gate: 'pdf_is_screenshot', triggers: ['pdf_pure_image', 'pdf_title_indicates_image'] },
-  { gate: 'paystub_math_impossible', triggers: ['paystub_ytd_inflated', 'paystub_period_math_error'] },
-  { gate: 'cross_doc_collision', triggers: ['cross_doc_phone_collision'] },
-  { gate: 'producer_consumer_tool', triggers: ['pdf_producer_consumer_tool'] },
+  // pdf_is_screenshot fires only when image-PDF is COMBINED with a
+  // screenshot-tool metadata signal. An image-only PDF on its own could
+  // be a legitimate scan/photo — we don't hard-gate on that alone.
+  { gate: 'pdf_is_screenshot', mode: 'all', triggers: ['pdf_pure_image', 'pdf_producer_consumer_tool'] },
+  // Title literally says "screenshot/PNG" — this is conclusive regardless
+  // of text density (could be text-over-image PDF from a "Save as PDF").
+  { gate: 'pdf_is_screenshot', mode: 'any', triggers: ['pdf_title_indicates_image'] },
+  { gate: 'paystub_math_impossible', mode: 'any', triggers: ['paystub_ytd_inflated', 'paystub_period_math_error'] },
+  { gate: 'cross_doc_collision', mode: 'any', triggers: ['cross_doc_phone_collision'] },
+  { gate: 'producer_consumer_tool', mode: 'any', triggers: ['pdf_producer_consumer_tool'] },
 ]
 
 const SEVERITY_WEIGHT: Record<string, number> = {
@@ -97,7 +104,10 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
   const flagCodes = new Set(allFlags.map(f => f.code))
   const hardGates: string[] = []
   for (const rule of HARD_GATE_RULES) {
-    if (rule.triggers.some(t => flagCodes.has(t))) hardGates.push(rule.gate)
+    const match = rule.mode === 'all'
+      ? rule.triggers.every(t => flagCodes.has(t))  // ALL must be present
+      : rule.triggers.some(t => flagCodes.has(t))   // ANY is enough
+    if (match && !hardGates.includes(rule.gate)) hardGates.push(rule.gate)
   }
 
   // Compute severity
