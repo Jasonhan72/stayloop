@@ -1250,6 +1250,17 @@ JSON DISCIPLINE (avoid parse errors):
     const newNames = extractedNames.filter(n => !alreadySearched.has(n.toLowerCase()) && isValidFullName(n))
 
     if (newNames.length > 0) {
+      // Insert a name separator for the primary name so the UI clearly
+      // labels which group of queries belongs to which person.
+      const primaryHits = courtDetail.total_hits
+      courtDetail.queries.splice(1, 0, {
+        source: `── ${nameForLookup} ──`,
+        tier: 'free',
+        status: 'ok',
+        hits: primaryHits,
+        note: 'Primary applicant name',
+      })
+
       // Run court searches for each new name in parallel
       const supplementalResults = await Promise.allSettled(
         newNames.map(async (extraName) => {
