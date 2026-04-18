@@ -669,15 +669,25 @@ function CaseRecordCard({ record, lang, sevColor, isParty }: { record: CanLIIMat
 
 function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMatch; lang: string; sevColor: { bg: string; light: string; border: string } }) {
   const filedDate = record.filedDate ? new Date(record.filedDate).toLocaleDateString('en-CA') : ''
+  // Build a search URL that pre-fills the party name on Ontario Courts Portal
+  const portalSearchUrl = `https://courts.ontario.ca/portal/search/party`
   return (
-    <div
+    <a
+      href={portalSearchUrl}
+      target="_blank"
+      rel="noopener noreferrer"
       style={{
         display: 'block',
+        textDecoration: 'none',
         padding: '10px 12px',
         background: sevColor.light,
         borderRadius: 6,
         border: `1px solid ${sevColor.border}`,
+        transition: 'background .15s, border-color .15s',
       }}
+      title={record.caseTitle}
+      onMouseEnter={e => { e.currentTarget.style.background = '#EEF2FF'; e.currentTarget.style.borderColor = '#818CF860' }}
+      onMouseLeave={e => { e.currentTarget.style.background = sevColor.light; e.currentTarget.style.borderColor = sevColor.border }}
     >
       {/* Row 1: badges */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
@@ -709,13 +719,17 @@ function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMat
         {record.caseTitle}
       </div>
       {/* Row 3: Details */}
-      <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 10, color: '#64748B' }}>
+      <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 10, color: '#64748B', flexWrap: 'wrap' }}>
         <span>{lang === 'zh' ? '角色' : 'Role'}: <strong style={{ color: '#334155' }}>{record.partyRole}</strong></span>
         <span>{lang === 'zh' ? '类别' : 'Category'}: {record.caseCategory}</span>
         {filedDate && <span>{lang === 'zh' ? '立案' : 'Filed'}: {filedDate}</span>}
         <span>{record.partyDisplayName}</span>
       </div>
-    </div>
+      {/* Row 4: Link hint */}
+      <div style={{ fontSize: 10, color: '#0284C7', marginTop: 4, fontWeight: 500 }}>
+        {lang === 'zh' ? '点击前往安省法院门户查看详情 ↗' : 'View on Ontario Courts Portal ↗'}
+      </div>
+    </a>
   )
 }
 

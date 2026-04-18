@@ -1171,8 +1171,9 @@ JSON DISCIPLINE (avoid parse errors):
           note: `Additional name extracted from ID documents`,
         })
         // Add all database-specific queries from the supplemental search
-        // Skip the rollup row (index 0) to avoid duplicate rollup
+        // Skip the rollup row (index 0) and pro-tier rows to avoid duplicates
         for (const q of extraCourt.queries.slice(1)) {
+          if (q.tier === 'pro') continue  // pro sources already shown once
           courtDetail.queries.push(q)
         }
 
