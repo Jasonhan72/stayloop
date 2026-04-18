@@ -21,12 +21,14 @@ import { checkTextDensity, readPdfTextDensity } from './pdf-text'
 import { checkPaystubMath, extractPaystubFields } from './paystub-math'
 import { checkSourceSpecific } from './source-specific'
 import { runCrossDocChecks } from './cross-doc'
+import { checkArmLength } from './arm-length'
 import type {
   ForensicFlag,
   ForensicsReport,
   ForensicsSeverity,
   PaystubExtraction,
   PerFileForensics,
+  ArmLengthCheckResult,
 } from './types'
 
 export interface ForensicsInput {
@@ -264,4 +266,44 @@ export function forensicsToPromptBlock(report: ForensicsReport): string {
   return lines.join('\n')
 }
 
-export type { ForensicsReport, ForensicFlag, PerFileForensics } from './types'
+/**
+ * Run deep arm's-length employment verification.
+ * Called separately (not as part of default forensics) — triggered by
+ * the "Deep Check" button in the UI. PRO users get this by default,
+ * free users need to activate.
+ *
+ * Takes employer names (extracted from forensics cross_doc.entities.employers
+ * or from AI scoring) and checks them against corporate registries.
+ */
+export async function runDeepCheck(input: {
+  employer_names: string[]
+  applicant_name: string
+  applicant_address?: string
+  signatory_name?: string
+}): Promise<ArmLengthCheckResult[]> {
+  if (!input.employer_names.length) return []
+
+  // Deduplicate employer names (case-insensitive)
+  const seen = new Set<string>()
+  const unique = input.employer_names.filter(n => {
+    const key = n.toLowerCase().trim()
+    if (seen.has(key) || key.length < 2) return false
+    seen.add(key)
+    return true
+  })
+
+  const results = await Promise.allSettled(
+    unique.map(emp => checkArmLength(
+      emp,
+      input.applicant_name,
+      input.applicant_address,
+      input.signatory_name,
+    ))
+  )
+
+  return results
+    .filter((r): r is PromiseFulfilledResult<ArmLengthCheckResult> => r.status === 'fulfilled')
+    .map(r => r.value)
+}
+
+export type { ForensicsReport, ForensicFlag, PerFileForensics, ArmLengthCheckResult } from './types'

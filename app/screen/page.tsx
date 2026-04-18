@@ -170,6 +170,35 @@ interface ScoreResult {
   // Dimensions force-zeroed because the underlying evidence file was
   // determined to be forged (e.g. credit_report → credit_health).
   forensics_zeroed_dims?: string[]
+  screening_id?: string
+  // Deep check (arm's-length verification)
+  deep_check_result?: {
+    checks: Array<{
+      employer_name: string
+      company_info: {
+        name: string
+        company_number: string | null
+        jurisdiction: string | null
+        incorporation_date: string | null
+        status: string | null
+        registered_address: string | null
+        company_type: string | null
+        officers: Array<{ name: string; position: string }>
+        registry_url: string | null
+        source: string
+      } | null
+      is_numbered_company: boolean
+      is_recently_incorporated: boolean
+      applicant_is_officer: boolean
+      applicant_lastname_match: boolean
+      company_address_matches_applicant: boolean
+      arm_length_risk: 'high' | 'medium' | 'low' | 'clean'
+      flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string }>
+    }>
+    overall_risk: 'high' | 'medium' | 'low' | 'clean'
+    total_flags: number
+    checked_at: string
+  } | null
 }
 
 // ───────────────────────────────────────────────────── Constants ──
@@ -1495,6 +1524,8 @@ export default function ScreenPage() {
   const [viewingHistoryId, setViewingHistoryId] = useState<string | null>(null)
   const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null)
   const [showAuthGate, setShowAuthGate] = useState(false)
+  const [deepChecking, setDeepChecking] = useState(false)
+  const [deepCheckResult, setDeepCheckResult] = useState<ScoreResult['deep_check_result']>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -1513,6 +1544,33 @@ export default function ScreenPage() {
       .maybeSingle()
     if (data?.plan) {
       setPlan(data.plan as any)
+    }
+  }
+
+  async function runDeepCheck() {
+    if (!result?.screening_id || deepChecking) return
+    setDeepChecking(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/deep-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token || ''}`,
+        },
+        body: JSON.stringify({ screening_id: result.screening_id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || data.error_zh || 'Deep check failed')
+      setDeepCheckResult(data)
+      // Also update result with deep check data
+      setResult(prev => prev ? { ...prev, deep_check_result: data } : prev)
+    } catch (e: any) {
+      alert(lang === 'zh'
+        ? `深度检查失败: ${e.message}`
+        : `Deep check failed: ${e.message}`)
+    } finally {
+      setDeepChecking(false)
     }
   }
 
@@ -1744,6 +1802,7 @@ export default function ScreenPage() {
     setFiles([])
     setFileKinds({})
     setResult(null)
+    setDeepCheckResult(null)
     setProgress(0)
     setProgressLabel('')
     setApplicantName('')
@@ -2474,6 +2533,154 @@ export default function ScreenPage() {
             {result.forensics_detail && (
               <ForensicsCard report={result.forensics_detail} />
             )}
+
+            {/* Deep Check — Arm's-Length Employment Verification */}
+            <div className="sl-card" style={{ background: 'var(--bg-card)', border: `1px solid ${deepCheckResult?.overall_risk === 'high' ? 'rgba(220, 38, 38, 0.4)' : deepCheckResult?.overall_risk === 'medium' ? 'rgba(245, 158, 11, 0.4)' : 'var(--border-subtle)'}`, backdropFilter: 'blur(14px)', marginBottom: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                <div>
+                  <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#64748B' }}>
+                    {lang === 'zh' ? '🏢 深度交叉检查 · Arm\'s Length' : '🏢 Deep Cross-Check · Arm\'s Length'}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 3 }}>
+                    {lang === 'zh' ? '公司注册信息查询 · 董事/股东交叉比对 · 关联关系识别' : 'Company registry lookup · Director cross-reference · Relationship detection'}
+                  </div>
+                </div>
+                {!deepCheckResult ? (
+                  <button
+                    onClick={runDeepCheck}
+                    disabled={deepChecking || !result.screening_id}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '8px 18px', borderRadius: 8,
+                      background: isPro ? 'linear-gradient(135deg, #7C3AED, #8B5CF6)' : '#0B1736',
+                      color: '#fff', fontSize: 12, fontWeight: 600,
+                      border: 'none', cursor: deepChecking ? 'wait' : 'pointer',
+                      opacity: deepChecking ? 0.6 : 1,
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {deepChecking
+                      ? (lang === 'zh' ? '⏳ 正在查询…' : '⏳ Checking…')
+                      : isPro
+                        ? (lang === 'zh' ? '🔍 运行深度检查' : '🔍 Run Deep Check')
+                        : (lang === 'zh' ? '🔍 运行深度检查' : '🔍 Run Deep Check')
+                    }
+                    {!deepChecking && isPro && <span style={{ fontSize: 9, opacity: 0.8, padding: '1px 5px', background: 'rgba(255,255,255,0.2)', borderRadius: 3 }}>PRO</span>}
+                  </button>
+                ) : (
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6,
+                    background: deepCheckResult.overall_risk === 'high' ? '#FEE2E2' : deepCheckResult.overall_risk === 'medium' ? '#FEF3C7' : '#DCFCE7',
+                    color: deepCheckResult.overall_risk === 'high' ? '#991B1B' : deepCheckResult.overall_risk === 'medium' ? '#92400E' : '#166534',
+                  }}>
+                    {deepCheckResult.overall_risk === 'high'
+                      ? (lang === 'zh' ? '⚠ 高风险 — 非独立关系' : '⚠ High Risk — Not Arm\'s Length')
+                      : deepCheckResult.overall_risk === 'medium'
+                        ? (lang === 'zh' ? '⚡ 中等风险' : '⚡ Medium Risk')
+                        : (lang === 'zh' ? '✓ 正常' : '✓ Clean')}
+                  </span>
+                )}
+              </div>
+
+              {/* Deep Check Results */}
+              {deepCheckResult && deepCheckResult.checks.length > 0 && (
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {deepCheckResult.checks.map((check, ci) => (
+                    <div key={ci} style={{
+                      padding: '12px 14px', borderRadius: 10,
+                      background: check.arm_length_risk === 'high' ? 'rgba(220, 38, 38, 0.04)' : check.arm_length_risk === 'medium' ? 'rgba(245, 158, 11, 0.04)' : 'rgba(22, 163, 74, 0.04)',
+                      border: `1px solid ${check.arm_length_risk === 'high' ? 'rgba(220, 38, 38, 0.2)' : check.arm_length_risk === 'medium' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(22, 163, 74, 0.15)'}`,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#0B1736' }}>
+                          {check.employer_name}
+                        </div>
+                        <span style={{
+                          fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+                          background: check.arm_length_risk === 'high' ? '#DC2626' : check.arm_length_risk === 'medium' ? '#D97706' : '#16A34A',
+                          color: '#fff',
+                        }}>
+                          {check.arm_length_risk === 'high' ? (lang === 'zh' ? '高风险' : 'HIGH') : check.arm_length_risk === 'medium' ? (lang === 'zh' ? '中风险' : 'MEDIUM') : check.arm_length_risk === 'low' ? (lang === 'zh' ? '低风险' : 'LOW') : (lang === 'zh' ? '正常' : 'CLEAN')}
+                        </span>
+                      </div>
+
+                      {/* Company Info */}
+                      {check.company_info ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '3px 12px', fontSize: 11, color: '#475569', marginBottom: check.flags.length > 0 ? 10 : 0 }}>
+                          <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '注册名' : 'Registered'}:</span>
+                          <span style={{ fontWeight: 600 }}>{check.company_info.name}</span>
+                          {check.company_info.incorporation_date && <>
+                            <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '成立日期' : 'Incorporated'}:</span>
+                            <span style={{ fontWeight: check.is_recently_incorporated ? 700 : 400, color: check.is_recently_incorporated ? '#B91C1C' : undefined }}>{check.company_info.incorporation_date}{check.is_recently_incorporated ? (lang === 'zh' ? ' ⚠ 不到2年' : ' ⚠ <2yr') : ''}</span>
+                          </>}
+                          {check.company_info.status && <>
+                            <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '状态' : 'Status'}:</span>
+                            <span>{check.company_info.status}</span>
+                          </>}
+                          {check.company_info.company_type && <>
+                            <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '类型' : 'Type'}:</span>
+                            <span>{check.company_info.company_type}</span>
+                          </>}
+                          {check.company_info.officers.length > 0 && <>
+                            <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '董事/高管' : 'Officers'}:</span>
+                            <span>
+                              {check.company_info.officers.map((o, oi) => (
+                                <span key={oi} style={{
+                                  fontWeight: check.applicant_is_officer || check.applicant_lastname_match ? 700 : 400,
+                                  color: check.applicant_is_officer ? '#B91C1C' : check.applicant_lastname_match ? '#D97706' : undefined,
+                                }}>
+                                  {o.name}{o.position ? ` (${o.position})` : ''}{oi < check.company_info!.officers.length - 1 ? ', ' : ''}
+                                </span>
+                              ))}
+                            </span>
+                          </>}
+                          {check.company_info.registered_address && <>
+                            <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '注册地址' : 'Address'}:</span>
+                            <span style={{ color: check.company_address_matches_applicant ? '#B91C1C' : undefined, fontWeight: check.company_address_matches_applicant ? 600 : 400 }}>{check.company_info.registered_address}{check.company_address_matches_applicant ? (lang === 'zh' ? ' ⚠ 与申请人地址重叠' : ' ⚠ overlaps applicant') : ''}</span>
+                          </>}
+                          {check.company_info.registry_url && <>
+                            <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '来源' : 'Source'}:</span>
+                            <span><a href={check.company_info.registry_url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563EB', textDecoration: 'underline' }}>{check.company_info.source}</a></span>
+                          </>}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11, color: '#94A3B8', fontStyle: 'italic', marginBottom: check.flags.length > 0 ? 10 : 0 }}>
+                          {lang === 'zh' ? '未在加拿大公司注册数据库中找到' : 'Not found in Canadian corporate registries'}
+                        </div>
+                      )}
+
+                      {/* Flags */}
+                      {check.flags.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {check.flags.map((flag, fi) => (
+                            <div key={fi} style={{
+                              display: 'flex', alignItems: 'flex-start', gap: 8,
+                              padding: '8px 10px', borderRadius: 6,
+                              background: flag.severity === 'critical' ? 'rgba(185, 28, 28, 0.08)' : flag.severity === 'high' ? 'rgba(217, 119, 6, 0.08)' : 'rgba(100, 116, 139, 0.05)',
+                              border: `1px solid ${flag.severity === 'critical' ? 'rgba(185, 28, 28, 0.2)' : flag.severity === 'high' ? 'rgba(217, 119, 6, 0.2)' : 'rgba(100, 116, 139, 0.1)'}`,
+                              fontSize: 11.5, lineHeight: 1.5,
+                            }}>
+                              <span style={{
+                                fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, flexShrink: 0, marginTop: 2,
+                                background: flag.severity === 'critical' ? '#B91C1C' : flag.severity === 'high' ? '#D97706' : '#64748B',
+                                color: '#fff',
+                              }}>
+                                {flag.severity === 'critical' ? (lang === 'zh' ? '严重' : 'CRIT') : flag.severity === 'high' ? (lang === 'zh' ? '高' : 'HIGH') : (lang === 'zh' ? '中' : 'MED')}
+                              </span>
+                              <span style={{ color: '#0B1736' }}>{lang === 'zh' ? flag.evidence_zh : flag.evidence_en}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div style={{ fontSize: 10, color: '#94A3B8', textAlign: 'right' }}>
+                    {lang === 'zh' ? '数据来源: OpenCorporates · 加拿大公司注册' : 'Source: OpenCorporates · Canadian Corporate Registry'}
+                    {' · '}{new Date(deepCheckResult.checked_at).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Court Records */}
             {(() => {

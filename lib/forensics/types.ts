@@ -116,6 +116,31 @@ export interface PerFileForensics {
 
 export type ForensicsSeverity = 'clean' | 'suspicious' | 'likely_fraud' | 'fraud'
 
+export interface ArmLengthCompanyInfo {
+  name: string
+  company_number: string | null
+  jurisdiction: string | null
+  incorporation_date: string | null
+  status: string | null
+  registered_address: string | null
+  company_type: string | null
+  officers: Array<{ name: string; position: string }>
+  registry_url: string | null
+  source: string
+}
+
+export interface ArmLengthCheckResult {
+  employer_name: string
+  company_info: ArmLengthCompanyInfo | null
+  is_numbered_company: boolean
+  is_recently_incorporated: boolean
+  applicant_is_officer: boolean
+  applicant_lastname_match: boolean
+  company_address_matches_applicant: boolean
+  arm_length_risk: 'high' | 'medium' | 'low' | 'clean'
+  flags: ForensicFlag[]
+}
+
 export interface ForensicsReport {
   per_file: PerFileForensics[]
   cross_doc: CrossDocResult
@@ -130,4 +155,6 @@ export interface ForensicsReport {
   elapsed_ms: number
   /** schema version for migration tracking */
   schema_version: 1
+  /** arm's-length employment check results (populated by deep check) */
+  arm_length?: ArmLengthCheckResult[]
 }

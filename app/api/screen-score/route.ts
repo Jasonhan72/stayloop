@@ -1449,6 +1449,7 @@ JSON DISCIPLINE (avoid parse errors):
 
     return NextResponse.json({
       success: true,
+      screening_id: screening_id,
       overall,
       model_version: 'v3_2026',
       scores_v3: s,
