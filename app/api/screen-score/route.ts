@@ -698,11 +698,22 @@ HARD GATES (if any condition is met, set gate in hard_gates_triggered[]):
 - "doc_tampering" — visible PS/overwrite/font anomalies → caps overall at 55
 - "identity_mismatch" — same name, different DOB/addresses/IDs → caps overall at 50
 - "employer_fraud" — company doesn't exist OR HR phone matches applicant's phone → caps overall at 45
+- "self_issued_employment" — employment letter is self-issued (own company / family business) → caps overall at 50
 
 RED FLAGS — additive penalties (return as array; backend will apply):
 - "rush_move_in" (-4), "cross_doc_contradictions" (-8), "hr_phone_is_applicant" (-10),
-  "no_linkedin_for_professional_role" (-3), "volunteered_sin" (-2)
+  "no_linkedin_for_professional_role" (-3), "volunteered_sin" (-2),
+  "self_issued_employment_letter" (-15)
 - DO NOT penalize volunteer prepayment of 6–12 months rent. That is a POSITIVE signal.
+
+SELF-ISSUED EMPLOYMENT LETTER DETECTION — CRITICAL:
+Check if the employment letter or offer letter is self-issued (applicant works at their own company, or the signatory shares the same last name / is likely a family member). Signals include:
+- Applicant name appears as company owner, director, sole proprietor, or signatory on the letter
+- Signatory's last name matches the applicant's last name (family business)
+- Company is a sole proprietorship or small numbered company (e.g. "1234567 Ontario Inc") and applicant is the only employee mentioned
+- Employment letter is overly simple / lacks company letterhead / uses generic wording
+- HR contact phone or email matches the applicant's own contact information
+If detected: trigger "self_issued_employment_letter" red flag, set ability_to_pay income_stability sub-score to 20-35 (self-verified income is unreliable), and note it prominently in details_en/details_zh and flags. The income from a self-issued letter should NOT be treated as verified — mark income_evidence as "self-issued (unverified)" and recommend landlord verify via bank deposit history or CRA notice of assessment.
 
 ACTION ITEMS (critical for L3 sub-components):
 Generate 1-4 action_items the landlord must perform to close evidence gaps. Each item:
@@ -1074,6 +1085,8 @@ JSON DISCIPLINE (avoid parse errors):
       paystub_math_impossible: 35,   // YTD inflated >1.5x or hourly×hours ≠ stated
       cross_doc_collision: 40,       // applicant phone == employer/HR phone
       producer_consumer_tool: 50,    // PDF Producer is Preview/Word/Skia for strict kinds
+      // Self-issued employment — own company / family business letter
+      self_issued_employment: 50,    // self-verified income is unreliable → overall capped at 50
       // Court record gates — ANY court record as defendant/debtor = fundamentally untrustworthy
       court_record_defendant: 35,    // 1 case as defendant/debtor → overall capped at 35
       court_record_defendant_multi: 25, // 2+ cases → overall capped at 25
@@ -1085,6 +1098,7 @@ JSON DISCIPLINE (avoid parse errors):
       hr_phone_is_applicant: 10,
       no_linkedin_for_professional_role: 3,
       volunteered_sin: 2,
+      self_issued_employment_letter: 15,
     }
 
     let baseScore =
