@@ -757,6 +757,9 @@ JSON DISCIPLINE (avoid parse errors):
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
+        // Temperature 0 = deterministic scoring. Same documents should
+        // produce the same scores every time.
+        temperature: 0,
         // With the lean v3 schema (sparse sub_coverage, tight length caps
         // on details/flags/action_items) the full output fits comfortably
         // under 2000 tokens. 3500 gives 75% headroom without wasting
