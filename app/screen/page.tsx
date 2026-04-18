@@ -1547,7 +1547,36 @@ export default function ScreenPage() {
     }
   }
 
+  const [upgradeLoading, setUpgradeLoading] = useState(false)
+
+  async function startProUpgrade() {
+    setUpgradeLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setShowAuthGate(true)
+        return
+      }
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      if (!res.ok || !data.url) throw new Error(data.error || 'checkout failed')
+      window.location.href = data.url
+    } catch (err: any) {
+      alert(lang === 'zh' ? `升级失败: ${err?.message}` : `Upgrade failed: ${err?.message}`)
+    } finally {
+      setUpgradeLoading(false)
+    }
+  }
+
   async function runDeepCheck() {
+    // Gate: only PRO users can run deep check
+    if (plan !== 'pro' && plan !== 'enterprise') {
+      startProUpgrade()
+      return
+    }
     if (!result?.screening_id || deepChecking) return
     setDeepChecking(true)
     try {
@@ -1563,7 +1592,6 @@ export default function ScreenPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || data.error_zh || 'Deep check failed')
       setDeepCheckResult(data)
-      // Also update result with deep check data
       setResult(prev => prev ? { ...prev, deep_check_result: data } : prev)
     } catch (e: any) {
       alert(lang === 'zh'
@@ -2548,24 +2576,26 @@ export default function ScreenPage() {
                 {!deepCheckResult ? (
                   <button
                     onClick={runDeepCheck}
-                    disabled={deepChecking || !result.screening_id}
+                    disabled={deepChecking || upgradeLoading || !result.screening_id}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6,
                       padding: '8px 18px', borderRadius: 8,
-                      background: isPro ? 'linear-gradient(135deg, #7C3AED, #8B5CF6)' : '#0B1736',
+                      background: isPro ? 'linear-gradient(135deg, #7C3AED, #8B5CF6)' : 'linear-gradient(135deg, #7C3AED, #8B5CF6)',
                       color: '#fff', fontSize: 12, fontWeight: 600,
-                      border: 'none', cursor: deepChecking ? 'wait' : 'pointer',
-                      opacity: deepChecking ? 0.6 : 1,
+                      border: 'none', cursor: (deepChecking || upgradeLoading) ? 'wait' : 'pointer',
+                      opacity: (deepChecking || upgradeLoading) ? 0.6 : 1,
                       transition: 'all 0.15s',
                     }}
                   >
                     {deepChecking
                       ? (lang === 'zh' ? '⏳ 正在查询…' : '⏳ Checking…')
-                      : isPro
-                        ? (lang === 'zh' ? '🔍 运行深度检查' : '🔍 Run Deep Check')
-                        : (lang === 'zh' ? '🔍 运行深度检查' : '🔍 Run Deep Check')
+                      : upgradeLoading
+                        ? (lang === 'zh' ? '⏳ 跳转中…' : '⏳ Redirecting…')
+                        : isPro
+                          ? (lang === 'zh' ? '🔍 运行深度检查' : '🔍 Run Deep Check')
+                          : (lang === 'zh' ? '🔒 升级 Pro 解锁' : '🔒 Upgrade to Pro')
                     }
-                    {!deepChecking && isPro && <span style={{ fontSize: 9, opacity: 0.8, padding: '1px 5px', background: 'rgba(255,255,255,0.2)', borderRadius: 3 }}>PRO</span>}
+                    <span style={{ fontSize: 9, opacity: 0.85, padding: '1px 5px', background: 'rgba(255,255,255,0.2)', borderRadius: 3 }}>PRO</span>
                   </button>
                 ) : (
                   <span style={{
