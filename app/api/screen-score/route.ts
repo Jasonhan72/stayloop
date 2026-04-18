@@ -606,7 +606,8 @@ export async function POST(req: NextRequest) {
 
     // ---- Stage 3: Build v3 Claude prompt ----
     const formText = `LANDLORD-PROVIDED CONTEXT:
-Tenant name: ${nameForLookup || 'unknown'}
+Tenant name (from form): ${nameForLookup || 'unknown'}
+IMPORTANT: If you see MULTIPLE ID documents for DIFFERENT people, extract ALL their full names into extracted_names[]. The backend will run court record searches for EACH name.
 Monthly rent: $${monthlyRent || 'N/A'}
 Self-reported income: $${monthlyIncome || 'N/A'}/mo${incomeRatio ? ` (ratio ${incomeRatio.toFixed(2)}x)` : ''}
 Landlord notes: ${screening.notes || 'N/A'}
@@ -682,7 +683,7 @@ Generate 1-4 action_items the landlord must perform to close evidence gaps. Each
 - status: "pending"
 
 EXTRACT these fields too:
-- extracted_name (from ID if available)
+- extracted_names (string array — ALL unique person names from ALL uploaded ID documents. If 2 IDs are uploaded for 2 different people, return BOTH names. Each name should be "FIRSTNAME LASTNAME" format. This is CRITICAL for court record lookup.)
 - detected_monthly_income (CAD/month, convert bi-weekly or annual, null if unknown)
 - income_evidence (one short sentence citing source)
 - detected_document_kinds (subset of [employment_letter, pay_stub, bank_statement, id_document, credit_report, offer_letter, reference, other])
@@ -699,7 +700,7 @@ SPEED RULES — output length is the main latency driver. Stay extremely lean:
 
 EMIT ONLY this JSON — no markdown, no fences, no preamble.
 {
- "extracted_name":"...",
+ "extracted_names":["FULL NAME 1","FULL NAME 2"],
  "detected_monthly_income":<number or null>,
  "income_evidence":"... or null (≤10 words)",
  "detected_document_kinds":["..."],
@@ -1134,7 +1135,64 @@ JSON DISCIPLINE (avoid parse errors):
     const identityMatch = typeof parsed.identity_match_score === 'number' ? parsed.identity_match_score : 70
     const legacy = mapV3ToLegacy(s, redFlags.length, identityMatch)
 
-    const finalExtractedName = parsed.extracted_name || null
+    // ---- Stage 5.5: Supplemental court searches for AI-extracted names ----
+    // The initial court search (Stage 2) only used the landlord-provided
+    // tenant_name. If the AI extracted additional names from ID documents
+    // (e.g. a second applicant), run court searches for those names now
+    // and merge the results.
+    const extractedNames: string[] = Array.isArray(parsed.extracted_names)
+      ? parsed.extracted_names.map((n: any) => (typeof n === 'string' ? n.trim() : '')).filter((n: string) => n.length > 0)
+      : (parsed.extracted_name ? [parsed.extracted_name.trim()] : [])
+    const finalExtractedName = extractedNames[0] || parsed.extracted_name || null
+
+    // Find names that weren't already searched (case-insensitive comparison)
+    const alreadySearched = new Set([nameForLookup.toLowerCase()])
+    const newNames = extractedNames.filter(n => !alreadySearched.has(n.toLowerCase()) && isValidFullName(n))
+
+    if (newNames.length > 0) {
+      // Run court searches for each new name in parallel
+      const supplementalResults = await Promise.allSettled(
+        newNames.map(async (extraName) => {
+          const result = await runCourtRecordCheck(extraName, plan)
+          return { name: extraName, result }
+        })
+      )
+
+      for (const sr of supplementalResults) {
+        if (sr.status !== 'fulfilled') continue
+        const { name: extraName, result: extraCourt } = sr.value
+
+        // Merge queries: add a separator + all queries for this name
+        courtDetail.queries.push({
+          source: `── ${extraName} ──`,
+          tier: 'free',
+          status: 'ok',
+          hits: extraCourt.total_hits,
+          note: `Additional name extracted from ID documents`,
+        })
+        // Add all database-specific queries from the supplemental search
+        // Skip the rollup row (index 0) to avoid duplicate rollup
+        for (const q of extraCourt.queries.slice(1)) {
+          courtDetail.queries.push(q)
+        }
+
+        // Merge records
+        courtDetail.records.push(...extraCourt.records)
+        courtDetail.total_hits += extraCourt.total_hits
+        if (extraCourt.portal_records) {
+          courtDetail.portal_records = [
+            ...(courtDetail.portal_records || []),
+            ...extraCourt.portal_records,
+          ]
+        }
+      }
+
+      // Update court_records_detail in DB with merged results
+      await supabase.from('screenings').update({
+        court_records_detail: courtDetail,
+      }).eq('id', screening_id)
+    }
+
     const detectedIncome = typeof parsed.detected_monthly_income === 'number' && parsed.detected_monthly_income > 0
       ? parsed.detected_monthly_income : null
     const effectiveIncome = detectedIncome ?? (monthlyIncome > 0 ? monthlyIncome : null)
@@ -1177,6 +1235,7 @@ JSON DISCIPLINE (avoid parse errors):
         forensics_penalty: forensicsPenalty,
         forensics_zeroed_dims: dimsZeroed,
         extracted_name: finalExtractedName,
+        extracted_names: extractedNames,
         legacy_scores: legacy,
       },
       _details_en: parsed.details_en,
@@ -1255,6 +1314,7 @@ JSON DISCIPLINE (avoid parse errors):
       monthly_rent: monthlyRent || null,
       income_rent_ratio: computedRatio,
       extracted_name: finalExtractedName,
+      extracted_names: extractedNames,
       name_was_extracted: !screening.tenant_name && !!finalExtractedName,
       summary: parsed.summary_en || '',
       summary_en: parsed.summary_en || '',

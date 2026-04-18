@@ -728,7 +728,9 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
   // at 0 hits so the user always sees these two priority DBs were queried.
   const ALWAYS_SHOW_DBS = ['Landlord and Tenant Board', 'Small Claims Court', 'Ontario Courts Portal']
   const dbQueries = queries.slice(1).filter(q =>
-    q.tier === 'free' && (q.status === 'ok' || q.status === 'unavailable') && ((q.hits ?? 0) > 0 || ALWAYS_SHOW_DBS.some(name => q.source.includes(name)))
+    // Name separator rows (e.g. "── JOHN SMITH ──") always pass through
+    q.source.startsWith('──') ||
+    (q.tier === 'free' && (q.status === 'ok' || q.status === 'unavailable') && ((q.hits ?? 0) > 0 || ALWAYS_SHOW_DBS.some(name => q.source.includes(name))))
   )
   const proQueries = queries.filter(q => q.tier === 'pro')
 
@@ -812,6 +814,34 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
           <div style={{ fontSize: 11, color: '#64748B', marginBottom: 8, fontWeight: 600 }}>{t('screen.result.court.sources')}</div>
           <div style={{ maxHeight: '500px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {dbQueries.map((q, i) => {
+              // Name separator row (e.g. "── JOHN SMITH ──")
+              if (q.source.startsWith('──')) {
+                const nameLabel = q.source.replace(/──/g, '').trim()
+                return (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', marginTop: 8,
+                    borderTop: '1px solid var(--border-subtle)',
+                  }}>
+                    <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#0B1736', whiteSpace: 'nowrap' }}>
+                      🔍 {lang === 'zh' ? '查询姓名' : 'Searching'}: {nameLabel}
+                    </span>
+                    <span style={{
+                      fontSize: 10, padding: '2px 6px', borderRadius: 3,
+                      background: (q.hits ?? 0) > 0 ? '#FEE2E2' : '#DCFCE7',
+                      color: (q.hits ?? 0) > 0 ? '#991B1B' : '#15803D',
+                      fontWeight: 600,
+                    }}>
+                      {(q.hits ?? 0) > 0
+                        ? (lang === 'zh' ? `${q.hits} 条记录` : `${q.hits} hit(s)`)
+                        : (lang === 'zh' ? '无记录' : 'Clean')
+                      }
+                    </span>
+                    <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
+                  </div>
+                )
+              }
+
               const isExpanded = expandedRows[i]
               const hasHits = (q.hits ?? 0) > 0
               const sevColor = hasHits
@@ -2370,11 +2400,10 @@ export default function ScreenPage() {
               // so the UI always shows a rich set of data sources like the
               // prototype. These stubs only render — they never affect
               // total_hits or scoring.
-              const hasOntarioCourts = backendQueries.some(q => q.source.toLowerCase().includes('ontario courts'))
+              // Ontario Courts Portal is now free-tier (integrated in backend)
               const hasEquifax = backendQueries.some(q => q.source.toLowerCase().includes('equifax'))
               const hasVerified = backendQueries.some(q => q.source.toLowerCase().includes('verified'))
               const extras: CourtQuery[] = []
-              if (!hasOntarioCourts) extras.push({ source: t('screen.result.court.source.ontarioCourts'), tier: 'pro', status: 'coming_soon', hits: null })
               if (!hasEquifax) extras.push({ source: t('screen.result.court.source.equifax'), tier: 'pro', status: 'coming_soon', hits: null })
               if (!hasVerified) extras.push({ source: t('screen.result.court.source.verifiedNetwork'), tier: 'pro', status: 'coming_soon', hits: null })
               return (
