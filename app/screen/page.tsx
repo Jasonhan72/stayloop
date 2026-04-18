@@ -1102,10 +1102,14 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
   // Each builds the "expanded body" content for a given sub-row.
 
   const renderDocCheckDetail = () => {
-    if (!forensics) {
+    if (!forensics || perFile.length === 0) {
+      // Check if files WERE uploaded — the issue is forensics data missing, not files
+      const hasFiles = (result.detected_document_kinds || []).length > 0
       return (
-        <div style={{ fontSize: 11.5, color: '#64748B', fontStyle: 'italic', padding: '6px 2px' }}>
-          {lang === 'zh' ? '本次未上传可分析的 PDF/图片文件。' : 'No analyzable PDF/image files were uploaded.'}
+        <div style={{ fontSize: 11.5, color: hasFiles ? '#15803D' : '#64748B', fontStyle: 'italic', padding: '6px 2px' }}>
+          {hasFiles
+            ? (lang === 'zh' ? '✓ 已分析上传文件，未检测到篡改信号。' : '✓ Uploaded files analyzed — no tampering signals detected.')
+            : (lang === 'zh' ? '本次未上传可分析的 PDF/图片文件。' : 'No analyzable PDF/image files were uploaded.')}
         </div>
       )
     }
@@ -1230,6 +1234,7 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
           employerPerFile.map((pf, i) => (
             <div key={i} style={{ padding: 10, borderRadius: 8, background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(15, 23, 42, 0.08)' }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#0B1736', marginBottom: 4, wordBreak: 'break-all' }}>{pf.file_name}</div>
+
               <div style={{ fontSize: 10.5, color: '#64748B', marginBottom: 6 }}>{pf.file_kind}</div>
               {pf.paystub_math && (pf.paystub_math.expected_ytd_gross || pf.paystub_math.ytd_ratio || pf.paystub_math.extraction?.annual_salary) && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '3px 10px', fontSize: 10.5, padding: 7, background: 'rgba(15, 23, 42, 0.03)', borderRadius: 5, marginBottom: 6 }}>
@@ -1271,7 +1276,15 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
           ))
         ) : (
           <div style={{ fontSize: 11.5, color: '#64748B', fontStyle: 'italic', padding: '6px 2px' }}>
-            {lang === 'zh' ? '未上传雇主信 / 工资单 / Offer。' : 'No employment letter, pay stub, or offer letter uploaded.'}
+            {(() => {
+              // Check if AI detected employer-related docs even though forensics is missing/empty
+              const kinds = result.detected_document_kinds || []
+              const hasEmpDocs = kinds.some(k => ['pay_stub', 'employment_letter', 'offer_letter'].includes(k))
+              if (hasEmpDocs) {
+                return lang === 'zh' ? '已上传雇主相关文件，未检测到异常。' : 'Employer files uploaded — no anomalies detected.'
+              }
+              return lang === 'zh' ? '未上传雇主信 / 工资单 / Offer。' : 'No employment letter, pay stub, or offer letter uploaded.'
+            })()}
           </div>
         )}
 
@@ -1582,6 +1595,10 @@ export default function ScreenPage() {
         identity_match_score: v3.identity_match_score ?? data.identity_match_score ?? null,
         action_items: v3.action_items || data.action_items || [],
         compliance_audit: v3.compliance_audit ?? data.compliance_audit ?? null,
+        // Forensics — stored both as DB column and in _v3 blob
+        forensics_detail: v3.forensics_detail ?? data.forensics_detail ?? null,
+        forensics_penalty: v3.forensics_penalty ?? data.forensics_penalty ?? 0,
+        forensics_zeroed_dims: v3.forensics_zeroed_dims ?? data.forensics_zeroed_dims ?? [],
       }
 
       setResult(reconstructed)

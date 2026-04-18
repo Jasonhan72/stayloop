@@ -535,10 +535,30 @@ export async function POST(req: NextRequest) {
     const files: ScreenFile[] = Array.isArray(screening.files) ? screening.files : []
 
     // ---- Stage 1: Sign all files in parallel ----
+    // Fix MIME types based on file extension — browser detection can be wrong
+    const MIME_EXT_MAP: Record<string, string> = {
+      '.pdf': 'application/pdf',
+      '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.heic': 'image/heic', '.heif': 'image/heif',
+      '.tiff': 'image/tiff', '.tif': 'image/tiff',
+      '.bmp': 'image/bmp',
+    }
+    function fixMime(f: ScreenFile): string {
+      const m = f.mime?.toLowerCase() || ''
+      // If already a known PDF or image MIME, keep it
+      if (m === 'application/pdf' || m.startsWith('image/')) return m
+      // Fallback: infer from file extension
+      const ext = f.name.toLowerCase().match(/\.[a-z0-9]+$/)?.[0] || ''
+      return MIME_EXT_MAP[ext] || m || 'application/octet-stream'
+    }
+
     const contentBlocks: any[] = []
     const signedResults = await Promise.all(files.map(f =>
       supabase.storage.from('tenant-files').createSignedUrl(f.path, 600)
-        .then(r => ({ file: f, url: r.data?.signedUrl }))
+        .then(r => ({ file: { ...f, mime: fixMime(f) }, url: r.data?.signedUrl }))
     ))
     for (const { file: f, url } of signedResults) {
       if (!url) continue
