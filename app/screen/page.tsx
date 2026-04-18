@@ -7,8 +7,6 @@ import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
 import UserNav from '@/components/UserNav'
 import AuthModal from '@/components/AuthModal'
 
-import { maskName } from '@/lib/mask-name'
-
 // ───────────────────────────────────────────────────────── Types ──
 
 interface UploadedFile {
@@ -704,7 +702,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 8, flexWrap: 'wrap' }}>
         <div>
           <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#64748B' }}>{t('screen.result.court.title')}</div>
-          <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>{t('screen.result.court.queriedName')} <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#0B1736' }}>{maskName(queriedName)}</span></div>
+          <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>{t('screen.result.court.queriedName')} <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#0B1736' }}>{queriedName || '—'}</span></div>
         </div>
         <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, background: tier === 'pro' ? '#8B5CF620' : '#E4E8F0', color: tier === 'pro' ? '#6D28D9' : '#64748B', border: `1px solid ${tier === 'pro' ? '#8B5CF640' : '#E4E8F0'}`, fontWeight: 600 }}>
           {tier === 'pro' ? t('screen.result.court.pro') : t('screen.result.court.free')}
@@ -1113,7 +1111,7 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px', fontSize: 11 }}>
             <span style={{ color: '#64748B' }}>{lang === 'zh' ? '姓名' : 'Name'}</span>
-            <span className="mono" style={{ color: '#0B1736' }}>{result.extracted_name ? maskName(result.extracted_name) : (lang === 'zh' ? '未提供' : 'Not provided')}</span>
+            <span className="mono" style={{ color: '#0B1736' }}>{result.extracted_name || (lang === 'zh' ? '未提供' : 'Not provided')}</span>
             <span style={{ color: '#64748B' }}>{lang === 'zh' ? '身份匹配评分' : 'Identity match score'}</span>
             <span className="mono" style={{ color: typeof identityScore === 'number' ? covColor(c) : '#64748B', fontWeight: 700 }}>
               {typeof identityScore === 'number' ? `${identityScore}/100` : (lang === 'zh' ? '未计算' : 'N/A')}
@@ -2198,7 +2196,7 @@ export default function ScreenPage() {
                     </div>
                     <div style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
                       {files.length} {lang === 'zh' ? '个文件' : 'file(s)'}
-                      {applicantName.trim() && ` · ${maskName(applicantName)}`}
+                      {applicantName.trim() && ` · ${applicantName.trim()}`}
                     </div>
                   </div>
                 </div>
@@ -2233,7 +2231,7 @@ export default function ScreenPage() {
             {/* Overall */}
             <div className="card-hero sl-card-overall" style={{ textAlign: 'center', marginBottom: 20 }}>
               <span className="mono" style={{ fontSize: 10.5, color: 'var(--text-muted)', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8, display: 'block' }}>{t('screen.result.headline')}</span>
-              <div className="sl-extracted-name" style={{ fontWeight: 700, marginBottom: 4, letterSpacing: '-0.015em' }}>{maskName(result.extracted_name || applicantName)}</div>
+              <div className="sl-extracted-name" style={{ fontWeight: 700, marginBottom: 4, letterSpacing: '-0.015em' }}>{result.extracted_name || applicantName || '—'}</div>
               {result.name_was_extracted
                 ? <div className="mono" style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 16, letterSpacing: '0.05em' }}>{t('screen.result.nameExtracted')}</div>
                 : <div style={{ marginBottom: 16 }} />}
@@ -2509,7 +2507,7 @@ export default function ScreenPage() {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                        {maskName(s.ai_extracted_name || s.tenant_name) !== '—' ? maskName(s.ai_extracted_name || s.tenant_name) : t('history.autoExtracted')}
+                        {s.ai_extracted_name || s.tenant_name || t('history.autoExtracted')}
                       </div>
                       {s.ai_score != null && lvl ? (
                         <span className="mono" style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, background: `${lvl.color}18`, color: lvl.color, border: `1px solid ${lvl.color}30` }}>{s.ai_score}</span>

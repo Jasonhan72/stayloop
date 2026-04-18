@@ -146,7 +146,7 @@ export const DICT = {
 
   // Preview widget inside hero
   'mk.preview.header': { en: 'Applicant risk report · sample', zh: '申请人风险报告 · 样例' },
-  'mk.preview.name': { en: 'Jamie Chen', zh: '陈家明' },
+  'mk.preview.name': { en: 'J**** C***', zh: '陈*明' },
   'mk.preview.subtitle': { en: 'Ontario · Dual-track verified · 58 s', zh: '安省 · 双轨核验 · 用时 58 秒' },
   'mk.preview.score': { en: 'Risk score', zh: '风险评分' },
   'mk.preview.tier': { en: 'Recommendation', zh: '建议' },

@@ -145,7 +145,7 @@ function HeroPreview() {
             background: 'linear-gradient(135deg, #0D9488 0%, #0EA5E9 100%)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: '#FFFFFF', fontWeight: 800, fontSize: 16,
-          }}>JC</div>
+          }}>**</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--mk-navy)' }}>{t('mk.preview.name')}</div>
             <div style={{ fontSize: 11.5, color: 'var(--mk-text-muted)', marginTop: 2 }}>{t('mk.preview.subtitle')}</div>
