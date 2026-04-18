@@ -782,74 +782,61 @@ body > * { position: relative; z-index: 1; }
 }
 
 /* ──────────────────────────────────────────────────────────────────
-   Screen / app — PropTech dark theme
-   Futuristic real-estate innovation aesthetic: deep navy base,
-   electric teal/cyan accents, glass-morphism cards, sharp lines.
+   Screen / app light theme — scoped to .screen-app wrapper.
+   Reuses the marketing palette so /screen visually matches the
+   marketing home page. Achieved by overriding the dark CSS tokens
+   that the existing screen page components consume via var(--*).
    ────────────────────────────────────────────────────────────────── */
-body:has(.screen-app) { background: #070B1A; }
-body:has(.screen-app)::before { display: block !important; }
-body:has(.screen-app)::after { display: block !important; }
+body:has(.screen-app) { background: #F7F8FB; }
+body:has(.screen-app)::before,
+body:has(.screen-app)::after { display: none !important; }
 
 .screen-app {
-  /* Surfaces — deep, layered */
-  --bg-base: #070B1A;
-  --bg-sunk: #050812;
-  --bg-elevated: #0F1629;
-  --bg-card: rgba(15, 22, 41, 0.85);
-  --bg-card-solid: #0F1629;
-  --bg-card-raised: #151D35;
-  --bg-chip: rgba(20, 184, 166, 0.08);
+  /* Surfaces — matched to marketing palette */
+  --bg-base: #F7F8FB;
+  --bg-sunk: #EEF2F8;
+  --bg-elevated: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-card-solid: #FFFFFF;
+  --bg-card-raised: #F1F5FB;
+  --bg-chip: #EEF2F8;
 
-  /* Borders — glowing edges */
-  --border-subtle: rgba(56, 189, 248, 0.12);
-  --border-strong: rgba(56, 189, 248, 0.22);
-  --border-accent: rgba(20, 184, 166, 0.55);
+  /* Borders — lighter to match marketing */
+  --border-subtle: #E4E8F0;
+  --border-strong: #CBD5E1;
+  --border-accent: rgba(13, 148, 136, 0.50);
 
-  /* Text — high contrast on dark */
-  --text-primary: #EFF6FF;
-  --text-secondary: #94A3B8;
+  /* Text — matched to marketing */
+  --text-primary: #0B1736;
+  --text-secondary: #475569;
   --text-muted: #64748B;
-  --text-faint: #475569;
+  --text-faint: #94A3B8;
 
-  /* Brand gradient — electric */
-  --gradient-brand: linear-gradient(135deg, #0D9488 0%, #06B6D4 50%, #2563EB 100%);
+  /* Brand gradient */
+  --gradient-brand: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
   --gradient-pro: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 100%);
 
-  /* Shadows — deep, glowing */
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 8px 24px -6px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(56, 189, 248, 0.06) inset;
-  --shadow-lg: 0 28px 70px -20px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(56, 189, 248, 0.08) inset;
-  --shadow-glow: 0 8px 40px -8px rgba(20, 184, 166, 0.35);
+  /* Shadows — matched to marketing */
+  --shadow-sm: 0 1px 2px rgba(11, 23, 54, 0.04);
+  --shadow-md: 0 2px 8px rgba(11, 23, 54, 0.06);
+  --shadow-lg: 0 12px 32px -12px rgba(11, 23, 54, 0.16);
+  --shadow-glow: 0 8px 28px -10px rgba(13, 148, 136, 0.32);
 
-  background: #070B1A;
-  color: #EFF6FF;
+  background: #F7F8FB;
+  color: #0B1736;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
 
-/* Ambient grid + glow backdrop */
+/* Soft brand-tinted ambient backdrop */
 .screen-app::before {
   content: '';
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(1400px 700px at 15% -5%, rgba(20, 184, 166, 0.12), transparent 55%),
-    radial-gradient(1000px 600px at 85% 15%, rgba(37, 99, 235, 0.10), transparent 50%),
-    radial-gradient(800px 400px at 50% 100%, rgba(139, 92, 246, 0.06), transparent 60%);
-  pointer-events: none;
-  z-index: 0;
-}
-.screen-app::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 80% 50% at center 20%, black 0%, transparent 70%);
-  -webkit-mask-image: radial-gradient(ellipse 80% 50% at center 20%, black 0%, transparent 70%);
+    radial-gradient(1200px 600px at 12% -10%, rgba(13, 148, 136, 0.06), transparent 60%),
+    radial-gradient(900px 500px at 92% 10%, rgba(37, 99, 235, 0.04), transparent 55%);
   pointer-events: none;
   z-index: 0;
 }
@@ -857,125 +844,117 @@ body:has(.screen-app)::after { display: block !important; }
 
 /* Nav bar */
 .screen-app .nav-bar {
-  background: rgba(7, 11, 26, 0.88) !important;
-  backdrop-filter: saturate(1.8) blur(20px);
-  -webkit-backdrop-filter: saturate(1.8) blur(20px);
-  border-bottom: 1px solid rgba(56, 189, 248, 0.10);
-  box-shadow: 0 4px 24px -8px rgba(0, 0, 0, 0.5);
+  background: rgba(247,248,251,0.82) !important;
+  backdrop-filter: saturate(1.6) blur(14px);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  border-bottom: 1px solid #E4E8F0;
+  box-shadow: none;
 }
-.screen-app .nav-title { color: #EFF6FF !important; font-weight: 700; }
-.screen-app .nav-sub { color: #64748B !important; }
+.screen-app .nav-title { color: #0A1428 !important; font-weight: 700; }
+.screen-app .nav-sub { color: #536278 !important; }
 .screen-app .nav-logo {
-  background: linear-gradient(135deg, #0D9488 0%, #06B6D4 100%);
-  box-shadow: 0 6px 20px -6px rgba(6, 182, 212, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+  background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
+  box-shadow: 0 6px 18px -6px rgba(13, 148, 136, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
 }
 
-/* Hero card — the big overall score area */
+/* Hero card */
 .screen-app .card-hero {
   background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(20, 184, 166, 0.12), transparent 70%),
-    rgba(15, 22, 41, 0.92);
-  border: 1px solid rgba(56, 189, 248, 0.15);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(56, 189, 248, 0.05) inset;
-  backdrop-filter: blur(20px);
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(13, 148, 136, 0.04), transparent 70%),
+    #FFFFFF;
+  border: 1px solid #E4E8F0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06);
 }
 .screen-app .card-hero::before {
-  background: linear-gradient(135deg, rgba(20, 184, 166, 0.35), transparent 50%, rgba(139, 92, 246, 0.25));
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.35), transparent 50%, rgba(124, 58, 237, 0.18));
 }
 
 /* Cards & glass surfaces */
 .screen-app .card,
 .screen-app .card-solid,
 .screen-app .glass {
-  background: rgba(15, 22, 41, 0.80);
-  border: 1px solid rgba(56, 189, 248, 0.10);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(56, 189, 248, 0.04) inset;
-  backdrop-filter: blur(16px);
+  background: #FFFFFF;
+  border: 1px solid #E4E8F0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06);
 }
 .screen-app .glass-strong {
-  background: rgba(21, 29, 53, 0.90);
-  border: 1px solid rgba(56, 189, 248, 0.18);
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
 }
 
 /* Inputs */
 .screen-app .input,
 .screen-app .select,
 .screen-app .textarea {
-  background: rgba(15, 22, 41, 0.60);
-  border: 1px solid rgba(56, 189, 248, 0.15);
-  color: #EFF6FF;
+  background: #FFFFFF;
+  border: 1px solid #E4E8F0;
+  color: #0B1736;
 }
 .screen-app .input::placeholder,
-.screen-app .textarea::placeholder { color: #475569; }
+.screen-app .textarea::placeholder { color: #94A3B8; }
 .screen-app .input:hover,
 .screen-app .select:hover,
-.screen-app .textarea:hover { border-color: rgba(56, 189, 248, 0.30); }
+.screen-app .textarea:hover { border-color: #CBD5E1; }
 .screen-app .input:focus,
 .screen-app .select:focus,
 .screen-app .textarea:focus {
-  background: rgba(15, 22, 41, 0.80);
-  border-color: #06B6D4;
-  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.20), 0 0 20px -6px rgba(6, 182, 212, 0.15);
+  background: #FFFFFF;
+  border-color: #0D9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.20);
 }
-.screen-app .label { color: #94A3B8; font-weight: 600; }
+.screen-app .label { color: #475569; font-weight: 600; }
 
-/* Buttons */
+/* Buttons — keep primary gradient, lighten ghost for white bg */
 .screen-app .btn-ghost {
-  background: rgba(56, 189, 248, 0.06);
-  color: #EFF6FF;
-  border-color: rgba(56, 189, 248, 0.18);
+  background: #FFFFFF;
+  color: #0B1736;
+  border-color: #E4E8F0;
   font-weight: 600;
 }
 .screen-app .btn-ghost:hover:not(:disabled) {
-  background: rgba(56, 189, 248, 0.12);
-  border-color: rgba(56, 189, 248, 0.30);
+  background: #F1F5FB;
+  border-color: #CBD5E1;
 }
 .screen-app .btn-primary {
-  background: var(--gradient-brand);
-  box-shadow: 0 8px 28px -10px rgba(6, 182, 212, 0.55), 0 0 0 1px rgba(255,255,255,0.12) inset;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  box-shadow: 0 8px 22px -10px rgba(13, 148, 136, 0.55), 0 1px 0 rgba(255,255,255,0.18) inset;
 }
 .screen-app .btn-primary:hover:not(:disabled) {
-  box-shadow: 0 14px 36px -10px rgba(6, 182, 212, 0.65), 0 0 0 1px rgba(255,255,255,0.18) inset;
-  transform: translateY(-2px);
+  box-shadow: 0 14px 28px -10px rgba(13, 148, 136, 0.65), 0 1px 0 rgba(255,255,255,0.25) inset;
 }
 
 /* Chips */
 .screen-app .chip {
-  background: rgba(56, 189, 248, 0.08);
-  border-color: rgba(56, 189, 248, 0.18);
-  color: #94A3B8;
+  background: #EEF2F8;
+  border-color: #E4E8F0;
+  color: #475569;
 }
 .screen-app .chip-accent {
-  background: rgba(20, 184, 166, 0.12);
-  border-color: rgba(20, 184, 166, 0.30);
-  color: #5EEAD4;
+  background: rgba(13, 148, 136, 0.12);
+  border-color: rgba(13, 148, 136, 0.35);
+  color: #0F766E;
 }
 .screen-app .chip-pro {
-  background: rgba(139, 92, 246, 0.12);
-  border-color: rgba(139, 92, 246, 0.30);
-  color: #C4B5FD;
+  background: rgba(124, 58, 237, 0.12);
+  border-color: rgba(124, 58, 237, 0.32);
+  color: #6D28D9;
 }
 .screen-app .chip-warn {
-  background: rgba(245, 158, 11, 0.10);
-  border-color: rgba(245, 158, 11, 0.25);
-  color: #FCD34D;
+  background: #FFFBEB;
+  border-color: #FCD34D;
+  color: #92400E;
 }
 
 /* Selection */
-.screen-app ::selection { background: rgba(6, 182, 212, 0.35); color: #fff; }
+.screen-app ::selection { background: rgba(13, 148, 136, 0.25); color: #0B1736; }
 
 /* Scrollbar */
-.screen-app ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.15); background-clip: content-box; }
-.screen-app ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.30); background-clip: content-box; }
+.screen-app ::-webkit-scrollbar-thumb { background: rgba(11, 23, 54, 0.18); background-clip: content-box; }
+.screen-app ::-webkit-scrollbar-thumb:hover { background: rgba(11, 23, 54, 0.32); background-clip: content-box; }
 
 /* ─── sl- inline-styled components – stronger overrides ────────────── */
 .screen-app .sl-card {
-  border-color: rgba(56, 189, 248, 0.10) !important;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(56, 189, 248, 0.04) inset;
-  backdrop-filter: blur(16px);
+  border-color: #E4E8F0 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06);
 }
 
 /* ──────────────────────────────────────────────────────────────────
