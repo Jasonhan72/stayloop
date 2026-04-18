@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
 import { Application, ApplicationFile } from '@/types'
+import { maskName } from '@/lib/mask-name'
 
 const DIMENSIONS: { key: string; label: string; weight: number }[] = [
   { key: 'doc_authenticity_score', label: 'Doc Authenticity', weight: 20 },
@@ -168,10 +169,10 @@ export default function ApplicationDetailPage() {
           <div>
             <div className="chip chip-accent mono mb-3">// APPLICATION</div>
             <h1 className="h-hero">
-              {(app as any).ai_extracted_name || `${app.first_name} ${app.last_name}`}
+              {maskName((app as any).ai_extracted_name || `${app.first_name} ${app.last_name}`)}
             </h1>
             {(app as any).ai_extracted_name && (
-              <p className="mono" style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>self-reported: {app.first_name} {app.last_name}</p>
+              <p className="mono" style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>self-reported: {maskName(`${app.first_name} ${app.last_name}`)}</p>
             )}
             <p className="mono" style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
               {new Date(app.created_at).toLocaleDateString()} · {app.listing?.address}{app.listing?.unit ? `, ${app.listing.unit}` : ''}
