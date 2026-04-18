@@ -90,35 +90,76 @@ async function listOntarioDatabases(apiKey: string): Promise<CanLIIDatabase[]> {
   }
 }
 
+// ── CanLII search helpers ─────────────────────────────────────────────
+// CORE RULE: We only care about cases where the tenant is an actual
+// PARTY (applicant, respondent, plaintiff, defendant).  CanLII's
+// fullText API searches the entire document body, which produces
+// massive false positives.  Our strategy:
+//   1. Search with the tenant's FULL NAME in exact-phrase quotes.
+//   2. Require the name to contain at least a first name + surname
+//      (≥ 2 words for Latin names, ≥ 2 chars for CJK names).
+//   3. After fetching results, ONLY keep cases where the tenant's
+//      full name appears in the case title (party field).
+//      Cases where the name merely appears in the document body are
+//      discarded as false positives.
+
+/** Validate that the name is a plausible full name (not just a first name). */
+function isValidFullName(name: string): boolean {
+  const trimmed = name.trim()
+  if (!trimmed) return false
+  // CJK names: at least 2 characters (e.g. "陈明" or "陈家明")
+  const cjkChars = (trimmed.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length
+  if (cjkChars >= 2) return true
+  // Latin names: require at least first name + surname (2 words, each ≥ 2 chars)
+  const words = trimmed.split(/\s+/).filter(w => w.length >= 2)
+  return words.length >= 2
+}
+
 /**
- * Check whether the tenant is likely a PARTY in this case.
- * We require the full name OR the surname to appear in the case title.
- * CanLII fullText searches the entire document body, so without this
- * filter most results are false positives (name mentioned in passing).
+ * Strict check: is the tenant's full name in the case title?
+ * The case title typically contains party names (e.g. "Smith v. Jones",
+ * "Brown v. 123 Rental Corp").  For LTB, some titles are just case
+ * numbers ("TSL-12345-22 (Re)") — those will NOT match, which is
+ * correct: without party names visible we can't confirm the tenant
+ * is involved, so we treat it as unconfirmed.
+ *
+ * Matching rules:
+ * - CJK full name: exact substring match in title
+ * - Latin names: ALL name parts (first, middle, last) must appear
+ *   in the title.  "Nick Brown" matches "Brown v. Nick's Landlord"
+ *   only if BOTH "nick" AND "brown" are present.
  */
 function nameMatchesTitle(searchName: string, caseTitle: string): boolean {
   const titleLower = caseTitle.toLowerCase()
   const fullLower = searchName.toLowerCase().trim()
-  // Full-name match (e.g. "Nick Brown" in "Brown v. Landlord Corp")
-  if (titleLower.includes(fullLower)) return true
-  // Surname match — the surname alone in the title is a strong signal
-  // (e.g. title "Brown v. 123 Corp" for tenant "Nick Brown")
-  const parts = fullLower.split(/\s+/).filter(p => p.length >= 2)
-  if (parts.length >= 2) {
-    const surname = parts[parts.length - 1]
-    if (titleLower.includes(surname)) return true
+
+  // CJK: exact full-name substring match
+  const cjkChars = (fullLower.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length
+  if (cjkChars >= 2) {
+    const nameNospace = fullLower.replace(/\s/g, '')
+    return titleLower.includes(nameNospace)
   }
-  return false
+
+  // Latin: require ALL name parts to appear in the title
+  const parts = fullLower.split(/\s+/).filter(p => p.length >= 2)
+  if (parts.length < 2) return false  // single word = can't confirm, reject
+  return parts.every(part => titleLower.includes(part))
 }
 
-async function searchCanLIIDb(name: string, db: CanLIIDatabase, apiKey: string): Promise<CanLIIMatch[]> {
+/**
+ * Search a single CanLII database for the tenant's full name.
+ * Uses exact-phrase fullText search, then filters to party matches only.
+ */
+async function searchCanLIIDb(fullName: string, db: CanLIIDatabase, apiKey: string): Promise<CanLIIMatch[]> {
   try {
-    const url = `https://api.canlii.org/v1/caseBrowse/en/${db.databaseId}/?api_key=${apiKey}&resultCount=10&offset=0&publishedBefore=2026-12-31&publishedAfter=2015-01-01&fullText=${encodeURIComponent(`"${name}"`)}`
+    // Search with the FULL NAME in exact-phrase quotes
+    const url = `https://api.canlii.org/v1/caseBrowse/en/${db.databaseId}/?api_key=${apiKey}&resultCount=10&offset=0&publishedBefore=2026-12-31&publishedAfter=2015-01-01&fullText=${encodeURIComponent(`"${fullName}"`)}`
     const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
     if (!res.ok) return []
     const data = await res.json() as { cases?: Array<{ databaseId: string; caseId: { en: string }; title: string; citation: string }> }
     const cases = data.cases || []
-    // Fetch real short URLs from CanLII case metadata API in parallel
+
+    // Fetch metadata (real URLs) and check party match IN PARALLEL
     const results = await Promise.all(cases.map(async c => {
       const cid = c.caseId?.en || ''
       const dbId = c.databaseId || db.databaseId
@@ -143,12 +184,12 @@ async function searchCanLIIDb(name: string, db: CanLIIDatabase, apiKey: string):
         databaseName: db.name,
         caseId: cid,
         url: caseUrl,
-        nameInTitle: nameMatchesTitle(name, c.title),
+        nameInTitle: nameMatchesTitle(fullName, c.title),
       }
     }))
-    // Sort: party matches first, then mentions only
-    results.sort((a, b) => (b.nameInTitle ? 1 : 0) - (a.nameInTitle ? 1 : 0))
-    return results
+
+    // ONLY return cases where the tenant is confirmed as a party
+    return results.filter(r => r.nameInTitle)
   } catch {
     return []
   }
@@ -191,12 +232,14 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
     queries.push({ source: 'CanLII — all Ontario databases', tier: 'free', status: 'unavailable', hits: null, note: 'API key not configured' })
     return { queries, total_hits: 0, queried_name: name || '', records: [], databases_searched: 0 }
   }
-  if (!name || name.trim().length < 3) {
-    queries.push({ source: 'CanLII — all Ontario databases', tier: 'free', status: 'skipped', hits: null, note: 'No applicant name provided' })
-    return { queries, total_hits: 0, queried_name: name || '', records: [], databases_searched: 0 }
+  const searchName = (name || '').trim()
+  if (!isValidFullName(searchName)) {
+    const reason = !searchName
+      ? 'No applicant name provided'
+      : 'Full name required (first + last name). Single names are too ambiguous for court record lookup.'
+    queries.push({ source: 'CanLII — all Ontario databases', tier: 'free', status: 'skipped', hits: null, note: reason })
+    return { queries, total_hits: 0, queried_name: searchName, records: [], databases_searched: 0 }
   }
-
-  const searchName = name.trim()
 
   // ── Step 1: ALWAYS query the two priority databases (LTB + Small Claims) ──
   // These are hardcoded so they fire even if the full DB list fetch fails.
@@ -225,17 +268,10 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
     extraResults.push({ db: extraDbs[i], records, hits: records.length })
   }
 
-  // ── Step 3: Filter to party matches only and build response ──
-  // CanLII fullText searches the entire document body. Without filtering,
-  // most results are false positives where the name is merely mentioned.
-  // We ONLY keep cases where the tenant's name appears in the case title
-  // (meaning they are likely an actual party to the case).
+  // ── Step 3: Merge and build response ──
+  // searchCanLIIDb already filters to party-only matches (name in title).
+  // All records here are confirmed cases where the tenant is a party.
   const allResults = [...priorityResults, ...extraResults]
-  // Filter each result set to party-matches only
-  for (const r of allResults) {
-    r.records = r.records.filter(rec => rec.nameInTitle)
-    r.hits = r.records.length
-  }
   const allRecords: CanLIIMatch[] = []
   for (const { records } of allResults) allRecords.push(...records)
   const totalHits = allRecords.length
