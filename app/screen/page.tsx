@@ -6,6 +6,7 @@ import { useUser, useAnonTrialCheck } from '@/lib/useUser'
 import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
 import UserNav from '@/components/UserNav'
 import AuthModal from '@/components/AuthModal'
+import { generateScreeningReport } from '@/lib/generateReport'
 
 // ───────────────────────────────────────────────────────── Types ──
 
@@ -2375,6 +2376,45 @@ export default function ScreenPage() {
                   {result.income_evidence && <span style={{ color: '#475569' }}> · {result.income_evidence}</span>}
                 </div>
               )}
+            </div>
+
+            {/* Download PDF Report Button */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
+              <button
+                onClick={async (e) => {
+                  const btn = e.currentTarget
+                  btn.disabled = true
+                  btn.textContent = lang === 'zh' ? '正在生成报告...' : 'Generating...'
+                  try {
+                    await generateScreeningReport(result as any, lang as 'en' | 'zh', files.length)
+                  } catch (err) {
+                    console.error('PDF generation failed:', err)
+                    alert(lang === 'zh' ? '报告生成失败，请重试' : 'Report generation failed. Please retry.')
+                  } finally {
+                    btn.disabled = false
+                    btn.textContent = lang === 'zh' ? '下载评估报告 (PDF)' : 'Download Report (PDF)'
+                  }
+                }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '10px 24px', borderRadius: 10,
+                  background: '#0B1736', color: '#fff',
+                  fontSize: 13, fontWeight: 600, letterSpacing: '0.02em',
+                  border: 'none', cursor: 'pointer',
+                  transition: 'background .15s, transform .1s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#1E3A5F' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#0B1736' }}
+                onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
+                onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                {lang === 'zh' ? '下载评估报告 (PDF)' : 'Download Report (PDF)'}
+              </button>
             </div>
 
             {/* Summary */}
