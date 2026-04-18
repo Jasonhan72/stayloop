@@ -2017,36 +2017,36 @@ export default function ScreenPage() {
             }}>
               {/* Panel Header */}
               <div style={{
-                padding: '16px 22px',
+                padding: '18px 20px',
                 borderBottom: '1px solid #E4E8F0',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.04), rgba(37, 99, 235, 0.02))',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <div style={{
-                    width: 36, height: 36, borderRadius: 10,
+                    width: 40, height: 40, borderRadius: 10,
                     background: 'linear-gradient(135deg, #0D9488, #0F766E)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 4px 12px -2px rgba(13, 148, 136, 0.4)',
+                    boxShadow: '0 4px 14px -3px rgba(13, 148, 136, 0.45)',
                   }}>
-                    <span style={{ fontSize: 18, filter: 'brightness(10)' }}>🛡</span>
+                    <span style={{ fontSize: 20, filter: 'brightness(10)' }}>🛡</span>
                   </div>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#0B1736', letterSpacing: '-0.01em' }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#0B1736', letterSpacing: '-0.01em' }}>
                       {lang === 'zh' ? '租客筛查' : 'Tenant Screening'}
                     </div>
-                    <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 1 }}>
+                    <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
                       {lang === 'zh' ? '上传文件 → AI 分析 → 风险报告' : 'Upload docs → AI analysis → Risk report'}
                     </div>
                   </div>
                 </div>
                 {isPro && (
                   <span style={{
-                    fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6,
+                    fontSize: 10.5, fontWeight: 700, padding: '5px 12px', borderRadius: 6,
                     background: 'linear-gradient(135deg, #7C3AED, #8B5CF6)', color: '#FFF',
-                    letterSpacing: '0.05em', textTransform: 'uppercase',
+                    letterSpacing: '0.06em', textTransform: 'uppercase',
                   }}>PRO</span>
                 )}
               </div>
@@ -2080,10 +2080,10 @@ export default function ScreenPage() {
                 />
                 {files.length === 0 ? (
                   <>
-                    <div style={{ fontSize: 32, marginBottom: 10, opacity: 0.9 }}>📁</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: '#0B1736' }}>{t('screen.drop.title')}</div>
-                    <div style={{ fontSize: 12.5, color: '#64748B', lineHeight: 1.5 }}>{t('screen.drop.sub')}</div>
-                    <div className="btn btn-ghost btn-sm" style={{ marginTop: 14, display: 'inline-flex' }}>{t('screen.drop.pick')}</div>
+                    <div style={{ fontSize: 34, marginBottom: 10, opacity: 0.9 }}>📁</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: '#0B1736' }}>{t('screen.drop.title')}</div>
+                    <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>{t('screen.drop.sub')}</div>
+                    <div className="btn btn-ghost btn-sm" style={{ marginTop: 16, display: 'inline-flex', padding: '9px 20px', fontSize: 13, borderRadius: 10 }}>{t('screen.drop.pick')}</div>
                   </>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#64748B', fontSize: 12.5 }}>
@@ -2094,7 +2094,7 @@ export default function ScreenPage() {
               </div>
 
               {/* File Type Badges — compact horizontal strip */}
-              <div style={{ padding: '12px 18px 0', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              <div style={{ padding: '12px 18px 0', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 6 }}>
                 {(() => {
                   const counts: Record<string, number> = {}
                   for (const f of files) {
@@ -2116,8 +2116,8 @@ export default function ScreenPage() {
                       <div
                         key={ft.key}
                         style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          padding: '6px 10px', borderRadius: 8,
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          padding: '7px 10px', borderRadius: 8,
                           background: uploaded ? 'rgba(16, 185, 129, 0.12)' : '#F1F5FB',
                           border: uploaded ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #E4E8F0',
                           fontSize: 11, fontWeight: uploaded ? 600 : 500,
@@ -2185,9 +2185,10 @@ export default function ScreenPage() {
                         : null
                       return (
                         <div key={i} style={{
-                          display: 'flex', alignItems: 'center', gap: 8,
-                          padding: '7px 10px', background: '#FAFBFD', borderRadius: 8,
-                          border: '1px solid #EEF2F8', fontSize: 12,
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '8px 12px', background: '#FAFBFD', borderRadius: 10,
+                          border: '1px solid #EEF2F8', fontSize: 12.5,
+                          minHeight: 38,
                         }}>
                           <span style={{ fontSize: 13, flexShrink: 0 }}>{isPdf ? '📄' : isImage ? '🖼️' : '📎'}</span>
                           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0B1736', fontWeight: 500 }}>{f.name}</span>
@@ -2202,35 +2203,35 @@ export default function ScreenPage() {
               )}
 
               {/* Input fields + Submit — inside the panel */}
-              <div style={{ padding: '16px 18px 18px' }}>
-                <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: 180 }}>
-                    <label style={{ fontSize: 10.5, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, display: 'block' }}>{t('screen.form.name.label')}</label>
+              <div style={{ padding: '18px 20px 22px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+                  <div>
+                    <label style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', letterSpacing: '0.02em', marginBottom: 6, display: 'block' }}>{t('screen.form.name.label')}</label>
                     <input
                       type="text"
                       className="input"
                       placeholder={t('screen.form.name.placeholder')}
                       value={applicantName}
                       onChange={e => setApplicantName(e.target.value)}
-                      style={{ padding: '9px 12px', fontSize: 13 }}
+                      style={{ padding: '11px 14px', fontSize: 14, borderRadius: 10, height: 44 }}
                     />
-                    <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 4 }}>{t('screen.form.name.hint')}</div>
+                    <div style={{ fontSize: 10.5, color: '#94A3B8', marginTop: 5 }}>{t('screen.form.name.hint')}</div>
                   </div>
-                  <div style={{ flex: 1, minWidth: 140 }}>
-                    <label style={{ fontSize: 10.5, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, display: 'block' }}>{t('screen.form.rent.label')}</label>
+                  <div>
+                    <label style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', letterSpacing: '0.02em', marginBottom: 6, display: 'block' }}>{t('screen.form.rent.label')}</label>
                     <input
                       type="number"
                       className="input"
                       placeholder={t('screen.form.rent.placeholder')}
                       value={targetRent}
                       onChange={e => setTargetRent(e.target.value)}
-                      style={{ padding: '9px 12px', fontSize: 13 }}
+                      style={{ padding: '11px 14px', fontSize: 14, borderRadius: 10, height: 44 }}
                     />
                   </div>
                 </div>
 
                 {error && (
-                  <div style={{ marginBottom: 12, padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 12.5, color: '#B91C1C' }}>⚠ {error}</div>
+                  <div style={{ marginBottom: 14, padding: '12px 16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, fontSize: 13, color: '#B91C1C', lineHeight: 1.5 }}>⚠ {error}</div>
                 )}
 
                 <button
@@ -2238,25 +2239,26 @@ export default function ScreenPage() {
                   disabled={(files.length === 0 && !applicantName.trim()) || classifying}
                   className="btn btn-primary"
                   style={{
-                    width: '100%', padding: '13px 24px', fontSize: 14.5, borderRadius: 12,
+                    width: '100%', padding: '14px 28px', fontSize: 15, borderRadius: 12, fontWeight: 650,
+                    height: 52,
                     opacity: ((files.length === 0 && !applicantName.trim()) || classifying) ? 0.5 : 1,
                   }}
                 >
                   {classifying
                     ? (lang === 'zh' ? '⏳ 正在识别文件…' : '⏳ Classifying files…')
                     : (lang === 'zh' ? '🛡 开始筛查' : '🛡 Start Screening')}
-                  {!classifying && isPro && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.8 }}>PRO</span>}
+                  {!classifying && isPro && <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.8 }}>PRO</span>}
                 </button>
 
-                {/* What happens next — compact */}
-                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, fontSize: 10.5, color: '#94A3B8' }}>
-                  <span>📋 {lang === 'zh' ? 'AI 分析' : 'AI Analysis'}</span>
-                  <span style={{ color: '#CBD5E1' }}>→</span>
-                  <span>⚖️ {lang === 'zh' ? '法院记录' : 'Court Records'}</span>
-                  <span style={{ color: '#CBD5E1' }}>→</span>
-                  <span>🔒 {lang === 'zh' ? '取证检测' : 'Forensics'}</span>
-                  <span style={{ color: '#CBD5E1' }}>→</span>
-                  <span>📊 {lang === 'zh' ? '风险报告' : 'Risk Report'}</span>
+                {/* What happens next — compact pipeline */}
+                <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 11.5, color: '#94A3B8', flexWrap: 'wrap' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>📋 {lang === 'zh' ? 'AI 分析' : 'AI Analysis'}</span>
+                  <span style={{ color: '#CBD5E1', fontSize: 10 }}>→</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>⚖️ {lang === 'zh' ? '法院记录' : 'Court Records'}</span>
+                  <span style={{ color: '#CBD5E1', fontSize: 10 }}>→</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>🔒 {lang === 'zh' ? '取证检测' : 'Forensics'}</span>
+                  <span style={{ color: '#CBD5E1', fontSize: 10 }}>→</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>📊 {lang === 'zh' ? '风险报告' : 'Risk Report'}</span>
                 </div>
               </div>
             </div>
@@ -2610,11 +2612,11 @@ export default function ScreenPage() {
 
         {/* History */}
         {!analyzing && history.length > 0 && (
-          <div className="card" style={{ marginTop: 32, padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#8B5CF6', boxShadow: '0 0 8px rgba(139, 92, 246, 0.5)' }} />
+          <div className="card" style={{ marginTop: 32, padding: 0, overflow: 'hidden', borderRadius: 16 }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#8B5CF6', boxShadow: '0 0 8px rgba(139, 92, 246, 0.5)', flexShrink: 0 }} />
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '-0.005em' }}>{t('history.title')}</span>
-              <span className="mono" style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--text-faint)' }}>{t('history.countN', { n: history.length })}</span>
+              <span className="mono" style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--text-faint)', flexShrink: 0 }}>{t('history.countN', { n: history.length })}</span>
             </div>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: 400, overflowY: 'auto' }}>
               {history.map(s => {
@@ -2627,7 +2629,7 @@ export default function ScreenPage() {
                     key={s.id}
                     onClick={() => { if (clickable && !isLoading) loadPastScreening(s.id) }}
                     style={{
-                      padding: '14px 20px',
+                      padding: '12px 20px',
                       borderBottom: '1px solid var(--border-subtle)',
                       transition: 'background 0.15s',
                       cursor: clickable ? 'pointer' : 'default',
