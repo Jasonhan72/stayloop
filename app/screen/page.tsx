@@ -724,11 +724,19 @@ function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMat
         <span style={{ fontWeight: 600 }}>{lang === 'zh' ? '法院' : 'Court'}:</span>
         <span style={{ color: '#334155' }}>{record.courtAbbreviation}</span>
       </div>
-      {/* Row 4: Source note */}
+      {/* Row 4: Source link */}
       <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 6 }}>
-        {lang === 'zh'
-          ? `数据来源：安大略省法院公开门户 · 案件编号 ${record.caseNumber} 可在 courts.ontario.ca/portal 查询`
-          : `Source: Ontario Courts Public Portal · Case ${record.caseNumber} searchable at courts.ontario.ca/portal`}
+        {lang === 'zh' ? '数据来源：' : 'Source: '}
+        <a
+          href="https://courts.ontario.ca/portal/search/party"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#0284C7', textDecoration: 'none' }}
+          onMouseEnter={e => { e.currentTarget.style.textDecoration = 'underline' }}
+          onMouseLeave={e => { e.currentTarget.style.textDecoration = 'none' }}
+        >
+          {lang === 'zh' ? '安大略省法院公开门户' : 'Ontario Courts Public Portal'} ↗
+        </a>
       </div>
     </div>
   )
