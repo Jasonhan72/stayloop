@@ -642,19 +642,21 @@ ${courtDetail.total_hits === 0 ? '\nNo hits in any Ontario court database or por
 
 SCORING GUIDANCE for rental_history.ltb_check and red flags:
 - 0 hits across ALL Ontario DBs AND Ontario Courts Portal → high score (90+), ltb_check = "measured"
-- 1 hit in onltb (LTB) → investigate (50-70), mark "action_pending" to verify identity, consider "ltb_eviction" gate IF case is an eviction order
-- 2+ hits in onltb → strong negative, likely trigger "ltb_eviction" hard gate (caps at 40)
-- Hits in onsc / onca / onscdc (civil courts) against this person as debtor/defendant → negative signal, flag in compliance_audit but do NOT apply ltb_eviction gate
+- 1 hit in onltb (LTB) → investigate (30-50), mark "action_pending" to verify identity, consider "ltb_eviction" gate IF case is an eviction order
+- 2+ hits in onltb → strong negative, trigger "ltb_eviction" hard gate (caps at 40)
+- Hits in onsc / onca / onscdc (civil courts) against this person as debtor/defendant → STRONG negative signal, rental_history should be 20 or below
 - Hits in onhrt (Human Rights Tribunal) AGAINST this person as respondent → note only, do NOT use for scoring (HRC protected)
 - Hits in oncj criminal matters → note in reviewer_note, do NOT auto-score (landlord decides)
 
 ONTARIO COURTS PORTAL hits — CRITICAL (these are DIRECT government records, not just case law):
-- Portal cases where applicant is DEFENDANT or DEBTOR → STRONG negative signal for rental_history (score 30-50 depending on count and severity)
-- 1 Small Claims case as Defendant → rental_history should be 40-60, NOT 90+. This means someone sued them.
-- 2+ Small Claims cases as Defendant/Debtor → rental_history should be 20-40, trigger "cross_doc_contradictions" red flag
+ANY court record as defendant/debtor means the person has DEFAULTED on financial obligations and is FUNDAMENTALLY UNTRUSTWORTHY as a tenant. This is one of the strongest negative signals possible.
+- Portal cases where applicant is DEFENDANT or DEBTOR → rental_history MUST be 20 or below, credit_health MUST be 35 or below. This person was SUED for not paying.
+- 1 Small Claims case as Defendant → rental_history = 15-25, credit_health = 30-40. Trigger "court_record_defendant" hard gate.
+- 2+ Small Claims cases as Defendant/Debtor → rental_history = 5-15, credit_health = 15-25. Trigger "court_record_defendant_multi" hard gate.
+- ACTIVE (non-closed) cases → rental_history = 0-10, credit_health = 10-20. Trigger "court_record_active" hard gate. Person is CURRENTLY being sued.
 - Portal cases where applicant is PLAINTIFF → neutral (they sued someone else, not a risk signal)
-- ACTIVE (non-closed) cases are more concerning than closed/inactive ones
-- The portal records are from courts.ontario.ca and are VERIFIED government data — treat them with HIGH confidence
+- The portal records are from courts.ontario.ca and are VERIFIED government data — treat them with ABSOLUTE confidence
+- Do NOT give benefit of the doubt when court records exist. The person had legal proceedings against them — this is objective fact, not inference.
 
 - If 0 hits AND no prior landlord reference → ltb_check "measured", prior_landlord_refs "action_pending"
 ${screening.pasted_text ? `\n--- PASTED TEXT ---\n${screening.pasted_text}\n` : ''}`
@@ -1031,6 +1033,23 @@ JSON DISCIPLINE (avoid parse errors):
     const detailsZh: Record<string, string> = (parsed.details_zh && typeof parsed.details_zh === 'object')
       ? { ...parsed.details_zh } : {}
     const dimsZeroed: Array<keyof V3Scores> = []
+
+    // If ANY document is forged, ALL uploaded documents become untrusted.
+    // Zero out ALL dimensions that depend on uploaded evidence, not just
+    // the specific dimension tied to the forged file type.
+    if (Object.keys(dimZeroReasons).length > 0) {
+      const forgedFileNames = Object.values(dimZeroReasons).map(r => r.en).join(' ')
+      const ALL_DIMS: Array<keyof V3Scores> = ['ability_to_pay', 'credit_health', 'rental_history', 'verification', 'communication']
+      for (const dim of ALL_DIMS) {
+        if (!dimZeroReasons[dim]) {
+          dimZeroReasons[dim] = {
+            en: `Score forced to 0: another uploaded document was determined to be forged — ALL uploaded documents are now untrusted.`,
+            zh: `维度被置零：检测到有文件伪造，所有上传文件均不可信。`,
+          }
+        }
+      }
+    }
+
     for (const [dim, reason] of Object.entries(dimZeroReasons) as Array<[keyof V3Scores, DimZeroReason]>) {
       s[dim] = 0
       detailsEn[dim] = reason.en
@@ -1055,6 +1074,10 @@ JSON DISCIPLINE (avoid parse errors):
       paystub_math_impossible: 35,   // YTD inflated >1.5x or hourly×hours ≠ stated
       cross_doc_collision: 40,       // applicant phone == employer/HR phone
       producer_consumer_tool: 50,    // PDF Producer is Preview/Word/Skia for strict kinds
+      // Court record gates — ANY court record as defendant/debtor = fundamentally untrustworthy
+      court_record_defendant: 35,    // 1 case as defendant/debtor → overall capped at 35
+      court_record_defendant_multi: 25, // 2+ cases → overall capped at 25
+      court_record_active: 20,       // active (non-closed) case as defendant → overall capped at 20
     }
     const RED_FLAG_PENALTIES: Record<string, number> = {
       rush_move_in: 4,
@@ -1108,17 +1131,31 @@ JSON DISCIPLINE (avoid parse errors):
     const canliiPartyHits = courtDetail.records.filter(r => r.nameInTitle).length
     const totalCourtHits = portalDefendantCases.length + canliiPartyHits
 
-    if (totalCourtHits > 0 && s.rental_history > 70) {
-      // Cap rental_history: 1 hit → max 55, 2+ hits → max 35
-      const courtCap = totalCourtHits >= 2 ? 35 : 55
-      s.rental_history = Math.min(s.rental_history, courtCap)
+    if (totalCourtHits > 0) {
+      // Court records as defendant/debtor = fundamentally untrustworthy.
+      // 1 hit → rental_history capped at 25, 2+ hits → capped at 10
+      const rhCap = totalCourtHits >= 2 ? 10 : 25
+      s.rental_history = Math.min(s.rental_history, rhCap)
+      // Also penalize credit_health — debt disputes imply credit issues
+      const chCap = totalCourtHits >= 2 ? 20 : 40
+      s.credit_health = Math.min(s.credit_health, chCap)
+      // Trigger hard gate to cap OVERALL score
+      if (totalCourtHits >= 2 && !hardGates.includes('court_record_defendant_multi')) {
+        hardGates.push('court_record_defendant_multi')
+      } else if (!hardGates.includes('court_record_defendant')) {
+        hardGates.push('court_record_defendant')
+      }
     }
-    // Active (non-closed) cases are worse
+    // Active (non-closed) cases are even worse — person is currently being sued
     const activeDefendantCases = portalDefendantCases.filter(r => !r.closedFlag)
-    if (activeDefendantCases.length > 0 && s.rental_history > 45) {
-      s.rental_history = Math.min(s.rental_history, 45)
+    if (activeDefendantCases.length > 0) {
+      s.rental_history = Math.min(s.rental_history, 5)
+      s.credit_health = Math.min(s.credit_health, 15)
+      if (!hardGates.includes('court_record_active')) {
+        hardGates.push('court_record_active')
+      }
     }
-    // Recalculate base score after rental_history correction
+    // Recalculate base score after court record corrections
     if (totalCourtHits > 0) {
       baseScore = Math.round(
         s.ability_to_pay * 0.40 +
@@ -1139,7 +1176,7 @@ JSON DISCIPLINE (avoid parse errors):
 
     const claudeRedFlagPenalty = redFlags.reduce((sum, flag) => sum + (RED_FLAG_PENALTIES[flag] || 0), 0)
     const penalty = claudeRedFlagPenalty + forensicsPenalty
-    const gateCap = hardGates.length > 0
+    let gateCap = hardGates.length > 0
       ? Math.min(...hardGates.map(g => HARD_GATE_CAPS[g] ?? 100))
       : 100
 
@@ -1263,15 +1300,26 @@ JSON DISCIPLINE (avoid parse errors):
       })
       const allCanliiPartyHits = courtDetail.records.filter(r => r.nameInTitle).length
       const allCourtHits = allPortalDefendant.length + allCanliiPartyHits
-      if (allCourtHits > 0 && s.rental_history > 70) {
-        const cap = allCourtHits >= 2 ? 35 : 55
-        s.rental_history = Math.min(s.rental_history, cap)
+      if (allCourtHits > 0) {
+        const rhCap = allCourtHits >= 2 ? 10 : 25
+        s.rental_history = Math.min(s.rental_history, rhCap)
+        const chCap = allCourtHits >= 2 ? 20 : 40
+        s.credit_health = Math.min(s.credit_health, chCap)
+        if (allCourtHits >= 2 && !hardGates.includes('court_record_defendant_multi')) {
+          hardGates.push('court_record_defendant_multi')
+        } else if (allCourtHits === 1 && !hardGates.includes('court_record_defendant')) {
+          hardGates.push('court_record_defendant')
+        }
       }
       const allActive = allPortalDefendant.filter(r => !r.closedFlag)
-      if (allActive.length > 0 && s.rental_history > 45) {
-        s.rental_history = Math.min(s.rental_history, 45)
+      if (allActive.length > 0) {
+        s.rental_history = Math.min(s.rental_history, 5)
+        s.credit_health = Math.min(s.credit_health, 15)
+        if (!hardGates.includes('court_record_active')) {
+          hardGates.push('court_record_active')
+        }
       }
-      // Recalculate overall with corrected rental_history
+      // Recalculate overall with corrected scores and new gates
       baseScore = Math.round(
         s.ability_to_pay * 0.40 +
         s.credit_health * 0.25 +
@@ -1279,6 +1327,9 @@ JSON DISCIPLINE (avoid parse errors):
         s.verification * 0.10 +
         s.communication * 0.05
       )
+      gateCap = hardGates.length > 0
+        ? Math.min(...hardGates.map(g => HARD_GATE_CAPS[g] ?? 100))
+        : 100
       overall = Math.round(Math.max(0, Math.min(100, Math.min(baseScore - penalty, gateCap))))
     }
 
