@@ -21,7 +21,6 @@ export default function Home() {
     <main className="marketing">
       <MarketingNav />
       <Hero screenHref={screenHref} />
-      <TrustBar />
       <DualAudience screenHref={screenHref} />
       <Architecture />
       <ScreeningFeature screenHref={screenHref} />
@@ -79,11 +78,6 @@ function Hero({ screenHref }: { screenHref: string }) {
     <section className="mk-section" style={{ paddingTop: 96, paddingBottom: 72 }}>
       <div className="mk-grid-hero">
         <div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 999, background: 'rgba(13, 148, 136, 0.08)', border: '1px solid rgba(13, 148, 136, 0.22)', marginBottom: 24 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0D9488', boxShadow: '0 0 8px rgba(13, 148, 136, 0.6)' }} />
-            <span className="mk-eyebrow" style={{ fontSize: 10.5 }}>{t('mk.hero.eyebrow')}</span>
-          </div>
-
           <h1 className="mk-display" style={{ marginBottom: 22 }}>
             {t('mk.hero.title1')}<br />
             <span className="mk-gradient">{t('mk.hero.title2')}</span>
@@ -102,17 +96,6 @@ function Hero({ screenHref }: { screenHref: string }) {
             </a>
           </div>
 
-          <div className="mk-hero-trust-row" style={{ display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--mk-text-muted)' }}>
-            {[t('mk.hero.trust1'), t('mk.hero.trust2'), t('mk.hero.trust3')].map(txt => (
-              <div key={txt} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 18, height: 18, borderRadius: 999, background: 'rgba(5, 150, 105, 0.12)', color: '#059669', fontSize: 11, fontWeight: 800,
-                }}>✓</span>
-                <span>{txt}</span>
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="mk-hero-preview-wrap">
@@ -205,41 +188,6 @@ function HeroPreview() {
   )
 }
 
-// ─── Trust bar ───────────────────────────────────────────────────────
-function TrustBar() {
-  const { t } = useT()
-  const items = [
-    t('mk.trust.claude'),
-    t('mk.trust.canlii'),
-    t('mk.trust.supabase'),
-    t('mk.trust.cloudflare'),
-    t('mk.trust.pipeda'),
-    t('mk.trust.ohrc'),
-  ]
-  return (
-    <section className="mk-section-alt">
-      <div className="mk-section mk-section-tight" style={{ paddingTop: 32, paddingBottom: 32 }}>
-        <div style={{ textAlign: 'center', marginBottom: 18, fontSize: 11.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mk-text-muted)' }}>
-          {t('mk.trust.heading')}
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '14px 36px' }}>
-          {items.map(label => (
-            <div key={label} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              fontSize: 13, fontWeight: 600, color: 'var(--mk-text-secondary)',
-              padding: '8px 14px', borderRadius: 10,
-              background: 'var(--mk-surface)', border: '1px solid var(--mk-border)',
-              boxShadow: 'var(--mk-shadow-xs)',
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0D9488' }} />
-              {label}
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
 
 // ─── Dual audience ───────────────────────────────────────────────────
 function DualAudience({ screenHref }: { screenHref: string }) {
@@ -247,7 +195,6 @@ function DualAudience({ screenHref }: { screenHref: string }) {
   return (
     <section id="product" className="mk-section">
       <div style={{ textAlign: 'center', marginBottom: 56 }}>
-        <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.dual.eyebrow')}</div>
         <h2 className="mk-h2" style={{ maxWidth: 760, margin: '0 auto 16px' }}>{t('mk.dual.title')}</h2>
         <p className="mk-lead" style={{ maxWidth: 720, margin: '0 auto', color: 'var(--mk-text-secondary)' }}>{t('mk.dual.sub')}</p>
       </div>
@@ -262,7 +209,6 @@ function DualAudience({ screenHref }: { screenHref: string }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: '#FFFFFF', fontSize: 16,
             }}>🏠</div>
-            <div className="mk-eyebrow" style={{ color: 'var(--mk-brand-strong)' }}>{t('mk.dual.landlord.tag')}</div>
           </div>
           <h3 className="mk-h3" style={{ marginBottom: 10 }}>{t('mk.dual.landlord.title')}</h3>
           <p style={{ fontSize: 14, color: 'var(--mk-text-secondary)', lineHeight: 1.65, marginBottom: 22 }}>
@@ -290,7 +236,6 @@ function DualAudience({ screenHref }: { screenHref: string }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: '#FFFFFF', fontSize: 16,
             }}>🔑</div>
-            <div className="mk-eyebrow" style={{ color: '#6D28D9' }}>{t('mk.dual.tenant.tag')}</div>
             <span className="mk-chip mk-chip-amber" style={{ marginLeft: 'auto' }}>{t('mk.dual.tenant.soon')}</span>
           </div>
           <h3 className="mk-h3" style={{ marginBottom: 10 }}>{t('mk.dual.tenant.title')}</h3>
@@ -340,10 +285,6 @@ function ScreeningFeature({ screenHref }: { screenHref: string }) {
     <section className="mk-section-alt">
       <div className="mk-section">
         <div style={{ textAlign: 'center', marginBottom: 56 }}>
-          <div className="mk-chip" style={{ marginBottom: 16 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0D9488' }} />
-            {t('mk.screening.eyebrow')}
-          </div>
           <h2 className="mk-h2" style={{ maxWidth: 820, margin: '0 auto 16px' }}>
             {t('mk.screening.title')}
           </h2>
@@ -389,7 +330,6 @@ function HowItWorks() {
   return (
     <section className="mk-section">
       <div style={{ textAlign: 'center', marginBottom: 52 }}>
-        <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.how.eyebrow')}</div>
         <h2 className="mk-h2" style={{ maxWidth: 760, margin: '0 auto' }}>{t('mk.how.title')}</h2>
       </div>
 
@@ -434,7 +374,6 @@ function Architecture() {
     <section id="architecture" className="mk-section-alt">
       <div className="mk-section">
         <div style={{ textAlign: 'center', marginBottom: 52 }}>
-          <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.arch.eyebrow')}</div>
           <h2 className="mk-h2" style={{ maxWidth: 820, margin: '0 auto 14px' }}>{t('mk.arch.title')}</h2>
           <p className="mk-lead" style={{ maxWidth: 760, margin: '0 auto' }}>{t('mk.arch.sub')}</p>
         </div>
@@ -522,7 +461,6 @@ function Roadmap() {
   return (
     <section id="roadmap" className="mk-section">
       <div style={{ textAlign: 'center', marginBottom: 52 }}>
-        <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.roadmap.eyebrow')}</div>
         <h2 className="mk-h2" style={{ maxWidth: 820, margin: '0 auto 14px' }}>{t('mk.roadmap.title')}</h2>
         <p className="mk-lead" style={{ maxWidth: 780, margin: '0 auto' }}>{t('mk.roadmap.sub')}</p>
       </div>
@@ -580,7 +518,6 @@ function Security() {
       <div className="mk-section">
         <div className="mk-grid-split">
           <div>
-            <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.sec.eyebrow')}</div>
             <h2 className="mk-h2" style={{ marginBottom: 18 }}>{t('mk.sec.title')}</h2>
             <p className="mk-lead" style={{ maxWidth: 480 }}>{t('mk.sec.sub')}</p>
           </div>
@@ -611,7 +548,6 @@ function Pricing({ screenHref }: { screenHref: string }) {
   return (
     <section id="pricing" className="mk-section">
       <div style={{ textAlign: 'center', marginBottom: 48 }}>
-        <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.pricing.eyebrow')}</div>
         <h2 className="mk-h2" style={{ marginBottom: 14 }}>{t('mk.pricing.title')}</h2>
         <p className="mk-lead" style={{ maxWidth: 560, margin: '0 auto' }}>{t('mk.pricing.sub')}</p>
       </div>
@@ -690,7 +626,6 @@ function FAQ() {
   return (
     <section className="mk-section">
       <div style={{ textAlign: 'center', marginBottom: 48 }}>
-        <div className="mk-eyebrow" style={{ marginBottom: 12 }}>{t('mk.faq.eyebrow')}</div>
         <h2 className="mk-h2">{t('mk.faq.title')}</h2>
       </div>
 
