@@ -50,6 +50,7 @@ interface CourtQuery {
   note?: string
   severity?: number  // 3=critical, 2=high, 1=medium, 0=no hits
   records?: CanLIIMatch[]  // individual case records for this database
+  portalRecords?: OntarioPortalMatch[]  // Ontario Courts Portal records
 }
 
 interface CanLIIMatch {
@@ -195,6 +196,100 @@ async function searchCanLIIDb(fullName: string, db: CanLIIDatabase, apiKey: stri
   }
 }
 
+// ── Ontario Courts Portal (courts.ontario.ca) search ────────────────
+// Reverse-engineered API:
+//   GET https://api1.courts.ontario.ca/courts/cms/parties
+//     ?partyHeader.partyActorInstance.displayName={name}
+//     &partyHeader.partyActorInstance.displayNameSearchType=300054
+//     &caseHeader.courtID={courtUUID}
+//     &page=0&size=10
+// Court IDs:
+//   Civil and Small Claims Court: 68f021c4-6a44-4735-9a76-5360b2e8af13
+// Response: { _embedded: { results: [...] }, page: { totalElements, ... } }
+// Each result has partyHeader.partyActorInstance.displayName and caseHeader.*
+
+interface OntarioPortalMatch {
+  caseNumber: string
+  caseTitle: string
+  caseCategory: string
+  filedDate: string
+  partyRole: string
+  partyDisplayName: string
+  courtAbbreviation: string
+  closedFlag: boolean
+}
+
+const ONTARIO_PORTAL_CIVIL_COURT_ID = '68f021c4-6a44-4735-9a76-5360b2e8af13'
+
+async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: OntarioPortalMatch[]; totalElements: number; error?: string }> {
+  if (!isValidFullName(fullName)) {
+    return { matches: [], totalElements: 0, error: 'Invalid name for search' }
+  }
+
+  try {
+    const params = new URLSearchParams({
+      'partyHeader.partyActorInstance.displayName': fullName,
+      'partyHeader.partyActorInstance.displayNameSearchType': '300054',
+      'caseHeader.courtID': ONTARIO_PORTAL_CIVIL_COURT_ID,
+      'page': '0',
+      'size': '10',
+    })
+    const url = `https://api1.courts.ontario.ca/courts/cms/parties?${params.toString()}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+
+    if (!res.ok) {
+      return { matches: [], totalElements: 0, error: `HTTP ${res.status}` }
+    }
+
+    const data = await res.json() as {
+      _embedded?: {
+        results?: Array<{
+          partyHeader?: {
+            partySubType?: string
+            partyActorInstance?: { displayName?: string; sortName?: string }
+          }
+          caseHeader?: {
+            caseNumber?: string
+            caseTitle?: string
+            caseCategory?: string
+            courtAbbreviation?: string
+            filedDate?: string
+            closedFlag?: boolean
+          }
+        }>
+      }
+      page?: { totalElements?: number }
+    }
+
+    const results = data._embedded?.results || []
+    const totalElements = data.page?.totalElements || results.length
+
+    // Filter: only keep results where the party display name actually contains
+    // the tenant's name (the portal API does substring matching, so we verify)
+    const matches: OntarioPortalMatch[] = results
+      .filter(r => {
+        const displayName = (r.partyHeader?.partyActorInstance?.displayName || '').toLowerCase()
+        const sortName = (r.partyHeader?.partyActorInstance?.sortName || '').toLowerCase()
+        const combined = displayName + ' ' + sortName
+        return nameMatchesTitle(fullName, combined)
+      })
+      .map(r => ({
+        caseNumber: r.caseHeader?.caseNumber || '',
+        caseTitle: r.caseHeader?.caseTitle || '',
+        caseCategory: r.caseHeader?.caseCategory || '',
+        filedDate: r.caseHeader?.filedDate || '',
+        partyRole: r.partyHeader?.partySubType || '',
+        partyDisplayName: r.partyHeader?.partyActorInstance?.sortName || r.partyHeader?.partyActorInstance?.displayName || '',
+        courtAbbreviation: r.caseHeader?.courtAbbreviation || 'Civil and Small Claims Court',
+        closedFlag: r.caseHeader?.closedFlag ?? false,
+      }))
+
+    return { matches, totalElements }
+  } catch (e: any) {
+    return { matches: [], totalElements: 0, error: e?.message || 'Fetch failed' }
+  }
+}
+
 // Database severity mapping for rental risk relevance
 const DB_SEVERITY_MAP: Record<string, number> = {
   // Critical (severity 3) — highest relevance to rental risk
@@ -224,7 +319,7 @@ const PRIORITY_DBS: CanLIIDatabase[] = [
   { databaseId: 'onscsm', jurisdiction: 'on', name: 'Small Claims Court' },
 ]
 
-async function runCourtRecordCheck(name: string, plan: string): Promise<{ queries: CourtQuery[]; total_hits: number; queried_name: string; records: CanLIIMatch[]; databases_searched: number; court_summary_en?: string; court_summary_zh?: string }> {
+async function runCourtRecordCheck(name: string, plan: string): Promise<{ queries: CourtQuery[]; total_hits: number; queried_name: string; records: CanLIIMatch[]; databases_searched: number; portal_hits?: number; portal_records?: OntarioPortalMatch[]; court_summary_en?: string; court_summary_zh?: string }> {
   const queries: CourtQuery[] = []
   const apiKey = process.env.CANLII_API_KEY
 
@@ -326,12 +421,44 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
     })
   }
 
-  // Pro-tier sources still pending
-  const isPro = plan === 'pro' || plan === 'enterprise'
-  queries.push({ source: 'Ontario Courts Portal (direct)', tier: 'pro', status: 'coming_soon', hits: null, note: isPro ? 'Integration in progress' : 'Pro feature — coming soon' })
-  queries.push({ source: 'Stayloop Verified Network', tier: 'pro', status: 'coming_soon', hits: null, note: isPro ? 'Integration in progress' : 'Pro feature — coming soon' })
+  // ── Step 4: Ontario Courts Portal (direct API) — free tier ──
+  // This covers Civil and Small Claims Court cases from courts.ontario.ca
+  // which may not appear in CanLII (especially recent filings).
+  const portalResult = await searchOntarioCourtsPortal(searchName)
+  const portalHits = portalResult.matches.length
 
-  return { queries, total_hits: totalHits, queried_name: name || '', records: allRecords, databases_searched: totalDbsSearched }
+  if (portalResult.error && portalHits === 0) {
+    queries.push({
+      source: 'Ontario Courts Portal — Civil & Small Claims',
+      tier: 'free',
+      status: 'unavailable',
+      hits: null,
+      note: `Portal query failed: ${portalResult.error}`,
+      url: 'https://courts.ontario.ca/portal/search/party',
+    })
+  } else {
+    queries.push({
+      source: 'Ontario Courts Portal — Civil & Small Claims',
+      tier: 'free',
+      status: 'ok',
+      hits: portalHits,
+      severity: portalHits > 0 ? 2 : 0,
+      note: portalHits === 0
+        ? 'No matches in Ontario Courts Portal'
+        : `${portalHits} case(s) found (of ${portalResult.totalElements} total results)`,
+      portalRecords: portalHits > 0 ? portalResult.matches : undefined,
+      url: 'https://courts.ontario.ca/portal/search/party',
+    })
+  }
+
+  // Add portal hits to the total
+  const combinedHits = totalHits + portalHits
+  const totalSourcesSearched = totalDbsSearched + 1 // +1 for Ontario Courts Portal
+
+  // Pro-tier sources still pending
+  queries.push({ source: 'Stayloop Verified Network', tier: 'pro', status: 'coming_soon', hits: null, note: 'Pro feature — coming soon' })
+
+  return { queries, total_hits: combinedHits, queried_name: name || '', records: allRecords, databases_searched: totalSourcesSearched, portal_hits: portalHits, portal_records: portalResult.matches }
 }
 
 // Map v3's 5 dims → legacy 6 columns, so old dashboards keep working.
@@ -486,9 +613,11 @@ Landlord notes: ${screening.notes || 'N/A'}
 
 Uploaded: ${files.length === 0 ? 'NONE' : files.map(f => `${f.kind || 'doc'}(${f.name})`).join(', ')}
 
-CANLII LOOKUP — ALL ONTARIO DATABASES (${courtDetail.databases_searched} DBs incl. courts, tribunals, boards; fullText by exact name 2015–2026):
+COURT RECORD LOOKUP — ALL ONTARIO SOURCES (${courtDetail.databases_searched} sources incl. CanLII DBs + Ontario Courts Portal):
 ${courtDetail.queries.filter(q => q.tier === 'free').map(q => `  - ${q.source}: ${q.status === 'ok' ? `${q.hits} hit(s)` : q.status}${q.note ? ` (${q.note})` : ''}`).join('\n')}
-${courtDetail.total_hits > 0 ? `\nMATCHED CASES (verify name collision is not a false positive — common names can false-match):\n${courtDetail.records.slice(0, 8).map(r => `  · [${r.databaseName || r.databaseId}] ${r.title} — ${r.citation}`).join('\n')}` : '\nNo hits in any Ontario CanLII database for this applicant name.'}
+${courtDetail.records.length > 0 ? `\nCANLII MATCHED CASES (verify name collision is not a false positive — common names can false-match):\n${courtDetail.records.slice(0, 8).map(r => `  · [${r.databaseName || r.databaseId}] ${r.title} — ${r.citation}`).join('\n')}` : ''}
+${(courtDetail.portal_records?.length || 0) > 0 ? `\nONTARIO COURTS PORTAL CASES (Civil & Small Claims Court — direct from courts.ontario.ca):\n${courtDetail.portal_records!.slice(0, 8).map(r => `  · [${r.courtAbbreviation}] ${r.caseTitle} — ${r.caseNumber} (${r.partyRole}, filed ${r.filedDate ? new Date(r.filedDate).toLocaleDateString('en-CA') : 'unknown'}, ${r.closedFlag ? 'Inactive' : 'Active'})`).join('\n')}` : ''}
+${courtDetail.total_hits === 0 ? '\nNo hits in any Ontario court database or portal for this applicant name.' : ''}
 
 SCORING GUIDANCE for rental_history.ltb_check and red flags:
 - 0 hits across ALL Ontario DBs → high score (90+), ltb_check = "measured"

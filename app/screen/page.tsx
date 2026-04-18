@@ -37,6 +37,17 @@ interface CanLIIMatch {
   nameInTitle?: boolean  // true = tenant name found in case title (likely a party)
 }
 
+interface OntarioPortalMatch {
+  caseNumber: string
+  caseTitle: string
+  caseCategory: string
+  filedDate: string
+  partyRole: string
+  partyDisplayName: string
+  courtAbbreviation: string
+  closedFlag: boolean
+}
+
 interface CourtQuery {
   source: string
   tier: 'free' | 'pro'
@@ -46,6 +57,7 @@ interface CourtQuery {
   note?: string
   severity?: number  // 3=critical, 2=high, 1=medium, 0=no hits
   records?: CanLIIMatch[]  // individual case records for this database
+  portalRecords?: OntarioPortalMatch[]  // Ontario Courts Portal records
 }
 
 interface AiFlag { type: 'danger' | 'warning' | 'info' | 'success'; text_en: string; text_zh: string }
@@ -655,6 +667,58 @@ function CaseRecordCard({ record, lang, sevColor, isParty }: { record: CanLIIMat
   )
 }
 
+function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMatch; lang: string; sevColor: { bg: string; light: string; border: string } }) {
+  const filedDate = record.filedDate ? new Date(record.filedDate).toLocaleDateString('en-CA') : ''
+  return (
+    <div
+      style={{
+        display: 'block',
+        padding: '10px 12px',
+        background: sevColor.light,
+        borderRadius: 6,
+        border: `1px solid ${sevColor.border}`,
+      }}
+    >
+      {/* Row 1: badges */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: '#DC2626', color: '#fff', flexShrink: 0 }}>
+          {lang === 'zh' ? '当事人' : 'PARTY'}
+        </span>
+        <span style={{
+          fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+          padding: '2px 6px', borderRadius: 3,
+          background: '#0284C7', color: '#fff',
+          flexShrink: 0,
+        }}>
+          {lang === 'zh' ? '安省法院门户' : 'ON Courts Portal'}
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#1E3A5F', fontFamily: "'JetBrains Mono', monospace" }}>
+          {record.caseNumber}
+        </span>
+        {record.closedFlag && (
+          <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#94A3B840', color: '#64748B', fontWeight: 600 }}>
+            Inactive
+          </span>
+        )}
+      </div>
+      {/* Row 2: Case title */}
+      <div style={{
+        fontSize: 12, color: '#334155', lineHeight: 1.4,
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden',
+      }}>
+        {record.caseTitle}
+      </div>
+      {/* Row 3: Details */}
+      <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 10, color: '#64748B' }}>
+        <span>{lang === 'zh' ? '角色' : 'Role'}: <strong style={{ color: '#334155' }}>{record.partyRole}</strong></span>
+        <span>{lang === 'zh' ? '类别' : 'Category'}: {record.caseCategory}</span>
+        {filedDate && <span>{lang === 'zh' ? '立案' : 'Filed'}: {filedDate}</span>}
+        <span>{record.partyDisplayName}</span>
+      </div>
+    </div>
+  )
+}
+
 function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummaryEn, courtSummaryZh }: { queries: CourtQuery[]; totalHits: number; queriedName: string; tier: 'free' | 'pro'; courtSummaryEn?: string; courtSummaryZh?: string }) {
   const { t, lang } = useT()
 
@@ -662,16 +726,18 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
   const rollupQuery = queries[0]
   // Show all database rows that have hits, plus LTB and Small Claims even
   // at 0 hits so the user always sees these two priority DBs were queried.
-  const ALWAYS_SHOW_DBS = ['Landlord and Tenant Board', 'Small Claims Court']
+  const ALWAYS_SHOW_DBS = ['Landlord and Tenant Board', 'Small Claims Court', 'Ontario Courts Portal']
   const dbQueries = queries.slice(1).filter(q =>
-    q.status === 'ok' && ((q.hits ?? 0) > 0 || ALWAYS_SHOW_DBS.some(name => q.source.includes(name)))
+    q.tier === 'free' && (q.status === 'ok' || q.status === 'unavailable') && ((q.hits ?? 0) > 0 || ALWAYS_SHOW_DBS.some(name => q.source.includes(name)))
   )
   const proQueries = queries.filter(q => q.tier === 'pro')
 
   // Auto-expand rows that have hits so case records are immediately visible
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>(() => {
     const init: Record<number, boolean> = {}
-    dbQueries.forEach((q, i) => { if ((q.hits ?? 0) > 0 && q.records && q.records.length > 0) init[i] = true })
+    dbQueries.forEach((q, i) => {
+      if ((q.hits ?? 0) > 0 && ((q.records && q.records.length > 0) || (q.portalRecords && q.portalRecords.length > 0))) init[i] = true
+    })
     return init
   })
 
@@ -799,11 +865,19 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
                     </div>
                   </div>
 
-                  {/* Expanded case records */}
+                  {/* Expanded case records — CanLII */}
                   {isExpanded && q.records && q.records.length > 0 && (
                     <div style={{ marginTop: 6, paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 5 }}>
                       {q.records.map((record, j) => (
                         <CaseRecordCard key={j} record={record} lang={lang} sevColor={sevColor} isParty />
+                      ))}
+                    </div>
+                  )}
+                  {/* Expanded case records — Ontario Courts Portal */}
+                  {isExpanded && q.portalRecords && q.portalRecords.length > 0 && (
+                    <div style={{ marginTop: 6, paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      {q.portalRecords.map((pr, j) => (
+                        <PortalRecordCard key={`portal-${j}`} record={pr} lang={lang} sevColor={sevColor} />
                       ))}
                     </div>
                   )}
