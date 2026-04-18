@@ -757,11 +757,11 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
   )
   const proQueries = queries.filter(q => q.tier === 'pro')
 
-  // Auto-expand rows that have hits so case records are immediately visible
+  // Default all rows with hits to expanded (open) so case records are immediately visible
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>(() => {
     const init: Record<number, boolean> = {}
     dbQueries.forEach((q, i) => {
-      if ((q.hits ?? 0) > 0 && ((q.records && q.records.length > 0) || (q.portalRecords && q.portalRecords.length > 0))) init[i] = true
+      if ((q.hits ?? 0) > 0) init[i] = true
     })
     return init
   })
