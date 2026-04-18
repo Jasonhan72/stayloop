@@ -669,28 +669,17 @@ function CaseRecordCard({ record, lang, sevColor, isParty }: { record: CanLIIMat
 
 function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMatch; lang: string; sevColor: { bg: string; light: string; border: string } }) {
   const filedDate = record.filedDate ? new Date(record.filedDate).toLocaleDateString('en-CA') : ''
-  // Build a search URL that pre-fills the party name on Ontario Courts Portal
-  const portalSearchUrl = `https://courts.ontario.ca/portal/search/party`
   return (
-    <a
-      href={portalSearchUrl}
-      target="_blank"
-      rel="noopener noreferrer"
+    <div
       style={{
-        display: 'block',
-        textDecoration: 'none',
         padding: '10px 12px',
         background: sevColor.light,
         borderRadius: 6,
         border: `1px solid ${sevColor.border}`,
-        transition: 'background .15s, border-color .15s',
       }}
-      title={record.caseTitle}
-      onMouseEnter={e => { e.currentTarget.style.background = '#EEF2FF'; e.currentTarget.style.borderColor = '#818CF860' }}
-      onMouseLeave={e => { e.currentTarget.style.background = sevColor.light; e.currentTarget.style.borderColor = sevColor.border }}
     >
-      {/* Row 1: badges */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+      {/* Row 1: badges + case number + status */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 3, background: '#DC2626', color: '#fff', flexShrink: 0 }}>
           {lang === 'zh' ? '当事人' : 'PARTY'}
         </span>
@@ -705,31 +694,43 @@ function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMat
         <span style={{ fontSize: 11, fontWeight: 700, color: '#1E3A5F', fontFamily: "'JetBrains Mono', monospace" }}>
           {record.caseNumber}
         </span>
-        {record.closedFlag && (
-          <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#94A3B840', color: '#64748B', fontWeight: 600 }}>
-            Inactive
-          </span>
-        )}
+        <span style={{
+          fontSize: 9, padding: '1px 5px', borderRadius: 3, fontWeight: 600,
+          background: record.closedFlag ? '#94A3B840' : '#FEF08A',
+          color: record.closedFlag ? '#64748B' : '#92400E',
+        }}>
+          {record.closedFlag ? (lang === 'zh' ? '已结案' : 'Closed') : (lang === 'zh' ? '进行中' : 'Active')}
+        </span>
       </div>
       {/* Row 2: Case title */}
-      <div style={{
-        fontSize: 12, color: '#334155', lineHeight: 1.4,
-        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden',
-      }}>
+      <div style={{ fontSize: 13, color: '#0F172A', fontWeight: 600, lineHeight: 1.4, marginBottom: 6 }}>
         {record.caseTitle}
       </div>
-      {/* Row 3: Details */}
-      <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 10, color: '#64748B', flexWrap: 'wrap' }}>
-        <span>{lang === 'zh' ? '角色' : 'Role'}: <strong style={{ color: '#334155' }}>{record.partyRole}</strong></span>
-        <span>{lang === 'zh' ? '类别' : 'Category'}: {record.caseCategory}</span>
-        {filedDate && <span>{lang === 'zh' ? '立案' : 'Filed'}: {filedDate}</span>}
-        <span>{record.partyDisplayName}</span>
+      {/* Row 3: Detail grid */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '3px 10px',
+        fontSize: 11, color: '#64748B', lineHeight: 1.5,
+      }}>
+        <span style={{ fontWeight: 600 }}>{lang === 'zh' ? '当事人角色' : 'Party Role'}:</span>
+        <span style={{ color: '#334155', fontWeight: 600 }}>{record.partyRole}</span>
+        <span style={{ fontWeight: 600 }}>{lang === 'zh' ? '登记姓名' : 'Name on File'}:</span>
+        <span style={{ color: '#334155' }}>{record.partyDisplayName}</span>
+        <span style={{ fontWeight: 600 }}>{lang === 'zh' ? '案件类别' : 'Category'}:</span>
+        <span style={{ color: '#334155' }}>{record.caseCategory}</span>
+        {filedDate && (<>
+          <span style={{ fontWeight: 600 }}>{lang === 'zh' ? '立案日期' : 'Filed'}:</span>
+          <span style={{ color: '#334155' }}>{filedDate}</span>
+        </>)}
+        <span style={{ fontWeight: 600 }}>{lang === 'zh' ? '法院' : 'Court'}:</span>
+        <span style={{ color: '#334155' }}>{record.courtAbbreviation}</span>
       </div>
-      {/* Row 4: Link hint */}
-      <div style={{ fontSize: 10, color: '#0284C7', marginTop: 4, fontWeight: 500 }}>
-        {lang === 'zh' ? '点击前往安省法院门户查看详情 ↗' : 'View on Ontario Courts Portal ↗'}
+      {/* Row 4: Source note */}
+      <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 6 }}>
+        {lang === 'zh'
+          ? `数据来源：安大略省法院公开门户 · 案件编号 ${record.caseNumber} 可在 courts.ontario.ca/portal 查询`
+          : `Source: Ontario Courts Public Portal · Case ${record.caseNumber} searchable at courts.ontario.ca/portal`}
       </div>
-    </a>
+    </div>
   )
 }
 
