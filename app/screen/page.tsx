@@ -242,7 +242,7 @@ function ScoreRing({ score, size = 140, strokeWidth = 10 }: { score: number; siz
   return (
     <div style={{ position: 'relative', width: size, height: size }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#E4E8F0" strokeWidth={strokeWidth} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(56, 189, 248, 0.10)" strokeWidth={strokeWidth} />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -258,7 +258,7 @@ function ScoreRing({ score, size = 140, strokeWidth = 10 }: { score: number; siz
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <span style={{ fontSize: size * 0.32, fontWeight: 800, color: risk.color, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1 }}>{score}</span>
-        <span style={{ fontSize: 11, color: '#64748B', marginTop: 2, letterSpacing: 1 }}>/ 100</span>
+        <span style={{ fontSize: 11, color: '#475569', marginTop: 2, letterSpacing: 1 }}>/ 100</span>
       </div>
     </div>
   )
@@ -286,12 +286,12 @@ function CategoryBar({ category, score, animDelay = 0, tier, shortNote, detail, 
   const barColor = zeroed ? '#DC2626' : risk.color
   return (
     <div style={{
-      marginBottom: 12,
-      borderRadius: 10,
-      border: zeroed ? '1px solid rgba(220, 38, 38, 0.40)' : (open ? '1px solid #E4E8F0' : '1px solid transparent'),
-      background: zeroed ? 'rgba(220, 38, 38, 0.04)' : (open ? 'rgba(11, 23, 54, 0.03)' : 'transparent'),
+      marginBottom: 14,
+      borderRadius: 12,
+      border: zeroed ? '1px solid rgba(220, 38, 38, 0.40)' : (open ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid transparent'),
+      background: zeroed ? 'rgba(220, 38, 38, 0.06)' : (open ? 'rgba(56, 189, 248, 0.04)' : 'transparent'),
       transition: 'all 0.2s',
-      padding: open || zeroed ? 12 : 0,
+      padding: open || zeroed ? 14 : 0,
     }}>
       <button
         type="button"
@@ -299,10 +299,10 @@ function CategoryBar({ category, score, animDelay = 0, tier, shortNote, detail, 
         aria-expanded={open}
         style={{ width: '100%', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: hasDetail ? 'pointer' : 'default' }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 16 }}>{category.icon}</span>
-            <span className="sl-cat-primary" style={{ fontWeight: 700, color: '#0B1736' }}>{primary}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 18 }}>{category.icon}</span>
+            <span className="sl-cat-primary" style={{ fontWeight: 700, color: '#EFF6FF' }}>{primary}</span>
             <span className="sl-cat-secondary" style={{ fontWeight: 500, color: '#64748B' }}>{secondary}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -331,20 +331,20 @@ function CategoryBar({ category, score, animDelay = 0, tier, shortNote, detail, 
             )}
           </div>
         </div>
-        <div style={{ height: 6, borderRadius: 3, background: 'rgba(11, 23, 54, 0.06)', overflow: 'hidden' }}>
-          <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${barColor}88, ${barColor})`, width: `${score}%`, transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)', transitionDelay: `${animDelay}ms` }} />
+        <div style={{ height: 6, borderRadius: 3, background: 'rgba(56, 189, 248, 0.08)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${barColor}88, ${barColor})`, width: `${score}%`, transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)', transitionDelay: `${animDelay}ms`, boxShadow: `0 0 8px ${barColor}30` }} />
         </div>
-        <p style={{ fontSize: 11, color: '#64748B', marginTop: 4, marginBottom: 0 }}>{t(category.descKey)}</p>
+        <p style={{ fontSize: 11.5, color: '#64748B', marginTop: 5, marginBottom: 0 }}>{t(category.descKey)}</p>
       </button>
       {open && hasDetail && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed rgba(11, 23, 54, 0.10)' }}>
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed rgba(56, 189, 248, 0.10)' }}>
           {zeroed && detail && (
             <div style={{
-              padding: '10px 12px',
+              padding: '12px 14px',
               background: 'rgba(220, 38, 38, 0.08)',
               border: '1px solid rgba(220, 38, 38, 0.30)',
-              borderRadius: 8,
-              marginBottom: 12,
+              borderRadius: 10,
+              marginBottom: 14,
               display: 'flex',
               alignItems: 'flex-start',
               gap: 8,
@@ -364,14 +364,14 @@ function CategoryBar({ category, score, animDelay = 0, tier, shortNote, detail, 
             </div>
           )}
           {!zeroed && shortNote && (
-            <p style={{ fontSize: 12.5, color: '#0B1736', lineHeight: 1.6, margin: 0, marginBottom: detail ? 12 : 0 }}>{shortNote}</p>
+            <p style={{ fontSize: 13, color: '#CBD5E1', lineHeight: 1.6, margin: 0, marginBottom: detail ? 12 : 0 }}>{shortNote}</p>
           )}
           {!zeroed && detail && (
             <>
               <div className="mono" style={{ fontSize: 10.5, color: '#64748B', marginBottom: 8, letterSpacing: '0.02em', textTransform: 'uppercase', fontWeight: 600 }}>
                 {lang === 'zh' ? '证据与详细分析' : 'Evidence & detailed analysis'}
               </div>
-              <p style={{ fontSize: 12.5, color: '#0B1736', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{detail}</p>
+              <p style={{ fontSize: 13, color: '#CBD5E1', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{detail}</p>
             </>
           )}
         </div>
@@ -1919,11 +1919,11 @@ export default function ScreenPage() {
 
   if (authLoading || !landlord) {
     return (
-      <div className="screen-app" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontFamily: "'Inter', sans-serif" }}>
+      <div className="screen-app" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', fontFamily: "'Inter', sans-serif" }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: '50%', border: '3px solid #E4E8F0', borderTopColor: '#0D9488', animation: 'spin 1s linear infinite' }} />
+          <div style={{ width: 44, height: 44, margin: '0 auto 14px', borderRadius: '50%', border: '3px solid rgba(56, 189, 248, 0.12)', borderTopColor: '#06B6D4', animation: 'spin 1s linear infinite' }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-          <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>Authenticating...</div>
+          <div style={{ fontSize: 12.5, fontFamily: "'JetBrains Mono', monospace", color: '#64748B' }}>Authenticating...</div>
         </div>
       </div>
     )
@@ -1954,43 +1954,44 @@ export default function ScreenPage() {
 
   return (
     <div className="screen-app" style={{ minHeight: '100vh' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
       <style>{`
         .sl-header { padding: 20px 24px; }
         .sl-brand-sub { display: block; }
-        .sl-container { max-width: 800px; margin: 0 auto; padding: 24px 16px; }
-        .sl-scanner-panel { border-radius: 20px; }
-        .sl-card { padding: 20px; border-radius: 16px; }
-        .sl-card-overall { padding: 32px 24px; border-radius: 20px; }
+        .sl-container { max-width: 820px; margin: 0 auto; padding: 28px 16px; }
+        .sl-scanner-panel { border-radius: 24px; }
+        .sl-card { padding: 24px; border-radius: 18px; }
+        .sl-card-overall { padding: 40px 28px; border-radius: 24px; }
         .sl-file-grid { grid-template-columns: repeat(4, 1fr); }
         .sl-weights-grid { grid-template-columns: repeat(3, 1fr); }
-        .sl-stats-row { gap: 24px; font-size: 12px; }
-        .sl-stats-val { font-size: 14px; }
-        .sl-score-ring-wrap { display: flex; justify-content: center; margin-bottom: 20px; }
-        .sl-cat-primary { font-size: 13px; }
-        .sl-cat-secondary { font-size: 11px; }
-        .sl-court-source { font-size: 12px; }
-        .sl-nav-btn { padding: 8px 16px; font-size: 13px; }
-        .sl-extracted-name { font-size: 18px; }
-        .sl-risk-pill { font-size: 14px; padding: 6px 20px; }
+        .sl-stats-row { gap: 28px; font-size: 13px; }
+        .sl-stats-val { font-size: 16px; }
+        .sl-score-ring-wrap { display: flex; justify-content: center; margin-bottom: 24px; }
+        .sl-cat-primary { font-size: 14px; }
+        .sl-cat-secondary { font-size: 11.5px; }
+        .sl-court-source { font-size: 13px; }
+        .sl-nav-btn { padding: 10px 20px; font-size: 14px; }
+        .sl-extracted-name { font-size: 22px; }
+        .sl-risk-pill { font-size: 15px; padding: 8px 24px; }
+        .sl-section-title { font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; }
         @media (max-width: 640px) {
           .sl-header { padding: 14px 14px; flex-wrap: wrap; gap: 10px; }
           .sl-brand-sub { display: none; }
           .sl-container { padding: 16px 12px; }
-          .sl-card { padding: 14px; border-radius: 14px; }
-          .sl-card-overall { padding: 22px 14px; border-radius: 16px; }
+          .sl-card { padding: 16px; border-radius: 14px; }
+          .sl-card-overall { padding: 24px 16px; border-radius: 18px; }
           .sl-file-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .sl-weights-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .sl-stats-row { gap: 14px !important; font-size: 11px !important; }
-          .sl-stats-val { font-size: 13px !important; }
-          .sl-cat-primary { font-size: 12px !important; }
-          .sl-cat-secondary { font-size: 10px !important; }
-          .sl-court-source { font-size: 11px !important; }
-          .sl-nav-btn { padding: 6px 10px !important; font-size: 12px !important; }
-          .sl-extracted-name { font-size: 16px !important; }
-          .sl-risk-pill { font-size: 12px !important; padding: 5px 14px !important; }
-          .sl-scanner-panel { border-radius: 14px !important; }
-          .sl-summary-text { font-size: 13px !important; line-height: 1.7 !important; }
+          .sl-stats-row { gap: 14px !important; font-size: 12px !important; }
+          .sl-stats-val { font-size: 14px !important; }
+          .sl-cat-primary { font-size: 13px !important; }
+          .sl-cat-secondary { font-size: 10.5px !important; }
+          .sl-court-source { font-size: 12px !important; }
+          .sl-nav-btn { padding: 8px 14px !important; font-size: 13px !important; }
+          .sl-extracted-name { font-size: 18px !important; }
+          .sl-risk-pill { font-size: 13px !important; padding: 6px 16px !important; }
+          .sl-scanner-panel { border-radius: 16px !important; }
+          .sl-summary-text { font-size: 14px !important; line-height: 1.7 !important; }
           .sl-section-title { font-size: 12px !important; }
         }
         details.sl-card > summary::-webkit-details-marker { display: none; }
@@ -2009,44 +2010,46 @@ export default function ScreenPage() {
           <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* ─── Scanner Panel ─── */}
             <div style={{
-              background: '#FFFFFF',
-              border: '1px solid #E4E8F0',
-              borderRadius: 20,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)',
+              background: 'rgba(15, 22, 41, 0.85)',
+              border: '1px solid rgba(56, 189, 248, 0.12)',
+              borderRadius: 24,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(56, 189, 248, 0.04) inset',
               overflow: 'hidden',
+              backdropFilter: 'blur(20px)',
             }}>
               {/* Panel Header */}
               <div style={{
-                padding: '16px 22px',
-                borderBottom: '1px solid #E4E8F0',
+                padding: '20px 24px',
+                borderBottom: '1px solid rgba(56, 189, 248, 0.10)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.04), rgba(37, 99, 235, 0.02))',
+                background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.08), rgba(6, 182, 212, 0.04), rgba(37, 99, 235, 0.06))',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <div style={{
-                    width: 36, height: 36, borderRadius: 10,
-                    background: 'linear-gradient(135deg, #0D9488, #0F766E)',
+                    width: 42, height: 42, borderRadius: 12,
+                    background: 'linear-gradient(135deg, #0D9488, #06B6D4)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 4px 12px -2px rgba(13, 148, 136, 0.4)',
+                    boxShadow: '0 6px 20px -4px rgba(6, 182, 212, 0.5), 0 0 0 1px rgba(255,255,255,0.15) inset',
                   }}>
-                    <span style={{ fontSize: 18, filter: 'brightness(10)' }}>🛡</span>
+                    <span style={{ fontSize: 20, filter: 'brightness(10)' }}>🛡</span>
                   </div>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#0B1736', letterSpacing: '-0.01em' }}>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: '#EFF6FF', letterSpacing: '-0.02em' }}>
                       {lang === 'zh' ? '租客筛查' : 'Tenant Screening'}
                     </div>
-                    <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 1 }}>
+                    <div style={{ fontSize: 12, color: '#64748B', marginTop: 2, letterSpacing: '0.02em' }}>
                       {lang === 'zh' ? '上传文件 → AI 分析 → 风险报告' : 'Upload docs → AI analysis → Risk report'}
                     </div>
                   </div>
                 </div>
                 {isPro && (
                   <span style={{
-                    fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6,
+                    fontSize: 10.5, fontWeight: 700, padding: '5px 12px', borderRadius: 8,
                     background: 'linear-gradient(135deg, #7C3AED, #8B5CF6)', color: '#FFF',
-                    letterSpacing: '0.05em', textTransform: 'uppercase',
+                    letterSpacing: '0.08em', textTransform: 'uppercase',
+                    boxShadow: '0 4px 12px -4px rgba(139, 92, 246, 0.5)',
                   }}>PRO</span>
                 )}
               </div>
@@ -2058,16 +2061,16 @@ export default function ScreenPage() {
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
                 style={{
-                  margin: '16px 18px 0',
-                  border: `2px dashed ${dragOver ? '#14B8A6' : '#CBD5E1'}`,
-                  borderRadius: 14,
-                  padding: files.length > 0 ? '20px 16px' : '36px 16px',
+                  margin: '18px 20px 0',
+                  border: `2px dashed ${dragOver ? '#06B6D4' : 'rgba(56, 189, 248, 0.18)'}`,
+                  borderRadius: 16,
+                  padding: files.length > 0 ? '22px 18px' : '44px 18px',
                   textAlign: 'center',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition: 'all 0.25s ease',
                   background: dragOver
-                    ? 'radial-gradient(ellipse at center, rgba(20, 184, 166, 0.08), transparent 70%)'
-                    : '#FAFBFD',
+                    ? 'radial-gradient(ellipse at center, rgba(6, 182, 212, 0.12), transparent 70%)'
+                    : 'rgba(15, 22, 41, 0.40)',
                 }}
               >
                 <input
@@ -2080,21 +2083,21 @@ export default function ScreenPage() {
                 />
                 {files.length === 0 ? (
                   <>
-                    <div style={{ fontSize: 32, marginBottom: 10, opacity: 0.9 }}>📁</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: '#0B1736' }}>{t('screen.drop.title')}</div>
-                    <div style={{ fontSize: 12.5, color: '#64748B', lineHeight: 1.5 }}>{t('screen.drop.sub')}</div>
-                    <div className="btn btn-ghost btn-sm" style={{ marginTop: 14, display: 'inline-flex' }}>{t('screen.drop.pick')}</div>
+                    <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.9 }}>📁</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, color: '#EFF6FF' }}>{t('screen.drop.title')}</div>
+                    <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>{t('screen.drop.sub')}</div>
+                    <div className="btn btn-ghost btn-sm" style={{ marginTop: 16, display: 'inline-flex', fontSize: 13 }}>{t('screen.drop.pick')}</div>
                   </>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#64748B', fontSize: 12.5 }}>
-                    <span style={{ fontSize: 16 }}>＋</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#64748B', fontSize: 13 }}>
+                    <span style={{ fontSize: 18, color: '#06B6D4' }}>＋</span>
                     <span>{lang === 'zh' ? '点击或拖拽添加更多文件' : 'Click or drag to add more files'}</span>
                   </div>
                 )}
               </div>
 
               {/* File Type Badges — compact horizontal strip */}
-              <div style={{ padding: '12px 18px 0', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              <div style={{ padding: '14px 20px 0', display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                 {(() => {
                   const counts: Record<string, number> = {}
                   for (const f of files) {
@@ -2116,21 +2119,21 @@ export default function ScreenPage() {
                       <div
                         key={ft.key}
                         style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          padding: '6px 10px', borderRadius: 8,
-                          background: uploaded ? 'rgba(16, 185, 129, 0.12)' : '#F1F5FB',
-                          border: uploaded ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #E4E8F0',
-                          fontSize: 11, fontWeight: uploaded ? 600 : 500,
-                          color: uploaded ? '#15803D' : '#94A3B8',
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          padding: '7px 12px', borderRadius: 9,
+                          background: uploaded ? 'rgba(6, 182, 212, 0.12)' : 'rgba(56, 189, 248, 0.05)',
+                          border: uploaded ? '1px solid rgba(6, 182, 212, 0.35)' : '1px solid rgba(56, 189, 248, 0.10)',
+                          fontSize: 11.5, fontWeight: uploaded ? 600 : 500,
+                          color: uploaded ? '#22D3EE' : '#475569',
                           transition: 'all 0.2s',
                         }}
                       >
-                        <span style={{ fontSize: 13, filter: uploaded ? 'none' : 'grayscale(0.4) opacity(0.6)' }}>{ft.icon}</span>
+                        <span style={{ fontSize: 14, filter: uploaded ? 'none' : 'grayscale(0.5) opacity(0.5)' }}>{ft.icon}</span>
                         <span>{t(ft.labelKey)}</span>
                         {uploaded && (
                           <span style={{
-                            fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 6,
-                            background: 'linear-gradient(135deg, #10B981, #059669)', color: '#fff',
+                            fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 6,
+                            background: 'linear-gradient(135deg, #0D9488, #06B6D4)', color: '#fff',
                             lineHeight: '14px', minWidth: 16, textAlign: 'center',
                           }}>
                             {count}
@@ -2144,25 +2147,25 @@ export default function ScreenPage() {
 
               {/* Classification progress bar */}
               {classifying && (
-                <div style={{ margin: '12px 18px 0', padding: '10px 14px', background: '#F0FDFA', border: '1px solid rgba(20, 184, 166, 0.25)', borderRadius: 10 }}>
+                <div style={{ margin: '14px 20px 0', padding: '12px 16px', background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.20)', borderRadius: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <span style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid rgba(20, 184, 166, 0.25)', borderTopColor: '#14B8A6', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#0F766E' }}>
+                    <span style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(6, 182, 212, 0.20)', borderTopColor: '#06B6D4', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: '#22D3EE' }}>
                       {lang === 'zh' ? '正在识别文件类型…' : 'Classifying files…'}
                     </span>
                   </div>
-                  <div style={{ height: 3, borderRadius: 2, background: 'rgba(20, 184, 166, 0.15)', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', background: 'linear-gradient(90deg, #14B8A6, #0D9488)', width: '60%', borderRadius: 2, animation: 'shimmer 1.5s ease-in-out infinite' }} />
+                  <div style={{ height: 3, borderRadius: 2, background: 'rgba(6, 182, 212, 0.12)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', background: 'linear-gradient(90deg, #06B6D4, #0D9488)', width: '60%', borderRadius: 2, animation: 'shimmer 1.5s ease-in-out infinite' }} />
                   </div>
                 </div>
               )}
 
               {/* Classification error */}
               {classifyError && !classifying && (
-                <div style={{ margin: '12px 18px 0', padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, fontSize: 12, color: '#B91C1C' }}>
+                <div style={{ margin: '14px 20px 0', padding: '12px 16px', background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.25)', borderRadius: 12, fontSize: 12.5, color: '#FCA5A5' }}>
                   <div style={{ fontWeight: 600, marginBottom: 4 }}>⚠ {lang === 'zh' ? '文件分类失败' : 'Classification failed'}</div>
-                  <div style={{ fontSize: 11, color: '#7F1D1D' }}>{classifyError}</div>
-                  <button onClick={() => { setClassifyError(null); classifyNewFiles(files) }} style={{ marginTop: 6, fontSize: 11, color: '#DC2626', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  <div style={{ fontSize: 11.5, color: '#F87171' }}>{classifyError}</div>
+                  <button onClick={() => { setClassifyError(null); classifyNewFiles(files) }} style={{ marginTop: 6, fontSize: 11.5, color: '#F87171', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                     {lang === 'zh' ? '点击重试' : 'Click to retry'}
                   </button>
                 </div>
@@ -2170,11 +2173,11 @@ export default function ScreenPage() {
 
               {/* Uploaded file list */}
               {files.length > 0 && (
-                <div style={{ margin: '12px 18px 0' }}>
-                  <div style={{ fontSize: 11.5, fontWeight: 600, color: '#64748B', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ margin: '14px 20px 0' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#64748B', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span>{t('screen.files.uploadedN', { n: files.length })}</span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 200, overflowY: 'auto' }}>
                     {files.map((f, i) => {
                       const ext = f.name.split('.').pop()?.toLowerCase() || ''
                       const isPdf = ext === 'pdf'
@@ -2186,14 +2189,14 @@ export default function ScreenPage() {
                       return (
                         <div key={i} style={{
                           display: 'flex', alignItems: 'center', gap: 8,
-                          padding: '7px 10px', background: '#FAFBFD', borderRadius: 8,
-                          border: '1px solid #EEF2F8', fontSize: 12,
+                          padding: '8px 12px', background: 'rgba(15, 22, 41, 0.50)', borderRadius: 10,
+                          border: '1px solid rgba(56, 189, 248, 0.08)', fontSize: 12.5,
                         }}>
-                          <span style={{ fontSize: 13, flexShrink: 0 }}>{isPdf ? '📄' : isImage ? '🖼️' : '📎'}</span>
-                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0B1736', fontWeight: 500 }}>{f.name}</span>
-                          {kindLabel && <span style={{ fontSize: 11, flexShrink: 0 }}>{kindLabel}</span>}
-                          <span style={{ fontSize: 10, color: '#94A3B8', flexShrink: 0 }}>{(f.size / 1024).toFixed(0)}KB</span>
-                          <button onClick={(e) => { e.stopPropagation(); removeFile(i) }} style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>×</button>
+                          <span style={{ fontSize: 14, flexShrink: 0 }}>{isPdf ? '📄' : isImage ? '🖼️' : '📎'}</span>
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#E2E8F0', fontWeight: 500 }}>{f.name}</span>
+                          {kindLabel && <span style={{ fontSize: 12, flexShrink: 0 }}>{kindLabel}</span>}
+                          <span style={{ fontSize: 10.5, color: '#475569', flexShrink: 0 }}>{(f.size / 1024).toFixed(0)}KB</span>
+                          <button onClick={(e) => { e.stopPropagation(); removeFile(i) }} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 16, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>×</button>
                         </div>
                       )
                     })}
@@ -2202,35 +2205,35 @@ export default function ScreenPage() {
               )}
 
               {/* Input fields + Submit — inside the panel */}
-              <div style={{ padding: '16px 18px 18px' }}>
-                <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+              <div style={{ padding: '20px 20px 22px' }}>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 180 }}>
-                    <label style={{ fontSize: 10.5, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, display: 'block' }}>{t('screen.form.name.label')}</label>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'block' }}>{t('screen.form.name.label')}</label>
                     <input
                       type="text"
                       className="input"
                       placeholder={t('screen.form.name.placeholder')}
                       value={applicantName}
                       onChange={e => setApplicantName(e.target.value)}
-                      style={{ padding: '9px 12px', fontSize: 13 }}
+                      style={{ padding: '11px 14px', fontSize: 14, borderRadius: 12 }}
                     />
-                    <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 4 }}>{t('screen.form.name.hint')}</div>
+                    <div style={{ fontSize: 10.5, color: '#475569', marginTop: 5 }}>{t('screen.form.name.hint')}</div>
                   </div>
                   <div style={{ flex: 1, minWidth: 140 }}>
-                    <label style={{ fontSize: 10.5, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, display: 'block' }}>{t('screen.form.rent.label')}</label>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'block' }}>{t('screen.form.rent.label')}</label>
                     <input
                       type="number"
                       className="input"
                       placeholder={t('screen.form.rent.placeholder')}
                       value={targetRent}
                       onChange={e => setTargetRent(e.target.value)}
-                      style={{ padding: '9px 12px', fontSize: 13 }}
+                      style={{ padding: '11px 14px', fontSize: 14, borderRadius: 12 }}
                     />
                   </div>
                 </div>
 
                 {error && (
-                  <div style={{ marginBottom: 12, padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 12.5, color: '#B91C1C' }}>⚠ {error}</div>
+                  <div style={{ marginBottom: 14, padding: '12px 16px', background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.25)', borderRadius: 10, fontSize: 13, color: '#FCA5A5' }}>⚠ {error}</div>
                 )}
 
                 <button
@@ -2238,24 +2241,25 @@ export default function ScreenPage() {
                   disabled={(files.length === 0 && !applicantName.trim()) || classifying}
                   className="btn btn-primary"
                   style={{
-                    width: '100%', padding: '13px 24px', fontSize: 14.5, borderRadius: 12,
-                    opacity: ((files.length === 0 && !applicantName.trim()) || classifying) ? 0.5 : 1,
+                    width: '100%', padding: '16px 28px', fontSize: 16, borderRadius: 14, fontWeight: 700,
+                    letterSpacing: '0.02em',
+                    opacity: ((files.length === 0 && !applicantName.trim()) || classifying) ? 0.4 : 1,
                   }}
                 >
                   {classifying
                     ? (lang === 'zh' ? '⏳ 正在识别文件…' : '⏳ Classifying files…')
                     : (lang === 'zh' ? '🛡 开始筛查' : '🛡 Start Screening')}
-                  {!classifying && isPro && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.8 }}>PRO</span>}
+                  {!classifying && isPro && <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.8 }}>PRO</span>}
                 </button>
 
-                {/* What happens next — compact */}
-                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, fontSize: 10.5, color: '#94A3B8' }}>
+                {/* What happens next — compact pipeline */}
+                <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, fontSize: 11, color: '#475569' }}>
                   <span>📋 {lang === 'zh' ? 'AI 分析' : 'AI Analysis'}</span>
-                  <span style={{ color: '#CBD5E1' }}>→</span>
+                  <span style={{ color: 'rgba(56, 189, 248, 0.30)' }}>→</span>
                   <span>⚖️ {lang === 'zh' ? '法院记录' : 'Court Records'}</span>
-                  <span style={{ color: '#CBD5E1' }}>→</span>
+                  <span style={{ color: 'rgba(56, 189, 248, 0.30)' }}>→</span>
                   <span>🔒 {lang === 'zh' ? '取证检测' : 'Forensics'}</span>
-                  <span style={{ color: '#CBD5E1' }}>→</span>
+                  <span style={{ color: 'rgba(56, 189, 248, 0.30)' }}>→</span>
                   <span>📊 {lang === 'zh' ? '风险报告' : 'Risk Report'}</span>
                 </div>
               </div>
@@ -2270,47 +2274,48 @@ export default function ScreenPage() {
           const accentBg = isCourtStep ? 'rgba(139, 92, 246, 0.06)' : 'rgba(13, 148, 136, 0.04)'
           return (
             <div className="fade-up" style={{
-              background: '#FFFFFF',
-              border: '1px solid #E4E8F0',
-              borderRadius: 20,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)',
+              background: 'rgba(15, 22, 41, 0.85)',
+              border: '1px solid rgba(56, 189, 248, 0.12)',
+              borderRadius: 24,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(56, 189, 248, 0.04) inset',
               overflow: 'hidden',
+              backdropFilter: 'blur(20px)',
             }}>
               {/* Scanner header */}
               <div style={{
-                padding: '16px 22px',
-                borderBottom: '1px solid #E4E8F0',
-                background: accentBg,
+                padding: '20px 24px',
+                borderBottom: '1px solid rgba(56, 189, 248, 0.10)',
+                background: `linear-gradient(135deg, ${accentColor}12, transparent)`,
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div className="spin" style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid rgba(11, 23, 54, 0.08)', borderTopColor: accentColor }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div className="spin" style={{ width: 32, height: 32, borderRadius: '50%', border: '3px solid rgba(56, 189, 248, 0.10)', borderTopColor: accentColor }} />
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1736' }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#EFF6FF' }}>
                       {lang === 'zh' ? '正在筛查…' : 'Scanning…'}
                     </div>
-                    <div style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
+                    <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
                       {files.length} {lang === 'zh' ? '个文件' : 'file(s)'}
                       {applicantName.trim() && ` · ${applicantName.trim()}`}
                     </div>
                   </div>
                 </div>
-                <span className="mono" style={{ fontSize: 22, fontWeight: 800, color: accentColor }}>{Math.round(progress)}%</span>
+                <span className="mono" style={{ fontSize: 26, fontWeight: 800, color: accentColor }}>{Math.round(progress)}%</span>
               </div>
 
               {/* Progress bar */}
-              <div style={{ padding: '0 22px' }}>
-                <div style={{ height: 4, borderRadius: 2, background: 'rgba(11, 23, 54, 0.06)', margin: '16px 0 12px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, ${accentColor}88, ${accentColor})`, width: `${progress}%`, transition: 'width 0.5s ease' }} />
+              <div style={{ padding: '0 24px' }}>
+                <div style={{ height: 5, borderRadius: 3, background: 'rgba(56, 189, 248, 0.08)', margin: '18px 0 14px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${accentColor}88, ${accentColor})`, width: `${progress}%`, transition: 'width 0.5s ease', boxShadow: `0 0 12px ${accentColor}40` }} />
                 </div>
               </div>
 
               {/* Current step label */}
-              <div style={{ padding: '0 22px 20px', textAlign: 'center' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: accentColor, marginBottom: 6 }}>
+              <div style={{ padding: '0 24px 24px', textAlign: 'center' }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: accentColor, marginBottom: 6 }}>
                   {progressLabel || t('screen.step.start')}
                 </div>
-                <div style={{ fontSize: 11.5, color: '#94A3B8' }}>
+                <div style={{ fontSize: 12, color: '#64748B' }}>
                   {isCourtStep
                     ? (tier === 'pro' ? t('screen.analyzing.court.pro') : t('screen.analyzing.court.free'))
                     : t('screen.analyzing.files', { n: files.length })}
@@ -2324,9 +2329,9 @@ export default function ScreenPage() {
         {result && riskOverall && (
           <div className="fade-up">
             {/* Overall */}
-            <div className="card-hero sl-card-overall" style={{ textAlign: 'center', marginBottom: 20 }}>
-              <span className="mono" style={{ fontSize: 10.5, color: 'var(--text-muted)', letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8, display: 'block' }}>{t('screen.result.headline')}</span>
-              <div className="sl-extracted-name" style={{ fontWeight: 700, marginBottom: 4, letterSpacing: '-0.015em' }}>{result.extracted_name || applicantName || '—'}</div>
+            <div className="card-hero sl-card-overall" style={{ textAlign: 'center', marginBottom: 24 }}>
+              <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.18em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 10, display: 'block' }}>{t('screen.result.headline')}</span>
+              <div className="sl-extracted-name" style={{ fontWeight: 800, marginBottom: 6, letterSpacing: '-0.02em' }}>{result.extracted_name || applicantName || '—'}</div>
               {result.name_was_extracted
                 ? <div className="mono" style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 16, letterSpacing: '0.05em' }}>{t('screen.result.nameExtracted')}</div>
                 : <div style={{ marginBottom: 16 }} />}
@@ -2396,7 +2401,7 @@ export default function ScreenPage() {
             </div>
 
             {/* Download PDF Report Button */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
               <button
                 onClick={async (e) => {
                   const btn = e.currentTarget
@@ -2413,15 +2418,16 @@ export default function ScreenPage() {
                   }
                 }}
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  padding: '10px 24px', borderRadius: 10,
-                  background: '#0B1736', color: '#fff',
-                  fontSize: 13, fontWeight: 600, letterSpacing: '0.02em',
-                  border: 'none', cursor: 'pointer',
-                  transition: 'background .15s, transform .1s',
+                  display: 'inline-flex', alignItems: 'center', gap: 10,
+                  padding: '12px 28px', borderRadius: 12,
+                  background: 'rgba(56, 189, 248, 0.08)', color: '#7DD3FC',
+                  fontSize: 14, fontWeight: 600, letterSpacing: '0.02em',
+                  border: '1px solid rgba(56, 189, 248, 0.20)', cursor: 'pointer',
+                  transition: 'all .2s',
+                  backdropFilter: 'blur(8px)',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#1E3A5F' }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#0B1736' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(56, 189, 248, 0.15)'; e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.35)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(56, 189, 248, 0.08)'; e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.20)' }}
                 onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)' }}
                 onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
               >
@@ -2435,17 +2441,17 @@ export default function ScreenPage() {
             </div>
 
             {/* Summary */}
-            <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
-              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: '#64748B' }}>{t('screen.result.summary')}</div>
-              <p className="sl-summary-text" style={{ fontSize: 14, lineHeight: 1.8, color: '#0B1736', margin: 0 }}>{(lang === 'zh' ? (result.summary_zh || result.summary) : (result.summary_en || result.summary))}</p>
+            <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(16px)', marginBottom: 22 }}>
+              <div className="sl-section-title" style={{ fontWeight: 700, marginBottom: 12, color: '#64748B' }}>{t('screen.result.summary')}</div>
+              <p className="sl-summary-text" style={{ fontSize: 14.5, lineHeight: 1.8, color: '#E2E8F0', margin: 0 }}>{(lang === 'zh' ? (result.summary_zh || result.summary) : (result.summary_en || result.summary))}</p>
             </div>
 
             {/* Document Authenticity — between AI summary and category breakdown */}
             <AuthenticityCard result={result} />
 
             {/* Category Scores */}
-            <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
-              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: '#64748B' }}>{t('screen.result.dims')}</div>
+            <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(16px)', marginBottom: 22 }}>
+              <div className="sl-section-title" style={{ fontWeight: 700, marginBottom: 18, color: '#64748B' }}>{t('screen.result.dims')}</div>
               {CATEGORIES.map((cat, i) => {
                 const details = lang === 'zh' ? (result.details_zh || result.details_en) : (result.details_en || result.details_zh)
                 // Pull from v3 scores when present; fall back to 0 for
@@ -2565,7 +2571,7 @@ export default function ScreenPage() {
             )}
 
             {/* Weights — collapsible */}
-            <details className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
+            <details className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(16px)', marginBottom: 22 }}>
               <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', listStyle: 'none', WebkitAppearance: 'none' as any }}>
                 <span className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#64748B', margin: 0 }}>{t('screen.result.weights')}</span>
                 <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -2574,33 +2580,33 @@ export default function ScreenPage() {
               </summary>
               <div className="sl-weights-grid" style={{ display: 'grid', gap: 8, marginTop: 14 }}>
                 {CATEGORIES.map(cat => (
-                  <div key={cat.id} style={{ textAlign: 'center', padding: '16px 8px', borderRadius: 12, background: 'rgba(11, 23, 54, 0.04)', border: cat.id === 'rental_history' ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid var(--border-subtle)' }}>
-                    <div style={{ fontSize: 20, marginBottom: 4 }}>{cat.icon}</div>
-                    <div style={{ fontSize: 11, color: '#0B1736', fontWeight: 700 }}>{lang === 'zh' ? cat.zhLabel : cat.enLabel}</div>
-                    <div style={{ fontSize: 9, color: '#64748B', fontWeight: 500, marginTop: 1 }}>{lang === 'zh' ? cat.enLabel : cat.zhLabel}</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: cat.id === 'rental_history' ? '#6D28D9' : '#0D9488', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{(cat.weight * 100).toFixed(0)}%</div>
+                  <div key={cat.id} style={{ textAlign: 'center', padding: '18px 10px', borderRadius: 14, background: 'rgba(56, 189, 248, 0.04)', border: cat.id === 'rental_history' ? '1px solid rgba(139, 92, 246, 0.30)' : '1px solid rgba(56, 189, 248, 0.08)' }}>
+                    <div style={{ fontSize: 22, marginBottom: 6 }}>{cat.icon}</div>
+                    <div style={{ fontSize: 12, color: '#E2E8F0', fontWeight: 700 }}>{lang === 'zh' ? cat.zhLabel : cat.enLabel}</div>
+                    <div style={{ fontSize: 9.5, color: '#64748B', fontWeight: 500, marginTop: 2 }}>{lang === 'zh' ? cat.enLabel : cat.zhLabel}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: cat.id === 'rental_history' ? '#A78BFA' : '#22D3EE', fontFamily: "'JetBrains Mono', monospace", marginTop: 6 }}>{(cat.weight * 100).toFixed(0)}%</div>
                   </div>
                 ))}
               </div>
             </details>
 
             {/* Legal Disclaimer — advisory-only, HRC / RTA compliance reminder, liability carve-out */}
-            <div className="sl-card" style={{ background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.3)', marginBottom: 18, padding: '18px 20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#A16207' }}>⚠</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E' }}>{t('screen.result.disclaimer.title')}</div>
+            <div className="sl-card" style={{ background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.20)', marginBottom: 22, padding: '20px 22px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#FBBF24' }}>⚠</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#FCD34D' }}>{t('screen.result.disclaimer.title')}</div>
               </div>
-              <div style={{ fontSize: 11.5, color: '#0B1736', lineHeight: 1.75, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 12.5, color: '#CBD5E1', lineHeight: 1.75, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <p style={{ margin: 0 }}>{t('screen.result.disclaimer.body1')}</p>
                 <p style={{ margin: 0 }}>{t('screen.result.disclaimer.body2')}</p>
                 <p style={{ margin: 0 }}>{t('screen.result.disclaimer.body3')}</p>
                 <p style={{ margin: 0 }}>{t('screen.result.disclaimer.body4')}</p>
-                <p style={{ margin: 0, color: '#64748B', fontSize: 11, fontStyle: 'italic', paddingTop: 8, borderTop: '1px dashed rgba(245, 158, 11, 0.2)' }}>{t('screen.result.disclaimer.body5')}</p>
+                <p style={{ margin: 0, color: '#64748B', fontSize: 11.5, fontStyle: 'italic', paddingTop: 8, borderTop: '1px dashed rgba(245, 158, 11, 0.15)' }}>{t('screen.result.disclaimer.body5')}</p>
               </div>
             </div>
 
             {/* Footer */}
-            <div style={{ textAlign: 'center', padding: '16px', fontSize: 11, color: '#94A3B8', borderTop: '1px solid #E4E8F0' }}>
+            <div style={{ textAlign: 'center', padding: '20px', fontSize: 11.5, color: '#475569', borderTop: '1px solid rgba(56, 189, 248, 0.08)' }}>
               Stayloop Screening v1.1 · {new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}<br />
               {t('screen.result.footer.dataSource')}{result.tier === 'pro' ? t('screen.result.footer.dataSourcePro') : ''}<br />
               {t('screen.result.footer.notice')}
