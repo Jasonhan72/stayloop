@@ -641,12 +641,21 @@ ${(courtDetail.portal_records?.length || 0) > 0 ? `\nONTARIO COURTS PORTAL CASES
 ${courtDetail.total_hits === 0 ? '\nNo hits in any Ontario court database or portal for this applicant name.' : ''}
 
 SCORING GUIDANCE for rental_history.ltb_check and red flags:
-- 0 hits across ALL Ontario DBs → high score (90+), ltb_check = "measured"
+- 0 hits across ALL Ontario DBs AND Ontario Courts Portal → high score (90+), ltb_check = "measured"
 - 1 hit in onltb (LTB) → investigate (50-70), mark "action_pending" to verify identity, consider "ltb_eviction" gate IF case is an eviction order
 - 2+ hits in onltb → strong negative, likely trigger "ltb_eviction" hard gate (caps at 40)
 - Hits in onsc / onca / onscdc (civil courts) against this person as debtor/defendant → negative signal, flag in compliance_audit but do NOT apply ltb_eviction gate
 - Hits in onhrt (Human Rights Tribunal) AGAINST this person as respondent → note only, do NOT use for scoring (HRC protected)
 - Hits in oncj criminal matters → note in reviewer_note, do NOT auto-score (landlord decides)
+
+ONTARIO COURTS PORTAL hits — CRITICAL (these are DIRECT government records, not just case law):
+- Portal cases where applicant is DEFENDANT or DEBTOR → STRONG negative signal for rental_history (score 30-50 depending on count and severity)
+- 1 Small Claims case as Defendant → rental_history should be 40-60, NOT 90+. This means someone sued them.
+- 2+ Small Claims cases as Defendant/Debtor → rental_history should be 20-40, trigger "cross_doc_contradictions" red flag
+- Portal cases where applicant is PLAINTIFF → neutral (they sued someone else, not a risk signal)
+- ACTIVE (non-closed) cases are more concerning than closed/inactive ones
+- The portal records are from courts.ontario.ca and are VERIFIED government data — treat them with HIGH confidence
+
 - If 0 hits AND no prior landlord reference → ltb_check "measured", prior_landlord_refs "action_pending"
 ${screening.pasted_text ? `\n--- PASTED TEXT ---\n${screening.pasted_text}\n` : ''}`
 
@@ -1055,7 +1064,7 @@ JSON DISCIPLINE (avoid parse errors):
       volunteered_sin: 2,
     }
 
-    const baseScore =
+    let baseScore =
       s.ability_to_pay * V3_WEIGHTS.ability_to_pay +
       s.credit_health * V3_WEIGHTS.credit_health +
       s.rental_history * V3_WEIGHTS.rental_history +
@@ -1089,6 +1098,37 @@ JSON DISCIPLINE (avoid parse errors):
         if (!redFlags.includes('forensics_' + f.code)) redFlags.push('forensics_' + f.code)
       }
     }
+    // ── Backend enforcement: court record penalties ──
+    // The AI sometimes ignores portal/CanLII records when scoring rental_history.
+    // We enforce minimum penalties here based on objective court data.
+    const portalDefendantCases = (courtDetail.portal_records || []).filter(r => {
+      const role = (r.partyRole || '').toLowerCase()
+      return role.includes('defendant') || role.includes('debtor') || role.includes('respondent')
+    })
+    const canliiPartyHits = courtDetail.records.filter(r => r.nameInTitle).length
+    const totalCourtHits = portalDefendantCases.length + canliiPartyHits
+
+    if (totalCourtHits > 0 && s.rental_history > 70) {
+      // Cap rental_history: 1 hit → max 55, 2+ hits → max 35
+      const courtCap = totalCourtHits >= 2 ? 35 : 55
+      s.rental_history = Math.min(s.rental_history, courtCap)
+    }
+    // Active (non-closed) cases are worse
+    const activeDefendantCases = portalDefendantCases.filter(r => !r.closedFlag)
+    if (activeDefendantCases.length > 0 && s.rental_history > 45) {
+      s.rental_history = Math.min(s.rental_history, 45)
+    }
+    // Recalculate base score after rental_history correction
+    if (totalCourtHits > 0) {
+      baseScore = Math.round(
+        s.ability_to_pay * 0.40 +
+        s.credit_health * 0.25 +
+        s.rental_history * 0.20 +
+        s.verification * 0.10 +
+        s.communication * 0.05
+      )
+    }
+
     // Apply forensics red-flag penalties (separate scale: critical=10, high=5)
     const forensicsPenalty = forensicsReport.all_flags.reduce((sum, f) => {
       if (f.severity === 'critical') return sum + 10
@@ -1215,6 +1255,31 @@ JSON DISCIPLINE (avoid parse errors):
       await supabase.from('screenings').update({
         court_records_detail: courtDetail,
       }).eq('id', screening_id)
+
+      // Re-enforce court record penalties with merged supplemental results
+      const allPortalDefendant = (courtDetail.portal_records || []).filter(r => {
+        const role = (r.partyRole || '').toLowerCase()
+        return role.includes('defendant') || role.includes('debtor') || role.includes('respondent')
+      })
+      const allCanliiPartyHits = courtDetail.records.filter(r => r.nameInTitle).length
+      const allCourtHits = allPortalDefendant.length + allCanliiPartyHits
+      if (allCourtHits > 0 && s.rental_history > 70) {
+        const cap = allCourtHits >= 2 ? 35 : 55
+        s.rental_history = Math.min(s.rental_history, cap)
+      }
+      const allActive = allPortalDefendant.filter(r => !r.closedFlag)
+      if (allActive.length > 0 && s.rental_history > 45) {
+        s.rental_history = Math.min(s.rental_history, 45)
+      }
+      // Recalculate overall with corrected rental_history
+      baseScore = Math.round(
+        s.ability_to_pay * 0.40 +
+        s.credit_health * 0.25 +
+        s.rental_history * 0.20 +
+        s.verification * 0.10 +
+        s.communication * 0.05
+      )
+      overall = Math.round(Math.max(0, Math.min(100, Math.min(baseScore - penalty, gateCap))))
     }
 
     const detectedIncome = typeof parsed.detected_monthly_income === 'number' && parsed.detected_monthly_income > 0
