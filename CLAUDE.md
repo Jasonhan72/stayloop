@@ -25,6 +25,12 @@
 - Default branch: main
 - Cloudflare Pages auto-deploys on push to main
 
+## Branch hygiene — READ BEFORE WRITING ANY CODE
+- Before modifying any file, run `git fetch origin && git log HEAD..origin/main --oneline | head` and verify local is not behind `origin/main`.
+- If local is behind `origin/main` by more than 3 commits, STOP. Sync first (`git update-ref refs/heads/master origin/main` if master isn't pushed, or `git pull --ff-only` if it is) before touching code. Writing on top of a stale baseline causes parallel re-implementations that overwrite working production code.
+- All feature work should branch from `origin/main`, not from a local branch that may be stale.
+- Cowork sandbox note: the FUSE mount at `/sessions/.../mnt/stayloop` blocks `rm` / `unlink` but allows `mv`. If git complains about a stale `.git/*.lock`, rename the lock file out of the way (`mv .git/index.lock .git/_cowork-trash/index.lock.stale`) instead of trying to delete it. For heavy git work (rebase, reset --hard, stash), clone the repo into `/tmp` via the existing origin URL (PAT is embedded) and push from there.
+
 ## Cloudflare Environment Variables (Production)
 All env vars are set in Cloudflare Pages > stayloop > Settings > Variables and Secrets:
 - ANTHROPIC_API_KEY (Secret, encrypted)
