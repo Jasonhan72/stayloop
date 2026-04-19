@@ -1138,6 +1138,76 @@ JSON DISCIPLINE (avoid parse errors):
     // ── Backend enforcement: court record penalties ──
     // The AI sometimes ignores portal/CanLII records when scoring rental_history.
     // We enforce minimum penalties here based on objective court data.
+    //
+    // Helper: when court records DO exist, the AI-emitted `details_zh.rental_history`
+    // / `details_en.rental_history` text is often a stale "未发现记录 / no records"
+    // string because the AI ran before the merged CanLII + portal results landed.
+    // Rewrite that text so the UI card matches the record list shown below it.
+    const COURT_DB_LABELS_ZH: Record<string, string> = {
+      onltb: 'LTB', onscsm: '小额法庭', onsc: '高等法院',
+      onscdc: '分庭法院', onca: '上诉法院', oncj: '安省法院',
+    }
+    const COURT_DB_LABELS_EN: Record<string, string> = {
+      onltb: 'LTB', onscsm: 'Small Claims', onsc: 'Superior Court',
+      onscdc: 'Divisional Court', onca: 'Court of Appeal', oncj: 'Ontario Court',
+    }
+    const ZERO_COURT_REGEX_ZH = /(未?(发现|检出|查到|找到|命中).{0,10}(LTB|法庭|记录|案件)|无.{0,6}记录|0\s*条)/i
+    const ZERO_COURT_REGEX_EN = /(no\s+(?:ltb|court|record|cases?|hits?)|0\s+(?:ltb|court|record|cases?|hits?)|not\s+found)/i
+    function patchRentalHistoryDetailsForCourt(
+      parsedObj: any,
+      canliiRecs: Array<{ databaseId?: string; nameInTitle?: boolean }>,
+      portalRecs: Array<{ partyRole?: string; closedFlag?: boolean }>,
+    ) {
+      if (!parsedObj || typeof parsedObj !== 'object') return
+      const dbCounts: Record<string, number> = {}
+      for (const r of canliiRecs) {
+        if (!r.nameInTitle) continue
+        const id = (r.databaseId || '').toLowerCase()
+        if (!id) continue
+        dbCounts[id] = (dbCounts[id] || 0) + 1
+      }
+      const portalDefCount = portalRecs.filter(r => {
+        const role = (r.partyRole || '').toLowerCase()
+        return role.includes('defendant') || role.includes('debtor') || role.includes('respondent')
+      }).length
+      const activeDefCount = portalRecs.filter(r => {
+        const role = (r.partyRole || '').toLowerCase()
+        return (role.includes('defendant') || role.includes('debtor') || role.includes('respondent')) && !r.closedFlag
+      }).length
+      const partsZh: string[] = []
+      const partsEn: string[] = []
+      for (const [id, count] of Object.entries(dbCounts)) {
+        if (count <= 0) continue
+        partsZh.push(`${count}条${COURT_DB_LABELS_ZH[id] || id.toUpperCase()}`)
+        partsEn.push(`${count} ${COURT_DB_LABELS_EN[id] || id.toUpperCase()}`)
+      }
+      if (portalDefCount > 0) {
+        partsZh.push(`${portalDefCount}条法庭门户被告`)
+        partsEn.push(`${portalDefCount} portal defendant`)
+      }
+      if (partsZh.length === 0) return
+      const detailsZh = (parsedObj.details_zh && typeof parsedObj.details_zh === 'object')
+        ? parsedObj.details_zh : {}
+      const detailsEn = (parsedObj.details_en && typeof parsedObj.details_en === 'object')
+        ? parsedObj.details_en : {}
+      const existingZh = String(detailsZh.rental_history || '')
+      const existingEn = String(detailsEn.rental_history || '')
+      const activeSuffixZh = activeDefCount > 0 ? `，${activeDefCount}条仍在审` : ''
+      const activeSuffixEn = activeDefCount > 0 ? `, ${activeDefCount} active` : ''
+      // Overwrite whenever the existing text denies records, or lacks any digit,
+      // or doesn't mention court/LTB/Small Claims/法庭 keywords at all.
+      const mentionsCourtZh = /(LTB|法庭|小额|Small)/i.test(existingZh)
+      const mentionsCourtEn = /(LTB|court|small\s*claims|portal)/i.test(existingEn)
+      if (ZERO_COURT_REGEX_ZH.test(existingZh) || !/\d/.test(existingZh) || !mentionsCourtZh) {
+        detailsZh.rental_history = `命中 ${partsZh.join('，')}${activeSuffixZh}（姓名一致）`
+      }
+      if (ZERO_COURT_REGEX_EN.test(existingEn) || !/\d/.test(existingEn) || !mentionsCourtEn) {
+        detailsEn.rental_history = `Hits: ${partsEn.join(', ')}${activeSuffixEn} (name in title)`
+      }
+      parsedObj.details_zh = detailsZh
+      parsedObj.details_en = detailsEn
+    }
+
     const portalDefendantCases = (courtDetail.portal_records || []).filter(r => {
       const role = (r.partyRole || '').toLowerCase()
       return role.includes('defendant') || role.includes('debtor') || role.includes('respondent')
@@ -1159,6 +1229,9 @@ JSON DISCIPLINE (avoid parse errors):
       } else if (!hardGates.includes('court_record_defendant')) {
         hardGates.push('court_record_defendant')
       }
+      // Force the details card text to match the actual hit count, so the
+      // UI doesn't say "no LTB/court records" while 2 records sit below it.
+      patchRentalHistoryDetailsForCourt(parsed, courtDetail.records, courtDetail.portal_records || [])
     }
     // Active (non-closed) cases are even worse — person is currently being sued
     const activeDefendantCases = portalDefendantCases.filter(r => !r.closedFlag)
@@ -1335,6 +1408,8 @@ JSON DISCIPLINE (avoid parse errors):
         } else if (allCourtHits === 1 && !hardGates.includes('court_record_defendant')) {
           hardGates.push('court_record_defendant')
         }
+        // Re-patch details text to reflect the post-merge record counts.
+        patchRentalHistoryDetailsForCourt(parsed, courtDetail.records, courtDetail.portal_records || [])
       }
       const allActive = allPortalDefendant.filter(r => !r.closedFlag)
       if (allActive.length > 0) {
