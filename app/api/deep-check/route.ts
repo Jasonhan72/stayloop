@@ -15,13 +15,20 @@ export const runtime = 'edge'
 import { createClient } from '@supabase/supabase-js'
 import { runDeepCheck } from '@/lib/forensics'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-)
+// NOTE: supabase client MUST be created inside the handler, not at module
+// scope. Next.js evaluates route modules during `Collecting page data` at
+// build time, and SUPABASE_SERVICE_ROLE_KEY is not available during the CF
+// Pages GitHub Actions build (only NEXT_PUBLIC_* vars are). Module-scope
+// createClient(url, undefined) throws "supabaseKey is required" and kills
+// the whole deploy. All other routes in this repo follow this pattern.
 
 export async function POST(req: Request) {
   try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    )
+
     const body = await req.json()
     const { screening_id } = body
 
