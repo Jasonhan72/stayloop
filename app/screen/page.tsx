@@ -1659,6 +1659,7 @@ export default function ScreenPage() {
       } : undefined)
 
       const reconstructed: ScoreResult = {
+        screening_id: data.id,  // DB row id = screening_id for deep check
         overall: data.ai_score ?? 0,
         scores: legacyScores,
         notes: {},
@@ -1695,9 +1696,11 @@ export default function ScreenPage() {
         forensics_detail: v3.forensics_detail ?? data.forensics_detail ?? null,
         forensics_penalty: v3.forensics_penalty ?? data.forensics_penalty ?? 0,
         forensics_zeroed_dims: v3.forensics_zeroed_dims ?? data.forensics_zeroed_dims ?? [],
+        deep_check_result: data.deep_check_result ?? null,
       }
 
       setResult(reconstructed)
+      setDeepCheckResult(data.deep_check_result ?? null)
       setViewingHistoryId(id)
       // Scroll to top so the user lands on the report
       if (typeof window !== 'undefined') {
