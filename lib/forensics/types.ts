@@ -45,6 +45,50 @@ export interface TextDensityResult {
   text_sample: string
 }
 
+/**
+ * Layer 1 structural analysis — image DPI, font diversity, date gap.
+ * Populated by readPdfStructure() in pdf-structure.ts.
+ */
+export interface PdfStructureResult {
+  /** distinct BaseFont names (subset prefixes stripped) */
+  unique_fonts: number
+  fonts: string[]
+  /** total Font objects in the file (distinct from unique_fonts — can exceed it for reused subsets) */
+  font_object_count: number
+  /** embedded Image XObjects */
+  image_count: number
+  /** effective DPI estimate across all images (min/max/median, pixel width / page width in inches) */
+  dpi_stats: { min: number; max: number; median: number } | null
+  /** biggest embedded image by area, for evidence citations */
+  largest_image_px: { width: number; height: number } | null
+  /** median page width in points — used to present the "X inch page" context in flags */
+  median_page_width_pts: number
+  /** hours between CreationDate and ModDate; null if either is missing */
+  mod_creation_gap_hours: number | null
+}
+
+/**
+ * Layer 2 OCR output for image-only PDFs. Populated by ocrImagePdf() in
+ * image-ocr.ts. Fed into forensicsToPromptBlock() so Layer 3 (existing
+ * Sonnet scoring call) can use the OCR'd content to judge authenticity.
+ */
+export interface OcrResult {
+  /** verbatim OCR transcript, capped at 5000 chars */
+  text: string
+  /** short phrase describing what the document appears to be */
+  apparent_doc_type: string | null
+  /** primary person's name printed on the document */
+  apparent_name: string | null
+  /** issuing institution visible on the document */
+  visible_issuer: string | null
+  /** whether any watermark/security pattern was detected */
+  has_watermark: boolean
+  /** ISO-ish dates visible on the document (max 5) */
+  visible_dates: string[]
+  /** ms spent in the Haiku OCR call */
+  elapsed_ms: number
+}
+
 export interface PaystubExtraction {
   annual_salary: number | null
   hourly_rate: number | null
@@ -107,6 +151,10 @@ export interface PerFileForensics {
   mime: string
   pdf_metadata?: PdfMetadataResult
   text_density?: TextDensityResult
+  /** Layer 1: image DPI / fonts / date gap */
+  pdf_structure?: PdfStructureResult
+  /** Layer 2: Haiku OCR output for image-only PDFs */
+  ocr?: OcrResult
   paystub_math?: PaystubMathResult
   source_specific?: SourceSpecificResult
   flags: ForensicFlag[]

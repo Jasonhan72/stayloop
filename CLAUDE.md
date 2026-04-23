@@ -108,13 +108,7 @@ All env vars are set in Cloudflare Pages > stayloop > Settings > Variables and S
 - **Deep check screening_id**: fixed "Screening not found" by passing screening_id through loadPastScreening
 - **credit_report_no_equifax_markers** removed from FORGERY_INDICATING_CODES (not conclusive)
 - **CanLII word-boundary matching**: prevents short names like "bo" matching inside "board"
-
-## Pending Feature: Enhanced PDF Forensics (next session)
-Three-layer PDF analysis to implement:
-1. **Layer 1 (zero cost)**: Image DPI analysis (scan 150+ DPI vs screenshot 72 DPI), font consistency check (# unique fonts + uniformity), creation/modification date gap detection
-2. **Layer 2 (Haiku Vision, ~$0.001/image)**: OCR for image-only PDFs, extract text content for analysis. Extend existing `extractPaystubFields` pattern (already uses Haiku) to all image PDFs
-3. **Layer 3 (existing Sonnet)**: AI content authenticity judgment using OCR'd text
-Key files: `lib/forensics/pdf-text.ts` (text density), `lib/forensics/pdf-metadata.ts` (producer check), `lib/forensics/index.ts` (orchestrator)
+- **Enhanced PDF forensics (3 layers)**: Layer 1 — `lib/forensics/pdf-structure.ts` adds image-DPI estimation, font-diversity count, and ModDate-vs-CreationDate gap detection (flags `pdf_low_dpi_scan`, `pdf_font_count_high`, `pdf_modified_after_creation`, `pdf_modified_long_after`); Layer 2 — `lib/forensics/image-ocr.ts` runs Haiku Vision OCR on image-only PDFs (~$0.001/image, only triggered when `text_density.is_likely_image_pdf`); Layer 3 — OCR text + structural stats surfaced in `forensicsToPromptBlock()` so the existing Sonnet scoring call can judge authenticity on content (name/issuer/dates/amounts), not just metadata
 
 ## Recent Changes (2026-04-18)
 - **Arm's-length deep check** (NEW): OpenCorporates company registry lookup + director cross-reference, gated behind PRO subscription
