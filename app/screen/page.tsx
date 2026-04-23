@@ -47,8 +47,6 @@ interface OntarioPortalMatch {
   partyDisplayName: string
   courtAbbreviation: string
   closedFlag: boolean
-  caseUrl?: string
-  nameSwapped?: boolean  // first/last name were swapped to match — needs verification
 }
 
 interface CourtQuery {
@@ -733,14 +731,6 @@ function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMat
         }}>
           {record.closedFlag ? (lang === 'zh' ? '已结案' : 'Closed') : (lang === 'zh' ? '进行中' : 'Active')}
         </span>
-        {record.nameSwapped && (
-          <span style={{
-            fontSize: 9, padding: '1px 5px', borderRadius: 3, fontWeight: 600,
-            background: '#DBEAFE', color: '#1E40AF', flexShrink: 0,
-          }}>
-            {lang === 'zh' ? '⚠ 姓名顺序对调 · 需核实' : '⚠ Name order swapped · verify'}
-          </span>
-        )}
       </div>
       {/* Row 2: Case title */}
       <div style={{ fontSize: 13, color: '#0F172A', fontWeight: 600, lineHeight: 1.4, marginBottom: 6 }}>
@@ -764,11 +754,11 @@ function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMat
         <span style={{ fontWeight: 600 }}>{lang === 'zh' ? '法院' : 'Court'}:</span>
         <span style={{ color: '#334155' }}>{record.courtAbbreviation}</span>
       </div>
-      {/* Row 4: Source link — direct to case detail page when available */}
+      {/* Row 4: Source link */}
       <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 6 }}>
         {lang === 'zh' ? '数据来源：' : 'Source: '}
         <a
-          href={record.caseUrl || `https://courts.ontario.ca/portal/search/case`}
+          href="https://courts.ontario.ca/portal/search/party"
           target="_blank"
           rel="noopener noreferrer"
           style={{ color: '#0284C7', textDecoration: 'none' }}
@@ -1659,7 +1649,7 @@ export default function ScreenPage() {
       } : undefined)
 
       const reconstructed: ScoreResult = {
-        screening_id: data.id,  // DB row id = screening_id for deep check
+        screening_id: data.id ?? id,
         overall: data.ai_score ?? 0,
         scores: legacyScores,
         notes: {},
@@ -1696,12 +1686,14 @@ export default function ScreenPage() {
         forensics_detail: v3.forensics_detail ?? data.forensics_detail ?? null,
         forensics_penalty: v3.forensics_penalty ?? data.forensics_penalty ?? 0,
         forensics_zeroed_dims: v3.forensics_zeroed_dims ?? data.forensics_zeroed_dims ?? [],
+        // Restore deep check result so the arm's-length card shows previous runs
         deep_check_result: data.deep_check_result ?? null,
       }
 
       setResult(reconstructed)
-      setDeepCheckResult(data.deep_check_result ?? null)
       setViewingHistoryId(id)
+      // Sync arm's-length card state so previously-run deep checks render
+      setDeepCheckResult(data.deep_check_result ?? null)
       // Scroll to top so the user lands on the report
       if (typeof window !== 'undefined') {
         window.scrollTo({ top: 0, behavior: 'smooth' })
