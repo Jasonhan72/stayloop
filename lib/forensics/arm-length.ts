@@ -154,84 +154,93 @@ function addressOverlap(addr1: string, addr2: string): boolean {
  * Search OpenCorporates for a company name in Canadian jurisdictions.
  * Free tier: no API key needed, 500 req/month, basic company info.
  * Officers may or may not be available depending on the jurisdiction.
+ *
+ * Phase 3 change: jurisdictions are queried in PARALLEL (was serial, 9×8s worst
+ * case = 72s, which exceeds the edge-runtime budget). We race all 9 Canadian
+ * jurisdictions + the "ca" federal bucket with a 6s overall budget, then pick
+ * the best scoring match across all responses. Officer lookup remains a single
+ * follow-up call for the winner.
  */
-async function searchOpenCorporates(companyName: string): Promise<CompanyRegistryInfo | null> {
+export async function searchOpenCorporates(companyName: string): Promise<CompanyRegistryInfo | null> {
   if (!companyName || companyName.trim().length < 3) return null
 
   const jurisdictions = ['ca_on', 'ca_bc', 'ca_ab', 'ca_qc', 'ca_mb', 'ca_sk', 'ca_ns', 'ca_nb', 'ca']
   const query = encodeURIComponent(companyName.trim())
+  const target = companyName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
+  const targetWords = target.split(/\s+/).filter(Boolean)
 
-  for (const jurisdiction of jurisdictions) {
+  // Parallel fan-out
+  const perCallTimeoutMs = 6000
+  const searches = jurisdictions.map(async (jurisdiction) => {
     try {
       const url = `https://api.opencorporates.com/v0.4/companies/search?q=${query}&jurisdiction_code=${jurisdiction}&per_page=5`
       const res = await fetch(url, {
         headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(perCallTimeoutMs),
       })
-      if (!res.ok) continue
+      if (!res.ok) return null
       const data = await res.json() as any
-
       const companies = data?.results?.companies || []
-      if (companies.length === 0) continue
-
-      // Find best match by name similarity
-      const target = companyName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
-      let bestMatch: any = null
-      let bestScore = 0
-      for (const c of companies) {
-        const co = c.company
-        const coName = (co.name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
-        // Simple overlap score
-        const targetWords = target.split(/\s+/)
-        const coWords = new Set(coName.split(/\s+/))
-        const overlap = targetWords.filter(w => coWords.has(w)).length / targetWords.length
-        if (overlap > bestScore) {
-          bestScore = overlap
-          bestMatch = co
-        }
-      }
-
-      if (!bestMatch || bestScore < 0.5) continue
-
-      // Try to fetch officers if available
-      let officers: Array<{ name: string; position: string }> = []
-      try {
-        const detailUrl = `https://api.opencorporates.com/v0.4/companies/${bestMatch.jurisdiction_code}/${bestMatch.company_number}`
-        const detailRes = await fetch(detailUrl, {
-          headers: { 'Accept': 'application/json' },
-          signal: AbortSignal.timeout(5000),
-        })
-        if (detailRes.ok) {
-          const detailData = await detailRes.json() as any
-          const officerList = detailData?.results?.company?.officers || []
-          officers = officerList.map((o: any) => ({
-            name: o.officer?.name || '',
-            position: o.officer?.position || '',
-          })).filter((o: { name: string }) => o.name.length > 0)
-        }
-      } catch {
-        // Officer lookup failed — not critical
-      }
-
-      return {
-        name: bestMatch.name,
-        company_number: bestMatch.company_number || null,
-        jurisdiction: bestMatch.jurisdiction_code || null,
-        incorporation_date: bestMatch.incorporation_date || null,
-        status: bestMatch.current_status || null,
-        registered_address: bestMatch.registered_address_in_full || null,
-        company_type: bestMatch.company_type || null,
-        officers,
-        registry_url: bestMatch.opencorporates_url || null,
-        source: 'opencorporates',
-      }
+      return companies.length ? companies : null
     } catch {
-      // Network error for this jurisdiction — try next
-      continue
+      return null
+    }
+  })
+  const settled = await Promise.allSettled(searches)
+
+  // Score every candidate across all jurisdictions
+  let bestMatch: any = null
+  let bestScore = 0
+  for (const r of settled) {
+    if (r.status !== 'fulfilled' || !r.value) continue
+    for (const c of r.value) {
+      const co = c.company
+      const coName = (co.name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
+      const coWords = new Set(coName.split(/\s+/))
+      const overlap = targetWords.length > 0
+        ? targetWords.filter(w => coWords.has(w)).length / targetWords.length
+        : 0
+      if (overlap > bestScore) {
+        bestScore = overlap
+        bestMatch = co
+      }
     }
   }
 
-  return null
+  if (!bestMatch || bestScore < 0.5) return null
+
+  // Officer lookup for the winner
+  let officers: Array<{ name: string; position: string }> = []
+  try {
+    const detailUrl = `https://api.opencorporates.com/v0.4/companies/${bestMatch.jurisdiction_code}/${bestMatch.company_number}`
+    const detailRes = await fetch(detailUrl, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (detailRes.ok) {
+      const detailData = await detailRes.json() as any
+      const officerList = detailData?.results?.company?.officers || []
+      officers = officerList.map((o: any) => ({
+        name: o.officer?.name || '',
+        position: o.officer?.position || '',
+      })).filter((o: { name: string }) => o.name.length > 0)
+    }
+  } catch {
+    // Officer lookup failed — not critical
+  }
+
+  return {
+    name: bestMatch.name,
+    company_number: bestMatch.company_number || null,
+    jurisdiction: bestMatch.jurisdiction_code || null,
+    incorporation_date: bestMatch.incorporation_date || null,
+    status: bestMatch.current_status || null,
+    registered_address: bestMatch.registered_address_in_full || null,
+    company_type: bestMatch.company_type || null,
+    officers,
+    registry_url: bestMatch.opencorporates_url || null,
+    source: 'opencorporates',
+  }
 }
 
 /**
@@ -249,6 +258,12 @@ export interface CheckArmLengthOptions {
   applicant_email?: string
   /** true if cross_doc.hr_phone_collision fired — applicant phone appears in employer letter HR contact */
   hr_phone_collision?: boolean
+  /**
+   * Dependency injection for the company registry lookup. Defaults to direct
+   * OpenCorporates fetch. The route layer can inject a caching wrapper so
+   * repeat lookups within 7 days don't hit the 500/month free quota.
+   */
+  companyLookup?: (name: string) => Promise<CompanyRegistryInfo | null>
 }
 
 export async function checkArmLength(
@@ -262,8 +277,9 @@ export async function checkArmLength(
   const numbered = isNumberedCompany(employerName)
   const commonSurname = isCommonSurname(applicantName)
 
-  // 1. Registry lookup
-  const companyInfo = await searchOpenCorporates(employerName)
+  // 1. Registry lookup (cache-aware if caller injected companyLookup)
+  const lookup = options.companyLookup || searchOpenCorporates
+  const companyInfo = await lookup(employerName)
 
   // 2. Check if recently incorporated (< 2 years)
   let recentlyIncorporated = false

@@ -22,6 +22,7 @@ import { checkPaystubMath, extractPaystubFields } from './paystub-math'
 import { checkSourceSpecific } from './source-specific'
 import { runCrossDocChecks } from './cross-doc'
 import { checkArmLength, canonicalizeEmployerName } from './arm-length'
+import type { CompanyRegistryInfo } from './arm-length'
 import type {
   ForensicFlag,
   ForensicsReport,
@@ -285,6 +286,8 @@ export async function runDeepCheck(input: {
   signatory_phone?: string
   /** true if cross_doc flagged HR-phone == applicant-phone collision */
   hr_phone_collision?: boolean
+  /** optional cache-aware company lookup (Phase 3). */
+  companyLookup?: (name: string) => Promise<CompanyRegistryInfo | null>
 }): Promise<ArmLengthCheckResult[]> {
   if (!input.employer_names.length) return []
 
@@ -313,6 +316,7 @@ export async function runDeepCheck(input: {
         applicant_phone: input.applicant_phone,
         applicant_email: input.applicant_email,
         hr_phone_collision: input.hr_phone_collision,
+        companyLookup: input.companyLookup,
       },
     ))
   )

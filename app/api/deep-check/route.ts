@@ -31,14 +31,73 @@
 
 export const runtime = 'edge'
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { runDeepCheck } from '@/lib/forensics'
+import { canonicalizeEmployerName, searchOpenCorporates } from '@/lib/forensics/arm-length'
+import type { CompanyRegistryInfo } from '@/lib/forensics/arm-length'
 
 function makeServiceClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
+}
+
+/**
+ * Phase 3 — cache-aware OpenCorporates lookup.
+ *
+ * Reads from `employer_lookup_cache` first (TTL 7d). On miss/stale, hits the
+ * real registry and writes the result back (including nulls, so repeated
+ * "not found" lookups don't burn API quota either). Cache errors degrade to
+ * the direct network path — the cache is best-effort, never a blocker.
+ */
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
+
+function makeCachedCompanyLookup(supabase: SupabaseClient) {
+  return async (name: string): Promise<CompanyRegistryInfo | null> => {
+    const canonical = canonicalizeEmployerName(name)
+    if (!canonical) return searchOpenCorporates(name)
+
+    // Read cache
+    try {
+      const { data, error } = await supabase
+        .from('employer_lookup_cache')
+        .select('result, fetched_at')
+        .eq('normalized_name', canonical)
+        .maybeSingle()
+      if (!error && data) {
+        const age = Date.now() - new Date(data.fetched_at).getTime()
+        if (age < CACHE_TTL_MS) {
+          return (data.result as CompanyRegistryInfo | null) ?? null
+        }
+      }
+    } catch (e) {
+      console.warn('[deep-check] cache read failed:', e)
+      // fall through to live fetch
+    }
+
+    // Live fetch
+    const result = await searchOpenCorporates(name)
+
+    // Fire-and-forget upsert (do not await — don't block the user)
+    try {
+      void supabase
+        .from('employer_lookup_cache')
+        .upsert({
+          normalized_name: canonical,
+          display_name: name.trim().slice(0, 200),
+          result: result as any,
+          fetched_at: new Date().toISOString(),
+        })
+        .then(({ error }) => {
+          if (error) console.warn('[deep-check] cache write failed:', error.message)
+        })
+    } catch (e) {
+      console.warn('[deep-check] cache write threw:', e)
+    }
+
+    return result
+  }
 }
 
 interface DeepCheckPayload {
@@ -170,7 +229,8 @@ export async function POST(req: Request) {
       return bad('No applicant name provided', '未提供申请人姓名')
     }
 
-    // Run deep check
+    // Run deep check (with caching wrapper around company registry lookups)
+    const cacheClient = makeServiceClient()
     const results = await runDeepCheck({
       employer_names: employers,
       applicant_name: payload.applicant_name.trim(),
@@ -180,6 +240,7 @@ export async function POST(req: Request) {
       signatory_name: payload.signatory_name,
       signatory_phone: payload.signatory_phone,
       hr_phone_collision: payload.hr_phone_collision,
+      companyLookup: makeCachedCompanyLookup(cacheClient),
     })
 
     // Aggregate risk
