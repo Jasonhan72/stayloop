@@ -15,20 +15,13 @@ export const runtime = 'edge'
 import { createClient } from '@supabase/supabase-js'
 import { runDeepCheck } from '@/lib/forensics'
 
-// NOTE: supabase client MUST be created inside the handler, not at module
-// scope. Next.js evaluates route modules during `Collecting page data` at
-// build time, and SUPABASE_SERVICE_ROLE_KEY is not available during the CF
-// Pages GitHub Actions build (only NEXT_PUBLIC_* vars are). Module-scope
-// createClient(url, undefined) throws "supabaseKey is required" and kills
-// the whole deploy. All other routes in this repo follow this pattern.
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+)
 
 export async function POST(req: Request) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
-
     const body = await req.json()
     const { screening_id } = body
 
@@ -36,14 +29,23 @@ export async function POST(req: Request) {
       return Response.json({ error: 'screening_id is required' }, { status: 400 })
     }
 
-    // Fetch screening record
+    // Fetch screening record. NOTE: only select columns that actually exist
+    // in the current screenings schema. Do not add `ai_result` — it was in
+    // an early draft of this route but never existed in the DB, which caused
+    // every deep-check call to fail with "column does not exist" → 404.
     const { data: screening, error: fetchErr } = await supabase
       .from('screenings')
-      .select('id, tenant_name, ai_extracted_name, ai_result, forensics_detail, tier, deep_check_result')
+      .select('id, tenant_name, ai_extracted_name, ai_dimension_notes, forensics_detail, tier, deep_check_result')
       .eq('id', screening_id)
-      .single()
+      .maybeSingle()
 
-    if (fetchErr || !screening) {
+    if (fetchErr) {
+      console.error('[deep-check] Supabase fetch error:', fetchErr)
+      return Response.json({
+        error: `Screening lookup failed: ${fetchErr.message || fetchErr.code || 'unknown'}`,
+      }, { status: 500 })
+    }
+    if (!screening) {
       return Response.json({ error: 'Screening not found' }, { status: 404 })
     }
 
@@ -58,10 +60,16 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. From AI result (paystub extraction, employment letter detection)
-    const aiResult = screening.ai_result as any
-    if (aiResult?.detected_employer_name) {
-      employerNames.push(aiResult.detected_employer_name)
+    // 2. From ai_dimension_notes._v3 snapshot (paystub extraction, employment letter detection).
+    //    v3 scoring stashes detected_employer_name / paystub extraction into this blob.
+    const v3 = (screening.ai_dimension_notes as any)?._v3 || {}
+    if (typeof v3.detected_employer_name === 'string' && v3.detected_employer_name.length > 0) {
+      employerNames.push(v3.detected_employer_name)
+    }
+    if (Array.isArray(v3.detected_employers)) {
+      for (const name of v3.detected_employers) {
+        if (typeof name === 'string' && name.length > 0) employerNames.push(name)
+      }
     }
 
     // 3. From per-file paystub extractions
