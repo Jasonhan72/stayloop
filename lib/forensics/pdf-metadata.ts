@@ -41,22 +41,53 @@ const STRICT_KINDS = new Set([
   'employment_letter',
 ])
 
-/** Producer strings seen in screenshot-derived PDFs — strong fraud signal
- *  when document kind is in STRICT_KINDS. */
-const SCREENSHOT_PRODUCER_PATTERNS: Array<{ pattern: RegExp; tool: string }> = [
-  { pattern: /Quartz\s*PDFContext/i,        tool: 'macOS Preview/Quartz' },
-  { pattern: /Skia[\/\s]?PDF/i,             tool: 'Chrome Print-to-PDF' },
+/** IMAGE EDITING tools — if a "bank statement" or "pay stub" was produced by
+ *  Photoshop/GIMP/Canva, it's almost certainly doctored. CRITICAL severity. */
+const EDITING_TOOL_PATTERNS: Array<{ pattern: RegExp; tool: string }> = [
+  { pattern: /GIMP/i,                       tool: 'GIMP image editor' },
+  { pattern: /Photoshop/i,                  tool: 'Adobe Photoshop' },
+  { pattern: /Canva/i,                      tool: 'Canva' },
+  { pattern: /Illustrator/i,               tool: 'Adobe Illustrator' },
+  { pattern: /Affinity/i,                   tool: 'Affinity Designer/Photo' },
+  { pattern: /Pixelmator/i,                 tool: 'Pixelmator' },
+]
+
+/** DOCUMENT CREATION tools — ambiguous for strict doc types (bank/credit/pay).
+ *  A real bank statement should never come from Word, but an employment letter
+ *  created in Word is normal. Severity depends on doc kind. */
+const DOC_CREATION_PATTERNS: Array<{ pattern: RegExp; tool: string }> = [
   { pattern: /Microsoft\s*Word/i,           tool: 'Microsoft Word' },
   { pattern: /Microsoft.*Office/i,          tool: 'Microsoft Office' },
   { pattern: /Pages\s+\d/i,                 tool: 'Apple Pages' },
   { pattern: /LibreOffice/i,                tool: 'LibreOffice' },
   { pattern: /OpenOffice/i,                 tool: 'OpenOffice' },
   { pattern: /Google\s*Docs/i,              tool: 'Google Docs export' },
-  { pattern: /GIMP/i,                       tool: 'GIMP image editor' },
-  { pattern: /Photoshop/i,                  tool: 'Adobe Photoshop' },
+]
+
+/** SCAN / PRINT-TO-PDF tools — LEGITIMATE for scanned documents.
+ *  ID cards, signed letters, and printed statements are commonly scanned
+ *  via phone camera, iOS Notes, or "Print to PDF". NOT a fraud signal. */
+const SCAN_PRINT_PATTERNS: Array<{ pattern: RegExp; tool: string }> = [
+  { pattern: /Quartz\s*PDFContext/i,        tool: 'macOS/iOS Quartz (scan/print)' },
+  { pattern: /Skia[\/\s]?PDF/i,             tool: 'Chrome Print-to-PDF' },
+  { pattern: /Microsoft.*Print\s*To\s*PDF/i, tool: 'Microsoft Print to PDF' },
+  { pattern: /CamScanner/i,                 tool: 'CamScanner' },
+  { pattern: /Adobe\s*Scan/i,               tool: 'Adobe Scan' },
+  { pattern: /Microsoft\s*Lens/i,           tool: 'Microsoft Lens' },
+]
+
+/** IMAGE-TO-PDF converters — suspicious when doc kind is strict. */
+const IMAGE_CONVERTER_PATTERNS: Array<{ pattern: RegExp; tool: string }> = [
   { pattern: /Image2PDF/i,                  tool: 'Image2PDF converter' },
   { pattern: /jpeg2pdf|jpg2pdf|png2pdf/i,   tool: 'image-to-PDF converter' },
-  { pattern: /Canva/i,                      tool: 'Canva' },
+]
+
+/** Combined list of all non-server tools (for backwards compat with existing logic). */
+const SCREENSHOT_PRODUCER_PATTERNS: Array<{ pattern: RegExp; tool: string }> = [
+  ...EDITING_TOOL_PATTERNS,
+  ...DOC_CREATION_PATTERNS,
+  ...IMAGE_CONVERTER_PATTERNS,
+  // NOTE: SCAN_PRINT_PATTERNS deliberately excluded — scanning is legitimate
 ]
 
 /** Producer/Creator strings indicating a real server-generated PDF.
@@ -131,23 +162,73 @@ export function checkPdfMetadata(
   const combined = `${producer} ${creator}`
 
   // ---------------------------------------------------------------------------
-  // Rule 1: Producer is a known screenshot/image-to-PDF tool, AND doc claims
-  // to be from a bank / credit bureau / employer. This is the strongest signal
-  // we have — real CIBC/RBC/Equifax/ADP PDFs are NEVER produced by Preview.
+  // Rule 1: Check Producer/Creator against categorized tool lists.
+  //
+  // Image EDITING tools (Photoshop, GIMP, Canva) → always suspicious
+  // Doc CREATION tools (Word, Pages) → suspicious for bank/credit/pay, but
+  //   normal for employment_letter and offer_letter
+  // SCAN/PRINT tools (iOS Notes, Print to PDF) → LEGITIMATE for all types,
+  //   because people commonly scan/photo physical documents
+  // IMAGE CONVERTERS (Image2PDF) → suspicious for strict doc types
   // ---------------------------------------------------------------------------
-  for (const { pattern, tool } of SCREENSHOT_PRODUCER_PATTERNS) {
+  let producerFlagged = false
+
+  // 1a. Editing tools — always suspicious for any strict kind
+  for (const { pattern, tool } of EDITING_TOOL_PATTERNS) {
     if (pattern.test(combined)) {
-      const sev = isStrict ? 'critical' : 'medium'
       flags.push({
         code: 'pdf_producer_consumer_tool',
-        severity: sev,
+        severity: isStrict ? 'critical' : 'high',
         file,
-        evidence_en: `PDF Producer="${producer || creator}" indicates ${tool}. Real ${kind || 'official'} PDFs come from server-side tools (iText, Apache FOP, Crystal Reports), not desktop image converters.`,
-        evidence_zh: `PDF 生成工具为 "${producer || creator}"（${tool}）。真实的${zhKind(kind)}通常由服务器生成（iText、Apache FOP、Crystal Reports 等），不会用桌面图片转换器。`,
+        evidence_en: `PDF Producer="${producer || creator}" indicates ${tool} — an image editing tool. Documents edited in ${tool} are highly likely to be tampered.`,
+        evidence_zh: `PDF 生成工具为 "${producer || creator}"（${tool}），这是图片编辑软件。经过 ${tool} 编辑的文件极可能被篡改。`,
       })
-      break  // one match is enough
+      producerFlagged = true
+      break
     }
   }
+
+  // 1b. Doc creation tools — suspicious for bank_statement/credit_report/pay_stub
+  //     but NORMAL for employment_letter/offer_letter (often typed in Word)
+  if (!producerFlagged) {
+    const docToolSuspicious = kind === 'bank_statement' || kind === 'credit_report' || kind === 'pay_stub'
+    for (const { pattern, tool } of DOC_CREATION_PATTERNS) {
+      if (pattern.test(combined)) {
+        if (docToolSuspicious) {
+          flags.push({
+            code: 'pdf_producer_consumer_tool',
+            severity: 'high',
+            file,
+            evidence_en: `PDF Producer="${producer || creator}" indicates ${tool}. Real ${kind.replace('_', ' ')} PDFs are server-generated — ${tool} suggests manual creation.`,
+            evidence_zh: `PDF 生成工具为 "${producer || creator}"（${tool}）。真实的${zhKind(kind)}由服务器生成，${tool} 表明是手工制作的。`,
+          })
+          producerFlagged = true
+        }
+        // For employment_letter/offer_letter, Word/Pages is normal — no flag
+        break
+      }
+    }
+  }
+
+  // 1c. Image converters — suspicious for strict kinds
+  if (!producerFlagged) {
+    for (const { pattern, tool } of IMAGE_CONVERTER_PATTERNS) {
+      if (pattern.test(combined)) {
+        flags.push({
+          code: 'pdf_producer_consumer_tool',
+          severity: isStrict ? 'high' : 'medium',
+          file,
+          evidence_en: `PDF Producer="${producer || creator}" indicates ${tool}. Official documents are not typically distributed as converted images.`,
+          evidence_zh: `PDF 生成工具为 "${producer || creator}"（${tool}）。正式文件通常不会以图片转换的方式发放。`,
+        })
+        producerFlagged = true
+        break
+      }
+    }
+  }
+
+  // 1d. Scan/print tools — LEGITIMATE, no flag. iOS Notes, Print to PDF,
+  //     CamScanner etc. are standard ways to digitize physical documents.
 
   // ---------------------------------------------------------------------------
   // Rule 2: Title or Subject mentions image/screenshot extension. The Title
