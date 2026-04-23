@@ -98,13 +98,31 @@ All env vars are set in Cloudflare Pages > stayloop > Settings > Variables and S
 - **Free (Starter)**: 5 screenings/month, full CanLII coverage, document forensics, bilingual reports
 - **Pro ($29/mo)**: Unlimited screenings, Ontario Courts Portal, priority AI, bulk export
 
+## Recent Changes (2026-04-23)
+- **Ontario Courts Portal — exact name matching**: search type changed from 300054 (fuzzy, 612 results) to 10462 (exact, 1-2 results); strict first+last name party matching with swapped-name support (nameSwapped flag for UI verification badge)
+- **Portal case links**: direct links to case detail page via caseInstanceUUID, fallback to search-by-case-number URL
+- **PDF forensics — 4-tier producer classification**: editing tools (Photoshop/GIMP/Canva → critical), doc creation (Word/Pages → high for bank/pay, ignored for letters), scan/print (iOS Notes/Print to PDF → NOT flagged), image converters (Image2PDF → high)
+- **Image PDF scan detection**: image-only PDFs from legitimate scan tools (Quartz PDFContext, Microsoft Print to PDF, CamScanner) no longer flagged as suspicious
+- **Equifax markers expanded**: added 4 new markers for Chrome-printed consumer reports; text_sample increased 500→2000 chars; severity lowered high→medium
+- **Forensics zeroing scoped**: only zeros the specific dimension tied to the forged file (not ALL dimensions)
+- **Deep check screening_id**: fixed "Screening not found" by passing screening_id through loadPastScreening
+- **credit_report_no_equifax_markers** removed from FORGERY_INDICATING_CODES (not conclusive)
+- **CanLII word-boundary matching**: prevents short names like "bo" matching inside "board"
+
+## Pending Feature: Enhanced PDF Forensics (next session)
+Three-layer PDF analysis to implement:
+1. **Layer 1 (zero cost)**: Image DPI analysis (scan 150+ DPI vs screenshot 72 DPI), font consistency check (# unique fonts + uniformity), creation/modification date gap detection
+2. **Layer 2 (Haiku Vision, ~$0.001/image)**: OCR for image-only PDFs, extract text content for analysis. Extend existing `extractPaystubFields` pattern (already uses Haiku) to all image PDFs
+3. **Layer 3 (existing Sonnet)**: AI content authenticity judgment using OCR'd text
+Key files: `lib/forensics/pdf-text.ts` (text density), `lib/forensics/pdf-metadata.ts` (producer check), `lib/forensics/index.ts` (orchestrator)
+
 ## Recent Changes (2026-04-18)
 - **Arm's-length deep check** (NEW): OpenCorporates company registry lookup + director cross-reference, gated behind PRO subscription
 - **Self-issued employment letter detection**: AI prompt + hard gate (caps at 50) + red flag (-15) for self-issued employment letters
 - **Court records — name separator**: when multiple names are searched, first group now also shows name label
 - **Screen page alignment**: file type badges use CSS grid, consistent file list sizing, improved drop zone and history card layout
 - **Aggressive court record scoring**: 1 defendant record caps overall at 35, 2+ at 25, active case at 20; rental_history and credit_health also capped
-- **Forensics zeroing**: if ANY document is forged, ALL 5 scoring dimensions are zeroed
+- **Forensics zeroing**: only zeros the specific dimension tied to the forged file type (changed from zeroing ALL)
 - **PDF report download**: button in results section to generate downloadable screening report
 
 ## Recent Changes (2026-04-10)
