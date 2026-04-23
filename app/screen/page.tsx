@@ -1526,6 +1526,11 @@ export default function ScreenPage() {
   const [showAuthGate, setShowAuthGate] = useState(false)
   const [deepChecking, setDeepChecking] = useState(false)
   const [deepCheckResult, setDeepCheckResult] = useState<ScoreResult['deep_check_result']>(null)
+  // Phase 4 UX: fallback when extraction failed to find an employer name
+  const [manualEmployerPrompt, setManualEmployerPrompt] = useState(false)
+  const [manualEmployerName, setManualEmployerName] = useState('')
+  // Phase 4 UX: staged progress text ("查询注册" → "核对董事" → "交叉比对")
+  const [deepCheckStage, setDeepCheckStage] = useState<0 | 1 | 2>(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -1571,7 +1576,7 @@ export default function ScreenPage() {
     }
   }
 
-  async function runDeepCheck() {
+  async function runDeepCheck(manualEmployer?: string) {
     // Gate: only PRO users can run deep check
     if (plan !== 'pro' && plan !== 'enterprise') {
       startProUpgrade()
@@ -1596,24 +1601,37 @@ export default function ScreenPage() {
       const s = v.trim()
       if (s.length >= 2) employerSet.add(s)
     }
-    if (Array.isArray(cross.employers)) for (const e of cross.employers) addEmployer(e?.value)
-    if (Array.isArray(forensics?.per_file)) {
-      for (const pf of forensics.per_file) addEmployer(pf?.paystub_math?.extraction?.employer_name)
+    // Manual override takes precedence; otherwise pull from forensics
+    if (manualEmployer && manualEmployer.trim().length >= 2) {
+      employerSet.add(manualEmployer.trim())
+    } else {
+      if (Array.isArray(cross.employers)) for (const e of cross.employers) addEmployer(e?.value)
+      if (Array.isArray(forensics?.per_file)) {
+        for (const pf of forensics.per_file) addEmployer(pf?.paystub_math?.extraction?.employer_name)
+      }
     }
 
     const employer_names = Array.from(employerSet)
     const applicant_name = (result.extracted_name || '').trim()
 
     if (employer_names.length === 0) {
-      alert(lang === 'zh'
-        ? '未找到雇主信息。请先上传雇佣信或工资单。'
-        : 'No employer information found. Upload an employment letter or pay stub first.')
+      // Phase 4 UX: instead of alerting and stopping, open the manual-input UI
+      setManualEmployerPrompt(true)
       return
     }
     if (!applicant_name) {
       alert(lang === 'zh' ? '未找到申请人姓名' : 'No applicant name found')
       return
     }
+
+    // Clear manual-prompt state once we have a valid payload
+    setManualEmployerPrompt(false)
+    setDeepCheckStage(0)
+    // Staged progress text — these fire on timers while the API runs. If the
+    // API returns before stage 2, the later setStage calls are harmless; state
+    // is reset to 0 on completion.
+    const stageTimer1 = setTimeout(() => setDeepCheckStage(1), 1800)
+    const stageTimer2 = setTimeout(() => setDeepCheckStage(2), 4000)
 
     setDeepChecking(true)
     try {
@@ -1663,7 +1681,10 @@ export default function ScreenPage() {
         ? `深度检查失败: ${e.message}`
         : `Deep check failed: ${e.message}`)
     } finally {
+      clearTimeout(stageTimer1)
+      clearTimeout(stageTimer2)
       setDeepChecking(false)
+      setDeepCheckStage(0)
     }
   }
 
@@ -2645,7 +2666,7 @@ export default function ScreenPage() {
                 </div>
                 {!deepCheckResult ? (
                   <button
-                    onClick={runDeepCheck}
+                    onClick={() => runDeepCheck()}
                     disabled={deepChecking || upgradeLoading}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -2658,7 +2679,9 @@ export default function ScreenPage() {
                     }}
                   >
                     {deepChecking
-                      ? (lang === 'zh' ? '⏳ 正在查询…' : '⏳ Checking…')
+                      ? (lang === 'zh'
+                          ? (deepCheckStage === 0 ? '⏳ 查询公司注册…' : deepCheckStage === 1 ? '⏳ 核对董事…' : '⏳ 交叉比对…')
+                          : (deepCheckStage === 0 ? '⏳ Registry lookup…' : deepCheckStage === 1 ? '⏳ Checking officers…' : '⏳ Cross-referencing…'))
                       : upgradeLoading
                         ? (lang === 'zh' ? '⏳ 跳转中…' : '⏳ Redirecting…')
                         : isPro
@@ -2681,6 +2704,76 @@ export default function ScreenPage() {
                   </span>
                 )}
               </div>
+
+              {/* Phase 4 UX: manual employer input when extraction failed */}
+              {manualEmployerPrompt && !deepCheckResult && (
+                <div style={{
+                  marginTop: 14, padding: 14, borderRadius: 10,
+                  background: 'rgba(124, 58, 237, 0.04)',
+                  border: '1px solid rgba(124, 58, 237, 0.2)',
+                }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#5B21B6', marginBottom: 6 }}>
+                    {lang === 'zh' ? '未能自动识别雇主' : 'Employer name could not be auto-detected'}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#64748B', marginBottom: 10, lineHeight: 1.5 }}>
+                    {lang === 'zh'
+                      ? '请手动输入雇佣信或工资单上的雇主公司全称（例如 "ABC Consulting Inc."），我们会查询加拿大公司注册并做独立性校验。'
+                      : 'Enter the full employer name as shown on the employment letter or pay stub (e.g. "ABC Consulting Inc."). We will query the Canadian corporate registry.'}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <input
+                      type="text"
+                      value={manualEmployerName}
+                      onChange={e => setManualEmployerName(e.target.value)}
+                      placeholder={lang === 'zh' ? '公司全称' : 'Company name'}
+                      style={{
+                        flex: '1 1 200px', padding: '8px 12px', borderRadius: 8,
+                        border: '1px solid var(--border-subtle)', fontSize: 12,
+                        background: 'var(--bg-card)', color: 'var(--text-primary)',
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && manualEmployerName.trim().length >= 2) {
+                          const name = manualEmployerName.trim()
+                          setManualEmployerName('')
+                          runDeepCheck(name)
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => {
+                        if (manualEmployerName.trim().length < 2) return
+                        const name = manualEmployerName.trim()
+                        setManualEmployerName('')
+                        runDeepCheck(name)
+                      }}
+                      disabled={deepChecking || manualEmployerName.trim().length < 2}
+                      style={{
+                        padding: '8px 14px', borderRadius: 8,
+                        background: 'linear-gradient(135deg, #7C3AED, #8B5CF6)',
+                        color: '#fff', fontSize: 12, fontWeight: 600, border: 'none',
+                        cursor: (deepChecking || manualEmployerName.trim().length < 2) ? 'not-allowed' : 'pointer',
+                        opacity: (deepChecking || manualEmployerName.trim().length < 2) ? 0.5 : 1,
+                      }}
+                    >
+                      {lang === 'zh' ? '查询' : 'Check'}
+                    </button>
+                    <button
+                      onClick={() => { setManualEmployerPrompt(false); setManualEmployerName('') }}
+                      disabled={deepChecking}
+                      style={{
+                        padding: '8px 14px', borderRadius: 8,
+                        background: 'transparent', color: '#64748B',
+                        fontSize: 12, fontWeight: 500,
+                        border: '1px solid var(--border-subtle)',
+                        cursor: deepChecking ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {lang === 'zh' ? '取消' : 'Cancel'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Deep Check Results */}
               {deepCheckResult && deepCheckResult.checks.length > 0 && (

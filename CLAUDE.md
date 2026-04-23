@@ -99,6 +99,13 @@ All env vars are set in Cloudflare Pages > stayloop > Settings > Variables and S
 - **Pro ($29/mo)**: Unlimited screenings, Ontario Courts Portal, priority AI, bulk export
 
 ## Recent Changes (2026-04-23)
+- **Deep-check redesign (4 phases, all live)**:
+  - **Phase 1** — stateless API: `/api/deep-check` no longer needs `screening_id`, takes `{employer_names, applicant_name, applicant_phone?, applicant_email?, applicant_address?, signatory_name?, hr_phone_collision?}`; frontend builds the payload from local forensics state and persists `deep_check_result` back via its own RLS'd supabase client. Legacy `{screening_id}` fallback preserved. Eliminates schema-drift class of failures (e.g. the old `ai_result` column bug).
+  - **Phase 2** — signals: common-surname whitelist (150 surnames EN/ZH/KR/VN/SA/ME) so e.g. "Chen/Li/Han" don't trigger `arm_length_family_business` without corroborating signals; `canonicalizeEmployerName()` strips legal suffixes (Inc/Ltd/Corp/Corporation/Incorporée/GmbH/…) for dedup; new `arm_length_hr_phone_collision` flag when applicant's personal phone == HR contact on employment letter.
+  - **Phase 3** — cost & latency: new `employer_lookup_cache` table (primary key `normalized_name`, 7d TTL, service-role RLS) with fire-and-forget upserts in the route layer; `searchOpenCorporates` parallelizes the 9 Canadian jurisdictions (was serial, 72s worst case → now ~6s budget total). Fan-out capped at 3 distinct employers per check.
+  - **Phase 4** — UX: manual employer input fallback when auto-extraction fails (instead of dead-end alert); staged progress text (查询注册 → 核对董事 → 交叉比对); cleaner error messages from the API with `error_zh` bilingual field.
+  - Key files: `lib/forensics/arm-length.ts`, `lib/forensics/index.ts#runDeepCheck`, `app/api/deep-check/route.ts`, `app/screen/page.tsx#runDeepCheck`
+- **Enhanced PDF Forensics (3-layer)**: Layer 1 `lib/forensics/pdf-structure.ts` (DPI estimate, font count, mod/creation gap), Layer 2 `lib/forensics/image-ocr.ts` (Haiku OCR for image-only PDFs, triggered when text density < 50 chars/page), Layer 3 Sonnet prompt injection via `forensicsToPromptBlock`. Only adds flags, no hard gates.
 - **Ontario Courts Portal — exact name matching**: search type changed from 300054 (fuzzy, 612 results) to 10462 (exact, 1-2 results); strict first+last name party matching with swapped-name support (nameSwapped flag for UI verification badge)
 - **Portal case links**: direct links to case detail page via caseInstanceUUID, fallback to search-by-case-number URL
 - **PDF forensics — 4-tier producer classification**: editing tools (Photoshop/GIMP/Canva → critical), doc creation (Word/Pages → high for bank/pay, ignored for letters), scan/print (iOS Notes/Print to PDF → NOT flagged), image converters (Image2PDF → high)
@@ -108,7 +115,13 @@ All env vars are set in Cloudflare Pages > stayloop > Settings > Variables and S
 - **Deep check screening_id**: fixed "Screening not found" by passing screening_id through loadPastScreening
 - **credit_report_no_equifax_markers** removed from FORGERY_INDICATING_CODES (not conclusive)
 - **CanLII word-boundary matching**: prevents short names like "bo" matching inside "board"
-- **Enhanced PDF forensics (3 layers)**: Layer 1 — `lib/forensics/pdf-structure.ts` adds image-DPI estimation, font-diversity count, and ModDate-vs-CreationDate gap detection (flags `pdf_low_dpi_scan`, `pdf_font_count_high`, `pdf_modified_after_creation`, `pdf_modified_long_after`); Layer 2 — `lib/forensics/image-ocr.ts` runs Haiku Vision OCR on image-only PDFs (~$0.001/image, only triggered when `text_density.is_likely_image_pdf`); Layer 3 — OCR text + structural stats surfaced in `forensicsToPromptBlock()` so the existing Sonnet scoring call can judge authenticity on content (name/issuer/dates/amounts), not just metadata
+
+## Pending / Future Deep-Check Enhancements
+- **Server-side PRO plan gate** on `/api/deep-check` (currently client-gated only — anyone could hit the API if they guess the payload shape)
+- **Canada Business Number (BN) verification**: many employment letters print a BN (9 digits + RT0001). CRA GST/HST registry can verify. Need to find a free lookup endpoint or pay for one
+- **Per-flag dismiss with risk recalculation**: UI control to mark a flag as false-positive (e.g., common surname collision), re-compute `arm_length_risk` with that flag excluded. Today the flag display is final
+- **Signatory name extraction from employment letters**: Haiku extraction currently only pulls employer name — adding signatory + signatory phone would unlock more precise officer cross-reference
+- **OpenCorporates bulk import**: if quota becomes an issue, bulk import Ontario's Open Data (registered companies since 2016) into Supabase as a fallback source
 
 ## Recent Changes (2026-04-18)
 - **Arm's-length deep check** (NEW): OpenCorporates company registry lookup + director cross-reference, gated behind PRO subscription
