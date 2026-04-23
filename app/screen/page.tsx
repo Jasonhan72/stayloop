@@ -1577,7 +1577,44 @@ export default function ScreenPage() {
       startProUpgrade()
       return
     }
-    if (!result?.screening_id || deepChecking) return
+    if (!result || deepChecking) return
+
+    // Phase 1: build the stateless payload from local forensics state.
+    // The API no longer re-reads from the DB, so "Screening not found"
+    // can no longer happen from schema drift.
+    const forensics: any = (result as any).forensics_detail || null
+    const cross = forensics?.cross_doc?.entities || {}
+    const firstOr = (arr: any): string | undefined => {
+      if (!Array.isArray(arr) || !arr.length) return undefined
+      const v = arr[0]?.value
+      return typeof v === 'string' ? v : undefined
+    }
+
+    const employerSet = new Set<string>()
+    const addEmployer = (v: unknown) => {
+      if (typeof v !== 'string') return
+      const s = v.trim()
+      if (s.length >= 2) employerSet.add(s)
+    }
+    if (Array.isArray(cross.employers)) for (const e of cross.employers) addEmployer(e?.value)
+    if (Array.isArray(forensics?.per_file)) {
+      for (const pf of forensics.per_file) addEmployer(pf?.paystub_math?.extraction?.employer_name)
+    }
+
+    const employer_names = Array.from(employerSet)
+    const applicant_name = (result.extracted_name || '').trim()
+
+    if (employer_names.length === 0) {
+      alert(lang === 'zh'
+        ? '未找到雇主信息。请先上传雇佣信或工资单。'
+        : 'No employer information found. Upload an employment letter or pay stub first.')
+      return
+    }
+    if (!applicant_name) {
+      alert(lang === 'zh' ? '未找到申请人姓名' : 'No applicant name found')
+      return
+    }
+
     setDeepChecking(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -1587,10 +1624,37 @@ export default function ScreenPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session?.access_token || ''}`,
         },
-        body: JSON.stringify({ screening_id: result.screening_id }),
+        body: JSON.stringify({
+          employer_names,
+          applicant_name,
+          applicant_address: firstOr(cross.addresses),
+          applicant_phone: firstOr(cross.phones),
+          applicant_email: firstOr(cross.emails),
+        }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || data.error_zh || 'Deep check failed')
+      if (!res.ok) throw new Error(data.error_zh || data.error || 'Deep check failed')
+
+      // Persist to screenings table via the user's RLS'd client.
+      // If no screening_id is known (shouldn't happen in normal flow), skip persistence.
+      const sid = result.screening_id || viewingHistoryId
+      if (sid) {
+        const updatedForensics = forensics
+          ? { ...forensics, arm_length: data.checks }
+          : { arm_length: data.checks }
+        const { error: persistErr } = await supabase
+          .from('screenings')
+          .update({
+            deep_check_result: data,
+            forensics_detail: updatedForensics,
+          })
+          .eq('id', sid)
+        if (persistErr) {
+          // Non-fatal — show result in UI, warn in console
+          console.warn('[deep-check] persist failed:', persistErr)
+        }
+      }
+
       setDeepCheckResult(data)
       setResult(prev => prev ? { ...prev, deep_check_result: data } : prev)
     } catch (e: any) {
@@ -2581,7 +2645,7 @@ export default function ScreenPage() {
                 {!deepCheckResult ? (
                   <button
                     onClick={runDeepCheck}
-                    disabled={deepChecking || upgradeLoading || !result.screening_id}
+                    disabled={deepChecking || upgradeLoading}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6,
                       padding: '8px 18px', borderRadius: 8,
