@@ -308,18 +308,27 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
         return lastNameMatch && firstNameMatch
       })
       .map(r => {
-        // Build direct case URL: courts.ontario.ca/portal/court/{courtId}/case/{caseId}
+        const caseNum = r.caseHeader?.caseNumber || ''
+        const courtId = r.caseHeader?.courtID || ONTARIO_PORTAL_CIVIL_COURT_ID
+        // Try to get direct case URL from caseID UUID
         const caseUUID = r.caseHeader?.caseID || ''
-        const courtUUID = r.caseHeader?.courtID || ONTARIO_PORTAL_CIVIL_COURT_ID
-        // Also try extracting from _links.self.href if caseID not directly available
         const selfHref = r._links?.self?.href || ''
         const extractedCaseId = caseUUID || selfHref.match(/cases\/([0-9a-f-]{36})/)?.[1] || ''
-        const caseUrl = extractedCaseId
-          ? `https://courts.ontario.ca/portal/court/${courtUUID}/case/${extractedCaseId}`
-          : `https://courts.ontario.ca/portal/search/case`  // fallback to case search
+
+        let caseUrl: string
+        if (extractedCaseId) {
+          // Direct link to case detail page
+          caseUrl = `https://courts.ontario.ca/portal/court/${courtId}/case/${extractedCaseId}`
+        } else if (caseNum) {
+          // Fallback: search results page pre-filled with case number
+          // This shows the case in results — user clicks case number to see detail
+          caseUrl = `https://courts.ontario.ca/portal/search/case/results?criteria=~(advanced~false~courtID~%27${courtId}~paging~(totalItems~0~itemsPerPage~25~page~1~sortBy~%27caseHeader.filedDate~sortDesc~true)~case~(caseNumber~%27${encodeURIComponent(caseNum)}~caseNumberQueryTypeID~10462~caseTitleQueryTypeID~300054~originatingCourtCaseNumberQueryTypeID~10463~excludeClosed~false))`
+        } else {
+          caseUrl = `https://courts.ontario.ca/portal/search/case`
+        }
 
         return {
-          caseNumber: r.caseHeader?.caseNumber || '',
+          caseNumber: caseNum,
           caseTitle: r.caseHeader?.caseTitle || '',
           caseCategory: r.caseHeader?.caseCategory || '',
           filedDate: r.caseHeader?.filedDate || '',
