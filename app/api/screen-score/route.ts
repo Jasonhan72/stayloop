@@ -236,7 +236,7 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
   try {
     const params = new URLSearchParams({
       'partyHeader.partyActorInstance.displayName': fullName,
-      'partyHeader.partyActorInstance.displayNameSearchType': '300054',
+      'partyHeader.partyActorInstance.displayNameSearchType': '10462',
       'caseHeader.courtID': ONTARIO_PORTAL_CIVIL_COURT_ID,
       'page': '0',
       'size': '10',
@@ -256,8 +256,9 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
             partyActorInstance?: { displayName?: string; sortName?: string }
           }
           caseHeader?: {
-            caseID?: string       // UUID for direct case link
-            courtID?: string      // UUID of the court
+            caseInstanceUUID?: string  // UUID for direct case link
+            caseID?: string
+            courtID?: string
             caseNumber?: string
             caseTitle?: string
             caseCategory?: string
@@ -322,7 +323,7 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
       // Build case URL
       const caseNum = r.caseHeader?.caseNumber || ''
       const courtId = ONTARIO_PORTAL_CIVIL_COURT_ID
-      const caseUUID = r.caseHeader?.caseID || ''
+      const caseUUID = r.caseHeader?.caseInstanceUUID || r.caseHeader?.caseID || ''
       const selfHref = r._links?.self?.href || ''
       const extractedCaseId = caseUUID || selfHref.match(/cases\/([0-9a-f-]{36})/)?.[1] || ''
 
