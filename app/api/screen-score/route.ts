@@ -305,11 +305,26 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
         const lastNameMatch = partyLastName === searchLastName || displayLast === searchLastName
         const firstNameMatch = partyFirstName === searchFirstName || displayFirst === searchFirstName
           || partyFirstName.startsWith(searchFirstName) || searchFirstName.startsWith(partyFirstName)
-        return lastNameMatch && firstNameMatch
+        if (!lastNameMatch || !firstNameMatch) return false
+
+        // Secondary verification: the applicant's last name should appear
+        // in the case title (e.g. "SMITH v. JONES"). The Ontario Courts Portal
+        // API sometimes returns false matches where the partyDisplayName doesn't
+        // correspond to an actual party in the case. Cross-checking the title
+        // catches these — if the applicant's name isn't in the case title at all,
+        // they're almost certainly not a real party.
+        const caseTitle = (r.caseHeader?.caseTitle || '').toLowerCase()
+        if (caseTitle && searchLastName.length >= 2) {
+          const lastInTitle = caseTitle.includes(searchLastName)
+          if (!lastInTitle) return false
+        }
+        return true
       })
       .map(r => {
         const caseNum = r.caseHeader?.caseNumber || ''
-        const courtId = r.caseHeader?.courtID || ONTARIO_PORTAL_CIVIL_COURT_ID
+        // Always use the known court UUID constant — the API's courtID field
+        // may return a short numeric ID (e.g. "1") instead of the full UUID
+        const courtId = ONTARIO_PORTAL_CIVIL_COURT_ID
         // Try to get direct case URL from caseID UUID
         const caseUUID = r.caseHeader?.caseID || ''
         const selfHref = r._links?.self?.href || ''
