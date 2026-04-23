@@ -4,28 +4,24 @@
 // runForensics() is the single entry point called from the screen-score route.
 // Given a list of files (URL + metadata) and applicant info, it:
 //   1. Fetches each file's bytes once
-//   2. Runs PDF metadata + text density + structural checks (P0) in parallel
-//   3. For image-only PDFs, calls Haiku Vision OCR to extract text content
-//      so the downstream Sonnet scoring call can evaluate authenticity
-//   4. For pay stubs, calls Haiku to extract numeric fields and runs math
+//   2. Runs PDF metadata + text density checks (P0) in parallel per file
+//   3. For pay stubs, calls haiku to extract numeric fields and runs math
 //      consistency checks (P1)
-//   5. Runs source-specific markers (P3)
-//   6. Aggregates entity data across all files and runs cross-doc rules (P2)
-//   7. Computes overall severity + forensics-derived hard gates
+//   4. Runs source-specific markers (P3)
+//   5. Aggregates entity data across all files and runs cross-doc rules (P2)
+//   6. Computes overall severity + forensics-derived hard gates
 //
-// All AI calls (haiku for paystub extraction + image-PDF OCR) require
-// ANTHROPIC_API_KEY. If the key is missing or any individual file fails, we
-// degrade gracefully: the file just gets fewer flags rather than aborting.
+// All AI calls (haiku for paystub field extraction) require ANTHROPIC_API_KEY.
+// If the key is missing or any individual file fails, we degrade gracefully:
+// the file just gets fewer flags rather than aborting the whole report.
 // -----------------------------------------------------------------------------
 
 import { checkPdfMetadata, readPdfMetadata } from './pdf-metadata'
 import { checkTextDensity, readPdfTextDensity } from './pdf-text'
-import { checkPdfStructure, readPdfStructure } from './pdf-structure'
-import { ocrImagePdf } from './image-ocr'
 import { checkPaystubMath, extractPaystubFields } from './paystub-math'
 import { checkSourceSpecific } from './source-specific'
 import { runCrossDocChecks } from './cross-doc'
-import { checkArmLength } from './arm-length'
+import { checkArmLength, canonicalizeEmployerName } from './arm-length'
 import type {
   ForensicFlag,
   ForensicsReport,
@@ -86,13 +82,11 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
     input.files.map(f => analyzeFile(f, input.anthropic_api_key))
   )
 
-  // Cross-doc step: collect text samples + paystub extractions.
-  // For image-only PDFs we prefer OCR text (richer) over the near-empty
-  // extractable text sample.
+  // Cross-doc step: collect text samples + paystub extractions
   const crossDocFiles = perFile.map(pf => ({
     name: pf.file_name,
     kind: pf.file_kind,
-    text_sample: pf.ocr?.text || pf.text_density?.text_sample,
+    text_sample: pf.text_density?.text_sample,
     paystub: pf.paystub_math?.extraction,
   }))
   const { result: crossDocResult, flags: crossDocFlags } = runCrossDocChecks({
@@ -147,16 +141,14 @@ async function analyzeFile(
   }
 
   try {
-    // Only PDFs get metadata + text density + structure. Images get source-specific only.
+    // Only PDFs get metadata + text density. Images get source-specific only.
     if (f.mime === 'application/pdf') {
       const bytes = await fetchBytes(f.signed_url)
       if (bytes) {
-        // Run metadata + text + structural analysis in parallel.
-        // All three operate on the same fetched bytes.
-        const [meta, text, struct] = await Promise.all([
+        // Run metadata + text in parallel
+        const [meta, text] = await Promise.all([
           readPdfMetadata(bytes),
           readPdfTextDensity(bytes),
-          readPdfStructure(bytes),
         ])
         if (meta) {
           out.pdf_metadata = meta
@@ -165,24 +157,12 @@ async function analyzeFile(
         if (text) {
           const fileSize = meta?.file_size_bytes ?? bytes.byteLength
           out.text_density = text
-          out.flags.push(...checkTextDensity(text, fileSize, f.name, f.kind, meta?.producer || undefined, meta?.creator || undefined))
-        }
-        if (struct) {
-          out.pdf_structure = struct
-          out.flags.push(...checkPdfStructure(struct, f.name, f.kind))
+          out.flags.push(...checkTextDensity(text, fileSize, f.name, f.kind))
         }
         // Source-specific markers
         const { result: src, flags: srcFlags } = checkSourceSpecific(meta, text, f.name, f.kind)
         out.source_specific = src
         out.flags.push(...srcFlags)
-
-        // Layer 2: OCR image-only PDFs so Sonnet (Layer 3) can judge content.
-        // Skip if there's already plenty of extractable text — no need to
-        // burn Haiku tokens re-reading what unpdf already gave us.
-        if (apiKey && text?.is_likely_image_pdf) {
-          const ocr = await ocrImagePdf(f.signed_url, f.mime, apiKey)
-          if (ocr) out.ocr = ocr
-        }
       }
     }
 
@@ -236,10 +216,6 @@ function computeSeverity(flags: ForensicFlag[], hardGates: string[]): ForensicsS
  * "evidence already verified by the backend" block. Claude is instructed in
  * the system prompt to TRUST these findings (they're computed deterministically
  * by JS, not inferred from images) and to factor them into scoring.
- *
- * Layer 3 wiring: when an image-only PDF was OCR'd, we surface the OCR text
- * and structured hints here so Sonnet can judge authenticity on the content
- * itself (names/amounts/dates/issuer) rather than only on metadata signals.
  */
 export function forensicsToPromptBlock(report: ForensicsReport): string {
   const lines: string[] = []
@@ -258,20 +234,6 @@ export function forensicsToPromptBlock(report: ForensicsReport): string {
     }
     if (pf.text_density) {
       lines.push(`    Text density: ${pf.text_density.chars_per_page} chars/page (${pf.text_density.is_likely_image_pdf ? 'IMAGE-ONLY PDF' : 'has text'})`)
-    }
-    if (pf.pdf_structure) {
-      const s = pf.pdf_structure
-      const dpi = s.dpi_stats ? `DPI≈${s.dpi_stats.median} (min ${s.dpi_stats.min}, max ${s.dpi_stats.max})` : 'DPI=n/a'
-      const gap = s.mod_creation_gap_hours !== null ? `, mod-gap=${Math.round(s.mod_creation_gap_hours * 10) / 10}h` : ''
-      lines.push(`    Structure: ${s.unique_fonts} fonts, ${s.image_count} images, ${dpi}${gap}`)
-    }
-    if (pf.ocr) {
-      const o = pf.ocr
-      lines.push(`    OCR (Haiku, image-PDF): apparent_type="${o.apparent_doc_type || '?'}", apparent_name="${o.apparent_name || '?'}", issuer="${o.visible_issuer || '?'}", watermark=${o.has_watermark}, dates=[${o.visible_dates.join(', ')}]`)
-      if (o.text) {
-        const preview = o.text.slice(0, 1500).replace(/\s+/g, ' ').trim()
-        lines.push(`    OCR text (first 1500 chars): "${preview}${o.text.length > 1500 ? '…' : ''}"`)
-      }
     }
     if (pf.paystub_math) {
       const e = pf.paystub_math.extraction
@@ -317,18 +279,29 @@ export async function runDeepCheck(input: {
   employer_names: string[]
   applicant_name: string
   applicant_address?: string
+  applicant_phone?: string
+  applicant_email?: string
   signatory_name?: string
+  signatory_phone?: string
+  /** true if cross_doc flagged HR-phone == applicant-phone collision */
+  hr_phone_collision?: boolean
 }): Promise<ArmLengthCheckResult[]> {
   if (!input.employer_names.length) return []
 
-  // Deduplicate employer names (case-insensitive)
+  // Phase 2: canonicalize-then-dedup. "ABC Consulting", "ABC Consulting Inc.",
+  // "ABC CONSULTING LIMITED" all collapse to one lookup. The *display* form
+  // kept in the result is the first variant we encountered so the UI stays
+  // recognizable.
   const seen = new Set<string>()
-  const unique = input.employer_names.filter(n => {
-    const key = n.toLowerCase().trim()
-    if (seen.has(key) || key.length < 2) return false
-    seen.add(key)
-    return true
-  })
+  const unique: string[] = []
+  for (const raw of input.employer_names) {
+    if (typeof raw !== 'string' || raw.trim().length < 2) continue
+    const canonical = canonicalizeEmployerName(raw) || raw.toLowerCase().trim()
+    if (seen.has(canonical)) continue
+    seen.add(canonical)
+    unique.push(raw.trim())
+    if (unique.length >= 3) break  // cap to 3 — Phase 3 adds a cache; for now limit fan-out
+  }
 
   const results = await Promise.allSettled(
     unique.map(emp => checkArmLength(
@@ -336,6 +309,11 @@ export async function runDeepCheck(input: {
       input.applicant_name,
       input.applicant_address,
       input.signatory_name,
+      {
+        applicant_phone: input.applicant_phone,
+        applicant_email: input.applicant_email,
+        hr_phone_collision: input.hr_phone_collision,
+      },
     ))
   )
 

@@ -1630,6 +1630,7 @@ export default function ScreenPage() {
           applicant_address: firstOr(cross.addresses),
           applicant_phone: firstOr(cross.phones),
           applicant_email: firstOr(cross.emails),
+          hr_phone_collision: forensics?.cross_doc?.hr_phone_collision === true,
         }),
       })
       const data = await res.json()

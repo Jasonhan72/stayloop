@@ -49,6 +49,8 @@ interface DeepCheckPayload {
   applicant_email?: string
   signatory_name?: string
   signatory_phone?: string
+  /** true if cross_doc flagged HR phone == applicant phone (self-verification) */
+  hr_phone_collision?: boolean
 }
 
 function bad(message: string, message_zh?: string, status = 400) {
@@ -107,6 +109,7 @@ async function payloadFromScreening(screening_id: string): Promise<DeepCheckPayl
     applicant_address: firstOr(cross.addresses),
     applicant_phone: firstOr(cross.phones),
     applicant_email: firstOr(cross.emails),
+    hr_phone_collision: forensics?.cross_doc?.hr_phone_collision === true,
   }
 }
 
@@ -142,6 +145,7 @@ export async function POST(req: Request) {
         applicant_email: body.applicant_email,
         signatory_name: body.signatory_name,
         signatory_phone: body.signatory_phone,
+        hr_phone_collision: body.hr_phone_collision,
       }
     } else if (body.screening_id) {
       const resolved = await payloadFromScreening(body.screening_id)
@@ -171,7 +175,11 @@ export async function POST(req: Request) {
       employer_names: employers,
       applicant_name: payload.applicant_name.trim(),
       applicant_address: payload.applicant_address,
+      applicant_phone: payload.applicant_phone,
+      applicant_email: payload.applicant_email,
       signatory_name: payload.signatory_name,
+      signatory_phone: payload.signatory_phone,
+      hr_phone_collision: payload.hr_phone_collision,
     })
 
     // Aggregate risk

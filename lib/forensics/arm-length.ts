@@ -49,6 +49,68 @@ function isNumberedCompany(name: string): boolean {
   return NUMBERED_COMPANY_RE.test(name.trim())
 }
 
+// Common surnames — if the ONLY signal of a non-arm's-length relationship is a
+// last-name collision with a company officer, and the surname is common, we
+// downgrade to "low" or drop the flag entirely. Without this, every applicant
+// named "Chen / Li / Zhang / Wang / Smith / Lee" would be marked as
+// "family business" whenever the company had an officer with the same surname.
+const COMMON_SURNAMES = new Set<string>([
+  // Top Chinese surnames (covers >40% of Chinese population)
+  'wang', 'li', 'zhang', 'liu', 'chen', 'yang', 'huang', 'zhao', 'wu', 'zhou',
+  'xu', 'sun', 'ma', 'zhu', 'hu', 'guo', 'he', 'gao', 'lin', 'luo',
+  'zheng', 'liang', 'xie', 'song', 'tang', 'han', 'feng', 'deng', 'cao', 'peng',
+  'xiao', 'pan', 'dong', 'yuan', 'jiang', 'cai', 'yu', 'du', 'ye', 'cheng',
+  'wei', 'su', 'lu', 'ding', 'ren', 'shen', 'yao', 'lu', 'zhong', 'jiang',
+  // Cantonese/Taiwanese romanizations
+  'wong', 'chan', 'cheung', 'ng', 'ho', 'lau', 'chow', 'leung', 'tsang', 'yip',
+  'chiu', 'cheng', 'hung', 'fung', 'mok', 'tse', 'tam', 'poon', 'kwok', 'tang',
+  'hsu', 'hsieh', 'kuo', 'chao', 'chou', 'tsai',
+  // Korean
+  'kim', 'lee', 'park', 'choi', 'jung', 'jeong', 'kang', 'cho', 'yoon', 'jang',
+  'lim', 'shin', 'han', 'oh', 'seo', 'moon', 'nam', 'baek',
+  // Vietnamese
+  'nguyen', 'tran', 'le', 'pham', 'hoang', 'huynh', 'vo', 'vu', 'dang', 'bui',
+  // Common English / European
+  'smith', 'jones', 'williams', 'brown', 'davis', 'miller', 'wilson', 'taylor',
+  'anderson', 'thomas', 'jackson', 'white', 'harris', 'martin', 'thompson',
+  'garcia', 'martinez', 'robinson', 'clark', 'rodriguez', 'lewis', 'walker',
+  'hall', 'allen', 'young', 'king', 'wright', 'scott', 'green', 'baker',
+  'adams', 'nelson', 'carter', 'mitchell', 'roberts', 'turner', 'phillips',
+  'campbell', 'parker', 'evans', 'edwards', 'collins', 'morris', 'murphy',
+  'cook', 'morgan', 'bell', 'cooper', 'ward', 'rivera', 'lopez', 'gonzales',
+  // South Asian
+  'singh', 'kumar', 'sharma', 'patel', 'shah', 'gupta', 'khan', 'ahmed',
+  // Middle Eastern
+  'hassan', 'ali', 'ahmad', 'mohamed', 'mohammed', 'hussain', 'ibrahim',
+])
+
+function isCommonSurname(name: string): boolean {
+  const parts = name.toLowerCase().replace(/[^a-z\s]/g, '').trim().split(/\s+/)
+  if (parts.length === 0) return false
+  const last = parts[parts.length - 1]
+  if (last.length < 2) return false
+  return COMMON_SURNAMES.has(last)
+}
+
+/**
+ * Canonicalize an employer name: strip legal suffixes (Inc/Ltd/Corp/…),
+ * normalize whitespace + punctuation. Used for deduplication so that
+ * "ABC Consulting", "ABC Consulting Inc.", "ABC CONSULTING LIMITED"
+ * collapse to one canonical lookup. The original user-facing display
+ * string is preserved separately.
+ */
+export function canonicalizeEmployerName(name: string): string {
+  let s = name.toLowerCase().trim()
+  // Strip trailing legal suffixes, possibly repeated
+  const suffixRe = /\s*[,.]?\s*(incorporated|incorporée|corporation|corp|company|co|limited|limitée|ltée|ltd|inc|llc|llp|lp|pc|plc|gmbh|ag|sa)\s*\.?$/i
+  for (let i = 0; i < 3; i++) {
+    const prev = s
+    s = s.replace(suffixRe, '').trim()
+    if (prev === s) break
+  }
+  return s.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
 // Check if two names likely refer to the same person (fuzzy last-name match)
 function lastNameMatch(name1: string, name2: string): boolean {
   const normalize = (n: string) => n.toLowerCase().replace(/[^a-z\s]/g, '').trim()
@@ -180,14 +242,25 @@ async function searchOpenCorporates(companyName: string): Promise<CompanyRegistr
  * @param applicantAddress - tenant's address (if known)
  * @param signatory - name of the person who signed the employment letter (if extractable)
  */
+export interface CheckArmLengthOptions {
+  /** phone extracted from ID or lease application (applicant's phone) */
+  applicant_phone?: string
+  /** email extracted from ID or lease application */
+  applicant_email?: string
+  /** true if cross_doc.hr_phone_collision fired — applicant phone appears in employer letter HR contact */
+  hr_phone_collision?: boolean
+}
+
 export async function checkArmLength(
   employerName: string,
   applicantName: string,
   applicantAddress?: string,
   signatory?: string,
+  options: CheckArmLengthOptions = {},
 ): Promise<ArmLengthResult> {
   const flags: ForensicFlag[] = []
   const numbered = isNumberedCompany(employerName)
+  const commonSurname = isCommonSurname(applicantName)
 
   // 1. Registry lookup
   const companyInfo = await searchOpenCorporates(employerName)
@@ -232,16 +305,31 @@ export async function checkArmLength(
   }
 
   // 5. Determine overall risk level
+  // Common-surname handling: a lastname-only match is suggestive but unreliable
+  // when the surname is common (e.g., Chen, Li, Smith). In that case, require
+  // at least one other signal (numbered, recent incorporation, address overlap,
+  // HR phone collision) before escalating risk.
+  const hrPhoneCollision = !!options.hr_phone_collision
+  const corroboratingSignal = numbered || recentlyIncorporated || addressMatch || hrPhoneCollision
+  const effectiveLastnameMatch = applicantLastnameMatch && (!commonSurname || corroboratingSignal)
+
   let risk: 'high' | 'medium' | 'low' | 'clean' = 'clean'
   if (applicantIsOfficer) {
     risk = 'high'
-  } else if (applicantLastnameMatch && (numbered || recentlyIncorporated)) {
+  } else if (effectiveLastnameMatch && (numbered || recentlyIncorporated)) {
     risk = 'high'
-  } else if (applicantLastnameMatch) {
+  } else if (hrPhoneCollision && (numbered || recentlyIncorporated || applicantLastnameMatch)) {
+    risk = 'high'
+  } else if (effectiveLastnameMatch) {
+    risk = 'medium'
+  } else if (hrPhoneCollision) {
     risk = 'medium'
   } else if (numbered && recentlyIncorporated) {
     risk = 'medium'
   } else if (numbered || recentlyIncorporated) {
+    risk = 'low'
+  } else if (applicantLastnameMatch && commonSurname) {
+    // Common surname alone → informational only
     risk = 'low'
   }
 
@@ -259,11 +347,29 @@ export async function checkArmLength(
   if (applicantLastnameMatch && !applicantIsOfficer) {
     const matchingOfficer = companyInfo?.officers.find(o => lastNameMatch(o.name, applicantName))
     const matchName = matchingOfficer?.name || signatory || ''
+    // Downgrade severity when surname is common and not corroborated.
+    const severity: 'high' | 'medium' | 'low' =
+      commonSurname && !corroboratingSignal ? 'low' : (commonSurname ? 'medium' : 'high')
+    const commonNote_en = commonSurname && !corroboratingSignal
+      ? ' (common surname — this alone is not conclusive)'
+      : ''
+    const commonNote_zh = commonSurname && !corroboratingSignal
+      ? '（姓氏常见——单独这一项不足以判定）'
+      : ''
     flags.push({
       code: 'arm_length_family_business',
-      severity: 'high',
-      evidence_en: `Company officer "${matchName}" shares last name with applicant "${applicantName}". Likely a family business — employment verification is not arm's-length.`,
-      evidence_zh: `公司高管"${matchName}"与申请人"${applicantName}"姓氏相同。很可能是家族企业——雇佣证明不是独立第三方出具的。`,
+      severity,
+      evidence_en: `Company officer "${matchName}" shares last name with applicant "${applicantName}"${commonNote_en}. ${severity === 'low' ? 'Informational.' : 'Likely a family business — employment verification is not arm\'s-length.'}`,
+      evidence_zh: `公司高管"${matchName}"与申请人"${applicantName}"姓氏相同${commonNote_zh}。${severity === 'low' ? '仅供参考。' : '很可能是家族企业——雇佣证明不是独立第三方出具的。'}`,
+    })
+  }
+
+  if (hrPhoneCollision) {
+    flags.push({
+      code: 'arm_length_hr_phone_collision',
+      severity: 'critical',
+      evidence_en: `Applicant's personal phone number also appears as the HR contact on the employment letter for "${employerName}". The applicant is verifying their own employment.`,
+      evidence_zh: `申请人的个人电话同时出现在"${employerName}"雇佣信的 HR 联系方式中。申请人在给自己做雇佣验证。`,
     })
   }
 
