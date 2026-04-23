@@ -68,21 +68,25 @@ export function checkTextDensity(
   density: TextDensityResult,
   fileSizeBytes: number,
   file: string,
-  kind: string
+  kind: string,
+  producer?: string,
+  creator?: string,
 ): ForensicFlag[] {
   const flags: ForensicFlag[] = []
   const isStrict = STRICT_KINDS.has(kind)
   const sizePerPageKB = fileSizeBytes / density.page_count / 1024
 
   // ---------------------------------------------------------------------------
-  // Rule 1: Pure image PDF for a strict kind. Suspicious but NOT conclusive
-  // on its own — the document could be a legitimate scan or photo of a real
-  // document. Severity is MEDIUM. If the metadata also shows a screenshot
-  // tool (Quartz, Preview, Photoshop) or the PDF title says "PNG/screenshot",
-  // the combination triggers the hard gate `pdf_is_screenshot` in index.ts
-  // which IS conclusive.
+  // Rule 1: Pure image PDF. Before flagging, check if the producer is a
+  // legitimate scan/print tool (iOS Notes, CamScanner, Print to PDF, etc.).
+  // Scanned physical documents are common and NOT suspicious on their own.
+  // Only flag if the producer is an editing tool or unknown.
   // ---------------------------------------------------------------------------
-  if (density.is_likely_image_pdf && isStrict) {
+  const producerStr = `${producer || ''} ${creator || ''}`.toLowerCase()
+  const isLegitScanTool = /quartz\s*pdfcontext|print\s*to\s*pdf|camscanner|adobe\s*scan|microsoft\s*lens|epson\s*scan|hp\s*scan|notes/i.test(producerStr)
+
+  if (density.is_likely_image_pdf && isStrict && !isLegitScanTool) {
+    // Image PDF from unknown/suspicious producer for a strict doc type
     flags.push({
       code: 'pdf_pure_image',
       severity: 'medium',
@@ -90,16 +94,9 @@ export function checkTextDensity(
       evidence_en: `${kind} PDF contains only ${density.chars_per_page} chars/page (essentially zero extractable text). Authentic ${kind} PDFs are usually server-generated text PDFs with 1000+ chars/page. This file may be a scan/photo of a real document, or an image of a fabricated one — check PDF Producer metadata for confirmation.`,
       evidence_zh: `${zhKind(kind)}的 PDF 每页只有 ${density.chars_per_page} 个可提取字符（几乎为零）。真实的${zhKind(kind)}通常是服务器生成的文字 PDF，每页 1000+ 字符。此文件可能是真实文件的扫描/拍照，也可能是伪造文件的图片——需结合 PDF 生成工具元数据进一步判断。`,
     })
-  } else if (density.is_likely_image_pdf) {
-    // Not a strict kind, but still notable
-    flags.push({
-      code: 'pdf_pure_image_general',
-      severity: 'low',
-      file,
-      evidence_en: `PDF contains essentially no extractable text (${density.chars_per_page} chars/page). This is an image-based PDF.`,
-      evidence_zh: `PDF 几乎没有可提取文字（每页 ${density.chars_per_page} 字符），是图片型 PDF。`,
-    })
   }
+  // If producer is a legitimate scan/print tool → no flag, even for image PDFs.
+  // If not strict kind and not scan tool → also skip (low severity not useful).
 
   // ---------------------------------------------------------------------------
   // Rule 2: Strict kind with low (but non-zero) text density. Could be a

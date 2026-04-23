@@ -157,7 +157,7 @@ async function analyzeFile(
         if (text) {
           const fileSize = meta?.file_size_bytes ?? bytes.byteLength
           out.text_density = text
-          out.flags.push(...checkTextDensity(text, fileSize, f.name, f.kind))
+          out.flags.push(...checkTextDensity(text, fileSize, f.name, f.kind, meta?.producer || undefined, meta?.creator || undefined))
         }
         // Source-specific markers
         const { result: src, flags: srcFlags } = checkSourceSpecific(meta, text, f.name, f.kind)
