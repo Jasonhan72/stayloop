@@ -30,6 +30,12 @@ const EQUIFAX_MARKERS: RegExp[] = [
   /Personal\s+Information[\s\S]*?Date\s+of\s+Birth/i,
   /Trade\s+Lines?/i,  // Equifax-specific terminology
   /Inquiries[\s\S]*?Last\s+\d+\s+Months/i,
+  // Chrome print-to-PDF Equifax consumer reports (consumer.equifax.ca)
+  // start with these markers in the first 500 chars — must catch these
+  /Equifax\s+Canada/i,
+  /EQUIFAX\s+REFERENCE/i,
+  /consumer\.equifax\.ca/i,
+  /Credit\s+Report\s+Request\s+Date/i,
 ]
 
 // ---- Bank statement markers ----
@@ -107,7 +113,7 @@ export function checkSourceSpecific(
     if (!result.equifax_authentic_markers) {
       flags.push({
         code: 'credit_report_no_equifax_markers',
-        severity: 'high',
+        severity: 'medium',
         file,
         evidence_en: `Document claims to be a credit report but contains none of the distinctive Equifax markers (Risk Score, Beacon, Trade Lines, Consumer Disclosure). Found ${markersHit}/6 expected markers in extracted text.`,
         evidence_zh: `文件声称是信用报告，但提取的文字里找不到 Equifax 的特征标记（Risk Score、Beacon、Trade Lines、Consumer Disclosure）。仅找到 ${markersHit}/6 个预期标记。`,

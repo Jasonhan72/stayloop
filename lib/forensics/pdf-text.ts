@@ -52,7 +52,7 @@ export async function readPdfTextDensity(
       page_count: pageCount,
       chars_per_page: Math.round(charsPerPage),
       is_likely_image_pdf: charsPerPage < 50,
-      text_sample: text.slice(0, 500),
+      text_sample: text.slice(0, 2000),
     }
   } catch {
     return null

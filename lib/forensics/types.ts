@@ -41,7 +41,7 @@ export interface TextDensityResult {
   chars_per_page: number
   /** true when text density is below 50 chars/page — strong signal of image-only PDF */
   is_likely_image_pdf: boolean
-  /** the first 200 chars of extracted text, used for source-specific fingerprinting */
+  /** the first 2000 chars of extracted text, used for source-specific fingerprinting */
   text_sample: string
 }
 
