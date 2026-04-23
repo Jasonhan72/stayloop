@@ -141,10 +141,15 @@ function nameMatchesTitle(searchName: string, caseTitle: string): boolean {
     return titleLower.includes(nameNospace)
   }
 
-  // Latin: require ALL name parts to appear in the title
+  // Latin: require ALL name parts to appear in the title as whole words.
+  // Word-boundary matching prevents "bo" from matching inside "board" etc.
   const parts = fullLower.split(/\s+/).filter(p => p.length >= 2)
   if (parts.length < 2) return false  // single word = can't confirm, reject
-  return parts.every(part => titleLower.includes(part))
+  return parts.every(part => {
+    const escaped = part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(`(?:^|[^a-z])${escaped}(?:$|[^a-z])`)
+    return re.test(titleLower)
+  })
 }
 
 /**
@@ -264,14 +269,37 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
     const results = data._embedded?.results || []
     const totalElements = data.page?.totalElements || results.length
 
-    // Filter: only keep results where the party display name actually contains
-    // the tenant's name (the portal API does substring matching, so we verify)
+    // Filter: only keep results where the party display name is actually
+    // the searched person. The portal API may return fuzzy matches where
+    // only part of the name matches (e.g. searching "BO HAN" returns a
+    // party named "ZHANG, BO" just because "BO" appears). We need strict
+    // matching: the party's last name must match the applicant's last name.
+    const searchParts = fullName.toLowerCase().trim().split(/\s+/).filter(p => p.length >= 2)
+    const searchLastName = searchParts.length >= 2 ? searchParts[searchParts.length - 1] : ''
+    const searchFirstName = searchParts.length >= 2 ? searchParts[0] : ''
+
     const matches: OntarioPortalMatch[] = results
       .filter(r => {
         const displayName = (r.partyHeader?.partyActorInstance?.displayName || '').toLowerCase()
         const sortName = (r.partyHeader?.partyActorInstance?.sortName || '').toLowerCase()
-        const combined = displayName + ' ' + sortName
-        return nameMatchesTitle(fullName, combined)
+        // sortName is typically "LASTNAME, FIRSTNAME" format
+        // displayName is typically "FIRSTNAME LASTNAME" format
+        // We need the party's last name to match the applicant's last name
+        // AND the first name to match too (not just substring)
+        const sortParts = sortName.split(',').map(s => s.trim())
+        const partyLastName = sortParts[0] || ''
+        const partyFirstName = sortParts[1] || ''
+        // Also try displayName format "FIRSTNAME LASTNAME"
+        const displayParts = displayName.split(/\s+/)
+        const displayLast = displayParts.length >= 2 ? displayParts[displayParts.length - 1] : displayParts[0] || ''
+        const displayFirst = displayParts.length >= 2 ? displayParts[0] : ''
+
+        // Strict match: both first AND last name must match the party
+        // (checking both sortName and displayName formats)
+        const lastNameMatch = partyLastName === searchLastName || displayLast === searchLastName
+        const firstNameMatch = partyFirstName === searchFirstName || displayFirst === searchFirstName
+          || partyFirstName.startsWith(searchFirstName) || searchFirstName.startsWith(partyFirstName)
+        return lastNameMatch && firstNameMatch
       })
       .map(r => ({
         caseNumber: r.caseHeader?.caseNumber || '',
@@ -974,8 +1002,12 @@ JSON DISCIPLINE (avoid parse errors):
       'pdf_producer_consumer_tool',        // Photoshop / Word / Canva / Image2PDF
       'paystub_ytd_inflated',              // YTD math impossible (>1.5x or <0.5x)
       'paystub_period_math_error',         // hourly × hours ≠ stated gross
-      'credit_report_no_equifax_markers',  // claims to be Equifax, no markers
       'bank_producer_mismatch',            // bank text but wrong PDF Producer
+      // NOTE: credit_report_no_equifax_markers is deliberately NOT here.
+      // Missing Equifax markers could mean it's a TransUnion/Borrowell report
+      // or a different format — suspicious but not conclusive forgery.
+      // NOTE: pdf_pure_image is deliberately NOT here — an image-only PDF
+      // could be a legitimate scan/photo of a real document.
     ])
 
     // file_kind → list of v3 dimensions to zero when that file is forged
@@ -1045,22 +1077,10 @@ JSON DISCIPLINE (avoid parse errors):
       ? { ...parsed.details_zh } : {}
     const dimsZeroed: Array<keyof V3Scores> = []
 
-    // If ANY document is forged, ALL uploaded documents become untrusted.
-    // Zero out ALL dimensions that depend on uploaded evidence, not just
-    // the specific dimension tied to the forged file type.
-    if (Object.keys(dimZeroReasons).length > 0) {
-      const forgedFileNames = Object.values(dimZeroReasons).map(r => r.en).join(' ')
-      const ALL_DIMS: Array<keyof V3Scores> = ['ability_to_pay', 'credit_health', 'rental_history', 'verification', 'communication']
-      for (const dim of ALL_DIMS) {
-        if (!dimZeroReasons[dim]) {
-          dimZeroReasons[dim] = {
-            en: `Score forced to 0: another uploaded document was determined to be forged — ALL uploaded documents are now untrusted.`,
-            zh: `维度被置零：检测到有文件伪造，所有上传文件均不可信。`,
-          }
-        }
-      }
-    }
-
+    // Zero only the specific dimensions tied to the forged file type.
+    // Previously we zeroed ALL dimensions if ANY file was forged, but
+    // this is too aggressive: a suspicious credit report shouldn't zero
+    // ability_to_pay if the paystubs and bank statements are legitimate.
     for (const [dim, reason] of Object.entries(dimZeroReasons) as Array<[keyof V3Scores, DimZeroReason]>) {
       s[dim] = 0
       detailsEn[dim] = reason.en
