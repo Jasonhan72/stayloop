@@ -223,6 +223,7 @@ interface OntarioPortalMatch {
   courtAbbreviation: string
   closedFlag: boolean
   caseUrl?: string  // direct link to case detail page on courts.ontario.ca
+  nameSwapped?: boolean  // true if first/last name were swapped to match — needs manual verification
 }
 
 const ONTARIO_PORTAL_CIVIL_COURT_ID = '68f021c4-6a44-4735-9a76-5360b2e8af13'
@@ -284,76 +285,79 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
     const searchLastName = searchParts.length >= 2 ? searchParts[searchParts.length - 1] : ''
     const searchFirstName = searchParts.length >= 2 ? searchParts[0] : ''
 
-    const matches: OntarioPortalMatch[] = results
-      .filter(r => {
-        const displayName = (r.partyHeader?.partyActorInstance?.displayName || '').toLowerCase()
-        const sortName = (r.partyHeader?.partyActorInstance?.sortName || '').toLowerCase()
-        // sortName is typically "LASTNAME, FIRSTNAME" format
-        // displayName is typically "FIRSTNAME LASTNAME" format
-        // We need the party's last name to match the applicant's last name
-        // AND the first name to match too (not just substring)
-        const sortParts = sortName.split(',').map(s => s.trim())
-        const partyLastName = sortParts[0] || ''
-        const partyFirstName = sortParts[1] || ''
-        // Also try displayName format "FIRSTNAME LASTNAME"
-        const displayParts = displayName.split(/\s+/)
-        const displayLast = displayParts.length >= 2 ? displayParts[displayParts.length - 1] : displayParts[0] || ''
-        const displayFirst = displayParts.length >= 2 ? displayParts[0] : ''
+    // Helper: check if party name matches applicant (returns 'exact' | 'swapped' | false)
+    function checkPartyMatch(
+      sortName: string, displayName: string, caseTitle: string
+    ): 'exact' | 'swapped' | false {
+      const sortParts = sortName.split(',').map(s => s.trim())
+      const partyLast = sortParts[0] || ''
+      const partyFirst = sortParts[1] || ''
+      const displayParts = displayName.split(/\s+/)
+      const dispLast = displayParts.length >= 2 ? displayParts[displayParts.length - 1] : displayParts[0] || ''
+      const dispFirst = displayParts.length >= 2 ? displayParts[0] : ''
+      const titleLower = caseTitle.toLowerCase()
 
-        // Strict match: both first AND last name must match the party
-        // (checking both sortName and displayName formats)
-        const lastNameMatch = partyLastName === searchLastName || displayLast === searchLastName
-        const firstNameMatch = partyFirstName === searchFirstName || displayFirst === searchFirstName
-          || partyFirstName.startsWith(searchFirstName) || searchFirstName.startsWith(partyFirstName)
-        if (!lastNameMatch || !firstNameMatch) return false
+      // Check normal order: searchFirst=first, searchLast=last
+      const normalLastOk = partyLast === searchLastName || dispLast === searchLastName
+      const normalFirstOk = partyFirst === searchFirstName || dispFirst === searchFirstName
+        || partyFirst.startsWith(searchFirstName) || searchFirstName.startsWith(partyFirst)
+      if (normalLastOk && normalFirstOk) {
+        // Verify last name appears in case title
+        if (titleLower && searchLastName.length >= 2 && !titleLower.includes(searchLastName)) return false
+        return 'exact'
+      }
 
-        // Secondary verification: the applicant's last name should appear
-        // in the case title (e.g. "SMITH v. JONES"). The Ontario Courts Portal
-        // API sometimes returns false matches where the partyDisplayName doesn't
-        // correspond to an actual party in the case. Cross-checking the title
-        // catches these — if the applicant's name isn't in the case title at all,
-        // they're almost certainly not a real party.
-        const caseTitle = (r.caseHeader?.caseTitle || '').toLowerCase()
-        if (caseTitle && searchLastName.length >= 2) {
-          const lastInTitle = caseTitle.includes(searchLastName)
-          if (!lastInTitle) return false
-        }
-        return true
+      // Check swapped order: searchFirst↔searchLast (common for Chinese names)
+      const swapLastOk = partyLast === searchFirstName || dispLast === searchFirstName
+      const swapFirstOk = partyFirst === searchLastName || dispFirst === searchLastName
+        || partyFirst.startsWith(searchLastName) || searchLastName.startsWith(partyFirst)
+      if (swapLastOk && swapFirstOk) {
+        // For swapped match, verify the swapped "last name" (actually applicant's first name)
+        // appears in the case title
+        if (titleLower && searchFirstName.length >= 2 && !titleLower.includes(searchFirstName)) return false
+        return 'swapped'
+      }
+
+      return false
+    }
+
+    const matches: OntarioPortalMatch[] = []
+    for (const r of results) {
+      const displayName = (r.partyHeader?.partyActorInstance?.displayName || '').toLowerCase()
+      const sortName = (r.partyHeader?.partyActorInstance?.sortName || '').toLowerCase()
+      const caseTitle = r.caseHeader?.caseTitle || ''
+      const matchType = checkPartyMatch(sortName, displayName, caseTitle)
+      if (!matchType) continue
+
+      // Build case URL
+      const caseNum = r.caseHeader?.caseNumber || ''
+      const courtId = ONTARIO_PORTAL_CIVIL_COURT_ID
+      const caseUUID = r.caseHeader?.caseID || ''
+      const selfHref = r._links?.self?.href || ''
+      const extractedCaseId = caseUUID || selfHref.match(/cases\/([0-9a-f-]{36})/)?.[1] || ''
+
+      let caseUrl: string
+      if (extractedCaseId) {
+        caseUrl = `https://courts.ontario.ca/portal/court/${courtId}/case/${extractedCaseId}`
+      } else if (caseNum) {
+        caseUrl = `https://courts.ontario.ca/portal/search/case/results?criteria=~(advanced~false~courtID~%27${courtId}~paging~(totalItems~0~itemsPerPage~25~page~1~sortBy~%27caseHeader.filedDate~sortDesc~true)~case~(caseNumber~%27${encodeURIComponent(caseNum)}~caseNumberQueryTypeID~10462~caseTitleQueryTypeID~300054~originatingCourtCaseNumberQueryTypeID~10463~excludeClosed~false))`
+      } else {
+        caseUrl = `https://courts.ontario.ca/portal/search/case`
+      }
+
+      matches.push({
+        caseNumber: caseNum,
+        caseTitle: r.caseHeader?.caseTitle || '',
+        caseCategory: r.caseHeader?.caseCategory || '',
+        filedDate: r.caseHeader?.filedDate || '',
+        partyRole: r.partyHeader?.partySubType || '',
+        partyDisplayName: r.partyHeader?.partyActorInstance?.sortName || r.partyHeader?.partyActorInstance?.displayName || '',
+        courtAbbreviation: r.caseHeader?.courtAbbreviation || 'Civil and Small Claims Court',
+        closedFlag: r.caseHeader?.closedFlag ?? false,
+        caseUrl,
+        nameSwapped: matchType === 'swapped',
       })
-      .map(r => {
-        const caseNum = r.caseHeader?.caseNumber || ''
-        // Always use the known court UUID constant — the API's courtID field
-        // may return a short numeric ID (e.g. "1") instead of the full UUID
-        const courtId = ONTARIO_PORTAL_CIVIL_COURT_ID
-        // Try to get direct case URL from caseID UUID
-        const caseUUID = r.caseHeader?.caseID || ''
-        const selfHref = r._links?.self?.href || ''
-        const extractedCaseId = caseUUID || selfHref.match(/cases\/([0-9a-f-]{36})/)?.[1] || ''
-
-        let caseUrl: string
-        if (extractedCaseId) {
-          // Direct link to case detail page
-          caseUrl = `https://courts.ontario.ca/portal/court/${courtId}/case/${extractedCaseId}`
-        } else if (caseNum) {
-          // Fallback: search results page pre-filled with case number
-          // This shows the case in results — user clicks case number to see detail
-          caseUrl = `https://courts.ontario.ca/portal/search/case/results?criteria=~(advanced~false~courtID~%27${courtId}~paging~(totalItems~0~itemsPerPage~25~page~1~sortBy~%27caseHeader.filedDate~sortDesc~true)~case~(caseNumber~%27${encodeURIComponent(caseNum)}~caseNumberQueryTypeID~10462~caseTitleQueryTypeID~300054~originatingCourtCaseNumberQueryTypeID~10463~excludeClosed~false))`
-        } else {
-          caseUrl = `https://courts.ontario.ca/portal/search/case`
-        }
-
-        return {
-          caseNumber: caseNum,
-          caseTitle: r.caseHeader?.caseTitle || '',
-          caseCategory: r.caseHeader?.caseCategory || '',
-          filedDate: r.caseHeader?.filedDate || '',
-          partyRole: r.partyHeader?.partySubType || '',
-          partyDisplayName: r.partyHeader?.partyActorInstance?.sortName || r.partyHeader?.partyActorInstance?.displayName || '',
-          courtAbbreviation: r.caseHeader?.courtAbbreviation || 'Civil and Small Claims Court',
-          closedFlag: r.caseHeader?.closedFlag ?? false,
-          caseUrl,
-        }
-      })
+    }
 
     return { matches, totalElements }
   } catch (e: any) {

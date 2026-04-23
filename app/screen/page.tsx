@@ -48,6 +48,7 @@ interface OntarioPortalMatch {
   courtAbbreviation: string
   closedFlag: boolean
   caseUrl?: string
+  nameSwapped?: boolean  // first/last name were swapped to match — needs verification
 }
 
 interface CourtQuery {
@@ -732,6 +733,14 @@ function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMat
         }}>
           {record.closedFlag ? (lang === 'zh' ? '已结案' : 'Closed') : (lang === 'zh' ? '进行中' : 'Active')}
         </span>
+        {record.nameSwapped && (
+          <span style={{
+            fontSize: 9, padding: '1px 5px', borderRadius: 3, fontWeight: 600,
+            background: '#DBEAFE', color: '#1E40AF', flexShrink: 0,
+          }}>
+            {lang === 'zh' ? '⚠ 姓名顺序对调 · 需核实' : '⚠ Name order swapped · verify'}
+          </span>
+        )}
       </div>
       {/* Row 2: Case title */}
       <div style={{ fontSize: 13, color: '#0F172A', fontWeight: 600, lineHeight: 1.4, marginBottom: 6 }}>
