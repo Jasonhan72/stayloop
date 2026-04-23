@@ -286,8 +286,9 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
     const searchFirstName = searchParts.length >= 2 ? searchParts[0] : ''
 
     // Helper: check if party name matches applicant (returns 'exact' | 'swapped' | false)
+    // Only matches on party name fields — no case title cross-check.
     function checkPartyMatch(
-      sortName: string, displayName: string, caseTitle: string
+      sortName: string, displayName: string
     ): 'exact' | 'swapped' | false {
       const sortParts = sortName.split(',').map(s => s.trim())
       const partyLast = sortParts[0] || ''
@@ -295,28 +296,18 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
       const displayParts = displayName.split(/\s+/)
       const dispLast = displayParts.length >= 2 ? displayParts[displayParts.length - 1] : displayParts[0] || ''
       const dispFirst = displayParts.length >= 2 ? displayParts[0] : ''
-      const titleLower = caseTitle.toLowerCase()
 
       // Check normal order: searchFirst=first, searchLast=last
       const normalLastOk = partyLast === searchLastName || dispLast === searchLastName
       const normalFirstOk = partyFirst === searchFirstName || dispFirst === searchFirstName
         || partyFirst.startsWith(searchFirstName) || searchFirstName.startsWith(partyFirst)
-      if (normalLastOk && normalFirstOk) {
-        // Verify last name appears in case title
-        if (titleLower && searchLastName.length >= 2 && !titleLower.includes(searchLastName)) return false
-        return 'exact'
-      }
+      if (normalLastOk && normalFirstOk) return 'exact'
 
       // Check swapped order: searchFirst↔searchLast (common for Chinese names)
       const swapLastOk = partyLast === searchFirstName || dispLast === searchFirstName
       const swapFirstOk = partyFirst === searchLastName || dispFirst === searchLastName
         || partyFirst.startsWith(searchLastName) || searchLastName.startsWith(partyFirst)
-      if (swapLastOk && swapFirstOk) {
-        // For swapped match, verify the swapped "last name" (actually applicant's first name)
-        // appears in the case title
-        if (titleLower && searchFirstName.length >= 2 && !titleLower.includes(searchFirstName)) return false
-        return 'swapped'
-      }
+      if (swapLastOk && swapFirstOk) return 'swapped'
 
       return false
     }
@@ -325,8 +316,7 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
     for (const r of results) {
       const displayName = (r.partyHeader?.partyActorInstance?.displayName || '').toLowerCase()
       const sortName = (r.partyHeader?.partyActorInstance?.sortName || '').toLowerCase()
-      const caseTitle = r.caseHeader?.caseTitle || ''
-      const matchType = checkPartyMatch(sortName, displayName, caseTitle)
+      const matchType = checkPartyMatch(sortName, displayName)
       if (!matchType) continue
 
       // Build case URL
