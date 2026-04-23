@@ -222,6 +222,7 @@ interface OntarioPortalMatch {
   partyDisplayName: string
   courtAbbreviation: string
   closedFlag: boolean
+  caseUrl?: string  // direct link to case detail page on courts.ontario.ca
 }
 
 const ONTARIO_PORTAL_CIVIL_COURT_ID = '68f021c4-6a44-4735-9a76-5360b2e8af13'
@@ -254,12 +255,17 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
             partyActorInstance?: { displayName?: string; sortName?: string }
           }
           caseHeader?: {
+            caseID?: string       // UUID for direct case link
+            courtID?: string      // UUID of the court
             caseNumber?: string
             caseTitle?: string
             caseCategory?: string
             courtAbbreviation?: string
             filedDate?: string
             closedFlag?: boolean
+          }
+          _links?: {
+            self?: { href?: string }
           }
         }>
       }
@@ -301,16 +307,29 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
           || partyFirstName.startsWith(searchFirstName) || searchFirstName.startsWith(partyFirstName)
         return lastNameMatch && firstNameMatch
       })
-      .map(r => ({
-        caseNumber: r.caseHeader?.caseNumber || '',
-        caseTitle: r.caseHeader?.caseTitle || '',
-        caseCategory: r.caseHeader?.caseCategory || '',
-        filedDate: r.caseHeader?.filedDate || '',
-        partyRole: r.partyHeader?.partySubType || '',
-        partyDisplayName: r.partyHeader?.partyActorInstance?.sortName || r.partyHeader?.partyActorInstance?.displayName || '',
-        courtAbbreviation: r.caseHeader?.courtAbbreviation || 'Civil and Small Claims Court',
-        closedFlag: r.caseHeader?.closedFlag ?? false,
-      }))
+      .map(r => {
+        // Build direct case URL: courts.ontario.ca/portal/court/{courtId}/case/{caseId}
+        const caseUUID = r.caseHeader?.caseID || ''
+        const courtUUID = r.caseHeader?.courtID || ONTARIO_PORTAL_CIVIL_COURT_ID
+        // Also try extracting from _links.self.href if caseID not directly available
+        const selfHref = r._links?.self?.href || ''
+        const extractedCaseId = caseUUID || selfHref.match(/cases\/([0-9a-f-]{36})/)?.[1] || ''
+        const caseUrl = extractedCaseId
+          ? `https://courts.ontario.ca/portal/court/${courtUUID}/case/${extractedCaseId}`
+          : `https://courts.ontario.ca/portal/search/case`  // fallback to case search
+
+        return {
+          caseNumber: r.caseHeader?.caseNumber || '',
+          caseTitle: r.caseHeader?.caseTitle || '',
+          caseCategory: r.caseHeader?.caseCategory || '',
+          filedDate: r.caseHeader?.filedDate || '',
+          partyRole: r.partyHeader?.partySubType || '',
+          partyDisplayName: r.partyHeader?.partyActorInstance?.sortName || r.partyHeader?.partyActorInstance?.displayName || '',
+          courtAbbreviation: r.caseHeader?.courtAbbreviation || 'Civil and Small Claims Court',
+          closedFlag: r.caseHeader?.closedFlag ?? false,
+          caseUrl,
+        }
+      })
 
     return { matches, totalElements }
   } catch (e: any) {

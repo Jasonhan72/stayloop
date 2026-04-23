@@ -47,6 +47,7 @@ interface OntarioPortalMatch {
   partyDisplayName: string
   courtAbbreviation: string
   closedFlag: boolean
+  caseUrl?: string
 }
 
 interface CourtQuery {
@@ -754,11 +755,11 @@ function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMat
         <span style={{ fontWeight: 600 }}>{lang === 'zh' ? '法院' : 'Court'}:</span>
         <span style={{ color: '#334155' }}>{record.courtAbbreviation}</span>
       </div>
-      {/* Row 4: Source link */}
+      {/* Row 4: Source link — direct to case detail page when available */}
       <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 6 }}>
         {lang === 'zh' ? '数据来源：' : 'Source: '}
         <a
-          href="https://courts.ontario.ca/portal/search/party"
+          href={record.caseUrl || `https://courts.ontario.ca/portal/search/case`}
           target="_blank"
           rel="noopener noreferrer"
           style={{ color: '#0284C7', textDecoration: 'none' }}
