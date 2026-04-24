@@ -1,0 +1,37 @@
+name: Refresh CA Corporate Registry
+
+on:
+  # Monthly on the 5th at 06:00 UTC (~01:00 EST) — ISED refreshes the dataset
+  # weekly; monthly is plenty for landlord-screening freshness.
+  schedule:
+    - cron: '0 6 5 * *'
+  # Also allow manual triggering for the initial seed / on-demand refreshes
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ca-corp-registry-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run ingestion
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node --version
+          node ./scripts/ingest-ca-corp-registry.mjs
