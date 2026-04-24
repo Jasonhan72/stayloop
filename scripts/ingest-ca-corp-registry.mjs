@@ -25,7 +25,7 @@
 import { createWriteStream, createReadStream } from 'node:fs'
 import { mkdir, stat, readdir, readFile, unlink, rm } from 'node:fs/promises'
 import { pipeline } from 'node:stream/promises'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import path from 'node:path'
 import os from 'node:os'
 
@@ -69,6 +69,27 @@ async function run(cmd, args, opts = {}) {
     })
     p.on('error', reject)
   })
+}
+
+/**
+ * List entries inside a ZIP using `unzip -l`. Returns array of file names.
+ */
+function listZipEntries(zipPath) {
+  const { stdout } = spawnSync('unzip', ['-Z', '-1', zipPath], { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 })
+  return stdout.split('\n').map(s => s.trim()).filter(Boolean)
+}
+
+/**
+ * Extract ONE file from a ZIP to stdout (memory buffer). Avoids materializing
+ * all files on disk — keeps peak disk footprint to just the ZIP itself.
+ */
+function extractOneToString(zipPath, entryName) {
+  const { stdout, status, stderr } = spawnSync('unzip', ['-p', zipPath, entryName], {
+    encoding: 'utf8',
+    maxBuffer: 200 * 1024 * 1024,  // Each XML file is ~2MB, this is plenty
+  })
+  if (status !== 0) throw new Error(`unzip -p ${entryName} exited ${status}: ${stderr?.toString().slice(0, 200)}`)
+  return stdout
 }
 
 /**
@@ -314,7 +335,6 @@ async function main() {
   await mkdir(WORK_DIR, { recursive: true })
 
   const zipPath = path.join(WORK_DIR, 'open_data.zip')
-  const extractDir = path.join(WORK_DIR, 'xml')
 
   // 1. Download
   console.log(`[ingest] Downloading ${ZIP_URL}`)
@@ -325,32 +345,48 @@ async function main() {
   const zipStat = await stat(zipPath)
   console.log(`[ingest] Downloaded ${(zipStat.size / 1024 / 1024).toFixed(1)}MB in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
 
-  // 2. Unzip (requires `unzip` binary; GitHub Actions runners include it)
-  await mkdir(extractDir, { recursive: true })
-  console.log(`[ingest] Unzipping to ${extractDir}`)
-  await run('unzip', ['-q', '-o', zipPath, '-d', extractDir])
+  // 2. List entries inside the ZIP (no bulk extraction — stream per-file next)
+  const entries = listZipEntries(zipPath)
+  const xmlFiles = entries.filter(f => /^OPEN_DATA_\d+\.xml$/i.test(f))
+    .sort((a, b) => {
+      const na = Number(a.match(/(\d+)/)?.[1] || 0)
+      const nb = Number(b.match(/(\d+)/)?.[1] || 0)
+      return na - nb
+    })
+  console.log(`[ingest] Found ${xmlFiles.length} XML entries inside ZIP`)
 
-  // 3. List XML files
-  const all = await readdir(extractDir)
-  const xmlFiles = all.filter(f => /^OPEN_DATA_\d+\.xml$/i.test(f)).sort()
-  console.log(`[ingest] Found ${xmlFiles.length} XML files`)
+  // Optional resume: skip the first N files if RESUME_FROM=N is set. Useful
+  // if a previous run crashed mid-flight and we want to continue.
+  const resumeFrom = Number(process.env.RESUME_FROM || 0)
+  if (resumeFrom > 0) {
+    console.log(`[ingest] Resuming from file index ${resumeFrom}`)
+  }
 
-  // 4. Parse + batch UPSERT
+  // 3. Stream-parse: extract one XML entry → parse → batch upsert → discard.
+  //    Peak disk footprint stays at ~200MB (ZIP only). Memory peaks at one
+  //    uncompressed XML file (~20-30MB) + one batch (~500 rows).
   let totalRows = 0
   let batch = []
   const t1 = Date.now()
 
-  for (let i = 0; i < xmlFiles.length; i++) {
+  for (let i = resumeFrom; i < xmlFiles.length; i++) {
     const fname = xmlFiles[i]
-    const text = await readFile(path.join(extractDir, fname), 'utf8')
+    let text
+    try {
+      text = extractOneToString(zipPath, fname)
+    } catch (e) {
+      console.warn(`[ingest] Failed to extract ${fname}: ${e.message} — skipping`)
+      continue
+    }
     const blocks = extractCorporations(text)
+    text = null  // release ASAP
     for (const block of blocks) {
       const row = parseCorporation(block)
       if (row) {
         batch.push(row)
         if (batch.length >= BATCH_SIZE) {
-          await upsertBatch(batch)
-          totalRows += batch.length
+          const n = await upsertBatch(batch)
+          totalRows += n
           batch = []
         }
       }
@@ -360,8 +396,8 @@ async function main() {
   }
 
   if (batch.length) {
-    await upsertBatch(batch)
-    totalRows += batch.length
+    const n = await upsertBatch(batch)
+    totalRows += n
   }
 
   const elapsedMin = ((Date.now() - t0) / 1000 / 60).toFixed(1)
