@@ -33,7 +33,7 @@ export const runtime = 'edge'
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { runDeepCheck } from '@/lib/forensics'
-import { canonicalizeEmployerName, searchOpenCorporates } from '@/lib/forensics/arm-length'
+import { canonicalizeEmployerName, searchOpenCorporates, RegistryAuthError } from '@/lib/forensics/arm-length'
 import type { CompanyRegistryInfo } from '@/lib/forensics/arm-length'
 
 function makeServiceClient() {
@@ -76,10 +76,14 @@ function makeCachedCompanyLookup(supabase: SupabaseClient) {
       // fall through to live fetch
     }
 
-    // Live fetch
+    // Live fetch — note: RegistryAuthError propagates up, it is NOT cached.
+    // Caching auth errors was the root cause of the production-wide false
+    // negatives on 2026-04-23: every lookup silently returned "not found"
+    // after OpenCorporates closed their unauthenticated free tier.
     const result = await searchOpenCorporates(name)
 
-    // Fire-and-forget upsert (do not await — don't block the user)
+    // Only cache legitimate outcomes (hit or verified miss).
+    // Fire-and-forget upsert — do not await — don't block the user.
     try {
       void supabase
         .from('employer_lookup_cache')
@@ -259,6 +263,16 @@ export async function POST(req: Request) {
     })
   } catch (e: any) {
     console.error('[deep-check] Error:', e)
+    // Registry auth errors are a configuration problem, not a user error.
+    // Surface them distinctly so the UI can tell the landlord the service
+    // is mis-configured rather than claiming their employer passed the check.
+    if (e instanceof RegistryAuthError || e?.name === 'RegistryAuthError') {
+      return Response.json({
+        error: `Company registry unavailable: ${e.message}`,
+        error_zh: `公司注册查询服务暂时不可用（API 配置问题）。运营者需要在后台配置 OpenCorporates API token。`,
+        error_code: 'registry_auth_failed',
+      }, { status: 503 })
+    }
     return Response.json({
       error: `Deep check failed: ${e?.message || 'unknown error'}`,
       error_zh: `深度检查失败: ${e?.message || '未知错误'}`,

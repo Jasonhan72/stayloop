@@ -161,6 +161,19 @@ function addressOverlap(addr1: string, addr2: string): boolean {
  * the best scoring match across all responses. Officer lookup remains a single
  * follow-up call for the winner.
  */
+/**
+ * Sentinel thrown when the OpenCorporates API rejects the request with an
+ * auth error (401/403) or fails in a way that suggests misconfiguration.
+ * This is different from "searched successfully, found nothing" — we must
+ * NOT cache this or claim the company doesn't exist.
+ */
+export class RegistryAuthError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'RegistryAuthError'
+  }
+}
+
 export async function searchOpenCorporates(companyName: string): Promise<CompanyRegistryInfo | null> {
   if (!companyName || companyName.trim().length < 3) return null
 
@@ -169,17 +182,36 @@ export async function searchOpenCorporates(companyName: string): Promise<Company
   const target = companyName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
   const targetWords = target.split(/\s+/).filter(Boolean)
 
+  // As of late 2025 / early 2026, OpenCorporates closed their unauthenticated
+  // free tier — every unauthenticated search returns 401 "Invalid Api Token".
+  // The token is set in Cloudflare env as OPENCORPORATES_API_TOKEN. If unset,
+  // we surface a loud error rather than silently claiming "not found" on
+  // every lookup (which is what the code was doing before — hiding a
+  // production-wide false-negative for hours).
+  const apiToken = process.env.OPENCORPORATES_API_TOKEN
+  const tokenParam = apiToken ? `&api_token=${encodeURIComponent(apiToken)}` : ''
+
   // Parallel fan-out
   const perCallTimeoutMs = 6000
+  let authErrorSeen = false
   const searches = jurisdictions.map(async (jurisdiction) => {
     try {
-      const url = `https://api.opencorporates.com/v0.4/companies/search?q=${query}&jurisdiction_code=${jurisdiction}&per_page=5`
+      const url = `https://api.opencorporates.com/v0.4/companies/search?q=${query}&jurisdiction_code=${jurisdiction}&per_page=5${tokenParam}`
       const res = await fetch(url, {
         headers: { 'Accept': 'application/json' },
         signal: AbortSignal.timeout(perCallTimeoutMs),
       })
+      if (res.status === 401 || res.status === 403) {
+        authErrorSeen = true
+        return null
+      }
       if (!res.ok) return null
       const data = await res.json() as any
+      // Defensive: API sometimes returns 200 with an error body shape
+      if (data?.error?.message) {
+        if (/token|auth/i.test(String(data.error.message))) authErrorSeen = true
+        return null
+      }
       const companies = data?.results?.companies || []
       return companies.length ? companies : null
     } catch {
@@ -187,6 +219,14 @@ export async function searchOpenCorporates(companyName: string): Promise<Company
     }
   })
   const settled = await Promise.allSettled(searches)
+
+  if (authErrorSeen) {
+    throw new RegistryAuthError(
+      apiToken
+        ? 'OpenCorporates rejected the API token — check OPENCORPORATES_API_TOKEN in Cloudflare env'
+        : 'OpenCorporates requires an API token. Set OPENCORPORATES_API_TOKEN in Cloudflare Pages env vars (sign up for free at opencorporates.com/users/sign_up).'
+    )
+  }
 
   // Score every candidate across all jurisdictions
   let bestMatch: any = null
@@ -212,7 +252,7 @@ export async function searchOpenCorporates(companyName: string): Promise<Company
   // Officer lookup for the winner
   let officers: Array<{ name: string; position: string }> = []
   try {
-    const detailUrl = `https://api.opencorporates.com/v0.4/companies/${bestMatch.jurisdiction_code}/${bestMatch.company_number}`
+    const detailUrl = `https://api.opencorporates.com/v0.4/companies/${bestMatch.jurisdiction_code}/${bestMatch.company_number}${apiToken ? `?api_token=${encodeURIComponent(apiToken)}` : ''}`
     const detailRes = await fetch(detailUrl, {
       headers: { 'Accept': 'application/json' },
       signal: AbortSignal.timeout(5000),
