@@ -597,11 +597,22 @@ export async function POST(req: NextRequest) {
     // "The string did not match the expected pattern." on non-ASCII / CRLF.
     const rawAuth = req.headers.get('authorization') || ''
     const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      authHeader ? { global: { headers: { Authorization: authHeader } } } : {}
+      { global: { headers: { Authorization: authHeader } } },
     )
+
+    // Defense in depth: verify the token actually resolves to a user. RLS
+    // also guards the query below, but an explicit check catches forged/
+    // expired tokens earlier and returns a 401 instead of a 404.
+    const { data: userData, error: userErr } = await supabase.auth.getUser()
+    if (userErr || !userData?.user) {
+      return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
+    }
 
     const { data: screening, error } = await supabase
       .from('screenings')

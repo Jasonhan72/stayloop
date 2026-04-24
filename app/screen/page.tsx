@@ -1551,6 +1551,17 @@ export default function ScreenPage() {
   const [manualEmployerName, setManualEmployerName] = useState('')
   // Phase 4 UX: staged progress text ("查询注册" → "核对董事" → "交叉比对")
   const [deepCheckStage, setDeepCheckStage] = useState<0 | 1 | 2>(0)
+  // Refs for in-flight work that needs to be cancelled on unmount to avoid
+  // "setState on unmounted component" warnings and orphaned network requests.
+  const analysisAbortRef = useRef<AbortController | null>(null)
+  const deepCheckTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  useEffect(() => {
+    return () => {
+      analysisAbortRef.current?.abort()
+      for (const t of deepCheckTimersRef.current) clearTimeout(t)
+      deepCheckTimersRef.current = []
+    }
+  }, [])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -1647,11 +1658,12 @@ export default function ScreenPage() {
     // Clear manual-prompt state once we have a valid payload
     setManualEmployerPrompt(false)
     setDeepCheckStage(0)
-    // Staged progress text — these fire on timers while the API runs. If the
-    // API returns before stage 2, the later setStage calls are harmless; state
-    // is reset to 0 on completion.
+    // Staged progress text — these fire on timers while the API runs. Tracked
+    // in a ref so that component unmount clears them (see the useEffect near
+    // analysisAbortRef). Finally-block clears them after successful completion.
     const stageTimer1 = setTimeout(() => setDeepCheckStage(1), 1800)
     const stageTimer2 = setTimeout(() => setDeepCheckStage(2), 4000)
+    deepCheckTimersRef.current.push(stageTimer1, stageTimer2)
 
     setDeepChecking(true)
     try {
@@ -1719,6 +1731,11 @@ export default function ScreenPage() {
     } finally {
       clearTimeout(stageTimer1)
       clearTimeout(stageTimer2)
+      // Remove these specific timers from the cleanup ref (the unmount
+      // handler clears whatever's still there).
+      deepCheckTimersRef.current = deepCheckTimersRef.current.filter(
+        t => t !== stageTimer1 && t !== stageTimer2
+      )
       setDeepChecking(false)
       setDeepCheckStage(0)
     }
@@ -1964,6 +1981,13 @@ export default function ScreenPage() {
     setTargetRent('')
     setError(null)
     setViewingHistoryId(null)
+    // Deep-check UI state must also reset, otherwise a new screening
+    // could render a stale "manual employer input" prompt or spinner
+    // stage from the previous run.
+    setManualEmployerPrompt(false)
+    setManualEmployerName('')
+    setDeepCheckStage(0)
+    setDeepChecking(false)
   }
 
   async function runAnalysis() {
@@ -2100,7 +2124,11 @@ export default function ScreenPage() {
         console.warn(`[upload] ${failedFiles.length} file(s) skipped: ${failedFiles.join(', ')}`)
       }
 
-      // 3. Call scoring API
+      // 3. Call scoring API. Wire an AbortController so component-unmount
+      // (navigation away, page close) cancels the in-flight request and
+      // prevents setState-on-unmounted warnings.
+      analysisAbortRef.current?.abort()
+      analysisAbortRef.current = new AbortController()
       const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/screen-score', {
         method: 'POST',
@@ -2109,6 +2137,7 @@ export default function ScreenPage() {
           Authorization: `Bearer ${session?.access_token || ''}`,
         },
         body: JSON.stringify({ screening_id: screeningId }),
+        signal: analysisAbortRef.current.signal,
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Scoring failed')

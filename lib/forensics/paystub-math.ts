@@ -194,7 +194,9 @@ export function checkPaystubMath(
   }
 
   // ---------------------------------------------------------------------------
-  // Check 2: hourly × hours = period_gross (within 2%)
+  // Check 2: hourly × hours = period_gross (within 5% — allows for rounding
+  // of displayed hourly rate and minor overtime/shift-differential variances
+  // that the primary-rate line doesn't capture).
   // ---------------------------------------------------------------------------
   if (ext.hourly_rate && ext.hours_worked && ext.period_gross) {
     derivedPeriodGross = ext.hourly_rate * ext.hours_worked

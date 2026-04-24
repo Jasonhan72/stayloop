@@ -12,8 +12,9 @@
 //     we fall back to the old DB-fetch behavior so stale clients still work.
 //
 // PRO users: button calls this directly. Free users: redirected to Stripe.
-// (Server-side plan check is out of scope for Phase 1 — client gates only,
-// same as before. Server gate is a Phase 2+ follow-up.)
+// Server-side PRO gate is enforced — the client-side button disable is not
+// trusted. Callers without a valid session or without pro/enterprise plan
+// get 403.
 //
 // POST body (preferred, stateless):
 //   {
@@ -300,9 +301,65 @@ function dedupeStrings(list: string[]): string[] {
   return out
 }
 
+/**
+ * Server-side PRO plan enforcement. Reads the caller's Authorization token,
+ * looks up their landlord record via RLS'd client, and rejects unless the
+ * plan is 'pro' or 'enterprise'. The client-side button disable is not
+ * trusted — anyone could hit this route directly with a valid session.
+ *
+ * Returns null when the caller is authorized; otherwise a Response to return.
+ */
+async function enforceProGate(req: Request): Promise<Response | null> {
+  const rawAuth = req.headers.get('authorization') || ''
+  const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
+  if (!authHeader) {
+    return bad('Authentication required', '需要登录', 401)
+  }
+
+  // Use the anon key + forwarded auth header — RLS will only return the
+  // caller's own landlord row.
+  const rlsClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: authHeader } } },
+  )
+
+  // Verify the token actually resolves to a user (catches forged / expired tokens)
+  const { data: userData, error: userErr } = await rlsClient.auth.getUser()
+  if (userErr || !userData?.user) {
+    return bad('Invalid or expired session', '会话已过期，请重新登录', 401)
+  }
+
+  // Look up the landlord record — RLS restricts to this user only
+  const { data: landlord, error: landlordErr } = await rlsClient
+    .from('landlords')
+    .select('plan')
+    .maybeSingle()
+
+  if (landlordErr) {
+    console.error('[deep-check] landlord lookup error:', landlordErr)
+    return bad('Failed to verify subscription', '订阅验证失败', 500)
+  }
+
+  const plan = (landlord?.plan as string | undefined) || 'free'
+  if (plan !== 'pro' && plan !== 'enterprise') {
+    return bad(
+      'Deep check requires a Pro subscription',
+      '深度检查为 Pro 功能，请先升级',
+      403,
+    )
+  }
+
+  return null  // authorized
+}
+
 export async function POST(req: Request) {
   const t0 = Date.now()
   try {
+    // Enforce PRO plan server-side before any expensive lookups
+    const gate = await enforceProGate(req)
+    if (gate) return gate
+
     const body = (await req.json().catch(() => ({}))) as Partial<DeepCheckPayload> & { screening_id?: string }
 
     // Resolve payload: prefer structured body; fall back to screening_id lookup.
