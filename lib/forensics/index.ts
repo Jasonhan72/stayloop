@@ -23,6 +23,7 @@ import { checkSourceSpecific } from './source-specific'
 import { runCrossDocChecks } from './cross-doc'
 import { checkArmLength, canonicalizeEmployerName } from './arm-length'
 import type { CompanyRegistryInfo } from './arm-length'
+import { checkIdValidation } from './id-validation'
 import type {
   ForensicFlag,
   ForensicsReport,
@@ -64,6 +65,9 @@ const HARD_GATE_RULES: Array<{
   { gate: 'paystub_math_impossible', mode: 'any', triggers: ['paystub_ytd_inflated', 'paystub_period_math_error'] },
   { gate: 'cross_doc_collision', mode: 'any', triggers: ['cross_doc_phone_collision'] },
   { gate: 'producer_consumer_tool', mode: 'any', triggers: ['pdf_producer_consumer_tool'] },
+  // SIN with a failing Luhn checksum is mathematically fabricated — cannot
+  // occur on a real government-issued SIN. Treat as identity_mismatch.
+  { gate: 'identity_mismatch', mode: 'any', triggers: ['id_sin_invalid_checksum'] },
 ]
 
 const SEVERITY_WEIGHT: Record<string, number> = {
@@ -80,7 +84,7 @@ const SEVERITY_WEIGHT: Record<string, number> = {
 export async function runForensics(input: ForensicsInput): Promise<ForensicsReport> {
   const startedAt = Date.now()
   const perFile: PerFileForensics[] = await Promise.all(
-    input.files.map(f => analyzeFile(f, input.anthropic_api_key))
+    input.files.map(f => analyzeFile(f, input.anthropic_api_key, input.applicant_name))
   )
 
   // Cross-doc step: collect text samples + paystub extractions
@@ -130,7 +134,8 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
 
 async function analyzeFile(
   f: ForensicsInput['files'][number],
-  apiKey?: string
+  apiKey?: string,
+  applicantName?: string,
 ): Promise<PerFileForensics> {
   const startedAt = Date.now()
   const out: PerFileForensics = {
@@ -164,6 +169,18 @@ async function analyzeFile(
         const { result: src, flags: srcFlags } = checkSourceSpecific(meta, text, f.name, f.kind)
         out.source_specific = src
         out.flags.push(...srcFlags)
+
+        // ID-number validation on the extracted text (SIN Luhn, Ontario DL
+        // format + surname prefix, OHIP format). Runs for ID / application
+        // documents where number strings are expected.
+        if (text?.text_sample) {
+          const surname = applicantName
+            ? applicantName.trim().split(/\s+/).pop()
+            : undefined
+          out.flags.push(
+            ...checkIdValidation(text.text_sample, f.name, f.kind, surname)
+          )
+        }
       }
     }
 

@@ -67,8 +67,8 @@ All env vars are set in Cloudflare Pages > stayloop > Settings > Variables and S
 
 ## Scoring Model (v3)
 - **5 dimensions**: ability_to_pay (40%), credit_health (25%), rental_history (20%), verification (10%), communication (5%)
-- **Hard gates** cap the overall score: income_severe (65), ltb_eviction (40), doc_tampering (55), identity_mismatch (50), employer_fraud (45), self_issued_employment (50), court_record_defendant (35), court_record_defendant_multi (25), court_record_active (20), pdf_is_screenshot (30), paystub_math_impossible (35), cross_doc_collision (40), producer_consumer_tool (50)
-- **Red flags**: rush_move_in (-4), cross_doc_contradictions (-8), hr_phone_is_applicant (-10), self_issued_employment_letter (-15), no_linkedin_for_professional_role (-3), volunteered_sin (-2)
+- **Hard gates** cap the overall score: income_severe (65), affordability_severe (55 — rent > 40% gross), ltb_eviction (40), doc_tampering (55), identity_mismatch (50 — also fires on SIN Luhn failure), employer_fraud (45), self_issued_employment (50), bn_employer_mismatch (35), court_record_defendant (35), court_record_defendant_multi (25), court_record_active (20), pdf_is_screenshot (30), paystub_math_impossible (35), cross_doc_collision (40), producer_consumer_tool (50)
+- **Red flags**: rush_move_in (-4), rent_ratio_high (-8 — rent 35-40% of gross), cross_doc_contradictions (-8), hr_phone_is_applicant (-10), self_issued_employment_letter (-15), id_format_invalid (-6), no_linkedin_for_professional_role (-3), volunteered_sin (-2)
 - **Forensics pipeline** (lib/forensics/): PDF metadata, text density, paystub math, source-specific markers, cross-doc entity extraction, arm's-length company verification
 - **Self-issued employment detection**: AI checks if employment letter signatory matches applicant name/family, numbered company, sole proprietorship
 - **Arm's-length deep check** (PRO only): OpenCorporates API company registry lookup, director/officer cross-reference, incorporation date check, address overlap

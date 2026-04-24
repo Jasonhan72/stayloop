@@ -1134,10 +1134,17 @@ JSON DISCIPLINE (avoid parse errors):
       producer_consumer_tool: 50,    // PDF Producer is Preview/Word/Skia for strict kinds
       // Self-issued employment — own company / family business letter
       self_issued_employment: 50,    // self-verified income is unreliable → overall capped at 50
+      // Affordability — rent > 40% of gross monthly income (income_to_rent < 2.5x).
+      // Canadian landlord convention is the 3x rule; 2.5x is the last defensible
+      // threshold before the applicant is obviously overextended.
+      affordability_severe: 55,
       // Court record gates — ANY court record as defendant/debtor = fundamentally untrustworthy
       court_record_defendant: 35,    // 1 case as defendant/debtor → overall capped at 35
       court_record_defendant_multi: 25, // 2+ cases → overall capped at 25
       court_record_active: 20,       // active (non-closed) case as defendant → overall capped at 20
+      // Business Number cross-check — critical forgery signal. Copy-paste of
+      // a real BN onto a fabricated letterhead is a classic fraud pattern.
+      bn_employer_mismatch: 35,
     }
     const RED_FLAG_PENALTIES: Record<string, number> = {
       rush_move_in: 4,
@@ -1146,6 +1153,11 @@ JSON DISCIPLINE (avoid parse errors):
       no_linkedin_for_professional_role: 3,
       volunteered_sin: 2,
       self_issued_employment_letter: 15,
+      // Rent takes 35-40% of gross income — borderline affordability. Not a
+      // hard gate (that's reserved for > 40%) but a material penalty.
+      rent_ratio_high: 8,
+      // Any ID that fails its intrinsic format / checksum check.
+      id_format_invalid: 6,
     }
 
     let baseScore =
@@ -1161,6 +1173,27 @@ JSON DISCIPLINE (avoid parse errors):
     // Enforce hard gates in backend (don't fully trust Claude)
     if (monthlyRent > 0 && incomeRatio > 0 && incomeRatio < 2.0 && !hardGates.includes('income_severe')) {
       hardGates.push('income_severe')
+    }
+    // Affordability gate: rent > 40% of gross income. Fires even when
+    // income_severe is also set — the tighter cap (55) wins over (65).
+    if (monthlyRent > 0 && incomeRatio > 0 && incomeRatio < 2.5 && !hardGates.includes('affordability_severe')) {
+      hardGates.push('affordability_severe')
+    }
+    // Red flag: rent 35-40% of gross income — borderline. Skip if
+    // affordability_severe already fires (double-counting would be unfair).
+    if (monthlyRent > 0 && incomeRatio >= 2.5 && incomeRatio < 2.857 && !redFlags.includes('rent_ratio_high')) {
+      redFlags.push('rent_ratio_high')
+    }
+    // Lift any ID-validation failures from the forensics layer into the red-flag
+    // system so they contribute to the penalty score.
+    const idFailureCodes = new Set([
+      'id_sin_invalid_checksum',
+      'id_dl_surname_mismatch',
+      'id_ohip_invalid_format',
+    ])
+    const hasIdFailure = forensicsReport.all_flags.some(f => idFailureCodes.has(f.code))
+    if (hasIdFailure && !redFlags.includes('id_format_invalid')) {
+      redFlags.push('id_format_invalid')
     }
 
     // Merge forensics-derived hard gates (deterministic, computed by lib/forensics).

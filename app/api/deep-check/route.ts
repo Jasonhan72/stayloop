@@ -35,6 +35,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { runDeepCheck } from '@/lib/forensics'
 import { canonicalizeEmployerName, searchOpenCorporates, RegistryAuthError } from '@/lib/forensics/arm-length'
 import type { CompanyRegistryInfo } from '@/lib/forensics/arm-length'
+import { extractBNs, verifyBN, bnCheckFlags } from '@/lib/forensics/bn-check'
+import type { BNLookupResult } from '@/lib/forensics/bn-check'
 
 function makeServiceClient() {
   return createClient(
@@ -200,6 +202,14 @@ interface DeepCheckPayload {
   signatory_phone?: string
   /** true if cross_doc flagged HR phone == applicant phone (self-verification) */
   hr_phone_collision?: boolean
+  /**
+   * Text content from employment letter / paystub / T4 where a Business
+   * Number might appear. The route scans this for BN patterns and
+   * cross-checks against the federal registry.
+   */
+  employer_doc_text?: string
+  /** Explicitly-extracted BN(s), if the caller already parsed them out. */
+  business_numbers?: string[]
 }
 
 function bad(message: string, message_zh?: string, status = 400) {
@@ -252,6 +262,17 @@ async function payloadFromScreening(screening_id: string): Promise<DeepCheckPayl
     return typeof v === 'string' ? v : undefined
   }
 
+  // Aggregate text from employment-related docs for BN scanning
+  const employerDocText: string[] = []
+  if (forensics?.per_file) {
+    for (const pf of forensics.per_file) {
+      const kind = pf?.file_kind
+      if (kind !== 'employment_letter' && kind !== 'pay_stub' && kind !== 't4') continue
+      const txt = pf?.ocr?.text || pf?.text_density?.text_sample
+      if (typeof txt === 'string' && txt.length > 0) employerDocText.push(txt)
+    }
+  }
+
   return {
     employer_names: employerNames,
     applicant_name: screening.ai_extracted_name || screening.tenant_name || '',
@@ -259,6 +280,7 @@ async function payloadFromScreening(screening_id: string): Promise<DeepCheckPayl
     applicant_phone: firstOr(cross.phones),
     applicant_email: firstOr(cross.emails),
     hr_phone_collision: forensics?.cross_doc?.hr_phone_collision === true,
+    employer_doc_text: employerDocText.join('\n\n---\n\n'),
   }
 }
 
@@ -295,6 +317,8 @@ export async function POST(req: Request) {
         signatory_name: body.signatory_name,
         signatory_phone: body.signatory_phone,
         hr_phone_collision: body.hr_phone_collision,
+        employer_doc_text: body.employer_doc_text,
+        business_numbers: Array.isArray(body.business_numbers) ? body.business_numbers : undefined,
       }
     } else if (body.screening_id) {
       const resolved = await payloadFromScreening(body.screening_id)
@@ -333,15 +357,46 @@ export async function POST(req: Request) {
       companyLookup: makeCachedCompanyLookup(cacheClient),
     })
 
-    // Aggregate risk
-    const hasHighRisk = results.some(r => r.arm_length_risk === 'high')
+    // BN cross-verification against the federal registry. Uses the same
+    // service-role client used for caching; never needs external APIs.
+    const bnFlags: any[] = []
+    const bnResults: BNLookupResult[] = []
+    try {
+      // Determine which BNs to check: explicit list from caller, or scan text
+      const scannedBNs = payload.business_numbers && payload.business_numbers.length
+        ? payload.business_numbers.map(n => ({ core: n, program: null, reference: null, raw: n }))
+        : extractBNs(payload.employer_doc_text || '')
+
+      // Dedupe + cap to 3 BNs
+      const seen = new Set<string>()
+      const uniqueBNs = scannedBNs.filter(b => {
+        if (seen.has(b.core)) return false
+        seen.add(b.core); return true
+      }).slice(0, 3)
+
+      // Verify each against the canonical employer (first of employer_names)
+      const claimedEmployer = employers[0] || null
+      for (const bn of uniqueBNs) {
+        const r = await verifyBN(cacheClient, bn.core, claimedEmployer)
+        bnResults.push(r)
+      }
+      bnFlags.push(...bnCheckFlags(bnResults, claimedEmployer))
+    } catch (e) {
+      console.warn('[deep-check] BN check error:', e)
+    }
+
+    // Aggregate risk — BN mismatch is critical and bumps overall risk to high
+    const hasBNMismatch = bnFlags.some(f => f.code === 'bn_employer_mismatch')
+    const hasHighRisk = results.some(r => r.arm_length_risk === 'high') || hasBNMismatch
     const hasMediumRisk = results.some(r => r.arm_length_risk === 'medium')
-    const allFlags = results.flatMap(r => r.flags)
+    const allFlags = [...results.flatMap(r => r.flags), ...bnFlags]
     const overallRisk = hasHighRisk ? 'high' : hasMediumRisk ? 'medium' : 'clean'
 
     return Response.json({
       success: true,
       checks: results,
+      bn_checks: bnResults,
+      bn_flags: bnFlags,
       overall_risk: overallRisk,
       total_flags: allFlags.length,
       checked_at: new Date().toISOString(),

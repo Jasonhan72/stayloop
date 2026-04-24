@@ -1649,6 +1649,22 @@ export default function ScreenPage() {
           applicant_phone: firstOr(cross.phones),
           applicant_email: firstOr(cross.emails),
           hr_phone_collision: forensics?.cross_doc?.hr_phone_collision === true,
+          // Aggregate text from employment-related docs so the server can
+          // scan for Business Numbers and cross-check against the federal
+          // registry (catches the classic forgery of copying a real BN onto
+          // a fake employment letter).
+          employer_doc_text: (() => {
+            const bits: string[] = []
+            if (Array.isArray(forensics?.per_file)) {
+              for (const pf of forensics.per_file) {
+                const kind = pf?.file_kind
+                if (kind !== 'employment_letter' && kind !== 'pay_stub' && kind !== 't4') continue
+                const txt = pf?.ocr?.text || pf?.text_density?.text_sample
+                if (typeof txt === 'string' && txt.length > 0) bits.push(txt)
+              }
+            }
+            return bits.join('\n\n---\n\n')
+          })(),
         }),
       })
       const data = await res.json()
