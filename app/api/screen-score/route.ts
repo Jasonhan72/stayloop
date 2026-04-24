@@ -317,13 +317,47 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
     if (reversed !== normalized && reversed !== swapped) tryOrders.push(reversed)
   }
 
+  // Extract the record's surname. The portal's sortName is in "LAST, FIRST MIDDLE"
+  // format, which is unambiguous. When the record has no comma (rare), we fall
+  // back to the last token of displayName.
+  //
+  // Why this matters: a query for "XIONG YI" was matching "ZHENG, YI XIONG" —
+  // the registered person's surname is ZHENG, and "XIONG" is part of their
+  // given name. The old filter only checked token overlap, not position.
+  const recordSurname = (dn: string, sn: string): string | null => {
+    const snTrim = (sn || '').trim()
+    if (snTrim.includes(',')) {
+      const last = snTrim.split(',')[0].trim().toLowerCase()
+      if (last) return last
+    }
+    const tokens = (dn || '').trim().split(/\s+/).filter(Boolean)
+    if (tokens.length >= 2) return tokens[tokens.length - 1].toLowerCase()
+    return null
+  }
+
   const applyFilter = (results: any[], queryName: string, nameSwapped: boolean): OntarioPortalMatch[] => {
+    const queryTokens = queryName
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, '')
+      .split(/\s+/)
+      .filter(t => t.length >= 2)
+
     return results
       .filter(r => {
         const dn = (r.partyHeader?.partyActorInstance?.displayName || '').toLowerCase()
         const sn = (r.partyHeader?.partyActorInstance?.sortName || '').toLowerCase()
         const combined = dn + ' ' + sn
-        return nameMatchesTitle(queryName, combined)
+        // Rule 1: every query token must appear somewhere in combined
+        if (!nameMatchesTitle(queryName, combined)) return false
+        // Rule 2 (new): at least one query token must EXACTLY equal the
+        // record's surname. This stops false positives where the query's
+        // surname appears in the middle of the record's given name.
+        const surname = recordSurname(dn, sn)
+        if (surname && queryTokens.length > 0) {
+          const surnameMatched = queryTokens.some(t => t === surname)
+          if (!surnameMatched) return false
+        }
+        return true
       })
       .map(r => shapePortalMatch(r, nameSwapped))
   }
