@@ -468,18 +468,24 @@ export async function checkArmLength(
     })
   }
 
-  // Only emit "company not found" when the registry was actually queryable
-  // and returned nothing. If the registry is not configured (no API token),
-  // emit a clearly-labeled informational flag instead — do NOT claim the
-  // company doesn't exist in a database we never hit.
+  // Only emit "company not found" when some registry was actually queryable
+  // (i.e., the caller injected a companyLookup, which means the route has
+  // access to our Supabase CA registry). In that case the miss is meaningful
+  // — the company is not in Corporations Canada's federal dataset.
+  //
+  // Note the scoping: Federal registry covers ~1.5M corps but EXCLUDES
+  // Ontario-only businesses and financial institutions (banks, broker-
+  // dealers like Citigroup Global Markets Canada). A miss therefore does
+  // NOT mean the company is fake — just that it's not federally incorporated
+  // under CBCA/NFP/COOP/BOTA. That's why severity is still 'low'.
   const registryConfigured = isRegistryConfigured() || !!options.companyLookup
   if (companyInfo === null && employerName.length > 3) {
     if (registryConfigured) {
       flags.push({
         code: 'arm_length_company_not_found',
         severity: 'low',
-        evidence_en: `"${employerName}" was not found in Canadian corporate registries (OpenCorporates). Could be a DBA, sole proprietorship, or fictitious employer.`,
-        evidence_zh: `在加拿大公司注册数据库（OpenCorporates）中未找到"${employerName}"。可能是个人经营名称、独资企业或虚构雇主。`,
+        evidence_en: `"${employerName}" was not found in the Canadian federal corporate registry (Corporations Canada). It may be provincially registered (e.g., Ontario / BC / Quebec), a sole proprietorship, or a regulated financial institution — none of which are in the federal dataset.`,
+        evidence_zh: `在加拿大联邦公司注册数据库（Corporations Canada）中未找到"${employerName}"。可能是省级注册（Ontario / BC / Quebec 等）、个人经营、或受金融监管机构（如银行、券商）——这几类都不在联邦数据集中。`,
       })
     } else {
       flags.push({

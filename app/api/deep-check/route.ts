@@ -44,21 +44,104 @@ function makeServiceClient() {
 }
 
 /**
- * Phase 3 — cache-aware OpenCorporates lookup.
+ * Phase 5 — Canadian registry lookup chain.
  *
- * Reads from `employer_lookup_cache` first (TTL 7d). On miss/stale, hits the
- * real registry and writes the result back (including nulls, so repeated
- * "not found" lookups don't burn API quota either). Cache errors degrade to
- * the direct network path — the cache is best-effort, never a blocker.
+ * 1. Primary: Supabase `ca_corp_registry` table (seeded from Corporations
+ *    Canada open data — OGL-Canada, commercial use OK, ~1.5M federal corps).
+ *    Queried via the `search_corp_registry` RPC using pg_trgm similarity.
+ *
+ * 2. Optional fallback: OpenCorporates — ONLY when OPENCORPORATES_API_TOKEN
+ *    is set. Still goes through the old 7-day `employer_lookup_cache` to
+ *    preserve quota. If no token, we skip this tier entirely — no errors
+ *    thrown, just return null.
+ *
+ * 3. Null means "not found in any configured source". The caller in
+ *    arm-length.ts decides how to phrase that (registry_not_configured vs
+ *    not_found_in_federal_registry).
  */
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
+interface CorpRegistryRow {
+  corp_number: string | null
+  jurisdiction: string | null
+  display_name: string | null
+  status: string | null
+  is_active: boolean | null
+  entity_type: string | null
+  incorporation_date: string | null
+  dissolution_date: string | null
+  address_line1: string | null
+  address_line2: string | null
+  city: string | null
+  province: string | null
+  postal_code: string | null
+  country: string | null
+  business_number: string | null
+  source: string | null
+  similarity: number | null
+}
+
+function rowToCompanyInfo(r: CorpRegistryRow): CompanyRegistryInfo {
+  const addr = [r.address_line1, r.address_line2, r.city, r.province, r.postal_code]
+    .filter(Boolean)
+    .join(', ')
+  return {
+    name: r.display_name || '',
+    company_number: r.corp_number || null,
+    jurisdiction: r.jurisdiction || null,
+    incorporation_date: r.incorporation_date || null,
+    status: r.status || (r.is_active ? 'Active' : (r.is_active === false ? 'Inactive' : null)),
+    registered_address: addr || null,
+    company_type: r.entity_type || null,
+    // Federal open data does NOT include director names. We pass empty —
+    // the applicant_is_officer check degrades gracefully.
+    officers: [],
+    registry_url: r.corp_number
+      ? `https://ised-isde.canada.ca/cc/lgcy/cc/corporation/${r.corp_number}`
+      : null,
+    source: r.source || 'corporations_canada_federal',
+  }
+}
+
+async function searchCanadianRegistry(
+  supabase: SupabaseClient,
+  name: string,
+): Promise<CompanyRegistryInfo | null> {
+  const canonical = canonicalizeEmployerName(name)
+  if (!canonical || canonical.length < 2) return null
+
+  try {
+    const { data, error } = await supabase.rpc('search_corp_registry', {
+      q: canonical,
+      min_sim: 0.55,
+    })
+    if (error) {
+      console.warn('[deep-check] ca_corp_registry RPC error:', error.message)
+      return null
+    }
+    const rows = (data as CorpRegistryRow[] | null) || []
+    if (rows.length === 0) return null
+    // RPC already sorts by active-first, similarity-desc, incorporation-date-desc
+    return rowToCompanyInfo(rows[0])
+  } catch (e) {
+    console.warn('[deep-check] ca_corp_registry call threw:', e)
+    return null
+  }
+}
+
 function makeCachedCompanyLookup(supabase: SupabaseClient) {
   return async (name: string): Promise<CompanyRegistryInfo | null> => {
-    const canonical = canonicalizeEmployerName(name)
-    if (!canonical) return searchOpenCorporates(name)
+    // Tier 1: local CA federal registry (seeded from Corporations Canada)
+    const caHit = await searchCanadianRegistry(supabase, name)
+    if (caHit) return caHit
 
-    // Read cache
+    // Tier 2: optional OpenCorporates fallback via 7-day cache. Only active
+    // when OPENCORPORATES_API_TOKEN is configured. searchOpenCorporates
+    // itself returns null without network calls when the token is missing.
+    const canonical = canonicalizeEmployerName(name)
+    if (!canonical) return null
+
+    // Read legacy cache
     try {
       const { data, error } = await supabase
         .from('employer_lookup_cache')
@@ -73,31 +156,29 @@ function makeCachedCompanyLookup(supabase: SupabaseClient) {
       }
     } catch (e) {
       console.warn('[deep-check] cache read failed:', e)
-      // fall through to live fetch
     }
 
-    // Live fetch — note: RegistryAuthError propagates up, it is NOT cached.
-    // Caching auth errors was the root cause of the production-wide false
-    // negatives on 2026-04-23: every lookup silently returned "not found"
-    // after OpenCorporates closed their unauthenticated free tier.
+    // RegistryAuthError propagates if token is set but rejected
     const result = await searchOpenCorporates(name)
 
-    // Only cache legitimate outcomes (hit or verified miss).
-    // Fire-and-forget upsert — do not await — don't block the user.
-    try {
-      void supabase
-        .from('employer_lookup_cache')
-        .upsert({
-          normalized_name: canonical,
-          display_name: name.trim().slice(0, 200),
-          result: result as any,
-          fetched_at: new Date().toISOString(),
-        })
-        .then(({ error }) => {
-          if (error) console.warn('[deep-check] cache write failed:', error.message)
-        })
-    } catch (e) {
-      console.warn('[deep-check] cache write threw:', e)
+    // Cache legitimate outcomes (only when we actually queried, which means
+    // token was set). Fire-and-forget.
+    if (process.env.OPENCORPORATES_API_TOKEN) {
+      try {
+        void supabase
+          .from('employer_lookup_cache')
+          .upsert({
+            normalized_name: canonical,
+            display_name: name.trim().slice(0, 200),
+            result: result as any,
+            fetched_at: new Date().toISOString(),
+          })
+          .then(({ error }) => {
+            if (error) console.warn('[deep-check] cache write failed:', error.message)
+          })
+      } catch (e) {
+        console.warn('[deep-check] cache write threw:', e)
+      }
     }
 
     return result
