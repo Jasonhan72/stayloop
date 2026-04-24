@@ -1255,8 +1255,12 @@ JSON DISCIPLINE (avoid parse errors):
       onltb: 'LTB', onscsm: 'Small Claims', onsc: 'Superior Court',
       onscdc: 'Divisional Court', onca: 'Court of Appeal', oncj: 'Ontario Court',
     }
-    const ZERO_COURT_REGEX_ZH = /(未?(发现|检出|查到|找到|命中).{0,10}(LTB|法庭|记录|案件)|无.{0,6}记录|0\s*条)/i
-    const ZERO_COURT_REGEX_EN = /(no\s+(?:ltb|court|record|cases?|hits?)|0\s+(?:ltb|court|record|cases?|hits?)|not\s+found)/i
+    // Patterns that signal "AI thinks there are zero court records" even though
+    // we DID find some. Needs to be broad — the AI uses many variants:
+    //   "未发现LTB记录"  "无LTB/小额法庭记录"  "0条"  "0 个LTB"
+    //   "0 LTB 记录"  "没有法庭记录"  "暂无..."
+    const ZERO_COURT_REGEX_ZH = /(未?(发现|检出|查到|找到|命中|有)\s*[0-9]*\s*[条个项次]?\s*(LTB|法庭|记录|案件|小额|判决)|(无|没|暂无).{0,10}(LTB|法庭|记录|案件|小额|判决|命中)|0\s*[条个项次]?\s*(LTB|法庭|记录|案件|小额|判决)|^\s*0\s*[个条]?\s*LTB)/im
+    const ZERO_COURT_REGEX_EN = /(no\s+(?:ltb|court|record|cases?|hits?|small\s*claims|judgment)|0\s+(?:ltb|court|record|cases?|hits?|small\s*claims)|not\s+found\s+in|clean\s+record|n[o']?\s+prior\s+(?:ltb|court))/i
     function patchRentalHistoryDetailsForCourt(
       parsedObj: any,
       canliiRecs: Array<{ databaseId?: string; nameInTitle?: boolean }>,
@@ -1298,14 +1302,27 @@ JSON DISCIPLINE (avoid parse errors):
       const existingEn = String(detailsEn.rental_history || '')
       const activeSuffixZh = activeDefCount > 0 ? `，${activeDefCount}条仍在审` : ''
       const activeSuffixEn = activeDefCount > 0 ? `, ${activeDefCount} active` : ''
-      // Overwrite whenever the existing text denies records, or lacks any digit,
-      // or doesn't mention court/LTB/Small Claims/法庭 keywords at all.
-      const mentionsCourtZh = /(LTB|法庭|小额|Small)/i.test(existingZh)
-      const mentionsCourtEn = /(LTB|court|small\s*claims|portal)/i.test(existingEn)
-      if (ZERO_COURT_REGEX_ZH.test(existingZh) || !/\d/.test(existingZh) || !mentionsCourtZh) {
+      // Rewrite the text unless it ALREADY acknowledges the finding with the
+      // right hit language. "Acknowledge" means the text explicitly mentions
+      // being a defendant/debtor/respondent (or 被告/欠方/当事人) AND uses at
+      // least one court-system keyword. If either is missing, the AI was
+      // incomplete and we overwrite with the deterministic summary.
+      const acknowledgesHitZh = /(被告|欠方|当事人|门户|命中|查到|发现).{0,20}(LTB|法庭|小额|记录|案件|判决)/i.test(existingZh)
+        || /\b\d+\s*(条|个).{0,10}(被告|案件|记录)/i.test(existingZh)
+      const acknowledgesHitEn = /(defendant|debtor|respondent|portal\s+hit|cases?\s+found|judgment).{0,30}(ltb|court|small\s*claims|record|case)/i.test(existingEn)
+        || /\b\d+\s+(cases?|records?|hits?)\b/i.test(existingEn)
+
+      const shouldRewriteZh = !acknowledgesHitZh
+        || ZERO_COURT_REGEX_ZH.test(existingZh)
+        || !/\d/.test(existingZh)
+      const shouldRewriteEn = !acknowledgesHitEn
+        || ZERO_COURT_REGEX_EN.test(existingEn)
+        || !/\d/.test(existingEn)
+
+      if (shouldRewriteZh) {
         detailsZh.rental_history = `命中 ${partsZh.join('，')}${activeSuffixZh}（姓名一致）`
       }
-      if (ZERO_COURT_REGEX_EN.test(existingEn) || !/\d/.test(existingEn) || !mentionsCourtEn) {
+      if (shouldRewriteEn) {
         detailsEn.rental_history = `Hits: ${partsEn.join(', ')}${activeSuffixEn} (name in title)`
       }
       parsedObj.details_zh = detailsZh
