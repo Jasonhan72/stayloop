@@ -98,6 +98,16 @@ All env vars are set in Cloudflare Pages > stayloop > Settings > Variables and S
 - **Free (Starter)**: 5 screenings/month, full CanLII coverage, document forensics, bilingual reports
 - **Pro ($29/mo)**: Unlimited screenings, Ontario Courts Portal, priority AI, bulk export
 
+## Recent Changes (2026-04-24)
+- **CA federal corporate registry** (replaces OpenCorporates as primary lookup):
+  - New `ca_corp_registry` Supabase table seeded from Corporations Canada open data (OGL-Canada license). 184,901 federal corporations (CBCA/NFP/COOP/BOTA), 52k with incorporation dates, 145k with Business Numbers. Refreshed monthly via GitHub Actions workflow `refresh-ca-corp-registry.yml` and `scripts/ingest-ca-corp-registry.mjs` (streams one XML per file — peak disk ~200MB ZIP).
+  - `search_corp_registry(q, min_sim)` RPC: trigram similarity on canonicalized name + alt_names, plus a significant-token-overlap requirement that kills false positives from generic words ("Canadian Corporation" won't match any Canadian company with "Corporation" in the name). Default `min_sim=0.7`. Route calls with 0.7 explicitly.
+  - `lookup_corp_by_bn(bn)` RPC: exact BN lookup (used when employment letter prints a BN).
+  - Route tier chain: (1) local `ca_corp_registry` via RPC; (2) optional OpenCorporates fallback **only** when `OPENCORPORATES_API_TOKEN` env is set. No token = Tier 2 is skipped cleanly, no errors thrown.
+  - **Scope caveats documented in the `arm_length_company_not_found` flag**: federal dataset EXCLUDES Ontario-only registrations, other provincial registries, and regulated financial institutions (banks, broker-dealers like Citigroup Global Markets Canada). A miss is low-severity informational, not a "this company is fake" signal.
+  - Fix: OpenCorporates closed its unauthenticated free tier in late 2025; old code silently returned "not found" on every lookup. Added `RegistryAuthError` to surface 401/403, graceful-degradation when token missing.
+- **Ontario Courts Portal tiered search**: exact match (searchType 10462) with name-order permutations + fuzzy (300054) fallback. Fixes regression where "BO HAN" returned 0 despite the case CV-20-00634472 being visible in the portal UI.
+
 ## Recent Changes (2026-04-23)
 - **Deep-check redesign (4 phases, all live)**:
   - **Phase 1** — stateless API: `/api/deep-check` no longer needs `screening_id`, takes `{employer_names, applicant_name, applicant_phone?, applicant_email?, applicant_address?, signatory_name?, hr_phone_collision?}`; frontend builds the payload from local forensics state and persists `deep_check_result` back via its own RLS'd supabase client. Legacy `{screening_id}` fallback preserved. Eliminates schema-drift class of failures (e.g. the old `ai_result` column bug).

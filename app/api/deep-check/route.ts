@@ -111,9 +111,14 @@ async function searchCanadianRegistry(
   if (!canonical || canonical.length < 2) return null
 
   try {
+    // min_sim was 0.55 in the initial impl, which produced false positives
+    // like "Canadian Tire Corporation" → "Canadian Admiral Corporation".
+    // 0.7 combined with the RPC's significant-token-overlap requirement
+    // gives precise matches for companies that are actually in the federal
+    // CBCA dataset, and a clean null for everything else.
     const { data, error } = await supabase.rpc('search_corp_registry', {
       q: canonical,
-      min_sim: 0.55,
+      min_sim: 0.7,
     })
     if (error) {
       console.warn('[deep-check] ca_corp_registry RPC error:', error.message)
