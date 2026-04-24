@@ -47,6 +47,12 @@ interface OntarioPortalMatch {
   partyDisplayName: string
   courtAbbreviation: string
   closedFlag: boolean
+  nameSwapped?: boolean
+  /** UUID → link straight to the portal's case detail page. When present,
+   *  the card renders `https://www.courts.ontario.ca/portal/court/{courtID}/case/{caseInstanceUUID}`
+   *  instead of the generic party-search URL. */
+  caseInstanceUUID?: string
+  courtID?: string
 }
 
 interface CourtQuery {
@@ -754,18 +760,25 @@ function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMat
         <span style={{ fontWeight: 600 }}>{lang === 'zh' ? '法院' : 'Court'}:</span>
         <span style={{ color: '#334155' }}>{record.courtAbbreviation}</span>
       </div>
-      {/* Row 4: Source link */}
+      {/* Row 4: Source link — direct to case detail when we have a UUID,
+          else fall back to the generic portal search page. */}
       <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 6 }}>
         {lang === 'zh' ? '数据来源：' : 'Source: '}
         <a
-          href="https://courts.ontario.ca/portal/search/party"
+          href={
+            record.caseInstanceUUID && record.courtID
+              ? `https://www.courts.ontario.ca/portal/court/${record.courtID}/case/${record.caseInstanceUUID}`
+              : 'https://www.courts.ontario.ca/portal/search/case'
+          }
           target="_blank"
           rel="noopener noreferrer"
           style={{ color: '#0284C7', textDecoration: 'none' }}
           onMouseEnter={e => { e.currentTarget.style.textDecoration = 'underline' }}
           onMouseLeave={e => { e.currentTarget.style.textDecoration = 'none' }}
         >
-          {lang === 'zh' ? '安大略省法院公开门户' : 'Ontario Courts Public Portal'} ↗
+          {record.caseInstanceUUID
+            ? (lang === 'zh' ? '在安省法院门户查看此案详情' : 'View case detail on Ontario Courts Portal')
+            : (lang === 'zh' ? '安大略省法院公开门户' : 'Ontario Courts Public Portal')} ↗
         </a>
       </div>
     </div>

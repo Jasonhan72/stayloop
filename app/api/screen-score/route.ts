@@ -219,6 +219,15 @@ interface OntarioPortalMatch {
   closedFlag: boolean
   /** true if we only matched after swapping the first/last name order */
   nameSwapped?: boolean
+  /** UUID of the case in the portal — used to build a direct-detail URL:
+   *  https://www.courts.ontario.ca/portal/court/{courtID}/case/{caseInstanceUUID}
+   *  When absent (older data or API change), frontend falls back to the
+   *  generic portal search page. */
+  caseInstanceUUID?: string
+  /** UUID of the court the case lives in. For Civil & Small Claims this is
+   *  always the civil-court UUID, but stashing it on the record keeps the
+   *  URL construction self-contained without the frontend hard-coding it. */
+  courtID?: string
 }
 
 const ONTARIO_PORTAL_CIVIL_COURT_ID = '68f021c4-6a44-4735-9a76-5360b2e8af13'
@@ -260,6 +269,19 @@ async function portalQuery(
 }
 
 function shapePortalMatch(r: any, nameSwapped: boolean): OntarioPortalMatch {
+  // The portal API returns caseInstanceUUID directly on caseHeader. This is
+  // the primary key used by the portal's frontend SPA to route to the
+  // per-case detail page.
+  const caseInstanceUUID: string | undefined =
+    r.caseHeader?.caseInstanceUUID ||
+    r.caseHeader?.caseInstanceId ||
+    r.caseInstanceUUID ||
+    undefined
+  // Court ID likewise — the API echoes the court we filtered on.
+  const courtID: string | undefined =
+    r.caseHeader?.courtID ||
+    r.caseHeader?.courtId ||
+    ONTARIO_PORTAL_CIVIL_COURT_ID  // safe default — we only query civil court
   return {
     caseNumber: r.caseHeader?.caseNumber || '',
     caseTitle: r.caseHeader?.caseTitle || '',
@@ -270,6 +292,8 @@ function shapePortalMatch(r: any, nameSwapped: boolean): OntarioPortalMatch {
     courtAbbreviation: r.caseHeader?.courtAbbreviation || 'Civil and Small Claims Court',
     closedFlag: r.caseHeader?.closedFlag ?? false,
     nameSwapped: nameSwapped || undefined,
+    caseInstanceUUID,
+    courtID,
   }
 }
 
