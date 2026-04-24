@@ -277,11 +277,11 @@ function shapePortalMatch(r: any, nameSwapped: boolean): OntarioPortalMatch {
     r.caseHeader?.caseInstanceId ||
     r.caseInstanceUUID ||
     undefined
-  // Court ID likewise — the API echoes the court we filtered on.
-  const courtID: string | undefined =
-    r.caseHeader?.courtID ||
-    r.caseHeader?.courtId ||
-    ONTARIO_PORTAL_CIVIL_COURT_ID  // safe default — we only query civil court
+  // IMPORTANT: the API echoes a NUMERIC internal courtID (e.g. `1`) on
+  // caseHeader.courtID, but the portal's frontend routes use the court's
+  // UUID. We always query the Civil & Small Claims Court here, so hard-
+  // code that UUID for the URL — never trust the API's numeric ID.
+  const courtID = ONTARIO_PORTAL_CIVIL_COURT_ID
   return {
     caseNumber: r.caseHeader?.caseNumber || '',
     caseTitle: r.caseHeader?.caseTitle || '',

@@ -765,11 +765,18 @@ function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMat
       <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 6 }}>
         {lang === 'zh' ? '数据来源：' : 'Source: '}
         <a
-          href={
-            record.caseInstanceUUID && record.courtID
-              ? `https://www.courts.ontario.ca/portal/court/${record.courtID}/case/${record.caseInstanceUUID}`
-              : 'https://www.courts.ontario.ca/portal/search/case'
-          }
+          href={(() => {
+            // Always use the Civil & Small Claims Court UUID — the portal API
+            // returns a numeric internal courtID (e.g. "1") in caseHeader that
+            // does NOT match the URL-routing UUID. Old cached records may have
+            // the bad numeric ID stored, so we ignore record.courtID entirely.
+            const CIVIL_COURT_UUID = '68f021c4-6a44-4735-9a76-5360b2e8af13'
+            const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+            if (record.caseInstanceUUID && uuidRe.test(record.caseInstanceUUID)) {
+              return `https://courts.ontario.ca/portal/court/${CIVIL_COURT_UUID}/case/${record.caseInstanceUUID}`
+            }
+            return 'https://courts.ontario.ca/portal/search/case'
+          })()}
           target="_blank"
           rel="noopener noreferrer"
           style={{ color: '#0284C7', textDecoration: 'none' }}
