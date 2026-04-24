@@ -38,8 +38,9 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
   process.exit(1)
 }
 
-const BATCH_SIZE = 1000
-const WORK_DIR = path.join(os.tmpdir(), 'ca-corp-ingest')
+const BATCH_SIZE = Number(process.env.BATCH_SIZE || 500)
+const WORK_DIR = process.env.WORK_DIR || path.join(os.tmpdir(), 'ca-corp-ingest')
+const RETRY_ATTEMPTS = 4
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -249,8 +250,7 @@ function parseCorporation(block) {
 
 // ─── Supabase UPSERT via PostgREST ──────────────────────────────────────────
 
-async function upsertBatch(rows) {
-  if (!rows.length) return 0
+async function upsertBatchOnce(rows) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/ca_corp_registry?on_conflict=jurisdiction,corp_number`, {
     method: 'POST',
     headers: {
@@ -263,9 +263,45 @@ async function upsertBatch(rows) {
   })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Supabase upsert failed HTTP ${res.status}: ${text.slice(0, 500)}`)
+    const err = new Error(`HTTP ${res.status}: ${text.slice(0, 500)}`)
+    err.status = res.status
+    err.body = text
+    throw err
   }
-  return rows.length
+}
+
+async function upsertBatch(rows) {
+  if (!rows.length) return 0
+  let lastErr
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    try {
+      await upsertBatchOnce(rows)
+      return rows.length
+    } catch (e) {
+      lastErr = e
+      // Non-retryable: schema violation (400) or bad auth (401/403) — fail fast
+      if (e.status === 400 || e.status === 401 || e.status === 403) {
+        console.error(`[ingest] Non-retryable upsert error (${e.status}). First bad row:`, JSON.stringify(rows[0]).slice(0, 400))
+        throw e
+      }
+      // Retryable: 5xx, network timeout, etc.
+      const backoffMs = 2000 * attempt * attempt
+      console.warn(`[ingest] upsert attempt ${attempt}/${RETRY_ATTEMPTS} failed: ${e.message.slice(0, 200)} — retry in ${backoffMs}ms`)
+      await new Promise(r => setTimeout(r, backoffMs))
+    }
+  }
+  // All retries exhausted — split batch in half as a last resort (maybe one
+  // bad row is blocking a big batch). If batch is already size 1, give up.
+  if (rows.length > 1) {
+    const mid = Math.floor(rows.length / 2)
+    console.warn(`[ingest] splitting batch of ${rows.length} → ${mid} + ${rows.length - mid} after retries exhausted`)
+    const a = await upsertBatch(rows.slice(0, mid))
+    const b = await upsertBatch(rows.slice(mid))
+    return a + b
+  }
+  console.error(`[ingest] Dropping 1 unrecoverable row after ${RETRY_ATTEMPTS} retries: ${JSON.stringify(rows[0]).slice(0, 400)}`)
+  console.error(`[ingest] Last error: ${lastErr?.message}`)
+  return 0
 }
 
 // ─── Pipeline ───────────────────────────────────────────────────────────────
@@ -332,7 +368,11 @@ async function main() {
   console.log(`[ingest] Done. Total rows upserted: ${totalRows} in ${elapsedMin} min`)
 
   // 5. Cleanup working dir (be kind to CI disk)
-  await rm(WORK_DIR, { recursive: true, force: true })
+  if (process.env.KEEP_WORK_DIR !== '1') {
+    await rm(WORK_DIR, { recursive: true, force: true })
+  } else {
+    console.log(`[ingest] KEEP_WORK_DIR=1 — leaving ${WORK_DIR} in place`)
+  }
 }
 
 main().catch(err => {
