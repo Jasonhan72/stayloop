@@ -263,13 +263,13 @@ export async function POST(req: Request) {
     })
   } catch (e: any) {
     console.error('[deep-check] Error:', e)
-    // Registry auth errors are a configuration problem, not a user error.
-    // Surface them distinctly so the UI can tell the landlord the service
-    // is mis-configured rather than claiming their employer passed the check.
+    // Registry auth errors = operator has a TOKEN set but it's invalid.
+    // No-token-at-all is handled upstream by searchOpenCorporates returning
+    // null quietly (degraded mode). We only 503 when the token is broken.
     if (e instanceof RegistryAuthError || e?.name === 'RegistryAuthError') {
       return Response.json({
         error: `Company registry unavailable: ${e.message}`,
-        error_zh: `公司注册查询服务暂时不可用（API 配置问题）。运营者需要在后台配置 OpenCorporates API token。`,
+        error_zh: `公司注册查询 API token 被拒绝。请检查 Cloudflare 环境变量 OPENCORPORATES_API_TOKEN 是否正确。`,
         error_code: 'registry_auth_failed',
       }, { status: 503 })
     }

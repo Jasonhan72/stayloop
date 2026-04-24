@@ -174,22 +174,33 @@ export class RegistryAuthError extends Error {
   }
 }
 
+/**
+ * True when OpenCorporates is configured (token present). The caller uses
+ * this to distinguish "queried registry, found nothing" from "registry
+ * lookup disabled" — they produce different flags.
+ */
+export function isRegistryConfigured(): boolean {
+  return !!process.env.OPENCORPORATES_API_TOKEN
+}
+
 export async function searchOpenCorporates(companyName: string): Promise<CompanyRegistryInfo | null> {
   if (!companyName || companyName.trim().length < 3) return null
+
+  // As of late 2025, OpenCorporates closed their unauthenticated free tier —
+  // every unauthenticated search returns 401 "Invalid Api Token". If no
+  // token is configured we return null *without* making any network calls,
+  // and the caller treats this as "registry lookup disabled" (different
+  // from "searched and found nothing"). If a token IS set but the server
+  // rejects it, we throw RegistryAuthError so the operator knows their
+  // config is broken.
+  const apiToken = process.env.OPENCORPORATES_API_TOKEN
+  if (!apiToken) return null
+  const tokenParam = `&api_token=${encodeURIComponent(apiToken)}`
 
   const jurisdictions = ['ca_on', 'ca_bc', 'ca_ab', 'ca_qc', 'ca_mb', 'ca_sk', 'ca_ns', 'ca_nb', 'ca']
   const query = encodeURIComponent(companyName.trim())
   const target = companyName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
   const targetWords = target.split(/\s+/).filter(Boolean)
-
-  // As of late 2025 / early 2026, OpenCorporates closed their unauthenticated
-  // free tier — every unauthenticated search returns 401 "Invalid Api Token".
-  // The token is set in Cloudflare env as OPENCORPORATES_API_TOKEN. If unset,
-  // we surface a loud error rather than silently claiming "not found" on
-  // every lookup (which is what the code was doing before — hiding a
-  // production-wide false-negative for hours).
-  const apiToken = process.env.OPENCORPORATES_API_TOKEN
-  const tokenParam = apiToken ? `&api_token=${encodeURIComponent(apiToken)}` : ''
 
   // Parallel fan-out
   const perCallTimeoutMs = 6000
@@ -457,13 +468,27 @@ export async function checkArmLength(
     })
   }
 
+  // Only emit "company not found" when the registry was actually queryable
+  // and returned nothing. If the registry is not configured (no API token),
+  // emit a clearly-labeled informational flag instead — do NOT claim the
+  // company doesn't exist in a database we never hit.
+  const registryConfigured = isRegistryConfigured() || !!options.companyLookup
   if (companyInfo === null && employerName.length > 3) {
-    flags.push({
-      code: 'arm_length_company_not_found',
-      severity: 'low',
-      evidence_en: `"${employerName}" was not found in Canadian corporate registries (OpenCorporates). Could be a DBA, sole proprietorship, or fictitious employer.`,
-      evidence_zh: `在加拿大公司注册数据库（OpenCorporates）中未找到"${employerName}"。可能是个人经营名称、独资企业或虚构雇主。`,
-    })
+    if (registryConfigured) {
+      flags.push({
+        code: 'arm_length_company_not_found',
+        severity: 'low',
+        evidence_en: `"${employerName}" was not found in Canadian corporate registries (OpenCorporates). Could be a DBA, sole proprietorship, or fictitious employer.`,
+        evidence_zh: `在加拿大公司注册数据库（OpenCorporates）中未找到"${employerName}"。可能是个人经营名称、独资企业或虚构雇主。`,
+      })
+    } else {
+      flags.push({
+        code: 'arm_length_registry_not_configured',
+        severity: 'low',
+        evidence_en: `Company registry lookup is not configured — could not verify "${employerName}" against corporate registries. Heuristic checks still apply.`,
+        evidence_zh: `公司注册查询未配置——未能在注册数据库中核对"${employerName}"。启发式检查仍然适用（编号公司、电话碰撞等）。`,
+      })
+    }
   }
 
   return {
