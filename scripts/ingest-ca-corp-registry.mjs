@@ -244,7 +244,17 @@ function parseCorporation(block) {
   }
 
   const display = decodeXml(currentName)
-  const isActive = statusCode ? /AC|ACTIVE/i.test(statusCode) : null
+  // Corporations Canada uses numeric status enums, not text. Observed codes
+  // in the April 2026 dataset:
+  //   "1"  → Active
+  //   "9"  → Liquidating
+  //   "10" → Revoked / Suspended
+  //   "11" → Dissolved
+  //   null → No status data (many historical records pre-date electronic status tracking)
+  // Text fallback ("AC"/"ACTIVE") kept in case the schema shifts back.
+  const isActive = statusCode
+    ? (statusCode === '1' || /^(AC|ACTIVE)$/i.test(statusCode) ? true : false)
+    : null
 
   return {
     corp_number: corpId,
