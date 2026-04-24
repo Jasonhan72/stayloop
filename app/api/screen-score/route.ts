@@ -141,15 +141,10 @@ function nameMatchesTitle(searchName: string, caseTitle: string): boolean {
     return titleLower.includes(nameNospace)
   }
 
-  // Latin: require ALL name parts to appear in the title as whole words.
-  // Word-boundary matching prevents "bo" from matching inside "board" etc.
+  // Latin: require ALL name parts to appear in the title
   const parts = fullLower.split(/\s+/).filter(p => p.length >= 2)
   if (parts.length < 2) return false  // single word = can't confirm, reject
-  return parts.every(part => {
-    const escaped = part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const re = new RegExp(`(?:^|[^a-z])${escaped}(?:$|[^a-z])`)
-    return re.test(titleLower)
-  })
+  return parts.every(part => titleLower.includes(part))
 }
 
 /**
@@ -222,137 +217,123 @@ interface OntarioPortalMatch {
   partyDisplayName: string
   courtAbbreviation: string
   closedFlag: boolean
-  caseUrl?: string  // direct link to case detail page on courts.ontario.ca
-  nameSwapped?: boolean  // true if first/last name were swapped to match — needs manual verification
+  /** true if we only matched after swapping the first/last name order */
+  nameSwapped?: boolean
 }
 
 const ONTARIO_PORTAL_CIVIL_COURT_ID = '68f021c4-6a44-4735-9a76-5360b2e8af13'
 
-async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: OntarioPortalMatch[]; totalElements: number; error?: string }> {
-  if (!isValidFullName(fullName)) {
-    return { matches: [], totalElements: 0, error: 'Invalid name for search' }
-  }
-
+// Portal search types:
+//   10462  — exact-phrase match (e.g. "BO HAN" must appear verbatim)
+//   300054 — fuzzy / token-match (e.g. any word "BO" or "HAN" anywhere; 600+ results)
+//
+// Strategy:
+//   1. Exact "BO HAN" (given-family order)
+//   2. Exact "HAN BO" (family-given order) — mark nameSwapped=true
+//   3. Fuzzy "BO HAN" with local filter as last-resort catchall
+// Each later tier only runs if the earlier tier returned zero hits AFTER
+// the local party-name verification, so we don't flood the user with
+// false positives when exact match already worked.
+async function portalQuery(
+  displayName: string,
+  searchType: '10462' | '300054',
+): Promise<{ results: any[]; totalElements: number; error?: string }> {
   try {
     const params = new URLSearchParams({
-      'partyHeader.partyActorInstance.displayName': fullName,
-      'partyHeader.partyActorInstance.displayNameSearchType': '10462',
+      'partyHeader.partyActorInstance.displayName': displayName,
+      'partyHeader.partyActorInstance.displayNameSearchType': searchType,
       'caseHeader.courtID': ONTARIO_PORTAL_CIVIL_COURT_ID,
       'page': '0',
       'size': '10',
     })
     const url = `https://api1.courts.ontario.ca/courts/cms/parties?${params.toString()}`
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
-
-    if (!res.ok) {
-      return { matches: [], totalElements: 0, error: `HTTP ${res.status}` }
+    if (!res.ok) return { results: [], totalElements: 0, error: `HTTP ${res.status}` }
+    const data = await res.json() as any
+    return {
+      results: data?._embedded?.results || [],
+      totalElements: data?.page?.totalElements || 0,
     }
-
-    const data = await res.json() as {
-      _embedded?: {
-        results?: Array<{
-          partyHeader?: {
-            partySubType?: string
-            partyActorInstance?: { displayName?: string; sortName?: string }
-          }
-          caseHeader?: {
-            caseInstanceUUID?: string  // UUID for direct case link
-            caseID?: string
-            courtID?: string
-            caseNumber?: string
-            caseTitle?: string
-            caseCategory?: string
-            courtAbbreviation?: string
-            filedDate?: string
-            closedFlag?: boolean
-          }
-          _links?: {
-            self?: { href?: string }
-          }
-        }>
-      }
-      page?: { totalElements?: number }
-    }
-
-    const results = data._embedded?.results || []
-    const totalElements = data.page?.totalElements || results.length
-
-    // Filter: only keep results where the party display name is actually
-    // the searched person. The portal API may return fuzzy matches where
-    // only part of the name matches (e.g. searching "BO HAN" returns a
-    // party named "ZHANG, BO" just because "BO" appears). We need strict
-    // matching: the party's last name must match the applicant's last name.
-    const searchParts = fullName.toLowerCase().trim().split(/\s+/).filter(p => p.length >= 2)
-    const searchLastName = searchParts.length >= 2 ? searchParts[searchParts.length - 1] : ''
-    const searchFirstName = searchParts.length >= 2 ? searchParts[0] : ''
-
-    // Helper: check if party name matches applicant (returns 'exact' | 'swapped' | false)
-    // Only matches on party name fields — no case title cross-check.
-    function checkPartyMatch(
-      sortName: string, displayName: string
-    ): 'exact' | 'swapped' | false {
-      const sortParts = sortName.split(',').map(s => s.trim())
-      const partyLast = sortParts[0] || ''
-      const partyFirst = sortParts[1] || ''
-      const displayParts = displayName.split(/\s+/)
-      const dispLast = displayParts.length >= 2 ? displayParts[displayParts.length - 1] : displayParts[0] || ''
-      const dispFirst = displayParts.length >= 2 ? displayParts[0] : ''
-
-      // Check normal order: searchFirst=first, searchLast=last
-      const normalLastOk = partyLast === searchLastName || dispLast === searchLastName
-      const normalFirstOk = partyFirst === searchFirstName || dispFirst === searchFirstName
-        || partyFirst.startsWith(searchFirstName) || searchFirstName.startsWith(partyFirst)
-      if (normalLastOk && normalFirstOk) return 'exact'
-
-      // Check swapped order: searchFirst↔searchLast (common for Chinese names)
-      const swapLastOk = partyLast === searchFirstName || dispLast === searchFirstName
-      const swapFirstOk = partyFirst === searchLastName || dispFirst === searchLastName
-        || partyFirst.startsWith(searchLastName) || searchLastName.startsWith(partyFirst)
-      if (swapLastOk && swapFirstOk) return 'swapped'
-
-      return false
-    }
-
-    const matches: OntarioPortalMatch[] = []
-    for (const r of results) {
-      const displayName = (r.partyHeader?.partyActorInstance?.displayName || '').toLowerCase()
-      const sortName = (r.partyHeader?.partyActorInstance?.sortName || '').toLowerCase()
-      const matchType = checkPartyMatch(sortName, displayName)
-      if (!matchType) continue
-
-      // Build case URL
-      const caseNum = r.caseHeader?.caseNumber || ''
-      const courtId = ONTARIO_PORTAL_CIVIL_COURT_ID
-      const caseUUID = r.caseHeader?.caseInstanceUUID || r.caseHeader?.caseID || ''
-      const selfHref = r._links?.self?.href || ''
-      const extractedCaseId = caseUUID || selfHref.match(/cases\/([0-9a-f-]{36})/)?.[1] || ''
-
-      let caseUrl: string
-      if (extractedCaseId) {
-        caseUrl = `https://courts.ontario.ca/portal/court/${courtId}/case/${extractedCaseId}`
-      } else if (caseNum) {
-        caseUrl = `https://courts.ontario.ca/portal/search/case/results?criteria=~(advanced~false~courtID~%27${courtId}~paging~(totalItems~0~itemsPerPage~25~page~1~sortBy~%27caseHeader.filedDate~sortDesc~true)~case~(caseNumber~%27${encodeURIComponent(caseNum)}~caseNumberQueryTypeID~10462~caseTitleQueryTypeID~300054~originatingCourtCaseNumberQueryTypeID~10463~excludeClosed~false))`
-      } else {
-        caseUrl = `https://courts.ontario.ca/portal/search/case`
-      }
-
-      matches.push({
-        caseNumber: caseNum,
-        caseTitle: r.caseHeader?.caseTitle || '',
-        caseCategory: r.caseHeader?.caseCategory || '',
-        filedDate: r.caseHeader?.filedDate || '',
-        partyRole: r.partyHeader?.partySubType || '',
-        partyDisplayName: r.partyHeader?.partyActorInstance?.sortName || r.partyHeader?.partyActorInstance?.displayName || '',
-        courtAbbreviation: r.caseHeader?.courtAbbreviation || 'Civil and Small Claims Court',
-        closedFlag: r.caseHeader?.closedFlag ?? false,
-        caseUrl,
-        nameSwapped: matchType === 'swapped',
-      })
-    }
-
-    return { matches, totalElements }
   } catch (e: any) {
-    return { matches: [], totalElements: 0, error: e?.message || 'Fetch failed' }
+    return { results: [], totalElements: 0, error: e?.message || 'Fetch failed' }
+  }
+}
+
+function shapePortalMatch(r: any, nameSwapped: boolean): OntarioPortalMatch {
+  return {
+    caseNumber: r.caseHeader?.caseNumber || '',
+    caseTitle: r.caseHeader?.caseTitle || '',
+    caseCategory: r.caseHeader?.caseCategory || '',
+    filedDate: r.caseHeader?.filedDate || '',
+    partyRole: r.partyHeader?.partySubType || '',
+    partyDisplayName: r.partyHeader?.partyActorInstance?.sortName || r.partyHeader?.partyActorInstance?.displayName || '',
+    courtAbbreviation: r.caseHeader?.courtAbbreviation || 'Civil and Small Claims Court',
+    closedFlag: r.caseHeader?.closedFlag ?? false,
+    nameSwapped: nameSwapped || undefined,
+  }
+}
+
+async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: OntarioPortalMatch[]; totalElements: number; error?: string }> {
+  // Normalize whitespace (guards against "BO  HAN" with double spaces from
+  // OCR — the portal API treats those differently than "BO HAN").
+  const normalized = fullName.replace(/\s+/g, ' ').trim()
+  if (!isValidFullName(normalized)) {
+    return { matches: [], totalElements: 0, error: 'Invalid name for search' }
+  }
+
+  const parts = normalized.split(' ').filter(p => p.length >= 2)
+  // Build the 1-flip swap: "A B C" → "C A B" (last token moved to front)
+  // and the full reverse: "A B C" → "C B A". Either could match depending on
+  // how the portal indexed the name.
+  const tryOrders: string[] = [normalized]
+  if (parts.length >= 2) {
+    const swapped = [parts[parts.length - 1], ...parts.slice(0, -1)].join(' ')
+    if (swapped !== normalized) tryOrders.push(swapped)
+    const reversed = [...parts].reverse().join(' ')
+    if (reversed !== normalized && reversed !== swapped) tryOrders.push(reversed)
+  }
+
+  const applyFilter = (results: any[], queryName: string, nameSwapped: boolean): OntarioPortalMatch[] => {
+    return results
+      .filter(r => {
+        const dn = (r.partyHeader?.partyActorInstance?.displayName || '').toLowerCase()
+        const sn = (r.partyHeader?.partyActorInstance?.sortName || '').toLowerCase()
+        const combined = dn + ' ' + sn
+        return nameMatchesTitle(queryName, combined)
+      })
+      .map(r => shapePortalMatch(r, nameSwapped))
+  }
+
+  // Tier 1: exact match on each name ordering
+  let lastError: string | undefined
+  let totalSeen = 0
+  for (let i = 0; i < tryOrders.length; i++) {
+    const order = tryOrders[i]
+    const isSwap = i > 0
+    const q = await portalQuery(order, '10462')
+    if (q.error) lastError = q.error
+    totalSeen += q.totalElements
+    const matches = applyFilter(q.results, order, isSwap)
+    if (matches.length > 0) {
+      return { matches, totalElements: q.totalElements }
+    }
+  }
+
+  // Tier 2: fuzzy fallback on the canonical order — the local filter will
+  // reject the noise (BO OUYANG, BO XIANG, etc.), but this rescues cases
+  // where the portal stored the party name with extra tokens or ordering
+  // that our exact queries didn't cover.
+  const fuzzy = await portalQuery(normalized, '300054')
+  if (fuzzy.error && !lastError) lastError = fuzzy.error
+  const fuzzyMatches = applyFilter(fuzzy.results, normalized, false)
+  if (fuzzyMatches.length > 0) {
+    return { matches: fuzzyMatches, totalElements: fuzzy.totalElements }
+  }
+
+  return {
+    matches: [],
+    totalElements: Math.max(totalSeen, fuzzy.totalElements),
+    error: lastError,
   }
 }
 
@@ -1040,12 +1021,8 @@ JSON DISCIPLINE (avoid parse errors):
       'pdf_producer_consumer_tool',        // Photoshop / Word / Canva / Image2PDF
       'paystub_ytd_inflated',              // YTD math impossible (>1.5x or <0.5x)
       'paystub_period_math_error',         // hourly × hours ≠ stated gross
+      'credit_report_no_equifax_markers',  // claims to be Equifax, no markers
       'bank_producer_mismatch',            // bank text but wrong PDF Producer
-      // NOTE: credit_report_no_equifax_markers is deliberately NOT here.
-      // Missing Equifax markers could mean it's a TransUnion/Borrowell report
-      // or a different format — suspicious but not conclusive forgery.
-      // NOTE: pdf_pure_image is deliberately NOT here — an image-only PDF
-      // could be a legitimate scan/photo of a real document.
     ])
 
     // file_kind → list of v3 dimensions to zero when that file is forged
@@ -1115,10 +1092,22 @@ JSON DISCIPLINE (avoid parse errors):
       ? { ...parsed.details_zh } : {}
     const dimsZeroed: Array<keyof V3Scores> = []
 
-    // Zero only the specific dimensions tied to the forged file type.
-    // Previously we zeroed ALL dimensions if ANY file was forged, but
-    // this is too aggressive: a suspicious credit report shouldn't zero
-    // ability_to_pay if the paystubs and bank statements are legitimate.
+    // If ANY document is forged, ALL uploaded documents become untrusted.
+    // Zero out ALL dimensions that depend on uploaded evidence, not just
+    // the specific dimension tied to the forged file type.
+    if (Object.keys(dimZeroReasons).length > 0) {
+      const forgedFileNames = Object.values(dimZeroReasons).map(r => r.en).join(' ')
+      const ALL_DIMS: Array<keyof V3Scores> = ['ability_to_pay', 'credit_health', 'rental_history', 'verification', 'communication']
+      for (const dim of ALL_DIMS) {
+        if (!dimZeroReasons[dim]) {
+          dimZeroReasons[dim] = {
+            en: `Score forced to 0: another uploaded document was determined to be forged — ALL uploaded documents are now untrusted.`,
+            zh: `维度被置零：检测到有文件伪造，所有上传文件均不可信。`,
+          }
+        }
+      }
+    }
+
     for (const [dim, reason] of Object.entries(dimZeroReasons) as Array<[keyof V3Scores, DimZeroReason]>) {
       s[dim] = 0
       detailsEn[dim] = reason.en
