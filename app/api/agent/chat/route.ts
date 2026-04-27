@@ -16,6 +16,7 @@ export const runtime = 'edge'
 
 import { createClient } from '@supabase/supabase-js'
 import { runAgentLoop, type LoopEvent } from '@/lib/agent/loop'
+import { summarizeAndPersistFacts } from '@/lib/agent/memory'
 import logicAgent from '@/lib/agent/agents/logic'
 // Importing the tools barrel side-effects all tool registrations:
 import '@/lib/agent/tools'
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
   const admin = makeServiceClient()
 
   // Load or create conversation
-  let conversationId: string = body.conversation_id as string
+  let conversationId = body.conversation_id
   if (!conversationId) {
     const { data: conv, error: convErr } = await admin
       .from('conversations')
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
     conversation_id: conversationId,
     role: 'user',
     content: [
-      { type: 'text', text: body.message! },
+      { type: 'text', text: body.message },
       ...(body.attachments?.length
         ? [{ type: 'attachments_meta' as any, attachments: body.attachments }]
         : []),
@@ -148,12 +149,12 @@ export async function POST(req: Request) {
         // Build the user message content for the loop. If attachments present,
         // we surface them as text references — the agent can decide to call
         // run_pdf_forensics / classify_files using their paths.
-        let userMessage: string = body.message || ''
+        let userMessage: any = body.message
         if (body.attachments?.length) {
           const fileList = body.attachments
             .map((a) => `- ${a.name} (${a.mime}, ${a.size ?? '?'}B) at storage path: ${a.path}`)
             .join('\n')
-          userMessage = `${userMessage}\n\nAttached files:\n${fileList}`
+          userMessage = `${body.message}\n\nAttached files:\n${fileList}`
         }
 
         const result = await runAgentLoop({
@@ -188,6 +189,22 @@ export async function POST(req: Request) {
           .from('conversations')
           .update({ last_message_at: new Date().toISOString() })
           .eq('id', conversationId)
+
+        // Fire-and-forget memory summarization. Doesn't block the close().
+        // We use waitUntil-style edge runtime fire by NOT awaiting — but we
+        // do run it inside the same request lifetime so Cloudflare keeps
+        // the worker alive.
+        try {
+          void summarizeAndPersistFacts(
+            admin,
+            userId,
+            conversationId,
+            process.env.ANTHROPIC_API_KEY!,
+            { lookbackTurns: 8 },
+          )
+        } catch {
+          // already logs internally
+        }
       } catch (e: any) {
         send({ type: 'error', message: e?.message || 'unknown_error' })
       } finally {

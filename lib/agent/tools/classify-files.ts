@@ -1,67 +1,159 @@
 // -----------------------------------------------------------------------------
 // Tool: classify_files
 // -----------------------------------------------------------------------------
-// Reference implementation showing the canonical pattern for wrapping an
-// existing capability as a CapabilityTool. Subsequent tools follow the same
-// shape: { name, version, description, inputSchema, outputSchema?, handler }
-// + a top-level registerTool() call so the registry is populated on import.
+// Classify uploaded documents into rental-screening kinds (id_document,
+// pay_stub, employment_letter, bank_statement, credit_report, t4, noa,
+// reference_letter, lease, other). Also extracts the applicant name and
+// monthly rent if visible on any of the documents.
 //
-// This tool currently stubs out to the existing /api/classify-files behavior.
-// In Sprint 2 we'll inline the Haiku call here so tools are fully decoupled
-// from the legacy route handlers.
+// Implementation: directly calls Claude Haiku with each file as a document
+// content block (URL or base64). No dependency on the legacy
+// /api/classify-files HTTP route — the tool is fully self-contained so an
+// agent can call it without going back through the route layer.
 // -----------------------------------------------------------------------------
 
-import type { CapabilityTool, ToolContext } from '../types'
+import type { CapabilityTool } from '../types'
 import { registerTool } from '../registry'
 
-interface ClassifyFilesInput {
-  /** Array of files (already uploaded to Supabase Storage). */
+const HAIKU_MODEL = 'claude-haiku-4-5'
+const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
+
+const VALID_KINDS = [
+  'id_document',
+  'application_form',
+  'pay_stub',
+  'employment_letter',
+  't4',
+  'noa',
+  'bank_statement',
+  'credit_report',
+  'reference_letter',
+  'lease',
+  'other',
+] as const
+
+const MAX_FILES_PER_BATCH = 5
+
+interface ClassifyInput {
   files: Array<{
-    /** Storage path under the `tenant-files` bucket. */
     path: string
-    /** Original filename (used for extension-based MIME inference). */
     name: string
-    /** Detected MIME type. */
     mime: string
-    /** File size in bytes. */
     size?: number
   }>
 }
 
-interface ClassifyFilesOutput {
-  /** Per-file detected document kinds. The same file can have multiple kinds
-   *  if its content is mixed (e.g. an "application_form" with embedded
-   *  "id_document" pages). */
+interface ClassifyOutput {
   classifications: Array<{
     name: string
     kinds: string[]
     confidence: number
-    /** When extraction is confident enough, surface the applicant name. */
-    extracted_name?: string
   }>
-  /** Best-guess applicant full name across all files. */
   applicant_name: string | null
+  monthly_rent: number | null
+  errors: string[]
 }
 
-const KINDS_REFERENCE = `Common document kinds (snake_case):
-  - id_document        Government ID (DL, passport, PR card, health card)
-  - application_form   Lease/rental application
-  - pay_stub           Single pay period statement
-  - employment_letter  Verification of employment letter
-  - t4                 Canadian T4 tax slip
-  - noa                Notice of Assessment from CRA
-  - bank_statement     Bank account monthly statement
-  - credit_report      Equifax/TransUnion credit bureau report
-  - reference_letter   Former-landlord reference
-  - lease              Existing or proposed lease document
-  - other              Anything not matching above`
+const CLASSIFY_PROMPT = `You are a document classifier for a Canadian rental screening tool.
 
-const tool: CapabilityTool<ClassifyFilesInput, ClassifyFilesOutput> = {
+For each file, identify which document kind(s) it contains. A single PDF may contain multiple kinds (e.g. a rental application package bundling an ID + paystub + bank statement) — list every kind you see.
+
+Valid kinds: ${VALID_KINDS.join(', ')}
+
+ALSO extract — if visible in any uploaded document — the following fields. Prefer rental application forms first, then ID documents, then other sources.
+- applicant_name: the applicant's full legal name as printed
+- monthly_rent: monthly rent for the unit (CAD, number only). If only annual is shown, divide by 12. null if unknown.
+
+Return ONLY this JSON (no markdown, no prose):
+{
+  "files": [ { "index": <0-based index>, "kinds": ["..."], "confidence": <0..1> }, ... ],
+  "applicant_name": "<name or null>",
+  "monthly_rent": <number or null>
+}`
+
+async function classifyBatch(
+  signed: Array<{ url: string; mime: string; name: string }>,
+  apiKey: string,
+): Promise<{
+  files?: Array<{ index: number; kinds: string[]; confidence?: number }>
+  applicant_name?: string | null
+  monthly_rent?: number | null
+}> {
+  const content: any[] = [{ type: 'text', text: CLASSIFY_PROMPT }]
+  for (let i = 0; i < signed.length; i++) {
+    const f = signed[i]
+    if (f.mime === 'application/pdf') {
+      content.push({ type: 'text', text: `\nFile #${i}: ${f.name}` })
+      content.push({ type: 'document', source: { type: 'url', url: f.url } })
+    } else if (f.mime.startsWith('image/')) {
+      content.push({ type: 'text', text: `\nFile #${i}: ${f.name}` })
+      content.push({ type: 'image', source: { type: 'url', url: f.url } })
+    }
+  }
+
+  const res = await fetch(ANTHROPIC_API, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: HAIKU_MODEL,
+      max_tokens: 1500,
+      messages: [
+        { role: 'user', content },
+        { role: 'assistant', content: '{' },
+      ],
+    }),
+    signal: AbortSignal.timeout(40_000),
+  })
+  if (!res.ok) throw new Error(`haiku_${res.status}`)
+  const json: any = await res.json()
+  const raw = (json?.content?.[0]?.text || '').trim()
+  const text = raw.startsWith('{') ? raw : '{' + raw
+  // Defensive: balanced-brace extraction
+  const braceMatch = extractBalancedJson(text)
+  if (!braceMatch) throw new Error('no_json')
+  return JSON.parse(braceMatch.replace(/,(\s*[}\]])/g, '$1'))
+}
+
+function extractBalancedJson(s: string): string | null {
+  const start = s.indexOf('{')
+  if (start < 0) return null
+  let depth = 0
+  let inStr = false
+  let escape = false
+  for (let i = start; i < s.length; i++) {
+    const c = s[i]
+    if (escape) {
+      escape = false
+      continue
+    }
+    if (c === '\\') {
+      escape = true
+      continue
+    }
+    if (c === '"') {
+      inStr = !inStr
+      continue
+    }
+    if (inStr) continue
+    if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) return s.slice(start, i + 1)
+    }
+  }
+  return null
+}
+
+const tool: CapabilityTool<ClassifyInput, ClassifyOutput> = {
   name: 'classify_files',
-  version: '1.0.0',
+  version: '2.0.0',
   description:
-    `Classify each uploaded file into one or more rental-screening document kinds and extract the applicant's name when visible. Use this as the first step in any screening workflow. ` +
-    `对每个上传文件分类（驾照/工资单/雇佣信/T4/NOA/银行流水/信用报告/推荐信/租约等）并尽量抽取申请人姓名。是 screening 流程的第一步。\n\n${KINDS_REFERENCE}`,
+    `Classify each uploaded file into one or more Canadian rental-screening document kinds and extract the applicant name + monthly rent when visible. Use this as the FIRST step in any screening workflow — other tools depend on knowing which file is the ID, which is the pay stub, etc. Valid kinds: ${VALID_KINDS.join(', ')}. ` +
+    `对每个上传文件分类（驾照/工资单/雇佣信/T4/NOA/银行流水/信用报告/推荐信/租约等），并尽量抽取申请人姓名和月租金。是 screening 流程的第一步。`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -70,7 +162,7 @@ const tool: CapabilityTool<ClassifyFilesInput, ClassifyFilesOutput> = {
         items: {
           type: 'object',
           properties: {
-            path: { type: 'string', description: 'Supabase Storage path' },
+            path: { type: 'string', description: 'Supabase Storage path under tenant-files bucket' },
             name: { type: 'string' },
             mime: { type: 'string' },
             size: { type: 'integer' },
@@ -81,56 +173,84 @@ const tool: CapabilityTool<ClassifyFilesInput, ClassifyFilesOutput> = {
     },
     required: ['files'],
   },
-  outputSchema: {
-    type: 'object',
-    properties: {
-      classifications: { type: 'array' },
-      applicant_name: { type: ['string', 'null'] },
-    },
-  },
   needsApproval: false,
   handler: async (input, ctx) => {
-    // Generate signed URLs for the legacy /api/classify-files route so we
-    // can call it server-to-server. In Sprint 2 we'll inline the Haiku
-    // classification here and remove this dependency.
-    const signedFiles = await Promise.all(
+    if (!ctx.anthropicApiKey) {
+      return {
+        classifications: input.files.map((f) => ({ name: f.name, kinds: ['other'], confidence: 0 })),
+        applicant_name: null,
+        monthly_rent: null,
+        errors: ['no_api_key'],
+      }
+    }
+
+    // Sign URLs
+    const signed = await Promise.all(
       input.files.map(async (f) => {
         const { data } = await ctx.supabaseAdmin.storage
           .from('tenant-files')
           .createSignedUrl(f.path, 600)
-        return {
-          name: f.name,
-          mime: f.mime,
-          size: f.size,
-          signedUrl: data?.signedUrl,
-        }
+        return data?.signedUrl
+          ? { url: data.signedUrl, mime: f.mime, name: f.name, idx: input.files.indexOf(f) }
+          : null
       }),
     )
+    const usable = signed.filter((s): s is NonNullable<typeof s> => !!s)
 
-    const failed = signedFiles.filter((f) => !f.signedUrl)
-    if (failed.length === input.files.length) {
+    if (usable.length === 0) {
       return {
         classifications: [],
         applicant_name: null,
+        monthly_rent: null,
+        errors: ['no_signed_urls'],
       }
     }
 
-    // Stub: fan out per-file using the existing classify-files HTTP handler.
-    // We don't have a direct internal entry point yet; for Sprint 1 the
-    // handler returns an empty classification and the caller (Logic agent
-    // or screen-score) falls back to the existing pipeline. Sprint 2
-    // replaces this with inline Haiku.
+    // Batch classify (Haiku has tight per-call file count tolerance)
+    const errors: string[] = []
+    const fileResults: Map<string, { kinds: string[]; confidence: number }> = new Map()
+    let applicantName: string | null = null
+    let monthlyRent: number | null = null
+
+    for (let i = 0; i < usable.length; i += MAX_FILES_PER_BATCH) {
+      const batch = usable.slice(i, i + MAX_FILES_PER_BATCH)
+      try {
+        const result = await classifyBatch(batch, ctx.anthropicApiKey)
+        if (result.applicant_name && !applicantName) applicantName = result.applicant_name
+        if (typeof result.monthly_rent === 'number' && !monthlyRent) monthlyRent = result.monthly_rent
+        for (const r of result.files || []) {
+          const item = batch[r.index]
+          if (item) {
+            const kinds = r.kinds.filter((k) => (VALID_KINDS as readonly string[]).includes(k))
+            fileResults.set(item.name, {
+              kinds: kinds.length > 0 ? kinds : ['other'],
+              confidence: r.confidence ?? 0.7,
+            })
+          }
+        }
+      } catch (e: any) {
+        errors.push(`batch_${i}: ${e?.message?.slice(0, 100) || 'failed'}`)
+        // Mark unclassified files as 'other' so downstream still has a kind
+        for (const item of batch) {
+          if (!fileResults.has(item.name)) {
+            fileResults.set(item.name, { kinds: ['other'], confidence: 0 })
+          }
+        }
+      }
+    }
+
     return {
-      classifications: signedFiles.map((f) => ({
+      classifications: input.files.map((f) => ({
         name: f.name,
-        kinds: ['other'],
-        confidence: 0,
+        kinds: fileResults.get(f.name)?.kinds || ['other'],
+        confidence: fileResults.get(f.name)?.confidence ?? 0,
       })),
-      applicant_name: null,
+      applicant_name: applicantName,
+      monthly_rent: monthlyRent,
+      errors,
     }
   },
 }
 
 registerTool(tool)
-
 export default tool
