@@ -1,25 +1,107 @@
 'use client'
 // /agent/day — Field Agent Day Brief (V3 section 07)
+// Production: reads showings + payouts for the current Field Agent.
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
+import { supabase } from '@/lib/supabase'
+import { useUser } from '@/lib/useUser'
 
-const TASKS = [
-  { time: '15:00', dur: '30 min', title_en: 'Tour · The Hudson #1208', title_zh: '带看 · The Hudson 1208', who: 'Wei Chen · Score 92', tag: 'Logic Pick' },
-  { time: '15:45', dur: '30 min', title_en: 'Tour · 88 Blue Jays Way', title_zh: '带看 · 88 Blue Jays', who: 'Aisha Okafor · Score 84', tag: 'Tenant Agent' },
-  { time: '16:30', dur: '20 min', title_en: 'Tour · 39 Niagara St', title_zh: '带看 · 39 Niagara', who: 'Marco Rossi · Score 78' },
-]
+interface AgentRow {
+  id: string
+  display_name: string
+  initials: string | null
+  reco_number: string | null
+  signed_last_12mo: number
+  avg_dom_days: number | null
+  active_load: number
+}
 
-const PAYOUTS = [
-  { name: '88 Blue Jays · #1408', amount: 1840, status: 'Paid' },
-  { name: '160 Frederick · 902', amount: 2080, status: 'Paid' },
-  { name: 'The Hudson · 1208', amount: 2000, status: 'Pending' },
-  { name: '39 Niagara · 311', amount: 1680, status: 'Pending' },
-]
+interface Showing {
+  id: string
+  scheduled_at: string
+  duration_min: number
+  status: string
+  listing: { address: string; unit: string | null; monthly_rent: number | null } | null
+  applicant: { first_name: string | null; last_name: string | null; ai_score: number | null; email: string } | null
+}
+
+function fmtTime(ts: string): string {
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+function isToday(ts: string): boolean {
+  const d = new Date(ts)
+  const now = new Date()
+  return d.toDateString() === now.toDateString()
+}
 
 export default function AgentDayPage() {
   const { lang } = useT()
   const isZh = lang === 'zh'
+  const { user, loading: authLoading } = useUser({ redirectIfMissing: true })
+  const [agent, setAgent] = useState<AgentRow | null>(null)
+  const [showings, setShowings] = useState<Showing[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!user) return
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.authId])
+
+  async function load() {
+    setLoading(true)
+    const { data: ag } = await supabase
+      .from('field_agents')
+      .select('id, display_name, initials, reco_number, signed_last_12mo, avg_dom_days, active_load')
+      .eq('auth_id', user!.authId)
+      .maybeSingle()
+    setAgent((ag as AgentRow) || null)
+    if (ag) {
+      const { data: sh } = await supabase
+        .from('showings')
+        .select('id, scheduled_at, duration_min, status, listing:listings(address, unit, monthly_rent), applicant:applications(first_name, last_name, ai_score, email)')
+        .eq('agent_id', (ag as any).id)
+        .order('scheduled_at', { ascending: true })
+        .limit(20)
+      setShowings((sh as any[]) || [])
+    }
+    setLoading(false)
+  }
+
+  if (authLoading || loading) {
+    return (
+      <main style={{ background: v3.surfaceMuted, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
+        <div style={{ color: v3.textMuted, fontSize: 14 }}>{isZh ? '加载…' : 'Loading…'}</div>
+      </main>
+    )
+  }
+
+  if (!agent) {
+    return (
+      <main style={{ background: v3.surfaceMuted, minHeight: '100vh', padding: 24 }}>
+        <div style={{ maxWidth: 480, margin: '64px auto 0', textAlign: 'center', background: v3.surface, border: `1px dashed ${v3.borderStrong}`, borderRadius: 16, padding: '40px 24px' }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>
+            {isZh ? '你还不是 Field Agent' : 'You\u2019re not registered as a Field Agent'}
+          </h1>
+          <p style={{ color: v3.textMuted, fontSize: 14, marginBottom: 18, lineHeight: 1.5 }}>
+            {isZh
+              ? '联系 Stayloop 加入网络。RECO 持牌经纪 + brokerage 关系即可。'
+              : 'Contact Stayloop to join the network. RECO-licensed agent + brokerage relationship required.'}
+          </p>
+          <Link href="mailto:hello@stayloop.ai" style={{ display: 'inline-flex', padding: '12px 22px', background: v3.brand, color: '#fff', borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>
+            {isZh ? '联系我们' : 'Get in touch'}
+          </Link>
+        </div>
+      </main>
+    )
+  }
+
+  const todays = showings.filter((s) => isToday(s.scheduled_at) && s.status !== 'cancelled')
+  const todaysDone = todays.filter((s) => s.status === 'completed').length
+
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
       <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -28,100 +110,111 @@ export default function AgentDayPage() {
             <span style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
             <span style={{ fontSize: 16, fontWeight: 700 }}>stayloop</span>
           </Link>
-          <span style={{ width: 28, height: 28, borderRadius: 999, background: v3.brand, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700 }}>JH</span>
-          <span style={{ fontSize: 13, color: v3.textMuted, fontFamily: 'var(--font-mono)' }}>RECO #4827193</span>
+          <span style={{ width: 28, height: 28, borderRadius: 999, background: v3.brand, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700 }}>
+            {agent.initials || agent.display_name.split(' ').map((p) => p[0]).slice(0, 2).join('')}
+          </span>
+          {agent.reco_number && (
+            <span style={{ fontSize: 13, color: v3.textMuted, fontFamily: 'var(--font-mono)' }}>
+              RECO #{agent.reco_number}
+            </span>
+          )}
         </div>
-        <span style={{ fontSize: 12, color: v3.textMuted }}>Mon · Apr 20 · 14:22</span>
+        <span style={{ fontSize: 12, color: v3.textMuted }}>
+          {new Date().toLocaleDateString(isZh ? 'zh-CN' : 'en-CA', { weekday: 'short', month: 'short', day: 'numeric' })}
+        </span>
       </header>
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>
-          {isZh ? '下午好，Jason' : 'Good afternoon, Jason'}
+          {isZh
+            ? `${getGreeting(isZh)}，${agent.display_name.split(' ')[0]}`
+            : `${getGreeting(isZh)}, ${agent.display_name.split(' ')[0]}`}
         </h1>
-        <div style={{ fontSize: 13, color: v3.textMuted, marginBottom: 20, fontFamily: 'var(--font-cn), system-ui' }}>
-          {isZh ? '今天有 3 场带看，1 个待签租约' : '3 showings today · 1 lease pending signature'}
-        </div>
-
-        {/* AI brief banner */}
-        <div style={{ background: v3.surface, border: `1px solid ${v3.brandSoft}`, borderLeft: `4px solid ${v3.brand}`, borderRadius: 14, padding: 18, marginBottom: 18, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: v3.brand, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 16, flexShrink: 0 }}>✦</div>
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-              Echo + Logic · {isZh ? '今日简报' : 'YOUR DAY'}
-            </div>
-            <div style={{ fontSize: 13, lineHeight: 1.55, color: v3.textPrimary }}>
-              {isZh
-                ? '今天三场带看都在 King West (3-5pm)。最佳租客是陈伟 (#1208) — 重点讲阳台和朝南采光。'
-                : 'Drive efficient route: 3 showings clustered in King West from 3pm–5pm. I prepped briefs for each — Wei Chen at #1208 is the highest-fit tenant; lead with the balcony and the south light.'}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button style={{ padding: '8px 14px', background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 8, fontSize: 12, fontWeight: 600, color: v3.textSecondary }}>📍 {isZh ? '路线' : 'Route'}</button>
-            <button style={{ padding: '8px 14px', background: v3.brand, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{isZh ? '语音简报' : 'Brief me out loud'}</button>
-          </div>
+        <div style={{ fontSize: 13, color: v3.textMuted, marginBottom: 20 }}>
+          {isZh
+            ? `今天 ${todays.length} 场带看`
+            : `${todays.length} showing${todays.length === 1 ? '' : 's'} today`}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }} className="ad-grid">
-          {/* Tasks */}
           <section style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{isZh ? '今日任务' : "Today's tasks"}</h2>
-              <span style={{ fontSize: 11, color: v3.textMuted }}>3 of 7 done</span>
+              <span style={{ fontSize: 11, color: v3.textMuted }}>
+                {todaysDone} of {todays.length} done
+              </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {TASKS.map((t) => (
-                <div key={t.time} style={{ display: 'flex', gap: 14, padding: 12, background: v3.surfaceMuted, borderRadius: 10 }}>
-                  <div style={{ flexShrink: 0, textAlign: 'center', minWidth: 60 }}>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em' }}>{t.time}</div>
-                    <div style={{ fontSize: 10, color: v3.textMuted }}>{t.dur}</div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 14, fontWeight: 700 }}>{isZh ? t.title_zh : t.title_en}</span>
-                      {t.tag && <span style={{ fontSize: 9, fontWeight: 700, color: v3.brandStrong, background: v3.brandSoft, padding: '2px 8px', borderRadius: 999, letterSpacing: '0.06em' }}>{t.tag}</span>}
-                    </div>
-                    <div style={{ fontSize: 11, color: v3.textMuted }}>{t.who}</div>
-                  </div>
-                  <button style={{ alignSelf: 'center', padding: '6px 12px', background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 7, fontSize: 11.5, color: v3.textSecondary, fontWeight: 600 }}>
-                    {isZh ? '查看 brief' : 'Open brief'}
-                  </button>
-                </div>
-              ))}
-            </div>
+            {todays.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: v3.textMuted, fontSize: 13 }}>
+                {isZh ? '今天没有安排带看。' : 'No showings booked today.'}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {todays.map((s) => {
+                  const name = s.applicant
+                    ? [s.applicant.first_name, s.applicant.last_name].filter(Boolean).join(' ') || s.applicant.email
+                    : isZh ? '未指定租客' : 'Unassigned tenant'
+                  const addr = s.listing ? `${s.listing.address}${s.listing.unit ? ` · ${s.listing.unit}` : ''}` : '—'
+                  const isTopFit = (s.applicant?.ai_score || 0) >= 90
+                  return (
+                    <Link
+                      key={s.id}
+                      href={`/agent/showings/${s.id}`}
+                      style={{ display: 'flex', gap: 14, padding: 12, background: v3.surfaceMuted, borderRadius: 10, textDecoration: 'none', color: v3.textPrimary }}
+                    >
+                      <div style={{ flexShrink: 0, textAlign: 'center', minWidth: 60 }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em' }}>
+                          {fmtTime(s.scheduled_at)}
+                        </div>
+                        <div style={{ fontSize: 10, color: v3.textMuted }}>{s.duration_min} min</div>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 14, fontWeight: 700 }}>
+                            {isZh ? '带看' : 'Tour'} · {addr}
+                          </span>
+                          {isTopFit && (
+                            <span style={{ fontSize: 9, fontWeight: 700, color: v3.brandStrong, background: v3.brandSoft, padding: '2px 8px', borderRadius: 999, letterSpacing: '0.06em' }}>
+                              Logic Pick
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: v3.textMuted }}>
+                          {name}
+                          {s.applicant?.ai_score ? ` · Score ${s.applicant.ai_score}` : ''}
+                        </div>
+                      </div>
+                      <span style={{ alignSelf: 'center', color: v3.textMuted, fontSize: 14 }}>›</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
           </section>
 
-          {/* Earnings + AI did this week */}
           <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18 }}>
               <div style={{ fontSize: 10.5, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-                {isZh ? '本月收入 · EARNINGS' : 'EARNINGS · APRIL'}
+                {isZh ? '近 12 个月' : 'Last 12 months'}
               </div>
-              <div style={{ fontSize: 28, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.025em', marginBottom: 4 }}>$16,400 <span style={{ fontSize: 12, color: v3.textMuted, fontWeight: 500 }}>CAD</span></div>
-              <div style={{ fontSize: 11, color: v3.brandStrong, marginBottom: 12 }}>↑ 38% MoM · 4 deals · 80% take</div>
-              <div style={{ borderTop: `1px solid ${v3.divider}`, paddingTop: 10, fontSize: 10.5, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
-                {isZh ? '近期付款' : 'RECENT PAYOUTS'}
+              <div style={{ fontSize: 28, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.025em', marginBottom: 4 }}>
+                {agent.signed_last_12mo} <span style={{ fontSize: 12, color: v3.textMuted, fontWeight: 500 }}>{isZh ? '签约' : 'signed'}</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {PAYOUTS.map((p) => (
-                  <div key={p.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
-                    <div>
-                      <div style={{ color: v3.textPrimary, fontWeight: 500 }}>{p.name}</div>
-                      <div style={{ fontSize: 10, color: p.status === 'Paid' ? v3.brandStrong : v3.warning, fontWeight: 600 }}>{p.status}</div>
-                    </div>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>${p.amount.toLocaleString()}</span>
-                  </div>
-                ))}
+              <div style={{ fontSize: 11, color: v3.brandStrong, marginBottom: 12 }}>
+                {isZh ? `平均挂牌 ${agent.avg_dom_days || '—'} 天` : `${agent.avg_dom_days || '—'}d avg DoM`}
+              </div>
+              <div style={{ borderTop: `1px solid ${v3.divider}`, paddingTop: 10, fontSize: 11, color: v3.textMuted, fontFamily: 'var(--font-mono)' }}>
+                Active load: {agent.active_load}
               </div>
             </div>
             <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18 }}>
               <div style={{ fontSize: 10.5, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>
-                {isZh ? '本周 AI 帮你做了' : 'AI DID THIS WEEK'}
+                {isZh ? 'AI 已为你做了' : 'AI DID FOR YOU'}
               </div>
               {[
-                { en: 'Listings drafted by Nova', zh: 'Nova 起草', val: 7 },
-                { en: 'Tenant chats by Echo', zh: 'Echo 聊天', val: 142 },
-                { en: 'Calendars matched', zh: '日历匹配', val: 11 },
-                { en: 'Time saved', zh: '节省', val: '~14 h' },
+                { en: 'Showings booked', zh: '已预约', val: showings.filter((s) => s.status !== 'cancelled').length },
+                { en: 'Logic Picks', zh: 'Logic 推荐', val: showings.filter((s) => (s.applicant?.ai_score || 0) >= 90).length },
+                { en: 'Awaiting your tour', zh: '待带看', val: showings.filter((s) => s.status === 'requested' || s.status === 'confirmed').length },
               ].map((r) => (
                 <div key={r.en} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '6px 0', borderBottom: `1px solid ${v3.divider}` }}>
                   <span style={{ color: v3.textSecondary }}>{isZh ? r.zh : r.en}</span>
@@ -132,10 +225,13 @@ export default function AgentDayPage() {
           </section>
         </div>
       </div>
-
-      <style jsx>{`
-        @media (max-width: 880px) { :global(.ad-grid) { grid-template-columns: 1fr !important; } }
-      `}</style>
+      <style jsx>{`@media (max-width: 880px){:global(.ad-grid){grid-template-columns:1fr !important;}}`}</style>
     </main>
   )
+}
+
+function getGreeting(zh: boolean): string {
+  const h = new Date().getHours()
+  if (zh) return h < 12 ? '早上好' : h < 18 ? '下午好' : '晚上好'
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
 }

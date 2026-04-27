@@ -19,6 +19,8 @@ import { runAgentLoop, type LoopEvent } from '@/lib/agent/loop'
 import { summarizeAndPersistFacts } from '@/lib/agent/memory'
 import logicAgent from '@/lib/agent/agents/logic'
 import novaAgent from '@/lib/agent/agents/nova'
+import echoAgent from '@/lib/agent/agents/echo'
+import mediatorAgent from '@/lib/agent/agents/mediator'
 // Importing the tools barrel side-effects all tool registrations:
 import '@/lib/agent/tools'
 
@@ -33,7 +35,9 @@ interface ChatRequestBody {
 const AGENTS_REGISTRY = {
   logic: logicAgent,
   nova: novaAgent,
-  // future: echo, analyst, mediator
+  echo: echoAgent,
+  mediator: mediatorAgent,
+  // future: analyst, beacon, sentinel, verify
 }
 
 function makeServiceClient() {

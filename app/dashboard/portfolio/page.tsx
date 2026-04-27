@@ -1,127 +1,202 @@
 'use client'
 // /dashboard/portfolio — Landlord Portfolio Analytics (V3 section 20)
+// Production: aggregates current landlord's listings + applications.
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
+import { supabase } from '@/lib/supabase'
+import { useUser } from '@/lib/useUser'
 
-const PROPS = [
-  { addr: '2350 King W #1208', rent: 2350, status: 'Occupied', dom: '0d', score: 872, health: 96 },
-  { addr: '88 Front St #2204', rent: 2800, status: 'Occupied', dom: '0d', score: 815, health: 88 },
-  { addr: '32 Trolley Cres', rent: 3100, status: 'Vacant', dom: '11d', score: null, health: 64 },
-  { addr: '171 East Liberty', rent: 2200, status: 'Occupied', dom: '0d', score: 791, health: 92 },
-]
+interface Property {
+  id: string
+  address: string
+  unit: string | null
+  monthly_rent: number | null
+  is_active: boolean
+  created_at: string
+  topAiScore: number | null
+  applicantCount: number
+  daysOnMarket: number
+}
+
+function dom(createdAt: string, leased: boolean): number {
+  if (leased) return 0
+  return Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000)
+}
 
 export default function PortfolioPage() {
   const { lang } = useT()
   const isZh = lang === 'zh'
+  const { user, loading: authLoading } = useUser({ redirectIfMissing: true })
+  const [props, setProps] = useState<Property[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!user) return
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.profileId])
+
+  async function load() {
+    setLoading(true)
+    if (!user?.profileId) return
+    const [{ data: listings }, { data: apps }] = await Promise.all([
+      supabase
+        .from('listings')
+        .select('id, address, unit, monthly_rent, is_active, created_at')
+        .eq('landlord_id', user.profileId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('applications')
+        .select('listing_id, ai_score, status, listing:listings!inner(landlord_id)')
+        .eq('listing.landlord_id', user.profileId),
+    ])
+    const appsByListing: Record<string, any[]> = {}
+    for (const a of (apps as any[]) || []) {
+      if (!appsByListing[a.listing_id]) appsByListing[a.listing_id] = []
+      appsByListing[a.listing_id].push(a)
+    }
+    const enriched: Property[] = ((listings as any[]) || []).map((l) => {
+      const list = appsByListing[l.id] || []
+      const topAi = list.reduce((m, a) => (a.ai_score ? Math.max(m, a.ai_score) : m), 0) || null
+      const leased = list.some((a) => a.status === 'approved')
+      return {
+        ...l,
+        topAiScore: topAi,
+        applicantCount: list.length,
+        daysOnMarket: dom(l.created_at, leased),
+      }
+    })
+    setProps(enriched)
+    setLoading(false)
+  }
+
+  if (authLoading || loading) {
+    return (
+      <main style={{ background: v3.surfaceMuted, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
+        <div style={{ color: v3.textMuted, fontSize: 14 }}>{isZh ? '加载…' : 'Loading…'}</div>
+      </main>
+    )
+  }
+
+  const totalRent = props.reduce((s, p) => s + (p.monthly_rent || 0), 0)
+  const occupied = props.filter((p) => p.daysOnMarket === 0).length
+  const occupancyPct = props.length > 0 ? Math.round((occupied / props.length) * 100) : 0
+  const scoredProps = props.filter((p) => p.topAiScore != null)
+  const avgScore = scoredProps.length > 0
+    ? Math.round(scoredProps.reduce((s, p) => s + (p.topAiScore || 0), 0) / scoredProps.length)
+    : 0
+  const avgDom = props.length > 0
+    ? (props.reduce((s, p) => s + p.daysOnMarket, 0) / props.length).toFixed(1)
+    : '—'
+
+  const vacant = props.find((p) => p.daysOnMarket > 7)
+
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Link href="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
             <span style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
             <span style={{ fontSize: 16, fontWeight: 700 }}>stayloop</span>
           </Link>
-          <span style={{ fontSize: 18, fontWeight: 700 }}>{isZh ? '组合 · 6 套房产' : 'Portfolio · 6 properties'}</span>
+          <span style={{ fontSize: 18, fontWeight: 700 }}>
+            {isZh ? `组合 · ${props.length} 套房产` : `Portfolio · ${props.length} properties`}
+          </span>
         </div>
-        <span style={{ fontSize: 12, color: v3.textMuted }}>Sarah Doyle · Toronto West GTA · Q2 2026</span>
+        <span style={{ fontSize: 12, color: v3.textMuted }}>{user?.email}</span>
       </header>
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24 }}>
-        {/* KPI row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
-          {[
-            { en: 'Monthly cash flow', zh: '月度现金流', val: '$9,950', delta: '+4.2%', positive: true },
-            { en: 'Occupancy', zh: '出租率', val: '67%', delta: '−16%', positive: false },
-            { en: 'Avg tenant score', zh: '租客均分', val: '834', delta: '+12', positive: true },
-            { en: 'Days on market avg', zh: '上架平均', val: '7.5', delta: '−3 d', positive: true },
-          ].map((s) => (
-            <div key={s.en} style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 16 }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-                {isZh ? `${s.zh} · ${s.en}` : s.en}
+        {props.length === 0 ? (
+          <div style={{ padding: '64px 24px', textAlign: 'center', background: v3.surface, border: `1px dashed ${v3.borderStrong}`, borderRadius: 16 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>
+              {isZh ? '还没有房源' : 'No properties yet'}
+            </h1>
+            <p style={{ color: v3.textMuted, fontSize: 14, marginBottom: 16 }}>
+              {isZh ? '把第一套房交给 Nova 起草吧。' : 'Start by drafting your first listing with Nova.'}
+            </p>
+            <Link href="/listings/new" style={{ display: 'inline-flex', padding: '12px 22px', background: v3.brand, color: '#fff', borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>
+              {isZh ? '创建房源' : 'New listing'} →
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
+              {[
+                { en: 'Monthly cash flow', zh: '月度现金流', val: `$${totalRent.toLocaleString()}` },
+                { en: 'Occupancy', zh: '出租率', val: `${occupancyPct}%` },
+                { en: 'Avg tenant score', zh: '租客均分', val: avgScore || '—' },
+                { en: 'Days on market avg', zh: '上架平均', val: avgDom },
+              ].map((s) => (
+                <div key={s.en} style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 16 }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+                    {isZh ? `${s.zh} · ${s.en}` : s.en}
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.025em' }}>{s.val}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.4fr', padding: '12px 16px', fontSize: 10.5, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: `1px solid ${v3.border}` }}>
+                <span>{isZh ? '房产' : 'Property'}</span>
+                <span>{isZh ? '租金' : 'Rent'}</span>
+                <span>{isZh ? '状态' : 'Status'}</span>
+                <span>DOM</span>
+                <span>{isZh ? '申请人' : 'Applicants'}</span>
+                <span></span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <span style={{ fontSize: 24, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.025em' }}>{s.val}</span>
-                <span style={{ fontSize: 12, color: s.positive ? v3.brandStrong : v3.danger, fontWeight: 600 }}>{s.delta}</span>
+              {props.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/dashboard/pipeline?listing=${p.id}`}
+                  style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.4fr', padding: '14px 16px', alignItems: 'center', fontSize: 13, color: v3.textPrimary, borderBottom: `1px solid ${v3.divider}`, textDecoration: 'none' }}
+                >
+                  <span style={{ fontWeight: 600 }}>
+                    {p.address}{p.unit ? ` · ${p.unit}` : ''}
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>${(p.monthly_rent || 0).toLocaleString()}</span>
+                  <span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: p.daysOnMarket === 0 ? v3.brandStrong : v3.warning, background: p.daysOnMarket === 0 ? v3.brandSoft : v3.warningSoft, padding: '3px 9px', borderRadius: 999 }}>
+                      {p.daysOnMarket === 0 ? (isZh ? '已出租' : 'Occupied') : (isZh ? '空置' : 'Vacant')}
+                    </span>
+                  </span>
+                  <span style={{ color: v3.textSecondary }}>{p.daysOnMarket}d</span>
+                  <span>
+                    {p.applicantCount} {p.topAiScore != null && (
+                      <span style={{ marginLeft: 6, fontSize: 11, color: v3.brandStrong, fontWeight: 600 }}>
+                        {isZh ? '最高' : 'top'} {p.topAiScore}
+                      </span>
+                    )}
+                  </span>
+                  <span style={{ color: v3.textMuted, fontSize: 14 }}>›</span>
+                </Link>
+              ))}
+            </div>
+
+            {vacant && (
+              <div style={{ background: v3.surface, border: `1px solid ${v3.brandSoft}`, borderLeft: `4px solid ${v3.brand}`, borderRadius: 14, padding: 18, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: v3.brand, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 16, flexShrink: 0 }}>✦</div>
+                <div style={{ flex: 1, minWidth: 240 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
+                    Nova · {isZh ? '组合洞察' : 'Portfolio Insight'}
+                  </div>
+                  <div style={{ fontSize: 13, lineHeight: 1.5, color: v3.textPrimary }}>
+                    <strong>{vacant.address}{vacant.unit ? ` · ${vacant.unit}` : ''}</strong>{' '}
+                    {isZh
+                      ? `已空置 ${vacant.daysOnMarket} 天 — 跑一遍 Nova 重写文案或考虑降价 1-2%。`
+                      : `has been vacant ${vacant.daysOnMarket} days — try re-running Nova on the copy or trim 1-2% off the asking rent.`}
+                  </div>
+                </div>
+                <Link href="/listings/new" style={{ padding: '8px 16px', background: v3.brand, color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
+                  {isZh ? '问 Nova' : 'Ask Nova'}
+                </Link>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Cash flow chart */}
-        <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18, marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{isZh ? '近 12 月净现金流' : 'Net cash flow · 12 months'}</div>
-              <div style={{ fontSize: 11, color: v3.textMuted, fontFamily: 'var(--font-cn), system-ui' }}>{isZh ? '近 12 月净现金流' : '近 12 月净现金流'}</div>
-            </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, background: v3.brandSoft, padding: '4px 10px', borderRadius: 999 }}>+$2,940 vs forecast</span>
-          </div>
-          <svg viewBox="0 0 800 160" width="100%" height={160}>
-            <defs>
-              <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={v3.brand} stopOpacity="0.18" />
-                <stop offset="100%" stopColor={v3.brand} stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path d="M0,120 L80,118 L160,114 L240,112 L320,108 L400,100 L480,90 L560,80 L640,70 L720,60 L800,55 L800,160 L0,160 Z" fill="url(#g2)" />
-            <path d="M0,120 L80,118 L160,114 L240,112 L320,108 L400,100 L480,90 L560,80 L640,70 L720,60 L800,55" fill="none" stroke={v3.brand} strokeWidth={2.5} />
-            <path d="M0,124 L800,80" fill="none" stroke={v3.borderStrong} strokeWidth={1} strokeDasharray="3 4" />
-          </svg>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: v3.textMuted, marginTop: 6 }}>
-            {['May \u201925', 'Aug', 'Nov', 'Feb \u201926', 'Apr'].map((m) => <span key={m}>{m}</span>)}
-          </div>
-        </div>
-
-        {/* Property table */}
-        <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 0.4fr', padding: '12px 16px', fontSize: 10.5, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: `1px solid ${v3.border}` }}>
-            <span>{isZh ? '房产' : 'Property'}</span>
-            <span>{isZh ? '租金' : 'Rent'}</span>
-            <span>{isZh ? '状态' : 'Status'}</span>
-            <span>DOM</span>
-            <span>{isZh ? '租客分' : 'Tenant'}</span>
-            <span>{isZh ? '健康' : 'Health'}</span>
-            <span></span>
-          </div>
-          {PROPS.map((p) => (
-            <div key={p.addr} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr 0.4fr', padding: '14px 16px', alignItems: 'center', fontSize: 13, color: v3.textPrimary, borderBottom: `1px solid ${v3.divider}` }}>
-              <span style={{ fontWeight: 600 }}>{p.addr}</span>
-              <span style={{ fontFamily: 'var(--font-mono)' }}>${p.rent.toLocaleString()}</span>
-              <span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: p.status === 'Vacant' ? v3.warning : v3.brandStrong, background: p.status === 'Vacant' ? v3.warningSoft : v3.brandSoft, padding: '3px 9px', borderRadius: 999 }}>
-                  {p.status}
-                </span>
-              </span>
-              <span style={{ color: v3.textSecondary }}>{p.dom}</span>
-              <span style={{ fontWeight: 600 }}>{p.score ?? '—'}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ flex: 1, height: 4, background: v3.divider, borderRadius: 2, maxWidth: 60 }}>
-                  <span style={{ display: 'block', width: `${p.health}%`, height: '100%', background: p.health >= 85 ? v3.brand : p.health >= 70 ? v3.warning : v3.danger, borderRadius: 2 }} />
-                </span>
-                <span style={{ fontSize: 12, fontWeight: 600 }}>{p.health}</span>
-              </span>
-              <span style={{ color: v3.textMuted, fontSize: 14 }}>›</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Nova insight */}
-        <div style={{ background: v3.surface, border: `1px solid ${v3.brandSoft}`, borderLeft: `4px solid ${v3.brand}`, borderRadius: 14, padding: 18, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: v3.brand, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 16, flexShrink: 0 }}>✦</div>
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-              Nova · {isZh ? '组合洞察' : 'Portfolio Insight'}
-            </div>
-            <div style={{ fontSize: 13, lineHeight: 1.5, color: v3.textPrimary }}>
-              <strong>32 Trolley Cres</strong>{' '}
-              {isZh ? '已空置 11 天 — 同栋楼可比 6 天就出租。建议降价 $50 至 $3,050。预计净收益 +$2,440。' : 'has been vacant 11 days — comps in same building leased in 6. Lower asking $50 to $3,050? Projected $2,440 net gain.'}
-            </div>
-          </div>
-          <button style={{ padding: '8px 16px', background: v3.brand, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
-            {isZh ? '应用' : 'Apply'}
-          </button>
-        </div>
+            )}
+          </>
+        )}
       </div>
     </main>
   )
