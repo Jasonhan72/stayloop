@@ -78,8 +78,8 @@ export async function POST(req: Request) {
   const admin = makeServiceClient()
 
   // Load or create conversation
-  let conversationId = body.conversation_id
-  if (!conversationId) {
+  let conversationId: string
+  if (!body.conversation_id) {
     const { data: conv, error: convErr } = await admin
       .from('conversations')
       .insert({
@@ -92,17 +92,18 @@ export async function POST(req: Request) {
     if (convErr || !conv) {
       return Response.json({ error: `conversation_create_failed: ${convErr?.message}` }, { status: 500 })
     }
-    conversationId = conv.id
+    conversationId = conv.id as string
   } else {
     // Verify ownership via RLS-client to enforce auth boundary
     const { data: own } = await rls
       .from('conversations')
       .select('id')
-      .eq('id', conversationId)
+      .eq('id', body.conversation_id)
       .maybeSingle()
     if (!own) {
       return Response.json({ error: 'conversation_not_found' }, { status: 404 })
     }
+    conversationId = body.conversation_id
   }
 
   // Load history
