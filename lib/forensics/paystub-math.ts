@@ -29,10 +29,20 @@ const HAIKU_MODEL = 'claude-haiku-4-5'
 
 const EXTRACT_PROMPT = `You are extracting numeric fields from a Canadian pay stub. Return ONLY a JSON object — no markdown, no prose. If a field is not visible on the stub, return null for that field. Do NOT guess or fill in values. Numbers must be raw (no commas, no $).
 
+CRITICAL — distinguish annual salary from hourly rate:
+- If the rate column shows "/year", "/yr", "annual", "salary", or any number above ~$200 (a value too large to be hourly), that is the ANNUAL SALARY → fill annual_salary, leave hourly_rate null
+- Only fill hourly_rate when the stub explicitly shows "/hour", "/hr", or a per-hour rate (typically $15-$100)
+- The "Hours" column on a salaried pay stub is informational (tracks hours worked in the period for reporting); it does NOT mean the worker is paid hourly
+
+Examples:
+- "Account Specialist  $60,000.00/year  86.67  $2,500.00" → annual_salary=60000, hourly_rate=null, hours_worked=86.67, period_gross=2500
+- "Cashier  $18.50/hour  80  $1,480.00" → annual_salary=null, hourly_rate=18.50, hours_worked=80, period_gross=1480
+- "Software Engineer  $95,000/yr  N/A  $3,653.85" → annual_salary=95000, hourly_rate=null, hours_worked=null, period_gross=3653.85
+
 Required fields:
 {
-  "annual_salary": number or null  (annualized base salary in CAD; if only hourly is shown, leave null),
-  "hourly_rate": number or null  (CAD per hour),
+  "annual_salary": number or null  (annualized base salary in CAD; for /year, /yr, salaried roles),
+  "hourly_rate": number or null  (CAD per hour; ONLY when stub explicitly shows /hour or /hr),
   "hours_worked": number or null  (hours in this pay period),
   "pay_date": "YYYY-MM-DD" or null  (date of this stub's payment),
   "pay_period_start": "YYYY-MM-DD" or null,
@@ -150,10 +160,36 @@ function numOrNull(v: any): number | null {
  * Run all math-consistency checks. Returns the structured math result and
  * a list of flags for any inconsistencies found.
  */
+/**
+ * Defense in depth: even with a clear extraction prompt, Haiku sometimes
+ * mis-buckets an annual salary into the hourly_rate field (e.g. it sees
+ * "$60,000.00/year" and writes hourly_rate=60000 instead of annual_salary=60000).
+ *
+ * No real Canadian hourly rate exceeds $200/hr on a normal pay stub, so we
+ * treat any hourly_rate above that threshold as a misclassification and
+ * recover gracefully:
+ *   - hourly_rate ≥ 10,000 → almost certainly an annual salary; reclassify
+ *     into annual_salary (only if annual_salary is empty so we don't clobber
+ *     a correctly-extracted value)
+ *   - 200 < hourly_rate < 10,000 → unusual / extraction noise; drop the
+ *     hourly_rate so the period-math check skips silently rather than
+ *     emitting a bogus error
+ */
+function normalizeExtraction(ext: PaystubExtraction): PaystubExtraction {
+  if (ext.hourly_rate && ext.hourly_rate > 200) {
+    if (ext.hourly_rate >= 10_000) {
+      if (!ext.annual_salary) ext.annual_salary = ext.hourly_rate
+    }
+    ext.hourly_rate = null
+  }
+  return ext
+}
+
 export function checkPaystubMath(
-  ext: PaystubExtraction,
+  extInput: PaystubExtraction,
   file: string
 ): { result: PaystubMathResult; flags: ForensicFlag[] } {
+  const ext = normalizeExtraction(extInput)
   const flags: ForensicFlag[] = []
   let expectedYtdGross: number | null = null
   let ytdRatio: number | null = null
