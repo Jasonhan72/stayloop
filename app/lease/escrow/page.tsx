@@ -1,0 +1,116 @@
+'use client'
+// /lease/escrow — Lease eSign + Escrow (V3 section 16)
+import Link from 'next/link'
+import { v3, size } from '@/lib/brand'
+import { useT } from '@/lib/i18n'
+
+const TIMELINE = [
+  { date: 'Apr 21', en: 'Passport verified', zh: '通行证已验证', who: 'Wei (tenant)', done: true },
+  { date: 'Apr 22', en: 'Lease drafted by Atlas', zh: 'AI 起草合同', who: 'Atlas agent', done: true },
+  { date: 'Apr 24', en: 'Tenant signed', zh: '租客签字', who: 'Wei (tenant)', done: true },
+  { date: 'Apr 25', en: 'Landlord signed', zh: '房东签字', who: 'Sarah (landlord)', done: true },
+  { date: 'Apr 26', en: 'First month + deposit', zh: '首月+押金', who: 'Stayloop Escrow · $4,700', escrow: true },
+  { date: 'May 1', en: 'Move-in walkthrough', zh: '入住验房', who: 'Both parties', pending: true },
+]
+
+export default function LeaseEscrowPage() {
+  const { lang } = useT()
+  const isZh = lang === 'zh'
+  return (
+    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
+      <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
+            <span style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
+            <span style={{ fontSize: 16, fontWeight: 700 }}>stayloop</span>
+          </Link>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>{isZh ? '租约 + 托管' : 'Lease + Escrow'}</span>
+          <span style={{ fontSize: 12, color: v3.textMuted, fontFamily: 'var(--font-mono)' }}>The Hudson #1208 · 2350 King W</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, background: v3.brandSoft, padding: '4px 10px', borderRadius: 999 }}>{isZh ? '资金已托管' : 'Funds in escrow'}</span>
+          <span style={{ fontSize: 11, color: v3.textMuted, fontFamily: 'var(--font-mono)' }}>Lease #LS-9401</span>
+        </div>
+      </header>
+
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24, display: 'grid', gridTemplateColumns: '420px 1fr', gap: 24 }} className="le-grid">
+        {/* Timeline */}
+        <section>
+          <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
+              {isZh ? '从验证到资金到账 · 11 天闭环' : '11-DAY CLOSE'}
+            </div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px' }}>{isZh ? '关闭时间线' : 'Closing timeline'}</h2>
+            <div style={{ position: 'relative' }}>
+              <div style={{ position: 'absolute', left: 11, top: 0, bottom: 0, width: 1, background: v3.divider }} />
+              {TIMELINE.map((t, i) => (
+                <div key={i} style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 0' }}>
+                  <span style={{ width: 24, height: 24, borderRadius: 999, background: t.done ? v3.brand : t.escrow ? v3.warning : v3.divider, color: t.done || t.escrow ? '#fff' : v3.textMuted, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, zIndex: 1 }}>
+                    {t.done ? '✓' : t.escrow ? '$' : i + 1}
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{isZh ? t.zh : t.en}</div>
+                    <div style={{ fontSize: 11, color: v3.textMuted, marginTop: 2 }}>{t.who}</div>
+                  </div>
+                  <span style={{ fontSize: 11, color: v3.textMuted, fontFamily: 'var(--font-mono)' }}>{t.date}</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 14, padding: 12, background: v3.brandSoft, borderRadius: 10, fontSize: 11, color: v3.textPrimary, lineHeight: 1.5 }}>
+              {isZh
+                ? '由 Stayloop Trust 托管 · CDIC 保险 · 验房通过后释放给房东。'
+                : 'Held by Stayloop Trust · CDIC-insured · released on walkthrough sign-off.'}
+            </div>
+          </div>
+        </section>
+
+        {/* Lease document */}
+        <section style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 28, fontFamily: 'serif' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14, fontFamily: 'var(--font-inter), sans-serif' }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{isZh ? '租约文档' : 'LEASE DOCUMENT'}</h2>
+            <span style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, background: v3.brandSoft, padding: '4px 10px', borderRadius: 999 }}>{isZh ? '双方已签' : 'Both signed'}</span>
+          </div>
+
+          <div style={{ borderTop: `2px solid ${v3.textPrimary}`, borderBottom: `2px solid ${v3.textPrimary}`, padding: '18px 0', marginBottom: 18 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'serif', textAlign: 'center', marginBottom: 4 }}>ONTARIO STANDARD LEASE</div>
+            <div style={{ fontSize: 11, color: v3.textMuted, textAlign: 'center', fontFamily: 'var(--font-mono)' }}>Form 2229 · Generated by Atlas AI · Apr 22, 2026</div>
+          </div>
+
+          <div style={{ fontSize: 13, color: v3.textPrimary, lineHeight: 1.8, marginBottom: 18, fontFamily: 'var(--font-inter), sans-serif' }}>
+            <div><b>Tenant:</b> Wei Chen · <b>Landlord:</b> Sarah Doyle</div>
+            <div><b>Premises:</b> 2350 King St W, Unit 1208, Toronto, ON</div>
+            <div><b>Term:</b> 12 months · May 1, 2026 — Apr 30, 2027</div>
+            <div><b>Rent:</b> $2,350/mo · 1st of each month</div>
+            <div><b>Last month deposit:</b> $2,350 (held in Stayloop escrow)</div>
+          </div>
+
+          <div style={{ background: v3.warningSoft, borderLeft: `3px solid ${v3.warning}`, padding: 12, borderRadius: 8, fontSize: 12, lineHeight: 1.5, color: v3.textPrimary, fontFamily: 'var(--font-inter), sans-serif', marginBottom: 18 }}>
+            ⚠ {isZh
+              ? 'Section 5(b) — 安省 RTA 不允许损坏押金。Atlas 已自动移除该条款。'
+              : 'Section 5(b) — pet deposit not permitted under RTA. Auto-removed by Atlas.'}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, marginTop: 32, fontFamily: 'var(--font-inter), sans-serif' }}>
+            {[
+              { name: 'Wei Chen', role: 'Tenant · Apr 24' },
+              { name: 'S. Doyle', role: 'Landlord · Apr 25' },
+            ].map((sig) => (
+              <div key={sig.name} style={{ borderTop: `1px solid ${v3.borderStrong}`, paddingTop: 8 }}>
+                <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'cursive', color: v3.brandStrong, marginBottom: 4 }}>{sig.name}</div>
+                <div style={{ fontSize: 11, color: v3.textMuted }}>{sig.role}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 24, textAlign: 'center', fontFamily: 'var(--font-inter), sans-serif' }}>
+            <button style={{ padding: '10px 20px', background: v3.surfaceMuted, border: `1px solid ${v3.border}`, borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
+              {isZh ? '下载 PDF 租约' : 'Download lease (PDF)'}
+            </button>
+          </div>
+        </section>
+      </div>
+      <style jsx>{`@media (max-width: 980px){:global(.le-grid){grid-template-columns:1fr !important;}}`}</style>
+    </main>
+  )
+}
