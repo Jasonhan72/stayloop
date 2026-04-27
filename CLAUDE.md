@@ -98,6 +98,22 @@ All env vars are set in Cloudflare Pages > stayloop > Settings > Variables and S
 - **Free (Starter)**: 5 screenings/month, full CanLII coverage, document forensics, bilingual reports
 - **Pro ($29/mo)**: Unlimited screenings, Ontario Courts Portal, priority AI, bulk export
 
+## Recent Changes (2026-04-27)
+- **Sprint 4 — Nova listing composer + V3 chat polish + pipeline view** (commit `46212e9`):
+  - **Nova agent** (`lib/agent/agents/nova.ts`): Stayloop's listing composer. Bilingual system prompt enforcing the workflow `import_listing → check_ohrc_compliance → save_listing`. Hard rule: compliance check ALWAYS runs before save; critical/high warnings block auto-save and surface as `action_proposal` for the user.
+  - **3 new tools** registered through `lib/agent/tools/index.ts`:
+    - `import_listing` — Haiku-based extraction from pasted text / Realtor.ca/Kijiji URL / MLS PDF. Outputs structured listing with bilingual `title_zh+en`, `description_zh+en`, address fields, rent/beds/baths/parking/utilities/pets/available_date/MLS#, and `selling_points_{zh,en}[]`. Strips OHRC-protected language at extraction.
+    - `check_ohrc_compliance` — pure-regex scanner, zero AI cost. 8 rule families (family_status, religion, race_ethnicity, source_of_income, sex_or_orientation, disability, Chinese exclusionary phrasing, pet_policy_note). Returns `{ passes, warnings: [{ code, severity, field, matched_text, rationale_zh, rationale_en }] }`.
+    - `save_listing` — service-role insert under the current `landlords.id` (matched via `auth_id`). Default `status='draft'`. Returns `listing_id`.
+  - **V3 chat UI polish** (matching `Stayloop V3 — Print- classic.pdf`):
+    - `lib/agent/theme.ts` — shared design tokens (palette, tier labels, severity colors).
+    - `app/chat/page.tsx` — sticky Stayloop-S header, empty-state with starter prompts, `MessageBubble` with tool-execution badges (⏳/✓/✗), `BlockRenderer` dispatcher for all `AssistantBlock` kinds, sticky composer (file-upload icon + textarea + send).
+    - `app/chat/components/ScreeningCard.tsx` — 48px score + tier badge + income/rent ratio strip + flag list.
+    - `app/chat/components/ActionProposal.tsx` — pending-action approval block with [批准]/[驳回] state machine wired to `POST /api/agent/action`.
+  - **`/listings/new` page** (`app/listings/new/page.tsx`): Nova-driven composer. Two-pane (source input + draft preview / Nova chat log). Three import modes (text / URL / MLS PDF). Live `DraftPreview` updates from the `import_listing` tool result. Bilingual.
+  - **`/dashboard/pipeline` page** (`app/dashboard/pipeline/page.tsx`): V3 multi-applicant ranking view. Listing-scoped filter chips, tier filters (approve / conditional / decline), sort by score or recency, candidate rows with 28px score + tier badge + 6-dim mini-bar breakdown (`doc_authenticity`, `payment_ability`, `court_records`, `stability`, `behavior_signals`, `info_consistency`). Bilingual.
+  - **`AGENTS_REGISTRY`** (`app/api/agent/chat/route.ts`): adds `nova: novaAgent` alongside `logic`. Future entries reserved for `echo`, `analyst`, `mediator`.
+
 ## Recent Changes (2026-04-26)
 - **AI-Native architecture docs** (`docs/`): full V3 design landed as a docs scaffold — `architecture.md` (engineer L0-L3), `architecture-detailed.md` (pitch view + 8+1 agents + competitor matrix), `data-model.md` (current + planned tables ERD), `agents/{logic,nova,echo,analyst,mediator}.md`, `flows/{screening,verified-passport,listing-import}.md`, `adr/001-005`. ADR-002 explicitly chooses to write a custom ~200-line agent loop instead of LangChain / Claude Agent SDK; ADR-005 defers Trust API public exposure until clear demand.
 - **Image OCR + ID validation wired**: image-only PDFs (photo IDs, scanned PR cards) used to silently bypass id-validation because (a) `lib/forensics/image-ocr.ts` was never created and (b) `id-validation.ts` ID_KINDS missed `'id_document'` (the actual classify-files kind). Both fixed: created Haiku Vision OCR module + expanded ID_KINDS to 18 variants. Image files (non-PDF jpeg/png/heic) also get OCR + ID validation now. Bumped Haiku max_tokens 2500→4000 to avoid silent JSON truncation on dense passport biopages.
