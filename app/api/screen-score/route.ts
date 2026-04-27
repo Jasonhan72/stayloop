@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { runForensics, forensicsToPromptBlock, type ForensicsReport } from '@/lib/forensics'
+import { applyPageBudget } from '@/lib/anthropic/page-budget'
 
 export const runtime = 'edge'
 
@@ -676,18 +677,49 @@ export async function POST(req: NextRequest) {
       supabase.storage.from('tenant-files').createSignedUrl(f.path, 600)
         .then(r => ({ file: { ...f, mime: fixMime(f) }, url: r.data?.signedUrl }))
     ))
-    for (const { file: f, url } of signedResults) {
-      if (!url) continue
-      if (f.mime === 'application/pdf') {
-        contentBlocks.push({
-          type: 'document',
-          source: { type: 'url', url },
-          title: `${f.kind || 'doc'}: ${f.name}`,
-        })
-      } else if (f.mime?.startsWith('image/')) {
-        contentBlocks.push({ type: 'image', source: { type: 'url', url } })
-        contentBlocks.push({ type: 'text', text: `(file above is: ${f.kind || 'doc'} — ${f.name})` })
+
+    // Apply Anthropic's 100-PDF-page request budget. For 5+ files or any
+    // very long PDF, this fetches + counts pages, then truncates over-quota
+    // files (sending only the most relevant pages as base64) so we never
+    // exceed the hard limit. Forensics still runs on the original full
+    // files via signed URLs in parallel below.
+    const pdfFiles = signedResults
+      .filter(r => r.url && r.file.mime === 'application/pdf')
+      .map(r => ({
+        name: r.file.name,
+        kind: r.file.kind || 'other',
+        mime: r.file.mime,
+        signed_url: r.url!,
+      }))
+    const imageFiles = signedResults.filter(r => r.url && r.file.mime?.startsWith('image/'))
+
+    const budget = await applyPageBudget(pdfFiles)
+    const truncatedFilesNote: string[] = []
+
+    for (const prep of budget.prepared) {
+      contentBlocks.push({
+        type: 'document',
+        source: prep.source,
+        title: `${prep.kind || 'doc'}: ${prep.name}${prep.truncated ? ` (page-truncated ${prep.sent_pages}/${prep.original_pages})` : ''}`,
+      })
+      if (prep.truncated) {
+        truncatedFilesNote.push(`${prep.name}: ${prep.sent_pages}/${prep.original_pages} pages`)
       }
+    }
+    for (const { file: f, url } of imageFiles) {
+      if (!url) continue
+      contentBlocks.push({ type: 'image', source: { type: 'url', url } })
+      contentBlocks.push({ type: 'text', text: `(file above is: ${f.kind || 'doc'} — ${f.name})` })
+    }
+
+    // If we had to truncate, prepend a note to the prompt so Sonnet doesn't
+    // hallucinate facts that depend on pages it didn't see.
+    if (budget.any_truncated) {
+      contentBlocks.unshift({
+        type: 'text',
+        text: `[NOTE] The user uploaded ${budget.total_original_pages} PDF pages across ${pdfFiles.length} files, exceeding the 100-page request limit. The following files were sampled to fit budget — only the listed pages are attached, full forensics still ran on the original files separately:\n${truncatedFilesNote.map(s => '  - ' + s).join('\n')}\n\nDo NOT make claims that depend on pages you cannot see. If a flag is critical and only forensics covered the unseen pages, defer to the forensics block below.`,
+      })
+      console.log(`[screen-score] page budget: ${budget.total_original_pages} → ${budget.total_sent_pages}, truncated ${truncatedFilesNote.length} files`)
     }
 
     const nameForLookup = (screening.tenant_name || '').trim()
