@@ -24,6 +24,7 @@ import { runCrossDocChecks } from './cross-doc'
 import { checkArmLength, canonicalizeEmployerName } from './arm-length'
 import type { CompanyRegistryInfo } from './arm-length'
 import { checkIdValidation } from './id-validation'
+import { ocrImagePdf } from './image-ocr'
 import type {
   ForensicFlag,
   ForensicsReport,
@@ -170,17 +171,42 @@ async function analyzeFile(
         out.source_specific = src
         out.flags.push(...srcFlags)
 
-        // ID-number validation on the extracted text (SIN Luhn, Ontario DL
-        // format + surname prefix, OHIP format). Runs for ID / application
-        // documents where number strings are expected.
-        if (text?.text_sample) {
+        // Image-only PDFs (mostly scanned IDs / passports / handwritten letters)
+        // have effectively no extractable text. Run Haiku Vision OCR to recover
+        // content for downstream id-validation, cross-doc, and Sonnet scoring.
+        // Trigger threshold: text_density flagged is_likely_image_pdf, which
+        // means < ~50 chars/page average.
+        if (text?.is_likely_image_pdf && apiKey) {
+          const ocrResult = await ocrImagePdf(f.signed_url, f.mime, apiKey)
+          if (ocrResult) out.ocr = ocrResult
+        }
+
+        // ID-number validation. Prefer OCR text (image-only ID scans) if
+        // available, otherwise fall back to extracted PDF text. SIN Luhn,
+        // Ontario DL surname-letter, OHIP format checks all run from this.
+        const validationText = out.ocr?.text || text?.text_sample
+        if (validationText) {
           const surname = applicantName
             ? applicantName.trim().split(/\s+/).pop()
             : undefined
           out.flags.push(
-            ...checkIdValidation(text.text_sample, f.name, f.kind, surname)
+            ...checkIdValidation(validationText, f.name, f.kind, surname)
           )
         }
+      }
+    }
+
+    // Image files (jpeg / png / heic — non-PDF) also need OCR for IDs.
+    if (f.mime?.startsWith('image/') && apiKey) {
+      const ocrResult = await ocrImagePdf(f.signed_url, f.mime, apiKey)
+      if (ocrResult) {
+        out.ocr = ocrResult
+        const surname = applicantName
+          ? applicantName.trim().split(/\s+/).pop()
+          : undefined
+        out.flags.push(
+          ...checkIdValidation(ocrResult.text, f.name, f.kind, surname)
+        )
       }
     }
 

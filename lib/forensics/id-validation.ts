@@ -205,9 +205,30 @@ export function checkIdValidation(
 ): ForensicFlag[] {
   // Only check ID-like documents. Application forms and credit reports often
   // contain ID numbers too, but the risk of false positives from noise is
-  // higher there — limit to dedicated ID docs for now.
-  const ID_KINDS = new Set(['id', 'drivers_license', 'passport', 'health_card', 'application'])
-  if (!ID_KINDS.has(fileKind)) return []
+  // higher there — limit to dedicated ID docs.
+  // The set covers the kinds emitted by /api/classify-files plus historical
+  // synonyms so we don't miss anything when classifier wording shifts.
+  const ID_KINDS = new Set([
+    'id',
+    'id_document',
+    'identity',
+    'drivers_license',
+    'driver_license',
+    'driver_licence',
+    'drivers_licence',
+    'passport',
+    'health_card',
+    'health_insurance',
+    'ohip',
+    'permanent_resident',
+    'pr_card',
+    'work_permit',
+    'study_permit',
+    'application',
+    'application_form',
+    'lease_application',
+  ])
+  if (!ID_KINDS.has((fileKind || '').toLowerCase())) return []
 
   const flags: ForensicFlag[] = []
   const ids = extractAndValidateIds(text, surname)
