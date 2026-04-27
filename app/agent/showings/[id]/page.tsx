@@ -1,5 +1,6 @@
 'use client'
 // /agent/showings/[id] — Showing Detail (V3 section 08)
+export const runtime = 'edge'
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
