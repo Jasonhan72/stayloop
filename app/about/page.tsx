@@ -149,12 +149,12 @@ export default function AboutPage() {
             <div style={{ flex: 1, minWidth: 240 }}>
               <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Jason Han</h3>
               <div style={{ color: v3.textMuted, fontSize: 13, marginBottom: 10 }}>
-                {isZh ? '创始人 · CEO · RECO 持牌经纪 #4827193' : 'Founder · CEO · RECO #4827193'}
+                {isZh ? '创始人 · CEO' : 'Founder · CEO'}
               </div>
               <p style={{ color: v3.textSecondary, fontSize: 14, lineHeight: 1.65, margin: 0 }}>
                 {isZh
-                  ? '安省 RECO 持牌经纪。Field Agent #1。Stayloop 的整个工作流是从他亲手签的 47 套租约里跑出来的。'
-                  : 'Ontario RECO-licensed agent. Field Agent #1. The Stayloop workflow is shaped directly by his 47 personally signed leases.'}
+                  ? '从北美华人房东和租客的真实痛点出发，把租赁链条上 80% 的纸质流程交给 AI agent，让人类只做需要判断力的那一部分。'
+                  : 'Built from real pain points of Chinese-Canadian landlords and tenants. Hands the 80% of paperwork in the rental chain to AI agents, leaving humans the judgment calls.'}
               </p>
             </div>
             <Link

@@ -145,23 +145,6 @@ export default function Home() {
             >
               {isZh ? '获取我的 Passport' : 'Get my Passport'} <span aria-hidden>→</span>
             </Link>
-            <Link
-              href="/about"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                background: v3.surface,
-                color: v3.textPrimary,
-                fontSize: 15,
-                fontWeight: 600,
-                padding: '12px 22px',
-                borderRadius: 10,
-                textDecoration: 'none',
-                border: `1px solid ${v3.borderStrong}`,
-              }}
-            >
-              {isZh ? '查看 Pitch Deck' : 'Read the deck'}
-            </Link>
           </div>
         </div>
       </section>

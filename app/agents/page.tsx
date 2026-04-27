@@ -53,10 +53,10 @@ export default function AgentsPage() {
           body_en: 'Landlords get you recommended by the matching algorithm; you can also apply to any listing in your area.',
         },
         {
-          title_zh: 'Field Agent #1 是创始人',
-          title_en: 'Field Agent #1 is the founder',
-          body_zh: 'Jason Han（RECO 持牌）是首位 Field Agent。这套工作流是从他 47 套实际签约里跑出来的。',
-          body_en: 'RECO-licensed founder Jason Han is Field Agent #1. The whole workflow is shaped by 47 of his actual signings.',
+          title_zh: '从真实交易里跑出来的工作流',
+          title_en: 'A workflow shaped by real deals',
+          body_zh: '我们和首位 Field Agent 一起走完了 47 套实际签约。AI 在哪段帮上忙、哪段必须留给人，全是从这些真实交易里学出来的。',
+          body_en: 'The workflow is shaped by 47 real signings walked through with our first Field Agent — every place where AI helps, and every place where it should step aside, came out of actual deals.',
         },
       ]}
       closing_zh="把行政交给 AI，把人留给你。"
