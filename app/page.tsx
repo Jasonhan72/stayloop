@@ -13,8 +13,6 @@ import MarketingNav from '@/components/marketing/MarketingNav'
 import MarketingFooter from '@/components/marketing/MarketingFooter'
 import NetworkDiagram from '@/components/marketing/NetworkDiagram'
 
-const PARTNERS = ['Persona', 'Flinks', 'Equifax', 'Openroom', 'Northbridge', 'CDIC']
-
 const AUDIENCES: Array<{
   key: 'tenants' | 'landlords' | 'agents'
   eyebrow_zh: string
@@ -149,35 +147,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* PARTNERS ─────────────────────────────────────────────────────── */}
-      <section style={{ padding: '32px 24px 48px', borderBottom: `1px solid ${v3.divider}` }}>
-        <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
-          <Eyebrow>{isZh ? '基于 · 合作' : 'Built on top of · Backed by'}</Eyebrow>
-          <div
-            style={{
-              marginTop: 18,
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              gap: '14px 40px',
-            }}
-          >
-            {PARTNERS.map((p) => (
-              <span
-                key={p}
-                style={{
-                  fontSize: 17,
-                  fontWeight: 600,
-                  color: v3.textMuted,
-                  letterSpacing: '-0.01em',
-                }}
-              >
-                {p}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* AUDIENCE TRIFECTA ────────────────────────────────────────────── */}
       <section style={{ padding: '64px 24px 32px' }}>
