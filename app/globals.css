@@ -37,7 +37,7 @@
   --accent-rose: #F43F5E;
 
   /* Brand gradient */
-  --gradient-brand: linear-gradient(135deg, #0D9488 0%, #2563EB 100%);
+  --gradient-brand: linear-gradient(135deg, #10B981 0%, #2563EB 100%);
   --gradient-pro: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 100%);
   --gradient-text: linear-gradient(135deg, #67E8F9 0%, #A78BFA 50%, #F472B6 100%);
 
@@ -491,9 +491,9 @@ body > * { position: relative; z-index: 1; }
   --mk-text-faint: #94A3B8;
 
   /* Brand */
-  --mk-brand: #0D9488;        /* teal-600 */
-  --mk-brand-strong: #0F766E; /* teal-700 */
-  --mk-brand-soft: #CCFBF1;
+  --mk-brand: #10B981;        /* teal-600 */
+  --mk-brand-strong: #059669; /* teal-700 */
+  --mk-brand-soft: #ECFDF5;
   --mk-navy: #0B1736;
   --mk-accent-blue: #2563EB;
   --mk-accent-violet: #7C3AED;
@@ -564,7 +564,7 @@ body > * { position: relative; z-index: 1; }
 }
 .marketing .mk-muted { color: var(--mk-text-muted); }
 .marketing .mk-gradient {
-  background: linear-gradient(135deg, #0D9488 0%, #0EA5E9 60%, #2563EB 100%);
+  background: linear-gradient(135deg, #10B981 0%, #0EA5E9 60%, #2563EB 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -590,7 +590,7 @@ body > * { position: relative; z-index: 1; }
 .marketing .mk-btn-lg { padding: 16px 28px; font-size: 15.5px; border-radius: 12px; }
 .marketing .mk-btn-sm { padding: 9px 16px; font-size: 13px; border-radius: 8px; }
 .marketing .mk-btn-primary {
-  background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
   color: #FFFFFF;
   box-shadow: 0 8px 22px -10px rgba(13, 148, 136, 0.6), 0 1px 0 rgba(255,255,255,0.15) inset;
 }
@@ -813,7 +813,7 @@ body:has(.screen-app)::after { display: none !important; }
   --text-faint: #94A3B8;
 
   /* Brand gradient */
-  --gradient-brand: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
+  --gradient-brand: linear-gradient(135deg, #10B981 0%, #059669 100%);
   --gradient-pro: linear-gradient(135deg, #7C3AED 0%, #8B5CF6 100%);
 
   /* Shadows — matched to marketing */
@@ -853,7 +853,7 @@ body:has(.screen-app)::after { display: none !important; }
 .screen-app .nav-title { color: #0A1428 !important; font-weight: 700; }
 .screen-app .nav-sub { color: #536278 !important; }
 .screen-app .nav-logo {
-  background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
   box-shadow: 0 6px 18px -6px rgba(13, 148, 136, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
 }
 
@@ -899,7 +899,7 @@ body:has(.screen-app)::after { display: none !important; }
 .screen-app .select:focus,
 .screen-app .textarea:focus {
   background: #FFFFFF;
-  border-color: #0D9488;
+  border-color: #10B981;
   box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.20);
 }
 .screen-app .label { color: #475569; font-weight: 600; }
@@ -931,7 +931,7 @@ body:has(.screen-app)::after { display: none !important; }
 .screen-app .chip-accent {
   background: rgba(13, 148, 136, 0.12);
   border-color: rgba(13, 148, 136, 0.35);
-  color: #0F766E;
+  color: #059669;
 }
 .screen-app .chip-pro {
   background: rgba(124, 58, 237, 0.12);

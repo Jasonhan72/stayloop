@@ -98,7 +98,7 @@ export default function AuthCallbackPage() {
     bg: '#F7F8FB',
     text: '#0B1736',
     textMuted: '#64748B',
-    brand: '#0D9488',
+    brand: '#10B981',
   }
 
   return (

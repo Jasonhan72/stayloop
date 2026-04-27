@@ -2164,7 +2164,7 @@ export default function ScreenPage() {
     return (
       <div className="screen-app" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontFamily: "'Inter', sans-serif" }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: '50%', border: '3px solid #E4E8F0', borderTopColor: '#0D9488', animation: 'spin 1s linear infinite' }} />
+          <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: '50%', border: '3px solid #E4E8F0', borderTopColor: '#10B981', animation: 'spin 1s linear infinite' }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
           <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>Authenticating...</div>
         </div>
@@ -2270,7 +2270,7 @@ export default function ScreenPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <div style={{
                     width: 40, height: 40, borderRadius: 10,
-                    background: 'linear-gradient(135deg, #0D9488, #0F766E)',
+                    background: 'linear-gradient(135deg, #10B981, #059669)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     boxShadow: '0 4px 14px -3px rgba(13, 148, 136, 0.45)',
                   }}>
@@ -2390,12 +2390,12 @@ export default function ScreenPage() {
                 <div style={{ margin: '12px 18px 0', padding: '10px 14px', background: '#F0FDFA', border: '1px solid rgba(20, 184, 166, 0.25)', borderRadius: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <span style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid rgba(20, 184, 166, 0.25)', borderTopColor: '#14B8A6', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#0F766E' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#059669' }}>
                       {lang === 'zh' ? '正在识别文件类型…' : 'Classifying files…'}
                     </span>
                   </div>
                   <div style={{ height: 3, borderRadius: 2, background: 'rgba(20, 184, 166, 0.15)', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', background: 'linear-gradient(90deg, #14B8A6, #0D9488)', width: '60%', borderRadius: 2, animation: 'shimmer 1.5s ease-in-out infinite' }} />
+                    <div style={{ height: '100%', background: 'linear-gradient(90deg, #14B8A6, #10B981)', width: '60%', borderRadius: 2, animation: 'shimmer 1.5s ease-in-out infinite' }} />
                   </div>
                 </div>
               )}
@@ -2511,7 +2511,7 @@ export default function ScreenPage() {
         {/* Analyzing — scanner-style progress */}
         {analyzing && (() => {
           const isCourtStep = progressLabel.includes('🔍') || progressLabel.toLowerCase().includes('canlii') || progressLabel.toLowerCase().includes('court') || progressLabel.toLowerCase().includes('network') || progressLabel.includes('查询')
-          const accentColor = isCourtStep ? '#8B5CF6' : '#0D9488'
+          const accentColor = isCourtStep ? '#8B5CF6' : '#10B981'
           const accentBg = isCourtStep ? 'rgba(139, 92, 246, 0.06)' : 'rgba(13, 148, 136, 0.04)'
           return (
             <div className="fade-up" style={{
@@ -3045,7 +3045,7 @@ export default function ScreenPage() {
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{cat.icon}</div>
                     <div style={{ fontSize: 11, color: '#0B1736', fontWeight: 700 }}>{lang === 'zh' ? cat.zhLabel : cat.enLabel}</div>
                     <div style={{ fontSize: 9, color: '#64748B', fontWeight: 500, marginTop: 1 }}>{lang === 'zh' ? cat.enLabel : cat.zhLabel}</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: cat.id === 'rental_history' ? '#6D28D9' : '#0D9488', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{(cat.weight * 100).toFixed(0)}%</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: cat.id === 'rental_history' ? '#6D28D9' : '#10B981', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{(cat.weight * 100).toFixed(0)}%</div>
                   </div>
                 ))}
               </div>
