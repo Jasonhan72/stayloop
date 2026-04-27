@@ -1,11 +1,10 @@
 'use client'
 // -----------------------------------------------------------------------------
-// /dashboard/pipeline — V3 multi-applicant ranking view
+// /dashboard/pipeline — V3 kanban (section 04 of classic-print PDF)
 // -----------------------------------------------------------------------------
-// Sprint 4 final piece. Shows all applicants for a chosen listing, ranked by
-// AI overall score. Tier badges (approve / conditional / decline) plus a
-// compact 6-dim breakdown so a landlord can compare candidates side-by-side
-// in <10 seconds.
+// 4-column board: NEW APPLICANTS / AI REVIEWED / APPROVED / DECLINED.
+// Sidebar with property selector + section nav. Logic recommendation banner
+// up top with the highest-fit candidate. Candidate cards mimic the V3 PDF.
 // -----------------------------------------------------------------------------
 
 import { useEffect, useMemo, useState } from 'react'
@@ -15,54 +14,37 @@ import { useUser } from '@/lib/useUser'
 import { LanguageToggle, useT } from '@/lib/i18n'
 import UserNav from '@/components/UserNav'
 import type { Application, Listing } from '@/types'
+import { v3, size } from '@/lib/brand'
 
-// ── Palette (matches /dashboard) ─────────────────────────────────────────────
-const mk = {
-  bg: '#F7F8FB',
-  surface: '#FFFFFF',
-  surfaceMuted: '#F8FAFC',
-  border: '#E4E8F0',
-  borderStrong: '#CBD5E1',
-  text: '#0B1736',
-  textSec: '#475569',
-  textMuted: '#64748B',
-  textFaint: '#94A3B8',
-  brand: '#0D9488',
-  brandStrong: '#0F766E',
-  brandSoft: '#CCFBF1',
-  navy: '#0B1736',
-  red: '#E11D48',
-  redSoft: '#FFF1F2',
-  amber: '#D97706',
-  amberSoft: '#FEF3C7',
-  green: '#059669',
-  greenSoft: '#ECFDF5',
-} as const
+type Stage = 'new' | 'reviewed' | 'approved' | 'declined'
 
-type Tier = 'approve' | 'conditional' | 'decline' | 'pending'
+const COLUMNS: Array<{ key: Stage; dotColor: string; zh: string; en: string }> = [
+  { key: 'new', dotColor: v3.info, zh: '新申请', en: 'NEW APPLICANTS' },
+  { key: 'reviewed', dotColor: v3.brand, zh: 'AI 审核完毕', en: 'AI REVIEWED' },
+  { key: 'approved', dotColor: v3.success, zh: '已批准', en: 'APPROVED' },
+  { key: 'declined', dotColor: v3.danger, zh: '已拒绝', en: 'DECLINED' },
+]
 
-function tierFromScore(score: number | null | undefined): Tier {
-  if (score == null) return 'pending'
-  if (score >= 75) return 'approve'
-  if (score >= 55) return 'conditional'
+function stageOf(a: Application): Stage {
+  if (a.status === 'approved') return 'approved'
+  if (a.status === 'declined') return 'declined'
+  if (typeof a.ai_score === 'number') return 'reviewed'
+  return 'new'
+}
+
+function tierFromScore(s: number | null | undefined): 'approve' | 'conditional' | 'decline' | 'pending' {
+  if (s == null) return 'pending'
+  if (s >= 75) return 'approve'
+  if (s >= 55) return 'conditional'
   return 'decline'
 }
 
-const tierMeta: Record<Tier, { zh: string; en: string; bg: string; fg: string }> = {
-  approve: { zh: '✓ 推荐通过', en: '✓ Approve', bg: mk.greenSoft, fg: mk.green },
-  conditional: { zh: '⚡ 有条件', en: '⚡ Conditional', bg: mk.amberSoft, fg: mk.amber },
-  decline: { zh: '⚠ 建议拒绝', en: '⚠ Decline', bg: mk.redSoft, fg: mk.red },
-  pending: { zh: '待评分', en: 'Pending', bg: '#F1F5F9', fg: mk.textMuted },
-}
-
-const DIMS: Array<{ key: keyof Application; zh: string; en: string }> = [
-  { key: 'doc_authenticity_score', zh: '材料真实', en: 'Auth' },
-  { key: 'payment_ability_score', zh: '支付能力', en: 'Pay' },
-  { key: 'court_records_score', zh: '法庭记录', en: 'Court' },
-  { key: 'stability_score', zh: '稳定性', en: 'Stab' },
-  { key: 'behavior_signals_score', zh: '行为信号', en: 'Behav' },
-  { key: 'info_consistency_score', zh: '信息一致', en: 'Info' },
-]
+const tierMeta = {
+  approve: { zh: '★ Logic 推荐', en: '★ Logic pick', fg: v3.success, bg: v3.successSoft },
+  conditional: { zh: '⚡ 有条件', en: '⚡ Conditional', fg: v3.warning, bg: v3.warningSoft },
+  decline: { zh: '⚠ 风险', en: '⚠ Risk', fg: v3.danger, bg: v3.dangerSoft },
+  pending: { zh: '待评分', en: 'Pending', fg: v3.textMuted, bg: v3.divider },
+} as const
 
 export default function PipelinePage() {
   const { lang } = useT()
@@ -72,8 +54,6 @@ export default function PipelinePage() {
   const [activeListingId, setActiveListingId] = useState<string | 'all'>('all')
   const [apps, setApps] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState<'score' | 'recent'>('score')
-  const [tierFilter, setTierFilter] = useState<Tier | 'any'>('any')
 
   useEffect(() => {
     if (!landlord) return
@@ -91,7 +71,7 @@ export default function PipelinePage() {
         .order('created_at', { ascending: false }),
       supabase
         .from('applications')
-        .select('*, listing:listings!inner(landlord_id, address, unit, city, slug)')
+        .select('*, listing:listings!inner(landlord_id, address, unit, city)')
         .eq('listing.landlord_id', landlord!.profileId)
         .order('created_at', { ascending: false }),
     ])
@@ -101,515 +81,552 @@ export default function PipelinePage() {
   }
 
   const filtered = useMemo(() => {
-    let rows = apps
-    if (activeListingId !== 'all') {
-      rows = rows.filter((a) => a.listing_id === activeListingId)
-    }
-    if (tierFilter !== 'any') {
-      rows = rows.filter((a) => tierFromScore(a.ai_score) === tierFilter)
-    }
-    if (sortBy === 'score') {
-      rows = [...rows].sort((a, b) => (b.ai_score ?? -1) - (a.ai_score ?? -1))
-    } else {
-      rows = [...rows].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      )
-    }
-    return rows
-  }, [apps, activeListingId, tierFilter, sortBy])
+    if (activeListingId === 'all') return apps
+    return apps.filter((a) => a.listing_id === activeListingId)
+  }, [apps, activeListingId])
 
-  const stats = useMemo(() => {
-    const scored = filtered.filter((a) => typeof a.ai_score === 'number')
-    const total = filtered.length
-    const top = scored.reduce((m, a) => Math.max(m, a.ai_score ?? 0), 0)
-    const avg = scored.length
-      ? Math.round(scored.reduce((s, a) => s + (a.ai_score ?? 0), 0) / scored.length)
-      : null
-    const approve = filtered.filter((a) => tierFromScore(a.ai_score) === 'approve').length
-    return { total, top, avg, approve }
+  const byStage = useMemo(() => {
+    const buckets: Record<Stage, Application[]> = { new: [], reviewed: [], approved: [], declined: [] }
+    for (const a of filtered) buckets[stageOf(a)].push(a)
+    // sort each bucket by score desc, recent fallback
+    for (const k of Object.keys(buckets) as Stage[]) {
+      buckets[k].sort((a, b) => {
+        const sd = (b.ai_score ?? -1) - (a.ai_score ?? -1)
+        if (sd !== 0) return sd
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      })
+    }
+    return buckets
   }, [filtered])
+
+  const topPick = useMemo(() => {
+    const pool = byStage.reviewed.filter((a) => (a.ai_score ?? 0) >= 75)
+    return pool[0] || null
+  }, [byStage])
+
+  const activeListing = useMemo(() => {
+    if (activeListingId === 'all') return null
+    return listings.find((l) => l.id === activeListingId) || null
+  }, [activeListingId, listings])
 
   if (authLoading || loading) {
     return (
-      <div style={{ minHeight: '100vh', background: mk.bg, display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: mk.textMuted, fontSize: 14 }}>
-          {lang === 'zh' ? '加载中…' : 'Loading…'}
-        </div>
+      <div style={{ minHeight: '100vh', background: v3.surfaceMuted, display: 'grid', placeItems: 'center' }}>
+        <div style={{ color: v3.textMuted, fontSize: 14 }}>{lang === 'zh' ? '加载中…' : 'Loading…'}</div>
       </div>
     )
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: mk.bg }}>
-      {/* Header */}
-      <header
+    <div style={{ minHeight: '100vh', background: v3.surfaceMuted, display: 'flex' }}>
+      {/* Sidebar */}
+      <aside
         style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 20,
-          background: mk.surface,
-          borderBottom: `1px solid ${mk.border}`,
+          width: 240,
+          background: v3.surface,
+          borderRight: `1px solid ${v3.border}`,
+          padding: '20px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+          flexShrink: 0,
         }}
+        className="pl-sidebar"
       >
-        <div
+        <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
+          <span aria-hidden style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
+          <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em' }}>stayloop</span>
+        </Link>
+
+        {/* Property summary card */}
+        <div style={{ border: `1px solid ${v3.border}`, borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+            {lang === 'zh' ? '房源' : 'Property'}
+          </div>
+          {activeListing ? (
+            <>
+              <div style={{ fontWeight: 700, fontSize: 13, color: v3.textPrimary, lineHeight: 1.3 }}>
+                {activeListing.address}
+                {activeListing.unit ? ` · ${activeListing.unit}` : ''}
+              </div>
+              <div style={{ color: v3.textMuted, fontSize: 12, marginTop: 2 }}>
+                {activeListing.city}
+              </div>
+            </>
+          ) : (
+            <div style={{ color: v3.textSecondary, fontSize: 13, fontWeight: 600 }}>
+              {lang === 'zh' ? '所有房源' : 'All listings'}
+            </div>
+          )}
+        </div>
+
+        {/* Listings nav */}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <SidebarLink
+            active={activeListingId === 'all'}
+            onClick={() => setActiveListingId('all')}
+            label={lang === 'zh' ? '全部 Pipeline' : 'All Pipeline'}
+            count={apps.length}
+            iconChar="≡"
+          />
+          {listings.map((l) => {
+            const c = apps.filter((a) => a.listing_id === l.id).length
+            return (
+              <SidebarLink
+                key={l.id}
+                active={activeListingId === l.id}
+                onClick={() => setActiveListingId(l.id)}
+                label={`${l.address}${l.unit ? ' · ' + l.unit : ''}`}
+                count={c}
+                iconChar="◇"
+              />
+            )
+          })}
+        </nav>
+
+        <div style={{ borderTop: `1px solid ${v3.divider}`, paddingTop: 12, marginTop: 'auto' }}>
+          <Link
+            href="/listings/new"
+            style={{
+              display: 'block',
+              fontSize: 13,
+              color: v3.brandStrong,
+              fontWeight: 600,
+              padding: '8px 10px',
+              borderRadius: 8,
+              background: v3.brandSoft,
+              textAlign: 'center',
+              textDecoration: 'none',
+            }}
+          >
+            + {lang === 'zh' ? '让 Nova 写新房源' : 'New listing with Nova'}
+          </Link>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        {/* Header */}
+        <header
           style={{
-            maxWidth: 1200,
-            margin: '0 auto',
-            padding: '14px 24px',
+            background: v3.surface,
+            borderBottom: `1px solid ${v3.border}`,
+            padding: '16px 24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 16,
+            flexWrap: 'wrap',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Link
-              href="/dashboard"
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>
+              {lang === 'zh' ? '申请人 Pipeline' : 'Applicant Pipeline'}
+            </h1>
+            <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 2 }}>
+              {lang === 'zh'
+                ? `Logic AI 已审核 ${byStage.reviewed.length + byStage.approved.length + byStage.declined.length} / ${filtered.length}`
+                : `Logic AI reviewed ${byStage.reviewed.length + byStage.approved.length + byStage.declined.length} / ${filtered.length}`}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: mk.brand,
-                color: '#fff',
-                fontWeight: 700,
-                fontSize: 16,
-                textDecoration: 'none',
+                gap: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: v3.brandStrong,
+                background: v3.brandSoft,
+                padding: '6px 10px',
+                borderRadius: 999,
               }}
-              aria-label="Stayloop"
             >
-              S
-            </Link>
-            <div>
-              <div style={{ fontWeight: 700, color: mk.text, fontSize: 16, lineHeight: 1.1 }}>
-                {lang === 'zh' ? '申请者管道' : 'Pipeline'}
-              </div>
-              <div style={{ color: mk.textMuted, fontSize: 12 }}>
-                {lang === 'zh' ? 'AI 排序 · 一目了然' : 'AI-ranked candidates'}
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: v3.brand, display: 'inline-block' }} />
+              {lang === 'zh' ? 'Logic 在线' : 'Logic active'}
+            </span>
             <Link
               href="/chat"
               style={{
                 fontSize: 13,
-                color: mk.brandStrong,
+                color: v3.textPrimary,
+                background: v3.surface,
+                border: `1px solid ${v3.borderStrong}`,
+                padding: '6px 12px',
+                borderRadius: 8,
                 textDecoration: 'none',
                 fontWeight: 600,
-                padding: '6px 12px',
-                border: `1px solid ${mk.brandSoft}`,
-                borderRadius: 6,
-                background: mk.brandSoft,
               }}
             >
-              {lang === 'zh' ? '↗ 跟 Logic 对话' : '↗ Chat with Logic'}
+              {lang === 'zh' ? '问 Logic' : 'Ask Logic'}
             </Link>
             <LanguageToggle />
             <UserNav user={landlord} signOut={signOut} />
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
-        {/* Listing selector */}
-        <div
-          style={{
-            background: mk.surface,
-            border: `1px solid ${mk.border}`,
-            borderRadius: 12,
-            padding: 16,
-            marginBottom: 16,
-          }}
-        >
-          <div style={{ fontSize: 12, color: mk.textMuted, marginBottom: 8, fontWeight: 600 }}>
-            {lang === 'zh' ? '房源' : 'Listing'}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <ListingChip
-              active={activeListingId === 'all'}
-              label={lang === 'zh' ? `全部房源 (${apps.length})` : `All (${apps.length})`}
-              onClick={() => setActiveListingId('all')}
-            />
-            {listings.map((l) => {
-              const count = apps.filter((a) => a.listing_id === l.id).length
-              return (
-                <ListingChip
-                  key={l.id}
-                  active={activeListingId === l.id}
-                  label={`${l.address}${l.unit ? ' · ' + l.unit : ''} (${count})`}
-                  onClick={() => setActiveListingId(l.id)}
-                />
-              )
-            })}
-            {listings.length === 0 && (
-              <span style={{ color: mk.textMuted, fontSize: 13 }}>
-                {lang === 'zh' ? (
-                  <>
-                    还没有房源 ·{' '}
-                    <Link href="/listings/new" style={{ color: mk.brandStrong }}>
-                      让 Nova 帮你创建
-                    </Link>
-                  </>
-                ) : (
-                  <>
-                    No listings yet ·{' '}
-                    <Link href="/listings/new" style={{ color: mk.brandStrong }}>
-                      create one with Nova
-                    </Link>
-                  </>
-                )}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: 12,
-            marginBottom: 16,
-          }}
-        >
-          <StatTile
-            label={lang === 'zh' ? '申请总数' : 'Total applicants'}
-            value={String(stats.total)}
-          />
-          <StatTile
-            label={lang === 'zh' ? '平均分' : 'Avg score'}
-            value={stats.avg != null ? String(stats.avg) : '—'}
-          />
-          <StatTile
-            label={lang === 'zh' ? '最高分' : 'Top score'}
-            value={stats.top > 0 ? String(stats.top) : '—'}
-            color={mk.brand}
-          />
-          <StatTile
-            label={lang === 'zh' ? '推荐通过' : 'Approve-ready'}
-            value={String(stats.approve)}
-            color={mk.green}
-          />
-        </div>
-
-        {/* Filters */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 12,
-            marginBottom: 12,
-          }}
-        >
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {(['any', 'approve', 'conditional', 'decline'] as const).map((tf) => (
-              <button
-                key={tf}
-                onClick={() => setTierFilter(tf as any)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: 999,
-                  border: `1px solid ${tierFilter === tf ? mk.text : mk.border}`,
-                  background: tierFilter === tf ? mk.text : mk.surface,
-                  color: tierFilter === tf ? '#fff' : mk.textSec,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                {tf === 'any'
-                  ? lang === 'zh'
-                    ? '全部'
-                    : 'All'
-                  : lang === 'zh'
-                    ? tierMeta[tf as Tier].zh
-                    : tierMeta[tf as Tier].en}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12, color: mk.textMuted }}>
-              {lang === 'zh' ? '排序' : 'Sort'}
-            </span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              style={{
-                padding: '6px 10px',
-                borderRadius: 8,
-                border: `1px solid ${mk.border}`,
-                background: mk.surface,
-                color: mk.text,
-                fontSize: 13,
-                cursor: 'pointer',
-              }}
-            >
-              <option value="score">{lang === 'zh' ? '按分数' : 'By score'}</option>
-              <option value="recent">{lang === 'zh' ? '按时间' : 'Most recent'}</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Candidate list */}
-        {filtered.length === 0 ? (
-          <div
-            style={{
-              background: mk.surface,
-              border: `1px dashed ${mk.borderStrong}`,
-              borderRadius: 12,
-              padding: '48px 24px',
-              textAlign: 'center',
-            }}
-          >
-            <div style={{ fontSize: 14, color: mk.textSec, marginBottom: 8 }}>
-              {lang === 'zh' ? '此房源还没有申请者' : 'No applicants yet for this listing'}
-            </div>
-            <div style={{ fontSize: 12, color: mk.textMuted }}>
-              {lang === 'zh'
-                ? '把申请链接发给租客，新申请会自动出现在这里'
-                : 'Share the application link — new submissions show up here automatically.'}
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {filtered.map((a, idx) => (
-              <CandidateRow
-                key={a.id}
-                app={a}
-                rank={sortBy === 'score' ? idx + 1 : null}
-                lang={lang as 'zh' | 'en'}
-              />
-            ))}
+        {/* Logic recommendation banner */}
+        {topPick && (
+          <div style={{ padding: '16px 24px 0' }}>
+            <LogicRecommendation app={topPick} lang={lang as 'zh' | 'en'} />
           </div>
         )}
+
+        {/* Kanban */}
+        <div
+          style={{
+            flex: 1,
+            padding: '16px 24px 32px',
+            overflowX: 'auto',
+          }}
+        >
+          {filtered.length === 0 ? (
+            <div
+              style={{
+                background: v3.surface,
+                border: `1px dashed ${v3.borderStrong}`,
+                borderRadius: 16,
+                padding: '64px 32px',
+                textAlign: 'center',
+                marginTop: 24,
+              }}
+            >
+              <div style={{ fontSize: 16, fontWeight: 600, color: v3.textPrimary, marginBottom: 8 }}>
+                {lang === 'zh' ? '还没有申请人' : 'No applicants yet'}
+              </div>
+              <div style={{ color: v3.textMuted, fontSize: 13, marginBottom: 16 }}>
+                {lang === 'zh'
+                  ? '把申请链接发给租客，新申请会自动到这里。'
+                  : 'Share the application link — new submissions show up here automatically.'}
+              </div>
+              <Link
+                href="/listings/new"
+                style={{
+                  display: 'inline-flex',
+                  background: v3.brand,
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  padding: '10px 16px',
+                  borderRadius: 8,
+                  textDecoration: 'none',
+                }}
+              >
+                {lang === 'zh' ? '让 Nova 写一个新房源' : 'Draft a listing with Nova'}
+              </Link>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${COLUMNS.length}, minmax(260px, 1fr))`,
+                gap: 16,
+                minHeight: 400,
+              }}
+            >
+              {COLUMNS.map((col) => (
+                <KanbanColumn
+                  key={col.key}
+                  col={col}
+                  apps={byStage[col.key]}
+                  lang={lang as 'zh' | 'en'}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </main>
+      <style jsx>{`
+        @media (max-width: 760px) {
+          :global(.pl-sidebar) {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Sub-components ──────────────────────────────────────────────────────────
 
-function ListingChip({
+function SidebarLink({
   active,
-  label,
   onClick,
+  label,
+  count,
+  iconChar,
 }: {
   active: boolean
-  label: string
   onClick: () => void
+  label: string
+  count: number
+  iconChar: string
 }) {
   return (
     <button
       onClick={onClick}
       style={{
-        padding: '8px 14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '8px 10px',
         borderRadius: 8,
-        border: `1px solid ${active ? mk.brand : mk.border}`,
-        background: active ? mk.brandSoft : mk.surface,
-        color: active ? mk.brandStrong : mk.textSec,
-        fontSize: 13,
-        fontWeight: 600,
+        background: active ? v3.brandSoft : 'transparent',
+        color: active ? v3.brandStrong : v3.textSecondary,
+        border: 'none',
         cursor: 'pointer',
+        textAlign: 'left',
+        fontSize: 13,
+        fontWeight: active ? 600 : 500,
+        width: '100%',
       }}
     >
-      {label}
+      <span aria-hidden style={{ width: 16, fontSize: 14, color: active ? v3.brand : v3.textMuted }}>
+        {iconChar}
+      </span>
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: active ? v3.brandStrong : v3.textMuted,
+          padding: '1px 7px',
+          borderRadius: 999,
+          background: active ? v3.surface : v3.divider,
+        }}
+      >
+        {count}
+      </span>
     </button>
   )
 }
 
-function StatTile({ label, value, color }: { label: string; value: string; color?: string }) {
+function LogicRecommendation({ app, lang }: { app: Application; lang: 'zh' | 'en' }) {
+  const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email
+  const ratio = app.monthly_income && (app as any).listing?.monthly_rent
+    ? (app.monthly_income / Number((app as any).listing.monthly_rent)).toFixed(1)
+    : null
   return (
     <div
       style={{
-        background: mk.surface,
-        border: `1px solid ${mk.border}`,
+        background: v3.brandSoft,
+        border: `1px solid ${v3.brandSoft}`,
+        borderLeft: `4px solid ${v3.brand}`,
         borderRadius: 12,
         padding: 14,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        flexWrap: 'wrap',
       }}
     >
-      <div style={{ fontSize: 11, color: mk.textMuted, marginBottom: 4, fontWeight: 600 }}>
-        {label}
+      <div
+        aria-hidden
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: v3.brand,
+          color: '#fff',
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: 16,
+          fontWeight: 800,
+        }}
+      >
+        ✦
       </div>
-      <div style={{ fontSize: 24, fontWeight: 700, color: color || mk.text, lineHeight: 1.1 }}>
-        {value}
+      <div style={{ flex: 1, minWidth: 240 }}>
+        <div style={{ fontSize: 14, lineHeight: 1.5, color: v3.textPrimary }}>
+          <strong style={{ fontWeight: 700 }}>
+            {lang === 'zh' ? `Logic 推荐：${fullName}` : `Logic recommends ${fullName}`}
+          </strong>
+          {' — '}
+          {lang === 'zh'
+            ? `评分 ${app.ai_score}${ratio ? `, 月收入 ${ratio}× 租金` : ''}, 优于历史 91% 签约租客。`
+            : `Score ${app.ai_score}${ratio ? `, income ${ratio}× rent` : ''}. Beats 91% of your historical signed tenants.`}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <Link
+          href={`/dashboard/applications/${app.id}`}
+          style={{
+            background: v3.surface,
+            border: `1px solid ${v3.borderStrong}`,
+            color: v3.textPrimary,
+            fontSize: 13,
+            fontWeight: 600,
+            padding: '6px 14px',
+            borderRadius: 8,
+            textDecoration: 'none',
+          }}
+        >
+          {lang === 'zh' ? '为什么？' : 'Why?'}
+        </Link>
+        <Link
+          href={`/dashboard/applications/${app.id}`}
+          style={{
+            background: v3.brand,
+            color: '#fff',
+            fontSize: 13,
+            fontWeight: 600,
+            padding: '6px 14px',
+            borderRadius: 8,
+            textDecoration: 'none',
+          }}
+        >
+          {lang === 'zh' ? '批准' : 'Approve'}
+        </Link>
       </div>
     </div>
   )
 }
 
-function CandidateRow({
-  app,
-  rank,
+function KanbanColumn({
+  col,
+  apps,
   lang,
 }: {
-  app: Application
-  rank: number | null
+  col: { key: Stage; dotColor: string; zh: string; en: string }
+  apps: Application[]
   lang: 'zh' | 'en'
 }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: col.dotColor, display: 'inline-block' }} />
+        <span style={{ fontSize: 11, fontWeight: 700, color: v3.textPrimary, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          {lang === 'zh' ? col.zh : col.en}
+        </span>
+        <span style={{ fontSize: 11, color: v3.textMuted, fontWeight: 600 }}>· {apps.length}</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minHeight: 80 }}>
+        {apps.length === 0 ? (
+          <div
+            style={{
+              border: `1px dashed ${v3.border}`,
+              borderRadius: 10,
+              padding: '24px 12px',
+              textAlign: 'center',
+              fontSize: 12,
+              color: v3.textFaint,
+            }}
+          >
+            {lang === 'zh' ? '空' : 'Empty'}
+          </div>
+        ) : (
+          apps.map((a) => <CandidateCard key={a.id} app={a} lang={lang} />)
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CandidateCard({ app, lang }: { app: Application; lang: 'zh' | 'en' }) {
+  const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email
+  const initials = fullName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase()
   const tier = tierFromScore(app.ai_score)
   const meta = tierMeta[tier]
-  const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email
-  const scoreText = app.ai_score != null ? String(app.ai_score) : '—'
-
+  // approximate "ratio" bar if income vs listing.monthly_rent is known
+  const incomeRatio = app.monthly_income && (app as any).listing?.monthly_rent
+    ? Math.min(5, app.monthly_income / Number((app as any).listing.monthly_rent))
+    : null
+  const barPct = incomeRatio != null
+    ? Math.min(100, (incomeRatio / 4) * 100)
+    : null
+  const barColor =
+    incomeRatio == null
+      ? v3.borderStrong
+      : incomeRatio >= 3
+        ? v3.success
+        : incomeRatio >= 2
+          ? v3.warning
+          : v3.danger
   return (
     <Link
       href={`/dashboard/applications/${app.id}`}
       style={{
         display: 'block',
-        background: mk.surface,
-        border: `1px solid ${mk.border}`,
+        background: v3.surface,
+        border: `1px solid ${tier === 'approve' ? v3.brand : v3.border}`,
         borderRadius: 12,
-        padding: 16,
+        padding: 12,
         textDecoration: 'none',
         color: 'inherit',
-        transition: 'border-color 120ms',
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.borderColor = mk.brand)}
-      onMouseLeave={(e) => (e.currentTarget.style.borderColor = mk.border)}
     >
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'auto 1fr auto',
-          gap: 16,
-          alignItems: 'center',
-        }}
-      >
-        {/* Score + rank */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {rank != null && (
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 999,
-                background: rank === 1 ? mk.brand : mk.surfaceMuted,
-                color: rank === 1 ? '#fff' : mk.textSec,
-                fontSize: 12,
-                fontWeight: 700,
-                display: 'grid',
-                placeItems: 'center',
-                flexShrink: 0,
-              }}
-            >
-              {rank}
-            </div>
-          )}
-          <div style={{ textAlign: 'center', minWidth: 64 }}>
-            <div
-              style={{
-                fontSize: 28,
-                fontWeight: 700,
-                color: tier === 'approve' ? mk.green : tier === 'decline' ? mk.red : mk.text,
-                lineHeight: 1,
-              }}
-            >
-              {scoreText}
-            </div>
-            <div style={{ fontSize: 10, color: mk.textMuted, marginTop: 2 }}>
-              {lang === 'zh' ? 'AI 总分' : 'Score'}
-            </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <span
+          aria-hidden
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 999,
+            background: v3.brandSoft,
+            color: v3.brandStrong,
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: 12,
+            fontWeight: 700,
+            flexShrink: 0,
+          }}
+        >
+          {initials || '·'}
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: v3.textPrimary, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {fullName}
+          </div>
+          <div style={{ fontSize: 11, color: v3.textMuted, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {app.job_title || app.employer_name || (lang === 'zh' ? '申请人' : 'Applicant')}
           </div>
         </div>
-
-        {/* Identity + dims */}
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: mk.text }}>{fullName}</span>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: meta.fg,
-                background: meta.bg,
-                padding: '2px 8px',
-                borderRadius: 999,
-              }}
-            >
-              {lang === 'zh' ? meta.zh : meta.en}
-            </span>
-            {app.status !== 'new' && (
-              <span style={{ fontSize: 11, color: mk.textMuted }}>· {app.status}</span>
-            )}
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 12,
-              fontSize: 11,
-              color: mk.textMuted,
-              marginBottom: 8,
-            }}
-          >
-            {app.monthly_income != null && (
-              <span>
-                {lang === 'zh' ? '月收入' : 'Income'}: ${app.monthly_income.toLocaleString()}
-              </span>
-            )}
-            {app.employer_name && (
-              <span>
-                {lang === 'zh' ? '雇主' : 'Employer'}: {app.employer_name}
-              </span>
-            )}
-            {app.has_pets && <span>{lang === 'zh' ? '🐾 有宠物' : '🐾 Pets'}</span>}
-            <span>
-              {new Date(app.created_at).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-CA')}
-            </span>
-          </div>
-          <DimBars app={app} lang={lang} />
+        <div style={{ fontSize: 22, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em', flexShrink: 0 }}>
+          {app.ai_score ?? '—'}
         </div>
+      </div>
 
-        {/* Chevron */}
-        <div style={{ color: mk.textMuted, fontSize: 18 }}>›</div>
+      {app.monthly_income != null && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+          <span style={{ fontSize: 11, color: v3.textMuted }}>{lang === 'zh' ? '月收入' : 'Income'}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: v3.textPrimary }}>
+            ${app.monthly_income.toLocaleString()}/mo
+          </span>
+        </div>
+      )}
+
+      {barPct != null && (
+        <div style={{ height: 4, borderRadius: 2, background: v3.divider, overflow: 'hidden', marginBottom: 8 }}>
+          <div style={{ width: `${barPct}%`, height: '100%', background: barColor }} />
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: meta.fg,
+            background: meta.bg,
+            padding: '2px 8px',
+            borderRadius: 999,
+          }}
+        >
+          {lang === 'zh' ? meta.zh : meta.en}
+        </span>
+        {app.has_pets && (
+          <span style={{ fontSize: 10, color: v3.textMuted, padding: '2px 6px' }}>🐾</span>
+        )}
+        {app.is_smoker && (
+          <span style={{ fontSize: 10, color: v3.textMuted, padding: '2px 6px' }}>🚬</span>
+        )}
       </div>
     </Link>
-  )
-}
-
-function DimBars({ app, lang }: { app: Application; lang: 'zh' | 'en' }) {
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
-      {DIMS.map((d) => {
-        const v = (app[d.key] as number | undefined) ?? null
-        const pct = v != null ? Math.max(0, Math.min(100, v)) : 0
-        const color = v == null ? mk.borderStrong : v >= 75 ? mk.green : v >= 55 ? mk.amber : mk.red
-        return (
-          <div key={String(d.key)}>
-            <div style={{ fontSize: 9, color: mk.textMuted, marginBottom: 2 }}>
-              {lang === 'zh' ? d.zh : d.en}
-            </div>
-            <div
-              style={{
-                height: 4,
-                borderRadius: 2,
-                background: '#F1F5F9',
-                position: 'relative',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: `${pct}%`,
-                  background: color,
-                }}
-              />
-            </div>
-            <div style={{ fontSize: 9, color: mk.textSec, marginTop: 2, fontWeight: 600 }}>
-              {v ?? '—'}
-            </div>
-          </div>
-        )
-      })}
-    </div>
   )
 }
