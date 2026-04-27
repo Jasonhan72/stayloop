@@ -64,7 +64,12 @@ export async function ocrImagePdf(
       },
       body: JSON.stringify({
         model: HAIKU_MODEL,
-        max_tokens: 2500,
+        // Bumped from 2500 to 4000: a dense Canadian passport biopage + visa
+        // pages can yield 1500+ tokens of OCR text alone. With the prompt
+        // overhead + JSON wrapper, 2500 was hitting the cap mid-output
+        // and causing parseOcrOutput to silently return null. Cost delta
+        // is ~$0.005 vs $0.003 per call — worth the reliability.
+        max_tokens: 4000,
         messages: [
           { role: 'user', content },
           { role: 'assistant', content: '{' },  // prefill JSON start for determinism
@@ -79,8 +84,18 @@ export async function ocrImagePdf(
     }
     const json: any = await res.json()
     const raw = json?.content?.[0]?.text || ''
+    const stopReason = json?.stop_reason
     const parsed = parseOcrOutput(raw)
-    if (!parsed) return null
+    if (!parsed) {
+      // Most common cause of failure: stop_reason='max_tokens' truncated the
+      // JSON mid-string, so JSON.parse fails. Surface this so we can tune.
+      if (stopReason === 'max_tokens') {
+        console.warn('[image-ocr] hit max_tokens; OCR output truncated and JSON unparseable')
+      } else {
+        console.warn('[image-ocr] could not parse OCR output, raw len=', raw.length)
+      }
+      return null
+    }
     return {
       ...parsed,
       elapsed_ms: Date.now() - startedAt,
