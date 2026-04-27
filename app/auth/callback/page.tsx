@@ -81,8 +81,8 @@ export default function AuthCallbackPage() {
 
         setStatus('Signed in. Redirecting...')
         // Honor ?next= param for post-login destination (same-origin paths only)
-        const rawNext = url.searchParams.get('next') || '/screen'
-        const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/screen'
+        const rawNext = url.searchParams.get('next') || '/'
+        const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/'
         window.history.replaceState({}, '', '/auth/callback')
         router.replace(safeNext)
       } catch (e: any) {

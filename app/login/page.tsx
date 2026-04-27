@@ -30,8 +30,8 @@ function LoginInner() {
   const { t } = useT()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const nextParam = searchParams.get('next') || '/screen'
-  const safeNext = nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/screen'
+  const nextParam = searchParams.get('next') || '/'
+  const safeNext = nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/'
 
   const isMobile = useIsMobile()
   const [email, setEmail] = useState('')

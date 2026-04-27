@@ -91,7 +91,7 @@ export default function ResetPasswordPage() {
     }
 
     setSuccess(true)
-    setTimeout(() => router.replace('/screen'), 2500)
+    setTimeout(() => router.replace('/'), 2500)
   }
 
   const inputStyle: React.CSSProperties = {

@@ -7,7 +7,9 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { v3 } from '@/lib/brand'
 import { useT, LanguageToggle } from '@/lib/i18n'
+import { useUser } from '@/lib/useUser'
 import AuthModal from '@/components/AuthModal'
+import UserNav from '@/components/UserNav'
 
 const NAV_ITEMS: Array<{ href: string; zh: string; en: string }> = [
   { href: '/tenants', zh: '租客', en: 'Tenants' },
@@ -20,6 +22,8 @@ const NAV_ITEMS: Array<{ href: string; zh: string; en: string }> = [
 export default function MarketingNav() {
   const { lang } = useT()
   const [authOpen, setAuthOpen] = useState(false)
+  const { user, signOut } = useUser({ redirectIfMissing: false, allowAnonymous: false })
+  const isAuthed = !!user && !user.isAnonymous
 
   return (
     <>
@@ -102,35 +106,42 @@ export default function MarketingNav() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <LanguageToggle />
-            <button
-              onClick={() => setAuthOpen(true)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: v3.textSecondary,
-                fontSize: 14,
-                fontWeight: 500,
-                cursor: 'pointer',
-                padding: '6px 8px',
-              }}
-            >
-              {lang === 'zh' ? '登录' : 'Sign in'}
-            </button>
-            <Link
-              href="/chat"
-              style={{
-                background: v3.brand,
-                color: '#fff',
-                fontSize: 14,
-                fontWeight: 600,
-                padding: '8px 14px',
-                borderRadius: 8,
-                textDecoration: 'none',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {lang === 'zh' ? '获取 Passport · 免费' : 'Get Passport — free'}
-            </Link>
+            {isAuthed ? (
+              <UserNav user={user} signOut={signOut} />
+            ) : (
+              <>
+                <button
+                  onClick={() => setAuthOpen(true)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: v3.textSecondary,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    padding: '6px 8px',
+                  }}
+                >
+                  {lang === 'zh' ? '登录' : 'Sign in'}
+                </button>
+                <button
+                  onClick={() => setAuthOpen(true)}
+                  style={{
+                    background: v3.brand,
+                    color: '#fff',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    border: 'none',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {lang === 'zh' ? '获取 Passport · 免费' : 'Get Passport — free'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </nav>

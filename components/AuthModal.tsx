@@ -92,10 +92,10 @@ function maskEmail(email: string): string {
    COMPONENT
 ════════════════════════════════════════════════════════════════ */
 
-export default function AuthModal({ open, onClose, defaultTab, next = '/screen' }: AuthModalProps) {
+export default function AuthModal({ open, onClose, defaultTab, next = '/' }: AuthModalProps) {
   const { t } = useT()
   const router = useRouter()
-  const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/screen'
+  const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/'
 
   /* State */
   const [step, setStep] = useState<Step>('email')
