@@ -1,61 +1,49 @@
 // -----------------------------------------------------------------------------
-// Shared visual tokens for AI-Native UI (matches Stayloop V3 design)
+// Agent UI shim — re-exports the V3 brand tokens
 // -----------------------------------------------------------------------------
-// Centralized design tokens so all chat / listing / pipeline pages share the
-// same visual language. Mirrors the V3 print prototype: clean cards, bilingual
-// labels, accent green, soft surfaces.
+// Single source of truth lives in `@/lib/brand`. This shim keeps the existing
+// `import { tokens, tier, severity } from '@/lib/agent/theme'` callsites working
+// (chat components etc) while we migrate the codebase to import from
+// `@/lib/brand` directly.
 // -----------------------------------------------------------------------------
+
+import { v3, tier as brandTier, severity as brandSeverity } from '../brand'
 
 export const tokens = {
-  // Surfaces
-  surface: '#FFFFFF',
-  surfaceMuted: '#F8FAFC',
-  surfaceCard: '#FFFFFF',
-  surfaceElevated: '#FAFAFA',
-
-  // Borders
-  border: '#E4E4E7',
-  borderSubtle: '#F1F5F9',
-  borderStrong: '#CBD5E1',
-
-  // Text
-  textPrimary: '#0F172A',
-  textSecondary: '#475569',
-  textTertiary: '#94A3B8',
-  textInverse: '#FFFFFF',
-
-  // Accents
-  accent: '#0D9488',          // teal — Stayloop primary
-  accentDark: '#0F766E',
-  accentLight: '#CCFBF1',
-  accentMuted: '#F0FDFA',
-
-  // Status
-  success: '#16A34A',
-  successLight: '#DCFCE7',
-  warning: '#D97706',
-  warningLight: '#FEF3C7',
-  danger: '#DC2626',
-  dangerLight: '#FEE2E2',
-  info: '#0284C7',
-  infoLight: '#E0F2FE',
-
-  // Pro / pitch accents (V3 PDF uses purple for AI / Trust)
-  brand: '#7C3AED',
-  brandLight: '#F3E8FF',
+  // V3 names
+  ...v3,
+  // Legacy aliases from the previous teal-based palette so old chat code still
+  // compiles. These now map to V3 emerald.
+  accent: v3.brand,
+  accentDark: v3.brandStrong,
+  accentLight: v3.brandSoft,
+  accentMuted: v3.brandWash,
+  surfaceElevated: v3.surfaceMuted,
+  textTertiary: v3.textFaint,
+  textInverse: v3.textOnBrand,
+  successLight: v3.successSoft,
+  warningLight: v3.warningSoft,
+  dangerLight: v3.dangerSoft,
+  infoLight: v3.infoSoft,
+  brand: v3.trust, // legacy "brand" was the violet AI accent
+  brandLight: v3.trustSoft,
+  borderSubtle: v3.divider,
 }
 
+// Adapt brand tier shape to the older { bg, fg } pattern used by chat
+// components.
 export const tier = {
-  approve: { bg: tokens.successLight, fg: '#15803D', label_zh: '✓ 推荐通过', label_en: '✓ Approve' },
-  conditional: { bg: tokens.warningLight, fg: '#92400E', label_zh: '⚡ 有条件通过', label_en: '⚡ Conditional' },
-  decline: { bg: tokens.dangerLight, fg: '#991B1B', label_zh: '⚠ 建议拒绝', label_en: '⚠ Decline' },
+  approve: { bg: brandTier.approve.bg, fg: brandTier.approve.fg, label_zh: brandTier.approve.label_zh, label_en: brandTier.approve.label_en },
+  conditional: { bg: brandTier.conditional.bg, fg: brandTier.conditional.fg, label_zh: brandTier.conditional.label_zh, label_en: brandTier.conditional.label_en },
+  decline: { bg: brandTier.decline.bg, fg: brandTier.decline.fg, label_zh: brandTier.decline.label_zh, label_en: brandTier.decline.label_en },
 }
 
+// Adapt severity shape (color → fg).
 export const severity = {
-  critical: { color: '#991B1B', bg: '#FEE2E2', label_zh: '严重', label_en: 'Critical' },
-  high: { color: '#9A3412', bg: '#FED7AA', label_zh: '高', label_en: 'High' },
-  medium: { color: '#92400E', bg: '#FEF3C7', label_zh: '中', label_en: 'Medium' },
-  low: { color: '#475569', bg: '#F1F5F9', label_zh: '低', label_en: 'Low' },
+  critical: { color: brandSeverity.critical.fg, bg: brandSeverity.critical.bg, label_zh: brandSeverity.critical.label_zh, label_en: brandSeverity.critical.label_en },
+  high: { color: brandSeverity.high.fg, bg: brandSeverity.high.bg, label_zh: brandSeverity.high.label_zh, label_en: brandSeverity.high.label_en },
+  medium: { color: brandSeverity.medium.fg, bg: brandSeverity.medium.bg, label_zh: brandSeverity.medium.label_zh, label_en: brandSeverity.medium.label_en },
+  low: { color: brandSeverity.low.fg, bg: brandSeverity.low.bg, label_zh: brandSeverity.low.label_zh, label_en: brandSeverity.low.label_en },
 }
 
 export type Severity = keyof typeof severity
