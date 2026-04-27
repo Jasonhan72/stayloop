@@ -89,10 +89,10 @@ export default function AboutPage() {
             },
             {
               k: 'compliance',
-              h_zh: '独立合规',
-              h_en: 'Independent legal entity',
-              b_zh: 'Stayloop Inc. 是完全独立的法律与商业实体，与 neos.rentals、JDL Realty、Sheng Chu Realty 等无控制或排他合作关系。',
-              b_en: 'Stayloop Inc. is fully independent — no control or exclusivity with neos.rentals, JDL Realty, or any affiliated brokerage.',
+              h_zh: '合规优先',
+              h_en: 'Compliance-first',
+              b_zh: 'OHRC、RTA、PIPEDA 全部内建于 Sentinel agent 与审计日志。每一次数据使用都有 append-only 记录，租客随时可以导出或撤销。',
+              b_en: 'OHRC, RTA, and PIPEDA are baked into the Sentinel agent and the audit log. Every data use is append-only logged; tenants can export or revoke any time.',
             },
           ].map((b) => (
             <div key={b.k} style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 24 }}>
