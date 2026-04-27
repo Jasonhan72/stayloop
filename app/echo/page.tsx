@@ -8,7 +8,7 @@ export default function EchoPage() {
   const { lang } = useT()
   const isZh = lang === 'zh'
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh', padding: '24px 12px' }}>
+    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
       <Phone>
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           {/* Header */}

@@ -14,7 +14,7 @@ export default function InsurancePage() {
   const { lang } = useT()
   const isZh = lang === 'zh'
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh', padding: '24px 12px' }}>
+    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
       <Phone time="14:42">
         <div style={{ padding: '12px 16px', borderBottom: `1px solid ${v3.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 18, color: v3.textMuted }}>‹</span>
