@@ -3,7 +3,6 @@
 // /about — public company page
 // -----------------------------------------------------------------------------
 
-import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import MarketingNav from '@/components/marketing/MarketingNav'
@@ -100,80 +99,6 @@ export default function AboutPage() {
               <p style={{ color: v3.textSecondary, fontSize: 14, lineHeight: 1.6, margin: 0 }}>{isZh ? b.b_zh : b.b_en}</p>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section id="team" style={{ padding: '32px 24px 96px' }}>
-        <div style={{ maxWidth: size.content.default, margin: '0 auto' }}>
-          <span
-            style={{
-              display: 'inline-block',
-              fontSize: 11,
-              fontWeight: 700,
-              color: v3.textPrimary,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              marginBottom: 12,
-            }}
-          >
-            {isZh ? '团队 · TEAM' : 'TEAM · 团队'}
-          </span>
-          <div
-            style={{
-              background: v3.surface,
-              border: `1px solid ${v3.border}`,
-              borderRadius: 14,
-              padding: 28,
-              display: 'flex',
-              gap: 20,
-              alignItems: 'flex-start',
-              flexWrap: 'wrap',
-            }}
-          >
-            <div
-              aria-hidden
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 999,
-                background: v3.brand,
-                color: '#fff',
-                display: 'grid',
-                placeItems: 'center',
-                fontSize: 18,
-                fontWeight: 700,
-              }}
-            >
-              JH
-            </div>
-            <div style={{ flex: 1, minWidth: 240 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Jason Han</h3>
-              <div style={{ color: v3.textMuted, fontSize: 13, marginBottom: 10 }}>
-                {isZh ? '创始人 · CEO' : 'Founder · CEO'}
-              </div>
-              <p style={{ color: v3.textSecondary, fontSize: 14, lineHeight: 1.65, margin: 0 }}>
-                {isZh
-                  ? '从北美华人房东和租客的真实痛点出发，把租赁链条上 80% 的纸质流程交给 AI agent，让人类只做需要判断力的那一部分。'
-                  : 'Built from real pain points of Chinese-Canadian landlords and tenants. Hands the 80% of paperwork in the rental chain to AI agents, leaving humans the judgment calls.'}
-              </p>
-            </div>
-            <Link
-              href="mailto:hello@stayloop.ai"
-              style={{
-                background: v3.surface,
-                border: `1px solid ${v3.borderStrong}`,
-                color: v3.textPrimary,
-                fontSize: 14,
-                fontWeight: 600,
-                padding: '10px 16px',
-                borderRadius: 8,
-                textDecoration: 'none',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {isZh ? '联系我们' : 'Get in touch'}
-            </Link>
-          </div>
         </div>
       </section>
 

@@ -26,7 +26,6 @@ export default function MarketingFooter() {
       heading: { zh: '公司', en: 'Company' },
       links: [
         { href: '/about', zh: '关于', en: 'About' },
-        { href: '/about#team', zh: '团队', en: 'Team' },
         { href: 'mailto:hello@stayloop.ai', zh: '联系', en: 'Contact' },
       ],
     },
