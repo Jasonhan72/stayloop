@@ -9,6 +9,7 @@
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
+import { useUser } from '@/lib/useUser'
 import MarketingNav from '@/components/marketing/MarketingNav'
 import MarketingFooter from '@/components/marketing/MarketingFooter'
 import NetworkDiagram from '@/components/marketing/NetworkDiagram'
@@ -70,6 +71,17 @@ const AUDIENCES: Array<{
 export default function Home() {
   const { lang } = useT()
   const isZh = lang === 'zh'
+  const { user } = useUser({ redirectIfMissing: false, allowAnonymous: false })
+  const isAuthed = !!user && !user.isAnonymous
+
+  // Hero CTA varies by who you are.
+  const heroCta = !isAuthed
+    ? { label: isZh ? '获取我的 Passport' : 'Get my Passport', href: '/passport' }
+    : user.role === 'tenant'
+      ? { label: isZh ? '查看我的 Passport' : 'View my Passport', href: '/passport' }
+      : user.role === 'agent'
+        ? { label: isZh ? '今日任务' : 'My day brief', href: '/agent/day' }
+        : { label: isZh ? '筛查租客' : 'Screen a tenant', href: '/screen' }
 
   return (
     <main style={{ background: v3.surface, minHeight: '100vh', color: v3.textPrimary }}>
@@ -127,7 +139,7 @@ export default function Home() {
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <Link
-              href="/chat"
+              href={heroCta.href}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -141,8 +153,27 @@ export default function Home() {
                 textDecoration: 'none',
               }}
             >
-              {isZh ? '获取我的 Passport' : 'Get my Passport'} <span aria-hidden>→</span>
+              {heroCta.label} <span aria-hidden>→</span>
             </Link>
+            {isAuthed && (user.role === 'landlord' || user.role === 'agent') && (
+              <Link
+                href="/dashboard/pipeline"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  background: v3.surface,
+                  color: v3.textPrimary,
+                  fontSize: 15,
+                  fontWeight: 600,
+                  padding: '12px 22px',
+                  borderRadius: 10,
+                  textDecoration: 'none',
+                  border: `1px solid ${v3.borderStrong}`,
+                }}
+              >
+                {isZh ? '我的 Pipeline' : 'My pipeline'}
+              </Link>
+            )}
           </div>
         </div>
       </section>
