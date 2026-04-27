@@ -1,25 +1,19 @@
 'use client'
 
 // -----------------------------------------------------------------------------
-// /chat — AI-Native landlord screening (Logic agent driver)
-// -----------------------------------------------------------------------------
-// Sprint 2 skeleton. Renders a chat panel + 5 block types (text,
-// screening_card, document_viewer, action_proposal, files_upload). Streams
-// SSE events from /api/agent/chat and updates UI incrementally.
-//
-// Production-style polish (theme, i18n, mobile, advanced upload UX) lands
-// in Sprint 3+. The current page focuses on end-to-end correctness so we
-// can drive a real screening through the agent loop.
+// /chat — AI-Native landlord screening (Logic agent driver), V3 styled
 // -----------------------------------------------------------------------------
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
+import { tokens } from '@/lib/agent/theme'
+import { ScreeningCard } from './components/ScreeningCard'
+import { ActionProposal } from './components/ActionProposal'
 
 interface AssistantBlock {
   kind: string
   [k: string]: any
 }
-
 interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -27,7 +21,6 @@ interface ChatMessage {
   blocks?: AssistantBlock[]
   toolCalls?: Array<{ name: string; status?: string }>
 }
-
 interface AttachedFile {
   path: string
   name: string
@@ -35,13 +28,11 @@ interface AttachedFile {
   size: number
 }
 
-const supabase = (() => {
-  if (typeof window === 'undefined') return null
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
-})()
+const STARTERS = [
+  { zh: '帮我筛查一位新租客 (上传文件)', en: 'Screen a new applicant (upload files)' },
+  { zh: '解释一份雇佣信的真伪信号', en: 'Explain employment letter authenticity signals' },
+  { zh: '我对一位申请人的工资单存疑，能帮我看看吗', en: 'Help me check a suspicious paystub' },
+]
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -49,11 +40,41 @@ export default function ChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [streaming, setStreaming] = useState(false)
   const [attached, setAttached] = useState<AttachedFile[]>([])
+  const [lang, setLang] = useState<'zh' | 'en'>('zh')
+  const [authToken, setAuthToken] = useState<string | null>(null)
+  const [authReady, setAuthReady] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  const supabase = useMemo(() => {
+    if (typeof window === 'undefined') return null
+    return createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    )
+  }, [])
+
+  useEffect(() => {
+    if (!supabase) return
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthToken(session?.access_token ?? null)
+      setAuthReady(true)
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setAuthToken(session?.access_token ?? null)
+    })
+    return () => sub.subscription.unsubscribe()
+  }, [supabase])
 
   useEffect(() => {
     return () => abortRef.current?.abort()
   }, [])
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [messages])
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (!supabase) return
@@ -61,7 +82,7 @@ export default function ChatPage() {
     if (files.length === 0) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      alert('请先登录 / Please sign in')
+      alert(lang === 'zh' ? '请先登录' : 'Please sign in first')
       return
     }
     const stamp = Date.now()
@@ -83,24 +104,28 @@ export default function ChatPage() {
     e.target.value = ''
   }
 
-  async function send() {
-    if (!input.trim() && attached.length === 0) return
+  async function send(prefilled?: string) {
+    const userText = (prefilled ?? input).trim()
+    if (!userText && attached.length === 0) return
     if (streaming) return
     if (!supabase) return
-
-    const userText = input.trim() || '(请帮我分析附件)'
-    const userMsgId = `u_${Date.now()}`
-    setMessages((prev) => [...prev, { id: userMsgId, role: 'user', text: userText }])
-    setInput('')
-
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      setMessages((prev) => [...prev, { id: `e_${Date.now()}`, role: 'system', text: '请先登录 / Please sign in' }])
+    if (!authToken) {
+      setMessages((prev) => [
+        ...prev,
+        { id: `e_${Date.now()}`, role: 'system', text: lang === 'zh' ? '请先登录' : 'Please sign in' },
+      ])
       return
     }
+    const finalText = userText || (lang === 'zh' ? '(请帮我分析附件)' : '(Please analyze the attached files)')
+    const userMsgId = `u_${Date.now()}`
+    setMessages((prev) => [...prev, { id: userMsgId, role: 'user', text: finalText }])
+    setInput('')
 
     const assistantMsgId = `a_${Date.now()}`
-    setMessages((prev) => [...prev, { id: assistantMsgId, role: 'assistant', text: '', blocks: [], toolCalls: [] }])
+    setMessages((prev) => [
+      ...prev,
+      { id: assistantMsgId, role: 'assistant', text: '', blocks: [], toolCalls: [] },
+    ])
     setStreaming(true)
 
     abortRef.current = new AbortController()
@@ -109,12 +134,12 @@ export default function ChatPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           conversation_id: conversationId,
           agent_kind: 'logic',
-          message: userText,
+          message: finalText,
           attachments: attached.length > 0 ? attached : undefined,
         }),
         signal: abortRef.current.signal,
@@ -124,12 +149,11 @@ export default function ChatPage() {
       if (!res.ok) {
         const errText = await res.text().catch(() => 'request_failed')
         setMessages((prev) =>
-          prev.map((m) => (m.id === assistantMsgId ? { ...m, text: `❌ ${errText}` } : m)),
+          prev.map((m) => (m.id === assistantMsgId ? { ...m, text: `❌ ${errText.slice(0, 300)}` } : m)),
         )
         return
       }
 
-      // Parse SSE stream
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
@@ -143,10 +167,9 @@ export default function ChatPage() {
           if (!line.startsWith('data: ')) continue
           const payload = line.slice(6)
           try {
-            const event = JSON.parse(payload)
-            handleEvent(assistantMsgId, event)
-          } catch (e) {
-            console.warn('SSE parse error:', e, payload.slice(0, 200))
+            handleEvent(assistantMsgId, JSON.parse(payload))
+          } catch {
+            // skip malformed
           }
         }
       }
@@ -190,7 +213,6 @@ export default function ChatPage() {
         prev.map((m) => {
           if (m.id !== assistantMsgId) return m
           const calls = [...(m.toolCalls || [])]
-          // Mark the most recent matching tool as done
           for (let i = calls.length - 1; i >= 0; i--) {
             if (calls[i].name === event.tool_name && !calls[i].status) {
               calls[i] = { ...calls[i], status: event.status }
@@ -205,9 +227,7 @@ export default function ChatPage() {
     if (event.type === 'block') {
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantMsgId
-            ? { ...m, blocks: [...(m.blocks || []), event.block] }
-            : m,
+          m.id === assistantMsgId ? { ...m, blocks: [...(m.blocks || []), event.block] } : m,
         ),
       )
       return
@@ -220,217 +240,349 @@ export default function ChatPage() {
             : m,
         ),
       )
-      return
     }
-    // 'turn_start', 'done' — informational, no UI update needed
   }
 
   return (
-    <div style={{ maxWidth: 820, margin: '0 auto', padding: '24px 16px', fontFamily: 'system-ui, sans-serif' }}>
-      <header style={{ borderBottom: '1px solid #E4E4E7', paddingBottom: 12, marginBottom: 16 }}>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Stayloop · Logic 助手</h1>
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#71717A' }}>
-          AI-Native screening · 上传文件或直接说"帮我筛查 …"
-        </p>
-      </header>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: tokens.surfaceMuted,
+        fontFamily: "'Inter', system-ui, sans-serif",
+      }}
+    >
+      <Header lang={lang} setLang={setLang} />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 400 }}>
-        {messages.length === 0 && (
-          <div style={{ padding: 24, color: '#71717A', fontSize: 13, textAlign: 'center' }}>
-            开始一段对话。例如："帮我筛查这位 Bo Han 的申请"，然后拖入文件。
-          </div>
+      <main
+        ref={scrollRef}
+        style={{
+          maxWidth: 860,
+          margin: '0 auto',
+          padding: '20px 16px 200px',
+          minHeight: 'calc(100vh - 60px)',
+        }}
+      >
+        {messages.length === 0 && authReady && (
+          <EmptyState lang={lang} authed={!!authToken} onPick={(text) => send(text)} />
         )}
-        {messages.map((m) => (
-          <MessageBubble key={m.id} msg={m} />
-        ))}
-        {streaming && (
-          <div style={{ fontSize: 11, color: '#9CA3AF' }}>⏳ Logic is thinking…</div>
-        )}
-      </div>
 
-      <div style={{ marginTop: 20, borderTop: '1px solid #E4E4E7', paddingTop: 12 }}>
-        {attached.length > 0 && (
-          <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {attached.map((f, i) => (
-              <span
-                key={i}
-                style={{
-                  fontSize: 11,
-                  padding: '2px 8px',
-                  background: '#F4F4F5',
-                  borderRadius: 12,
-                  color: '#52525B',
-                }}
-              >
-                📎 {f.name}
-              </span>
-            ))}
-            <button
-              onClick={() => setAttached([])}
-              style={{
-                fontSize: 11,
-                background: 'none',
-                border: 'none',
-                color: '#9CA3AF',
-                cursor: 'pointer',
-              }}
-            >
-              清除
-            </button>
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input type="file" multiple onChange={handleFileChange} style={{ fontSize: 12 }} />
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                send()
-              }
-            }}
-            placeholder="说点什么……"
-            style={{
-              flex: 1,
-              padding: '8px 12px',
-              border: '1px solid #D4D4D8',
-              borderRadius: 8,
-              fontSize: 14,
-            }}
-          />
-          <button
-            onClick={send}
-            disabled={streaming}
-            style={{
-              padding: '8px 18px',
-              background: streaming ? '#A7F3D0' : '#0D9488',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: streaming ? 'wait' : 'pointer',
-            }}
-          >
-            {streaming ? '…' : '发送'}
-          </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {messages.map((m) => (
+            <MessageBubble key={m.id} msg={m} lang={lang} authToken={authToken} />
+          ))}
         </div>
-      </div>
+
+        {streaming && (
+          <div style={{ marginTop: 12, fontSize: 11, color: tokens.textTertiary, fontFamily: 'JetBrains Mono, monospace' }}>
+            <span style={{ display: 'inline-block', animation: 'pulse 1.4s ease-in-out infinite' }}>●</span> Logic 正在思考…
+            <style>{`@keyframes pulse { 0%, 100% { opacity: 0.3 } 50% { opacity: 1 } }`}</style>
+          </div>
+        )}
+      </main>
+
+      <Composer
+        input={input}
+        setInput={setInput}
+        attached={attached}
+        setAttached={setAttached}
+        onFileChange={handleFileChange}
+        onSend={() => send()}
+        streaming={streaming}
+        lang={lang}
+      />
     </div>
   )
 }
 
-// ─── Message bubble + block renderers ────────────────────────────────────
+// ─── Header ──────────────────────────────────────────────────────────────
 
-function MessageBubble({ msg }: { msg: ChatMessage }) {
-  const isUser = msg.role === 'user'
+function Header({ lang, setLang }: { lang: 'zh' | 'en'; setLang: (l: 'zh' | 'en') => void }) {
   return (
-    <div
+    <header
       style={{
-        alignSelf: isUser ? 'flex-end' : 'flex-start',
-        maxWidth: '85%',
-        background: isUser ? '#0D9488' : '#F9FAFB',
-        color: isUser ? '#fff' : '#18181B',
-        padding: '10px 14px',
-        borderRadius: 12,
-        border: isUser ? 'none' : '1px solid #E4E4E7',
+        position: 'sticky',
+        top: 0,
+        background: tokens.surface,
+        borderBottom: `1px solid ${tokens.border}`,
+        zIndex: 10,
+        padding: '12px 24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
       }}
     >
-      {msg.text && (
-        <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.55 }}>{msg.text}</div>
-      )}
-      {msg.toolCalls && msg.toolCalls.length > 0 && (
-        <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-          {msg.toolCalls.map((tc, i) => (
-            <span
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            background: tokens.accent,
+            display: 'grid',
+            placeItems: 'center',
+            color: '#fff',
+            fontWeight: 800,
+            fontSize: 14,
+          }}
+        >
+          S
+        </div>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: tokens.textPrimary, lineHeight: 1.1 }}>Stayloop</div>
+          <div style={{ fontSize: 10, color: tokens.textTertiary, fontFamily: 'JetBrains Mono, monospace' }}>
+            Logic · Landlord screening
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <button
+          onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+          style={{
+            fontSize: 11,
+            padding: '4px 10px',
+            background: tokens.surfaceMuted,
+            border: `1px solid ${tokens.border}`,
+            borderRadius: 6,
+            color: tokens.textSecondary,
+            cursor: 'pointer',
+          }}
+        >
+          {lang === 'zh' ? 'EN' : '中'}
+        </button>
+        <a
+          href="/screen"
+          style={{
+            fontSize: 11,
+            padding: '4px 10px',
+            background: tokens.surfaceMuted,
+            border: `1px solid ${tokens.border}`,
+            borderRadius: 6,
+            color: tokens.textSecondary,
+            textDecoration: 'none',
+          }}
+        >
+          {lang === 'zh' ? '经典模式' : 'Classic mode'}
+        </a>
+      </div>
+    </header>
+  )
+}
+
+// ─── Empty state ────────────────────────────────────────────────────────
+
+function EmptyState({ lang, authed, onPick }: { lang: 'zh' | 'en'; authed: boolean; onPick: (s: string) => void }) {
+  return (
+    <div style={{ marginTop: 80, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+      <div
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 14,
+          background: tokens.accentMuted,
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: 26,
+          color: tokens.accent,
+        }}
+      >
+        🛡
+      </div>
+      <div>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: tokens.textPrimary }}>
+          {lang === 'zh' ? '租客信任，AI 优先' : 'Tenant trust, AI-first'}
+        </h2>
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: tokens.textTertiary, maxWidth: 480, lineHeight: 1.5 }}>
+          {lang === 'zh'
+            ? '上传申请人材料 + 一句话告诉我你的疑虑。我会跑取证、查法庭记录、核对雇主、给出可解释的决策建议。'
+            : 'Upload applicant docs + tell me your concern in one sentence. I run forensics, check court records, verify employers, and recommend a decision with reasoning.'}
+        </p>
+      </div>
+
+      {!authed ? (
+        <a
+          href="/dashboard"
+          style={{
+            padding: '8px 18px',
+            background: tokens.accent,
+            color: '#fff',
+            borderRadius: 8,
+            textDecoration: 'none',
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          {lang === 'zh' ? '前往登录' : 'Sign in'}
+        </a>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 460 }}>
+          {STARTERS.map((s, i) => (
+            <button
               key={i}
+              onClick={() => onPick(lang === 'zh' ? s.zh : s.en)}
               style={{
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono, monospace',
-                padding: '2px 6px',
-                background: '#FFFFFF80',
-                color: isUser ? '#fff' : '#52525B',
-                borderRadius: 4,
-                border: '1px solid #00000010',
+                padding: '10px 14px',
+                background: tokens.surface,
+                border: `1px solid ${tokens.border}`,
+                borderRadius: 10,
+                fontSize: 13,
+                color: tokens.textPrimary,
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = tokens.accent
+                e.currentTarget.style.background = tokens.accentMuted
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = tokens.border
+                e.currentTarget.style.background = tokens.surface
               }}
             >
-              {tc.status === 'success' ? '✓' : tc.status === 'error' ? '✗' : '⏳'} {tc.name}
-            </span>
+              💬 {lang === 'zh' ? s.zh : s.en}
+            </button>
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Message bubble + block dispatcher ──────────────────────────────────
+
+function MessageBubble({
+  msg,
+  lang,
+  authToken,
+}: {
+  msg: ChatMessage
+  lang: 'zh' | 'en'
+  authToken: string | null
+}) {
+  const isUser = msg.role === 'user'
+  const isSystem = msg.role === 'system'
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start' }}>
+      <div
+        style={{
+          maxWidth: '88%',
+          background: isUser ? tokens.accent : isSystem ? tokens.warningLight : tokens.surface,
+          color: isUser ? '#fff' : tokens.textPrimary,
+          padding: msg.text ? '10px 14px' : 0,
+          borderRadius: 14,
+          border: isUser || isSystem ? 'none' : `1px solid ${tokens.border}`,
+          boxShadow: isUser ? 'none' : '0 1px 2px rgba(15, 23, 42, 0.04)',
+        }}
+      >
+        {msg.text && (
+          <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.55 }}>{msg.text}</div>
+        )}
+
+        {msg.toolCalls && msg.toolCalls.length > 0 && (
+          <div style={{ marginTop: msg.text ? 8 : 0, padding: msg.text ? 0 : '8px 12px', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {msg.toolCalls.map((tc, i) => (
+              <ToolBadge key={i} name={tc.name} status={tc.status} dark={isUser} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Blocks render outside the bubble so they can be wider / styled differently */}
       {msg.blocks?.map((block, i) => (
-        <BlockRenderer key={i} block={block} />
+        <div key={i} style={{ width: '100%', maxWidth: 640, marginTop: 6 }}>
+          <BlockRenderer block={block} lang={lang} authToken={authToken} />
+        </div>
       ))}
     </div>
   )
 }
 
-function BlockRenderer({ block }: { block: AssistantBlock }) {
+function ToolBadge({ name, status, dark }: { name: string; status?: string; dark?: boolean }) {
+  const icon = status === 'success' ? '✓' : status === 'error' ? '✗' : status === 'timeout' ? '⏱' : '⏳'
+  const color =
+    status === 'success' ? tokens.success
+    : status === 'error' || status === 'timeout' ? tokens.danger
+    : tokens.textTertiary
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        fontFamily: 'JetBrains Mono, monospace',
+        padding: '2px 6px',
+        borderRadius: 4,
+        background: dark ? 'rgba(255,255,255,0.15)' : tokens.surfaceMuted,
+        color: dark ? '#fff' : color,
+        border: dark ? 'none' : `1px solid ${tokens.borderSubtle}`,
+      }}
+    >
+      <span style={{ color: dark ? '#fff' : color, marginRight: 4 }}>{icon}</span>
+      {name}
+    </span>
+  )
+}
+
+function BlockRenderer({
+  block,
+  lang,
+  authToken,
+}: {
+  block: AssistantBlock
+  lang: 'zh' | 'en'
+  authToken: string | null
+}) {
   switch (block.kind) {
     case 'text':
-      return <div style={{ fontSize: 14, marginTop: 6 }}>{block.markdown}</div>
-    case 'screening_card':
       return (
         <div
           style={{
-            marginTop: 10,
-            padding: 12,
-            background: '#FFFFFF',
-            border: '1px solid #E4E4E7',
-            borderRadius: 10,
+            padding: '10px 14px',
+            background: tokens.surface,
+            border: `1px solid ${tokens.border}`,
+            borderRadius: 12,
+            fontSize: 13,
+            color: tokens.textPrimary,
+            whiteSpace: 'pre-wrap',
+            lineHeight: 1.55,
           }}
         >
-          <div style={{ fontSize: 11, color: '#71717A', fontWeight: 600, marginBottom: 4 }}>
-            🛡 Screening Result
-          </div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#0D9488', marginBottom: 4 }}>
-            {block.overall} <span style={{ fontSize: 13, color: '#71717A' }}>/ 100</span>
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              padding: '3px 8px',
-              borderRadius: 4,
-              display: 'inline-block',
-              background:
-                block.tier === 'approve' ? '#DCFCE7' : block.tier === 'conditional' ? '#FEF3C7' : '#FEE2E2',
-              color:
-                block.tier === 'approve' ? '#166534' : block.tier === 'conditional' ? '#92400E' : '#991B1B',
-            }}
-          >
-            {block.tier}
-          </div>
-          {block.flags?.length > 0 && (
-            <div style={{ marginTop: 10, fontSize: 12 }}>
-              {block.flags.map((f: any, i: number) => (
-                <div
-                  key={i}
-                  style={{
-                    padding: '4px 0',
-                    borderTop: i === 0 ? 'none' : '1px solid #F4F4F5',
-                    color: f.severity === 'critical' ? '#991B1B' : '#52525B',
-                  }}
-                >
-                  <strong>[{f.severity}] {f.code}</strong>: {f.evidence_zh || f.evidence_en}
-                </div>
-              ))}
-            </div>
-          )}
+          {block.markdown}
         </div>
+      )
+    case 'screening_card':
+      return (
+        <ScreeningCard
+          screening_id={block.screening_id}
+          overall={block.overall}
+          tier={block.tier}
+          flags={block.flags || []}
+          cited_tool_executions={block.cited_tool_executions}
+          applicant_name={block.applicant_name}
+          monthly_income={block.monthly_income}
+          monthly_rent={block.monthly_rent}
+          lang={lang}
+        />
       )
     case 'document_viewer':
       return (
-        <div style={{ marginTop: 8, fontSize: 12, color: '#52525B' }}>
+        <div
+          style={{
+            padding: 12,
+            background: tokens.surfaceMuted,
+            border: `1px solid ${tokens.borderSubtle}`,
+            borderRadius: 10,
+            fontSize: 12,
+            color: tokens.textSecondary,
+          }}
+        >
           📄 <strong>{block.file_name}</strong>
           {block.annotations?.length > 0 && (
-            <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+            <ul style={{ margin: '6px 0 0 18px', padding: 0, fontSize: 12 }}>
               {block.annotations.map((a: any, i: number) => (
                 <li key={i}>
-                  Page {a.page}: {a.note}
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', color: tokens.textTertiary }}>
+                    p.{a.page}
+                  </span>{' '}
+                  — {a.note}
                 </li>
               ))}
             </ul>
@@ -438,70 +590,198 @@ function BlockRenderer({ block }: { block: AssistantBlock }) {
         </div>
       )
     case 'action_proposal':
-      return (
-        <div
-          style={{
-            marginTop: 8,
-            padding: 10,
-            border: '1px dashed #C084FC',
-            borderRadius: 8,
-            background: '#FAF5FF',
-          }}
-        >
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#6B21A8', marginBottom: 4 }}>
-            ⚠ Pending Action: {block.action_kind}
-          </div>
-          <div style={{ fontSize: 12, color: '#52525B' }}>{block.label_zh || block.label_en}</div>
-          <div style={{ marginTop: 6, display: 'flex', gap: 6 }}>
-            <button
-              style={{
-                padding: '4px 10px',
-                fontSize: 11,
-                background: '#7E22CE',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 4,
-                cursor: 'pointer',
-              }}
-            >
-              批准
-            </button>
-            <button
-              style={{
-                padding: '4px 10px',
-                fontSize: 11,
-                background: 'transparent',
-                color: '#71717A',
-                border: '1px solid #D4D4D8',
-                borderRadius: 4,
-                cursor: 'pointer',
-              }}
-            >
-              驳回
-            </button>
-          </div>
-        </div>
-      )
+      return authToken ? (
+        <ActionProposal
+          pending_action_id={block.pending_action_id}
+          action_kind={block.action_kind}
+          preview={block.preview}
+          label_zh={block.label_zh}
+          label_en={block.label_en}
+          lang={lang}
+          authToken={authToken}
+        />
+      ) : null
     case 'files_upload':
       return (
         <div
           style={{
-            marginTop: 8,
-            padding: 10,
-            border: '1px dashed #94A3B8',
-            borderRadius: 8,
+            padding: 12,
+            border: `1px dashed ${tokens.borderStrong}`,
+            borderRadius: 10,
             fontSize: 12,
-            color: '#52525B',
+            color: tokens.textSecondary,
+            background: tokens.surface,
           }}
         >
-          📥 {block.hint_zh || block.hint_en || '需要更多文件'}
+          📥 {block.hint_zh || block.hint_en || (lang === 'zh' ? '需要更多文件' : 'More files needed')}
+        </div>
+      )
+    case 'followup_suggestions':
+      return (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {(block.suggestions || []).map((s: any, i: number) => (
+            <span
+              key={i}
+              style={{
+                padding: '4px 10px',
+                fontSize: 11,
+                background: tokens.surfaceMuted,
+                border: `1px solid ${tokens.borderSubtle}`,
+                borderRadius: 14,
+                color: tokens.textSecondary,
+              }}
+            >
+              {lang === 'zh' ? s.label_zh || s.label_en : s.label_en || s.label_zh}
+            </span>
+          ))}
         </div>
       )
     default:
       return (
-        <div style={{ fontSize: 11, color: '#9CA3AF', fontFamily: 'monospace', marginTop: 6 }}>
+        <div style={{ fontSize: 10, color: tokens.textTertiary, fontFamily: 'JetBrains Mono, monospace', padding: 4 }}>
           [unknown block: {block.kind}]
         </div>
       )
   }
+}
+
+// ─── Composer ────────────────────────────────────────────────────────────
+
+function Composer({
+  input,
+  setInput,
+  attached,
+  setAttached,
+  onFileChange,
+  onSend,
+  streaming,
+  lang,
+}: {
+  input: string
+  setInput: (s: string) => void
+  attached: AttachedFile[]
+  setAttached: (a: AttachedFile[]) => void
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onSend: () => void
+  streaming: boolean
+  lang: 'zh' | 'en'
+}) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: tokens.surface,
+        borderTop: `1px solid ${tokens.border}`,
+        padding: '12px 16px',
+        boxShadow: '0 -4px 20px rgba(15, 23, 42, 0.04)',
+      }}
+    >
+      <div style={{ maxWidth: 860, margin: '0 auto' }}>
+        {attached.length > 0 && (
+          <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {attached.map((f, i) => (
+              <span
+                key={i}
+                style={{
+                  fontSize: 11,
+                  padding: '3px 8px',
+                  background: tokens.accentMuted,
+                  border: `1px solid ${tokens.accent}40`,
+                  borderRadius: 12,
+                  color: tokens.accentDark,
+                }}
+              >
+                📎 {f.name}
+              </span>
+            ))}
+            <button
+              onClick={() => setAttached([])}
+              style={{ fontSize: 11, background: 'none', border: 'none', color: tokens.textTertiary, cursor: 'pointer' }}
+            >
+              {lang === 'zh' ? '清除' : 'Clear'}
+            </button>
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          <label
+            htmlFor="chat-file-input"
+            style={{
+              display: 'grid',
+              placeItems: 'center',
+              width: 38,
+              height: 38,
+              borderRadius: 10,
+              background: tokens.surfaceMuted,
+              border: `1px solid ${tokens.border}`,
+              cursor: 'pointer',
+              fontSize: 16,
+            }}
+            title={lang === 'zh' ? '上传文件' : 'Attach files'}
+          >
+            📎
+          </label>
+          <input
+            id="chat-file-input"
+            type="file"
+            multiple
+            accept="application/pdf,image/*"
+            onChange={onFileChange}
+            style={{ display: 'none' }}
+          />
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                onSend()
+              }
+            }}
+            rows={1}
+            placeholder={
+              lang === 'zh'
+                ? '说点什么……例如 "帮我筛查 Bo Han"'
+                : 'Say something… e.g. "Screen Bo Han for me"'
+            }
+            style={{
+              flex: 1,
+              padding: '10px 14px',
+              border: `1px solid ${tokens.border}`,
+              borderRadius: 10,
+              fontSize: 14,
+              fontFamily: 'inherit',
+              resize: 'none',
+              outline: 'none',
+              background: tokens.surface,
+              minHeight: 38,
+              maxHeight: 160,
+            }}
+          />
+          <button
+            onClick={onSend}
+            disabled={streaming}
+            style={{
+              padding: '10px 20px',
+              background: streaming ? tokens.accentLight : tokens.accent,
+              color: streaming ? tokens.accentDark : '#fff',
+              border: 'none',
+              borderRadius: 10,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: streaming ? 'wait' : 'pointer',
+              minHeight: 38,
+            }}
+          >
+            {streaming ? '…' : lang === 'zh' ? '发送' : 'Send'}
+          </button>
+        </div>
+        <div style={{ marginTop: 6, fontSize: 10, color: tokens.textTertiary, textAlign: 'center' }}>
+          Stayloop AI · 决策仍由您批准 · {lang === 'zh' ? 'Enter 发送' : 'Enter to send'}
+        </div>
+      </div>
+    </div>
+  )
 }

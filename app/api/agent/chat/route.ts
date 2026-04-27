@@ -18,6 +18,7 @@ import { createClient } from '@supabase/supabase-js'
 import { runAgentLoop, type LoopEvent } from '@/lib/agent/loop'
 import { summarizeAndPersistFacts } from '@/lib/agent/memory'
 import logicAgent from '@/lib/agent/agents/logic'
+import novaAgent from '@/lib/agent/agents/nova'
 // Importing the tools barrel side-effects all tool registrations:
 import '@/lib/agent/tools'
 
@@ -31,7 +32,8 @@ interface ChatRequestBody {
 
 const AGENTS_REGISTRY = {
   logic: logicAgent,
-  // future: nova, echo, analyst, mediator
+  nova: novaAgent,
+  // future: echo, analyst, mediator
 }
 
 function makeServiceClient() {

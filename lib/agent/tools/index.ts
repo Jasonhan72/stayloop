@@ -13,6 +13,10 @@ import './validate-id-numbers'
 import './search-canlii'
 import './search-ontario-portal'
 import './compute-screening-score'
+// Nova (listing composer) tools — Sprint 4
+import './import-listing'
+import './check-ohrc-compliance'
+import './save-listing'
 
 import { allRegisteredToolNames } from '../registry'
 
