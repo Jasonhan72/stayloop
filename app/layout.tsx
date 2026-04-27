@@ -1,11 +1,22 @@
 import type { Metadata } from 'next'
-import { Inter, JetBrains_Mono } from 'next/font/google'
+import { Inter_Tight, JetBrains_Mono, Noto_Sans_SC } from 'next/font/google'
 import './globals.css'
 import { LanguageProvider } from '@/lib/i18n'
 import HashRedirect from '@/components/HashRedirect'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+// V3 typography stack (matches Stayloop V3 Prototype tokens.css).
+// Inter Tight is the body/display sans. Noto Sans SC is the Chinese face.
+const inter = Inter_Tight({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-inter',
+})
 const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
+const noto = Noto_Sans_SC({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-cn',
+})
 
 export const metadata: Metadata = {
   title: {
@@ -49,7 +60,7 @@ export const viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${mono.variable}`}>
+    <html lang="en" className={`${inter.variable} ${mono.variable} ${noto.variable}`}>
       <body className={inter.className}>
         <HashRedirect />
         <LanguageProvider>{children}</LanguageProvider>

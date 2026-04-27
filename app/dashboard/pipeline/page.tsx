@@ -16,18 +16,24 @@ import UserNav from '@/components/UserNav'
 import type { Application, Listing } from '@/types'
 import { v3, size } from '@/lib/brand'
 
-type Stage = 'new' | 'reviewed' | 'approved' | 'declined'
+type Stage = 'new' | 'reviewed' | 'showing' | 'lease'
 
+// Column labels match Stayloop V3 Prototype exactly.
 const COLUMNS: Array<{ key: Stage; dotColor: string; zh: string; en: string }> = [
   { key: 'new', dotColor: v3.info, zh: '新申请', en: 'NEW APPLICANTS' },
-  { key: 'reviewed', dotColor: v3.brand, zh: 'AI 审核完毕', en: 'AI REVIEWED' },
-  { key: 'approved', dotColor: v3.success, zh: '已批准', en: 'APPROVED' },
-  { key: 'declined', dotColor: v3.danger, zh: '已拒绝', en: 'DECLINED' },
+  { key: 'reviewed', dotColor: v3.trust, zh: 'AI 审核完毕', en: 'AI REVIEWED' },
+  { key: 'showing', dotColor: v3.warning, zh: '预约看房', en: 'SHOWING BOOKED' },
+  { key: 'lease', dotColor: v3.brand, zh: '租约起草', en: 'LEASE DRAFTED' },
 ]
 
 function stageOf(a: Application): Stage {
-  if (a.status === 'approved') return 'approved'
-  if (a.status === 'declined') return 'declined'
+  // Map existing schema → V3 stages.
+  // 'declined' applicants are filtered out of the kanban (not part of V3 flow).
+  if (a.status === 'approved') {
+    // After approval, treat very-recent ones as "showing booked", older as "lease drafted".
+    const ageDays = (Date.now() - new Date(a.created_at).getTime()) / 86400000
+    return ageDays < 7 ? 'showing' : 'lease'
+  }
   if (typeof a.ai_score === 'number') return 'reviewed'
   return 'new'
 }
@@ -86,8 +92,11 @@ export default function PipelinePage() {
   }, [apps, activeListingId])
 
   const byStage = useMemo(() => {
-    const buckets: Record<Stage, Application[]> = { new: [], reviewed: [], approved: [], declined: [] }
-    for (const a of filtered) buckets[stageOf(a)].push(a)
+    const buckets: Record<Stage, Application[]> = { new: [], reviewed: [], showing: [], lease: [] }
+    for (const a of filtered) {
+      if (a.status === 'declined') continue
+      buckets[stageOf(a)].push(a)
+    }
     // sort each bucket by score desc, recent fallback
     for (const k of Object.keys(buckets) as Stage[]) {
       buckets[k].sort((a, b) => {
@@ -225,8 +234,8 @@ export default function PipelinePage() {
             </h1>
             <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 2 }}>
               {lang === 'zh'
-                ? `Logic AI 已审核 ${byStage.reviewed.length + byStage.approved.length + byStage.declined.length} / ${filtered.length}`
-                : `Logic AI reviewed ${byStage.reviewed.length + byStage.approved.length + byStage.declined.length} / ${filtered.length}`}
+                ? `Logic AI 已审核 ${byStage.reviewed.length + byStage.showing.length + byStage.lease.length} / ${filtered.length}`
+                : `Logic AI reviewed ${byStage.reviewed.length + byStage.showing.length + byStage.lease.length} / ${filtered.length}`}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>

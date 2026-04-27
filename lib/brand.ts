@@ -10,37 +10,46 @@
 // -----------------------------------------------------------------------------
 
 export const v3 = {
-  // ── Surfaces ────────────────────────────────────────────────────────────
-  surface: '#FFFFFF',
-  /** Very faint mint, used for hero / accent panels. */
-  surfaceTint: '#F0FBF6',
-  /** Slightly cooler off-white for in-app body backgrounds (sidebars, etc). */
-  surfaceMuted: '#FAFAFA',
-  /** Cards inside surfaceTint panels keep a clean white. */
+  // ── Surfaces (matches Stayloop V3 Prototype.html "classic" variation) ──
+  surface: '#FAFAF9',
+  /** Slightly off-white for cards on the cream surface. */
   surfaceCard: '#FFFFFF',
+  /** Very faint mint, used for hero / accent panels. */
+  surfaceTint: '#F0F8F4',
+  /** Slightly cooler off-white for sidebars, body. */
+  surfaceMuted: '#F4F4F2',
+  /** Deep dark for the passport card and any "always-dark" surfaces. */
+  ink: '#0B0B0E',
+  ink2: '#16161B',
+  ink3: '#1B1B22',
 
   // ── Borders / dividers ──────────────────────────────────────────────────
-  border: '#E4E4E7', // zinc-200
-  borderStrong: '#D4D4D8',
-  divider: '#F4F4F5',
+  border: '#E3E3DE',
+  borderStrong: '#D5D5CF',
+  divider: '#EDEDEA',
 
   // ── Text ────────────────────────────────────────────────────────────────
-  textPrimary: '#0A0A0A',
+  textPrimary: '#171717',
   textSecondary: '#3F3F46',
   textMuted: '#71717A',
   textFaint: '#A1A1AA',
   /** White-on-brand text. */
   textOnBrand: '#FFFFFF',
 
-  // ── Brand ───────────────────────────────────────────────────────────────
-  /** Primary emerald — buttons, accent text, network-diagram hub. */
-  brand: '#10B981',
+  // ── Brand (classic emerald — darker than the modern variation) ─────────
+  /** Primary darker emerald used for buttons, accent text. */
+  brand: '#047857',
   /** Hover / pressed state. */
-  brandStrong: '#059669',
+  brandStrong: '#065F46',
+  /** Brighter emerald used inside dark panels (passport hero etc). */
+  brandBright: '#10B981',
+  brandBright2: '#34D399',
   /** Background tint behind brand-tinted elements. */
-  brandSoft: '#ECFDF5',
-  /** Even fainter brand wash for huge hero areas. */
-  brandWash: '#F0FDF6',
+  brandSoft: 'rgba(4, 120, 87, 0.08)',
+  /** Slightly stronger soft tint for hero panels. */
+  brandWash: '#F0F8F4',
+  /** Brand outline color used on dark surfaces. */
+  brandLine: 'rgba(16, 185, 129, 0.32)',
 
   // ── Status / severity (re-used by ScreeningCard etc) ────────────────────
   success: '#16A34A',

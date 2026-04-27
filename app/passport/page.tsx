@@ -173,15 +173,26 @@ export default function PassportPage() {
                 Stayloop Score
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, justifyContent: 'flex-end' }}>
-                <span style={{ fontSize: 56, fontWeight: 800, lineHeight: 1, letterSpacing: '-0.03em', color: v3.brand }}>
+                <span
+                  style={{
+                    fontSize: 56,
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    letterSpacing: '-0.04em',
+                    background: 'linear-gradient(180deg, #ffffff 0%, #34D399 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}
+                >
                   {PASSPORT.score}
                 </span>
                 <span style={{ fontSize: 16, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>/100</span>
               </div>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 6, lineHeight: 1.4 }}>
-                {isZh ? PASSPORT.tierLine.en : PASSPORT.tierLine.en}
-                <br />
-                <span style={{ color: 'rgba(255,255,255,0.5)' }}>{isZh ? PASSPORT.tierLine.zh : PASSPORT.tierLine.zh}</span>
+              <div style={{ fontSize: 12, color: '#34D399', fontWeight: 500, marginTop: 4, lineHeight: 1.4 }}>
+                {PASSPORT.tierLine.en}
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4, fontFamily: 'var(--font-cn), system-ui' }}>
+                {PASSPORT.tierLine.zh}
               </div>
             </div>
           </div>
@@ -208,8 +219,71 @@ export default function PassportPage() {
           ))}
         </div>
 
-        {/* footer / share + score link */}
-        <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* share strip with QR */}
+        <div
+          style={{
+            marginTop: 16,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '12px 14px',
+            background: v3.surfaceCard,
+            border: `1px dashed ${v3.borderStrong}`,
+            borderRadius: 14,
+          }}
+        >
+          <div
+            aria-hidden
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 8,
+              background: '#fff',
+              border: `1px solid ${v3.border}`,
+              display: 'grid',
+              placeItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <QrGlyph />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: v3.textPrimary, lineHeight: 1.3 }}>
+              {isZh ? '分享你的 Passport' : 'Share your Passport'}
+            </div>
+            <div
+              style={{
+                fontSize: 10.5,
+                color: v3.textMuted,
+                fontFamily: 'var(--font-mono), ui-monospace, monospace',
+                marginTop: 2,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              passport.stayloop.ai/wei.7g4xq · {isZh ? '可撤销' : 'revocable'}
+            </div>
+          </div>
+          <button
+            style={{
+              padding: '7px 12px',
+              background: v3.textPrimary,
+              color: v3.surface,
+              border: 'none',
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            {isZh ? '复制链接' : 'Copy link'}
+          </button>
+        </div>
+
+        {/* footer / nav links */}
+        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <Link
             href="/score"
             style={{
@@ -385,4 +459,32 @@ const iconBtn: React.CSSProperties = {
   fontSize: 16,
   cursor: 'pointer',
   color: v3.textMuted,
+}
+
+// ── QR glyph (decorative) ───────────────────────────────────────────────────
+
+function QrGlyph() {
+  // Simple deterministic QR-like motif. Three corner finder squares + dots.
+  return (
+    <svg viewBox="0 0 24 24" width={28} height={28} aria-hidden>
+      {/* corners */}
+      {[
+        [1, 1], [17, 1], [1, 17],
+      ].map(([x, y], i) => (
+        <g key={i}>
+          <rect x={x} y={y} width={6} height={6} fill="#0B0B0E" />
+          <rect x={x + 1} y={y + 1} width={4} height={4} fill="#fff" />
+          <rect x={x + 2} y={y + 2} width={2} height={2} fill="#0B0B0E" />
+        </g>
+      ))}
+      {/* random-ish dots */}
+      {[
+        [9, 1], [11, 3], [13, 1], [15, 3],
+        [1, 9], [3, 11], [5, 9], [9, 9], [11, 11], [13, 9], [15, 11], [17, 9], [19, 11], [21, 9],
+        [9, 17], [11, 19], [13, 17], [15, 21], [17, 19], [19, 17], [21, 21],
+      ].map(([x, y], i) => (
+        <rect key={i} x={x} y={y} width={2} height={2} fill="#0B0B0E" />
+      ))}
+    </svg>
+  )
 }
