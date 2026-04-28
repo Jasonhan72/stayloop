@@ -54,6 +54,11 @@ export default function NewListingPage() {
   const [authToken, setAuthToken] = useState<string | null>(null)
   const [lang, setLang] = useState<'zh' | 'en'>('zh')
   const [chatInput, setChatInput] = useState('')
+  // Once Nova fires save_listing successfully we capture the row id here so
+  // the user can flip draft → active straight from the draft preview pane.
+  const [savedListingId, setSavedListingId] = useState<string | null>(null)
+  const [listingStatus, setListingStatus] = useState<'draft' | 'active'>('draft')
+  const [publishing, setPublishing] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const chatScrollRef = useRef<HTMLDivElement | null>(null)
 
@@ -268,7 +273,39 @@ export default function NewListingPage() {
       if (event.tool_name === 'import_listing' && event.output?.listing) {
         setDraft(event.output.listing)
       }
+      // Capture the row id once Nova auto-saves so the user can publish from
+      // the draft preview without leaving this page.
+      if (
+        event.tool_name === 'save_listing' &&
+        event.status === 'success' &&
+        event.output?.listing_id
+      ) {
+        setSavedListingId(event.output.listing_id)
+        setListingStatus('draft')
+      }
       return
+    }
+  }
+
+  // Flip the saved draft to active. Uses the user's own Supabase session so
+  // landlord RLS policies gate the write to their own listings.id.
+  async function publishListing() {
+    if (!savedListingId || publishing) return
+    setPublishing(true)
+    try {
+      const { error } = await supabase
+        .from('listings')
+        .update({ status: 'active', is_active: true })
+        .eq('id', savedListingId)
+      if (error) {
+        alert(
+          (lang === 'zh' ? '发布失败：' : 'Publish failed: ') + error.message,
+        )
+        return
+      }
+      setListingStatus('active')
+    } finally {
+      setPublishing(false)
     }
   }
 
@@ -409,7 +446,14 @@ export default function NewListingPage() {
             </div>
           </div>
 
-          <DraftPreview draft={draft} lang={lang} />
+          <DraftPreview
+            draft={draft}
+            lang={lang}
+            savedListingId={savedListingId}
+            listingStatus={listingStatus}
+            publishing={publishing}
+            onPublish={publishListing}
+          />
         </section>
 
         {/* Right: chat panel */}
@@ -591,7 +635,21 @@ export default function NewListingPage() {
 
 // ─── Live draft preview ─────────────────────────────────────────────────
 
-function DraftPreview({ draft, lang }: { draft: ListingDraft | null; lang: 'zh' | 'en' }) {
+function DraftPreview({
+  draft,
+  lang,
+  savedListingId,
+  listingStatus,
+  publishing,
+  onPublish,
+}: {
+  draft: ListingDraft | null
+  lang: 'zh' | 'en'
+  savedListingId: string | null
+  listingStatus: 'draft' | 'active'
+  publishing: boolean
+  onPublish: () => void
+}) {
   if (!draft) {
     return (
       <div
@@ -687,6 +745,78 @@ function DraftPreview({ draft, lang }: { draft: ListingDraft | null; lang: 'zh' 
               <li key={i}>{p}</li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* ─── Publish action ─────────────────────────────────────────────
+          Once Nova has saved the draft (savedListingId set), the user can
+          flip status: 'draft' → 'active' to make it live. Same soft-mint
+          gradient as the rest of the app's primary CTAs. */}
+      {savedListingId && (
+        <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${tokens.borderSubtle}` }}>
+          {listingStatus === 'active' ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                padding: '12px 16px',
+                background: 'rgba(4, 120, 87, 0.10)',
+                border: '1px solid rgba(4, 120, 87, 0.30)',
+                borderRadius: 10,
+                fontSize: 13,
+                color: '#047857',
+                fontWeight: 600,
+              }}
+            >
+              <span>
+                ✓ {lang === 'zh' ? '已上线' : 'Published & live'}
+              </span>
+              <a
+                href="/dashboard/portfolio"
+                style={{
+                  fontSize: 12,
+                  color: '#047857',
+                  textDecoration: 'underline',
+                  fontWeight: 500,
+                }}
+              >
+                {lang === 'zh' ? '查看全部 →' : 'View all →'}
+              </a>
+            </div>
+          ) : (
+            <button
+              onClick={onPublish}
+              disabled={publishing}
+              style={{
+                width: '100%',
+                padding: '12px 18px',
+                fontSize: 14,
+                fontWeight: 650,
+                borderRadius: 10,
+                border: 'none',
+                color: '#FFFFFF',
+                background: publishing
+                  ? '#C5BDAA'
+                  : 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+                boxShadow: publishing
+                  ? 'none'
+                  : '0 8px 22px -10px rgba(52, 211, 153, 0.45), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
+                cursor: publishing ? 'wait' : 'pointer',
+                transition: 'background .15s, box-shadow .15s',
+              }}
+            >
+              {publishing
+                ? (lang === 'zh' ? '正在发布…' : 'Publishing…')
+                : (lang === 'zh' ? '✦ 发布上线' : '✦ Publish listing')}
+            </button>
+          )}
+          <div style={{ fontSize: 11, color: tokens.textTertiary, marginTop: 8, lineHeight: 1.5 }}>
+            {lang === 'zh'
+              ? '草稿已自动保存。点击发布后，租客可以在筛选页搜到这套房源。'
+              : 'Draft auto-saved. Once published, tenants can discover this listing in search.'}
+          </div>
         </div>
       )}
     </div>

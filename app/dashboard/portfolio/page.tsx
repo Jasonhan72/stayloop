@@ -15,6 +15,7 @@ interface Property {
   unit: string | null
   monthly_rent: number | null
   is_active: boolean
+  status: 'draft' | 'active' | string | null
   created_at: string
   topAiScore: number | null
   applicantCount: number
@@ -32,6 +33,28 @@ export default function PortfolioPage() {
   const { user, loading: authLoading } = useUser({ redirectIfMissing: true })
   const [props, setProps] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
+  const [publishingId, setPublishingId] = useState<string | null>(null)
+
+  async function publish(id: string) {
+    if (publishingId) return
+    setPublishingId(id)
+    try {
+      const { error } = await supabase
+        .from('listings')
+        .update({ status: 'active', is_active: true })
+        .eq('id', id)
+      if (error) {
+        alert((isZh ? '发布失败：' : 'Publish failed: ') + error.message)
+        return
+      }
+      // Optimistic local update — avoids a full reload.
+      setProps((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, status: 'active', is_active: true } : p)),
+      )
+    } finally {
+      setPublishingId(null)
+    }
+  }
 
   useEffect(() => {
     if (!user) return
@@ -45,7 +68,7 @@ export default function PortfolioPage() {
     const [{ data: listings }, { data: apps }] = await Promise.all([
       supabase
         .from('listings')
-        .select('id, address, unit, monthly_rent, is_active, created_at')
+        .select('id, address, unit, monthly_rent, is_active, status, created_at')
         .eq('landlord_id', user.profileId)
         .order('created_at', { ascending: false }),
       supabase
@@ -141,32 +164,68 @@ export default function PortfolioPage() {
                 <span>{isZh ? '申请人' : 'Applicants'}</span>
                 <span></span>
               </div>
-              {props.map((p) => (
-                <Link
-                  key={p.id}
-                  href={`/dashboard/pipeline?listing=${p.id}`}
-                  style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.4fr', padding: '14px 16px', alignItems: 'center', fontSize: 13, color: v3.textPrimary, borderBottom: `1px solid ${v3.divider}`, textDecoration: 'none' }}
-                >
-                  <span style={{ fontWeight: 600 }}>
-                    {p.address}{p.unit ? ` · ${p.unit}` : ''}
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-mono)' }}>${(p.monthly_rent || 0).toLocaleString()}</span>
-                  <span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: p.daysOnMarket === 0 ? v3.brandStrong : v3.warning, background: p.daysOnMarket === 0 ? v3.brandSoft : v3.warningSoft, padding: '3px 9px', borderRadius: 999 }}>
-                      {p.daysOnMarket === 0 ? (isZh ? '已出租' : 'Occupied') : (isZh ? '空置' : 'Vacant')}
+              {props.map((p) => {
+                const isDraft = p.status === 'draft'
+                return (
+                  <div
+                    key={p.id}
+                    style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.4fr', padding: '14px 16px', alignItems: 'center', fontSize: 13, color: v3.textPrimary, borderBottom: `1px solid ${v3.divider}` }}
+                  >
+                    <Link
+                      href={`/dashboard/pipeline?listing=${p.id}`}
+                      style={{ fontWeight: 600, color: v3.textPrimary, textDecoration: 'none' }}
+                    >
+                      {p.address}{p.unit ? ` · ${p.unit}` : ''}
+                    </Link>
+                    <span style={{ fontFamily: 'var(--font-mono)' }}>${(p.monthly_rent || 0).toLocaleString()}</span>
+                    <span>
+                      {isDraft ? (
+                        <button
+                          onClick={() => publish(p.id)}
+                          disabled={publishingId === p.id}
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: '#fff',
+                            background: publishingId === p.id
+                              ? '#C5BDAA'
+                              : 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+                            padding: '4px 10px',
+                            borderRadius: 999,
+                            border: 'none',
+                            cursor: publishingId === p.id ? 'wait' : 'pointer',
+                            boxShadow: publishingId === p.id
+                              ? 'none'
+                              : '0 4px 10px -4px rgba(52, 211, 153, 0.45)',
+                          }}
+                        >
+                          {publishingId === p.id
+                            ? (isZh ? '发布中…' : 'Publishing…')
+                            : (isZh ? '✦ 发布上线' : '✦ Publish')}
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: p.daysOnMarket === 0 ? v3.brandStrong : v3.warning, background: p.daysOnMarket === 0 ? v3.brandSoft : v3.warningSoft, padding: '3px 9px', borderRadius: 999 }}>
+                          {p.daysOnMarket === 0 ? (isZh ? '已出租' : 'Occupied') : (isZh ? '空置' : 'Vacant')}
+                        </span>
+                      )}
                     </span>
-                  </span>
-                  <span style={{ color: v3.textSecondary }}>{p.daysOnMarket}d</span>
-                  <span>
-                    {p.applicantCount} {p.topAiScore != null && (
-                      <span style={{ marginLeft: 6, fontSize: 11, color: v3.brandStrong, fontWeight: 600 }}>
-                        {isZh ? '最高' : 'top'} {p.topAiScore}
-                      </span>
-                    )}
-                  </span>
-                  <span style={{ color: v3.textMuted, fontSize: 14 }}>›</span>
-                </Link>
-              ))}
+                    <span style={{ color: v3.textSecondary }}>{isDraft ? '—' : `${p.daysOnMarket}d`}</span>
+                    <span>
+                      {p.applicantCount} {p.topAiScore != null && (
+                        <span style={{ marginLeft: 6, fontSize: 11, color: v3.brandStrong, fontWeight: 600 }}>
+                          {isZh ? '最高' : 'top'} {p.topAiScore}
+                        </span>
+                      )}
+                    </span>
+                    <Link
+                      href={`/dashboard/pipeline?listing=${p.id}`}
+                      style={{ color: v3.textMuted, fontSize: 14, textDecoration: 'none', textAlign: 'right' }}
+                    >
+                      ›
+                    </Link>
+                  </div>
+                )
+              })}
             </div>
 
             {vacant && (
