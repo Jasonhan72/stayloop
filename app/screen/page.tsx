@@ -2313,9 +2313,10 @@ export default function ScreenPage() {
                 </div>
                 {isPro && (
                   <span style={{
-                    fontSize: 10.5, fontWeight: 700, padding: '5px 12px', borderRadius: 6,
-                    background: 'linear-gradient(135deg, #7C3AED, #8B5CF6)', color: '#FFF',
-                    letterSpacing: '0.06em', textTransform: 'uppercase',
+                    fontSize: 10.5, fontWeight: 700, padding: '4px 10px', borderRadius: 6,
+                    background: '#F3E8FF', color: '#6D28D9',
+                    border: '1px solid rgba(124, 58, 237, 0.30)',
+                    letterSpacing: '0.08em', textTransform: 'uppercase',
                   }}>PRO</span>
                 )}
               </div>
@@ -2352,13 +2353,15 @@ export default function ScreenPage() {
                     <div style={{ fontSize: 34, marginBottom: 10, opacity: 0.9 }}>📁</div>
                     <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: '#0B1736' }}>{t('screen.drop.title')}</div>
                     <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>{t('screen.drop.sub')}</div>
-                    {/* Filled emerald button — matches the primary CTA on the home page */}
+                    {/* Filled emerald button — matches the primary CTA on the home page.
+                        We strip the leading 📎 emoji from the i18n string and replace it
+                        with our SVG paperclip so we don't render two icons. */}
                     <div
                       style={{
                         marginTop: 16,
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 6,
+                        gap: 8,
                         padding: '10px 22px',
                         fontSize: 13,
                         fontWeight: 600,
@@ -2371,7 +2374,7 @@ export default function ScreenPage() {
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                         <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                       </svg>
-                      {t('screen.drop.pick')}
+                      {t('screen.drop.pick').replace(/^\s*[^\w\u4e00-\u9fff]+\s*/, '')}
                     </div>
                   </>
                 ) : (
@@ -2407,10 +2410,10 @@ export default function ScreenPage() {
                         style={{
                           display: 'flex', alignItems: 'center', gap: 5,
                           padding: '7px 10px', borderRadius: 8,
-                          background: uploaded ? 'rgba(4, 120, 87, 0.10)' : '#F2EEE5',
-                          border: uploaded ? '1px solid rgba(4, 120, 87, 0.40)' : '1px solid #E0DACE',
+                          background: uploaded ? 'rgba(4, 120, 87, 0.10)' : '#FAF7EF',
+                          border: uploaded ? '1px solid rgba(4, 120, 87, 0.40)' : '1px solid #D8D2C2',
                           fontSize: 11, fontWeight: uploaded ? 600 : 500,
-                          color: uploaded ? '#15803D' : '#94A3B8',
+                          color: uploaded ? '#047857' : '#52525B',
                           transition: 'all 0.2s',
                         }}
                       >
@@ -2523,21 +2526,37 @@ export default function ScreenPage() {
                   <div style={{ marginBottom: 14, padding: '12px 16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, fontSize: 13, color: '#B91C1C', lineHeight: 1.5 }}>⚠ {error}</div>
                 )}
 
-                <button
-                  onClick={runAnalysis}
-                  disabled={(files.length === 0 && !applicantName.trim()) || classifying}
-                  className="btn btn-primary"
-                  style={{
-                    width: '100%', padding: '14px 28px', fontSize: 15, borderRadius: 12, fontWeight: 650,
-                    height: 52,
-                    opacity: ((files.length === 0 && !applicantName.trim()) || classifying) ? 0.5 : 1,
-                  }}
-                >
-                  {classifying
-                    ? (lang === 'zh' ? '⏳ 正在识别文件…' : '⏳ Classifying files…')
-                    : (lang === 'zh' ? '🛡 开始筛查' : '🛡 Start Screening')}
-                  {!classifying && isPro && <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.8 }}>PRO</span>}
-                </button>
+                {(() => {
+                  const isDisabled = (files.length === 0 && !applicantName.trim()) || classifying
+                  return (
+                    <button
+                      onClick={runAnalysis}
+                      disabled={isDisabled}
+                      className="btn btn-primary"
+                      style={{
+                        width: '100%', padding: '14px 28px', fontSize: 15, borderRadius: 12, fontWeight: 650,
+                        height: 52,
+                        // Disabled state: replace washed-out opacity with a calm muted bg so the
+                        // button still reads cleanly against the cream surface.
+                        ...(isDisabled
+                          ? { background: '#D8D2C2', color: '#71717A', boxShadow: 'none', cursor: 'not-allowed' }
+                          : {}),
+                      }}
+                    >
+                      {classifying
+                        ? (lang === 'zh' ? '⏳ 正在识别文件…' : '⏳ Classifying files…')
+                        : (lang === 'zh' ? '🛡 开始筛查' : '🛡 Start Screening')}
+                      {!classifying && isPro && (
+                        <span style={{
+                          marginLeft: 10, fontSize: 10.5, fontWeight: 700,
+                          padding: '3px 8px', borderRadius: 5, letterSpacing: '0.08em',
+                          background: isDisabled ? 'rgba(113, 113, 122, 0.15)' : 'rgba(255, 255, 255, 0.22)',
+                          color: isDisabled ? '#71717A' : '#FFFFFF',
+                        }}>PRO</span>
+                      )}
+                    </button>
+                  )
+                })()}
 
                 {/* What happens next — compact pipeline */}
                 <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 11.5, color: '#94A3B8', flexWrap: 'wrap' }}>
