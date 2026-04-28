@@ -22,7 +22,7 @@ const NAV_ITEMS: Array<{ href: string; zh: string; en: string }> = [
 export default function MarketingNav() {
   const { lang } = useT()
   const [authOpen, setAuthOpen] = useState(false)
-  const { user, signOut } = useUser({ redirectIfMissing: false, allowAnonymous: false })
+  const { user, loading, signOut } = useUser({ redirectIfMissing: false, allowAnonymous: false })
   const isAuthed = !!user && !user.isAnonymous
 
   return (
@@ -106,7 +106,21 @@ export default function MarketingNav() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <LanguageToggle />
-            {isAuthed && user ? (
+            {/* While auth is resolving, render a same-size placeholder so we
+                don't flash the Sign-in button before the avatar appears. */}
+            {loading ? (
+              <span
+                aria-hidden
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: v3.divider,
+                  display: 'inline-block',
+                  opacity: 0.5,
+                }}
+              />
+            ) : isAuthed && user ? (
               <UserAvatar user={user} signOut={signOut} />
             ) : (
               <button

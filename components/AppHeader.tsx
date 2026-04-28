@@ -36,7 +36,7 @@ interface Props {
 export default function AppHeader({ title, titleZh, right, back, hideTitle }: Props) {
   const { lang } = useT()
   const isZh = lang === 'zh'
-  const { user, signOut } = useUser({ redirectIfMissing: false, allowAnonymous: false })
+  const { user, loading, signOut } = useUser({ redirectIfMissing: false, allowAnonymous: false })
   const isAuthed = !!user && !user.isAnonymous
 
   return (
@@ -149,11 +149,27 @@ export default function AppHeader({ title, titleZh, right, back, hideTitle }: Pr
           )}
         </div>
 
-        {/* Right: page action slot + language + avatar */}
+        {/* Right: page action slot + language + avatar
+            ── While auth is resolving on a fresh page mount, render a same-size
+            placeholder instead of the Sign-in button. Otherwise we'd flash
+            "Sign in" for a frame before the session loads and the avatar
+            swaps in — which the user noticed when clicking dropdown links. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
           {right}
           <LanguageToggle />
-          {isAuthed && user ? (
+          {loading ? (
+            <span
+              aria-hidden
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
+                background: v3.divider,
+                display: 'inline-block',
+                opacity: 0.5,
+              }}
+            />
+          ) : isAuthed && user ? (
             <UserAvatar user={user} signOut={signOut} />
           ) : (
             <Link

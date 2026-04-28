@@ -34,6 +34,16 @@ export interface UseAnonTrialReturn {
   markTrialUsed: () => void
 }
 
+// ─── Module-level session cache ─────────────────────────────────────────────
+// Every page that uses AppHeader (or MarketingNav, or any component that calls
+// useUser) re-mounts on client-side navigation. Without a cache, each mount
+// re-runs initUser() and the avatar briefly disappears as `loading` flips back
+// to true. We cache the resolved session here so subsequent useUser() calls
+// hydrate instantly from the last-known value, then re-validate in the
+// background. The auth state listener invalidates this cache on sign-out /
+// sign-in / token refresh so we never serve stale data.
+let cachedUser: UserSession | null | undefined = undefined
+
 /**
  * Hook to manage user authentication and profile data
  * Handles anonymous sign-in, profile fetching, and auto-claim logic
@@ -46,8 +56,11 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
   } = opts
 
   const router = useRouter()
-  const [user, setUser] = useState<UserSession | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Hydrate from module cache on mount so navigations between pages don't
+  // flash the loading state. If the cache is empty (first ever mount this
+  // session), we still go through the normal initUser() path below.
+  const [user, setUser] = useState<UserSession | null>(cachedUser ?? null)
+  const [loading, setLoading] = useState(cachedUser === undefined)
 
   useEffect(() => {
     let isMounted = true
@@ -90,22 +103,25 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
 
             // Claim a profile row for the anonymous user (needed for screenings FK)
             const { data: anonClaim } = await supabase.rpc('claim_landlord', { p_role: 'tenant' })
+            const anonSession: UserSession = {
+              authId: anonData.user.id,
+              email: anonData.user.email || '',
+              profileId: anonClaim?.id || '',
+              role: 'tenant',
+              fullName: '',
+              plan: 'free',
+              isAnonymous: true,
+            }
+            cachedUser = anonSession
             if (isMounted) {
-              setUser({
-                authId: anonData.user.id,
-                email: anonData.user.email || '',
-                profileId: anonClaim?.id || '',
-                role: 'tenant',
-                fullName: '',
-                plan: 'free',
-                isAnonymous: true,
-              })
+              setUser(anonSession)
               setLoading(false)
             }
             return
           }
 
           // No session and anonymous not allowed
+          cachedUser = null
           if (redirectIfMissing && isMounted) {
             router.push(redirectPath)
           }
@@ -133,16 +149,18 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
 
         // Profile exists
         if (profileData) {
+          const session: UserSession = {
+            authId,
+            email,
+            profileId: profileData.id,
+            role: profileData.role || 'landlord',
+            fullName: profileData.full_name || '',
+            plan: profileData.plan || 'free',
+            isAnonymous: false,
+          }
+          cachedUser = session
           if (isMounted) {
-            setUser({
-              authId,
-              email,
-              profileId: profileData.id,
-              role: profileData.role || 'landlord',
-              fullName: profileData.full_name || '',
-              plan: profileData.plan || 'free',
-              isAnonymous: false,
-            })
+            setUser(session)
             setLoading(false)
           }
           return
@@ -163,8 +181,8 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
         }
 
         // Create session with claimed profile
-        if (claimData && isMounted) {
-          setUser({
+        if (claimData) {
+          const session: UserSession = {
             authId,
             email,
             profileId: claimData.id || authId,
@@ -172,7 +190,11 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
             fullName: claimData.full_name || '',
             plan: claimData.plan || 'free',
             isAnonymous: false,
-          })
+          }
+          cachedUser = session
+          if (isMounted) {
+            setUser(session)
+          }
         }
 
         if (isMounted) {
@@ -193,6 +215,7 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
     const sub = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return
       if (event === 'SIGNED_OUT' || !session) {
+        cachedUser = null
         setUser(null)
         return
       }
@@ -202,8 +225,10 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
         event === 'USER_UPDATED' ||
         event === 'INITIAL_SESSION'
       ) {
-        // Re-run initUser to fetch the fresh profile row.
-        setLoading(true)
+        // Re-run initUser to fetch the fresh profile row. Don't flip the
+        // loading state if we already have a cached session — we'll just
+        // refresh in the background while the avatar stays visible.
+        if (cachedUser === undefined) setLoading(true)
         void initUser()
       }
     })
@@ -215,6 +240,7 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
   }, [redirectIfMissing, allowAnonymous, redirectPath, router])
 
   const signOut = async () => {
+    cachedUser = null
     await supabase.auth.signOut()
     setUser(null)
     router.push('/login')
