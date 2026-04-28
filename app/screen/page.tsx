@@ -2509,7 +2509,15 @@ export default function ScreenPage() {
                       placeholder={t('screen.form.name.placeholder')}
                       value={applicantName}
                       onChange={e => setApplicantName(e.target.value)}
-                      style={{ padding: '11px 14px', fontSize: 14, borderRadius: 10, height: 44 }}
+                      // Explicit text + bg colors so the global .input:focus { background:#35416A }
+                      // rule (which makes typed text invisible against dark navy) can't bleed
+                      // through. WebkitTextFillColor pins iOS Safari which sometimes overrides
+                      // color via autofill.
+                      style={{
+                        padding: '11px 14px', fontSize: 14, borderRadius: 10, height: 44,
+                        color: '#0B1736', WebkitTextFillColor: '#0B1736',
+                        background: '#FFFFFF', caretColor: '#0B1736',
+                      }}
                     />
                     <div style={{ fontSize: 10.5, color: '#94A3B8', marginTop: 5 }}>{t('screen.form.name.hint')}</div>
                   </div>
@@ -2521,7 +2529,11 @@ export default function ScreenPage() {
                       placeholder={t('screen.form.rent.placeholder')}
                       value={targetRent}
                       onChange={e => setTargetRent(e.target.value)}
-                      style={{ padding: '11px 14px', fontSize: 14, borderRadius: 10, height: 44 }}
+                      style={{
+                        padding: '11px 14px', fontSize: 14, borderRadius: 10, height: 44,
+                        color: '#0B1736', WebkitTextFillColor: '#0B1736',
+                        background: '#FFFFFF', caretColor: '#0B1736',
+                      }}
                     />
                   </div>
                 </div>

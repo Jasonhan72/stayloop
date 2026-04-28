@@ -898,6 +898,8 @@ body:has(.screen-app)::after { display: none !important; }
   background: #FFFFFF;
   border: 1px solid #E4E8F0;
   color: #0B1736;
+  -webkit-text-fill-color: #0B1736;
+  caret-color: #0B1736;
 }
 .screen-app .input::placeholder,
 .screen-app .textarea::placeholder { color: #94A3B8; }
@@ -907,7 +909,12 @@ body:has(.screen-app)::after { display: none !important; }
 .screen-app .input:focus,
 .screen-app .select:focus,
 .screen-app .textarea:focus {
+  /* Lock bg + text colors on focus too. The global .input:focus rule sets
+     background to #35416A (dark navy) which would make our dark-on-dark
+     typed text invisible — re-pin both here so the override always wins. */
   background: #FFFFFF;
+  color: #0B1736;
+  -webkit-text-fill-color: #0B1736;
   border-color: #10B981;
   box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.20);
 }

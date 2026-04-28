@@ -73,7 +73,10 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
 
         if (sessionError) {
           console.error('Session error:', sessionError)
-          if (redirectIfMissing && isMounted) {
+          // Don't redirect on a transient session-fetch error if we already
+          // have a hydrated user from the module cache — the user IS logged
+          // in, we just couldn't refresh the session token this tick.
+          if (redirectIfMissing && isMounted && !cachedUser) {
             router.push(redirectPath)
           }
           return
@@ -120,7 +123,19 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
             return
           }
 
-          // No session and anonymous not allowed
+          // No session and anonymous not allowed.
+          // If we have a hydrated cachedUser from a previous mount, the user
+          // is already logged in — trust the cache instead of bouncing them
+          // to /login. The Supabase auth state listener (registered below)
+          // will fire SIGNED_OUT and clear the cache if they actually logged
+          // out, so we'll redirect at that point.
+          if (cachedUser) {
+            if (isMounted) {
+              setUser(cachedUser)
+              setLoading(false)
+            }
+            return
+          }
           cachedUser = null
           if (redirectIfMissing && isMounted) {
             router.push(redirectPath)
