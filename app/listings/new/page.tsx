@@ -53,7 +53,9 @@ export default function NewListingPage() {
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [authToken, setAuthToken] = useState<string | null>(null)
   const [lang, setLang] = useState<'zh' | 'en'>('zh')
+  const [chatInput, setChatInput] = useState('')
   const abortRef = useRef<AbortController | null>(null)
+  const chatScrollRef = useRef<HTMLDivElement | null>(null)
 
   // NOTE: We use the shared `supabase` singleton from lib/supabase.ts (flowType:
   // 'implicit', localStorage-backed) rather than spinning up a new browser
@@ -77,6 +79,25 @@ export default function NewListingPage() {
   }, [])
 
   useEffect(() => () => abortRef.current?.abort(), [])
+
+  // Auto-scroll the Nova log to the bottom as new messages stream in.
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
+    }
+  }, [chat])
+
+  // Send the composer's text as a follow-up question to Nova. Used by the
+  // Claude-style input at the bottom of the right panel so the user can keep
+  // refining the listing after the initial import (e.g. "make the title more
+  // upscale", "translate the description to plain English", "add a pet
+  // policy: cats only").
+  async function sendChatMessage() {
+    const msg = chatInput.trim()
+    if (!msg || streaming) return
+    setChatInput('')
+    await runNova(msg)
+  }
 
   async function uploadPdf(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
@@ -405,12 +426,12 @@ export default function NewListingPage() {
           >
             Nova ✦ {lang === 'zh' ? '工作进度' : 'Working log'}
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingRight: 4 }}>
+          <div ref={chatScrollRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingRight: 4, minHeight: 320, maxHeight: 'calc(100vh - 360px)' }}>
             {chat.length === 0 && (
               <div style={{ color: tokens.textTertiary, fontSize: 12, lineHeight: 1.55 }}>
                 {lang === 'zh'
-                  ? '左侧选择输入方式，Nova 会逐步整理 → 合规检查 → 存草稿。'
-                  : 'Pick a source on the left. Nova will import → check OHRC compliance → save as draft.'}
+                  ? '左侧选择输入方式，Nova 会逐步整理 → 合规检查 → 存草稿。下方输入框可以继续追问 Nova。'
+                  : 'Pick a source on the left. Nova will import → check OHRC compliance → save as draft. Use the box below to keep chatting with Nova.'}
               </div>
             )}
             {chat.map((m) => (
@@ -455,6 +476,102 @@ export default function NewListingPage() {
                 )}
               </div>
             ))}
+          </div>
+
+          {/* ─── Composer ─────────────────────────────────────────────────
+              Claude-style chat input. Sticky to the bottom of the Nova
+              panel so the user can keep refining the listing after import
+              ("make the title more upscale", "add cats-only pet policy"...
+              ) without going back to the left source pane. */}
+          <div
+            style={{
+              marginTop: 12,
+              border: `1px solid ${tokens.border}`,
+              borderRadius: 12,
+              background: '#FFFFFF',
+              padding: '10px 12px',
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: 10,
+              boxShadow: '0 1px 0 rgba(0,0,0,0.02)',
+            }}
+          >
+            <textarea
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter sends, Shift+Enter inserts a newline.
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  void sendChatMessage()
+                }
+              }}
+              placeholder={
+                lang === 'zh'
+                  ? '继续追问 Nova … (Enter 发送 · Shift+Enter 换行)'
+                  : 'Keep chatting with Nova… (Enter to send · Shift+Enter for newline)'
+              }
+              rows={1}
+              style={{
+                flex: 1,
+                resize: 'none',
+                border: 'none',
+                outline: 'none',
+                background: 'transparent',
+                fontSize: 13.5,
+                lineHeight: 1.5,
+                fontFamily: 'inherit',
+                color: '#0B1736',
+                WebkitTextFillColor: '#0B1736',
+                caretColor: '#0B1736',
+                maxHeight: 160,
+                minHeight: 22,
+                padding: '4px 0',
+              }}
+            />
+            {streaming ? (
+              <button
+                onClick={() => abortRef.current?.abort()}
+                title={lang === 'zh' ? '停止' : 'Stop'}
+                style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  border: `1px solid ${tokens.border}`,
+                  background: '#FFFFFF',
+                  color: tokens.textSecondary,
+                  fontSize: 14, lineHeight: 1, cursor: 'pointer',
+                  display: 'grid', placeItems: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                ■
+              </button>
+            ) : (
+              <button
+                onClick={() => void sendChatMessage()}
+                disabled={!chatInput.trim()}
+                title={lang === 'zh' ? '发送' : 'Send'}
+                style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  border: 'none',
+                  background: chatInput.trim()
+                    ? 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)'
+                    : tokens.surfaceMuted,
+                  color: chatInput.trim() ? '#FFFFFF' : tokens.textTertiary,
+                  fontSize: 16, lineHeight: 1,
+                  cursor: chatInput.trim() ? 'pointer' : 'not-allowed',
+                  display: 'grid', placeItems: 'center',
+                  flexShrink: 0,
+                  boxShadow: chatInput.trim()
+                    ? '0 4px 12px -4px rgba(52, 211, 153, 0.45)'
+                    : 'none',
+                  transition: 'background .15s, box-shadow .15s',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </button>
+            )}
           </div>
         </section>
       </main>
