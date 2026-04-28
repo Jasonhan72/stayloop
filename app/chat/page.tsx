@@ -4,8 +4,8 @@
 // /chat — AI-Native landlord screening (Logic agent driver), V3 styled
 // -----------------------------------------------------------------------------
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { useEffect, useRef, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 import { tokens } from '@/lib/agent/theme'
 import { ScreeningCard } from './components/ScreeningCard'
 import { ActionProposal } from './components/ActionProposal'
@@ -47,16 +47,13 @@ export default function ChatPage() {
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
-  const supabase = useMemo(() => {
-    if (typeof window === 'undefined') return null
-    return createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    )
-  }, [])
-
+  // Use the shared singleton from lib/supabase.ts (flowType: 'implicit',
+  // localStorage-backed) so this page sees the same session as everywhere
+  // else in the app. The previous version created its own client via
+  // createBrowserClient from @supabase/ssr, which defaults to PKCE/cookie
+  // storage and doesn't share session state with the rest of the app — so
+  // logged-in users would see "请先登录" alerts despite being signed in.
   useEffect(() => {
-    if (!supabase) return
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthToken(session?.access_token ?? null)
       setAuthReady(true)
@@ -65,7 +62,7 @@ export default function ChatPage() {
       setAuthToken(session?.access_token ?? null)
     })
     return () => sub.subscription.unsubscribe()
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     return () => abortRef.current?.abort()
@@ -78,7 +75,6 @@ export default function ChatPage() {
   }, [messages])
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!supabase) return
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
     const { data: { user } } = await supabase.auth.getUser()
@@ -109,7 +105,6 @@ export default function ChatPage() {
     const userText = (prefilled ?? input).trim()
     if (!userText && attached.length === 0) return
     if (streaming) return
-    if (!supabase) return
     if (!authToken) {
       setMessages((prev) => [
         ...prev,

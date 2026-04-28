@@ -9,8 +9,8 @@
 // left as Nova fills in fields.
 // -----------------------------------------------------------------------------
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { useEffect, useRef, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 import { tokens } from '@/lib/agent/theme'
 import AppHeader from '@/components/AppHeader'
 
@@ -55,37 +55,30 @@ export default function NewListingPage() {
   const [lang, setLang] = useState<'zh' | 'en'>('zh')
   const abortRef = useRef<AbortController | null>(null)
 
-  const supabase = useMemo(() => {
-    if (typeof window === 'undefined') return null
-    return createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    )
-  }, [])
-
+  // NOTE: We use the shared `supabase` singleton from lib/supabase.ts (flowType:
+  // 'implicit', localStorage-backed) rather than spinning up a new browser
+  // client here. The previous version used createBrowserClient from
+  // @supabase/ssr which defaults to PKCE/cookie storage — that doesn't share
+  // session state with the rest of the app, so the page always thought the
+  // user was logged out even when they weren't.
   useEffect(() => {
-    if (!supabase) return
     // Initial session read — populates authToken on mount.
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthToken(session?.access_token ?? null)
     })
-    // Stay in sync with subsequent auth state changes. Without this listener,
-    // if the initial getSession() returned null (Cloudflare edge timing,
-    // localStorage hiccup), the page would stay authToken=null forever and
-    // clicking 让 Nova 整理 would always alert "请先登录" even after the
-    // session loaded a moment later.
+    // Stay in sync with subsequent auth state changes (token refresh,
+    // sign-out from another tab, etc).
     const sub = supabase.auth.onAuthStateChange((_event, session) => {
       setAuthToken(session?.access_token ?? null)
     })
     return () => {
       sub.data.subscription.unsubscribe()
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
   async function uploadPdf(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!supabase) return
     const f = e.target.files?.[0]
     if (!f) return
     // Re-fetch the session live (don't rely on local authToken state — it may
@@ -109,7 +102,6 @@ export default function NewListingPage() {
   }
 
   async function startWithSource() {
-    if (!supabase) return
     // Be defensive: authToken from state may not have hydrated yet, so try a
     // live getSession() before falling back to the alert. The user is almost
     // certainly logged in if they reached this page (the avatar in AppHeader
