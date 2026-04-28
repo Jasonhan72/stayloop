@@ -115,34 +115,14 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
       if (!input.url) {
         return { listing: emptyListing(), source: 'url', errors: ['no_url'] }
       }
-      // Fetch the URL HTML server-side
-      try {
-        const res = await fetch(input.url, {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
-            Accept: 'text/html',
-          },
-          signal: AbortSignal.timeout(15000),
-        })
-        if (!res.ok) {
-          return {
-            listing: emptyListing(),
-            source: 'url',
-            errors: [`fetch_${res.status}`],
-          }
-        }
-        const html = await res.text()
-        // Strip scripts/styles for token economy; keep text + meta
-        const cleaned = html
-          .replace(/<script[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[\s\S]*?<\/style>/gi, '')
-          .replace(/\s+/g, ' ')
-          .slice(0, 15_000)
-        content.push({ type: 'text', text: `\nListing source — fetched HTML from ${input.url}:\n${cleaned}` })
-      } catch (e: any) {
-        return { listing: emptyListing(), source: 'url', errors: [e?.message?.slice(0, 100) || 'fetch_failed'] }
+      const urlContent = await fetchUrlContent(input.url)
+      if (!urlContent.ok) {
+        return { listing: emptyListing(), source: 'url', errors: [urlContent.error] }
       }
+      content.push({
+        type: 'text',
+        text: `\nListing source — fetched ${urlContent.via} from ${input.url}:\n${urlContent.body}`,
+      })
     } else if (input.source === 'pdf') {
       if (!input.pdf_path) {
         return { listing: emptyListing(), source: 'pdf', errors: ['no_pdf_path'] }
@@ -166,7 +146,7 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
         },
         body: JSON.stringify({
           model: HAIKU_MODEL,
-          max_tokens: 2000,
+          max_tokens: 3000,
           messages: [
             { role: 'user', content },
             { role: 'assistant', content: '{' },
@@ -189,6 +169,106 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
       return { listing: emptyListing(), source: input.source, errors: [e?.message?.slice(0, 100) || 'failed'] }
     }
   },
+}
+
+// -----------------------------------------------------------------------------
+// fetchUrlContent — multi-strategy URL reader
+// -----------------------------------------------------------------------------
+// Realtor.ca / Kijiji / Facebook Marketplace etc. sit behind Cloudflare-style
+// anti-bot protection that returns 403 to a vanilla server-side fetch with a
+// generic User-Agent. We try three strategies in order:
+//
+//   1. r.jina.ai — free public reader that proxies the URL through a headless
+//      browser and returns clean markdown. Bypasses most anti-bot, no API key.
+//   2. Direct fetch with full browser-like headers, then strip script/style
+//      and extract JSON-LD blocks (which usually carry the listing schema).
+//   3. Direct fetch as plain HTML (last-resort).
+//
+// We return the first strategy that produces content — the AI extractor that
+// runs on top is robust to either markdown or stripped HTML.
+// -----------------------------------------------------------------------------
+
+interface UrlFetchOk { ok: true; body: string; via: 'jina' | 'html' | 'json-ld' }
+interface UrlFetchErr { ok: false; error: string }
+
+async function fetchUrlContent(url: string): Promise<UrlFetchOk | UrlFetchErr> {
+  // 1. Try r.jina.ai (clean markdown, bypasses anti-bot)
+  try {
+    const jinaUrl = `https://r.jina.ai/${url}`
+    const res = await fetch(jinaUrl, {
+      headers: {
+        // Jina honours the X-Return-Format header to produce clean markdown
+        'X-Return-Format': 'markdown',
+        Accept: 'text/markdown, text/plain, */*',
+      },
+      signal: AbortSignal.timeout(20000),
+    })
+    if (res.ok) {
+      const md = await res.text()
+      if (md && md.length > 200) {
+        return { ok: true, body: md.slice(0, 30_000), via: 'jina' }
+      }
+    }
+  } catch {
+    // fall through
+  }
+
+  // 2. Direct fetch with browser-like headers, prefer JSON-LD
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-CA,en;q=0.9,zh;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Sec-Ch-Ua': '"Chromium";v="124", "Not-A.Brand";v="99"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Upgrade-Insecure-Requests': '1',
+      },
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!res.ok) {
+      return { ok: false, error: `fetch_${res.status}` }
+    }
+    const html = await res.text()
+
+    // Try to pull all JSON-LD blocks first — Realtor.ca and most listing sites
+    // embed structured RealEstateListing / Product schema there.
+    const jsonLdBlocks: string[] = []
+    const jsonLdRe = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+    let m: RegExpExecArray | null
+    while ((m = jsonLdRe.exec(html)) !== null && jsonLdBlocks.length < 10) {
+      jsonLdBlocks.push(m[1].trim())
+    }
+
+    // Also try Next.js __NEXT_DATA__ which carries the rendered server props
+    const nextDataMatch = html.match(
+      /<script[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i,
+    )
+
+    const cleaned = html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
+      .replace(/\s+/g, ' ')
+      .slice(0, 20_000)
+
+    // If we got structured data, prefer it — much higher signal-to-noise
+    // ratio for the AI extractor than minified HTML.
+    if (jsonLdBlocks.length > 0) {
+      let body = `JSON-LD blocks:\n${jsonLdBlocks.join('\n---\n').slice(0, 18_000)}`
+      if (nextDataMatch) body += `\n\n__NEXT_DATA__:\n${nextDataMatch[1].slice(0, 6_000)}`
+      body += `\n\nVisible HTML (stripped):\n${cleaned.slice(0, 8_000)}`
+      return { ok: true, body, via: 'json-ld' }
+    }
+    return { ok: true, body: cleaned, via: 'html' }
+  } catch (e: any) {
+    return { ok: false, error: e?.message?.slice(0, 100) || 'fetch_failed' }
+  }
 }
 
 function emptyListing(): ImportOutput['listing'] {
