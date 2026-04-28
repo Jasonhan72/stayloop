@@ -2276,28 +2276,31 @@ export default function ScreenPage() {
             {/* ─── Scanner Panel ─── */}
             <div style={{
               background: '#FFFFFF',
-              border: '1px solid #E4E8F0',
+              border: '1px solid #D8D2C2',
               borderRadius: 20,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)',
+              boxShadow: '0 1px 3px rgba(31, 25, 11, 0.04), 0 12px 32px -8px rgba(31, 25, 11, 0.06)',
               overflow: 'hidden',
             }}>
               {/* Panel Header */}
               <div style={{
                 padding: '18px 20px',
-                borderBottom: '1px solid #E4E8F0',
+                borderBottom: '1px solid #E0DACE',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                background: 'linear-gradient(135deg, rgba(13, 148, 136, 0.04), rgba(37, 99, 235, 0.02))',
+                background: 'linear-gradient(135deg, rgba(4, 120, 87, 0.06), rgba(4, 120, 87, 0.02))',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  {/* Flat shield mark — V3 emerald, no gradient/glow, matches the rest of the brand */}
                   <div style={{
                     width: 40, height: 40, borderRadius: 10,
-                    background: 'linear-gradient(135deg, #10B981, #059669)',
+                    background: '#047857',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 4px 14px -3px rgba(13, 148, 136, 0.45)',
                   }}>
-                    <span style={{ fontSize: 20, filter: 'brightness(10)' }}>🛡</span>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M12 2 4 5v7c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V5l-8-3z" />
+                      <path d="m9 12 2 2 4-4" />
+                    </svg>
                   </div>
                   <div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: '#0B1736', letterSpacing: '-0.01em' }}>
@@ -2325,15 +2328,15 @@ export default function ScreenPage() {
                 onClick={() => fileInputRef.current?.click()}
                 style={{
                   margin: '16px 18px 0',
-                  border: `2px dashed ${dragOver ? '#14B8A6' : '#CBD5E1'}`,
+                  border: `2px dashed ${dragOver ? '#047857' : '#C5BDAA'}`,
                   borderRadius: 14,
                   padding: files.length > 0 ? '20px 16px' : '36px 16px',
                   textAlign: 'center',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   background: dragOver
-                    ? 'radial-gradient(ellipse at center, rgba(20, 184, 166, 0.08), transparent 70%)'
-                    : '#FAFBFD',
+                    ? 'radial-gradient(ellipse at center, rgba(4, 120, 87, 0.10), transparent 70%)'
+                    : '#FAF7EF',
                 }}
               >
                 <input
@@ -2349,7 +2352,27 @@ export default function ScreenPage() {
                     <div style={{ fontSize: 34, marginBottom: 10, opacity: 0.9 }}>📁</div>
                     <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: '#0B1736' }}>{t('screen.drop.title')}</div>
                     <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>{t('screen.drop.sub')}</div>
-                    <div className="btn btn-ghost btn-sm" style={{ marginTop: 16, display: 'inline-flex', padding: '9px 20px', fontSize: 13, borderRadius: 10 }}>{t('screen.drop.pick')}</div>
+                    {/* Filled emerald button — matches the primary CTA on the home page */}
+                    <div
+                      style={{
+                        marginTop: 16,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '10px 22px',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        borderRadius: 10,
+                        background: '#047857',
+                        color: '#FFFFFF',
+                        boxShadow: '0 4px 12px -3px rgba(4, 120, 87, 0.35)',
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                      </svg>
+                      {t('screen.drop.pick')}
+                    </div>
                   </>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#64748B', fontSize: 12.5 }}>
@@ -2384,8 +2407,8 @@ export default function ScreenPage() {
                         style={{
                           display: 'flex', alignItems: 'center', gap: 5,
                           padding: '7px 10px', borderRadius: 8,
-                          background: uploaded ? 'rgba(16, 185, 129, 0.12)' : '#F1F5FB',
-                          border: uploaded ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #E4E8F0',
+                          background: uploaded ? 'rgba(4, 120, 87, 0.10)' : '#F2EEE5',
+                          border: uploaded ? '1px solid rgba(4, 120, 87, 0.40)' : '1px solid #E0DACE',
                           fontSize: 11, fontWeight: uploaded ? 600 : 500,
                           color: uploaded ? '#15803D' : '#94A3B8',
                           transition: 'all 0.2s',
@@ -2452,8 +2475,8 @@ export default function ScreenPage() {
                       return (
                         <div key={i} style={{
                           display: 'flex', alignItems: 'center', gap: 10,
-                          padding: '8px 12px', background: '#FAFBFD', borderRadius: 10,
-                          border: '1px solid #EEF2F8', fontSize: 12.5,
+                          padding: '8px 12px', background: '#FAF7EF', borderRadius: 10,
+                          border: '1px solid #EAE5D9', fontSize: 12.5,
                           minHeight: 38,
                         }}>
                           <span style={{ fontSize: 13, flexShrink: 0 }}>{isPdf ? '📄' : isImage ? '🖼️' : '📎'}</span>
