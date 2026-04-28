@@ -78,6 +78,12 @@ export default function FindAgentPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [activeListingId, setActiveListingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [filters, setFilters] = useState<{ all: boolean; within5km: boolean; bilingual: boolean; availableToday: boolean }>({
+    all: true,
+    within5km: false,
+    bilingual: false,
+    availableToday: false,
+  })
 
   useEffect(() => {
     if (!user) return
@@ -106,7 +112,25 @@ export default function FindAgentPage() {
   }
 
   const activeListing = listings.find((l) => l.id === activeListingId) || null
-  const ranked = agents.map((a) => ({ ...a, ...scoreAgent(a, activeListing) })).sort((x, y) => y.fit - x.fit).slice(0, 6)
+  const ranked = agents.map((a) => ({ ...a, ...scoreAgent(a, activeListing) })).sort((x, y) => y.fit - x.fit)
+
+  // Apply filters
+  let filtered = ranked
+  if (filters.bilingual) {
+    filtered = filtered.filter((a) => (a.languages || 'en').toLowerCase().includes('zh'))
+  }
+  if (filters.within5km) {
+    filtered = filtered.filter((a) => {
+      const areaTokens = (a.service_areas || '').toLowerCase().split(',').map((s) => s.trim()).filter(Boolean)
+      const cityLower = (activeListing?.city || '').toLowerCase()
+      return areaTokens.some((t) => cityLower.includes(t) || t.includes(cityLower))
+    })
+  }
+  if (filters.availableToday) {
+    filtered = filtered.filter((a) => a.active_load < 5)
+  }
+  const maxFit = ranked.length > 0 ? ranked[0].fit : 100
+  filtered = filtered.slice(0, 6)
   const commission = activeListing?.monthly_rent || 0
 
   return (
@@ -126,12 +150,83 @@ export default function FindAgentPage() {
           <div style={{ marginBottom: 14 }}>
             {listings.length > 0 ? (
               <>
-                <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 12px' }}>
                   {isZh
-                    ? `为 ${activeListing?.address || '...'} 推荐 ${ranked.length} 位经纪`
-                    : `${ranked.length} agents matched for ${activeListing?.address || '...'}`}
+                    ? `为 ${activeListing?.address || '...'} 推荐 ${filtered.length} 位经纪`
+                    : `${filtered.length} agents matched for ${activeListing?.address || '...'}`}
                 </h2>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                  <button
+                    onClick={() =>
+                      setFilters({ all: true, within5km: false, bilingual: false, availableToday: false })
+                    }
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 999,
+                      border: `1px solid ${filters.all ? v3.brand : v3.border}`,
+                      background: filters.all ? v3.brandSoft : v3.surface,
+                      color: filters.all ? v3.brandStrong : v3.textSecondary,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {isZh ? '所有经纪' : 'All'}
+                  </button>
+                  <button
+                    onClick={() =>
+                      setFilters({ ...filters, all: false, within5km: !filters.within5km })
+                    }
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 999,
+                      border: `1px solid ${filters.within5km ? v3.brand : v3.border}`,
+                      background: filters.within5km ? v3.brandSoft : v3.surface,
+                      color: filters.within5km ? v3.brandStrong : v3.textSecondary,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {isZh ? '5km 内' : 'Within 5km'}
+                  </button>
+                  <button
+                    onClick={() =>
+                      setFilters({ ...filters, all: false, bilingual: !filters.bilingual })
+                    }
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 999,
+                      border: `1px solid ${filters.bilingual ? v3.brand : v3.border}`,
+                      background: filters.bilingual ? v3.brandSoft : v3.surface,
+                      color: filters.bilingual ? v3.brandStrong : v3.textSecondary,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {isZh ? '中英双语' : 'Bilingual'}
+                  </button>
+                  <button
+                    onClick={() =>
+                      setFilters({ ...filters, all: false, availableToday: !filters.availableToday })
+                    }
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 999,
+                      border: `1px solid ${filters.availableToday ? v3.brand : v3.border}`,
+                      background: filters.availableToday ? v3.brandSoft : v3.surface,
+                      color: filters.availableToday ? v3.brandStrong : v3.textSecondary,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {isZh ? '今天可约' : 'Available today'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {listings.slice(0, 5).map((l) => (
                     <button
                       key={l.id}
@@ -178,14 +273,15 @@ export default function FindAgentPage() {
             <div style={{ padding: 32, textAlign: 'center', color: v3.textMuted, fontSize: 13 }}>
               {isZh ? '加载…' : 'Loading…'}
             </div>
-          ) : ranked.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <div style={{ padding: 32, textAlign: 'center', color: v3.textMuted, fontSize: 13, background: v3.surface, border: `1px dashed ${v3.borderStrong}`, borderRadius: 14 }}>
-              {isZh ? '网络中暂无活跃经纪。' : 'No active agents in the network yet.'}
+              {isZh ? '没有符合筛选条件的经纪。' : 'No agents match your filters.'}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {ranked.map((a, idx) => (
-                <div key={a.id} style={{ background: v3.surface, border: `1px solid ${idx === 0 ? v3.brand : v3.border}`, borderRadius: 14, padding: 16, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+              {filtered.map((a, idx) => (
+                <div key={a.id} style={{ background: v3.surface, border: `1px solid ${idx === 0 ? v3.brand : v3.border}`, borderRadius: 14, padding: 16, overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
                   <span style={{ width: 48, height: 48, borderRadius: 999, background: v3.brand, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
                     {a.initials || a.display_name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
                   </span>
@@ -203,11 +299,20 @@ export default function FindAgentPage() {
                         </span>
                       )}
                     </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                      <WhyBadge
+                        factor="area"
+                        lang={lang}
+                      />
+                      {(a.languages || 'en').toLowerCase().includes('zh') && (
+                        <WhyBadge factor="lang" lang={lang} />
+                      )}
+                      {a.signed_last_12mo > 20 && (
+                        <WhyBadge factor="perf" lang={lang} />
+                      )}
+                    </div>
                     <div style={{ fontSize: 12, color: v3.textSecondary, marginBottom: 4 }}>
                       {a.service_areas} · {a.signed_last_12mo} signed last 12mo · {a.avg_dom_days || '—'}d avg DoM
-                    </div>
-                    <div style={{ fontSize: 11, color: v3.textMuted }}>
-                      {(a.languages || 'en').split(',').map((l) => l.trim().toUpperCase()).join(' · ')}
                     </div>
                   </div>
                   <div style={{ textAlign: 'center', flexShrink: 0 }}>
@@ -217,6 +322,17 @@ export default function FindAgentPage() {
                   <button style={{ padding: '8px 16px', background: v3.brand, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                     {isZh ? '邀请' : 'Invite'}
                   </button>
+                  </div>
+                  <div style={{ height: 6, background: v3.divider, borderRadius: 999, overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        height: '100%',
+                        background: v3.brand,
+                        width: `${(a.fit / maxFit) * 100}%`,
+                        transition: 'width 0.3s ease',
+                      }}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -257,5 +373,35 @@ export default function FindAgentPage() {
       </div>
       <style jsx>{`@media (max-width: 880px){:global(.fa-grid){grid-template-columns:1fr !important;}}`}</style>
     </main>
+  )
+}
+
+function WhyBadge({ factor, lang }: { factor: string; lang: 'zh' | 'en' }) {
+  const badges: Record<string, { icon: string; label_en: string; label_zh: string }> = {
+    area: { icon: '📍', label_en: 'Local expert', label_zh: '本地专家' },
+    lang: { icon: '🌐', label_en: 'Bilingual', label_zh: '中英双语' },
+    perf: { icon: '⭐', label_en: 'Top closer', label_zh: '成交高手' },
+    load: { icon: '⏱', label_en: 'Available now', label_zh: '现在可约' },
+    type: { icon: '🏢', label_en: 'Specialist', label_zh: '专家' },
+    speed: { icon: '⚡', label_en: 'Fast responder', label_zh: '快速回应' },
+  }
+
+  const badge = badges[factor]
+  if (!badge) return null
+
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        fontWeight: 600,
+        padding: '3px 8px',
+        borderRadius: 999,
+        background: v3.brandSoft,
+        color: v3.brandStrong,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {badge.icon} {lang === 'zh' ? badge.label_zh : badge.label_en}
+    </span>
   )
 }

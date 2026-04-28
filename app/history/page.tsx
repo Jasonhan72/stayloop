@@ -27,6 +27,12 @@ interface Tenancy {
   verification_status: string
 }
 
+interface CoSignModal {
+  tenancyId: string | null
+  email: string
+  note: string
+}
+
 function monthsBetween(start: string, end: string | null): number {
   const s = new Date(start)
   const e = end ? new Date(end) : new Date()
@@ -40,6 +46,7 @@ export default function HistoryPage() {
   const [tenancies, setTenancies] = useState<Tenancy[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
+  const [coSignModal, setCoSignModal] = useState<CoSignModal>({ tenancyId: null, email: '', note: '' })
   const [form, setForm] = useState({
     address: '',
     city: 'Toronto',
@@ -105,6 +112,16 @@ export default function HistoryPage() {
         </div>
 
         <div style={{ padding: 16 }}>
+          {/* Avg rent trend sparkline */}
+          {tenancies.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: v3.textMuted, marginBottom: 6 }}>
+                {isZh ? '平均租金走势' : 'Avg rent trend'}
+              </div>
+              <RentSparkline rents={tenancies.map(t => t.monthly_rent || 0).filter(Boolean)} />
+            </div>
+          )}
+
           <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 4px' }}>
             {isZh ? `${yrs} 年 · ${tenancies.length} 段租约` : `${yrs} years · ${tenancies.length} tenancies`}
           </h1>
@@ -169,15 +186,35 @@ export default function HistoryPage() {
                   .map((p) => p[0])
                   .join('')
                   .toUpperCase()
+                const verStatus = t.verification_status
+                const isVerified = verStatus === 'verified'
+                const isPending = verStatus === 'pending'
+                const isUnverified = verStatus === 'unverified'
+
                 return (
                   <div key={t.id} style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 14, position: 'relative' }}>
-                    <div style={{ fontSize: 11, color: v3.textMuted, marginBottom: 4 }}>{yearRange}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                      <div style={{ fontSize: 11, color: v3.textMuted }}>{yearRange}</div>
+                      {/* Verification badge */}
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: '4px 8px',
+                          borderRadius: 4,
+                          background: isVerified ? v3.successSoft : isPending ? v3.warningSoft : v3.divider,
+                          color: isVerified ? v3.success : isPending ? v3.warning : v3.textMuted,
+                        }}
+                      >
+                        {isVerified ? (isZh ? '✓ 已验证' : '✓ Verified') : isPending ? (isZh ? '⏳ 待验证' : '⏳ Pending') : (isZh ? '未验证' : 'Unverified')}
+                      </div>
+                    </div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: v3.textPrimary, marginBottom: 2 }}>{t.address}</div>
                     <div style={{ fontSize: 11, color: v3.textMuted, marginBottom: 10 }}>
                       {t.city ? `${t.city} · ` : ''}{months} {isZh ? '个月' : 'mo'}
                       {t.monthly_rent ? ` · $${Number(t.monthly_rent).toLocaleString()}/mo` : ''}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: v3.surfaceMuted, borderRadius: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: v3.surfaceMuted, borderRadius: 8, marginBottom: 8 }}>
                       <span style={{ width: 24, height: 24, borderRadius: 999, background: v3.brand, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 700 }}>
                         {initials}
                       </span>
@@ -191,13 +228,7 @@ export default function HistoryPage() {
                           </div>
                         ) : t.landlord_note ? (
                           <div style={{ fontSize: 10.5, color: v3.textMuted, lineHeight: 1.4, marginTop: 2 }}>"{t.landlord_note}"</div>
-                        ) : (
-                          <div style={{ fontSize: 10, color: v3.textMuted, marginTop: 2, fontWeight: 500 }}>
-                            {t.verification_status === 'pending_landlord'
-                              ? isZh ? '已邀请房东核签' : 'Awaiting landlord co-sign'
-                              : isZh ? '未核签' : 'Unverified'}
-                          </div>
-                        )}
+                        ) : null}
                       </div>
                       {t.rating_stars && (
                         <div style={{ color: v3.warning, fontSize: 11, letterSpacing: '-0.05em', flexShrink: 0 }}>
@@ -205,6 +236,15 @@ export default function HistoryPage() {
                         </div>
                       )}
                     </div>
+                    {/* Co-sign request button for unverified tenancies */}
+                    {isUnverified && (
+                      <button
+                        onClick={() => setCoSignModal({ tenancyId: t.id, email: t.prior_landlord_email || '', note: '' })}
+                        style={{ width: '100%', padding: '8px 10px', background: v3.brandSoft, border: `1px solid ${v3.brand}`, borderRadius: 8, fontSize: 11, fontWeight: 600, color: v3.brandStrong, cursor: 'pointer' }}
+                      >
+                        {isZh ? '邀请房东核签' : 'Request co-sign'}
+                      </button>
+                    )}
                   </div>
                 )
               })}
@@ -261,7 +301,97 @@ export default function HistoryPage() {
             </div>
           </div>
         )}
+
+        {/* Co-sign request modal */}
+        {coSignModal.tenancyId && (
+          <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', zIndex: 100, padding: 16 }}
+            onClick={() => setCoSignModal({ tenancyId: null, email: '', note: '' })}
+          >
+            <div onClick={(e) => e.stopPropagation()} style={{ background: v3.surface, borderRadius: 16, padding: 20, maxWidth: 440, width: '100%' }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 12px', color: v3.textPrimary }}>
+                {isZh ? '邀请房东核签' : 'Request co-sign'}
+              </h2>
+              <p style={{ fontSize: 13, color: v3.textMuted, margin: '0 0 16px', lineHeight: 1.5 }}>
+                {isZh
+                  ? '输入你前房东的邮箱，他们会收到核签邀请。'
+                  : 'Enter your prior landlord\'s email to invite them to verify your tenancy.'}
+              </p>
+              <label style={{ display: 'block', marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: v3.textMuted, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                  {isZh ? '房东邮箱' : 'Landlord email'}
+                </span>
+                <input
+                  type="email"
+                  placeholder="landlord@example.com"
+                  value={coSignModal.email}
+                  onChange={(e) => setCoSignModal({ ...coSignModal, email: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', border: `1px solid ${v3.border}`, borderRadius: 8, fontSize: 13, fontFamily: 'inherit' }}
+                />
+              </label>
+              <label style={{ display: 'block', marginBottom: 14 }}>
+                <span style={{ fontSize: 11, color: v3.textMuted, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                  {isZh ? '备注 (可选)' : 'Note (optional)'}
+                </span>
+                <textarea
+                  placeholder={isZh ? '补充信息…' : 'Add context…'}
+                  value={coSignModal.note}
+                  onChange={(e) => setCoSignModal({ ...coSignModal, note: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', border: `1px solid ${v3.border}`, borderRadius: 8, fontSize: 13, fontFamily: 'inherit', minHeight: 60, resize: 'none' }}
+                />
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setCoSignModal({ tenancyId: null, email: '', note: '' })}
+                  style={{ flex: 1, padding: 12, background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: v3.textPrimary }}
+                >
+                  {isZh ? '取消' : 'Cancel'}
+                </button>
+                <button
+                  onClick={() => {
+                    if (!coSignModal.email || !coSignModal.tenancyId) return
+                    // TODO: update tenancy with verification_status='pending' and send email
+                    alert(isZh ? '邀请已发送 (TODO)' : 'Invitation sent (TODO)')
+                    setCoSignModal({ tenancyId: null, email: '', note: '' })
+                  }}
+                  style={{ flex: 1, padding: 12, background: v3.brand, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {isZh ? '发送邀请' : 'Send invitation'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </Phone>
     </main>
+  )
+}
+
+function RentSparkline({ rents }: { rents: number[] }) {
+  if (rents.length === 0) return null
+  const min = Math.min(...rents)
+  const max = Math.max(...rents)
+  const range = max - min || 1
+  const width = 240
+  const height = 32
+  const padding = 4
+
+  const points = rents.map((r, i) => {
+    const x = (i / (rents.length - 1 || 1)) * (width - padding * 2) + padding
+    const y = height - padding - ((r - min) / range) * (height - padding * 2)
+    return [x, y]
+  })
+
+  const pathData = points
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`)
+    .join(' ')
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 32 }}>
+      <path d={pathData} fill="none" stroke={v3.brand} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      {points.map((p, i) => (
+        <circle key={i} cx={p[0]} cy={p[1]} r={2} fill={v3.brand} />
+      ))}
+    </svg>
   )
 }

@@ -32,6 +32,13 @@ interface Tenancy {
   total_payments: number
   verification_status: string
   is_active: boolean
+  monthly_rent: number | null
+}
+
+interface CoSignInvite {
+  showModal: boolean
+  email: string
+  note: string
 }
 
 function passportIdFromUuid(uuid: string): string {
@@ -54,6 +61,7 @@ export default function PassportPage() {
   const [bestApp, setBestApp] = useState<Application | null>(null)
   const [tenancies, setTenancies] = useState<Tenancy[]>([])
   const [loading, setLoading] = useState(true)
+  const [coSignInvite, setCoSignInvite] = useState<CoSignInvite>({ showModal: false, email: '', note: '' })
 
   useEffect(() => {
     if (!user) return
@@ -114,8 +122,8 @@ export default function PassportPage() {
   const totalOnTime = tenancies.reduce((s, t) => s + (t.on_time_payments || 0), 0)
   const totalPayments = tenancies.reduce((s, t) => s + (t.total_payments || 0), 0)
 
-  // Build claims
-  const claims: Array<{ title_en: string; title_zh: string; source: string; value: string; verified: boolean }> = [
+  // Build claims for detailed row view
+  const claimsRowData: Array<{ title_en: string; title_zh: string; source: string; value: string; verified: boolean }> = [
     {
       title_en: 'Identity verified',
       title_zh: '身份已核验',
@@ -159,6 +167,25 @@ export default function PassportPage() {
       value: verifiedTenancies.length > 0 ? 'Clean' : tenancies.length > 0 ? `${tenancies.length}` : '—',
       verified: verifiedTenancies.length > 0,
     },
+  ]
+
+  // Build claims for the compact chip row (6 boolean flags)
+  const incomeCheck = bestApp?.monthly_income && tenancies.length > 0
+    ? bestApp.monthly_income >= (tenancies[0]?.monthly_rent || 1) * 3
+    : false
+  const noEvictions = tenancies.every(t => t.verification_status !== 'pending_landlord')
+  const idVerified = !!user?.email
+  const bankConfirmed = !!bestApp?.payment_ability_score
+  const courtClean = !!bestApp && bestApp.court_records_score !== null && bestApp.court_records_score > 50
+  const coSigned = verifiedTenancies.length > 0
+
+  const claimsChips = [
+    { title_en: 'Income ≥ 3× rent', title_zh: '收入 ≥ 3× 租金', verified: incomeCheck },
+    { title_en: 'No evictions on record', title_zh: '无驱逐记录', verified: noEvictions },
+    { title_en: 'ID verified', title_zh: '身份已验证', verified: idVerified },
+    { title_en: 'Bank-confirmed', title_zh: '银行核验', verified: bankConfirmed },
+    { title_en: 'Court-clean', title_zh: '法庭清白', verified: courtClean },
+    { title_en: 'Co-signed tenancy', title_zh: '有核签租约', verified: coSigned },
   ]
 
   return (
@@ -244,12 +271,37 @@ export default function PassportPage() {
           </div>
         </div>
 
+        {/* Claims chip row */}
+        <div style={{ fontSize: 10, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '20px 4px 12px' }}>
+          {isZh ? '核心声明' : 'KEY CLAIMS'}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
+          {claimsChips.map((c, i) => (
+            <div
+              key={i}
+              style={{
+                padding: '8px 10px',
+                borderRadius: 999,
+                background: c.verified ? v3.brandSoft : 'rgba(113, 113, 122, 0.1)',
+                border: `1px solid ${c.verified ? v3.brand : 'transparent'}`,
+                fontSize: 11,
+                fontWeight: 600,
+                color: c.verified ? v3.brandStrong : v3.textMuted,
+                textAlign: 'center',
+                opacity: c.verified ? 1 : 0.6,
+              }}
+            >
+              {c.verified ? '✓ ' : '? '}{isZh ? c.title_zh : c.title_en}
+            </div>
+          ))}
+        </div>
+
         <div style={{ fontSize: 10, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '24px 4px 12px' }}>
           {isZh ? '房东可见声明' : 'WHAT LANDLORDS SEE · 房东可见声明'}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {claims.map((c, i) => (
+          {claimsRowData.map((c, i) => (
             <ClaimRow key={i} claim={c} isZh={isZh} />
           ))}
         </div>
@@ -294,6 +346,12 @@ export default function PassportPage() {
           >
             {isZh ? '租房记录' : 'Rental history'}
           </Link>
+          <button
+            onClick={() => setCoSignInvite({ showModal: true, email: '', note: '' })}
+            style={{ display: 'block', textAlign: 'center', fontSize: 13, fontWeight: 500, color: v3.textSecondary, padding: '12px 14px', background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 10, cursor: 'pointer', width: '100%' }}
+          >
+            {isZh ? '邀请房东核签' : 'Request co-sign'}
+          </button>
           {!bestApp && (
             <Link
               href="/screen"
@@ -303,6 +361,67 @@ export default function PassportPage() {
             </Link>
           )}
         </div>
+
+        {/* Co-sign request modal */}
+        {coSignInvite.showModal && (
+          <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', zIndex: 100, padding: 16 }}
+            onClick={() => setCoSignInvite({ ...coSignInvite, showModal: false })}
+          >
+            <div onClick={(e) => e.stopPropagation()} style={{ background: v3.surfaceCard, borderRadius: 16, padding: 20, maxWidth: 440, width: '100%' }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 12px', color: v3.textPrimary }}>
+                {isZh ? '邀请房东核签' : 'Request co-sign'}
+              </h2>
+              <p style={{ fontSize: 13, color: v3.textMuted, margin: '0 0 16px', lineHeight: 1.5 }}>
+                {isZh
+                  ? '输入你前房东的邮箱，他们会收到核签邀请。'
+                  : 'Enter your prior landlord\'s email to invite them to verify your tenancy.'}
+              </p>
+              <label style={{ display: 'block', marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: v3.textMuted, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                  {isZh ? '房东邮箱' : 'Landlord email'}
+                </span>
+                <input
+                  type="email"
+                  placeholder="landlord@example.com"
+                  value={coSignInvite.email}
+                  onChange={(e) => setCoSignInvite({ ...coSignInvite, email: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', border: `1px solid ${v3.border}`, borderRadius: 8, fontSize: 13, fontFamily: 'inherit' }}
+                />
+              </label>
+              <label style={{ display: 'block', marginBottom: 14 }}>
+                <span style={{ fontSize: 11, color: v3.textMuted, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                  {isZh ? '备注 (可选)' : 'Note (optional)'}
+                </span>
+                <textarea
+                  placeholder={isZh ? '补充信息…' : 'Add context…'}
+                  value={coSignInvite.note}
+                  onChange={(e) => setCoSignInvite({ ...coSignInvite, note: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', border: `1px solid ${v3.border}`, borderRadius: 8, fontSize: 13, fontFamily: 'inherit', minHeight: 60, resize: 'none' }}
+                />
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setCoSignInvite({ ...coSignInvite, showModal: false })}
+                  style={{ flex: 1, padding: 12, background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: v3.textPrimary }}
+                >
+                  {isZh ? '取消' : 'Cancel'}
+                </button>
+                <button
+                  onClick={() => {
+                    if (!coSignInvite.email) return
+                    // TODO: insert into tenancies table with verification_status='pending'
+                    alert(isZh ? '邀请已发送 (TODO)' : 'Invitation sent (TODO)')
+                    setCoSignInvite({ showModal: false, email: '', note: '' })
+                  }}
+                  style={{ flex: 1, padding: 12, background: v3.brand, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {isZh ? '发送邀请' : 'Send invitation'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   )

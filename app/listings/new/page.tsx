@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { tokens } from '@/lib/agent/theme'
+import { v3 } from '@/lib/brand'
 import AppHeader from '@/components/AppHeader'
 
 interface ChatLine {
@@ -20,6 +21,15 @@ interface ChatLine {
   text: string
   toolCalls?: Array<{ name: string; status?: string }>
   blocks?: any[]
+}
+
+interface ComplianceWarning {
+  code: string
+  severity: string
+  field: string
+  matched_text: string
+  rationale_zh: string
+  rationale_en: string
 }
 
 interface ListingDraft {
@@ -59,6 +69,8 @@ export default function NewListingPage() {
   const [savedListingId, setSavedListingId] = useState<string | null>(null)
   const [listingStatus, setListingStatus] = useState<'draft' | 'active'>('draft')
   const [publishing, setPublishing] = useState(false)
+  const [complianceStatus, setComplianceStatus] = useState<'unchecked' | 'passed' | 'warnings'>('unchecked')
+  const [complianceWarnings, setComplianceWarnings] = useState<ComplianceWarning[]>([])
   const abortRef = useRef<AbortController | null>(null)
   const chatScrollRef = useRef<HTMLDivElement | null>(null)
 
@@ -273,6 +285,17 @@ export default function NewListingPage() {
       if (event.tool_name === 'import_listing' && event.output?.listing) {
         setDraft(event.output.listing)
       }
+      // Track check_ohrc_compliance results
+      if (event.tool_name === 'check_ohrc_compliance' && event.output) {
+        const passes = event.output.passes ?? true
+        const warnings = event.output.warnings ?? []
+        if (passes && warnings.length === 0) {
+          setComplianceStatus('passed')
+        } else if (warnings.length > 0) {
+          setComplianceStatus('warnings')
+          setComplianceWarnings(warnings)
+        }
+      }
       // Capture the row id once Nova auto-saves so the user can publish from
       // the draft preview without leaving this page.
       if (
@@ -323,7 +346,7 @@ export default function NewListingPage() {
           margin: '0 auto',
           padding: '24px 16px',
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+          gridTemplateColumns: 'minmax(0, 0.85fr) minmax(0, 1.15fr)',
           gap: 24,
         }}
       >
@@ -351,11 +374,12 @@ export default function NewListingPage() {
                     padding: '8px 10px',
                     fontSize: 12,
                     fontWeight: 600,
-                    background: mode === m ? tokens.accent : tokens.surface,
+                    background: mode === m ? v3.brand : tokens.surfaceCard,
                     color: mode === m ? '#fff' : tokens.textSecondary,
-                    border: `1px solid ${mode === m ? tokens.accent : tokens.border}`,
-                    borderRadius: 8,
+                    border: `1px solid ${mode === m ? v3.brand : tokens.border}`,
+                    borderRadius: 999,
                     cursor: 'pointer',
+                    transition: 'background 0.15s, color 0.15s, border-color 0.15s',
                   }}
                 >
                   {m === 'text' ? (lang === 'zh' ? '粘贴文字' : 'Paste text')
@@ -453,6 +477,8 @@ export default function NewListingPage() {
             listingStatus={listingStatus}
             publishing={publishing}
             onPublish={publishListing}
+            complianceStatus={complianceStatus}
+            complianceWarnings={complianceWarnings}
           />
         </section>
 
@@ -642,6 +668,8 @@ function DraftPreview({
   listingStatus,
   publishing,
   onPublish,
+  complianceStatus,
+  complianceWarnings,
 }: {
   draft: ListingDraft | null
   lang: 'zh' | 'en'
@@ -649,6 +677,8 @@ function DraftPreview({
   listingStatus: 'draft' | 'active'
   publishing: boolean
   onPublish: () => void
+  complianceStatus: 'unchecked' | 'passed' | 'warnings'
+  complianceWarnings: ComplianceWarning[]
 }) {
   if (!draft) {
     return (
@@ -679,8 +709,11 @@ function DraftPreview({
         padding: 18,
       }}
     >
-      <div style={{ fontSize: 11, fontWeight: 700, color: tokens.accentDark, letterSpacing: 0.4, textTransform: 'uppercase', marginBottom: 8 }}>
-        {lang === 'zh' ? '草稿预览' : 'Draft Preview'}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: tokens.textSecondary, letterSpacing: 0.4, textTransform: 'uppercase' }}>
+          {lang === 'zh' ? '草稿预览' : 'Draft Preview'}
+        </div>
+        <ComplianceChip status={complianceStatus} warningCount={complianceWarnings.length} lang={lang} />
       </div>
       <h2 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: tokens.textPrimary, lineHeight: 1.3 }}>
         {title || (lang === 'zh' ? '（标题待生成）' : '(title pending)')}
@@ -835,5 +868,65 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div style={{ fontSize: 10, color: tokens.textTertiary, marginBottom: 2 }}>{label}</div>
       <div style={{ fontSize: 14, fontWeight: 700, color: tokens.textPrimary }}>{value}</div>
     </div>
+  )
+}
+
+function ComplianceChip({
+  status,
+  warningCount,
+  lang,
+}: {
+  status: 'unchecked' | 'passed' | 'warnings'
+  warningCount: number
+  lang: 'zh' | 'en'
+}) {
+  if (status === 'unchecked') {
+    return (
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          padding: '4px 10px',
+          borderRadius: 999,
+          background: tokens.divider,
+          color: tokens.textMuted,
+          letterSpacing: '0.05em',
+        }}
+      >
+        ⏳ {lang === 'zh' ? '待检查' : 'Awaiting check'}
+      </span>
+    )
+  }
+  if (status === 'passed') {
+    return (
+      <span
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          padding: '4px 10px',
+          borderRadius: 999,
+          background: 'rgba(22, 163, 74, 0.10)',
+          color: '#16A34A',
+          letterSpacing: '0.05em',
+        }}
+      >
+        ✓ OHRC {lang === 'zh' ? '合规' : 'compliant'}
+      </span>
+    )
+  }
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        fontWeight: 700,
+        padding: '4px 10px',
+        borderRadius: 999,
+        background: 'rgba(217, 119, 6, 0.10)',
+        color: '#D97706',
+        letterSpacing: '0.05em',
+      }}
+    >
+      ⚡ {warningCount} {lang === 'zh' ? '条提醒' : 'notes'}
+    </span>
   )
 }

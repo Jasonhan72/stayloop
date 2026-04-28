@@ -148,10 +148,45 @@ export default function ScorePage() {
                 {isZh ? '6 项指标 · 完全透明' : '6 signals · fully transparent'}
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 32 }}>
               {AXES.map((a) => (
                 <AxisRow key={a.key} app={app} a={a} isZh={isZh} />
               ))}
+            </div>
+
+            {/* Dimension notes */}
+            <div style={{ borderTop: `1px solid ${v3.border}`, paddingTop: 24, marginBottom: 32 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em', margin: '0 0 16px', color: v3.textPrimary }}>
+                {isZh ? '指标解读' : 'What each dimension measures'}
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {AXES.map((a) => {
+                  const note = app?.ai_dimension_notes?.[String(a.key).replace('_score', '')]
+                  const fallback = getFallbackNote(String(a.key).replace('_score', ''), isZh)
+                  return (
+                    <div key={a.key} style={{ background: v3.surface, padding: 12, borderRadius: 10, borderLeft: `3px solid ${a.color}` }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: v3.textPrimary, marginBottom: 4 }}>
+                        {isZh ? a.title_zh : a.title_en}
+                      </div>
+                      <div style={{ fontSize: 12, color: v3.textSecondary, lineHeight: 1.5 }}>
+                        {note || fallback}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* How this compares */}
+            <div style={{ background: v3.brandSoft, border: `1px solid ${v3.brand}`, borderRadius: 12, padding: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: v3.brandStrong, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
+                {isZh ? '对标分析' : 'HOW THIS COMPARES'}
+              </div>
+              <div style={{ fontSize: 13, color: v3.textPrimary, lineHeight: 1.6, fontFamily: 'var(--font-mono), ui-monospace, monospace' }}>
+                <div>{isZh ? '你的评分' : 'Your score'}: <strong>{scaled}</strong></div>
+                <div style={{ marginTop: 4 }}>{isZh ? '平均获批' : 'Avg approved'}: 82</div>
+                <div style={{ marginTop: 4 }}>{isZh ? '平均被拒' : 'Avg declined'}: 54</div>
+              </div>
             </div>
           </section>
         </div>
@@ -188,6 +223,37 @@ function RangeScale({ value, min, max }: { value: number; min: number; max: numb
       </div>
     </div>
   )
+}
+
+function getFallbackNote(dimension: string, isZh: boolean): string {
+  const notes: Record<string, { en: string; zh: string }> = {
+    doc_authenticity: {
+      en: 'PDF metadata, font analysis, and forensic markers across uploaded documents.',
+      zh: '上传文件的 PDF 元数据、字体分析和取证标记。',
+    },
+    payment_ability: {
+      en: 'Income-to-rent ratio, employment stability, and bank statement verification.',
+      zh: '收入租金比、就业稳定性和银行对账单验证。',
+    },
+    court_records: {
+      en: 'Ontario LTB and civil court records, eviction history, and judgment status.',
+      zh: '安省 LTB 和民事法庭记录、驱逐历史和判决状态。',
+    },
+    stability: {
+      en: 'Length of employment, frequency of job changes, and housing history.',
+      zh: '就业期限、工作变更频率和居住历史。',
+    },
+    behavior_signals: {
+      en: 'Rental payment punctuality, communication responsiveness, and application consistency.',
+      zh: '租金支付准时性、沟通反应性和申请一致性。',
+    },
+    info_consistency: {
+      en: 'Cross-document validation of names, dates, income, and employment details.',
+      zh: '姓名、日期、收入和就业细节的跨文件验证。',
+    },
+  }
+  const note = notes[dimension]
+  return note ? (isZh ? note.zh : note.en) : 'Score dimension'
 }
 
 function AxisRow({ app, a, isZh }: { app: AppRow; a: AxisDef; isZh: boolean }) {

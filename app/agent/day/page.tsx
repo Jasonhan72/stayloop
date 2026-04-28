@@ -28,6 +28,13 @@ interface Showing {
   applicant: { first_name: string | null; last_name: string | null; ai_score: number | null; email: string } | null
 }
 
+interface Payout {
+  id: string
+  field_agent_id: string
+  period: string
+  amount: number
+}
+
 function fmtTime(ts: string): string {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
 }
@@ -44,6 +51,7 @@ export default function AgentDayPage() {
   const { user, loading: authLoading } = useUser({ redirectIfMissing: true })
   const [agent, setAgent] = useState<AgentRow | null>(null)
   const [showings, setShowings] = useState<Showing[]>([])
+  const [payouts, setPayouts] = useState<Payout[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -61,13 +69,22 @@ export default function AgentDayPage() {
       .maybeSingle()
     setAgent((ag as AgentRow) || null)
     if (ag) {
-      const { data: sh } = await supabase
-        .from('showings')
-        .select('id, scheduled_at, duration_min, status, listing:listings(address, unit, monthly_rent), applicant:applications(first_name, last_name, ai_score, email)')
-        .eq('agent_id', (ag as any).id)
-        .order('scheduled_at', { ascending: true })
-        .limit(20)
+      const [{ data: sh }, { data: py }] = await Promise.all([
+        supabase
+          .from('showings')
+          .select('id, scheduled_at, duration_min, status, listing:listings(address, unit, monthly_rent), applicant:applications(first_name, last_name, ai_score, email)')
+          .eq('agent_id', (ag as any).id)
+          .order('scheduled_at', { ascending: true })
+          .limit(20),
+        supabase
+          .from('payouts')
+          .select('id, field_agent_id, period, amount')
+          .eq('field_agent_id', (ag as any).id)
+          .order('period', { ascending: false })
+          .limit(30),
+      ])
       setShowings((sh as any[]) || [])
+      setPayouts((py as any[]) || [])
     }
     setLoading(false)
   }
@@ -134,6 +151,8 @@ export default function AgentDayPage() {
             : `${todays.length} showing${todays.length === 1 ? '' : 's'} today`}
         </div>
 
+        <PayoutCard payouts={payouts} lang={lang} />
+
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }} className="ad-grid">
           <section style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
@@ -144,7 +163,24 @@ export default function AgentDayPage() {
             </div>
             {todays.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: v3.textMuted, fontSize: 13 }}>
-                {isZh ? '今天没有安排带看。' : 'No showings booked today.'}
+                <div style={{ marginBottom: 12 }}>
+                  {isZh ? '今天没有安排带看。' : 'No showings booked today.'}
+                </div>
+                <a
+                  href="/listings/new"
+                  style={{
+                    display: 'inline-block',
+                    padding: '8px 16px',
+                    background: v3.brand,
+                    color: '#fff',
+                    borderRadius: 10,
+                    textDecoration: 'none',
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  {isZh ? '发现新房源 →' : 'Find new listings →'}
+                </a>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -181,6 +217,16 @@ export default function AgentDayPage() {
                           {name}
                           {s.applicant?.ai_score ? ` · Score ${s.applicant.ai_score}` : ''}
                         </div>
+                        <details style={{ marginTop: 6, cursor: 'pointer' }}>
+                          <summary style={{ fontSize: 10, color: v3.brand, fontWeight: 600, userSelect: 'none' }}>
+                            {isZh ? '建议谈点 →' : 'Talking points →'}
+                          </summary>
+                          <ul style={{ marginTop: 6, marginBottom: 0, paddingLeft: 16, fontSize: 10, color: v3.textSecondary, lineHeight: 1.5 }}>
+                            <li>{isZh ? '确认租客入住日期灵活性' : 'Confirm move-in date flexibility'}</li>
+                            <li>{isZh ? '强调交通便利性' : 'Highlight transit access'}</li>
+                            <li>{isZh ? '询问宠物情况' : 'Ask about pets'}</li>
+                          </ul>
+                        </details>
                       </div>
                       <span style={{ alignSelf: 'center', color: v3.textMuted, fontSize: 14 }}>›</span>
                     </Link>
@@ -232,4 +278,55 @@ function getGreeting(zh: boolean): string {
   const h = new Date().getHours()
   if (zh) return h < 12 ? '早上好' : h < 18 ? '下午好' : '晚上好'
   return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+}
+
+function PayoutCard({ payouts, lang }: { payouts: Payout[]; lang: 'zh' | 'en' }) {
+  const isZh = lang === 'zh'
+  const today = new Date().toISOString().split('T')[0]
+  const todayPayout = payouts.find((p) => p.period === today)?.amount ?? 0
+
+  // Calculate week-to-date (Mon to today)
+  const now = new Date()
+  const dayOfWeek = now.getDay()
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+  const mondayDate = new Date(now)
+  mondayDate.setDate(now.getDate() - daysFromMonday)
+  const weekStart = mondayDate.toISOString().split('T')[0]
+
+  const weekPayouts = payouts.filter((p) => p.period >= weekStart && p.period <= today)
+  const weekTotal = weekPayouts.reduce((sum, p) => sum + p.amount, 0)
+
+  // Calculate month-to-date (1st to today)
+  const monthStart = `${today.substring(0, 7)}-01`
+  const monthPayouts = payouts.filter((p) => p.period >= monthStart && p.period <= today)
+  const monthTotal = monthPayouts.reduce((sum, p) => sum + p.amount, 0)
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
+      <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 16 }}>
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+          {isZh ? '今日收入' : "Today's earnings"}
+        </div>
+        <div style={{ fontSize: 24, fontWeight: 800, color: v3.brand, letterSpacing: '-0.02em' }}>
+          ${todayPayout.toLocaleString()}
+        </div>
+      </div>
+      <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 16 }}>
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+          {isZh ? '本周收入' : 'Week to date'}
+        </div>
+        <div style={{ fontSize: 24, fontWeight: 800, color: v3.brand, letterSpacing: '-0.02em' }}>
+          ${weekTotal.toLocaleString()}
+        </div>
+      </div>
+      <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 16 }}>
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
+          {isZh ? '本月收入' : 'Month to date'}
+        </div>
+        <div style={{ fontSize: 24, fontWeight: 800, color: v3.brand, letterSpacing: '-0.02em' }}>
+          ${monthTotal.toLocaleString()}
+        </div>
+      </div>
+    </div>
+  )
 }
