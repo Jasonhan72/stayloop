@@ -188,8 +188,29 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
 
     initUser()
 
+    // Listen for auth state changes (login/logout/token refresh) so the
+    // header avatar + role-aware CTAs update without a hard refresh.
+    const sub = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return
+      if (event === 'SIGNED_OUT' || !session) {
+        setUser(null)
+        return
+      }
+      if (
+        event === 'SIGNED_IN' ||
+        event === 'TOKEN_REFRESHED' ||
+        event === 'USER_UPDATED' ||
+        event === 'INITIAL_SESSION'
+      ) {
+        // Re-run initUser to fetch the fresh profile row.
+        setLoading(true)
+        void initUser()
+      }
+    })
+
     return () => {
       isMounted = false
+      sub?.data?.subscription?.unsubscribe()
     }
   }, [redirectIfMissing, allowAnonymous, redirectPath, router])
 
