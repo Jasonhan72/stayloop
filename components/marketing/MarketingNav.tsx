@@ -109,38 +109,22 @@ export default function MarketingNav() {
             {isAuthed && user ? (
               <UserAvatar user={user} signOut={signOut} />
             ) : (
-              <>
-                <button
-                  onClick={() => setAuthOpen(true)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: v3.textSecondary,
-                    fontSize: 14,
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    padding: '6px 8px',
-                  }}
-                >
-                  {lang === 'zh' ? '登录' : 'Sign in'}
-                </button>
-                <button
-                  onClick={() => setAuthOpen(true)}
-                  style={{
-                    background: v3.brand,
-                    color: '#fff',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    padding: '8px 14px',
-                    borderRadius: 8,
-                    border: 'none',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {lang === 'zh' ? '获取 Passport · 免费' : 'Get Passport — free'}
-                </button>
-              </>
+              <button
+                onClick={() => setAuthOpen(true)}
+                style={{
+                  background: v3.brand,
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  border: 'none',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {lang === 'zh' ? '登录' : 'Sign in'}
+              </button>
             )}
           </div>
         </div>
