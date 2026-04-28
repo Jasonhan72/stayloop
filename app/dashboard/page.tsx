@@ -10,7 +10,7 @@ import { Application, Listing } from '@/types'
 
 /* ── Marketing-matching light palette ── */
 const mk = {
-  bg: '#F7F8FB',
+  bg: '#F2EEE5',
   surface: '#FFFFFF',
   border: '#E4E8F0',
   borderStrong: '#CBD5E1',

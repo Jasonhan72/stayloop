@@ -482,7 +482,7 @@ body > * { position: relative; z-index: 1; }
    ────────────────────────────────────────────────────────────────── */
 .marketing {
   /* Surfaces */
-  --mk-bg: #F7F8FB;
+  --mk-bg: #F2EEE5;
   --mk-bg-alt: #EEF2F8;
   --mk-surface: #FFFFFF;
   --mk-surface-raised: #FFFFFF;
@@ -796,13 +796,13 @@ body > * { position: relative; z-index: 1; }
    marketing home page. Achieved by overriding the dark CSS tokens
    that the existing screen page components consume via var(--*).
    ────────────────────────────────────────────────────────────────── */
-body:has(.screen-app) { background: #F7F8FB; }
+body:has(.screen-app) { background: #F2EEE5; }
 body:has(.screen-app)::before,
 body:has(.screen-app)::after { display: none !important; }
 
 .screen-app {
   /* Surfaces — matched to marketing palette */
-  --bg-base: #F7F8FB;
+  --bg-base: #F2EEE5;
   --bg-sunk: #EEF2F8;
   --bg-elevated: #FFFFFF;
   --bg-card: #FFFFFF;
@@ -831,7 +831,7 @@ body:has(.screen-app)::after { display: none !important; }
   --shadow-lg: 0 12px 32px -12px rgba(11, 23, 54, 0.16);
   --shadow-glow: 0 8px 28px -10px rgba(13, 148, 136, 0.32);
 
-  background: #F7F8FB;
+  background: #F2EEE5;
   color: #0B1736;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;

@@ -95,7 +95,7 @@ export default function AuthCallbackPage() {
   }, [])
 
   const mk = {
-    bg: '#F7F8FB',
+    bg: '#F2EEE5',
     text: '#0B1736',
     textMuted: '#64748B',
     brand: '#10B981',

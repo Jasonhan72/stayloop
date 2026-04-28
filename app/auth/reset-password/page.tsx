@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useT, LanguageToggle } from '@/lib/i18n'
 
 const mk = {
-  bg:          '#F7F8FB',
+  bg:          '#F2EEE5',
   surface:     '#FFFFFF',
   border:      '#E4E8F0',
   text:        '#0B1736',

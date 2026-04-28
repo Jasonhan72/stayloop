@@ -6,7 +6,7 @@ import { useT, LanguageToggle } from '@/lib/i18n'
 import AuthModal from './AuthModal'
 
 const mk = {
-  bg:          '#F7F8FB',
+  bg:          '#F2EEE5',
   surface:     '#FFFFFF',
   border:      '#E4E8F0',
   borderStrong:'#CBD5E1',

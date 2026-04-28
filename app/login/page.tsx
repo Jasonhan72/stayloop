@@ -8,7 +8,7 @@ import { useIsMobile } from '@/lib/useMediaQuery'
 
 /* ── Marketing-matching palette (mirrors .marketing CSS vars) ── */
 const mk = {
-  bg:          '#F7F8FB',
+  bg:          '#F2EEE5',
   surface:     '#FFFFFF',
   border:      '#E4E8F0',
   borderStrong:'#CBD5E1',
@@ -308,7 +308,7 @@ function LoginInner() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#F7F8FB' }} />}>
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#F2EEE5' }} />}>
       <LoginInner />
     </Suspense>
   )

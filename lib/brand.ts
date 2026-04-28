@@ -11,22 +11,27 @@
 
 export const v3 = {
   // ── Surfaces (matches Stayloop V3 Prototype.html "classic" variation) ──
-  surface: '#FAFAF9',
-  /** Slightly off-white for cards on the cream surface. */
+  // Deepened from the original near-white #FAFAF9 to a warmer, more
+  // substantial cream so the page feels grounded instead of paper-white.
+  // surfaceMuted (used by in-app pages) sits one notch deeper than surface
+  // so the dashboard / pipeline / disputes pages feel slightly more
+  // "workspace-y" while still reading as part of the same family.
+  surface: '#F2EEE5',
+  /** Pure white for cards and elevated panels — pops against cream surface. */
   surfaceCard: '#FFFFFF',
-  /** Very faint mint, used for hero / accent panels. */
-  surfaceTint: '#F0F8F4',
-  /** Slightly cooler off-white for sidebars, body. */
-  surfaceMuted: '#F4F4F2',
+  /** Soft mint, used for hero / accent panels. */
+  surfaceTint: '#E8F0E8',
+  /** Slightly deeper cream, used for in-app body / sidebars. */
+  surfaceMuted: '#EAE5D9',
   /** Deep dark for the passport card and any "always-dark" surfaces. */
   ink: '#0B0B0E',
   ink2: '#16161B',
   ink3: '#1B1B22',
 
-  // ── Borders / dividers ──────────────────────────────────────────────────
-  border: '#E3E3DE',
-  borderStrong: '#D5D5CF',
-  divider: '#EDEDEA',
+  // ── Borders / dividers (lifted to remain visible against deeper cream) ──
+  border: '#D8D2C2',
+  borderStrong: '#C5BDAA',
+  divider: '#E0DACE',
 
   // ── Text ────────────────────────────────────────────────────────────────
   textPrimary: '#171717',
@@ -45,9 +50,9 @@ export const v3 = {
   brandBright: '#10B981',
   brandBright2: '#34D399',
   /** Background tint behind brand-tinted elements. */
-  brandSoft: 'rgba(4, 120, 87, 0.08)',
+  brandSoft: 'rgba(4, 120, 87, 0.10)',
   /** Slightly stronger soft tint for hero panels. */
-  brandWash: '#F0F8F4',
+  brandWash: '#E4EEE3',
   /** Brand outline color used on dark surfaces. */
   brandLine: 'rgba(16, 185, 129, 0.32)',
 

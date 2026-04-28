@@ -9,7 +9,7 @@ import { useIsMobile } from '@/lib/useMediaQuery'
 
 /* ── Marketing-matching palette ── */
 const mk = {
-  bg:          '#F7F8FB',
+  bg:          '#F2EEE5',
   surface:     '#FFFFFF',
   border:      '#E4E8F0',
   borderStrong:'#CBD5E1',
