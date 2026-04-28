@@ -6,6 +6,7 @@ import { v3 } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { Phone } from '@/components/v3/Frame'
 import { supabase } from '@/lib/supabase'
+import AppHeader from '@/components/AppHeader'
 
 interface Clause {
   section: string
@@ -43,6 +44,7 @@ export default function LeaseExplainerPage() {
 
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
+      <AppHeader title="Lease explainer" titleZh="租约审阅" />
       <Phone time="14:38">
         <div style={{ padding: '12px 16px', borderBottom: `1px solid ${v3.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span

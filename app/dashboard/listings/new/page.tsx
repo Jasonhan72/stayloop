@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
+import AppHeader from '@/components/AppHeader'
 
 function slugify(str: string) {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)
@@ -67,15 +68,11 @@ export default function NewListingPage() {
 
   return (
     <div className="min-h-screen">
-      <nav className="nav-bar">
-        <Link href="/dashboard" className="nav-brand" style={{ textDecoration: 'none', fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>
-          Stayloop
-        </Link>
-        <div className="nav-actions">
-          <LanguageToggle />
-          <Link href="/dashboard" className="btn btn-ghost btn-sm">← {t('dash.backToDash')}</Link>
-        </div>
-      </nav>
+      <AppHeader
+        back="/dashboard"
+        title="New listing"
+        titleZh="新建房源"
+      />
 
       <div className="max-w-2xl mx-auto px-6 py-12 fade-up">
         <div className="chip chip-accent mono mb-4">{t('newListing.tag')}</div>

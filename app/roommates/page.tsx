@@ -3,6 +3,7 @@
 import { v3 } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { Phone } from '@/components/v3/Frame'
+import AppHeader from '@/components/AppHeader'
 
 const MEMBERS = [
   { initials: 'WC', name: 'Wei Chen', score: 872, share: 940, sharePct: 40, lead: true, verified: true },
@@ -15,6 +16,7 @@ export default function RoommatesPage() {
   const isZh = lang === 'zh'
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
+      <AppHeader title="Roommates" titleZh="合租" />
       <Phone time="14:48">
         <div style={{ padding: '12px 16px', borderBottom: `1px solid ${v3.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 18, color: v3.textMuted }}>‹</span>

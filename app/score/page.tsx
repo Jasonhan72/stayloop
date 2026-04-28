@@ -7,6 +7,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
+import AppHeader from '@/components/AppHeader'
 
 interface AppRow {
   id: string
@@ -85,20 +86,15 @@ export default function ScorePage() {
 
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/passport" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
-            <span style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
-            <span style={{ fontSize: 16, fontWeight: 700 }}>stayloop</span>
-          </Link>
-          <span style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, background: v3.brandSoft, padding: '4px 10px', borderRadius: 999, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-            Score · {isZh ? '透明仪表盘' : 'Transparency'}
-          </span>
-        </div>
-        <div style={{ fontSize: 12, color: v3.textMuted }}>
-          {app ? `${isZh ? '更新于' : 'Updated'} ${new Date(app.created_at).toLocaleDateString()}` : isZh ? '尚未评分' : 'Not yet scored'}
-        </div>
-      </header>
+      <AppHeader
+        title="Score · Transparency"
+        titleZh="评分 · 透明仪表盘"
+        right={
+          <div style={{ fontSize: 12, color: v3.textMuted, whiteSpace: 'nowrap' }}>
+            {app ? `${isZh ? '更新于' : 'Updated'} ${new Date(app.created_at).toLocaleDateString()}` : isZh ? '尚未评分' : 'Not yet scored'}
+          </div>
+        }
+      />
 
       {!app ? (
         <div style={{ padding: '64px 24px', textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>

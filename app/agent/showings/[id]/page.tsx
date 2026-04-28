@@ -8,6 +8,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
+import AppHeader from '@/components/AppHeader'
 
 interface ShowingDetail {
   id: string
@@ -106,15 +107,16 @@ export default function ShowingDetailPage() {
 
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Link href="/agent/day" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
-          <span style={{ fontSize: 16 }}>‹</span>
-          <span style={{ fontSize: 14, fontWeight: 600 }}>{isZh ? '看房简报' : 'Showing brief'}</span>
-        </Link>
-        <span style={{ fontSize: 12, color: v3.brand, fontWeight: 700 }}>
-          {fmtTime(s.scheduled_at)} · {new Date(s.scheduled_at).toLocaleDateString()}
-        </span>
-      </header>
+      <AppHeader
+        back="/agent/day"
+        title="Showing brief"
+        titleZh="看房简报"
+        right={
+          <span style={{ fontSize: 12, color: v3.brand, fontWeight: 700, whiteSpace: 'nowrap' }}>
+            {fmtTime(s.scheduled_at)} · {new Date(s.scheduled_at).toLocaleDateString()}
+          </span>
+        }
+      />
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24 }}>
         <div style={{ marginBottom: 18 }}>

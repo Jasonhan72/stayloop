@@ -7,6 +7,7 @@ import { v3 } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
+import AppHeader from '@/components/AppHeader'
 
 interface Application {
   id: string
@@ -161,8 +162,9 @@ export default function PassportPage() {
   ]
 
   return (
-    <main style={{ background: v3.surface, minHeight: '100vh', padding: '24px 16px 64px' }}>
-      <div style={{ maxWidth: 480, margin: '0 auto' }}>
+    <main style={{ background: v3.surface, minHeight: '100vh' }}>
+      <AppHeader title="My Passport" titleZh="我的 Passport" />
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 16px 64px' }}>
         {/* top bar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>

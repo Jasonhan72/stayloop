@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
-import UserNav from '@/components/UserNav'
+import AppHeader from '@/components/AppHeader'
 import { useIsMobile } from '@/lib/useMediaQuery'
 
 /* ── Marketing-matching palette ── */
@@ -122,7 +122,7 @@ export default function AccountSettingsPage() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: mk.bg, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
-      <UserNav user={user} signOut={signOut} />
+      <AppHeader title="Account settings" titleZh="账户设置" />
 
       <div style={{ flex: 1, maxWidth: 1040, width: '100%', margin: '0 auto', padding: isMobile ? '20px 16px 40px' : '40px 24px 60px' }}>
         {/* Header */}

@@ -12,7 +12,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { LanguageToggle, useT } from '@/lib/i18n'
-import UserNav from '@/components/UserNav'
+import UserAvatar from '@/components/marketing/UserAvatar'
 import type { Application, Listing } from '@/types'
 import { v3, size } from '@/lib/brand'
 
@@ -271,7 +271,7 @@ export default function PipelinePage() {
               {lang === 'zh' ? '问 Logic' : 'Ask Logic'}
             </Link>
             <LanguageToggle />
-            <UserNav user={landlord} signOut={signOut} />
+            {landlord && <UserAvatar user={landlord} signOut={signOut} />}
           </div>
         </header>
 

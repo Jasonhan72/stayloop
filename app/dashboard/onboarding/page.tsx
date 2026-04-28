@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
+import AppHeader from '@/components/AppHeader'
 
 const STEPS = [
   { en: 'Account', zh: '账户基础', done: true },
@@ -16,16 +17,15 @@ export default function LandlordOnboardingPage() {
   const isZh = lang === 'zh'
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
-            <span style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
-            <span style={{ fontSize: 16, fontWeight: 700 }}>stayloop</span>
-          </Link>
-          <span style={{ fontSize: 14, color: v3.textMuted }}>{isZh ? '欢迎 · Sarah Doyle' : 'Welcome · Sarah Doyle'}</span>
-        </div>
-        <span style={{ fontSize: 12, color: v3.textMuted }}>{isZh ? '第 3 / 4 步 · 约 2 分钟' : 'Step 3 of 4 · ~2 min'}</span>
-      </header>
+      <AppHeader
+        title="Landlord onboarding"
+        titleZh="房东引导"
+        right={
+          <span style={{ fontSize: 12, color: v3.textMuted, whiteSpace: 'nowrap' }}>
+            {isZh ? '第 3 / 4 步 · 约 2 分钟' : 'Step 3 of 4 · ~2 min'}
+          </span>
+        }
+      />
 
       <div style={{ maxWidth: size.content.default, margin: '0 auto', padding: 24, display: 'grid', gridTemplateColumns: '220px 1fr 320px', gap: 24 }} className="lo-grid">
         {/* Steps */}

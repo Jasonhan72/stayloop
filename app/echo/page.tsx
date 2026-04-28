@@ -7,6 +7,7 @@ import { useT } from '@/lib/i18n'
 import { Phone } from '@/components/v3/Frame'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
+import AppHeader from '@/components/AppHeader'
 
 interface ChatLine {
   id: string
@@ -100,6 +101,7 @@ export default function EchoPage() {
 
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
+      <AppHeader title="Echo · Concierge" titleZh="Echo · 智能助手" />
       <Phone>
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <div style={{ padding: '8px 16px 12px', borderBottom: `1px solid ${v3.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

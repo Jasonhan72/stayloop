@@ -7,6 +7,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
+import AppHeader from '@/components/AppHeader'
 
 interface Agent {
   id: string
@@ -110,20 +111,15 @@ export default function FindAgentPage() {
 
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
-            <span style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
-            <span style={{ fontSize: 16, fontWeight: 700 }}>stayloop</span>
-          </Link>
-          <span style={{ fontSize: 18, fontWeight: 700 }}>
-            {isZh ? '找经纪 · Find a Field Agent' : 'Find a Field Agent · 找经纪'}
+      <AppHeader
+        title="Find a Field Agent"
+        titleZh="找经纪"
+        right={
+          <span style={{ fontSize: 11, color: v3.textMuted, whiteSpace: 'nowrap' }}>
+            {isZh ? '6 因子匹配' : '6-factor matching'}
           </span>
-        </div>
-        <span style={{ fontSize: 11, color: v3.textMuted }}>
-          {isZh ? '6 因子匹配' : '6-factor matching'}
-        </span>
-      </header>
+        }
+      />
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24, display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24 }} className="fa-grid">
         <section>

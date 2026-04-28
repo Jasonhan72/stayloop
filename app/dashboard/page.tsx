@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
-import UserNav from '@/components/UserNav'
+import AppHeader from '@/components/AppHeader'
 import { useIsMobile } from '@/lib/useMediaQuery'
 import { Application, Listing } from '@/types'
 
@@ -31,7 +31,7 @@ const mk = {
 export default function Dashboard() {
   const { t } = useT()
   const isMobile = useIsMobile()
-  const { user: landlord, loading: authLoading, signOut } = useUser({ redirectIfMissing: true })
+  const { user: landlord, loading: authLoading } = useUser({ redirectIfMissing: true })
   const [applications, setApplications] = useState<Application[]>([])
   const [listings, setListings] = useState<Listing[]>([])
   const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('free')
@@ -178,7 +178,7 @@ export default function Dashboard() {
   return (
     <div style={{ minHeight: '100vh', background: mk.bg, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
       {/* Nav */}
-      <UserNav user={landlord} signOut={signOut} />
+      <AppHeader title="Dashboard" titleZh="仪表盘" />
 
       <div style={{ maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '20px 14px' : '40px 24px' }}>
         {/* Header */}

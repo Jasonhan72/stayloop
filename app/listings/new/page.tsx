@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { tokens } from '@/lib/agent/theme'
+import AppHeader from '@/components/AppHeader'
 
 interface ChatLine {
   id: string
@@ -225,48 +226,11 @@ export default function NewListingPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: tokens.surfaceMuted, fontFamily: "'Inter', system-ui, sans-serif" }}>
-      <header
-        style={{
-          position: 'sticky',
-          top: 0,
-          background: tokens.surface,
-          borderBottom: `1px solid ${tokens.border}`,
-          padding: '12px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          zIndex: 10,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <a href="/dashboard" style={{ fontSize: 12, color: tokens.textTertiary, textDecoration: 'none' }}>
-            ← Dashboard
-          </a>
-          <span style={{ color: tokens.borderStrong }}>·</span>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: tokens.textPrimary, lineHeight: 1.1 }}>
-              {lang === 'zh' ? '新建房源' : 'New Listing'}
-            </div>
-            <div style={{ fontSize: 10, color: tokens.textTertiary, fontFamily: 'JetBrains Mono, monospace' }}>
-              Nova · Listing Composer
-            </div>
-          </div>
-        </div>
-        <button
-          onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
-          style={{
-            fontSize: 11,
-            padding: '4px 10px',
-            background: tokens.surfaceMuted,
-            border: `1px solid ${tokens.border}`,
-            borderRadius: 6,
-            color: tokens.textSecondary,
-            cursor: 'pointer',
-          }}
-        >
-          {lang === 'zh' ? 'EN' : '中'}
-        </button>
-      </header>
+      <AppHeader
+        back="/dashboard"
+        title="New listing · Nova"
+        titleZh="新建房源 · Nova"
+      />
 
       <main
         style={{

@@ -7,6 +7,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
+import AppHeader from '@/components/AppHeader'
 
 interface Property {
   id: string
@@ -95,18 +96,10 @@ export default function PortfolioPage() {
 
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/dashboard" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
-            <span style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
-            <span style={{ fontSize: 16, fontWeight: 700 }}>stayloop</span>
-          </Link>
-          <span style={{ fontSize: 18, fontWeight: 700 }}>
-            {isZh ? `组合 · ${props.length} 套房产` : `Portfolio · ${props.length} properties`}
-          </span>
-        </div>
-        <span style={{ fontSize: 12, color: v3.textMuted }}>{user?.email}</span>
-      </header>
+      <AppHeader
+        title={`Portfolio · ${props.length} properties`}
+        titleZh={`资产组合 · ${props.length} 套`}
+      />
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24 }}>
         {props.length === 0 ? (

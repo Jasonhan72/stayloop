@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser, useAnonTrialCheck } from '@/lib/useUser'
 import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
-import UserNav from '@/components/UserNav'
+import AppHeader from '@/components/AppHeader'
 import AuthModal from '@/components/AuthModal'
 import { generateScreeningReport } from '@/lib/generateReport'
 
@@ -2242,7 +2242,30 @@ export default function ScreenPage() {
       `}</style>
 
       {/* Header */}
-      <UserNav user={landlord} signOut={signOut} showNewScreening={!!result} onNewScreening={reset} />
+      <AppHeader
+        title="Screen a tenant"
+        titleZh="筛查租客"
+        right={
+          result ? (
+            <button
+              onClick={reset}
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: '#fff',
+                background: 'linear-gradient(135deg, #10B981, #059669)',
+                padding: '8px 14px',
+                borderRadius: 8,
+                border: 'none',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              + {lang === 'zh' ? '新筛查' : 'New screening'}
+            </button>
+          ) : null
+        }
+      />
 
       {/* Auth gate modal — shown when anonymous user has used their 1 free trial */}
       <AuthModal open={showAuthGate} onClose={() => setShowAuthGate(false)} defaultTab="register" next="/screen" />

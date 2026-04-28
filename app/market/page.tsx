@@ -3,25 +3,22 @@
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
+import AppHeader from '@/components/AppHeader'
 
 export default function IndexPage() {
   const { lang } = useT()
   const isZh = lang === 'zh'
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
-            <span style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
-            <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em' }}>stayloop</span>
-          </Link>
-          <span style={{ fontSize: 18, fontWeight: 700 }}>{isZh ? 'Stayloop Index' : 'Stayloop Index'}</span>
-          <span style={{ fontSize: 11, color: v3.textMuted, fontFamily: 'var(--font-mono)' }}>· April 2026</span>
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, background: v3.brandSoft, padding: '4px 10px', borderRadius: 999, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          {isZh ? '由 Analyst 提供' : 'Powered by Analyst'}
-        </span>
-      </header>
+      <AppHeader
+        title="Stayloop Index"
+        titleZh="Stayloop 指数"
+        right={
+          <span style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, background: v3.brandSoft, padding: '4px 10px', borderRadius: 999, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+            {isZh ? '由 Analyst 提供' : 'Powered by Analyst'}
+          </span>
+        }
+      />
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24 }}>
         {/* Hero metric */}

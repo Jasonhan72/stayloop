@@ -7,6 +7,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
+import AppHeader from '@/components/AppHeader'
 
 interface AgentRow {
   id: string
@@ -104,25 +105,22 @@ export default function AgentDayPage() {
 
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
-            <span style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
-            <span style={{ fontSize: 16, fontWeight: 700 }}>stayloop</span>
-          </Link>
-          <span style={{ width: 28, height: 28, borderRadius: 999, background: v3.brand, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700 }}>
-            {agent.initials || agent.display_name.split(' ').map((p) => p[0]).slice(0, 2).join('')}
-          </span>
-          {agent.reco_number && (
-            <span style={{ fontSize: 13, color: v3.textMuted, fontFamily: 'var(--font-mono)' }}>
-              RECO #{agent.reco_number}
+      <AppHeader
+        title="Day brief"
+        titleZh="今日任务"
+        right={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {agent.reco_number && (
+              <span style={{ fontSize: 12, color: v3.textMuted, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
+                RECO #{agent.reco_number}
+              </span>
+            )}
+            <span style={{ fontSize: 12, color: v3.textMuted, whiteSpace: 'nowrap' }}>
+              {new Date().toLocaleDateString(isZh ? 'zh-CN' : 'en-CA', { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>
-          )}
-        </div>
-        <span style={{ fontSize: 12, color: v3.textMuted }}>
-          {new Date().toLocaleDateString(isZh ? 'zh-CN' : 'en-CA', { weekday: 'short', month: 'short', day: 'numeric' })}
-        </span>
-      </header>
+          </div>
+        }
+      />
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>

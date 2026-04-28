@@ -9,6 +9,7 @@ import { createBrowserClient } from '@supabase/ssr'
 import { tokens } from '@/lib/agent/theme'
 import { ScreeningCard } from './components/ScreeningCard'
 import { ActionProposal } from './components/ActionProposal'
+import AppHeader from '@/components/AppHeader'
 
 interface AssistantBlock {
   kind: string
@@ -296,75 +297,29 @@ export default function ChatPage() {
 
 // ─── Header ──────────────────────────────────────────────────────────────
 
-function Header({ lang, setLang }: { lang: 'zh' | 'en'; setLang: (l: 'zh' | 'en') => void }) {
+function Header(_: { lang: 'zh' | 'en'; setLang: (l: 'zh' | 'en') => void }) {
   return (
-    <header
-      style={{
-        position: 'sticky',
-        top: 0,
-        background: tokens.surface,
-        borderBottom: `1px solid ${tokens.border}`,
-        zIndex: 10,
-        padding: '12px 24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 8,
-            background: tokens.accent,
-            display: 'grid',
-            placeItems: 'center',
-            color: '#fff',
-            fontWeight: 800,
-            fontSize: 14,
-          }}
-        >
-          S
-        </div>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: tokens.textPrimary, lineHeight: 1.1 }}>Stayloop</div>
-          <div style={{ fontSize: 10, color: tokens.textTertiary, fontFamily: 'JetBrains Mono, monospace' }}>
-            Logic · Landlord screening
-          </div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        <button
-          onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
-          style={{
-            fontSize: 11,
-            padding: '4px 10px',
-            background: tokens.surfaceMuted,
-            border: `1px solid ${tokens.border}`,
-            borderRadius: 6,
-            color: tokens.textSecondary,
-            cursor: 'pointer',
-          }}
-        >
-          {lang === 'zh' ? 'EN' : '中'}
-        </button>
+    <AppHeader
+      title="Logic · Landlord screening"
+      titleZh="Logic · 房东筛查"
+      right={
         <a
           href="/screen"
           style={{
             fontSize: 11,
-            padding: '4px 10px',
+            padding: '6px 10px',
             background: tokens.surfaceMuted,
             border: `1px solid ${tokens.border}`,
             borderRadius: 6,
             color: tokens.textSecondary,
             textDecoration: 'none',
+            whiteSpace: 'nowrap',
           }}
         >
-          {lang === 'zh' ? '经典模式' : 'Classic mode'}
+          Classic mode
         </a>
-      </div>
-    </header>
+      }
+    />
   )
 }
 

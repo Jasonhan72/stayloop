@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
 import { Application, ApplicationFile } from '@/types'
+import AppHeader from '@/components/AppHeader'
 
 const DIMENSIONS: { key: string; label: string; weight: number }[] = [
   { key: 'doc_authenticity_score', label: 'Doc Authenticity', weight: 20 },
@@ -152,15 +153,11 @@ export default function ApplicationDetailPage() {
 
   return (
     <div className="min-h-screen">
-      <nav className="nav-bar">
-        <Link href="/dashboard" className="nav-brand" style={{ textDecoration: 'none', fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>
-          Stayloop
-        </Link>
-        <div className="nav-actions">
-          <LanguageToggle />
-          <Link href="/dashboard" className="btn btn-ghost btn-sm">← {t('dash.backToDash')}</Link>
-        </div>
-      </nav>
+      <AppHeader
+        back="/dashboard"
+        title="Application detail"
+        titleZh="申请详情"
+      />
 
       <div className="max-w-5xl mx-auto px-6 py-10 fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* Header */}

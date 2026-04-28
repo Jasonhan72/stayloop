@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
+import AppHeader from '@/components/AppHeader'
 
 const TIMELINE = [
   { date: 'Apr 21', en: 'Passport verified', zh: '通行证已验证', who: 'Wei (tenant)', done: true },
@@ -18,20 +19,18 @@ export default function LeaseEscrowPage() {
   const isZh = lang === 'zh'
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
-            <span style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
-            <span style={{ fontSize: 16, fontWeight: 700 }}>stayloop</span>
-          </Link>
-          <span style={{ fontSize: 16, fontWeight: 700 }}>{isZh ? '租约 + 托管' : 'Lease + Escrow'}</span>
-          <span style={{ fontSize: 12, color: v3.textMuted, fontFamily: 'var(--font-mono)' }}>The Hudson #1208 · 2350 King W</span>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, background: v3.brandSoft, padding: '4px 10px', borderRadius: 999 }}>{isZh ? '资金已托管' : 'Funds in escrow'}</span>
-          <span style={{ fontSize: 11, color: v3.textMuted, fontFamily: 'var(--font-mono)' }}>Lease #LS-9401</span>
-        </div>
-      </header>
+      <AppHeader
+        title="Lease + Escrow"
+        titleZh="租约 + 托管"
+        right={
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, background: v3.brandSoft, padding: '4px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+              {isZh ? '资金已托管' : 'Funds in escrow'}
+            </span>
+            <span style={{ fontSize: 11, color: v3.textMuted, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>Lease #LS-9401</span>
+          </div>
+        }
+      />
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24, display: 'grid', gridTemplateColumns: '420px 1fr', gap: 24 }} className="le-grid">
         {/* Timeline */}

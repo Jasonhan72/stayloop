@@ -6,6 +6,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
+import AppHeader from '@/components/AppHeader'
 
 interface Dispute {
   id: string
@@ -73,21 +74,18 @@ export default function DisputesListPage() {
 
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
-            <span style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
-            <span style={{ fontSize: 16, fontWeight: 700 }}>stayloop</span>
-          </Link>
-          <span style={{ fontSize: 18, fontWeight: 700 }}>{isZh ? '纠纷调解' : 'Disputes · Mediator'}</span>
-        </div>
-        <button
-          onClick={() => setShowNew(true)}
-          style={{ padding: '8px 16px', background: v3.brand, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-        >
-          + {isZh ? '新建纠纷' : 'New dispute'}
-        </button>
-      </header>
+      <AppHeader
+        title="Disputes · Mediator"
+        titleZh="纠纷调解"
+        right={
+          <button
+            onClick={() => setShowNew(true)}
+            style={{ padding: '8px 14px', background: v3.brand, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            + {isZh ? '新建纠纷' : 'New dispute'}
+          </button>
+        }
+      />
 
       <div style={{ maxWidth: size.content.default, margin: '0 auto', padding: 24 }}>
         {disputes.length === 0 ? (
