@@ -187,7 +187,7 @@ export default function Dashboard() {
             <div style={{ fontSize: 11, color: mk.brand, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6, fontWeight: 700 }}>{t('dash.overview')}</div>
             <h1 style={{ fontSize: isMobile ? 24 : 36, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em', margin: 0 }}>{t('dash.title')}</h1>
           </div>
-          <Link href="/dashboard/listings/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 20px', borderRadius: 10, background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`, color: '#fff', fontSize: 14, fontWeight: 650, textDecoration: 'none', border: 'none', cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(13,148,136,0.6), inset 0 1px 0 rgba(255,255,255,0.15)' }}>+ {t('dash.newListing')}</Link>
+          <Link href="/listings/new" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 20px', borderRadius: 10, background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`, color: '#fff', fontSize: 14, fontWeight: 650, textDecoration: 'none', border: 'none', cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(13,148,136,0.6), inset 0 1px 0 rgba(255,255,255,0.15)' }}>+ {t('dash.newListing')}</Link>
         </div>
 
         {/* Stats */}
@@ -220,7 +220,7 @@ export default function Dashboard() {
             <div style={{ padding: 48, textAlign: 'center' }}>
               <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.3 }}>▱</div>
               <div style={{ fontSize: 14, color: mk.textMuted, marginBottom: 16 }}>{t('dash.noListings')}</div>
-              <Link href="/dashboard/listings/new" style={{ fontSize: 14, color: mk.brand, textDecoration: 'underline', fontWeight: 500 }}>{t('dash.createFirst')}</Link>
+              <Link href="/listings/new" style={{ fontSize: 14, color: mk.brand, textDecoration: 'underline', fontWeight: 500 }}>{t('dash.createFirst')}</Link>
             </div>
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
