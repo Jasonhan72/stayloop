@@ -9,7 +9,7 @@ import { v3 } from '@/lib/brand'
 import { useT, LanguageToggle } from '@/lib/i18n'
 import { useUser } from '@/lib/useUser'
 import AuthModal from '@/components/AuthModal'
-import UserNav from '@/components/UserNav'
+import UserAvatar from '@/components/marketing/UserAvatar'
 
 const NAV_ITEMS: Array<{ href: string; zh: string; en: string }> = [
   { href: '/tenants', zh: '租客', en: 'Tenants' },
@@ -106,8 +106,8 @@ export default function MarketingNav() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <LanguageToggle />
-            {isAuthed ? (
-              <UserNav user={user} signOut={signOut} />
+            {isAuthed && user ? (
+              <UserAvatar user={user} signOut={signOut} />
             ) : (
               <>
                 <button
