@@ -92,11 +92,21 @@ export default function NewListingPage() {
   // refining the listing after the initial import (e.g. "make the title more
   // upscale", "translate the description to plain English", "add a pet
   // policy: cats only").
+  //
+  // Don't clear the input until the request actually starts. If runNova
+  // throws (network error, auth gone, etc.) we restore the input so the user
+  // doesn't lose what they typed.
   async function sendChatMessage() {
     const msg = chatInput.trim()
     if (!msg || streaming) return
+    const previousInput = chatInput
     setChatInput('')
-    await runNova(msg)
+    try {
+      await runNova(msg)
+    } catch (e) {
+      setChatInput(previousInput)
+      throw e
+    }
   }
 
   async function uploadPdf(e: React.ChangeEvent<HTMLInputElement>) {

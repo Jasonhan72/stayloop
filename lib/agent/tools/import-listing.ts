@@ -205,7 +205,13 @@ async function fetchUrlContent(url: string): Promise<UrlFetchOk | UrlFetchErr> {
     })
     if (res.ok) {
       const md = await res.text()
-      if (md && md.length > 200) {
+      // Guard: Jina occasionally returns 200 with an HTML "Reader is loading"
+      // / "Access denied" interstitial instead of markdown. Treat any
+      // response that opens with HTML or doesn't have plausible markdown
+      // length/shape as a soft failure and fall through to direct fetch.
+      const looksLikeHtml = /^\s*<(\!doctype|html|head|body)\b/i.test(md)
+      const looksLikeMarkdown = /[\n#*\-]/.test(md) // line breaks / md tokens
+      if (md && md.length > 200 && !looksLikeHtml && looksLikeMarkdown) {
         return { ok: true, body: md.slice(0, 30_000), via: 'jina' }
       }
     }
@@ -264,6 +270,13 @@ async function fetchUrlContent(url: string): Promise<UrlFetchOk | UrlFetchErr> {
       if (nextDataMatch) body += `\n\n__NEXT_DATA__:\n${nextDataMatch[1].slice(0, 6_000)}`
       body += `\n\nVisible HTML (stripped):\n${cleaned.slice(0, 8_000)}`
       return { ok: true, body, via: 'json-ld' }
+    }
+    // Guard: SPA shells / blocked pages can return a near-empty body once
+    // scripts and styles are stripped. If there's almost nothing useful to
+    // hand the extractor, surface a clear error to Nova instead of letting
+    // Haiku silently produce a null-filled listing.
+    if (cleaned.length < 200) {
+      return { ok: false, error: 'fetch_no_content' }
     }
     return { ok: true, body: cleaned, via: 'html' }
   } catch (e: any) {
