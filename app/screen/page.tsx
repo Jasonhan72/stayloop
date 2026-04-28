@@ -2353,9 +2353,11 @@ export default function ScreenPage() {
                     <div style={{ fontSize: 34, marginBottom: 10, opacity: 0.9 }}>📁</div>
                     <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: '#0B1736' }}>{t('screen.drop.title')}</div>
                     <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>{t('screen.drop.sub')}</div>
-                    {/* Filled emerald button — matches the primary CTA on the home page.
-                        We strip the leading 📎 emoji from the i18n string and replace it
-                        with our SVG paperclip so we don't render two icons. */}
+                    {/* Filled emerald button — matches the bottom 开始筛查 button.
+                        Same gradient + shadow recipe as .btn-primary inside .screen-app
+                        so every primary action on the page reads as one button family.
+                        We strip the leading 📎 emoji from the i18n string and replace
+                        it with our SVG paperclip so we don't render two icons. */}
                     <div
                       style={{
                         marginTop: 16,
@@ -2366,9 +2368,9 @@ export default function ScreenPage() {
                         fontSize: 13,
                         fontWeight: 600,
                         borderRadius: 10,
-                        background: '#047857',
+                        background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
                         color: '#FFFFFF',
-                        boxShadow: '0 4px 12px -3px rgba(4, 120, 87, 0.35)',
+                        boxShadow: '0 8px 22px -10px rgba(13, 148, 136, 0.55), 0 1px 0 rgba(255, 255, 255, 0.18) inset',
                       }}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
