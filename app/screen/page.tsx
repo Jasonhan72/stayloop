@@ -2353,11 +2353,13 @@ export default function ScreenPage() {
                     <div style={{ fontSize: 34, marginBottom: 10, opacity: 0.9 }}>📁</div>
                     <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: '#0B1736' }}>{t('screen.drop.title')}</div>
                     <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>{t('screen.drop.sub')}</div>
-                    {/* Filled emerald button — matches the bottom 开始筛查 button.
-                        Same gradient + shadow recipe as .btn-primary inside .screen-app
-                        so every primary action on the page reads as one button family.
-                        We strip the leading 📎 emoji from the i18n string and replace
-                        it with our SVG paperclip so we don't render two icons. */}
+                    {/* Soft-mint button — same color recipe as the bottom 开始筛查
+                        button below so both primary actions on the page read as
+                        the same chip. Pale-mint #6EE7B7→#34D399 matches the
+                        target the user picked from the design screenshot.
+                        We strip the leading 📎 emoji from the i18n string and
+                        replace it with the SVG paperclip so we don't render
+                        two icons. */}
                     <div
                       style={{
                         marginTop: 16,
@@ -2368,9 +2370,9 @@ export default function ScreenPage() {
                         fontSize: 13,
                         fontWeight: 600,
                         borderRadius: 10,
-                        background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                        background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
                         color: '#FFFFFF',
-                        boxShadow: '0 8px 22px -10px rgba(13, 148, 136, 0.55), 0 1px 0 rgba(255, 255, 255, 0.18) inset',
+                        boxShadow: '0 8px 22px -10px rgba(52, 211, 153, 0.45), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
                       }}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -2534,15 +2536,22 @@ export default function ScreenPage() {
                     <button
                       onClick={runAnalysis}
                       disabled={isDisabled}
-                      className="btn btn-primary"
                       style={{
                         width: '100%', padding: '14px 28px', fontSize: 15, borderRadius: 12, fontWeight: 650,
                         height: 52,
-                        // Disabled state: replace washed-out opacity with a calm muted bg so the
-                        // button still reads cleanly against the cream surface.
-                        ...(isDisabled
-                          ? { background: '#D8D2C2', color: '#71717A', boxShadow: 'none', cursor: 'not-allowed' }
-                          : {}),
+                        // Same soft-mint gradient as the 选择文件 button above, regardless
+                        // of disabled state — both primary actions on /screen now share
+                        // one visual identity. We avoid the className=".btn-primary"
+                        // (which would re-apply the brighter #10B981→#059669 gradient
+                        // and override these styles) and just use cursor:not-allowed +
+                        // pointer-events:none for the disabled affordance.
+                        background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+                        color: '#FFFFFF',
+                        boxShadow: '0 8px 22px -10px rgba(52, 211, 153, 0.45), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
+                        border: 'none',
+                        cursor: isDisabled ? 'not-allowed' : 'pointer',
+                        pointerEvents: isDisabled ? 'none' : 'auto',
+                        transition: 'transform .15s ease, box-shadow .15s ease',
                       }}
                     >
                       {classifying
@@ -2552,8 +2561,8 @@ export default function ScreenPage() {
                         <span style={{
                           marginLeft: 10, fontSize: 10.5, fontWeight: 700,
                           padding: '3px 8px', borderRadius: 5, letterSpacing: '0.08em',
-                          background: isDisabled ? 'rgba(113, 113, 122, 0.15)' : 'rgba(255, 255, 255, 0.22)',
-                          color: isDisabled ? '#71717A' : '#FFFFFF',
+                          background: 'rgba(255, 255, 255, 0.28)',
+                          color: '#FFFFFF',
                         }}>PRO</span>
                       )}
                     </button>
