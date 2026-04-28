@@ -74,6 +74,15 @@ html, body {
   text-rendering: optimizeLegibility;
 }
 
+/* Reserve scrollbar gutter so navigations between long pages (with a
+   scrollbar) and short pages (without one) don't horizontally shift the
+   centered nav contents. scrollbar-gutter is the modern, supported way
+   to do this; the overflow-y: scroll fallback handles older browsers. */
+html {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
 body {
   min-height: 100vh;
   overflow-x: hidden;
