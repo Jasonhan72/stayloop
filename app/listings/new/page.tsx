@@ -65,9 +65,21 @@ export default function NewListingPage() {
 
   useEffect(() => {
     if (!supabase) return
+    // Initial session read — populates authToken on mount.
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthToken(session?.access_token ?? null)
     })
+    // Stay in sync with subsequent auth state changes. Without this listener,
+    // if the initial getSession() returned null (Cloudflare edge timing,
+    // localStorage hiccup), the page would stay authToken=null forever and
+    // clicking 让 Nova 整理 would always alert "请先登录" even after the
+    // session loaded a moment later.
+    const sub = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthToken(session?.access_token ?? null)
+    })
+    return () => {
+      sub.data.subscription.unsubscribe()
+    }
   }, [supabase])
 
   useEffect(() => () => abortRef.current?.abort(), [])
@@ -76,6 +88,8 @@ export default function NewListingPage() {
     if (!supabase) return
     const f = e.target.files?.[0]
     if (!f) return
+    // Re-fetch the session live (don't rely on local authToken state — it may
+    // not have hydrated yet on this page mount).
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       alert(lang === 'zh' ? '请先登录' : 'Please sign in')
@@ -95,7 +109,18 @@ export default function NewListingPage() {
   }
 
   async function startWithSource() {
-    if (!supabase || !authToken) {
+    if (!supabase) return
+    // Be defensive: authToken from state may not have hydrated yet, so try a
+    // live getSession() before falling back to the alert. The user is almost
+    // certainly logged in if they reached this page (the avatar in AppHeader
+    // requires a session) — no point bouncing them with "请先登录".
+    let token = authToken
+    if (!token) {
+      const { data: { session } } = await supabase.auth.getSession()
+      token = session?.access_token ?? null
+      if (token) setAuthToken(token)
+    }
+    if (!token) {
       alert(lang === 'zh' ? '请先登录' : 'Please sign in')
       return
     }
@@ -290,6 +315,10 @@ export default function NewListingPage() {
                       : 'Paste your listing copy (from Kijiji / 51.ca / handwritten — anything goes)'
                   }
                   rows={10}
+                  // Explicit color + bg so the global :root color (light text from
+                  // the dark theme) doesn't bleed through and make typed text
+                  // invisible against the white field. WebkitTextFillColor pins
+                  // iOS Safari which sometimes overrides via autofill style.
                   style={{
                     width: '100%',
                     padding: 12,
@@ -299,6 +328,10 @@ export default function NewListingPage() {
                     fontFamily: 'inherit',
                     resize: 'vertical',
                     boxSizing: 'border-box',
+                    background: '#FFFFFF',
+                    color: '#0B1736',
+                    WebkitTextFillColor: '#0B1736',
+                    caretColor: '#0B1736',
                   }}
                 />
               )}
@@ -315,6 +348,10 @@ export default function NewListingPage() {
                     borderRadius: 8,
                     fontSize: 13,
                     boxSizing: 'border-box',
+                    background: '#FFFFFF',
+                    color: '#0B1736',
+                    WebkitTextFillColor: '#0B1736',
+                    caretColor: '#0B1736',
                   }}
                 />
               )}

@@ -117,6 +117,43 @@ body::after {
 
 body > * { position: relative; z-index: 1; }
 
+/* ──────────────────────────────────────────────────────────────────
+   Native form-control text color — system-wide guard
+   ──────────────────────────────────────────────────────────────────
+   The legacy --text-primary is light (white) for dark-mode shells.
+   Native <input> / <textarea> / <select> elements inherit this color
+   from <body>, so when the surrounding surface is light cream (V3),
+   typed text would render white-on-white and look invisible. Explicit
+   defaults here make every form control render with dark text on a
+   white field by default. Pages that need a dark-themed input can
+   still override these via component-level styles.
+   ──────────────────────────────────────────────────────────────── */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+input[type="number"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="time"],
+input[type="week"],
+textarea,
+select {
+  color: #0B1736;
+  -webkit-text-fill-color: #0B1736;
+  caret-color: #0B1736;
+}
+/* Reset for explicitly dark-themed inputs that opt in via class */
+.dark-input,
+.dark-input input,
+.dark-input textarea {
+  color: var(--text-primary, #F1F5F9);
+  -webkit-text-fill-color: var(--text-primary, #F1F5F9);
+}
+
 /* Selection */
 ::selection { background: rgba(20, 184, 166, 0.35); color: #fff; }
 
