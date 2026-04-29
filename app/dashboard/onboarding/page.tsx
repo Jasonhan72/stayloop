@@ -28,6 +28,21 @@ export default function LandlordOnboardingPage() {
       />
 
       <div style={{ maxWidth: size.content.default, margin: '0 auto', padding: 24, display: 'grid', gridTemplateColumns: '220px 1fr 320px', gap: 24 }} className="lo-grid">
+        <style jsx>{`
+          @media (max-width: 1023px) {
+            :global(.lo-grid) {
+              grid-template-columns: 1fr !important;
+            }
+          }
+          @media (max-width: 767px) {
+            :global(.lo-grid) {
+              grid-template-columns: 1fr !important;
+            }
+            :global(.lo-grid > aside:last-child) {
+              display: none !important;
+            }
+          }
+        `}</style>
         {/* Steps */}
         <aside style={{ position: 'sticky', top: 24, alignSelf: 'start' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -125,9 +140,6 @@ export default function LandlordOnboardingPage() {
         </aside>
       </div>
 
-      <style jsx>{`
-        @media (max-width: 980px) { :global(.lo-grid) { grid-template-columns: 1fr !important; } }
-      `}</style>
     </main>
   )
 }

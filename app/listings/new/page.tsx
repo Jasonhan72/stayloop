@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { tokens } from '@/lib/agent/theme'
-import { v3 } from '@/lib/brand'
+import { v3, size } from '@/lib/brand'
 import AppHeader from '@/components/AppHeader'
 
 interface ChatLine {
@@ -342,13 +342,14 @@ export default function NewListingPage() {
 
       <main
         style={{
-          maxWidth: 1200,
+          maxWidth: size.content.wide,
           margin: '0 auto',
           padding: '24px 16px',
           display: 'grid',
           gridTemplateColumns: 'minmax(0, 0.85fr) minmax(0, 1.15fr)',
           gap: 24,
         }}
+        className="listings-new-grid"
       >
         {/* Left: source input + draft preview */}
         <section>
@@ -655,6 +656,13 @@ export default function NewListingPage() {
           </div>
         </section>
       </main>
+      <style jsx>{`
+        @media (max-width: 1023px) {
+          :global(.listings-new-grid) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }

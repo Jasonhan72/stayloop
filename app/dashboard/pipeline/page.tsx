@@ -347,7 +347,7 @@ export default function PipelinePage() {
         </div>
       </main>
       <style jsx>{`
-        @media (max-width: 760px) {
+        @media (max-width: 1023px) {
           :global(.pl-sidebar) {
             display: none !important;
           }

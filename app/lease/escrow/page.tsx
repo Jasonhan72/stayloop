@@ -33,6 +33,13 @@ export default function LeaseEscrowPage() {
       />
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24, display: 'grid', gridTemplateColumns: '420px 1fr', gap: 24 }} className="le-grid">
+        <style jsx>{`
+          @media (max-width: 1023px) {
+            :global(.le-grid) {
+              grid-template-columns: 1fr !important;
+            }
+          }
+        `}</style>
         {/* Timeline */}
         <section>
           <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18 }}>
@@ -109,7 +116,6 @@ export default function LeaseEscrowPage() {
           </div>
         </section>
       </div>
-      <style jsx>{`@media (max-width: 980px){:global(.le-grid){grid-template-columns:1fr !important;}}`}</style>
     </main>
   )
 }

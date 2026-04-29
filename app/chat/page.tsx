@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { tokens } from '@/lib/agent/theme'
+import { size } from '@/lib/brand'
 import { ScreeningCard } from './components/ScreeningCard'
 import { ActionProposal } from './components/ActionProposal'
 import AppHeader from '@/components/AppHeader'
@@ -252,7 +253,7 @@ export default function ChatPage() {
       <main
         ref={scrollRef}
         style={{
-          maxWidth: 860,
+          maxWidth: size.content.narrow,
           margin: '0 auto',
           padding: '20px 16px 200px',
           minHeight: 'calc(100vh - 60px)',
@@ -629,7 +630,7 @@ function Composer({
         boxShadow: '0 -4px 20px rgba(15, 23, 42, 0.04)',
       }}
     >
-      <div style={{ maxWidth: 860, margin: '0 auto' }}>
+      <div style={{ maxWidth: size.content.narrow, margin: '0 auto' }}>
         {attached.length > 0 && (
           <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {attached.map((f, i) => (

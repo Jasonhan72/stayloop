@@ -192,7 +192,21 @@ export default function ScorePage() {
         </div>
       )}
 
-      <style jsx>{`@media (max-width: 880px){:global(.sc-grid){grid-template-columns:1fr !important;}:global(.sc-grid > aside){position:static !important;}}`}</style>
+      <style jsx>{`
+        @media (max-width: 880px) {
+          :global(.sc-grid) {
+            grid-template-columns: 1fr !important;
+          }
+          :global(.sc-grid > aside) {
+            position: static !important;
+          }
+        }
+        @media (max-width: 767px) {
+          :global(.sc-grid) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </main>
   )
 }

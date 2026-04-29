@@ -36,7 +36,7 @@ export default function OnboardPage() {
 
   return (
     <main style={{ background: v3.surface, minHeight: '100vh', padding: '24px 16px 40px' }}>
-      <div style={{ maxWidth: 480, margin: '0 auto' }}>
+      <div className="onboard-container" style={{ margin: '0 auto' }}>
         {/* nav row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <Link
@@ -185,6 +185,18 @@ export default function OnboardPage() {
             : '256-bit encryption · PIPEDA compliant · revoke access any time'}
         </p>
       </div>
+      <style jsx>{`
+        @media (min-width: 768px) {
+          :global(.onboard-container) {
+            maxWidth: 720px;
+          }
+        }
+        @media (max-width: 767px) {
+          :global(.onboard-container) {
+            maxWidth: 480px;
+          }
+        }
+      `}</style>
     </main>
   )
 }

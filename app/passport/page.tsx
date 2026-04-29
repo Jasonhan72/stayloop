@@ -3,7 +3,7 @@
 // Production: composes the current user's passport from auth + applications + tenancies.
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { v3 } from '@/lib/brand'
+import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
@@ -191,9 +191,9 @@ export default function PassportPage() {
   return (
     <main style={{ background: v3.surface, minHeight: '100vh' }}>
       <AppHeader title="My Passport" titleZh="我的 Passport" />
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 16px 64px' }}>
-        {/* top bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '24px 16px 64px' }} className="passport-outer">
+        {/* top bar - spans full width on desktop, stacks on mobile */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }} className="passport-topbar">
           <div style={{ fontSize: 11, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             {isZh ? '租客护照' : 'VERIFIED RENTER PASSPORT'}
           </div>
@@ -203,7 +203,10 @@ export default function PassportPage() {
           </div>
         </div>
 
-        {/* hero card */}
+        {/* main grid: left column (hero + claims) | right column (actions) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }} className="passport-grid">
+          <section>
+            {/* hero card */}
         <div style={{ background: 'linear-gradient(180deg, #0F172A 0%, #1E293B 100%)', borderRadius: 18, padding: 20, color: '#fff', position: 'relative', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
             <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.02em', color: '#fff' }}>stayloop</span>
@@ -272,68 +275,70 @@ export default function PassportPage() {
         </div>
 
         {/* Claims chip row */}
-        <div style={{ fontSize: 10, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '20px 4px 12px' }}>
-          {isZh ? '核心声明' : 'KEY CLAIMS'}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
-          {claimsChips.map((c, i) => (
-            <div
-              key={i}
-              style={{
-                padding: '8px 10px',
-                borderRadius: 999,
-                background: c.verified ? v3.brandSoft : 'rgba(113, 113, 122, 0.1)',
-                border: `1px solid ${c.verified ? v3.brand : 'transparent'}`,
-                fontSize: 11,
-                fontWeight: 600,
-                color: c.verified ? v3.brandStrong : v3.textMuted,
-                textAlign: 'center',
-                opacity: c.verified ? 1 : 0.6,
-              }}
-            >
-              {c.verified ? '✓ ' : '? '}{isZh ? c.title_zh : c.title_en}
+            <div style={{ fontSize: 10, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '20px 4px 12px' }}>
+              {isZh ? '核心声明' : 'KEY CLAIMS'}
             </div>
-          ))}
-        </div>
-
-        <div style={{ fontSize: 10, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '24px 4px 12px' }}>
-          {isZh ? '房东可见声明' : 'WHAT LANDLORDS SEE · 房东可见声明'}
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {claimsRowData.map((c, i) => (
-            <ClaimRow key={i} claim={c} isZh={isZh} />
-          ))}
-        </div>
-
-        {/* QR + share */}
-        <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: v3.surfaceCard, border: `1px dashed ${v3.borderStrong}`, borderRadius: 14 }}>
-          <div aria-hidden style={{ width: 44, height: 44, borderRadius: 8, background: '#fff', border: `1px solid ${v3.border}`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-            <QrGlyph />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: v3.textPrimary }}>
-              {isZh ? '分享你的 Passport' : 'Share your Passport'}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
+              {claimsChips.map((c, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 999,
+                    background: c.verified ? v3.brandSoft : 'rgba(113, 113, 122, 0.1)',
+                    border: `1px solid ${c.verified ? v3.brand : 'transparent'}`,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: c.verified ? v3.brandStrong : v3.textMuted,
+                    textAlign: 'center',
+                    opacity: c.verified ? 1 : 0.6,
+                  }}
+                >
+                  {c.verified ? '✓ ' : '? '}{isZh ? c.title_zh : c.title_en}
+                </div>
+              ))}
             </div>
-            <div style={{ fontSize: 10.5, color: v3.textMuted, fontFamily: 'var(--font-mono), ui-monospace, monospace', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              passport.stayloop.ai/{passportId.toLowerCase().replace(/^sl-/, '')} · {isZh ? '可撤销' : 'revocable'}
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/passport/${passportId}`
-              if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                navigator.clipboard.writeText(url)
-                alert(isZh ? '已复制' : 'Copied')
-              }
-            }}
-            style={{ padding: '7px 12px', background: v3.textPrimary, color: v3.surface, border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
-          >
-            {isZh ? '复制' : 'Copy'}
-          </button>
-        </div>
 
-        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '24px 4px 12px' }}>
+              {isZh ? '房东可见声明' : 'WHAT LANDLORDS SEE · 房东可见声明'}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {claimsRowData.map((c, i) => (
+                <ClaimRow key={i} claim={c} isZh={isZh} />
+              ))}
+            </div>
+
+            {/* QR + share */}
+            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: v3.surfaceCard, border: `1px dashed ${v3.borderStrong}`, borderRadius: 14 }}>
+              <div aria-hidden style={{ width: 44, height: 44, borderRadius: 8, background: '#fff', border: `1px solid ${v3.border}`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                <QrGlyph />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: v3.textPrimary }}>
+                  {isZh ? '分享你的 Passport' : 'Share your Passport'}
+                </div>
+                <div style={{ fontSize: 10.5, color: v3.textMuted, fontFamily: 'var(--font-mono), ui-monospace, monospace', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  passport.stayloop.ai/{passportId.toLowerCase().replace(/^sl-/, '')} · {isZh ? '可撤销' : 'revocable'}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/passport/${passportId}`
+                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                    navigator.clipboard.writeText(url)
+                    alert(isZh ? '已复制' : 'Copied')
+                  }
+                }}
+                style={{ padding: '7px 12px', background: v3.textPrimary, color: v3.surface, border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
+              >
+                {isZh ? '复制' : 'Copy'}
+              </button>
+            </div>
+          </section>
+
+          {/* Right column: actions */}
+          <aside style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <Link
             href="/score"
             style={{ display: 'block', textAlign: 'center', fontSize: 13, fontWeight: 600, color: v3.brandStrong, padding: '12px 14px', background: v3.brandSoft, borderRadius: 10, textDecoration: 'none' }}
@@ -352,14 +357,15 @@ export default function PassportPage() {
           >
             {isZh ? '邀请房东核签' : 'Request co-sign'}
           </button>
-          {!bestApp && (
-            <Link
-              href="/screen"
-              style={{ display: 'block', textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#fff', padding: '12px 14px', background: v3.brand, borderRadius: 10, textDecoration: 'none' }}
-            >
-              {isZh ? '完成筛查解锁评分 →' : 'Complete a screening →'}
-            </Link>
-          )}
+            {!bestApp && (
+              <Link
+                href="/screen"
+                style={{ display: 'block', textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#fff', padding: '12px 14px', background: v3.brand, borderRadius: 10, textDecoration: 'none' }}
+              >
+                {isZh ? '完成筛查解锁评分 →' : 'Complete a screening →'}
+              </Link>
+            )}
+          </aside>
         </div>
 
         {/* Co-sign request modal */}
@@ -423,6 +429,16 @@ export default function PassportPage() {
           </div>
         )}
       </div>
+      <style jsx>{`
+        @media (max-width: 767px) {
+          :global(.passport-grid) {
+            grid-template-columns: 1fr !important;
+          }
+          :global(.passport-topbar) {
+            marginBottom: 24px;
+          }
+        }
+      `}</style>
     </main>
   )
 }

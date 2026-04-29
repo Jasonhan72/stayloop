@@ -131,7 +131,7 @@ export default function PartnersPage() {
           ))}
         </aside>
       </div>
-      <style jsx>{`@media (max-width: 980px){:global(.pn-grid){grid-template-columns:1fr !important;}}`}</style>
+      <style jsx>{`@media (max-width: 1024px){:global(.pn-grid){grid-template-columns:1fr !important;}}`}</style>
     </main>
   )
 }
