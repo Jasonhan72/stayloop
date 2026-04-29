@@ -1,11 +1,19 @@
 'use client'
 // -----------------------------------------------------------------------------
-// V3 prototype frame helpers — responsive iOS phone + browser chrome
+// V3 prototype frame helpers — responsive container
 // -----------------------------------------------------------------------------
-// On desktop (>= 768px wide), Phone() renders an iOS bezel (showcase mode).
-// On mobile (< 768px), it renders edge-to-edge so the page feels like a real
-// native app — no awkward "phone inside a phone" nesting. Browser() always
-// renders Mac-style chrome on desktop and a clean full-bleed page on mobile.
+// Phone() used to render a literal iOS bezel on desktop — that was prototype
+// styling and felt like fake "phone inside a webpage" chrome. The user
+// preference is a real desktop layout. Now:
+//
+//   - Mobile (< 768px): edge-to-edge native, with the iOS-style time +
+//     signal/battery row at the top (kept because it reads well on phones).
+//   - Desktop (>= 768px): centered cream card column (max-width 540px) on
+//     the V3 surface. NO bezel, NO time/status bar — looks like a focused
+//     web reading column, not a prototype mock.
+//
+// Pages don't need to change; the wrapper alone produces both layouts.
+// Browser() (used for marketing prototype mocks) is unchanged.
 // -----------------------------------------------------------------------------
 
 import type { ReactNode } from 'react'
@@ -16,6 +24,7 @@ export function Phone({
   time = '14:22',
 }: {
   children: ReactNode
+  /** Time shown only on the mobile status bar; ignored on desktop. */
   time?: string
   /** Deprecated — width/height are no longer used; the frame is responsive. */
   width?: number
@@ -50,75 +59,21 @@ export function Phone({
         <div>{children}</div>
       </div>
 
-      {/* Desktop (>= 768px) — phone bezel showcase */}
+      {/* Desktop (>= 768px) — centered cream card, no iOS bezel */}
       <div className="phone-desktop">
         <div
           style={{
-            width: 360,
-            height: 760,
-            margin: '24px auto',
-            borderRadius: 44,
-            background: '#0B0B0E',
-            padding: 8,
-            boxShadow: '0 0 0 8px #1a1a1f, 0 30px 70px rgba(0,0,0,0.45), 0 0 0 9px #2a2a30',
-            position: 'relative',
+            maxWidth: 540,
+            margin: '24px auto 64px',
+            background: v3.surfaceCard,
+            border: `1px solid ${v3.border}`,
+            borderRadius: 18,
+            boxShadow:
+              '0 1px 3px rgba(31, 25, 11, 0.04), 0 12px 32px -8px rgba(31, 25, 11, 0.08)',
+            overflow: 'hidden',
           }}
         >
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              top: 14,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: 100,
-              height: 22,
-              borderRadius: 16,
-              background: '#000',
-              zIndex: 50,
-            }}
-          />
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              borderRadius: 36,
-              overflow: 'hidden',
-              background: v3.surface,
-              position: 'relative',
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                top: 14,
-                left: 26,
-                zIndex: 40,
-                fontFamily: '-apple-system, system-ui',
-                fontSize: 13.5,
-                fontWeight: 600,
-                color: v3.textPrimary,
-              }}
-            >
-              {time}
-            </div>
-            <div
-              style={{
-                position: 'absolute',
-                top: 14,
-                right: 22,
-                zIndex: 40,
-                display: 'flex',
-                gap: 4,
-                alignItems: 'center',
-                color: v3.textPrimary,
-              }}
-            >
-              <SignalGlyph />
-              <BatteryGlyph />
-            </div>
-            <div style={{ paddingTop: 38, height: '100%', overflowY: 'auto' }}>{children}</div>
-          </div>
+          {children}
         </div>
       </div>
 
@@ -127,7 +82,7 @@ export function Phone({
         .phone-desktop { display: none; }
         @media (min-width: 768px) {
           .phone-mobile { display: none; }
-          .phone-desktop { display: block; }
+          .phone-desktop { display: block; padding: 0 16px; }
         }
       `}</style>
     </>
