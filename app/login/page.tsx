@@ -5,26 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useT, LanguageToggle } from '@/lib/i18n'
 import { useIsMobile } from '@/lib/useMediaQuery'
-
-/* ── Marketing-matching palette (mirrors .marketing CSS vars) ── */
-const mk = {
-  bg:          '#F2EEE5',
-  surface:     '#FFFFFF',
-  border:      '#E4E8F0',
-  borderStrong:'#CBD5E1',
-  text:        '#0B1736',
-  textSec:     '#475569',
-  textMuted:   '#64748B',
-  textFaint:   '#94A3B8',
-  brand:       '#10B981',
-  brandStrong: '#059669',
-  brandSoft:   '#ECFDF5',
-  navy:        '#0B1736',
-  red:         '#E11D48',
-  redSoft:     '#FFF1F2',
-  greenSoft:   '#ECFDF5',
-  green:       '#059669',
-} as const
+import { v3 } from '@/lib/brand'
 
 function LoginInner() {
   const { t } = useT()
@@ -79,27 +60,29 @@ function LoginInner() {
     width: '100%',
     padding: '12px 14px',
     borderRadius: 10,
-    border: `1px solid ${mk.border}`,
-    background: mk.surface,
-    color: mk.text,
+    border: `1px solid ${v3.border}`,
+    background: v3.surfaceCard,
+    color: '#0B1736',
+    WebkitTextFillColor: '#0B1736',
+    caretColor: '#0B1736',
     fontSize: 14,
     transition: 'border-color .15s, box-shadow .15s',
     outline: 'none',
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: mk.bg, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: v3.surface, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
 
       {/* ── Nav ── */}
       <nav style={{
         position: 'sticky', top: 0, zIndex: 50,
-        background: 'rgba(247,248,251,0.82)',
+        background: `rgba(242, 238, 229, 0.82)`,
         backdropFilter: 'saturate(1.6) blur(14px)',
         WebkitBackdropFilter: 'saturate(1.6) blur(14px)',
-        borderBottom: `1px solid ${mk.border}`,
+        borderBottom: `1px solid ${v3.divider}`,
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: isMobile ? '10px 14px' : '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href="/" style={{ textDecoration: 'none', fontSize: 20, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em' }}>
+          <Link href="/" style={{ textDecoration: 'none', fontSize: 20, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em' }}>
             Stayloop
           </Link>
           <LanguageToggle />
@@ -112,9 +95,9 @@ function LoginInner() {
 
           {/* Card */}
           <div style={{
-            background: mk.surface,
+            background: v3.surfaceCard,
             borderRadius: isMobile ? 16 : 20,
-            border: `1px solid ${mk.border}`,
+            border: `1px solid ${v3.border}`,
             padding: isMobile ? '24px 20px' : '36px 32px',
             boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)',
           }}>
@@ -123,8 +106,8 @@ function LoginInner() {
               display: 'inline-block',
               padding: '4px 10px',
               borderRadius: 6,
-              background: mk.brandSoft,
-              color: mk.brand,
+              background: v3.brandSoft,
+              color: v3.brand,
               fontSize: 11,
               fontWeight: 700,
               letterSpacing: '0.06em',
@@ -135,30 +118,30 @@ function LoginInner() {
               {t('login.badge')}
             </div>
 
-            <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, color: mk.navy, letterSpacing: '-0.03em', marginBottom: 6 }}>
+            <h1 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.03em', marginBottom: 6 }}>
               {t('login.title')}
             </h1>
-            <p style={{ fontSize: 14, color: mk.textMuted, marginBottom: 28, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 14, color: v3.textMuted, marginBottom: 28, lineHeight: 1.6 }}>
               {t('login.sub')}
             </p>
 
             {resetSent ? (
-              <div style={{ borderRadius: 14, border: `1px solid rgba(5,150,105,0.25)`, background: mk.greenSoft, padding: 20 }}>
+              <div style={{ borderRadius: 14, border: `1px solid rgba(22,163,74,0.25)`, background: v3.successSoft, padding: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                   <div style={{
                     width: 36, height: 36, borderRadius: 10,
-                    background: 'rgba(5,150,105,0.12)', border: '1px solid rgba(5,150,105,0.2)',
+                    background: 'rgba(22,163,74,0.12)', border: '1px solid rgba(22,163,74,0.2)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: mk.green, fontSize: 16, flexShrink: 0,
+                    color: v3.success, fontSize: 16, flexShrink: 0,
                   }}>✓</div>
                   <div>
-                    <div style={{ fontWeight: 700, color: mk.green, marginBottom: 4 }}>{t('login.resetSent')}</div>
-                    <div style={{ fontSize: 13, color: mk.textSec, lineHeight: 1.6 }}>
+                    <div style={{ fontWeight: 700, color: v3.success, marginBottom: 4 }}>{t('login.resetSent')}</div>
+                    <div style={{ fontSize: 13, color: v3.textSecondary, lineHeight: 1.6 }}>
                       {t('login.resetDetail', { email })}
                     </div>
                     <button
                       onClick={() => setResetSent(false)}
-                      style={{ marginTop: 12, fontSize: 13, color: mk.brand, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }}
+                      style={{ marginTop: 12, fontSize: 13, color: v3.brand, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }}
                     >
                       {t('login.backToLogin')}
                     </button>
@@ -171,7 +154,7 @@ function LoginInner() {
                   {/* Email */}
                   <div>
                     <label style={{
-                      display: 'block', fontSize: 12, fontWeight: 600, color: mk.textSec,
+                      display: 'block', fontSize: 12, fontWeight: 600, color: v3.textSecondary,
                       textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6,
                     }}>{t('login.emailLabel')}</label>
                     <input
@@ -179,15 +162,15 @@ function LoginInner() {
                       onChange={e => setEmail(e.target.value)}
                       placeholder="you@example.com"
                       style={inputStyle}
-                      onFocus={e => { e.currentTarget.style.borderColor = mk.brand; e.currentTarget.style.boxShadow = `0 0 0 3px rgba(13,148,136,0.1)` }}
-                      onBlur={e => { e.currentTarget.style.borderColor = mk.border; e.currentTarget.style.boxShadow = 'none' }}
+                      onFocus={e => { e.currentTarget.style.borderColor = v3.brand; e.currentTarget.style.boxShadow = `0 0 0 3px rgba(4,120,87,0.15)` }}
+                      onBlur={e => { e.currentTarget.style.borderColor = v3.border; e.currentTarget.style.boxShadow = 'none' }}
                     />
                   </div>
 
                   {/* Password */}
                   <div>
                     <label style={{
-                      display: 'block', fontSize: 12, fontWeight: 600, color: mk.textSec,
+                      display: 'block', fontSize: 12, fontWeight: 600, color: v3.textSecondary,
                       textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6,
                     }}>{t('login.passwordLabel')}</label>
                     <div style={{ position: 'relative' }}>
@@ -196,8 +179,8 @@ function LoginInner() {
                         onChange={e => setPassword(e.target.value)}
                         placeholder="••••••••"
                         style={{ ...inputStyle, paddingRight: 42 }}
-                        onFocus={e => { e.currentTarget.style.borderColor = mk.brand; e.currentTarget.style.boxShadow = `0 0 0 3px rgba(13,148,136,0.1)` }}
-                        onBlur={e => { e.currentTarget.style.borderColor = mk.border; e.currentTarget.style.boxShadow = 'none' }}
+                        onFocus={e => { e.currentTarget.style.borderColor = v3.brand; e.currentTarget.style.boxShadow = `0 0 0 3px rgba(4,120,87,0.15)` }}
+                        onBlur={e => { e.currentTarget.style.borderColor = v3.border; e.currentTarget.style.boxShadow = 'none' }}
                       />
                       <button
                         type="button"
@@ -205,11 +188,11 @@ function LoginInner() {
                         style={{
                           position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
                           background: 'none', border: 'none', cursor: 'pointer', padding: 4,
-                          color: mk.textFaint, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: v3.textFaint, display: 'flex', alignItems: 'center', justifyContent: 'center',
                           transition: 'color .15s',
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.color = mk.textSec)}
-                        onMouseLeave={e => (e.currentTarget.style.color = mk.textFaint)}
+                        onMouseEnter={e => (e.currentTarget.style.color = v3.textSecondary)}
+                        onMouseLeave={e => (e.currentTarget.style.color = v3.textFaint)}
                         tabIndex={-1}
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                       >
@@ -234,7 +217,7 @@ function LoginInner() {
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <button
                       type="button" onClick={handleForgotPassword} disabled={resettingPassword}
-                      style={{ fontSize: 13, color: mk.brand, textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 500 }}
+                      style={{ fontSize: 13, color: v3.brand, textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 500 }}
                     >
                       {resettingPassword ? t('login.sending') : t('login.forgotPassword')}
                     </button>
@@ -243,8 +226,8 @@ function LoginInner() {
                   {/* Error */}
                   {error && (
                     <div style={{
-                      borderRadius: 10, border: `1px solid rgba(225,29,72,0.2)`,
-                      background: mk.redSoft, color: mk.red, fontSize: 13, padding: '10px 14px',
+                      borderRadius: 10, border: `1px solid rgba(220,38,38,0.2)`,
+                      background: v3.dangerSoft, color: v3.danger, fontSize: 13, padding: '10px 14px',
                     }}>
                       {error}
                     </div>
@@ -253,9 +236,9 @@ function LoginInner() {
                   {/* Submit */}
                   <button type="submit" disabled={submitting} style={{
                     width: '100%', padding: '13px 20px', borderRadius: 10,
-                    background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
-                    color: '#fff', fontSize: 14.5, fontWeight: 650, border: 'none', cursor: 'pointer',
-                    boxShadow: '0 8px 22px -10px rgba(13,148,136,0.6), inset 0 1px 0 rgba(255,255,255,0.15)',
+                    background: `linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)`,
+                    color: '#FFFFFF', fontSize: 14.5, fontWeight: 650, border: 'none', cursor: 'pointer',
+                    boxShadow: '0 8px 22px -10px rgba(52, 211, 153, 0.45), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
                     transition: 'transform .15s, box-shadow .2s',
                     opacity: submitting ? 0.6 : 1,
                   }}>
@@ -265,16 +248,16 @@ function LoginInner() {
 
                 {/* Divider */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, margin: '24px 0 16px' }}>
-                  <div style={{ flex: 1, height: 1, background: mk.border }} />
-                  <span style={{ fontSize: 12, color: mk.textFaint, fontWeight: 500 }}>{t('login.or')}</span>
-                  <div style={{ flex: 1, height: 1, background: mk.border }} />
+                  <div style={{ flex: 1, height: 1, background: v3.border }} />
+                  <span style={{ fontSize: 12, color: v3.textFaint, fontWeight: 500 }}>{t('login.or')}</span>
+                  <div style={{ flex: 1, height: 1, background: v3.border }} />
                 </div>
 
                 {/* Google */}
                 <button type="button" onClick={handleGoogle} style={{
                   width: '100%', padding: '12px 16px',
-                  border: `1px solid ${mk.border}`, borderRadius: 10,
-                  background: mk.surface, color: mk.navy,
+                  border: `1px solid ${v3.border}`, borderRadius: 10,
+                  background: v3.surfaceCard, color: v3.textPrimary,
                   fontSize: 14, fontWeight: 600, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                   transition: 'border-color .2s, box-shadow .2s',
@@ -284,9 +267,9 @@ function LoginInner() {
                 </button>
 
                 {/* Register link */}
-                <p style={{ fontSize: 13, color: mk.textSec, textAlign: 'center', marginTop: 20 }}>
+                <p style={{ fontSize: 13, color: v3.textSecondary, textAlign: 'center', marginTop: 20 }}>
                   {t('login.noAccount')}{' '}
-                  <Link href="/register" style={{ color: mk.brand, textDecoration: 'none', fontWeight: 600 }}>
+                  <Link href="/register" style={{ color: v3.brand, textDecoration: 'none', fontWeight: 600 }}>
                     {t('login.signUp')}
                   </Link>
                 </p>
@@ -294,7 +277,7 @@ function LoginInner() {
             )}
 
             <p style={{
-              marginTop: 24, fontSize: 10.5, color: mk.textFaint, textAlign: 'center',
+              marginTop: 24, fontSize: 10.5, color: v3.textFaint, textAlign: 'center',
               fontFamily: 'JetBrains Mono, monospace',
             }}>
               {t('login.footer')}
@@ -308,7 +291,7 @@ function LoginInner() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#F2EEE5' }} />}>
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: v3.surface }} />}>
       <LoginInner />
     </Suspense>
   )

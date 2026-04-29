@@ -6,26 +6,7 @@ import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
 import AppHeader from '@/components/AppHeader'
 import { useIsMobile } from '@/lib/useMediaQuery'
-
-/* ── Marketing-matching palette ── */
-const mk = {
-  bg:          '#F2EEE5',
-  surface:     '#FFFFFF',
-  border:      '#E4E8F0',
-  borderStrong:'#CBD5E1',
-  text:        '#0B1736',
-  textSec:     '#475569',
-  textMuted:   '#64748B',
-  textFaint:   '#94A3B8',
-  brand:       '#10B981',
-  brandStrong: '#059669',
-  brandSoft:   '#ECFDF5',
-  navy:        '#0B1736',
-  red:         '#E11D48',
-  redSoft:     '#FFF1F2',
-  greenSoft:   '#ECFDF5',
-  green:       '#059669',
-} as const
+import { v3 } from '@/lib/brand'
 
 type SectionKey = 'personal' | 'security' | 'notifications' | 'langplan'
 type Role = 'landlord' | 'tenant' | 'agent'
@@ -103,10 +84,10 @@ export default function AccountSettingsPage() {
 
   if (authLoading || !user || loading || !profile) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: mk.bg }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: v3.surface }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: 10, border: `4px solid rgba(13,148,136,0.2)`, borderTopColor: mk.brand, animation: 'spin 1s linear infinite' }} />
-          <div style={{ fontSize: 12, color: mk.textMuted, fontFamily: 'JetBrains Mono, monospace' }}>{t('common.authenticating')}</div>
+          <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: 10, border: `4px solid rgba(4,120,87,0.2)`, borderTopColor: v3.brand, animation: 'spin 1s linear infinite' }} />
+          <div style={{ fontSize: 12, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace' }}>{t('common.authenticating')}</div>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -121,16 +102,16 @@ export default function AccountSettingsPage() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: mk.bg, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: v3.surface, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
       <AppHeader title="Account settings" titleZh="账户设置" />
 
       <div style={{ flex: 1, maxWidth: 1040, width: '100%', margin: '0 auto', padding: isMobile ? '20px 16px 40px' : '40px 24px 60px' }}>
         {/* Header */}
         <div style={{ marginBottom: isMobile ? 20 : 32 }}>
-          <h1 style={{ fontSize: isMobile ? 28 : 34, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em', margin: 0 }}>
+          <h1 style={{ fontSize: isMobile ? 28 : 34, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em', margin: 0 }}>
             {t('acct.title')}
           </h1>
-          <p style={{ fontSize: 14, color: mk.textMuted, marginTop: 6 }}>{user.email}</p>
+          <p style={{ fontSize: 14, color: v3.textMuted, marginTop: 6 }}>{user.email}</p>
         </div>
 
         {/* Mobile top-tabs */}
@@ -146,9 +127,9 @@ export default function AccountSettingsPage() {
                 style={{
                   flexShrink: 0, padding: '8px 14px', borderRadius: 999,
                   fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                  border: `1px solid ${section === s.key ? mk.text : mk.border}`,
-                  background: section === s.key ? mk.text : mk.surface,
-                  color: section === s.key ? '#fff' : mk.textSec,
+                  border: `1px solid ${section === s.key ? v3.textPrimary : v3.border}`,
+                  background: section === s.key ? v3.textPrimary : v3.surfaceCard,
+                  color: section === s.key ? '#fff' : v3.textSecondary,
                   transition: 'all .15s',
                   whiteSpace: 'nowrap',
                 }}>
@@ -174,15 +155,15 @@ export default function AccountSettingsPage() {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12,
                       padding: '11px 14px', borderRadius: 10, cursor: 'pointer',
-                      background: section === s.key ? '#EEF2F7' : 'transparent',
+                      background: section === s.key ? v3.divider : 'transparent',
                       border: 'none', textAlign: 'left', width: '100%',
-                      color: section === s.key ? mk.navy : mk.textSec,
+                      color: section === s.key ? v3.textPrimary : v3.textSecondary,
                       fontSize: 14, fontWeight: section === s.key ? 650 : 500,
                       transition: 'background .15s, color .15s',
                     }}
-                    onMouseEnter={e => { if (section !== s.key) e.currentTarget.style.background = '#F1F5F9' }}
+                    onMouseEnter={e => { if (section !== s.key) e.currentTarget.style.background = v3.divider }}
                     onMouseLeave={e => { if (section !== s.key) e.currentTarget.style.background = 'transparent' }}>
-                    <span style={{ color: section === s.key ? mk.brand : mk.textFaint, display: 'flex' }}>{icons[s.key]}</span>
+                    <span style={{ color: section === s.key ? v3.brand : v3.textFaint, display: 'flex' }}>{icons[s.key]}</span>
                     {s.label}
                   </button>
                 ))}
@@ -262,17 +243,17 @@ function Row({ label, value, hint, editable = true, onSave, renderEditor, inputT
   return (
     <div style={{
       padding: '18px 0',
-      borderBottom: last ? 'none' : `1px solid ${mk.border}`,
+      borderBottom: last ? 'none' : `1px solid ${v3.border}`,
     }}>
       {!editing ? (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: mk.text, marginBottom: 4 }}>{label}</div>
-            <div style={{ fontSize: 14, color: mk.textSec, wordBreak: 'break-word' }}>
-              {value || <span style={{ color: mk.textFaint, fontStyle: 'italic' }}>{t('acct.notSet')}</span>}
+            <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 4 }}>{label}</div>
+            <div style={{ fontSize: 14, color: v3.textSecondary, wordBreak: 'break-word' }}>
+              {value || <span style={{ color: v3.textFaint, fontStyle: 'italic' }}>{t('acct.notSet')}</span>}
             </div>
             {justSaved && (
-              <div style={{ fontSize: 12, color: mk.green, marginTop: 6, fontWeight: 600 }}>
+              <div style={{ fontSize: 12, color: v3.success, marginTop: 6, fontWeight: 600 }}>
                 ✓ {t('acct.saved')}
               </div>
             )}
@@ -281,7 +262,7 @@ function Row({ label, value, hint, editable = true, onSave, renderEditor, inputT
             <button onClick={startEdit}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
-                color: mk.text, fontSize: 14, fontWeight: 600,
+                color: v3.textPrimary, fontSize: 14, fontWeight: 600,
                 textDecoration: 'underline', padding: '2px 4px', flexShrink: 0,
               }}>
               {t('acct.edit')}
@@ -290,7 +271,7 @@ function Row({ label, value, hint, editable = true, onSave, renderEditor, inputT
         </div>
       ) : (
         <div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: mk.text, marginBottom: 10 }}>{label}</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 10 }}>{label}</div>
           {renderEditor ? (
             renderEditor({ close: () => setEditing(false), setError })
           ) : (
@@ -302,18 +283,18 @@ function Row({ label, value, hint, editable = true, onSave, renderEditor, inputT
               placeholder={placeholder}
               style={{
                 width: '100%', padding: '12px 14px', borderRadius: 10,
-                border: `1px solid ${mk.borderStrong}`, background: mk.surface,
-                color: mk.text, fontSize: 15, outline: 'none',
+                border: `1px solid ${v3.borderStrong}`, background: v3.surfaceCard,
+                color: '#0B1736', WebkitTextFillColor: '#0B1736', caretColor: '#0B1736', fontSize: 15, outline: 'none',
                 transition: 'border-color .15s, box-shadow .15s',
                 boxSizing: 'border-box',
               }}
-              onFocus={e => { e.currentTarget.style.borderColor = mk.brand; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(13,148,136,0.1)' }}
-              onBlur={e => { e.currentTarget.style.borderColor = mk.borderStrong; e.currentTarget.style.boxShadow = 'none' }}
+              onFocus={e => { e.currentTarget.style.borderColor = v3.brand; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(4,120,87,0.15)' }}
+              onBlur={e => { e.currentTarget.style.borderColor = v3.borderStrong; e.currentTarget.style.boxShadow = 'none' }}
             />
           )}
-          {hint && <p style={{ fontSize: 12, color: mk.textMuted, marginTop: 8 }}>{hint}</p>}
+          {hint && <p style={{ fontSize: 12, color: v3.textMuted, marginTop: 8 }}>{hint}</p>}
           {error && (
-            <div style={{ marginTop: 10, borderRadius: 8, border: '1px solid rgba(225,29,72,0.2)', background: mk.redSoft, color: mk.red, fontSize: 13, padding: '8px 12px' }}>
+            <div style={{ marginTop: 10, borderRadius: 8, border: '1px solid rgba(220,38,38,0.2)', background: v3.dangerSoft, color: v3.danger, fontSize: 13, padding: '8px 12px' }}>
               {error}
             </div>
           )}
@@ -322,7 +303,7 @@ function Row({ label, value, hint, editable = true, onSave, renderEditor, inputT
               <button onClick={() => setEditing(false)}
                 style={{
                   padding: '10px 18px', borderRadius: 8, background: 'none',
-                  border: 'none', color: mk.text, fontSize: 14, fontWeight: 600,
+                  border: 'none', color: v3.textPrimary, fontSize: 14, fontWeight: 600,
                   textDecoration: 'underline', cursor: 'pointer',
                 }}>
                 {t('acct.cancel')}
@@ -330,7 +311,7 @@ function Row({ label, value, hint, editable = true, onSave, renderEditor, inputT
               <button onClick={handleSave} disabled={saving}
                 style={{
                   padding: '10px 18px', borderRadius: 10,
-                  background: mk.text, color: '#fff',
+                  background: v3.textPrimary, color: '#fff',
                   border: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                   opacity: saving ? 0.6 : 1,
                 }}>
@@ -353,8 +334,8 @@ function SectionCard({ title, subtitle, children, isMobile }: {
 }) {
   return (
     <div>
-      <h2 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em', margin: 0 }}>{title}</h2>
-      {subtitle && <p style={{ fontSize: 14, color: mk.textMuted, marginTop: 6, marginBottom: 0 }}>{subtitle}</p>}
+      <h2 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em', margin: 0 }}>{title}</h2>
+      {subtitle && <p style={{ fontSize: 14, color: v3.textMuted, marginTop: 6, marginBottom: 0 }}>{subtitle}</p>}
       <div style={{ marginTop: 20 }}>
         {children}
       </div>
@@ -411,9 +392,9 @@ function PersonalSection({ profile, userEmail, saveField, isMobile }: {
                 <button key={r} type="button" onClick={() => setDraftRole(r)}
                   style={{
                     padding: '12px 8px', borderRadius: 10, cursor: 'pointer',
-                    border: draftRole === r ? `2px solid ${mk.brand}` : `1px solid ${mk.border}`,
-                    background: draftRole === r ? mk.brandSoft : mk.surface,
-                    color: draftRole === r ? mk.brandStrong : mk.text,
+                    border: draftRole === r ? `2px solid ${v3.brand}` : `1px solid ${v3.border}`,
+                    background: draftRole === r ? v3.brandSoft : v3.surfaceCard,
+                    color: draftRole === r ? v3.brandStrong : v3.textPrimary,
                     fontSize: 13, fontWeight: 600,
                   }}>
                   {roleLabels[r]}
@@ -422,7 +403,7 @@ function PersonalSection({ profile, userEmail, saveField, isMobile }: {
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
               <button onClick={close}
-                style={{ padding: '10px 18px', borderRadius: 8, background: 'none', border: 'none', color: mk.text, fontSize: 14, fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>
+                style={{ padding: '10px 18px', borderRadius: 8, background: 'none', border: 'none', color: v3.textPrimary, fontSize: 14, fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>
                 {t('acct.cancel')}
               </button>
               <button
@@ -434,7 +415,7 @@ function PersonalSection({ profile, userEmail, saveField, isMobile }: {
                   close()
                 }}
                 disabled={roleSaving}
-                style={{ padding: '10px 18px', borderRadius: 10, background: mk.text, color: '#fff', border: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: roleSaving ? 0.6 : 1 }}>
+                style={{ padding: '10px 18px', borderRadius: 10, background: v3.textPrimary, color: '#fff', border: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: roleSaving ? 0.6 : 1 }}>
                 {roleSaving ? t('acct.saving') : t('acct.save')}
               </button>
             </div>
@@ -489,20 +470,20 @@ function SecuritySection({ userEmail, signOut, isMobile }: {
   return (
     <SectionCard title={t('acct.security.title')} isMobile={isMobile}>
       {/* Password row */}
-      <div style={{ padding: '18px 0', borderBottom: `1px solid ${mk.border}` }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: mk.text, marginBottom: 4 }}>{t('acct.security.password')}</div>
-        <div style={{ fontSize: 13, color: mk.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
+      <div style={{ padding: '18px 0', borderBottom: `1px solid ${v3.border}` }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 4 }}>{t('acct.security.password')}</div>
+        <div style={{ fontSize: 13, color: v3.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
           {t('acct.security.passwordDesc')}
         </div>
         {sent ? (
-          <div style={{ borderRadius: 10, border: '1px solid rgba(5,150,105,0.25)', background: mk.greenSoft, color: mk.green, fontSize: 13, padding: '10px 14px', display: 'flex', gap: 8 }}>
+          <div style={{ borderRadius: 10, border: '1px solid rgba(22,163,74,0.25)', background: v3.successSoft, color: v3.success, fontSize: 13, padding: '10px 14px', display: 'flex', gap: 8 }}>
             <span>✓</span>{t('acct.security.resetSent')}
           </div>
         ) : (
           <button onClick={sendResetLink} disabled={sending}
             style={{
               padding: '10px 18px', borderRadius: 10,
-              background: mk.text, color: '#fff', border: 'none',
+              background: v3.textPrimary, color: '#fff', border: 'none',
               fontSize: 14, fontWeight: 600, cursor: 'pointer',
               opacity: sending ? 0.6 : 1,
             }}>
@@ -510,7 +491,7 @@ function SecuritySection({ userEmail, signOut, isMobile }: {
           </button>
         )}
         {error && (
-          <div style={{ marginTop: 10, borderRadius: 8, border: '1px solid rgba(225,29,72,0.2)', background: mk.redSoft, color: mk.red, fontSize: 13, padding: '8px 12px' }}>
+          <div style={{ marginTop: 10, borderRadius: 8, border: '1px solid rgba(220,38,38,0.2)', background: v3.dangerSoft, color: v3.danger, fontSize: 13, padding: '8px 12px' }}>
             {error}
           </div>
         )}
@@ -518,15 +499,15 @@ function SecuritySection({ userEmail, signOut, isMobile }: {
 
       {/* Sign out of all */}
       <div style={{ padding: '18px 0' }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: mk.text, marginBottom: 4 }}>{t('acct.security.signOutAll')}</div>
-        <div style={{ fontSize: 13, color: mk.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 4 }}>{t('acct.security.signOutAll')}</div>
+        <div style={{ fontSize: 13, color: v3.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
           {t('acct.security.signOutAllDesc')}
         </div>
         <button onClick={signOutEverywhere} disabled={signingOutAll}
           style={{
             padding: '10px 18px', borderRadius: 10,
-            background: mk.surface, color: mk.red,
-            border: `1px solid ${mk.red}`,
+            background: v3.surfaceCard, color: v3.danger,
+            border: `1px solid ${v3.danger}`,
             fontSize: 14, fontWeight: 600, cursor: 'pointer',
             opacity: signingOutAll ? 0.6 : 1,
           }}>
@@ -569,17 +550,17 @@ function ToggleRow({ label, desc, value, onChange, disabled, last }: {
   return (
     <div style={{
       padding: '18px 0',
-      borderBottom: last ? 'none' : `1px solid ${mk.border}`,
+      borderBottom: last ? 'none' : `1px solid ${v3.border}`,
       display: 'flex', alignItems: 'center', gap: 16,
     }}>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: mk.text, marginBottom: 4 }}>{label}</div>
-        <div style={{ fontSize: 13, color: mk.textMuted, lineHeight: 1.6 }}>{desc}</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 4 }}>{label}</div>
+        <div style={{ fontSize: 13, color: v3.textMuted, lineHeight: 1.6 }}>{desc}</div>
       </div>
       <button onClick={() => !disabled && onChange(!value)} disabled={disabled}
         style={{
           width: 44, height: 26, borderRadius: 13,
-          background: value ? mk.brand : mk.borderStrong,
+          background: value ? v3.brand : v3.borderStrong,
           border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
           position: 'relative', transition: 'background .15s',
           opacity: disabled ? 0.5 : 1, flexShrink: 0,
@@ -607,10 +588,10 @@ function LangPlanSection({ plan, isMobile }: { plan: Plan; isMobile: boolean }) 
   return (
     <SectionCard title={t('acct.langplan.title')} isMobile={isMobile}>
       {/* Language */}
-      <div style={{ padding: '18px 0', borderBottom: `1px solid ${mk.border}`, display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div style={{ padding: '18px 0', borderBottom: `1px solid ${v3.border}`, display: 'flex', alignItems: 'center', gap: 16 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: mk.text, marginBottom: 4 }}>{t('acct.langplan.language')}</div>
-          <div style={{ fontSize: 13, color: mk.textMuted }}>English · 中文</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 4 }}>{t('acct.langplan.language')}</div>
+          <div style={{ fontSize: 13, color: v3.textMuted }}>English · 中文</div>
         </div>
         <LanguageToggle />
       </div>
@@ -619,26 +600,26 @@ function LangPlanSection({ plan, isMobile }: { plan: Plan; isMobile: boolean }) 
       <div style={{ padding: '18px 0' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: mk.text, marginBottom: 4 }}>{t('acct.langplan.plan')}</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 4 }}>{t('acct.langplan.plan')}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <span style={{
                 fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
                 padding: '4px 10px', borderRadius: 6,
-                background: isPaid ? mk.brandSoft : '#F1F5F9',
-                color: isPaid ? mk.brand : mk.textSec,
+                background: isPaid ? v3.brandSoft : v3.divider,
+                color: isPaid ? v3.brand : v3.textSecondary,
                 fontFamily: 'JetBrains Mono, monospace',
               }}>{plan}</span>
             </div>
-            <div style={{ fontSize: 13, color: mk.textMuted, lineHeight: 1.6 }}>
+            <div style={{ fontSize: 13, color: v3.textMuted, lineHeight: 1.6 }}>
               {isPaid ? t('acct.langplan.planProDesc') : t('acct.langplan.planFreeDesc')}
             </div>
           </div>
           <Link href={isPaid ? '/dashboard?billing=1' : '/dashboard?upgrade=1'}
             style={{
               padding: '10px 16px', borderRadius: 10,
-              background: isPaid ? mk.surface : `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
-              color: isPaid ? mk.text : '#fff',
-              border: isPaid ? `1px solid ${mk.borderStrong}` : 'none',
+              background: isPaid ? v3.surfaceCard : `linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)`,
+              color: isPaid ? v3.textPrimary : '#fff',
+              border: isPaid ? `1px solid ${v3.borderStrong}` : 'none',
               fontSize: 13, fontWeight: 600, textDecoration: 'none',
               flexShrink: 0, whiteSpace: 'nowrap',
             }}>

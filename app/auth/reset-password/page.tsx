@@ -4,24 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useT, LanguageToggle } from '@/lib/i18n'
-
-const mk = {
-  bg:          '#F2EEE5',
-  surface:     '#FFFFFF',
-  border:      '#E4E8F0',
-  text:        '#0B1736',
-  textSec:     '#475569',
-  textMuted:   '#64748B',
-  textFaint:   '#94A3B8',
-  brand:       '#10B981',
-  brandStrong: '#059669',
-  brandSoft:   '#ECFDF5',
-  navy:        '#0B1736',
-  red:         '#E11D48',
-  redSoft:     '#FFF1F2',
-  greenSoft:   '#ECFDF5',
-  green:       '#059669',
-} as const
+import { v3 } from '@/lib/brand'
 
 export default function ResetPasswordPage() {
   const { t } = useT()
@@ -96,22 +79,22 @@ export default function ResetPasswordPage() {
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '12px 14px', borderRadius: 10,
-    border: `1px solid ${mk.border}`, background: mk.surface,
-    color: mk.text, fontSize: 14, transition: 'border-color .15s, box-shadow .15s', outline: 'none',
+    border: `1px solid ${v3.border}`, background: v3.surfaceCard,
+    color: '#0B1736', WebkitTextFillColor: '#0B1736', caretColor: '#0B1736', fontSize: 14, transition: 'border-color .15s, box-shadow .15s', outline: 'none',
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: mk.bg, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: v3.surface, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
       {/* Nav */}
       <nav style={{
         position: 'sticky', top: 0, zIndex: 50,
-        background: 'rgba(247,248,251,0.82)',
+        background: `rgba(242, 238, 229, 0.82)`,
         backdropFilter: 'saturate(1.6) blur(14px)',
         WebkitBackdropFilter: 'saturate(1.6) blur(14px)',
-        borderBottom: `1px solid ${mk.border}`,
+        borderBottom: `1px solid ${v3.divider}`,
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href="/" style={{ textDecoration: 'none', fontSize: 20, fontWeight: 800, color: mk.navy, letterSpacing: '-0.02em' }}>
+          <Link href="/" style={{ textDecoration: 'none', fontSize: 20, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em' }}>
             Stayloop
           </Link>
           <LanguageToggle />
@@ -122,40 +105,40 @@ export default function ResetPasswordPage() {
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 24px' }}>
         <div style={{ width: '100%', maxWidth: 420 }}>
           <div style={{
-            background: mk.surface, borderRadius: 20,
-            border: `1px solid ${mk.border}`, padding: '36px 32px',
+            background: v3.surfaceCard, borderRadius: 20,
+            border: `1px solid ${v3.border}`, padding: '36px 32px',
             boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 12px 32px -8px rgba(0,0,0,0.06)',
           }}>
             <div style={{
               display: 'inline-block', padding: '4px 10px', borderRadius: 6,
-              background: mk.brandSoft, color: mk.brand,
+              background: v3.brandSoft, color: v3.brand,
               fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
               textTransform: 'uppercase' as const, fontFamily: 'JetBrains Mono, monospace', marginBottom: 16,
             }}>
               {t('resetPassword.badge') || '// RESET PASSWORD'}
             </div>
 
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: mk.navy, letterSpacing: '-0.03em', marginBottom: 6 }}>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.03em', marginBottom: 6 }}>
               {t('resetPassword.title') || 'Set new password'}
             </h1>
-            <p style={{ fontSize: 14, color: mk.textMuted, marginBottom: 28, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 14, color: v3.textMuted, marginBottom: 28, lineHeight: 1.6 }}>
               {t('resetPassword.sub') || 'Enter your new password below.'}
             </p>
 
             {success ? (
-              <div style={{ borderRadius: 14, border: '1px solid rgba(5,150,105,0.25)', background: mk.greenSoft, padding: 20 }}>
+              <div style={{ borderRadius: 14, border: '1px solid rgba(22,163,74,0.25)', background: v3.successSoft, padding: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                   <div style={{
                     width: 36, height: 36, borderRadius: 10,
-                    background: 'rgba(5,150,105,0.12)', border: '1px solid rgba(5,150,105,0.2)',
+                    background: 'rgba(22,163,74,0.12)', border: '1px solid rgba(22,163,74,0.2)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: mk.green, fontSize: 16, flexShrink: 0,
+                    color: v3.success, fontSize: 16, flexShrink: 0,
                   }}>✓</div>
                   <div>
-                    <div style={{ fontWeight: 700, color: mk.green, marginBottom: 4 }}>
+                    <div style={{ fontWeight: 700, color: v3.success, marginBottom: 4 }}>
                       {t('resetPassword.success') || 'Password updated'}
                     </div>
-                    <div style={{ fontSize: 13, color: mk.textSec, lineHeight: 1.6 }}>
+                    <div style={{ fontSize: 13, color: v3.textSecondary, lineHeight: 1.6 }}>
                       {t('resetPassword.successDetail') || 'Your password has been reset successfully. Redirecting...'}
                     </div>
                   </div>
@@ -163,8 +146,8 @@ export default function ResetPasswordPage() {
               </div>
             ) : !sessionReady && !error ? (
               <div style={{ textAlign: 'center', padding: 20 }}>
-                <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: 10, border: `4px solid rgba(13,148,136,0.2)`, borderTopColor: mk.brand, animation: 'spin 1s linear infinite' }} />
-                <div style={{ fontSize: 12, color: mk.textMuted, fontFamily: 'JetBrains Mono, monospace' }}>
+                <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: 10, border: `4px solid rgba(4,120,87,0.2)`, borderTopColor: v3.brand, animation: 'spin 1s linear infinite' }} />
+                <div style={{ fontSize: 12, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace' }}>
                   {t('resetPassword.verifying') || 'Verifying reset link...'}
                 </div>
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -172,41 +155,41 @@ export default function ResetPasswordPage() {
             ) : (
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: mk.textSec, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: v3.textSecondary, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>
                     {t('resetPassword.newPassword') || 'New password'}
                   </label>
                   <input required type="password" value={password} onChange={e => setPassword(e.target.value)}
                     placeholder="••••••" style={inputStyle}
-                    onFocus={e => { e.currentTarget.style.borderColor = mk.brand; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(13,148,136,0.1)' }}
-                    onBlur={e => { e.currentTarget.style.borderColor = mk.border; e.currentTarget.style.boxShadow = 'none' }}
+                    onFocus={e => { e.currentTarget.style.borderColor = v3.brand; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(4,120,87,0.15)' }}
+                    onBlur={e => { e.currentTarget.style.borderColor = v3.border; e.currentTarget.style.boxShadow = 'none' }}
                   />
-                  <p style={{ fontSize: 12, color: mk.textFaint, marginTop: 6 }}>
+                  <p style={{ fontSize: 12, color: v3.textFaint, marginTop: 6 }}>
                     {t('register.passwordHint') || 'At least 6 characters'}
                   </p>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: mk.textSec, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: v3.textSecondary, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>
                     {t('resetPassword.confirmPassword') || 'Confirm password'}
                   </label>
                   <input required type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
                     placeholder="••••••" style={inputStyle}
-                    onFocus={e => { e.currentTarget.style.borderColor = mk.brand; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(13,148,136,0.1)' }}
-                    onBlur={e => { e.currentTarget.style.borderColor = mk.border; e.currentTarget.style.boxShadow = 'none' }}
+                    onFocus={e => { e.currentTarget.style.borderColor = v3.brand; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(4,120,87,0.15)' }}
+                    onBlur={e => { e.currentTarget.style.borderColor = v3.border; e.currentTarget.style.boxShadow = 'none' }}
                   />
                 </div>
 
                 {error && (
-                  <div style={{ borderRadius: 10, border: '1px solid rgba(225,29,72,0.2)', background: mk.redSoft, color: mk.red, fontSize: 13, padding: '10px 14px' }}>
+                  <div style={{ borderRadius: 10, border: '1px solid rgba(220,38,38,0.2)', background: v3.dangerSoft, color: v3.danger, fontSize: 13, padding: '10px 14px' }}>
                     {error}
                   </div>
                 )}
 
                 <button type="submit" disabled={submitting || !sessionReady} style={{
                   width: '100%', padding: '13px 20px', borderRadius: 10,
-                  background: `linear-gradient(135deg, ${mk.brand}, ${mk.brandStrong})`,
-                  color: '#fff', fontSize: 14.5, fontWeight: 650, border: 'none', cursor: 'pointer',
-                  boxShadow: '0 8px 22px -10px rgba(13,148,136,0.6), inset 0 1px 0 rgba(255,255,255,0.15)',
+                  background: `linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)`,
+                  color: '#FFFFFF', fontSize: 14.5, fontWeight: 650, border: 'none', cursor: 'pointer',
+                  boxShadow: '0 8px 22px -10px rgba(52, 211, 153, 0.45), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
                   transition: 'transform .15s, box-shadow .2s',
                   opacity: submitting || !sessionReady ? 0.6 : 1,
                 }}>
@@ -218,15 +201,15 @@ export default function ResetPasswordPage() {
             )}
 
             {!success && (
-              <p style={{ marginTop: 20, textAlign: 'center', fontSize: 13, color: mk.textSec }}>
-                <Link href="/login" style={{ color: mk.brand, textDecoration: 'none', fontWeight: 600 }}>
+              <p style={{ marginTop: 20, textAlign: 'center', fontSize: 13, color: v3.textSecondary }}>
+                <Link href="/login" style={{ color: v3.brand, textDecoration: 'none', fontWeight: 600 }}>
                   {t('resetPassword.backToLogin') || 'Back to sign in'}
                 </Link>
               </p>
             )}
 
             <p style={{
-              marginTop: 24, fontSize: 10.5, color: mk.textFaint, textAlign: 'center',
+              marginTop: 24, fontSize: 10.5, color: v3.textFaint, textAlign: 'center',
               fontFamily: 'JetBrains Mono, monospace',
             }}>
               {t('login.footer') || 'Encrypted · PIPEDA compliant · Built in Ontario'}

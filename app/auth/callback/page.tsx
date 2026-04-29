@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { v3 } from '@/lib/brand'
 
 export default function AuthCallbackPage() {
   const router = useRouter()
@@ -94,18 +95,11 @@ export default function AuthCallbackPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const mk = {
-    bg: '#F2EEE5',
-    text: '#0B1736',
-    textMuted: '#64748B',
-    brand: '#10B981',
-  }
-
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: mk.bg, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: v3.surface, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 48, height: 48, margin: '0 auto 16px', borderRadius: 12, border: `4px solid rgba(13,148,136,0.2)`, borderTopColor: mk.brand, animation: 'spin 1s linear infinite' }} />
-        <p style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: mk.textMuted }}>{status}</p>
+        <div style={{ width: 48, height: 48, margin: '0 auto 16px', borderRadius: 12, border: `4px solid rgba(4,120,87,0.2)`, borderTopColor: v3.brand, animation: 'spin 1s linear infinite' }} />
+        <p style={{ fontSize: 14, fontFamily: 'JetBrains Mono, monospace', color: v3.textMuted }}>{status}</p>
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>

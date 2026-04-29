@@ -1,13 +1,69 @@
 'use client'
-// /index — Stayloop Index (V3 section 06) Analyst dashboard
+// /market — Stayloop Index (V3 section 06) Analyst dashboard
+import { useState } from 'react'
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import AppHeader from '@/components/AppHeader'
 
+type TimePeriod = '7d' | '30d' | '90d' | '12mo' | 'all'
+
 export default function IndexPage() {
   const { lang } = useT()
   const isZh = lang === 'zh'
+  const [activePeriod, setActivePeriod] = useState<TimePeriod>('12mo')
+
+  // Hardcoded 12-month trend data (GTA 1BR median rent)
+  const monthlyData = [
+    { month: 'May', rent: 2150 },
+    { month: 'Jun', rent: 2165 },
+    { month: 'Jul', rent: 2180 },
+    { month: 'Aug', rent: 2210 },
+    { month: 'Sep', rent: 2225 },
+    { month: 'Oct', rent: 2240 },
+    { month: 'Nov', rent: 2255 },
+    { month: 'Dec', rent: 2270 },
+    { month: 'Jan', rent: 2285 },
+    { month: 'Feb', rent: 2310 },
+    { month: 'Mar', rent: 2330 },
+    { month: 'Apr', rent: 2350 },
+  ]
+
+  // SVG line chart data: normalize to 0-180 pixel range (160px height)
+  const minRent = 2150
+  const maxRent = 2350
+  const chartHeight = 160
+  const chartWidth = 800
+  const pointSpacing = chartWidth / (monthlyData.length - 1)
+
+  const points = monthlyData.map((d, i) => {
+    const y = chartHeight - ((d.rent - minRent) / (maxRent - minRent)) * chartHeight
+    return { x: i * pointSpacing, y, rent: d.rent }
+  })
+
+  // Generate smooth cubic bezier path
+  const pathD = points
+    .map((p, i) => {
+      if (i === 0) return `M${p.x},${p.y}`
+      const prev = points[i - 1]
+      const cp1x = prev.x + pointSpacing / 3
+      const cp1y = prev.y
+      const cp2x = p.x - pointSpacing / 3
+      const cp2y = p.y
+      return `C${cp1x},${cp1y} ${cp2x},${cp2y} ${p.x},${p.y}`
+    })
+    .join(' ')
+
+  const areaPathD = `${pathD} L${chartWidth},${chartHeight} L0,${chartHeight} Z`
+
+  const periodPills: Array<{ value: TimePeriod; label_en: string; label_zh: string }> = [
+    { value: '7d', label_en: '7d', label_zh: '7天' },
+    { value: '30d', label_en: '30d', label_zh: '30天' },
+    { value: '90d', label_en: '90d', label_zh: '90天' },
+    { value: '12mo', label_en: '12mo', label_zh: '12 个月' },
+    { value: 'all', label_en: 'All', label_zh: '所有' },
+  ]
+
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
       <AppHeader
@@ -27,46 +83,105 @@ export default function IndexPage() {
             {isZh ? 'GTA · 一室公寓中位数' : 'GTA · 1 BEDROOM · MEDIAN ASKING'}
           </div>
           <div style={{ fontSize: 12, color: v3.textMuted, marginBottom: 18 }}>{isZh ? '大多伦多 · 一室公寓中位数' : '大多伦多 · 一室公寓中位数'}</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
             <span style={{ fontSize: 56, fontWeight: 800, letterSpacing: '-0.035em', color: v3.textPrimary, lineHeight: 1 }}>$2,350</span>
             <span style={{ fontSize: 14, color: v3.brandStrong, fontWeight: 600 }}>↑ 7.8% YoY</span>
             <span style={{ fontSize: 14, color: v3.success, fontWeight: 600 }}>↓ 14% DoM</span>
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-              {['7d', '30d', '90d', '1y', 'all'].map((p, i) => (
-                <span key={p} style={{ padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, color: i === 2 ? '#fff' : v3.textMuted, background: i === 2 ? v3.textPrimary : v3.surface, border: `1px solid ${i === 2 ? v3.textPrimary : v3.border}` }}>{p}</span>
-              ))}
-            </div>
           </div>
-          {/* Trend chart */}
-          <svg viewBox="0 0 800 180" width="100%" height={180}>
+
+          {/* Time-period filter pills */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+            {periodPills.map((pill) => (
+              <button
+                key={pill.value}
+                onClick={() => setActivePeriod(pill.value)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 6,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  border: `1px solid ${activePeriod === pill.value ? v3.brand : v3.border}`,
+                  background: activePeriod === pill.value ? v3.brand : 'transparent',
+                  color: activePeriod === pill.value ? v3.textOnBrand : v3.textSecondary,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {isZh ? pill.label_zh : pill.label_en}
+              </button>
+            ))}
+          </div>
+
+          {/* Trend chart with gridlines and axis labels */}
+          <svg viewBox="0 0 800 200" width="100%" height={200} style={{ marginBottom: 16 }}>
             <defs>
               <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={v3.brand} stopOpacity="0.25" />
                 <stop offset="100%" stopColor={v3.brand} stopOpacity="0" />
               </linearGradient>
             </defs>
-            {/* gridlines */}
-            {[40, 80, 120, 160].map((y) => (
-              <line key={y} x1={0} y1={y} x2={800} y2={y} stroke={v3.divider} strokeDasharray="2 4" />
+            {/* horizontal gridlines */}
+            {[40, 80, 120].map((y) => (
+              <line key={`grid-${y}`} x1={0} y1={y} x2={800} y2={y} stroke={v3.divider} strokeDasharray="2 4" strokeWidth={0.8} />
             ))}
-            {/* polyline area */}
-            <path
-              d="M0,140 L100,135 L200,128 L300,124 L400,118 L500,108 L600,98 L700,90 L800,82 L800,180 L0,180 Z"
-              fill="url(#g1)"
-            />
-            <path
-              d="M0,140 L100,135 L200,128 L300,124 L400,118 L500,108 L600,98 L700,90 L800,82"
-              fill="none"
-              stroke={v3.brand}
-              strokeWidth={2.5}
-            />
-            <circle cx={800} cy={82} r={5} fill={v3.brand} stroke="#fff" strokeWidth={2} />
-            <text x={780} y={70} textAnchor="end" fontSize={12} fontWeight={700} fill={v3.brandStrong}>$2,350</text>
-            {/* x-axis labels */}
-            {['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'].map((m, i) => (
-              <text key={m} x={i * 160} y={175} fontSize={10} fill={v3.textMuted}>{m}</text>
+            {/* area fill */}
+            <path d={areaPathD} fill="url(#g1)" />
+            {/* smooth curve line */}
+            <path d={pathD} fill="none" stroke={v3.brand} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+            {/* endpoint marker */}
+            <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r={5} fill={v3.brand} stroke="#fff" strokeWidth={2} />
+            {/* endpoint value label */}
+            <text x={points[points.length - 1].x - 20} y={points[points.length - 1].y - 12} textAnchor="middle" fontSize={12} fontWeight={700} fill={v3.brandStrong}>
+              $2,350
+            </text>
+            {/* x-axis month labels */}
+            {monthlyData.map((m, i) => (
+              <text key={`month-${i}`} x={i * pointSpacing} y={180} textAnchor="middle" fontSize={10} fill={v3.textMuted}>
+                {m.month}
+              </text>
             ))}
+            {/* y-axis rent labels */}
+            {[2150, 2200, 2250, 2300, 2350].map((rent) => {
+              const y = chartHeight - ((rent - minRent) / (maxRent - minRent)) * chartHeight
+              return (
+                <text key={`rent-${rent}`} x={-8} y={y + 4} textAnchor="end" fontSize={9} fill={v3.textMuted}>
+                  ${rent}
+                </text>
+              )
+            })}
           </svg>
+
+          {/* Updated timestamp */}
+          <div style={{ fontSize: 11, color: v3.textMuted, fontFamily: 'var(--font-mono)', marginTop: 12, borderTop: `1px solid ${v3.divider}`, paddingTop: 12 }}>
+            {isZh ? '更新于 4 月 28 日 · 数据源: Stayloop Index (25 万+ 房源)' : 'Updated April 28, 2026 · Source: Stayloop Index (250k+ listings)'}
+          </div>
+        </div>
+
+        {/* Neighborhood breakdown cards */}
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: v3.textPrimary }}>
+            {isZh ? '社区租金分布' : 'Neighborhood Breakdown'}
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+            {[
+              { name_en: 'Liberty Village', name_zh: 'Liberty Village', rent: 2420, yoy: 7.8 },
+              { name_en: 'Etobicoke', name_zh: 'Etobicoke', rent: 2180, yoy: 5.2 },
+              { name_en: 'North York', name_zh: 'North York', rent: 2100, yoy: 3.1 },
+              { name_en: 'Scarborough', name_zh: 'Scarborough', rent: 1950, yoy: 2.4 },
+            ].map((nb) => (
+              <div key={nb.name_en} style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: v3.textPrimary, marginBottom: 8 }}>
+                  {isZh ? nb.name_zh : nb.name_en}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 24, fontWeight: 800, color: v3.brandStrong, letterSpacing: '-0.025em' }}>
+                    ${nb.rent}
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: v3.brandStrong }}>↑ {nb.yoy}% YoY</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Stats row */}
