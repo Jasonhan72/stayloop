@@ -1,5 +1,6 @@
 'use client'
 // /lease/escrow — Lease eSign + Escrow (V3 section 16)
+import { useRef, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
@@ -17,6 +18,61 @@ const TIMELINE = [
 export default function LeaseEscrowPage() {
   const { lang } = useT()
   const isZh = lang === 'zh'
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [activeParty, setActiveParty] = useState<'tenant' | 'landlord'>('tenant')
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const handleMouseDown = (e: MouseEvent) => {
+      setIsDrawing(true)
+      const rect = canvas.getBoundingClientRect()
+      ctx.beginPath()
+      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top)
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDrawing) return
+      const rect = canvas.getBoundingClientRect()
+      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top)
+      ctx.strokeStyle = v3.brand
+      ctx.lineWidth = 2
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.stroke()
+    }
+
+    const handleMouseUp = () => {
+      setIsDrawing(false)
+      ctx.closePath()
+    }
+
+    canvas.addEventListener('mousedown', handleMouseDown)
+    canvas.addEventListener('mousemove', handleMouseMove)
+    canvas.addEventListener('mouseup', handleMouseUp)
+    canvas.addEventListener('mouseout', handleMouseUp)
+
+    return () => {
+      canvas.removeEventListener('mousedown', handleMouseDown)
+      canvas.removeEventListener('mousemove', handleMouseMove)
+      canvas.removeEventListener('mouseup', handleMouseUp)
+      canvas.removeEventListener('mouseout', handleMouseUp)
+    }
+  }, [isDrawing, v3.brand])
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+  }
+
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
       <AppHeader
@@ -31,6 +87,33 @@ export default function LeaseEscrowPage() {
           </div>
         }
       />
+
+      {/* Party role tabs */}
+      <div style={{ background: v3.surfaceMuted, borderBottom: `1px solid ${v3.divider}`, paddingLeft: 24, paddingRight: 24 }}>
+        <div style={{ maxWidth: size.content.wide, margin: '0 auto', display: 'flex', gap: 24 }}>
+          {[
+            { key: 'tenant', en: 'Tenant view', zh: '租客视图' },
+            { key: 'landlord', en: 'Landlord view', zh: '房东视图' },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveParty(tab.key as 'tenant' | 'landlord')}
+              style={{
+                padding: '14px 0',
+                fontSize: 13,
+                fontWeight: 600,
+                color: activeParty === tab.key ? v3.brand : v3.textMuted,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: activeParty === tab.key ? `2px solid ${v3.brand}` : 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {isZh ? tab.zh : tab.en}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24, display: 'grid', gridTemplateColumns: '420px 1fr', gap: 24 }} className="le-grid">
         <style jsx>{`
@@ -67,6 +150,10 @@ export default function LeaseEscrowPage() {
               {isZh
                 ? '由 Stayloop Trust 托管 · CDIC 保险 · 验房通过后释放给房东。'
                 : 'Held by Stayloop Trust · CDIC-insured · released on walkthrough sign-off.'}
+            </div>
+
+            <div style={{ marginTop: 14, padding: 12, background: v3.surfaceCard, borderRadius: 10, border: `1px solid ${v3.divider}`, fontSize: 12, color: v3.textPrimary, lineHeight: 1.6 }}>
+              <span style={{ fontWeight: 700 }}>$4,700 in escrow</span> · {isZh ? '验房通过后于 4 月 30 日释放' : 'Released after walkthrough Apr 30'}
             </div>
           </div>
         </section>
@@ -107,6 +194,41 @@ export default function LeaseEscrowPage() {
                 <div style={{ fontSize: 11, color: v3.textMuted }}>{sig.role}</div>
               </div>
             ))}
+          </div>
+
+          {/* Interactive signature pad */}
+          <div style={{ marginTop: 32, borderTop: `2px solid ${v3.divider}`, paddingTop: 24, fontFamily: 'var(--font-inter), sans-serif' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>
+              {activeParty === 'tenant' ? (isZh ? '租客签名 / Tenant Signature' : 'TENANT SIGNATURE · 租客签名') : (isZh ? '房东签名 / Landlord Signature' : 'LANDLORD SIGNATURE · 房东签名')}
+            </div>
+            <canvas
+              ref={canvasRef}
+              width={300}
+              height={100}
+              style={{
+                border: `2px solid ${v3.border}`,
+                borderRadius: 10,
+                background: v3.surfaceCard,
+                cursor: 'crosshair',
+                display: 'block',
+                marginBottom: 10,
+              }}
+            />
+            <button
+              onClick={clearSignature}
+              style={{
+                padding: '8px 14px',
+                background: v3.surfaceMuted,
+                border: `1px solid ${v3.border}`,
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 600,
+                color: v3.textSecondary,
+                cursor: 'pointer',
+              }}
+            >
+              {isZh ? '清除' : 'Clear'}
+            </button>
           </div>
 
           <div style={{ marginTop: 24, textAlign: 'center', fontFamily: 'var(--font-inter), sans-serif' }}>

@@ -1,5 +1,6 @@
 'use client'
 // /dashboard/onboarding — Landlord Onboarding (V3 section 23)
+import { useState } from 'react'
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
@@ -12,9 +13,25 @@ const STEPS = [
   { en: 'Activate', zh: '激活上线' },
 ]
 
+const INSURANCE_CARRIERS = [
+  'Northbridge',
+  'Square One',
+  'TD',
+  'Apollo',
+  'Other',
+]
+
 export default function LandlordOnboardingPage() {
   const { lang } = useT()
   const isZh = lang === 'zh'
+  const [selectedInsurer, setSelectedInsurer] = useState<string | null>(null)
+  const [idvComplete, setIdvComplete] = useState({
+    governmentId: false,
+    recoVerification: false,
+    bankAccount: false,
+  })
+
+  const allIdvDone = Object.values(idvComplete).every(Boolean)
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
       <AppHeader
@@ -65,6 +82,33 @@ export default function LandlordOnboardingPage() {
           <div style={{ fontSize: 11, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
             STEP 3 · {isZh ? '你的第一套房产' : 'YOUR FIRST PROPERTY'}
           </div>
+
+          {/* Insurance carrier selector */}
+          <div style={{ marginBottom: 20, padding: 16, background: v3.surfaceMuted, borderRadius: 12 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: v3.textPrimary, marginBottom: 8 }}>
+              {isZh ? '保险供应商 / Insurance Carrier' : 'Insurance Carrier · 保险供应商'}
+            </label>
+            <select
+              value={selectedInsurer || ''}
+              onChange={(e) => setSelectedInsurer(e.target.value || null)}
+              style={{
+                width: '100%',
+                padding: '11px 14px',
+                background: v3.surfaceCard,
+                border: `1px solid ${v3.border}`,
+                borderRadius: 10,
+                fontSize: 14,
+                color: '#0B1736',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="">{isZh ? '选择保险商...' : 'Select an insurer...'}</option>
+              {INSURANCE_CARRIERS.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 6px' }}>
             {isZh ? '告诉我们你要出租的单元' : 'Tell us about the unit you want to rent.'}
           </h1>
@@ -108,11 +152,106 @@ export default function LandlordOnboardingPage() {
             </div>
           </div>
 
+          {/* IDV Section */}
+          <div style={{ marginTop: 24, paddingTop: 24, borderTop: `1px solid ${v3.divider}` }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 14px', color: v3.textPrimary }}>
+              {isZh ? '身份核验 · Identity Verification' : 'Identity Verification · 身份核验'}
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+              {[
+                {
+                  en: 'Upload government ID',
+                  zh: '上传政府 ID',
+                  key: 'governmentId',
+                  placeholder: isZh ? '选择文件...' : 'Choose file...',
+                },
+                {
+                  en: 'RECO verification',
+                  zh: 'RECO 验证',
+                  key: 'recoVerification',
+                  placeholder: isZh ? '输入 RECO #' : 'Enter RECO #',
+                  isNumber: true,
+                },
+                {
+                  en: 'Bank account',
+                  zh: '银行账户',
+                  key: 'bankAccount',
+                  placeholder: isZh ? '连接 Flinks' : 'Connect via Flinks',
+                },
+              ].map((card) => (
+                <div
+                  key={card.key}
+                  onClick={() => setIdvComplete((prev) => ({ ...prev, [card.key]: !prev[card.key as keyof typeof idvComplete] }))}
+                  style={{
+                    background: idvComplete[card.key as keyof typeof idvComplete] ? v3.successSoft : v3.surface,
+                    border: `1px solid ${idvComplete[card.key as keyof typeof idvComplete] ? v3.success : v3.border}`,
+                    borderRadius: 12,
+                    padding: 14,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <div
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 4,
+                        background: idvComplete[card.key as keyof typeof idvComplete] ? v3.success : v3.divider,
+                        color: '#fff',
+                        display: 'grid',
+                        placeItems: 'center',
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {idvComplete[card.key as keyof typeof idvComplete] && '✓'}
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: v3.textSecondary }}>
+                      {isZh ? card.zh : card.en}
+                    </span>
+                  </div>
+                  <input
+                    type={card.isNumber ? 'number' : 'text'}
+                    placeholder={card.placeholder}
+                    disabled={true}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: v3.surfaceMuted,
+                      border: `1px solid ${v3.border}`,
+                      borderRadius: 8,
+                      fontSize: 12,
+                      color: '#0B1736',
+                      opacity: 0.7,
+                      cursor: 'not-allowed',
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
             <button style={{ padding: '10px 18px', background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 10, fontSize: 14, fontWeight: 600, color: v3.textSecondary }}>
               ← {isZh ? '返回' : 'Back'}
             </button>
-            <button style={{ padding: '10px 22px', background: v3.brand, color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700 }}>
+            <button
+              disabled={!allIdvDone}
+              style={{
+                padding: '10px 22px',
+                background: allIdvDone
+                  ? 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)'
+                  : '#C5BDAA',
+                color: allIdvDone ? '#fff' : '#71717A',
+                border: 'none',
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: allIdvDone ? 'pointer' : 'not-allowed',
+                boxShadow: allIdvDone ? '0 8px 22px -10px rgba(52, 211, 153, 0.45)' : 'none',
+              }}
+            >
               {isZh ? '继续激活' : 'Continue to activation'} →
             </button>
           </div>

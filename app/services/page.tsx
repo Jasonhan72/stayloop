@@ -20,6 +20,8 @@ interface Provider {
   jobs_completed: number | null
   starting_price_cad: number | null
   badge: string | null
+  description_en?: string
+  description_zh?: string
 }
 
 interface Booking {
@@ -27,6 +29,13 @@ interface Booking {
   status: string
   scheduled_at: string | null
   provider: { name: string } | null
+}
+
+interface Review {
+  name: string
+  text_en: string
+  text_zh: string
+  date: string
 }
 
 const CATEGORY_META: Record<string, { en: string; zh: string; emoji: string }> = {
@@ -44,6 +53,27 @@ const BADGE_META: Record<string, { en: string; zh: string }> = {
   best_price: { en: 'Best price', zh: '最优价格' },
 }
 
+const SAMPLE_REVIEWS: Review[] = [
+  {
+    name: 'M.L. · Liberty Village',
+    text_en: 'Fixed my lock in 20 minutes. Professional and fair pricing.',
+    text_zh: '20分钟内修好了我的锁。专业且价格公平。',
+    date: '2 weeks ago',
+  },
+  {
+    name: 'T.R. · Kensington',
+    text_en: 'Same-day plumbing repair, very thorough inspection.',
+    text_zh: '当天管道维修，检查非常彻底。',
+    date: '1 month ago',
+  },
+  {
+    name: 'S.K. · Queen West',
+    text_en: 'Excellent work quality. Will book again for next issue.',
+    text_zh: '工作质量优秀。下次有问题还会预约。',
+    date: '2 months ago',
+  },
+]
+
 export default function ServicesPage() {
   const { lang } = useT()
   const isZh = lang === 'zh'
@@ -51,6 +81,7 @@ export default function ServicesPage() {
   const [providers, setProviders] = useState<Provider[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null)
 
   useEffect(() => {
     void load()
@@ -96,6 +127,29 @@ export default function ServicesPage() {
       />
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24 }}>
+        {/* Next appointment timeline (if bookings exist) */}
+        {bookings.length > 0 && (
+          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18, marginBottom: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: v3.textPrimary, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>
+              {isZh ? '下次约约' : 'NEXT APPOINTMENT'}
+            </div>
+            {bookings.slice(0, 2).map((b, idx) => (
+              <div key={b.id} style={{ display: 'flex', gap: 12, paddingBottom: idx < 1 ? 12 : 0, borderBottom: idx < 1 ? `1px solid ${v3.divider}` : 'none', marginBottom: idx < 1 ? 12 : 0 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 8, background: v3.brandSoft, display: 'grid', placeItems: 'center', fontSize: 18, flexShrink: 0 }}>✦</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: v3.textPrimary }}>{b.provider?.name || '—'}</div>
+                  <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 2 }}>
+                    {b.scheduled_at ? new Date(b.scheduled_at).toLocaleDateString(isZh ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'TBD'}
+                  </div>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: b.status === 'confirmed' ? v3.success : v3.warning, background: b.status === 'confirmed' ? v3.successSoft : v3.warningSoft, padding: '4px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+                  {b.status === 'confirmed' ? '✓' : '⏳'} {b.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Echo trigger */}
         <div style={{ background: v3.surface, border: `1px solid ${v3.brandSoft}`, borderLeft: `4px solid ${v3.brand}`, borderRadius: 14, padding: 18, marginBottom: 18, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: v3.brand, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 16, flexShrink: 0 }}>✦</div>
@@ -175,21 +229,9 @@ export default function ServicesPage() {
                     </span>
                     <button
                       style={{ padding: '7px 14px', background: v3.brand, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                      onClick={async () => {
-                        if (!user) {
-                          alert(isZh ? '请先登录' : 'Please sign in first')
-                          return
-                        }
-                        await supabase.from('service_bookings').insert({
-                          user_id: user?.authId,
-                          provider_id: p.id,
-                          status: 'pending_vendor',
-                          total_cad: p.starting_price_cad,
-                        })
-                        void load()
-                      }}
+                      onClick={() => setSelectedProvider(p)}
                     >
-                      {isZh ? '预约' : 'Book'}
+                      {isZh ? '详情' : 'Details'}
                     </button>
                   </div>
                 </div>
@@ -224,6 +266,130 @@ export default function ServicesPage() {
                 </span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Service detail modal */}
+        {selectedProvider && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            padding: 16,
+          }}>
+            <div style={{
+              background: v3.surfaceCard,
+              borderRadius: 16,
+              padding: 24,
+              maxWidth: 500,
+              width: '100%',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              position: 'relative',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            }}>
+              {/* Close button */}
+              <button
+                onClick={() => setSelectedProvider(null)}
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 16,
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 24,
+                  cursor: 'pointer',
+                  color: v3.textMuted,
+                  padding: 0,
+                  width: 32,
+                  height: 32,
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                ✕
+              </button>
+
+              {/* Provider header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, paddingRight: 32 }}>
+                <span style={{ fontSize: 36 }}>{selectedProvider.emoji || '✦'}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: v3.textPrimary }}>{selectedProvider.name}</div>
+                  <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 2 }}>
+                    {isZh ? CATEGORY_META[selectedProvider.category]?.zh : CATEGORY_META[selectedProvider.category]?.en}
+                  </div>
+                </div>
+              </div>
+
+              {/* Rating */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+                <span style={{ fontSize: 18, color: v3.brand }}>★ {selectedProvider.rating ?? '—'}</span>
+                <span style={{ fontSize: 12, color: v3.textMuted }}>({selectedProvider.jobs_completed ?? 0} {isZh ? '个项目完成' : 'jobs completed'})</span>
+              </div>
+
+              {/* Service label */}
+              {selectedProvider.service_label_en && (
+                <div style={{ fontSize: 13, color: v3.textSecondary, marginBottom: 16, padding: 12, background: v3.surfaceTint, borderRadius: 10 }}>
+                  {isZh ? selectedProvider.service_label_zh : selectedProvider.service_label_en}
+                </div>
+              )}
+
+              {/* Reviews carousel */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: v3.textPrimary, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>
+                  {isZh ? '用户评价' : 'REVIEWS'}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {SAMPLE_REVIEWS.map((r, idx) => (
+                    <div key={idx} style={{ padding: 12, background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: v3.textMuted }}>{r.name}</div>
+                        <div style={{ fontSize: 10, color: v3.textFaint }}>★★★★★</div>
+                      </div>
+                      <div style={{ fontSize: 12, color: v3.textSecondary, lineHeight: 1.5 }}>
+                        {isZh ? r.text_zh : r.text_en}
+                      </div>
+                      <div style={{ fontSize: 10, color: v3.textFaint, marginTop: 6 }}>{r.date}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* CTA button */}
+              <button
+                onClick={async () => {
+                  if (!user) {
+                    alert(isZh ? '请先登录' : 'Please sign in first')
+                    return
+                  }
+                  await supabase.from('service_bookings').insert({
+                    user_id: user?.authId,
+                    provider_id: selectedProvider.id,
+                    status: 'pending_vendor',
+                    total_cad: selectedProvider.starting_price_cad,
+                  })
+                  void load()
+                  setSelectedProvider(null)
+                }}
+                style={{
+                  width: '100%',
+                  background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: 14,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {isZh ? '预约咨询' : 'Book consultation'}
+              </button>
+            </div>
           </div>
         )}
       </div>
