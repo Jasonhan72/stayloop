@@ -17,24 +17,28 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { useRouter } from 'next/navigation'
+import { v3 } from '@/lib/brand'
 
-/* ── Palette ── */
+/* ── Palette shim — maps legacy mk.* names to V3 tokens so existing JSX
+ *  keeps working without a full rename. Identical surface to the previous
+ *  cool-blue mk palette but routed through `v3` for visual consistency
+ *  with the rest of the app (cream surfaces, classic emerald). */
 const mk = {
-  surface:     '#FFFFFF',
-  border:      '#E4E8F0',
-  borderStrong:'#CBD5E1',
-  text:        '#0B1736',
-  textSec:     '#475569',
-  textMuted:   '#64748B',
-  textFaint:   '#94A3B8',
-  brand:       '#10B981',
-  brandStrong: '#059669',
-  brandSoft:   '#ECFDF5',
-  navy:        '#0B1736',
-  red:         '#E11D48',
-  redSoft:     '#FFF1F2',
-  greenSoft:   '#ECFDF5',
-  green:       '#059669',
+  surface:     v3.surfaceCard,
+  border:      v3.border,
+  borderStrong:v3.borderStrong,
+  text:        v3.textPrimary,
+  textSec:     v3.textSecondary,
+  textMuted:   v3.textMuted,
+  textFaint:   v3.textFaint,
+  brand:       v3.brand,
+  brandStrong: v3.brandStrong,
+  brandSoft:   v3.brandSoft,
+  navy:        v3.textPrimary,
+  red:         v3.danger,
+  redSoft:     v3.dangerSoft,
+  greenSoft:   v3.successSoft,
+  green:       v3.success,
 } as const
 
 type Step = 'email' | 'welcome_back' | 'signin' | 'signup' | 'reset_sent' | 'check_email'
