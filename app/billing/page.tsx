@@ -22,6 +22,8 @@ export default function BillingPage() {
 
   const [plan, setPlan] = useState<string>('free')
   const [loading, setLoading] = useState(true)
+  const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null)
+  const [portalLoading, setPortalLoading] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -40,12 +42,41 @@ export default function BillingPage() {
     setLoading(false)
   }
 
+  async function startCheckout(planSlug: string) {
+    setUpgradingPlan(planSlug)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('not signed in')
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ plan_slug: planSlug }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.url) throw new Error(data.error || 'checkout failed')
+      window.location.href = data.url
+    } catch (err: any) {
+      alert(`${isZh ? '结账失败' : 'Checkout error'}: ${err?.message || 'unknown'}`)
+      setUpgradingPlan(null)
+    }
+  }
+
   async function openBillingPortal() {
-    const response = await fetch('/api/stripe/portal', {
-      method: 'POST',
-    })
-    const { url } = await response.json()
-    if (url) window.location.href = url
+    setPortalLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('not signed in')
+      const res = await fetch('/api/stripe/portal', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      if (!res.ok || !data.url) throw new Error(data.error || 'portal failed')
+      window.location.href = data.url
+    } catch (err: any) {
+      alert(`${isZh ? '账单门户错误' : 'Billing portal error'}: ${err?.message || 'unknown'}`)
+      setPortalLoading(false)
+    }
   }
 
   const mockInvoices: InvoiceRow[] = [
@@ -69,6 +100,7 @@ export default function BillingPage() {
         right={
           <button
             onClick={openBillingPortal}
+            disabled={portalLoading}
             style={{
               padding: '8px 14px',
               background: v3.brand,
@@ -77,7 +109,8 @@ export default function BillingPage() {
               borderRadius: 8,
               fontSize: 13,
               fontWeight: 600,
-              cursor: 'pointer',
+              cursor: portalLoading ? 'not-allowed' : 'pointer',
+              opacity: portalLoading ? 0.6 : 1,
             }}
           >
             {isZh ? '管理订阅' : 'Manage'}
@@ -247,13 +280,8 @@ export default function BillingPage() {
 
                   {i === 1 && (
                     <button
-                      onClick={async () => {
-                        const response = await fetch('/api/stripe/checkout', {
-                          method: 'POST',
-                        })
-                        const { url } = await response.json()
-                        if (url) window.location.href = url
-                      }}
+                      onClick={() => startCheckout('pro')}
+                      disabled={upgradingPlan === 'pro'}
                       style={{
                         width: '100%',
                         padding: '10px 16px',
@@ -263,10 +291,11 @@ export default function BillingPage() {
                         borderRadius: 8,
                         fontSize: 14,
                         fontWeight: 600,
-                        cursor: 'pointer',
+                        cursor: upgradingPlan === 'pro' ? 'not-allowed' : 'pointer',
+                        opacity: upgradingPlan === 'pro' ? 0.6 : 1,
                       }}
                     >
-                      {isZh ? '升级到 Pro' : 'Upgrade to Pro'}
+                      {upgradingPlan === 'pro' ? (isZh ? '重定向中…' : 'Redirecting...') : (isZh ? '升级到 Pro' : 'Upgrade to Pro')}
                     </button>
                   )}
                 </div>
@@ -345,6 +374,8 @@ export default function BillingPage() {
         {plan === 'pro' && (
           <div style={{ marginTop: 48 }}>
             <button
+              onClick={openBillingPortal}
+              disabled={portalLoading}
               style={{
                 padding: '10px 16px',
                 background: 'transparent',
@@ -353,7 +384,8 @@ export default function BillingPage() {
                 borderRadius: 8,
                 fontSize: 14,
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: portalLoading ? 'not-allowed' : 'pointer',
+                opacity: portalLoading ? 0.6 : 1,
               }}
             >
               {isZh ? '取消计划' : 'Cancel plan'}

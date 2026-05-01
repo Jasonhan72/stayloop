@@ -48,6 +48,9 @@ export default function UserAvatar({ user, signOut }: Props) {
           { href: '/score', label_en: 'My score', label_zh: '我的评分', icon: '◷' },
           { href: '/history', label_en: 'Rental history', label_zh: '租房记录', icon: '⌂' },
           { href: '/disputes', label_en: 'Disputes', label_zh: '纠纷', icon: '⚖' },
+          { href: '/tenant/leases', label_en: 'My leases', label_zh: '我的租约', icon: '⊟' },
+          { href: '/notifications', label_en: 'Notifications', label_zh: '通知', icon: '🔔' },
+          { href: '/audit', label_en: 'Activity log', label_zh: '操作日志', icon: '⊜' },
           { href: '/profile', label_en: 'Account', label_zh: '账户设置', icon: '⚙' },
         ]
       : user.role === 'agent'
@@ -55,6 +58,11 @@ export default function UserAvatar({ user, signOut }: Props) {
             { href: '/agent/day', label_en: 'Day brief', label_zh: '今日任务', icon: '☉' },
             { href: '/dashboard/pipeline', label_en: 'Pipeline', label_zh: 'Pipeline', icon: '≣' },
             { href: '/dashboard/find-agent', label_en: 'Find an agent', label_zh: '找经纪', icon: '◈' },
+            { href: '/agent/clients', label_en: 'Clients', label_zh: '客户', icon: '◉' },
+            { href: '/agent/screening-packages', label_en: 'Screening packages', label_zh: '报告包', icon: '⊡' },
+            { href: '/agent/leases', label_en: 'Leases', label_zh: '租约', icon: '⊟' },
+            { href: '/notifications', label_en: 'Notifications', label_zh: '通知', icon: '🔔' },
+            { href: '/billing', label_en: 'Billing', label_zh: '账单', icon: '◐' },
             { href: '/profile', label_en: 'Account', label_zh: '账户设置', icon: '⚙' },
           ]
         : [
@@ -64,6 +72,11 @@ export default function UserAvatar({ user, signOut }: Props) {
             { href: '/dashboard/portfolio', label_en: 'Portfolio', label_zh: '资产组合', icon: '◫' },
             { href: '/screen', label_en: 'Screen a tenant', label_zh: '筛查租客', icon: '◉' },
             { href: '/listings/new', label_en: 'New listing', label_zh: '新建房源', icon: '+' },
+            { href: '/landlord/leases', label_en: 'Leases', label_zh: '租约', icon: '⊟' },
+            { href: '/landlord/screening', label_en: 'Manual screening', label_zh: '手动筛查', icon: '⊡' },
+            { href: '/notifications', label_en: 'Notifications', label_zh: '通知', icon: '🔔' },
+            { href: '/billing', label_en: 'Billing', label_zh: '账单', icon: '◐' },
+            { href: '/audit', label_en: 'Activity log', label_zh: '操作日志', icon: '⊜' },
             { href: '/profile', label_en: 'Account', label_zh: '账户设置', icon: '⚙' },
           ]
 
