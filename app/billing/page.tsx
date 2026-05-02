@@ -6,6 +6,7 @@ import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import { v3 } from '@/lib/brand'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 export default function BillingPage() {
   const { lang } = useT()
@@ -81,71 +82,48 @@ export default function BillingPage() {
 
   return (
     <PageShell>
-      {/* Header */}
-      <div style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '32px 28px', marginLeft: -32, marginRight: -32, marginTop: -32 }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'baseline', gap: 20 }}>
-          <div>
-            <div
-              style={{
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 10.5,
-                letterSpacing: '0.10em',
-                textTransform: 'uppercase',
-                color: '#71717A',
-                fontWeight: 700,
-                marginBottom: 10,
-              }}
-            >
-              {isZh ? '账单 · Stripe' : 'Billing · Stripe'}
-            </div>
-            <h1
-              style={{
-                fontFamily: 'var(--f-serif)',
-                fontSize: 28,
-                fontWeight: 600,
-                color: '#171717',
-                margin: 0,
-                letterSpacing: '-0.02em',
-              }}
-            >
-              {isZh ? '计划、用量和发票' : 'Plan, usage & invoices'}
-            </h1>
-          </div>
-          <div style={{ flex: 1 }} />
+      <SecHead
+        eyebrow={isZh ? '账单 · Stripe' : 'Billing · Stripe'}
+        title={isZh ? '计划、用量和发票' : 'Plan, usage & invoices'}
+        right={
           <button
             onClick={openBillingPortal}
             disabled={portalLoading}
             style={{
-              background: '#FFFFFF',
-              color: '#171717',
-              border: '1px solid #C5BDAA',
-              borderRadius: 6,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 7,
+              background: '#fff',
+              color: v3.textPrimary,
+              border: `1px solid ${v3.borderStrong}`,
+              borderRadius: 10,
+              padding: '10px 18px',
               fontSize: 13,
               fontWeight: 600,
-              padding: '10px 18px',
               cursor: portalLoading ? 'not-allowed' : 'pointer',
               opacity: portalLoading ? 0.6 : 1,
             }}
           >
             {isZh ? '在 Stripe 中管理 →' : 'Manage in Stripe →'}
           </button>
-        </div>
-      </div>
+        }
+      />
 
-      <div style={{ padding: '32px 28px', maxWidth: 1100, margin: '0 auto' }}>
+      <div>
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }}>
           <div style={{ display: 'grid', gap: 18 }}>
             {/* Current plan card */}
             <div
               style={{
                 background: '#fff',
-                border: `1px solid #D8D2C2`,
-                borderRadius: 8,
+                border: `1px solid ${v3.border}`,
+                borderRadius: 14,
                 padding: 24,
                 display: 'grid',
                 gridTemplateColumns: '1.2fr 1fr',
                 gap: 18,
                 alignItems: 'center',
+                boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)',
               }}
             >
               <div>
@@ -155,7 +133,7 @@ export default function BillingPage() {
                     fontSize: 10.5,
                     letterSpacing: '0.10em',
                     textTransform: 'uppercase',
-                    color: '#71717A',
+                    color: v3.textMuted,
                     fontWeight: 700,
                   }}
                 >
@@ -166,26 +144,28 @@ export default function BillingPage() {
                     fontFamily: 'var(--f-serif)',
                     fontSize: 24,
                     fontWeight: 600,
-                    color: '#171717',
+                    color: v3.textPrimary,
                     marginTop: 6,
                   }}
                 >
-                  Landlord Plus ·{' '}
-                  <span style={{ color: '#10B981' }}>$15 / mo</span>
+                  Landlord Plus · <span style={{ color: v3.brandBright }}>$15 / mo</span>
                 </div>
-                <div style={{ fontSize: 12, color: '#71717A', marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 4 }}>
                   {isZh ? '续订于 2026 年 9 月 18 日' : 'Renews Sep 18, 2026'} · Visa •• 4242
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                   <button
                     style={{
-                      background: '#FFFFFF',
-                      color: '#171717',
-                      border: '1px solid #C5BDAA',
-                      borderRadius: 6,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 7,
+                      background: '#fff',
+                      color: v3.textPrimary,
+                      border: `1px solid ${v3.borderStrong}`,
+                      borderRadius: 10,
+                      padding: '10px 18px',
                       fontSize: 13,
                       fontWeight: 600,
-                      padding: '10px 18px',
                       cursor: 'pointer',
                     }}
                   >
@@ -194,12 +174,11 @@ export default function BillingPage() {
                   <button
                     style={{
                       background: 'none',
-                      color: '#047857',
+                      color: v3.brand,
                       border: 'none',
                       fontSize: 13,
                       fontWeight: 600,
                       cursor: 'pointer',
-                      textDecoration: 'underline',
                     }}
                   >
                     {isZh ? '更新支付 →' : 'Update payment →'}
@@ -209,8 +188,8 @@ export default function BillingPage() {
               <div
                 style={{
                   padding: 16,
-                  background: '#EAE5D9',
-                  border: `1px solid #D8D2C2`,
+                  background: v3.surfaceMuted,
+                  border: `1px solid ${v3.border}`,
                   borderRadius: 8,
                 }}
               >
@@ -220,7 +199,7 @@ export default function BillingPage() {
                     fontSize: 10.5,
                     letterSpacing: '0.10em',
                     textTransform: 'uppercase',
-                    color: '#71717A',
+                    color: v3.textMuted,
                     fontWeight: 700,
                     marginBottom: 10,
                   }}
@@ -228,9 +207,9 @@ export default function BillingPage() {
                   Plus · {isZh ? '本月' : 'this month'}
                 </div>
                 {[
-                  [isZh ? 'AI 报告' : 'AI reports', '38 / 40', 95, '#10B981'],
-                  [isZh ? '验证附加选项' : 'Verified add-ons', '1 / 5', 20, '#7C3AED'],
-                  [isZh ? '电子签名信封' : 'E-sign envelopes', '2 / 4', 50, '#047857'],
+                  [isZh ? 'AI 报告' : 'AI reports', '38 / 40', 95, v3.brandBright],
+                  [isZh ? '验证附加选项' : 'Verified add-ons', '1 / 5', 20, v3.trust],
+                  [isZh ? '电子签名信封' : 'E-sign envelopes', '2 / 4', 50, v3.brand],
                 ].map((r, i) => (
                   <div key={i} style={{ marginTop: i > 0 ? 10 : 0 }}>
                     <div
@@ -241,7 +220,7 @@ export default function BillingPage() {
                         fontSize: 11,
                       }}
                     >
-                      <span style={{ color: '#171717' }}>{r[0]}</span>
+                      <span style={{ color: v3.textPrimary }}>{r[0]}</span>
                       <span
                         style={{
                           fontFamily: 'JetBrains Mono, monospace',
@@ -255,7 +234,7 @@ export default function BillingPage() {
                     <div
                       style={{
                         height: 6,
-                        background: '#D8D2C2',
+                        background: v3.borderStrong,
                         borderRadius: 3,
                         overflow: 'hidden',
                       }}
@@ -278,16 +257,17 @@ export default function BillingPage() {
             <div
               style={{
                 background: '#fff',
-                border: `1px solid #D8D2C2`,
-                borderRadius: 8,
+                border: `1px solid ${v3.border}`,
+                borderRadius: 14,
                 padding: 0,
                 overflow: 'hidden',
+                boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)',
               }}
             >
               <div
                 style={{
                   padding: '14px 22px',
-                  borderBottom: `1px solid #D8D2C2`,
+                  borderBottom: `1px solid ${v3.border}`,
                   display: 'flex',
                   alignItems: 'baseline',
                 }}
@@ -298,11 +278,12 @@ export default function BillingPage() {
                     fontFamily: 'var(--f-serif)',
                     fontSize: 17,
                     fontWeight: 600,
+                    color: v3.textPrimary,
                   }}
                 >
                   {isZh ? '发票' : 'Invoices'}
                 </h3>
-                <span style={{ fontSize: 12, color: '#71717A', marginLeft: 10 }}>
+                <span style={{ fontSize: 12, color: v3.textMuted, marginLeft: 10 }}>
                   {isZh ? '最近 6 个月' : 'Last 6 months'}
                 </span>
               </div>
@@ -320,7 +301,7 @@ export default function BillingPage() {
                     display: 'grid',
                     gridTemplateColumns: '120px 1fr 100px 90px 80px',
                     padding: '12px 22px',
-                    borderTop: `1px solid #D8D2C2`,
+                    borderTop: `1px dashed ${v3.border}`,
                     fontSize: 13,
                     alignItems: 'center',
                   }}
@@ -328,16 +309,16 @@ export default function BillingPage() {
                   <span
                     style={{
                       fontFamily: 'JetBrains Mono, monospace',
-                      color: '#71717A',
+                      color: v3.textMuted,
                     }}
                   >
                     {r[0]}
                   </span>
-                  <span style={{ color: '#171717' }}>{r[1]}</span>
+                  <span style={{ color: v3.textPrimary }}>{r[1]}</span>
                   <span
                     style={{
                       fontFamily: 'JetBrains Mono, monospace',
-                      color: '#171717',
+                      color: v3.textPrimary,
                       fontWeight: 600,
                     }}
                   >
@@ -364,7 +345,7 @@ export default function BillingPage() {
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: '#047857',
+                      color: v3.brand,
                       fontSize: 12,
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -384,9 +365,10 @@ export default function BillingPage() {
             <div
               style={{
                 background: '#fff',
-                border: `1px solid #D8D2C2`,
-                borderRadius: 8,
+                border: `1px solid ${v3.border}`,
+                borderRadius: 14,
                 padding: 18,
+                boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)',
               }}
             >
               <div
@@ -395,7 +377,7 @@ export default function BillingPage() {
                   fontSize: 10.5,
                   letterSpacing: '0.10em',
                   textTransform: 'uppercase',
-                  color: '#71717A',
+                  color: v3.textMuted,
                   fontWeight: 700,
                   marginBottom: 10,
                 }}
@@ -415,20 +397,20 @@ export default function BillingPage() {
                     alignItems: 'center',
                     gap: 10,
                     padding: '10px 0',
-                    borderTop: i ? `1px dashed #D8D2C2` : 'none',
+                    borderTop: i ? `1px dashed ${v3.border}` : 'none',
                   }}
                 >
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#171717' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: v3.textPrimary }}>
                       {a[0]}
                     </div>
-                    <div style={{ fontSize: 11, color: '#71717A' }}>{a[2]}</div>
+                    <div style={{ fontSize: 11, color: v3.textMuted }}>{a[2]}</div>
                   </div>
                   <span
                     style={{
                       fontFamily: 'JetBrains Mono, monospace',
                       fontSize: 13,
-                      color: '#10B981',
+                      color: v3.brandBright,
                       fontWeight: 600,
                     }}
                   >
@@ -438,7 +420,7 @@ export default function BillingPage() {
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: '#047857',
+                      color: v3.brand,
                       fontSize: 12,
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -453,10 +435,11 @@ export default function BillingPage() {
             {/* AI cost insights */}
             <div
               style={{
-                background: 'linear-gradient(180deg, #F3EEFF 0%, #fff 100%)',
+                background: 'linear-gradient(180deg, #F3E8FF 0%, #fff 100%)',
                 border: `1px solid #D7C5FA`,
-                borderRadius: 12,
+                borderRadius: 14,
                 padding: 18,
+                boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)',
               }}
             >
               <div
@@ -472,7 +455,7 @@ export default function BillingPage() {
                     width: 22,
                     height: 22,
                     borderRadius: 6,
-                    background: '#7C3AED',
+                    background: v3.trust,
                     color: '#fff',
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -489,7 +472,7 @@ export default function BillingPage() {
                     fontFamily: 'var(--f-sans)',
                     fontSize: 13,
                     fontWeight: 600,
-                    color: '#171717',
+                    color: v3.textPrimary,
                   }}
                 >
                   {isZh ? 'AI：成本见解' : 'AI: cost insights'}
@@ -511,13 +494,13 @@ export default function BillingPage() {
                       gap: 10,
                       alignItems: 'flex-start',
                       fontSize: 13,
-                      color: '#171717',
+                      color: v3.textPrimary,
                       lineHeight: 1.5,
                     }}
                   >
                     <span
                       style={{
-                        color: '#7C3AED',
+                        color: v3.trust,
                         fontFamily: 'JetBrains Mono, monospace',
                         fontWeight: 600,
                         marginTop: 2,

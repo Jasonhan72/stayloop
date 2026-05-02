@@ -6,6 +6,9 @@ import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import { v3 } from '@/lib/brand'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
+import Tabs from '@/components/v4/Tabs'
+import Avatar from '@/components/v4/Avatar'
 
 type SectionKey = 'profile' | 'org' | 'security' | 'integrations'
 type Role = 'landlord' | 'tenant' | 'agent'
@@ -82,82 +85,30 @@ export default function SettingsPage() {
 
   return (
     <PageShell>
-      {/* Header */}
-      <div style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '32px 28px', marginLeft: -32, marginRight: -32, marginTop: -32 }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div
-            style={{
-              fontFamily: 'JetBrains Mono, monospace',
-              fontSize: 10.5,
-              letterSpacing: '0.10em',
-              textTransform: 'uppercase',
-              color: '#71717A',
-              fontWeight: 700,
-              marginBottom: 10,
-            }}
-          >
-            {isZh ? '设置 · 个人资料' : 'Settings · Profile'}
-          </div>
-          <h1
-            style={{
-              fontFamily: 'var(--f-serif)',
-              fontSize: 28,
-              fontWeight: 600,
-              color: '#171717',
-              margin: '0 0 6px',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            {isZh ? '个人资料、组织和首选项' : 'Profile, organization & preferences'}
-          </h1>
-        </div>
-      </div>
+      <SecHead
+        eyebrow={isZh ? '设置 · 个人资料' : 'Settings · Profile'}
+        title={isZh ? '个人资料、组织和首选项' : 'Profile, organization & preferences'}
+      />
 
-      {/* Tabs */}
-      <div
-        style={{
-          background: '#fff',
-          borderBottom: `1px solid #D8D2C2`,
-          padding: '0 28px',
-          display: 'flex',
-          gap: 0,
-        }}
-      >
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setSection(tab.id as SectionKey)}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: '14px 16px',
-              fontSize: 13,
-              fontWeight: section === tab.id ? 600 : 500,
-              color: section === tab.id ? '#171717' : '#71717A',
-              borderBottom: section === tab.id ? `2px solid #047857` : `2px solid transparent`,
-              cursor: 'pointer',
-              marginBottom: -1,
-              transition: 'all 0.15s',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={tabs.map((tab) => ({ id: tab.id, label: tab.label }))}
+        active={section}
+        onChange={(id) => setSection(id as SectionKey)}
+      />
 
       {/* Content */}
-      <div style={{ flex: 1, padding: '28px 28px', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
+      <div style={{ padding: '28px 28px', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
         {section === 'profile' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }}>
             {/* Main card */}
-            <div style={{ background: '#fff', border: `1px solid #D8D2C2`, borderRadius: 8, padding: 24 }}>
+            <div style={{ background: '#fff', border: `1px solid ${v3.border}`, borderRadius: 14, padding: 24, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
               <div
                 style={{
                   fontFamily: 'JetBrains Mono, monospace',
                   fontSize: 10.5,
                   letterSpacing: '0.10em',
                   textTransform: 'uppercase',
-                  color: '#71717A',
+                  color: v3.textMuted,
                   fontWeight: 700,
                   marginBottom: 14,
                 }}
@@ -165,31 +116,12 @@ export default function SettingsPage() {
                 {isZh ? '账户' : 'Account'}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
-                <div
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: '50%',
-                    background: '#047857',
-                    color: '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 600,
-                    fontSize: 24,
-                  }}
-                >
-                  {(profile.full_name || user.email || '?')
-                    .split(' ')
-                    .map((s) => s[0])
-                    .join('')
-                    .toUpperCase()}
-                </div>
+                <Avatar name={profile.full_name || user.email || '?'} size={56} />
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: 15, color: '#171717' }}>
+                  <div style={{ fontWeight: 600, fontSize: 15, color: v3.textPrimary }}>
                     {profile.full_name || 'User'}
                   </div>
-                  <div style={{ fontSize: 12, color: '#71717A' }}>
+                  <div style={{ fontSize: 12, color: v3.textMuted }}>
                     {profile.role === 'landlord'
                       ? isZh ? '房东' : 'Landlord'
                       : profile.role === 'tenant'
@@ -200,12 +132,11 @@ export default function SettingsPage() {
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: '#047857',
+                      color: v3.brand,
                       fontSize: 12,
                       fontWeight: 600,
                       marginTop: 4,
                       cursor: 'pointer',
-                      textDecoration: 'underline',
                     }}
                   >
                     {isZh ? '更改照片 →' : 'Change photo →'}
@@ -225,7 +156,7 @@ export default function SettingsPage() {
                     <label
                       style={{
                         fontSize: 11,
-                        color: '#71717A',
+                        color: v3.textMuted,
                         fontFamily: 'JetBrains Mono, monospace',
                         textTransform: 'uppercase',
                         letterSpacing: '0.08em',
@@ -242,9 +173,9 @@ export default function SettingsPage() {
                       style={{
                         width: '100%',
                         background: '#FFFFFF',
-                        border: `1px solid #D8D2C2`,
-                        borderRadius: 6,
-                        color: '#0B1736',
+                        border: `1px solid ${v3.border}`,
+                        borderRadius: 10,
+                        color: v3.textPrimary,
                         fontFamily: 'var(--f-sans)',
                         fontSize: 14,
                         padding: '11px 14px',
@@ -252,6 +183,8 @@ export default function SettingsPage() {
                         outline: 'none',
                         boxSizing: 'border-box',
                       }}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = v3.brand)}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = v3.border)}
                     />
                   </div>
                 ))}
@@ -259,13 +192,16 @@ export default function SettingsPage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
                 <button
                   style={{
-                    background: '#FFFFFF',
-                    color: '#171717',
-                    border: '1px solid #C5BDAA',
-                    borderRadius: 6,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    background: '#fff',
+                    color: v3.textPrimary,
+                    border: `1px solid ${v3.borderStrong}`,
+                    borderRadius: 10,
+                    padding: '10px 18px',
                     fontSize: 13,
                     fontWeight: 600,
-                    padding: '10px 18px',
                     cursor: 'pointer',
                   }}
                 >
@@ -273,14 +209,18 @@ export default function SettingsPage() {
                 </button>
                 <button
                   style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
                     background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
                     color: '#FFFFFF',
                     border: 'none',
-                    borderRadius: 6,
-                    fontSize: 13,
+                    borderRadius: 10,
+                    padding: '11px 20px',
+                    fontSize: 14,
                     fontWeight: 600,
-                    padding: '10px 18px',
                     cursor: 'pointer',
+                    boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset',
                   }}
                 >
                   {isZh ? '保存更改' : 'Save changes'}
@@ -290,26 +230,26 @@ export default function SettingsPage() {
 
             {/* Sidebar cards */}
             <div style={{ display: 'grid', gap: 14 }}>
-              <div style={{ background: '#fff', border: `1px solid #D8D2C2`, borderRadius: 8, padding: 18 }}>
+              <div style={{ background: '#fff', border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
                 <div
                   style={{
                     fontFamily: 'JetBrains Mono, monospace',
                     fontSize: 10.5,
                     letterSpacing: '0.10em',
                     textTransform: 'uppercase',
-                    color: '#71717A',
+                    color: v3.textMuted,
                     fontWeight: 700,
                     marginBottom: 10,
                   }}
                 >
                   {isZh ? '合规性与数据' : 'Compliance & data'}
                 </div>
-                <div style={{ display: 'grid', gap: 10, fontSize: 12, color: '#3F3F46' }}>
+                <div style={{ display: 'grid', gap: 10, fontSize: 12, color: v3.textSecondary }}>
                   {[
-                    [isZh ? '身份验证' : 'Identity verification', isZh ? '已验证 · Persona' : 'Verified · Persona', '#16A34A'],
-                    [isZh ? 'SOC 2 Type II' : 'SOC 2 Type II', isZh ? '已审计 · 2025-Q4' : 'Audited · 2025-Q4', '#16A34A'],
-                    [isZh ? '数据驻留' : 'Data residency', isZh ? '加拿大 · ca-central-1' : 'Canada · ca-central-1', '#16A34A'],
-                    [isZh ? 'PIPEDA / RTA' : 'PIPEDA / RTA', isZh ? '地区 · 安大略省' : 'Region · Ontario', '#16A34A'],
+                    [isZh ? '身份验证' : 'Identity verification', isZh ? '已验证 · Persona' : 'Verified · Persona', v3.success],
+                    [isZh ? 'SOC 2 Type II' : 'SOC 2 Type II', isZh ? '已审计 · 2025-Q4' : 'Audited · 2025-Q4', v3.success],
+                    [isZh ? '数据驻留' : 'Data residency', isZh ? '加拿大 · ca-central-1' : 'Canada · ca-central-1', v3.success],
+                    [isZh ? 'PIPEDA / RTA' : 'PIPEDA / RTA', isZh ? '地区 · 安大略省' : 'Region · Ontario', v3.success],
                   ].map((r, i) => (
                     <div
                       key={i}
@@ -317,7 +257,7 @@ export default function SettingsPage() {
                         display: 'flex',
                         justifyContent: 'space-between',
                         padding: '8px 0',
-                        borderBottom: i < 3 ? `1px dashed #D8D2C2` : 'none',
+                        borderBottom: i < 3 ? `1px dashed ${v3.border}` : 'none',
                       }}
                     >
                       <span>{r[0]}</span>
@@ -326,14 +266,14 @@ export default function SettingsPage() {
                   ))}
                 </div>
               </div>
-              <div style={{ background: '#EAE5D9', border: `1px solid #D8D2C2`, borderRadius: 8, padding: 18 }}>
+              <div style={{ background: v3.surfaceMuted, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
                 <div
                   style={{
                     fontFamily: 'JetBrains Mono, monospace',
                     fontSize: 10.5,
                     letterSpacing: '0.10em',
                     textTransform: 'uppercase',
-                    color: '#71717A',
+                    color: v3.textMuted,
                     fontWeight: 700,
                     marginBottom: 8,
                   }}
@@ -343,7 +283,7 @@ export default function SettingsPage() {
                 <div
                   style={{
                     fontSize: 12,
-                    color: '#3F3F46',
+                    color: v3.textSecondary,
                     marginBottom: 10,
                     lineHeight: 1.5,
                   }}
@@ -356,11 +296,10 @@ export default function SettingsPage() {
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#DC2626',
+                    color: v3.danger,
                     fontSize: 12,
                     fontWeight: 600,
                     cursor: 'pointer',
-                    textDecoration: 'underline',
                   }}
                 >
                   {isZh ? '请求导出 →' : 'Request export →'}
@@ -371,35 +310,35 @@ export default function SettingsPage() {
         )}
 
         {section === 'org' && (
-          <div style={{ background: '#fff', border: `1px solid #D8D2C2`, borderRadius: 8, padding: 24 }}>
+          <div style={{ background: '#fff', border: `1px solid ${v3.border}`, borderRadius: 14, padding: 24, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
             <div
               style={{
                 fontFamily: 'JetBrains Mono, monospace',
                 fontSize: 10.5,
                 letterSpacing: '0.10em',
                 textTransform: 'uppercase',
-                color: '#71717A',
+                color: v3.textMuted,
                 fontWeight: 700,
                 marginBottom: 14,
               }}
             >
               {isZh ? '组织' : 'Organization'}
             </div>
-            <p style={{ color: '#3F3F46', fontSize: 14, lineHeight: 1.6 }}>
+            <p style={{ color: v3.textSecondary, fontSize: 14, lineHeight: 1.6 }}>
               {isZh ? '组织管理功能即将推出。' : 'Organization management coming soon.'}
             </p>
           </div>
         )}
 
         {section === 'security' && (
-          <div style={{ background: '#fff', border: `1px solid #D8D2C2`, borderRadius: 8, padding: 24 }}>
+          <div style={{ background: '#fff', border: `1px solid ${v3.border}`, borderRadius: 14, padding: 24, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
             <div
               style={{
                 fontFamily: 'JetBrains Mono, monospace',
                 fontSize: 10.5,
                 letterSpacing: '0.10em',
                 textTransform: 'uppercase',
-                color: '#71717A',
+                color: v3.textMuted,
                 fontWeight: 700,
                 marginBottom: 14,
               }}
@@ -409,13 +348,16 @@ export default function SettingsPage() {
             <button
               onClick={() => signOut()}
               style={{
-                background: '#FFFFFF',
-                color: '#171717',
-                border: '1px solid #C5BDAA',
-                borderRadius: 6,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                background: '#fff',
+                color: v3.textPrimary,
+                border: `1px solid ${v3.borderStrong}`,
+                borderRadius: 10,
+                padding: '10px 18px',
                 fontSize: 13,
                 fontWeight: 600,
-                padding: '10px 18px',
                 cursor: 'pointer',
               }}
             >
@@ -425,21 +367,21 @@ export default function SettingsPage() {
         )}
 
         {section === 'integrations' && (
-          <div style={{ background: '#fff', border: `1px solid #D8D2C2`, borderRadius: 8, padding: 24 }}>
+          <div style={{ background: '#fff', border: `1px solid ${v3.border}`, borderRadius: 14, padding: 24, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
             <div
               style={{
                 fontFamily: 'JetBrains Mono, monospace',
                 fontSize: 10.5,
                 letterSpacing: '0.10em',
                 textTransform: 'uppercase',
-                color: '#71717A',
+                color: v3.textMuted,
                 fontWeight: 700,
                 marginBottom: 14,
               }}
             >
               {isZh ? '集成' : 'Integrations'}
             </div>
-            <p style={{ color: '#3F3F46', fontSize: 14, lineHeight: 1.6 }}>
+            <p style={{ color: v3.textSecondary, fontSize: 14, lineHeight: 1.6 }}>
               {isZh ? '集成管理功能即将推出。' : 'Integration management coming soon.'}
             </p>
           </div>
