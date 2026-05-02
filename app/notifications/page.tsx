@@ -6,6 +6,7 @@ import { v3 } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
+import AppHeader from '@/components/AppHeader'
 
 interface Notification {
   id: string
@@ -113,6 +114,8 @@ export default function NotificationsPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#F2EEE5' }}>
+      <AppHeader title="Notifications" titleZh="通知" />
+
       {/* Header */}
       <div style={{ background: '#fff', borderBottom: `1px solid #D8D2C2`, padding: '32px 28px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>

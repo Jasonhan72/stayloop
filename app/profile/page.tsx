@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import { v3 } from '@/lib/brand'
+import AppHeader from '@/components/AppHeader'
 
 type SectionKey = 'profile' | 'org' | 'security' | 'integrations'
 type Role = 'landlord' | 'tenant' | 'agent'
@@ -81,6 +82,8 @@ export default function SettingsPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#F2EEE5', display: 'flex', flexDirection: 'column' }}>
+      <AppHeader title="Account settings" titleZh="账户设置" />
+
       {/* Header */}
       <div style={{ background: '#fff', borderBottom: `1px solid #D8D2C2`, padding: '32px 28px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
