@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 type TimePeriod = '7d' | '30d' | '90d' | '12mo' | 'all'
 
@@ -66,7 +67,14 @@ export default function IndexPage() {
 
   return (
     <PageShell>
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto', paddingLeft: 24, paddingRight: 24 }}>
+        <SecHead
+          eyebrow={isZh ? '房产市场' : 'Market Insights'}
+          title={isZh ? 'GTA 大多伦多市场' : 'GTA Trends'}
+        />
+      </div>
+
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto', paddingLeft: 24, paddingRight: 24 }}>
         {/* Hero metric */}
         <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 16, padding: 24, marginBottom: 16 }}>
           <div style={{ fontSize: 11, color: v3.textMuted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>

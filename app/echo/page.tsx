@@ -8,6 +8,7 @@ import { Phone } from '@/components/v3/Frame'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 interface ChatLine {
   id: string

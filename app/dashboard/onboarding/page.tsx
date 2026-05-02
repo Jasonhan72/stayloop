@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 const STEPS = [
   { en: 'Account', zh: '账户基础', done: true },
@@ -69,9 +70,10 @@ export default function LandlordOnboardingPage() {
 
         {/* Form */}
         <section style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-            STEP 3 · {isZh ? '你的第一套房产' : 'YOUR FIRST PROPERTY'}
-          </div>
+          <SecHead
+            eyebrow="STEP 3"
+            title={isZh ? '你的第一套房产' : 'Your First Property'}
+          />
 
           {/* Insurance carrier selector */}
           <div style={{ marginBottom: 20, padding: 16, background: v3.surfaceMuted, borderRadius: 12 }}>

@@ -8,6 +8,7 @@ import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 interface Provider {
   id: string
@@ -116,8 +117,14 @@ export default function ServicesPage() {
 
   return (
     <PageShell role="tenant">
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto', paddingLeft: 24, paddingRight: 24, paddingTop: 0 }}>
+        <SecHead
+          eyebrow={isZh ? '用户工作区' : 'Tenant Workspace'}
+          title={isZh ? '精选服务' : 'Services'}
+        />
+      </div>
 
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24 }}>
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24, paddingTop: 0 }}>
         {/* Next appointment timeline (if bookings exist) */}
         {bookings.length > 0 && (
           <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18, marginBottom: 18 }}>

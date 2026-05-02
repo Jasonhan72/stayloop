@@ -7,6 +7,7 @@ import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 interface Dispute {
   id: string
@@ -76,8 +77,12 @@ export default function DisputesListPage() {
 
   return (
     <PageShell role="tenant">
+      <div style={{ maxWidth: size.content.default, margin: '0 auto' }}>
+        <SecHead
+          eyebrow={isZh ? '用户工作区' : 'Tenant Workspace'}
+          title={isZh ? '进行中的纠纷' : 'Open Disputes'}
+        />
 
-      <div style={{ maxWidth: size.content.default, margin: '0 auto', padding: 24 }}>
         {disputes.length === 0 ? (
           <div style={{ background: v3.surface, border: `1px dashed ${v3.borderStrong}`, borderRadius: 16, padding: '48px 24px', textAlign: 'center' }}>
             <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>

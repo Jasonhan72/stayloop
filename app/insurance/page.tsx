@@ -5,6 +5,7 @@ import { v3 } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { Phone } from '@/components/v3/Frame'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 interface Quote {
   carrier: string

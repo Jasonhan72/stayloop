@@ -5,6 +5,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { useUser } from '@/lib/useUser'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 type Step = 'org' | 'usecase' | 'apikey' | 'activate'
 
@@ -222,6 +223,14 @@ export default function PartnerOnboardPage() {
   // ─── Responsive layout grid ─────────────────────────────────────────────
   return (
     <PageShell>
+      <div style={{ maxWidth: size.content.default, margin: '0 auto', paddingLeft: 24, paddingRight: 24 }}>
+        <SecHead
+          eyebrow={isZh ? '合作伙伴' : 'Partners'}
+          title={isZh ? '接入 Stayloop API' : 'Partner Onboarding'}
+          sub={isZh ? '4 步集成流程' : '4-step integration process'}
+        />
+      </div>
+
       <div style={{ maxWidth: size.content.default, margin: '0 auto', display: 'grid', gridTemplateColumns: '220px 1fr 320px', gap: 24 }} className="po-grid">
         <style jsx>{`
           @media (max-width: 1023px) {

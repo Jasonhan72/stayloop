@@ -17,6 +17,7 @@ import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 interface ChatLine {
   id: string
@@ -239,6 +240,12 @@ export default function DisputeDetailPage() {
 
   return (
     <PageShell role="tenant">
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto', paddingLeft: 16, paddingRight: 16 }}>
+        <SecHead
+          eyebrow={isZh ? '用户工作区' : 'Tenant Workspace'}
+          title={isZh ? '纠纷调解' : 'Dispute Mediation'}
+        />
+      </div>
 
       <main
         style={{

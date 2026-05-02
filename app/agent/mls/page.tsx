@@ -6,6 +6,7 @@ import { useT } from '@/lib/i18n'
 import { Phone } from '@/components/v3/Frame'
 import { supabase } from '@/lib/supabase'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 interface Listing {
   id: string

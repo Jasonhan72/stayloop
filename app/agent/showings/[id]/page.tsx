@@ -9,6 +9,7 @@ import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 interface ShowingDetail {
   id: string
@@ -119,13 +120,11 @@ export default function ShowingDetailPage() {
   return (
     <PageShell role="agent" path={isZh ? '看房简报' : 'Showing brief'}>
       <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
-        <div style={{ marginBottom: 18 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.025em', margin: '4px 0' }}>{addr}</h1>
-          <div style={{ fontSize: 12, color: v3.textMuted }}>
-            {s.listing?.city || ''}
-            {s.listing?.monthly_rent ? ` · $${s.listing.monthly_rent.toLocaleString()}/mo` : ''}
-          </div>
-        </div>
+        <SecHead
+          eyebrow={isZh ? '看房简报' : 'Showing Brief'}
+          title={addr}
+          sub={s.listing?.city || ''+(s.listing?.monthly_rent ? ` · $${s.listing.monthly_rent.toLocaleString()}/mo` : '')}
+        />
 
         {/* Next showing directions card */}
         {nextShowingTime && (

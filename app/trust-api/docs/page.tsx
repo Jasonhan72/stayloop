@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT, LanguageToggle } from '@/lib/i18n'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 type Section = 'overview' | 'auth' | 'screen' | 'passport' | 'compliance' | 'mediate' | 'webhooks' | 'sdks' | 'rate-limits' | 'errors'
 
@@ -108,31 +109,13 @@ export default function TrustApiDocsPage() {
           }}
         >
           {/* Hero */}
+          <SecHead
+            eyebrow="TRUST API"
+            title={label('Stayloop Trust API', 'Stayloop Trust API')}
+            sub="v1 · build-2026-04-28"
+          />
           <div style={{ marginBottom: 56 }}>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: v3.textMuted,
-                marginBottom: 12,
-              }}
-            >
-              {label('TRUST API', 'TRUST API')}
-            </div>
-            <h1
-              style={{
-                fontSize: 34,
-                fontWeight: 800,
-                letterSpacing: '-0.025em',
-                lineHeight: 1.1,
-                color: v3.textPrimary,
-                marginBottom: 16,
-              }}
-            >
-              {label('Stayloop Trust API · v1', 'Stayloop Trust API · v1')}
-            </h1>
+            {/* Moved hero details below header */}
             <div
               style={{
                 display: 'inline-block',
@@ -146,7 +129,6 @@ export default function TrustApiDocsPage() {
                 marginBottom: 24,
               }}
             >
-              build-2026-04-28
             </div>
             <p
               style={{

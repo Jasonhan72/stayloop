@@ -8,6 +8,7 @@ import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 interface AgentRow {
   id: string
@@ -123,16 +124,15 @@ export default function AgentDayPage() {
   return (
     <PageShell role="agent" path={isZh ? '今日任务' : 'Day brief'}>
       <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>
-          {isZh
+        <SecHead
+          eyebrow={isZh ? '代理工作区' : 'Field Agent'}
+          title={isZh
             ? `${getGreeting(isZh)}，${agent.display_name.split(' ')[0]}`
             : `${getGreeting(isZh)}, ${agent.display_name.split(' ')[0]}`}
-        </h1>
-        <div style={{ fontSize: 13, color: v3.textMuted, marginBottom: 20 }}>
-          {isZh
+          sub={isZh
             ? `今天 ${todays.length} 场带看`
             : `${todays.length} showing${todays.length === 1 ? '' : 's'} today`}
-        </div>
+        />
 
         <PayoutCard payouts={payouts} lang={lang} />
 

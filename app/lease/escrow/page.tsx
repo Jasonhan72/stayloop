@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 const TIMELINE = [
   { date: 'Apr 21', en: 'Passport verified', zh: '通行证已验证', who: 'Wei (tenant)', done: true },
@@ -75,6 +76,12 @@ export default function LeaseEscrowPage() {
 
   return (
     <PageShell role="tenant">
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto', paddingLeft: 24, paddingRight: 24, paddingTop: 24 }}>
+        <SecHead
+          eyebrow={isZh ? '用户工作区' : 'Tenant Workspace'}
+          title={isZh ? '资金托管' : 'Escrow Service'}
+        />
+      </div>
 
       {/* Party role tabs */}
       <div style={{ background: v3.surfaceMuted, borderBottom: `1px solid ${v3.divider}`, paddingLeft: 24, paddingRight: 24 }}>

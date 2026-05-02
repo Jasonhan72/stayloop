@@ -7,6 +7,7 @@ import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
 import { Application, ApplicationFile } from '@/types'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 const DIMENSIONS: { key: string; label: string; weight: number }[] = [
   { key: 'doc_authenticity_score', label: 'Doc Authenticity', weight: 20 },
@@ -161,25 +162,18 @@ export default function ApplicationDetailPage() {
     <PageShell role="landlord">
       <div className="max-w-5xl mx-auto fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className="chip chip-accent mono mb-3">// APPLICATION</div>
-            <h1 className="h-hero">
-              {(app as any).ai_extracted_name || `${app.first_name} ${app.last_name}`}
-            </h1>
-            {(app as any).ai_extracted_name && (
-              <p className="mono" style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>self-reported: {app.first_name} {app.last_name}</p>
-            )}
-            <p className="mono" style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-              {new Date(app.created_at).toLocaleDateString()} · {app.listing?.address}{app.listing?.unit ? `, ${app.listing.unit}` : ''}
-            </p>
-          </div>
-          <span className="mono" style={{ padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', border: '1px solid', ...(
-            app.status === 'approved' ? { background: 'rgba(16, 185, 129, 0.12)', color: '#6EE7B7', borderColor: 'rgba(16, 185, 129, 0.35)' } :
-            app.status === 'declined' ? { background: 'rgba(239, 68, 68, 0.12)', color: '#FCA5A5', borderColor: 'rgba(239, 68, 68, 0.35)' } :
-            { background: 'rgba(34, 211, 238, 0.12)', color: '#67E8F9', borderColor: 'rgba(34, 211, 238, 0.35)' }
-          ) }}>{app.status}</span>
-        </div>
+        <SecHead
+          eyebrow="// APPLICATION"
+          title={(app as any).ai_extracted_name || `${app.first_name} ${app.last_name}`}
+          sub={new Date(app.created_at).toLocaleDateString() + ' · ' + app.listing?.address + (app.listing?.unit ? `, ${app.listing.unit}` : '')}
+          right={
+            <span className="mono" style={{ padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', border: '1px solid', ...(
+              app.status === 'approved' ? { background: 'rgba(16, 185, 129, 0.12)', color: '#6EE7B7', borderColor: 'rgba(16, 185, 129, 0.35)' } :
+              app.status === 'declined' ? { background: 'rgba(239, 68, 68, 0.12)', color: '#FCA5A5', borderColor: 'rgba(239, 68, 68, 0.35)' } :
+              { background: 'rgba(34, 211, 238, 0.12)', color: '#67E8F9', borderColor: 'rgba(34, 211, 238, 0.35)' }
+            ) }}>{app.status}</span>
+          }
+        />
 
         {/* AI Screening — 6 dimensions */}
         <div className="card-hero" style={{ padding: 28, position: 'relative', overflow: 'hidden' }}>
