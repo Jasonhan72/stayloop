@@ -1,7 +1,7 @@
 'use client'
 // Applicant Comparison — side-by-side table for multiple applications
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
@@ -10,7 +10,18 @@ import { v3, size, tier } from '@/lib/brand'
 import AppHeader from '@/components/AppHeader'
 import type { Application } from '@/types'
 
+// Next.js 15 / Cloudflare Pages requires useSearchParams to be wrapped in
+// a Suspense boundary or the build fails. Top-level component is the
+// Suspense wrapper; ComparePageInner is the original implementation.
 export default function ComparePage() {
+  return (
+    <Suspense fallback={<main style={{ minHeight: '100vh', background: '#F2EEE5' }} />}>
+      <ComparePageInner />
+    </Suspense>
+  )
+}
+
+function ComparePageInner() {
   const { lang } = useT()
   const isZh = lang === 'zh'
   const router = useRouter()

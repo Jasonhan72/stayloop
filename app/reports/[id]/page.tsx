@@ -1,4 +1,5 @@
 'use client'
+export const runtime = 'edge'
 
 // -----------------------------------------------------------------------------
 // /reports/[id] — Public Shared Report (no auth required)

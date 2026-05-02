@@ -1,4 +1,5 @@
 'use client'
+export const runtime = 'edge'
 
 // -----------------------------------------------------------------------------
 // /disputes/[id] — Mediator-driven dispute resolution detail page

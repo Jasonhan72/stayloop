@@ -1,4 +1,5 @@
 'use client'
+export const runtime = 'edge'
 
 // -----------------------------------------------------------------------------
 // /lease/[id]/review — V4 Lease Review + E-Sign
