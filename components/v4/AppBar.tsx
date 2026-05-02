@@ -245,12 +245,7 @@ export default function AppBar({ user, loading, signOut, role, path }: Props) {
           }}
         />
       ) : user && !user.isAnonymous ? (
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, color: v3.textSecondary, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {user.email}
-          </span>
-          <UserAvatar user={user} signOut={signOut} />
-        </div>
+        <UserAvatar user={user} signOut={signOut} />
       ) : (
         <Link
           href="/login"
