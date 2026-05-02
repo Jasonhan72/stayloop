@@ -1,9 +1,10 @@
 'use client'
 // -----------------------------------------------------------------------------
-// Homepage — Stayloop V3 marketing site
+// Homepage — Stayloop V4 marketing site
 // -----------------------------------------------------------------------------
-// Reproduces section 21 of the V3 classic-print prototype: hero, partner row,
-// 3-audience trifecta, network-effect panel, closing CTA. Bilingual EN/ZH.
+// Reproduces the V4 PgHome spec from the Claude Design bundle:
+// hero "Renting, rebuilt with AI." → 3 role cards → 8-step rental flow →
+// 7 AI modules grid → closing CTA strip. V3 cream palette (V4 ships cream).
 // -----------------------------------------------------------------------------
 
 import Link from 'next/link'
@@ -12,61 +13,6 @@ import { useT } from '@/lib/i18n'
 import { useUser } from '@/lib/useUser'
 import MarketingNav from '@/components/marketing/MarketingNav'
 import MarketingFooter from '@/components/marketing/MarketingFooter'
-import NetworkDiagram from '@/components/marketing/NetworkDiagram'
-
-const AUDIENCES: Array<{
-  key: 'tenants' | 'landlords' | 'agents'
-  eyebrow_zh: string
-  eyebrow_en: string
-  title_zh: string
-  title_en: string
-  body_zh: string
-  body_en: string
-  stat: string
-  caption_zh: string
-  caption_en: string
-  href: string
-}> = [
-  {
-    key: 'tenants',
-    eyebrow_zh: '租客',
-    eyebrow_en: 'TENANTS',
-    title_zh: '一本 Passport，处处可用',
-    title_en: 'One Passport. Anywhere.',
-    body_zh: '银行 + 政府 ID 一次性验证。一本 Passport，90 秒申请任意房源。',
-    body_en: 'One bank + government-ID verification. One Passport — apply to any unit in 90 seconds.',
-    stat: '94%',
-    caption_zh: '相比纸质申请，步骤减少',
-    caption_en: 'fewer steps vs. paper applications',
-    href: '/tenants',
-  },
-  {
-    key: 'landlords',
-    eyebrow_zh: '房东',
-    eyebrow_en: 'LANDLORDS',
-    title_zh: 'AI 替你筛选每位申请人',
-    title_en: 'AI ranks every applicant.',
-    body_zh: 'Logic agent 按支付能力、租房历史、匹配度筛出最佳人选。',
-    body_en: 'Logic agent surfaces the best fit by ability-to-pay, history, and fit.',
-    stat: '6.2 d',
-    caption_zh: '平均挂牌天数（行业 18 d）',
-    caption_en: 'avg days-on-market (vs. 18 d industry)',
-    href: '/landlords',
-  },
-  {
-    key: 'agents',
-    eyebrow_zh: '经纪',
-    eyebrow_en: 'AGENTS',
-    title_zh: '只做带看，不做文书',
-    title_en: 'Show. Don\u2019t shuffle paper.',
-    body_zh: 'Atlas 起草租约。Verify 预审租客。Echo 回答问题。你专注线下。',
-    body_en: 'Atlas drafts leases. Verify pre-screens. Echo answers FAQ. You handle the human.',
-    stat: '3.4×',
-    caption_zh: '每位经纪每月签约量',
-    caption_en: 'more closings per agent / month',
-    href: '/agents',
-  },
-]
 
 export default function Home() {
   const { lang } = useT()
@@ -74,113 +20,102 @@ export default function Home() {
   const { user } = useUser({ redirectIfMissing: false, allowAnonymous: false })
   const isAuthed = !!user && !user.isAnonymous
 
-  // Hero CTA varies by who you are.
+  // Authed users get role-aware primary CTA (preserved from V3).
   const heroCta = !isAuthed
-    ? { label: isZh ? '获取我的 Passport' : 'Get my Passport', href: '/passport' }
+    ? { label: isZh ? '筛查租客' : 'Screen a Tenant', href: '/screen' }
     : user.role === 'tenant'
       ? { label: isZh ? '查看我的 Passport' : 'View my Passport', href: '/passport' }
       : user.role === 'agent'
         ? { label: isZh ? '今日任务' : 'My day brief', href: '/agent/day' }
-        : { label: isZh ? '筛查租客' : 'Screen a tenant', href: '/screen' }
+        : { label: isZh ? '筛查租客' : 'Screen a Tenant', href: '/screen' }
+
+  const heroCta2 = !isAuthed
+    ? { label: isZh ? '创建 Passport' : 'Create Rental Passport', href: '/passport' }
+    : { label: isZh ? '查看 Pipeline' : 'My pipeline', href: user.role === 'agent' ? '/dashboard/pipeline' : '/dashboard/pipeline' }
+
+  const heroCta3 = !isAuthed
+    ? { label: isZh ? '发布房源' : 'List a Property', href: '/listings/new' }
+    : { label: isZh ? '发布房源' : 'List a Property', href: '/listings/new' }
 
   return (
     <main style={{ background: v3.surface, minHeight: '100vh', color: v3.textPrimary }}>
       <MarketingNav />
 
       {/* HERO ─────────────────────────────────────────────────────────── */}
-      <section
-        style={{
-          background: `linear-gradient(180deg, ${v3.brandWash} 0%, ${v3.surface} 100%)`,
-          padding: '88px 24px 96px',
-          borderBottom: `1px solid ${v3.divider}`,
-        }}
-      >
+      <section style={{ padding: '56px 24px 40px' }}>
         <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
-          <Eyebrow>{isZh ? 'Series A · 2026 年 4 月' : 'Series A · April 2026'}</Eyebrow>
+          <Tag tone="ai">
+            {isZh ? 'AI 原生租赁生态系统' : 'AI-Native Rental Ecosystem'}
+          </Tag>
           <h1
             style={{
-              fontSize: 'clamp(40px, 6vw, 72px)',
-              lineHeight: 1.04,
-              fontWeight: 800,
-              letterSpacing: '-0.035em',
-              margin: '24px 0 28px',
-              maxWidth: 880,
+              fontFamily: 'var(--font-cn), var(--font-inter), system-ui, sans-serif',
+              fontSize: 'clamp(40px, 6vw, 64px)',
+              fontWeight: 700,
+              color: v3.textPrimary,
+              lineHeight: 1.05,
+              letterSpacing: '-0.03em',
+              margin: '18px 0 18px',
+              maxWidth: 900,
             }}
           >
             {isZh ? (
               <>
-                为 <span style={{ color: v3.brand }}>$640B</span> 租赁市场
-                <br />
-                打造的信任基础设施。
+                租房，<br />用 <span style={{ color: v3.brand }}>AI</span> 重新做一遍。
               </>
             ) : (
               <>
-                Trust infrastructure for the
-                <br />
-                <span style={{ color: v3.brand }}>$640B rental market.</span>
+                Renting,<br />rebuilt with <span style={{ color: v3.brand }}>AI</span>.
               </>
             )}
           </h1>
           <p
             style={{
-              fontSize: 17,
-              lineHeight: 1.6,
+              fontSize: 18,
               color: v3.textSecondary,
-              maxWidth: 620,
-              margin: '0 0 32px',
+              maxWidth: 680,
+              lineHeight: 1.55,
+              margin: '0 0 28px',
             }}
           >
             {isZh
-              ? '一次验证，一本护照。处处通行 — 房东、经纪、保险公司，全部可以读取。'
-              : 'One verification. One passport. Used everywhere — by every landlord, every brokerage, every insurer.'}{' '}
-            <span style={{ color: v3.textMuted }}>
-              {isZh ? '租客一次验证，处处通行。' : '租客一次验证，处处通行。'}
-            </span>
+              ? '租客筛查、租客 Passport、申请、房源、租约起草和在线签署 — 一个 AI 原生的工作流程，从房源到签约全程不离开 Stayloop。'
+              : 'Tenant screening, rental passports, applications, listings, lease drafting and online signing — one AI-native workflow from listing to signed lease.'}
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <Link
-              href={heroCta.href}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                background: v3.brand,
-                color: '#fff',
-                fontSize: 15,
-                fontWeight: 600,
-                padding: '12px 22px',
-                borderRadius: 10,
-                textDecoration: 'none',
-              }}
-            >
-              {heroCta.label} <span aria-hidden>→</span>
+            <Link href={heroCta.href} style={btnPrimary}>
+              {heroCta.label} →
             </Link>
-            {isAuthed && (user.role === 'landlord' || user.role === 'agent') && (
-              <Link
-                href="/dashboard/pipeline"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  background: v3.surface,
-                  color: v3.textPrimary,
-                  fontSize: 15,
-                  fontWeight: 600,
-                  padding: '12px 22px',
-                  borderRadius: 10,
-                  textDecoration: 'none',
-                  border: `1px solid ${v3.borderStrong}`,
-                }}
-              >
-                {isZh ? '我的 Pipeline' : 'My pipeline'}
-              </Link>
-            )}
+            <Link href={heroCta2.href} style={btnGhost}>
+              {heroCta2.label}
+            </Link>
+            <Link href={heroCta3.href} style={btnGhost}>
+              {heroCta3.label}
+            </Link>
+          </div>
+          {/* Trust signals row */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 24,
+              marginTop: 36,
+              fontSize: 12,
+              color: v3.textMuted,
+              fontFamily: 'var(--font-mono), ui-monospace, monospace',
+              flexWrap: 'wrap',
+              letterSpacing: '0.04em',
+            }}
+          >
+            <span>◆ ONTARIO LTB-ALIGNED</span>
+            <span>◆ SOC 2 TYPE II</span>
+            <span>◆ E-SIGNATURE READY</span>
+            <span>◆ STRIPE-BACKED BILLING</span>
           </div>
         </div>
       </section>
 
-
-      {/* AUDIENCE TRIFECTA ────────────────────────────────────────────── */}
-      <section style={{ padding: '64px 24px 32px' }}>
+      {/* ROLE CARDS ───────────────────────────────────────────────────── */}
+      <section style={{ padding: '24px 24px 8px' }}>
         <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
           <div
             style={{
@@ -189,118 +124,261 @@ export default function Home() {
               gap: 16,
             }}
           >
-            {AUDIENCES.map((a) => (
-              <AudienceCard key={a.key} a={a} isZh={isZh} />
+            {[
+              {
+                tone: v3.trust,
+                eb: isZh ? '租客' : 'For Tenants',
+                t: isZh ? '建立你的租房 Passport' : 'Build your rental passport',
+                b: isZh
+                  ? 'AI 帮你整理身份证、工资单、雇佣信和信用记录。一键申请，所有房源复用。'
+                  : 'AI organizes your ID, pay stubs, employment letters and credit. Apply with one click. Reuse for every listing.',
+                cta: isZh ? '创建 Passport' : 'Create Passport',
+                href: '/passport',
+              },
+              {
+                tone: v3.brand,
+                eb: isZh ? '房东' : 'For Landlords',
+                t: isZh ? '筛查租客 · 签署租约' : 'Screen tenants. Sign leases.',
+                b: isZh
+                  ? '微信、邮件、Kijiji 收到的文件全部自动 screening。比较申请人。AI 起草租约。在线签署一站式搞定。'
+                  : 'Auto-screening from email/WeChat/Kijiji files. Compare applicants. AI lease draft. E-sign in one place.',
+                cta: isZh ? '发布房源' : 'List a Property',
+                href: '/listings/new',
+              },
+              {
+                tone: v3.brandBright,
+                eb: isZh ? '经纪' : 'For Agents',
+                t: isZh ? '房东可读的专业申请包' : 'Landlord-ready report packages',
+                b: isZh
+                  ? '把杂乱的租客文件变成 agent-branded screening 报告。安全分享链接。访问留痕。'
+                  : 'Turn messy tenant files into agent-branded screening packages. Share secure links. Track engagement.',
+                cta: isZh ? '打开经纪面板' : 'Open Agent Portal',
+                href: '/agent/day',
+              },
+            ].map((r, i) => (
+              <Link
+                key={i}
+                href={r.href}
+                style={{
+                  display: 'block',
+                  background: v3.surfaceCard,
+                  border: `1px solid ${v3.border}`,
+                  borderTop: `3px solid ${r.tone}`,
+                  borderRadius: 14,
+                  padding: 24,
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  transition: 'border-color .15s, transform .15s',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: r.tone,
+                    letterSpacing: '0.10em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {r.eb}
+                </div>
+                <div
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: v3.textPrimary,
+                    margin: '10px 0 8px',
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  {r.t}
+                </div>
+                <div style={{ fontSize: 13, color: v3.textSecondary, lineHeight: 1.55, marginBottom: 14 }}>
+                  {r.b}
+                </div>
+                <span style={{ color: r.tone, fontSize: 13, fontWeight: 600 }}>
+                  {r.cta} →
+                </span>
+              </Link>
             ))}
           </div>
         </div>
       </section>
 
-      {/* NETWORK EFFECT ──────────────────────────────────────────────── */}
-      <section style={{ padding: '32px 24px 96px' }}>
+      {/* THE FULL FLOW ────────────────────────────────────────────────── */}
+      <section style={{ padding: '40px 24px' }}>
         <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
+          <Eyebrow>{isZh ? '完整租房流程 · 一个产品' : 'The full rental flow · One product'}</Eyebrow>
+          <h2
+            style={{
+              fontSize: 'clamp(26px, 3vw, 34px)',
+              fontWeight: 700,
+              margin: '12px 0 24px',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {isZh ? '从房源到签约 — 全程不离开 Stayloop。' : 'From listing to signed lease — without leaving Stayloop.'}
+          </h2>
           <div
             style={{
-              background: v3.brandWash,
-              border: `1px solid ${v3.brandSoft}`,
-              borderRadius: 20,
-              padding: 'clamp(28px, 4vw, 56px)',
-              display: 'grid',
-              gridTemplateColumns: '1.3fr 1fr',
-              alignItems: 'center',
-              gap: 32,
+              background: v3.surfaceCard,
+              border: `1px solid ${v3.border}`,
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: '0 1px 3px rgba(31, 25, 11, 0.04), 0 12px 32px -8px rgba(31, 25, 11, 0.06)',
             }}
-            className="mk-network-block"
           >
-            <div>
-              <Eyebrow>{isZh ? '网络效应' : 'NETWORK EFFECT'}</Eyebrow>
-              <h2
-                style={{
-                  fontSize: 'clamp(28px, 3.4vw, 38px)',
-                  lineHeight: 1.15,
-                  fontWeight: 800,
-                  letterSpacing: '-0.025em',
-                  margin: '14px 0 18px',
-                }}
-              >
-                {isZh
-                  ? '每一次验证，下一次都更便宜。'
-                  : 'Every verification makes the next one cheaper.'}
-              </h2>
-              <p style={{ fontSize: 15, lineHeight: 1.65, color: v3.textSecondary, margin: 0 }}>
-                {isZh
-                  ? 'Stayloop Passport 在房东、经纪、保险公司之间复用。网络中的每一方，都让单次验证成本更低 — 也让离开它的成本更高。'
-                  : 'Stayloop Passport is reusable across landlords, brokerages, and insurers. The more sides on the network, the lower per-verification cost — and the harder it is to leave.'}
-              </p>
-            </div>
-            <div style={{ display: 'grid', placeItems: 'center' }}>
-              <NetworkDiagram lang={isZh ? 'zh' : 'en'} />
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                gap: 12,
+              }}
+            >
+              {[
+                ['◇', isZh ? '房源' : 'Listing', isZh ? '导入或 AI 起草' : 'Import or AI-draft', v3.trust, v3.trustSoft],
+                ['◈', 'Passport', isZh ? '租客准备资料' : 'Tenant prepares', v3.trust, v3.trustSoft],
+                ['▤', isZh ? '申请' : 'Apply', isZh ? 'Passport → 房源' : 'Passport → Listing', v3.brandBright, v3.brandSoft],
+                ['◉', isZh ? '筛查' : 'Screening', isZh ? 'AI 报告' : 'AI report', v3.brandBright, v3.brandSoft],
+                ['✓', isZh ? '批准' : 'Approve', isZh ? '比较 & 决定' : 'Compare & decide', v3.brandBright, v3.brandSoft],
+                ['⎙', isZh ? '租约' : 'Lease', isZh ? 'AI 自动起草' : 'AI auto-draft', v3.brandBright, v3.brandSoft],
+                ['✎', isZh ? '电子签署' : 'E-sign', isZh ? '双方签字' : 'Both parties', v3.brand, v3.brandSoft],
+                ['⊠', isZh ? '留痕' : 'Audit', isZh ? '不可篡改' : 'Immutable trail', v3.brand, v3.brandSoft],
+              ].map((s, i) => (
+                <div key={i} style={{ textAlign: 'center' }}>
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 8,
+                      background: s[4] as string,
+                      color: s[3] as string,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 18,
+                      fontFamily: 'var(--font-mono), monospace',
+                    }}
+                  >
+                    {s[0] as string}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: v3.textPrimary, marginTop: 8 }}>
+                    {s[1] as string}
+                  </div>
+                  <div style={{ fontSize: 11, color: v3.textMuted, marginTop: 2 }}>
+                    {s[2] as string}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
-        <style jsx>{`
-          @media (max-width: 760px) {
-            :global(.mk-network-block) {
-              grid-template-columns: 1fr !important;
-            }
-          }
-        `}</style>
+      </section>
+
+      {/* AI MODULES ───────────────────────────────────────────────────── */}
+      <section style={{ padding: '40px 24px' }}>
+        <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
+          <Eyebrow>{isZh ? 'AI 不是聊天框 · AI 推动整个工作流' : 'AI is not a chat box · It runs the workflow'}</Eyebrow>
+          <h2
+            style={{
+              fontSize: 'clamp(24px, 2.6vw, 30px)',
+              fontWeight: 700,
+              margin: '12px 0 24px',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {isZh ? '8 个 AI 模块嵌入到租房流程的每一步。' : 'Eight AI modules built into the rental flow.'}
+          </h2>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: 14,
+            }}
+          >
+            {[
+              [isZh ? '任务路由' : 'Task Router', isZh ? '识别用户目标，打开正确的工作流。' : 'Identifies the user goal, opens the right workflow.'],
+              [isZh ? '文档 AI' : 'Document AI', isZh ? '分类、抽取，标记缺失和冲突字段。' : 'Classifies, extracts, flags missing & inconsistent fields.'],
+              [isZh ? '筛查 AI' : 'Screening AI', isZh ? '生成 Application Readiness，绝不打风险标签。' : 'Generates Application Readiness, never risk score.'],
+              [isZh ? '房源 AI' : 'Listing AI', isZh ? '中英双语房源文案，缺失字段，公平租赁检查。' : 'EN/中 listing copy, missing fields, fair-housing check.'],
+              ['Passport AI', isZh ? '按房源给出 readiness 和下一步要补什么。' : 'Per-listing readiness, what to add next.'],
+              [isZh ? '租约 AI' : 'Lease AI', isZh ? '自动填充 Ontario 标准租约，冲突检查。' : 'Auto-fill Ontario standard lease, conflict checks.'],
+              [isZh ? '合规守门' : 'Compliance Guardrail', isZh ? '不收新移民 / 宠物押金 / 损坏押金等表达警告。' : 'No newcomers / pet deposit / damage deposit warnings.'],
+              [isZh ? '工作流 AI' : 'Workflow AI', isZh ? '提醒、消息草稿、Next-best-action。' : 'Reminders, message drafts, next-best-action.'],
+            ].map((c, i) => (
+              <div
+                key={i}
+                style={{
+                  background: v3.surfaceCard,
+                  border: `1px solid ${v3.border}`,
+                  borderRadius: 12,
+                  padding: 18,
+                  boxShadow: '0 1px 2px rgba(31, 25, 11, 0.05)',
+                }}
+              >
+                <div
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 6,
+                    background: v3.trust,
+                    color: '#fff',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: 'var(--font-mono), monospace',
+                    fontWeight: 700,
+                    fontSize: 11,
+                  }}
+                >
+                  ✦
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: v3.textPrimary, marginTop: 10 }}>
+                  {c[0]}
+                </div>
+                <div style={{ fontSize: 12, color: v3.textSecondary, marginTop: 4, lineHeight: 1.5 }}>
+                  {c[1]}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* CLOSING CTA ─────────────────────────────────────────────────── */}
-      <section
-        style={{
-          padding: '64px 24px 96px',
-          borderTop: `1px solid ${v3.divider}`,
-          background: v3.surface,
-        }}
-      >
-        <div
-          style={{
-            maxWidth: size.content.wide,
-            margin: '0 auto',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-end',
-            gap: 24,
-            flexWrap: 'wrap',
-          }}
-        >
-          <div>
-            <h2
-              style={{
-                fontSize: 'clamp(28px, 3vw, 38px)',
-                lineHeight: 1.15,
-                fontWeight: 800,
-                letterSpacing: '-0.025em',
-                margin: '0 0 12px',
-              }}
-            >
-              {isZh ? '把纸质流程留给上个时代。' : 'Ready to skip the paper trail?'}
-            </h2>
-            <p style={{ color: v3.textMuted, fontSize: 15, margin: 0 }}>
-              {isZh
-                ? '租客免费。企业按调用计费。'
-                : 'Free for renters. Pay-per-verify for businesses.'}
-            </p>
-          </div>
-          <Link
-            href="/chat"
+      <section style={{ padding: '40px 24px 80px' }}>
+        <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
+          <div
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              background: v3.brand,
-              color: '#fff',
-              fontSize: 15,
-              fontWeight: 600,
-              padding: '14px 24px',
-              borderRadius: 10,
-              textDecoration: 'none',
+              background: `linear-gradient(180deg, ${v3.brandWash} 0%, ${v3.surfaceCard} 100%)`,
+              border: `1px solid ${v3.brandSoft}`,
+              borderRadius: 20,
+              padding: 'clamp(28px, 4vw, 48px)',
+              textAlign: 'center',
             }}
           >
-            {isZh ? '开始我的 Passport' : 'Start your Passport'} <span aria-hidden>→</span>
-          </Link>
+            <div
+              style={{
+                fontSize: 'clamp(24px, 2.6vw, 30px)',
+                fontWeight: 700,
+                color: v3.textPrimary,
+                letterSpacing: '-0.02em',
+              }}
+            >
+              {isZh ? '这一周就把第一份签约的租约发出去。' : 'Ship your first signed lease this week.'}
+            </div>
+            <div style={{ fontSize: 14, color: v3.textSecondary, marginTop: 10 }}>
+              {isZh ? '14 天免费试用 · 无需信用卡 · Stripe 计费' : '14-day free trial · No credit card · Stripe-backed billing'}
+            </div>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 18, flexWrap: 'wrap' }}>
+              <Link href={isAuthed ? '/dashboard' : '/auth/signup'} style={btnPrimary}>
+                {isZh ? '开始使用' : 'Get started'}
+              </Link>
+              <Link href="/about" style={btnGhost}>
+                {isZh ? '联系创始人' : 'Talk to founder'}
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -309,7 +387,60 @@ export default function Home() {
   )
 }
 
-// ── Sub-components ──────────────────────────────────────────────────────
+// ── Sub-components & styles ─────────────────────────────────────────────
+
+const btnPrimary: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '12px 22px',
+  fontSize: 15,
+  fontWeight: 600,
+  color: '#FFFFFF',
+  background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+  borderRadius: 10,
+  textDecoration: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  boxShadow: '0 8px 22px -10px rgba(52, 211, 153, 0.45), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
+}
+
+const btnGhost: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '12px 22px',
+  fontSize: 15,
+  fontWeight: 600,
+  color: v3.textPrimary,
+  background: v3.surfaceCard,
+  border: `1px solid ${v3.borderStrong}`,
+  borderRadius: 10,
+  textDecoration: 'none',
+  cursor: 'pointer',
+}
+
+function Tag({ children, tone }: { children: React.ReactNode; tone?: 'ai' | 'pri' }) {
+  const color = tone === 'ai' ? v3.trust : v3.brand
+  const bg = tone === 'ai' ? v3.trustSoft : v3.brandSoft
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        fontSize: 11,
+        fontWeight: 700,
+        color,
+        textTransform: 'uppercase',
+        letterSpacing: '0.10em',
+        padding: '4px 10px',
+        borderRadius: 999,
+        background: bg,
+        border: `1px solid ${tone === 'ai' ? 'rgba(124, 58, 237, 0.25)' : v3.brandSoft}`,
+      }}
+    >
+      {children}
+    </span>
+  )
+}
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
@@ -321,88 +452,9 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
         color: v3.brandStrong,
         textTransform: 'uppercase',
         letterSpacing: '0.12em',
-        padding: '4px 10px',
-        borderRadius: 999,
-        background: v3.brandSoft,
-        border: `1px solid ${v3.brandSoft}`,
       }}
     >
       {children}
     </span>
-  )
-}
-
-function AudienceCard({
-  a,
-  isZh,
-}: {
-  a: (typeof AUDIENCES)[number]
-  isZh: boolean
-}) {
-  return (
-    <Link
-      href={a.href}
-      style={{
-        display: 'block',
-        background: v3.surface,
-        border: `1px solid ${v3.border}`,
-        borderRadius: 16,
-        padding: 24,
-        textDecoration: 'none',
-        color: 'inherit',
-        transition: 'border-color 140ms, transform 140ms',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = v3.brand
-        e.currentTarget.style.transform = 'translateY(-1px)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = v3.border
-        e.currentTarget.style.transform = 'translateY(0)'
-      }}
-    >
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          color: v3.textPrimary,
-          letterSpacing: '0.1em',
-          marginBottom: 12,
-        }}
-      >
-        {isZh ? a.eyebrow_zh : a.eyebrow_en} · {isZh ? a.eyebrow_en : a.eyebrow_zh}
-      </div>
-      <h3
-        style={{
-          fontSize: 22,
-          fontWeight: 700,
-          letterSpacing: '-0.02em',
-          margin: '0 0 10px',
-          lineHeight: 1.25,
-        }}
-      >
-        {isZh ? a.title_zh : a.title_en}
-      </h3>
-      <p style={{ color: v3.textSecondary, fontSize: 14, lineHeight: 1.6, margin: '0 0 24px' }}>
-        {isZh ? a.body_zh : a.body_en}
-      </p>
-      <div style={{ borderTop: `1px solid ${v3.divider}`, paddingTop: 20 }}>
-        <div
-          style={{
-            fontSize: 36,
-            fontWeight: 800,
-            color: v3.brand,
-            letterSpacing: '-0.025em',
-            lineHeight: 1.05,
-            marginBottom: 4,
-          }}
-        >
-          {a.stat}
-        </div>
-        <div style={{ color: v3.textMuted, fontSize: 13 }}>
-          {isZh ? a.caption_zh : a.caption_en}
-        </div>
-      </div>
-    </Link>
   )
 }
