@@ -100,43 +100,12 @@ export default function AppBar({ user, loading, signOut, role, path }: Props) {
         zIndex: 30,
       }}
     >
-      <Link
-        href="/"
-        aria-label="Home"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 8,
-          textDecoration: 'none',
-          color: v3.textPrimary,
-        }}
-      >
-        <span
-          aria-hidden
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: 6,
-            background: v3.brand,
-            color: v3.surface,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 700,
-            fontSize: 13,
-            letterSpacing: '-0.04em',
-          }}
-        >
-          S
-        </span>
-        <span style={{ fontSize: 16, fontWeight: 600, color: v3.textPrimary, letterSpacing: '-0.02em' }}>
-          Stayloop
-        </span>
-      </Link>
-
+      {/* Logo + wordmark intentionally omitted — already shown in the Sidebar
+          immediately to the left. Repeating it in the AppBar duplicates the
+          brand twice in the same eye-line. The breadcrumb below fills the
+          left side instead. */}
       {badge && (
         <>
-          <span aria-hidden style={{ width: 1, height: 16, background: v3.borderStrong }} />
           <span
             style={{
               fontFamily: 'JetBrains Mono, monospace',
