@@ -11,10 +11,11 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import { LanguageToggle, useT } from '@/lib/i18n'
-import UserAvatar from '@/components/marketing/UserAvatar'
+import { useT } from '@/lib/i18n'
 import type { Application, Listing } from '@/types'
 import { v3, size } from '@/lib/brand'
+import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 type Stage = 'new' | 'reviewed' | 'showing' | 'lease'
 
@@ -54,7 +55,7 @@ const tierMeta = {
 
 export default function PipelinePage() {
   const { lang } = useT()
-  const { user: landlord, loading: authLoading, signOut } = useUser({ redirectIfMissing: true })
+  const { user: landlord, loading: authLoading } = useUser({ redirectIfMissing: true })
 
   const [listings, setListings] = useState<Listing[]>([])
   const [activeListingId, setActiveListingId] = useState<string | 'all'>('all')
@@ -120,124 +121,22 @@ export default function PipelinePage() {
 
   if (authLoading || loading) {
     return (
-      <div style={{ minHeight: '100vh', background: v3.surfaceMuted, display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>{lang === 'zh' ? '加载中…' : 'Loading…'}</div>
-      </div>
+      <PageShell role="landlord">
+        <div style={{ display: 'grid', placeItems: 'center', padding: 64, color: v3.textMuted, fontSize: 14 }}>
+          {lang === 'zh' ? '加载中…' : 'Loading…'}
+        </div>
+      </PageShell>
     )
   }
 
+  const reviewedCount = byStage.reviewed.length + byStage.showing.length + byStage.lease.length
+
   return (
-    <div style={{ minHeight: '100vh', background: v3.surfaceMuted, display: 'flex' }}>
-      {/* Sidebar */}
-      <aside
-        style={{
-          width: 240,
-          background: v3.surface,
-          borderRight: `1px solid ${v3.border}`,
-          padding: '20px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
-          flexShrink: 0,
-        }}
-        className="pl-sidebar"
-      >
-        <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
-          <span aria-hidden style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
-          <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em' }}>stayloop</span>
-        </Link>
-
-        {/* Property summary card */}
-        <div style={{ border: `1px solid ${v3.border}`, borderRadius: 12, padding: 12 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
-            {lang === 'zh' ? '房源' : 'Property'}
-          </div>
-          {activeListing ? (
-            <>
-              <div style={{ fontWeight: 700, fontSize: 13, color: v3.textPrimary, lineHeight: 1.3 }}>
-                {activeListing.address}
-                {activeListing.unit ? ` · ${activeListing.unit}` : ''}
-              </div>
-              <div style={{ color: v3.textMuted, fontSize: 12, marginTop: 2 }}>
-                {activeListing.city}
-              </div>
-            </>
-          ) : (
-            <div style={{ color: v3.textSecondary, fontSize: 13, fontWeight: 600 }}>
-              {lang === 'zh' ? '所有房源' : 'All listings'}
-            </div>
-          )}
-        </div>
-
-        {/* Listings nav */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <SidebarLink
-            active={activeListingId === 'all'}
-            onClick={() => setActiveListingId('all')}
-            label={lang === 'zh' ? '全部 Pipeline' : 'All Pipeline'}
-            count={apps.length}
-            iconChar="≡"
-          />
-          {listings.map((l) => {
-            const c = apps.filter((a) => a.listing_id === l.id).length
-            return (
-              <SidebarLink
-                key={l.id}
-                active={activeListingId === l.id}
-                onClick={() => setActiveListingId(l.id)}
-                label={`${l.address}${l.unit ? ' · ' + l.unit : ''}`}
-                count={c}
-                iconChar="◇"
-              />
-            )
-          })}
-        </nav>
-
-        <div style={{ borderTop: `1px solid ${v3.divider}`, paddingTop: 12, marginTop: 'auto' }}>
-          <Link
-            href="/listings/new"
-            style={{
-              display: 'block',
-              fontSize: 13,
-              color: v3.brandStrong,
-              fontWeight: 600,
-              padding: '8px 10px',
-              borderRadius: 8,
-              background: v3.brandSoft,
-              textAlign: 'center',
-              textDecoration: 'none',
-            }}
-          >
-            + {lang === 'zh' ? '让 Nova 写新房源' : 'New listing with Nova'}
-          </Link>
-        </div>
-      </aside>
-
-      {/* Main */}
-      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
-        <header
-          style={{
-            background: v3.surface,
-            borderBottom: `1px solid ${v3.border}`,
-            padding: '16px 24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            flexWrap: 'wrap',
-          }}
-        >
-          <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>
-              {lang === 'zh' ? '申请人 Pipeline' : 'Applicant Pipeline'}
-            </h1>
-            <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 2 }}>
-              {lang === 'zh'
-                ? `Logic AI 已审核 ${byStage.reviewed.length + byStage.showing.length + byStage.lease.length} / ${filtered.length}`
-                : `Logic AI reviewed ${byStage.reviewed.length + byStage.showing.length + byStage.lease.length} / ${filtered.length}`}
-            </div>
-          </div>
+    <PageShell role="landlord">
+      <SecHead
+        eyebrow={lang === 'zh' ? `Pipeline · Logic AI 已审核 ${reviewedCount} / ${filtered.length}` : `Pipeline · Logic AI reviewed ${reviewedCount} / ${filtered.length}`}
+        title={lang === 'zh' ? '申请人 Pipeline' : 'Applicant Pipeline'}
+        right={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span
               style={{
@@ -252,7 +151,15 @@ export default function PipelinePage() {
                 borderRadius: 999,
               }}
             >
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: v3.brand, display: 'inline-block' }} />
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 999,
+                  background: v3.brand,
+                  display: 'inline-block',
+                }}
+              />
               {lang === 'zh' ? 'Logic 在线' : 'Logic active'}
             </span>
             <Link
@@ -260,149 +167,198 @@ export default function PipelinePage() {
               style={{
                 fontSize: 13,
                 color: v3.textPrimary,
-                background: v3.surface,
+                background: '#fff',
                 border: `1px solid ${v3.borderStrong}`,
-                padding: '6px 12px',
-                borderRadius: 8,
+                padding: '8px 14px',
+                borderRadius: 10,
                 textDecoration: 'none',
                 fontWeight: 600,
               }}
             >
               {lang === 'zh' ? '问 Logic' : 'Ask Logic'}
             </Link>
-            <LanguageToggle />
-            {landlord && <UserAvatar user={landlord} signOut={signOut} />}
           </div>
-        </header>
+        }
+      />
 
-        {/* Logic recommendation banner */}
-        {topPick && (
-          <div style={{ padding: '16px 24px 0' }}>
-            <LogicRecommendation app={topPick} lang={lang as 'zh' | 'en'} />
-          </div>
-        )}
-
-        {/* Kanban */}
+      {/* Property filter strip */}
+      {listings.length > 0 && (
         <div
           style={{
-            flex: 1,
-            padding: '16px 24px 32px',
-            overflowX: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+            marginBottom: 18,
           }}
         >
-          {filtered.length === 0 ? (
-            <div
-              style={{
-                background: v3.surface,
-                border: `1px dashed ${v3.borderStrong}`,
-                borderRadius: 16,
-                padding: '64px 32px',
-                textAlign: 'center',
-                marginTop: 24,
-              }}
-            >
-              <div style={{ fontSize: 16, fontWeight: 600, color: v3.textPrimary, marginBottom: 8 }}>
-                {lang === 'zh' ? '还没有申请人' : 'No applicants yet'}
-              </div>
-              <div style={{ color: v3.textMuted, fontSize: 13, marginBottom: 16 }}>
-                {lang === 'zh'
-                  ? '把申请链接发给租客，新申请会自动到这里。'
-                  : 'Share the application link — new submissions show up here automatically.'}
-              </div>
-              <Link
-                href="/listings/new"
-                style={{
-                  display: 'inline-flex',
-                  background: v3.brand,
-                  color: '#fff',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  padding: '10px 16px',
-                  borderRadius: 8,
-                  textDecoration: 'none',
-                }}
-              >
-                {lang === 'zh' ? '让 Nova 写一个新房源' : 'Draft a listing with Nova'}
-              </Link>
-            </div>
-          ) : (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${COLUMNS.length}, minmax(260px, 1fr))`,
-                gap: 16,
-                minHeight: 400,
-              }}
-            >
-              {COLUMNS.map((col) => (
-                <KanbanColumn
-                  key={col.key}
-                  col={col}
-                  apps={byStage[col.key]}
-                  lang={lang as 'zh' | 'en'}
-                />
-              ))}
-            </div>
-          )}
+          <span
+            style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10.5,
+              letterSpacing: '0.10em',
+              textTransform: 'uppercase',
+              color: v3.textMuted,
+              fontWeight: 700,
+              marginRight: 4,
+            }}
+          >
+            {lang === 'zh' ? '房源' : 'Property'}
+          </span>
+          <FilterChip
+            active={activeListingId === 'all'}
+            onClick={() => setActiveListingId('all')}
+            label={lang === 'zh' ? '全部' : 'All'}
+            count={apps.length}
+          />
+          {listings.map((l) => {
+            const c = apps.filter((a) => a.listing_id === l.id).length
+            const label = `${l.address}${l.unit ? ' · ' + l.unit : ''}`
+            return (
+              <FilterChip
+                key={l.id}
+                active={activeListingId === l.id}
+                onClick={() => setActiveListingId(l.id)}
+                label={label}
+                count={c}
+              />
+            )
+          })}
+          <div style={{ flex: 1 }} />
+          <Link
+            href="/listings/new"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 7,
+              background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 10,
+              padding: '8px 14px',
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: 'none',
+              boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset',
+            }}
+          >
+            + {lang === 'zh' ? '让 Nova 写新房源' : 'New listing with Nova'}
+          </Link>
         </div>
-      </main>
-      <style jsx>{`
-        @media (max-width: 1023px) {
-          :global(.pl-sidebar) {
-            display: none !important;
-          }
-        }
-      `}</style>
-    </div>
+      )}
+
+      {/* Logic recommendation banner */}
+      {topPick && (
+        <div style={{ marginBottom: 16 }}>
+          <LogicRecommendation app={topPick} lang={lang as 'zh' | 'en'} />
+        </div>
+      )}
+
+      {/* Kanban */}
+      <div style={{ overflowX: 'auto' }}>
+        {filtered.length === 0 ? (
+          <div
+            style={{
+              background: '#fff',
+              border: `1px dashed ${v3.borderStrong}`,
+              borderRadius: 16,
+              padding: '64px 32px',
+              textAlign: 'center',
+              marginTop: 8,
+            }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 600, color: v3.textPrimary, marginBottom: 8 }}>
+              {lang === 'zh' ? '还没有申请人' : 'No applicants yet'}
+            </div>
+            <div style={{ color: v3.textMuted, fontSize: 13, marginBottom: 16 }}>
+              {lang === 'zh'
+                ? '把申请链接发给租客，新申请会自动到这里。'
+                : 'Share the application link — new submissions show up here automatically.'}
+            </div>
+            <Link
+              href="/listings/new"
+              style={{
+                display: 'inline-flex',
+                background: v3.brand,
+                color: '#fff',
+                fontSize: 14,
+                fontWeight: 600,
+                padding: '10px 16px',
+                borderRadius: 10,
+                textDecoration: 'none',
+              }}
+            >
+              {lang === 'zh' ? '让 Nova 写一个新房源' : 'Draft a listing with Nova'}
+            </Link>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${COLUMNS.length}, minmax(260px, 1fr))`,
+              gap: 16,
+              minHeight: 400,
+            }}
+          >
+            {COLUMNS.map((col) => (
+              <KanbanColumn
+                key={col.key}
+                col={col}
+                apps={byStage[col.key]}
+                lang={lang as 'zh' | 'en'}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </PageShell>
   )
 }
 
-// ── Sub-components ──────────────────────────────────────────────────────────
-
-function SidebarLink({
+function FilterChip({
   active,
   onClick,
   label,
   count,
-  iconChar,
 }: {
   active: boolean
   onClick: () => void
   label: string
   count: number
-  iconChar: string
 }) {
   return (
     <button
       onClick={onClick}
       style={{
-        display: 'flex',
+        display: 'inline-flex',
         alignItems: 'center',
-        gap: 10,
-        padding: '8px 10px',
-        borderRadius: 8,
-        background: active ? v3.brandSoft : 'transparent',
-        color: active ? v3.brandStrong : v3.textSecondary,
-        border: 'none',
-        cursor: 'pointer',
-        textAlign: 'left',
-        fontSize: 13,
+        gap: 6,
+        padding: '6px 12px',
+        fontSize: 12,
         fontWeight: active ? 600 : 500,
-        width: '100%',
+        color: active ? '#fff' : v3.textSecondary,
+        background: active ? v3.brand : '#fff',
+        border: `1px solid ${active ? v3.brandStrong : v3.borderStrong}`,
+        borderRadius: 999,
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
       }}
     >
-      <span aria-hidden style={{ width: 16, fontSize: 14, color: active ? v3.brand : v3.textMuted }}>
-        {iconChar}
-      </span>
-      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
       <span
         style={{
+          maxWidth: 220,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontFamily: 'JetBrains Mono, monospace',
           fontSize: 11,
           fontWeight: 600,
-          color: active ? v3.brandStrong : v3.textMuted,
-          padding: '1px 7px',
-          borderRadius: 999,
-          background: active ? v3.surface : v3.divider,
+          color: active ? 'rgba(255,255,255,0.85)' : v3.textMuted,
         }}
       >
         {count}
@@ -410,6 +366,8 @@ function SidebarLink({
     </button>
   )
 }
+
+// ── Sub-components ──────────────────────────────────────────────────────────
 
 function LogicRecommendation({ app, lang }: { app: Application; lang: 'zh' | 'en' }) {
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email

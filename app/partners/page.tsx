@@ -1,8 +1,8 @@
 'use client'
 // /partners — B2B Partner Onboarding (V3 section 14)
-import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
+import MarketingNav from '@/components/marketing/MarketingNav'
 
 const STEPS = [
   { en: 'Create org', zh: '创建组织', minutes: 2, done: true },
@@ -27,17 +27,29 @@ export default function PartnersPage() {
   const isZh = lang === 'zh'
   return (
     <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <header style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: v3.textPrimary }}>
-            <span style={{ display: 'inline-grid', placeItems: 'center', width: 26, height: 26, borderRadius: 7, background: v3.brand, color: '#fff', fontWeight: 800, fontSize: 14 }}>S</span>
-            <span style={{ fontSize: 16, fontWeight: 700 }}>stayloop</span>
-          </Link>
-          <span style={{ fontSize: 14, fontWeight: 600 }}>Partner Console</span>
-          <span style={{ fontSize: 12, color: v3.textMuted }}>Northbridge Insurance · {isZh ? '设置接入' : 'Setup'}</span>
+      <MarketingNav />
+      <div
+        style={{
+          background: v3.surface,
+          borderBottom: `1px solid ${v3.border}`,
+          padding: '14px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: v3.textPrimary }}>
+            Partner Console
+          </span>
+          <span style={{ fontSize: 12, color: v3.textMuted }}>
+            Northbridge Insurance · {isZh ? '设置接入' : 'Setup'}
+          </span>
         </div>
-        <span style={{ fontSize: 11, color: v3.textMuted, fontFamily: 'var(--font-mono)' }}>org_3kf9... · sandbox</span>
-      </header>
+        <span style={{ fontSize: 11, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace' }}>
+          org_3kf9... · sandbox
+        </span>
+      </div>
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24, display: 'grid', gridTemplateColumns: '240px 1fr 280px', gap: 18 }} className="pn-grid">
         {/* Steps */}
