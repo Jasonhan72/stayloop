@@ -8,6 +8,7 @@ import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 interface Property {
   id: string
@@ -189,29 +190,18 @@ export default function ListingsPage() {
   return (
     <PageShell role="landlord">
       <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
-        {/* Header with CTA */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-            <div>
-              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
-                {isZh ? `房源 · ${props.length} 套` : `Properties · ${props.length} total`}
-              </div>
-              <h2 style={{ margin: 0, fontFamily: 'Inter, sans-serif', fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', color: v3.textPrimary }}>
-                {isZh ? '房源' : 'Listings'}
-              </h2>
-            </div>
-          </div>
-          <hr style={{ height: 1, background: 'linear-gradient(90deg, #047857, rgba(4,120,87,0.32) 60%, transparent)', border: 0, marginTop: 14 }} />
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginBottom: 20 }}>
-          <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, cursor: 'pointer' }}>
-            {isZh ? '从 URL 导入' : 'Import from URL'}
-          </button>
-          <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 20px', background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset', letterSpacing: '-0.01em' }}>
-            + {isZh ? '新房源' : 'New listing'}
-          </button>
-        </div>
+        <SecHead
+          eyebrow={isZh ? `房源 · ${props.length} 套` : `Properties · ${props.length} total`}
+          title={isZh ? '房源' : 'Listings'}
+          right={<div style={{ display: 'flex', gap: 8 }}>
+            <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, cursor: 'pointer' }}>
+              {isZh ? '从 URL 导入' : 'Import from URL'}
+            </button>
+            <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 20px', background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset', letterSpacing: '-0.01em' }}>
+              + {isZh ? '新房源' : 'New listing'}
+            </button>
+          </div>}
+        />
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${v3.border}`, marginBottom: 20 }}>

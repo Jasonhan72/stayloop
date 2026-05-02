@@ -7,6 +7,7 @@ import { useT } from '@/lib/i18n'
 import { useUser } from '@/lib/useUser'
 import { supabase } from '@/lib/supabase'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 interface LeaseAgreement {
   id: string
@@ -47,55 +48,6 @@ function Tag({ tone = 'default', children }: { tone?: string; children: React.Re
     >
       {children}
     </span>
-  )
-}
-
-function SecHead({
-  eyebrow,
-  title,
-}: {
-  eyebrow?: string
-  title: string
-}) {
-  return (
-    <div style={{ marginBottom: 20 }}>
-      {eyebrow && (
-        <div
-          style={{
-            fontSize: '10.5px',
-            letterSpacing: '0.10em',
-            textTransform: 'uppercase',
-            color: v3.textMuted,
-            fontWeight: 700,
-            marginBottom: 10,
-          }}
-        >
-          {eyebrow}
-        </div>
-      )}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-        <h2
-          style={{
-            margin: 0,
-            fontFamily: '"Inter Tight", sans-serif',
-            fontSize: 24,
-            fontWeight: 600,
-            color: v3.textPrimary,
-            letterSpacing: '-0.02em',
-          }}
-        >
-          {title}
-        </h2>
-      </div>
-      <hr
-        style={{
-          marginTop: 14,
-          height: 1,
-          background: `linear-gradient(90deg, #047857, rgba(16,185,129,0.32) 60%, transparent)`,
-          border: 0,
-        }}
-      />
-    </div>
   )
 }
 

@@ -6,6 +6,7 @@ import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import { v3, size } from '@/lib/brand'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
 
 interface ScreeningResult {
   screening_id: string
@@ -146,6 +147,11 @@ export default function ManualScreeningPage() {
 
   return (
     <PageShell role="landlord">
+      <SecHead
+        eyebrow={isZh ? '筛查 · 手动案例' : 'Screening · Manual case'}
+        title={isZh ? '新筛查 — 来自邮件的申请人' : 'New screening — applicant from email'}
+        sub={isZh ? '案例 #SCR-2026-0418 · 开始 2 分钟前' : 'Case #SCR-2026-0418 · Started 2 min ago'}
+      />
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20 }}>
         <div style={{ display: 'grid', gap: 18 }}>
           {/* Step strip */}

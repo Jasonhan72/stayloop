@@ -6,6 +6,8 @@ import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import { v3, size } from '@/lib/brand'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
+import Tabs from '@/components/v4/Tabs'
 
 interface ScreeningPackage {
   id: string
@@ -116,46 +118,23 @@ export default function ScreeningPackagesPage() {
   return (
     <PageShell role="agent">
       <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
-        <div style={{ marginBottom: 24 }}>
-          <button style={{ padding: '8px 16px', background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+        <SecHead
+          eyebrow={isZh ? '筛查包' : 'Screening packages'}
+          title={isZh ? '你的包' : 'Your packages'}
+          right={<button style={{ padding: '11px 20px', background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset' }}>
             + {isZh ? '新包' : 'New package'}
-          </button>
-        </div>
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${v3.border}`, marginBottom: 24 }}>
-          {[
+          </button>}
+        />
+        <Tabs
+          items={[
             { id: 'all', label: isZh ? '全部' : 'All', count: packages.length },
             { id: 'drafted', label: isZh ? '草稿' : 'Drafted', count: packages.filter(p => p.status === 'draft').length },
             { id: 'shared', label: isZh ? '已分享' : 'Shared', count: packages.filter(p => !!p.share_token).length },
             { id: 'viewed', label: isZh ? '已查看' : 'Viewed', count: packages.filter(p => p.view_count > 0).length },
-          ].map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setFilter(t.id as any)}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '10px 16px',
-                fontSize: 13,
-                fontWeight: filter === t.id ? 600 : 500,
-                color: filter === t.id ? v3.textPrimary : v3.textMuted,
-                borderBottom: filter === t.id ? `2px solid ${v3.brand}` : '2px solid transparent',
-                cursor: 'pointer',
-                marginBottom: -1,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              {t.label}
-              {t.count != null && (
-                <span style={{ padding: '2px 8px', borderRadius: 3, background: v3.divider, color: v3.textMuted, fontSize: 11, fontWeight: 600 }}>
-                  {t.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+          ]}
+          active={filter}
+          onChange={(id) => setFilter(id as any)}
+        />
 
         {/* Cards grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>

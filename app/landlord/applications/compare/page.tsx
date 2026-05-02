@@ -8,6 +8,8 @@ import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import { v3, size, tier } from '@/lib/brand'
 import PageShell from '@/components/v4/PageShell'
+import SecHead from '@/components/v4/SecHead'
+import Avatar from '@/components/v4/Avatar'
 import type { Application } from '@/types'
 
 // Next.js 15 / Cloudflare Pages requires useSearchParams to be wrapped in
@@ -112,31 +114,19 @@ function ComparePageInner() {
   return (
     <PageShell role="landlord">
       <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
-            {isZh ? '申请人对比 · 128 Bathurst St #4B' : 'Applicant comparison · 128 Bathurst St #4B'}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-            <h2 style={{ margin: 0, fontFamily: 'Inter, sans-serif', fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', color: v3.textPrimary }}>
-              {apps.length} {isZh ? '申请人 · 3 份选中进行对比' : 'applicants · 3 selected for compare'}
-            </h2>
-            <span style={{ fontSize: 13, color: v3.textMuted }}>
-              {isZh ? 'AI 不会自动决定。你来选择；Stayloop 记录理由。' : 'AI does not auto-decide. You choose; Stayloop logs the rationale.'}
-            </span>
-            <div style={{ flex: 1 }} />
-          </div>
-          <hr style={{ height: 1, background: 'linear-gradient(90deg, #047857, rgba(4,120,87,0.32) 60%, transparent)', border: 0, marginTop: 14 }} />
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginBottom: 20 }}>
-          <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, cursor: 'pointer' }}>
-            {isZh ? '导出 PDF' : 'Export PDF'}
-          </button>
-          <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 20px', background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset', letterSpacing: '-0.01em' }}>
-            {isZh ? '批准顶级匹配 →' : 'Approve top match →'}
-          </button>
-        </div>
+        <SecHead
+          eyebrow={isZh ? '申请人对比 · 128 Bathurst St #4B' : 'Applicant comparison · 128 Bathurst St #4B'}
+          title={`${apps.length} ${isZh ? '申请人 · 3 份选中进行对比' : 'applicants · 3 selected for compare'}`}
+          sub={isZh ? 'AI 不会自动决定。你来选择；Stayloop 记录理由。' : 'AI does not auto-decide. You choose; Stayloop logs the rationale.'}
+          right={<div style={{ display: 'flex', gap: 8 }}>
+            <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, cursor: 'pointer' }}>
+              {isZh ? '导出 PDF' : 'Export PDF'}
+            </button>
+            <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 20px', background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset', letterSpacing: '-0.01em' }}>
+              {isZh ? '批准顶级匹配 →' : 'Approve top match →'}
+            </button>
+          </div>}
+        />
 
         {/* Comparison table */}
         <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, overflow: 'hidden', marginBottom: 16, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
@@ -146,9 +136,7 @@ function ComparePageInner() {
             </div>
             {apps.map((app, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: v3.brand, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-                  {(app.first_name?.[0] || '').toUpperCase()}{(app.last_name?.[0] || '').toUpperCase()}
-                </div>
+                <Avatar name={[app.first_name, app.last_name].filter(Boolean).join(' ')} size={32}/>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: v3.textPrimary }}>
                     {[app.first_name, app.last_name].filter(Boolean).join(' ')}
