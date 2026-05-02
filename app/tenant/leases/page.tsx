@@ -6,7 +6,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { useUser } from '@/lib/useUser'
 import { supabase } from '@/lib/supabase'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface LeaseAgreement {
   id: string
@@ -132,11 +132,11 @@ export default function TenantLeasesPage() {
 
   if (authLoading || loading) {
     return (
-      <main style={{ background: v3.surface, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>
+      <PageShell role="tenant">
+        <div style={{ color: v3.textMuted, fontSize: 14, display: 'grid', placeItems: 'center', minHeight: 400 }}>
           {isZh ? '加载租约…' : 'Loading leases…'}
         </div>
-      </main>
+      </PageShell>
     )
   }
 
@@ -177,12 +177,8 @@ export default function TenantLeasesPage() {
   ]
 
   return (
-    <main style={{ background: v3.surface, minHeight: '100vh' }}>
-      <AppHeader
-        title="Your leases"
-        titleZh="你的租约"
-      />
-      <div style={{ maxWidth: 1260, margin: '0 auto', padding: 32 }}>
+    <PageShell role="tenant">
+      <div style={{ maxWidth: 1260, margin: '0 auto' }}>
         <SecHead
           eyebrow={isZh ? '租约工作区' : 'Lease workspace'}
           title={isZh ? '你的租约' : 'Your leases'}
@@ -288,6 +284,6 @@ export default function TenantLeasesPage() {
           ))}
         </div>
       </div>
-    </main>
+    </PageShell>
   )
 }

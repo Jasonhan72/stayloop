@@ -8,7 +8,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface ShowingDetail {
   id: string
@@ -97,21 +97,13 @@ export default function ShowingDetailPage() {
     setFeedbackText('')
   }
 
-  if (authLoading || loading) {
-    return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>{isZh ? '加载…' : 'Loading…'}</div>
-      </main>
-    )
-  }
-
   if (!s) {
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh', padding: 24 }}>
+      <PageShell role="agent">
         <div style={{ color: v3.textMuted, fontSize: 14, textAlign: 'center', marginTop: 64 }}>
           {isZh ? '找不到这场带看。' : 'Showing not found.'}
         </div>
-      </main>
+      </PageShell>
     )
   }
 
@@ -125,19 +117,8 @@ export default function ShowingDetailPage() {
     : null
 
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <AppHeader
-        back="/agent/day"
-        title="Showing brief"
-        titleZh="看房简报"
-        right={
-          <span style={{ fontSize: 12, color: v3.brand, fontWeight: 700, whiteSpace: 'nowrap' }}>
-            {fmtTime(s.scheduled_at)} · {new Date(s.scheduled_at).toLocaleDateString()}
-          </span>
-        }
-      />
-
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24 }}>
+    <PageShell role="agent" path={isZh ? '看房简报' : 'Showing brief'}>
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
         <div style={{ marginBottom: 18 }}>
           <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.025em', margin: '4px 0' }}>{addr}</h1>
           <div style={{ fontSize: 12, color: v3.textMuted }}>
@@ -390,6 +371,6 @@ export default function ShowingDetailPage() {
         </div>
       </div>
       <style jsx>{`@media (max-width: 880px){:global(.sd-grid){grid-template-columns:1fr !important;}}`}</style>
-    </main>
+    </PageShell>
   )
 }

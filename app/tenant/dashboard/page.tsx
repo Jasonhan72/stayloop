@@ -6,7 +6,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface Application {
   id: string
@@ -282,24 +282,19 @@ export default function TenantDashboardPage() {
 
   if (authLoading || loading) {
     return (
-      <main style={{ background: v3.surface, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>
+      <PageShell role="tenant">
+        <div style={{ color: v3.textMuted, fontSize: 14, display: 'grid', placeItems: 'center', minHeight: 400 }}>
           {isZh ? '加载仪表盘…' : 'Loading dashboard…'}
         </div>
-      </main>
+      </PageShell>
     )
   }
 
   const firstName = user?.email?.split('@')[0] || 'Alex'
 
   return (
-    <main style={{ background: v3.surface, minHeight: '100vh' }}>
-      <AppHeader
-        title="Tenant Workspace"
-        titleZh="租客工作区"
-        hideTitle={false}
-      />
-      <div style={{ maxWidth: 1260, margin: '0 auto', padding: 32 }}>
+    <PageShell role="tenant">
+      <div style={{ maxWidth: 1260, margin: '0 auto' }}>
         {/* Headline */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 6 }}>
           <h1
@@ -636,6 +631,6 @@ export default function TenantDashboardPage() {
           </div>
         </div>
       </div>
-    </main>
+    </PageShell>
   )
 }

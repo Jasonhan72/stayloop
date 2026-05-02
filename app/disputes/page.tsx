@@ -6,7 +6,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface Dispute {
   id: string
@@ -66,26 +66,16 @@ export default function DisputesListPage() {
 
   if (authLoading || loading) {
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>{isZh ? '加载…' : 'Loading…'}</div>
-      </main>
+      <PageShell role="tenant">
+        <div style={{ color: v3.textMuted, fontSize: 14, display: 'grid', placeItems: 'center', minHeight: 400 }}>
+          {isZh ? '加载…' : 'Loading…'}
+        </div>
+      </PageShell>
     )
   }
 
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <AppHeader
-        title="Disputes · Mediator"
-        titleZh="纠纷调解"
-        right={
-          <button
-            onClick={() => setShowNew(true)}
-            style={{ padding: '8px 14px', background: v3.brand, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-          >
-            + {isZh ? '新建纠纷' : 'New dispute'}
-          </button>
-        }
-      />
+    <PageShell role="tenant">
 
       <div style={{ maxWidth: size.content.default, margin: '0 auto', padding: 24 }}>
         {disputes.length === 0 ? (
@@ -203,6 +193,6 @@ export default function DisputesListPage() {
           </div>
         </div>
       )}
-    </main>
+    </PageShell>
   )
 }

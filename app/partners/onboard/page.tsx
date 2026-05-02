@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 type Step = 'org' | 'usecase' | 'apikey' | 'activate'
 
@@ -84,12 +84,11 @@ export default function PartnerOnboardPage() {
 
   if (loading) {
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-        <AppHeader title="Partner onboarding" titleZh="合作方接入" />
+      <PageShell>
         <div style={{ textAlign: 'center', padding: 48, color: v3.textMuted }}>
           {isZh ? '加载中…' : 'Loading…'}
         </div>
-      </main>
+      </PageShell>
     )
   }
 
@@ -222,10 +221,8 @@ export default function PartnerOnboardPage() {
 
   // ─── Responsive layout grid ─────────────────────────────────────────────
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <AppHeader title="Partner onboarding" titleZh="合作方接入" />
-
-      <div style={{ maxWidth: size.content.default, margin: '0 auto', padding: 24, display: 'grid', gridTemplateColumns: '220px 1fr 320px', gap: 24 }} className="po-grid">
+    <PageShell>
+      <div style={{ maxWidth: size.content.default, margin: '0 auto', display: 'grid', gridTemplateColumns: '220px 1fr 320px', gap: 24 }} className="po-grid">
         <style jsx>{`
           @media (max-width: 1023px) {
             :global(.po-grid) {
@@ -831,6 +828,6 @@ export default function PartnerOnboardPage() {
           {rightContent}
         </aside>
       </div>
-    </main>
+    </PageShell>
   )
 }

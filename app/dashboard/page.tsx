@@ -6,7 +6,7 @@ import { v3, size } from '@/lib/brand'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 import { useIsMobile } from '@/lib/useMediaQuery'
 import { Application, Listing } from '@/types'
 
@@ -120,23 +120,23 @@ export default function Dashboard() {
 
   if (authLoading || !landlord) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: v3.surface, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: 10, border: `4px solid rgba(4,120,87,0.2)`, borderTopColor: v3.brand, animation: 'spin 1s linear infinite' }} />
-          <div style={{ fontSize: 12, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace' }}>Loading...</div>
+      <PageShell role="landlord">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 64, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: 10, border: `4px solid rgba(4,120,87,0.2)`, borderTopColor: v3.brand, animation: 'spin 1s linear infinite' }} />
+            <div style={{ fontSize: 12, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace' }}>Loading...</div>
+          </div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
+      </PageShell>
     )
   }
 
   const topApps = applications.slice(0, 3)
 
   return (
-    <div style={{ minHeight: '100vh', background: v3.surface }}>
-      <AppHeader title="Dashboard" titleZh="仪表盘" />
-
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '32px 24px' }}>
+    <PageShell role="landlord">
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
         {/* Eyebrow + Title */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
@@ -325,6 +325,6 @@ export default function Dashboard() {
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
+    </PageShell>
   )
 }

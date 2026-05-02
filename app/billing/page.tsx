@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import { v3 } from '@/lib/brand'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 export default function BillingPage() {
   const { lang } = useT()
@@ -80,11 +80,9 @@ export default function BillingPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F2EEE5' }}>
-      <AppHeader title="Billing" titleZh="账单" />
-
+    <PageShell>
       {/* Header */}
-      <div style={{ background: '#fff', borderBottom: `1px solid #D8D2C2`, padding: '32px 28px' }}>
+      <div style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '32px 28px', marginLeft: -32, marginRight: -32, marginTop: -32 }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'baseline', gap: 20 }}>
           <div>
             <div
@@ -535,6 +533,6 @@ export default function BillingPage() {
           </div>
         </div>
       </div>
-    </div>
+    </PageShell>
   )
 }

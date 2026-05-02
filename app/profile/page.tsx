@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import { v3 } from '@/lib/brand'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 type SectionKey = 'profile' | 'org' | 'security' | 'integrations'
 type Role = 'landlord' | 'tenant' | 'agent'
@@ -81,11 +81,9 @@ export default function SettingsPage() {
   ] as const
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F2EEE5', display: 'flex', flexDirection: 'column' }}>
-      <AppHeader title="Account settings" titleZh="账户设置" />
-
+    <PageShell>
       {/* Header */}
-      <div style={{ background: '#fff', borderBottom: `1px solid #D8D2C2`, padding: '32px 28px' }}>
+      <div style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '32px 28px', marginLeft: -32, marginRight: -32, marginTop: -32 }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div
             style={{
@@ -447,6 +445,6 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
-    </div>
+    </PageShell>
   )
 }

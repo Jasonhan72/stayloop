@@ -7,7 +7,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface Application {
   id: string
@@ -90,9 +90,11 @@ export default function PassportPage() {
 
   if (authLoading || loading) {
     return (
-      <main style={{ background: v3.surface, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>{isZh ? '加载护照…' : 'Loading passport…'}</div>
-      </main>
+      <PageShell role="tenant" allowAnonymous>
+        <div style={{ color: v3.textMuted, fontSize: 14, display: 'grid', placeItems: 'center', minHeight: 400 }}>
+          {isZh ? '加载护照…' : 'Loading passport…'}
+        </div>
+      </PageShell>
     )
   }
 
@@ -189,9 +191,8 @@ export default function PassportPage() {
   ]
 
   return (
-    <main style={{ background: v3.surface, minHeight: '100vh' }}>
-      <AppHeader title="My Passport" titleZh="我的 Passport" />
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '24px 16px 64px' }} className="passport-outer">
+    <PageShell role="tenant" allowAnonymous>
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }} className="passport-outer">
         {/* V4 layout: main pane (1fr) + right sidebar (320px) */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 22 }} className="passport-grid">
           {/* Main content pane */}
@@ -922,7 +923,7 @@ export default function PassportPage() {
           }
         }
       `}</style>
-    </main>
+    </PageShell>
   )
 }
 

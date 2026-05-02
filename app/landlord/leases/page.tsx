@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import { v3, size } from '@/lib/brand'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface LeaseAgreement {
   id: string
@@ -51,17 +51,18 @@ export default function LeasesPage() {
 
   if (authLoading) {
     return (
-      <div style={{ minHeight: '100vh', background: v3.surface, display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
-      </div>
+      <PageShell role="landlord">
+        <div style={{ display: 'grid', placeItems: 'center', padding: 64 }}>
+          <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
+        </div>
+      </PageShell>
     )
   }
 
   if (user && user.role !== 'landlord') {
     const roleDisplay = user.role === 'tenant' ? (isZh ? '租客' : 'Tenant') : (isZh ? '经纪' : 'Agent')
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-        <AppHeader title="Stayloop" titleZh="Stayloop" />
+      <PageShell role="landlord">
         <div style={{ maxWidth: 480, margin: '64px auto', textAlign: 'center', background: v3.surface, border: `1px dashed ${v3.borderStrong}`, borderRadius: 16, padding: 40 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>
             {isZh ? '此页面仅供房东使用' : 'Landlord access only'}
@@ -78,7 +79,7 @@ export default function LeasesPage() {
             {isZh ? '返回首页' : 'Go home'} →
           </button>
         </div>
-      </main>
+      </PageShell>
     )
   }
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -200,36 +201,17 @@ export default function LeasesPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: v3.surface, display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
-      </div>
+      <PageShell role="landlord">
+        <div style={{ display: 'grid', placeItems: 'center', padding: 64 }}>
+          <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
+        </div>
+      </PageShell>
     )
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: v3.surface }}>
-      <AppHeader
-        title={isZh ? '租约管理' : 'Leases'}
-        right={
-          <button
-            onClick={() => setShowCreateModal(true)}
-            style={{
-              padding: '8px 14px',
-              background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            {isZh ? '+ 新租约' : '+ New lease'}
-          </button>
-        }
-      />
-
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '32px 24px' }}>
+    <PageShell role="landlord">
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
@@ -363,6 +345,26 @@ export default function LeasesPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Create modal button */}
+      <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 50 }}>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          style={{
+            padding: '12px 24px',
+            background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(52, 211, 153, 0.3)',
+          }}
+        >
+          {isZh ? '+ 新租约' : '+ New lease'}
+        </button>
       </div>
 
       {/* Create modal */}
@@ -538,6 +540,6 @@ export default function LeasesPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   )
 }

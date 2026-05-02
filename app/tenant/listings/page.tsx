@@ -6,7 +6,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface Listing {
   id: string
@@ -136,11 +136,11 @@ export default function TenantListingsPage() {
 
   if (authLoading || loading) {
     return (
-      <main style={{ background: v3.surface, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>
+      <PageShell role="tenant">
+        <div style={{ color: v3.textMuted, fontSize: 14, display: 'grid', placeItems: 'center', minHeight: 400 }}>
           {isZh ? '加载列表…' : 'Loading listings…'}
         </div>
-      </main>
+      </PageShell>
     )
   }
 
@@ -203,12 +203,8 @@ export default function TenantListingsPage() {
   ]
 
   return (
-    <main style={{ background: v3.surface, minHeight: '100vh' }}>
-      <AppHeader
-        title="Listings"
-        titleZh="列表"
-      />
-      <div style={{ maxWidth: 1260, margin: '0 auto', padding: 32 }}>
+    <PageShell role="tenant">
+      <div style={{ maxWidth: 1260, margin: '0 auto' }}>
         <SecHead
           eyebrow={isZh ? 'Stayloop 启用列表 · 142' : 'Stayloop-enabled listings · 142'}
           title={isZh ? '列表' : 'Listings'}
@@ -452,6 +448,6 @@ export default function TenantListingsPage() {
           ))}
         </div>
       </div>
-    </main>
+    </PageShell>
   )
 }

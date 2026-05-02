@@ -7,7 +7,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface AppRow {
   id: string
@@ -74,9 +74,11 @@ export default function ScorePage() {
 
   if (authLoading || loading) {
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>{isZh ? '加载评分…' : 'Loading score…'}</div>
-      </main>
+      <PageShell role="tenant" allowAnonymous>
+        <div style={{ color: v3.textMuted, fontSize: 14, display: 'grid', placeItems: 'center', minHeight: 400 }}>
+          {isZh ? '加载评分…' : 'Loading score…'}
+        </div>
+      </PageShell>
     )
   }
 
@@ -85,16 +87,7 @@ export default function ScorePage() {
   const tier = band(app?.ai_score ?? null)
 
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <AppHeader
-        title="Score · Transparency"
-        titleZh="评分 · 透明仪表盘"
-        right={
-          <div style={{ fontSize: 12, color: v3.textMuted, whiteSpace: 'nowrap' }}>
-            {app ? `${isZh ? '更新于' : 'Updated'} ${new Date(app.created_at).toLocaleDateString()}` : isZh ? '尚未评分' : 'Not yet scored'}
-          </div>
-        }
-      />
+    <PageShell role="tenant" allowAnonymous>
 
       {!app ? (
         <div style={{ padding: '64px 24px', textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
@@ -207,7 +200,7 @@ export default function ScorePage() {
           }
         }
       `}</style>
-    </main>
+    </PageShell>
   )
 }
 

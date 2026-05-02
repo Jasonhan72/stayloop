@@ -10,7 +10,7 @@ import { tokens } from '@/lib/agent/theme'
 import { size } from '@/lib/brand'
 import { ScreeningCard } from './components/ScreeningCard'
 import { ActionProposal } from './components/ActionProposal'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface AssistantBlock {
   kind: string
@@ -241,16 +241,17 @@ export default function ChatPage() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: tokens.surfaceMuted,
-        fontFamily: "'Inter', system-ui, sans-serif",
-      }}
-    >
-      <Header lang={lang} setLang={setLang} />
+    <PageShell noPadding>
+      <div
+        style={{
+          minHeight: '100vh',
+          background: tokens.surfaceMuted,
+          fontFamily: "'Inter', system-ui, sans-serif",
+        }}
+      >
+        <Header lang={lang} setLang={setLang} />
 
-      <main
+        <main
         ref={scrollRef}
         style={{
           maxWidth: size.content.narrow,
@@ -287,7 +288,8 @@ export default function ChatPage() {
         streaming={streaming}
         lang={lang}
       />
-    </div>
+      </div>
+    </PageShell>
   )
 }
 
@@ -295,27 +297,23 @@ export default function ChatPage() {
 
 function Header(_: { lang: 'zh' | 'en'; setLang: (l: 'zh' | 'en') => void }) {
   return (
-    <AppHeader
-      title="Logic · Landlord screening"
-      titleZh="Logic · 房东筛查"
-      right={
-        <a
-          href="/screen"
-          style={{
-            fontSize: 11,
-            padding: '6px 10px',
-            background: tokens.surfaceMuted,
-            border: `1px solid ${tokens.border}`,
-            borderRadius: 6,
-            color: tokens.textSecondary,
-            textDecoration: 'none',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Classic mode
-        </a>
-      }
-    />
+    <div style={{ fontSize: 11, padding: '6px 10px', display: 'flex', justifyContent: 'flex-end' }}>
+      <a
+        href="/screen"
+        style={{
+          fontSize: 11,
+          padding: '6px 10px',
+          background: tokens.surfaceMuted,
+          border: `1px solid ${tokens.border}`,
+          borderRadius: 6,
+          color: tokens.textSecondary,
+          textDecoration: 'none',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        Classic mode
+      </a>
+    </div>
   )
 }
 

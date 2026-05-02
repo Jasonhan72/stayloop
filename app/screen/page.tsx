@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser, useAnonTrialCheck } from '@/lib/useUser'
 import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 import AuthModal from '@/components/AuthModal'
 import { generateScreeningReport } from '@/lib/generateReport'
 
@@ -2196,9 +2196,10 @@ export default function ScreenPage() {
   const riskOverall = result ? getRiskLevel(result.overall) : null
 
   return (
-    <div className="screen-app" style={{ minHeight: '100vh' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
-      <style>{`
+    <PageShell role="landlord">
+      <div className="screen-app">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
+        <style>{`
         .sl-header { padding: 20px 24px; }
         .sl-brand-sub { display: block; }
         .sl-container { max-width: 800px; margin: 0 auto; padding: 24px 16px; }
@@ -2240,32 +2241,6 @@ export default function ScreenPage() {
         details.sl-card > summary::marker { display: none; content: ''; }
         details.sl-card[open] > summary svg { transform: rotate(90deg); }
       `}</style>
-
-      {/* Header */}
-      <AppHeader
-        title="Screen a tenant"
-        titleZh="筛查租客"
-        right={
-          result ? (
-            <button
-              onClick={reset}
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: '#fff',
-                background: 'linear-gradient(135deg, #10B981, #059669)',
-                padding: '8px 14px',
-                borderRadius: 8,
-                border: 'none',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              + {lang === 'zh' ? '新筛查' : 'New screening'}
-            </button>
-          ) : null
-        }
-      />
 
       {/* Auth gate modal — shown when anonymous user has used their 1 free trial */}
       <AuthModal open={showAuthGate} onClose={() => setShowAuthGate(false)} defaultTab="register" next="/screen" />
@@ -3215,7 +3190,8 @@ export default function ScreenPage() {
             </ul>
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </PageShell>
   )
 }

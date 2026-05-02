@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle } from '@/lib/i18n'
 import { Application, ApplicationFile } from '@/types'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 const DIMENSIONS: { key: string; label: string; weight: number }[] = [
   { key: 'doc_authenticity_score', label: 'Doc Authenticity', weight: 20 },
@@ -120,13 +120,19 @@ export default function ApplicationDetailPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin" />
-      </div>
+      <PageShell role="landlord">
+        <div className="flex items-center justify-center py-16">
+          <div className="w-10 h-10 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin" />
+        </div>
+      </PageShell>
     )
   }
   if (!app) {
-    return <div className="min-h-screen flex items-center justify-center mono text-sm text-slate-500">Application not found.</div>
+    return (
+      <PageShell role="landlord">
+        <div className="flex items-center justify-center py-16 mono text-sm text-slate-500">Application not found.</div>
+      </PageShell>
+    )
   }
 
   // Color scale per spec: green 85-100, light-green 70-84, yellow 50-69, orange 30-49, red 0-29
@@ -152,14 +158,8 @@ export default function ApplicationDetailPage() {
   const isPro = plan === 'pro' || plan === 'enterprise'
 
   return (
-    <div className="min-h-screen">
-      <AppHeader
-        back="/dashboard"
-        title="Application detail"
-        titleZh="申请详情"
-      />
-
-      <div className="max-w-5xl mx-auto px-6 py-10 fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <PageShell role="landlord">
+      <div className="max-w-5xl mx-auto fade-up" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -365,6 +365,6 @@ export default function ApplicationDetailPage() {
           </div>
         </div>
       </div>
-    </div>
+    </PageShell>
   )
 }

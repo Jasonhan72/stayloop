@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import { v3, size } from '@/lib/brand'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface LeaseCard {
   id: string
@@ -37,8 +37,7 @@ export default function AgentLeasesPage() {
   if (user && user.role !== 'agent') {
     const roleDisplay = user.role === 'tenant' ? (isZh ? '租客' : 'Tenant') : (isZh ? '房东' : 'Landlord')
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-        <AppHeader title="Stayloop" titleZh="Stayloop" />
+      <PageShell role="agent">
         <div style={{ maxWidth: 480, margin: '64px auto', textAlign: 'center', background: v3.surface, border: `1px dashed ${v3.borderStrong}`, borderRadius: 16, padding: 40 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>
             {isZh ? '此页面仅供经纪使用' : 'Agent access only'}
@@ -55,7 +54,7 @@ export default function AgentLeasesPage() {
             {isZh ? '返回首页' : 'Go home'} →
           </button>
         </div>
-      </main>
+      </PageShell>
     )
   }
 
@@ -135,10 +134,8 @@ export default function AgentLeasesPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: v3.surface }}>
-      <AppHeader title={isZh ? '租约协助' : 'Lease assistance'} />
-
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '32px 24px' }}>
+    <PageShell role="agent">
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
         <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 0, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr 1.2fr 100px', padding: '12px 18px', background: v3.surfaceMuted, borderBottom: `1px solid ${v3.border}`, fontSize: 10, color: v3.textMuted, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
             <span>Client</span>
@@ -196,6 +193,6 @@ export default function AgentLeasesPage() {
           })}
         </div>
       </div>
-    </div>
+    </PageShell>
   )
 }

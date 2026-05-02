@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { v3 } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { Phone } from '@/components/v3/Frame'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface Member {
   initials: string
@@ -62,8 +62,7 @@ export default function RoommatesPage() {
     setShowAddModal(false)
   }
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <AppHeader title="Roommates" titleZh="合租" />
+    <PageShell role="tenant">
       <Phone time="14:48">
         <div style={{ padding: '12px 16px', borderBottom: `1px solid ${v3.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 18, color: v3.textMuted }}>‹</span>
@@ -318,6 +317,6 @@ export default function RoommatesPage() {
           </div>
         )}
       </Phone>
-    </main>
+    </PageShell>
   )
 }

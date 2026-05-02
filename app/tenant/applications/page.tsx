@@ -6,7 +6,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface Application {
   id: string
@@ -140,21 +140,17 @@ export default function TenantApplicationsPage() {
 
   if (authLoading || loading) {
     return (
-      <main style={{ background: v3.surface, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>
+      <PageShell role="tenant">
+        <div style={{ color: v3.textMuted, fontSize: 14, display: 'grid', placeItems: 'center', minHeight: 400 }}>
           {isZh ? '加载申请…' : 'Loading applications…'}
         </div>
-      </main>
+      </PageShell>
     )
   }
 
   return (
-    <main style={{ background: v3.surface, minHeight: '100vh' }}>
-      <AppHeader
-        title="Applications"
-        titleZh="申请"
-      />
-      <div style={{ maxWidth: 1260, margin: '0 auto', padding: 32 }}>
+    <PageShell role="tenant">
+      <div style={{ maxWidth: 1260, margin: '0 auto' }}>
         <SecHead
           eyebrow={isZh ? '申请' : 'Applications'}
           title={isZh ? '你的申请' : 'Your Applications'}
@@ -297,6 +293,6 @@ export default function TenantApplicationsPage() {
           )}
         </div>
       </div>
-    </main>
+    </PageShell>
   )
 }

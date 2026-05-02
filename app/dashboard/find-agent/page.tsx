@@ -7,7 +7,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface Agent {
   id: string
@@ -134,18 +134,8 @@ export default function FindAgentPage() {
   const commission = activeListing?.monthly_rent || 0
 
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <AppHeader
-        title="Find a Field Agent"
-        titleZh="找经纪"
-        right={
-          <span style={{ fontSize: 11, color: v3.textMuted, whiteSpace: 'nowrap' }}>
-            {isZh ? '6 因子匹配' : '6-factor matching'}
-          </span>
-        }
-      />
-
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24, display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24 }} className="fa-grid">
+    <PageShell role="landlord">
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24 }} className="fa-grid">
         <section>
           <div style={{ marginBottom: 14 }}>
             {listings.length > 0 ? (
@@ -372,7 +362,7 @@ export default function FindAgentPage() {
         </aside>
       </div>
       <style jsx>{`@media (max-width: 880px){:global(.fa-grid){grid-template-columns:1fr !important;}}`}</style>
-    </main>
+    </PageShell>
   )
 }
 

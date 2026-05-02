@@ -16,7 +16,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface ChatLine {
   id: string
@@ -211,16 +211,18 @@ export default function DisputeDetailPage() {
 
   if (authLoading || loading) {
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>{isZh ? '加载…' : 'Loading…'}</div>
-      </main>
+      <PageShell role="tenant">
+        <div style={{ color: v3.textMuted, fontSize: 14, display: 'grid', placeItems: 'center', minHeight: 400 }}>
+          {isZh ? '加载…' : 'Loading…'}
+        </div>
+      </PageShell>
     )
   }
 
   if (!dispute) {
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
+      <PageShell role="tenant">
+        <div style={{ textAlign: 'center', padding: '40px 20px' }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: v3.textPrimary, margin: '0 0 8px' }}>
             {isZh ? '纠纷未找到' : 'Dispute not found'}
           </h1>
@@ -231,17 +233,12 @@ export default function DisputeDetailPage() {
             {isZh ? '返回纠纷列表' : 'Back to disputes'}
           </button>
         </div>
-      </main>
+      </PageShell>
     )
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: v3.surfaceMuted }}>
-      <AppHeader
-        back="/disputes"
-        title={`${dispute.case_number}`}
-        titleZh={dispute.case_number}
-      />
+    <PageShell role="tenant">
 
       <main
         style={{
@@ -571,6 +568,6 @@ export default function DisputeDetailPage() {
           }
         }
       `}</style>
-    </div>
+    </PageShell>
   )
 }

@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import { v3, size, tier } from '@/lib/brand'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 import type { Application } from '@/types'
 
 // Next.js 15 / Cloudflare Pages requires useSearchParams to be wrapped in
@@ -15,7 +15,7 @@ import type { Application } from '@/types'
 // Suspense wrapper; ComparePageInner is the original implementation.
 export default function ComparePage() {
   return (
-    <Suspense fallback={<main style={{ minHeight: '100vh', background: '#F2EEE5' }} />}>
+    <Suspense fallback={<PageShell role="landlord"><div style={{ padding: 64 }} /></PageShell>}>
       <ComparePageInner />
     </Suspense>
   )
@@ -34,17 +34,18 @@ function ComparePageInner() {
 
   if (authLoading) {
     return (
-      <div style={{ minHeight: '100vh', background: v3.surface, display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
-      </div>
+      <PageShell role="landlord">
+        <div style={{ display: 'grid', placeItems: 'center', padding: 64 }}>
+          <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
+        </div>
+      </PageShell>
     )
   }
 
   if (user && user.role !== 'landlord') {
     const roleDisplay = user.role === 'tenant' ? (isZh ? '租客' : 'Tenant') : (isZh ? '经纪' : 'Agent')
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-        <AppHeader title="Stayloop" titleZh="Stayloop" />
+      <PageShell role="landlord">
         <div style={{ maxWidth: 480, margin: '64px auto', textAlign: 'center', background: v3.surface, border: `1px dashed ${v3.borderStrong}`, borderRadius: 16, padding: 40 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>
             {isZh ? '此页面仅供房东使用' : 'Landlord access only'}
@@ -61,7 +62,7 @@ function ComparePageInner() {
             {isZh ? '返回首页' : 'Go home'} →
           </button>
         </div>
-      </main>
+      </PageShell>
     )
   }
 
@@ -100,20 +101,17 @@ function ComparePageInner() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: v3.surface, display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
-      </div>
+      <PageShell role="landlord">
+        <div style={{ display: 'grid', placeItems: 'center', padding: 64 }}>
+          <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
+        </div>
+      </PageShell>
     )
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: v3.surface }}>
-      <AppHeader
-        title={isZh ? '申请人对比 · 128 Bathurst St #4B' : 'Applicant comparison · 128 Bathurst St #4B'}
-        back="/dashboard/pipeline"
-      />
-
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '32px 24px' }}>
+    <PageShell role="landlord">
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ marginBottom: 20, display: 'flex', alignItems: 'baseline', gap: 14, justifyContent: 'space-between' }}>
           <div>
@@ -227,6 +225,6 @@ function ComparePageInner() {
           </div>
         </div>
       </div>
-    </div>
+    </PageShell>
   )
 }

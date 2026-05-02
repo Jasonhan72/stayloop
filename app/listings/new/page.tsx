@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { tokens } from '@/lib/agent/theme'
 import { v3, size } from '@/lib/brand'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface ChatLine {
   id: string
@@ -152,7 +152,7 @@ export default function NewListingPage() {
   async function startWithSource() {
     // Be defensive: authToken from state may not have hydrated yet, so try a
     // live getSession() before falling back to the alert. The user is almost
-    // certainly logged in if they reached this page (the avatar in AppHeader
+    // certainly logged in if they reached this page (the avatar in PageShell
     // requires a session) — no point bouncing them with "请先登录".
     let token = authToken
     if (!token) {
@@ -333,14 +333,8 @@ export default function NewListingPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: tokens.surfaceMuted, fontFamily: "'Inter', system-ui, sans-serif" }}>
-      <AppHeader
-        back="/dashboard"
-        title="New listing · Nova"
-        titleZh="新建房源 · Nova"
-      />
-
-      <main
+    <PageShell role="landlord" noPadding>
+      <div
         style={{
           maxWidth: size.content.wide,
           margin: '0 auto',
@@ -655,7 +649,7 @@ export default function NewListingPage() {
             )}
           </div>
         </section>
-      </main>
+      </div>
       <style jsx>{`
         @media (max-width: 1023px) {
           :global(.listings-new-grid) {
@@ -663,7 +657,7 @@ export default function NewListingPage() {
           }
         }
       `}</style>
-    </div>
+    </PageShell>
   )
 }
 

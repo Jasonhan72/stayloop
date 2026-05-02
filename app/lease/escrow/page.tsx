@@ -4,7 +4,7 @@ import { useRef, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 const TIMELINE = [
   { date: 'Apr 21', en: 'Passport verified', zh: '通行证已验证', who: 'Wei (tenant)', done: true },
@@ -74,19 +74,7 @@ export default function LeaseEscrowPage() {
   }
 
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <AppHeader
-        title="Lease + Escrow"
-        titleZh="租约 + 托管"
-        right={
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, background: v3.brandSoft, padding: '4px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>
-              {isZh ? '资金已托管' : 'Funds in escrow'}
-            </span>
-            <span style={{ fontSize: 11, color: v3.textMuted, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>Lease #LS-9401</span>
-          </div>
-        }
-      />
+    <PageShell role="tenant">
 
       {/* Party role tabs */}
       <div style={{ background: v3.surfaceMuted, borderBottom: `1px solid ${v3.divider}`, paddingLeft: 24, paddingRight: 24 }}>
@@ -238,6 +226,6 @@ export default function LeaseEscrowPage() {
           </div>
         </section>
       </div>
-    </main>
+    </PageShell>
   )
 }

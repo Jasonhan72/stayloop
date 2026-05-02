@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import { v3, size } from '@/lib/brand'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface Client {
   n: string
@@ -26,19 +26,10 @@ export default function AgentClientsPage() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'tenant' | 'landlord' | 'archived'>('all')
 
-  if (authLoading) {
-    return (
-      <div style={{ minHeight: '100vh', background: v3.surface, display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
-      </div>
-    )
-  }
-
   if (user && user.role !== 'agent') {
     const roleDisplay = user.role === 'tenant' ? (isZh ? '租客' : 'Tenant') : (isZh ? '房东' : 'Landlord')
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-        <AppHeader title="Stayloop" titleZh="Stayloop" />
+      <PageShell role="agent">
         <div style={{ maxWidth: 480, margin: '64px auto', textAlign: 'center', background: v3.surface, border: `1px dashed ${v3.borderStrong}`, borderRadius: 16, padding: 40 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>
             {isZh ? '此页面仅供经纪使用' : 'Agent access only'}
@@ -55,7 +46,7 @@ export default function AgentClientsPage() {
             {isZh ? '返回首页' : 'Go home'} →
           </button>
         </div>
-      </main>
+      </PageShell>
     )
   }
 
@@ -98,33 +89,27 @@ export default function AgentClientsPage() {
   })
 
   return (
-    <div style={{ minHeight: '100vh', background: v3.surface }}>
-      <AppHeader
-        title={isZh ? '客户文件夹' : 'Client folders'}
-        right={
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="text"
-              placeholder={isZh ? '搜索客户…' : 'Search clients…'}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                width: 240,
-                padding: '8px 12px',
-                border: `1px solid ${v3.border}`,
-                borderRadius: 8,
-                fontSize: 13,
-                color: v3.textPrimary,
-              }}
-            />
-            <button style={{ padding: '8px 16px', background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              + {isZh ? '添加客户' : 'Add client'}
-            </button>
-          </div>
-        }
-      />
-
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '32px 24px' }}>
+    <PageShell role="agent">
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+          <input
+            type="text"
+            placeholder={isZh ? '搜索客户…' : 'Search clients…'}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width: 240,
+              padding: '8px 12px',
+              border: `1px solid ${v3.border}`,
+              borderRadius: 8,
+              fontSize: 13,
+              color: v3.textPrimary,
+            }}
+          />
+          <button style={{ padding: '8px 16px', background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            + {isZh ? '添加客户' : 'Add client'}
+          </button>
+        </div>
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${v3.border}`, marginBottom: 24 }}>
           {[
@@ -216,6 +201,6 @@ export default function AgentClientsPage() {
           ))}
         </div>
       </div>
-    </div>
+    </PageShell>
   )
 }

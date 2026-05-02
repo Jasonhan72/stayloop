@@ -8,7 +8,7 @@ import { useT } from '@/lib/i18n'
 import { Phone } from '@/components/v3/Frame'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface Tenancy {
   id: string
@@ -97,8 +97,7 @@ export default function HistoryPage() {
   const totalPayments = tenancies.reduce((s, t) => s + (t.total_payments || 0), 0)
 
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <AppHeader title="Rental history" titleZh="租房记录" />
+    <PageShell role="tenant">
       <Phone time="14:55">
         <div style={{ padding: '12px 16px', borderBottom: `1px solid ${v3.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Link href="/passport" style={{ fontSize: 18, color: v3.textMuted, textDecoration: 'none' }}>‹</Link>
@@ -363,7 +362,7 @@ export default function HistoryPage() {
           </div>
         )}
       </Phone>
-    </main>
+    </PageShell>
   )
 }
 

@@ -7,7 +7,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface Property {
   id: string
@@ -99,9 +99,11 @@ export default function ListingsPage() {
 
   if (authLoading || loading) {
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>{isZh ? '加载…' : 'Loading…'}</div>
-      </main>
+      <PageShell role="landlord">
+        <div style={{ display: 'grid', placeItems: 'center', padding: 64 }}>
+          <div style={{ color: v3.textMuted, fontSize: 14 }}>{isZh ? '加载…' : 'Loading…'}</div>
+        </div>
+      </PageShell>
     )
   }
 
@@ -185,13 +187,8 @@ export default function ListingsPage() {
   })
 
   return (
-    <main style={{ background: v3.surface, minHeight: '100vh' }}>
-      <AppHeader
-        title={isZh ? '房源' : 'Listings'}
-        titleZh={isZh ? '房源' : undefined}
-      />
-
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '32px 24px' }}>
+    <PageShell role="landlord">
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
         {/* Header with CTA */}
         <div style={{ marginBottom: 20, display: 'flex', alignItems: 'baseline', gap: 14, justifyContent: 'space-between' }}>
           <div>
@@ -317,6 +314,6 @@ export default function ListingsPage() {
           )}
         </div>
       </div>
-    </main>
+    </PageShell>
   )
 }

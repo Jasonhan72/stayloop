@@ -7,7 +7,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface Provider {
   id: string
@@ -115,16 +115,7 @@ export default function ServicesPage() {
   const categories = Object.keys(CATEGORY_META).filter((k) => counts[k] > 0)
 
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <AppHeader
-        title="Services"
-        titleZh="服务市场"
-        right={
-          <span style={{ fontSize: 11, color: v3.textMuted, whiteSpace: 'nowrap' }}>
-            {isZh ? `${providers.length} 家认证服务商` : `${providers.length} vetted providers`}
-          </span>
-        }
-      />
+    <PageShell role="tenant">
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24 }}>
         {/* Next appointment timeline (if bookings exist) */}
@@ -393,6 +384,6 @@ export default function ServicesPage() {
           </div>
         )}
       </div>
-    </main>
+    </PageShell>
   )
 }

@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
 import { v3, size } from '@/lib/brand'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 export default function AgentDashboardPage() {
   const { lang } = useT()
@@ -24,19 +24,10 @@ export default function AgentDashboardPage() {
     { c: 'D. Robinson', listing: '80 Mill St · 312', stage: 'Approved', tone: 'ok', readiness: 96, when: 'Aug 22' },
   ])
 
-  if (authLoading) {
-    return (
-      <div style={{ minHeight: '100vh', background: v3.surface, display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
-      </div>
-    )
-  }
-
   if (user && user.role !== 'agent') {
     const roleDisplay = user.role === 'tenant' ? (isZh ? '租客' : 'Tenant') : (isZh ? '房东' : 'Landlord')
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-        <AppHeader title="Stayloop" titleZh="Stayloop" />
+      <PageShell role="agent">
         <div style={{ maxWidth: 480, margin: '64px auto', textAlign: 'center', background: v3.surface, border: `1px dashed ${v3.borderStrong}`, borderRadius: 16, padding: 40 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>
             {isZh ? '此页面仅供经纪使用' : 'Agent access only'}
@@ -53,7 +44,7 @@ export default function AgentDashboardPage() {
             {isZh ? '返回首页' : 'Go home'} →
           </button>
         </div>
-      </main>
+      </PageShell>
     )
   }
 
@@ -78,10 +69,8 @@ export default function AgentDashboardPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: v3.surface }}>
-      <AppHeader title={isZh ? '经纪仪表板' : 'Agent Dashboard'} />
-
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '32px 24px' }}>
+    <PageShell role="agent">
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
@@ -192,6 +181,6 @@ export default function AgentDashboardPage() {
           </div>
         </div>
       </div>
-    </div>
+    </PageShell>
   )
 }

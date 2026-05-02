@@ -6,7 +6,7 @@ import { v3 } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface Notification {
   id: string
@@ -113,11 +113,9 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F2EEE5' }}>
-      <AppHeader title="Notifications" titleZh="通知" />
-
+    <PageShell>
       {/* Header */}
-      <div style={{ background: '#fff', borderBottom: `1px solid #D8D2C2`, padding: '32px 28px' }}>
+      <div style={{ background: v3.surface, borderBottom: `1px solid ${v3.border}`, padding: '32px 28px', marginLeft: -32, marginRight: -32, marginTop: -32 }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div
             style={{
@@ -380,6 +378,6 @@ export default function NotificationsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </PageShell>
   )
 }

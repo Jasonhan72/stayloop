@@ -7,7 +7,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface AgentRow {
   id: string
@@ -99,7 +99,7 @@ export default function AgentDayPage() {
 
   if (!agent) {
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh', padding: 24 }}>
+      <PageShell role="agent">
         <div style={{ maxWidth: 480, margin: '64px auto 0', textAlign: 'center', background: v3.surface, border: `1px dashed ${v3.borderStrong}`, borderRadius: 16, padding: '40px 24px' }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>
             {isZh ? '你还不是 Field Agent' : 'You\u2019re not registered as a Field Agent'}
@@ -113,7 +113,7 @@ export default function AgentDayPage() {
             {isZh ? '联系我们' : 'Get in touch'}
           </Link>
         </div>
-      </main>
+      </PageShell>
     )
   }
 
@@ -121,25 +121,8 @@ export default function AgentDayPage() {
   const todaysDone = todays.filter((s) => s.status === 'completed').length
 
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <AppHeader
-        title="Day brief"
-        titleZh="今日任务"
-        right={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {agent.reco_number && (
-              <span style={{ fontSize: 12, color: v3.textMuted, fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
-                RECO #{agent.reco_number}
-              </span>
-            )}
-            <span style={{ fontSize: 12, color: v3.textMuted, whiteSpace: 'nowrap' }}>
-              {new Date().toLocaleDateString(isZh ? 'zh-CN' : 'en-CA', { weekday: 'short', month: 'short', day: 'numeric' })}
-            </span>
-          </div>
-        }
-      />
-
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24 }}>
+    <PageShell role="agent" path={isZh ? '今日任务' : 'Day brief'}>
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 4px' }}>
           {isZh
             ? `${getGreeting(isZh)}，${agent.display_name.split(' ')[0]}`
@@ -270,7 +253,7 @@ export default function AgentDayPage() {
         </div>
       </div>
       <style jsx>{`@media (max-width: 880px){:global(.ad-grid){grid-template-columns:1fr !important;}}`}</style>
-    </main>
+    </PageShell>
   )
 }
 

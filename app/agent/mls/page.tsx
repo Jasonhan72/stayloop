@@ -5,7 +5,7 @@ import { v3 } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { Phone } from '@/components/v3/Frame'
 import { supabase } from '@/lib/supabase'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 interface Listing {
   id: string
@@ -109,20 +109,18 @@ export default function MlsPage() {
 
   if (loading || !listing) {
     return (
-      <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-        <AppHeader title="MLS Ready Pack" titleZh="看房资料" />
+      <PageShell role="agent" noPadding>
         <Phone time={new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}>
           <div style={{ padding: 32, textAlign: 'center', color: v3.textMuted, fontSize: 13 }}>
             {isZh ? '加载中…' : 'Loading…'}
           </div>
         </Phone>
-      </main>
+      </PageShell>
     )
   }
 
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <AppHeader title="MLS Ready Pack" titleZh="看房资料" />
+    <PageShell role="agent" noPadding>
       <Phone time={new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}>
         {/* Header with time to showing */}
         <div style={{ padding: '12px 16px', borderBottom: `1px solid ${v3.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -318,6 +316,6 @@ export default function MlsPage() {
           </button>
         </div>
       </Phone>
-    </main>
+    </PageShell>
   )
 }

@@ -7,7 +7,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { useUser } from '@/lib/useUser'
 import { supabase } from '@/lib/supabase'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 import { useIsMobile } from '@/lib/useMediaQuery'
 import { Application, Listing } from '@/types'
 
@@ -68,23 +68,21 @@ export default function ApplicationDetailPage() {
 
   if (authLoading || loading) {
     return (
-      <div style={{ minHeight: '100vh', background: v3.surface }}>
-        <AppHeader />
+      <PageShell role="tenant">
         <div style={{ padding: 40, textAlign: 'center', color: v3.textMuted }}>
           {isZh ? '加载中...' : 'Loading...'}
         </div>
-      </div>
+      </PageShell>
     )
   }
 
   if (error || !application) {
     return (
-      <div style={{ minHeight: '100vh', background: v3.surface }}>
-        <AppHeader />
+      <PageShell role="tenant">
         <div style={{ padding: 40, textAlign: 'center', color: v3.danger }}>
           {error || (isZh ? '未找到申请' : 'Application not found')}
         </div>
-      </div>
+      </PageShell>
     )
   }
 
@@ -137,10 +135,8 @@ export default function ApplicationDetailPage() {
   const currentColor = statusColors[currentStatus] || statusColors.new
 
   return (
-    <div style={{ minHeight: '100vh', background: v3.surface }}>
-      <AppHeader title={isZh ? '申请详情' : 'Application'} />
-
-      <main style={{ maxWidth: size.content.default, margin: '0 auto', padding: isMobile ? '24px 16px' : '40px 28px' }}>
+    <PageShell role="tenant">
+      <main style={{ maxWidth: size.content.default, margin: '0 auto' }}>
         {/* Two-column layout: desktop, stacked: mobile */}
         <div
           style={{
@@ -387,6 +383,6 @@ export default function ApplicationDetailPage() {
           </div>
         </div>
       </main>
-    </div>
+    </PageShell>
   )
 }

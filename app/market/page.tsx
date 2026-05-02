@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 type TimePeriod = '7d' | '30d' | '90d' | '12mo' | 'all'
 
@@ -65,18 +65,8 @@ export default function IndexPage() {
   ]
 
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <AppHeader
-        title="Stayloop Index"
-        titleZh="Stayloop 指数"
-        right={
-          <span style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, background: v3.brandSoft, padding: '4px 10px', borderRadius: 999, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-            {isZh ? '由 Analyst 提供' : 'Powered by Analyst'}
-          </span>
-        }
-      />
-
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24 }}>
+    <PageShell>
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
         {/* Hero metric */}
         <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 16, padding: 24, marginBottom: 16 }}>
           <div style={{ fontSize: 11, color: v3.textMuted, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
@@ -216,6 +206,6 @@ export default function IndexPage() {
           </p>
         </div>
       </div>
-    </main>
+    </PageShell>
   )
 }

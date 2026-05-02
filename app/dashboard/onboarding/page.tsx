@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
-import AppHeader from '@/components/AppHeader'
+import PageShell from '@/components/v4/PageShell'
 
 const STEPS = [
   { en: 'Account', zh: '账户基础', done: true },
@@ -33,18 +33,8 @@ export default function LandlordOnboardingPage() {
 
   const allIdvDone = Object.values(idvComplete).every(Boolean)
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
-      <AppHeader
-        title="Landlord onboarding"
-        titleZh="房东引导"
-        right={
-          <span style={{ fontSize: 12, color: v3.textMuted, whiteSpace: 'nowrap' }}>
-            {isZh ? '第 3 / 4 步 · 约 2 分钟' : 'Step 3 of 4 · ~2 min'}
-          </span>
-        }
-      />
-
-      <div style={{ maxWidth: size.content.default, margin: '0 auto', padding: 24, display: 'grid', gridTemplateColumns: '220px 1fr 320px', gap: 24 }} className="lo-grid">
+    <PageShell role="landlord">
+      <div style={{ maxWidth: size.content.default, margin: '0 auto', display: 'grid', gridTemplateColumns: '220px 1fr 320px', gap: 24 }} className="lo-grid">
         <style jsx>{`
           @media (max-width: 1023px) {
             :global(.lo-grid) {
@@ -279,6 +269,6 @@ export default function LandlordOnboardingPage() {
         </aside>
       </div>
 
-    </main>
+    </PageShell>
   )
 }
