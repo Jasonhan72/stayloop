@@ -192,250 +192,733 @@ export default function PassportPage() {
     <main style={{ background: v3.surface, minHeight: '100vh' }}>
       <AppHeader title="My Passport" titleZh="我的 Passport" />
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '24px 16px 64px' }} className="passport-outer">
-        {/* top bar - spans full width on desktop, stacks on mobile */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }} className="passport-topbar">
-          <div style={{ fontSize: 11, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-            {isZh ? '租客护照' : 'VERIFIED RENTER PASSPORT'}
-          </div>
-          <div style={{ display: 'flex', gap: 12, color: v3.textMuted, fontSize: 16 }}>
-            <button aria-label="share" style={iconBtn}>↑</button>
-            <button aria-label="notifications" style={iconBtn}>🔔</button>
-          </div>
-        </div>
-
-        {/* main grid: left column (hero + claims) | right column (actions) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }} className="passport-grid">
-          <section>
-            {/* hero card */}
-        <div style={{ background: 'linear-gradient(180deg, #0F172A 0%, #1E293B 100%)', borderRadius: 18, padding: 20, color: '#fff', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.02em', color: '#fff' }}>stayloop</span>
-            <span
+        {/* V4 layout: main pane (1fr) + right sidebar (320px) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 22 }} className="passport-grid">
+          {/* Main content pane */}
+          <div style={{ display: 'grid', gap: 18 }}>
+          {/* SecHead */}
+          <div style={{ marginBottom: 20 }}>
+            <div
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: '0.08em',
+                fontSize: '10.5px',
+                letterSpacing: '0.10em',
                 textTransform: 'uppercase',
-                color: verified ? v3.brandBright : 'rgba(255,255,255,0.55)',
-                background: verified ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.08)',
-                border: `1px solid ${verified ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255,255,255,0.12)'}`,
-                padding: '4px 10px',
-                borderRadius: 999,
+                color: v3.textMuted,
+                fontWeight: 700,
+                marginBottom: 10,
               }}
             >
-              {verified ? `✓ VERIFIED · ${verifiedDate}` : isZh ? '待验证' : 'PENDING'}
+              {isZh ? '租客护照 · v3' : 'Tenant Passport · v3'}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+              <h2
+                style={{
+                  margin: 0,
+                  fontFamily: '"Inter Tight", sans-serif',
+                  fontSize: 24,
+                  fontWeight: 600,
+                  color: v3.textPrimary,
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {fullName} — {isZh ? '租赁护照' : 'Rental Passport'}
+              </h2>
+              <div style={{ flex: 1 }} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    background: '#FFFFFF',
+                    color: v3.textPrimary,
+                    border: `1px solid ${v3.borderStrong}`,
+                    borderRadius: 10,
+                    padding: '10px 18px',
+                    fontFamily: '"Inter Tight", sans-serif',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isZh ? '分享链接' : 'Share link'}
+                </button>
+                <button
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: 10,
+                    padding: '11px 20px',
+                    fontFamily: '"Inter Tight", sans-serif',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 8px 22px -10px rgba(52, 211, 153, 0.45)',
+                  }}
+                >
+                  {isZh ? '使用护照申请' : 'Apply with Passport'}
+                </button>
+              </div>
+            </div>
+            <span style={{ fontSize: 13, color: v3.textMuted }}>
+              {isZh ? '今天最后更新 · 可跨列表重用' : 'Last updated today · Reusable across listings'}
             </span>
+            <hr
+              style={{
+                marginTop: 14,
+                height: 1,
+                background: `linear-gradient(90deg, #047857, rgba(16,185,129,0.32) 60%, transparent)`,
+                border: 0,
+              }}
+            />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+          {/* Header card */}
+          <div
+            style={{
+              background: v3.surfaceCard,
+              border: `1px solid ${v3.border}`,
+              borderRadius: 14,
+              padding: 24,
+              display: 'grid',
+              gridTemplateColumns: 'auto 1fr auto',
+              gap: 18,
+              alignItems: 'center',
+            }}
+          >
             <div
-              aria-hidden
-              style={{ width: 44, height: 44, borderRadius: 999, background: v3.brandBright, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 700, flexShrink: 0 }}
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: '50%',
+                background: v3.brand,
+                color: '#fff',
+                display: 'grid',
+                placeItems: 'center',
+                fontSize: 24,
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
             >
               {initials}
             </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>{fullName}</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontFamily: 'var(--font-mono), ui-monospace, monospace' }}>
-                {passportId}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <HexRadar values={axisVals} />
-            <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4 }}>
-                Stayloop Score
-              </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, justifyContent: 'flex-end' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    fontFamily: '"Inter Tight", sans-serif',
+                    fontSize: 22,
+                    fontWeight: 600,
+                    color: v3.textPrimary,
+                  }}
+                >
+                  {fullName}
+                </div>
                 <span
                   style={{
-                    fontSize: 56,
-                    fontWeight: 800,
-                    lineHeight: 1,
-                    letterSpacing: '-0.04em',
-                    background: 'linear-gradient(180deg, #ffffff 0%, #34D399 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                  }}
-                >
-                  {score ?? '—'}
-                </span>
-                <span style={{ fontSize: 16, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>/100</span>
-              </div>
-              <div style={{ fontSize: 12, color: '#34D399', fontWeight: 500, marginTop: 4 }}>
-                {tier ? (isZh ? `全国前 ${tier}% 的租客` : `Top ${tier}% of renters`) : isZh ? '完成筛查解锁评分' : 'Complete a screening to unlock'}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Claims chip row */}
-            <div style={{ fontSize: 10, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '20px 4px 12px' }}>
-              {isZh ? '核心声明' : 'KEY CLAIMS'}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
-              {claimsChips.map((c, i) => (
-                <div
-                  key={i}
-                  style={{
-                    padding: '8px 10px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '3px 9px',
                     borderRadius: 999,
-                    background: c.verified ? v3.brandSoft : 'rgba(113, 113, 122, 0.1)',
-                    border: `1px solid ${c.verified ? v3.brand : 'transparent'}`,
+                    border: `1px solid #BBF7D0`,
+                    background: '#DCFCE7',
+                    color: '#16A34A',
                     fontSize: 11,
                     fontWeight: 600,
-                    color: c.verified ? v3.brandStrong : v3.textMuted,
-                    textAlign: 'center',
-                    opacity: c.verified ? 1 : 0.6,
                   }}
                 >
-                  {c.verified ? '✓ ' : '? '}{isZh ? c.title_zh : c.title_en}
-                </div>
-              ))}
-            </div>
-
-            <div style={{ fontSize: 10, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.12em', textTransform: 'uppercase', margin: '24px 4px 12px' }}>
-              {isZh ? '房东可见声明' : 'WHAT LANDLORDS SEE · 房东可见声明'}
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {claimsRowData.map((c, i) => (
-                <ClaimRow key={i} claim={c} isZh={isZh} />
-              ))}
-            </div>
-
-            {/* QR + share */}
-            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: v3.surfaceCard, border: `1px dashed ${v3.borderStrong}`, borderRadius: 14 }}>
-              <div aria-hidden style={{ width: 44, height: 44, borderRadius: 8, background: '#fff', border: `1px solid ${v3.border}`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                <QrGlyph />
+                  ✓ {isZh ? '身份验证' : 'Verified ID'}
+                </span>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '3px 9px',
+                    borderRadius: 999,
+                    border: `1px solid #D7C5FA`,
+                    background: '#F3E8FF',
+                    color: '#7C3AED',
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  AI-{isZh ? '组织' : 'organized'}
+                </span>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: v3.textPrimary }}>
-                  {isZh ? '分享你的 Passport' : 'Share your Passport'}
-                </div>
-                <div style={{ fontSize: 10.5, color: v3.textMuted, fontFamily: 'var(--font-mono), ui-monospace, monospace', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  passport.stayloop.ai/{passportId.toLowerCase().replace(/^sl-/, '')} · {isZh ? '可撤销' : 'revocable'}
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/passport/${passportId}`
-                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                    navigator.clipboard.writeText(url)
-                    alert(isZh ? '已复制' : 'Copied')
-                  }
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4,auto)',
+                  gap: 18,
+                  fontSize: 12,
+                  color: v3.textSecondary,
+                  marginTop: 10,
                 }}
-                style={{ padding: '7px 12px', background: v3.textPrimary, color: v3.surface, border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
               >
-                {isZh ? '复制' : 'Copy'}
-              </button>
+                <span>
+                  <b style={{ color: v3.textPrimary }}>$2,400–3,200</b> · {isZh ? '目标租金' : 'target rent'}
+                </span>
+                <span>
+                  <b style={{ color: v3.textPrimary }}>Sep 1, 2026</b> · {isZh ? '入住' : 'move-in'}
+                </span>
+                <span>
+                  <b style={{ color: v3.textPrimary }}>Toronto · Downtown</b>
+                </span>
+                <span>
+                  <b style={{ color: v3.textPrimary }}>1 {isZh ? '住户' : 'occupant'} · {isZh ? '无宠物' : 'no pets'}</b>
+                </span>
+              </div>
             </div>
-          </section>
-
-          {/* Right column: actions */}
-          <aside style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <Link
-            href="/score"
-            style={{ display: 'block', textAlign: 'center', fontSize: 13, fontWeight: 600, color: v3.brandStrong, padding: '12px 14px', background: v3.brandSoft, borderRadius: 10, textDecoration: 'none' }}
-          >
-            {isZh ? '查看评分构成 →' : 'See score breakdown →'}
-          </Link>
-          <Link
-            href="/history"
-            style={{ display: 'block', textAlign: 'center', fontSize: 13, fontWeight: 500, color: v3.textSecondary, padding: '12px 14px', background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 10, textDecoration: 'none' }}
-          >
-            {isZh ? '租房记录' : 'Rental history'}
-          </Link>
-          <button
-            onClick={() => setCoSignInvite({ showModal: true, email: '', note: '' })}
-            style={{ display: 'block', textAlign: 'center', fontSize: 13, fontWeight: 500, color: v3.textSecondary, padding: '12px 14px', background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 10, cursor: 'pointer', width: '100%' }}
-          >
-            {isZh ? '邀请房东核签' : 'Request co-sign'}
-          </button>
-            {!bestApp && (
-              <Link
-                href="/screen"
-                style={{ display: 'block', textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#fff', padding: '12px 14px', background: v3.brand, borderRadius: 10, textDecoration: 'none' }}
-              >
-                {isZh ? '完成筛查解锁评分 →' : 'Complete a screening →'}
-              </Link>
-            )}
-          </aside>
-        </div>
-
-        {/* Co-sign request modal */}
-        {coSignInvite.showModal && (
-          <div
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', zIndex: 100, padding: 16 }}
-            onClick={() => setCoSignInvite({ ...coSignInvite, showModal: false })}
-          >
-            <div onClick={(e) => e.stopPropagation()} style={{ background: v3.surfaceCard, borderRadius: 16, padding: 20, maxWidth: 440, width: '100%' }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 12px', color: v3.textPrimary }}>
-                {isZh ? '邀请房东核签' : 'Request co-sign'}
-              </h2>
-              <p style={{ fontSize: 13, color: v3.textMuted, margin: '0 0 16px', lineHeight: 1.5 }}>
-                {isZh
-                  ? '输入你前房东的邮箱，他们会收到核签邀请。'
-                  : 'Enter your prior landlord\'s email to invite them to verify your tenancy.'}
-              </p>
-              <label style={{ display: 'block', marginBottom: 12 }}>
-                <span style={{ fontSize: 11, color: v3.textMuted, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-                  {isZh ? '房东邮箱' : 'Landlord email'}
-                </span>
-                <input
-                  type="email"
-                  placeholder="landlord@example.com"
-                  value={coSignInvite.email}
-                  onChange={(e) => setCoSignInvite({ ...coSignInvite, email: e.target.value })}
-                  style={{ width: '100%', padding: '10px 12px', border: `1px solid ${v3.border}`, borderRadius: 8, fontSize: 13, fontFamily: 'inherit' }}
-                />
-              </label>
-              <label style={{ display: 'block', marginBottom: 14 }}>
-                <span style={{ fontSize: 11, color: v3.textMuted, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-                  {isZh ? '备注 (可选)' : 'Note (optional)'}
-                </span>
-                <textarea
-                  placeholder={isZh ? '补充信息…' : 'Add context…'}
-                  value={coSignInvite.note}
-                  onChange={(e) => setCoSignInvite({ ...coSignInvite, note: e.target.value })}
-                  style={{ width: '100%', padding: '10px 12px', border: `1px solid ${v3.border}`, borderRadius: 8, fontSize: 13, fontFamily: 'inherit', minHeight: 60, resize: 'none' }}
-                />
-              </label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={() => setCoSignInvite({ ...coSignInvite, showModal: false })}
-                  style={{ flex: 1, padding: 12, background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: v3.textPrimary }}
-                >
-                  {isZh ? '取消' : 'Cancel'}
-                </button>
-                <button
-                  onClick={() => {
-                    if (!coSignInvite.email) return
-                    // TODO: insert into tenancies table with verification_status='pending'
-                    alert(isZh ? '邀请已发送 (TODO)' : 'Invitation sent (TODO)')
-                    setCoSignInvite({ showModal: false, email: '', note: '' })
+            <div style={{ width: 140 }}>
+              <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: 11,
+                    color: v3.textMuted,
+                    marginBottom: 5,
                   }}
-                  style={{ flex: 1, padding: 12, background: v3.brand, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
                 >
-                  {isZh ? '发送邀请' : 'Send invitation'}
-                </button>
+                  <span>{isZh ? '准备就绪' : 'Readiness'}</span>
+                  <span style={{ fontFamily: '"JetBrains Mono", monospace', color: '#7C3AED', fontWeight: 600 }}>
+                    78%
+                  </span>
+                </div>
+                <div
+                  style={{
+                    height: 6,
+                    background: v3.surfaceMuted,
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `78%`,
+                      height: '100%',
+                      background: '#7C3AED',
+                      borderRadius: 3,
+                    }}
+                  />
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: v3.textMuted, marginTop: 8 }}>
+                {isZh ? '2 项推荐' : '2 items recommended'}
               </div>
             </div>
           </div>
-        )}
+
+          {/* Documents section */}
+          <div
+            style={{
+              background: v3.surfaceCard,
+              border: `1px solid ${v3.border}`,
+              borderRadius: 14,
+              padding: 0,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                padding: '14px 22px',
+                borderBottom: `1px solid ${v3.border}`,
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontFamily: '"Inter Tight", sans-serif',
+                  fontSize: 17,
+                  fontWeight: 600,
+                }}
+              >
+                {isZh ? '文件' : 'Documents'}
+              </h3>
+              <span style={{ fontSize: 12, color: v3.textMuted, marginLeft: 10 }}>
+                {isZh ? '9 个 · AI 提取的字段显示' : '9 of 11 · AI extracted fields shown'}
+              </span>
+              <div style={{ flex: 1 }} />
+              <button
+                style={{
+                  padding: 0,
+                  color: '#047857',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                + {isZh ? '上传' : 'Upload'}
+              </button>
+            </div>
+
+            {[
+              {
+                cat: isZh ? '身份' : 'Identity',
+                name: isZh ? 'Passport · CA' : 'Passport · CA',
+                status: isZh ? '已验证' : 'Verified',
+                tone: 'ok',
+                meta: isZh ? '有效期 2031-04 · OCR 匹配' : 'Expiry 2031-04 · OCR matched',
+              },
+              {
+                cat: isZh ? '身份' : 'Identity',
+                name: isZh ? "驾驶证 · ON" : "Driver's license · ON",
+                status: isZh ? '已上传' : 'Uploaded',
+                tone: 'info',
+                meta: isZh ? '自动隐蔽 SIN' : 'Auto-redacted SIN',
+              },
+              {
+                cat: isZh ? '收入' : 'Income',
+                name: isZh ? '工资单（最近 3 个）' : 'Pay stubs (last 3)',
+                status: isZh ? '已验证' : 'Verified',
+                tone: 'ok',
+                meta: isZh ? '每月 $8,420 总额 · 加拿大丰业银行存款' : '$8,420 / mo gross · TD Bank deposit',
+              },
+              {
+                cat: isZh ? '收入' : 'Income',
+                name: isZh ? '就业信函' : 'Employment letter',
+                status: isZh ? '缺失' : 'Missing',
+                tone: 'warn',
+                meta: isZh ? '1 位房东请求 — 推荐' : 'Requested by 1 landlord — recommended',
+              },
+              {
+                cat: isZh ? '收入' : 'Income',
+                name: isZh ? 'T1 / NOA 2024' : 'T1 / NOA 2024',
+                status: isZh ? '已上传' : 'Uploaded',
+                tone: 'info',
+                meta: '',
+              },
+              {
+                cat: isZh ? '信用' : 'Credit',
+                name: isZh ? '益百利信用报告' : 'Equifax credit report',
+                status: isZh ? '已验证' : 'Verified',
+                tone: 'ok',
+                meta: isZh ? '分数 742 · 14 天同意有效' : 'Score 742 · 14-day consent active',
+              },
+              {
+                cat: isZh ? '租赁历史' : 'Rental hist.',
+                name: isZh ? '过去房东推荐（1）' : 'Past landlord reference (1)',
+                status: isZh ? '已上传' : 'Uploaded',
+                tone: 'info',
+                meta: isZh ? 'M. Chen · 3 年租约' : 'M. Chen · 3 yr tenancy',
+              },
+              {
+                cat: isZh ? '租赁历史' : 'Rental hist.',
+                name: isZh ? '过去房东推荐（2）' : 'Past landlord reference (2)',
+                status: isZh ? '缺失' : 'Missing',
+                tone: 'mute',
+                meta: isZh ? '可选' : 'Optional',
+              },
+              {
+                cat: isZh ? '其他' : 'Other',
+                name: isZh ? '宠物资料' : 'Pet profile',
+                status: isZh ? 'N/A' : 'N/A',
+                tone: 'mute',
+                meta: isZh ? '无宠物' : 'No pets',
+              },
+            ].map((d, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '90px 1fr 110px auto',
+                  gap: 14,
+                  padding: '12px 22px',
+                  borderTop: i ? `1px dashed ${v3.border}` : 'none',
+                  alignItems: 'center',
+                  fontSize: 13,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: '"JetBrains Mono", monospace',
+                    fontSize: 10,
+                    color: v3.textFaint,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                  }}
+                >
+                  {d.cat}
+                </span>
+                <div>
+                  <div style={{ color: v3.textPrimary, fontWeight: 500 }}>{d.name}</div>
+                  {d.meta && (
+                    <div style={{ fontSize: 11, color: v3.textMuted, marginTop: 2 }}>
+                      {d.meta}
+                    </div>
+                  )}
+                </div>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '3px 9px',
+                    borderRadius: 999,
+                    border: `1px solid ${
+                      d.tone === 'ok'
+                        ? '#BBF7D0'
+                        : d.tone === 'warn'
+                          ? '#FDE68A'
+                          : d.tone === 'info'
+                            ? '#BFDBFE'
+                            : v3.divider
+                    }`,
+                    background:
+                      d.tone === 'ok'
+                        ? '#DCFCE7'
+                        : d.tone === 'warn'
+                          ? '#FEF3C7'
+                          : d.tone === 'info'
+                            ? '#DBEAFE'
+                            : v3.divider,
+                    color:
+                      d.tone === 'ok'
+                        ? '#16A34A'
+                        : d.tone === 'warn'
+                          ? '#D97706'
+                          : d.tone === 'info'
+                            ? '#2563EB'
+                            : v3.textMuted,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {d.status}
+                </span>
+                <button
+                  style={{
+                    padding: 0,
+                    color: v3.textMuted,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {d.status === 'Missing' ? (isZh ? '上传' : 'Upload') : isZh ? '查看' : 'View'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right sidebar */}
+        <div style={{ display: 'grid', gap: 18 }}>
+          {/* AI Panel */}
+          <div
+            style={{
+              background: 'linear-gradient(180deg, #F3EEFF 0%, #fff 100%)',
+              border: `1px solid #D7C5FA`,
+              borderRadius: 14,
+              padding: 18,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 6,
+                  background: '#7C3AED',
+                  color: '#fff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontFamily: '"JetBrains Mono", monospace',
+                  fontWeight: 700,
+                  fontSize: 11,
+                }}
+              >
+                ✦
+              </span>
+              <span
+                style={{
+                  fontFamily: '"Inter Tight", sans-serif',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: v3.textPrimary,
+                }}
+              >
+                AI: {isZh ? '改进你的准备' : 'improve your readiness'}
+              </span>
+            </div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {[
+                {
+                  body: isZh
+                    ? '添加就业信函以解锁你的范围内的 12 个更多列表。'
+                    : 'Add an employment letter to unlock 12 more listings in your range.',
+                  cta: isZh ? '使用模板' : 'Use template',
+                },
+                {
+                  body: isZh
+                    ? '以 $19 验证收入以显示已验证收入徽章。'
+                    : 'Verify income for $19 to display the Verified Income badge.',
+                  cta: isZh ? '升级' : 'Upgrade',
+                },
+                {
+                  body: isZh
+                    ? '1 个参考过期 — 邀请 M. Chen 刷新。'
+                    : '1 reference outdated — invite M. Chen to refresh.',
+                  cta: isZh ? '邀请' : 'Invite',
+                },
+              ].map((it, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13 }}>
+                  <span
+                    style={{
+                      color: '#7C3AED',
+                      fontFamily: '"JetBrains Mono", monospace',
+                      fontWeight: 600,
+                      marginTop: 2,
+                    }}
+                  >
+                    ›
+                  </span>
+                  <span style={{ flex: 1 }}>
+                    <div style={{ color: v3.textSecondary, fontSize: 13 }}>{it.body}</div>
+                  </span>
+                  <button
+                    style={{
+                      fontSize: 12,
+                      color: '#7C3AED',
+                      padding: 0,
+                      whiteSpace: 'nowrap',
+                      background: 'none',
+                      border: 'none',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {it.cta}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Active share links */}
+          <div
+            style={{
+              background: v3.surfaceCard,
+              border: `1px solid ${v3.border}`,
+              borderRadius: 14,
+              padding: 18,
+            }}
+          >
+            <div
+              style={{
+                fontSize: '10.5px',
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: v3.textMuted,
+                fontWeight: 700,
+                marginBottom: 10,
+              }}
+            >
+              {isZh ? '激活分享链接 · 3' : 'Active share links · 3'}
+            </div>
+            {[
+              {
+                name: isZh ? 'Stayloop · 128 Bathurst' : 'Stayloop · 128 Bathurst',
+                meta: isZh ? '9 天后过期' : 'Expires in 9 days',
+                tone: 'ok',
+              },
+              {
+                name: isZh ? 'Stayloop · 52 Wellesley' : 'Stayloop · 52 Wellesley',
+                meta: isZh ? '已查看 3 次 · 6 天剩余' : 'Viewed 3× · 6d left',
+                tone: 'info',
+              },
+              {
+                name: 'agent.kim@remax.com',
+                meta: isZh ? '自定义范围 · 4 天' : 'Custom scope · 4d',
+                tone: 'gold',
+              },
+            ].map((s, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '10px 0',
+                  borderTop: i ? `1px dashed ${v3.border}` : 'none',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background:
+                      s.tone === 'ok' ? '#16A34A' : s.tone === 'info' ? '#2563EB' : '#D97706',
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ flex: 1, fontSize: 13 }}>
+                  <div style={{ color: v3.textPrimary, fontWeight: 500 }}>{s.name}</div>
+                  <div style={{ fontSize: 11, color: v3.textMuted }}>{s.meta}</div>
+                </div>
+                <button
+                  style={{
+                    padding: 0,
+                    color: v3.textMuted,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isZh ? '撤销' : 'Revoke'}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Compliance */}
+          <div
+            style={{
+              background: v3.surfaceMuted,
+              border: `1px solid ${v3.border}`,
+              borderRadius: 14,
+              padding: 18,
+            }}
+          >
+            <div
+              style={{
+                fontSize: '10.5px',
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: v3.textMuted,
+                fontWeight: 700,
+                marginBottom: 8,
+              }}
+            >
+              {isZh ? '合规' : 'Compliance'}
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: v3.textSecondary,
+                lineHeight: 1.6,
+              }}
+            >
+              {isZh
+                ? '我们从不自动分享数据。每个链接都有一个范围、过期时间和审计线索。背景调查需要你的明确同意（根据 PIPEDA）。'
+                : 'We never auto-share data. Each link has a scope, expiry, and audit trail. Background checks require your explicit consent under PIPEDA.'}
+            </div>
+          </div>
+        </div>
+        {/* End main content pane */}
+
+        {/* Right sidebar (moved here) */}
+        <div style={{ display: 'grid', gap: 18 }}>
+          {/* AI Panel */}
+          <div
+            style={{
+              background: 'linear-gradient(180deg, #F3EEFF 0%, #fff 100%)',
+              border: `1px solid #D7C5FA`,
+              borderRadius: 14,
+              padding: 18,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 6,
+                  background: '#7C3AED',
+                  color: '#fff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontFamily: '"JetBrains Mono", monospace',
+                  fontWeight: 700,
+                  fontSize: 11,
+                }}
+              >
+                ✦
+              </span>
+              <span
+                style={{
+                  fontFamily: '"Inter Tight", sans-serif',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: v3.textPrimary,
+                }}
+              >
+                AI: {isZh ? '改进你的准备' : 'improve your readiness'}
+              </span>
+            </div>
+          </div>
+
+          {/* Active share links */}
+          <div
+            style={{
+              background: v3.surfaceCard,
+              border: `1px solid ${v3.border}`,
+              borderRadius: 14,
+              padding: 18,
+            }}
+          >
+            <div
+              style={{
+                fontSize: '10.5px',
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: v3.textMuted,
+                fontWeight: 700,
+                marginBottom: 10,
+              }}
+            >
+              {isZh ? '激活分享链接 · 3' : 'Active share links · 3'}
+            </div>
+          </div>
+
+          {/* Compliance */}
+          <div
+            style={{
+              background: v3.surfaceMuted,
+              border: `1px solid ${v3.border}`,
+              borderRadius: 14,
+              padding: 18,
+            }}
+          >
+            <div
+              style={{
+                fontSize: '10.5px',
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: v3.textMuted,
+                fontWeight: 700,
+                marginBottom: 8,
+              }}
+            >
+              {isZh ? '合规' : 'Compliance'}
+            </div>
+          </div>
+        </div>
+        </div>
       </div>
       <style jsx>{`
         @media (max-width: 767px) {
           :global(.passport-grid) {
             grid-template-columns: 1fr !important;
-          }
-          :global(.passport-topbar) {
-            marginBottom: 24px;
           }
         }
       `}</style>

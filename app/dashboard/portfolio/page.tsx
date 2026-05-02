@@ -27,13 +27,14 @@ function dom(createdAt: string, leased: boolean): number {
   return Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000)
 }
 
-export default function PortfolioPage() {
+export default function ListingsPage() {
   const { lang } = useT()
   const isZh = lang === 'zh'
   const { user, loading: authLoading } = useUser({ redirectIfMissing: true })
   const [props, setProps] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [publishingId, setPublishingId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'all' | 'live' | 'draft' | 'closed'>('all')
 
   async function publish(id: string) {
     if (publishingId) return
@@ -169,276 +170,152 @@ export default function PortfolioPage() {
 
   const chartPath = generateChartPath(monthlyRevenue, 100, 200, 12)
 
+  const tabCounts = {
+    all: props.length,
+    live: props.filter(p => p.is_active && p.status === 'active').length,
+    draft: props.filter(p => p.status === 'draft').length,
+    closed: props.filter(p => p.status === 'closed' || (!p.is_active && p.status !== 'draft')).length,
+  }
+
+  const filteredProps = props.filter(p => {
+    if (activeTab === 'live') return p.is_active && p.status === 'active'
+    if (activeTab === 'draft') return p.status === 'draft'
+    if (activeTab === 'closed') return p.status === 'closed' || (!p.is_active && p.status !== 'draft')
+    return true
+  })
+
   return (
-    <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
+    <main style={{ background: v3.surface, minHeight: '100vh' }}>
       <AppHeader
-        title={`Portfolio · ${props.length} properties`}
-        titleZh={`资产组合 · ${props.length} 套`}
+        title={isZh ? '房源' : 'Listings'}
+        titleZh={isZh ? '房源' : undefined}
       />
 
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: 24 }}>
-        {props.length === 0 ? (
-          <div style={{ padding: '64px 24px', textAlign: 'center', background: v3.surface, border: `1px dashed ${v3.borderStrong}`, borderRadius: 16 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>
-              {isZh ? '还没有房源' : 'No properties yet'}
-            </h1>
-            <p style={{ color: v3.textMuted, fontSize: 14, marginBottom: 16 }}>
-              {isZh ? '把第一套房交给 Nova 起草吧。' : 'Start by drafting your first listing with Nova.'}
-            </p>
-            <Link href="/listings/new" style={{ display: 'inline-flex', padding: '12px 22px', background: v3.brand, color: '#fff', borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>
-              {isZh ? '创建房源' : 'New listing'} →
-            </Link>
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '32px 24px' }}>
+        {/* Header with CTA */}
+        <div style={{ marginBottom: 20, display: 'flex', alignItems: 'baseline', gap: 14, justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
+              {isZh ? `房源 · ${props.length} 套` : `Properties · ${props.length} total`}
+            </div>
+            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', color: v3.textPrimary }}>
+              {isZh ? '房源' : 'Listings'}
+            </h2>
           </div>
-        ) : (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
-              {[
-                { en: 'Monthly cash flow', zh: '月度现金流', val: `$${totalRent.toLocaleString()}` },
-                { en: 'Occupancy', zh: '出租率', val: `${occupancyPct}%` },
-                { en: 'Avg tenant score', zh: '租客均分', val: avgScore || '—' },
-                { en: 'Days on market avg', zh: '上架平均', val: avgDom },
-                { en: 'Maintenance & repairs', zh: '维修保养', val: '$1,840/mo', trend: '↓ 8%' },
-              ].map((s) => (
-                <div key={s.en} style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 16 }}>
-                  <div style={{ fontSize: 10.5, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-                    {isZh ? `${s.zh} · ${s.en}` : s.en}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.025em' }}>{s.val}</div>
-                    {s.trend && (
-                      <div style={{ fontSize: 12, fontWeight: 600, color: v3.success }}>
-                        {s.trend}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button style={{ padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, cursor: 'pointer' }}>
+              {isZh ? '从 URL 导入' : 'Import from URL'}
+            </button>
+            <button style={{ padding: '10px 18px', background: `linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)`, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
+              + {isZh ? '新房源' : 'New listing'}
+            </button>
+          </div>
+        </div>
 
-            {/* Revenue chart */}
-            <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 20, marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-                {isZh ? '月度现金流 / MONTHLY CASH FLOW' : 'MONTHLY CASH FLOW · 月度现金流'}
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${v3.border}`, marginBottom: 20 }}>
+          {[
+            { id: 'all', label: isZh ? '全部' : 'All', count: tabCounts.all },
+            { id: 'live', label: isZh ? '已上线' : 'Live', count: tabCounts.live },
+            { id: 'draft', label: isZh ? '草稿' : 'Drafts', count: tabCounts.draft },
+            { id: 'closed', label: isZh ? '已关闭' : 'Closed', count: tabCounts.closed },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '10px 16px',
+                fontSize: 13,
+                fontWeight: activeTab === tab.id ? 600 : 500,
+                color: activeTab === tab.id ? v3.textPrimary : v3.textMuted,
+                borderBottom: activeTab === tab.id ? `2px solid ${v3.brand}` : '2px solid transparent',
+                marginBottom: -1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                cursor: 'pointer',
+              }}
+            >
+              {tab.label}
+              {tab.count > 0 && (
+                <span style={{ fontSize: 11, fontWeight: 700, background: v3.brand, color: '#fff', padding: '2px 6px', borderRadius: 999 }}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Table */}
+        {/* Listings table - V4 style */}
+        <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '56px 1.6fr 100px 90px 110px 100px 100px 80px', padding: '12px 18px', background: v3.surfaceMuted, borderBottom: `1px solid ${v3.border}`, fontSize: 10, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+            <span></span><span>Address</span><span>Rent</span><span>Status</span><span>Apps</span><span>Days live</span><span>AI flags</span><span></span>
+          </div>
+          {filteredProps.length === 0 ? (
+            <div style={{ padding: '48px 24px', textAlign: 'center', color: v3.textMuted }}>
+              <div style={{ fontSize: 14 }}>
+                {isZh ? '此分类中没有房源' : 'No listings in this category'}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 16 }}>
+            </div>
+          ) : (
+            filteredProps.map((l, i) => (
+              <div
+                key={l.id}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '56px 1.6fr 100px 90px 110px 100px 100px 80px',
+                  gap: 12,
+                  padding: '12px 18px',
+                  borderTop: `1px solid ${v3.border}`,
+                  fontSize: 13,
+                  alignItems: 'center',
+                }}
+              >
+                <div style={{ width: 44, height: 44, borderRadius: 6, background: v3.surfaceMuted, border: `1px solid ${v3.border}` }} />
                 <div>
-                  <div style={{ fontSize: 32, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.025em' }}>
-                    ${currentValue.toLocaleString()}
+                  <div style={{ fontWeight: 600, color: v3.textPrimary }}>
+                    {l.address}{l.unit ? ` · ${l.unit}` : ''}
                   </div>
-                  <div style={{ fontSize: 12, color: v3.success, fontWeight: 600, marginTop: 2 }}>
-                    ↑ {yoyGrowth}% YoY
-                  </div>
-                </div>
-              </div>
-              <svg width="100%" height="200" viewBox="0 0 100 200" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="revenueGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" style={{ stopColor: v3.brand, stopOpacity: 0.2 }} />
-                    <stop offset="100%" style={{ stopColor: v3.brand, stopOpacity: 0.02 }} />
-                  </linearGradient>
-                </defs>
-                <path d={chartPath} stroke={v3.brand} strokeWidth="1.5" fill="none" />
-                <path d={`${chartPath} L 88 188 L 12 188 Z`} fill="url(#revenueGradient)" />
-              </svg>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, fontSize: 9, color: v3.textMuted, fontFamily: 'var(--font-mono)' }}>
-                <span>Jan</span>
-                <span>Apr</span>
-                <span>Jul</span>
-                <span>Oct</span>
-                <span>Dec</span>
-              </div>
-            </div>
-
-            {/* Tenant quality scatter plot */}
-            <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 20, marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-                {isZh ? '租客质量 / TENANT QUALITY' : 'TENANT QUALITY · 租客质量'}
-              </div>
-              <p style={{ fontSize: 12, color: v3.textSecondary, marginBottom: 16 }}>
-                {isZh ? 'AI 评分 vs. 入住月数' : 'AI score vs. months tenanted'}
-              </p>
-              <svg width="100%" height="220" viewBox="0 0 280 220" preserveAspectRatio="none">
-                {/* Y-axis (months) */}
-                <line x1="30" y1="15" x2="30" y2="180" stroke={v3.border} strokeWidth="1" />
-                {/* X-axis (score) */}
-                <line x1="30" y1="180" x2="270" y2="180" stroke={v3.border} strokeWidth="1" />
-
-                {/* Y-axis ticks and labels (0, 8, 16, 24) */}
-                {[0, 8, 16, 24].map((m) => {
-                  const y = 180 - (m / 24) * 160
-                  return (
-                    <g key={`y-${m}`}>
-                      <line x1="25" y1={y} x2="30" y2={y} stroke={v3.border} strokeWidth="1" />
-                      <text
-                        x="15"
-                        y={y + 4}
-                        fontSize="9"
-                        fill={v3.textMuted}
-                        textAnchor="end"
-                        fontFamily="var(--font-mono)"
-                      >
-                        {m}
-                      </text>
-                    </g>
-                  )
-                })}
-
-                {/* X-axis ticks and labels (0, 25, 50, 75, 100) */}
-                {[0, 25, 50, 75, 100].map((s) => {
-                  const x = 30 + (s / 100) * 240
-                  return (
-                    <g key={`x-${s}`}>
-                      <line x1={x} y1="180" x2={x} y2="185" stroke={v3.border} strokeWidth="1" />
-                      <text
-                        x={x}
-                        y="200"
-                        fontSize="9"
-                        fill={v3.textMuted}
-                        textAnchor="middle"
-                        fontFamily="var(--font-mono)"
-                      >
-                        {s}
-                      </text>
-                    </g>
-                  )
-                })}
-
-                {/* Data points */}
-                {scatterPoints.map((p, i) => {
-                  const x = 30 + (p.score / 100) * 240
-                  const y = 180 - (p.months / 24) * 160
-                  return (
-                    <circle
-                      key={i}
-                      cx={x}
-                      cy={y}
-                      r="4"
-                      fill={v3.brandBright2}
-                      opacity="0.75"
-                      stroke={v3.brand}
-                      strokeWidth="1"
-                    />
-                  )
-                })}
-
-                {/* Axis labels */}
-                <text
-                  x="15"
-                  y="10"
-                  fontSize="9"
-                  fill={v3.textMuted}
-                  fontFamily="var(--font-mono)"
-                  fontWeight="700"
-                >
-                  {isZh ? '月' : 'mo'}
-                </text>
-                <text
-                  x="260"
-                  y="200"
-                  fontSize="9"
-                  fill={v3.textMuted}
-                  fontFamily="var(--font-mono)"
-                  fontWeight="700"
-                >
-                  {isZh ? '评分' : 'score'}
-                </text>
-              </svg>
-            </div>
-
-            <div style={{ background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 14, overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.4fr', padding: '12px 16px', fontSize: 10.5, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: `1px solid ${v3.border}` }}>
-                <span>{isZh ? '房产' : 'Property'}</span>
-                <span>{isZh ? '租金' : 'Rent'}</span>
-                <span>{isZh ? '状态' : 'Status'}</span>
-                <span>DOM</span>
-                <span>{isZh ? '申请人' : 'Applicants'}</span>
-                <span></span>
-              </div>
-              {props.map((p) => {
-                const isDraft = p.status === 'draft'
-                return (
-                  <div
-                    key={p.id}
-                    style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 0.4fr', padding: '14px 16px', alignItems: 'center', fontSize: 13, color: v3.textPrimary, borderBottom: `1px solid ${v3.divider}` }}
-                  >
-                    <Link
-                      href={`/dashboard/pipeline?listing=${p.id}`}
-                      style={{ fontWeight: 600, color: v3.textPrimary, textDecoration: 'none' }}
-                    >
-                      {p.address}{p.unit ? ` · ${p.unit}` : ''}
-                    </Link>
-                    <span style={{ fontFamily: 'var(--font-mono)' }}>${(p.monthly_rent || 0).toLocaleString()}</span>
-                    <span>
-                      {isDraft ? (
-                        <button
-                          onClick={() => publish(p.id)}
-                          disabled={publishingId === p.id}
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: '#fff',
-                            background: publishingId === p.id
-                              ? '#C5BDAA'
-                              : 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
-                            padding: '4px 10px',
-                            borderRadius: 999,
-                            border: 'none',
-                            cursor: publishingId === p.id ? 'wait' : 'pointer',
-                            boxShadow: publishingId === p.id
-                              ? 'none'
-                              : '0 4px 10px -4px rgba(52, 211, 153, 0.45)',
-                          }}
-                        >
-                          {publishingId === p.id
-                            ? (isZh ? '发布中…' : 'Publishing…')
-                            : (isZh ? '✦ 发布上线' : '✦ Publish')}
-                        </button>
-                      ) : (
-                        <span style={{ fontSize: 11, fontWeight: 600, color: p.daysOnMarket === 0 ? v3.brandStrong : v3.warning, background: p.daysOnMarket === 0 ? v3.brandSoft : v3.warningSoft, padding: '3px 9px', borderRadius: 999 }}>
-                          {p.daysOnMarket === 0 ? (isZh ? '已出租' : 'Occupied') : (isZh ? '空置' : 'Vacant')}
-                        </span>
-                      )}
-                    </span>
-                    <span style={{ color: v3.textSecondary }}>{isDraft ? '—' : `${p.daysOnMarket}d`}</span>
-                    <span>
-                      {p.applicantCount} {p.topAiScore != null && (
-                        <span style={{ marginLeft: 6, fontSize: 11, color: v3.brandStrong, fontWeight: 600 }}>
-                          {isZh ? '最高' : 'top'} {p.topAiScore}
-                        </span>
-                      )}
-                    </span>
-                    <Link
-                      href={`/dashboard/pipeline?listing=${p.id}`}
-                      style={{ color: v3.textMuted, fontSize: 14, textDecoration: 'none', textAlign: 'right' }}
-                    >
-                      ›
-                    </Link>
-                  </div>
-                )
-              })}
-            </div>
-
-            {vacant && (
-              <div style={{ background: v3.surface, border: `1px solid ${v3.brandSoft}`, borderLeft: `4px solid ${v3.brand}`, borderRadius: 14, padding: 18, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: v3.brand, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 16, flexShrink: 0 }}>✦</div>
-                <div style={{ flex: 1, minWidth: 240 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: v3.brandStrong, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-                    Nova · {isZh ? '组合洞察' : 'Portfolio Insight'}
-                  </div>
-                  <div style={{ fontSize: 13, lineHeight: 1.5, color: v3.textPrimary }}>
-                    <strong>{vacant.address}{vacant.unit ? ` · ${vacant.unit}` : ''}</strong>{' '}
-                    {isZh
-                      ? `已空置 ${vacant.daysOnMarket} 天 — 跑一遍 Nova 重写文案或考虑降价 1-2%。`
-                      : `has been vacant ${vacant.daysOnMarket} days — try re-running Nova on the copy or trim 1-2% off the asking rent.`}
+                  <div style={{ fontSize: 11, color: v3.textMuted, marginTop: 2 }}>
+                    {l.monthly_rent ? `Near downtown` : 'TBD'}
                   </div>
                 </div>
-                <Link href="/listings/new" style={{ padding: '8px 16px', background: v3.brand, color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
-                  {isZh ? '问 Nova' : 'Ask Nova'}
-                </Link>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: v3.textPrimary }}>
+                  ${l.monthly_rent?.toLocaleString()}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 600, background: l.is_active ? v3.successSoft : v3.warningSoft, color: l.is_active ? v3.success : v3.warning, padding: '3px 9px', borderRadius: 999, width: 'fit-content' }}>
+                  {l.is_active ? (isZh ? '已上线' : 'Live') : (isZh ? '草稿' : 'Draft')}
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 14, fontWeight: 600, color: l.applicantCount > 0 ? v3.warning : v3.textFaint }}>
+                    {l.applicantCount}
+                  </span>
+                  <span style={{ fontSize: 11, color: v3.textMuted }}>
+                    {l.applicantCount === 1 ? (isZh ? '份' : 'app') : (isZh ? '份' : 'apps')}
+                  </span>
+                </span>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', color: v3.textMuted, fontSize: 12 }}>
+                  {l.daysOnMarket || '—'}
+                </span>
+                <span>
+                  {0 > 0 ? (
+                    <span style={{ fontSize: 11, fontWeight: 600, background: v3.warningSoft, color: v3.warning, padding: '3px 9px', borderRadius: 999 }}>
+                      1 flag
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 11, color: v3.textFaint }}>—</span>
+                  )}
+                </span>
+                <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, justifySelf: 'end' }}>
+                  Manage
+                </button>
               </div>
-            )}
-          </>
-        )}
+            ))
+          )}
+        </div>
       </div>
     </main>
   )

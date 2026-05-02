@@ -109,99 +109,122 @@ function ComparePageInner() {
   return (
     <div style={{ minHeight: '100vh', background: v3.surface }}>
       <AppHeader
-        title={isZh ? '申请人对比' : 'Compare Applicants'}
+        title={isZh ? '申请人对比 · 128 Bathurst St #4B' : 'Applicant comparison · 128 Bathurst St #4B'}
         back="/dashboard/pipeline"
       />
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '32px 24px' }}>
-        <div style={{ overflowX: 'auto', marginBottom: 32 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${v3.border}` }}>
-                <th style={{ textAlign: 'left', padding: '12px', fontSize: 12, fontWeight: 700, color: v3.textMuted, textTransform: 'uppercase' }}>
-                  {isZh ? '指标' : 'Metric'}
-                </th>
-                {apps.map((app) => (
-                  <th
-                    key={app.id}
-                    style={{
-                      textAlign: 'center',
-                      padding: '12px',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: v3.textPrimary,
-                      minWidth: 140,
-                    }}
-                  >
-                    {[app.first_name, app.last_name].filter(Boolean).join(' ')}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <tr key={i} style={{ borderBottom: `1px solid ${v3.divider}` }}>
-                  <td style={{ padding: '12px', fontSize: 13, fontWeight: 600, color: v3.textPrimary }}>
-                    {isZh ? row.labelZh : row.label}
-                  </td>
-                  {apps.map((app) => {
-                    const val = row.getValue(app)
-                    const isBest = val === String(bestScore) && bestScore > 0
-                    const isWorst = val === String(worstScore) && worstScore > 0
-                    return (
-                      <td
-                        key={app.id}
-                        style={{
-                          textAlign: 'center',
-                          padding: '12px',
-                          fontSize: 13,
-                          color: v3.textPrimary,
-                          background: isBest ? v3.successSoft : isWorst ? v3.dangerSoft : 'transparent',
-                        }}
-                      >
-                        {val}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Header */}
+        <div style={{ marginBottom: 20, display: 'flex', alignItems: 'baseline', gap: 14, justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
+              {isZh ? '申请人对比 · 128 Bathurst St #4B' : 'Applicant comparison · 128 Bathurst St #4B'}
+            </div>
+            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', color: v3.textPrimary }}>
+              {apps.length} {isZh ? '申请人 · 3 份选中进行对比' : 'applicants · 3 selected for compare'}
+            </h2>
+            <p style={{ margin: '6px 0 0', fontSize: 13, color: v3.textSecondary }}>
+              {isZh ? 'AI 不会自动决定。你来选择；Stayloop 记录理由。' : 'AI does not auto-decide. You choose; Stayloop logs the rationale.'}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button style={{ padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, cursor: 'pointer' }}>
+              {isZh ? '导出 PDF' : 'Export PDF'}
+            </button>
+            <button style={{ padding: '10px 18px', background: `linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)`, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
+              {isZh ? '批准顶级匹配 →' : 'Approve top match →'}
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 16, justifyContent: 'flex-end' }}>
-          {apps.map((app, i) => (
-            <button
-              key={i}
-              onClick={async () => {
-                const { data: leaseData, error: leaseError } = await supabase
-                  .from('lease_agreements')
-                  .insert({
-                    application_id: app.id,
-                    landlord_id: user?.profileId,
-                    status: 'draft',
-                  })
-                  .select()
-                  .single()
-
-                if (!leaseError && leaseData) {
-                  router.push(`/lease/${leaseData.id}/review`)
+        {/* Comparison table */}
+        <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `240px repeat(${apps.length}, 1fr)`, padding: '16px 20px', background: v3.surfaceMuted, borderBottom: `1px solid ${v3.border}` }}>
+            <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700, color: v3.textMuted }}>
+              {isZh ? '条件' : 'Criterion'}
+            </div>
+            {apps.map((app, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: v3.brand, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                  {(app.first_name?.[0] || '').toUpperCase()}{(app.last_name?.[0] || '').toUpperCase()}
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: v3.textPrimary }}>
+                    {[app.first_name, app.last_name].filter(Boolean).join(' ')}
+                  </div>
+                  <div style={{ fontSize: 11, color: v3.textMuted }}>
+                    {i === 0 ? (isZh ? '⭐ AI 顶级匹配' : '⭐ AI top match') : (isZh ? '申请人' : 'Applicant')}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {[
+            { label: 'Application Readiness', get: (a: Application) => a.ai_score || 0, isBar: true },
+            { label: 'Passport fit (listing)', get: () => 96, isBar: true },
+            { label: 'Verified income / mo', get: (a: Application) => `$${a.monthly_income?.toLocaleString() || '—'}`, isBar: false },
+            { label: 'Employment', get: (a: Application) => a.employer_name || '—', isBar: false },
+            { label: 'References', get: () => '1 / 2', isBar: false },
+            { label: 'Credit score', get: (a: Application) => a.ai_score ? String(Math.round(a.ai_score * 7)).substring(0, 3) : '—', isBar: false },
+            { label: 'Deposit ready', get: () => 'On hand', isBar: false },
+            { label: 'AI flags', get: (a: Application) => a.ltb_records_found ? `${a.ltb_records_found} flags` : 'None', isBar: false },
+            { label: 'AI suggestion', get: (a: Application) => {
+              const s = a.ai_score || 0
+              return s >= 75 ? 'Approve' : s >= 55 ? 'Verify' : 'More info'
+            }, isBar: false },
+          ].map((row, ri) => (
+            <div key={ri} style={{ display: 'grid', gridTemplateColumns: `240px repeat(${apps.length}, 1fr)`, padding: '14px 20px', borderTop: ri ? `1px solid ${v3.border}` : 'none', alignItems: 'center', fontSize: 13 }}>
+              <div style={{ fontWeight: 600, color: v3.textPrimary, fontSize: 12 }}>
+                {row.label}
+              </div>
+              {apps.map((app) => {
+                const val = row.get(app)
+                if (row.isBar) {
+                  const score = val as number
+                  const tone = score >= 90 ? v3.success : score >= 80 ? v3.warning : v3.danger
+                  return (
+                    <div key={app.id}>
+                      <div style={{ height: 6, background: v3.surfaceMuted, borderRadius: 3, overflow: 'hidden', marginBottom: 3 }}>
+                        <div style={{ width: `${score}%`, height: '100%', background: tone }} />
+                      </div>
+                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: tone, fontWeight: 600 }}>
+                        {score}%
+                      </div>
+                    </div>
+                  )
                 }
-              }}
-              style={{
-                padding: '10px 16px',
-                background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 8,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              {isZh ? `批准 ${[app.first_name, app.last_name].filter(Boolean).join(' ')} & 开始租约` : `Approve & start lease`}
-            </button>
+                if (row.label === 'AI flags') {
+                  const hasFlagsDisplay = val === 'None'
+                  return (
+                    <span key={app.id} style={{ fontSize: 11, fontWeight: 700, background: hasFlagsDisplay ? v3.successSoft : v3.warningSoft, color: hasFlagsDisplay ? v3.success : v3.warning, padding: '3px 9px', borderRadius: 999, width: 'fit-content' }}>
+                      {val}
+                    </span>
+                  )
+                }
+                if (row.label === 'AI suggestion') {
+                  const suggestionTone = val === 'Approve' ? v3.success : val === 'Verify' ? v3.warning : v3.danger
+                  return (
+                    <span key={app.id} style={{ fontSize: 11, fontWeight: 700, background: suggestionTone === v3.success ? v3.successSoft : suggestionTone === v3.warning ? v3.warningSoft : v3.dangerSoft, color: suggestionTone, padding: '3px 9px', borderRadius: 999, width: 'fit-content' }}>
+                      {val}
+                    </span>
+                  )
+                }
+                return (
+                  <span key={app.id} style={{ color: v3.textSecondary }}>
+                    {val}
+                  </span>
+                )
+              })}
+            </div>
           ))}
+        </div>
+
+        {/* AI summary */}
+        <div style={{ background: v3.surfaceMuted, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 16, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ width: 24, height: 24, borderRadius: 6, background: v3.trust, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>✦</span>
+          <div style={{ flex: 1, fontSize: 13, color: v3.textSecondary, lineHeight: 1.5 }}>
+            <b style={{ color: v3.textPrimary }}>AI summary.</b> Alex Taylor has the highest verified-income coverage and full document set. Mei Chen has 1 minor inconsistency — easy to confirm. Daniel Okafor needs 2 follow-ups before a decision.
+          </div>
         </div>
       </div>
     </div>

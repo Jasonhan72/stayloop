@@ -230,11 +230,24 @@ export default function LeasesPage() {
       />
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '32px 24px' }}>
+        {/* Header */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
+            {isZh ? 'AI 租约生成器 · Ontario 标准格式' : 'AI Lease Builder · Ontario standard form'}
+          </div>
+          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', color: v3.textPrimary, marginBottom: 6 }}>
+            128 Bathurst St #4B — Alex Taylor
+          </h2>
+          <p style={{ margin: 0, fontSize: 13, color: v3.textSecondary }}>
+            {isZh ? '从房源 + 申请 + Passport 自动起草 · v0.3' : 'Auto-drafted from listing + application + Passport · v0.3'}
+          </p>
+        </div>
+
         {/* Drafts section */}
         <div style={{ marginBottom: 48 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: v3.textPrimary }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: v3.textPrimary }}>
             {isZh ? '草稿' : 'Drafts'}
-          </h2>
+          </h3>
           {draftLeases.length === 0 ? (
             <div style={{ fontSize: 13, color: v3.textMuted, padding: '20px', background: v3.surfaceCard, borderRadius: 12 }}>
               {isZh ? '暂无草稿' : 'No drafts yet'}
