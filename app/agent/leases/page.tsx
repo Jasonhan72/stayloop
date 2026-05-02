@@ -1,5 +1,4 @@
 'use client'
-// Agent Lease Pipeline — kanban-style 3 columns for tenant/landlord/signed
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -85,9 +84,12 @@ export default function AgentLeasesPage() {
   }
 
   const columns = {
+    consent: leases.filter((l) => l.status === 'consent'),
+    draft: leases.filter((l) => l.status === 'draft'),
     tenant_review: leases.filter((l) => l.status === 'tenant_review'),
-    landlord_review: leases.filter((l) => l.status === 'landlord_review'),
-    signed: leases.filter((l) => ['signed', 'active'].includes(l.status)),
+    tenant_signed: leases.filter((l) => l.status === 'tenant_signed'),
+    landlord_signed: leases.filter((l) => l.status === 'landlord_signed'),
+    archived: leases.filter((l) => l.status === 'archived'),
   }
 
   if (loading) {
@@ -98,179 +100,100 @@ export default function AgentLeasesPage() {
     )
   }
 
+  const leaseTableData = [
+    { c: 'D. Robinson', l: '80 Mill St · 312', step: 5, next: 'Lease archived' },
+    { c: 'Mei Chen', l: '14 York St · 802', step: 3, next: 'Awaiting countersign · J. Park' },
+    { c: 'Jamie Liu', l: '52 Wellesley E · 1207', step: 1, next: 'Approval pending — nudge landlord' },
+    { c: 'R. Patel', l: '905 King W · PH3', step: 0, next: 'Consent expiring · resend' },
+  ]
+
+  const getToneForStep = (step: number) => {
+    if (step === 5) return 'ok'
+    if (step >= 3) return 'pri'
+    if (step >= 1) return 'gold'
+    return 'warn'
+  }
+
+  const getToneColor = (tone: string) => {
+    switch (tone) {
+      case 'ok': return v3.success
+      case 'gold': return v3.brandBright
+      case 'warn': return v3.warning
+      case 'pri': return v3.brand
+      default: return v3.textMuted
+    }
+  }
+
+  const getToneBackground = (tone: string) => {
+    switch (tone) {
+      case 'ok': return v3.successSoft
+      case 'gold': return v3.brandSoft
+      case 'warn': return v3.warningSoft
+      case 'pri': return v3.brandSoft
+      default: return v3.divider
+    }
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: v3.surface }}>
-      <AppHeader title={isZh ? '租约管道' : 'Lease Pipeline'} />
+      <AppHeader title={isZh ? '租约协助' : 'Lease assistance'} />
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '32px 24px' }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: 20,
-          }}
-        >
-          {/* Awaiting tenant */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: v3.info }} />
-              <h2 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', color: v3.textMuted, letterSpacing: '0.05em' }}>
-                {isZh ? '待租客' : 'Awaiting tenant'}
-              </h2>
-              <span style={{ fontSize: 11, fontWeight: 600, color: v3.textMuted }}>
-                {columns.tenant_review.length}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {columns.tenant_review.length === 0 ? (
-                <div style={{
-                  border: `1px dashed ${v3.border}`,
-                  borderRadius: 10,
-                  padding: '24px 12px',
-                  textAlign: 'center',
-                  fontSize: 12,
-                  color: v3.textFaint,
-                }}>
-                  {isZh ? '空' : 'Empty'}
-                </div>
-              ) : (
-                columns.tenant_review.map((lease) => (
-                  <button
-                    key={lease.id}
-                    onClick={() => router.push(`/lease/${lease.id}/review`)}
-                    style={{
-                      textAlign: 'left',
-                      background: v3.surfaceCard,
-                      border: `1px solid ${v3.border}`,
-                      borderRadius: 10,
-                      padding: 12,
-                      cursor: 'pointer',
-                      color: 'inherit',
-                    }}
-                  >
-                    <div style={{ fontSize: 13, fontWeight: 700, color: v3.textPrimary, marginBottom: 4 }}>
-                      {lease.tenant_name}
-                    </div>
-                    <div style={{ fontSize: 11, color: v3.textMuted, marginBottom: 6 }}>
-                      {lease.property}
-                    </div>
-                    <div style={{ fontSize: 10, color: v3.textFaint }}>
-                      {isZh ? '房东：' : 'Landlord: '}{lease.landlord_name}
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
+        <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr 1.2fr 100px', padding: '12px 18px', background: v3.surfaceMuted, borderBottom: `1px solid ${v3.border}`, fontSize: 10, color: v3.textMuted, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+            <span>Client</span>
+            <span>Listing</span>
+            <span>Lease stage</span>
+            <span>Next action</span>
+            <span />
           </div>
-
-          {/* Awaiting landlord */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: v3.warning }} />
-              <h2 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', color: v3.textMuted, letterSpacing: '0.05em' }}>
-                {isZh ? '待房东' : 'Awaiting landlord'}
-              </h2>
-              <span style={{ fontSize: 11, fontWeight: 600, color: v3.textMuted }}>
-                {columns.landlord_review.length}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {columns.landlord_review.length === 0 ? (
-                <div style={{
-                  border: `1px dashed ${v3.border}`,
-                  borderRadius: 10,
-                  padding: '24px 12px',
-                  textAlign: 'center',
-                  fontSize: 12,
-                  color: v3.textFaint,
-                }}>
-                  {isZh ? '空' : 'Empty'}
-                </div>
-              ) : (
-                columns.landlord_review.map((lease) => (
-                  <button
-                    key={lease.id}
-                    onClick={() => router.push(`/lease/${lease.id}/review`)}
-                    style={{
-                      textAlign: 'left',
-                      background: v3.surfaceCard,
-                      border: `1px solid ${v3.border}`,
-                      borderRadius: 10,
-                      padding: 12,
-                      cursor: 'pointer',
-                      color: 'inherit',
-                    }}
-                  >
-                    <div style={{ fontSize: 13, fontWeight: 700, color: v3.textPrimary, marginBottom: 4 }}>
-                      {lease.tenant_name}
+          {leaseTableData.map((r, i) => {
+            const tone = getToneForStep(r.step)
+            return (
+              <div key={i} style={{ padding: '18px', borderTop: i === 0 ? 'none' : `1px solid ${v3.border}` }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr 1.2fr 100px', alignItems: 'center', fontSize: 13, marginBottom: 14 }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: v3.brand, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 10 }}>
+                      {r.c.split(' ').map(w => w[0]).join('').toUpperCase()}
                     </div>
-                    <div style={{ fontSize: 11, color: v3.textMuted, marginBottom: 6 }}>
-                      {lease.property}
-                    </div>
-                    <div style={{ fontSize: 10, color: v3.textFaint }}>
-                      {isZh ? '房东：' : 'Landlord: '}{lease.landlord_name}
-                    </div>
+                    <span style={{ fontWeight: 600, color: v3.textPrimary }}>{r.c}</span>
+                  </div>
+                  <span style={{ color: v3.textSecondary }}>{r.l}</span>
+                  <span style={{ padding: '3px 9px', borderRadius: 4, background: getToneBackground(tone), color: getToneColor(tone), fontSize: 12, fontWeight: 600, display: 'inline-block' }}>
+                    {['Awaiting consent', 'Draft', 'Tenant review', 'Tenant signed', 'Landlord signed', 'Archived'][r.step]}
+                  </span>
+                  <span style={{ color: v3.textSecondary }}>{r.next}</span>
+                  <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, justifySelf: 'end' }}>
+                    Open →
                   </button>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Signed */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: v3.success }} />
-              <h2 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', color: v3.textMuted, letterSpacing: '0.05em' }}>
-                {isZh ? '已签署' : 'Signed'}
-              </h2>
-              <span style={{ fontSize: 11, fontWeight: 600, color: v3.textMuted }}>
-                {columns.signed.length}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {columns.signed.length === 0 ? (
-                <div style={{
-                  border: `1px dashed ${v3.border}`,
-                  borderRadius: 10,
-                  padding: '24px 12px',
-                  textAlign: 'center',
-                  fontSize: 12,
-                  color: v3.textFaint,
-                }}>
-                  {isZh ? '空' : 'Empty'}
                 </div>
-              ) : (
-                columns.signed.map((lease) => (
-                  <button
-                    key={lease.id}
-                    onClick={() => router.push(`/lease/${lease.id}/review`)}
-                    style={{
-                      textAlign: 'left',
-                      background: v3.successSoft,
-                      border: `1px solid ${v3.success}`,
-                      borderRadius: 10,
-                      padding: 12,
-                      cursor: 'pointer',
-                      color: 'inherit',
-                    }}
-                  >
-                    <div style={{ fontSize: 13, fontWeight: 700, color: v3.textPrimary, marginBottom: 4 }}>
-                      {lease.tenant_name}
-                    </div>
-                    <div style={{ fontSize: 11, color: v3.textMuted, marginBottom: 6 }}>
-                      {lease.property}
-                    </div>
-                    <div style={{ fontSize: 10, color: v3.textFaint }}>
-                      {isZh ? '房东：' : 'Landlord: '}{lease.landlord_name}
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
+                {/* Steps indicator */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                  {['Consent', 'Draft', 'Review', 'T-sign', 'L-sign', 'Archive'].map((step, si) => {
+                    const done = si < r.step
+                    const active = si === r.step
+                    return (
+                      <div key={si} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 60, flex: 1 }}>
+                        <div style={{
+                          width: 20, height: 20, borderRadius: '50%',
+                          background: done ? v3.brand : active ? '#fff' : v3.divider,
+                          border: `1.5px solid ${done || active ? v3.brand : v3.borderStrong}`,
+                          color: done ? '#fff' : active ? v3.brand : v3.textMuted,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontFamily: 'monospace', fontSize: 9, fontWeight: 700,
+                        }}>
+                          {done ? '✓' : si + 1}
+                        </div>
+                        <div style={{ fontSize: 9, color: active || done ? v3.textPrimary : v3.textMuted, fontWeight: active ? 600 : 500, textAlign: 'center', maxWidth: 60, lineHeight: 1.2 }}>
+                          {step}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>

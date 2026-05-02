@@ -1,5 +1,4 @@
 'use client'
-// Manual Screening Workspace — two-pane layout with file dropzone and live results
 
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -115,203 +114,179 @@ export default function ManualScreeningPage() {
     }
   }
 
+  const documentData = [
+    { name: 'paystub_jul.pdf', cls: 'Pay stub', confidence: 98, fields: ['Employer: Shopify', 'Gross: $7,100/mo', 'Pay date: Jul 31'], tone: 'ok' },
+    { name: 'paystub_jun.pdf', cls: 'Pay stub', confidence: 97, fields: ['Gross: $7,100/mo', 'Net: $5,260'], tone: 'ok' },
+    { name: 'employment_letter.docx', cls: 'Employment letter', confidence: 95, fields: ['Senior Designer · Permanent', 'Annual: $85,200'], tone: 'ok' },
+    { name: 'driver_license.jpg', cls: 'Government ID', confidence: 99, fields: ['Mei Chen · DOB 1992-04', 'ON · Class G'], tone: 'ok' },
+    { name: 'credit_report.pdf', cls: 'Credit report', confidence: 92, fields: ['Equifax · 718 · Pulled Aug 12'], tone: 'ok' },
+    { name: 'reference_chen.pdf', cls: 'Landlord reference', confidence: 84, fields: ['Past landlord: K. Wong · 2 years'], tone: 'info' },
+    { name: 'wechat_screenshot1.jpg', cls: 'Unclear · review', confidence: 46, fields: ['Possible bank balance screenshot'], tone: 'warn' },
+    { name: 'untitled_2.png', cls: 'Unclassified', confidence: 18, fields: ['Low resolution · re-upload'], tone: 'warn' },
+  ]
+
+  const getToneColor = (tone: string) => {
+    switch (tone) {
+      case 'ok': return v3.success
+      case 'warn': return v3.danger
+      case 'info': return v3.info
+      default: return v3.textMuted
+    }
+  }
+
+  const getToneBackground = (tone: string) => {
+    switch (tone) {
+      case 'ok': return v3.successSoft
+      case 'warn': return v3.dangerSoft
+      case 'info': return v3.infoSoft
+      default: return v3.divider
+    }
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: v3.surface }}>
       <AppHeader
-        title={isZh ? '手动筛查' : 'Manual Screening'}
-        titleZh={isZh ? '手动筛查' : undefined}
+        title={isZh ? '新筛查 — 来自邮件的申请人' : 'New screening — applicant from email'}
+        titleZh={isZh ? '新筛查 — 来自邮件的申请人' : undefined}
       />
 
-      <div
-        style={{
-          maxWidth: size.content.wide,
-          margin: '0 auto',
-          padding: '32px 24px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
-          gap: 32,
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, color: v3.textPrimary }}>
-            {isZh ? '租客信息' : 'Applicant Info'}
-          </div>
-
-          <input
-            type="text"
-            placeholder={isZh ? '姓名' : 'Full name'}
-            value={applicantName}
-            onChange={(e) => setApplicantName(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '11px 14px',
-              marginBottom: 12,
-              border: `1px solid ${v3.border}`,
-              borderRadius: 10,
-              fontSize: 14,
-              color: v3.textPrimary,
-              boxSizing: 'border-box',
-            }}
-          />
-
-          <input
-            type="email"
-            placeholder={isZh ? '邮箱' : 'Email'}
-            value={applicantEmail}
-            onChange={(e) => setApplicantEmail(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '11px 14px',
-              marginBottom: 20,
-              border: `1px solid ${v3.border}`,
-              borderRadius: 10,
-              fontSize: 14,
-              color: v3.textPrimary,
-              boxSizing: 'border-box',
-            }}
-          />
-
-          <div
-            ref={dropRef}
-            onDragOver={(e) => {
-              e.preventDefault()
-              if (dropRef.current) {
-                dropRef.current.style.borderColor = v3.brand
-                dropRef.current.style.background = v3.brandSoft
-              }
-            }}
-            onDragLeave={() => {
-              if (dropRef.current) {
-                dropRef.current.style.borderColor = v3.border
-                dropRef.current.style.background = 'transparent'
-              }
-            }}
-            onDrop={(e) => {
-              e.preventDefault()
-              if (dropRef.current) {
-                dropRef.current.style.borderColor = v3.border
-                dropRef.current.style.background = 'transparent'
-              }
-              const dropped = Array.from(e.dataTransfer.files)
-              setFiles([...files, ...dropped])
-            }}
-            style={{
-              border: `2px dashed ${v3.border}`,
-              borderRadius: 12,
-              padding: 32,
-              textAlign: 'center',
-              cursor: 'pointer',
-              marginBottom: 20,
-              transition: 'all 0.2s',
-              color: v3.textMuted,
-            }}
-          >
-            <div style={{ fontSize: 14, marginBottom: 8 }}>
-              {isZh ? '拖放文件或点击选择' : 'Drop files or click to select'}
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '32px 24px', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20 }}>
+        <div style={{ display: 'grid', gap: 18 }}>
+          {/* Step strip */}
+          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: '20px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+              {['Upload', 'Classify', 'Extract', 'Verify', 'Generate report'].map((step, i) => {
+                const done = i < 3
+                const active = i === 3
+                return (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 100, flex: 1 }}>
+                    <div style={{
+                      width: 26, height: 26, borderRadius: '50%',
+                      background: done ? v3.brand : active ? '#fff' : v3.divider,
+                      border: `1.5px solid ${done || active ? v3.brand : v3.borderStrong}`,
+                      color: done ? '#fff' : active ? v3.brand : v3.textMuted,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontFamily: 'monospace', fontSize: 11, fontWeight: 700,
+                    }}>
+                      {done ? '✓' : i + 1}
+                    </div>
+                    <div style={{ fontSize: 11, color: active || done ? v3.textPrimary : v3.textMuted, fontWeight: active ? 600 : 500, textAlign: 'center', maxWidth: 96, lineHeight: 1.3 }}>
+                      {step}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-            <input
-              type="file"
-              multiple
-              onChange={(e) => {
-                const selected = Array.from(e.currentTarget.files || [])
-                setFiles([...files, ...selected])
-              }}
-              style={{ display: 'none', cursor: 'pointer' }}
-            />
           </div>
 
-          {files.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              {files.map((f, i) => (
-                <div
-                  key={i}
-                  style={{
-                    fontSize: 12,
-                    color: v3.textMuted,
-                    padding: '6px 0',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <span>{f.name}</span>
-                  <button
-                    onClick={() => setFiles(files.filter((_, j) => j !== i))}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: v3.danger,
-                      cursor: 'pointer',
-                      fontSize: 12,
-                    }}
-                  >
-                    {isZh ? '移除' : 'Remove'}
+          {/* Document upload section */}
+          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 22px', borderBottom: `1px solid ${v3.border}`, display: 'flex', alignItems: 'baseline', gap: 10 }}>
+              <h3 style={{ margin: 0, fontFamily: 'inherit', fontSize: 16, fontWeight: 600, color: v3.textPrimary }}>
+                Documents
+              </h3>
+              <span style={{ fontSize: 12, color: v3.textMuted, marginLeft: 10 }}>
+                11 uploaded · 9 classified
+              </span>
+              <div style={{ flex: 1 }} />
+              <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                + Add files
+              </button>
+            </div>
+            {documentData.map((d, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.4fr 140px 60px 1fr', gap: 12, padding: '12px 22px', borderTop: i === 0 ? 'none' : `1px dashed ${v3.border}`, fontSize: 13, alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 600, color: v3.textPrimary, fontFamily: 'monospace', fontSize: 12 }}>
+                    {d.name}
+                  </div>
+                </div>
+                <span style={{ padding: '2px 8px', borderRadius: 4, background: getToneBackground(d.tone), color: getToneColor(d.tone), fontSize: 11, fontWeight: 600 }}>
+                  {d.cls}
+                </span>
+                <span style={{ fontFamily: 'monospace', fontSize: 12, color: d.confidence >= 80 ? v3.success : d.confidence >= 50 ? v3.brandBright : v3.danger, fontWeight: 600 }}>
+                  {d.confidence}%
+                </span>
+                <div style={{ fontSize: 11, color: v3.textMuted, lineHeight: 1.6 }}>
+                  {d.fields.join(' · ')}
+                </div>
+              </div>
+            ))}
+            <div style={{ padding: '14px 22px', borderTop: `1px solid ${v3.border}`, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button style={{ padding: '8px 16px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                {isZh ? '保存草稿' : 'Save draft'}
+              </button>
+              <button style={{ padding: '8px 16px', background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                {isZh ? '生成AI报告' : 'Generate AI report'} →
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right sidebar */}
+        <div style={{ display: 'grid', gap: 18 }}>
+          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 18 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+              Case info
+            </div>
+            <div style={{ display: 'grid', gap: 10, fontSize: 13 }}>
+              <div>
+                <span style={{ color: v3.textMuted, fontSize: 11 }}>Applicant</span>
+                <div style={{ color: v3.textPrimary, fontWeight: 600, marginTop: 2 }}>Mei Chen</div>
+              </div>
+              <div>
+                <span style={{ color: v3.textMuted, fontSize: 11 }}>Source</span>
+                <div style={{ color: v3.textPrimary, marginTop: 2 }}>Email · forwarded from agent.kim@remax.com</div>
+              </div>
+              <div>
+                <span style={{ color: v3.textMuted, fontSize: 11 }}>Listing</span>
+                <div style={{ color: v3.textPrimary, marginTop: 2 }}>52 Wellesley E · 1207</div>
+              </div>
+              <div>
+                <span style={{ color: v3.textMuted, fontSize: 11 }}>Consent</span>
+                <div style={{ marginTop: 2 }}>
+                  <span style={{ padding: '2px 8px', borderRadius: 4, background: v3.warningSoft, color: v3.warning, fontSize: 11, fontWeight: 600 }}>
+                    Not yet collected
+                  </span>
+                </div>
+              </div>
+            </div>
+            <button style={{ width: '100%', marginTop: 14, padding: '8px 12px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', justifyContent: 'center' }}>
+              {isZh ? '发送同意请求' : 'Send consent request'} →
+            </button>
+          </div>
+
+          <div style={{ background: 'linear-gradient(180deg, var(--ai-soft, #F3EEFF) 0%, #fff 100%)', border: `1px solid var(--ai-line, #D7C5FA)`, borderRadius: 14, padding: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ width: 22, height: 22, borderRadius: 6, background: v3.trust, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', fontWeight: 700, fontSize: 11 }}>
+                ✦
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: v3.textPrimary }}>
+                {isZh ? 'AI标记 · 3' : 'AI flags · 3'}
+              </span>
+            </div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {[
+                { title: isZh ? '不一致 · 雇主名称' : 'Inconsistency · employer name', body: isZh ? '工资单说"Shopify Inc."；信函说"Shopify Canada Inc."。可能是同一个——确认。' : 'Pay stub says "Shopify Inc."; letter says "Shopify Canada Inc.". Likely same — confirm.', cta: 'Resolve' },
+                { title: isZh ? '缺少 · 第二个推荐人' : 'Missing · 2nd reference', body: isZh ? '建议新租户在当前雇主工作少于1年。' : 'Recommended for first-time tenants under 1 yr at current employer.', cta: 'Request' },
+                { title: isZh ? '合规 · 信用同意' : 'Compliance · credit consent', body: isZh ? '用明确的同意拉取新的Equifax（19美元验证附加组件）。' : 'Pull a fresh Equifax with explicit consent ($19 verified add-on).', cta: 'Add' },
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 12, color: v3.textPrimary }}>
+                  <span style={{ color: v3.trust, fontFamily: 'monospace', fontWeight: 600, marginTop: 2 }}>›</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 2 }}>{item.title}</div>
+                    <div style={{ color: v3.textSecondary, fontSize: 12 }}>{item.body}</div>
+                  </div>
+                  <button style={{ background: 'none', border: 'none', color: v3.trust, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, whiteSpace: 'nowrap' }}>
+                    {item.cta}
                   </button>
                 </div>
               ))}
             </div>
-          )}
+          </div>
 
-          <button
-            onClick={handleSubmit}
-            disabled={submitting || !applicantName || !applicantEmail || files.length === 0}
-            style={{
-              width: '100%',
-              padding: '12px 22px',
-              background: submitting || !applicantName || !applicantEmail || files.length === 0
-                ? v3.borderStrong
-                : 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
-              color: submitting || !applicantName || !applicantEmail || files.length === 0
-                ? v3.textMuted
-                : '#fff',
-              border: 'none',
-              borderRadius: 10,
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: submitting || !applicantName || !applicantEmail || files.length === 0 ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {isZh ? '开始筛查' : 'Run Stayloop AI'}
-          </button>
-        </div>
-
-        <div
-          style={{
-            background: v3.surfaceCard,
-            border: `1px solid ${v3.border}`,
-            borderRadius: 14,
-            padding: 24,
-            minHeight: 400,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: result ? 'flex-start' : 'center',
-            alignItems: result ? 'stretch' : 'center',
-          }}
-        >
-          {result ? (
-            <>
-              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: v3.success }}>
-                {isZh ? '✓ 完成' : '✓ Complete'}
-              </div>
-              <div style={{ fontSize: 14, color: v3.textPrimary, marginBottom: 8 }}>
-                <strong>{isZh ? '申请人：' : 'Applicant: '}</strong>
-                {result.applicant_name}
-              </div>
-              <div style={{ fontSize: 14, color: v3.textMuted, marginBottom: 16 }}>
-                {result.applicant_email}
-              </div>
-            </>
-          ) : (
-            <div style={{ textAlign: 'center', color: v3.textMuted }}>
-              <div style={{ fontSize: 14, marginBottom: 8 }}>
-                {isZh ? '等待筛查中...' : 'Awaiting screening...'}
-              </div>
-              {progress && (
-                <div style={{ fontSize: 12, color: v3.textFaint, marginTop: 8 }}>
-                  {progress}
-                </div>
-              )}
-            </div>
-          )}
+          <div style={{ background: v3.surfaceMuted, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 14, fontSize: 11, color: v3.textSecondary, lineHeight: 1.55 }}>
+            <b style={{ color: v3.textPrimary }}>Language guardrail.</b> Stayloop reports never include "high risk" / "reject". They list <i>Application Readiness</i>, missing items and suggested next steps.
+          </div>
         </div>
       </div>
     </div>

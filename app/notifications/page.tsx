@@ -1,25 +1,11 @@
 'use client'
 
-// -----------------------------------------------------------------------------
-// /notifications — Notifications Center
-// -----------------------------------------------------------------------------
-// Synthesize notifications client-side from queries:
-// - Pending lease signatures (status='tenant_review' / 'landlord_review')
-// - Pending applications (status='new')
-// - Recently viewed shared reports (audit_events, last 7 days)
-// - Expiring consent_records (signed_at + 30 days < now)
-//
-// Group by category, color-code, each shows icon + headline + source + timestamp + CTA.
-// Bilingual. Mark-all-read visual only.
-// -----------------------------------------------------------------------------
-
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { v3, size } from '@/lib/brand'
+import { v3 } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
 
 interface Notification {
   id: string
@@ -44,9 +30,7 @@ export default function NotificationsPage() {
 
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
-  const [readFilter, setReadFilter] = useState<'all' | 'unread'>('all')
 
-  // Load notifications
   useEffect(() => {
     if (!user) return
     void loadNotifications()
@@ -59,7 +43,6 @@ export default function NotificationsPage() {
     const allNotifications: Notification[] = []
 
     try {
-      // 1. Pending lease signatures
       const { data: leases } = await supabase
         .from('lease_agreements')
         .select('*')
@@ -86,7 +69,6 @@ export default function NotificationsPage() {
         })
       }
 
-      // 2. Pending applications (for landlords)
       if (user.role === 'landlord') {
         const { data: applications } = await supabase
           .from('applications')
@@ -99,303 +81,302 @@ export default function NotificationsPage() {
             allNotifications.push({
               id: `app_${app.id}`,
               type: 'application_pending',
-              title: `${app.applicant_name || 'Tenant'} applied`,
-              titleZh: `${app.applicant_name || '租客'} 已申请`,
-              description: `New application for ${app.property_address || 'your property'}`,
-              descriptionZh: `针对 ${app.property_address || '你的物业'} 的新申请`,
+              title: 'New application',
+              titleZh: '新申请',
+              description: `${app.applicant_name || 'New applicant'} applied for listing`,
+              descriptionZh: `${app.applicant_name || '申请人'} 已提交申请`,
               severity: 'info',
               timestamp: app.created_at,
-              actionLabel: 'Screen',
-              actionLabelZh: '筛查',
-              actionHref: `/screen?app=${app.id}`,
-              metadata: { applicationId: app.id },
+              actionLabel: 'Review',
+              actionLabelZh: '查看',
+              actionHref: `/applications/${app.id}`,
+              metadata: { appId: app.id },
             })
           })
         }
       }
 
-      // 3. Recently viewed shared reports (last 7 days)
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-      const { data: auditEvents } = await supabase
-        .from('audit_events')
-        .select('*')
-        .eq('actor_id', user.authId)
-        .eq('action', 'report_viewed')
-        .gte('created_at', sevenDaysAgo)
-        .order('created_at', { ascending: false })
-
-      if (auditEvents && auditEvents.length > 0) {
-        // Group by resource_id and show most recent
-        const uniqueReports = new Map()
-        auditEvents.forEach((event: any) => {
-          if (!uniqueReports.has(event.resource_id)) {
-            uniqueReports.set(event.resource_id, event)
-          }
-        })
-
-        uniqueReports.forEach((event: any) => {
-          const viewCount = auditEvents.filter((e: any) => e.resource_id === event.resource_id).length
-          allNotifications.push({
-            id: `report_${event.resource_id}`,
-            type: 'report_viewed',
-            title: 'Report viewed',
-            titleZh: '报告已查看',
-            description: `${viewCount} view${viewCount !== 1 ? 's' : ''} by applicant`,
-            descriptionZh: `申请人查看了 ${viewCount} 次`,
-            severity: 'info',
-            timestamp: event.created_at,
-            actionLabel: 'View report',
-            actionLabelZh: '查看报告',
-            actionHref: `/reports/${event.metadata?.share_token || event.resource_id}`,
-            metadata: { reportId: event.resource_id, views: viewCount },
-          })
-        })
-      }
-
-      // 4. Expiring consent records (30 days)
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-      const { data: consentRecords } = await supabase
-        .from('consent_records')
-        .select('*')
-        .eq('user_id', user.profileId)
-        .gte('signed_at', thirtyDaysAgo)
-        .lte('signed_at', new Date().toISOString())
-
-      if (consentRecords) {
-        consentRecords.forEach((consent: any) => {
-          const expiresAt = new Date(new Date(consent.signed_at).getTime() + 30 * 24 * 60 * 60 * 1000)
-          const daysLeft = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
-
-          if (daysLeft <= 7 && daysLeft > 0) {
-            allNotifications.push({
-              id: `consent_${consent.id}`,
-              type: 'consent_expiring',
-              title: 'Consent expiring soon',
-              titleZh: '同意书即将过期',
-              description: `${consent.consent_type || 'Consent'} expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`,
-              descriptionZh: `${consent.consent_type || '同意'} 在 ${daysLeft} 天后过期`,
-              severity: daysLeft <= 3 ? 'danger' : 'warning',
-              timestamp: consent.signed_at,
-              metadata: { consentId: consent.id, expiresAt: expiresAt.toISOString() },
-            })
-          }
-        })
-      }
-
-      // Sort by timestamp descending
-      allNotifications.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-
-      setNotifications(allNotifications)
+      setNotifications(allNotifications.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()))
     } catch (e) {
       console.error('Error loading notifications:', e)
     }
     setLoading(false)
   }
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'danger':
-        return { bg: v3.dangerSoft, fg: v3.danger, icon: '⚠' }
-      case 'warning':
-        return { bg: v3.warningSoft, fg: v3.warning, icon: '⚡' }
-      default:
-        return { bg: v3.infoSoft, fg: v3.info, icon: 'ℹ' }
-    }
-  }
-
-  const getCategoryLabel = (type: string) => {
-    const labels: Record<string, { en: string; zh: string }> = {
-      lease_pending: { en: 'Lease', zh: '租赁' },
-      application_pending: { en: 'Application', zh: '申请' },
-      report_viewed: { en: 'Sharing', zh: '共享' },
-      consent_expiring: { en: 'Consent', zh: '同意' },
-    }
-    return labels[type] || { en: 'Other', zh: '其他' }
-  }
-
   if (authLoading || loading) {
     return (
-      <main style={{ background: v3.surface, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>{isZh ? '加载…' : 'Loading…'}</div>
-      </main>
+      <div style={{ minHeight: '100vh', background: '#F2EEE5', display: 'grid', placeItems: 'center' }}>
+        <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
+      </div>
     )
   }
 
-  const displayNotifications = notifications
-
   return (
-    <div style={{ minHeight: '100vh', background: v3.surface }}>
-      <AppHeader
-        title={isZh ? '通知' : 'Notifications'}
-        titleZh="通知"
-      />
-
-      <main
-        style={{
-          maxWidth: size.content.default,
-          margin: '0 auto',
-          padding: '24px 16px',
-        }}
-      >
-        {/* Header with mark-all-read button */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: v3.textPrimary }}>
-              {isZh ? '你的通知' : 'Your notifications'}
-            </h2>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: v3.textSecondary }}>
-              {displayNotifications.length} {isZh ? '条未读' : 'unread'}
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              // Visual only — no DB update
-              setNotifications([])
-            }}
-            style={{
-              padding: '8px 14px',
-              background: v3.surfaceCard,
-              color: v3.textSecondary,
-              border: `1px solid ${v3.border}`,
-              borderRadius: 10,
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = v3.surfaceMuted)}
-            onMouseLeave={(e) => (e.currentTarget.style.background = v3.surfaceCard)}
-          >
-            {isZh ? '全部标记已读' : 'Mark all as read'}
-          </button>
-        </div>
-
-        {displayNotifications.length === 0 ? (
+    <div style={{ minHeight: '100vh', background: '#F2EEE5' }}>
+      {/* Header */}
+      <div style={{ background: '#fff', borderBottom: `1px solid #D8D2C2`, padding: '32px 28px' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div
             style={{
-              background: v3.surfaceCard,
-              border: `1px solid ${v3.border}`,
-              borderRadius: size.radius.xl,
-              padding: 60,
-              textAlign: 'center',
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10.5,
+              letterSpacing: '0.10em',
+              textTransform: 'uppercase',
+              color: '#71717A',
+              fontWeight: 700,
+              marginBottom: 10,
             }}
           >
-            <div style={{ fontSize: 48, marginBottom: 12 }}>✨</div>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: v3.textPrimary }}>
-              {isZh ? '所有通知已读' : 'All caught up'}
-            </h3>
-            <p style={{ margin: 0, fontSize: 13, color: v3.textSecondary }}>
-              {isZh ? '没有新的通知。继续你的工作！' : 'No new notifications. Keep going!'}
-            </p>
+            {isZh ? '通知' : 'Notifications'}
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {displayNotifications.map((notif) => {
-              const colors = getSeverityColor(notif.severity)
-              const category = getCategoryLabel(notif.type)
-              const icon = colors.icon
+          <h1
+            style={{
+              fontFamily: 'var(--f-serif)',
+              fontSize: 28,
+              fontWeight: 600,
+              color: '#171717',
+              margin: 0,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {isZh ? 'Stayloop 要告诉你什么' : 'What you\'d like Stayloop to tell you about'}
+          </h1>
+        </div>
+      </div>
 
-              return (
-                <div
-                  key={notif.id}
+      <div style={{ padding: '32px 28px', maxWidth: 1100, margin: '0 auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20 }}>
+          {/* Main card */}
+          <div
+            style={{
+              background: '#fff',
+              border: `1px solid #D8D2C2`,
+              borderRadius: 8,
+              padding: 0,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                padding: '12px 22px',
+                borderBottom: `1px solid #D8D2C2`,
+                display: 'grid',
+                gridTemplateColumns: '1fr 80px 80px 80px',
+                gap: 12,
+                fontSize: 10,
+                color: '#71717A',
+                fontFamily: 'JetBrains Mono, monospace',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                fontWeight: 700,
+              }}
+            >
+              <span>{isZh ? '事件' : 'Event'}</span>
+              <span>{isZh ? '邮件' : 'Email'}</span>
+              <span>SMS</span>
+              <span>{isZh ? '应用内' : 'In-app'}</span>
+            </div>
+            {[
+              [isZh ? '新申请列表' : 'New application on a listing', true, false, true, 'gold'],
+              [isZh ? 'AI 筛选报告就绪' : 'AI Screening report ready', true, false, true, 'ai'],
+              [isZh ? '不一致或合规标记' : 'Inconsistency or compliance flag', true, true, true, 'warn'],
+              [isZh ? '租客上传缺失文件' : 'Tenant uploaded missing documents', true, false, true, 'info'],
+              [isZh ? '租赁准备好发送给租客' : 'Lease ready to send to tenant', true, false, true, 'pri'],
+              [isZh ? '租客签署租赁' : 'Lease signed by tenant', true, true, true, 'ok'],
+              [isZh ? '同意在 24h 内过期' : 'Consent expiring in 24h', true, true, true, 'warn'],
+              [isZh ? 'Stripe 支付失败' : 'Stripe payment failed', true, true, true, 'err'],
+              [isZh ? '每周投资组合摘要' : 'Weekly portfolio digest', true, false, false, 'mute'],
+            ].map((r, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 80px 80px 80px',
+                  padding: '12px 22px',
+                  borderTop: `1px solid #D8D2C2`,
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      background:
+                        r[5] === 'ok'
+                          ? '#16A34A'
+                          : r[5] === 'warn'
+                            ? '#D97706'
+                            : r[5] === 'err'
+                              ? '#DC2626'
+                              : r[5] === 'info'
+                                ? '#2563EB'
+                                : r[5] === 'ai'
+                                  ? '#7C3AED'
+                                  : r[5] === 'pri'
+                                    ? '#047857'
+                                    : '#A1A1AA',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span style={{ fontSize: 13, color: '#171717' }}>{r[0]}</span>
+                </div>
+                {[r[1], r[2], r[3]].map((on, j) => (
+                  <div
+                    key={j}
+                    style={{
+                      width: 32,
+                      height: 18,
+                      borderRadius: 9,
+                      background: on ? '#047857' : '#C5BDAA',
+                      position: 'relative',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: 2,
+                        left: on ? 16 : 2,
+                        width: 14,
+                        height: 14,
+                        borderRadius: '50%',
+                        background: '#fff',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                        transition: 'left 0.15s',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {/* Sidebar */}
+          <div
+            style={{
+              background: '#fff',
+              border: `1px solid #D8D2C2`,
+              borderRadius: 8,
+              padding: 18,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 10.5,
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: '#71717A',
+                fontWeight: 700,
+                marginBottom: 10,
+              }}
+            >
+              {isZh ? '安静时间' : 'Quiet hours'}
+            </div>
+            <div style={{ fontSize: 12, color: '#3F3F46', marginBottom: 14, lineHeight: 1.55 }}>
+              {isZh
+                ? 'Stayloop 不会在安静时间内发送 SMS 或推送，除非是合规和支付失败。'
+                : "Stayloop won't send SMS or push during your quiet hours, except for compliance and payment failures."}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={{ fontSize: 11, color: '#71717A', display: 'block', marginBottom: 4 }}>
+                  {isZh ? '从' : 'From'}
+                </label>
+                <input
+                  type="time"
+                  defaultValue="22:00"
                   style={{
-                    background: v3.surfaceCard,
-                    border: `1px solid ${v3.border}`,
-                    borderRadius: size.radius.xl,
-                    padding: 16,
-                    display: 'grid',
-                    gridTemplateColumns: '1fr auto',
-                    gap: 16,
-                    alignItems: 'start',
+                    width: '100%',
+                    background: '#FFFFFF',
+                    border: `1px solid #D8D2C2`,
+                    borderRadius: 6,
+                    color: '#0B1736',
+                    fontFamily: 'var(--f-sans)',
+                    fontSize: 14,
+                    padding: '11px 14px',
+                    height: 44,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: '#71717A', display: 'block', marginBottom: 4 }}>
+                  {isZh ? '至' : 'To'}
+                </label>
+                <input
+                  type="time"
+                  defaultValue="07:30"
+                  style={{
+                    width: '100%',
+                    background: '#FFFFFF',
+                    border: `1px solid #D8D2C2`,
+                    borderRadius: 6,
+                    color: '#0B1736',
+                    fontFamily: 'var(--f-sans)',
+                    fontSize: 14,
+                    padding: '11px 14px',
+                    height: 44,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+            </div>
+            <div style={{ marginTop: 18 }}>
+              <div
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 10.5,
+                  letterSpacing: '0.10em',
+                  textTransform: 'uppercase',
+                  color: '#71717A',
+                  fontWeight: 700,
+                  marginBottom: 8,
+                }}
+              >
+                {isZh ? 'AI 摘要' : 'AI digests'}
+              </div>
+              <label
+                style={{
+                  display: 'flex',
+                  gap: 10,
+                  fontSize: 13,
+                  color: '#171717',
+                }}
+              >
+                <span
+                  style={{
+                    width: 32,
+                    height: 18,
+                    borderRadius: 9,
+                    background: '#047857',
+                    position: 'relative',
                   }}
                 >
-                  <div style={{ display: 'flex', gap: 12 }}>
-                    {/* Icon */}
-                    <div
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 40,
-                        height: 40,
-                        borderRadius: size.radius.lg,
-                        background: colors.bg,
-                        color: colors.fg,
-                        fontSize: 18,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {icon}
-                    </div>
-
-                    {/* Content */}
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                        <h3
-                          style={{
-                            margin: 0,
-                            fontSize: 14,
-                            fontWeight: 700,
-                            color: v3.textPrimary,
-                          }}
-                        >
-                          {isZh ? notif.titleZh : notif.title}
-                        </h3>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            padding: '3px 8px',
-                            background: colors.bg,
-                            color: colors.fg,
-                            borderRadius: 4,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            whiteSpace: 'nowrap',
-                            letterSpacing: '0.05em',
-                            textTransform: 'uppercase',
-                          }}
-                        >
-                          {isZh ? category.zh : category.en}
-                        </span>
-                      </div>
-                      <p style={{ margin: '0 0 6px', fontSize: 13, color: v3.textSecondary }}>
-                        {isZh ? notif.descriptionZh : notif.description}
-                      </p>
-                      <p style={{ margin: 0, fontSize: 11, color: v3.textMuted, fontFamily: 'var(--font-mono)' }}>
-                        {new Date(notif.timestamp).toLocaleString(isZh ? 'zh-CN' : 'en-CA')}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* CTA */}
-                  {notif.actionHref && (
-                    <button
-                      onClick={() => router.push(notif.actionHref || '/')}
-                      style={{
-                        padding: '10px 16px',
-                        background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
-                        color: '#FFFFFF',
-                        border: 'none',
-                        borderRadius: size.radius.lg,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        boxShadow: '0 4px 12px -4px rgba(52, 211, 153, 0.45)',
-                        transition: 'opacity 0.2s',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
-                      onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-                    >
-                      {isZh ? notif.actionLabelZh : notif.actionLabel}
-                    </button>
-                  )}
-                </div>
-              )
-            })}
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: 2,
+                      left: 16,
+                      width: 14,
+                      height: 14,
+                      borderRadius: '50%',
+                      background: '#fff',
+                    }}
+                  />
+                </span>
+                {isZh ? '早上 8 点摘要 · 管道 + 下一步最佳行动' : 'Morning summary at 8am · pipeline + next-best-actions'}
+              </label>
+            </div>
           </div>
-        )}
-      </main>
+        </div>
+      </div>
     </div>
   )
 }

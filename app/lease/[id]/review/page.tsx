@@ -1,22 +1,12 @@
 'use client'
 export const runtime = 'edge'
 
-// -----------------------------------------------------------------------------
-// /lease/[id]/review — V4 Lease Review + E-Sign
-// -----------------------------------------------------------------------------
-// Two-pane layout: left = lease body (Markdown), right = AI summary + signature.
-// Sign flow: modal → canvas signature pad → insert into lease_signatures.
-// Updates lease status to 'signed' when both parties complete.
-// Bilingual with soft-mint gradient primary CTA.
-// -----------------------------------------------------------------------------
-
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { v3, size } from '@/lib/brand'
+import { v3 } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import AppHeader from '@/components/AppHeader'
 
 interface LeaseAgreement {
   id: string
@@ -55,25 +45,9 @@ export default function LeaseReviewPage() {
   const [loading, setLoading] = useState(true)
   const [signingModalOpen, setSigningModalOpen] = useState(false)
   const [signing, setSigning] = useState(false)
-  const [authToken, setAuthToken] = useState<string | null>(null)
-  const [scrollPosition, setScrollPosition] = useState(0)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const leaseScrollRef = useRef<HTMLDivElement>(null)
 
-  // Load auth session
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAuthToken(session?.access_token ?? null)
-    })
-    const sub = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthToken(session?.access_token ?? null)
-    })
-    return () => {
-      sub.data.subscription.unsubscribe()
-    }
-  }, [])
-
-  // Load lease by ID
   useEffect(() => {
     if (!user || !leaseId) return
     void loadLease()
@@ -108,8 +82,7 @@ export default function LeaseReviewPage() {
     setLoading(false)
   }
 
-  // Simple Markdown-like rendering (basic formatting)
-  const renderMarkdown = (text: string) => {
+  const renderLeaseBody = (text: string) => {
     return text.split('\n').map((line, idx) => {
       if (line.startsWith('# ')) return <h1 key={idx} style={{ fontSize: 24, fontWeight: 800, marginBottom: 16, marginTop: 20 }}>{line.slice(2)}</h1>
       if (line.startsWith('## ')) return <h2 key={idx} style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, marginTop: 16 }}>{line.slice(3)}</h2>
@@ -119,14 +92,6 @@ export default function LeaseReviewPage() {
     })
   }
 
-  // Track scroll position for resuming
-  const handleLeaseScroll = () => {
-    if (leaseScrollRef.current) {
-      setScrollPosition(leaseScrollRef.current.scrollTop)
-    }
-  }
-
-  // Canvas signature drawing
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return
     const ctx = canvasRef.current.getContext('2d')
@@ -143,7 +108,7 @@ export default function LeaseReviewPage() {
       const moveX = moveEvent.clientX - rect.left
       const moveY = moveEvent.clientY - rect.top
       ctx.lineTo(moveX, moveY)
-      ctx.strokeStyle = v3.textPrimary
+      ctx.strokeStyle = '#0B1736'
       ctx.lineWidth = 2
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
@@ -174,12 +139,9 @@ export default function LeaseReviewPage() {
     setSigning(true)
     try {
       const signatureData = canvasRef.current.toDataURL('image/png')
-
-      // Get IP and user agent (client-side approximation)
       const userAgent = navigator.userAgent
-      const ipAddress = 'client' // Will be replaced by server if needed
+      const ipAddress = 'client'
 
-      // Insert signature
       const { error } = await supabase.from('lease_signatures').insert({
         lease_id: leaseId,
         signer_email: user.email,
@@ -192,7 +154,6 @@ export default function LeaseReviewPage() {
 
       if (error) throw error
 
-      // Check if both parties have signed
       const { data: allSigs } = await supabase
         .from('lease_signatures')
         .select('*')
@@ -202,7 +163,6 @@ export default function LeaseReviewPage() {
       const hasTenantSig = allSigs?.some((s) => s.signer_role === 'tenant')
 
       if (hasLandlordSig && hasTenantSig) {
-        // Both signed, update lease status and create audit event
         await supabase
           .from('lease_agreements')
           .update({ status: 'signed', updated_at: new Date().toISOString() })
@@ -227,410 +187,548 @@ export default function LeaseReviewPage() {
     }
   }
 
-  // Calculate key terms
-  const startDate = lease ? new Date(lease.lease_start).toLocaleDateString(isZh ? 'zh-CN' : 'en-CA') : '–'
-  const endDate = lease ? new Date(lease.lease_end).toLocaleDateString(isZh ? 'zh-CN' : 'en-CA') : '–'
-
   if (authLoading || loading) {
     return (
-      <main style={{ background: v3.surface, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>{isZh ? '加载…' : 'Loading…'}</div>
-      </main>
+      <div style={{ height: '100%', overflow: 'auto', background: '#F2EEE5' }} className="fp-scroll">
+        <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: v3.textMuted, fontSize: 14 }}>
+          {isZh ? '加载…' : 'Loading…'}
+        </div>
+      </div>
     )
   }
 
   if (!lease) {
     return (
-      <main style={{ background: v3.surface, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: v3.textPrimary, margin: '0 0 8px' }}>
-            {isZh ? '租赁协议未找到' : 'Lease not found'}
-          </h1>
-          <button
-            onClick={() => router.push('/dashboard')}
-            style={{ marginTop: 16, padding: '10px 18px', background: v3.brand, color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-          >
-            {isZh ? '返回仪表盘' : 'Back to dashboard'}
-          </button>
+      <div style={{ height: '100%', overflow: 'auto', background: '#F2EEE5' }} className="fp-scroll">
+        <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
+          <div style={{ textAlign: 'center' }}>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: v3.textPrimary, margin: '0 0 8px' }}>
+              {isZh ? '租赁未找到' : 'Lease not found'}
+            </h1>
+          </div>
         </div>
-      </main>
+      </div>
     )
   }
 
-  const userRole = user?.role
   const hasSigned = signatures.some((s) => s.signer_email === user?.email)
   const bothSigned = signatures.some((s) => s.signer_role === 'tenant') && signatures.some((s) => s.signer_role === 'landlord')
 
-  const statusColors: Record<string, { bg: string; fg: string }> = {
-    draft: { bg: v3.divider, fg: v3.textMuted },
-    tenant_review: { bg: v3.infoSoft, fg: v3.info },
-    landlord_review: { bg: v3.infoSoft, fg: v3.info },
-    signed: { bg: v3.successSoft, fg: v3.success },
-  }
-
-  const statusLabels: Record<string, { en: string; zh: string }> = {
-    draft: { en: 'Draft', zh: '草稿' },
-    tenant_review: { en: 'Awaiting tenant', zh: '等待租客' },
-    landlord_review: { en: 'Awaiting landlord', zh: '等待房东' },
-    signed: { en: 'Signed', zh: '已签署' },
-  }
-
-  const currentStatus = statusLabels[lease.status]
-  const currentColor = statusColors[lease.status]
-
   return (
-    <div style={{ minHeight: '100vh', background: v3.surface }}>
-      <AppHeader
-        back="/dashboard"
-        title={isZh ? '审查租赁协议' : 'Review Lease'}
-        titleZh="审查租赁协议"
-      />
-
-      <main
+    <div style={{ height: '100%', overflow: 'hidden', background: '#F2EEE5', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div
         style={{
-          maxWidth: size.content.wide,
-          margin: '0 auto',
-          padding: '24px 16px',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 0.6fr) minmax(0, 0.4fr)',
-          gap: 24,
+          height: 54,
+          padding: '0 28px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          borderBottom: `1px solid #D8D2C2`,
+          background: '#fff',
         }}
-        className="lease-review-grid"
       >
-        {/* Left pane: lease body */}
-        <section
-          ref={leaseScrollRef}
-          onScroll={handleLeaseScroll}
+        <div
           style={{
-            background: v3.surfaceCard,
-            border: `1px solid ${v3.border}`,
-            borderRadius: size.radius.xl,
-            padding: 24,
-            overflowY: 'auto',
-            maxHeight: 'calc(100vh - 120px)',
-            scrollBehavior: 'smooth',
+            width: 24,
+            height: 24,
+            borderRadius: 4,
+            background: '#047857',
+            color: '#F2EEE5',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: 'var(--f-serif)',
+            fontWeight: 700,
+            fontSize: 13,
           }}
         >
-          <div style={{ fontSize: 13, lineHeight: 1.7, color: v3.textPrimary }}>
-            {renderMarkdown(lease.body_md)}
-          </div>
-        </section>
+          S
+        </div>
+        <span
+          style={{
+            fontFamily: 'var(--f-serif)',
+            fontSize: 15,
+            fontWeight: 600,
+            letterSpacing: '-0.02em',
+          }}
+        >
+          Stayloop
+        </span>
+        <span style={{ width: 1, height: 14, background: '#C5BDAA' }} />
+        <span
+          style={{
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 11,
+            color: '#71717A',
+            letterSpacing: '0.08em',
+          }}
+        >
+          LEASE REVIEW · /lease/{leaseId?.slice(0, 12)}/review
+        </span>
+        <div style={{ flex: 1 }} />
+        <button
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#047857',
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          EN / 中文
+        </button>
+        <button
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#16A34A',
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          SSL · Audit on
+        </button>
+      </div>
 
-        {/* Right pane: summary + signature */}
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {/* Status pill */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              background: currentColor.bg,
-              color: currentColor.fg,
-              padding: '8px 14px',
-              borderRadius: size.radius.pill,
-              fontSize: 12,
-              fontWeight: 700,
-              width: 'fit-content',
-            }}
-          >
-            <span style={{ fontSize: 14 }}>●</span>
-            {isZh ? currentStatus.zh : currentStatus.en}
-          </div>
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 360px', overflow: 'hidden' }}>
+        {/* Left pane: lease document */}
+        <div
+          className="fp-scroll"
+          style={{ overflow: 'auto', padding: '28px 36px' }}
+          ref={leaseScrollRef}
+        >
+          <div style={{ maxWidth: 720, margin: '0 auto' }}>
+            <div
+              style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 10.5,
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: '#71717A',
+                fontWeight: 700,
+              }}
+            >
+              {isZh ? '安大略省标准租赁协议' : 'Ontario Standard Form of Lease'} · v2229
+            </div>
+            <h1
+              style={{
+                fontFamily: 'var(--f-serif)',
+                fontSize: 28,
+                fontWeight: 600,
+                margin: '8px 0 4px',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              {isZh ? '住宅租赁协议' : 'Residential Tenancy Agreement'}
+            </h1>
+            <div style={{ fontSize: 13, color: '#71717A', marginBottom: 24 }}>
+              128 Bathurst St · Unit 4B · Toronto · ON M5V 2R5
+            </div>
 
-          {/* AI Summary Card */}
-          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18 }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: v3.textPrimary }}>
-              {isZh ? 'AI 摘要' : 'AI Summary'}
-            </h3>
-            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: v3.textSecondary }}>
-              {isZh
-                ? '本租赁协议规定租赁期限、月租、物业设施、租客义务和房东责任。仔细阅读并提出任何疑问。'
-                : 'This lease sets out the term, monthly rent, facilities, and mutual obligations. Review carefully and raise questions below.'}
-            </p>
-          </div>
-
-          {/* Key Terms */}
-          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18 }}>
-            <h3 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 700, color: v3.textPrimary }}>
-              {isZh ? '关键条款' : 'Key Terms'}
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                <span style={{ color: v3.textSecondary }}>{isZh ? '月租' : 'Monthly rent'}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: v3.textPrimary }}>
-                  ${lease.monthly_rent.toLocaleString()}
-                </span>
+            {lease.body_md ? (
+              renderLeaseBody(lease.body_md)
+            ) : (
+              <div style={{ color: v3.textMuted }}>
+                {isZh ? '未提供租赁文本' : 'No lease text provided'}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, borderTop: `1px solid ${v3.divider}`, paddingTop: 12 }}>
-                <span style={{ color: v3.textSecondary }}>{isZh ? '开始' : 'Start'}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: v3.textPrimary }}>{startDate}</span>
+            )}
+
+            <div style={{ borderTop: `1px solid #D8D2C2`, marginTop: 28, paddingTop: 24 }}>
+              <div
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 10.5,
+                  letterSpacing: '0.10em',
+                  textTransform: 'uppercase',
+                  color: '#71717A',
+                  fontWeight: 700,
+                  marginBottom: 14,
+                }}
+              >
+                {isZh ? '签名' : 'Signature'}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                <span style={{ color: v3.textSecondary }}>{isZh ? '结束' : 'End'}</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: v3.textPrimary }}>{endDate}</span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+                <div
+                  style={{
+                    background: '#EAE5D9',
+                    border: `1px solid #D8D2C2`,
+                    borderRadius: 8,
+                    padding: 18,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: '#71717A',
+                      fontFamily: 'JetBrains Mono, monospace',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {isZh ? '租客 · 你' : 'Tenant · you'}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--f-serif)',
+                      fontStyle: 'italic',
+                      fontSize: 30,
+                      color: '#047857',
+                      padding: '14px 0',
+                      borderBottom: `1px solid #D8D2C2`,
+                    }}
+                  >
+                    Alex Taylor
+                  </div>
+                  <div style={{ fontSize: 11, color: '#71717A', marginTop: 6, fontFamily: 'JetBrains Mono, monospace' }}>
+                    {hasSigned && user?.role !== 'landlord' ? '✓ 已签署' : '待签署 · ' + new Date().toLocaleDateString(isZh ? 'zh-CN' : 'en-CA')}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: '#EAE5D9',
+                    border: `1px solid #D8D2C2`,
+                    borderRadius: 8,
+                    padding: 18,
+                    opacity: bothSigned ? 1 : 0.55,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: '#71717A',
+                      fontFamily: 'JetBrains Mono, monospace',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {isZh ? '房东 · 管理员' : 'Landlord · J. Park'}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'var(--f-serif)',
+                      fontStyle: 'italic',
+                      fontSize: 18,
+                      color: '#A1A1AA',
+                      padding: '18px 0 22px',
+                      borderBottom: `1px solid #D8D2C2`,
+                    }}
+                  >
+                    {isZh ? '等待你的签署' : 'Awaiting your signature first'}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#71717A', marginTop: 6, fontFamily: 'JetBrains Mono, monospace' }}>
+                    {isZh ? '将在租客签署后计数' : 'Will countersign upon tenant signature'}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Tenant Questions */}
-          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18 }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: v3.textPrimary }}>
-              {isZh ? '提问' : 'Questions'}
-            </h3>
-            <textarea
-              placeholder={isZh ? '向房东或 Mediator 提出任何疑问…' : 'Ask landlord or Mediator anything…'}
+        {/* Right pane: AI summary + sign action */}
+        <div
+          style={{
+            borderLeft: `1px solid #D8D2C2`,
+            background: '#fff',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <div className="fp-scroll" style={{ flex: 1, overflow: 'auto', padding: 22 }}>
+            <div
               style={{
-                width: '100%',
-                minHeight: 80,
-                border: `1px solid ${v3.border}`,
-                borderRadius: size.radius.lg,
-                padding: 12,
-                fontSize: 13,
-                color: '#0B1736',
-                WebkitTextFillColor: '#0B1736',
-                caretColor: '#0B1736',
-                fontFamily: 'inherit',
-                resize: 'vertical',
+                background: 'linear-gradient(180deg, #F3EEFF 0%, #fff 100%)',
+                border: `1px solid #D7C5FA`,
+                borderRadius: 12,
+                padding: 18,
+                marginBottom: 14,
               }}
-            />
-          </div>
-
-          {/* Signature Section */}
-          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18 }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: v3.textPrimary }}>
-              {isZh ? '签署状态' : 'Signature Status'}
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-              {['tenant', 'landlord'].map((role) => {
-                const signed = signatures.some((s) => s.signer_role === role)
-                return (
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 10,
+                }}
+              >
+                <span
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 6,
+                    background: '#7C3AED',
+                    color: '#fff',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontWeight: 700,
+                    fontSize: 11,
+                  }}
+                >
+                  ✦
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'var(--f-sans)',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: '#171717',
+                  }}
+                >
+                  AI Lease Summary · 简体中文
+                </span>
+              </div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {[
+                  {
+                    title: '租期 / Term',
+                    body: '12 个月固定期，2026/9/1 起至 2027/8/31，到期后转月租。',
+                  },
+                  {
+                    title: '租金 / Rent',
+                    body: '每月 $2,750，每月 1 号支付。Last-month deposit $2,750（合 LTB 规定）。',
+                  },
+                  {
+                    title: '费用 / Utilities',
+                    body: '含暖气和水。Hydro 与 Internet 由租客自付。',
+                  },
+                ].map((item, i) => (
                   <div
-                    key={role}
+                    key={i}
                     style={{
                       display: 'flex',
-                      alignItems: 'center',
                       gap: 10,
-                      padding: 10,
-                      background: signed ? v3.successSoft : v3.divider,
-                      borderRadius: size.radius.lg,
+                      alignItems: 'flex-start',
                       fontSize: 13,
+                      color: '#171717',
+                      lineHeight: 1.5,
                     }}
                   >
                     <span
                       style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 20,
-                        height: 20,
-                        borderRadius: '50%',
-                        background: signed ? v3.success : v3.border,
-                        color: signed ? '#fff' : v3.textMuted,
-                        fontWeight: 700,
-                        fontSize: 12,
+                        color: '#7C3AED',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontWeight: 600,
+                        marginTop: 2,
                       }}
                     >
-                      {signed ? '✓' : '○'}
+                      ›
                     </span>
-                    <span style={{ color: signed ? v3.success : v3.textMuted }}>
-                      {role === 'tenant' ? (isZh ? '租客' : 'Tenant') : isZh ? '房东' : 'Landlord'}
-                    </span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>{item.title}</div>
+                      <div style={{ color: '#3F3F46', fontSize: 13 }}>{item.body}</div>
+                    </div>
                   </div>
-                )
-              })}
+                ))}
+              </div>
             </div>
 
-            {!hasSigned && (
-              <button
-                onClick={() => setSigningModalOpen(true)}
-                style={{
-                  width: '100%',
-                  padding: '12px 18px',
-                  background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: size.radius.lg,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  boxShadow: '0 8px 22px -10px rgba(52, 211, 153, 0.45)',
-                  transition: 'opacity 0.15s',
-                }}
-              >
-                {isZh ? '✓ 同意并签署' : '✓ Agree & Sign'}
-              </button>
-            )}
-
-            {hasSigned && (
+            <div style={{ marginBottom: 14 }}>
               <div
                 style={{
-                  padding: 12,
-                  background: v3.successSoft,
-                  borderRadius: size.radius.lg,
-                  fontSize: 13,
-                  color: v3.success,
-                  textAlign: 'center',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 10.5,
+                  letterSpacing: '0.10em',
+                  textTransform: 'uppercase',
+                  color: '#71717A',
+                  fontWeight: 700,
+                  marginBottom: 8,
                 }}
               >
-                {isZh ? '✓ 你已签署' : '✓ You have signed'}
+                {isZh ? '重要日期 · 4' : 'Important dates · 4'}
               </div>
-            )}
+              <div style={{ display: 'grid', gap: 6, fontSize: 12 }}>
+                {[
+                  ['2026-09-01', isZh ? '入住及首月租金到期' : 'Move-in & first month rent due'],
+                  ['每月1号', isZh ? '月租到期' : 'Monthly rent due'],
+                  ['2027-05-31', isZh ? '最早 N9 通知（60 天）租期结束' : 'Earliest N9 notice (60d) for end of term'],
+                  ['2027-08-31', isZh ? '固定期结束·自动转为月租' : 'Fixed-term end · auto rolls to monthly'],
+                ].map((d, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      gap: 10,
+                      padding: '6px 0',
+                      borderBottom: i < 3 ? `1px dashed #D8D2C2` : 'none',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: 'JetBrains Mono, monospace',
+                        color: '#047857',
+                        fontWeight: 600,
+                        width: 90,
+                      }}
+                    >
+                      {d[0]}
+                    </span>
+                    <span style={{ color: '#3F3F46' }}>{d[1]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {bothSigned && (
-            <div
+          <div style={{ borderTop: `1px solid #D8D2C2`, padding: 18 }}>
+            <label
               style={{
-                padding: 14,
-                background: v3.successSoft,
-                border: `1px solid ${v3.success}`,
-                borderRadius: size.radius.lg,
-                fontSize: 13,
-                color: v3.success,
-                textAlign: 'center',
-                fontWeight: 600,
+                display: 'flex',
+                gap: 10,
+                fontSize: 12,
+                color: '#3F3F46',
+                lineHeight: 1.5,
+                marginBottom: 10,
               }}
             >
-              {isZh ? '✓ 租赁已完全签署' : '✓ Lease fully signed'}
-            </div>
-          )}
-        </section>
-      </main>
+              <span
+                style={{
+                  width: 16,
+                  height: 16,
+                  border: `1.5px solid #047857`,
+                  borderRadius: 3,
+                  background: '#047857',
+                  color: '#fff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 11,
+                  flexShrink: 0,
+                }}
+              >
+                ✓
+              </span>
+              <span>{isZh ? '我同意电子签署并根据安大略省法律接收此租赁协议的最终副本。' : 'I consent to electronic signature and to receive a final copy of this lease per Ontario law.'}</span>
+            </label>
+            <button
+              onClick={() => setSigningModalOpen(true)}
+              style={{
+                width: '100%',
+                justifyContent: 'center',
+                padding: '12px',
+                background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: 10,
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 7,
+              }}
+            >
+              {isZh ? '签署租赁 →' : 'Sign lease →'}
+            </button>
+          </div>
+        </div>
+      </div>
 
-      {/* Signature Modal */}
+      {/* Signing modal */}
       {signingModalOpen && (
         <div
           style={{
             position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 100,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
           }}
-          onClick={() => setSigningModalOpen(false)}
+          onClick={() => !signing && setSigningModalOpen(false)}
         >
           <div
             style={{
-              background: v3.surfaceCard,
-              borderRadius: size.radius.xl,
-              padding: 24,
+              background: '#fff',
+              borderRadius: 12,
+              padding: 32,
               maxWidth: 500,
-              width: '90%',
-              maxHeight: '80vh',
-              overflowY: 'auto',
+              width: 'calc(100% - 32px)',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ margin: '0 0 12px', fontSize: 18, fontWeight: 700, color: v3.textPrimary }}>
-              {isZh ? '签署租赁协议' : 'Sign Lease'}
-            </h2>
-            <p style={{ margin: '0 0 16px', fontSize: 13, color: v3.textSecondary, lineHeight: 1.6 }}>
-              {isZh
-                ? '通过在下方画布上签署，你确认你已阅读并同意租赁条款。'
-                : 'By signing below, you confirm you have read and agree to the lease terms.'}
-            </p>
-
-            {/* Consent text */}
-            <div
+            <h2
               style={{
-                background: v3.surfaceMuted,
-                border: `1px solid ${v3.divider}`,
-                borderRadius: size.radius.lg,
-                padding: 14,
-                marginBottom: 16,
-                fontSize: 12,
-                lineHeight: 1.6,
-                color: v3.textSecondary,
-                maxHeight: 120,
-                overflowY: 'auto',
+                fontSize: 20,
+                fontWeight: 700,
+                color: '#171717',
+                margin: '0 0 20px',
               }}
             >
-              {isZh
-                ? '本协议由双方签署。你的签名表示法律同意。所有数据按PIPEDA隐私法保护。'
-                : 'This agreement is legally binding when signed by both parties. Your signature is collected under PIPEDA privacy regulations.'}
-            </div>
-
-            {/* Canvas for signature */}
+              {isZh ? '在下面签署' : 'Sign below'}
+            </h2>
             <canvas
               ref={canvasRef}
-              width={450}
+              width={400}
               height={150}
               onMouseDown={startDrawing}
               style={{
-                border: `2px solid ${v3.border}`,
-                borderRadius: size.radius.lg,
-                display: 'block',
-                width: '100%',
-                height: 150,
+                border: `2px solid #D8D2C2`,
+                borderRadius: 8,
                 cursor: 'crosshair',
-                background: '#FFFFFF',
+                display: 'block',
                 marginBottom: 16,
+                background: '#FFFFFF',
+                color: '#0B1736',
+                WebkitTouchCallout: 'none',
               }}
             />
-
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 12,
+                justifyContent: 'flex-end',
+              }}
+            >
               <button
                 onClick={clearSignature}
+                disabled={signing}
                 style={{
-                  flex: 1,
-                  padding: '12px 18px',
-                  background: v3.surfaceCard,
-                  color: v3.textPrimary,
-                  border: `1px solid ${v3.borderStrong}`,
-                  borderRadius: size.radius.lg,
+                  background: '#FFFFFF',
+                  color: '#171717',
+                  border: '1px solid #C5BDAA',
+                  borderRadius: 6,
                   fontSize: 13,
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  padding: '10px 18px',
+                  cursor: signing ? 'not-allowed' : 'pointer',
+                  opacity: signing ? 0.6 : 1,
                 }}
               >
                 {isZh ? '清除' : 'Clear'}
               </button>
               <button
-                onClick={() => setSigningModalOpen(false)}
-                style={{
-                  flex: 1,
-                  padding: '12px 18px',
-                  background: v3.surfaceCard,
-                  color: v3.textPrimary,
-                  border: `1px solid ${v3.borderStrong}`,
-                  borderRadius: size.radius.lg,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                {isZh ? '取消' : 'Cancel'}
-              </button>
-              <button
                 onClick={submitSignature}
                 disabled={signing}
                 style={{
-                  flex: 1,
-                  padding: '12px 18px',
                   background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
                   color: '#FFFFFF',
                   border: 'none',
-                  borderRadius: size.radius.lg,
+                  borderRadius: 6,
                   fontSize: 13,
                   fontWeight: 600,
-                  cursor: signing ? 'wait' : 'pointer',
-                  opacity: signing ? 0.7 : 1,
+                  padding: '10px 18px',
+                  cursor: signing ? 'not-allowed' : 'pointer',
+                  opacity: signing ? 0.6 : 1,
                 }}
               >
-                {signing ? (isZh ? '签署中…' : 'Signing…') : isZh ? '签署' : 'Sign'}
+                {signing ? (isZh ? '签署中…' : 'Signing...') : isZh ? '确认签署' : 'Confirm'}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        @media (max-width: 1023px) {
-          :global(.lease-review-grid) {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
     </div>
   )
 }

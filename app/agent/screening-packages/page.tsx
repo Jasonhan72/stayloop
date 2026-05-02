@@ -1,5 +1,4 @@
 'use client'
-// Agent Screening Packages — lists branded packages with sharing status
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -118,85 +117,72 @@ export default function ScreeningPackagesPage() {
   return (
     <div style={{ minHeight: '100vh', background: v3.surface }}>
       <AppHeader
-        title={isZh ? '筛查包' : 'Screening Packages'}
+        title={isZh ? '筛查包' : 'Screening packages'}
         right={
-          <button
-            onClick={() => window.location.href = '/landlord/screening'}
-            style={{
-              padding: '8px 14px',
-              background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            {isZh ? '新包' : 'New package'}
+          <button style={{ padding: '8px 16px', background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            + {isZh ? '新包' : 'New package'}
           </button>
         }
       />
 
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', padding: '32px 24px' }}>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-          {(['all', 'drafted', 'shared', 'viewed'] as const).map((f) => (
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${v3.border}`, marginBottom: 24 }}>
+          {[
+            { id: 'all', label: isZh ? '全部' : 'All', count: packages.length },
+            { id: 'drafted', label: isZh ? '草稿' : 'Drafted', count: packages.filter(p => p.status === 'draft').length },
+            { id: 'shared', label: isZh ? '已分享' : 'Shared', count: packages.filter(p => !!p.share_token).length },
+            { id: 'viewed', label: isZh ? '已查看' : 'Viewed', count: packages.filter(p => p.view_count > 0).length },
+          ].map((t) => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
+              key={t.id}
+              onClick={() => setFilter(t.id as any)}
               style={{
-                padding: '6px 12px',
-                border: `1px solid ${filter === f ? v3.brand : v3.border}`,
-                background: filter === f ? v3.brandSoft : 'transparent',
-                color: filter === f ? v3.brand : v3.textSecondary,
-                borderRadius: 6,
-                fontSize: 12,
-                fontWeight: 600,
+                background: 'none',
+                border: 'none',
+                padding: '10px 16px',
+                fontSize: 13,
+                fontWeight: filter === t.id ? 600 : 500,
+                color: filter === t.id ? v3.textPrimary : v3.textMuted,
+                borderBottom: filter === t.id ? `2px solid ${v3.brand}` : '2px solid transparent',
                 cursor: 'pointer',
+                marginBottom: -1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
               }}
             >
-              {f === 'all' && (isZh ? '全部' : 'All')}
-              {f === 'drafted' && (isZh ? '草稿' : 'Drafted')}
-              {f === 'shared' && (isZh ? '已分享' : 'Shared')}
-              {f === 'viewed' && (isZh ? '已查看' : 'Viewed')}
+              {t.label}
+              {t.count != null && (
+                <span style={{ padding: '2px 8px', borderRadius: 3, background: v3.divider, color: v3.textMuted, fontSize: 11, fontWeight: 600 }}>
+                  {t.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: 16,
-          }}
-        >
+        {/* Cards grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
           {filtered.length === 0 ? (
             <div style={{ gridColumn: '1/-1', textAlign: 'center', color: v3.textMuted, padding: '40px 20px' }}>
               {isZh ? '暂无筛查包' : 'No screening packages yet'}
             </div>
           ) : (
             filtered.map((pkg) => (
-              <div
-                key={pkg.id}
-                style={{
-                  background: v3.surfaceCard,
-                  border: `1px solid ${v3.border}`,
-                  borderRadius: 12,
-                  padding: 16,
-                }}
-              >
-                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, color: v3.textPrimary }}>
+              <div key={pkg.id} style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 16 }}>
+                <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: v3.textPrimary }}>
                   {pkg.applicant_name}
                 </h3>
-                <p style={{ fontSize: 12, color: v3.textMuted, marginBottom: 12 }}>
+                <p style={{ fontSize: 12, color: v3.textMuted, marginBottom: 12, margin: 0 }}>
                   {pkg.applicant_email}
                 </p>
 
                 <div style={{ fontSize: 12, color: v3.textSecondary, marginBottom: 12 }}>
                   <div>{isZh ? `状态：${pkg.status}` : `Status: ${pkg.status}`}</div>
                   {pkg.share_token && (
-                    <div style={{ color: v3.success, fontWeight: 600 }}>
-                      {isZh ? '已分享' : 'Shared'} • {isZh ? `查看次数：${pkg.view_count}` : `Views: ${pkg.view_count}`}
+                    <div style={{ color: v3.success, fontWeight: 600, marginTop: 4 }}>
+                      {isZh ? '已分享' : 'Shared'} • {isZh ? `查看${pkg.view_count}次` : `${pkg.view_count} views`}
                     </div>
                   )}
                 </div>

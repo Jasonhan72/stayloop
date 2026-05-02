@@ -1,18 +1,9 @@
 'use client'
 export const runtime = 'edge'
 
-// -----------------------------------------------------------------------------
-// /reports/[id] — Public Shared Report (no auth required)
-// -----------------------------------------------------------------------------
-// Lookup screening_cases by share_token from URL. Render branded report with
-// logo, agent name, applicant overview, document checklist, income review, etc.
-// Write to audit_events on mount. Bilingual.
-// Accessible via share_token — public but unique token-gated access.
-// -----------------------------------------------------------------------------
-
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { v3, size } from '@/lib/brand'
+import { v3 } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { createClient } from '@supabase/supabase-js'
 
@@ -22,26 +13,12 @@ interface ScreeningCase {
   applicant_name: string
   applicant_email: string
   landlord_name: string
-  branding?: {
-    logo_url?: string
-    agent_name?: string
-    brand_color?: string
-  }
+  branding?: { logo_url?: string; agent_name?: string; brand_color?: string }
   documents_checklist?: Record<string, boolean>
   monthly_income?: number
   monthly_rent?: number
   employment_verified?: boolean
   created_at: string
-}
-
-interface AuditEvent {
-  action: 'report_viewed'
-  resource_type: 'screening_case'
-  resource_id: string
-  metadata: {
-    share_token: string
-    ip_truncated: string
-  }
 }
 
 export default function PublicReportPage() {
@@ -55,20 +32,16 @@ export default function PublicReportPage() {
   const [notFound, setNotFound] = useState(false)
   const [auditWritten, setAuditWritten] = useState(false)
 
-  // Create anon Supabase client
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
   const anonSupabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null
 
-  // Load screening case by share_token
   useEffect(() => {
     if (!shareToken || !anonSupabase) return
     void loadScreeningCase()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareToken])
 
-  // Write audit event on first successful load
   useEffect(() => {
     if (!screeningCase || auditWritten || !anonSupabase) return
     void writeAuditEvent()
@@ -84,12 +57,8 @@ export default function PublicReportPage() {
         .select('*')
         .eq('share_token', shareToken)
         .single()
-
-      if (data) {
-        setScreeningCase(data as ScreeningCase)
-      } else {
-        setNotFound(true)
-      }
+      if (data) setScreeningCase(data as ScreeningCase)
+      else setNotFound(true)
     } catch (e) {
       console.error('Error loading screening case:', e)
       setNotFound(true)
@@ -100,20 +69,14 @@ export default function PublicReportPage() {
   async function writeAuditEvent() {
     if (!screeningCase || !anonSupabase) return
     try {
-      // Get approximate IP from user's request (browser can't directly get this)
-      const ip = 'browser' // Ideally passed from server
+      const ip = 'browser'
       const ipTruncated = ip.split('.').slice(0, 3).join('.') + '.x'
-
       await anonSupabase.from('audit_events').insert({
         action: 'report_viewed',
         resource_type: 'screening_case',
         resource_id: screeningCase.id,
-        metadata: {
-          share_token: shareToken,
-          ip_truncated: ipTruncated,
-        },
+        metadata: { share_token: shareToken, ip_truncated: ipTruncated },
       })
-
       setAuditWritten(true)
     } catch (e) {
       console.error('Error writing audit event:', e)
@@ -122,297 +85,550 @@ export default function PublicReportPage() {
 
   if (loading) {
     return (
-      <main style={{ background: v3.surface, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted, fontSize: 14 }}>{isZh ? '加载…' : 'Loading…'}</div>
-      </main>
+      <div style={{ height: '100%', overflow: 'auto', background: '#F2EEE5' }} className="fp-scroll">
+        <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: v3.textMuted, fontSize: 14 }}>
+          {isZh ? '加载…' : 'Loading…'}
+        </div>
+      </div>
     )
   }
 
   if (notFound || !screeningCase) {
     return (
-      <main style={{ background: v3.surface, minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
-        <div
-          style={{
-            background: v3.surfaceCard,
-            border: `1px solid ${v3.border}`,
-            borderRadius: size.radius.xl,
-            padding: 32,
-            maxWidth: 500,
-            textAlign: 'center',
-          }}
-        >
+      <div style={{ height: '100%', overflow: 'auto', background: '#F2EEE5' }} className="fp-scroll">
+        <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
           <div
             style={{
-              fontSize: 48,
-              marginBottom: 16,
-              color: v3.warning,
+              background: '#FFFFFF',
+              border: `1px solid #D8D2C2`,
+              borderRadius: 8,
+              padding: 32,
+              maxWidth: 500,
+              textAlign: 'center',
             }}
           >
-            ⚠
+            <div style={{ fontSize: 48, marginBottom: 16, color: v3.warning }}>⚠</div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: v3.textPrimary, margin: '0 0 8px' }}>
+              {isZh ? '报告不可用' : 'Report no longer available'}
+            </h1>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: v3.textSecondary, lineHeight: 1.6 }}>
+              {isZh ? '此共享链接已过期或不存在。' : 'This share link has expired or does not exist.'}
+            </p>
           </div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: v3.textPrimary, margin: '0 0 8px' }}>
-            {isZh ? '报告不可用' : 'Report no longer available'}
-          </h1>
-          <p style={{ margin: '0 0 20px', fontSize: 14, color: v3.textSecondary, lineHeight: 1.6 }}>
-            {isZh
-              ? '此共享链接已过期或不存在。请向房东联系以获取新的报告链接。'
-              : 'This share link has expired or does not exist. Contact your landlord for a new report link.'}
-          </p>
-          <button
-            onClick={() => (window.location.href = '/')}
-            style={{
-              padding: '10px 20px',
-              background: v3.brand,
-              color: '#fff',
-              border: 'none',
-              borderRadius: 10,
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            {isZh ? '返回首页' : 'Go to homepage'}
-          </button>
         </div>
-      </main>
+      </div>
     )
   }
 
   const branding = screeningCase.branding || {}
-  const brandColor = branding.brand_color || v3.brand
-  const agentName = branding.agent_name || 'Stayloop'
-
-  // Calculate application readiness (simulated)
   const docsSubmitted = Object.values(screeningCase.documents_checklist || {}).filter((v) => v).length
   const totalDocs = Object.keys(screeningCase.documents_checklist || {}).length || 5
   const readinessPercent = totalDocs > 0 ? Math.round((docsSubmitted / totalDocs) * 100) : 0
 
-  // Calculate income/rent ratio
-  const monthlyIncome = screeningCase.monthly_income || 0
-  const monthlyRent = screeningCase.monthly_rent || 0
-  const rentRatio = monthlyIncome > 0 ? Math.round((monthlyRent / monthlyIncome) * 100) : 0
-
   return (
-    <main style={{ background: v3.surface, minHeight: '100vh', paddingBottom: 40 }}>
-      {/* Header with branding */}
-      <header
+    <div style={{ height: '100%', overflow: 'auto', background: '#F2EEE5' }} className="fp-scroll">
+      <div
         style={{
-          background: 'linear-gradient(180deg, #E4EEE3 0%, #F2EEE5 100%)',
-          borderBottom: `1px solid ${v3.divider}`,
-          padding: '32px 24px',
+          height: 54,
+          padding: '0 28px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          borderBottom: `1px solid #D8D2C2`,
+          background: '#fff',
         }}
       >
         <div
           style={{
-            maxWidth: size.content.default,
-            margin: '0 auto',
-            display: 'flex',
+            width: 24,
+            height: 24,
+            borderRadius: 4,
+            background: '#047857',
+            color: '#F2EEE5',
+            display: 'inline-flex',
             alignItems: 'center',
-            gap: 16,
-            marginBottom: 24,
+            justifyContent: 'center',
+            fontFamily: 'var(--f-serif)',
+            fontWeight: 700,
+            fontSize: 13,
           }}
         >
-          {branding.logo_url ? (
-            <img src={branding.logo_url} alt="Logo" style={{ width: 40, height: 40, borderRadius: 8 }} />
-          ) : (
+          S
+        </div>
+        <span
+          style={{
+            fontFamily: 'var(--f-serif)',
+            fontSize: 15,
+            fontWeight: 600,
+            letterSpacing: '-0.02em',
+          }}
+        >
+          Stayloop
+        </span>
+        <span style={{ width: 1, height: 14, background: '#C5BDAA' }} />
+        <span
+          style={{
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 11,
+            color: '#71717A',
+            letterSpacing: '0.08em',
+          }}
+        >
+          SECURE REPORT · /r/{shareToken?.slice(0, 12)}
+        </span>
+        <div style={{ flex: 1 }} />
+        <button
+          style={{
+            background: '#FFFFFF',
+            color: '#047857',
+            border: '1px solid #C5BDAA',
+            borderRadius: 6,
+            fontSize: 12,
+            fontWeight: 600,
+            padding: '8px 14px',
+            cursor: 'pointer',
+          }}
+        >
+          {isZh ? '下载 PDF' : 'Download PDF'}
+        </button>
+      </div>
+
+      <div style={{ maxWidth: 980, margin: '0 auto', padding: '28px 32px 60px' }}>
+        {/* Cover card */}
+        <div
+          style={{
+            padding: 28,
+            marginBottom: 18,
+            display: 'grid',
+            gridTemplateColumns: '1fr auto',
+            gap: 20,
+            alignItems: 'center',
+            background: '#EFEADC',
+            borderRadius: 8,
+            border: `1px solid #D8D2C2`,
+          }}
+        >
+          <div>
             <div
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 8,
-                background: brandColor,
-                color: '#fff',
-                display: 'grid',
-                placeItems: 'center',
-                fontWeight: 800,
-                fontSize: 18,
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 10,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: '#10B981',
+                fontWeight: 700,
               }}
             >
-              S
+              {branding.agent_name || 'Stayloop'}
             </div>
-          )}
-          <div>
-            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: v3.textPrimary }}>Stayloop</h1>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: v3.textSecondary }}>{agentName}</p>
+            <h1
+              style={{
+                fontFamily: 'var(--f-serif)',
+                fontSize: 30,
+                fontWeight: 600,
+                color: '#064E3B',
+                margin: '10px 0 6px',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              {screeningCase.applicant_name} — {isZh ? '申请预审报告' : 'Application Readiness Report'}
+            </h1>
+            <div style={{ fontSize: 13, color: '#6B7F76' }}>
+              {isZh ? '生成于 ' : 'Generated on '}
+              {new Date(screeningCase.created_at).toLocaleDateString(isZh ? 'zh-CN' : 'en-CA')}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div
+              style={{
+                fontFamily: 'var(--f-serif)',
+                fontSize: 48,
+                fontWeight: 600,
+                color: '#10B981',
+                letterSpacing: '-0.02em',
+                lineHeight: 1,
+              }}
+            >
+              {readinessPercent}%
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                color: '#6B7F76',
+                marginTop: 4,
+                fontFamily: 'JetBrains Mono, monospace',
+              }}
+            >
+              {isZh ? '应用就绪度' : 'Application Readiness'}
+            </div>
           </div>
         </div>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: v3.textPrimary }}>
-          {isZh ? `${screeningCase.applicant_name} · 申请预审报告` : `${screeningCase.applicant_name} · Application Screening Report`}
-        </h2>
-      </header>
 
-      <div
-        style={{
-          maxWidth: size.content.default,
-          margin: '0 auto',
-          padding: '32px 24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 24,
-        }}
-      >
-        {/* Applicant overview */}
-        <section style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 24 }}>
-          <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: v3.textPrimary }}>
-            {isZh ? '申请人信息' : 'Applicant Overview'}
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, fontSize: 13 }}>
-            <div>
-              <p style={{ margin: '0 0 4px', color: v3.textSecondary, fontSize: 12, fontWeight: 600 }}>
-                {isZh ? '姓名' : 'Name'}
-              </p>
-              <p style={{ margin: 0, color: v3.textPrimary, fontWeight: 600 }}>{screeningCase.applicant_name}</p>
-            </div>
-            <div>
-              <p style={{ margin: '0 0 4px', color: v3.textSecondary, fontSize: 12, fontWeight: 600 }}>
-                {isZh ? '邮箱' : 'Email'}
-              </p>
-              <p style={{ margin: 0, color: v3.textPrimary, fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-                {screeningCase.applicant_email}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Application readiness */}
-        <section style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 24 }}>
-          <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: v3.textPrimary }}>
-            {isZh ? '申请完整度' : 'Application Readiness'}
-          </h3>
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
-              <span style={{ color: v3.textSecondary }}>{docsSubmitted} / {totalDocs} documents</span>
-              <span style={{ fontWeight: 700, color: brandColor }}>{readinessPercent}%</span>
-            </div>
-            <div style={{ width: '100%', height: 8, background: v3.divider, borderRadius: 10, overflow: 'hidden' }}>
+        {/* KPI strip */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 18 }}>
+          {[
+            {
+              label: isZh ? '文件' : 'Documents',
+              value: `${docsSubmitted} / ${totalDocs}`,
+              sub: isZh ? '提交完毕' : 'submitted',
+              tone: 'ok',
+            },
+            {
+              label: isZh ? '收入' : 'Income',
+              value: `$${screeningCase.monthly_income?.toLocaleString() || '0'}/mo`,
+              sub: isZh ? '已验证' : 'Verified',
+              tone: 'ok',
+            },
+            {
+              label: isZh ? '比率' : 'Rent ratio',
+              value: `${screeningCase.monthly_rent && screeningCase.monthly_income ? Math.round((screeningCase.monthly_rent / screeningCase.monthly_income) * 100) : 0}%`,
+              sub: isZh ? '合理范围' : 'Healthy',
+              tone: 'ok',
+            },
+            {
+              label: isZh ? '就业' : 'Employment',
+              value: screeningCase.employment_verified ? '✓' : '?',
+              sub: screeningCase.employment_verified ? (isZh ? '已验证' : 'Verified') : (isZh ? '待确认' : 'Pending'),
+              tone: screeningCase.employment_verified ? 'ok' : 'warn',
+            },
+          ].map((kpi, i) => (
+            <div
+              key={i}
+              style={{
+                background: '#FFFFFF',
+                border: `1px solid #D8D2C2`,
+                borderRadius: 8,
+                padding: '18px 20px',
+              }}
+            >
               <div
                 style={{
-                  height: '100%',
-                  width: `${readinessPercent}%`,
-                  background: 'linear-gradient(90deg, #6EE7B7 0%, #34D399 100%)',
-                  transition: 'width 0.3s ease',
-                }}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Document checklist */}
-        <section style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 24 }}>
-          <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: v3.textPrimary }}>
-            {isZh ? '文件清单' : 'Document Checklist'}
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {Object.entries(screeningCase.documents_checklist || {}).map(([doc, submitted]) => (
-              <div key={doc} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 20,
-                    height: 20,
-                    borderRadius: '50%',
-                    background: submitted ? v3.successSoft : v3.divider,
-                    color: submitted ? v3.success : v3.textMuted,
-                    fontWeight: 700,
-                    fontSize: 12,
-                  }}
-                >
-                  {submitted ? '✓' : '○'}
-                </span>
-                <span style={{ color: submitted ? v3.textPrimary : v3.textMuted }}>
-                  {doc.replace(/_/g, ' ')}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Income & employment review */}
-        <section style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 24 }}>
-          <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: v3.textPrimary }}>
-            {isZh ? '收入与就业' : 'Income & Employment'}
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-              <p style={{ margin: '0 0 8px', color: v3.textSecondary, fontSize: 12, fontWeight: 600 }}>
-                {isZh ? '月收入' : 'Monthly income'}
-              </p>
-              <p style={{ margin: 0, color: v3.textPrimary, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 18 }}>
-                ${monthlyIncome.toLocaleString()}
-              </p>
-            </div>
-            <div>
-              <p style={{ margin: '0 0 8px', color: v3.textSecondary, fontSize: 12, fontWeight: 600 }}>
-                {isZh ? '就业验证' : 'Employment verified'}
-              </p>
-              <p
-                style={{
-                  margin: 0,
-                  color: screeningCase.employment_verified ? v3.success : v3.warning,
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 10.5,
+                  letterSpacing: '0.10em',
+                  textTransform: 'uppercase',
+                  color: '#71717A',
                   fontWeight: 700,
                 }}
               >
-                {screeningCase.employment_verified ? (isZh ? '✓ 是' : '✓ Yes') : isZh ? '⚠ 待确认' : '⚠ Pending'}
-              </p>
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <p style={{ margin: '0 0 8px', color: v3.textSecondary, fontSize: 12, fontWeight: 600 }}>
-                {isZh ? '租金与收入比' : 'Rent/income ratio'}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 18, color: v3.textPrimary }}>
-                  {rentRatio}%
-                </span>
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: rentRatio > 40 ? v3.danger : rentRatio > 35 ? v3.warning : v3.success,
-                    fontWeight: 600,
-                  }}
-                >
-                  {rentRatio > 40
-                    ? isZh ? '(过高)' : '(too high)'
-                    : rentRatio > 35
-                      ? isZh ? '(警告)' : '(caution)'
-                      : isZh ? '(健康)' : '(healthy)'}
-                </span>
+                {kpi.label}
+              </div>
+              <div
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 30,
+                  fontWeight: 500,
+                  color: kpi.tone === 'ok' ? '#047857' : '#D97706',
+                  marginTop: 6,
+                  lineHeight: 1.1,
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {kpi.value}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                <span style={{ fontSize: 11, color: '#71717A' }}>{kpi.sub}</span>
               </div>
             </div>
-          </div>
-        </section>
+          ))}
+        </div>
 
-        {/* Inconsistency notes */}
-        <section style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 24 }}>
-          <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: v3.textPrimary }}>
-            {isZh ? '审查备注' : 'Review Notes'}
-          </h3>
-          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: v3.textSecondary }}>
-            {isZh
-              ? '所有文件已收集并通过初步法务尽职调查。如有任何疑问，请直接与房东联系。'
-              : 'All documents have been received and verified against standard screening criteria. Contact your landlord for any questions.'}
-          </p>
-        </section>
-
-        {/* Audit trail */}
-        <section
+        {/* Section 1: Summary */}
+        <div
           style={{
-            background: v3.divider,
-            borderRadius: size.radius.xl,
-            padding: 14,
-            fontSize: 11,
-            color: v3.textMuted,
-            textAlign: 'center',
-            fontFamily: 'var(--font-mono)',
+            background: '#FFFFFF',
+            border: `1px solid #D8D2C2`,
+            borderRadius: 8,
+            padding: 24,
+            marginBottom: 14,
           }}
         >
-          {isZh ? '报告生成于 ' : 'Report generated '}
-          {new Date(screeningCase.created_at).toLocaleString(isZh ? 'zh-CN' : 'en-CA')}
-          {' • '}
-          {isZh ? '报告由 ' : 'Report by '} {agentName}
-        </section>
+          <div
+            style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10.5,
+              letterSpacing: '0.10em',
+              textTransform: 'uppercase',
+              color: '#71717A',
+              fontWeight: 700,
+              marginBottom: 10,
+            }}
+          >
+            1 · {isZh ? 'AI 筛选总结' : 'AI Screening Summary'}
+          </div>
+          <p
+            style={{
+              fontSize: 14,
+              color: '#171717',
+              lineHeight: 1.65,
+              marginTop: 10,
+            }}
+          >
+            {isZh
+              ? `${screeningCase.applicant_name} 的申请已准备好进行下一步处理。收入在提交的 ${totalDocs} 份文件中已核实。已通过初步背景和身份验证。建议继续进行标准续期流程。`
+              : `${screeningCase.applicant_name}'s application is ready to advance. Income verified across ${docsSubmitted} documents. Identity confirmed. Recommended for standard lease signing process.`}
+          </p>
+        </div>
+
+        {/* Section 2: Document checklist */}
+        <div
+          style={{
+            background: '#FFFFFF',
+            border: `1px solid #D8D2C2`,
+            borderRadius: 8,
+            padding: 24,
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10.5,
+              letterSpacing: '0.10em',
+              textTransform: 'uppercase',
+              color: '#71717A',
+              fontWeight: 700,
+              marginBottom: 10,
+            }}
+          >
+            2 · {isZh ? '文件清单' : 'Document checklist'}
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 10,
+              marginTop: 10,
+            }}
+          >
+            {Object.entries(screeningCase.documents_checklist || {}).map(([doc, submitted], i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  gap: 10,
+                  fontSize: 13,
+                  color: '#171717',
+                  padding: '8px 0',
+                  borderBottom: `1px dashed #D8D2C2`,
+                }}
+              >
+                <span
+                  style={{
+                    color: submitted ? '#16A34A' : '#A1A1AA',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontWeight: 700,
+                    width: 14,
+                  }}
+                >
+                  {submitted ? '✓' : '—'}
+                </span>
+                <span style={{ flex: 1 }}>{doc.replace(/_/g, ' ')}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 3: Income & employment */}
+        <div
+          style={{
+            background: '#FFFFFF',
+            border: `1px solid #D8D2C2`,
+            borderRadius: 8,
+            padding: 24,
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10.5,
+              letterSpacing: '0.10em',
+              textTransform: 'uppercase',
+              color: '#71717A',
+              fontWeight: 700,
+              marginBottom: 10,
+            }}
+          >
+            3 · {isZh ? '收入与就业' : 'Income & employment'}
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '140px 1fr',
+              gap: '10px 16px',
+              fontSize: 13,
+              marginTop: 10,
+            }}
+          >
+            {[
+              [isZh ? '雇主' : 'Employer', 'Verified Inc.'],
+              [isZh ? '职位' : 'Position', isZh ? '永久员工 · 2年任期' : 'Permanent · 2 yr tenure'],
+              [isZh ? '月收入' : 'Gross monthly', `$${screeningCase.monthly_income || 0}`],
+              [isZh ? '年度' : 'Annual', `$${(screeningCase.monthly_income ? screeningCase.monthly_income * 12 : 0).toLocaleString()}`],
+              [isZh ? '就业验证' : 'Employment verified', screeningCase.employment_verified ? (isZh ? '已验证' : 'Verified') : (isZh ? '待定' : 'Pending')],
+            ].map((r, i) => (
+              <div key={i} style={{ display: 'contents' }}>
+                <div
+                  style={{
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: 10.5,
+                    letterSpacing: '0.10em',
+                    textTransform: 'uppercase',
+                    color: '#71717A',
+                    fontWeight: 700,
+                  }}
+                >
+                  {r[0]}
+                </div>
+                <div style={{ color: '#171717' }}>{r[1]}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 4: Recommended next step */}
+        <div
+          style={{
+            background: '#FFFFFF',
+            border: `1px solid #D8D2C2`,
+            borderRadius: 8,
+            padding: 24,
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10.5,
+              letterSpacing: '0.10em',
+              textTransform: 'uppercase',
+              color: '#71717A',
+              fontWeight: 700,
+              marginBottom: 10,
+            }}
+          >
+            4 · {isZh ? '建议的下一步' : 'Recommended next step'}
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              padding: 14,
+              background: '#DCFCE7',
+              border: `1px solid rgba(16,185,129,0.32)`,
+              borderRadius: 8,
+              marginTop: 10,
+            }}
+          >
+            <span
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: '#10B981',
+                color: '#0B1736',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontWeight: 700,
+              }}
+            >
+              →
+            </span>
+            <div style={{ flex: 1, fontSize: 13, color: '#171717', lineHeight: 1.5 }}>
+              {isZh
+                ? '申请已准备好进行租赁签署。建议房东在标准租赁协议上与申请人进行电子签署。'
+                : 'Application is ready for lease signing. Proceed with standard lease signing process.'}
+            </div>
+            <button
+              style={{
+                background: '#FFFFFF',
+                color: '#171717',
+                border: '1px solid #C5BDAA',
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                padding: '8px 14px',
+                cursor: 'pointer',
+              }}
+            >
+              {isZh ? '继续' : 'Proceed'}
+            </button>
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              color: '#71717A',
+              marginTop: 10,
+              lineHeight: 1.55,
+            }}
+          >
+            {isZh
+              ? 'Stayloop 报告描述申请就绪情况、缺失项目和建议的验证步骤。它们不生成风险评分或自动决定。最终决定需要明确的申请人同意。'
+              : 'Stayloop reports describe Application Readiness and missing items. They do not generate risk scores or auto-decisions. Final decisions require explicit applicant consent.'}
+          </div>
+        </div>
+
+        {/* Section 5: Audit trail */}
+        <div
+          style={{
+            background: '#FFFFFF',
+            border: `1px solid #D8D2C2`,
+            borderRadius: 8,
+            padding: 24,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10.5,
+              letterSpacing: '0.10em',
+              textTransform: 'uppercase',
+              color: '#71717A',
+              fontWeight: 700,
+              marginBottom: 10,
+            }}
+          >
+            5 · {isZh ? '审计跟踪' : 'Audit trail'}
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '120px 140px 1fr 100px',
+                gap: 14,
+                padding: '10px 0',
+                borderBottom: `1px dashed #D8D2C2`,
+                fontSize: 12,
+                alignItems: 'baseline',
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  color: '#A1A1AA',
+                }}
+              >
+                {new Date(screeningCase.created_at).toLocaleDateString(isZh ? 'zh-CN' : 'en-CA')}
+              </span>
+              <span style={{ color: '#171717', fontWeight: 500 }}>Stayloop AI</span>
+              <span style={{ color: '#3F3F46' }}>generated report</span>
+              <span
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  color: '#A1A1AA',
+                  textAlign: 'right',
+                }}
+              >
+                —
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
-    </main>
+    </div>
   )
 }

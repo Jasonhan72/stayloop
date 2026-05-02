@@ -1,14 +1,12 @@
 'use client'
+
 import { useState, useEffect, useRef } from 'react'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
-import { useT, LanguageToggle } from '@/lib/i18n'
-import AppHeader from '@/components/AppHeader'
-import { useIsMobile } from '@/lib/useMediaQuery'
+import { useT } from '@/lib/i18n'
 import { v3 } from '@/lib/brand'
 
-type SectionKey = 'personal' | 'security' | 'notifications' | 'langplan'
+type SectionKey = 'profile' | 'org' | 'security' | 'integrations'
 type Role = 'landlord' | 'tenant' | 'agent'
 type Plan = 'free' | 'pro' | 'enterprise'
 
@@ -20,35 +18,18 @@ interface ProfileData {
   plan: Plan
 }
 
-/* ── Section icons (inline SVG, Airbnb-style) ── */
-const icons: Record<SectionKey, React.ReactNode> = {
-  personal: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-  ),
-  security: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-  ),
-  notifications: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-  ),
-  langplan: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-  ),
-}
-
-export default function AccountSettingsPage() {
+export default function SettingsPage() {
   const { user, loading: authLoading, signOut } = useUser({ redirectIfMissing: true })
-  const { t } = useT()
-  const isMobile = useIsMobile()
+  const { t, lang } = useT()
+  const isZh = lang === 'zh'
 
-  const [section, setSection] = useState<SectionKey>('personal')
+  const [section, setSection] = useState<SectionKey>('profile')
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(true)
 
-  /* Load profile */
   useEffect(() => {
     if (!user) return
-    (async () => {
+    ;(async () => {
       setLoading(true)
       const { data } = await supabase
         .from('landlords')
@@ -70,7 +51,6 @@ export default function AccountSettingsPage() {
     })()
   }, [user])
 
-  /* Save a single field */
   async function saveField(patch: Partial<ProfileData>): Promise<string | null> {
     if (!user) return 'Not authenticated'
     const { error } = await supabase
@@ -78,555 +58,392 @@ export default function AccountSettingsPage() {
       .update(patch)
       .eq('id', user.profileId)
     if (error) return error.message
-    setProfile(prev => (prev ? { ...prev, ...patch } : prev))
+    setProfile((prev) => (prev ? { ...prev, ...patch } : prev))
     return null
   }
 
   if (authLoading || !user || loading || !profile) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: v3.surface }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: 10, border: `4px solid rgba(4,120,87,0.2)`, borderTopColor: v3.brand, animation: 'spin 1s linear infinite' }} />
-          <div style={{ fontSize: 12, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace' }}>{t('common.authenticating')}</div>
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F2EEE5' }}>
+        <div style={{ textAlign: 'center', color: '#71717A', fontSize: 14 }}>
+          {isZh ? '加载中…' : 'Loading…'}
         </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     )
   }
 
-  const sections: { key: SectionKey; label: string }[] = [
-    { key: 'personal',      label: t('acct.section.personal') },
-    { key: 'security',      label: t('acct.section.security') },
-    { key: 'notifications', label: t('acct.section.notifications') },
-    { key: 'langplan',      label: t('acct.section.langplan') },
-  ]
+  const tabs = [
+    { id: 'profile', label: isZh ? '个人资料' : 'Profile' },
+    { id: 'org', label: isZh ? '组织' : 'Organization' },
+    { id: 'security', label: isZh ? '安全' : 'Security' },
+    { id: 'integrations', label: isZh ? '集成' : 'Integrations' },
+  ] as const
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: v3.surface, fontFamily: 'Inter, -apple-system, system-ui, sans-serif' }}>
-      <AppHeader title="Account settings" titleZh="账户设置" />
-
-      <div style={{ flex: 1, maxWidth: 1040, width: '100%', margin: '0 auto', padding: isMobile ? '20px 16px 40px' : '40px 24px 60px' }}>
-        {/* Header */}
-        <div style={{ marginBottom: isMobile ? 20 : 32 }}>
-          <h1 style={{ fontSize: isMobile ? 28 : 34, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em', margin: 0 }}>
-            {t('acct.title')}
+    <div style={{ minHeight: '100vh', background: '#F2EEE5', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{ background: '#fff', borderBottom: `1px solid #D8D2C2`, padding: '32px 28px' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div
+            style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10.5,
+              letterSpacing: '0.10em',
+              textTransform: 'uppercase',
+              color: '#71717A',
+              fontWeight: 700,
+              marginBottom: 10,
+            }}
+          >
+            {isZh ? '设置 · 个人资料' : 'Settings · Profile'}
+          </div>
+          <h1
+            style={{
+              fontFamily: 'var(--f-serif)',
+              fontSize: 28,
+              fontWeight: 600,
+              color: '#171717',
+              margin: '0 0 6px',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {isZh ? '个人资料、组织和首选项' : 'Profile, organization & preferences'}
           </h1>
-          <p style={{ fontSize: 14, color: v3.textMuted, marginTop: 6 }}>{user.email}</p>
-        </div>
-
-        {/* Mobile top-tabs */}
-        {isMobile && (
-          <div style={{
-            display: 'flex', gap: 8, marginBottom: 20,
-            overflowX: 'auto', paddingBottom: 6,
-            scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
-          }}
-          className="sl-hscroll">
-            {sections.map(s => (
-              <button key={s.key} onClick={() => setSection(s.key)}
-                style={{
-                  flexShrink: 0, padding: '8px 14px', borderRadius: 999,
-                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                  border: `1px solid ${section === s.key ? v3.textPrimary : v3.border}`,
-                  background: section === s.key ? v3.textPrimary : v3.surfaceCard,
-                  color: section === s.key ? '#fff' : v3.textSecondary,
-                  transition: 'all .15s',
-                  whiteSpace: 'nowrap',
-                }}>
-                {s.label}
-              </button>
-            ))}
-            <style>{`.sl-hscroll::-webkit-scrollbar { display: none; }`}</style>
-          </div>
-        )}
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : '260px 1fr',
-          gap: isMobile ? 0 : 40,
-          alignItems: 'flex-start',
-        }}>
-          {/* Desktop sidebar */}
-          {!isMobile && (
-            <aside style={{ position: 'sticky', top: 90 }}>
-              <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {sections.map(s => (
-                  <button key={s.key} onClick={() => setSection(s.key)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '11px 14px', borderRadius: 10, cursor: 'pointer',
-                      background: section === s.key ? v3.divider : 'transparent',
-                      border: 'none', textAlign: 'left', width: '100%',
-                      color: section === s.key ? v3.textPrimary : v3.textSecondary,
-                      fontSize: 14, fontWeight: section === s.key ? 650 : 500,
-                      transition: 'background .15s, color .15s',
-                    }}
-                    onMouseEnter={e => { if (section !== s.key) e.currentTarget.style.background = v3.divider }}
-                    onMouseLeave={e => { if (section !== s.key) e.currentTarget.style.background = 'transparent' }}>
-                    <span style={{ color: section === s.key ? v3.brand : v3.textFaint, display: 'flex' }}>{icons[s.key]}</span>
-                    {s.label}
-                  </button>
-                ))}
-              </nav>
-            </aside>
-          )}
-
-          {/* Content */}
-          <div style={{ minWidth: 0 }}>
-            {section === 'personal' && (
-              <PersonalSection profile={profile} userEmail={user.email} saveField={saveField} isMobile={isMobile} />
-            )}
-            {section === 'security' && (
-              <SecuritySection userEmail={user.email} signOut={signOut} isMobile={isMobile} />
-            )}
-            {section === 'notifications' && (
-              <NotificationsSection isMobile={isMobile} />
-            )}
-            {section === 'langplan' && (
-              <LangPlanSection plan={profile.plan} isMobile={isMobile} />
-            )}
-          </div>
         </div>
       </div>
-    </div>
-  )
-}
 
-/* ═══════════════════════════════════════════════════════════════
-   ROW — generic Airbnb-style inline-edit row
-═══════════════════════════════════════════════════════════════ */
-
-interface RowProps {
-  label: string
-  value: React.ReactNode
-  hint?: string
-  editable?: boolean
-  onSave?: (newValue: string) => Promise<string | null>
-  /** For custom editors (e.g. role selector). When provided, clicking Edit renders this instead of default input */
-  renderEditor?: (opts: { close: () => void; setError: (e: string | null) => void }) => React.ReactNode
-  inputType?: 'text' | 'tel'
-  placeholder?: string
-  last?: boolean
-}
-
-function Row({ label, value, hint, editable = true, onSave, renderEditor, inputType = 'text', placeholder, last }: RowProps) {
-  const { t } = useT()
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [justSaved, setJustSaved] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (editing && inputRef.current) inputRef.current.focus()
-  }, [editing])
-
-  function startEdit() {
-    setDraft(typeof value === 'string' ? value : '')
-    setEditing(true)
-    setError(null)
-  }
-
-  async function handleSave() {
-    if (!onSave) return
-    setSaving(true)
-    setError(null)
-    const err = await onSave(draft)
-    setSaving(false)
-    if (err) { setError(err); return }
-    setEditing(false)
-    setJustSaved(true)
-    setTimeout(() => setJustSaved(false), 1800)
-  }
-
-  return (
-    <div style={{
-      padding: '18px 0',
-      borderBottom: last ? 'none' : `1px solid ${v3.border}`,
-    }}>
-      {!editing ? (
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 4 }}>{label}</div>
-            <div style={{ fontSize: 14, color: v3.textSecondary, wordBreak: 'break-word' }}>
-              {value || <span style={{ color: v3.textFaint, fontStyle: 'italic' }}>{t('acct.notSet')}</span>}
-            </div>
-            {justSaved && (
-              <div style={{ fontSize: 12, color: v3.success, marginTop: 6, fontWeight: 600 }}>
-                ✓ {t('acct.saved')}
-              </div>
-            )}
-          </div>
-          {editable && (
-            <button onClick={startEdit}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: v3.textPrimary, fontSize: 14, fontWeight: 600,
-                textDecoration: 'underline', padding: '2px 4px', flexShrink: 0,
-              }}>
-              {t('acct.edit')}
-            </button>
-          )}
-        </div>
-      ) : (
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 10 }}>{label}</div>
-          {renderEditor ? (
-            renderEditor({ close: () => setEditing(false), setError })
-          ) : (
-            <input
-              ref={inputRef}
-              type={inputType}
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              placeholder={placeholder}
-              style={{
-                width: '100%', padding: '12px 14px', borderRadius: 10,
-                border: `1px solid ${v3.borderStrong}`, background: v3.surfaceCard,
-                color: '#0B1736', WebkitTextFillColor: '#0B1736', caretColor: '#0B1736', fontSize: 15, outline: 'none',
-                transition: 'border-color .15s, box-shadow .15s',
-                boxSizing: 'border-box',
-              }}
-              onFocus={e => { e.currentTarget.style.borderColor = v3.brand; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(4,120,87,0.15)' }}
-              onBlur={e => { e.currentTarget.style.borderColor = v3.borderStrong; e.currentTarget.style.boxShadow = 'none' }}
-            />
-          )}
-          {hint && <p style={{ fontSize: 12, color: v3.textMuted, marginTop: 8 }}>{hint}</p>}
-          {error && (
-            <div style={{ marginTop: 10, borderRadius: 8, border: '1px solid rgba(220,38,38,0.2)', background: v3.dangerSoft, color: v3.danger, fontSize: 13, padding: '8px 12px' }}>
-              {error}
-            </div>
-          )}
-          {!renderEditor && (
-            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-              <button onClick={() => setEditing(false)}
-                style={{
-                  padding: '10px 18px', borderRadius: 8, background: 'none',
-                  border: 'none', color: v3.textPrimary, fontSize: 14, fontWeight: 600,
-                  textDecoration: 'underline', cursor: 'pointer',
-                }}>
-                {t('acct.cancel')}
-              </button>
-              <button onClick={handleSave} disabled={saving}
-                style={{
-                  padding: '10px 18px', borderRadius: 10,
-                  background: v3.textPrimary, color: '#fff',
-                  border: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                  opacity: saving ? 0.6 : 1,
-                }}>
-                {saving ? t('acct.saving') : t('acct.save')}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   SECTION CARD wrapper
-═══════════════════════════════════════════════════════════════ */
-
-function SectionCard({ title, subtitle, children, isMobile }: {
-  title: string; subtitle?: string; children: React.ReactNode; isMobile: boolean
-}) {
-  return (
-    <div>
-      <h2 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em', margin: 0 }}>{title}</h2>
-      {subtitle && <p style={{ fontSize: 14, color: v3.textMuted, marginTop: 6, marginBottom: 0 }}>{subtitle}</p>}
-      <div style={{ marginTop: 20 }}>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   PERSONAL INFORMATION
-═══════════════════════════════════════════════════════════════ */
-
-function PersonalSection({ profile, userEmail, saveField, isMobile }: {
-  profile: ProfileData; userEmail: string; saveField: (p: Partial<ProfileData>) => Promise<string | null>; isMobile: boolean
-}) {
-  const { t } = useT()
-  const roleLabels: Record<Role, string> = {
-    landlord: t('register.roleLandlord'),
-    tenant:   t('register.roleTenant'),
-    agent:    t('register.roleAgent'),
-  }
-  const [draftRole, setDraftRole] = useState<Role>(profile.role)
-  const [roleSaving, setRoleSaving] = useState(false)
-
-  return (
-    <SectionCard title={t('acct.personal.title')} isMobile={isMobile}>
-      <Row
-        label={t('acct.personal.legalName')}
-        value={profile.full_name || ''}
-        hint={t('acct.personal.legalNameHint')}
-        placeholder="Jason Han"
-        onSave={(v) => saveField({ full_name: v })}
-      />
-      <Row
-        label={t('acct.personal.email')}
-        value={userEmail}
-        editable={false}
-      />
-      <Row
-        label={t('acct.personal.phone')}
-        value={profile.phone || ''}
-        hint={t('acct.personal.phoneHint')}
-        inputType="tel"
-        placeholder="+1 (416) 555-0123"
-        onSave={(v) => saveField({ phone: v || null })}
-      />
-      <Row
-        label={t('acct.personal.role')}
-        value={roleLabels[profile.role]}
-        hint={t('acct.personal.roleHint')}
-        renderEditor={({ close, setError }) => (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 4 }}>
-              {(['landlord', 'tenant', 'agent'] as Role[]).map(r => (
-                <button key={r} type="button" onClick={() => setDraftRole(r)}
-                  style={{
-                    padding: '12px 8px', borderRadius: 10, cursor: 'pointer',
-                    border: draftRole === r ? `2px solid ${v3.brand}` : `1px solid ${v3.border}`,
-                    background: draftRole === r ? v3.brandSoft : v3.surfaceCard,
-                    color: draftRole === r ? v3.brandStrong : v3.textPrimary,
-                    fontSize: 13, fontWeight: 600,
-                  }}>
-                  {roleLabels[r]}
-                </button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-              <button onClick={close}
-                style={{ padding: '10px 18px', borderRadius: 8, background: 'none', border: 'none', color: v3.textPrimary, fontSize: 14, fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>
-                {t('acct.cancel')}
-              </button>
-              <button
-                onClick={async () => {
-                  setRoleSaving(true)
-                  const err = await saveField({ role: draftRole })
-                  setRoleSaving(false)
-                  if (err) { setError(err); return }
-                  close()
-                }}
-                disabled={roleSaving}
-                style={{ padding: '10px 18px', borderRadius: 10, background: v3.textPrimary, color: '#fff', border: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: roleSaving ? 0.6 : 1 }}>
-                {roleSaving ? t('acct.saving') : t('acct.save')}
-              </button>
-            </div>
-          </>
-        )}
-      />
-      {profile.role === 'agent' && (
-        <Row
-          label={t('acct.personal.company')}
-          value={profile.company_name || ''}
-          placeholder="Acme Realty Inc."
-          onSave={(v) => saveField({ company_name: v || null })}
-          last
-        />
-      )}
-    </SectionCard>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   LOGIN & SECURITY
-═══════════════════════════════════════════════════════════════ */
-
-function SecuritySection({ userEmail, signOut, isMobile }: {
-  userEmail: string; signOut: () => Promise<void>; isMobile: boolean
-}) {
-  const { t } = useT()
-  const [sending, setSending] = useState(false)
-  const [sent, setSent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [signingOutAll, setSigningOutAll] = useState(false)
-
-  async function sendResetLink() {
-    setSending(true)
-    setError(null)
-    const { error: err } = await supabase.auth.resetPasswordForEmail(userEmail, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
-    })
-    setSending(false)
-    if (err) { setError(err.message); return }
-    setSent(true)
-  }
-
-  async function signOutEverywhere() {
-    if (!confirm(t('acct.security.signOutConfirm'))) return
-    setSigningOutAll(true)
-    await supabase.auth.signOut({ scope: 'global' })
-    setSigningOutAll(false)
-    await signOut()
-  }
-
-  return (
-    <SectionCard title={t('acct.security.title')} isMobile={isMobile}>
-      {/* Password row */}
-      <div style={{ padding: '18px 0', borderBottom: `1px solid ${v3.border}` }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 4 }}>{t('acct.security.password')}</div>
-        <div style={{ fontSize: 13, color: v3.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
-          {t('acct.security.passwordDesc')}
-        </div>
-        {sent ? (
-          <div style={{ borderRadius: 10, border: '1px solid rgba(22,163,74,0.25)', background: v3.successSoft, color: v3.success, fontSize: 13, padding: '10px 14px', display: 'flex', gap: 8 }}>
-            <span>✓</span>{t('acct.security.resetSent')}
-          </div>
-        ) : (
-          <button onClick={sendResetLink} disabled={sending}
-            style={{
-              padding: '10px 18px', borderRadius: 10,
-              background: v3.textPrimary, color: '#fff', border: 'none',
-              fontSize: 14, fontWeight: 600, cursor: 'pointer',
-              opacity: sending ? 0.6 : 1,
-            }}>
-            {sending ? t('acct.saving') : t('acct.security.sendReset')}
-          </button>
-        )}
-        {error && (
-          <div style={{ marginTop: 10, borderRadius: 8, border: '1px solid rgba(220,38,38,0.2)', background: v3.dangerSoft, color: v3.danger, fontSize: 13, padding: '8px 12px' }}>
-            {error}
-          </div>
-        )}
-      </div>
-
-      {/* Sign out of all */}
-      <div style={{ padding: '18px 0' }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 4 }}>{t('acct.security.signOutAll')}</div>
-        <div style={{ fontSize: 13, color: v3.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
-          {t('acct.security.signOutAllDesc')}
-        </div>
-        <button onClick={signOutEverywhere} disabled={signingOutAll}
-          style={{
-            padding: '10px 18px', borderRadius: 10,
-            background: v3.surfaceCard, color: v3.danger,
-            border: `1px solid ${v3.danger}`,
-            fontSize: 14, fontWeight: 600, cursor: 'pointer',
-            opacity: signingOutAll ? 0.6 : 1,
-          }}>
-          {signingOutAll ? '…' : t('acct.security.signOutAllBtn')}
-        </button>
-      </div>
-    </SectionCard>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   NOTIFICATIONS (placeholder with toggles)
-═══════════════════════════════════════════════════════════════ */
-
-function NotificationsSection({ isMobile }: { isMobile: boolean }) {
-  const { t } = useT()
-  const [emailOn, setEmailOn] = useState(true)
-  const [marketingOn, setMarketingOn] = useState(false)
-
-  return (
-    <SectionCard title={t('acct.notif.title')} subtitle={t('acct.notif.comingSoon')} isMobile={isMobile}>
-      <ToggleRow
-        label={t('acct.notif.email')}
-        desc={t('acct.notif.emailDesc')}
-        value={emailOn} onChange={setEmailOn} disabled
-      />
-      <ToggleRow
-        label={t('acct.notif.marketing')}
-        desc={t('acct.notif.marketingDesc')}
-        value={marketingOn} onChange={setMarketingOn} disabled
-        last
-      />
-    </SectionCard>
-  )
-}
-
-function ToggleRow({ label, desc, value, onChange, disabled, last }: {
-  label: string; desc: string; value: boolean; onChange: (v: boolean) => void; disabled?: boolean; last?: boolean
-}) {
-  return (
-    <div style={{
-      padding: '18px 0',
-      borderBottom: last ? 'none' : `1px solid ${v3.border}`,
-      display: 'flex', alignItems: 'center', gap: 16,
-    }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 4 }}>{label}</div>
-        <div style={{ fontSize: 13, color: v3.textMuted, lineHeight: 1.6 }}>{desc}</div>
-      </div>
-      <button onClick={() => !disabled && onChange(!value)} disabled={disabled}
+      {/* Tabs */}
+      <div
         style={{
-          width: 44, height: 26, borderRadius: 13,
-          background: value ? v3.brand : v3.borderStrong,
-          border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
-          position: 'relative', transition: 'background .15s',
-          opacity: disabled ? 0.5 : 1, flexShrink: 0,
-        }}>
-        <span style={{
-          position: 'absolute', top: 3,
-          left: value ? 21 : 3,
-          width: 20, height: 20, borderRadius: '50%',
-          background: '#fff', transition: 'left .15s',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
-        }} />
-      </button>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   LANGUAGES & PLAN
-═══════════════════════════════════════════════════════════════ */
-
-function LangPlanSection({ plan, isMobile }: { plan: Plan; isMobile: boolean }) {
-  const { t } = useT()
-  const isPaid = plan === 'pro' || plan === 'enterprise'
-
-  return (
-    <SectionCard title={t('acct.langplan.title')} isMobile={isMobile}>
-      {/* Language */}
-      <div style={{ padding: '18px 0', borderBottom: `1px solid ${v3.border}`, display: 'flex', alignItems: 'center', gap: 16 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 4 }}>{t('acct.langplan.language')}</div>
-          <div style={{ fontSize: 13, color: v3.textMuted }}>English · 中文</div>
-        </div>
-        <LanguageToggle />
+          background: '#fff',
+          borderBottom: `1px solid #D8D2C2`,
+          padding: '0 28px',
+          display: 'flex',
+          gap: 0,
+        }}
+      >
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setSection(tab.id as SectionKey)}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: '14px 16px',
+              fontSize: 13,
+              fontWeight: section === tab.id ? 600 : 500,
+              color: section === tab.id ? '#171717' : '#71717A',
+              borderBottom: section === tab.id ? `2px solid #047857` : `2px solid transparent`,
+              cursor: 'pointer',
+              marginBottom: -1,
+              transition: 'all 0.15s',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Plan */}
-      <div style={{ padding: '18px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: v3.textPrimary, marginBottom: 4 }}>{t('acct.langplan.plan')}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <span style={{
-                fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-                padding: '4px 10px', borderRadius: 6,
-                background: isPaid ? v3.brandSoft : v3.divider,
-                color: isPaid ? v3.brand : v3.textSecondary,
-                fontFamily: 'JetBrains Mono, monospace',
-              }}>{plan}</span>
+      {/* Content */}
+      <div style={{ flex: 1, padding: '28px 28px', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
+        {section === 'profile' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }}>
+            {/* Main card */}
+            <div style={{ background: '#fff', border: `1px solid #D8D2C2`, borderRadius: 8, padding: 24 }}>
+              <div
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 10.5,
+                  letterSpacing: '0.10em',
+                  textTransform: 'uppercase',
+                  color: '#71717A',
+                  fontWeight: 700,
+                  marginBottom: 14,
+                }}
+              >
+                {isZh ? '账户' : 'Account'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    background: '#047857',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 600,
+                    fontSize: 24,
+                  }}
+                >
+                  {(profile.full_name || user.email || '?')
+                    .split(' ')
+                    .map((s) => s[0])
+                    .join('')
+                    .toUpperCase()}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 15, color: '#171717' }}>
+                    {profile.full_name || 'User'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#71717A' }}>
+                    {profile.role === 'landlord'
+                      ? isZh ? '房东' : 'Landlord'
+                      : profile.role === 'tenant'
+                        ? isZh ? '租客' : 'Tenant'
+                        : isZh ? '代理' : 'Agent'}
+                  </div>
+                  <button
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#047857',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      marginTop: 4,
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    {isZh ? '更改照片 →' : 'Change photo →'}
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                {[
+                  [isZh ? '全名' : 'Full name', profile.full_name || ''],
+                  [isZh ? '邮箱' : 'Email', user.email],
+                  [isZh ? '电话' : 'Phone', profile.phone || ''],
+                  [isZh ? '语言' : 'Language', 'English · 中文'],
+                  [isZh ? '时区' : 'Timezone', 'America/Toronto · UTC-5'],
+                  [isZh ? '默认物业' : 'Default property', '128 Bathurst St'],
+                ].map((f, i) => (
+                  <div key={i}>
+                    <label
+                      style={{
+                        fontSize: 11,
+                        color: '#71717A',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        fontWeight: 700,
+                        display: 'block',
+                        marginBottom: 5,
+                      }}
+                    >
+                      {f[0]}
+                    </label>
+                    <input
+                      type="text"
+                      defaultValue={f[1]}
+                      style={{
+                        width: '100%',
+                        background: '#FFFFFF',
+                        border: `1px solid #D8D2C2`,
+                        borderRadius: 6,
+                        color: '#0B1736',
+                        fontFamily: 'var(--f-sans)',
+                        fontSize: 14,
+                        padding: '11px 14px',
+                        height: 44,
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+                <button
+                  style={{
+                    background: '#FFFFFF',
+                    color: '#171717',
+                    border: '1px solid #C5BDAA',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    padding: '10px 18px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isZh ? '取消' : 'Cancel'}
+                </button>
+                <button
+                  style={{
+                    background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    padding: '10px 18px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isZh ? '保存更改' : 'Save changes'}
+                </button>
+              </div>
             </div>
-            <div style={{ fontSize: 13, color: v3.textMuted, lineHeight: 1.6 }}>
-              {isPaid ? t('acct.langplan.planProDesc') : t('acct.langplan.planFreeDesc')}
+
+            {/* Sidebar cards */}
+            <div style={{ display: 'grid', gap: 14 }}>
+              <div style={{ background: '#fff', border: `1px solid #D8D2C2`, borderRadius: 8, padding: 18 }}>
+                <div
+                  style={{
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: 10.5,
+                    letterSpacing: '0.10em',
+                    textTransform: 'uppercase',
+                    color: '#71717A',
+                    fontWeight: 700,
+                    marginBottom: 10,
+                  }}
+                >
+                  {isZh ? '合规性与数据' : 'Compliance & data'}
+                </div>
+                <div style={{ display: 'grid', gap: 10, fontSize: 12, color: '#3F3F46' }}>
+                  {[
+                    [isZh ? '身份验证' : 'Identity verification', isZh ? '已验证 · Persona' : 'Verified · Persona', '#16A34A'],
+                    [isZh ? 'SOC 2 Type II' : 'SOC 2 Type II', isZh ? '已审计 · 2025-Q4' : 'Audited · 2025-Q4', '#16A34A'],
+                    [isZh ? '数据驻留' : 'Data residency', isZh ? '加拿大 · ca-central-1' : 'Canada · ca-central-1', '#16A34A'],
+                    [isZh ? 'PIPEDA / RTA' : 'PIPEDA / RTA', isZh ? '地区 · 安大略省' : 'Region · Ontario', '#16A34A'],
+                  ].map((r, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        padding: '8px 0',
+                        borderBottom: i < 3 ? `1px dashed #D8D2C2` : 'none',
+                      }}
+                    >
+                      <span>{r[0]}</span>
+                      <span style={{ color: r[2] as string, fontWeight: 600 }}>● {r[1]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ background: '#EAE5D9', border: `1px solid #D8D2C2`, borderRadius: 8, padding: 18 }}>
+                <div
+                  style={{
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: 10.5,
+                    letterSpacing: '0.10em',
+                    textTransform: 'uppercase',
+                    color: '#71717A',
+                    fontWeight: 700,
+                    marginBottom: 8,
+                  }}
+                >
+                  {isZh ? '危险区域' : 'Danger zone'}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: '#3F3F46',
+                    marginBottom: 10,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {isZh
+                    ? '导出所有数据 · 关闭组织 · 删除账户。审计日志将保留法定最低期限。'
+                    : 'Export all data · Close organization · Delete account. Audit logs retained for legal minimum.'}
+                </div>
+                <button
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#DC2626',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  {isZh ? '请求导出 →' : 'Request export →'}
+                </button>
+              </div>
             </div>
           </div>
-          <Link href={isPaid ? '/dashboard?billing=1' : '/dashboard?upgrade=1'}
-            style={{
-              padding: '10px 16px', borderRadius: 10,
-              background: isPaid ? v3.surfaceCard : `linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)`,
-              color: isPaid ? v3.textPrimary : '#fff',
-              border: isPaid ? `1px solid ${v3.borderStrong}` : 'none',
-              fontSize: 13, fontWeight: 600, textDecoration: 'none',
-              flexShrink: 0, whiteSpace: 'nowrap',
-            }}>
-            {isPaid ? t('acct.langplan.manage') : t('acct.langplan.upgrade')}
-          </Link>
-        </div>
+        )}
+
+        {section === 'org' && (
+          <div style={{ background: '#fff', border: `1px solid #D8D2C2`, borderRadius: 8, padding: 24 }}>
+            <div
+              style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 10.5,
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: '#71717A',
+                fontWeight: 700,
+                marginBottom: 14,
+              }}
+            >
+              {isZh ? '组织' : 'Organization'}
+            </div>
+            <p style={{ color: '#3F3F46', fontSize: 14, lineHeight: 1.6 }}>
+              {isZh ? '组织管理功能即将推出。' : 'Organization management coming soon.'}
+            </p>
+          </div>
+        )}
+
+        {section === 'security' && (
+          <div style={{ background: '#fff', border: `1px solid #D8D2C2`, borderRadius: 8, padding: 24 }}>
+            <div
+              style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 10.5,
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: '#71717A',
+                fontWeight: 700,
+                marginBottom: 14,
+              }}
+            >
+              {isZh ? '安全' : 'Security'}
+            </div>
+            <button
+              onClick={() => signOut()}
+              style={{
+                background: '#FFFFFF',
+                color: '#171717',
+                border: '1px solid #C5BDAA',
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: 600,
+                padding: '10px 18px',
+                cursor: 'pointer',
+              }}
+            >
+              {isZh ? '登出' : 'Sign out'}
+            </button>
+          </div>
+        )}
+
+        {section === 'integrations' && (
+          <div style={{ background: '#fff', border: `1px solid #D8D2C2`, borderRadius: 8, padding: 24 }}>
+            <div
+              style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 10.5,
+                letterSpacing: '0.10em',
+                textTransform: 'uppercase',
+                color: '#71717A',
+                fontWeight: 700,
+                marginBottom: 14,
+              }}
+            >
+              {isZh ? '集成' : 'Integrations'}
+            </div>
+            <p style={{ color: '#3F3F46', fontSize: 14, lineHeight: 1.6 }}>
+              {isZh ? '集成管理功能即将推出。' : 'Integration management coming soon.'}
+            </p>
+          </div>
+        )}
       </div>
-    </SectionCard>
+    </div>
   )
 }
