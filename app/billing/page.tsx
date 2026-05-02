@@ -8,13 +8,6 @@ import { useT } from '@/lib/i18n'
 import { v3, size } from '@/lib/brand'
 import AppHeader from '@/components/AppHeader'
 
-interface InvoiceRow {
-  month: string
-  amount: number
-  status: 'paid' | 'pending'
-  date: string
-}
-
 export default function BillingPage() {
   const { lang } = useT()
   const isZh = lang === 'zh'
@@ -78,12 +71,6 @@ export default function BillingPage() {
       setPortalLoading(false)
     }
   }
-
-  const mockInvoices: InvoiceRow[] = [
-    { month: 'April 2026', amount: 29, status: 'paid', date: '2026-04-01' },
-    { month: 'March 2026', amount: 29, status: 'paid', date: '2026-03-01' },
-    { month: 'February 2026', amount: 29, status: 'paid', date: '2026-02-01' },
-  ]
 
   if (authLoading || loading) {
     return (
@@ -310,63 +297,23 @@ export default function BillingPage() {
             {isZh ? '发票历史' : 'Invoice history'}
           </h2>
 
-          <div style={{ overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
-              <thead>
-                <tr style={{ borderBottom: `1px solid ${v3.border}` }}>
-                  <th style={{ textAlign: 'left', padding: '12px', fontSize: 12, fontWeight: 700, color: v3.textMuted }}>
-                    {isZh ? '日期' : 'Date'}
-                  </th>
-                  <th style={{ textAlign: 'left', padding: '12px', fontSize: 12, fontWeight: 700, color: v3.textMuted }}>
-                    {isZh ? '金额' : 'Amount'}
-                  </th>
-                  <th style={{ textAlign: 'left', padding: '12px', fontSize: 12, fontWeight: 700, color: v3.textMuted }}>
-                    {isZh ? '状态' : 'Status'}
-                  </th>
-                  <th style={{ textAlign: 'left', padding: '12px', fontSize: 12, fontWeight: 700, color: v3.textMuted }} />
-                </tr>
-              </thead>
-              <tbody>
-                {mockInvoices.map((inv, i) => (
-                  <tr key={i} style={{ borderBottom: `1px solid ${v3.divider}` }}>
-                    <td style={{ padding: '12px', fontSize: 13, color: v3.textPrimary }}>
-                      {inv.month}
-                    </td>
-                    <td style={{ padding: '12px', fontSize: 13, color: v3.textPrimary }}>
-                      ${inv.amount}
-                    </td>
-                    <td style={{ padding: '12px' }}>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          color: inv.status === 'paid' ? v3.success : v3.warning,
-                          background: inv.status === 'paid' ? v3.successSoft : v3.warningSoft,
-                          padding: '4px 8px',
-                          borderRadius: 4,
-                        }}
-                      >
-                        {inv.status === 'paid' ? (isZh ? '已支付' : 'Paid') : (isZh ? '待支付' : 'Pending')}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px', textAlign: 'right' }}>
-                      <button
-                        style={{
-                          color: v3.brand,
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: 12,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {isZh ? '下载' : 'Download'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div
+            style={{
+              background: v3.surfaceCard,
+              border: `1px dashed ${v3.border}`,
+              borderRadius: 14,
+              padding: 48,
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 600, color: v3.textPrimary, marginBottom: 8 }}>
+              {isZh ? '暂无发票' : 'No invoices yet'}
+            </div>
+            <p style={{ fontSize: 14, color: v3.textMuted, margin: 0 }}>
+              {isZh
+                ? '升级到订阅版后，你的发票将显示在这里。'
+                : 'Your invoices will appear here once you upgrade to a subscription plan.'}
+            </p>
           </div>
         </div>
 

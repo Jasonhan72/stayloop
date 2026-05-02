@@ -27,6 +27,39 @@ export default function AgentLeasesPage() {
   const [leases, setLeases] = useState<LeaseCard[]>([])
   const [loading, setLoading] = useState(true)
 
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: '100vh', background: v3.surface, display: 'grid', placeItems: 'center' }}>
+        <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
+      </div>
+    )
+  }
+
+  if (user && user.role !== 'agent') {
+    const roleDisplay = user.role === 'tenant' ? (isZh ? '租客' : 'Tenant') : (isZh ? '房东' : 'Landlord')
+    return (
+      <main style={{ background: v3.surfaceMuted, minHeight: '100vh' }}>
+        <AppHeader title="Stayloop" titleZh="Stayloop" />
+        <div style={{ maxWidth: 480, margin: '64px auto', textAlign: 'center', background: v3.surface, border: `1px dashed ${v3.borderStrong}`, borderRadius: 16, padding: 40 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em', margin: '0 0 8px' }}>
+            {isZh ? '此页面仅供经纪使用' : 'Agent access only'}
+          </h1>
+          <p style={{ color: v3.textMuted, fontSize: 14, marginBottom: 20, lineHeight: 1.5 }}>
+            {isZh
+              ? `你的账户身份是${roleDisplay}，看不到这个页面。如果身份错了，去账户设置里改。`
+              : `Your account is ${roleDisplay}. If that's wrong, update it in Account settings.`}
+          </p>
+          <button
+            onClick={() => window.location.href = '/'}
+            style={{ display: 'inline-flex', padding: '10px 20px', background: v3.brand, color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 600, textDecoration: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            {isZh ? '返回首页' : 'Go home'} →
+          </button>
+        </div>
+      </main>
+    )
+  }
+
   useEffect(() => {
     if (!user) return
     loadLeases()
@@ -57,7 +90,7 @@ export default function AgentLeasesPage() {
     signed: leases.filter((l) => ['signed', 'active'].includes(l.status)),
   }
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <div style={{ minHeight: '100vh', background: v3.surface, display: 'grid', placeItems: 'center' }}>
         <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
