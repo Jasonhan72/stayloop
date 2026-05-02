@@ -90,116 +90,121 @@ export default function AgentClientsPage() {
 
   return (
     <PageShell role="agent">
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-          <input
-            type="text"
-            placeholder={isZh ? '搜索客户…' : 'Search clients…'}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              width: 240,
-              padding: '8px 12px',
-              border: `1px solid ${v3.border}`,
-              borderRadius: 8,
-              fontSize: 13,
-              color: v3.textPrimary,
-            }}
-          />
-          <button style={{ padding: '8px 16px', background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            + {isZh ? '添加客户' : 'Add client'}
-          </button>
+      {/* Eyebrow + Title + Buttons */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 10 }}>
+          {isZh ? '客户 · 12' : 'Clients · 12'}
         </div>
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${v3.border}`, marginBottom: 24 }}>
-          {[
-            { id: 'all', label: isZh ? '全部' : 'All', count: 12 },
-            { id: 'tenant', label: isZh ? '租客客户' : 'Tenant clients', count: 9 },
-            { id: 'landlord', label: isZh ? '房东客户' : 'Landlord clients', count: 3 },
-            { id: 'archived', label: isZh ? '已归档' : 'Archived', count: 4 },
-          ].map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setFilter(t.id as any)}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '10px 16px',
-                fontSize: 13,
-                fontWeight: filter === t.id ? 600 : 500,
-                color: filter === t.id ? v3.textPrimary : v3.textMuted,
-                borderBottom: filter === t.id ? `2px solid ${v3.brand}` : '2px solid transparent',
-                cursor: 'pointer',
-                marginBottom: -1,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              {t.label}
-              {t.count != null && (
-                <span style={{ padding: '2px 8px', borderRadius: 3, background: v3.divider, color: v3.textMuted, fontSize: 11, fontWeight: 600 }}>
-                  {t.count}
-                </span>
-              )}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+          <h2 style={{ margin: 0, fontFamily: 'var(--f-serif)', fontSize: 24, fontWeight: 600, color: v3.textPrimary, letterSpacing: '-0.02em' }}>
+            {isZh ? '客户文件夹' : 'Client folders'}
+          </h2>
+          <div style={{ flex: 1 }} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              placeholder={isZh ? '搜索客户…' : 'Search clients…'}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: 240, padding: '11px 14px', border: `1px solid ${v3.border}`, borderRadius: 10, fontSize: 13, color: v3.textPrimary, fontFamily: 'var(--f-sans)', background: '#fff', outline: 'none' }}
+            />
+            <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)', color: '#fff', border: 'none', borderRadius: 10, padding: '11px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset', letterSpacing: '-0.01em' }}>
+              + {isZh ? '添加客户' : 'Add client'}
             </button>
-          ))}
+          </div>
         </div>
+        <hr style={{ height: 1, background: 'linear-gradient(90deg, var(--pri), var(--gold-line, rgba(16,185,129,0.32)) 60%, transparent)', border: 0, marginTop: 14 }} />
+      </div>
 
-        {/* Cards grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-          {filtered.map((c, i) => (
-            <div key={i} style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 18 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                <div style={{ width: 42, height: 42, borderRadius: '50%', background: v3.brand, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 13 }}>
-                  {c.n.split(' ').map(w => w[0]).join('').toUpperCase()}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 2 }}>
-                    <span style={{ fontWeight: 600, color: v3.textPrimary, fontSize: 13 }}>{c.n}</span>
-                    <span style={{ padding: '2px 8px', borderRadius: 3, background: getToneBackground(c.role === 'Tenant' ? 'info' : 'pri'), color: getToneColor(c.role === 'Tenant' ? 'info' : 'pri'), fontSize: 10, fontWeight: 600 }}>
-                      {c.role}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 11, color: v3.textMuted }}>{c.rent} · {c.loc}</div>
-                </div>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${v3.border}`, marginBottom: 20 }}>
+        {[
+          { id: 'all', label: isZh ? '全部' : 'All', count: 12 },
+          { id: 'tenant', label: isZh ? '租客客户' : 'Tenant clients', count: 9, tone: 'ai' },
+          { id: 'landlord', label: isZh ? '房东客户' : 'Landlord clients', count: 3, tone: 'pri' },
+          { id: 'archived', label: isZh ? '已归档' : 'Archived', count: 4 },
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setFilter(t.id as any)}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: '10px 16px',
+              fontSize: 13,
+              fontWeight: filter === t.id ? 600 : 500,
+              color: filter === t.id ? v3.textPrimary : v3.textMuted,
+              borderBottom: filter === t.id ? `2px solid ${v3.brand}` : '2px solid transparent',
+              cursor: 'pointer',
+              marginBottom: -1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            {t.label}
+            {t.count != null && (
+              <span style={{ padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 999, border: `1px solid ${t.tone === 'ai' ? '#D7C5FA' : t.tone === 'pri' ? 'rgba(4,120,87,0.32)' : '#D8D2C2'}`, color: t.tone === 'ai' ? v3.trust : t.tone === 'pri' ? v3.brand : v3.textSecondary, background: t.tone === 'ai' ? '#F3E8FF' : t.tone === 'pri' ? 'rgba(4,120,87,0.10)' : v3.divider }}>
+                {t.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Cards grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        {filtered.map((c, i) => (
+          <div key={i} style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 42, height: 42, borderRadius: '50%', background: v3.brand, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 13 }}>
+                {c.n.split(' ').map(w => w[0]).join('').toUpperCase()}
               </div>
-              <div style={{ display: 'grid', gap: 8, marginTop: 14, fontSize: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: v3.textMuted }}>Status</span>
-                  <span style={{ padding: '2px 8px', borderRadius: 3, background: getToneBackground(c.tone), color: getToneColor(c.tone), fontWeight: 600, fontSize: 11 }}>
-                    {c.status}
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ fontWeight: 600, color: v3.textPrimary, fontSize: 14 }}>{c.n}</span>
+                  <span style={{ padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 999, border: `1px solid ${c.role === 'Tenant' ? '#BFDBFE' : 'rgba(4,120,87,0.32)'}`, color: c.role === 'Tenant' ? v3.info : v3.brand, background: c.role === 'Tenant' ? '#DBEAFE' : 'rgba(4,120,87,0.10)' }}>
+                    {c.role}
                   </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: v3.textMuted }}>Documents</span>
-                  <span style={{ fontFamily: 'monospace', color: v3.textPrimary, fontWeight: 600 }}>{c.docs}</span>
-                </div>
-                {c.readiness > 0 && (
-                  <div style={{ marginTop: 4 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>
-                      <span style={{ color: v3.textMuted }}>Readiness</span>
-                      <span style={{ color: getToneColor(c.readiness >= 90 ? 'ok' : c.readiness >= 80 ? 'gold' : 'warn'), fontWeight: 600 }}>
-                        {c.readiness}%
-                      </span>
-                    </div>
-                    <div style={{ height: 6, background: v3.divider, borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${c.readiness}%`, height: '100%', background: getToneColor(c.readiness >= 90 ? 'ok' : c.readiness >= 80 ? 'gold' : 'warn') }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                <button style={{ flex: 1, padding: '8px 12px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                  {isZh ? '打开文件夹' : 'Open folder'}
-                </button>
-                <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
-                  {isZh ? '构建包' : 'Build package'} →
-                </button>
+                <div style={{ fontSize: 11, color: v3.textMuted, marginTop: 2 }}>{c.rent} · {c.loc}</div>
               </div>
             </div>
-          ))}
-        </div>
+            <div style={{ display: 'grid', gap: 8, marginTop: 14, fontSize: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: v3.textMuted }}>Status</span>
+                <span style={{ padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 999, border: `1px solid ${getToneBackground(c.tone).replace(/rgba\(([^)]+)\)/, 'transparent').match(/^\w+/) ? 'transparent' : 'rgb(209,209,210)'}`, color: getToneColor(c.tone), background: getToneBackground(c.tone) }}>
+                  {c.status}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: v3.textMuted }}>Documents</span>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', color: v3.textPrimary, fontWeight: 600 }}>{c.docs}</span>
+              </div>
+              {c.readiness > 0 && (
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: v3.textSecondary, marginBottom: 5 }}>
+                    <span>Readiness</span>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', color: getToneColor(c.readiness >= 90 ? 'ok' : c.readiness >= 80 ? 'gold' : 'warn'), fontWeight: 600 }}>
+                      {c.readiness}%
+                    </span>
+                  </div>
+                  <div style={{ height: 6, background: v3.divider, borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ width: `${c.readiness}%`, height: '100%', background: getToneColor(c.readiness >= 90 ? 'ok' : c.readiness >= 80 ? 'gold' : 'warn'), borderRadius: 3 }} />
+                  </div>
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              <button style={{ flex: 1, padding: '10px 18px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                {isZh ? '打开文件夹' : 'Open folder'}
+              </button>
+              <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                {isZh ? '构建包' : 'Build package'} →
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </PageShell>
   )

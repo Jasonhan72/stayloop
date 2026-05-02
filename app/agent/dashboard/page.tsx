@@ -70,114 +70,112 @@ export default function AgentDashboardPage() {
 
   return (
     <PageShell role="agent">
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-            {isZh ? '经纪工作区' : 'Agent Workspace'} · Soo Kim · RE/MAX Hallmark
-          </div>
-          <h1 style={{ fontSize: 28, fontWeight: 600, margin: '0 0 12px', color: v3.textPrimary, letterSpacing: '-0.02em' }}>
-            {stats.openPackages} packages in flight · {stats.activeClients} active clients
-          </h1>
-          <p style={{ color: v3.textMuted, fontSize: 13, margin: 0 }}>
-            {isZh ? '2个包被房东查看了。1个客户等待你的跟进。' : '2 packages were viewed by landlords this morning. 1 client awaits your follow-up.'}
-          </p>
-        </div>
+      {/* Eyebrow */}
+      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 6 }}>
+        {isZh ? '经纪工作区 · Soo Kim · RE/MAX Hallmark' : 'Agent Workspace · Soo Kim · RE/MAX Hallmark'}
+      </div>
 
-        {/* KPI cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 32 }}>
-          {[
-            { label: isZh ? '活跃客户' : 'Active clients', value: stats.activeClients.toString(), sub: isZh ? '本周新增3个' : '3 added this week' },
-            { label: isZh ? '开放包' : 'Open packages', value: stats.openPackages.toString(), sub: isZh ? '今日查看2个' : '2 viewed today' },
-            { label: isZh ? '批准率' : 'Approval rate', value: stats.approvalRate + '%', sub: isZh ? '最近30天' : 'Last 30 days' },
-            { label: isZh ? '管道价值' : 'Pipeline value', value: '$36k', sub: isZh ? '已成交租约 / 月' : 'Closed leases / mo' },
-          ].map((kpi, i) => (
-            <div key={i} style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 10, padding: 18 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
-                {kpi.label}
+      {/* Title + subtitle */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 6 }}>
+        <h1 style={{ margin: 0, fontFamily: 'var(--f-serif)', fontSize: 30, fontWeight: 600, color: v3.textPrimary, letterSpacing: '-0.02em' }}>
+          {stats.openPackages} packages in flight · {stats.activeClients} active clients
+        </h1>
+      </div>
+      <p style={{ color: v3.textSecondary, fontSize: 14, margin: '6px 0 24px', lineHeight: 1.5 }}>
+        {isZh ? '2个包被房东查看了。1个客户等待你的跟进。' : '2 packages were viewed by landlords this morning. 1 client awaits your follow-up.'}
+      </p>
+
+      {/* KPI cards 1.5fr 1fr grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 18 }}>
+        {[
+          { label: isZh ? '活跃客户' : 'Active clients', value: '12', sub: isZh ? '本周新增3个' : '3 added this week', tone: 'gold' },
+          { label: isZh ? '开放包' : 'Open packages', value: '4', sub: isZh ? '今日查看2个' : '2 viewed today', tone: 'ai' },
+          { label: isZh ? '批准率' : 'Approval rate', value: '71%', sub: isZh ? '最近30天' : 'Last 30 days', tone: 'ok' },
+          { label: isZh ? '管道价值' : 'Pipeline value', value: '$36k', sub: isZh ? '已成交租约 / 月' : 'Closed leases / mo', tone: 'pri' },
+        ].map((kpi, i) => (
+          <div key={i} style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: '18px 20px', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 6 }}>
+              {kpi.label}
+            </div>
+            <div style={{ fontSize: 30, fontWeight: 500, color: kpi.tone === 'pri' ? v3.textPrimary : kpi.tone === 'gold' ? v3.brandBright : kpi.tone === 'ok' ? v3.success : v3.trust, marginTop: 6, lineHeight: 1.1, letterSpacing: '-0.02em' }}>
+              {kpi.value}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+              <span style={{ fontSize: 11, color: v3.textMuted }}>{kpi.sub}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Package pipeline + actions */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18 }}>
+        <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 0, overflow: 'hidden', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
+          <div style={{ padding: '14px 22px', borderBottom: `1px solid ${v3.border}`, display: 'flex', alignItems: 'baseline' }}>
+            <h3 style={{ margin: 0, fontFamily: 'var(--f-serif)', fontSize: 17, fontWeight: 600 }}>
+              {isZh ? '包管道' : 'Package pipeline'}
+            </h3>
+            <span style={{ fontSize: 12, color: v3.textMuted, marginLeft: 10 }}>
+              {stats.openPackages} {isZh ? '进行中' : 'in flight'}
+            </span>
+            <div style={{ flex: 1 }} />
+            <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+              + {isZh ? '新包' : 'New package'}
+            </button>
+          </div>
+          {packageData.map((p, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: 'auto 1.4fr 1.2fr 110px 130px 90px', gap: 14, padding: '14px 22px', borderTop: `1px solid ${v3.border}`, alignItems: 'center', fontSize: 13 }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: v3.brand, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 11 }}>
+                {p.c.split(' ').map(w => w[0]).join('').toUpperCase()}
               </div>
-              <div style={{ fontSize: 24, fontWeight: 600, color: v3.brand, letterSpacing: '-0.02em', marginBottom: 6 }}>
-                {kpi.value}
+              <div>
+                <div style={{ fontWeight: 600, color: v3.textPrimary }}>{p.c}</div>
+                <div style={{ fontSize: 11, color: v3.textMuted }}>{p.listing}</div>
               </div>
-              <div style={{ fontSize: 11, color: v3.textMuted }}>
-                {kpi.sub}
+              <div style={{ width: 130 }}>
+                <div style={{ height: 6, background: v3.divider, borderRadius: 3, overflow: 'hidden', marginBottom: 3 }}>
+                  <div style={{ width: `${p.readiness}%`, height: '100%', background: getToneColor(p.tone) }} />
+                </div>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: v3.textMuted }}>{p.readiness}% ready</div>
               </div>
+              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 999, border: `1px solid ${getToneBackground(p.tone).replace(/[0-9.]/g, '').match(/\(([^)]+)\)/)?.[1] || 'transparent'}`, color: getToneColor(p.tone), background: getToneBackground(p.tone) }}>
+                {p.stage}
+              </span>
+              <span style={{ fontSize: 11, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace' }}>{p.when}</span>
+              <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, justifySelf: 'end' }}>
+                Open →
+              </button>
             </div>
           ))}
         </div>
 
-        {/* Package pipeline + actions */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 24 }}>
-          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 22px', borderBottom: `1px solid ${v3.border}`, display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: v3.textPrimary }}>
-                {isZh ? '包管道' : 'Package pipeline'}
-              </h2>
-              <span style={{ fontSize: 12, color: v3.textMuted }}>
-                {stats.openPackages} {isZh ? '进行中' : 'in flight'}
+        <div style={{ display: 'grid', gap: 14 }}>
+          <div style={{ background: 'linear-gradient(180deg, #F3EEFF 0%, #fff 100%)', border: '1px solid #D7C5FA', borderRadius: 14, padding: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ width: 22, height: 22, borderRadius: 6, background: v3.trust, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 11 }}>✦</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: v3.textPrimary }}>
+                {isZh ? "今日行动" : "Today's actions"}
               </span>
-              <div style={{ flex: 1 }} />
-              <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
-                + {isZh ? '新包' : 'New package'}
-              </button>
             </div>
-            {packageData.map((p, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: 'auto 1.4fr 1.2fr 110px 130px 90px', gap: 14, padding: '14px 22px', borderTop: `1px solid ${v3.border}`, alignItems: 'center', fontSize: 13 }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: v3.brand, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 11 }}>
-                  {p.c.split(' ').map(w => w[0]).join('').toUpperCase()}
+            <div style={{ display: 'grid', gap: 8 }}>
+              {[
+                { title: isZh ? '重新发送同意书给R. Patel' : 'Resend consent to R. Patel', body: isZh ? '背景检查同意在24小时内过期。' : 'Background check consent expires in 24h.', cta: 'Resend' },
+                { title: isZh ? '跟进52 Wellesley包' : 'Follow up on 52 Wellesley package', body: isZh ? '昨天查看了两次但没有决定。' : 'Viewed twice yesterday but no decision.', cta: 'Message' },
+                { title: isZh ? '为Jamie Liu添加第二个推荐人' : 'Add 2nd reference to Jamie Liu', body: isZh ? '列表要求2个推荐人——只附加了1个。' : 'Listing requires 2 references — only 1 attached.', cta: 'Request' },
+                { title: isZh ? '品牌·更新徽标PNG' : 'Branding · update logo PNG', body: isZh ? '旧徽标在报表封面上。为新包重新上传。' : 'Old logo on report cover. Re-upload for new packages.', cta: 'Open settings' },
+              ].map((it, i) => (
+                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: v3.textPrimary, lineHeight: 1.5 }}>
+                  <span style={{ color: v3.trust, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, marginTop: 2 }}>›</span>
+                  <span style={{ flex: 1 }}>
+                    {it.title && <div style={{ fontWeight: 600 }}>{it.title}</div>}
+                    <div style={{ color: v3.textSecondary, fontSize: 13 }}>{it.body}</div>
+                  </span>
+                  {it.cta && <button style={{ background: 'none', border: 'none', color: v3.trust, padding: 0, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>{it.cta}</button>}
                 </div>
-                <div>
-                  <div style={{ fontWeight: 600, color: v3.textPrimary }}>{p.c}</div>
-                  <div style={{ fontSize: 11, color: v3.textMuted }}>{p.listing}</div>
-                </div>
-                <div style={{ width: 130 }}>
-                  <div style={{ height: 6, background: v3.divider, borderRadius: 3, overflow: 'hidden', marginBottom: 3 }}>
-                    <div style={{ width: `${p.readiness}%`, height: '100%', background: getToneColor(p.tone) }} />
-                  </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: v3.textMuted }}>{p.readiness}% ready</div>
-                </div>
-                <div style={{ padding: '3px 9px', borderRadius: 4, background: getToneBackground(p.tone), color: getToneColor(p.tone), fontSize: 11, fontWeight: 600 }}>
-                  {p.stage}
-                </div>
-                <span style={{ fontSize: 11, color: v3.textMuted, fontFamily: 'monospace' }}>{p.when}</span>
-                <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, justifySelf: 'end' }}>
-                  Open →
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ background: 'linear-gradient(180deg, var(--ai-soft, #F3EEFF) 0%, #fff 100%)', border: `1px solid var(--ai-line, #D7C5FA)`, borderRadius: 14, padding: 18 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <span style={{ width: 22, height: 22, borderRadius: 6, background: v3.trust, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', fontWeight: 700, fontSize: 11 }}>✦</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: v3.textPrimary }}>
-                  {isZh ? '今日行动' : "Today's actions"}
-                </span>
-              </div>
-              <div style={{ display: 'grid', gap: 10 }}>
-                {[
-                  { title: isZh ? '重新发送同意书给R. Patel' : 'Resend consent to R. Patel', body: isZh ? '背景检查同意在24小时内过期。' : 'Background check consent expires in 24h.', cta: 'Resend' },
-                  { title: isZh ? '跟进52 Wellesley包' : 'Follow up on 52 Wellesley package', body: isZh ? '昨天查看了两次但没有决定。' : 'Viewed twice yesterday but no decision.', cta: 'Message' },
-                  { title: isZh ? '为Jamie Liu添加第二个推荐人' : 'Add 2nd reference to Jamie Liu', body: isZh ? '列表要求2个推荐人——只附加了1个。' : 'Listing requires 2 references — only 1 attached.', cta: 'Request' },
-                  { title: isZh ? '品牌·更新徽标PNG' : 'Branding · update logo PNG', body: isZh ? '旧徽标在报表封面上。为新包重新上传。' : 'Old logo on report cover. Re-upload for new packages.', cta: 'Open settings' },
-                ].map((item, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 12, color: v3.textPrimary }}>
-                    <span style={{ color: v3.trust, fontFamily: 'monospace', fontWeight: 600, marginTop: 2 }}>›</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, marginBottom: 2 }}>{item.title}</div>
-                      <div style={{ color: v3.textSecondary, fontSize: 12 }}>{item.body}</div>
-                    </div>
-                    <button style={{ background: 'none', border: 'none', color: v3.trust, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, whiteSpace: 'nowrap' }}>
-                      {item.cta}
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button style={{ width: '100%', marginTop: 14, padding: '10px 16px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.border}`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                {isZh ? '打开AI副驾' : 'Open AI Copilot'}
-              </button>
+              ))}
             </div>
+            <button style={{ width: '100%', marginTop: 12, padding: '10px 16px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              {isZh ? '打开AI副驾' : 'Open AI Copilot'}
+            </button>
           </div>
         </div>
       </div>

@@ -295,6 +295,19 @@ export default function TenantDashboardPage() {
   return (
     <PageShell role="tenant">
       <div style={{ maxWidth: 1260, margin: '0 auto' }}>
+        {/* Eyebrow */}
+        <div
+          style={{
+            fontSize: '10.5px',
+            letterSpacing: '0.10em',
+            textTransform: 'uppercase',
+            color: v3.textMuted,
+            fontWeight: 700,
+            marginBottom: 10,
+          }}
+        >
+          {isZh ? '租客工作区' : 'Tenant Workspace'}
+        </div>
         {/* Headline */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 6 }}>
           <h1

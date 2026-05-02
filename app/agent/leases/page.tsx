@@ -135,63 +135,74 @@ export default function AgentLeasesPage() {
 
   return (
     <PageShell role="agent">
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
-        <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 0, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr 1.2fr 100px', padding: '12px 18px', background: v3.surfaceMuted, borderBottom: `1px solid ${v3.border}`, fontSize: 10, color: v3.textMuted, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
-            <span>Client</span>
-            <span>Listing</span>
-            <span>Lease stage</span>
-            <span>Next action</span>
-            <span />
-          </div>
-          {leaseTableData.map((r, i) => {
-            const tone = getToneForStep(r.step)
-            return (
-              <div key={i} style={{ padding: '18px', borderTop: i === 0 ? 'none' : `1px solid ${v3.border}` }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr 1.2fr 100px', alignItems: 'center', fontSize: 13, marginBottom: 14 }}>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: v3.brand, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 10 }}>
-                      {r.c.split(' ').map(w => w[0]).join('').toUpperCase()}
-                    </div>
-                    <span style={{ fontWeight: 600, color: v3.textPrimary }}>{r.c}</span>
-                  </div>
-                  <span style={{ color: v3.textSecondary }}>{r.l}</span>
-                  <span style={{ padding: '3px 9px', borderRadius: 4, background: getToneBackground(tone), color: getToneColor(tone), fontSize: 12, fontWeight: 600, display: 'inline-block' }}>
-                    {['Awaiting consent', 'Draft', 'Tenant review', 'Tenant signed', 'Landlord signed', 'Archived'][r.step]}
-                  </span>
-                  <span style={{ color: v3.textSecondary }}>{r.next}</span>
-                  <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, justifySelf: 'end' }}>
-                    Open →
-                  </button>
-                </div>
-                {/* Steps indicator */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-                  {['Consent', 'Draft', 'Review', 'T-sign', 'L-sign', 'Archive'].map((step, si) => {
-                    const done = si < r.step
-                    const active = si === r.step
-                    return (
-                      <div key={si} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 60, flex: 1 }}>
-                        <div style={{
-                          width: 20, height: 20, borderRadius: '50%',
-                          background: done ? v3.brand : active ? '#fff' : v3.divider,
-                          border: `1.5px solid ${done || active ? v3.brand : v3.borderStrong}`,
-                          color: done ? '#fff' : active ? v3.brand : v3.textMuted,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontFamily: 'monospace', fontSize: 9, fontWeight: 700,
-                        }}>
-                          {done ? '✓' : si + 1}
-                        </div>
-                        <div style={{ fontSize: 9, color: active || done ? v3.textPrimary : v3.textMuted, fontWeight: active ? 600 : 500, textAlign: 'center', maxWidth: 60, lineHeight: 1.2 }}>
-                          {step}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 10 }}>
+          {isZh ? '租约协助' : 'Lease assistance'}
         </div>
+        <h1 style={{ margin: 0, fontFamily: 'var(--f-serif)', fontSize: 24, fontWeight: 600, color: v3.textPrimary, letterSpacing: '-0.02em' }}>
+          {isZh ? '活跃租约工作流' : 'Active lease workflows'}
+        </h1>
+        <p style={{ fontSize: 13, color: v3.textMuted, marginTop: 6, marginBottom: 0 }}>
+          {isZh ? '跟踪您客户的签名进度' : 'Tracking signature progress for your clients'}
+        </p>
+      </div>
+
+      <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 0, overflow: 'hidden', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr 1.2fr 100px', padding: '12px 18px', background: v3.surfaceMuted, borderBottom: `1px solid ${v3.border}`, fontSize: 10, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+          <span>Client</span>
+          <span>Listing</span>
+          <span>Lease stage</span>
+          <span>Next action</span>
+          <span />
+        </div>
+        {leaseTableData.map((r, i) => {
+          const tone = getToneForStep(r.step)
+          return (
+            <div key={i} style={{ padding: '18px', borderTop: `1px solid ${v3.border}` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr 1.2fr 100px', alignItems: 'center', fontSize: 13, marginBottom: 14 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: v3.brand, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 10 }}>
+                    {r.c.split(' ').map(w => w[0]).join('').toUpperCase()}
+                  </div>
+                  <span style={{ fontWeight: 600, color: v3.textPrimary }}>{r.c}</span>
+                </div>
+                <span style={{ color: v3.textSecondary }}>{r.l}</span>
+                <span style={{ padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 999, border: `1px solid ${getToneBackground(tone).replace(/rgba\(([^)]+)\)/, 'transparent').match(/^\w+/) ? 'transparent' : 'rgb(209,209,210)'}`, color: getToneColor(tone), background: getToneBackground(tone), display: 'inline-block' }}>
+                  {['Awaiting consent', 'Draft', 'Tenant review', 'Tenant signed', 'Landlord signed', 'Archived'][r.step]}
+                </span>
+                <span style={{ color: v3.textSecondary }}>{r.next}</span>
+                <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, justifySelf: 'end' }}>
+                  Open →
+                </button>
+              </div>
+              {/* Steps indicator - V4 style */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                {['Consent', 'Draft', 'Review', 'T-sign', 'L-sign', 'Archive'].map((step, si) => {
+                  const done = si < r.step
+                  const active = si === r.step
+                  return (
+                    <div key={si} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 90, flex: 1 }}>
+                      <div style={{
+                        width: 26, height: 26, borderRadius: '50%',
+                        background: done ? v3.brand : active ? '#fff' : v3.divider,
+                        border: `1.5px solid ${done || active ? v3.brand : v3.borderStrong}`,
+                        color: done ? '#fff' : active ? v3.brand : v3.textFaint,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700,
+                      }}>
+                        {done ? '✓' : si + 1}
+                      </div>
+                      <div style={{ fontSize: 11, color: active || done ? v3.textPrimary : v3.textMuted, fontWeight: active ? 600 : 500, textAlign: 'center', maxWidth: 96, lineHeight: 1.3 }}>
+                        {step}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </PageShell>
   )

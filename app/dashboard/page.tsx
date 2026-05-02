@@ -139,14 +139,16 @@ export default function Dashboard() {
       <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
         {/* Eyebrow + Title */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
-            {isZh ? '仪表盘' : 'Landlord Workspace'}
+          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
+            {isZh ? '房东工作区' : 'Landlord Workspace · Hudson Living'}
           </div>
-          <h1 style={{ margin: 0, fontSize: 30, fontWeight: 600, fontFamily: 'Inter, sans-serif', letterSpacing: '-0.02em', color: v3.textPrimary }}>
-            {applications.length} {isZh ? '份申请待审 · ' : 'applications waiting · '}
-            {applications.filter(a => a.status === 'approved').length} {isZh ? '份租赁已就绪' : 'leases ready to send'}
-          </h1>
-          <p style={{ margin: '6px 0 24px', fontSize: 14, color: v3.textSecondary }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginTop: 6 }}>
+            <h1 style={{ margin: 0, fontFamily: 'var(--f-serif), sans-serif', fontSize: 30, fontWeight: 600, letterSpacing: '-0.02em', color: v3.textPrimary }}>
+              {applications.length} {isZh ? '份申请待审 · ' : 'applications waiting · '}
+              {applications.filter(a => a.status === 'approved').length} {isZh ? '份租赁已就绪' : 'leases ready to send'}
+            </h1>
+          </div>
+          <p style={{ color: v3.textSecondary, fontSize: 14, margin: '6px 0 24px' }}>
             {isZh
               ? 'AI 夜间跑分：4 份新筛查报告，3 份不一致旗标，1 份公平住房警告。'
               : 'AI ran overnight: 4 new screening reports, 3 inconsistency flags, 1 fair-housing language warning.'}
@@ -161,15 +163,15 @@ export default function Dashboard() {
             { en: 'AI reports / month', zh: 'AI 报告 / 月', val: '38/40', sub: isZh ? 'Plus 计划' : 'Plus plan', tone: v3.trust },
             { en: 'Leases this month', zh: '本月租赁', val: applications.filter(a => a.status === 'approved').length, sub: isZh ? '$5,250 GMV' : '$5,250 GMV', tone: v3.success },
           ].map((kpi, i) => (
-            <div key={i} style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 8, padding: '18px 20px' }}>
-              <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.08em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 6 }}>
+            <div key={i} style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: '18px 20px', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
+              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 6 }}>
                 {isZh ? kpi.zh : kpi.en}
               </div>
-              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 28, fontWeight: 600, color: kpi.tone, letterSpacing: '-0.02em', marginTop: 4 }}>
+              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 30, fontWeight: 500, color: kpi.tone, marginTop: 6, lineHeight: 1.1, letterSpacing: '-0.02em' }}>
                 {kpi.val}
               </div>
-              <div style={{ fontSize: 11, color: v3.textMuted, marginTop: 2 }}>
-                {kpi.sub}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                <span style={{ fontSize: 11, color: v3.textMuted }}>{kpi.sub}</span>
               </div>
             </div>
           ))}
@@ -179,12 +181,12 @@ export default function Dashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18 }}>
           <div style={{ display: 'grid', gap: 18 }}>
             {/* Pipeline strip */}
-            <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 22 }}>
+            <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 22, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: v3.textPrimary }}>
+                <h3 style={{ margin: 0, fontFamily: 'Inter, sans-serif', fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>
                   {isZh ? '管道 · 本周' : 'Pipeline · this week'}
                 </h3>
-                <span style={{ fontSize: 11, fontWeight: 700, background: v3.trust, color: '#fff', padding: '3px 9px', borderRadius: 999 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 999, border: '1px solid transparent', color: '#fff', background: v3.trust }}>
                   {isZh ? 'AI 排序' : 'AI-prioritized'}
                 </span>
                 <div style={{ flex: 1 }} />
@@ -216,14 +218,14 @@ export default function Dashboard() {
             </div>
 
             {/* Top applicants table */}
-            <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
               <div style={{ padding: '14px 22px', borderBottom: `1px solid ${v3.border}`, display: 'flex', alignItems: 'baseline' }}>
-                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: v3.textPrimary }}>
+                <h3 style={{ margin: 0, fontFamily: 'Inter, sans-serif', fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>
                   {isZh ? '顶级申请人 · ' : 'Top applicants · '}
                   {topApps.length ? topApps[0].listing?.address : 'N/A'}
                 </h3>
                 <span style={{ fontSize: 12, color: v3.textMuted, marginLeft: 10 }}>
-                  {topApps.length} / {applications.length} shown
+                  {topApps.length} of {applications.length} shown
                 </span>
                 <div style={{ flex: 1 }} />
                 <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
@@ -246,18 +248,18 @@ export default function Dashboard() {
                       {i === 0 ? (isZh ? '⭐ AI 顶级匹配' : '⭐ AI top match') : (isZh ? '通过 Stayloop 申请' : 'Applied via Stayloop')}
                     </div>
                   </div>
-                  <div>
-                    <div style={{ width: 120, height: 6, background: v3.surfaceMuted, borderRadius: 3, overflow: 'hidden', marginBottom: 3 }}>
+                  <div style={{ width: 120 }}>
+                    <div style={{ height: 6, background: v3.surfaceMuted, borderRadius: 3, overflow: 'hidden', marginBottom: 3 }}>
                       <div style={{ width: `${(app.ai_score || 0) / 100 * 100}%`, height: '100%', background: app.ai_score! >= 90 ? v3.success : app.ai_score! >= 80 ? v3.warning : v3.danger }} />
                     </div>
-                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: v3.textSecondary, fontWeight: 600 }}>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: v3.textSecondary, fontWeight: 600, marginTop: 3 }}>
                       {app.ai_score || 0}% ready
                     </div>
                   </div>
                   <div style={{ fontSize: 12, color: app.monthly_income && app.monthly_income >= 3000 ? v3.success : v3.warning, fontWeight: 500 }}>
                     ${app.monthly_income?.toLocaleString()} / mo
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 600, background: v3.dangerSoft, color: v3.danger, padding: '3px 9px', borderRadius: 999 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 999, border: `1px solid ${app.ltb_records_found ? '#FECACA' : '#BBF7D0'}`, color: app.ltb_records_found ? v3.danger : v3.success, background: app.ltb_records_found ? v3.dangerSoft : v3.successSoft }}>
                     {app.ltb_records_found ? (isZh ? `${app.ltb_records_found} 份记录` : `${app.ltb_records_found} records`) : (isZh ? '无' : 'None')}
                   </span>
                   <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, justifySelf: 'end' }}>
@@ -271,7 +273,7 @@ export default function Dashboard() {
           {/* Right sidebar: AI panel + stats */}
           <div style={{ display: 'grid', gap: 18 }}>
             {/* AI Panel */}
-            <div style={{ background: `linear-gradient(180deg, ${v3.trustSoft} 0%, #fff 100%)`, border: `1px solid ${v3.trust}26`, borderRadius: 14, padding: 18 }}>
+            <div style={{ background: `linear-gradient(180deg, ${v3.trustSoft} 0%, #fff 100%)`, border: `1px solid #D7C5FA`, borderRadius: 14, padding: 18 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <span style={{ width: 22, height: 22, borderRadius: 6, background: v3.trust, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 11 }}>✦</span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: v3.textPrimary }}>
@@ -290,14 +292,20 @@ export default function Dashboard() {
                       {item.title && <div style={{ fontWeight: 600 }}>{item.title}</div>}
                       <div style={{ color: v3.textSecondary, fontSize: 13 }}>{item.body}</div>
                     </span>
+                    <button style={{ background: 'none', border: 'none', color: v3.trust, fontSize: 12, fontWeight: 600, padding: 0, whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                      {item.cta}
+                    </button>
                   </div>
                 ))}
               </div>
+              <button style={{ width: '100%', marginTop: 12, padding: '11px 20px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                {isZh ? '打开 AI 副驾驶' : 'Open AI Copilot'}
+              </button>
             </div>
 
             {/* Stats card */}
-            <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 18 }}>
-              <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
+            <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
+              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
                 {isZh ? '本月' : 'This month'}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
@@ -310,7 +318,7 @@ export default function Dashboard() {
                   { en: 'Stripe income', zh: 'Stripe 收入', val: '$5,250' },
                 ].map((stat, i) => (
                   <div key={i}>
-                    <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 2 }}>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 2 }}>
                       {isZh ? stat.zh : stat.en}
                     </div>
                     <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 18, fontWeight: 600, color: v3.textPrimary, letterSpacing: '-0.01em', marginTop: 2 }}>

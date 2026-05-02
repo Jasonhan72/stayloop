@@ -190,32 +190,36 @@ export default function ListingsPage() {
     <PageShell role="landlord">
       <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
         {/* Header with CTA */}
-        <div style={{ marginBottom: 20, display: 'flex', alignItems: 'baseline', gap: 14, justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
-              {isZh ? `房源 · ${props.length} 套` : `Properties · ${props.length} total`}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+            <div>
+              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
+                {isZh ? `房源 · ${props.length} 套` : `Properties · ${props.length} total`}
+              </div>
+              <h2 style={{ margin: 0, fontFamily: 'Inter, sans-serif', fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', color: v3.textPrimary }}>
+                {isZh ? '房源' : 'Listings'}
+              </h2>
             </div>
-            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', color: v3.textPrimary }}>
-              {isZh ? '房源' : 'Listings'}
-            </h2>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button style={{ padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, cursor: 'pointer' }}>
-              {isZh ? '从 URL 导入' : 'Import from URL'}
-            </button>
-            <button style={{ padding: '10px 18px', background: `linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)`, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
-              + {isZh ? '新房源' : 'New listing'}
-            </button>
-          </div>
+          <hr style={{ height: 1, background: 'linear-gradient(90deg, #047857, rgba(4,120,87,0.32) 60%, transparent)', border: 0, marginTop: 14 }} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginBottom: 20 }}>
+          <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, cursor: 'pointer' }}>
+            {isZh ? '从 URL 导入' : 'Import from URL'}
+          </button>
+          <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 20px', background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset', letterSpacing: '-0.01em' }}>
+            + {isZh ? '新房源' : 'New listing'}
+          </button>
         </div>
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${v3.border}`, marginBottom: 20 }}>
           {[
-            { id: 'all', label: isZh ? '全部' : 'All', count: tabCounts.all },
-            { id: 'live', label: isZh ? '已上线' : 'Live', count: tabCounts.live },
-            { id: 'draft', label: isZh ? '草稿' : 'Drafts', count: tabCounts.draft },
-            { id: 'closed', label: isZh ? '已关闭' : 'Closed', count: tabCounts.closed },
+            { id: 'all', label: isZh ? '全部' : 'All', count: tabCounts.all, tone: 'default' },
+            { id: 'live', label: isZh ? '已上线' : 'Live', count: tabCounts.live, tone: 'ok' },
+            { id: 'draft', label: isZh ? '草稿' : 'Drafts', count: tabCounts.draft, tone: 'gold' },
+            { id: 'closed', label: isZh ? '已关闭' : 'Closed', count: tabCounts.closed, tone: 'default' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -237,7 +241,7 @@ export default function ListingsPage() {
             >
               {tab.label}
               {tab.count > 0 && (
-                <span style={{ fontSize: 11, fontWeight: 700, background: v3.brand, color: '#fff', padding: '2px 6px', borderRadius: 999 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 999, border: '1px solid transparent', color: tab.tone === 'ok' ? '#16A34A' : tab.tone === 'gold' ? v3.brand : v3.textSecondary, background: tab.tone === 'ok' ? '#DCFCE7' : tab.tone === 'gold' ? 'rgba(16,185,129,0.1)' : 'rgba(113,113,122,0.1)' }}>
                   {tab.count}
                 </span>
               )}
@@ -247,7 +251,7 @@ export default function ListingsPage() {
 
         {/* Table */}
         {/* Listings table - V4 style */}
-        <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '56px 1.6fr 100px 90px 110px 100px 100px 80px', padding: '12px 18px', background: v3.surfaceMuted, borderBottom: `1px solid ${v3.border}`, fontSize: 10, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
             <span></span><span>Address</span><span>Rent</span><span>Status</span><span>Apps</span><span>Days live</span><span>AI flags</span><span></span>
           </div>
@@ -283,7 +287,7 @@ export default function ListingsPage() {
                 <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: v3.textPrimary }}>
                   ${l.monthly_rent?.toLocaleString()}
                 </span>
-                <span style={{ fontSize: 11, fontWeight: 600, background: l.is_active ? v3.successSoft : v3.warningSoft, color: l.is_active ? v3.success : v3.warning, padding: '3px 9px', borderRadius: 999, width: 'fit-content' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 999, border: `1px solid ${l.is_active ? '#BBF7D0' : '#FDE68A'}`, color: l.is_active ? v3.success : v3.warning, background: l.is_active ? v3.successSoft : v3.warningSoft }}>
                   {l.is_active ? (isZh ? '已上线' : 'Live') : (isZh ? '草稿' : 'Draft')}
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -299,7 +303,7 @@ export default function ListingsPage() {
                 </span>
                 <span>
                   {0 > 0 ? (
-                    <span style={{ fontSize: 11, fontWeight: 600, background: v3.warningSoft, color: v3.warning, padding: '3px 9px', borderRadius: 999 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 999, border: '1px solid #FDE68A', color: v3.warning, background: v3.warningSoft }}>
                       1 flag
                     </span>
                   ) : (
@@ -307,7 +311,7 @@ export default function ListingsPage() {
                   )}
                 </span>
                 <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, justifySelf: 'end' }}>
-                  Manage
+                  {isZh ? '管理' : 'Manage'}
                 </button>
               </div>
             ))

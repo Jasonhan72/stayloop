@@ -265,7 +265,7 @@ export default function PassportPage() {
                 </button>
               </div>
             </div>
-            <span style={{ fontSize: 13, color: v3.textMuted }}>
+            <span style={{ fontSize: 13, color: v3.textMuted, marginTop: 6, display: 'inline-block' }}>
               {isZh ? '今天最后更新 · 可跨列表重用' : 'Last updated today · Reusable across listings'}
             </span>
             <hr
@@ -825,95 +825,6 @@ export default function PassportPage() {
           </div>
         </div>
         {/* End main content pane */}
-
-        {/* Right sidebar (moved here) */}
-        <div style={{ display: 'grid', gap: 18 }}>
-          {/* AI Panel */}
-          <div
-            style={{
-              background: 'linear-gradient(180deg, #F3EEFF 0%, #fff 100%)',
-              border: `1px solid #D7C5FA`,
-              borderRadius: 14,
-              padding: 18,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <span
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 6,
-                  background: '#7C3AED',
-                  color: '#fff',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: '"JetBrains Mono", monospace',
-                  fontWeight: 700,
-                  fontSize: 11,
-                }}
-              >
-                ✦
-              </span>
-              <span
-                style={{
-                  fontFamily: '"Inter Tight", sans-serif',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: v3.textPrimary,
-                }}
-              >
-                AI: {isZh ? '改进你的准备' : 'improve your readiness'}
-              </span>
-            </div>
-          </div>
-
-          {/* Active share links */}
-          <div
-            style={{
-              background: v3.surfaceCard,
-              border: `1px solid ${v3.border}`,
-              borderRadius: 14,
-              padding: 18,
-            }}
-          >
-            <div
-              style={{
-                fontSize: '10.5px',
-                letterSpacing: '0.10em',
-                textTransform: 'uppercase',
-                color: v3.textMuted,
-                fontWeight: 700,
-                marginBottom: 10,
-              }}
-            >
-              {isZh ? '激活分享链接 · 3' : 'Active share links · 3'}
-            </div>
-          </div>
-
-          {/* Compliance */}
-          <div
-            style={{
-              background: v3.surfaceMuted,
-              border: `1px solid ${v3.border}`,
-              borderRadius: 14,
-              padding: 18,
-            }}
-          >
-            <div
-              style={{
-                fontSize: '10.5px',
-                letterSpacing: '0.10em',
-                textTransform: 'uppercase',
-                color: v3.textMuted,
-                fontWeight: 700,
-                marginBottom: 8,
-              }}
-            >
-              {isZh ? '合规' : 'Compliance'}
-            </div>
-          </div>
-        </div>
         </div>
       </div>
       <style jsx>{`

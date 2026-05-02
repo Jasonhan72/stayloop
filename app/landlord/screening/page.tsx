@@ -149,7 +149,7 @@ export default function ManualScreeningPage() {
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20 }}>
         <div style={{ display: 'grid', gap: 18 }}>
           {/* Step strip */}
-          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: '20px 24px' }}>
+          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: '20px 24px', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
               {['Upload', 'Classify', 'Extract', 'Verify', 'Generate report'].map((step, i) => {
                 const done = i < 3
@@ -176,17 +176,17 @@ export default function ManualScreeningPage() {
           </div>
 
           {/* Document upload section */}
-          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 0, overflow: 'hidden' }}>
+          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 0, overflow: 'hidden', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
             <div style={{ padding: '14px 22px', borderBottom: `1px solid ${v3.border}`, display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <h3 style={{ margin: 0, fontFamily: 'inherit', fontSize: 16, fontWeight: 600, color: v3.textPrimary }}>
-                Documents
+              <h3 style={{ margin: 0, fontFamily: 'Inter, sans-serif', fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em', color: v3.textPrimary }}>
+                {isZh ? '文件' : 'Documents'}
               </h3>
               <span style={{ fontSize: 12, color: v3.textMuted, marginLeft: 10 }}>
                 11 uploaded · 9 classified
               </span>
               <div style={{ flex: 1 }} />
               <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
-                + Add files
+                + {isZh ? '添加文件' : 'Add files'}
               </button>
             </div>
             {documentData.map((d, i) => (
@@ -196,7 +196,7 @@ export default function ManualScreeningPage() {
                     {d.name}
                   </div>
                 </div>
-                <span style={{ padding: '2px 8px', borderRadius: 4, background: getToneBackground(d.tone), color: getToneColor(d.tone), fontSize: 11, fontWeight: 600 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 999, border: `1px solid ${d.tone === 'ok' ? '#BBF7D0' : d.tone === 'warn' ? '#FECACA' : d.tone === 'info' ? '#BFDBFE' : '#D8D2C2'}`, color: getToneColor(d.tone), background: getToneBackground(d.tone) }}>
                   {d.cls}
                 </span>
                 <span style={{ fontFamily: 'monospace', fontSize: 12, color: d.confidence >= 80 ? v3.success : d.confidence >= 50 ? v3.brandBright : v3.danger, fontWeight: 600 }}>
@@ -208,11 +208,11 @@ export default function ManualScreeningPage() {
               </div>
             ))}
             <div style={{ padding: '14px 22px', borderTop: `1px solid ${v3.border}`, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button style={{ padding: '8px 16px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 {isZh ? '保存草稿' : 'Save draft'}
               </button>
-              <button style={{ padding: '8px 16px', background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                {isZh ? '生成AI报告' : 'Generate AI report'} →
+              <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 20px', background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset', letterSpacing: '-0.01em' }}>
+                {isZh ? '生成AI报告 →' : 'Generate AI report →'}
               </button>
             </div>
           </div>
@@ -220,9 +220,9 @@ export default function ManualScreeningPage() {
 
         {/* Right sidebar */}
         <div style={{ display: 'grid', gap: 18 }}>
-          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 18 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: v3.textMuted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
-              Case info
+          <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
+              {isZh ? '案例信息' : 'Case info'}
             </div>
             <div style={{ display: 'grid', gap: 10, fontSize: 13 }}>
               <div>
@@ -246,18 +246,18 @@ export default function ManualScreeningPage() {
                 </div>
               </div>
             </div>
-            <button style={{ width: '100%', marginTop: 14, padding: '8px 12px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', justifyContent: 'center' }}>
-              {isZh ? '发送同意请求' : 'Send consent request'} →
+            <button style={{ width: '100%', marginTop: 14, padding: '10px 18px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'center' }}>
+              {isZh ? '发送同意请求 →' : 'Send consent request →'}
             </button>
           </div>
 
-          <div style={{ background: 'linear-gradient(180deg, var(--ai-soft, #F3EEFF) 0%, #fff 100%)', border: `1px solid var(--ai-line, #D7C5FA)`, borderRadius: 14, padding: 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <span style={{ width: 22, height: 22, borderRadius: 6, background: v3.trust, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', fontWeight: 700, fontSize: 11 }}>
+          <div style={{ background: `linear-gradient(180deg, ${v3.trustSoft} 0%, #fff 100%)`, border: `1px solid #D7C5FA`, borderRadius: 14, padding: 18, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ width: 22, height: 22, borderRadius: 6, background: v3.trust, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 11 }}>
                 ✦
               </span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: v3.textPrimary }}>
-                {isZh ? 'AI标记 · 3' : 'AI flags · 3'}
+              <span style={{ fontSize: 13, fontWeight: 600, color: v3.textPrimary }}>
+                {isZh ? 'AI 标记 · 3' : 'AI flags · 3'}
               </span>
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
@@ -280,7 +280,7 @@ export default function ManualScreeningPage() {
             </div>
           </div>
 
-          <div style={{ background: v3.surfaceMuted, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 14, fontSize: 11, color: v3.textSecondary, lineHeight: 1.55 }}>
+          <div style={{ background: v3.surfaceMuted, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 14, fontSize: 11, color: v3.textSecondary, lineHeight: 1.55, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
             <b style={{ color: v3.textPrimary }}>Language guardrail.</b> Stayloop reports never include "high risk" / "reject". They list <i>Application Readiness</i>, missing items and suggested next steps.
           </div>
         </div>

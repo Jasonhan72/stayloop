@@ -113,30 +113,33 @@ function ComparePageInner() {
     <PageShell role="landlord">
       <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
         {/* Header */}
-        <div style={{ marginBottom: 20, display: 'flex', alignItems: 'baseline', gap: 14, justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
-              {isZh ? '申请人对比 · 128 Bathurst St #4B' : 'Applicant comparison · 128 Bathurst St #4B'}
-            </div>
-            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', color: v3.textPrimary }}>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
+            {isZh ? '申请人对比 · 128 Bathurst St #4B' : 'Applicant comparison · 128 Bathurst St #4B'}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+            <h2 style={{ margin: 0, fontFamily: 'Inter, sans-serif', fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', color: v3.textPrimary }}>
               {apps.length} {isZh ? '申请人 · 3 份选中进行对比' : 'applicants · 3 selected for compare'}
             </h2>
-            <p style={{ margin: '6px 0 0', fontSize: 13, color: v3.textSecondary }}>
+            <span style={{ fontSize: 13, color: v3.textMuted }}>
               {isZh ? 'AI 不会自动决定。你来选择；Stayloop 记录理由。' : 'AI does not auto-decide. You choose; Stayloop logs the rationale.'}
-            </p>
+            </span>
+            <div style={{ flex: 1 }} />
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button style={{ padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, cursor: 'pointer' }}>
-              {isZh ? '导出 PDF' : 'Export PDF'}
-            </button>
-            <button style={{ padding: '10px 18px', background: `linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)`, border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
-              {isZh ? '批准顶级匹配 →' : 'Approve top match →'}
-            </button>
-          </div>
+          <hr style={{ height: 1, background: 'linear-gradient(90deg, #047857, rgba(4,120,87,0.32) 60%, transparent)', border: 0, marginTop: 14 }} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginBottom: 20 }}>
+          <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, cursor: 'pointer' }}>
+            {isZh ? '导出 PDF' : 'Export PDF'}
+          </button>
+          <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 20px', background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset', letterSpacing: '-0.01em' }}>
+            {isZh ? '批准顶级匹配 →' : 'Approve top match →'}
+          </button>
         </div>
 
         {/* Comparison table */}
-        <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
+        <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, overflow: 'hidden', marginBottom: 16, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: `240px repeat(${apps.length}, 1fr)`, padding: '16px 20px', background: v3.surfaceMuted, borderBottom: `1px solid ${v3.border}` }}>
             <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700, color: v3.textMuted }}>
               {isZh ? '条件' : 'Criterion'}
@@ -218,7 +221,7 @@ function ComparePageInner() {
         </div>
 
         {/* AI summary */}
-        <div style={{ background: v3.surfaceMuted, border: `1px solid ${v3.border}`, borderRadius: 12, padding: 16, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ background: v3.surfaceMuted, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 16, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
           <span style={{ width: 24, height: 24, borderRadius: 6, background: v3.trust, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>✦</span>
           <div style={{ flex: 1, fontSize: 13, color: v3.textSecondary, lineHeight: 1.5 }}>
             <b style={{ color: v3.textPrimary }}>AI summary.</b> Alex Taylor has the highest verified-income coverage and full document set. Mei Chen has 1 minor inconsistency — easy to confirm. Daniel Okafor needs 2 follow-ups before a decision.
