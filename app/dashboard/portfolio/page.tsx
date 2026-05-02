@@ -1,8 +1,7 @@
 'use client'
 // /dashboard/portfolio — Landlord Portfolio Analytics (V3 section 20)
 // Production: aggregates current landlord's listings + applications.
-import { useEffect, useState, useMemo } from 'react'
-import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
@@ -107,71 +106,6 @@ export default function ListingsPage() {
       </PageShell>
     )
   }
-
-  const totalRent = props.reduce((s, p) => s + (p.monthly_rent || 0), 0)
-  const occupied = props.filter((p) => p.daysOnMarket === 0).length
-  const occupancyPct = props.length > 0 ? Math.round((occupied / props.length) * 100) : 0
-  const scoredProps = props.filter((p) => p.topAiScore != null)
-  const avgScore = scoredProps.length > 0
-    ? Math.round(scoredProps.reduce((s, p) => s + (p.topAiScore || 0), 0) / scoredProps.length)
-    : 0
-  const avgDom = props.length > 0
-    ? (props.reduce((s, p) => s + p.daysOnMarket, 0) / props.length).toFixed(1)
-    : '—'
-
-  const vacant = props.find((p) => p.daysOnMarket > 7)
-
-  // Hardcoded 12-month revenue trend for chart
-  const monthlyRevenue = [18000, 18500, 19200, 20100, 20800, 21500, 22300, 23100, 23900, 24700, 25400, 26200]
-  const currentValue = monthlyRevenue[monthlyRevenue.length - 1]
-  const previousValue = monthlyRevenue[0]
-  const yoyGrowth = ((currentValue - previousValue) / previousValue * 100).toFixed(1)
-
-  // Scatter plot data: mock tenant quality (ai_score vs months_tenanted)
-  const scatterPoints = useMemo(() => {
-    const mockData = [
-      { score: 78, months: 14 },
-      { score: 82, months: 18 },
-      { score: 71, months: 8 },
-      { score: 88, months: 20 },
-      { score: 75, months: 12 },
-      { score: 85, months: 22 },
-    ]
-    // Use real data when available, fallback to mock
-    return mockData
-  }, [])
-
-  // Helper to generate smooth cubic bezier path for chart
-  const generateChartPath = (data: number[], width: number, height: number, padding: number): string => {
-    const graphWidth = width - 2 * padding
-    const graphHeight = height - 2 * padding
-    const min = Math.min(...data)
-    const max = Math.max(...data)
-    const range = max - min || 1
-
-    const points = data.map((val, i) => {
-      const x = padding + (i / (data.length - 1)) * graphWidth
-      const y = padding + graphHeight - ((val - min) / range) * graphHeight
-      return { x, y }
-    })
-
-    let path = `M ${points[0].x} ${points[0].y}`
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1]
-      const curr = points[i]
-      const next = points[i + 1]
-
-      const cp1x = prev.x + (curr.x - prev.x) * 0.33
-      const cp1y = prev.y + (curr.y - prev.y) * 0.33
-      const cp2x = curr.x - (next ? (next.x - curr.x) * 0.33 : 0)
-      const cp2y = curr.y - (next ? (next.y - curr.y) * 0.33 : 0)
-
-      path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`
-    }
-    return path
-  }
-
-  const chartPath = generateChartPath(monthlyRevenue, 100, 200, 12)
 
   const tabCounts = {
     all: props.length,
