@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT, LanguageToggle } from '@/lib/i18n'
-import PageShell from '@/components/v4/PageShell'
+import MarketingNav from '@/components/marketing/MarketingNav'
 import SecHead from '@/components/v4/SecHead'
 
 type Section = 'overview' | 'auth' | 'screen' | 'passport' | 'compliance' | 'mediate' | 'webhooks' | 'sdks' | 'rate-limits' | 'errors'
@@ -40,7 +40,8 @@ export default function TrustApiDocsPage() {
   const label = (en: string, zh: string) => (isZh ? zh : en)
 
   return (
-    <PageShell>
+    <div style={{ minHeight: '100vh', background: v3.surface }}>
+      <MarketingNav />
       <div
         style={{
           maxWidth: 1400,
@@ -822,7 +823,7 @@ const result = await client.screen({...})`}
           </p>
         </aside>
       </div>
-    </PageShell>
+    </div>
   )
 }
 
