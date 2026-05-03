@@ -30,6 +30,9 @@ interface Props {
   role?: UserRole
   /** Optional explicit breadcrumb; otherwise derived from pathname. */
   path?: string
+  /** Mobile-only: PageShell wires this so the hamburger button can open the
+   *  side drawer. On desktop the button is hidden via media query. */
+  onOpenMenu?: () => void
 }
 
 const ROLE_BADGE: Record<UserRole, { en: string; zh: string; color: string }> = {
@@ -38,7 +41,7 @@ const ROLE_BADGE: Record<UserRole, { en: string; zh: string; color: string }> = 
   agent:    { en: 'AGENT',    zh: '经纪', color: v3.brandBright },
 }
 
-export default function AppBar({ user, loading, signOut, role, path }: Props) {
+export default function AppBar({ user, loading, signOut, role, path, onOpenMenu }: Props) {
   const pathname = usePathname()
   const { lang } = useT()
   const isZh = lang === 'zh'
@@ -100,6 +103,36 @@ export default function AppBar({ user, loading, signOut, role, path }: Props) {
         zIndex: 30,
       }}
     >
+      {/* Hamburger — mobile only. PageShell hides the in-flow Sidebar on
+          narrow viewports and renders it as a drawer; this button opens it. */}
+      {onOpenMenu && (
+        <button
+          type="button"
+          aria-label={isZh ? '打开菜单' : 'Open menu'}
+          onClick={onOpenMenu}
+          className="ab-hamburger"
+          style={{
+            display: 'none',
+            border: 0,
+            background: 'transparent',
+            padding: 8,
+            marginLeft: -8,
+            cursor: 'pointer',
+            color: v3.textPrimary,
+            borderRadius: 8,
+          }}
+        >
+          <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
+            <path
+              d="M3 6h16M3 11h16M3 16h16"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      )}
+
       {/* Logo + wordmark intentionally omitted — already shown in the Sidebar
           immediately to the left. Repeating it in the AppBar duplicates the
           brand twice in the same eye-line. The breadcrumb below fills the
@@ -140,9 +173,11 @@ export default function AppBar({ user, loading, signOut, role, path }: Props) {
 
       <div style={{ flex: 1 }} />
 
-      {/* ⌘K command bar — visual-only for now; clicking opens /chat */}
+      {/* ⌘K command bar — visual-only for now; clicking opens /chat.
+          Hidden on mobile (≤860px) to give the bell + avatar room. */}
       <Link
         href="/chat"
+        className="ab-cmdk"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -231,6 +266,16 @@ export default function AppBar({ user, loading, signOut, role, path }: Props) {
           {isZh ? '登录' : 'Sign in'}
         </Link>
       )}
+
+      <style jsx global>{`
+        @media (max-width: 860px) {
+          /* Show hamburger so the user can pop the sidebar drawer. */
+          .ab-hamburger { display: inline-flex !important; }
+          /* Hide the ⌘K command bar — there's no room and search isn't a
+             primary mobile gesture. The bell + avatar still fit. */
+          .ab-cmdk { display: none !important; }
+        }
+      `}</style>
     </header>
   )
 }
