@@ -29,15 +29,27 @@ const HAIKU_MODEL = 'claude-haiku-4-5'
 
 const EXTRACT_PROMPT = `You are extracting numeric fields from a Canadian pay stub. Return ONLY a JSON object — no markdown, no prose. If a field is not visible on the stub, return null for that field. Do NOT guess or fill in values. Numbers must be raw (no commas, no $).
 
-CRITICAL — distinguish annual salary from hourly rate:
-- If the rate column shows "/year", "/yr", "annual", "salary", or any number above ~$200 (a value too large to be hourly), that is the ANNUAL SALARY → fill annual_salary, leave hourly_rate null
-- Only fill hourly_rate when the stub explicitly shows "/hour", "/hr", or a per-hour rate (typically $15-$100)
-- The "Hours" column on a salaried pay stub is informational (tracks hours worked in the period for reporting); it does NOT mean the worker is paid hourly
+CRITICAL — when the file contains MULTIPLE pay stubs:
+- Many "Supporting Documents" PDFs bundle 2-3 consecutive pay stubs in one file. Extract ONLY from the SINGLE MOST RECENT stub (latest pay_date).
+- The most recent stub's YTD already contains all earlier earnings — do NOT sum YTD across stubs. Do NOT pick an older stub.
+- pay_date should be the latest pay date you see; ytd_gross/ytd_net should be the YTD shown on THAT same stub, not a sum across stubs.
+
+CRITICAL — derive annual_salary from period × pay_frequency when not stated:
+- Many Canadian pay stubs print "Pay Rate: $X" where X is the per-PERIOD amount (semi-monthly, bi-weekly, monthly), NOT an hourly rate or annual salary. Pay Frequency is shown separately.
+- If the stub shows "Pay Rate: $4554.17" + "Pay Frequency: Semi-Monthly", annual_salary = 4554.17 × 24 = 109300. Set annual_salary explicitly even if the stub doesn't say "/year".
+- Periods per year: weekly=52, biweekly=26, semimonthly=24, monthly=12.
+- Only set hourly_rate when you can clearly read a per-hour figure ($15-$100) and the rate explicitly says "/hour" or "/hr".
+
+CRITICAL — annual vs hourly disambiguation:
+- A "Pay Rate" $200+ with no "/hr" suffix is per-period, not hourly. Convert via pay_frequency.
+- A "Pay Rate" $10,000+ is annual_salary regardless of any "/yr" marker.
+- The "Hours" column on a salaried stub is informational; it does NOT make the worker hourly.
 
 Examples:
 - "Account Specialist  $60,000.00/year  86.67  $2,500.00" → annual_salary=60000, hourly_rate=null, hours_worked=86.67, period_gross=2500
 - "Cashier  $18.50/hour  80  $1,480.00" → annual_salary=null, hourly_rate=18.50, hours_worked=80, period_gross=1480
 - "Software Engineer  $95,000/yr  N/A  $3,653.85" → annual_salary=95000, hourly_rate=null, hours_worked=null, period_gross=3653.85
+- "Audit Analyst Sr  Pay Rate $4554.17  Semi-Monthly" → annual_salary=109300, hourly_rate=null, period_gross=4554.17, pay_frequency=semimonthly
 
 Required fields:
 {
@@ -208,13 +220,27 @@ export function checkPaystubMath(
         expectedYtdGross = ext.annual_salary * (daysElapsed / 365)
         ytdRatio = ext.ytd_gross / expectedYtdGross
 
-        if (ytdRatio > 1.5) {
+        if (ytdRatio > 2.5) {
+          // Truly impossible — even with massive overtime / bonuses, exceeding
+          // 2.5× the linear pro-rata is hard to explain. Critical.
           flags.push({
             code: 'paystub_ytd_inflated',
             severity: 'critical',
             file,
             evidence_en: `Pay stub YTD gross is $${ext.ytd_gross.toLocaleString()} on ${ext.pay_date}, but $${ext.annual_salary.toLocaleString()}/yr salary should yield ~$${Math.round(expectedYtdGross).toLocaleString()} by that date. Ratio ${ytdRatio.toFixed(2)}x — math impossible without massive OT not reflected in hours/rate.`,
             evidence_zh: `工资单 YTD 毛收入 $${ext.ytd_gross.toLocaleString()}（截至 ${ext.pay_date}），但年薪 $${ext.annual_salary.toLocaleString()} 到该日期应该只有约 $${Math.round(expectedYtdGross).toLocaleString()}。比例 ${ytdRatio.toFixed(2)} 倍——除非有未在小时/时薪中体现的大量加班，否则数学上不可能。`,
+          })
+        } else if (ytdRatio > 1.5) {
+          // 1.5×–2.5× over expected. Could be real (sign-on bonus, RSU vest,
+          // year-end commission, large overtime, retroactive raise) OR could
+          // be the AI extracting ytd_gross from the wrong row of a multi-stub
+          // bundle. Flag as medium-severity informational, not critical.
+          flags.push({
+            code: 'paystub_ytd_above_pro_rata',
+            severity: 'medium',
+            file,
+            evidence_en: `Pay stub YTD gross is $${ext.ytd_gross.toLocaleString()} on ${ext.pay_date} (${ytdRatio.toFixed(2)}x the linear pro-rata of $${Math.round(expectedYtdGross).toLocaleString()} for $${ext.annual_salary.toLocaleString()}/yr). Could be a sign-on bonus, vested RSU/equity, retroactive raise, or year-end commission. Verify with the source pay stub.`,
+            evidence_zh: `工资单 YTD 毛收入 $${ext.ytd_gross.toLocaleString()}（截至 ${ext.pay_date}），是按年薪 $${ext.annual_salary.toLocaleString()} 线性计算 $${Math.round(expectedYtdGross).toLocaleString()} 的 ${ytdRatio.toFixed(2)} 倍。可能是入职 bonus、RSU 兑现、年终佣金或追溯加薪 —— 建议人工核对原件。`,
           })
         } else if (ytdRatio < 0.5) {
           flags.push({

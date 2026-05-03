@@ -279,21 +279,35 @@ export function checkPdfMetadata(
   }
 
   // ---------------------------------------------------------------------------
-  // Rule 5: Creation and modification dates are identical AND within the past
-  // 7 days. Real bank statements are dated as of the statement period, often
-  // weeks/months before the user downloads them. A fresh CreationDate matching
-  // ModDate exactly suggests "just created from scratch".
+  // Rule 5: Fresh creation timestamp. Real bank statements and pay stubs are
+  // dated as of the statement/pay period (often weeks before download); a
+  // fresh CreationDate matching ModDate exactly suggests "just built from
+  // scratch".
+  //
+  // EXCLUDES kinds that are EXPECTED to be freshly downloaded:
+  //   - credit_report — landlords always pull a fresh copy from the bureau
+  //   - employment_letter — agents commonly export/sign these the same day
+  //   - id_document — passports/licences are routinely re-scanned on demand
+  //   - other / bundled exports — agent packets export to PDF on demand
+  // The rule still fires for bank_statement and pay_stub where freshness IS
+  // suspicious.
   // ---------------------------------------------------------------------------
-  if (meta.creation_date && meta.modification_date && meta.creation_date === meta.modification_date) {
+  const FRESHNESS_KINDS = new Set(['bank_statement', 'pay_stub'])
+  if (
+    FRESHNESS_KINDS.has(kind) &&
+    meta.creation_date &&
+    meta.modification_date &&
+    meta.creation_date === meta.modification_date
+  ) {
     const created = new Date(meta.creation_date).getTime()
     const ageHours = (Date.now() - created) / (1000 * 60 * 60)
     if (ageHours < 24 * 7 && ageHours >= 0) {
       flags.push({
         code: 'pdf_freshly_created',
-        severity: isStrict ? 'medium' : 'low',
+        severity: 'medium',
         file,
-        evidence_en: `PDF was created within the past ${Math.round(ageHours)}h with CreationDate==ModificationDate. Suggests just-built file rather than archived statement.`,
-        evidence_zh: `PDF 创建时间在 ${Math.round(ageHours)} 小时内，且创建时间等于修改时间。看起来是刚做出来的文件，不是历史保存的对账单。`,
+        evidence_en: `${kind} PDF was created within the past ${Math.round(ageHours)}h with CreationDate==ModificationDate. Authentic ${kind === 'bank_statement' ? 'bank statements' : 'pay stubs'} are typically weeks-to-months old by the time they're shared with a landlord.`,
+        evidence_zh: `${zhKind(kind)} PDF 创建时间在 ${Math.round(ageHours)} 小时内，且创建时间等于修改时间。真实的${zhKind(kind)}给到房东时通常已经存在好几周到几个月。`,
       })
     }
   }

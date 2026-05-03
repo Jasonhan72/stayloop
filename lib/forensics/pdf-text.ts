@@ -52,7 +52,12 @@ export async function readPdfTextDensity(
       page_count: pageCount,
       chars_per_page: Math.round(charsPerPage),
       is_likely_image_pdf: charsPerPage < 50,
-      text_sample: text.slice(0, 2000),
+      // Keep up to 50k chars so source-specific marker checks (Equifax,
+      // TransUnion, bank names) can scan deep into bundled multi-document
+      // PDFs where the relevant content sits past the cover page. Real
+      // landlord-supplied "Supporting Documents.pdf" packets routinely have
+      // the credit report start on page 6+ — a 2000-char sample never sees it.
+      text_sample: text.slice(0, 50000),
     }
   } catch {
     return null

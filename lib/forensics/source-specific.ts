@@ -30,12 +30,27 @@ const EQUIFAX_MARKERS: RegExp[] = [
   /Personal\s+Information[\s\S]*?Date\s+of\s+Birth/i,
   /Trade\s+Lines?/i,  // Equifax-specific terminology
   /Inquiries[\s\S]*?Last\s+\d+\s+Months/i,
-  // Chrome print-to-PDF Equifax consumer reports (consumer.equifax.ca)
-  // start with these markers in the first 500 chars — must catch these
+  // Markers seen on the Chrome-printed consumer.equifax.ca PDFs that
+  // landlords actually upload (these appear on every page header / footer
+  // of real Equifax consumer disclosures):
   /Equifax\s+Canada/i,
   /EQUIFAX\s+REFERENCE/i,
   /consumer\.equifax\.ca/i,
   /Credit\s+Report\s+Request\s+Date/i,
+  /CONSUMER\s+USE\s+ONLY/i,
+]
+
+// ---- TransUnion markers ----
+// TransUnion is the second major Canadian credit bureau. Many landlords
+// receive TransUnion reports instead of (or in addition to) Equifax, and
+// some packets contain both bureaus. We accept either.
+const TRANSUNION_MARKERS: RegExp[] = [
+  /TransUnion/i,
+  /Trans\s+Union/i,
+  /VantageScore/i,
+  /TUS\s+Score/i,
+  /tucca\.transunion\.ca/i,
+  /Consumer\s+Credit\s+File/i,
 ]
 
 // ---- Bank statement markers ----
@@ -106,17 +121,36 @@ export function checkSourceSpecific(
   const sample = text?.text_sample || ''
   const producer = `${meta?.producer || ''} ${meta?.creator || ''}`
 
-  // ---- Equifax credit report check ----
+  // ---- Credit report check (Equifax OR TransUnion) ----
+  // Real Canadian credit reports come from one of two bureaus. Earlier rule
+  // only accepted Equifax — that misfired on legitimate TransUnion reports
+  // and on bundled "Supporting Documents.pdf" packets where the credit
+  // report sits past page 6 (a 500-char text_sample never reached it).
+  // We now scan up to 50k chars and accept either bureau's markers.
   if (kind === 'credit_report') {
-    const markersHit = EQUIFAX_MARKERS.filter(re => re.test(sample)).length
-    result.equifax_authentic_markers = markersHit >= 2
-    if (!result.equifax_authentic_markers) {
+    const equifaxHits = EQUIFAX_MARKERS.filter(re => re.test(sample)).length
+    const transunionHits = TRANSUNION_MARKERS.filter(re => re.test(sample)).length
+    const totalHits = equifaxHits + transunionHits
+    result.equifax_authentic_markers = equifaxHits >= 2 || transunionHits >= 2
+    if (totalHits === 0) {
+      // No markers from either bureau — likely a fabricated credit report.
+      // Severity stays high.
       flags.push({
-        code: 'credit_report_no_equifax_markers',
+        code: 'credit_report_no_bureau_markers',
+        severity: 'high',
+        file,
+        evidence_en: `Document claims to be a credit report but contains no distinctive markers from either Equifax (Risk Score, Beacon, Trade Lines, Consumer Disclosure) or TransUnion (VantageScore, Consumer Credit File). Found 0 expected markers in the extracted text.`,
+        evidence_zh: `文件声称是信用报告，但提取的文字里找不到 Equifax (Risk Score / Beacon / Trade Lines) 或 TransUnion (VantageScore / Consumer Credit File) 任一征信局的特征标记。0 个预期标记。`,
+      })
+    } else if (totalHits === 1) {
+      // Exactly one marker — possibly a quoted reference rather than an
+      // authentic report. Medium-severity informational flag.
+      flags.push({
+        code: 'credit_report_thin_bureau_markers',
         severity: 'medium',
         file,
-        evidence_en: `Document claims to be a credit report but contains none of the distinctive Equifax markers (Risk Score, Beacon, Trade Lines, Consumer Disclosure). Found ${markersHit}/6 expected markers in extracted text.`,
-        evidence_zh: `文件声称是信用报告，但提取的文字里找不到 Equifax 的特征标记（Risk Score、Beacon、Trade Lines、Consumer Disclosure）。仅找到 ${markersHit}/6 个预期标记。`,
+        evidence_en: `Credit report contains only ${totalHits} bureau marker (Equifax: ${equifaxHits}, TransUnion: ${transunionHits}). Authentic disclosures usually contain multiple distinctive headers.`,
+        evidence_zh: `信用报告仅找到 ${totalHits} 个征信局标记（Equifax: ${equifaxHits}, TransUnion: ${transunionHits}）。真实的信用披露通常包含多处特征标记。`,
       })
     }
   }

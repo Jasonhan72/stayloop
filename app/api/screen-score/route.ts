@@ -1134,9 +1134,9 @@ JSON DISCIPLINE (avoid parse errors):
     const FORGERY_INDICATING_CODES = new Set([
       'pdf_title_indicates_image',         // title literally says PNG/screenshot
       'pdf_producer_consumer_tool',        // Photoshop / Word / Canva / Image2PDF
-      'paystub_ytd_inflated',              // YTD math impossible (>1.5x or <0.5x)
+      'paystub_ytd_inflated',              // YTD math truly impossible (>2.5x)
       'paystub_period_math_error',         // hourly × hours ≠ stated gross
-      'credit_report_no_equifax_markers',  // claims to be Equifax, no markers
+      'credit_report_no_bureau_markers',   // no Equifax AND no TransUnion markers
       'bank_producer_mismatch',            // bank text but wrong PDF Producer
     ])
 
@@ -1244,7 +1244,7 @@ JSON DISCIPLINE (avoid parse errors):
       // Lower caps reflect higher confidence: these are mathematical/file-format
       // proofs of forgery, not visual judgment.
       pdf_is_screenshot: 30,         // PDF is image-only OR title says "PNG/JPEG"
-      paystub_math_impossible: 35,   // YTD inflated >1.5x or hourly×hours ≠ stated
+      paystub_math_impossible: 35,   // YTD inflated >2.5x or hourly×hours ≠ stated (medium "above_pro_rata" 1.5–2.5x does NOT trigger this gate — it's a verification flag, not a forgery proof)
       cross_doc_collision: 40,       // applicant phone == employer/HR phone
       producer_consumer_tool: 50,    // PDF Producer is Preview/Word/Skia for strict kinds
       // Self-issued employment — own company / family business letter
