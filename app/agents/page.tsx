@@ -5,6 +5,7 @@ import AudienceLanding from '@/components/marketing/AudienceLanding'
 export default function AgentsPage() {
   return (
     <AudienceLanding
+      agent={{ name: 'Brief', accent: 'mint', tier: 'Pro' }}
       eyebrow_zh="经纪"
       eyebrow_en="AGENTS"
       title_zh="只做带看，不做文书。"

@@ -5,6 +5,7 @@ import AudienceLanding from '@/components/marketing/AudienceLanding'
 export default function LandlordsPage() {
   return (
     <AudienceLanding
+      agent={{ name: 'Logic', accent: 'emerald', tier: 'Pro' }}
       eyebrow_zh="房东"
       eyebrow_en="LANDLORDS"
       title_zh="AI 替你筛选每一位申请人。"

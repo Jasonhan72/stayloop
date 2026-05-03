@@ -10,6 +10,7 @@ import AudienceLanding from '@/components/marketing/AudienceLanding'
 export default function TenantsPage() {
   return (
     <AudienceLanding
+      agent={{ name: 'Luna', accent: 'purple', tier: 'Pro' }}
       eyebrow_zh="租客"
       eyebrow_en="FOR TENANTS"
       title_zh="一次验证，处处通行。"

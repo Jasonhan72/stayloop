@@ -5,6 +5,7 @@ import AudienceLanding from '@/components/marketing/AudienceLanding'
 export default function TrustApiPage() {
   return (
     <AudienceLanding
+      agent={{ name: 'Verify', accent: 'emerald', tier: 'B2B' }}
       eyebrow_zh="Trust API"
       eyebrow_en="TRUST API"
       title_zh="把租赁信任变成可调用的 API。"
