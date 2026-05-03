@@ -2093,7 +2093,16 @@ export default function ScreenPage() {
               .storage.from('tenant-files')
               .upload(path, f, { contentType: f.type, upsert: attempt > 0 })
             if (!upErr) {
-              uploaded.push({ path, name: f.name, size: f.size, mime: f.type || 'application/octet-stream', kind: guessKind(f.name) })
+              // Prefer the AI classifier's per-file kinds (which can include
+              // multiple kinds when a single PDF bundles employment letter +
+              // pay stubs + Equifax report — common for "Supporting
+              // Documents" packets). Fall back to filename heuristic only
+              // when the classifier didn't return anything for this file.
+              const aiKinds = fileKinds[fileKey(f)]
+              const kind = aiKinds && aiKinds.length > 0
+                ? aiKinds.join(',')
+                : guessKind(f.name)
+              uploaded.push({ path, name: f.name, size: f.size, mime: f.type || 'application/octet-stream', kind })
               success = true
               break
             }

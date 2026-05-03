@@ -133,12 +133,42 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
   }
 }
 
+/**
+ * `f.kind` may be a comma-joined list when one PDF bundle contains multiple
+ * document kinds (e.g. "employment_letter,pay_stub,credit_report" for a
+ * "Supporting Documents.pdf" packet). Helpers below split + query.
+ */
+function kindList(kind: string | undefined): string[] {
+  return (kind || '').split(',').map(k => k.trim().toLowerCase()).filter(Boolean)
+}
+function kindIncludes(kind: string | undefined, target: string): boolean {
+  return kindList(kind).includes(target)
+}
+/** Pick the strictest kind from a possibly-comma-joined value. The strictness
+ *  ordering reflects which kind triggers the harshest forensics rules — when
+ *  the bundle contains both a bank_statement and an employment_letter, treat
+ *  the file as a bank_statement for metadata strictness checks. */
+const STRICTNESS = ['credit_report', 'bank_statement', 'pay_stub', 'employment_letter', 'id_document', 'offer_letter', 'reference', 'other']
+function strictestKind(kind: string | undefined): string {
+  const list = kindList(kind)
+  if (list.length === 0) return 'other'
+  if (list.length === 1) return list[0]
+  for (const s of STRICTNESS) {
+    if (list.includes(s)) return s
+  }
+  return list[0]
+}
+
 async function analyzeFile(
   f: ForensicsInput['files'][number],
   apiKey?: string,
   applicantName?: string,
 ): Promise<PerFileForensics> {
   const startedAt = Date.now()
+  // Use the strictest single kind for forensics rules that look up a
+  // single kind via STRICT_KINDS.has(). The original (possibly multi-kind)
+  // value is preserved on the file_kind output for downstream display.
+  const canonicalKind = strictestKind(f.kind)
   const out: PerFileForensics = {
     file_name: f.name,
     file_kind: f.kind || 'other',
@@ -159,15 +189,15 @@ async function analyzeFile(
         ])
         if (meta) {
           out.pdf_metadata = meta
-          out.flags.push(...checkPdfMetadata(meta, f.name, f.kind))
+          out.flags.push(...checkPdfMetadata(meta, f.name, canonicalKind))
         }
         if (text) {
           const fileSize = meta?.file_size_bytes ?? bytes.byteLength
           out.text_density = text
-          out.flags.push(...checkTextDensity(text, fileSize, f.name, f.kind))
+          out.flags.push(...checkTextDensity(text, fileSize, f.name, canonicalKind))
         }
         // Source-specific markers
-        const { result: src, flags: srcFlags } = checkSourceSpecific(meta, text, f.name, f.kind)
+        const { result: src, flags: srcFlags } = checkSourceSpecific(meta, text, f.name, canonicalKind)
         out.source_specific = src
         out.flags.push(...srcFlags)
 
@@ -190,7 +220,7 @@ async function analyzeFile(
             ? applicantName.trim().split(/\s+/).pop()
             : undefined
           out.flags.push(
-            ...checkIdValidation(validationText, f.name, f.kind, surname)
+            ...checkIdValidation(validationText, f.name, canonicalKind, surname)
           )
         }
       }
@@ -205,13 +235,15 @@ async function analyzeFile(
           ? applicantName.trim().split(/\s+/).pop()
           : undefined
         out.flags.push(
-          ...checkIdValidation(ocrResult.text, f.name, f.kind, surname)
+          ...checkIdValidation(ocrResult.text, f.name, canonicalKind, surname)
         )
       }
     }
 
-    // Paystub-only: extract numeric fields with haiku
-    if (f.kind === 'pay_stub' && apiKey) {
+    // Paystub-only: extract numeric fields with haiku. Use kindIncludes so
+    // bundled PDFs ("employment_letter,pay_stub,credit_report") still trigger
+    // the paystub math check on the pay_stub portion.
+    if (kindIncludes(f.kind, 'pay_stub') && apiKey) {
       const ext = await extractPaystubFields(f.signed_url, f.mime, apiKey)
       if (ext) {
         const { result: math, flags: mathFlags } = checkPaystubMath(ext, f.name)

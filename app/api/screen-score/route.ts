@@ -696,11 +696,24 @@ export async function POST(req: NextRequest) {
     const budget = await applyPageBudget(pdfFiles)
     const truncatedFilesNote: string[] = []
 
+    // `kind` may be a comma-joined list when the classifier saw multiple
+    // document kinds inside one bundled PDF (a "Supporting Documents.pdf"
+    // packet). Render the kind list as `[A + B + C]` so Sonnet sees that
+    // a single attachment covers multiple document types and looks for
+    // each one's signal.
+    function formatKind(kind: string | undefined): string {
+      if (!kind) return 'doc'
+      const parts = kind.split(',').map(k => k.trim()).filter(Boolean)
+      if (parts.length === 0) return 'doc'
+      if (parts.length === 1) return parts[0]
+      return `bundle [${parts.join(' + ')}]`
+    }
+
     for (const prep of budget.prepared) {
       contentBlocks.push({
         type: 'document',
         source: prep.source,
-        title: `${prep.kind || 'doc'}: ${prep.name}${prep.truncated ? ` (page-truncated ${prep.sent_pages}/${prep.original_pages})` : ''}`,
+        title: `${formatKind(prep.kind)}: ${prep.name}${prep.truncated ? ` (page-truncated ${prep.sent_pages}/${prep.original_pages})` : ''}`,
       })
       if (prep.truncated) {
         truncatedFilesNote.push(`${prep.name}: ${prep.sent_pages}/${prep.original_pages} pages`)
@@ -709,7 +722,7 @@ export async function POST(req: NextRequest) {
     for (const { file: f, url } of imageFiles) {
       if (!url) continue
       contentBlocks.push({ type: 'image', source: { type: 'url', url } })
-      contentBlocks.push({ type: 'text', text: `(file above is: ${f.kind || 'doc'} — ${f.name})` })
+      contentBlocks.push({ type: 'text', text: `(file above is: ${formatKind(f.kind)} — ${f.name})` })
     }
 
     // If we had to truncate, prepend a note to the prompt so Sonnet doesn't
@@ -780,7 +793,8 @@ Monthly rent: $${monthlyRent || 'N/A'}
 Self-reported income: $${monthlyIncome || 'N/A'}/mo${incomeRatio ? ` (ratio ${incomeRatio.toFixed(2)}x)` : ''}
 Landlord notes: ${screening.notes || 'N/A'}
 
-Uploaded: ${files.length === 0 ? 'NONE' : files.map(f => `${f.kind || 'doc'}(${f.name})`).join(', ')}
+Uploaded: ${files.length === 0 ? 'NONE' : files.map(f => `${formatKind(f.kind)}(${f.name})`).join(', ')}
+NOTE: When you see "bundle [A + B + C]" above, ONE PDF file contains MULTIPLE document kinds. Look inside that single attachment for ALL listed kinds — do NOT report them as missing just because they share a filename.
 
 COURT RECORD LOOKUP — ALL ONTARIO SOURCES (${courtDetail.databases_searched} sources incl. CanLII DBs + Ontario Courts Portal):
 ${courtDetail.queries.filter(q => q.tier === 'free').map(q => `  - ${q.source}: ${q.status === 'ok' ? `${q.hits} hit(s)` : q.status}${q.note ? ` (${q.note})` : ''}`).join('\n')}

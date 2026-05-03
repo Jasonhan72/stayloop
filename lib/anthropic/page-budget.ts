@@ -49,14 +49,52 @@ const KIND_BUDGET: Record<string, number> = {
 const DEFAULT_KIND_BUDGET = 6
 
 /**
+ * A file's `kind` field may be a comma-joined list when the classifier saw
+ * multiple document kinds inside one bundled PDF (e.g. an applicant's
+ * "Supporting Documents.pdf" containing employment letter + pay stubs +
+ * Equifax credit report). Split into individual lowercase kinds.
+ */
+function splitKinds(kind: string | undefined): string[] {
+  if (!kind) return []
+  return kind
+    .toLowerCase()
+    .split(',')
+    .map(k => k.trim())
+    .filter(Boolean)
+}
+
+/** Per-kind cap for a single kind, falling back to DEFAULT_KIND_BUDGET. */
+function capForOne(kind: string): number {
+  return KIND_BUDGET[kind] ?? DEFAULT_KIND_BUDGET
+}
+
+/**
+ * Total page budget for a file given its (possibly multi-kind) classification.
+ * For bundled PDFs we SUM the per-kind budgets so each embedded document gets
+ * its own page allocation — a 38-page bundle of employment_letter (5) +
+ * pay_stub (4) + credit_report (12) gets 21 pages, not 6.
+ */
+function capForKind(kind: string | undefined): number {
+  const kinds = splitKinds(kind)
+  if (kinds.length === 0) return DEFAULT_KIND_BUDGET
+  if (kinds.length === 1) return capForOne(kinds[0])
+  return kinds.reduce((sum, k) => sum + capForOne(k), 0)
+}
+
+/**
  * Per-kind minimum pages to keep when budget is tight. Single-page docs
  * (IDs, health cards) can sample 1 page; multi-page docs benefit from 2+.
+ * For multi-kind bundles return the SUM of mins so each kind keeps its
+ * minimum coverage.
  */
 function minForKind(kind: string): number {
-  const k = (kind || '').toLowerCase()
-  if (k === 'id' || k === 'health_card' || k === 'drivers_license' || k === 'passport') return 1
-  if (k === 'pay_stub' || k === 'paystub' || k === 'payslip' || k === 't4') return 1
-  return 2
+  const kinds = splitKinds(kind)
+  if (kinds.length === 0) return 2
+  return kinds.reduce((sum, k) => {
+    if (k === 'id' || k === 'id_document' || k === 'health_card' || k === 'drivers_license' || k === 'passport') return sum + 1
+    if (k === 'pay_stub' || k === 'paystub' || k === 'payslip' || k === 't4') return sum + 1
+    return sum + 2
+  }, 0)
 }
 
 export interface BudgetedFile {
@@ -186,7 +224,7 @@ export async function applyPageBudget(files: InputFile[]): Promise<{
   // Step 2: Compute kind-based allocation (only applied to PDFs).
   const allocations = probes.map(p => {
     if (!p.bytes || p.pages === 0) return 0
-    const cap = KIND_BUDGET[p.kind?.toLowerCase()] ?? DEFAULT_KIND_BUDGET
+    const cap = capForKind(p.kind)
     return Math.min(p.pages, Math.max(minForKind(p.kind), cap))
   })
 
