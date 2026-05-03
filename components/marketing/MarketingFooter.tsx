@@ -59,24 +59,30 @@ export default function MarketingFooter() {
           className="mk-footer-grid"
         >
           <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'baseline',
+                marginBottom: 12,
+                fontFamily: 'Inter Tight, system-ui, sans-serif',
+                fontSize: 19,
+                fontWeight: 700,
+                letterSpacing: '-0.025em',
+              }}
+            >
+              <span style={{ color: v3.textPrimary }}>stay</span>
               <span
-                aria-hidden
                 style={{
-                  display: 'inline-grid',
-                  placeItems: 'center',
-                  width: 24,
-                  height: 24,
-                  borderRadius: 6,
-                  background: v3.brand,
-                  color: '#fff',
-                  fontWeight: 800,
-                  fontSize: 13,
+                  background:
+                    'linear-gradient(90deg, #4F46E5 0%, #7C3AED 50%, #A855F7 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  color: 'transparent',
                 }}
               >
-                S
+                loop
               </span>
-              <span style={{ fontSize: 16, fontWeight: 700, color: v3.textPrimary }}>Stayloop</span>
             </div>
             <p style={{ color: v3.textMuted, fontSize: 13, lineHeight: 1.6, margin: 0 }}>
               {lang === 'zh'

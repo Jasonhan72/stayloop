@@ -119,8 +119,11 @@ export default function ServicesPage() {
     <PageShell role="tenant">
       <div style={{ maxWidth: size.content.wide, margin: '0 auto', paddingLeft: 24, paddingRight: 24, paddingTop: 0 }}>
         <SecHead
-          eyebrow={isZh ? '用户工作区' : 'Tenant Workspace'}
-          title={isZh ? '精选服务' : 'Services'}
+          eyebrow={isZh ? '服务 · 在正确时机接入' : 'Services · matched to your stage'}
+          title={isZh ? '在正确的时机接入正确的服务。' : 'The right service, at the right moment.'}
+          sub={isZh
+            ? '从清洁、搬家到维修、保险，Agent 会根据租房阶段主动推荐合适服务，用户确认后再继续。'
+            : 'Cleaning, moving, repairs, insurance — your agent suggests the right service for the current rental stage, and only proceeds once you confirm.'}
         />
       </div>
 

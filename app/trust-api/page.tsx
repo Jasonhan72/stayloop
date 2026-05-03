@@ -7,12 +7,12 @@ export default function TrustApiPage() {
     <AudienceLanding
       eyebrow_zh="Trust API"
       eyebrow_en="TRUST API"
-      title_zh="Stripe-style 的租赁信任 API。"
-      title_en="A Stripe-style API for rental trust."
-      accentWord_zh="租赁信任"
-      accentWord_en="rental trust"
-      subtitle_zh="Identity / Income / Credit / Eviction / Score 五个端点。POST 一次请求，拿回带 12 个月有效期的核验记录 + JWT proof。30 分钟接入沙盒。"
-      subtitle_en="Five endpoints: Identity, Income, Credit, Eviction, Score. POST once, receive a sealed verification record with a 12-month JWT proof. 30 minutes from sandbox to live."
+      title_zh="把租赁信任变成可调用的 API。"
+      title_en="Rental trust as a callable API."
+      accentWord_zh="可调用的 API"
+      accentWord_en="callable API"
+      subtitle_zh="用统一接口完成身份、收入、信用、租房记录与合规审计，为租赁平台、保险和金融服务提供可信基础设施。"
+      subtitle_en="One unified interface for identity, income, credit, rental history and compliance — trust infrastructure for rental platforms, insurers, and financial services."
       primaryCta={{ label_zh: '获取 API Key', label_en: 'Get an API key', href: '/chat' }}
       secondaryCta={{ label_zh: '查看示例响应', label_en: 'See sample response', href: '/chat' }}
       stats={[

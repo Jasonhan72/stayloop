@@ -72,7 +72,7 @@ export default function AgentDashboardPage() {
     <PageShell role="agent">
       {/* Eyebrow */}
       <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 6 }}>
-        {isZh ? '经纪工作区 · Soo Kim · RE/MAX Hallmark' : 'Agent Workspace · Soo Kim · RE/MAX Hallmark'}
+        {isZh ? '经纪 · 正在为你处理客户流程' : 'Agent · Working through your client pipeline'}
       </div>
 
       {/* Title + subtitle */}
@@ -82,7 +82,9 @@ export default function AgentDashboardPage() {
         </h1>
       </div>
       <p style={{ color: v3.textSecondary, fontSize: 14, margin: '6px 0 24px', lineHeight: 1.5 }}>
-        {isZh ? '2个包被房东查看了。1个客户等待你的跟进。' : '2 packages were viewed by landlords this morning. 1 client awaits your follow-up.'}
+        {isZh
+          ? '系统整理行政工作，你专注带看、谈判与关系。今早房东查看了 2 个包，1 个客户等待你的跟进。'
+          : 'The system handles admin so you stay focused on showings, negotiation and relationships. 2 packages viewed by landlords this morning · 1 client waiting on your follow-up.'}
       </p>
 
       {/* KPI cards 1.5fr 1fr grid */}

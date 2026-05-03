@@ -61,11 +61,12 @@ export default function Home() {
           >
             {isZh ? (
               <>
-                租房，<br />用 <span style={{ color: v3.brand }}>AI</span> 重新做一遍。
+                让租住回到<br />应有的<span style={{ color: v3.brand }}>秩序</span>。
               </>
             ) : (
               <>
-                Renting,<br />rebuilt with <span style={{ color: v3.brand }}>AI</span>.
+                Tell us what you want.<br />
+                <span style={{ color: v3.brand }}>We&rsquo;ll guide you there.</span>
               </>
             )}
           </h1>
@@ -79,8 +80,8 @@ export default function Home() {
             }}
           >
             {isZh
-              ? '租客筛查、租客 Passport、申请、房源、租约起草和在线签署 — 一个 AI 原生的工作流程，从房源到签约全程不离开 Stayloop。'
-              : 'Tenant screening, rental passports, applications, listings, lease drafting and online signing — one AI-native workflow from listing to signed lease.'}
+              ? '你只需说出需求，其余从找房、申请到签约与后续服务，系统都会协助你轻松完成。'
+              : 'AI-native, helping you through every step of renting.'}
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <Link href={heroCta.href} style={btnPrimary}>
@@ -128,30 +129,30 @@ export default function Home() {
               {
                 tone: v3.trust,
                 eb: isZh ? '租客' : 'For Tenants',
-                t: isZh ? '建立你的租房 Passport' : 'Build your rental passport',
+                t: isZh ? '一次验证，处处通行。' : 'Verify once. Apply anywhere.',
                 b: isZh
-                  ? 'AI 帮你整理身份证、工资单、雇佣信和信用记录。一键申请，所有房源复用。'
-                  : 'AI organizes your ID, pay stubs, employment letters and credit. Apply with one click. Reuse for every listing.',
+                  ? '创建可复用的 Rental Passport，让你的身份、收入、信用与申请资料在租房流程中被清晰整理、可控分享。'
+                  : 'Create a reusable Rental Passport. Your ID, income, credit and documents stay organized — and you control who sees what.',
                 cta: isZh ? '创建 Passport' : 'Create Passport',
                 href: '/passport',
               },
               {
                 tone: v3.brand,
                 eb: isZh ? '房东' : 'For Landlords',
-                t: isZh ? '筛查租客 · 签署租约' : 'Screen tenants. Sign leases.',
+                t: isZh ? '让出租更清晰，也更可靠。' : 'Renting out, made clearer and more reliable.',
                 b: isZh
-                  ? '微信、邮件、Kijiji 收到的文件全部自动 screening。比较申请人。AI 起草租约。在线签署一站式搞定。'
-                  : 'Auto-screening from email/WeChat/Kijiji files. Compare applicants. AI lease draft. E-sign in one place.',
+                  ? '从发布房源、筛选申请到准备租约，系统协助整理信息与流程；关键决策始终由你确认。'
+                  : 'From listing to screening to lease prep, the system organizes the workflow — every key decision still goes through you.',
                 cta: isZh ? '发布房源' : 'List a Property',
                 href: '/listings/new',
               },
               {
                 tone: v3.brandBright,
                 eb: isZh ? '经纪' : 'For Agents',
-                t: isZh ? '房东可读的专业申请包' : 'Landlord-ready report packages',
+                t: isZh ? '把行政交给系统，把关系留给人。' : 'Let the system handle admin — you keep the relationships.',
                 b: isZh
-                  ? '把杂乱的租客文件变成 agent-branded screening 报告。安全分享链接。访问留痕。'
-                  : 'Turn messy tenant files into agent-branded screening packages. Share secure links. Track engagement.',
+                  ? 'AI 协助整理客户、准备房源材料、安排看房与跟进申请，让经纪专注线下服务、谈判和信任关系。'
+                  : 'AI organizes clients, listing materials, showings and follow-ups — so agents focus on the field work, negotiation and trust.',
                 cta: isZh ? '打开经纪面板' : 'Open Agent Portal',
                 href: '/agent/day',
               },
@@ -278,17 +279,35 @@ export default function Home() {
       {/* AI MODULES ───────────────────────────────────────────────────── */}
       <section style={{ padding: '40px 24px' }}>
         <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
-          <Eyebrow>{isZh ? 'AI 不是聊天框 · AI 推动整个工作流' : 'AI is not a chat box · It runs the workflow'}</Eyebrow>
+          <Eyebrow>
+            {isZh ? '不是 AI 替你决定 · 是 AI 协助你完成流程' : 'AI assists — it doesn’t decide for you'}
+          </Eyebrow>
           <h2
             style={{
               fontSize: 'clamp(24px, 2.6vw, 30px)',
               fontWeight: 700,
-              margin: '12px 0 24px',
+              margin: '12px 0 12px',
               letterSpacing: '-0.02em',
+              maxWidth: 820,
             }}
           >
-            {isZh ? '8 个 AI 模块嵌入到租房流程的每一步。' : 'Eight AI modules built into the rental flow.'}
+            {isZh
+              ? '每位用户都有自己的个人 AI Agent。'
+              : 'Every user gets a personal AI agent.'}
           </h2>
+          <p
+            style={{
+              fontSize: 15,
+              color: v3.textSecondary,
+              maxWidth: 760,
+              lineHeight: 1.6,
+              margin: '0 0 24px',
+            }}
+          >
+            {isZh
+              ? '它读取专属记忆，理解当前进度，协助你完成租房流程；跨角色协作由系统调度，关键节点由你确认。'
+              : 'Powered by private memory and coordinated through a controlled workflow system. Cross-role handoffs run automatically; every key step still goes through you.'}
+          </p>
           <div
             style={{
               display: 'grid',

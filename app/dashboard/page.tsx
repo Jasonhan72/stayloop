@@ -140,7 +140,7 @@ export default function Dashboard() {
         {/* Eyebrow + Title */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: v3.textMuted, fontWeight: 700, marginBottom: 8 }}>
-            {isZh ? '房东工作区' : 'Landlord Workspace · Hudson Living'}
+            {isZh ? '房东 · 正在为你处理出租' : 'Landlord · Renting out in progress'}
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginTop: 6 }}>
             <h1 style={{ margin: 0, fontFamily: 'var(--f-serif), sans-serif', fontSize: 30, fontWeight: 600, letterSpacing: '-0.02em', color: v3.textPrimary }}>
@@ -150,8 +150,8 @@ export default function Dashboard() {
           </div>
           <p style={{ color: v3.textSecondary, fontSize: 14, margin: '6px 0 24px' }}>
             {isZh
-              ? 'AI 夜间跑分：4 份新筛查报告，3 份不一致旗标，1 份公平住房警告。'
-              : 'AI ran overnight: 4 new screening reports, 3 inconsistency flags, 1 fair-housing language warning.'}
+              ? '你确认关键决策，系统协助完成发布、筛选与签约。AI 夜间跑分：4 份新筛查报告，3 份不一致旗标，1 份公平住房警告。'
+              : 'You confirm the key decisions; the system handles publishing, screening and signing. Overnight AI run: 4 new screening reports, 3 inconsistency flags, 1 fair-housing language warning.'}
           </p>
         </div>
 

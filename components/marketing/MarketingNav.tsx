@@ -80,38 +80,26 @@ export default function MarketingNav() {
             href="/"
             style={{
               display: 'inline-flex',
-              alignItems: 'center',
-              gap: 10,
+              alignItems: 'baseline',
               textDecoration: 'none',
-              color: v3.textPrimary,
+              fontFamily: 'Inter Tight, system-ui, sans-serif',
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: '-0.025em',
             }}
           >
-            <span
-              aria-hidden
-              style={{
-                display: 'inline-grid',
-                placeItems: 'center',
-                width: 28,
-                height: 28,
-                borderRadius: 7,
-                background: v3.brand,
-                color: v3.surface,
-                fontWeight: 700,
-                fontSize: 16,
-                letterSpacing: '-0.04em',
-              }}
-            >
-              S
-            </span>
+            <span style={{ color: v3.textPrimary }}>stay</span>
             <span
               style={{
-                fontFamily: 'Inter Tight, system-ui, sans-serif',
-                fontSize: 19,
-                fontWeight: 600,
-                letterSpacing: '-0.02em',
+                background:
+                  'linear-gradient(90deg, #4F46E5 0%, #7C3AED 50%, #A855F7 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                color: 'transparent',
               }}
             >
-              Stayloop
+              loop
             </span>
           </Link>
 

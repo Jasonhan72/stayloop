@@ -118,28 +118,31 @@ export default function Sidebar({ user, role }: Props) {
           color: v3.textPrimary,
         }}
       >
-        <span
-          aria-hidden
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: 7,
-            background: v3.brand,
-            color: v3.surface,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 700,
-            fontSize: 14,
-            letterSpacing: '-0.04em',
-            flexShrink: 0,
-          }}
-        >
-          S
-        </span>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1 }}>
-            Stayloop
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'baseline',
+              fontFamily: 'Inter Tight, system-ui, sans-serif',
+              fontSize: 19,
+              fontWeight: 700,
+              letterSpacing: '-0.025em',
+              lineHeight: 1,
+            }}
+          >
+            <span style={{ color: v3.textPrimary }}>stay</span>
+            <span
+              style={{
+                background:
+                  'linear-gradient(90deg, #4F46E5 0%, #7C3AED 50%, #A855F7 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                color: 'transparent',
+              }}
+            >
+              loop
+            </span>
           </div>
           <div
             style={{

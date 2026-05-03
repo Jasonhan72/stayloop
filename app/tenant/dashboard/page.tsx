@@ -306,7 +306,7 @@ export default function TenantDashboardPage() {
             marginBottom: 10,
           }}
         >
-          {isZh ? '租客工作区' : 'Tenant Workspace'}
+          {isZh ? '租客 · 正在为你处理租房' : 'Tenant · Renting in progress'}
         </div>
         {/* Headline */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 6 }}>
@@ -319,14 +319,14 @@ export default function TenantDashboardPage() {
               letterSpacing: '-0.02em',
             }}
           >
-            {isZh ? `你好 ${firstName} — 你的护照已 78% 准备好。` : `Hi ${firstName} — your Passport is 78% ready.`}
+            {isZh ? `你好 ${firstName} — 你的 Passport 已 78% 准备好。` : `Hi ${firstName} — your Passport is 78% ready.`}
           </h1>
           <Tag tone="ai">AI</Tag>
         </div>
         <p style={{ color: v3.textSecondary, fontSize: 14, margin: '6px 0 24px' }}>
           {isZh
-            ? '添加 2 个文件以自信地在更严格的列表上申请。'
-            : 'Add 2 documents to apply with confidence on stricter listings.'}
+            ? '关键步骤由你确认，其余由系统协助完成。再补 2 个文件就能在更严格的房源上自信申请。'
+            : 'You confirm the key steps; the system handles the rest. Add 2 more documents to apply with confidence on stricter listings.'}
         </p>
 
         {/* Grid: left = stats + applications + timeline, right = AI panel + activity */}
