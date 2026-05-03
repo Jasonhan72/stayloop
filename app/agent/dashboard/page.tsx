@@ -88,7 +88,7 @@ export default function AgentDashboardPage() {
       </p>
 
       {/* KPI cards 1.5fr 1fr grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 18 }} className="a-kpis-4col">
         {[
           { label: isZh ? '活跃客户' : 'Active clients', value: '12', sub: isZh ? '本周新增3个' : '3 added this week', tone: 'gold' },
           { label: isZh ? '开放包' : 'Open packages', value: '4', sub: isZh ? '今日查看2个' : '2 viewed today', tone: 'ai' },
@@ -110,7 +110,7 @@ export default function AgentDashboardPage() {
       </div>
 
       {/* Package pipeline + actions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18 }} className="a-twopane">
         <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 0, overflow: 'hidden', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
           <div style={{ padding: '14px 22px', borderBottom: `1px solid ${v3.border}`, display: 'flex', alignItems: 'baseline' }}>
             <h3 style={{ margin: 0, fontFamily: 'var(--f-serif)', fontSize: 17, fontWeight: 600 }}>
@@ -181,6 +181,21 @@ export default function AgentDashboardPage() {
           </div>
         </div>
       </div>
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.a-kpis-4col) {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          :global(.a-twopane) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        @media (max-width: 600px) {
+          :global(.a-kpis-4col) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </PageShell>
   )
 }

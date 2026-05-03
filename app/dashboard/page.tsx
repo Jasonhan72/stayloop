@@ -156,7 +156,7 @@ export default function Dashboard() {
         </div>
 
         {/* KPIs Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 18 }} className="db-kpis-grid">
           {[
             { en: 'Active listings', zh: '活跃房源', val: listings.filter(l => l.is_active).length, sub: isZh ? '2 份草稿' : '2 drafts', tone: v3.brand },
             { en: 'Apps to review', zh: '待审申请', val: applications.filter(a => a.status !== 'approved' && a.status !== 'declined').length, sub: isZh ? '3 份高就绪' : '3 high readiness', tone: v3.warning },
@@ -178,7 +178,7 @@ export default function Dashboard() {
         </div>
 
         {/* Two-column: Pipeline + Right sidebar */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18 }} className="db-twopane">
           <div style={{ display: 'grid', gap: 18 }}>
             {/* Pipeline strip */}
             <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 22, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
@@ -194,7 +194,7 @@ export default function Dashboard() {
                   {isZh ? '打开队列 →' : 'Open queue →'}
                 </button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }} className="db-pipeline-stages">
                 {[
                   { stage: 'New apps', count: applications.filter(a => a.status === 'new').length, tone: v3.warning, note: isZh ? '3 份高就绪' : '3 high readiness' },
                   { stage: 'Screening', count: applications.filter(a => a.status === 'reviewing').length, tone: v3.trust, note: isZh ? '2 份矛盾' : '2 with inconsistencies' },
@@ -332,6 +332,27 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.db-kpis-grid) {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          :global(.db-twopane) {
+            grid-template-columns: 1fr !important;
+          }
+          :global(.db-pipeline-stages) {
+            grid-template-columns: repeat(3, 1fr) !important;
+          }
+        }
+        @media (max-width: 600px) {
+          :global(.db-kpis-grid) {
+            grid-template-columns: 1fr !important;
+          }
+          :global(.db-pipeline-stages) {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+        }
+      `}</style>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </PageShell>
   )

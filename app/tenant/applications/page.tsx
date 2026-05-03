@@ -123,6 +123,7 @@ export default function TenantApplicationsPage() {
             padding: 0,
             overflow: 'hidden',
           }}
+          className="t-apps-table-wrap"
         >
           <div
             style={{
@@ -236,6 +237,14 @@ export default function TenantApplicationsPage() {
           )}
         </div>
       </div>
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.t-apps-table-wrap) {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+          }
+        }
+      `}</style>
     </PageShell>
   )
 }

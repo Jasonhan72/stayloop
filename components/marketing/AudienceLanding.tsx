@@ -118,7 +118,9 @@ export default function AudienceLanding(p: AudienceProps) {
                 boxShadow: '0 12px 36px rgba(124,58,237,0.10)',
                 marginBottom: 22,
                 backdropFilter: 'blur(18px)',
+                flexWrap: 'wrap',
               }}
+              className="mk-agent-badge"
             >
               {/* Orb */}
               <span
@@ -285,6 +287,7 @@ export default function AudienceLanding(p: AudienceProps) {
               gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
               gap: 18,
             }}
+            className="mk-features-grid"
           >
             {p.features.map((f, i) => (
               <div
@@ -398,9 +401,24 @@ export default function AudienceLanding(p: AudienceProps) {
 
       <MarketingFooter />
       <style jsx>{`
-        @media (max-width: 760px) {
+        @media (max-width: 860px) {
           :global(.mk-stats-grid) {
             grid-template-columns: 1fr 1fr !important;
+          }
+          :global(.mk-features-grid) {
+            grid-template-columns: 1fr !important;
+          }
+          :global(.mk-agent-badge) {
+            gap: 8px !important;
+          }
+        }
+        @media (max-width: 600px) {
+          :global(.mk-stats-grid) {
+            grid-template-columns: 1fr !important;
+          }
+          :global(.mk-agent-badge) {
+            flex-direction: column !important;
+            align-items: flex-start !important;
           }
         }
       `}</style>

@@ -152,7 +152,7 @@ export default function ManualScreeningPage() {
         title={isZh ? '新筛查 — 来自邮件的申请人' : 'New screening — applicant from email'}
         sub={isZh ? '案例 #SCR-2026-0418 · 开始 2 分钟前' : 'Case #SCR-2026-0418 · Started 2 min ago'}
       />
-      <div style={{ maxWidth: size.content.wide, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20 }}>
+      <div style={{ maxWidth: size.content.wide, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20 }} className="l-twopane-screen">
         <div style={{ display: 'grid', gap: 18 }}>
           {/* Step strip */}
           <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: '20px 24px', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
@@ -291,6 +291,13 @@ export default function ManualScreeningPage() {
           </div>
         </div>
       </div>
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.l-twopane-screen) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </PageShell>
   )
 }

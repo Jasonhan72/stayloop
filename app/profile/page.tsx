@@ -99,7 +99,7 @@ export default function SettingsPage() {
       {/* Content */}
       <div style={{ padding: '28px 28px', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
         {section === 'profile' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }} className="p-twopane">
             {/* Main card */}
             <div style={{ background: '#fff', border: `1px solid ${v3.border}`, borderRadius: 14, padding: 24, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
               <div
@@ -387,6 +387,13 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.p-twopane) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </PageShell>
   )
 }

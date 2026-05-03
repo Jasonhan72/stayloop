@@ -112,7 +112,7 @@ export default function BillingPage() {
       />
 
       <div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }} className="b-twopane">
           <div style={{ display: 'grid', gap: 18 }}>
             {/* Current plan card */}
             <div
@@ -518,6 +518,13 @@ export default function BillingPage() {
           </div>
         </div>
       </div>
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.b-twopane) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </PageShell>
   )
 }

@@ -194,7 +194,7 @@ export default function PassportPage() {
     <PageShell role="tenant" allowAnonymous>
       <div style={{ maxWidth: size.content.wide, margin: '0 auto' }} className="passport-outer">
         {/* V4 layout: main pane (1fr) + right sidebar (320px) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 22 }} className="passport-grid">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 22 }} className="t-twopane-passport">
           {/* Main content pane */}
           <div style={{ display: 'grid', gap: 18 }}>
           {/* SecHead */}
@@ -828,8 +828,8 @@ export default function PassportPage() {
         </div>
       </div>
       <style jsx>{`
-        @media (max-width: 767px) {
-          :global(.passport-grid) {
+        @media (max-width: 860px) {
+          :global(.t-twopane-passport) {
             grid-template-columns: 1fr !important;
           }
         }

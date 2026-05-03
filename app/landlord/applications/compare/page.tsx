@@ -129,7 +129,7 @@ function ComparePageInner() {
         />
 
         {/* Comparison table */}
-        <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, overflow: 'hidden', marginBottom: 16, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
+        <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, overflow: 'hidden', marginBottom: 16, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }} className="compare-table-wrap">
           <div style={{ display: 'grid', gridTemplateColumns: `240px repeat(${apps.length}, 1fr)`, padding: '16px 20px', background: v3.surfaceMuted, borderBottom: `1px solid ${v3.border}` }}>
             <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700, color: v3.textMuted }}>
               {isZh ? '条件' : 'Criterion'}
@@ -216,6 +216,14 @@ function ComparePageInner() {
           </div>
         </div>
       </div>
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.compare-table-wrap) {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+          }
+        }
+      `}</style>
     </PageShell>
   )
 }

@@ -182,7 +182,7 @@ export default function ListingsPage() {
 
         {/* Table */}
         {/* Listings table - V4 style */}
-        <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
+        <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }} className="portfolio-table-wrap">
           <div style={{ display: 'grid', gridTemplateColumns: '56px 1.6fr 100px 90px 110px 100px 100px 80px', padding: '12px 18px', background: v3.surfaceMuted, borderBottom: `1px solid ${v3.border}`, fontSize: 10, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
             <span></span><span>Address</span><span>Rent</span><span>Status</span><span>Apps</span><span>Days live</span><span>AI flags</span><span></span>
           </div>
@@ -274,6 +274,14 @@ export default function ListingsPage() {
           )}
         </div>
       </div>
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.portfolio-table-wrap) {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+          }
+        }
+      `}</style>
     </PageShell>
   )
 }

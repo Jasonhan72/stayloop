@@ -170,7 +170,7 @@ export default function ServicesPage() {
         </div>
 
         {/* Categories */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 18 }} className="s-categories-grid">
           {categories.map((cat) => {
             const m = CATEGORY_META[cat]
             return (
@@ -199,7 +199,7 @@ export default function ServicesPage() {
             {isZh ? '暂无服务商。' : 'No providers yet.'}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 18 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 18 }} className="s-providers-grid">
             {providers.slice(0, 9).map((p) => {
               const badgeMeta = p.badge ? BADGE_META[p.badge] : null
               const serviceLabel = isZh ? p.service_label_zh : p.service_label_en
@@ -394,6 +394,24 @@ export default function ServicesPage() {
           </div>
         )}
       </div>
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.s-categories-grid) {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          :global(.s-providers-grid) {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+        }
+        @media (max-width: 600px) {
+          :global(.s-categories-grid) {
+            grid-template-columns: 1fr !important;
+          }
+          :global(.s-providers-grid) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </PageShell>
   )
 }

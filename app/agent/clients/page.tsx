@@ -153,7 +153,7 @@ export default function AgentClientsPage() {
       </div>
 
       {/* Cards grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }} className="a-clients-3col">
         {filtered.map((c, i) => (
           <div key={i} style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, padding: 18, boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -206,6 +206,18 @@ export default function AgentClientsPage() {
           </div>
         ))}
       </div>
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.a-clients-3col) {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+        }
+        @media (max-width: 600px) {
+          :global(.a-clients-3col) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </PageShell>
   )
 }

@@ -664,6 +664,13 @@ export default function NewListingPage() {
           }
         }
       `}</style>
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.listings-new-grid) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </PageShell>
   )
 }

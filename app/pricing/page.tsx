@@ -257,6 +257,7 @@ function PricingTabs() {
           gap: 24,
           marginBottom: 64,
         }}
+        className="pricing-cards"
       >
         {plans.map((plan) => (
           <div
@@ -442,6 +443,7 @@ export default function PricingPage() {
               gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))',
               gap: 16,
             }}
+            className="pricing-products"
           >
             {[
               { name_en: 'AI Screening Report', name_zh: 'AI 评估报告', price: '$4.99' },
@@ -473,6 +475,21 @@ export default function PricingPage() {
       </main>
 
       <MarketingFooter />
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.pricing-cards) {
+            grid-template-columns: 1fr !important;
+          }
+          :global(.pricing-products) {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+        }
+        @media (max-width: 600px) {
+          :global(.pricing-products) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }

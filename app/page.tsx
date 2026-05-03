@@ -106,6 +106,7 @@ export default function Home() {
               flexWrap: 'wrap',
               letterSpacing: '0.04em',
             }}
+            className="hp-trust-signals"
           >
             <span>◆ ONTARIO LTB-ALIGNED</span>
             <span>◆ SOC 2 TYPE II</span>
@@ -124,6 +125,7 @@ export default function Home() {
               gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
               gap: 16,
             }}
+            className="hp-role-cards"
           >
             {[
               {
@@ -235,6 +237,7 @@ export default function Home() {
                 gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
                 gap: 12,
               }}
+              className="hp-flow-grid"
             >
               {[
                 ['◇', isZh ? '房源' : 'Listing', isZh ? '导入或 AI 起草' : 'Import or AI-draft', v3.trust, v3.trustSoft],
@@ -314,6 +317,7 @@ export default function Home() {
               gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
               gap: 14,
             }}
+            className="hp-modules-grid"
           >
             {[
               [isZh ? '任务路由' : 'Task Router', isZh ? '识别用户目标，打开正确的工作流。' : 'Identifies the user goal, opens the right workflow.'],
@@ -402,6 +406,34 @@ export default function Home() {
       </section>
 
       <MarketingFooter />
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.hp-role-cards) {
+            grid-template-columns: 1fr !important;
+          }
+          :global(.hp-flow-grid) {
+            grid-template-columns: repeat(4, 1fr) !important;
+          }
+          :global(.hp-modules-grid) {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          :global(.hp-trust-signals) {
+            gap: 12px !important;
+          }
+        }
+        @media (max-width: 600px) {
+          :global(.hp-flow-grid) {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+          :global(.hp-modules-grid) {
+            grid-template-columns: 1fr !important;
+          }
+          :global(.hp-trust-signals) {
+            gap: 8px !important;
+            font-size: 11px !important;
+          }
+        }
+      `}</style>
     </main>
   )
 }

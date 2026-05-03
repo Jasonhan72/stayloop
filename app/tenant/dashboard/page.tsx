@@ -330,10 +330,10 @@ export default function TenantDashboardPage() {
         </p>
 
         {/* Grid: left = stats + applications + timeline, right = AI panel + activity */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 18 }} className="t-twopane-dashboard">
           <div style={{ display: 'grid', gap: 18 }}>
             {/* KPIs */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }} className="t-kpis-3col">
               <KPI label="Passport readiness" value="78%" sub="2 items missing" tone="ai" />
               <KPI label="Active applications" value="3" sub="1 needs response" tone="gold" />
               <KPI label="Lease drafts" value="1" sub="Awaiting your e-sign" tone="pri" />
@@ -644,6 +644,21 @@ export default function TenantDashboardPage() {
           </div>
         </div>
       </div>
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.t-twopane-dashboard) {
+            grid-template-columns: 1fr !important;
+          }
+          :global(.t-kpis-3col) {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+        }
+        @media (max-width: 600px) {
+          :global(.t-kpis-3col) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </PageShell>
   )
 }

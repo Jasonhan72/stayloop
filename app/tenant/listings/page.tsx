@@ -212,7 +212,7 @@ export default function TenantListingsPage() {
         </div>
 
         {/* Listings grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }} className="t-listings-3col">
           {demoListings.map((it, i) => (
             <div
               key={i}
@@ -391,6 +391,18 @@ export default function TenantListingsPage() {
           ))}
         </div>
       </div>
+      <style jsx>{`
+        @media (max-width: 860px) {
+          :global(.t-listings-3col) {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
+        }
+        @media (max-width: 600px) {
+          :global(.t-listings-3col) {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </PageShell>
   )
 }

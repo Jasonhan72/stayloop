@@ -142,9 +142,14 @@ export default function MarketingFooter() {
         </div>
       </div>
       <style jsx>{`
-        @media (max-width: 760px) {
+        @media (max-width: 860px) {
           :global(.mk-footer-grid) {
             grid-template-columns: 1fr 1fr !important;
+          }
+        }
+        @media (max-width: 600px) {
+          :global(.mk-footer-grid) {
+            grid-template-columns: 1fr !important;
           }
         }
       `}</style>
