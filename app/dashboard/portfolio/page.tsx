@@ -1,7 +1,8 @@
 'use client'
-// /dashboard/portfolio — Landlord Portfolio Analytics (V3 section 20)
+// /dashboard/portfolio — Landlord listings overview (V4 PgLandlordListings)
 // Production: aggregates current landlord's listings + applications.
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
@@ -128,12 +129,18 @@ export default function ListingsPage() {
           eyebrow={isZh ? `房源 · ${props.length} 套` : `Properties · ${props.length} total`}
           title={isZh ? '房源' : 'Listings'}
           right={<div style={{ display: 'flex', gap: 8 }}>
-            <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, cursor: 'pointer' }}>
+            <Link
+              href="/listings/new?mode=url"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, textDecoration: 'none' }}
+            >
               {isZh ? '从 URL 导入' : 'Import from URL'}
-            </button>
-            <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 20px', background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset', letterSpacing: '-0.01em' }}>
+            </Link>
+            <Link
+              href="/listings/new"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 20px', background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff', textDecoration: 'none', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset', letterSpacing: '-0.01em' }}
+            >
               + {isZh ? '新房源' : 'New listing'}
-            </button>
+            </Link>
           </div>}
         />
 
@@ -180,10 +187,35 @@ export default function ListingsPage() {
             <span></span><span>Address</span><span>Rent</span><span>Status</span><span>Apps</span><span>Days live</span><span>AI flags</span><span></span>
           </div>
           {filteredProps.length === 0 ? (
-            <div style={{ padding: '48px 24px', textAlign: 'center', color: v3.textMuted }}>
-              <div style={{ fontSize: 14 }}>
-                {isZh ? '此分类中没有房源' : 'No listings in this category'}
+            <div style={{ padding: '64px 24px', textAlign: 'center' }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: v3.textPrimary, marginBottom: 6 }}>
+                {props.length === 0
+                  ? (isZh ? '还没有房源' : 'No listings yet')
+                  : (isZh ? '此分类下没有房源' : 'Nothing in this category')}
               </div>
+              <div style={{ fontSize: 13, color: v3.textMuted, marginBottom: 18, maxWidth: 480, margin: '0 auto 18px', lineHeight: 1.55 }}>
+                {props.length === 0
+                  ? (isZh
+                      ? '让 Nova 帮你起草第一份房源 — 粘贴文案、Realtor.ca / Kijiji 链接，或上传 MLS PDF，关键字段由你确认后一键发布。'
+                      : 'Let Nova draft your first listing — paste text, a Realtor.ca / Kijiji link, or upload an MLS PDF. You confirm the key fields, then publish.')
+                  : (isZh ? '切换到「全部」标签查看其它房源。' : 'Switch to "All" to see other listings.')}
+              </div>
+              {props.length === 0 && (
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <Link
+                    href="/listings/new"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 20px', background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff', textDecoration: 'none', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset', letterSpacing: '-0.01em' }}
+                  >
+                    + {isZh ? '让 Nova 起草新房源' : 'Draft a listing with Nova'}
+                  </Link>
+                  <Link
+                    href="/listings/new?mode=url"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, textDecoration: 'none' }}
+                  >
+                    {isZh ? '从 URL 导入' : 'Import from URL'}
+                  </Link>
+                </div>
+              )}
             </div>
           ) : (
             filteredProps.map((l, i) => (
@@ -234,9 +266,12 @@ export default function ListingsPage() {
                     <span style={{ fontSize: 11, color: v3.textFaint }}>—</span>
                   )}
                 </span>
-                <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, justifySelf: 'end' }}>
+                <Link
+                  href={`/dashboard/pipeline?listing=${l.id}`}
+                  style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, textDecoration: 'none', justifySelf: 'end' }}
+                >
                   {isZh ? '管理' : 'Manage'}
-                </button>
+                </Link>
               </div>
             ))
           )}

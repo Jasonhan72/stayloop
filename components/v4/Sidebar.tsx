@@ -42,11 +42,10 @@ const NAV: Record<UserRole, NavItem[]> = {
   ],
   landlord: [
     { id: 'dashboard',    label_en: 'Dashboard',    label_zh: '仪表盘',     href: '/dashboard',            icon: '◇' },
-    { id: 'listings',     label_en: 'Listings',     label_zh: '房源',       href: '/listings/new',         icon: '⌂' },
+    { id: 'listings',     label_en: 'Listings',     label_zh: '房源',       href: '/dashboard/portfolio',  icon: '⌂' },
     { id: 'applications', label_en: 'Applications', label_zh: '申请',       href: '/dashboard/pipeline',   icon: '▤', tone: 'gold' },
     { id: 'screening',    label_en: 'Screening',    label_zh: '筛查',       href: '/screen',               icon: '◉', tone: 'ai' },
     { id: 'leases',       label_en: 'Leases',       label_zh: '租约',       href: '/landlord/leases',      icon: '⎙' },
-    { id: 'tenants',      label_en: 'Tenants',      label_zh: '租客',       href: '/dashboard/portfolio',  icon: '◈' },
     { id: 'messages',     label_en: 'Messages',     label_zh: '消息',       href: '/chat',                 icon: '✉' },
     { id: 'billing',      label_en: 'Billing',      label_zh: '账单',       href: '/billing',              icon: '$' },
     { id: 'settings',     label_en: 'Settings',     label_zh: '设置',       href: '/profile',              icon: '⚙' },
