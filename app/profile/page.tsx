@@ -68,11 +68,11 @@ export default function SettingsPage() {
 
   if (authLoading || !user || loading || !profile) {
     return (
-      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F2EEE5' }}>
-        <div style={{ textAlign: 'center', color: '#71717A', fontSize: 14 }}>
+      <PageShell>
+        <div style={{ display: 'grid', placeItems: 'center', padding: 64, color: v3.textMuted, fontSize: 14 }}>
           {isZh ? '加载中…' : 'Loading…'}
         </div>
-      </div>
+      </PageShell>
     )
   }
 

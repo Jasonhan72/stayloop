@@ -74,9 +74,11 @@ export default function BillingPage() {
 
   if (authLoading || loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#F2EEE5', display: 'grid', placeItems: 'center' }}>
-        <div style={{ color: v3.textMuted }}>{isZh ? '加载中…' : 'Loading…'}</div>
-      </div>
+      <PageShell>
+        <div style={{ display: 'grid', placeItems: 'center', padding: 64, color: v3.textMuted, fontSize: 14 }}>
+          {isZh ? '加载中…' : 'Loading…'}
+        </div>
+      </PageShell>
     )
   }
 
