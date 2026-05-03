@@ -53,15 +53,14 @@ interface ListingDraft {
 }
 
 export default function NewListingPage() {
-  // Initialize mode from `?mode=url|pdf|text` so deep-links from
-  // /dashboard/portfolio's "Import from URL" land on the right tab.
-  // Read window.location once on first client render — avoids needing
-  // a Suspense boundary around useSearchParams.
-  const [mode, setMode] = useState<'text' | 'url' | 'pdf'>(() => {
-    if (typeof window === 'undefined') return 'text'
+  const [mode, setMode] = useState<'text' | 'url' | 'pdf'>('text')
+  // Read `?mode=url|pdf|text` AFTER hydration so deep-links from
+  // /dashboard/portfolio's "Import from URL" land on the right tab
+  // without causing an SSR/CSR hydration mismatch on first render.
+  useEffect(() => {
     const m = new URLSearchParams(window.location.search).get('mode')
-    return m === 'url' || m === 'pdf' ? m : 'text'
-  })
+    if (m === 'url' || m === 'pdf') setMode(m)
+  }, [])
   const [text, setText] = useState('')
   const [url, setUrl] = useState('')
   const [pdfPath, setPdfPath] = useState<string | null>(null)

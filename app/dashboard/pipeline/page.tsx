@@ -58,13 +58,15 @@ export default function PipelinePage() {
   const { user: landlord, loading: authLoading } = useUser({ redirectIfMissing: true })
 
   const [listings, setListings] = useState<Listing[]>([])
+  const [activeListingId, setActiveListingId] = useState<string | 'all'>('all')
+
   // Pre-filter when arriving from /dashboard/portfolio's "Manage" link
-  // (?listing=<id>). Read window.location once on first client render.
-  const [activeListingId, setActiveListingId] = useState<string | 'all'>(() => {
-    if (typeof window === 'undefined') return 'all'
+  // (?listing=<id>). Done in an effect AFTER hydration so the initial
+  // server-rendered HTML matches the client's first render.
+  useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('listing')
-    return id || 'all'
-  })
+    if (id) setActiveListingId(id)
+  }, [])
   const [apps, setApps] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
 
