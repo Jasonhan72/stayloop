@@ -45,23 +45,32 @@ CRITICAL — annual vs hourly disambiguation:
 - A "Pay Rate" $10,000+ is annual_salary regardless of any "/yr" marker.
 - The "Hours" column on a salaried stub is informational; it does NOT make the worker hourly.
 
+CRITICAL — ytd_gross is CASH base salary, NOT the "Earnings" total row:
+- Workday/Ceridian/ADP stubs show an "Earnings" header row that AGGREGATES Regular + employer pension match (PSPCan, RPBCan, RRSP ER Match) + taxable benefits + bonuses. That total is INFLATED relative to the cash actually paid.
+- ytd_gross should be the SPECIFIC CASH base-salary YTD line, labelled one of: "Regular", "RegPay", "RegPay/PaieOrd", "Base Pay", "Salary", "Reg Pay". Do NOT use the "Earnings" or "Total Earnings" row when a Regular line exists below it.
+- If the stub only shows "Earnings" with no Regular breakdown, subtract any visible employer pension match (PSPCan, RPBCan, RRSP ER Match) and Taxable Benefits from it before reporting.
+- Cash bonuses, RSU vests (EIP Bonus), commissions, PTO and Sick Pay paid at regular rate ARE cash income — include them. Employer pension match + taxable benefits (life/health imputed value) are NOT cash income — exclude them.
+- Sanity check: ytd_gross / annual_salary should approximately equal (days_since_jan1 / 365). If your extraction gives a ratio above 1.5x, you almost certainly grabbed the inflated Earnings TOTAL — re-read the stub and pick the Regular/Salary line instead.
+
 Examples:
 - "Account Specialist  $60,000.00/year  86.67  $2,500.00" → annual_salary=60000, hourly_rate=null, hours_worked=86.67, period_gross=2500
 - "Cashier  $18.50/hour  80  $1,480.00" → annual_salary=null, hourly_rate=18.50, hours_worked=80, period_gross=1480
 - "Software Engineer  $95,000/yr  N/A  $3,653.85" → annual_salary=95000, hourly_rate=null, hours_worked=null, period_gross=3653.85
 - "Audit Analyst Sr  Pay Rate $4554.17  Semi-Monthly" → annual_salary=109300, hourly_rate=null, period_gross=4554.17, pay_frequency=semimonthly
+- Workday stub showing "Earnings ... 568.75 $53,693" then "RegPay/PaieOrd 568.75 $31,879" then "PSPCan/RPBCan $21,813" then "Taxable Benefits $3,006" → ytd_gross=31879 (the RegPay line, NOT the Earnings total — the Earnings total is RegPay + employer pension match + benefits and overstates cash)
+- Workday stub showing "Earnings ... 720 $61,487" then "Regular $42,752" then "PTO $7,657" then "Sick Pay $1,730" then "EIP Bonus $9,346" then "Taxable Benefits $1,823" → ytd_gross=61487 - 1823 = 59664 (Earnings total minus only the Taxable Benefits; PTO/Sick/Bonus are real cash income; this employer has no employer pension match line under Earnings)
 
 Required fields:
 {
-  "annual_salary": number or null  (annualized base salary in CAD; for /year, /yr, salaried roles),
+  "annual_salary": number or null  (annualized base CASH salary in CAD; for salaried roles, Pay Rate × pay_frequency periods),
   "hourly_rate": number or null  (CAD per hour; ONLY when stub explicitly shows /hour or /hr),
   "hours_worked": number or null  (hours in this pay period),
-  "pay_date": "YYYY-MM-DD" or null  (date of this stub's payment),
+  "pay_date": "YYYY-MM-DD" or null  (date of this stub's payment — most recent if multi-stub bundle),
   "pay_period_start": "YYYY-MM-DD" or null,
   "pay_period_end": "YYYY-MM-DD" or null,
-  "period_gross": number or null  (gross earnings this pay period before deductions),
+  "period_gross": number or null  (cash gross earnings this pay period — Regular + cash bonuses, NOT pension match or benefits),
   "period_net": number or null  (net pay this period after deductions),
-  "ytd_gross": number or null  (year-to-date gross earnings as printed),
+  "ytd_gross": number or null  (year-to-date CASH gross earnings — Regular + cash bonuses + PTO + Sick Pay; EXCLUDE employer pension match like PSPCan/RPBCan/RRSP ER Match and EXCLUDE Taxable Benefits),
   "ytd_net": number or null  (year-to-date net pay as printed),
   "employer_name": string or null,
   "employer_phone": string or null,

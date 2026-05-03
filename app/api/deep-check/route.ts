@@ -330,10 +330,16 @@ async function enforceProGate(req: Request): Promise<Response | null> {
     return bad('Invalid or expired session', '会话已过期，请重新登录', 401)
   }
 
-  // Look up the landlord record — RLS restricts to this user only
+  // Look up THIS caller's landlord row. We filter by auth_id explicitly
+  // (rather than relying on the RLS owner policy alone) because the
+  // landlords table also has a permissive "Public can read landlords"
+  // SELECT policy — without an explicit filter, .maybeSingle() would see
+  // every landlord row and throw a multi-row error, which previously
+  // surfaced to the user as "订阅验证失败" even for Pro subscribers.
   const { data: landlord, error: landlordErr } = await rlsClient
     .from('landlords')
     .select('plan')
+    .eq('auth_id', userData.user.id)
     .maybeSingle()
 
   if (landlordErr) {
