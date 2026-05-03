@@ -258,13 +258,10 @@ export default function ListingsPage() {
                   {l.daysOnMarket || '—'}
                 </span>
                 <span>
-                  {0 > 0 ? (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 999, border: '1px solid #FDE68A', color: v3.warning, background: v3.warningSoft }}>
-                      1 flag
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: 11, color: v3.textFaint }}>—</span>
-                  )}
+                  {/* Per-listing AI flag aggregation isn't queried here yet —
+                      forensics_detail lives on screenings, not listings. Show
+                      a neutral em-dash until we wire that up. */}
+                  <span style={{ fontSize: 11, color: v3.textFaint }}>—</span>
                 </span>
                 <Link
                   href={`/dashboard/pipeline?listing=${l.id}`}
