@@ -591,7 +591,7 @@ export default function TenantDashboardPage() {
                   cursor: 'pointer',
                 }}
               >
-                {isZh ? '打开 AI 助手' : 'Open AI Copilot'}
+                {isZh ? '打开 Stayloop AI' : 'Open Stayloop AI'}
               </button>
             </div>
 

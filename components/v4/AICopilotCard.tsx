@@ -94,7 +94,7 @@ export default function AICopilotCard({ user }: Props) {
         >
           ✦
         </span>
-        AI Copilot
+        Stayloop AI
       </div>
       <div style={{ fontSize: 11, color: v3.textSecondary, marginTop: 4, lineHeight: 1.5 }}>
         {subtitle}

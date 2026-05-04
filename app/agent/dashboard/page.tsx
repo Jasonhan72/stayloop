@@ -176,7 +176,7 @@ export default function AgentDashboardPage() {
               ))}
             </div>
             <button style={{ width: '100%', marginTop: 12, padding: '10px 16px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              {isZh ? '打开AI副驾' : 'Open AI Copilot'}
+              {isZh ? '打开 Stayloop AI' : 'Open Stayloop AI'}
             </button>
           </div>
         </div>
