@@ -12,7 +12,12 @@ import { useIsMobile } from '@/lib/useMediaQuery'
 interface PlanCard {
   name_zh: string
   name_en: string
+  /** Price label rendered in Chinese UI. May be a localized word ('免费'). */
   price: string
+  /** Price label rendered in English UI. Falls back to `price` when omitted —
+   *  numeric prices like '$7' / '$29' are language-neutral. Set explicitly
+   *  for plans where the Chinese label is a translatable word ('免费'). */
+  price_en?: string
   period_zh: string
   period_en: string
   features: Array<{ zh: string; en: string }>
@@ -25,6 +30,7 @@ const TENANT_PLANS: PlanCard[] = [
     name_zh: '基础版',
     name_en: 'Basic',
     price: '免费',
+    price_en: 'Free',
     period_zh: '',
     period_en: '',
     features: [
@@ -77,6 +83,7 @@ const LANDLORD_PLANS: PlanCard[] = [
     name_zh: '免费版',
     name_en: 'Free',
     price: '免费',
+    price_en: 'Free',
     period_zh: '',
     period_en: '',
     features: [
@@ -141,6 +148,7 @@ const AGENT_PLANS: PlanCard[] = [
     name_zh: '免费版',
     name_en: 'Free',
     price: '免费',
+    price_en: 'Free',
     period_zh: '',
     period_en: '',
     features: [
@@ -313,7 +321,7 @@ function PricingTabs() {
             {/* Price */}
             <div style={{ marginBottom: 4 }}>
               <div style={{ fontSize: isMobile ? 32 : 36, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em' }}>
-                {plan.price}
+                {lang === 'zh' ? plan.price : (plan.price_en ?? plan.price)}
               </div>
               <div style={{ fontSize: 13, color: v3.textMuted, marginTop: 2 }}>
                 {lang === 'zh' ? plan.period_zh : plan.period_en}

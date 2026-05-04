@@ -49,7 +49,12 @@ export default function Home() {
           </Tag>
           <h1
             style={{
-              fontFamily: 'var(--font-cn), var(--font-inter), system-ui, sans-serif',
+              // Latin first when on the English UI so apostrophe (U+2019)
+              // and other Latin punctuation render in Inter, not as the
+              // full-width CJK glyph from Noto Sans SC.
+              fontFamily: isZh
+                ? 'var(--font-cn), var(--font-inter), system-ui, sans-serif'
+                : 'var(--font-inter), var(--font-cn), system-ui, sans-serif',
               fontSize: 'clamp(40px, 6vw, 64px)',
               fontWeight: 700,
               color: v3.textPrimary,
