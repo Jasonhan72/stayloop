@@ -127,31 +127,75 @@ export function checkSourceSpecific(
   // and on bundled "Supporting Documents.pdf" packets where the credit
   // report sits past page 6 (a 500-char text_sample never reached it).
   // We now scan up to 50k chars and accept either bureau's markers.
+  //
+  // Defensive guard: the upstream Haiku classifier sometimes hallucinates
+  // `credit_report` for documents that merely *reference* credit checks (e.g.
+  // a lease whose boilerplate says "tenant must provide a credit report").
+  // To avoid firing `credit_report_no_bureau_markers` on a lease that isn't
+  // actually a credit report, we require at least one credit-report-shaped
+  // signal (score, trade line, account history vocabulary) to be present in
+  // the extracted text before treating absence-of-markers as a fraud signal.
+  // If that floor isn't met, we leave equifax_authentic_markers=null and
+  // emit no flag — letting Sonnet handle whatever the document actually is.
   if (kind === 'credit_report') {
     const equifaxHits = EQUIFAX_MARKERS.filter(re => re.test(sample)).length
     const transunionHits = TRANSUNION_MARKERS.filter(re => re.test(sample)).length
     const totalHits = equifaxHits + transunionHits
-    result.equifax_authentic_markers = equifaxHits >= 2 || transunionHits >= 2
-    if (totalHits === 0) {
-      // No markers from either bureau — likely a fabricated credit report.
-      // Severity stays high.
-      flags.push({
-        code: 'credit_report_no_bureau_markers',
-        severity: 'high',
-        file,
-        evidence_en: `Document claims to be a credit report but contains no distinctive markers from either Equifax (Risk Score, Beacon, Trade Lines, Consumer Disclosure) or TransUnion (VantageScore, Consumer Credit File). Found 0 expected markers in the extracted text.`,
-        evidence_zh: `文件声称是信用报告，但提取的文字里找不到 Equifax (Risk Score / Beacon / Trade Lines) 或 TransUnion (VantageScore / Consumer Credit File) 任一征信局的特征标记。0 个预期标记。`,
-      })
-    } else if (totalHits === 1) {
-      // Exactly one marker — possibly a quoted reference rather than an
-      // authentic report. Medium-severity informational flag.
-      flags.push({
-        code: 'credit_report_thin_bureau_markers',
-        severity: 'medium',
-        file,
-        evidence_en: `Credit report contains only ${totalHits} bureau marker (Equifax: ${equifaxHits}, TransUnion: ${transunionHits}). Authentic disclosures usually contain multiple distinctive headers.`,
-        evidence_zh: `信用报告仅找到 ${totalHits} 个征信局标记（Equifax: ${equifaxHits}, TransUnion: ${transunionHits}）。真实的信用披露通常包含多处特征标记。`,
-      })
+
+    // Heuristic floor for "this looks at all like a credit report":
+    // at least 2 hits across credit-shaped vocabulary. Trade Lines, Inquiries,
+    // VantageScore, etc. are already in the bureau marker lists above; this
+    // adds the genre-level vocabulary that authentic reports use repeatedly.
+    const CREDIT_GENRE_PATTERNS: RegExp[] = [
+      /\bcredit\s+score\b/i,
+      /\bcredit\s+rating\b/i,
+      /\bcredit\s+report\b/i,
+      /\bcredit\s+history\b/i,
+      /\bcredit\s+limit\b/i,
+      /\baccount\s+history\b/i,
+      /\bpayment\s+history\b/i,
+      /\bcredit\s+inquir(?:y|ies)\b/i,
+      /\bdelinquent\b/i,
+      /\bderogatory\b/i,
+      /\bdebt\s+collection\b/i,
+      /\b(?:high|low)\s+credit\b/i,
+      /\bopen\s+date\b.*\baccount\b/i,
+      /\bbalance\b.*\bopen\b/i,
+    ]
+    const genreHits = CREDIT_GENRE_PATTERNS.filter(re => re.test(sample)).length
+    const looksLikeCreditReport = totalHits >= 1 || genreHits >= 2
+
+    if (!looksLikeCreditReport) {
+      // The classifier said "credit_report" but the actual file content has
+      // none of the genre vocabulary. This is almost certainly a misclassification
+      // (lease with credit-check boilerplate, application form mentioning the
+      // requirement, etc.). Skip the bureau-marker check entirely — leaving
+      // equifax_authentic_markers=null so the UI doesn't show a misleading
+      // "✗ Missing" row, and emitting no flag.
+      result.equifax_authentic_markers = null
+    } else {
+      result.equifax_authentic_markers = equifaxHits >= 2 || transunionHits >= 2
+      if (totalHits === 0) {
+        // Looks like a credit report but has zero bureau markers — likely a
+        // fabricated credit report. Severity stays high.
+        flags.push({
+          code: 'credit_report_no_bureau_markers',
+          severity: 'high',
+          file,
+          evidence_en: `Document claims to be a credit report but contains no distinctive markers from either Equifax (Risk Score, Beacon, Trade Lines, Consumer Disclosure) or TransUnion (VantageScore, Consumer Credit File). Found 0 expected markers in the extracted text.`,
+          evidence_zh: `文件声称是信用报告，但提取的文字里找不到 Equifax (Risk Score / Beacon / Trade Lines) 或 TransUnion (VantageScore / Consumer Credit File) 任一征信局的特征标记。0 个预期标记。`,
+        })
+      } else if (totalHits === 1) {
+        // Exactly one marker — possibly a quoted reference rather than an
+        // authentic report. Medium-severity informational flag.
+        flags.push({
+          code: 'credit_report_thin_bureau_markers',
+          severity: 'medium',
+          file,
+          evidence_en: `Credit report contains only ${totalHits} bureau marker (Equifax: ${equifaxHits}, TransUnion: ${transunionHits}). Authentic disclosures usually contain multiple distinctive headers.`,
+          evidence_zh: `信用报告仅找到 ${totalHits} 个征信局标记（Equifax: ${equifaxHits}, TransUnion: ${transunionHits}）。真实的信用披露通常包含多处特征标记。`,
+        })
+      }
     }
   }
 

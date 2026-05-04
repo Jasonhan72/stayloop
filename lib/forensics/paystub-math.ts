@@ -286,9 +286,31 @@ export function checkPaystubMath(
 
   // ---------------------------------------------------------------------------
   // Check 3: ytd_net vs (estimated period count × period_net)
+  //
+  // This is a noisy supplementary check. period_net is base-only (Regular line)
+  // for that ONE pay period; ytd_net legitimately includes bonuses, RSU vests,
+  // commissions, retro-pay, vacation buyouts — all of which inflate ytd_net
+  // ABOVE periods_so_far × period_net without indicating fraud.
+  //
+  // Therefore:
+  //   1. SKIP the check entirely when Check 1 (ytd_gross vs annual_salary
+  //      pro-rata) is in the healthy 0.6–1.6 band. The gross math anchored
+  //      against annual_salary is the authoritative income-consistency check;
+  //      if that's healthy, ytd_net being higher than naive multiplication is
+  //      just a real bonus/RSU and shouldn't trigger a noisy flag.
+  //   2. When Check 1 is unavailable or unhealthy, only fire when actual
+  //      ytd_net is materially BELOW expected (suggests period_net was
+  //      inflated without re-deriving ytd_net — the classic forgery shape).
+  //      ytd_net materially ABOVE expected is the bonus/RSU shape and is
+  //      not, on its own, a forgery signal.
+  //   3. Because ytd_net legitimately ramps with bonuses, an "above" gap
+  //      gets flagged only when it's extreme (≥80%) AND the gross check
+  //      isn't in the healthy band.
+  //
   // pay_frequency lookup: weekly=52, biweekly=26, semimonthly=24, monthly=12
   // ---------------------------------------------------------------------------
-  if (ext.pay_date && ext.ytd_net && ext.period_net && ext.pay_frequency) {
+  const grossHealthy = ytdRatio !== null && ytdRatio >= 0.6 && ytdRatio <= 1.6
+  if (!grossHealthy && ext.pay_date && ext.ytd_net && ext.period_net && ext.pay_frequency) {
     const payDate = new Date(ext.pay_date)
     if (!isNaN(payDate.getTime())) {
       const yearStart = new Date(payDate.getFullYear(), 0, 1)
@@ -298,15 +320,20 @@ export function checkPaystubMath(
       const periodsSoFar = Math.round((daysElapsed / 365) * ppy)
       if (periodsSoFar > 0) {
         const expectedYtdNet = ext.period_net * periodsSoFar
+        const ratio = ext.ytd_net / expectedYtdNet
         const diffPct = Math.abs(ext.ytd_net - expectedYtdNet) / ext.ytd_net * 100
-        // Allow 25% margin — varying deductions, bonuses
-        if (diffPct > 25) {
+        // Asymmetric thresholds:
+        //   below 0.75 → suspicious (period_net inflated, ytd_net not updated)
+        //   above 1.80 → only suspicious when EXTREME and gross also unhealthy
+        const farBelow = ratio < 0.75
+        const wildlyAbove = ratio > 1.80
+        if (farBelow || wildlyAbove) {
           flags.push({
             code: 'paystub_ytd_net_mismatch',
             severity: 'medium',
             file,
-            evidence_en: `${ext.pay_frequency} pay × ${periodsSoFar} periods × $${ext.period_net.toFixed(2)}/period = $${expectedYtdNet.toFixed(0)} expected YTD net, but stub shows $${ext.ytd_net.toFixed(0)} (off ${diffPct.toFixed(0)}%).`,
-            evidence_zh: `按 ${ext.pay_frequency} 频率 × ${periodsSoFar} 期 × $${ext.period_net.toFixed(2)}/期 = $${expectedYtdNet.toFixed(0)} 预期 YTD 净收入，但工资单显示 $${ext.ytd_net.toFixed(0)}（差 ${diffPct.toFixed(0)}%）。`,
+            evidence_en: `${ext.pay_frequency} pay × ${periodsSoFar} periods × $${ext.period_net.toFixed(2)}/period = $${expectedYtdNet.toFixed(0)} expected YTD net, but stub shows $${ext.ytd_net.toFixed(0)} (${farBelow ? 'short by' : 'over by'} ${diffPct.toFixed(0)}%).`,
+            evidence_zh: `按 ${ext.pay_frequency} 频率 × ${periodsSoFar} 期 × $${ext.period_net.toFixed(2)}/期 = $${expectedYtdNet.toFixed(0)} 预期 YTD 净收入，但工资单显示 $${ext.ytd_net.toFixed(0)}（${farBelow ? '少' : '多'} ${diffPct.toFixed(0)}%）。`,
           })
         }
       }

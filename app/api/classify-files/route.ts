@@ -56,8 +56,44 @@ async function classifyBatch(
       type: 'text',
       text: `You are a document classifier for a Canadian rental-screening tool.
 For each file below, identify which document kind(s) it actually contains.
-A single PDF MAY contain multiple kinds (e.g. a rental application package
-bundling an ID, a paystub and a bank statement) — list every kind you see.
+A single PDF MAY contain multiple kinds (e.g. a "Supporting Documents.pdf"
+bundle that physically includes an ID scan + a paystub + a bank statement)
+— list every kind whose ACTUAL CONTENT is physically present.
+
+CRITICAL — only label a kind when the actual document content is in the file.
+A document that REFERENCES or REQUIRES another doc type does NOT contain it.
+Common false-positive cases to avoid:
+- A lease / Agreement to Lease that requires the tenant to "provide a credit
+  report, employment letter, paystub and ID" → label this as 'other' (or just
+  the lease body). It is NOT id_document, employment_letter, pay_stub, or
+  credit_report just because those words appear in the requirements clause.
+- A rental application FORM with blank fields asking for income / employer
+  / SIN → label as 'other'. It only becomes an id_document/pay_stub etc.
+  when the actual scanned ID or paystub PDF has been merged into the file.
+- A cover letter or letter of intent referencing a credit check → 'other'.
+
+Per-kind requirements (ALL must be true to label that kind):
+- id_document: a recognizable government ID image is visible (DL/passport/PR/
+  health card photo, with name + DOB + ID number).
+- employment_letter: a signed letter from an employer stating the applicant's
+  position + salary + start date. NOT a generic offer template, not a request
+  for an employment letter, not a clause in a lease.
+- offer_letter: a job offer from a company with the applicant's name and
+  the offered position/salary.
+- pay_stub: an actual numeric pay-stub table with gross / net / YTD lines.
+- bank_statement: an actual bank statement with account number, dated
+  transaction list, and running balance.
+- credit_report: an actual credit report with score (Equifax/TransUnion),
+  trade lines, account history, or inquiries listed. Mere mention of "credit
+  check required" does not count.
+- reference: a signed reference letter from a previous landlord / employer
+  with the applicant's name as the subject.
+- other: anything not matching the above (leases, application forms, cover
+  letters, generic templates, blank forms).
+
+When in doubt between 'other' and a specific kind, choose 'other'.
+Return EMPTY kinds array [] only if the file is unreadable; otherwise return
+at least 'other'.
 
 Valid kinds: ${VALID_KINDS.join(', ')}
 
