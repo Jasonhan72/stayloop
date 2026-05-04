@@ -242,52 +242,64 @@ export default function ChatPage() {
 
   return (
     <PageShell noPadding>
+      {/* Chat is a self-contained scrolling region: the outer column is
+          locked to viewport height (minus AppBar) so the document body never
+          scrolls. Only the messages <main> scrolls internally. This keeps
+          the Sidebar (sticky inside PageShell) in view at all times and
+          lets the Composer sit naturally at the bottom of the column without
+          needing position:fixed (which previously spanned the full viewport
+          and covered the sidebar). */}
       <div
         style={{
-          minHeight: '100vh',
+          height: 'calc(100vh - 56px)',  // 56px = AppBar
+          display: 'flex',
+          flexDirection: 'column',
           background: tokens.surfaceMuted,
           fontFamily: "'Inter', system-ui, sans-serif",
+          minHeight: 0,
         }}
       >
         <Header lang={lang} setLang={setLang} />
 
         <main
-        ref={scrollRef}
-        style={{
-          maxWidth: size.content.narrow,
-          margin: '0 auto',
-          padding: '20px 16px 200px',
-          minHeight: 'calc(100vh - 60px)',
-        }}
-      >
-        {messages.length === 0 && authReady && (
-          <EmptyState lang={lang} authed={!!authToken} onPick={(text) => send(text)} />
-        )}
+          ref={scrollRef}
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            padding: '20px 16px 24px',
+          }}
+        >
+          <div style={{ maxWidth: size.content.narrow, margin: '0 auto' }}>
+            {messages.length === 0 && authReady && (
+              <EmptyState lang={lang} authed={!!authToken} onPick={(text) => send(text)} />
+            )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {messages.map((m) => (
-            <MessageBubble key={m.id} msg={m} lang={lang} authToken={authToken} />
-          ))}
-        </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {messages.map((m) => (
+                <MessageBubble key={m.id} msg={m} lang={lang} authToken={authToken} />
+              ))}
+            </div>
 
-        {streaming && (
-          <div style={{ marginTop: 12, fontSize: 11, color: tokens.textTertiary, fontFamily: 'JetBrains Mono, monospace' }}>
-            <span style={{ display: 'inline-block', animation: 'pulse 1.4s ease-in-out infinite' }}>●</span> Logic 正在思考…
-            <style>{`@keyframes pulse { 0%, 100% { opacity: 0.3 } 50% { opacity: 1 } }`}</style>
+            {streaming && (
+              <div style={{ marginTop: 12, fontSize: 11, color: tokens.textTertiary, fontFamily: 'JetBrains Mono, monospace' }}>
+                <span style={{ display: 'inline-block', animation: 'pulse 1.4s ease-in-out infinite' }}>●</span> Logic 正在思考…
+                <style>{`@keyframes pulse { 0%, 100% { opacity: 0.3 } 50% { opacity: 1 } }`}</style>
+              </div>
+            )}
           </div>
-        )}
-      </main>
+        </main>
 
-      <Composer
-        input={input}
-        setInput={setInput}
-        attached={attached}
-        setAttached={setAttached}
-        onFileChange={handleFileChange}
-        onSend={() => send()}
-        streaming={streaming}
-        lang={lang}
-      />
+        <Composer
+          input={input}
+          setInput={setInput}
+          attached={attached}
+          setAttached={setAttached}
+          onFileChange={handleFileChange}
+          onSend={() => send()}
+          streaming={streaming}
+          lang={lang}
+        />
       </div>
     </PageShell>
   )
@@ -616,12 +628,14 @@ function Composer({
   lang: 'zh' | 'en'
 }) {
   return (
+    // Flow naturally at the bottom of the chat column (NOT position:fixed).
+    // The parent column has height: calc(100vh - 56px) and flex-direction:
+    // column, so this Composer pins to the bottom of the chat region while
+    // the messages <main> above absorbs all remaining height as a scroller.
+    // This keeps the Composer out of the Sidebar's column entirely.
     <div
       style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
+        flexShrink: 0,
         background: tokens.surface,
         borderTop: `1px solid ${tokens.border}`,
         padding: '12px 16px',
