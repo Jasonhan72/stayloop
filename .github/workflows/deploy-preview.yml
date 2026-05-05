@@ -1,0 +1,59 @@
+name: Deploy preview to Cloudflare Pages
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Companion to deploy.yml. The production workflow (deploy.yml) only fires on
+# push to `main` and hardcodes `--branch=main`. This file builds and ships a
+# Cloudflare Pages PREVIEW deployment for branches that the team explicitly
+# wants to preview alongside production.
+#
+# Cloudflare's branch-alias URL pattern means each preview branch lands at
+# `https://<branch>.stayloop.pages.dev` (e.g.
+# https://v5-prototype.stayloop.pages.dev) automatically — no separate
+# project, no DNS changes.
+#
+# Add new branches by extending the `branches:` list below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches:
+      - v5-prototype
+  workflow_dispatch:
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build with @cloudflare/next-on-pages
+        env:
+          # Supabase anon key + URL are public; the same values are baked into
+          # the production build. They MUST be present at build time so any
+          # client-side `process.env.NEXT_PUBLIC_*` reads resolve correctly.
+          NEXT_PUBLIC_SUPABASE_URL: https://upbkcbicjjpznojkpqtg.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYmtjYmljampwem5vamtwcXRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0ODQ2MzEsImV4cCI6MjA5MTA2MDYzMX0.fa6eKn6Ux-tp16rMbnsaaApesUZqeJZ67MpibJFKusw
+        run: npx @cloudflare/next-on-pages@latest
+
+      - name: Deploy preview to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # --branch=<ref> tells Cloudflare Pages this is a preview deployment.
+          # Anything other than the configured production branch ("main") shows
+          # up under "Preview" in the dashboard and gets the
+          # <branch>.stayloop.pages.dev alias.
+          command: pages deploy .vercel/output/static --project-name=stayloop --branch=${{ github.ref_name }} --commit-dirty=true
