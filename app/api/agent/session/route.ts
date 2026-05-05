@@ -12,16 +12,17 @@
 //   - approval_events     (pending actions in 'pending' state)
 //   and projecting them into TenantAgentSession.
 //
-// We keep the route on the Node.js runtime because the future implementation
-// will use the Supabase service-role client + RLS-aware reads. Edge runtime
-// is overkill for a low-volume personal session endpoint.
+// Runs on the edge runtime because Stayloop deploys to Cloudflare Pages via
+// @cloudflare/next-on-pages, which only supports edge handlers. The future
+// Supabase-backed implementation will use the JS supabase-js client (which
+// works on edge) rather than the Node-only service-role helpers.
 // -----------------------------------------------------------------------------
 
 import { NextResponse } from 'next/server'
 import { getTenantAgentMock } from '@/lib/v5/tenant-agent-mock'
 import type { TenantAgentSession } from '@/lib/v5/agent-types'
 
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 // V5 sessions evolve as the user takes action; never cache.
 export const dynamic = 'force-dynamic'
 

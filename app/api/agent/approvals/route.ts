@@ -23,7 +23,8 @@ import type {
   ApprovalDecisionError,
 } from '@/lib/v5/agent-types'
 
-export const runtime = 'nodejs'
+// Edge runtime required by Cloudflare Pages (@cloudflare/next-on-pages).
+export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
