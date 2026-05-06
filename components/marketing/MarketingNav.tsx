@@ -30,14 +30,17 @@ interface NavItem {
   en: string
 }
 
-// Order + labels match V4 PubNav prototype exactly.
+// Order + labels match V4 PubNav, with the V4.1 standalone "Tenant
+// Screening" entry inserted right after Product so it lands on the
+// high-attention left side of the nav.
 const NAV_ITEMS: NavItem[] = [
-  { id: 'product',       href: '/',                 zh: '产品',     en: 'Product' },
-  { id: 'pricing',       href: '/pricing',          zh: '价格',     en: 'Pricing' },
-  { id: 'for-tenants',   href: '/tenants',          zh: '租客',     en: 'For Tenants' },
-  { id: 'for-landlords', href: '/landlords',        zh: '房东',     en: 'For Landlords' },
-  { id: 'for-agents',    href: '/agents',           zh: '经纪',     en: 'For Agents' },
-  { id: 'docs',          href: '/trust-api/docs',   zh: '文档',     en: 'Docs' },
+  { id: 'product',       href: '/',                 zh: '产品',         en: 'Product' },
+  { id: 'screening',     href: '/screen',           zh: 'AI 租客筛查',  en: 'Tenant Screening' },
+  { id: 'pricing',       href: '/pricing',          zh: '价格',         en: 'Pricing' },
+  { id: 'for-tenants',   href: '/tenants',          zh: '租客',         en: 'For Tenants' },
+  { id: 'for-landlords', href: '/landlords',        zh: '房东',         en: 'For Landlords' },
+  { id: 'for-agents',    href: '/agents',           zh: '经纪',         en: 'For Agents' },
+  { id: 'docs',          href: '/trust-api/docs',   zh: '文档',         en: 'Docs' },
 ]
 
 function isItemActive(pathname: string | null, href: string): boolean {
