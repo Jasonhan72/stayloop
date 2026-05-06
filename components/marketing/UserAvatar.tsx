@@ -98,13 +98,19 @@ export default function UserAvatar({ user, signOut }: Props) {
           width: 36,
           height: 36,
           borderRadius: '50%',
-          background: `linear-gradient(135deg, ${v3.brand}, ${v3.brandStrong})`,
+          // Initials get the brand-colored gradient (loud, identity-forward).
+          // The hamburger fallback gets a muted treatment (subtle, neutral)
+          // since it signals "no profile loaded" rather than a real identity.
+          background: initials === '☰'
+            ? v3.surfaceMuted
+            : `linear-gradient(135deg, ${v3.brand}, ${v3.brandStrong})`,
           display: 'grid',
           placeItems: 'center',
-          color: '#fff',
-          fontWeight: 700,
-          fontSize: 13,
-          border: 'none',
+          color: initials === '☰' ? v3.textPrimary : '#fff',
+          fontWeight: initials === '☰' ? 800 : 700,
+          fontSize: initials === '☰' ? 18 : 13,
+          lineHeight: 1,
+          border: initials === '☰' ? `1px solid ${v3.border}` : 'none',
           cursor: 'pointer',
           boxShadow: open ? `0 0 0 3px ${v3.brandSoft}` : 'none',
           transition: 'box-shadow .15s',
