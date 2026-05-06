@@ -1,0 +1,40 @@
+name: Deploy preview to Cloudflare Pages
+
+# Companion to deploy.yml — preview deployments for non-production branches.
+# Cloudflare maps each preview branch to https://<branch>.stayloop.pages.dev
+# (with non-DNS-safe characters like '.' collapsed to '-').
+
+on:
+  push:
+    branches:
+      - v5-prototype
+      - v4.1-screening-entry
+      - v4-nav-cleanup
+  workflow_dispatch:
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm ci
+      - name: Build with @cloudflare/next-on-pages
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://upbkcbicjjpznojkpqtg.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYmtjYmljampwem5vamtwcXRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0ODQ2MzEsImV4cCI6MjA5MTA2MDYzMX0.fa6eKn6Ux-tp16rMbnsaaApesUZqeJZ67MpibJFKusw
+        run: npx @cloudflare/next-on-pages@latest
+      - name: Deploy preview to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy .vercel/output/static --project-name=stayloop --branch=${{ github.ref_name }} --commit-dirty=true

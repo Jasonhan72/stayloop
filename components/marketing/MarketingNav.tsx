@@ -30,14 +30,17 @@ interface NavItem {
   en: string
 }
 
-// Order + labels match V4 PubNav prototype exactly.
+// Order + labels match V4 PubNav, with the V4.1 standalone "Tenant
+// Screening" entry inserted right after Product so it lands on the
+// high-attention left side of the nav.
 const NAV_ITEMS: NavItem[] = [
-  { id: 'product',       href: '/',                 zh: '产品',     en: 'Product' },
-  { id: 'pricing',       href: '/pricing',          zh: '价格',     en: 'Pricing' },
-  { id: 'for-tenants',   href: '/tenants',          zh: '租客',     en: 'For Tenants' },
-  { id: 'for-landlords', href: '/landlords',        zh: '房东',     en: 'For Landlords' },
-  { id: 'for-agents',    href: '/agents',           zh: '经纪',     en: 'For Agents' },
-  { id: 'docs',          href: '/trust-api/docs',   zh: '文档',     en: 'Docs' },
+  { id: 'product',       href: '/',                 zh: '产品',         en: 'Product' },
+  { id: 'screening',     href: '/screen',           zh: 'AI 租客筛查',  en: 'Tenant Screening' },
+  { id: 'pricing',       href: '/pricing',          zh: '价格',         en: 'Pricing' },
+  { id: 'for-tenants',   href: '/tenants',          zh: '租客',         en: 'For Tenants' },
+  { id: 'for-landlords', href: '/landlords',        zh: '房东',         en: 'For Landlords' },
+  { id: 'for-agents',    href: '/agents',           zh: '经纪',         en: 'For Agents' },
+  { id: 'docs',          href: '/trust-api/docs',   zh: '文档',         en: 'Docs' },
 ]
 
 function isItemActive(pathname: string | null, href: string): boolean {
@@ -180,30 +183,9 @@ export default function MarketingNav() {
               >
                 {lang === 'zh' ? '登录' : 'Sign in'}
               </button>
-              <button
-                onClick={() => setAuthOpen(true)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 7,
-                  background:
-                    'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 10,
-                  padding: '10px 18px',
-                  fontFamily: 'Inter Tight, system-ui, sans-serif',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  boxShadow:
-                    '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset',
-                  letterSpacing: '-0.01em',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {lang === 'zh' ? '开始使用' : 'Get started'}
-              </button>
+              {/* "Get started" button removed in V4.1 nav cleanup — the
+                  homepage hero already carries the primary CTA, and stacking
+                  a duplicate "Get started" beside "Sign in" reads cluttered. */}
             </>
           )}
         </div>

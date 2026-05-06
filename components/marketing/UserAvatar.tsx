@@ -32,12 +32,21 @@ export default function UserAvatar({ user, signOut }: Props) {
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [])
 
+  // Resolve the avatar glyph. When the user object is present but both
+  // fullName and email are empty (transient load state, or OAuth without
+  // email exposure), fall back to a hamburger icon (☰) instead of '?'.
+  // The "?" reads as an error state; the hamburger reads as "menu" —
+  // which is exactly what the avatar dropdown opens.
   const initials = (() => {
     if (user.fullName?.trim()) {
       const p = user.fullName.trim().split(/\s+/)
-      return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase()
+      const i = ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase()
+      if (i) return i
     }
-    return (user.email || '?').charAt(0).toUpperCase()
+    if (user.email && user.email.charAt(0)) {
+      return user.email.charAt(0).toUpperCase()
+    }
+    return '☰'
   })()
 
   // Build menu items based on role.
