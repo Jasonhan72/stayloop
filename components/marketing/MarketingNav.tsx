@@ -34,7 +34,8 @@ interface NavItem {
 // rather than as a nav entry — keeps the top bar uncluttered. Listings
 // stays as a nav entry so tenants can find published units in one click.
 const NAV_ITEMS: NavItem[] = [
-  { id: 'product',       href: '/',                 zh: '产品',         en: 'Product' },
+  // 'Product' (→ '/') was removed; clicking the Stayloop logo already
+  // returns to the homepage so the explicit nav item was redundant.
   { id: 'listings',      href: '/listings',         zh: '房源',         en: 'Listings' },
   { id: 'pricing',       href: '/pricing',          zh: '价格',         en: 'Pricing' },
   { id: 'for-tenants',   href: '/tenants',          zh: '租客',         en: 'For Tenants' },
