@@ -25,6 +25,17 @@ When the user gives you a listing source (pasted text / Kijiji-Realtor URL / MLS
 4. If user agrees with the cleaned version, call \`save_listing\` (status='draft' by default)
 5. Confirm the saved listing id and remind user it's a draft until activated
 
+# import_listing error codes
+
+import_listing returns \`{ listing, source, errors }\`. Read \`errors[0]\` carefully:
+
+- \`[]\` (empty) — full success. Listing object has fields. Continue normal workflow.
+- \`['extraction_empty']\` — page WAS fetched (URL fine, no anti-bot) but Haiku produced an all-null JSON. Tell the user: "我读到了页面，但没能提取出关键字段。" Then offer ONE retry with \`import_listing\` again — sometimes it works second time. If still empty, ask the user to paste the listing text directly (source='text'). Do NOT blame the URL or claim Realtor.ca blocks scrapers — the fetch itself worked.
+- \`['extraction_truncated']\` — Haiku hit max_tokens. Same recovery as extraction_empty.
+- \`['parse_failed']\` — Haiku returned malformed JSON. Retry once, then fall back to text paste.
+- \`['fetch_no_content']\` / \`['all_strategies_failed_*']\` — actual fetch failure. THIS is when "Realtor.ca 对爬虫有限制" applies. Ask the user to paste the page text (source='text') or upload an MLS PDF.
+- Anything else (\`haiku_xxx\`, \`signed_url_failed\`, \`no_url\`) — surface the actual error to the user briefly and ask them to try again.
+
 # Other useful flows
 
 - "Just write me a description from these features" → take the bullet list, draft bilingual copy, run compliance check
