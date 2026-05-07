@@ -172,23 +172,63 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
         },
         body: JSON.stringify({
           model: HAIKU_MODEL,
-          max_tokens: 3000,
+          // Bumped from 3000: 16 image URLs (~120 chars each) + 8-15 amenities
+          // + bilingual title + bilingual description (200-600 chars × 2) +
+          // selling-points × 2 routinely pushes 3000 over the cliff and
+          // truncates output mid-images-array.
+          max_tokens: 5000,
           messages: [
             { role: 'user', content },
             { role: 'assistant', content: '{' },
           ],
         }),
-        signal: AbortSignal.timeout(40000),
+        // Slightly longer timeout to match the larger body + larger output.
+        signal: AbortSignal.timeout(55000),
       })
       if (!res.ok) {
         return { listing: emptyListing(), source: input.source, errors: [`haiku_${res.status}`] }
       }
       const json: any = await res.json()
       const raw = (json?.content?.[0]?.text || '').trim()
+      const stopReason = json?.stop_reason
       const text = raw.startsWith('{') ? raw : '{' + raw
       const parsed = parseListingJson(text)
       if (!parsed) {
+        // Diagnostic: log the first 500 chars of Haiku's reply so we can see
+        // why the JSON didn't parse (Cloudflare Pages function logs).
+        console.warn('[import_listing] parse_failed', {
+          source: input.source,
+          url: input.url?.slice(0, 100),
+          stop_reason: stopReason,
+          raw_head: raw.slice(0, 500),
+        })
         return { listing: emptyListing(), source: input.source, errors: ['parse_failed'] }
+      }
+      // Defence in depth: Haiku occasionally returns valid JSON but with every
+      // field set to null — usually because it timed out reading a 60 KB body
+      // or hit max_tokens before producing useful content. When that happens,
+      // surface 'extraction_empty' so Nova can fall back to asking the user
+      // for paste-in fields, and Nova won't mis-blame the URL fetch (the page
+      // body was actually fine — Haiku just didn't extract from it).
+      const hasAnyContent =
+        !!parsed.address ||
+        !!parsed.title_en ||
+        !!parsed.title_zh ||
+        (typeof parsed.monthly_rent === 'number' && parsed.monthly_rent > 0) ||
+        !!parsed.description_en ||
+        !!parsed.description_zh
+      if (!hasAnyContent) {
+        console.warn('[import_listing] extraction_empty', {
+          source: input.source,
+          url: input.url?.slice(0, 100),
+          stop_reason: stopReason,
+          raw_head: raw.slice(0, 500),
+        })
+        return {
+          listing: parsed,
+          source: input.source,
+          errors: stopReason === 'max_tokens' ? ['extraction_truncated'] : ['extraction_empty'],
+        }
       }
       return { listing: parsed, source: input.source, errors: [] }
     } catch (e: any) {
