@@ -26,6 +26,8 @@ interface Listing {
   bedrooms: number | null
   bathrooms: number | null
   available_date: string | null
+  /** Photo URLs in display order. First entry is the hero image. */
+  images: string[] | null
 }
 
 export default function ListingsIndexPage() {
@@ -42,7 +44,7 @@ export default function ListingsIndexPage() {
       setLoading(true)
       const { data } = await supabase
         .from('listings')
-        .select('id, slug, title, address, unit, city, monthly_rent, bedrooms, bathrooms, available_date')
+        .select('id, slug, title, address, unit, city, monthly_rent, bedrooms, bathrooms, available_date, images')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(60)
@@ -240,6 +242,18 @@ function ListingCard({ listing, isZh }: { listing: Listing; isZh: boolean }) {
   const beds = listing.bedrooms == null ? null : listing.bedrooms === 0 ? (isZh ? '开间' : 'Studio') : `${listing.bedrooms} ${isZh ? '卧' : 'bd'}`
   const baths = listing.bathrooms == null ? null : `${listing.bathrooms} ${isZh ? '卫' : 'ba'}`
   const cityProv = [listing.city].filter(Boolean).join('')
+  // Pick the first usable photo URL — must be https and not an obviously
+  // junk asset (placeholder example.com URLs sneak in from older imports).
+  const heroImage = (() => {
+    if (!Array.isArray(listing.images)) return null
+    for (const url of listing.images) {
+      if (typeof url !== 'string') continue
+      if (!/^https:\/\//i.test(url)) continue
+      if (/example\.com|placeholder|via\.placeholder/i.test(url)) continue
+      return url
+    }
+    return null
+  })()
 
   return (
     <Link
@@ -267,12 +281,16 @@ function ListingCard({ listing, isZh }: { listing: Listing; isZh: boolean }) {
         e.currentTarget.style.boxShadow = '0 1px 2px rgba(15, 23, 42, 0.04)'
       }}
     >
-      {/* Photo area with overlay chips — StreetEasy-style */}
+      {/* Photo area with overlay chips — StreetEasy-style. Hero image when
+          available; gradient + city emoji as fallback for listings that
+          don't yet have photos imported. */}
       <div
         style={{
           position: 'relative',
           height: 196,
-          background: `linear-gradient(135deg, ${v3.surfaceMuted} 0%, ${v3.brandWash} 100%)`,
+          background: heroImage
+            ? `#0F172A url("${heroImage}") center/cover no-repeat`
+            : `linear-gradient(135deg, ${v3.surfaceMuted} 0%, ${v3.brandWash} 100%)`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -280,7 +298,7 @@ function ListingCard({ listing, isZh }: { listing: Listing; isZh: boolean }) {
           fontSize: 56,
         }}
       >
-        🏙
+        {!heroImage && '🏙'}
         {/* "Featured" chip — Stayloop-published listings get the brand badge */}
         <span
           style={{
