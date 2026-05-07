@@ -379,9 +379,9 @@ export default function DisputeDetailPage() {
             >
               {isZh ? '✓ 接受调解方案' : '✓ Accept offer'}
             </button>
-            <button
+            <button disabled title={isZh ? '即将推出' : 'Coming soon'}
               style={{
-                width: '100%',
+                opacity: 0.55, cursor: 'not-allowed', width: '100%',
                 padding: '12px 18px',
                 background: v3.surfaceCard,
                 color: v3.textPrimary,
@@ -389,8 +389,7 @@ export default function DisputeDetailPage() {
                 borderRadius: 10,
                 fontSize: 14,
                 fontWeight: 600,
-                cursor: 'pointer',
-              }}
+                }}
             >
               {isZh ? '⚖ 升级到 LTB' : '⚖ Escalate to LTB'}
             </button>

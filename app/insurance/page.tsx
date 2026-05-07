@@ -70,9 +70,9 @@ export default function InsurancePage() {
 
               {/* Actions */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-                <button
+                <button disabled title={isZh ? '即将推出' : 'Coming soon'}
                   style={{
-                    width: '100%',
+                    opacity: 0.55, cursor: 'not-allowed', width: '100%',
                     background: v3.brand,
                     color: '#fff',
                     border: 'none',
@@ -80,14 +80,13 @@ export default function InsurancePage() {
                     padding: 12,
                     fontSize: 14,
                     fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
+                    }}
                 >
                   {isZh ? '发送给房东' : 'Send to landlord'}
                 </button>
-                <button
+                <button disabled title={isZh ? '即将推出' : 'Coming soon'}
                   style={{
-                    width: '100%',
+                    opacity: 0.55, cursor: 'not-allowed', width: '100%',
                     background: v3.surface,
                     color: v3.textPrimary,
                     border: `1px solid ${v3.border}`,
@@ -95,8 +94,7 @@ export default function InsurancePage() {
                     padding: 12,
                     fontSize: 14,
                     fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
+                    }}
                 >
                   {isZh ? '下载 PDF' : 'Download PDF'}
                 </button>

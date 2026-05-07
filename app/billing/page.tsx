@@ -156,9 +156,9 @@ export default function BillingPage() {
                   {isZh ? '续订于 2026 年 9 月 18 日' : 'Renews Sep 18, 2026'} · Visa •• 4242
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                  <button
+                  <button disabled title={isZh ? '即将推出' : 'Coming soon'}
                     style={{
-                      display: 'inline-flex',
+                      opacity: 0.55, cursor: 'not-allowed', display: 'inline-flex',
                       alignItems: 'center',
                       gap: 7,
                       background: '#fff',
@@ -168,20 +168,18 @@ export default function BillingPage() {
                       padding: '10px 18px',
                       fontSize: 13,
                       fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
+                      }}
                   >
                     {isZh ? '更改计划' : 'Change plan'}
                   </button>
-                  <button
+                  <button disabled title={isZh ? '即将推出' : 'Coming soon'}
                     style={{
-                      background: 'none',
+                      opacity: 0.55, cursor: 'not-allowed', background: 'none',
                       color: v3.brand,
                       border: 'none',
                       fontSize: 13,
                       fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
+                      }}
                   >
                     {isZh ? '更新支付 →' : 'Update payment →'}
                   </button>
@@ -343,14 +341,13 @@ export default function BillingPage() {
                   >
                     {r[3]}
                   </div>
-                  <button
+                  <button disabled title={isZh ? '即将推出' : 'Coming soon'}
                     style={{
-                      background: 'none',
+                      opacity: 0.55, cursor: 'not-allowed', background: 'none',
                       border: 'none',
                       color: v3.brand,
                       fontSize: 12,
                       fontWeight: 600,
-                      cursor: 'pointer',
                       justifySelf: 'end',
                     }}
                   >
@@ -418,15 +415,14 @@ export default function BillingPage() {
                   >
                     {a[1]}
                   </span>
-                  <button
+                  <button disabled title={isZh ? '即将推出' : 'Coming soon'}
                     style={{
-                      background: 'none',
+                      opacity: 0.55, cursor: 'not-allowed', background: 'none',
                       border: 'none',
                       color: v3.brand,
                       fontSize: 12,
                       fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
+                      }}
                   >
                     Add
                   </button>

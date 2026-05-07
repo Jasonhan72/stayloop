@@ -227,7 +227,7 @@ export default function LeaseEscrowPage() {
           </div>
 
           <div style={{ marginTop: 24, textAlign: 'center', fontFamily: 'var(--font-inter), sans-serif' }}>
-            <button style={{ padding: '10px 20px', background: v3.surfaceMuted, border: `1px solid ${v3.border}`, borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
+            <button disabled title={isZh ? '即将推出' : 'Coming soon'} style={{ opacity: 0.55, cursor: 'not-allowed', padding: '10px 20px', background: v3.surfaceMuted, border: `1px solid ${v3.border}`, borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
               {isZh ? '下载 PDF 租约' : 'Download lease (PDF)'}
             </button>
           </div>

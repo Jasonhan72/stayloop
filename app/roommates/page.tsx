@@ -163,9 +163,9 @@ export default function RoommatesPage() {
           </div>
 
           {/* Apply as group button */}
-          <button
+          <button disabled title={isZh ? '即将推出' : 'Coming soon'}
             style={{
-              width: '100%',
+              opacity: 0.55, cursor: 'not-allowed', width: '100%',
               marginTop: 20,
               background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
               color: '#fff',
@@ -174,8 +174,7 @@ export default function RoommatesPage() {
               padding: 14,
               fontSize: 14,
               fontWeight: 700,
-              cursor: 'pointer',
-            }}
+              }}
           >
             {isZh ? '向房东提交合租申请' : 'Submit group application'}
           </button>

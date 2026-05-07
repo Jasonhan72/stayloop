@@ -448,16 +448,15 @@ export default function PassportPage() {
                 {isZh ? '9 个 · AI 提取的字段显示' : '9 of 11 · AI extracted fields shown'}
               </span>
               <div style={{ flex: 1 }} />
-              <button
+              <button disabled title={isZh ? '即将推出' : 'Coming soon'}
                 style={{
-                  padding: 0,
+                  opacity: 0.55, cursor: 'not-allowed', padding: 0,
                   color: '#047857',
                   fontSize: 12,
                   fontWeight: 600,
                   background: 'none',
                   border: 'none',
-                  cursor: 'pointer',
-                }}
+                  }}
               >
                 + {isZh ? '上传' : 'Upload'}
               </button>
@@ -598,16 +597,15 @@ export default function PassportPage() {
                 >
                   {d.status}
                 </span>
-                <button
+                <button disabled title={isZh ? '即将推出' : 'Coming soon'}
                   style={{
-                    padding: 0,
+                    opacity: 0.55, cursor: 'not-allowed', padding: 0,
                     color: v3.textMuted,
                     fontSize: 12,
                     fontWeight: 600,
                     background: 'none',
                     border: 'none',
-                    cursor: 'pointer',
-                  }}
+                    }}
                 >
                   {d.status === 'Missing' ? (isZh ? '上传' : 'Upload') : isZh ? '查看' : 'View'}
                 </button>
@@ -691,17 +689,16 @@ export default function PassportPage() {
                   <span style={{ flex: 1 }}>
                     <div style={{ color: v3.textSecondary, fontSize: 13 }}>{it.body}</div>
                   </span>
-                  <button
+                  <button disabled title={isZh ? '即将推出' : 'Coming soon'}
                     style={{
-                      fontSize: 12,
+                      opacity: 0.55, cursor: 'not-allowed', fontSize: 12,
                       color: '#7C3AED',
                       padding: 0,
                       whiteSpace: 'nowrap',
                       background: 'none',
                       border: 'none',
                       fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
+                      }}
                   >
                     {it.cta}
                   </button>

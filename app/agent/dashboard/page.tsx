@@ -121,7 +121,7 @@ export default function AgentDashboardPage() {
               {stats.openPackages} {isZh ? '进行中' : 'in flight'}
             </span>
             <div style={{ flex: 1 }} />
-            <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+            <button disabled title={isZh ? '即将推出' : 'Coming soon'} style={{ opacity: 0.55, cursor: 'not-allowed', background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, padding: 0 }}>
               + {isZh ? '新包' : 'New package'}
             </button>
           </div>
@@ -172,7 +172,7 @@ export default function AgentDashboardPage() {
                     {it.title && <div style={{ fontWeight: 600 }}>{it.title}</div>}
                     <div style={{ color: v3.textSecondary, fontSize: 13 }}>{it.body}</div>
                   </span>
-                  {it.cta && <button style={{ background: 'none', border: 'none', color: v3.trust, padding: 0, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>{it.cta}</button>}
+                  {it.cta && <button disabled title={isZh ? '即将推出' : 'Coming soon'} style={{ opacity: 0.55, cursor: 'not-allowed', background: 'none', border: 'none', color: v3.trust, padding: 0, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>{it.cta}</button>}
                 </div>
               ))}
             </div>

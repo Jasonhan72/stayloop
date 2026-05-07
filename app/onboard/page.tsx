@@ -158,9 +158,9 @@ export default function OnboardPage() {
         </div>
 
         {/* CTA */}
-        <button
+        <button disabled title={isZh ? '即将推出' : 'Coming soon'}
           style={{
-            width: '100%',
+            opacity: 0.55, cursor: 'not-allowed', width: '100%',
             background: v3.brand,
             color: '#fff',
             fontSize: 15,
@@ -168,7 +168,6 @@ export default function OnboardPage() {
             padding: '16px 20px',
             borderRadius: 12,
             border: 'none',
-            cursor: 'pointer',
             boxShadow: '0 6px 16px rgba(16, 185, 129, 0.35)',
           }}
         >
