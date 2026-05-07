@@ -71,20 +71,29 @@ const tool: CapabilityTool<SaveInput, SaveOutput> = {
       return { success: false, listing_id: null, error: 'no_landlord_profile' }
     }
 
+    // The listings table requires NOT NULL on address, monthly_rent, slug.
+    // Provide robust fallbacks: an "Untitled draft" placeholder address,
+    // 0 rent (clearly placeholder), and a generated unique slug. The user
+    // can edit the draft later before publishing.
+    const slug = generateSlug(input.listing)
+    const status = input.status || 'draft'
+
     const row = {
       landlord_id: landlord.id,
       title: input.listing.title_zh || input.listing.title_en || 'Untitled listing',
       description: input.listing.description_zh || input.listing.description_en || '',
-      address: input.listing.address || null,
-      city: input.listing.city || null,
-      province: input.listing.province || null,
+      address: input.listing.address || 'Untitled draft',
+      city: input.listing.city || 'Toronto',
+      province: input.listing.province || 'ON',
       postal_code: input.listing.postal_code || null,
-      monthly_rent: input.listing.monthly_rent || null,
-      bedrooms: input.listing.bedrooms || null,
-      bathrooms: input.listing.bathrooms || null,
-      status: input.status || 'draft',
-      // Source kind is informational; some listings tables have this column,
-      // some don't. Try to insert; ignore extra-column errors via best-effort.
+      monthly_rent: input.listing.monthly_rent ?? 0,
+      bedrooms: input.listing.bedrooms ?? null,
+      bathrooms: input.listing.bathrooms ?? null,
+      slug,
+      status,
+      // is_active mirrors status: drafts aren't visible publicly, actives are.
+      // The portfolio page filters on this so we keep them in lockstep.
+      is_active: status === 'active',
     }
 
     const { data, error } = await ctx.supabaseAdmin
@@ -98,6 +107,31 @@ const tool: CapabilityTool<SaveInput, SaveOutput> = {
     }
     return { success: true, listing_id: data.id }
   },
+}
+
+/**
+ * Build a URL-safe unique slug from the listing fields. Falls back to a
+ * timestamp-suffixed random ID when the address isn't usable yet.
+ *
+ *   "88 Harbour St Unit 3305" + Toronto → "88-harbour-st-unit-3305-toronto-q5x7d"
+ *   (no address)                          → "draft-1714939200000-q5x7d"
+ *
+ * The 5-char random suffix prevents collisions when two landlords add similar
+ * properties at the same time.
+ */
+function generateSlug(listing: SaveInput['listing']): string {
+  const base = (listing.address || '')
+    + (listing.city ? ` ${listing.city}` : '')
+  const cleaned = base
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^\x00-\x7F]/g, '')   // strip non-ascii (Chinese chars, accents)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+  const suffix = Math.random().toString(36).slice(2, 7)
+  if (!cleaned) return `draft-${Date.now()}-${suffix}`
+  return `${cleaned}-${suffix}`
 }
 
 registerTool(tool)
