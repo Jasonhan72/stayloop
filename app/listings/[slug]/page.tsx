@@ -142,157 +142,163 @@ export default function ListingDetailPage() {
         </div>
       </nav>
 
-      {/* Top section: gallery + sticky right-rail */}
-      <section style={{ padding: '20px 24px 24px' }}>
+      {/* StreetEasy-faithful structure:
+          1) Photo gallery — FULL content width, above the fold
+          2) Header strip — full width: title, price, beds/baths/sqft, days-on-market chips
+          3) 2-column body — LEFT description+amenities+building, RIGHT sticky CTA card
+          4) Map — full content width
+
+          The previous layout had the gallery nested inside the left column
+          of a 2-column grid, which made the gallery and the right rail
+          compete for vertical space and pushed the Apply CTA off-screen
+          on wide displays. */}
+
+      {/* 1) Gallery — full width */}
+      <section style={{ padding: '16px 24px 0' }}>
+        <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
+          <PhotoGallery
+            images={facts?.images || []}
+            activeIndex={activeImage}
+            onChange={setActiveImage}
+            isZh={isZh}
+            showPlaceholder={!hasPhotos}
+          />
+
+          {/* Photo counter + floor-plan / map pills */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, fontSize: 12, color: v3.textMuted }}>
+            <div>
+              {hasPhotos
+                ? `${activeImage + 1} ${isZh ? '/' : 'of'} ${facts!.images.length}`
+                : (isZh ? '暂无照片' : 'No photos uploaded')}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => alert(isZh ? '楼层平面图：暂未提供' : 'Floor plan: not yet provided')}
+                style={pillBtn}
+              >
+                ⌂ {isZh ? '户型图' : 'Floor plan'}
+              </button>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${listing.address} ${listing.city || ''}`)}`}
+                target="_blank"
+                rel="noreferrer"
+                style={pillBtn}
+              >
+                ◌ {isZh ? '地图' : 'Map'}
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 2) Header strip — full width: title row + price + facts + stats grid */}
+      <section style={{ padding: '20px 24px 8px' }}>
+        <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+            <h1
+              style={{
+                fontSize: 'clamp(26px, 3vw, 34px)',
+                fontWeight: 700,
+                letterSpacing: '-0.02em',
+                margin: '0 0 4px',
+                lineHeight: 1.2,
+                color: v3.textPrimary,
+                flex: '1 1 auto',
+              }}
+            >
+              {facts!.title}
+            </h1>
+            <div style={{ display: 'flex', gap: 18, flexShrink: 0, paddingTop: 6 }}>
+              <ActionLink icon="♡" label={isZh ? '收藏' : 'Save'} />
+              <ActionLink icon="↗" label={isZh ? '分享' : 'Share'} onClick={() => {
+                if (typeof window === 'undefined') return
+                if (navigator.share) navigator.share({ title: facts!.title, url: window.location.href }).catch(() => {})
+                else navigator.clipboard?.writeText(window.location.href)
+              }} />
+              <ActionLink icon="◯" label={isZh ? '隐藏' : 'Hide'} />
+            </div>
+          </div>
+
+          {listing.monthly_rent != null && listing.monthly_rent > 0 && (
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
+              <span style={{ fontSize: 28, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em' }}>
+                ${listing.monthly_rent.toLocaleString()}
+              </span>
+              <span style={{ fontSize: 12, color: v3.textMuted, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                {isZh ? '月租' : 'For rent'}
+              </span>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap', fontSize: 13.5, color: v3.textSecondary }}>
+            <FactInline value={listing.sqft != null ? `${listing.sqft} ft²` : '— ft²'} />
+            <Sep />
+            <FactInline value={`${rooms} ${isZh ? '间' : 'rooms'}`} />
+            <Sep />
+            <FactInline value={listing.bedrooms == null ? '— bd' : listing.bedrooms === 0 ? (isZh ? '开间' : 'Studio') : `${listing.bedrooms} ${isZh ? '卧' : 'beds'}`} />
+            <Sep />
+            <FactInline value={listing.bathrooms == null ? '— ba' : `${listing.bathrooms} ${isZh ? '卫' : 'baths'}`} />
+          </div>
+          <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 6 }}>
+            {isZh ? '租赁单元' : 'Rental unit'}
+            {listing.city && (
+              <>
+                <span style={{ margin: '0 6px' }}>·</span>
+                <Link href={`/listings?q=${encodeURIComponent(listing.city)}`} style={{ color: v3.brand, textDecoration: 'underline' }}>
+                  {listing.city}
+                </Link>
+              </>
+            )}
+          </div>
+
+          {/* StreetEasy stats strip — Available / Days on market / Last price change */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 0,
+              borderTop: `1px solid ${v3.border}`,
+              borderBottom: `1px solid ${v3.border}`,
+              marginTop: 18,
+              background: v3.surface,
+            }}
+            className="listing-stats-row"
+          >
+            <StatBlock
+              label={isZh ? '可入住' : 'Available'}
+              value={listing.available_date
+                ? new Date(listing.available_date).toLocaleDateString(isZh ? 'zh-CN' : 'en-CA', { year: 'numeric', month: 'short', day: 'numeric' })
+                : (isZh ? '随时' : 'Available now')}
+            />
+            <StatBlock
+              label={isZh ? '上线天数' : 'Days on market'}
+              value={facts!.daysOn === 0 ? (isZh ? '今日' : 'Today') : `${facts!.daysOn} ${isZh ? '天' : 'days'}`}
+            />
+            <StatBlock
+              label={isZh ? '价格变动' : 'Last price change'}
+              value={isZh ? '无变动' : 'No changes'}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 3) 2-column body — LEFT content, RIGHT sticky CTA card */}
+      <section style={{ padding: '8px 24px 24px' }}>
         <div
           style={{
             maxWidth: size.content.wide,
             margin: '0 auto',
             display: 'grid',
             gridTemplateColumns: '1.6fr 1fr',
-            gap: 28,
+            gap: 36,
           }}
           className="listing-detail-grid"
         >
-          {/* Left column */}
+          {/* Left column — body content */}
           <div>
-            {/* Gallery */}
-            <PhotoGallery
-              images={facts?.images || []}
-              activeIndex={activeImage}
-              onChange={setActiveImage}
-              isZh={isZh}
-              showPlaceholder={!hasPhotos}
-            />
-
-            {/* Photo counter row + floor plan / map */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, fontSize: 12, color: v3.textMuted }}>
-              <div>
-                {hasPhotos
-                  ? `${activeImage + 1} ${isZh ? '/' : 'of'} ${facts!.images.length}`
-                  : (isZh ? '暂无照片' : 'No photos uploaded')}
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => alert(isZh ? '楼层平面图：暂未提供' : 'Floor plan: not yet provided')}
-                  style={pillBtn}
-                >
-                  ⌂ {isZh ? '户型图' : 'Floor plan'}
-                </button>
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${listing.address} ${listing.city || ''}`)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={pillBtn}
-                >
-                  ◌ {isZh ? '地图' : 'Map'}
-                </a>
-              </div>
-            </div>
-
-            {/* Title + price block */}
-            <div style={{ marginTop: 18 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-                <h1
-                  style={{
-                    fontSize: 'clamp(24px, 3vw, 32px)',
-                    fontWeight: 700,
-                    letterSpacing: '-0.02em',
-                    margin: '0 0 4px',
-                    lineHeight: 1.2,
-                    color: v3.textPrimary,
-                    flex: '1 1 auto',
-                  }}
-                >
-                  {facts!.title}
-                </h1>
-                {/* Save / Share / Hide row */}
-                <div style={{ display: 'flex', gap: 18, flexShrink: 0, paddingTop: 6 }}>
-                  <ActionLink icon="♡" label={isZh ? '收藏' : 'Save'} />
-                  <ActionLink icon="↗" label={isZh ? '分享' : 'Share'} onClick={() => {
-                    if (typeof window === 'undefined') return
-                    if (navigator.share) navigator.share({ title: facts!.title, url: window.location.href }).catch(() => {})
-                    else navigator.clipboard?.writeText(window.location.href)
-                  }} />
-                  <ActionLink icon="◯" label={isZh ? '隐藏' : 'Hide'} />
-                </div>
-              </div>
-
-              {/* Price + room facts (StreetEasy header strip) */}
-              {listing.monthly_rent != null && listing.monthly_rent > 0 && (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
-                  <span style={{ fontSize: 26, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em' }}>
-                    ${listing.monthly_rent.toLocaleString()}
-                  </span>
-                  <span style={{ fontSize: 12, color: v3.textMuted, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                    {isZh ? '月租' : 'For rent'}
-                  </span>
-                </div>
-              )}
-
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 10,
-                  marginTop: 10,
-                  flexWrap: 'wrap',
-                  fontSize: 13.5,
-                  color: v3.textSecondary,
-                  fontFamily: 'inherit',
-                }}
-              >
-                <FactInline value={listing.sqft != null ? `${listing.sqft} ft²` : '— ft²'} />
-                <Sep />
-                <FactInline value={`${rooms} ${isZh ? '间' : 'rooms'}`} />
-                <Sep />
-                <FactInline value={listing.bedrooms == null ? '— bd' : listing.bedrooms === 0 ? (isZh ? '开间' : 'Studio') : `${listing.bedrooms} ${isZh ? '卧' : 'beds'}`} />
-                <Sep />
-                <FactInline value={listing.bathrooms == null ? '— ba' : `${listing.bathrooms} ${isZh ? '卫' : 'baths'}`} />
-              </div>
-              <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 6 }}>
-                {isZh ? '租赁单元' : 'Rental unit'}
-                {listing.city && (
-                  <>
-                    <span style={{ margin: '0 6px' }}>·</span>
-                    <Link href={`/listings?q=${encodeURIComponent(listing.city)}`} style={{ color: v3.brand, textDecoration: 'underline' }}>
-                      {listing.city}
-                    </Link>
-                  </>
-                )}
-              </div>
-
-              {/* Available / Days on market / Last price change */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: 0,
-                  borderTop: `1px solid ${v3.border}`,
-                  borderBottom: `1px solid ${v3.border}`,
-                  marginTop: 18,
-                  background: v3.surface,
-                }}
-                className="listing-stats-row"
-              >
-                <StatBlock
-                  label={isZh ? '可入住' : 'Available'}
-                  value={listing.available_date
-                    ? new Date(listing.available_date).toLocaleDateString(isZh ? 'zh-CN' : 'en-CA', { year: 'numeric', month: 'short', day: 'numeric' })
-                    : (isZh ? '随时' : 'Available now')}
-                />
-                <StatBlock
-                  label={isZh ? '上线天数' : 'Days on market'}
-                  value={facts!.daysOn === 0 ? (isZh ? '今日' : 'Today') : `${facts!.daysOn} ${isZh ? '天' : 'days'}`}
-                />
-                <StatBlock
-                  label={isZh ? '价格变动' : 'Last price change'}
-                  value={isZh ? '无变动' : 'No changes'}
-                />
-              </div>
-
-              {/* About */}
-              <Section title={isZh ? '介绍' : 'About'}>
+            {/* About */}
+            <Section title={isZh ? '介绍' : 'About'}>
                 {listing.description ? (
                   <p style={{ fontSize: 14.5, lineHeight: 1.7, color: v3.textSecondary, whiteSpace: 'pre-wrap', margin: 0 }}>
                     {listing.description}
@@ -427,7 +433,6 @@ export default function ListingDetailPage() {
                   </div>
                 </div>
               </Section>
-            </div>
           </div>
 
           {/* Right column — sticky info + 3 CTAs */}
