@@ -1,17 +1,22 @@
 'use client'
 // -----------------------------------------------------------------------------
-// /listings/[slug] — public listing detail (StreetEasy-inspired layout)
+// /listings/[slug] — public listing detail (StreetEasy fidelity)
 // -----------------------------------------------------------------------------
-// Pulls a listing by slug via the anon Supabase client (RLS gates SELECT to
-// is_active=true). Layout matches the conventions tenants are used to from
-// StreetEasy / Realtor.ca: image gallery on the left, sticky "fact card +
-// Apply CTA" on the right, About / Policies / Listed-by stacked below.
+// Layout matches StreetEasy listing pages:
+//   - photo carousel (1 of N) with thumbnails + Floor Plan / Map buttons
+//   - title + price + rooms/beds/baths
+//   - Available / Days on market / Last price change row
+//   - About description
+//   - Amenities list (large bulleted)
+//   - Policies (Pets allowed, Smoke-free)
+//   - Listed by panel (broker name + brokerage + Show phone)
+//   - Right rail: Request a tour + Ask a question + Apply CTAs
+//   - Save / Share / Hide button row above Listed-by
 //
-// Photos aren't part of the schema yet — we render a placeholder image rail
-// so the visual hierarchy is established for when real images land.
+// Anon Supabase reads are gated to is_active=true via RLS.
 // -----------------------------------------------------------------------------
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { v3, size } from '@/lib/brand'
@@ -20,7 +25,6 @@ import { supabase } from '@/lib/supabase'
 import MarketingNav from '@/components/marketing/MarketingNav'
 import MarketingFooter from '@/components/marketing/MarketingFooter'
 
-// Cloudflare Pages requires every dynamic ([param]) route to declare edge.
 export const runtime = 'edge'
 
 interface Listing {
@@ -36,10 +40,23 @@ interface Listing {
   monthly_rent: number | null
   bedrooms: number | null
   bathrooms: number | null
+  sqft: number | null
+  parking: string | null
+  pet_policy: string | null
+  utilities_included: string[] | null
+  amenities: string[] | null
+  images: string[] | null
   available_date: string | null
   is_active: boolean
   status: string | null
   created_at: string
+  published_at: string | null
+  broker_name: string | null
+  broker_phone: string | null
+  brokerage: string | null
+  year_built: number | null
+  mls_number: string | null
+  source_url: string | null
 }
 
 export default function ListingDetailPage() {
@@ -51,6 +68,8 @@ export default function ListingDetailPage() {
   const [listing, setListing] = useState<Listing | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [activeImage, setActiveImage] = useState(0)
+  const [showPhone, setShowPhone] = useState(false)
 
   useEffect(() => {
     if (!slug) return
@@ -59,7 +78,7 @@ export default function ListingDetailPage() {
       setLoading(true)
       const { data } = await supabase
         .from('listings')
-        .select('id, slug, title, description, address, unit, city, province, postal_code, monthly_rent, bedrooms, bathrooms, available_date, is_active, status, created_at')
+        .select('id, slug, title, description, address, unit, city, province, postal_code, monthly_rent, bedrooms, bathrooms, sqft, parking, pet_policy, utilities_included, amenities, images, available_date, is_active, status, created_at, published_at, broker_name, broker_phone, brokerage, year_built, mls_number, source_url')
         .eq('slug', slug)
         .maybeSingle()
       if (cancelled) return
@@ -70,31 +89,30 @@ export default function ListingDetailPage() {
     return () => { cancelled = true }
   }, [slug])
 
+  const facts = useMemo(() => {
+    if (!listing) return null
+    const since = listing.published_at || listing.created_at
+    const daysOn = Math.max(0, Math.floor((Date.now() - new Date(since).getTime()) / 86400000))
+    return {
+      daysOn,
+      title: listing.title || `${listing.address}${listing.unit ? ` · ${listing.unit}` : ''}`,
+      cityProv: [listing.city, listing.province].filter(Boolean).join(', '),
+      images: (listing.images && listing.images.length > 0)
+        ? listing.images
+        : [],
+    }
+  }, [listing])
+
   if (loading) return <Shell><Centered>{isZh ? '加载中…' : 'Loading…'}</Centered></Shell>
+  if (notFound || !listing) return <Shell><NotFoundCard isZh={isZh} /></Shell>
+  if (!listing.is_active) return <Shell><DraftCard isZh={isZh} /></Shell>
 
-  if (notFound || !listing) {
-    return (
-      <Shell>
-        <NotFoundCard isZh={isZh} />
-      </Shell>
-    )
-  }
-
-  if (!listing.is_active) {
-    return (
-      <Shell>
-        <DraftCard isZh={isZh} />
-      </Shell>
-    )
-  }
-
-  const title = listing.title || `${listing.address}${listing.unit ? ` · ${listing.unit}` : ''}`
-  const cityProv = [listing.city, listing.province].filter(Boolean).join(', ')
-  const daysOn = Math.max(0, Math.floor((Date.now() - new Date(listing.created_at).getTime()) / 86400000))
+  const rooms = (listing.bedrooms ?? 0) + (listing.bathrooms ?? 0) + 1 // approximation: bedrooms + bathrooms + living area
+  const hasPhotos = (facts?.images?.length || 0) > 0
 
   return (
     <Shell>
-      {/* Breadcrumb strip — light tertiary nav above the hero */}
+      {/* Breadcrumbs */}
       <nav style={{ padding: '12px 24px', borderBottom: `1px solid ${v3.divider}`, background: v3.surface }}>
         <div
           style={{
@@ -109,23 +127,23 @@ export default function ListingDetailPage() {
           }}
         >
           <Link href="/listings" style={{ color: v3.textMuted, textDecoration: 'none' }}>
-            {isZh ? '所有房源' : 'All listings'}
+            {isZh ? '所有房源' : 'Rentals'}
           </Link>
           <span aria-hidden>›</span>
           {listing.city && (
             <>
-              <span style={{ color: v3.textMuted }}>{listing.city}</span>
+              <span>{listing.city}</span>
               <span aria-hidden>›</span>
             </>
           )}
           <span style={{ color: v3.textPrimary, fontWeight: 600 }}>
-            {listing.address}{listing.unit ? ` · ${listing.unit}` : ''}
+            {listing.address}{listing.unit ? ` ${listing.unit}` : ''}
           </span>
         </div>
       </nav>
 
-      {/* Main grid: gallery / facts → description */}
-      <section style={{ padding: '24px 24px 64px' }}>
+      {/* Top section: gallery + sticky right-rail */}
+      <section style={{ padding: '20px 24px 24px' }}>
         <div
           style={{
             maxWidth: size.content.wide,
@@ -138,54 +156,143 @@ export default function ListingDetailPage() {
         >
           {/* Left column */}
           <div>
-            <ImageGallery />
+            {/* Gallery */}
+            <PhotoGallery
+              images={facts?.images || []}
+              activeIndex={activeImage}
+              onChange={setActiveImage}
+              isZh={isZh}
+              showPlaceholder={!hasPhotos}
+            />
 
-            {/* Headline below the gallery */}
+            {/* Photo counter row + floor plan / map */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, fontSize: 12, color: v3.textMuted }}>
+              <div>
+                {hasPhotos
+                  ? `${activeImage + 1} ${isZh ? '/' : 'of'} ${facts!.images.length}`
+                  : (isZh ? '暂无照片' : 'No photos uploaded')}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => alert(isZh ? '楼层平面图：暂未提供' : 'Floor plan: not yet provided')}
+                  style={pillBtn}
+                >
+                  ⌂ {isZh ? '户型图' : 'Floor plan'}
+                </button>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${listing.address} ${listing.city || ''}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={pillBtn}
+                >
+                  ◌ {isZh ? '地图' : 'Map'}
+                </a>
+              </div>
+            </div>
+
+            {/* Title + price block */}
             <div style={{ marginTop: 18 }}>
-              <h1
-                style={{
-                  fontSize: 'clamp(24px, 3vw, 32px)',
-                  fontWeight: 700,
-                  letterSpacing: '-0.02em',
-                  margin: '0 0 6px',
-                  lineHeight: 1.2,
-                  color: v3.textPrimary,
-                }}
-              >
-                {title}
-              </h1>
-              <div style={{ fontSize: 13.5, color: v3.textSecondary, marginBottom: 18 }}>
-                {listing.address}{listing.unit ? `, ${listing.unit}` : ''}{cityProv ? ` · ${cityProv}` : ''}{listing.postal_code ? ` ${listing.postal_code}` : ''}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+                <h1
+                  style={{
+                    fontSize: 'clamp(24px, 3vw, 32px)',
+                    fontWeight: 700,
+                    letterSpacing: '-0.02em',
+                    margin: '0 0 4px',
+                    lineHeight: 1.2,
+                    color: v3.textPrimary,
+                    flex: '1 1 auto',
+                  }}
+                >
+                  {facts!.title}
+                </h1>
+                {/* Save / Share / Hide row */}
+                <div style={{ display: 'flex', gap: 18, flexShrink: 0, paddingTop: 6 }}>
+                  <ActionLink icon="♡" label={isZh ? '收藏' : 'Save'} />
+                  <ActionLink icon="↗" label={isZh ? '分享' : 'Share'} onClick={() => {
+                    if (typeof window === 'undefined') return
+                    if (navigator.share) navigator.share({ title: facts!.title, url: window.location.href }).catch(() => {})
+                    else navigator.clipboard?.writeText(window.location.href)
+                  }} />
+                  <ActionLink icon="◯" label={isZh ? '隐藏' : 'Hide'} />
+                </div>
               </div>
 
-              {/* Quick facts strip */}
+              {/* Price + room facts (StreetEasy header strip) */}
+              {listing.monthly_rent != null && listing.monthly_rent > 0 && (
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
+                  <span style={{ fontSize: 26, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em' }}>
+                    ${listing.monthly_rent.toLocaleString()}
+                  </span>
+                  <span style={{ fontSize: 12, color: v3.textMuted, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    {isZh ? '月租' : 'For rent'}
+                  </span>
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 10,
+                  marginTop: 10,
+                  flexWrap: 'wrap',
+                  fontSize: 13.5,
+                  color: v3.textSecondary,
+                  fontFamily: 'inherit',
+                }}
+              >
+                <FactInline value={listing.sqft != null ? `${listing.sqft} ft²` : '— ft²'} />
+                <Sep />
+                <FactInline value={`${rooms} ${isZh ? '间' : 'rooms'}`} />
+                <Sep />
+                <FactInline value={listing.bedrooms == null ? '— bd' : listing.bedrooms === 0 ? (isZh ? '开间' : 'Studio') : `${listing.bedrooms} ${isZh ? '卧' : 'beds'}`} />
+                <Sep />
+                <FactInline value={listing.bathrooms == null ? '— ba' : `${listing.bathrooms} ${isZh ? '卫' : 'baths'}`} />
+              </div>
+              <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 6 }}>
+                {isZh ? '租赁单元' : 'Rental unit'}
+                {listing.city && (
+                  <>
+                    <span style={{ margin: '0 6px' }}>·</span>
+                    <Link href={`/listings?q=${encodeURIComponent(listing.city)}`} style={{ color: v3.brand, textDecoration: 'underline' }}>
+                      {listing.city}
+                    </Link>
+                  </>
+                )}
+              </div>
+
+              {/* Available / Days on market / Last price change */}
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
                   gap: 0,
-                  border: `1px solid ${v3.border}`,
-                  borderRadius: 12,
-                  background: v3.surfaceCard,
-                  overflow: 'hidden',
-                  marginBottom: 24,
+                  borderTop: `1px solid ${v3.border}`,
+                  borderBottom: `1px solid ${v3.border}`,
+                  marginTop: 18,
+                  background: v3.surface,
                 }}
-                className="listing-facts-grid"
+                className="listing-stats-row"
               >
-                <Fact label={isZh ? '月租' : 'Monthly rent'} value={listing.monthly_rent && listing.monthly_rent > 0 ? `$${listing.monthly_rent.toLocaleString()}` : '—'} highlight />
-                <Fact label={isZh ? '卧室' : 'Bedrooms'} value={listing.bedrooms == null ? '—' : listing.bedrooms === 0 ? (isZh ? '开间' : 'Studio') : String(listing.bedrooms)} />
-                <Fact label={isZh ? '卫浴' : 'Bathrooms'} value={listing.bathrooms == null ? '—' : String(listing.bathrooms)} />
-                <Fact
-                  label={isZh ? '入住日期' : 'Available'}
+                <StatBlock
+                  label={isZh ? '可入住' : 'Available'}
                   value={listing.available_date
                     ? new Date(listing.available_date).toLocaleDateString(isZh ? 'zh-CN' : 'en-CA', { year: 'numeric', month: 'short', day: 'numeric' })
-                    : (isZh ? '随时' : 'Now')}
+                    : (isZh ? '随时' : 'Available now')}
                 />
-                <Fact label={isZh ? '上线天数' : 'Days on Stayloop'} value={daysOn === 0 ? (isZh ? '今日' : 'Today') : `${daysOn}`} />
+                <StatBlock
+                  label={isZh ? '上线天数' : 'Days on market'}
+                  value={facts!.daysOn === 0 ? (isZh ? '今日' : 'Today') : `${facts!.daysOn} ${isZh ? '天' : 'days'}`}
+                />
+                <StatBlock
+                  label={isZh ? '价格变动' : 'Last price change'}
+                  value={isZh ? '无变动' : 'No changes'}
+                />
               </div>
 
               {/* About */}
-              <Section title={isZh ? '房源介绍' : 'About this place'}>
+              <Section title={isZh ? '介绍' : 'About'}>
                 {listing.description ? (
                   <p style={{ fontSize: 14.5, lineHeight: 1.7, color: v3.textSecondary, whiteSpace: 'pre-wrap', margin: 0 }}>
                     {listing.description}
@@ -197,26 +304,71 @@ export default function ListingDetailPage() {
                 )}
               </Section>
 
-              {/* Policies (placeholder — schema doesn't carry these yet) */}
+              {/* Amenities */}
+              {listing.amenities && listing.amenities.length > 0 && (
+                <Section title={isZh ? '设施' : 'Amenities'}>
+                  <ul
+                    style={{
+                      listStyle: 'none',
+                      padding: 0,
+                      margin: 0,
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                      gap: '8px 18px',
+                    }}
+                  >
+                    {listing.amenities.map((a, i) => (
+                      <li
+                        key={i}
+                        style={{
+                          fontSize: 13.5,
+                          color: v3.textPrimary,
+                          display: 'flex',
+                          gap: 8,
+                          alignItems: 'flex-start',
+                        }}
+                      >
+                        <span aria-hidden style={{ color: v3.success, marginTop: 2, flexShrink: 0 }}>•</span>
+                        {a}
+                      </li>
+                    ))}
+                  </ul>
+                </Section>
+              )}
+
+              {/* Policies */}
               <Section title={isZh ? '政策' : 'Policies'}>
                 <ul
                   style={{
                     listStyle: 'none',
                     padding: 0,
                     margin: 0,
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                    gap: 8,
+                    display: 'flex',
+                    gap: 28,
+                    flexWrap: 'wrap',
                   }}
                 >
-                  <PolicyDot label={isZh ? '欢迎宠物（与房东确认）' : 'Pets welcome (confirm with landlord)'} />
+                  <PolicyDot label={listing.pet_policy || (isZh ? '宠物：与房东确认' : 'Pets: confirm with landlord')} />
                   <PolicyDot label={isZh ? '禁烟' : 'Smoke-free'} />
-                  <PolicyDot label={isZh ? '电子签约' : 'E-sign ready'} />
+                  {listing.parking && <PolicyDot label={`${isZh ? '停车' : 'Parking'}: ${listing.parking}`} />}
+                  {listing.utilities_included && listing.utilities_included.length > 0 && (
+                    <PolicyDot label={`${isZh ? '含' : 'Includes'}: ${listing.utilities_included.join(', ')}`} />
+                  )}
                 </ul>
               </Section>
 
-              {/* Listed-by card */}
-              <Section title={isZh ? '房源发布方' : 'Listed by'}>
+              {/* Building info */}
+              {(listing.year_built || listing.mls_number) && (
+                <Section title={isZh ? '楼盘信息' : 'Building info'}>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13.5, color: v3.textSecondary }}>
+                    {listing.year_built && <li>{isZh ? '建造年代' : 'Year built'}: {listing.year_built}</li>}
+                    {listing.mls_number && <li>MLS #: {listing.mls_number}</li>}
+                  </ul>
+                </Section>
+              )}
+
+              {/* Listed by */}
+              <Section title={isZh ? '发布方' : 'Listed by'}>
                 <div
                   style={{
                     background: v3.surfaceCard,
@@ -243,22 +395,42 @@ export default function ListingDetailPage() {
                       flexShrink: 0,
                     }}
                   >
-                    SL
+                    {(listing.broker_name || listing.brokerage || 'SL').slice(0, 2).toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: v3.textPrimary }}>
-                      {isZh ? '通过 Stayloop 发布' : 'Listed on Stayloop'}
+                      {listing.broker_name || listing.brokerage || (isZh ? '通过 Stayloop 发布' : 'Listed on Stayloop')}
                     </div>
-                    <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 2 }}>
-                      {isZh ? '所有申请由 AI 辅助筛查，最终决定权在房东' : 'AI-assisted screening · Decision stays with the landlord'}
-                    </div>
+                    {listing.brokerage && listing.broker_name && (
+                      <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 2 }}>
+                        {listing.brokerage}
+                      </div>
+                    )}
+                    {listing.broker_phone && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPhone(true)}
+                        style={{
+                          marginTop: 6,
+                          fontSize: 12,
+                          color: v3.brand,
+                          textDecoration: 'underline',
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {showPhone ? listing.broker_phone : (isZh ? '显示电话' : 'Show phone number')}
+                      </button>
+                    )}
                   </div>
                 </div>
               </Section>
             </div>
           </div>
 
-          {/* Right column — sticky info + Apply card */}
+          {/* Right column — sticky info + 3 CTAs */}
           <aside style={{ position: 'sticky', top: 80, alignSelf: 'start' }}>
             <div
               style={{
@@ -270,11 +442,11 @@ export default function ListingDetailPage() {
               }}
             >
               {listing.monthly_rent != null && listing.monthly_rent > 0 ? (
-                <>
+                <div>
                   <div style={{ fontSize: 32, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
                     ${listing.monthly_rent.toLocaleString()}
-                    <span style={{ fontSize: 13, color: v3.textMuted, fontWeight: 500, marginLeft: 6 }}>
-                      {isZh ? '/月' : 'for rent'}
+                    <span style={{ fontSize: 12, color: v3.textMuted, fontWeight: 600, marginLeft: 6, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      {isZh ? '月租' : 'For rent'}
                     </span>
                   </div>
                   <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 6, lineHeight: 1.45 }}>
@@ -282,39 +454,14 @@ export default function ListingDetailPage() {
                       ? '此为基础月租。具体费用请与房东确认。'
                       : 'Base rent only. Confirm any additional fees with the landlord.'}
                   </div>
-                </>
+                </div>
               ) : (
                 <div style={{ fontSize: 18, fontWeight: 700, color: v3.textMuted }}>
                   {isZh ? '租金待定' : 'Rent: contact landlord'}
                 </div>
               )}
 
-              {/* Inline beds/baths chip row */}
-              <div
-                style={{
-                  marginTop: 14,
-                  paddingTop: 14,
-                  borderTop: `1px solid ${v3.divider}`,
-                  display: 'flex',
-                  gap: 14,
-                  flexWrap: 'wrap',
-                  fontSize: 12.5,
-                  color: v3.textSecondary,
-                  fontFamily: 'JetBrains Mono, monospace',
-                  letterSpacing: '0.02em',
-                }}
-              >
-                {listing.bedrooms != null && (
-                  <span>◇ {listing.bedrooms === 0 ? (isZh ? '开间' : 'Studio') : `${listing.bedrooms} ${isZh ? '卧' : 'bd'}`}</span>
-                )}
-                {listing.bathrooms != null && (
-                  <span>◇ {listing.bathrooms} {isZh ? '卫' : 'ba'}</span>
-                )}
-                <span>◇ {isZh ? '租赁单元' : 'Rental unit'}</span>
-                {listing.city && <span>◇ {listing.city}</span>}
-              </div>
-
-              {/* Primary CTA */}
+              {/* Three CTAs stacked */}
               <Link
                 href={`/apply/${listing.slug}`}
                 style={{
@@ -337,35 +484,38 @@ export default function ListingDetailPage() {
               >
                 {isZh ? '提交租赁申请 →' : 'Apply to rent →'}
               </Link>
-
-              {/* Secondary action */}
               <button
                 type="button"
-                onClick={() => {
-                  if (typeof window !== 'undefined' && navigator.share) {
-                    navigator.share({ title, url: window.location.href }).catch(() => {})
-                  } else if (typeof navigator !== 'undefined') {
-                    navigator.clipboard?.writeText(window.location.href)
-                  }
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '100%',
-                  marginTop: 8,
-                  padding: '11px 18px',
-                  background: v3.surface,
-                  color: v3.textPrimary,
-                  border: `1px solid ${v3.borderStrong}`,
-                  borderRadius: 10,
-                  fontSize: 13.5,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                onClick={() => setShowPhone(true)}
+                style={ctaSecondary}
               >
-                {isZh ? '分享链接' : 'Share listing'}
+                {isZh ? '预约看房' : 'Request a tour'}
               </button>
+              <a
+                href={listing.broker_phone ? `tel:${listing.broker_phone.replace(/[^+\d]/g, '')}` : '#'}
+                onClick={(e) => { if (!listing.broker_phone) { e.preventDefault(); setShowPhone(true) } }}
+                style={ctaTertiary}
+              >
+                {isZh ? '咨询房东' : 'Ask a question'}
+              </a>
+
+              {listing.source_url && (
+                <a
+                  href={listing.source_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'block',
+                    marginTop: 12,
+                    fontSize: 12,
+                    color: v3.textMuted,
+                    textAlign: 'center',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  {isZh ? '查看原始房源 ↗' : 'View original listing ↗'}
+                </a>
+              )}
 
               <div
                 style={{
@@ -389,11 +539,106 @@ export default function ListingDetailPage() {
           </aside>
         </div>
       </section>
+
+      {/* Map placeholder */}
+      <section style={{ padding: '0 24px 56px' }}>
+        <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
+          <Section title={isZh ? '位置' : 'Location'}>
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${listing.address} ${listing.city || ''}`)}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'block',
+                height: 260,
+                background: `linear-gradient(135deg, ${v3.surfaceMuted} 0%, ${v3.brandWash} 100%)`,
+                border: `1px solid ${v3.border}`,
+                borderRadius: 14,
+                position: 'relative',
+                textDecoration: 'none',
+                color: v3.textSecondary,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}
+              >
+                <div style={{ fontSize: 32 }}>◌</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: v3.textPrimary }}>
+                  {listing.address}{listing.unit ? `, ${listing.unit}` : ''}
+                </div>
+                <div style={{ fontSize: 12, color: v3.textMuted }}>
+                  {[listing.city, listing.province].filter(Boolean).join(', ')}
+                </div>
+                <div style={{ fontSize: 12, color: v3.brand, marginTop: 6, fontWeight: 600 }}>
+                  {isZh ? '在 Google 地图打开 ↗' : 'Open in Google Maps ↗'}
+                </div>
+              </div>
+            </a>
+          </Section>
+        </div>
+      </section>
     </Shell>
   )
 }
 
 // ─── Pieces ─────────────────────────────────────────────────────────────
+
+const pillBtn: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '6px 12px',
+  fontSize: 12,
+  fontWeight: 600,
+  color: v3.textPrimary,
+  background: v3.surfaceCard,
+  border: `1px solid ${v3.borderStrong}`,
+  borderRadius: 8,
+  textDecoration: 'none',
+  cursor: 'pointer',
+}
+
+const ctaSecondary: React.CSSProperties = {
+  display: 'flex',
+  width: '100%',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginTop: 8,
+  padding: '12px 18px',
+  background: '#1F2937',
+  color: '#fff',
+  border: 'none',
+  borderRadius: 10,
+  fontSize: 13.5,
+  fontWeight: 600,
+  cursor: 'pointer',
+}
+
+const ctaTertiary: React.CSSProperties = {
+  display: 'flex',
+  width: '100%',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginTop: 8,
+  padding: '12px 18px',
+  background: v3.surface,
+  color: v3.textPrimary,
+  border: `1px solid ${v3.borderStrong}`,
+  borderRadius: 10,
+  fontSize: 13.5,
+  fontWeight: 600,
+  textDecoration: 'none',
+  cursor: 'pointer',
+}
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -406,15 +651,182 @@ function Shell({ children }: { children: React.ReactNode }) {
           .listing-detail-grid {
             grid-template-columns: 1fr !important;
           }
+          .listing-stats-row {
+            grid-template-columns: repeat(3, 1fr) !important;
+          }
         }
         @media (max-width: 560px) {
-          .listing-facts-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
+          .listing-stats-row {
+            grid-template-columns: 1fr !important;
           }
         }
       `}</style>
     </main>
   )
+}
+
+function PhotoGallery({
+  images,
+  activeIndex,
+  onChange,
+  isZh,
+  showPlaceholder,
+}: {
+  images: string[]
+  activeIndex: number
+  onChange: (i: number) => void
+  isZh: boolean
+  showPlaceholder: boolean
+}) {
+  if (showPlaceholder || images.length === 0) {
+    return (
+      <div
+        style={{
+          height: 380,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: `linear-gradient(135deg, ${v3.surfaceMuted} 0%, ${v3.brandWash} 100%)`,
+          color: v3.textFaint,
+          fontSize: 64,
+          borderRadius: 14,
+          border: `1px solid ${v3.border}`,
+        }}
+      >
+        🏙
+      </div>
+    )
+  }
+
+  const safeIdx = Math.max(0, Math.min(activeIndex, images.length - 1))
+  const goPrev = () => onChange((safeIdx - 1 + images.length) % images.length)
+  const goNext = () => onChange((safeIdx + 1) % images.length)
+
+  return (
+    <div>
+      {/* Hero photo with prev/next */}
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: 420,
+          background: '#000',
+          borderRadius: 14,
+          overflow: 'hidden',
+          border: `1px solid ${v3.border}`,
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={images[safeIdx]}
+          alt={isZh ? `房源照片 ${safeIdx + 1}` : `Listing photo ${safeIdx + 1}`}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+          onError={(e) => {
+            // Hide broken images so the gallery doesn't render an "X" icon.
+            (e.currentTarget as HTMLImageElement).style.display = 'none'
+          }}
+        />
+        {images.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={goPrev}
+              aria-label={isZh ? '上一张' : 'Previous'}
+              style={navArrow('left')}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              aria-label={isZh ? '下一张' : 'Next'}
+              style={navArrow('right')}
+            >
+              ›
+            </button>
+          </>
+        )}
+        <div
+          style={{
+            position: 'absolute',
+            left: 12,
+            bottom: 12,
+            background: 'rgba(15,23,42,0.85)',
+            color: '#fff',
+            padding: '4px 10px',
+            borderRadius: 999,
+            fontSize: 11.5,
+            fontFamily: 'JetBrains Mono, monospace',
+            letterSpacing: '0.04em',
+          }}
+        >
+          {safeIdx + 1} {isZh ? '/' : 'of'} {images.length}
+        </div>
+      </div>
+
+      {/* Thumbnail strip */}
+      {images.length > 1 && (
+        <div
+          style={{
+            display: 'flex',
+            gap: 6,
+            marginTop: 8,
+            overflowX: 'auto',
+            paddingBottom: 4,
+          }}
+        >
+          {images.map((src, i) => (
+            <button
+              key={src + i}
+              type="button"
+              onClick={() => onChange(i)}
+              style={{
+                flexShrink: 0,
+                width: 90,
+                height: 64,
+                borderRadius: 6,
+                overflow: 'hidden',
+                border: i === safeIdx ? `2px solid ${v3.brand}` : `1px solid ${v3.border}`,
+                padding: 0,
+                cursor: 'pointer',
+                background: '#000',
+              }}
+              aria-label={`Photo ${i + 1}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function navArrow(side: 'left' | 'right'): React.CSSProperties {
+  return {
+    position: 'absolute',
+    [side]: 12,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: 38,
+    height: 38,
+    borderRadius: '50%',
+    background: 'rgba(255,255,255,0.95)',
+    border: 'none',
+    fontSize: 22,
+    fontWeight: 700,
+    color: v3.textPrimary,
+    cursor: 'pointer',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+    display: 'grid',
+    placeItems: 'center',
+  } as React.CSSProperties
 }
 
 function Centered({ children }: { children: React.ReactNode }) {
@@ -427,75 +839,17 @@ function Centered({ children }: { children: React.ReactNode }) {
   )
 }
 
-function ImageGallery() {
-  // Placeholder gallery: 1 large hero + 4 thumbnails. Real photo support is
-  // a follow-up; the layout reserves the slot now so it doesn't shift later.
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '2fr repeat(2, 1fr)',
-        gridTemplateRows: 'repeat(2, 1fr)',
-        gap: 6,
-        height: 380,
-        borderRadius: 14,
-        overflow: 'hidden',
-        background: v3.surface,
-        border: `1px solid ${v3.border}`,
-      }}
-      className="listing-gallery"
-    >
-      <div style={{
-        gridColumn: '1 / 2',
-        gridRow: '1 / 3',
-        background: `linear-gradient(135deg, ${v3.surfaceMuted} 0%, ${v3.brandWash} 100%)`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: v3.textFaint,
-        fontSize: 64,
-      }}>🏙</div>
-      {[0, 1, 2, 3].map(i => (
-        <div
-          key={i}
-          style={{
-            background: `linear-gradient(${135 + i * 20}deg, ${v3.surfaceMuted} 0%, ${v3.surfaceCard} 100%)`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: v3.textFaint,
-            fontSize: 28,
-          }}
-        >
-          {['🛏', '🛁', '🍳', '🌆'][i]}
-        </div>
-      ))}
-      <style jsx>{`
-        @media (max-width: 700px) {
-          .listing-gallery {
-            grid-template-columns: 1fr 1fr !important;
-            grid-template-rows: 200px 100px !important;
-            height: auto !important;
-          }
-          .listing-gallery > :first-child {
-            grid-column: 1 / 3 !important;
-            grid-row: 1 / 2 !important;
-          }
-        }
-      `}</style>
-    </div>
-  )
+function FactInline({ value }: { value: string }) {
+  return <span>{value}</span>
 }
 
-function Fact({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
+function Sep() {
+  return <span aria-hidden style={{ color: v3.textFaint }}>|</span>
+}
+
+function StatBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div
-      style={{
-        padding: '14px 16px',
-        borderRight: `1px solid ${v3.border}`,
-        borderBottom: `1px solid ${v3.border}`,
-      }}
-    >
+    <div style={{ padding: '14px 16px', borderRight: `1px solid ${v3.border}` }}>
       <div
         style={{
           fontSize: 10.5,
@@ -508,15 +862,7 @@ function Fact({ label, value, highlight = false }: { label: string; value: strin
       >
         {label}
       </div>
-      <div
-        style={{
-          fontSize: highlight ? 22 : 15,
-          fontWeight: 700,
-          color: highlight ? v3.brand : v3.textPrimary,
-          marginTop: 4,
-          letterSpacing: '-0.01em',
-        }}
-      >
+      <div style={{ fontSize: 14, fontWeight: 600, color: v3.textPrimary, marginTop: 4 }}>
         {value}
       </div>
     </div>
@@ -544,22 +890,34 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function PolicyDot({ label }: { label: string }) {
   return (
-    <li
-      style={{
-        display: 'flex',
-        gap: 8,
-        alignItems: 'center',
-        fontSize: 13,
-        color: v3.textSecondary,
-        background: v3.surfaceCard,
-        border: `1px solid ${v3.border}`,
-        borderRadius: 8,
-        padding: '8px 12px',
-      }}
-    >
-      <span style={{ width: 6, height: 6, borderRadius: 999, background: v3.success, flexShrink: 0 }} />
+    <li style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, color: v3.textPrimary }}>
+      <span style={{ width: 8, height: 8, borderRadius: 999, background: '#67E8F9', flexShrink: 0 }} />
       {label}
     </li>
+  )
+}
+
+function ActionLink({ icon, label, onClick }: { icon: string; label: string; onClick?: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        fontSize: 13,
+        fontWeight: 600,
+        color: v3.textSecondary,
+      }}
+    >
+      <span aria-hidden style={{ fontSize: 16, color: v3.textMuted }}>{icon}</span>
+      {label}
+    </button>
   )
 }
 

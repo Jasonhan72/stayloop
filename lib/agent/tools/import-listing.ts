@@ -48,6 +48,18 @@ interface ImportOutput {
     mls_number: string | null
     selling_points_zh: string[]
     selling_points_en: string[]
+    /** Photo URLs in display order (best 8-12). */
+    images: string[]
+    /** Building / unit amenities — gym, pool, doorman, in-unit laundry... */
+    amenities: string[]
+    /** Year the building was built, if visible. */
+    year_built: number | null
+    /** Listing broker / agent name. */
+    broker_name: string | null
+    /** Listing broker phone. */
+    broker_phone: string | null
+    /** Brokerage / management company. */
+    brokerage: string | null
   }
   source: string
   errors: string[]
@@ -58,29 +70,38 @@ const EXTRACT_PROMPT = `You are extracting structured Canadian rental listing da
 {
   "title_en": string | null,            // Short SEO-friendly EN title (~60 chars)
   "title_zh": string | null,            // Short Chinese title
-  "description_en": string | null,      // Full English description (200-400 chars)
+  "description_en": string | null,      // Full English description (200-600 chars)
   "description_zh": string | null,      // Full Chinese description
-  "address": string | null,             // Street address
+  "address": string | null,             // Street address (no unit number)
   "city": string | null,
   "province": string | null,            // ISO province code (ON, BC, AB...)
   "postal_code": string | null,
   "monthly_rent": number | null,        // CAD per month, no commas
-  "bedrooms": number | null,
+  "bedrooms": number | null,            // 0 = studio, 0.5 = den
   "bathrooms": number | null,           // Half-baths counted as 0.5
-  "sqft": number | null,
+  "sqft": number | null,                // Interior square feet, integer
   "parking": string | null,             // "1 underground", "street", "none"
   "utilities_included": string[],       // ["heat", "water", "internet", ...]
   "pet_policy": string | null,          // "no pets", "cats only", "small dogs ok", etc.
   "available_date": string | null,      // YYYY-MM-DD if mentioned, else null
   "mls_number": string | null,
-  "selling_points_zh": string[],        // 3-5 短中文卖点 ("步行5分钟到地铁", "南向落地窗")
-  "selling_points_en": string[]         // 3-5 short English selling points
+  "year_built": number | null,          // 4-digit year if visible
+  "broker_name": string | null,         // Listing agent / leasing office name
+  "broker_phone": string | null,        // Listing agent phone, digits + dashes
+  "brokerage": string | null,           // Brokerage / management company
+  "selling_points_zh": string[],        // 3-5 short Chinese selling points ("步行5分钟到地铁", "南向落地窗")
+  "selling_points_en": string[],        // 3-5 short English selling points
+  "amenities": string[],                // Building/unit amenities, e.g. "in-unit laundry", "rooftop deck", "concierge", "gym", "doorman", "balcony", "central A/C", "dishwasher". Combine unit + building amenities; keep each entry short (2-4 words). 8-15 entries when source is rich.
+  "images": string[]                    // Direct photo URLs (https://...). Pull from JSON-LD "image" arrays, og:image, listing media galleries. Order: hero photo first, then floor plan, kitchen, bedroom, bathroom, exterior. 6-16 entries when available. Skip placeholder / map / branding / logo images. Always full https URLs.
 }
 
 Rules:
 - Do NOT include any Ontario Human Rights Code protected language: race, religion, age, family status, "ideal for young professionals", "no children", etc. Strip if present in source.
 - If only annual rent visible, divide by 12.
-- Bilingual fields: if input is only in one language, translate to the other naturally.`
+- Bilingual fields: if input is only in one language, translate to the other naturally.
+- For images, prefer JSON-LD or __NEXT_DATA__ image arrays over inline <img> src — they're cleaner. Reject obvious tracking pixels (1x1) or sprite sheets. Include up to 16 photos.
+- For amenities, dedupe and lowercase the first word ("In-unit laundry" → "in-unit laundry").
+- For broker_phone, format like "+1-555-123-4567" or "(555) 123-4567" — preserve source format.`
 
 const tool: CapabilityTool<ImportInput, ImportOutput> = {
   name: 'import_listing',
@@ -305,7 +326,53 @@ function emptyListing(): ImportOutput['listing'] {
     mls_number: null,
     selling_points_zh: [],
     selling_points_en: [],
+    images: [],
+    amenities: [],
+    year_built: null,
+    broker_name: null,
+    broker_phone: null,
+    brokerage: null,
   }
+}
+
+/** Sanity-filter image URLs Haiku returned: must be https, must look like
+ *  a real listing photo (not a 1×1 tracking pixel or a sprite). */
+function cleanImages(arr: unknown): string[] {
+  if (!Array.isArray(arr)) return []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const raw of arr) {
+    if (typeof raw !== 'string') continue
+    const url = raw.trim()
+    if (!/^https:\/\//i.test(url)) continue
+    if (url.length > 1000) continue
+    // Common reject patterns: 1x1 trackers, sprites, brand logos, blank/spacer
+    if (/(1x1|spacer|blank|pixel|logo|sprite|favicon)\b/i.test(url)) continue
+    if (seen.has(url)) continue
+    seen.add(url)
+    out.push(url)
+    if (out.length >= 16) break
+  }
+  return out
+}
+
+/** Normalize amenity strings: dedupe, lowercase first word, trim. */
+function cleanAmenities(arr: unknown): string[] {
+  if (!Array.isArray(arr)) return []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const raw of arr) {
+    if (typeof raw !== 'string') continue
+    const t = raw.trim().slice(0, 60)
+    if (!t) continue
+    const k = t.toLowerCase()
+    if (seen.has(k)) continue
+    seen.add(k)
+    // Lowercase first character to match StreetEasy convention.
+    out.push(t.charAt(0).toLowerCase() + t.slice(1))
+    if (out.length >= 20) break
+  }
+  return out
 }
 
 function parseListingJson(text: string): ImportOutput['listing'] | null {
@@ -333,6 +400,12 @@ function parseListingJson(text: string): ImportOutput['listing'] | null {
             utilities_included: Array.isArray(obj.utilities_included) ? obj.utilities_included : [],
             selling_points_zh: Array.isArray(obj.selling_points_zh) ? obj.selling_points_zh : [],
             selling_points_en: Array.isArray(obj.selling_points_en) ? obj.selling_points_en : [],
+            images: cleanImages(obj.images),
+            amenities: cleanAmenities(obj.amenities),
+            year_built: typeof obj.year_built === 'number' && obj.year_built > 1800 && obj.year_built < 2100 ? obj.year_built : null,
+            broker_name: typeof obj.broker_name === 'string' && obj.broker_name.length > 0 ? obj.broker_name.slice(0, 80) : null,
+            broker_phone: typeof obj.broker_phone === 'string' && obj.broker_phone.length > 0 ? obj.broker_phone.slice(0, 30) : null,
+            brokerage: typeof obj.brokerage === 'string' && obj.brokerage.length > 0 ? obj.brokerage.slice(0, 80) : null,
           }
         }
       }
