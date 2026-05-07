@@ -99,7 +99,8 @@ Rules:
 - Do NOT include any Ontario Human Rights Code protected language: race, religion, age, family status, "ideal for young professionals", "no children", etc. Strip if present in source.
 - If only annual rent visible, divide by 12.
 - Bilingual fields: if input is only in one language, translate to the other naturally.
-- For images, prefer JSON-LD or __NEXT_DATA__ image arrays over inline <img> src — they're cleaner. Reject obvious tracking pixels (1x1) or sprite sheets. Include up to 16 photos.
+- For images, the source body often ends with an "Images:" markdown list (\`- ![Image N](https://...)\`). Pull listing photo URLs from that list. Prefer URLs ending in .jpg / .jpeg / .png / .webp under listing CDN paths (cdn.realtor.ca/listings/, photos.zillowstatic.com/, photos.streeteasy.com/, etc.). REJECT every URL that contains: "icon", "svg", "logo", "sprite", "favicon", "ad.gt", "doubleclick", "pinterest", "facebook.com/tr", "openx", "rubicon", "pubmatic", "static.realtor.ca/images/common", "/images/en-ca/", or that ends in .svg. The good URLs include "highres", "medres", or look like c<MLS>_N.jpg. Aim for 8-16 photos in display order (the lowest c<MLS>_N.jpg first).
+- For images, prefer JSON-LD or __NEXT_DATA__ image arrays when present. Include up to 16 photos.
 - For amenities, dedupe and lowercase the first word ("In-unit laundry" → "in-unit laundry").
 - For broker_phone, format like "+1-555-123-4567" or "(555) 123-4567" — preserve source format.`
 
@@ -140,9 +141,13 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
       if (!urlContent.ok) {
         return { listing: emptyListing(), source: 'url', errors: [urlContent.error] }
       }
+      // Pin the source URL into the body so Haiku can also extract things
+      // like the realtor.ca numeric ID into our listing payload (and so
+      // our caller can stash source_url on the saved row).
+      const augmented = `Source URL: ${input.url}\n\n${urlContent.body}`
       content.push({
         type: 'text',
-        text: `\nListing source — fetched ${urlContent.via} from ${input.url}:\n${urlContent.body}`,
+        text: `\nListing source — fetched ${urlContent.via} from ${input.url}:\n${augmented}`,
       })
     } else if (input.source === 'pdf') {
       if (!input.pdf_path) {
@@ -270,8 +275,16 @@ async function fetchUrlContent(url: string): Promise<UrlFetchOk | UrlFetchErr> {
 
 async function tryJina(jinaUrl: string, format: 'markdown'): Promise<UrlFetchOk | UrlFetchErr> {
   const res = await fetch(jinaUrl, {
-    headers: { 'X-Return-Format': format, Accept: 'text/markdown, text/plain, */*' },
-    signal: AbortSignal.timeout(20000),
+    headers: {
+      'X-Return-Format': format,
+      // Append a flat 'Images' list at the end of the markdown so we
+      // capture every photo URL the page references. Without this,
+      // realtor.ca / StreetEasy markdown ends up with only a few icons
+      // and zero listing photos — Haiku then has nothing to extract.
+      'X-With-Images-Summary': 'true',
+      Accept: 'text/markdown, text/plain, */*',
+    },
+    signal: AbortSignal.timeout(25000),
   })
   if (!res.ok) return { ok: false, error: `jina_${res.status}` }
   const md = await res.text()
@@ -280,7 +293,9 @@ async function tryJina(jinaUrl: string, format: 'markdown'): Promise<UrlFetchOk 
   const captchaHint = /captcha|cf-browser-verification|access denied|are you a robot/i.test(md.slice(0, 2000))
   const looksLikeMarkdown = /[\n#*\-]/.test(md)
   if (md.length > 200 && !looksLikeHtml && !captchaHint && looksLikeMarkdown) {
-    return { ok: true, body: md.slice(0, 30_000), via: jinaUrl.includes('://r.jina.ai/http') ? 'jina' : 'jina-r' }
+    // Bump cap to 60k so the appended image list (sometimes 5-10kB on
+    // photo-rich pages) doesn't get truncated before Haiku sees it.
+    return { ok: true, body: md.slice(0, 60_000), via: jinaUrl.includes('://r.jina.ai/http') ? 'jina' : 'jina-r' }
   }
   return { ok: false, error: `jina_unparseable_${md.length}` }
 }
