@@ -221,9 +221,28 @@ export default function LeasesPage() {
 
         {/* Drafts section */}
         <div style={{ marginBottom: 48 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: v3.textPrimary }}>
-            {isZh ? '草稿' : 'Drafts'}
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: v3.textPrimary }}>
+              {isZh ? '草稿' : 'Drafts'}
+            </h3>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              style={{
+                padding: '10px 20px',
+                background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 8px 22px -10px rgba(52, 211, 153, 0.45), 0 1px 0 rgba(255,255,255,0.30) inset',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {isZh ? '+ 新租约' : '+ New lease'}
+            </button>
+          </div>
           {draftLeases.length === 0 ? (
             <div style={{ fontSize: 13, color: v3.textMuted, padding: '20px', background: v3.surfaceCard, borderRadius: 12 }}>
               {isZh ? '暂无草稿' : 'No drafts yet'}
@@ -339,26 +358,6 @@ export default function LeasesPage() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Create modal button */}
-      <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 50 }}>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          style={{
-            padding: '12px 24px',
-            background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(52, 211, 153, 0.3)',
-          }}
-        >
-          {isZh ? '+ 新租约' : '+ New lease'}
-        </button>
       </div>
 
       {/* Create modal */}
