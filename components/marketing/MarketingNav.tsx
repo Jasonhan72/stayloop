@@ -30,12 +30,11 @@ interface NavItem {
   en: string
 }
 
-// Order + labels match V4 PubNav, with the V4.1 standalone "Tenant
-// Screening" entry inserted right after Product, and a public
-// "Listings" browse entry for tenants right after that.
+// Tenant Screening lives as a dedicated section on the homepage hero
+// rather than as a nav entry — keeps the top bar uncluttered. Listings
+// stays as a nav entry so tenants can find published units in one click.
 const NAV_ITEMS: NavItem[] = [
   { id: 'product',       href: '/',                 zh: '产品',         en: 'Product' },
-  { id: 'screening',     href: '/screen',           zh: 'AI 租客筛查',  en: 'Tenant Screening' },
   { id: 'listings',      href: '/listings',         zh: '房源',         en: 'Listings' },
   { id: 'pricing',       href: '/pricing',          zh: '价格',         en: 'Pricing' },
   { id: 'for-tenants',   href: '/tenants',          zh: '租客',         en: 'For Tenants' },
