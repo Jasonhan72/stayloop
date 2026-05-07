@@ -44,12 +44,20 @@ interface ListingDraft {
   monthly_rent?: number
   bedrooms?: number
   bathrooms?: number
+  sqft?: number
   parking?: string
   utilities_included?: string[]
   pet_policy?: string
   available_date?: string
+  mls_number?: string
+  year_built?: number
+  broker_name?: string
+  broker_phone?: string
+  brokerage?: string
   selling_points_zh?: string[]
   selling_points_en?: string[]
+  images?: string[]
+  amenities?: string[]
 }
 
 export default function NewListingPage() {
@@ -372,9 +380,21 @@ export default function NewListingPage() {
         monthly_rent: draft.monthly_rent ?? 0,
         bedrooms: draft.bedrooms ?? null,
         bathrooms: draft.bathrooms ?? null,
+        sqft: draft.sqft ?? null,
+        parking: draft.parking ?? null,
+        utilities_included: Array.isArray(draft.utilities_included) ? draft.utilities_included : [],
+        pet_policy: draft.pet_policy ?? null,
+        mls_number: draft.mls_number ?? null,
+        year_built: draft.year_built ?? null,
+        broker_name: draft.broker_name ?? null,
+        broker_phone: draft.broker_phone ?? null,
+        brokerage: draft.brokerage ?? null,
+        images: Array.isArray(draft.images) ? draft.images : [],
+        amenities: Array.isArray(draft.amenities) ? draft.amenities : [],
         slug,
         status: intent,
         is_active: intent === 'active',
+        published_at: intent === 'active' ? new Date().toISOString() : null,
       }
 
       const { data, error } = await supabase

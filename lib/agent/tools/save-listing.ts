@@ -22,14 +22,23 @@ interface SaveInput {
     monthly_rent?: number | null
     bedrooms?: number | null
     bathrooms?: number | null
+    sqft?: number | null
     parking?: string | null
     utilities_included?: string[]
     pet_policy?: string | null
     available_date?: string | null
     mls_number?: string | null
+    images?: string[]
+    amenities?: string[]
+    year_built?: number | null
+    broker_name?: string | null
+    broker_phone?: string | null
+    brokerage?: string | null
   }
   /** 'manual' | 'mls_pdf' | 'realtor_url' | 'kijiji_url' | 'ai_assisted' */
   source: string
+  /** Original source URL (when source is a URL). Persisted on the row. */
+  source_url?: string
   /** 'draft' | 'active' — default draft. */
   status?: 'draft' | 'active'
 }
@@ -89,11 +98,24 @@ const tool: CapabilityTool<SaveInput, SaveOutput> = {
       monthly_rent: input.listing.monthly_rent ?? 0,
       bedrooms: input.listing.bedrooms ?? null,
       bathrooms: input.listing.bathrooms ?? null,
+      sqft: input.listing.sqft ?? null,
+      parking: input.listing.parking ?? null,
+      utilities_included: Array.isArray(input.listing.utilities_included) ? input.listing.utilities_included : [],
+      pet_policy: input.listing.pet_policy ?? null,
+      mls_number: input.listing.mls_number ?? null,
+      year_built: input.listing.year_built ?? null,
+      broker_name: input.listing.broker_name ?? null,
+      broker_phone: input.listing.broker_phone ?? null,
+      brokerage: input.listing.brokerage ?? null,
+      images: Array.isArray(input.listing.images) ? input.listing.images : [],
+      amenities: Array.isArray(input.listing.amenities) ? input.listing.amenities : [],
+      source_url: input.source_url ?? null,
       slug,
       status,
       // is_active mirrors status: drafts aren't visible publicly, actives are.
       // The portfolio page filters on this so we keep them in lockstep.
       is_active: status === 'active',
+      published_at: status === 'active' ? new Date().toISOString() : null,
     }
 
     const { data, error } = await ctx.supabaseAdmin
