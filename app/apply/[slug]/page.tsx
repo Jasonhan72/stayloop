@@ -135,9 +135,9 @@ export default function ApplyPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="screen-app min-h-screen flex items-center justify-center p-6">
         <div className="card-hero fade-up" style={{ padding: 40, maxWidth: 440, textAlign: 'center' }}>
-          <div style={{ width: 64, height: 64, margin: '0 auto 18px', borderRadius: 16, background: 'rgba(16, 185, 129, 0.14)', border: '1px solid rgba(16, 185, 129, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#34D399', fontSize: 28 }}>✓</div>
+          <div style={{ width: 64, height: 64, margin: '0 auto 18px', borderRadius: 16, background: 'rgba(4, 120, 87, 0.10)', border: '1px solid rgba(4, 120, 87, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#047857', fontSize: 28 }}>✓</div>
           <h2 className="h-section" style={{ marginBottom: 8 }}>{t('apply.submitted.title')}</h2>
           <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>{t('apply.submitted.sub')}</p>
         </div>
@@ -170,10 +170,14 @@ export default function ApplyPage() {
   )
 
   return (
-    <div className="min-h-screen">
-      <nav className="nav-bar">
-        <div className="nav-brand" style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>
-          Stayloop
+    <div className="screen-app min-h-screen">
+      {/* Re-uses the cream-theme override in globals.css (.screen-app)
+          so this public form matches the V4 marketing palette instead
+          of the legacy dark cyber theme. */}
+      <nav className="nav-bar" style={{ background: 'rgba(247,248,251,0.82)', borderBottom: '1px solid #E4E8F0' }}>
+        <div className="nav-brand" style={{ display: 'flex', alignItems: 'baseline', gap: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>
+          <span style={{ color: '#0B1736' }}>stay</span>
+          <span style={{ background: 'linear-gradient(90deg, #4F46E5 0%, #7C3AED 50%, #A855F7 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', color: 'transparent' }}>loop</span>
         </div>
         <div className="nav-actions"><LanguageToggle /></div>
       </nav>
@@ -243,13 +247,13 @@ export default function ApplyPage() {
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {FILE_KINDS.map(({ kind, labelKey, hintKey }) => (
-                <div key={kind} style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', background: 'rgba(148, 163, 184, 0.04)', padding: 14 }}>
+                <div key={kind} style={{ borderRadius: 12, border: '1px solid var(--border-subtle)', background: '#F8FAFC', padding: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                     <div>
                       <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>{t(labelKey)}</div>
                       <div className="mono" style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>{t(hintKey)}</div>
                     </div>
-                    <label className="mono" style={{ fontSize: 11, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(20, 184, 166, 0.3)', background: 'rgba(20, 184, 166, 0.1)', color: '#5EEAD4', cursor: 'pointer' }}>
+                    <label className="mono" style={{ fontSize: 11, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(4, 120, 87, 0.30)', background: 'rgba(4, 120, 87, 0.08)', color: '#047857', cursor: 'pointer' }}>
                       + {t('apply.addFile')}
                       <input
                         type="file"
@@ -263,9 +267,9 @@ export default function ApplyPage() {
                   {files[kind].length > 0 && (
                     <ul style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 4, listStyle: 'none', padding: 0 }}>
                       {files[kind].map((f, i) => (
-                        <li key={i} className="mono" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 11, color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: '6px 10px' }}>
+                        <li key={i} className="mono" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 11, color: 'var(--text-secondary)', background: '#FFFFFF', border: '1px solid #E4E8F0', borderRadius: 6, padding: '6px 10px' }}>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name} <span style={{ color: 'var(--text-faint)' }}>· {(f.size / 1024).toFixed(0)} KB</span></span>
-                          <button type="button" onClick={() => removeFile(kind, i)} style={{ color: '#F87171', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11 }}>{t('apply.remove')}</button>
+                          <button type="button" onClick={() => removeFile(kind, i)} style={{ color: '#DC2626', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11 }}>{t('apply.remove')}</button>
                         </li>
                       ))}
                     </ul>
@@ -275,27 +279,27 @@ export default function ApplyPage() {
             </div>
           </Section>
 
-          <div className="card" style={{ padding: 24, borderColor: 'rgba(251, 191, 36, 0.28)' }}>
-            <div className="chip mono mb-3" style={{ background: 'rgba(251, 191, 36, 0.1)', borderColor: 'rgba(251, 191, 36, 0.3)', color: '#FCD34D', fontSize: 10 }}>{t('apply.consent.tag')}</div>
+          <div className="card" style={{ padding: 24, borderColor: 'rgba(245, 158, 11, 0.30)' }}>
+            <div className="chip mono mb-3" style={{ background: '#FFFBEB', borderColor: '#FCD34D', color: '#92400E', fontSize: 10 }}>{t('apply.consent.tag')}</div>
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 14, lineHeight: 1.65 }}>
               {t('apply.consent.body')}
             </p>
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)' }}>
-              <input type="checkbox" checked={form.consent_screening} onChange={e => set('consent_screening', e.target.checked)} style={{ marginTop: 3, accentColor: '#14B8A6' }} />
+              <input type="checkbox" checked={form.consent_screening} onChange={e => set('consent_screening', e.target.checked)} style={{ marginTop: 3, accentColor: '#047857' }} />
               <span>{t('apply.consent.check1')}</span>
             </label>
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)' }}>
-              <input type="checkbox" checked={form.consent_credit_check} onChange={e => set('consent_credit_check', e.target.checked)} style={{ marginTop: 3, accentColor: '#14B8A6' }} />
+              <input type="checkbox" checked={form.consent_credit_check} onChange={e => set('consent_credit_check', e.target.checked)} style={{ marginTop: 3, accentColor: '#047857' }} />
               <span>{t('apply.consent.check2')}</span>
             </label>
           </div>
 
           {error && (
-            <div style={{ borderRadius: 10, border: '1px solid rgba(244, 63, 94, 0.35)', background: 'rgba(244, 63, 94, 0.08)', color: '#FDA4AF', fontSize: 13, padding: '10px 14px' }}>{error}</div>
+            <div style={{ borderRadius: 10, border: '1px solid #FECACA', background: '#FEF2F2', color: '#B91C1C', fontSize: 13, padding: '10px 14px' }}>{error}</div>
           )}
 
           {uploadProgress && (
-            <div className="mono" style={{ borderRadius: 10, border: '1px solid rgba(34, 211, 238, 0.3)', background: 'rgba(34, 211, 238, 0.08)', color: '#67E8F9', fontSize: 11, padding: '10px 14px' }}>{uploadProgress}</div>
+            <div className="mono" style={{ borderRadius: 10, border: '1px solid rgba(13, 148, 136, 0.3)', background: 'rgba(13, 148, 136, 0.08)', color: '#047857', fontSize: 11, padding: '10px 14px' }}>{uploadProgress}</div>
           )}
 
           <button type="submit" disabled={loading} className="btn btn-primary btn-lg" style={{ width: '100%' }}>

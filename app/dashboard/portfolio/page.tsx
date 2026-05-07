@@ -44,7 +44,7 @@ export default function ListingsPage() {
     try {
       const { error } = await supabase
         .from('listings')
-        .update({ status: 'active', is_active: true })
+        .update({ status: 'active', is_active: true, published_at: new Date().toISOString() })
         .eq('id', id)
       if (error) {
         alert((isZh ? '发布失败：' : 'Publish failed: ') + error.message)
@@ -54,6 +54,51 @@ export default function ListingsPage() {
       setProps((prev) =>
         prev.map((p) => (p.id === id ? { ...p, status: 'active', is_active: true } : p)),
       )
+    } finally {
+      setPublishingId(null)
+    }
+  }
+
+  // Take a live listing offline. Stays in DB as a draft so the landlord
+  // can re-publish later without re-typing anything.
+  async function unpublish(id: string) {
+    if (publishingId) return
+    setPublishingId(id)
+    try {
+      const { error } = await supabase
+        .from('listings')
+        .update({ status: 'draft', is_active: false })
+        .eq('id', id)
+      if (error) {
+        alert((isZh ? '下架失败：' : 'Unpublish failed: ') + error.message)
+        return
+      }
+      setProps((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, status: 'draft', is_active: false } : p)),
+      )
+    } finally {
+      setPublishingId(null)
+    }
+  }
+
+  // Hard delete — gone from DB. Confirmation modal-style prompt; cascade
+  // on applications is handled by the FK ON DELETE CASCADE in the schema.
+  async function deleteListing(id: string, address: string) {
+    if (publishingId) return
+    const confirmed = window.confirm(
+      isZh
+        ? `确定要永久删除"${address}"这条房源吗？该房源的所有申请记录也会一并清除，无法撤销。`
+        : `Permanently delete "${address}"? All applications attached will also be removed. This cannot be undone.`,
+    )
+    if (!confirmed) return
+    setPublishingId(id)
+    try {
+      const { error } = await supabase.from('listings').delete().eq('id', id)
+      if (error) {
+        alert((isZh ? '删除失败：' : 'Delete failed: ') + error.message)
+        return
+      }
+      setProps((prev) => prev.filter((p) => p.id !== id))
     } finally {
       setPublishingId(null)
     }
@@ -264,8 +309,8 @@ export default function ListingsPage() {
                       a neutral em-dash until we wire that up. */}
                   <span style={{ fontSize: 11, color: v3.textFaint }}>—</span>
                 </span>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifySelf: 'end' }}>
-                  {!l.is_active && (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifySelf: 'end', flexWrap: 'wrap' }}>
+                  {!l.is_active ? (
                     <button
                       onClick={() => publish(l.id)}
                       disabled={publishingId === l.id}
@@ -273,7 +318,7 @@ export default function ListingsPage() {
                         background: publishingId === l.id ? v3.surfaceMuted : 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)',
                         color: publishingId === l.id ? v3.textMuted : '#fff',
                         border: 'none',
-                        borderRadius: 8,
+                        borderRadius: 6,
                         fontSize: 11,
                         fontWeight: 600,
                         padding: '5px 10px',
@@ -282,8 +327,27 @@ export default function ListingsPage() {
                       }}
                     >
                       {publishingId === l.id
-                        ? (isZh ? '发布中…' : 'Publishing…')
-                        : (isZh ? '发布' : 'Publish')}
+                        ? (isZh ? '…' : '…')
+                        : (isZh ? '上线' : 'Publish')}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => unpublish(l.id)}
+                      disabled={publishingId === l.id}
+                      style={{
+                        background: v3.surfaceCard,
+                        color: v3.warning,
+                        border: `1px solid ${v3.warning}40`,
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: '5px 10px',
+                        cursor: publishingId === l.id ? 'wait' : 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={isZh ? '下架（保留为草稿，可再次上线）' : 'Take offline (kept as draft)'}
+                    >
+                      {isZh ? '下架' : 'Unpublish'}
                     </button>
                   )}
                   {l.is_active && l.slug && (
@@ -297,11 +361,35 @@ export default function ListingsPage() {
                     </Link>
                   )}
                   <Link
-                    href={`/dashboard/pipeline?listing=${l.id}`}
-                    style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}
+                    href={`/listings/new?id=${l.id}`}
+                    style={{ color: v3.textSecondary, fontSize: 11, fontWeight: 500, textDecoration: 'none', whiteSpace: 'nowrap' }}
+                    title={isZh ? '编辑这条房源' : 'Edit this listing'}
                   >
-                    {isZh ? '管理' : 'Manage'}
+                    {isZh ? '编辑' : 'Edit'}
                   </Link>
+                  <Link
+                    href={`/dashboard/pipeline?listing=${l.id}`}
+                    style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 11, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}
+                  >
+                    {isZh ? '申请' : 'Apps'}
+                  </Link>
+                  <button
+                    onClick={() => deleteListing(l.id, l.address)}
+                    disabled={publishingId === l.id}
+                    style={{
+                      background: 'none',
+                      color: v3.danger,
+                      border: 'none',
+                      fontSize: 11,
+                      fontWeight: 500,
+                      padding: '5px 6px',
+                      cursor: publishingId === l.id ? 'wait' : 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title={isZh ? '永久删除' : 'Delete permanently'}
+                  >
+                    {isZh ? '删除' : 'Delete'}
+                  </button>
                 </div>
               </div>
             ))
