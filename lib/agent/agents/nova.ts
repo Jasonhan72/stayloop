@@ -29,10 +29,12 @@ When the user gives you a listing source (pasted text / Kijiji-Realtor URL / MLS
 
 import_listing returns \`{ listing, source, errors }\`. Read \`errors[0]\` carefully:
 
-- \`[]\` (empty) — full success. Listing object has fields. Continue normal workflow.
-- \`['extraction_empty']\` — page WAS fetched (URL fine, no anti-bot) but Haiku produced an all-null JSON. Tell the user: "我读到了页面，但没能提取出关键字段。" Then offer ONE retry with \`import_listing\` again — sometimes it works second time. If still empty, ask the user to paste the listing text directly (source='text'). Do NOT blame the URL or claim Realtor.ca blocks scrapers — the fetch itself worked.
+- \`[]\` (empty) — full success. Listing object has fields. Continue normal workflow. (Realtor.ca: deterministic regex parser also overlays rent/MLS/images on top of Haiku, so those fields are extra-trustworthy.)
+- \`['extraction_recovered_deterministic']\` — Realtor.ca only. Haiku produced empty JSON but our deterministic regex parser pulled real fields (address / rent / MLS / images / beds / baths / sqft). The listing object IS usable. Tell user briefly: "AI 主提取没拿全，但我直接从页面抽到了关键字段（地址 / 租金 / MLS / 图片）。请检查这份草稿。" Then run compliance check + propose save. The bilingual title / description may be missing — ask if they want you to draft them from the structured data.
+- \`['parse_failed_recovered_partial']\` — Realtor.ca only. Haiku output was malformed but deterministic parser saved core fields. Same recovery as above — surface the partial draft, ask user to fill in copy / amenities.
+- \`['extraction_empty']\` — non-realtor URL where Haiku produced all-null JSON. Tell the user: "我读到了页面，但没能提取出关键字段。" Then offer ONE retry with \`import_listing\` again. If still empty, ask the user to paste the listing text directly (source='text'). Do NOT blame the URL or claim the site blocks scrapers — the fetch itself worked.
 - \`['extraction_truncated']\` — Haiku hit max_tokens. Same recovery as extraction_empty.
-- \`['parse_failed']\` — Haiku returned malformed JSON. Retry once, then fall back to text paste.
+- \`['parse_failed']\` — Haiku returned malformed JSON and we have no deterministic backup. Retry once, then fall back to text paste.
 - \`['fetch_no_content']\` / \`['all_strategies_failed_*']\` — actual fetch failure. THIS is when "Realtor.ca 对爬虫有限制" applies. Ask the user to paste the page text (source='text') or upload an MLS PDF.
 - Anything else (\`haiku_xxx\`, \`signed_url_failed\`, \`no_url\`) — surface the actual error to the user briefly and ask them to try again.
 

@@ -126,6 +126,10 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
       return { listing: emptyListing(), source: input.source, errors: ['no_api_key'] }
     }
 
+    // Holds the deterministic extract from realtor.ca, if applicable. Used
+    // after Haiku returns to merge objective fields over its output.
+    let realtorDet: RealtorExtract | null = null
+
     const content: any[] = [{ type: 'text', text: EXTRACT_PROMPT }]
 
     if (input.source === 'text') {
@@ -144,7 +148,43 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
       // Pin the source URL into the body so Haiku can also extract things
       // like the realtor.ca numeric ID into our listing payload (and so
       // our caller can stash source_url on the saved row).
-      const augmented = `Source URL: ${input.url}\n\n${urlContent.body}`
+      let augmented = `Source URL: ${input.url}\n\n${urlContent.body}`
+
+      // Realtor.ca deterministic extraction — pull stable objective fields
+      // (rent / address / MLS / sqft / beds / baths / images) from the
+      // markdown via regex, hand them to Haiku as a hint, and re-merge them
+      // over Haiku's output below so we never come back empty on these
+      // fields even when Haiku times out or returns all-null JSON.
+      if (/realtor\.ca/i.test(input.url)) {
+        realtorDet = parseRealtorMarkdown(urlContent.body, input.url)
+        const det = realtorDet
+        const detSummary = [
+          det.address && `address: ${det.address}`,
+          det.city && `city: ${det.city}`,
+          det.province && `province: ${det.province}`,
+          det.postal_code && `postal_code: ${det.postal_code}`,
+          det.monthly_rent && `monthly_rent: ${det.monthly_rent}`,
+          det.bedrooms !== null && `bedrooms: ${det.bedrooms}`,
+          det.bathrooms !== null && `bathrooms: ${det.bathrooms}`,
+          det.sqft && `sqft: ${det.sqft}`,
+          det.mls_number && `mls_number: ${det.mls_number}`,
+          det.year_built && `year_built: ${det.year_built}`,
+          det.parking && `parking: ${det.parking}`,
+          det.brokerage && `brokerage: ${det.brokerage}`,
+          det.broker_name && `broker_name: ${det.broker_name}`,
+          det.broker_phone && `broker_phone: ${det.broker_phone}`,
+          det.images.length > 0 && `images_count: ${det.images.length}`,
+        ]
+          .filter(Boolean)
+          .join('\n')
+        if (detSummary) {
+          augmented =
+            `Source URL: ${input.url}\n\n` +
+            `[REALTOR.CA DETERMINISTIC EXTRACT — these objective fields were already pulled from the page; use them as ground truth and focus on writing good bilingual title/description + amenities + selling_points]\n${detSummary}\n\n` +
+            urlContent.body
+        }
+      }
+
       content.push({
         type: 'text',
         text: `\nListing source — fetched ${urlContent.via} from ${input.url}:\n${augmented}`,
@@ -202,6 +242,12 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
           stop_reason: stopReason,
           raw_head: raw.slice(0, 500),
         })
+        // If we have a realtor.ca deterministic extract, salvage what we can
+        // — Nova still gets a usable listing object instead of all-null.
+        if (realtorDet) {
+          const salvaged = mergeRealtorIntoListing(emptyListing(), realtorDet)
+          return { listing: salvaged, source: input.source, errors: ['parse_failed_recovered_partial'] }
+        }
         return { listing: emptyListing(), source: input.source, errors: ['parse_failed'] }
       }
       // Defence in depth: Haiku occasionally returns valid JSON but with every
@@ -224,13 +270,35 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
           stop_reason: stopReason,
           raw_head: raw.slice(0, 500),
         })
+        // Realtor.ca recovery: if Haiku came back empty but our deterministic
+        // parser extracted real data, return that instead of failing. Nova
+        // can then prompt the user to confirm and we still ship a draft.
+        if (realtorDet) {
+          const detHasReal =
+            !!realtorDet.address ||
+            !!realtorDet.monthly_rent ||
+            !!realtorDet.mls_number ||
+            (realtorDet.images?.length || 0) > 0
+          if (detHasReal) {
+            const salvaged = mergeRealtorIntoListing(parsed, realtorDet)
+            return {
+              listing: salvaged,
+              source: input.source,
+              errors: ['extraction_recovered_deterministic'],
+            }
+          }
+        }
         return {
           listing: parsed,
           source: input.source,
           errors: stopReason === 'max_tokens' ? ['extraction_truncated'] : ['extraction_empty'],
         }
       }
-      return { listing: parsed, source: input.source, errors: [] }
+      // Happy path — Haiku produced content. If this is realtor.ca, overlay
+      // deterministic objective fields so the rent / MLS / images stay
+      // ground-truth even if Haiku hallucinated or guessed wrong.
+      const finalListing = realtorDet ? mergeRealtorIntoListing(parsed, realtorDet) : parsed
+      return { listing: finalListing, source: input.source, errors: [] }
     } catch (e: any) {
       return { listing: emptyListing(), source: input.source, errors: [e?.message?.slice(0, 100) || 'failed'] }
     }
@@ -513,6 +581,323 @@ function parseListingJson(text: string): ImportOutput['listing'] | null {
   } catch {
     return null
   }
+}
+
+// -----------------------------------------------------------------------------
+// parseRealtorMarkdown — deterministic regex extractor for realtor.ca
+// -----------------------------------------------------------------------------
+// realtor.ca pages have a stable structure once jina renders them to markdown
+// (price line, "X Bedrooms", "X Bathrooms", "MLS®/MLS® Number", a Photo
+// Gallery section with cdn.realtor.ca URLs). When Haiku times out or returns
+// all-null we still want to recover the objective fields. This parser pulls
+// them straight from the markdown so we never come back empty-handed.
+//
+// Output ONLY contains fields we successfully extracted — caller merges these
+// over Haiku output, deterministic values winning for objective fields and
+// Haiku owning bilingual title/description/amenities/selling_points.
+// -----------------------------------------------------------------------------
+
+interface RealtorExtract {
+  address: string | null
+  city: string | null
+  province: string | null
+  postal_code: string | null
+  monthly_rent: number | null
+  bedrooms: number | null
+  bathrooms: number | null
+  sqft: number | null
+  parking: string | null
+  mls_number: string | null
+  year_built: number | null
+  images: string[]
+  broker_name: string | null
+  broker_phone: string | null
+  brokerage: string | null
+}
+
+function emptyRealtorExtract(): RealtorExtract {
+  return {
+    address: null,
+    city: null,
+    province: null,
+    postal_code: null,
+    monthly_rent: null,
+    bedrooms: null,
+    bathrooms: null,
+    sqft: null,
+    parking: null,
+    mls_number: null,
+    year_built: null,
+    images: [],
+    broker_name: null,
+    broker_phone: null,
+    brokerage: null,
+  }
+}
+
+export function parseRealtorMarkdown(body: string, sourceUrl?: string): RealtorExtract {
+  const out = emptyRealtorExtract()
+  if (!body || body.length < 200) return out
+
+  // ---------- Address / city / province / postal ----------
+  // realtor.ca jina output starts with "Title: ..." line and a "# <address>"
+  // header within the first KB. Examples:
+  //   "Title: 1201 - 155 Cumberland Street, Toronto, Ontario M5R0B6"
+  //   "# 1201 - 155 Cumberland Street, Toronto, Ontario M5R0B6"
+  const head = body.slice(0, 4000)
+  // Title: line is the most reliable on realtor.ca jina output.
+  const titleLine = head.match(/^Title:\s*([^\n]+)/im)?.[1]?.trim()
+  // Fallback: first H1 with a number+street pattern.
+  const h1 = head.match(/^#\s+([^\n]+)/m)?.[1]?.trim()
+  // Pick whichever looks like a Canadian street address.
+  const addrCandidates = [titleLine, h1].filter(Boolean) as string[]
+  for (const cand of addrCandidates) {
+    // Strip realtor.ca SEO suffixes and prefixes:
+    //   "For rent: 1201 - 155 CUMBERLAND STREET, ..." → drop "For rent: "
+    //   "... | REALTOR.ca"  → drop trailing
+    //   "... - C12801652 | REALTOR.ca"  → drop the MLS-suffix tail
+    //   "... - For sale" / "... For lease" → drop
+    const cleaned = cand
+      .replace(/^For\s+(rent|sale|lease)\s*[:\-]\s*/i, '')
+      .replace(/\s*\|\s*realtor\.ca.*$/i, '')
+      .replace(/\s*-\s*[CWNXE]\d{7,10}\s*$/i, '')
+      .replace(/\s*-\s*for (sale|rent|lease).*$/i, '')
+      .trim()
+    // Postal code first — it's a strong signal we found the right line.
+    const postal = cleaned.match(/\b([A-Z]\d[A-Z])\s*(\d[A-Z]\d)\b/i)
+    if (postal) {
+      out.postal_code = `${postal[1].toUpperCase()} ${postal[2].toUpperCase()}`
+      // Province name immediately precedes postal code.
+      const before = cleaned.slice(0, postal.index || 0).replace(/[\s,]+$/, '')
+      const provMatch = before.match(/,\s*(Ontario|Quebec|Québec|British Columbia|Alberta|Manitoba|Saskatchewan|Nova Scotia|New Brunswick|Newfoundland( and Labrador)?|Prince Edward Island|Yukon|Northwest Territories|Nunavut|ON|QC|BC|AB|MB|SK|NS|NB|NL|PE|YT|NT|NU)\s*$/i)
+      if (provMatch) {
+        out.province = canonicalProvince(provMatch[1])
+        const beforeProv = before.slice(0, provMatch.index!).replace(/[\s,]+$/, '')
+        // What's left should be "<address>, <city>" — and city may carry a
+        // realtor.ca neighbourhood tag in parens, e.g. "Toronto (Annex)".
+        // Allow letters / accents / spaces / dots / hyphens / apostrophes /
+        // parens.
+        const cityMatch = beforeProv.match(/,\s*([A-Za-zÀ-ÿ'()&. \-]+)$/)
+        if (cityMatch) {
+          // Strip neighbourhood parens for the canonical city field; we keep
+          // the full label inside the address line for the user to see.
+          const fullCity = cityMatch[1].trim()
+          out.city = fullCity.replace(/\s*\([^)]*\)\s*$/, '').trim()
+          out.address = beforeProv.slice(0, cityMatch.index!).replace(/[\s,]+$/, '')
+        } else {
+          out.address = beforeProv
+        }
+        break
+      }
+    }
+  }
+
+  // ---------- Monthly rent ----------
+  // realtor.ca's listing page shows the price as either "$3,200/Monthly" or
+  // a stand-alone "$3,200" near "For rent". Jina markdown sometimes gives
+  // "## $3,200" or "**$3,200**". We scan a generous window for the strongest
+  // signal: dollar amount adjacent to "/Monthly", "per month", or near
+  // "for rent" / "lease".
+  const rentRe = /\$\s*([\d]{1,3}(?:,\d{3})*|\d{4,6})(?:\.\d{2})?\s*(?:\/?\s*month(?:ly)?|per\s+month|\/m)/i
+  const rentMatch = body.match(rentRe)
+  if (rentMatch) {
+    const num = parseInt(rentMatch[1].replace(/,/g, ''), 10)
+    if (num >= 500 && num <= 50000) out.monthly_rent = num
+  }
+  if (!out.monthly_rent) {
+    // Fallback: first $X,XXX in the first 8KB that's a plausible rent.
+    const fallback = body.slice(0, 8000).match(/\$\s*([1-9]\d?,\d{3}|\d{4})\b/)
+    if (fallback) {
+      const num = parseInt(fallback[1].replace(/,/g, ''), 10)
+      if (num >= 800 && num <= 25000) out.monthly_rent = num
+    }
+  }
+
+  // ---------- Bedrooms / Bathrooms ----------
+  // realtor.ca puts these in a stats strip: "2 Beds  2 Baths  833 sqft"
+  // and also in a property-summary block as "Bedrooms 2 / Bathrooms 2".
+  const bedMatch =
+    body.match(/(\d+(?:\.\d)?)\s*(?:bed(?:room)?s?|chambres?)\b/i) ||
+    body.match(/Bedrooms?\s*[:|]\s*(\d+(?:\.\d)?)/i)
+  if (bedMatch) {
+    const n = parseFloat(bedMatch[1])
+    if (n >= 0 && n <= 12) out.bedrooms = n
+  }
+  const bathMatch =
+    body.match(/(\d+(?:\.\d)?)\s*(?:bath(?:room)?s?|salles? de bain)\b/i) ||
+    body.match(/Bathrooms?\s*[:|]\s*(\d+(?:\.\d)?)/i)
+  if (bathMatch) {
+    const n = parseFloat(bathMatch[1])
+    if (n >= 0 && n <= 12) out.bathrooms = n
+  }
+  // Studio detection: if the markdown says "Studio" near top and bedrooms is null,
+  // treat as 0.
+  if (out.bedrooms === null && /\bstudio\b/i.test(head)) out.bedrooms = 0
+
+  // ---------- Sqft ----------
+  // Realtor.ca shows things like "833 sqft", "833 sq.ft.", "Square Footage 833".
+  // Sometimes it gives a range "833 - 850 sqft" — take the lower bound.
+  const sqftMatch =
+    body.match(/(\d{2,5})\s*(?:-\s*\d{2,5}\s*)?(?:sq\.?\s*ft\.?|square\s*feet|sqft)/i) ||
+    body.match(/Square\s*Foot(?:age)?\s*[:|]\s*(\d{2,5})/i) ||
+    body.match(/Living\s*Area\s*\(?[^)]*\)?\s*[:|]\s*(\d{2,5})/i)
+  if (sqftMatch) {
+    const n = parseInt(sqftMatch[1], 10)
+    if (n >= 80 && n <= 50000) out.sqft = n
+  }
+
+  // ---------- MLS number ----------
+  // realtor.ca always prints "MLS®/MLS® Number: <ID>" or just "MLS® <ID>".
+  // IDs are 8-12 alphanumeric (e.g. C8123456, X9234567, 26012345).
+  const mlsMatch =
+    body.match(/MLS(?:®|\(R\))?\s*(?:Number|#|No\.?)?\s*[:|]?\s*([A-Z0-9]{6,15})/i) ||
+    body.match(/(?:^|\s)([CWNXE]\d{7,10})(?:\s|$)/m)
+  if (mlsMatch) {
+    const id = mlsMatch[1].trim().toUpperCase()
+    // Reject obvious false-positives (years, plain numbers <6, "REALTOR")
+    if (id.length >= 6 && id.length <= 15 && !/^(REALTOR|TORONTO|ONTARIO)$/i.test(id)) {
+      out.mls_number = id
+    }
+  }
+  // realtor.ca URL pattern often has the listing ID:
+  // https://www.realtor.ca/real-estate/<NUM>/...
+  // That number is realtor.ca's own ID, not the MLS, but it's still useful.
+  if (!out.mls_number && sourceUrl) {
+    const urlId = sourceUrl.match(/\/real-estate\/(\d+)\//)
+    if (urlId) out.mls_number = `RLT${urlId[1]}`
+  }
+
+  // ---------- Year built ----------
+  const yearMatch =
+    body.match(/(?:Year\s*Built|Built\s*in|Construction)\s*[:|]?\s*(\d{4})/i) ||
+    body.match(/\b(?:built|constructed)\s+in\s+(\d{4})\b/i)
+  if (yearMatch) {
+    const y = parseInt(yearMatch[1], 10)
+    if (y >= 1800 && y <= new Date().getFullYear() + 5) out.year_built = y
+  }
+
+  // ---------- Parking ----------
+  const parkingMatch = body.match(/Parking(?:\s*Type)?\s*[:|]\s*([^\n|]{2,40})/i)
+  if (parkingMatch) {
+    out.parking = parkingMatch[1].trim().slice(0, 60)
+  } else if (/underground\s+parking/i.test(body)) {
+    out.parking = '1 underground'
+  } else if (/no\s+parking/i.test(body)) {
+    out.parking = 'none'
+  }
+
+  // ---------- Broker / brokerage / phone ----------
+  // realtor.ca typically renders "Listed by <Brokerage>" and a phone line.
+  const brokerage = body.match(/Listed\s+by[:\s]+([^\n]{3,80})/i)
+  if (brokerage) {
+    out.brokerage = brokerage[1].replace(/\s*\|\s*$/, '').trim().slice(0, 80)
+  }
+  // Broker name commonly appears as a salesperson or REALTOR® label.
+  const brokerName = body.match(/(?:Salesperson|REALTOR®|Sales Representative)[:\s]+([A-Z][A-Za-z'\-. ]{2,50})/)
+  if (brokerName) out.broker_name = brokerName[1].trim().slice(0, 80)
+  const phone = body.match(/\b(\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4})\b/)
+  if (phone) out.broker_phone = phone[1].trim()
+
+  // ---------- Images ----------
+  // Two sources of truth on realtor.ca jina output:
+  //   1. Inline markdown image refs:  ![alt](https://cdn.realtor.ca/listings/...)
+  //   2. The "Images:" summary block jina appends with X-With-Images-Summary.
+  const imgRe = /https:\/\/cdn\.realtor\.ca\/listings\/[A-Za-z0-9_/\-]+\.(?:jpg|jpeg|png|webp)/gi
+  const seen = new Set<string>()
+  const photos: string[] = []
+  for (const m of body.matchAll(imgRe)) {
+    const url = m[0]
+    if (seen.has(url)) continue
+    seen.add(url)
+    photos.push(url)
+    if (photos.length >= 24) break
+  }
+  // Sort lowest-numbered first (realtor.ca uses .../highres/c<id>_<n>.jpg —
+  // _1.jpg is the hero photo). When the pattern isn't present, preserve order.
+  photos.sort((a, b) => extractPhotoIndex(a) - extractPhotoIndex(b))
+  out.images = photos.slice(0, 16)
+
+  return out
+}
+
+function extractPhotoIndex(url: string): number {
+  // realtor.ca CDN URL form: .../highres/c12345_1.jpg
+  const m = url.match(/_(\d+)\.(?:jpg|jpeg|png|webp)$/i)
+  if (m) return parseInt(m[1], 10)
+  return 999 // unknown ordering — push to end
+}
+
+function canonicalProvince(input: string): string {
+  const s = input.trim().toLowerCase()
+  if (/^(ontario|on)$/i.test(s)) return 'ON'
+  if (/^(qu[eé]bec|qc)$/i.test(s)) return 'QC'
+  if (/^(british columbia|bc)$/i.test(s)) return 'BC'
+  if (/^(alberta|ab)$/i.test(s)) return 'AB'
+  if (/^(manitoba|mb)$/i.test(s)) return 'MB'
+  if (/^(saskatchewan|sk)$/i.test(s)) return 'SK'
+  if (/^(nova scotia|ns)$/i.test(s)) return 'NS'
+  if (/^(new brunswick|nb)$/i.test(s)) return 'NB'
+  if (/^(newfoundland( and labrador)?|nl)$/i.test(s)) return 'NL'
+  if (/^(prince edward island|pe)$/i.test(s)) return 'PE'
+  if (/^(yukon|yt)$/i.test(s)) return 'YT'
+  if (/^(northwest territories|nt)$/i.test(s)) return 'NT'
+  if (/^(nunavut|nu)$/i.test(s)) return 'NU'
+  return input.toUpperCase().slice(0, 2)
+}
+
+/**
+ * Merge a deterministic extract over Haiku's listing object. Deterministic
+ * fields win for objective values (rent / address / MLS / sqft / beds /
+ * baths / year_built / images / broker_*) — Haiku keeps ownership of the
+ * subjective bilingual fields (titles, descriptions, selling points,
+ * amenities, utilities_included, pet_policy, available_date).
+ *
+ * Images are MERGED — deterministic photos go first (they're already sorted
+ * by hero index), Haiku's are appended only if not already in the set.
+ */
+export function mergeRealtorIntoListing(
+  haiku: ImportOutput['listing'],
+  det: RealtorExtract,
+): ImportOutput['listing'] {
+  const merged: ImportOutput['listing'] = { ...haiku }
+  const winIfHas = <K extends keyof RealtorExtract & keyof ImportOutput['listing']>(k: K) => {
+    const v = det[k]
+    if (v !== null && v !== undefined && v !== '' && (typeof v !== 'number' || !Number.isNaN(v))) {
+      ;(merged[k] as any) = v
+    }
+  }
+  winIfHas('address')
+  winIfHas('city')
+  winIfHas('province')
+  winIfHas('postal_code')
+  winIfHas('monthly_rent')
+  winIfHas('bedrooms')
+  winIfHas('bathrooms')
+  winIfHas('sqft')
+  winIfHas('parking')
+  winIfHas('mls_number')
+  winIfHas('year_built')
+  winIfHas('broker_name')
+  winIfHas('broker_phone')
+  winIfHas('brokerage')
+
+  // Images: deterministic-first merge, dedupe.
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const u of det.images) {
+    if (!u || seen.has(u)) continue
+    seen.add(u)
+    out.push(u)
+  }
+  for (const u of haiku.images || []) {
+    if (!u || seen.has(u)) continue
+    seen.add(u)
+    out.push(u)
+    if (out.length >= 16) break
+  }
+  if (out.length > 0) merged.images = out
+
+  return merged
 }
 
 registerTool(tool)
