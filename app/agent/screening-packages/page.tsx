@@ -121,7 +121,7 @@ export default function ScreeningPackagesPage() {
         <SecHead
           eyebrow={isZh ? '筛查包' : 'Screening packages'}
           title={isZh ? '你的包' : 'Your packages'}
-          right={<button style={{ padding: '11px 20px', background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset' }}>
+          right={<button disabled title={isZh ? '即将推出' : 'Coming soon'} style={{ opacity: 0.55, cursor: 'not-allowed', padding: '11px 20px', background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset' }}>
             + {isZh ? '新包' : 'New package'}
           </button>}
         />
@@ -183,9 +183,9 @@ export default function ScreeningPackagesPage() {
                     {isZh ? '复制链接' : 'Copy link'}
                   </button>
                 ) : (
-                  <button
+                  <button disabled title={isZh ? '即将推出' : 'Coming soon'}
                     style={{
-                      width: '100%',
+                      opacity: 0.55, cursor: 'not-allowed', width: '100%',
                       padding: '8px 12px',
                       background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
                       color: '#fff',
@@ -193,8 +193,7 @@ export default function ScreeningPackagesPage() {
                       borderRadius: 6,
                       fontSize: 12,
                       fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
+                      }}
                   >
                     {isZh ? '分享' : 'Share'}
                   </button>

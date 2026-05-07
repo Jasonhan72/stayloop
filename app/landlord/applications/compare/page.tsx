@@ -59,7 +59,7 @@ function ComparePageInner() {
           </p>
           <button
             onClick={() => window.location.href = '/'}
-            style={{ display: 'inline-flex', padding: '10px 20px', background: v3.brand, color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 600, textDecoration: 'none', border: 'none', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', padding: '10px 20px', background: v3.brand, color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 600, textDecoration: 'none', border: 'none' }}
           >
             {isZh ? '返回首页' : 'Go home'} →
           </button>
@@ -119,10 +119,10 @@ function ComparePageInner() {
           title={`${apps.length} ${isZh ? '申请人 · 3 份选中进行对比' : 'applicants · 3 selected for compare'}`}
           sub={isZh ? 'AI 不会自动决定。你来选择；Stayloop 记录理由。' : 'AI does not auto-decide. You choose; Stayloop logs the rationale.'}
           right={<div style={{ display: 'flex', gap: 8 }}>
-            <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary, cursor: 'pointer' }}>
+            <button disabled title={isZh ? '即将推出' : 'Coming soon'} style={{ opacity: 0.55, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', background: v3.surfaceCard, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: v3.textPrimary }}>
               {isZh ? '导出 PDF' : 'Export PDF'}
             </button>
-            <button style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 20px', background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset', letterSpacing: '-0.01em' }}>
+            <button disabled title={isZh ? '即将推出' : 'Coming soon'} style={{ opacity: 0.55, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 20px', background: 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff', boxShadow: '0 8px 22px -10px rgba(52,211,153,0.45), 0 1px 0 rgba(255,255,255,0.30) inset', letterSpacing: '-0.01em' }}>
               {isZh ? '批准顶级匹配 →' : 'Approve top match →'}
             </button>
           </div>}

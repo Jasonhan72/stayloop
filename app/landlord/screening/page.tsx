@@ -191,7 +191,7 @@ export default function ManualScreeningPage() {
                 11 uploaded · 9 classified
               </span>
               <div style={{ flex: 1 }} />
-              <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+              <button disabled title={isZh ? '即将推出' : 'Coming soon'} style={{ opacity: 0.55, cursor: 'not-allowed', background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, padding: 0 }}>
                 + {isZh ? '添加文件' : 'Add files'}
               </button>
             </div>
@@ -252,7 +252,7 @@ export default function ManualScreeningPage() {
                 </div>
               </div>
             </div>
-            <button style={{ width: '100%', marginTop: 14, padding: '10px 18px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'center' }}>
+            <button disabled title={isZh ? '即将推出' : 'Coming soon'} style={{ opacity: 0.55, cursor: 'not-allowed', width: '100%', marginTop: 14, padding: '10px 18px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'center' }}>
               {isZh ? '发送同意请求 →' : 'Send consent request →'}
             </button>
           </div>
@@ -278,7 +278,7 @@ export default function ManualScreeningPage() {
                     <div style={{ fontWeight: 600, marginBottom: 2 }}>{item.title}</div>
                     <div style={{ color: v3.textSecondary, fontSize: 12 }}>{item.body}</div>
                   </div>
-                  <button style={{ background: 'none', border: 'none', color: v3.trust, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0, whiteSpace: 'nowrap' }}>
+                  <button disabled title={isZh ? '即将推出' : 'Coming soon'} style={{ opacity: 0.55, cursor: 'not-allowed', background: 'none', border: 'none', color: v3.trust, fontSize: 12, fontWeight: 600, padding: 0, whiteSpace: 'nowrap' }}>
                     {item.cta}
                   </button>
                 </div>

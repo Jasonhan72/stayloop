@@ -213,7 +213,7 @@ export default function FindAgentPage() {
                     <div style={{ fontSize: 28, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em', lineHeight: 1 }}>{a.fit}</div>
                     <div style={{ fontSize: 10, color: v3.textMuted, marginTop: 2 }}>FIT</div>
                   </div>
-                  <button style={{ padding: '8px 16px', background: v3.brand, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  <button disabled title={isZh ? '即将推出' : 'Coming soon'} style={{ opacity: 0.55, cursor: 'not-allowed', padding: '8px 16px', background: v3.brand, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
                     {isZh ? '邀请' : 'Invite'}
                   </button>
                 </div>

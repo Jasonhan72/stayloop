@@ -267,27 +267,25 @@ export default function LeaseReviewPage() {
           LEASE REVIEW · /lease/{leaseId?.slice(0, 12)}/review
         </span>
         <div style={{ flex: 1 }} />
-        <button
+        <button disabled title={isZh ? '即将推出' : 'Coming soon'}
           style={{
-            background: 'transparent',
+            opacity: 0.55, cursor: 'not-allowed', background: 'transparent',
             border: 'none',
             color: '#047857',
             fontSize: 12,
             fontWeight: 600,
-            cursor: 'pointer',
-          }}
+            }}
         >
           EN / 中文
         </button>
-        <button
+        <button disabled title={isZh ? '即将推出' : 'Coming soon'}
           style={{
-            background: 'transparent',
+            opacity: 0.55, cursor: 'not-allowed', background: 'transparent',
             border: 'none',
             color: '#16A34A',
             fontSize: 12,
             fontWeight: 600,
-            cursor: 'pointer',
-          }}
+            }}
         >
           SSL · Audit on
         </button>

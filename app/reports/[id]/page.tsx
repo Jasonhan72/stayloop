@@ -177,17 +177,16 @@ export default function PublicReportPage() {
           SECURE REPORT · /r/{shareToken?.slice(0, 12)}
         </span>
         <div style={{ flex: 1 }} />
-        <button
+        <button disabled title={isZh ? '即将推出' : 'Coming soon'}
           style={{
-            background: '#FFFFFF',
+            opacity: 0.55, cursor: 'not-allowed', background: '#FFFFFF',
             color: '#047857',
             border: '1px solid #C5BDAA',
             borderRadius: 6,
             fontSize: 12,
             fontWeight: 600,
             padding: '8px 14px',
-            cursor: 'pointer',
-          }}
+            }}
         >
           {isZh ? '下载 PDF' : 'Download PDF'}
         </button>
@@ -543,17 +542,16 @@ export default function PublicReportPage() {
                 ? '申请已准备好进行租赁签署。建议房东在标准租赁协议上与申请人进行电子签署。'
                 : 'Application is ready for lease signing. Proceed with standard lease signing process.'}
             </div>
-            <button
+            <button disabled title={isZh ? '即将推出' : 'Coming soon'}
               style={{
-                background: '#FFFFFF',
+                opacity: 0.55, cursor: 'not-allowed', background: '#FFFFFF',
                 color: '#171717',
                 border: '1px solid #C5BDAA',
                 borderRadius: 6,
                 fontSize: 12,
                 fontWeight: 600,
                 padding: '8px 14px',
-                cursor: 'pointer',
-              }}
+                }}
             >
               {isZh ? '继续' : 'Proceed'}
             </button>

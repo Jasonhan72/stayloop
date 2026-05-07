@@ -172,9 +172,9 @@ export default function TenantListingsPage() {
                 onFocus={(e) => (e.currentTarget.style.borderColor = '#047857')}
                 onBlur={(e) => (e.currentTarget.style.borderColor = v3.border)}
               />
-              <button
+              <button disabled title={isZh ? '即将推出' : 'Coming soon'}
                 style={{
-                  display: 'inline-flex',
+                  opacity: 0.55, cursor: 'not-allowed', display: 'inline-flex',
                   alignItems: 'center',
                   gap: 7,
                   background: '#FFFFFF',
@@ -185,8 +185,7 @@ export default function TenantListingsPage() {
                   fontFamily: '"Inter Tight", sans-serif',
                   fontSize: 13,
                   fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                  }}
               >
                 {isZh ? '筛选' : 'Filters'}
               </button>

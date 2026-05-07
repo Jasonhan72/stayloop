@@ -122,7 +122,7 @@ export default function PartnersPage() {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
             <button style={{ padding: '10px 18px', background: v3.surface, border: `1px solid ${v3.border}`, borderRadius: 10, fontSize: 13, fontWeight: 600 }}>← {isZh ? '返回' : 'Back'}</button>
-            <button style={{ padding: '10px 22px', background: v3.brand, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700 }}>
+            <button disabled title={isZh ? '即将推出' : 'Coming soon'} style={{ opacity: 0.55, cursor: 'not-allowed', padding: '10px 22px', background: v3.brand, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700 }}>
               {isZh ? '发送测试事件' : 'Send test event'} →
             </button>
           </div>

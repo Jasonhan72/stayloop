@@ -228,7 +228,7 @@ export default function Dashboard() {
                   {topApps.length} of {applications.length} shown
                 </span>
                 <div style={{ flex: 1 }} />
-                <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                <button disabled title={isZh ? '即将推出' : 'Coming soon'} style={{ opacity: 0.55, cursor: 'not-allowed', background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, padding: 0 }}>
                   {isZh ? '比对' : 'Compare'}
                 </button>
               </div>
@@ -292,7 +292,7 @@ export default function Dashboard() {
                       {item.title && <div style={{ fontWeight: 600 }}>{item.title}</div>}
                       <div style={{ color: v3.textSecondary, fontSize: 13 }}>{item.body}</div>
                     </span>
-                    <button style={{ background: 'none', border: 'none', color: v3.trust, fontSize: 12, fontWeight: 600, padding: 0, whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                    <button disabled title={isZh ? '即将推出' : 'Coming soon'} style={{ opacity: 0.55, cursor: 'not-allowed', background: 'none', border: 'none', color: v3.trust, fontSize: 12, fontWeight: 600, padding: 0, whiteSpace: 'nowrap' }}>
                       {item.cta}
                     </button>
                   </div>

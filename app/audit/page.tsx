@@ -91,9 +91,9 @@ export default function AuditPage() {
         sub={isZh ? '每个授权的查看、共享、签署和下载都被记录。' : 'Every authorized view, share, sign and download is logged.'}
         right={
           <div style={{ display: 'flex', gap: 8 }}>
-            <button
+            <button disabled title={isZh ? '即将推出' : 'Coming soon'}
               style={{
-                display: 'inline-flex',
+                opacity: 0.55, cursor: 'not-allowed', display: 'inline-flex',
                 alignItems: 'center',
                 gap: 7,
                 background: '#fff',
@@ -103,14 +103,13 @@ export default function AuditPage() {
                 padding: '10px 18px',
                 fontSize: 13,
                 fontWeight: 600,
-                cursor: 'pointer',
-              }}
+                }}
             >
               {isZh ? '筛选' : 'Filter'}
             </button>
-            <button
+            <button disabled title={isZh ? '即将推出' : 'Coming soon'}
               style={{
-                display: 'inline-flex',
+                opacity: 0.55, cursor: 'not-allowed', display: 'inline-flex',
                 alignItems: 'center',
                 gap: 7,
                 background: '#fff',
@@ -120,8 +119,7 @@ export default function AuditPage() {
                 padding: '10px 18px',
                 fontSize: 13,
                 fontWeight: 600,
-                cursor: 'pointer',
-              }}
+                }}
             >
               {isZh ? '导出 CSV' : 'Export CSV'}
             </button>

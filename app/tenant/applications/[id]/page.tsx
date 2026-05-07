@@ -524,17 +524,16 @@ export default function ApplicationDetailPage() {
                     <span style={{ flex: 1 }}>
                       <div style={{ color: v3.textSecondary, fontSize: 13 }}>{it.body}</div>
                     </span>
-                    <button
+                    <button disabled title={isZh ? '即将推出' : 'Coming soon'}
                       style={{
-                        fontSize: 12,
+                        opacity: 0.55, cursor: 'not-allowed', fontSize: 12,
                         color: '#7C3AED',
                         padding: 0,
                         whiteSpace: 'nowrap',
                         background: 'none',
                         border: 'none',
                         fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
+                        }}
                     >
                       {it.cta}
                     </button>
