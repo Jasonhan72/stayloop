@@ -259,7 +259,7 @@ export default function ChatPage() {
           minHeight: 0,
         }}
       >
-        <Header lang={lang} setLang={setLang} />
+        <Header lang={lang} setLang={setLang} streaming={streaming} />
 
         <main
           ref={scrollRef}
@@ -282,9 +282,22 @@ export default function ChatPage() {
             </div>
 
             {streaming && (
-              <div style={{ marginTop: 12, fontSize: 11, color: tokens.textTertiary, fontFamily: 'JetBrains Mono, monospace' }}>
-                <span style={{ display: 'inline-block', animation: 'pulse 1.4s ease-in-out infinite' }}>●</span> Logic 正在思考…
-                <style>{`@keyframes pulse { 0%, 100% { opacity: 0.3 } 50% { opacity: 1 } }`}</style>
+              <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <AssistantAvatar />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 12px', background: tokens.surface, border: `1px solid ${tokens.border}`, borderRadius: 14, boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}>
+                  <TypingDot delay={0} />
+                  <TypingDot delay={0.18} />
+                  <TypingDot delay={0.36} />
+                  <span style={{ fontSize: 11, color: tokens.textTertiary, marginLeft: 6, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.04em' }}>
+                    {lang === 'zh' ? 'Stayloop AI 正在思考' : 'Stayloop AI is thinking'}
+                  </span>
+                </div>
+                <style>{`
+                  @keyframes typing-dot {
+                    0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+                    30% { transform: translateY(-3px); opacity: 1; }
+                  }
+                `}</style>
               </div>
             )}
           </div>
@@ -306,26 +319,114 @@ export default function ChatPage() {
 }
 
 // ─── Header ──────────────────────────────────────────────────────────────
+// Identifies the AI by name + status. Right side keeps a 'Classic mode'
+// escape hatch into the older /screen page for landlords who prefer the
+// form-based flow.
 
-function Header(_: { lang: 'zh' | 'en'; setLang: (l: 'zh' | 'en') => void }) {
+function Header({ lang, streaming }: { lang: 'zh' | 'en'; setLang: (l: 'zh' | 'en') => void; streaming?: boolean }) {
   return (
-    <div style={{ fontSize: 11, padding: '6px 10px', display: 'flex', justifyContent: 'flex-end' }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '12px 18px',
+        background: tokens.surface,
+        borderBottom: `1px solid ${tokens.border}`,
+        flexShrink: 0,
+      }}
+    >
+      <AssistantAvatar size={32} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: tokens.textPrimary, letterSpacing: '-0.01em' }}>
+          Stayloop AI
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, fontSize: 11, color: tokens.textTertiary, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.04em' }}>
+          <span
+            aria-hidden
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 999,
+              background: streaming ? tokens.warning : tokens.success,
+              boxShadow: streaming ? `0 0 0 0 ${tokens.warningSoft}` : 'none',
+              animation: streaming ? 'header-pulse 1.4s infinite' : 'none',
+            }}
+          />
+          {streaming
+            ? (lang === 'zh' ? '思考中…' : 'thinking…')
+            : (lang === 'zh' ? '在线 · 租客筛查助手' : 'online · tenant screening assistant')}
+        </div>
+      </div>
       <a
         href="/screen"
         style={{
-          fontSize: 11,
-          padding: '6px 10px',
+          fontSize: 12,
+          padding: '7px 12px',
           background: tokens.surfaceMuted,
           border: `1px solid ${tokens.border}`,
-          borderRadius: 6,
+          borderRadius: 8,
           color: tokens.textSecondary,
           textDecoration: 'none',
           whiteSpace: 'nowrap',
+          fontWeight: 500,
         }}
       >
-        Classic mode
+        {lang === 'zh' ? '经典模式' : 'Classic mode'}
       </a>
+      <style>{`
+        @keyframes header-pulse {
+          0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+          70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+      `}</style>
     </div>
+  )
+}
+
+// ─── Reusable bits ──────────────────────────────────────────────────────
+
+/** Small AI icon used in the header, message bubbles, and streaming indicator. */
+function AssistantAvatar({ size = 28 }: { size?: number }) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        width: size,
+        height: size,
+        flexShrink: 0,
+        borderRadius: 8,
+        background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #A855F7 100%)',
+        color: '#fff',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'JetBrains Mono, monospace',
+        fontWeight: 700,
+        fontSize: Math.round(size * 0.5),
+        boxShadow: '0 2px 6px -2px rgba(124, 58, 237, 0.45)',
+      }}
+    >
+      ✦
+    </div>
+  )
+}
+
+/** A single bouncing dot for the typing indicator. */
+function TypingDot({ delay }: { delay: number }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: 'inline-block',
+        width: 6,
+        height: 6,
+        borderRadius: 999,
+        background: tokens.brand, // violet AI accent
+        animation: `typing-dot 1.4s ${delay}s infinite ease-in-out`,
+      }}
+    />
   )
 }
 
@@ -333,76 +434,98 @@ function Header(_: { lang: 'zh' | 'en'; setLang: (l: 'zh' | 'en') => void }) {
 
 function EmptyState({ lang, authed, onPick }: { lang: 'zh' | 'en'; authed: boolean; onPick: (s: string) => void }) {
   return (
-    <div style={{ marginTop: 80, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-      <div
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 14,
-          background: tokens.accentMuted,
-          display: 'grid',
-          placeItems: 'center',
-          fontSize: 26,
-          color: tokens.accent,
-        }}
-      >
-        🛡
-      </div>
-      <div>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: tokens.textPrimary }}>
-          {lang === 'zh' ? '租客信任，AI 优先' : 'Tenant trust, AI-first'}
-        </h2>
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: tokens.textTertiary, maxWidth: 480, lineHeight: 1.5 }}>
-          {lang === 'zh'
-            ? '上传申请人材料 + 一句话告诉我你的疑虑。我会跑取证、查法庭记录、核对雇主、给出可解释的决策建议。'
-            : 'Upload applicant docs + tell me your concern in one sentence. I run forensics, check court records, verify employers, and recommend a decision with reasoning.'}
-        </p>
-      </div>
-
-      {!authed ? (
-        <a
-          href="/dashboard"
+    <div style={{ marginTop: 56, display: 'flex', flexDirection: 'column', gap: 22 }}>
+      {/* Greeting card — looks like the first AI message */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <AssistantAvatar size={32} />
+        <div
           style={{
-            padding: '8px 18px',
-            background: tokens.accent,
-            color: '#fff',
-            borderRadius: 8,
-            textDecoration: 'none',
-            fontSize: 13,
-            fontWeight: 600,
+            flex: 1,
+            background: tokens.surface,
+            border: `1px solid ${tokens.border}`,
+            borderRadius: 14,
+            padding: '14px 16px',
+            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
           }}
         >
-          {lang === 'zh' ? '前往登录' : 'Sign in'}
-        </a>
+          <div style={{ fontSize: 14, fontWeight: 600, color: tokens.textPrimary, marginBottom: 4 }}>
+            {lang === 'zh' ? '你好，我是 Stayloop AI。' : 'Hi — I’m Stayloop AI.'}
+          </div>
+          <div style={{ fontSize: 13.5, color: tokens.textSecondary, lineHeight: 1.6 }}>
+            {lang === 'zh'
+              ? '上传申请人材料，告诉我你想关注什么。我会跑文档取证、查公开法庭记录、交叉核对雇主，再用可解释的语言给出风险信号和建议下一步。'
+              : 'Drop in the applicant’s documents and tell me what you want to focus on. I’ll run document forensics, check public court records, cross-check employers, and explain the risk signals in plain language.'}
+          </div>
+        </div>
+      </div>
+
+      {/* Starter prompts (only for authed users) */}
+      {!authed ? (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+          <a
+            href="/dashboard"
+            style={{
+              padding: '10px 18px',
+              background: tokens.accent,
+              color: '#fff',
+              borderRadius: 10,
+              textDecoration: 'none',
+              fontSize: 13,
+              fontWeight: 600,
+              boxShadow: '0 8px 22px -10px rgba(52, 211, 153, 0.45)',
+            }}
+          >
+            {lang === 'zh' ? '前往登录' : 'Sign in to start'}
+          </a>
+        </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 460 }}>
-          {STARTERS.map((s, i) => (
-            <button
-              key={i}
-              onClick={() => onPick(lang === 'zh' ? s.zh : s.en)}
-              style={{
-                padding: '10px 14px',
-                background: tokens.surface,
-                border: `1px solid ${tokens.border}`,
-                borderRadius: 10,
-                fontSize: 13,
-                color: tokens.textPrimary,
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = tokens.accent
-                e.currentTarget.style.background = tokens.accentMuted
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = tokens.border
-                e.currentTarget.style.background = tokens.surface
-              }}
-            >
-              💬 {lang === 'zh' ? s.zh : s.en}
-            </button>
-          ))}
+        <div>
+          <div
+            style={{
+              fontSize: 11,
+              fontFamily: 'JetBrains Mono, monospace',
+              letterSpacing: '0.10em',
+              textTransform: 'uppercase',
+              color: tokens.textTertiary,
+              fontWeight: 700,
+              marginBottom: 10,
+              paddingLeft: 4,
+            }}
+          >
+            {lang === 'zh' ? '试试这些起手式' : 'Try one of these'}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
+            {STARTERS.map((s, i) => (
+              <button
+                key={i}
+                onClick={() => onPick(lang === 'zh' ? s.zh : s.en)}
+                style={{
+                  padding: '12px 14px',
+                  background: tokens.surface,
+                  border: `1px solid ${tokens.border}`,
+                  borderRadius: 12,
+                  fontSize: 13,
+                  color: tokens.textPrimary,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  lineHeight: 1.45,
+                  transition: 'all 0.15s',
+                  fontFamily: 'inherit',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = tokens.brand
+                  e.currentTarget.style.background = tokens.brandLight
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = tokens.border
+                  e.currentTarget.style.background = tokens.surface
+                }}
+              >
+                <span style={{ display: 'inline-block', color: tokens.brand, marginRight: 6, fontFamily: 'JetBrains Mono, monospace', fontWeight: 700 }}>›</span>
+                {lang === 'zh' ? s.zh : s.en}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -422,38 +545,72 @@ function MessageBubble({
 }) {
   const isUser = msg.role === 'user'
   const isSystem = msg.role === 'system'
+
+  // User messages anchor right; assistant + system anchor left and lead with
+  // an AI avatar so the column scans like a conversation rather than a blob.
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start' }}>
+    <div
+      style={{
+        display: 'flex',
+        gap: 10,
+        flexDirection: isUser ? 'row-reverse' : 'row',
+        alignItems: 'flex-start',
+      }}
+    >
+      {/* Avatar slot — AI for assistant/system, blank spacer for user */}
+      {isUser ? (
+        <div style={{ width: 28, flexShrink: 0 }} aria-hidden />
+      ) : (
+        <AssistantAvatar size={28} />
+      )}
+
       <div
         style={{
-          maxWidth: '88%',
-          background: isUser ? tokens.accent : isSystem ? tokens.warningLight : tokens.surface,
-          color: isUser ? '#fff' : tokens.textPrimary,
-          padding: msg.text ? '10px 14px' : 0,
-          borderRadius: 14,
-          border: isUser || isSystem ? 'none' : `1px solid ${tokens.border}`,
-          boxShadow: isUser ? 'none' : '0 1px 2px rgba(15, 23, 42, 0.04)',
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: isUser ? 'flex-end' : 'flex-start',
+          gap: 6,
         }}
       >
-        {msg.text && (
-          <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.55 }}>{msg.text}</div>
-        )}
+        {(msg.text || (msg.toolCalls && msg.toolCalls.length > 0)) && (
+          <div
+            style={{
+              maxWidth: '92%',
+              background: isUser
+                ? `linear-gradient(135deg, ${tokens.accent} 0%, ${tokens.accentDark} 100%)` // emerald — user identity
+                : isSystem
+                  ? tokens.warningLight
+                  : tokens.surface,
+              color: isUser ? '#fff' : tokens.textPrimary,
+              padding: msg.text ? '10px 14px' : '8px 12px',
+              borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+              border: isUser || isSystem ? 'none' : `1px solid ${tokens.border}`,
+              boxShadow: isUser ? '0 4px 14px -8px rgba(4, 120, 87, 0.40)' : '0 1px 2px rgba(15, 23, 42, 0.04)',
+            }}
+          >
+            {msg.text && (
+              <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.55 }}>{msg.text}</div>
+            )}
 
-        {msg.toolCalls && msg.toolCalls.length > 0 && (
-          <div style={{ marginTop: msg.text ? 8 : 0, padding: msg.text ? 0 : '8px 12px', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-            {msg.toolCalls.map((tc, i) => (
-              <ToolBadge key={i} name={tc.name} status={tc.status} dark={isUser} />
-            ))}
+            {msg.toolCalls && msg.toolCalls.length > 0 && (
+              <div style={{ marginTop: msg.text ? 8 : 0, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {msg.toolCalls.map((tc, i) => (
+                  <ToolBadge key={i} name={tc.name} status={tc.status} dark={isUser} />
+                ))}
+              </div>
+            )}
           </div>
         )}
-      </div>
 
-      {/* Blocks render outside the bubble so they can be wider / styled differently */}
-      {msg.blocks?.map((block, i) => (
-        <div key={i} style={{ width: '100%', maxWidth: 640, marginTop: 6 }}>
-          <BlockRenderer block={block} lang={lang} authToken={authToken} />
-        </div>
-      ))}
+        {/* Blocks render outside the bubble so they can be wider / styled differently */}
+        {msg.blocks?.map((block, i) => (
+          <div key={i} style={{ width: '100%', maxWidth: 640 }}>
+            <BlockRenderer block={block} lang={lang} authToken={authToken} />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -644,27 +801,48 @@ function Composer({
     >
       <div style={{ maxWidth: size.content.narrow, margin: '0 auto' }}>
         {attached.length > 0 && (
-          <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div style={{ marginBottom: 10, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
             {attached.map((f, i) => (
               <span
                 key={i}
                 style={{
-                  fontSize: 11,
-                  padding: '3px 8px',
-                  background: tokens.accentMuted,
-                  border: `1px solid ${tokens.accent}40`,
-                  borderRadius: 12,
-                  color: tokens.accentDark,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  padding: '4px 10px',
+                  background: tokens.brandLight,  // violet — file is "AI input"
+                  border: `1px solid ${tokens.brand}33`,
+                  borderRadius: 14,
+                  color: tokens.brand,
+                  fontWeight: 500,
+                  maxWidth: 220,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
                 }}
+                title={f.name}
               >
-                📎 {f.name}
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden>
+                  <path d="M10 2v3a1 1 0 0 0 1 1h3M5 14h6a2 2 0 0 0 2-2V6l-4-4H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
               </span>
             ))}
             <button
               onClick={() => setAttached([])}
-              style={{ fontSize: 11, background: 'none', border: 'none', color: tokens.textTertiary, cursor: 'pointer' }}
+              style={{
+                fontSize: 11,
+                padding: '2px 8px',
+                background: 'none',
+                border: 'none',
+                color: tokens.textTertiary,
+                cursor: 'pointer',
+                fontFamily: 'JetBrains Mono, monospace',
+                letterSpacing: '0.04em',
+              }}
             >
-              {lang === 'zh' ? '清除' : 'Clear'}
+              {lang === 'zh' ? '清除' : 'CLEAR'}
             </button>
           </div>
         )}
@@ -725,24 +903,45 @@ function Composer({
           />
           <button
             onClick={onSend}
-            disabled={streaming}
+            disabled={streaming || !input.trim()}
+            aria-label={lang === 'zh' ? '发送' : 'Send'}
             style={{
-              padding: '10px 20px',
-              background: streaming ? tokens.accentLight : tokens.accent,
-              color: streaming ? tokens.accentDark : '#fff',
+              display: 'grid',
+              placeItems: 'center',
+              width: 38,
+              height: 38,
+              background: (streaming || !input.trim()) ? tokens.surfaceMuted : `linear-gradient(135deg, ${tokens.accent} 0%, ${tokens.accentDark} 100%)`,
+              color: (streaming || !input.trim()) ? tokens.textTertiary : '#fff',
               border: 'none',
               borderRadius: 10,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: streaming ? 'wait' : 'pointer',
-              minHeight: 38,
+              cursor: (streaming || !input.trim()) ? 'default' : 'pointer',
+              transition: 'background 0.15s, color 0.15s',
+              boxShadow: (streaming || !input.trim()) ? 'none' : '0 4px 12px -6px rgba(4, 120, 87, 0.5)',
             }}
           >
-            {streaming ? '…' : lang === 'zh' ? '发送' : 'Send'}
+            {/* Up-arrow send icon — same convention used by ChatGPT / Claude */}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path
+                d="M8 13V3M8 3L3.5 7.5M8 3l4.5 4.5"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
         </div>
-        <div style={{ marginTop: 6, fontSize: 10, color: tokens.textTertiary, textAlign: 'center' }}>
-          Stayloop AI · 决策仍由您批准 · {lang === 'zh' ? 'Enter 发送' : 'Enter to send'}
+        <div
+          style={{
+            marginTop: 8,
+            fontSize: 10.5,
+            color: tokens.textTertiary,
+            textAlign: 'center',
+            fontFamily: 'JetBrains Mono, monospace',
+            letterSpacing: '0.04em',
+          }}
+        >
+          Stayloop AI · {lang === 'zh' ? '决策仍由您批准' : 'You stay in control of decisions'} · {lang === 'zh' ? 'Enter 发送，Shift+Enter 换行' : 'Enter to send, Shift+Enter for newline'}
         </div>
       </div>
     </div>
