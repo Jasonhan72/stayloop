@@ -2170,14 +2170,20 @@ export default function ScreenPage() {
   }
 
   if (authLoading || !landlord) {
+    // Wrap the auth-pending state in PageShell so the AppBar + Sidebar
+    // render normally instead of leaving the page chrome-less. Previously
+    // the bare spinner replaced the entire shell, which is why visitors
+    // landing on /screen saw no header during auth handoff.
     return (
-      <div className="screen-app" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontFamily: "'Inter', sans-serif" }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: '50%', border: '3px solid #E4E8F0', borderTopColor: '#10B981', animation: 'spin 1s linear infinite' }} />
-          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-          <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>Authenticating...</div>
+      <PageShell role="landlord">
+        <div className="screen-app" style={{ minHeight: 'calc(100vh - 56px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontFamily: "'Inter', sans-serif" }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: '50%', border: '3px solid #E4E8F0', borderTopColor: '#10B981', animation: 'spin 1s linear infinite' }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+            <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>Authenticating...</div>
+          </div>
         </div>
-      </div>
+      </PageShell>
     )
   }
 
