@@ -17,6 +17,7 @@ interface Property {
   monthly_rent: number | null
   is_active: boolean
   status: 'draft' | 'active' | string | null
+  slug: string | null
   created_at: string
   topAiScore: number | null
   applicantCount: number
@@ -70,7 +71,7 @@ export default function ListingsPage() {
     const [{ data: listings }, { data: apps }] = await Promise.all([
       supabase
         .from('listings')
-        .select('id, address, unit, monthly_rent, is_active, status, created_at')
+        .select('id, address, unit, monthly_rent, is_active, status, slug, created_at')
         .eq('landlord_id', user.profileId)
         .order('created_at', { ascending: false }),
       supabase
@@ -263,12 +264,45 @@ export default function ListingsPage() {
                       a neutral em-dash until we wire that up. */}
                   <span style={{ fontSize: 11, color: v3.textFaint }}>—</span>
                 </span>
-                <Link
-                  href={`/dashboard/pipeline?listing=${l.id}`}
-                  style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, textDecoration: 'none', justifySelf: 'end' }}
-                >
-                  {isZh ? '管理' : 'Manage'}
-                </Link>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifySelf: 'end' }}>
+                  {!l.is_active && (
+                    <button
+                      onClick={() => publish(l.id)}
+                      disabled={publishingId === l.id}
+                      style={{
+                        background: publishingId === l.id ? v3.surfaceMuted : 'linear-gradient(135deg,#6EE7B7 0%,#34D399 100%)',
+                        color: publishingId === l.id ? v3.textMuted : '#fff',
+                        border: 'none',
+                        borderRadius: 8,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: '5px 10px',
+                        cursor: publishingId === l.id ? 'wait' : 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {publishingId === l.id
+                        ? (isZh ? '发布中…' : 'Publishing…')
+                        : (isZh ? '发布' : 'Publish')}
+                    </button>
+                  )}
+                  {l.is_active && l.slug && (
+                    <Link
+                      href={`/listings/${l.slug}`}
+                      target="_blank"
+                      style={{ color: v3.textSecondary, fontSize: 11, fontWeight: 500, textDecoration: 'none', whiteSpace: 'nowrap' }}
+                      title={isZh ? '在新标签页查看公开页面' : 'Open public page in new tab'}
+                    >
+                      {isZh ? '查看 ↗' : 'View ↗'}
+                    </Link>
+                  )}
+                  <Link
+                    href={`/dashboard/pipeline?listing=${l.id}`}
+                    style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}
+                  >
+                    {isZh ? '管理' : 'Manage'}
+                  </Link>
+                </div>
               </div>
             ))
           )}
