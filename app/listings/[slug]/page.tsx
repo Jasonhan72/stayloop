@@ -18,6 +18,11 @@ import { supabase } from '@/lib/supabase'
 import MarketingNav from '@/components/marketing/MarketingNav'
 import MarketingFooter from '@/components/marketing/MarketingFooter'
 
+// Cloudflare Pages (@cloudflare/next-on-pages) requires every dynamic route
+// to declare the edge runtime. Static-only routes don't need this; routes
+// with [param] segments do.
+export const runtime = 'edge'
+
 interface Listing {
   id: string
   slug: string
