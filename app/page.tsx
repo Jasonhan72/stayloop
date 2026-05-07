@@ -121,6 +121,183 @@ export default function Home() {
         </div>
       </section>
 
+      {/* SCREENING SPOTLIGHT ──────────────────────────────────────────
+          Promoted entry point for the AI Tenant Screening product.
+          Replaces the deleted nav item — landlords/agents arriving on
+          the homepage see the first product surface in one screen. */}
+      <section style={{ padding: '8px 24px 24px' }}>
+        <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
+          <div
+            style={{
+              background: `linear-gradient(180deg, ${v3.brandWash} 0%, ${v3.surfaceCard} 100%)`,
+              border: `1px solid ${v3.brandSoft}`,
+              borderRadius: 18,
+              padding: 'clamp(24px, 3vw, 36px)',
+              display: 'grid',
+              gridTemplateColumns: '1.4fr 1fr',
+              gap: 28,
+              alignItems: 'center',
+            }}
+            className="hp-screening-card"
+          >
+            <div>
+              <span
+                style={{
+                  display: 'inline-block',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: v3.brandStrong,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.12em',
+                  marginBottom: 12,
+                }}
+              >
+                {isZh ? '独立产品 · 即用即跑' : 'Standalone product · Use it today'}
+              </span>
+              <h2
+                style={{
+                  fontSize: 'clamp(24px, 3vw, 32px)',
+                  fontWeight: 700,
+                  letterSpacing: '-0.02em',
+                  margin: '0 0 10px',
+                  lineHeight: 1.15,
+                }}
+              >
+                {isZh ? 'AI 租客筛查' : 'AI Tenant Screening'}
+              </h2>
+              <p
+                style={{
+                  fontSize: 15,
+                  color: v3.textSecondary,
+                  lineHeight: 1.6,
+                  margin: '0 0 16px',
+                  maxWidth: 560,
+                }}
+              >
+                {isZh
+                  ? '上传申请人材料，几分钟拿到结构化筛查报告：收入与就业一致性、文件完整度、风险信号、安省 LTB / 法庭公开记录参考。决策仍由你确认。'
+                  : 'Upload applicant documents and get a structured report in minutes: income & employment consistency, document completeness, risk signals, Ontario LTB / public court record references. The decision still goes through you.'}
+              </p>
+              <ul
+                style={{
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: '0 0 18px',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: '8px 18px',
+                }}
+              >
+                {[
+                  isZh ? '收入 / 雇佣一致性核查' : 'Income & employment consistency',
+                  isZh ? '文件完整度与冲突检测' : 'Document completeness & conflicts',
+                  isZh ? '安省 LTB / 法庭公开记录' : 'Ontario LTB / court record refs',
+                  isZh ? '可下载 PDF · 留痕审计' : 'Downloadable PDF · audit trail',
+                ].map((line) => (
+                  <li key={line} style={{ display: 'flex', gap: 8, fontSize: 13.5, color: v3.textPrimary, lineHeight: 1.5 }}>
+                    <span style={{ color: v3.brand, fontFamily: 'var(--font-mono), monospace', fontWeight: 700, flexShrink: 0 }}>✓</span>
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <Link href="/screen" style={btnPrimary}>
+                  {isZh ? '开始筛查 →' : 'Start a screening →'}
+                </Link>
+                <Link href="/pricing" style={btnGhost}>
+                  {isZh ? '查看价格' : 'See pricing'}
+                </Link>
+              </div>
+              <div
+                style={{
+                  marginTop: 14,
+                  fontSize: 11,
+                  color: v3.textMuted,
+                  fontFamily: 'var(--font-mono), ui-monospace, monospace',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                ◆ {isZh ? '为安省租赁场景设计 · AI 辅助审查 · 决策由房东确认' : 'Built for Ontario rentals · AI-assisted review · Decision stays with the landlord'}
+              </div>
+            </div>
+
+            {/* Mini sample-report preview */}
+            <div
+              style={{
+                background: v3.surfaceCard,
+                border: `1px solid ${v3.border}`,
+                borderRadius: 14,
+                padding: '18px 20px',
+                boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -10px rgba(31,25,11,0.10)',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10.5,
+                  fontFamily: 'var(--font-mono), ui-monospace, monospace',
+                  letterSpacing: '0.10em',
+                  textTransform: 'uppercase',
+                  color: v3.textMuted,
+                  fontWeight: 700,
+                  marginBottom: 12,
+                }}
+              >
+                {isZh ? '筛查报告样例' : 'Sample report'}
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 12,
+                  marginBottom: 14,
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 10.5, color: v3.textMuted, fontFamily: 'var(--font-mono), monospace', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                    {isZh ? '准备度' : 'Readiness'}
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: v3.brand, marginTop: 2 }}>82 / 100</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10.5, color: v3.textMuted, fontFamily: 'var(--font-mono), monospace', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                    {isZh ? '收入 / 租金' : 'Income / rent'}
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: v3.trust, marginTop: 2 }}>3.4×</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12.5, color: v3.textSecondary }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{isZh ? '文件一致性' : 'Document consistency'}</span>
+                  <span style={{ color: v3.success, fontWeight: 600 }}>{isZh ? '✓ 通过' : '✓ Consistent'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{isZh ? '缺失项' : 'Missing items'}</span>
+                  <span style={{ color: v3.warning, fontWeight: 600 }}>1</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{isZh ? '公开记录' : 'Public records'}</span>
+                  <span style={{ color: v3.success, fontWeight: 600 }}>{isZh ? '✓ 无匹配' : '✓ None'}</span>
+                </div>
+              </div>
+              <div
+                style={{
+                  marginTop: 14,
+                  paddingTop: 12,
+                  borderTop: `1px dashed ${v3.borderStrong}`,
+                  fontSize: 11,
+                  color: v3.textMuted,
+                  lineHeight: 1.5,
+                }}
+              >
+                {isZh
+                  ? 'AI 辅助筛查 · 不构成法律意见 · 最终决定由房东作出'
+                  : 'AI-assisted · Not legal advice · Final decision by the landlord'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ROLE CARDS ───────────────────────────────────────────────────── */}
       <section style={{ padding: '24px 24px 8px' }}>
         <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
@@ -413,6 +590,10 @@ export default function Home() {
       <MarketingFooter />
       <style jsx>{`
         @media (max-width: 860px) {
+          :global(.hp-screening-card) {
+            grid-template-columns: 1fr !important;
+            gap: 18px !important;
+          }
           :global(.hp-role-cards) {
             grid-template-columns: 1fr !important;
           }
