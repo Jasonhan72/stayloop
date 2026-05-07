@@ -239,6 +239,7 @@ function ListingCard({ listing, isZh }: { listing: Listing; isZh: boolean }) {
   const title = listing.title || `${listing.address}${listing.unit ? ` · ${listing.unit}` : ''}`
   const beds = listing.bedrooms == null ? null : listing.bedrooms === 0 ? (isZh ? '开间' : 'Studio') : `${listing.bedrooms} ${isZh ? '卧' : 'bd'}`
   const baths = listing.bathrooms == null ? null : `${listing.bathrooms} ${isZh ? '卫' : 'ba'}`
+  const cityProv = [listing.city].filter(Boolean).join('')
 
   return (
     <Link
@@ -266,50 +267,138 @@ function ListingCard({ listing, isZh }: { listing: Listing; isZh: boolean }) {
         e.currentTarget.style.boxShadow = '0 1px 2px rgba(15, 23, 42, 0.04)'
       }}
     >
-      {/* Image placeholder — real photos can land here later */}
+      {/* Photo area with overlay chips — StreetEasy-style */}
       <div
         style={{
-          height: 140,
+          position: 'relative',
+          height: 196,
           background: `linear-gradient(135deg, ${v3.surfaceMuted} 0%, ${v3.brandWash} 100%)`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: v3.textFaint,
-          fontSize: 36,
+          fontSize: 56,
         }}
       >
         🏙
+        {/* "Featured" chip — Stayloop-published listings get the brand badge */}
+        <span
+          style={{
+            position: 'absolute',
+            top: 10,
+            left: 10,
+            fontSize: 9.5,
+            fontFamily: 'JetBrains Mono, monospace',
+            fontWeight: 700,
+            letterSpacing: '0.10em',
+            textTransform: 'uppercase',
+            background: 'rgba(15, 23, 42, 0.85)',
+            color: '#fff',
+            padding: '4px 8px',
+            borderRadius: 4,
+          }}
+        >
+          STAYLOOP
+        </span>
+        {/* Save heart placeholder */}
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: 10,
+            right: 10,
+            width: 30,
+            height: 30,
+            background: 'rgba(255,255,255,0.92)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: v3.brand,
+            fontSize: 13,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+          }}
+        >
+          ♡
+        </span>
       </div>
 
-      <div style={{ padding: '14px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, justifyContent: 'space-between', marginBottom: 4 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: v3.textPrimary, letterSpacing: '-0.01em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {title}
+      <div style={{ padding: '14px 16px 16px' }}>
+        {/* Price — anchored at top, large and brand-colored */}
+        {listing.monthly_rent != null && listing.monthly_rent > 0 ? (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
+            <span style={{ fontSize: 22, fontWeight: 800, color: v3.textPrimary, letterSpacing: '-0.02em' }}>
+              ${listing.monthly_rent.toLocaleString()}
+            </span>
+            <span style={{ fontSize: 12, color: v3.textMuted, fontWeight: 500 }}>
+              {isZh ? '基础月租' : 'base rent'}
+            </span>
           </div>
-        </div>
-        {listing.city && (
-          <div style={{ fontSize: 12, color: v3.textMuted, marginBottom: 8 }}>
-            {listing.city}
+        ) : (
+          <div style={{ fontSize: 14, fontWeight: 700, color: v3.textMuted, marginBottom: 6 }}>
+            {isZh ? '租金面议' : 'Contact for rent'}
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
-          {listing.monthly_rent != null && listing.monthly_rent > 0 && (
-            <span style={{ fontSize: 18, fontWeight: 700, color: v3.brand, letterSpacing: '-0.01em' }}>
-              ${listing.monthly_rent.toLocaleString()}
-              <span style={{ fontSize: 11, color: v3.textMuted, fontWeight: 500, marginLeft: 2 }}>
-                {isZh ? '/月' : '/mo'}
-              </span>
-            </span>
-          )}
+
+        {/* Address */}
+        <div
+          style={{
+            fontSize: 13.5,
+            fontWeight: 600,
+            color: v3.brand,
+            letterSpacing: '-0.005em',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+          title={title}
+        >
+          {title}
         </div>
+        {cityProv && (
+          <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 2 }}>
+            {cityProv}
+          </div>
+        )}
+
+        {/* Bed / bath / available row — StreetEasy-style separator dots */}
         {(beds || baths || listing.available_date) && (
-          <div style={{ display: 'flex', gap: 10, marginTop: 8, fontSize: 11.5, color: v3.textSecondary, fontFamily: 'JetBrains Mono, monospace' }}>
-            {beds && <span>◇ {beds}</span>}
-            {baths && <span>◇ {baths}</span>}
-            {listing.available_date && (
-              <span>
-                ◇ {new Date(listing.available_date).toLocaleDateString(isZh ? 'zh-CN' : 'en-CA', { month: 'short', day: 'numeric' })}
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              alignItems: 'center',
+              marginTop: 10,
+              paddingTop: 10,
+              borderTop: `1px solid ${v3.divider}`,
+              fontSize: 12,
+              color: v3.textSecondary,
+              flexWrap: 'wrap',
+            }}
+          >
+            {beds && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <span aria-hidden style={{ color: v3.textFaint }}>🛏</span>
+                <span>{beds}</span>
               </span>
+            )}
+            {baths && (
+              <>
+                <span aria-hidden style={{ color: v3.textFaint }}>·</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span aria-hidden style={{ color: v3.textFaint }}>🛁</span>
+                  <span>{baths}</span>
+                </span>
+              </>
+            )}
+            {listing.available_date && (
+              <>
+                <span aria-hidden style={{ color: v3.textFaint }}>·</span>
+                <span style={{ color: v3.textMuted }}>
+                  {isZh ? '入住 ' : 'Avail '}
+                  {new Date(listing.available_date).toLocaleDateString(isZh ? 'zh-CN' : 'en-CA', { month: 'short', day: 'numeric' })}
+                </span>
+              </>
             )}
           </div>
         )}

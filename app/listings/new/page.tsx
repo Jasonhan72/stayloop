@@ -317,26 +317,101 @@ export default function NewListingPage() {
     }
   }
 
-  // Flip the saved draft to active. Uses the user's own Supabase session so
-  // landlord RLS policies gate the write to their own listings.id.
-  async function publishListing() {
-    if (!savedListingId || publishing) return
+  // Persist the current Nova-extracted draft directly from the UI.
+  // Doesn't require the Nova agent to call save_listing — the user can
+  // click [Save draft] / [Publish] as soon as they see the draft preview.
+  // RLS gates the write to the user's own landlord row.
+  //
+  // `intent` controls the final status:
+  //   'draft'  → saved, not visible publicly
+  //   'active' → saved + published, visible at /listings/[slug]
+  async function persistDraft(intent: 'draft' | 'active') {
+    if (!draft || publishing) return
     setPublishing(true)
     try {
-      const { error } = await supabase
-        .from('listings')
-        .update({ status: 'active', is_active: true })
-        .eq('id', savedListingId)
-      if (error) {
-        alert(
-          (lang === 'zh' ? '发布失败：' : 'Publish failed: ') + error.message,
-        )
+      // Already saved → just flip status (existing publish path).
+      if (savedListingId) {
+        const { error } = await supabase
+          .from('listings')
+          .update({ status: intent, is_active: intent === 'active' })
+          .eq('id', savedListingId)
+        if (error) {
+          alert((lang === 'zh' ? '保存失败：' : 'Save failed: ') + error.message)
+          return
+        }
+        setListingStatus(intent)
         return
       }
-      setListingStatus('active')
+
+      // First-time save: resolve the landlord row, generate a slug,
+      // then insert a fresh listings row.
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) {
+        alert(lang === 'zh' ? '请先登录' : 'Please sign in first')
+        return
+      }
+      const { data: landlord } = await supabase
+        .from('landlords')
+        .select('id')
+        .eq('auth_id', authUser.id)
+        .maybeSingle()
+      if (!landlord) {
+        alert(lang === 'zh' ? '当前账号还不是房东资料' : 'No landlord profile on this account')
+        return
+      }
+
+      const slug = generateClientSlug(draft)
+      const row = {
+        landlord_id: landlord.id,
+        title: draft.title_zh || draft.title_en || (lang === 'zh' ? '未命名房源' : 'Untitled listing'),
+        description: draft.description_zh || draft.description_en || '',
+        address: draft.address || (lang === 'zh' ? '草稿地址待填写' : 'Untitled draft'),
+        city: draft.city || 'Toronto',
+        province: draft.province || 'ON',
+        postal_code: draft.postal_code || null,
+        monthly_rent: draft.monthly_rent ?? 0,
+        bedrooms: draft.bedrooms ?? null,
+        bathrooms: draft.bathrooms ?? null,
+        slug,
+        status: intent,
+        is_active: intent === 'active',
+      }
+
+      const { data, error } = await supabase
+        .from('listings')
+        .insert(row)
+        .select('id')
+        .single()
+      if (error || !data) {
+        alert((lang === 'zh' ? '保存失败：' : 'Save failed: ') + (error?.message || 'unknown'))
+        return
+      }
+      setSavedListingId(data.id)
+      setListingStatus(intent)
     } finally {
       setPublishing(false)
     }
+  }
+
+  // Legacy entry point kept for the existing onPublish prop signature.
+  async function publishListing() {
+    await persistDraft('active')
+  }
+
+  // Build a URL-safe unique slug from the current draft. Mirrors the
+  // server-side generator in lib/agent/tools/save-listing.ts.
+  function generateClientSlug(d: ListingDraft): string {
+    const base = (d.address || '') + (d.city ? ` ${d.city}` : '')
+    const cleaned = base
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[^\x00-\x7F]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60)
+    const suffix = Math.random().toString(36).slice(2, 7)
+    if (!cleaned) return `draft-${Date.now()}-${suffix}`
+    return `${cleaned}-${suffix}`
   }
 
   return (
@@ -478,7 +553,7 @@ export default function NewListingPage() {
             savedListingId={savedListingId}
             listingStatus={listingStatus}
             publishing={publishing}
-            onPublish={publishListing}
+            onPublish={persistDraft}
             complianceStatus={complianceStatus}
             complianceWarnings={complianceWarnings}
           />
@@ -692,7 +767,7 @@ function DraftPreview({
   savedListingId: string | null
   listingStatus: 'draft' | 'active'
   publishing: boolean
-  onPublish: () => void
+  onPublish: (intent: 'draft' | 'active') => void
   complianceStatus: 'unchecked' | 'passed' | 'warnings'
   complianceWarnings: ComplianceWarning[]
 }) {
@@ -797,13 +872,17 @@ function DraftPreview({
         </div>
       )}
 
-      {/* ─── Publish action ─────────────────────────────────────────────
-          Once Nova has saved the draft (savedListingId set), the user can
-          flip status: 'draft' → 'active' to make it live. Same soft-mint
-          gradient as the rest of the app's primary CTAs. */}
-      {savedListingId && (
+      {/* ─── Save / publish actions ───────────────────────────────────
+          Surfaces immediately when a draft exists — no need to wait for
+          Nova's chat-driven save_listing tool. Two states:
+            (a) not saved yet     → [Save draft] [Save & Publish]
+            (b) saved as draft    → [Publish now] + secondary 'Save edits'
+            (c) live (active)     → success row with link to portfolio   */}
+      {(draft && (listingStatus === 'active'
+        ? true
+        : true)) && (
         <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${tokens.borderSubtle}` }}>
-          {listingStatus === 'active' ? (
+          {listingStatus === 'active' && savedListingId ? (
             <div
               style={{
                 display: 'flex',
@@ -817,54 +896,95 @@ function DraftPreview({
                 fontSize: 13,
                 color: '#047857',
                 fontWeight: 600,
+                flexWrap: 'wrap',
               }}
             >
-              <span>
-                ✓ {lang === 'zh' ? '已上线' : 'Published & live'}
-              </span>
-              <a
-                href="/dashboard/portfolio"
-                style={{
-                  fontSize: 12,
-                  color: '#047857',
-                  textDecoration: 'underline',
-                  fontWeight: 500,
-                }}
-              >
-                {lang === 'zh' ? '查看全部 →' : 'View all →'}
-              </a>
+              <span>✓ {lang === 'zh' ? '已上线' : 'Published & live'}</span>
+              <div style={{ display: 'flex', gap: 14 }}>
+                <a
+                  href={`/listings`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    fontSize: 12,
+                    color: '#047857',
+                    textDecoration: 'underline',
+                    fontWeight: 500,
+                  }}
+                >
+                  {lang === 'zh' ? '查看公开页 ↗' : 'View public ↗'}
+                </a>
+                <a
+                  href="/dashboard/portfolio"
+                  style={{
+                    fontSize: 12,
+                    color: '#047857',
+                    textDecoration: 'underline',
+                    fontWeight: 500,
+                  }}
+                >
+                  {lang === 'zh' ? '管理全部 →' : 'Manage all →'}
+                </a>
+              </div>
             </div>
           ) : (
-            <button
-              onClick={onPublish}
-              disabled={publishing}
-              style={{
-                width: '100%',
-                padding: '12px 18px',
-                fontSize: 14,
-                fontWeight: 650,
-                borderRadius: 10,
-                border: 'none',
-                color: '#FFFFFF',
-                background: publishing
-                  ? '#C5BDAA'
-                  : 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
-                boxShadow: publishing
-                  ? 'none'
-                  : '0 8px 22px -10px rgba(52, 211, 153, 0.45), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
-                cursor: publishing ? 'wait' : 'pointer',
-                transition: 'background .15s, box-shadow .15s',
-              }}
-            >
-              {publishing
-                ? (lang === 'zh' ? '正在发布…' : 'Publishing…')
-                : (lang === 'zh' ? '✦ 发布上线' : '✦ Publish listing')}
-            </button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 10 }}>
+              <button
+                onClick={() => onPublish('draft')}
+                disabled={publishing}
+                style={{
+                  padding: '11px 16px',
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  borderRadius: 10,
+                  border: `1px solid ${tokens.borderStrong}`,
+                  background: tokens.surface,
+                  color: tokens.textPrimary,
+                  cursor: publishing ? 'wait' : 'pointer',
+                  opacity: publishing ? 0.65 : 1,
+                  transition: 'opacity .15s',
+                }}
+              >
+                {savedListingId
+                  ? (lang === 'zh' ? '保存修改' : 'Save edits')
+                  : (lang === 'zh' ? '保存为草稿' : 'Save as draft')}
+              </button>
+              <button
+                onClick={() => onPublish('active')}
+                disabled={publishing}
+                style={{
+                  padding: '11px 18px',
+                  fontSize: 14,
+                  fontWeight: 650,
+                  borderRadius: 10,
+                  border: 'none',
+                  color: '#FFFFFF',
+                  background: publishing
+                    ? '#C5BDAA'
+                    : 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+                  boxShadow: publishing
+                    ? 'none'
+                    : '0 8px 22px -10px rgba(52, 211, 153, 0.45), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
+                  cursor: publishing ? 'wait' : 'pointer',
+                  transition: 'background .15s, box-shadow .15s',
+                }}
+              >
+                {publishing
+                  ? (lang === 'zh' ? '处理中…' : 'Working…')
+                  : savedListingId
+                    ? (lang === 'zh' ? '✦ 立即发布' : '✦ Publish now')
+                    : (lang === 'zh' ? '✦ 保存并发布' : '✦ Save & publish')}
+              </button>
+            </div>
           )}
-          <div style={{ fontSize: 11, color: tokens.textTertiary, marginTop: 8, lineHeight: 1.5 }}>
-            {lang === 'zh'
-              ? '草稿已自动保存。点击发布后，租客可以在筛选页搜到这套房源。'
-              : 'Draft auto-saved. Once published, tenants can discover this listing in search.'}
+          <div style={{ fontSize: 11, color: tokens.textTertiary, marginTop: 10, lineHeight: 1.5 }}>
+            {savedListingId
+              ? (lang === 'zh'
+                  ? '草稿已保存。发布后，租客可以在 /listings 搜到这套房源。'
+                  : 'Draft saved. Publishing makes this listing discoverable on /listings.')
+              : (lang === 'zh'
+                  ? '"保存为草稿" 仅你能看到。"保存并发布" 立刻让租客能在 /listings 找到。'
+                  : '"Save as draft" keeps it private. "Save & publish" makes it discoverable on /listings right away.')}
           </div>
         </div>
       )}
