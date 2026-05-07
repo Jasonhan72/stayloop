@@ -574,7 +574,8 @@ export default function TenantDashboardPage() {
                   </div>
                 ))}
               </div>
-              <button
+              <Link
+                href="/chat"
                 style={{
                   marginTop: 12,
                   display: 'inline-flex',
@@ -589,10 +590,11 @@ export default function TenantDashboardPage() {
                   fontSize: 13,
                   fontWeight: 600,
                   cursor: 'pointer',
+                  textDecoration: 'none',
                 }}
               >
                 {isZh ? '打开 Stayloop AI' : 'Open Stayloop AI'}
-              </button>
+              </Link>
             </div>
 
             {/* Recent activity */}

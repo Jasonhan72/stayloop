@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT } from '@/lib/i18n'
@@ -175,9 +176,9 @@ export default function AgentDashboardPage() {
                 </div>
               ))}
             </div>
-            <button style={{ width: '100%', marginTop: 12, padding: '10px 16px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            <Link href="/chat" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: 12, padding: '10px 16px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>
               {isZh ? '打开 Stayloop AI' : 'Open Stayloop AI'}
-            </button>
+            </Link>
           </div>
         </div>
       </div>

@@ -190,9 +190,9 @@ export default function Dashboard() {
                   {isZh ? 'AI 排序' : 'AI-prioritized'}
                 </span>
                 <div style={{ flex: 1 }} />
-                <button style={{ background: 'none', border: 'none', color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                <Link href="/dashboard/pipeline" style={{ color: v3.brand, fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>
                   {isZh ? '打开队列 →' : 'Open queue →'}
-                </button>
+                </Link>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }} className="db-pipeline-stages">
                 {[
@@ -298,9 +298,9 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-              <button style={{ width: '100%', marginTop: 12, padding: '11px 20px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              <Link href="/chat" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: 12, padding: '11px 20px', background: v3.surfaceCard, color: v3.textPrimary, border: `1px solid ${v3.borderStrong}`, borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>
                 {isZh ? '打开 Stayloop AI' : 'Open Stayloop AI'}
-              </button>
+              </Link>
             </div>
 
             {/* Stats card */}
