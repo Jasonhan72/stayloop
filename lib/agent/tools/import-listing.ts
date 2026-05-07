@@ -209,100 +209,144 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
 // runs on top is robust to either markdown or stripped HTML.
 // -----------------------------------------------------------------------------
 
-interface UrlFetchOk { ok: true; body: string; via: 'jina' | 'html' | 'json-ld' }
+interface UrlFetchOk { ok: true; body: string; via: 'jina' | 'jina-r' | 'html' | 'json-ld' | 'allorigins' | 'cors-anywhere' | 'web-archive' }
 interface UrlFetchErr { ok: false; error: string }
 
+const FETCH_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-CA,en;q=0.9,zh;q=0.8',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+  'Sec-Ch-Ua': '"Chromium";v="124", "Not-A.Brand";v="99"',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Upgrade-Insecure-Requests': '1',
+}
+
+/**
+ * Multi-strategy URL reader. Each strategy is tried in turn; first one to
+ * return enough content wins. Strategies, ordered by reliability for the
+ * Realtor.ca / Kijiji / StreetEasy class of sites:
+ *
+ *   1. r.jina.ai             — free reader proxy, clean markdown, bypasses
+ *                               most anti-bot. Often the best result.
+ *   2. r.jina.ai (no scheme)  — Jina also accepts URL with the scheme stripped;
+ *                               sometimes works when (1) returns a captcha shell.
+ *   3. Direct fetch           — full browser headers, then prefer JSON-LD /
+ *                               __NEXT_DATA__ extraction over visible HTML.
+ *   4. allorigins.win         — public CORS-relay; returns raw page HTML.
+ *   5. corsproxy.io           — same idea, different provider.
+ *   6. web.archive.org/web    — last-resort: most listings get archived; even
+ *                               an old snapshot is enough for the extractor.
+ *
+ * Each strategy validates the response (length / not-an-interstitial) before
+ * declaring success.
+ */
 async function fetchUrlContent(url: string): Promise<UrlFetchOk | UrlFetchErr> {
-  // 1. Try r.jina.ai (clean markdown, bypasses anti-bot)
-  try {
-    const jinaUrl = `https://r.jina.ai/${url}`
-    const res = await fetch(jinaUrl, {
-      headers: {
-        // Jina honours the X-Return-Format header to produce clean markdown
-        'X-Return-Format': 'markdown',
-        Accept: 'text/markdown, text/plain, */*',
-      },
-      signal: AbortSignal.timeout(20000),
-    })
-    if (res.ok) {
-      const md = await res.text()
-      // Guard: Jina occasionally returns 200 with an HTML "Reader is loading"
-      // / "Access denied" interstitial instead of markdown. Treat any
-      // response that opens with HTML or doesn't have plausible markdown
-      // length/shape as a soft failure and fall through to direct fetch.
-      const looksLikeHtml = /^\s*<(\!doctype|html|head|body)\b/i.test(md)
-      const looksLikeMarkdown = /[\n#*\-]/.test(md) // line breaks / md tokens
-      if (md && md.length > 200 && !looksLikeHtml && looksLikeMarkdown) {
-        return { ok: true, body: md.slice(0, 30_000), via: 'jina' }
-      }
+  const tries: Array<{ name: UrlFetchOk['via']; run: () => Promise<UrlFetchOk | UrlFetchErr> }> = [
+    { name: 'jina', run: () => tryJina(`https://r.jina.ai/${url}`, 'markdown') },
+    { name: 'jina-r', run: () => tryJina(`https://r.jina.ai/${url.replace(/^https?:\/\//, '')}`, 'markdown') },
+    { name: 'html', run: () => tryDirect(url) },
+    { name: 'allorigins', run: () => tryProxy(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, 'allorigins') },
+    { name: 'cors-anywhere', run: () => tryProxy(`https://corsproxy.io/?${encodeURIComponent(url)}`, 'cors-anywhere') },
+    { name: 'web-archive', run: () => tryArchive(url) },
+  ]
+
+  const errors: string[] = []
+  for (const { name, run } of tries) {
+    try {
+      const out = await run()
+      if (out.ok) return out
+      errors.push(`${name}=${out.error}`)
+    } catch (e: any) {
+      errors.push(`${name}=${(e?.message || 'failed').slice(0, 60)}`)
     }
-  } catch {
-    // fall through
   }
+  return { ok: false, error: `all_strategies_failed (${errors.join(', ').slice(0, 200)})` }
+}
 
-  // 2. Direct fetch with browser-like headers, prefer JSON-LD
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-CA,en;q=0.9,zh;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'no-cache',
-        'Sec-Ch-Ua': '"Chromium";v="124", "Not-A.Brand";v="99"',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Upgrade-Insecure-Requests': '1',
-      },
-      signal: AbortSignal.timeout(15000),
-    })
-    if (!res.ok) {
-      return { ok: false, error: `fetch_${res.status}` }
-    }
-    const html = await res.text()
-
-    // Try to pull all JSON-LD blocks first — Realtor.ca and most listing sites
-    // embed structured RealEstateListing / Product schema there.
-    const jsonLdBlocks: string[] = []
-    const jsonLdRe = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
-    let m: RegExpExecArray | null
-    while ((m = jsonLdRe.exec(html)) !== null && jsonLdBlocks.length < 10) {
-      jsonLdBlocks.push(m[1].trim())
-    }
-
-    // Also try Next.js __NEXT_DATA__ which carries the rendered server props
-    const nextDataMatch = html.match(
-      /<script[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i,
-    )
-
-    const cleaned = html
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
-      .replace(/\s+/g, ' ')
-      .slice(0, 20_000)
-
-    // If we got structured data, prefer it — much higher signal-to-noise
-    // ratio for the AI extractor than minified HTML.
-    if (jsonLdBlocks.length > 0) {
-      let body = `JSON-LD blocks:\n${jsonLdBlocks.join('\n---\n').slice(0, 18_000)}`
-      if (nextDataMatch) body += `\n\n__NEXT_DATA__:\n${nextDataMatch[1].slice(0, 6_000)}`
-      body += `\n\nVisible HTML (stripped):\n${cleaned.slice(0, 8_000)}`
-      return { ok: true, body, via: 'json-ld' }
-    }
-    // Guard: SPA shells / blocked pages can return a near-empty body once
-    // scripts and styles are stripped. If there's almost nothing useful to
-    // hand the extractor, surface a clear error to Nova instead of letting
-    // Haiku silently produce a null-filled listing.
-    if (cleaned.length < 200) {
-      return { ok: false, error: 'fetch_no_content' }
-    }
-    return { ok: true, body: cleaned, via: 'html' }
-  } catch (e: any) {
-    return { ok: false, error: e?.message?.slice(0, 100) || 'fetch_failed' }
+async function tryJina(jinaUrl: string, format: 'markdown'): Promise<UrlFetchOk | UrlFetchErr> {
+  const res = await fetch(jinaUrl, {
+    headers: { 'X-Return-Format': format, Accept: 'text/markdown, text/plain, */*' },
+    signal: AbortSignal.timeout(20000),
+  })
+  if (!res.ok) return { ok: false, error: `jina_${res.status}` }
+  const md = await res.text()
+  // Reject HTML interstitials and obvious captcha shells.
+  const looksLikeHtml = /^\s*<(\!doctype|html|head|body)\b/i.test(md)
+  const captchaHint = /captcha|cf-browser-verification|access denied|are you a robot/i.test(md.slice(0, 2000))
+  const looksLikeMarkdown = /[\n#*\-]/.test(md)
+  if (md.length > 200 && !looksLikeHtml && !captchaHint && looksLikeMarkdown) {
+    return { ok: true, body: md.slice(0, 30_000), via: jinaUrl.includes('://r.jina.ai/http') ? 'jina' : 'jina-r' }
   }
+  return { ok: false, error: `jina_unparseable_${md.length}` }
+}
+
+async function tryDirect(url: string): Promise<UrlFetchOk | UrlFetchErr> {
+  const res = await fetch(url, { headers: FETCH_HEADERS, signal: AbortSignal.timeout(15000) })
+  if (!res.ok) return { ok: false, error: `fetch_${res.status}` }
+  return parseHtmlPayload(await res.text(), 'html')
+}
+
+async function tryProxy(proxyUrl: string, via: 'allorigins' | 'cors-anywhere'): Promise<UrlFetchOk | UrlFetchErr> {
+  const res = await fetch(proxyUrl, {
+    headers: { Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' },
+    signal: AbortSignal.timeout(20000),
+  })
+  if (!res.ok) return { ok: false, error: `${via}_${res.status}` }
+  return parseHtmlPayload(await res.text(), via)
+}
+
+async function tryArchive(url: string): Promise<UrlFetchOk | UrlFetchErr> {
+  // Resolve to the latest snapshot via the Wayback Machine availability API.
+  const availRes = await fetch(
+    `https://archive.org/wayback/available?url=${encodeURIComponent(url)}`,
+    { signal: AbortSignal.timeout(8000) },
+  )
+  if (!availRes.ok) return { ok: false, error: `archive_avail_${availRes.status}` }
+  const data: any = await availRes.json().catch(() => null)
+  const snap = data?.archived_snapshots?.closest
+  if (!snap?.url || snap.status !== '200') return { ok: false, error: 'archive_no_snapshot' }
+  // Wayback URLs serve the original HTML almost as-is — go through tryDirect logic.
+  const res = await fetch(snap.url, { headers: FETCH_HEADERS, signal: AbortSignal.timeout(15000) })
+  if (!res.ok) return { ok: false, error: `archive_fetch_${res.status}` }
+  return parseHtmlPayload(await res.text(), 'web-archive')
+}
+
+function parseHtmlPayload(html: string, via: UrlFetchOk['via']): UrlFetchOk | UrlFetchErr {
+  // Try to pull all JSON-LD blocks first — Realtor.ca and most listing sites
+  // embed structured RealEstateListing / Product schema there.
+  const jsonLdBlocks: string[] = []
+  const jsonLdRe = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  let m: RegExpExecArray | null
+  while ((m = jsonLdRe.exec(html)) !== null && jsonLdBlocks.length < 10) {
+    jsonLdBlocks.push(m[1].trim())
+  }
+  const nextDataMatch = html.match(
+    /<script[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i,
+  )
+  const cleaned = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
+    .replace(/\s+/g, ' ')
+    .slice(0, 20_000)
+
+  if (jsonLdBlocks.length > 0) {
+    let body = `JSON-LD blocks:\n${jsonLdBlocks.join('\n---\n').slice(0, 18_000)}`
+    if (nextDataMatch) body += `\n\n__NEXT_DATA__:\n${nextDataMatch[1].slice(0, 6_000)}`
+    body += `\n\nVisible HTML (stripped):\n${cleaned.slice(0, 8_000)}`
+    return { ok: true, body, via: 'json-ld' }
+  }
+  // Surface a captcha-flavoured failure clearly so we can fall through.
+  if (/captcha|cloudflare|access denied|browser verification/i.test(cleaned.slice(0, 2000))) {
+    return { ok: false, error: `${via}_captcha` }
+  }
+  if (cleaned.length < 200) return { ok: false, error: `${via}_no_content` }
+  return { ok: true, body: cleaned, via }
 }
 
 function emptyListing(): ImportOutput['listing'] {
