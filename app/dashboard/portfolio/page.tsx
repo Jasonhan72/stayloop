@@ -7,6 +7,7 @@ import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
+import { pickHeroImage } from '@/lib/listing-images'
 import PageShell from '@/components/v4/PageShell'
 import SecHead from '@/components/v4/SecHead'
 
@@ -281,18 +282,7 @@ export default function ListingsPage() {
                 }}
               >
                 {(() => {
-                  // Pick the first usable https photo URL — drop tracking-pixel
-                  // junk and old example.com placeholders that snuck in earlier.
-                  const heroImage = (() => {
-                    if (!Array.isArray(l.images)) return null
-                    for (const u of l.images) {
-                      if (typeof u !== 'string') continue
-                      if (!/^https:\/\//i.test(u)) continue
-                      if (/example\.com|placeholder|via\.placeholder/i.test(u)) continue
-                      return u
-                    }
-                    return null
-                  })()
+                  const heroImage = pickHeroImage(l.images)
                   return (
                     <div
                       style={{

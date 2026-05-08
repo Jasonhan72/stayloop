@@ -450,6 +450,13 @@ async function tryJina(jinaUrl: string, format: 'markdown'): Promise<UrlFetchOk 
     ''
   if (jinaKey) {
     headers['Authorization'] = `Bearer ${jinaKey}`
+  } else {
+    // Diagnostic: if the env var didn't load (Pages secret typo, deploy
+    // not picked up, etc.), unauthenticated jina runs into IP rate limits
+    // immediately on Cloudflare Worker datacenter IPs. Surface it once
+    // per request so failures show up in CF Pages function logs without
+    // having to dig through Sentry.
+    console.warn('[import_listing] JINA_API_KEY missing, using unauthenticated jina')
   }
 
   const res = await fetch(jinaUrl, {
@@ -948,26 +955,57 @@ export function mergeRealtorIntoListing(
   det: RealtorExtract,
 ): ImportOutput['listing'] {
   const merged: ImportOutput['listing'] = { ...haiku }
-  const winIfHas = <K extends keyof RealtorExtract & keyof ImportOutput['listing']>(k: K) => {
+
+  // Strong-override fields: deterministic regex is more reliable than
+  // Haiku's free-text reading for these. Override even if Haiku produced
+  // a value (Haiku occasionally hallucinates MLS numbers / postal codes,
+  // and our regex pulls them from the canonical realtor.ca H1 line).
+  const winAlways = <K extends keyof RealtorExtract & keyof ImportOutput['listing']>(k: K) => {
     const v = det[k]
     if (v !== null && v !== undefined && v !== '' && (typeof v !== 'number' || !Number.isNaN(v))) {
       ;(merged[k] as any) = v
     }
   }
-  winIfHas('address')
-  winIfHas('city')
-  winIfHas('province')
-  winIfHas('postal_code')
-  winIfHas('monthly_rent')
-  winIfHas('bedrooms')
-  winIfHas('bathrooms')
-  winIfHas('sqft')
-  winIfHas('parking')
-  winIfHas('mls_number')
-  winIfHas('year_built')
-  winIfHas('broker_name')
-  winIfHas('broker_phone')
-  winIfHas('brokerage')
+
+  // Soft-override fields: only fill in when Haiku missed it. Two reasons:
+  // (1) For numeric counts (beds/baths), our regex's "studio → 0" heuristic
+  //     could wrongly clobber a Haiku-extracted real bedroom count of 1+.
+  // (2) For monthly_rent, defensive against any future regex change that
+  //     could produce a degenerate 0 — Haiku's value wins ties.
+  // We only write when Haiku has null/0 (treated as "not extracted").
+  const winIfHaikuMissed = <K extends keyof RealtorExtract & keyof ImportOutput['listing']>(k: K) => {
+    const detV = det[k]
+    const haikuV = haiku[k]
+    if (detV === null || detV === undefined || detV === '') return
+    if (haikuV === null || haikuV === undefined || haikuV === '') {
+      ;(merged[k] as any) = detV
+      return
+    }
+    // Haiku has a value — only override if it's a degenerate zero
+    // (Haiku occasionally returns 0 for "unknown" instead of null).
+    if (typeof haikuV === 'number' && haikuV === 0 && typeof detV === 'number' && detV > 0) {
+      ;(merged[k] as any) = detV
+    }
+  }
+
+  // Address / postal / MLS — strong override (regex H1 is canonical)
+  winAlways('postal_code')
+  winAlways('mls_number')
+  // City / province / address — strong override (canonical H1 parse)
+  winAlways('address')
+  winAlways('city')
+  winAlways('province')
+  // Numeric facts — soft override (Haiku usually right, regex backfills)
+  winIfHaikuMissed('monthly_rent')
+  winIfHaikuMissed('bedrooms')
+  winIfHaikuMissed('bathrooms')
+  winIfHaikuMissed('sqft')
+  winIfHaikuMissed('year_built')
+  // Misc strings — soft override
+  winIfHaikuMissed('parking')
+  winIfHaikuMissed('broker_name')
+  winIfHaikuMissed('broker_phone')
+  winIfHaikuMissed('brokerage')
 
   // Images: deterministic-first merge, dedupe.
   const seen = new Set<string>()
