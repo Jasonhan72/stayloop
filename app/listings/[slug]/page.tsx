@@ -545,49 +545,82 @@ export default function ListingDetailPage() {
         </div>
       </section>
 
-      {/* Map placeholder */}
+      {/* Embedded Google Map. We use the keyless `maps.google.com?output=embed`
+          URL so we don't need a Google Maps Platform API key — the iframe
+          renders the same default map UI you'd see on google.com/maps.
+          The address-footer below the map keeps the "Open in Google Maps"
+          deep-link CTA for users who want directions / Streetview. */}
       <section style={{ padding: '0 24px 56px' }}>
         <div style={{ maxWidth: size.content.wide, margin: '0 auto' }}>
           <Section title={isZh ? '位置' : 'Location'}>
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${listing.address} ${listing.city || ''}`)}`}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                display: 'block',
-                height: 260,
-                background: `linear-gradient(135deg, ${v3.surfaceMuted} 0%, ${v3.brandWash} 100%)`,
-                border: `1px solid ${v3.border}`,
-                borderRadius: 14,
-                position: 'relative',
-                textDecoration: 'none',
-                color: v3.textSecondary,
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexDirection: 'column',
-                  gap: 8,
-                }}
-              >
-                <div style={{ fontSize: 32 }}>◌</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: v3.textPrimary }}>
-                  {listing.address}{listing.unit ? `, ${listing.unit}` : ''}
+            {(() => {
+              const addressLine = [
+                listing.address,
+                listing.unit ? `Unit ${listing.unit}` : null,
+                listing.city,
+                listing.province,
+                listing.postal_code,
+              ]
+                .filter(Boolean)
+                .join(', ')
+              const embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(addressLine)}&hl=${isZh ? 'zh-CN' : 'en'}&z=16&output=embed`
+              const openUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressLine)}`
+              return (
+                <div
+                  style={{
+                    border: `1px solid ${v3.border}`,
+                    borderRadius: 14,
+                    overflow: 'hidden',
+                    background: '#FFFFFF',
+                  }}
+                >
+                  <iframe
+                    title={isZh ? '房源地图' : 'Listing map'}
+                    src={embedUrl}
+                    width="100%"
+                    height={360}
+                    style={{ border: 0, display: 'block' }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    allowFullScreen
+                  />
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      padding: '12px 16px',
+                      borderTop: `1px solid ${v3.divider}`,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: v3.textPrimary }}>
+                        {listing.address}{listing.unit ? `, ${listing.unit}` : ''}
+                      </div>
+                      <div style={{ fontSize: 12, color: v3.textMuted, marginTop: 2 }}>
+                        {[listing.city, listing.province, listing.postal_code].filter(Boolean).join(', ')}
+                      </div>
+                    </div>
+                    <a
+                      href={openUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        color: v3.brand,
+                        textDecoration: 'none',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {isZh ? '在 Google 地图打开 ↗' : 'Open in Google Maps ↗'}
+                    </a>
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, color: v3.textMuted }}>
-                  {[listing.city, listing.province].filter(Boolean).join(', ')}
-                </div>
-                <div style={{ fontSize: 12, color: v3.brand, marginTop: 6, fontWeight: 600 }}>
-                  {isZh ? '在 Google 地图打开 ↗' : 'Open in Google Maps ↗'}
-                </div>
-              </div>
-            </a>
+              )
+            })()}
           </Section>
         </div>
       </section>
