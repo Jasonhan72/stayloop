@@ -380,14 +380,26 @@ const FETCH_HEADERS = {
  * declaring success.
  */
 async function fetchUrlContent(url: string): Promise<UrlFetchOk | UrlFetchErr> {
-  const tries: Array<{ name: UrlFetchOk['via']; run: () => Promise<UrlFetchOk | UrlFetchErr> }> = [
-    { name: 'jina', run: () => tryJina(`https://r.jina.ai/${url}`, 'markdown') },
-    { name: 'jina-r', run: () => tryJina(`https://r.jina.ai/${url.replace(/^https?:\/\//, '')}`, 'markdown') },
-    { name: 'html', run: () => tryDirect(url) },
-    { name: 'allorigins', run: () => tryProxy(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, 'allorigins') },
-    { name: 'cors-anywhere', run: () => tryProxy(`https://corsproxy.io/?${encodeURIComponent(url)}`, 'cors-anywhere') },
-    { name: 'web-archive', run: () => tryArchive(url) },
-  ]
+  // Realtor.ca aggressively blocks every datacenter-IP scraper proxy we
+  // know of (jina rate-limits CF IPs, allorigins/corsproxy get 403'd by
+  // realtor's anti-bot, archive.org rarely has a recent snapshot). We
+  // know empirically that running all 6 strategies wastes 30-100s and
+  // still fails. So for realtor.ca, only attempt jina (with API key when
+  // set — that's the one path that DOES work reliably) and fail fast.
+  const isRealtor = /realtor\.ca/i.test(url)
+  const tries: Array<{ name: UrlFetchOk['via']; run: () => Promise<UrlFetchOk | UrlFetchErr> }> = isRealtor
+    ? [
+        { name: 'jina', run: () => tryJina(`https://r.jina.ai/${url}`, 'markdown') },
+        { name: 'jina-r', run: () => tryJina(`https://r.jina.ai/${url.replace(/^https?:\/\//, '')}`, 'markdown') },
+      ]
+    : [
+        { name: 'jina', run: () => tryJina(`https://r.jina.ai/${url}`, 'markdown') },
+        { name: 'jina-r', run: () => tryJina(`https://r.jina.ai/${url.replace(/^https?:\/\//, '')}`, 'markdown') },
+        { name: 'html', run: () => tryDirect(url) },
+        { name: 'allorigins', run: () => tryProxy(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, 'allorigins') },
+        { name: 'cors-anywhere', run: () => tryProxy(`https://corsproxy.io/?${encodeURIComponent(url)}`, 'cors-anywhere') },
+        { name: 'web-archive', run: () => tryArchive(url) },
+      ]
 
   const errors: string[] = []
   for (const { name, run } of tries) {
@@ -416,17 +428,35 @@ async function fetchUrlContent(url: string): Promise<UrlFetchOk | UrlFetchErr> {
 }
 
 async function tryJina(jinaUrl: string, format: 'markdown'): Promise<UrlFetchOk | UrlFetchErr> {
+  // Jina's free tier rate-limits Cloudflare datacenter IPs aggressively.
+  // When JINA_API_KEY is set we authenticate, which lifts the IP-based
+  // limits and grants the account's quota (1M tokens/mo on free tier).
+  // Without the key we still try the unauthenticated endpoint as a
+  // best-effort — it works ~50% of the time on retry.
+  const headers: Record<string, string> = {
+    'X-Return-Format': format,
+    // Append a flat 'Images' list at the end of the markdown so we
+    // capture every photo URL the page references. Without this,
+    // realtor.ca / StreetEasy markdown ends up with only a few icons
+    // and zero listing photos — Haiku then has nothing to extract.
+    'X-With-Images-Summary': 'true',
+    Accept: 'text/markdown, text/plain, */*',
+  }
+  // Cloudflare Pages Functions expose env via process.env (next-on-pages
+  // shims it). globalThis fallback covers Workers runtime quirks.
+  const jinaKey =
+    (typeof process !== 'undefined' && process.env?.JINA_API_KEY) ||
+    (typeof globalThis !== 'undefined' && (globalThis as any).JINA_API_KEY) ||
+    ''
+  if (jinaKey) {
+    headers['Authorization'] = `Bearer ${jinaKey}`
+  }
+
   const res = await fetch(jinaUrl, {
-    headers: {
-      'X-Return-Format': format,
-      // Append a flat 'Images' list at the end of the markdown so we
-      // capture every photo URL the page references. Without this,
-      // realtor.ca / StreetEasy markdown ends up with only a few icons
-      // and zero listing photos — Haiku then has nothing to extract.
-      'X-With-Images-Summary': 'true',
-      Accept: 'text/markdown, text/plain, */*',
-    },
-    signal: AbortSignal.timeout(25000),
+    headers,
+    // Authenticated jina is fast (3-8s); unauthenticated can take 15-25s.
+    // 18s is a sane compromise that fails fast when blocked.
+    signal: AbortSignal.timeout(jinaKey ? 25000 : 18000),
   })
   if (!res.ok) return { ok: false, error: `jina_${res.status}` }
   const md = await res.text()
