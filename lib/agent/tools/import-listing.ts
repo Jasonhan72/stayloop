@@ -143,6 +143,27 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
       }
       const urlContent = await fetchUrlContent(input.url)
       if (!urlContent.ok) {
+        // Cloudflare Worker datacenter IPs sometimes get rate-limited or
+        // served degraded responses by jina / allorigins / corsproxy. When
+        // every strategy fails BUT the URL is realtor.ca, we can still
+        // recover something useful — the URL itself encodes the listing ID
+        // (RLT prefix MLS), and Nova can take that + the source_url and
+        // ask the user to paste the page text to fill in the rest.
+        if (/realtor\.ca/i.test(input.url)) {
+          const det = parseRealtorMarkdown('', input.url) // empty body → URL-only RLT MLS
+          if (det.mls_number) {
+            const salvaged = mergeRealtorIntoListing(emptyListing(), det)
+            console.warn('[import_listing] realtor_fetch_failed_url_recovery', {
+              url: input.url.slice(0, 100),
+              fetch_error: urlContent.error.slice(0, 200),
+            })
+            return {
+              listing: salvaged,
+              source: 'url',
+              errors: ['fetch_failed_url_recovered'],
+            }
+          }
+        }
         return { listing: emptyListing(), source: 'url', errors: [urlContent.error] }
       }
       // Pin the source URL into the body so Haiku can also extract things
@@ -372,12 +393,25 @@ async function fetchUrlContent(url: string): Promise<UrlFetchOk | UrlFetchErr> {
   for (const { name, run } of tries) {
     try {
       const out = await run()
-      if (out.ok) return out
+      if (out.ok) {
+        // Trace which strategy won + body size — helps diagnose CF Worker
+        // datacenter-IP issues where a strategy returns minimal content.
+        console.warn('[import_listing] fetch_ok', {
+          via: out.via,
+          body_len: out.body.length,
+          url: url.slice(0, 100),
+        })
+        return out
+      }
       errors.push(`${name}=${out.error}`)
     } catch (e: any) {
       errors.push(`${name}=${(e?.message || 'failed').slice(0, 60)}`)
     }
   }
+  console.warn('[import_listing] all_strategies_failed', {
+    url: url.slice(0, 100),
+    errors: errors.slice(0, 6),
+  })
   return { ok: false, error: `all_strategies_failed (${errors.join(', ').slice(0, 200)})` }
 }
 
@@ -637,7 +671,17 @@ function emptyRealtorExtract(): RealtorExtract {
 
 export function parseRealtorMarkdown(body: string, sourceUrl?: string): RealtorExtract {
   const out = emptyRealtorExtract()
-  if (!body || body.length < 200) return out
+
+  // Even with no body at all, we can still salvage the listing-id from
+  // the realtor.ca URL itself. /real-estate/<id>/... → "RLT<id>" MLS.
+  // This runs first so the caller always has at least the URL identifier.
+  if (sourceUrl) {
+    const urlId = sourceUrl.match(/\/real-estate\/(\d+)\//)
+    if (urlId) out.mls_number = `RLT${urlId[1]}`
+  }
+
+  // Body too short to scan — return URL-only extract.
+  if (!body || body.length < 80) return out
 
   // ---------- Address / city / province / postal ----------
   // realtor.ca jina output starts with "Title: ..." line and a "# <address>"
@@ -649,6 +693,19 @@ export function parseRealtorMarkdown(body: string, sourceUrl?: string): RealtorE
   const titleLine = head.match(/^Title:\s*([^\n]+)/im)?.[1]?.trim()
   // Fallback: first H1 with a number+street pattern.
   const h1 = head.match(/^#\s+([^\n]+)/m)?.[1]?.trim()
+  // ---------- MLS from H1 (most reliable — beats body scan) ----------
+  // realtor.ca H1 is ALWAYS "# For rent: <addr>, <city>, <prov> <postal> - <MLS> | REALTOR.ca"
+  // — even when the rest of the body is truncated/broken, the H1 holds.
+  // Run this BEFORE the postal/address extraction so a partial H1 still
+  // yields the MLS number even if the address parse later fails.
+  const h1MlsMatch = (h1 || '').match(/-\s+([CWNXEH]\d{7,10})\s*(?:\||$)/i)
+  if (h1MlsMatch) {
+    const id = h1MlsMatch[1].toUpperCase()
+    if (id.length >= 6 && id.length <= 15) {
+      out.mls_number = id // override URL-RLT fallback with the real MLS
+    }
+  }
+
   // Pick whichever looks like a Canadian street address.
   const addrCandidates = [titleLine, h1].filter(Boolean) as string[]
   for (const cand of addrCandidates) {
@@ -696,9 +753,10 @@ export function parseRealtorMarkdown(body: string, sourceUrl?: string): RealtorE
   // realtor.ca's listing page shows the price as either "$3,200/Monthly" or
   // a stand-alone "$3,200" near "For rent". Jina markdown sometimes gives
   // "## $3,200" or "**$3,200**". We scan a generous window for the strongest
-  // signal: dollar amount adjacent to "/Monthly", "per month", or near
-  // "for rent" / "lease".
-  const rentRe = /\$\s*([\d]{1,3}(?:,\d{3})*|\d{4,6})(?:\.\d{2})?\s*(?:\/?\s*month(?:ly)?|per\s+month|\/m)/i
+  // signal: dollar amount adjacent to:
+  //   /Monthly, /Monthly., /Mo, /mo., per month, /month, / month, monthly
+  // Case-insensitive — realtor.ca uses capital "M" in /Monthly.
+  const rentRe = /\$\s*([\d]{1,3}(?:,\d{3})*|\d{4,6})(?:\.\d{2})?\s*(?:\/\s*(?:month(?:ly)?|mo\.?)|per\s+month|monthly)/i
   const rentMatch = body.match(rentRe)
   if (rentMatch) {
     const num = parseInt(rentMatch[1].replace(/,/g, ''), 10)

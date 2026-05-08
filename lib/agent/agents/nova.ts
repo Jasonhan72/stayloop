@@ -35,7 +35,8 @@ import_listing returns \`{ listing, source, errors }\`. Read \`errors[0]\` caref
 - \`['extraction_empty']\` — non-realtor URL where Haiku produced all-null JSON. Tell the user: "我读到了页面，但没能提取出关键字段。" Then offer ONE retry with \`import_listing\` again. If still empty, ask the user to paste the listing text directly (source='text'). Do NOT blame the URL or claim the site blocks scrapers — the fetch itself worked.
 - \`['extraction_truncated']\` — Haiku hit max_tokens. Same recovery as extraction_empty.
 - \`['parse_failed']\` — Haiku returned malformed JSON and we have no deterministic backup. Retry once, then fall back to text paste.
-- \`['fetch_no_content']\` / \`['all_strategies_failed_*']\` — actual fetch failure. THIS is when "Realtor.ca 对爬虫有限制" applies. Ask the user to paste the page text (source='text') or upload an MLS PDF.
+- \`['fetch_failed_url_recovered']\` — Realtor.ca only. ALL fetch strategies failed (jina + direct + 3 proxies + web archive) but we extracted the listing-id from the URL itself, so listing.mls_number = "RLT<urlid>" and source_url is set. The rest is empty. Tell the user: "Realtor.ca 这次没让我读到页面内容（应该是临时限流），但我记下了链接和 MLS ID。请把页面文字粘过来（Cmd+A → Cmd+C），我帮你补完。" Don't ask them to retry the URL — fetch was just attempted and failed. Skip directly to text-paste suggestion.
+- \`['fetch_no_content']\` / \`['all_strategies_failed_*']\` — fetch failure on a non-realtor URL (or realtor URL where even the ID-extraction failed). Ask the user to paste the page text (source='text') or upload an MLS PDF.
 - Anything else (\`haiku_xxx\`, \`signed_url_failed\`, \`no_url\`) — surface the actual error to the user briefly and ask them to try again.
 
 # Other useful flows
