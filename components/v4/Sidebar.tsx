@@ -50,10 +50,13 @@ const NAV: Record<UserRole, NavItem[]> = {
     { id: 'stayloop-ai',  label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                 icon: '✦', tone: 'ai' },
   ],
   landlord: [
-    { id: 'dashboard',    label_en: 'Dashboard',    label_zh: '仪表盘',      href: '/dashboard',            icon: '◇' },
-    { id: 'properties',   label_en: 'Properties',   label_zh: '房源',        href: '/dashboard/portfolio',  icon: '⌂' },
-    { id: 'pipeline',     label_en: 'Pipeline',     label_zh: 'Pipeline',    href: '/dashboard/pipeline',   icon: '▤', tone: 'gold' },
-    { id: 'screen',       label_en: 'Screen',       label_zh: '筛查',        href: '/screen',               icon: '◉', tone: 'ai' },
+    // All landlord routes now under /landlord/* prefix (Sprint A.1, 2026-05-08).
+    // Old /dashboard/* and /screen URLs still work as aliases serving the
+    // same components — see app/landlord/{dashboard,properties,pipeline,screen}/page.tsx
+    { id: 'dashboard',    label_en: 'Dashboard',    label_zh: '仪表盘',      href: '/landlord/dashboard',   icon: '◇' },
+    { id: 'properties',   label_en: 'Properties',   label_zh: '房源',        href: '/landlord/properties',  icon: '⌂' },
+    { id: 'pipeline',     label_en: 'Pipeline',     label_zh: 'Pipeline',    href: '/landlord/pipeline',    icon: '▤', tone: 'gold' },
+    { id: 'screen',       label_en: 'Screen',       label_zh: '筛查',        href: '/landlord/screen',      icon: '◉', tone: 'ai' },
     { id: 'leases',       label_en: 'Leases',       label_zh: '租约',        href: '/landlord/leases',      icon: '⎙' },
     { id: 'stayloop-ai',  label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                 icon: '✦', tone: 'ai' },
   ],
