@@ -16,7 +16,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { v3 } from '@/lib/brand'
 import { useT, LanguageToggle } from '@/lib/i18n'
 import { useUser } from '@/lib/useUser'
@@ -54,8 +54,15 @@ export default function MarketingNav() {
   const { lang } = useT()
   const pathname = usePathname()
   const [authOpen, setAuthOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { user, loading, signOut } = useUser({ redirectIfMissing: false, allowAnonymous: false })
   const isAuthed = !!user && !user.isAnonymous
+
+  // Close the mobile menu whenever the route changes — without this it
+  // would stay open across page transitions and obscure the new page.
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [pathname])
 
   return (
     <>
@@ -80,6 +87,41 @@ export default function MarketingNav() {
             gap: 24,
           }}
         >
+          {/* Hamburger — visible only on mobile (≤860px). Click toggles
+              the slide-out drawer. 44×44px tap target meets WCAG. */}
+          <button
+            type="button"
+            aria-label={lang === 'zh' ? '打开菜单' : 'Open menu'}
+            aria-expanded={mobileMenuOpen}
+            className="mk-hamburger"
+            onClick={() => setMobileMenuOpen((o) => !o)}
+            style={{
+              display: 'none', // overridden by media query below
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 44,
+              height: 44,
+              marginLeft: -10,
+              padding: 0,
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: v3.textPrimary,
+            }}
+          >
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+              <path
+                d={mobileMenuOpen
+                  ? 'M5 5 L17 17 M17 5 L5 17' // X icon when open
+                  : 'M3 6 H19 M3 11 H19 M3 16 H19' // hamburger when closed
+                }
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+
           <Link
             href="/"
             style={{
@@ -191,12 +233,116 @@ export default function MarketingNav() {
           )}
         </div>
       </nav>
+
+      {/* Mobile drawer + backdrop. Slides in from the left on screens
+          ≤860px when the hamburger is tapped. */}
+      {mobileMenuOpen && (
+        <button
+          type="button"
+          aria-label={lang === 'zh' ? '关闭菜单' : 'Close menu'}
+          onClick={() => setMobileMenuOpen(false)}
+          className="mk-mobile-backdrop"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 55,
+            background: 'rgba(15,23,42,0.32)',
+            backdropFilter: 'blur(2px)',
+            border: 0,
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        />
+      )}
+      <aside
+        className="mk-mobile-drawer"
+        aria-hidden={!mobileMenuOpen}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: 'min(280px, 80vw)',
+          background: '#FFFFFF',
+          borderRight: `1px solid ${v3.border}`,
+          zIndex: 60,
+          transform: mobileMenuOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.22s cubic-bezier(.2,.8,.2,1)',
+          boxShadow: mobileMenuOpen ? '0 24px 80px rgba(32,24,12,0.18)' : 'none',
+          display: 'none', // shown only at <=860px via CSS below
+          flexDirection: 'column',
+          padding: '20px 18px',
+          gap: 4,
+          overflowY: 'auto',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <span
+            style={{
+              fontFamily: 'Inter Tight, system-ui, sans-serif',
+              fontSize: 20,
+              fontWeight: 700,
+              letterSpacing: '-0.025em',
+            }}
+          >
+            <span style={{ color: v3.textPrimary }}>stay</span>
+            <span style={{ color: '#7C3AED' }}>loop</span>
+          </span>
+          <button
+            type="button"
+            aria-label={lang === 'zh' ? '关闭菜单' : 'Close menu'}
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              width: 36,
+              height: 36,
+              padding: 0,
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              color: v3.textSecondary,
+              fontSize: 22,
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        </div>
+        {NAV_ITEMS.map((it) => {
+          const active = isItemActive(pathname, it.href)
+          return (
+            <Link
+              key={it.id}
+              href={it.href}
+              onClick={() => setMobileMenuOpen(false)}
+              style={{
+                display: 'block',
+                padding: '13px 12px',
+                fontSize: 15,
+                fontWeight: active ? 600 : 500,
+                color: active ? v3.brand : v3.textPrimary,
+                textDecoration: 'none',
+                borderRadius: 8,
+                background: active ? v3.surfaceMuted : 'transparent',
+              }}
+            >
+              {lang === 'zh' ? it.zh : it.en}
+            </Link>
+          )
+        })}
+      </aside>
+
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
 
       <style jsx>{`
         @media (max-width: 860px) {
           :global(.mk-nav-links) {
             display: none !important;
+          }
+          :global(.mk-hamburger) {
+            display: inline-flex !important;
+          }
+          :global(.mk-mobile-drawer) {
+            display: flex !important;
           }
         }
       `}</style>

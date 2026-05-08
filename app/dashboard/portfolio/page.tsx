@@ -233,7 +233,7 @@ export default function ListingsPage() {
         {/* Table */}
         {/* Listings table - V4 style */}
         <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }} className="portfolio-table-wrap">
-          <div style={{ display: 'grid', gridTemplateColumns: '56px 1.6fr 100px 90px 110px 100px 100px 80px', padding: '12px 18px', background: v3.surfaceMuted, borderBottom: `1px solid ${v3.border}`, fontSize: 10, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+          <div className="portfolio-table-header" style={{ display: 'grid', gridTemplateColumns: '56px 1.6fr 100px 90px 110px 100px 100px 80px', padding: '12px 18px', background: v3.surfaceMuted, borderBottom: `1px solid ${v3.border}`, fontSize: 10, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
             <span></span><span>Address</span><span>Rent</span><span>Status</span><span>Apps</span><span>Days live</span><span>AI flags</span><span></span>
           </div>
           {filteredProps.length === 0 ? (
@@ -271,6 +271,7 @@ export default function ListingsPage() {
             filteredProps.map((l, i) => (
               <div
                 key={l.id}
+                className="portfolio-row"
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '56px 1.6fr 100px 90px 110px 100px 100px 80px',
@@ -416,10 +417,53 @@ export default function ListingsPage() {
         </div>
       </div>
       <style jsx>{`
-        @media (max-width: 860px) {
+        /* Mid-tablet: keep the table but allow horizontal scrolling so cells
+           don't crush. */
+        @media (max-width: 860px) and (min-width: 641px) {
           :global(.portfolio-table-wrap) {
             overflow-x: auto !important;
             -webkit-overflow-scrolling: touch;
+          }
+        }
+        /* Phone: collapse the 8-col grid into a stacked card layout. The
+           header row is hidden (cards have inline labels via grid-area
+           pseudo-content). Each row becomes a 2-line card: thumbnail+address
+           on top, status+actions on the second line. */
+        @media (max-width: 640px) {
+          :global(.portfolio-table-header) {
+            display: none !important;
+          }
+          :global(.portfolio-row) {
+            grid-template-columns: 56px 1fr !important;
+            grid-template-areas:
+              'thumb addr'
+              'thumb meta'
+              'actions actions' !important;
+            gap: 8px 12px !important;
+            padding: 14px !important;
+          }
+          :global(.portfolio-row) > *:nth-child(1) { grid-area: thumb; }
+          :global(.portfolio-row) > *:nth-child(2) { grid-area: addr; }
+          /* Pack rent + status + apps + days + flags into a single meta row
+             below the address. Keeping rent visible, hiding noisy cols. */
+          :global(.portfolio-row) > *:nth-child(3) {
+            grid-area: meta;
+            justify-self: start !important;
+            font-weight: 700 !important;
+          }
+          :global(.portfolio-row) > *:nth-child(4) {
+            grid-area: meta;
+            justify-self: end !important;
+          }
+          :global(.portfolio-row) > *:nth-child(5),
+          :global(.portfolio-row) > *:nth-child(6),
+          :global(.portfolio-row) > *:nth-child(7) {
+            display: none !important;
+          }
+          :global(.portfolio-row) > *:nth-child(8) {
+            grid-area: actions;
+            justify-self: stretch !important;
+            justify-content: flex-end !important;
           }
         }
       `}</style>

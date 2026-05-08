@@ -115,11 +115,13 @@ export default function AppBar({ user, loading, signOut, role, path, onOpenMenu 
             display: 'none',
             border: 0,
             background: 'transparent',
-            padding: 8,
-            marginLeft: -8,
+            padding: 12,           // 44×44 tap target (WCAG 2.5.5)
+            marginLeft: -12,
             cursor: 'pointer',
             color: v3.textPrimary,
             borderRadius: 8,
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
@@ -154,8 +156,9 @@ export default function AppBar({ user, loading, signOut, role, path, onOpenMenu 
         </>
       )}
 
-      <span aria-hidden style={{ color: v3.textFaint }}>›</span>
+      <span aria-hidden className="ab-breadcrumb-sep" style={{ color: v3.textFaint }}>›</span>
       <span
+        className="ab-breadcrumb"
         style={{
           fontSize: 13,
           color: v3.textPrimary,
@@ -274,6 +277,12 @@ export default function AppBar({ user, loading, signOut, role, path, onOpenMenu 
           /* Hide the ⌘K command bar — there's no room and search isn't a
              primary mobile gesture. The bell + avatar still fit. */
           .ab-cmdk { display: none !important; }
+        }
+        /* Phone (≤640px): also abbreviate breadcrumb so it doesn't push the
+           bell + avatar off-screen. The role badge stays as a context anchor. */
+        @media (max-width: 640px) {
+          .ab-breadcrumb,
+          .ab-breadcrumb-sep { display: none !important; }
         }
       `}</style>
     </header>

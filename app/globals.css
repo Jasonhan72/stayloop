@@ -1053,4 +1053,18 @@ body:has(.screen-app)::after { display: none !important; }
   .marketing .mk-section-tight {
     padding: 32px 16px;
   }
+
+  /* Stack hero CTAs full-width on phone — keeps tap targets above 44px
+     and avoids the cramped 2-button-per-row look. The .hero-cta-row
+     class is opt-in so we only stack rows we explicitly mark. */
+  .hero-cta-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .hero-cta-row > .hero-cta-btn,
+  .hero-cta-row > a {
+    width: 100% !important;
+    min-height: 48px !important;
+    justify-content: center !important;
+  }
 }
