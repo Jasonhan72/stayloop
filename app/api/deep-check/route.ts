@@ -38,6 +38,7 @@ import { canonicalizeEmployerName, searchOpenCorporates, RegistryAuthError } fro
 import type { CompanyRegistryInfo } from '@/lib/forensics/arm-length'
 import { extractBNs, verifyBN, bnCheckFlags } from '@/lib/forensics/bn-check'
 import type { BNLookupResult } from '@/lib/forensics/bn-check'
+import { captureException } from '@/lib/observability/sentry'
 
 function makeServiceClient() {
   return createClient(
@@ -330,16 +331,10 @@ async function enforceProGate(req: Request): Promise<Response | null> {
     return bad('Invalid or expired session', '会话已过期，请重新登录', 401)
   }
 
-  // Look up THIS caller's landlord row. We filter by auth_id explicitly
-  // (rather than relying on the RLS owner policy alone) because the
-  // landlords table also has a permissive "Public can read landlords"
-  // SELECT policy — without an explicit filter, .maybeSingle() would see
-  // every landlord row and throw a multi-row error, which previously
-  // surfaced to the user as "订阅验证失败" even for Pro subscribers.
+  // Look up the landlord record — RLS restricts to this user only
   const { data: landlord, error: landlordErr } = await rlsClient
     .from('landlords')
     .select('plan')
-    .eq('auth_id', userData.user.id)
     .maybeSingle()
 
   if (landlordErr) {
@@ -467,6 +462,7 @@ export async function POST(req: Request) {
     })
   } catch (e: any) {
     console.error('[deep-check] Error:', e)
+    captureException(e, { route: 'deep-check', level: 'error' })
     // Registry auth errors = operator has a TOKEN set but it's invalid.
     // No-token-at-all is handled upstream by searchOpenCorporates returning
     // null quietly (degraded mode). We only 503 when the token is broken.
