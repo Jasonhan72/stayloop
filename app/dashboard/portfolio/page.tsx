@@ -14,11 +14,14 @@ interface Property {
   id: string
   address: string
   unit: string | null
+  city: string | null
   monthly_rent: number | null
   is_active: boolean
   status: 'draft' | 'active' | string | null
   slug: string | null
   created_at: string
+  /** Photo URLs in display order. First entry is the hero. */
+  images: string[] | null
   topAiScore: number | null
   applicantCount: number
   daysOnMarket: number
@@ -116,7 +119,7 @@ export default function ListingsPage() {
     const [{ data: listings }, { data: apps }] = await Promise.all([
       supabase
         .from('listings')
-        .select('id, address, unit, monthly_rent, is_active, status, slug, created_at')
+        .select('id, address, unit, city, monthly_rent, is_active, status, slug, created_at, images')
         .eq('landlord_id', user.profileId)
         .order('created_at', { ascending: false }),
       supabase
@@ -277,13 +280,39 @@ export default function ListingsPage() {
                   alignItems: 'center',
                 }}
               >
-                <div style={{ width: 44, height: 44, borderRadius: 6, background: v3.surfaceMuted, border: `1px solid ${v3.border}` }} />
+                {(() => {
+                  // Pick the first usable https photo URL — drop tracking-pixel
+                  // junk and old example.com placeholders that snuck in earlier.
+                  const heroImage = (() => {
+                    if (!Array.isArray(l.images)) return null
+                    for (const u of l.images) {
+                      if (typeof u !== 'string') continue
+                      if (!/^https:\/\//i.test(u)) continue
+                      if (/example\.com|placeholder|via\.placeholder/i.test(u)) continue
+                      return u
+                    }
+                    return null
+                  })()
+                  return (
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 6,
+                        border: `1px solid ${v3.border}`,
+                        background: heroImage
+                          ? `#0F172A url("${heroImage}") center/cover no-repeat`
+                          : v3.surfaceMuted,
+                      }}
+                    />
+                  )
+                })()}
                 <div>
                   <div style={{ fontWeight: 600, color: v3.textPrimary }}>
                     {l.address}{l.unit ? ` · ${l.unit}` : ''}
                   </div>
                   <div style={{ fontSize: 11, color: v3.textMuted, marginTop: 2 }}>
-                    {l.monthly_rent ? `Near downtown` : 'TBD'}
+                    {l.city || (isZh ? '位置待补充' : 'Location TBD')}
                   </div>
                 </div>
                 <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: v3.textPrimary }}>
