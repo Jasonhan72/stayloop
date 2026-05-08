@@ -234,7 +234,14 @@ export default function ListingsPage() {
         {/* Listings table - V4 style */}
         <div style={{ background: v3.surfaceCard, border: `1px solid ${v3.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(31,25,11,0.04), 0 12px 32px -8px rgba(31,25,11,0.06)' }} className="portfolio-table-wrap">
           <div className="portfolio-table-header" style={{ display: 'grid', gridTemplateColumns: '56px 1.6fr 100px 90px 110px 100px 100px 80px', padding: '12px 18px', background: v3.surfaceMuted, borderBottom: `1px solid ${v3.border}`, fontSize: 10, color: v3.textMuted, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
-            <span></span><span>Address</span><span>Rent</span><span>Status</span><span>Apps</span><span>Days live</span><span>AI flags</span><span></span>
+            <span></span>
+            <span>{isZh ? '地址' : 'Address'}</span>
+            <span>{isZh ? '租金' : 'Rent'}</span>
+            <span>{isZh ? '状态' : 'Status'}</span>
+            <span>{isZh ? '申请' : 'Apps'}</span>
+            <span>{isZh ? '上架天数' : 'Days live'}</span>
+            <span>{isZh ? 'AI 标记' : 'AI flags'}</span>
+            <span></span>
           </div>
           {filteredProps.length === 0 ? (
             <div style={{ padding: '64px 24px', textAlign: 'center' }}>

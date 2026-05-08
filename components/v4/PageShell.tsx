@@ -18,6 +18,7 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { v3 } from '@/lib/brand'
+import { useT } from '@/lib/i18n'
 import { useUser, type UserRole } from '@/lib/useUser'
 import Sidebar from './Sidebar'
 import AppBar from './AppBar'
@@ -38,6 +39,8 @@ export default function PageShell({ children, role, path, noPadding, allowAnonym
     redirectIfMissing: !allowAnonymous,
     allowAnonymous,
   })
+  const { lang } = useT()
+  const isZh = lang === 'zh'
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const pathname = usePathname()
@@ -97,7 +100,7 @@ export default function PageShell({ children, role, path, noPadding, allowAnonym
       {drawerOpen && (
         <button
           type="button"
-          aria-label="Close menu"
+          aria-label={isZh ? '关闭菜单' : 'Close menu'}
           onClick={() => setDrawerOpen(false)}
           className="ps-backdrop"
           style={{
