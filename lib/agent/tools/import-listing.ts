@@ -343,7 +343,7 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
 // runs on top is robust to either markdown or stripped HTML.
 // -----------------------------------------------------------------------------
 
-interface UrlFetchOk { ok: true; body: string; via: 'jina' | 'jina-r' | 'html' | 'json-ld' | 'allorigins' | 'cors-anywhere' | 'web-archive' }
+interface UrlFetchOk { ok: true; body: string; via: 'jina' | 'jina-r' | 'html' | 'json-ld' | 'allorigins' | 'cors-anywhere' | 'web-archive' | 'cf-browser' }
 interface UrlFetchErr { ok: false; error: string }
 
 const FETCH_HEADERS = {
@@ -391,11 +391,17 @@ async function fetchUrlContent(url: string): Promise<UrlFetchOk | UrlFetchErr> {
     ? [
         { name: 'jina', run: () => tryJina(`https://r.jina.ai/${url}`, 'markdown') },
         { name: 'jina-r', run: () => tryJina(`https://r.jina.ai/${url.replace(/^https?:\/\//, '')}`, 'markdown') },
+        // Tier-2 fallback for realtor.ca: Cloudflare Browser Rendering. CF's
+        // own headless Chrome runs from CF datacenter IPs that ARE on CF's
+        // network — not blocked by the proxies. Only fires if env.BROWSER
+        // binding is configured in wrangler.toml; otherwise no-op.
+        { name: 'cf-browser', run: () => tryCloudflareBrowser(url) },
       ]
     : [
         { name: 'jina', run: () => tryJina(`https://r.jina.ai/${url}`, 'markdown') },
         { name: 'jina-r', run: () => tryJina(`https://r.jina.ai/${url.replace(/^https?:\/\//, '')}`, 'markdown') },
         { name: 'html', run: () => tryDirect(url) },
+        { name: 'cf-browser', run: () => tryCloudflareBrowser(url) },
         { name: 'allorigins', run: () => tryProxy(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, 'allorigins') },
         { name: 'cors-anywhere', run: () => tryProxy(`https://corsproxy.io/?${encodeURIComponent(url)}`, 'cors-anywhere') },
         { name: 'web-archive', run: () => tryArchive(url) },
@@ -492,6 +498,68 @@ async function tryProxy(proxyUrl: string, via: 'allorigins' | 'cors-anywhere'): 
   })
   if (!res.ok) return { ok: false, error: `${via}_${res.status}` }
   return parseHtmlPayload(await res.text(), via)
+}
+
+/**
+ * Tier-2 fallback: Cloudflare Browser Rendering. Uses CF's managed
+ * headless Chrome which runs on CF's internal network — not blocked by
+ * the IP-block lists that hit jina/allorigins/corsproxy from CF Pages
+ * datacenter IPs. The binding is OPT-IN: feature-flagged on env.BROWSER
+ * being defined (configured in wrangler.toml as `[browser]`).
+ *
+ * To enable on this account:
+ *   1. wrangler.toml has `[[browser]]` binding (added in this PR)
+ *   2. Cloudflare dashboard → Workers & Pages → stayloop → Settings →
+ *      Functions → Bindings → Add → Browser Rendering. Bind name: BROWSER.
+ *   3. Set CLOUDFLARE_BROWSER_API_TOKEN env if using REST mode (preferred
+ *      over the binding mode for Pages, since binding requires Workers).
+ *
+ * When neither is configured, this function silently returns "not_bound"
+ * and the next strategy in the chain runs.
+ */
+async function tryCloudflareBrowser(url: string): Promise<UrlFetchOk | UrlFetchErr> {
+  const apiToken =
+    (typeof process !== 'undefined' && process.env?.CLOUDFLARE_BROWSER_API_TOKEN) ||
+    (typeof globalThis !== 'undefined' && (globalThis as any).CLOUDFLARE_BROWSER_API_TOKEN) ||
+    ''
+  const accountId =
+    (typeof process !== 'undefined' && process.env?.CLOUDFLARE_ACCOUNT_ID) ||
+    (typeof globalThis !== 'undefined' && (globalThis as any).CLOUDFLARE_ACCOUNT_ID) ||
+    ''
+
+  // REST API path: needs API token + account ID. Cloudflare Browser
+  // Rendering REST endpoint accepts a JSON POST and returns HTML.
+  if (apiToken && accountId) {
+    try {
+      const res = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${accountId}/browser-rendering/content`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url,
+            gotoOptions: { waitUntil: 'networkidle0', timeout: 25000 },
+          }),
+          signal: AbortSignal.timeout(30000),
+        },
+      )
+      if (!res.ok) return { ok: false, error: `cf_browser_${res.status}` }
+      const data: any = await res.json().catch(() => null)
+      const html = data?.result || ''
+      if (typeof html !== 'string' || html.length < 200) {
+        return { ok: false, error: `cf_browser_no_content_${html.length}` }
+      }
+      return parseHtmlPayload(html, 'cf-browser')
+    } catch (e: any) {
+      return { ok: false, error: `cf_browser_${(e?.message || 'failed').slice(0, 60)}` }
+    }
+  }
+
+  // No token configured → silent no-op so the next strategy runs.
+  return { ok: false, error: 'cf_browser_not_configured' }
 }
 
 async function tryArchive(url: string): Promise<UrlFetchOk | UrlFetchErr> {

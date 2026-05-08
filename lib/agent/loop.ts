@@ -111,6 +111,31 @@ export async function runAgentLoop(opts: LoopOptions): Promise<LoopResult> {
     }
     await emit(opts, { type: 'turn_start', turn })
 
+    // -------------------------------------------------------------------
+    // Anthropic prompt caching — explicit cache_control breakpoints.
+    //
+    // The system prompt + tool schemas are the same on every turn of the
+    // loop and don't change between turns of the same conversation
+    // (memory facts are appended to system prompt but only refresh when
+    // recallUserFacts is re-called outside the loop). Marking them with
+    // cache_control: { type: 'ephemeral' } activates the 5min cache for
+    // input tokens, dropping cost ~90% for those segments on turns 2+.
+    //
+    // We use the structured-system-array form (Anthropic accepts either
+    // a string or [{type:'text', text:..., cache_control}]). The last
+    // tool in the tools array carries the cache_control marker — that
+    // marks the cache breakpoint at the END of the tool list, which
+    // includes the entire system + tools prefix.
+    // -------------------------------------------------------------------
+    const cachedSystem = [
+      { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
+    ]
+    const cachedTools = anthropicTools.map((t, i) =>
+      i === anthropicTools.length - 1
+        ? { ...t, cache_control: { type: 'ephemeral' } }
+        : t,
+    )
+
     const res = await fetch(ANTHROPIC_API, {
       method: 'POST',
       headers: {
@@ -121,9 +146,9 @@ export async function runAgentLoop(opts: LoopOptions): Promise<LoopResult> {
       body: JSON.stringify({
         model: opts.agent.model,
         max_tokens: opts.agent.maxTokens,
-        system: systemPrompt,
+        system: cachedSystem,
         messages,
-        tools: anthropicTools,
+        tools: cachedTools.length > 0 ? cachedTools : undefined,
       }),
       signal: opts.signal,
     })
@@ -135,6 +160,15 @@ export async function runAgentLoop(opts: LoopOptions): Promise<LoopResult> {
     const json: any = await res.json()
     inputTokens += json?.usage?.input_tokens || 0
     outputTokens += json?.usage?.output_tokens || 0
+    // Cache hit/miss diagnostic — visible in CF Pages function logs.
+    // cache_read_input_tokens > 0 means our cache_control breakpoints
+    // are working and saving cost. cache_creation_input_tokens accounts
+    // for the cache write on the first turn.
+    const cacheRead = json?.usage?.cache_read_input_tokens || 0
+    const cacheCreate = json?.usage?.cache_creation_input_tokens || 0
+    if (cacheRead > 0 || cacheCreate > 0) {
+      console.log('[loop] cache', { turn, hit: cacheRead, write: cacheCreate, miss: json?.usage?.input_tokens || 0 })
+    }
 
     const assistantContent: AnthropicContentBlock[] = json?.content || []
     messages.push({ role: 'assistant', content: assistantContent })
