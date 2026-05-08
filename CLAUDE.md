@@ -31,6 +31,22 @@
 - All feature work should branch from `origin/main`, not from a local branch that may be stale.
 - Cowork sandbox note: the FUSE mount at `/sessions/.../mnt/stayloop` blocks `rm` / `unlink` but allows `mv`. If git complains about a stale `.git/*.lock`, rename the lock file out of the way (`mv .git/index.lock .git/_cowork-trash/index.lock.stale`) instead of trying to delete it. For heavy git work (rebase, reset --hard, stash), clone the repo into `/tmp` via the existing origin URL (PAT is embedded) and push from there.
 
+## Deploy verification — MANDATORY after every push to main
+Cloudflare Pages auto-deploys on push to main, but builds DO fail and the user has no way to know unless I check. After every `git push origin main` (direct or PR merge), I MUST verify the deploy succeeded:
+
+1. Wait ~30 seconds for GitHub Actions to start the run
+2. Query `https://api.github.com/repos/Jasonhan72/stayloop/actions/runs?head_sha=<commit>` with the GitHub PAT (extracted from `git remote get-url origin`)
+3. If `status=in_progress`, wait 60-90 more seconds and re-query (CF Pages build typically takes 2-3 min)
+4. If `conclusion=success` → report success to the user
+5. If `conclusion=failure` → IMMEDIATELY pull the build log via `/actions/jobs/{job_id}/logs`, identify the error, fix it, and push again. Do NOT leave the user with a broken main branch.
+
+Common build failure modes I've hit and need to watch for:
+- **`npm ci` "Missing X from lock file"** — added a dep to package.json without running `npm install`. Fix: `npm install --package-lock-only` then commit lockfile.
+- **`Module not found: Can't resolve '@/...'`** — file imports a path that doesn't exist on main (often a v5-prototype-only component). Fix: either delete the importing file or pull the missing dependency in.
+- **TypeScript errors that local `npx tsc --noEmit` missed** — usually because the local tsconfig excludes test files but the CF build includes them. Always re-run typecheck with the full include set before pushing.
+
+If deploy is still failing after 2 attempts, stop and tell the user — don't burn through 5+ commits silently like 2026-05-08 morning.
+
 ## Cloudflare Environment Variables (Production)
 All env vars are set in Cloudflare Pages > stayloop > Settings > Variables and Secrets:
 - ANTHROPIC_API_KEY (Secret, encrypted)
