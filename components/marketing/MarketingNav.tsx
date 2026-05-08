@@ -31,13 +31,13 @@ interface NavItem {
 }
 
 // Tenant Screening lives as a dedicated section on the homepage hero
-// rather than as a nav entry — keeps the top bar uncluttered. Listings
-// stays as a nav entry so tenants can find published units in one click.
+// rather than as a nav entry — keeps the top bar uncluttered and makes
+// the screening CTA the FIRST thing visitors land on.
+// Pricing was removed from the top bar (2026-05-08): kept the nav focused
+// on audience-first browsing (listings + role landing pages + docs). The
+// /pricing page is still reachable from homepage CTAs and footer.
 const NAV_ITEMS: NavItem[] = [
-  // 'Product' (→ '/') was removed; clicking the Stayloop logo already
-  // returns to the homepage so the explicit nav item was redundant.
   { id: 'listings',      href: '/listings',         zh: '房源',         en: 'Listings' },
-  { id: 'pricing',       href: '/pricing',          zh: '价格',         en: 'Pricing' },
   { id: 'for-tenants',   href: '/tenants',          zh: '租客',         en: 'For Tenants' },
   { id: 'for-landlords', href: '/landlords',        zh: '房东',         en: 'For Landlords' },
   { id: 'for-agents',    href: '/agents',           zh: '经纪',         en: 'For Agents' },
