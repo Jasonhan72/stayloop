@@ -277,7 +277,22 @@ async function fetchBytes(url: string): Promise<Uint8Array | null> {
   }
 }
 
-function computeSeverity(flags: ForensicFlag[], hardGates: string[]): ForensicsSeverity {
+/**
+ * Decide the overall severity tier from individual flags + which hard
+ * gates triggered. Exported for unit testing — see
+ * lib/forensics/__tests__/severity.test.ts.
+ *
+ * Tier semantics:
+ *   - clean        : nothing or only one low/medium signal
+ *   - suspicious   : enough small signals to warrant manual review
+ *   - likely_fraud : either one hard gate, or strong cumulative signal
+ *   - fraud        : two or more independent hard gates
+ *
+ * Critical-severity weights and the hard-gate counts are tuned by the
+ * test fixtures — changes here must keep all severity.test.ts cases
+ * passing or be paired with explicit fixture updates.
+ */
+export function computeSeverity(flags: ForensicFlag[], hardGates: string[]): ForensicsSeverity {
   if (hardGates.length >= 2) return 'fraud'
   if (hardGates.length === 1) return 'likely_fraud'
   const score = flags.reduce((sum, f) => sum + (SEVERITY_WEIGHT[f.severity] || 0), 0)
