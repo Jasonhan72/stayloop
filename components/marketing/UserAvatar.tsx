@@ -50,17 +50,26 @@ export default function UserAvatar({ user, signOut }: Props) {
   })()
 
   // -----------------------------------------------------------------------
-  // Avatar dropdown = account-operational items only. Workflow lives in
-  // the left Sidebar; we don't repeat it here.
+  // Avatar dropdown structure (2026-05-08 update):
+  //   1. "控制面板 / Workspace"  — role-aware deep-link to the workspace
+  //      landing page (workspace = the page with the left Sidebar). When
+  //      a logged-in user is on a public marketing page, this is the
+  //      shortest path back to their actual app surface.
+  //   2. role-specific shortcuts (Passport / Day brief)
+  //   3. account-operational items (Notifications, Billing, Activity, Account)
   //
-  // Tenant gets two extra workflow shortcuts (Passport, Disputes) since
-  // the tenant Sidebar doesn't expose Disputes and Passport is identity-
-  // critical for a renter — but it stays a SHORT list, not a duplicate
-  // of every workflow item.
+  // The workflow items themselves live in the left Sidebar — we don't
+  // duplicate Pipeline / Properties / etc. here.
   // -----------------------------------------------------------------------
+  const workspaceHref =
+    user.role === 'tenant' ? '/tenant/dashboard'
+    : user.role === 'agent' ? '/agent/dashboard'
+    : '/landlord/dashboard'
+
   const items: Array<{ href: string; label_en: string; label_zh: string; icon: string }> =
     user.role === 'tenant'
       ? [
+          { href: workspaceHref, label_en: 'Workspace', label_zh: '控制面板', icon: '◇' },
           { href: '/passport', label_en: 'My Passport', label_zh: '我的 Passport', icon: '🪪' },
           { href: '/disputes', label_en: 'Disputes', label_zh: '纠纷', icon: '⚖' },
           { href: '/notifications', label_en: 'Notifications', label_zh: '通知', icon: '🔔' },
@@ -69,6 +78,7 @@ export default function UserAvatar({ user, signOut }: Props) {
         ]
       : user.role === 'agent'
         ? [
+            { href: workspaceHref, label_en: 'Workspace', label_zh: '控制面板', icon: '◇' },
             { href: '/agent/day', label_en: 'Day brief', label_zh: '今日任务', icon: '☉' },
             { href: '/notifications', label_en: 'Notifications', label_zh: '通知', icon: '🔔' },
             { href: '/billing', label_en: 'Billing', label_zh: '账单', icon: '◐' },
@@ -77,6 +87,7 @@ export default function UserAvatar({ user, signOut }: Props) {
           ]
         : [
             // landlord (default)
+            { href: workspaceHref, label_en: 'Workspace', label_zh: '控制面板', icon: '◇' },
             { href: '/notifications', label_en: 'Notifications', label_zh: '通知', icon: '🔔' },
             { href: '/billing', label_en: 'Billing', label_zh: '账单', icon: '◐' },
             { href: '/audit', label_en: 'Activity log', label_zh: '操作日志', icon: '⊜' },
@@ -146,29 +157,54 @@ export default function UserAvatar({ user, signOut }: Props) {
 
         {/* Menu items */}
         <div style={{ padding: '6px 0' }}>
-          {items.map((it) => (
-            <Link
-              key={it.href}
-              href={it.href}
-              onClick={() => setOpen(false)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '10px 16px',
-                fontSize: 13.5,
-                color: v3.textPrimary,
-                textDecoration: 'none',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = v3.surfaceMuted)}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-            >
-              <span style={{ fontSize: 14, width: 18, color: v3.textMuted, textAlign: 'center' }}>
-                {it.icon}
-              </span>
-              {isZh ? it.label_zh : it.label_en}
-            </Link>
-          ))}
+          {items.map((it, i) => {
+            // First item is the workspace deep-link (primary action) — give
+            // it the brand color and a divider below so it doesn't blend
+            // with the account-operational items underneath.
+            const isPrimary = i === 0
+            return (
+              <div key={it.href}>
+                <Link
+                  href={it.href}
+                  onClick={() => setOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '10px 16px',
+                    fontSize: 13.5,
+                    color: isPrimary ? v3.brand : v3.textPrimary,
+                    fontWeight: isPrimary ? 600 : 400,
+                    textDecoration: 'none',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = v3.surfaceMuted)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span
+                    style={{
+                      fontSize: 14,
+                      width: 18,
+                      color: isPrimary ? v3.brand : v3.textMuted,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {it.icon}
+                  </span>
+                  {isZh ? it.label_zh : it.label_en}
+                </Link>
+                {isPrimary && (
+                  <div
+                    style={{
+                      height: 1,
+                      background: v3.divider,
+                      margin: '4px 0',
+                    }}
+                    aria-hidden
+                  />
+                )}
+              </div>
+            )
+          })}
         </div>
 
         {/* Sign out */}
