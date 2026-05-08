@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { runForensics, forensicsToPromptBlock, type ForensicsReport } from '@/lib/forensics'
 import { applyPageBudget } from '@/lib/anthropic/page-budget'
+import { captureException } from '@/lib/observability/sentry'
 
 export const runtime = 'edge'
 
@@ -1781,6 +1782,7 @@ JSON DISCIPLINE (avoid parse errors):
     })
   } catch (e: any) {
     console.error('[screen-score] uncaught:', e)
+    captureException(e, { route: 'screen-score', level: 'error' })
     return NextResponse.json(
       {
         error: 'Screening failed: ' + (e?.message || String(e) || 'unknown error').slice(0, 300),

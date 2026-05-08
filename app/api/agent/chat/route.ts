@@ -17,6 +17,7 @@ export const runtime = 'edge'
 import { createClient } from '@supabase/supabase-js'
 import { runAgentLoop, type LoopEvent } from '@/lib/agent/loop'
 import { summarizeAndPersistFacts } from '@/lib/agent/memory'
+import { captureException } from '@/lib/observability/sentry'
 import logicAgent from '@/lib/agent/agents/logic'
 import novaAgent from '@/lib/agent/agents/nova'
 import echoAgent from '@/lib/agent/agents/echo'
@@ -213,6 +214,7 @@ export async function POST(req: Request) {
           // already logs internally
         }
       } catch (e: any) {
+        captureException(e, { route: 'agent-chat', level: 'error' })
         send({ type: 'error', message: e?.message || 'unknown_error' })
       } finally {
         controller.close()
