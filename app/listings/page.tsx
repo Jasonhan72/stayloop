@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
+import { pickHeroImage } from '@/lib/listing-images'
 import MarketingNav from '@/components/marketing/MarketingNav'
 import MarketingFooter from '@/components/marketing/MarketingFooter'
 
@@ -242,18 +243,7 @@ function ListingCard({ listing, isZh }: { listing: Listing; isZh: boolean }) {
   const beds = listing.bedrooms == null ? null : listing.bedrooms === 0 ? (isZh ? '开间' : 'Studio') : `${listing.bedrooms} ${isZh ? '卧' : 'bd'}`
   const baths = listing.bathrooms == null ? null : `${listing.bathrooms} ${isZh ? '卫' : 'ba'}`
   const cityProv = [listing.city].filter(Boolean).join('')
-  // Pick the first usable photo URL — must be https and not an obviously
-  // junk asset (placeholder example.com URLs sneak in from older imports).
-  const heroImage = (() => {
-    if (!Array.isArray(listing.images)) return null
-    for (const url of listing.images) {
-      if (typeof url !== 'string') continue
-      if (!/^https:\/\//i.test(url)) continue
-      if (/example\.com|placeholder|via\.placeholder/i.test(url)) continue
-      return url
-    }
-    return null
-  })()
+  const heroImage = pickHeroImage(listing.images)
 
   return (
     <Link
