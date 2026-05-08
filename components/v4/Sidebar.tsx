@@ -45,25 +45,33 @@ const NAV: Record<UserRole, NavItem[]> = {
     { id: 'dashboard',    label_en: 'Dashboard',    label_zh: '仪表盘',      href: '/tenant/dashboard',     icon: '◇' },
     { id: 'passport',     label_en: 'Passport',     label_zh: 'Passport',    href: '/passport',             icon: '◈', tone: 'ai' },
     { id: 'listings',     label_en: 'Browse',       label_zh: '找房',        href: '/tenant/listings',      icon: '⌂' },
-    { id: 'applications', label_en: 'Applications', label_zh: '申请',        href: '/tenant/applications',  icon: '▤', tone: 'gold' },
-    { id: 'leases',       label_en: 'Leases',       label_zh: '租约',        href: '/tenant/leases',        icon: '⎙' },
+    { id: 'applications', label_en: 'My applications', label_zh: '我的申请', href: '/tenant/applications',  icon: '▤', tone: 'gold' },
+    { id: 'leases',       label_en: 'My leases',    label_zh: '我的租约',    href: '/tenant/leases',        icon: '⎙' },
     { id: 'stayloop-ai',  label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                 icon: '✦', tone: 'ai' },
   ],
   landlord: [
     // All landlord routes now under /landlord/* prefix (Sprint A.1, 2026-05-08).
     // Old /dashboard/* and /screen URLs still work as aliases serving the
     // same components — see app/landlord/{dashboard,properties,pipeline,screen}/page.tsx
+    //
+    // Chinese label rationale (2026-05-08):
+    //   "Pipeline" (English) → 申请进度: industry chinese users don't know
+    //     "Pipeline"; "申请进度" plainly says "applications-in-progress".
+    //   "筛查" (screening) → 背调 (background check): "筛查" reads as
+    //     medical-screening in Mandarin; "背调" is the rental industry term.
     { id: 'dashboard',    label_en: 'Dashboard',    label_zh: '仪表盘',      href: '/landlord/dashboard',   icon: '◇' },
     { id: 'properties',   label_en: 'Properties',   label_zh: '房源',        href: '/landlord/properties',  icon: '⌂' },
-    { id: 'pipeline',     label_en: 'Pipeline',     label_zh: 'Pipeline',    href: '/landlord/pipeline',    icon: '▤', tone: 'gold' },
-    { id: 'screen',       label_en: 'Screen',       label_zh: '筛查',        href: '/landlord/screen',      icon: '◉', tone: 'ai' },
+    { id: 'pipeline',     label_en: 'Pipeline',     label_zh: '申请进度',    href: '/landlord/pipeline',    icon: '▤', tone: 'gold' },
+    { id: 'screen',       label_en: 'Screen',       label_zh: '背调',        href: '/landlord/screen',      icon: '◉', tone: 'ai' },
     { id: 'leases',       label_en: 'Leases',       label_zh: '租约',        href: '/landlord/leases',      icon: '⎙' },
     { id: 'stayloop-ai',  label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                 icon: '✦', tone: 'ai' },
   ],
   agent: [
     { id: 'dashboard',   label_en: 'Dashboard',    label_zh: '仪表盘',      href: '/agent/dashboard',          icon: '◇' },
     { id: 'clients',     label_en: 'Clients',      label_zh: '客户',        href: '/agent/clients',            icon: '◈' },
-    { id: 'packages',    label_en: 'Packages',     label_zh: '报告包',      href: '/agent/screening-packages', icon: '◉', tone: 'gold' },
+    // 报告包 → 背调报告: "包" sounded like a delivery package; "背调报告"
+    // is the industry term for tenant background reports
+    { id: 'packages',    label_en: 'Reports',      label_zh: '背调报告',    href: '/agent/screening-packages', icon: '◉', tone: 'gold' },
     { id: 'mls',         label_en: 'MLS',          label_zh: 'MLS',         href: '/agent/mls',                icon: '⌂' },
     { id: 'leases',      label_en: 'Leases',       label_zh: '租约',        href: '/agent/leases',             icon: '⎙' },
     { id: 'stayloop-ai', label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                     icon: '✦', tone: 'ai' },
@@ -71,9 +79,11 @@ const NAV: Record<UserRole, NavItem[]> = {
 }
 
 const ROLE_LABEL: Record<UserRole, { en: string; zh: string; color: string }> = {
-  tenant:   { en: 'Tenant Portal',   zh: '租客门户',     color: v3.trust },
-  landlord: { en: 'Landlord Portal', zh: '房东门户',     color: v3.brand },
-  agent:    { en: 'Agent Portal',    zh: '经纪门户',     color: v3.brandBright },
+  // 门户 → 工作台 across all three roles. "工作台" matches the Workspace
+  // section header in the sidebar and is the canonical SaaS Chinese term.
+  tenant:   { en: 'Tenant Portal',   zh: '租客工作台',   color: v3.trust },
+  landlord: { en: 'Landlord Portal', zh: '房东工作台',   color: v3.brand },
+  agent:    { en: 'Agent Portal',    zh: '经纪工作台',   color: v3.brandBright },
 }
 
 interface Props {
@@ -177,7 +187,7 @@ export default function Sidebar({ user, role }: Props) {
           padding: '6px 8px',
         }}
       >
-        {isZh ? '工作区' : 'Workspace'}
+        {isZh ? '工作台' : 'Workspace'}
       </div>
 
       {nav.map((l) => {
