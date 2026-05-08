@@ -30,35 +30,40 @@ interface NavItem {
   tone?: 'default' | 'gold' | 'ai'
 }
 
+// -----------------------------------------------------------------------------
+// Sidebar = workflow (6 items per role). Account-operational items
+// (Billing, Notifications, Activity log, Settings) live in the Avatar
+// dropdown so the two menus don't overlap.
+//
+// Naming: each concept has ONE canonical name across UI:
+//   Properties (not "Listings" + "Portfolio")
+//   Pipeline   (not "Pipeline" + "Applications")
+//   Screen     (not "Screening" + "Manual screening")
+// -----------------------------------------------------------------------------
 const NAV: Record<UserRole, NavItem[]> = {
   tenant: [
-    { id: 'dashboard',    label_en: 'Dashboard',    label_zh: '仪表盘',     href: '/tenant/dashboard',     icon: '◇' },
-    { id: 'passport',     label_en: 'Passport',     label_zh: 'Passport',   href: '/passport',             icon: '◈', tone: 'ai' },
-    { id: 'listings',     label_en: 'Listings',     label_zh: '房源',       href: '/tenant/listings',      icon: '⌂' },
-    { id: 'applications', label_en: 'Applications', label_zh: '申请',       href: '/tenant/applications',  icon: '▤', tone: 'gold' },
-    { id: 'leases',       label_en: 'Leases',       label_zh: '租约',       href: '/tenant/leases',        icon: '⎙' },
+    { id: 'dashboard',    label_en: 'Dashboard',    label_zh: '仪表盘',      href: '/tenant/dashboard',     icon: '◇' },
+    { id: 'passport',     label_en: 'Passport',     label_zh: 'Passport',    href: '/passport',             icon: '◈', tone: 'ai' },
+    { id: 'listings',     label_en: 'Browse',       label_zh: '找房',        href: '/tenant/listings',      icon: '⌂' },
+    { id: 'applications', label_en: 'Applications', label_zh: '申请',        href: '/tenant/applications',  icon: '▤', tone: 'gold' },
+    { id: 'leases',       label_en: 'Leases',       label_zh: '租约',        href: '/tenant/leases',        icon: '⎙' },
     { id: 'stayloop-ai',  label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                 icon: '✦', tone: 'ai' },
-    { id: 'settings',     label_en: 'Settings',     label_zh: '设置',       href: '/profile',              icon: '⚙' },
   ],
   landlord: [
-    { id: 'dashboard',    label_en: 'Dashboard',    label_zh: '仪表盘',     href: '/dashboard',            icon: '◇' },
-    { id: 'listings',     label_en: 'Listings',     label_zh: '房源',       href: '/dashboard/portfolio',  icon: '⌂' },
-    { id: 'applications', label_en: 'Applications', label_zh: '申请',       href: '/dashboard/pipeline',   icon: '▤', tone: 'gold' },
-    { id: 'screening',    label_en: 'Screening',    label_zh: '筛查',       href: '/screen',               icon: '◉', tone: 'ai' },
-    { id: 'leases',       label_en: 'Leases',       label_zh: '租约',       href: '/landlord/leases',      icon: '⎙' },
+    { id: 'dashboard',    label_en: 'Dashboard',    label_zh: '仪表盘',      href: '/dashboard',            icon: '◇' },
+    { id: 'properties',   label_en: 'Properties',   label_zh: '房源',        href: '/dashboard/portfolio',  icon: '⌂' },
+    { id: 'pipeline',     label_en: 'Pipeline',     label_zh: 'Pipeline',    href: '/dashboard/pipeline',   icon: '▤', tone: 'gold' },
+    { id: 'screen',       label_en: 'Screen',       label_zh: '筛查',        href: '/screen',               icon: '◉', tone: 'ai' },
+    { id: 'leases',       label_en: 'Leases',       label_zh: '租约',        href: '/landlord/leases',      icon: '⎙' },
     { id: 'stayloop-ai',  label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                 icon: '✦', tone: 'ai' },
-    { id: 'billing',      label_en: 'Billing',      label_zh: '账单',       href: '/billing',              icon: '$' },
-    { id: 'settings',     label_en: 'Settings',     label_zh: '设置',       href: '/profile',              icon: '⚙' },
   ],
   agent: [
-    { id: 'dashboard',  label_en: 'Dashboard',  label_zh: '仪表盘',   href: '/agent/dashboard',           icon: '◇' },
-    { id: 'clients',    label_en: 'Clients',    label_zh: '客户',     href: '/agent/clients',             icon: '◈' },
-    { id: 'packages',   label_en: 'Packages',   label_zh: '报告包',   href: '/agent/screening-packages',  icon: '◉', tone: 'gold' },
-    { id: 'listings',   label_en: 'Listings',   label_zh: '房源',     href: '/agent/mls',                 icon: '⌂' },
-    { id: 'leases',     label_en: 'Leases',     label_zh: '租约',     href: '/agent/leases',              icon: '⎙' },
-    { id: 'stayloop-ai',label_en: 'Stayloop AI',label_zh: 'Stayloop AI', href: '/chat',                   icon: '✦', tone: 'ai' },
-    { id: 'billing',    label_en: 'Billing',    label_zh: '账单',     href: '/billing',                   icon: '$' },
-    { id: 'settings',   label_en: 'Settings',   label_zh: '设置',     href: '/profile',                   icon: '⚙' },
+    { id: 'dashboard',   label_en: 'Dashboard',    label_zh: '仪表盘',      href: '/agent/dashboard',          icon: '◇' },
+    { id: 'clients',     label_en: 'Clients',      label_zh: '客户',        href: '/agent/clients',            icon: '◈' },
+    { id: 'packages',    label_en: 'Packages',     label_zh: '报告包',      href: '/agent/screening-packages', icon: '◉', tone: 'gold' },
+    { id: 'mls',         label_en: 'MLS',          label_zh: 'MLS',         href: '/agent/mls',                icon: '⌂' },
+    { id: 'leases',      label_en: 'Leases',       label_zh: '租约',        href: '/agent/leases',             icon: '⎙' },
+    { id: 'stayloop-ai', label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                     icon: '✦', tone: 'ai' },
   ],
 }
 
