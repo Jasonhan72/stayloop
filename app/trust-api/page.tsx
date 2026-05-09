@@ -7,7 +7,7 @@ import Footer from '@/components/Footer'
 export default function TrustApiPage() {
   return (
     <>
-      <Header active="/trust-api" />
+      <Header />
       <main className="bg-surface">
         <section
           className="relative overflow-hidden border-b border-line-divider"

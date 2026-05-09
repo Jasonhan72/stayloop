@@ -93,7 +93,7 @@ const TIERS: Tier[] = [
 export default function PricingPage() {
   return (
     <>
-      <Header active="/pricing" />
+      <Header />
       <main>
         <section
           className="relative overflow-hidden"

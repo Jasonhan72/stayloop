@@ -47,6 +47,9 @@ yarn-error.log*
 # local-only patches
 stripe-resend.patch
 
+# claude-generated deploy / setup helpers (run locally, don't track)
+*.command
+
 # editor
 .idea/
 .vscode/

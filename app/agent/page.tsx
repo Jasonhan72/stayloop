@@ -7,7 +7,7 @@ import Footer from '@/components/Footer'
 export default function AgentLanding() {
   return (
     <>
-      <Header active="/agent" />
+      <Header />
       <main className="bg-surface">
         <section
           className="relative overflow-hidden"

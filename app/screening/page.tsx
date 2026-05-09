@@ -16,7 +16,7 @@ const DIMENSIONS = [
 export default function ScreeningPage() {
   return (
     <>
-      <Header active="/screening" />
+      <Header />
       <main className="bg-surface">
         <section className="relative overflow-hidden border-b border-line-divider bg-surface-nav">
           <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-12">

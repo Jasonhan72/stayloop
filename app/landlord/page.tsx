@@ -7,7 +7,7 @@ import Footer from '@/components/Footer'
 export default function LandlordLanding() {
   return (
     <>
-      <Header active="/landlord" />
+      <Header />
       <main className="bg-surface">
         <section
           className="relative overflow-hidden"

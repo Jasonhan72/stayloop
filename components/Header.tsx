@@ -256,7 +256,7 @@ function NavLink({
   const { t } = useI18n()
   const label = t(i18nKey)
   const greenWhenLive = alwaysLive
-  const isBold = active || alwaysLive
+  const isBold = active || !!alwaysLive
   const color = alwaysLive ? '#047857' : active ? '#171717' : '#3F3F46'
 
   return (
