@@ -1,0 +1,13 @@
+{
+  "//": "Sandbox-only typecheck config — excludes pre-existing API route files the sandbox bash mount can't read (Resource deadlock avoided on the bind mount). Use the regular tsconfig.json for production builds.",
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    ".deploy-staging",
+    ".next",
+    "out",
+    "app/api",
+    "lib/stripe.ts",
+    "lib/email.ts"
+  ]
+}

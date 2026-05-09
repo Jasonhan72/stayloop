@@ -1,0 +1,547 @@
+'use client'
+
+import Link from 'next/link'
+import { useState, useEffect, useMemo } from 'react'
+import Header from '@/components/Header'
+import { supabase } from '@/lib/supabase'
+
+/**
+ * V5 ART · Listings Browse (StreetEasy-inspired split view)
+ *
+ * Layout (spec):
+ *   .se-search   — 14px 32px padding, dark-bordered input + black button
+ *   .se-filters  — pill filters w/ Luna pill on the right (margin-left: auto)
+ *   .se-results-bar — count + sort
+ *   .se-body     — grid-template-columns: 1fr 480px (cards | map)
+ *   .se-grid     — 2-column card grid
+ *   .se-map      — sticky map with absolute price pins, drawn legend
+ */
+
+interface DBListing {
+  id: string
+  slug: string
+  address: string
+  unit: string | null
+  city: string
+  province: string
+  monthly_rent: number
+  bedrooms: number | null
+  bathrooms: number | null
+  sqft: number | null
+  neighborhood: string | null
+  trust_tier: number | null
+  pet_policy: string | null
+  amenities: string[] | null
+  match_score: number | null
+  pin_x: number | null
+  pin_y: number | null
+  thumb_a: string | null
+  thumb_b: string | null
+  luna_note: string | null
+  badge: string | null
+  photo_count: number | null
+  is_active: boolean
+  created_at: string
+}
+
+export default function ListingsPage() {
+  const [items, setItems] = useState<DBListing[]>([])
+  const [active, setActive] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('多伦多 King West, Liberty Village, Queen West')
+
+  useEffect(() => {
+    supabase
+      .from('listings')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        setItems((data || []) as DBListing[])
+        if (data && data.length > 0) setActive((data[1] || data[0]).id)
+        setLoading(false)
+      })
+  }, [])
+
+  const count = items.length
+
+  return (
+    <div className="bg-white" style={{ minHeight: '100vh' }}>
+      <Header />
+
+      {/* Search row */}
+      <section
+        className="bg-white"
+        style={{ padding: '14px 32px 8px', borderBottom: '1px solid #F0EBE0' }}
+      >
+        <div className="mx-auto flex max-w-[1320px] items-center">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="flex-1"
+            style={{
+              padding: '12px 16px',
+              border: '1.5px solid #171717',
+              borderRight: 0,
+              borderRadius: '10px 0 0 10px',
+              fontSize: 14,
+              minWidth: 280,
+              outline: 'none',
+            }}
+          />
+          <button
+            style={{
+              padding: '12px 20px',
+              background: '#171717',
+              color: '#fff',
+              border: '1.5px solid #171717',
+              borderRadius: '0 10px 10px 0',
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: 'pointer',
+            }}
+          >
+            搜索 →
+          </button>
+        </div>
+      </section>
+
+      {/* Filters */}
+      <section
+        className="bg-white"
+        style={{ padding: '12px 32px', borderBottom: '1px solid #E0DACE' }}
+      >
+        <div className="mx-auto flex max-w-[1320px] flex-wrap items-center gap-[10px]">
+          <Filt label="出租" on />
+          <Filt label="$ 0 – 2,900" />
+          <Filt label="1 卧 + den" />
+          <Filt label="入住日期" />
+          <Filt label="允许猫" />
+          <Filt label="更多过滤" />
+          <span
+            style={{
+              marginLeft: 'auto',
+              padding: '8px 14px',
+              background:
+                'linear-gradient(135deg,rgba(124,58,237,0.10),rgba(37,99,235,0.10))',
+              border: '1px solid rgba(124,58,237,0.40)',
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#5B21B6',
+              cursor: 'pointer',
+            }}
+          >
+            ◐ Luna 帮我筛 (匹配我的 Profile)
+          </span>
+        </div>
+      </section>
+
+      {/* Results bar */}
+      <section
+        className="bg-white"
+        style={{ padding: '12px 32px', borderBottom: '1px solid #F0EBE0' }}
+      >
+        <div className="mx-auto flex max-w-[1320px] items-baseline justify-between">
+          <div style={{ fontSize: 18, fontWeight: 700 }}>
+            <b style={{ color: '#047857' }}>{count}</b> 套房源 · King West + Liberty Village
+          </div>
+          <div style={{ fontSize: 13, color: '#3F3F46' }}>
+            排序：<b style={{ color: '#171717', textDecoration: 'underline' }}>Luna 推荐 ▾</b>
+          </div>
+        </div>
+      </section>
+
+      {/* Body: split view */}
+      <section
+        className="mx-auto max-w-[1320px]"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 480px',
+        }}
+      >
+        {/* Card grid */}
+        <div
+          style={{
+            padding: '18px 28px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: 18,
+          }}
+        >
+          {loading && (
+            <div className="col-span-full p-10 text-center font-mono text-[12px] text-body-3">
+              加载中…
+            </div>
+          )}
+          {!loading && items.length === 0 && (
+            <div className="col-span-full p-10 text-center text-body-3">
+              没有匹配的房源 · 调整筛选条件试试
+            </div>
+          )}
+          {items.map((l) => (
+            <ListingCard
+              key={l.id}
+              l={l}
+              isActive={active === l.id}
+              onHover={() => setActive(l.id)}
+            />
+          ))}
+        </div>
+
+        {/* Map (sticky) */}
+        <Map listings={items} active={active} onPick={setActive} />
+      </section>
+    </div>
+  )
+}
+
+function Filt({ label, on, luna }: { label: string; on?: boolean; luna?: boolean }) {
+  return (
+    <span
+      style={{
+        padding: '8px 14px',
+        background: on ? '#171717' : luna ? 'linear-gradient(135deg,rgba(124,58,237,0.10),rgba(37,99,235,0.10))' : '#fff',
+        border: on ? '1px solid #171717' : '1px solid #C5BDAA',
+        borderRadius: 8,
+        fontSize: 13,
+        fontWeight: 600,
+        color: on ? '#fff' : '#171717',
+        cursor: 'pointer',
+        display: 'inline-flex',
+        gap: 6,
+        alignItems: 'center',
+      }}
+    >
+      {label} <span style={{ fontSize: 9, color: on ? '#fff' : '#71717A' }}>▾</span>
+    </span>
+  )
+}
+
+function ListingCard({
+  l,
+  isActive,
+  onHover,
+}: {
+  l: DBListing
+  isActive: boolean
+  onHover: () => void
+}) {
+  const a = l.thumb_a || '#D4C4A8'
+  const b = l.thumb_b || '#94815C'
+  const tierClass = (l.trust_tier || 2) >= 3 ? 't3' : 't2'
+  return (
+    <Link
+      href={`/listings/${l.slug}`}
+      onMouseEnter={onHover}
+      className="block bg-white transition"
+      style={{
+        border: '1px solid #E8E2D2',
+        borderRadius: 12,
+        overflow: 'hidden',
+        boxShadow: isActive ? '0 12px 28px rgba(0,0,0,0.10)' : 'none',
+        transform: isActive ? 'translateY(-1px)' : 'none',
+      }}
+    >
+      <div
+        style={{
+          aspectRatio: '1.5',
+          background: `linear-gradient(135deg,${a},${b})`,
+          position: 'relative',
+        }}
+      >
+        {l.badge && (
+          <span
+            style={{
+              position: 'absolute',
+              top: 10,
+              left: 10,
+              background:
+                l.badge.startsWith('LUNA')
+                  ? '#7C3AED'
+                  : l.badge.startsWith('NEW')
+                    ? '#DC2626'
+                    : '#047857',
+              color: '#fff',
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10,
+              fontWeight: 700,
+              padding: '4px 8px',
+              borderRadius: 4,
+              letterSpacing: '0.10em',
+            }}
+          >
+            {l.badge}
+          </span>
+        )}
+        <div
+          style={{
+            position: 'absolute',
+            top: 10,
+            right: 10,
+            width: 30,
+            height: 30,
+            background: 'rgba(0,0,0,0.50)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontSize: 14,
+          }}
+        >
+          ♡
+        </div>
+        {l.photo_count && (
+          <span
+            style={{
+              position: 'absolute',
+              bottom: 10,
+              right: 10,
+              background: 'rgba(0,0,0,0.65)',
+              color: '#fff',
+              padding: '3px 8px',
+              borderRadius: 4,
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10.5,
+            }}
+          >
+            1 / {l.photo_count}
+          </span>
+        )}
+      </div>
+      <div style={{ padding: '14px 16px' }}>
+        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>
+          ${l.monthly_rent.toLocaleString()}
+          <small style={{ fontSize: 12, fontWeight: 500, color: '#71717A' }}>/月</small>
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: '#3F3F46',
+            margin: '4px 0 6px',
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+          }}
+        >
+          {l.bedrooms != null && (
+            <b style={{ color: '#171717' }}>
+              {l.bedrooms === 0 ? 'Studio' : `${l.bedrooms}B${(l as any).has_den ? ' + den' : ''}`}
+            </b>
+          )}
+          <span style={{ width: 3, height: 3, background: '#C5BDAA', borderRadius: '50%' }} />
+          <b style={{ color: '#171717' }}>{l.bathrooms} 浴</b>
+          {l.sqft && (
+            <>
+              <span style={{ width: 3, height: 3, background: '#C5BDAA', borderRadius: '50%' }} />
+              <b style={{ color: '#171717' }}>{l.sqft} sqft</b>
+            </>
+          )}
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>
+          {l.address}
+          {l.unit && ` · Unit ${l.unit}`}
+        </div>
+        <div style={{ fontSize: 12, color: '#71717A', marginTop: 1 }}>
+          {l.neighborhood} · {l.city}
+        </div>
+        {l.amenities && l.amenities.length > 0 && (
+          <div style={{ display: 'flex', gap: 5, marginTop: 8, flexWrap: 'wrap' }}>
+            {l.amenities.slice(0, 3).map((a) => (
+              <span
+                key={a}
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 9.5,
+                  fontWeight: 700,
+                  padding: '2px 6px',
+                  borderRadius: 3,
+                  letterSpacing: '0.06em',
+                  background: 'rgba(4,120,87,0.10)',
+                  color: '#047857',
+                }}
+              >
+                {a}
+              </span>
+            ))}
+            <span
+              style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 9.5,
+                fontWeight: 700,
+                padding: '2px 6px',
+                borderRadius: 3,
+                letterSpacing: '0.06em',
+                background:
+                  tierClass === 't3' ? 'rgba(217,119,6,0.10)' : 'rgba(4,120,87,0.10)',
+                color: tierClass === 't3' ? '#B45309' : '#047857',
+              }}
+            >
+              需 Tier {l.trust_tier || 2}
+            </span>
+          </div>
+        )}
+      </div>
+      {l.luna_note && (
+        <div
+          style={{
+            background: 'rgba(124,58,237,0.06)',
+            borderTop: '1px solid rgba(124,58,237,0.15)',
+            padding: '8px 16px',
+            fontSize: 11.5,
+            color: '#5B21B6',
+            lineHeight: 1.45,
+          }}
+        >
+          ◐ {l.luna_note}
+        </div>
+      )}
+    </Link>
+  )
+}
+
+function Map({
+  listings,
+  active,
+  onPick,
+}: {
+  listings: DBListing[]
+  active: string | null
+  onPick: (id: string) => void
+}) {
+  return (
+    <div
+      className="hidden lg:block"
+      style={{
+        background: 'linear-gradient(180deg,#DDE7DA 0%,#C8D6C2 100%)',
+        position: 'sticky',
+        top: 72,
+        height: 'calc(100vh - 72px)',
+        borderLeft: '1px solid #E0DACE',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Pseudo grid roads — matches the SVG-overlay look in the design */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
+          opacity: 0.6,
+        }}
+      />
+      {/* Roads + park accents */}
+      <svg
+        viewBox="0 0 480 800"
+        preserveAspectRatio="xMidYMid slice"
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.5 }}
+      >
+        <path d="M 0 200 Q 200 240 480 220" stroke="#9CB596" strokeWidth="6" fill="none" />
+        <path d="M 0 380 L 480 360" stroke="#9CB596" strokeWidth="5" fill="none" />
+        <path d="M 0 560 Q 240 520 480 540" stroke="#9CB596" strokeWidth="6" fill="none" />
+        <path d="M 100 0 L 110 800" stroke="#9CB596" strokeWidth="4" fill="none" />
+        <path d="M 240 0 L 230 800" stroke="#9CB596" strokeWidth="5" fill="none" />
+        <path d="M 380 0 L 390 800" stroke="#9CB596" strokeWidth="4" fill="none" />
+        {/* Lake-ish area at bottom */}
+        <rect x="0" y="700" width="480" height="100" fill="rgba(110,160,180,0.35)" />
+      </svg>
+
+      {/* Pins */}
+      {listings.map((l) => {
+        const x = l.pin_x ?? Math.random() * 80 + 10
+        const y = l.pin_y ?? Math.random() * 70 + 15
+        const isActive = active === l.id
+        const isLuna = l.match_score && l.match_score >= 85
+        return (
+          <button
+            key={l.id}
+            onClick={() => onPick(l.id)}
+            style={{
+              position: 'absolute',
+              top: `${y}%`,
+              left: `${x}%`,
+              transform: isActive ? 'translate(-50%,-50%) scale(1.1)' : 'translate(-50%,-50%)',
+              padding: '5px 9px',
+              background: isActive ? '#047857' : '#fff',
+              border: `2px solid ${isActive ? '#047857' : isLuna ? '#7C3AED' : '#171717'}`,
+              borderRadius: 18,
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 11.5,
+              fontWeight: 700,
+              color: isActive ? '#fff' : isLuna ? '#5B21B6' : '#171717',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              whiteSpace: 'nowrap',
+              zIndex: isActive ? 10 : 1,
+            }}
+          >
+            ${l.monthly_rent.toLocaleString()}
+          </button>
+        )
+      })}
+
+      {/* Top-left "draw region" widget */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 18,
+          left: 18,
+          background: '#fff',
+          border: '1px solid #E0DACE',
+          borderRadius: 8,
+          padding: '8px 12px',
+          fontSize: 12,
+          fontWeight: 600,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        }}
+      >
+        ◯ 在地图上画区域
+      </div>
+
+      {/* Bottom-right legend */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 18,
+          right: 18,
+          background: '#fff',
+          border: '1px solid #E0DACE',
+          borderRadius: 8,
+          padding: '10px 14px',
+          fontSize: 11.5,
+          color: '#3F3F46',
+          fontFamily: 'JetBrains Mono, monospace',
+          letterSpacing: '0.04em',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        }}
+      >
+        <Legend color="#7C3AED" label="Luna 推荐" />
+        <Legend color="#047857" label="选中" />
+        <Legend color="#171717" label="其他" last />
+      </div>
+    </div>
+  )
+}
+
+function Legend({ color, label, last }: { color: string; label: string; last?: boolean }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: last ? 0 : 4,
+      }}
+    >
+      <span
+        style={{ width: 10, height: 10, borderRadius: '50%', background: color }}
+      />
+      {label}
+    </div>
+  )
+}
