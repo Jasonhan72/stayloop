@@ -249,6 +249,49 @@ async function analyzeFile(
         out.source_specific = src
         out.flags.push(...srcFlags)
 
+        // 2026-06-02 — Credit-report AI authenticity overrule.
+        // The regex-based source-specific check was tuned on the B2B
+        // Equifax disclosure layout. It MISSES consumer-portal downloads
+        // (myEquifax, Borrowell, Credit Karma, TransUnion Direct) which
+        // use different vocabulary ("Credit Score" vs "Risk Score",
+        // "Account Information" vs "Trade Lines"). When the regex would
+        // fire `credit_report_no_bureau_markers` on a credit_report file,
+        // ask Haiku Vision to actually LOOK at the document. If the model
+        // recognizes a genuine bureau report, suppress the false-positive
+        // flag and emit a verified-authentic marker instead. If the model
+        // can't confirm authenticity, keep the flag (or upgrade it to a
+        // clearer one).
+        if (kindIncludes(f.kind, 'credit_report') && apiKey
+            && out.flags.some(fl => fl.code === 'credit_report_no_bureau_markers')) {
+          const judgment = await judgeCreditReportAuthenticity(f.signed_url, f.mime, apiKey)
+          if (judgment?.is_authentic) {
+            // Suppress the regex false positive — AI confirmed it's a real
+            // bureau report. Record the positive finding so the UI can show
+            // "Equifax (verified by AI) — 720" instead of "score=0 / forged".
+            out.flags = out.flags.filter(fl => fl.code !== 'credit_report_no_bureau_markers')
+            out.flags.push({
+              code: 'credit_report_ai_verified',
+              severity: 'low',  // informational, not a risk signal
+              file: f.name,
+              evidence_en: `Credit report visually confirmed as a genuine ${judgment.bureau || 'Canadian bureau'} report${judgment.score_visible ? ` (score ${judgment.score_visible})` : ''}. Regex bureau-marker check missed it because this is a consumer-portal export with different vocabulary (e.g. "Credit Score" instead of "Risk Score").`,
+              evidence_zh: `AI 视觉确认这是真实的 ${judgment.bureau || '加拿大征信局'} 信用报告${judgment.score_visible ? `（分数 ${judgment.score_visible}）` : ''}。正则没匹配是因为消费者版报告用词不同（如 "Credit Score" 而不是 "Risk Score"）。`,
+            })
+          } else if (judgment && judgment.is_authentic === false) {
+            // AI explicitly judged this as NOT a genuine bureau report.
+            // Keep the existing flag and add the AI reasoning for clarity.
+            out.flags.push({
+              code: 'credit_report_ai_judged_fake',
+              severity: 'high',
+              file: f.name,
+              evidence_en: `Claude Vision could not confirm this as a genuine credit bureau report. Reasoning: ${judgment.reasoning.slice(0, 300)}`,
+              evidence_zh: `Claude Vision 无法确认这是真实的征信局报告。原因：${judgment.reasoning.slice(0, 300)}`,
+            })
+          }
+          // If judgment === null (API call failed / parse error), keep the
+          // regex flag — better to over-flag than to silently let a fake
+          // through.
+        }
+
         // ID-number validation. Prefer OCR text (image-only ID scans) if
         // available, otherwise fall back to extracted PDF text. SIN Luhn,
         // Ontario DL surname-letter, OHIP format checks all run from this.
@@ -288,6 +331,31 @@ async function analyzeFile(
         const { result: src, flags: srcFlags } = checkSourceSpecific(null, syntheticText, f.name, canonicalKind)
         out.source_specific = src
         out.flags.push(...srcFlags)
+
+        // Same AI overrule as the PDF branch — apply to photographed
+        // credit reports too. See note in PDF branch above.
+        if (kindIncludes(f.kind, 'credit_report') && apiKey
+            && out.flags.some(fl => fl.code === 'credit_report_no_bureau_markers')) {
+          const judgment = await judgeCreditReportAuthenticity(f.signed_url, f.mime, apiKey)
+          if (judgment?.is_authentic) {
+            out.flags = out.flags.filter(fl => fl.code !== 'credit_report_no_bureau_markers')
+            out.flags.push({
+              code: 'credit_report_ai_verified',
+              severity: 'low',
+              file: f.name,
+              evidence_en: `Credit report visually confirmed as a genuine ${judgment.bureau || 'Canadian bureau'} report${judgment.score_visible ? ` (score ${judgment.score_visible})` : ''}.`,
+              evidence_zh: `AI 视觉确认这是真实的 ${judgment.bureau || '加拿大征信局'} 信用报告${judgment.score_visible ? `（分数 ${judgment.score_visible}）` : ''}。`,
+            })
+          } else if (judgment && judgment.is_authentic === false) {
+            out.flags.push({
+              code: 'credit_report_ai_judged_fake',
+              severity: 'high',
+              file: f.name,
+              evidence_en: `Claude Vision could not confirm this as a genuine credit bureau report. Reasoning: ${judgment.reasoning.slice(0, 300)}`,
+              evidence_zh: `Claude Vision 无法确认这是真实的征信局报告。原因：${judgment.reasoning.slice(0, 300)}`,
+            })
+          }
+        }
       }
     }
 
@@ -551,6 +619,169 @@ export async function runDeepCheck(input: {
   return results
     .filter((r): r is PromiseFulfilledResult<ArmLengthCheckResult> => r.status === 'fulfilled')
     .map(r => r.value)
+}
+
+// =============================================================================
+// 2026-06-02 — AI-based credit-report authenticity judgment.
+//
+// The cheap regex check in `source-specific.ts` was tuned on B2B Equifax
+// disclosures. It misses consumer-portal exports — myEquifax, Borrowell,
+// Credit Karma (Canada), TransUnion Direct — which use different vocabulary:
+//   "Credit Score" instead of "Risk Score"
+//   "Account Information" instead of "Trade Lines"
+//   "Inquiries" might appear without the "Last N Months" qualifier
+//   Footer often omits "consumer.equifax.ca" / "CONSUMER USE ONLY"
+//
+// When the regex flags a credit_report file as `credit_report_no_bureau_markers`,
+// we run THIS function to actually look at the document. Returns:
+//   • is_authentic = true  → genuine bureau report; suppress the false flag.
+//   • is_authentic = false → AI couldn't confirm; keep the flag.
+//   • null                 → API call failed; keep the flag (default-flag-on
+//                            is safer than letting a fake through).
+//
+// Cost ≈ $0.001 per check (Haiku, single file, ~1500-token output).
+// Only fires when the cheap regex would have falsely accused the file —
+// so most screenings (with regex-matching B2B disclosures) don't pay this cost.
+// =============================================================================
+
+export interface CreditReportJudgment {
+  is_authentic: boolean
+  bureau: 'Equifax' | 'TransUnion' | 'Borrowell' | 'Credit Karma' | 'Unknown' | null
+  score_visible: number | null
+  /** any obvious applicant-name match seen on the report header */
+  applicant_name_on_report: string | null
+  /** one short sentence explaining the call */
+  reasoning: string
+  elapsed_ms: number
+}
+
+const CREDIT_REPORT_JUDGE_MODEL = 'claude-haiku-4-5'
+
+const CREDIT_REPORT_JUDGE_PROMPT = `You are reviewing a document a Canadian rental applicant uploaded, claiming it is a credit report. Decide whether the document is a GENUINE credit bureau report.
+
+Canadian credit reports come from:
+  • Equifax Canada       — B2B "consumer disclosure" OR consumer self-serve "myEquifax" portal
+  • TransUnion Canada    — B2B disclosure OR consumer "Consumer Credit File"
+  • Borrowell            — consumer portal showing Equifax data (legitimate proxy)
+  • Credit Karma Canada  — consumer portal showing TransUnion data (legitimate proxy)
+
+Things a genuine report SHOWS (any of these is strong evidence):
+  • A numeric credit score (typically 300-900 in Canada). Both Equifax and TransUnion display the score prominently.
+  • An "Equifax", "TransUnion", "Borrowell", or "Credit Karma" logo or text identifier (in header/footer/watermark).
+  • Sections like "Personal Information", "Accounts" / "Trade Lines" / "Account Information", "Inquiries", "Public Records".
+  • Account-level rows showing creditor names (banks, credit card companies, utilities), open dates, balances, payment history.
+  • A report date and either an applicant name or "Subject" / "Consumer" name.
+
+Things that suggest it is NOT a genuine bureau report:
+  • Plain spreadsheet / Word-style document with no bureau branding.
+  • A score number alone with no supporting account history.
+  • Obviously fabricated visual (mismatched fonts, anachronistic formatting).
+  • Letterhead from a non-bureau entity (e.g. a bank or law firm) claiming to be a credit report.
+  • Document is clearly something else entirely (an ID, paystub, application form).
+
+Return ONLY this JSON object — no markdown, no prose:
+{
+  "is_authentic": true | false,
+  "bureau": "Equifax" | "TransUnion" | "Borrowell" | "Credit Karma" | "Unknown" | null,
+  "score_visible": <integer 300-900 or null>,
+  "applicant_name_on_report": "<name as printed on the report header or null>",
+  "reasoning": "<one short sentence (<= 25 words) explaining the call>"
+}`
+
+async function judgeCreditReportAuthenticity(
+  signedFileUrl: string,
+  mime: string,
+  apiKey: string,
+): Promise<CreditReportJudgment | null> {
+  if (!apiKey) return null
+  const startedAt = Date.now()
+  try {
+    const content: any[] = []
+    if (mime === 'application/pdf') {
+      content.push({ type: 'document', source: { type: 'url', url: signedFileUrl } })
+    } else if (mime?.startsWith('image/')) {
+      content.push({ type: 'image', source: { type: 'url', url: signedFileUrl } })
+    } else {
+      return null
+    }
+    content.push({ type: 'text', text: CREDIT_REPORT_JUDGE_PROMPT })
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: CREDIT_REPORT_JUDGE_MODEL,
+        max_tokens: 400,
+        messages: [
+          { role: 'user', content },
+          { role: 'assistant', content: '{' },
+        ],
+      }),
+      signal: AbortSignal.timeout(30_000),
+    })
+
+    if (!res.ok) {
+      console.warn('[credit-report-judge] Haiku HTTP', res.status, await res.text().catch(() => ''))
+      return null
+    }
+    const json: any = await res.json()
+    const raw = json?.content?.[0]?.text || ''
+    let candidate = raw.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\`\`\`\s*$/i, '')
+    const reassembled = candidate.startsWith('{') ? candidate : '{' + candidate
+    const balanced = extractBalancedJsonInline(reassembled)
+    if (!balanced) return null
+    const cleaned = balanced.replace(/,(\s*[}\]])/g, '$1')
+    try {
+      const obj = JSON.parse(cleaned)
+      const score = typeof obj.score_visible === 'number' && obj.score_visible >= 300 && obj.score_visible <= 900
+        ? Math.round(obj.score_visible)
+        : null
+      const allowedBureaus = new Set(['Equifax', 'TransUnion', 'Borrowell', 'Credit Karma', 'Unknown'])
+      const bureau = typeof obj.bureau === 'string' && allowedBureaus.has(obj.bureau)
+        ? obj.bureau as CreditReportJudgment['bureau']
+        : null
+      return {
+        is_authentic: obj.is_authentic === true,
+        bureau,
+        score_visible: score,
+        applicant_name_on_report: typeof obj.applicant_name_on_report === 'string'
+          ? obj.applicant_name_on_report
+          : null,
+        reasoning: typeof obj.reasoning === 'string' ? obj.reasoning.slice(0, 500) : '',
+        elapsed_ms: Date.now() - startedAt,
+      }
+    } catch {
+      return null
+    }
+  } catch (e) {
+    console.warn('[credit-report-judge] failed:', (e as Error)?.message)
+    return null
+  }
+}
+
+function extractBalancedJsonInline(s: string): string | null {
+  const start = s.indexOf('{')
+  if (start < 0) return null
+  let depth = 0
+  let inStr = false
+  let escape = false
+  for (let i = start; i < s.length; i++) {
+    const c = s[i]
+    if (escape) { escape = false; continue }
+    if (c === '\\') { escape = true; continue }
+    if (c === '"') { inStr = !inStr; continue }
+    if (inStr) continue
+    if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) return s.slice(start, i + 1)
+    }
+  }
+  return null
 }
 
 export type { ForensicsReport, ForensicFlag, PerFileForensics, ArmLengthCheckResult } from './types'
