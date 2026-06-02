@@ -113,38 +113,96 @@ Common false-positive cases to avoid:
   when the actual scanned ID or paystub PDF has been merged into the file.
 - A cover letter or letter of intent referencing a credit check → 'other'.
 
-Per-kind requirements (ALL must be true to label that kind):
-- lease: an executed or proposed RENTAL/TENANCY agreement. Strong signals:
-    • Document title or letterhead says "Agreement to Lease", "Lease",
-      "Tenancy Agreement", "OREA Form 400", "OREA Form 410", "Ontario
-      Standard Lease", "Residential Tenancies Act".
-    • Contains numbered sections like "1. PREMISES", "2. TERM OF LEASE",
-      "3. RENT", "4. DEPOSIT".
-    • Names both a Tenant and a Landlord.
-    • Has a "monthly...sum of $X" rent clause.
-  A blank/unsigned Form 400 template still counts — it's a lease.
-- id_document: a recognizable government ID image is visible (DL/passport/PR/
-  health card photo, with name + DOB + ID number).
-- employment_letter: a signed letter from an employer stating the applicant's
-  position + salary + start date. NOT a generic offer template, not a request
-  for an employment letter, not a clause in a lease.
-- offer_letter: a job offer from a company with the applicant's name and
-  the offered position/salary.
-- pay_stub: an actual numeric pay-stub table with gross / net / YTD lines.
-- bank_statement: an actual bank statement with account number, dated
-  transaction list, and running balance.
-- credit_report: an actual credit report with score (Equifax/TransUnion),
-  trade lines, account history, or inquiries listed. Mere mention of "credit
-  check required" does not count.
-- reference: a signed reference letter from a previous landlord / employer
-  with the applicant's name as the subject.
-- other: anything not matching the above (application forms, cover letters,
-  generic templates, banking confirmation-of-identity certificates, blank
-  forms).
+────────────────────────────────────────────────────────────────────────
+CLASSIFICATION RULES — be DECISIVE based on what you actually see in the
+file. Look at the rendered visual content (header logos, form numbers,
+section titles, signatures, table layouts), not just the filename.
 
-When in doubt between 'other' and a specific kind, choose 'other'.
-Return EMPTY kinds array [] only if the file is unreadable; otherwise return
-at least 'other'.
+Anti-bias: DO NOT default to 'other' just because you are uncertain.
+Pick the specific kind that best matches the visual evidence. 'other' is
+ONLY for documents that genuinely don't fit any specific kind below
+(e.g. cover letters, a generic "rental application" form, a deposit
+receipt, a banking customer-identity certificate, a vehicle/insurance
+registration). If a file matches ≥ 50% of the signals listed for a
+specific kind, label it as that kind.
+────────────────────────────────────────────────────────────────────────
+
+- lease: any document in the residential lease / tenancy agreement family.
+  Strong visual signals (any 1 is enough):
+    • Letterhead / header / footer says "Agreement to Lease", "Residential
+      Tenancy Agreement", "Ontario Standard Lease", "Residential Tenancies
+      Act, 2006", "OREA Form 400", "OREA Form 401", "OREA Form 410",
+      "Form 400", "Form 410", or a Schedule A/B/C labeled "Agreement to
+      Lease - Residential".
+    • Has the OREA / Ontario Real Estate Association logo or "CREA
+      REALTOR®" trademark notice in header/footer.
+    • Numbered sections like "1. PREMISES", "2. TERM OF LEASE", "3. RENT",
+      "4. DEPOSIT AND PREPAID RENT", "5. USE", "6. SERVICES AND COSTS".
+    • Tenant and Landlord names + "the said Landlord" / "the said Tenant"
+      legalese.
+    • "monthly...the sum of ___ Dollars (CDN$) ___" rent clause.
+  A signed, unsigned, or blank OREA form ALL count as lease. Any addendum
+  / schedule attached to the lease ALSO counts as lease.
+
+- id_document: a recognizable government photo ID is visible (driver's
+  license, passport biopage, PR card, health card, Status Card). Has
+  name + DOB + an ID number printed on the card itself. The image of
+  the card is the evidence — typed-out "ID: G1234..." in a form body
+  is NOT enough.
+
+- employment_letter: a signed letter ON EMPLOYER LETTERHEAD stating the
+  applicant's position + salary + start date + employment status
+  (full-time / part-time / permanent). Includes a contact person at the
+  employer (HR or manager).
+
+- offer_letter: a job offer letter from a company with the applicant's
+  name, position offered, start date, and offered compensation.
+
+- pay_stub: a numeric pay-period statement with gross / net / YTD lines,
+  deductions (CPP / EI / income tax), pay date, employer name. Visual
+  layout = a table with rows for earnings, deductions, totals.
+
+- bank_statement: a periodic bank account statement with account number,
+  date range, transaction list (dated debits/credits), opening + closing
+  balance. Bank name in header. NOT a "bank confirmation of identity"
+  certificate (those are 'other').
+
+- credit_report: a credit-bureau output. Can be:
+    • Full B2B disclosure: score + trade lines + inquiries + public
+      records + personal info, with "Equifax", "TransUnion" branding.
+    • Consumer-tier export (myEquifax / Borrowell / Credit Karma):
+      score gauge in 300-900 range with bureau wordmark/logo + the
+      attestation "This is an Equifax credit score" / equivalent + a
+      consumer-portal URL footer like my.equifax.ca/score.
+  Either form is a credit_report.
+
+- reference: a SIGNED letter from a previous landlord OR an
+  employer/coworker testifying about the applicant's character /
+  reliability / payment behavior. Strong signals for a landlord-
+  reference letter (THIS IS A COMMON FILE THAT KEEPS LANDING AS 'other'):
+    • Filename or letterhead like "Landlord Reference", "Reference Letter",
+      "To Whom It May Concern" — and the body discusses a tenancy.
+    • The PREVIOUS LANDLORD's name + contact info as the signatory.
+    • Names the applicant as the previous TENANT.
+    • Mentions a previous rental address.
+    • Talks about tenancy dates, monthly rent paid, payment punctuality,
+      property condition on move-out.
+  Any letter matching ≥ 2 of these is a reference (NOT 'other').
+
+- other: ONLY for documents that genuinely don't fit any of the kinds
+  above. Examples that are legitimately 'other':
+    • A cover letter / letter of intent
+    • A blank rental application form
+    • A deposit receipt or eTransfer screenshot
+    • A vehicle / business / insurance registration
+    • A banking "Confirmation of Identity" or "Personal Certificate of
+      Identity" (PCI/ISC) — these verify identity for the bank, not for
+      the landlord; they are not an id_document by themselves
+    • Generic templates with no specific applicant content
+
+Return EMPTY kinds array [] only if the file is unreadable; otherwise
+return at least one kind. Prefer 'other' over [] when the file is
+readable but doesn't match any specific kind.
 
 Valid kinds: ${VALID_KINDS.join(', ')}
 
