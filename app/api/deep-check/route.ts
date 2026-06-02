@@ -103,10 +103,12 @@ function rowToCompanyInfo(r: CorpRegistryRow): CompanyRegistryInfo {
     // OpenCorporates mirrors the federal dataset and provides stable
     // direct URLs (the canada.ca site requires session tokens for deep
     // links, so the previous /cc/lgcy/cc/corporation/{num} path always
-    // 404'd). For provincial / non-federal jurisdictions r.opencorporates_url
-    // is preferred when present.
-    registry_url: r.opencorporates_url
-      || (r.corp_number ? `https://opencorporates.com/companies/ca/${r.corp_number}` : null),
+    // 404'd). The RPC doesn't return opencorporates_url today, so we
+    // build the URL from corp_number — OpenCorporates accepts both the
+    // hyphenated ("1763932-5") and stripped ("17639325") forms.
+    registry_url: r.corp_number
+      ? `https://opencorporates.com/companies/ca/${r.corp_number}`
+      : null,
     source: r.source || 'opencorporates_federal',
   }
 }
