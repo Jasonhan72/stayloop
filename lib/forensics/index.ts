@@ -302,6 +302,18 @@ async function analyzeFile(
         out.flags.push(...mathFlags)
       }
     }
+
+    // 2026-06-02 P2 — Cheap arm's-length signals (deterministic, no API call).
+    // These run on every screening — the expensive corporate-registry lookups
+    // remain gated behind the Pro "Deep Check" button. The cheap layer
+    // catches the obvious sole-prop / shell-company cases that the AI prompt
+    // can miss when the employer name is buried in pay-stub footer fine print.
+    const employerName: string | undefined =
+      out.paystub_math?.extraction.employer_name?.trim() || undefined
+    if (employerName && applicantName) {
+      const flags = checkCheapArmLength(employerName, applicantName, f.name)
+      out.flags.push(...flags)
+    }
   } catch (e) {
     // Per-file failures are non-fatal — record a low-severity flag and move on
     out.flags.push({
@@ -406,6 +418,80 @@ export function forensicsToPromptBlock(report: ForensicsReport): string {
   }
 
   return lines.join('\n')
+}
+
+/**
+ * 2026-06-02 P2 — Cheap arm-length checks that run on every screening.
+ *
+ * Two deterministic signals, no external API:
+ *   • numbered_company       — employer is "1234567 Ontario Inc" pattern
+ *   • employer_name_includes_applicant_surname — likely sole prop / family
+ *
+ * Common-surname downgrade: when the applicant surname is in the high-
+ * frequency surname set (Wang / Smith / Lee / etc.) we DON'T fire the
+ * surname-match flag, because a real "ABC Smith Consulting Inc." run by
+ * an unrelated Smith family is plausible. The numbered-company flag is
+ * independent of surname and always fires when the pattern matches.
+ */
+const ARM_NUMBERED_COMPANY_RE =
+  /^\d{5,10}\s+(ontario|canada|québec|quebec|alberta|bc|british columbia)\s*(inc\.?|ltd\.?|corp\.?|limited|incorporated)?$/i
+
+const ARM_COMMON_SURNAMES = new Set<string>([
+  'wang','li','zhang','liu','chen','yang','huang','zhao','wu','zhou','xu','sun','ma','zhu','hu','guo','he','gao','lin','luo',
+  'zheng','liang','xie','song','tang','han','feng','deng','cao','peng','xiao','pan','dong','yuan','jiang','cai','yu','du','ye',
+  'cheng','wei','su','lu','ding','ren','shen','yao','zhong','wong','chan','cheung','ng','ho','lau','chow','leung','tsang','yip',
+  'chiu','hung','fung','mok','tse','tam','poon','kwok','hsu','hsieh','kuo','chao','chou','tsai','kim','lee','park','choi','jung',
+  'jeong','kang','cho','yoon','jang','lim','shin','oh','seo','moon','nam','baek','nguyen','tran','le','pham','hoang','huynh',
+  'vo','vu','dang','bui','smith','jones','williams','brown','davis','miller','wilson','taylor','anderson','thomas','jackson',
+  'white','harris','martin','thompson','garcia','martinez','robinson','clark','rodriguez','lewis','walker','hall','allen','young',
+  'king','wright','scott','green','baker','adams','nelson','carter','mitchell','roberts','turner','phillips','campbell','parker',
+  'evans','edwards','collins','morris','murphy','cook','morgan','bell','cooper','ward','rivera','lopez','gonzales','singh','kumar',
+  'sharma','patel','shah','gupta','khan','ahmed','hassan','ali','ahmad','mohamed','mohammed','hussain','ibrahim',
+])
+
+function extractSurname(fullName: string): string {
+  const cleaned = fullName.toLowerCase().replace(/[^a-z\s\-]/g, '').trim()
+  const parts = cleaned.split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return ''
+  return parts[parts.length - 1]
+}
+
+function employerHasSurname(employerName: string, surname: string): boolean {
+  if (!surname || surname.length < 3) return false
+  const normalized = employerName.toLowerCase().replace(/[^a-z\s]/g, ' ')
+  const tokens = new Set(normalized.split(/\s+/).filter(Boolean))
+  return tokens.has(surname)
+}
+
+function checkCheapArmLength(
+  employerName: string,
+  applicantName: string,
+  fileName: string,
+): ForensicFlag[] {
+  const flags: ForensicFlag[] = []
+  const surname = extractSurname(applicantName)
+
+  if (ARM_NUMBERED_COMPANY_RE.test(employerName.trim())) {
+    flags.push({
+      code: 'arm_length_numbered_company',
+      severity: 'medium',
+      file: fileName,
+      evidence_en: `Employer "${employerName}" is a numbered Ontario/Canada company. Statistically over-represented among sole proprietorships and shell entities — landlord should verify via OpenCorporates or request a business banking reference.`,
+      evidence_zh: `雇主 "${employerName}" 是数字公司（如 1234567 Ontario Inc）。在个体户和空壳公司里比例偏高 — 建议房东通过 OpenCorporates 或商业银行 reference 核实。`,
+    })
+  }
+
+  if (surname && !ARM_COMMON_SURNAMES.has(surname) && employerHasSurname(employerName, surname)) {
+    flags.push({
+      code: 'arm_length_surname_in_employer',
+      severity: 'high',
+      file: fileName,
+      evidence_en: `Applicant's surname "${surname}" appears in the employer name "${employerName}". Likely a family business / sole proprietorship — self-issued income letters cannot be used as third-party verification.`,
+      evidence_zh: `申请人的姓 "${surname}" 出现在雇主名称 "${employerName}" 中。可能是家族企业 / 个体户 — 自己开给自己的雇主信不能作为第三方收入验证。`,
+    })
+  }
+
+  return flags
 }
 
 /**

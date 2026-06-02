@@ -570,7 +570,22 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
 
 // Map v3's 5 dims → legacy 6 columns, so old dashboards keep working.
 // This is deterministic and documented — nothing is invented.
-function mapV3ToLegacy(v3: V3Scores, redFlagCount: number, identityMatch: number): {
+// 2026-06-02 P1 + P2 — Two-part change:
+//  1. behavior_signals now takes `behavioralRedFlagCount` (callers must
+//     pre-filter out `forensics_*` entries which already affect overall
+//     via hardGates + forensicsPenalty; counting them here too triple-
+//     displays the same evidence in the legacy 6-column UI).
+//  2. court_records is now derived from the actual CanLII/Portal hit
+//     count rather than the bundled v3.rental_history score (which mixes
+//     LTB hits with prior-landlord-reference signals — that bundling
+//     left the legacy court_records column showing 50 for "clean LTB +
+//     missing references" which a landlord can't act on).
+function mapV3ToLegacy(
+  v3: V3Scores,
+  behavioralRedFlagCount: number,
+  identityMatch: number,
+  totalCourtHits: number,
+): {
   doc_authenticity: number
   payment_ability: number
   court_records: number
@@ -578,13 +593,21 @@ function mapV3ToLegacy(v3: V3Scores, redFlagCount: number, identityMatch: number
   behavior_signals: number
   info_consistency: number
 } {
+  // Derive a clean court_records score from objective hit count.
+  // Each tier reflects the same severity ranges already used downstream
+  // for hard gates (defendant 35 / multi 25 / active 20).
+  let courtRecords: number
+  if (totalCourtHits === 0)      courtRecords = 95
+  else if (totalCourtHits === 1) courtRecords = 50
+  else if (totalCourtHits === 2) courtRecords = 25
+  else                            courtRecords = 10
   return {
-    doc_authenticity: v3.verification,                          // verification covers doc auth + identity
-    payment_ability: v3.ability_to_pay,                         // direct mapping
-    court_records: v3.rental_history,                           // v3 bundles LTB into rental_history
-    stability: Math.round((v3.ability_to_pay + v3.verification) / 2),  // stability derived
-    behavior_signals: Math.max(0, 100 - redFlagCount * 15),     // more red flags → lower
-    info_consistency: identityMatch,                            // identity cross-match score
+    doc_authenticity: v3.verification,                                                   // verification covers doc auth + identity
+    payment_ability: v3.ability_to_pay,                                                  // direct mapping
+    court_records: courtRecords,                                                         // derived from objective hit count
+    stability: Math.round((v3.ability_to_pay + v3.verification) / 2),                    // stability derived
+    behavior_signals: Math.max(0, 100 - behavioralRedFlagCount * 15),                    // more behavioral red flags → lower
+    info_consistency: identityMatch,                                                     // identity cross-match score
   }
 }
 
@@ -844,7 +867,7 @@ Output ONLY the JSON schema — no markdown, no prose, no preamble.`
 
 DIMENSIONS + WEIGHTS:
 1. ability_to_pay (40%) — income/rent ratio (25%), income stability (10%), emergency reserves (5%)
-2. credit_health (25%) — credit score (15%), DTI ratio (10%)
+2. credit_health (25%) — credit score (15%), non-rent DTI ratio (10%) — DTI here is NON-RENT monthly debt (credit cards, car loans, student loans, lines of credit) divided by gross monthly income. Do NOT include rent in this DTI; rent burden is already counted under ability_to_pay.income_rent_ratio.
 3. rental_history (20%) — prior landlord references (10%), LTB/small claims (10%)
 4. verification (10%) — employer verification (5%), document authenticity (5%)
 5. communication (5%) — application completeness + disclosure + landlord override
@@ -1469,7 +1492,29 @@ JSON DISCIPLINE (avoid parse errors):
       const role = (r.partyRole || '').toLowerCase()
       return role.includes('defendant') || role.includes('debtor') || role.includes('respondent')
     })
-    const canliiPartyHits = courtDetail.records.filter(r => r.nameInTitle).length
+
+    // 2026-06-02 P1 — Filter CanLII hits to debt/tenant-relevant databases.
+    // Previously every nameInTitle CanLII match counted toward the
+    // court_record_defendant hard gate, including:
+    //   - onhrt (Human Rights Tribunal) — legally protected, cannot be
+    //     used for scoring per Ontario Human Rights Code
+    //   - oncj (criminal court) — landlord judgment area, not deterministic
+    //   - oncicb (Criminal Injuries Compensation) — applicant may be a victim
+    //   - oncfsrb (Child & Family Services Review Board) — family disputes
+    //   - onorb (Ontario Review Board) — criminal matters
+    // These cases falsely escalated otherwise-clean applicants to "decline".
+    // Only count hits in databases that legitimately signal tenant risk:
+    // LTB (eviction), Superior/Divisional/Appeal (civil debt), Small Claims.
+    const DEBT_RELEVANT_CANLII_DBS = new Set([
+      'onltb',    // Landlord & Tenant Board
+      'onsc',     // Ontario Superior Court (civil)
+      'onscdc',   // Divisional Court (civil appeals)
+      'onscsm',   // Small Claims Court
+      'onca',     // Court of Appeal (civil)
+    ])
+    const canliiPartyHits = courtDetail.records.filter(r =>
+      r.nameInTitle && DEBT_RELEVANT_CANLII_DBS.has((r.databaseId || '').toLowerCase())
+    ).length
     const totalCourtHits = portalDefendantCases.length + canliiPartyHits
 
     if (totalCourtHits > 0) {
@@ -1577,7 +1622,10 @@ JSON DISCIPLINE (avoid parse errors):
 
     // ---- Stage 5: Map to legacy columns for backward compat ----
     const identityMatch = typeof parsed.identity_match_score === 'number' ? parsed.identity_match_score : 70
-    const legacy = mapV3ToLegacy(s, redFlags.length, identityMatch)
+    // Behavioral red flags only — forensics_* entries are already counted
+    // upstream via hardGates + forensicsPenalty; don't double-count them here.
+    const behavioralRedFlagCount = redFlags.filter(f => !f.startsWith('forensics_')).length
+    const legacy = mapV3ToLegacy(s, behavioralRedFlagCount, identityMatch, totalCourtHits)
 
     // ---- Stage 5.5: Supplemental court searches for AI-extracted names ----
     // The initial court search (Stage 2) only used the landlord-provided
