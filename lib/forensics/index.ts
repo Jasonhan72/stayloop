@@ -278,13 +278,18 @@ async function analyzeFile(
             })
           } else if (judgment && judgment.is_authentic === false) {
             // AI explicitly judged this as NOT a genuine bureau report.
-            // Keep the existing flag and add the AI reasoning for clarity.
+            // The AI's verdict is more authoritative than the regex —
+            // SUPERSEDE the regex flag (remove `credit_report_no_bureau_markers`)
+            // and use only the AI flag with its specific reasoning. This
+            // prevents the UI from showing two stacked "this is fake" rows
+            // that say the same thing.
+            out.flags = out.flags.filter(fl => fl.code !== 'credit_report_no_bureau_markers')
             out.flags.push({
               code: 'credit_report_ai_judged_fake',
               severity: 'high',
               file: f.name,
-              evidence_en: `Claude Vision could not confirm this as a genuine credit bureau report. Reasoning: ${judgment.reasoning.slice(0, 300)}`,
-              evidence_zh: `Claude Vision 无法确认这是真实的征信局报告。原因：${judgment.reasoning.slice(0, 300)}`,
+              evidence_en: `Claude Vision concluded this is not a genuine credit bureau report. Reasoning: ${judgment.reasoning.slice(0, 300)}`,
+              evidence_zh: `Claude Vision 判断这不是真实的征信局报告。原因：${judgment.reasoning.slice(0, 300)}`,
             })
           }
           // If judgment === null (API call failed / parse error), keep the
@@ -347,12 +352,14 @@ async function analyzeFile(
               evidence_zh: `AI 视觉确认这是真实的 ${judgment.bureau || '加拿大征信局'} 信用报告${judgment.score_visible ? `（分数 ${judgment.score_visible}）` : ''}。`,
             })
           } else if (judgment && judgment.is_authentic === false) {
+            // AI's verdict supersedes the regex — strip the regex flag.
+            out.flags = out.flags.filter(fl => fl.code !== 'credit_report_no_bureau_markers')
             out.flags.push({
               code: 'credit_report_ai_judged_fake',
               severity: 'high',
               file: f.name,
-              evidence_en: `Claude Vision could not confirm this as a genuine credit bureau report. Reasoning: ${judgment.reasoning.slice(0, 300)}`,
-              evidence_zh: `Claude Vision 无法确认这是真实的征信局报告。原因：${judgment.reasoning.slice(0, 300)}`,
+              evidence_en: `Claude Vision concluded this is not a genuine credit bureau report. Reasoning: ${judgment.reasoning.slice(0, 300)}`,
+              evidence_zh: `Claude Vision 判断这不是真实的征信局报告。原因：${judgment.reasoning.slice(0, 300)}`,
             })
           }
         }
@@ -650,34 +657,51 @@ export interface CreditReportJudgment {
   score_visible: number | null
   /** any obvious applicant-name match seen on the report header */
   applicant_name_on_report: string | null
-  /** one short sentence explaining the call */
+  /** true when this is a free/consumer-tier score-only export (myEquifax,
+   *  Borrowell, etc.) — used by the UI to render "Equifax — 763 (Free
+   *  consumer tier; account details not included)" instead of treating
+   *  the missing account list as suspicious. */
+  is_score_only_consumer_export: boolean
+  /** one short sentence explaining the call, citing the specific marker used */
   reasoning: string
   elapsed_ms: number
 }
 
 const CREDIT_REPORT_JUDGE_MODEL = 'claude-haiku-4-5'
 
-const CREDIT_REPORT_JUDGE_PROMPT = `You are reviewing a document a Canadian rental applicant uploaded, claiming it is a credit report. Decide whether the document is a GENUINE credit bureau report.
+const CREDIT_REPORT_JUDGE_PROMPT = `You are inspecting a document a Canadian rental applicant submitted, claiming it is a credit report. Decide whether the document is GENUINELY produced by a credit bureau — separately from whether the content is detailed or sparse.
 
-Canadian credit reports come from:
-  • Equifax Canada       — B2B "consumer disclosure" OR consumer self-serve "myEquifax" portal
-  • TransUnion Canada    — B2B disclosure OR consumer "Consumer Credit File"
-  • Borrowell            — consumer portal showing Equifax data (legitimate proxy)
-  • Credit Karma Canada  — consumer portal showing TransUnion data (legitimate proxy)
+────────────────────────────────────────────────────────────
+GROUND TRUTH — these are the legitimate Canadian sources:
+  • Equifax Canada (B2B "Consumer Disclosure" — full account history + score)
+  • myEquifax (consumer self-serve at my.equifax.ca — free tier shows ONLY the score; paid tiers add details)
+  • TransUnion Canada (B2B disclosure + consumer credit file)
+  • Borrowell (consumer portal, shows Equifax data)
+  • Credit Karma Canada (consumer portal, shows TransUnion data)
 
-Things a genuine report SHOWS (any of these is strong evidence):
-  • A numeric credit score (typically 300-900 in Canada). Both Equifax and TransUnion display the score prominently.
-  • An "Equifax", "TransUnion", "Borrowell", or "Credit Karma" logo or text identifier (in header/footer/watermark).
-  • Sections like "Personal Information", "Accounts" / "Trade Lines" / "Account Information", "Inquiries", "Public Records".
-  • Account-level rows showing creditor names (banks, credit card companies, utilities), open dates, balances, payment history.
-  • A report date and either an applicant name or "Subject" / "Consumer" name.
+CRITICAL — distinguish AUTHENTICITY from COMPLETENESS:
+  • AUTHENTIC = the document genuinely came out of a real bureau / consumer-portal.
+  • COMPLETE  = the document contains full account history, balances, inquiries.
+  Free-tier and consumer-portal products are AUTHENTIC even when they are NOT complete. A myEquifax score-only PDF is authentic. A Borrowell dashboard screenshot is authentic. They simply contain less detail than a B2B disclosure — that is the product, not a forgery.
 
-Things that suggest it is NOT a genuine bureau report:
-  • Plain spreadsheet / Word-style document with no bureau branding.
-  • A score number alone with no supporting account history.
-  • Obviously fabricated visual (mismatched fonts, anachronistic formatting).
-  • Letterhead from a non-bureau entity (e.g. a bank or law firm) claiming to be a credit report.
-  • Document is clearly something else entirely (an ID, paystub, application form).
+CONCLUSIVE AUTHENTICITY MARKERS (any one of these is enough — return is_authentic=true):
+  1. Visible URL footer/header from a real bureau or partner site:
+       my.equifax.ca, consumer.equifax.ca, equifax.ca, equifax.com
+       transunion.ca, tucca.transunion.ca, transunion.com
+       borrowell.com, creditkarma.ca, creditkarma.com
+  2. A clear "Equifax", "myEquifax", "TransUnion", "Borrowell", or "Credit Karma" logo (or wordmark with brand color/typography).
+  3. An explicit attestation like "This is an Equifax credit score" or "Your TransUnion Consumer Credit File".
+  4. A bureau-style score gauge / dial showing 300-900 with a numeric score in that range AND any bureau identifier nearby.
+  5. A B2B-style structured layout (Personal Info → Accounts/Trade Lines → Inquiries → Public Records) with the bureau name in the header.
+
+SIGNS OF FORGERY (return is_authentic=false ONLY when one of these clearly applies):
+  • Text claims to be a credit report but ZERO bureau identifier of any kind (no logo, no URL, no brand wordmark, no attestation, no recognizable layout).
+  • Obviously fabricated visual: mismatched fonts inside the same field, misaligned text overlaid on a background, anachronistic formatting (e.g. Comic Sans on a fake "Equifax letterhead").
+  • Document is some OTHER kind of document repurposed (a Word doc, a screenshot of a different site, a paystub) labelled as a credit report.
+  • Visible signs of edit: cut-and-paste artifacts, mismatched DPI between regions, score number digit-substituted with a different font.
+  • Letterhead from a non-bureau entity (a bank's internal memo, a lawyer's letter) claiming to summarize a credit report.
+
+DEFAULT RULE — when in doubt, return is_authentic=true. False accusation of forgery is far more costly than letting a sparse but real bureau export through. Reserve is_authentic=false for documents you would describe as "this is clearly not from a credit bureau" or "this has been edited".
 
 Return ONLY this JSON object — no markdown, no prose:
 {
@@ -685,7 +709,8 @@ Return ONLY this JSON object — no markdown, no prose:
   "bureau": "Equifax" | "TransUnion" | "Borrowell" | "Credit Karma" | "Unknown" | null,
   "score_visible": <integer 300-900 or null>,
   "applicant_name_on_report": "<name as printed on the report header or null>",
-  "reasoning": "<one short sentence (<= 25 words) explaining the call>"
+  "is_score_only_consumer_export": true | false,
+  "reasoning": "<one short sentence (<= 30 words) — cite the SPECIFIC marker you used (URL, logo, attestation, etc.) or the SPECIFIC forgery sign you observed>"
 }`
 
 async function judgeCreditReportAuthenticity(
@@ -751,6 +776,7 @@ async function judgeCreditReportAuthenticity(
         applicant_name_on_report: typeof obj.applicant_name_on_report === 'string'
           ? obj.applicant_name_on_report
           : null,
+        is_score_only_consumer_export: obj.is_score_only_consumer_export === true,
         reasoning: typeof obj.reasoning === 'string' ? obj.reasoning.slice(0, 500) : '',
         elapsed_ms: Date.now() - startedAt,
       }

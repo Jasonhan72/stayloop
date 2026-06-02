@@ -1178,6 +1178,15 @@ JSON DISCIPLINE (avoid parse errors):
       'pdf_producer_consumer_tool',        // Photoshop / Word / Canva / Image2PDF
       'paystub_ytd_inflated',              // YTD math truly impossible (>2.5x)
       'paystub_period_math_error',         // hourly × hours ≠ stated gross
+      // 2026-06-02 — When Claude Vision confirms the file is not actually a
+      // bureau report, its verdict supersedes the cheap regex. The regex
+      // flag is removed by forensics-index.ts in that path, so we treat
+      // the AI flag as the canonical "credit report is fake" signal.
+      'credit_report_ai_judged_fake',      // Claude Vision: not a genuine bureau report
+      // Kept as a fallback for when the AI judge fails to run (e.g. API
+      // outage). In normal operation the regex flag gets superseded by
+      // the AI flag — either it's removed (AI says authentic) or it's
+      // removed AND replaced by credit_report_ai_judged_fake (AI says fake).
       'credit_report_no_bureau_markers',   // no Equifax AND no TransUnion markers
       'bank_producer_mismatch',            // bank text but wrong PDF Producer
     ])
