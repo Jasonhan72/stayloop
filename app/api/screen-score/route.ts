@@ -1208,21 +1208,21 @@ JSON DISCIPLINE (avoid parse errors):
       ? { ...parsed.details_zh } : {}
     const dimsZeroed: Array<keyof V3Scores> = []
 
-    // If ANY document is forged, ALL uploaded documents become untrusted.
-    // Zero out ALL dimensions that depend on uploaded evidence, not just
-    // the specific dimension tied to the forged file type.
-    if (Object.keys(dimZeroReasons).length > 0) {
-      const forgedFileNames = Object.values(dimZeroReasons).map(r => r.en).join(' ')
-      const ALL_DIMS: Array<keyof V3Scores> = ['ability_to_pay', 'credit_health', 'rental_history', 'verification', 'communication']
-      for (const dim of ALL_DIMS) {
-        if (!dimZeroReasons[dim]) {
-          dimZeroReasons[dim] = {
-            en: `Score forced to 0: another uploaded document was determined to be forged — ALL uploaded documents are now untrusted.`,
-            zh: `维度被置零：检测到有文件伪造，所有上传文件均不可信。`,
-          }
-        }
-      }
-    }
+    // 2026-06-02 — Forgery cascade removed.
+    // Previously: if ANY document was forged, we zeroed every dimension that
+    // depends on uploaded evidence ("all 5 dimensions = 0, banner: all files
+    // untrusted"). Real-world feedback: that wipes out useful AI judgment on
+    // dimensions whose evidence WASN'T forged (e.g. a clean CanLII rental
+    // history doesn't get invalidated because a credit report was fabricated).
+    //
+    // New behavior: only the specific dimension whose underlying evidence
+    // file was forged is zeroed (handled in the loop below via
+    // KIND_TO_ZERO_DIMS). Other dimensions retain their AI scores. The fraud
+    // is still surfaced loudly — `doc_tampering` is forced into hard_gates
+    // a few lines below (which caps overall at 55), critical/high forensics
+    // flags stack into red_flags / penalty, and `forensics_zeroed_dims` is
+    // returned in the response so the UI can show a top-level
+    // "⚠ 检测到文件造假" warning banner above the per-dimension breakdown.
 
     for (const [dim, reason] of Object.entries(dimZeroReasons) as Array<[keyof V3Scores, DimZeroReason]>) {
       s[dim] = 0

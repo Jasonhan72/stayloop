@@ -9,6 +9,17 @@ import { NextRequest, NextResponse } from 'next/server'
 // We intentionally keep this in its own route so the upload UI can
 // light up category badges within a few seconds of drop, without
 // waiting for full scoring.
+//
+// 2026-06-02 — Rent extraction hardening:
+//   - Model bumped from Haiku to Sonnet for the lease-rent question.
+//     Haiku was misreading multi-line lease tables ($4800 base rent +
+//     $100 parking → was returning $1400, possibly grabbing the wrong
+//     row). Sonnet costs more per call but the precision matters because
+//     `monthly_rent` flows directly into income_to_rent (DTI) and the
+//     affordability_severe hard gate.
+//   - Prompt now explicitly enumerates the rent-vs-not-rent cases and
+//     requires the model to return only the BASE monthly rent for the
+//     unit, never a deposit / parking / total / annualized figure.
 
 export const runtime = 'edge'
 
@@ -28,6 +39,12 @@ type Kind = typeof VALID_KINDS[number]
 const MAX_FILES_PER_BATCH = 5   // Keep each Claude call small to avoid timeouts
 const MAX_BYTES = 8 * 1024 * 1024 // 8MB per file
 const MAX_TOTAL_FILES = 20       // Absolute cap across all batches
+
+// Sonnet for the lease-rent extraction. Haiku misread "$4,800 base rent +
+// $100 parking" lease tables as $1,400. Sonnet handles tabular lease forms
+// (OREA Form 400/410, custom condo agreements) much more reliably and the
+// rent number feeds directly into the affordability hard gate.
+const CLASSIFIER_MODEL = 'claude-sonnet-4-5'
 
 async function toBase64(buf: ArrayBuffer): Promise<string> {
   const bytes = new Uint8Array(buf)
@@ -98,15 +115,60 @@ at least 'other'.
 Valid kinds: ${VALID_KINDS.join(', ')}
 
 ALSO extract — if visible in any uploaded document — the following fields.
-Prefer rental application forms for these, then ID documents, then other sources.
-- applicant_name: the candidate's full legal name
-- monthly_rent: the monthly rent for the unit being applied to, in CAD (number only, no $ or commas). If you only see annual rent, divide by 12. If unknown, null.
+Prefer rental application forms / leases for these, then ID documents.
+- applicant_name: the candidate's full legal name (string or null).
+- monthly_rent: the BASE monthly rent for the unit being applied to, in CAD
+  (integer dollars, no $ / commas / cents). See "Rent extraction" below for
+  rules. If unknown or no lease/agreement present, return null.
+
+────────────────────────────────────────────────────────────────────────
+Rent extraction — read this carefully. Past versions of this classifier
+have confused parking / deposit / last-month with the base rent and
+returned the wrong number, breaking the downstream affordability check.
+
+1. The number you return MUST be the BASE MONTHLY RENT for the unit.
+   On Ontario OREA Form 410 / Form 400 leases this is the value next to
+   "Rent of $___ per month" or "Monthly Rent". On condo agreements it is
+   the "Base Rent" row, separate from parking / locker / utility add-ons.
+
+2. EXCLUDE — never confuse these with base rent:
+   • Security deposit / "last month's rent" deposit (usually labeled "deposit"
+     or "first and last", and is a one-time amount equal to monthly rent,
+     not a separate recurring fee — do NOT add it).
+   • Key deposit, pet deposit, cleaning deposit.
+   • Parking spot rent (usually $100–$300/mo, listed on a separate line).
+   • Storage / locker rent.
+   • Utility deposits or monthly utility allowances.
+   • Maintenance fees / condo fees paid to the corporation.
+   • Property tax breakdowns.
+   • Annual figures: if the lease only states an annual rent, divide by 12
+     and round to integer.
+
+3. If the lease shows multiple monthly amounts (e.g. "Rent $4,800 + Parking
+   $100 = Total $4,900"), return ONLY the base rent ($4,800), NEVER the
+   total and NEVER the add-on.
+
+4. If the document is a bank form, ID, paystub, credit report, or anything
+   that is NOT a lease / rental agreement / tenancy agreement, the rent is
+   NOT available from that document — return null. Only extract rent from
+   files that actually contain a lease / agreement to lease.
+
+5. If multiple lease documents are uploaded for the same unit, prefer the
+   most recent signed lease.
+
+6. Sanity bounds: Toronto residential rent is typically $1,200–$10,000/mo.
+   If your extracted number falls outside $500–$25,000, return null instead
+   (you almost certainly grabbed the wrong row).
+
+7. Show your work in scratchpad if uncertain, but the final JSON must be
+   strictly the schema below. Never guess.
+────────────────────────────────────────────────────────────────────────
 
 Return ONLY this JSON (no markdown, no prose):
 {
   "files": [ { "index": <0-based index>, "kinds": ["..."] }, ... ],
   "applicant_name": "<name or null>",
-  "monthly_rent": <number or null>
+  "monthly_rent": <integer or null>
 }`,
     },
   ]
@@ -143,10 +205,10 @@ Return ONLY this JSON (no markdown, no prose):
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
-    signal: AbortSignal.timeout(30_000), // 30s timeout per batch
+    signal: AbortSignal.timeout(45_000), // 45s — Sonnet on PDFs is slower than Haiku
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 800,
+      model: CLASSIFIER_MODEL,
+      max_tokens: 1500,
       system: 'You classify uploaded rental-application documents and extract a few header fields (applicant name, monthly rent). Output strictly the JSON schema requested. No markdown, no prose.',
       messages: [{ role: 'user', content: contentBlocks }],
     }),
@@ -216,7 +278,15 @@ export async function POST(req: NextRequest) {
       if (!applicantName && typeof parsed.applicant_name === 'string' && parsed.applicant_name.trim().length > 1) {
         applicantName = parsed.applicant_name.trim()
       }
-      if (monthlyRent === null && typeof parsed.monthly_rent === 'number' && parsed.monthly_rent > 0 && parsed.monthly_rent < 100000) {
+      // Sanity bound matches the model prompt: $500–$25,000. Anything outside
+      // that range is almost certainly the wrong row from a lease table; we
+      // discard rather than pass the bad value to affordability scoring.
+      if (
+        monthlyRent === null &&
+        typeof parsed.monthly_rent === 'number' &&
+        parsed.monthly_rent >= 500 &&
+        parsed.monthly_rent <= 25000
+      ) {
         monthlyRent = Math.round(parsed.monthly_rent)
       }
       for (let i = 0; i < batch.length; i++) {

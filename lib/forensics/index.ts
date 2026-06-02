@@ -14,6 +14,21 @@
 // All AI calls (haiku for paystub field extraction) require ANTHROPIC_API_KEY.
 // If the key is missing or any individual file fails, we degrade gracefully:
 // the file just gets fewer flags rather than aborting the whole report.
+//
+// 2026-06-02 — Image-PDF fingerprint re-run:
+//   Source-specific checks (Equifax / TransUnion / bank fingerprints) used to
+//   run only against PDF-extracted text. For scanned credit reports (e.g. a
+//   user photographs their Equifax disclosure and uploads it as an image-only
+//   PDF), the extracted text is essentially empty, so every Equifax marker
+//   regex misses → `credit_report_no_bureau_markers` (high severity) fires →
+//   credit_health zeroed even on a real bureau report.
+//
+//   We now keep the OCR text we already pay Haiku Vision to produce and feed
+//   it BACK into checkSourceSpecific() as if it were extracted PDF text. If
+//   the scan really is an Equifax / TransUnion report, the OCR'd text will
+//   contain the bureau markers and the false-positive forge flag disappears.
+//   Genuinely fabricated reports — which have no bureau markers in either
+//   their PDF text OR their OCR text — still get flagged correctly.
 // -----------------------------------------------------------------------------
 
 import { checkPdfMetadata, readPdfMetadata } from './pdf-metadata'
@@ -32,6 +47,7 @@ import type {
   PaystubExtraction,
   PerFileForensics,
   ArmLengthCheckResult,
+  TextDensityResult,
 } from './types'
 
 export interface ForensicsInput {
@@ -196,20 +212,42 @@ async function analyzeFile(
           out.text_density = text
           out.flags.push(...checkTextDensity(text, fileSize, f.name, canonicalKind))
         }
-        // Source-specific markers
-        const { result: src, flags: srcFlags } = checkSourceSpecific(meta, text, f.name, canonicalKind)
-        out.source_specific = src
-        out.flags.push(...srcFlags)
 
-        // Image-only PDFs (mostly scanned IDs / passports / handwritten letters)
-        // have effectively no extractable text. Run Haiku Vision OCR to recover
-        // content for downstream id-validation, cross-doc, and Sonnet scoring.
+        // Image-only PDFs (mostly scanned IDs / passports / handwritten letters,
+        // and crucially scanned credit reports / bank statements) have
+        // effectively no extractable text. Run Haiku Vision OCR FIRST so the
+        // recovered text can feed BOTH the source-specific fingerprint check
+        // and downstream id-validation, cross-doc, and Sonnet scoring.
+        //
         // Trigger threshold: text_density flagged is_likely_image_pdf, which
         // means < ~50 chars/page average.
         if (text?.is_likely_image_pdf && apiKey) {
           const ocrResult = await ocrImagePdf(f.signed_url, f.mime, apiKey)
           if (ocrResult) out.ocr = ocrResult
         }
+
+        // Source-specific markers. If we have OCR text (because the PDF was
+        // image-only), merge it into the text_sample before running the
+        // fingerprint check — otherwise Equifax / TransUnion / bank fingerprints
+        // would all miss on scanned reports, producing a false-positive
+        // `credit_report_no_bureau_markers` and forcing credit_health to 0
+        // even when the scan is genuine.
+        //
+        // We preserve the original text_density's is_likely_image_pdf flag so
+        // other downstream checks still know this was a scan; we only enrich
+        // the text_sample that source-specific looks at.
+        const textForFingerprint: TextDensityResult | null = (text && out.ocr?.text)
+          ? {
+              ...text,
+              text_sample: [text.text_sample || '', out.ocr.text]
+                .filter(Boolean)
+                .join('\n')
+                .slice(0, 50_000), // matches the cap source-specific was already tuned for
+            }
+          : text
+        const { result: src, flags: srcFlags } = checkSourceSpecific(meta, textForFingerprint, f.name, canonicalKind)
+        out.source_specific = src
+        out.flags.push(...srcFlags)
 
         // ID-number validation. Prefer OCR text (image-only ID scans) if
         // available, otherwise fall back to extracted PDF text. SIN Luhn,
@@ -237,6 +275,19 @@ async function analyzeFile(
         out.flags.push(
           ...checkIdValidation(ocrResult.text, f.name, canonicalKind, surname)
         )
+        // Run source-specific on the OCR text for image uploads too.
+        // A photo of a credit report should be fingerprinted the same way
+        // a scanned PDF of one is.
+        const syntheticText: TextDensityResult = {
+          chars_per_page: ocrResult.text.length,
+          page_count: 1,
+          total_chars: ocrResult.text.length,
+          is_likely_image_pdf: true,
+          text_sample: ocrResult.text.slice(0, 50_000),
+        } as TextDensityResult
+        const { result: src, flags: srcFlags } = checkSourceSpecific(null, syntheticText, f.name, canonicalKind)
+        out.source_specific = src
+        out.flags.push(...srcFlags)
       }
     }
 
