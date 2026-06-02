@@ -891,7 +891,7 @@ EXTRACT these fields too:
 - extracted_names (string array — ALL unique person names from ALL uploaded ID documents. If 2 IDs are uploaded for 2 different people, return BOTH names. Each name should be "FIRSTNAME LASTNAME" format. This is CRITICAL for court record lookup.)
 - detected_monthly_income (CAD/month, convert bi-weekly or annual, null if unknown)
 - income_evidence (one short sentence citing source)
-- detected_document_kinds (subset of [employment_letter, pay_stub, bank_statement, id_document, credit_report, offer_letter, reference, other])
+- detected_document_kinds (subset of [lease, employment_letter, pay_stub, bank_statement, id_document, credit_report, offer_letter, reference, other])
 - bank_min_balance (number or null) — if bank statements present, lowest closing balance seen
 - identity_match_score (0-100) — cross-doc name/DOB/address consistency; if only 1 doc, return null
 
@@ -1114,9 +1114,27 @@ JSON DISCIPLINE (avoid parse errors):
     }
 
     const s: V3Scores = parsed.scores || {}
-    if (typeof s.ability_to_pay !== 'number') {
-      await supabase.from('screenings').update({ status: 'error', error: 'Missing v3 scores' }).eq('id', screening_id)
-      return NextResponse.json({ error: 'Missing v3 scores', raw: text }, { status: 500 })
+    // 2026-06-02 P0 — Validate AND clamp all 5 dimensions. Previously only
+    // ability_to_pay was checked; if Sonnet omitted another dim or returned
+    // non-numeric (string / null / NaN / 150), baseScore arithmetic produced
+    // NaN that propagated through the entire score, gate, and tier logic.
+    const ALL_V3_DIMS: Array<keyof V3Scores> = [
+      'ability_to_pay', 'credit_health', 'rental_history', 'verification', 'communication',
+    ]
+    for (const k of ALL_V3_DIMS) {
+      const v = (s as any)[k]
+      if (typeof v !== 'number' || !isFinite(v)) {
+        await supabase.from('screenings').update({
+          status: 'error',
+          error: `Missing or invalid v3 score: ${k}`,
+        }).eq('id', screening_id)
+        return NextResponse.json({ error: `Missing or invalid v3 score: ${k}`, raw: text }, { status: 500 })
+      }
+      // Clamp to the legal 0-100 range. Sonnet occasionally emits values
+      // outside this (e.g. 150 when a dimension is described as "well above
+      // typical", or -20 when "negative signal"). The downstream weighted
+      // sum + hard gates assume 0-100; out-of-range inputs corrupt them.
+      ;(s as any)[k] = Math.max(0, Math.min(100, Math.round(v)))
     }
 
     // ---- Stage 3.5: Forensics-driven dimension zeroing ----------------
@@ -1286,18 +1304,44 @@ JSON DISCIPLINE (avoid parse errors):
     const hardGates: string[] = Array.isArray(parsed.hard_gates_triggered) ? parsed.hard_gates_triggered : []
     const redFlags: string[] = Array.isArray(parsed.red_flags) ? parsed.red_flags : []
 
-    // Enforce hard gates in backend (don't fully trust Claude)
-    if (monthlyRent > 0 && incomeRatio > 0 && incomeRatio < 2.0 && !hardGates.includes('income_severe')) {
+    // Enforce hard gates in backend (don't fully trust Claude).
+    //
+    // 2026-06-02 P0 — Use the document-derived income for the gate, not
+    // the form-reported income. Previously the gate was evaluated against
+    // `incomeRatio = formIncome / rent` which the applicant fully controls
+    // (they can put $99,999 in the form). The detected income comes from
+    // Sonnet's reading of paystubs / T4 / bank statements; that's what
+    // we treat as ground truth for the affordability decision.
+    //
+    // We mirror the same null-tolerant precedence used at line ~1651 when
+    // populating `effectiveIncome`: detected first, form-reported as fallback,
+    // null when neither is available (in which case the gates DO NOT fire —
+    // there's no evidence to fire on, the missing income gets reflected in
+    // evidence_coverage instead).
+    const detectedIncomeForGate: number | null =
+      typeof parsed.detected_monthly_income === 'number' && parsed.detected_monthly_income > 0
+        ? parsed.detected_monthly_income
+        : null
+    const effectiveIncomeForGate: number | null =
+      detectedIncomeForGate ?? (monthlyIncome > 0 ? monthlyIncome : null)
+    const verifiedRatio: number | null =
+      (effectiveIncomeForGate !== null && monthlyRent > 0)
+        ? effectiveIncomeForGate / monthlyRent
+        : null
+
+    if (monthlyRent > 0 && verifiedRatio !== null && verifiedRatio < 2.0 && !hardGates.includes('income_severe')) {
       hardGates.push('income_severe')
     }
-    // Affordability gate: rent > 40% of gross income. Fires even when
-    // income_severe is also set — the tighter cap (55) wins over (65).
-    if (monthlyRent > 0 && incomeRatio > 0 && incomeRatio < 2.5 && !hardGates.includes('affordability_severe')) {
+    // Affordability gate: rent > 40% of verified gross income. Fires even
+    // when income_severe is also set — the tighter cap (55) wins over (65).
+    if (monthlyRent > 0 && verifiedRatio !== null && verifiedRatio < 2.5 && !hardGates.includes('affordability_severe')) {
       hardGates.push('affordability_severe')
     }
     // Red flag: rent 35-40% of gross income — borderline. Skip if
     // affordability_severe already fires (double-counting would be unfair).
-    if (monthlyRent > 0 && incomeRatio >= 2.5 && incomeRatio < 2.857 && !redFlags.includes('rent_ratio_high')) {
+    // Uses the verified ratio (detected income / rent), same precedence
+    // as the affordability gate above.
+    if (monthlyRent > 0 && verifiedRatio !== null && verifiedRatio >= 2.5 && verifiedRatio < 2.857 && !redFlags.includes('rent_ratio_high')) {
       redFlags.push('rent_ratio_high')
     }
     // Lift any ID-validation failures from the forensics layer into the red-flag
