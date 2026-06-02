@@ -1528,6 +1528,12 @@ export default function ScreenPage() {
   const [files, setFiles] = useState<File[]>([])
   // AI-detected kinds per file (keyed by a stable file signature: name+size)
   const [fileKinds, setFileKinds] = useState<Record<string, string[]>>({})
+  // 2026-06-02 — Employers visible in ANY classified file (lease, business
+  // registration, bank-statement payroll line, employment letter, paystub).
+  // Used by runDeepCheck() to auto-populate the Arm's Length input even
+  // when no traditional paystub/employment letter was uploaded — e.g. a
+  // self-employed applicant who only uploaded a corporate registration.
+  const [classifyEmployers, setClassifyEmployers] = useState<string[]>([])
   const [classifying, setClassifying] = useState(false)
   const [classifyError, setClassifyError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -1632,7 +1638,10 @@ export default function ScreenPage() {
       const s = v.trim()
       if (s.length >= 2) employerSet.add(s)
     }
-    // Manual override takes precedence; otherwise pull from forensics
+    // Manual override takes precedence; otherwise pull from EVERY available
+    // auto-detected source: cross-doc entities, paystub extractions, AND the
+    // classify-files pass (which sees employers anywhere in the document
+    // set, including business registrations for self-employed applicants).
     if (manualEmployer && manualEmployer.trim().length >= 2) {
       employerSet.add(manualEmployer.trim())
     } else {
@@ -1640,6 +1649,7 @@ export default function ScreenPage() {
       if (Array.isArray(forensics?.per_file)) {
         for (const pf of forensics.per_file) addEmployer(pf?.paystub_math?.extraction?.employer_name)
       }
+      for (const emp of classifyEmployers) addEmployer(emp)
     }
 
     const employer_names = Array.from(employerSet)
@@ -1906,6 +1916,7 @@ export default function ScreenPage() {
     const kindsMap: Record<string, string[]> = {}
     let foundName: string | null = null
     let foundRent: number | null = null
+    const foundEmployers: string[] = []
 
     for (let bi = 0; bi < batches.length; bi++) {
       const batch = batches[bi]
@@ -1920,6 +1931,13 @@ export default function ScreenPage() {
         if (!foundName && data.applicant_name) foundName = data.applicant_name
         if (foundRent === null && typeof data.monthly_rent === 'number' && data.monthly_rent > 0) {
           foundRent = data.monthly_rent
+        }
+        if (Array.isArray((data as any).employers_visible)) {
+          for (const emp of (data as any).employers_visible as unknown[]) {
+            if (typeof emp === 'string' && emp.trim().length >= 2) {
+              foundEmployers.push(emp.trim())
+            }
+          }
         }
       } else {
         failCount++
@@ -1938,6 +1956,25 @@ export default function ScreenPage() {
     }
     if (typeof foundRent === 'number' && foundRent > 0) {
       setTargetRent(prev => (prev && prev.trim() ? prev : String(foundRent)))
+    }
+    if (foundEmployers.length > 0) {
+      // Canonical-dedup (strip suffix + lowercase). Keep the first display
+      // form encountered for each canonical, cap at 3 (mirrors classifier cap).
+      setClassifyEmployers(prev => {
+        const seenCanonical = new Set(prev.map(s =>
+          s.toLowerCase().replace(/\s*[,.]?\s*(incorporated|incorporée|corporation|corp|company|co|limited|limitée|ltée|ltd|inc|llc|llp|lp|pc|plc|gmbh|ag|sa)\s*\.?\s*$/i, '').trim()
+        ))
+        const merged = [...prev]
+        for (const emp of foundEmployers) {
+          const c = emp.toLowerCase().replace(/\s*[,.]?\s*(incorporated|incorporée|corporation|corp|company|co|limited|limitée|ltée|ltd|inc|llc|llp|lp|pc|plc|gmbh|ag|sa)\s*\.?\s*$/i, '').trim()
+          if (!seenCanonical.has(c)) {
+            seenCanonical.add(c)
+            merged.push(emp)
+            if (merged.length >= 3) break
+          }
+        }
+        return merged
+      })
     }
 
     // Only show error if ALL batches failed

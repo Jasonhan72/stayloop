@@ -91,6 +91,7 @@ async function classifyBatch(
 ): Promise<{
   files: PerFileExtraction[]
   applicant_name: string | null
+  employers_visible: string[]
 }> {
   const contentBlocks: any[] = [
     {
@@ -223,6 +224,25 @@ ALSO at the top level:
                      | Prefer values from a lease's TENANT field, then ID
                      | documents, then employment letters.
 
+  employers_visible  | string[] (may be empty). EVERY employer or own-business
+                     | company name visible anywhere in the uploaded files.
+                     | Pull from these sources, in this priority order:
+                     |   1. employment_letter — the company name on letterhead
+                     |   2. pay_stub — the employer name printed at top
+                     |   3. business / corporate registration documents that
+                     |      list the applicant as Owner / Director / Officer
+                     |      (this catches self-employed applicants who don't
+                     |      have a paystub but have a registered company)
+                     |   4. bank_statement — recurring "payroll" or "salary"
+                     |      deposit lines often show the employer's name
+                     |   5. lease — the "Employer" field if filled in
+                     |   6. offer_letter — the offering company's name
+                     | Include the FULL legal company name as printed (e.g.
+                     | "ABC Consulting Inc.", "1234567 Ontario Inc.") — keep
+                     | suffixes like Inc/Ltd/Corp/Limited. Deduplicate by
+                     | canonical name (strip case + suffix). Cap at 3 entries
+                     | (most-cited first). Return [] if nothing visible.
+
 ────────────────────────────────────────────────────────────────────────
 Rent extraction — read this carefully. Past versions have grabbed parking,
 deposits, leftover AcroForm draft values, or numbers from non-lease files,
@@ -289,7 +309,8 @@ Return ONLY this JSON (no markdown, no prose):
     },
     ...
   ],
-  "applicant_name": "<name or null>"
+  "applicant_name": "<name or null>",
+  "employers_visible": ["<full legal company name>", ...]
 }`,
     },
   ]
@@ -353,6 +374,7 @@ Return ONLY this JSON (no markdown, no prose):
         rent_label_seen?: string | null
       }>
       applicant_name?: string | null
+      employers_visible?: string[]
     }
     return {
       files: Array.isArray(parsed.files)
@@ -366,6 +388,9 @@ Return ONLY this JSON (no markdown, no prose):
       applicant_name: typeof parsed.applicant_name === 'string' && parsed.applicant_name.trim().length > 1
         ? parsed.applicant_name.trim()
         : null,
+      employers_visible: Array.isArray(parsed.employers_visible)
+        ? parsed.employers_visible.filter((s): s is string => typeof s === 'string' && s.trim().length > 1).map(s => s.trim()).slice(0, 3)
+        : [],
     }
   } catch {
     throw new Error(`Classifier parse error: ${text.slice(0, 200)}`)
@@ -406,6 +431,7 @@ export async function POST(req: NextRequest) {
   // Merge results across batches
   const validKindSet = new Set<string>(VALID_KINDS)
   let applicantName: string | null = null
+  const employersAcc: string[] = []   // dedup of all employers_visible across batches
   const allClassifications: {
     index: number
     name: string
@@ -424,6 +450,24 @@ export async function POST(req: NextRequest) {
       const parsed = result.value
       if (!applicantName && parsed.applicant_name) {
         applicantName = parsed.applicant_name
+      }
+      // Merge employers_visible across batches with canonical dedup so
+      // "ABC Consulting" / "ABC Consulting Inc." / "ABC CONSULTING LIMITED"
+      // collapse to one entry (preserve the first form seen for display).
+      for (const emp of parsed.employers_visible || []) {
+        const canonical = emp
+          .toLowerCase()
+          .replace(/\s*[,.]?\s*(incorporated|incorporée|corporation|corp|company|co|limited|limitée|ltée|ltd|inc|llc|llp|lp|pc|plc|gmbh|ag|sa)\s*\.?\s*$/i, '')
+          .trim()
+        const isDup = employersAcc.some(seen => {
+          const s = seen
+            .toLowerCase()
+            .replace(/\s*[,.]?\s*(incorporated|incorporée|corporation|corp|company|co|limited|limitée|ltée|ltd|inc|llc|llp|lp|pc|plc|gmbh|ag|sa)\s*\.?\s*$/i, '')
+            .trim()
+          return s === canonical
+        })
+        if (!isDup) employersAcc.push(emp)
+        if (employersAcc.length >= 3) break  // mirror Sonnet's cap
       }
       for (let i = 0; i < batch.length; i++) {
         const globalIdx = batchStart + i
@@ -481,5 +525,11 @@ export async function POST(req: NextRequest) {
     classifications: allClassifications,
     applicant_name: applicantName,
     monthly_rent: monthlyRent,
+    // 2026-06-02 — Employers visible in ANY uploaded document, not just
+    // paystubs / employment letters. Lets the downstream Arm's Length
+    // check auto-run for self-employed applicants who only have a
+    // business registration. Empty array when nothing visible — the UI
+    // then falls back to its manual-input card.
+    employers_visible: employersAcc,
   })
 }
