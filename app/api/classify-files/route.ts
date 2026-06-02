@@ -226,22 +226,49 @@ ALSO at the top level:
 
   employers_visible  | string[] (may be empty). EVERY employer or own-business
                      | company name visible anywhere in the uploaded files.
-                     | Pull from these sources, in this priority order:
+                     | Pull from these sources:
                      |   1. employment_letter — the company name on letterhead
                      |   2. pay_stub — the employer name printed at top
-                     |   3. business / corporate registration documents that
-                     |      list the applicant as Owner / Director / Officer
-                     |      (this catches self-employed applicants who don't
-                     |      have a paystub but have a registered company)
+                     |   3. ANY corporate / business registration document —
+                     |      Articles of Incorporation, Master Business License,
+                     |      Ontario Extra-provincial Registration, Certificate
+                     |      of Incorporation, OBR (Ontario Business Registry),
+                     |      Corporations Canada confirmation letter.
+                     |      Strong signals (any 1 — TREAT AS REGISTRATION):
+                     |        • Letterhead "Corporations Canada", "Innovation,
+                     |          Science and Economic Development Canada",
+                     |          "ServiceOntario", "Companies Office (Manitoba)",
+                     |          "Corporate Registry (Alberta)", or any
+                     |          provincial registrar letterhead.
+                     |        • A "Corporate name / Dénomination sociale" field.
+                     |        • A "Corporation Number / Numéro de la société",
+                     |          "Business Number" (BN), or "Ontario Corporation
+                     |          Number" / OCN.
+                     |        • Document title contains "Registration",
+                     |          "Incorporation", "Articles", "Certificate",
+                     |          "Business License", "Master Business License".
+                     |      IMPORTANT: extract the company name even if the
+                     |      document does NOT explicitly list the applicant
+                     |      as Director / Officer / Owner. The applicant
+                     |      uploaded this document into a rental application —
+                     |      that act itself is strong evidence the company is
+                     |      theirs. The downstream Arm's Length Deep Check
+                     |      verifies the Director link via the corporate
+                     |      registry. If the applicant ISN'T actually a
+                     |      Director, Deep Check will catch that and clear
+                     |      the flag — your job here is only to surface the
+                     |      company name as a candidate.
                      |   4. bank_statement — recurring "payroll" or "salary"
                      |      deposit lines often show the employer's name
                      |   5. lease — the "Employer" field if filled in
                      |   6. offer_letter — the offering company's name
                      | Include the FULL legal company name as printed (e.g.
-                     | "ABC Consulting Inc.", "1234567 Ontario Inc.") — keep
-                     | suffixes like Inc/Ltd/Corp/Limited. Deduplicate by
-                     | canonical name (strip case + suffix). Cap at 3 entries
-                     | (most-cited first). Return [] if nothing visible.
+                     | "Bright Bloomers Studio Inc.", "ABC Consulting Inc.",
+                     | "1234567 Ontario Inc.") — keep suffixes like
+                     | Inc/Ltd/Corp/Limited. Deduplicate by canonical name
+                     | (strip case + suffix). Cap at 3 entries (most-cited
+                     | first). Return [] only when nothing of the above is
+                     | visible anywhere in the entire upload set.
 
 ────────────────────────────────────────────────────────────────────────
 Rent extraction — read this carefully. Past versions have grabbed parking,
