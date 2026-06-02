@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe'
+import { captureException } from '@/lib/observability/sentry'
 
 export const runtime = 'edge'
 
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: session.url })
   } catch (err: any) {
     console.error('stripe/portal error', err)
+    captureException(err, { route: 'stripe-portal', level: 'error' })
     return NextResponse.json(
       { error: err?.message || 'internal error' },
       { status: 500 }

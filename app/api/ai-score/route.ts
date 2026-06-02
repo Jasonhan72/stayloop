@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { captureException } from '@/lib/observability/sentry'
 
 export const runtime = 'edge'
 
@@ -30,56 +31,57 @@ const WEIGHTS: Record<keyof SixDimScores, number> = {
 }
 
 export async function POST(req: NextRequest) {
-  const { application_id } = await req.json()
+  try {
+    const { application_id } = await req.json()
 
-  const authHeader = req.headers.get('authorization') || ''
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { Authorization: authHeader } } }
-  )
+    const authHeader = req.headers.get('authorization') || ''
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: authHeader } } }
+    )
 
-  const { data: app, error } = await supabase
-    .from('applications')
-    .select('*, listing:listings(*)')
-    .eq('id', application_id)
-    .single()
+    const { data: app, error } = await supabase
+      .from('applications')
+      .select('*, listing:listings(*)')
+      .eq('id', application_id)
+      .single()
 
-  if (error || !app) {
-    return NextResponse.json({ error: error?.message || 'Not found' }, { status: 404 })
-  }
-
-  const monthlyRent = app.listing?.monthly_rent || 0
-  const incomeRatio = app.monthly_income ? app.monthly_income / monthlyRent : 0
-  const files: AppFile[] = Array.isArray(app.files) ? app.files : []
-
-  // Build multimodal content blocks. For each uploaded file, create a signed URL
-  // and pass it to Claude as image (PNG/JPG/WEBP) or document (PDF).
-  const contentBlocks: any[] = []
-
-  for (const f of files) {
-    const { data: signed, error: signErr } = await supabase
-      .storage.from('tenant-files').createSignedUrl(f.path, 600)
-    if (signErr || !signed?.signedUrl) continue
-    if (f.mime === 'application/pdf') {
-      contentBlocks.push({
-        type: 'document',
-        source: { type: 'url', url: signed.signedUrl },
-        title: `${f.kind}: ${f.name}`,
-      })
-    } else if (f.mime.startsWith('image/')) {
-      contentBlocks.push({
-        type: 'image',
-        source: { type: 'url', url: signed.signedUrl },
-      })
-      contentBlocks.push({
-        type: 'text',
-        text: `(file above is: ${f.kind} — ${f.name})`,
-      })
+    if (error || !app) {
+      return NextResponse.json({ error: error?.message || 'Not found' }, { status: 404 })
     }
-  }
 
-  const formText = `LISTING: ${app.listing?.address ?? ''} ${app.listing?.unit ?? ''}, ${app.listing?.city ?? ''} — $${monthlyRent}/month
+    const monthlyRent = app.listing?.monthly_rent || 0
+    const incomeRatio = app.monthly_income ? app.monthly_income / monthlyRent : 0
+    const files: AppFile[] = Array.isArray(app.files) ? app.files : []
+
+    // Build multimodal content blocks. For each uploaded file, create a signed URL
+    // and pass it to Claude as image (PNG/JPG/WEBP) or document (PDF).
+    const contentBlocks: any[] = []
+
+    for (const f of files) {
+      const { data: signed, error: signErr } = await supabase
+        .storage.from('tenant-files').createSignedUrl(f.path, 600)
+      if (signErr || !signed?.signedUrl) continue
+      if (f.mime === 'application/pdf') {
+        contentBlocks.push({
+          type: 'document',
+          source: { type: 'url', url: signed.signedUrl },
+          title: `${f.kind}: ${f.name}`,
+        })
+      } else if (f.mime.startsWith('image/')) {
+        contentBlocks.push({
+          type: 'image',
+          source: { type: 'url', url: signed.signedUrl },
+        })
+        contentBlocks.push({
+          type: 'text',
+          text: `(file above is: ${f.kind} — ${f.name})`,
+        })
+      }
+    }
+
+    const formText = `LISTING: ${app.listing?.address ?? ''} ${app.listing?.unit ?? ''}, ${app.listing?.city ?? ''} — $${monthlyRent}/month
 
 APPLICANT (self-reported): ${app.first_name} ${app.last_name}
 Email: ${app.email}  Phone: ${app.phone || 'N/A'}
@@ -101,12 +103,12 @@ Occupants: ${app.num_occupants}  Pets: ${app.has_pets}  Smoker: ${app.is_smoker}
 LTB records currently on file: ${app.ltb_records_found ?? 0}
 Uploaded documents: ${files.length === 0 ? 'NONE' : files.map(f => `${f.kind}(${f.name})`).join(', ')}`
 
-  const systemPrompt = `You are Stayloop, an AI tenant-screening analyst for Ontario, Canada landlords.
+    const systemPrompt = `You are Stayloop, an AI tenant-screening analyst for Ontario, Canada landlords.
 You MUST follow the Ontario Human Rights Code: do NOT factor in age, race, ethnicity, religion, disability, family status, sexual orientation, marital status, or other protected grounds. Score only based on financial capacity, employment stability, document evidence, behavior signals, and information consistency.
 You will read uploaded documents (IDs, paystubs, bank statements, employment letters) using vision/OCR and cross-check them against the applicant's self-reported information.
 Output strictly the JSON schema requested — no markdown, no prose, no preamble.`
 
-  const userInstruction = `Score this rental application across SIX dimensions (each 0-100). Then write a 2-3 sentence professional summary highlighting key risks, strengths, and a recommendation.
+    const userInstruction = `Score this rental application across SIX dimensions (each 0-100). Then write a 2-3 sentence professional summary highlighting key risks, strengths, and a recommendation.
 
 SIX DIMENSIONS:
 1. doc_authenticity (weight 20%) — Are the uploaded documents real, complete, unaltered? If no documents are uploaded, score 30. Look for tampering, mismatched fonts, inconsistent dates.
@@ -140,81 +142,89 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
   "summary": "<2-3 sentence professional recommendation>"
 }`
 
-  // Final user content: text instruction + form text + uploaded file blocks
-  const userContent: any[] = [
-    { type: 'text', text: userInstruction },
-    { type: 'text', text: '\n--- APPLICATION FORM ---\n' + formText },
-  ]
-  if (contentBlocks.length > 0) {
-    userContent.push({ type: 'text', text: '\n--- UPLOADED DOCUMENTS ---\n' })
-    userContent.push(...contentBlocks)
+    // Final user content: text instruction + form text + uploaded file blocks
+    const userContent: any[] = [
+      { type: 'text', text: userInstruction },
+      { type: 'text', text: '\n--- APPLICATION FORM ---\n' + formText },
+    ]
+    if (contentBlocks.length > 0) {
+      userContent.push({ type: 'text', text: '\n--- UPLOADED DOCUMENTS ---\n' })
+      userContent.push(...contentBlocks)
+    }
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1500,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userContent }],
+      }),
+    })
+
+    if (!response.ok) {
+      const errText = await response.text()
+      return NextResponse.json({ error: `Anthropic API error: ${errText}` }, { status: 500 })
+    }
+
+    const aiData = await response.json() as { content?: Array<{ text: string }> }
+    let text = aiData.content?.[0]?.text || '{}'
+    text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+
+    let parsed: { extracted_name?: string; scores?: SixDimScores; notes?: Record<string, string>; summary?: string }
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      return NextResponse.json({ error: 'AI parse error', raw: text }, { status: 500 })
+    }
+
+    const s = parsed.scores
+    if (!s) return NextResponse.json({ error: 'Missing scores', raw: text }, { status: 500 })
+
+    const overall = Math.round(
+      s.doc_authenticity * WEIGHTS.doc_authenticity +
+      s.payment_ability * WEIGHTS.payment_ability +
+      s.court_records * WEIGHTS.court_records +
+      s.stability * WEIGHTS.stability +
+      s.behavior_signals * WEIGHTS.behavior_signals +
+      s.info_consistency * WEIGHTS.info_consistency
+    )
+
+    const { error: updateError } = await supabase.from('applications').update({
+      ai_score: overall,
+      ai_summary: parsed.summary,
+      ai_extracted_name: parsed.extracted_name,
+      ai_dimension_notes: parsed.notes || null,
+      doc_authenticity_score: s.doc_authenticity,
+      payment_ability_score: s.payment_ability,
+      court_records_score: s.court_records,
+      stability_score: s.stability,
+      behavior_signals_score: s.behavior_signals,
+      info_consistency_score: s.info_consistency,
+      status: 'reviewing',
+    }).eq('id', application_id)
+
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+
+    return NextResponse.json({
+      success: true,
+      overall,
+      scores: s,
+      notes: parsed.notes,
+      extracted_name: parsed.extracted_name,
+      summary: parsed.summary,
+    })
+  } catch (e: any) {
+    console.error('[ai-score] uncaught:', e)
+    captureException(e, { route: 'ai-score', level: 'error' })
+    return NextResponse.json(
+      { error: 'AI scoring failed: ' + (e?.message || String(e) || 'unknown error').slice(0, 300) },
+      { status: 500 }
+    )
   }
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY!,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 1500,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userContent }],
-    }),
-  })
-
-  if (!response.ok) {
-    const errText = await response.text()
-    return NextResponse.json({ error: `Anthropic API error: ${errText}` }, { status: 500 })
-  }
-
-  const aiData = await response.json() as { content?: Array<{ text: string }> }
-  let text = aiData.content?.[0]?.text || '{}'
-  text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
-
-  let parsed: { extracted_name?: string; scores?: SixDimScores; notes?: Record<string, string>; summary?: string }
-  try {
-    parsed = JSON.parse(text)
-  } catch {
-    return NextResponse.json({ error: 'AI parse error', raw: text }, { status: 500 })
-  }
-
-  const s = parsed.scores
-  if (!s) return NextResponse.json({ error: 'Missing scores', raw: text }, { status: 500 })
-
-  const overall = Math.round(
-    s.doc_authenticity * WEIGHTS.doc_authenticity +
-    s.payment_ability * WEIGHTS.payment_ability +
-    s.court_records * WEIGHTS.court_records +
-    s.stability * WEIGHTS.stability +
-    s.behavior_signals * WEIGHTS.behavior_signals +
-    s.info_consistency * WEIGHTS.info_consistency
-  )
-
-  const { error: updateError } = await supabase.from('applications').update({
-    ai_score: overall,
-    ai_summary: parsed.summary,
-    ai_extracted_name: parsed.extracted_name,
-    ai_dimension_notes: parsed.notes || null,
-    doc_authenticity_score: s.doc_authenticity,
-    payment_ability_score: s.payment_ability,
-    court_records_score: s.court_records,
-    stability_score: s.stability,
-    behavior_signals_score: s.behavior_signals,
-    info_consistency_score: s.info_consistency,
-    status: 'reviewing',
-  }).eq('id', application_id)
-
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
-
-  return NextResponse.json({
-    success: true,
-    overall,
-    scores: s,
-    notes: parsed.notes,
-    extracted_name: parsed.extracted_name,
-    summary: parsed.summary,
-  })
 }

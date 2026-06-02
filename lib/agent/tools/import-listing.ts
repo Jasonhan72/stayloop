@@ -1,4 +1,9 @@
 // -----------------------------------------------------------------------------
+// 2026-06-02 — Code review Top 10 #3 — SSRF + arbitrary-path-signing hardening
+// for agent import_listing tool: (a) restrict pdf_path signing to caller-owned
+// storage paths; (b) reject user-supplied URLs that point to private/internal
+// ranges or sit off the listing-site allow-list.
+// -----------------------------------------------------------------------------
 // Tool: import_listing
 // -----------------------------------------------------------------------------
 // Convert messy listing input (pasted text, URL, or MLS export) into a
@@ -10,11 +15,35 @@
 //   - MLS PDF export (passed in as Supabase Storage path)
 // -----------------------------------------------------------------------------
 
-import type { CapabilityTool } from '../types'
+import type { CapabilityTool, ToolContext } from '../types'
 import { registerTool } from '../registry'
 
 const HAIKU_MODEL = 'claude-haiku-4-5'
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
+
+// -----------------------------------------------------------------------------
+// SSRF allow-list — only fetch URLs whose hostname is on this list. Any
+// other host is rejected before fetch(). This complements (does not replace)
+// the private-range / IP-literal / scheme / length checks.
+// -----------------------------------------------------------------------------
+const LISTING_HOST_ALLOWLIST: ReadonlySet<string> = new Set([
+  'realtor.ca',
+  'www.realtor.ca',
+  'housesigma.com',
+  'www.housesigma.com',
+  'condos.ca',
+  'www.condos.ca',
+  'zumper.com',
+  'www.zumper.com',
+  'rentals.ca',
+  'www.rentals.ca',
+  'padmapper.com',
+  'www.padmapper.com',
+  'rentfaster.ca',
+  'www.rentfaster.ca',
+])
+
+const MAX_URL_LENGTH = 2000
 
 interface ImportInput {
   /** Source kind. 'text' is the simplest — just paste the description. */
@@ -104,9 +133,163 @@ Rules:
 - For amenities, dedupe and lowercase the first word ("In-unit laundry" → "in-unit laundry").
 - For broker_phone, format like "+1-555-123-4567" or "(555) 123-4567" — preserve source format.`
 
+// -----------------------------------------------------------------------------
+// validateExternalUrl — SSRF guard on user-supplied URLs.
+// -----------------------------------------------------------------------------
+// Cloudflare Workers don't expose Node-style DNS resolution, so this is a
+// best-effort static check: parse the URL, reject non-http(s), reject if the
+// hostname is an IP literal in a private range or a known loopback/link-local
+// alias, then require the hostname be on LISTING_HOST_ALLOWLIST. Together with
+// the allow-list this drops the SSRF attack surface to the small set of
+// public listing sites we explicitly support.
+//
+// Returns null on success, or a human-readable error reason. The error
+// strings are deliberately specific so a misconfiguration (e.g. localhost
+// during testing) is easy to diagnose from CF Pages logs.
+function validateExternalUrl(raw: string): string | null {
+  if (typeof raw !== 'string' || raw.length === 0) return 'url_empty'
+  if (raw.length > MAX_URL_LENGTH) return 'url_too_long'
+
+  let parsed: URL
+  try {
+    parsed = new URL(raw)
+  } catch {
+    return 'url_parse_failed'
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return `bad_scheme_${parsed.protocol.replace(':', '')}`
+  }
+
+  const host = parsed.hostname.toLowerCase()
+  if (!host) return 'no_host'
+
+  // Reject IP literals in private / loopback / link-local / unique-local
+  // ranges. We accept that a determined attacker can still point at a
+  // public IP that resolves internally via DNS rebinding — the allow-list
+  // below is the real backstop. This block catches the common "127.0.0.1"
+  // / "169.254.169.254" (AWS metadata) class of mistakes.
+  if (isPrivateOrLoopbackHost(host)) return `private_host_${host.slice(0, 40)}`
+
+  if (!LISTING_HOST_ALLOWLIST.has(host)) {
+    return `host_not_allowlisted_${host.slice(0, 60)}`
+  }
+
+  return null
+}
+
+function isPrivateOrLoopbackHost(host: string): boolean {
+  // String aliases for loopback / link-local
+  if (host === 'localhost' || host === 'localhost.localdomain') return true
+  if (host === 'ip6-localhost' || host === 'ip6-loopback') return true
+  if (host === '::1' || host === '[::1]') return true
+
+  // IPv4 literal
+  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (v4) {
+    const o = v4.slice(1, 5).map((n) => parseInt(n, 10))
+    if (o.some((n) => n < 0 || n > 255)) return true // malformed → reject
+    const [a, b] = o
+    if (a === 10) return true                                 // 10.0.0.0/8
+    if (a === 127) return true                                // 127.0.0.0/8 loopback
+    if (a === 0) return true                                  // 0.0.0.0/8
+    if (a === 169 && b === 254) return true                   // 169.254.0.0/16 link-local (incl. AWS/GCP metadata)
+    if (a === 172 && b >= 16 && b <= 31) return true          // 172.16.0.0/12
+    if (a === 192 && b === 168) return true                   // 192.168.0.0/16
+    if (a === 192 && b === 0) return true                     // 192.0.0.0/24 (incl. 192.0.0.1, etc.)
+    if (a === 100 && b >= 64 && b <= 127) return true         // 100.64.0.0/10 carrier-grade NAT
+    if (a >= 224) return true                                 // multicast + reserved
+    return false
+  }
+
+  // IPv6 literal — Workers URL keeps brackets in URL.hostname only when
+  // the spec demands; defend against both shapes.
+  const stripped = host.replace(/^\[|\]$/g, '')
+  if (/^fc[0-9a-f]{2}:/i.test(stripped)) return true   // fc00::/7 unique-local
+  if (/^fd[0-9a-f]{2}:/i.test(stripped)) return true   // fc00::/7 unique-local (second half)
+  if (/^fe8[0-9a-f]:/i.test(stripped)) return true     // fe80::/10 link-local
+  if (/^fe9[0-9a-f]:/i.test(stripped)) return true
+  if (/^fea[0-9a-f]:/i.test(stripped)) return true
+  if (/^feb[0-9a-f]:/i.test(stripped)) return true
+  if (stripped === '::1' || stripped === '0:0:0:0:0:0:0:1') return true
+  if (/^::ffff:127\./i.test(stripped)) return true     // IPv4-mapped loopback
+
+  return false
+}
+
+// -----------------------------------------------------------------------------
+// resolveCallerOwnedPaths — security hardening for LLM-supplied storage paths
+// -----------------------------------------------------------------------------
+// Identical contract to lib/agent/tools/classify-files.ts and run-pdf-
+// forensics.ts. Kept inline so each tool file remains self-contained.
+async function resolveCallerOwnedPaths(
+  ctx: ToolContext,
+  requested: string[],
+): Promise<Set<string>> {
+  const allowed = new Set<string>()
+  if (requested.length === 0) return allowed
+
+  const { data: landlord, error: llErr } = await ctx.supabaseAdmin
+    .from('landlords')
+    .select('id')
+    .eq('auth_id', ctx.userId)
+    .maybeSingle()
+  if (llErr || !landlord?.id) return allowed
+  const landlordId = landlord.id as string
+
+  const { data: screenings } = await ctx.supabaseAdmin
+    .from('screenings')
+    .select('files')
+    .eq('landlord_id', landlordId)
+  if (Array.isArray(screenings)) {
+    for (const row of screenings) {
+      const files = Array.isArray(row?.files) ? row.files : []
+      for (const f of files) {
+        if (f && typeof f === 'object' && typeof (f as { path?: unknown }).path === 'string') {
+          allowed.add((f as { path: string }).path)
+        }
+      }
+    }
+  }
+
+  const { data: listings } = await ctx.supabaseAdmin
+    .from('listings')
+    .select('id')
+    .eq('landlord_id', landlordId)
+  const listingIds = Array.isArray(listings)
+    ? listings.map((l: { id: string }) => l.id).filter((id): id is string => typeof id === 'string')
+    : []
+  if (listingIds.length > 0) {
+    const { data: apps } = await ctx.supabaseAdmin
+      .from('applications')
+      .select('files')
+      .in('listing_id', listingIds)
+    if (Array.isArray(apps)) {
+      for (const row of apps) {
+        const files = Array.isArray(row?.files) ? row.files : []
+        for (const f of files) {
+          if (
+            f &&
+            typeof f === 'object' &&
+            typeof (f as { path?: unknown }).path === 'string'
+          ) {
+            allowed.add((f as { path: string }).path)
+          }
+        }
+      }
+    }
+  }
+
+  const intersection = new Set<string>()
+  for (const p of requested) {
+    if (allowed.has(p)) intersection.add(p)
+  }
+  return intersection
+}
+
 const tool: CapabilityTool<ImportInput, ImportOutput> = {
   name: 'import_listing',
-  version: '1.0.0',
+  version: '1.1.0',
   description:
     'Convert messy listing input (free-form text, Realtor.ca/Kijiji URL, or MLS PDF) into a structured rental listing with bilingual title + description + selling points. Strips Ontario Human Rights Code protected language. Use when a landlord or agent wants to add a property to Stayloop. ' +
     '把杂乱的房源输入（自由文字、Realtor.ca/Kijiji 链接、MLS PDF 导出）转成结构化房源数据，含中英双语标题+描述+卖点。自动剔除安省人权法禁止用语。',
@@ -130,7 +313,7 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
     // after Haiku returns to merge objective fields over its output.
     let realtorDet: RealtorExtract | null = null
 
-    const content: any[] = [{ type: 'text', text: EXTRACT_PROMPT }]
+    const content: Array<Record<string, unknown>> = [{ type: 'text', text: EXTRACT_PROMPT }]
 
     if (input.source === 'text') {
       if (!input.text) {
@@ -140,6 +323,12 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
     } else if (input.source === 'url') {
       if (!input.url) {
         return { listing: emptyListing(), source: 'url', errors: ['no_url'] }
+      }
+      // SSRF guard — reject anything off the allow-list / private-range
+      // before we send the URL anywhere downstream.
+      const urlErr = validateExternalUrl(input.url)
+      if (urlErr) {
+        return { listing: emptyListing(), source: 'url', errors: [`url_rejected_${urlErr}`] }
       }
       const urlContent = await fetchUrlContent(input.url)
       if (!urlContent.ok) {
@@ -214,6 +403,15 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
       if (!input.pdf_path) {
         return { listing: emptyListing(), source: 'pdf', errors: ['no_pdf_path'] }
       }
+      // Ownership check — only sign PDFs the caller actually owns.
+      const allowedPaths = await resolveCallerOwnedPaths(ctx, [input.pdf_path])
+      if (!allowedPaths.has(input.pdf_path)) {
+        return {
+          listing: emptyListing(),
+          source: 'pdf',
+          errors: ['pdf_path_unauthorized'],
+        }
+      }
       const { data } = await ctx.supabaseAdmin.storage
         .from('tenant-files')
         .createSignedUrl(input.pdf_path, 600)
@@ -249,7 +447,10 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
       if (!res.ok) {
         return { listing: emptyListing(), source: input.source, errors: [`haiku_${res.status}`] }
       }
-      const json: any = await res.json()
+      const json = (await res.json()) as {
+        content?: Array<{ text?: string }>
+        stop_reason?: string
+      }
       const raw = (json?.content?.[0]?.text || '').trim()
       const stopReason = json?.stop_reason
       const text = raw.startsWith('{') ? raw : '{' + raw
@@ -320,8 +521,9 @@ const tool: CapabilityTool<ImportInput, ImportOutput> = {
       // ground-truth even if Haiku hallucinated or guessed wrong.
       const finalListing = realtorDet ? mergeRealtorIntoListing(parsed, realtorDet) : parsed
       return { listing: finalListing, source: input.source, errors: [] }
-    } catch (e: any) {
-      return { listing: emptyListing(), source: input.source, errors: [e?.message?.slice(0, 100) || 'failed'] }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'failed'
+      return { listing: emptyListing(), source: input.source, errors: [msg.slice(0, 100)] }
     }
   },
 }
@@ -422,8 +624,9 @@ async function fetchUrlContent(url: string): Promise<UrlFetchOk | UrlFetchErr> {
         return out
       }
       errors.push(`${name}=${out.error}`)
-    } catch (e: any) {
-      errors.push(`${name}=${(e?.message || 'failed').slice(0, 60)}`)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'failed'
+      errors.push(`${name}=${msg.slice(0, 60)}`)
     }
   }
   console.warn('[import_listing] all_strategies_failed', {
@@ -452,7 +655,7 @@ async function tryJina(jinaUrl: string, format: 'markdown'): Promise<UrlFetchOk 
   // shims it). globalThis fallback covers Workers runtime quirks.
   const jinaKey =
     (typeof process !== 'undefined' && process.env?.JINA_API_KEY) ||
-    (typeof globalThis !== 'undefined' && (globalThis as any).JINA_API_KEY) ||
+    (typeof globalThis !== 'undefined' && (globalThis as { JINA_API_KEY?: string }).JINA_API_KEY) ||
     ''
   if (jinaKey) {
     headers['Authorization'] = `Bearer ${jinaKey}`
@@ -520,11 +723,11 @@ async function tryProxy(proxyUrl: string, via: 'allorigins' | 'cors-anywhere'): 
 async function tryCloudflareBrowser(url: string): Promise<UrlFetchOk | UrlFetchErr> {
   const apiToken =
     (typeof process !== 'undefined' && process.env?.CLOUDFLARE_BROWSER_API_TOKEN) ||
-    (typeof globalThis !== 'undefined' && (globalThis as any).CLOUDFLARE_BROWSER_API_TOKEN) ||
+    (typeof globalThis !== 'undefined' && (globalThis as { CLOUDFLARE_BROWSER_API_TOKEN?: string }).CLOUDFLARE_BROWSER_API_TOKEN) ||
     ''
   const accountId =
     (typeof process !== 'undefined' && process.env?.CLOUDFLARE_ACCOUNT_ID) ||
-    (typeof globalThis !== 'undefined' && (globalThis as any).CLOUDFLARE_ACCOUNT_ID) ||
+    (typeof globalThis !== 'undefined' && (globalThis as { CLOUDFLARE_ACCOUNT_ID?: string }).CLOUDFLARE_ACCOUNT_ID) ||
     ''
 
   // REST API path: needs API token + account ID. Cloudflare Browser
@@ -547,14 +750,15 @@ async function tryCloudflareBrowser(url: string): Promise<UrlFetchOk | UrlFetchE
         },
       )
       if (!res.ok) return { ok: false, error: `cf_browser_${res.status}` }
-      const data: any = await res.json().catch(() => null)
+      const data = (await res.json().catch(() => null)) as { result?: string } | null
       const html = data?.result || ''
       if (typeof html !== 'string' || html.length < 200) {
         return { ok: false, error: `cf_browser_no_content_${html.length}` }
       }
       return parseHtmlPayload(html, 'cf-browser')
-    } catch (e: any) {
-      return { ok: false, error: `cf_browser_${(e?.message || 'failed').slice(0, 60)}` }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'failed'
+      return { ok: false, error: `cf_browser_${msg.slice(0, 60)}` }
     }
   }
 
@@ -569,7 +773,9 @@ async function tryArchive(url: string): Promise<UrlFetchOk | UrlFetchErr> {
     { signal: AbortSignal.timeout(8000) },
   )
   if (!availRes.ok) return { ok: false, error: `archive_avail_${availRes.status}` }
-  const data: any = await availRes.json().catch(() => null)
+  const data = (await availRes.json().catch(() => null)) as {
+    archived_snapshots?: { closest?: { url?: string; status?: string } }
+  } | null
   const snap = data?.archived_snapshots?.closest
   if (!snap?.url || snap.status !== '200') return { ok: false, error: 'archive_no_snapshot' }
   // Wayback URLs serve the original HTML almost as-is — go through tryDirect logic.
@@ -699,13 +905,13 @@ function parseListingJson(text: string): ImportOutput['listing'] | null {
         depth--
         if (depth === 0) {
           const slice = text.slice(start, i + 1).replace(/,(\s*[}\]])/g, '$1')
-          const obj = JSON.parse(slice)
+          const obj = JSON.parse(slice) as Partial<ImportOutput['listing']> & Record<string, unknown>
           return {
             ...emptyListing(),
             ...obj,
-            utilities_included: Array.isArray(obj.utilities_included) ? obj.utilities_included : [],
-            selling_points_zh: Array.isArray(obj.selling_points_zh) ? obj.selling_points_zh : [],
-            selling_points_en: Array.isArray(obj.selling_points_en) ? obj.selling_points_en : [],
+            utilities_included: Array.isArray(obj.utilities_included) ? obj.utilities_included as string[] : [],
+            selling_points_zh: Array.isArray(obj.selling_points_zh) ? obj.selling_points_zh as string[] : [],
+            selling_points_en: Array.isArray(obj.selling_points_en) ? obj.selling_points_en as string[] : [],
             images: cleanImages(obj.images),
             amenities: cleanAmenities(obj.amenities),
             year_built: typeof obj.year_built === 'number' && obj.year_built > 1800 && obj.year_built < 2100 ? obj.year_built : null,
@@ -1031,7 +1237,7 @@ export function mergeRealtorIntoListing(
   const winAlways = <K extends keyof RealtorExtract & keyof ImportOutput['listing']>(k: K) => {
     const v = det[k]
     if (v !== null && v !== undefined && v !== '' && (typeof v !== 'number' || !Number.isNaN(v))) {
-      ;(merged[k] as any) = v
+      (merged as Record<string, unknown>)[k as string] = v
     }
   }
 
@@ -1046,13 +1252,13 @@ export function mergeRealtorIntoListing(
     const haikuV = haiku[k]
     if (detV === null || detV === undefined || detV === '') return
     if (haikuV === null || haikuV === undefined || haikuV === '') {
-      ;(merged[k] as any) = detV
+      (merged as Record<string, unknown>)[k as string] = detV
       return
     }
     // Haiku has a value — only override if it's a degenerate zero
     // (Haiku occasionally returns 0 for "unknown" instead of null).
     if (typeof haikuV === 'number' && haikuV === 0 && typeof detV === 'number' && detV > 0) {
-      ;(merged[k] as any) = detV
+      (merged as Record<string, unknown>)[k as string] = detV
     }
   }
 

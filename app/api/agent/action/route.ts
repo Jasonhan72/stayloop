@@ -13,6 +13,7 @@
 export const runtime = 'edge'
 
 import { createClient } from '@supabase/supabase-js'
+import { captureException } from '@/lib/observability/sentry'
 
 interface ActionRequestBody {
   pending_action_id: string
@@ -36,73 +37,82 @@ function makeRlsClient(authHeader: string) {
 }
 
 export async function POST(req: Request) {
-  const rawAuth = req.headers.get('authorization') || ''
-  const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
-  if (!authHeader) {
-    return Response.json({ error: 'unauthorized' }, { status: 401 })
-  }
+  try {
+    const rawAuth = req.headers.get('authorization') || ''
+    const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
+    if (!authHeader) {
+      return Response.json({ error: 'unauthorized' }, { status: 401 })
+    }
 
-  const rls = makeRlsClient(authHeader)
-  const { data: userData, error: userErr } = await rls.auth.getUser()
-  if (userErr || !userData?.user) {
-    return Response.json({ error: 'invalid_session' }, { status: 401 })
-  }
-  const userId = userData.user.id
+    const rls = makeRlsClient(authHeader)
+    const { data: userData, error: userErr } = await rls.auth.getUser()
+    if (userErr || !userData?.user) {
+      return Response.json({ error: 'invalid_session' }, { status: 401 })
+    }
+    const userId = userData.user.id
 
-  const body = (await req.json().catch(() => null)) as ActionRequestBody | null
-  if (!body || !body.pending_action_id || !body.decision) {
-    return Response.json({ error: 'bad_request' }, { status: 400 })
-  }
-  if (!['approve', 'reject', 'modify'].includes(body.decision)) {
-    return Response.json({ error: `invalid_decision: ${body.decision}` }, { status: 400 })
-  }
+    const body = (await req.json().catch(() => null)) as ActionRequestBody | null
+    if (!body || !body.pending_action_id || !body.decision) {
+      return Response.json({ error: 'bad_request' }, { status: 400 })
+    }
+    if (!['approve', 'reject', 'modify'].includes(body.decision)) {
+      return Response.json({ error: `invalid_decision: ${body.decision}` }, { status: 400 })
+    }
 
-  // Load + verify ownership via RLS client
-  const { data: pa, error: paErr } = await rls
-    .from('pending_actions')
-    .select('id, conversation_id, action_kind, payload, status')
-    .eq('id', body.pending_action_id)
-    .maybeSingle()
-  if (paErr || !pa) {
-    return Response.json({ error: 'not_found' }, { status: 404 })
-  }
-  if (pa.status !== 'pending') {
-    return Response.json({ error: `already_${pa.status}` }, { status: 409 })
-  }
+    // Load + verify ownership via RLS client
+    const { data: pa, error: paErr } = await rls
+      .from('pending_actions')
+      .select('id, conversation_id, action_kind, payload, status')
+      .eq('id', body.pending_action_id)
+      .maybeSingle()
+    if (paErr || !pa) {
+      return Response.json({ error: 'not_found' }, { status: 404 })
+    }
+    if (pa.status !== 'pending') {
+      return Response.json({ error: `already_${pa.status}` }, { status: 409 })
+    }
 
-  const admin = makeServiceClient()
-  const finalStatus =
-    body.decision === 'approve' ? 'approved'
-    : body.decision === 'modify' ? 'modified'
-    : 'rejected'
-  const finalPayload = body.decision === 'modify' ? body.modified_payload : pa.payload
+    const admin = makeServiceClient()
+    const finalStatus =
+      body.decision === 'approve' ? 'approved'
+      : body.decision === 'modify' ? 'modified'
+      : 'rejected'
+    const finalPayload = body.decision === 'modify' ? body.modified_payload : pa.payload
 
-  // Persist decision
-  const { error: updateErr } = await admin
-    .from('pending_actions')
-    .update({
+    // Persist decision
+    const { error: updateErr } = await admin
+      .from('pending_actions')
+      .update({
+        status: finalStatus,
+        decided_at: new Date().toISOString(),
+        decided_by: userId,
+        final_payload: finalPayload,
+      })
+      .eq('id', body.pending_action_id)
+    if (updateErr) {
+      return Response.json({ error: `update_failed: ${updateErr.message}` }, { status: 500 })
+    }
+
+    // Execute the actual side effect (only for 'approve' or 'modify')
+    let executionResult: any = { skipped: body.decision === 'reject' }
+    if (body.decision !== 'reject') {
+      executionResult = await executeApprovedAction(pa.action_kind, finalPayload, admin)
+    }
+
+    return Response.json({
+      success: true,
+      pending_action_id: pa.id,
       status: finalStatus,
-      decided_at: new Date().toISOString(),
-      decided_by: userId,
-      final_payload: finalPayload,
+      execution: executionResult,
     })
-    .eq('id', body.pending_action_id)
-  if (updateErr) {
-    return Response.json({ error: `update_failed: ${updateErr.message}` }, { status: 500 })
+  } catch (e: any) {
+    console.error('[agent-action] uncaught:', e)
+    captureException(e, { route: 'agent-action', level: 'error' })
+    return Response.json(
+      { error: 'agent action failed: ' + (e?.message || String(e) || 'unknown error').slice(0, 300) },
+      { status: 500 }
+    )
   }
-
-  // Execute the actual side effect (only for 'approve' or 'modify')
-  let executionResult: any = { skipped: body.decision === 'reject' }
-  if (body.decision !== 'reject') {
-    executionResult = await executeApprovedAction(pa.action_kind, finalPayload, admin)
-  }
-
-  return Response.json({
-    success: true,
-    pending_action_id: pa.id,
-    status: finalStatus,
-    execution: executionResult,
-  })
 }
 
 /**

@@ -1,4 +1,11 @@
+// -----------------------------------------------------------------------------
+// 2026-06-02 — Code review Top 10 #5 — Require an authenticated bearer
+// token + per-user best-effort rate limit on /api/classify-files. Previously
+// accepted unauthenticated requests; an attacker could burn the ANTHROPIC
+// API key budget by spamming the route. Auth pattern mirrors /api/deep-check.
+// -----------------------------------------------------------------------------
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 // Lightweight classification endpoint. Accepts up to MAX_TOTAL_FILES via
 // multipart/form-data and returns, for each file, an array of document
@@ -424,7 +431,62 @@ Return ONLY this JSON (no markdown, no prose):
   }
 }
 
+// -----------------------------------------------------------------------------
+// Best-effort per-user rate limit. Cloudflare Pages function instances are
+// regional and short-lived so this Map is NOT a global counter — each CF
+// datacenter has its own bucket. The real backstop is Anthropic API key cost
+// monitoring + the daily 30/per-applications-row throttle now enforced via
+// RLS. This in-memory cap just stops a single instance from being trivially
+// flooded by a logged-in user with a stuck loop.
+// -----------------------------------------------------------------------------
+const RATE_LIMIT_PER_HOUR = 30
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
+const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>()
+
+function checkRateLimit(userId: string): { ok: true } | { ok: false; retryAfterSeconds: number } {
+  const now = Date.now()
+  const bucket = rateLimitBuckets.get(userId)
+  if (!bucket || bucket.resetAt <= now) {
+    rateLimitBuckets.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    return { ok: true }
+  }
+  if (bucket.count >= RATE_LIMIT_PER_HOUR) {
+    return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) }
+  }
+  bucket.count++
+  return { ok: true }
+}
+
 export async function POST(req: NextRequest) {
+  // --- Auth gate -----------------------------------------------------------
+  // Require a valid Supabase bearer token. Pattern mirrors /api/deep-check:
+  // sanitize the header, hand it to a fresh anon client, ask Supabase to
+  // resolve the user. Reject anything else with 401 BEFORE we spend tokens.
+  const rawAuth = req.headers.get('authorization') || ''
+  const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
+  if (!authHeader) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
+  const sbAuth = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: authHeader } } },
+  )
+  const { data: ud, error: ue } = await sbAuth.auth.getUser()
+  if (ue || !ud?.user) {
+    return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+  }
+  const userId = ud.user.id
+
+  // --- Best-effort per-user rate limit ------------------------------------
+  const rl = checkRateLimit(userId)
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded — retry later' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } },
+    )
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: 'Classifier not configured' }, { status: 500 })
