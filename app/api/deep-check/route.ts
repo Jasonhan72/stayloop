@@ -100,10 +100,14 @@ function rowToCompanyInfo(r: CorpRegistryRow): CompanyRegistryInfo {
     // Federal open data does NOT include director names. We pass empty —
     // the applicant_is_officer check degrades gracefully.
     officers: [],
-    registry_url: r.corp_number
-      ? `https://ised-isde.canada.ca/cc/lgcy/cc/corporation/${r.corp_number}`
-      : null,
-    source: r.source || 'corporations_canada_federal',
+    // OpenCorporates mirrors the federal dataset and provides stable
+    // direct URLs (the canada.ca site requires session tokens for deep
+    // links, so the previous /cc/lgcy/cc/corporation/{num} path always
+    // 404'd). For provincial / non-federal jurisdictions r.opencorporates_url
+    // is preferred when present.
+    registry_url: r.opencorporates_url
+      || (r.corp_number ? `https://opencorporates.com/companies/ca/${r.corp_number}` : null),
+    source: r.source || 'opencorporates_federal',
   }
 }
 
