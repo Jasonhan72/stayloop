@@ -1,4 +1,9 @@
 'use client'
+// 2026-06-02 — Code review §9 P1 — Cap unbounded listings query at 50 rows
+// so a landlord with hundreds of listings can't blow up the Dashboard
+// load + Supabase egress. The "Top applicants" pipeline already paginates
+// applications (limit 6), so the only unbounded query left was listings.
+//
 // V4 Landlord Dashboard — pipeline strip + top applicants + KPIs
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -10,6 +15,13 @@ import PageShell from '@/components/v4/PageShell'
 import { useIsMobile } from '@/lib/useMediaQuery'
 import { Application, Listing } from '@/types'
 
+// 2026-06-02 — §9 P1 — Hard cap on the listings query. If a landlord
+// genuinely has more than 50 listings, the "Manage listings" page handles
+// the full paginated view; the Dashboard's role is the at-a-glance KPI
+// strip + active-listings counts, which are accurate enough with a
+// bounded sample.
+const LISTINGS_FETCH_LIMIT = 50
+
 export default function Dashboard() {
   const { t, lang } = useT()
   const isZh = lang === 'zh'
@@ -17,6 +29,7 @@ export default function Dashboard() {
   const { user: landlord, loading: authLoading } = useUser({ redirectIfMissing: true })
   const [applications, setApplications] = useState<Application[]>([])
   const [listings, setListings] = useState<Listing[]>([])
+  const [listingsTruncated, setListingsTruncated] = useState(false)
   const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('free')
   const [loading, setLoading] = useState(true)
   const [showUpgrade, setShowUpgrade] = useState(false)
@@ -107,13 +120,21 @@ export default function Dashboard() {
   }
 
   async function fetchAll() {
+    // 2026-06-02 — §9 P1 — Listings query was unbounded; cap at 50.
+    // We over-fetch by 1 to detect whether the result was truncated
+    // (so we can render a "show more" affordance without a separate
+    // COUNT(*) round-trip).
     const [appsRes, listingsRes, planRes] = await Promise.all([
       supabase.from('applications').select('*, listing:listings(*)').order('created_at', { ascending: false }).limit(6),
-      supabase.from('listings').select('*').order('created_at', { ascending: false }),
+      supabase.from('listings').select('*').order('created_at', { ascending: false }).limit(LISTINGS_FETCH_LIMIT + 1),
       supabase.from('landlords').select('plan').eq('id', landlord!.profileId).maybeSingle(),
     ])
     if (appsRes.data) setApplications(appsRes.data)
-    if (listingsRes.data) setListings(listingsRes.data)
+    if (listingsRes.data) {
+      const truncated = listingsRes.data.length > LISTINGS_FETCH_LIMIT
+      setListings(truncated ? listingsRes.data.slice(0, LISTINGS_FETCH_LIMIT) : listingsRes.data)
+      setListingsTruncated(truncated)
+    }
     if (planRes.data?.plan) setPlan(planRes.data.plan)
     setLoading(false)
   }
@@ -176,6 +197,37 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
+
+        {/* 2026-06-02 — §9 P1 — surface truncation so the landlord knows */}
+        {/* the dashboard isn't lying about their full listings count. */}
+        {listingsTruncated ? (
+          <div
+            style={{
+              marginBottom: 14,
+              padding: '10px 14px',
+              border: `1px solid ${v3.border}`,
+              borderRadius: 10,
+              background: v3.surfaceMuted,
+              fontSize: 12,
+              color: v3.textSecondary,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
+            <span>
+              {isZh
+                ? `仅显示最近 ${LISTINGS_FETCH_LIMIT} 个房源。`
+                : `Showing your ${LISTINGS_FETCH_LIMIT} most recent listings.`}
+            </span>
+            <Link
+              href="/dashboard/listings"
+              style={{ color: v3.brand, fontWeight: 600, textDecoration: 'none' }}
+            >
+              {isZh ? '查看全部 →' : 'View all →'}
+            </Link>
+          </div>
+        ) : null}
 
         {/* Two-column: Pipeline + Right sidebar */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18 }} className="db-twopane">
