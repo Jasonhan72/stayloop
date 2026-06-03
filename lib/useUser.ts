@@ -1,3 +1,22 @@
+// 2026-06-02 — Audit §9 P1 — Guard claim_landlord RPC against repeat calls.
+// Before this patch, every empty-profile path in initUser() would dispatch
+// `supabase.rpc('claim_landlord', ...)`, and because useUser() re-runs on
+// every component mount (and again on every onAuthStateChange event that
+// re-invokes initUser), a single page could fire the RPC several times in
+// a few hundred milliseconds — once per mounted header / nav / sidebar.
+// The new behaviour: track per-auth-user attempts in a module-level set so
+// the RPC fires AT MOST ONCE per browser session per user. If profile
+// fetch succeeds (the row already exists) we ALSO mark the user as
+// "claimed" so a later cache miss won't redundantly hit the RPC. The
+// auth-state listener clears the flag on SIGNED_OUT so a fresh sign-in by
+// a different account behaves correctly.
+//
+// All other behaviour from the 2026-06-02 §1 P1 patch (cachedUser reset
+// on getSession failure) is preserved exactly.
+// -----------------------------------------------------------------------------
+// 2026-06-02 — Code review §1 P1 — Clear cachedUser on session-fetch error so
+// stale module-level state isn't served as a valid session. onAuthStateChange
+// will re-hydrate the cache on the next successful sign-in/token-refresh.
 'use client'
 
 import { supabase } from './supabase'
@@ -44,6 +63,22 @@ export interface UseAnonTrialReturn {
 // sign-in / token refresh so we never serve stale data.
 let cachedUser: UserSession | null | undefined = undefined
 
+// ─── §9 P1: per-user claim_landlord guard ───────────────────────────────────
+// `claim_landlord` is idempotent server-side (it returns the existing row
+// when one is present), but it still hits the DB and counts against our
+// Supabase quota. Before this guard, a header + sidebar + dashboard widget
+// each calling useUser() in parallel could fire 3+ identical RPCs within
+// a single page paint. We key the guard by Supabase auth_id (NOT email)
+// because the same user can have an auth_id swap across anonymous → real
+// upgrades — keying by id catches that correctly.
+//
+// Reset by:
+//   - SIGNED_OUT (auth-state listener clears the entire map)
+//   - the user's existing profile row is fetched successfully (we mark
+//     them claimed there too — the RPC's only side effect is to create
+//     the row, and the row already exists)
+const _claimAttempted: Record<string, boolean> = {}
+
 /**
  * Hook to manage user authentication and profile data
  * Handles anonymous sign-in, profile fetching, and auto-claim logic
@@ -73,11 +108,21 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
 
         if (sessionError) {
           console.error('Session error:', sessionError)
-          // Don't redirect on a transient session-fetch error if we already
-          // have a hydrated user from the module cache — the user IS logged
-          // in, we just couldn't refresh the session token this tick.
-          if (redirectIfMissing && isMounted && !cachedUser) {
-            router.push(redirectPath)
+          // 2026-06-02 — §1 P1 — Drop the stale cache on getSession failure.
+          // Previously this branch returned early and kept cachedUser pointing
+          // at the last-known session, which meant a user whose token had
+          // actually expired (or been revoked) would keep seeing themselves
+          // logged in across mounts until SIGNED_OUT fired. Clearing here
+          // forces every subsequent useUser() mount to re-prove the session,
+          // and the onAuthStateChange subscriber below will re-hydrate the
+          // cache on the next successful SIGNED_IN/TOKEN_REFRESHED event.
+          cachedUser = undefined
+          if (isMounted) {
+            setUser(null)
+            setLoading(false)
+            if (redirectIfMissing) {
+              router.push(redirectPath)
+            }
           }
           return
         }
@@ -104,10 +149,17 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
               return
             }
 
-            // Claim a profile row for the anonymous user (needed for screenings FK)
-            const { data: anonClaim } = await supabase.rpc('claim_landlord', { p_role: 'tenant' })
+            // §9 P1: skip the claim_landlord RPC if we've already attempted
+            // it for this anonymous auth_id this session.
+            const anonAuthId = anonData.user.id
+            let anonClaim: { id?: string } | null = null
+            if (!_claimAttempted[anonAuthId]) {
+              _claimAttempted[anonAuthId] = true
+              const { data } = await supabase.rpc('claim_landlord', { p_role: 'tenant' })
+              anonClaim = (data as { id?: string } | null) ?? null
+            }
             const anonSession: UserSession = {
-              authId: anonData.user.id,
+              authId: anonAuthId,
               email: anonData.user.email || '',
               profileId: anonClaim?.id || '',
               role: 'tenant',
@@ -164,6 +216,11 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
 
         // Profile exists
         if (profileData) {
+          // §9 P1: row already exists — no need to ever call claim_landlord
+          // for this user this session. Set the flag so a later cache miss
+          // (e.g. TOKEN_REFRESHED re-running initUser) won't dispatch the
+          // RPC redundantly.
+          _claimAttempted[authId] = true
           const session: UserSession = {
             authId,
             email,
@@ -181,7 +238,32 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
           return
         }
 
-        // No profile row — claim one via RPC
+        // No profile row — claim one via RPC, but only if we haven't
+        // already done so this session. If the guard says we tried before,
+        // we fall through to building a minimal session from the auth
+        // user; the next page load (or token refresh that re-runs the
+        // profile fetch) will pick up the row that the prior attempt
+        // created. This avoids a thundering-herd of RPC calls when several
+        // useUser() consumers mount in the same paint.
+        if (_claimAttempted[authId]) {
+          const session: UserSession = {
+            authId,
+            email,
+            profileId: authId,
+            role: 'landlord',
+            fullName: '',
+            plan: 'free',
+            isAnonymous: false,
+          }
+          cachedUser = session
+          if (isMounted) {
+            setUser(session)
+            setLoading(false)
+          }
+          return
+        }
+
+        _claimAttempted[authId] = true
         const { data: claimData, error: claimError } = await supabase.rpc(
           'claim_landlord',
           { p_role: 'landlord' }
@@ -231,6 +313,13 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
       if (!isMounted) return
       if (event === 'SIGNED_OUT' || !session) {
         cachedUser = null
+        // §9 P1: forget every per-user claim flag on sign-out so a fresh
+        // sign-in by a different account behaves correctly (and so the
+        // same user signing back in after a deliberate logout gets a
+        // fresh probe — they may have changed their role in the DB).
+        for (const k of Object.keys(_claimAttempted)) {
+          delete _claimAttempted[k]
+        }
         setUser(null)
         return
       }
@@ -256,6 +345,10 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
 
   const signOut = async () => {
     cachedUser = null
+    // §9 P1: forget every per-user claim flag on explicit signOut() too.
+    for (const k of Object.keys(_claimAttempted)) {
+      delete _claimAttempted[k]
+    }
     await supabase.auth.signOut()
     setUser(null)
     router.push('/login')
