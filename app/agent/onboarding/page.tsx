@@ -47,7 +47,7 @@ const PERKS = [
 export default function AgentOnboardingPage() {
   return (
     <>
-      <Header />
+      <Header variant="transparent" />
       <main className="bg-surface">
         {/* Hero */}
         <section
@@ -55,6 +55,8 @@ export default function AgentOnboardingPage() {
           style={{
             background:
               'linear-gradient(180deg,#F2EEE5 0%, rgba(37,99,235,0.10) 100%)',
+            marginTop: -72,
+            paddingTop: 72,
           }}
         >
           <div className="mx-auto max-w-[1320px] px-6 py-20 sm:px-8 lg:px-12">

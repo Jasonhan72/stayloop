@@ -74,8 +74,8 @@ export default function LoginPage() {
                 </form>
                 <div className="mt-6 border-t border-line-divider pt-5 text-center text-[13px] text-body-2">
                   还没有账号？{' '}
-                  <Link href="/onboarding/tier1" className="font-semibold text-brand">
-                    注册 (90 秒) →
+                  <Link href="/onboarding/welcome" className="font-semibold text-brand">
+                    注册 →
                   </Link>
                 </div>
               </>

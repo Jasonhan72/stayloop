@@ -62,6 +62,7 @@ interface DBListing {
   brokerage: string | null
   is_active: boolean
   created_at: string
+  images: string[] | null
 }
 
 const tierLabel: Record<number, { name: string; reqs: string[] }> = {
@@ -173,61 +174,71 @@ export default function ListingDetailPage() {
 
         {/* Photo gallery — 1 lead + 4 thumbs */}
         <section className="mx-auto mt-3 max-w-[1320px] px-6 sm:px-8 lg:px-12">
-          <div
-            className="grid gap-2 overflow-hidden rounded-[16px]"
-            style={{ gridTemplateColumns: '1.5fr 1fr 1fr', gridTemplateRows: '210px 210px' }}
-          >
-            <div
-              className="relative row-span-2"
-              style={{
-                background: `linear-gradient(135deg,${a},${b})`,
-              }}
-            >
-              <div className="absolute inset-0 bg-black/10" />
-              {listing.badge && (
-                <span
-                  className="absolute left-4 top-4 font-mono"
+          {(() => {
+            const imgs = listing.images || []
+            const lead = imgs[0]
+            const thumbs = [imgs[1], imgs[2], imgs[3], imgs[4]]
+            return (
+              <div
+                className="grid gap-2 overflow-hidden rounded-[16px]"
+                style={{ gridTemplateColumns: '1.5fr 1fr 1fr', gridTemplateRows: '210px 210px' }}
+              >
+                <div
+                  className="relative row-span-2"
                   style={{
-                    background: listing.badge.startsWith('LUNA')
-                      ? '#7C3AED'
-                      : listing.badge.startsWith('NEW')
-                        ? '#DC2626'
-                        : '#047857',
-                    color: '#fff',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    padding: '5px 10px',
-                    borderRadius: 4,
-                    letterSpacing: '0.10em',
+                    background: lead
+                      ? `url(${lead}) center/cover no-repeat, linear-gradient(135deg,${a},${b})`
+                      : `linear-gradient(135deg,${a},${b})`,
                   }}
                 >
-                  {listing.badge}
-                </span>
-              )}
-              <div className="absolute bottom-4 left-4 rounded-md bg-black/55 px-2.5 py-1 font-mono text-[11px] text-white">
-                1 / {listing.photo_count || 1}
-              </div>
-            </div>
-            {[0.85, 0.7, 0.55, 0.4].map((alpha, i) => (
-              <div
-                key={i}
-                className="relative"
-                style={{
-                  background: `linear-gradient(${135 + i * 22}deg,${a},${b})`,
-                  opacity: alpha,
-                }}
-              >
-                {i === 3 && (
-                  <button
-                    type="button"
-                    className="absolute inset-0 flex items-center justify-center bg-black/35 font-mono text-[12px] font-semibold text-white"
+                  {!lead && <div className="absolute inset-0 bg-black/10" />}
+                  {listing.badge && (
+                    <span
+                      className="absolute left-4 top-4 font-mono"
+                      style={{
+                        background: listing.badge.startsWith('LUNA')
+                          ? '#7C3AED'
+                          : listing.badge.startsWith('NEW')
+                            ? '#DC2626'
+                            : '#047857',
+                        color: '#fff',
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: '5px 10px',
+                        borderRadius: 4,
+                        letterSpacing: '0.10em',
+                      }}
+                    >
+                      {listing.badge}
+                    </span>
+                  )}
+                  <div className="absolute bottom-4 left-4 rounded-md bg-black/55 px-2.5 py-1 font-mono text-[11px] text-white">
+                    1 / {listing.photo_count || imgs.length || 1}
+                  </div>
+                </div>
+                {thumbs.map((url, i) => (
+                  <div
+                    key={i}
+                    className="relative"
+                    style={{
+                      background: url
+                        ? `url(${url}) center/cover no-repeat, linear-gradient(${135 + i * 22}deg,${a},${b})`
+                        : `linear-gradient(${135 + i * 22}deg,${a},${b})`,
+                    }}
                   >
-                    + 看全部 {listing.photo_count || 24} 张 →
-                  </button>
-                )}
+                    {i === 3 && (
+                      <button
+                        type="button"
+                        className="absolute inset-0 flex items-center justify-center bg-black/35 font-mono text-[12px] font-semibold text-white"
+                      >
+                        + 看全部 {listing.photo_count || imgs.length || 24} 张 →
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )
+          })()}
           <div className="mt-3 flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-eyebrowLg text-body-3">
             <span>📷 {listing.photo_count || 24} 张照片</span>
             <span>·</span>
@@ -504,9 +515,12 @@ export default function ListingDetailPage() {
                           width: 64,
                           height: 48,
                           borderRadius: 6,
-                          background: `linear-gradient(135deg,${s.thumb_a || '#D4C4A8'},${
-                            s.thumb_b || '#94815C'
-                          })`,
+                          background:
+                            s.images && s.images.length > 0
+                              ? `url(${s.images[0]}) center/cover no-repeat`
+                              : `linear-gradient(135deg,${s.thumb_a || '#D4C4A8'},${
+                                  s.thumb_b || '#94815C'
+                                })`,
                           flexShrink: 0,
                         }}
                       />

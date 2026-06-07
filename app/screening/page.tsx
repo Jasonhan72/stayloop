@@ -16,9 +16,12 @@ const DIMENSIONS = [
 export default function ScreeningPage() {
   return (
     <>
-      <Header />
+      <Header variant="transparent" />
       <main className="bg-surface">
-        <section className="relative overflow-hidden border-b border-line-divider bg-surface-nav">
+        <section
+          className="relative overflow-hidden border-b border-line-divider bg-surface-nav"
+          style={{ marginTop: -72, paddingTop: 72 }}
+        >
           <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-12">
             <div className="grid items-center gap-12 lg:grid-cols-[1.4fr_1fr]">
               <div>

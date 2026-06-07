@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, useEffect, useMemo } from 'react'
 import Header from '@/components/Header'
+import ListingsMap from '@/components/ListingsMap'
 import { supabase } from '@/lib/supabase'
 
 /**
@@ -35,6 +36,8 @@ interface DBListing {
   match_score: number | null
   pin_x: number | null
   pin_y: number | null
+  lat: number | null
+  lng: number | null
   thumb_a: string | null
   thumb_b: string | null
   luna_note: string | null
@@ -42,6 +45,7 @@ interface DBListing {
   photo_count: number | null
   is_active: boolean
   created_at: string
+  images: string[] | null
 }
 
 export default function ListingsPage() {
@@ -74,7 +78,7 @@ export default function ListingsPage() {
         className="bg-white"
         style={{ padding: '14px 32px 8px', borderBottom: '1px solid #F0EBE0' }}
       >
-        <div className="mx-auto flex max-w-[1320px] items-center">
+        <div className="mx-auto flex w-full items-center">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -111,7 +115,7 @@ export default function ListingsPage() {
         className="bg-white"
         style={{ padding: '12px 32px', borderBottom: '1px solid #E0DACE' }}
       >
-        <div className="mx-auto flex max-w-[1320px] flex-wrap items-center gap-[10px]">
+        <div className="mx-auto flex w-full flex-wrap items-center gap-[10px]">
           <Filt label="出租" on />
           <Filt label="$ 0 – 2,900" />
           <Filt label="1 卧 + den" />
@@ -142,7 +146,7 @@ export default function ListingsPage() {
         className="bg-white"
         style={{ padding: '12px 32px', borderBottom: '1px solid #F0EBE0' }}
       >
-        <div className="mx-auto flex max-w-[1320px] items-baseline justify-between">
+        <div className="mx-auto flex w-full items-baseline justify-between">
           <div style={{ fontSize: 18, fontWeight: 700 }}>
             <b style={{ color: '#047857' }}>{count}</b> 套房源 · King West + Liberty Village
           </div>
@@ -152,21 +156,22 @@ export default function ListingsPage() {
         </div>
       </section>
 
-      {/* Body: split view */}
+      {/* Body: split view — match Hi-Fi spec (~50/50 cards | map) */}
       <section
-        className="mx-auto max-w-[1320px]"
+        className="w-full"
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 480px',
+          gridTemplateColumns: 'minmax(540px, 1fr) minmax(420px, 1fr)',
         }}
       >
         {/* Card grid */}
         <div
           style={{
-            padding: '18px 28px',
+            padding: '18px 24px',
             display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: 18,
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            gap: 16,
+            alignContent: 'start',
           }}
         >
           {loading && (
@@ -189,8 +194,19 @@ export default function ListingsPage() {
           ))}
         </div>
 
-        {/* Map (sticky) */}
-        <Map listings={items} active={active} onPick={setActive} />
+        {/* Map (sticky, Google Maps) */}
+        <ListingsMap
+          listings={items.map((l) => ({
+            id: l.id,
+            slug: l.slug,
+            lat: l.lat,
+            lng: l.lng,
+            monthly_rent: l.monthly_rent,
+            match_score: l.match_score,
+          }))}
+          active={active}
+          onPick={setActive}
+        />
       </section>
     </div>
   )
@@ -230,6 +246,7 @@ function ListingCard({
   const a = l.thumb_a || '#D4C4A8'
   const b = l.thumb_b || '#94815C'
   const tierClass = (l.trust_tier || 2) >= 3 ? 't3' : 't2'
+  const heroImage = l.images && l.images.length > 0 ? l.images[0] : null
   return (
     <Link
       href={`/listings/${l.slug}`}
@@ -246,7 +263,9 @@ function ListingCard({
       <div
         style={{
           aspectRatio: '1.5',
-          background: `linear-gradient(135deg,${a},${b})`,
+          background: heroImage
+            ? `url(${heroImage}) center/cover no-repeat, linear-gradient(135deg,${a},${b})`
+            : `linear-gradient(135deg,${a},${b})`,
           position: 'relative',
         }}
       >
@@ -401,147 +420,4 @@ function ListingCard({
   )
 }
 
-function Map({
-  listings,
-  active,
-  onPick,
-}: {
-  listings: DBListing[]
-  active: string | null
-  onPick: (id: string) => void
-}) {
-  return (
-    <div
-      className="hidden lg:block"
-      style={{
-        background: 'linear-gradient(180deg,#DDE7DA 0%,#C8D6C2 100%)',
-        position: 'sticky',
-        top: 72,
-        height: 'calc(100vh - 72px)',
-        borderLeft: '1px solid #E0DACE',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Pseudo grid roads — matches the SVG-overlay look in the design */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage:
-            'linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-          opacity: 0.6,
-        }}
-      />
-      {/* Roads + park accents */}
-      <svg
-        viewBox="0 0 480 800"
-        preserveAspectRatio="xMidYMid slice"
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.5 }}
-      >
-        <path d="M 0 200 Q 200 240 480 220" stroke="#9CB596" strokeWidth="6" fill="none" />
-        <path d="M 0 380 L 480 360" stroke="#9CB596" strokeWidth="5" fill="none" />
-        <path d="M 0 560 Q 240 520 480 540" stroke="#9CB596" strokeWidth="6" fill="none" />
-        <path d="M 100 0 L 110 800" stroke="#9CB596" strokeWidth="4" fill="none" />
-        <path d="M 240 0 L 230 800" stroke="#9CB596" strokeWidth="5" fill="none" />
-        <path d="M 380 0 L 390 800" stroke="#9CB596" strokeWidth="4" fill="none" />
-        {/* Lake-ish area at bottom */}
-        <rect x="0" y="700" width="480" height="100" fill="rgba(110,160,180,0.35)" />
-      </svg>
-
-      {/* Pins */}
-      {listings.map((l) => {
-        const x = l.pin_x ?? Math.random() * 80 + 10
-        const y = l.pin_y ?? Math.random() * 70 + 15
-        const isActive = active === l.id
-        const isLuna = l.match_score && l.match_score >= 85
-        return (
-          <button
-            key={l.id}
-            onClick={() => onPick(l.id)}
-            style={{
-              position: 'absolute',
-              top: `${y}%`,
-              left: `${x}%`,
-              transform: isActive ? 'translate(-50%,-50%) scale(1.1)' : 'translate(-50%,-50%)',
-              padding: '5px 9px',
-              background: isActive ? '#047857' : '#fff',
-              border: `2px solid ${isActive ? '#047857' : isLuna ? '#7C3AED' : '#171717'}`,
-              borderRadius: 18,
-              fontFamily: 'JetBrains Mono, monospace',
-              fontSize: 11.5,
-              fontWeight: 700,
-              color: isActive ? '#fff' : isLuna ? '#5B21B6' : '#171717',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-              whiteSpace: 'nowrap',
-              zIndex: isActive ? 10 : 1,
-            }}
-          >
-            ${l.monthly_rent.toLocaleString()}
-          </button>
-        )
-      })}
-
-      {/* Top-left "draw region" widget */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 18,
-          left: 18,
-          background: '#fff',
-          border: '1px solid #E0DACE',
-          borderRadius: 8,
-          padding: '8px 12px',
-          fontSize: 12,
-          fontWeight: 600,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-        }}
-      >
-        ◯ 在地图上画区域
-      </div>
-
-      {/* Bottom-right legend */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 18,
-          right: 18,
-          background: '#fff',
-          border: '1px solid #E0DACE',
-          borderRadius: 8,
-          padding: '10px 14px',
-          fontSize: 11.5,
-          color: '#3F3F46',
-          fontFamily: 'JetBrains Mono, monospace',
-          letterSpacing: '0.04em',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-        }}
-      >
-        <Legend color="#7C3AED" label="Luna 推荐" />
-        <Legend color="#047857" label="选中" />
-        <Legend color="#171717" label="其他" last />
-      </div>
-    </div>
-  )
-}
-
-function Legend({ color, label, last }: { color: string; label: string; last?: boolean }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        marginBottom: last ? 0 : 4,
-      }}
-    >
-      <span
-        style={{ width: 10, height: 10, borderRadius: '50%', background: color }}
-      />
-      {label}
-    </div>
-  )
-}
+// Old fake-SVG Map removed; ListingsMap (Google Maps) is used instead.

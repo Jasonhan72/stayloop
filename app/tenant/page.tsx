@@ -7,11 +7,15 @@ import Footer from '@/components/Footer'
 export default function TenantLanding() {
   return (
     <>
-      <Header />
+      <Header variant="transparent" />
       <main className="bg-surface">
         <section
           className="relative overflow-hidden"
-          style={{ background: 'linear-gradient(180deg,#F2EEE5 0%, rgba(124,58,237,0.08) 100%)' }}
+          style={{
+            background: 'linear-gradient(180deg,#F2EEE5 0%, rgba(124,58,237,0.08) 100%)',
+            marginTop: -72,
+            paddingTop: 72,
+          }}
         >
           <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-12">
             <div className="grid items-center gap-12 lg:grid-cols-[1.4fr_1fr]">
@@ -27,7 +31,7 @@ export default function TenantLanding() {
                   Rental Passport 让你从一份资料、一次心力，应付所有 Toronto 的房东与房源。
                 </p>
                 <div className="mt-7 flex flex-wrap gap-3">
-                  <Link href="/onboarding/tier1" className="sl-btn-primary !px-6 !py-[14px]">
+                  <Link href="/onboarding/welcome" className="sl-btn-primary !px-6 !py-[14px]">
                     创建 Rental Passport
                   </Link>
                   <Link href="/listings" className="sl-btn-secondary !py-[12px]">

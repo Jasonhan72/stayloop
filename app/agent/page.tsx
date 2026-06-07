@@ -7,11 +7,15 @@ import Footer from '@/components/Footer'
 export default function AgentLanding() {
   return (
     <>
-      <Header />
+      <Header variant="transparent" />
       <main className="bg-surface">
         <section
           className="relative overflow-hidden"
-          style={{ background: 'linear-gradient(180deg,#F2EEE5 0%, rgba(37,99,235,0.10) 100%)' }}
+          style={{
+            background: 'linear-gradient(180deg,#F2EEE5 0%, rgba(37,99,235,0.10) 100%)',
+            marginTop: -72,
+            paddingTop: 72,
+          }}
         >
           <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-12">
             <div className="grid items-center gap-12 lg:grid-cols-[1.4fr_1fr]">

@@ -7,11 +7,15 @@ import Footer from '@/components/Footer'
 export default function TrustApiPage() {
   return (
     <>
-      <Header />
+      <Header variant="transparent" />
       <main className="bg-surface">
         <section
           className="relative overflow-hidden border-b border-line-divider"
-          style={{ background: 'linear-gradient(135deg, #0B0B0E 0%, #065F46 100%)' }}
+          style={{
+            background: 'linear-gradient(135deg, #0B0B0E 0%, #065F46 100%)',
+            marginTop: -72,
+            paddingTop: 72,
+          }}
         >
           <div className="mx-auto max-w-[1320px] px-5 py-24 text-white sm:px-7 lg:px-12">
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-emerald-200">

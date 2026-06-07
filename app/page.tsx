@@ -62,7 +62,7 @@ export default function HomePage() {
 
         <div className="flex flex-wrap items-center gap-[14px]">
           <Link
-            href="/onboarding/tier1"
+            href="/onboarding/welcome"
             className="inline-flex items-center justify-center rounded-[10px] text-white shadow-cta-mint"
             style={{
               background: 'linear-gradient(135deg,#6EE7B7,#34D399)',
