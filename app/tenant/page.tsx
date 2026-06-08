@@ -1,83 +1,43 @@
 'use client'
 
-import Link from 'next/link'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import RoleLanding, { RoleLandingConfig } from '@/components/RoleLanding'
+
+const CFG: RoleLandingConfig = {
+  role: 'tenant',
+  eyebrow: 'TENANT · 租客 · Luna',
+  agentName: 'Luna',
+  color: '#7C3AED',
+  h1: <>说出你想要的家,<br />Luna 替你办到签约。</>,
+  sub: '验证一次,处处通行。Luna 替你找房、比价、约看、一键申请,资料只在你点头时才分享。每个关键决定,依然由你拍板。',
+  primaryCta: { label: '90 秒身份验证 →', href: '/onboarding/welcome' },
+  secondaryCta: { label: '先浏览房源', href: '/listings' },
+  agentPoints: [
+    '对话式找房 + 主动匹配 —— 说需求,不填表',
+    '可复用 Rental Passport —— 资料只填一次',
+    '一键申请 · AI 自动跑完尽调',
+    '缴租 · 维修 · 续约 · 退租全程托管',
+  ],
+  journey: [
+    { h: '为 AI 起名', b: 'Luna、小鹿,任何你喜欢的名字。从此她只为你。' },
+    { h: '90 秒验明身份', b: '护照加活体,一次过。不影响你的信用分。' },
+    { h: '浏览房源', b: '地图加卡片,Luna 主动按你的需求筛过。' },
+    { h: '一键申请', b: 'Passport 直接复用,即出 Stayloop Score。' },
+    { h: '入住安心长住', b: '缴租维修续约退租,Luna 全程替你照看。' },
+  ],
+  scenario: {
+    name: 'Mia Chen', meta: '27 · 软件工程师 · 新移民',
+    quote: '没有加拿大信用记录,我到底该怎么租房?',
+    before: '信用空白,已被拒 3 次,3 天后必须退房。',
+    after: 'Luna 90 秒验明身份,中文读懂租约,35 分钟签约入住。',
+    delta: 'Score 60 → 91',
+  },
+  stats: [
+    { k: '验证', v: '90 秒' },
+    { k: '签约', v: '35 分钟' },
+    { k: '交易费', v: '$0' },
+  ],
+}
 
 export default function TenantLanding() {
-  return (
-    <>
-      <Header variant="transparent" />
-      <main className="bg-surface">
-        <section
-          className="relative overflow-hidden"
-          style={{
-            background: 'linear-gradient(180deg,#F2EEE5 0%, rgba(124,58,237,0.08) 100%)',
-            marginTop: -72,
-            paddingTop: 72,
-          }}
-        >
-          <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-12">
-            <div className="grid items-center gap-12 lg:grid-cols-[1.4fr_1fr]">
-              <div>
-                <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-tenant">
-                  TENANT · LUNA
-                </div>
-                <h1 className="mt-3 text-[44px] font-extrabold leading-tight tracking-tight sm:text-[56px]">
-                  一次验证，<br />处处通行。
-                </h1>
-                <p className="mt-5 max-w-[580px] text-[17px] leading-relaxed text-body-2">
-                  你的 AI 经纪 Luna 记得你的预算、偏好、生活习惯。
-                  Rental Passport 让你从一份资料、一次心力，应付所有 Toronto 的房东与房源。
-                </p>
-                <div className="mt-7 flex flex-wrap gap-3">
-                  <Link href="/onboarding/welcome" className="sl-btn-primary !px-6 !py-[14px]">
-                    创建 Rental Passport
-                  </Link>
-                  <Link href="/listings" className="sl-btn-secondary !py-[12px]">
-                    浏览房源
-                  </Link>
-                </div>
-              </div>
-              <div className="hidden lg:block">
-                <div className="sl-card relative aspect-square w-full overflow-hidden p-8">
-                  <div className="orb tenant pulse mx-auto h-[120px] w-[120px]" style={{ color: '#7C3AED' }} />
-                  <div className="mt-6 text-center">
-                    <div className="text-[20px] font-bold">Luna</div>
-                    <div className="font-mono text-[11px] uppercase tracking-eyebrow text-body-3">PERSONAL AGENT</div>
-                  </div>
-                  <div className="mt-6 space-y-2">
-                    {['每天为你筛选新房源', '记住你的偏好和拒绝过的', '关键节点等你确认'].map((l) => (
-                      <div key={l} className="rounded-lg bg-surface-chip px-3 py-2 text-[13px]">
-                        ✓ {l}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-12">
-          <h2 className="text-[28px] font-bold tracking-tight sm:text-[34px]">
-            Rental Passport 让你少填 80% 重复表
-          </h2>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {[
-              { t: '一次输入，处处复用', d: '身份、收入、信用、上家 reference 录入一次，下次申请直接授权调用。' },
-              { t: '你授权才能看', d: '房东只能看到你勾选的字段。撤销授权立刻失效。' },
-              { t: '随你升级', d: '想看更高 Tier 的房源？升级 Passport，立刻多解锁。' },
-            ].map((b) => (
-              <div key={b.t} className="sl-card p-6">
-                <h3 className="text-[18px] font-bold tracking-tight">{b.t}</h3>
-                <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">{b.d}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      </main>
-      <Footer />
-    </>
-  )
+  return <RoleLanding cfg={CFG} />
 }

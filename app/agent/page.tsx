@@ -1,65 +1,43 @@
 'use client'
 
-import Link from 'next/link'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import RoleLanding, { RoleLandingConfig } from '@/components/RoleLanding'
+
+const CFG: RoleLandingConfig = {
+  role: 'agent',
+  eyebrow: 'AGENT · 经纪 · Brief',
+  agentName: 'Brief',
+  color: '#2563EB',
+  h1: <>把杂活交给系统,<br />把关系留给人。</>,
+  sub: 'Brief 替你整理客户、准备房源材料、安排看房与跟进申请,让你专注线下服务、谈判和信任关系。',
+  primaryCta: { label: '加入经纪网络 →', href: '/agent/onboarding' },
+  secondaryCta: { label: '看看定价', href: '/pricing' },
+  agentPoints: [
+    '客户与房源材料一键整理',
+    '看房 Live · 现场记录与留痕',
+    '任务编排 · 当晚 Stripe 结算',
+    '佣金拆分 · 团队协作',
+  ],
+  journey: [
+    { h: '接收转介', b: '接收 Stayloop 验证后的合格租客转介。' },
+    { h: '任务收件箱', b: 'Brief 按你的日历排程带看与跟进。' },
+    { h: '带看 / 拍照 / 留痕', b: '现场记录,授权范围清晰、不踩线。' },
+    { h: '跟进申请', b: '客户记忆复用,进展自动提醒。' },
+    { h: '成交分成结算', b: '成交后 25% 分成,Stripe 自动结算。' },
+  ],
+  scenario: {
+    name: 'David Park', meta: '35 · 持牌经纪 · RECO 6 年',
+    quote: '不是没机会,是时间被行政碎片化了。',
+    before: '70% 时间耗在行政,收入不稳,客户容易跟丢。',
+    after: 'Brief 编排任务、当晚结算,他只做带看与专业判断。',
+    delta: '时薪 $25 → $43',
+  },
+  stats: [
+    { k: '时薪', v: '$25→$43' },
+    { k: '行政时间', v: '↓ 70%' },
+    { k: '结算', v: '当晚' },
+  ],
+}
 
 export default function AgentLanding() {
-  return (
-    <>
-      <Header variant="transparent" />
-      <main className="bg-surface">
-        <section
-          className="relative overflow-hidden"
-          style={{
-            background: 'linear-gradient(180deg,#F2EEE5 0%, rgba(37,99,235,0.10) 100%)',
-            marginTop: -72,
-            paddingTop: 72,
-          }}
-        >
-          <div className="mx-auto max-w-[1320px] px-5 py-20 sm:px-7 lg:px-12">
-            <div className="grid items-center gap-12 lg:grid-cols-[1.4fr_1fr]">
-              <div>
-                <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-info">
-                  AGENT · BRIEF
-                </div>
-                <h1 className="mt-3 text-[44px] font-extrabold leading-tight tracking-tight sm:text-[56px]">
-                  把行政交给系统，<br />把关系留给人。
-                </h1>
-                <p className="mt-5 max-w-[580px] text-[17px] leading-relaxed text-body-2">
-                  Brief 帮你接客户、拍房源、安排看房、跟进申请。
-                  你专注线下服务、谈判和信任关系，每场看房都有清晰授权范围 + 即时结算。
-                </p>
-                <div className="mt-7 flex flex-wrap gap-3">
-                  <Link href="/agent/agent" className="sl-btn-primary !px-6 !py-[14px]">
-                    打开我的任务板
-                  </Link>
-                  <Link href="/agent/onboarding" className="sl-btn-secondary !py-[12px]">
-                    加入经纪网络
-                  </Link>
-                </div>
-              </div>
-              <div className="hidden lg:block">
-                <div className="sl-card relative aspect-square w-full overflow-hidden p-8">
-                  <div className="orb agent pulse mx-auto h-[120px] w-[120px]" style={{ color: '#2563EB' }} />
-                  <div className="mt-6 text-center">
-                    <div className="text-[20px] font-bold">Brief</div>
-                    <div className="font-mono text-[11px] uppercase tracking-eyebrow text-body-3">FIELD AGENT COPILOT</div>
-                  </div>
-                  <div className="mt-6 space-y-2">
-                    {['每单清晰授权范围 · 不出错', '看完即结算 · 无拖款', '客户记忆 = 你的资产'].map((l) => (
-                      <div key={l} className="rounded-lg bg-surface-chip px-3 py-2 text-[13px]">
-                        ✓ {l}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-      <Footer />
-    </>
-  )
+  return <RoleLanding cfg={CFG} />
 }
