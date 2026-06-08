@@ -17,6 +17,7 @@ const GROUPS: Group[] = [
       { key: 'foot.trustApi', href: '/trust-api' },
       { key: 'foot.screening', href: '/screening' },
       { key: 'foot.passport', href: '/tenant/passport' },
+      { key: '纠纷仲裁', href: '/disputes' },
     ],
   },
   {

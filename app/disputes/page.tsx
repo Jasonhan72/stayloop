@@ -1,0 +1,146 @@
+'use client'
+
+// V5.3 · Disputes & arbitration (handbook §06 / VOL 8). 三方共用:
+// 仲裁工作台 · LTB 表格 · 律师目录 · AI 法律助手。
+import Link from 'next/link'
+import Header from '@/components/Header'
+import Footer from '@/components/Footer'
+
+const STAGES = [
+  { k: '通知', s: 'done' },
+  { k: '协商', s: 'done' },
+  { k: 'LTB 申请', s: 'now' },
+  { k: '听证', s: 'next' },
+  { k: '裁定', s: 'next' },
+]
+
+const LTB_FORMS = [
+  { code: 'N4', name: '欠租终止通知', who: '房东 → 租客' },
+  { code: 'L1', name: '欠租驱逐申请', who: '房东 → LTB' },
+  { code: 'T2', name: '租客权利申请', who: '租客 → LTB' },
+  { code: 'T6', name: '维修 / 维护申请', who: '租客 → LTB' },
+  { code: 'N9', name: '租客退租通知', who: '租客 → 房东' },
+  { code: 'L2', name: '其他终止申请', who: '房东 → LTB' },
+]
+
+const LAWYERS = [
+  { name: 'Chen & Associates', focus: '租赁纠纷 · 中英双语', lso: 'LSO #P12345', rate: '$220/h' },
+  { name: 'Maple Tenant Law', focus: '租客权益 · LTB 代理', lso: 'LSO #P23456', rate: 'first 30min free' },
+  { name: 'Harbourfront Legal', focus: '商业 / 物业 · 房东方', lso: 'LSO #P34567', rate: '$280/h' },
+]
+
+export default function DisputesPage() {
+  return (
+    <div style={{ background: '#FAF7EE', color: '#171717' }}>
+      <Header variant="transparent" />
+
+      <section style={{ background: 'linear-gradient(180deg,#F2EEE5 0%,rgba(220,38,38,0.06) 100%)' }}>
+        <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-7 lg:px-12">
+          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-danger">DISPUTES · 纠纷与仲裁</div>
+          <h1 className="mt-4 max-w-[820px] text-[36px] font-extrabold leading-[1.1] tracking-tight sm:text-[48px]">
+            出了纠纷,<br />也有 AI 陪你走完流程。
+          </h1>
+          <p className="mt-5 max-w-[640px] text-[16px] leading-relaxed text-body-2">
+            从协商、生成 LTB 表格、到对接持牌律师,AI 法律助手读懂你的案情、提示安省 RTA 下的权利与时限。
+            每一步留痕可查,关键决定仍由你拍板。
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div className="mx-auto grid max-w-[1240px] gap-6 px-5 py-16 sm:px-7 lg:grid-cols-[1.3fr_0.7fr] lg:px-12">
+          {/* case + stages */}
+          <div className="space-y-6">
+            <div className="sl-card p-6">
+              <div className="flex items-center justify-between">
+                <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">当前案件</div>
+                <span className="rounded-md bg-warning/10 px-2 py-[3px] font-mono text-[10px] font-bold text-warning">进行中</span>
+              </div>
+              <h3 className="mt-2 text-[18px] font-bold">88 Harbour St #4502 · 押金返还争议</h3>
+              <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
+                租客主张房东未在规定期限内返还押金及利息。AI 已比对租约条款与安省 RTA,建议先发协商函,7 天无果再走 T2。
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                {STAGES.map((s, i) => (
+                  <span key={s.k} className="flex items-center gap-2">
+                    <span className={'rounded-lg border px-3 py-[7px] font-mono text-[11.5px] font-semibold ' +
+                      (s.s === 'done' ? 'border-brand/40 bg-brand/8 text-brand'
+                        : s.s === 'now' ? 'border-warning bg-warning/10 text-warning'
+                        : 'border-line-divider bg-white text-body-3')}>
+                      {s.k}
+                    </span>
+                    {i < STAGES.length - 1 && <span className="text-body-4">→</span>}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* AI legal assistant */}
+            <div className="sl-card p-6">
+              <div className="flex items-center gap-2.5">
+                <span className="orb tenant h-9 w-9" />
+                <div>
+                  <div className="text-[14px] font-bold">AI 法律助手</div>
+                  <div className="font-mono text-[10.5px] text-body-3">读懂案情 · 不构成法律意见</div>
+                </div>
+              </div>
+              <div className="mt-3 rounded-xl rounded-tl-sm bg-surface-chip p-3 text-[13px] leading-relaxed text-body-2">
+                根据安省《住宅租赁法》(RTA),房东须在租约结束后合理期限内返还押金并计息。我已为你起草协商函,
+                并准备好 <b className="text-body">T2(租客权利申请)</b> 草稿;若 7 天内无回应,可一键提交 LTB。
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button className="sl-btn-primary !px-4 !py-[9px] !text-[13px]">查看协商函草稿</button>
+                <button className="rounded-lg border border-line-strong bg-white px-4 py-[8px] text-[13px] font-semibold text-body hover:border-brand hover:text-brand">准备 T2 申请</button>
+              </div>
+            </div>
+          </div>
+
+          {/* LTB forms */}
+          <div>
+            <div className="sl-card p-6">
+              <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">LTB 表格 · 一键生成</div>
+              <div className="mt-4 space-y-2">
+                {LTB_FORMS.map((f) => (
+                  <div key={f.code} className="flex items-center gap-3 rounded-lg border border-line-divider bg-white p-3">
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-brand/10 font-mono text-[12px] font-bold text-brand">{f.code}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-bold leading-tight">{f.name}</div>
+                      <div className="font-mono text-[10.5px] text-body-3">{f.who}</div>
+                    </div>
+                    <span className="text-[12px] font-semibold text-brand">生成 →</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* lawyer directory */}
+      <section style={{ background: '#F2EEE5' }}>
+        <div className="mx-auto max-w-[1240px] px-5 py-16 sm:px-7 lg:px-12">
+          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">律师目录 · Law Society of Ontario</div>
+          <h2 className="mt-3 text-[28px] font-extrabold tracking-tight sm:text-[34px]">需要真人时,对接持牌律师。</h2>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {LAWYERS.map((l) => (
+              <div key={l.name} className="sl-card p-6">
+                <div className="text-[16px] font-bold">{l.name}</div>
+                <div className="mt-1 font-mono text-[10.5px] text-body-3">{l.lso}</div>
+                <p className="mt-3 text-[13px] leading-relaxed text-body-2">{l.focus}</p>
+                <div className="mt-4 flex items-center justify-between border-t border-line-divider pt-3">
+                  <span className="font-mono text-[12px] font-bold text-brand">{l.rate}</span>
+                  <Link href="/contact" className="text-[12.5px] font-semibold text-brand">预约 →</Link>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-6 font-mono text-[11px] leading-relaxed text-body-3">
+            免责声明 · AI 法律助手提供信息与流程协助,不构成法律意见。涉及诉讼请咨询持牌律师。
+          </p>
+        </div>
+      </section>
+
+      <Footer />
+    </div>
+  )
+}
