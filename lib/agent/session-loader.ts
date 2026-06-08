@@ -20,15 +20,27 @@ import {
 
 type Options = { seedDemo?: boolean }
 
+function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    Promise.resolve(p),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ])
+}
+
 export async function loadAgentSession(
   client: SupabaseClient,
   role: AgentRole,
   opts: Options = {}
 ): Promise<AgentSessionResponse> {
   // 1. Atomic bootstrap (config + active task_memory + session + audit).
-  const { data: sessRow, error: bootErr } = await client.rpc(
-    'bootstrap_agent_session',
-    { p_role: role }
+  //    Time-bounded so a stalled request fails fast to the demo fallback
+  //    rather than hanging the workspace on its loading skeleton.
+  const { data: sessRow, error: bootErr } = await withTimeout(
+    client.rpc('bootstrap_agent_session', { p_role: role }),
+    4000,
+    'bootstrap_agent_session'
   )
   if (bootErr) throw new Error(`bootstrap failed: ${bootErr.message}`)
   const session = sessRow as AgentSession

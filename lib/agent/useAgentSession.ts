@@ -2,9 +2,9 @@
 
 // Client hook that drives an agent workspace. Loads the RLS-scoped session
 // through the browser Supabase client when a user is present; otherwise (or
-// if the agent-core migration isn't applied yet) falls back to a local demo
-// session so the page always renders. Approve/reject are optimistic and
-// persist through the decide_pending_action RPC in live mode.
+// if the data fetch stalls / the migration isn't applied) falls back to a
+// local demo session so the page ALWAYS renders. Guaranteed to leave the
+// loading state within a few seconds — it can never hang on a skeleton.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -24,6 +24,8 @@ export type UseAgentSession = {
   sendMessage: (message: string) => Promise<void>
 }
 
+const RENDER_DEADLINE_MS = 5000
+
 export function useAgentSession(role: AgentRole): UseAgentSession {
   const { loading: authLoading, user } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -31,52 +33,57 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   const [data, setData] = useState<AgentSessionResponse | null>(null)
   const [status, setStatus] = useState<AgentStatus>('idle')
   const [error, setError] = useState<string | null>(null)
-  const bootstrapped = useRef(false)
+  const settled = useRef(false)
 
+  const settle = useCallback(
+    (d: AgentSessionResponse, isLive: boolean) => {
+      if (settled.current) return
+      settled.current = true
+      setData(d)
+      setStatus(d.status)
+      setLive(isLive)
+      setLoading(false)
+    },
+    []
+  )
+
+  // Safety net: render within RENDER_DEADLINE_MS no matter what (auth slow,
+  // network hung, RPC stalled). Demo content mirrors the design, so the
+  // worst case still looks right.
   useEffect(() => {
-    if (authLoading) return
-    if (bootstrapped.current) return
-    bootstrapped.current = true
+    const t = setTimeout(() => settle(demoSession(role), false), RENDER_DEADLINE_MS)
+    return () => clearTimeout(t)
+  }, [role, settle])
 
+  // Live load once auth has settled.
+  useEffect(() => {
+    if (settled.current) return
+    if (authLoading) return
     let cancelled = false
     ;(async () => {
-      // No user → demo preview.
       if (!user) {
-        const demo = demoSession(role)
-        if (!cancelled) {
-          setData(demo); setStatus(demo.status); setLive(false); setLoading(false)
-        }
+        settle(demoSession(role), false)
         return
       }
       try {
-        const client = getSupabaseBrowser()
-        const session = await loadAgentSession(client, role, { seedDemo: true })
-        if (!cancelled) {
-          setData(session); setStatus(session.status); setLive(true); setLoading(false)
-        }
+        const session = await loadAgentSession(getSupabaseBrowser(), role, { seedDemo: true })
+        if (!cancelled) settle(session, true)
       } catch (e) {
-        // Migration not applied / transient → degrade to demo, don't crash.
-        console.warn('[agent] live load failed, using demo', (e as Error).message)
-        const demo = demoSession(role)
-        if (!cancelled) {
-          setData(demo); setStatus(demo.status); setLive(false); setLoading(false)
-        }
+        console.warn('[agent] live load failed, using demo —', (e as Error).message)
+        if (!cancelled) settle(demoSession(role), false)
       }
     })()
-
-    return () => { cancelled = true }
-  }, [authLoading, user, role])
+    return () => {
+      cancelled = true
+    }
+  }, [authLoading, user, role, settle])
 
   const decide = useCallback(
     async (actionId: string, decision: 'approved' | 'rejected', note?: string) => {
-      // Optimistic: drop the action from the pending list immediately.
-      setData((prev) => {
-        if (!prev) return prev
-        const pendingActions = prev.pendingActions.filter((a) => a.id !== actionId)
-        return { ...prev, pendingActions }
-      })
+      setData((prev) =>
+        prev ? { ...prev, pendingActions: prev.pendingActions.filter((a) => a.id !== actionId) } : prev
+      )
       setStatus((s) => (s === 'approval' ? 'result' : s))
-
       if (!live) return
       try {
         await decidePendingAction(getSupabaseBrowser(), actionId, decision, note)
@@ -91,7 +98,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     async (message: string) => {
       if (!message.trim()) return
       setStatus('understanding')
-      await new Promise((r) => setTimeout(r, 350))
+      await new Promise((r) => setTimeout(r, 300))
       setStatus('working')
 
       let result = {
@@ -105,7 +112,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           console.warn('[agent] message failed', (e as Error).message)
         }
       }
-      await new Promise((r) => setTimeout(r, 250))
+      await new Promise((r) => setTimeout(r, 200))
       setData((prev) => {
         if (!prev) return prev
         setStatus(prev.pendingActions.length ? 'approval' : 'result')
