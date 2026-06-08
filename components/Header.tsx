@@ -44,7 +44,7 @@ const NAV: NavItem[] = [
  */
 export default function Header({ variant = 'solid' }: HeaderProps) {
   const pathname = usePathname() || '/'
-  const { lang, toggle } = useI18n()
+  const { lang, t, toggle } = useI18n()
   const auth = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -57,8 +57,15 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
         setProfileOpen(false)
       }
     }
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setProfileOpen(false)
+    }
     window.addEventListener('mousedown', handler)
-    return () => window.removeEventListener('mousedown', handler)
+    window.addEventListener('keydown', keyHandler)
+    return () => {
+      window.removeEventListener('mousedown', handler)
+      window.removeEventListener('keydown', keyHandler)
+    }
   }, [profileOpen])
 
   const isActive = (href: string) => {
@@ -157,16 +164,18 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
                             : '/tenant/agent'
                       }
                       className="block rounded-md px-3 py-2 text-[13px] text-body hover:bg-surface-chip"
+                      role="menuitem"
                       onClick={() => setProfileOpen(false)}
                     >
-                      工作台
+                      {t('nav.dashboard')}
                     </Link>
                     <Link
                       href="/settings"
                       className="block rounded-md px-3 py-2 text-[13px] text-body hover:bg-surface-chip"
+                      role="menuitem"
                       onClick={() => setProfileOpen(false)}
                     >
-                      设置
+                      {t('nav.settings', '设置')}
                     </Link>
                     <button
                       onClick={async () => {
@@ -174,8 +183,9 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
                         await auth.signOut()
                       }}
                       className="block w-full rounded-md px-3 py-2 text-left text-[13px] text-danger hover:bg-danger/5"
+                      role="menuitem"
                     >
-                      退出
+                      {t('nav.signOut')}
                     </button>
                   </div>
                 )}
@@ -188,15 +198,14 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
                 href="/login"
                 className="inline-flex items-center justify-center rounded-[10px] border border-line bg-white px-[18px] py-[10px] text-[14px] font-semibold text-body transition hover:border-line-strong"
               >
-                登录
+                {t('nav.login')}
               </Link>
               {/* btn-pri · 创建账号 (black, per design) */}
               <Link
                 href="/onboarding/welcome"
-                className="inline-flex items-center justify-center gap-1.5 rounded-[10px] px-[18px] py-[10px] text-[14px] font-semibold text-white transition"
-                style={{ background: '#0B0B0E' }}
+                className="inline-flex items-center justify-center gap-1.5 rounded-[10px] bg-ink px-[18px] py-[10px] text-[14px] font-semibold text-white transition"
               >
-                创建账号 →
+                {t('nav.register')} →
               </Link>
             </>
           )}

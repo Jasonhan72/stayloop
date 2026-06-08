@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import Logo from './Logo'
 
 /**
  * Centered onboarding stage matching the Hi-Fi `.stage` + `.stage-card`
@@ -32,23 +33,7 @@ export default function OnboardingStage({ step, totalSteps, eyebrow, children, b
         className="mx-auto flex max-w-[1320px] items-center"
         style={{ paddingBottom: 36, paddingInline: 24 }}
       >
-        <Link
-          href="/"
-          className="font-bold tracking-tight"
-          style={{ fontSize: 20, letterSpacing: '-0.01em' }}
-        >
-          stay
-          <span
-            style={{
-              backgroundImage: 'linear-gradient(135deg,#7C3AED,#2563EB)',
-              WebkitBackgroundClip: 'text',
-              backgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            loop
-          </span>
-        </Link>
+        <Logo size="md" />
 
         {step && totalSteps && (
           <div

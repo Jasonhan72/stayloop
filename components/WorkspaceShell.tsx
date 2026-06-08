@@ -86,8 +86,7 @@ function Rail({ role }: { role: WorkspaceRole }) {
   const accent = ROLE_ACCENT[role]
   return (
     <nav
-      className="flex flex-col items-center gap-1.5 border-r border-line-divider py-4"
-      style={{ background: '#EAE5D9' }}
+      className="flex flex-col items-center gap-1.5 border-r border-line-divider bg-surface-muted py-4"
     >
       <div
         className="mb-4 flex h-8 w-8 items-center justify-center rounded-lg text-[15px] font-extrabold text-white"

@@ -57,19 +57,19 @@ const ROLE_META: Record<Role, { label: string; accent: string; tiers: Tier[] }> 
       {
         name: '免费', price: '$0', fee: '≈$0 · ACH ≈$1/笔 · 刷卡 2.9% 由租客付',
         desc: '免费发布房源、免费收基础申请。需带看撮合的成交交给持牌经纪。',
-        cta: '免费发布房源', href: '/dashboard',
+        cta: '免费发布房源', href: '/dashboard/listings/new',
         features: ['免费发布 / 从旧平台迁入', '基础申请收件箱', 'Logic 摘要版评分', '租金代收(平台不抽流水)'],
       },
       {
         name: 'Pro', price: '$19', per: '/ 月', fee: 'ACH 手续费全免',
         desc: 'Logic 全功能:多维核查、排序、租约起草 —— 你只点头。',
-        cta: '升级 Pro', href: '/dashboard', highlight: true,
+        cta: '升级 Pro', href: '/landlord/agent', highlight: true,
         features: ['Logic Agent 全功能(筛查 / 排序 / 起草)', '六维 AI 评分 + 法庭记录查询', '租约自动起草(OREA 兼容)', '邮件 + Slack 通知', '无限申请 · 每位申请人 0 手续费'],
       },
       {
         name: 'Premium', price: '$39', per: '/ 月', fee: '含深度报告额度 · 次日到账',
         desc: '多套房源 / 机构房东。成交分成结算面板 + 专属客户成功。',
-        cta: '升级 Premium', href: '/dashboard',
+        cta: '升级 Premium', href: '/landlord/agent',
         features: ['一切 Pro 功能', '成交分成结算面板', '深度核查报告额度', '次日到账', '专属客户成功'],
       },
     ],

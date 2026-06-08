@@ -73,9 +73,6 @@ const config: Config = {
         sans: ['"Inter Tight"', '"Noto Sans SC"', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
-      fontSize: {
-        // Override defaults to match V5 scale
-      },
       borderRadius: {
         sm: '4px',
         md: '6px',
@@ -102,7 +99,7 @@ const config: Config = {
         eyebrowLg: '0.14em',
       },
       keyframes: {
-        pulse: {
+        'orb-pulse': {
           '0%': { transform: 'scale(1)', opacity: '0.3' },
           '100%': { transform: 'scale(1.3)', opacity: '0' },
         },

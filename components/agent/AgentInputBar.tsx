@@ -40,6 +40,7 @@ export default function AgentInputBar({
               submit()
             }
           }}
+          aria-label={`Message ${agentName}`}
           placeholder={`告诉 ${agentName} 你想做什么 —— 例如「帮我找 Line 1 沿线、$2400 以内、可养猫的一居」`}
           className="max-h-32 min-h-[40px] flex-1 resize-none bg-transparent px-3 py-2 text-[14px] leading-relaxed text-body outline-none placeholder:text-body-4"
         />

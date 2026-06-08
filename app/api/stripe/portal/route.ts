@@ -42,10 +42,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      req.headers.get('origin') ||
-      'https://www.stayloop.ai'
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai'
 
     const stripe = getStripe()
     const session = await stripe.billingPortal.sessions.create({
@@ -57,7 +54,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('stripe/portal error', err)
     return NextResponse.json(
-      { error: err?.message || 'internal error' },
+      { error: 'internal error' },
       { status: 500 }
     )
   }

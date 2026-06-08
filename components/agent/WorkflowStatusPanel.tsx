@@ -20,7 +20,7 @@ export default function WorkflowStatusPanel({
       </div>
       {stages.map((s, i) => {
         const done = i < curIdx || workflow.completed_steps.includes(s.key)
-        const now = i === curIdx && !done ? true : i === curIdx
+        const now = i === curIdx
         const state: 'done' | 'now' | 'next' = done ? 'done' : now ? 'now' : 'next'
         return <Row key={s.key} state={state} label={s.label} />
       })}

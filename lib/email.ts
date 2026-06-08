@@ -125,7 +125,7 @@ ${i.dashboardUrl}
                 </table>
 
                 <div style="margin:28px 0 8px 0;">
-                  <a href="${i.dashboardUrl}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;font-size:14px;">Review application →</a>
+                  <a href="${encodeURI(i.dashboardUrl)}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;font-size:14px;">Review application →</a>
                 </div>
 
                 <p style="margin:24px 0 0 0;font-size:12px;color:#94a3b8;">

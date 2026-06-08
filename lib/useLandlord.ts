@@ -27,12 +27,13 @@ export function useLandlord(): UseLandlordReturn {
   const [landlord, setLandlord] = useState<LandlordSession | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (cancelled?: { current: boolean }) => {
     setLoading(true)
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession()
+      if (cancelled?.current) return
       if (!session) {
         setLandlord(null)
         return
@@ -48,36 +49,37 @@ export function useLandlord(): UseLandlordReturn {
         .eq('auth_id', authId)
         .maybeSingle()
 
+      if (cancelled?.current) return
       if (existing) {
         setLandlord({ authId, email, landlordId: existing.id })
         return
       }
 
-      // Claim via SECURITY DEFINER RPC (matches by email)
+      // Claim via SECURITY DEFINER RPC (idempotent INSERT ON CONFLICT)
       const { data: claimed, error } = await supabase.rpc('claim_landlord')
+      if (cancelled?.current) return
       if (!error && claimed) {
-        setLandlord({ authId, email, landlordId: (claimed as any).id || claimed })
+        const claimedId = typeof claimed === 'object' && claimed !== null ? (claimed as { id: string }).id : claimed
+        setLandlord({ authId, email, landlordId: claimedId as string })
       } else {
-        // Fall back: create manually
-        const { data: created } = await supabase
-          .from('landlords')
-          .insert({ auth_id: authId, email, plan: 'free' })
-          .select('id')
-          .maybeSingle()
-        if (created) setLandlord({ authId, email, landlordId: created.id })
-        else setLandlord(null)
+        console.warn('claim_landlord failed', error?.message)
+        setLandlord(null)
       }
     } finally {
-      setLoading(false)
+      if (!cancelled?.current) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    refresh()
+    const cancelled = { current: false }
+    refresh(cancelled)
     const { data: sub } = supabase.auth.onAuthStateChange(() => {
-      refresh()
+      refresh(cancelled)
     })
-    return () => sub.subscription.unsubscribe()
+    return () => {
+      cancelled.current = true
+      sub.subscription.unsubscribe()
+    }
   }, [refresh])
 
   // Redirect unauthenticated users to /login

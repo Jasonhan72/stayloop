@@ -93,10 +93,7 @@ export async function POST(req: NextRequest) {
     .filter(Boolean)
     .join(', ')
 
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    req.headers.get('origin') ||
-    'https://www.stayloop.ai'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai'
 
   const files = Array.isArray(app.files) ? app.files : []
 

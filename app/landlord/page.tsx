@@ -9,7 +9,7 @@ const CFG: RoleLandingConfig = {
   color: '#047857',
   h1: <>是流水线,不是收件箱。<br />Logic 替你读懂每份申请。</>,
   sub: 'Logic 替你整理申请、同步尽调、起草租约 —— 把 30 分钟的纠结压成 30 秒一次「同意」。决定权,始终在你手里。',
-  primaryCta: { label: '免费发布房源 →', href: '/dashboard' },
+  primaryCta: { label: '免费发布房源 →', href: '/dashboard/listings/new' },
   secondaryCta: { label: '看看定价', href: '/pricing' },
   agentPoints: [
     '申请人 Pipeline 看板 —— 一眼看清每份申请',

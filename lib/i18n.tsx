@@ -24,6 +24,7 @@ export const dict: Dict = {
   'nav.signOut':        { zh: '退出', en: 'Sign out' },
   'nav.notifications':  { zh: '通知', en: 'Notifications' },
   'nav.menu':           { zh: '菜单', en: 'Menu' },
+  'nav.settings':       { zh: '设置', en: 'Settings' },
 
   // ==== HERO (Vol1 ART01) ====
   'hero.eyebrow':       { zh: 'AI · 个人租住代理', en: 'AI · Personal Rental Agent' },
@@ -75,6 +76,7 @@ export const dict: Dict = {
   'foot.privacy':       { zh: '隐私', en: 'Privacy' },
   'foot.terms':         { zh: '条款', en: 'Terms' },
   'foot.contact':       { zh: '联系', en: 'Contact' },
+  'foot.disputes':      { zh: '纠纷仲裁', en: 'Disputes' },
   'foot.tag':           {
     zh: 'Stayloop — 多伦多的可信任租住基础设施。',
     en: 'Stayloop — trusted rental infrastructure for Toronto.',

@@ -49,15 +49,12 @@ export async function POST(req: NextRequest) {
     const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID
     if (!priceId) {
       return NextResponse.json(
-        { error: 'NEXT_PUBLIC_STRIPE_PRICE_ID not configured' },
+        { error: 'not configured' },
         { status: 500 }
       )
     }
 
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      req.headers.get('origin') ||
-      'https://www.stayloop.ai'
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai'
 
     const stripe = getStripe()
 
@@ -90,7 +87,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('stripe/checkout error', err)
     return NextResponse.json(
-      { error: err?.message || 'internal error' },
+      { error: 'internal error' },
       { status: 500 }
     )
   }

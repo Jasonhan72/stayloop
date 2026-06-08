@@ -149,6 +149,6 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('webhook handler error', err)
     // Return 500 so Stripe retries.
-    return NextResponse.json({ error: err?.message || 'internal' }, { status: 500 })
+    return NextResponse.json({ error: 'internal error' }, { status: 500 })
   }
 }

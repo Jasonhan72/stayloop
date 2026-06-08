@@ -37,8 +37,10 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
 
   const settle = useCallback(
     (d: AgentSessionResponse, isLive: boolean) => {
+      // Atomic check-and-set to prevent double settle from timeout + live load race
       if (settled.current) return
       settled.current = true
+      // All state updates batched by React 18+ automatic batching
       setData(d)
       setStatus(d.status)
       setLive(isLive)

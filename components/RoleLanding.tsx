@@ -25,7 +25,7 @@ export type RoleLandingConfig = {
 export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
   const c = cfg.color
   return (
-    <div style={{ background: '#FAF7EE', color: '#171717' }}>
+    <div className="bg-surface-nav text-body">
       <Header variant="transparent" />
 
       {/* HERO */}
