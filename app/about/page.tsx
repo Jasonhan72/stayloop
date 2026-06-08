@@ -1,38 +1,52 @@
 'use client'
 
+import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 
+const PRINCIPLES = [
+  { h: '关键决定永远是你的', b: 'AI 替你跑流程、压结论,但分享 Passport、提交申请、签约、付款 —— 全部经你确认才执行。' },
+  { h: '信任可以复用', b: '验证一次,跨房东、平台、机构出示摘要。把一叠 PDF 变成一个可携带的协议。' },
+  { h: '看得见来源', b: '每一分都能点开看到它从哪来。不是黑箱风险分,而是加权的证据。' },
+  { h: '合规是底线', b: '符合本地法律 · 软查不影响信用 · 每一步链上留痕、可回溯。' },
+]
+
 export default function AboutPage() {
   return (
-    <>
-      <Header />
-      <main className="bg-surface">
-        <section className="mx-auto max-w-[820px] px-5 py-20 sm:px-7">
-          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
-            ABOUT · STAYLOOP
-          </div>
-          <h1 className="mt-3 text-[44px] font-extrabold leading-tight tracking-tight sm:text-[56px]">
-            为多伦多重新设计租住的方式。
+    <div style={{ background: '#FAF7EE', color: '#171717' }}>
+      <Header variant="transparent" />
+      <section style={{ background: 'linear-gradient(180deg,#F2EEE5 0%,#E4EEE3 100%)' }}>
+        <div className="mx-auto max-w-[900px] px-5 py-24 sm:px-7 lg:px-12">
+          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">ABOUT · STAYLOOP</div>
+          <h1 className="mt-4 text-[40px] font-extrabold leading-[1.08] tracking-tight sm:text-[54px]">
+            为 AI 时代,<br />重新设计租住的方式。
           </h1>
-          <p className="mt-6 text-[16px] leading-relaxed text-body-2">
-            Stayloop 起源于一个朴素的观察 — 在 Toronto，租客和房东 90% 的时间不是在沟通，而是在重复填表、互不信任地观察对方。
-            我们用 AI 把这些重复劳动系统化，把信任变成可以复用的协议，让真正的人 (你和你的房东、你的经纪) 能专注在真正重要的决策上。
+          <p className="mt-6 max-w-[680px] text-[17px] leading-relaxed text-body-2">
+            在 Toronto,租客和房东 90% 的时间不是在沟通,而是在重复填表、互不信任地观察对方。
+            Stayloop 用 AI 把这些重复劳动系统化,把信任变成可复用的协议 —— 让真正的人,专注在真正重要的决定上。
           </p>
-          <h2 className="mt-12 text-[22px] font-bold tracking-tight">原则</h2>
-          <ul className="mt-4 space-y-4 text-[14.5px] leading-relaxed text-body-2">
-            <li><b className="text-body">隐私优先</b> · 你授权的每一项数据,我们都加密保存,Stayloop 内部都不直接看。</li>
-            <li><b className="text-body">关键节点由人决定</b> · AI 永远只做推荐和起草。签字、付款、拒绝 — 都是你按下按钮。</li>
-            <li><b className="text-body">本地法规优先</b> · 我们的合同模板严格遵循 Ontario RTA。和 LTB / Tribunal 直接对接。</li>
-            <li><b className="text-body">终身免费 · 给租客</b> · 商业模式是房东 / 银行付费。租客侧永远不收钱。</li>
-          </ul>
-          <h2 className="mt-12 text-[22px] font-bold tracking-tight">团队</h2>
-          <p className="mt-4 text-[14.5px] leading-relaxed text-body-2">
-            创始团队由前 Shopify、Google、Plaid 工程师与 Toronto 本地房产经纪组成。我们做这件事，是因为我们自己也在租房。
-          </p>
-        </section>
-      </main>
+        </div>
+      </section>
+
+      <section>
+        <div className="mx-auto max-w-[1100px] px-5 py-20 sm:px-7 lg:px-12">
+          <h2 className="text-[26px] font-extrabold tracking-tight sm:text-[32px]">我们的原则</h2>
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            {PRINCIPLES.map((p) => (
+              <div key={p.h} className="sl-card p-6">
+                <h4 className="text-[16px] font-bold">{p.h}</h4>
+                <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">{p.b}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-12 flex flex-wrap gap-3">
+            <Link href="/onboarding/welcome" className="sl-btn-primary !px-6 !py-[13px] !text-[15px]">开始使用 →</Link>
+            <Link href="/contact" className="rounded-[10px] border border-line-strong bg-white px-6 py-[12px] text-[14px] font-semibold text-body transition hover:border-brand hover:text-brand">联系我们</Link>
+          </div>
+        </div>
+      </section>
+
       <Footer />
-    </>
+    </div>
   )
 }
