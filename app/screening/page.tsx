@@ -82,7 +82,7 @@ export default function ScreeningPage() {
             ))}
           </div>
           <div className="mt-10 text-center">
-            <Link href="/dashboard" className="sl-btn-primary !px-7 !py-[14px] !text-[15px]">开始筛选申请 →</Link>
+            <Link href="/landlord/applicants" className="sl-btn-primary !px-7 !py-[14px] !text-[15px]">开始筛选申请 →</Link>
           </div>
         </div>
       </section>
