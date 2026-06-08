@@ -3,9 +3,9 @@ import './globals.css'
 import { I18nProvider } from '@/lib/i18n'
 
 export const metadata: Metadata = {
-  title: 'Stayloop — 让租住回到应有的秩序 · Toronto AI rental agent',
+  title: 'Stayloop — 为 AI 时代而生的租房方式 · Toronto AI rental agent',
   description:
-    '每位用户都有自己的个人 AI Agent — Stayloop 把找房、申请、签约与后续服务整理成清晰的流程。Trusted rental infrastructure for Toronto.',
+    '在 AI 时代,你只要说出想要的生活,你的专属 AI 助手就替你找房、尽调、申请、签约。每个关键决定,依然由你拍板。多伦多的可信任租住基础设施。',
   metadataBase: new URL('https://www.stayloop.ai'),
   openGraph: {
     title: 'Stayloop',
