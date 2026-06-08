@@ -21,13 +21,14 @@ interface NavItem {
   alwaysLive?: boolean
 }
 
+// Per V5.3 landing.html design: 房源 · 租客 · 房东 · 经纪 · 审核.
+// Trust API is NOT a top-nav item (it lives in the footer / partners only).
 const NAV: NavItem[] = [
   { key: 'nav.listings', href: '/listings' },
   { key: 'nav.tenant', href: '/tenant' },
   { key: 'nav.landlord', href: '/landlord' },
   { key: 'nav.agent', href: '/agent' },
   { key: 'nav.screening', href: '/screening', alwaysLive: true },
-  { key: 'nav.trustApi', href: '/trust-api' },
 ]
 
 /**
@@ -74,12 +75,12 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
           : 'border-b border-line-divider bg-surface-nav/95 backdrop-blur')
       }
     >
-      <div className="mx-auto flex h-[72px] max-w-[1320px] items-center px-6 sm:px-8 lg:px-12">
+      <div className="mx-auto flex h-[66px] max-w-[1240px] items-center justify-between px-6 sm:px-8 lg:px-12">
         {/* Logo */}
         <Logo size="md" />
 
-        {/* Nav links — desktop */}
-        <nav className="ml-12 hidden items-center gap-[26px] lg:flex">
+        {/* Nav links — desktop · centered per design (justify-between) */}
+        <nav className="hidden items-center gap-[26px] lg:flex">
           {NAV.map((item) => (
             <NavLink
               key={item.key}
@@ -93,7 +94,7 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
         </nav>
 
         {/* Right side */}
-        <div className="ml-auto flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <button
             onClick={toggle}
             className="hidden items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1 font-mono text-[10.5px] text-body-2 transition hover:border-line-strong sm:inline-flex"
@@ -182,18 +183,20 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
             </>
           ) : (
             <>
+              {/* btn-out · 登录 (white + border) */}
               <Link
                 href="/login"
-                className="inline-flex items-center justify-center rounded-[10px] border border-line-strong bg-white px-4 py-[9px] text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
+                className="inline-flex items-center justify-center rounded-[10px] border border-line bg-white px-[18px] py-[10px] text-[14px] font-semibold text-body transition hover:border-line-strong"
               >
                 登录
               </Link>
+              {/* btn-pri · 创建账号 (black, per design) */}
               <Link
-                href="/onboarding/tier1"
-                className="inline-flex items-center justify-center rounded-[10px] px-4 py-[9px] text-[13.5px] font-semibold text-white shadow-cta-mint"
-                style={{ background: 'linear-gradient(135deg,#6EE7B7,#34D399)' }}
+                href="/onboarding/welcome"
+                className="inline-flex items-center justify-center gap-1.5 rounded-[10px] px-[18px] py-[10px] text-[14px] font-semibold text-white transition"
+                style={{ background: '#0B0B0E' }}
               >
-                注册
+                创建账号 →
               </Link>
             </>
           )}

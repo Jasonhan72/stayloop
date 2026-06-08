@@ -32,7 +32,7 @@ export default function Logo({ size = 'md', href = '/', withMark = false }: Logo
         </span>
       )}
       <span>stay</span>
-      <span className="accent">loop</span>
+      <span className="accent">loop.AI</span>
     </span>
   )
   if (!href) return inner

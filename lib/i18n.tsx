@@ -15,7 +15,7 @@ export const dict: Dict = {
   'nav.tenant':         { zh: '租客', en: 'Tenant' },
   'nav.landlord':       { zh: '房东', en: 'Landlord' },
   'nav.agent':          { zh: '经纪', en: 'Agent' },
-  'nav.screening':      { zh: 'Screening', en: 'Screening' },
+  'nav.screening':      { zh: '审核', en: 'Screening' },
   'nav.trustApi':       { zh: 'Trust API', en: 'Trust API' },
   'nav.pricing':        { zh: '定价', en: 'Pricing' },
   'nav.login':          { zh: '登录', en: 'Sign in' },
