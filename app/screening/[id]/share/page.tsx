@@ -1,5 +1,7 @@
 'use client'
 
+export const runtime = 'edge'
+
 // V5.3 · VOL 7 · Artboard 69 — Share Configuration page.
 // Route: /screening/[id]/share
 // Consent-aware sharing: landlord picks recipients, fields, expiry;

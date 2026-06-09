@@ -1,5 +1,7 @@
 'use client'
 
+export const runtime = 'edge'
+
 // V5.3 · VOL 7 · Artboards 65+68 — Full Report (dual bureau + forensics) + Final Report (downloadable).
 // Route: /screening/[id]/report
 // The most data-dense page in Stayloop: 8-engine screening output for Mia Chen demo.

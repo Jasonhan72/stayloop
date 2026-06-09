@@ -1,5 +1,7 @@
 'use client'
 
+export const runtime = 'edge'
+
 // V5.3 · VOL 7 · Artboard 64 — Scan Complete / Stayloop Score
 // Route: /screening/[id]/done
 // Shows final score after all 8 engines finish.

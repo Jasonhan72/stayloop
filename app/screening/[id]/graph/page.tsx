@@ -1,5 +1,7 @@
 'use client'
 
+export const runtime = 'edge'
+
 // V5.3 · VOL 7 · Artboard 67 — Relationship Graph visualization.
 // Route: /screening/[id]/graph
 // Network consistency check + mutual-neighbor analysis.

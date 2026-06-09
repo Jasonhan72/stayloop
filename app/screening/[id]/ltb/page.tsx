@@ -1,5 +1,7 @@
 'use client'
 
+export const runtime = 'edge'
+
 // V5.3 · VOL 7 · Artboard 66 — Court / LTB Records detail page.
 // Route: /screening/[id]/ltb
 // Deep search across 14 Ontario tribunals, CanLII, OSB, civil courts.
