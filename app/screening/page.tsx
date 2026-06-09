@@ -4,6 +4,7 @@
 // Upload PDF / images / Word → one-click deep screening with 6+2 engines.
 import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 
@@ -33,6 +34,7 @@ const RECENT_SCANS = [
 ]
 
 export default function ScreeningPage() {
+  const router = useRouter()
   const [files, setFiles] = useState<File[]>([])
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -163,9 +165,10 @@ export default function ScreeningPage() {
                 </ul>
 
                 <button
-                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-[15px] font-bold text-white transition hover:opacity-90"
+                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-[15px] font-bold text-white transition hover:opacity-90 disabled:opacity-40"
                   style={{ background: '#047857' }}
                   disabled={files.length === 0}
+                  onClick={() => router.push('/screening/new?step=parse')}
                 >
                   ▶ 启动深度尽调
                 </button>
@@ -197,7 +200,7 @@ export default function ScreeningPage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-body-3">最近扫描 · 你的</div>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {RECENT_SCANS.map((s) => (
-              <div key={s.code} className="flex items-center gap-4 rounded-xl border border-line-divider bg-white px-5 py-4">
+              <Link key={s.code} href={`/screening/${s.code.toLowerCase()}/done`} className="flex items-center gap-4 rounded-xl border border-line-divider bg-white px-5 py-4 transition hover:border-line-strong">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-chip text-[14px] font-bold text-body-2">
                   {s.name.charAt(0)}
                 </div>
@@ -208,7 +211,7 @@ export default function ScreeningPage() {
                 <span className="rounded-md px-2 py-0.5 font-mono text-[10px] font-bold" style={{ color: s.color, background: s.color + '10' }}>
                   {s.status}
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
           <div className="mt-4">
