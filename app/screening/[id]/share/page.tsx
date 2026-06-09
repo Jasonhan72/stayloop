@@ -81,6 +81,7 @@ export default function ShareConfigPage() {
       .from('screenings')
       .select('*')
       .eq('id', id)
+      .eq('landlord_id', user.id)
       .single()
       .then(({ data, error }) => {
         if (error || !data) setLoadError(true)
@@ -144,7 +145,10 @@ export default function ShareConfigPage() {
   }
 
   const handleGenerateLink = () => {
-    setLinkGenerated(true)
+    // TODO: persist share config to Supabase (share_links table) and generate a real token-based URL.
+    // For now this is a UI preview — the link is not functional.
+    alert('Share links are coming soon. This feature is not yet active.')
+    return
   }
 
   const handleCopy = () => {

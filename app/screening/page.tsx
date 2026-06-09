@@ -1,5 +1,7 @@
 'use client'
 
+export const runtime = 'edge'
+
 // V5.3 · Screening Hub — fully working single-tenant deep screening.
 // Upload files → classify → Supabase Storage → screen-score → results.
 
@@ -318,20 +320,31 @@ export default function ScreeningPage() {
     }
   }, [applicantName, targetRent])
 
+  // ── File validation
+  const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB per file
+  const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp']
+  const validateFiles = useCallback((incoming: File[]): File[] => {
+    return incoming.filter(f => {
+      if (f.size > MAX_FILE_SIZE) { alert(`${f.name} exceeds 10MB limit`); return false }
+      if (!ALLOWED_TYPES.includes(f.type) && !f.name.toLowerCase().endsWith('.pdf')) { alert(`${f.name}: unsupported file type`); return false }
+      return true
+    })
+  }, [])
+
   // ── Drag & drop
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setDragOver(false)
-    const dropped = Array.from(e.dataTransfer.files)
+    const dropped = validateFiles(Array.from(e.dataTransfer.files))
     const next = [...files, ...dropped].slice(0, 20)
     const newOnes = next.slice(files.length)
     setFiles(next)
     if (newOnes.length > 0) classifyFiles(newOnes)
-  }, [files, classifyFiles])
+  }, [files, classifyFiles, validateFiles])
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return
-    const selected = Array.from(e.target.files)
+    const selected = validateFiles(Array.from(e.target.files))
     const next = [...files, ...selected].slice(0, 20)
     const newOnes = next.slice(files.length)
     setFiles(next)
@@ -471,12 +484,13 @@ export default function ScreeningPage() {
 
   // ── Click a history row
   const loadScreening = useCallback(async (id: string) => {
-    const { data } = await supabase.from('screenings').select('*').eq('id', id).single()
+    if (!user) return
+    const { data } = await supabase.from('screenings').select('*').eq('id', id).eq('landlord_id', user.id).single()
     if (data) {
       setResult(data)
       setView('results')
     }
-  }, [])
+  }, [user])
 
   // ── Auth loading or not logged in
   if (authLoading) {

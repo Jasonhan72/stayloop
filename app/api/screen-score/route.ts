@@ -1148,7 +1148,7 @@ JSON DISCIPLINE (avoid parse errors):
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
+        'anthropic-version': '2024-10-22',
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
@@ -1172,8 +1172,9 @@ JSON DISCIPLINE (avoid parse errors):
 
     if (!response.ok) {
       const errText = await response.text()
-      await supabase.from('screenings').update({ status: 'error', error: errText.slice(0, 500) }).eq('id', screening_id)
-      return NextResponse.json({ error: `Anthropic API error: ${errText}` }, { status: 500 })
+      console.error(`[screen-score] Anthropic HTTP ${response.status}:`, errText.slice(0, 500))
+      await supabase.from('screenings').update({ status: 'error', error: `AI scoring failed (HTTP ${response.status})` }).eq('id', screening_id)
+      return NextResponse.json({ error: `AI scoring failed (HTTP ${response.status})` }, { status: 500 })
     }
 
     const aiData = await response.json() as { content?: Array<{ text: string }>; stop_reason?: string }
@@ -1294,12 +1295,12 @@ JSON DISCIPLINE (avoid parse errors):
         status: 'error',
         error: (truncated ? 'AI output truncated: ' : 'AI parse error: ') + (e?.message || 'unknown').slice(0, 200),
       }).eq('id', screening_id)
+      console.error(`[screen-score] AI parse error — head: "${snippet.slice(0, 200)}" — tail: "${tail.slice(0, 200)}"`)
       return NextResponse.json({
         error: truncated
           ? 'AI output was truncated — please retry (the model produced too much text).'
-          : `AI parse error: ${(e?.message || 'unknown').slice(0, 150)} — head: "${snippet.slice(0, 120)}" — tail: "${tail.slice(0, 120)}"`,
+          : 'AI scoring produced invalid output — please retry.',
         stop_reason: stopReason,
-        raw: rawText.slice(0, 4000),
       }, { status: 500 })
     }
 
@@ -1815,7 +1816,7 @@ JSON DISCIPLINE (avoid parse errors):
 
     // Find names that weren't already searched (case-insensitive comparison)
     const alreadySearched = new Set([nameForLookup.toLowerCase()])
-    const newNames = extractedNames.filter(n => !alreadySearched.has(n.toLowerCase()) && isValidFullName(n))
+    const newNames = extractedNames.filter(n => !alreadySearched.has(n.toLowerCase()) && isValidFullName(n)).slice(0, 3)
 
     if (newNames.length > 0) {
       // Insert a name separator for the primary name so the UI clearly

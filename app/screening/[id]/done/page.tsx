@@ -108,6 +108,7 @@ export default function ScanDonePage() {
       .from('screenings')
       .select('*')
       .eq('id', id)
+      .eq('landlord_id', user.id)
       .single()
       .then(({ data, error }) => {
         if (error || !data) setLoadError(true)
