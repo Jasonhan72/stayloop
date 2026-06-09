@@ -1,1 +1,286 @@
 ===== commit + push (Mon  8 Jun 2026 23:43:48 EDT) =====
+[v5 bd7332b] feat(v5.3): working screening module — real API routes + forensics + Supabase, V5.3 UI
+ 1 file changed, 1 insertion(+), 285 deletions(-)
+To https://github.com/Jasonhan72/stayloop.git
+   594d783..bd7332b  HEAD -> v5.3-launch
+===== clean stale build cache =====
+===== build (next-on-pages) =====
+⚡️ @cloudflare/next-on-pages CLI v.1.13.16
+⚡️ Detected Package Manager: npm (11.12.1)
+⚡️ Preparing project...
+⚡️ Project is ready
+⚡️ Building project...
+▲  (node:38085) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+▲  (Use `node --trace-warnings ...` to show where the warning was created)
+▲  Vercel CLI 47.0.4
+▲  WARN! Build not running on Vercel. System environment variables will not be available.
+▲  Installing dependencies...
+▲  npm warn Unknown cli config "--unsafe-perm". This will stop working in the next major version of npm.
+▲  up to date in 528ms
+▲  
+▲  173 packages are looking for funding
+▲  run `npm fund` for details
+▲  Detected Next.js version: 15.5.2
+▲  Running "npm run build"
+▲  > stayloop@0.1.0 build
+▲  > next build
+▲  Attention: Next.js now collects completely anonymous telemetry regarding usage.
+▲  This information is used to shape Next.js' roadmap and prioritize features.
+▲  You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+▲  https://nextjs.org/telemetry
+▲  ▲ Next.js 15.5.2
+▲  - Environments: .env.local
+▲  Creating an optimized production build ...
+▲  ✓ Compiled successfully in 13.5s
+▲  Skipping linting
+▲  Checking validity of types ...
+▲  Collecting page data ...
+▲  ⚠ Using edge runtime on a page currently disables static generation for that page
+▲  Generating static pages (0/42) ...
+▲  Generating static pages (10/42)
+▲  Generating static pages (20/42)
+▲  Generating static pages (31/42)
+▲  ✓ Generating static pages (42/42)
+▲  Finalizing page optimization ...
+▲  Collecting build traces ...
+▲  
+▲  Route (app)                                 Size  First Load JS
+▲  ┌ ○ /                                     7.4 kB         179 kB
+▲  ├ ○ /_not-found                             1 kB         103 kB
+▲  ├ ○ /about                               2.21 kB         173 kB
+▲  ├ ○ /agent                               1.19 kB         175 kB
+▲  ├ ○ /agent/agent                         1.05 kB         183 kB
+▲  ├ ○ /agent/calendar                      3.42 kB         175 kB
+▲  ├ ○ /agent/clients                       3.81 kB         175 kB
+▲  ├ ○ /agent/earnings                      4.05 kB         175 kB
+▲  ├ ○ /agent/onboarding                    3.01 kB         174 kB
+▲  ├ ○ /agent/tasks                         3.91 kB         175 kB
+▲  ├ ƒ /api/ai-score                          158 B         102 kB
+▲  ├ ƒ /api/classify-files                    158 B         102 kB
+▲  ├ ƒ /api/deep-check                        158 B         102 kB
+▲  ├ ƒ /api/file-url                          158 B         102 kB
+▲  ├ ƒ /api/ltb-search                        158 B         102 kB
+▲  ├ ƒ /api/notify-landlord                   158 B         102 kB
+▲  ├ ƒ /api/screen-score                      158 B         102 kB
+▲  ├ ƒ /api/stripe/checkout                   158 B         102 kB
+▲  ├ ƒ /api/stripe/portal                     158 B         102 kB
+▲  ├ ƒ /api/stripe/webhook                    158 B         102 kB
+▲  ├ ƒ /api/trust/verify                      158 B         102 kB
+▲  ├ ƒ /apply/[slug]                        5.03 kB         176 kB
+▲  ├ ○ /auth/callback                       1.35 kB         163 kB
+▲  ├ ○ /contact                             1.97 kB         173 kB
+▲  ├ ○ /dashboard                           5.54 kB         177 kB
+▲  ├ ƒ /dashboard/applications/[id]         3.71 kB         175 kB
+▲  ├ ○ /dashboard/listings/new               3.5 kB         175 kB
+▲  ├ ○ /disputes                            3.11 kB         174 kB
+▲  ├ ○ /landlord                            1.29 kB         175 kB
+▲  ├ ○ /landlord/agent                      1.05 kB         183 kB
+▲  ├ ○ /landlord/applicants                 3.18 kB         174 kB
+▲  ├ ƒ /landlord/applicants/[id]            3.56 kB         175 kB
+▲  ├ ○ /landlord/finance                    4.12 kB         175 kB
+▲  ├ ○ /landlord/leases                     3.91 kB         175 kB
+▲  ├ ○ /landlord/maintenance                3.86 kB         175 kB
+▲  ├ ○ /listings                            4.64 kB         176 kB
+▲  ├ ƒ /listings/[slug]                     6.11 kB         177 kB
+▲  ├ ○ /login                                2.2 kB         173 kB
+▲  ├ ○ /onboarding/meet                     2.25 kB         108 kB
+▲  ├ ○ /onboarding/name                     2.44 kB         108 kB
+▲  ├ ○ /onboarding/tier1                     2.9 kB         174 kB
+▲  ├ ○ /onboarding/welcome                  2.11 kB         107 kB
+▲  ├ ○ /partners                            1.93 kB         173 kB
+▲  ├ ○ /pricing                             4.62 kB         176 kB
+▲  ├ ○ /privacy                             1.96 kB         173 kB
+▲  ├ ƒ /screening                           10.6 kB         182 kB
+▲  ├ ƒ /screening/[id]/done                 3.92 kB         175 kB
+▲  ├ ƒ /screening/[id]/graph                3.65 kB         175 kB
+▲  ├ ƒ /screening/[id]/ltb                  3.55 kB         175 kB
+▲  ├ ƒ /screening/[id]/report               5.04 kB         176 kB
+▲  ├ ƒ /screening/[id]/share                4.63 kB         176 kB
+▲  ├ ƒ /screening/new                         583 B         103 kB
+▲  ├ ○ /settings                            2.68 kB         174 kB
+▲  ├ ○ /tenant                               1.3 kB         175 kB
+▲  ├ ○ /tenant/agent                        1.15 kB         183 kB
+▲  ├ ○ /tenant/applications                 2.77 kB         174 kB
+▲  ├ ○ /tenant/lease                         3.3 kB         175 kB
+▲  ├ ○ /tenant/maintenance                  3.17 kB         174 kB
+▲  ├ ○ /tenant/passport                     3.64 kB         175 kB
+▲  ├ ○ /tenant/payments                     2.86 kB         174 kB
+▲  ├ ○ /terms                               1.93 kB         173 kB
+▲  └ ○ /trust-api                           2.59 kB         174 kB
+▲  + First Load JS shared by all             102 kB
+▲  ├ chunks/1255-83cb42014f6de1e2.js      45.8 kB
+▲  ├ chunks/4bd1b696-f785427dddbba9fb.js  54.2 kB
+▲  └ other shared chunks (total)          1.95 kB
+▲  
+▲  
+▲  ƒ Middleware                             34.2 kB
+▲  ○  (Static)   prerendered as static content
+▲  ƒ  (Dynamic)  server-rendered on demand
+▲  Traced Next.js server files in: 105.629ms
+▲  Created all serverless functions in: 67.074ms
+▲  Collected static files (public/, static/, .next/static): 3.988ms
+▲  Build Completed in .vercel/output [30s]
+⚡️ Completed `npx vercel build`.
+
+⚡️ Build Summary (@cloudflare/next-on-pages v1.13.16)
+⚡️ 
+⚡️ Middleware Functions (1)
+⚡️   - middleware
+⚡️ 
+⚡️ Edge Function Routes (22)
+⚡️   ┌ /api/ai-score
+⚡️   ├ /api/classify-files
+⚡️   ├ /api/deep-check
+⚡️   ├ /api/file-url
+⚡️   ├ /api/ltb-search
+⚡️   ├ /api/notify-landlord
+⚡️   ├ /api/screen-score
+⚡️   ├ /api/stripe/checkout
+⚡️   ├ /api/stripe/portal
+⚡️   ├ /api/stripe/webhook
+⚡️   ├ /api/trust/verify
+⚡️   ├ /apply/[slug]
+⚡️   ├ /dashboard/applications/[id]
+⚡️   ├ /landlord/applicants/[id]
+⚡️   ├ /listings/[slug]
+⚡️   ├ /screening
+⚡️   ├ /screening/[id]/done
+⚡️   ├ /screening/[id]/graph
+⚡️   ├ /screening/[id]/ltb
+⚡️   ├ /screening/[id]/report
+⚡️   ├ /screening/[id]/share
+⚡️   └ /screening/new
+⚡️ 
+⚡️ Prerendered Routes (80)
+⚡️   ┌ /
+⚡️   ├ /_not-found
+⚡️   ├ /_not-found.rsc
+⚡️   ├ /about
+⚡️   ├ /about.rsc
+⚡️   ├ /agent
+⚡️   ├ /agent.rsc
+⚡️   ├ /agent/agent
+⚡️   ├ /agent/agent.rsc
+⚡️   ├ /agent/calendar
+⚡️   ├ /agent/calendar.rsc
+⚡️   ├ /agent/clients
+⚡️   ├ /agent/clients.rsc
+⚡️   ├ /agent/earnings
+⚡️   ├ /agent/earnings.rsc
+⚡️   ├ /agent/onboarding
+⚡️   ├ /agent/onboarding.rsc
+⚡️   ├ /agent/tasks
+⚡️   ├ /agent/tasks.rsc
+⚡️   └ ... 61 more
+⚡️ 
+⚡️ Other Static Assets (89)
+⚡️   ┌ /_app.rsc.json
+⚡️   ├ /_document.rsc.json
+⚡️   ├ /_error.rsc.json
+⚡️   ├ /404.html
+⚡️   └ ... 85 more
+
+⚡️ Build log saved to '.vercel/output/static/_worker.js/nop-build-log.json'
+⚡️ Generated '.vercel/output/static/_worker.js/index.js'.
+⚡️ Build completed in 4.11s
+build rc=0
+===== deploy to production (global wrangler) =====
+
+ ⛅️ wrangler 4.64.0 (update available 4.98.0)
+─────────────────────────────────────────────
+Uploading... (88/170)
+Uploading... (116/170)
+Uploading... (143/170)
+Uploading... (170/170)
+✨ Success! Uploaded 82 files (88 already uploaded) (1.82 sec)
+
+✨ Uploading _headers
+Attaching additional modules:
+┌──────────────────────────────────────────────────────────────────────┬──────┬─────────────┐
+│ Name                                                                 │ Type │ Size        │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/cache/adaptor.js                              │ esm  │ 2.29 KiB    │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/cache/cache-api.js                            │ esm  │ 0.43 KiB    │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/cache/kv.js                                   │ esm  │ 0.35 KiB    │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/api/ai-score.func.js                │ esm  │ 51.09 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/api/classify-files.func.js          │ esm  │ 64.24 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/api/deep-check.func.js              │ esm  │ 54.94 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/api/file-url.func.js                │ esm  │ 45.52 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/api/ltb-search.func.js              │ esm  │ 46.32 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/api/notify-landlord.func.js         │ esm  │ 50.45 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/api/screen-score.func.js            │ esm  │ 91.42 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/api/stripe/checkout.func.js         │ esm  │ 47.39 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/api/stripe/portal.func.js           │ esm  │ 46.78 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/api/stripe/webhook.func.js          │ esm  │ 47.83 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/api/trust/verify.func.js            │ esm  │ 46.06 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/apply/[slug].func.js                │ esm  │ 76.67 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/dashboard/applications/[id].func.js │ esm  │ 71.31 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/landlord/applicants/[id].func.js    │ esm  │ 74.25 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/listings/[slug].func.js             │ esm  │ 81.68 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/middleware.func.js                  │ esm  │ 111.75 KiB  │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/screening/[id]/done.func.js         │ esm  │ 75.83 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/screening/[id]/graph.func.js        │ esm  │ 74.23 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/screening/[id]/ltb.func.js          │ esm  │ 73.85 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/screening/[id]/report.func.js       │ esm  │ 79.54 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/screening/[id]/share.func.js        │ esm  │ 82.01 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/screening/new.func.js               │ esm  │ 63.59 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/functions/screening.func.js                   │ esm  │ 95.47 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/manifest/88a389dd6c068190adb2efc795e4063c.js  │ esm  │ 0.37 KiB    │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/webpack/2bf5338fa32c32028171f6490bc7d09b.js   │ esm  │ 16.71 KiB   │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/webpack/3bf8cf2010fcc2ac73c9d98af6e8e313.js   │ esm  │ 121.51 KiB  │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/webpack/5072f77b2b61fd26e9bd82f221246ca2.js   │ esm  │ 284.24 KiB  │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/webpack/821363d09d61045ae91a7c5be09291f7.js   │ esm  │ 1.64 KiB    │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/webpack/8782.js                               │ esm  │ 1.21 KiB    │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/webpack/8837.js                               │ esm  │ 2.16 KiB    │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/webpack/9194.js                               │ esm  │ 0.46 KiB    │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/webpack/96545b9f8b6b981fe6cd453e35bf24dd.js   │ esm  │ 163.78 KiB  │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/webpack/b1841f48629c5bedf710f56b10e87d79.js   │ esm  │ 204.34 KiB  │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/webpack/dc8a687eb61e885267e3b7675801fec0.js   │ esm  │ 2070.96 KiB │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ __next-on-pages-dist__/webpack/f63ee92ba2fd141b8b24be5cbd9b145e.js   │ esm  │ 532.88 KiB  │
+├──────────────────────────────────────────────────────────────────────┼──────┼─────────────┤
+│ Total (38 modules)                                                   │      │ 4955.55 KiB │
+└──────────────────────────────────────────────────────────────────────┴──────┴─────────────┘
+✨ Compiled Worker successfully
+✨ Uploading Worker bundle
+✨ Uploading _routes.json
+🌎 Deploying...
+✨ Deployment complete! Take a peek over at https://90f31bb4.stayloop.pages.dev
+================ SHIP2 DONE (rc=0) Mon  8 Jun 2026 23:44:43 EDT ================
+(You can close this window.)

@@ -1155,9 +1155,10 @@ JSON DISCIPLINE (avoid parse errors):
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY!,
         'anthropic-version': '2024-10-22',
+        'anthropic-beta': 'pdfs-2024-09-25',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-sonnet-4-5-20241022',
         // Temperature 0 = deterministic scoring. Same documents should
         // produce the same scores every time.
         temperature: 0,
