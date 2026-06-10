@@ -2101,7 +2101,7 @@ export default function ScreenPage() {
       const { data: row, error: insertErr } = await supabase
         .from('screenings')
         .insert({
-          landlord_id: landlord.profileId,
+          landlord_id: landlord.authId,
           tenant_name: applicantName || null,
           monthly_rent: targetRent ? Number(targetRent) : null,
           status: 'uploading',
