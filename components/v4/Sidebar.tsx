@@ -1,0 +1,274 @@
+'use client'
+// -----------------------------------------------------------------------------
+// V4 Sidebar — 220px role-based primary nav
+// -----------------------------------------------------------------------------
+// Spec: .v4-source/primitives.jsx Sidebar()
+//
+// Logo + "Stayloop" + role-portal eyebrow → Workspace eyebrow → role-scoped
+// nav items (icon + label + optional count tag) → flex spacer → AICopilotCard.
+//
+// Active link is detected via usePathname against each item's href. The
+// landing route can be a prefix (e.g. /listings/* all activates the listings
+// link) — we mark items as active when pathname startsWith() href, but with
+// "/" treated as exact-only.
+// -----------------------------------------------------------------------------
+
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { v3 } from '@/lib/brand'
+import { useT } from '@/lib/i18n'
+import type { UserRole, UserSession } from '@/lib/useUser'
+import AICopilotCard from './AICopilotCard'
+
+interface NavItem {
+  id: string
+  label_en: string
+  label_zh: string
+  href: string
+  icon: string
+  count?: number
+  tone?: 'default' | 'gold' | 'ai'
+}
+
+// -----------------------------------------------------------------------------
+// Sidebar = workflow (6 items per role). Account-operational items
+// (Billing, Notifications, Activity log, Settings) live in the Avatar
+// dropdown so the two menus don't overlap.
+//
+// Naming: each concept has ONE canonical name across UI:
+//   Properties (not "Listings" + "Portfolio")
+//   Pipeline   (not "Pipeline" + "Applications")
+//   Screen     (not "Screening" + "Manual screening")
+// -----------------------------------------------------------------------------
+const NAV: Record<UserRole, NavItem[]> = {
+  tenant: [
+    { id: 'dashboard',    label_en: 'Dashboard',    label_zh: '仪表盘',      href: '/tenant/dashboard',     icon: '◇' },
+    { id: 'passport',     label_en: 'Passport',     label_zh: 'Passport',    href: '/passport',             icon: '◈', tone: 'ai' },
+    { id: 'listings',     label_en: 'Browse',       label_zh: '找房',        href: '/tenant/listings',      icon: '⌂' },
+    { id: 'applications', label_en: 'My applications', label_zh: '我的申请', href: '/tenant/applications',  icon: '▤', tone: 'gold' },
+    { id: 'leases',       label_en: 'My leases',    label_zh: '我的租约',    href: '/tenant/leases',        icon: '⎙' },
+    { id: 'stayloop-ai',  label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                 icon: '✦', tone: 'ai' },
+  ],
+  landlord: [
+    // All landlord routes now under /landlord/* prefix (Sprint A.1, 2026-05-08).
+    // Old /dashboard/* and /screen URLs still work as aliases serving the
+    // same components — see app/landlord/{dashboard,properties,pipeline,screen}/page.tsx
+    //
+    // Chinese label rationale (2026-05-08):
+    //   "Pipeline" (English) → 申请进度: industry chinese users don't know
+    //     "Pipeline"; "申请进度" plainly says "applications-in-progress".
+    //   "筛查" (screening) → 背调 (background check): "筛查" reads as
+    //     medical-screening in Mandarin; "背调" is the rental industry term.
+    { id: 'dashboard',    label_en: 'Dashboard',    label_zh: '仪表盘',      href: '/landlord/dashboard',   icon: '◇' },
+    { id: 'properties',   label_en: 'Properties',   label_zh: '房源',        href: '/landlord/properties',  icon: '⌂' },
+    { id: 'pipeline',     label_en: 'Pipeline',     label_zh: '申请进度',    href: '/landlord/pipeline',    icon: '▤', tone: 'gold' },
+    { id: 'screen',       label_en: 'Screen',       label_zh: '背调',        href: '/landlord/screen',      icon: '◉', tone: 'ai' },
+    { id: 'leases',       label_en: 'Leases',       label_zh: '租约',        href: '/landlord/leases',      icon: '⎙' },
+    { id: 'stayloop-ai',  label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                 icon: '✦', tone: 'ai' },
+  ],
+  agent: [
+    { id: 'dashboard',   label_en: 'Dashboard',    label_zh: '仪表盘',      href: '/agent/dashboard',          icon: '◇' },
+    { id: 'clients',     label_en: 'Clients',      label_zh: '客户',        href: '/agent/clients',            icon: '◈' },
+    // 报告包 → 背调报告: "包" sounded like a delivery package; "背调报告"
+    // is the industry term for tenant background reports
+    { id: 'packages',    label_en: 'Reports',      label_zh: '背调报告',    href: '/agent/screening-packages', icon: '◉', tone: 'gold' },
+    { id: 'mls',         label_en: 'MLS',          label_zh: 'MLS',         href: '/agent/mls',                icon: '⌂' },
+    { id: 'leases',      label_en: 'Leases',       label_zh: '租约',        href: '/agent/leases',             icon: '⎙' },
+    { id: 'stayloop-ai', label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                     icon: '✦', tone: 'ai' },
+  ],
+}
+
+const ROLE_LABEL: Record<UserRole, { en: string; zh: string; color: string }> = {
+  // 门户 → 工作台 across all three roles. "工作台" matches the Workspace
+  // section header in the sidebar and is the canonical SaaS Chinese term.
+  tenant:   { en: 'Tenant Portal',   zh: '租客工作台',   color: v3.trust },
+  landlord: { en: 'Landlord Portal', zh: '房东工作台',   color: v3.brand },
+  agent:    { en: 'Agent Portal',    zh: '经纪工作台',   color: v3.brandBright },
+}
+
+interface Props {
+  user: UserSession | null
+  role?: UserRole
+}
+
+export default function Sidebar({ user, role }: Props) {
+  const pathname = usePathname()
+  const { lang } = useT()
+  const isZh = lang === 'zh'
+
+  const effectiveRole: UserRole = role || user?.role || 'tenant'
+  const nav = NAV[effectiveRole] || NAV.tenant
+  const portalLabel = ROLE_LABEL[effectiveRole]
+
+  function isActive(href: string): boolean {
+    if (!pathname) return false
+    if (href === '/') return pathname === '/'
+    return pathname === href || pathname.startsWith(href + '/')
+  }
+
+  return (
+    <aside
+      style={{
+        width: 220,
+        background: '#FFFFFF',
+        borderRight: `1px solid ${v3.border}`,
+        padding: '18px 14px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 3,
+        flexShrink: 0,
+        height: '100vh',
+        position: 'sticky',
+        top: 0,
+        zIndex: 40,
+      }}
+    >
+      {/* Brand block */}
+      <Link
+        href="/"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '0 8px 14px',
+          textDecoration: 'none',
+          color: v3.textPrimary,
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'baseline',
+              fontFamily: 'Inter Tight, system-ui, sans-serif',
+              fontSize: 19,
+              fontWeight: 700,
+              letterSpacing: '-0.025em',
+              lineHeight: 1,
+            }}
+          >
+            <span style={{ color: v3.textPrimary }}>stay</span>
+            <span
+              style={{
+                background:
+                  'linear-gradient(90deg, #4F46E5 0%, #7C3AED 50%, #A855F7 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                color: 'transparent',
+              }}
+            >
+              loop
+            </span>
+          </div>
+          <div
+            style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 9,
+              color: portalLabel.color,
+              letterSpacing: '0.10em',
+              textTransform: 'uppercase',
+              marginTop: 3,
+              fontWeight: 700,
+            }}
+          >
+            {isZh ? portalLabel.zh : portalLabel.en}
+          </div>
+        </div>
+      </Link>
+
+      <div
+        style={{
+          fontSize: 10.5,
+          letterSpacing: '0.10em',
+          textTransform: 'uppercase',
+          color: v3.textMuted,
+          fontWeight: 700,
+          padding: '6px 8px',
+        }}
+      >
+        {isZh ? '工作台' : 'Workspace'}
+      </div>
+
+      {nav.map((l) => {
+        const active = isActive(l.href)
+        const tone = l.tone || 'default'
+        const tagFg =
+          tone === 'gold'
+            ? v3.brand
+            : tone === 'ai'
+              ? v3.trust
+              : v3.textSecondary
+        const tagBg =
+          tone === 'gold'
+            ? '#DCFCE7'
+            : tone === 'ai'
+              ? '#F3E8FF'
+              : v3.surfaceMuted
+        const tagBd =
+          tone === 'gold'
+            ? 'rgba(16,185,129,0.32)'
+            : tone === 'ai'
+              ? '#D7C5FA'
+              : v3.border
+        return (
+          <Link
+            key={l.id}
+            href={l.href}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '8px 10px',
+              borderRadius: 6,
+              background: active ? v3.surfaceMuted : 'transparent',
+              color: active ? v3.textPrimary : v3.textSecondary,
+              fontSize: 13,
+              fontWeight: active ? 600 : 500,
+              cursor: 'pointer',
+              borderLeft: active ? `2px solid ${v3.brand}` : '2px solid transparent',
+              textDecoration: 'none',
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 16,
+                color: active ? v3.brand : v3.textFaint,
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 13,
+                flexShrink: 0,
+              }}
+            >
+              {l.icon}
+            </span>
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {isZh ? l.label_zh : l.label_en}
+            </span>
+            {l.count != null && l.count > 0 && (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '2px 8px',
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  borderRadius: 999,
+                  border: `1px solid ${tagBd}`,
+                  color: tagFg,
+                  background: tagBg,
+                  letterSpacing: '-0.005em',
+                }}
+              >
+                {l.count}
+              </span>
+            )}
+          </Link>
+        )
+      })}
+
+      <div style={{ flex: 1 }} />
+      <AICopilotCard user={user} />
+    </aside>
+  )
+}

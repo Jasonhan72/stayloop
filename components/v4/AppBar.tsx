@@ -1,0 +1,290 @@
+'use client'
+// -----------------------------------------------------------------------------
+// V4 AppBar — top of every authenticated page (56px)
+// -----------------------------------------------------------------------------
+// Spec: .v4-source/primitives.jsx AppBar()
+//
+// Layout: small logo + Stayloop wordmark + role badge + breadcrumb separator +
+// current path → flex spacer → ⌘K command bar (visual-only for now) →
+// notifications bell with badge → email + small avatar.
+//
+// The bell links to /notifications. The avatar is reused from the existing
+// UserAvatar component which carries the dropdown (Profile, Billing,
+// Notifications, Activity log, Sign out etc).
+// -----------------------------------------------------------------------------
+
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { v3 } from '@/lib/brand'
+import { useT, LanguageToggle } from '@/lib/i18n'
+import { supabase } from '@/lib/supabase'
+import type { UserRole, UserSession } from '@/lib/useUser'
+import UserAvatar from '@/components/marketing/UserAvatar'
+
+interface Props {
+  user: UserSession | null
+  loading: boolean
+  signOut: () => Promise<void>
+  /** Optional override; otherwise read from user.role. */
+  role?: UserRole
+  /** Optional explicit breadcrumb; otherwise derived from pathname. */
+  path?: string
+  /** Mobile-only: PageShell wires this so the hamburger button can open the
+   *  side drawer. On desktop the button is hidden via media query. */
+  onOpenMenu?: () => void
+}
+
+const ROLE_BADGE: Record<UserRole, { en: string; zh: string; color: string }> = {
+  tenant:   { en: 'TENANT',   zh: '租客', color: v3.trust },
+  landlord: { en: 'LANDLORD', zh: '房东', color: v3.brand },
+  agent:    { en: 'AGENT',    zh: '经纪', color: v3.brandBright },
+}
+
+export default function AppBar({ user, loading, signOut, role, path, onOpenMenu }: Props) {
+  const pathname = usePathname()
+  const { lang } = useT()
+  const isZh = lang === 'zh'
+
+  const effectiveRole: UserRole | null = role || user?.role || null
+  const badge = effectiveRole ? ROLE_BADGE[effectiveRole] : null
+  const breadcrumb = path || pathname || '/'
+
+  // Notifications count — synthesize from leases/applications same way the
+  // /notifications page does. Simple count query: leases in tenant_review or
+  // landlord_review where the user is one side, plus (for landlords) new
+  // applications. Cheap enough to do on every page load.
+  const [notifCount, setNotifCount] = useState<number>(0)
+
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        let count = 0
+        const { count: leasesCount } = await supabase
+          .from('lease_agreements')
+          .select('id', { count: 'exact', head: true })
+          .in('status', ['tenant_review', 'landlord_review'])
+          .or(`tenant_id.eq.${user.profileId},landlord_id.eq.${user.profileId}`)
+        count += leasesCount || 0
+
+        if (user.role === 'landlord') {
+          const { count: appsCount } = await supabase
+            .from('applications')
+            .select('id', { count: 'exact', head: true })
+            .eq('landlord_id', user.profileId)
+            .eq('status', 'new')
+          count += appsCount || 0
+        }
+
+        if (!cancelled) setNotifCount(count)
+      } catch {
+        // swallow — bell is decorative if backend is unreachable
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.profileId, user?.role])
+
+  return (
+    <header
+      style={{
+        height: 56,
+        padding: '0 22px',
+        borderBottom: `1px solid ${v3.border}`,
+        background: '#FFFFFF',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        position: 'sticky',
+        top: 0,
+        zIndex: 30,
+      }}
+    >
+      {/* Hamburger — mobile only. PageShell hides the in-flow Sidebar on
+          narrow viewports and renders it as a drawer; this button opens it. */}
+      {onOpenMenu && (
+        <button
+          type="button"
+          aria-label={isZh ? '打开菜单' : 'Open menu'}
+          onClick={onOpenMenu}
+          className="ab-hamburger"
+          style={{
+            display: 'none',
+            border: 0,
+            background: 'transparent',
+            padding: 12,           // 44×44 tap target (WCAG 2.5.5)
+            marginLeft: -12,
+            cursor: 'pointer',
+            color: v3.textPrimary,
+            borderRadius: 8,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
+            <path
+              d="M3 6h16M3 11h16M3 16h16"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      )}
+
+      {/* Logo + wordmark intentionally omitted — already shown in the Sidebar
+          immediately to the left. Repeating it in the AppBar duplicates the
+          brand twice in the same eye-line. The breadcrumb below fills the
+          left side instead. */}
+      {badge && (
+        <>
+          <span
+            style={{
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 11,
+              color: badge.color,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              fontWeight: 700,
+            }}
+          >
+            {isZh ? badge.zh : badge.en}
+          </span>
+        </>
+      )}
+
+      <span aria-hidden className="ab-breadcrumb-sep" style={{ color: v3.textFaint }}>›</span>
+      <span
+        className="ab-breadcrumb"
+        style={{
+          fontSize: 13,
+          color: v3.textPrimary,
+          fontWeight: 500,
+          fontFamily: 'JetBrains Mono, monospace',
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          maxWidth: 280,
+        }}
+      >
+        {breadcrumb}
+      </span>
+
+      <div style={{ flex: 1 }} />
+
+      {/* ⌘K command bar — visual-only for now; clicking opens /chat.
+          Hidden on mobile (≤860px) to give the bell + avatar room. */}
+      <Link
+        href="/chat"
+        className="ab-cmdk"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 12px',
+          background: v3.surfaceMuted,
+          border: `1px solid ${v3.border}`,
+          borderRadius: 6,
+          minWidth: 220,
+          color: v3.textMuted,
+          fontSize: 12,
+          textDecoration: 'none',
+        }}
+      >
+        <span style={{ fontFamily: 'JetBrains Mono, monospace', color: v3.textFaint }}>⌘K</span>
+        <span>{isZh ? '搜索房源、申请、租约…' : 'Search listings, applicants, leases…'}</span>
+      </Link>
+
+      {/* Notifications bell */}
+      <Link
+        href="/notifications"
+        aria-label={isZh ? '通知' : 'Notifications'}
+        style={{
+          position: 'relative',
+          padding: 6,
+          color: v3.textSecondary,
+          textDecoration: 'none',
+          display: 'inline-flex',
+          alignItems: 'center',
+        }}
+      >
+        <span style={{ fontSize: 18 }}>◉</span>
+        {notifCount > 0 && (
+          <span
+            style={{
+              position: 'absolute',
+              top: 2,
+              right: 2,
+              minWidth: 14,
+              height: 14,
+              padding: '0 3px',
+              borderRadius: 7,
+              background: v3.danger,
+              color: '#fff',
+              fontSize: 9,
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {notifCount}
+          </span>
+        )}
+      </Link>
+
+      <LanguageToggle />
+
+      {loading ? (
+        <span
+          aria-hidden
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            background: v3.divider,
+            display: 'inline-block',
+            opacity: 0.5,
+          }}
+        />
+      ) : user && !user.isAnonymous ? (
+        <UserAvatar user={user} signOut={signOut} />
+      ) : (
+        <Link
+          href="/login"
+          style={{
+            background: v3.brand,
+            color: '#fff',
+            fontSize: 13,
+            fontWeight: 600,
+            padding: '8px 14px',
+            borderRadius: 8,
+            textDecoration: 'none',
+          }}
+        >
+          {isZh ? '登录' : 'Sign in'}
+        </Link>
+      )}
+
+      <style jsx global>{`
+        @media (max-width: 860px) {
+          /* Show hamburger so the user can pop the sidebar drawer. */
+          .ab-hamburger { display: inline-flex !important; }
+          /* Hide the ⌘K command bar — there's no room and search isn't a
+             primary mobile gesture. The bell + avatar still fit. */
+          .ab-cmdk { display: none !important; }
+        }
+        /* Phone (≤640px): also abbreviate breadcrumb so it doesn't push the
+           bell + avatar off-screen. The role badge stays as a context anchor. */
+        @media (max-width: 640px) {
+          .ab-breadcrumb,
+          .ab-breadcrumb-sep { display: none !important; }
+        }
+      `}</style>
+    </header>
+  )
+}

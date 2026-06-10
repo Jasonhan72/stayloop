@@ -743,7 +743,6 @@ async function judgeCreditReportAuthenticity(
         max_tokens: 400,
         messages: [
           { role: 'user', content },
-          { role: 'assistant', content: '{' },
         ],
       }),
       signal: AbortSignal.timeout(30_000),

@@ -808,7 +808,7 @@ export async function POST(req: NextRequest) {
 
     const { data: screening, error } = await supabase
       .from('screenings')
-      .select('*')
+      .select('*, landlord:landlords(plan)')
       .eq('id', screening_id)
       .single()
 
@@ -816,13 +816,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error?.message || 'Not found' }, { status: 404 })
     }
 
-    // Look up landlord plan separately (screenings.landlord_id is now auth.users.id)
-    const { data: landlordRow } = await supabase
-      .from('landlords')
-      .select('plan')
-      .eq('auth_id', screening.landlord_id)
-      .single()
-    const plan: string = landlordRow?.plan || 'free'
+    const plan: string = screening.landlord?.plan || 'free'
 
     // ---- Quota enforcement for free plan ----
     if (plan === 'free') {
@@ -1177,9 +1171,8 @@ JSON DISCIPLINE (avoid parse errors):
 
     if (!response.ok) {
       const errText = await response.text()
-      console.error(`[screen-score] Anthropic HTTP ${response.status}:`, errText.slice(0, 500))
-      await supabase.from('screenings').update({ status: 'error', error: `AI scoring failed (HTTP ${response.status}): ${errText.slice(0, 200)}` }).eq('id', screening_id)
-      return NextResponse.json({ error: `AI scoring failed (HTTP ${response.status}): ${errText.slice(0, 300)}` }, { status: 500 })
+      await supabase.from('screenings').update({ status: 'error', error: errText.slice(0, 500) }).eq('id', screening_id)
+      return NextResponse.json({ error: `Anthropic API error: ${errText}` }, { status: 500 })
     }
 
     const aiData = await response.json() as { content?: Array<{ text: string }>; stop_reason?: string }
@@ -1300,12 +1293,12 @@ JSON DISCIPLINE (avoid parse errors):
         status: 'error',
         error: (truncated ? 'AI output truncated: ' : 'AI parse error: ') + (e?.message || 'unknown').slice(0, 200),
       }).eq('id', screening_id)
-      console.error(`[screen-score] AI parse error — head: "${snippet.slice(0, 200)}" — tail: "${tail.slice(0, 200)}"`)
       return NextResponse.json({
         error: truncated
           ? 'AI output was truncated — please retry (the model produced too much text).'
-          : 'AI scoring produced invalid output — please retry.',
+          : `AI parse error: ${(e?.message || 'unknown').slice(0, 150)} — head: "${snippet.slice(0, 120)}" — tail: "${tail.slice(0, 120)}"`,
         stop_reason: stopReason,
+        raw: rawText.slice(0, 4000),
       }, { status: 500 })
     }
 
@@ -1821,7 +1814,7 @@ JSON DISCIPLINE (avoid parse errors):
 
     // Find names that weren't already searched (case-insensitive comparison)
     const alreadySearched = new Set([nameForLookup.toLowerCase()])
-    const newNames = extractedNames.filter(n => !alreadySearched.has(n.toLowerCase()) && isValidFullName(n)).slice(0, 3)
+    const newNames = extractedNames.filter(n => !alreadySearched.has(n.toLowerCase()) && isValidFullName(n))
 
     if (newNames.length > 0) {
       // Insert a name separator for the primary name so the UI clearly
@@ -2003,14 +1996,7 @@ JSON DISCIPLINE (avoid parse errors):
       sub_coverage: subCov,
       bank_min_balance: typeof parsed.bank_min_balance === 'number' ? parsed.bank_min_balance : null,
       identity_match_score: identityMatch,
-      scores_v3: s,
-      income_rent_ratio: computedRatio,
-      gate_cap: gateCap,
-      ai_summary_zh: parsed.summary_zh || '',
-      ai_summary_en: parsed.summary_en || '',
-      court_summary_zh: parsed.court_summary_zh || '',
-      court_summary_en: parsed.court_summary_en || '',
-      status: 'done',
+      status: 'scored',
       scored_at: new Date().toISOString(),
     }).eq('id', screening_id)
 
