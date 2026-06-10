@@ -767,12 +767,20 @@ export default function ScreeningPage() {
                 {lang === 'zh' ? '建议操作' : 'Action Items'}
               </div>
               <ul className="space-y-2">
-                {result.action_items.map((item: string, i: number) => (
+                {result.action_items.map((item: any, i: number) => {
+                  const label = typeof item === 'string' ? item
+                    : (lang === 'zh' ? (item.title_zh || item.title_en || JSON.stringify(item))
+                       : (item.title_en || item.title_zh || JSON.stringify(item)))
+                  const detail = typeof item === 'object' && item !== null
+                    ? (lang === 'zh' ? (item.details_zh || item.details_en || '') : (item.details_en || item.details_zh || ''))
+                    : ''
+                  return (
                   <li key={i} className="flex items-start gap-2 text-[13px]" style={{ color: '#333' }}>
                     <span style={{ color: '#D97706', fontWeight: 700 }}>→</span>
-                    <span>{item}</span>
+                    <span>{label}{detail ? ` — ${detail}` : ''}</span>
                   </li>
-                ))}
+                  )
+                })}
               </ul>
             </div>
           )}

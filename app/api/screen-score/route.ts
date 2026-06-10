@@ -2003,7 +2003,14 @@ JSON DISCIPLINE (avoid parse errors):
       sub_coverage: subCov,
       bank_min_balance: typeof parsed.bank_min_balance === 'number' ? parsed.bank_min_balance : null,
       identity_match_score: identityMatch,
-      status: 'scored',
+      scores_v3: s,
+      income_rent_ratio: computedRatio,
+      gate_cap: gateCap,
+      ai_summary_zh: parsed.summary_zh || '',
+      ai_summary_en: parsed.summary_en || '',
+      court_summary_zh: parsed.court_summary_zh || '',
+      court_summary_en: parsed.court_summary_en || '',
+      status: 'done',
       scored_at: new Date().toISOString(),
     }).eq('id', screening_id)
 
