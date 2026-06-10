@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser, useAnonTrialCheck } from '@/lib/useUser'
 import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
-import PageShell from '@/components/v4/PageShell'
+import Header from '@/components/Header'
 import AuthModal from '@/components/AuthModal'
 import { generateScreeningReport } from '@/lib/generateReport'
 
@@ -2207,20 +2207,17 @@ export default function ScreenPage() {
   }
 
   if (authLoading || !landlord) {
-    // Wrap the auth-pending state in PageShell so the AppBar + Sidebar
-    // render normally instead of leaving the page chrome-less. Previously
-    // the bare spinner replaced the entire shell, which is why visitors
-    // landing on /screen saw no header during auth handoff.
     return (
-      <PageShell role="landlord">
-        <div className="screen-app" style={{ minHeight: 'calc(100vh - 56px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontFamily: "'Inter', sans-serif" }}>
+      <div style={{ background: '#FAF7EE', minHeight: '100vh' }}>
+        <Header />
+        <div className="screen-app" style={{ minHeight: 'calc(100vh - 66px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontFamily: "'Inter', sans-serif" }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: '50%', border: '3px solid #E4E8F0', borderTopColor: '#10B981', animation: 'spin 1s linear infinite' }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
             <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>Authenticating...</div>
           </div>
         </div>
-      </PageShell>
+      </div>
     )
   }
 
@@ -2248,7 +2245,9 @@ export default function ScreenPage() {
   const riskOverall = result ? getRiskLevel(result.overall) : null
 
   return (
-    <PageShell role="landlord">
+    <div style={{ background: '#FAF7EE', minHeight: '100vh' }}>
+      <Header />
+      <section className="mx-auto max-w-[900px] px-5 py-10">
       <div className="screen-app">
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
         <style>{`
@@ -3244,6 +3243,7 @@ export default function ScreenPage() {
         )}
         </div>
       </div>
-    </PageShell>
+      </section>
+    </div>
   )
 }
