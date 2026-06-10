@@ -1897,11 +1897,17 @@ export default function ScreenPage() {
 
     let failCount = 0
 
+    const { data: { session } } = await supabase.auth.getSession()
+
     const batchResults = await Promise.allSettled(
       batches.map(async (batch): Promise<BatchResult> => {
         const form = new FormData()
         for (const f of batch) form.append('files', f, f.name)
-        const res = await fetch('/api/classify-files', { method: 'POST', body: form })
+        const res = await fetch('/api/classify-files', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+          body: form,
+        })
         if (!res.ok) {
           const errBody = await res.text().catch(() => '')
           throw new Error(`HTTP ${res.status}: ${errBody.slice(0, 200)}`)
