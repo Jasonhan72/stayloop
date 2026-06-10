@@ -905,7 +905,7 @@ export type DictKey = keyof typeof DICT
 interface I18nCtx {
   lang: Lang
   setLang: (l: Lang) => void
-  t: (key: string, vars?: Record<string, string | number>) => string
+  t: (key: string, varsOrFallback?: Record<string, string | number> | string) => string
 }
 
 const Ctx = createContext<I18nCtx | null>(null)
@@ -939,9 +939,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') localStorage.setItem('stayloop_lang', l)
   }
 
-  const t = (key: string, vars?: Record<string, string | number>) => {
+  const t = (key: string, varsOrFallback?: Record<string, string | number> | string) => {
     const entry = (DICT as Record<string, { en: string; zh: string }>)[key]
-    if (!entry) return String(key)
+    const vars = typeof varsOrFallback === 'object' ? varsOrFallback : undefined
+    const fallback = typeof varsOrFallback === 'string' ? varsOrFallback : undefined
+    if (!entry) return fallback ?? String(key)
     return format(entry[lang] ?? entry.en, vars)
   }
 
@@ -952,9 +954,11 @@ export function useT() {
   const ctx = useContext(Ctx)
   if (!ctx) {
     // Safe fallback so non-wrapped contexts still render English
-    const t = (key: string, vars?: Record<string, string | number>) => {
+    const t = (key: string, varsOrFallback?: Record<string, string | number> | string) => {
       const entry = (DICT as Record<string, { en: string; zh: string }>)[key]
-      return entry ? format(entry.en, vars) : String(key)
+      const vars = typeof varsOrFallback === 'object' ? varsOrFallback : undefined
+      const fallback = typeof varsOrFallback === 'string' ? varsOrFallback : undefined
+      return entry ? format(entry.en, vars) : (fallback ?? String(key))
     }
     return { lang: 'en' as Lang, setLang: (_: Lang) => {}, t }
   }
