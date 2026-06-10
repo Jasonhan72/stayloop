@@ -379,7 +379,7 @@ Return ONLY this JSON (no markdown, no prose):
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
-      'anthropic-version': '2024-10-22',
+      'anthropic-version': '2023-06-01',
     },
     signal: AbortSignal.timeout(60_000), // 60s — Sonnet on multiple PDFs takes time
     body: JSON.stringify({

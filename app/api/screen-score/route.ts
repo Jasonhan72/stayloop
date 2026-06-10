@@ -1154,7 +1154,7 @@ JSON DISCIPLINE (avoid parse errors):
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2024-10-22',
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
@@ -1179,8 +1179,8 @@ JSON DISCIPLINE (avoid parse errors):
     if (!response.ok) {
       const errText = await response.text()
       console.error(`[screen-score] Anthropic HTTP ${response.status}:`, errText.slice(0, 500))
-      await supabase.from('screenings').update({ status: 'error', error: `AI scoring failed (HTTP ${response.status})` }).eq('id', screening_id)
-      return NextResponse.json({ error: `AI scoring failed (HTTP ${response.status})` }, { status: 500 })
+      await supabase.from('screenings').update({ status: 'error', error: `AI scoring failed (HTTP ${response.status}): ${errText.slice(0, 200)}` }).eq('id', screening_id)
+      return NextResponse.json({ error: `AI scoring failed (HTTP ${response.status}): ${errText.slice(0, 300)}` }, { status: 500 })
     }
 
     const aiData = await response.json() as { content?: Array<{ text: string }>; stop_reason?: string }
