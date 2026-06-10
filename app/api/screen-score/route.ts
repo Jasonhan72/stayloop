@@ -1171,7 +1171,6 @@ JSON DISCIPLINE (avoid parse errors):
         ],
         messages: [
           { role: 'user', content: userContent },
-          { role: 'assistant', content: '{' },  // prefill forces JSON start
         ],
       }),
     })
@@ -1184,7 +1183,7 @@ JSON DISCIPLINE (avoid parse errors):
     }
 
     const aiData = await response.json() as { content?: Array<{ text: string }>; stop_reason?: string }
-    const rawText = '{' + (aiData.content?.[0]?.text || '')
+    const rawText = aiData.content?.[0]?.text || '{}'
     const stopReason = aiData.stop_reason || ''
 
     // Robust JSON extractor — survives four common Claude failure modes:
