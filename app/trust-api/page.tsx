@@ -1,108 +1,67 @@
 'use client'
 
-// V5.3 · Trust API (handbook §08). Verify once, reuse everywhere — the
-// portable trust layer banks / insurers / government can call.
-import Link from 'next/link'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
-
-const TIERS = [
-  { t: 'Tier 1', name: '身份', fields: '姓名 · 政府 ID · 活体', dp: '32 dp' },
-  { t: 'Tier 2', name: '收入', fields: '工资单 · 银行 · T4', dp: '48 dp' },
-  { t: 'Tier 3', name: '银行透明', fields: '现金流 · DTI · 储蓄', dp: '76 dp' },
-  { t: 'Tier 4', name: '信用 + 法庭', fields: '双征信 · LTB 裁定', dp: '122 dp' },
-]
-
-const USERS = [
-  { k: '银行 · 按揭', b: '租客按揭预审 · 收入 / DTI 即时验证,免去重复尽调。' },
-  { k: '保险', b: '租客保险定价 · 按已验证 Tier 自动定档。' },
-  { k: '政府 / 物业', b: '入住资格核验 · 出示「已验证 + 范围」,不暴露原始材料。' },
-  { k: '法务', b: '纠纷与背调 · 链上可审的证据链,每次调用留痕。' },
-]
+import AudienceLanding from '@/components/marketing/AudienceLanding'
 
 export default function TrustApiPage() {
   return (
-    <div style={{ background: '#FAF7EE', color: '#171717' }}>
-      <Header variant="transparent" />
-
-      {/* HERO (dark) */}
-      <section style={{ background: 'linear-gradient(135deg,#0B0B0E 0%,#065F46 100%)' }}>
-        <div className="mx-auto max-w-[1240px] px-5 py-24 text-white sm:px-7 lg:px-12">
-          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-emerald-200">
-            TRUST API · L1 · INFRA
-          </div>
-          <h1 className="mt-4 max-w-[820px] text-[40px] font-extrabold leading-[1.08] tracking-tight sm:text-[52px]">
-            把已验证的信任,<br />嵌进你的流程。
-          </h1>
-          <p className="mt-5 max-w-[620px] text-[17px] leading-relaxed text-emerald-50/90">
-            租客在 Stayloop 验证一次,银行、保险、政府就能直接复用 ——
-            你拿到的是<b className="text-white">核验过的结论 + 授权范围</b>,不是一叠可能 P 过的 PDF。每次调用都链上留痕。
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Link href="/contact" className="inline-flex items-center justify-center rounded-[10px] bg-white px-6 py-[13px] text-[15px] font-semibold text-ink">
-              预约洽谈 →
-            </Link>
-            <span className="inline-flex items-center font-mono text-[12px] text-emerald-200">签约前免费沙箱</span>
-          </div>
-        </div>
-      </section>
-
-      {/* TIERS */}
-      <section>
-        <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-7 lg:px-12">
-          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">分级 · 逐级解锁</div>
-          <h2 className="mt-3 text-[30px] font-extrabold tracking-tight sm:text-[36px]">验证 1–4 级,逐级解锁可分享字段。</h2>
-          <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {TIERS.map((t, i) => (
-              <div key={t.t} className="sl-card p-6" style={{ borderTop: '3px solid #047857' }}>
-                <div className="font-mono text-[11px] font-bold text-brand">{t.t}</div>
-                <h4 className="mt-1 text-[17px] font-bold">{t.name}</h4>
-                <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">{t.fields}</p>
-                <div className="mt-3 font-mono text-[10.5px] text-body-3">{t.dp} 证据点</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* WHO */}
-      <section style={{ background: '#F2EEE5' }}>
-        <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-7 lg:px-12">
-          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">谁在用</div>
-          <h2 className="mt-3 text-[30px] font-extrabold tracking-tight sm:text-[36px]">一次验证,处处复用。</h2>
-          <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {USERS.map((u) => (
-              <div key={u.k} className="sl-card p-6">
-                <h4 className="text-[15px] font-bold">{u.k}</h4>
-                <p className="mt-2 text-[13px] leading-relaxed text-body-2">{u.b}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* GUARANTEES */}
-      <section>
-        <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-7 lg:px-12">
-          <div className="grid gap-4 md:grid-cols-3">
-            {[
-              { h: '不暴露原始证件', b: '只返回「已验证 + 范围」,原始证件与完整流水永不外传。' },
-              { h: '每次调用留痕', b: '链上可审计的调用记录,符合 PIPEDA 与本地合规。' },
-              { h: '按调用量计费', b: '签约前免费沙箱,上线后按调用计费 · OAuth + SSO · SLA 99.9%。' },
-            ].map((g) => (
-              <div key={g.h} className="sl-card p-6">
-                <h4 className="text-[16px] font-bold">{g.h}</h4>
-                <p className="mt-2 text-[13px] leading-relaxed text-body-2">{g.b}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-10 text-center">
-            <Link href="/contact" className="sl-btn-primary dark !px-7 !py-[14px] !text-[15px]">预约洽谈 →</Link>
-          </div>
-        </div>
-      </section>
-
-      <Footer />
-    </div>
+    <AudienceLanding
+      agent={{ name: 'Verify', accent: 'emerald', tier: 'B2B' }}
+      eyebrow_zh="Trust API"
+      eyebrow_en="TRUST API"
+      title_zh="把租赁信任变成可调用的 API。"
+      title_en="Rental trust as a callable API."
+      accentWord_zh="可调用的 API"
+      accentWord_en="callable API"
+      subtitle_zh="用统一接口完成身份、收入、信用、租房记录与合规审计，为租赁平台、保险和金融服务提供可信基础设施。"
+      subtitle_en="One unified interface for identity, income, credit, rental history and compliance — trust infrastructure for rental platforms, insurers, and financial services."
+      primaryCta={{ label_zh: '获取 API Key', label_en: 'Get an API key', href: '/chat' }}
+      secondaryCta={{ label_zh: '查看示例响应', label_en: 'See sample response', href: '/chat' }}
+      stats={[
+        { value: '$6', label_zh: 'Identity verify · 单次价格', label_en: 'per identity verification' },
+        { value: '~400ms', label_zh: '中位响应时间', label_en: 'median response time' },
+        { value: '99.95%', label_zh: 'API 可用率（最近 90 天）', label_en: 'API uptime (trailing 90 days)' },
+        { value: '20k+', label_zh: 'Verified Passport 总量', label_en: 'verified passports issued' },
+      ]}
+      features={[
+        {
+          title_zh: 'Identity · Persona + GovID',
+          title_en: 'Identity · Persona + GovID',
+          body_zh: '政府 ID + 活体 selfie。返回欺诈分、文件元数据、12 个月可用 JWT proof。',
+          body_en: 'Government ID + biometric liveness. Returns a fraud score, document metadata, and a 12-month JWT proof.',
+        },
+        {
+          title_zh: 'Income (VOIE)',
+          title_en: 'Income (VOIE)',
+          body_zh: 'Flinks bank API + Argyle payroll。读取 90 天存款，AI 检测稳定性，输出 sealed average。',
+          body_en: 'Flinks bank API + Argyle payroll. Reads 90 days of deposits, runs AI stability checks, returns a sealed average.',
+        },
+        {
+          title_zh: 'Credit · Equifax Rental Connect',
+          title_en: 'Credit · Equifax Rental Connect',
+          body_zh: '原生 Equifax 加拿大对接。返回 score、tradelines、AI 解读。',
+          body_en: 'Native Equifax Canada integration. Returns score, tradelines, and an AI-written interpretation.',
+        },
+        {
+          title_zh: 'Eviction · Openroom + CanLII',
+          title_en: 'Eviction · Openroom + CanLII',
+          body_zh: 'Openroom LTB 数据 + CanLII 全省判例。同名消歧由 Verify agent 完成。',
+          body_en: 'Openroom LTB data plus full-province CanLII rulings. Name disambiguation handled by the Verify agent.',
+        },
+        {
+          title_zh: 'Webhook 事件',
+          title_en: 'Webhook events',
+          body_zh: 'identity.verified · income.verified · score.computed · passport.shared · passport.revoked。HMAC-SHA256 签名。',
+          body_en: 'identity.verified · income.verified · score.computed · passport.shared · passport.revoked. HMAC-SHA256 signed.',
+        },
+        {
+          title_zh: '合规 · PIPEDA + GDPR',
+          title_en: 'Compliance · PIPEDA + GDPR',
+          body_zh: 'Append-only 审计日志、租客可导出全部数据、可一键撤销。SOC2 进行中。',
+          body_en: 'Append-only audit log, full data export for the tenant, one-click revocation. SOC2 in progress.',
+        },
+      ]}
+      closing_zh="一份 Passport，整个北美都能读。"
+      closing_en="One Passport. Read by every business in North America."
+    />
   )
 }

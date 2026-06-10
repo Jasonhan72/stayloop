@@ -21,13 +21,11 @@ interface NavItem {
   alwaysLive?: boolean
 }
 
-// Per V5.3 landing.html design: 房源 · 租客 · 房东 · 经纪 · 审核.
-// Trust API is NOT a top-nav item (it lives in the footer / partners only).
 const NAV: NavItem[] = [
   { key: 'nav.listings', href: '/listings' },
-  { key: 'nav.tenant', href: '/tenant' },
-  { key: 'nav.landlord', href: '/landlord' },
-  { key: 'nav.agent', href: '/agent' },
+  { key: 'nav.tenants', href: '/tenants' },
+  { key: 'nav.landlords', href: '/landlords' },
+  { key: 'nav.agents', href: '/agents' },
   { key: 'nav.screening', href: '/screening', alwaysLive: true },
 ]
 
