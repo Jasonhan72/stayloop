@@ -67,7 +67,7 @@ const MAX_TOTAL_FILES = 20       // Absolute cap across all batches
 // (multi-row tables, AcroForm leftover values, parking add-ons) is where
 // Haiku falls down — Sonnet's larger context window for visual layout
 // and label proximity reasoning is worth the cost.
-const CLASSIFIER_MODEL = 'claude-sonnet-4-5-20241022'
+const CLASSIFIER_MODEL = 'claude-sonnet-4-6'
 
 async function toBase64(buf: ArrayBuffer): Promise<string> {
   const bytes = new Uint8Array(buf)
@@ -380,7 +380,6 @@ Return ONLY this JSON (no markdown, no prose):
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
       'anthropic-version': '2024-10-22',
-      'anthropic-beta': 'pdfs-2024-09-25',
     },
     signal: AbortSignal.timeout(60_000), // 60s — Sonnet on multiple PDFs takes time
     body: JSON.stringify({
