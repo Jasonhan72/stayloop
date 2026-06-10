@@ -905,7 +905,7 @@ export type DictKey = keyof typeof DICT
 interface I18nCtx {
   lang: Lang
   setLang: (l: Lang) => void
-  t: (key: DictKey, vars?: Record<string, string | number>) => string
+  t: (key: string, vars?: Record<string, string | number>) => string
 }
 
 const Ctx = createContext<I18nCtx | null>(null)
