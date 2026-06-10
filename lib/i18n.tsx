@@ -939,8 +939,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') localStorage.setItem('stayloop_lang', l)
   }
 
-  const t = (key: DictKey, vars?: Record<string, string | number>) => {
-    const entry = DICT[key]
+  const t = (key: string, vars?: Record<string, string | number>) => {
+    const entry = (DICT as Record<string, { en: string; zh: string }>)[key]
     if (!entry) return String(key)
     return format(entry[lang] ?? entry.en, vars)
   }
@@ -952,8 +952,8 @@ export function useT() {
   const ctx = useContext(Ctx)
   if (!ctx) {
     // Safe fallback so non-wrapped contexts still render English
-    const t = (key: DictKey, vars?: Record<string, string | number>) => {
-      const entry = DICT[key]
+    const t = (key: string, vars?: Record<string, string | number>) => {
+      const entry = (DICT as Record<string, { en: string; zh: string }>)[key]
       return entry ? format(entry.en, vars) : String(key)
     }
     return { lang: 'en' as Lang, setLang: (_: Lang) => {}, t }
