@@ -668,30 +668,57 @@ export default function ScreeningPage() {
           </div>
 
           {/* Forensics */}
-          {forensics && (
+          {forensics && typeof forensics === 'object' && (
             <div className="mt-5 rounded-2xl border bg-white p-6 shadow-sm" style={{ borderColor: '#E0DACE' }}>
-              <div className="font-mono text-[11px] font-bold uppercase tracking-wide mb-3" style={{ color: '#999' }}>
-                {t('result.forensics', lang)}
+              <div className="flex items-center justify-between mb-3">
+                <div className="font-mono text-[11px] font-bold uppercase tracking-wide" style={{ color: '#999' }}>
+                  {t('result.forensics', lang)}
+                </div>
+                {forensics.SEVERITY && (
+                  <span className="rounded-md px-2.5 py-1 text-[11px] font-mono font-bold" style={{
+                    color: forensics.SEVERITY === 'clean' ? '#047857' : forensics.SEVERITY === 'low' ? '#D97706' : '#DC2626',
+                    background: forensics.SEVERITY === 'clean' ? '#F0FDF4' : forensics.SEVERITY === 'low' ? '#FFF7ED' : '#FEF2F2',
+                  }}>
+                    {forensics.SEVERITY === 'clean' ? (lang === 'zh' ? '通过' : 'CLEAN') : forensics.SEVERITY.toUpperCase()}
+                  </span>
+                )}
               </div>
-              {typeof forensics === 'object' && !Array.isArray(forensics) ? (
-                <div className="space-y-2 text-[13px]" style={{ color: '#333' }}>
-                  {Object.entries(forensics).map(([k, v]) => (
-                    <div key={k} className="flex gap-2">
-                      <span className="font-mono text-[11px] font-bold uppercase" style={{ color: '#999', minWidth: 120 }}>{k}</span>
-                      <span>{typeof v === 'string' ? v : JSON.stringify(v)}</span>
+              {/* Per-file results */}
+              {Array.isArray(forensics.PER_FILE) && forensics.PER_FILE.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {forensics.PER_FILE.map((f: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 text-[13px] rounded-lg border p-3" style={{ borderColor: '#E0DACE', background: '#FAFAF8' }}>
+                      <span style={{ color: (!f.flags || f.flags.length === 0) ? '#047857' : '#D97706', fontWeight: 700 }}>
+                        {(!f.flags || f.flags.length === 0) ? '✓' : '⚠'}
+                      </span>
+                      <div className="flex-1">
+                        <div className="font-semibold text-[13px]" style={{ color: '#333' }}>{f.file_name}</div>
+                        <div className="font-mono text-[10px] mt-0.5" style={{ color: '#999' }}>{f.file_kind?.replace(/_/g, ' ')}</div>
+                        {Array.isArray(f.flags) && f.flags.length > 0 && f.flags.map((flag: any, fi: number) => (
+                          <div key={fi} className="mt-1 text-[12px]" style={{ color: '#D97706' }}>
+                            {lang === 'zh' ? (flag.evidence_zh || flag.evidence_en || flag.code) : (flag.evidence_en || flag.evidence_zh || flag.code)}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <pre className="text-[12px] whitespace-pre-wrap" style={{ color: '#333' }}>
-                  {JSON.stringify(forensics, null, 2)}
-                </pre>
+              )}
+              {/* All flags summary */}
+              {Array.isArray(forensics.ALL_FLAGS) && forensics.ALL_FLAGS.length > 0 && !Array.isArray(forensics.PER_FILE) && (
+                <div className="space-y-1">
+                  {forensics.ALL_FLAGS.map((flag: any, i: number) => (
+                    <div key={i} className="text-[12px]" style={{ color: '#D97706' }}>
+                      ⚠ {lang === 'zh' ? (flag.evidence_zh || flag.evidence_en) : (flag.evidence_en || flag.evidence_zh)}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )}
 
           {/* Court Records */}
-          {court && (
+          {court && typeof court === 'object' && (
             <div className="mt-5 rounded-2xl border bg-white p-6 shadow-sm" style={{ borderColor: '#E0DACE' }}>
               <div className="font-mono text-[11px] font-bold uppercase tracking-wide mb-3" style={{ color: '#999' }}>
                 {t('result.court', lang)}
@@ -701,24 +728,53 @@ export default function ScreeningPage() {
                   {lang === 'zh' ? (result.court_summary_zh || result.court_summary_en) : (result.court_summary_en || result.court_summary_zh)}
                 </p>
               )}
-              {Array.isArray(court) ? (
+              {/* Stats */}
+              <div className="flex flex-wrap gap-4 mb-3 font-mono text-[11px]" style={{ color: '#999' }}>
+                {court.databases_searched != null && (
+                  <span>{lang === 'zh' ? '已检索数据库' : 'Databases searched'}: {court.databases_searched}</span>
+                )}
+                {court.total_hits != null && (
+                  <span>{lang === 'zh' ? '命中' : 'Hits'}: {court.total_hits}</span>
+                )}
+                {court.queried_name && (
+                  <span>{lang === 'zh' ? '查询姓名' : 'Name queried'}: {court.queried_name}</span>
+                )}
+              </div>
+              {/* Portal records */}
+              {Array.isArray(court.portal_records) && court.portal_records.length > 0 && (
                 <div className="space-y-2">
-                  {court.map((rec: Record<string, unknown>, i: number) => (
-                    <div key={i} className="rounded-lg border p-3 text-[12px]" style={{ borderColor: '#E0DACE', background: '#FAFAF8' }}>
-                      {Object.entries(rec).map(([k, v]) => (
-                        <div key={k} className="flex gap-2">
-                          <span className="font-mono font-bold uppercase" style={{ color: '#999', minWidth: 100 }}>{k}</span>
-                          <span style={{ color: '#333' }}>{typeof v === 'string' ? v : JSON.stringify(v)}</span>
-                        </div>
-                      ))}
+                  {court.portal_records.map((rec: any, i: number) => (
+                    <div key={i} className="rounded-lg border p-3 text-[13px]" style={{ borderColor: '#E0DACE', background: '#FAFAF8' }}>
+                      <div className="font-semibold" style={{ color: '#333' }}>{rec.caseTitle}</div>
+                      <div className="flex flex-wrap gap-3 mt-1 font-mono text-[11px]" style={{ color: '#666' }}>
+                        <span>{rec.caseCategory}</span>
+                        <span>{lang === 'zh' ? '角色' : 'Role'}: {rec.partyRole}</span>
+                        <span>{rec.filedDate ? new Date(rec.filedDate).toLocaleDateString() : ''}</span>
+                        <span className="font-bold" style={{ color: rec.closedFlag ? '#047857' : '#DC2626' }}>
+                          {rec.closedFlag ? (lang === 'zh' ? '已关闭' : 'Closed') : (lang === 'zh' ? '进行中' : 'Active')}
+                        </span>
+                      </div>
+                      {rec.caseNumber && <div className="mt-1 font-mono text-[10px]" style={{ color: '#999' }}>{rec.caseNumber}</div>}
                     </div>
                   ))}
                 </div>
-              ) : typeof court === 'object' ? (
-                <pre className="text-[12px] whitespace-pre-wrap" style={{ color: '#333' }}>
-                  {JSON.stringify(court, null, 2)}
-                </pre>
-              ) : null}
+              )}
+              {/* CanLII records */}
+              {Array.isArray(court.records) && court.records.length > 0 && (
+                <div className="space-y-2 mt-2">
+                  {court.records.map((rec: any, i: number) => (
+                    <div key={i} className="rounded-lg border p-3 text-[13px]" style={{ borderColor: '#E0DACE', background: '#FAFAF8' }}>
+                      <div className="font-semibold" style={{ color: '#333' }}>{rec.title || rec.citation}</div>
+                      {rec.date && <div className="font-mono text-[11px] mt-0.5" style={{ color: '#666' }}>{rec.date}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {court.total_hits === 0 && (
+                <div className="text-[13px]" style={{ color: '#047857' }}>
+                  {lang === 'zh' ? '未发现法庭记录' : 'No court records found'}
+                </div>
+              )}
             </div>
           )}
 
