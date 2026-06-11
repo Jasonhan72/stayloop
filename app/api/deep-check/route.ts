@@ -227,9 +227,18 @@ function bad(message: string, message_zh?: string, status = 400) {
 /**
  * Legacy fallback: reconstruct a DeepCheckPayload from a persisted screening.
  * Only used when the client sent {screening_id} without structured fields.
+ *
+ * Uses the CALLER's RLS'd client (not the service client) so ownership is
+ * enforced by the screenings RLS policies — which accept both legacy
+ * profileId and newer authId landlord_id forms. Previously this used the
+ * service client, letting any Pro user read any screening by id.
  */
-async function payloadFromScreening(screening_id: string): Promise<DeepCheckPayload | Response> {
-  const supabase = makeServiceClient()
+async function payloadFromScreening(screening_id: string, authHeader: string): Promise<DeepCheckPayload | Response> {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: authHeader } } },
+  )
   const { data: screening, error } = await supabase
     .from('screenings')
     .select('id, tenant_name, ai_extracted_name, ai_dimension_notes, forensics_detail')
@@ -393,7 +402,8 @@ export async function POST(req: Request) {
         business_numbers: Array.isArray(body.business_numbers) ? body.business_numbers : undefined,
       }
     } else if (body.screening_id) {
-      const resolved = await payloadFromScreening(body.screening_id)
+      const authHeader = (req.headers.get('authorization') || '').replace(/[^\x20-\x7E]/g, '').trim()
+      const resolved = await payloadFromScreening(body.screening_id, authHeader)
       if (resolved instanceof Response) return resolved
       payload = resolved
     } else {

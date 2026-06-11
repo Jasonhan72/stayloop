@@ -818,24 +818,31 @@ export async function POST(req: NextRequest) {
 
     // Fetch landlord plan separately (landlord_id may be authId or profileId)
     let plan = 'free'
+    // All UUIDs this landlord's screenings may be keyed under: legacy rows
+    // store landlords.id (profileId), newer rows store auth.users.id (authId).
+    let landlordIds: string[] = screening.landlord_id ? [screening.landlord_id] : []
     if (screening.landlord_id) {
       const { data: ll } = await supabase
         .from('landlords')
-        .select('plan')
+        .select('id, auth_id, plan')
         .or(`id.eq.${screening.landlord_id},auth_id.eq.${screening.landlord_id}`)
         .maybeSingle()
       if (ll?.plan) plan = ll.plan
+      if (ll) {
+        landlordIds = Array.from(new Set(
+          [screening.landlord_id, ll.id, ll.auth_id].filter(Boolean) as string[]
+        ))
+      }
     }
 
     // ---- Quota enforcement for free plan ----
     if (plan === 'free') {
-      const landlordId = screening.landlord_id
       const now = new Date()
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
       const { count } = await supabase
         .from('screenings')
         .select('id', { count: 'exact', head: true })
-        .eq('landlord_id', landlordId)
+        .in('landlord_id', landlordIds)
         .gte('created_at', monthStart)
         .neq('status', 'pending') // only count completed/scoring screenings
       if (count !== null && count >= 5) {

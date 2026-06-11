@@ -191,7 +191,8 @@ export default function GraphPage() {
       .from('screenings')
       .select('*')
       .eq('id', id)
-      .eq('landlord_id', user.id)
+      // Ownership enforced by RLS (accepts both legacy profileId and authId
+      // landlord_id forms); explicit user.id filter broke legacy rows.
       .single()
       .then(({ data, error }) => {
         if (error || !data) setLoadError(true)

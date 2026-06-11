@@ -136,7 +136,9 @@ export default function ReportPage() {
       .from('screenings')
       .select('*')
       .eq('id', id)
-      .eq('landlord_id', user.id)
+      // Ownership is enforced by RLS, which accepts BOTH landlord_id forms
+      // (legacy rows store profileId, newer rows store authId). Filtering
+      // by user.id here broke loading of legacy screenings.
       .single()
       .then(({ data, error }) => {
         if (error || !data) setLoadError(true)
