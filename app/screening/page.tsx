@@ -2127,7 +2127,7 @@ export default function ScreenPage() {
       for (let i = 0; i < files.length; i++) {
         const f = files[i]
         const safeName = f.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-        const path = `screenings/${landlord.profileId}/${screeningId}/${stamp}_${i}_${safeName}`
+        const path = `screenings/${landlord.authId}/${screeningId}/${stamp}_${i}_${safeName}`
 
         let success = false
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {

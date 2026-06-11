@@ -808,7 +808,7 @@ export async function POST(req: NextRequest) {
 
     const { data: screening, error } = await supabase
       .from('screenings')
-      .select('*, landlord:landlords(plan)')
+      .select('*')
       .eq('id', screening_id)
       .single()
 
@@ -816,7 +816,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error?.message || 'Not found' }, { status: 404 })
     }
 
-    const plan: string = screening.landlord?.plan || 'free'
+    // Fetch landlord plan separately (landlord_id may be authId or profileId)
+    let plan = 'free'
+    if (screening.landlord_id) {
+      const { data: ll } = await supabase
+        .from('landlords')
+        .select('plan')
+        .or(`id.eq.${screening.landlord_id},auth_id.eq.${screening.landlord_id}`)
+        .maybeSingle()
+      if (ll?.plan) plan = ll.plan
+    }
 
     // ---- Quota enforcement for free plan ----
     if (plan === 'free') {
