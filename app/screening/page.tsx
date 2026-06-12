@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
+import { useState, useEffect, useRef, useCallback, type ReactNode, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useUser, useAnonTrialCheck } from '@/lib/useUser'
@@ -177,6 +177,10 @@ interface ScoreResult {
   // determined to be forged (e.g. credit_report → credit_health).
   forensics_zeroed_dims?: string[]
   screening_id?: string
+  // Number of files in THIS screening — set client-side (fresh runs use the
+  // upload list, history loads use the saved files array) so the stats row
+  // doesn't leak the current upload box count into historical reports.
+  file_count?: number
   // Deep check (arm's-length verification)
   deep_check_result?: {
     checks: Array<{
@@ -267,7 +271,73 @@ function guessKind(name: string): string {
   return 'other'
 }
 
+// ─────────────────────────────────────────── Live pipeline stages ──
+// Mirrors the REAL stage boundaries written by /api/screen-score into
+// screenings.progress ({stage, pct, at}). The client polls that column
+// while the analysis runs, so what the user sees is the actual backend
+// pipeline — not a canned animation.
+const PIPELINE_STAGES: { key: string; pct: number; zh: string; en: string; icon: string }[] = [
+  { key: 'uploading',           pct: 3,   zh: '安全上传文件',           en: 'Uploading files securely',          icon: '📤' },
+  { key: 'signing_files',       pct: 6,   zh: '生成加密文件链接',       en: 'Signing encrypted file URLs',       icon: '🔐' },
+  { key: 'court_and_forensics', pct: 16,  zh: '法院记录检索 × 文件取证', en: 'Court records × document forensics', icon: '⚖️' },
+  { key: 'ai_scoring',          pct: 38,  zh: 'Claude 深度分析全部文件', en: 'Claude analyzing all documents',    icon: '🧠' },
+  { key: 'post_processing',     pct: 72,  zh: '计算风险门槛与扣分',     en: 'Applying risk gates & penalties',   icon: '🧮' },
+  { key: 'supplemental_courts', pct: 86,  zh: '补充法院检索（AI 提取的姓名）', en: 'Supplemental court search (AI-extracted names)', icon: '🔍' },
+  { key: 'done',                pct: 100, zh: '生成风险报告',           en: 'Building the risk report',          icon: '📊' },
+]
+const stageIndex = (key: string) => PIPELINE_STAGES.findIndex(s => s.key === key)
+
+// Map raw backend/PostgREST errors to friendly bilingual messages so the
+// user never sees "Could not find a relationship ... in the schema cache".
+function friendlyError(raw: string, lang: string): string {
+  const m = (raw || '').toLowerCase()
+  if (m.includes('schema cache') || m.includes('relationship')) {
+    return lang === 'zh'
+      ? '服务刚刚更新,页面版本过旧。请刷新页面后重试。'
+      : 'The service was just updated and this page is stale. Please refresh and retry.'
+  }
+  if (m.includes('failed to fetch') || m.includes('network')) {
+    return lang === 'zh'
+      ? '网络连接中断,请检查网络后重试。'
+      : 'Network connection interrupted. Check your connection and retry.'
+  }
+  if (m.includes('row-level security') || m.includes('permission') || m.includes('policy')) {
+    return lang === 'zh'
+      ? '登录状态已过期或无权限,请重新登录后再试。'
+      : 'Your session expired or lacks permission. Please sign in again.'
+  }
+  if (m.includes('jwt') || m.includes('expired')) {
+    return lang === 'zh' ? '登录已过期,请重新登录。' : 'Session expired — please sign in again.'
+  }
+  return raw
+}
+
 // ───────────────────────────────────────────────── Sub-components ──
+
+// Typewriter reveal for AI-generated text. Only animates when `animate` is
+// true (fresh results) — history loads render instantly.
+function TypewriterText({ text, animate, style, className }: { text: string; animate: boolean; style?: CSSProperties; className?: string }) {
+  const [shown, setShown] = useState(animate ? 0 : text.length)
+  useEffect(() => {
+    if (!animate) { setShown(text.length); return }
+    setShown(0)
+    let i = 0
+    // ~3 chars per tick keeps even long summaries under ~4s
+    const id = setInterval(() => {
+      i += 3
+      if (i >= text.length) { setShown(text.length); clearInterval(id) }
+      else setShown(i)
+    }, 24)
+    return () => clearInterval(id)
+  }, [text, animate])
+  const done = shown >= text.length
+  return (
+    <p className={className} style={style}>
+      {text.slice(0, shown)}
+      {!done && <span style={{ display: 'inline-block', width: 8, height: '1em', verticalAlign: 'text-bottom', background: '#10B981', marginLeft: 2, animation: 'slBlink 0.8s step-end infinite' }} />}
+    </p>
+  )
+}
 
 function ScoreRing({ score, size = 140, strokeWidth = 10 }: { score: number; size?: number; strokeWidth?: number }) {
   const risk = getRiskLevel(score)
@@ -1542,7 +1612,12 @@ export default function ScreenPage() {
 
   const [analyzing, setAnalyzing] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [progressLabel, setProgressLabel] = useState('')
+  // Real backend stage key (see PIPELINE_STAGES). Drives the live checklist.
+  const [progressStage, setProgressStage] = useState<string>('uploading')
+  const [elapsedSec, setElapsedSec] = useState(0)
+  // true right after a fresh analysis completes — enables the typewriter
+  // reveal on the AI summary. History loads set it false (instant render).
+  const [freshResult, setFreshResult] = useState(false)
   const [result, setResult] = useState<ScoreResult | null>(null)
   const [lastDetectedKinds, setLastDetectedKinds] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -1579,17 +1654,28 @@ export default function ScreenPage() {
 
   async function loadPlan() {
     if (!landlord) return
+    // Anonymous users have no landlord row (profileId === '') — querying
+    // eq('id', '') throws "invalid input syntax for type uuid". They're
+    // always free tier, so skip the lookup entirely.
+    if (!landlord.profileId && !landlord.authId) return
+    // Match by EITHER profileId or authId — landlords.id and auth_id are
+    // different UUIDs and either may be what we hold (see dual-ID notes).
+    const conditions = [
+      landlord.profileId ? `id.eq.${landlord.profileId}` : null,
+      landlord.authId ? `auth_id.eq.${landlord.authId}` : null,
+    ].filter(Boolean).join(',')
     const { data } = await supabase
       .from('landlords')
       .select('plan')
-      .eq('id', landlord.profileId)
-      .maybeSingle()
-    if (data?.plan) {
-      setPlan(data.plan as any)
+      .or(conditions)
+      .limit(1)
+    if (data?.[0]?.plan) {
+      setPlan(data[0].plan as any)
     }
   }
 
   const [upgradeLoading, setUpgradeLoading] = useState(false)
+  const [pdfGenerating, setPdfGenerating] = useState(false)
 
   async function startProUpgrade() {
     setUpgradeLoading(true)
@@ -1800,6 +1886,8 @@ export default function ScreenPage() {
       const reconstructed: ScoreResult = {
         screening_id: data.id ?? id,
         overall: data.ai_score ?? 0,
+        // Use THIS screening's saved file list, not the current upload box
+        file_count: Array.isArray(data.files) ? data.files.length : 0,
         scores: legacyScores,
         notes: {},
         details_en: v3.details_en ?? data.ai_dimension_notes?._details_en ?? null,
@@ -1839,6 +1927,7 @@ export default function ScreenPage() {
         deep_check_result: data.deep_check_result ?? null,
       }
 
+      setFreshResult(false) // history loads render instantly, no typewriter
       setResult(reconstructed)
       setViewingHistoryId(id)
       // Sync arm's-length card state so previously-run deep checks render
@@ -2050,51 +2139,63 @@ export default function ScreenPage() {
     setAnalyzing(true)
     setResult(null)
     setError(null)
+    setFreshResult(false)
     setProgress(0)
+    setProgressStage('uploading')
+    const startedAt = Date.now()
+    setElapsedSec(0)
 
-    // Drive the progress UI while the real backend works
-    const steps = [
-      { label: t('screen.step.meta'), pct: 6 },
-      { label: t('screen.step.ocr'), pct: 14 },
-      ...(!applicantName.trim() ? [{ label: t('screen.step.extractName'), pct: 20 }] : []),
-      { label: t('screen.step.auth'), pct: 28 },
-      { label: t('screen.step.finance'), pct: 40 },
-      { label: t('screen.step.canlii'), pct: 50 },
-      ...(tier === 'pro'
-        ? [
-            { label: t('screen.step.ontarioCourts'), pct: 62 },
-            { label: t('screen.step.network'), pct: 70 },
-          ]
-        : []),
-      { label: t('screen.step.cross'), pct: 80 },
-      { label: t('screen.step.behavior'), pct: 88 },
-      { label: t('screen.step.risk'), pct: 94 },
-    ]
-
-    let cancelled = false
-    // v3 lean schema cuts Claude latency to ~15-25s on typical screenings,
-    // so the canned step animation runs faster (350ms base vs the old
-    // 650ms) and the slow-crawl phase advances faster (0.4% per 500ms)
-    // to keep the bar visibly in sync with the real backend work.
-    const animate = async () => {
-      for (const s of steps) {
-        if (cancelled) return
-        await new Promise(r => setTimeout(r, 350 + Math.random() * 250))
-        if (cancelled) return
-        setProgress(s.pct)
-        setProgressLabel(s.label)
-      }
-      // Slow crawl phase: advance 0.4% per 500ms, capped at 98
-      let p = 94
-      while (!cancelled && p < 98) {
-        await new Promise(r => setTimeout(r, 500))
-        if (cancelled) return
-        p = Math.min(98, p + 0.4)
-        setProgress(p)
-        setProgressLabel(t('screen.step.risk'))
-      }
+    // ── REAL progress tracking ─────────────────────────────────────
+    // /api/screen-score writes its actual stage into screenings.progress
+    // at each pipeline boundary; we poll that while the request is in
+    // flight. A gentle client-side creep keeps the bar moving between
+    // checkpoints but never runs ahead of backend truth by more than 12%.
+    let pollStop = false
+    let lastServerPct = 3
+    let lastStageIdx = -1
+    let sawServerProgress = false
+    const progressTimers: ReturnType<typeof setInterval>[] = []
+    const startProgressTracking = (screeningId: string) => {
+      const pollTimer = setInterval(async () => {
+        if (pollStop) return
+        try {
+          const { data } = await supabase
+            .from('screenings')
+            .select('progress')
+            .eq('id', screeningId)
+            .maybeSingle()
+          const p = (data as any)?.progress
+          if (!pollStop && p && typeof p.pct === 'number' && p.stage) {
+            sawServerProgress = true
+            lastServerPct = Math.max(lastServerPct, p.pct)
+            // Out-of-order poll responses must never move the stage backwards
+            const idx = stageIndex(p.stage)
+            if (idx >= lastStageIdx) {
+              lastStageIdx = idx
+              setProgressStage(p.stage)
+            }
+            setProgress(prev => Math.max(prev, Math.min(p.pct, 99)))
+          }
+        } catch { /* polling must never break the analysis */ }
+      }, 1100)
+      const creepTimer = setInterval(() => {
+        if (pollStop) return
+        setElapsedSec(Math.round((Date.now() - startedAt) / 1000))
+        setProgress(prev => {
+          // Cap at 12% past the last confirmed backend checkpoint. If the
+          // backend never reports (older deployment without the progress
+          // column writes), fall back to a slow crawl capped at 92%.
+          const cap = sawServerProgress ? Math.min(lastServerPct + 12, 97) : 92
+          const step = sawServerProgress ? 0.45 : 0.18
+          return prev < cap ? Math.min(cap, prev + step) : prev
+        })
+      }, 500)
+      progressTimers.push(pollTimer, creepTimer)
     }
-    const animPromise = animate()
+    const stopProgressTracking = () => {
+      pollStop = true
+      for (const timer of progressTimers) clearInterval(timer)
+    }
 
     try {
       // 1. Create screening row
@@ -2110,6 +2211,7 @@ export default function ScreenPage() {
         .single()
       if (insertErr || !row) throw new Error(insertErr?.message || 'Failed to create screening record')
       const screeningId = row.id
+      setProgress(2)
 
       // 2. Upload files to storage — one-at-a-time with retry.
       // Sequential upload avoids browser connection-pool saturation
@@ -2178,7 +2280,11 @@ export default function ScreenPage() {
 
       // 3. Call scoring API. Wire an AbortController so component-unmount
       // (navigation away, page close) cancels the in-flight request and
-      // prevents setState-on-unmounted warnings.
+      // prevents setState-on-unmounted warnings. While the request runs,
+      // poll screenings.progress for REAL backend stage updates.
+      setProgressStage('signing_files')
+      setProgress(p => Math.max(p, 5))
+      startProgressTracking(screeningId)
       analysisAbortRef.current?.abort()
       analysisAbortRef.current = new AbortController()
       const { data: { session } } = await supabase.auth.getSession()
@@ -2192,22 +2298,23 @@ export default function ScreenPage() {
         signal: analysisAbortRef.current.signal,
       })
       const data = await res.json()
+      stopProgressTracking()
       if (!res.ok) throw new Error(data.error || 'Scoring failed')
 
-      await animPromise
+      setProgressStage('done')
       setProgress(100)
-      setProgressLabel(t('screen.step.report'))
-      await new Promise(r => setTimeout(r, 400))
+      await new Promise(r => setTimeout(r, 450))
 
-      setResult(data as ScoreResult)
+      setFreshResult(true)
+      setResult({ ...(data as ScoreResult), file_count: files.length })
       setLastDetectedKinds(Array.isArray((data as ScoreResult).detected_document_kinds) ? (data as ScoreResult).detected_document_kinds! : [])
       // Mark anonymous trial as used after successful screening
       if (landlord.isAnonymous) markTrialUsed()
       loadHistory()
     } catch (e: any) {
-      cancelled = true
-      setError(e?.message || t('screen.err.unknown'))
+      setError(friendlyError(e?.message || '', lang) || t('screen.err.unknown'))
     } finally {
+      stopProgressTracking()
       setAnalyzing(false)
     }
   }
@@ -2294,6 +2401,8 @@ export default function ScreenPage() {
           .sl-summary-text { font-size: 13px !important; line-height: 1.7 !important; }
           .sl-section-title { font-size: 12px !important; }
         }
+        @keyframes slPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.75); } }
+        @keyframes slBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         details.sl-card > summary::-webkit-details-marker { display: none; }
         details.sl-card > summary::marker { display: none; content: ''; }
         details.sl-card[open] > summary svg { transform: rotate(90deg); }
@@ -2628,11 +2737,19 @@ export default function ScreenPage() {
           </div>
         )}
 
-        {/* Analyzing — scanner-style progress */}
+        {/* Analyzing — LIVE pipeline checklist driven by real backend stages */}
         {analyzing && (() => {
-          const isCourtStep = progressLabel.includes('🔍') || progressLabel.toLowerCase().includes('canlii') || progressLabel.toLowerCase().includes('court') || progressLabel.toLowerCase().includes('network') || progressLabel.includes('查询')
+          const curIdx = Math.max(0, stageIndex(progressStage))
+          const isCourtStep = progressStage === 'court_and_forensics' || progressStage === 'supplemental_courts'
           const accentColor = isCourtStep ? '#8B5CF6' : '#10B981'
           const accentBg = isCourtStep ? 'rgba(139, 92, 246, 0.06)' : 'rgba(13, 148, 136, 0.04)'
+          // supplemental_courts only runs when the AI extracted extra names —
+          // hide it from the checklist until the backend actually reports it.
+          const visibleStages = PIPELINE_STAGES.filter(s =>
+            s.key !== 'supplemental_courts' || progressStage === 'supplemental_courts'
+          )
+          const mm = String(Math.floor(elapsedSec / 60)).padStart(1, '0')
+          const ss = String(elapsedSec % 60).padStart(2, '0')
           return (
             <div className="fade-up" style={{
               background: '#FFFFFF',
@@ -2652,11 +2769,12 @@ export default function ScreenPage() {
                   <div className="spin" style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid rgba(11, 23, 54, 0.08)', borderTopColor: accentColor }} />
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1736' }}>
-                      {lang === 'zh' ? '正在筛查…' : 'Scanning…'}
+                      {lang === 'zh' ? 'AI 正在筛查…' : 'AI screening in progress…'}
                     </div>
                     <div style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
                       {files.length} {lang === 'zh' ? '个文件' : 'file(s)'}
                       {applicantName.trim() && ` · ${applicantName.trim()}`}
+                      <span className="mono" style={{ marginLeft: 8, color: '#94A3B8' }}>{mm}:{ss}</span>
                     </div>
                   </div>
                 </div>
@@ -2665,20 +2783,64 @@ export default function ScreenPage() {
 
               {/* Progress bar */}
               <div style={{ padding: '0 22px' }}>
-                <div style={{ height: 4, borderRadius: 2, background: 'rgba(11, 23, 54, 0.06)', margin: '16px 0 12px', overflow: 'hidden' }}>
+                <div style={{ height: 4, borderRadius: 2, background: 'rgba(11, 23, 54, 0.06)', margin: '16px 0 4px', overflow: 'hidden' }}>
                   <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, ${accentColor}88, ${accentColor})`, width: `${progress}%`, transition: 'width 0.5s ease' }} />
                 </div>
               </div>
 
-              {/* Current step label */}
-              <div style={{ padding: '0 22px 20px', textAlign: 'center' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: accentColor, marginBottom: 6 }}>
-                  {progressLabel || t('screen.step.start')}
-                </div>
-                <div style={{ fontSize: 11.5, color: '#94A3B8' }}>
-                  {isCourtStep
-                    ? (tier === 'pro' ? t('screen.analyzing.court.pro') : t('screen.analyzing.court.free'))
-                    : t('screen.analyzing.files', { n: files.length })}
+              {/* Live stage checklist — each row reflects the REAL backend
+                  pipeline stage read from screenings.progress */}
+              <div style={{ padding: '12px 22px 20px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {visibleStages.map(s => {
+                  const idx = stageIndex(s.key)
+                  const stateOf: 'done' | 'current' | 'pending' =
+                    idx < curIdx ? 'done' : idx === curIdx ? 'current' : 'pending'
+                  return (
+                    <div key={s.key} style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '7px 10px', borderRadius: 8,
+                      background: stateOf === 'current' ? accentBg : 'transparent',
+                      transition: 'background 0.3s',
+                    }}>
+                      <span style={{ width: 18, textAlign: 'center', flexShrink: 0 }}>
+                        {stateOf === 'done' ? (
+                          <span style={{ color: '#15803D', fontSize: 13, fontWeight: 700 }}>✓</span>
+                        ) : stateOf === 'current' ? (
+                          <span style={{
+                            display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                            background: accentColor, animation: 'slPulse 1.1s ease-in-out infinite',
+                          }} />
+                        ) : (
+                          <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#CBD5E1' }} />
+                        )}
+                      </span>
+                      <span style={{ fontSize: 13, flexShrink: 0 }}>{s.icon}</span>
+                      <span style={{
+                        flex: 1, fontSize: 12.5,
+                        fontWeight: stateOf === 'current' ? 700 : 500,
+                        color: stateOf === 'done' ? '#64748B' : stateOf === 'current' ? '#0B1736' : '#94A3B8',
+                        textDecoration: 'none',
+                        transition: 'color 0.3s',
+                      }}>
+                        {lang === 'zh' ? s.zh : s.en}
+                      </span>
+                      {stateOf === 'current' && (
+                        <span className="mono" style={{ fontSize: 9.5, color: accentColor, fontWeight: 700, letterSpacing: '0.08em' }}>
+                          {lang === 'zh' ? '进行中' : 'RUNNING'}
+                        </span>
+                      )}
+                      {stateOf === 'done' && (
+                        <span className="mono" style={{ fontSize: 9.5, color: '#94A3B8', letterSpacing: '0.05em' }}>
+                          {lang === 'zh' ? '完成' : 'DONE'}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+                <div style={{ fontSize: 10.5, color: '#94A3B8', textAlign: 'center', marginTop: 10 }}>
+                  {lang === 'zh'
+                    ? '进度由后端真实分析阶段驱动 · 通常 20–40 秒完成'
+                    : 'Stages reflect the live backend pipeline · typically 20–40s'}
                 </div>
               </div>
             </div>
@@ -2701,12 +2863,21 @@ export default function ScreenPage() {
               <div className="sl-risk-pill" style={{ display: 'inline-block', borderRadius: 20, background: riskOverall.bg, color: riskOverall.color, fontWeight: 700, letterSpacing: 1 }}>
                 {t(riskOverall.tagKey)} — {t(riskOverall.labelKey)}
               </div>
+              {/* Real analysis provenance — only for fresh runs where we
+                  actually measured the pipeline duration */}
+              {freshResult && elapsedSec > 0 && (
+                <div className="mono" style={{ marginTop: 10, fontSize: 10, color: '#94A3B8', letterSpacing: '0.04em' }}>
+                  {lang === 'zh' ? 'AI 分析用时' : 'Analyzed in'} {elapsedSec}s
+                  {result.model_version && ` · ${result.model_version}`}
+                </div>
+              )}
               {/* v3 tier badge + evidence coverage bar */}
               {result.v3_tier && (() => {
                 const tierColors: Record<string, { bg: string; fg: string; label: string }> = {
                   approve: { bg: '#DCFCE7', fg: '#166534', label: lang === 'zh' ? '优质 · 建议通过' : 'Approve' },
                   conditional: { bg: '#FEF9C3', fg: '#854D0E', label: lang === 'zh' ? '待定 · 附加条件' : 'Conditional' },
-                  decline: { bg: '#FEE2E2', fg: '#FECACA', label: lang === 'zh' ? '建议拒绝' : 'Decline' },
+                  // fg was #FECACA (light red on light-red bg = invisible)
+                  decline: { bg: '#FEE2E2', fg: '#991B1B', label: lang === 'zh' ? '建议拒绝' : 'Decline' },
                 }
                 const tc = tierColors[result.v3_tier] || tierColors.conditional
                 const cov = typeof result.evidence_coverage === 'number' ? result.evidence_coverage : null
@@ -2747,7 +2918,7 @@ export default function ScreenPage() {
                       </div>
                       {t('screen.result.stat.ratio')}
                     </div>
-                    <div><div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>{files.length}</div>{t('screen.result.stat.files')}</div>
+                    <div><div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>{result.file_count ?? files.length}</div>{t('screen.result.stat.files')}</div>
                     <div><div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>{result.court_records_detail?.queries.filter(q => q.status === 'ok').length || 0}</div>{t('screen.result.stat.courts')}</div>
                   </div>
                 )
@@ -2760,21 +2931,21 @@ export default function ScreenPage() {
               )}
             </div>
 
-            {/* Download PDF Report Button */}
+            {/* Download PDF Report Button — React state (NOT direct DOM
+                textContent mutation, which destroyed the SVG icon child) */}
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
               <button
-                onClick={async (e) => {
-                  const btn = e.currentTarget
-                  btn.disabled = true
-                  btn.textContent = lang === 'zh' ? '正在生成报告...' : 'Generating...'
+                disabled={pdfGenerating}
+                onClick={async () => {
+                  if (pdfGenerating) return
+                  setPdfGenerating(true)
                   try {
-                    await generateScreeningReport(result as any, lang as 'en' | 'zh', files.length)
+                    await generateScreeningReport(result as any, lang as 'en' | 'zh', result.file_count ?? files.length)
                   } catch (err) {
                     console.error('PDF generation failed:', err)
                     alert(lang === 'zh' ? '报告生成失败，请重试' : 'Report generation failed. Please retry.')
                   } finally {
-                    btn.disabled = false
-                    btn.textContent = lang === 'zh' ? '下载评估报告 (PDF)' : 'Download Report (PDF)'
+                    setPdfGenerating(false)
                   }
                 }}
                 style={{
@@ -2782,8 +2953,9 @@ export default function ScreenPage() {
                   padding: '10px 24px', borderRadius: 10,
                   background: '#0B1736', color: '#fff',
                   fontSize: 13, fontWeight: 600, letterSpacing: '0.02em',
-                  border: 'none', cursor: 'pointer',
-                  transition: 'background .15s, transform .1s',
+                  border: 'none', cursor: pdfGenerating ? 'wait' : 'pointer',
+                  opacity: pdfGenerating ? 0.7 : 1,
+                  transition: 'background .15s, transform .1s, opacity .15s',
                 }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#1E3A5F' }}
                 onMouseLeave={e => { e.currentTarget.style.background = '#0B1736' }}
@@ -2795,14 +2967,26 @@ export default function ScreenPage() {
                   <polyline points="7 10 12 15 17 10" />
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
-                {lang === 'zh' ? '下载评估报告 (PDF)' : 'Download Report (PDF)'}
+                {pdfGenerating
+                  ? (lang === 'zh' ? '正在生成报告…' : 'Generating…')
+                  : (lang === 'zh' ? '下载评估报告 (PDF)' : 'Download Report (PDF)')}
               </button>
             </div>
 
             {/* Summary */}
             <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
-              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: '#64748B' }}>{t('screen.result.summary')}</div>
-              <p className="sl-summary-text" style={{ fontSize: 14, lineHeight: 1.8, color: '#0B1736', margin: 0 }}>{(lang === 'zh' ? (result.summary_zh || result.summary) : (result.summary_en || result.summary))}</p>
+              <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: '#64748B', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>{t('screen.result.summary')}</span>
+                <span className="mono" style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(4, 120, 87, 0.10)', color: '#047857', border: '1px solid rgba(4, 120, 87, 0.25)', letterSpacing: '0.06em' }}>
+                  {lang === 'zh' ? 'AI 生成' : 'AI GENERATED'}
+                </span>
+              </div>
+              <TypewriterText
+                className="sl-summary-text"
+                animate={freshResult}
+                text={(lang === 'zh' ? (result.summary_zh || result.summary) : (result.summary_en || result.summary)) || ''}
+                style={{ fontSize: 14, lineHeight: 1.8, color: '#0B1736', margin: 0 }}
+              />
             </div>
 
             {/* Document Authenticity — between AI summary and category breakdown */}
@@ -3100,7 +3284,8 @@ export default function ScreenPage() {
                   {result.action_items.map((item, i) => (
                     <div key={item.id || i} style={{ padding: 12, borderRadius: 10, background: 'rgba(139, 92, 246, 0.06)', border: '1px solid rgba(139, 92, 246, 0.18)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 6 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#E9D5FF' }}>
+                        {/* was #E9D5FF — light purple, unreadable on the light card */}
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#5B21B6' }}>
                           {lang === 'zh' ? item.title_zh : item.title_en}
                         </div>
                         <span className="mono" style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: 'rgba(139, 92, 246, 0.18)', color: '#6D28D9', whiteSpace: 'nowrap' }}>

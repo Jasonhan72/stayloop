@@ -853,6 +853,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ---- Live progress -------------------------------------------------
+    // Written at each real stage boundary so the client renders ACTUAL
+    // pipeline progress instead of a canned animation. Fire-and-forget:
+    // progress writes must never block or fail the scoring pipeline.
+    const writeProgress = (stage: string, pct: number) => {
+      supabase.from('screenings')
+        .update({ progress: { stage, pct, at: new Date().toISOString() } })
+        .eq('id', screening_id)
+        .then(() => {}, () => {})
+    }
+    writeProgress('signing_files', 6)
+
     const monthlyRent = Number(screening.monthly_rent) || 0
     const monthlyIncome = Number(screening.monthly_income) || 0
     const incomeRatio = monthlyRent > 0 ? monthlyIncome / monthlyRent : 0
@@ -971,6 +983,7 @@ export async function POST(req: NextRequest) {
       anthropic_api_key: process.env.ANTHROPIC_API_KEY,
     }
 
+    writeProgress('court_and_forensics', 16)
     const [courtDetail, forensicsReport] = await Promise.all([
       runCourtRecordCheck(nameForLookup, plan),
       runForensics(forensicsInput).catch((e): ForensicsReport => ({
@@ -990,6 +1003,7 @@ export async function POST(req: NextRequest) {
       forensics_detail: forensicsReport,
       tier: (plan === 'pro' || plan === 'enterprise') ? 'pro' : 'free',
       status: 'scoring',
+      progress: { stage: 'ai_scoring', pct: 38, at: new Date().toISOString() },
     }).eq('id', screening_id)
 
     // ---- Stage 3: Build v3 Claude prompt ----
@@ -1192,6 +1206,7 @@ JSON DISCIPLINE (avoid parse errors):
     }
 
     const aiData = await response.json() as { content?: Array<{ text: string }>; stop_reason?: string }
+    writeProgress('post_processing', 72)
     const rawText = aiData.content?.[0]?.text || '{}'
     const stopReason = aiData.stop_reason || ''
 
@@ -1833,6 +1848,7 @@ JSON DISCIPLINE (avoid parse errors):
     const newNames = extractedNames.filter(n => !alreadySearched.has(n.toLowerCase()) && isValidFullName(n))
 
     if (newNames.length > 0) {
+      writeProgress('supplemental_courts', 86)
       // Insert a name separator for the primary name so the UI clearly
       // labels which group of queries belongs to which person.
       const primaryHits = courtDetail.total_hits
@@ -2014,6 +2030,7 @@ JSON DISCIPLINE (avoid parse errors):
       identity_match_score: identityMatch,
       status: 'scored',
       scored_at: new Date().toISOString(),
+      progress: { stage: 'done', pct: 100, at: new Date().toISOString() },
     }).eq('id', screening_id)
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
