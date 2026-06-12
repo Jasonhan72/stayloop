@@ -309,6 +309,11 @@ function friendlyError(raw: string, lang: string): string {
   if (m.includes('jwt') || m.includes('expired')) {
     return lang === 'zh' ? '登录已过期,请重新登录。' : 'Session expired — please sign in again.'
   }
+  if (m.includes('unexpected token') || m.includes('not valid json') || m.includes('json.parse')) {
+    return lang === 'zh'
+      ? '服务器返回了异常响应(可能正在部署或暂时过载),请稍后重试。'
+      : 'The server returned an unexpected response (possibly deploying or overloaded). Please retry shortly.'
+  }
   return raw
 }
 
@@ -322,9 +327,10 @@ function TypewriterText({ text, animate, style, className }: { text: string; ani
     if (!animate) { setShown(text.length); return }
     setShown(0)
     let i = 0
-    // ~3 chars per tick keeps even long summaries under ~4s
+    // Adaptive chunk size: ~160 ticks total (≈4s) regardless of text length
+    const chunk = Math.max(2, Math.ceil(text.length / 160))
     const id = setInterval(() => {
-      i += 3
+      i += chunk
       if (i >= text.length) { setShown(text.length); clearInterval(id) }
       else setShown(i)
     }, 24)
@@ -1614,6 +1620,9 @@ export default function ScreenPage() {
   const [progress, setProgress] = useState(0)
   // Real backend stage key (see PIPELINE_STAGES). Drives the live checklist.
   const [progressStage, setProgressStage] = useState<string>('uploading')
+  // supplemental_courts only runs when the AI extracts extra names; once
+  // seen, keep its row in the checklist so it doesn't pop out on completion.
+  const [sawSupplemental, setSawSupplemental] = useState(false)
   const [elapsedSec, setElapsedSec] = useState(0)
   // true right after a fresh analysis completes — enables the typewriter
   // reveal on the AI summary. History loads set it false (instant render).
@@ -2142,6 +2151,7 @@ export default function ScreenPage() {
     setFreshResult(false)
     setProgress(0)
     setProgressStage('uploading')
+    setSawSupplemental(false)
     const startedAt = Date.now()
     setElapsedSec(0)
 
@@ -2155,6 +2165,11 @@ export default function ScreenPage() {
     let lastStageIdx = -1
     let sawServerProgress = false
     const progressTimers: ReturnType<typeof setInterval>[] = []
+    // Elapsed ticker runs from the very start (uploads included) — the
+    // creep/poll timers only start once the scoring request is in flight.
+    progressTimers.push(setInterval(() => {
+      if (!pollStop) setElapsedSec(Math.round((Date.now() - startedAt) / 1000))
+    }, 1000))
     const startProgressTracking = (screeningId: string) => {
       const pollTimer = setInterval(async () => {
         if (pollStop) return
@@ -2173,6 +2188,7 @@ export default function ScreenPage() {
             if (idx >= lastStageIdx) {
               lastStageIdx = idx
               setProgressStage(p.stage)
+              if (p.stage === 'supplemental_courts') setSawSupplemental(true)
             }
             setProgress(prev => Math.max(prev, Math.min(p.pct, 99)))
           }
@@ -2180,7 +2196,6 @@ export default function ScreenPage() {
       }, 1100)
       const creepTimer = setInterval(() => {
         if (pollStop) return
-        setElapsedSec(Math.round((Date.now() - startedAt) / 1000))
         setProgress(prev => {
           // Cap at 12% past the last confirmed backend checkpoint. If the
           // backend never reports (older deployment without the progress
@@ -2260,6 +2275,8 @@ export default function ScreenPage() {
           if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, 1200 * (attempt + 1)))
         }
         if (!success) failedFiles.push(f.name)
+        // Real per-file upload progress across the 2→5% band
+        setProgress(2 + ((i + 1) / files.length) * 3)
       }
 
       // At least one file must have uploaded; otherwise abort
@@ -2297,9 +2314,15 @@ export default function ScreenPage() {
         body: JSON.stringify({ screening_id: screeningId }),
         signal: analysisAbortRef.current.signal,
       })
-      const data = await res.json()
+      // Guard res.json(): a 502/520 from the edge returns HTML, and the
+      // raw "Unexpected token <" parse error is useless to the user.
+      const data = await res.json().catch(() => ({} as any))
       stopProgressTracking()
-      if (!res.ok) throw new Error(data.error || 'Scoring failed')
+      if (!res.ok) throw new Error(data.error || `Scoring failed (HTTP ${res.status})`)
+      // 200 with an empty/garbled body must not render a broken report
+      if (typeof data.overall !== 'number') {
+        throw new Error(lang === 'zh' ? '评分服务返回了不完整的结果,请重试。' : 'The scoring service returned an incomplete result. Please retry.')
+      }
 
       setProgressStage('done')
       setProgress(100)
@@ -2744,9 +2767,9 @@ export default function ScreenPage() {
           const accentColor = isCourtStep ? '#8B5CF6' : '#10B981'
           const accentBg = isCourtStep ? 'rgba(139, 92, 246, 0.06)' : 'rgba(13, 148, 136, 0.04)'
           // supplemental_courts only runs when the AI extracted extra names —
-          // hide it from the checklist until the backend actually reports it.
+          // hidden until the backend reports it, then kept (no pop-out).
           const visibleStages = PIPELINE_STAGES.filter(s =>
-            s.key !== 'supplemental_courts' || progressStage === 'supplemental_courts'
+            s.key !== 'supplemental_courts' || sawSupplemental
           )
           const mm = String(Math.floor(elapsedSec / 60)).padStart(1, '0')
           const ss = String(elapsedSec % 60).padStart(2, '0')
