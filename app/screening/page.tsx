@@ -116,6 +116,7 @@ interface ScoreResult {
   evidence_coverage?: number
   sub_coverage?: Record<string, string>
   identity_match_score?: number | null
+  bank_min_balance?: number | null
   action_items?: {
     id: string
     dimension: string
@@ -1926,6 +1927,7 @@ export default function ScreenPage() {
         evidence_coverage: v3.evidence_coverage ?? data.evidence_coverage ?? undefined,
         sub_coverage: v3.sub_coverage || data.sub_coverage || {},
         identity_match_score: v3.identity_match_score ?? data.identity_match_score ?? null,
+        bank_min_balance: v3.bank_min_balance ?? data.bank_min_balance ?? null,
         action_items: v3.action_items || data.action_items || [],
         compliance_audit: v3.compliance_audit ?? data.compliance_audit ?? null,
         // Forensics — stored both as DB column and in _v3 blob
@@ -2424,6 +2426,22 @@ export default function ScreenPage() {
           .sl-summary-text { font-size: 13px !important; line-height: 1.7 !important; }
           .sl-section-title { font-size: 12px !important; }
         }
+        /* Visible field chrome — the bare inputs were indistinguishable from
+           the panel background. Warm border + inset shadow at rest, brand
+           emerald ring on focus. !important beats the global .input rules. */
+        .sl-field {
+          border: 1.5px solid #D8D2C2 !important;
+          background: #FFFFFF !important;
+          box-shadow: inset 0 1px 2px rgba(31, 25, 11, 0.05);
+          transition: border-color .15s ease, box-shadow .15s ease;
+        }
+        .sl-field:hover { border-color: #B7AE97 !important; }
+        .sl-field:focus {
+          border-color: #047857 !important;
+          box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.13) !important;
+          outline: none !important;
+        }
+        .sl-field::placeholder { color: #A8A29E; }
         @keyframes slPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.75); } }
         @keyframes slBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         details.sl-card > summary::-webkit-details-marker { display: none; }
@@ -2669,7 +2687,7 @@ export default function ScreenPage() {
                     <label style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', letterSpacing: '0.02em', marginBottom: 6, display: 'block' }}>{t('screen.form.name.label')}</label>
                     <input
                       type="text"
-                      className="input"
+                      className="input sl-field"
                       placeholder={t('screen.form.name.placeholder')}
                       value={applicantName}
                       onChange={e => setApplicantName(e.target.value)}
@@ -2689,7 +2707,7 @@ export default function ScreenPage() {
                     <label style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', letterSpacing: '0.02em', marginBottom: 6, display: 'block' }}>{t('screen.form.rent.label')}</label>
                     <input
                       type="number"
-                      className="input"
+                      className="input sl-field"
                       placeholder={t('screen.form.rent.placeholder')}
                       value={targetRent}
                       onChange={e => setTargetRent(e.target.value)}
@@ -2963,7 +2981,9 @@ export default function ScreenPage() {
                   if (pdfGenerating) return
                   setPdfGenerating(true)
                   try {
-                    await generateScreeningReport(result as any, lang as 'en' | 'zh', result.file_count ?? files.length)
+                    await generateScreeningReport(result as any, lang as 'en' | 'zh', result.file_count ?? files.length, {
+                      requestedBy: landlord?.email || undefined,
+                    })
                   } catch (err) {
                     console.error('PDF generation failed:', err)
                     alert(lang === 'zh' ? '报告生成失败，请重试' : 'Report generation failed. Please retry.')
@@ -3115,13 +3135,13 @@ export default function ScreenPage() {
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <input
                       type="text"
+                      className="sl-field"
                       value={manualEmployerName}
                       onChange={e => setManualEmployerName(e.target.value)}
                       placeholder={lang === 'zh' ? '公司全称' : 'Company name'}
                       style={{
                         flex: '1 1 200px', padding: '8px 12px', borderRadius: 8,
-                        border: '1px solid var(--border-subtle)', fontSize: 12,
-                        background: 'var(--bg-card)', color: 'var(--text-primary)',
+                        fontSize: 12, color: '#0B1736',
                       }}
                       onKeyDown={e => {
                         if (e.key === 'Enter' && manualEmployerName.trim().length >= 2) {
