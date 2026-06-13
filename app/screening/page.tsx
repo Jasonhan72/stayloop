@@ -2119,7 +2119,11 @@ export default function ScreenPage() {
     setResult(null)
     setDeepCheckResult(null)
     setProgress(0)
-    setProgressLabel('')
+    // progressLabel was replaced by the real-stage pipeline state
+    setProgressStage('uploading')
+    setSawSupplemental(false)
+    setElapsedSec(0)
+    setFreshResult(false)
     setApplicantName('')
     setTargetRent('')
     setError(null)
