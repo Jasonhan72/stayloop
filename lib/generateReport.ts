@@ -85,10 +85,27 @@ interface ScoreResult {
     all_flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string; file?: string }>
     per_file: Array<{
       file_name: string; file_kind: string
-      pdf_metadata?: { page_count: number; file_size_bytes: number; producer: string | null } | null
+      pdf_metadata?: { page_count: number; file_size_bytes: number; producer: string | null; title?: string | null; creation_date?: string | null; modification_date?: string | null } | null
+      text_density?: { chars_per_page: number; is_likely_image_pdf: boolean } | null
+      paystub_math?: {
+        extraction?: { annual_salary?: number | null; ytd_gross?: number | null; pay_date?: string | null; employer_name?: string | null } | null
+        expected_ytd_gross?: number | null
+        ytd_ratio?: number | null
+        period_math_error_pct?: number | null
+      } | null
+      source_specific?: { equifax_authentic_markers?: boolean | null; bank_producer_whitelisted?: boolean | null; matched_bank?: string | null } | null
       flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string }>
     }>
     cross_doc_flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string }>
+    cross_doc?: {
+      entities?: {
+        names?: Array<{ value: string } | string>
+        phones?: Array<{ value: string } | string>
+        emails?: Array<{ value: string } | string>
+        addresses?: Array<{ value: string } | string>
+        employers?: Array<{ value: string } | string>
+      }
+    } | null
   } | null
   forensics_zeroed_dims?: string[]
   tier_reason?: string
@@ -240,8 +257,37 @@ export async function generateScreeningReport(
     <div class="kv"><span class="k">${zh ? '申请人姓名' : 'Name'}:</span><span class="v" style="font-weight:700">${esc(result.extracted_name || '—')}</span>${result.name_was_extracted ? `<span style="font-size:9px;color:#94A3B8;margin-left:6px">${zh ? '(AI 从文件提取)' : '(AI-extracted from documents)'}</span>` : ''}</div>
     <div class="kv"><span class="k">${zh ? '法院查询姓名' : 'Court search name'}:</span><span class="v">${esc(queriedName)}</span></div>
     <div class="kv"><span class="k">${zh ? '目标月租金' : 'Target rent'}:</span><span class="v">${result.monthly_rent ? '$' + result.monthly_rent.toLocaleString() + ' CAD' : '—'}</span></div>
-    <div class="kv"><span class="k">${zh ? '提交文件' : 'Documents'}:</span><span class="v">${filesCount} ${zh ? '份' : 'file(s)'}${(result.detected_document_kinds || []).length ? ' — ' + esc((result.detected_document_kinds || []).join(', ')) : ''}</span></div>
-  </div>`
+    <div class="kv"><span class="k">${zh ? '提交文件' : 'Documents'}:</span><span class="v">${filesCount} ${zh ? '份' : 'file(s)'}${(result.detected_document_kinds || []).length ? ' — ' + esc((result.detected_document_kinds || []).join(', ')) : ''}</span></div>`
+
+  // Full extracted entities — ALL distinct names/phones/emails/addresses/
+  // employers from forensics cross-doc extraction (multi-applicant households
+  // surface every earner). De-duped, real data only.
+  {
+    const ents = result.forensics_detail?.cross_doc?.entities
+    const allVals = (arr?: Array<{ value: string } | string>): string[] => {
+      if (!Array.isArray(arr)) return []
+      const seen = new Set<string>(); const out: string[] = []
+      for (const it of arr) {
+        const v = (typeof it === 'string' ? it : it?.value || '').trim()
+        if (v && !seen.has(v.toLowerCase())) { seen.add(v.toLowerCase()); out.push(v) }
+      }
+      return out.slice(0, 6)
+    }
+    const nm = allVals(ents?.names), ph = allVals(ents?.phones), em = allVals(ents?.emails), ad = allVals(ents?.addresses), ep = allVals(ents?.employers)
+    if (nm.length || ph.length || em.length || ad.length || ep.length) {
+      const row = (label: string, vals: string[]) => vals.length
+        ? `<div class="kv"><span class="k">${label}:</span><span class="v">${vals.map(v => esc(v)).join('&nbsp;·&nbsp; ')}</span></div>` : ''
+      html += `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #E2E8F0">
+        <div style="font-size:10px;font-weight:600;color:#64748B;margin-bottom:4px">${zh ? '从文件中提取的联系/身份/雇主信息' : 'Contact / identity / employer details extracted from documents'}</div>`
+      html += row(zh ? '检测到的姓名' : 'Names detected', nm)
+      html += row(zh ? '雇主' : 'Employer(s)', ep)
+      html += row(zh ? '地址' : 'Address(es)', ad)
+      html += row(zh ? '电话' : 'Phone(s)', ph)
+      html += row(zh ? '邮箱' : 'Email(s)', em)
+      html += `</div>`
+    }
+  }
+  html += `</div>`
 
   // ── 1. Overall Score + visual band strip ──
   html += `<div class="score-box">
@@ -451,6 +497,32 @@ export async function generateScreeningReport(
       html += `<tr><td style="font-weight:600">${zh ? '银行流水最低余额' : 'Minimum bank balance observed'}</td><td style="text-align:right">$${result.bank_min_balance.toLocaleString()}</td><td>${zh ? '来自银行对账单分析' : 'From bank statement analysis'}</td></tr>`
     }
     html += `</table>`
+
+    // Per-source income verification — structured paystub math from forensics,
+    // so each pay/employment document's stated salary and YTD consistency is
+    // shown individually (multi-applicant households surface each earner).
+    const paystubFiles = (result.forensics_detail?.per_file || []).filter(pf =>
+      pf.paystub_math && (pf.paystub_math.extraction?.annual_salary || pf.paystub_math.extraction?.ytd_gross || typeof pf.paystub_math.ytd_ratio === 'number'))
+    if (paystubFiles.length > 0) {
+      html += `<div style="font-size:11px;font-weight:700;color:#0B1736;margin:12px 0 6px">${zh ? '收入来源核验明细' : 'Income Source Verification'}</div>
+      <table>
+        <tr><th>${zh ? '来源文件' : 'Source document'}</th><th>${zh ? '雇主' : 'Employer'}</th><th style="width:90px;text-align:right">${zh ? '声明年薪' : 'Annual salary'}</th><th style="width:95px;text-align:center">${zh ? 'YTD 一致性' : 'YTD consistency'}</th></tr>`
+      for (const pf of paystubFiles) {
+        const ps = pf.paystub_math!
+        const r = ps.ytd_ratio
+        const rOk = typeof r === 'number' && r >= 0.5 && r <= 1.5
+        const rTxt = typeof r === 'number' ? `${r.toFixed(2)}× ${rOk ? (zh ? '✓ 合理' : '✓ OK') : (zh ? '⚠ 偏离' : '⚠ off')}` : '—'
+        const rColor = typeof r !== 'number' ? '#64748B' : rOk ? '#16A34A' : '#DC2626'
+        html += `<tr>
+          <td style="word-break:break-all;font-size:9.5px">${esc(pf.file_name)}</td>
+          <td>${esc(ps.extraction?.employer_name || (zh ? '未注明' : 'Not stated'))}</td>
+          <td style="text-align:right;font-weight:600">${ps.extraction?.annual_salary ? '$' + Math.round(ps.extraction.annual_salary).toLocaleString() : '—'}</td>
+          <td style="text-align:center;color:${rColor};font-weight:600;font-size:9.5px">${rTxt}</td>
+        </tr>`
+      }
+      html += `</table>
+      <div style="font-size:9px;color:#94A3B8;margin-top:3px">${zh ? 'YTD 一致性 = 工资单年初至今总额 ÷ 按声明年薪推算的预期值。接近 1.0 表示文件内部自洽。' : 'YTD consistency = stated year-to-date gross ÷ expected from annual salary. Near 1.0 = internally consistent.'}</div>`
+    }
   }
 
   // ── 3.8 Credit Bureau (transcribed from an uploaded credit report) ──
@@ -540,29 +612,47 @@ export async function generateScreeningReport(
     html += `<h2>${zh ? '文件取证分析' : 'Document Forensics'}</h2>
     <div class="kv"><span class="k">${zh ? '取证结论' : 'Verdict'}:</span><span class="v" style="font-weight:700;color:${sv.color}">${sv.text}</span></div>`
 
-    // Documents-reviewed table (FrontLobby-style evidence inventory):
-    // every analyzed file with its per-file forensic verdict.
+    // Per-file evidence cards — every analyzed file expanded with ALL real
+    // forensic measurements: PDF metadata, text density, paystub math, bank /
+    // Equifax markers, and every flag. The depth competitors show per credit
+    // account, built from our deterministic forensics output.
     if (fd.per_file && fd.per_file.length > 0) {
-      html += `<table style="margin-top:6px">
-        <tr><th>${zh ? '文件名' : 'File'}</th><th style="width:110px">${zh ? '识别类型' : 'Detected type'}</th><th style="width:80px;text-align:center">${zh ? '页数/大小' : 'Pages / Size'}</th><th style="width:90px;text-align:center">${zh ? '取证结果' : 'Verdict'}</th></tr>`
+      const money = (n: number | null | undefined) => (typeof n === 'number' ? '$' + Math.round(n).toLocaleString() : '—')
+      html += `<div style="font-size:10px;color:#64748B;margin:6px 0 8px">${zh ? `逐文件取证明细 · 共 ${fd.per_file.length} 份文件` : `Per-document forensic detail · ${fd.per_file.length} file(s)`}</div>`
       for (const pf of fd.per_file) {
         const worst = pf.flags.reduce((acc, f) =>
           f.severity === 'critical' || f.severity === 'high' ? 'bad' : (acc === 'bad' ? 'bad' : f.severity === 'medium' ? 'warn' : acc), 'clean' as 'clean' | 'warn' | 'bad')
         const vColor = worst === 'bad' ? '#DC2626' : worst === 'warn' ? '#D97706' : '#16A34A'
-        const vText = pf.flags.length === 0
-          ? (zh ? '✓ 无异常' : '✓ Clean')
-          : `${worst === 'bad' ? '✗' : '⚠'} ${pf.flags.length} ${zh ? '项' : 'flag(s)'}`
-        const meta = pf.pdf_metadata
-          ? `${pf.pdf_metadata.page_count}p · ${Math.round(pf.pdf_metadata.file_size_bytes / 1024)}KB`
-          : '—'
-        html += `<tr>
-          <td style="word-break:break-all">${esc(pf.file_name)}</td>
-          <td style="font-family:monospace;font-size:9px">${esc(pf.file_kind)}</td>
-          <td style="text-align:center;font-size:9px">${meta}</td>
-          <td style="text-align:center;color:${vColor};font-weight:700">${vText}</td>
-        </tr>`
+        const vText = pf.flags.length === 0 ? (zh ? '✓ 无异常' : '✓ Clean') : `${worst === 'bad' ? '✗' : '⚠'} ${pf.flags.length} ${zh ? '项发现' : 'flag(s)'}`
+        const m = pf.pdf_metadata, ps = pf.paystub_math, ss = pf.source_specific
+        const facts: Array<[string, string]> = []
+        if (m) facts.push([zh ? '页数 / 大小' : 'Pages / Size', `${m.page_count}p · ${Math.round(m.file_size_bytes / 1024)}KB`])
+        if (m?.producer) facts.push([zh ? 'PDF 生成工具' : 'PDF Producer', m.producer])
+        if (m?.title) facts.push([zh ? '内嵌标题' : 'Embedded Title', m.title])
+        if (m?.creation_date) facts.push([zh ? '创建时间' : 'Created', m.creation_date])
+        if (m?.modification_date && m.modification_date !== m.creation_date) facts.push([zh ? '最后修改' : 'Last Modified', m.modification_date])
+        if (pf.text_density) facts.push([zh ? '文字密度' : 'Text Density', `${pf.text_density.chars_per_page} ${zh ? '字符/页' : 'chars/pg'}${pf.text_density.is_likely_image_pdf ? (zh ? ' · ⚠ 疑似图片型 PDF' : ' · ⚠ likely image-only') : ''}`])
+        if (ps?.extraction?.employer_name) facts.push([zh ? '雇主(文件内)' : 'Employer (on doc)', ps.extraction.employer_name])
+        if (ps?.extraction?.annual_salary) facts.push([zh ? '声明年薪' : 'Stated Annual Salary', money(ps.extraction.annual_salary)])
+        if (ps?.extraction?.ytd_gross) facts.push([zh ? '声明 YTD 总收入' : 'Stated YTD Gross', money(ps.extraction.ytd_gross)])
+        if (ps?.expected_ytd_gross) facts.push([zh ? '预期 YTD(按薪资推算)' : 'Expected YTD', money(ps.expected_ytd_gross)])
+        if (typeof ps?.ytd_ratio === 'number') {
+          const rOk = ps.ytd_ratio >= 0.5 && ps.ytd_ratio <= 1.5
+          facts.push([zh ? 'YTD 实际/预期比' : 'YTD Actual/Expected', `${ps.ytd_ratio.toFixed(2)}× ${rOk ? (zh ? '✓ 合理' : '✓ consistent') : (zh ? '⚠ 偏离' : '⚠ off')}`])
+        }
+        if (typeof ps?.period_math_error_pct === 'number') facts.push([zh ? '周期数学误差' : 'Period Math Error', `${(ps.period_math_error_pct * 100).toFixed(1)}%`])
+        if (ss?.matched_bank) facts.push([zh ? '识别银行' : 'Matched Bank', `${ss.matched_bank}${ss.bank_producer_whitelisted ? ' ✓' : (zh ? ' ⚠ 生成工具不符' : ' ⚠ producer mismatch')}`])
+        if (ss?.equifax_authentic_markers != null) facts.push([zh ? 'Equifax 真伪标记' : 'Equifax Markers', ss.equifax_authentic_markers ? (zh ? '✓ 已找到' : '✓ found') : (zh ? '⚠ 未找到' : '⚠ missing')])
+        html += `<div class="card" style="border-left:3px solid ${vColor}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">
+            <div><span style="font-weight:700;font-size:11px;word-break:break-all">${esc(pf.file_name)}</span>
+              <span style="font-family:monospace;font-size:9px;color:#64748B;margin-left:6px">${esc(pf.file_kind)}</span></div>
+            <span style="font-size:10px;font-weight:700;color:${vColor};white-space:nowrap">${vText}</span>
+          </div>`
+        if (facts.length) html += `<table style="margin:4px 0"><tbody>${facts.map(([k, v]) => `<tr><td style="width:42%;color:#64748B;font-size:9.5px">${esc(k)}</td><td style="font-size:9.5px;font-family:monospace">${esc(v)}</td></tr>`).join('')}</tbody></table>`
+        for (const f of pf.flags) html += `<div style="margin-top:4px;font-size:10px;line-height:1.5"><span class="flag-badge" style="background:${sevColor(f.severity)}">${zh ? ({ critical: '严重', high: '高', medium: '中', low: '低' }[f.severity] || f.severity) : f.severity.toUpperCase()}</span>${esc(zh ? f.evidence_zh : f.evidence_en)}</div>`
+        html += `</div>`
       }
-      html += `</table>`
     }
 
     if (fd.all_flags.length > 0) {
