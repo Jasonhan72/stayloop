@@ -1114,6 +1114,7 @@ EXTRACT these fields too:
 - detected_document_kinds (subset of [lease, employment_letter, pay_stub, bank_statement, id_document, credit_report, offer_letter, reference, other])
 - bank_min_balance (number or null) — if bank statements present, lowest closing balance seen
 - identity_match_score (0-100) — cross-doc name/DOB/address consistency; if only 1 doc, return null
+- credit_report: TRANSCRIBE (do not invent) the uploaded consumer credit report. Set present=false and leave all other fields null/empty if NO genuine credit report was uploaded or it is illegible. When present: read the score, bureau, and report date; list every tradeline (up to 20), every collection, every bankruptcy/insolvency, and recent inquiries (up to 12) EXACTLY as printed. Copy dollar amounts and dates verbatim; use null for any field not legible. NEVER fabricate accounts or a score. If the document is a fake/edited credit report, still transcribe what is shown but ALSO trigger the credit_report_ai_judged_fake flag.
 
 SPEED RULES — output length is the main latency driver. Stay extremely lean:
 - details_en / details_zh: 5 entries each. ≤10 English words per entry. ≤15 Chinese chars per entry. Cite one specific piece of evidence.
@@ -1131,6 +1132,7 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble.
  "detected_document_kinds":["..."],
  "bank_min_balance":<number or null>,
  "identity_match_score":<0-100 or null>,
+ "credit_report":{"present":<true ONLY if a GENUINE consumer credit report (Equifax/TransUnion/SingleKey/FrontLobby/Borrowell) was uploaded; else false>,"bureau":"Equifax|TransUnion|Dual|other|null","credit_score":<300-900 integer or null>,"score_band":"Poor|Fair|Good|Very Good|Excellent|null","report_date":"YYYY-MM-DD or as shown or null","tradelines":[{"creditor":"","type":"Revolving|Installment|Open|Mortgage|Lease|other","date_opened":"","balance":<number or null>,"high_credit":<number or null>,"past_due":<number or null>,"payment_status":"","late_30_60_90":"0/0/0"}],"collections":[{"creditor":"","date_assigned":"","original_amount":<number or null>,"balance":<number or null>}],"bankruptcies":[{"date_filed":"","type":"","amount":<number or null>,"disposition":""}],"inquiries":[{"date":"","creditor":""}],"total_debt":<number or null>,"monthly_debt_payments":<number or null>},
  "scores":{"ability_to_pay":<0-100>,"credit_health":<0-100>,"rental_history":<0-100>,"verification":<0-100>,"communication":<0-100>},
  "sub_coverage":{"only_non_measured_keys":"action_pending|missing"},
  "details_en":{"ability_to_pay":"","credit_health":"","rental_history":"","verification":"","communication":""},
@@ -1189,7 +1191,10 @@ JSON DISCIPLINE (avoid parse errors):
         // on details/flags/action_items) the full output fits comfortably
         // under 2000 tokens. 3500 gives 75% headroom without wasting
         // decode time on excessive budget.
-        max_tokens: 3500,
+        // Lean v3 output is ~2k tokens, but transcribing a full credit
+        // report (tradelines + collections + inquiries) can add several k,
+        // so give generous headroom to avoid mid-report truncation.
+        max_tokens: 6000,
         system: [
           { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
         ],
@@ -1950,6 +1955,40 @@ JSON DISCIPLINE (avoid parse errors):
     const effectiveIncome = detectedIncome ?? (monthlyIncome > 0 ? monthlyIncome : null)
     const computedRatio = (effectiveIncome && monthlyRent > 0) ? effectiveIncome / monthlyRent : null
 
+    // Structured credit-report data the AI transcribed from an uploaded
+    // credit report. Retained ONLY when present===true AND a credit_report
+    // document was actually detected — defense against hallucinated bureau
+    // data when no real report was provided.
+    const creditReport = (() => {
+      const cr: any = (parsed as any).credit_report
+      const hasCreditDoc = (Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds : []).includes('credit_report')
+      if (!cr || cr.present !== true || !hasCreditDoc) return null
+      const num = (v: any) => (typeof v === 'number' && isFinite(v) ? v : null)
+      const arr = (a: any) => (Array.isArray(a) ? a : [])
+      const str = (v: any) => (typeof v === 'string' ? v : '')
+      return {
+        bureau: typeof cr.bureau === 'string' ? cr.bureau : null,
+        credit_score: num(cr.credit_score),
+        score_band: typeof cr.score_band === 'string' ? cr.score_band : null,
+        report_date: typeof cr.report_date === 'string' ? cr.report_date : null,
+        tradelines: arr(cr.tradelines).slice(0, 25).map((t: any) => ({
+          creditor: str(t?.creditor), type: str(t?.type), date_opened: str(t?.date_opened),
+          balance: num(t?.balance), high_credit: num(t?.high_credit), past_due: num(t?.past_due),
+          payment_status: str(t?.payment_status), late_30_60_90: str(t?.late_30_60_90),
+        })),
+        collections: arr(cr.collections).slice(0, 15).map((c: any) => ({
+          creditor: str(c?.creditor), date_assigned: str(c?.date_assigned),
+          original_amount: num(c?.original_amount), balance: num(c?.balance),
+        })),
+        bankruptcies: arr(cr.bankruptcies).slice(0, 10).map((b: any) => ({
+          date_filed: str(b?.date_filed), type: str(b?.type), amount: num(b?.amount), disposition: str(b?.disposition),
+        })),
+        inquiries: arr(cr.inquiries).slice(0, 15).map((i: any) => ({ date: str(i?.date), creditor: str(i?.creditor) })),
+        total_debt: num(cr.total_debt),
+        monthly_debt_payments: num(cr.monthly_debt_payments),
+      }
+    })()
+
     // Pack the full v3 payload into ai_dimension_notes._v3
     const mergedNotes: Record<string, any> = {
       _v3: {
@@ -1989,6 +2028,7 @@ JSON DISCIPLINE (avoid parse errors):
         extracted_name: finalExtractedName,
         extracted_names: extractedNames,
         legacy_scores: legacy,
+        credit_report: creditReport,
       },
       _details_en: parsed.details_en,
       _details_zh: parsed.details_zh,
@@ -2065,6 +2105,7 @@ JSON DISCIPLINE (avoid parse errors):
       income_evidence: parsed.income_evidence || null,
       bank_min_balance: typeof parsed.bank_min_balance === 'number' ? parsed.bank_min_balance : null,
       identity_match_score: identityMatch,
+      credit_report: creditReport,
       monthly_rent: monthlyRent || null,
       income_rent_ratio: computedRatio,
       extracted_name: finalExtractedName,

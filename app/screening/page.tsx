@@ -117,6 +117,20 @@ interface ScoreResult {
   sub_coverage?: Record<string, string>
   identity_match_score?: number | null
   bank_min_balance?: number | null
+  // Structured credit-report data transcribed from an uploaded credit report
+  // (null when none uploaded). Rendered in the downloadable PDF report.
+  credit_report?: {
+    bureau?: string | null
+    credit_score?: number | null
+    score_band?: string | null
+    report_date?: string | null
+    tradelines?: Array<{ creditor: string; type: string; date_opened: string; balance: number | null; high_credit: number | null; past_due: number | null; payment_status: string; late_30_60_90: string }>
+    collections?: Array<{ creditor: string; date_assigned: string; original_amount: number | null; balance: number | null }>
+    bankruptcies?: Array<{ date_filed: string; type: string; amount: number | null; disposition: string }>
+    inquiries?: Array<{ date: string; creditor: string }>
+    total_debt?: number | null
+    monthly_debt_payments?: number | null
+  } | null
   action_items?: {
     id: string
     dimension: string
@@ -1928,6 +1942,7 @@ export default function ScreenPage() {
         sub_coverage: v3.sub_coverage || data.sub_coverage || {},
         identity_match_score: v3.identity_match_score ?? data.identity_match_score ?? null,
         bank_min_balance: v3.bank_min_balance ?? data.bank_min_balance ?? null,
+        credit_report: v3.credit_report ?? null,
         action_items: v3.action_items || data.action_items || [],
         compliance_audit: v3.compliance_audit ?? data.compliance_audit ?? null,
         // Forensics — stored both as DB column and in _v3 blob

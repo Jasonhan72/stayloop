@@ -94,6 +94,18 @@ interface ScoreResult {
   tier_reason?: string
   identity_match_score?: number | null
   bank_min_balance?: number | null
+  credit_report?: {
+    bureau?: string | null
+    credit_score?: number | null
+    score_band?: string | null
+    report_date?: string | null
+    tradelines?: Array<{ creditor: string; type: string; date_opened: string; balance: number | null; high_credit: number | null; past_due: number | null; payment_status: string; late_30_60_90: string }>
+    collections?: Array<{ creditor: string; date_assigned: string; original_amount: number | null; balance: number | null }>
+    bankruptcies?: Array<{ date_filed: string; type: string; amount: number | null; disposition: string }>
+    inquiries?: Array<{ date: string; creditor: string }>
+    total_debt?: number | null
+    monthly_debt_payments?: number | null
+  } | null
   deep_check_result?: {
     checks: Array<{
       employer_name: string
@@ -344,6 +356,50 @@ export async function generateScreeningReport(
     </tr>`).join('')}
   </table>`
 
+  // ── 1.6 Recommendation box — synthesizes the decision prominently ──
+  if (result.v3_tier) {
+    const recMap: Record<string, { label: string; color: string; bg: string; border: string; icon: string }> = {
+      approve: { label: zh ? '建议通过' : 'Approve', color: '#15803D', bg: '#F0FDF4', border: '#86EFAC', icon: '✓' },
+      conditional: { label: zh ? '附条件通过' : 'Approve with Conditions', color: '#B45309', bg: '#FFFBEB', border: '#FCD34D', icon: '!' },
+      decline: { label: zh ? '建议拒绝' : 'Decline', color: '#B91C1C', bg: '#FEF2F2', border: '#FCA5A5', icon: '✕' },
+    }
+    const rec = recMap[result.v3_tier] || recMap.conditional
+    html += `<div style="display:flex;gap:12px;align-items:flex-start;border:1px solid ${rec.border};border-left:5px solid ${rec.color};border-radius:8px;background:${rec.bg};padding:12px 16px;margin:14px 0">
+      <span style="font-size:20px;color:${rec.color};font-weight:800;line-height:1.2">${rec.icon}</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;color:${rec.color}">${zh ? '建议' : 'Recommendation'}: ${rec.label}</div>
+        ${result.tier_reason ? `<div style="font-size:11px;color:#475569;margin-top:3px;line-height:1.6">${esc(result.tier_reason)}</div>` : ''}
+        ${result.action_items && result.action_items.length > 0 ? `<div style="font-size:10px;color:#64748B;margin-top:5px">${zh ? '完成下方"待办核实清单"中的事项可进一步降低风险。' : 'Completing the Action Items below further reduces risk.'}</div>` : ''}
+      </div>
+    </div>`
+  }
+
+  // ── 1.7 Document completeness matrix — what was provided vs recommended ──
+  {
+    const provided = new Set(result.detected_document_kinds || [])
+    const recommended: Array<{ key: string; zh: string; en: string }> = [
+      { key: 'id_document', zh: '身份证件', en: 'Government ID' },
+      { key: 'pay_stub', zh: '工资单', en: 'Pay Stubs' },
+      { key: 'employment_letter', zh: '雇佣信', en: 'Employment Letter' },
+      { key: 'bank_statement', zh: '银行流水', en: 'Bank Statements' },
+      { key: 'credit_report', zh: '信用报告', en: 'Credit Report' },
+      { key: 'reference', zh: '推荐信 / 前房东', en: 'Reference / Prior Landlord' },
+    ]
+    const have = recommended.filter(r => provided.has(r.key)).length
+    html += `<h2>${zh ? '文件完整度' : 'Document Completeness'}</h2>
+    <div style="font-size:10px;color:#64748B;margin-bottom:6px">${zh ? `已提供 ${have} / ${recommended.length} 类推荐文件` : `${have} of ${recommended.length} recommended document types provided`}</div>
+    <table><tr><th style="width:30px;text-align:center"></th><th>${zh ? '推荐文件类型' : 'Recommended document'}</th><th style="width:90px;text-align:center">${zh ? '状态' : 'Status'}</th></tr>`
+    for (const r of recommended) {
+      const ok = provided.has(r.key)
+      html += `<tr>
+        <td style="text-align:center;background:${ok ? '#F0FDF4' : '#F8FAFC'};color:${ok ? '#16A34A' : '#CBD5E1'};font-weight:800">${ok ? '✓' : '—'}</td>
+        <td style="background:${ok ? '#F0FDF4' : '#F8FAFC'};font-weight:${ok ? 600 : 400};color:${ok ? '#0B1736' : '#94A3B8'}">${zh ? r.zh : r.en}</td>
+        <td style="text-align:center;background:${ok ? '#F0FDF4' : '#F8FAFC'};color:${ok ? '#15803D' : '#94A3B8'};font-size:10px;font-weight:600">${ok ? (zh ? '已提供' : 'Provided') : (zh ? '未提供' : 'Missing')}</td>
+      </tr>`
+    }
+    html += `</table>`
+  }
+
   // ── 2. Summary ──
   html += `<h2>${zh ? 'AI 评估摘要' : 'AI Assessment Summary'}</h2>`
   const summary = zh ? (result.summary_zh || result.summary) : (result.summary_en || result.summary)
@@ -395,6 +451,80 @@ export async function generateScreeningReport(
       html += `<tr><td style="font-weight:600">${zh ? '银行流水最低余额' : 'Minimum bank balance observed'}</td><td style="text-align:right">$${result.bank_min_balance.toLocaleString()}</td><td>${zh ? '来自银行对账单分析' : 'From bank statement analysis'}</td></tr>`
     }
     html += `</table>`
+  }
+
+  // ── 3.8 Credit Bureau (transcribed from an uploaded credit report) ──
+  // Rendered ONLY when the applicant uploaded a real credit report and the
+  // AI transcribed it. All figures are copied from that document — Stayloop
+  // does not pull bureau data directly.
+  const cr = result.credit_report
+  if (cr && (cr.credit_score != null || (cr.tradelines && cr.tradelines.length > 0) || (cr.collections && cr.collections.length) || (cr.bankruptcies && cr.bankruptcies.length))) {
+    const money = (n: number | null | undefined) => (typeof n === 'number' ? '$' + Math.round(n).toLocaleString() : '—')
+    // Credit score band → color (Canadian 300-900 scale)
+    const sc = cr.credit_score
+    const scColor = sc == null ? '#64748B' : sc >= 760 ? '#16A34A' : sc >= 725 ? '#65A30D' : sc >= 660 ? '#A16207' : sc >= 560 ? '#C2410C' : '#DC2626'
+    html += `<h2>${zh ? '信用报告（来自上传文件）' : 'Credit Report (from uploaded document)'}</h2>`
+    html += `<div style="display:flex;gap:14px;align-items:center;border:1px solid #E2E8F0;border-radius:10px;padding:14px;margin-bottom:10px">`
+    if (sc != null) {
+      const pct = Math.max(0, Math.min(100, ((sc - 300) / 600) * 100))
+      html += `<div style="text-align:center;flex-shrink:0">
+        <svg width="120" height="68" viewBox="0 0 120 68"><path d="M 14 56 A 46 46 0 0 1 106 56" fill="none" stroke="#E2E8F0" stroke-width="9" stroke-linecap="round"/><path d="M 14 56 A 46 46 0 0 1 106 56" fill="none" stroke="${scColor}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${(Math.PI * 46).toFixed(1)}" stroke-dashoffset="${(Math.PI * 46 * (1 - pct / 100)).toFixed(1)}"/><text x="60" y="50" text-anchor="middle" font-size="22" font-weight="800" fill="${scColor}">${sc}</text></svg>
+        <div style="font-size:9px;color:#64748B">${esc(cr.score_band || '')} · 300–900</div>
+      </div>`
+    }
+    html += `<div style="flex:1">
+      <div class="kv"><span class="k">${zh ? '信用局' : 'Bureau'}:</span><span class="v">${esc(cr.bureau || (zh ? '未注明' : 'Not stated'))}</span></div>
+      ${cr.report_date ? `<div class="kv"><span class="k">${zh ? '报告日期' : 'Report date'}:</span><span class="v">${esc(cr.report_date)}</span></div>` : ''}
+      ${cr.total_debt != null ? `<div class="kv"><span class="k">${zh ? '总负债' : 'Total debt'}:</span><span class="v" style="font-weight:600">${money(cr.total_debt)}</span></div>` : ''}
+      ${cr.monthly_debt_payments != null ? `<div class="kv"><span class="k">${zh ? '每月还款' : 'Monthly debt pmts'}:</span><span class="v">${money(cr.monthly_debt_payments)}</span></div>` : ''}
+    </div></div>`
+
+    // Tradelines (credit accounts)
+    const tl = cr.tradelines || []
+    if (tl.length > 0) {
+      html += `<div style="font-size:11px;font-weight:700;color:#0B1736;margin:10px 0 5px">${zh ? '信用账户（Tradelines）' : 'Credit Accounts (Tradelines)'} · ${tl.length}</div>
+      <table>
+        <tr><th>${zh ? '债权人' : 'Creditor'}</th><th style="width:70px">${zh ? '类型' : 'Type'}</th><th style="width:70px">${zh ? '开户' : 'Opened'}</th><th style="width:75px;text-align:right">${zh ? '余额' : 'Balance'}</th><th style="width:60px;text-align:right">${zh ? '逾期' : 'Past due'}</th><th style="width:55px;text-align:center">30/60/90</th><th>${zh ? '状态' : 'Status'}</th></tr>`
+      for (const t of tl) {
+        const late = (t.late_30_60_90 && t.late_30_60_90 !== '0/0/0') ? '#DC2626' : '#64748B'
+        const pd = (t.past_due ?? 0) > 0 ? '#DC2626' : '#334155'
+        html += `<tr>
+          <td style="font-weight:600">${esc(t.creditor)}</td>
+          <td style="font-size:9px">${esc(t.type)}</td>
+          <td style="font-size:9px">${esc(t.date_opened)}</td>
+          <td style="text-align:right">${money(t.balance)}</td>
+          <td style="text-align:right;color:${pd};font-weight:${(t.past_due ?? 0) > 0 ? 700 : 400}">${money(t.past_due)}</td>
+          <td style="text-align:center;font-size:9px;color:${late};font-weight:${late === '#DC2626' ? 700 : 400}">${esc(t.late_30_60_90 || '—')}</td>
+          <td style="font-size:9px">${esc(t.payment_status)}</td>
+        </tr>`
+      }
+      html += `</table>`
+    }
+    // Collections
+    const col = cr.collections || []
+    if (col.length > 0) {
+      html += `<div style="font-size:11px;font-weight:700;color:#B91C1C;margin:10px 0 5px">${zh ? '催收记录' : 'Collections'} · ${col.length}</div>
+      <table><tr><th>${zh ? '债权人' : 'Creditor'}</th><th style="width:90px">${zh ? '移交日期' : 'Date assigned'}</th><th style="width:90px;text-align:right">${zh ? '原始金额' : 'Original'}</th><th style="width:90px;text-align:right">${zh ? '余额' : 'Balance'}</th></tr>`
+      for (const c of col) html += `<tr><td>${esc(c.creditor)}</td><td style="font-size:9px">${esc(c.date_assigned)}</td><td style="text-align:right">${money(c.original_amount)}</td><td style="text-align:right;color:#B91C1C;font-weight:600">${money(c.balance)}</td></tr>`
+      html += `</table>`
+    }
+    // Bankruptcies / insolvency
+    const bk = cr.bankruptcies || []
+    if (bk.length > 0) {
+      html += `<div style="font-size:11px;font-weight:700;color:#B91C1C;margin:10px 0 5px">${zh ? '破产 / 无力偿债' : 'Bankruptcies / Insolvency'} · ${bk.length}</div>
+      <table><tr><th style="width:90px">${zh ? '申报日期' : 'Date filed'}</th><th>${zh ? '类型' : 'Type'}</th><th style="width:90px;text-align:right">${zh ? '金额' : 'Amount'}</th><th style="width:100px">${zh ? '处置' : 'Disposition'}</th></tr>`
+      for (const b of bk) html += `<tr><td style="font-size:9px">${esc(b.date_filed)}</td><td>${esc(b.type)}</td><td style="text-align:right">${money(b.amount)}</td><td>${esc(b.disposition)}</td></tr>`
+      html += `</table>`
+    }
+    // Recent inquiries
+    const iq = cr.inquiries || []
+    if (iq.length > 0) {
+      html += `<div style="font-size:11px;font-weight:700;color:#0B1736;margin:10px 0 5px">${zh ? '近期信用查询' : 'Recent Credit Inquiries'} · ${iq.length}</div>
+      <table><tr><th style="width:100px">${zh ? '日期' : 'Date'}</th><th>${zh ? '查询机构' : 'Inquirer'}</th></tr>`
+      for (const i of iq) html += `<tr><td style="font-size:9px">${esc(i.date)}</td><td>${esc(i.creditor)}</td></tr>`
+      html += `</table>`
+    }
+    html += `<div style="font-size:9px;color:#94A3B8;margin-top:4px;font-style:italic">${zh ? '以上数据由 AI 从申请人上传的信用报告转录,请与原件核对。Stayloop 不直接对接信用局。' : 'Transcribed by AI from the uploaded credit report — verify against the original. Stayloop does not pull bureau data directly.'}</div>`
   }
 
   // ── 4. Document Forensics ──
