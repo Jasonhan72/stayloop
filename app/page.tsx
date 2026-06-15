@@ -67,14 +67,21 @@ export default function HomePage() {
       {/* ===== 01 · WHY AI-NATIVE ===== */}
       <Section n="01" kicker="为什么是 AI-NATIVE" title={<>现在开始,租房的事,<br />交给你的 AI agent 来处理。</>}
         lead="你不用研究怎么用这个平台。每个人都有自己的 AI agent —— 租客的 Luna、房东的 Logic。把要的告诉它,找房、尽调、申请、起草租约,它从头跟到尾;你只在关键处拍板。">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {PILLARS.map((p) => (
-            <div key={p.n} className="sl-card p-6">
-              <div className="font-mono text-[12px] font-bold text-brand">{p.n}</div>
-              <h4 className="mt-2 text-[16px] font-bold leading-snug">{p.h}</h4>
-              <p className="mt-2 text-[13px] leading-relaxed text-body-2">{p.b}</p>
-            </div>
-          ))}
+        <div className="grid items-start gap-10 lg:grid-cols-[1fr_minmax(380px,440px)]">
+          {/* Left — pillars as a vertical numbered list (matches V5.3 design) */}
+          <div className="space-y-6">
+            {PILLARS.map((p) => (
+              <div key={p.n} className="flex gap-4">
+                <div className="font-mono text-[13px] font-bold text-brand">{p.n}</div>
+                <div>
+                  <h4 className="text-[16px] font-bold leading-snug">{p.h}</h4>
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-body-2">{p.b}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Right — Luna chat demo (dark panel, matches V5.3 design) */}
+          <LunaChatDemo />
         </div>
       </Section>
 
@@ -245,6 +252,75 @@ function Section({ n, kicker, title, lead, children, tint }: {
         <div className="mt-9">{children}</div>
       </div>
     </section>
+  )
+}
+
+function LunaChatDemo() {
+  const LISTINGS = [
+    { name: '阳光一居 · 高层景观', meta: 'King 站步行 9 min · 允许养猫', match: 92, price: '$2,750', img: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=400&q=80&fit=crop&auto=format' },
+    { name: '复式 LOFT · 温哥街', meta: 'King 站步行 12 min · 允许养猫', match: 88, price: '$2,800', img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=400&q=80&fit=crop&auto=format' },
+  ]
+  return (
+    <div className="rounded-2xl p-5 text-[13px] shadow-card" style={{ background: '#0E1320', color: '#E5E7EB' }}>
+      {/* header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="h-8 w-8 rounded-full" style={{ background: 'linear-gradient(135deg,#C4B5FD,#7C3AED)' }} />
+          <span className="text-[14px] font-bold">Luna</span>
+        </div>
+        <span className="flex items-center gap-1.5 font-mono text-[10.5px]" style={{ color: '#34D399' }}>
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#34D399' }} /> 在线 · 读取你的记忆
+        </span>
+      </div>
+
+      {/* user bubble */}
+      <div className="mt-4 flex justify-end">
+        <div className="max-w-[85%] rounded-2xl rounded-tr-sm px-3.5 py-2.5 leading-relaxed text-white" style={{ background: '#2563EB' }}>
+          预算 2800 以内,离 King 站走路 15 分钟,能养猫的一居。
+        </div>
+      </div>
+
+      {/* luna bubble */}
+      <div className="mt-3 rounded-2xl rounded-tl-sm px-3.5 py-2.5 leading-relaxed" style={{ background: '#1B2230' }}>
+        好的。我按你之前说的<b>采光要好</b>也一起筛了,3 套符合,都允许养宠:
+      </div>
+
+      {/* listing cards */}
+      <div className="mt-3 space-y-2.5">
+        {LISTINGS.map((l) => (
+          <div key={l.name} className="flex items-center gap-3 rounded-xl p-2.5" style={{ background: '#161D2B' }}>
+            <div className="h-14 w-16 flex-shrink-0 rounded-lg" style={{ backgroundImage: `url(${l.img})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[12.5px] font-bold text-white">{l.name}</div>
+              <div className="font-mono text-[10.5px]" style={{ color: '#94A3B8' }}>{l.meta}</div>
+              <div className="mt-0.5 font-mono text-[10.5px]" style={{ color: '#A78BFA' }}>▶ {l.match}% 匹配你的偏好</div>
+            </div>
+            <div className="flex-shrink-0 font-mono text-[14px] font-bold text-white">{l.price}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* luna bubble */}
+      <div className="mt-3 rounded-2xl rounded-tl-sm px-3.5 py-2.5 leading-relaxed" style={{ background: '#1B2230' }}>
+        要我帮你一键申请第一套吗?你的 Passport 已是 <b>认证 3 级</b>,无需重填资料。
+      </div>
+
+      {/* user bubble */}
+      <div className="mt-3 flex justify-end">
+        <div className="max-w-[85%] rounded-2xl rounded-tr-sm px-3.5 py-2.5 leading-relaxed text-white" style={{ background: '#2563EB' }}>
+          第一套,帮我申请。我去开会了。
+        </div>
+      </div>
+
+      {/* status */}
+      <div className="mt-3 rounded-xl p-3" style={{ background: '#11192563', border: '1px solid #233047' }}>
+        <div className="flex items-center gap-1.5 text-[12px] font-bold" style={{ color: '#34D399' }}>
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#34D399' }} /> 已接手 · 后台持续执行
+        </div>
+        <div className="mt-1.5 font-mono text-[10.5px]" style={{ color: '#94A3B8' }}>提交申请 · 跟进房东 · 协调看房时间</div>
+        <div className="mt-1 text-[11.5px]" style={{ color: '#94A3B8' }}>有进展用「邮件 / 短信」通知你 —— 你不用守着。</div>
+      </div>
+    </div>
   )
 }
 
