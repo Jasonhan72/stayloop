@@ -118,7 +118,12 @@ export default function HomePage() {
         lead="同一套引擎,三种人生。把他们的故事压缩成一分钟 —— 看看 AI-native 到底改变了什么。" tint>
         <div className="grid gap-4 lg:grid-cols-3">
           {SCENARIOS.map((s) => (
-            <div key={s.name} className="sl-card flex flex-col p-6">
+            <div key={s.name} className="sl-card flex flex-col overflow-hidden p-0">
+              <div
+                className="h-36 w-full"
+                style={{ backgroundImage: `linear-gradient(180deg,rgba(0,0,0,0)0%,rgba(0,0,0,0.04)100%), url(${s.img})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+              />
+              <div className="flex flex-1 flex-col p-6 pt-5">
               <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrow" style={{ color: s.color }}>{s.role}</div>
               <div className="mt-1 text-[18px] font-bold">{s.name}</div>
               <div className="font-mono text-[11.5px] text-body-3">{s.meta}</div>
@@ -136,6 +141,7 @@ export default function HomePage() {
               <div className="mt-4 flex items-center justify-between border-t border-line-divider pt-3 font-mono text-[11px]">
                 <span className="text-body-3">{s.with}</span>
                 <span className="font-bold" style={{ color: s.color }}>{s.delta}</span>
+              </div>
               </div>
             </div>
           ))}
@@ -261,7 +267,15 @@ function HeroVisual() {
           这套符合你的预算和通勤,要我帮你约个看房吗?
         </div>
         <div className="mt-3 overflow-hidden rounded-xl border border-line-divider">
-          <div className="relative h-28 w-full" style={{ background: 'linear-gradient(135deg,#C4B5FD,#7C3AED)' }}>
+          <div
+            className="relative h-28 w-full"
+            style={{
+              backgroundImage:
+                'linear-gradient(135deg,rgba(124,58,237,0.15),rgba(37,99,235,0.10)), url(https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80&fit=crop&auto=format)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          >
             <span className="absolute left-3 top-3 rounded-md bg-white/90 px-2 py-1 font-mono text-[10px] font-bold text-tenant">FOR RENT · TIER 3+</span>
           </div>
           <div className="p-4">
@@ -302,9 +316,9 @@ const AGENTS = [
 ]
 
 const SCENARIOS = [
-  { name: 'Mia Chen', role: '租客 · TENANT', color: '#7C3AED', meta: '27 · 软件工程师 · 新移民', quote: '没有加拿大信用记录,我到底该怎么租房?', before: '信用空白,已被拒 3 次,3 天后必须退房。', after: 'Luna 90 秒验明身份,中文读懂租约,35 分钟签约入住。', with: 'Luna 陪同', delta: 'Score 60 → 91' },
-  { name: 'Sarah Wang', role: '房东 · LANDLORD', color: '#047857', meta: '41 · 会计师 · 2 套投资公寓', quote: '做决定前要查、要比,还怕踩 RTA 的雷。', before: '每月空置损失 $2,900,深夜被报修打扰,合规压力大。', after: 'Logic 4 分钟重做房源、跑完尽调,关键时刻她只按「同意」。', with: 'Logic 协同', delta: '30 分钟 → 30 秒' },
-  { name: 'David Park', role: '经纪 · AGENT', color: '#2563EB', meta: '35 · 持牌经纪 · RECO 6 年', quote: '不是没机会,是时间被行政碎片化了。', before: '70% 时间耗在行政,收入不稳,客户容易跟丢。', after: 'Brief 编排任务、当晚结算,他只做带看与专业判断。', with: 'Brief + Beacon', delta: '时薪 $25 → $43' },
+  { name: 'Mia Chen', role: '租客 · TENANT', color: '#7C3AED', meta: '27 · 软件工程师 · 新移民', img: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=700&q=80&fit=crop&auto=format', quote: '没有加拿大信用记录,我到底该怎么租房?', before: '信用空白,已被拒 3 次,3 天后必须退房。', after: 'Luna 90 秒验明身份,中文读懂租约,35 分钟签约入住。', with: 'Luna 陪同', delta: 'Score 60 → 91' },
+  { name: 'Sarah Wang', role: '房东 · LANDLORD', color: '#047857', meta: '41 · 会计师 · 2 套投资公寓', img: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format', quote: '做决定前要查、要比,还怕踩 RTA 的雷。', before: '每月空置损失 $2,900,深夜被报修打扰,合规压力大。', after: 'Logic 4 分钟重做房源、跑完尽调,关键时刻她只按「同意」。', with: 'Logic 协同', delta: '30 分钟 → 30 秒' },
+  { name: 'David Park', role: '经纪 · AGENT', color: '#2563EB', meta: '35 · 持牌经纪 · RECO 6 年', img: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=700&q=80&fit=crop&auto=format', quote: '不是没机会,是时间被行政碎片化了。', before: '70% 时间耗在行政,收入不稳,客户容易跟丢。', after: 'Brief 编排任务、当晚结算,他只做带看与专业判断。', with: 'Brief + Beacon', delta: '时薪 $25 → $43' },
 ]
 
 const JOURNEY = [
