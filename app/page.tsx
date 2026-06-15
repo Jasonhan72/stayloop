@@ -93,7 +93,12 @@ export default function HomePage() {
         lead="同一套信任引擎,三种人格。它们之间会对话、会交接,但各自只忠于自己的那个人。">
         <div className="grid gap-4 lg:grid-cols-3">
           {AGENTS.map((a) => (
-            <div key={a.name} className="sl-card flex flex-col p-7" style={{ borderTop: `3px solid ${a.color}` }}>
+            <div key={a.name} className="sl-card flex flex-col overflow-hidden p-0" style={{ borderTop: `3px solid ${a.color}` }}>
+              <div
+                className="h-36 w-full"
+                style={{ backgroundImage: `url(${a.img})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+              />
+              <div className="flex flex-1 flex-col p-7 pt-6">
               <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg" style={{ color: a.color }}>{a.role}</div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-[26px] font-extrabold tracking-tight">{a.name}</span>
@@ -108,6 +113,7 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
+              </div>
             </div>
           ))}
         </div>
@@ -310,9 +316,9 @@ const PILLARS = [
 ]
 
 const AGENTS = [
-  { name: 'Luna', role: 'TENANT · 租客', sub: '租客助手', color: '#7C3AED', desc: '验证一次,处处通行。Luna 替你找房、比价、约看、一键申请,资料只在你点头时才分享。', points: ['对话式找房 + 主动匹配', '可复用 Rental Passport', '缴租 · 维修 · 续约全程托管'] },
-  { name: 'Logic', role: 'LANDLORD · 房东', sub: '房东助手', color: '#047857', desc: '是流水线,不是收件箱。Logic 替你整理申请、同步尽调、起草租约 —— 决定权始终在你手里。', points: ['申请人 Pipeline 看板', '8 Engine 自动尽调 + 评分', '合规教练 · 租约自动起草'] },
-  { name: 'Brief', role: 'AGENT · 经纪', sub: '经纪助手', color: '#2563EB', desc: '把杂活交给系统,把关系留给人。Brief 替你整理客户、准备材料、安排看房和跟进。', points: ['客户与房源材料整理', '看房 Live · 现场记录', '佣金拆分 · 团队协作'] },
+  { name: 'Luna', role: 'TENANT · 租客', sub: '租客助手', color: '#7C3AED', img: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=700&q=80&fit=crop&auto=format', desc: '验证一次,处处通行。Luna 替你找房、比价、约看、一键申请,资料只在你点头时才分享。', points: ['对话式找房 + 主动匹配', '可复用 Rental Passport', '缴租 · 维修 · 续约全程托管'] },
+  { name: 'Logic', role: 'LANDLORD · 房东', sub: '房东助手', color: '#047857', img: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format', desc: '是流水线,不是收件箱。Logic 替你整理申请、同步尽调、起草租约 —— 决定权始终在你手里。', points: ['申请人 Pipeline 看板', '8 Engine 自动尽调 + 评分', '合规教练 · 租约自动起草'] },
+  { name: 'Brief', role: 'AGENT · 经纪', sub: '经纪助手', color: '#2563EB', img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=700&q=80&fit=crop&auto=format', desc: '把杂活交给系统,把关系留给人。Brief 替你整理客户、准备材料、安排看房和跟进。', points: ['客户与房源材料整理', '看房 Live · 现场记录', '佣金拆分 · 团队协作'] },
 ]
 
 const SCENARIOS = [
