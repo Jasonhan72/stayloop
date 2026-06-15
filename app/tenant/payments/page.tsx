@@ -31,8 +31,8 @@ export default function TenantPaymentsPage() {
           </div>
           <div className="mt-1 text-[13px] text-body-2">2026-06-01 · 自动扣款 · TD ****1234</div>
           <div className="mt-5 flex flex-wrap gap-2">
-            <button className="sl-btn-secondary">提前付款</button>
-            <button className="sl-btn-ghost">修改支付方式</button>
+            <button className="sl-btn-secondary">立即支付（提前付）</button>
+            <button className="sl-btn-ghost">暂停 1 个月（需房东同意）</button>
           </div>
 
           <div className="mt-6 rounded-xl bg-success/10 p-4 text-[13px] text-success">
@@ -40,23 +40,30 @@ export default function TenantPaymentsPage() {
           </div>
         </div>
 
-        <div className="sl-card p-6">
-          <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-            本年度总览
+        {/* Right column — matches V5.3 design: 房客信用 + LUNA 续约提醒 */}
+        <div className="flex flex-col gap-4">
+          <div className="sl-card p-6">
+            <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
+              你的房客信用
+            </div>
+            <div className="mt-1 text-[40px] font-extrabold leading-none text-success">A+</div>
+            <p className="mt-3 text-[13px] leading-relaxed text-body-2">
+              10/10 准时 · 优于 92% Stayloop 用户。下个房东会自动看到你的纪录（你授权才能看）。
+            </p>
           </div>
-          <div className="mt-3 grid grid-cols-3 gap-3">
-            <div>
-              <div className="text-[20px] font-bold text-brand">5</div>
-              <div className="font-mono text-[10.5px] uppercase text-body-3">已付月数</div>
+
+          <div className="sl-card border border-tenant/30 bg-tenant/[0.04] p-6">
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-5 w-5 rounded-full bg-tenant/20 text-center text-[11px] leading-5">🟣</span>
+              <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-tenant">
+                LUNA · 续约提醒
+              </span>
             </div>
-            <div>
-              <div className="text-[20px] font-bold text-warning">1</div>
-              <div className="font-mono text-[10.5px] uppercase text-body-3">迟付次数</div>
-            </div>
-            <div>
-              <div className="text-[20px] font-bold">$17,250</div>
-              <div className="font-mono text-[10.5px] uppercase text-body-3">YTD</div>
-            </div>
+            <p className="mt-3 text-[13px] leading-relaxed text-body-2">
+              还有 <b>2 个月</b>到期。市场租金 +6%，房东可能会提议涨租。
+            </p>
+            <p className="mt-3 text-[13px] text-body-2">我帮你准备续约谈判材料？</p>
+            <button className="sl-btn-secondary mt-3 w-full">→ 准备材料</button>
           </div>
         </div>
       </div>
