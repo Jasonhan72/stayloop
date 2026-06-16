@@ -31,9 +31,29 @@ export default function AuthCallback() {
 
         setStatus('ok')
         setMsg('登录成功 · 跳转中…')
-        // Decide where to send them — landlord by default; if no landlord row exists,
-        // claim_landlord() RPC will create it lazily.
-        setTimeout(() => router.replace('/dashboard'), 600)
+
+        // AI-native entry: land the user IN their Personal Agent, not a
+        // dashboard (architecture §13). Resolve role from the onboarding
+        // choice (localStorage), else from their agent_configs row, else
+        // send a brand-new user through onboarding.
+        const AGENT_HOME: Record<string, string> = {
+          tenant: '/tenant/agent',
+          landlord: '/landlord/agent',
+          agent: '/agent/agent',
+        }
+        let dest = '/onboarding/welcome'
+        const stored = window.localStorage.getItem('sl-active-role')
+        if (stored && AGENT_HOME[stored]) {
+          dest = AGENT_HOME[stored]
+        } else {
+          const { data: cfg } = await supabase.from('agent_configs').select('role').limit(1).maybeSingle()
+          const role = (cfg as { role?: string } | null)?.role
+          if (role && AGENT_HOME[role]) {
+            window.localStorage.setItem('sl-active-role', role)
+            dest = AGENT_HOME[role]
+          }
+        }
+        setTimeout(() => router.replace(dest), 600)
       } catch (e: any) {
         setStatus('err')
         setMsg(e?.message || '登录失败')

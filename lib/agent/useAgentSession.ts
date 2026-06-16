@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/useAuth'
 import type { AgentRole, AgentSessionResponse, AgentStatus } from './types'
 import { loadAgentSession } from './session-loader'
 import { decidePendingAction } from './approval-engine'
-import { handleMessage } from './orchestrator'
+import { runAgentTurn, WORKFLOW_STAGES } from './orchestrator'
 import { demoSession } from './demo'
 
 export type UseAgentSession = {
@@ -98,30 +98,66 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
 
   const sendMessage = useCallback(
     async (message: string) => {
-      if (!message.trim()) return
+      if (!message.trim() || !data) return
       setStatus('understanding')
-      await new Promise((r) => setTimeout(r, 300))
-      setStatus('working')
 
+      // Default acknowledgement (used if reasoning is unavailable).
       let result = {
         title: '收到了',
-        body: `我记下了:“${message.trim()}”。需要对外分享或提交的动作,都会先作为待批准卡片让你确认。`,
+        body: `我记下了:"${message.trim()}"。需要对外分享或提交的动作,都会先作为待批准卡片让你确认。`,
       }
+      let memoryWrites: AgentSessionResponse['memories'] = []
+      let proposedAction: AgentSessionResponse['pendingActions'][number] | null = null
+      let nextStage: string | null = null
+
+      setStatus('working')
+      // Real reasoning only for authenticated live sessions — anonymous preview
+      // keeps the canned acknowledgement (no LLM cost, no persistence target).
       if (live && user) {
         try {
-          result = await handleMessage(getSupabaseBrowser(), user.id, role, message)
+          const stageLabel = WORKFLOW_STAGES[role].find((s) => s.key === data.workflow.current_stage)?.label
+          const turn = await runAgentTurn({
+            client: getSupabaseBrowser(),
+            userId: user.id,
+            role,
+            agentName: data.agent.agent_name,
+            message,
+            memories: data.memories,
+            workflow: data.workflow,
+            stageLabel,
+            live: true,
+          })
+          result = turn.result
+          memoryWrites = turn.memoryWrites
+          proposedAction = turn.proposedAction
+          nextStage = turn.nextStage
         } catch (e) {
-          console.warn('[agent] message failed', (e as Error).message)
+          console.warn('[agent] turn failed, using fallback —', (e as Error).message)
         }
+      } else {
+        await new Promise((r) => setTimeout(r, 350))
       }
-      await new Promise((r) => setTimeout(r, 200))
+
       setData((prev) => {
         if (!prev) return prev
-        setStatus(prev.pendingActions.length ? 'approval' : 'result')
-        return { ...prev, latestResult: { ...result, kind: 'summary' } }
+        // Merge implicit memory writes into the live snapshot (dedupe by key).
+        const memMap = new Map(prev.memories.map((m) => [m.key, m]))
+        for (const m of memoryWrites) memMap.set(m.key, m)
+        const pendingActions = proposedAction
+          ? [proposedAction, ...prev.pendingActions]
+          : prev.pendingActions
+        const workflow = nextStage ? { ...prev.workflow, current_stage: nextStage } : prev.workflow
+        setStatus(pendingActions.length ? 'approval' : 'result')
+        return {
+          ...prev,
+          memories: Array.from(memMap.values()),
+          pendingActions,
+          workflow,
+          latestResult: { ...result, kind: 'summary' },
+        }
       })
     },
-    [live, user, role]
+    [live, user, role, data]
   )
 
   return { loading, live, data, status, error, decide, sendMessage }

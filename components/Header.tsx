@@ -157,7 +157,7 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
                     <Link
                       href={
                         auth.role === 'landlord'
-                          ? '/dashboard'
+                          ? '/landlord/agent'
                           : auth.role === 'agent'
                             ? '/agent/agent'
                             : '/tenant/agent'

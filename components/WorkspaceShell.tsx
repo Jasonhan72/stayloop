@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { Fragment, ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Header from './Header'
@@ -96,8 +96,28 @@ function Rail({ role }: { role: WorkspaceRole }) {
       >
         S
       </div>
-      {items.map((it) => {
+      {items.map((it, i) => {
         const on = path === it.href || path.startsWith(it.href + '/')
+        // The Agent home is the OS entry (architecture §13) — render it as a
+        // distinct accent tile, then a divider before the related V4 flows.
+        if (i === 0) {
+          return (
+            <Fragment key={it.key}>
+              <Link
+                href={it.href}
+                title={lang === 'en' ? it.label.en : it.label.zh}
+                className={
+                  'flex h-11 w-11 items-center justify-center rounded-xl text-[16px] text-white shadow-sm transition ' +
+                  (on ? 'ring-2 ring-offset-2 ring-offset-surface-muted' : 'hover:opacity-90')
+                }
+                style={{ background: accent.bg, ['--tw-ring-color' as string]: accent.bg }}
+              >
+                {it.icon}
+              </Link>
+              <div className="my-1.5 h-px w-7 bg-line-divider" />
+            </Fragment>
+          )
+        }
         return (
           <Link
             key={it.key}

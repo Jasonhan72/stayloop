@@ -71,9 +71,17 @@ Same vars are set in Cloudflare Pages dashboard for production.
 - `components/agent/*` — 9 agent UI components (AgentHeroStatus, ApprovalActionCard, etc.)
 
 ### Agent Spine
-- `lib/agent/*` — types, session-loader, approval-engine, memory, audit, orchestrator, demo, `useAgentSession` hook
+- `lib/agent/*` — types, session-loader, approval-engine, memory, audit, orchestrator, demo, prompts, guardrail, `useAgentSession` hook
 - `/tenant/agent` (Luna), `/landlord/agent` (Logic), `/agent/agent` (Brief)
 - `useAgentSession` has 5s render deadline + 4s RPC timeout (falls back to demo if stalled)
+
+### Agent Brain (2026-06-16 — AI-native reasoning loop)
+- **`app/api/agent/turn/route.ts`** (edge) = the Personal Agent reasoning step. STATELESS: client passes `{role, message, memories, workflow}`, route runs Claude (`claude-sonnet-4-6`) with a role system prompt (`lib/agent/prompts.ts` — Luna/Logic/Brief persona + 5 principles + "propose, don't decide"), returns `{reply, memory_writes, proposed_action, next_stage}`. Anthropic key stays server-side.
+- **Split**: server = reasoning only; client (`runAgentTurn` in orchestrator.ts) persists via RLS-scoped browser client — implicit memory → `user_memories` (`upsertMemories`, onConflict `user_id,role,memory_type,key`; memory_type clamped to preference/profile/constraint/semantic/system), proposed action → `agent_pending_actions`, turn → `agent_audit_events`. Same pattern as existing memory.ts/approval-engine.ts.
+- **Compliance Guardrail** (`lib/agent/guardrail.ts`) = deterministic server-side filter on every turn output: blocks OHRC-protected-ground rejections, flags illegal lease terms, strips false "already done" claims, demotes over-reach scope. The LLM is also instructed but the guardrail is the backstop.
+- **Fallback**: anonymous/preview or any failure → canned acknowledgement (no LLM cost, no persistence). Real reasoning only for authed live sessions.
+- **Entry IA**: login → role's `/x/agent` (was: everyone → `/dashboard`). Header workspace link + WorkspaceShell rail treat the Agent home as the primary entry; V4 pages are related flows.
+- **Note**: prod has BOTH the V4 AI-native tables (`conversations`/`messages`/`user_facts`/`pending_actions` — empty/dead) and the active `agent_*` layer (has rows). The brain writes to the `agent_*` layer.
 
 ### API Routes (all edge runtime)
 - `app/api/screen-score/route.ts` — Vision OCR + 6-dim scoring + streaming progress

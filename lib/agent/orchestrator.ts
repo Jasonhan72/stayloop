@@ -5,11 +5,13 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   AgentRole,
   AgentStatus,
+  MemoryItem,
   PendingAction,
   Recommendation,
   WorkflowState,
 } from './types'
 import { writeAuditEvent } from './audit'
+import { upsertMemories } from './memory'
 
 export const ROLE_META: Record<
   AgentRole,
@@ -116,28 +118,111 @@ export function buildRecommendations(
   }
 }
 
-// MVP message handler: log the request as an audit event and return a
-// rule-based acknowledgement. Does NOT execute key actions — anything
-// side-effectful would be returned as a pending action for approval.
-export async function handleMessage(
-  client: SupabaseClient,
-  userId: string,
-  role: AgentRole,
+// The Personal Agent turn (architecture §03/§04 + L3/L4). Calls the server
+// reasoning route (/api/agent/turn — Claude + Compliance Guardrail), then
+// persists what it learned through the caller's RLS-scoped client: implicit
+// memory writes, a proposed approval card, and an audit event. The agent
+// PROPOSES — the returned pending action still requires the user to approve it.
+export type AgentTurn = {
+  result: { title: string; body: string }
+  memoryWrites: MemoryItem[]
+  proposedAction: PendingAction | null
+  nextStage: string | null
+}
+
+export async function runAgentTurn(args: {
+  client: SupabaseClient
+  userId: string
+  role: AgentRole
+  agentName: string
   message: string
-): Promise<{ title: string; body: string }> {
+  memories: MemoryItem[]
+  workflow: WorkflowState
+  stageLabel?: string
+  live: boolean
+}): Promise<AgentTurn> {
+  const { client, userId, role, agentName, message, memories, workflow, stageLabel, live } = args
+  const name = agentName || ROLE_META[role].name
+
+  const res = await fetch('/api/agent/turn', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel }),
+  })
+  if (!res.ok) throw new Error(`turn failed: ${res.status}`)
+  const turn = (await res.json()) as {
+    reply: string
+    memory_writes: MemoryItem[]
+    proposed_action: null | {
+      action_type: string
+      title: string
+      summary: string
+      recipient_label?: string | null
+      data_scope: string[]
+      excluded_data: string[]
+      risk_level: 'low' | 'medium' | 'high'
+    }
+    next_stage: string | null
+  }
+
+  const memoryWrites = turn.memory_writes ?? []
+
+  // §05 — persist implicit memory (RLS-scoped). Best-effort.
+  if (live && memoryWrites.length) {
+    await upsertMemories(client, userId, role, memoryWrites)
+  }
+
+  // Build the pending action. The model only proposes; this is an approval card.
+  let proposedAction: PendingAction | null = null
+  if (turn.proposed_action) {
+    const pa = turn.proposed_action
+    const base = {
+      user_id: userId,
+      workflow_id: workflow.workflow_id ?? null,
+      role,
+      action_type: pa.action_type,
+      title: pa.title,
+      summary: pa.summary,
+      recipient_label: pa.recipient_label ?? null,
+      data_scope: pa.data_scope ?? [],
+      excluded_data: pa.excluded_data ?? [],
+      risk_level: pa.risk_level,
+      status: 'pending' as const,
+      requires_approval: true,
+      expires_at: null,
+      metadata: { origin: 'agent_turn' },
+    }
+    let id = (globalThis.crypto?.randomUUID?.() as string) || `act-${Date.now()}`
+    let created_at = new Date().toISOString()
+    if (live) {
+      const { data, error } = await client
+        .from('agent_pending_actions')
+        .insert(base)
+        .select('id,created_at')
+        .single()
+      if (!error && data) {
+        id = data.id as string
+        created_at = (data.created_at as string) ?? created_at
+      } else if (error) {
+        console.warn('[agent] pending insert failed', error.message)
+      }
+    }
+    proposedAction = { ...base, id, created_at }
+  }
+
+  // Audit the turn (best-effort, RLS-scoped).
   await writeAuditEvent(client, {
     actorId: userId,
     actorType: 'user',
-    action: `${role}_agent_message_submitted`,
+    action: `${role}_agent_turn`,
     targetType: 'agent_message',
-    metadata: { message: message.slice(0, 500) },
+    metadata: { message: message.slice(0, 500), proposed: proposedAction?.action_type ?? null },
   })
 
-  const name = ROLE_META[role].name
   return {
-    title: `${name} 收到了`,
-    body:
-      `我记下了:“${message.trim()}”。我会据此更新筛选与下一步建议;` +
-      `任何需要对外分享或提交的动作,都会先作为待批准卡片让你确认 —— 绝不自动执行。`,
+    result: { title: `${name} 回复`, body: turn.reply },
+    memoryWrites,
+    proposedAction,
+    nextStage: turn.next_stage,
   }
 }

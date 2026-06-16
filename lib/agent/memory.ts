@@ -26,6 +26,46 @@ export async function getUserMemories(
   }))
 }
 
+// Implicit memory capture (architecture §05 — "Memory > Prompt"). The agent
+// writes durable preferences/facts it learned this turn. RLS-scoped: a user
+// can only upsert their own rows. Best-effort — never blocks the chat flow.
+// Conflict target (user_id, role, key) must have a unique index for upsert.
+// DB check constraint allows only these memory_type values. The model is
+// asked to use them, but we clamp defensively (e.g. fact→profile, pattern→
+// semantic) so a stray value can never break the insert.
+const ALLOWED_TYPES = new Set(['preference', 'profile', 'constraint', 'semantic', 'system'])
+function clampType(t: string): string {
+  if (ALLOWED_TYPES.has(t)) return t
+  if (t === 'fact') return 'profile'
+  if (t === 'pattern') return 'semantic'
+  return 'preference'
+}
+
+export async function upsertMemories(
+  client: SupabaseClient,
+  userId: string,
+  role: AgentRole,
+  items: MemoryItem[]
+): Promise<void> {
+  if (!items.length) return
+  const rows = items.map((m) => ({
+    user_id: userId,
+    role,
+    key: m.key,
+    label: m.label,
+    value: m.value,
+    confidence: Math.max(0, Math.min(1, m.confidence ?? 0.8)),
+    memory_type: clampType(m.memory_type),
+    source: 'agent_turn',
+    updated_at: new Date().toISOString(),
+  }))
+  // Conflict target matches the table's unique (user_id, role, memory_type, key).
+  const { error } = await client
+    .from('user_memories')
+    .upsert(rows, { onConflict: 'user_id,role,memory_type,key' })
+  if (error) console.warn('[memory] upsert failed', error.message)
+}
+
 // Render a memory value as a short, human line for the snapshot panel.
 export function formatMemoryValue(item: MemoryItem): string {
   const v = item.value as Record<string, unknown> | null
