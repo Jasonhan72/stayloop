@@ -397,7 +397,7 @@ function ListingCard({
                 color: tierClass === 't3' ? '#B45309' : '#047857',
               }}
             >
-              需 Tier {l.trust_tier || 2}
+              需 认证 {l.trust_tier || 2} 级
             </span>
           </div>
         )}

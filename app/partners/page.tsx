@@ -6,10 +6,10 @@ import Footer from '@/components/Footer'
 
 const PARTNERS = [
   { name: 'RBC', cat: '银行 · 按揭', use: '租客按揭预审 · DTI / 收入即时验证' },
-  { name: 'Aviva', cat: '保险', use: '租客保险定价 · Tier 自动定档' },
-  { name: 'Equifax', cat: '信用', use: '一键信用查询 · Tier 4 入口' },
-  { name: 'Plaid / Flinks', cat: '银行连接', use: '工资 / 现金流 · 实时 Tier 2-3 验证' },
-  { name: 'Persona', cat: '身份', use: 'Tier 1 ID 验证 · 90 秒' },
+  { name: 'Aviva', cat: '保险', use: '租客保险定价 · 认证级别 自动定档' },
+  { name: 'Equifax', cat: '信用', use: '一键信用查询 · 认证 4 级 入口' },
+  { name: 'Plaid / Flinks', cat: '银行连接', use: '工资 / 现金流 · 实时 认证 2-3 级 验证' },
+  { name: 'Persona', cat: '身份', use: '认证 1 级 ID 验证 · 90 秒' },
   { name: 'CanLII', cat: 'LTB / 法庭', use: '租赁纠纷判例查询' },
 ]
 

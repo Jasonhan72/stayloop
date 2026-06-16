@@ -10,7 +10,7 @@ import WorkspaceShell from '@/components/WorkspaceShell'
 const PAYOUTS = [
   { date: '5/8', client: 'Yuki M.', listing: 'King West condo', amount: 1475, status: 'paid' },
   { date: '5/3', client: 'David Z.', listing: 'Distillery 1207', amount: 1840, status: 'paid' },
-  { date: '4/28', client: 'Mike Park 续约', listing: 'Hanna Loft', amount: 720, status: 'paid' },
+  { date: '4/28', client: 'Kevin Tran 续约', listing: 'Hanna Loft', amount: 720, status: 'paid' },
   { date: '4/22', client: 'Marcus T.', listing: 'Leslieville Stack', amount: 1550, status: 'paid' },
   { date: '4/14', client: 'Lisa W.', listing: 'CityPlace 4502', amount: 1725, status: 'paid' },
   { date: '4/4', client: 'Anna L.（首签）', listing: 'Brunswick Ave', amount: 2125, status: 'paid' },

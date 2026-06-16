@@ -66,14 +66,14 @@ interface DBListing {
 }
 
 const tierLabel: Record<number, { name: string; reqs: string[] }> = {
-  1: { name: '入门 · Tier 1', reqs: ['ID 验证'] },
-  2: { name: '基础 · Tier 2', reqs: ['ID 验证', '收入 ≥ 房租 × 2.5'] },
+  1: { name: '入门 · 认证 1 级', reqs: ['ID 验证'] },
+  2: { name: '基础 · 认证 2 级', reqs: ['ID 验证', '收入 ≥ 房租 × 2.5'] },
   3: {
-    name: '标准 · Tier 3',
+    name: '标准 · 认证 3 级',
     reqs: ['ID 验证', '收入 ≥ 房租 × 3', '银行透明度 90 天', '现住址确认'],
   },
   4: {
-    name: '严选 · Tier 4',
+    name: '严选 · 认证 4 级',
     reqs: [
       'ID 验证',
       '收入 ≥ 房租 × 3',
@@ -377,12 +377,15 @@ export default function ListingDetailPage() {
               </p>
             </Section>
 
-            {/* Section 5 — Tier 要求 */}
-            <Section title={`Trust Tier ${tier} 门槛`} eyebrow="TIER REQUIREMENTS">
+            {/* Section 5 — 房客信用门槛 · 房东设置 */}
+            <Section title="房客信用门槛 · 房东设置" eyebrow="LANDLORD CRITERIA">
               <div className="rounded-[12px] border border-line-divider bg-white p-5">
-                <div className="text-[14px] font-semibold">{tierInfo.name}</div>
+                <div className="text-[14px] font-semibold">
+                  {listing.broker_name || 'Sarah'} 接受 {tierInfo.name}（Banking-verified）
+                </div>
                 <p className="mt-1 text-[12.5px] text-body-2">
-                  此房源最低需要 <b className="text-body">Tier {tier}</b>。 你需要完成以下验证才能提交看房意向：
+                  房东设定:此房源最低 <b className="text-body">认证 {tier} 级</b> · 月收入 ≥ 房租 × 2.5。
+                  你需要完成以下验证才能提交看房意向：
                 </p>
                 <ul className="mt-3 grid gap-2 sm:grid-cols-2">
                   {tierInfo.reqs.map((req) => (
@@ -405,13 +408,13 @@ export default function ListingDetailPage() {
                     href="/onboarding/tier1"
                     className="sl-btn-primary !px-5 !py-[10px] !text-[13px]"
                   >
-                    开始 Tier 验证 →
+                    开始 认证验证 →
                   </Link>
                   <Link
                     href="/screening"
                     className="text-[13px] font-semibold text-brand transition hover:underline"
                   >
-                    了解 Trust Tier 体系
+                    了解 认证体系
                   </Link>
                 </div>
               </div>
@@ -438,6 +441,18 @@ export default function ListingDetailPage() {
                 className="mt-3 block rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
               >
                 直接提交完整申请 →
+              </Link>
+              <Link
+                href="/tenant/agent"
+                className="mt-2 block rounded-[10px] border border-tenant/30 bg-tenant/5 px-4 py-[10px] text-center text-[13.5px] font-semibold text-tenant transition hover:bg-tenant/10"
+              >
+                让 Luna 替我问 {listing.broker_name || 'Sarah'}
+              </Link>
+              <Link
+                href="/screening"
+                className="mt-2 block rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
+              >
+                派 Field Agent 看房 ($80)
               </Link>
               <div className="mt-3 text-center font-mono text-[10px] uppercase tracking-eyebrowLg text-body-3">
                 通常 4 小时内回复
@@ -535,7 +550,7 @@ export default function ListingDetailPage() {
                           {s.bedrooms === 0 ? 'Studio' : `${s.bedrooms}B`} · {s.neighborhood}
                         </div>
                         <div className="font-mono text-[9.5px] uppercase tracking-eyebrowLg text-body-3">
-                          TIER {s.trust_tier ?? 2}
+                          认证 {s.trust_tier ?? 2} 级
                         </div>
                       </div>
                     </Link>

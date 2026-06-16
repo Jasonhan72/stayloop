@@ -3,11 +3,11 @@
 import WorkspaceShell from '@/components/WorkspaceShell'
 
 const HISTORY = [
-  { date: '2026-05-01', amount: 3450, status: 'paid', method: 'Plaid · TD ****1234' },
-  { date: '2026-04-01', amount: 3450, status: 'paid', method: 'Plaid · TD ****1234' },
-  { date: '2026-03-01', amount: 3450, status: 'paid', method: 'e-Transfer' },
-  { date: '2026-02-01', amount: 3450, status: 'late', method: '迟付 3 天' },
-  { date: '2026-01-01', amount: 3450, status: 'paid', method: 'Plaid · TD ****1234' },
+  { date: '2026-05-01', amount: 2800, status: 'paid', method: 'Plaid · RBC ****8721' },
+  { date: '2026-04-01', amount: 2800, status: 'paid', method: 'Plaid · RBC ****8721' },
+  { date: '2026-03-01', amount: 2800, status: 'paid', method: 'e-Transfer' },
+  { date: '2026-02-01', amount: 2800, status: 'late', method: '迟付 3 天' },
+  { date: '2026-01-01', amount: 2800, status: 'paid', method: 'Plaid · RBC ****8721' },
 ]
 
 export default function TenantPaymentsPage() {
@@ -26,17 +26,17 @@ export default function TenantPaymentsPage() {
             下次扣款
           </div>
           <div className="mt-2 flex items-baseline gap-3">
-            <span className="text-[44px] font-extrabold tracking-tight">$3,450</span>
+            <span className="text-[44px] font-extrabold tracking-tight">$2,800</span>
             <span className="text-[14px] text-body-3">/ 月</span>
           </div>
-          <div className="mt-1 text-[13px] text-body-2">2026-06-01 · 自动扣款 · TD ****1234</div>
+          <div className="mt-1 text-[13px] text-body-2">5月22日 · 自动扣款 · RBC ****8721</div>
           <div className="mt-5 flex flex-wrap gap-2">
             <button className="sl-btn-secondary">立即支付（提前付）</button>
             <button className="sl-btn-ghost">暂停 1 个月（需房东同意）</button>
           </div>
 
           <div className="mt-6 rounded-xl bg-success/10 p-4 text-[13px] text-success">
-            ✓ 你今年所有付款都准时 · 你的还款记录已计入 Tier 信任分
+            ✓ 你今年所有付款都准时 · 你的还款记录已计入 认证 信任分
           </div>
         </div>
 

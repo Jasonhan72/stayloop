@@ -16,6 +16,15 @@ const STAGES = [
 
 const CLIENTS = [
   {
+    name: 'Mia Chen',
+    tier: 2,
+    budget: '$3,800–$4,500',
+    area: 'King West',
+    stage: 'showing',
+    next: '今天 14:00 · Unit 1207 · King West · $80',
+    last: '昨晚和 Brief 聊了 30 min',
+  },
+  {
     name: 'Anna L.',
     tier: 3,
     budget: '$3,800–$4,500',
@@ -43,13 +52,13 @@ const CLIENTS = [
     last: '明确要 24h concierge',
   },
   {
-    name: 'Mike Park',
+    name: 'Kevin Tran',
     tier: 2,
     budget: '$2,800–$3,000',
     area: 'Liberty Village',
     stage: 'leased',
     next: '续约草稿 5/12 完成',
-    last: 'Tier 2 · 12 个月按时',
+    last: '认证 2 级 · 12 个月按时',
   },
   {
     name: 'David Z.',
@@ -84,7 +93,7 @@ const CLIENTS = [
     budget: '$1,800',
     area: 'Bachelor / Cabbagetown',
     stage: 'searching',
-    next: '提示她升级到 Tier 2',
+    next: '提示她升级到 认证 2 级',
     last: '4/30 加入',
   },
   {
@@ -94,7 +103,7 @@ const CLIENTS = [
     area: 'Yorkville',
     stage: 'showing',
     next: '5/13 三套连看',
-    last: '只看高 Tier 房源',
+    last: '只看高 认证级别 房源',
   },
   {
     name: 'Yuki M.',
@@ -124,7 +133,7 @@ export default function AgentClientsPage() {
           </div>
           <h1 className="mt-2 text-[36px] font-bold tracking-tight">客户管理</h1>
           <p className="mt-1 text-[13.5px] text-body-2">
-            Brief 自动 CRM · 按阶段 / Tier / 预算分组 · 跟进自动安排
+            Brief 自动 CRM · 按阶段 / 认证级别 / 预算分组 · 跟进自动安排
           </p>
         </div>
         <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">+ 加客户</button>
@@ -147,11 +156,11 @@ export default function AgentClientsPage() {
       {/* Search */}
       <div className="mb-4 flex items-center gap-2">
         <input
-          placeholder="搜索客户 / 区域 / Tier"
+          placeholder="搜索客户 / 区域 / 认证级别"
           className="flex-1 rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] outline-none focus:border-brand"
         />
         <button className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
-          按 Tier ▾
+          按 认证级别 ▾
         </button>
       </div>
 
@@ -161,7 +170,7 @@ export default function AgentClientsPage() {
           <thead className="bg-surface-chip">
             <tr>
               <Th>客户</Th>
-              <Th>Tier</Th>
+              <Th>认证级别</Th>
               <Th>预算 · 区域</Th>
               <Th>阶段</Th>
               <Th>下一步</Th>
@@ -183,7 +192,7 @@ export default function AgentClientsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-3">
-                    <span className={`tier-badge t${c.tier}`}>T{c.tier}</span>
+                    <span className={`tier-badge t${c.tier}`}>认证 {c.tier} 级</span>
                   </td>
                   <td className="px-6 py-3">
                     <div className="font-bold">{c.budget}</div>
@@ -244,8 +253,8 @@ function Aside() {
         {[
           { who: 'Anna L.', msg: '看房后 30 min 内问反馈', when: '今天 14:30' },
           { who: 'Jason H.', msg: '5 套 brief 包等你审', when: '本周内' },
-          { who: 'Sophie B.', msg: '提议升级到 Tier 2', when: '今天' },
-          { who: 'Mike Park', msg: '续约草稿审阅', when: '5/12 前' },
+          { who: 'Sophie B.', msg: '提议升级到 认证 2 级', when: '今天' },
+          { who: 'Kevin Tran', msg: '续约草稿审阅', when: '5/12 前' },
         ].map((f, i) => (
           <div key={i} className="rounded-[10px] border border-line-divider bg-white p-3">
             <div className="text-[13px] font-bold">{f.who}</div>

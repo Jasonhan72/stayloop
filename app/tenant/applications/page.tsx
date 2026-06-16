@@ -5,9 +5,9 @@ import WorkspaceShell from '@/components/WorkspaceShell'
 
 const APPS = [
   {
-    addr: '88 Harbour St, Unit 4502',
-    nbr: 'CityPlace',
-    rent: 3450,
+    addr: 'Unit 1207 · King West',
+    nbr: 'King West',
+    rent: 2800,
     status: 'in-review',
     statusLabel: '房东审核中',
     submitted: '2 天前',

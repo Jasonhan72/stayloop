@@ -114,7 +114,8 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
             <div className="h-8 w-20 animate-pulse rounded-md bg-line-divider/60" />
           ) : auth.user ? (
             <>
-              <button
+              <Link
+                href="/notifications"
                 aria-label="Notifications"
                 className="relative flex h-9 w-9 items-center justify-center rounded-lg text-body-2 transition hover:bg-line-divider/60"
               >
@@ -125,7 +126,7 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
                 >
                   3
                 </span>
-              </button>
+              </Link>
               <div className="relative" ref={profileRef}>
                 <button
                   onClick={() => setProfileOpen((v) => !v)}

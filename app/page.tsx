@@ -88,10 +88,11 @@ export default function HomePage() {
       {/* ===== 02 · WHAT IS STAYLOOP ===== */}
       <Section n="02" kicker="STAYLOOP 是什么" title={<>一个端到端的<br />租住操作系统。</>}
         lead="不是又一个房源网站,也不只是一次信用查询。Stayloop 把找房、申请、尽调、签约、入住、维修、续约、退租,串成一条 AI 全程陪你走完的链路。" tint>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <FeatureCard h="一处办完一整段租住" b="找房、申请、尽调、签约、入住、续约、退租、纠纷,全在一个地方。不用再在十个平台之间来回跳。" />
           <FeatureCard h="三种角色 · 三个 AI" b="租客 Luna · 房东 Logic · 经纪 Brief。每个 AI 只为你一个人工作,记得你的全部上下文。" />
           <FeatureCard h="看得见来源的评分" b="Stayloop Score 不是黑箱风险分,而是由真实证据加权算出的可信度。每一分都能点开看到它从哪来。" />
+          <FeatureCard h="合规 · 可审计" b="符合本地法律 · 软查不影响信用 · 每次查询链上留痕 · 每一个决定都能回溯到原始证据。" />
         </div>
       </Section>
 
@@ -400,7 +401,7 @@ function HeroVisual() {
               backgroundPosition: 'center',
             }}
           >
-            <span className="absolute left-3 top-3 rounded-md bg-white/90 px-2 py-1 font-mono text-[10px] font-bold text-tenant">FOR RENT · TIER 3+</span>
+            <span className="absolute left-3 top-3 rounded-md bg-white/90 px-2 py-1 font-mono text-[10px] font-bold text-tenant">FOR RENT · 认证 3 级+</span>
           </div>
           <div className="p-4">
             <div className="text-[13px] font-bold">阳光一居 · 高层景观</div>
@@ -415,7 +416,7 @@ function HeroVisual() {
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 font-mono text-[16px] font-bold text-brand">89</span>
               </div>
             </div>
-            <div className="mt-2 inline-flex rounded-md bg-tenant/10 px-2 py-[3px] font-mono text-[10px] font-bold text-tenant">Rental Passport · Tier 3 已验证</div>
+            <div className="mt-2 inline-flex rounded-md bg-tenant/10 px-2 py-[3px] font-mono text-[10px] font-bold text-tenant">Rental Passport · 认证 3 级 已验证</div>
           </div>
         </div>
       </div>

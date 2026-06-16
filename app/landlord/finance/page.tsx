@@ -17,16 +17,16 @@ const MONTHS = [
 ]
 
 const PROPERTIES = [
-  { name: '88 Harbour St #4502', tenant: '陈思宇', rent: 3450, status: 'paid', tier: 3 },
-  { name: '15 Hanna Ave Loft 312', tenant: 'Mike Park', rent: 2890, status: 'paid', tier: 2 },
+  { name: 'Unit 1207 · King West', tenant: 'Mia Chen', rent: 2800, status: 'paid', tier: 3 },
+  { name: 'Liberty Village 2B', tenant: 'Thompson', rent: 3200, status: 'paid', tier: 3 },
   { name: '432 Brunswick Ave', tenant: 'Anna L.（待入住）', rent: 4250, status: 'upcoming', tier: 3 },
 ]
 
 const EXPENSES = [
-  { date: '5/2', desc: 'L-202 · 洗碗机维修', amount: 280 },
-  { date: '4/22', desc: '88 Harbour · 物业管理费', amount: 645 },
+  { date: '5/2', desc: 'Liberty Village 2B · 洗碗机维修', amount: 280 },
+  { date: '4/22', desc: 'Unit 1207 · 物业管理费', amount: 645 },
   { date: '4/15', desc: '432 Brunswick · 屋顶检查', amount: 420 },
-  { date: '4/3', desc: '15 Hanna · 空调清洗', amount: 180 },
+  { date: '4/3', desc: 'Liberty Village 2B · 空调清洗', amount: 180 },
 ]
 
 export default function LandlordFinancePage() {
@@ -56,15 +56,15 @@ export default function LandlordFinancePage() {
 
       {/* KPI strip */}
       <div className="grid gap-3 sm:grid-cols-4">
-        <Kpi label="YTD 租金收入" value="$30,000" accent="#047857" />
-        <Kpi label="已收" value="$22,840" accent="#171717" />
+        <Kpi label="YTD 租金收入" value="$30,000" accent="#047857" sub="▲ +12% vs 2025" />
+        <Kpi label="YTD 净利" value="$22,840" accent="#047857" sub="▲ +14% · 维修成本下降" />
+        <Kpi label="空置率" value="2.4%" accent="#171717" sub="▼ 区域均 8.7%" />
         <Kpi
-          label="收租率"
-          value="2.4%"
+          label="税务待缴"
+          value="$3,420"
           accent="#B45309"
-          sub="▲ +14% · 维修成本下降"
+          sub="CRA Q2 · 6/15 截止"
         />
-        <Kpi label="本月支出" value="$3,420" accent="#B91C1C" />
       </div>
 
       {/* Chart */}
@@ -255,7 +255,7 @@ function Aside() {
           📈 你 6 个月平均收租率 <b>98.4%</b> — 高于 GTA 业主平均 <b>92.1%</b>。
         </p>
         <p>
-          💡 88 Harbour 的市场租金已升至 $3,580。续约时可考虑上调到 LTB 上限。
+          💡 Unit 1207 的市场租金已升至 $2,980。续约时可考虑上调到 LTB 上限。
         </p>
         <p>🧾 上次 GST 申报：2026 Q1 已完成。</p>
       </div>

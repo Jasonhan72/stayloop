@@ -38,14 +38,14 @@ export default function ApplicantDetail() {
             M
           </span>
           <div>
-            <h1 className="text-[28px] font-bold tracking-tight">Mia Wang</h1>
+            <h1 className="text-[28px] font-bold tracking-tight">Mia Chen</h1>
             <div className="font-mono text-[11.5px] text-body-3">
-              申请 #{id} · 88 Harbour St #4502 · 2 天前提交
+              申请 #{id} · Unit 1207 · King West · 2 天前提交
             </div>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="tier-badge t3">TIER 3</span>
+          <span className="tier-badge t3">认证 3 级</span>
           <span className="rounded-md bg-success/10 px-2 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-success">
             推荐审批
           </span>
@@ -88,18 +88,26 @@ export default function ApplicantDetail() {
           <div className="sl-card p-6">
             <h3 className="text-[15px] font-bold tracking-tight">Logic 建议</h3>
             <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
-              Mia 在六个维度全部超过你的政策门槛, 行为信号无负面记录, 与你过去 12 个月签的 7 位 Tier 3 租客的 profile 高度相似 (88% 续签 / 0 投诉)。
+              Mia 在六个维度全部超过你的政策门槛, 行为信号无负面记录, 与你过去 12 个月签的 7 位 认证 3 级 租客的 profile 高度相似 (88% 续签 / 0 投诉)。
             </p>
-            <p className="mt-2 text-[13px] font-semibold text-brand">推荐: 邀请看房 + 准备租约。</p>
+            <p className="mt-2 text-[13px] font-semibold text-brand">
+              建议: 批看房，看完后请她升 认证 3 级 给你完整收入证据，再决定签约。
+            </p>
             <div className="mt-4 flex flex-col gap-2">
               <button className="sl-btn-primary !py-[12px]">
-                ✓ 邀请看房 + 准备租约
+                ✓ 批准看房 · 派 David
               </button>
-              <button className="sl-btn-secondary">先和 Logic 讨论</button>
-              <button className="rounded-lg border border-warning/40 bg-white px-4 py-[10px] text-[13.5px] font-semibold text-warning">
-                婉拒
+              <button className="sl-btn-secondary">★★★ 请她升 认证 3 级</button>
+              <button className="sl-btn-secondary">💬 先跟她聊一下（Luna 中介）</button>
+              <button className="rounded-lg border border-danger/40 bg-white px-4 py-[10px] text-[13.5px] font-semibold text-danger">
+                ✗ 不合适（需选理由）
               </button>
             </div>
+            <p className="mt-3 rounded-lg bg-danger/[0.06] px-3 py-2.5 text-[11.5px] leading-relaxed text-body-2">
+              <b className="text-danger">⚠️ RTA 提示：</b>「不合适」理由不能是种族 / 国籍 /
+              来源国 / 家庭情况 / 性取向。Logic 会过滤这些，但你拒绝时仍需具体理由 —
+              写入 audit log。
+            </p>
           </div>
 
           <div className="sl-card p-6">

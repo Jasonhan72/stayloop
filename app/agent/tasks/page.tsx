@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
 
 /**
@@ -11,17 +12,18 @@ const TASKS = [
   {
     id: 'T-301',
     type: 'showing',
-    title: '今天 14:00 · 432 Brunswick Ave 看房',
-    client: 'Anna L. · Tenant',
+    showingSlug: 'sh-1207-mia',
+    title: '今天 14:00 · Unit 1207 · King West 看房',
+    client: 'Mia Chen · Tenant',
     sla: '1h 后开始',
     priority: 'now',
-    note: '客户 Tier 3 · 看房后 30 min 内反馈',
+    note: '客户 认证 2 级 · $80 看房费（Stripe 预授权）· 看房后 30 min 内反馈',
   },
   {
     id: 'T-298',
     type: 'screening',
-    title: '完成 Mike Park 收入复核',
-    client: 'Mike Park · Tenant',
+    title: '完成 Kevin Tran 收入复核',
+    client: 'Kevin Tran · Tenant',
     sla: '今天前',
     priority: 'high',
     note: '4/29 银行流水已上传，等你确认',
@@ -33,25 +35,26 @@ const TASKS = [
     client: 'Jason H. · Tenant',
     sla: '本周内',
     priority: 'medium',
-    note: '客户预算 $3.2k–$3.6k · Tier 2 · 1B+den',
+    note: '客户预算 $3.2k–$3.6k · 认证 2 级 · 1B+den',
   },
   {
     id: 'T-291',
     type: 'lease',
     title: 'Logic 草稿 → 你审 → 发租客签字',
-    client: '15 Hanna Ave · Mike Park 续约',
+    client: '15 Hanna Ave · Kevin Tran 续约',
     sla: '5/12 前',
     priority: 'medium',
-    note: 'OREA Form 400 + Logic 风险审查通过',
+    note: 'Ontario LTB 租约 + Logic 风险审查通过',
   },
   {
     id: 'T-285',
     type: 'showing',
+    showingSlug: 'sh-harbour-lisa',
     title: '5/11 11:00 · 88 Harbour St #4502 看房',
     client: 'Lisa W. · Tenant',
     sla: '2 天后',
     priority: 'low',
-    note: '客户已通过 Tier 验证',
+    note: '客户已通过 认证级别 验证',
   },
 ]
 
@@ -157,9 +160,18 @@ export default function AgentTasksPage() {
                 <div className="mt-1 text-[11.5px] text-body-3">{t.note}</div>
               </div>
               <div className="flex flex-col gap-1.5">
-                <button className="rounded-[8px] bg-ink px-3 py-[7px] text-[11.5px] font-semibold text-white">
-                  开始
-                </button>
+                {t.type === 'showing' && t.showingSlug ? (
+                  <Link
+                    href={`/agent/showings/${t.showingSlug}`}
+                    className="rounded-[8px] bg-ink px-3 py-[7px] text-center text-[11.5px] font-semibold text-white"
+                  >
+                    看房现场 →
+                  </Link>
+                ) : (
+                  <button className="rounded-[8px] bg-ink px-3 py-[7px] text-[11.5px] font-semibold text-white">
+                    开始
+                  </button>
+                )}
                 <button className="rounded-[8px] border border-line-strong bg-white px-3 py-[7px] text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
                   延期
                 </button>
@@ -201,7 +213,7 @@ function Aside() {
       </div>
       <div className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-body-2">
         <p>📍 14:00 看房在 The Annex — 离你 09:30 训练点 8 min。</p>
-        <p>🪪 Mike Park 的银行流水里有一笔大额可疑存款，建议在确认前问一下。</p>
+        <p>🪪 Kevin Tran 的银行流水里有一笔大额可疑存款，建议在确认前问一下。</p>
         <p>📦 Jason 客户 — Liberty Village 没有匹配的 1B+den，可能要扩大到 King West。</p>
       </div>
     </div>

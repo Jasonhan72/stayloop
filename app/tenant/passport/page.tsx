@@ -18,7 +18,7 @@ const GROUPS: FieldGroup[] = [
     status: 'verified',
     source: 'Persona · Apr 28, 2026',
     fields: [
-      { k: '法定姓名', v: 'Mia Wang', shared: true },
+      { k: '法定姓名', v: 'Mia Chen', shared: true },
       { k: '出生日期', v: '1996-03-12', shared: false },
       { k: '证件号码', v: 'CA P*****-****-3-04', shared: false },
       { k: '验证时间', v: '2026-04-28 14:32 EST', shared: true },
@@ -30,7 +30,7 @@ const GROUPS: FieldGroup[] = [
     status: 'verified',
     source: '邮箱 + 短信验证',
     fields: [
-      { k: '邮箱', v: 'mia.wang@****.com', shared: true },
+      { k: '邮箱', v: 'mia.chen@****.com', shared: true },
       { k: '电话', v: '+1 (416) ***-7821', shared: false },
     ],
   },
@@ -60,7 +60,7 @@ const GROUPS: FieldGroup[] = [
     title: '信用 + 法庭',
     tier: 4,
     status: 'locked',
-    source: 'Equifax + CanLII (升级到 Tier 4 后启用)',
+    source: 'Equifax + CanLII (升级到 认证 4 级 后启用)',
     fields: [
       { k: '信用分', v: '----', shared: false },
       { k: 'LTB 法庭记录', v: '----', shared: false },
@@ -75,15 +75,15 @@ export default function TenantPassport() {
         <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-tenant">
           RENTAL PASSPORT
         </div>
-        <h1 className="mt-2 text-[36px] font-bold tracking-tight">你的 Passport · Mia Wang</h1>
+        <h1 className="mt-2 text-[36px] font-bold tracking-tight">你的 Passport · Mia Chen</h1>
         <p className="mt-2 max-w-[680px] text-[14.5px] leading-relaxed text-body-2">
           你的 Passport 由 Stayloop 加密保存。每个字段都是你说了算 — 房东只能看到你勾选了 ✓ 的部分。
         </p>
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <span className="tier-badge t1">TIER 1 ✓</span>
-          <span className="tier-badge t2">TIER 2 ✓</span>
-          <span className="tier-badge t3" style={{ opacity: 0.6 }}>TIER 3 · 部分</span>
-          <span className="tier-badge t4" style={{ opacity: 0.4 }}>TIER 4 · 锁定</span>
+          <span className="tier-badge t1">认证 1 级 ✓</span>
+          <span className="tier-badge t2">认证 2 级 ✓</span>
+          <span className="tier-badge t3" style={{ opacity: 0.6 }}>认证 3 级 · 部分</span>
+          <span className="tier-badge t4" style={{ opacity: 0.4 }}>认证 4 级 · 锁定</span>
           <span className="ml-auto text-[12px] text-body-3">最近更新 · 5 分钟前</span>
         </div>
       </div>
@@ -93,7 +93,7 @@ export default function TenantPassport() {
           <div key={g.title} className="sl-card p-6">
             <div className="flex flex-wrap items-center gap-3">
               <h3 className="text-[18px] font-bold tracking-tight">{g.title}</h3>
-              <span className={`tier-badge t${g.tier}`}>TIER {g.tier}</span>
+              <span className={`tier-badge t${g.tier}`}>认证 {g.tier} 级</span>
               {g.status === 'verified' && (
                 <span className="inline-flex items-center gap-1 rounded-md bg-brand/10 px-2 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-brand">
                   ✓ VERIFIED
@@ -133,7 +133,7 @@ export default function TenantPassport() {
 
             {g.status !== 'verified' && (
               <button className="mt-4 sl-btn-primary !text-[13px] !py-[10px] !px-4">
-                {g.status === 'pending' ? '继续完成' : '升级到 Tier ' + g.tier}
+                {g.status === 'pending' ? '继续完成' : '升级到 认证 ' + g.tier + ' 级'}
               </button>
             )}
           </div>
@@ -156,8 +156,8 @@ export default function TenantPassport() {
               who: 'Sarah Wang · 房东 · Unit 1207',
               color: '#F97316',
               time: '2026/05/02 14:30 · 通过申请意向',
-              see: '认证 2 级 资料 + 房主核定 · 身份 · 你的简短语气',
-              noSee: '真他工资、银行流水、驾照全码',
+              see: '认证 2 级 资料 · 雇主验证 · 偏好 · 你的回复语气',
+              noSee: '具体工资 · 银行流水 · 家庭背景',
               action: '撤回授权',
               actionStyle: 'text-danger',
             },
@@ -176,7 +176,7 @@ export default function TenantPassport() {
               time: '2026/04/28 · 永久 · 加密存储',
               see: '为你做了：基础身份核检',
               noSee: '注：他们只看你的护照 + 自拍，不看其他',
-              action: '检查',
+              action: '系统级 · 不可撤',
               actionStyle: 'text-body-3',
             },
             {

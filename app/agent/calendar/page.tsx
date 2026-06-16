@@ -22,8 +22,8 @@ interface Slot {
 const SLOTS: Slot[] = [
   { day: 0, start: 10, end: 11, type: 'showing', title: 'Brunswick Ave', sub: 'Anna L. · T3' },
   { day: 0, start: 14, end: 15, type: 'photo', title: '88 Harbour 拍照', sub: 'New listing' },
-  { day: 1, start: 11, end: 12, type: 'showing', title: 'CityPlace 4502', sub: 'Lisa W. · T4' },
-  { day: 1, start: 16, end: 17, type: 'lease', title: 'Form 400 签字', sub: 'Mike Park 续约' },
+  { day: 1, start: 11, end: 12, type: 'showing', title: 'Unit 1207 · King West', sub: 'Mia Chen · 认证 2 级 · $80' },
+  { day: 1, start: 16, end: 17, type: 'lease', title: 'Ontario LTB 租约签字', sub: 'Kevin Tran 续约' },
   { day: 2, start: 9, end: 11, type: 'block', title: '区域走访', sub: 'Yorkville' },
   { day: 2, start: 14, end: 15.5, type: 'showing', title: '155 Cumberland', sub: 'Eric K. · T4' },
   { day: 3, start: 10, end: 11, type: 'showing', title: '210 Sumach', sub: 'Sophie B. · T1' },

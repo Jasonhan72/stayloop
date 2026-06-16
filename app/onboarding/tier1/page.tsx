@@ -51,7 +51,7 @@ function ProgressBar({ step }: { step: Step }) {
   const idx = step === 'intro' ? 0 : step === 'capture-id' ? 1 : step === 'selfie' ? 2 : 3
   return (
     <div className="mb-10 flex items-center gap-3">
-      <span className="tier-badge t1">TIER 1 · ID</span>
+      <span className="tier-badge t1">认证 1 级 · ID</span>
       <div className="h-1 flex-1 overflow-hidden rounded-full bg-line-divider">
         <div
           className="h-full rounded-full transition-all"
@@ -155,7 +155,7 @@ function ReviewCard({ onBack }: { onBack: () => void }) {
       <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brand/10 text-brand">
         <CheckIcon />
       </span>
-      <h2 className="mt-5 text-[26px] font-bold tracking-tight">Tier 1 通过 ✓</h2>
+      <h2 className="mt-5 text-[26px] font-bold tracking-tight">认证 1 级 通过 ✓</h2>
       <p className="mt-3 text-[14px] leading-relaxed text-body-2">
         身份已验证。Luna 已经在你的 Workspace 等你 — 现在就能浏览房源、提交看房意向。
       </p>

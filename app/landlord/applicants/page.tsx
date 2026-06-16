@@ -17,12 +17,12 @@ interface Applicant {
 }
 
 const APPS: Applicant[] = [
-  { id: '1', name: 'Mia Wang',     initial: 'M', avc: 'tenant',   match: 92, tier: 3, income: 11200, credit: 758, qual: '收入 ✓ 信用 ✓ 法庭 ✓', decision: 'approve' },
+  { id: '1', name: 'Mia Chen',     initial: 'M', avc: 'tenant',   match: 92, tier: 3, income: 11200, credit: 758, qual: '收入 ✓ 信用 ✓ 法庭 ✓', decision: 'approve' },
   { id: '2', name: 'David Park',   initial: 'D', avc: 'agent',    match: 87, tier: 3, income: 9800,  credit: 742, qual: '收入 ✓ 信用 ✓ 上家 5⭐',  decision: 'approve' },
   { id: '3', name: 'Karen Liu',    initial: 'K', avc: 'landlord', match: 84, tier: 3, income: 12300, credit: 728, qual: '收入 ✓ 信用 ✓ 自雇',     decision: 'approve' },
   { id: '4', name: 'Lina Chen',    initial: 'L', avc: 'orange',   match: 81, tier: 2, income: 8900,  credit: 695, qual: '材料齐 · 短租意向 · 可议',    decision: 'review' },
   { id: '5', name: 'Tom Zhao',     initial: 'T', avc: 'tenant',   match: 64, tier: 2, income: 7200,  credit: 651, qual: '近 1 年 LTB 1 起 (已结案)', decision: 'review' },
-  { id: '6', name: 'Anna Brooks',  initial: 'A', avc: 'agent',    match: 41, tier: 1, income: 5400,  credit: 0,   qual: '未升级 Tier 2 · 仅基本 ID',  decision: 'decline' },
+  { id: '6', name: 'Anna Brooks',  initial: 'A', avc: 'agent',    match: 41, tier: 1, income: 5400,  credit: 0,   qual: '未升级 认证 2 级 · 仅基本 ID',  decision: 'decline' },
 ]
 
 const SECTIONS = [
@@ -37,11 +37,11 @@ export default function LandlordApplicantsPage() {
       <div className="mb-9 flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
-            APPLICANTS · 88 HARBOUR ST
+            APPLICANTS · UNIT 1207 · KING WEST
           </div>
           <h1 className="mt-2 text-[36px] font-bold tracking-tight">7 份申请 · Logic 已分组</h1>
           <p className="mt-2 text-[14px] text-body-2">
-            按你的 Tier 3 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整六维评分 + 文件。
+            按你的 认证 3 级 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整六维评分 + 文件。
           </p>
         </div>
         <button className="sl-btn-secondary">导出 CSV</button>
@@ -84,7 +84,7 @@ export default function LandlordApplicantsPage() {
                     </div>
                     <div className="mt-1 font-mono text-[11.5px] text-body-2">{a.qual}</div>
                   </div>
-                  <span className={`tier-badge t${a.tier}`}>TIER {a.tier}</span>
+                  <span className={`tier-badge t${a.tier}`}>认证 {a.tier} 级</span>
                   <div>
                     <div className="font-mono text-[24px] font-bold leading-none">{a.match}</div>
                     <div className="font-mono text-[10px] uppercase text-body-3">MATCH</div>
