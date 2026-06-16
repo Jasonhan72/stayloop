@@ -164,14 +164,19 @@ export default function HomePage() {
       {/* ===== 05 · JOURNEY ===== */}
       <Section n="05" kicker="端到端流程" title={<>从找房到入住,<br />一条路走完。</>}
         lead="不用在平台之间来回跳。AI 助手在每一步陪着你,但每个关键决定,始终是你的。">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {JOURNEY.map((j, i) => (
-            <div key={j.h} className="sl-card p-5">
-              <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-brand">STEP 0{i + 1}</div>
-              <h4 className="mt-2 text-[14.5px] font-bold leading-snug">{j.h}</h4>
-              <p className="mt-1.5 text-[12px] leading-relaxed text-body-3">{j.b}</p>
-            </div>
-          ))}
+        <div className="relative">
+          {/* connecting line (desktop) — purple → green progression */}
+          <div className="absolute left-[10%] right-[10%] top-7 hidden h-[2px] lg:block" style={{ background: 'linear-gradient(90deg,#7C3AED,#94A3B8 55%,#047857)' }} />
+          <div className="relative grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+            {JOURNEY.map((j, i) => (
+              <div key={j.h} className="flex flex-col items-center text-center lg:items-start lg:text-left">
+                <JourneyIcon step={i} />
+                <div className="mt-3 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-brand">STEP 0{i + 1}</div>
+                <h4 className="mt-1.5 text-[14.5px] font-bold leading-snug">{j.h}</h4>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-body-3">{j.b}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </Section>
 
@@ -210,9 +215,21 @@ export default function HomePage() {
       <Section n="07" kicker="一套引擎 · 三个产品" title={<>同一份信任,<br />处处可读。</>}
         lead="在 App 里创建的护照,能被 Console 读取、被 Trust API 调用 —— 验证一次,处处复用。">
         <div className="grid gap-4 md:grid-cols-3">
-          <FeatureCard h="App · 租客与经纪" b="对话式找房、Rental Passport、一键申请、缴租维修续约全程托管。" tag="L3 · CONSUMER" />
-          <FeatureCard h="Console · 房东与机构" b="申请人 Pipeline、8 Engine 自动尽调、合规教练、租约自动起草。" tag="L2 · BUSINESS" />
-          <FeatureCard h="Trust API · 银行 / 法务" b="把已验证的信任结论嵌入银行、保险、政府流程,按调用量计费。" tag="L1 · INFRA" />
+          {PRODUCTS.map((p) => (
+            <div key={p.name} className="sl-card flex flex-col p-7">
+              <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-brand">{p.tag}</div>
+              <h3 className="mt-2 text-[20px] font-bold tracking-tight">{p.name}</h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-body-2">{p.desc}</p>
+              <ul className="mt-4 space-y-2 border-t border-line-divider pt-4 text-[13px]">
+                {p.points.map((pt) => (
+                  <li key={pt} className="flex items-start gap-2">
+                    <span className="mt-[2px] text-success">✓</span>
+                    <span className="font-mono text-[12px] text-body-2">{pt}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </Section>
 
@@ -252,6 +269,31 @@ function Section({ n, kicker, title, lead, children, tint }: {
         <div className="mt-9">{children}</div>
       </div>
     </section>
+  )
+}
+
+function JourneyIcon({ step }: { step: number }) {
+  // 0 Luna sphere · 1 ID · 2 house · 3 lightning · 4 green check (matches design)
+  const ic = (path: React.ReactNode) => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">{path}</svg>
+  )
+  if (step === 0)
+    return <span className="h-14 w-14 rounded-full ring-4 ring-[#F2EEE5]" style={{ background: 'linear-gradient(135deg,#C4B5FD,#7C3AED)' }} />
+  if (step === 4)
+    return (
+      <span className="flex h-14 w-14 items-center justify-center rounded-full ring-4 ring-[#F2EEE5]" style={{ background: 'linear-gradient(135deg,#6EE7B7,#047857)' }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+      </span>
+    )
+  const icons: Record<number, React.ReactNode> = {
+    1: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="11" r="2" /><path d="M14 9h4M14 13h4M5.5 16h7" /></>,
+    2: <><path d="M3 11l9-7 9 7" /><path d="M5 10v9h14v-9" /><path d="M10 19v-5h4v5" /></>,
+    3: <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />,
+  }
+  return (
+    <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white ring-4 ring-[#F2EEE5] border border-line-divider">
+      {ic(icons[step])}
+    </span>
   )
 }
 
@@ -401,6 +443,12 @@ const SCENARIOS = [
   { name: 'Mia Chen', role: '租客 · TENANT', color: '#7C3AED', meta: '27 · 软件工程师 · 新移民', img: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=700&q=80&fit=crop&auto=format', quote: '没有加拿大信用记录,我到底该怎么租房?', before: '信用空白,已被拒 3 次,3 天后必须退房。', after: 'Luna 90 秒验明身份,中文读懂租约,35 分钟签约入住。', with: 'Luna 陪同', delta: 'Score 60 → 91' },
   { name: 'Sarah Wang', role: '房东 · LANDLORD', color: '#047857', meta: '41 · 会计师 · 2 套投资公寓', img: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format', quote: '做决定前要查、要比,还怕踩 RTA 的雷。', before: '每月空置损失 $2,900,深夜被报修打扰,合规压力大。', after: 'Logic 4 分钟重做房源、跑完尽调,关键时刻她只按「同意」。', with: 'Logic 协同', delta: '30 分钟 → 30 秒' },
   { name: 'David Park', role: '经纪 · AGENT', color: '#2563EB', meta: '35 · 持牌经纪 · RECO 6 年', img: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=700&q=80&fit=crop&auto=format', quote: '不是没机会,是时间被行政碎片化了。', before: '70% 时间耗在行政,收入不稳,客户容易跟丢。', after: 'Brief 编排任务、当晚结算,他只做带看与专业判断。', with: 'Brief + Beacon', delta: '时薪 $25 → $43' },
+]
+
+const PRODUCTS = [
+  { name: 'Stayloop App', tag: 'L3 · CONSUMER', desc: '面向租客。一年验证一次,一键申请,文档永远归你。', points: ['Verified Renter Passport', 'AI Concierge 找房', 'Credit Builder'] },
+  { name: 'Stayloop Console', tag: 'L2 · WORKFLOW', desc: '面向房东与经纪。是流水线,不是收件箱。AI 起草,你做决定。', points: ['多平台房源同步', 'Pipeline Kanban', 'Compliance Coach'] },
+  { name: 'Trust API', tag: 'L1 · INFRASTRUCTURE', desc: '面向 PropTech、保险与平台。身份、收入、信用,一个接口全搞定。', points: ['POST /v1/passports', 'Webhook 事件流', 'PIPEDA 合规'] },
 ]
 
 const JOURNEY = [
