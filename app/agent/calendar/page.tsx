@@ -46,10 +46,12 @@ export default function AgentCalendarPage() {
       <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-agent">
-            AGENT · CALENDAR
+            DAVID PARK · 第 20 周 · 5/11–5/17
           </div>
-          <h1 className="mt-2 text-[32px] font-bold tracking-tight">本周排期</h1>
-          <p className="mt-1 text-[13.5px] text-body-2">5/9 – 5/15 · 11 个日程 · Brief 自动避开冲突</p>
+          <h1 className="mt-2 text-[32px] font-bold tracking-tight">
+            本周 9 场带看 · $720 已锁
+          </h1>
+          <p className="mt-1 text-[13.5px] text-body-2">绿 = 已完成 · 蓝 = 已确认 · 黄 = 等你接</p>
         </div>
         <div className="flex items-center gap-2">
           <button className="rounded-[10px] border border-line-strong bg-white px-3 py-[8px] text-[12.5px] font-semibold">
@@ -61,6 +63,25 @@ export default function AgentCalendarPage() {
           <button className="rounded-[10px] border border-line-strong bg-white px-3 py-[8px] text-[12.5px] font-semibold">
             下周 →
           </button>
+        </div>
+      </div>
+
+      {/* Summary KPIs */}
+      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <div className="sl-card p-5">
+          <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">本周已完成</div>
+          <div className="mt-1 text-[28px] font-extrabold tracking-tight" style={{ color: '#047857' }}>5 场</div>
+          <div className="mt-0.5 text-[11.5px] text-brand">▲ 4 待评价</div>
+        </div>
+        <div className="sl-card p-5">
+          <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">本周已锁收入</div>
+          <div className="mt-1 text-[28px] font-extrabold tracking-tight">$720</div>
+          <div className="mt-0.5 text-[11.5px] text-brand">▲ 比上周 +12%</div>
+        </div>
+        <div className="sl-card p-5">
+          <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">本周 GTA WEST 排名</div>
+          <div className="mt-1 text-[28px] font-extrabold tracking-tight">#3 / 23</div>
+          <div className="mt-0.5 text-[11.5px] text-body-3">距 Top 2 还 2 单</div>
         </div>
       </div>
 
@@ -140,23 +161,28 @@ export default function AgentCalendarPage() {
         </div>
       </div>
 
-      {/* Week summary */}
-      <div className="mt-6 grid gap-3 sm:grid-cols-4">
-        {[
-          { l: '看房', v: 6, c: '#1E3A8A' },
-          { l: '拍照', v: 2, c: '#5B21B6' },
-          { l: '签字 / 续约', v: 1, c: '#047857' },
-          { l: 'Open House', v: 1, c: '#B45309' },
-        ].map((s) => (
-          <div key={s.l} className="sl-card p-4">
-            <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-              {s.l}
+      {/* Settlement section */}
+      <div className="mt-6 sl-card p-5">
+        <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
+          SETTLEMENT · 收款记录
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-4">
+          {[
+            { l: '本月已结', v: '$2,760', c: '#047857' },
+            { l: '本月待结', v: '$320', c: '#B45309' },
+            { l: 'YTD 总入', v: '$11,420', c: '#171717' },
+            { l: '完成率', v: '96%', c: '#047857' },
+          ].map((s) => (
+            <div key={s.l}>
+              <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">
+                {s.l}
+              </div>
+              <div className="mt-1 text-[22px] font-extrabold tracking-tight" style={{ color: s.c }}>
+                {s.v}
+              </div>
             </div>
-            <div className="mt-1 text-[24px] font-extrabold" style={{ color: s.c }}>
-              {s.v}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </WorkspaceShell>
   )

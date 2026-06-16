@@ -40,12 +40,11 @@ export default function LandlordFinancePage() {
       <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-landlord">
-            LANDLORD · FINANCE
+            财务 · 2026 YTD
           </div>
-          <h1 className="mt-2 text-[36px] font-bold tracking-tight">财务总览</h1>
-          <p className="mt-1 text-[13.5px] text-body-2">
-            6 个月 · 3 套房产 · 自动核账 · 适配 Schedule 776 报税
-          </p>
+          <h1 className="mt-2 text-[36px] font-bold tracking-tight">
+            Sarah 你今年到 5 月赚了 $30,000
+          </h1>
         </div>
         <div className="flex gap-2">
           <button className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand">
@@ -57,15 +56,15 @@ export default function LandlordFinancePage() {
 
       {/* KPI strip */}
       <div className="grid gap-3 sm:grid-cols-4">
-        <Kpi label="6 月合计收租" value={`$${totalCollected.toLocaleString()}`} accent="#047857" />
+        <Kpi label="YTD 租金收入" value="$30,000" accent="#047857" />
+        <Kpi label="已收" value="$22,840" accent="#171717" />
         <Kpi
           label="收租率"
-          value={`${collectionRate.toFixed(1)}%`}
-          accent={collectionRate >= 99 ? '#047857' : '#B45309'}
-          sub="99% 达标线"
+          value="2.4%"
+          accent="#B45309"
+          sub="▲ +14% · 维修成本下降"
         />
-        <Kpi label="6 月合计支出" value={`$${totalExpense.toLocaleString()}`} accent="#B91C1C" />
-        <Kpi label="净现金流" value={`$${(totalCollected - totalExpense).toLocaleString()}`} accent="#171717" />
+        <Kpi label="本月支出" value="$3,420" accent="#B91C1C" />
       </div>
 
       {/* Chart */}

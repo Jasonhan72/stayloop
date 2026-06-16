@@ -68,41 +68,113 @@ export default function TenantMaintenancePage() {
   )
 }
 
+const CATEGORIES = [
+  { id: 'plumbing', icon: '🔧', label: '水管 / 漏水' },
+  { id: 'electrical', icon: '⚡', label: '电器 / 电路' },
+  { id: 'hvac', icon: '❄️', label: '暖气 / 空调' },
+  { id: 'lock', icon: '🔑', label: '钥匙 / 锁' },
+]
+
+const URGENCY = [
+  { id: 'low', label: '不急 · 7 天内' },
+  { id: 'medium', label: '普通 · 48 小时内' },
+  { id: 'high', label: '紧急 · 24 小时' },
+]
+
 function NewTicketModal({ onClose }: { onClose: () => void }) {
+  const [cat, setCat] = useState('')
+  const [urg, setUrg] = useState('medium')
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur sm:items-center">
-      <div className="sl-card w-full max-w-md p-7">
-        <h3 className="text-[20px] font-bold tracking-tight">提交维修请求</h3>
-        <div className="mt-5 space-y-3">
-          <label className="block">
-            <span className="sl-eyebrow">问题分类</span>
-            <select className="sl-input mt-1">
-              <option>水电 · plumbing</option>
-              <option>电器 · appliance</option>
-              <option>暖通空调 · HVAC</option>
-              <option>结构 / 漏水</option>
-              <option>其他</option>
-            </select>
-          </label>
-          <label className="block">
-            <span className="sl-eyebrow">紧急程度</span>
-            <select className="sl-input mt-1">
-              <option>非紧急</option>
-              <option>影响生活</option>
-              <option>紧急 · 24h 内</option>
-            </select>
-          </label>
-          <label className="block">
-            <span className="sl-eyebrow">详细描述</span>
-            <textarea className="sl-input mt-1 h-24 py-2" placeholder="尽量描述清楚 · Luna 会附在工单里" />
-          </label>
-          <label className="block">
-            <span className="sl-eyebrow">添加照片</span>
-            <div className="mt-1 flex h-20 items-center justify-center rounded-[10px] border-2 border-dashed border-line-strong bg-surface-chip text-[12px] text-body-3">
-              拖拽或点击上传 · 最多 5 张
-            </div>
-          </label>
+      <div className="sl-card w-full max-w-lg p-7 sm:p-9">
+        <div className="font-mono text-[10.5px] uppercase tracking-eyebrowLg text-body-3">
+          UNIT 1207 · 维修 · 发给 SARAH
         </div>
+        <h3 className="mt-2 text-[24px] font-bold tracking-tight">什么情况?</h3>
+        <p className="mt-1 text-[13px] text-body-2">
+          Luna 会基于你描述的紧急程度给 Sarah 一个建议响应时间。
+        </p>
+
+        {/* Category pills */}
+        <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {CATEGORIES.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setCat(c.id)}
+              className={
+                'flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-4 text-center transition ' +
+                (cat === c.id
+                  ? 'border-brand bg-brand/5 text-brand'
+                  : 'border-line-strong bg-white text-body hover:border-brand/40')
+              }
+            >
+              <span className="text-[20px]">{c.icon}</span>
+              <span className="text-[12px] font-semibold">{c.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Description */}
+        <div className="mt-5">
+          <div className="sl-eyebrow">详细描述</div>
+          <textarea
+            className="sl-input mt-1.5 h-24 py-2"
+            placeholder="厨房洗碗机不通电。今早开机没反应，电源指示灯也不亮。其他电器正常。"
+          />
+        </div>
+
+        {/* Urgency pills */}
+        <div className="mt-5">
+          <div className="sl-eyebrow">紧急程度</div>
+          <div className="mt-1.5 grid grid-cols-3 gap-2">
+            {URGENCY.map((u) => (
+              <button
+                key={u.id}
+                onClick={() => setUrg(u.id)}
+                className={
+                  'rounded-xl border-2 px-3 py-3 text-center text-[12.5px] font-semibold transition ' +
+                  (urg === u.id
+                    ? 'border-brand bg-brand/5 text-brand'
+                    : 'border-line-strong bg-white text-body hover:border-brand/40')
+                }
+              >
+                {u.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Photo grid */}
+        <div className="mt-5">
+          <div className="sl-eyebrow">照片（可选）</div>
+          <div className="mt-1.5 grid grid-cols-5 gap-2">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="flex aspect-square items-center justify-center rounded-xl border-2 border-dashed border-line-strong bg-surface-chip text-[18px] text-body-4 transition hover:border-brand/40 hover:text-brand"
+              >
+                {i === 0 ? '📷' : '+'}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Luna explanation */}
+        <div className="mt-6 rounded-xl border border-tenant/22 bg-tenant/5 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span
+              className="h-5 w-5 rounded-full"
+              style={{ background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)' }}
+            />
+            <span className="text-[12px] font-bold text-tenant-deep">Luna · 你提交后会发生什么：</span>
+          </div>
+          <ul className="mt-2 space-y-1 text-[12px] leading-relaxed text-tenant-deep">
+            <li>· Sarah 立即收到 push，我会在 4 小时后追 Sarah 跟进</li>
+            <li>· 记录电器故障类型，48 小时内 Sarah 应该安排人上门，RTA 标准</li>
+            <li>· 一切留痕，audit log，争议时可溯</li>
+          </ul>
+        </div>
+
         <div className="mt-6 flex gap-2">
           <button onClick={onClose} className="flex-1 rounded-[10px] border border-line-strong bg-white py-[12px] text-[14px] font-semibold text-body">
             取消

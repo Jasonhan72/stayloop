@@ -141,25 +141,82 @@ export default function TenantPassport() {
       </div>
 
       <div className="mt-10 sl-card p-6">
-        <h3 className="text-[16px] font-bold tracking-tight">活跃授权</h3>
+        <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
+          RENTAL PASSPORT · 共享中
+        </div>
+        <h3 className="mt-2 text-[22px] font-bold tracking-tight">
+          你授权了 4 个人 / 服务看你的资料
+        </h3>
         <p className="mt-1 text-[13px] text-body-2">
-          这些房东 / 经纪 当前可以查看你的部分 Passport · 你可以随时撤销
+          每一项都可以一键撤销 · 30 秒生效 · 撤销后立即从对方系统中删除
         </p>
-        <div className="mt-4 space-y-2">
+        <div className="mt-5 space-y-3">
           {[
-            { who: 'Mike Park (88 Harbour) · 房东', scope: 'Tier 1 + 收入 + 月入', exp: '2026-05-22 后失效' },
-            { who: 'Sarah Chen · Field Agent', scope: 'Tier 1 · 联系方式', exp: '看房后 24 小时' },
+            {
+              who: 'Sarah Wang · 房东 · Unit 1207',
+              color: '#F97316',
+              time: '2026/05/02 14:30 · 通过申请意向',
+              see: '认证 2 级 资料 + 房主核定 · 身份 · 你的简短语气',
+              noSee: '真他工资、银行流水、驾照全码',
+              action: '撤回授权',
+              actionStyle: 'text-danger',
+            },
+            {
+              who: 'David Park · Field Agent · 看房',
+              color: '#3B82F6',
+              time: '2026/05/03 11:48 · 周三 14:00 · 临时',
+              see: '你的偏好、你的方式、看房问题清单',
+              noSee: '财务资料 · 申请历史',
+              action: '看后自动撤销',
+              actionStyle: 'text-info',
+            },
+            {
+              who: 'Persona SDK · 身份验证商',
+              color: '#8B5CF6',
+              time: '2026/04/28 · 永久 · 加密存储',
+              see: '为你做了：基础身份核检',
+              noSee: '注：他们只看你的护照 + 自拍，不看其他',
+              action: '检查',
+              actionStyle: 'text-body-3',
+            },
+            {
+              who: 'Flinks · 银行 API',
+              color: '#10B981',
+              time: '2026/05/04 10:21 · 90 天过期',
+              see: '为你做了：认证 3 级 收入与稳定性核验',
+              noSee: null,
+              action: '撤回授权',
+              actionStyle: 'text-danger',
+            },
           ].map((g) => (
-            <div key={g.who} className="flex items-center justify-between rounded-xl bg-surface-chip px-4 py-3">
-              <div>
-                <div className="text-[14px] font-semibold">{g.who}</div>
-                <div className="font-mono text-[11px] text-body-3">{g.scope} · {g.exp}</div>
+            <div key={g.who} className="flex items-start gap-4 rounded-xl bg-surface-chip px-5 py-4">
+              <span
+                className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-[14px] font-bold text-white"
+                style={{ background: g.color }}
+              >
+                {g.who[0]}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[14px] font-bold">{g.who}</div>
+                <div className="mt-0.5 font-mono text-[10.5px] text-body-3">{g.time}</div>
+                <div className="mt-2 text-[12.5px] leading-relaxed text-body-2">
+                  <span className="font-semibold text-brand">能看到：</span>{g.see}
+                </div>
+                {g.noSee && (
+                  <div className="mt-0.5 text-[12.5px] text-body-3">
+                    <span className="font-semibold">看不到：</span>{g.noSee}
+                  </div>
+                )}
               </div>
-              <button className="text-[12.5px] font-semibold text-danger hover:underline">
-                撤销
+              <button className={`flex-shrink-0 text-[12.5px] font-semibold hover:underline ${g.actionStyle}`}>
+                {g.action}
               </button>
             </div>
           ))}
+        </div>
+        <div className="mt-4 text-[12px] text-body-3">
+          🔐 完整 audit log · 每一次查看 / 数据导出 / 第三方调用都有时间戳。
+          <Link href="#" className="ml-1 font-semibold text-brand hover:underline">查看完整日志 →</Link>
         </div>
       </div>
     </WorkspaceShell>

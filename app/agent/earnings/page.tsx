@@ -39,9 +39,11 @@ export default function AgentEarningsPage() {
         <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-agent">
           AGENT · EARNINGS
         </div>
-        <h1 className="mt-2 text-[36px] font-bold tracking-tight">佣金 · 即时结算</h1>
+        <h1 className="mt-2 text-[36px] font-bold tracking-tight">
+          本周 9 场带看 · $720 已锁
+        </h1>
         <p className="mt-1 text-[13.5px] text-body-2">
-          每单签字后 24h 内结算到 Stripe · 自动归集到 T4A
+          仅成交后 · 经纪行↔经纪行 · 每单签字后 24h 内结算到 Stripe
         </p>
       </div>
 
