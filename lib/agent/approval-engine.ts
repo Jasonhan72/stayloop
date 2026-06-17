@@ -42,7 +42,15 @@ export async function getPendingActions(
     console.warn('[approval] read failed', error.message)
     return []
   }
-  return (data ?? []).map(rowToAction)
+  // Dedupe by content — guards against duplicate rows (e.g. a past seed race)
+  // rendering the same approval card twice. Rows are ordered newest-first.
+  const seen = new Set<string>()
+  return (data ?? []).map(rowToAction).filter((a) => {
+    const key = `${a.action_type}|${a.title}|${a.recipient_label ?? ''}|${a.summary}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 export async function decidePendingAction(

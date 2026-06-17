@@ -57,10 +57,13 @@ export default function FieldAgentPage() {
         nextAction={latestResult ? latestResult.body : next}
       />
 
+      <div className="mt-6">
+        <AgentInputBar agentName={agent.agent_name} onSend={sendMessage} />
+      </div>
+
       <div className="mt-8 space-y-6">
         {pendingActions.length > 0 && <PendingActionsPanel actions={pendingActions} onDecide={decide} />}
         {latestResult && pendingActions.length === 0 && <AgentResultCard result={latestResult} />}
-        <AgentInputBar agentName={agent.agent_name} onSend={sendMessage} />
         <WorkflowStatusPanel role="agent" workflow={workflow} />
         <RecommendationDeck items={recommendations} />
       </div>
