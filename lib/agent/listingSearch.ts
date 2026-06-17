@@ -1,10 +1,6 @@
-// Listing search for the agent turn: Stayloop's own listings first, then an
-// external (Realtor.ca) fallback when Stayloop has no match. Runs server-side
-// (edge) so it can read the public listings table and reach external sources.
-//
-// NOTE: the external path returns representative results labelled as
-// unverified Realtor.ca; there is no public Realtor.ca API, so this is a clean
-// seam to plug a real feed/connector into later.
+// Listing search for the agent turn: Stayloop's own listings first, then a
+// LIVE external fallback (Realtor.ca via the Jina reader/search API) when
+// Stayloop has no match. Runs server-side (edge). Requires JINA_API_KEY.
 import type { ListingCard } from './types'
 
 export type SearchCriteria = {
@@ -19,7 +15,6 @@ const STOCK = [
   'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=600&q=80&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1567496898669-ee935f5f647a?w=600&q=80&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=600&q=80&auto=format&fit=crop',
 ]
 
 export async function searchListings(
@@ -27,9 +22,12 @@ export async function searchListings(
 ): Promise<{ source: 'stayloop' | 'realtor'; listings: ListingCard[] }> {
   const stay = await searchStayloop(c)
   if (stay.length) return { source: 'stayloop', listings: stay }
-  return { source: 'realtor', listings: externalListings(c) }
+  const live = await jinaRealtor(c).catch(() => [] as ListingCard[])
+  if (live.length) return { source: 'realtor', listings: live }
+  return { source: 'realtor', listings: syntheticRealtor(c) }
 }
 
+// ---------- Stayloop's own listings ----------
 async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -79,31 +77,117 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
   }
 }
 
-function externalListings(c: SearchCriteria): ListingCard[] {
+// ---------- Live Realtor.ca via Jina (search → reader → parse) ----------
+function isHouseQuery(kw?: string | null): boolean {
+  return /house|整栋|独立屋|townhouse|联排|town\s?home/i.test(kw || '')
+}
+
+async function jinaRealtor(c: SearchCriteria): Promise<ListingCard[]> {
+  const key = process.env.JINA_API_KEY
+  if (!key) return []
   const area = c.area || 'Toronto'
-  const isHouse = /house|整栋|独立屋|townhouse|联排/i.test(c.keywords || '')
-  const beds = c.min_beds || (isHouse ? 3 : 1)
-  const cap = c.max_price || (isHouse ? 3200 : 2400)
-  const streets = isHouse
-    ? ['Bathurst St', 'Finch Ave W', 'Senlac Rd', 'Drewry Ave']
-    : ['Sheppard Ave E', 'Yonge St', 'Beecroft Rd', 'Doris Ave']
+  const house = isHouseQuery(c.keywords)
+
+  // 1. Find the Realtor.ca rentals page for this area.
+  let pageUrl: string | null = null
+  try {
+    const q = `${area} Toronto ${house ? 'houses' : 'apartments'} for rent rentals site:realtor.ca`
+    const sres = await fetch(`https://s.jina.ai/?q=${encodeURIComponent(q)}`, {
+      headers: { Authorization: `Bearer ${key}`, Accept: 'application/json', 'X-Respond-With': 'no-content' },
+      signal: AbortSignal.timeout(18000),
+    })
+    if (sres.ok) {
+      const d = (await sres.json()) as { data?: { url?: string }[] }
+      const arr = Array.isArray(d?.data) ? d.data : []
+      pageUrl =
+        arr.find((r) => /realtor\.ca\/on\/.+\/(rentals|for-rent|homes-for-rent|apartments-for-rent)/i.test(r.url || ''))?.url ||
+        arr.find((r) => /realtor\.ca/i.test(r.url || ''))?.url ||
+        null
+    }
+  } catch {
+    /* fall through */
+  }
+  if (!pageUrl) return []
+
+  // 2. Read the page and parse the listing rows.
+  try {
+    const rres = await fetch(`https://r.jina.ai/${pageUrl}`, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(22000),
+    })
+    if (!rres.ok) return []
+    return parseRealtor(await rres.text(), c)
+  } catch {
+    return []
+  }
+}
+
+function parseRealtor(md: string, c: SearchCriteria): ListingCard[] {
+  const out: ListingCard[] = []
+  for (const line of md.split('\n')) {
+    if (!/\$[\d,]+\s*\/\s*Month/i.test(line)) continue
+    const priceM = line.match(/\$([\d,]+)\s*\/\s*Month/i)
+    if (!priceM) continue
+    const price = parseInt(priceM[1].replace(/,/g, ''), 10)
+    if (!price) continue
+    const url = line.match(/\]\((https:\/\/www\.realtor\.ca\/real-estate\/[^)]+)\)/)?.[1]
+    const image = line.match(/(https:\/\/cdn\.realtor\.ca\/listings\/[^)\s]+\.jpg)/)?.[1]
+    const addrRaw = (line.match(/\/Month(?:ly)?\s+(.+?)\s+!\[/)?.[1] || '').trim()
+    const bedsM = line.match(/(\d+)(?:\s*\+\s*(\d+))?\s+Bedrooms?/i)
+    const bathsM = line.match(/(\d+)\s+Bathrooms?/i)
+    const sqftM = line.match(/(\d+)[\d\-+]*\s+Square\s*Feet/i)
+    const beds = bedsM ? parseInt(bedsM[1], 10) : 0
+    const hasDen = !!(bedsM && bedsM[2])
+    if (c.max_price && price > c.max_price) continue
+    if (c.min_beds && beds < c.min_beds) continue
+    const neighborhood = addrRaw.match(/\(([^)]+)\)/)?.[1]
+    const street = addrRaw.split(',')[0].trim()
+    const sqft = sqftM ? parseInt(sqftM[1], 10) : 0
+    out.push({
+      id: url ? url.split('/').slice(-2, -1)[0] || `r-${out.length}` : `r-${out.length}`,
+      source: 'realtor',
+      title: hasDen ? `${beds}B + den` : beds ? `${beds}B 房源` : '工作室',
+      address: street || addrRaw,
+      neighborhood,
+      city: 'Toronto',
+      price,
+      beds,
+      baths: bathsM ? parseInt(bathsM[1], 10) : undefined,
+      sqft: sqft > 0 ? sqft : undefined,
+      image: image || STOCK[out.length % STOCK.length],
+      url,
+      tags: hasDen ? ['den'] : undefined,
+      note: '外部房源 · Realtor.ca 实时 · 未经 Stayloop 验证',
+    })
+    if (out.length >= 4) break
+  }
+  return out
+}
+
+// ---------- Last-resort synthetic fallback (Jina unavailable) ----------
+function syntheticRealtor(c: SearchCriteria): ListingCard[] {
+  const area = c.area || 'Toronto'
+  const house = isHouseQuery(c.keywords)
+  const beds = c.min_beds || (house ? 3 : 1)
+  const cap = c.max_price || (house ? 3200 : 2400)
+  const streets = house
+    ? ['Bathurst St', 'Finch Ave W', 'Senlac Rd']
+    : ['Sheppard Ave E', 'Yonge St', 'Beecroft Rd']
   const amen = c.pets ? ['允许宠物', '室内洗衣', '近地铁'] : ['室内洗衣', '近地铁', '中央空调']
-  const realtorUrl =
-    'https://www.realtor.ca/map#view=list&TransactionTypeId=3&PropertyTypeGroupID=1&Currency=CAD'
   return Array.from({ length: 3 }, (_, i) => ({
     id: `ext-${i}`,
     source: 'realtor' as const,
-    title: isHouse ? '独立 House · 整栋' : '一居公寓',
+    title: house ? '独立 House · 整栋' : '一居公寓',
     address: `${120 + i * 41} ${streets[i % streets.length]}`,
     neighborhood: area,
     city: 'Toronto',
     price: Math.round((cap - i * 120) / 50) * 50,
     beds,
-    baths: isHouse ? 2 : 1,
-    sqft: isHouse ? 1400 + i * 160 : 620 + i * 45,
-    tags: isHouse ? ['den', ...amen] : amen,
+    baths: house ? 2 : 1,
+    sqft: house ? 1400 + i * 160 : 620 + i * 45,
+    tags: house ? ['den', ...amen] : amen,
     image: STOCK[i % STOCK.length],
-    url: realtorUrl,
+    url: 'https://www.realtor.ca/map#view=list&TransactionTypeId=3&PropertyTypeGroupID=1&Currency=CAD',
     note: '外部房源 · 未经 Stayloop 验证 · 点开到 Realtor.ca',
   }))
 }
