@@ -33,6 +33,27 @@ export const DICT = {
   'common.free': { en: 'Free', zh: '免费版' },
   'common.pro': { en: 'Pro', zh: '订阅版' },
 
+  // Onboarding · Tier 1 (认证 1 级 · 90 秒身份验证)
+  'onb.hi': { en: "Hi, I'm Luna.", zh: '嗨，我是 Luna。' },
+  'onb.line2': { en: "First, let's verify your identity — 90 seconds.", zh: '先花 90 秒，验明你的身份。' },
+  'onb.body': {
+    en: 'This is Tier 1. Just your passport or licence plus a quick selfie — Persona handles it securely. A soft check that never touches your credit.',
+    zh: '这是 认证 1 级。只需护照 / 驾照 + 一张自拍，Persona 帮你安全完成。软查不影响信用。',
+  },
+  'onb.f1': { en: 'Passport, driver’s licence, or PR card', zh: '护照 / 驾照 / PR 卡，三选一' },
+  'onb.f2': { en: 'A quick liveness selfie to confirm it’s you', zh: '活体自拍，确认是你本人' },
+  'onb.f3': { en: 'Encrypted end-to-end · your data stays yours · delete anytime', zh: '全程加密 · 资料只属于你 · 随时可删' },
+  'onb.cta1': { en: '✓ Start · Tier 1 · ~90 seconds', zh: '✓ 开始 · 认证 1 级 · 约 90 秒' },
+  'onb.cta2': { en: 'Just browse listings first', zh: '先随便逛逛房源' },
+  'onb.foot': { en: 'Stronger than 90% of Kijiji inquiries — landlords notice.', zh: '比 90% 的 Kijiji 询盘更让房东放心。' },
+
+  // Listing card + footer
+  'common.bd': { en: 'bd', zh: '卧' },
+  'common.ba': { en: 'ba', zh: '卫' },
+  'listings.matchScore': { en: 'match', zh: '匹配' },
+  'foot.tag': { en: "Toronto's AI-native rental OS. Verify once, reuse everywhere.", zh: '为 AI 时代打造的多伦多租住操作系统。验证一次，处处通行。' },
+  'foot.copy': { en: '© 2026 Stayloop Inc. · PIPEDA · OHRC · RTA compliant', zh: '© 2026 Stayloop Inc. · PIPEDA · OHRC · RTA 合规' },
+
   // Home page
   'home.badge': { en: 'Built for Ontario landlords · PIPEDA compliant', zh: '为安省房东打造 · PIPEDA 合规' },
   'home.hero.line1': { en: 'Tenant screening,', zh: '租客风控评估，' },
