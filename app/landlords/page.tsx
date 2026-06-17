@@ -14,8 +14,8 @@ export default function LandlordsPage() {
       accentWord_en="ranks"
       subtitle_zh="Logic agent 综合支付能力、租房历史、合规风险打分。Nova 负责房源文案与定价。Sentinel 守住 OHRC 与 RTA 红线。你只需要做最终批准。"
       subtitle_en="Logic agent scores ability-to-pay, rental history, and compliance risk. Nova drafts copy and pricing. Sentinel guards the OHRC + RTA red lines. You make the final call."
-      primaryCta={{ label_zh: '查看 Pipeline', label_en: 'Open Pipeline', href: '/dashboard/pipeline' }}
-      secondaryCta={{ label_zh: '让 Nova 写房源', label_en: 'Draft a listing', href: '/listings/new' }}
+      primaryCta={{ label_zh: '查看 Pipeline', label_en: 'Open Pipeline', href: '/landlord/applicants' }}
+      secondaryCta={{ label_zh: '让 Nova 写房源', label_en: 'Draft a listing', href: '/dashboard/listings/new' }}
       stats={[
         { value: '6.2 d', label_zh: '平均挂牌天数（行业 18 d）', label_en: 'avg days-on-market (vs. 18 d industry)' },
         { value: '92%', label_zh: 'Logic 推荐租客签约后好评率', label_en: 'positive review rate of Logic-picked tenants' },

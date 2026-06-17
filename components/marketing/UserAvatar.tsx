@@ -62,36 +62,34 @@ export default function UserAvatar({ user, signOut }: Props) {
   // duplicate Pipeline / Properties / etc. here.
   // -----------------------------------------------------------------------
   const workspaceHref =
-    user.role === 'tenant' ? '/tenant/dashboard'
-    : user.role === 'agent' ? '/agent/dashboard'
-    : '/landlord/dashboard'
+    user.role === 'tenant' ? '/tenant/agent'
+    : user.role === 'agent' ? '/agent/agent'
+    : '/landlord/agent'
 
   const items: Array<{ href: string; label_en: string; label_zh: string; icon: string }> =
     user.role === 'tenant'
       ? [
           { href: workspaceHref, label_en: 'Back to workspace', label_zh: '回工作台', icon: '◇' },
-          { href: '/passport', label_en: 'My Passport', label_zh: '我的 Passport', icon: '🪪' },
+          { href: '/tenant/passport', label_en: 'My Passport', label_zh: '我的 Passport', icon: '🪪' },
           { href: '/disputes', label_en: 'Disputes', label_zh: '纠纷', icon: '⚖' },
           { href: '/notifications', label_en: 'Notifications', label_zh: '通知', icon: '🔔' },
-          { href: '/audit', label_en: 'Activity log', label_zh: '操作日志', icon: '⊜' },
-          { href: '/profile', label_en: 'Account', label_zh: '账户设置', icon: '⚙' },
+          { href: '/tenant/audit', label_en: 'Activity log', label_zh: '操作日志', icon: '⊜' },
+          { href: '/settings', label_en: 'Account', label_zh: '账户设置', icon: '⚙' },
         ]
       : user.role === 'agent'
         ? [
             { href: workspaceHref, label_en: 'Back to workspace', label_zh: '回工作台', icon: '◇' },
-            { href: '/agent/day', label_en: 'Day brief', label_zh: '今日任务', icon: '☉' },
+            { href: '/agent/tasks', label_en: 'Day brief', label_zh: '今日任务', icon: '☉' },
             { href: '/notifications', label_en: 'Notifications', label_zh: '通知', icon: '🔔' },
-            { href: '/billing', label_en: 'Billing', label_zh: '账单', icon: '◐' },
-            { href: '/audit', label_en: 'Activity log', label_zh: '操作日志', icon: '⊜' },
-            { href: '/profile', label_en: 'Account', label_zh: '账户设置', icon: '⚙' },
+            { href: '/agent/earnings', label_en: 'Billing', label_zh: '账单', icon: '◐' },
+            { href: '/settings', label_en: 'Account', label_zh: '账户设置', icon: '⚙' },
           ]
         : [
             // landlord (default)
             { href: workspaceHref, label_en: 'Back to workspace', label_zh: '回工作台', icon: '◇' },
             { href: '/notifications', label_en: 'Notifications', label_zh: '通知', icon: '🔔' },
-            { href: '/billing', label_en: 'Billing', label_zh: '账单', icon: '◐' },
-            { href: '/audit', label_en: 'Activity log', label_zh: '操作日志', icon: '⊜' },
-            { href: '/profile', label_en: 'Account', label_zh: '账户设置', icon: '⚙' },
+            { href: '/landlord/audit', label_en: 'Activity log', label_zh: '操作日志', icon: '⊜' },
+            { href: '/settings', label_en: 'Account', label_zh: '账户设置', icon: '⚙' },
           ]
 
   return (

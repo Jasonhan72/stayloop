@@ -19,8 +19,8 @@ export default function TenantsPage() {
       accentWord_en="Apply anywhere"
       subtitle_zh="创建可复用的 Rental Passport，让你的身份、收入、信用与申请资料在租房流程中被清晰整理、可控分享。每一次申请、签约和后续服务，都有你的个人 AI Agent 在协助 —— 关键步骤由你确认，其余由系统协助完成。"
       subtitle_en="Create a reusable Rental Passport. Your ID, income, credit and documents stay organized — and you control who sees what. From applications to e-sign to move-in services, your personal AI agent assists every step; you confirm the key moments, the system handles the rest."
-      primaryCta={{ label_zh: '开始我的 Passport', label_en: 'Start my Passport', href: '/passport' }}
-      secondaryCta={{ label_zh: '看看示例评分', label_en: 'See an example score', href: '/score' }}
+      primaryCta={{ label_zh: '开始我的 Passport', label_en: 'Start my Passport', href: '/onboarding/welcome' }}
+      secondaryCta={{ label_zh: '看看示例评分', label_en: 'See an example score', href: '/screening' }}
       stats={[
         { value: '90s', label_zh: '完成一份申请 · 一键复用', label_en: 'to apply · one tap to reuse' },
         { value: '12mo', label_zh: 'Passport 有效期，可续可撤销', label_en: 'Passport validity · revocable any time' },
