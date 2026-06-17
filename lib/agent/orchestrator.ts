@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   AgentRole,
   AgentStatus,
+  ListingCard,
   MemoryItem,
   PendingAction,
   Recommendation,
@@ -128,6 +129,8 @@ export type AgentTurn = {
   memoryWrites: MemoryItem[]
   proposedAction: PendingAction | null
   nextStage: string | null
+  listings?: ListingCard[]
+  listingsSource?: 'stayloop' | 'realtor'
 }
 
 export async function runAgentTurn(args: {
@@ -163,6 +166,8 @@ export async function runAgentTurn(args: {
       risk_level: 'low' | 'medium' | 'high'
     }
     next_stage: string | null
+    listings?: ListingCard[]
+    listings_source?: 'stayloop' | 'realtor'
   }
 
   const memoryWrites = turn.memory_writes ?? []
@@ -224,5 +229,7 @@ export async function runAgentTurn(args: {
     memoryWrites,
     proposedAction,
     nextStage: turn.next_stage,
+    listings: turn.listings,
+    listingsSource: turn.listings_source,
   }
 }

@@ -80,7 +80,15 @@ ${memLines}
     "excluded_data": ["对方看不到的字段"],
     "risk_level": "low|medium|high"
   },
+  "search": null 或 {
+    "area": "区域,如 北约克 / North York(可空)",
+    "max_price": 预算上限数字(可空,优先用记忆里的预算上限),
+    "min_beds": 卧室数(可空),
+    "pets": true/false/null,
+    "keywords": "house / basement / 整栋 等关键词(可空)"
+  },
   "next_stage": null 或 "推进到的流程阶段 key"
 }
-只在用户的意图确实触发某个关键动作时才给 proposed_action,否则为 null。`
+只在用户的意图确实触发某个关键动作时才给 proposed_action,否则为 null。
+${role === 'tenant' ? '当用户想找房 / 看房源 / 问"有没有合适的 / 找到了吗 / 帮我找"时,设置 search,从对话和记忆里抽取条件(预算用记忆里的预算上限)。系统会据此搜 Stayloop 房源(没有则去 Realtor.ca),并把房源卡片附在你的回复下面 —— 所以 reply 里简短说一句"我去找了下,这几套符合你的条件:"即可,不要在 reply 里手打房源详情。' : ''}`
 }

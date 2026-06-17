@@ -161,6 +161,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       let memoryWrites: AgentSessionResponse['memories'] = []
       let proposedAction: AgentSessionResponse['pendingActions'][number] | null = null
       let nextStage: string | null = null
+      let listings: ChatMessage['listings']
+      let listingsSource: ChatMessage['listingsSource']
 
       setStatus('working')
       // Real reasoning only for authenticated live sessions — anonymous preview
@@ -183,6 +185,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           memoryWrites = turn.memoryWrites
           proposedAction = turn.proposedAction
           nextStage = turn.nextStage
+          listings = turn.listings
+          listingsSource = turn.listingsSource
         } catch (e) {
           console.warn('[agent] turn failed, using fallback —', (e as Error).message)
         }
@@ -208,8 +212,11 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           latestResult: { ...result, kind: 'summary' },
         }
       })
-      // Append the agent's reply to the conversation thread.
-      setMessages((m) => [...m, { id: nextId(), role: 'agent', text: result.body }])
+      // Append the agent's reply (with any listing cards) to the thread.
+      setMessages((m) => [
+        ...m,
+        { id: nextId(), role: 'agent', text: result.body, listings, listingsSource },
+      ])
     },
     [live, user, role, data]
   )

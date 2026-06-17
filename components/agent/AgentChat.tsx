@@ -4,6 +4,7 @@
 // message thread (user ↔ agent bubbles) with the input pinned at the bottom.
 import { useEffect, useRef } from 'react'
 import AgentInputBar from './AgentInputBar'
+import ListingChatCard from './ListingChatCard'
 import type { AgentRole, AgentStatus, ChatMessage } from '@/lib/agent/types'
 
 const ACCENT: Record<AgentRole, string> = {
@@ -58,14 +59,32 @@ export default function AgentChat({
             {m.role === 'agent' && (
               <span className="mr-2 mt-0.5 h-7 w-7 flex-none rounded-full" style={{ background: ORB[role] }} />
             )}
-            <div
-              className={
-                'max-w-[82%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed ' +
-                (m.role === 'user' ? 'rounded-tr-sm text-white' : 'rounded-tl-sm bg-surface-chip text-body')
-              }
-              style={m.role === 'user' ? { background: accent } : undefined}
-            >
-              {m.text}
+            <div className={'flex flex-col gap-2 ' + (m.role === 'user' ? 'max-w-[82%] items-end' : 'max-w-[92%]')}>
+              <div
+                className={
+                  'whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed ' +
+                  (m.role === 'user' ? 'rounded-tr-sm text-white' : 'rounded-tl-sm bg-surface-chip text-body')
+                }
+                style={m.role === 'user' ? { background: accent } : undefined}
+              >
+                {m.text}
+              </div>
+              {m.role === 'agent' && m.listings && m.listings.length > 0 && (
+                <div className="w-full">
+                  {m.listingsSource && (
+                    <div className="mb-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
+                      {m.listingsSource === 'stayloop'
+                        ? `STAYLOOP 房源 · ${m.listings.length} 套`
+                        : `外部 · REALTOR.CA · ${m.listings.length} 套 · 未经 Stayloop 验证`}
+                    </div>
+                  )}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {m.listings.map((l) => (
+                      <ListingChatCard key={l.id} l={l} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ))}

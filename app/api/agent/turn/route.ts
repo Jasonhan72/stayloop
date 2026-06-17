@@ -6,9 +6,10 @@
 // RLS-scoped Supabase client (same pattern as memory.ts / approval-engine.ts).
 // The Anthropic key stays server-side only.
 import { NextResponse } from 'next/server'
-import type { AgentRole, MemoryItem, WorkflowState } from '@/lib/agent/types'
+import type { AgentRole, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
 import { buildSystemPrompt } from '@/lib/agent/prompts'
 import { applyGuardrail, type TurnOutput } from '@/lib/agent/guardrail'
+import { searchListings } from '@/lib/agent/listingSearch'
 
 export const runtime = 'edge'
 
@@ -128,16 +129,42 @@ export async function POST(req: Request) {
   }
 
   const fallbackReply = `我记下了:"${message.trim().slice(0, 120)}"。需要对外分享或提交的动作,都会先作为待批准卡片让你确认。`
-  const normalized = normalizeOutput(safeParseJson(raw), fallbackReply)
+  const parsed = safeParseJson(raw)
+  const normalized = normalizeOutput(parsed, fallbackReply)
 
   // Compliance Guardrail — the deterministic backstop on every AI output.
   const { out, flags } = applyGuardrail(role, normalized)
+
+  // Listing search (tenant): when the model flags intent, search Stayloop's
+  // own listings first, then fall back to external (Realtor.ca).
+  let listings: ListingCard[] | undefined
+  let listingsSource: 'stayloop' | 'realtor' | undefined
+  const search = parsed?.search as Record<string, unknown> | null | undefined
+  if (role === 'tenant' && search && typeof search === 'object') {
+    try {
+      const result = await searchListings({
+        area: typeof search.area === 'string' ? search.area : null,
+        max_price: typeof search.max_price === 'number' ? search.max_price : null,
+        min_beds: typeof search.min_beds === 'number' ? search.min_beds : null,
+        pets: typeof search.pets === 'boolean' ? search.pets : null,
+        keywords: typeof search.keywords === 'string' ? search.keywords : null,
+      })
+      if (result.listings.length) {
+        listings = result.listings
+        listingsSource = result.source
+      }
+    } catch (e) {
+      console.warn('[agent] listing search failed', (e as Error).message)
+    }
+  }
 
   return NextResponse.json({
     reply: out.reply,
     memory_writes: out.memoryWrites,
     proposed_action: out.proposedAction,
     next_stage: out.nextStage,
+    listings,
+    listings_source: listingsSource,
     guardrail: { flagged: flags.length > 0, notes: flags },
   })
 }

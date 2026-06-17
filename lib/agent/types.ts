@@ -81,10 +81,30 @@ export type AgentResult = {
   kind: 'summary' | 'recommendation' | 'warning' | 'approval_prompt'
 }
 
+export type ListingCard = {
+  id: string
+  source: 'stayloop' | 'realtor'
+  title: string
+  address: string
+  neighborhood?: string
+  city?: string
+  price: number
+  beds: number
+  baths?: number
+  sqft?: number
+  tier?: number
+  image?: string
+  tags?: string[]
+  url?: string
+  note?: string
+}
+
 export type ChatMessage = {
   id: string
   role: 'user' | 'agent'
   text: string
+  listings?: ListingCard[]
+  listingsSource?: 'stayloop' | 'realtor'
 }
 
 export type Recommendation = {
