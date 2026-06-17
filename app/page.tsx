@@ -99,28 +99,40 @@ export default function HomePage() {
       {/* ===== 03 · THREE AGENTS ===== */}
       <Section n="03" kicker="三个 AI 助手" title={<>每个角色,<br />都有自己的 Agent。</>}
         lead="同一套信任引擎,三种人格。它们之间会对话、会交接,但各自只忠于自己的那个人。">
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-[18px] lg:grid-cols-3">
           {AGENTS.map((a) => (
-            <div key={a.name} className="sl-card flex flex-col overflow-hidden p-0" style={{ borderTop: `3px solid ${a.color}` }}>
+            <div key={a.name} className="sl-card flex flex-col overflow-hidden p-0">
+              {/* photo with role tag + gradient squircle avatar */}
               <div
-                className="h-36 w-full"
+                className="relative h-[178px] w-full"
                 style={{ backgroundImage: `url(${a.img})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-              />
-              <div className="flex flex-1 flex-col p-7 pt-6">
-              <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg" style={{ color: a.color }}>{a.role}</div>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-[26px] font-extrabold tracking-tight">{a.name}</span>
-                <span className="text-[13px] text-body-3">{a.sub}</span>
+              >
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg,transparent 30%,rgba(11,11,14,0.55))' }} />
+                <span
+                  className="absolute left-[18px] top-4 z-[2] rounded-md px-2.5 py-[5px] font-mono text-[10px] font-bold uppercase tracking-eyebrow text-white"
+                  style={{ background: 'rgba(11,11,14,0.55)', backdropFilter: 'blur(4px)' }}
+                >
+                  {a.role}
+                </span>
+                <span
+                  className="absolute bottom-[-22px] left-[22px] z-[2] h-[52px] w-[52px] rounded-[14px] border-[3px] border-white"
+                  style={{ background: a.av }}
+                />
               </div>
-              <p className="mt-3 text-[13.5px] leading-relaxed text-body-2">{a.desc}</p>
-              <ul className="mt-5 space-y-2 border-t border-line-divider pt-4 text-[13px]">
-                {a.points.map((pt) => (
-                  <li key={pt} className="flex items-start gap-2">
-                    <span className="mt-[2px]" style={{ color: a.color }}>✓</span>
-                    <span className="text-body-2">{pt}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex flex-1 flex-col px-6 pb-[26px] pt-[34px]">
+                <div className="flex items-baseline">
+                  <span className="text-[21px] font-extrabold tracking-tight">{a.name}</span>
+                  <span className="ml-1.5 text-[14px] font-semibold text-body-3">{a.sub}</span>
+                </div>
+                <p className="mt-2.5 text-[13.5px] leading-relaxed text-body-2">{a.desc}</p>
+                <ul className="mt-4 space-y-2.5 text-[12.5px]">
+                  {a.points.map((pt) => (
+                    <li key={pt} className="flex items-start gap-2.5">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="mt-[1px] flex-none"><path d="M20 6 9 17l-5-5" /></svg>
+                      <span className="text-body-2">{pt}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           ))}
@@ -130,32 +142,45 @@ export default function HomePage() {
       {/* ===== 04 · REAL SCENARIOS ===== */}
       <Section n="04" kicker="真实场景" title={<>三个人,<br />三段被 AI 改写的租住。</>}
         lead="同一套引擎,三种人生。把他们的故事压缩成一分钟 —— 看看 AI-native 到底改变了什么。" tint>
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-[18px] lg:grid-cols-3">
           {SCENARIOS.map((s) => (
             <div key={s.name} className="sl-card flex flex-col overflow-hidden p-0">
+              {/* photo with role pill + name/meta overlaid */}
               <div
-                className="h-36 w-full"
-                style={{ backgroundImage: `linear-gradient(180deg,rgba(0,0,0,0)0%,rgba(0,0,0,0.04)100%), url(${s.img})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-              />
-              <div className="flex flex-1 flex-col p-6 pt-5">
-              <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrow" style={{ color: s.color }}>{s.role}</div>
-              <div className="mt-1 text-[18px] font-bold">{s.name}</div>
-              <div className="font-mono text-[11.5px] text-body-3">{s.meta}</div>
-              <p className="mt-3 text-[13.5px] font-semibold italic leading-relaxed text-body">“{s.quote}”</p>
-              <div className="mt-4 space-y-2 text-[12.5px]">
-                <div className="rounded-lg border border-line-divider bg-surface-chip p-3">
-                  <span className="font-mono text-[10px] font-bold uppercase text-body-3">之前</span>
-                  <p className="mt-1 leading-relaxed text-body-2">{s.before}</p>
-                </div>
-                <div className="rounded-lg border p-3" style={{ borderColor: `${s.color}44`, background: `${s.color}0d` }}>
-                  <span className="font-mono text-[10px] font-bold uppercase" style={{ color: s.color }}>之后</span>
-                  <p className="mt-1 leading-relaxed text-body-2">{s.after}</p>
+                className="relative h-[186px] w-full"
+                style={{ backgroundImage: `url(${s.img})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+              >
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg,transparent 35%,rgba(11,11,14,0.62))' }} />
+                <span
+                  className="absolute left-4 top-[14px] z-[2] rounded-md px-2.5 py-[5px] font-mono text-[9.5px] font-bold uppercase tracking-eyebrow text-white"
+                  style={{ background: `${s.color}eb` }}
+                >
+                  {s.role}
+                </span>
+                <div className="absolute bottom-[14px] left-[18px] right-[18px] z-[2]">
+                  <div className="text-[21px] font-extrabold tracking-tight text-white">{s.name}</div>
+                  <div className="mt-[3px] font-mono text-[10px] text-white/85">{s.meta}</div>
                 </div>
               </div>
-              <div className="mt-4 flex items-center justify-between border-t border-line-divider pt-3 font-mono text-[11px]">
-                <span className="text-body-3">{s.with}</span>
-                <span className="font-bold" style={{ color: s.color }}>{s.delta}</span>
-              </div>
+              <div className="flex flex-1 flex-col p-[22px]">
+                <p className="text-[15px] font-semibold leading-[1.55] tracking-tight">“{s.quote}”</p>
+                <div className="mt-[18px] space-y-3">
+                  <div className="grid grid-cols-[42px_1fr] gap-[11px] text-[12.5px] leading-[1.55] text-body-2">
+                    <span className="rounded-[5px] bg-[#F3EEE2] py-[3px] text-center font-mono text-[8.5px] font-bold text-body-3">之前</span>
+                    <span>{s.before}</span>
+                  </div>
+                  <div className="grid grid-cols-[42px_1fr] gap-[11px] text-[12.5px] leading-[1.55] text-body-2">
+                    <span className="rounded-[5px] py-[3px] text-center font-mono text-[8.5px] font-bold" style={{ background: `${s.color}1a`, color: s.color }}>之后</span>
+                    <span>{s.after}</span>
+                  </div>
+                </div>
+                <div className="mt-auto flex items-center gap-2 border-t border-[#F0EBE0] pt-4">
+                  <span className="rounded-full px-2.5 py-[5px] font-mono text-[10px] font-bold" style={{ background: `${s.color}1a`, color: s.color }}>{s.with}</span>
+                  <span className="ml-auto font-mono text-[12px] font-bold text-success">{s.delta}</span>
+                </div>
+                <p className="mt-3.5 flex items-center gap-[7px] text-[13px] font-bold tracking-tight">
+                  <span style={{ color: '#B45309' }}>✦</span>{s.punch}
+                </p>
               </div>
             </div>
           ))}
@@ -184,30 +209,45 @@ export default function HomePage() {
       {/* ===== 06 · DEEP SCREENING ===== */}
       <Section n="06" kicker="深度尽调" title={<>不止给你一个数字,<br />而是给你完整的理由。</>}
         lead="普通信用查询只丢给你一个 675。Stayloop 把它拆成 8 个独立维度,每一个都告诉你:我看了什么、得了多少分、为什么。AI 负责核查,你负责判断。" tint>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {DIMS.map((d) => (
-            <div key={d.k} className="flex items-center gap-3 rounded-xl border border-line-divider bg-white p-3.5">
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-brand/10 font-mono text-[13px] font-bold text-brand">{d.k}</span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-bold leading-tight">{d.name}</div>
-                <div className="font-mono text-[10.5px] text-body-3">{d.ev}</div>
+        <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
+          {/* left — 8 dimensions, 2 columns, per-dimension colored badges */}
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {DIMS.map((d) => (
+              <div key={d.k} className="flex items-center gap-3 rounded-[10px] border border-line-divider bg-white px-[15px] py-[13px]">
+                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg font-mono text-[13px] font-extrabold" style={{ background: d.bg, color: d.fg }}>{d.k}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-bold leading-tight">{d.name}</div>
+                  <div className="font-mono text-[10.5px] text-body-3">{d.ev}</div>
+                </div>
+                <span className="font-mono text-[18px] font-bold" style={{ color: d.amber ? '#B45309' : '#047857' }}>{d.score}</span>
               </div>
-              <span className="font-mono text-[18px] font-bold">{d.score}</span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-brand/30 bg-white p-6">
-          <div>
-            <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">STAYLOOP SCORE · 综合</div>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-[44px] font-extrabold tracking-tight text-brand">89</span>
-              <span className="text-[15px] text-body-3">/ 100</span>
-            </div>
+            ))}
           </div>
-          <div className="text-right font-mono text-[11.5px] leading-relaxed text-body-2">
-            <div className="font-bold text-success">PROCEED · 高置信度</div>
-            <div>7 PASS · 1 INFO · 0 红旗</div>
-            <div className="text-body-3">504/504 dp · 链上可审 0xa481…3c92</div>
+          {/* right — donut score card */}
+          <div className="rounded-2xl border p-[34px] px-[30px] text-center" style={{ background: 'linear-gradient(180deg,#fff,#FBF8EE)', borderColor: '#047857' }}>
+            <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-success">STAYLOOP SCORE · 综合</div>
+            <div className="relative mx-auto my-5 h-[184px] w-[184px]">
+              <svg viewBox="0 0 184 184" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+                <defs>
+                  <linearGradient id="slgrd" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stopColor="#10B981" />
+                    <stop offset="1" stopColor="#047857" />
+                  </linearGradient>
+                </defs>
+                <circle cx="92" cy="92" r="76" fill="none" stroke="#EFE9D8" strokeWidth="12" />
+                <circle cx="92" cy="92" r="76" fill="none" stroke="url(#slgrd)" strokeWidth="12" strokeLinecap="round" strokeDasharray="477.5" strokeDashoffset="52.5" style={{ filter: 'drop-shadow(0 0 6px rgba(4,120,87,0.30))' }} />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+                <b className="font-mono text-[56px] font-bold tracking-tightest">89</b>
+                <span className="mt-1.5 font-mono text-[10px] text-body-3">/ 100</span>
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-bold text-success" style={{ background: 'rgba(4,120,87,0.10)' }}>
+              <span className="h-1.5 w-1.5 rounded-full bg-success" />PROCEED · 高置信度
+            </div>
+            <div className="mt-[15px] font-mono text-[10px] leading-relaxed text-body-3">
+              7 PASS · 1 INFO · 0 红旗<br />504/504 dp · 链上可审 0xa481…3c92
+            </div>
           </div>
         </div>
       </Section>
@@ -435,15 +475,15 @@ const PILLARS = [
 ]
 
 const AGENTS = [
-  { name: 'Luna', role: 'TENANT · 租客', sub: '租客助手', color: '#7C3AED', img: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=700&q=80&fit=crop&auto=format', desc: '验证一次,处处通行。Luna 替你找房、比价、约看、一键申请,资料只在你点头时才分享。', points: ['对话式找房 + 主动匹配', '可复用 Rental Passport', '缴租 · 维修 · 续约全程托管'] },
-  { name: 'Logic', role: 'LANDLORD · 房东', sub: '房东助手', color: '#047857', img: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format', desc: '是流水线,不是收件箱。Logic 替你整理申请、同步尽调、起草租约 —— 决定权始终在你手里。', points: ['申请人 Pipeline 看板', '8 Engine 自动尽调 + 评分', '合规教练 · 租约自动起草'] },
-  { name: 'Brief', role: 'AGENT · 经纪', sub: '经纪助手', color: '#2563EB', img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=700&q=80&fit=crop&auto=format', desc: '把杂活交给系统,把关系留给人。Brief 替你整理客户、准备材料、安排看房和跟进。', points: ['客户与房源材料整理', '看房 Live · 现场记录', '佣金拆分 · 团队协作'] },
+  { name: 'Luna', role: 'TENANT · 租客', sub: '租客助手', color: '#7C3AED', av: 'radial-gradient(circle at 35% 30%,#C4B5FD,#7C3AED 75%)', img: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=700&q=80&fit=crop&auto=format', desc: '验证一次,处处通行。Luna 替你找房、比价、约看、一键申请,资料只在你点头时才分享。', points: ['对话式找房 + 主动匹配', '可复用 Rental Passport', '缴租 · 维修 · 续约全程托管'] },
+  { name: 'Logic', role: 'LANDLORD · 房东', sub: '房东助手', color: '#047857', av: 'radial-gradient(circle at 35% 30%,#6EE7B7,#047857 75%)', img: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format', desc: '是流水线,不是收件箱。Logic 替你整理申请、同步尽调、起草租约 —— 决定权始终在你手里。', points: ['申请人 Pipeline 看板', '8 Engine 自动尽调 + 评分', '合规教练 · 租约自动起草'] },
+  { name: 'Brief', role: 'AGENT · 经纪', sub: '经纪助手', color: '#2563EB', av: 'radial-gradient(circle at 35% 30%,#93C5FD,#2563EB 75%)', img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=700&q=80&fit=crop&auto=format', desc: '把杂活交给系统,把关系留给人。Brief 替你整理客户、准备材料、安排看房和跟进。', points: ['客户与房源材料整理', '看房 Live · 现场记录', '佣金拆分 · 团队协作'] },
 ]
 
 const SCENARIOS = [
-  { name: 'Mia Chen', role: '租客 · TENANT', color: '#7C3AED', meta: '27 · 软件工程师 · 新移民', img: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=700&q=80&fit=crop&auto=format', quote: '没有加拿大信用记录,我到底该怎么租房?', before: '信用空白,已被拒 3 次,3 天后必须退房。', after: 'Luna 90 秒验明身份,中文读懂租约,35 分钟签约入住。', with: 'Luna 陪同', delta: 'Score 60 → 91' },
-  { name: 'Sarah Wang', role: '房东 · LANDLORD', color: '#047857', meta: '41 · 会计师 · 2 套投资公寓', img: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format', quote: '做决定前要查、要比,还怕踩 RTA 的雷。', before: '每月空置损失 $2,900,深夜被报修打扰,合规压力大。', after: 'Logic 4 分钟重做房源、跑完尽调,关键时刻她只按「同意」。', with: 'Logic 协同', delta: '30 分钟 → 30 秒' },
-  { name: 'David Park', role: '经纪 · AGENT', color: '#2563EB', meta: '35 · 持牌经纪 · RECO 6 年', img: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=700&q=80&fit=crop&auto=format', quote: '不是没机会,是时间被行政碎片化了。', before: '70% 时间耗在行政,收入不稳,客户容易跟丢。', after: 'Brief 编排任务、当晚结算,他只做带看与专业判断。', with: 'Brief + Beacon', delta: '时薪 $25 → $43' },
+  { name: 'Mia Chen', role: '租客 · TENANT', color: '#7C3AED', meta: '27 · 软件工程师 · 新移民', img: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=700&q=80&fit=crop&auto=format', quote: '没有加拿大信用记录,我到底该怎么租房?', before: '信用空白,已被拒 3 次,3 天后必须退房。', after: 'Luna 90 秒验明身份,中文读懂租约,35 分钟签约入住。', with: 'Luna 陪同', delta: 'Score 60 → 91', punch: '第二次,比第一次更轻松。' },
+  { name: 'Sarah Wang', role: '房东 · LANDLORD', color: '#047857', meta: '41 · 会计师 · 2 套投资公寓', img: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format', quote: '做决定前要查、要比,还怕踩 RTA 的雷。', before: '每月空置损失 $2,900,深夜被报修打扰,合规压力大。', after: 'Logic 4 分钟重做房源、跑完尽调,关键时刻她只按「同意」。', with: 'Logic 协同', delta: '30 分钟 → 30 秒', punch: '决定权,始终在你手里。' },
+  { name: 'David Park', role: '经纪 · AGENT', color: '#2563EB', meta: '35 · 持牌经纪 · RECO 6 年', img: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=700&q=80&fit=crop&auto=format', quote: '不是没机会,是时间被行政碎片化了。', before: '70% 时间耗在行政,收入不稳,客户容易跟丢。', after: 'Brief 编排任务、当晚结算,他只做带看与专业判断。', with: 'Brief + Beacon', delta: '时薪 $25 → $43', punch: '剥离行政,放大专业。' },
 ]
 
 const PRODUCTS = [
@@ -461,12 +501,12 @@ const JOURNEY = [
 ]
 
 const DIMS = [
-  { k: 'ID', name: 'Identity · 身份核验', ev: '护照 · 活体 · 设备 · 32 dp', score: 99 },
-  { k: '$', name: 'Income · 收入流水', ev: '工资单 · 银行 · T4 · 48 dp', score: 92 },
-  { k: 'H', name: 'History · 租住历史', ev: '推荐信 · 反向核 · 52 dp', score: 96 },
-  { k: 'F', name: 'Fraud · 文档反欺诈', ev: '字体 · PDF 编辑器 · 64 dp', score: 94 },
-  { k: 'B', name: 'Behavior · 行为信号', ev: '完整度 · 一致性 · 26 dp', score: 88 },
-  { k: 'X', name: 'X-Ref · 双征信', ev: 'Equifax + TransUnion · 76 dp', score: 90 },
-  { k: '⚖', name: 'LTB / Court · 法庭裁定', ev: '14 trib · CanLII · OSB · 122 dp', score: 100 },
-  { k: '⛓', name: 'Relations · 关联图谱', ev: '5 一度 · 14 二度 · 84 dp', score: 82 },
+  { k: 'ID', name: 'Identity · 身份核验', ev: '护照 · 活体 · 设备 · 32 dp', score: 99, bg: 'rgba(33,150,243,0.10)', fg: '#1E88E5' },
+  { k: '$', name: 'Income · 收入流水', ev: '工资单 · 银行 · T4 · 48 dp', score: 92, bg: 'rgba(76,175,80,0.10)', fg: '#2E7D32' },
+  { k: 'H', name: 'History · 租住历史', ev: '推荐信 · 反向核 · 52 dp', score: 96, bg: 'rgba(156,39,176,0.10)', fg: '#7B1FA2' },
+  { k: 'F', name: 'Fraud · 文档反欺诈', ev: '字体 · PDF 编辑器 · 64 dp', score: 94, bg: 'rgba(255,152,0,0.10)', fg: '#E65100' },
+  { k: 'B', name: 'Behavior · 行为信号', ev: '完整度 · 一致性 · 26 dp', score: 88, bg: 'rgba(96,125,139,0.10)', fg: '#455A64' },
+  { k: 'X', name: 'X-Ref · 双征信', ev: 'Equifax + TransUnion · 76 dp', score: 90, bg: 'rgba(121,85,72,0.10)', fg: '#5D4037' },
+  { k: '⚖', name: 'LTB / Court · 法庭裁定', ev: '14 trib · CanLII · OSB · 122 dp', score: 100, bg: 'rgba(124,58,237,0.10)', fg: '#7C3AED' },
+  { k: '⛓', name: 'Relations · 关联图谱', ev: '5 一度 · 14 二度 · 84 dp', score: 82, bg: 'rgba(124,58,237,0.10)', fg: '#7C3AED', amber: true },
 ]
