@@ -59,7 +59,12 @@ export default function AgentChat({
             {m.role === 'agent' && (
               <span className="mr-2 mt-0.5 h-7 w-7 flex-none rounded-full" style={{ background: ORB[role] }} />
             )}
-            <div className={'flex flex-col gap-2 ' + (m.role === 'user' ? 'max-w-[82%] items-end' : 'max-w-[92%]')}>
+            <div
+              className={
+                'flex min-w-0 flex-col gap-2 ' +
+                (m.role === 'user' ? 'max-w-[82%] items-end' : m.listings?.length ? 'max-w-full flex-1' : 'max-w-[92%]')
+              }
+            >
               <div
                 className={
                   'whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed ' +
@@ -78,9 +83,11 @@ export default function AgentChat({
                         : `外部 · REALTOR.CA · ${m.listings.length} 套 · 未经 Stayloop 验证`}
                     </div>
                   )}
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
                     {m.listings.map((l) => (
-                      <ListingChatCard key={l.id} l={l} />
+                      <div key={l.id} className="w-[280px] flex-none snap-start">
+                        <ListingChatCard l={l} />
+                      </div>
                     ))}
                   </div>
                 </div>

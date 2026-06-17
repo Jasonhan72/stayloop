@@ -1,78 +1,108 @@
 'use client'
 
-// A listing result rendered inside the agent chat — Stayloop's own listing or
-// an external (Realtor.ca) result the agent surfaced when Stayloop had none.
+// A listing result inside the agent chat, matching Stayloop's listing-card
+// format/proportions (image · badge · heart · price · specs · address ·
+// amenity pills · tier · note bar). Stayloop listings link internally; external
+// Realtor.ca results open in a new tab.
 import Link from 'next/link'
 import type { ListingCard } from '@/lib/agent/types'
 
 export default function ListingChatCard({ l }: { l: ListingCard }) {
   const external = l.source === 'realtor'
+  const den = !!l.tags?.includes('den')
   const specs = [
-    `${l.beds}B${l.tags?.includes('den') ? ' + den' : ''}`,
+    `${l.beds}B${den ? ' + den' : ''}`,
     l.baths ? `${l.baths} 浴` : null,
     l.sqft ? `${l.sqft} sqft` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  ].filter(Boolean) as string[]
+  const amenities = (l.tags || []).filter((t) => t !== 'den').slice(0, 3)
 
   const inner = (
-    <div className="overflow-hidden rounded-xl border border-line-divider bg-white transition hover:shadow-md">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-line-divider bg-white transition hover:shadow-md">
+      {/* image */}
       <div
-        className="relative h-32 w-full bg-surface-chip"
+        className="relative aspect-[1.5/1] w-full bg-surface-chip"
         style={l.image ? { backgroundImage: `url(${l.image})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
       >
-        {l.tier ? (
-          <span
-            className="absolute left-2 top-2 rounded-md px-2 py-1 font-mono text-[9.5px] font-bold uppercase tracking-eyebrow text-white"
-            style={{ background: 'rgba(11,11,14,0.55)', backdropFilter: 'blur(4px)' }}
-          >
-            需 认证 {l.tier} 级
-          </span>
-        ) : null}
         <span
-          className="absolute right-2 top-2 rounded-md px-2 py-1 font-mono text-[9px] font-bold uppercase tracking-eyebrow text-white"
-          style={{ background: external ? 'rgba(180,83,9,0.92)' : 'rgba(124,58,237,0.92)' }}
+          className="absolute left-3 top-3 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white"
+          style={{ background: external ? '#B45309' : '#047857' }}
         >
-          {external ? 'Realtor.ca' : 'Stayloop'}
+          {external ? 'REALTOR.CA' : `TIER ${l.tier ?? 1}`}
+        </span>
+        <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur">
+          <HeartIcon />
         </span>
       </div>
-      <div className="p-3">
-        <div className="flex items-baseline gap-1">
-          <span className="text-[18px] font-extrabold tracking-tight">${l.price.toLocaleString()}</span>
-          <span className="text-[11px] text-body-3">/月</span>
+
+      {/* body */}
+      <div className="flex flex-1 flex-col p-4">
+        <div className="text-[20px] font-bold tracking-tight">
+          ${l.price.toLocaleString()}
+          <span className="ml-1 text-[12px] font-medium text-body-3">/月</span>
         </div>
-        <div className="mt-0.5 font-mono text-[11px] text-body-2">{specs}</div>
-        <div className="mt-1 text-[12.5px] font-bold leading-snug">{l.address}</div>
+        <div className="mt-1 flex items-center gap-2 text-[13px] font-bold text-body">
+          {specs.map((s, i) => (
+            <span key={s} className="flex items-center gap-2">
+              {i > 0 && <span className="h-[3px] w-[3px] rounded-full bg-line-strong" />}
+              {s}
+            </span>
+          ))}
+        </div>
+        <div className="mt-2 text-[14px] font-bold leading-snug">{l.address}</div>
         {(l.neighborhood || l.city) && (
-          <div className="text-[11.5px] text-body-3">{[l.neighborhood, l.city].filter(Boolean).join(' · ')}</div>
+          <div className="text-[12.5px] text-body-3">{[l.neighborhood, l.city].filter(Boolean).join(' · ')}</div>
         )}
-        {l.tags?.length ? (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {l.tags
-              .filter((t) => t !== 'den')
-              .slice(0, 3)
-              .map((t) => (
-                <span key={t} className="rounded bg-surface-chip px-1.5 py-0.5 font-mono text-[9.5px] text-body-2">
-                  {t}
-                </span>
-              ))}
+        {(amenities.length > 0 || (!external && l.tier)) && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {amenities.map((t) => (
+              <span key={t} className="rounded-md px-2 py-1 font-mono text-[10.5px] text-success" style={{ background: 'rgba(4,120,87,0.08)' }}>
+                {t}
+              </span>
+            ))}
+            {!external && l.tier && (
+              <span className="rounded-md px-2 py-1 font-mono text-[10.5px]" style={{ background: 'rgba(180,83,9,0.10)', color: '#B45309' }}>
+                需 认证 {l.tier} 级
+              </span>
+            )}
           </div>
-        ) : null}
-        {l.note && <div className="mt-2 text-[11px] leading-snug text-body-3">{l.note}</div>}
+        )}
       </div>
+
+      {/* note bar */}
+      {l.note && (
+        <div
+          className="border-t border-line-divider px-4 py-2.5 text-[11.5px] leading-snug"
+          style={{
+            background: external ? 'rgba(180,83,9,0.05)' : 'rgba(124,58,237,0.05)',
+            color: external ? '#92400E' : '#5B21B6',
+          }}
+        >
+          {external ? '◧ ' : '◑ '}
+          {l.note}
+        </div>
+      )}
     </div>
   )
 
   if (external) {
     return (
-      <a href={l.url || '#'} target="_blank" rel="noopener noreferrer" className="block">
+      <a href={l.url || '#'} target="_blank" rel="noopener noreferrer" className="block h-full">
         {inner}
       </a>
     )
   }
   return (
-    <Link href={l.url || '/listings'} className="block">
+    <Link href={l.url || '/listings'} className="block h-full">
       {inner}
     </Link>
+  )
+}
+
+function HeartIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
   )
 }
