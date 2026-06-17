@@ -13,7 +13,32 @@ import { loadAgentSession } from './session-loader'
 import { decidePendingAction } from './approval-engine'
 import { runAgentTurn, WORKFLOW_STAGES } from './orchestrator'
 import { demoSession } from './demo'
-import { getAIName } from '@/lib/aiName'
+import { getAIName, setAIName, getStoredAIName } from '@/lib/aiName'
+
+const DEFAULT_AI_NAME = 'Luna'
+
+// Two-way sync of the tenant agent's name between this device (localStorage)
+// and the durable store (agent_configs.agent_name), so a name chosen on one
+// device shows up on every device after login.
+async function reconcileTenantName(
+  client: ReturnType<typeof getSupabaseBrowser>,
+  sess: AgentSessionResponse
+): Promise<void> {
+  const cfgId = sess.agent.id
+  const dbName = sess.agent.agent_name
+  const local = getStoredAIName() // raw — null if never chosen on this device
+  try {
+    if (local && local !== dbName) {
+      // User picked a name on this device → make it durable server-side.
+      await client.from('agent_configs').update({ agent_name: local }).eq('id', cfgId)
+    } else if (!local && dbName && dbName !== DEFAULT_AI_NAME) {
+      // Name was set on another device → cache it locally so the override shows it.
+      setAIName(dbName)
+    }
+  } catch (e) {
+    console.warn('[agent] name reconcile failed', (e as Error).message)
+  }
+}
 
 export type UseAgentSession = {
   loading: boolean
@@ -76,7 +101,10 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
         return
       }
       try {
-        const session = await loadAgentSession(getSupabaseBrowser(), role, { seedDemo: true })
+        const client = getSupabaseBrowser()
+        const session = await loadAgentSession(client, role, { seedDemo: true })
+        // Make the tenant's chosen name durable + pick up a name set elsewhere.
+        if (role === 'tenant') await reconcileTenantName(client, session)
         if (!cancelled) settle(session, true)
       } catch (e) {
         console.warn('[agent] live load failed, using demo —', (e as Error).message)
