@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import OnboardingStage from '@/components/OnboardingStage'
 import { setAIName } from '@/lib/aiName'
+import { useAuth } from '@/lib/useAuth'
 
 const SUGGESTIONS = ['Luna', 'Mia', 'Aria', '小鹿', '木木', 'Echo', 'Nova', '豆包']
 
@@ -21,6 +22,7 @@ const HELPS = [
 
 export default function OnboardingNamePage() {
   const router = useRouter()
+  const { setRole } = useAuth()
   const [value, setValue] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -30,7 +32,10 @@ export default function OnboardingNamePage() {
     if (submitting) return
     setSubmitting(true)
     setAIName(name ?? final)
-    router.push('/onboarding/tier1')
+    // Remember the role so future logins skip onboarding and land in the chat.
+    setRole('tenant')
+    // Naming done → straight to the workspace (identity verification is deferred).
+    router.push('/tenant/agent')
   }
 
   return (
@@ -162,7 +167,7 @@ export default function OnboardingNamePage() {
           PREVIEW · {final} 会说
         </div>
         <p style={{ fontSize: 13.5, lineHeight: 1.6, color: '#3F3F46' }}>
-          「Hi，我是 {final}。接下来 90 秒我会帮你完成身份验证，之后你提要求 · 我负责跑腿，关键决策始终是你的。」
+          「Hi，我是 {final}。从现在起,找房、申请、签约、入住,我全程陪你 —— 你提要求,我负责跑腿,关键决策始终是你的。」
         </p>
       </div>
 
@@ -213,7 +218,7 @@ export default function OnboardingNamePage() {
           opacity: submitting ? 0.6 : 1,
         }}
       >
-        {submitting ? '...' : `下一步 · ${final} 陪你 90s 验证 →`}
+        {submitting ? '...' : `开始 · 进入 ${final} 工作台 →`}
       </button>
 
       <button

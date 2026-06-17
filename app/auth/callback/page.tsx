@@ -41,7 +41,9 @@ export default function AuthCallback() {
           landlord: '/landlord/agent',
           agent: '/agent/agent',
         }
-        let dest = '/onboarding/welcome'
+        // First-time users name their agent, then go straight to the chat.
+        // Returning users (role known) skip naming entirely.
+        let dest = '/onboarding/name'
         const stored = window.localStorage.getItem('sl-active-role')
         if (stored && AGENT_HOME[stored]) {
           dest = AGENT_HOME[stored]

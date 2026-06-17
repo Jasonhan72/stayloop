@@ -88,6 +88,20 @@ export default function TenantPassport() {
         </div>
       </div>
 
+      {/* Identity verification — deferred out of onboarding, started here. */}
+      <Link
+        href="/onboarding/tier1"
+        className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-tenant/30 bg-tenant/[0.05] px-6 py-4 transition hover:bg-tenant/10"
+      >
+        <div>
+          <div className="text-[15px] font-bold tracking-tight">完成 认证 1 级 · 90 秒验明身份</div>
+          <div className="mt-0.5 text-[12.5px] text-body-2">
+            护照 / 驾照 + 一张自拍,Persona 帮你安全完成 · 软查不影响信用 · 比 90% 的询盘更让房东放心。
+          </div>
+        </div>
+        <span className="rounded-[10px] bg-tenant px-4 py-[10px] text-[13.5px] font-semibold text-white">开始验证 →</span>
+      </Link>
+
       <div className="space-y-5">
         {GROUPS.map((g) => (
           <div key={g.title} className="sl-card p-6">
