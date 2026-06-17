@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useI18n } from '@/lib/i18n'
@@ -118,21 +118,96 @@ function CaptureCard({
   onBack: () => void
   icon: React.ReactNode
 }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [preview, setPreview] = useState<string | null>(null)
+  const [fileName, setFileName] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const accept = (f: File | null | undefined) => {
+    if (!f) return
+    if (!f.type.startsWith('image/')) {
+      setError('请上传图片文件（JPG / PNG / HEIC）。')
+      return
+    }
+    if (f.size > 15 * 1024 * 1024) {
+      setError('图片过大,请控制在 15MB 以内。')
+      return
+    }
+    setError(null)
+    setFileName(f.name)
+    setPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return URL.createObjectURL(f)
+    })
+  }
+
+  const openPicker = () => inputRef.current?.click()
+
   return (
     <div className="sl-card mx-auto max-w-[580px] px-8 py-10 sm:px-12 sm:py-12">
       <h2 className="text-[22px] font-bold tracking-tight">{title}</h2>
       <p className="mt-2 text-[14px] leading-relaxed text-body-2">{hint}</p>
 
-      {/* Mock capture surface */}
-      <div className="my-8 flex aspect-[4/3] items-center justify-center rounded-2xl border-2 border-dashed border-line-strong bg-surface-chip text-body-3">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-brand">
-            {icon}
-          </span>
-          <span className="text-[13px]">点击此处启动相机 / 上传图片</span>
-          <span className="font-mono text-[11px] text-body-4">ENCRYPTED · PERSONA SDK</span>
-        </div>
+      {/* Real capture surface — click to open camera / file picker, or drag-drop */}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => accept(e.target.files?.[0])}
+      />
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label="上传或拍摄证件照片"
+        onClick={openPicker}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            openPicker()
+          }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault()
+          setDragging(true)
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setDragging(false)
+          accept(e.dataTransfer.files?.[0])
+        }}
+        className={
+          'my-8 flex aspect-[4/3] cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed bg-surface-chip text-body-3 transition ' +
+          (dragging ? 'border-brand bg-brand/5' : 'border-line-strong hover:border-brand')
+        }
+      >
+        {preview ? (
+          <div className="relative h-full w-full">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={preview} alt="证件预览" className="h-full w-full object-contain" />
+            <span className="absolute bottom-2 right-2 rounded-md bg-white/90 px-2 py-1 font-mono text-[10px] font-bold text-brand">
+              ✓ 已选择 · 点击重拍
+            </span>
+          </div>
+        ) : (
+          <div className="pointer-events-none flex flex-col items-center gap-3 text-center">
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-brand">
+              {icon}
+            </span>
+            <span className="text-[13px]">点击此处启动相机 / 上传图片</span>
+            <span className="text-[12px] text-body-4">或把图片拖到这里</span>
+            <span className="font-mono text-[11px] text-body-4">ENCRYPTED · PERSONA SDK</span>
+          </div>
+        )}
       </div>
+
+      {error && <p className="-mt-4 mb-4 text-[12.5px] font-semibold text-danger">{error}</p>}
+      {fileName && !error && (
+        <p className="-mt-4 mb-4 truncate font-mono text-[11px] text-body-3">已选择 · {fileName}</p>
+      )}
 
       <div className="flex items-center gap-3">
         <button
@@ -141,8 +216,14 @@ function CaptureCard({
         >
           ← 返回
         </button>
-        <button onClick={onNext} className="sl-btn-primary flex-1 !py-[14px]">
-          {ctaLabel}
+        <button
+          onClick={onNext}
+          disabled={!preview}
+          className={
+            'sl-btn-primary flex-1 !py-[14px] ' + (!preview ? 'cursor-not-allowed opacity-50' : '')
+          }
+        >
+          {preview ? ctaLabel : '请先上传 / 拍摄'}
         </button>
       </div>
     </div>
