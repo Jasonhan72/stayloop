@@ -14,8 +14,8 @@ export default function AgentsPage() {
       accentWord_en="Show"
       subtitle_zh="AI 替你写 MLS、起草租约、安排看房、回答租客咨询。你专注于线下的人和判断。Stayloop 把佣金透明化，房东不付额外钱。"
       subtitle_en="AI writes the MLS pack, drafts the lease, schedules showings, and answers tenant FAQ. You handle the human. Commission stays transparent — landlord pays the same total."
-      primaryCta={{ label_zh: '加入 Field Agent 网络', label_en: 'Join the Field Agent network', href: '/chat' }}
-      secondaryCta={{ label_zh: '查看示例 Day Brief', label_en: 'See a sample Day Brief', href: '/chat' }}
+      primaryCta={{ label_zh: '加入 Field Agent 网络', label_en: 'Join the Field Agent network', href: '/agent/onboarding' }}
+      secondaryCta={{ label_zh: '查看示例 Day Brief', label_en: 'See a sample Day Brief', href: '/agent/agent' }}
       stats={[
         { value: '3.4×', label_zh: '每位经纪每月签约量', label_en: 'more closings per agent / month' },
         { value: '~14h', label_zh: '每周节省的行政时间', label_en: 'admin hours saved each week' },

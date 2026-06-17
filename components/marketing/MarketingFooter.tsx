@@ -19,22 +19,21 @@ export default function MarketingFooter() {
         { href: '/landlords', zh: '房东 · Pipeline', en: 'Landlords · Pipeline' },
         { href: '/agents', zh: '经纪 · Day Brief', en: 'Agents · Day Brief' },
         { href: '/trust-api', zh: 'Trust API', en: 'Trust API' },
-        { href: '/chat', zh: 'Console', en: 'Console' },
+        { href: '/dashboard', zh: 'Console', en: 'Console' },
       ],
     },
     {
       heading: { zh: '公司', en: 'Company' },
       links: [
         { href: '/about', zh: '关于', en: 'About' },
-        { href: 'mailto:hello@stayloop.ai', zh: '联系', en: 'Contact' },
+        { href: '/contact', zh: '联系', en: 'Contact' },
       ],
     },
     {
       heading: { zh: '合规', en: 'Compliance' },
       links: [
-        { href: '/legal/privacy', zh: '隐私 (PIPEDA)', en: 'Privacy (PIPEDA)' },
-        { href: '/legal/terms', zh: '使用条款', en: 'Terms of service' },
-        { href: '/legal/security', zh: '安全', en: 'Security' },
+        { href: '/privacy', zh: '隐私 (PIPEDA)', en: 'Privacy (PIPEDA)' },
+        { href: '/terms', zh: '使用条款', en: 'Terms of service' },
       ],
     },
   ]

@@ -14,8 +14,8 @@ export default function TrustApiPage() {
       accentWord_en="callable API"
       subtitle_zh="用统一接口完成身份、收入、信用、租房记录与合规审计，为租赁平台、保险和金融服务提供可信基础设施。"
       subtitle_en="One unified interface for identity, income, credit, rental history and compliance — trust infrastructure for rental platforms, insurers, and financial services."
-      primaryCta={{ label_zh: '获取 API Key', label_en: 'Get an API key', href: '/chat' }}
-      secondaryCta={{ label_zh: '查看示例响应', label_en: 'See sample response', href: '/chat' }}
+      primaryCta={{ label_zh: '获取 API Key', label_en: 'Get an API key', href: '/contact' }}
+      secondaryCta={{ label_zh: '查看示例响应', label_en: 'See sample response', href: '/trust-api/docs' }}
       stats={[
         { value: '$6', label_zh: 'Identity verify · 单次价格', label_en: 'per identity verification' },
         { value: '~400ms', label_zh: '中位响应时间', label_en: 'median response time' },

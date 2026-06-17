@@ -179,7 +179,7 @@ export default function AppBar({ user, loading, signOut, role, path, onOpenMenu 
       {/* ⌘K command bar — visual-only for now; clicking opens /chat.
           Hidden on mobile (≤860px) to give the bell + avatar room. */}
       <Link
-        href="/chat"
+        href="/tenant/agent"
         className="ab-cmdk"
         style={{
           display: 'flex',

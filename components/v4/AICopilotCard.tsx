@@ -100,7 +100,7 @@ export default function AICopilotCard({ user }: Props) {
         {subtitle}
       </div>
       <Link
-        href="/chat"
+        href="/tenant/agent"
         style={{
           display: 'inline-block',
           marginTop: 6,

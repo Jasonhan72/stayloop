@@ -47,7 +47,7 @@ const NAV: Record<UserRole, NavItem[]> = {
     { id: 'listings',     label_en: 'Browse',       label_zh: '找房',        href: '/tenant/listings',      icon: '⌂' },
     { id: 'applications', label_en: 'My applications', label_zh: '我的申请', href: '/tenant/applications',  icon: '▤', tone: 'gold' },
     { id: 'leases',       label_en: 'My leases',    label_zh: '我的租约',    href: '/tenant/leases',        icon: '⎙' },
-    { id: 'stayloop-ai',  label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                 icon: '✦', tone: 'ai' },
+    { id: 'stayloop-ai',  label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/tenant/agent',                 icon: '✦', tone: 'ai' },
   ],
   landlord: [
     // All landlord routes now under /landlord/* prefix (Sprint A.1, 2026-05-08).
@@ -64,7 +64,7 @@ const NAV: Record<UserRole, NavItem[]> = {
     { id: 'pipeline',     label_en: 'Pipeline',     label_zh: '申请进度',    href: '/landlord/pipeline',    icon: '▤', tone: 'gold' },
     { id: 'screen',       label_en: 'Screen',       label_zh: '背调',        href: '/landlord/screen',      icon: '◉', tone: 'ai' },
     { id: 'leases',       label_en: 'Leases',       label_zh: '租约',        href: '/landlord/leases',      icon: '⎙' },
-    { id: 'stayloop-ai',  label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                 icon: '✦', tone: 'ai' },
+    { id: 'stayloop-ai',  label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/tenant/agent',                 icon: '✦', tone: 'ai' },
   ],
   agent: [
     { id: 'dashboard',   label_en: 'Dashboard',    label_zh: '仪表盘',      href: '/agent/dashboard',          icon: '◇' },
@@ -74,7 +74,7 @@ const NAV: Record<UserRole, NavItem[]> = {
     { id: 'packages',    label_en: 'Reports',      label_zh: '背调报告',    href: '/agent/screening-packages', icon: '◉', tone: 'gold' },
     { id: 'mls',         label_en: 'MLS',          label_zh: 'MLS',         href: '/agent/mls',                icon: '⌂' },
     { id: 'leases',      label_en: 'Leases',       label_zh: '租约',        href: '/agent/leases',             icon: '⎙' },
-    { id: 'stayloop-ai', label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/chat',                     icon: '✦', tone: 'ai' },
+    { id: 'stayloop-ai', label_en: 'Stayloop AI',  label_zh: 'Stayloop AI', href: '/tenant/agent',                     icon: '✦', tone: 'ai' },
   ],
 }
 
