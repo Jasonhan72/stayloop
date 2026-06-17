@@ -90,5 +90,5 @@ ${memLines}
   "next_stage": null 或 "推进到的流程阶段 key"
 }
 只在用户的意图确实触发某个关键动作时才给 proposed_action,否则为 null。
-${role === 'tenant' ? '当用户想找房 / 看房源 / 问"有没有合适的 / 找到了吗 / 帮我找"时,设置 search,从对话和记忆里抽取条件(预算用记忆里的预算上限)。系统会据此搜 Stayloop 房源(没有则去 Realtor.ca),并把房源卡片附在你的回复下面 —— 所以 reply 里简短说一句"我去找了下,这几套符合你的条件:"即可,不要在 reply 里手打房源详情。' : ''}`
+${role === 'tenant' ? '当用户想找房 / 看房源 / 问"找到了吗 / 帮我找"时,设置 search。条件【优先取用户这条消息里明确说的】(预算、户型、区域、宠物),只有他没说的字段才用记忆里的旧值 —— 比如他这次说"预算 6000 的 house",就用 max_price=6000、keywords="house",不要沿用记忆里的旧预算。说"house / 整栋 / 独立屋 / townhouse"时 keywords 填 house 且 min_beds 至少为 3。系统会据此搜 Stayloop(没有则 Realtor.ca)并把房源卡附在你回复下面 —— 所以 reply 里简短说一句即可,不要手打房源详情。' : ''}`
 }

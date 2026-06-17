@@ -91,7 +91,7 @@ async function jinaRealtor(c: SearchCriteria): Promise<ListingCard[]> {
   // 1. Find the Realtor.ca rentals page for this area.
   let pageUrl: string | null = null
   try {
-    const q = `${area} Toronto ${house ? 'houses' : 'apartments'} for rent rentals site:realtor.ca`
+    const q = `${area} Toronto ${house ? 'houses homes for rent' : 'apartments for rent'} site:realtor.ca`
     const sres = await fetch(`https://s.jina.ai/?q=${encodeURIComponent(q)}`, {
       headers: { Authorization: `Bearer ${key}`, Accept: 'application/json', 'X-Respond-With': 'no-content' },
       signal: AbortSignal.timeout(18000),
@@ -99,8 +99,15 @@ async function jinaRealtor(c: SearchCriteria): Promise<ListingCard[]> {
     if (sres.ok) {
       const d = (await sres.json()) as { data?: { url?: string }[] }
       const arr = Array.isArray(d?.data) ? d.data : []
+      // Prefer a property-type-specific Realtor.ca page so a "house" search
+      // doesn't land on the generic (mostly-condo) rentals page.
+      const houseRe = /realtor\.ca\/on\/.+\/(houses?-for-rent|homes-for-rent|townhomes?-for-rent|detached)/i
+      const aptRe = /realtor\.ca\/on\/.+\/(apartments-for-rent|condos?-for-rent|rentals)/i
+      const anyRe = /realtor\.ca\/on\/.+\/(rentals|for-rent)/i
+      const pick = (re: RegExp) => arr.find((r) => re.test(r.url || ''))?.url
       pageUrl =
-        arr.find((r) => /realtor\.ca\/on\/.+\/(rentals|for-rent|homes-for-rent|apartments-for-rent)/i.test(r.url || ''))?.url ||
+        pick(house ? houseRe : aptRe) ||
+        pick(anyRe) ||
         arr.find((r) => /realtor\.ca/i.test(r.url || ''))?.url ||
         null
     }
@@ -109,14 +116,20 @@ async function jinaRealtor(c: SearchCriteria): Promise<ListingCard[]> {
   }
   if (!pageUrl) return []
 
-  // 2. Read the page and parse the listing rows.
+  // 2. Read the page, parse all rows, then filter + rank for relevance.
   try {
     const rres = await fetch(`https://r.jina.ai/${pageUrl}`, {
       headers: { Authorization: `Bearer ${key}` },
       signal: AbortSignal.timeout(22000),
     })
     if (!rres.ok) return []
-    return parseRealtor(await rres.text(), c)
+    // A house search implies ≥3 beds unless the user said otherwise.
+    const minBeds = c.min_beds ?? (house ? 3 : undefined)
+    const all = parseRealtor(await rres.text(), { ...c, min_beds: minBeds })
+    // Rank by budget relevance: houses → priciest-within-budget first
+    // (closest to a high target like $6000); apartments → cheapest first.
+    all.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
+    return all.slice(0, 4)
   } catch {
     return []
   }
@@ -159,7 +172,7 @@ function parseRealtor(md: string, c: SearchCriteria): ListingCard[] {
       tags: hasDen ? ['den'] : undefined,
       note: '外部房源 · Realtor.ca 实时 · 未经 Stayloop 验证',
     })
-    if (out.length >= 4) break
+    if (out.length >= 40) break // safety cap; caller ranks + slices to 4
   }
   return out
 }
