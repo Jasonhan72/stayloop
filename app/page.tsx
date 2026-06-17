@@ -39,8 +39,8 @@ export default function HomePage() {
               <Link href="/listings" className="sl-btn-primary !px-6 !py-[14px] !text-[15px]">
                 浏览房源 · 无需登录 →
               </Link>
-              <Link href="/onboarding/welcome" className="text-[14px] font-semibold text-brand underline-offset-4 hover:underline">
-                看看它怎么工作
+              <Link href="/tenant/agent" className="text-[14px] font-semibold text-brand underline-offset-4 hover:underline">
+                AI 助理 →
               </Link>
             </div>
             <p className="mt-5 font-mono text-[11.5px] leading-relaxed text-body-3">
