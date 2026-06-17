@@ -23,6 +23,7 @@ type TurnRequest = {
   images?: { media_type: string; data: string }[]
   attachment_names?: string[]
   exclude?: string[]
+  history?: { role: 'user' | 'agent'; text: string }[]
 }
 
 const VALID_ROLES = new Set<AgentRole>(['tenant', 'landlord', 'agent'])
@@ -109,7 +110,13 @@ export async function POST(req: Request) {
 
   // Build the user turn — text (+ attachment note) and any image blocks for Vision.
   const note = attachmentNames.length ? `\n\n[用户上传了文件：${attachmentNames.join('、')}]` : ''
-  const userText = (message.trim() || '（用户上传了文件,请查看并回应）').slice(0, 4000) + note
+  const hist = (Array.isArray(body.history) ? body.history : []).slice(-6)
+  const histText = hist.length
+    ? '[最近对话,供理解上下文]\n' +
+      hist.map((h) => `${h.role === 'user' ? '用户' : agentName}: ${String(h.text || '').slice(0, 200)}`).join('\n') +
+      '\n\n[当前消息]\n'
+    : ''
+  const userText = histText + (message.trim() || '（用户上传了文件,请查看并回应）').slice(0, 4000) + note
   const userContent: unknown = imgs.length
     ? [
         { type: 'text', text: userText },

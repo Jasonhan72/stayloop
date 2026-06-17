@@ -69,6 +69,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   const [status, setStatus] = useState<AgentStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const messagesRef = useRef<ChatMessage[]>([])
+  messagesRef.current = messages
   const settled = useRef(false)
   const msgSeq = useRef(0)
   const nextId = () => `m${++msgSeq.current}`
@@ -151,6 +153,9 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   const sendMessage = useCallback(
     async (message: string, attachments?: ChatAttachment[]) => {
       if ((!message.trim() && !attachments?.length) || !data) return
+      // Capture the prior thread as context so follow-ups ("再找几个 / 换一批")
+      // keep the earlier criteria.
+      const history = messagesRef.current.slice(-6).map((m) => ({ role: m.role, text: m.text }))
       // Show the user's message (with any attachments) in the thread immediately.
       setMessages((m) => [...m, { id: nextId(), role: 'user', text: message.trim(), attachments }])
       setStatus('understanding')
@@ -183,6 +188,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
             stageLabel,
             attachments,
             exclude: Array.from(shownListings.current),
+            history,
             live: true,
           })
           result = turn.result
