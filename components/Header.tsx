@@ -46,7 +46,18 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
   const auth = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
+
+  // A transparent header (over a hero) must gain a solid background once the
+  // page scrolls — otherwise the sticky bar stays see-through and content
+  // scrolls visibly underneath it. Solid-variant headers are always solid.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   useEffect(() => {
     if (!profileOpen) return
@@ -74,8 +85,8 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
   return (
     <header
       className={
-        'sticky top-0 z-40 w-full ' +
-        (variant === 'transparent'
+        'sticky top-0 z-40 w-full transition-colors duration-200 ' +
+        (variant === 'transparent' && !scrolled
           ? 'bg-transparent'
           : 'border-b border-line-divider bg-surface-nav/95 backdrop-blur')
       }

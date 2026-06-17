@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT, LanguageToggle } from '@/lib/i18n'
-import MarketingNav from '@/components/marketing/MarketingNav'
+import Header from '@/components/Header'
 import SecHead from '@/components/v4/SecHead'
 
 type Section = 'overview' | 'auth' | 'screen' | 'passport' | 'compliance' | 'mediate' | 'webhooks' | 'sdks' | 'rate-limits' | 'errors'
@@ -41,7 +41,7 @@ export default function TrustApiDocsPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: v3.surface }}>
-      <MarketingNav />
+      <Header variant="transparent" />
       <div
         style={{
           maxWidth: 1400,

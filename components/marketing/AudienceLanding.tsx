@@ -10,7 +10,7 @@
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
 import { useT } from '@/lib/i18n'
-import MarketingNav from './MarketingNav'
+import Header from '@/components/Header'
 import MarketingFooter from './MarketingFooter'
 
 export interface FeatureItem {
@@ -88,7 +88,7 @@ export default function AudienceLanding(p: AudienceProps) {
 
   return (
     <main style={{ background: v3.surface, minHeight: '100vh', color: v3.textPrimary }}>
-      <MarketingNav />
+      <Header variant="transparent" />
 
       {/* Hero — V5: warm cream + purple radial gradient + (optional) agent orb */}
       <section
