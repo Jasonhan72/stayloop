@@ -13,6 +13,7 @@ import { loadAgentSession } from './session-loader'
 import { decidePendingAction } from './approval-engine'
 import { runAgentTurn, WORKFLOW_STAGES } from './orchestrator'
 import { demoSession } from './demo'
+import { getAIName } from '@/lib/aiName'
 
 export type UseAgentSession = {
   loading: boolean
@@ -40,13 +41,20 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       // Atomic check-and-set to prevent double settle from timeout + live load race
       if (settled.current) return
       settled.current = true
+      // The tenant's agent is named by the user at onboarding (localStorage).
+      // The session's agent_name defaults to ROLE_META — override it so the
+      // workspace, input bar, memory aside, and LLM all use the chosen name.
+      if (role === 'tenant') {
+        const chosen = getAIName()
+        if (chosen) d = { ...d, agent: { ...d.agent, agent_name: chosen } }
+      }
       // All state updates batched by React 18+ automatic batching
       setData(d)
       setStatus(d.status)
       setLive(isLive)
       setLoading(false)
     },
-    []
+    [role]
   )
 
   // Safety net: render within RENDER_DEADLINE_MS no matter what (auth slow,
