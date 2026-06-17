@@ -5,6 +5,7 @@ import { useRef, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useI18n } from '@/lib/i18n'
+import { useAIName } from '@/lib/aiName'
 
 type Step = 'intro' | 'capture-id' | 'selfie' | 'review'
 
@@ -67,12 +68,13 @@ function ProgressBar({ step }: { step: Step }) {
 }
 
 function IntroCard({ onStart }: { onStart: () => void }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
+  const name = useAIName()
   return (
     <div className="sl-card mx-auto max-w-[580px] px-8 py-10 text-center sm:px-12 sm:py-12">
       <div className="orb tenant pulse mx-auto h-[88px] w-[88px]" style={{ color: '#7C3AED' }} />
       <h1 className="mt-6 text-[28px] font-bold leading-tight tracking-tight sm:text-[32px]">
-        {t('onb.hi')}
+        {lang === 'en' ? `Hi, I'm ${name}.` : `嗨，我是 ${name}。`}
         <br />
         {t('onb.line2')}
       </h1>
@@ -231,6 +233,7 @@ function CaptureCard({
 }
 
 function ReviewCard({ onBack }: { onBack: () => void }) {
+  const name = useAIName()
   return (
     <div className="sl-card mx-auto max-w-[580px] px-8 py-10 text-center sm:px-12 sm:py-12">
       <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brand/10 text-brand">
@@ -238,7 +241,7 @@ function ReviewCard({ onBack }: { onBack: () => void }) {
       </span>
       <h2 className="mt-5 text-[26px] font-bold tracking-tight">认证 1 级 通过 ✓</h2>
       <p className="mt-3 text-[14px] leading-relaxed text-body-2">
-        身份已验证。Luna 已经在你的 Workspace 等你 — 现在就能浏览房源、提交看房意向。
+        身份已验证。{name} 已经在你的 Workspace 等你 — 现在就能浏览房源、提交看房意向。
       </p>
 
       <div className="mt-8 flex flex-col gap-3">
