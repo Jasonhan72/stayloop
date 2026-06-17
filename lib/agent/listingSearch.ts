@@ -19,16 +19,23 @@ const STOCK = [
 ]
 
 export async function searchListings(
-  c: SearchCriteria
+  c: SearchCriteria,
+  exclude: string[] = []
 ): Promise<{ listings: ListingCard[] }> {
   const target = Math.min(Math.max(c.count ?? 4, 1), 6)
-  // Stayloop's own listings come first (verified). If there aren't enough to
-  // meet what the user asked for, top up with external Realtor.ca results.
-  const stay = await searchStayloop({ ...c, count: target })
+  // Already-shown addresses (this conversation) are skipped so "再找几个 /
+  // 换一批" returns NEW results. Over-fetch a bit to leave room after filtering.
+  const ex = new Set(exclude.map((s) => s.toLowerCase()))
+  const fresh = (l: ListingCard) => !ex.has(l.address.toLowerCase())
+  const fetchCount = Math.min(target + exclude.length, 12)
+
+  // Stayloop's own listings come first (verified). If there aren't enough new
+  // ones to meet what the user asked for, top up with external Realtor.ca.
+  const stay = (await searchStayloop({ ...c, count: fetchCount })).filter(fresh)
   if (stay.length >= target) return { listings: stay.slice(0, target) }
 
-  let ext = await jinaRealtor({ ...c, count: target }).catch(() => [] as ListingCard[])
-  if (!ext.length) ext = syntheticRealtor(c)
+  let ext = (await jinaRealtor({ ...c, count: fetchCount }).catch(() => [] as ListingCard[])).filter(fresh)
+  if (!ext.length && stay.length === 0) ext = syntheticRealtor(c).filter(fresh)
   const seen = new Set(stay.map((l) => l.address.toLowerCase()))
   const filled = [...stay, ...ext.filter((l) => !seen.has(l.address.toLowerCase()))]
   return { listings: filled.slice(0, target) }
@@ -48,7 +55,7 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
   if (c.max_price) p.set('monthly_rent', `lte.${Math.round(c.max_price)}`)
   if (c.min_beds) p.set('bedrooms', `gte.${Math.round(c.min_beds)}`)
   p.set('order', 'monthly_rent.asc')
-  p.set('limit', String(Math.min(c.count ?? 4, 6)))
+  p.set('limit', String(Math.min(c.count ?? 4, 12)))
   try {
     const res = await fetch(`${url}/rest/v1/listings?${p.toString()}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
@@ -136,7 +143,7 @@ async function jinaRealtor(c: SearchCriteria): Promise<ListingCard[]> {
     // Rank by budget relevance: houses → priciest-within-budget first
     // (closest to a high target like $6000); apartments → cheapest first.
     all.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
-    return all.slice(0, Math.min(c.count ?? 4, 6))
+    return all.slice(0, Math.min(c.count ?? 4, 12))
   } catch {
     return []
   }

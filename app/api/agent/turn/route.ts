@@ -22,6 +22,7 @@ type TurnRequest = {
   stageLabel?: string
   images?: { media_type: string; data: string }[]
   attachment_names?: string[]
+  exclude?: string[]
 }
 
 const VALID_ROLES = new Set<AgentRole>(['tenant', 'landlord', 'agent'])
@@ -165,7 +166,7 @@ export async function POST(req: Request) {
         pets: typeof search.pets === 'boolean' ? search.pets : null,
         keywords: typeof search.keywords === 'string' ? search.keywords : null,
         count: typeof search.count === 'number' ? search.count : null,
-      })
+      }, Array.isArray(body.exclude) ? body.exclude.map(String) : [])
       if (result.listings.length) {
         listings = result.listings
         // Stayloop-first results may be topped up with external — derive the

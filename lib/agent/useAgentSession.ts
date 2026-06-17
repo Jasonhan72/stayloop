@@ -72,6 +72,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   const settled = useRef(false)
   const msgSeq = useRef(0)
   const nextId = () => `m${++msgSeq.current}`
+  // Addresses already shown this session — excluded so "再找几个 / 换一批" returns new ones.
+  const shownListings = useRef<Set<string>>(new Set())
 
   const settle = useCallback(
     (d: AgentSessionResponse, isLive: boolean) => {
@@ -180,6 +182,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
             workflow: data.workflow,
             stageLabel,
             attachments,
+            exclude: Array.from(shownListings.current),
             live: true,
           })
           result = turn.result
@@ -188,6 +191,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           nextStage = turn.nextStage
           listings = turn.listings
           listingsSource = turn.listingsSource
+          // Remember what we showed so the next search returns fresh results.
+          turn.listings?.forEach((l) => shownListings.current.add(l.address.toLowerCase()))
         } catch (e) {
           console.warn('[agent] turn failed, using fallback —', (e as Error).message)
         }

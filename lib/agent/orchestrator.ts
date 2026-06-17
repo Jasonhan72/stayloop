@@ -144,9 +144,10 @@ export async function runAgentTurn(args: {
   workflow: WorkflowState
   stageLabel?: string
   attachments?: ChatAttachment[]
+  exclude?: string[]
   live: boolean
 }): Promise<AgentTurn> {
-  const { client, userId, role, agentName, message, memories, workflow, stageLabel, attachments, live } = args
+  const { client, userId, role, agentName, message, memories, workflow, stageLabel, attachments, exclude, live } = args
   const name = agentName || ROLE_META[role].name
 
   // Images → base64 blocks the route forwards to Claude Vision; all filenames
@@ -159,7 +160,7 @@ export async function runAgentTurn(args: {
   const res = await fetch('/api/agent/turn', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames }),
+    body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames, exclude: exclude ?? [] }),
   })
   if (!res.ok) throw new Error(`turn failed: ${res.status}`)
   const turn = (await res.json()) as {
