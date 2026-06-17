@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 
@@ -28,7 +29,7 @@ export default function PrivacyPage() {
             <p>所有数据存储在 Toronto / Montreal AWS region。Persona / Plaid / Equifax 调用通过加密 TLS 1.3 + token 隔离。</p>
           </Section>
           <Section title="5 · 联系">
-            <p>privacy@stayloop.ai 或通过 in-app 聊天。我们 30 天内回复。</p>
+            <p>请通过 <Link href="/contact" className="font-semibold text-brand hover:underline">联系页面</Link> 或 in-app 聊天联系我们。我们 30 天内回复。</p>
           </Section>
         </article>
       </main>
