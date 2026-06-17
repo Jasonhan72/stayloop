@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
-import type { AgentRole, AgentSessionResponse, AgentStatus } from './types'
+import type { AgentRole, AgentSessionResponse, AgentStatus, ChatMessage } from './types'
 import { loadAgentSession } from './session-loader'
 import { decidePendingAction } from './approval-engine'
 import { runAgentTurn, WORKFLOW_STAGES } from './orchestrator'
@@ -40,12 +40,21 @@ async function reconcileTenantName(
   }
 }
 
+function greeting(role: AgentRole, name: string): string {
+  if (role === 'tenant')
+    return `你好,我是 ${name}。告诉我你想找什么样的家 —— 区域、预算、户型、硬条件,直接说就好,我都帮你记住。`
+  if (role === 'landlord')
+    return `你好,我是 ${name}。把申请、尽调、合规、续约交给我;关键的 1–2 个时刻,你点头就好。`
+  return `你好,我是 ${name}。带看、准备包、现场反馈、结算 —— 行政杂活我来,你专心做人和判断。`
+}
+
 export type UseAgentSession = {
   loading: boolean
   live: boolean // true when backed by Supabase, false in demo fallback
   data: AgentSessionResponse | null
   status: AgentStatus
   error: string | null
+  messages: ChatMessage[]
   decide: (actionId: string, decision: 'approved' | 'rejected', note?: string) => Promise<void>
   sendMessage: (message: string) => Promise<void>
 }
@@ -59,7 +68,10 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   const [data, setData] = useState<AgentSessionResponse | null>(null)
   const [status, setStatus] = useState<AgentStatus>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const settled = useRef(false)
+  const msgSeq = useRef(0)
+  const nextId = () => `m${++msgSeq.current}`
 
   const settle = useCallback(
     (d: AgentSessionResponse, isLive: boolean) => {
@@ -78,6 +90,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       setStatus(d.status)
       setLive(isLive)
       setLoading(false)
+      // Open the conversation with a greeting from the (named) agent.
+      setMessages([{ id: nextId(), role: 'agent', text: greeting(role, d.agent.agent_name) }])
     },
     [role]
   )
@@ -135,6 +149,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   const sendMessage = useCallback(
     async (message: string) => {
       if (!message.trim() || !data) return
+      // Show the user's message in the thread immediately.
+      setMessages((m) => [...m, { id: nextId(), role: 'user', text: message.trim() }])
       setStatus('understanding')
 
       // Default acknowledgement (used if reasoning is unavailable).
@@ -192,9 +208,11 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           latestResult: { ...result, kind: 'summary' },
         }
       })
+      // Append the agent's reply to the conversation thread.
+      setMessages((m) => [...m, { id: nextId(), role: 'agent', text: result.body }])
     },
     [live, user, role, data]
   )
 
-  return { loading, live, data, status, error, decide, sendMessage }
+  return { loading, live, data, status, error, messages, decide, sendMessage }
 }

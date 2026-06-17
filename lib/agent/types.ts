@@ -81,6 +81,12 @@ export type AgentResult = {
   kind: 'summary' | 'recommendation' | 'warning' | 'approval_prompt'
 }
 
+export type ChatMessage = {
+  id: string
+  role: 'user' | 'agent'
+  text: string
+}
+
 export type Recommendation = {
   id: string
   title: string

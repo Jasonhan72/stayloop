@@ -56,7 +56,7 @@ export default function ApprovalActionCard({
         </div>
       )}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid gap-3">
         <ScopeList tone="share" title="将分享" items={action.data_scope} />
         <ScopeList tone="hold" title="不会分享" items={action.excluded_data} />
       </div>

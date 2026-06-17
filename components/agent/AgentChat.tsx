@@ -1,0 +1,100 @@
+'use client'
+
+// Claude-style conversation panel for a Personal Agent workspace: a scrolling
+// message thread (user ↔ agent bubbles) with the input pinned at the bottom.
+import { useEffect, useRef } from 'react'
+import AgentInputBar from './AgentInputBar'
+import type { AgentRole, AgentStatus, ChatMessage } from '@/lib/agent/types'
+
+const ACCENT: Record<AgentRole, string> = {
+  tenant: '#7C3AED',
+  landlord: '#047857',
+  agent: '#2563EB',
+}
+const ORB: Record<AgentRole, string> = {
+  tenant: 'linear-gradient(135deg,#C4B5FD,#7C3AED)',
+  landlord: 'linear-gradient(135deg,#6EE7B7,#047857)',
+  agent: 'linear-gradient(135deg,#93C5FD,#2563EB)',
+}
+
+export default function AgentChat({
+  role,
+  agentName,
+  status,
+  messages,
+  onSend,
+}: {
+  role: AgentRole
+  agentName: string
+  status: AgentStatus
+  messages: ChatMessage[]
+  onSend: (message: string) => void | Promise<void>
+}) {
+  const accent = ACCENT[role]
+  const endRef = useRef<HTMLDivElement>(null)
+  const thinking = status === 'understanding' || status === 'working'
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [messages.length, thinking])
+
+  return (
+    <div className="flex h-[70vh] flex-col overflow-hidden rounded-2xl border border-line-divider bg-white shadow-sm lg:h-full">
+      {/* header */}
+      <div className="flex items-center gap-3 border-b border-line-divider px-5 py-3.5">
+        <span className="h-9 w-9 flex-none rounded-full" style={{ background: ORB[role] }} />
+        <div>
+          <div className="text-[15px] font-bold tracking-tight">{agentName}</div>
+          <div className="flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#34D399' }} /> 在线 · 读取你的记忆
+          </div>
+        </div>
+      </div>
+
+      {/* thread */}
+      <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+        {messages.map((m) => (
+          <div key={m.id} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
+            {m.role === 'agent' && (
+              <span className="mr-2 mt-0.5 h-7 w-7 flex-none rounded-full" style={{ background: ORB[role] }} />
+            )}
+            <div
+              className={
+                'max-w-[82%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed ' +
+                (m.role === 'user' ? 'rounded-tr-sm text-white' : 'rounded-tl-sm bg-surface-chip text-body')
+              }
+              style={m.role === 'user' ? { background: accent } : undefined}
+            >
+              {m.text}
+            </div>
+          </div>
+        ))}
+        {thinking && (
+          <div className="flex justify-start">
+            <span className="mr-2 mt-0.5 h-7 w-7 flex-none rounded-full" style={{ background: ORB[role] }} />
+            <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm bg-surface-chip px-4 py-3.5">
+              <Dot delay="0s" />
+              <Dot delay="0.15s" />
+              <Dot delay="0.3s" />
+            </div>
+          </div>
+        )}
+        <div ref={endRef} />
+      </div>
+
+      {/* input */}
+      <div className="border-t border-line-divider p-3">
+        <AgentInputBar agentName={agentName} onSend={onSend} disabled={thinking} />
+      </div>
+    </div>
+  )
+}
+
+function Dot({ delay }: { delay: string }) {
+  return (
+    <span
+      className="inline-block h-1.5 w-1.5 animate-bounce rounded-full"
+      style={{ background: '#A1A1AA', animationDelay: delay }}
+    />
+  )
+}
