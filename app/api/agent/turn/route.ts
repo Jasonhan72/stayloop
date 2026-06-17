@@ -164,10 +164,15 @@ export async function POST(req: Request) {
         min_beds: typeof search.min_beds === 'number' ? search.min_beds : null,
         pets: typeof search.pets === 'boolean' ? search.pets : null,
         keywords: typeof search.keywords === 'string' ? search.keywords : null,
+        count: typeof search.count === 'number' ? search.count : null,
       })
       if (result.listings.length) {
         listings = result.listings
-        listingsSource = result.source
+        // Stayloop-first results may be topped up with external — derive the
+        // banner from what actually came back.
+        const hasStay = result.listings.some((l) => l.source === 'stayloop')
+        const hasRealtor = result.listings.some((l) => l.source === 'realtor')
+        listingsSource = hasStay && !hasRealtor ? 'stayloop' : !hasStay && hasRealtor ? 'realtor' : undefined
       }
     } catch (e) {
       console.warn('[agent] listing search failed', (e as Error).message)

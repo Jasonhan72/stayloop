@@ -9,6 +9,7 @@ export type SearchCriteria = {
   min_beds?: number | null
   pets?: boolean | null
   keywords?: string | null
+  count?: number | null
 }
 
 const STOCK = [
@@ -19,12 +20,18 @@ const STOCK = [
 
 export async function searchListings(
   c: SearchCriteria
-): Promise<{ source: 'stayloop' | 'realtor'; listings: ListingCard[] }> {
-  const stay = await searchStayloop(c)
-  if (stay.length) return { source: 'stayloop', listings: stay }
-  const live = await jinaRealtor(c).catch(() => [] as ListingCard[])
-  if (live.length) return { source: 'realtor', listings: live }
-  return { source: 'realtor', listings: syntheticRealtor(c) }
+): Promise<{ listings: ListingCard[] }> {
+  const target = Math.min(Math.max(c.count ?? 4, 1), 6)
+  // Stayloop's own listings come first (verified). If there aren't enough to
+  // meet what the user asked for, top up with external Realtor.ca results.
+  const stay = await searchStayloop({ ...c, count: target })
+  if (stay.length >= target) return { listings: stay.slice(0, target) }
+
+  let ext = await jinaRealtor({ ...c, count: target }).catch(() => [] as ListingCard[])
+  if (!ext.length) ext = syntheticRealtor(c)
+  const seen = new Set(stay.map((l) => l.address.toLowerCase()))
+  const filled = [...stay, ...ext.filter((l) => !seen.has(l.address.toLowerCase()))]
+  return { listings: filled.slice(0, target) }
 }
 
 // ---------- Stayloop's own listings ----------
@@ -41,7 +48,7 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
   if (c.max_price) p.set('monthly_rent', `lte.${Math.round(c.max_price)}`)
   if (c.min_beds) p.set('bedrooms', `gte.${Math.round(c.min_beds)}`)
   p.set('order', 'monthly_rent.asc')
-  p.set('limit', '4')
+  p.set('limit', String(Math.min(c.count ?? 4, 6)))
   try {
     const res = await fetch(`${url}/rest/v1/listings?${p.toString()}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
@@ -129,7 +136,7 @@ async function jinaRealtor(c: SearchCriteria): Promise<ListingCard[]> {
     // Rank by budget relevance: houses → priciest-within-budget first
     // (closest to a high target like $6000); apartments → cheapest first.
     all.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
-    return all.slice(0, 4)
+    return all.slice(0, Math.min(c.count ?? 4, 6))
   } catch {
     return []
   }

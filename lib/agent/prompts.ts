@@ -88,10 +88,11 @@ ${memLines}
     "max_price": 预算上限数字(可空,优先用记忆里的预算上限),
     "min_beds": 卧室数(可空),
     "pets": true/false/null,
-    "keywords": "house / basement / 整栋 等关键词(可空)"
+    "keywords": "house / basement / 整栋 等关键词(可空)",
+    "count": 用户想看几套的数字(如"找5个"→5;没说就留空,默认 4)
   },
   "next_stage": null 或 "推进到的流程阶段 key"
 }
 只在用户的意图确实触发某个关键动作时才给 proposed_action,否则为 null。
-${role === 'tenant' ? '当用户想找房 / 看房源 / 问"找到了吗 / 帮我找"时,设置 search。条件【优先取用户这条消息里明确说的】(预算、户型、区域、宠物),只有他没说的字段才用记忆里的旧值 —— 比如他这次说"预算 6000 的 house",就用 max_price=6000、keywords="house",不要沿用记忆里的旧预算。说"house / 整栋 / 独立屋 / townhouse"时 keywords 填 house 且 min_beds 至少为 3。系统会据此搜 Stayloop(没有则 Realtor.ca)并把房源卡附在你回复下面 —— 所以 reply 里简短说一句即可,不要手打房源详情。' : ''}`
+${role === 'tenant' ? '当用户想找房 / 看房源 / 问"找到了吗 / 帮我找"时,设置 search。条件【优先取用户这条消息里明确说的】(预算、户型、区域、宠物),只有他没说的字段才用记忆里的旧值 —— 比如他这次说"预算 6000 的 house",就用 max_price=6000、keywords="house",不要沿用记忆里的旧预算。说"house / 整栋 / 独立屋 / townhouse"时 keywords 填 house 且 min_beds 至少为 3。用户说"找 5 个 / 再找几个"就把数量填进 count。系统会先搜 Stayloop 自有房源,数量不够再自动用 Realtor.ca 补足到 count,并把房源卡附在你回复下面 —— 所以 reply 里简短说一句即可,不要手打房源详情。' : ''}`
 }

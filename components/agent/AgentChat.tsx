@@ -90,13 +90,9 @@ export default function AgentChat({
               )}
               {m.role === 'agent' && m.listings && m.listings.length > 0 && (
                 <div className="w-full">
-                  {m.listingsSource && (
-                    <div className="mb-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
-                      {m.listingsSource === 'stayloop'
-                        ? `STAYLOOP 房源 · ${m.listings.length} 套`
-                        : `外部 · REALTOR.CA · ${m.listings.length} 套 · 未经 Stayloop 验证`}
-                    </div>
-                  )}
+                  <div className="mb-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
+                    {listingsHeader(m.listings)}
+                  </div>
                   <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
                     {m.listings.map((l) => (
                       <div key={l.id} className="w-[280px] flex-none snap-start">
@@ -128,6 +124,15 @@ export default function AgentChat({
       </div>
     </div>
   )
+}
+
+function listingsHeader(listings: NonNullable<ChatMessage['listings']>): string {
+  const stay = listings.filter((l) => l.source === 'stayloop').length
+  const ext = listings.filter((l) => l.source === 'realtor').length
+  const parts: string[] = []
+  if (stay) parts.push(`STAYLOOP ${stay} 套`)
+  if (ext) parts.push(`REALTOR.CA ${ext} 套`)
+  return parts.join(' · ') + (ext ? ' · 外部未经验证' : '')
 }
 
 function Dot({ delay }: { delay: string }) {
