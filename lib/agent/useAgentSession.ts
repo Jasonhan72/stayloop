@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
-import type { AgentRole, AgentSessionResponse, AgentStatus, ChatMessage } from './types'
+import type { AgentRole, AgentSessionResponse, AgentStatus, ChatAttachment, ChatMessage } from './types'
 import { loadAgentSession } from './session-loader'
 import { decidePendingAction } from './approval-engine'
 import { runAgentTurn, WORKFLOW_STAGES } from './orchestrator'
@@ -56,7 +56,7 @@ export type UseAgentSession = {
   error: string | null
   messages: ChatMessage[]
   decide: (actionId: string, decision: 'approved' | 'rejected', note?: string) => Promise<void>
-  sendMessage: (message: string) => Promise<void>
+  sendMessage: (message: string, attachments?: ChatAttachment[]) => Promise<void>
 }
 
 const RENDER_DEADLINE_MS = 5000
@@ -147,10 +147,10 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   )
 
   const sendMessage = useCallback(
-    async (message: string) => {
-      if (!message.trim() || !data) return
-      // Show the user's message in the thread immediately.
-      setMessages((m) => [...m, { id: nextId(), role: 'user', text: message.trim() }])
+    async (message: string, attachments?: ChatAttachment[]) => {
+      if ((!message.trim() && !attachments?.length) || !data) return
+      // Show the user's message (with any attachments) in the thread immediately.
+      setMessages((m) => [...m, { id: nextId(), role: 'user', text: message.trim(), attachments }])
       setStatus('understanding')
 
       // Default acknowledgement (used if reasoning is unavailable).
@@ -179,6 +179,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
             memories: data.memories,
             workflow: data.workflow,
             stageLabel,
+            attachments,
             live: true,
           })
           result = turn.result

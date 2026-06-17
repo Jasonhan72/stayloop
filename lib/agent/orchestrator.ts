@@ -5,6 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   AgentRole,
   AgentStatus,
+  ChatAttachment,
   ListingCard,
   MemoryItem,
   PendingAction,
@@ -142,15 +143,23 @@ export async function runAgentTurn(args: {
   memories: MemoryItem[]
   workflow: WorkflowState
   stageLabel?: string
+  attachments?: ChatAttachment[]
   live: boolean
 }): Promise<AgentTurn> {
-  const { client, userId, role, agentName, message, memories, workflow, stageLabel, live } = args
+  const { client, userId, role, agentName, message, memories, workflow, stageLabel, attachments, live } = args
   const name = agentName || ROLE_META[role].name
+
+  // Images → base64 blocks the route forwards to Claude Vision; all filenames
+  // are passed as context so the agent knows what was attached.
+  const images = (attachments ?? [])
+    .filter((a) => a.isImage && a.dataUrl.includes(';base64,'))
+    .map((a) => ({ media_type: a.mediaType, data: a.dataUrl.split(';base64,')[1] }))
+  const attachmentNames = (attachments ?? []).map((a) => a.name)
 
   const res = await fetch('/api/agent/turn', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel }),
+    body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames }),
   })
   if (!res.ok) throw new Error(`turn failed: ${res.status}`)
   const turn = (await res.json()) as {

@@ -20,6 +20,8 @@ type TurnRequest = {
   memories: MemoryItem[]
   workflow: WorkflowState
   stageLabel?: string
+  images?: { media_type: string; data: string }[]
+  attachment_names?: string[]
 }
 
 const VALID_ROLES = new Set<AgentRole>(['tenant', 'landlord', 'agent'])
@@ -86,8 +88,12 @@ export async function POST(req: Request) {
   }
 
   const { role, agentName, message } = body
-  if (!VALID_ROLES.has(role) || typeof message !== 'string' || !message.trim()) {
-    return NextResponse.json({ error: 'role and message are required' }, { status: 400 })
+  const imgs = (Array.isArray(body.images) ? body.images : [])
+    .filter((im) => im && typeof im.data === 'string' && /^image\//.test(im.media_type || ''))
+    .slice(0, 3)
+  const attachmentNames = Array.isArray(body.attachment_names) ? body.attachment_names.map(String) : []
+  if (!VALID_ROLES.has(role) || typeof message !== 'string' || (!message.trim() && imgs.length === 0)) {
+    return NextResponse.json({ error: 'role and message (or an image) are required' }, { status: 400 })
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY
@@ -99,6 +105,16 @@ export async function POST(req: Request) {
   const workflow: WorkflowState =
     body.workflow ?? { workflow_type: '', workflow_id: null, current_stage: '', completed_steps: [], status: 'active' }
   const system = buildSystemPrompt(role, agentName, memories, workflow, body.stageLabel)
+
+  // Build the user turn — text (+ attachment note) and any image blocks for Vision.
+  const note = attachmentNames.length ? `\n\n[用户上传了文件：${attachmentNames.join('、')}]` : ''
+  const userText = (message.trim() || '（用户上传了文件,请查看并回应）').slice(0, 4000) + note
+  const userContent: unknown = imgs.length
+    ? [
+        { type: 'text', text: userText },
+        ...imgs.map((im) => ({ type: 'image', source: { type: 'base64', media_type: im.media_type, data: im.data } })),
+      ]
+    : userText
 
   let raw = ''
   try {
@@ -114,7 +130,7 @@ export async function POST(req: Request) {
         max_tokens: 1500,
         temperature: 0.4,
         system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: message.slice(0, 4000) }],
+        messages: [{ role: 'user', content: userContent }],
       }),
       signal: AbortSignal.timeout(20000),
     })

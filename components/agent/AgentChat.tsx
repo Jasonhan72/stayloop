@@ -5,7 +5,7 @@
 import { useEffect, useRef } from 'react'
 import AgentInputBar from './AgentInputBar'
 import ListingChatCard from './ListingChatCard'
-import type { AgentRole, AgentStatus, ChatMessage } from '@/lib/agent/types'
+import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage } from '@/lib/agent/types'
 
 const ACCENT: Record<AgentRole, string> = {
   tenant: '#7C3AED',
@@ -29,7 +29,7 @@ export default function AgentChat({
   agentName: string
   status: AgentStatus
   messages: ChatMessage[]
-  onSend: (message: string) => void | Promise<void>
+  onSend: (message: string, attachments?: ChatAttachment[]) => void | Promise<void>
 }) {
   const accent = ACCENT[role]
   const endRef = useRef<HTMLDivElement>(null)
@@ -74,6 +74,20 @@ export default function AgentChat({
               >
                 {m.text}
               </div>
+              {m.role === 'user' && m.attachments && m.attachments.length > 0 && (
+                <div className="flex flex-wrap justify-end gap-2">
+                  {m.attachments.map((a, i) =>
+                    a.isImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={i} src={a.dataUrl} alt={a.name} className="h-24 w-24 rounded-lg border border-line-divider object-cover" />
+                    ) : (
+                      <span key={i} className="flex items-center gap-1.5 rounded-lg border border-line-divider bg-surface-chip px-2.5 py-1.5 text-[12px] text-body-2">
+                        📄 {a.name}
+                      </span>
+                    )
+                  )}
+                </div>
+              )}
               {m.role === 'agent' && m.listings && m.listings.length > 0 && (
                 <div className="w-full">
                   {m.listingsSource && (

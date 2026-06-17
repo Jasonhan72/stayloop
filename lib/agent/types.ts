@@ -99,10 +99,18 @@ export type ListingCard = {
   note?: string
 }
 
+export type ChatAttachment = {
+  name: string
+  mediaType: string
+  dataUrl: string // data:<mime>;base64,<...>
+  isImage: boolean
+}
+
 export type ChatMessage = {
   id: string
   role: 'user' | 'agent'
   text: string
+  attachments?: ChatAttachment[]
   listings?: ListingCard[]
   listingsSource?: 'stayloop' | 'realtor'
 }
