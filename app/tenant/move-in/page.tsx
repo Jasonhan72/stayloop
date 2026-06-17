@@ -1,6 +1,7 @@
 'use client'
 
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useAIName } from '@/lib/aiName'
 
 const PHOTO_TILES: { room: string; emoji: string; need: string; done?: number }[] = [
   { room: '客厅', emoji: '🛋️', need: '需 ≥4 张', done: 4 },
@@ -32,6 +33,7 @@ function Check({ on }: { on: boolean }) {
 }
 
 export default function TenantMoveInPage() {
+  const name = useAIName()
   return (
     <WorkspaceShell role="tenant" hideAside>
       <div className="mx-auto max-w-[760px]">
@@ -52,7 +54,7 @@ export default function TenantMoveInPage() {
           <div className="flex items-center gap-2">
             <span className="inline-block h-5 w-5 rounded-full bg-tenant/20 text-center text-[11px] leading-5">🟣</span>
             <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-tenant">
-              LUNA · 入住向导
+              {name} · 入住向导
             </span>
           </div>
           <p className="mt-3 text-[13.5px] leading-relaxed text-body-2">
@@ -65,7 +67,7 @@ export default function TenantMoveInPage() {
         <div className="mb-5 sl-card p-7">
           <h2 className="text-[18px] font-bold tracking-tight">📷 入住状态拍照（关键）</h2>
           <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
-            这些照片会被时间戳锁定，作为退租时的对照标准 — 保护你的押金。Luna 会把它们存进
+            这些照片会被时间戳锁定，作为退租时的对照标准 — 保护你的押金。{name} 会把它们存进
             audit log，搬出时房东无法以「原本就有的损耗」扣你的钱。
           </p>
 

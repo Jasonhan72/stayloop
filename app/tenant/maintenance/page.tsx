@@ -2,6 +2,7 @@
 
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useState } from 'react'
+import { useAIName } from '@/lib/aiName'
 
 const TICKETS = [
   { id: 'M-104', title: '厨房水龙头滴水', status: 'in-progress', sub: '2 天前提交 · 已派工', priority: 'medium' },
@@ -82,6 +83,7 @@ const URGENCY = [
 ]
 
 function NewTicketModal({ onClose }: { onClose: () => void }) {
+  const name = useAIName()
   const [cat, setCat] = useState('')
   const [urg, setUrg] = useState('medium')
   return (
@@ -92,7 +94,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
         </div>
         <h3 className="mt-2 text-[24px] font-bold tracking-tight">什么情况?</h3>
         <p className="mt-1 text-[13px] text-body-2">
-          Luna 会基于你描述的紧急程度给 Sarah 一个建议响应时间。
+          {name} 会基于你描述的紧急程度给 Sarah 一个建议响应时间。
         </p>
 
         {/* Category pills */}
@@ -166,7 +168,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
               className="h-5 w-5 rounded-full"
               style={{ background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)' }}
             />
-            <span className="text-[12px] font-bold text-tenant-deep">Luna · 你提交后会发生什么：</span>
+            <span className="text-[12px] font-bold text-tenant-deep">{name} · 你提交后会发生什么：</span>
           </div>
           <ul className="mt-2 space-y-1 text-[12px] leading-relaxed text-tenant-deep">
             <li>· Sarah 立即收到 push，我会在 4 小时后追 Sarah 跟进</li>

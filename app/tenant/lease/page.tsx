@@ -3,6 +3,7 @@
 // V5 VOL2 · Tenant · 租约审阅 + 第 6 页 · 签名 (Ontario Standard Lease / LTB).
 import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useAIName } from '@/lib/aiName'
 
 const CLAUSES = [
   {
@@ -33,6 +34,7 @@ const CLAUSES = [
 ]
 
 export default function TenantLeasePage() {
+  const name = useAIName()
   return (
     <WorkspaceShell role="tenant" aside={<SigningAside />}>
       <div className="mb-9">
@@ -41,7 +43,7 @@ export default function TenantLeasePage() {
         </div>
         <h1 className="mt-2 text-[36px] font-bold tracking-tight">Unit 1207 · King West 租约</h1>
         <p className="mt-2 text-[14px] text-body-2">
-          Luna 已经读完整份租约,标出了 4 条你需要特别注意的条款。看完后,在底部签名。
+          {name} 已经读完整份租约,标出了 4 条你需要特别注意的条款。看完后,在底部签名。
         </p>
       </div>
 
@@ -78,7 +80,7 @@ export default function TenantLeasePage() {
                   background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)',
                 }}
               />
-              <p className="text-[12.5px] leading-relaxed text-tenant-deep">{c.explain}</p>
+              <p className="text-[12.5px] leading-relaxed text-tenant-deep">{c.explain.replace(/^Luna/, name)}</p>
             </div>
           </div>
         ))}
@@ -137,6 +139,7 @@ export default function TenantLeasePage() {
 }
 
 function SigningAside() {
+  const name = useAIName()
   return (
     <div>
       <div className="flex items-center gap-2.5">
@@ -145,7 +148,7 @@ function SigningAside() {
           style={{ background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)' }}
         />
         <div>
-          <div className="text-[14px] font-bold">Luna 在这里 · SIGNING</div>
+          <div className="text-[14px] font-bold">{name} 在这里 · SIGNING</div>
           <div className="font-mono text-[10.5px] text-body-3">最后确认 · 帮你核对</div>
         </div>
       </div>

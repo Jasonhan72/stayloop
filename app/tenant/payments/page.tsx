@@ -1,6 +1,7 @@
 'use client'
 
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useAIName } from '@/lib/aiName'
 
 const HISTORY = [
   { date: '2026-05-01', amount: 2800, status: 'paid', method: 'Plaid · RBC ****8721' },
@@ -11,6 +12,7 @@ const HISTORY = [
 ]
 
 export default function TenantPaymentsPage() {
+  const name = useAIName()
   return (
     <WorkspaceShell role="tenant" hideAside>
       <div className="mb-9">
@@ -56,7 +58,7 @@ export default function TenantPaymentsPage() {
             <div className="flex items-center gap-2">
               <span className="inline-block h-5 w-5 rounded-full bg-tenant/20 text-center text-[11px] leading-5">🟣</span>
               <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-tenant">
-                LUNA · 续约提醒
+                {name} · 续约提醒
               </span>
             </div>
             <p className="mt-3 text-[13px] leading-relaxed text-body-2">
