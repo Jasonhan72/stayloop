@@ -155,7 +155,9 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
             let anonClaim: { id?: string } | null = null
             if (!_claimAttempted[anonAuthId]) {
               _claimAttempted[anonAuthId] = true
-              const { data } = await supabase.rpc('claim_landlord', { p_role: 'tenant' })
+              // Anonymous users are tenants — claim a tenant profile.
+              // (The prod RPCs claim_tenant()/claim_landlord() take no args.)
+              const { data } = await supabase.rpc('claim_tenant')
               anonClaim = (data as { id?: string } | null) ?? null
             }
             const anonSession: UserSession = {
@@ -207,7 +209,7 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
           .from('landlords')
           .select('*')
           .eq('auth_id', authId)
-          .single()
+          .maybeSingle()
 
         if (profileError && profileError.code !== 'PGRST116') {
           // PGRST116 = not found (which is expected, we'll create it)
@@ -249,7 +251,9 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
           const session: UserSession = {
             authId,
             email,
-            profileId: authId,
+            // Profile not resolved yet — leave blank rather than substituting
+            // authId (profileId ≠ authId; a wrong id would mis-scope queries).
+            profileId: '',
             role: 'landlord',
             fullName: '',
             plan: 'free',
@@ -264,10 +268,7 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
         }
 
         _claimAttempted[authId] = true
-        const { data: claimData, error: claimError } = await supabase.rpc(
-          'claim_landlord',
-          { p_role: 'landlord' }
-        )
+        const { data: claimData, error: claimError } = await supabase.rpc('claim_landlord')
 
         if (claimError) {
           console.error('Claim landlord error:', claimError)
@@ -282,7 +283,7 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
           const session: UserSession = {
             authId,
             email,
-            profileId: claimData.id || authId,
+            profileId: claimData.id || '',
             role: claimData.role || 'landlord',
             fullName: claimData.full_name || '',
             plan: claimData.plan || 'free',

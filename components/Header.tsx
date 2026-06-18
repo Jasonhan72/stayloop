@@ -131,12 +131,6 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
                 className="relative flex h-9 w-9 items-center justify-center rounded-lg text-body-2 transition hover:bg-line-divider/60"
               >
                 <BellIcon />
-                <span
-                  aria-hidden
-                  className="absolute right-[3px] top-[3px] flex h-[14px] min-w-[14px] items-center justify-center rounded-full border-[1.5px] border-surface-nav bg-danger px-[3px] text-[9px] font-bold text-white"
-                >
-                  3
-                </span>
               </Link>
               <div className="relative" ref={profileRef}>
                 <button

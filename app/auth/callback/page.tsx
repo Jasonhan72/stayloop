@@ -44,11 +44,18 @@ export default function AuthCallback() {
           landlord: '/landlord/agent',
           agent: '/agent/agent',
         }
+        // Honor an explicit ?next= destination (set by AuthModal) when it's a
+        // safe same-origin path — otherwise fall back to role-based routing.
+        const rawNext = new URLSearchParams(window.location.search).get('next')
+        const safeNext = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null
+
         // First-time users name their agent, then go straight to the chat.
         // Returning users (role known) skip naming entirely.
-        let dest = '/onboarding/name'
+        let dest = safeNext ?? '/onboarding/name'
         const stored = window.localStorage.getItem('sl-active-role')
-        if (stored && AGENT_HOME[stored]) {
+        if (safeNext) {
+          dest = safeNext
+        } else if (stored && AGENT_HOME[stored]) {
           dest = AGENT_HOME[stored]
         } else {
           // Scope to the authenticated user explicitly (don't rely on RLS

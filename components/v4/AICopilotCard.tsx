@@ -100,7 +100,11 @@ export default function AICopilotCard({ user }: Props) {
         {subtitle}
       </div>
       <Link
-        href="/tenant/agent"
+        href={
+          user?.role === 'landlord' ? '/landlord/agent'
+          : user?.role === 'agent' ? '/agent/agent'
+          : '/tenant/agent'
+        }
         style={{
           display: 'inline-block',
           marginTop: 6,

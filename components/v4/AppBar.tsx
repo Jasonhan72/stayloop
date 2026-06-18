@@ -49,6 +49,10 @@ export default function AppBar({ user, loading, signOut, role, path, onOpenMenu 
   const effectiveRole: UserRole | null = role || user?.role || null
   const badge = effectiveRole ? ROLE_BADGE[effectiveRole] : null
   const breadcrumb = path || pathname || '/'
+  const agentHref =
+    effectiveRole === 'landlord' ? '/landlord/agent'
+    : effectiveRole === 'agent' ? '/agent/agent'
+    : '/tenant/agent'
 
   // Notifications count — synthesize from leases/applications same way the
   // /notifications page does. Simple count query: leases in tenant_review or
@@ -179,7 +183,7 @@ export default function AppBar({ user, loading, signOut, role, path, onOpenMenu 
       {/* ⌘K command bar — visual-only for now; clicking opens /chat.
           Hidden on mobile (≤860px) to give the bell + avatar room. */}
       <Link
-        href="/tenant/agent"
+        href={agentHref}
         className="ab-cmdk"
         style={{
           display: 'flex',

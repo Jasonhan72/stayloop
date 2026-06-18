@@ -4,6 +4,14 @@ import { createClient } from '@supabase/supabase-js'
 export const runtime = 'edge'
 
 const ALLOWED_SCOPES = new Set(['identity', 'income', 'bank', 'credit'])
+const RATE_LIMIT_PER_MIN = 120
+
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
 
 /**
  * POST /api/trust/verify  — Trust API (handbook §08)
@@ -52,16 +60,26 @@ export async function POST(req: NextRequest) {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
-  // Verify partner API key
+  // Verify partner API key by hash — plaintext keys are never stored.
+  const apiKeyHash = await sha256Hex(apiKey)
   const { data: partner } = await admin
     .from('trust_api_keys')
     .select('id, partner_name, active')
-    .eq('api_key', apiKey)
+    .eq('api_key_hash', apiKeyHash)
     .eq('active', true)
     .maybeSingle()
 
   if (!partner) {
     return NextResponse.json({ error: 'invalid or inactive api key' }, { status: 403 })
+  }
+
+  // Per-key rate limit (fixed 1-minute window).
+  const { data: rateCount } = await admin.rpc('bump_trust_api_rate', { p_api_key_id: partner.id })
+  if (typeof rateCount === 'number' && rateCount > RATE_LIMIT_PER_MIN) {
+    return NextResponse.json(
+      { error: 'rate limit exceeded' },
+      { status: 429, headers: { 'Retry-After': '60' } },
+    )
   }
 
   const { data: passport } = await admin
