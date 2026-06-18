@@ -1,6 +1,7 @@
 'use client'
 
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useT } from '@/lib/i18n'
 
 /**
  * V5 Agent · Earnings
@@ -8,29 +9,31 @@ import WorkspaceShell from '@/components/WorkspaceShell'
  */
 
 const PAYOUTS = [
-  { date: '5/8', client: 'Yuki M.', listing: 'King West condo', amount: 1475, status: 'paid' },
-  { date: '5/3', client: 'David Z.', listing: 'Distillery 1207', amount: 1840, status: 'paid' },
-  { date: '4/28', client: 'Kevin Tran 续约', listing: 'Hanna Loft', amount: 720, status: 'paid' },
-  { date: '4/22', client: 'Marcus T.', listing: 'Leslieville Stack', amount: 1550, status: 'paid' },
-  { date: '4/14', client: 'Lisa W.', listing: 'CityPlace 4502', amount: 1725, status: 'paid' },
-  { date: '4/4', client: 'Anna L.（首签）', listing: 'Brunswick Ave', amount: 2125, status: 'paid' },
+  { date: '5/8', client: { zh: 'Yuki M.', en: 'Yuki M.' }, listing: 'King West condo', amount: 1475, status: 'paid' },
+  { date: '5/3', client: { zh: 'David Z.', en: 'David Z.' }, listing: 'Distillery 1207', amount: 1840, status: 'paid' },
+  { date: '4/28', client: { zh: 'Kevin Tran 续约', en: 'Kevin Tran renewal' }, listing: 'Hanna Loft', amount: 720, status: 'paid' },
+  { date: '4/22', client: { zh: 'Marcus T.', en: 'Marcus T.' }, listing: 'Leslieville Stack', amount: 1550, status: 'paid' },
+  { date: '4/14', client: { zh: 'Lisa W.', en: 'Lisa W.' }, listing: 'CityPlace 4502', amount: 1725, status: 'paid' },
+  { date: '4/4', client: { zh: 'Anna L.（首签）', en: 'Anna L. (first signing)' }, listing: 'Brunswick Ave', amount: 2125, status: 'paid' },
 ]
 
 const PIPELINE = [
-  { client: 'Anna L.', listing: 'Brunswick Ave 续约', amount: 2125, eta: '7/2', stage: 'showing' },
-  { client: 'Lisa W.', listing: 'CityPlace 4502', amount: 1725, eta: '5/15', stage: 'applied' },
-  { client: 'Eric K.', listing: 'Yorkville', amount: 2600, eta: '5/22', stage: 'showing' },
-  { client: 'Jason H.', listing: 'King West / Liberty', amount: 1700, eta: '5/30', stage: 'searching' },
+  { client: 'Anna L.', listing: { zh: 'Brunswick Ave 续约', en: 'Brunswick Ave renewal' }, amount: 2125, eta: '7/2', stage: 'showing' },
+  { client: 'Lisa W.', listing: { zh: 'CityPlace 4502', en: 'CityPlace 4502' }, amount: 1725, eta: '5/15', stage: 'applied' },
+  { client: 'Eric K.', listing: { zh: 'Yorkville', en: 'Yorkville' }, amount: 2600, eta: '5/22', stage: 'showing' },
+  { client: 'Jason H.', listing: { zh: 'King West / Liberty', en: 'King West / Liberty' }, amount: 1700, eta: '5/30', stage: 'searching' },
 ]
 
-const STAGE_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
-  searching: { bg: 'rgba(124,58,237,0.10)', fg: '#5B21B6', label: '寻房中' },
-  showing: { bg: 'rgba(37,99,235,0.10)', fg: '#1E3A8A', label: '看房中' },
-  applied: { bg: 'rgba(217,119,6,0.10)', fg: '#B45309', label: '已申请' },
-  closing: { bg: 'rgba(4,120,87,0.10)', fg: '#047857', label: '关单中' },
+const STAGE_STYLE: Record<string, { bg: string; fg: string; label: { zh: string; en: string } }> = {
+  searching: { bg: 'rgba(124,58,237,0.10)', fg: '#5B21B6', label: { zh: '寻房中', en: 'Searching' } },
+  showing: { bg: 'rgba(37,99,235,0.10)', fg: '#1E3A8A', label: { zh: '看房中', en: 'Showing' } },
+  applied: { bg: 'rgba(217,119,6,0.10)', fg: '#B45309', label: { zh: '已申请', en: 'Applied' } },
+  closing: { bg: 'rgba(4,120,87,0.10)', fg: '#047857', label: { zh: '关单中', en: 'Closing' } },
 }
 
 export default function AgentEarningsPage() {
+  const { lang } = useT()
+  const zh = lang === 'zh'
   const ytd = PAYOUTS.reduce((s, p) => s + p.amount, 0)
   const pipelineTotal = PIPELINE.reduce((s, p) => s + p.amount, 0)
   return (
@@ -40,19 +43,19 @@ export default function AgentEarningsPage() {
           AGENT · EARNINGS
         </div>
         <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">
-          本周 9 场带看 · $720 已锁
+          {zh ? '本周 9 场带看 · $720 已锁' : '9 showings this week · $720 locked'}
         </h1>
         <p className="mt-1 text-[13.5px] text-body-2">
-          仅成交后 · 经纪行↔经纪行 · 每单签字后 24h 内结算到 Stripe
+          {zh ? '仅成交后 · 经纪行↔经纪行 · 每单签字后 24h 内结算到 Stripe' : 'Only after closing · brokerage↔brokerage · settled to Stripe within 24h of each signing'}
         </p>
       </div>
 
       {/* KPI strip */}
       <div className="grid gap-3 sm:grid-cols-4">
-        <Kpi label="本月已结算" value="$3,315" accent="#047857" />
-        <Kpi label="YTD 实收" value={`$${ytd.toLocaleString()}`} accent="#171717" />
-        <Kpi label="Pipeline" value={`$${pipelineTotal.toLocaleString()}`} accent="#7C3AED" sub={`${PIPELINE.length} 单进行中`} />
-        <Kpi label="预计 6 月" value="$5,700" accent="#1E3A8A" sub="按当前 pipeline 概率加权" />
+        <Kpi label={zh ? '本月已结算' : 'Settled this month'} value="$3,315" accent="#047857" />
+        <Kpi label={zh ? 'YTD 实收' : 'YTD received'} value={`$${ytd.toLocaleString()}`} accent="#171717" />
+        <Kpi label="Pipeline" value={`$${pipelineTotal.toLocaleString()}`} accent="#7C3AED" sub={zh ? `${PIPELINE.length} 单进行中` : `${PIPELINE.length} deals in progress`} />
+        <Kpi label={zh ? '预计 6 月' : 'June forecast'} value="$5,700" accent="#1E3A8A" sub={zh ? '按当前 pipeline 概率加权' : 'probability-weighted on current pipeline'} />
       </div>
 
       {/* Big card: this month */}
@@ -60,14 +63,14 @@ export default function AgentEarningsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-              本月（5月）佣金分布
+              {zh ? '本月（5月）佣金分布' : 'This month (May) commission split'}
             </div>
             <h2 className="text-[20px] font-bold tracking-tight">
-              $3,315 已结 · $1,475 在途
+              {zh ? '$3,315 已结 · $1,475 在途' : '$3,315 settled · $1,475 in transit'}
             </h2>
           </div>
           <button className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand">
-            导出 CSV
+            {zh ? '导出 CSV' : 'Export CSV'}
           </button>
         </div>
         {/* Stacked horizontal bar */}
@@ -84,11 +87,11 @@ export default function AgentEarningsPage() {
         <div className="mt-2 flex flex-wrap items-center gap-4 font-mono text-[11px] uppercase tracking-eyebrow text-body-3">
           <span className="flex items-center gap-1.5">
             <span style={{ width: 10, height: 10, borderRadius: 2, background: '#047857' }} />
-            已结算 70%
+            {zh ? '已结算 70%' : 'Settled 70%'}
           </span>
           <span className="flex items-center gap-1.5">
             <span style={{ width: 10, height: 10, borderRadius: 2, background: 'rgba(124,58,237,0.55)' }} />
-            在途 30%
+            {zh ? '在途 30%' : 'In transit 30%'}
           </span>
         </div>
       </section>
@@ -97,16 +100,16 @@ export default function AgentEarningsPage() {
       <div className="mt-10 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <section className="sl-card overflow-hidden">
           <div className="border-b border-line-divider px-6 py-4">
-            <h3 className="text-[16px] font-bold tracking-tight">最近结算（Stripe Payouts）</h3>
+            <h3 className="text-[16px] font-bold tracking-tight">{zh ? '最近结算（Stripe Payouts）' : 'Recent settlements (Stripe Payouts)'}</h3>
           </div>
           <div className="overflow-x-auto">
           <table className="w-full min-w-[460px] text-[13.5px]">
             <thead className="bg-surface-chip">
               <tr>
-                <Th>日期</Th>
-                <Th>客户 / 房源</Th>
-                <Th right>金额</Th>
-                <Th right>状态</Th>
+                <Th>{zh ? '日期' : 'Date'}</Th>
+                <Th>{zh ? '客户 / 房源' : 'Client / Listing'}</Th>
+                <Th right>{zh ? '金额' : 'Amount'}</Th>
+                <Th right>{zh ? '状态' : 'Status'}</Th>
               </tr>
             </thead>
             <tbody>
@@ -114,7 +117,7 @@ export default function AgentEarningsPage() {
                 <tr key={i} className="border-t border-line-divider">
                   <td className="px-6 py-3 font-mono">{p.date}</td>
                   <td className="px-6 py-3 text-[12.5px]">
-                    <div className="font-bold">{p.client}</div>
+                    <div className="font-bold">{p.client[lang]}</div>
                     <div className="text-body-2">{p.listing}</div>
                   </td>
                   <td className="px-6 py-3 text-right font-mono font-bold">
@@ -145,7 +148,7 @@ export default function AgentEarningsPage() {
 
         <section className="sl-card overflow-hidden">
           <div className="border-b border-line-divider px-6 py-4">
-            <h3 className="text-[16px] font-bold tracking-tight">在途 Pipeline</h3>
+            <h3 className="text-[16px] font-bold tracking-tight">{zh ? '在途 Pipeline' : 'In-transit Pipeline'}</h3>
           </div>
           <ul>
             {PIPELINE.map((p, i) => {
@@ -164,7 +167,7 @@ export default function AgentEarningsPage() {
                     </div>
                   </div>
                   <div className="mt-1 flex items-center justify-between gap-2">
-                    <div className="text-[12px] text-body-2">{p.listing}</div>
+                    <div className="text-[12px] text-body-2">{p.listing[lang]}</div>
                     <span
                       className="font-mono"
                       style={{
@@ -177,11 +180,11 @@ export default function AgentEarningsPage() {
                         letterSpacing: '0.10em',
                       }}
                     >
-                      {ss.label}
+                      {ss.label[lang]}
                     </span>
                   </div>
                   <div className="mt-1 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">
-                    预计签字 {p.eta}
+                    {zh ? `预计签字 ${p.eta}` : `Est. signing ${p.eta}`}
                   </div>
                 </li>
               )
@@ -231,28 +234,30 @@ function Th({ children, right }: { children: React.ReactNode; right?: boolean })
 }
 
 function Aside() {
+  const { lang } = useT()
+  const zh = lang === 'zh'
   return (
     <div>
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        报税
+        {zh ? '报税' : 'Tax filing'}
       </div>
       <div className="mt-3 sl-card p-4">
-        <div className="text-[14px] font-bold">2025 T4A · 已生成</div>
+        <div className="text-[14px] font-bold">{zh ? '2025 T4A · 已生成' : '2025 T4A · Generated'}</div>
         <p className="mt-1 text-[12.5px] text-body-2">
-          全年总收入 $52,800 · Stripe 已自动报送 CRA。
+          {zh ? '全年总收入 $52,800 · Stripe 已自动报送 CRA。' : 'Total annual income $52,800 · Stripe has auto-filed with CRA.'}
         </p>
         <button className="mt-3 w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-[12.5px] font-semibold transition hover:border-brand hover:text-brand">
-          下载 T4A PDF
+          {zh ? '下载 T4A PDF' : 'Download T4A PDF'}
         </button>
       </div>
 
       <div className="mt-6 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        Brief 提示
+        {zh ? 'Brief 提示' : 'Brief tips'}
       </div>
       <div className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-body-2">
-        <p>📈 你的成单率比 GTA 同行高 <b>27%</b> — 主要靠快速响应。</p>
-        <p>💡 4 个 pipeline 客户中 3 个在 5 月底前能关单。</p>
-        <p>🪙 Stripe 提现：每周一自动转账。</p>
+        <p>{zh ? <>📈 你的成单率比 GTA 同行高 <b>27%</b> — 主要靠快速响应。</> : <>📈 Your close rate is <b>27%</b> higher than GTA peers — mostly from fast response.</>}</p>
+        <p>{zh ? '💡 4 个 pipeline 客户中 3 个在 5 月底前能关单。' : '💡 3 of 4 pipeline clients can close before end of May.'}</p>
+        <p>{zh ? '🪙 Stripe 提现:每周一自动转账。' : '🪙 Stripe payout: auto-transferred every Monday.'}</p>
       </div>
     </div>
   )

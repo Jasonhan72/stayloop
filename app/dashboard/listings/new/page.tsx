@@ -7,24 +7,34 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
+import { useT, type Lang } from '@/lib/i18n'
 
 const STEPS = [
-  { n: 1, nm: '基本信息', desc: '地址 + 户型 + 面积' },
-  { n: 2, nm: '照片 + 视频', desc: '至少 8 张 · Logic 自动排序' },
-  { n: 3, nm: '价格 + 押金', desc: 'Logic 给市场区间' },
-  { n: 4, nm: '认证门槛', desc: '接受什么级别申请人' },
-  { n: 5, nm: '最后审 + 发布', desc: 'Logic 起草 EN+ZH 文案' },
+  { n: 1, nm: { zh: '基本信息', en: 'Basics' }, desc: { zh: '地址 + 户型 + 面积', en: 'Address + layout + size' } },
+  { n: 2, nm: { zh: '照片 + 视频', en: 'Photos + video' }, desc: { zh: '至少 8 张 · Logic 自动排序', en: '8+ photos · Logic auto-orders' } },
+  { n: 3, nm: { zh: '价格 + 押金', en: 'Price + deposit' }, desc: { zh: 'Logic 给市场区间', en: 'Logic gives the market range' } },
+  { n: 4, nm: { zh: '认证门槛', en: 'Verification threshold' }, desc: { zh: '接受什么级别申请人', en: 'Which applicant tier you accept' } },
+  { n: 5, nm: { zh: '最后审 + 发布', en: 'Review + publish' }, desc: { zh: 'Logic 起草 EN+ZH 文案', en: 'Logic drafts EN+ZH copy' } },
 ]
 
-const AMENITIES = [
-  '中央空调', '包暖', '包水', '泳池', '健身房', '洗碗机', 'in-unit 洗衣',
-  '不锈钢厨电', '1 车位', '储物间',
+const AMENITIES: { id: string; zh: string; en: string }[] = [
+  { id: 'central_ac', zh: '中央空调', en: 'Central A/C' },
+  { id: 'heat_incl', zh: '包暖', en: 'Heat included' },
+  { id: 'water_incl', zh: '包水', en: 'Water included' },
+  { id: 'pool', zh: '泳池', en: 'Pool' },
+  { id: 'gym', zh: '健身房', en: 'Gym' },
+  { id: 'dishwasher', zh: '洗碗机', en: 'Dishwasher' },
+  { id: 'in_unit_laundry', zh: 'in-unit 洗衣', en: 'In-unit laundry' },
+  { id: 'ss_appliances', zh: '不锈钢厨电', en: 'Stainless-steel appliances' },
+  { id: 'parking', zh: '1 车位', en: '1 parking spot' },
+  { id: 'storage', zh: '储物间', en: 'Storage locker' },
 ]
 
 const IMPORT_SOURCES = ['Realtor.ca', 'Kijiji', 'Zumper', 'Zillow', 'MLS#']
 
 export default function NewListingPage() {
   const router = useRouter()
+  const { lang } = useT()
   const { landlord, loading: authLoading } = useLandlord()
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
@@ -39,11 +49,11 @@ export default function NewListingPage() {
     bedrooms: '1',
     bathrooms: '1',
     sqft: '700',
-    facing: '南向',
+    facing: lang === 'zh' ? '南向' : 'South-facing',
     floor: '12/24F',
-    age: '2018 年建',
+    age: lang === 'zh' ? '2018 年建' : 'Built 2018',
     tier: 2,
-    amenities: ['中央空调', '包暖', '包水', '洗碗机', 'in-unit 洗衣', '不锈钢厨电', '1 车位', '储物间', '泳池', '健身房'] as string[],
+    amenities: ['central_ac', 'heat_incl', 'water_incl', 'dishwasher', 'in_unit_laundry', 'ss_appliances', 'parking', 'storage', 'pool', 'gym'] as string[],
   })
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }))
@@ -114,7 +124,7 @@ export default function NewListingPage() {
             href="/dashboard"
             className="font-mono text-[12px] text-body-3 hover:text-body"
           >
-            ← 返回工作台
+            {lang === 'zh' ? '← 返回工作台' : '← Back to workspace'}
           </Link>
 
           {/* ART34 · one-click import / migrate block */}
@@ -123,13 +133,15 @@ export default function NewListingPage() {
               <span className="orb landlord mt-0.5 h-9 w-9 shrink-0" style={{ color: '#047857' }} />
               <div>
                 <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-brand">
-                  ◐ LOGIC · 主动发现 + 三源导入
+                  {lang === 'zh' ? '◐ LOGIC · 主动发现 + 三源导入' : '◐ LOGIC · Proactive discovery + 3-source import'}
                 </div>
                 <h2 className="mt-1 text-[18px] font-bold leading-snug">
-                  把房源搬进 Stayloop
+                  {lang === 'zh' ? '把房源搬进 Stayloop' : 'Move your listing into Stayloop'}
                 </h2>
                 <p className="mt-1 text-[13px] text-body-2">
-                  让 Logic 直接搬走你在别处的旧 listing，或贴链接 / 输 MLS# / 拖 PDF。Logic 会自动改写 EN+中文双语文案、整理照片、给定价建议。
+                  {lang === 'zh'
+                    ? '让 Logic 直接搬走你在别处的旧 listing，或贴链接 / 输 MLS# / 拖 PDF。Logic 会自动改写 EN+中文双语文案、整理照片、给定价建议。'
+                    : 'Let Logic pull your existing listing from elsewhere, or paste a link / enter an MLS# / drop a PDF. Logic rewrites the copy in EN + Chinese, organizes the photos, and suggests pricing.'}
                 </p>
               </div>
             </div>
@@ -149,35 +161,39 @@ export default function NewListingPage() {
             <div className="mt-3 grid grid-cols-[1fr_auto] gap-2 rounded-xl border-2 border-brand bg-white p-1.5">
               <input
                 className="sl-input !border-none !bg-transparent font-mono text-[14px]"
-                placeholder="贴链接 / 输 MLS#（如 C7845921）"
+                placeholder={lang === 'zh' ? '贴链接 / 输 MLS#（如 C7845921）' : 'Paste link / enter MLS# (e.g. C7845921)'}
               />
               <button type="button" className="sl-btn-primary !py-[10px]">
-                解析 →
+                {lang === 'zh' ? '解析 →' : 'Parse →'}
               </button>
             </div>
 
             <div className="mt-3 flex items-center justify-center rounded-xl border border-dashed border-line-strong bg-surface px-4 py-5 text-[12.5px] text-body-3">
-              📄 拖一份 PDF / 截图到这里 · Logic 自动 OCR + 视觉解析
+              {lang === 'zh' ? '📄 拖一份 PDF / 截图到这里 · Logic 自动 OCR + 视觉解析' : '📄 Drop a PDF / screenshot here · Logic auto OCR + visual parsing'}
             </div>
 
             <p className="mt-3 text-[11.5px] text-body-3">
-              💡 Logic 会自动改写为 Stayloop 风格 · EN + 中文双语，去除 MLS 套话并做 RTA / RECO 合规检查。
+              {lang === 'zh'
+                ? '💡 Logic 会自动改写为 Stayloop 风格 · EN + 中文双语，去除 MLS 套话并做 RTA / RECO 合规检查。'
+                : '💡 Logic rewrites it in Stayloop style · EN + Chinese, strips MLS boilerplate, and runs RTA / RECO compliance checks.'}
             </p>
           </div>
 
           <div className="my-7 text-center font-mono text-[12px] tracking-[0.04em] text-body-3">
-            — 或者，手动填写新房源 —
+            {lang === 'zh' ? '— 或者，手动填写新房源 —' : '— Or fill in a new listing manually —'}
           </div>
 
           <div className="mb-8">
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
-              LISTING WIZARD · STEP {step} / 5 · {cur.nm}
+              LISTING WIZARD · STEP {step} / 5 · {cur.nm[lang]}
             </div>
             <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[32px]">
-              UNIT 1207 · 让 Logic 帮你整理这些字段
+              {lang === 'zh' ? 'UNIT 1207 · 让 Logic 帮你整理这些字段' : 'UNIT 1207 · Let Logic organize these fields'}
             </h1>
             <p className="mt-2 text-[13px] text-body-2">
-              填关键字段，Logic 自动生成英中文文案、推荐价格区间、SEO 描述
+              {lang === 'zh'
+                ? '填关键字段，Logic 自动生成英中文文案、推荐价格区间、SEO 描述'
+                : 'Fill in the key fields and Logic generates EN/Chinese copy, a recommended price range, and the SEO description.'}
             </p>
           </div>
 
@@ -201,9 +217,9 @@ export default function NewListingPage() {
                   }
                 >
                   <div className="text-[13px] font-bold">
-                    {done ? '✓' : s.n} · {s.nm}
+                    {done ? '✓' : s.n} · {s.nm[lang]}
                   </div>
-                  <div className="mt-0.5 text-[11px] text-body-3">{s.desc}</div>
+                  <div className="mt-0.5 text-[11px] text-body-3">{s.desc[lang]}</div>
                 </button>
               )
             })}
@@ -212,38 +228,38 @@ export default function NewListingPage() {
           <div className="sl-card p-7 sm:p-8">
             {step === 1 && (
               <div className="space-y-4">
-                <h2 className="text-[18px] font-bold">1 · 基本信息</h2>
-                <Field label="地址 *">
+                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '1 · 基本信息' : '1 · Basics'}</h2>
+                <Field label={lang === 'zh' ? '地址 *' : 'Address *'}>
                   <input className="sl-input" required value={form.address} onChange={(e) => set('address', e.target.value)} />
                 </Field>
-                <Field label="户型">
+                <Field label={lang === 'zh' ? '户型' : 'Layout'}>
                   <div className="grid gap-4 sm:grid-cols-3">
-                    <input className="sl-input" placeholder="卧室" value={form.bedrooms} onChange={(e) => set('bedrooms', e.target.value)} />
-                    <input className="sl-input" placeholder="卫生间" value={form.bathrooms} onChange={(e) => set('bathrooms', e.target.value)} />
-                    <input className="sl-input" placeholder="面积 sqft" value={form.sqft} onChange={(e) => set('sqft', e.target.value)} />
+                    <input className="sl-input" placeholder={lang === 'zh' ? '卧室' : 'Bedrooms'} value={form.bedrooms} onChange={(e) => set('bedrooms', e.target.value)} />
+                    <input className="sl-input" placeholder={lang === 'zh' ? '卫生间' : 'Bathrooms'} value={form.bathrooms} onChange={(e) => set('bathrooms', e.target.value)} />
+                    <input className="sl-input" placeholder={lang === 'zh' ? '面积 sqft' : 'Area sqft'} value={form.sqft} onChange={(e) => set('sqft', e.target.value)} />
                   </div>
                 </Field>
-                <Field label="朝向 / 楼层 / 房龄">
+                <Field label={lang === 'zh' ? '朝向 / 楼层 / 房龄' : 'Exposure / floor / age'}>
                   <div className="grid gap-4 sm:grid-cols-3">
-                    <input className="sl-input" placeholder="朝向" value={form.facing} onChange={(e) => set('facing', e.target.value)} />
-                    <input className="sl-input" placeholder="楼层" value={form.floor} onChange={(e) => set('floor', e.target.value)} />
-                    <input className="sl-input" placeholder="房龄" value={form.age} onChange={(e) => set('age', e.target.value)} />
+                    <input className="sl-input" placeholder={lang === 'zh' ? '朝向' : 'Exposure'} value={form.facing} onChange={(e) => set('facing', e.target.value)} />
+                    <input className="sl-input" placeholder={lang === 'zh' ? '楼层' : 'Floor'} value={form.floor} onChange={(e) => set('floor', e.target.value)} />
+                    <input className="sl-input" placeholder={lang === 'zh' ? '房龄' : 'Age'} value={form.age} onChange={(e) => set('age', e.target.value)} />
                   </div>
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="单元号"><input className="sl-input" value={form.unit} onChange={(e) => set('unit', e.target.value)} /></Field>
-                  <Field label="城市"><input className="sl-input" value={form.city} onChange={(e) => set('city', e.target.value)} /></Field>
+                  <Field label={lang === 'zh' ? '单元号' : 'Unit number'}><input className="sl-input" value={form.unit} onChange={(e) => set('unit', e.target.value)} /></Field>
+                  <Field label={lang === 'zh' ? '城市' : 'City'}><input className="sl-input" value={form.city} onChange={(e) => set('city', e.target.value)} /></Field>
                 </div>
 
-                <Field label="配套（点选 · Logic 自动整理）">
+                <Field label={lang === 'zh' ? '配套（点选 · Logic 自动整理）' : 'Amenities (tap · Logic auto-organizes)'}>
                   <div className="flex flex-wrap gap-2">
                     {AMENITIES.map((a) => {
-                      const on = form.amenities.includes(a)
+                      const on = form.amenities.includes(a.id)
                       return (
                         <button
-                          key={a}
+                          key={a.id}
                           type="button"
-                          onClick={() => toggleAmenity(a)}
+                          onClick={() => toggleAmenity(a.id)}
                           className={
                             'rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition ' +
                             (on
@@ -251,7 +267,7 @@ export default function NewListingPage() {
                               : 'border-line-strong bg-white text-body hover:border-brand')
                           }
                         >
-                          {on ? '✓ ' : ''}{a}
+                          {on ? '✓ ' : ''}{a[lang]}
                         </button>
                       )
                     })}
@@ -259,18 +275,24 @@ export default function NewListingPage() {
                 </Field>
 
                 <div className="rounded-xl border border-brand/20 bg-brand/[0.04] p-4 text-[13px] leading-relaxed text-body">
-                  <b className="text-brand">💡 Logic：</b>你这套户型 + 配套，King West 区域过去 30 天 7 套同类已出租。市场租金中位数 <b>$2,820</b>。我建议挂 $2,850（轻微上浮可谈空间）。
+                  {lang === 'zh' ? (
+                    <><b className="text-brand">💡 Logic：</b>你这套户型 + 配套，King West 区域过去 30 天 7 套同类已出租。市场租金中位数 <b>$2,820</b>。我建议挂 $2,850（轻微上浮可谈空间）。</>
+                  ) : (
+                    <><b className="text-brand">💡 Logic: </b>With this layout and amenities, 7 comparable King West units rented in the past 30 days. The market median is <b>$2,820</b>. I'd list at $2,850 (slight upside, with room to negotiate).</>
+                  )}
                 </div>
 
-                <button onClick={() => setStep(2)} className="sl-btn-primary w-full !py-[12px]">下一步 · 照片 + 视频</button>
+                <button onClick={() => setStep(2)} className="sl-btn-primary w-full !py-[12px]">{lang === 'zh' ? '下一步 · 照片 + 视频' : 'Next · Photos + video'}</button>
               </div>
             )}
 
             {step === 2 && (
               <div className="space-y-4">
-                <h2 className="text-[18px] font-bold">2 · 照片 + 视频</h2>
+                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '2 · 照片 + 视频' : '2 · Photos + video'}</h2>
                 <p className="text-[13px] text-body-2">
-                  至少上传 8 张照片，Logic 会自动排序、挑封面，并补一段房源短视频脚本。
+                  {lang === 'zh'
+                    ? '至少上传 8 张照片，Logic 会自动排序、挑封面，并补一段房源短视频脚本。'
+                    : 'Upload at least 8 photos. Logic auto-orders them, picks the cover, and drafts a short listing-video script.'}
                 </p>
                 <div className="grid grid-cols-4 gap-3">
                   {Array.from({ length: 7 }).map((_, i) => (
@@ -288,45 +310,63 @@ export default function NewListingPage() {
                   </button>
                 </div>
                 <div className="rounded-xl border border-brand/20 bg-brand/[0.04] p-4 text-[13px] leading-relaxed text-body">
-                  <b className="text-brand">💡 Logic：</b>已上传 8 张 · 我把客厅南向采光那张设为封面，King West 这类房源封面采光好可提升 30% 询盘。
+                  {lang === 'zh' ? (
+                    <><b className="text-brand">💡 Logic：</b>已上传 8 张 · 我把客厅南向采光那张设为封面，King West 这类房源封面采光好可提升 30% 询盘。</>
+                  ) : (
+                    <><b className="text-brand">💡 Logic: </b>8 photos uploaded · I set the south-facing living-room shot as the cover. For King West listings, a bright cover photo can lift inquiries by 30%.</>
+                  )}
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={() => setStep(1)} className="sl-btn-secondary">← 上一步</button>
-                  <button onClick={() => setStep(3)} className="sl-btn-primary flex-1 !py-[12px]">下一步 · 价格 + 押金</button>
+                  <button onClick={() => setStep(1)} className="sl-btn-secondary">{lang === 'zh' ? '← 上一步' : '← Back'}</button>
+                  <button onClick={() => setStep(3)} className="sl-btn-primary flex-1 !py-[12px]">{lang === 'zh' ? '下一步 · 价格 + 押金' : 'Next · Price + deposit'}</button>
                 </div>
               </div>
             )}
 
             {step === 3 && (
               <div className="space-y-4">
-                <h2 className="text-[18px] font-bold">3 · 价格 + 押金</h2>
+                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '3 · 价格 + 押金' : '3 · Price + deposit'}</h2>
                 <div className="rounded-xl border border-brand/20 bg-brand/[0.04] p-4 text-[13px] leading-relaxed text-body">
-                  <b className="text-brand">💡 Logic：</b>市场租金中位数 <b>$2,820</b> · 建议挂 <b>$2,850</b>（King West 1B+den · 轻微上浮可谈空间）。押金按 RTA 标准 = 一个月租金。
+                  {lang === 'zh' ? (
+                    <><b className="text-brand">💡 Logic：</b>市场租金中位数 <b>$2,820</b> · 建议挂 <b>$2,850</b>（King West 1B+den · 轻微上浮可谈空间）。押金按 RTA 标准 = 一个月租金。</>
+                  ) : (
+                    <><b className="text-brand">💡 Logic: </b>Market median rent is <b>$2,820</b> · I'd list at <b>$2,850</b> (King West 1B+den · slight upside, room to negotiate). Deposit per RTA standard = one month's rent.</>
+                  )}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="月租 (CAD) *"><input className="sl-input" type="number" required value={form.monthly_rent} onChange={(e) => set('monthly_rent', e.target.value)} /></Field>
-                  <Field label="押金 (CAD)"><input className="sl-input" type="number" value={form.deposit} onChange={(e) => set('deposit', e.target.value)} /></Field>
+                  <Field label={lang === 'zh' ? '月租 (CAD) *' : 'Monthly rent (CAD) *'}><input className="sl-input" type="number" required value={form.monthly_rent} onChange={(e) => set('monthly_rent', e.target.value)} /></Field>
+                  <Field label={lang === 'zh' ? '押金 (CAD)' : 'Deposit (CAD)'}><input className="sl-input" type="number" value={form.deposit} onChange={(e) => set('deposit', e.target.value)} /></Field>
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={() => setStep(2)} className="sl-btn-secondary">← 上一步</button>
-                  <button onClick={() => setStep(4)} className="sl-btn-primary flex-1 !py-[12px]">下一步 · 认证门槛</button>
+                  <button onClick={() => setStep(2)} className="sl-btn-secondary">{lang === 'zh' ? '← 上一步' : '← Back'}</button>
+                  <button onClick={() => setStep(4)} className="sl-btn-primary flex-1 !py-[12px]">{lang === 'zh' ? '下一步 · 认证门槛' : 'Next · Verification threshold'}</button>
                 </div>
               </div>
             )}
 
             {step === 4 && (
               <div>
-                <h2 className="text-[18px] font-bold">4 · 认证门槛</h2>
+                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '4 · 认证门槛' : '4 · Verification threshold'}</h2>
                 <p className="mt-2 text-[13px] text-body-2">
-                  这决定哪些租客可以申请。认证级别越高越严格。系统会按你设定自动筛选。
+                  {lang === 'zh'
+                    ? '这决定哪些租客可以申请。认证级别越高越严格。系统会按你设定自动筛选。'
+                    : 'This decides which tenants can apply. Higher tiers are stricter. The system auto-filters based on your setting.'}
                 </p>
                 <div className="mt-5 space-y-3">
-                  {[
-                    { n: 1, name: '认证 1 级 · 仅 ID 验证', desc: '租客只需护照 + 自拍。最快但筛选最弱。', stats: '~80% 通过率' },
-                    { n: 2, name: '认证 2 级 · ID + 收入',   desc: '工资单或 Plaid 月收入验证。',         stats: '~50% 通过率' },
-                    { n: 3, name: '认证 3 级 · ID + 收入 + 银行', desc: 'Plaid 直连 · 现金流可见。',          stats: '~30% 通过率' },
-                    { n: 4, name: '认证 4 级 · 全部 + 信用 + 法庭', desc: 'Equifax + CanLII LTB · 最严。',      stats: '~15% 通过率' },
-                  ].map((t) => {
+                  {(lang === 'zh'
+                    ? [
+                        { n: 1, name: '认证 1 级 · 仅 ID 验证', desc: '租客只需护照 + 自拍。最快但筛选最弱。', stats: '~80% 通过率' },
+                        { n: 2, name: '认证 2 级 · ID + 收入',   desc: '工资单或 Plaid 月收入验证。',         stats: '~50% 通过率' },
+                        { n: 3, name: '认证 3 级 · ID + 收入 + 银行', desc: 'Plaid 直连 · 现金流可见。',          stats: '~30% 通过率' },
+                        { n: 4, name: '认证 4 级 · 全部 + 信用 + 法庭', desc: 'Equifax + CanLII LTB · 最严。',      stats: '~15% 通过率' },
+                      ]
+                    : [
+                        { n: 1, name: 'Tier 1 · ID only', desc: 'Tenant just needs passport + selfie. Fastest, but the weakest filter.', stats: '~80% pass rate' },
+                        { n: 2, name: 'Tier 2 · ID + income', desc: 'Pay stub or Plaid monthly-income verification.', stats: '~50% pass rate' },
+                        { n: 3, name: 'Tier 3 · ID + income + bank', desc: 'Direct Plaid connection · cash flow visible.', stats: '~30% pass rate' },
+                        { n: 4, name: 'Tier 4 · Everything + credit + court', desc: 'Equifax + CanLII LTB · the strictest.', stats: '~15% pass rate' },
+                      ]
+                  ).map((t) => {
                     const sel = form.tier === t.n
                     return (
                       <button
@@ -357,52 +397,58 @@ export default function NewListingPage() {
                   })}
                 </div>
                 <div className="mt-6 flex gap-3">
-                  <button onClick={() => setStep(3)} className="sl-btn-secondary">← 上一步</button>
-                  <button onClick={() => setStep(5)} className="sl-btn-primary flex-1 !py-[12px]">下一步 · 最后审 + 发布</button>
+                  <button onClick={() => setStep(3)} className="sl-btn-secondary">{lang === 'zh' ? '← 上一步' : '← Back'}</button>
+                  <button onClick={() => setStep(5)} className="sl-btn-primary flex-1 !py-[12px]">{lang === 'zh' ? '下一步 · 最后审 + 发布' : 'Next · Review + publish'}</button>
                 </div>
               </div>
             )}
 
             {step === 5 && (
               <div className="space-y-4">
-                <h2 className="text-[18px] font-bold">5 · 最后审 + 发布</h2>
+                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '5 · 最后审 + 发布' : '5 · Review + publish'}</h2>
                 <div className="rounded-xl border border-[#7C3AED]/20 bg-[#7C3AED]/[0.04] p-4 text-[13px] leading-relaxed text-body">
                   <div className="font-mono text-[11.5px] font-bold tracking-eyebrow text-[#7C3AED]">
-                    📝 已改写为 Stayloop 风格 · EN + 中文双语
+                    {lang === 'zh' ? '📝 已改写为 Stayloop 风格 · EN + 中文双语' : '📝 Rewritten in Stayloop style · EN + Chinese'}
                   </div>
                   <p className="mt-2">
-                    <b className="text-brand">Logic 改写：</b>去 MLS 套话 · 加入 King West 步行细节（步行 4 分到 TTC，6 分到 Stackt Market）· 突出租客最关心的「包暖 + 水」与「允许猫」· 中文版同步生成。
+                    {lang === 'zh' ? (
+                      <><b className="text-brand">Logic 改写：</b>去 MLS 套话 · 加入 King West 步行细节（步行 4 分到 TTC，6 分到 Stackt Market）· 突出租客最关心的「包暖 + 水」与「允许猫」· 中文版同步生成。</>
+                    ) : (
+                      <><b className="text-brand">Logic rewrite: </b>Stripped MLS boilerplate · added King West walk details (4 min walk to TTC, 6 min to Stackt Market) · highlighted what tenants care about most — "heat + water included" and "cats allowed" · Chinese version generated in parallel.</>
+                    )}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-line-divider bg-white p-4">
                   <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrow text-body-3">
-                    房源摘要
+                    {lang === 'zh' ? '房源摘要' : 'Listing summary'}
                   </div>
                   <dl className="mt-3 space-y-2 text-[13px]">
-                    <Row k="地址" v={form.address} />
-                    <Row k="户型" v={`${form.bedrooms} 卧 · ${form.bathrooms} 卫 · ${form.sqft} sqft`} />
-                    <Row k="月租 / 押金" v={`$${form.monthly_rent} / $${form.deposit}`} />
-                    <Row k="认证门槛" v={`认证 ${form.tier} 级`} />
-                    <Row k="配套" v={form.amenities.join(' · ') || '—'} />
+                    <Row k={lang === 'zh' ? '地址' : 'Address'} v={form.address} />
+                    <Row k={lang === 'zh' ? '户型' : 'Layout'} v={lang === 'zh' ? `${form.bedrooms} 卧 · ${form.bathrooms} 卫 · ${form.sqft} sqft` : `${form.bedrooms} bd · ${form.bathrooms} ba · ${form.sqft} sqft`} />
+                    <Row k={lang === 'zh' ? '月租 / 押金' : 'Rent / deposit'} v={`$${form.monthly_rent} / $${form.deposit}`} />
+                    <Row k={lang === 'zh' ? '认证门槛' : 'Verification threshold'} v={lang === 'zh' ? `认证 ${form.tier} 级` : `Tier ${form.tier}`} />
+                    <Row k={lang === 'zh' ? '配套' : 'Amenities'} v={form.amenities.map((id) => AMENITIES.find((a) => a.id === id)?.[lang] ?? id).join(' · ') || '—'} />
                   </dl>
                 </div>
 
                 <div className="rounded-xl border border-line-divider bg-white p-4 text-[13px]">
                   <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrow text-body-3">
-                    合规检查
+                    {lang === 'zh' ? '合规检查' : 'Compliance check'}
                   </div>
-                  <div className="mt-2 font-semibold text-brand">✓ RTA / RECO 通过</div>
+                  <div className="mt-2 font-semibold text-brand">{lang === 'zh' ? '✓ RTA / RECO 通过' : '✓ RTA / RECO passed'}</div>
                   <div className="mt-1 text-[12px] text-body-3">
-                    已自动加入 RTA 标准条款 · 删除 MLS 中「先到先得」等违规话术。
+                    {lang === 'zh'
+                      ? '已自动加入 RTA 标准条款 · 删除 MLS 中「先到先得」等违规话术。'
+                      : 'RTA standard clauses added automatically · removed non-compliant MLS phrasing like "first come, first served".'}
                   </div>
                 </div>
 
                 {error && <div className="rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</div>}
                 <div className="flex gap-3">
-                  <button onClick={() => setStep(4)} className="sl-btn-secondary">← 上一步</button>
+                  <button onClick={() => setStep(4)} className="sl-btn-secondary">{lang === 'zh' ? '← 上一步' : '← Back'}</button>
                   <button onClick={submit} disabled={submitting} className="sl-btn-primary flex-1 !py-[12px]">
-                    {submitting ? '发布中…' : '✓ 用这版发布'}
+                    {submitting ? (lang === 'zh' ? '发布中…' : 'Publishing…') : (lang === 'zh' ? '✓ 用这版发布' : '✓ Publish this version')}
                   </button>
                 </div>
               </div>

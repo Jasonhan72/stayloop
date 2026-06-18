@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useT } from '@/lib/i18n'
 
 /**
  * Google Maps split-view for /listings.
@@ -66,6 +67,8 @@ declare global {
 }
 
 export default function ListingsMap({ listings, active, onPick }: Props) {
+  const { lang } = useT()
+  const zh = lang === 'zh'
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''
   const ref = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
@@ -191,13 +194,13 @@ export default function ListingsMap({ listings, active, onPick }: Props) {
     >
       <div ref={ref} style={{ position: 'absolute', inset: 0 }} />
 
-      {error === 'missing-key' && <NoKeyFallback />}
+      {error === 'missing-key' && <NoKeyFallback zh={zh} />}
       {error && error !== 'missing-key' && (
         <div
           className="absolute inset-0 flex items-center justify-center bg-surface text-[13px] text-body-2"
           style={{ padding: 32, textAlign: 'center' }}
         >
-          地图加载失败 — {error}
+          {zh ? '地图加载失败 — ' : 'Map failed to load — '}{error}
         </div>
       )}
 
@@ -217,14 +220,14 @@ export default function ListingsMap({ listings, active, onPick }: Props) {
           pointerEvents: 'none',
         }}
       >
-        ◯ 在地图上画区域
+        {zh ? '◯ 在地图上画区域' : '◯ Draw an area on the map'}
       </div>
 
     </div>
   )
 }
 
-function NoKeyFallback() {
+function NoKeyFallback({ zh }: { zh: boolean }) {
   return (
     <div
       className="absolute inset-0 flex items-center justify-center"
@@ -238,13 +241,17 @@ function NoKeyFallback() {
           GOOGLE MAPS · SETUP NEEDED
         </div>
         <h3 className="mt-2 text-[18px] font-bold tracking-tight">
-          这里会显示真实地图
+          {zh ? '这里会显示真实地图' : 'A live map will appear here'}
         </h3>
         <p className="mt-3 text-[12.5px] leading-relaxed text-body-2">
-          需要在 Cloudflare Pages 项目环境变量里加 <code className="font-mono">NEXT_PUBLIC_GOOGLE_MAPS_KEY</code>（从 Google Cloud Console → APIs &amp; Services → Credentials 创建）。
+          {zh ? '需要在 Cloudflare Pages 项目环境变量里加 ' : 'Add '}
+          <code className="font-mono">NEXT_PUBLIC_GOOGLE_MAPS_KEY</code>
+          {zh
+            ? '（从 Google Cloud Console → APIs & Services → Credentials 创建）。'
+            : ' to your Cloudflare Pages environment variables (create it in Google Cloud Console → APIs & Services → Credentials).'}
         </p>
         <p className="mt-2 text-[11.5px] text-body-3">
-          API 需要启用：Maps JavaScript API
+          {zh ? 'API 需要启用：Maps JavaScript API' : 'Enable the Maps JavaScript API.'}
         </p>
       </div>
     </div>

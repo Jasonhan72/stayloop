@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import Header from './Header'
 import Footer from './Footer'
+import { useT } from '@/lib/i18n'
 
 interface Props {
   eyebrow: string
@@ -21,6 +22,7 @@ interface Props {
  * note (vol + artboard number) to designers reviewing the build.
  */
 export default function PlaceholderPage({ eyebrow, title, subtitle, back, artNumber, vol, ctas }: Props) {
+  const { lang } = useT()
   return (
     <>
       <Header />
@@ -45,7 +47,7 @@ export default function PlaceholderPage({ eyebrow, title, subtitle, back, artNum
             </div>
           )}
           <div className="mt-10 flex flex-wrap justify-center gap-3">
-            {(ctas ?? [{ label: '回首页', href: '/', variant: 'secondary' as const }]).map((c) => (
+            {(ctas ?? [{ label: lang === 'zh' ? '回首页' : 'Back to home', href: '/', variant: 'secondary' as const }]).map((c) => (
               <Link
                 key={c.href}
                 href={c.href}

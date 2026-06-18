@@ -8,18 +8,21 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { supabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n'
 import type { ApplicationFile, FileKind } from '@/types'
 
-const FILE_KINDS: { kind: FileKind; label: string; hint: string }[] = [
-  { kind: 'id',                 label: '政府证件',     hint: '驾照、护照或 PR 卡' },
-  { kind: 'paystub',            label: '近期工资单',   hint: '过去 2-3 个月 (PDF 或图片)' },
-  { kind: 'bank_statement',     label: '银行对账单',   hint: '最新一份，能看到工资到账' },
-  { kind: 'employment_letter',  label: '在职证明信',   hint: '可选 — 来自雇主' },
+const FILE_KINDS: { kind: FileKind; label: { zh: string; en: string }; hint: { zh: string; en: string } }[] = [
+  { kind: 'id',                 label: { zh: '政府证件', en: 'Government ID' },     hint: { zh: '驾照、护照或 PR 卡', en: 'Driver’s licence, passport, or PR card' } },
+  { kind: 'paystub',            label: { zh: '近期工资单', en: 'Recent pay stubs' },   hint: { zh: '过去 2-3 个月 (PDF 或图片)', en: 'Last 2–3 months (PDF or image)' } },
+  { kind: 'bank_statement',     label: { zh: '银行对账单', en: 'Bank statement' },   hint: { zh: '最新一份，能看到工资到账', en: 'Most recent, showing payroll deposits' } },
+  { kind: 'employment_letter',  label: { zh: '在职证明信', en: 'Employment letter' },   hint: { zh: '可选 — 来自雇主', en: 'Optional — from your employer' } },
 ]
 const MAX_BYTES = 10 * 1024 * 1024
 
 export default function ApplyPage() {
   const params = useParams<{ slug: string }>()
+  const { lang } = useT()
+  const zh = lang === 'zh'
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -52,7 +55,7 @@ export default function ApplyPage() {
     const incoming = Array.from(fileList)
     for (const f of incoming) {
       if (f.size > MAX_BYTES) {
-        setError(`${f.name} 超过 10 MB。`)
+        setError(zh ? `${f.name} 超过 10 MB。` : `${f.name} is over 10 MB.`)
         return
       }
     }
@@ -66,7 +69,7 @@ export default function ApplyPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.consent_screening) {
-      setError('请勾选授权同意以继续。')
+      setError(zh ? '请勾选授权同意以继续。' : 'Please check the consent box to continue.')
       return
     }
     setError(null)
@@ -79,7 +82,7 @@ export default function ApplyPage() {
       .single()
 
     if (!listing) {
-      setError('找不到对应房源。')
+      setError(zh ? '找不到对应房源。' : 'Listing not found.')
       setLoading(false)
       return
     }
@@ -102,7 +105,7 @@ export default function ApplyPage() {
 
     if (insertError || !inserted) {
       setLoading(false)
-      setError('提交失败,请稍后再试。')
+      setError(zh ? '提交失败,请稍后再试。' : 'Submission failed, please try again.')
       return
     }
 
@@ -115,7 +118,7 @@ export default function ApplyPage() {
 
     for (let i = 0; i < allEntries.length; i++) {
       const { kind, file } = allEntries[i]
-      setUploadProgress(`正在上传 ${i + 1} / ${allEntries.length}: ${file.name}`)
+      setUploadProgress(zh ? `正在上传 ${i + 1} / ${allEntries.length}: ${file.name}` : `Uploading ${i + 1} / ${allEntries.length}: ${file.name}`)
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
       const path = `${inserted.id}/${kind}/${Date.now()}_${safeName}`
       const { error: upErr } = await supabase.storage
@@ -124,7 +127,7 @@ export default function ApplyPage() {
       if (upErr) {
         setLoading(false)
         setUploadProgress(null)
-        setError(`${file.name} 上传失败: ${upErr.message}`)
+        setError(zh ? `${file.name} 上传失败: ${upErr.message}` : `${file.name} upload failed: ${upErr.message}`)
         return
       }
       uploaded.push({
@@ -168,12 +171,14 @@ export default function ApplyPage() {
               <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand/15 text-[28px] text-brand">
                 ✓
               </span>
-              <h2 className="mt-5 text-[24px] font-bold tracking-tight">申请已提交</h2>
+              <h2 className="mt-5 text-[24px] font-bold tracking-tight">{zh ? '申请已提交' : 'Application submitted'}</h2>
               <p className="mt-2 text-[14px] leading-relaxed text-body-2">
-                房东会尽快审阅你的申请并联系你。我们也会通过 Luna 通知你进度。
+                {zh
+                  ? '房东会尽快审阅你的申请并联系你。我们也会通过 Luna 通知你进度。'
+                  : 'The landlord will review your application and reach out soon. Luna will also keep you posted on progress.'}
               </p>
               <Link href="/listings" className="sl-btn-secondary mt-6 inline-flex">
-                继续浏览房源
+                {zh ? '继续浏览房源' : 'Keep browsing listings'}
               </Link>
             </div>
           </div>
@@ -193,81 +198,85 @@ export default function ApplyPage() {
               RENTAL APPLICATION · ENCRYPTED · PIPEDA
             </div>
             <h1 className="mt-3 text-[32px] font-extrabold tracking-tight sm:text-[40px]">
-              提交申请
+              {zh ? '提交申请' : 'Submit application'}
             </h1>
             <p className="mt-2 text-[14px] leading-relaxed text-body-2">
-              所有字段都加密存储 · 房东只看到你授权的内容 · Toronto / Ontario 合规
+              {zh
+                ? '所有字段都加密存储 · 房东只看到你授权的内容 · Toronto / Ontario 合规'
+                : 'Every field is encrypted · landlords only see what you authorize · Toronto / Ontario compliant'}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-10 space-y-5">
-            <Section tag="01" title="个人信息">
+            <Section tag="01" title={zh ? '个人信息' : 'Personal info'}>
               <Grid>
-                <Field label="名 *"><Input required value={form.first_name} onChange={(e: any) => set('first_name', e.target.value)} /></Field>
-                <Field label="姓 *"><Input required value={form.last_name} onChange={(e: any) => set('last_name', e.target.value)} /></Field>
-                <Field label="邮箱 *"><Input required type="email" value={form.email} onChange={(e: any) => set('email', e.target.value)} /></Field>
-                <Field label="电话"><Input type="tel" value={form.phone} onChange={(e: any) => set('phone', e.target.value)} /></Field>
-                <Field label="出生日期"><Input type="date" value={form.date_of_birth} onChange={(e: any) => set('date_of_birth', e.target.value)} /></Field>
+                <Field label={zh ? '名 *' : 'First name *'}><Input required value={form.first_name} onChange={(e: any) => set('first_name', e.target.value)} /></Field>
+                <Field label={zh ? '姓 *' : 'Last name *'}><Input required value={form.last_name} onChange={(e: any) => set('last_name', e.target.value)} /></Field>
+                <Field label={zh ? '邮箱 *' : 'Email *'}><Input required type="email" value={form.email} onChange={(e: any) => set('email', e.target.value)} /></Field>
+                <Field label={zh ? '电话' : 'Phone'}><Input type="tel" value={form.phone} onChange={(e: any) => set('phone', e.target.value)} /></Field>
+                <Field label={zh ? '出生日期' : 'Date of birth'}><Input type="date" value={form.date_of_birth} onChange={(e: any) => set('date_of_birth', e.target.value)} /></Field>
               </Grid>
               <div className="mt-4">
-                <Field label="现住地址">
+                <Field label={zh ? '现住地址' : 'Current address'}>
                   <Input value={form.current_address} onChange={(e: any) => set('current_address', e.target.value)} />
                 </Field>
               </div>
             </Section>
 
-            <Section tag="02" title="工作 + 收入">
+            <Section tag="02" title={zh ? '工作 + 收入' : 'Employment + income'}>
               <Grid>
-                <Field label="状态">
+                <Field label={zh ? '状态' : 'Status'}>
                   <Select
                     value={form.employment_status}
                     onChange={(e: any) => set('employment_status', e.target.value)}
                     options={['Full-time employed', 'Part-time employed', 'Self-employed', 'Student', 'Retired', 'Other']}
                   />
                 </Field>
-                <Field label="雇主 *"><Input required value={form.employer_name} onChange={(e: any) => set('employer_name', e.target.value)} /></Field>
-                <Field label="职位"><Input value={form.job_title} onChange={(e: any) => set('job_title', e.target.value)} /></Field>
-                <Field label="月毛收入 (CAD) *"><Input required type="number" value={form.monthly_income} onChange={(e: any) => set('monthly_income', e.target.value)} /></Field>
-                <Field label="入职日期"><Input type="date" value={form.employment_start_date} onChange={(e: any) => set('employment_start_date', e.target.value)} /></Field>
-                <Field label="雇主电话"><Input type="tel" value={form.employer_phone} onChange={(e: any) => set('employer_phone', e.target.value)} /></Field>
+                <Field label={zh ? '雇主 *' : 'Employer *'}><Input required value={form.employer_name} onChange={(e: any) => set('employer_name', e.target.value)} /></Field>
+                <Field label={zh ? '职位' : 'Job title'}><Input value={form.job_title} onChange={(e: any) => set('job_title', e.target.value)} /></Field>
+                <Field label={zh ? '月毛收入 (CAD) *' : 'Gross monthly income (CAD) *'}><Input required type="number" value={form.monthly_income} onChange={(e: any) => set('monthly_income', e.target.value)} /></Field>
+                <Field label={zh ? '入职日期' : 'Start date'}><Input type="date" value={form.employment_start_date} onChange={(e: any) => set('employment_start_date', e.target.value)} /></Field>
+                <Field label={zh ? '雇主电话' : 'Employer phone'}><Input type="tel" value={form.employer_phone} onChange={(e: any) => set('employer_phone', e.target.value)} /></Field>
               </Grid>
             </Section>
 
-            <Section tag="03" title="租房历史">
+            <Section tag="03" title={zh ? '租房历史' : 'Rental history'}>
               <Grid>
-                <Field label="上家房东"><Input value={form.prev_landlord_name} onChange={(e: any) => set('prev_landlord_name', e.target.value)} /></Field>
-                <Field label="上家电话"><Input type="tel" value={form.prev_landlord_phone} onChange={(e: any) => set('prev_landlord_phone', e.target.value)} /></Field>
-                <Field label="上家月租 $"><Input type="number" value={form.prev_rent} onChange={(e: any) => set('prev_rent', e.target.value)} /></Field>
-                <Field label="离开原因"><Input value={form.reason_for_leaving} onChange={(e: any) => set('reason_for_leaving', e.target.value)} /></Field>
+                <Field label={zh ? '上家房东' : 'Previous landlord'}><Input value={form.prev_landlord_name} onChange={(e: any) => set('prev_landlord_name', e.target.value)} /></Field>
+                <Field label={zh ? '上家电话' : 'Previous landlord phone'}><Input type="tel" value={form.prev_landlord_phone} onChange={(e: any) => set('prev_landlord_phone', e.target.value)} /></Field>
+                <Field label={zh ? '上家月租 $' : 'Previous rent $'}><Input type="number" value={form.prev_rent} onChange={(e: any) => set('prev_rent', e.target.value)} /></Field>
+                <Field label={zh ? '离开原因' : 'Reason for leaving'}><Input value={form.reason_for_leaving} onChange={(e: any) => set('reason_for_leaving', e.target.value)} /></Field>
               </Grid>
               <div className="mt-4">
-                <Field label="上家地址"><Input value={form.prev_address} onChange={(e: any) => set('prev_address', e.target.value)} /></Field>
+                <Field label={zh ? '上家地址' : 'Previous address'}><Input value={form.prev_address} onChange={(e: any) => set('prev_address', e.target.value)} /></Field>
               </div>
             </Section>
 
-            <Section tag="04" title="家庭">
+            <Section tag="04" title={zh ? '家庭' : 'Household'}>
               <Grid cols="grid-cols-2 sm:grid-cols-3">
-                <Field label="入住人数"><Input type="number" min="1" value={form.num_occupants} onChange={(e: any) => set('num_occupants', e.target.value)} /></Field>
-                <Field label="是否养宠物?"><Select value={form.has_pets} onChange={(e: any) => set('has_pets', e.target.value)} options={['false', 'true']} /></Field>
-                <Field label="是否吸烟?"><Select value={form.is_smoker} onChange={(e: any) => set('is_smoker', e.target.value)} options={['false', 'true']} /></Field>
-                <Field label="期望入住"><Input type="date" value={form.move_in_date} onChange={(e: any) => set('move_in_date', e.target.value)} /></Field>
+                <Field label={zh ? '入住人数' : 'Occupants'}><Input type="number" min="1" value={form.num_occupants} onChange={(e: any) => set('num_occupants', e.target.value)} /></Field>
+                <Field label={zh ? '是否养宠物?' : 'Any pets?'}><Select value={form.has_pets} onChange={(e: any) => set('has_pets', e.target.value)} options={['false', 'true']} /></Field>
+                <Field label={zh ? '是否吸烟?' : 'Smoker?'}><Select value={form.is_smoker} onChange={(e: any) => set('is_smoker', e.target.value)} options={['false', 'true']} /></Field>
+                <Field label={zh ? '期望入住' : 'Desired move-in'}><Input type="date" value={form.move_in_date} onChange={(e: any) => set('move_in_date', e.target.value)} /></Field>
               </Grid>
             </Section>
 
-            <Section tag="05" title="证明文件 (建议上传)">
+            <Section tag="05" title={zh ? '证明文件 (建议上传)' : 'Supporting documents (recommended)'}>
               <p className="mb-4 text-[12.5px] leading-relaxed text-body-2">
-                上传文件可让房东用 AI 即时核验你的资料。PDF / JPG / PNG · 单个最大 10 MB。
+                {zh
+                  ? '上传文件可让房东用 AI 即时核验你的资料。PDF / JPG / PNG · 单个最大 10 MB。'
+                  : 'Uploading documents lets the landlord verify your details instantly with AI. PDF / JPG / PNG · 10 MB max each.'}
               </p>
               <div className="space-y-3">
                 {FILE_KINDS.map(({ kind, label, hint }) => (
                   <div key={kind} className="rounded-xl border border-line-divider bg-white p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="text-[14px] font-bold">{label}</div>
-                        <div className="font-mono text-[10.5px] text-body-3">{hint}</div>
+                        <div className="text-[14px] font-bold">{label[lang]}</div>
+                        <div className="font-mono text-[10.5px] text-body-3">{hint[lang]}</div>
                       </div>
                       <label className="cursor-pointer rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-brand hover:bg-brand/10">
-                        + 添加
+                        {zh ? '+ 添加' : '+ Add'}
                         <input
                           type="file"
                           multiple
@@ -296,7 +305,7 @@ export default function ApplyPage() {
                               onClick={() => removeFile(kind, i)}
                               className="text-danger hover:underline"
                             >
-                              移除
+                              {zh ? '移除' : 'Remove'}
                             </button>
                           </li>
                         ))}
@@ -312,8 +321,9 @@ export default function ApplyPage() {
                 CONSENT · PIPEDA
               </div>
               <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
-                提交即代表你授权房东和 Stayloop 核实信息、联系上家、查询 Ontario 公开法庭记录，以及（如勾选）拉取你的信用报告。
-                数据保留 90 天后销毁，遵守 Ontario Human Rights Code。
+                {zh
+                  ? '提交即代表你授权房东和 Stayloop 核实信息、联系上家、查询 Ontario 公开法庭记录，以及（如勾选）拉取你的信用报告。数据保留 90 天后销毁，遵守 Ontario Human Rights Code。'
+                  : 'By submitting, you authorize the landlord and Stayloop to verify your information, contact prior landlords, search Ontario public court records, and (if checked) pull your credit report. Data is deleted after 90 days, in compliance with the Ontario Human Rights Code.'}
               </p>
               <label className="mt-4 flex cursor-pointer items-start gap-2 text-[14px]">
                 <input
@@ -322,7 +332,7 @@ export default function ApplyPage() {
                   onChange={(e) => set('consent_screening', e.target.checked)}
                   className="mt-[3px] h-4 w-4 accent-brand"
                 />
-                <span>我同意上述授权并确认所有信息真实准确。 *</span>
+                <span>{zh ? '我同意上述授权并确认所有信息真实准确。 *' : 'I agree to the authorization above and confirm all information is true and accurate. *'}</span>
               </label>
               <label className="mt-2 flex cursor-pointer items-start gap-2 text-[14px]">
                 <input
@@ -331,7 +341,7 @@ export default function ApplyPage() {
                   onChange={(e) => set('consent_credit_check', e.target.checked)}
                   className="mt-[3px] h-4 w-4 accent-brand"
                 />
-                <span>我同意房东对我进行信用查询。</span>
+                <span>{zh ? '我同意房东对我进行信用查询。' : 'I consent to the landlord running a credit check.'}</span>
               </label>
             </div>
 
@@ -347,7 +357,7 @@ export default function ApplyPage() {
             )}
 
             <button type="submit" disabled={loading} className="sl-btn-primary w-full !py-[16px] !text-[15px]">
-              {loading ? (uploadProgress ? '上传中…' : '提交中…') : '提交申请 →'}
+              {loading ? (uploadProgress ? (zh ? '上传中…' : 'Uploading…') : (zh ? '提交中…' : 'Submitting…')) : (zh ? '提交申请 →' : 'Submit application →')}
             </button>
           </form>
         </div>

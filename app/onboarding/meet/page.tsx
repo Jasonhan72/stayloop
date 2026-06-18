@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import OnboardingStage from '@/components/OnboardingStage'
+import { useT } from '@/lib/i18n'
 
 /**
  * Tenant onboarding · STEP 02
@@ -9,12 +10,19 @@ import OnboardingStage from '@/components/OnboardingStage'
  */
 
 export default function OnboardingMeetPage() {
+  const { lang } = useT()
+  const zh = lang === 'zh'
+  const rows = [
+    { k: { zh: '会做的事', en: 'What it does' }, v: { zh: '筛房 · 询价 · 安排看房 · 写申请 · 读租约', en: 'Screen listings · ask prices · book showings · draft applications · read leases' } },
+    { k: { zh: '不会做的事', en: 'What it won’t do' }, v: { zh: '替你签字 · 替你付款 · 替你拒绝（这些都你按按钮）', en: 'Sign for you · pay for you · decline for you (you press those buttons)' } },
+    { k: { zh: '她记得', en: 'It remembers' }, v: { zh: '只有你授权她记的 — 任何时候可清除', en: 'Only what you authorize it to — clearable anytime' } },
+  ]
   return (
     <OnboardingStage
       step={2}
       totalSteps={4}
       eyebrow="MEET YOUR AGENT"
-      back={{ href: '/onboarding/welcome', label: '回上一步' }}
+      back={{ href: '/onboarding/welcome', label: zh ? '回上一步' : 'Back' }}
     >
       <div className="flex justify-center" style={{ marginBottom: 26 }}>
         <BigOrb />
@@ -28,7 +36,11 @@ export default function OnboardingMeetPage() {
           lineHeight: 1.15,
         }}
       >
-        每位用户都有一个<br />专属 AI 经纪。
+        {zh ? (
+          <>每位用户都有一个<br />专属 AI 经纪。</>
+        ) : (
+          <>Every user gets their own<br />personal AI agent.</>
+        )}
       </h1>
       <p
         style={{
@@ -38,8 +50,9 @@ export default function OnboardingMeetPage() {
           margin: '14px 0 22px',
         }}
       >
-        她记住你的预算、通勤、生活节奏，每天替你筛今天新上的房源，
-        谈房东的时候第一时间提醒你，签约前帮你读完所有条款。
+        {zh
+          ? '她记住你的预算、通勤、生活节奏，每天替你筛今天新上的房源，谈房东的时候第一时间提醒你，签约前帮你读完所有条款。'
+          : 'It remembers your budget, commute, and lifestyle, screens new listings for you every day, alerts you the moment a landlord responds, and reads every clause before you sign.'}
       </p>
 
       <div
@@ -52,13 +65,9 @@ export default function OnboardingMeetPage() {
           textAlign: 'left',
         }}
       >
-        {[
-          { k: '会做的事', v: '筛房 · 询价 · 安排看房 · 写申请 · 读租约' },
-          { k: '不会做的事', v: '替你签字 · 替你付款 · 替你拒绝（这些都你按按钮）' },
-          { k: '她记得', v: '只有你授权她记的 — 任何时候可清除' },
-        ].map((it) => (
+        {rows.map((it) => (
           <div
-            key={it.k}
+            key={it.k.en}
             style={{
               display: 'grid',
               gridTemplateColumns: '92px 1fr',
@@ -78,9 +87,9 @@ export default function OnboardingMeetPage() {
                 textTransform: 'uppercase',
               }}
             >
-              {it.k}
+              {it.k[lang]}
             </span>
-            <span style={{ color: '#171717' }}>{it.v}</span>
+            <span style={{ color: '#171717' }}>{it.v[lang]}</span>
           </div>
         ))}
       </div>
@@ -100,7 +109,7 @@ export default function OnboardingMeetPage() {
           textDecoration: 'none',
         }}
       >
-        给她起个名字 →
+        {zh ? '给她起个名字 →' : 'Give it a name →'}
       </Link>
     </OnboardingStage>
   )

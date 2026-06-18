@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from 'react'
 import Header from '@/components/Header'
 import ListingsMap from '@/components/ListingsMap'
 import { supabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n'
 
 /**
  * V5 ART · Listings Browse (StreetEasy-inspired split view)
@@ -49,10 +50,16 @@ interface DBListing {
 }
 
 export default function ListingsPage() {
+  const { lang } = useT()
+  const zh = lang === 'zh'
   const [items, setItems] = useState<DBListing[]>([])
   const [active, setActive] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [query, setQuery] = useState('多伦多 King West, Liberty Village, Queen West')
+  const [query, setQuery] = useState(
+    zh
+      ? '多伦多 King West, Liberty Village, Queen West'
+      : 'Toronto · King West, Liberty Village, Queen West',
+  )
 
   useEffect(() => {
     supabase
@@ -104,7 +111,7 @@ export default function ListingsPage() {
               cursor: 'pointer',
             }}
           >
-            搜索 →
+            {zh ? '搜索 →' : 'Search →'}
           </button>
         </div>
       </section>
@@ -115,12 +122,12 @@ export default function ListingsPage() {
         style={{ paddingTop: 12, paddingBottom: 12, borderBottom: '1px solid #E0DACE' }}
       >
         <div className="mx-auto flex w-full flex-wrap items-center gap-[10px]">
-          <Filt label="出租" on />
+          <Filt label={zh ? '出租' : 'For rent'} on />
           <Filt label="$ 0 – 2,900" />
-          <Filt label="1 卧 + den" />
-          <Filt label="入住日期" />
-          <Filt label="允许猫" />
-          <Filt label="更多过滤" />
+          <Filt label={zh ? '1 卧 + den' : '1 bed + den'} />
+          <Filt label={zh ? '入住日期' : 'Move-in date'} />
+          <Filt label={zh ? '允许猫' : 'Cats OK'} />
+          <Filt label={zh ? '更多过滤' : 'More filters'} />
           <span
             style={{
               marginLeft: 'auto',
@@ -135,7 +142,7 @@ export default function ListingsPage() {
               cursor: 'pointer',
             }}
           >
-            ◐ Luna 帮我筛 (匹配我的 Profile)
+            {zh ? '◐ Luna 帮我筛 (匹配我的 Profile)' : '◐ Let Luna filter (match my profile)'}
           </span>
         </div>
       </section>
@@ -147,10 +154,12 @@ export default function ListingsPage() {
       >
         <div className="mx-auto flex w-full items-baseline justify-between">
           <div style={{ fontSize: 18, fontWeight: 700 }}>
-            <b style={{ color: '#047857' }}>{count}</b> 套房源 · King West + Liberty Village
+            <b style={{ color: '#047857' }}>{count}</b>
+            {zh ? ' 套房源 · King West + Liberty Village' : ' listings · King West + Liberty Village'}
           </div>
           <div style={{ fontSize: 13, color: '#3F3F46' }}>
-            排序：<b style={{ color: '#171717', textDecoration: 'underline' }}>Luna 推荐 ▾</b>
+            {zh ? '排序：' : 'Sort: '}
+            <b style={{ color: '#171717', textDecoration: 'underline' }}>{zh ? 'Luna 推荐 ▾' : 'Luna picks ▾'}</b>
           </div>
         </div>
       </section>
@@ -167,18 +176,19 @@ export default function ListingsPage() {
         >
           {loading && (
             <div className="col-span-full p-10 text-center font-mono text-[12px] text-body-3">
-              加载中…
+              {zh ? '加载中…' : 'Loading…'}
             </div>
           )}
           {!loading && items.length === 0 && (
             <div className="col-span-full p-10 text-center text-body-3">
-              没有匹配的房源 · 调整筛选条件试试
+              {zh ? '没有匹配的房源 · 调整筛选条件试试' : 'No matching listings · try adjusting your filters'}
             </div>
           )}
           {items.map((l) => (
             <ListingCard
               key={l.id}
               l={l}
+              zh={zh}
               isActive={active === l.id}
               onHover={() => setActive(l.id)}
             />
@@ -229,10 +239,12 @@ function Filt({ label, on, luna }: { label: string; on?: boolean; luna?: boolean
 
 function ListingCard({
   l,
+  zh,
   isActive,
   onHover,
 }: {
   l: DBListing
+  zh: boolean
   isActive: boolean
   onHover: () => void
 }) {
@@ -325,7 +337,7 @@ function ListingCard({
       <div style={{ padding: '14px 16px' }}>
         <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>
           ${l.monthly_rent.toLocaleString()}
-          <small style={{ fontSize: 12, fontWeight: 500, color: '#71717A' }}>/月</small>
+          <small style={{ fontSize: 12, fontWeight: 500, color: '#71717A' }}>{zh ? '/月' : '/mo'}</small>
         </div>
         <div
           style={{
@@ -343,7 +355,7 @@ function ListingCard({
             </b>
           )}
           <span style={{ width: 3, height: 3, background: '#C5BDAA', borderRadius: '50%' }} />
-          <b style={{ color: '#171717' }}>{l.bathrooms} 浴</b>
+          <b style={{ color: '#171717' }}>{l.bathrooms} {zh ? '浴' : 'ba'}</b>
           {l.sqft && (
             <>
               <span style={{ width: 3, height: 3, background: '#C5BDAA', borderRadius: '50%' }} />
@@ -390,7 +402,7 @@ function ListingCard({
                 color: tierClass === 't3' ? '#B45309' : '#047857',
               }}
             >
-              需 认证 {l.trust_tier || 2} 级
+              {zh ? `需 认证 ${l.trust_tier || 2} 级` : `Tier ${l.trust_tier || 2} required`}
             </span>
           </div>
         )}

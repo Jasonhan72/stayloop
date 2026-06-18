@@ -3,6 +3,7 @@
 // Claude-style conversation panel for a Personal Agent workspace: a scrolling
 // message thread (user ↔ agent bubbles) with the input pinned at the bottom.
 import { useEffect, useRef } from 'react'
+import { useT } from '@/lib/i18n'
 import AgentInputBar from './AgentInputBar'
 import ListingChatCard from './ListingChatCard'
 import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage } from '@/lib/agent/types'
@@ -31,6 +32,7 @@ export default function AgentChat({
   messages: ChatMessage[]
   onSend: (message: string, attachments?: ChatAttachment[]) => void | Promise<void>
 }) {
+  const { lang } = useT()
   const accent = ACCENT[role]
   const endRef = useRef<HTMLDivElement>(null)
   const thinking = status === 'understanding' || status === 'working'
@@ -47,7 +49,7 @@ export default function AgentChat({
         <div>
           <div className="text-[15px] font-bold tracking-tight">{agentName}</div>
           <div className="flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#34D399' }} /> 在线 · 读取你的记忆
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#34D399' }} /> {lang === 'zh' ? '在线 · 读取你的记忆' : 'ONLINE · READING YOUR MEMORY'}
           </div>
         </div>
       </div>
@@ -91,7 +93,7 @@ export default function AgentChat({
               {m.role === 'agent' && m.listings && m.listings.length > 0 && (
                 <div className="w-full">
                   <div className="mb-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
-                    {listingsHeader(m.listings)}
+                    {listingsHeader(m.listings, lang)}
                   </div>
                   <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
                     {m.listings.map((l) => (
@@ -126,13 +128,13 @@ export default function AgentChat({
   )
 }
 
-function listingsHeader(listings: NonNullable<ChatMessage['listings']>): string {
+function listingsHeader(listings: NonNullable<ChatMessage['listings']>, lang: 'zh' | 'en'): string {
   const stay = listings.filter((l) => l.source === 'stayloop').length
   const ext = listings.filter((l) => l.source === 'realtor').length
   const parts: string[] = []
-  if (stay) parts.push(`STAYLOOP ${stay} 套`)
-  if (ext) parts.push(`REALTOR.CA ${ext} 套`)
-  return parts.join(' · ') + (ext ? ' · 外部未经验证' : '')
+  if (stay) parts.push(lang === 'zh' ? `STAYLOOP ${stay} 套` : `STAYLOOP ${stay}`)
+  if (ext) parts.push(lang === 'zh' ? `REALTOR.CA ${ext} 套` : `REALTOR.CA ${ext}`)
+  return parts.join(' · ') + (ext ? (lang === 'zh' ? ' · 外部未经验证' : ' · UNVERIFIED EXTERNAL') : '')
 }
 
 function Dot({ delay }: { delay: string }) {

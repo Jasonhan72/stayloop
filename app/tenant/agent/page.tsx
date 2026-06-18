@@ -11,6 +11,7 @@ import PendingActionsPanel from '@/components/agent/PendingActionsPanel'
 import PrivateMemorySnapshot from '@/components/agent/PrivateMemorySnapshot'
 import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
+import { useT } from '@/lib/i18n'
 
 export default function TenantAgentPage() {
   const { loading, live, data, status, messages, decide, sendMessage } = useAgentSession('tenant')
@@ -57,11 +58,14 @@ export default function TenantAgentPage() {
 }
 
 function DemoBanner() {
+  const { lang } = useT()
   return (
     <div className="mb-5 rounded-xl border border-line-strong bg-surface-chip px-4 py-3 font-mono text-[11px] leading-relaxed text-body-3">
-      预览模式 · 登录后助手会读取你真实的记忆与待办,审批将写入审计 ·{' '}
+      {lang === 'zh'
+        ? '预览模式 · 登录后助手会读取你真实的记忆与待办,审批将写入审计 · '
+        : 'Preview mode · once you sign in, your assistant reads your real memory and to-dos, and approvals are written to the audit log · '}
       <a href="/login" className="font-bold text-brand">
-        登录 →
+        {lang === 'zh' ? '登录 →' : 'Sign in →'}
       </a>
     </div>
   )

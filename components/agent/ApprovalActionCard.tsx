@@ -4,12 +4,13 @@
 // would NOT (excluded_data), the recipient, and risk — then approve / reject.
 // Nothing executes until the user clicks Approve.
 import { useState } from 'react'
+import { useT } from '@/lib/i18n'
 import type { PendingAction } from '@/lib/agent/types'
 
-const RISK: Record<PendingAction['risk_level'], { label: string; cls: string }> = {
-  low: { label: '低风险', cls: 'text-success bg-success/10' },
-  medium: { label: '中风险', cls: 'text-warning bg-warning/10' },
-  high: { label: '高风险', cls: 'text-danger bg-danger/10' },
+const RISK: Record<PendingAction['risk_level'], { label: { zh: string; en: string }; cls: string }> = {
+  low: { label: { zh: '低风险', en: 'LOW RISK' }, cls: 'text-success bg-success/10' },
+  medium: { label: { zh: '中风险', en: 'MEDIUM RISK' }, cls: 'text-warning bg-warning/10' },
+  high: { label: { zh: '高风险', en: 'HIGH RISK' }, cls: 'text-danger bg-danger/10' },
 }
 
 export default function ApprovalActionCard({
@@ -19,6 +20,8 @@ export default function ApprovalActionCard({
   action: PendingAction
   onDecide: (id: string, decision: 'approved' | 'rejected') => void | Promise<void>
 }) {
+  const { lang } = useT()
+  const zh = lang === 'zh'
   const [busy, setBusy] = useState<null | 'approved' | 'rejected'>(null)
   const risk = RISK[action.risk_level]
 
@@ -35,10 +38,10 @@ export default function ApprovalActionCard({
     <div className="rounded-2xl border border-brand bg-white p-6 shadow-[0_0_0_1px_rgba(4,120,87,0.22),0_6px_18px_rgba(4,120,87,0.06)]">
       <div className="flex items-center justify-between gap-3">
         <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-brand">
-          PENDING APPROVAL · 等你确认
+          {zh ? 'PENDING APPROVAL · 等你确认' : 'PENDING APPROVAL · AWAITING YOU'}
         </div>
         <span className={'rounded-md px-2 py-[3px] font-mono text-[10px] font-bold ' + risk.cls}>
-          {risk.label}
+          {risk.label[lang]}
         </span>
       </div>
 
@@ -50,15 +53,15 @@ export default function ApprovalActionCard({
       {action.recipient_label && (
         <div className="mt-4 flex items-baseline gap-2 text-[12.5px]">
           <span className="font-mono text-[10px] font-bold uppercase tracking-eyebrow text-body-3">
-            接收方
+            {zh ? '接收方' : 'RECIPIENT'}
           </span>
           <span className="font-semibold text-body">{action.recipient_label}</span>
         </div>
       )}
 
       <div className="mt-4 grid gap-3">
-        <ScopeList tone="share" title="将分享" items={action.data_scope} />
-        <ScopeList tone="hold" title="不会分享" items={action.excluded_data} />
+        <ScopeList tone="share" title={zh ? '将分享' : 'WILL SHARE'} items={action.data_scope} />
+        <ScopeList tone="hold" title={zh ? '不会分享' : 'WILL NOT SHARE'} items={action.excluded_data} />
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
@@ -67,18 +70,18 @@ export default function ApprovalActionCard({
           onClick={() => decide('approved')}
           className="sl-btn-primary !px-4 !py-[10px] !text-[13.5px] disabled:opacity-60"
         >
-          {busy === 'approved' ? '提交中…' : '✓ 确认 · 替我执行'}
+          {busy === 'approved' ? (zh ? '提交中…' : 'Submitting…') : zh ? '✓ 确认 · 替我执行' : '✓ Approve · Execute for me'}
         </button>
         <button
           disabled={busy !== null}
           onClick={() => decide('rejected')}
           className="rounded-lg border border-line-strong bg-white px-4 py-[9px] text-[13.5px] font-semibold text-body transition hover:border-danger hover:text-danger disabled:opacity-60"
         >
-          {busy === 'rejected' ? '处理中…' : '拒绝'}
+          {busy === 'rejected' ? (zh ? '处理中…' : 'Working…') : zh ? '拒绝' : 'Reject'}
         </button>
       </div>
       <p className="mt-3 font-mono text-[10.5px] text-body-3">
-        批准与拒绝都会写入审计 · 你随时可追溯
+        {zh ? '批准与拒绝都会写入审计 · 你随时可追溯' : 'Approve & reject are both written to the audit log · always traceable'}
       </p>
     </div>
   )

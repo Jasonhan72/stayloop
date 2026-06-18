@@ -1,5 +1,6 @@
 'use client'
 
+import { useT } from '@/lib/i18n'
 import type { AgentRole, WorkflowState } from '@/lib/agent/types'
 import { WORKFLOW_STAGES, stageIndex } from '@/lib/agent/orchestrator'
 
@@ -10,13 +11,14 @@ export default function WorkflowStatusPanel({
   role: AgentRole
   workflow: WorkflowState
 }) {
+  const { lang } = useT()
   const stages = WORKFLOW_STAGES[role]
   const curIdx = stageIndex(role, workflow.current_stage)
 
   return (
     <div className="sl-card p-6">
       <div className="mb-4 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        当前进度
+        {lang === 'zh' ? '当前进度' : 'CURRENT PROGRESS'}
       </div>
       {stages.map((s, i) => {
         const done = i < curIdx || workflow.completed_steps.includes(s.key)

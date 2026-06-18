@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import OnboardingStage from '@/components/OnboardingStage'
+import { useT } from '@/lib/i18n'
 
 /**
  * Tenant onboarding · STEP 01
@@ -9,6 +10,13 @@ import OnboardingStage from '@/components/OnboardingStage'
  */
 
 export default function OnboardingWelcomePage() {
+  const { lang } = useT()
+  const zh = lang === 'zh'
+  const benefits = [
+    { zh: '一个 AI Agent 记住你的偏好，每天为你筛新房', en: 'An AI agent that remembers your preferences and screens new listings for you daily' },
+    { zh: 'Rental Passport — 一次验证全城通用，不重复填表', en: 'Rental Passport — verify once, reuse across the city, no repeat forms' },
+    { zh: '租客永远免费，关键决策永远你按按钮', en: 'Always free for tenants, and you always make the key decisions' },
+  ]
   return (
     <OnboardingStage step={1} totalSteps={4} eyebrow="TENANT · STAYLOOP">
       {/* Three small orbs representing tenant / landlord / agent — same orb design system from Hi-Fi */}
@@ -26,7 +34,7 @@ export default function OnboardingWelcomePage() {
           lineHeight: 1.15,
         }}
       >
-        欢迎来到 Stayloop。
+        {zh ? '欢迎来到 Stayloop。' : 'Welcome to Stayloop.'}
       </h1>
       <p
         style={{
@@ -36,8 +44,17 @@ export default function OnboardingWelcomePage() {
           margin: '14px 0 24px',
         }}
       >
-        Toronto 第一个 AI-native 的租房平台。<br />
-        你的专属 AI 经纪会全程帮你 — 找房、谈价、签约、入住。
+        {zh ? (
+          <>
+            Toronto 第一个 AI-native 的租房平台。<br />
+            你的专属 AI 经纪会全程帮你 — 找房、谈价、签约、入住。
+          </>
+        ) : (
+          <>
+            Toronto’s first AI-native rental platform.<br />
+            Your personal AI agent helps end to end — finding, negotiating, signing, moving in.
+          </>
+        )}
       </p>
 
       <ul
@@ -50,13 +67,9 @@ export default function OnboardingWelcomePage() {
           listStyle: 'none',
         }}
       >
-        {[
-          '一个 AI Agent 记住你的偏好，每天为你筛新房',
-          'Rental Passport — 一次验证全城通用，不重复填表',
-          '租客永远免费，关键决策永远你按按钮',
-        ].map((line) => (
+        {benefits.map((line) => (
           <li
-            key={line}
+            key={line.en}
             style={{
               fontSize: 13.5,
               color: '#171717',
@@ -75,7 +88,7 @@ export default function OnboardingWelcomePage() {
             >
               ✓
             </span>
-            {line}
+            {line[lang]}
           </li>
         ))}
       </ul>
@@ -95,7 +108,7 @@ export default function OnboardingWelcomePage() {
             textDecoration: 'none',
           }}
         >
-          继续 →
+          {zh ? '继续 →' : 'Continue →'}
         </Link>
         <Link
           href="/listings"
@@ -110,7 +123,7 @@ export default function OnboardingWelcomePage() {
             textDecoration: 'none',
           }}
         >
-          先随便看看房源
+          {zh ? '先随便看看房源' : 'Just browse listings first'}
         </Link>
       </div>
     </OnboardingStage>

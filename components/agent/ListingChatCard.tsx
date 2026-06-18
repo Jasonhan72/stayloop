@@ -5,14 +5,17 @@
 // amenity pills · tier · note bar). Stayloop listings link internally; external
 // Realtor.ca results open in a new tab.
 import Link from 'next/link'
+import { useT } from '@/lib/i18n'
 import type { ListingCard } from '@/lib/agent/types'
 
 export default function ListingChatCard({ l }: { l: ListingCard }) {
+  const { lang } = useT()
+  const zh = lang === 'zh'
   const external = l.source === 'realtor'
   const den = !!l.tags?.includes('den')
   const specs = [
     `${l.beds}B${den ? ' + den' : ''}`,
-    l.baths ? `${l.baths} 浴` : null,
+    l.baths ? `${l.baths} ${zh ? '浴' : 'bath'}` : null,
     l.sqft ? `${l.sqft} sqft` : null,
   ].filter(Boolean) as string[]
   const amenities = (l.tags || []).filter((t) => t !== 'den').slice(0, 3)
@@ -39,7 +42,7 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
       <div className="flex flex-1 flex-col p-4">
         <div className="text-[20px] font-bold tracking-tight">
           ${l.price.toLocaleString()}
-          <span className="ml-1 text-[12px] font-medium text-body-3">/月</span>
+          <span className="ml-1 text-[12px] font-medium text-body-3">{zh ? '/月' : '/mo'}</span>
         </div>
         <div className="mt-1 flex items-center gap-2 text-[13px] font-bold text-body">
           {specs.map((s, i) => (
@@ -62,7 +65,7 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
             ))}
             {!external && l.tier && (
               <span className="rounded-md px-2 py-1 font-mono text-[10.5px]" style={{ background: 'rgba(180,83,9,0.10)', color: '#B45309' }}>
-                需 认证 {l.tier} 级
+                {zh ? `需 认证 ${l.tier} 级` : `Tier ${l.tier} required`}
               </span>
             )}
           </div>

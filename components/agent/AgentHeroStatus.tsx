@@ -1,13 +1,14 @@
 'use client'
 
+import { useT } from '@/lib/i18n'
 import type { AgentRole, AgentStatus } from '@/lib/agent/types'
 
-const STATUS_LABEL: Record<AgentStatus, string> = {
-  idle: 'IDLE · 待命',
-  understanding: 'UNDERSTANDING · 理解中',
-  working: 'WORKING · 处理中',
-  result: 'ACTIVE · LISTENING',
-  approval: 'APPROVAL · 等你确认',
+const STATUS_LABEL: Record<AgentStatus, { zh: string; en: string }> = {
+  idle: { zh: 'IDLE · 待命', en: 'IDLE · STANDING BY' },
+  understanding: { zh: 'UNDERSTANDING · 理解中', en: 'UNDERSTANDING' },
+  working: { zh: 'WORKING · 处理中', en: 'WORKING' },
+  result: { zh: 'ACTIVE · LISTENING', en: 'ACTIVE · LISTENING' },
+  approval: { zh: 'APPROVAL · 等你确认', en: 'APPROVAL · AWAITING YOU' },
 }
 
 const ROLE_ORB: Record<AgentRole, { cls: string; color: string }> = {
@@ -29,6 +30,7 @@ export default function AgentHeroStatus({
   title: React.ReactNode
   nextAction: string
 }) {
+  const { lang } = useT()
   const orb = ROLE_ORB[role]
   const busy = status === 'understanding' || status === 'working'
   return (
@@ -52,7 +54,7 @@ export default function AgentHeroStatus({
               }
               style={{ background: status === 'approval' ? '#D97706' : undefined }}
             />
-            {STATUS_LABEL[status]}
+            {STATUS_LABEL[status][lang]}
           </div>
         </div>
       </div>

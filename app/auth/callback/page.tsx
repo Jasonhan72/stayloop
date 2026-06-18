@@ -3,11 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase'
+import { useT } from '@/lib/i18n'
 
 export default function AuthCallback() {
   const router = useRouter()
+  const { lang } = useT()
+  const zh = lang === 'zh'
   const [status, setStatus] = useState<'pending' | 'ok' | 'err'>('pending')
-  const [msg, setMsg] = useState('正在登录…')
+  const [msg, setMsg] = useState(zh ? '正在登录…' : 'Signing in…')
 
   useEffect(() => {
     const run = async () => {
@@ -26,11 +29,11 @@ export default function AuthCallback() {
         } else {
           // Maybe already logged in
           const { data } = await supabase.auth.getSession()
-          if (!data.session) throw new Error('登录链接已失效,请重新发送')
+          if (!data.session) throw new Error(zh ? '登录链接已失效,请重新发送' : 'Sign-in link expired, please request a new one')
         }
 
         setStatus('ok')
-        setMsg('登录成功 · 跳转中…')
+        setMsg(zh ? '登录成功 · 跳转中…' : 'Signed in · redirecting…')
 
         // AI-native entry: land the user IN their Personal Agent, not a
         // dashboard (architecture §13). Resolve role from the onboarding
@@ -58,11 +61,11 @@ export default function AuthCallback() {
         setTimeout(() => router.replace(dest), 600)
       } catch (e: any) {
         setStatus('err')
-        setMsg(e?.message || '登录失败')
+        setMsg(e?.message || (zh ? '登录失败' : 'Sign-in failed'))
       }
     }
     run()
-  }, [router])
+  }, [router, zh])
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface">
@@ -88,7 +91,7 @@ export default function AuthCallback() {
             </span>
             <p className="mt-3 text-[14px] text-body-2">{msg}</p>
             <a href="/login" className="mt-4 inline-block text-[13px] font-semibold text-brand">
-              重新登录 →
+              {zh ? '重新登录 →' : 'Sign in again →'}
             </a>
           </>
         )}

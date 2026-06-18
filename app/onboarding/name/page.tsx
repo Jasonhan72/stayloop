@@ -5,14 +5,15 @@ import { useState } from 'react'
 import OnboardingStage from '@/components/OnboardingStage'
 import { setAIName } from '@/lib/aiName'
 import { useAuth } from '@/lib/useAuth'
+import { useT } from '@/lib/i18n'
 
 const SUGGESTIONS = ['Luna', 'Mia', 'Aria', '小鹿', '木木', 'Echo', 'Nova', '豆包']
 
 const HELPS = [
-  '完成注册 · 身份 / 收入 / 推荐人',
-  '从你的需求筛房源 · 提看房',
-  '起草申请 · 跟进 · 准备查问',
-  '入住 / 续约 / 维修 / 退租继续陪跑',
+  { zh: '完成注册 · 身份 / 收入 / 推荐人', en: 'Finish sign-up · identity / income / references' },
+  { zh: '从你的需求筛房源 · 提看房', en: 'Screen listings to your needs · request showings' },
+  { zh: '起草申请 · 跟进 · 准备查问', en: 'Draft applications · follow up · prep for questions' },
+  { zh: '入住 / 续约 / 维修 / 退租继续陪跑', en: 'Move-in / renewal / repairs / move-out — stays with you' },
 ]
 
 /**
@@ -23,6 +24,8 @@ const HELPS = [
 export default function OnboardingNamePage() {
   const router = useRouter()
   const { setRole } = useAuth()
+  const { lang } = useT()
+  const zh = lang === 'zh'
   const [value, setValue] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -43,7 +46,7 @@ export default function OnboardingNamePage() {
       step={3}
       totalSteps={4}
       eyebrow="NAME YOUR AGENT"
-      back={{ href: '/onboarding/meet', label: '回上一步' }}
+      back={{ href: '/onboarding/meet', label: zh ? '回上一步' : 'Back' }}
     >
       <span
         className="pulse"
@@ -59,16 +62,18 @@ export default function OnboardingNamePage() {
       />
 
       <h1 style={{ fontSize: 'clamp(24px, 6.5vw, 30px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.18 }}>
-        为你的 AI 助手起名
+        {zh ? '为你的 AI 助手起名' : 'Name your AI assistant'}
       </h1>
       <p style={{ fontSize: 14.5, color: '#3F3F46', lineHeight: 1.6, margin: '12px 0 22px' }}>
-        她会读取你的专属记忆、理解你的进度，从这一刻起陪你走完注册 · 找房 · 申请 · 入住 · 以后所有事。
+        {zh
+          ? '她会读取你的专属记忆、理解你的进度，从这一刻起陪你走完注册 · 找房 · 申请 · 入住 · 以后所有事。'
+          : 'It reads your personal memory, understands your progress, and from this moment walks you through sign-up · finding · applying · moving in · everything after.'}
       </p>
 
       {/* @-prefixed name input */}
       <div style={{ textAlign: 'left', marginBottom: 18 }}>
         <div className="font-mono" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#71717A', marginBottom: 8 }}>
-          助手名字
+          {zh ? '助手名字' : 'Assistant name'}
         </div>
         <form
           onSubmit={(e) => {
@@ -118,7 +123,7 @@ export default function OnboardingNamePage() {
                 borderRadius: 999,
               }}
             >
-              随时可改
+              {zh ? '随时可改' : 'Change anytime'}
             </span>
           </div>
         </form>
@@ -127,7 +132,7 @@ export default function OnboardingNamePage() {
       {/* Suggestion chips */}
       <div style={{ textAlign: 'left', marginBottom: 22 }}>
         <div className="font-mono" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#71717A', marginBottom: 8 }}>
-          热门选项 ↓
+          {zh ? '热门选项 ↓' : 'Popular picks ↓'}
         </div>
         <div className="flex flex-wrap gap-2">
           {SUGGESTIONS.map((s) => (
@@ -165,17 +170,19 @@ export default function OnboardingNamePage() {
         }}
       >
         <div className="font-mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#7C3AED', marginBottom: 6 }}>
-          PREVIEW · {final} 会说
+          {zh ? `PREVIEW · ${final} 会说` : `PREVIEW · ${final} would say`}
         </div>
         <p style={{ fontSize: 13.5, lineHeight: 1.6, color: '#3F3F46' }}>
-          「Hi，我是 {final}。从现在起,找房、申请、签约、入住,我全程陪你 —— 你提要求,我负责跑腿,关键决策始终是你的。」
+          {zh
+            ? `「Hi，我是 ${final}。从现在起,找房、申请、签约、入住,我全程陪你 —— 你提要求,我负责跑腿,关键决策始终是你的。」`
+            : `“Hi, I'm ${final}. From now on — finding a place, applying, signing, moving in — I'm with you the whole way. You set the goals, I do the legwork, and the key decisions are always yours.”`}
         </p>
       </div>
 
       {/* Capabilities grid */}
       <div style={{ textAlign: 'left', marginBottom: 22 }}>
         <div className="font-mono" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#71717A', marginBottom: 8 }}>
-          {final} 会帮你
+          {zh ? `${final} 会帮你` : `${final} will help you`}
         </div>
         <div className="grid grid-cols-2 gap-2">
           {HELPS.map((h, i) => (
@@ -195,7 +202,7 @@ export default function OnboardingNamePage() {
               }}
             >
               <span style={{ flexShrink: 0, fontWeight: 700, color: '#7C3AED' }}>{i + 1}</span>
-              <span>{h}</span>
+              <span>{h[lang]}</span>
             </div>
           ))}
         </div>
@@ -219,7 +226,7 @@ export default function OnboardingNamePage() {
           opacity: submitting ? 0.6 : 1,
         }}
       >
-        {submitting ? '...' : `开始 · 进入 ${final} 工作台 →`}
+        {submitting ? '...' : zh ? `开始 · 进入 ${final} 工作台 →` : `Start · enter ${final}’s workspace →`}
       </button>
 
       <button
@@ -239,11 +246,13 @@ export default function OnboardingNamePage() {
           marginTop: 8,
         }}
       >
-        跳过 · 先用默认名
+        {zh ? '跳过 · 先用默认名' : 'Skip · use the default name'}
       </button>
 
       <p style={{ fontSize: 11.5, color: '#71717A', marginTop: 10, fontFamily: 'inherit' }}>
-        你可以随时在设置 · 助手里重命名 · 调性格 / 语言 / 职责范围。
+        {zh
+          ? '你可以随时在设置 · 助手里重命名 · 调性格 / 语言 / 职责范围。'
+          : 'You can rename it anytime in Settings · Assistant, and adjust its personality / language / scope.'}
       </p>
     </OnboardingStage>
   )

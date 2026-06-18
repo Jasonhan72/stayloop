@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useT } from '@/lib/i18n'
 import type { Recommendation } from '@/lib/agent/types'
 
 export default function RecommendationDeck({
@@ -8,12 +9,13 @@ export default function RecommendationDeck({
 }: {
   items: Recommendation[]
 }) {
+  const { lang } = useT()
   if (!items?.length) return null
   return (
     <div>
       <div className="mb-3 flex items-center gap-3">
         <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-          建议的下一步
+          {lang === 'zh' ? '建议的下一步' : 'SUGGESTED NEXT STEPS'}
         </span>
         <span className="h-px flex-1 bg-line-divider" />
       </div>

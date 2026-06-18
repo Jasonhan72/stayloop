@@ -6,9 +6,11 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
+import { useT } from '@/lib/i18n'
 import { Application, Listing, Plan } from '@/types'
 
 export default function Dashboard() {
+  const { lang } = useT()
   const { landlord, loading: authLoading } = useLandlord()
   const [applications, setApplications] = useState<Application[]>([])
   const [listings, setListings] = useState<Listing[]>([])
@@ -168,7 +170,7 @@ export default function Dashboard() {
                 LANDLORD · OVERVIEW
               </div>
               <h1 className="mt-2 text-[32px] font-bold tracking-tight sm:text-[40px]">
-                工作台 · {landlord.email.split('@')[0]}
+                {lang === 'zh' ? '工作台' : 'Workspace'} · {landlord.email.split('@')[0]}
               </h1>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -184,7 +186,7 @@ export default function Dashboard() {
               </span>
               {plan === 'free' && (
                 <button onClick={() => setShowUpgrade(true)} className="sl-btn-primary !py-[10px] !px-4 !text-[13.5px]">
-                  升级到 Pro
+                  {lang === 'zh' ? '升级到 Pro' : 'Upgrade to Pro'}
                 </button>
               )}
               {(plan === 'pro' || plan === 'enterprise') && (
@@ -193,11 +195,11 @@ export default function Dashboard() {
                   disabled={portalLoading}
                   className="sl-btn-secondary"
                 >
-                  {portalLoading ? '打开中…' : '管理订阅'}
+                  {portalLoading ? (lang === 'zh' ? '打开中…' : 'Opening…') : (lang === 'zh' ? '管理订阅' : 'Manage subscription')}
                 </button>
               )}
               <Link href="/dashboard/listings/new" className="sl-btn-primary !py-[10px] !px-4 !text-[13.5px]">
-                + 新建房源
+                {lang === 'zh' ? '+ 新建房源' : '+ New listing'}
               </Link>
             </div>
           </div>
@@ -205,14 +207,14 @@ export default function Dashboard() {
           {/* Stats */}
           <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { l: '总申请数', v: stats.total },
-              { l: '已批准', v: stats.approved },
-              { l: '待处理', v: stats.pending },
-              { l: 'LTB / 法庭标记', v: stats.flags, warn: stats.flags > 0 },
+              { k: 'total', l: { zh: '总申请数', en: 'Total applications' }, v: stats.total },
+              { k: 'approved', l: { zh: '已批准', en: 'Approved' }, v: stats.approved },
+              { k: 'pending', l: { zh: '待处理', en: 'Pending' }, v: stats.pending },
+              { k: 'flags', l: { zh: 'LTB / 法庭标记', en: 'LTB / court flags' }, v: stats.flags, warn: stats.flags > 0 },
             ].map((s) => (
-              <div key={s.l} className="sl-card p-5">
+              <div key={s.k} className="sl-card p-5">
                 <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">
-                  {s.l}
+                  {s.l[lang]}
                 </div>
                 <div
                   className={
@@ -230,21 +232,21 @@ export default function Dashboard() {
             <div className="flex items-center justify-between border-b border-line-divider px-6 py-4">
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-                <h2 className="text-[16px] font-bold tracking-tight">你的房源</h2>
+                <h2 className="text-[16px] font-bold tracking-tight">{lang === 'zh' ? '你的房源' : 'Your listings'}</h2>
               </div>
-              <span className="font-mono text-[11px] text-body-3">{listings.length} 套</span>
+              <span className="font-mono text-[11px] text-body-3">{listings.length} {lang === 'zh' ? '套' : 'total'}</span>
             </div>
             {loading ? (
-              <div className="p-10 text-center font-mono text-[12px] text-body-3">加载中…</div>
+              <div className="p-10 text-center font-mono text-[12px] text-body-3">{lang === 'zh' ? '加载中…' : 'Loading…'}</div>
             ) : listings.length === 0 ? (
               <div className="p-12 text-center">
                 <div className="text-[36px] opacity-30">▱</div>
-                <div className="mt-3 text-[14px] text-body-2">还没有房源。</div>
+                <div className="mt-3 text-[14px] text-body-2">{lang === 'zh' ? '还没有房源。' : 'No listings yet.'}</div>
                 <Link
                   href="/dashboard/listings/new"
                   className="mt-2 inline-flex font-semibold text-brand hover:underline"
                 >
-                  创建你的第一个房源 →
+                  {lang === 'zh' ? '创建你的第一个房源 →' : 'Create your first listing →'}
                 </Link>
               </div>
             ) : (
@@ -274,7 +276,7 @@ export default function Dashboard() {
                           onClick={() => copyLink(l.slug)}
                           className="rounded-lg border border-line-strong bg-white px-3 py-2 text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
                         >
-                          {copiedSlug === l.slug ? '✓ 已复制' : '复制链接'}
+                          {copiedSlug === l.slug ? (lang === 'zh' ? '✓ 已复制' : '✓ Copied') : (lang === 'zh' ? '复制链接' : 'Copy link')}
                         </button>
                         <a
                           href={url}
@@ -282,7 +284,7 @@ export default function Dashboard() {
                           rel="noreferrer"
                           className="rounded-lg border border-line-strong bg-white px-3 py-2 text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
                         >
-                          打开 ↗
+                          {lang === 'zh' ? '打开 ↗' : 'Open ↗'}
                         </a>
                       </div>
                     </li>
@@ -297,22 +299,24 @@ export default function Dashboard() {
             <div className="flex items-center justify-between border-b border-line-divider px-6 py-4">
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-tenant" />
-                <h2 className="text-[16px] font-bold tracking-tight">最新申请</h2>
+                <h2 className="text-[16px] font-bold tracking-tight">{lang === 'zh' ? '最新申请' : 'Latest applications'}</h2>
               </div>
               <Link
                 href="/landlord/applicants"
                 className="text-[12.5px] font-semibold text-brand hover:underline"
               >
-                查看全部 →
+                {lang === 'zh' ? '查看全部 →' : 'View all →'}
               </Link>
             </div>
             {loading ? (
-              <div className="p-10 text-center font-mono text-[12px] text-body-3">加载中…</div>
+              <div className="p-10 text-center font-mono text-[12px] text-body-3">{lang === 'zh' ? '加载中…' : 'Loading…'}</div>
             ) : applications.length === 0 ? (
               <div className="p-12 text-center">
                 <div className="text-[36px] opacity-30">⌖</div>
                 <div className="mt-3 text-[14px] text-body-2">
-                  还没收到申请。复制房源链接给租客即可开始。
+                  {lang === 'zh'
+                    ? '还没收到申请。复制房源链接给租客即可开始。'
+                    : 'No applications yet. Copy a listing link and share it with tenants to get started.'}
                 </div>
               </div>
             ) : (
@@ -320,12 +324,12 @@ export default function Dashboard() {
               <table className="w-full min-w-[680px] text-[13.5px]">
                 <thead className="bg-surface-chip">
                   <tr>
-                    <th className="px-6 py-3 text-left font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">申请人</th>
-                    <th className="px-6 py-3 text-left font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">房源</th>
-                    <th className="px-6 py-3 text-left font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">月收入</th>
-                    <th className="px-6 py-3 text-left font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">AI 分</th>
+                    <th className="px-6 py-3 text-left font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">{lang === 'zh' ? '申请人' : 'Applicant'}</th>
+                    <th className="px-6 py-3 text-left font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">{lang === 'zh' ? '房源' : 'Listing'}</th>
+                    <th className="px-6 py-3 text-left font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">{lang === 'zh' ? '月收入' : 'Monthly income'}</th>
+                    <th className="px-6 py-3 text-left font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">{lang === 'zh' ? 'AI 分' : 'AI score'}</th>
                     <th className="px-6 py-3 text-left font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">LTB</th>
-                    <th className="px-6 py-3 text-left font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">状态</th>
+                    <th className="px-6 py-3 text-left font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">{lang === 'zh' ? '状态' : 'Status'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -370,7 +374,7 @@ export default function Dashboard() {
                           {flags > 0 ? (
                             <span className="font-mono text-[12px] text-danger">⚠ {flags}</span>
                           ) : (
-                            <span className="font-mono text-[12px] text-success">✓ 无</span>
+                            <span className="font-mono text-[12px] text-success">{lang === 'zh' ? '✓ 无' : '✓ None'}</span>
                           )}
                         </td>
                         <td className="px-6 py-4">
@@ -417,7 +421,7 @@ export default function Dashboard() {
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
               UPGRADE
             </div>
-            <h2 className="mt-2 text-[24px] font-bold tracking-tight">选择你的方案</h2>
+            <h2 className="mt-2 text-[24px] font-bold tracking-tight">{lang === 'zh' ? '选择你的方案' : 'Choose your plan'}</h2>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <div
                 className={
@@ -432,17 +436,17 @@ export default function Dashboard() {
                   $0<span className="text-[14px] font-medium text-body-3">/mo</span>
                 </div>
                 <ul className="mt-4 space-y-1.5 text-[12.5px] text-body-2">
-                  <li>✓ 不限房源数</li>
-                  <li>✓ AI 六维评分</li>
+                  <li>{lang === 'zh' ? '✓ 不限房源数' : '✓ Unlimited listings'}</li>
+                  <li>{lang === 'zh' ? '✓ AI 六维评分' : '✓ AI 6-dimension scoring'}</li>
                   <li>✓ Vision OCR</li>
-                  <li>✓ CanLII LTB 查询</li>
-                  <li className="text-body-4">— Openroom 跨平台</li>
-                  <li className="text-body-4">— 批量导出</li>
+                  <li>{lang === 'zh' ? '✓ CanLII LTB 查询' : '✓ CanLII LTB search'}</li>
+                  <li className="text-body-4">{lang === 'zh' ? '— Openroom 跨平台' : '— Openroom cross-platform'}</li>
+                  <li className="text-body-4">{lang === 'zh' ? '— 批量导出' : '— Bulk export'}</li>
                 </ul>
               </div>
               <div className="relative rounded-2xl border-2 border-brand bg-brand/5 p-5">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-brand px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-white">
-                  推荐
+                  {lang === 'zh' ? '推荐' : 'RECOMMENDED'}
                 </div>
                 <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrow text-brand">
                   Pro
@@ -451,24 +455,24 @@ export default function Dashboard() {
                   $29<span className="text-[14px] font-medium text-body-3">/mo</span>
                 </div>
                 <ul className="mt-4 space-y-1.5 text-[12.5px] text-body">
-                  <li>✓ Free 全部功能</li>
-                  <li>✓ Openroom 房东数据库</li>
-                  <li>✓ 优先 AI 评分队列</li>
-                  <li>✓ 批量 CSV 导出</li>
-                  <li>✓ 自定义品牌 apply 页</li>
-                  <li>✓ 邮件 + Slack 通知</li>
+                  <li>{lang === 'zh' ? '✓ Free 全部功能' : '✓ Everything in Free'}</li>
+                  <li>{lang === 'zh' ? '✓ Openroom 房东数据库' : '✓ Openroom landlord database'}</li>
+                  <li>{lang === 'zh' ? '✓ 优先 AI 评分队列' : '✓ Priority AI scoring queue'}</li>
+                  <li>{lang === 'zh' ? '✓ 批量 CSV 导出' : '✓ Bulk CSV export'}</li>
+                  <li>{lang === 'zh' ? '✓ 自定义品牌 apply 页' : '✓ Custom-branded apply page'}</li>
+                  <li>{lang === 'zh' ? '✓ 邮件 + Slack 通知' : '✓ Email + Slack notifications'}</li>
                 </ul>
                 <button
                   onClick={startCheckout}
                   disabled={checkoutLoading}
                   className="sl-btn-primary mt-5 w-full !py-[12px]"
                 >
-                  {checkoutLoading ? '跳转 Stripe…' : '升级到 Pro →'}
+                  {checkoutLoading ? (lang === 'zh' ? '跳转 Stripe…' : 'Redirecting to Stripe…') : (lang === 'zh' ? '升级到 Pro →' : 'Upgrade to Pro →')}
                 </button>
               </div>
             </div>
             <p className="mt-4 text-center font-mono text-[10px] text-body-3">
-              Stripe 安全支付 · 随时在 “管理订阅” 取消
+              {lang === 'zh' ? 'Stripe 安全支付 · 随时在 “管理订阅” 取消' : 'Secure Stripe payment · cancel anytime under "Manage subscription"'}
             </p>
           </div>
         </div>
@@ -490,24 +494,24 @@ export default function Dashboard() {
             {checkoutBanner === 'pending' && (
               <>
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-warning/40 border-t-warning" />
-                <span className="text-[12.5px] text-body">收到付款 · 正在解锁 Pro…</span>
+                <span className="text-[12.5px] text-body">{lang === 'zh' ? '收到付款 · 正在解锁 Pro…' : 'Payment received · unlocking Pro…'}</span>
               </>
             )}
             {checkoutBanner === 'success' && (
               <>
                 <span className="text-success">✓</span>
-                <span className="text-[12.5px] text-body">欢迎加入 Pro!</span>
+                <span className="text-[12.5px] text-body">{lang === 'zh' ? '欢迎加入 Pro!' : 'Welcome to Pro!'}</span>
                 <button onClick={() => setCheckoutBanner(null)} className="ml-2 font-mono text-[10px] text-body-3">
-                  关闭
+                  {lang === 'zh' ? '关闭' : 'Close'}
                 </button>
               </>
             )}
             {checkoutBanner === 'cancel' && (
               <>
                 <span className="text-body-3">✕</span>
-                <span className="text-[12.5px] text-body">已取消支付 · 没有产生扣款</span>
+                <span className="text-[12.5px] text-body">{lang === 'zh' ? '已取消支付 · 没有产生扣款' : 'Payment cancelled · no charge made'}</span>
                 <button onClick={() => setCheckoutBanner(null)} className="ml-2 font-mono text-[10px] text-body-3">
-                  关闭
+                  {lang === 'zh' ? '关闭' : 'Close'}
                 </button>
               </>
             )}

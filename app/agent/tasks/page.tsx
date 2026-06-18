@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useT } from '@/lib/i18n'
 
 /**
  * V5 ART 14 / 49 · Agent · Tasks
@@ -13,48 +14,48 @@ const TASKS = [
     id: 'T-301',
     type: 'showing',
     showingSlug: 'sh-1207-mia',
-    title: '今天 14:00 · Unit 1207 · King West 看房',
-    client: 'Mia Chen · Tenant',
-    sla: '1h 后开始',
+    title: { zh: '今天 14:00 · Unit 1207 · King West 看房', en: 'Today 14:00 · Unit 1207 · King West showing' },
+    client: { zh: 'Mia Chen · Tenant', en: 'Mia Chen · Tenant' },
+    sla: { zh: '1h 后开始', en: 'Starts in 1h' },
     priority: 'now',
-    note: '客户 认证 2 级 · $80 看房费（Stripe 预授权）· 看房后 30 min 内反馈',
+    note: { zh: '客户 认证 2 级 · $80 看房费（Stripe 预授权）· 看房后 30 min 内反馈', en: 'Client Tier 2 · $80 showing fee (Stripe pre-auth) · feedback within 30 min of showing' },
   },
   {
     id: 'T-298',
     type: 'screening',
-    title: '完成 Kevin Tran 收入复核',
-    client: 'Kevin Tran · Tenant',
-    sla: '今天前',
+    title: { zh: '完成 Kevin Tran 收入复核', en: 'Complete Kevin Tran income re-check' },
+    client: { zh: 'Kevin Tran · Tenant', en: 'Kevin Tran · Tenant' },
+    sla: { zh: '今天前', en: 'By today' },
     priority: 'high',
-    note: '4/29 银行流水已上传，等你确认',
+    note: { zh: '4/29 银行流水已上传，等你确认', en: 'Bank statements uploaded 4/29, awaiting your confirmation' },
   },
   {
     id: 'T-295',
     type: 'package',
-    title: '3 套备选 — Jason 客户 brief 包',
-    client: 'Jason H. · Tenant',
-    sla: '本周内',
+    title: { zh: '3 套备选 — Jason 客户 brief 包', en: '3 options — Jason client brief pack' },
+    client: { zh: 'Jason H. · Tenant', en: 'Jason H. · Tenant' },
+    sla: { zh: '本周内', en: 'This week' },
     priority: 'medium',
-    note: '客户预算 $3.2k–$3.6k · 认证 2 级 · 1B+den',
+    note: { zh: '客户预算 $3.2k–$3.6k · 认证 2 级 · 1B+den', en: 'Client budget $3.2k–$3.6k · Tier 2 · 1B+den' },
   },
   {
     id: 'T-291',
     type: 'lease',
-    title: 'Logic 草稿 → 你审 → 发租客签字',
-    client: '15 Hanna Ave · Kevin Tran 续约',
-    sla: '5/12 前',
+    title: { zh: 'Logic 草稿 → 你审 → 发租客签字', en: 'Logic drafts → you review → send to tenant for signing' },
+    client: { zh: '15 Hanna Ave · Kevin Tran 续约', en: '15 Hanna Ave · Kevin Tran renewal' },
+    sla: { zh: '5/12 前', en: 'By 5/12' },
     priority: 'medium',
-    note: 'Ontario LTB 租约 + Logic 风险审查通过',
+    note: { zh: 'Ontario LTB 租约 + Logic 风险审查通过', en: 'Ontario LTB lease + Logic risk review passed' },
   },
   {
     id: 'T-285',
     type: 'showing',
     showingSlug: 'sh-harbour-lisa',
-    title: '5/11 11:00 · 88 Harbour St #4502 看房',
-    client: 'Lisa W. · Tenant',
-    sla: '2 天后',
+    title: { zh: '5/11 11:00 · 88 Harbour St #4502 看房', en: '5/11 11:00 · 88 Harbour St #4502 showing' },
+    client: { zh: 'Lisa W. · Tenant', en: 'Lisa W. · Tenant' },
+    sla: { zh: '2 天后', en: 'In 2 days' },
     priority: 'low',
-    note: '客户已通过 认证级别 验证',
+    note: { zh: '客户已通过 认证级别 验证', en: 'Client has passed Tier verification' },
   },
 ]
 
@@ -73,6 +74,11 @@ const TYPE_ICON: Record<string, string> = {
 }
 
 export default function AgentTasksPage() {
+  const { lang } = useT()
+  const zh = lang === 'zh'
+  const filters = zh
+    ? ['全部', '看房', '审核', '租约', 'brief 包']
+    : ['All', 'Showings', 'Screening', 'Leases', 'Brief packs']
   return (
     <WorkspaceShell role="agent" aside={<Aside />}>
       <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
@@ -80,17 +86,17 @@ export default function AgentTasksPage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-agent">
             AGENT · TASKS
           </div>
-          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">任务队列</h1>
+          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">{zh ? '任务队列' : 'Task queue'}</h1>
           <p className="mt-1 text-[13.5px] text-body-2">
-            Brief 按 SLA 排序 — 越上面越紧急。完成一个就消失一个。
+            {zh ? 'Brief 按 SLA 排序 — 越上面越紧急。完成一个就消失一个。' : 'Brief sorts by SLA — the higher up, the more urgent. Finish one and it disappears.'}
           </p>
         </div>
-        <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">+ 新任务</button>
+        <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{zh ? '+ 新任务' : '+ New task'}</button>
       </div>
 
       {/* Filter bar */}
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        {['全部', '看房', '审核', '租约', 'brief 包'].map((f, i) => (
+        {filters.map((f, i) => (
           <button
             key={f}
             className={
@@ -104,7 +110,7 @@ export default function AgentTasksPage() {
           </button>
         ))}
         <div className="ml-auto flex items-center gap-2 font-mono text-[11px] uppercase tracking-eyebrow text-body-3">
-          <span>排序</span>
+          <span>{zh ? '排序' : 'Sort'}</span>
           <span className="text-body underline">SLA ↑</span>
         </div>
       </div>
@@ -118,7 +124,7 @@ export default function AgentTasksPage() {
           ⚡ NOW
         </span>
         <span className="text-body-2">
-          1 个任务 1 小时内开始（看房）— Brief 已自动生成路线和客户档案。
+          {zh ? '1 个任务 1 小时内开始（看房）— Brief 已自动生成路线和客户档案。' : '1 task starts within the hour (showing) — Brief has auto-generated the route and client profile.'}
         </span>
       </div>
 
@@ -152,12 +158,12 @@ export default function AgentTasksPage() {
                     {p.label}
                   </span>
                   <span className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">
-                    {t.id} · {t.sla}
+                    {t.id} · {t.sla[lang]}
                   </span>
                 </div>
-                <div className="mt-1 text-[14px] font-bold">{t.title}</div>
-                <div className="text-[12px] text-body-2">{t.client}</div>
-                <div className="mt-1 text-[11.5px] text-body-3">{t.note}</div>
+                <div className="mt-1 text-[14px] font-bold">{t.title[lang]}</div>
+                <div className="text-[12px] text-body-2">{t.client[lang]}</div>
+                <div className="mt-1 text-[11.5px] text-body-3">{t.note[lang]}</div>
               </div>
               <div className="flex flex-col gap-1.5">
                 {t.type === 'showing' && t.showingSlug ? (
@@ -165,15 +171,15 @@ export default function AgentTasksPage() {
                     href={`/agent/showings/${t.showingSlug}`}
                     className="rounded-[8px] bg-ink px-3 py-[7px] text-center text-[11.5px] font-semibold text-white"
                   >
-                    看房现场 →
+                    {zh ? '看房现场 →' : 'Showing live →'}
                   </Link>
                 ) : (
                   <button className="rounded-[8px] bg-ink px-3 py-[7px] text-[11.5px] font-semibold text-white">
-                    开始
+                    {zh ? '开始' : 'Start'}
                   </button>
                 )}
                 <button className="rounded-[8px] border border-line-strong bg-white px-3 py-[7px] text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
-                  延期
+                  {zh ? '延期' : 'Defer'}
                 </button>
               </div>
             </div>
@@ -185,21 +191,23 @@ export default function AgentTasksPage() {
 }
 
 function Aside() {
+  const { lang } = useT()
+  const zh = lang === 'zh'
   return (
     <div>
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        本周节奏
+        {zh ? '本周节奏' : 'This week’s pace'}
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3">
         {[
-          { l: '今日任务', v: '5', acc: '#1E3A8A' },
-          { l: '完成率', v: '94%', acc: '#047857' },
-          { l: '平均响应', v: '11min', acc: '#B45309' },
-          { l: '客户净推荐', v: '+62', acc: '#7C3AED' },
+          { l: { zh: '今日任务', en: 'Tasks today' }, v: '5', acc: '#1E3A8A' },
+          { l: { zh: '完成率', en: 'Completion rate' }, v: '94%', acc: '#047857' },
+          { l: { zh: '平均响应', en: 'Avg response' }, v: '11min', acc: '#B45309' },
+          { l: { zh: '客户净推荐', en: 'Client NPS' }, v: '+62', acc: '#7C3AED' },
         ].map((s) => (
-          <div key={s.l} className="sl-card p-3">
+          <div key={s.l.en} className="sl-card p-3">
             <div className="font-mono text-[9.5px] uppercase tracking-eyebrow text-body-3">
-              {s.l}
+              {s.l[lang]}
             </div>
             <div className="mt-1 text-[18px] font-extrabold" style={{ color: s.acc }}>
               {s.v}
@@ -209,12 +217,12 @@ function Aside() {
       </div>
 
       <div className="mt-7 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        Brief 提示
+        {zh ? 'Brief 提示' : 'Brief tips'}
       </div>
       <div className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-body-2">
-        <p>📍 14:00 看房在 The Annex — 离你 09:30 训练点 8 min。</p>
-        <p>🪪 Kevin Tran 的银行流水里有一笔大额可疑存款，建议在确认前问一下。</p>
-        <p>📦 Jason 客户 — Liberty Village 没有匹配的 1B+den，可能要扩大到 King West。</p>
+        <p>{zh ? '📍 14:00 看房在 The Annex — 离你 09:30 训练点 8 min。' : '📍 14:00 showing in The Annex — 8 min from your 09:30 training spot.'}</p>
+        <p>{zh ? '🪪 Kevin Tran 的银行流水里有一笔大额可疑存款，建议在确认前问一下。' : '🪪 Kevin Tran’s bank statements show a large suspicious deposit — worth asking before you confirm.'}</p>
+        <p>{zh ? '📦 Jason 客户 — Liberty Village 没有匹配的 1B+den，可能要扩大到 King West。' : '📦 Jason client — no matching 1B+den in Liberty Village; may need to widen to King West.'}</p>
       </div>
     </div>
   )

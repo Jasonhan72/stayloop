@@ -9,8 +9,10 @@ import PendingActionsPanel from '@/components/agent/PendingActionsPanel'
 import PrivateMemorySnapshot from '@/components/agent/PrivateMemorySnapshot'
 import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
+import { useT } from '@/lib/i18n'
 
 export default function LandlordAgentPage() {
+  const { lang } = useT()
   const { loading, live, data, status, messages, decide, sendMessage } = useAgentSession('landlord')
 
   if (loading || !data) {
@@ -31,8 +33,10 @@ export default function LandlordAgentPage() {
     <WorkspaceShell role="landlord" hideAside>
       {!live && (
         <div className="mb-5 rounded-xl border border-line-strong bg-surface-chip px-4 py-3 font-mono text-[11px] leading-relaxed text-body-3">
-          预览模式 · 登录后助手会读取你真实的政策与申请,审批将写入审计 ·{' '}
-          <a href="/login" className="font-bold text-brand">登录 →</a>
+          {lang === 'zh'
+            ? '预览模式 · 登录后助手会读取你真实的政策与申请,审批将写入审计 · '
+            : 'Preview mode · once you sign in, your assistant reads your real policies and applications, and approvals are written to the audit log · '}
+          <a href="/login" className="font-bold text-brand">{lang === 'zh' ? '登录 →' : 'Sign in →'}</a>
         </div>
       )}
 

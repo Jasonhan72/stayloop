@@ -3,15 +3,17 @@
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useState } from 'react'
 import { useAIName } from '@/lib/aiName'
+import { useT } from '@/lib/i18n'
 
 const TICKETS = [
-  { id: 'M-104', title: '厨房水龙头滴水', status: 'in-progress', sub: '2 天前提交 · 已派工', priority: 'medium' },
-  { id: 'M-103', title: '走廊灯泡需更换', status: 'done', sub: '上周完成 · 已确认', priority: 'low' },
-  { id: 'M-102', title: '空调出风口异响', status: 'review', sub: '完工 · 等你确认', priority: 'high' },
+  { id: 'M-104', title: { zh: '厨房水龙头滴水', en: 'Kitchen faucet dripping' }, status: 'in-progress', sub: { zh: '2 天前提交 · 已派工', en: 'Submitted 2 days ago · technician assigned' }, priority: 'medium' },
+  { id: 'M-103', title: { zh: '走廊灯泡需更换', en: 'Hallway light bulb needs replacing' }, status: 'done', sub: { zh: '上周完成 · 已确认', en: 'Completed last week · confirmed' }, priority: 'low' },
+  { id: 'M-102', title: { zh: '空调出风口异响', en: 'AC vent making noise' }, status: 'review', sub: { zh: '完工 · 等你确认', en: 'Work done · awaiting your confirmation' }, priority: 'high' },
 ]
 
 export default function TenantMaintenancePage() {
   const [open, setOpen] = useState(false)
+  const { lang } = useT()
   return (
     <WorkspaceShell role="tenant" hideAside>
       <div className="mb-9 flex flex-wrap items-end justify-between gap-3">
@@ -19,10 +21,10 @@ export default function TenantMaintenancePage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-tenant">
             MAINTENANCE
           </div>
-          <h1 className="mt-2 text-[26px] sm:text-[36px] font-bold tracking-tight">维修请求</h1>
+          <h1 className="mt-2 text-[26px] sm:text-[36px] font-bold tracking-tight">{lang === 'zh' ? '维修请求' : 'Maintenance Requests'}</h1>
         </div>
         <button onClick={() => setOpen(true)} className="sl-btn-primary !py-[12px]">
-          + 提交新请求
+          {lang === 'zh' ? '+ 提交新请求' : '+ New request'}
         </button>
       </div>
 
@@ -43,10 +45,10 @@ export default function TenantMaintenancePage() {
             </span>
             <div className="flex-1">
               <div className="flex items-baseline gap-2">
-                <h3 className="text-[15px] font-bold">{t.title}</h3>
+                <h3 className="text-[15px] font-bold">{t.title[lang]}</h3>
                 <span className="font-mono text-[10.5px] text-body-3">{t.id}</span>
               </div>
-              <div className="mt-1 text-[12.5px] text-body-2">{t.sub}</div>
+              <div className="mt-1 text-[12.5px] text-body-2">{t.sub[lang]}</div>
             </div>
             <span
               className={
@@ -58,7 +60,9 @@ export default function TenantMaintenancePage() {
                     : 'bg-info/10 text-info')
               }
             >
-              {t.status === 'done' ? '完成' : t.status === 'review' ? '待确认' : '处理中'}
+              {lang === 'zh'
+                ? (t.status === 'done' ? '完成' : t.status === 'review' ? '待确认' : '处理中')
+                : (t.status === 'done' ? 'Done' : t.status === 'review' ? 'To confirm' : 'In progress')}
             </span>
           </div>
         ))}
@@ -70,31 +74,34 @@ export default function TenantMaintenancePage() {
 }
 
 const CATEGORIES = [
-  { id: 'plumbing', icon: '🔧', label: '水管 / 漏水' },
-  { id: 'electrical', icon: '⚡', label: '电器 / 电路' },
-  { id: 'hvac', icon: '❄️', label: '暖气 / 空调' },
-  { id: 'lock', icon: '🔑', label: '钥匙 / 锁' },
+  { id: 'plumbing', icon: '🔧', label: { zh: '水管 / 漏水', en: 'Plumbing / leak' } },
+  { id: 'electrical', icon: '⚡', label: { zh: '电器 / 电路', en: 'Appliance / wiring' } },
+  { id: 'hvac', icon: '❄️', label: { zh: '暖气 / 空调', en: 'Heating / AC' } },
+  { id: 'lock', icon: '🔑', label: { zh: '钥匙 / 锁', en: 'Keys / lock' } },
 ]
 
 const URGENCY = [
-  { id: 'low', label: '不急 · 7 天内' },
-  { id: 'medium', label: '普通 · 48 小时内' },
-  { id: 'high', label: '紧急 · 24 小时' },
+  { id: 'low', label: { zh: '不急 · 7 天内', en: 'Low · within 7 days' } },
+  { id: 'medium', label: { zh: '普通 · 48 小时内', en: 'Normal · within 48 hrs' } },
+  { id: 'high', label: { zh: '紧急 · 24 小时', en: 'Urgent · 24 hrs' } },
 ]
 
 function NewTicketModal({ onClose }: { onClose: () => void }) {
   const name = useAIName()
+  const { lang } = useT()
   const [cat, setCat] = useState('')
   const [urg, setUrg] = useState('medium')
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-ink/40 p-4 backdrop-blur sm:items-center">
       <div className="sl-card max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto p-5 sm:p-9">
         <div className="font-mono text-[10.5px] uppercase tracking-eyebrowLg text-body-3">
-          UNIT 1207 · 维修 · 发给 SARAH
+          {lang === 'zh' ? 'UNIT 1207 · 维修 · 发给 SARAH' : 'UNIT 1207 · MAINTENANCE · TO SARAH'}
         </div>
-        <h3 className="mt-2 text-[24px] font-bold tracking-tight">什么情况?</h3>
+        <h3 className="mt-2 text-[24px] font-bold tracking-tight">{lang === 'zh' ? '什么情况?' : "What's going on?"}</h3>
         <p className="mt-1 text-[13px] text-body-2">
-          {name} 会基于你描述的紧急程度给 Sarah 一个建议响应时间。
+          {lang === 'zh'
+            ? `${name} 会基于你描述的紧急程度给 Sarah 一个建议响应时间。`
+            : `${name} will suggest a response time to Sarah based on the urgency you describe.`}
         </p>
 
         {/* Category pills */}
@@ -111,23 +118,25 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
               }
             >
               <span className="text-[20px]">{c.icon}</span>
-              <span className="text-[12px] font-semibold">{c.label}</span>
+              <span className="text-[12px] font-semibold">{c.label[lang]}</span>
             </button>
           ))}
         </div>
 
         {/* Description */}
         <div className="mt-5">
-          <div className="sl-eyebrow">详细描述</div>
+          <div className="sl-eyebrow">{lang === 'zh' ? '详细描述' : 'Details'}</div>
           <textarea
             className="sl-input mt-1.5 h-24 py-2"
-            placeholder="厨房洗碗机不通电。今早开机没反应，电源指示灯也不亮。其他电器正常。"
+            placeholder={lang === 'zh'
+              ? '厨房洗碗机不通电。今早开机没反应，电源指示灯也不亮。其他电器正常。'
+              : "The kitchen dishwasher has no power. It didn't respond this morning and the power light is off. Other appliances work fine."}
           />
         </div>
 
         {/* Urgency pills */}
         <div className="mt-5">
-          <div className="sl-eyebrow">紧急程度</div>
+          <div className="sl-eyebrow">{lang === 'zh' ? '紧急程度' : 'Urgency'}</div>
           <div className="mt-1.5 grid grid-cols-3 gap-2">
             {URGENCY.map((u) => (
               <button
@@ -140,7 +149,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
                     : 'border-line-strong bg-white text-body hover:border-brand/40')
                 }
               >
-                {u.label}
+                {u.label[lang]}
               </button>
             ))}
           </div>
@@ -148,7 +157,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
 
         {/* Photo grid */}
         <div className="mt-5">
-          <div className="sl-eyebrow">照片（可选）</div>
+          <div className="sl-eyebrow">{lang === 'zh' ? '照片（可选）' : 'Photos (optional)'}</div>
           <div className="mt-1.5 grid grid-cols-5 gap-2">
             {[0, 1, 2, 3, 4].map((i) => (
               <div
@@ -168,20 +177,30 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
               className="h-5 w-5 rounded-full"
               style={{ background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)' }}
             />
-            <span className="text-[12px] font-bold text-tenant-deep">{name} · 你提交后会发生什么：</span>
+            <span className="text-[12px] font-bold text-tenant-deep">{lang === 'zh' ? `${name} · 你提交后会发生什么：` : `${name} · what happens after you submit:`}</span>
           </div>
           <ul className="mt-2 space-y-1 text-[12px] leading-relaxed text-tenant-deep">
-            <li>· Sarah 立即收到 push，我会在 4 小时后追 Sarah 跟进</li>
-            <li>· 记录电器故障类型，48 小时内 Sarah 应该安排人上门，RTA 标准</li>
-            <li>· 一切留痕，audit log，争议时可溯</li>
+            {lang === 'zh' ? (
+              <>
+                <li>· Sarah 立即收到 push，我会在 4 小时后追 Sarah 跟进</li>
+                <li>· 记录电器故障类型，48 小时内 Sarah 应该安排人上门，RTA 标准</li>
+                <li>· 一切留痕，audit log，争议时可溯</li>
+              </>
+            ) : (
+              <>
+                <li>· Sarah gets a push notification right away, and I'll follow up with her after 4 hours</li>
+                <li>· The appliance fault type is logged; Sarah should arrange a visit within 48 hours, per RTA standard</li>
+                <li>· Everything is recorded in the audit log, traceable if a dispute arises</li>
+              </>
+            )}
           </ul>
         </div>
 
         <div className="mt-6 flex gap-2">
           <button onClick={onClose} className="flex-1 rounded-[10px] border border-line-strong bg-white py-[12px] text-[14px] font-semibold text-body">
-            取消
+            {lang === 'zh' ? '取消' : 'Cancel'}
           </button>
-          <button onClick={onClose} className="sl-btn-primary flex-1 !py-[12px]">提交</button>
+          <button onClick={onClose} className="sl-btn-primary flex-1 !py-[12px]">{lang === 'zh' ? '提交' : 'Submit'}</button>
         </div>
       </div>
     </div>

@@ -5,8 +5,11 @@ import { useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { getSupabaseBrowser } from '@/lib/supabase'
+import { useT } from '@/lib/i18n'
 
 export default function LoginPage() {
+  const { lang } = useT()
+  const zh = lang === 'zh'
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -28,7 +31,7 @@ export default function LoginPage() {
       if (error) throw error
       setSent(true)
     } catch (e: any) {
-      setErr(e?.message || '登录失败,请稍后重试')
+      setErr(e?.message || (zh ? '登录失败,请稍后重试' : 'Sign-in failed, please try again'))
     } finally {
       setLoading(false)
     }
@@ -42,14 +45,15 @@ export default function LoginPage() {
           <div className="sl-card p-8 sm:p-10">
             {!sent ? (
               <>
-                <h1 className="text-[28px] font-bold tracking-tight">欢迎回来</h1>
+                <h1 className="text-[28px] font-bold tracking-tight">{zh ? '欢迎回来' : 'Welcome back'}</h1>
                 <p className="mt-2 text-[14px] leading-relaxed text-body-2">
-                  输入邮箱，我们发一个一次性登录链接给你。
-                  无需密码、无需 Google / Apple 账号。
+                  {zh
+                    ? '输入邮箱，我们发一个一次性登录链接给你。无需密码、无需 Google / Apple 账号。'
+                    : 'Enter your email and we’ll send you a one-time sign-in link. No password, no Google / Apple account needed.'}
                 </p>
                 <form onSubmit={submit} className="mt-6 space-y-4">
                   <label className="block">
-                    <span className="sl-eyebrow">邮箱</span>
+                    <span className="sl-eyebrow">{zh ? '邮箱' : 'Email'}</span>
                     <input
                       type="email"
                       required
@@ -69,13 +73,13 @@ export default function LoginPage() {
                     disabled={loading || !email}
                     className="sl-btn-primary w-full !py-[14px]"
                   >
-                    {loading ? '发送中…' : '发送登录链接'}
+                    {loading ? (zh ? '发送中…' : 'Sending…') : zh ? '发送登录链接' : 'Send sign-in link'}
                   </button>
                 </form>
                 <div className="mt-6 border-t border-line-divider pt-5 text-center text-[13px] text-body-2">
-                  还没有账号？{' '}
+                  {zh ? '还没有账号？' : 'Don’t have an account? '}{' '}
                   <Link href="/onboarding/welcome" className="font-semibold text-brand">
-                    注册 →
+                    {zh ? '注册 →' : 'Register →'}
                   </Link>
                 </div>
               </>
@@ -84,10 +88,11 @@ export default function LoginPage() {
                 <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand/15 text-brand">
                   <MailIcon />
                 </span>
-                <h1 className="mt-4 text-[22px] font-bold tracking-tight">查收你的邮箱</h1>
+                <h1 className="mt-4 text-[22px] font-bold tracking-tight">{zh ? '查收你的邮箱' : 'Check your email'}</h1>
                 <p className="mt-2 text-[14px] leading-relaxed text-body-2">
-                  我们刚把登录链接发到 <b className="text-body">{email}</b>。
-                  点击链接即可继续 — 链接 1 小时内有效。
+                  {zh ? '我们刚把登录链接发到 ' : 'We just sent a sign-in link to '}
+                  <b className="text-body">{email}</b>
+                  {zh ? '。点击链接即可继续 — 链接 1 小时内有效。' : '. Click the link to continue — it’s valid for 1 hour.'}
                 </p>
               </div>
             )}
