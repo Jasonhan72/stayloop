@@ -53,6 +53,26 @@ export const DICT = {
   'listings.matchScore': { en: 'match', zh: '匹配' },
   'foot.tag': { en: "Toronto's AI-native rental OS. Verify once, reuse everywhere.", zh: '为 AI 时代打造的多伦多租住操作系统。验证一次，处处通行。' },
   'foot.copy': { en: '© 2026 Stayloop Inc. · PIPEDA · OHRC · RTA compliant', zh: '© 2026 Stayloop Inc. · PIPEDA · OHRC · RTA 合规' },
+  // Footer · column titles
+  'foot.product': { en: 'Product', zh: '产品' },
+  'foot.forWhom': { en: "Who it's for", zh: '为谁打造' },
+  'foot.company': { en: 'Company', zh: '公司' },
+  // Footer · product links
+  'foot.pricing': { en: 'Pricing', zh: '定价' },
+  'foot.trustApi': { en: 'Trust API', zh: 'Trust API' },
+  'foot.screening': { en: 'Screening', zh: '审核' },
+  'foot.passport': { en: 'Tenant Passport', zh: '租客护照' },
+  'foot.disputes': { en: 'Disputes', zh: '争议解决' },
+  // Footer · for-whom links
+  'foot.tenants': { en: 'Tenants', zh: '租客' },
+  'foot.landlords': { en: 'Landlords', zh: '房东' },
+  'foot.agents': { en: 'Agents', zh: '经纪' },
+  'foot.partners': { en: 'Partners', zh: '合作伙伴' },
+  // Footer · company links
+  'foot.about': { en: 'About', zh: '关于' },
+  'foot.privacy': { en: 'Privacy', zh: '隐私' },
+  'foot.terms': { en: 'Terms', zh: '使用条款' },
+  'foot.contact': { en: 'Contact', zh: '联系' },
 
   // Home page
   'home.badge': { en: 'Built for Ontario landlords · PIPEDA compliant', zh: '为安省房东打造 · PIPEDA 合规' },
