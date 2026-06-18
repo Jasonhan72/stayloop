@@ -7,6 +7,9 @@ alter table public.trust_api_keys
   add column if not exists api_key_hash text,
   add column if not exists key_prefix   text;
 
+-- We no longer persist plaintext keys — the column becomes optional.
+alter table public.trust_api_keys alter column api_key drop not null;
+
 create unique index if not exists trust_api_keys_hash_idx
   on public.trust_api_keys(api_key_hash);
 
