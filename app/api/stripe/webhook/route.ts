@@ -109,14 +109,22 @@ export async function POST(req: NextRequest) {
         // 'active' and 'trialing' unlock Pro features; anything else drops to free.
         const unlocked = sub.status === 'active' || sub.status === 'trialing'
 
+        // In recent Stripe API versions current_period_end moved off the
+        // Subscription onto its items — fall back so the date isn't lost.
+        const periodEnd =
+          sub.current_period_end ??
+          (sub.items?.data?.[0] as { current_period_end?: number } | undefined)
+            ?.current_period_end ??
+          null
+
         await admin
           .from('landlords')
           .update({
             stripe_subscription_id: sub.id,
             plan: unlocked ? 'pro' : 'free',
             plan_status: sub.status,
-            plan_current_period_end: sub.current_period_end
-              ? new Date(sub.current_period_end * 1000).toISOString()
+            plan_current_period_end: periodEnd
+              ? new Date(periodEnd * 1000).toISOString()
               : null,
           })
           .eq('stripe_customer_id', customerId)

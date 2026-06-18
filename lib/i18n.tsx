@@ -11,6 +11,7 @@ export const DICT = {
   'nav.signin': { en: 'Sign in', zh: '登录' },
   'nav.register': { en: 'Register', zh: '注册' },
   'nav.profile': { en: 'Account settings', zh: '账户设置' },
+  'nav.settings': { en: 'Settings', zh: '设置' },
   'nav.listings': { en: 'Listings', zh: '房源' },
   'nav.tenants': { en: 'For Tenants', zh: '租客' },
   'nav.landlords': { en: 'For Landlords', zh: '房东' },

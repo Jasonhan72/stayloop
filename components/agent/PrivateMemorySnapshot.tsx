@@ -23,7 +23,7 @@ export default function PrivateMemorySnapshot({
           <p className="py-2 text-[12.5px] text-body-3">{zh ? `还没有记忆 —— 告诉 ${agentName} 你的偏好。` : `No memories yet — tell ${agentName} your preferences.`}</p>
         )}
         {memories.map((m) => (
-          <div key={m.key} className="grid grid-cols-[52px_1fr] items-baseline gap-3 py-2">
+          <div key={`${m.memory_type}:${m.key}`} className="grid grid-cols-[52px_1fr] items-baseline gap-3 py-2">
             <span className="font-mono text-[10px] font-bold text-brand">{m.label}</span>
             <span className="text-[12.5px] leading-snug text-body">{formatMemoryValue(m)}</span>
           </div>

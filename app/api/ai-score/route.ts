@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     const monthlyRent = app.listing?.monthly_rent || 0
-    const incomeRatio = app.monthly_income ? app.monthly_income / monthlyRent : 0
+    const incomeRatio = app.monthly_income && monthlyRent ? app.monthly_income / monthlyRent : 0
     const files: AppFile[] = Array.isArray(app.files) ? app.files : []
 
     // Build multimodal content blocks. For each uploaded file, create a signed URL
@@ -165,6 +165,7 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }],
       }),
+      signal: AbortSignal.timeout(60000),
     })
 
     if (!response.ok) {

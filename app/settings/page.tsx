@@ -7,16 +7,17 @@ import { useAuth } from '@/lib/useAuth'
 import { useI18n } from '@/lib/i18n'
 
 const TABS = [
-  { key: 'profile', label: '个人资料' },
-  { key: 'lang',    label: '语言' },
-  { key: 'notif',   label: '通知' },
-  { key: 'privacy', label: '隐私 · 共享' },
-  { key: 'auth',    label: '账户安全' },
+  { key: 'profile', zh: '个人资料',  en: 'Profile' },
+  { key: 'lang',    zh: '语言',      en: 'Language' },
+  { key: 'notif',   zh: '通知',      en: 'Notifications' },
+  { key: 'privacy', zh: '隐私 · 共享', en: 'Privacy & Sharing' },
+  { key: 'auth',    zh: '账户安全',   en: 'Account Security' },
 ] as const
 
 export default function SettingsPage() {
   const auth = useAuth()
   const { lang, setLang } = useI18n()
+  const zh = lang === 'zh'
   const [tab, setTab] = useState<typeof TABS[number]['key']>('profile')
 
   return (
@@ -25,7 +26,7 @@ export default function SettingsPage() {
       <main className="bg-surface">
         <div className="mx-auto grid max-w-[1100px] gap-8 px-5 py-12 sm:px-7 lg:grid-cols-[220px_1fr]">
           <aside>
-            <h1 className="text-[24px] font-bold tracking-tight">设置</h1>
+            <h1 className="text-[24px] font-bold tracking-tight">{zh ? '设置' : 'Settings'}</h1>
             <nav className="mt-6 flex flex-col gap-1">
               {TABS.map((t) => (
                 <button
@@ -38,7 +39,7 @@ export default function SettingsPage() {
                       : 'text-body-2 hover:bg-line-divider/40 hover:text-body')
                   }
                 >
-                  {t.label}
+                  {zh ? t.zh : t.en}
                 </button>
               ))}
             </nav>
@@ -47,18 +48,18 @@ export default function SettingsPage() {
           <section className="sl-card p-7">
             {tab === 'profile' && (
               <div>
-                <h2 className="text-[20px] font-bold tracking-tight">个人资料</h2>
+                <h2 className="text-[20px] font-bold tracking-tight">{zh ? '个人资料' : 'Profile'}</h2>
                 <div className="mt-6 space-y-4">
-                  <Field label="姓名" value={auth.fullName || '—'} />
-                  <Field label="邮箱" value={auth.email || '—'} />
-                  <Field label="角色" value={auth.role || '尚未选择'} />
+                  <Field label={zh ? '姓名' : 'Name'} value={auth.fullName || '—'} />
+                  <Field label={zh ? '邮箱' : 'Email'} value={auth.email || '—'} />
+                  <Field label={zh ? '角色' : 'Role'} value={auth.role || (zh ? '尚未选择' : 'Not selected')} />
                 </div>
               </div>
             )}
             {tab === 'lang' && (
               <div>
-                <h2 className="text-[20px] font-bold tracking-tight">语言</h2>
-                <p className="mt-2 text-[13px] text-body-2">这会影响 Stayloop 整站的显示语言。</p>
+                <h2 className="text-[20px] font-bold tracking-tight">{zh ? '语言' : 'Language'}</h2>
+                <p className="mt-2 text-[13px] text-body-2">{zh ? '这会影响 Stayloop 整站的显示语言。' : 'This changes the display language across all of Stayloop.'}</p>
                 <div className="mt-5 flex gap-2">
                   {(['zh', 'en'] as const).map((l) => (
                     <button
@@ -79,57 +80,57 @@ export default function SettingsPage() {
             )}
             {tab === 'notif' && (
               <div>
-                <h2 className="text-[20px] font-bold tracking-tight">通知</h2>
+                <h2 className="text-[20px] font-bold tracking-tight">{zh ? '通知' : 'Notifications'}</h2>
                 <div className="mt-6 space-y-3">
-                  <ToggleRow label="新房源符合我的偏好" hint="Luna 每天最多 1 次邮件汇总。" defaultOn />
-                  <ToggleRow label="申请进度更新" defaultOn />
-                  <ToggleRow label="维修工单状态" defaultOn />
-                  <ToggleRow label="租金支付提醒" defaultOn />
-                  <ToggleRow label="续约 / 涨租通知" defaultOn />
-                  <ToggleRow label="产品更新 + 时讯" />
+                  <ToggleRow label={zh ? '新房源符合我的偏好' : 'New listings matching my preferences'} hint={zh ? 'Luna 每天最多 1 次邮件汇总。' : 'Luna sends at most one email digest per day.'} defaultOn />
+                  <ToggleRow label={zh ? '申请进度更新' : 'Application progress updates'} defaultOn />
+                  <ToggleRow label={zh ? '维修工单状态' : 'Maintenance ticket status'} defaultOn />
+                  <ToggleRow label={zh ? '租金支付提醒' : 'Rent payment reminders'} defaultOn />
+                  <ToggleRow label={zh ? '续约 / 涨租通知' : 'Renewal / rent increase notices'} defaultOn />
+                  <ToggleRow label={zh ? '产品更新 + 时讯' : 'Product updates + newsletter'} />
                 </div>
               </div>
             )}
             {tab === 'privacy' && (
               <div>
-                <h2 className="text-[20px] font-bold tracking-tight">隐私 · 共享</h2>
+                <h2 className="text-[20px] font-bold tracking-tight">{zh ? '隐私 · 共享' : 'Privacy & Sharing'}</h2>
                 <p className="mt-2 text-[13.5px] text-body-2">
-                  你的 Rental Passport 字段共享情况在
-                  {' '}<a className="font-semibold text-brand underline" href="/tenant/passport">Passport 详情页</a>{' '}
-                  管理。这里是宏观控制。
+                  {zh ? '你的 Rental Passport 字段共享情况在' : 'Your Rental Passport field sharing is managed on the'}
+                  {' '}<a className="font-semibold text-brand underline" href="/tenant/passport">{zh ? 'Passport 详情页' : 'Passport details page'}</a>{' '}
+                  {zh ? '管理。这里是宏观控制。' : '. This is the high-level control.'}
                 </p>
                 <div className="mt-6 space-y-3">
-                  <ToggleRow label="允许房东在邀请你看房前查看你的匿名 Tier 等级" defaultOn />
-                  <ToggleRow label="允许 Stayloop 在 listing 推荐时使用我的偏好" defaultOn />
-                  <ToggleRow label="允许 Trust API 合作伙伴在我授权后查询" />
+                  <ToggleRow label={zh ? '允许房东在邀请你看房前查看你的匿名 Tier 等级' : 'Let landlords see your anonymous Tier level before inviting you to a viewing'} defaultOn />
+                  <ToggleRow label={zh ? '允许 Stayloop 在 listing 推荐时使用我的偏好' : 'Let Stayloop use my preferences for listing recommendations'} defaultOn />
+                  <ToggleRow label={zh ? '允许 Trust API 合作伙伴在我授权后查询' : 'Let Trust API partners query after my authorization'} />
                 </div>
               </div>
             )}
             {tab === 'auth' && (
               <div>
-                <h2 className="text-[20px] font-bold tracking-tight">账户安全</h2>
+                <h2 className="text-[20px] font-bold tracking-tight">{zh ? '账户安全' : 'Account Security'}</h2>
                 <div className="mt-6 space-y-4 text-[14px]">
                   <div className="flex items-center justify-between rounded-xl bg-surface-chip px-4 py-3">
                     <div>
-                      <div className="font-bold">登录方式</div>
+                      <div className="font-bold">{zh ? '登录方式' : 'Sign-in method'}</div>
                       <div className="text-[12.5px] text-body-3">Magic link · Supabase</div>
                     </div>
-                    <button className="sl-btn-ghost">修改</button>
+                    <button className="sl-btn-ghost">{zh ? '修改' : 'Change'}</button>
                   </div>
                   <div className="flex items-center justify-between rounded-xl bg-surface-chip px-4 py-3">
                     <div>
                       <div className="font-bold">2FA</div>
-                      <div className="text-[12.5px] text-body-3">推荐开启 Authenticator</div>
+                      <div className="text-[12.5px] text-body-3">{zh ? '推荐开启 Authenticator' : 'Authenticator recommended'}</div>
                     </div>
-                    <button className="sl-btn-secondary">开启</button>
+                    <button className="sl-btn-secondary">{zh ? '开启' : 'Enable'}</button>
                   </div>
                   <div className="flex items-center justify-between rounded-xl bg-danger/5 px-4 py-3">
                     <div>
-                      <div className="font-bold text-danger">删除账户</div>
-                      <div className="text-[12.5px] text-body-3">不可逆 · 30 天内可恢复</div>
+                      <div className="font-bold text-danger">{zh ? '删除账户' : 'Delete account'}</div>
+                      <div className="text-[12.5px] text-body-3">{zh ? '不可逆 · 30 天内可恢复' : 'Irreversible · recoverable within 30 days'}</div>
                     </div>
                     <button className="rounded-lg border border-danger/40 bg-white px-3 py-[7px] text-[12.5px] font-semibold text-danger">
-                      删除
+                      {zh ? '删除' : 'Delete'}
                     </button>
                   </div>
                 </div>

@@ -37,10 +37,18 @@ function loadGoogleMaps(apiKey: string): Promise<void> {
   scriptLoading = new Promise((resolve, reject) => {
     const existing = document.getElementById('google-maps-sdk')
     if (existing) {
+      // If the SDK already finished loading (e.g. after a remount) the 'load'
+      // event will never fire again — resolve immediately so the map inits.
+      if ((window as { google?: { maps?: unknown } }).google?.maps) {
+        scriptLoaded = true
+        resolve()
+        return
+      }
       existing.addEventListener('load', () => {
         scriptLoaded = true
         resolve()
       })
+      existing.addEventListener('error', () => reject(new Error('Google Maps SDK failed to load')))
       return
     }
     const s = document.createElement('script')

@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       try {
         // CanLII v1 case browse API — search ONLTB (Landlord Tenant Board) decisions
         const url = `https://api.canlii.org/v1/caseBrowse/en/onltb/?api_key=${apiKey}&resultCount=20&offset=0&publishedBefore=2026-12-31&publishedAfter=2018-01-01&fullText=${encodeURIComponent(`"${fullName}"`)}`
-        const res = await fetch(url)
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
         if (!res.ok) {
           status = 'error'
         } else {

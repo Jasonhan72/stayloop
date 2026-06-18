@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { v3, size } from '@/lib/brand'
-import { useT, LanguageToggle } from '@/lib/i18n'
+import { useT } from '@/lib/i18n'
 import Header from '@/components/Header'
 import SecHead from '@/components/v4/SecHead'
 

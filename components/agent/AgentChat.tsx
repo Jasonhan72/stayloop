@@ -78,16 +78,17 @@ export default function AgentChat({
               </div>
               {m.role === 'user' && m.attachments && m.attachments.length > 0 && (
                 <div className="flex flex-wrap justify-end gap-2">
-                  {m.attachments.map((a, i) =>
-                    a.isImage ? (
+                  {m.attachments.map((a, i) => {
+                    const k = a.dataUrl.slice(0, 48) + a.name + i
+                    return a.isImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img key={i} src={a.dataUrl} alt={a.name} className="h-24 w-24 rounded-lg border border-line-divider object-cover" />
+                      <img key={k} src={a.dataUrl} alt={a.name} className="h-24 w-24 rounded-lg border border-line-divider object-cover" />
                     ) : (
-                      <span key={i} className="flex items-center gap-1.5 rounded-lg border border-line-divider bg-surface-chip px-2.5 py-1.5 text-[12px] text-body-2">
+                      <span key={k} className="flex items-center gap-1.5 rounded-lg border border-line-divider bg-surface-chip px-2.5 py-1.5 text-[12px] text-body-2">
                         📄 {a.name}
                       </span>
                     )
-                  )}
+                  })}
                 </div>
               )}
               {m.role === 'agent' && m.listings && m.listings.length > 0 && (

@@ -59,8 +59,13 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
       })
     })
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       if (cancelled) return
+      // Clear the persisted role on sign-out so it can't bleed into the next
+      // user who logs in on the same browser.
+      if (event === 'SIGNED_OUT' && typeof window !== 'undefined') {
+        window.localStorage.removeItem(ROLE_KEY)
+      }
       setState((prev) => ({
         ...prev,
         loading: false,

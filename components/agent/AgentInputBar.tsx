@@ -47,25 +47,29 @@ export default function AgentInputBar({
     }
   }
 
-  const addFiles = (files: FileList | null) => {
+  const addFiles = async (files: FileList | null) => {
     if (!files) return
-    Array.from(files).forEach((f) => {
-      if (f.size > MAX_BYTES) return
-      const reader = new FileReader()
-      reader.onload = () =>
-        setAtts((prev) =>
-          [
-            ...prev,
-            {
-              name: f.name,
-              mediaType: f.type || 'application/octet-stream',
-              dataUrl: String(reader.result),
-              isImage: f.type.startsWith('image/'),
-            },
-          ].slice(0, MAX_FILES)
-        )
-      reader.readAsDataURL(f)
-    })
+    // Read every accepted file to completion, then commit once — reading them
+    // in parallel and calling setAtts per-callback raced and dropped files.
+    const accepted = Array.from(files).filter((f) => f.size <= MAX_BYTES)
+    const read = await Promise.all(
+      accepted.map(
+        (f) =>
+          new Promise<{ name: string; mediaType: string; dataUrl: string; isImage: boolean }>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () =>
+              resolve({
+                name: f.name,
+                mediaType: f.type || 'application/octet-stream',
+                dataUrl: String(reader.result),
+                isImage: f.type.startsWith('image/'),
+              })
+            reader.onerror = () => reject(reader.error)
+            reader.readAsDataURL(f)
+          })
+      )
+    ).catch(() => [])
+    if (read.length) setAtts((prev) => [...prev, ...read].slice(0, MAX_FILES))
   }
 
   const toggleVoice = () => {
@@ -99,7 +103,7 @@ export default function AgentInputBar({
       {atts.length > 0 && (
         <div className="flex flex-wrap gap-2 px-3 pt-3">
           {atts.map((a, i) => (
-            <div key={i} className="flex items-center gap-2 rounded-lg border border-line-divider bg-surface-chip py-1 pl-1 pr-2">
+            <div key={a.dataUrl.slice(0, 48) + a.name} className="flex items-center gap-2 rounded-lg border border-line-divider bg-surface-chip py-1 pl-1 pr-2">
               {a.isImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={a.dataUrl} alt={a.name} className="h-9 w-9 rounded object-cover" />

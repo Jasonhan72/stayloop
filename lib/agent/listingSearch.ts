@@ -128,11 +128,13 @@ async function jinaRealtor(c: SearchCriteria): Promise<ListingCard[]> {
   } catch {
     /* fall through */
   }
-  if (!pageUrl) return []
+  // Only ever hand the reader a genuine realtor.ca URL — never an arbitrary
+  // host that slipped through the search results (SSRF hardening).
+  if (!pageUrl || !/^https:\/\/(www\.)?realtor\.ca\//i.test(pageUrl)) return []
 
   // 2. Read the page, parse all rows, then filter + rank for relevance.
   try {
-    const rres = await fetch(`https://r.jina.ai/${pageUrl}`, {
+    const rres = await fetch(`https://r.jina.ai/${encodeURI(pageUrl)}`, {
       headers: { Authorization: `Bearer ${key}` },
       signal: AbortSignal.timeout(22000),
     })

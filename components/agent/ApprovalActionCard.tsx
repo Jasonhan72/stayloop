@@ -66,6 +66,7 @@ export default function ApprovalActionCard({
 
       <div className="mt-5 flex flex-wrap gap-2">
         <button
+          type="button"
           disabled={busy !== null}
           onClick={() => decide('approved')}
           className="sl-btn-primary !px-4 !py-[10px] !text-[13.5px] disabled:opacity-60"
@@ -73,6 +74,7 @@ export default function ApprovalActionCard({
           {busy === 'approved' ? (zh ? '提交中…' : 'Submitting…') : zh ? '✓ 确认 · 替我执行' : '✓ Approve · Execute for me'}
         </button>
         <button
+          type="button"
           disabled={busy !== null}
           onClick={() => decide('rejected')}
           className="rounded-lg border border-line-strong bg-white px-4 py-[9px] text-[13.5px] font-semibold text-body transition hover:border-danger hover:text-danger disabled:opacity-60"

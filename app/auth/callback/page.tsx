@@ -51,11 +51,22 @@ export default function AuthCallback() {
         if (stored && AGENT_HOME[stored]) {
           dest = AGENT_HOME[stored]
         } else {
-          const { data: cfg } = await supabase.from('agent_configs').select('role').limit(1).maybeSingle()
-          const role = (cfg as { role?: string } | null)?.role
-          if (role && AGENT_HOME[role]) {
-            window.localStorage.setItem('sl-active-role', role)
-            dest = AGENT_HOME[role]
+          // Scope to the authenticated user explicitly (don't rely on RLS
+          // alone) and pick the most recent config so the role is deterministic.
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: cfg } = await supabase
+              .from('agent_configs')
+              .select('role')
+              .eq('user_id', user.id)
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            const role = (cfg as { role?: string } | null)?.role
+            if (role && AGENT_HOME[role]) {
+              window.localStorage.setItem('sl-active-role', role)
+              dest = AGENT_HOME[role]
+            }
           }
         }
         setTimeout(() => router.replace(dest), 600)

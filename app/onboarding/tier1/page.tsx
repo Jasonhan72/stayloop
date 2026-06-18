@@ -10,7 +10,8 @@ import { useAIName } from '@/lib/aiName'
 type Step = 'intro' | 'capture-id' | 'selfie' | 'review'
 
 export default function Tier1OnboardingPage() {
-  const { t } = useI18n()
+  const { lang } = useI18n()
+  const zh = lang === 'zh'
   const [step, setStep] = useState<Step>('intro')
 
   return (
@@ -22,9 +23,13 @@ export default function Tier1OnboardingPage() {
           {step === 'intro' && <IntroCard onStart={() => setStep('capture-id')} />}
           {step === 'capture-id' && (
             <CaptureCard
-              title="第 1 步 / 3 · 拍摄证件"
-              hint="护照、加拿大驾照或 PR 卡均可。证件四角清晰、文字可读。"
-              ctaLabel="✓ 已拍摄 · 继续"
+              title={zh ? '第 1 步 / 3 · 拍摄证件' : 'Step 1 / 3 · Capture your ID'}
+              hint={
+                zh
+                  ? '护照、加拿大驾照或 PR 卡均可。证件四角清晰、文字可读。'
+                  : 'A passport, Canadian driver’s licence, or PR card all work. Make sure all four corners are sharp and the text is readable.'
+              }
+              ctaLabel={zh ? '✓ 已拍摄 · 继续' : '✓ Captured · Continue'}
               onNext={() => setStep('selfie')}
               onBack={() => setStep('intro')}
               icon={<IdIcon />}
@@ -32,9 +37,13 @@ export default function Tier1OnboardingPage() {
           )}
           {step === 'selfie' && (
             <CaptureCard
-              title="第 2 步 / 3 · 拍摄自拍"
-              hint="对着摄像头眨眨眼，Persona 会做活体检测确认是你本人。"
-              ctaLabel="✓ 已确认 · 继续"
+              title={zh ? '第 2 步 / 3 · 拍摄自拍' : 'Step 2 / 3 · Take a selfie'}
+              hint={
+                zh
+                  ? '对着摄像头眨眨眼，Persona 会做活体检测确认是你本人。'
+                  : 'Blink at the camera — Persona runs a liveness check to confirm it’s really you.'
+              }
+              ctaLabel={zh ? '✓ 已确认 · 继续' : '✓ Confirmed · Continue'}
               onNext={() => setStep('review')}
               onBack={() => setStep('capture-id')}
               icon={<SelfieIcon />}
@@ -120,6 +129,8 @@ function CaptureCard({
   onBack: () => void
   icon: React.ReactNode
 }) {
+  const { lang } = useI18n()
+  const zh = lang === 'zh'
   const inputRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
@@ -129,11 +140,11 @@ function CaptureCard({
   const accept = (f: File | null | undefined) => {
     if (!f) return
     if (!f.type.startsWith('image/')) {
-      setError('请上传图片文件（JPG / PNG / HEIC）。')
+      setError(zh ? '请上传图片文件（JPG / PNG / HEIC）。' : 'Please upload an image file (JPG / PNG / HEIC).')
       return
     }
     if (f.size > 15 * 1024 * 1024) {
-      setError('图片过大,请控制在 15MB 以内。')
+      setError(zh ? '图片过大,请控制在 15MB 以内。' : 'Image is too large — please keep it under 15MB.')
       return
     }
     setError(null)
@@ -163,7 +174,7 @@ function CaptureCard({
       <div
         role="button"
         tabIndex={0}
-        aria-label="上传或拍摄证件照片"
+        aria-label={zh ? '上传或拍摄证件照片' : 'Upload or capture an ID photo'}
         onClick={openPicker}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -189,9 +200,9 @@ function CaptureCard({
         {preview ? (
           <div className="relative h-full w-full">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={preview} alt="证件预览" className="h-full w-full object-contain" />
+            <img src={preview} alt={zh ? '证件预览' : 'ID preview'} className="h-full w-full object-contain" />
             <span className="absolute bottom-2 right-2 rounded-md bg-white/90 px-2 py-1 font-mono text-[10px] font-bold text-brand">
-              ✓ 已选择 · 点击重拍
+              {zh ? '✓ 已选择 · 点击重拍' : '✓ Selected · Tap to retake'}
             </span>
           </div>
         ) : (
@@ -199,8 +210,8 @@ function CaptureCard({
             <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-brand">
               {icon}
             </span>
-            <span className="text-[13px]">点击此处启动相机 / 上传图片</span>
-            <span className="text-[12px] text-body-4">或把图片拖到这里</span>
+            <span className="text-[13px]">{zh ? '点击此处启动相机 / 上传图片' : 'Tap here to open the camera / upload an image'}</span>
+            <span className="text-[12px] text-body-4">{zh ? '或把图片拖到这里' : 'or drag an image here'}</span>
             <span className="font-mono text-[11px] text-body-4">ENCRYPTED · PERSONA SDK</span>
           </div>
         )}
@@ -208,7 +219,7 @@ function CaptureCard({
 
       {error && <p className="-mt-4 mb-4 text-[12.5px] font-semibold text-danger">{error}</p>}
       {fileName && !error && (
-        <p className="-mt-4 mb-4 truncate font-mono text-[11px] text-body-3">已选择 · {fileName}</p>
+        <p className="-mt-4 mb-4 truncate font-mono text-[11px] text-body-3">{zh ? '已选择' : 'Selected'} · {fileName}</p>
       )}
 
       <div className="flex items-center gap-3">
@@ -216,7 +227,7 @@ function CaptureCard({
           onClick={onBack}
           className="rounded-[10px] border border-line-strong bg-white px-5 py-[12px] text-[14px] font-semibold text-body transition hover:border-brand hover:text-brand"
         >
-          ← 返回
+          {zh ? '← 返回' : '← Back'}
         </button>
         <button
           onClick={onNext}
@@ -225,7 +236,7 @@ function CaptureCard({
             'sl-btn-primary flex-1 !py-[14px] ' + (!preview ? 'cursor-not-allowed opacity-50' : '')
           }
         >
-          {preview ? ctaLabel : '请先上传 / 拍摄'}
+          {preview ? ctaLabel : zh ? '请先上传 / 拍摄' : 'Upload or capture first'}
         </button>
       </div>
     </div>
@@ -233,32 +244,36 @@ function CaptureCard({
 }
 
 function ReviewCard({ onBack }: { onBack: () => void }) {
+  const { lang } = useI18n()
+  const zh = lang === 'zh'
   const name = useAIName()
   return (
     <div className="sl-card mx-auto max-w-[580px] px-8 py-10 text-center sm:px-12 sm:py-12">
       <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brand/10 text-brand">
         <CheckIcon />
       </span>
-      <h2 className="mt-5 text-[26px] font-bold tracking-tight">认证 1 级 通过 ✓</h2>
+      <h2 className="mt-5 text-[26px] font-bold tracking-tight">{zh ? '认证 1 级 通过 ✓' : 'Tier 1 passed ✓'}</h2>
       <p className="mt-3 text-[14px] leading-relaxed text-body-2">
-        身份已验证。{name} 已经在你的 Workspace 等你 — 现在就能浏览房源、提交看房意向。
+        {zh
+          ? <>身份已验证。{name} 已经在你的 Workspace 等你 — 现在就能浏览房源、提交看房意向。</>
+          : <>Your identity is verified. {name} is already waiting in your Workspace — you can browse listings and submit viewing requests right now.</>}
       </p>
 
       <div className="mt-8 flex flex-col gap-3">
         <Link href="/tenant/agent" className="sl-btn-primary w-full !py-[14px] !text-[15px]">
-          打开我的 Workspace →
+          {zh ? '打开我的 Workspace →' : 'Open my Workspace →'}
         </Link>
         <Link
           href="/listings"
           className="rounded-[10px] border border-line-strong bg-white px-5 py-[12px] text-[14px] font-semibold text-body transition hover:border-brand hover:text-brand"
         >
-          直接浏览房源
+          {zh ? '直接浏览房源' : 'Browse listings directly'}
         </Link>
         <button
           onClick={onBack}
           className="text-[13px] text-body-3 transition hover:text-body"
         >
-          重新拍摄
+          {zh ? '重新拍摄' : 'Retake'}
         </button>
       </div>
     </div>
