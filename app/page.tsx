@@ -67,7 +67,7 @@ export default function HomePage() {
       {/* ===== 01 · WHY AI-NATIVE ===== */}
       <Section n="01" kicker="为什么是 AI-NATIVE" title={<>现在开始,租房的事,<br />交给你的 AI agent 来处理。</>}
         lead="你不用研究怎么用这个平台。每个人都有自己的 AI agent —— 租客的 Luna、房东的 Logic。把要的告诉它,找房、尽调、申请、起草租约,它从头跟到尾;你只在关键处拍板。">
-        <div className="grid items-start gap-10 lg:grid-cols-[1fr_minmax(380px,440px)]">
+        <div className="grid items-start gap-10 lg:grid-cols-[1fr_minmax(380px,440px)] lg:items-center">
           {/* Left — pillars as a vertical numbered list (matches V5.3 design) */}
           <div className="space-y-6">
             {PILLARS.map((p) => (
