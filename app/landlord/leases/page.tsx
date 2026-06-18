@@ -79,7 +79,7 @@ export default function LandlordLeasesPage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-landlord">
             LANDLORD · LEASES
           </div>
-          <h1 className="mt-2 text-[36px] font-bold tracking-tight">租约管理</h1>
+          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">租约管理</h1>
           <p className="mt-1 text-[13.5px] text-body-2">
             Ontario LTB 标准租约 · RTA 条款自动校验 · 续约 / 涨租通知一键发送
           </p>

@@ -173,7 +173,7 @@ export default function NewListingPage() {
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
               LISTING WIZARD · STEP {step} / 5 · {cur.nm}
             </div>
-            <h1 className="mt-2 text-[32px] font-bold tracking-tight">
+            <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[32px]">
               UNIT 1207 · 让 Logic 帮你整理这些字段
             </h1>
             <p className="mt-2 text-[13px] text-body-2">

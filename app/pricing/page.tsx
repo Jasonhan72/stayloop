@@ -90,7 +90,7 @@ export default function PricingPage() {
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
               PRICING · 透明 · 无隐藏
             </div>
-            <h1 className="mx-auto mt-3 max-w-[820px] text-[40px] font-extrabold leading-tight tracking-tight sm:text-[52px]">
+            <h1 className="mx-auto mt-3 max-w-[820px] text-[30px] font-extrabold leading-tight tracking-tight sm:text-[44px] lg:text-[52px]">
               租客永远免费<br />房东 / 经纪按价值付费
             </h1>
             <p className="mx-auto mt-4 max-w-[680px] text-[15.5px] leading-relaxed text-body-2">

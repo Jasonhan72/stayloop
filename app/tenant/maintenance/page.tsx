@@ -19,7 +19,7 @@ export default function TenantMaintenancePage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-tenant">
             MAINTENANCE
           </div>
-          <h1 className="mt-2 text-[36px] font-bold tracking-tight">维修请求</h1>
+          <h1 className="mt-2 text-[26px] sm:text-[36px] font-bold tracking-tight">维修请求</h1>
         </div>
         <button onClick={() => setOpen(true)} className="sl-btn-primary !py-[12px]">
           + 提交新请求
@@ -87,8 +87,8 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
   const [cat, setCat] = useState('')
   const [urg, setUrg] = useState('medium')
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur sm:items-center">
-      <div className="sl-card w-full max-w-lg p-7 sm:p-9">
+    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-ink/40 p-4 backdrop-blur sm:items-center">
+      <div className="sl-card max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto p-5 sm:p-9">
         <div className="font-mono text-[10.5px] uppercase tracking-eyebrowLg text-body-3">
           UNIT 1207 · 维修 · 发给 SARAH
         </div>

@@ -39,7 +39,7 @@ export default function AgentEarningsPage() {
         <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-agent">
           AGENT · EARNINGS
         </div>
-        <h1 className="mt-2 text-[36px] font-bold tracking-tight">
+        <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">
           本周 9 场带看 · $720 已锁
         </h1>
         <p className="mt-1 text-[13.5px] text-body-2">
@@ -99,7 +99,8 @@ export default function AgentEarningsPage() {
           <div className="border-b border-line-divider px-6 py-4">
             <h3 className="text-[16px] font-bold tracking-tight">最近结算（Stripe Payouts）</h3>
           </div>
-          <table className="w-full text-[13.5px]">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[460px] text-[13.5px]">
             <thead className="bg-surface-chip">
               <tr>
                 <Th>日期</Th>
@@ -139,6 +140,7 @@ export default function AgentEarningsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </section>
 
         <section className="sl-card overflow-hidden">

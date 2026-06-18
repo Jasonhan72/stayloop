@@ -42,7 +42,7 @@ export default function LandlordFinancePage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-landlord">
             财务 · 2026 YTD
           </div>
-          <h1 className="mt-2 text-[36px] font-bold tracking-tight">
+          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">
             Sarah 你今年到 5 月赚了 $30,000
           </h1>
         </div>
@@ -112,7 +112,8 @@ export default function LandlordFinancePage() {
           <div className="border-b border-line-divider px-6 py-4">
             <h3 className="text-[16px] font-bold tracking-tight">本月收租明细</h3>
           </div>
-          <table className="w-full text-[13.5px]">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[460px] text-[13.5px]">
             <thead className="bg-surface-chip">
               <tr>
                 <Th>房产</Th>
@@ -136,6 +137,7 @@ export default function LandlordFinancePage() {
               ))}
             </tbody>
           </table>
+          </div>
         </section>
 
         <section className="sl-card overflow-hidden">

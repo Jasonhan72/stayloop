@@ -63,15 +63,15 @@ export default function WorkspaceShell({ role, aside, children, hideAside }: Pro
     <>
       <Header variant="solid" />
       <main className="bg-surface">
-        <div className="grid min-h-[calc(100vh-56px)]" style={{
-          gridTemplateColumns: hideAside ? '76px 1fr' : '76px 1fr 320px',
-        }}>
+        {/* mobile: stacked (Rail becomes a fixed bottom tab bar); md+: Rail left
+            · content · aside right */}
+        <div className="md:flex md:min-h-[calc(100vh-66px)]">
           <Rail role={role} />
-          <div className="overflow-y-auto px-7 py-9 lg:px-12">
+          <div className="min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12">
             {children}
           </div>
           {!hideAside && (
-            <aside className="hidden overflow-y-auto border-l border-line-divider bg-white p-6 lg:block">
+            <aside className="border-t border-line-divider bg-white px-5 py-6 md:w-[320px] md:flex-none md:overflow-y-auto md:border-l md:border-t-0 md:p-6">
               {aside}
             </aside>
           )}
@@ -88,10 +88,10 @@ function Rail({ role }: { role: WorkspaceRole }) {
   const accent = ROLE_ACCENT[role]
   return (
     <nav
-      className="flex flex-col items-center gap-1.5 border-r border-line-divider bg-surface-muted py-4"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-around gap-1 overflow-x-auto border-t border-line-divider bg-surface-muted px-2 md:static md:h-auto md:w-[76px] md:flex-col md:justify-start md:gap-1.5 md:overflow-visible md:border-r md:border-t-0 md:px-0 md:py-4"
     >
       <div
-        className="mb-4 flex h-8 w-8 items-center justify-center rounded-lg text-[15px] font-extrabold text-white"
+        className="mb-4 hidden h-8 w-8 items-center justify-center rounded-lg text-[15px] font-extrabold text-white md:flex"
         style={{ background: accent.bg }}
       >
         S
@@ -107,14 +107,14 @@ function Rail({ role }: { role: WorkspaceRole }) {
                 href={it.href}
                 title={lang === 'en' ? it.label.en : it.label.zh}
                 className={
-                  'flex h-11 w-11 items-center justify-center rounded-xl text-[16px] text-white shadow-sm transition ' +
+                  'flex h-11 w-11 flex-none items-center justify-center rounded-xl text-[16px] text-white shadow-sm transition ' +
                   (on ? 'ring-2 ring-offset-2 ring-offset-surface-muted' : 'hover:opacity-90')
                 }
                 style={{ background: accent.bg, ['--tw-ring-color' as string]: accent.bg }}
               >
                 {it.icon}
               </Link>
-              <div className="my-1.5 h-px w-7 bg-line-divider" />
+              <div className="my-1.5 hidden h-px w-7 bg-line-divider md:block" />
             </Fragment>
           )
         }
@@ -124,7 +124,7 @@ function Rail({ role }: { role: WorkspaceRole }) {
             href={it.href}
             title={lang === 'en' ? it.label.en : it.label.zh}
             className={
-              'flex h-11 w-11 items-center justify-center rounded-lg text-[16px] transition ' +
+              'flex h-11 w-11 flex-none items-center justify-center rounded-lg text-[16px] transition ' +
               (on
                 ? 'bg-white text-brand shadow-sm'
                 : 'text-body-3 hover:bg-white/60 hover:text-body')
@@ -135,9 +135,9 @@ function Rail({ role }: { role: WorkspaceRole }) {
           </Link>
         )
       })}
-      <div className="mt-auto" />
+      <div className="hidden md:mt-auto md:block" />
       <div
-        className="h-8 w-8 rounded-full"
+        className="hidden h-8 w-8 rounded-full md:block"
         style={{
           background:
             role === 'tenant'

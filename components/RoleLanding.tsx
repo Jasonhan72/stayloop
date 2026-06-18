@@ -35,7 +35,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: c }}>
               {cfg.eyebrow}
             </div>
-            <h1 className="mt-4 text-[36px] font-extrabold leading-[1.08] tracking-tight sm:text-[46px]">{cfg.h1}</h1>
+            <h1 className="mt-4 text-[28px] font-extrabold leading-[1.08] tracking-tight sm:text-[46px]">{cfg.h1}</h1>
             <p className="mt-5 max-w-[540px] text-[16px] leading-relaxed text-body-2">{cfg.sub}</p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link

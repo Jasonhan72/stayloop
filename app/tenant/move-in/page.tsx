@@ -41,7 +41,7 @@ export default function TenantMoveInPage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">
             入住 · DAY 1 · 2026/06/01
           </div>
-          <h1 className="mt-2 text-[32px] font-bold tracking-tight">
+          <h1 className="mt-2 text-[24px] sm:text-[32px] font-bold tracking-tight">
             欢迎搬入 Unit 1207 · King West
           </h1>
           <p className="mt-2 text-[13.5px] text-body-2">
@@ -64,7 +64,7 @@ export default function TenantMoveInPage() {
         </div>
 
         {/* ── Task 1 · move-in condition photos ── */}
-        <div className="mb-5 sl-card p-7">
+        <div className="mb-5 sl-card p-5 sm:p-7">
           <h2 className="text-[18px] font-bold tracking-tight">📷 入住状态拍照（关键）</h2>
           <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
             这些照片会被时间戳锁定，作为退租时的对照标准 — 保护你的押金。{name} 会把它们存进
@@ -106,7 +106,7 @@ export default function TenantMoveInPage() {
         </div>
 
         {/* ── Task 2 · facilities + keys ── */}
-        <div className="mb-5 sl-card p-7">
+        <div className="mb-5 sl-card p-5 sm:p-7">
           <h2 className="text-[18px] font-bold tracking-tight">🔧 设施 + 钥匙</h2>
           <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
             逐项确认收到的实物。打勾即记录交接时间，缺漏的当场告诉 Sarah。
@@ -134,7 +134,7 @@ export default function TenantMoveInPage() {
         </div>
 
         {/* ── Task 3 · deposit + first month rent ── */}
-        <div className="mb-5 sl-card p-7">
+        <div className="mb-5 sl-card p-5 sm:p-7">
           <h2 className="text-[18px] font-bold tracking-tight">💰 押金 + 第一月租</h2>
           <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
             已自动从你的账户转出 · 由 Stripe 托管 · 见 audit log。

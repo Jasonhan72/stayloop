@@ -48,7 +48,7 @@ export default function AgentCalendarPage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-agent">
             DAVID PARK · 第 20 周 · 5/11–5/17
           </div>
-          <h1 className="mt-2 text-[32px] font-bold tracking-tight">
+          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[32px]">
             本周 9 场带看 · $720 已锁
           </h1>
           <p className="mt-1 text-[13.5px] text-body-2">绿 = 已完成 · 蓝 = 已确认 · 黄 = 等你接</p>
@@ -94,7 +94,8 @@ export default function AgentCalendarPage() {
       </div>
 
       {/* Calendar grid */}
-      <div className="sl-card overflow-hidden">
+      <div className="sl-card overflow-x-auto">
+        <div className="min-w-[680px]">
         {/* Day header */}
         <div
           className="grid border-b border-line-divider bg-surface-chip"
@@ -158,6 +159,7 @@ export default function AgentCalendarPage() {
               </div>
             )
           })}
+        </div>
         </div>
       </div>
 

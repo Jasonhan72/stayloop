@@ -18,7 +18,7 @@ export default function AboutPage() {
       <section style={{ background: 'linear-gradient(180deg,#F2EEE5 0%,#E4EEE3 100%)' }}>
         <div className="mx-auto max-w-[900px] px-5 py-24 sm:px-7 lg:px-12">
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">ABOUT · STAYLOOP</div>
-          <h1 className="mt-4 text-[40px] font-extrabold leading-[1.08] tracking-tight sm:text-[54px]">
+          <h1 className="mt-4 text-[30px] font-extrabold leading-[1.08] tracking-tight sm:text-[44px] lg:text-[54px]">
             为 AI 时代,<br />重新设计租住的方式。
           </h1>
           <p className="mt-6 max-w-[680px] text-[17px] leading-relaxed text-body-2">

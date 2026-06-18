@@ -23,7 +23,7 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-[1240px] items-center gap-10 px-5 pb-16 pt-16 sm:px-7 lg:grid-cols-[1.05fr_0.95fr] lg:px-12 lg:pt-20">
           <div>
             <Eyebrow>为 AI 时代而生 · 多伦多租住操作系统</Eyebrow>
-            <h1 className="mt-4 text-[40px] font-extrabold leading-[1.05] tracking-tightest sm:text-[52px] lg:text-[58px]">
+            <h1 className="mt-4 text-[30px] font-extrabold leading-[1.05] tracking-tightest sm:text-[52px] lg:text-[58px]">
               在 AI 时代,
               <br />
               <span style={{ background: GRAD, WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
@@ -277,7 +277,7 @@ export default function HomePage() {
       {/* ===== CTA ===== */}
       <section className="bg-white">
         <div className="mx-auto max-w-[1240px] px-5 py-20 text-center sm:px-7 lg:px-12">
-          <h2 className="mx-auto max-w-[720px] text-[32px] font-extrabold leading-tight tracking-tight sm:text-[42px]">
+          <h2 className="mx-auto max-w-[720px] text-[26px] font-extrabold leading-tight tracking-tight sm:text-[42px]">
             给你的 AI 助手起个名字,<br />让租房这件事,从此不一样。
           </h2>
           <div className="mt-7 flex flex-wrap justify-center gap-3">

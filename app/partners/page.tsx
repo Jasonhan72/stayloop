@@ -20,7 +20,7 @@ export default function PartnersPage() {
       <section style={{ background: 'linear-gradient(180deg,#F2EEE5 0%,#E4EEE3 100%)' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-24 sm:px-7 lg:px-12">
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">PARTNERS · 银行 / 保险 / 法务</div>
-          <h1 className="mt-4 max-w-[760px] text-[40px] font-extrabold leading-[1.08] tracking-tight sm:text-[52px]">
+          <h1 className="mt-4 max-w-[760px] text-[30px] font-extrabold leading-[1.08] tracking-tight sm:text-[44px] lg:text-[52px]">
             一份已验证的信任,<br />接进你的产品。
           </h1>
           <p className="mt-5 max-w-[640px] text-[17px] leading-relaxed text-body-2">

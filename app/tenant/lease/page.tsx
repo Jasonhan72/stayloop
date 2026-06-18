@@ -41,13 +41,13 @@ export default function TenantLeasePage() {
         <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-tenant">
           LEASE · 6 / 6 页 · 签名页
         </div>
-        <h1 className="mt-2 text-[36px] font-bold tracking-tight">Unit 1207 · King West 租约</h1>
+        <h1 className="mt-2 text-[26px] sm:text-[36px] font-bold tracking-tight">Unit 1207 · King West 租约</h1>
         <p className="mt-2 text-[14px] text-body-2">
           {name} 已经读完整份租约,标出了 4 条你需要特别注意的条款。看完后,在底部签名。
         </p>
       </div>
 
-      <div className="mx-auto max-w-[760px] sl-card p-8 sm:p-10">
+      <div className="mx-auto max-w-[760px] sl-card p-5 sm:p-10">
         <div className="border-b border-line-divider pb-4">
           <h2 className="text-[20px] font-bold">Ontario Standard Lease · LTB 标准表</h2>
           <p className="mt-1 text-[12px] font-mono uppercase text-body-3">

@@ -75,21 +75,20 @@ export default function ListingsPage() {
 
       {/* Search row */}
       <section
-        className="bg-white"
-        style={{ padding: '14px 32px 8px', borderBottom: '1px solid #F0EBE0' }}
+        className="bg-white px-5 sm:px-8"
+        style={{ paddingTop: 14, paddingBottom: 8, borderBottom: '1px solid #F0EBE0' }}
       >
         <div className="mx-auto flex w-full items-center">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1"
+            className="min-w-0 flex-1"
             style={{
               padding: '12px 16px',
               border: '1.5px solid #171717',
               borderRight: 0,
               borderRadius: '10px 0 0 10px',
               fontSize: 14,
-              minWidth: 280,
               outline: 'none',
             }}
           />
@@ -112,8 +111,8 @@ export default function ListingsPage() {
 
       {/* Filters */}
       <section
-        className="bg-white"
-        style={{ padding: '12px 32px', borderBottom: '1px solid #E0DACE' }}
+        className="bg-white px-5 sm:px-8"
+        style={{ paddingTop: 12, paddingBottom: 12, borderBottom: '1px solid #E0DACE' }}
       >
         <div className="mx-auto flex w-full flex-wrap items-center gap-[10px]">
           <Filt label="出租" on />
@@ -143,8 +142,8 @@ export default function ListingsPage() {
 
       {/* Results bar */}
       <section
-        className="bg-white"
-        style={{ padding: '12px 32px', borderBottom: '1px solid #F0EBE0' }}
+        className="bg-white px-5 sm:px-8"
+        style={{ paddingTop: 12, paddingBottom: 12, borderBottom: '1px solid #F0EBE0' }}
       >
         <div className="mx-auto flex w-full items-baseline justify-between">
           <div style={{ fontSize: 18, fontWeight: 700 }}>
@@ -157,19 +156,11 @@ export default function ListingsPage() {
       </section>
 
       {/* Body: split view — match Hi-Fi spec (~50/50 cards | map) */}
-      <section
-        className="w-full"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(540px, 1fr) minmax(420px, 1fr)',
-        }}
-      >
+      <section className="grid w-full grid-cols-1 lg:grid-cols-[minmax(540px,1fr)_minmax(420px,1fr)]">
         {/* Card grid */}
         <div
+          className="grid grid-cols-1 px-5 py-[18px] sm:grid-cols-2 sm:px-6"
           style={{
-            padding: '18px 24px',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
             gap: 16,
             alignContent: 'start',
           }}
@@ -194,19 +185,21 @@ export default function ListingsPage() {
           ))}
         </div>
 
-        {/* Map (sticky, Google Maps) */}
-        <ListingsMap
-          listings={items.map((l) => ({
-            id: l.id,
-            slug: l.slug,
-            lat: l.lat,
-            lng: l.lng,
-            monthly_rent: l.monthly_rent,
-            match_score: l.match_score,
-          }))}
-          active={active}
-          onPick={setActive}
-        />
+        {/* Map (sticky, Google Maps) — hidden on mobile, shown in split view on lg+ */}
+        <div className="hidden lg:block">
+          <ListingsMap
+            listings={items.map((l) => ({
+              id: l.id,
+              slug: l.slug,
+              lat: l.lat,
+              lng: l.lng,
+              monthly_rent: l.monthly_rent,
+              match_score: l.match_score,
+            }))}
+            active={active}
+            onPick={setActive}
+          />
+        </div>
       </section>
     </div>
   )

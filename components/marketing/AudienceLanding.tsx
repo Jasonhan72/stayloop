@@ -178,8 +178,9 @@ export default function AudienceLanding(p: AudienceProps) {
             {isZh ? `${p.eyebrow_zh} · ${p.eyebrow_en}` : `${p.eyebrow_en} · ${p.eyebrow_zh}`}
           </span>
           <h1
+            className="mk-hero-h1"
             style={{
-              fontSize: 'clamp(36px, 5vw, 60px)',
+              fontSize: 'clamp(28px, 5vw, 60px)',
               lineHeight: 1.06,
               fontWeight: 800,
               letterSpacing: '-0.03em',

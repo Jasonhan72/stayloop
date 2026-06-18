@@ -39,7 +39,7 @@ export default function LandlordApplicantsPage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
             APPLICANTS · UNIT 1207 · KING WEST
           </div>
-          <h1 className="mt-2 text-[36px] font-bold tracking-tight">7 份申请 · Logic 已分组</h1>
+          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">7 份申请 · Logic 已分组</h1>
           <p className="mt-2 text-[14px] text-body-2">
             按你的 认证 3 级 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整六维评分 + 文件。
           </p>
@@ -60,7 +60,7 @@ export default function LandlordApplicantsPage() {
                 <Link
                   key={a.id}
                   href={`/landlord/applicants/${a.id}`}
-                  className="grid grid-cols-[44px_1fr_120px_140px_60px] items-center gap-4 rounded-xl border border-line-divider bg-white p-4 transition hover:border-brand/40 hover:shadow-md"
+                  className="grid grid-cols-[44px_1fr_auto] items-center gap-3 rounded-xl border border-line-divider bg-white p-4 transition hover:border-brand/40 hover:shadow-md sm:grid-cols-[44px_1fr_120px_140px_60px] sm:gap-4"
                 >
                   <span
                     className="flex h-11 w-11 items-center justify-center rounded-full text-[15px] font-bold text-white"
@@ -84,12 +84,14 @@ export default function LandlordApplicantsPage() {
                     </div>
                     <div className="mt-1 font-mono text-[11.5px] text-body-2">{a.qual}</div>
                   </div>
-                  <span className={`tier-badge t${a.tier}`}>认证 {a.tier} 级</span>
-                  <div>
-                    <div className="font-mono text-[24px] font-bold leading-none">{a.match}</div>
-                    <div className="font-mono text-[10px] uppercase text-body-3">MATCH</div>
+                  <div className="flex items-center gap-3 sm:contents">
+                    <span className={`tier-badge t${a.tier}`}>认证 {a.tier} 级</span>
+                    <div>
+                      <div className="font-mono text-[24px] font-bold leading-none">{a.match}</div>
+                      <div className="font-mono text-[10px] uppercase text-body-3">MATCH</div>
+                    </div>
+                    <span className="text-right text-body-3">›</span>
                   </div>
-                  <span className="text-right text-body-3">›</span>
                 </Link>
               ))}
             </div>

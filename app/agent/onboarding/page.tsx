@@ -65,7 +65,7 @@ export default function AgentOnboardingPage() {
                 <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-agent">
                   AGENT · 加入网络
                 </div>
-                <h1 className="mt-3 text-[44px] font-extrabold leading-tight tracking-tight sm:text-[56px]">
+                <h1 className="mt-3 text-[32px] font-extrabold leading-tight tracking-tight sm:text-[56px]">
                   做 Toronto 最被尊重的<br />租赁经纪。
                 </h1>
                 <p className="mt-5 max-w-[560px] text-[16px] leading-relaxed text-body-2">

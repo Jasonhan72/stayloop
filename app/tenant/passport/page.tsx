@@ -75,7 +75,7 @@ export default function TenantPassport() {
         <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-tenant">
           RENTAL PASSPORT
         </div>
-        <h1 className="mt-2 text-[36px] font-bold tracking-tight">你的 Passport · Mia Chen</h1>
+        <h1 className="mt-2 text-[26px] sm:text-[36px] font-bold tracking-tight">你的 Passport · Mia Chen</h1>
         <p className="mt-2 max-w-[680px] text-[14.5px] leading-relaxed text-body-2">
           你的 Passport 由 Stayloop 加密保存。每个字段都是你说了算 — 房东只能看到你勾选了 ✓ 的部分。
         </p>
@@ -128,12 +128,12 @@ export default function TenantPassport() {
 
             <div className="mt-5 divide-y divide-dashed divide-line-divider">
               {g.fields.map((f) => (
-                <div key={f.k} className="grid grid-cols-[140px_1fr_120px] items-center gap-4 py-3">
+                <div key={f.k} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 py-3 sm:grid-cols-[140px_1fr_120px] sm:gap-4">
                   <span className="font-mono text-[12px] font-semibold text-body-2">{f.k}</span>
-                  <span className="text-[14px] font-semibold">{f.v}</span>
+                  <span className="order-3 col-span-2 text-[14px] font-semibold sm:order-none sm:col-span-1">{f.v}</span>
                   <span
                     className={
-                      'inline-flex items-center justify-center gap-1 rounded-md border px-2 py-1 font-mono text-[10.5px] font-bold uppercase tracking-wider ' +
+                      'inline-flex items-center justify-center gap-1 justify-self-end whitespace-nowrap rounded-md border px-2 py-1 font-mono text-[10.5px] font-bold uppercase tracking-wider sm:justify-self-auto ' +
                       (f.shared
                         ? 'border-brand/30 bg-brand/5 text-brand'
                         : 'border-line text-body-3')

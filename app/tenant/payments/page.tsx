@@ -19,7 +19,7 @@ export default function TenantPaymentsPage() {
         <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-tenant">
           RENT PAYMENTS
         </div>
-        <h1 className="mt-2 text-[36px] font-bold tracking-tight">租金支付</h1>
+        <h1 className="mt-2 text-[26px] sm:text-[36px] font-bold tracking-tight">租金支付</h1>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
@@ -74,7 +74,8 @@ export default function TenantPaymentsPage() {
         <div className="border-b border-line-divider px-6 py-4">
           <h3 className="text-[16px] font-bold tracking-tight">付款历史</h3>
         </div>
-        <table className="w-full text-[13.5px]">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] text-[13.5px]">
           <thead className="bg-surface-chip">
             <tr>
               <th className="px-6 py-3 text-left font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">日期</th>
@@ -105,6 +106,7 @@ export default function TenantPaymentsPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </WorkspaceShell>
   )

@@ -43,6 +43,7 @@ export default function TrustApiDocsPage() {
     <div style={{ minHeight: '100vh', background: v3.surface }}>
       <Header variant="transparent" />
       <div
+        className="tapi-docs-grid"
         style={{
           maxWidth: 1400,
           margin: '0 auto',
@@ -55,6 +56,7 @@ export default function TrustApiDocsPage() {
       >
         {/* LEFT SIDEBAR — Navigation */}
         <nav
+          className="tapi-docs-nav"
           style={{
             position: 'sticky',
             top: 80,
@@ -101,8 +103,10 @@ export default function TrustApiDocsPage() {
 
         {/* CENTER — Documentation Content */}
         <main
+          className="tapi-docs-main"
           style={{
             maxWidth: 720,
+            minWidth: 0,
             background: v3.surfaceCard,
             borderRadius: 12,
             padding: '48px',
@@ -693,6 +697,7 @@ const result = await client.screen({...})`}
 
         {/* RIGHT RAIL — Try-it panel */}
         <aside
+          className="tapi-docs-aside"
           style={{
             position: 'sticky',
             top: 80,
@@ -823,6 +828,23 @@ const result = await client.screen({...})`}
           </p>
         </aside>
       </div>
+      <style jsx global>{`
+        @media (max-width: 1024px) {
+          .tapi-docs-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .tapi-docs-nav,
+          .tapi-docs-aside {
+            position: static !important;
+            max-height: none !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .tapi-docs-main {
+            padding: 24px !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }

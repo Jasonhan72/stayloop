@@ -78,7 +78,7 @@ export default function LandlordMaintenancePage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-landlord">
             LANDLORD · MAINTENANCE
           </div>
-          <h1 className="mt-2 text-[36px] font-bold tracking-tight">维修工单</h1>
+          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">维修工单</h1>
           <p className="mt-1 text-[13.5px] text-body-2">
             租客提交 → Logic 分类 → 你审批 → 自动派工或自处理
           </p>

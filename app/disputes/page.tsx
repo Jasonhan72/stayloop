@@ -146,7 +146,7 @@ export default function DisputesPage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#7C3AED' }}>
             DISPUTE CENTER · 仲裁案件中心
           </div>
-          <h1 className="mt-4 max-w-[820px] text-[36px] font-extrabold leading-[1.1] tracking-tight sm:text-[48px]">
+          <h1 className="mt-4 max-w-[820px] text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[44px] lg:text-[48px]">
             出了纠纷,<br />也有 AI 陪你走完流程。
           </h1>
           <p className="mt-5 max-w-[640px] text-[16px] leading-relaxed text-body-2">
@@ -177,7 +177,7 @@ export default function DisputesPage() {
             {CASES.map((c, i) => (
               <div
                 key={c.id}
-                className={'flex items-center gap-4 px-6 py-5 ' + (i > 0 ? 'border-t border-line-divider' : '')}
+                className={'flex flex-wrap items-center gap-3 px-5 py-5 sm:gap-4 sm:px-6 ' + (i > 0 ? 'border-t border-line-divider' : '')}
               >
                 <span
                   className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-[13px] font-bold text-white"
@@ -185,7 +185,7 @@ export default function DisputesPage() {
                 >
                   {c.id.slice(-2)}
                 </span>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-[180px] flex-1">
                   <div className="text-[14px] font-bold">{c.title}</div>
                   <div className="mt-0.5 text-[12.5px] text-body-2">{c.parties}</div>
                 </div>
@@ -306,7 +306,7 @@ export default function DisputesPage() {
             {CLOSED.map((c, i) => (
               <div
                 key={c.id}
-                className={'grid grid-cols-[auto_1fr_auto] items-center gap-4 px-6 py-3.5 sm:grid-cols-[auto_0.7fr_1.3fr_auto_auto] ' + (i > 0 ? 'border-t border-line-divider' : '')}
+                className={'grid grid-cols-[auto_1fr_auto] items-center gap-3 px-5 py-3.5 sm:grid-cols-[auto_0.7fr_1.3fr_auto_auto] sm:gap-4 sm:px-6 ' + (i > 0 ? 'border-t border-line-divider' : '')}
               >
                 <span className="font-mono text-[11.5px] font-bold text-body-3">{c.id}</span>
                 <span className="text-[12.5px] font-semibold">{c.kind}</span>
@@ -358,7 +358,7 @@ export default function DisputesPage() {
                   <span>{l.response}</span>
                   <span>语言 {l.lang}</span>
                 </div>
-                <div className="mt-4 flex items-center justify-between border-t border-line-divider pt-3">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line-divider pt-3">
                   <div>
                     <span className="font-mono text-[13px] font-bold" style={{ color: '#7C3AED' }}>{l.rate}</span>
                     <span className="ml-2 font-mono text-[10.5px] text-body-3">{l.ratePkg}</span>

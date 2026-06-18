@@ -12,7 +12,7 @@ export default function ContactPage() {
       <section style={{ background: 'linear-gradient(180deg,#F2EEE5 0%,#E4EEE3 100%)' }}>
         <div className="mx-auto max-w-[820px] px-5 pb-10 pt-20 sm:px-7 lg:px-12">
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">CONTACT · 合作 / 投资 / 媒体</div>
-          <h1 className="mt-4 text-[36px] font-extrabold leading-[1.1] tracking-tight sm:text-[46px]">
+          <h1 className="mt-4 text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[46px]">
             聊聊合作。
           </h1>
           <p className="mt-4 max-w-[600px] text-[15.5px] leading-relaxed text-body-2">

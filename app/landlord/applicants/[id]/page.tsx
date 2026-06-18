@@ -38,7 +38,7 @@ export default function ApplicantDetail() {
             M
           </span>
           <div>
-            <h1 className="text-[28px] font-bold tracking-tight">Mia Chen</h1>
+            <h1 className="text-[24px] font-bold tracking-tight sm:text-[28px]">Mia Chen</h1>
             <div className="font-mono text-[11.5px] text-body-3">
               申请 #{id} · Unit 1207 · King West · 2 天前提交
             </div>

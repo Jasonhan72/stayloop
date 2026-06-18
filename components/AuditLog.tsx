@@ -164,7 +164,7 @@ export default function AuditLog({ role }: { role: WorkspaceRole }) {
         <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">
           完整事件流 · 不可篡改 · 区块链时间戳
         </div>
-        <h1 className="mt-2 text-[34px] font-bold leading-tight tracking-tight">
+        <h1 className="mt-2 text-[26px] sm:text-[34px] font-bold leading-tight tracking-tight">
           每一次访问 / 数据流转 都有记录
         </h1>
         <p className="mt-3 text-body-2 text-[14px] leading-relaxed">
@@ -211,9 +211,9 @@ export default function AuditLog({ role }: { role: WorkspaceRole }) {
               {day.events.map((e, i) => (
                 <div
                   key={day.label + i}
-                  className="flex items-start gap-4 border-b border-line-divider px-6 py-4 last:border-b-0"
+                  className="flex items-start gap-3 border-b border-line-divider px-4 py-4 last:border-b-0 sm:gap-4 sm:px-6"
                 >
-                  <div className="w-[44px] shrink-0 pt-[1px] font-mono text-[12px] font-bold text-body-3">
+                  <div className="w-[40px] shrink-0 pt-[1px] font-mono text-[12px] font-bold text-body-3 sm:w-[44px]">
                     {e.ts}
                   </div>
                   <div className="min-w-0 flex-1">

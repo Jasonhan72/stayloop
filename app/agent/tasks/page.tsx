@@ -80,7 +80,7 @@ export default function AgentTasksPage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-agent">
             AGENT · TASKS
           </div>
-          <h1 className="mt-2 text-[36px] font-bold tracking-tight">任务队列</h1>
+          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">任务队列</h1>
           <p className="mt-1 text-[13.5px] text-body-2">
             Brief 按 SLA 排序 — 越上面越紧急。完成一个就消失一个。
           </p>
@@ -130,7 +130,7 @@ export default function AgentTasksPage() {
             <div
               key={t.id}
               className={
-                'grid grid-cols-[auto_1fr_auto] items-center gap-4 px-6 py-4 transition hover:bg-surface-chip/40 ' +
+                'grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-4 transition hover:bg-surface-chip/40 sm:gap-4 sm:px-6 ' +
                 (i > 0 ? 'border-t border-line-divider' : '')
               }
             >

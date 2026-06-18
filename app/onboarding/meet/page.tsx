@@ -22,7 +22,7 @@ export default function OnboardingMeetPage() {
 
       <h1
         style={{
-          fontSize: 32,
+          fontSize: 'clamp(26px, 7vw, 32px)',
           fontWeight: 700,
           letterSpacing: '-0.02em',
           lineHeight: 1.15,

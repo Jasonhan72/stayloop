@@ -131,7 +131,7 @@ export default function AgentClientsPage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-agent">
             AGENT · CLIENTS
           </div>
-          <h1 className="mt-2 text-[36px] font-bold tracking-tight">客户管理</h1>
+          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">客户管理</h1>
           <p className="mt-1 text-[13.5px] text-body-2">
             Brief 自动 CRM · 按阶段 / 认证级别 / 预算分组 · 跟进自动安排
           </p>
@@ -165,8 +165,8 @@ export default function AgentClientsPage() {
       </div>
 
       {/* Client table */}
-      <div className="sl-card overflow-hidden">
-        <table className="w-full text-[13.5px]">
+      <div className="sl-card overflow-x-auto">
+        <table className="w-full min-w-[720px] text-[13.5px]">
           <thead className="bg-surface-chip">
             <tr>
               <Th>客户</Th>

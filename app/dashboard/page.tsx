@@ -316,7 +316,8 @@ export default function Dashboard() {
                 </div>
               </div>
             ) : (
-              <table className="w-full text-[13.5px]">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[680px] text-[13.5px]">
                 <thead className="bg-surface-chip">
                   <tr>
                     <th className="px-6 py-3 text-left font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">申请人</th>
@@ -391,6 +392,7 @@ export default function Dashboard() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>

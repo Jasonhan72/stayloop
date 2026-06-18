@@ -58,7 +58,7 @@ export default function OnboardingNamePage() {
         }}
       />
 
-      <h1 style={{ fontSize: 30, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.18 }}>
+      <h1 style={{ fontSize: 'clamp(24px, 6.5vw, 30px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.18 }}>
         为你的 AI 助手起名
       </h1>
       <p style={{ fontSize: 14.5, color: '#3F3F46', lineHeight: 1.6, margin: '12px 0 22px' }}>
@@ -97,6 +97,7 @@ export default function OnboardingNamePage() {
               maxLength={20}
               style={{
                 flex: 1,
+                minWidth: 0,
                 border: 'none',
                 outline: 'none',
                 fontSize: 22,

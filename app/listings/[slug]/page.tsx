@@ -180,11 +180,11 @@ export default function ListingDetailPage() {
             const thumbs = [imgs[1], imgs[2], imgs[3], imgs[4]]
             return (
               <div
-                className="grid gap-2 overflow-hidden rounded-[16px]"
-                style={{ gridTemplateColumns: '1.5fr 1fr 1fr', gridTemplateRows: '210px 210px' }}
+                className="grid grid-cols-2 gap-2 overflow-hidden rounded-[16px] sm:[grid-template-columns:1.5fr_1fr_1fr] sm:[grid-template-rows:210px_210px]"
+                style={{ gridAutoRows: '140px' }}
               >
                 <div
-                  className="relative row-span-2"
+                  className="relative col-span-2 sm:col-span-1 sm:row-span-2"
                   style={{
                     background: lead
                       ? `url(${lead}) center/cover no-repeat, linear-gradient(135deg,${a},${b})`

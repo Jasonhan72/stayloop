@@ -43,7 +43,7 @@ export default function TenantApplications() {
         <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-tenant">
           MY APPLICATIONS
         </div>
-        <h1 className="mt-2 text-[36px] font-bold tracking-tight">我的申请 (3)</h1>
+        <h1 className="mt-2 text-[26px] sm:text-[36px] font-bold tracking-tight">我的申请 (3)</h1>
       </div>
       <div className="space-y-4">
         {APPS.map((a) => (
