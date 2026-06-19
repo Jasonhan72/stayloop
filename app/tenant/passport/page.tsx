@@ -1,250 +1,338 @@
 'use client'
 
-import WorkspaceShell from '@/components/WorkspaceShell'
+import { useState } from 'react'
 import Link from 'next/link'
+import WorkspaceShell from '@/components/WorkspaceShell'
 import { useT } from '@/lib/i18n'
 
 type Bi = { zh: string; en: string }
 
-interface FieldGroup {
+type SharingMode = 'open' | 'conservative' | 'custom'
+
+interface TierInfo {
+  level: 1 | 2 | 3 | 4
   title: Bi
-  tier: 1 | 2 | 3 | 4
-  status: 'verified' | 'pending' | 'locked'
-  source: Bi
-  fields: Array<{ k: Bi; v: Bi; shared: boolean }>
+  desc: Bi
+  status: 'done' | 'current' | 'locked'
+  fields: Bi[]
 }
 
-const GROUPS: FieldGroup[] = [
+const TIERS: TierInfo[] = [
   {
-    title: { zh: '身份', en: 'Identity' },
-    tier: 1,
-    status: 'verified',
-    source: { zh: 'Persona · Apr 28, 2026', en: 'Persona · Apr 28, 2026' },
+    level: 1,
+    title: { zh: '身份认证', en: 'Identity' },
+    desc: { zh: '护照/驾照 + 自拍 · Persona 验证', en: 'Passport/licence + selfie · Persona verification' },
+    status: 'done',
     fields: [
-      { k: { zh: '法定姓名', en: 'Legal name' }, v: { zh: 'Mia Chen', en: 'Mia Chen' }, shared: true },
-      { k: { zh: '出生日期', en: 'Date of birth' }, v: { zh: '1996-03-12', en: '1996-03-12' }, shared: false },
-      { k: { zh: '证件号码', en: 'Document number' }, v: { zh: 'CA P*****-****-3-04', en: 'CA P*****-****-3-04' }, shared: false },
-      { k: { zh: '验证时间', en: 'Verified at' }, v: { zh: '2026-04-28 14:32 EST', en: '2026-04-28 14:32 EST' }, shared: true },
+      { zh: '法定姓名', en: 'Legal name' },
+      { zh: '身份证件', en: 'ID document' },
+      { zh: '邮箱 + 电话', en: 'Email + phone' },
     ],
   },
   {
-    title: { zh: '联系', en: 'Contact' },
-    tier: 1,
-    status: 'verified',
-    source: { zh: '邮箱 + 短信验证', en: 'Email + SMS verified' },
+    level: 2,
+    title: { zh: '收入验证', en: 'Income' },
+    desc: { zh: '连接银行 · 雇主 + 月收入自动核实', en: 'Connect bank · employer + income auto-verified' },
+    status: 'done',
     fields: [
-      { k: { zh: '邮箱', en: 'Email' }, v: { zh: 'mia.chen@****.com', en: 'mia.chen@****.com' }, shared: true },
-      { k: { zh: '电话', en: 'Phone' }, v: { zh: '+1 (416) ***-7821', en: '+1 (416) ***-7821' }, shared: false },
+      { zh: '月收入', en: 'Monthly income' },
+      { zh: '雇主名称', en: 'Employer' },
+      { zh: '工作年限', en: 'Years employed' },
     ],
   },
   {
-    title: { zh: '收入', en: 'Income' },
-    tier: 2,
-    status: 'verified',
-    source: { zh: 'Plaid · 实时连接 · TD Canada Trust', en: 'Plaid · live connection · TD Canada Trust' },
+    level: 3,
+    title: { zh: '银行透明度', en: 'Banking' },
+    desc: { zh: '现金流稳定性 + 退款记录', en: 'Cash-flow stability + NSF history' },
+    status: 'current',
     fields: [
-      { k: { zh: '月收入', en: 'Monthly income' }, v: { zh: 'CAD 11,200', en: 'CAD 11,200' }, shared: true },
-      { k: { zh: '雇主', en: 'Employer' }, v: { zh: 'Royal Bank of Canada', en: 'Royal Bank of Canada' }, shared: true },
-      { k: { zh: '工作年数', en: 'Years employed' }, v: { zh: '2.4 年', en: '2.4 yrs' }, shared: true },
-      { k: { zh: '近 6 个月最低存款', en: 'Min. balance (last 6 mo)' }, v: { zh: 'CAD 18,400', en: 'CAD 18,400' }, shared: false },
+      { zh: '现金流评分', en: 'Cash-flow score' },
+      { zh: '退款/拒付次数', en: 'Returns / NSF count' },
     ],
   },
   {
-    title: { zh: '银行透明度', en: 'Banking transparency' },
-    tier: 3,
-    status: 'pending',
-    source: { zh: '点击连接 Plaid', en: 'Tap to connect Plaid' },
-    fields: [
-      { k: { zh: '现金流稳定度', en: 'Cash-flow stability' }, v: { zh: '尚未连接', en: 'Not connected yet' }, shared: false },
-      { k: { zh: '退款 / 拒付次数', en: 'Returns / NSF count' }, v: { zh: '尚未连接', en: 'Not connected yet' }, shared: false },
-    ],
-  },
-  {
-    title: { zh: '信用 + 法庭', en: 'Credit + court' },
-    tier: 4,
+    level: 4,
+    title: { zh: '信用 + 法庭', en: 'Credit + Court' },
+    desc: { zh: 'Equifax 信用分 + LTB 法庭记录', en: 'Equifax credit score + LTB court records' },
     status: 'locked',
-    source: { zh: 'Equifax + CanLII (升级到 认证 4 级 后启用)', en: 'Equifax + CanLII (unlocked after upgrading to Tier 4)' },
     fields: [
-      { k: { zh: '信用分', en: 'Credit score' }, v: { zh: '----', en: '----' }, shared: false },
-      { k: { zh: 'LTB 法庭记录', en: 'LTB court records' }, v: { zh: '----', en: '----' }, shared: false },
+      { zh: '信用分', en: 'Credit score' },
+      { zh: 'LTB 记录', en: 'LTB records' },
     ],
+  },
+]
+
+const SHARING_MODES: Array<{ key: SharingMode; title: Bi; desc: Bi }> = [
+  {
+    key: 'open',
+    title: { zh: '宽松', en: 'Open' },
+    desc: { zh: '共享全部已验证字段 — 90% 租客选这个', en: 'Share all verified fields — 90% of tenants choose this' },
+  },
+  {
+    key: 'conservative',
+    title: { zh: '保守', en: 'Conservative' },
+    desc: { zh: '仅共享验证结果 (✓/✗)，不暴露具体数值', en: 'Share verification results only (✓/✗), hide exact values' },
+  },
+  {
+    key: 'custom',
+    title: { zh: '自定义', en: 'Custom' },
+    desc: { zh: '逐项控制每个字段的可见性', en: 'Control visibility per field' },
   },
 ]
 
 export default function TenantPassport() {
   const { lang } = useT()
+  const zh = lang === 'zh'
+  const [sharingMode, setSharingMode] = useState<SharingMode>('open')
+
+  const currentTier = TIERS.find((t) => t.status === 'current') ?? TIERS[2]
+  const completedCount = TIERS.filter((t) => t.status === 'done').length
+  const progressPercent = (completedCount / TIERS.length) * 100
+
   return (
     <WorkspaceShell role="tenant" hideAside>
-      <div className="mb-9">
-        <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-tenant">
-          RENTAL PASSPORT
-        </div>
-        <h1 className="mt-2 text-[26px] sm:text-[36px] font-bold tracking-tight">{lang === 'zh' ? '你的 Passport · Mia Chen' : 'Your Passport · Mia Chen'}</h1>
-        <p className="mt-2 max-w-[680px] text-[14.5px] leading-relaxed text-body-2">
-          {lang === 'zh'
-            ? '你的 Passport 由 Stayloop 加密保存。每个字段都是你说了算 — 房东只能看到你勾选了 ✓ 的部分。'
-            : 'Your Passport is encrypted and stored by Stayloop. You control every field — landlords only see the items you have checked ✓.'}
-        </p>
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <span className="tier-badge t1">{lang === 'zh' ? '认证 1 级 ✓' : 'Tier 1 ✓'}</span>
-          <span className="tier-badge t2">{lang === 'zh' ? '认证 2 级 ✓' : 'Tier 2 ✓'}</span>
-          <span className="tier-badge t3" style={{ opacity: 0.6 }}>{lang === 'zh' ? '认证 3 级 · 部分' : 'Tier 3 · partial'}</span>
-          <span className="tier-badge t4" style={{ opacity: 0.4 }}>{lang === 'zh' ? '认证 4 级 · 锁定' : 'Tier 4 · locked'}</span>
-          <span className="ml-auto text-[12px] text-body-3">{lang === 'zh' ? '最近更新 · 5 分钟前' : 'Last updated · 5 min ago'}</span>
-        </div>
-      </div>
-
-      {/* Identity verification — deferred out of onboarding, started here. */}
-      <Link
-        href="/onboarding/tier1"
-        className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-tenant/30 bg-tenant/[0.05] px-6 py-4 transition hover:bg-tenant/10"
-      >
+      <div className="space-y-6">
+        {/* ── Header ── */}
         <div>
-          <div className="text-[15px] font-bold tracking-tight">{lang === 'zh' ? '完成 认证 1 级 · 90 秒验明身份' : 'Complete Tier 1 · verify your identity in 90 seconds'}</div>
-          <div className="mt-0.5 text-[12.5px] text-body-2">
-            {lang === 'zh'
-              ? '护照 / 驾照 + 一张自拍,Persona 帮你安全完成 · 软查不影响信用 · 比 90% 的询盘更让房东放心。'
-              : 'Passport / licence + a quick selfie, securely handled by Persona · soft check, no credit impact · more reassuring to landlords than 90% of inquiries.'}
+          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-tenant">
+            RENTAL PASSPORT
           </div>
+          <h1 className="mt-2 text-[26px] sm:text-[32px] font-bold tracking-tight">
+            {zh ? '信任仪表盘' : 'Trust Dashboard'}
+          </h1>
+          <p className="mt-1.5 max-w-[560px] text-[14px] leading-relaxed text-body-2">
+            {zh
+              ? '你的 Passport 是你向房东展示可信度的通行证。等级越高，房东审批越快。'
+              : 'Your Passport proves trustworthiness to landlords. Higher tiers mean faster approvals.'}
+          </p>
         </div>
-        <span className="rounded-[10px] bg-tenant px-4 py-[10px] text-[13.5px] font-semibold text-white">{lang === 'zh' ? '开始验证 →' : 'Start verification →'}</span>
-      </Link>
 
-      <div className="space-y-5">
-        {GROUPS.map((g) => (
-          <div key={g.title.en} className="sl-card p-6">
-            <div className="flex flex-wrap items-center gap-3">
-              <h3 className="text-[18px] font-bold tracking-tight">{g.title[lang]}</h3>
-              <span className={`tier-badge t${g.tier}`}>{lang === 'zh' ? `认证 ${g.tier} 级` : `Tier ${g.tier}`}</span>
-              {g.status === 'verified' && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-brand/10 px-2 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-brand">
-                  ✓ VERIFIED
+        {/* ── Progress card ── */}
+        <div className="sl-card p-6 sm:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[36px] sm:text-[42px] font-bold tracking-tight text-tenant">
+                  {zh ? `认证 ${completedCount} 级` : `Tier ${completedCount}`}
                 </span>
-              )}
-              {g.status === 'pending' && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-warning/10 px-2 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-warning">
-                  {lang === 'zh' ? '待完成' : 'To complete'}
-                </span>
-              )}
-              {g.status === 'locked' && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-line-divider px-2 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-body-3">
-                  {lang === 'zh' ? '🔒 锁定' : '🔒 Locked'}
-                </span>
-              )}
-              <span className="ml-auto font-mono text-[11px] text-body-3">{g.source[lang]}</span>
+                <span className="text-[14px] text-body-3">/ 4</span>
+              </div>
+              <p className="mt-1 text-[13.5px] text-body-2">
+                {zh
+                  ? `下一步：${currentTier.title.zh} — ${currentTier.desc.zh}`
+                  : `Next: ${currentTier.title.en} — ${currentTier.desc.en}`}
+              </p>
             </div>
+            <Link
+              href={currentTier.status === 'current' ? '/onboarding/tier1' : '#'}
+              className="sl-btn-primary !px-6 !py-3 shrink-0"
+            >
+              {zh
+                ? `升级到认证 ${currentTier.level} 级 →`
+                : `Upgrade to Tier ${currentTier.level} →`}
+            </Link>
+          </div>
 
-            <div className="mt-5 divide-y divide-dashed divide-line-divider">
-              {g.fields.map((f) => (
-                <div key={f.k.en} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 py-3 sm:grid-cols-[140px_1fr_120px] sm:gap-4">
-                  <span className="font-mono text-[12px] font-semibold text-body-2">{f.k[lang]}</span>
-                  <span className="order-3 col-span-2 text-[14px] font-semibold sm:order-none sm:col-span-1">{f.v[lang]}</span>
-                  <span
-                    className={
-                      'inline-flex items-center justify-center gap-1 justify-self-end whitespace-nowrap rounded-md border px-2 py-1 font-mono text-[10.5px] font-bold uppercase tracking-wider sm:justify-self-auto ' +
-                      (f.shared
-                        ? 'border-brand/30 bg-brand/5 text-brand'
-                        : 'border-line text-body-3')
-                    }
-                  >
-                    {f.shared ? (lang === 'zh' ? '✓ 共享' : '✓ Shared') : (lang === 'zh' ? '🔒 私有' : '🔒 Private')}
-                  </span>
-                </div>
+          {/* Progress bar */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between text-[11px] font-mono font-semibold text-body-3 mb-2">
+              {TIERS.map((t) => (
+                <span key={t.level} className={t.status === 'done' ? 'text-tenant' : ''}>
+                  {t.status === 'done' ? '✓' : t.level}
+                </span>
               ))}
             </div>
-
-            {g.status !== 'verified' && (
-              <button className="mt-4 sl-btn-primary !text-[13px] !py-[10px] !px-4">
-                {g.status === 'pending'
-                  ? (lang === 'zh' ? '继续完成' : 'Continue')
-                  : (lang === 'zh' ? '升级到 认证 ' + g.tier + ' 级' : 'Upgrade to Tier ' + g.tier)}
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-10 sl-card p-6">
-        <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-          {lang === 'zh' ? 'RENTAL PASSPORT · 共享中' : 'RENTAL PASSPORT · SHARING'}
-        </div>
-        <h3 className="mt-2 text-[22px] font-bold tracking-tight">
-          {lang === 'zh' ? '你授权了 4 个人 / 服务看你的资料' : 'You have authorized 4 people / services to view your data'}
-        </h3>
-        <p className="mt-1 text-[13px] text-body-2">
-          {lang === 'zh'
-            ? '每一项都可以一键撤销 · 30 秒生效 · 撤销后立即从对方系统中删除'
-            : 'Each one can be revoked with one tap · effective in 30 seconds · deleted from their system immediately after revoking'}
-        </p>
-        <div className="mt-5 space-y-3">
-          {[
-            {
-              who: { zh: 'Sarah Wang · 房东 · Unit 1207', en: 'Sarah Wang · Landlord · Unit 1207' },
-              color: '#F97316',
-              time: { zh: '2026/05/02 14:30 · 通过申请意向', en: '2026/05/02 14:30 · via application intent' },
-              see: { zh: '认证 2 级 资料 · 雇主验证 · 偏好 · 你的回复语气', en: 'Tier 2 data · employer verification · preferences · your reply tone' },
-              noSee: { zh: '具体工资 · 银行流水 · 家庭背景', en: 'exact salary · bank statements · family background' },
-              action: { zh: '撤回授权', en: 'Revoke access' },
-              actionStyle: 'text-danger',
-            },
-            {
-              who: { zh: 'David Park · Field Agent · 看房', en: 'David Park · Field Agent · Showing' },
-              color: '#3B82F6',
-              time: { zh: '2026/05/03 11:48 · 周三 14:00 · 临时', en: '2026/05/03 11:48 · Wed 14:00 · temporary' },
-              see: { zh: '你的偏好、你的方式、看房问题清单', en: 'your preferences, your approach, showing question list' },
-              noSee: { zh: '财务资料 · 申请历史', en: 'financial data · application history' },
-              action: { zh: '看后自动撤销', en: 'Auto-revokes after showing' },
-              actionStyle: 'text-info',
-            },
-            {
-              who: { zh: 'Persona SDK · 身份验证商', en: 'Persona SDK · Identity verifier' },
-              color: '#8B5CF6',
-              time: { zh: '2026/04/28 · 永久 · 加密存储', en: '2026/04/28 · permanent · encrypted storage' },
-              see: { zh: '为你做了：基础身份核检', en: 'Done for you: basic identity check' },
-              noSee: { zh: '注：他们只看你的护照 + 自拍，不看其他', en: 'Note: they only see your passport + selfie, nothing else' },
-              action: { zh: '系统级 · 不可撤', en: 'System-level · cannot revoke' },
-              actionStyle: 'text-body-3',
-            },
-            {
-              who: { zh: 'Flinks · 银行 API', en: 'Flinks · Banking API' },
-              color: '#10B981',
-              time: { zh: '2026/05/04 10:21 · 90 天过期', en: '2026/05/04 10:21 · expires in 90 days' },
-              see: { zh: '为你做了：认证 3 级 收入与稳定性核验', en: 'Done for you: Tier 3 income and stability verification' },
-              noSee: null as Bi | null,
-              action: { zh: '撤回授权', en: 'Revoke access' },
-              actionStyle: 'text-danger',
-            },
-          ].map((g) => (
-            <div key={g.who.en} className="flex items-start gap-4 rounded-xl bg-surface-chip px-5 py-4">
-              <span
-                className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-[14px] font-bold text-white"
-                style={{ background: g.color }}
-              >
-                {g.who.en[0]}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[14px] font-bold">{g.who[lang]}</div>
-                <div className="mt-0.5 font-mono text-[10.5px] text-body-3">{g.time[lang]}</div>
-                <div className="mt-2 text-[12.5px] leading-relaxed text-body-2">
-                  <span className="font-semibold text-brand">{lang === 'zh' ? '能看到：' : 'Can see: '}</span>{g.see[lang]}
-                </div>
-                {g.noSee && (
-                  <div className="mt-0.5 text-[12.5px] text-body-3">
-                    <span className="font-semibold">{lang === 'zh' ? '看不到：' : 'Cannot see: '}</span>{g.noSee[lang]}
-                  </div>
-                )}
-              </div>
-              <button className={`flex-shrink-0 text-[12.5px] font-semibold hover:underline ${g.actionStyle}`}>
-                {g.action[lang]}
-              </button>
+            <div className="h-2 w-full rounded-full bg-line-divider overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${progressPercent}%`,
+                  background: 'linear-gradient(90deg, #7C3AED 0%, #A78BFA 100%)',
+                }}
+              />
             </div>
-          ))}
+          </div>
+
+          {/* Tier timeline */}
+          <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {TIERS.map((t) => (
+              <div
+                key={t.level}
+                className={
+                  'rounded-xl border px-4 py-3 transition ' +
+                  (t.status === 'done'
+                    ? 'border-tenant/30 bg-tenant/[0.04]'
+                    : t.status === 'current'
+                    ? 'border-warning/40 bg-warning/[0.04]'
+                    : 'border-line-divider bg-surface-chip opacity-60')
+                }
+              >
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="font-mono text-[11px] font-bold text-body-3">
+                    {t.status === 'done' ? '✓' : t.status === 'current' ? '◐' : '🔒'}{' '}
+                    {zh ? `认证 ${t.level} 级` : `Tier ${t.level}`}
+                  </span>
+                </div>
+                <div className="text-[13px] font-semibold tracking-tight">{t.title[lang]}</div>
+                <div className="mt-1 space-y-0.5">
+                  {t.fields.map((f) => (
+                    <div key={f.en} className="text-[11.5px] text-body-3">{f[lang]}</div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="mt-4 text-[12px] text-body-3">
-          {lang === 'zh'
-            ? '🔐 完整 audit log · 每一次查看 / 数据导出 / 第三方调用都有时间戳。'
-            : '🔐 Full audit log · every view / data export / third-party call is timestamped.'}
-          <Link href="#" className="ml-1 font-semibold text-brand hover:underline">{lang === 'zh' ? '查看完整日志 →' : 'View full log →'}</Link>
+
+        {/* ── Sharing mode ── */}
+        <div className="sl-card p-6 sm:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+            <div>
+              <h2 className="text-[18px] font-bold tracking-tight">
+                {zh ? '共享策略' : 'Sharing policy'}
+              </h2>
+              <p className="mt-1 text-[13px] text-body-2">
+                {zh
+                  ? '申请房源时，房东能看到哪些信息'
+                  : 'What landlords can see when you apply'}
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {SHARING_MODES.map((m) => (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => setSharingMode(m.key)}
+                className={
+                  'rounded-xl border px-4 py-4 text-left transition ' +
+                  (sharingMode === m.key
+                    ? 'border-tenant bg-tenant/[0.05] ring-1 ring-tenant/30'
+                    : 'border-line-divider hover:border-line-strong')
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={
+                      'flex h-5 w-5 items-center justify-center rounded-full border-2 transition ' +
+                      (sharingMode === m.key
+                        ? 'border-tenant bg-tenant'
+                        : 'border-line-strong')
+                    }
+                  >
+                    {sharingMode === m.key && (
+                      <span className="block h-2 w-2 rounded-full bg-white" />
+                    )}
+                  </span>
+                  <span className="text-[14px] font-bold">{m.title[lang]}</span>
+                </div>
+                <p className="mt-2 pl-7 text-[12.5px] leading-relaxed text-body-2">
+                  {m.desc[lang]}
+                </p>
+              </button>
+            ))}
+          </div>
+          {sharingMode === 'custom' && (
+            <div className="mt-4 rounded-xl border border-dashed border-line-strong bg-surface-chip px-5 py-4">
+              <p className="text-[13px] text-body-2">
+                {zh
+                  ? '自定义模式：你可以在每次申请时逐项选择共享哪些字段。'
+                  : 'Custom mode: you can choose per-field visibility each time you apply.'}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* ── Sharing summary + link ── */}
+        <div className="sl-card p-6 sm:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-[18px] font-bold tracking-tight">
+                {zh ? '授权管理' : 'Authorizations'}
+              </h2>
+              <p className="mt-1 text-[13.5px] text-body-2">
+                {zh
+                  ? '已授权 4 人/服务查看你的数据 · 本月被查询 3 次'
+                  : '4 people/services authorized · 3 queries this month'}
+              </p>
+            </div>
+            <Link
+              href="/tenant/passport/sharing"
+              className="sl-btn-secondary shrink-0"
+            >
+              {zh ? '管理授权 →' : 'Manage access →'}
+            </Link>
+          </div>
+
+          {/* Quick preview — top 2 authorizations */}
+          <div className="mt-5 space-y-2.5">
+            {[
+              {
+                name: 'Sarah Wang',
+                role: { zh: '房东 · Unit 1207', en: 'Landlord · Unit 1207' },
+                scope: { zh: '认证 2 级数据', en: 'Tier 2 data' },
+                color: '#F97316',
+              },
+              {
+                name: 'David Park',
+                role: { zh: 'Field Agent · 看房', en: 'Field Agent · Showing' },
+                scope: { zh: '偏好 + 看房问题', en: 'Preferences + questions' },
+                color: '#3B82F6',
+              },
+            ].map((g) => (
+              <div key={g.name} className="flex items-center gap-3 rounded-xl bg-surface-chip px-4 py-3">
+                <span
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[12px] font-bold text-white"
+                  style={{ background: g.color }}
+                >
+                  {g.name[0]}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[13.5px] font-semibold">{g.name}</span>
+                  <span className="ml-2 text-[12px] text-body-3">{g.role[lang]}</span>
+                </div>
+                <span className="hidden sm:inline text-[11.5px] font-mono text-body-3">{g.scope[lang]}</span>
+              </div>
+            ))}
+            <Link
+              href="/tenant/passport/sharing"
+              className="block text-center text-[12.5px] font-semibold text-tenant hover:underline pt-1"
+            >
+              {zh ? '查看全部 4 项授权 →' : 'View all 4 authorizations →'}
+            </Link>
+          </div>
+        </div>
+
+        {/* ── Quick actions ── */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Link
+            href="/tenant/audit"
+            className="sl-card flex items-center gap-4 p-5 transition hover:border-line-strong"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-chip text-[18px]">
+              📋
+            </span>
+            <div>
+              <div className="text-[14px] font-bold">{zh ? '审计日志' : 'Audit log'}</div>
+              <div className="mt-0.5 text-[12.5px] text-body-2">
+                {zh ? '查看所有数据访问记录' : 'View all data access records'}
+              </div>
+            </div>
+          </Link>
+          <Link
+            href="/settings"
+            className="sl-card flex items-center gap-4 p-5 transition hover:border-line-strong"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-chip text-[18px]">
+              🔐
+            </span>
+            <div>
+              <div className="text-[14px] font-bold">{zh ? '隐私设置' : 'Privacy settings'}</div>
+              <div className="mt-0.5 text-[12.5px] text-body-2">
+                {zh ? '管理通知偏好与数据保留' : 'Manage notification & data retention'}
+              </div>
+            </div>
+          </Link>
         </div>
       </div>
     </WorkspaceShell>

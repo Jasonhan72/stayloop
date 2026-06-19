@@ -206,7 +206,7 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
               </Link>
               {/* btn-pri · 创建账号 (black, per design) */}
               <Link
-                href="/onboarding/welcome"
+                href="/register"
                 className="inline-flex items-center justify-center gap-1.5 rounded-[10px] bg-ink px-[18px] py-[10px] text-[14px] font-semibold text-white transition"
               >
                 {t('nav.register')} →
