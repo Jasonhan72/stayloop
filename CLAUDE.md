@@ -50,6 +50,13 @@ NEXT_PUBLIC_SITE_URL
 NEXT_PUBLIC_GOOGLE_MAPS_KEY
 ```
 
+Optional (guarded with `if (process.env.X)` — features degrade gracefully when absent):
+
+```
+JINA_API_KEY                # agent listing search → realtor.ca scrape (lib/agent/listingSearch.ts)
+OPENCORPORATES_API_TOKEN    # deep-check / forensics arm's-length lookup (lib/forensics/arm-length.ts)
+```
+
 Same vars are set in Cloudflare Pages dashboard for production.
 
 ## Key Files
