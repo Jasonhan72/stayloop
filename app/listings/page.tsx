@@ -418,7 +418,7 @@ function ListingCard({
             lineHeight: 1.45,
           }}
         >
-          ◐ {l.luna_note}
+          <span dangerouslySetInnerHTML={{ __html: `◐ ${l.luna_note}` }} />
         </div>
       )}
     </Link>

@@ -8,50 +8,26 @@ import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 
 interface HeaderProps {
-  // `transparent` = hero variant (homepage) — sits over a colored hero
-  // `solid` = sticky white nav (every other page)
   variant?: 'transparent' | 'solid'
 }
 
-interface NavItem {
-  key: string
-  href: string
-  // "Screening" always renders with a green pulse dot (always-on indicator,
-  // NOT an active-route marker)
-  alwaysLive?: boolean
-}
-
-const NAV: NavItem[] = [
-  { key: 'nav.listings', href: '/listings' },
-  { key: 'nav.tenants', href: '/tenants' },
-  { key: 'nav.landlords', href: '/landlords' },
-  { key: 'nav.agents', href: '/agents' },
-  { key: 'nav.screening', href: '/screening', alwaysLive: true },
+const PRODUCT_ITEMS = [
+  { key: 'nav.tenants', href: '/tenant', color: '#7C3AED' },
+  { key: 'nav.landlords', href: '/landlord', color: '#047857' },
+  { key: 'nav.agents', href: '/agent', color: '#2563EB' },
 ]
 
-/**
- * Stayloop V5 — single global header reused on every page.
- *
- * Spec:
- *   .hero-nav (used on homepage, transparent over hero gradient)
- *   .gnav     (used on every other page, solid surface-nav background)
- * Both have the SAME logo + SAME 6-item menu + SAME right-side CTAs.
- *
- * IMPORTANT: each menu item reserves space for its bold (active) state via
- * an invisible ::after pseudo, so switching pages does NOT jiggle layout.
- */
 export default function Header({ variant = 'solid' }: HeaderProps) {
   const pathname = usePathname() || '/'
   const { lang, t, toggle } = useI18n()
   const auth = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [productOpen, setProductOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
+  const productRef = useRef<HTMLDivElement>(null)
 
-  // A transparent header (over a hero) must gain a solid background once the
-  // page scrolls — otherwise the sticky bar stays see-through and content
-  // scrolls visibly underneath it. Solid-variant headers are always solid.
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
     onScroll()
@@ -60,14 +36,17 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
   }, [])
 
   useEffect(() => {
-    if (!profileOpen) return
+    if (!profileOpen && !productOpen) return
     const handler = (e: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+      if (profileOpen && profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setProfileOpen(false)
+      }
+      if (productOpen && productRef.current && !productRef.current.contains(e.target as Node)) {
+        setProductOpen(false)
       }
     }
     const keyHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setProfileOpen(false)
+      if (e.key === 'Escape') { setProfileOpen(false); setProductOpen(false) }
     }
     window.addEventListener('mousedown', handler)
     window.addEventListener('keydown', keyHandler)
@@ -75,12 +54,14 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
       window.removeEventListener('mousedown', handler)
       window.removeEventListener('keydown', keyHandler)
     }
-  }, [profileOpen])
+  }, [profileOpen, productOpen])
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
     return pathname === href || pathname.startsWith(href + '/')
   }
+
+  const isProductActive = PRODUCT_ITEMS.some((p) => isActive(p.href))
 
   return (
     <header
@@ -92,21 +73,64 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
       }
     >
       <div className="mx-auto flex h-[66px] max-w-[1240px] items-center justify-between px-6 sm:px-8 lg:px-12">
-        {/* Logo */}
         <Logo size="md" />
 
-        {/* Nav links — desktop · centered per design (justify-between) */}
+        {/* Desktop nav */}
         <nav className="hidden items-center gap-[26px] lg:flex">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.key}
-              i18nKey={item.key}
-              href={item.href}
-              alwaysLive={item.alwaysLive}
-              active={isActive(item.href)}
-              currentLang={lang}
-            />
-          ))}
+          {/* Product dropdown */}
+          <div className="relative" ref={productRef}>
+            <button
+              onClick={() => setProductOpen((v) => !v)}
+              className="group inline-flex items-center gap-1 text-[14px] transition"
+              style={{
+                color: isProductActive ? '#171717' : '#3F3F46',
+                fontWeight: isProductActive ? 600 : 400,
+              }}
+            >
+              <ReservedText text={t('nav.product')} bold={isProductActive} />
+              <ChevronIcon open={productOpen} />
+            </button>
+            {productOpen && (
+              <div className="sl-card absolute left-1/2 mt-3 w-52 -translate-x-1/2 overflow-hidden p-1">
+                {PRODUCT_ITEMS.map((item) => (
+                  <Link
+                    key={item.key}
+                    href={item.href}
+                    onClick={() => setProductOpen(false)}
+                    className="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-[13px] text-body transition hover:bg-surface-chip"
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full flex-shrink-0"
+                      style={{ background: item.color }}
+                    />
+                    {t(item.key)}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Listings */}
+          <NavLink
+            i18nKey="nav.listings"
+            href="/listings"
+            active={isActive('/listings')}
+          />
+
+          {/* Pricing */}
+          <NavLink
+            i18nKey="nav.pricing"
+            href="/pricing"
+            active={isActive('/pricing')}
+          />
+
+          {/* Screening — green pulse */}
+          <NavLink
+            i18nKey="nav.screening"
+            href="/screening"
+            active={isActive('/screening')}
+            alwaysLive
+          />
         </nav>
 
         {/* Right side */}
@@ -197,14 +221,12 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
             </>
           ) : (
             <>
-              {/* btn-out · 登录 (white + border) */}
               <Link
                 href="/login"
                 className="inline-flex items-center justify-center rounded-[10px] border border-line bg-white px-[18px] py-[10px] text-[14px] font-semibold text-body transition hover:border-line-strong"
               >
                 {t('nav.login')}
               </Link>
-              {/* btn-pri · 创建账号 (black, per design) */}
               <Link
                 href="/register"
                 className="inline-flex items-center justify-center gap-1.5 rounded-[10px] bg-ink px-[18px] py-[10px] text-[14px] font-semibold text-white transition"
@@ -224,21 +246,32 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
         </div>
       </div>
 
+      {/* Mobile menu */}
       {menuOpen && (
         <div className="border-t border-line-divider bg-surface-nav lg:hidden">
           <nav className="mx-auto flex max-w-[1320px] flex-col gap-1 px-6 py-3">
-            {NAV.map((item) => (
-              <NavLink
+            <div className="px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-eyebrow text-body-3">
+              {t('nav.product')}
+            </div>
+            {PRODUCT_ITEMS.map((item) => (
+              <Link
                 key={item.key}
-                i18nKey={item.key}
                 href={item.href}
-                alwaysLive={item.alwaysLive}
-                active={isActive(item.href)}
-                currentLang={lang}
-                mobile
                 onClick={() => setMenuOpen(false)}
-              />
+                className="flex items-center gap-2.5 rounded-md px-3 py-2 text-[14px] transition hover:bg-line-divider/40"
+                style={{
+                  color: isActive(item.href) ? '#171717' : '#3F3F46',
+                  fontWeight: isActive(item.href) ? 600 : 400,
+                }}
+              >
+                <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: item.color }} />
+                {t(item.key)}
+              </Link>
             ))}
+            <div className="my-1 h-px bg-line-divider" />
+            <NavLink i18nKey="nav.listings" href="/listings" active={isActive('/listings')} mobile onClick={() => setMenuOpen(false)} />
+            <NavLink i18nKey="nav.pricing" href="/pricing" active={isActive('/pricing')} mobile onClick={() => setMenuOpen(false)} />
+            <NavLink i18nKey="nav.screening" href="/screening" active={isActive('/screening')} alwaysLive mobile onClick={() => setMenuOpen(false)} />
           </nav>
         </div>
       )}
@@ -246,18 +279,11 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
   )
 }
 
-/**
- * Each link reserves space for the bold-weight version via an invisible
- * ::after that mirrors the label at font-weight 600. This means switching
- * between active/inactive on page navigation never reflows neighbouring
- * items — fixes the "menu jumps when you click around" bug.
- */
 function NavLink({
   i18nKey,
   href,
   alwaysLive,
   active,
-  currentLang,
   mobile,
   onClick,
 }: {
@@ -265,13 +291,11 @@ function NavLink({
   href: string
   alwaysLive?: boolean
   active: boolean
-  currentLang: 'zh' | 'en'
   mobile?: boolean
   onClick?: () => void
 }) {
   const { t } = useI18n()
   const label = t(i18nKey)
-  const greenWhenLive = alwaysLive
   const isBold = active || !!alwaysLive
   const color = alwaysLive ? '#047857' : active ? '#171717' : '#3F3F46'
 
@@ -284,19 +308,13 @@ function NavLink({
           ? 'rounded-md px-3 py-2 text-[14px] transition hover:bg-line-divider/40'
           : 'group relative inline-flex items-center text-[14px] transition'
       }
-      style={{
-        color,
-        fontWeight: isBold ? 600 : 400,
-      }}
+      style={{ color, fontWeight: isBold ? 600 : 400 }}
     >
-      {greenWhenLive && (
+      {alwaysLive && (
         <span
           aria-hidden
           className="mr-[5px] inline-block h-[6px] w-[6px] rounded-full"
-          style={{
-            background: '#047857',
-            boxShadow: '0 0 6px #047857',
-          }}
+          style={{ background: '#047857', boxShadow: '0 0 6px #047857' }}
         />
       )}
       <ReservedText text={label} bold={isBold} />
@@ -304,42 +322,41 @@ function NavLink({
   )
 }
 
-/**
- * Renders text whose width is always sized to the bold version, even when
- * the current font-weight is normal. This prevents layout shift when the
- * active state of a nav item flips between pages.
- */
 function ReservedText({ text, bold }: { text: string; bold: boolean }) {
   return (
     <span
       aria-label={text}
       style={{ display: 'inline-grid', gridTemplateRows: '1fr', alignItems: 'center' }}
     >
-      {/* width reserver — always bold but invisible */}
       <span
         aria-hidden
-        style={{
-          gridRow: 1,
-          gridColumn: 1,
-          fontWeight: 600,
-          visibility: 'hidden',
-          whiteSpace: 'nowrap',
-        }}
+        style={{ gridRow: 1, gridColumn: 1, fontWeight: 600, visibility: 'hidden', whiteSpace: 'nowrap' }}
       >
         {text}
       </span>
-      {/* visible text */}
-      <span
-        style={{
-          gridRow: 1,
-          gridColumn: 1,
-          fontWeight: bold ? 600 : 400,
-          whiteSpace: 'nowrap',
-        }}
-      >
+      <span style={{ gridRow: 1, gridColumn: 1, fontWeight: bold ? 600 : 400, whiteSpace: 'nowrap' }}>
         {text}
       </span>
     </span>
+  )
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="transition-transform duration-150"
+      style={{ transform: open ? 'rotate(180deg)' : 'rotate(0)' }}
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
   )
 }
 
