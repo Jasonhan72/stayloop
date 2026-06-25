@@ -5,13 +5,16 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useAuth } from '@/lib/useAuth'
 import { useI18n } from '@/lib/i18n'
+import { getAIName, setAIName, getDefaultName } from '@/lib/aiName'
+import { getSupabaseBrowser } from '@/lib/supabase'
 
 const TABS = [
-  { key: 'profile', zh: '个人资料',  en: 'Profile' },
-  { key: 'lang',    zh: '语言',      en: 'Language' },
-  { key: 'notif',   zh: '通知',      en: 'Notifications' },
-  { key: 'privacy', zh: '隐私 · 共享', en: 'Privacy & Sharing' },
-  { key: 'auth',    zh: '账户安全',   en: 'Account Security' },
+  { key: 'profile',   zh: '个人资料',    en: 'Profile' },
+  { key: 'assistant', zh: 'AI 助手',     en: 'AI Assistant' },
+  { key: 'lang',      zh: '语言',        en: 'Language' },
+  { key: 'notif',     zh: '通知',        en: 'Notifications' },
+  { key: 'privacy',   zh: '隐私 · 共享', en: 'Privacy & Sharing' },
+  { key: 'auth',      zh: '账户安全',    en: 'Account Security' },
 ] as const
 
 export default function SettingsPage() {
@@ -55,6 +58,9 @@ export default function SettingsPage() {
                   <Field label={zh ? '角色' : 'Role'} value={auth.role || (zh ? '尚未选择' : 'Not selected')} />
                 </div>
               </div>
+            )}
+            {tab === 'assistant' && (
+              <AssistantTab role={auth.role} zh={zh} user={auth.user} />
             )}
             {tab === 'lang' && (
               <div>
@@ -149,6 +155,132 @@ function Field({ label, value }: { label: string; value: string }) {
     <div className="grid grid-cols-[120px_1fr] items-center gap-4 border-b border-line-divider py-3 last:border-0">
       <span className="font-mono text-[11px] font-semibold uppercase text-body-3">{label}</span>
       <span className="text-[14px]">{value}</span>
+    </div>
+  )
+}
+
+const ROLE_COLORS: Record<string, string> = {
+  tenant: '#7C3AED',
+  landlord: '#047857',
+  agent: '#2563EB',
+}
+
+const ROLE_LABELS: Record<string, { zh: string; en: string }> = {
+  tenant: { zh: '租客助手', en: 'Tenant Assistant' },
+  landlord: { zh: '房东助手', en: 'Landlord Assistant' },
+  agent: { zh: '经纪助手', en: 'Agent Assistant' },
+}
+
+function AssistantTab({ role, zh, user }: { role: string | null; zh: boolean; user: any }) {
+  const effectiveRole = role || 'tenant'
+  const color = ROLE_COLORS[effectiveRole] || '#7C3AED'
+  const currentName = getAIName(effectiveRole)
+  const defaultName = getDefaultName(effectiveRole)
+  const [value, setValue] = useState(currentName)
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    const trimmed = value.trim() || defaultName
+    setSaving(true)
+    setAIName(trimmed, effectiveRole)
+    if (user) {
+      try {
+        const client = getSupabaseBrowser()
+        await client
+          .from('agent_configs')
+          .update({ agent_name: trimmed })
+          .eq('user_id', user.id)
+          .eq('role', effectiveRole)
+      } catch {}
+    }
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <div>
+      <h2 className="text-[20px] font-bold tracking-tight">{zh ? 'AI 助手' : 'AI Assistant'}</h2>
+      <p className="mt-2 text-[13px] text-body-2">
+        {zh
+          ? `修改你的 ${ROLE_LABELS[effectiveRole]?.zh || '助手'} 名字。名字会在对话、记忆面板和通知中显示。`
+          : `Change your ${ROLE_LABELS[effectiveRole]?.en || 'assistant'} name. The name appears in conversations, memory panels, and notifications.`}
+      </p>
+
+      <div className="mt-6 space-y-5">
+        <div>
+          <div className="font-mono text-[10.5px] font-semibold uppercase tracking-widest text-body-3" style={{ marginBottom: 8 }}>
+            {zh ? '助手名字' : 'Assistant name'}
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '12px 14px',
+              border: '1.5px solid #C5BDAA',
+              borderRadius: 10,
+              background: '#fff',
+            }}
+          >
+            <span style={{ fontSize: 20, fontWeight: 700, color }}>@</span>
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => { setValue(e.target.value); setSaved(false) }}
+              placeholder={defaultName}
+              maxLength={20}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                border: 'none',
+                outline: 'none',
+                fontSize: 18,
+                fontWeight: 600,
+                fontFamily: 'inherit',
+                background: 'transparent',
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSave}
+            disabled={saving || value.trim() === currentName}
+            className="sl-btn-primary !py-[10px] !px-6 disabled:opacity-40"
+          >
+            {saving ? '...' : saved ? (zh ? '已保存 ✓' : 'Saved ✓') : (zh ? '保存' : 'Save')}
+          </button>
+          {value.trim() !== defaultName && (
+            <button
+              onClick={() => { setValue(defaultName); setSaved(false) }}
+              className="text-[13px] font-semibold text-body-3 hover:text-body-2"
+            >
+              {zh ? `恢复默认 (${defaultName})` : `Reset to default (${defaultName})`}
+            </button>
+          )}
+        </div>
+
+        <div
+          style={{
+            background: `${color}0D`,
+            border: `1px solid ${color}33`,
+            borderRadius: 10,
+            padding: '12px 14px',
+          }}
+        >
+          <div className="font-mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color, marginBottom: 4 }}>
+            PREVIEW
+          </div>
+          <p style={{ fontSize: 13, color: '#3F3F46', lineHeight: 1.5 }}>
+            {zh
+              ? `「你好,我是 ${value.trim() || defaultName}。有什么我能帮你的?」`
+              : `"Hi, I'm ${value.trim() || defaultName}. How can I help you?"`}
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

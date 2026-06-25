@@ -73,6 +73,12 @@ export default function AuthCallback() {
             if (role && AGENT_HOME[role]) {
               window.localStorage.setItem('sl-active-role', role)
               dest = AGENT_HOME[role]
+            } else {
+              // Brand new user — check if they came with a role intent
+              const intentRole = new URLSearchParams(window.location.search).get('role')
+              if (intentRole && AGENT_HOME[intentRole]) {
+                dest = `/onboarding/name?role=${intentRole}`
+              }
             }
           }
         }

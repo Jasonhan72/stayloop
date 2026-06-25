@@ -15,7 +15,7 @@ const CFG: RoleLandingConfig = {
     zh: 'Brief 替你整理客户、准备房源材料、安排看房与跟进申请,让你专注线下服务、谈判和信任关系。',
     en: 'Brief organizes your clients, prepares listing materials, schedules showings and follows up on applications — so you can focus on in-person service, negotiation and trust.',
   },
-  primaryCta: { label: { zh: '加入经纪网络 →', en: 'Join the agent network →' }, href: '/agent/onboarding' },
+  primaryCta: { label: { zh: '加入经纪网络 →', en: 'Join the agent network →' }, href: '/onboarding/name?role=agent' },
   secondaryCta: { label: { zh: '看看定价', en: 'See pricing' }, href: '/pricing' },
   agentPoints: [
     { zh: '客户与房源材料一键整理', en: 'One-click organization of clients and listing materials' },

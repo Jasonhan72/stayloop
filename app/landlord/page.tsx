@@ -15,7 +15,7 @@ const CFG: RoleLandingConfig = {
     zh: 'Logic 替你整理申请、同步尽调、起草租约 —— 把 30 分钟的纠结压成 30 秒一次「同意」。决定权,始终在你手里。',
     en: 'Logic organizes applications, runs due diligence and drafts leases — compressing 30 minutes of deliberation into a single 30-second "approve." The decision always stays in your hands.',
   },
-  primaryCta: { label: { zh: '免费发布房源 →', en: 'List a property free →' }, href: '/dashboard/listings/new' },
+  primaryCta: { label: { zh: '免费发布房源 →', en: 'List a property free →' }, href: '/onboarding/name?role=landlord' },
   secondaryCta: { label: { zh: '看看定价', en: 'See pricing' }, href: '/pricing' },
   agentPoints: [
     { zh: '申请人 Pipeline 看板 —— 一眼看清每份申请', en: 'Applicant pipeline board — see every application at a glance' },
