@@ -30,6 +30,10 @@ export type RoleLandingConfig = {
   demo: { ask: Bi; reply: Bi; task: Bi; note: Bi }
   journey: { h: Bi; b: Bi }[]
   scenario: { name: string; meta: Bi; quote: Bi; before: Bi; after: Bi; delta: Bi }
+  // Storyboard strip (3 beats from the shot scripts). `file` is the final
+  // persona still under /public/personas/ — until it exists the <img>
+  // onError-falls back to `fallback` stock. See design/persona-images.md.
+  story?: { file: string; fallback: string; label: Bi; text: Bi }[]
   stats: { k: Bi; v: Bi }[]
   ctaNote?: Bi
 }
@@ -164,7 +168,41 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
           <h2 className="mt-3 text-[30px] font-extrabold leading-tight tracking-tight sm:text-[36px]">
             {lang === 'zh' ? '一段被 AI 改写的租住。' : 'A tenancy rewritten by AI.'}
           </h2>
-          <div className="mt-8 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+          {/* Storyboard strip — three beats straight from the shot scripts */}
+          {cfg.story && (
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              {cfg.story.map((s, i) => (
+                <figure key={s.file} className="sl-card overflow-hidden p-0">
+                  <div className="relative">
+                    <img
+                      src={`/personas/${s.file}`}
+                      alt={s.label[lang]}
+                      className="h-[190px] w-full object-cover"
+                      loading="lazy"
+                      onError={(e) => {
+                        const el = e.currentTarget
+                        if (el.src !== s.fallback) el.src = s.fallback
+                      }}
+                    />
+                    <span
+                      className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-md font-mono text-[12px] font-bold text-white"
+                      style={{ background: i === 0 ? '#B45309' : c }}
+                    >
+                      {i + 1}
+                    </span>
+                  </div>
+                  <figcaption className="p-4">
+                    <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrow" style={{ color: i === 0 ? '#B45309' : c }}>
+                      {s.label[lang]}
+                    </div>
+                    <p className="mt-1.5 text-[13px] leading-relaxed text-body-2">{s.text[lang]}</p>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-5 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="sl-card p-6">
               <div className="text-[20px] font-bold">{cfg.scenario.name}</div>
               <div className="font-mono text-[11.5px] text-body-3">{cfg.scenario.meta[lang]}</div>

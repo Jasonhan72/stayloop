@@ -40,6 +40,26 @@ const CFG: RoleLandingConfig = {
     { h: { zh: '一键申请', en: 'Apply in one tap' }, b: { zh: 'Passport 直接复用,即出 Stayloop Score。', en: 'Reuse your Passport directly and get a Stayloop Score instantly.' } },
     { h: { zh: '入住,安心长住', en: 'Move in, settle in' }, b: { zh: '缴租维修续约退租,AI 全程替你照看。', en: 'Rent, repairs, renewals and move-out — AI looks after it all.' } },
   ],
+  story: [
+    {
+      file: 'mia-01-anxious.jpg',
+      fallback: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=700&q=80&fit=crop&auto=format',
+      label: { zh: '之前 · 深夜的申请表', en: 'Before · forms at midnight' },
+      text: { zh: '信用空白、连续被拒 3 次。旧住处纸箱堆满,Mia 对着申请表,3 天后必须退房。', en: 'No credit file, three rejections. Boxes everywhere, an application form in hand, three days left to move out.' },
+    },
+    {
+      file: 'mia-02-luna.jpg',
+      fallback: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=700&q=80&fit=crop&auto=format',
+      label: { zh: 'Luna 接手', en: 'Luna takes over' },
+      text: { zh: '一句话说清需求 —— 市中心、一居、能养猫。Luna 找房、约看、中文讲解租约、替她谈判。', en: 'One sentence — downtown, 1-bed, cats OK. Luna searches, books, explains the lease in Chinese and negotiates for her.' },
+    },
+    {
+      file: 'mia-03-home.jpg',
+      fallback: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=700&q=80&fit=crop&auto=format',
+      label: { zh: '安心入住', en: 'Settled in' },
+      text: { zh: '当天电子签约,报修 2 小时响应。12/12 准时付租,Score 60 → 91 —— 第二次搬家,只说了一句话。', en: 'E-signed the same day; repairs answered in 2 hours. 12/12 on-time rent, Score 60 → 91 — her second move took one sentence.' },
+    },
+  ],
   scenario: {
     name: 'Mia Chen',
     meta: { zh: '27 · 软件工程师 · 新移民', en: '27 · Software engineer · Newcomer' },

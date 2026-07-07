@@ -40,6 +40,26 @@ const CFG: RoleLandingConfig = {
     { h: { zh: '跟进它来盯', en: 'It runs the follow-ups' }, b: { zh: '客户记忆复用,进展自动提醒,不再跟丢。', en: 'Client memory is reused and progress auto-flagged — no one slips away.' } },
     { h: { zh: '当晚结算', en: 'Settled the same night' }, b: { zh: 'Stripe 自动收款、RECO 合规、审计留痕。', en: 'Stripe auto-collection, RECO compliance, audit trail.' } },
   ],
+  story: [
+    {
+      file: 'david-01-task.jpg',
+      fallback: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=700&q=80&fit=crop&auto=format',
+      label: { zh: '接到任务', en: 'Task lands' },
+      text: { zh: 'RECO 验证 30 秒通过。新任务推送:时间、地点、租客画像、报酬 $80 已预授权,Brief 备好材料包。', en: 'RECO verified in 30 seconds. A task arrives: time, place, tenant profile, $80 pre-authorized — Brief preps the full pack.' },
+    },
+    {
+      file: 'david-02-showing.jpg',
+      fallback: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=700&q=80&fit=crop&auto=format',
+      label: { zh: '专业带看', en: 'The showing, done right' },
+      text: { zh: '现场清单模式推进,可答/不可答边界清晰 —— 他只做专业的部分,记录自动归档留痕。', en: 'On-site checklist mode, clear can/can\'t-answer boundaries — he does only the professional part; notes file themselves.' },
+    },
+    {
+      file: 'david-03-payout.jpg',
+      fallback: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=700&q=80&fit=crop&auto=format',
+      label: { zh: '当晚结算', en: 'Settled that night' },
+      text: { zh: 'Stripe 当晚到账 $80。月度回顾:带看 32 次、保留率 94%、Toronto West 区域 Top 8%。', en: '$80 lands via Stripe the same night. Monthly review: 32 showings, 94% retention, top 8% in Toronto West.' },
+    },
+  ],
   scenario: {
     name: 'David Park',
     meta: { zh: '35 · 持牌经纪 · RECO 6 年', en: '35 · Licensed agent · 6 years with RECO' },

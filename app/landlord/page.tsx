@@ -40,6 +40,26 @@ const CFG: RoleLandingConfig = {
     { h: { zh: '30 秒拍板', en: 'Decide in 30 seconds' }, b: { zh: '每份申请压成一页结论,你只按「同意」。', en: 'Each application compressed to one page of conclusions — you just approve.' } },
     { h: { zh: '租约到收租,全托管', en: 'Lease to rent, managed' }, b: { zh: '自动起草、电子签、收租提醒、续约照看。', en: 'Auto-drafting, e-sign, rent reminders and renewals — looked after.' } },
   ],
+  story: [
+    {
+      file: 'sarah-01-vacancy.jpg',
+      fallback: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format',
+      label: { zh: '之前 · 空置在烧钱', en: 'Before · vacancy burns' },
+      text: { zh: '每月 $2,900 空置损失,一叠申请不知道信谁,还要提防 RTA 合规雷区。', en: '$2,900 a month lost to vacancy, a stack of applications she couldn\'t trust, RTA landmines everywhere.' },
+    },
+    {
+      file: 'sarah-02-logic.jpg',
+      fallback: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=700&q=80&fit=crop&auto=format',
+      label: { zh: 'Logic 接管', en: 'Logic takes over' },
+      text: { zh: '4 分钟重做房源、多平台同步;每份申请 8 维尽调读完排好序,「不养宠」雷区当场拦下。', en: 'Listing rebuilt and synced in 4 minutes; every application read and ranked across 8 axes, the "no pets" landmine flagged on the spot.' },
+    },
+    {
+      file: 'sarah-03-decide.jpg',
+      fallback: 'https://images.unsplash.com/photo-1567496898669-ee935f5f647a?w=700&q=80&fit=crop&auto=format',
+      label: { zh: '30 秒拍板', en: 'Decide in 30 seconds' },
+      text: { zh: '午休时按下「同意」,租约自动起草发出。夜间报修、Month 11 续约决策包,都有 Logic 盯着。', en: 'She pressed "Approve" during lunch; the lease drafted and sent itself. Night repairs and the Month-11 renewal pack are on Logic\'s watch.' },
+    },
+  ],
   scenario: {
     name: 'Sarah Wang',
     meta: { zh: '41 · 会计师 · 2 套投资公寓', en: '41 · Accountant · 2 investment condos' },
