@@ -35,9 +35,9 @@ export const DICT = {
   'nav.tenants': { en: 'For Tenants', zh: '租客' },
   'nav.landlords': { en: 'For Landlords', zh: '房东' },
   'nav.agents': { en: 'For Agents', zh: '经纪' },
-  'nav.product': { en: 'Product', zh: '产品' },
+  'nav.product': { en: 'Who it’s for', zh: '为谁打造' },
   'nav.pricing': { en: 'Pricing', zh: '定价' },
-  'nav.screening': { en: 'Screening', zh: '审核' },
+  'nav.screening': { en: 'Screening', zh: '租客背调' },
   'nav.screenings': { en: 'Screenings', zh: '租客筛查' },
   'nav.login': { en: 'Sign in', zh: '登录' },
   'nav.signOut': { en: 'Sign out', zh: '退出登录' },
@@ -82,7 +82,7 @@ export const DICT = {
   // Footer · product links
   'foot.pricing': { en: 'Pricing', zh: '定价' },
   'foot.trustApi': { en: 'Trust API', zh: 'Trust API' },
-  'foot.screening': { en: 'Screening', zh: '审核' },
+  'foot.screening': { en: 'Screening', zh: '租客背调' },
   'foot.passport': { en: 'Tenant Passport', zh: '租客护照' },
   'foot.disputes': { en: 'Disputes', zh: '争议解决' },
   // Footer · for-whom links

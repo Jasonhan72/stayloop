@@ -19,9 +19,9 @@ interface HeaderProps {
 }
 
 const PRODUCT_ITEMS = [
-  { key: 'nav.tenants', href: '/tenant', color: '#7C3AED' },
-  { key: 'nav.landlords', href: '/landlord', color: '#047857' },
-  { key: 'nav.agents', href: '/agent', color: '#2563EB' },
+  { key: 'nav.tenants', href: '/tenant', color: '#7C3AED', tag: { zh: '让 AI 替你找到家', en: 'AI finds you home' } },
+  { key: 'nav.landlords', href: '/landlord', color: '#047857', tag: { zh: '租得快,选得准', en: 'Rent faster, choose right' } },
+  { key: 'nav.agents', href: '/agent', color: '#2563EB', tag: { zh: '杂活交给 AI', en: 'Busywork goes to AI' } },
 ]
 
 export default function Header({ variant = 'solid' }: HeaderProps) {
@@ -126,19 +126,22 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
               <ChevronIcon open={productOpen} />
             </button>
             {productOpen && (
-              <div className="sl-card absolute left-1/2 mt-3 w-52 -translate-x-1/2 overflow-hidden p-1">
+              <div className="sl-card absolute left-1/2 mt-3 w-60 -translate-x-1/2 overflow-hidden p-1">
                 {PRODUCT_ITEMS.map((item) => (
                   <Link
                     key={item.key}
                     href={item.href}
                     onClick={() => setProductOpen(false)}
-                    className="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-[13px] text-body transition hover:bg-surface-chip"
+                    className="flex items-start gap-2.5 rounded-md px-3 py-2.5 transition hover:bg-surface-chip"
                   >
                     <span
-                      className="h-2 w-2 rounded-full flex-shrink-0"
+                      className="mt-[5px] h-2 w-2 flex-shrink-0 rounded-full"
                       style={{ background: item.color }}
                     />
-                    {t(item.key)}
+                    <span className="min-w-0">
+                      <span className="block text-[13px] font-semibold text-body">{t(item.key)}</span>
+                      <span className="block text-[11.5px] text-body-3">{item.tag[lang]}</span>
+                    </span>
                   </Link>
                 ))}
               </div>
@@ -286,7 +289,7 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
                               <div className="text-[12px] text-[#717171]">
                                 {r === 'tenant'
                                   ? (lang === 'zh' ? '找房 · 申请 · 签约' : 'Search · Apply · Lease')
-                                  : (lang === 'zh' ? '管房 · 审核 · 收租' : 'Manage · Screen · Collect')}
+                                  : (lang === 'zh' ? '管房 · 背调 · 收租' : 'Manage · Screen · Collect')}
                               </div>
                             </div>
                           </button>
