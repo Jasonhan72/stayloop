@@ -63,18 +63,18 @@ html, body {
 /* ============ V5 component utilities ============ */
 
 @layer components {
-  /* Primary CTA — soft mint gradient */
+  /* Primary CTA — brand purple→blue gradient (matches the .AI wordmark) */
   .sl-btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded-[10px] px-[22px] py-3 text-[15px] font-semibold text-white transition active:translate-y-px;
-    background: linear-gradient(135deg, #6EE7B7 0%, #34D399 100%);
-    box-shadow: 0 8px 22px -10px rgba(52, 211, 153, 0.45),
-                0 1px 0 rgba(255, 255, 255, 0.30) inset;
+    background: linear-gradient(135deg, #7C3AED 0%, #2563EB 100%);
+    box-shadow: 0 8px 22px -10px rgba(124, 58, 237, 0.5),
+                0 1px 0 rgba(255, 255, 255, 0.22) inset;
   }
   .sl-btn-primary:hover {
-    background: linear-gradient(135deg, #6EE7B7 0%, #10B981 100%);
+    background: linear-gradient(135deg, #6D28D9 0%, #1D4ED8 100%);
   }
   .sl-btn-primary.dark {
-    background: #047857;
+    background: #4C1D95;
   }
   .sl-btn-primary:disabled,
   .sl-btn-primary.disabled {

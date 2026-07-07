@@ -33,7 +33,7 @@ const CARDS: Card[] = [
     tier: { zh: '免费 · 永久', en: 'Free · forever' },
     price: { zh: '$0', en: '$0' },
     sub: { zh: '租客的隐私永远不是商品', en: 'A tenant’s privacy is never a product' },
-    cta: { zh: '90 秒身份验证', en: '90s identity check' },
+    cta: { zh: '唤醒你的 AI 助手', en: 'Wake up your AI agent' },
     href: '/onboarding/welcome',
     features: [
       { zh: 'Luna 个人 Agent 全功能', en: 'Full Luna personal agent' },

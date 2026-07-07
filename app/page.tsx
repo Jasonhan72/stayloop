@@ -53,10 +53,11 @@ export default function HomePage() {
               )}
             </p>
             <div className="mt-6 flex flex-wrap gap-2.5">
-              {METRICS.map((m) => (
-                <div key={m.v} className="flex items-center gap-2 rounded-lg border border-line-divider bg-white/80 px-3.5 py-2">
-                  <span className="font-mono text-[18px] font-bold" style={{ color: '#047857' }}>{m.v}</span>
-                  <span className="text-[12px] text-body-3">{m.l[lang]}</span>
+              {PROMISES.map((m) => (
+                <div key={m.h.en} className="flex items-center gap-2.5 rounded-lg border border-line-divider bg-white/80 px-3.5 py-2">
+                  <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: GRAD }} />
+                  <span className="text-[13px] font-bold tracking-tight">{m.h[lang]}</span>
+                  <span className="hidden text-[12px] text-body-3 sm:inline">{m.l[lang]}</span>
                 </div>
               ))}
             </div>
@@ -116,16 +117,22 @@ export default function HomePage() {
         lead={zh ? '你不用研究怎么用这个平台。把要的告诉 AI agent,找房、尽调、申请、起草租约,它从头跟到尾;你只在关键处拍板。' : "You don't have to learn how to use this platform. Tell the AI agent what you want — it searches, runs diligence, applies and drafts the lease end to end. You only make the calls that matter."}
         tint
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-5 lg:grid-cols-3">
           {PILLARS.map((p) => (
-            <div key={p.n} className="flex gap-4 rounded-xl border border-line-divider bg-white p-5">
-              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg font-mono text-[13px] font-bold text-white" style={{ background: GRAD }}>
-                {p.n}
+            <div key={p.h.en} className="flex flex-col rounded-2xl border border-line-divider bg-white p-6">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl text-[18px] text-white" style={{ background: GRAD }}>
+                {p.icon}
               </div>
-              <div>
-                <h4 className="text-[15px] font-bold leading-snug">{p.h[lang]}</h4>
-                <p className="mt-1.5 text-[13px] leading-relaxed text-body-2">{p.b[lang]}</p>
-              </div>
+              <h4 className="mt-4 text-[19px] font-extrabold tracking-tight">{p.h[lang]}</h4>
+              <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">{p.b[lang]}</p>
+              <ul className="mt-4 space-y-2 border-t border-line-divider pt-4 text-[12.5px]">
+                {p.proofs.map((pr) => (
+                  <li key={pr.en} className="flex items-start gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="mt-[2px] flex-none"><path d="M20 6 9 17l-5-5" /></svg>
+                    <span className="text-body-2">{pr[lang]}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
         </div>
@@ -190,9 +197,12 @@ export default function HomePage() {
             {zh ? <>给你的 AI 助手起个名字,<br />让租房这件事,从此不一样。</> : <>Name your AI agent,<br />and renting is never the same again.</>}
           </h2>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
-            <Link href="/onboarding/welcome" className="sl-btn-primary !px-7 !py-[14px] !text-[15px]">{zh ? '开始 · 90 秒身份验证' : 'Start · 90s identity check'}</Link>
+            <Link href="/onboarding/welcome" className="sl-btn-primary !px-7 !py-[14px] !text-[15px]">{zh ? '唤醒你的 AI 助手 →' : 'Wake up your AI agent →'}</Link>
             <Link href="/listings" className="rounded-[10px] border border-line-strong bg-white px-6 py-[13px] text-[14px] font-semibold text-body transition hover:border-brand hover:text-brand">{zh ? '先浏览房源 →' : 'Browse listings first →'}</Link>
           </div>
+          <p className="mt-4 font-mono text-[11px] uppercase tracking-eyebrow text-body-3">
+            {zh ? '免费开始 · 租客永远 $0 · 不影响信用分' : 'Free to start · always $0 for tenants · never touches your credit'}
+          </p>
         </div>
       </section>
 
@@ -358,25 +368,20 @@ function RolesSection({ lang, zh }: { lang: Lang; zh: boolean }) {
 }
 
 function JourneyIcon({ step }: { step: number }) {
-  const ic = (path: React.ReactNode) => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">{path}</svg>
-  )
-  if (step === 0)
-    return <span className="h-14 w-14 rounded-full ring-4 ring-[#F2EEE5]" style={{ background: 'linear-gradient(135deg,#C4B5FD,#7C3AED)' }} />
-  if (step === 4)
-    return (
-      <span className="flex h-14 w-14 items-center justify-center rounded-full ring-4 ring-[#F2EEE5]" style={{ background: 'linear-gradient(135deg,#6EE7B7,#047857)' }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-      </span>
-    )
+  // Uniform treatment: white circle + ring; the stroke color walks the same
+  // purple→green gradient as the connecting line, so the five steps read as
+  // one system instead of three different icon styles.
+  const COLORS = ['#7C3AED', '#6D51C6', '#5A6B9E', '#2F8A6B', '#047857']
   const icons: Record<number, React.ReactNode> = {
+    0: <><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4" /><circle cx="12" cy="12" r="4" /></>,
     1: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="11" r="2" /><path d="M14 9h4M14 13h4M5.5 16h7" /></>,
     2: <><path d="M3 11l9-7 9 7" /><path d="M5 10v9h14v-9" /><path d="M10 19v-5h4v5" /></>,
     3: <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />,
+    4: <path d="M20 6 9 17l-5-5" />,
   }
   return (
     <span className="flex h-14 w-14 items-center justify-center rounded-full border border-line-divider bg-white ring-4 ring-[#F2EEE5]">
-      {ic(icons[step])}
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={COLORS[step]} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icons[step]}</svg>
     </span>
   )
 }
@@ -443,18 +448,40 @@ function LunaChatDemo() {
 
 type LS = Record<Lang, string>
 
-const METRICS: { v: string; l: LS }[] = [
-  { v: '90s', l: { zh: '身份验证', en: 'identity check' } },
-  { v: '35min', l: { zh: '到签约', en: 'to signing' } },
-  { v: '$0', l: { zh: '租客免费', en: 'free for tenants' } },
+const PROMISES: { h: LS; l: LS }[] = [
+  { h: { zh: '它记得你', en: 'It remembers you' }, l: { zh: '偏好说一次,永远记得', en: 'say it once, remembered forever' } },
+  { h: { zh: '它替你跑', en: 'It runs for you' }, l: { zh: '你睡觉时,它在工作', en: 'it works while you sleep' } },
+  { h: { zh: '你只拍板', en: 'You make the calls' }, l: { zh: '关键决定,永远归你', en: 'every key decision stays yours' } },
 ]
 
-const PILLARS: { n: string; h: LS; b: LS }[] = [
-  { n: '01', h: { zh: '对话找房,不用填表', en: 'Chat to search — no forms' }, b: { zh: '说一句「预算 2,800、能养猫、走路到 King 站」,AI 就去筛房、约看、一键申请。同样的资料,不用再填第十遍。', en: 'Just say "budget $2,800, cats OK, walk to King station," and AI filters, books viewings and one-click applies. Same info — no filling it out a tenth time.' } },
-  { n: '02', h: { zh: '一页读懂每份申请', en: 'Read every application in one page' }, b: { zh: '每份申请压成一页:收入几倍于租金、有没有红旗、匹配多少分。30 分钟的纠结,变成 30 秒一次「同意」。', en: 'Each application compressed to one page: income-to-rent multiple, any red flags, match score. Thirty minutes of agonizing becomes a 30-second "Approve."' } },
-  { n: '03', h: { zh: '一次验明身份,处处复用', en: 'Verify once, reuse everywhere' }, b: { zh: '直连银行与政府 ID,验一次、到处复用;对方看到的是核验过的结论,不是一叠可能 P 过的 PDF。', en: 'Connect directly to your bank and government ID — verify once, reuse everywhere. The other side sees a verified conclusion, not a stack of possibly-edited PDFs.' } },
-  { n: '04', h: { zh: '自动守住每条合规', en: 'Compliance on autopilot' }, b: { zh: '「不许养宠物」这类条款可能违反 RTA,AI 会当场提醒、帮你避开雷区。软查不影响信用,每一步都留痕可查。', en: 'Terms like "no pets" may violate the RTA — AI flags it on the spot and steers you around the landmines. Soft checks never touch your credit, and every step is logged.' } },
-  { n: '05', h: { zh: '布置完就走,后台干到底', en: 'Assign it and walk away' }, b: { zh: '派给 AI 一个任务,它一直在后台工作直到完成 —— 你去忙别的。一有进展,就用邮件或短信提醒你。', en: "Hand the AI a task and it keeps working in the background until it's done — you go do other things. The moment there's progress, it pings you by email or SMS." } },
+const PILLARS: { icon: React.ReactNode; h: LS; b: LS; proofs: LS[] }[] = [
+  {
+    icon: <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a5 5 0 0 1 5 5c0 1.5-.5 2.5-1.5 3.5S14 14 14 16h-4c0-2-.5-3.5-1.5-4.5S7 9.5 7 8a5 5 0 0 1 5-5z" /><path d="M10 20h4M11 23h2" /></svg>,
+    h: { zh: '它认识你', en: 'It knows you' },
+    b: { zh: '偏好只说一次:预算、猫、采光、通勤 —— 它都记住,下次开口不用从头解释。', en: 'Say your preferences once — budget, cats, light, commute. It remembers, so you never explain from scratch again.' },
+    proofs: [
+      { zh: '对话找房,不用填表', en: 'Chat to search — no forms' },
+      { zh: '资料验一次,处处复用', en: 'Verify once, reuse everywhere' },
+    ],
+  },
+  {
+    icon: <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" /></svg>,
+    h: { zh: '它替你跑', en: 'It runs for you' },
+    b: { zh: '布置完就走:筛房、尽调、申请、跟进,它在后台干到底,有进展才来找你。', en: 'Assign it and walk away: it filters, screens, applies and follows up in the background — and only pings you on progress.' },
+    proofs: [
+      { zh: '30 分钟的纠结,变成 30 秒的「同意」', en: '30 minutes of agonizing becomes a 30-second "Approve"' },
+      { zh: '你睡觉时,它还在工作', en: 'It keeps working while you sleep' },
+    ],
+  },
+  {
+    icon: <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4" /></svg>,
+    h: { zh: '你只拍板', en: 'You make the calls' },
+    b: { zh: '它提案,你决定。对外分享资料、提交申请、签约 —— 每个关键动作都先经你点头,且留痕可审。', en: 'It proposes, you decide. Sharing data, submitting, signing — every key action waits for your nod, and every step is logged.' },
+    proofs: [
+      { zh: 'RTA / OHRC 合规自动把关', en: 'RTA / OHRC compliance on autopilot' },
+      { zh: '每一步留痕,随时可查', en: 'Every step audited, reviewable anytime' },
+    ],
+  },
 ]
 
 const AGENTS: { name: string; role: LS; sub: LS; color: string; av: string; img: string; desc: LS; points: LS[] }[] = [
@@ -471,7 +498,7 @@ const SCENARIOS: { name: string; role: LS; color: string; meta: LS; img: string;
 
 const JOURNEY: { h: LS; b: LS }[] = [
   { h: { zh: '为 AI 起名', en: 'Name your AI' }, b: { zh: '起任何你喜欢的名字。从这一刻起,它只为你一个人。', en: 'Whatever name you like. From this moment, it works for you alone.' } },
-  { h: { zh: '90 秒验明身份', en: 'Verify in 90 seconds' }, b: { zh: '护照加活体,一次过。安全合规 · 不影响你的信用分。', en: 'Passport plus liveness, done in one pass. Secure and compliant · never touches your credit score.' } },
+  { h: { zh: '验证一次,处处通行', en: 'Verify once, go anywhere' }, b: { zh: '护照加活体一次过,从此不再交一叠 PDF · 不影响信用分。', en: 'Passport plus liveness in one pass — never hand over a stack of PDFs again · never touches your credit.' } },
   { h: { zh: '浏览房源', en: 'Browse listings' }, b: { zh: '地图加卡片,AI 主动按你的需求筛过 · 看中就直接问。', en: 'Map plus cards, pre-filtered by AI to your needs · see one you like and just ask.' } },
   { h: { zh: '一键申请', en: 'One-click apply' }, b: { zh: '租房护照直接复用 · AI 自动跑完尽调 · 即出 Stayloop Score。', en: 'Reuse your Rental Passport directly · AI runs full diligence · instant Stayloop Score.' } },
   { h: { zh: '入住,安心长住', en: 'Move in, settle in' }, b: { zh: '缴租、维修、续约、退租,AI 全程替你照看。', en: 'Rent, maintenance, renewal and move-out — AI looks after it all.' } },
