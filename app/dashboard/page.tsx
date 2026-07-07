@@ -196,7 +196,7 @@ export default function Dashboard() {
                 LANDLORD · OVERVIEW
               </div>
               <h1 className="mt-2 text-[32px] font-bold tracking-tight sm:text-[40px]">
-                {lang === 'zh' ? '工作台' : 'Workspace'} · {landlord.email.split('@')[0]}
+                {lang === 'zh' ? '工作台' : 'Workspace'} · {landlord.fullName || landlord.email.split('@')[0]}
               </h1>
             </div>
             <div className="flex flex-wrap items-center gap-2">

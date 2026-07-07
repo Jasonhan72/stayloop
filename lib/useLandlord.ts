@@ -8,6 +8,9 @@ export interface LandlordSession {
   authId: string
   email: string
   landlordId: string
+  // Real name from landlords.full_name (falling back to the auth profile) —
+  // use this for display instead of the email prefix.
+  fullName: string | null
 }
 
 interface UseLandlordReturn {
@@ -41,17 +44,18 @@ export function useLandlord(): UseLandlordReturn {
 
       const authId = session.user.id
       const email = session.user.email || ''
+      const metaName = ((session.user.user_metadata as Record<string, unknown> | null)?.full_name as string) || null
 
       // Try to find existing
       const { data: existing } = await supabase
         .from('landlords')
-        .select('id, auth_id, email')
+        .select('id, auth_id, email, full_name')
         .eq('auth_id', authId)
         .maybeSingle()
 
       if (cancelled?.current) return
       if (existing) {
-        setLandlord({ authId, email, landlordId: existing.id })
+        setLandlord({ authId, email, landlordId: existing.id, fullName: existing.full_name || metaName })
         return
       }
 
@@ -60,7 +64,7 @@ export function useLandlord(): UseLandlordReturn {
       if (cancelled?.current) return
       if (!error && claimed) {
         const claimedId = typeof claimed === 'object' && claimed !== null ? (claimed as { id: string }).id : claimed
-        setLandlord({ authId, email, landlordId: claimedId as string })
+        setLandlord({ authId, email, landlordId: claimedId as string, fullName: metaName })
       } else {
         console.warn('claim_landlord failed', error?.message)
         setLandlord(null)
