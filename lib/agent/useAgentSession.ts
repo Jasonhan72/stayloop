@@ -15,6 +15,39 @@ import { runAgentTurn, WORKFLOW_STAGES } from './orchestrator'
 import { demoSession } from './demo'
 import { getAIName, setAIName, getStoredAIName, getDefaultName } from '@/lib/aiName'
 
+const CHAT_KEY_PREFIX = 'stayloop-agent-chat-'
+
+// Chat history keys are scoped per user (and 'anon' for demo sessions) —
+// an unscoped `role`-only key leaks one user's transcript into the next
+// login on a shared device, and replays anonymous demo chats inside live
+// sessions.
+function chatKey(role: AgentRole, scope: string): string {
+  return `${CHAT_KEY_PREFIX}${role}-${scope}`
+}
+
+function saveMessages(role: AgentRole, scope: string, messages: ChatMessage[]): void {
+  try {
+    const stripped = messages.map(m => ({
+      ...m,
+      attachments: m.attachments?.map(a => ({ ...a, dataUrl: '' })),
+    }))
+    localStorage.setItem(chatKey(role, scope), JSON.stringify(stripped))
+    // One-time cleanup of the legacy unscoped key so old transcripts stop
+    // leaking across accounts.
+    localStorage.removeItem(CHAT_KEY_PREFIX + role)
+  } catch {}
+}
+
+function restoreMessages(role: AgentRole, scope: string): ChatMessage[] | null {
+  try {
+    const raw = localStorage.getItem(chatKey(role, scope))
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed as ChatMessage[]
+  } catch {}
+  return null
+}
+
 // Two-way sync of the agent's name between this device (localStorage)
 // and the durable store (agent_configs.agent_name), so a name chosen on one
 // device shows up on every device after login.
@@ -57,7 +90,7 @@ export type UseAgentSession = {
   sendMessage: (message: string, attachments?: ChatAttachment[]) => Promise<void>
 }
 
-const RENDER_DEADLINE_MS = 5000
+const RENDER_DEADLINE_MS = 10000
 
 export function useAgentSession(role: AgentRole): UseAgentSession {
   const { loading: authLoading, user } = useAuth()
@@ -74,12 +107,17 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   const nextId = () => `m${++msgSeq.current}`
   // Addresses already shown this session — excluded so "再找几个 / 换一批" returns new ones.
   const shownListings = useRef<Set<string>>(new Set())
+  // URL images accumulated across turns so a draft in a follow-up turn gets them.
+  const urlImagesRef = useRef<string[]>([])
+  // Storage scope for chat history: the authed user's id, or 'anon' for demo.
+  const chatScopeRef = useRef('anon')
 
   const settle = useCallback(
     (d: AgentSessionResponse, isLive: boolean) => {
-      // Atomic check-and-set to prevent double settle from timeout + live load race
-      if (settled.current) return
+      // Allow live data to override a demo settle, but never downgrade live → demo.
+      if (settled.current && !isLive) return
       settled.current = true
+      chatScopeRef.current = isLive && user?.id ? user.id.slice(0, 8) : 'anon'
       // The agent is named by the user at onboarding (localStorage).
       // The session's agent_name defaults to ROLE_META — override it so the
       // workspace, input bar, memory aside, and LLM all use the chosen name.
@@ -90,11 +128,22 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       setStatus(d.status)
       setLive(isLive)
       setLoading(false)
-      // Open the conversation with a greeting from the (named) agent.
-      setMessages([{ id: nextId(), role: 'agent', text: greeting(role, d.agent.agent_name) }])
+      // Restore conversation history from localStorage, or start with greeting.
+      const saved = restoreMessages(role, chatScopeRef.current)
+      if (saved && saved.length > 0) {
+        msgSeq.current = saved.length
+        setMessages(saved)
+      } else {
+        setMessages([{ id: nextId(), role: 'agent', text: greeting(role, d.agent.agent_name) }])
+      }
     },
-    [role]
+    [role, user]
   )
+
+  // Persist conversation history to localStorage on every change.
+  useEffect(() => {
+    if (messages.length > 1) saveMessages(role, chatScopeRef.current, messages)
+  }, [messages, role])
 
   // Safety net: render within RENDER_DEADLINE_MS no matter what (auth slow,
   // network hung, RPC stalled). Demo content mirrors the design, so the
@@ -116,11 +165,51 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       }
       try {
         const client = getSupabaseBrowser()
-        const session = await loadAgentSession(client, role, { seedDemo: true })
+        // Load the live session with ONE retry — a single slow/cold RPC must
+        // not strand a logged-in user in demo mode for the whole session
+        // (that made every message return the canned acknowledgement).
+        let session
+        try {
+          session = await loadAgentSession(client, role, { seedDemo: false })
+        } catch (e1) {
+          console.warn('[agent] live load attempt 1 failed, retrying —', (e1 as Error).message)
+          await new Promise((r) => setTimeout(r, 1500))
+          session = await loadAgentSession(client, role, { seedDemo: false })
+        }
         await reconcileAgentName(client, session, role)
-        if (!cancelled) settle(session, true)
+        if (cancelled) return
+        settle(session, true)
+
+        // Proactive sweep AFTER the workspace is live — never on the load
+        // critical path. Fire-and-forget; merge any created proposals in.
+        if (role === 'landlord') {
+          void (async () => {
+            try {
+              const { data: sess } = await client.auth.getSession()
+              const token = sess?.session?.access_token
+              if (!token) return
+              const res = await fetch('/api/agent/proactive', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+              })
+              if (!res.ok) return
+              const j = (await res.json()) as { created?: number; actions?: AgentSessionResponse['pendingActions'] }
+              if (cancelled || !j.created || j.created === 0) return
+              const created = Array.isArray(j.actions) ? j.actions : []
+              if (created.length) {
+                setData((prev) => prev ? { ...prev, pendingActions: [...created, ...prev.pendingActions] } : prev)
+                setStatus('approval')
+              }
+              setMessages((msgs) => [...msgs, {
+                id: nextId(),
+                role: 'agent',
+                text: `我在你离开的时候检查了你的租约：有 ${j.created} 份租约进入了续约窗口。我已经算好方案（不涨 / 按 2026 指导上限 +2.5%），放在右侧待你批准 —— 批准后我会把续约函真实发送给租客。`,
+              }])
+            } catch { /* sweep is best-effort */ }
+          })()
+        }
       } catch (e) {
-        console.warn('[agent] live load failed, using demo —', (e as Error).message)
+        console.warn('[agent] live load failed twice, using demo —', (e as Error).message)
         if (!cancelled) settle(demoSession(role), false)
       }
     })()
@@ -131,15 +220,74 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
 
   const decide = useCallback(
     async (actionId: string, decision: 'approved' | 'rejected', note?: string) => {
-      setData((prev) =>
-        prev ? { ...prev, pendingActions: prev.pendingActions.filter((a) => a.id !== actionId) } : prev
-      )
-      setStatus((s) => (s === 'approval' ? 'result' : s))
+      // Optimistic removal, but keep what we removed so a failed RPC can
+      // ROLL BACK — otherwise the card vanishes, the user believes the
+      // action happened, and the still-pending row resurfaces on reload.
+      let removed: AgentSessionResponse['pendingActions'][number] | undefined
+      let prevStatus: AgentStatus | null = null
+      setData((prev) => {
+        if (!prev) return prev
+        removed = prev.pendingActions.find((a) => a.id === actionId)
+        return { ...prev, pendingActions: prev.pendingActions.filter((a) => a.id !== actionId) }
+      })
+      setStatus((s) => { prevStatus = s; return s === 'approval' ? 'result' : s })
       if (!live) return
       try {
         await decidePendingAction(getSupabaseBrowser(), actionId, decision, note)
       } catch (e) {
         setError((e as Error).message)
+        // Roll back: restore the card and the prior status so the UI never
+        // claims a decision that didn't persist.
+        setData((prev) =>
+          prev && removed ? { ...prev, pendingActions: [removed, ...prev.pendingActions] } : prev
+        )
+        if (prevStatus) setStatus(prevStatus)
+        return
+      }
+      // Approved → EXECUTE. The decision only changed a status row; this is
+      // where the action actually happens (server-side, idempotent, audited).
+      if (decision === 'approved') {
+        try {
+          const { data: sess } = await getSupabaseBrowser().auth.getSession()
+          const token = sess?.session?.access_token
+          if (!token) return
+          const res = await fetch('/api/agent/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ action_id: actionId }),
+          })
+          const j = (await res.json()) as {
+            executed?: boolean
+            already?: boolean
+            reason?: string
+            result?: { sent_to?: string; rent?: number } | null
+          }
+          const sentTo = j.result?.sent_to
+          const rentAmt = j.result?.rent
+          if (j.executed && sentTo) {
+            setMessages((msgs) => [...msgs, {
+              id: nextId(),
+              role: 'agent',
+              text: `✅ 已执行：「${removed?.title ?? '你批准的操作'}」— 续约函已真实发送至 ${sentTo}${rentAmt ? `（月租 $${rentAmt.toLocaleString()}）` : ''}。执行记录已写入审计日志。`,
+            }])
+          } else if (j.executed) {
+            // already executed earlier — nothing new to report
+          } else if (j.reason === 'no_executor_for_type') {
+            // Approval-only action type — the approval itself was the effect.
+          } else {
+            setMessages((msgs) => [...msgs, {
+              id: nextId(),
+              role: 'agent',
+              text: `⚠️ 批准已记录，但执行未完成（${j.reason || '发送失败'}）。这不会重复发送 —— 你可以稍后在待办里重试，或让我检查租客邮箱是否有误。`,
+            }])
+          }
+        } catch {
+          setMessages((msgs) => [...msgs, {
+            id: nextId(),
+            role: 'agent',
+            text: '⚠️ 批准已记录，但执行请求没有送达服务器。刷新后可重试，不会重复发送。',
+          }])
+        }
       }
     },
     [live]
@@ -155,16 +303,24 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       setMessages((m) => [...m, { id: nextId(), role: 'user', text: message.trim(), attachments }])
       setStatus('understanding')
 
-      // Default acknowledgement (used if reasoning is unavailable).
-      let result = {
-        title: '收到了',
-        body: `我记下了:"${message.trim()}"。需要对外分享或提交的动作,都会先作为待批准卡片让你确认。`,
-      }
+      // Default acknowledgement — ONLY for anonymous preview sessions. A
+      // signed-in user whose live connection failed gets the honest version
+      // instead: the old canned "我记下了…" made a dead session look alive.
+      let result = user && !live
+        ? {
+            title: '会话未连接',
+            body: '⚠️ 当前会话没有连接到实时服务（预览模式），这条消息我没有真正处理。请刷新页面重连后再发一次 —— 如果反复出现，告诉我你的网络环境，我们来排查。',
+          }
+        : {
+            title: '收到了',
+            body: `我记下了:"${message.trim()}"。需要对外分享或提交的动作,都会先作为待批准卡片让你确认。`,
+          }
       let memoryWrites: AgentSessionResponse['memories'] = []
       let proposedAction: AgentSessionResponse['pendingActions'][number] | null = null
       let nextStage: string | null = null
       let listings: ChatMessage['listings']
       let listingsSource: ChatMessage['listingsSource']
+      let draftListing: ChatMessage['draftListing']
 
       setStatus('working')
       // Real reasoning only for authenticated live sessions — anonymous preview
@@ -192,10 +348,27 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           nextStage = turn.nextStage
           listings = turn.listings
           listingsSource = turn.listingsSource
+          draftListing = turn.draftListing
+          // Accumulate URL images across turns for cross-turn draft attachment.
+          if (turn.urlImages?.length) urlImagesRef.current = turn.urlImages
+          // If draft has no images, attach accumulated images from prior URL turns.
+          if (draftListing && (!draftListing.images || !draftListing.images.length) && urlImagesRef.current.length) {
+            draftListing = { ...draftListing, images: urlImagesRef.current }
+          }
           // Remember what we showed so the next search returns fresh results.
           turn.listings?.forEach((l) => shownListings.current.add(l.address.toLowerCase()))
         } catch (e) {
-          console.warn('[agent] turn failed, using fallback —', (e as Error).message)
+          console.warn('[agent] turn failed —', (e as Error).message)
+          // HONEST failure message — the old canned "我记下了…" made a failed
+          // turn look like a successful one (user believed the agent absorbed
+          // the request when nothing was processed).
+          const msg = (e as Error).message || ''
+          result = {
+            title: '这条没处理成',
+            body: /timeout|504|network|failed to fetch/i.test(msg)
+              ? '⚠️ 我处理这条消息超时了（链接抓取或推理耗时过长）。内容我没有真正读到 —— 请把这条消息重新发一次，通常第二次会快很多（页面已被缓存）。'
+              : `⚠️ 这条消息我没有处理成功（${msg.slice(0, 120)}）。请重发一次；若持续失败，把内容以文字形式直接发给我。`,
+          }
         }
       } else {
         await new Promise((r) => setTimeout(r, 350))
@@ -219,10 +392,10 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           latestResult: { ...result, kind: 'summary' },
         }
       })
-      // Append the agent's reply (with any listing cards) to the thread.
+      // Append the agent's reply (with any listing/draft cards) to the thread.
       setMessages((m) => [
         ...m,
-        { id: nextId(), role: 'agent', text: result.body, listings, listingsSource },
+        { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, draftListing },
       ])
     },
     [live, user, role, data]

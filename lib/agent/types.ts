@@ -99,6 +99,53 @@ export type ListingCard = {
   note?: string
 }
 
+export type DraftListing = {
+  title?: string
+  address: string
+  unit?: string
+  city?: string
+  neighborhood?: string
+  monthly_rent: number
+  bedrooms?: number
+  bathrooms?: number
+  sqft?: number
+  available_date?: string
+  description?: string
+  parking?: string
+  pet_policy?: string
+  amenities?: string[]
+  has_den?: boolean
+  property_type?: string
+  images?: string[]
+  // Realtor.ca / CREA DDF-aligned fields (see 20260707_listings_ddf_alignment.sql)
+  ownership_title?: string
+  bedrooms_above_grade?: number
+  bedrooms_below_grade?: number
+  bathrooms_half?: number
+  sqft_max?: number
+  storeys?: number
+  land_size?: string
+  heating_type?: string
+  heating_fuel?: string
+  cooling?: string
+  basement_type?: string
+  exterior_finish?: string
+  appliances?: string[]
+  building_features?: string[]
+  pets_allowed?: string
+  parking_spaces?: number
+  maintenance_fee?: number
+  management_company?: string
+  cross_streets?: string
+  furnished?: boolean
+  deposit?: number
+  lease_term?: string
+  virtual_tour_url?: string
+  year_built?: number
+  mls_number?: string
+  source_url?: string
+}
+
 export type ChatAttachment = {
   name: string
   mediaType: string
@@ -113,6 +160,7 @@ export type ChatMessage = {
   attachments?: ChatAttachment[]
   listings?: ListingCard[]
   listingsSource?: 'stayloop' | 'realtor'
+  draftListing?: DraftListing
 }
 
 export type Recommendation = {

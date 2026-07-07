@@ -1,10 +1,11 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import OnboardingStage from '@/components/OnboardingStage'
 import { setAIName } from '@/lib/aiName'
 import { useAuth } from '@/lib/useAuth'
+import { useOnboarded } from '@/lib/useOnboarding'
 import { useT } from '@/lib/i18n'
 import type { AgentRole } from '@/lib/agent/types'
 
@@ -88,8 +89,8 @@ const ROLE_CONFIG: Record<AgentRole, {
       en: 'Your dedicated AI broker assistant: manages clients, prepares materials, schedules showings, collects feedback — admin work handled, you focus on people and judgment.',
     },
     preview: {
-      zh: (n) => `「你好,我是 ${n}。带看、客户整理、现场反馈、佣金结算 —— 行政杂活我来,你专心做人和判断。」`,
-      en: (n) => `"Hi, I'm ${n}. Showings, client management, field feedback, commission settlement — I handle the admin, you focus on relationships and judgment."`,
+      zh: (n) => `「你好,我是 ${n}。带看、客户整理、现场反馈、合规提醒 —— 行政杂活我来,你专心做人和判断。」`,
+      en: (n) => `"Hi, I'm ${n}. Showings, client management, field feedback, compliance reminders — I handle the admin, you focus on relationships and judgment."`,
     },
     helps: [
       { zh: '客户与房源材料整理', en: 'Client and listing material organization' },
@@ -117,8 +118,30 @@ function NamePageInner() {
   const { lang } = useT()
   const zh = lang === 'zh'
 
+  // The ?role= param survives only the first navigation — Back to /meet and
+  // returning loses it (those links carry no query), which silently converted
+  // landlords/agents into tenant onboarding. Persist the last seen role so
+  // back-navigation keeps it; an explicit param always wins.
   const roleParam = searchParams.get('role') as AgentRole | null
-  const role: AgentRole = (roleParam && ROLE_CONFIG[roleParam]) ? roleParam : 'tenant'
+  const storedRole = (typeof window !== 'undefined'
+    ? window.sessionStorage.getItem('sl-onboarding-role')
+    : null) as AgentRole | null
+  const role: AgentRole =
+    (roleParam && ROLE_CONFIG[roleParam]) ? roleParam
+    : (storedRole && ROLE_CONFIG[storedRole]) ? storedRole
+    : 'tenant'
+  useEffect(() => {
+    try { window.sessionStorage.setItem('sl-onboarding-role', role) } catch {}
+  }, [role])
+
+  // Already onboarded for this role → skip the naming flow entirely. A
+  // logged-in landlord clicking "免费发布房源" must not be re-asked to name
+  // Logic every time.
+  const { ready, onboarded, home } = useOnboarded(role)
+  useEffect(() => {
+    if (ready && onboarded) router.replace(home)
+  }, [ready, onboarded, home, router])
+
   const cfg = ROLE_CONFIG[role]
 
   const [value, setValue] = useState('')

@@ -21,7 +21,7 @@ export default function HomePage() {
         className="overflow-hidden"
       >
         <div className="mx-auto grid max-w-[1240px] items-center gap-10 px-5 pb-8 pt-16 sm:px-7 lg:grid-cols-[1.05fr_0.95fr] lg:px-12 lg:pt-20">
-          <div>
+          <div className="min-w-0">
             <Eyebrow>{zh ? '为 AI 时代而生 · 多伦多租住操作系统' : 'Built for the AI era · Toronto rental OS'}</Eyebrow>
             <h1 className="mt-4 text-[30px] font-extrabold leading-[1.05] tracking-tightest sm:text-[52px] lg:text-[58px]">
               {zh ? (
@@ -69,7 +69,7 @@ export default function HomePage() {
               </Link>
             </div>
           </div>
-          <LunaChatDemo />
+          <div className="min-w-0"><LunaChatDemo /></div>
         </div>
         <ChatInputBar />
       </section>
@@ -273,7 +273,7 @@ function RolesSection({ lang, zh }: { lang: Lang; zh: boolean }) {
       <div className="mb-8 flex flex-wrap gap-2">
         {AGENTS.map((ag, i) => (
           <button
-            key={ag.name}
+            key={ag.role.en}
             onClick={() => setActive(i)}
             className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-bold transition"
             style={
@@ -393,7 +393,7 @@ function LunaChatDemo() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className="h-8 w-8 rounded-full" style={{ background: 'linear-gradient(135deg,#C4B5FD,#7C3AED)' }} />
-          <span className="text-[14px] font-bold">Luna</span>
+          <span className="text-[14px] font-bold">AI Agent</span>
         </div>
         <span className="flex items-center gap-1.5 font-mono text-[10.5px]" style={{ color: '#34D399' }}>
           <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#34D399' }} /> {zh ? '在线 · 读取你的记忆' : 'Online · reading your memory'}
@@ -458,15 +458,15 @@ const PILLARS: { n: string; h: LS; b: LS }[] = [
 ]
 
 const AGENTS: { name: string; role: LS; sub: LS; color: string; av: string; img: string; desc: LS; points: LS[] }[] = [
-  { name: 'Luna', role: { zh: 'TENANT · 租客', en: 'TENANT' }, sub: { zh: '租客助手', en: 'Tenant assistant' }, color: '#7C3AED', av: 'radial-gradient(circle at 35% 30%,#C4B5FD,#7C3AED 75%)', img: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=700&q=80&fit=crop&auto=format', desc: { zh: '验证一次,处处通行。替你找房、比价、约看、一键申请,资料只在你点头时才分享。', en: 'Verify once, go anywhere. Searches, compares, books viewings and one-click applies — your data is shared only when you say so.' }, points: [{ zh: '对话式找房 + 主动匹配', en: 'Conversational search + proactive matching' }, { zh: '可复用 Rental Passport', en: 'Reusable Rental Passport' }, { zh: '缴租 · 维修 · 续约全程托管', en: 'Rent, maintenance & renewal fully managed' }] },
-  { name: 'Logic', role: { zh: 'LANDLORD · 房东', en: 'LANDLORD' }, sub: { zh: '房东助手', en: 'Landlord assistant' }, color: '#047857', av: 'radial-gradient(circle at 35% 30%,#6EE7B7,#047857 75%)', img: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format', desc: { zh: '是流水线,不是收件箱。替你整理申请、同步尽调、起草租约 —— 决定权始终在你手里。', en: 'A pipeline, not an inbox. Organizes applications, runs diligence and drafts leases — the decision is always yours.' }, points: [{ zh: '申请人 Pipeline 看板', en: 'Applicant pipeline board' }, { zh: '8 Engine 自动尽调 + 评分', en: '8-engine automated diligence + scoring' }, { zh: '合规教练 · 租约自动起草', en: 'Compliance coach · auto lease drafting' }] },
-  { name: 'Brief', role: { zh: 'AGENT · 经纪', en: 'AGENT' }, sub: { zh: '经纪助手', en: 'Agent assistant' }, color: '#2563EB', av: 'radial-gradient(circle at 35% 30%,#93C5FD,#2563EB 75%)', img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=700&q=80&fit=crop&auto=format', desc: { zh: '把杂活交给系统,把关系留给人。替你整理客户、准备材料、安排看房和跟进。', en: 'Leave the busywork to the system, the relationships to you. Organizes clients, prepares materials, and schedules viewings and follow-ups.' }, points: [{ zh: '客户与房源材料整理', en: 'Client & listing material organization' }, { zh: '看房 Live · 现场记录', en: 'Live viewings · on-site notes' }, { zh: '佣金拆分 · 团队协作', en: 'Commission splits · team collaboration' }] },
+  { name: 'AI Agent', role: { zh: 'TENANT · 租客', en: 'TENANT' }, sub: { zh: '租客助手', en: 'Tenant assistant' }, color: '#7C3AED', av: 'radial-gradient(circle at 35% 30%,#C4B5FD,#7C3AED 75%)', img: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=700&q=80&fit=crop&auto=format', desc: { zh: '验证一次,处处通行。替你找房、比价、约看、一键申请,资料只在你点头时才分享。', en: 'Verify once, go anywhere. Searches, compares, books viewings and one-click applies — your data is shared only when you say so.' }, points: [{ zh: '对话式找房 + 主动匹配', en: 'Conversational search + proactive matching' }, { zh: '可复用 Rental Passport', en: 'Reusable Rental Passport' }, { zh: '缴租 · 维修 · 续约全程托管', en: 'Rent, maintenance & renewal fully managed' }] },
+  { name: 'AI Agent', role: { zh: 'LANDLORD · 房东', en: 'LANDLORD' }, sub: { zh: '房东助手', en: 'Landlord assistant' }, color: '#047857', av: 'radial-gradient(circle at 35% 30%,#6EE7B7,#047857 75%)', img: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format', desc: { zh: '是流水线,不是收件箱。替你整理申请、同步尽调、起草租约 —— 决定权始终在你手里。', en: 'A pipeline, not an inbox. Organizes applications, runs diligence and drafts leases — the decision is always yours.' }, points: [{ zh: '申请人 Pipeline 看板', en: 'Applicant pipeline board' }, { zh: '8 Engine 自动尽调 + 评分', en: '8-engine automated diligence + scoring' }, { zh: '合规教练 · 租约自动起草', en: 'Compliance coach · auto lease drafting' }] },
+  { name: 'AI Agent', role: { zh: 'AGENT · 经纪', en: 'AGENT' }, sub: { zh: '经纪助手', en: 'Agent assistant' }, color: '#2563EB', av: 'radial-gradient(circle at 35% 30%,#93C5FD,#2563EB 75%)', img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=700&q=80&fit=crop&auto=format', desc: { zh: '把杂活交给系统,把关系留给人。替你整理客户、准备材料、安排看房和跟进。', en: 'Leave the busywork to the system, the relationships to you. Organizes clients, prepares materials, and schedules viewings and follow-ups.' }, points: [{ zh: '客户与房源材料整理', en: 'Client & listing material organization' }, { zh: '看房 Live · 现场记录', en: 'Live viewings · on-site notes' }, { zh: '佣金拆分 · 团队协作', en: 'Commission splits · team collaboration' }] },
 ]
 
 const SCENARIOS: { name: string; role: LS; color: string; meta: LS; img: string; quote: LS; before: LS; after: LS; with: LS; delta: LS; punch: LS }[] = [
-  { name: 'Mia Chen', role: { zh: '租客 · TENANT', en: 'TENANT' }, color: '#7C3AED', meta: { zh: '27 · 软件工程师 · 新移民', en: '27 · software engineer · newcomer' }, img: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=700&q=80&fit=crop&auto=format', quote: { zh: '没有加拿大信用记录,我到底该怎么租房?', en: 'With no Canadian credit history, how am I supposed to rent at all?' }, before: { zh: '信用空白,已被拒 3 次,3 天后必须退房。', en: 'No credit file, rejected 3 times, must move out in 3 days.' }, after: { zh: '90 秒验明身份,中文读懂租约,35 分钟签约入住。', en: 'Verified identity in 90s, explained the lease in Chinese, signed and moved in within 35 minutes.' }, with: { zh: 'Luna 陪同', en: 'with Luna' }, delta: { zh: 'Score 60 → 91', en: 'Score 60 → 91' }, punch: { zh: '第二次,比第一次更轻松。', en: 'The second time was even easier than the first.' } },
-  { name: 'Sarah Wang', role: { zh: '房东 · LANDLORD', en: 'LANDLORD' }, color: '#047857', meta: { zh: '41 · 会计师 · 2 套投资公寓', en: '41 · accountant · 2 investment condos' }, img: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format', quote: { zh: '做决定前要查、要比,还怕踩 RTA 的雷。', en: "Before deciding I have to research, compare — and worry about tripping over the RTA." }, before: { zh: '每月空置损失 $2,900,深夜被报修打扰,合规压力大。', en: '$2,900 lost to vacancy each month, late-night maintenance calls, constant compliance pressure.' }, after: { zh: '4 分钟重做房源、跑完尽调,关键时刻只按「同意」。', en: 'Rebuilt the listing and ran full diligence in 4 minutes; at the key moment she just pressed "Approve."' }, with: { zh: 'Logic 协同', en: 'with Logic' }, delta: { zh: '30 分钟 → 30 秒', en: '30 min → 30 sec' }, punch: { zh: '决定权,始终在你手里。', en: 'The decision is always in your hands.' } },
-  { name: 'David Park', role: { zh: '经纪 · AGENT', en: 'AGENT' }, color: '#2563EB', meta: { zh: '35 · 持牌经纪 · RECO 6 年', en: '35 · licensed agent · 6 years RECO' }, img: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=700&q=80&fit=crop&auto=format', quote: { zh: '不是没机会,是时间被行政碎片化了。', en: "It's not a lack of opportunity — my time gets shredded by admin." }, before: { zh: '70% 时间耗在行政,收入不稳,客户容易跟丢。', en: '70% of his time went to admin, income was unstable, and clients slipped away.' }, after: { zh: '编排任务、当晚结算,他只做带看与专业判断。', en: 'Tasks orchestrated and settled same night; he only handles showings and professional judgment.' }, with: { zh: 'Brief + Beacon', en: 'Brief + Beacon' }, delta: { zh: '时薪 $25 → $43', en: 'Hourly $25 → $43' }, punch: { zh: '剥离行政,放大专业。', en: 'Strip away admin, amplify expertise.' } },
+  { name: 'Mia Chen', role: { zh: '租客 · TENANT', en: 'TENANT' }, color: '#7C3AED', meta: { zh: '27 · 软件工程师 · 新移民', en: '27 · software engineer · newcomer' }, img: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=700&q=80&fit=crop&auto=format', quote: { zh: '没有加拿大信用记录,我到底该怎么租房?', en: 'With no Canadian credit history, how am I supposed to rent at all?' }, before: { zh: '信用空白,已被拒 3 次,3 天后必须退房。', en: 'No credit file, rejected 3 times, must move out in 3 days.' }, after: { zh: '90 秒验明身份,中文读懂租约,35 分钟签约入住。', en: 'Verified identity in 90s, explained the lease in Chinese, signed and moved in within 35 minutes.' }, with: { zh: 'AI Agent 陪同', en: 'with AI Agent' }, delta: { zh: 'Score 60 → 91', en: 'Score 60 → 91' }, punch: { zh: '第二次,比第一次更轻松。', en: 'The second time was even easier than the first.' } },
+  { name: 'Sarah Wang', role: { zh: '房东 · LANDLORD', en: 'LANDLORD' }, color: '#047857', meta: { zh: '41 · 会计师 · 2 套投资公寓', en: '41 · accountant · 2 investment condos' }, img: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format', quote: { zh: '做决定前要查、要比,还怕踩 RTA 的雷。', en: "Before deciding I have to research, compare — and worry about tripping over the RTA." }, before: { zh: '每月空置损失 $2,900,深夜被报修打扰,合规压力大。', en: '$2,900 lost to vacancy each month, late-night maintenance calls, constant compliance pressure.' }, after: { zh: '4 分钟重做房源、跑完尽调,关键时刻只按「同意」。', en: 'Rebuilt the listing and ran full diligence in 4 minutes; at the key moment she just pressed "Approve."' }, with: { zh: 'AI Agent 协同', en: 'with AI Agent' }, delta: { zh: '30 分钟 → 30 秒', en: '30 min → 30 sec' }, punch: { zh: '决定权,始终在你手里。', en: 'The decision is always in your hands.' } },
+  { name: 'David Park', role: { zh: '经纪 · AGENT', en: 'AGENT' }, color: '#2563EB', meta: { zh: '35 · 持牌经纪 · RECO 6 年', en: '35 · licensed agent · 6 years RECO' }, img: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=700&q=80&fit=crop&auto=format', quote: { zh: '不是没机会,是时间被行政碎片化了。', en: "It's not a lack of opportunity — my time gets shredded by admin." }, before: { zh: '70% 时间耗在行政,收入不稳,客户容易跟丢。', en: '70% of his time went to admin, income was unstable, and clients slipped away.' }, after: { zh: '编排任务、当晚结算,他只做带看与专业判断。', en: 'Tasks orchestrated and settled same night; he only handles showings and professional judgment.' }, with: { zh: 'AI Agent + Beacon', en: 'AI Agent + Beacon' }, delta: { zh: '时薪 $25 → $43', en: 'Hourly $25 → $43' }, punch: { zh: '剥离行政,放大专业。', en: 'Strip away admin, amplify expertise.' } },
 ]
 
 const JOURNEY: { h: LS; b: LS }[] = [

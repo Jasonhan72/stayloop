@@ -1,8 +1,12 @@
 'use client'
 
+import { useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import OnboardingStage from '@/components/OnboardingStage'
 import { useT } from '@/lib/i18n'
+import { useAuth } from '@/lib/useAuth'
+import { useOnboarded } from '@/lib/useOnboarding'
 
 /**
  * Tenant onboarding · STEP 01
@@ -12,6 +16,14 @@ import { useT } from '@/lib/i18n'
 export default function OnboardingWelcomePage() {
   const { lang } = useT()
   const zh = lang === 'zh'
+  const router = useRouter()
+  // A signed-in user who already finished onboarding for their active role
+  // shouldn't see the intro again — send them to their workspace.
+  const { role } = useAuth()
+  const { ready, onboarded, home } = useOnboarded(role ?? 'tenant')
+  useEffect(() => {
+    if (ready && onboarded && role) router.replace(home)
+  }, [ready, onboarded, role, home, router])
   const benefits = [
     { zh: '一个 AI Agent 记住你的偏好，每天为你筛新房', en: 'An AI agent that remembers your preferences and screens new listings for you daily' },
     { zh: 'Rental Passport — 一次验证全城通用，不重复填表', en: 'Rental Passport — verify once, reuse across the city, no repeat forms' },

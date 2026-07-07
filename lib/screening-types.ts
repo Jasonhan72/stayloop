@@ -1,0 +1,258 @@
+// Shared types for the screening module — single source of truth.
+// Consumed by: app/screening/page.tsx, lib/generateReport.ts, app/api/screen-score/route.ts
+
+export interface OntarioPortalMatch {
+  caseNumber: string
+  caseTitle: string
+  caseCategory: string
+  filedDate: string
+  partyRole: string
+  partyDisplayName: string
+  courtAbbreviation: string
+  closedFlag: boolean
+  nameSwapped?: boolean
+  caseInstanceUUID?: string
+  courtID?: string
+}
+
+export interface CanLIIMatch {
+  title: string
+  citation: string
+  url: string
+  databaseId: string
+  databaseName?: string
+  caseId: string
+  nameInTitle?: boolean
+}
+
+export interface CourtQuery {
+  source: string
+  tier: 'free' | 'pro'
+  status: 'ok' | 'unavailable' | 'skipped' | 'coming_soon' | 'timeout'
+  hits: number | null
+  url?: string
+  note?: string
+  severity?: number
+  records?: CanLIIMatch[]
+  portalRecords?: OntarioPortalMatch[]
+}
+
+export interface AiFlag {
+  type: 'danger' | 'warning' | 'info' | 'success'
+  text_en: string
+  text_zh: string
+}
+
+export type V3DimKey = 'ability_to_pay' | 'credit_health' | 'rental_history' | 'verification' | 'communication'
+
+export interface V3Scores {
+  ability_to_pay: number
+  credit_health: number
+  rental_history: number
+  verification: number
+  communication: number
+}
+
+export const V3_WEIGHTS: Record<V3DimKey, number> = {
+  ability_to_pay: 0.40,
+  credit_health: 0.25,
+  rental_history: 0.20,
+  verification: 0.10,
+  communication: 0.05,
+}
+
+export interface CreditReport {
+  bureau?: string | null
+  credit_score?: number | null
+  score_band?: string | null
+  report_date?: string | null
+  tradelines?: Array<{
+    creditor: string; type: string; date_opened: string
+    balance: number | null; high_credit: number | null
+    past_due: number | null; payment_status: string; late_30_60_90: string
+  }>
+  collections?: Array<{ creditor: string; date_assigned: string; original_amount: number | null; balance: number | null }>
+  bankruptcies?: Array<{ date_filed: string; type: string; amount: number | null; disposition: string }>
+  inquiries?: Array<{ date: string; creditor: string }>
+  total_debt?: number | null
+  monthly_debt_payments?: number | null
+}
+
+export interface ArmLengthCheck {
+  employer_name: string
+  company_info: {
+    name: string
+    company_number: string | null
+    jurisdiction: string | null
+    incorporation_date: string | null
+    status: string | null
+    registered_address: string | null
+    company_type: string | null
+    officers: Array<{ name: string; position: string }>
+    registry_url: string | null
+    source: string
+  } | null
+  is_numbered_company: boolean
+  is_recently_incorporated: boolean
+  applicant_is_officer: boolean
+  applicant_lastname_match: boolean
+  company_address_matches_applicant: boolean
+  arm_length_risk: 'high' | 'medium' | 'low' | 'clean'
+  flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string }>
+}
+
+export interface ForensicsDetail {
+  severity: string
+  hard_gates: string[]
+  elapsed_ms?: number
+  all_flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string; file?: string }>
+  per_file: Array<{
+    file_name: string
+    file_kind: string
+    mime?: string
+    pdf_metadata?: {
+      title?: string | null
+      producer: string | null
+      creator?: string | null
+      creation_date?: string | null
+      modification_date?: string | null
+      page_count: number
+      file_size_bytes: number
+    } | null
+    text_density?: {
+      total_chars?: number
+      page_count?: number
+      chars_per_page: number
+      is_likely_image_pdf: boolean
+      text_sample?: string
+    } | null
+    ocr?: {
+      text: string
+      apparent_doc_type?: string
+      apparent_name?: string | null
+      visible_issuer?: string | null
+    } | null
+    paystub_math?: {
+      extraction?: {
+        annual_salary?: number | null
+        ytd_gross?: number | null
+        pay_date?: string | null
+        employer_name?: string | null
+      } | null
+      expected_ytd_gross?: number | null
+      ytd_ratio?: number | null
+      period_math_error_pct?: number | null
+    } | null
+    source_specific?: {
+      equifax_authentic_markers?: boolean | null
+      bank_producer_whitelisted?: boolean | null
+      matched_bank?: string | null
+    } | null
+    flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string; file?: string }>
+  }>
+  cross_doc_flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string; file?: string }>
+  cross_doc?: {
+    entities?: {
+      names?: Array<{ value: string; from: string } | string>
+      phones?: Array<{ value: string; from: string } | string>
+      emails?: Array<{ value: string; from: string } | string>
+      addresses?: Array<{ value: string; from: string } | string>
+      employers?: Array<{ value: string; from: string } | string>
+    }
+    hr_phone_collision?: boolean
+    deposit_paystub_perfect_match?: boolean
+  } | null
+}
+
+export interface ScoreResult {
+  overall: number
+  scores: {
+    doc_authenticity: number
+    payment_ability: number
+    court_records: number
+    stability: number
+    behavior_signals: number
+    info_consistency: number
+  }
+  notes: Record<string, string>
+  details_en?: Record<string, string> | null
+  details_zh?: Record<string, string> | null
+  flags?: AiFlag[]
+  detected_document_kinds?: string[]
+  detected_monthly_income?: number | null
+  effective_monthly_income?: number | null
+  income_evidence?: string | null
+  monthly_rent?: number | null
+  income_rent_ratio?: number | null
+  extracted_name: string
+  name_was_extracted: boolean
+  summary: string
+  summary_en?: string
+  summary_zh?: string
+  court_summary_en?: string
+  court_summary_zh?: string
+  court_records_detail: { queries: CourtQuery[]; total_hits: number; queried_name: string }
+  tier: 'free' | 'pro'
+  model_version?: string
+  scores_v3?: Record<string, number>
+  v3_tier?: 'approve' | 'conditional' | 'decline'
+  tier_reason?: string
+  hard_gates_triggered?: string[]
+  red_flags?: string[]
+  red_flag_penalty?: number
+  gate_cap?: number
+  evidence_coverage?: number
+  sub_coverage?: Record<string, string>
+  identity_match_score?: number | null
+  bank_min_balance?: number | null
+  credit_report?: CreditReport | null
+  action_items?: {
+    id: string; dimension: string
+    title_en: string; title_zh: string
+    details_en: string; details_zh: string
+    impact_on_score: string; status: string
+  }[]
+  compliance_audit?: {
+    protected_grounds_observed?: string[]
+    protected_grounds_used_in_scoring?: string[]
+    hrc_compliant?: boolean
+    reviewer_note?: string
+  } | null
+  forensics_detail?: ForensicsDetail | null
+  forensics_penalty?: number
+  forensics_zeroed_dims?: string[]
+  screening_id?: string
+  file_count?: number
+  deep_check_result?: {
+    checks: ArmLengthCheck[]
+    overall_risk: 'high' | 'medium' | 'low' | 'clean'
+    total_flags: number
+    checked_at: string
+  } | null
+}
+
+export function scoreColor(s: number): string {
+  if (s >= 80) return '#16A34A'
+  if (s >= 60) return '#65A30D'
+  if (s >= 40) return '#A16207'
+  if (s >= 20) return '#C2410C'
+  return '#DC2626'
+}
+
+export function sevColor(sev: string): string {
+  switch (sev) {
+    case 'critical': return '#DC2626'
+    case 'high': return '#EA580C'
+    case 'medium': return '#D97706'
+    case 'info': return '#047857'
+    default: return '#94A3B8'
+  }
+}
+
+export const SCORE_BANDS = [
+  { min: 0,  max: 29,  zh: '高危',   en: 'High Risk',   color: '#DC2626' },
+  { min: 30, max: 49,  zh: '有风险', en: 'Risky',       color: '#C2410C' },
+  { min: 50, max: 69,  zh: '需审查', en: 'Review',      color: '#A16207' },
+  { min: 70, max: 84,  zh: '较安全', en: 'Mostly Safe', color: '#65A30D' },
+  { min: 85, max: 100, zh: '优质',   en: 'Safe',        color: '#16A34A' },
+] as const

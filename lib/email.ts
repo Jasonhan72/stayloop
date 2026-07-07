@@ -28,6 +28,8 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
+      // Bounded: a hung Resend call would stall the whole edge request.
+      signal: AbortSignal.timeout(10000),
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,

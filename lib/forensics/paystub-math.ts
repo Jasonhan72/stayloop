@@ -42,7 +42,8 @@ CRITICAL — derive annual_salary from period × pay_frequency when not stated:
 
 CRITICAL — annual vs hourly disambiguation:
 - A "Pay Rate" $200+ with no "/hr" suffix is per-period, not hourly. Convert via pay_frequency.
-- A "Pay Rate" $10,000+ is annual_salary regardless of any "/yr" marker.
+- Magnitude alone NEVER makes a rate annual. High earners have per-PERIOD rates of $10,000+ (e.g. $240,000/yr paid semi-monthly = $10,000/period). Treat a rate as annual ONLY when it is explicitly marked /yr, /year, "Annual" or "Annually", OR when it is 10x+ the period gross.
+- Litmus test: Pay Rate ≈ period_gross → it is the per-period rate, annualize via pay_frequency. Pay Rate ≈ 12-52 × period_gross → it is annual.
 - The "Hours" column on a salaried stub is informational; it does NOT make the worker hourly.
 
 CRITICAL — ytd_gross is CASH base salary, NOT the "Earnings" total row:
@@ -57,8 +58,14 @@ Examples:
 - "Cashier  $18.50/hour  80  $1,480.00" → annual_salary=null, hourly_rate=18.50, hours_worked=80, period_gross=1480
 - "Software Engineer  $95,000/yr  N/A  $3,653.85" → annual_salary=95000, hourly_rate=null, hours_worked=null, period_gross=3653.85
 - "Audit Analyst Sr  Pay Rate $4554.17  Semi-Monthly" → annual_salary=109300, hourly_rate=null, period_gross=4554.17, pay_frequency=semimonthly
+- "Director  Pay Rate $10,000.00  Semi-Monthly  Regular $10,000.00" → annual_salary=240000, period_gross=10000, pay_frequency=semimonthly (the $10,000 is the PER-PERIOD rate of a high earner, NOT an annual salary)
 - Workday stub showing "Earnings ... 568.75 $53,693" then "RegPay/PaieOrd 568.75 $31,879" then "PSPCan/RPBCan $21,813" then "Taxable Benefits $3,006" → ytd_gross=31879 (the RegPay line, NOT the Earnings total — the Earnings total is RegPay + employer pension match + benefits and overstates cash)
 - Workday stub showing "Earnings ... 720 $61,487" then "Regular $42,752" then "PTO $7,657" then "Sick Pay $1,730" then "EIP Bonus $9,346" then "Taxable Benefits $1,823" → ytd_gross=61487 - 1823 = 59664 (Earnings total minus only the Taxable Benefits; PTO/Sick/Bonus are real cash income; this employer has no employer pension match line under Earnings)
+
+STATUTORY DEDUCTIONS — extract employee-side CPP/EI when visible:
+- Deduction lines are labelled CPP / QPP (Canada/Quebec Pension Plan), CPP2 ("CPP2", "Second CPP", "CPP Additional"), EI ("EI", "Employment Insurance").
+- Extract the EMPLOYEE contribution (not employer portion), both this period's amount and the YTD column.
+- A BLANK current-period CPP/EI cell next to a non-zero YTD usually means the annual maximum was already reached — report the YTD as printed and leave the period field null. Do NOT treat the blank as suspicious.
 
 Required fields:
 {
@@ -74,7 +81,12 @@ Required fields:
   "ytd_net": number or null  (year-to-date net pay as printed),
   "employer_name": string or null,
   "employer_phone": string or null,
-  "pay_frequency": "weekly" | "biweekly" | "semimonthly" | "monthly" | null
+  "pay_frequency": "weekly" | "biweekly" | "semimonthly" | "monthly" | null,
+  "cpp_ytd": number or null  (YTD employee CPP/QPP contribution),
+  "cpp2_ytd": number or null  (YTD employee CPP2 / second additional CPP),
+  "ei_ytd": number or null  (YTD employee EI premium),
+  "cpp_period": number or null  (this period's employee CPP/QPP; null if blank),
+  "ei_period": number or null  (this period's employee EI; null if blank)
 }`
 
 /**
@@ -105,7 +117,7 @@ export async function extractPaystubFields(
       },
       body: JSON.stringify({
         model: HAIKU_MODEL,
-        max_tokens: 600,
+        max_tokens: 800,
         messages: [
           { role: 'user', content },
           { role: 'assistant', content: '{' },  // prefill JSON start
@@ -160,6 +172,11 @@ function parseExtraction(raw: string): PaystubExtraction | null {
       employer_phone: typeof obj.employer_phone === 'string' ? obj.employer_phone : null,
       pay_frequency: ['weekly', 'biweekly', 'semimonthly', 'monthly'].includes(obj.pay_frequency)
         ? obj.pay_frequency : null,
+      cpp_ytd: numOrNull(obj.cpp_ytd),
+      cpp2_ytd: numOrNull(obj.cpp2_ytd),
+      ei_ytd: numOrNull(obj.ei_ytd),
+      cpp_period: numOrNull(obj.cpp_period),
+      ei_period: numOrNull(obj.ei_period),
     }
   } catch {
     return null
@@ -196,12 +213,27 @@ function numOrNull(v: any): number | null {
  *     hourly_rate so the period-math check skips silently rather than
  *     emitting a bogus error
  */
+const PERIODS_PER_YEAR: Record<string, number> = {
+  weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12,
+}
+
 function normalizeExtraction(ext: PaystubExtraction): PaystubExtraction {
   if (ext.hourly_rate && ext.hourly_rate > 200) {
     if (ext.hourly_rate >= 10_000) {
       if (!ext.annual_salary) ext.annual_salary = ext.hourly_rate
     }
     ext.hourly_rate = null
+  }
+  // An "annual_salary" that equals the single-period gross is a misread
+  // per-period pay rate (a real annual salary can never equal one period's
+  // pay). High earners hit this: $240k/yr semi-monthly prints as
+  // "Pay Rate $10,000" and gets extracted as annual_salary=10000.
+  // Annualize via the stated frequency.
+  if (ext.annual_salary && ext.period_gross && ext.pay_frequency) {
+    const r = ext.annual_salary / ext.period_gross
+    if (r >= 0.85 && r <= 1.15) {
+      ext.annual_salary = Math.round(ext.period_gross * PERIODS_PER_YEAR[ext.pay_frequency] * 100) / 100
+    }
   }
   return ext
 }
@@ -221,13 +253,58 @@ export function checkPaystubMath(
   // Check 1: YTD vs annual_salary
   // ---------------------------------------------------------------------------
   if (ext.annual_salary && ext.pay_date && ext.ytd_gross) {
-    const payDate = new Date(ext.pay_date)
-    if (!isNaN(payDate.getTime())) {
-      const yearStart = new Date(payDate.getFullYear(), 0, 1)
-      const daysElapsed = (payDate.getTime() - yearStart.getTime()) / (1000 * 60 * 60 * 24)
+    // Pure-UTC day-of-year. new Date('YYYY-MM-DD') is UTC-parsed but
+    // getFullYear()/local-Date construction are LOCAL — the mix makes a
+    // Jan 1 pay date compute against the WRONG year in non-UTC runtimes
+    // (dev vs Cloudflare-edge disagreement).
+    const dm = ext.pay_date.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (dm) {
+      const daysElapsed = (Date.UTC(+dm[1], +dm[2] - 1, +dm[3]) - Date.UTC(+dm[1], 0, 1)) / 86_400_000
       if (daysElapsed > 0 && daysElapsed <= 366) {
         expectedYtdGross = ext.annual_salary * (daysElapsed / 365)
         ytdRatio = ext.ytd_gross / expectedYtdGross
+
+        // Self-diagnosis before flagging: a ratio that lands on a standard
+        // pay-periods-per-year count (12/24/26/52) means "annual_salary" was
+        // actually the PER-PERIOD rate (e.g. $10,000 semi-monthly = $240k/yr
+        // misread as $10k/yr → ratio ≈ 24). Reinterpret and recompute; only
+        // accept the rescue if it lands in the healthy band — a genuine
+        // forgery inflated by exactly 24x that ALSO stays self-consistent
+        // would read identically to a legitimate stub anyway.
+        // Corroboration requirement: when period_gross is visible it must
+        // itself equal the misread "annual" figure (proving that figure is a
+        // per-period amount). Without it, a stub whose period_gross is
+        // consistent with the claimed annual salary (e.g. $416.67 × 24 =
+        // $10k/yr) but whose YTD is inflated 24x is a REAL forgery — the
+        // rescue must not fire there.
+        const periodCorroborates =
+          ext.period_gross === null ||
+          (ext.period_gross >= ext.annual_salary * 0.85 && ext.period_gross <= ext.annual_salary * 1.15)
+        if (ytdRatio > 2.5 && periodCorroborates) {
+          const candidates = ext.pay_frequency
+            ? [PERIODS_PER_YEAR[ext.pay_frequency]]
+            : Object.values(PERIODS_PER_YEAR)
+          for (const ppy of candidates) {
+            if (Math.abs(ytdRatio - ppy) / ppy <= 0.15) {
+              const rescuedAnnual = ext.annual_salary * ppy
+              const rescuedExpected = rescuedAnnual * (daysElapsed / 365)
+              const rescuedRatio = ext.ytd_gross / rescuedExpected
+              if (rescuedRatio >= 0.5 && rescuedRatio <= 1.5) {
+                flags.push({
+                  code: 'paystub_rate_reclassified',
+                  severity: 'low',
+                  file,
+                  evidence_en: `Extracted "annual salary" $${ext.annual_salary.toLocaleString()} produced a YTD ratio of ${ytdRatio.toFixed(2)}x — matching ${ppy} pay periods/year. Reinterpreted as a per-period rate: annualized salary $${rescuedAnnual.toLocaleString()}, YTD ratio ${rescuedRatio.toFixed(2)}x (consistent).`,
+                  evidence_zh: `提取到的"年薪" $${ext.annual_salary.toLocaleString()} 得出 YTD 比例 ${ytdRatio.toFixed(2)} 倍——恰好等于每年 ${ppy} 个发薪期。已重新判定为单期薪资：年化 $${rescuedAnnual.toLocaleString()}，YTD 比例 ${rescuedRatio.toFixed(2)} 倍（自洽）。`,
+                })
+                ext.annual_salary = rescuedAnnual
+                expectedYtdGross = rescuedExpected
+                ytdRatio = rescuedRatio
+                break
+              }
+            }
+          }
+        }
 
         if (ytdRatio > 2.5) {
           // Truly impossible — even with massive overtime / bonuses, exceeding
@@ -311,10 +388,9 @@ export function checkPaystubMath(
   // ---------------------------------------------------------------------------
   const grossHealthy = ytdRatio !== null && ytdRatio >= 0.6 && ytdRatio <= 1.6
   if (!grossHealthy && ext.pay_date && ext.ytd_net && ext.period_net && ext.pay_frequency) {
-    const payDate = new Date(ext.pay_date)
-    if (!isNaN(payDate.getTime())) {
-      const yearStart = new Date(payDate.getFullYear(), 0, 1)
-      const daysElapsed = (payDate.getTime() - yearStart.getTime()) / (1000 * 60 * 60 * 24)
+    const dm3 = ext.pay_date.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (dm3) {
+      const daysElapsed = (Date.UTC(+dm3[1], +dm3[2] - 1, +dm3[3]) - Date.UTC(+dm3[1], 0, 1)) / 86_400_000
       const periodsPerYear: Record<string, number> = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 }
       const ppy = periodsPerYear[ext.pay_frequency]
       const periodsSoFar = Math.round((daysElapsed / 365) * ppy)

@@ -1,8 +1,12 @@
 'use client'
 
+import { useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import OnboardingStage from '@/components/OnboardingStage'
 import { useT } from '@/lib/i18n'
+import { useAuth } from '@/lib/useAuth'
+import { useOnboarded } from '@/lib/useOnboarding'
 
 /**
  * Tenant onboarding · STEP 02
@@ -12,6 +16,12 @@ import { useT } from '@/lib/i18n'
 export default function OnboardingMeetPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
+  const router = useRouter()
+  const { role } = useAuth()
+  const { ready, onboarded, home } = useOnboarded(role ?? 'tenant')
+  useEffect(() => {
+    if (ready && onboarded && role) router.replace(home)
+  }, [ready, onboarded, role, home, router])
   const rows = [
     { k: { zh: '会做的事', en: 'What it does' }, v: { zh: '筛房 · 询价 · 安排看房 · 写申请 · 读租约', en: 'Screen listings · ask prices · book showings · draft applications · read leases' } },
     { k: { zh: '不会做的事', en: 'What it won’t do' }, v: { zh: '替你签字 · 替你付款 · 替你拒绝（这些都你按按钮）', en: 'Sign for you · pay for you · decline for you (you press those buttons)' } },

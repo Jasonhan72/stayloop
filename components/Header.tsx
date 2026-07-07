@@ -1,11 +1,18 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import Logo from './Logo'
+import LanguageCurrencyModal from './LanguageCurrencyModal'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
+
+const ROLE_META: Record<string, { label: string; labelEn: string; color: string; home: string; icon: string }> = {
+  tenant:   { label: '租客', labelEn: 'Tenant',   color: '#7C3AED', home: '/tenant/agent',   icon: '🏠' },
+  landlord: { label: '房东', labelEn: 'Landlord', color: '#047857', home: '/landlord/agent', icon: '🔑' },
+  agent:    { label: '经纪', labelEn: 'Agent',    color: '#2563EB', home: '/agent/agent',    icon: '💼' },
+}
 
 interface HeaderProps {
   variant?: 'transparent' | 'solid'
@@ -19,13 +26,25 @@ const PRODUCT_ITEMS = [
 
 export default function Header({ variant = 'solid' }: HeaderProps) {
   const pathname = usePathname() || '/'
-  const { lang, t, toggle } = useI18n()
+  const router = useRouter()
+  const { lang, t } = useI18n()
   const auth = useAuth()
+
+  const switchableRoles = ['tenant', 'landlord'] as const
+  const currentRole = auth.role || 'tenant'
+  const otherRoles = switchableRoles.filter((r) => r !== currentRole)
+
+  const handleRoleSwitch = (newRole: string) => {
+    auth.setRole(newRole as 'tenant' | 'landlord' | 'agent')
+    setMenuOpen(false)
+    router.push(ROLE_META[newRole].home)
+  }
+
   const [menuOpen, setMenuOpen] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
   const [productOpen, setProductOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const profileRef = useRef<HTMLDivElement>(null)
+  const [langModalOpen, setLangModalOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const productRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -36,17 +55,17 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
   }, [])
 
   useEffect(() => {
-    if (!profileOpen && !productOpen) return
+    if (!menuOpen && !productOpen) return
     const handler = (e: MouseEvent) => {
-      if (profileOpen && profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setProfileOpen(false)
+      if (menuOpen && menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
       }
       if (productOpen && productRef.current && !productRef.current.contains(e.target as Node)) {
         setProductOpen(false)
       }
     }
     const keyHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setProfileOpen(false); setProductOpen(false) }
+      if (e.key === 'Escape') { setMenuOpen(false); setProductOpen(false) }
     }
     window.addEventListener('mousedown', handler)
     window.addEventListener('keydown', keyHandler)
@@ -54,7 +73,7 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
       window.removeEventListener('mousedown', handler)
       window.removeEventListener('keydown', keyHandler)
     }
-  }, [profileOpen, productOpen])
+  }, [menuOpen, productOpen])
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
@@ -63,7 +82,23 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
 
   const isProductActive = PRODUCT_ITEMS.some((p) => isActive(p.href))
 
+  const initial = (auth.fullName || auth.email || 'U').slice(0, 1).toUpperCase()
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  useEffect(() => {
+    const cached = typeof window !== 'undefined' ? localStorage.getItem('stayloop-avatar') : null
+    if (cached) setAvatarUrl(cached)
+    const meta = (auth.user?.user_metadata as any)?.avatar_url
+    if (meta && typeof meta === 'string') setAvatarUrl(meta)
+  }, [auth.user])
+  const avatarBg =
+    currentRole === 'tenant'
+      ? 'linear-gradient(135deg,#C4B5FD,#7C3AED)'
+      : currentRole === 'agent'
+        ? 'linear-gradient(135deg,#93C5FD,#2563EB)'
+        : 'linear-gradient(135deg,#6EE7B7,#047857)'
+
   return (
+    <>
     <header
       className={
         'sticky top-0 z-40 w-full transition-colors duration-200 ' +
@@ -110,172 +145,211 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
             )}
           </div>
 
-          {/* Listings */}
-          <NavLink
-            i18nKey="nav.listings"
-            href="/listings"
-            active={isActive('/listings')}
-          />
-
-          {/* Pricing */}
-          <NavLink
-            i18nKey="nav.pricing"
-            href="/pricing"
-            active={isActive('/pricing')}
-          />
-
-          {/* Screening — green pulse */}
-          <NavLink
-            i18nKey="nav.screening"
-            href="/screening"
-            active={isActive('/screening')}
-            alwaysLive
-          />
+          <NavLink i18nKey="nav.listings" href="/listings" active={isActive('/listings')} />
+          <NavLink i18nKey="nav.pricing" href="/pricing" active={isActive('/pricing')} />
+          <NavLink i18nKey="nav.screening" href="/screening" active={isActive('/screening')} alwaysLive />
         </nav>
 
-        {/* Right side */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={toggle}
-            className="hidden items-center gap-1 rounded-md border border-line bg-white px-2.5 py-1 font-mono text-[10.5px] text-body-2 transition hover:border-line-strong sm:inline-flex"
-            aria-label="Switch language"
-          >
-            <span className={lang === 'zh' ? 'font-bold text-body' : ''}>ZH</span>
-            <span className="text-body-4">/</span>
-            <span className={lang === 'en' ? 'font-bold text-body' : ''}>EN</span>
-          </button>
+        {/* Right side — minimal: avatar + hamburger only */}
+        <div className="flex items-center gap-[10px]">
+          {/* Avatar — links to profile/settings like Airbnb */}
+          {!auth.loading && auth.user && (
+            <Link
+              href="/settings"
+              className="flex h-[42px] w-[42px] items-center justify-center rounded-full text-[15px] font-bold text-white transition-shadow hover:shadow-[0_2px_4px_rgba(0,0,0,0.18)] hover:ring-2 hover:ring-black/10 overflow-hidden"
+              style={{ background: avatarUrl ? undefined : avatarBg }}
+              title={auth.fullName || auth.email || ''}
+            >
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                initial
+              )}
+            </Link>
+          )}
 
-          {auth.loading ? (
-            <div className="h-8 w-20 animate-pulse rounded-md bg-line-divider/60" />
-          ) : auth.user ? (
-            <>
-              <Link
-                href="/notifications"
-                aria-label="Notifications"
-                className="relative flex h-9 w-9 items-center justify-center rounded-lg text-body-2 transition hover:bg-line-divider/60"
+          {/* Hamburger — always visible, opens unified dropdown */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              className="relative flex h-[42px] w-[42px] items-center justify-center rounded-full border border-[#DDDDDD] bg-white text-[#222] transition hover:shadow-[0_2px_4px_rgba(0,0,0,0.18)]"
+              aria-label="Menu"
+            >
+              <HamburgerIcon />
+              {auth.user && (
+                <span className="absolute right-[3px] top-[3px] h-[8px] w-[8px] rounded-full bg-[#FF385C] ring-[1.5px] ring-white" />
+              )}
+            </button>
+
+            {menuOpen && (
+              <div
+                className="absolute right-0 mt-2 w-[300px] overflow-hidden rounded-xl border border-[#DDDDDD] bg-white py-2 shadow-[0_2px_16px_rgba(0,0,0,0.12)]"
+                role="menu"
               >
-                <BellIcon />
-              </Link>
-              <div className="relative" ref={profileRef}>
-                <button
-                  onClick={() => setProfileOpen((v) => !v)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border-2 text-[13px] font-bold text-white transition"
-                  style={{
-                    borderColor:
-                      auth.role === 'tenant' ? '#7C3AED' :
-                      auth.role === 'agent' ? '#2563EB' :
-                      '#047857',
-                    background:
-                      auth.role === 'tenant'
-                        ? 'linear-gradient(135deg,#C4B5FD,#7C3AED)'
-                        : auth.role === 'agent'
-                          ? 'linear-gradient(135deg,#93C5FD,#2563EB)'
-                          : 'linear-gradient(135deg,#6EE7B7,#047857)',
-                  }}
-                >
-                  {(auth.fullName || auth.email || 'U').slice(0, 1).toUpperCase()}
-                </button>
-                {profileOpen && (
-                  <div className="sl-card absolute right-0 mt-2 w-64 overflow-hidden p-1" role="menu">
-                    <div className="border-b border-line-divider px-3 py-3">
-                      <div className="text-[13px] font-bold text-body">
-                        {auth.fullName || auth.email}
-                      </div>
-                      {auth.role && <div className="mt-1 sl-eyebrow">{auth.role}</div>}
-                    </div>
+                {/* Mobile-only: nav links */}
+                <div className="lg:hidden">
+                  {PRODUCT_ITEMS.map((item) => (
                     <Link
-                      href={
-                        auth.role === 'landlord'
-                          ? '/landlord/agent'
-                          : auth.role === 'agent'
-                            ? '/agent/agent'
-                            : '/tenant/agent'
-                      }
-                      className="block rounded-md px-3 py-2 text-[13px] text-body hover:bg-surface-chip"
-                      role="menuitem"
-                      onClick={() => setProfileOpen(false)}
+                      key={item.key}
+                      href={item.href}
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]"
                     >
+                      <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: item.color }} />
+                      {t(item.key)}
+                    </Link>
+                  ))}
+                  <Link href="/listings" onClick={() => setMenuOpen(false)} className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]">{t('nav.listings')}</Link>
+                  <Link href="/pricing" onClick={() => setMenuOpen(false)} className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]">{t('nav.pricing')}</Link>
+                  <Link href="/screening" onClick={() => setMenuOpen(false)} className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]">{t('nav.screening')}</Link>
+                  <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
+                </div>
+
+                {auth.loading ? null : auth.user ? (
+                  <>
+                    {/* Primary actions — bold like Airbnb's first section */}
+                    <Link
+                      href={ROLE_META[currentRole]?.home || '/tenant/agent'}
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 text-[14px] font-semibold text-[#222] transition hover:bg-[#F7F7F7]"
+                      role="menuitem"
+                    >
+                      <WorkspaceIcon />
                       {t('nav.dashboard')}
                     </Link>
                     <Link
-                      href="/settings"
-                      className="block rounded-md px-3 py-2 text-[13px] text-body hover:bg-surface-chip"
+                      href="/notifications"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 text-[14px] font-semibold text-[#222] transition hover:bg-[#F7F7F7]"
                       role="menuitem"
-                      onClick={() => setProfileOpen(false)}
                     >
-                      {t('nav.settings', '设置')}
+                      <BellIcon />
+                      {lang === 'zh' ? '通知' : 'Notifications'}
+                    </Link>
+                    {currentRole === 'landlord' && (
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-[14px] font-semibold text-[#222] transition hover:bg-[#F7F7F7]"
+                        role="menuitem"
+                      >
+                        <ListingMgmtIcon />
+                        {lang === 'zh' ? '房源管理' : 'Manage listings'}
+                      </Link>
+                    )}
+
+                    <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
+
+                    {/* Secondary actions — normal weight */}
+                    <Link
+                      href="/settings"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]"
+                      role="menuitem"
+                    >
+                      <SettingsIcon />
+                      {lang === 'zh' ? '账号设置' : 'Account settings'}
                     </Link>
                     <button
-                      onClick={async () => {
-                        setProfileOpen(false)
-                        await auth.signOut()
-                      }}
-                      className="block w-full rounded-md px-3 py-2 text-left text-[13px] text-danger hover:bg-danger/5"
+                      onClick={() => { setLangModalOpen(true); setMenuOpen(false) }}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-[14px] text-[#222] transition hover:bg-[#F7F7F7]"
                       role="menuitem"
                     >
+                      <GlobeIcon />
+                      {lang === 'zh' ? '语言和货币' : 'Language and currency'}
+                    </button>
+
+                    {/* Role switch section — Airbnb "Become a host" style */}
+                    {otherRoles.length > 0 && (
+                      <>
+                        <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
+                        {otherRoles.map((r) => (
+                          <button
+                            key={r}
+                            onClick={() => handleRoleSwitch(r)}
+                            className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[#F7F7F7]"
+                            role="menuitem"
+                          >
+                            <span
+                              className="flex h-8 w-8 items-center justify-center rounded-full text-[15px]"
+                              style={{ background: ROLE_META[r].color + '14' }}
+                            >
+                              {ROLE_META[r].icon}
+                            </span>
+                            <div className="flex-1">
+                              <div className="text-[14px] font-semibold text-[#222]">
+                                {lang === 'zh'
+                                  ? `切换到${ROLE_META[r].label}`
+                                  : `Switch to ${ROLE_META[r].labelEn}`}
+                              </div>
+                              <div className="text-[12px] text-[#717171]">
+                                {r === 'tenant'
+                                  ? (lang === 'zh' ? '找房 · 申请 · 签约' : 'Search · Apply · Lease')
+                                  : (lang === 'zh' ? '管房 · 审核 · 收租' : 'Manage · Screen · Collect')}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </>
+                    )}
+
+                    <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
+
+                    {/* Logout */}
+                    <button
+                      onClick={async () => {
+                        setMenuOpen(false)
+                        await auth.signOut()
+                      }}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-[14px] text-[#222] transition hover:bg-[#F7F7F7]"
+                      role="menuitem"
+                    >
+                      <LogoutIcon />
                       {t('nav.signOut')}
                     </button>
-                  </div>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      onClick={() => setMenuOpen(false)}
+                      className="block px-4 py-3 text-[14px] font-semibold text-[#222] transition hover:bg-[#F7F7F7]"
+                      role="menuitem"
+                    >
+                      {t('nav.login')}
+                    </Link>
+                    <Link
+                      href="/register"
+                      onClick={() => setMenuOpen(false)}
+                      className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]"
+                      role="menuitem"
+                    >
+                      {t('nav.register')}
+                    </Link>
+                    <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
+                    <button
+                      onClick={() => { setLangModalOpen(true); setMenuOpen(false) }}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-[14px] text-[#222] transition hover:bg-[#F7F7F7]"
+                      role="menuitem"
+                    >
+                      <GlobeIcon />
+                      {lang === 'zh' ? '语言和货币' : 'Language and currency'}
+                    </button>
+                  </>
                 )}
               </div>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center rounded-[10px] border border-line bg-white px-[18px] py-[10px] text-[14px] font-semibold text-body transition hover:border-line-strong"
-              >
-                {t('nav.login')}
-              </Link>
-              <Link
-                href="/register"
-                className="inline-flex items-center justify-center gap-1.5 rounded-[10px] bg-ink px-[18px] py-[10px] text-[14px] font-semibold text-white transition"
-              >
-                {t('nav.register')} →
-              </Link>
-            </>
-          )}
-
-          <button
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-body-2 transition hover:bg-line-divider/60 lg:hidden"
-            aria-label="Menu"
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            <MenuIcon />
-          </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
-      {menuOpen && (
-        <div className="border-t border-line-divider bg-surface-nav lg:hidden">
-          <nav className="mx-auto flex max-w-[1320px] flex-col gap-1 px-6 py-3">
-            <div className="px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-eyebrow text-body-3">
-              {t('nav.product')}
-            </div>
-            {PRODUCT_ITEMS.map((item) => (
-              <Link
-                key={item.key}
-                href={item.href}
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2.5 rounded-md px-3 py-2 text-[14px] transition hover:bg-line-divider/40"
-                style={{
-                  color: isActive(item.href) ? '#171717' : '#3F3F46',
-                  fontWeight: isActive(item.href) ? 600 : 400,
-                }}
-              >
-                <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: item.color }} />
-                {t(item.key)}
-              </Link>
-            ))}
-            <div className="my-1 h-px bg-line-divider" />
-            <NavLink i18nKey="nav.listings" href="/listings" active={isActive('/listings')} mobile onClick={() => setMenuOpen(false)} />
-            <NavLink i18nKey="nav.pricing" href="/pricing" active={isActive('/pricing')} mobile onClick={() => setMenuOpen(false)} />
-            <NavLink i18nKey="nav.screening" href="/screening" active={isActive('/screening')} alwaysLive mobile onClick={() => setMenuOpen(false)} />
-          </nav>
-        </div>
-      )}
     </header>
+      <LanguageCurrencyModal
+        open={langModalOpen}
+        onClose={() => setLangModalOpen(false)}
+      />
+    </>
   )
 }
 
@@ -360,21 +434,70 @@ function ChevronIcon({ open }: { open: boolean }) {
   )
 }
 
+function GlobeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="8" cy="8" r="6.5" />
+      <path d="M1.5 8h13" />
+      <path d="M8 1.5c1.66 1.63 2.6 3.56 2.6 6.5s-.94 4.87-2.6 6.5c-1.66-1.63-2.6-3.56-2.6-6.5s.94-4.87 2.6-6.5z" />
+    </svg>
+  )
+}
+
+function HamburgerIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="18" x2="20" y2="18" />
+    </svg>
+  )
+}
+
 function BellIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-[#222]">
       <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
       <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
     </svg>
   )
 }
 
-function MenuIcon() {
+function WorkspaceIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="3" y1="18" x2="21" y2="18" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-[#222]">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </svg>
+  )
+}
+
+function SettingsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-[#222]">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  )
+}
+
+function ListingMgmtIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-[#222]">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  )
+}
+
+function LogoutIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-[#222]">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   )
 }

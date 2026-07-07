@@ -6,6 +6,7 @@ import type {
   AgentRole,
   AgentStatus,
   ChatAttachment,
+  DraftListing,
   ListingCard,
   MemoryItem,
   PendingAction,
@@ -132,6 +133,8 @@ export type AgentTurn = {
   nextStage: string | null
   listings?: ListingCard[]
   listingsSource?: 'stayloop' | 'realtor'
+  draftListing?: DraftListing
+  urlImages?: string[]
 }
 
 export async function runAgentTurn(args: {
@@ -158,13 +161,23 @@ export async function runAgentTurn(args: {
     .map((a) => ({ media_type: a.mediaType, data: a.dataUrl.split(';base64,')[1] }))
   const attachmentNames = (attachments ?? []).map((a) => a.name)
 
+  // The route requires a Supabase bearer token (cost gate) — attach the
+  // caller's session token. Demo/anonymous sessions never reach this code
+  // path (useAgentSession returns canned replies when live=false).
+  const { data: sessionData } = await client.auth.getSession()
+  const accessToken = sessionData?.session?.access_token
+  if (!accessToken) throw new Error('turn failed: no session')
+
   const res = await fetch('/api/agent/turn', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames, exclude: exclude ?? [], history: history ?? [] }),
   })
   if (!res.ok) throw new Error(`turn failed: ${res.status}`)
+  // The route streams heartbeat whitespace then the JSON body; errors that
+  // occur mid-stream arrive as { error } inside a 200 body.
   const turn = (await res.json()) as {
+    error?: string
     reply: string
     memory_writes: MemoryItem[]
     proposed_action: null | {
@@ -179,7 +192,11 @@ export async function runAgentTurn(args: {
     next_stage: string | null
     listings?: ListingCard[]
     listings_source?: 'stayloop' | 'realtor'
+    draft_listing?: DraftListing
+    url_images?: string[]
   }
+
+  if (turn.error) throw new Error(turn.error)
 
   const memoryWrites = turn.memory_writes ?? []
 
@@ -242,5 +259,7 @@ export async function runAgentTurn(args: {
     nextStage: turn.next_stage,
     listings: turn.listings,
     listingsSource: turn.listings_source,
+    draftListing: turn.draft_listing,
+    urlImages: turn.url_images,
   }
 }

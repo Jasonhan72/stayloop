@@ -73,8 +73,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid or inactive api key' }, { status: 403 })
   }
 
-  // Per-key rate limit (fixed 1-minute window).
-  const { data: rateCount } = await admin.rpc('bump_trust_api_rate', { p_api_key_id: partner.id })
+  // Per-key rate limit (fixed 1-minute window). FAIL CLOSED: if the counter
+  // RPC errors, refusing one legitimate call is better than removing the
+  // cap entirely for a trust product.
+  const { data: rateCount, error: rateErr } = await admin.rpc('bump_trust_api_rate', { p_api_key_id: partner.id })
+  if (rateErr) {
+    console.error('[trust/verify] rate-limit RPC failed — failing closed:', rateErr.message)
+    return NextResponse.json(
+      { error: 'rate limiter unavailable — retry shortly' },
+      { status: 503, headers: { 'Retry-After': '30' } },
+    )
+  }
   if (typeof rateCount === 'number' && rateCount > RATE_LIMIT_PER_MIN) {
     return NextResponse.json(
       { error: 'rate limit exceeded' },
@@ -100,20 +109,23 @@ export async function POST(req: NextRequest) {
   if (requested.has('bank')) verified_fields.bank = !!passport.bank_verified
   if (requested.has('credit')) verified_fields.credit = passport.credit_score != null
 
-  // Audit every call (immutable activity log).
-  await admin.from('audit_events').insert({
+  // Audit every call (immutable activity log). `audited` in the response
+  // must reflect reality — a partner relying on our audit trail must not be
+  // told a failed insert succeeded.
+  const { error: auditErr } = await admin.from('audit_events').insert({
     actor_type: 'system',
     action: 'trust_api_verify',
     resource_type: 'rental_passport',
     resource_id: passport.id,
     metadata: { scopes: Array.from(requested), tier: passport.tier, partner_id: partner.id, partner_name: partner.partner_name },
   })
+  if (auditErr) console.error('[trust/verify] audit insert failed:', auditErr.message)
 
   return NextResponse.json({
     verified: true,
     tier: passport.tier,
     verified_fields,
     boundary: 'no raw documents exposed — verified result + scope only',
-    audited: true,
+    audited: !auditErr,
   })
 }

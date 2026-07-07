@@ -7,6 +7,7 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useT } from '@/lib/i18n'
+import { useOnboarded } from '@/lib/useOnboarding'
 
 type Bi = { zh: string; en: string }
 
@@ -17,7 +18,11 @@ export type RoleLandingConfig = {
   color: string
   h1: { zh: React.ReactNode; en: React.ReactNode }
   sub: Bi
-  primaryCta: { label: Bi; href: string }
+  // href = the anonymous / not-yet-onboarded destination (onboarding).
+  // authedHref = where an already-onboarded user of THIS role should go
+  // instead (e.g. straight to the publish-listing flow), so they skip
+  // re-onboarding. Falls back to href when omitted.
+  primaryCta: { label: Bi; href: string; authedHref?: string }
   secondaryCta: { label: Bi; href: string }
   agentPoints: Bi[]
   journey: { h: Bi; b: Bi }[]
@@ -28,6 +33,8 @@ export type RoleLandingConfig = {
 export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
   const { lang } = useT()
   const c = cfg.color
+  const { onboarded } = useOnboarded(cfg.role)
+  const primaryHref = onboarded && cfg.primaryCta.authedHref ? cfg.primaryCta.authedHref : cfg.primaryCta.href
   return (
     <div className="bg-surface-nav text-body">
       <Header variant="transparent" />
@@ -43,7 +50,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
             <p className="mt-5 max-w-[540px] text-[16px] leading-relaxed text-body-2">{cfg.sub[lang]}</p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
-                href={cfg.primaryCta.href}
+                href={primaryHref}
                 className="inline-flex items-center justify-center rounded-[10px] px-6 py-[13px] text-[15px] font-semibold text-white"
                 style={{ background: c }}
               >
@@ -159,7 +166,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
           </h2>
           <div className="mt-7">
             <Link
-              href={cfg.primaryCta.href}
+              href={primaryHref}
               className="inline-flex items-center justify-center rounded-[10px] px-7 py-[14px] text-[15px] font-semibold text-white"
               style={{ background: c }}
             >

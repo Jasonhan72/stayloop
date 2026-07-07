@@ -11,6 +11,11 @@ export async function getUserMemories(
     .select('key,label,value,confidence,memory_type')
     .eq('role', role)
     .order('updated_at', { ascending: false })
+    // Every row here is serialized into every future system prompt — an
+    // unbounded read grows token cost linearly forever. Keep the 60 most
+    // recently touched memories (upserts refresh updated_at, so actively
+    // used facts stay in the window).
+    .limit(60)
 
   if (error) {
     console.warn('[memory] read failed', error.message)

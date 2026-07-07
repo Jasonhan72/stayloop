@@ -32,7 +32,10 @@ export async function POST(req: NextRequest) {
     const { data: landlord } = await supabase
       .from('landlords')
       .select('stripe_customer_id')
-      .eq('auth_id', user.id)
+      // Dual-ID invariant (CLAUDE.md): legacy landlord rows are keyed by
+      // profileId with no auth_id backfill — match either column.
+      .or(`id.eq.${user.id},auth_id.eq.${user.id}`)
+      .limit(1)
       .maybeSingle()
 
     if (!landlord?.stripe_customer_id) {

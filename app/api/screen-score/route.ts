@@ -15,6 +15,8 @@ import { createClient } from '@supabase/supabase-js'
 import { runForensics, forensicsToPromptBlock, type ForensicsReport } from '@/lib/forensics'
 import { applyPageBudget } from '@/lib/anthropic/page-budget'
 import { captureException } from '@/lib/observability/sentry'
+import type { CourtQuery, CanLIIMatch, OntarioPortalMatch, V3Scores } from '@/lib/screening-types'
+import { V3_WEIGHTS } from '@/lib/screening-types'
 
 export const runtime = 'edge'
 
@@ -38,54 +40,24 @@ interface ScreenFile {
   kind?: string
 }
 
-// 5-dimension v3 structure
-interface V3Scores {
-  ability_to_pay: number       // 40%
-  credit_health: number        // 25%
-  rental_history: number       // 20%
-  verification: number         // 10%
-  communication: number        //  5%
-}
-
-const V3_WEIGHTS: Record<keyof V3Scores, number> = {
-  ability_to_pay: 0.40,
-  credit_health: 0.25,
-  rental_history: 0.20,
-  verification: 0.10,
-  communication: 0.05,
-}
-
-interface CourtQuery {
-  source: string
-  tier: 'free' | 'pro'
-  status: 'ok' | 'unavailable' | 'skipped' | 'coming_soon' | 'timeout'
-  hits: number | null
-  url?: string
-  note?: string
-  severity?: number  // 3=critical, 2=high, 1=medium, 0=no hits
-  records?: CanLIIMatch[]  // individual case records for this database
-  portalRecords?: OntarioPortalMatch[]  // Ontario Courts Portal records
-}
-
-interface CanLIIMatch {
-  title: string
-  citation: string
-  url: string
-  databaseId: string
-  databaseName?: string
-  caseId: string
-  nameInTitle: boolean   // true = tenant name found in case title (likely a party)
-}
-
 interface CanLIIDatabase {
   databaseId: string
   jurisdiction: string
   name: string
 }
 
+// ── Operational config (timeouts, model params, limits) ──
+const DB_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+const CANLII_DB_LIST_TIMEOUT_MS = 5000
+const CANLII_PER_REQ_TIMEOUT_MS = 6000
+const CANLII_DECISION_TIMEOUT_MS = 4000
+const CANLII_AGGREGATE_BUDGET_MS = 12_000
+const ONTARIO_PORTAL_TIMEOUT_MS = 8000
+const CLAUDE_MAX_TOKENS = 6000
+const CLAUDE_TEMPERATURE = 0
+
 // Cache the Ontario database list across warm edge invocations
 let ontarioDbCache: { dbs: CanLIIDatabase[]; fetchedAt: number } | null = null
-const DB_CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24h
 
 // §6 P2 — CanLII URL helpers ------------------------------------------------
 // buildCanLiiUrl appends api_key + caller-supplied query params, in that
@@ -132,7 +104,7 @@ async function listOntarioDatabases(apiKey: string): Promise<CanLIIDatabase[]> {
   }
   try {
     const url = buildCanLiiUrl('caseBrowse/en/', apiKey)
-    const res = await fetchCanLii(url, { signal: AbortSignal.timeout(5000) })
+    const res = await fetchCanLii(url, { signal: AbortSignal.timeout(CANLII_DB_LIST_TIMEOUT_MS) })
     if (!res.ok) return ontarioDbCache?.dbs || []
     const data = await res.json() as { caseDatabases?: CanLIIDatabase[] }
     const dbs = (data.caseDatabases || []).filter(d => d.jurisdiction === 'on')
@@ -220,7 +192,7 @@ async function searchCanLIIDb(
   // whichever fires first aborts the underlying fetch. AbortSignal.any is
   // the standard way; we keep a manual fallback for runtimes that haven't
   // shipped it (older Cloudflare Workers builds).
-  const perReqSignal = AbortSignal.timeout(6000)
+  const perReqSignal = AbortSignal.timeout(CANLII_PER_REQ_TIMEOUT_MS)
   const signal: AbortSignal =
     aggregateSignal && typeof (AbortSignal as { any?: unknown }).any === 'function'
       ? (AbortSignal as unknown as { any: (sigs: AbortSignal[]) => AbortSignal }).any([
@@ -255,7 +227,7 @@ async function searchCanLIIDb(
         try {
           const metaRes = await fetchCanLii(
             buildCanLiiUrl(`caseBrowse/en/${dbId}/${cid}`, apiKey),
-            { signal: AbortSignal.timeout(4000) },
+            { signal: AbortSignal.timeout(CANLII_DECISION_TIMEOUT_MS) },
           )
           if (metaRes.ok) {
             const meta = await metaRes.json() as { url?: string }
@@ -321,28 +293,6 @@ function mergeSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
 // Response: { _embedded: { results: [...] }, page: { totalElements, ... } }
 // Each result has partyHeader.partyActorInstance.displayName and caseHeader.*
 
-interface OntarioPortalMatch {
-  caseNumber: string
-  caseTitle: string
-  caseCategory: string
-  filedDate: string
-  partyRole: string
-  partyDisplayName: string
-  courtAbbreviation: string
-  closedFlag: boolean
-  /** true if we only matched after swapping the first/last name order */
-  nameSwapped?: boolean
-  /** UUID of the case in the portal — used to build a direct-detail URL:
-   *  https://www.courts.ontario.ca/portal/court/{courtID}/case/{caseInstanceUUID}
-   *  When absent (older data or API change), frontend falls back to the
-   *  generic portal search page. */
-  caseInstanceUUID?: string
-  /** UUID of the court the case lives in. For Civil & Small Claims this is
-   *  always the civil-court UUID, but stashing it on the record keeps the
-   *  URL construction self-contained without the frontend hard-coding it. */
-  courtID?: string
-}
-
 const ONTARIO_PORTAL_CIVIL_COURT_ID = '68f021c4-6a44-4735-9a76-5360b2e8af13'
 
 // Portal search types:
@@ -369,7 +319,7 @@ async function portalQuery(
       'size': '10',
     })
     const url = `https://api1.courts.ontario.ca/courts/cms/parties?${params.toString()}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await fetch(url, { signal: AbortSignal.timeout(ONTARIO_PORTAL_TIMEOUT_MS) })
     if (!res.ok) return { results: [], totalElements: 0, error: `HTTP ${res.status}` }
     const data = await res.json() as any
     return {
@@ -563,7 +513,7 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
   // have, marking sources that didn't finish as `status: 'timeout'`
   // instead of silently dropping them.
   const aggregateCtrl = new AbortController()
-  const aggregateTimeout = setTimeout(() => aggregateCtrl.abort(), 12_000)
+  const aggregateTimeout = setTimeout(() => aggregateCtrl.abort(), CANLII_AGGREGATE_BUDGET_MS)
   const aggregateSignal = aggregateCtrl.signal
 
   // Track which DBs timed out vs returned a real (possibly 0-hit) answer.
@@ -857,9 +807,9 @@ export async function POST(req: NextRequest) {
     // Written at each real stage boundary so the client renders ACTUAL
     // pipeline progress instead of a canned animation. Fire-and-forget:
     // progress writes must never block or fail the scoring pipeline.
-    const writeProgress = (stage: string, pct: number) => {
+    const writeProgress = (stage: string, pct: number, detailZh?: string, detailEn?: string) => {
       supabase.from('screenings')
-        .update({ progress: { stage, pct, at: new Date().toISOString() } })
+        .update({ progress: { stage, pct, at: new Date().toISOString(), detail_zh: detailZh || null, detail_en: detailEn || null } })
         .eq('id', screening_id)
         .then(() => {}, () => {})
     }
@@ -983,27 +933,56 @@ export async function POST(req: NextRequest) {
       anthropic_api_key: process.env.ANTHROPIC_API_KEY,
     }
 
-    writeProgress('court_and_forensics', 16)
+    writeProgress('court_and_forensics', 16,
+      '并行运行：9 个法庭数据库检索 × 逐文件取证扫描',
+      'Running in parallel: 9 court databases × per-file forensics scan')
+    // The two branches finish at different times — report each completion so
+    // the bar keeps moving instead of sitting at 16% for the whole stage.
+    // AWAITED (not fire-and-forget): an in-flight pct-25/34 write racing the
+    // later pct-38 'ai_scoring' update could land after it and leave a stale
+    // stage in the DB for the whole first-token wait.
+    let cfCompleted = 0
+    const cfBump = async (zh: string, en: string) => {
+      cfCompleted++
+      const pct = cfCompleted === 1 ? 25 : 34
+      try {
+        await supabase.from('screenings')
+          .update({ progress: { stage: 'court_and_forensics', pct, at: new Date().toISOString(), detail_zh: zh, detail_en: en } })
+          .eq('id', screening_id)
+      } catch { /* progress writes must never fail the pipeline */ }
+    }
     const [courtDetail, forensicsReport] = await Promise.all([
-      runCourtRecordCheck(nameForLookup, plan),
-      runForensics(forensicsInput).catch((e): ForensicsReport => ({
-        per_file: [],
-        cross_doc: { entities: { phones: [], emails: [], addresses: [], names: [], employers: [], deposit_amounts: [] }, unique_phones: 0, hr_phone_collision: false, deposit_paystub_perfect_match: false },
-        cross_doc_flags: [],
-        all_flags: [{ code: 'forensics_init_error', severity: 'low', evidence_en: `Forensics aborted: ${e?.message || e}`, evidence_zh: `取证模块启动失败：${e?.message || e}` }],
-        hard_gates: [],
-        severity: 'clean',
-        elapsed_ms: 0,
-        schema_version: 1,
-      })),
+      runCourtRecordCheck(nameForLookup, plan).then(async r => {
+        await cfBump('法庭库检索完成 · 等待文件取证收尾', 'Court search done · finishing document forensics')
+        return r
+      }),
+      runForensics(forensicsInput).then(async r => {
+        await cfBump('文件取证完成：PDF 指纹 × 工资单数学 × 法定扣缴复算', 'Forensics done: PDF fingerprints × paystub math × statutory deductions')
+        return r
+      }).catch(async (e): Promise<ForensicsReport> => {
+        // Failure still advances the progress counter — otherwise the bar
+        // freezes at 25 with a "finishing forensics" message for a branch
+        // that already died.
+        await cfBump('文件取证异常 · 已使用降级结果继续', 'Forensics errored · continuing with fallback result')
+        return {
+          per_file: [],
+          cross_doc: { entities: { phones: [], emails: [], addresses: [], names: [], employers: [], deposit_amounts: [] }, unique_phones: 0, hr_phone_collision: false, deposit_paystub_perfect_match: false },
+          cross_doc_flags: [],
+          all_flags: [{ code: 'forensics_init_error', severity: 'low', evidence_en: `Forensics aborted: ${e?.message || e}`, evidence_zh: `取证模块启动失败：${e?.message || e}` }],
+          hard_gates: [],
+          severity: 'clean',
+          elapsed_ms: 0,
+          schema_version: 1,
+        }
+      }),
     ])
 
     await supabase.from('screenings').update({
       court_records_detail: courtDetail,
       forensics_detail: forensicsReport,
-      tier: (plan === 'pro' || plan === 'enterprise') ? 'pro' : 'free',
+      tier: (plan === 'pro' || plan === 'team') ? 'pro' : 'free',
       status: 'scoring',
-      progress: { stage: 'ai_scoring', pct: 38, at: new Date().toISOString() },
+      progress: { stage: 'ai_scoring', pct: 38, at: new Date().toISOString(), detail_zh: '文件 + 取证结果已送入 Claude · 等待首个输出', detail_en: 'Documents + forensics sent to Claude · awaiting first output' },
     }).eq('id', screening_id)
 
     // ---- Stage 3: Build v3 Claude prompt ----
@@ -1186,7 +1165,7 @@ JSON DISCIPLINE (avoid parse errors):
         model: 'claude-sonnet-4-6',
         // Temperature 0 = deterministic scoring. Same documents should
         // produce the same scores every time.
-        temperature: 0,
+        temperature: CLAUDE_TEMPERATURE,
         // With the lean v3 schema (sparse sub_coverage, tight length caps
         // on details/flags/action_items) the full output fits comfortably
         // under 2000 tokens. 3500 gives 75% headroom without wasting
@@ -1194,7 +1173,10 @@ JSON DISCIPLINE (avoid parse errors):
         // Lean v3 output is ~2k tokens, but transcribing a full credit
         // report (tradelines + collections + inquiries) can add several k,
         // so give generous headroom to avoid mid-report truncation.
-        max_tokens: 6000,
+        max_tokens: CLAUDE_MAX_TOKENS,
+        // Streaming lets us report REAL generation progress (output chars →
+        // pct 38-71) instead of freezing the bar for the whole 20-40s call.
+        stream: true,
         system: [
           { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
         ],
@@ -1204,16 +1186,106 @@ JSON DISCIPLINE (avoid parse errors):
       }),
     })
 
-    if (!response.ok) {
+    if (!response.ok || !response.body) {
       const errText = await response.text()
       await supabase.from('screenings').update({ status: 'error', error: errText.slice(0, 500) }).eq('id', screening_id)
       return NextResponse.json({ error: `Anthropic API error: ${errText}` }, { status: 500 })
     }
 
-    const aiData = await response.json() as { content?: Array<{ text: string }>; stop_reason?: string }
-    writeProgress('post_processing', 72)
-    const rawText = aiData.content?.[0]?.text || '{}'
-    const stopReason = aiData.stop_reason || ''
+    // ---- Consume the SSE stream, reporting real generation progress ----
+    // The v3 schema keys are emitted in a fixed order, so the most recent
+    // key seen in the accumulated text tells us exactly which section the
+    // model is generating right now — real reasoning progress, not canned.
+    const SECTION_LABELS: Array<[string, string, string]> = [
+      ['"court_summary', '评估法庭记录风险', 'Assessing court-record risk'],
+      ['"summary_', '撰写总体评估结论', 'Writing the overall assessment'],
+      ['"compliance_audit"', 'OHRC 合规审计（受保护特征零使用核查）', 'OHRC compliance audit (protected-grounds check)'],
+      ['"action_items"', '生成待办核实清单', 'Building the verification to-do list'],
+      ['"red_flags"', '汇总风险标记', 'Compiling risk flags'],
+      ['"hard_gates_triggered"', '检查欺诈硬门槛', 'Checking fraud hard gates'],
+      ['"details_', '撰写五维评分依据', 'Writing per-dimension evidence'],
+      ['"scores"', '五维风险评分中', 'Scoring the five risk dimensions'],
+      ['"tradelines"', '逐条转录信用账户（tradelines）', 'Transcribing credit tradelines'],
+      ['"credit_report"', '读取并转录信用报告', 'Reading & transcribing the credit report'],
+      ['"detected_monthly_income"', '核算收入证据', 'Reconciling income evidence'],
+      ['"extracted_names"', '提取申请人身份信息', 'Extracting applicant identities'],
+    ]
+    const sniffSection = (text: string): [string, string] => {
+      let best: [string, string] = ['深度阅读全部文件', 'Deep-reading all documents']
+      let bestIdx = -1
+      for (const [key, zh, en] of SECTION_LABELS) {
+        const i = text.lastIndexOf(key)
+        if (i > bestIdx) { bestIdx = i; best = [zh, en] }
+      }
+      return best
+    }
+
+    // Expected output length: lean v3 is ~2k tokens (~8k chars); credit
+    // transcription can push past that, so treat 9k chars as the 95% mark
+    // and clamp — the bar can pause at ~71 but never runs backwards.
+    const EXPECTED_CHARS = 9000
+    let rawText = ''
+    let stopReason = ''
+    let streamError: string | null = null
+    let sawMessageStop = false
+    let lastProgressWrite = 0
+    {
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let sseBuf = ''
+      const processLine = (rawLine: string) => {
+        const line = rawLine.trim()
+        if (!line.startsWith('data:')) return
+        try {
+          const ev = JSON.parse(line.slice(5).trim()) as {
+            type?: string
+            delta?: { type?: string; text?: string; stop_reason?: string }
+            error?: { type?: string; message?: string }
+          }
+          if (ev.type === 'content_block_delta' && ev.delta?.text) rawText += ev.delta.text
+          else if (ev.type === 'message_delta' && ev.delta?.stop_reason) stopReason = ev.delta.stop_reason
+          else if (ev.type === 'message_stop') sawMessageStop = true
+          else if (ev.type === 'error') {
+            // Mid-stream API error (overloaded_error etc). MUST be surfaced:
+            // a partial rawText would otherwise be salvage-parsed into valid
+            // JSON and the screening would "succeed" with missing sections.
+            streamError = ev.error?.type || 'stream_error'
+          }
+        } catch { /* keep-alive / non-JSON lines are expected in SSE */ }
+      }
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        sseBuf += decoder.decode(value, { stream: true })
+        let nl: number
+        while ((nl = sseBuf.indexOf('\n')) >= 0) {
+          processLine(sseBuf.slice(0, nl))
+          sseBuf = sseBuf.slice(nl + 1)
+        }
+        const now = Date.now()
+        if (now - lastProgressWrite > 1200 && rawText.length > 0) {
+          lastProgressWrite = now
+          const pct = 38 + Math.round(Math.min(0.95, rawText.length / EXPECTED_CHARS) * 35)
+          const [zh, en] = sniffSection(rawText)
+          writeProgress('ai_scoring', pct, `${zh} · 已生成 ${rawText.length.toLocaleString()} 字符`, `${en} · ${rawText.length.toLocaleString()} chars generated`)
+        }
+      }
+      // Flush: a final line without a trailing \n (proxy trim / clean
+      // half-close) would otherwise be dropped — it can carry the closing
+      // message_delta (stop_reason) or the last content delta.
+      sseBuf += decoder.decode()
+      for (const tail of sseBuf.split('\n')) processLine(tail)
+    }
+    // A mid-stream error means the output is incomplete — fail the screening
+    // loudly rather than salvage-parsing a partial report. (A message_stop
+    // after the error would mean the stream actually completed; keep it.)
+    if (streamError && !sawMessageStop) {
+      const errMsg = `Anthropic stream error after ${rawText.length} chars: ${streamError}`
+      await supabase.from('screenings').update({ status: 'error', error: errMsg }).eq('id', screening_id)
+      return NextResponse.json({ error: errMsg }, { status: 500 })
+    }
+    if (!rawText) rawText = '{}'
+    writeProgress('post_processing', 72, '解析评分 · 应用硬门槛与扣分 · 复核合规', 'Parsing scores · applying hard gates & penalties · compliance review')
 
     // Robust JSON extractor — survives four common Claude failure modes:
     // (1) markdown code fence wrapping, (2) trailing commas before ] or },
@@ -1380,6 +1452,7 @@ JSON DISCIPLINE (avoid parse errors):
       'pdf_producer_consumer_tool',        // Photoshop / Word / Canva / Image2PDF
       'paystub_ytd_inflated',              // YTD math truly impossible (>2.5x)
       'paystub_period_math_error',         // hourly × hours ≠ stated gross
+      'paystub_deduction_exceeds_legal_max', // YTD CPP/EI above CRA annual max — impossible on a real stub
       // 2026-06-02 — When Claude Vision confirms the file is not actually a
       // bureau report, its verdict supersedes the cheap regex. The regex
       // flag is removed by forensics-index.ts in that path, so we treat
@@ -1583,6 +1656,7 @@ JSON DISCIPLINE (avoid parse errors):
     const idFailureCodes = new Set([
       'id_sin_invalid_checksum',
       'id_dl_surname_mismatch',
+      'id_dl_dob_mismatch',
       'id_ohip_invalid_format',
     ])
     const hasIdFailure = forensicsReport.all_flags.some(f => idFailureCodes.has(f.code))
@@ -2085,7 +2159,7 @@ JSON DISCIPLINE (avoid parse errors):
       // NOTE: 'tier' in the response is kept as 'free'|'pro' for backwards
       // compat with the existing frontend. The v3 model tier (approve /
       // conditional / decline) is returned under 'v3_tier'.
-      tier: (plan === 'pro' || plan === 'enterprise') ? 'pro' : 'free',
+      tier: (plan === 'pro' || plan === 'team') ? 'pro' : 'free',
       v3_tier: tier,
       tier_reason: tierReason,
       hard_gates_triggered: hardGates,

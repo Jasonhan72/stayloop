@@ -4,7 +4,7 @@ export const runtime = 'edge'
 
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { supabase } from '@/lib/supabase'
@@ -64,6 +64,32 @@ interface DBListing {
   is_active: boolean
   created_at: string
   images: string[] | null
+  // Realtor.ca / CREA DDF-aligned fields
+  property_type: string | null
+  ownership_title: string | null
+  bedrooms_above_grade: number | null
+  bedrooms_below_grade: number | null
+  bathrooms_half: number | null
+  sqft_max: number | null
+  storeys: number | null
+  land_size: string | null
+  heating_type: string | null
+  heating_fuel: string | null
+  cooling: string | null
+  basement_type: string | null
+  exterior_finish: string | null
+  appliances: string[] | null
+  building_features: string[] | null
+  pets_allowed: string | null
+  parking_spaces: number | null
+  maintenance_fee: number | null
+  management_company: string | null
+  cross_streets: string | null
+  furnished: boolean | null
+  deposit: number | null
+  lease_term: string | null
+  virtual_tour_url: string | null
+  mls_number: string | null
 }
 
 const tierLabel: Record<number, { name: { zh: string; en: string }; reqs: { zh: string; en: string }[] }> = {
@@ -108,6 +134,9 @@ export default function ListingDetailPage() {
   const [similar, setSimilar] = useState<DBListing[]>([])
   const [loading, setLoading] = useState(true)
   const [intentOpen, setIntentOpen] = useState(false)
+  const [fieldAgentOpen, setFieldAgentOpen] = useState(false)
+  const [galleryOpen, setGalleryOpen] = useState(false)
+  const [galleryIdx, setGalleryIdx] = useState(0)
 
   useEffect(() => {
     if (!slug) return
@@ -201,12 +230,13 @@ export default function ListingDetailPage() {
                 style={{ gridAutoRows: '140px' }}
               >
                 <div
-                  className="relative col-span-2 sm:col-span-1 sm:row-span-2"
+                  className="relative col-span-2 cursor-pointer sm:col-span-1 sm:row-span-2"
                   style={{
                     background: lead
                       ? `url(${lead}) center/cover no-repeat, linear-gradient(135deg,${a},${b})`
                       : `linear-gradient(135deg,${a},${b})`,
                   }}
+                  onClick={() => { if (imgs.length) { setGalleryIdx(0); setGalleryOpen(true) } }}
                 >
                   {!lead && <div className="absolute inset-0 bg-black/10" />}
                   {listing.badge && (
@@ -236,17 +266,19 @@ export default function ListingDetailPage() {
                 {thumbs.map((url, i) => (
                   <div
                     key={i}
-                    className="relative"
+                    className="relative cursor-pointer"
                     style={{
                       background: url
                         ? `url(${url}) center/cover no-repeat, linear-gradient(${135 + i * 22}deg,${a},${b})`
                         : `linear-gradient(${135 + i * 22}deg,${a},${b})`,
                     }}
+                    onClick={() => { if (imgs.length) { setGalleryIdx(i + 1); setGalleryOpen(true) } }}
                   >
                     {i === 3 && (
                       <button
                         type="button"
                         className="absolute inset-0 flex items-center justify-center bg-black/35 font-mono text-[12px] font-semibold text-white"
+                        onClick={(e) => { e.stopPropagation(); setGalleryIdx(0); setGalleryOpen(true) }}
                       >
                         {zh ? `+ 看全部 ${listing.photo_count || imgs.length || 24} 张 →` : `+ View all ${listing.photo_count || imgs.length || 24} →`}
                       </button>
@@ -313,12 +345,37 @@ export default function ListingDetailPage() {
                   value={
                     listing.bedrooms === 0
                       ? 'Studio'
-                      : `${listing.bedrooms}${listing.has_den ? ' + den' : ''}`
+                      : listing.bedrooms_below_grade
+                        ? `${listing.bedrooms_above_grade ?? listing.bedrooms} + ${listing.bedrooms_below_grade}`
+                        : `${listing.bedrooms}${listing.has_den ? ' + den' : ''}`
                   }
                 />
-                <Stat label={zh ? '卫生间' : 'Bathrooms'} value={listing.bathrooms ?? '—'} />
-                <Stat label={zh ? '面积' : 'Area'} value={listing.sqft ? `${listing.sqft} ft²` : '—'} />
-                <Stat label={zh ? '车位' : 'Parking'} value={listing.parking ? (zh ? '有' : 'Yes') : (zh ? '无' : 'No')} />
+                <Stat
+                  label={zh ? '卫生间' : 'Bathrooms'}
+                  value={
+                    listing.bathrooms != null
+                      ? `${listing.bathrooms}${listing.bathrooms_half ? ` + ${listing.bathrooms_half} ${zh ? '半卫' : 'half'}` : ''}`
+                      : '—'
+                  }
+                />
+                <Stat
+                  label={zh ? '面积' : 'Area'}
+                  value={
+                    listing.sqft
+                      ? listing.sqft_max
+                        ? `${listing.sqft}–${listing.sqft_max} ft²`
+                        : `${listing.sqft} ft²`
+                      : '—'
+                  }
+                />
+                <Stat
+                  label={zh ? '车位' : 'Parking'}
+                  value={
+                    listing.parking_spaces
+                      ? `${listing.parking_spaces}${zh ? ' 个' : ''}`
+                      : listing.parking ? (zh ? '有' : 'Yes') : (zh ? '无' : 'No')
+                  }
+                />
               </div>
             </div>
 
@@ -352,36 +409,91 @@ export default function ListingDetailPage() {
             </Section>
 
             {/* Section 2 — 生活配套 */}
-            <Section title={zh ? '生活配套' : 'Amenities'} eyebrow="AMENITIES">
-              <ul className="grid grid-cols-1 gap-y-2 text-[14px] text-body-2 sm:grid-cols-2">
-                <Li ok>{zh ? '洗衣机/烘干机 · in-unit' : 'Washer / dryer · in-unit'}</Li>
-                <Li ok>{zh ? '暖气、热水包水电' : 'Heat & hot water included'}</Li>
-                <Li ok>{zh ? '自行车存放' : 'Bike storage'}</Li>
-                <Li ok={listing.pet_policy !== 'no-pets' && listing.pet_policy !== null}>
-                  {zh
-                    ? `宠物友好（${listing.pet_policy || '可商议'}）`
-                    : `Pet-friendly (${listing.pet_policy || 'negotiable'})`}
-                </Li>
-                <Li ok>{zh ? '距 TTC 地铁 5 min' : '5 min to TTC subway'}</Li>
-                <Li ok>{zh ? '24h concierge' : '24h concierge'}</Li>
-                <Li ok={!!listing.parking}>{listing.parking ? (zh ? '室内车位' : 'Indoor parking') : (zh ? '街道停车' : 'Street parking')}</Li>
-                <Li ok>{zh ? '智能门锁' : 'Smart lock'}</Li>
-              </ul>
-            </Section>
+            {(() => {
+              const petLabel =
+                listing.pets_allowed === 'yes' ? (zh ? '允许宠物' : 'Pets allowed')
+                : listing.pets_allowed === 'restricted' ? (zh ? '宠物有限制' : 'Pets with restrictions')
+                : listing.pets_allowed === 'no' ? (zh ? '不允许宠物' : 'No pets')
+                : null
+              const items: { label: string; ok: boolean }[] = [
+                ...(listing.amenities || []).map((a) => ({ label: a, ok: true })),
+                ...(listing.building_features || []).map((a) => ({ label: a, ok: true })),
+                ...(listing.appliances || []).map((a) => ({
+                  label: zh ? `电器: ${a}` : `Appliance: ${a}`,
+                  ok: true,
+                })),
+                ...(listing.furnished != null
+                  ? [{ label: listing.furnished ? (zh ? '带家具' : 'Furnished') : (zh ? '不带家具' : 'Unfurnished'), ok: true }]
+                  : []),
+                ...(listing.parking
+                  ? [{ label: zh ? `停车: ${listing.parking}` : `Parking: ${listing.parking}`, ok: true }]
+                  : []),
+                ...(petLabel
+                  ? [{ label: petLabel, ok: listing.pets_allowed !== 'no' }]
+                  : listing.pet_policy
+                    ? [{
+                        label: zh ? `宠物: ${listing.pet_policy}` : `Pets: ${listing.pet_policy}`,
+                        ok: listing.pet_policy !== 'no-pets',
+                      }]
+                    : []),
+              ]
+              return items.length > 0 ? (
+                <Section title={zh ? '生活配套' : 'Amenities'} eyebrow="AMENITIES">
+                  <ul className="grid grid-cols-1 gap-y-2 text-[14px] text-body-2 sm:grid-cols-2">
+                    {items.map((item) => (
+                      <Li key={item.label} ok={item.ok}>{item.label}</Li>
+                    ))}
+                  </ul>
+                </Section>
+              ) : null
+            })()}
 
             {/* Section 3 — 建筑信息 */}
             <Section title={zh ? '建筑信息' : 'Building'} eyebrow="BUILDING">
               <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-[13.5px] sm:grid-cols-4">
-                <BuildingFact label={zh ? '建造年份' : 'Year built'} value={listing.year_built ?? '1998'} />
-                <BuildingFact
-                  label={zh ? '物业类型' : 'Property type'}
-                  value={(listing.bedrooms ?? 0) >= 3 ? 'Detached' : 'Condo / Apartment'}
-                />
+                {listing.property_type && (
+                  <BuildingFact
+                    label={zh ? '物业类型' : 'Building type'}
+                    value={
+                      { apartment: zh ? '出租公寓' : 'Apartment', condo: 'Condo', house: zh ? '独立屋' : 'House', townhouse: zh ? '联排' : 'Townhouse', basement: zh ? '地下室' : 'Basement', duplex: 'Duplex' }[listing.property_type] || listing.property_type
+                    }
+                  />
+                )}
+                {listing.ownership_title && (
+                  <BuildingFact label={zh ? '产权' : 'Title'} value={listing.ownership_title === 'condominium' ? 'Condominium/Strata' : 'Freehold'} />
+                )}
+                {listing.year_built && (
+                  <BuildingFact label={zh ? '建造年份' : 'Year built'} value={listing.year_built} />
+                )}
+                {listing.storeys && <BuildingFact label={zh ? '层数' : 'Storeys'} value={listing.storeys} />}
+                {listing.heating_type && (
+                  <BuildingFact
+                    label={zh ? '供暖' : 'Heating'}
+                    value={listing.heating_fuel ? `${listing.heating_type} (${listing.heating_fuel})` : listing.heating_type}
+                  />
+                )}
+                {listing.cooling && <BuildingFact label={zh ? '制冷' : 'Cooling'} value={listing.cooling} />}
+                {listing.basement_type && <BuildingFact label={zh ? '地下室' : 'Basement'} value={listing.basement_type} />}
+                {listing.exterior_finish && <BuildingFact label={zh ? '外墙' : 'Exterior'} value={listing.exterior_finish} />}
+                {listing.land_size && <BuildingFact label={zh ? '占地' : 'Land size'} value={listing.land_size} />}
+                {listing.maintenance_fee != null && (
+                  <BuildingFact label={zh ? '物业费' : 'Maintenance fee'} value={`$${listing.maintenance_fee}/${zh ? '月' : 'mo'}`} />
+                )}
+                {listing.management_company && (
+                  <BuildingFact label={zh ? '物业公司' : 'Management'} value={listing.management_company} />
+                )}
+                {listing.cross_streets && (
+                  <BuildingFact label={zh ? '十字路口' : 'Cross streets'} value={listing.cross_streets} />
+                )}
+                {listing.deposit != null && (
+                  <BuildingFact label={zh ? '押金' : 'Deposit'} value={`$${listing.deposit.toLocaleString()}`} />
+                )}
+                {listing.lease_term && <BuildingFact label={zh ? '租期' : 'Lease term'} value={listing.lease_term} />}
+                {listing.mls_number && <BuildingFact label="MLS®" value={listing.mls_number} />}
                 <BuildingFact
                   label={zh ? '入住' : 'Available'}
                   value={listing.available_date ? listing.available_date.slice(0, 10) : (zh ? '即可' : 'Now')}
                 />
-                <BuildingFact label={zh ? '租期' : 'Lease term'} value={zh ? '12 个月' : '12 months'} />
                 {listing.brokerage && (
                   <BuildingFact label={zh ? '挂牌机构' : 'Brokerage'} value={listing.brokerage} />
                 )}
@@ -390,29 +502,27 @@ export default function ListingDetailPage() {
                   value={listing.postal_code || `${listing.city.slice(0, 3).toUpperCase()} ···`}
                 />
               </div>
+              {listing.virtual_tour_url && (
+                <a
+                  href={listing.virtual_tour_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-block text-[13.5px] font-semibold text-purple-700 underline underline-offset-2"
+                >
+                  {zh ? '虚拟看房 / VR Tour →' : 'Virtual tour →'}
+                </a>
+              )}
             </Section>
 
-            {/* Section 4 — Walk Score */}
-            <Section title={zh ? '出行评分' : 'Getting around'} eyebrow="WALK · TRANSIT · BIKE">
-              <div className="grid grid-cols-3 gap-3">
-                <ScoreCard label="WALK SCORE" value={94} note="Walker's Paradise" />
-                <ScoreCard label="TRANSIT" value={97} note="Rider's Paradise" />
-                <ScoreCard label="BIKE" value={89} note="Very Bikeable" />
-              </div>
-              <p className="mt-3 text-[12.5px] text-body-3">
-                {zh
-                  ? '数据来自 walkscore.com · 仅供参考，实际请以现场为准'
-                  : 'Data from walkscore.com · for reference only, verify on-site'}
-              </p>
-            </Section>
+            {/* Section 4 — Walk Score — only show when real data exists */}
 
             {/* Section 5 — 房客信用门槛 · 房东设置 */}
             <Section title={zh ? '房客信用门槛 · 房东设置' : 'Tenant criteria · set by landlord'} eyebrow="LANDLORD CRITERIA">
               <div className="rounded-[12px] border border-line-divider bg-white p-5">
                 <div className="text-[14px] font-semibold">
                   {zh
-                    ? `${listing.broker_name || 'Sarah'} 接受 ${tierInfo.name.zh}（Banking-verified）`
-                    : `${listing.broker_name || 'Sarah'} accepts ${tierInfo.name.en} (Banking-verified)`}
+                    ? `${listing.broker_name || '房东'} 接受 ${tierInfo.name.zh}（Banking-verified）`
+                    : `${listing.broker_name || 'Landlord'} accepts ${tierInfo.name.en} (Banking-verified)`}
                 </div>
                 <p className="mt-1 text-[12.5px] text-body-2">
                   {zh ? (
@@ -451,7 +561,7 @@ export default function ListingDetailPage() {
                     {zh ? '开始 认证验证 →' : 'Start verification →'}
                   </Link>
                   <Link
-                    href="/screening"
+                    href="/pricing"
                     className="text-[13px] font-semibold text-brand transition hover:underline"
                   >
                     {zh ? '了解 认证体系' : 'Learn about Tiers'}
@@ -488,14 +598,14 @@ export default function ListingDetailPage() {
                 href="/tenant/agent"
                 className="mt-2 block rounded-[10px] border border-tenant/30 bg-tenant/5 px-4 py-[10px] text-center text-[13.5px] font-semibold text-tenant transition hover:bg-tenant/10"
               >
-                {zh ? `让 Luna 替我问 ${listing.broker_name || 'Sarah'}` : `Have Luna ask ${listing.broker_name || 'Sarah'}`}
+                {zh ? '让 AI Agent 替我问' : 'Have AI Agent ask for you'}
               </Link>
-              <Link
-                href="/screening"
-                className="mt-2 block rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
+              <button
+                onClick={() => setFieldAgentOpen(true)}
+                className="mt-2 w-full rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
               >
                 {zh ? '派 Field Agent 看房 ($80)' : 'Send a Field Agent to view ($80)'}
-              </Link>
+              </button>
               <div className="mt-3 text-center font-mono text-[10px] uppercase tracking-eyebrowLg text-body-3">
                 {zh ? '通常 4 小时内回复' : 'Usually replies within 4 hours'}
               </div>
@@ -518,7 +628,7 @@ export default function ListingDetailPage() {
                 />
                 <div>
                   <div className="text-[14px] font-bold">
-                    {listing.broker_name || (zh ? 'Logic · 代理团队' : 'Logic · Agent team')}
+                    {listing.broker_name || 'AI Agent'}
                   </div>
                   <div className="font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
                     {listing.brokerage ? (zh ? `${listing.brokerage} · 经纪` : `${listing.brokerage} · Agent`) : (zh ? '房东直租' : 'Direct from landlord')}
@@ -530,7 +640,7 @@ export default function ListingDetailPage() {
                 type="button"
                 className="mt-4 w-full rounded-[10px] border border-line-strong bg-white py-[10px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
               >
-                {zh ? '和 Brief Agent 对话' : 'Chat with Brief Agent'}
+                {zh ? '和 AI Agent 对话' : 'Chat with AI Agent'}
               </button>
             </div>
 
@@ -610,9 +720,69 @@ export default function ListingDetailPage() {
         {intentOpen && (
           <IntentModal listing={listing} zh={zh} onClose={() => setIntentOpen(false)} />
         )}
+        {fieldAgentOpen && (
+          <FieldAgentModal listing={listing} zh={zh} onClose={() => setFieldAgentOpen(false)} />
+        )}
       </main>
       <Footer />
+      {galleryOpen && listing?.images && listing.images.length > 0 && (
+        <PhotoGallery
+          images={listing.images}
+          startIdx={galleryIdx}
+          onClose={() => setGalleryOpen(false)}
+        />
+      )}
     </>
+  )
+}
+
+function PhotoGallery({ images, startIdx, onClose }: { images: string[]; startIdx: number; onClose: () => void }) {
+  const [idx, setIdx] = useState(startIdx)
+  const prev = useCallback(() => setIdx((i) => (i - 1 + images.length) % images.length), [images.length])
+  const next = useCallback(() => setIdx((i) => (i + 1) % images.length), [images.length])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowLeft') prev()
+      if (e.key === 'ArrowRight') next()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose, prev, next])
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90" onClick={onClose}>
+      <div className="relative flex h-full w-full items-center justify-center" onClick={(e) => e.stopPropagation()}>
+        {/* Close */}
+        <button onClick={onClose} className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
+        {/* Counter */}
+        <div className="absolute left-4 top-4 z-10 rounded-md bg-white/10 px-3 py-1.5 font-mono text-[13px] font-semibold text-white backdrop-blur">
+          {idx + 1} / {images.length}
+        </div>
+        {/* Prev */}
+        {images.length > 1 && (
+          <button onClick={prev} className="absolute left-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
+          </button>
+        )}
+        {/* Next */}
+        {images.length > 1 && (
+          <button onClick={next} className="absolute right-4 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition hover:bg-white/20">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
+          </button>
+        )}
+        {/* Image */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={images[idx]}
+          alt={`Photo ${idx + 1}`}
+          className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain"
+        />
+      </div>
+    </div>
   )
 }
 
@@ -765,8 +935,115 @@ function IntentModal({
           >
             {zh ? '取消' : 'Cancel'}
           </button>
-          <button onClick={onClose} className="sl-btn-primary flex-1 !py-[12px]">
-            {zh ? '提交意向' : 'Submit intent'}
+          <button onClick={onClose} className="sl-btn-primary flex-1 !py-[12px]" disabled>
+            {zh ? '即将上线' : 'Coming soon'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FieldAgentModal({
+  listing,
+  zh,
+  onClose,
+}: {
+  listing: DBListing
+  zh: boolean
+  onClose: () => void
+}) {
+  const [step, setStep] = useState<'form' | 'submitted'>('form')
+  const addr = [listing.address, listing.unit].filter(Boolean).join(' ')
+
+  if (step === 'submitted') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur sm:items-center">
+        <div className="sl-card w-full max-w-md p-7 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-[28px]">
+            ✓
+          </div>
+          <h3 className="text-[20px] font-bold tracking-tight">
+            {zh ? '看房请求已提交' : 'Viewing request submitted'}
+          </h3>
+          <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
+            {zh
+              ? `Stayloop 经纪人将在 4 小时内联系你确认 ${addr} 的看房时间。费用 $80 在看房完成后收取。`
+              : `A Stayloop field agent will contact you within 4 hours to confirm the viewing at ${addr}. The $80 fee is charged after the visit.`}
+          </p>
+          <button onClick={onClose} className="sl-btn-primary mt-6 w-full !py-[12px]">
+            {zh ? '好的' : 'Got it'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur sm:items-center">
+      <div className="sl-card w-full max-w-md p-7">
+        <h3 className="text-[20px] font-bold tracking-tight">
+          {zh ? '派 Field Agent 看房' : 'Book a Field Agent viewing'}
+        </h3>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
+          {zh
+            ? 'Stayloop 持牌经纪人亲自到场看房，拍照 + 录像 + 出具现场报告，通常 24 小时内完成。'
+            : 'A licensed Stayloop agent visits in person — photos, video walkthrough, and a condition report delivered within 24 hours.'}
+        </p>
+
+        <div className="mt-5 rounded-[10px] border border-line bg-surface-2 p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] text-body-2">{zh ? '房源' : 'Property'}</span>
+            <span className="text-[13px] font-semibold">{addr}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-[13px] text-body-2">{zh ? '月租' : 'Rent'}</span>
+            <span className="text-[13px] font-semibold">${listing.monthly_rent?.toLocaleString()}/mo</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
+            <span className="text-[13px] font-semibold">{zh ? '看房服务费' : 'Viewing fee'}</span>
+            <span className="text-[15px] font-bold text-brand">$80</span>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-3">
+          <label className="block">
+            <span className="sl-eyebrow">{zh ? '首选看房日期' : 'Preferred date'}</span>
+            <input className="sl-input mt-1" type="date" />
+          </label>
+          <label className="block">
+            <span className="sl-eyebrow">{zh ? '时间段' : 'Time preference'}</span>
+            <select className="sl-input mt-1" defaultValue="any">
+              <option value="any">{zh ? '任意时间' : 'Any time'}</option>
+              <option value="morning">{zh ? '上午 (9-12)' : 'Morning (9-12)'}</option>
+              <option value="afternoon">{zh ? '下午 (12-17)' : 'Afternoon (12-5)'}</option>
+              <option value="evening">{zh ? '傍晚 (17-20)' : 'Evening (5-8)'}</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="sl-eyebrow">{zh ? '特别关注（可选）' : 'Focus areas (optional)'}</span>
+            <textarea
+              className="sl-input mt-1 h-20 py-2"
+              placeholder={zh ? '地下室状况 · 水压 · 噪音 · 停车位实际位置' : 'Basement condition · water pressure · noise · parking spot location'}
+            />
+          </label>
+        </div>
+
+        <p className="mt-4 text-[11px] text-body-3">
+          {zh
+            ? '* 看房完成后收费。如经纪人无法进入房源，不收费。'
+            : '* Charged after the visit. No charge if the agent cannot access the property.'}
+        </p>
+
+        <div className="mt-5 flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-[10px] border border-line-strong bg-white py-[12px] text-[14px] font-semibold text-body transition hover:border-brand hover:text-brand"
+          >
+            {zh ? '取消' : 'Cancel'}
+          </button>
+          <button onClick={onClose} className="sl-btn-primary flex-1 !py-[12px]" disabled>
+            {zh ? '即将上线' : 'Coming soon'}
           </button>
         </div>
       </div>

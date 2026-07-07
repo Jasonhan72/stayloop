@@ -7,6 +7,7 @@ import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
 import Header from '@/components/Header'
 import AuthModal from '@/components/AuthModal'
 import { generateScreeningReport } from '@/lib/generateReport'
+import type { CanLIIMatch, OntarioPortalMatch, CourtQuery, AiFlag, ScoreResult, V3DimKey } from '@/lib/screening-types'
 
 // ───────────────────────────────────────────────────────── Types ──
 
@@ -28,208 +29,7 @@ interface Screening {
   created_at: string
 }
 
-interface CanLIIMatch {
-  title: string
-  citation: string
-  url: string
-  databaseId: string
-  databaseName?: string
-  caseId: string
-  nameInTitle?: boolean  // true = tenant name found in case title (likely a party)
-}
-
-interface OntarioPortalMatch {
-  caseNumber: string
-  caseTitle: string
-  caseCategory: string
-  filedDate: string
-  partyRole: string
-  partyDisplayName: string
-  courtAbbreviation: string
-  closedFlag: boolean
-  nameSwapped?: boolean
-  /** UUID → link straight to the portal's case detail page. When present,
-   *  the card renders `https://www.courts.ontario.ca/portal/court/{courtID}/case/{caseInstanceUUID}`
-   *  instead of the generic party-search URL. */
-  caseInstanceUUID?: string
-  courtID?: string
-}
-
-interface CourtQuery {
-  source: string
-  tier: 'free' | 'pro'
-  status: 'ok' | 'unavailable' | 'skipped' | 'coming_soon'
-  hits: number | null
-  url?: string
-  note?: string
-  severity?: number  // 3=critical, 2=high, 1=medium, 0=no hits
-  records?: CanLIIMatch[]  // individual case records for this database
-  portalRecords?: OntarioPortalMatch[]  // Ontario Courts Portal records
-}
-
-interface AiFlag { type: 'danger' | 'warning' | 'info' | 'success'; text_en: string; text_zh: string }
-
-interface ScoreResult {
-  overall: number
-  scores: {
-    doc_authenticity: number
-    payment_ability: number
-    court_records: number
-    stability: number
-    behavior_signals: number
-    info_consistency: number
-  }
-  notes: Record<string, string>
-  details_en?: Record<string, string> | null
-  details_zh?: Record<string, string> | null
-  flags?: AiFlag[]
-  detected_document_kinds?: string[]
-  detected_monthly_income?: number | null
-  effective_monthly_income?: number | null
-  income_evidence?: string | null
-  monthly_rent?: number | null
-  income_rent_ratio?: number | null
-  extracted_name: string
-  name_was_extracted: boolean
-  summary: string
-  summary_en?: string
-  summary_zh?: string
-  court_summary_en?: string
-  court_summary_zh?: string
-  court_records_detail: { queries: CourtQuery[]; total_hits: number; queried_name: string }
-  tier: 'free' | 'pro'
-  // v3 additions — all optional so old API responses still type-check
-  model_version?: string
-  scores_v3?: {
-    ability_to_pay: number
-    credit_health: number
-    rental_history: number
-    verification: number
-    communication: number
-  }
-  v3_tier?: 'approve' | 'conditional' | 'decline'
-  tier_reason?: string
-  hard_gates_triggered?: string[]
-  red_flags?: string[]
-  red_flag_penalty?: number
-  gate_cap?: number
-  evidence_coverage?: number
-  sub_coverage?: Record<string, string>
-  identity_match_score?: number | null
-  bank_min_balance?: number | null
-  // Structured credit-report data transcribed from an uploaded credit report
-  // (null when none uploaded). Rendered in the downloadable PDF report.
-  credit_report?: {
-    bureau?: string | null
-    credit_score?: number | null
-    score_band?: string | null
-    report_date?: string | null
-    tradelines?: Array<{ creditor: string; type: string; date_opened: string; balance: number | null; high_credit: number | null; past_due: number | null; payment_status: string; late_30_60_90: string }>
-    collections?: Array<{ creditor: string; date_assigned: string; original_amount: number | null; balance: number | null }>
-    bankruptcies?: Array<{ date_filed: string; type: string; amount: number | null; disposition: string }>
-    inquiries?: Array<{ date: string; creditor: string }>
-    total_debt?: number | null
-    monthly_debt_payments?: number | null
-  } | null
-  action_items?: {
-    id: string
-    dimension: string
-    title_en: string
-    title_zh: string
-    details_en: string
-    details_zh: string
-    impact_on_score: string
-    status: string
-  }[]
-  compliance_audit?: {
-    protected_grounds_observed?: string[]
-    protected_grounds_used_in_scoring?: string[]
-    hrc_compliant?: boolean
-    reviewer_note?: string
-  } | null
-  // Forensics — added 2026-04-15
-  forensics_detail?: {
-    severity: 'clean' | 'suspicious' | 'likely_fraud' | 'fraud'
-    hard_gates: string[]
-    elapsed_ms: number
-    per_file: Array<{
-      file_name: string
-      file_kind: string
-      mime: string
-      pdf_metadata?: {
-        title: string | null
-        producer: string | null
-        creator: string | null
-        creation_date: string | null
-        modification_date: string | null
-        page_count: number
-        file_size_bytes: number
-      }
-      text_density?: {
-        total_chars: number
-        page_count: number
-        chars_per_page: number
-        is_likely_image_pdf: boolean
-      }
-      paystub_math?: {
-        extraction: { annual_salary: number | null; ytd_gross: number | null; pay_date: string | null }
-        expected_ytd_gross: number | null
-        ytd_ratio: number | null
-        period_math_error_pct: number | null
-      }
-      source_specific?: {
-        equifax_authentic_markers: boolean | null
-        bank_producer_whitelisted: boolean | null
-        matched_bank: string | null
-      }
-      flags: Array<{ code: string; severity: 'critical' | 'high' | 'medium' | 'low'; evidence_en: string; evidence_zh: string; file?: string }>
-    }>
-    cross_doc_flags: Array<{ code: string; severity: 'critical' | 'high' | 'medium' | 'low'; evidence_en: string; evidence_zh: string; file?: string }>
-    all_flags: Array<{ code: string; severity: 'critical' | 'high' | 'medium' | 'low'; evidence_en: string; evidence_zh: string; file?: string }>
-  } | null
-  forensics_penalty?: number
-  // Dimensions force-zeroed because the underlying evidence file was
-  // determined to be forged (e.g. credit_report → credit_health).
-  forensics_zeroed_dims?: string[]
-  screening_id?: string
-  // Number of files in THIS screening — set client-side (fresh runs use the
-  // upload list, history loads use the saved files array) so the stats row
-  // doesn't leak the current upload box count into historical reports.
-  file_count?: number
-  // Deep check (arm's-length verification)
-  deep_check_result?: {
-    checks: Array<{
-      employer_name: string
-      company_info: {
-        name: string
-        company_number: string | null
-        jurisdiction: string | null
-        incorporation_date: string | null
-        status: string | null
-        registered_address: string | null
-        company_type: string | null
-        officers: Array<{ name: string; position: string }>
-        registry_url: string | null
-        source: string
-      } | null
-      is_numbered_company: boolean
-      is_recently_incorporated: boolean
-      applicant_is_officer: boolean
-      applicant_lastname_match: boolean
-      company_address_matches_applicant: boolean
-      arm_length_risk: 'high' | 'medium' | 'low' | 'clean'
-      flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string }>
-    }>
-    overall_risk: 'high' | 'medium' | 'low' | 'clean'
-    total_flags: number
-    checked_at: string
-  } | null
-}
-
 // ───────────────────────────────────────────────────── Constants ──
-
-// v3 dimension key — matches scores_v3 in the API response
-type V3DimKey = 'ability_to_pay' | 'credit_health' | 'rental_history' | 'verification' | 'communication'
 
 // Keep the old key type for backward compat with CategoryBar signature;
 // we'll cast V3DimKey to any for the `id` field since CategoryBar only
@@ -310,6 +110,16 @@ function friendlyError(raw: string, lang: string): string {
     return lang === 'zh'
       ? '服务刚刚更新,页面版本过旧。请刷新页面后重试。'
       : 'The service was just updated and this page is stale. Please refresh and retry.'
+  }
+  if (m.includes('credit balance') || m.includes('billing') || m.includes('overloaded_error')) {
+    return lang === 'zh'
+      ? 'AI 分析服务暂时不可用（服务额度用尽，管理员正在处理）。你上传的文件不受影响，稍后重试即可。'
+      : 'The AI analysis service is temporarily unavailable (service quota exhausted — being restored). Your uploaded files are unaffected; please retry shortly.'
+  }
+  if (m.includes('anthropic api error') || m.includes('invalid_request_error') || m.includes('authentication_error')) {
+    return lang === 'zh'
+      ? 'AI 分析服务暂时不可用，请稍后重试。若持续出现请联系支持。'
+      : 'The AI analysis service is temporarily unavailable. Please retry shortly; contact support if it persists.'
   }
   if (m.includes('failed to fetch') || m.includes('network')) {
     return lang === 'zh'
@@ -546,7 +356,11 @@ function ForensicsCard({ report }: { report: NonNullable<ScoreResult['forensics_
   const [expanded, setExpanded] = useState(true)
 
   if (!report) return null
-  const isClean = report.severity === 'clean' && report.all_flags.length === 0
+  // severity:'info' flags are authenticity-POSITIVE corroboration — they must
+  // never count as "findings" or flip the card into the problems layout.
+  const negFlags = report.all_flags.filter(f => f.severity !== 'info')
+  const infoFlags = report.all_flags.filter(f => f.severity === 'info')
+  const isClean = report.severity === 'clean' && negFlags.length === 0
 
   const sevPalette: Record<string, { bg: string; border: string; text: string; label: string; labelZh: string; icon: string }> = {
     fraud:        { bg: 'rgba(220, 38, 38, 0.10)',  border: 'rgba(220, 38, 38, 0.45)',  text: '#B91C1C', label: 'Likely Forged Documents', labelZh: '极可能是伪造文件', icon: '⛔' },
@@ -561,12 +375,13 @@ function ForensicsCard({ report }: { report: NonNullable<ScoreResult['forensics_
       case 'critical': return { bg: '#DC2626', text: '#FFF' }
       case 'high':     return { bg: '#EA580C', text: '#FFF' }
       case 'medium':   return { bg: '#D97706', text: '#FFF' }
+      case 'info':     return { bg: '#047857', text: '#FFF' }
       default:         return { bg: '#94A3B8', text: '#FFF' }
     }
   }
   const sevLabel = (sev: string): string => {
     if (lang === 'zh') {
-      return ({ critical: '严重', high: '高', medium: '中', low: '低' } as Record<string, string>)[sev] || sev
+      return ({ critical: '严重', high: '高', medium: '中', low: '低', info: '佐证' } as Record<string, string>)[sev] || sev
     }
     return sev.toUpperCase()
   }
@@ -582,7 +397,8 @@ function ForensicsCard({ report }: { report: NonNullable<ScoreResult['forensics_
             </div>
             <div style={{ fontSize: 11.5, color: p.text, fontWeight: 600, opacity: 0.85 }}>
               {lang === 'zh' ? p.labelZh : p.label}
-              {report.all_flags.length > 0 && ` · ${report.all_flags.length} ${lang === 'zh' ? '项发现' : 'finding(s)'}`}
+              {negFlags.length > 0 && ` · ${negFlags.length} ${lang === 'zh' ? '项发现' : 'finding(s)'}`}
+              {infoFlags.length > 0 && ` · ${infoFlags.length} ${lang === 'zh' ? '项真实性佐证' : 'authenticity corroboration(s)'}`}
               {report.hard_gates.length > 0 && ` · ${report.hard_gates.length} ${lang === 'zh' ? '硬门槛' : 'hard gate(s)'}`}
             </div>
           </div>
@@ -611,11 +427,33 @@ function ForensicsCard({ report }: { report: NonNullable<ScoreResult['forensics_
           )}
 
           {isClean ? (
+            <>
             <div style={{ marginTop: 12, fontSize: 12, color: '#475569', fontStyle: 'italic' }}>
               {lang === 'zh'
                 ? '所有上传文件通过 PDF 元数据、文字密度、来源指纹和跨文档一致性检查，未发现伪造特征。'
                 : 'All uploaded files passed PDF metadata, text density, source fingerprint, and cross-document consistency checks. No forgery indicators detected.'}
             </div>
+            {infoFlags.length > 0 && (
+              <div style={{ marginTop: 10, padding: 10, borderRadius: 8, background: 'rgba(4, 120, 87, 0.06)', border: '1px solid rgba(4, 120, 87, 0.20)' }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: '#047857', marginBottom: 6 }}>
+                  {lang === 'zh' ? '真实性佐证（引擎主动验证为真的证据）：' : 'Authenticity corroboration (actively verified evidence):'}
+                </div>
+                {infoFlags.map((f, j) => (
+                  <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderTop: j === 0 ? 'none' : '1px dashed rgba(4, 120, 87, 0.15)' }}>
+                    <span className="mono" style={{ fontSize: 9, padding: '2px 6px', borderRadius: 3, background: '#047857', color: '#FFF', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      {lang === 'zh' ? '佐证' : 'INFO'}
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <div className="mono" style={{ fontSize: 10, color: '#64748B', marginBottom: 2 }}>{f.code}</div>
+                      <div style={{ fontSize: 11.5, color: '#0B1736', lineHeight: 1.5 }}>
+                        {lang === 'zh' ? f.evidence_zh : f.evidence_en}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            </>
           ) : (
             <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
               {report.per_file.map((pf, i) => (
@@ -627,9 +465,11 @@ function ForensicsCard({ report }: { report: NonNullable<ScoreResult['forensics_
                         {pf.file_kind} {pf.pdf_metadata && `· ${pf.pdf_metadata.page_count}p · ${Math.round(pf.pdf_metadata.file_size_bytes / 1024)}KB`}
                       </div>
                     </div>
-                    {pf.flags.length === 0 && (
+                    {pf.flags.every(f => f.severity === 'info') && (
                       <span style={{ fontSize: 10, color: '#15803D', fontWeight: 600 }}>
-                        {lang === 'zh' ? '✓ 无异常' : '✓ Clean'}
+                        {pf.flags.length > 0
+                          ? (lang === 'zh' ? `✓ 无异常 · ${pf.flags.length} 项佐证` : `✓ Clean · ${pf.flags.length} corroboration(s)`)
+                          : (lang === 'zh' ? '✓ 无异常' : '✓ Clean')}
                       </span>
                     )}
                   </div>
@@ -704,11 +544,17 @@ function ForensicsCard({ report }: { report: NonNullable<ScoreResult['forensics_
                 </div>
               ))}
 
-              {/* Cross-document flags */}
-              {report.cross_doc_flags.length > 0 && (
-                <div style={{ padding: 12, borderRadius: 10, background: 'rgba(220, 38, 38, 0.05)', border: '1px solid rgba(220, 38, 38, 0.20)' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#B91C1C', marginBottom: 8 }}>
-                    {lang === 'zh' ? '跨文档检查' : 'Cross-document checks'}
+              {/* Cross-document flags — red alert styling only when there is
+                  an actual NEGATIVE finding; info-only corroboration renders
+                  as a green panel (e.g. LOE↔stub income agreement). */}
+              {report.cross_doc_flags.length > 0 && (() => {
+                const hasNeg = report.cross_doc_flags.some(f => f.severity !== 'info')
+                return (
+                <div style={{ padding: 12, borderRadius: 10, background: hasNeg ? 'rgba(220, 38, 38, 0.05)' : 'rgba(4, 120, 87, 0.05)', border: hasNeg ? '1px solid rgba(220, 38, 38, 0.20)' : '1px solid rgba(4, 120, 87, 0.20)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: hasNeg ? '#B91C1C' : '#047857', marginBottom: 8 }}>
+                    {hasNeg
+                      ? (lang === 'zh' ? '跨文档检查' : 'Cross-document checks')
+                      : (lang === 'zh' ? '跨文档互证 · 一致' : 'Cross-document corroboration · consistent')}
                   </div>
                   {report.cross_doc_flags.map((f, j) => {
                     const badge = flagSevBadge(f.severity)
@@ -727,7 +573,8 @@ function ForensicsCard({ report }: { report: NonNullable<ScoreResult['forensics_
                     )
                   })}
                 </div>
-              )}
+                )
+              })()}
             </div>
           )}
         </>
@@ -1176,7 +1023,7 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
 
   // Verification dim detail text
   const details = lang === 'zh' ? (result.details_zh || result.details_en) : (result.details_en || result.details_zh)
-  const verificationDetail = (details as any)?.verification as string | undefined
+  const verificationDetail = details?.verification
 
   // Coverage helper — defaults to "measured" (backend sparse emission)
   const cov = (key: string): string => subCov[key] || 'measured'
@@ -1212,11 +1059,12 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
       case 'critical': return { bg: '#DC2626', text: '#FFF' }
       case 'high':     return { bg: '#EA580C', text: '#FFF' }
       case 'medium':   return { bg: '#D97706', text: '#FFF' }
+      case 'info':     return { bg: '#047857', text: '#FFF' }
       default:         return { bg: '#94A3B8', text: '#FFF' }
     }
   }
   const sevLabel = (sev: string): string => {
-    if (lang === 'zh') return ({ critical: '严重', high: '高', medium: '中', low: '低' } as Record<string, string>)[sev] || sev
+    if (lang === 'zh') return ({ critical: '严重', high: '高', medium: '中', low: '低', info: '佐证' } as Record<string, string>)[sev] || sev
     return sev.toUpperCase()
   }
 
@@ -1612,9 +1460,9 @@ export default function ScreenPage() {
   })
   const { canScreen: anonCanScreen, trialUsed, markTrialUsed } = useAnonTrialCheck()
 
-  const [plan, setPlan] = useState<'free' | 'pro' | 'enterprise'>('free')
+  const [plan, setPlan] = useState<'free' | 'pro' | 'team'>('free')
   // Tier is derived from the user's plan — no manual toggle on screen page.
-  const tier: 'free' | 'pro' = (plan === 'pro' || plan === 'enterprise') ? 'pro' : 'free'
+  const tier: 'free' | 'pro' = (plan === 'pro' || plan === 'team') ? 'pro' : 'free'
 
   const [files, setFiles] = useState<File[]>([])
   // AI-detected kinds per file (keyed by a stable file signature: name+size)
@@ -1639,6 +1487,19 @@ export default function ScreenPage() {
   // seen, keep its row in the checklist so it doesn't pop out on completion.
   const [sawSupplemental, setSawSupplemental] = useState(false)
   const [elapsedSec, setElapsedSec] = useState(0)
+  // Antivirus-style live scan console. Two real feeds merge here:
+  //   1. progress.detail_zh/en written by the backend at every genuine step
+  //      (court/forensics completions, Claude streaming section sniffing)
+  //   2. a client-side echo of the per-file forensic checks that run during
+  //      the court_and_forensics stage (the checks are real; the per-file
+  //      timing is approximated because the backend batches its report)
+  const [progressDetail, setProgressDetail] = useState<{ zh: string; en: string } | null>(null)
+  const [scanLog, setScanLog] = useState<Array<{ at: number; zh: string; en: string }>>([])
+  const scanLogBoxRef = useRef<HTMLDivElement | null>(null)
+  // Fixed time origin for scan-log [Xs] labels — scanLog[0].at shifts when
+  // the 50-entry cap trims the head, which would make times run backwards.
+  const scanStartRef = useRef(0)
+  const progressStageRef = useRef('uploading')
   // true right after a fresh analysis completes — enables the typewriter
   // reveal on the AI summary. History loads set it false (instant render).
   const [freshResult, setFreshResult] = useState(false)
@@ -1660,6 +1521,11 @@ export default function ScreenPage() {
   // "setState on unmounted component" warnings and orphaned network requests.
   const analysisAbortRef = useRef<AbortController | null>(null)
   const deepCheckTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  // Keep the scan console pinned to the newest line
+  useEffect(() => {
+    const el = scanLogBoxRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [scanLog, progressDetail])
   useEffect(() => {
     return () => {
       analysisAbortRef.current?.abort()
@@ -1694,7 +1560,7 @@ export default function ScreenPage() {
       .or(conditions)
       .limit(1)
     if (data?.[0]?.plan) {
-      setPlan(data[0].plan as any)
+      setPlan(data[0].plan as 'free' | 'pro' | 'team')
     }
   }
 
@@ -1725,7 +1591,7 @@ export default function ScreenPage() {
 
   async function runDeepCheck(manualEmployer?: string) {
     // Gate: only PRO users can run deep check
-    if (plan !== 'pro' && plan !== 'enterprise') {
+    if (plan !== 'pro' && plan !== 'team') {
       startProUpgrade()
       return
     }
@@ -1734,7 +1600,7 @@ export default function ScreenPage() {
     // Phase 1: build the stateless payload from local forensics state.
     // The API no longer re-reads from the DB, so "Screening not found"
     // can no longer happen from schema drift.
-    const forensics: any = (result as any).forensics_detail || null
+    const forensics = result.forensics_detail || null
     const cross = forensics?.cross_doc?.entities || {}
     const firstOr = (arr: any): string | undefined => {
       if (!Array.isArray(arr) || !arr.length) return undefined
@@ -1755,7 +1621,7 @@ export default function ScreenPage() {
     if (manualEmployer && manualEmployer.trim().length >= 2) {
       employerSet.add(manualEmployer.trim())
     } else {
-      if (Array.isArray(cross.employers)) for (const e of cross.employers) addEmployer(e?.value)
+      if (Array.isArray(cross.employers)) for (const e of cross.employers) addEmployer(typeof e === 'string' ? e : e?.value)
       if (Array.isArray(forensics?.per_file)) {
         for (const pf of forensics.per_file) addEmployer(pf?.paystub_math?.extraction?.employer_name)
       }
@@ -1886,7 +1752,7 @@ export default function ScreenPage() {
         setError(t('history.loadError'))
         return
       }
-      const v3 = (data.ai_dimension_notes && (data.ai_dimension_notes as any)._v3) || {}
+      const v3 = (data.ai_dimension_notes && (data.ai_dimension_notes as Record<string, unknown>)._v3 as Record<string, unknown>) || {}
 
       // Legacy scores: prefer the snapshot stashed into _v3, fall back to
       // individual columns for rows scored before we started packing it.
@@ -1929,7 +1795,7 @@ export default function ScreenPage() {
         summary_en: v3.summary_en || data.ai_summary || '',
         summary_zh: v3.summary_zh || '',
         court_records_detail: v3.court_records_detail ?? data.court_records_detail ?? { queries: [], total_hits: 0, queried_name: '' },
-        tier: (plan === 'pro' || plan === 'enterprise') ? 'pro' : 'free',
+        tier: (plan === 'pro' || plan === 'team') ? 'pro' : 'free',
         model_version: v3.model_version || data.model_version || undefined,
         scores_v3: scoresV3,
         v3_tier: v3.tier || data.v3_tier || undefined,
@@ -2053,8 +1919,8 @@ export default function ScreenPage() {
         if (foundRent === null && typeof data.monthly_rent === 'number' && data.monthly_rent > 0) {
           foundRent = data.monthly_rent
         }
-        if (Array.isArray((data as any).employers_visible)) {
-          for (const emp of (data as any).employers_visible as unknown[]) {
+        if (Array.isArray((data as Record<string, unknown>).employers_visible)) {
+          for (const emp of (data as Record<string, unknown>).employers_visible as unknown[]) {
             if (typeof emp === 'string' && emp.trim().length >= 2) {
               foundEmployers.push(emp.trim())
             }
@@ -2172,7 +2038,11 @@ export default function ScreenPage() {
     setFreshResult(false)
     setProgress(0)
     setProgressStage('uploading')
+    progressStageRef.current = 'uploading'
     setSawSupplemental(false)
+    setProgressDetail(null)
+    scanStartRef.current = Date.now()
+    setScanLog([{ at: Date.now(), zh: `开始筛查 · ${files.length} 个文件已加入扫描队列`, en: `Scan started · ${files.length} file(s) queued` }])
     const startedAt = Date.now()
     setElapsedSec(0)
 
@@ -2200,18 +2070,45 @@ export default function ScreenPage() {
             .select('progress')
             .eq('id', screeningId)
             .maybeSingle()
-          const p = (data as any)?.progress
+          const p = (data as Record<string, unknown> | null)?.progress as { pct?: number; stage?: string; detail_zh?: string | null; detail_en?: string | null } | undefined
           if (!pollStop && p && typeof p.pct === 'number' && p.stage) {
             sawServerProgress = true
-            lastServerPct = Math.max(lastServerPct, p.pct)
+            const pPct = p.pct
+            lastServerPct = Math.max(lastServerPct, pPct)
             // Out-of-order poll responses must never move the stage backwards
             const idx = stageIndex(p.stage)
             if (idx >= lastStageIdx) {
               lastStageIdx = idx
               setProgressStage(p.stage)
+              progressStageRef.current = p.stage
               if (p.stage === 'supplemental_courts') setSawSupplemental(true)
             }
-            setProgress(prev => Math.max(prev, Math.min(p.pct, 99)))
+            setProgress(prev => Math.max(prev, Math.min(pPct, 99)))
+            // Real backend activity detail → header sub-label + scan console.
+            // Guarded by the stage check above having run: only accept detail
+            // from a row that isn't older than what we've already shown.
+            // The AI stage rewrites the same section with a growing char
+            // counter every ~1.2s — update that line IN PLACE (keyed on the
+            // section text before the counter) instead of appending, so the
+            // log isn't flooded and earlier forensic lines aren't evicted.
+            const dzh = p.detail_zh || p.detail_en || ''
+            const den = p.detail_en || p.detail_zh || ''
+            if (dzh && idx >= lastStageIdx) {
+              setProgressDetail({ zh: dzh, en: den })
+              setScanLog(prev => {
+                const secOf = (s: string) => s.split(' · 已生成')[0].split(' · ')[0]
+                const sec = secOf(dzh)
+                for (let i = prev.length - 1; i >= 0; i--) {
+                  if (secOf(prev[i].zh) === sec) {
+                    if (prev[i].zh === dzh) return prev  // identical repeat — skip
+                    const copy = prev.slice()
+                    copy[i] = { ...copy[i], zh: dzh, en: den }  // counter tick — update in place
+                    return copy
+                  }
+                }
+                return [...prev.slice(-49), { at: Date.now(), zh: dzh, en: den }]
+              })
+            }
           }
         } catch { /* polling must never break the analysis */ }
       }, 1100)
@@ -2226,7 +2123,39 @@ export default function ScreenPage() {
           return prev < cap ? Math.min(cap, prev + step) : prev
         })
       }, 500)
-      progressTimers.push(pollTimer, creepTimer)
+      // Per-file forensic check echo — these are the ACTUAL checks the
+      // backend runs on each file during the forensics stage; the console
+      // replays them one at a time (per-file timing approximated, the
+      // backend batches its report). Real backend detail lines (court/
+      // forensics completions, Claude streaming sections) interleave via
+      // the poll above and take over once the AI stage starts.
+      const forensicQueue: Array<{ zh: string; en: string }> = []
+      for (const f of files) {
+        const kinds = fileKinds[fileKey(f)] || []
+        forensicQueue.push({ zh: `元数据取证：生成器 / 时间戳 / 编辑痕迹 — ${f.name}`, en: `Metadata forensics: producer / timestamps / edit traces — ${f.name}` })
+        forensicQueue.push({ zh: `PDF 结构指纹：字体 · %%EOF · 生成管线 — ${f.name}`, en: `PDF structure: fonts · %%EOF · generation pipeline — ${f.name}` })
+        if (kinds.includes('pay_stub')) {
+          forensicQueue.push({ zh: `工资单数学复算：YTD × 发薪频率 × 单期毛收入 — ${f.name}`, en: `Paystub math: YTD × pay frequency × period gross — ${f.name}` })
+          forensicQueue.push({ zh: `法定扣缴复算：CPP / CPP2 / EI 对照 CRA 年度上限 — ${f.name}`, en: `Statutory deductions vs CRA caps: CPP / CPP2 / EI — ${f.name}` })
+          forensicQueue.push({ zh: `Benford 数字分布检验 — ${f.name}`, en: `Benford digit-distribution test — ${f.name}` })
+        }
+        if (kinds.includes('credit_report')) {
+          forensicQueue.push({ zh: `征信局真实性标记核验 — ${f.name}`, en: `Credit-bureau authenticity markers — ${f.name}` })
+        }
+        if (kinds.includes('employment_letter') || kinds.includes('offer_letter')) {
+          forensicQueue.push({ zh: `雇佣信声明薪资提取（用于跨文档对账）— ${f.name}`, en: `Extracting stated salary for cross-doc reconciliation — ${f.name}` })
+        }
+      }
+      forensicQueue.push({ zh: '跨文档一致性：电话碰撞 × 时间戳聚类 × 收入对账（LOE ↔ 工资单 ↔ YTD）', en: 'Cross-doc: phone collisions × timestamp clusters × income reconciliation (LOE ↔ stub ↔ YTD)' })
+      let scanIdx = 0
+      const scannerTimer = setInterval(() => {
+        if (pollStop || scanIdx >= forensicQueue.length) return
+        const st = progressStageRef.current
+        if (st !== 'signing_files' && st !== 'court_and_forensics') return
+        const item = forensicQueue[scanIdx++]
+        setScanLog(prev => [...prev.slice(-49), { at: Date.now(), zh: `✓ ${item.zh}`, en: `✓ ${item.en}` }])
+      }, 850)
+      progressTimers.push(pollTimer, creepTimer, scannerTimer)
     }
     const stopProgressTracking = () => {
       pollStop = true
@@ -2321,6 +2250,7 @@ export default function ScreenPage() {
       // prevents setState-on-unmounted warnings. While the request runs,
       // poll screenings.progress for REAL backend stage updates.
       setProgressStage('signing_files')
+      progressStageRef.current = 'signing_files'
       setProgress(p => Math.max(p, 5))
       startProgressTracking(screeningId)
       analysisAbortRef.current?.abort()
@@ -2337,7 +2267,7 @@ export default function ScreenPage() {
       })
       // Guard res.json(): a 502/520 from the edge returns HTML, and the
       // raw "Unexpected token <" parse error is useless to the user.
-      const data = await res.json().catch(() => ({} as any))
+      const data = await res.json().catch(() => ({} as Record<string, unknown>))
       stopProgressTracking()
       if (!res.ok) throw new Error(data.error || `Scoring failed (HTTP ${res.status})`)
       // 200 with an empty/garbled body must not render a broken report
@@ -2346,6 +2276,7 @@ export default function ScreenPage() {
       }
 
       setProgressStage('done')
+      progressStageRef.current = 'done'
       setProgress(100)
       await new Promise(r => setTimeout(r, 450))
 
@@ -2378,7 +2309,7 @@ export default function ScreenPage() {
     )
   }
 
-  const isPro = plan === 'pro' || plan === 'enterprise'
+  const isPro = plan === 'pro' || plan === 'team'
 
   // Flags come from the AI's actual analysis of this specific applicant
   // (backend returns flags[] with text_en / text_zh per flag). We only
@@ -2857,11 +2788,11 @@ export default function ScreenPage() {
                     idx < curIdx ? 'done' : idx === curIdx ? 'current' : 'pending'
                   return (
                     <div key={s.key} style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
                       padding: '7px 10px', borderRadius: 8,
                       background: stateOf === 'current' ? accentBg : 'transparent',
                       transition: 'background 0.3s',
                     }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ width: 18, textAlign: 'center', flexShrink: 0 }}>
                         {stateOf === 'done' ? (
                           <span style={{ color: '#15803D', fontSize: 13, fontWeight: 700 }}>✓</span>
@@ -2894,13 +2825,48 @@ export default function ScreenPage() {
                           {lang === 'zh' ? '完成' : 'DONE'}
                         </span>
                       )}
+                      </div>
+                      {/* Live backend activity under the running stage */}
+                      {stateOf === 'current' && progressDetail && (
+                        <div style={{ margin: '4px 0 1px 28px', fontSize: 10.5, color: accentColor, opacity: 0.85, lineHeight: 1.5 }}>
+                          {lang === 'zh' ? progressDetail.zh : progressDetail.en}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
+                {/* Antivirus-style scan console — real backend activity feed */}
+                {scanLog.length > 0 && (
+                  <div style={{ marginTop: 10, borderRadius: 10, background: '#0B1220', border: '1px solid #1E293B', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 12px', borderBottom: '1px solid #1E293B' }}>
+                      <span className="mono" style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#64748B', fontWeight: 700 }}>
+                        SCAN LOG {lang === 'zh' ? '· 实时检查记录' : '· live check feed'}
+                      </span>
+                      <span className="mono" style={{ fontSize: 9.5, color: '#475569' }}>
+                        {lang === 'zh' ? `已执行 ${scanLog.length} 项` : `${scanLog.length} checks run`}
+                      </span>
+                    </div>
+                    <div ref={scanLogBoxRef} style={{ maxHeight: 138, overflowY: 'auto', padding: '8px 12px 6px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {scanLog.map((l, i) => {
+                        const isLast = i === scanLog.length - 1
+                        const dt = ((l.at - (scanStartRef.current || scanLog[0].at)) / 1000).toFixed(1)
+                        return (
+                          <div key={i} className="mono" style={{ fontSize: 10, lineHeight: 1.55, color: isLast ? '#6EE7B7' : '#3E9E77', opacity: isLast ? 1 : 0.75, wordBreak: 'break-all' }}>
+                            <span style={{ color: '#334155', marginRight: 6 }}>[{dt}s]</span>
+                            {lang === 'zh' ? l.zh : l.en}
+                          </div>
+                        )
+                      })}
+                      <div className="mono" style={{ fontSize: 10, color: '#6EE7B7' }}>
+                        <span style={{ animation: 'slPulse 1.1s ease-in-out infinite', display: 'inline-block' }}>▌</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div style={{ fontSize: 10.5, color: '#94A3B8', textAlign: 'center', marginTop: 10 }}>
                   {lang === 'zh'
-                    ? '进度由后端真实分析阶段驱动 · 通常 20–40 秒完成'
-                    : 'Stages reflect the live backend pipeline · typically 20–40s'}
+                    ? '进度与日志由后端真实分析步骤驱动 · AI 阶段按实际生成 token 推进 · 通常 20–40 秒'
+                    : 'Progress & log driven by real backend steps · AI stage advances with actual token generation · typically 20–40s'}
                 </div>
               </div>
             </div>
@@ -3000,7 +2966,7 @@ export default function ScreenPage() {
                   if (pdfGenerating) return
                   setPdfGenerating(true)
                   try {
-                    await generateScreeningReport(result as any, lang as 'en' | 'zh', result.file_count ?? files.length, {
+                    await generateScreeningReport(result, lang as 'en' | 'zh', result.file_count ?? files.length, {
                       requestedBy: landlord?.email || undefined,
                     })
                   } catch (err) {
@@ -3067,12 +3033,12 @@ export default function ScreenPage() {
                 return (
                   <CategoryBar
                     key={cat.id}
-                    category={cat as any}
+                    category={cat}
                     score={typeof v3Score === 'number' ? v3Score : 0}
                     animDelay={i * 150}
                     tier={result.tier}
-                    shortNote={(result.notes as any)?.[cat.id]}
-                    detail={(details as any)?.[cat.id]}
+                    shortNote={result.notes?.[cat.id]}
+                    detail={details?.[cat.id]}
                     zeroed={isZeroed}
                   />
                 )

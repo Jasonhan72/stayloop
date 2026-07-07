@@ -6,146 +6,8 @@
  * fonts natively — no need to embed a 20MB font file.
  */
 
-// ─── Types (mirrors page.tsx — keep in sync) ──────────────────────
-interface OntarioPortalMatch {
-  caseNumber: string
-  caseTitle: string
-  caseCategory: string
-  filedDate: string
-  partyRole: string
-  partyDisplayName: string
-  courtAbbreviation: string
-  closedFlag: boolean
-}
-
-interface CanLIIMatch {
-  title: string
-  citation: string
-  url: string
-  databaseId: string
-  databaseName?: string
-  caseId: string
-  nameInTitle?: boolean
-}
-
-interface CourtQuery {
-  source: string
-  tier: 'free' | 'pro'
-  status: 'ok' | 'unavailable' | 'skipped' | 'coming_soon'
-  hits: number | null
-  url?: string
-  note?: string
-  severity?: number
-  records?: CanLIIMatch[]
-  portalRecords?: OntarioPortalMatch[]
-}
-
-interface AiFlag { type: 'danger' | 'warning' | 'info' | 'success'; text_en: string; text_zh: string }
-
-interface ScoreResult {
-  overall: number
-  scores_v3?: Record<string, number>
-  details_en?: Record<string, string> | null
-  details_zh?: Record<string, string> | null
-  flags?: AiFlag[]
-  detected_document_kinds?: string[]
-  detected_monthly_income?: number | null
-  effective_monthly_income?: number | null
-  income_evidence?: string | null
-  monthly_rent?: number | null
-  income_rent_ratio?: number | null
-  extracted_name: string
-  name_was_extracted: boolean
-  summary_en?: string
-  summary_zh?: string
-  summary: string
-  court_summary_en?: string
-  court_summary_zh?: string
-  court_records_detail: { queries: CourtQuery[]; total_hits: number; queried_name: string }
-  tier: 'free' | 'pro'
-  v3_tier?: 'approve' | 'conditional' | 'decline'
-  hard_gates_triggered?: string[]
-  red_flags?: string[]
-  evidence_coverage?: number
-  action_items?: {
-    id: string; dimension: string
-    title_en: string; title_zh: string
-    details_en: string; details_zh: string
-    impact_on_score: string; status: string
-  }[]
-  compliance_audit?: {
-    protected_grounds_observed?: string[]
-    protected_grounds_used_in_scoring?: string[]
-    hrc_compliant?: boolean
-    reviewer_note?: string
-  } | null
-  forensics_detail?: {
-    severity: string
-    hard_gates: string[]
-    all_flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string; file?: string }>
-    per_file: Array<{
-      file_name: string; file_kind: string
-      pdf_metadata?: { page_count: number; file_size_bytes: number; producer: string | null; title?: string | null; creation_date?: string | null; modification_date?: string | null } | null
-      text_density?: { chars_per_page: number; is_likely_image_pdf: boolean } | null
-      paystub_math?: {
-        extraction?: { annual_salary?: number | null; ytd_gross?: number | null; pay_date?: string | null; employer_name?: string | null } | null
-        expected_ytd_gross?: number | null
-        ytd_ratio?: number | null
-        period_math_error_pct?: number | null
-      } | null
-      source_specific?: { equifax_authentic_markers?: boolean | null; bank_producer_whitelisted?: boolean | null; matched_bank?: string | null } | null
-      flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string }>
-    }>
-    cross_doc_flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string }>
-    cross_doc?: {
-      entities?: {
-        names?: Array<{ value: string } | string>
-        phones?: Array<{ value: string } | string>
-        emails?: Array<{ value: string } | string>
-        addresses?: Array<{ value: string } | string>
-        employers?: Array<{ value: string } | string>
-      }
-    } | null
-  } | null
-  forensics_zeroed_dims?: string[]
-  tier_reason?: string
-  identity_match_score?: number | null
-  bank_min_balance?: number | null
-  credit_report?: {
-    bureau?: string | null
-    credit_score?: number | null
-    score_band?: string | null
-    report_date?: string | null
-    tradelines?: Array<{ creditor: string; type: string; date_opened: string; balance: number | null; high_credit: number | null; past_due: number | null; payment_status: string; late_30_60_90: string }>
-    collections?: Array<{ creditor: string; date_assigned: string; original_amount: number | null; balance: number | null }>
-    bankruptcies?: Array<{ date_filed: string; type: string; amount: number | null; disposition: string }>
-    inquiries?: Array<{ date: string; creditor: string }>
-    total_debt?: number | null
-    monthly_debt_payments?: number | null
-  } | null
-  deep_check_result?: {
-    checks: Array<{
-      employer_name: string
-      company_info: {
-        name: string; company_number: string | null; jurisdiction: string | null
-        incorporation_date: string | null; status: string | null
-        registered_address: string | null; company_type: string | null
-        officers: Array<{ name: string; position: string }>
-        registry_url: string | null; source: string
-      } | null
-      is_numbered_company: boolean
-      is_recently_incorporated: boolean
-      applicant_is_officer: boolean
-      applicant_lastname_match: boolean
-      company_address_matches_applicant: boolean
-      arm_length_risk: 'high' | 'medium' | 'low' | 'clean'
-      flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string }>
-    }>
-    overall_risk: 'high' | 'medium' | 'low' | 'clean'
-    total_flags: number
-    checked_at: string
-  } | null
-}
+import type { OntarioPortalMatch, CanLIIMatch, CourtQuery, AiFlag, ScoreResult } from './screening-types'
+import { scoreColor, sevColor, SCORE_BANDS } from './screening-types'
 
 // ─── Helpers ──────────────────────────────────────────────────────
 const DIMS = [
@@ -167,33 +29,6 @@ function riskLabel(score: number, zh: boolean): { text: string; color: string; b
   if (score >= 30) return { text: zh ? 'CAUTION — 有风险' : 'CAUTION — Risky', color: '#C2410C', bg: '#FFF7ED' }
   return { text: zh ? 'REJECT — 高危' : 'REJECT — High Risk', color: '#DC2626', bg: '#FEF2F2' }
 }
-
-function scoreColor(s: number): string {
-  if (s >= 80) return '#16A34A'
-  if (s >= 60) return '#65A30D'
-  if (s >= 40) return '#A16207'
-  if (s >= 20) return '#C2410C'
-  return '#DC2626'
-}
-
-function sevColor(sev: string): string {
-  switch (sev) {
-    case 'critical': return '#DC2626'
-    case 'high': return '#EA580C'
-    case 'medium': return '#D97706'
-    default: return '#94A3B8'
-  }
-}
-
-// Score bands for the visual range strip (FrontLobby/Equifax style, but on
-// our 0-100 scale). Order matters: rendered left → right.
-const SCORE_BANDS = [
-  { min: 0,  max: 29,  zh: '高危',   en: 'High Risk',   color: '#DC2626' },
-  { min: 30, max: 49,  zh: '有风险', en: 'Risky',       color: '#C2410C' },
-  { min: 50, max: 69,  zh: '需审查', en: 'Review',      color: '#A16207' },
-  { min: 70, max: 84,  zh: '较安全', en: 'Mostly Safe', color: '#65A30D' },
-  { min: 85, max: 100, zh: '优质',   en: 'Safe',        color: '#16A34A' },
-]
 
 // ─── Main ─────────────────────────────────────────────────────────
 export async function generateScreeningReport(
@@ -620,10 +455,16 @@ export async function generateScreeningReport(
       const money = (n: number | null | undefined) => (typeof n === 'number' ? '$' + Math.round(n).toLocaleString() : '—')
       html += `<div style="font-size:10px;color:#64748B;margin:6px 0 8px">${zh ? `逐文件取证明细 · 共 ${fd.per_file.length} 份文件` : `Per-document forensic detail · ${fd.per_file.length} file(s)`}</div>`
       for (const pf of fd.per_file) {
+        const negFlagCount = pf.flags.filter(f => f.severity !== 'info').length
+        const infoFlagCount = pf.flags.length - negFlagCount
         const worst = pf.flags.reduce((acc, f) =>
           f.severity === 'critical' || f.severity === 'high' ? 'bad' : (acc === 'bad' ? 'bad' : f.severity === 'medium' ? 'warn' : acc), 'clean' as 'clean' | 'warn' | 'bad')
         const vColor = worst === 'bad' ? '#DC2626' : worst === 'warn' ? '#D97706' : '#16A34A'
-        const vText = pf.flags.length === 0 ? (zh ? '✓ 无异常' : '✓ Clean') : `${worst === 'bad' ? '✗' : '⚠'} ${pf.flags.length} ${zh ? '项发现' : 'flag(s)'}`
+        const vText = negFlagCount === 0
+          ? (infoFlagCount > 0
+              ? (zh ? `✓ 无异常 · ${infoFlagCount} 项佐证` : `✓ Clean · ${infoFlagCount} corroboration(s)`)
+              : (zh ? '✓ 无异常' : '✓ Clean'))
+          : `${worst === 'bad' ? '✗' : '⚠'} ${negFlagCount} ${zh ? '项发现' : 'flag(s)'}`
         const m = pf.pdf_metadata, ps = pf.paystub_math, ss = pf.source_specific
         const facts: Array<[string, string]> = []
         if (m) facts.push([zh ? '页数 / 大小' : 'Pages / Size', `${m.page_count}p · ${Math.round(m.file_size_bytes / 1024)}KB`])
@@ -650,7 +491,7 @@ export async function generateScreeningReport(
             <span style="font-size:10px;font-weight:700;color:${vColor};white-space:nowrap">${vText}</span>
           </div>`
         if (facts.length) html += `<table style="margin:4px 0"><tbody>${facts.map(([k, v]) => `<tr><td style="width:42%;color:#64748B;font-size:9.5px">${esc(k)}</td><td style="font-size:9.5px;font-family:monospace">${esc(v)}</td></tr>`).join('')}</tbody></table>`
-        for (const f of pf.flags) html += `<div style="margin-top:4px;font-size:10px;line-height:1.5"><span class="flag-badge" style="background:${sevColor(f.severity)}">${zh ? ({ critical: '严重', high: '高', medium: '中', low: '低' }[f.severity] || f.severity) : f.severity.toUpperCase()}</span>${esc(zh ? f.evidence_zh : f.evidence_en)}</div>`
+        for (const f of pf.flags) html += `<div style="margin-top:4px;font-size:10px;line-height:1.5"><span class="flag-badge" style="background:${sevColor(f.severity)}">${zh ? ({ critical: '严重', high: '高', medium: '中', low: '低', info: '佐证' }[f.severity] || f.severity) : f.severity.toUpperCase()}</span>${esc(zh ? f.evidence_zh : f.evidence_en)}</div>`
         html += `</div>`
       }
     }
@@ -661,7 +502,7 @@ export async function generateScreeningReport(
       for (const f of fd.all_flags) {
         const sc = sevColor(f.severity)
         html += `<tr>
-          <td><span class="flag-badge" style="background:${sc}">${zh ? ({ critical: '严重', high: '高', medium: '中', low: '低' }[f.severity] || f.severity) : f.severity.toUpperCase()}</span></td>
+          <td><span class="flag-badge" style="background:${sc}">${zh ? ({ critical: '严重', high: '高', medium: '中', low: '低', info: '佐证' }[f.severity] || f.severity) : f.severity.toUpperCase()}</span></td>
           <td style="font-family:monospace;font-size:9px">${esc(f.code)}</td>
           <td>${esc(zh ? f.evidence_zh : f.evidence_en)}</td>
           <td style="font-size:9px">${esc(f.file || '')}</td>
@@ -780,7 +621,7 @@ export async function generateScreeningReport(
         html += `<div style="font-size:10px;color:#94A3B8;font-style:italic">${zh ? '未在加拿大公司注册数据库中找到该雇主' : 'Employer not found in Canadian corporate registries'}</div>`
       }
       for (const f of check.flags) {
-        html += `<div style="margin-top:4px;font-size:10px"><span class="flag-badge" style="background:${sevColor(f.severity)}">${zh ? ({ critical: '严重', high: '高', medium: '中', low: '低' }[f.severity] || f.severity) : f.severity.toUpperCase()}</span>${esc(zh ? f.evidence_zh : f.evidence_en)}</div>`
+        html += `<div style="margin-top:4px;font-size:10px"><span class="flag-badge" style="background:${sevColor(f.severity)}">${zh ? ({ critical: '严重', high: '高', medium: '中', low: '低', info: '佐证' }[f.severity] || f.severity) : f.severity.toUpperCase()}</span>${esc(zh ? f.evidence_zh : f.evidence_en)}</div>`
       }
       html += `</div>`
     }

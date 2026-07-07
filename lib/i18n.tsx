@@ -2,6 +2,25 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 
 export type Lang = 'en' | 'zh'
+export type Currency = 'CAD' | 'USD' | 'CNY' | 'EUR' | 'GBP' | 'JPY' | 'KRW' | 'INR' | 'HKD' | 'AUD'
+
+export const CURRENCIES: { code: Currency; symbol: string; label: string; labelZh: string }[] = [
+  { code: 'CAD', symbol: 'CA$', label: 'Canadian dollar', labelZh: '加元' },
+  { code: 'USD', symbol: 'US$', label: 'United States dollar', labelZh: '美元' },
+  { code: 'CNY', symbol: '¥', label: 'Chinese yuan', labelZh: '人民币' },
+  { code: 'EUR', symbol: '€', label: 'Euro', labelZh: '欧元' },
+  { code: 'GBP', symbol: '£', label: 'British pound', labelZh: '英镑' },
+  { code: 'JPY', symbol: '¥', label: 'Japanese yen', labelZh: '日元' },
+  { code: 'KRW', symbol: '₩', label: 'South Korean won', labelZh: '韩元' },
+  { code: 'INR', symbol: '₹', label: 'Indian rupee', labelZh: '印度卢比' },
+  { code: 'HKD', symbol: 'HK$', label: 'Hong Kong dollar', labelZh: '港元' },
+  { code: 'AUD', symbol: 'A$', label: 'Australian dollar', labelZh: '澳元' },
+]
+
+export const LANGUAGES: { code: Lang; label: string; labelLocal: string }[] = [
+  { code: 'en', label: 'English', labelLocal: 'English' },
+  { code: 'zh', label: 'Chinese (Simplified)', labelLocal: '简体中文' },
+]
 
 // ─── Dictionary ────────────────────────────────────────────────
 // Keys are loose strings; every key must exist in both languages.
@@ -955,6 +974,8 @@ export type DictKey = keyof typeof DICT
 interface I18nCtx {
   lang: Lang
   setLang: (l: Lang) => void
+  currency: Currency
+  setCurrency: (c: Currency) => void
   t: (key: string, varsOrFallback?: Record<string, string | number> | string) => string
 }
 
@@ -967,6 +988,7 @@ function format(str: string, vars?: Record<string, string | number>) {
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>('zh')
+  const [currency, setCurrencyState] = useState<Currency>('CAD')
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? (localStorage.getItem('stayloop_lang') as Lang | null) : null
@@ -975,6 +997,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     } else if (typeof navigator !== 'undefined') {
       const browser = navigator.language || ''
       setLangState(browser.toLowerCase().startsWith('zh') ? 'zh' : 'en')
+    }
+    const storedCurrency = typeof window !== 'undefined' ? (localStorage.getItem('stayloop_currency') as Currency | null) : null
+    if (storedCurrency && CURRENCIES.some(c => c.code === storedCurrency)) {
+      setCurrencyState(storedCurrency)
     }
   }, [])
 
@@ -989,6 +1015,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') localStorage.setItem('stayloop_lang', l)
   }
 
+  const setCurrency = (c: Currency) => {
+    setCurrencyState(c)
+    if (typeof window !== 'undefined') localStorage.setItem('stayloop_currency', c)
+  }
+
   const t = (key: string, varsOrFallback?: Record<string, string | number> | string) => {
     const entry = (DICT as Record<string, { en: string; zh: string }>)[key]
     const vars = typeof varsOrFallback === 'object' ? varsOrFallback : undefined
@@ -997,20 +1028,19 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     return format(entry[lang] ?? entry.en, vars)
   }
 
-  return <Ctx.Provider value={{ lang, setLang, t }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ lang, setLang, currency, setCurrency, t }}>{children}</Ctx.Provider>
 }
 
 export function useT() {
   const ctx = useContext(Ctx)
   if (!ctx) {
-    // Safe fallback so non-wrapped contexts still render English
     const t = (key: string, varsOrFallback?: Record<string, string | number> | string) => {
       const entry = (DICT as Record<string, { en: string; zh: string }>)[key]
       const vars = typeof varsOrFallback === 'object' ? varsOrFallback : undefined
       const fallback = typeof varsOrFallback === 'string' ? varsOrFallback : undefined
       return entry ? format(entry.en, vars) : (fallback ?? String(key))
     }
-    return { lang: 'en' as Lang, setLang: (_: Lang) => {}, t }
+    return { lang: 'en' as Lang, setLang: (_: Lang) => {}, currency: 'CAD' as Currency, setCurrency: (_: Currency) => {}, t }
   }
   return ctx
 }
@@ -1052,7 +1082,7 @@ export function LanguageToggle({ className, style }: { className?: string; style
 export const I18nProvider = LanguageProvider
 export function useI18n() {
   const ctx = useT()
-  return { ...ctx, toggle: () => ctx.setLang(ctx.lang === 'zh' ? 'en' : 'zh') }
+  return { ...ctx, toggle: () => ctx.setLang(ctx.lang === 'zh' ? 'en' : 'zh'), currency: ctx.currency, setCurrency: ctx.setCurrency }
 }
 // Re-export dict for backward compat
 export const dict = DICT

@@ -44,8 +44,11 @@ export async function POST(req: NextRequest) {
       status = 'no_api_key'
     } else {
       try {
-        // CanLII v1 case browse API — search ONLTB (Landlord Tenant Board) decisions
-        const url = `https://api.canlii.org/v1/caseBrowse/en/onltb/?api_key=${apiKey}&resultCount=20&offset=0&publishedBefore=2026-12-31&publishedAfter=2018-01-01&fullText=${encodeURIComponent(`"${fullName}"`)}`
+        // CanLII v1 case browse API — search ONLTB (Landlord Tenant Board) decisions.
+        // publishedBefore is computed (today + 1y): a hardcoded date silently
+        // excludes every decision published after it once the date passes.
+        const publishedBefore = new Date(Date.now() + 365 * 86_400_000).toISOString().slice(0, 10)
+        const url = `https://api.canlii.org/v1/caseBrowse/en/onltb/?api_key=${apiKey}&resultCount=20&offset=0&publishedBefore=${publishedBefore}&publishedAfter=2018-01-01&fullText=${encodeURIComponent(`"${fullName}"`)}`
         const res = await fetch(url, { signal: AbortSignal.timeout(15000) })
         if (!res.ok) {
           status = 'error'
@@ -72,20 +75,29 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Compute a court_records dimension score: 100 if 0 hits, 70 if 1, 40 if 2, 10 if 3+
+    // Compute a court_records dimension score: 100 if 0 hits, 70 if 1, 40 if 2, 10 if 3+.
+    // ONLY meaningful when the search actually ran — a failed/keyless search
+    // must NOT be persisted as a perfect clean record (score 100 / 0 hits).
+    const searchRan = status === 'ok' || status === 'no_results'
     const recordCount = records.length
-    let courtScore = 100
-    if (recordCount >= 3) courtScore = 10
-    else if (recordCount === 2) courtScore = 40
-    else if (recordCount === 1) courtScore = 70
+    let courtScore: number | null = null
+    if (searchRan) {
+      courtScore = 100
+      if (recordCount >= 3) courtScore = 10
+      else if (recordCount === 2) courtScore = 40
+      else if (recordCount === 1) courtScore = 70
+    }
 
-    await supabase.from('applications').update({
-      ltb_records_found: recordCount,
-      ltb_records_json: records,
+    const { error: updateErr } = await supabase.from('applications').update({
+      ltb_records_found: searchRan ? recordCount : null,
+      ltb_records_json: searchRan ? records : null,
       court_records_score: courtScore,
       court_search_status: status,
       court_search_results: { name_searched: fullName, records, status },
     }).eq('id', application_id)
+    if (updateErr) {
+      captureException(updateErr, { route: 'ltb-search', level: 'warning', tags: { phase: 'persist' } })
+    }
 
     return NextResponse.json({
       name_searched: fullName,

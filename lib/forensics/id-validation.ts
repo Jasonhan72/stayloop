@@ -77,7 +77,9 @@ function extractSINs(text: string): Array<{ raw: string; normalized: string }> {
  * as 1-4-5-5. The letter is the first letter of the applicant's surname
  * (uppercase). Format existed since 1989.
  */
-const ONTARIO_DL_RE = /\b([A-Z])(\d{4})[-\s]?(\d{5})[-\s]?(\d{5})\b/g
+// Separator allows "M2246-42409-30726", "M2246 42409 30726" AND the
+// card-face print style "M2246 - 42409 - 30726" (hyphen padded with spaces).
+const ONTARIO_DL_RE = /\b([A-Z])(\d{4})\s?-?\s?(\d{5})\s?-?\s?(\d{5})\b/g
 
 function extractOntarioDLs(text: string): Array<{ raw: string; normalized: string; surname_initial: string }> {
   const out: Array<{ raw: string; normalized: string; surname_initial: string }> = []
@@ -154,8 +156,8 @@ function extractPassports(text: string): Array<{ raw: string; country: 'CA' | 'U
 /**
  * Extract and validate all recognized ID numbers from arbitrary document text.
  * @param text        OCR'd or extracted text from an ID / application doc.
- * @param surname     (optional) extracted applicant surname, uppercase. Used
- *                    to cross-check Ontario DL first letter.
+ * @param surname     (deprecated, unused) — DL surname matching now happens in
+ *                    checkIdValidation against ALL candidate surnames.
  */
 export function extractAndValidateIds(text: string, surname?: string): IdExtraction {
   if (!text) {
@@ -168,17 +170,15 @@ export function extractAndValidateIds(text: string, surname?: string): IdExtract
     luhn_valid: validateSINLuhn(s.normalized),
   }))
 
-  // Ontario DLs — compare first letter with provided surname if we have one
-  const surnameInitial = surname
-    ? surname.trim().replace(/[^A-Za-z]/g, '').charAt(0).toUpperCase()
-    : null
+  // Ontario DLs — surname_initial is the licence number's ACTUAL first
+  // letter, as printed. Whether it mismatches anything is decided by
+  // checkIdValidation, which knows every candidate surname (the name ON
+  // the document, not just the form-provided applicant).
   const dls = extractOntarioDLs(text).map(d => ({
     raw: d.raw,
     normalized: d.normalized,
     format_valid: /^[A-Z]\d{4}-\d{5}-\d{5}$/.test(d.normalized),
-    surname_initial: surnameInitial && d.surname_initial !== surnameInitial
-      ? null  // explicit mismatch — signal to caller
-      : d.surname_initial,
+    surname_initial: d.surname_initial as string | null,
   }))
 
   // OHIPs
@@ -197,11 +197,62 @@ export function extractAndValidateIds(text: string, surname?: string): IdExtract
 
 import type { ForensicFlag } from './types'
 
+/** Words that look like "SURNAME," in ID-card OCR text but are actually
+ *  geography/boilerplate. Keeps address lines ("TORONTO, ON, M5V 0B8") from
+ *  polluting the candidate-surname set. */
+const NON_SURNAME_WORDS = new Set([
+  'ON', 'ONTARIO', 'CANADA', 'TORONTO', 'OTTAWA', 'MISSISSAUGA', 'BRAMPTON',
+  'HAMILTON', 'LONDON', 'MARKHAM', 'VAUGHAN', 'KITCHENER', 'WINDSOR',
+  'RICHMOND', 'OAKVILLE', 'BURLINGTON', 'OSHAWA', 'BARRIE', 'GUELPH',
+  'YORK', 'SCARBOROUGH', 'ETOBICOKE', 'NEPEAN', 'KANATA', 'WATERLOO',
+  'LICENCE', 'LICENSE', 'PERMIS', 'CONDUIRE', 'NOM', 'NAME',
+])
+
+/** Every surname initial the DL number could legitimately start with:
+ *  the name printed ON the document itself (OCR apparent_name + any
+ *  "SURNAME," patterns in the text) plus the form-provided applicant.
+ *  A co-applicant's ID legitimately differs from the form name — a real
+ *  mismatch is one that matches NO name anywhere on the document. */
+function candidateSurnameInitials(text: string, docName?: string | null, formSurname?: string): { initials: Set<string>; names: string[] } {
+  const initials = new Set<string>()
+  const names: string[] = []
+  const add = (word: string | undefined) => {
+    const w = (word || '').replace(/[^A-Za-z'’-]/g, '').toUpperCase()
+    if (w.length >= 2 && !NON_SURNAME_WORDS.has(w)) {
+      initials.add(w.charAt(0))
+      names.push(w)
+    }
+  }
+  // Name printed on the document ("BAJAJ, AANCHAL" or "Aanchal Bajaj") —
+  // surname position varies, so take both first and last tokens.
+  if (docName) {
+    const tokens = docName.trim().split(/[\s,]+/).filter(Boolean)
+    add(tokens[0])
+    if (tokens.length > 1) add(tokens[tokens.length - 1])
+  }
+  // "SURNAME, GIVENNAME" patterns in the OCR text (Ontario cards print
+  // "MEHROTTRA, KARAAN"). Require a name-like word AFTER the comma so
+  // address lines ("AJAX, ON, L1S 2H5") can't inject city initials — a
+  // stoplist alone can never enumerate every Ontario municipality.
+  const PROVINCE_WORDS = new Set(['ONT', 'ONTARIO', 'QUEBEC', 'ALBERTA', 'MANITOBA', 'SASKATCHEWAN', 'CANADA', 'YUKON', 'NUNAVUT'])
+  const re = /\b([A-Z][A-Z'’-]{1,25}),\s*\n?\s*([A-Z][A-Z'’-]{2,25})\b/g
+  let m
+  while ((m = re.exec(text))) {
+    const second = m[2].toUpperCase()
+    if (PROVINCE_WORDS.has(second) || NON_SURNAME_WORDS.has(second)) continue
+    add(m[1])
+  }
+  // Form-provided applicant surname (may be a co-applicant — corroborating only)
+  if (formSurname) add(formSurname)
+  return { initials, names }
+}
+
 export function checkIdValidation(
   text: string,
   file: string,
   fileKind: string,
   surname?: string,
+  docName?: string | null,
 ): ForensicFlag[] {
   // Only check ID-like documents. Application forms and credit reports often
   // contain ID numbers too, but the risk of false positives from noise is
@@ -246,17 +297,110 @@ export function checkIdValidation(
     }
   }
 
-  // Ontario DL with surname-initial mismatch → suspicious
-  if (surname && ids.ontario_dls.length > 0) {
-    const expectedInitial = surname.trim().charAt(0).toUpperCase()
+  // Ontario DL surname-initial check. The licence number must start with
+  // the first letter of the surname printed ON THAT CARD — comparing against
+  // the form-typed applicant name false-positives on every co-applicant's ID
+  // (two people, two licences, one form name). So: flag ONLY when the DL
+  // initial matches none of the document's own names AND not the form name.
+  if (ids.ontario_dls.length > 0) {
+    const { initials, names } = candidateSurnameInitials(text, docName, surname)
     for (const dl of ids.ontario_dls) {
-      if (dl.surname_initial === null) {
+      const initial = dl.surname_initial
+      if (!initial) continue
+      if (initials.size === 0) continue  // no name evidence at all — skip, don't guess
+      if (initials.has(initial)) {
+        // Positive: number matches a surname printed on the same document.
+        const matched = names.find(n => n.charAt(0) === initial)
+        flags.push({
+          code: 'id_dl_surname_match',
+          severity: 'info',
+          file,
+          evidence_en: `Ontario DL "${dl.normalized}" starts with "${initial}", matching the surname "${matched}" printed on the document — consistent with the province's licence-number encoding.`,
+          evidence_zh: `安省驾照号 "${dl.normalized}" 首字母 "${initial}" 与证件上的姓氏 "${matched}" 吻合——符合安省驾照号编码规则。`,
+        })
+      } else {
         flags.push({
           code: 'id_dl_surname_mismatch',
           severity: 'high',
           file,
-          evidence_en: `Ontario DL "${dl.normalized}" starts with a letter that does not match the applicant's surname "${surname}" (expected "${expectedInitial}"). Ontario DL numbers always begin with the first letter of the surname.`,
-          evidence_zh: `安省驾照号 "${dl.normalized}" 的首字母与申请人姓氏 "${surname}" 不符（应为 "${expectedInitial}"）。安省驾照号首字母必定为姓氏首字母。`,
+          evidence_en: `Ontario DL "${dl.normalized}" starts with "${initial}", which matches NO name on the document (${names.slice(0, 4).join(', ') || 'none legible'})${surname ? ` nor the applicant "${surname}"` : ''}. Ontario DL numbers always begin with the first letter of the holder's surname.`,
+          evidence_zh: `安省驾照号 "${dl.normalized}" 首字母 "${initial}" 与证件上的任何姓名（${names.slice(0, 4).join('、') || '无可读姓名'}）${surname ? `及申请人 "${surname}" ` : ''}均不符。安省驾照号首字母必定为持照人姓氏首字母。`,
+        })
+      }
+    }
+  }
+
+  // Ontario DL date-of-birth encoding. The last 6 digits of the 14-digit
+  // number are YYMMDD of the holder's birth date, with +50 added to the
+  // month for female holders (e.g. ...945701 = 1994/07/01, female).
+  // Cross-checked against every date printed on the card that is old
+  // enough to be a birth date (≥16 years back — ISS/EXP dates are recent,
+  // so they never collide with this filter).
+  if (ids.ontario_dls.length > 0) {
+    const nowYear = new Date().getFullYear()
+    // Two candidate pools with different evidentiary weight:
+    //   labeledDob — dates explicitly marked DOB/DDN/BIRTH: authoritative,
+    //     a non-matching encoding IS a mismatch flag.
+    //   dobCandidates — any birth-eligible date on the doc: enough to
+    //     CONFIRM a match, but their absence proves nothing (the real DOB
+    //     may simply be printed in a format our regex doesn't capture),
+    //     so no mismatch flag is raised from this pool alone.
+    const labeledDob: string[] = []
+    const labRe = /(?:DOB|DDN|BIRTH|NAISSANCE|出生)[^0-9]{0,20}(19\d{2}|20\d{2})[/\-](\d{2})[/\-](\d{2})/gi
+    let lm
+    while ((lm = labRe.exec(text))) {
+      const month = Number(lm[2]), day = Number(lm[3])
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        labeledDob.push(`${lm[1].slice(2)}${lm[2]}${lm[3]}`)
+      }
+    }
+    const dobCandidates: string[] = [...labeledDob]  // as "YYMMDD"
+    const dateRe = /\b(19\d{2}|20\d{2})[/\-](\d{2})[/\-](\d{2})\b/g
+    let dm
+    while ((dm = dateRe.exec(text))) {
+      const [, y, mo, d] = dm
+      const year = Number(y), month = Number(mo), day = Number(d)
+      if (month < 1 || month > 12 || day < 1 || day > 31) continue
+      if (nowYear - year < 16 || nowYear - year > 100) continue
+      dobCandidates.push(`${y.slice(2)}${mo}${d}`)
+    }
+    for (const dl of ids.ontario_dls) {
+      const digits = dl.normalized.replace(/[^0-9]/g, '')
+      if (digits.length !== 14 || dobCandidates.length === 0) continue
+      const last6 = digits.slice(8)
+      const yy = last6.slice(0, 2), mm = Number(last6.slice(2, 4)), dd = last6.slice(4)
+      const decodedMonth = mm > 50 ? mm - 50 : mm  // +50 = female encoding
+      if (decodedMonth < 1 || decodedMonth > 12 || Number(dd) < 1 || Number(dd) > 31) {
+        // The digits cannot encode ANY calendar date — no valid Ontario
+        // licence number has this shape.
+        flags.push({
+          code: 'id_dl_dob_mismatch',
+          severity: 'high',
+          file,
+          evidence_en: `Ontario DL "${dl.normalized}" last 6 digits (${last6}) cannot encode any birth date (month ${mm} is invalid even after the female +50 adjustment). Genuine Ontario licence numbers always encode the holder's DOB as YYMMDD.`,
+          evidence_zh: `安省驾照号 "${dl.normalized}" 末 6 位（${last6}）无法编码任何出生日期（月份 ${mm} 即使按女性 +50 调整后仍无效）。真实安省驾照号末 6 位必定是 YYMMDD 格式的出生日期。`,
+        })
+        continue
+      }
+      const decoded = `${yy}${String(decodedMonth).padStart(2, '0')}${dd}`
+      if (dobCandidates.includes(decoded)) {
+        flags.push({
+          code: 'id_dl_dob_match',
+          severity: 'info',
+          file,
+          evidence_en: `Ontario DL "${dl.normalized}" encodes birth date ${yy}/${String(decodedMonth).padStart(2, '0')}/${dd}${mm > 50 ? ' (female +50 month encoding)' : ''} in its last 6 digits, matching the DOB printed on the card — consistent with the province's encoding.`,
+          evidence_zh: `安省驾照号 "${dl.normalized}" 末 6 位编码出生日期 ${yy}/${String(decodedMonth).padStart(2, '0')}/${dd}${mm > 50 ? '（女性月份 +50 编码）' : ''}，与卡面打印的出生日期吻合——符合安省编码规则。`,
+        })
+      } else if (labeledDob.length > 0) {
+        // Only an explicitly-labeled DOB is authoritative enough to call a
+        // mismatch — an unmatched pool of generic old dates proves nothing
+        // (the real DOB may be printed in a format the regex doesn't read).
+        flags.push({
+          code: 'id_dl_dob_mismatch',
+          severity: 'high',
+          file,
+          evidence_en: `Ontario DL "${dl.normalized}" last-6-digit birth-date encoding (${decoded}, after female +50 adjustment if any) contradicts the labeled DOB printed on the document (${labeledDob.join(', ')}). Genuine Ontario licences always encode the holder's DOB in the number.`,
+          evidence_zh: `安省驾照号 "${dl.normalized}" 末 6 位的出生日期编码（${decoded}，已考虑女性 +50）与证件上标注的出生日期（${labeledDob.join('、')}）矛盾。真实安省驾照号必定编码持照人出生日期。`,
         })
       }
     }

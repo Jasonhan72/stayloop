@@ -1,163 +1,11 @@
 'use client'
 
-import { useState } from 'react'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import { useEffect, useRef, useState } from 'react'
+import WorkspaceShell, { type WorkspaceRole } from '@/components/WorkspaceShell'
 import { useAuth } from '@/lib/useAuth'
 import { useI18n } from '@/lib/i18n'
 import { getAIName, setAIName, getDefaultName } from '@/lib/aiName'
 import { getSupabaseBrowser } from '@/lib/supabase'
-
-const TABS = [
-  { key: 'profile',   zh: '个人资料',    en: 'Profile' },
-  { key: 'assistant', zh: 'AI 助手',     en: 'AI Assistant' },
-  { key: 'lang',      zh: '语言',        en: 'Language' },
-  { key: 'notif',     zh: '通知',        en: 'Notifications' },
-  { key: 'privacy',   zh: '隐私 · 共享', en: 'Privacy & Sharing' },
-  { key: 'auth',      zh: '账户安全',    en: 'Account Security' },
-] as const
-
-export default function SettingsPage() {
-  const auth = useAuth()
-  const { lang, setLang } = useI18n()
-  const zh = lang === 'zh'
-  const [tab, setTab] = useState<typeof TABS[number]['key']>('profile')
-
-  return (
-    <>
-      <Header />
-      <main className="bg-surface">
-        <div className="mx-auto grid max-w-[1100px] gap-8 px-5 py-12 sm:px-7 lg:grid-cols-[220px_1fr]">
-          <aside>
-            <h1 className="text-[24px] font-bold tracking-tight">{zh ? '设置' : 'Settings'}</h1>
-            <nav className="mt-6 flex flex-col gap-1">
-              {TABS.map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => setTab(t.key)}
-                  className={
-                    'rounded-lg px-3 py-2 text-left text-[13.5px] transition ' +
-                    (tab === t.key
-                      ? 'bg-brand/10 font-bold text-brand'
-                      : 'text-body-2 hover:bg-line-divider/40 hover:text-body')
-                  }
-                >
-                  {zh ? t.zh : t.en}
-                </button>
-              ))}
-            </nav>
-          </aside>
-
-          <section className="sl-card p-7">
-            {tab === 'profile' && (
-              <div>
-                <h2 className="text-[20px] font-bold tracking-tight">{zh ? '个人资料' : 'Profile'}</h2>
-                <div className="mt-6 space-y-4">
-                  <Field label={zh ? '姓名' : 'Name'} value={auth.fullName || '—'} />
-                  <Field label={zh ? '邮箱' : 'Email'} value={auth.email || '—'} />
-                  <Field label={zh ? '角色' : 'Role'} value={auth.role || (zh ? '尚未选择' : 'Not selected')} />
-                </div>
-              </div>
-            )}
-            {tab === 'assistant' && (
-              <AssistantTab role={auth.role} zh={zh} user={auth.user} />
-            )}
-            {tab === 'lang' && (
-              <div>
-                <h2 className="text-[20px] font-bold tracking-tight">{zh ? '语言' : 'Language'}</h2>
-                <p className="mt-2 text-[13px] text-body-2">{zh ? '这会影响 Stayloop 整站的显示语言。' : 'This changes the display language across all of Stayloop.'}</p>
-                <div className="mt-5 flex gap-2">
-                  {(['zh', 'en'] as const).map((l) => (
-                    <button
-                      key={l}
-                      onClick={() => setLang(l)}
-                      className={
-                        'rounded-lg border px-4 py-2 text-[13.5px] font-semibold transition ' +
-                        (lang === l
-                          ? 'border-brand bg-brand/10 text-brand'
-                          : 'border-line-strong bg-white text-body hover:border-brand')
-                      }
-                    >
-                      {l === 'zh' ? '中文 · 简体' : 'English'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {tab === 'notif' && (
-              <div>
-                <h2 className="text-[20px] font-bold tracking-tight">{zh ? '通知' : 'Notifications'}</h2>
-                <div className="mt-6 space-y-3">
-                  <ToggleRow label={zh ? '新房源符合我的偏好' : 'New listings matching my preferences'} hint={zh ? 'Luna 每天最多 1 次邮件汇总。' : 'Luna sends at most one email digest per day.'} defaultOn />
-                  <ToggleRow label={zh ? '申请进度更新' : 'Application progress updates'} defaultOn />
-                  <ToggleRow label={zh ? '维修工单状态' : 'Maintenance ticket status'} defaultOn />
-                  <ToggleRow label={zh ? '租金支付提醒' : 'Rent payment reminders'} defaultOn />
-                  <ToggleRow label={zh ? '续约 / 涨租通知' : 'Renewal / rent increase notices'} defaultOn />
-                  <ToggleRow label={zh ? '产品更新 + 时讯' : 'Product updates + newsletter'} />
-                </div>
-              </div>
-            )}
-            {tab === 'privacy' && (
-              <div>
-                <h2 className="text-[20px] font-bold tracking-tight">{zh ? '隐私 · 共享' : 'Privacy & Sharing'}</h2>
-                <p className="mt-2 text-[13.5px] text-body-2">
-                  {zh ? '你的 Rental Passport 字段共享情况在' : 'Your Rental Passport field sharing is managed on the'}
-                  {' '}<a className="font-semibold text-brand underline" href="/tenant/passport">{zh ? 'Passport 详情页' : 'Passport details page'}</a>{' '}
-                  {zh ? '管理。这里是宏观控制。' : '. This is the high-level control.'}
-                </p>
-                <div className="mt-6 space-y-3">
-                  <ToggleRow label={zh ? '允许房东在邀请你看房前查看你的匿名 Tier 等级' : 'Let landlords see your anonymous Tier level before inviting you to a viewing'} defaultOn />
-                  <ToggleRow label={zh ? '允许 Stayloop 在 listing 推荐时使用我的偏好' : 'Let Stayloop use my preferences for listing recommendations'} defaultOn />
-                  <ToggleRow label={zh ? '允许 Trust API 合作伙伴在我授权后查询' : 'Let Trust API partners query after my authorization'} />
-                </div>
-              </div>
-            )}
-            {tab === 'auth' && (
-              <div>
-                <h2 className="text-[20px] font-bold tracking-tight">{zh ? '账户安全' : 'Account Security'}</h2>
-                <div className="mt-6 space-y-4 text-[14px]">
-                  <div className="flex items-center justify-between rounded-xl bg-surface-chip px-4 py-3">
-                    <div>
-                      <div className="font-bold">{zh ? '登录方式' : 'Sign-in method'}</div>
-                      <div className="text-[12.5px] text-body-3">Magic link · Supabase</div>
-                    </div>
-                    <button className="sl-btn-ghost">{zh ? '修改' : 'Change'}</button>
-                  </div>
-                  <div className="flex items-center justify-between rounded-xl bg-surface-chip px-4 py-3">
-                    <div>
-                      <div className="font-bold">2FA</div>
-                      <div className="text-[12.5px] text-body-3">{zh ? '推荐开启 Authenticator' : 'Authenticator recommended'}</div>
-                    </div>
-                    <button className="sl-btn-secondary">{zh ? '开启' : 'Enable'}</button>
-                  </div>
-                  <div className="flex items-center justify-between rounded-xl bg-danger/5 px-4 py-3">
-                    <div>
-                      <div className="font-bold text-danger">{zh ? '删除账户' : 'Delete account'}</div>
-                      <div className="text-[12.5px] text-body-3">{zh ? '不可逆 · 30 天内可恢复' : 'Irreversible · recoverable within 30 days'}</div>
-                    </div>
-                    <button className="rounded-lg border border-danger/40 bg-white px-3 py-[7px] text-[12.5px] font-semibold text-danger">
-                      {zh ? '删除' : 'Delete'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
-        </div>
-      </main>
-      <Footer />
-    </>
-  )
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid grid-cols-[120px_1fr] items-center gap-4 border-b border-line-divider py-3 last:border-0">
-      <span className="font-mono text-[11px] font-semibold uppercase text-body-3">{label}</span>
-      <span className="text-[14px]">{value}</span>
-    </div>
-  )
-}
 
 const ROLE_COLORS: Record<string, string> = {
   tenant: '#7C3AED',
@@ -166,16 +14,161 @@ const ROLE_COLORS: Record<string, string> = {
 }
 
 const ROLE_LABELS: Record<string, { zh: string; en: string }> = {
-  tenant: { zh: '租客助手', en: 'Tenant Assistant' },
-  landlord: { zh: '房东助手', en: 'Landlord Assistant' },
-  agent: { zh: '经纪助手', en: 'Agent Assistant' },
+  tenant: { zh: '租客', en: 'Tenant' },
+  landlord: { zh: '房东', en: 'Landlord' },
+  agent: { zh: '经纪', en: 'Agent' },
 }
 
-function AssistantTab({ role, zh, user }: { role: string | null; zh: boolean; user: any }) {
-  const effectiveRole = role || 'tenant'
-  const color = ROLE_COLORS[effectiveRole] || '#7C3AED'
-  const currentName = getAIName(effectiveRole)
-  const defaultName = getDefaultName(effectiveRole)
+export default function SettingsPage() {
+  const auth = useAuth()
+  const { lang } = useI18n()
+  const zh = lang === 'zh'
+  const shellRole = (auth.role || 'tenant') as WorkspaceRole
+  const color = ROLE_COLORS[shellRole] || '#7C3AED'
+
+  const initial = (auth.fullName || auth.email || 'U').slice(0, 1).toUpperCase()
+  const aiName = getAIName(shellRole)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    const cached = typeof window !== 'undefined' ? localStorage.getItem('stayloop-avatar') : null
+    if (cached) setAvatarUrl(cached)
+    const meta = (auth.user?.user_metadata as any)?.avatar_url
+    if (meta && typeof meta === 'string') {
+      setAvatarUrl(meta)
+      try { localStorage.setItem('stayloop-avatar', meta) } catch {}
+    }
+  }, [auth.user])
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    const dataUrl = await resizeAvatar(file, 200, 0.75)
+    setAvatarUrl(dataUrl)
+    try { localStorage.setItem('stayloop-avatar', dataUrl) } catch {}
+    if (auth.user) {
+      try {
+        await getSupabaseBrowser().auth.updateUser({ data: { avatar_url: dataUrl } })
+      } catch {}
+    }
+  }
+
+  return (
+    <WorkspaceShell role={shellRole} hideAside>
+      <div className="mx-auto max-w-[780px]">
+        {/* Profile header — Airbnb style */}
+        <h1 className="text-[28px] font-bold tracking-tight">{zh ? '个人资料' : 'Profile'}</h1>
+
+        <div className="mt-8 flex flex-col gap-8 sm:flex-row sm:items-start">
+          {/* Profile card */}
+          <div className="flex-none">
+            <div className="sl-card flex w-[220px] flex-col items-center px-6 py-8 text-center">
+              <input ref={fileRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+              <div
+                className="group relative cursor-pointer"
+                onClick={() => fileRef.current?.click()}
+              >
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt="" className="h-[88px] w-[88px] rounded-full object-cover shadow-md" />
+                ) : (
+                  <div
+                    className="flex h-[88px] w-[88px] items-center justify-center rounded-full text-[32px] font-bold text-white shadow-md"
+                    style={{ background: `linear-gradient(135deg, ${color}88, ${color})` }}
+                  >
+                    {initial}
+                  </div>
+                )}
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition group-hover:opacity-100">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-4 text-[20px] font-bold tracking-tight">{auth.fullName || '—'}</div>
+              <div className="mt-0.5 text-[13px] text-body-3">Toronto, Canada</div>
+
+              <div className="mt-5 grid w-full grid-cols-2 gap-3 border-t border-line-divider pt-5">
+                <div className="text-center">
+                  <div className="text-[18px] font-bold" style={{ color }}>{ROLE_LABELS[shellRole]?.[zh ? 'zh' : 'en'] || '—'}</div>
+                  <div className="text-[11px] text-body-3">{zh ? '角色' : 'Role'}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[18px] font-bold" style={{ color }}>✓</div>
+                  <div className="text-[11px] text-body-3">{zh ? '已验证' : 'Verified'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Info section */}
+          <div className="min-w-0 flex-1 space-y-6">
+            {/* About */}
+            <div>
+              <div className="flex items-center justify-between">
+                <h2 className="text-[20px] font-bold tracking-tight">{zh ? '关于我' : 'About me'}</h2>
+              </div>
+              <div className="mt-4 space-y-3">
+                <InfoRow icon="✉" label={zh ? '邮箱' : 'Email'} value={auth.email || '—'} />
+                <InfoRow icon="🌐" label={zh ? '语言' : 'Language'} value={zh ? '中文 · English' : 'Chinese · English'} />
+                <InfoRow icon="🤖" label={zh ? 'AI 助手' : 'AI Assistant'} value={aiName || getDefaultName(shellRole)} />
+                <InfoRow icon="🔒" label={zh ? '登录方式' : 'Sign-in'} value="Magic Link" />
+              </div>
+            </div>
+
+            {/* Quick actions */}
+            <div className="space-y-2">
+              <QuickAction
+                label={zh ? '修改 AI 助手名字' : 'Change AI assistant name'}
+                desc={zh ? `当前：${aiName || getDefaultName(shellRole)}` : `Current: ${aiName || getDefaultName(shellRole)}`}
+              >
+                <AssistantNameEditor role={shellRole} zh={zh} user={auth.user} color={color} />
+              </QuickAction>
+            </div>
+          </div>
+        </div>
+      </div>
+    </WorkspaceShell>
+  )
+}
+
+function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 text-[14px]">
+      <span className="text-[16px]">{icon}</span>
+      <span className="text-body-3">{label}:</span>
+      <span className="font-medium">{value}</span>
+    </div>
+  )
+}
+
+function QuickAction({ label, desc, children }: { label: string; desc: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="rounded-xl border border-line-divider bg-white">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-surface-chip"
+      >
+        <div>
+          <div className="text-[14px] font-semibold">{label}</div>
+          <div className="text-[12px] text-body-3">{desc}</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={'text-body-3 transition ' + (open ? 'rotate-180' : '')}>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && <div className="border-t border-line-divider px-4 py-4">{children}</div>}
+    </div>
+  )
+}
+
+function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: boolean; user: any; color: string }) {
+  const currentName = getAIName(role)
+  const defaultName = getDefaultName(role)
   const [value, setValue] = useState(currentName)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -183,15 +176,11 @@ function AssistantTab({ role, zh, user }: { role: string | null; zh: boolean; us
   const handleSave = async () => {
     const trimmed = value.trim() || defaultName
     setSaving(true)
-    setAIName(trimmed, effectiveRole)
+    setAIName(trimmed, role)
     if (user) {
       try {
         const client = getSupabaseBrowser()
-        await client
-          .from('agent_configs')
-          .update({ agent_name: trimmed })
-          .eq('user_id', user.id)
-          .eq('role', effectiveRole)
+        await client.from('agent_configs').update({ agent_name: trimmed }).eq('user_id', user.id).eq('role', role)
       } catch {}
     }
     setSaving(false)
@@ -200,111 +189,56 @@ function AssistantTab({ role, zh, user }: { role: string | null; zh: boolean; us
   }
 
   return (
-    <div>
-      <h2 className="text-[20px] font-bold tracking-tight">{zh ? 'AI 助手' : 'AI Assistant'}</h2>
-      <p className="mt-2 text-[13px] text-body-2">
-        {zh
-          ? `修改你的 ${ROLE_LABELS[effectiveRole]?.zh || '助手'} 名字。名字会在对话、记忆面板和通知中显示。`
-          : `Change your ${ROLE_LABELS[effectiveRole]?.en || 'assistant'} name. The name appears in conversations, memory panels, and notifications.`}
-      </p>
-
-      <div className="mt-6 space-y-5">
-        <div>
-          <div className="font-mono text-[10.5px] font-semibold uppercase tracking-widest text-body-3" style={{ marginBottom: 8 }}>
-            {zh ? '助手名字' : 'Assistant name'}
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '12px 14px',
-              border: '1.5px solid #C5BDAA',
-              borderRadius: 10,
-              background: '#fff',
-            }}
-          >
-            <span style={{ fontSize: 20, fontWeight: 700, color }}>@</span>
-            <input
-              type="text"
-              value={value}
-              onChange={(e) => { setValue(e.target.value); setSaved(false) }}
-              placeholder={defaultName}
-              maxLength={20}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                border: 'none',
-                outline: 'none',
-                fontSize: 18,
-                fontWeight: 600,
-                fontFamily: 'inherit',
-                background: 'transparent',
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saving || value.trim() === currentName}
-            className="sl-btn-primary !py-[10px] !px-6 disabled:opacity-40"
-          >
-            {saving ? '...' : saved ? (zh ? '已保存 ✓' : 'Saved ✓') : (zh ? '保存' : 'Save')}
-          </button>
-          {value.trim() !== defaultName && (
-            <button
-              onClick={() => { setValue(defaultName); setSaved(false) }}
-              className="text-[13px] font-semibold text-body-3 hover:text-body-2"
-            >
-              {zh ? `恢复默认 (${defaultName})` : `Reset to default (${defaultName})`}
-            </button>
-          )}
-        </div>
-
-        <div
-          style={{
-            background: `${color}0D`,
-            border: `1px solid ${color}33`,
-            borderRadius: 10,
-            padding: '12px 14px',
-          }}
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 rounded-lg border border-line-strong bg-white px-3 py-2.5">
+        <span className="text-[18px] font-bold" style={{ color }}>@</span>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => { setValue(e.target.value); setSaved(false) }}
+          placeholder={defaultName}
+          maxLength={20}
+          className="min-w-0 flex-1 border-none bg-transparent text-[16px] font-semibold outline-none"
+        />
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleSave}
+          disabled={saving || value.trim() === currentName}
+          className="sl-btn-primary !py-2 !px-5 !text-[13px] disabled:opacity-40"
         >
-          <div className="font-mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color, marginBottom: 4 }}>
-            PREVIEW
-          </div>
-          <p style={{ fontSize: 13, color: '#3F3F46', lineHeight: 1.5 }}>
-            {zh
-              ? `「你好,我是 ${value.trim() || defaultName}。有什么我能帮你的?」`
-              : `"Hi, I'm ${value.trim() || defaultName}. How can I help you?"`}
-          </p>
-        </div>
+          {saving ? '...' : saved ? '✓' : (zh ? '保存' : 'Save')}
+        </button>
+        {value.trim() !== defaultName && (
+          <button onClick={() => { setValue(defaultName); setSaved(false) }} className="text-[12px] text-body-3 hover:text-body-2">
+            {zh ? '恢复默认' : 'Reset'}
+          </button>
+        )}
       </div>
     </div>
   )
 }
 
-function ToggleRow({ label, hint, defaultOn }: { label: string; hint?: string; defaultOn?: boolean }) {
-  const [on, setOn] = useState(!!defaultOn)
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-xl bg-surface-chip px-4 py-3">
-      <div>
-        <div className="text-[14px] font-semibold">{label}</div>
-        {hint && <div className="text-[12px] text-body-3">{hint}</div>}
-      </div>
-      <button
-        onClick={() => setOn((v) => !v)}
-        className={
-          'relative h-6 w-11 rounded-full transition ' +
-          (on ? 'bg-brand' : 'bg-line-strong')
-        }
-      >
-        <span
-          className="absolute top-0.5 h-5 w-5 rounded-full bg-white transition"
-          style={{ left: on ? '22px' : '2px' }}
-        />
-      </button>
-    </div>
-  )
+function resizeAvatar(file: File, size: number, quality: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = () => reject(new Error('Invalid image file'))
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = size
+        canvas.height = size
+        const ctx = canvas.getContext('2d')!
+        const s = Math.min(img.width, img.height)
+        const sx = (img.width - s) / 2
+        const sy = (img.height - s) / 2
+        ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size)
+        resolve(canvas.toDataURL('image/jpeg', quality))
+      }
+      img.src = reader.result as string
+    }
+    reader.readAsDataURL(file)
+  })
 }

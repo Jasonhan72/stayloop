@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import WorkspaceShell from '@/components/WorkspaceShell'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
 import { useT } from '@/lib/i18n'
@@ -17,6 +16,9 @@ export default function Dashboard() {
   const [plan, setPlan] = useState<Plan>('free')
   const [loading, setLoading] = useState(true)
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null)
+  const [deletingListing, setDeletingListing] = useState<Listing | null>(null)
+  const [deleteReason, setDeleteReason] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [origin, setOrigin] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
@@ -38,7 +40,7 @@ export default function Dashboard() {
   // Poll landlords.plan after returning from Stripe Checkout
   useEffect(() => {
     if (checkoutBanner !== 'pending' || !landlord) return
-    if (plan === 'pro' || plan === 'enterprise') {
+    if (plan === 'pro' || plan === 'team') {
       setCheckoutBanner('success')
       setShowUpgrade(false)
       if (typeof window !== 'undefined') {
@@ -113,7 +115,7 @@ export default function Dashboard() {
     setLoading(true)
     const [appsRes, listingsRes, planRes] = await Promise.all([
       supabase.from('applications').select('*, listing:listings(*)').order('created_at', { ascending: false }),
-      supabase.from('listings').select('*').order('created_at', { ascending: false }),
+      supabase.from('listings').select('*').eq('landlord_id', landlord!.landlordId).order('created_at', { ascending: false }),
       supabase.from('landlords').select('plan').eq('id', landlord!.landlordId).maybeSingle(),
     ])
     if (appsRes.data) setApplications(appsRes.data as Application[])
@@ -127,6 +129,36 @@ export default function Dashboard() {
     await navigator.clipboard.writeText(url)
     setCopiedSlug(slug)
     setTimeout(() => setCopiedSlug(null), 1500)
+  }
+
+  const DELETE_REASONS = lang === 'zh'
+    ? ['已找到租客', '房源已出售', '信息有误 / 重复发布', '暂时下架', '其他原因']
+    : ['Tenant found', 'Property sold', 'Incorrect / duplicate listing', 'Temporarily delisting', 'Other']
+
+  async function handleDeleteListing() {
+    if (!deletingListing || !deleteReason) return
+    setDeleteLoading(true)
+    try {
+      const { error } = await supabase
+        .from('listings')
+        .update({ is_active: false, status: 'deleted' })
+        .eq('id', deletingListing.id)
+      if (error) throw error
+      setListings((prev) => prev.filter((l) => l.id !== deletingListing.id))
+      setDeletingListing(null)
+      setDeleteReason('')
+    } catch (e: any) {
+      alert(e?.message || 'Delete failed')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  async function toggleListingActive(id: string, currentlyActive: boolean) {
+    const next = !currentlyActive
+    const { error } = await supabase.from('listings').update({ is_active: next }).eq('id', id)
+    if (error) { alert(error.message); return }
+    setListings((prev) => prev.map((l) => l.id === id ? { ...l, is_active: next } : l))
   }
 
   const stats = {
@@ -146,23 +178,17 @@ export default function Dashboard() {
 
   if (authLoading || !landlord) {
     return (
-      <>
-        <Header />
-        <main className="bg-surface">
-          <div className="flex min-h-[60vh] items-center justify-center">
-            <span className="orb landlord pulse h-12 w-12" style={{ color: '#047857' }} />
-          </div>
-        </main>
-        <Footer />
-      </>
+      <WorkspaceShell role="landlord" hideAside>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <span className="orb landlord pulse h-12 w-12" style={{ color: '#047857' }} />
+        </div>
+      </WorkspaceShell>
     )
   }
 
   return (
-    <>
-      <Header />
-      <main className="bg-surface">
-        <div className="mx-auto max-w-[1320px] px-5 py-10 sm:px-7 lg:px-12">
+    <WorkspaceShell role="landlord" hideAside>
+      <div className="mx-auto max-w-[1320px]">
           {/* Heading */}
           <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -189,7 +215,7 @@ export default function Dashboard() {
                   {lang === 'zh' ? '升级到 Pro' : 'Upgrade to Pro'}
                 </button>
               )}
-              {(plan === 'pro' || plan === 'enterprise') && (
+              {(plan === 'pro' || plan === 'team') && (
                 <button
                   onClick={openBillingPortal}
                   disabled={portalLoading}
@@ -228,18 +254,18 @@ export default function Dashboard() {
           </div>
 
           {/* Listings */}
-          <div className="sl-card mb-8 overflow-hidden">
-            <div className="flex items-center justify-between border-b border-line-divider px-6 py-4">
+          <div className="mb-8">
+            <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-brand" />
                 <h2 className="text-[16px] font-bold tracking-tight">{lang === 'zh' ? '你的房源' : 'Your listings'}</h2>
+                <span className="font-mono text-[11px] text-body-3">{listings.length} {lang === 'zh' ? '套' : 'total'}</span>
               </div>
-              <span className="font-mono text-[11px] text-body-3">{listings.length} {lang === 'zh' ? '套' : 'total'}</span>
             </div>
             {loading ? (
               <div className="p-10 text-center font-mono text-[12px] text-body-3">{lang === 'zh' ? '加载中…' : 'Loading…'}</div>
             ) : listings.length === 0 ? (
-              <div className="p-12 text-center">
+              <div className="sl-card p-12 text-center">
                 <div className="text-[36px] opacity-30">▱</div>
                 <div className="mt-3 text-[14px] text-body-2">{lang === 'zh' ? '还没有房源。' : 'No listings yet.'}</div>
                 <Link
@@ -250,47 +276,117 @@ export default function Dashboard() {
                 </Link>
               </div>
             ) : (
-              <ul className="divide-y divide-line-divider">
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {listings.map((l) => {
-                  const url = `${origin}/apply/${l.slug}`
+                  const images: string[] = Array.isArray(l.images) ? l.images : []
+                  const hasPhoto = images.length > 0
+                  const specs = [
+                    l.bedrooms != null ? `${l.bedrooms} ${lang === 'zh' ? '卧' : 'bd'}` : null,
+                    l.bathrooms != null ? `${l.bathrooms} ${lang === 'zh' ? '浴' : 'ba'}` : null,
+                    l.sqft ? `${l.sqft} sqft` : null,
+                  ].filter(Boolean)
+                  const amenities: string[] = Array.isArray(l.amenities) ? l.amenities.slice(0, 3) : []
                   return (
-                    <li
-                      key={l.id}
-                      className="flex flex-col gap-3 px-6 py-4 transition hover:bg-surface-chip sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[15px] font-bold">
-                          {l.address}
-                          {l.unit ? `, ${l.unit}` : ''}
-                          <span className="ml-2 text-[12px] font-medium text-body-3">· {l.city}</span>
+                    <div key={l.id} className="sl-card flex flex-col overflow-hidden transition hover:shadow-md">
+                      {/* Photo */}
+                      <Link href={`/listings/${l.slug}`} className="relative aspect-[1.5/1] w-full bg-surface-chip">
+                        {hasPhoto ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={images[0]} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="3" y="3" width="18" height="18" rx="2" />
+                              <circle cx="8.5" cy="8.5" r="1.5" />
+                              <path d="m21 15-5-5L5 21" />
+                            </svg>
+                          </div>
+                        )}
+                        {/* Status badge */}
+                        <span
+                          className="absolute left-3 top-3 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white"
+                          style={{ background: l.is_active !== false ? '#047857' : '#6B7280' }}
+                        >
+                          {l.is_active !== false ? (lang === 'zh' ? '上架中' : 'ACTIVE') : (lang === 'zh' ? '已下架' : 'INACTIVE')}
+                        </span>
+                        {/* Photo count */}
+                        {images.length > 1 && (
+                          <span className="absolute bottom-3 right-3 rounded-md bg-black/50 px-2 py-0.5 font-mono text-[11px] font-semibold text-white backdrop-blur">
+                            1 / {images.length}
+                          </span>
+                        )}
+                      </Link>
+
+                      {/* Body */}
+                      <div className="flex flex-1 flex-col p-4">
+                        <div className="text-[20px] font-bold tracking-tight">
+                          ${l.monthly_rent?.toLocaleString()}
+                          <span className="ml-1 text-[12px] font-medium text-body-3">{lang === 'zh' ? '/月' : '/mo'}</span>
                         </div>
-                        <div className="mt-0.5 font-mono text-[11.5px] text-body-3">
-                          ${l.monthly_rent?.toLocaleString()}/mo
-                          {l.bedrooms ? ` · ${l.bedrooms}bd` : ''}
-                          {l.bathrooms ? ` · ${l.bathrooms}ba` : ''}
-                        </div>
-                        <div className="mt-1 truncate font-mono text-[11px] text-brand">{url}</div>
+                        {specs.length > 0 && (
+                          <div className="mt-1 flex items-center gap-2 text-[13px] font-bold text-body">
+                            {specs.map((s, i) => (
+                              <span key={s} className="flex items-center gap-2">
+                                {i > 0 && <span className="h-[3px] w-[3px] rounded-full bg-line-strong" />}
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="mt-2 text-[14px] font-bold leading-snug">{l.address}{l.unit ? ` · ${l.unit}` : ''}</div>
+                        <div className="text-[12.5px] text-body-3">{[l.neighborhood, l.city].filter(Boolean).join(' · ') || 'Toronto'}</div>
+                        {amenities.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {amenities.map((a) => (
+                              <span key={a} className="rounded-md px-2 py-1 font-mono text-[10.5px] text-success" style={{ background: 'rgba(4,120,87,0.08)' }}>
+                                {a}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
+
+                      {/* Action bar */}
+                      <div className="flex border-t border-line-divider">
+                        <Link
+                          href={`/dashboard/listings/${l.id}/edit`}
+                          className="flex flex-1 items-center justify-center gap-1.5 border-r border-line-divider py-2.5 text-[12px] font-semibold text-body transition hover:bg-surface-chip"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg>
+                          {lang === 'zh' ? '编辑' : 'Edit'}
+                        </Link>
                         <button
                           onClick={() => copyLink(l.slug)}
-                          className="rounded-lg border border-line-strong bg-white px-3 py-2 text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
+                          className="flex flex-1 items-center justify-center gap-1.5 border-r border-line-divider py-2.5 text-[12px] font-semibold text-body transition hover:bg-surface-chip"
                         >
-                          {copiedSlug === l.slug ? (lang === 'zh' ? '✓ 已复制' : '✓ Copied') : (lang === 'zh' ? '复制链接' : 'Copy link')}
+                          {copiedSlug === l.slug ? '✓' : (lang === 'zh' ? '链接' : 'Link')}
                         </button>
                         <a
-                          href={url}
+                          href={`/listings/${l.slug}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="rounded-lg border border-line-strong bg-white px-3 py-2 text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
+                          className="flex flex-1 items-center justify-center gap-1.5 border-r border-line-divider py-2.5 text-[12px] font-semibold text-body transition hover:bg-surface-chip"
                         >
-                          {lang === 'zh' ? '打开 ↗' : 'Open ↗'}
+                          {lang === 'zh' ? '查看' : 'View'} ↗
                         </a>
+                        <button
+                          onClick={() => toggleListingActive(l.id, l.is_active !== false)}
+                          className="flex flex-1 items-center justify-center gap-1 border-r border-line-divider py-2.5 text-[12px] font-semibold transition hover:bg-surface-chip"
+                          style={{ color: l.is_active !== false ? '#D97706' : '#047857' }}
+                        >
+                          {l.is_active !== false ? (lang === 'zh' ? '下架' : 'Off') : (lang === 'zh' ? '上架' : 'On')}
+                        </button>
+                        <button
+                          onClick={() => { setDeletingListing(l); setDeleteReason('') }}
+                          className="flex flex-1 items-center justify-center py-2.5 text-[12px] font-semibold text-body-3 transition hover:bg-danger/5 hover:text-danger"
+                        >
+                          {lang === 'zh' ? '删除' : 'Del'}
+                        </button>
                       </div>
-                    </li>
+                    </div>
                   )
                 })}
-              </ul>
+              </div>
             )}
           </div>
 
@@ -400,7 +496,6 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-      </main>
 
       {/* Upgrade modal */}
       {showUpgrade && (
@@ -478,6 +573,51 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Delete confirmation modal */}
+      {deletingListing && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur"
+          onClick={() => { if (!deleteLoading) { setDeletingListing(null); setDeleteReason('') } }}
+        >
+          <div className="sl-card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[18px] font-bold tracking-tight text-danger">
+              {lang === 'zh' ? '确认删除房源' : 'Delete listing'}
+            </h3>
+            <div className="mt-2 rounded-lg bg-surface-chip px-4 py-3">
+              <div className="text-[14px] font-bold">{deletingListing.address}{deletingListing.unit ? `, ${deletingListing.unit}` : ''}</div>
+              <div className="mt-0.5 font-mono text-[11.5px] text-body-3">${deletingListing.monthly_rent?.toLocaleString()}/mo · {deletingListing.city}</div>
+            </div>
+            <p className="mt-4 text-[13px] font-medium text-body-2">
+              {lang === 'zh' ? '请选择删除原因：' : 'Please select a reason:'}
+            </p>
+            <div className="mt-2 space-y-1.5">
+              {DELETE_REASONS.map((r) => (
+                <label key={r} className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-line-divider px-3.5 py-2.5 text-[13px] transition hover:border-brand has-[:checked]:border-brand has-[:checked]:bg-brand/5">
+                  <input type="radio" name="delete-reason" value={r} checked={deleteReason === r} onChange={() => setDeleteReason(r)} className="h-3.5 w-3.5 accent-brand" />
+                  {r}
+                </label>
+              ))}
+            </div>
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => { setDeletingListing(null); setDeleteReason('') }}
+                disabled={deleteLoading}
+                className="sl-btn-secondary flex-1 !py-2.5"
+              >
+                {lang === 'zh' ? '取消' : 'Cancel'}
+              </button>
+              <button
+                onClick={handleDeleteListing}
+                disabled={!deleteReason || deleteLoading}
+                className="flex-1 rounded-xl bg-danger py-2.5 text-[13.5px] font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
+              >
+                {deleteLoading ? '…' : lang === 'zh' ? '确认删除' : 'Confirm delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Checkout banner */}
       {checkoutBanner && (
         <div className="fixed top-20 left-1/2 z-40 max-w-[calc(100vw-2rem)] -translate-x-1/2">
@@ -518,7 +658,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-      <Footer />
-    </>
+    </WorkspaceShell>
   )
 }

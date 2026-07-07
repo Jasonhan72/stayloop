@@ -1,17 +1,45 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
+import { useAuth } from '@/lib/useAuth'
+import { ROLE_HOME } from '@/lib/useOnboarding'
 
 type AuthTab = 'password' | 'magic-link'
+
+
+// Post-login destination: useLandlord/guards bounce logged-out users to
+// /login?redirect=<path>; the auth callback honors a `next` param. Bridge
+// the two so bookmarked deep links survive the sign-in round-trip.
+function callbackUrl(): string {
+  if (typeof window === 'undefined') return '/auth/callback'
+  const redirect = new URLSearchParams(window.location.search).get('redirect')
+  const next = redirect && redirect.startsWith('/') && !redirect.startsWith('//')
+    ? `?next=${encodeURIComponent(redirect)}`
+    : ''
+  return `${window.location.origin}/auth/callback${next}`
+}
 
 export default function LoginPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
+  const router = useRouter()
+  const { loading: authLoading, user, role } = useAuth()
+
+  // Already signed in → don't show the login form. Honor an explicit
+  // ?redirect= target, else the user's workspace by active role.
+  useEffect(() => {
+    if (authLoading || !user) return
+    const redirect = new URLSearchParams(window.location.search).get('redirect')
+    const safe = redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : null
+    router.replace(safe ?? (role ? ROLE_HOME[role] : '/dashboard'))
+  }, [authLoading, user, role, router])
+
   const [tab, setTab] = useState<AuthTab>('password')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -32,7 +60,7 @@ export default function LoginPage() {
         }
         throw error
       }
-      window.location.href = '/auth/callback'
+      window.location.href = callbackUrl()
     } catch (e: unknown) {
       setErr((e as { message?: string })?.message || (zh ? '登录失败' : 'Sign-in failed'))
     } finally {
@@ -50,7 +78,7 @@ export default function LoginPage() {
         email,
         options: {
           emailRedirectTo:
-            typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined,
+            typeof window !== 'undefined' ? callbackUrl() : undefined,
         },
       })
       if (error) throw error
@@ -70,7 +98,7 @@ export default function LoginPage() {
         provider,
         options: {
           redirectTo:
-            typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined,
+            typeof window !== 'undefined' ? callbackUrl() : undefined,
         },
       })
       if (error) throw error

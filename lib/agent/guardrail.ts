@@ -72,8 +72,31 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput): GuardrailResul
   // 3) No false "already done" claims — the agent proposes, it never executes.
   if (action && EXECUTED_CLAIM.test(`${action.title} ${action.summary}`)) {
     flags.push('rewrote_executed_claim')
-    action = { ...action, summary: action.summary.replace(EXECUTED_CLAIM, '准备好（待你确认）') }
+    action = { ...action, summary: action.summary.replace(new RegExp(EXECUTED_CLAIM.source, 'g'), '已准备好（待你确认）') }
   }
+  // 3b) The reply TEXT can also falsely claim execution — worst when there is
+  //     no pending card to correct the impression. Appending a correction is
+  //     safer than regex-rewriting prose (which garbles mid-sentence Chinese).
+  if (!action && EXECUTED_CLAIM.test(reply)) {
+    flags.push('executed_claim_in_reply')
+    reply +=
+      '\n\n注：以上提到的操作**尚未真正执行**——任何对外发送、提交、签署或付款都会先以待确认卡片出现，经你批准后才会发生。'
+  }
+
+  // 3c) Memory hygiene — LLM-authored memories are re-injected into every
+  //     future system prompt verbatim, so they are a persistent prompt-
+  //     injection channel (e.g. instructions smuggled in via a fetched web
+  //     page). Drop instruction-shaped writes, cap lengths, clamp count.
+  const INJECTION_SHAPE =
+    /(ignore|disregard|忽略|无视).{0,20}(instruction|rule|prompt|规则|指令|提示)|system\s*prompt|act\s+as\b|你(现在)?是(?!.{0,6}(租客|房东|经纪))|jailbreak|override.{0,12}(guard|compliance)/i
+  const cleanedMemories = (out.memoryWrites || [])
+    .filter((m) => {
+      const blob = `${m.key ?? ''} ${String(m.value ?? '')}`
+      if (INJECTION_SHAPE.test(blob)) { flags.push('memory_write_dropped_injection'); return false }
+      return true
+    })
+    .slice(0, 5)
+    .map((m) => ({ ...m, value: typeof m.value === 'string' ? m.value.slice(0, 300) : m.value }))
 
   // 4) Over-reach — sensitive raw fields can never be in an outbound data_scope.
   if (action) {
@@ -95,5 +118,35 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput): GuardrailResul
     flags.push('action_missing_scope')
   }
 
-  return { out: { ...out, reply, proposedAction: action }, flags }
+  return { out: { ...out, reply, proposedAction: action, memoryWrites: cleanedMemories }, flags }
+}
+
+/** Draft-listing compliance — the draft card renders with an edit/publish CTA,
+ *  so it must pass the same OHRC/RTA filters as replies: no "no pets"
+ *  (void under RTA), no child/family-status exclusions, no protected-ground
+ *  screening criteria. Offending fields are stripped, not silently rewritten,
+ *  and a note explains why. */
+export function sanitizeDraftListing<T extends { title?: string; description?: string; pet_policy?: string }>(
+  draft: T,
+): { draft: T; flags: string[]; note: string | null } {
+  const flags: string[] = []
+  const out = { ...draft }
+  const NO_PETS = /(禁止养宠|不(允许|得|可)养宠|no[\s-]?pets?\b|pets?\s+not\s+allowed)/i
+  const NO_KIDS = /(不(允许|接受|租)(有)?(小孩|孩子|儿童|家庭)|no\s+(children|kids|families))/i
+  for (const field of ['title', 'description', 'pet_policy'] as const) {
+    const v = out[field]
+    if (typeof v !== 'string' || !v) continue
+    if (NO_KIDS.test(v) || PROTECTED_GROUNDS.test(v)) {
+      flags.push(`draft_listing_protected_ground_${field}`)
+      delete out[field]
+    } else if (NO_PETS.test(v)) {
+      flags.push(`draft_listing_illegal_term_${field}`)
+      if (field === 'pet_policy') out.pet_policy = '宠物友好政策待定（安省 RTA 下"禁止养宠"条款无效）'
+      else delete out[field]
+    }
+  }
+  const note = flags.length
+    ? '注：草稿中涉及 OHRC 受保护特征或 RTA 无效条款（如"禁止养宠"/排除家庭）的内容已被移除——这些不能出现在房源信息里。'
+    : null
+  return { draft: out, flags, note }
 }

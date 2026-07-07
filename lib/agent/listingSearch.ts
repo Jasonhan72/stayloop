@@ -9,7 +9,30 @@ export type SearchCriteria = {
   min_beds?: number | null
   pets?: boolean | null
   keywords?: string | null
+  property_type?: string | null
   count?: number | null
+}
+
+// What DB property_type values satisfy each requested type. 公寓 covers both
+// purpose-built apartments and condos; house excludes them entirely.
+const TYPE_MATCHES: Record<string, string[]> = {
+  apartment: ['apartment', 'condo'],
+  condo: ['apartment', 'condo'],
+  house: ['house'],
+  townhouse: ['townhouse'],
+  basement: ['basement'],
+  duplex: ['duplex'],
+}
+
+function normalizeType(c: SearchCriteria): string | null {
+  const t = (c.property_type || '').trim().toLowerCase()
+  if (TYPE_MATCHES[t]) return t
+  const kw = `${c.keywords || ''} ${c.property_type || ''}`
+  if (/公寓|apartment|condo|大厦|suite/i.test(kw)) return 'apartment'
+  if (/联排|townhouse|town\s?home/i.test(kw)) return 'townhouse'
+  if (/地下室|basement/i.test(kw)) return 'basement'
+  if (/house|整栋|独立屋/i.test(kw)) return 'house'
+  return null
 }
 
 const STOCK = [
@@ -18,10 +41,40 @@ const STOCK = [
   'https://images.unsplash.com/photo-1567496898669-ee935f5f647a?w=600&q=80&auto=format&fit=crop',
 ]
 
+// The model may emit the area in Chinese ("北约克"); DB values and Realtor.ca
+// queries are English, so normalize before filtering.
+const AREA_ALIASES: Record<string, string> = {
+  北约克: 'North York',
+  北約克: 'North York',
+  士嘉堡: 'Scarborough',
+  世嘉堡: 'Scarborough',
+  怡陶碧谷: 'Etobicoke',
+  伊桃碧谷: 'Etobicoke',
+  市中心: 'Downtown',
+  约克维尔: 'Yorkville',
+  約克維爾: 'Yorkville',
+  湖滨: 'Harbourfront',
+  湖濱: 'Harbourfront',
+  万锦: 'Markham',
+  萬錦: 'Markham',
+  密西沙加: 'Mississauga',
+  列治文山: 'Richmond Hill',
+  旺市: 'Vaughan',
+  奥克维尔: 'Oakville',
+}
+
+function normalizeArea(area?: string | null): string | null {
+  const t = (area || '').trim()
+  if (!t) return null
+  for (const [zh, en] of Object.entries(AREA_ALIASES)) if (t.includes(zh)) return en
+  return t
+}
+
 export async function searchListings(
   c: SearchCriteria,
   exclude: string[] = []
 ): Promise<{ listings: ListingCard[] }> {
+  c = { ...c, area: normalizeArea(c.area) }
   const target = Math.min(Math.max(c.count ?? 4, 1), 6)
   // Already-shown addresses (this conversation) are skipped so "再找几个 /
   // 换一批" returns NEW results. Over-fetch a bit to leave room after filtering.
@@ -52,6 +105,18 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
     'id,title,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,trust_tier,images,amenities,has_den,slug'
   )
   p.set('is_active', 'eq.true')
+  const wantType = normalizeType(c)
+  if (wantType) {
+    // Strict: rows without a property_type are excluded from typed searches —
+    // an unclassified house showing up in a 公寓 search is exactly the bug.
+    p.set('property_type', `in.(${TYPE_MATCHES[wantType].join(',')})`)
+  }
+  if (c.area) {
+    // Match city OR neighborhood OR address. Spaces become `*` wildcards so
+    // "North York" matches without needing PostgREST value quoting.
+    const pat = `*${c.area.replace(/[,()"']/g, ' ').trim().replace(/\s+/g, '*')}*`
+    p.set('or', `(city.ilike.${pat},neighborhood.ilike.${pat},address.ilike.${pat})`)
+  }
   if (c.max_price) p.set('monthly_rent', `lte.${Math.round(c.max_price)}`)
   if (c.min_beds) p.set('bedrooms', `gte.${Math.round(c.min_beds)}`)
   p.set('order', 'monthly_rent.asc')
@@ -70,7 +135,12 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
         id: String(r.id),
         source: 'stayloop' as const,
         title: (r.title as string) || (r.address as string) || '房源',
-        address: [r.unit, r.address].filter(Boolean).join(' - ') || (r.address as string) || '',
+        address: (() => {
+          const a = ((r.address as string) || '').trim()
+          const u = r.unit ? String(r.unit).trim() : ''
+          // Some rows already embed the unit in the address ("605 - 28 Avondale…").
+          return u && !a.toLowerCase().startsWith(u.toLowerCase()) ? `${u} - ${a}` : a
+        })(),
         neighborhood: (r.neighborhood as string) || undefined,
         city: (r.city as string) || undefined,
         price: Number(r.monthly_rent) || 0,
@@ -92,7 +162,9 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
 }
 
 // ---------- Live Realtor.ca via Jina (search → reader → parse) ----------
-function isHouseQuery(kw?: string | null): boolean {
+function isHouseQuery(kw?: string | null, propertyType?: string | null): boolean {
+  if (propertyType === 'house' || propertyType === 'townhouse') return true
+  if (propertyType === 'apartment' || propertyType === 'condo') return false
   return /house|整栋|独立屋|townhouse|联排|town\s?home/i.test(kw || '')
 }
 
@@ -100,7 +172,7 @@ async function jinaRealtor(c: SearchCriteria): Promise<ListingCard[]> {
   const key = process.env.JINA_API_KEY
   if (!key) return []
   const area = c.area || 'Toronto'
-  const house = isHouseQuery(c.keywords)
+  const house = isHouseQuery(c.keywords, normalizeType(c))
 
   // 1. Find the Realtor.ca rentals page for this area.
   let pageUrl: string | null = null
@@ -196,7 +268,7 @@ function parseRealtor(md: string, c: SearchCriteria): ListingCard[] {
 // ---------- Last-resort synthetic fallback (Jina unavailable) ----------
 function syntheticRealtor(c: SearchCriteria): ListingCard[] {
   const area = c.area || 'Toronto'
-  const house = isHouseQuery(c.keywords)
+  const house = isHouseQuery(c.keywords, normalizeType(c))
   const beds = c.min_beds || (house ? 3 : 1)
   const cap = c.max_price || (house ? 3200 : 2400)
   const streets = house

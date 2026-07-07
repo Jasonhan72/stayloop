@@ -72,6 +72,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, already_notified: true })
   }
 
+  // Atomic claim BEFORE sending — the read-check-send-stamp sequence above
+  // alone is a TOCTOU race: two concurrent requests both read
+  // notified_at=null and both send. This conditional update lets exactly
+  // one request win; losers see zero rows and return already_notified.
+  const { data: claimed, error: claimErr } = await admin
+    .from('applications')
+    .update({ notified_at: new Date().toISOString() })
+    .eq('id', applicationId)
+    .is('notified_at', null)
+    .select('id')
+  if (claimErr) {
+    console.error('notify-landlord claim error', claimErr)
+    return NextResponse.json({ error: 'claim failed' }, { status: 500 })
+  }
+  if (!claimed || claimed.length === 0) {
+    return NextResponse.json({ ok: true, already_notified: true })
+  }
+
   const listing = Array.isArray(app.listing) ? app.listing[0] : app.listing
   const landlord = listing
     ? Array.isArray(listing.landlord) ? listing.landlord[0] : listing.landlord
@@ -117,22 +135,17 @@ export async function POST(req: NextRequest) {
 
   if (!result.ok) {
     console.error('notify-landlord send failed', result.error)
-    // Do NOT mark notified_at — we want the next retry to try again.
+    // Release the claim so the next retry can send — we claimed before
+    // sending, so an unreleased claim would permanently swallow the email.
+    const { error: releaseErr } = await admin
+      .from('applications')
+      .update({ notified_at: null })
+      .eq('id', applicationId)
+    if (releaseErr) console.error('notify-landlord claim release failed', releaseErr)
     return NextResponse.json(
       { error: result.error || 'send failed' },
       { status: 502 }
     )
-  }
-
-  // Stamp the application so we never re-send for this submission.
-  const { error: stampErr } = await admin
-    .from('applications')
-    .update({ notified_at: new Date().toISOString() })
-    .eq('id', applicationId)
-
-  if (stampErr) {
-    // Not fatal — email already went out. Just log.
-    console.warn('notify-landlord stamp failed', stampErr)
   }
 
   return NextResponse.json({ ok: true, id: result.id })

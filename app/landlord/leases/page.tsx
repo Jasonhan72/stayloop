@@ -1,16 +1,58 @@
 'use client'
 
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { supabase } from '@/lib/supabase'
+import { useLandlord } from '@/lib/useLandlord'
 import { useT, type Lang } from '@/lib/i18n'
 
-/**
- * V5 ART 25 · Landlord · Leases
- * Lists active + upcoming + expired leases with activity timeline.
- * Empty state for landlords without active leases.
- */
+// A real lease row from lease_documents, mapped to the display shape.
+type LeaseItem = {
+  id: string
+  tenant: string
+  unit: string
+  rent: number
+  start: string
+  end: string
+  status: 'active' | 'pending' | 'expired'
+  onTime: string
+  monthsLeft: number
+  nextRenewal: { zh: string; en: string }
+}
 
-const LEASES = [
+function mapDbLease(row: {
+  id: string; tenant_name: string | null; tenant_email: string | null
+  unit_label: string | null; monthly_rent: number | null
+  start_date: string | null; end_date: string | null; status: string | null
+}): LeaseItem {
+  const status: LeaseItem['status'] =
+    row.status === 'active' || row.status === 'signed_both' ? 'active'
+    : row.status === 'ended' ? 'expired'
+    : 'pending'
+  const end = row.end_date ? new Date(row.end_date) : null
+  const now = new Date()
+  const monthsLeft = end ? Math.max(0, (end.getFullYear() - now.getFullYear()) * 12 + end.getMonth() - now.getMonth()) : 0
+  const daysToEnd = end ? Math.ceil((end.getTime() - now.getTime()) / 86_400_000) : Infinity
+  const inWindow = status === 'active' && daysToEnd <= 120 && daysToEnd >= 0
+  return {
+    id: row.id,
+    tenant: row.tenant_name || row.tenant_email || '—',
+    unit: row.unit_label || '—',
+    rent: Number(row.monthly_rent) || 0,
+    start: row.start_date || '—',
+    end: row.end_date || '—',
+    status,
+    onTime: '—',
+    monthsLeft,
+    nextRenewal: inWindow
+      ? { zh: '续约窗口已开 · Logic 已在工作台准备方案', en: 'Renewal window open · Logic prepared options in your workspace' }
+      : { zh: '—', en: '—' },
+  }
+}
+
+const LEASES: LeaseItem[] = [
   {
     id: 'L-202',
     tenant: 'Mia Chen',
@@ -68,14 +110,62 @@ const ACTIVITY = [
   { time: { zh: '5/2 10:00', en: '5/2 10:00' }, text: { zh: 'L-202 第 11 个月按时入账 — 认证信任记录 +1。', en: 'L-202 month 11 paid on time — trust record +1.' } },
 ]
 
+function downloadCSV(lang: Lang, rows: LeaseItem[]) {
+  const header = lang === 'zh'
+    ? '租约编号,租客,单元,月租,开始日期,结束日期,状态,按时率'
+    : 'Lease ID,Tenant,Unit,Monthly Rent,Start Date,End Date,Status,On-time Rate'
+  const lines = rows.map(l =>
+    `${l.id},${l.tenant},"${l.unit}",${l.rent},${l.start},${l.end},${l.status},${l.onTime}`
+  )
+  const csv = [header, ...lines].join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `stayloop-leases-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function LandlordLeasesPage() {
   const { lang } = useT()
-  const active = LEASES.filter((l) => l.status === 'active')
-  const pending = LEASES.filter((l) => l.status === 'pending')
-  const expired = LEASES.filter((l) => l.status === 'expired')
+  const router = useRouter()
+  const { landlord, loading: authLoading } = useLandlord()
+
+  // Real leases from lease_documents (RLS-scoped). While the user has none,
+  // the design-canon demo fixtures render with an explicit 示范数据 notice.
+  const [realLeases, setRealLeases] = useState<LeaseItem[] | null>(null)
+  const [showEntry, setShowEntry] = useState(false)
+  const loadLeases = useCallback(async () => {
+    if (!landlord) return
+    const { data, error } = await supabase
+      .from('lease_documents')
+      .select('id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status')
+      .order('end_date', { ascending: true })
+    if (!error && data) setRealLeases(data.map(mapDbLease))
+  }, [landlord])
+  useEffect(() => { void loadLeases() }, [loadLeases])
+
+  const liveMode = (realLeases?.length ?? 0) > 0
+  const rows: LeaseItem[] = liveMode ? realLeases! : LEASES
+  const active = rows.filter((l) => l.status === 'active')
+  const pending = rows.filter((l) => l.status === 'pending')
+  const expired = rows.filter((l) => l.status === 'expired')
+  const now = new Date()
+  const expiringSoon = active.filter((l) => {
+    const end = new Date(l.end)
+    return !isNaN(end.getTime()) && end.getFullYear() === now.getFullYear() && end.getMonth() === now.getMonth()
+  }).length
 
   return (
     <WorkspaceShell role="landlord" aside={<RailAside lang={lang} />}>
+      {!liveMode && !authLoading && (
+        <div className="mb-5 rounded-xl border border-line-strong bg-surface-chip px-4 py-2.5 font-mono text-[11px] leading-relaxed text-body-3">
+          {lang === 'zh'
+            ? '示范数据 · 录入你的第一份真实租约后，此页与 Logic 的续约提醒将切换为你的真实数据'
+            : 'SAMPLE DATA · enter your first real lease and this page plus Logic’s renewal alerts switch to your live records'}
+        </div>
+      )}
       <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-landlord">
@@ -88,18 +178,58 @@ export default function LandlordLeasesPage() {
               : 'Ontario LTB Standard Lease · automatic RTA clause checks · one-click renewal / rent-increase notices'}
           </p>
         </div>
-        <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">
-          {lang === 'zh' ? '+ 起草新租约' : '+ Draft new lease'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => downloadCSV(lang, rows)}
+            className="rounded-[10px] border border-line-strong bg-white px-4 py-[12px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
+          >
+            {lang === 'zh' ? '导出 CSV' : 'Export CSV'}
+          </button>
+          {landlord && (
+            <button
+              onClick={() => setShowEntry(true)}
+              className="rounded-[10px] border border-landlord bg-landlord/10 px-4 py-[12px] text-[13px] font-semibold text-landlord transition hover:bg-landlord/20"
+            >
+              {lang === 'zh' ? '＋ 录入现有租约' : '+ Enter existing lease'}
+            </button>
+          )}
+          <button
+            onClick={() => router.push('/landlord/leases/new')}
+            className="sl-btn-primary !px-5 !py-[12px] !text-[13px]"
+          >
+            {lang === 'zh' ? '+ 起草新租约' : '+ Draft new lease'}
+          </button>
+        </div>
       </div>
 
-      <RenewalPack lang={lang} />
+      {showEntry && landlord && (
+        <LeaseEntryModal
+          lang={lang}
+          landlordId={landlord.landlordId}
+          onClose={() => setShowEntry(false)}
+          onSaved={() => { setShowEntry(false); void loadLeases() }}
+        />
+      )}
+
+      {!liveMode && <RenewalPack lang={lang} />}
+      {liveMode && expiringSoon >= 0 && active.some((l) => l.nextRenewal.zh !== '—') && (
+        <div className="mb-10 rounded-2xl border border-landlord/25 bg-landlord/[0.05] p-5">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 h-6 w-6 flex-none rounded-full" style={{ background: 'radial-gradient(circle at 35% 35%, #6EE7B7, #047857 70%)' }} />
+            <div className="text-[13.5px] leading-relaxed text-body-2">
+              {lang === 'zh'
+                ? <>有租约进入续约窗口。Logic 已在<Link href="/landlord/agent" className="mx-1 font-semibold text-landlord underline underline-offset-2">你的工作台</Link>准备好方案（不涨 / 指导上限 +2.5%）—— 批准后续约函会真实发送给租客。</>
+                : <>A lease entered its renewal window. Logic prepared options in <Link href="/landlord/agent" className="mx-1 font-semibold text-landlord underline underline-offset-2">your workspace</Link> — approve and the renewal letter is actually sent to your tenant.</>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick stats */}
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat label={lang === 'zh' ? '活跃租约' : 'Active leases'} value={active.length} accent="#047857" />
         <Stat label={lang === 'zh' ? '待签字' : 'Awaiting signature'} value={pending.length} accent="#B45309" />
-        <Stat label={lang === 'zh' ? '本月到期' : 'Expiring this month'} value={1} accent="#71717A" />
+        <Stat label={lang === 'zh' ? '本月到期' : 'Expiring this month'} value={liveMode ? expiringSoon : 1} accent="#71717A" />
       </div>
 
       {/* Active section */}
@@ -110,7 +240,7 @@ export default function LandlordLeasesPage() {
           count={active.length}
           right={lang === 'zh' ? '按到期日 ↑' : 'By end date ↑'}
         />
-        <LeaseList items={active} lang={lang} />
+        <LeaseList items={active} lang={lang} live={liveMode} />
       </section>
 
       <section className="mt-10">
@@ -120,7 +250,7 @@ export default function LandlordLeasesPage() {
           count={pending.length}
           right={lang === 'zh' ? '本月新增 1' : '1 new this month'}
         />
-        <LeaseList items={pending} lang={lang} />
+        <LeaseList items={pending} lang={lang} live={liveMode} />
       </section>
 
       <section className="mt-10">
@@ -130,35 +260,85 @@ export default function LandlordLeasesPage() {
           count={expired.length}
           right={lang === 'zh' ? '近 6 个月' : 'Last 6 months'}
         />
-        <LeaseList items={expired} lang={lang} />
+        <LeaseList items={expired} lang={lang} live={liveMode} />
       </section>
     </WorkspaceShell>
   )
 }
 
 function RenewalPack({ lang }: { lang: Lang }) {
+  const [selected, setSelected] = useState<number | null>(null)
+  const [confirmed, setConfirmed] = useState(false)
+  const [declined, setDeclined] = useState(false)
+  const router = useRouter()
+  const zh = lang === 'zh'
+
   const DIMS = [
     { k: { zh: '租客评级', en: 'Tenant rating' }, v: 'A+', d: { zh: '12/12 准时 · 0 投诉 · 0 维修延迟', en: '12/12 on time · 0 complaints · 0 repair delays' }, accent: '#047857' },
     { k: { zh: '市场租金', en: 'Market rent' }, v: '$3,400', d: { zh: '区域 +6% · 同栋 unit 4F 3 月以 $3,420 出租', en: 'Area +6% · unit 4F in same building leased at $3,420 in March' }, accent: '#171717' },
     { k: { zh: '空置成本', en: 'Vacancy cost' }, v: { zh: '$3,200 × 1.5 月', en: '$3,200 × 1.5 mo' }, d: { zh: '区域平均空置 45 天 · 你历史 22 天', en: 'Area avg vacancy 45 days · your history 22 days' }, accent: '#B45309' },
   ]
   const OPTIONS = [
-    { tag: { zh: 'A · 保守', en: 'A · Conservative' }, price: { zh: '$3,200 · 不涨', en: '$3,200 · no increase' }, note: { zh: '他大概率续。但你年付损失 $2,400 vs 市场。', en: 'He very likely renews. But you lose $2,400/yr vs market.' }, hot: false },
-    { tag: { zh: 'B · 推荐 · 平衡', en: 'B · Recommended · Balanced' }, price: { zh: '$3,296 · +3%', en: '$3,296 · +3%' }, note: { zh: '略低于市场 · 留温度。Thompson 历史接受度高。', en: 'Slightly below market · keeps goodwill. Thompson historically accepts.' }, hot: true },
-    { tag: { zh: 'C · 激进', en: 'C · Aggressive' }, price: { zh: '$3,400 · +6.25%', en: '$3,400 · +6.25%' }, note: { zh: '完全市场价。Thompson 60% 续 · 40% 离开。', en: 'Full market price. Thompson 60% renew · 40% leave.' }, hot: false },
+    { tag: { zh: 'A · 保守', en: 'A · Conservative' }, price: { zh: '$3,200 · 不涨', en: '$3,200 · no increase' }, rent: 3200, note: { zh: '他大概率续。但你年付损失 $2,400 vs 市场。', en: 'He very likely renews. But you lose $2,400/yr vs market.' }, hot: false },
+    { tag: { zh: 'B · 推荐 · 平衡', en: 'B · Recommended · Balanced' }, price: { zh: '$3,296 · +3%', en: '$3,296 · +3%' }, rent: 3296, note: { zh: '略低于市场 · 留温度。Thompson 历史接受度高。', en: 'Slightly below market · keeps goodwill. Thompson historically accepts.' }, hot: true },
+    { tag: { zh: 'C · 激进', en: 'C · Aggressive' }, price: { zh: '$3,400 · +6.25%', en: '$3,400 · +6.25%' }, rent: 3400, note: { zh: '完全市场价。Thompson 60% 续 · 40% 离开。', en: 'Full market price. Thompson 60% renew · 40% leave.' }, hot: false },
   ]
+
+  if (declined) {
+    return (
+      <section className="mb-10 sl-card overflow-hidden p-7">
+        <div className="flex items-center gap-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600 text-[16px]">✕</span>
+          <div>
+            <div className="text-[16px] font-bold">{zh ? '已选择不续约 · Thompson · Liberty Village 2B' : 'Chose not to renew · Thompson · Liberty Village 2B'}</div>
+            <p className="mt-1 text-[13px] text-body-2">{zh ? 'Logic 将在到期前 90 天提醒你发送 N12 通知。' : 'Logic will remind you to issue an N12 notice 90 days before expiry.'}</p>
+          </div>
+        </div>
+        <button onClick={() => { setDeclined(false); setSelected(null); setConfirmed(false) }} className="mt-4 text-[12.5px] font-semibold text-brand hover:underline">
+          {zh ? '撤回决定' : 'Undo decision'}
+        </button>
+      </section>
+    )
+  }
+
+  if (confirmed && selected !== null) {
+    const opt = OPTIONS[selected]
+    return (
+      <section className="mb-10 sl-card overflow-hidden p-7">
+        <div className="flex items-center gap-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-700 text-[16px]">✓</span>
+          <div>
+            <div className="text-[16px] font-bold">{zh ? `已选方案 ${opt.tag[lang]} · $${opt.rent.toLocaleString()}/月` : `Selected ${opt.tag[lang]} · $${opt.rent.toLocaleString()}/mo`}</div>
+            <p className="mt-1 text-[13px] text-body-2">{zh ? 'Logic 正在为 Thompson 起草续约函...' : 'Logic is drafting the renewal letter for Thompson...'}</p>
+          </div>
+        </div>
+        <div className="mt-4 flex gap-2">
+          <Link
+            href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `用方案 ${opt.tag[lang]} ($${opt.rent}) 为 Thompson 起草 Liberty Village 2B 的续约函` : `Draft a renewal letter for Thompson at Liberty Village 2B using ${opt.tag[lang]} ($${opt.rent})`)}`}
+            className="sl-btn-primary !px-4 !py-[10px] !text-[13px]"
+          >
+            {zh ? '去 Logic 查看续约函 →' : 'View renewal letter in Logic →'}
+          </Link>
+          <button onClick={() => { setConfirmed(false); setSelected(null) }} className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body hover:border-brand hover:text-brand">
+            {zh ? '改方案' : 'Change option'}
+          </button>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="mb-10 sl-card overflow-hidden p-7">
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-landlord">
-        {lang === 'zh' ? '续约决策包 · LIBERTY VILLAGE 2B' : 'RENEWAL PACK · LIBERTY VILLAGE 2B'}
+        {zh ? '续约决策包 · LIBERTY VILLAGE 2B' : 'RENEWAL PACK · LIBERTY VILLAGE 2B'}
       </div>
       <h2 className="mt-2 text-[22px] font-bold tracking-tight">
-        {lang === 'zh'
+        {zh
           ? 'Thompson 租期 6/30 到期 · 续不续？涨多少？'
-          : 'Thompson’s lease ends 6/30 · Renew? By how much?'}
+          : "Thompson's lease ends 6/30 · Renew? By how much?"}
       </h2>
       <p className="mt-1 text-[13.5px] text-body-2">
-        {lang === 'zh'
+        {zh
           ? 'Logic 整理了 4 个数据维度 + 3 个建议方案。你 1 click 就好。'
           : 'Logic has compiled 4 data dimensions + 3 suggested options. One click is all it takes.'}
       </p>
@@ -173,24 +353,33 @@ function RenewalPack({ lang }: { lang: Lang }) {
         ))}
       </div>
 
-      <div className="mt-4 font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-body-3">{lang === 'zh' ? 'Logic 给你 3 个方案' : 'Logic offers 3 options'}</div>
+      <div className="mt-4 font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? 'Logic 给你 3 个方案' : 'Logic offers 3 options'}</div>
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        {OPTIONS.map((o) => (
-          <div
+        {OPTIONS.map((o, i) => (
+          <button
             key={o.tag.en}
-            className={'rounded-xl border p-4 ' + (o.hot ? 'border-landlord bg-landlord/[0.06]' : 'border-line-divider bg-white')}
+            onClick={() => setSelected(i)}
+            className={'rounded-xl border p-4 text-left transition ' + (
+              selected === i
+                ? 'border-landlord bg-landlord/[0.10] ring-2 ring-landlord/30'
+                : o.hot
+                  ? 'border-landlord bg-landlord/[0.06] hover:bg-landlord/[0.10]'
+                  : 'border-line-divider bg-white hover:border-landlord/40'
+            )}
           >
-            <div className={'font-mono text-[11px] font-bold ' + (o.hot ? 'text-landlord' : 'text-body-3')}>{o.tag[lang]}</div>
+            <div className={'font-mono text-[11px] font-bold ' + (selected === i || o.hot ? 'text-landlord' : 'text-body-3')}>
+              {selected === i && '● '}{o.tag[lang]}
+            </div>
             <div className="mt-1 text-[16px] font-bold tracking-tight">{o.price[lang]}</div>
             <div className="mt-1.5 text-[11.5px] leading-snug text-body-2">{o.note[lang]}</div>
-          </div>
+          </button>
         ))}
       </div>
 
       <div className="mt-4 grid grid-cols-[28px_1fr] gap-3 rounded-lg border border-landlord/20 bg-landlord/5 px-3 py-3">
         <span className="h-5 w-5 rounded-full" style={{ background: 'radial-gradient(circle at 35% 35%, #6EE7B7, #047857 70%)' }} />
         <div className="text-[12.5px] leading-relaxed text-body-2">
-          {lang === 'zh' ? (
+          {zh ? (
             <>
               <b className="text-body">Logic 解读：</b>B 方案是过去 3 年你这种「A 级租客」的最优 ROI。Thompson 价值 = 准时 + 0 维修争议 + 邻里好评 = 隐性 $5k+/年。
               <br />
@@ -198,20 +387,130 @@ function RenewalPack({ lang }: { lang: Lang }) {
             </>
           ) : (
             <>
-              <b className="text-body">Logic’s read: </b>Option B is the best ROI for an A-grade tenant like this over the past 3 years. Thompson’s value = on time + 0 repair disputes + good neighbor reviews = a hidden $5k+/yr.
+              <b className="text-body">{"Logic's read: "}</b>Option B is the best ROI for an A-grade tenant like this over the past 3 years. {"Thompson's"} value = on time + 0 repair disputes + good neighbor reviews = a hidden $5k+/yr.
               <br />
-              <span className="text-body-3">Note: Ontario’s 2026 increase cap is 2.5%, but this unit was built post-2018 and is exempt — any increase is legal.</span>
+              <span className="text-body-3">{"Note: Ontario's 2026 increase cap is 2.5%, but this unit was built post-2018 and is exempt — any increase is legal."}</span>
             </>
           )}
         </div>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        <button className="sl-btn-primary !px-5 !py-[12px] !text-[13.5px]">{lang === 'zh' ? '✓ 用 B · $3,296 · 起草续约函发给 Thompson' : '✓ Use B · $3,296 · draft renewal letter for Thompson'}</button>
-        <button className="rounded-[10px] border border-line-strong bg-white px-4 py-[12px] text-[13.5px] font-semibold text-body hover:border-brand hover:text-brand">{lang === 'zh' ? '改方案' : 'Adjust option'}</button>
-        <button className="rounded-[10px] border border-line-strong bg-white px-4 py-[12px] text-[13.5px] font-semibold text-body-3">{lang === 'zh' ? '不续约' : 'Don’t renew'}</button>
+        <button
+          onClick={() => {
+            if (selected === null) setSelected(1)
+            setConfirmed(true)
+          }}
+          className="sl-btn-primary !px-5 !py-[12px] !text-[13.5px]"
+        >
+          {selected !== null
+            ? (zh ? `✓ 用 ${OPTIONS[selected].tag[lang]} · $${OPTIONS[selected].rent.toLocaleString()} · 起草续约函` : `✓ Use ${OPTIONS[selected].tag[lang]} · $${OPTIONS[selected].rent.toLocaleString()} · draft renewal`)
+            : (zh ? '✓ 用 B · $3,296 · 起草续约函发给 Thompson' : '✓ Use B · $3,296 · draft renewal letter for Thompson')
+          }
+        </button>
+        <button
+          onClick={() => setSelected(null)}
+          className="rounded-[10px] border border-line-strong bg-white px-4 py-[12px] text-[13.5px] font-semibold text-body hover:border-brand hover:text-brand"
+        >
+          {zh ? '改方案' : 'Adjust option'}
+        </button>
+        <button
+          onClick={() => setDeclined(true)}
+          className="rounded-[10px] border border-line-strong bg-white px-4 py-[12px] text-[13.5px] font-semibold text-body-3 hover:border-red-400 hover:text-red-600"
+        >
+          {zh ? '不续约' : "Don't renew"}
+        </button>
       </div>
     </section>
+  )
+}
+
+
+// Minimal "enter an existing tenancy" form. This is the on-ramp to live
+// mode: one real lease and Logic's proactive renewal engine has something
+// true to reason about.
+function LeaseEntryModal({ lang, landlordId, onClose, onSaved }: {
+  lang: Lang
+  landlordId: string
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const zh = lang === 'zh'
+  const [f, setF] = useState({ tenant_name: '', tenant_email: '', unit_label: '', monthly_rent: '', start_date: '', end_date: '' })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const set = (k: string, v: string) => setF((prev) => ({ ...prev, [k]: v }))
+
+  const save = async () => {
+    if (saving) return
+    if (!f.tenant_name.trim() || !f.unit_label.trim() || !f.monthly_rent.trim() || !f.end_date) {
+      setErr(zh ? '请填写租客姓名、单元、月租和到期日' : 'Tenant name, unit, rent and end date are required')
+      return
+    }
+    if (f.tenant_email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.tenant_email.trim())) {
+      setErr(zh ? '租客邮箱格式不对' : 'Tenant email looks invalid')
+      return
+    }
+    setErr(null)
+    setSaving(true)
+    const { error } = await supabase.from('lease_documents').insert({
+      landlord_id: landlordId,
+      status: 'active',
+      tenant_name: f.tenant_name.trim(),
+      tenant_email: f.tenant_email.trim() || null,
+      unit_label: f.unit_label.trim(),
+      monthly_rent: parseFloat(f.monthly_rent) || null,
+      start_date: f.start_date || null,
+      end_date: f.end_date,
+    })
+    setSaving(false)
+    if (error) { setErr(error.message); return }
+    onSaved()
+  }
+
+  const field = (label: string, key: keyof typeof f, type = 'text', placeholder = '') => (
+    <label className="block">
+      <span className="mb-1 block text-[12px] font-semibold text-body-2">{label}</span>
+      <input
+        type={type}
+        value={f[key]}
+        placeholder={placeholder}
+        onChange={(e) => set(key, e.target.value)}
+        className="w-full rounded-[10px] border border-line-strong bg-white px-3 py-[10px] text-[13.5px] outline-none focus:border-landlord"
+      />
+    </label>
+  )
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-[440px] rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-[18px] font-bold tracking-tight">{zh ? '录入现有租约' : 'Enter an existing lease'}</h3>
+        <p className="mt-1 text-[12.5px] leading-relaxed text-body-2">
+          {zh
+            ? '录入后 Logic 会盯住到期日：进入 90 天续约窗口时自动准备方案，你批准后续约函会真实发送给租客。'
+            : 'Logic watches the end date: when the 90-day renewal window opens it prepares options, and on your approval the renewal letter is actually sent to your tenant.'}
+        </p>
+        <div className="mt-4 grid gap-3">
+          {field(zh ? '租客姓名 *' : 'Tenant name *', 'tenant_name', 'text', zh ? '例如 张伟' : 'e.g. Alex Wong')}
+          {field(zh ? '租客邮箱（发送续约函用）' : 'Tenant email (for the renewal letter)', 'tenant_email', 'email', 'tenant@email.com')}
+          {field(zh ? '单元 / 地址 *' : 'Unit / address *', 'unit_label', 'text', zh ? '例如 Unit 1207 · 100 Western Battery Rd' : 'e.g. Unit 1207 · 100 Western Battery Rd')}
+          {field(zh ? '月租 (CAD) *' : 'Monthly rent (CAD) *', 'monthly_rent', 'number', '2800')}
+          <div className="grid grid-cols-2 gap-3">
+            {field(zh ? '起租日' : 'Start date', 'start_date', 'date')}
+            {field(zh ? '到期日 *' : 'End date *', 'end_date', 'date')}
+          </div>
+        </div>
+        {err && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-[12.5px] text-red-700">{err}</div>}
+        <div className="mt-5 flex gap-2">
+          <button onClick={save} disabled={saving} className="sl-btn-primary flex-1 !py-[11px] !text-[13.5px]">
+            {saving ? (zh ? '保存中…' : 'Saving…') : (zh ? '保存租约' : 'Save lease')}
+          </button>
+          <button onClick={onClose} className="rounded-[10px] border border-line-strong bg-white px-4 py-[11px] text-[13.5px] font-semibold text-body">
+            {zh ? '取消' : 'Cancel'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -256,7 +555,7 @@ function SectionHead({
   )
 }
 
-function LeaseList({ items, lang }: { items: typeof LEASES; lang: Lang }) {
+function LeaseList({ items, lang, live }: { items: LeaseItem[]; lang: Lang; live?: boolean }) {
   if (items.length === 0) {
     return (
       <div className="sl-card p-8 text-center text-[13.5px] text-body-3">
@@ -293,7 +592,7 @@ function LeaseList({ items, lang }: { items: typeof LEASES; lang: Lang }) {
             <div className="mt-1 text-[12px] text-body-2">{l.nextRenewal[lang]}</div>
           </div>
           <Link
-            href="#"
+            href={`/landlord/leases/${l.id}`}
             className="rounded-[10px] border border-line-strong bg-white px-4 py-[8px] text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
           >
             {lang === 'zh' ? '打开 →' : 'Open →'}
@@ -330,10 +629,11 @@ function StatusPill({ status }: { status: string }) {
 }
 
 function RailAside({ lang }: { lang: Lang }) {
+  const zh = lang === 'zh'
   return (
     <div>
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        {lang === 'zh' ? '最近活动' : 'Recent activity'}
+        {zh ? '最近活动' : 'Recent activity'}
       </div>
       <ul className="mt-3 space-y-4">
         {ACTIVITY.map((a, i) => (
@@ -348,26 +648,26 @@ function RailAside({ lang }: { lang: Lang }) {
 
       <div className="mt-8 sl-card p-4">
         <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-body-3">
-          {lang === 'zh' ? 'LTB 提醒' : 'LTB reminder'}
+          {zh ? 'LTB 提醒' : 'LTB reminder'}
         </div>
         <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
-          {lang === 'zh' ? (
+          {zh ? (
             <>
               安省 2026 涨租上限为 <b>2.5%</b>。但 2018 年 11 月后首次入住的单位不受限 —
               Logic 会先判断房龄，再决定是否套用。
             </>
           ) : (
             <>
-              Ontario’s 2026 rent-increase cap is <b>2.5%</b>. But units first occupied after November 2018 are exempt —
-              Logic checks the unit’s age first, then decides whether the cap applies.
+              {"Ontario's"} 2026 rent-increase cap is <b>2.5%</b>. But units first occupied after November 2018 are exempt —
+              Logic checks the {"unit's"} age first, then decides whether the cap applies.
             </>
           )}
         </p>
         <Link
-          href="#"
+          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我查看 Ontario N1 和 N2 涨租通知模板，以及使用时机和注意事项' : 'Show me the Ontario N1 and N2 rent increase notice templates, with timing rules and key considerations')}`}
           className="mt-3 inline-block text-[12px] font-semibold text-brand hover:underline"
         >
-          {lang === 'zh' ? '查看 N1 / N2 通知模板 →' : 'View N1 / N2 notice templates →'}
+          {zh ? '查看 N1 / N2 通知模板 →' : 'View N1 / N2 notice templates →'}
         </Link>
       </div>
     </div>

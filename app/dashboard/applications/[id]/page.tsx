@@ -5,8 +5,7 @@ export const runtime = 'edge'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import WorkspaceShell from '@/components/WorkspaceShell'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
 import { useT } from '@/lib/i18n'
@@ -34,29 +33,23 @@ export default function ApplicationDetailPage() {
 
   if (authLoading || loading) {
     return (
-      <>
-        <Header />
-        <main className="bg-surface flex min-h-[60vh] items-center justify-center">
+      <WorkspaceShell role="landlord" hideAside>
+        <div className="flex min-h-[60vh] items-center justify-center">
           <span className="orb landlord pulse h-12 w-12" style={{ color: '#047857' }} />
-        </main>
-        <Footer />
-      </>
+        </div>
+      </WorkspaceShell>
     )
   }
 
   if (!app) {
     return (
-      <>
-        <Header />
-        <main className="bg-surface">
-          <div className="mx-auto max-w-md px-5 py-20 text-center">
-            <h1 className="text-[22px] font-bold">{lang === 'zh' ? '找不到申请记录' : 'Application not found'}</h1>
-            <p className="mt-2 text-[13.5px] text-body-2">{lang === 'zh' ? '可能已被删除或链接错误。' : 'It may have been deleted, or the link is incorrect.'}</p>
-            <Link href="/dashboard" className="sl-btn-secondary mt-6 inline-flex">{lang === 'zh' ? '回工作台' : 'Back to workspace'}</Link>
-          </div>
-        </main>
-        <Footer />
-      </>
+      <WorkspaceShell role="landlord" hideAside>
+        <div className="mx-auto max-w-md py-20 text-center">
+          <h1 className="text-[22px] font-bold">{lang === 'zh' ? '找不到申请记录' : 'Application not found'}</h1>
+          <p className="mt-2 text-[13.5px] text-body-2">{lang === 'zh' ? '可能已被删除或链接错误。' : 'It may have been deleted, or the link is incorrect.'}</p>
+          <Link href="/dashboard" className="sl-btn-secondary mt-6 inline-flex">{lang === 'zh' ? '回工作台' : 'Back to workspace'}</Link>
+        </div>
+      </WorkspaceShell>
     )
   }
 
@@ -75,10 +68,8 @@ export default function ApplicationDetailPage() {
   ]
 
   return (
-    <>
-      <Header />
-      <main className="bg-surface">
-        <div className="mx-auto max-w-[1180px] px-5 py-10 sm:px-7">
+    <WorkspaceShell role="landlord" hideAside>
+      <div className="mx-auto max-w-[1180px]">
           <Link href="/dashboard" className="font-mono text-[12px] text-body-3 hover:text-body">
             {lang === 'zh' ? '← 返回工作台' : '← Back to workspace'}
           </Link>
@@ -193,8 +184,6 @@ export default function ApplicationDetailPage() {
             </aside>
           </div>
         </div>
-      </main>
-      <Footer />
-    </>
+    </WorkspaceShell>
   )
 }

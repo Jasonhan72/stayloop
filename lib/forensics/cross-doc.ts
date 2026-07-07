@@ -237,6 +237,87 @@ export function runCrossDocChecks(
   }
 }
 
+// ---- Rule 5: Timestamp clustering — batch forgery detection ----
+// When multiple "different-month" documents (pay stubs from March, April, May)
+// all have the same CreationDate within a 2-hour window, the forger created
+// them all in one sitting. Real documents are generated weeks/months apart.
+
+export interface TimestampClusterInput {
+  file_name: string
+  file_kind: string
+  creation_date: string | null
+}
+
+export function checkTimestampClustering(
+  files: TimestampClusterInput[],
+): ForensicFlag[] {
+  const flags: ForensicFlag[] = []
+
+  // Only check files with valid creation dates AND strict kinds
+  const CLUSTER_KINDS = new Set(['bank_statement', 'pay_stub', 'credit_report'])
+  const dated = files
+    .filter(f => f.creation_date && CLUSTER_KINDS.has(f.file_kind))
+    .map(f => ({
+      name: f.file_name,
+      kind: f.file_kind,
+      ts: new Date(f.creation_date!).getTime(),
+    }))
+    .filter(f => !isNaN(f.ts))
+    .sort((a, b) => a.ts - b.ts)
+
+  if (dated.length < 2) return flags
+
+  // Check if all files were created within a 2-hour window
+  const windowMs = 2 * 60 * 60 * 1000
+  const span = dated[dated.length - 1].ts - dated[0].ts
+
+  if (span <= windowMs && span >= 0) {
+    // All files created within 2 hours — check if they SHOULD have different dates
+    const distinctKinds = new Set(dated.map(f => f.kind))
+    const fileNames = dated.map(f => f.name)
+
+    // Multiple pay stubs (different months) created at the same time = batch forgery
+    // Multiple bank statements created at the same time = batch forgery
+    // Mix of pay stubs + bank statements at the same time = batch forgery
+    if (dated.length >= 2) {
+      const spanMinutes = Math.round(span / (60 * 1000))
+      flags.push({
+        code: 'timestamp_batch_creation',
+        severity: 'high',
+        evidence_en: `${dated.length} documents (${fileNames.join(', ')}) were all created within ${spanMinutes} minutes of each other. Documents claiming to cover different periods (monthly statements, pay stubs) should have been generated weeks or months apart. Batch creation strongly indicates forgery.`,
+        evidence_zh: `${dated.length} 份文件（${fileNames.join('、')}）全部在 ${spanMinutes} 分钟内创建。声称覆盖不同时期的文件（月度对账单、工资单）应该相隔数周或数月生成。批量创建强烈暗示伪造。`,
+      })
+    }
+  }
+
+  // Also check: creation timestamp very close to the screening submission
+  // (within 1 hour before) — suggests just-in-time fabrication
+  const now = Date.now()
+  const oneHourMs = 60 * 60 * 1000
+  for (const f of dated) {
+    if (now - f.ts < oneHourMs && now - f.ts >= 0) {
+      flags.push({
+        code: 'timestamp_just_created',
+        severity: 'medium',
+        file: f.name,
+        evidence_en: `"${f.name}" was created less than 1 hour before submission. Authentic ${f.kind.replace(/_/g, ' ')} documents are generated days to months before being shared with a landlord.`,
+        evidence_zh: `"${f.name}" 在提交前不到 1 小时内创建。真实的${zhKindLocal(f.kind)}在分享给房东之前通常已生成数天到数月。`,
+      })
+    }
+  }
+
+  return flags
+}
+
+function zhKindLocal(kind: string): string {
+  switch (kind) {
+    case 'bank_statement': return '银行对账单'
+    case 'credit_report': return '信用报告'
+    case 'pay_stub': return '工资单'
+    default: return '官方文件'
+  }
+}
+
 /** Iterative Levenshtein distance — small alphabet, short strings. */
 function levenshtein(a: string, b: string): number {
   if (a === b) return 0
@@ -254,4 +335,162 @@ function levenshtein(a: string, b: string): number {
     for (let j = 0; j <= b.length; j++) prev[j] = curr[j]
   }
   return prev[b.length]
+}
+
+// -----------------------------------------------------------------------------
+// LOE stated-salary extraction — deterministic regex over employment-letter
+// text. Feeds the LOE ↔ pay-stub ↔ YTD income reconciliation in index.ts:
+// agreement is authenticity corroboration; contradiction is a verification
+// flag; and a paystub math anomaly that the LOE independently corroborates
+// gets demoted from fraud-gate to verify-first.
+// -----------------------------------------------------------------------------
+
+/** Extract the annual salary stated in an employment/offer letter.
+ *  Returns null when no plausible figure is found. Hourly rates are
+ *  annualized at 2080 full-time hours. */
+export function extractStatedAnnualSalary(text: string): number | null {
+  if (!text) return null
+  // Explicit-period patterns FIRST — "salary of $25,000 per month" must be
+  // annualized (×12), never mistaken for a $25k annual salary.
+  const monthly = text.match(/\$\s*([\d,]+(?:\.\d{2})?)\s*(?:CAD\s*)?(?:per\s+month|\/\s*mo(?:nth)?\b|monthly)/i)
+  if (monthly) {
+    const v = Number(monthly[1].replace(/,/g, ''))
+    if (isFinite(v) && v >= 1_500 && v <= 170_000) return Math.round(v * 12)
+  }
+  const biweekly = text.match(/\$\s*([\d,]+(?:\.\d{2})?)\s*(?:CAD\s*)?(?:bi-?weekly|every\s+two\s+weeks)/i)
+  if (biweekly) {
+    const v = Number(biweekly[1].replace(/,/g, ''))
+    if (isFinite(v) && v >= 700 && v <= 80_000) return Math.round(v * 26)
+  }
+  const hourly = text.match(/\$\s*([\d,]+(?:\.\d+)?)\s*(?:CAD\s*)?(?:per\s+hour|\/\s*(?:hour|hr)\b|hourly)/i)
+  if (hourly) {
+    const hr = Number(hourly[1].replace(/,/g, ''))
+    if (isFinite(hr) && hr >= 15 && hr <= 500) return Math.round(hr * 2080)
+  }
+  const annualPatterns = [
+    /annual(?:ized)?\s+(?:base\s+)?(?:salary|compensation)\s*(?:of|is|:)?\s*(?:CAD|C\$)?\s*\$?\s*([\d,]+(?:\.\d{2})?)/i,
+    /\$\s*([\d,]+(?:\.\d{2})?)\s*(?:CAD\s*)?(?:per\s+annum|annually|per\s+year|\/\s*(?:year|yr)|a\s+year)/i,
+    // Bare "salary of $X" LAST and only when NOT followed by a shorter-period
+    // qualifier (explicit periods were consumed above; lookahead is defense).
+    /(?:base\s+)?salary\s+of\s+(?:CAD|C\$)?\s*\$?\s*([\d,]+(?:\.\d{2})?)(?!\s*(?:CAD\s*)?(?:per\s+month|\/\s*mo|monthly|bi-?weekly|per\s+week|weekly|per\s+hour|\/\s*h|hourly))/i,
+  ]
+  for (const p of annualPatterns) {
+    const m = text.match(p)
+    if (m) {
+      const v = Number(m[1].replace(/,/g, ''))
+      if (isFinite(v) && v >= 20_000 && v <= 2_000_000) return v
+    }
+  }
+  return null
+}
+
+/** First significant word of an employer name, for matching a pay stub to
+ *  the employment letter that talks about the same company.
+ *  "STACKADAPT INC" → "STACKADAPT", "Tidal Commerce Inc." → "TIDAL". */
+function employerToken(name: string | null): string | null {
+  if (!name) return null
+  const words = name.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').split(/\s+/).filter(Boolean)
+  const skip = new Set(['THE', 'INC', 'LTD', 'LLC', 'CORP', 'CO', 'LIMITED', 'INCORPORATED', 'CORPORATION', 'GROUP', 'CANADA'])
+  const w = words.find(x => x.length >= 4 && !skip.has(x)) || words.find(x => !skip.has(x))
+  return w || null
+}
+
+/** Minimal per-file shape needed by income reconciliation — structural subset
+ *  of PerFileForensics so the orchestrator can pass its files straight in. */
+export interface IncomeReconcileFile {
+  file_name: string
+  file_kind: string
+  text_density?: { text_sample: string }
+  paystub_math?: { extraction: PaystubExtraction }
+  flags: ForensicFlag[]
+}
+
+function kindHas(kind: string, target: string): boolean {
+  return kind.split(',').map(k => k.trim().toLowerCase()).includes(target)
+}
+
+/** LOE ↔ pay-stub ↔ YTD reconciliation. Mirrors a human forensic pass:
+ *  independent documents that AGREE upgrade authenticity; documents that
+ *  CONTRADICT get flagged; and a paystub math anomaly that the employment
+ *  letter independently corroborates is demoted from fraud-gate to
+ *  verify-first. Mutates per-file flags (demotion) and appends cross-doc
+ *  corroboration/mismatch flags. Must run BEFORE hard gates are computed. */
+export function reconcileIncomeAcrossDocs(perFile: IncomeReconcileFile[], crossDocFlags: ForensicFlag[]): void {
+  const letters = perFile
+    .filter(pf => kindHas(pf.file_kind, 'employment_letter') || kindHas(pf.file_kind, 'offer_letter'))
+    .map(pf => ({
+      name: pf.file_name,
+      text: pf.text_density?.text_sample || '',
+      salary: extractStatedAnnualSalary(pf.text_density?.text_sample || ''),
+    }))
+    .filter(l => l.salary !== null)
+  const stubs = perFile.filter(pf => pf.paystub_math)
+  if (letters.length === 0 || stubs.length === 0) return
+
+  // One corroborated/mismatch flag PER LETTER, not per stub — an applicant's
+  // standard 3 recent stubs against 1 letter must not triple-count a single
+  // salary discrepancy in severity scoring and penalties.
+  const flaggedLetters = new Set<string>()
+
+  for (const stub of stubs) {
+    const ext = stub.paystub_math!.extraction
+    // Pair the stub with the letter that mentions the same employer;
+    // fall back to the only letter when the bundle has exactly one of each.
+    const token = employerToken(ext.employer_name)
+    let letter = token ? letters.find(l => l.text.toUpperCase().includes(token)) : undefined
+    if (!letter && letters.length === 1 && stubs.length === 1) letter = letters[0]
+    if (!letter) continue
+    const stated = letter.salary!
+
+    // 1) Demotion: a critical YTD-inflation flag whose YTD is INDEPENDENTLY
+    //    consistent with the salary the employment letter states is an
+    //    extraction artifact, not proven forgery. Verify-first, don't gate.
+    let demoted = false
+    const idx = stub.flags.findIndex(fl => fl.code === 'paystub_ytd_inflated')
+    if (idx >= 0 && ext.pay_date && ext.ytd_gross) {
+      // Pure-UTC day-of-year: new Date('YYYY-MM-DD') is UTC-parsed but
+      // getFullYear() is LOCAL — mixing them skews Jan-boundary dates by a
+      // whole year in non-UTC runtimes.
+      const dm = ext.pay_date.match(/^(\d{4})-(\d{2})-(\d{2})/)
+      const daysElapsed = dm
+        ? (Date.UTC(+dm[1], +dm[2] - 1, +dm[3]) - Date.UTC(+dm[1], 0, 1)) / 86_400_000
+        : -1
+      if (daysElapsed > 0 && daysElapsed <= 366) {
+        const loeRatio = ext.ytd_gross / (stated * daysElapsed / 365)
+        if (loeRatio >= 0.6 && loeRatio <= 1.6) {
+          stub.flags.splice(idx, 1, {
+            code: 'paystub_math_needs_verification',
+            severity: 'medium',
+            file: stub.file_name,
+            evidence_en: `Pay stub YTD $${ext.ytd_gross.toLocaleString()} conflicted with the extracted salary figure, BUT it is consistent (${loeRatio.toFixed(2)}x pro-rata) with the $${stated.toLocaleString()}/yr stated in "${letter.name}". Most likely an extraction artifact — verify the salary with the employer instead of rejecting.`,
+            evidence_zh: `工资单 YTD $${ext.ytd_gross.toLocaleString()} 与提取到的年薪数字冲突，但与雇佣信《${letter.name}》声明的年薪 $${stated.toLocaleString()} 自洽（按比例 ${loeRatio.toFixed(2)} 倍）。大概率是提取误差——建议致电雇主核实薪资，而非直接判伪。`,
+          })
+          demoted = true
+        }
+      }
+    }
+
+    // 2) Corroboration / mismatch between the two independent annual figures.
+    //    Skipped when a demotion just happened — the mismatch there is the
+    //    same extraction artifact, already reported above.
+    if (!demoted && ext.annual_salary && !flaggedLetters.has(letter.name)) {
+      flaggedLetters.add(letter.name)
+      const diff = Math.abs(ext.annual_salary - stated) / stated
+      if (diff <= 0.10) {
+        crossDocFlags.push({
+          code: 'cross_doc_income_corroborated',
+          severity: 'info',
+          evidence_en: `Pay stub annualized salary $${ext.annual_salary.toLocaleString()} matches the $${stated.toLocaleString()}/yr stated in "${letter.name}" (within ${(diff * 100).toFixed(1)}%). Two independent documents agree — authenticity corroboration.`,
+          evidence_zh: `工资单年化薪资 $${ext.annual_salary.toLocaleString()} 与雇佣信《${letter.name}》声明的 $${stated.toLocaleString()}/年 吻合（偏差 ${(diff * 100).toFixed(1)}%）。两份独立文件互证——真实性佐证。`,
+        })
+      } else if (diff >= 0.25) {
+        crossDocFlags.push({
+          code: 'cross_doc_income_mismatch',
+          severity: 'medium',
+          evidence_en: `Pay stub annualized salary $${ext.annual_salary.toLocaleString()} differs from the $${stated.toLocaleString()}/yr stated in "${letter.name}" by ${(diff * 100).toFixed(0)}%. The two documents contradict each other — verify with the employer.`,
+          evidence_zh: `工资单年化薪资 $${ext.annual_salary.toLocaleString()} 与雇佣信《${letter.name}》声明的 $${stated.toLocaleString()}/年 相差 ${(diff * 100).toFixed(0)}%。两份文件互相矛盾——需向雇主核实。`,
+        })
+      }
+    }
+  }
 }

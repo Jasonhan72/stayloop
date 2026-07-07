@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, ReactNode } from 'react'
+import { Fragment, ReactNode, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Header from './Header'
@@ -58,6 +58,32 @@ interface Props {
   hideAside?: boolean
 }
 
+// Workspace pages that still render hardcoded design-canon fixtures (Mia
+// Chen / Thompson / Kevin Tran…) instead of the user's real data. Until each
+// one is wired to live tables, every route on this list gets a visible
+// "示范数据" notice — a real landlord must never mistake canned tenants,
+// payouts or notifications for their own.
+const DEMO_DATA_ROUTES = new Set([
+  '/notifications',
+  // /landlord/leases self-manages its notice — it renders REAL leases once
+  // the landlord enters one, demo fixtures (with its own label) before that.
+  '/landlord/applicants', '/landlord/finance', '/landlord/maintenance',
+  '/tenant/applications', '/tenant/payments', '/tenant/passport', '/tenant/lease', '/tenant/maintenance', '/tenant/move-in',
+  '/agent/tasks', '/agent/clients', '/agent/calendar', '/agent/earnings',
+])
+
+function DemoDataNotice() {
+  const path = usePathname() || ''
+  const isDemo = DEMO_DATA_ROUTES.has(path) ||
+    [...DEMO_DATA_ROUTES].some(r => r !== '/notifications' && path.startsWith(r + '/'))
+  if (!isDemo) return null
+  return (
+    <div className="mb-5 rounded-xl border border-line-strong bg-surface-chip px-4 py-2.5 font-mono text-[11px] leading-relaxed text-body-3">
+      示范数据 · 此页面当前展示的是产品演示内容,并非你的真实数据 · SAMPLE DATA — not your live records
+    </div>
+  )
+}
+
 export default function WorkspaceShell({ role, aside, children, hideAside }: Props) {
   return (
     <>
@@ -68,6 +94,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside }: Pro
         <div className="md:flex md:min-h-[calc(100vh-66px)]">
           <Rail role={role} />
           <div className="min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12">
+            <DemoDataNotice />
             {children}
           </div>
           {!hideAside && (
@@ -86,16 +113,15 @@ function Rail({ role }: { role: WorkspaceRole }) {
   const { lang } = useI18n()
   const items = RAIL_BY_ROLE[role]
   const accent = ROLE_ACCENT[role]
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  useEffect(() => {
+    const cached = typeof window !== 'undefined' ? localStorage.getItem('stayloop-avatar') : null
+    if (cached) setAvatarUrl(cached)
+  }, [])
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-around gap-1 overflow-x-auto border-t border-line-divider bg-surface-muted px-2 md:static md:h-auto md:w-[76px] md:flex-col md:justify-start md:gap-1.5 md:overflow-visible md:border-r md:border-t-0 md:px-0 md:py-4"
     >
-      <div
-        className="mb-4 hidden h-8 w-8 items-center justify-center rounded-lg text-[15px] font-extrabold text-white md:flex"
-        style={{ background: accent.bg }}
-      >
-        S
-      </div>
       {items.map((it, i) => {
         const on = path === it.href || path.startsWith(it.href + '/')
         // The Agent home is the OS entry (architecture §13) — render it as a
@@ -136,17 +162,22 @@ function Rail({ role }: { role: WorkspaceRole }) {
         )
       })}
       <div className="hidden md:mt-auto md:block" />
-      <div
-        className="hidden h-8 w-8 rounded-full md:block"
-        style={{
-          background:
-            role === 'tenant'
-              ? 'linear-gradient(135deg,#C4B5FD,#7C3AED)'
-              : role === 'agent'
-                ? 'linear-gradient(135deg,#93C5FD,#2563EB)'
-                : 'linear-gradient(135deg,#6EE7B7,#047857)',
-        }}
-      />
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatarUrl} alt="" className="hidden h-8 w-8 rounded-full object-cover md:block" />
+      ) : (
+        <div
+          className="hidden h-8 w-8 rounded-full md:block"
+          style={{
+            background:
+              role === 'tenant'
+                ? 'linear-gradient(135deg,#C4B5FD,#7C3AED)'
+                : role === 'agent'
+                  ? 'linear-gradient(135deg,#93C5FD,#2563EB)'
+                  : 'linear-gradient(135deg,#6EE7B7,#047857)',
+          }}
+        />
+      )}
     </nav>
   )
 }

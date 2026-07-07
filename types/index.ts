@@ -1,6 +1,6 @@
 // Stayloop core domain types — used by dashboard, apply page, and APIs.
 
-export type Plan = 'free' | 'pro' | 'enterprise'
+export type Plan = 'free' | 'pro' | 'team'
 export type AppStatus = 'new' | 'reviewing' | 'approved' | 'declined'
 
 export interface Landlord {
@@ -27,9 +27,20 @@ export interface Listing {
   monthly_rent: number
   bedrooms?: number | null
   bathrooms?: number | null
+  sqft?: number | null
   slug: string
   is_active: boolean
   created_at?: string
+  images?: string[] | null
+  amenities?: string[] | null
+  neighborhood?: string | null
+  description?: string | null
+  title?: string | null
+  parking?: string | null
+  pet_policy?: string | null
+  has_den?: boolean | null
+  available_date?: string | null
+  photo_count?: number | null
 }
 
 export type FileKind =

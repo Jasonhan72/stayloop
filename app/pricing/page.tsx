@@ -2,8 +2,9 @@
 
 // V5.3 pricing — VOL3 ART32 (定价 · 三角色 + Trust API).
 // Static three-role layout: tenants are free forever; landlords subscribe
-// (免费 / $19 / $39 三档); brokerages pay 25% only on a CLOSED deal
-// (brokerage↔brokerage referral fee). No showing fees, no rent skimming.
+// (免费 / $19 / $39 三档); agents subscribe too (免费 / $29 / $59 三档 —
+// pure SaaS tooling, NO commission cut; Stayloop is not RECO-registered so
+// referral fees are off the table). No showing fees, no rent skimming.
 // The privacy of a tenant is never a product — paid value never changes an
 // applicant's eligibility or ranking. Trust API is the 4th business line.
 import Link from 'next/link'
@@ -64,18 +65,18 @@ const CARDS: Card[] = [
   {
     role: { zh: 'AGENT / BROKERAGE · 持牌经纪', en: 'AGENT / BROKERAGE' },
     accent: '#2563EB',
-    tier: { zh: '25% · 成交分成', en: '25% · deal split' },
-    price: { zh: '25% · 成交后转介费', en: '25% · referral fee on close' },
-    sub: { zh: '仅成交后 · 经纪行↔经纪行', en: 'On close only · brokerage ↔ brokerage' },
-    cta: { zh: '免费接收转介', en: 'Receive referrals free' },
+    tier: { zh: '经纪订阅 · Pro', en: 'Agent subscription · Pro' },
+    price: { zh: '$29 · 每月 / $59 团队', en: '$29 / month · $59 team' },
+    sub: { zh: '免费 / $29 / $59 三档 · 纯工具订阅', en: 'Free / $29 / $59 tiers · pure SaaS tooling' },
+    cta: { zh: '免费开始', en: 'Start free' },
     href: '/agent/onboarding',
     features: [
-      { zh: 'Brief Agent 任务管理', en: 'Brief agent task management' },
-      { zh: 'RECO 合规授权清单', en: 'RECO compliance authorization checklist' },
-      { zh: 'Stripe 自动结算分成', en: 'Stripe auto-settled splits' },
+      { zh: 'Brief Agent 全功能', en: 'Full Brief agent' },
+      { zh: 'RECO 合规工具 + 审计提醒', en: 'RECO compliance tools + audit reminders' },
+      { zh: '客户管理 + 看房排程', en: 'Client management + showing scheduler' },
       { zh: '客户跟进 + 反馈模板', en: 'Client follow-up + feedback templates' },
-      { zh: '转介协议 + 拖尾条款', en: 'Referral agreement + trailing terms' },
-      { zh: '不收带看费 · 不成交不收费', en: 'No showing fees · no close, no charge' },
+      { zh: '纯 SaaS 工具 · 不抽佣金', en: 'Pure SaaS tooling · no commission cut' },
+      { zh: '免费档永久 · 5 个客户/月', en: 'Free tier forever · 5 clients/month' },
     ],
   },
 ]
@@ -99,7 +100,7 @@ export default function PricingPage() {
               {zh ? <>租客永远免费<br />房东 / 经纪按价值付费</> : <>Tenants always free<br />Landlords / agents pay for value</>}
             </h1>
             <p className="mx-auto mt-4 max-w-[680px] text-[15.5px] leading-relaxed text-body-2">
-              {zh ? 'Stayloop 靠订阅 + 成交分成 —— 租客的隐私永远不是商品。' : 'Stayloop runs on subscriptions + deal splits — a tenant’s privacy is never a product.'}
+              {zh ? 'Stayloop 靠订阅收费 —— 租客的隐私永远不是商品。' : 'Stayloop runs on subscriptions — a tenant’s privacy is never a product.'}
             </p>
           </div>
         </section>
@@ -180,12 +181,12 @@ export default function PricingPage() {
             <p className="mt-3 max-w-[820px] text-[14px] leading-relaxed text-body-2">
               {zh ? (
                 <>验证、筛查、收租、AI 起草 —— 全部含在 <b>订阅</b> 里,这些不是"交易行为",不碰合规红线。
-                真正的看房与撮合交给 <b>持牌经纪</b>;成交后,Stayloop 以经纪行间转介费的形式参与 <b className="text-brand">25% 分成</b>。
-                不收带看费、不抽租金流水 —— 客户赢了,我们才分成。</>
+                真正的看房与撮合交给 <b>持牌经纪</b>,他们通过订阅使用 Stayloop 的 AI 工具（任务编排、客户管理、合规提醒）。
+                不抽佣金、不抽租金流水——纯工具订阅,零交易抽成。</>
               ) : (
                 <>Verification, screening, rent collection and AI drafting are all bundled into the <b>subscription</b> — these aren’t “transactional” acts, so they stay clear of the compliance line.
-                Real showings and matchmaking are left to <b>licensed agents</b>; on a closed deal, Stayloop participates as a brokerage-to-brokerage referral fee — a <b className="text-brand">25% split</b>.
-                No showing fees, no skim on rent — we only share when the client wins.</>
+                Real showings and matchmaking are left to <b>licensed agents</b>, who subscribe to Stayloop's AI tools (task orchestration, client management, compliance reminders).
+                No commission cut, no skim on rent — pure SaaS tooling, zero transaction fees.</>
               )}
             </p>
           </div>
@@ -197,7 +198,7 @@ export default function PricingPage() {
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {[
               { q: { zh: '租客真的永远免费吗?', en: 'Are tenants really free forever?' }, a: { zh: '是。租客侧不收任何交易费 —— 身份验证、Passport、申请、电子签约、维修都免费,且认证 1–4 级全部免费升级。租客的隐私永远不是商品。', en: 'Yes. There are no transaction fees on the tenant side — identity verification, Passport, applications, e-signing and maintenance are all free, and Tiers 1–4 are all upgraded free. A tenant’s privacy is never a product.' } },
-              { q: { zh: '25% 分成怎么算?', en: 'How is the 25% split calculated?' }, a: { zh: '只在一笔需要带看撮合的租约真正成交后计提,= 成交佣金 × 25%,以经纪行↔经纪行转介费形式结算。不成交不收费。', en: 'It’s charged only after a lease that required showing/matchmaking actually closes: closing commission × 25%, settled as a brokerage-to-brokerage referral fee. No close, no charge.' } },
+              { q: { zh: '经纪订阅包含什么?', en: 'What does the agent subscription include?' }, a: { zh: 'Brief Agent 全功能（任务编排、客户管理、看房排程、RECO 合规提醒）。免费档 5 个客户/月;Pro($29)无限客户;Team($59)多经纪协作 + 绩效面板。纯 SaaS 工具,不抽任何佣金。', en: 'Full Brief agent (task orchestration, client management, showing scheduler, RECO compliance reminders). Free tier: 5 clients/month; Pro ($29): unlimited; Team ($59): multi-agent collaboration + performance dashboard. Pure SaaS tooling — no commission cut.' } },
               { q: { zh: '为什么不收带看费、不抽租金?', en: 'Why no showing fees and no rent skim?' }, a: { zh: '收租与筛查是订阅内的服务,不是交易抽成;租金流水我们一分不抽。这让定价远离合规红线,也让租客零负担。', en: 'Rent collection and screening are subscription services, not transactional cuts — we take nothing from the rent flow. This keeps pricing well clear of the compliance line and keeps tenants at zero cost.' } },
               { q: { zh: '房东免费档够用吗?', en: 'Is the landlord free tier enough?' }, a: { zh: '免费档永久可用,可发布 1 套房源、收申请、用 Logic 摘要评分、Stripe 托管收租(平台不抽流水)。升级 Pro($19)或团队($39)解锁完整 Logic、无限房源与财务面板。', en: 'The free tier is permanent: list 1 property, receive applications, use Logic summary scoring, and Stripe-managed rent collection (the platform takes no cut of the flow). Upgrade to Pro ($19) or Team ($39) to unlock full Logic, unlimited listings and the finance dashboard.' } },
             ].map((f) => (

@@ -9,7 +9,12 @@
 //   4. Rendered by the ForensicsCard component in the UI
 // -----------------------------------------------------------------------------
 
-export type FlagSeverity = 'critical' | 'high' | 'medium' | 'low'
+/** 'info' = authenticity-POSITIVE corroboration (statutory deductions at legal
+ *  max, LOE↔stub income agreement, payroll pre-generation rhythm). Weight 0 in
+ *  severity scoring and score penalties — it documents evidence FOR the
+ *  applicant, mirroring how a human forensic pass upgrades/downgrades warnings
+ *  instead of only accumulating suspicion. */
+export type FlagSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'
 
 export interface ForensicFlag {
   /** snake_case flag code, e.g. "pdf_producer_preview" */
@@ -59,6 +64,16 @@ export interface PaystubExtraction {
   employer_name: string | null
   employer_phone: string | null
   pay_frequency: 'weekly' | 'biweekly' | 'semimonthly' | 'monthly' | null
+  /** YTD employee CPP/QPP contribution as printed (statutory recomputation) */
+  cpp_ytd: number | null
+  /** YTD employee CPP2 (second additional CPP) contribution */
+  cpp2_ytd: number | null
+  /** YTD employee EI premium */
+  ei_ytd: number | null
+  /** this period's employee CPP/QPP contribution */
+  cpp_period: number | null
+  /** this period's employee EI premium */
+  ei_period: number | null
 }
 
 export interface PaystubMathResult {
@@ -123,12 +138,34 @@ export interface OcrResult {
   elapsed_ms: number
 }
 
+export interface PdfStructureResult {
+  has_pdflib_marker: boolean
+  pdflib_version: string | null
+  eof_count: number
+  has_incremental_updates: boolean
+  embedded_font_names: string[]
+  font_count: number
+  has_mixed_font_families: boolean
+  creation_tool_fingerprint: string | null
+  enterprise_system: string | null
+}
+
+export interface BenfordResult {
+  sample_size: number
+  leading_digit_distribution: number[]
+  chi_squared: number | null
+  trailing_round_pct: number | null
+  trailing_sample_size: number
+}
+
 export interface PerFileForensics {
   file_name: string
   file_kind: string
   mime: string
   pdf_metadata?: PdfMetadataResult
   text_density?: TextDensityResult
+  pdf_structure?: PdfStructureResult
+  benford?: BenfordResult
   paystub_math?: PaystubMathResult
   source_specific?: SourceSpecificResult
   /** Haiku image-OCR output for image-only PDFs / image documents. */

@@ -35,14 +35,17 @@ export async function POST(req: NextRequest) {
     const { data: landlord, error: landlordErr } = await supabase
       .from('landlords')
       .select('id, email, plan, stripe_customer_id')
-      .eq('auth_id', user.id)
+      // Dual-ID invariant (CLAUDE.md): legacy landlord rows are keyed by
+      // profileId with no auth_id backfill — match either column.
+      .or(`id.eq.${user.id},auth_id.eq.${user.id}`)
+      .limit(1)
       .maybeSingle()
 
     if (landlordErr || !landlord) {
       return NextResponse.json({ error: 'landlord not found' }, { status: 404 })
     }
 
-    if (landlord.plan === 'pro' || landlord.plan === 'enterprise') {
+    if (landlord.plan === 'pro' || landlord.plan === 'team') {
       return NextResponse.json({ error: 'already subscribed' }, { status: 400 })
     }
 

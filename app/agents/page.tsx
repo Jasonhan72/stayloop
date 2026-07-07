@@ -20,7 +20,7 @@ export default function AgentsPage() {
         { value: '3.4×', label_zh: '每位经纪每月签约量', label_en: 'more closings per agent / month' },
         { value: '~14h', label_zh: '每周节省的行政时间', label_en: 'admin hours saved each week' },
         { value: '80%', label_zh: 'AI 已经替你做完的工作', label_en: 'of your workflow handled by AI' },
-        { value: '20%', label_zh: '佣金分成给 Stayloop', label_en: 'commission share to Stayloop' },
+        { value: '$0', label_zh: '免费档永久 · 纯订阅不抽佣', label_en: 'free tier forever · subscription, no commission cut' },
       ]}
       features={[
         {

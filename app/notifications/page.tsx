@@ -1,7 +1,7 @@
 'use client'
 
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import WorkspaceShell from '@/components/WorkspaceShell'
+import { useAuth } from '@/lib/useAuth'
 import { useT, type Lang } from '@/lib/i18n'
 
 type Icon = { ch: string; role: 'l' | 't' | 'a' | 'neutral' }
@@ -115,11 +115,11 @@ const ICON_STYLE: Record<Icon['role'], string> = {
 
 export default function NotificationsPage() {
   const { lang } = useT()
+  const { role } = useAuth()
+  const shellRole = (role || 'tenant') as 'tenant' | 'landlord' | 'agent'
   return (
-    <>
-      <Header />
-      <main className="bg-surface">
-        <div className="mx-auto max-w-[920px] px-5 py-12 sm:px-7">
+    <WorkspaceShell role={shellRole} hideAside>
+      <div className="mx-auto max-w-[920px]">
           <div className="text-center">
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">
               {lang === 'zh' ? '3 件需要你 · 14 已知会' : '3 need you · 14 FYI'}
@@ -152,9 +152,7 @@ export default function NotificationsPage() {
             ))}
           </div>
         </div>
-      </main>
-      <Footer />
-    </>
+    </WorkspaceShell>
   )
 }
 

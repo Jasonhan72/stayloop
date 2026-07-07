@@ -320,7 +320,7 @@ function dedupeStrings(list: string[]): string[] {
 /**
  * Server-side PRO plan enforcement. Reads the caller's Authorization token,
  * looks up their landlord record via RLS'd client, and rejects unless the
- * plan is 'pro' or 'enterprise'. The client-side button disable is not
+ * plan is 'pro' or 'team'. The client-side button disable is not
  * trusted — anyone could hit this route directly with a valid session.
  *
  * Returns null when the caller is authorized; otherwise a Response to return.
@@ -357,7 +357,10 @@ async function enforceProGate(req: Request): Promise<Response | null> {
   const { data: landlord, error: landlordErr } = await rlsClient
     .from('landlords')
     .select('plan')
-    .eq('auth_id', userData.user.id)
+    // Dual-ID invariant (CLAUDE.md): legacy landlord rows are keyed by
+    // profileId with no auth_id backfill — match either column.
+    .or(`id.eq.${userData.user.id},auth_id.eq.${userData.user.id}`)
+    .limit(1)
     .maybeSingle()
 
   if (landlordErr) {
@@ -366,7 +369,7 @@ async function enforceProGate(req: Request): Promise<Response | null> {
   }
 
   const plan = (landlord?.plan as string | undefined) || 'free'
-  if (plan !== 'pro' && plan !== 'enterprise') {
+  if (plan !== 'pro' && plan !== 'team') {
     return bad(
       'Deep check requires a Pro subscription',
       '深度检查为 Pro 功能，请先升级',

@@ -2,7 +2,7 @@
 
 export const runtime = 'edge'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/Header'
@@ -27,6 +27,8 @@ export default function ApplyPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<string | null>(null)
+  // Application row created by a previous (partially failed) attempt — reused on retry.
+  const createdAppIdRef = useRef<string | null>(null)
   const [files, setFiles] = useState<Record<FileKind, File[]>>({
     id: [],
     paystub: [],
@@ -68,6 +70,7 @@ export default function ApplyPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (loading) return  // double-submit guard — a slow upload must not fork a second application
     if (!form.consent_screening) {
       setError(zh ? '请勾选授权同意以继续。' : 'Please check the consent box to continue.')
       return
@@ -87,26 +90,34 @@ export default function ApplyPage() {
       return
     }
 
-    const { data: inserted, error: insertError } = await supabase
-      .from('applications')
-      .insert({
-        listing_id: listing.id,
-        ...form,
-        full_name: `${form.first_name} ${form.last_name}`.trim(),
-        monthly_income: parseInt(form.monthly_income) || null,
-        prev_rent: parseInt(form.prev_rent) || null,
-        num_occupants: parseInt(form.num_occupants) || 1,
-        has_pets: form.has_pets === 'true',
-        is_smoker: form.is_smoker === 'true',
-        files: [],
-      })
-      .select('id')
-      .single()
-
-    if (insertError || !inserted) {
-      setLoading(false)
-      setError(zh ? '提交失败,请稍后再试。' : 'Submission failed, please try again.')
-      return
+    // Resume-on-retry: if a previous attempt already created the application
+    // row (e.g. an upload failed midway), reuse it instead of inserting a
+    // second one — otherwise every retry leaves another orphaned application
+    // and can trigger another landlord notification email.
+    let inserted: { id: string } | null = createdAppIdRef.current ? { id: createdAppIdRef.current } : null
+    if (!inserted) {
+      const { data: created, error: insertError } = await supabase
+        .from('applications')
+        .insert({
+          listing_id: listing.id,
+          ...form,
+          full_name: `${form.first_name} ${form.last_name}`.trim(),
+          monthly_income: parseInt(form.monthly_income) || null,
+          prev_rent: parseInt(form.prev_rent) || null,
+          num_occupants: parseInt(form.num_occupants) || 1,
+          has_pets: form.has_pets === 'true',
+          is_smoker: form.is_smoker === 'true',
+          files: [],
+        })
+        .select('id')
+        .single()
+      if (insertError || !created) {
+        setLoading(false)
+        setError(zh ? '提交失败,请稍后再试。' : 'Submission failed, please try again.')
+        return
+      }
+      inserted = created
+      createdAppIdRef.current = created.id
     }
 
     // Upload files

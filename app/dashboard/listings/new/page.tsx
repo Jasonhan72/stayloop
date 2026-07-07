@@ -3,8 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import WorkspaceShell from '@/components/WorkspaceShell'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
 import { useT, type Lang } from '@/lib/i18n'
@@ -39,21 +38,27 @@ export default function NewListingPage() {
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // This wizard publishes a REAL, publicly-visible listing (is_active:true).
+  // Fields start EMPTY — the design's demo values (Unit 1207, $2,850…) were
+  // previously pre-filled here, and a landlord clicking straight through
+  // would publish a live listing at a demo address. Demo values may appear
+  // only as input placeholders.
   const [form, setForm] = useState({
-    address: 'Unit 1207, 100 Western Battery Rd, Toronto ON M6K 0E5',
-    unit: '1207',
+    address: '',
+    unit: '',
     city: 'Toronto',
     province: 'ON',
-    monthly_rent: '2850',
-    deposit: '2850',
+    monthly_rent: '',
+    deposit: '',
     bedrooms: '1',
     bathrooms: '1',
-    sqft: '700',
-    facing: lang === 'zh' ? '南向' : 'South-facing',
-    floor: '12/24F',
-    age: lang === 'zh' ? '2018 年建' : 'Built 2018',
+    sqft: '',
+    facing: '',
+    floor: '',
+    age: '',
     tier: 2,
-    amenities: ['central_ac', 'heat_incl', 'water_incl', 'dishwasher', 'in_unit_laundry', 'ss_appliances', 'parking', 'storage', 'pool', 'gym'] as string[],
+    property_type: 'condo',
+    amenities: [] as string[],
   })
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }))
@@ -67,8 +72,21 @@ export default function NewListingPage() {
 
   async function submit() {
     if (!landlord) return
+    if (!form.address.trim() || !form.monthly_rent.trim()) {
+      setError(lang === 'zh' ? '请先填写地址和月租金' : 'Address and monthly rent are required')
+      return
+    }
     setError(null)
     setSubmitting(true)
+    let dupQ = supabase.from('listings').select('id', { count: 'exact', head: true }).eq('landlord_id', landlord.landlordId).ilike('address', form.address)
+    if (form.unit) dupQ = dupQ.eq('unit', form.unit)
+    else dupQ = dupQ.is('unit', null)
+    const { count: dupCount } = await dupQ
+    if (dupCount && dupCount > 0) {
+      setError(lang === 'zh' ? '该地址已有相同房源，请勿重复发布' : 'A listing at this address already exists')
+      setSubmitting(false)
+      return
+    }
     const slug =
       form.address
         .toLowerCase()
@@ -88,6 +106,11 @@ export default function NewListingPage() {
         monthly_rent: parseInt(form.monthly_rent) || null,
         bedrooms: parseInt(form.bedrooms),
         bathrooms: parseInt(form.bathrooms),
+        property_type: form.property_type,
+        sqft: parseInt(form.sqft) || null,
+        deposit: parseInt(form.deposit) || null,
+        year_built: parseInt(form.age) ? new Date().getFullYear() - parseInt(form.age) : null,
+        amenities: form.amenities,
         slug,
         is_active: true,
       })
@@ -103,23 +126,19 @@ export default function NewListingPage() {
 
   if (authLoading || !landlord) {
     return (
-      <>
-        <Header />
-        <main className="bg-surface flex min-h-[60vh] items-center justify-center">
+      <WorkspaceShell role="landlord" hideAside>
+        <div className="flex min-h-[60vh] items-center justify-center">
           <span className="orb landlord pulse h-12 w-12" style={{ color: '#047857' }} />
-        </main>
-        <Footer />
-      </>
+        </div>
+      </WorkspaceShell>
     )
   }
 
   const cur = STEPS.find((s) => s.n === step)!
 
   return (
-    <>
-      <Header />
-      <main className="bg-surface">
-        <div className="mx-auto max-w-[760px] px-5 py-12 sm:px-7">
+    <WorkspaceShell role="landlord" hideAside>
+      <div className="mx-auto max-w-[760px]">
           <Link
             href="/dashboard"
             className="font-mono text-[12px] text-body-3 hover:text-body"
@@ -188,7 +207,7 @@ export default function NewListingPage() {
               LISTING WIZARD · STEP {step} / 5 · {cur.nm[lang]}
             </div>
             <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[32px]">
-              {lang === 'zh' ? 'UNIT 1207 · 让 Logic 帮你整理这些字段' : 'UNIT 1207 · Let Logic organize these fields'}
+              {form.address ? `${form.unit ? 'UNIT ' + form.unit + ' · ' : ''}${lang === 'zh' ? '让 Logic 帮你整理这些字段' : 'Let Logic organize these fields'}` : (lang === 'zh' ? '填写房源信息 · 让 Logic 帮你整理' : 'Enter your listing · Logic organizes the fields')}
             </h1>
             <p className="mt-2 text-[13px] text-body-2">
               {lang === 'zh'
@@ -231,6 +250,31 @@ export default function NewListingPage() {
                 <h2 className="text-[18px] font-bold">{lang === 'zh' ? '1 · 基本信息' : '1 · Basics'}</h2>
                 <Field label={lang === 'zh' ? '地址 *' : 'Address *'}>
                   <input className="sl-input" required value={form.address} onChange={(e) => set('address', e.target.value)} />
+                </Field>
+                <Field label={lang === 'zh' ? '物业类型' : 'Property type'}>
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      ['condo', lang === 'zh' ? '公寓 Condo' : 'Condo'],
+                      ['apartment', lang === 'zh' ? '出租公寓 Apartment' : 'Apartment'],
+                      ['house', lang === 'zh' ? '独立屋 House' : 'House'],
+                      ['townhouse', lang === 'zh' ? '联排 Townhouse' : 'Townhouse'],
+                      ['basement', lang === 'zh' ? '地下室 Basement' : 'Basement'],
+                      ['duplex', 'Duplex'],
+                    ] as const).map(([v, label]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => set('property_type', v)}
+                        className={`rounded-full border px-4 py-2 text-[13px] transition ${
+                          form.property_type === v
+                            ? 'border-emerald-700 bg-emerald-700 text-white'
+                            : 'border-black/15 bg-white hover:border-black/40'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </Field>
                 <Field label={lang === 'zh' ? '户型' : 'Layout'}>
                   <div className="grid gap-4 sm:grid-cols-3">
@@ -455,9 +499,7 @@ export default function NewListingPage() {
             )}
           </div>
         </div>
-      </main>
-      <Footer />
-    </>
+    </WorkspaceShell>
   )
 }
 

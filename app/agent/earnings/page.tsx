@@ -46,7 +46,7 @@ export default function AgentEarningsPage() {
           {zh ? '本周 9 场带看 · $720 已锁' : '9 showings this week · $720 locked'}
         </h1>
         <p className="mt-1 text-[13.5px] text-body-2">
-          {zh ? '仅成交后 · 经纪行↔经纪行 · 每单签字后 24h 内结算到 Stripe' : 'Only after closing · brokerage↔brokerage · settled to Stripe within 24h of each signing'}
+          {zh ? '示范数据 · 订阅后解锁完整面板' : 'Sample data · subscribe to unlock full dashboard'}
         </p>
       </div>
 

@@ -32,6 +32,146 @@
 import { PDFDocument } from 'pdf-lib'
 import type { ForensicFlag, PdfMetadataResult } from './types'
 
+// ---------------------------------------------------------------------------
+// Raw PDF byte parser — reads Info dictionary directly from the binary stream.
+// pdf-lib's PDFDocument.load() can contaminate Producer/Creator/ModDate with
+// its own values. This parser reads the ACTUAL bytes to get ground-truth metadata.
+// ---------------------------------------------------------------------------
+
+function parseRawPdfMetadata(bytes: Uint8Array): Partial<PdfMetadataResult> | null {
+  try {
+    const text = new TextDecoder('ascii', { fatal: false }).decode(bytes)
+
+    // Find trailer → /Info reference (e.g. "/Info 3 0 R")
+    const trailerIdx = text.lastIndexOf('trailer')
+    const xrefStreamInfo = trailerIdx < 0
+      ? text.match(/\/Info\s+(\d+)\s+\d+\s+R/)?.[1]
+      : null
+    let infoObjNum: string | null = null
+    if (trailerIdx >= 0) {
+      const trailerBlock = text.substring(trailerIdx, Math.min(text.length, trailerIdx + 500))
+      infoObjNum = trailerBlock.match(/\/Info\s+(\d+)\s+\d+\s+R/)?.[1] ?? null
+    } else if (xrefStreamInfo) {
+      infoObjNum = xrefStreamInfo
+    }
+    if (!infoObjNum) {
+      // Some PDFs embed Info inline — scan for /Producer in any dict
+      const prodMatch = text.match(/\/Producer\s*(\(|<)/)
+      if (!prodMatch) return null
+    }
+
+    // Find the Info object: "N 0 obj << ... >> endobj"
+    let infoBlock: string | null = null
+    if (infoObjNum) {
+      const objPattern = new RegExp(`${infoObjNum}\\s+0\\s+obj\\s*`, 'g')
+      const m = objPattern.exec(text)
+      if (m) {
+        const start = m.index + m[0].length
+        const endObj = text.indexOf('endobj', start)
+        if (endObj > start) infoBlock = text.substring(start, endObj)
+      }
+    }
+    // Fallback: find the first dict containing /Producer
+    if (!infoBlock) {
+      const prodIdx = text.indexOf('/Producer')
+      if (prodIdx < 0) return null
+      const dictStart = text.lastIndexOf('<<', prodIdx)
+      const dictEnd = text.indexOf('>>', prodIdx)
+      if (dictStart >= 0 && dictEnd > dictStart) {
+        infoBlock = text.substring(dictStart, dictEnd + 2)
+      }
+    }
+    if (!infoBlock) return null
+
+    const extractValue = (key: string): string | null => {
+      const keyIdx = infoBlock!.indexOf(`/${key}`)
+      if (keyIdx < 0) return null
+      const afterKey = infoBlock!.substring(keyIdx + key.length + 1).trimStart()
+
+      // Hex string: <4865...>
+      if (afterKey.startsWith('<') && !afterKey.startsWith('<<')) {
+        const end = afterKey.indexOf('>')
+        if (end < 0) return null
+        const hex = afterKey.substring(1, end).replace(/\s/g, '')
+        // UTF-16 BOM
+        if (hex.startsWith('FEFF') || hex.startsWith('feff')) {
+          const u16bytes: number[] = []
+          for (let i = 4; i < hex.length; i += 4) {
+            u16bytes.push(parseInt(hex.substring(i, i + 4), 16))
+          }
+          return String.fromCharCode(...u16bytes)
+        }
+        const asciiBytes: number[] = []
+        for (let i = 0; i < hex.length; i += 2) {
+          asciiBytes.push(parseInt(hex.substring(i, i + 2), 16))
+        }
+        return String.fromCharCode(...asciiBytes)
+      }
+
+      // Literal string: (text with \( escapes)
+      if (afterKey.startsWith('(')) {
+        let depth = 0
+        let escaped = false
+        let result = ''
+        for (let i = 0; i < afterKey.length; i++) {
+          const c = afterKey[i]
+          if (escaped) {
+            if (c === 'n') result += '\n'
+            else if (c === 'r') result += '\r'
+            else if (c === 't') result += '\t'
+            else result += c
+            escaped = false
+            continue
+          }
+          if (c === '\\') { escaped = true; continue }
+          if (c === '(') { depth++; if (depth > 1) result += c; continue }
+          if (c === ')') { depth--; if (depth === 0) break; result += c; continue }
+          if (depth >= 1) result += c
+        }
+        // Handle UTF-16 BOM in literal strings
+        if (result.charCodeAt(0) === 0xFE && result.charCodeAt(1) === 0xFF) {
+          const u16: number[] = []
+          for (let i = 2; i < result.length; i += 2) {
+            u16.push((result.charCodeAt(i) << 8) | result.charCodeAt(i + 1))
+          }
+          return String.fromCharCode(...u16)
+        }
+        return result
+      }
+      return null
+    }
+
+    const parsePdfDate = (raw: string | null): string | null => {
+      if (!raw) return null
+      // Format: D:YYYYMMDDHHmmSS+HH'MM' or D:YYYYMMDDHHmmSS-HH'MM'
+      const m = raw.match(/D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})([+-]\d{2})'(\d{2})'?/)
+      if (m) {
+        const [, y, mo, d, h, mi, s, tzH, tzM] = m
+        return `${y}-${mo}-${d}T${h}:${mi}:${s}${tzH}:${tzM}`
+      }
+      // Simpler format without timezone
+      const m2 = raw.match(/D:(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?/)
+      if (m2) {
+        const [, y, mo, d, h = '00', mi = '00', s = '00'] = m2
+        return `${y}-${mo}-${d}T${h}:${mi}:${s}Z`
+      }
+      return null
+    }
+
+    return {
+      title: extractValue('Title') || null,
+      author: extractValue('Author') || null,
+      subject: extractValue('Subject') || null,
+      producer: extractValue('Producer') || null,
+      creator: extractValue('Creator') || null,
+      creation_date: parsePdfDate(extractValue('CreationDate')),
+      modification_date: parsePdfDate(extractValue('ModDate')),
+    }
+  } catch {
+    return null
+  }
+}
+
 /** Document kinds where forged screenshots are most common (bank docs,
  *  credit reports, paystubs) — we apply stricter Producer rules to these. */
 const STRICT_KINDS = new Set([
@@ -95,9 +235,10 @@ const SCREENSHOT_PRODUCER_PATTERNS: Array<{ pattern: RegExp; tool: string }> = [
  *  the metadata) but absence of these in conjunction with screenshot tools
  *  is strong evidence of forgery. */
 const TRUSTED_PRODUCER_PATTERNS: RegExp[] = [
-  /iText\s*[\d.]/i,           // CIBC, BMO, many Java enterprise PDFs
+  /\biText/i,                  // CIBC, BMO, Apryse/Workday, iTextSharp (.NET), Java enterprise PDFs
   /Apache\s*FOP/i,            // RBC, TD, payroll systems
   /Crystal\s*Reports/i,       // ADP, Ceridian, enterprise reports
+  /Xenos/i,                   // ADP AutoPay statement pipeline ("PDFOUT vX.X by Xenos, inc." — AFP/Metacode→PDF conversion)
   /Adobe\s*PDF\s*Library/i,   // Adobe enterprise tooling
   /Prince\s*[\d.]/i,          // Prince XML — common for fintech
   /wkhtmltopdf/i,             // server-side rendering (less trusted but common)
@@ -108,34 +249,52 @@ const TRUSTED_PRODUCER_PATTERNS: RegExp[] = [
   /OpenPDF/i,                 // Java OpenPDF — server-generated
 ]
 
+/** Known server-side rendering engines that are also used by forgers.
+ *  These are NOT trusted, but they ARE recognized — so they shouldn't
+ *  trigger "unknown producer". pdf-structure.ts handles the deeper
+ *  content-aware check for these tools. */
+const RECOGNIZED_PRODUCER_PATTERNS: RegExp[] = [
+  /pdf-lib/i,                 // Workday, Gusto, BambooHR payroll AND forgers
+  /jsPDF/i,                   // some enterprise + many forgers
+  /pdfmake/i,                 // some enterprise + forgers
+]
+
 /** Title patterns that indicate the source file was an image (PNG/JPEG/screenshot)
  *  before being converted to PDF — strong fraud signal. */
 const IMAGE_TITLE_PATTERN = /\b(PNG|JPEG|JPG|screenshot|screen[\s-]?shot|image|scan|untitled|export)\b/i
 
 /**
  * Read PDF metadata. Returns null if the buffer isn't a parseable PDF.
+ *
+ * Primary source: raw byte parser (reads Info dict directly from the binary).
+ * pdf-lib is used ONLY for page_count (requires understanding the page tree).
+ * This avoids pdf-lib contaminating Producer/Creator/ModDate with its own values.
  */
 export async function readPdfMetadata(
   bytes: ArrayBuffer | Uint8Array
 ): Promise<PdfMetadataResult | null> {
   try {
-    // pdf-lib needs Uint8Array. ignoreEncryption=true so we can still read
-    // the metadata of password-protected PDFs (rare in tenant docs).
-    const doc = await PDFDocument.load(bytes, {
+    const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+    const fileSize = u8.byteLength
+
+    // Raw byte parse — ground truth for Producer/Creator/dates
+    const raw = parseRawPdfMetadata(u8)
+
+    // pdf-lib — only for page_count (and fallback metadata if raw parse missed)
+    const doc = await PDFDocument.load(u8, {
       ignoreEncryption: true,
       throwOnInvalidObject: false,
+      updateMetadata: false,
     })
 
-    const fileSize = bytes instanceof Uint8Array ? bytes.byteLength : bytes.byteLength
-
     return {
-      title: doc.getTitle() || null,
-      author: doc.getAuthor() || null,
-      subject: doc.getSubject() || null,
-      producer: doc.getProducer() || null,
-      creator: doc.getCreator() || null,
-      creation_date: doc.getCreationDate()?.toISOString() || null,
-      modification_date: doc.getModificationDate()?.toISOString() || null,
+      title: raw?.title ?? doc.getTitle() ?? null,
+      author: raw?.author ?? doc.getAuthor() ?? null,
+      subject: raw?.subject ?? doc.getSubject() ?? null,
+      producer: raw?.producer ?? doc.getProducer() ?? null,
+      creator: raw?.creator ?? doc.getCreator() ?? null,
+      creation_date: raw?.creation_date ?? doc.getCreationDate()?.toISOString() ?? null,
+      modification_date: raw?.modification_date ?? doc.getModificationDate()?.toISOString() ?? null,
       page_count: doc.getPageCount(),
       file_size_bytes: fileSize,
     }
@@ -253,7 +412,8 @@ export function checkPdfMetadata(
   if (isStrict) {
     const hasTrusted = TRUSTED_PRODUCER_PATTERNS.some(p => p.test(combined))
     const hasScreenshotTool = SCREENSHOT_PRODUCER_PATTERNS.some(({ pattern }) => pattern.test(combined))
-    if (!hasTrusted && !hasScreenshotTool && producer) {
+    const hasRecognized = RECOGNIZED_PRODUCER_PATTERNS.some(p => p.test(combined))
+    if (!hasTrusted && !hasScreenshotTool && !hasRecognized && producer) {
       flags.push({
         code: 'pdf_producer_unknown',
         severity: 'low',

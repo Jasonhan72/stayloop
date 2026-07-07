@@ -33,9 +33,13 @@
 
 import { checkPdfMetadata, readPdfMetadata } from './pdf-metadata'
 import { checkTextDensity, readPdfTextDensity } from './pdf-text'
+import { checkPdfStructure } from './pdf-structure'
+import { checkBenford } from './benford'
 import { checkPaystubMath, extractPaystubFields } from './paystub-math'
+import { checkStatutoryDeductions } from './statutory-deductions'
 import { checkSourceSpecific } from './source-specific'
-import { runCrossDocChecks } from './cross-doc'
+import { runCrossDocChecks, checkTimestampClustering, reconcileIncomeAcrossDocs } from './cross-doc'
+import type { TimestampClusterInput } from './cross-doc'
 import { checkArmLength, canonicalizeEmployerName } from './arm-length'
 import type { CompanyRegistryInfo } from './arm-length'
 import { checkIdValidation } from './id-validation'
@@ -79,12 +83,24 @@ const HARD_GATE_RULES: Array<{
   // Title literally says "screenshot/PNG" — this is conclusive regardless
   // of text density (could be text-over-image PDF from a "Save as PDF").
   { gate: 'pdf_is_screenshot', mode: 'any', triggers: ['pdf_title_indicates_image'] },
-  { gate: 'paystub_math_impossible', mode: 'any', triggers: ['paystub_ytd_inflated', 'paystub_period_math_error'] },
+  // paystub_deduction_exceeds_legal_max: YTD CPP/EI above the CRA annual
+  // maximum — payroll systems stop withholding at the cap, so this is as
+  // mathematically impossible as an inflated YTD.
+  { gate: 'paystub_math_impossible', mode: 'any', triggers: ['paystub_ytd_inflated', 'paystub_period_math_error', 'paystub_deduction_exceeds_legal_max'] },
   { gate: 'cross_doc_collision', mode: 'any', triggers: ['cross_doc_phone_collision'] },
   { gate: 'producer_consumer_tool', mode: 'any', triggers: ['pdf_producer_consumer_tool'] },
   // SIN with a failing Luhn checksum is mathematically fabricated — cannot
   // occur on a real government-issued SIN. Treat as identity_mismatch.
   { gate: 'identity_mismatch', mode: 'any', triggers: ['id_sin_invalid_checksum'] },
+  // pdf-lib on a FINANCIAL document (bank_statement/credit_report/pay_stub)
+  // combined with batch timestamp clustering = conclusive fabrication.
+  // pdf-lib alone is HIGH severity but not a hard gate — employment letters,
+  // OREA forms, and offer letters legitimately use JS PDF libraries.
+  { gate: 'pdf_fabrication_tool', mode: 'all', triggers: ['pdf_structure_pdflib_detected', 'timestamp_batch_creation'] },
+  // Batch creation on its own (without pdf-lib) is still a hard gate —
+  // multiple "different-period" documents created within minutes is
+  // independently damning regardless of the generation tool.
+  { gate: 'batch_forgery', mode: 'any', triggers: ['timestamp_batch_creation'] },
 ]
 
 const SEVERITY_WEIGHT: Record<string, number> = {
@@ -92,6 +108,7 @@ const SEVERITY_WEIGHT: Record<string, number> = {
   high: 4,
   medium: 2,
   low: 1,
+  info: 0,   // authenticity-positive corroboration — never adds suspicion
 }
 
 /**
@@ -118,6 +135,24 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
     applicant_email: input.applicant_email,
     applicant_address: input.applicant_address,
   })
+
+  // Cross-doc step 2: timestamp clustering — detect batch-forged documents
+  const timestampFiles: TimestampClusterInput[] = perFile
+    .filter(pf => pf.pdf_metadata?.creation_date)
+    .map(pf => ({
+      file_name: pf.file_name,
+      file_kind: pf.file_kind,
+      creation_date: pf.pdf_metadata!.creation_date,
+    }))
+  const timestampFlags = checkTimestampClustering(timestampFiles)
+  crossDocFlags.push(...timestampFlags)
+
+  // Cross-doc step 3: LOE ↔ pay-stub ↔ YTD income reconciliation.
+  // Mirrors a human forensic pass: independent documents that AGREE upgrade
+  // authenticity; documents that CONTRADICT get flagged; and a paystub math
+  // anomaly that the employment letter independently corroborates is demoted
+  // from fraud-gate to verify-first BEFORE hard gates are computed below.
+  reconcileIncomeAcrossDocs(perFile, crossDocFlags)
 
   // Aggregate
   const allFlags: ForensicFlag[] = []
@@ -213,6 +248,29 @@ async function analyzeFile(
           out.flags.push(...checkTextDensity(text, fileSize, f.name, canonicalKind))
         }
 
+        // P0 — PDF internal structure fingerprinting: detect pdf-lib and
+        // other forgery tools by scanning raw bytes, fonts, and %%EOF count.
+        // Runs in parallel with no external calls.
+        try {
+          const { result: structResult, flags: structFlags } = await checkPdfStructure(bytes, f.name, canonicalKind, text?.text_sample)
+          out.pdf_structure = structResult
+          out.flags.push(...structFlags)
+        } catch {
+          // Non-fatal — structure check is a bonus layer
+        }
+
+        // P1 — Benford's Law + trailing digit distribution on financial docs.
+        // Only useful for bank_statement and pay_stub text (needs numbers).
+        if (text?.text_sample && (canonicalKind === 'bank_statement' || canonicalKind === 'pay_stub')) {
+          try {
+            const { result: benfordResult, flags: benfordFlags } = checkBenford(text.text_sample, f.name, canonicalKind)
+            out.benford = benfordResult
+            out.flags.push(...benfordFlags)
+          } catch {
+            // Non-fatal
+          }
+        }
+
         // Image-only PDFs (mostly scanned IDs / passports / handwritten letters,
         // and crucially scanned credit reports / bank statements) have
         // effectively no extractable text. Run Haiku Vision OCR FIRST so the
@@ -306,7 +364,7 @@ async function analyzeFile(
             ? applicantName.trim().split(/\s+/).pop()
             : undefined
           out.flags.push(
-            ...checkIdValidation(validationText, f.name, canonicalKind, surname)
+            ...checkIdValidation(validationText, f.name, canonicalKind, surname, out.ocr?.apparent_name)
           )
         }
       }
@@ -321,7 +379,7 @@ async function analyzeFile(
           ? applicantName.trim().split(/\s+/).pop()
           : undefined
         out.flags.push(
-          ...checkIdValidation(ocrResult.text, f.name, canonicalKind, surname)
+          ...checkIdValidation(ocrResult.text, f.name, canonicalKind, surname, ocrResult.apparent_name)
         )
         // Run source-specific on the OCR text for image uploads too.
         // A photo of a credit report should be fingerprinted the same way
@@ -375,6 +433,30 @@ async function analyzeFile(
         const { result: math, flags: mathFlags } = checkPaystubMath(ext, f.name)
         out.paystub_math = math
         out.flags.push(...mathFlags)
+
+        // P1b — statutory deduction recomputation against CRA annual params.
+        // Exceeding a legal max = impossible on a real stub (high); landing
+        // exactly on the max = strong authenticity positive (info).
+        out.flags.push(...checkStatutoryDeductions(math.extraction, f.name))
+
+        // Payroll pre-generation rhythm: real payroll systems batch-generate
+        // statements a few days BEFORE the pay date (ADP: ~3 business days).
+        // A forger working backwards from an application date rarely
+        // reproduces this — authenticity positive when present.
+        const created = out.pdf_metadata?.creation_date
+        const payDate = math.extraction.pay_date
+        if (created && payDate) {
+          const daysBefore = (new Date(payDate).getTime() - new Date(created).getTime()) / 86_400_000
+          if (daysBefore >= 0.5 && daysBefore <= 10) {
+            out.flags.push({
+              code: 'paystub_pregenerated_before_payday',
+              severity: 'info',
+              file: f.name,
+              evidence_en: `PDF was generated ${daysBefore.toFixed(1)} days BEFORE its own pay date (${payDate}) — consistent with payroll systems' batch pre-generation rhythm. Forged stubs are typically created retroactively.`,
+              evidence_zh: `PDF 生成于发薪日（${payDate}）之前 ${daysBefore.toFixed(1)} 天——符合工资系统提前批量出单的节奏。伪造件通常是事后补做的。`,
+            })
+          }
+        }
       }
     }
 
@@ -450,6 +532,7 @@ export function forensicsToPromptBlock(report: ForensicsReport): string {
   const lines: string[] = []
   lines.push(`FORENSICS REPORT (computed by Stayloop backend in ${report.elapsed_ms}ms — TRUST THESE FINDINGS, do not re-derive):`)
   lines.push(`Overall severity: ${report.severity.toUpperCase()}`)
+  lines.push(`NOTE: [INFO] flags are authenticity-POSITIVE evidence (statutory deductions at legal max, cross-document income agreement, payroll pre-generation rhythm). They corroborate the applicant — weigh them FOR authenticity, never as suspicion.`)
   if (report.hard_gates.length > 0) {
     lines.push(`Forensics hard gates triggered: ${report.hard_gates.join(', ')}`)
   }
@@ -463,6 +546,28 @@ export function forensicsToPromptBlock(report: ForensicsReport): string {
     }
     if (pf.text_density) {
       lines.push(`    Text density: ${pf.text_density.chars_per_page} chars/page (${pf.text_density.is_likely_image_pdf ? 'IMAGE-ONLY PDF' : 'has text'})`)
+    }
+    if (pf.pdf_structure) {
+      const s = pf.pdf_structure
+      const parts: string[] = []
+      if (s.has_pdflib_marker) {
+        const pdflibNote = s.enterprise_system
+          ? `pdf-lib detected (legitimate — used by ${s.enterprise_system})`
+          : `pdf-lib DETECTED${s.pdflib_version ? ` v${s.pdflib_version}` : ''}`
+        parts.push(pdflibNote)
+      }
+      if (s.creation_tool_fingerprint && s.creation_tool_fingerprint !== 'pdf-lib') parts.push(`tool=${s.creation_tool_fingerprint}`)
+      if (s.has_incremental_updates) parts.push(`${s.eof_count} %%EOF (modified)`)
+      parts.push(`${s.font_count} fonts [${s.embedded_font_names.slice(0, 4).join(', ')}${s.font_count > 4 ? '...' : ''}]`)
+      if (s.has_mixed_font_families) parts.push('MIXED font families')
+      lines.push(`    Structure: ${parts.join(', ')}`)
+    }
+    if (pf.benford) {
+      const b = pf.benford
+      const parts: string[] = [`${b.sample_size} amounts analyzed`]
+      if (b.chi_squared !== null) parts.push(`χ²=${b.chi_squared.toFixed(1)}`)
+      if (b.trailing_round_pct !== null) parts.push(`${Math.round(b.trailing_round_pct * 100)}% round trailing digits`)
+      lines.push(`    Benford analysis: ${parts.join(', ')}`)
     }
     if (pf.paystub_math) {
       const e = pf.paystub_math.extraction

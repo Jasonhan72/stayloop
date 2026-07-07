@@ -39,7 +39,7 @@ export async function loadAgentSession(
   //    rather than hanging the workspace on its loading skeleton.
   const { data: sessRow, error: bootErr } = await withTimeout(
     client.rpc('bootstrap_agent_session', { p_role: role }),
-    4000,
+    8000,
     'bootstrap_agent_session'
   )
   if (bootErr) throw new Error(`bootstrap failed: ${bootErr.message}`)
