@@ -95,6 +95,7 @@ export const DICT = {
   'foot.privacy': { en: 'Privacy', zh: '隐私' },
   'foot.terms': { en: 'Terms', zh: '使用条款' },
   'foot.contact': { en: 'Contact', zh: '联系' },
+  'foot.admin': { en: 'Admin', zh: '后台管理' },
 
   // Home page
   'home.badge': { en: 'Built for Ontario landlords · PIPEDA compliant', zh: '为安省房东打造 · PIPEDA 合规' },
