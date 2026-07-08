@@ -8,80 +8,244 @@
 // The privacy of a tenant is never a product — paid value never changes an
 // applicant's eligibility or ranking. Trust API is the 4th business line.
 import Link from 'next/link'
+import { useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useT, type Lang } from '@/lib/i18n'
 
 type LS = Record<Lang, string>
 
-type Card = {
-  role: LS
-  tagline: LS
-  accent: string
+type Tier = {
+  name: LS
   price: LS
   priceUnit: LS
-  priceNote: LS
+  tagline: LS
   cta: LS
   href: string
+  includesLabel: LS
   features: LS[]
   highlight?: boolean
 }
 
-const CARDS: Card[] = [
+type RolePlan = {
+  key: 'tenant' | 'landlord' | 'agent'
+  role: LS
+  accent: string
+  tiers: Tier[]
+}
+
+const PLANS: RolePlan[] = [
   {
+    key: 'tenant',
     role: { zh: '租客', en: 'Tenant' },
-    tagline: { zh: '你的 AI 租房助手', en: 'Your personal rental AI' },
     accent: '#7C3AED',
-    price: { zh: '$0', en: '$0' },
-    priceUnit: { zh: '永远免费', en: 'free forever' },
-    priceNote: { zh: '无任何交易费 · 隐私永远不是商品', en: 'No transaction fees · privacy is never a product' },
-    cta: { zh: '唤醒你的 AI 助手', en: 'Wake up your AI' },
-    href: '/onboarding/welcome',
-    features: [
-      { zh: 'Luna 个人 Agent 全功能', en: 'Full Luna personal agent' },
-      { zh: '认证 1–4 级,全部免费升级', en: 'Tiers 1–4 all upgraded free' },
-      { zh: '申请 · 签约 · 维修全流程', en: 'Apply, sign and maintenance end to end' },
-      { zh: '信用记录跨平台可携带', en: 'Portable tenant credit record' },
-      { zh: '数据可导出、可删除', en: 'Full data export / deletion rights' },
+    tiers: [
+      {
+        name: { zh: '免费', en: 'Free' },
+        price: { zh: '$0', en: '$0' },
+        priceUnit: { zh: '永远免费 · 无需信用卡', en: 'free forever · no credit card' },
+        tagline: { zh: '租客只有一档:全部功能,永远免费。隐私永远不是商品。', en: 'Tenants get one tier: everything, free forever. Privacy is never a product.' },
+        cta: { zh: '唤醒你的 AI 助手', en: 'Wake up your AI' },
+        href: '/onboarding/welcome',
+        includesLabel: { zh: '全部包含:', en: 'Everything included:' },
+        features: [
+          { zh: 'Luna 个人 Agent 全功能', en: 'Full Luna personal agent' },
+          { zh: '认证 1–4 级,全部免费升级', en: 'Tiers 1–4 all upgraded free' },
+          { zh: '申请 · 签约 · 维修全流程', en: 'Apply, sign and maintenance end to end' },
+          { zh: '看房免费(持牌经纪带看)', en: 'Free showings (licensed agent)' },
+          { zh: '信用记录跨平台可携带', en: 'Portable tenant credit record' },
+          { zh: '数据可导出、可删除', en: 'Full data export / deletion rights' },
+        ],
+        highlight: true,
+      },
     ],
   },
   {
+    key: 'landlord',
     role: { zh: '房东', en: 'Landlord' },
-    tagline: { zh: 'AI 替你出租和管房', en: 'AI rents and manages for you' },
     accent: '#047857',
-    price: { zh: '$19', en: '$19' },
-    priceUnit: { zh: '/ 月', en: '/ month' },
-    priceNote: { zh: '免费档:1 套房源 · 团队版 $39/月', en: 'Free tier: 1 listing · Team $39/month' },
-    cta: { zh: '免费发布房源', en: 'List a property free' },
-    href: '/dashboard/listings/new',
-    highlight: true,
-    features: [
-      { zh: 'Logic Agent 全功能', en: 'Full Logic agent' },
-      { zh: '无限发布房源', en: 'Unlimited listings' },
-      { zh: '托管收租,不抽租金流水', en: 'Managed rent collection, no skim' },
-      { zh: '租约起草 + 一键续约', en: 'Lease drafting + 1-click renewals' },
-      { zh: '财务面板 + 税务表(T776)', en: 'Finance dashboard + tax forms (T776)' },
-      { zh: '验证 / 背调全含在订阅里', en: 'Verification / screening all included' },
+    tiers: [
+      {
+        name: { zh: '起步', en: 'Starter' },
+        price: { zh: '$0', en: '$0' },
+        priceUnit: { zh: '永久免费', en: 'free forever' },
+        tagline: { zh: '一套房,先把 AI 用起来。', en: 'One property — start with the AI.' },
+        cta: { zh: '免费发布房源', en: 'List a property free' },
+        href: '/dashboard/listings/new',
+        includesLabel: { zh: '包含:', en: 'Included:' },
+        features: [
+          { zh: '1 套房源', en: '1 listing' },
+          { zh: 'Logic 摘要评分', en: 'Logic summary scoring' },
+          { zh: '接收申请 + 看房意向', en: 'Applications + showing intents' },
+          { zh: '托管收租,不抽流水', en: 'Managed rent collection, no skim' },
+        ],
+      },
+      {
+        name: { zh: '专业', en: 'Pro' },
+        price: { zh: '$19', en: '$19' },
+        priceUnit: { zh: '/ 月', en: '/ month' },
+        tagline: { zh: 'AI 替你出租和管房,全功能。', en: 'AI rents and manages for you, in full.' },
+        cta: { zh: '升级到专业版', en: 'Upgrade to Pro' },
+        href: '/dashboard/listings/new',
+        includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Starter, plus:' },
+        features: [
+          { zh: '无限发布房源', en: 'Unlimited listings' },
+          { zh: 'Logic Agent 全功能', en: 'Full Logic agent' },
+          { zh: '验证 / 背调全含', en: 'Verification / screening included' },
+          { zh: '租约起草 + 一键续约', en: 'Lease drafting + 1-click renewals' },
+          { zh: '财务面板 + 税务表(T776)', en: 'Finance dashboard + tax forms (T776)' },
+        ],
+        highlight: true,
+      },
+      {
+        name: { zh: '团队', en: 'Team' },
+        price: { zh: '$39', en: '$39' },
+        priceUnit: { zh: '/ 月', en: '/ month' },
+        tagline: { zh: '多人协作,管一整个组合。', en: 'Collaborate across a whole portfolio.' },
+        cta: { zh: '升级到团队版', en: 'Upgrade to Team' },
+        href: '/dashboard/listings/new',
+        includesLabel: { zh: '专业的全部,另加:', en: 'Everything in Pro, plus:' },
+        features: [
+          { zh: '多成员协作 + 权限', en: 'Multi-member collaboration + roles' },
+          { zh: '多物业组合面板', en: 'Portfolio dashboard' },
+          { zh: '操作审计留痕', en: 'Full audit trail' },
+          { zh: '优先支持', en: 'Priority support' },
+        ],
+      },
     ],
   },
   {
+    key: 'agent',
     role: { zh: '经纪', en: 'Agent' },
-    tagline: { zh: 'AI 后台,杂活全包', en: 'An AI back office for the busywork' },
     accent: '#2563EB',
-    price: { zh: '$29', en: '$29' },
-    priceUnit: { zh: '/ 月', en: '/ month' },
-    priceNote: { zh: '免费档:5 客户/月 · 团队版 $59/月', en: 'Free tier: 5 clients/month · Team $59/month' },
-    cta: { zh: '免费开始', en: 'Start free' },
-    href: '/agent/onboarding',
-    features: [
-      { zh: 'Brief Agent 全功能', en: 'Full Brief agent' },
-      { zh: 'RECO 合规工具 + 审计提醒', en: 'RECO compliance tools + audit reminders' },
-      { zh: '客户管理 + 看房排程', en: 'Client management + showing scheduler' },
-      { zh: '跟进与催款,全自动', en: 'Follow-ups & collections, automated' },
-      { zh: '纯 SaaS 工具,不抽佣金', en: 'Pure SaaS — no commission cut' },
+    tiers: [
+      {
+        name: { zh: '起步', en: 'Starter' },
+        price: { zh: '$0', en: '$0' },
+        priceUnit: { zh: '永久免费', en: 'free forever' },
+        tagline: { zh: '每月 5 个客户,先试试 AI 后台。', en: 'Five clients a month — try the AI back office.' },
+        cta: { zh: '免费开始', en: 'Start free' },
+        href: '/agent/onboarding',
+        includesLabel: { zh: '包含:', en: 'Included:' },
+        features: [
+          { zh: '5 个客户 / 月', en: '5 clients / month' },
+          { zh: 'Brief 基础功能', en: 'Brief basics' },
+          { zh: '看房排程 + 现场记录', en: 'Showing scheduler + on-site notes' },
+          { zh: '不抽佣金', en: 'No commission cut' },
+        ],
+      },
+      {
+        name: { zh: '专业', en: 'Pro' },
+        price: { zh: '$29', en: '$29' },
+        priceUnit: { zh: '/ 月', en: '/ month' },
+        tagline: { zh: '无限客户,杂活全交给 AI。', en: 'Unlimited clients — hand all the busywork to AI.' },
+        cta: { zh: '升级到专业版', en: 'Upgrade to Pro' },
+        href: '/agent/onboarding',
+        includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Starter, plus:' },
+        features: [
+          { zh: '无限客户', en: 'Unlimited clients' },
+          { zh: 'Brief Agent 全功能', en: 'Full Brief agent' },
+          { zh: 'RECO 合规工具 + 审计提醒', en: 'RECO compliance tools + audit reminders' },
+          { zh: '跟进与催款,全自动', en: 'Follow-ups & collections, automated' },
+        ],
+        highlight: true,
+      },
+      {
+        name: { zh: '团队', en: 'Team' },
+        price: { zh: '$59', en: '$59' },
+        priceUnit: { zh: '/ 月', en: '/ month' },
+        tagline: { zh: '多经纪协作的团队后台。', en: 'A shared back office for multi-agent teams.' },
+        cta: { zh: '升级到团队版', en: 'Upgrade to Team' },
+        href: '/agent/onboarding',
+        includesLabel: { zh: '专业的全部,另加:', en: 'Everything in Pro, plus:' },
+        features: [
+          { zh: '多经纪协作 + 团队任务池', en: 'Multi-agent collaboration + shared task pool' },
+          { zh: '绩效面板', en: 'Performance dashboard' },
+          { zh: '团队权限与审计', en: 'Team roles & audit' },
+          { zh: '优先支持', en: 'Priority support' },
+        ],
+      },
     ],
   },
 ]
+
+function RolePlansSection({ lang, zh }: { lang: Lang; zh: boolean }) {
+  const [active, setActive] = useState(1) // landlord opens by default (paying role)
+  const plan = PLANS[active]
+  return (
+    <section className="mx-auto max-w-[1100px] px-5 py-10 sm:px-7 lg:px-12">
+      {/* Role tabs */}
+      <div className="flex flex-wrap justify-center gap-2">
+        {PLANS.map((p, i) => (
+          <button
+            key={p.key}
+            onClick={() => setActive(i)}
+            className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] font-bold transition"
+            style={
+              i === active
+                ? { background: '#fff', border: `1.5px solid ${p.accent}`, color: p.accent, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }
+                : { background: 'transparent', border: '1.5px solid transparent', color: '#71717A' }
+            }
+          >
+            <span className="h-2 w-2 rounded-full" style={{ background: p.accent }} />
+            {p.role[lang]}
+          </button>
+        ))}
+      </div>
+
+      {/* Tier cards */}
+      <div
+        className={
+          'mt-8 grid gap-5 ' +
+          (plan.tiers.length === 1 ? 'mx-auto max-w-[460px]' : 'lg:grid-cols-3')
+        }
+      >
+        {plan.tiers.map((t) => (
+          <div
+            key={t.name.en}
+            className="sl-card flex flex-col p-7"
+            style={t.highlight ? { borderColor: plan.accent, boxShadow: `0 0 0 1px ${plan.accent}` } : undefined}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-[20px] font-extrabold tracking-tight">{t.name[lang]}</h3>
+              {t.highlight && plan.tiers.length > 1 && (
+                <span className="rounded-md px-2 py-[4px] font-mono text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: plan.accent }}>
+                  {zh ? '最受欢迎' : 'Most popular'}
+                </span>
+              )}
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-[38px] font-extrabold leading-none tracking-tight">{t.price[lang]}</span>
+              <span className="text-[13px] font-semibold text-body-2">{t.priceUnit[lang]}</span>
+            </div>
+            <p className="mt-3 min-h-[40px] text-[13.5px] leading-relaxed text-body-2">{t.tagline[lang]}</p>
+            <Link
+              href={t.href}
+              className={
+                'mt-4 inline-flex w-full items-center justify-center rounded-[10px] px-4 py-[12px] text-[14px] font-semibold transition active:translate-y-px ' +
+                (t.highlight ? 'text-white' : 'border border-line-strong bg-white text-body hover:border-brand hover:text-brand')
+              }
+              style={t.highlight ? { background: plan.accent, boxShadow: `0 6px 18px -8px ${plan.accent}88` } : undefined}
+            >
+              {t.cta[lang]}
+            </Link>
+            <div className="mt-6 border-t border-line-divider pt-5">
+              <div className="text-[12.5px] font-bold text-body">{t.includesLabel[lang]}</div>
+              <ul className="mt-3 space-y-2 text-[13px]">
+                {t.features.map((f) => (
+                  <li key={f.zh} className="flex items-start gap-2">
+                    <span className="mt-[3px] flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[10px]" style={{ background: `${plan.accent}22`, color: plan.accent }}>✓</span>
+                    <span className="leading-snug">{f[lang]}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
 
 export default function PricingPage() {
   const { lang } = useT()
@@ -107,54 +271,8 @@ export default function PricingPage() {
           </div>
         </section>
 
-        {/* Three role cards */}
-        <section className="mx-auto max-w-[1100px] px-5 py-10 sm:px-7 lg:px-12">
-          <div className="grid gap-5 lg:grid-cols-3">
-            {CARDS.map((c) => (
-              <div
-                key={c.role.zh}
-                className={'sl-card flex flex-col p-7 ' + (c.highlight ? 'ring-2' : '')}
-                style={c.highlight ? { borderColor: c.accent, boxShadow: `0 0 0 1px ${c.accent}` } : undefined}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.accent }} />
-                    <h3 className="text-[24px] font-extrabold tracking-tight">{c.role[lang]}</h3>
-                  </div>
-                  {c.highlight && (
-                    <span className="rounded-md px-2 py-[4px] font-mono text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: c.accent }}>
-                      {zh ? '最受欢迎' : 'Most popular'}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-[13.5px] text-body-2">{c.tagline[lang]}</p>
-
-                <div className="mt-5 flex items-baseline gap-2">
-                  <span className="text-[40px] font-extrabold leading-none tracking-tight">{c.price[lang]}</span>
-                  <span className="text-[14px] font-semibold text-body-2">{c.priceUnit[lang]}</span>
-                </div>
-                <div className="mt-2 text-[12.5px] text-body-3">{c.priceNote[lang]}</div>
-
-                <Link
-                  href={c.href}
-                  className="mt-5 inline-flex w-full items-center justify-center rounded-[10px] px-4 py-[12px] text-[14px] font-semibold text-white transition active:translate-y-px"
-                  style={{ background: c.accent, boxShadow: `0 6px 18px -8px ${c.accent}88` }}
-                >
-                  {c.cta[lang]}
-                </Link>
-
-                <ul className="mt-6 space-y-2 border-t border-line-divider pt-5 text-[13px]">
-                  {c.features.map((f) => (
-                    <li key={f.zh} className="flex items-start gap-2">
-                      <span className="mt-[3px] flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[10px]" style={{ background: `${c.accent}22`, color: c.accent }}>✓</span>
-                      <span className="leading-snug">{f[lang]}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* Role switcher + named tiers per role */}
+        <RolePlansSection lang={lang} zh={zh} />
 
         {/* Trust API — 4th business line */}
         <section className="mx-auto max-w-[1100px] px-5 pb-12 sm:px-7 lg:px-12">
