@@ -108,8 +108,11 @@ export default function AdminVerifyPage() {
   return (
     <Shell>
       <div className="mx-auto max-w-[1100px] px-5 py-10 sm:px-7">
-        <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
-          STAYLOOP ADMIN · {adminRole === 'superadmin' ? 'SUPERADMIN' : 'ADMIN'}
+        <Link href="/admin" className="font-mono text-[11px] font-bold uppercase tracking-eyebrow text-body-3 hover:text-brand">
+          ← STAYLOOP ADMIN
+        </Link>
+        <div className="mt-2 font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
+          {adminRole === 'superadmin' ? 'SUPERADMIN' : 'ADMIN'}
         </div>
         <h1 className="mt-2 text-[30px] font-extrabold tracking-tight">{zh ? '房源验证' : 'Listing verification'}</h1>
         <p className="mt-2 text-[13.5px] text-body-2">

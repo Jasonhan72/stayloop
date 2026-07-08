@@ -7,6 +7,7 @@ import Logo from './Logo'
 import LanguageCurrencyModal from './LanguageCurrencyModal'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
+import { useAdmin } from '@/lib/useAdmin'
 
 const ROLE_META: Record<string, { label: string; labelEn: string; color: string; home: string; icon: string }> = {
   tenant:   { label: '租客', labelEn: 'Tenant',   color: '#7C3AED', home: '/tenant/agent',   icon: '🏠' },
@@ -29,6 +30,8 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
   const router = useRouter()
   const { lang, t } = useI18n()
   const auth = useAuth()
+  const { role: adminRole } = useAdmin()
+  const isAdmin = !!adminRole
 
   const switchableRoles = ['tenant', 'landlord'] as const
   const currentRole = auth.role || 'tenant'
@@ -221,6 +224,17 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
                       <WorkspaceIcon />
                       {t('nav.dashboard')}
                     </Link>
+                    {isAdmin && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-[14px] font-semibold text-[#222] transition hover:bg-[#F7F7F7]"
+                        role="menuitem"
+                      >
+                        <span className="flex h-[18px] w-[18px] items-center justify-center">🛡️</span>
+                        {lang === 'zh' ? '后台管理' : 'Back office'}
+                      </Link>
+                    )}
                     <Link
                       href="/notifications"
                       onClick={() => setMenuOpen(false)}
