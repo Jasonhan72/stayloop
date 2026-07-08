@@ -619,12 +619,28 @@ export default function ListingDetailPage() {
               >
                 {zh ? '让 AI Agent 替我问' : 'Have AI Agent ask for you'}
               </Link>
+              {/* Showing logistics differ by listing type (Ontario TRESA):
+                  MLS/realtor listings must be shown through a licensed agent —
+                  Stayloop dispatches a RECO-verified member agent. Landlord-
+                  direct listings can be shown by the owner, so booking with
+                  the landlord is free and the licensed agent is an upgrade. */}
               <button
                 onClick={() => setFieldAgentOpen(true)}
                 className="mt-2 w-full rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
               >
-                {zh ? '派 Field Agent 看房 ($80)' : 'Send a Field Agent to view ($80)'}
+                {listing.source === 'realtor'
+                  ? (zh ? '派持牌经纪带看 ($80)' : 'Licensed agent showing ($80)')
+                  : (zh ? '持牌经纪陪同看房 · 可选 ($80)' : 'Optional: licensed agent to accompany ($80)')}
               </button>
+              <div className="mt-2 text-center text-[11px] leading-relaxed text-body-3">
+                {listing.source === 'realtor'
+                  ? (zh
+                      ? 'MLS 挂牌房源须由持牌经纪带看 · Stayloop 从会员经纪池派单（RECO 已验证）'
+                      : 'MLS listings require a licensed agent showing · dispatched from Stayloop’s RECO-verified member agents')
+                  : (zh
+                      ? '房东直租房源:提交意向后可直接与房东约看,免费'
+                      : 'Landlord-direct listing: after submitting intent you can book a viewing with the landlord directly, free')}
+              </div>
               <div className="mt-3 text-center font-mono text-[10px] uppercase tracking-eyebrowLg text-body-3">
                 {zh ? '通常 4 小时内回复' : 'Usually replies within 4 hours'}
               </div>
@@ -987,8 +1003,8 @@ function FieldAgentModal({
           </h3>
           <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
             {zh
-              ? `Stayloop 经纪人将在 4 小时内联系你确认 ${addr} 的看房时间。费用 $80 在看房完成后收取。`
-              : `A Stayloop field agent will contact you within 4 hours to confirm the viewing at ${addr}. The $80 fee is charged after the visit.`}
+              ? `接单的持牌经纪将在 4 小时内联系你确认 ${addr} 的看房时间。费用 $80 在看房完成后收取。`
+              : `The licensed agent taking your request will contact you within 4 hours to confirm the viewing at ${addr}. The $80 fee is charged after the visit.`}
           </p>
           <button onClick={onClose} className="sl-btn-primary mt-6 w-full !py-[12px]">
             {zh ? '好的' : 'Got it'}
@@ -1002,12 +1018,12 @@ function FieldAgentModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur sm:items-center">
       <div className="sl-card w-full max-w-md p-7">
         <h3 className="text-[20px] font-bold tracking-tight">
-          {zh ? '派 Field Agent 看房' : 'Book a Field Agent viewing'}
+          {zh ? '持牌经纪带看' : 'Licensed agent showing'}
         </h3>
         <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
           {zh
-            ? 'Stayloop 持牌经纪人亲自到场看房，拍照 + 录像 + 出具现场报告，通常 24 小时内完成。'
-            : 'A licensed Stayloop agent visits in person — photos, video walkthrough, and a condition report delivered within 24 hours.'}
+            ? '由 Stayloop 会员经纪池中一位 RECO 已验证的持牌经纪接单:负责预约、陪同或代看,拍照 + 录像 + 出具现场报告,通常 24 小时内完成。安省法规要求带看服务须由持牌经纪执行。'
+            : 'A RECO-verified licensed agent from Stayloop’s member network takes the task — books the showing, accompanies you or views on your behalf, with photos, video and a condition report within 24 hours. Ontario law requires showings-as-a-service to be performed by a licensed agent.'}
         </p>
 
         <div className="mt-5 rounded-[10px] border border-line bg-surface-2 p-4">
