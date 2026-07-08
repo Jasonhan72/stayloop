@@ -20,6 +20,29 @@ const ORB: Record<AgentRole, string> = {
   agent: 'linear-gradient(135deg,#93C5FD,#2563EB)',
 }
 
+// Quick-start prompts shown while the thread is empty — one tap sends the
+// prompt, so the blank console teaches what the agent can do.
+const SUGGESTIONS: Record<AgentRole, { icon: string; label: { zh: string; en: string }; prompt: { zh: string; en: string } }[]> = {
+  tenant: [
+    { icon: '🔍', label: { zh: '帮我找房', en: 'Find me a home' }, prompt: { zh: '帮我找市中心 $2,500 以内的一居室,最好离地铁近。', en: 'Find me a downtown 1-bed under $2,500, close to the subway.' } },
+    { icon: '📄', label: { zh: '解读租约', en: 'Explain my lease' }, prompt: { zh: '帮我逐条解释租约里最需要注意的条款。', en: 'Walk me through the lease clauses I should watch out for.' } },
+    { icon: '🔧', label: { zh: '发起报修', en: 'Report a repair' }, prompt: { zh: '厨房水槽漏水,帮我整理成报修工单发给房东。', en: 'The kitchen sink is leaking — turn this into a repair ticket for my landlord.' } },
+    { icon: '⭐', label: { zh: '升级认证', en: 'Upgrade my tier' }, prompt: { zh: '我现在是什么认证等级?怎么升级能解锁更多房源?', en: "What's my current tier, and how do I upgrade to unlock more listings?" } },
+  ],
+  landlord: [
+    { icon: '🏠', label: { zh: '发布房源', en: 'List a property' }, prompt: { zh: '我要发布一个新房源,你来帮我整理信息。', en: 'I want to list a new property — help me put it together.' } },
+    { icon: '📥', label: { zh: '看看新申请', en: 'Review applications' }, prompt: { zh: '帮我看看最新的申请,按质量排序并说明理由。', en: 'Review my latest applications, rank them and explain why.' } },
+    { icon: '📝', label: { zh: '续约方案', en: 'Renewal options' }, prompt: { zh: '帮我看看哪些租约快到期了,给我续约方案和合规涨幅。', en: 'Which leases are coming up? Give me renewal options with the legal increase.' } },
+    { icon: '⚖️', label: { zh: '合规检查', en: 'Compliance check' }, prompt: { zh: '帮我检查我的房源和租约有没有 RTA 合规风险。', en: 'Check my listings and leases for RTA compliance risks.' } },
+  ],
+  agent: [
+    { icon: '📅', label: { zh: '今天的带看', en: "Today's showings" }, prompt: { zh: '今天有哪些带看任务?帮我把材料包备好。', en: 'What showings do I have today? Prep the packs for me.' } },
+    { icon: '👥', label: { zh: '客户跟进', en: 'Client follow-ups' }, prompt: { zh: '哪些客户需要跟进?帮我列出来并起草跟进消息。', en: 'Which clients need follow-ups? List them and draft the messages.' } },
+    { icon: '🗺️', label: { zh: '排看房路线', en: 'Plan my route' }, prompt: { zh: '帮我把明天的带看按位置排一条最优路线。', en: 'Plan the best route for tomorrow’s showings by location.' } },
+    { icon: '🛡️', label: { zh: 'RECO 边界', en: 'RECO boundaries' }, prompt: { zh: '下一场带看,哪些问题我被授权回答、哪些不能答?', en: 'For my next showing, what am I authorized to answer — and what not?' } },
+  ],
+}
+
 export default function AgentChat({
   role,
   agentName,
@@ -114,6 +137,34 @@ export default function AgentChat({
             </div>
           </div>
         ))}
+        {/* Empty-state quick starts — one tap sends the prompt */}
+        {messages.length <= 1 && !thinking && (
+          <div className="pl-9 pt-1">
+            <div className="mb-2.5 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">
+              {lang === 'zh' ? '试试这些 · 一句话开工' : 'Try one — a single sentence starts the work'}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {SUGGESTIONS[role].map((s) => (
+                <button
+                  key={s.label.en}
+                  onClick={() => onSend(s.prompt[lang])}
+                  className="group flex items-center gap-3 rounded-xl border border-line-divider bg-white px-3.5 py-3 text-left transition hover:shadow-sm"
+                  style={{ borderColor: undefined }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = accent }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = '' }}
+                >
+                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[15px]" style={{ background: `${accent}14` }}>
+                    {s.icon}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-bold">{s.label[lang]}</span>
+                    <span className="block truncate text-[11.5px] text-body-3">{s.prompt[lang]}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {thinking && (
           <div className="flex justify-start">
             <span className="mr-2 mt-0.5 h-7 w-7 flex-none rounded-full" style={{ background: ORB[role] }} />

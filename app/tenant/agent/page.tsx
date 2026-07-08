@@ -48,9 +48,9 @@ export default function TenantAgentPage() {
             <PendingActionsPanel actions={pendingActions} onDecide={decide} />
           )}
           <WorkflowStatusPanel role="tenant" workflow={workflow} />
+          <RecommendationDeck items={recommendations} />
           <PrivateMemorySnapshot agentName={agent.agent_name} memories={memories} />
           <RelatedPagesCard role="tenant" />
-          <RecommendationDeck items={recommendations} />
         </div>
       </div>
     </WorkspaceShell>

@@ -54,9 +54,9 @@ export default function FieldAgentPage() {
         <div className="space-y-6 lg:h-[calc(100vh-150px)] lg:overflow-y-auto lg:pr-1">
           {pendingActions.length > 0 && <PendingActionsPanel actions={pendingActions} onDecide={decide} />}
           <WorkflowStatusPanel role="agent" workflow={workflow} />
+          <RecommendationDeck items={recommendations} />
           <PrivateMemorySnapshot agentName={agent.agent_name} memories={memories} />
           <RelatedPagesCard role="agent" />
-          <RecommendationDeck items={recommendations} />
         </div>
       </div>
     </WorkspaceShell>
