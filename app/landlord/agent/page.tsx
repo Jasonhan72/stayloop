@@ -10,25 +10,13 @@ import PrivateMemorySnapshot from '@/components/agent/PrivateMemorySnapshot'
 import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
 import { useEffect, useRef } from 'react'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
+import { usePromptDeepLink } from '@/lib/agent/usePromptDeepLink'
 import { useT } from '@/lib/i18n'
 
 export default function LandlordAgentPage() {
   const { lang } = useT()
   const { loading, live, data, status, messages, decide, sendMessage } = useAgentSession('landlord')
-
-  // Deep-link tasks: workspace CTAs ("起草新租约", "N1 涨租通知"…) navigate
-  // here with ?prompt=<task>. Auto-send it once the session settles, then
-  // strip the param so a refresh doesn't resend. window.location (not
-  // useSearchParams) avoids the Suspense-boundary requirement.
-  const promptSent = useRef(false)
-  useEffect(() => {
-    if (loading || promptSent.current) return
-    const p = new URLSearchParams(window.location.search).get('prompt')
-    if (!p || !p.trim()) return
-    promptSent.current = true
-    window.history.replaceState({}, '', window.location.pathname)
-    void sendMessage(p.trim())
-  }, [loading, sendMessage])
+  usePromptDeepLink(loading, sendMessage)
 
   if (loading || !data) {
     return (

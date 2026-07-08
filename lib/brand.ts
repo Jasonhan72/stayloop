@@ -95,7 +95,3 @@ export const size = {
   },
   content: { narrow: 720, default: 1100, wide: 1260 },
 } as const
-
-/** Convenience: legacy `tokens` alias re-exports the V3 palette so old
- *  imports from `@/lib/agent/theme` keep working until they're migrated. */
-export const tokens = v3

@@ -88,23 +88,39 @@ export async function POST(req: Request) {
   }
 
   const signature = { name, signed_at: new Date().toISOString(), role: signer }
-  const otherSigned = signer === 'tenant' ? !!lease.landlord_signature : !!lease.tenant_signature
-  const newStatus = otherSigned ? 'signed_both' : signer === 'tenant' ? 'signed_tenant' : lease.status === 'draft' ? 'sent' : lease.status
 
-  // Conditional write: only land the signature if that slot is still empty.
-  const patch: Record<string, unknown> = {
-    [`${signer}_signature`]: signature,
-    status: newStatus,
-  }
-  if (otherSigned) patch.signed_at = signature.signed_at
+  // Step 1 — land ONLY this signature (guarded so the slot must still be empty).
+  // Do NOT decide 'signed_both' from the pre-read snapshot: a concurrent signer
+  // would have the same stale view and both would miss full execution.
+  const provisionalStatus = signer === 'tenant' ? 'signed_tenant' : lease.status === 'draft' ? 'sent' : lease.status
   const { data: updated } = await admin
     .from('lease_documents')
-    .update(patch)
+    .update({ [`${signer}_signature`]: signature, status: provisionalStatus })
     .eq('id', lease.id)
     .is(`${signer}_signature`, null)
     .select('id')
   if (!updated || updated.length === 0) {
     return NextResponse.json({ ok: true, already: true, status: lease.status })
+  }
+
+  // Step 2 — re-read fresh state. Whichever request wrote second now sees BOTH
+  // signatures and finalizes; the finalize is claimed atomically (signed_at
+  // must still be null) so only one request sends the fully-executed emails.
+  const { data: fresh } = await admin
+    .from('lease_documents')
+    .select('landlord_signature, tenant_signature')
+    .eq('id', lease.id)
+    .maybeSingle<{ landlord_signature: unknown; tenant_signature: unknown }>()
+  const bothPresent = !!fresh?.landlord_signature && !!fresh?.tenant_signature
+  let otherSigned = false
+  if (bothPresent) {
+    const { data: finalized } = await admin
+      .from('lease_documents')
+      .update({ status: 'signed_both', signed_at: signature.signed_at })
+      .eq('id', lease.id)
+      .is('signed_at', null)
+      .select('id')
+    otherSigned = !!finalized && finalized.length > 0
   }
 
   // Unskippable audit.
@@ -146,5 +162,6 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, status: newStatus, fully_executed: otherSigned, signature })
+  const finalStatus = otherSigned ? 'signed_both' : provisionalStatus
+  return NextResponse.json({ ok: true, status: finalStatus, fully_executed: otherSigned, signature })
 }

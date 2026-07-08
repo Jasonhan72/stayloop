@@ -50,6 +50,29 @@ export function getDefaultName(_role: string = 'tenant'): string {
  * cached localStorage value → agent_configs.agent_name for the signed-in
  * user (then re-caches) → generic "AI Agent".
  */
+// One in-flight DB resolve per role, shared across all hook instances mounted
+// in the same page — without this, every component that shows the AI name
+// (chat header, watch bars, memory aside, audit log…) fires its own identical
+// agent_configs SELECT on each navigation.
+const nameResolve = new Map<string, Promise<string | null>>()
+
+function resolveDbName(role: string): Promise<string | null> {
+  const cached = nameResolve.get(role)
+  if (cached) return cached
+  const p = supabase.auth.getSession().then(async ({ data: { session } }) => {
+    if (!session?.user) return null
+    const { data } = await supabase
+      .from('agent_configs')
+      .select('agent_name')
+      .eq('user_id', session.user.id)
+      .eq('role', role)
+      .maybeSingle()
+    return (data?.agent_name || '').trim() || null
+  }).catch(() => null)
+  nameResolve.set(role, p)
+  return p
+}
+
 export function useAIName(role: string = 'tenant'): string {
   const [name, setName] = useState<string>(GENERIC_AI_NAME)
 
@@ -57,23 +80,12 @@ export function useAIName(role: string = 'tenant'): string {
     let cancelled = false
     setName(getAIName(role))
 
-    // Authoritative source: the user's agent config in the DB (cross-device).
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (cancelled || !session?.user) return
-      supabase
-        .from('agent_configs')
-        .select('agent_name')
-        .eq('user_id', session.user.id)
-        .eq('role', role)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (cancelled) return
-          const dbName = (data?.agent_name || '').trim()
-          if (dbName) {
-            setName(dbName)
-            setAIName(dbName, role)
-          }
-        })
+    // Authoritative source: the user's agent config in the DB (cross-device),
+    // fetched once per role per session and shared by all hook instances.
+    resolveDbName(role).then((dbName) => {
+      if (cancelled || !dbName) return
+      setName(dbName)
+      setAIName(dbName, role)
     })
 
     const key = keyFor(role)

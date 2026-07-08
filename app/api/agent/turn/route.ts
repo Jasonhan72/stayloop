@@ -172,10 +172,16 @@ function normalizeOutput(parsed: Record<string, unknown> | null, fallbackReply: 
     : []
 
   const pa = parsed.proposed_action as Record<string, unknown> | null | undefined
+  // A turn can't populate the lease metadata (tenant_email, current_rent…) the
+  // send_renewal_letter executor needs — approving it would 422 forever. Those
+  // letters must originate from the proactive sweep (which carries the lease
+  // data). Downgrade any turn-proposed renewal to an approval-only note.
+  const rawType = pa && typeof pa === 'object' ? String(pa.action_type) : ''
+  const safeType = rawType === 'send_renewal_letter' ? 'renewal_note' : rawType
   const proposedAction =
     pa && typeof pa === 'object' && typeof pa.action_type === 'string'
       ? {
-          action_type: String(pa.action_type),
+          action_type: safeType,
           title: String(pa.title ?? '待你确认'),
           summary: String(pa.summary ?? ''),
           recipient_label: pa.recipient_label ? String(pa.recipient_label) : null,
