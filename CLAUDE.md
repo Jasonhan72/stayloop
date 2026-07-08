@@ -70,7 +70,7 @@ Same vars are set in Cloudflare Pages dashboard for production.
 - `tailwind.config.ts` + `app/globals.css` — design tokens (`.sl-card`, `.sl-btn-primary`, `.orb`, role colors)
 
 ### Components
-- `components/Header.tsx` — global nav: 房源·租客·房东·经纪·审核 (Trust API NOT in nav)
+- `components/Header.tsx` — global nav: **我是** dropdown (租客/房东/经纪) · 房源 · 定价 · 租客背调(→/screening); admins also see a 后台管理 entry in the avatar menu (Trust API NOT in nav)
 - `components/Footer.tsx` — footer with v5.3 label
 - `components/Logo.tsx` — `stayloop.AI` (`.AI` in purple→blue gradient)
 - `components/WorkspaceShell.tsx` — all workspace pages use this (role-based theming)
@@ -98,6 +98,12 @@ Same vars are set in Cloudflare Pages dashboard for production.
 - `app/api/ai-score/route.ts` — legacy scoring
 - `app/api/trust/verify/route.ts` — Trust API endpoint
 - `app/api/notify-landlord/route.ts` — email notifications
+- `app/api/agent/turn/route.ts` — Personal Agent reasoning step (Claude + Guardrail); durable rate limit via `bump_agent_rate_limit` RPC
+- `app/api/agent/proactive/route.ts` — renewal-window scanner → pending actions (carries lease metadata)
+- `app/api/agent/execute/route.ts` — executor for approved actions (send_renewal_letter; requires explicit A/B rent option)
+- `app/api/lease/{send,sign,view}/route.ts` — e-sign flow; sign route decouples signature-write from dual-sign finalize (race-safe)
+- `app/api/stripe/{checkout,portal,webhook}/route.ts` — billing
+- `app/api/classify-files/route.ts` — upload classification
 
 ### Screening Module
 - `app/screening/page.tsx` — main screening page with streaming progress
@@ -181,8 +187,15 @@ In `supabase/migrations/`:
 ### Agent Workspace
 `/agent/agent` `/agent/calendar` `/agent/clients` `/agent/earnings` `/agent/tasks`
 
+### Admin (Stayloop back-office — gated by `admin_users` / `is_stayloop_admin()`)
+`/admin` (console) `/admin/verify` (listing verification queue) `/admin/users` (member management)
+
 ### Other
-`/dashboard` `/settings`
+`/dashboard` `/settings` `/lease/sign/[token]` `/landlord/leases/new` `/landlord/leases/[id]` `/register` `/auth/reset-password`
+
+## Listing Visibility (Critical — DB-enforced)
+
+Public surfaces show a listing only when `is_active AND (verification_status='verified' OR source='realtor')`. This is enforced at the DB (RLS policy "Public can read verified listings"), not just app filters. Landlord-published listings start `pending` and go public only after `/admin/verify` approval; Realtor.ca-imported rows (`source='realtor'`) show immediately with a source badge. A trigger (`guard_listing_trust_fields`) reverts any non-admin write to `verification_status`/`source`/`verified_at`, so landlords can't self-approve. App-layer queries use `LISTING_VISIBILITY_OR` from `lib/listingVisibility.ts` — don't re-inline the filter string.
 
 ## Preferences
 

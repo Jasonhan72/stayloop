@@ -85,12 +85,16 @@ export default function ListingsPage() {
   useEffect(() => {
     supabase
       .from('listings')
-      .select('*')
+      // Only the columns the browse cards + map + client filters read — not
+      // select('*') (which shipped every image URL, description, price_history
+      // and broker fields on the highest-traffic public page).
+      .select('id,slug,address,unit,city,province,monthly_rent,bedrooms,bathrooms,sqft,neighborhood,trust_tier,pet_policy,amenities,match_score,pin_x,pin_y,lat,lng,thumb_a,thumb_b,luna_note,badge,photo_count,is_active,created_at,images,available_date,has_den,source,verification_status')
       .eq('is_active', true)
       // Public list shows verified listings; Realtor.ca-sourced ones show
       // without verification (they carry a source badge instead).
       .or(LISTING_VISIBILITY_OR)
       .order('created_at', { ascending: false })
+      .limit(300)
       .then(({ data }) => {
         setAll((data || []) as DBListing[])
         if (data && data.length > 0) setActive((data[1] || data[0]).id)

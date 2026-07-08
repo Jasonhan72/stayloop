@@ -21,7 +21,6 @@ AI-powered tenant screening platform for Ontario landlords.
 ```bash
 npm install
 cp .env.example .env.local
-# Fill in your API keys
 npm run dev
 ```
 
@@ -76,10 +75,7 @@ All Stripe routes live under `app/api/stripe/` and run on the edge runtime.
 
 ### Local dev
 ```bash
-# 1. Fill in STRIPE_SECRET_KEY (test key) and NEXT_PUBLIC_STRIPE_PRICE_ID in .env.local
-# 2. Forward webhooks from Stripe to your local server:
 stripe listen --forward-to localhost:3000/api/stripe/webhook
-# 3. Paste the whsec_... it prints into STRIPE_WEBHOOK_SECRET and restart `npm run dev`.
 ```
 
 ### Required env vars

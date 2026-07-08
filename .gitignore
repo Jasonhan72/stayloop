@@ -53,3 +53,7 @@ stripe-resend.patch
 # editor
 .idea/
 .vscode/
+
+# Claude Code local/temp settings (may contain tokens)
+.claude/settings.local.json
+.claude/*.tmp*
