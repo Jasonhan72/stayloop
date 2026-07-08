@@ -66,7 +66,7 @@ const PLANS: RolePlan[] = [
     accent: '#047857',
     tiers: [
       {
-        name: { zh: '起步', en: 'Starter' },
+        name: { zh: '起步', en: 'Go' },
         price: { zh: '$0', en: '$0' },
         priceUnit: { zh: '永久免费', en: 'free forever' },
         tagline: { zh: '一套房,先把 AI 用起来。', en: 'One property — start with the AI.' },
@@ -87,7 +87,7 @@ const PLANS: RolePlan[] = [
         tagline: { zh: 'AI 替你出租和管房,全功能。', en: 'AI rents and manages for you, in full.' },
         cta: { zh: '升级到专业版', en: 'Upgrade to Pro' },
         href: '/dashboard/listings/new',
-        includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Starter, plus:' },
+        includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Go, plus:' },
         features: [
           { zh: '无限发布房源', en: 'Unlimited listings' },
           { zh: 'Logic Agent 全功能', en: 'Full Logic agent' },
@@ -98,11 +98,11 @@ const PLANS: RolePlan[] = [
         highlight: true,
       },
       {
-        name: { zh: '团队', en: 'Team' },
+        name: { zh: '团队', en: 'Business' },
         price: { zh: '$39', en: '$39' },
         priceUnit: { zh: '/ 月', en: '/ month' },
         tagline: { zh: '多人协作,管一整个组合。', en: 'Collaborate across a whole portfolio.' },
-        cta: { zh: '升级到团队版', en: 'Upgrade to Team' },
+        cta: { zh: '升级到团队版', en: 'Upgrade to Business' },
         href: '/dashboard/listings/new',
         includesLabel: { zh: '专业的全部,另加:', en: 'Everything in Pro, plus:' },
         features: [
@@ -120,7 +120,7 @@ const PLANS: RolePlan[] = [
     accent: '#2563EB',
     tiers: [
       {
-        name: { zh: '起步', en: 'Starter' },
+        name: { zh: '起步', en: 'Go' },
         price: { zh: '$0', en: '$0' },
         priceUnit: { zh: '永久免费', en: 'free forever' },
         tagline: { zh: '每月 5 个客户,先试试 AI 后台。', en: 'Five clients a month — try the AI back office.' },
@@ -141,7 +141,7 @@ const PLANS: RolePlan[] = [
         tagline: { zh: '无限客户,杂活全交给 AI。', en: 'Unlimited clients — hand all the busywork to AI.' },
         cta: { zh: '升级到专业版', en: 'Upgrade to Pro' },
         href: '/agent/onboarding',
-        includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Starter, plus:' },
+        includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Go, plus:' },
         features: [
           { zh: '无限客户', en: 'Unlimited clients' },
           { zh: 'Brief Agent 全功能', en: 'Full Brief agent' },
@@ -151,11 +151,11 @@ const PLANS: RolePlan[] = [
         highlight: true,
       },
       {
-        name: { zh: '团队', en: 'Team' },
+        name: { zh: '团队', en: 'Business' },
         price: { zh: '$59', en: '$59' },
         priceUnit: { zh: '/ 月', en: '/ month' },
         tagline: { zh: '多经纪协作的团队后台。', en: 'A shared back office for multi-agent teams.' },
-        cta: { zh: '升级到团队版', en: 'Upgrade to Team' },
+        cta: { zh: '升级到团队版', en: 'Upgrade to Business' },
         href: '/agent/onboarding',
         includesLabel: { zh: '专业的全部,另加:', en: 'Everything in Pro, plus:' },
         features: [
