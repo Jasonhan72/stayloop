@@ -9,6 +9,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { supabase } from '@/lib/supabase'
 import { useT, type Lang } from '@/lib/i18n'
+import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 
 /**
  * V5 ART · Listing Detail (L2)
@@ -145,6 +146,10 @@ export default function ListingDetailPage() {
     let cancelled = false
     ;(async () => {
       const { data } = await supabase
+        // No app-layer visibility filter here: RLS already returns this row
+        // only to the public when verified/realtor, and to the owning landlord
+        // for their own (possibly pending) listing preview. Filtering here would
+        // break the owner's own-listing preview.
         .from('listings')
         .select('*')
         .eq('slug', slug)
@@ -159,7 +164,7 @@ export default function ListingDetailPage() {
           .from('listings')
           .select('*')
           .eq('is_active', true)
-          .or('verification_status.eq.verified,source.eq.realtor')
+          .or(LISTING_VISIBILITY_OR)
           .neq('id', (data as any).id)
           .limit(3)
         if (!cancelled) setSimilar((rest || []) as DBListing[])

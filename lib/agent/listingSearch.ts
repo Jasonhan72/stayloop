@@ -2,6 +2,7 @@
 // LIVE external fallback (Realtor.ca via the Jina reader/search API) when
 // Stayloop has no match. Runs server-side (edge). Requires JINA_API_KEY.
 import type { ListingCard } from './types'
+import { LISTING_VISIBILITY_OR, LISTING_VISIBILITY_OR_GROUP } from '../listingVisibility'
 
 export type SearchCriteria = {
   area?: string | null
@@ -153,14 +154,14 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
   // Same visibility rule as the public listings page: verified, or
   // Realtor.ca-sourced (which display without verification). Combined with
   // the area OR-group via and=() — PostgREST allows only one bare `or` param.
-  const visibility = 'or(verification_status.eq.verified,source.eq.realtor)'
+  const visibility = LISTING_VISIBILITY_OR_GROUP
   if (c.area) {
     // Match city OR neighborhood OR address. Spaces become `*` wildcards so
     // "North York" matches without needing PostgREST value quoting.
     const pat = `*${c.area.replace(/[,()"']/g, ' ').trim().replace(/\s+/g, '*')}*`
     p.set('and', `(${visibility},or(city.ilike.${pat},neighborhood.ilike.${pat},address.ilike.${pat}))`)
   } else {
-    p.set('or', `(verification_status.eq.verified,source.eq.realtor)`)
+    p.set('or', `(${LISTING_VISIBILITY_OR})`)
   }
   if (c.max_price) p.set('monthly_rent', `lte.${Math.round(c.max_price)}`)
   if (c.min_beds) p.set('bedrooms', `gte.${Math.round(c.min_beds)}`)

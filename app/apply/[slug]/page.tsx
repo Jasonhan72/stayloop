@@ -8,6 +8,7 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { supabase } from '@/lib/supabase'
+import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 import { useT } from '@/lib/i18n'
 import type { ApplicationFile, FileKind } from '@/types'
 
@@ -82,7 +83,9 @@ export default function ApplyPage() {
       .from('listings')
       .select('id')
       .eq('slug', params.slug)
-      .single()
+      .eq('is_active', true)
+      .or(LISTING_VISIBILITY_OR)
+      .maybeSingle()
 
     if (!listing) {
       setError(zh ? '找不到对应房源。' : 'Listing not found.')

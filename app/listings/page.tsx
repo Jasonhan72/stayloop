@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { useAIName } from '@/lib/aiName'
+import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 
 /**
  * V5 ART · Listings Browse (StreetEasy/Airbnb-inspired split view)
@@ -88,7 +89,7 @@ export default function ListingsPage() {
       .eq('is_active', true)
       // Public list shows verified listings; Realtor.ca-sourced ones show
       // without verification (they carry a source badge instead).
-      .or('verification_status.eq.verified,source.eq.realtor')
+      .or(LISTING_VISIBILITY_OR)
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         setAll((data || []) as DBListing[])
