@@ -320,6 +320,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       let nextStage: string | null = null
       let listings: ChatMessage['listings']
       let listingsSource: ChatMessage['listingsSource']
+      let market: ChatMessage['market']
+      let followups: ChatMessage['followups']
       let draftListing: ChatMessage['draftListing']
 
       setStatus('working')
@@ -348,6 +350,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           nextStage = turn.nextStage
           listings = turn.listings
           listingsSource = turn.listingsSource
+          market = turn.market
+          followups = turn.followups
           draftListing = turn.draftListing
           // Accumulate URL images across turns for cross-turn draft attachment.
           if (turn.urlImages?.length) urlImagesRef.current = turn.urlImages
@@ -395,7 +399,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       // Append the agent's reply (with any listing/draft cards) to the thread.
       setMessages((m) => [
         ...m,
-        { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, draftListing },
+        { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, market, followups, draftListing },
       ])
     },
     [live, user, role, data]

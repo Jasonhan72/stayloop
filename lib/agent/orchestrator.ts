@@ -12,6 +12,8 @@ import type {
   PendingAction,
   Recommendation,
   WorkflowState,
+  MarketInsight,
+  FollowUp,
 } from './types'
 import { writeAuditEvent } from './audit'
 import { upsertMemories } from './memory'
@@ -133,6 +135,8 @@ export type AgentTurn = {
   nextStage: string | null
   listings?: ListingCard[]
   listingsSource?: 'stayloop' | 'realtor'
+  market?: MarketInsight
+  followups?: FollowUp[]
   draftListing?: DraftListing
   urlImages?: string[]
 }
@@ -192,6 +196,8 @@ export async function runAgentTurn(args: {
     next_stage: string | null
     listings?: ListingCard[]
     listings_source?: 'stayloop' | 'realtor'
+    market?: MarketInsight
+    followups?: FollowUp[]
     draft_listing?: DraftListing
     url_images?: string[]
   }
@@ -259,6 +265,8 @@ export async function runAgentTurn(args: {
     nextStage: turn.next_stage,
     listings: turn.listings,
     listingsSource: turn.listings_source,
+    market: turn.market,
+    followups: turn.followups,
     draftListing: turn.draft_listing,
     urlImages: turn.url_images,
   }

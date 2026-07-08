@@ -70,10 +70,34 @@ function normalizeArea(area?: string | null): string | null {
   return t
 }
 
+export type MarketStats = {
+  area: string
+  beds?: number | null
+  sample: number
+  min: number
+  median: number
+  max: number
+  budget?: number | null
+}
+
+function buildMarket(c: SearchCriteria, prices: number[]): MarketStats | undefined {
+  const clean = prices.filter((p) => p > 300 && p < 60000).sort((a, b) => a - b)
+  if (clean.length < 3) return undefined
+  return {
+    area: c.area || 'Toronto',
+    beds: c.min_beds ?? null,
+    sample: clean.length,
+    min: clean[0],
+    median: clean[Math.floor(clean.length / 2)],
+    max: clean[clean.length - 1],
+    budget: c.max_price ?? null,
+  }
+}
+
 export async function searchListings(
   c: SearchCriteria,
   exclude: string[] = []
-): Promise<{ listings: ListingCard[] }> {
+): Promise<{ listings: ListingCard[]; market?: MarketStats }> {
   c = { ...c, area: normalizeArea(c.area) }
   const target = Math.min(Math.max(c.count ?? 4, 1), 6)
   // Already-shown addresses (this conversation) are skipped so "再找几个 /
@@ -82,16 +106,31 @@ export async function searchListings(
   const fresh = (l: ListingCard) => !ex.has(l.address.toLowerCase())
   const fetchCount = Math.min(target + exclude.length, 12)
 
+  // Market sample: same area/beds/type but NO price cap — real market range,
+  // computed from actual prices (Stayloop DB + Realtor rows), never the LLM.
+  const statsPromise = statsStayloop(c).catch(() => [] as number[])
+
   // Stayloop's own listings come first (verified). If there aren't enough new
   // ones to meet what the user asked for, top up with external Realtor.ca.
   const stay = (await searchStayloop({ ...c, count: fetchCount })).filter(fresh)
-  if (stay.length >= target) return { listings: stay.slice(0, target) }
+  if (stay.length >= target) {
+    const prices = await statsPromise
+    return { listings: stay.slice(0, target), market: buildMarket(c, prices) }
+  }
 
-  let ext = (await jinaRealtor({ ...c, count: fetchCount }).catch(() => [] as ListingCard[])).filter(fresh)
+  const extRes = await jinaRealtor({ ...c, count: fetchCount }).catch(() => ({ cards: [] as ListingCard[], allPrices: [] as number[] }))
+  let ext = extRes.cards.filter(fresh)
   if (!ext.length && stay.length === 0) ext = syntheticRealtor(c).filter(fresh)
   const seen = new Set(stay.map((l) => l.address.toLowerCase()))
   const filled = [...stay, ...ext.filter((l) => !seen.has(l.address.toLowerCase()))]
-  return { listings: filled.slice(0, target) }
+  const prices = [...(await statsPromise), ...extRes.allPrices]
+  return { listings: filled.slice(0, target), market: buildMarket(c, prices) }
+}
+
+// Price sample for the area (no budget cap) — powers the market-context card.
+async function statsStayloop(c: SearchCriteria): Promise<number[]> {
+  const rows = await searchStayloop({ ...c, max_price: null, count: 12 })
+  return rows.map((r) => r.price).filter(Boolean)
 }
 
 // ---------- Stayloop's own listings ----------
@@ -174,9 +213,10 @@ function isHouseQuery(kw?: string | null, propertyType?: string | null): boolean
   return /house|整栋|独立屋|townhouse|联排|town\s?home/i.test(kw || '')
 }
 
-async function jinaRealtor(c: SearchCriteria): Promise<ListingCard[]> {
+async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; allPrices: number[] }> {
+  const EMPTY = { cards: [] as ListingCard[], allPrices: [] as number[] }
   const key = process.env.JINA_API_KEY
-  if (!key) return []
+  if (!key) return EMPTY
   const area = c.area || 'Toronto'
   const house = isHouseQuery(c.keywords, normalizeType(c))
 
@@ -208,7 +248,7 @@ async function jinaRealtor(c: SearchCriteria): Promise<ListingCard[]> {
   }
   // Only ever hand the reader a genuine realtor.ca URL — never an arbitrary
   // host that slipped through the search results (SSRF hardening).
-  if (!pageUrl || !/^https:\/\/(www\.)?realtor\.ca\//i.test(pageUrl)) return []
+  if (!pageUrl || !/^https:\/\/(www\.)?realtor\.ca\//i.test(pageUrl)) return EMPTY
 
   // 2. Read the page, parse all rows, then filter + rank for relevance.
   try {
@@ -216,21 +256,24 @@ async function jinaRealtor(c: SearchCriteria): Promise<ListingCard[]> {
       headers: { Authorization: `Bearer ${key}` },
       signal: AbortSignal.timeout(22000),
     })
-    if (!rres.ok) return []
+    if (!rres.ok) return EMPTY
     // A house search implies ≥3 beds unless the user said otherwise.
     const minBeds = c.min_beds ?? (house ? 3 : undefined)
-    const all = parseRealtor(await rres.text(), { ...c, min_beds: minBeds })
+    const { cards: all, allPrices } = parseRealtor(await rres.text(), { ...c, min_beds: minBeds })
     // Rank by budget relevance: houses → priciest-within-budget first
     // (closest to a high target like $6000); apartments → cheapest first.
     all.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
-    return all.slice(0, Math.min(c.count ?? 4, 12))
+    return { cards: all.slice(0, Math.min(c.count ?? 4, 12)), allPrices }
   } catch {
-    return []
+    return EMPTY
   }
 }
 
-function parseRealtor(md: string, c: SearchCriteria): ListingCard[] {
+function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; allPrices: number[] } {
   const out: ListingCard[] = []
+  // Every bed-matching row's price, BEFORE the budget cap — the honest
+  // market sample for the area, not just what fits the user's budget.
+  const allPrices: number[] = []
   for (const line of md.split('\n')) {
     if (!/\$[\d,]+\s*\/\s*Month/i.test(line)) continue
     const priceM = line.match(/\$([\d,]+)\s*\/\s*Month/i)
@@ -245,8 +288,9 @@ function parseRealtor(md: string, c: SearchCriteria): ListingCard[] {
     const sqftM = line.match(/(\d+)[\d\-+]*\s+Square\s*Feet/i)
     const beds = bedsM ? parseInt(bedsM[1], 10) : 0
     const hasDen = !!(bedsM && bedsM[2])
-    if (c.max_price && price > c.max_price) continue
     if (c.min_beds && beds < c.min_beds) continue
+    allPrices.push(price)
+    if (c.max_price && price > c.max_price) continue
     const neighborhood = addrRaw.match(/\(([^)]+)\)/)?.[1]
     const street = addrRaw.split(',')[0].trim()
     const sqft = sqftM ? parseInt(sqftM[1], 10) : 0
@@ -268,7 +312,7 @@ function parseRealtor(md: string, c: SearchCriteria): ListingCard[] {
     })
     if (out.length >= 40) break // safety cap; caller ranks + slices to 4
   }
-  return out
+  return { cards: out, allPrices }
 }
 
 // ---------- Last-resort synthetic fallback (Jina unavailable) ----------

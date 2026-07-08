@@ -153,6 +153,24 @@ export type ChatAttachment = {
   isImage: boolean
 }
 
+// Real market context computed server-side from actual listing prices
+// (Stayloop DB + Realtor.ca parse) — never hallucinated by the model.
+export type MarketInsight = {
+  area: string
+  beds?: number | null
+  sample: number
+  min: number
+  median: number
+  max: number
+  budget?: number | null
+}
+
+// A clarifying question the agent proactively asks, with tap-to-answer chips.
+export type FollowUp = {
+  question: string
+  options: string[]
+}
+
 export type ChatMessage = {
   id: string
   role: 'user' | 'agent'
@@ -160,6 +178,8 @@ export type ChatMessage = {
   attachments?: ChatAttachment[]
   listings?: ListingCard[]
   listingsSource?: 'stayloop' | 'realtor'
+  market?: MarketInsight
+  followups?: FollowUp[]
   draftListing?: DraftListing
 }
 

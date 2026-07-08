@@ -347,6 +347,8 @@ export async function POST(req: Request) {
   // own listings first, then fall back to external (Realtor.ca).
   let listings: ListingCard[] | undefined
   let listingsSource: 'stayloop' | 'realtor' | undefined
+  let market: Record<string, unknown> | undefined
+  let followups: { question: string; options: string[] }[] | undefined
   const search = parsed?.search as Record<string, unknown> | null | undefined
   if (role === 'tenant' && search && typeof search === 'object') {
     try {
@@ -367,6 +369,39 @@ export async function POST(req: Request) {
         const hasRealtor = result.listings.some((l) => l.source === 'realtor')
         listingsSource = hasStay && !hasRealtor ? 'stayloop' : !hasStay && hasRealtor ? 'realtor' : undefined
       }
+      // Proactive market context — real prices from the area sample, computed
+      // server-side (never by the model).
+      if (result.market) market = result.market as unknown as Record<string, unknown>
+
+      // Proactive clarifying questions with tap-to-answer chips, derived from
+      // whichever key criteria the user hasn't given yet (max 2 per turn).
+      const cjk = /[一-鿿]/.test(message)
+      const fq: { question: string; options: string[] }[] = []
+      if (search.max_price == null)
+        fq.push(
+          cjk
+            ? { question: '预算大概多少?', options: ['预算 $2,000 以内', '预算 $2,500 以内', '预算 $3,000 以内', '预算不限'] }
+            : { question: "What's your budget?", options: ['Under $2,000', 'Under $2,500', 'Under $3,000', 'No limit'] }
+        )
+      if (search.min_beds == null)
+        fq.push(
+          cjk
+            ? { question: '想要几居室?', options: ['Studio 就行', '一居室', '两居室', '三居以上'] }
+            : { question: 'How many bedrooms?', options: ['Studio is fine', '1 bedroom', '2 bedrooms', '3+'] }
+        )
+      if (search.pets == null)
+        fq.push(
+          cjk
+            ? { question: '有宠物吗?', options: ['要养宠物', '不养宠物'] }
+            : { question: 'Any pets?', options: ['I have a pet', 'No pets'] }
+        )
+      if (search.property_type == null)
+        fq.push(
+          cjk
+            ? { question: '公寓还是整套房子?', options: ['要公寓', '要整套 House', '都可以'] }
+            : { question: 'Condo or a whole house?', options: ['Condo/apartment', 'Whole house', 'Either'] }
+        )
+      if (fq.length) followups = fq.slice(0, 2)
     } catch (e) {
       console.warn('[agent] listing search failed', (e as Error).message)
     }
@@ -470,6 +505,8 @@ export async function POST(req: Request) {
     next_stage: out.nextStage,
     listings,
     listings_source: listingsSource,
+    market,
+    followups,
     draft_listing: draftListing,
     url_images: urlImages.length ? urlImages : undefined,
     guardrail: { flagged: flags.length > 0, notes: flags },

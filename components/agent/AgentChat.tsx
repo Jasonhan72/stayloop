@@ -129,6 +129,56 @@ export default function AgentChat({
                   </div>
                 </div>
               )}
+              {/* Proactive market context — real prices computed server-side */}
+              {m.role === 'agent' && m.market && (
+                <div className="w-full max-w-[480px] rounded-xl border border-line-divider bg-white p-3.5">
+                  <div className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-eyebrow text-body-3">
+                    📊 {lang === 'zh' ? `${m.market.area}${m.market.beds ? ` · ${m.market.beds} 房+` : ''} 真实行情` : `${m.market.area}${m.market.beds ? ` · ${m.market.beds}bd+` : ''} live market`}
+                    <span className="font-normal normal-case">· {lang === 'zh' ? `样本 ${m.market.sample} 套` : `${m.market.sample} listings`}</span>
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-3">
+                    <span className="text-[18px] font-extrabold tracking-tight">${m.market.min.toLocaleString()}–${m.market.max.toLocaleString()}</span>
+                    <span className="text-[12px] text-body-3">{lang === 'zh' ? '中位' : 'median'} <b className="text-body">${m.market.median.toLocaleString()}</b></span>
+                  </div>
+                  {/* budget position bar */}
+                  <div className="relative mt-2.5 h-[6px] rounded-full bg-surface-chip">
+                    <div className="absolute inset-y-0 rounded-full" style={{ left: '0%', width: '100%', background: 'linear-gradient(90deg,#6EE7B7,#FBBF24,#F87171)' , opacity: 0.35 }} />
+                    {m.market.budget != null && m.market.max > m.market.min && (
+                      <span
+                        className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
+                        style={{ background: accent, left: `${Math.min(98, Math.max(2, ((m.market.budget - m.market.min) / (m.market.max - m.market.min)) * 100))}%` }}
+                        title={lang === 'zh' ? '你的预算' : 'Your budget'}
+                      />
+                    )}
+                  </div>
+                  <p className="mt-2 text-[12px] leading-relaxed text-body-2">
+                    {marketVerdict(m.market, lang)}
+                  </p>
+                </div>
+              )}
+              {/* Proactive clarifying questions — tap an answer to send it */}
+              {m.role === 'agent' && m.followups && m.followups.length > 0 && (
+                <div className="w-full max-w-[480px] space-y-2.5">
+                  {m.followups.map((f) => (
+                    <div key={f.question}>
+                      <div className="mb-1.5 text-[12px] font-bold text-body-2">{f.question}</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {f.options.map((o) => (
+                          <button
+                            key={o}
+                            onClick={() => onSend(o)}
+                            className="rounded-full border border-line-strong bg-white px-3 py-1.5 text-[12.5px] font-semibold text-body transition hover:text-white"
+                            onMouseEnter={(e) => { e.currentTarget.style.background = accent; e.currentTarget.style.borderColor = accent }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.borderColor = '' }}
+                          >
+                            {o}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               {m.role === 'agent' && m.draftListing && (
                 <div className="w-[280px]">
                   <DraftListingChatCard draft={m.draftListing} />
@@ -184,6 +234,27 @@ export default function AgentChat({
       </div>
     </div>
   )
+}
+
+function marketVerdict(m: NonNullable<ChatMessage['market']>, lang: 'zh' | 'en'): string {
+  if (m.budget == null) {
+    return lang === 'zh'
+      ? '还没有预算 — 参考这个区间设一个,我按它帮你筛。'
+      : 'No budget set yet — pick one from this range and I filter to it.'
+  }
+  if (m.budget < m.min) {
+    return lang === 'zh'
+      ? `你的预算 $${m.budget.toLocaleString()} 低于该区域当前区间,建议放宽预算或看邻近区域。`
+      : `Your $${m.budget.toLocaleString()} budget sits below the current range — consider stretching it or nearby areas.`
+  }
+  if (m.budget < m.median) {
+    return lang === 'zh'
+      ? `你的预算 $${m.budget.toLocaleString()} 在中位以下,选择偏紧但可行 — 手快有。`
+      : `Your $${m.budget.toLocaleString()} budget is below median — doable but tight; move fast on good ones.`
+  }
+  return lang === 'zh'
+    ? `你的预算 $${m.budget.toLocaleString()} 在中位以上,该区域选择充裕,可以挑剔一点。`
+    : `Your $${m.budget.toLocaleString()} budget clears the median — plenty of choice here, be picky.`
 }
 
 function listingsHeader(listings: NonNullable<ChatMessage['listings']>, lang: 'zh' | 'en'): string {
