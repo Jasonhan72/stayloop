@@ -5,67 +5,168 @@ import { useState } from 'react'
 import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
 
+const STAGES = { zh: ['已报修', '已派单', '维修中', '完成'], en: ['Reported', 'Assigned', 'In repair', 'Done'] }
+
 const TICKETS = [
-  { id: 'M-104', title: { zh: '厨房水龙头滴水', en: 'Kitchen faucet dripping' }, status: 'in-progress', sub: { zh: '2 天前提交 · 已派工', en: 'Submitted 2 days ago · technician assigned' }, priority: 'medium' },
-  { id: 'M-103', title: { zh: '走廊灯泡需更换', en: 'Hallway light bulb needs replacing' }, status: 'done', sub: { zh: '上周完成 · 已确认', en: 'Completed last week · confirmed' }, priority: 'low' },
-  { id: 'M-102', title: { zh: '空调出风口异响', en: 'AC vent making noise' }, status: 'review', sub: { zh: '完工 · 等你确认', en: 'Work done · awaiting your confirmation' }, priority: 'high' },
+  {
+    id: 'M-104',
+    title: { zh: '厨房水龙头滴水', en: 'Kitchen faucet dripping' },
+    status: 'in-progress' as const,
+    sub: { zh: '2 天前提交', en: 'Submitted 2 days ago' },
+    priority: 'medium' as const,
+    stage: 1,
+    tech: { name: 'Alex 李师傅', rating: 4.9, eta: { zh: '明天 10:00–12:00 上门', en: 'Visit tomorrow 10:00–12:00' } },
+    sla: { zh: '响应 1.8h · RTA 48h 标准内', en: 'Responded in 1.8h · within RTA 48h' },
+  },
+  {
+    id: 'M-102',
+    title: { zh: '空调出风口异响', en: 'AC vent making noise' },
+    status: 'review' as const,
+    sub: { zh: '完工 · 等你确认', en: 'Work done · awaiting your confirmation' },
+    priority: 'high' as const,
+    stage: 3,
+    tech: { name: 'Alex 李师傅', rating: 4.9, eta: { zh: '昨天 16:20 完工', en: 'Finished yesterday 16:20' } },
+    sla: { zh: '响应 0.9h · 24h 内上门', en: 'Responded in 0.9h · visited within 24h' },
+  },
+  {
+    id: 'M-103',
+    title: { zh: '走廊灯泡需更换', en: 'Hallway light bulb needs replacing' },
+    status: 'done' as const,
+    sub: { zh: '上周完成 · 已确认', en: 'Completed last week · confirmed' },
+    priority: 'low' as const,
+    stage: 3,
+    tech: null,
+    sla: { zh: '当天解决', en: 'Resolved same day' },
+  },
 ]
 
 export default function TenantMaintenancePage() {
   const [open, setOpen] = useState(false)
   const { lang } = useT()
+  const zh = lang === 'zh'
+  const aiName = useAIName('tenant')
+  const openCount = TICKETS.filter((t) => t.status !== 'done').length
+
   return (
     <WorkspaceShell role="tenant" hideAside>
-      <div className="mb-9 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-tenant">
             MAINTENANCE
           </div>
-          <h1 className="mt-2 text-[26px] sm:text-[36px] font-bold tracking-tight">{lang === 'zh' ? '维修请求' : 'Maintenance Requests'}</h1>
+          <h1 className="mt-2 text-[26px] font-bold tracking-tight sm:text-[36px]">{zh ? '维修请求' : 'Maintenance Requests'}</h1>
         </div>
         <button onClick={() => setOpen(true)} className="sl-btn-primary !py-[12px]">
-          {lang === 'zh' ? '+ 提交新请求' : '+ New request'}
+          {zh ? '+ 提交新请求' : '+ New request'}
         </button>
       </div>
 
-      <div className="space-y-3">
-        {TICKETS.map((t) => (
-          <div key={t.id} className="sl-card flex items-center gap-4 p-5">
-            <span
-              className={
-                'flex h-12 w-12 items-center justify-center rounded-xl ' +
-                (t.priority === 'high'
-                  ? 'bg-danger/10 text-danger'
-                  : t.priority === 'medium'
-                    ? 'bg-warning/10 text-warning'
-                    : 'bg-info/10 text-info')
-              }
-            >
-              <ToolIcon />
-            </span>
-            <div className="flex-1">
-              <div className="flex items-baseline gap-2">
-                <h3 className="text-[15px] font-bold">{t.title[lang]}</h3>
-                <span className="font-mono text-[10.5px] text-body-3">{t.id}</span>
+      {/* AI watch bar */}
+      <div className="mb-6 flex items-center gap-3 rounded-xl border border-tenant/22 bg-tenant/5 px-4 py-3">
+        <span className="h-6 w-6 flex-none rounded-full" style={{ background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)' }} />
+        <p className="text-[13px] leading-relaxed text-tenant-deep">
+          {zh
+            ? <><b>{aiName}</b> 盯着 {openCount} 个进行中的工单 —— 超过 RTA 响应标准会自动催房东,全程留痕可溯。也可以直接对{aiName}说一句"厨房漏水",工单自动生成。</>
+            : <><b>{aiName}</b> is watching {openCount} open tickets — landlords get nudged automatically past the RTA response window, and everything is logged. You can also just tell {aiName} "the kitchen is leaking" and a ticket writes itself.</>}
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {TICKETS.map((t) => {
+          const done = t.status === 'done'
+          return (
+            <div key={t.id} className={'sl-card p-5 sm:p-6 ' + (done ? 'opacity-85' : '')}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-center gap-4">
+                  <span
+                    className={
+                      'flex h-11 w-11 flex-none items-center justify-center rounded-xl ' +
+                      (t.priority === 'high'
+                        ? 'bg-danger/10 text-danger'
+                        : t.priority === 'medium'
+                          ? 'bg-warning/10 text-warning'
+                          : 'bg-info/10 text-info')
+                    }
+                  >
+                    <ToolIcon />
+                  </span>
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <h3 className="text-[15.5px] font-bold">{t.title[lang]}</h3>
+                      <span className="font-mono text-[10.5px] text-body-3">{t.id}</span>
+                    </div>
+                    <div className="mt-0.5 text-[12.5px] text-body-2">{t.sub[lang]} · <span className="text-success">{t.sla[lang]}</span></div>
+                  </div>
+                </div>
+                <span
+                  className={
+                    'rounded-md px-2 py-1 font-mono text-[10.5px] font-bold uppercase ' +
+                    (t.status === 'done'
+                      ? 'bg-success/10 text-success'
+                      : t.status === 'review'
+                        ? 'bg-warning/10 text-warning'
+                        : 'bg-info/10 text-info')
+                  }
+                >
+                  {zh
+                    ? (t.status === 'done' ? '完成' : t.status === 'review' ? '待确认' : '处理中')
+                    : (t.status === 'done' ? 'Done' : t.status === 'review' ? 'To confirm' : 'In progress')}
+                </span>
               </div>
-              <div className="mt-1 text-[12.5px] text-body-2">{t.sub[lang]}</div>
+
+              {/* 4-stage progress */}
+              <div className="mt-5 flex items-center gap-1.5">
+                {STAGES[lang].map((s, i) => (
+                  <div key={s} className="flex flex-1 flex-col gap-1.5">
+                    <span
+                      className={
+                        'h-[4px] rounded-full ' +
+                        (i < t.stage ? 'bg-success' : i === t.stage ? (done ? 'bg-success' : 'bg-brand') : 'bg-line-divider')
+                      }
+                    />
+                    <span
+                      className={
+                        'font-mono text-[9.5px] uppercase tracking-eyebrow ' +
+                        (i <= t.stage ? (i === t.stage && !done ? 'font-bold text-brand' : 'text-success') : 'text-body-4')
+                      }
+                    >
+                      {s}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Technician + actions */}
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                {t.tech ? (
+                  <div className="flex items-center gap-2.5 text-[12.5px] text-body-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-chip text-[11px] font-bold">
+                      {t.tech.name.slice(0, 1)}
+                    </span>
+                    <span className="font-semibold text-body">{t.tech.name}</span>
+                    <span className="text-warning">★ {t.tech.rating}</span>
+                    <span className="text-body-3">· {t.tech.eta[lang]}</span>
+                  </div>
+                ) : <span />}
+                <div className="flex gap-2">
+                  {t.status === 'review' && (
+                    <>
+                      <button className="sl-btn-primary !py-[8px] !px-4 !text-[12.5px]">{zh ? '确认完工 ✓' : 'Confirm done ✓'}</button>
+                      <button className="rounded-lg border border-line-strong bg-white px-3.5 py-[7px] text-[12.5px] font-semibold text-body transition hover:border-danger hover:text-danger">
+                        {zh ? '有问题,重开' : 'Reopen'}
+                      </button>
+                    </>
+                  )}
+                  {t.status === 'in-progress' && (
+                    <button className="rounded-lg border border-line-strong bg-white px-3.5 py-[7px] text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
+                      {zh ? '联系师傅' : 'Contact technician'}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-            <span
-              className={
-                'rounded-md px-2 py-1 font-mono text-[10.5px] font-bold uppercase ' +
-                (t.status === 'done'
-                  ? 'bg-success/10 text-success'
-                  : t.status === 'review'
-                    ? 'bg-warning/10 text-warning'
-                    : 'bg-info/10 text-info')
-              }
-            >
-              {lang === 'zh'
-                ? (t.status === 'done' ? '完成' : t.status === 'review' ? '待确认' : '处理中')
-                : (t.status === 'done' ? 'Done' : t.status === 'review' ? 'To confirm' : 'In progress')}
-            </span>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {open && <NewTicketModal onClose={() => setOpen(false)} />}
