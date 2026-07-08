@@ -629,8 +629,8 @@ export default function ListingDetailPage() {
                 className="mt-2 w-full rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
               >
                 {listing.source === 'realtor'
-                  ? (zh ? '派持牌经纪带看 ($80)' : 'Licensed agent showing ($80)')
-                  : (zh ? '持牌经纪陪同看房 · 可选 ($80)' : 'Optional: licensed agent to accompany ($80)')}
+                  ? (zh ? '派持牌经纪带看 · 免费' : 'Licensed agent showing · free')
+                  : (zh ? '持牌经纪陪同看房 · 可选' : 'Optional: licensed agent to accompany')}
               </button>
               <div className="mt-2 text-center text-[11px] leading-relaxed text-body-3">
                 {listing.source === 'realtor'
@@ -1003,8 +1003,8 @@ function FieldAgentModal({
           </h3>
           <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
             {zh
-              ? `接单的持牌经纪将在 4 小时内联系你确认 ${addr} 的看房时间。费用 $80 在看房完成后收取。`
-              : `The licensed agent taking your request will contact you within 4 hours to confirm the viewing at ${addr}. The $80 fee is charged after the visit.`}
+              ? `接单的持牌经纪将在 4 小时内联系你确认 ${addr} 的看房时间,全程免费。`
+              : `The licensed agent taking your request will contact you within 4 hours to confirm the viewing at ${addr} — free of charge.`}
           </p>
           <button onClick={onClose} className="sl-btn-primary mt-6 w-full !py-[12px]">
             {zh ? '好的' : 'Got it'}
@@ -1037,7 +1037,7 @@ function FieldAgentModal({
           </div>
           <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
             <span className="text-[13px] font-semibold">{zh ? '看房服务费' : 'Viewing fee'}</span>
-            <span className="text-[15px] font-bold text-brand">$80</span>
+            <span className="text-[15px] font-bold text-brand">{zh ? '免费' : 'Free'}</span>
           </div>
         </div>
 
