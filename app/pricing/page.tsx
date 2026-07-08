@@ -16,10 +16,11 @@ type LS = Record<Lang, string>
 
 type Card = {
   role: LS
+  tagline: LS
   accent: string
-  tier: LS
   price: LS
-  sub: LS
+  priceUnit: LS
+  priceNote: LS
   cta: LS
   href: string
   features: LS[]
@@ -28,55 +29,56 @@ type Card = {
 
 const CARDS: Card[] = [
   {
-    role: { zh: 'TENANT · 租客', en: 'TENANT' },
+    role: { zh: '租客', en: 'Tenant' },
+    tagline: { zh: '你的 AI 租房助手', en: 'Your personal rental AI' },
     accent: '#7C3AED',
-    tier: { zh: '免费 · 永久', en: 'Free · forever' },
     price: { zh: '$0', en: '$0' },
-    sub: { zh: '租客的隐私永远不是商品', en: 'A tenant’s privacy is never a product' },
-    cta: { zh: '唤醒你的 AI 助手', en: 'Wake up your AI agent' },
+    priceUnit: { zh: '永远免费', en: 'free forever' },
+    priceNote: { zh: '无任何交易费 · 隐私永远不是商品', en: 'No transaction fees · privacy is never a product' },
+    cta: { zh: '唤醒你的 AI 助手', en: 'Wake up your AI' },
     href: '/onboarding/welcome',
     features: [
       { zh: 'Luna 个人 Agent 全功能', en: 'Full Luna personal agent' },
-      { zh: '认证 1–4 级 全部免费升级', en: 'Tiers 1–4 all upgraded free' },
-      { zh: '申请 / 谈判 / 签约 / 维修', en: 'Apply / negotiate / sign / maintenance' },
-      { zh: '跨平台房客信用记录可携带', en: 'Portable cross-platform tenant credit record' },
-      { zh: '完整数据导出 / 删除权', en: 'Full data export / deletion rights' },
+      { zh: '认证 1–4 级,全部免费升级', en: 'Tiers 1–4 all upgraded free' },
+      { zh: '申请 · 签约 · 维修全流程', en: 'Apply, sign and maintenance end to end' },
+      { zh: '信用记录跨平台可携带', en: 'Portable tenant credit record' },
+      { zh: '数据可导出、可删除', en: 'Full data export / deletion rights' },
     ],
   },
   {
-    role: { zh: 'LANDLORD · 房东', en: 'LANDLORD' },
+    role: { zh: '房东', en: 'Landlord' },
+    tagline: { zh: 'AI 替你出租和管房', en: 'AI rents and manages for you' },
     accent: '#047857',
-    tier: { zh: '房东订阅 · Pro', en: 'Landlord subscription · Pro' },
-    price: { zh: '$19 · 每月 / $39 团队', en: '$19 / month · $39 team' },
-    sub: { zh: '免费 / $19 / $39 三档 · 服务全含', en: 'Free / $19 / $39 tiers · everything included' },
+    price: { zh: '$19', en: '$19' },
+    priceUnit: { zh: '/ 月', en: '/ month' },
+    priceNote: { zh: '免费档:1 套房源 · 团队版 $39/月', en: 'Free tier: 1 listing · Team $39/month' },
     cta: { zh: '免费发布房源', en: 'List a property free' },
     href: '/dashboard/listings/new',
     highlight: true,
     features: [
       { zh: 'Logic Agent 全功能', en: 'Full Logic agent' },
       { zh: '无限发布房源', en: 'Unlimited listings' },
-      { zh: 'Stripe 托管收租 · 不抽租金流水', en: 'Stripe-managed rent collection · no skim on rent' },
-      { zh: '1-click 续约 / 起草租约', en: '1-click renewals / lease drafting' },
-      { zh: '财务面板 + 税务表（T776）', en: 'Finance dashboard + tax forms (T776)' },
-      { zh: '验证 / 筛查 / AI 全含在订阅', en: 'Verification / screening / AI all included' },
-      { zh: '免费档永久 · 仅 1 套房源', en: 'Free tier forever · 1 listing only' },
+      { zh: '托管收租,不抽租金流水', en: 'Managed rent collection, no skim' },
+      { zh: '租约起草 + 一键续约', en: 'Lease drafting + 1-click renewals' },
+      { zh: '财务面板 + 税务表(T776)', en: 'Finance dashboard + tax forms (T776)' },
+      { zh: '验证 / 背调全含在订阅里', en: 'Verification / screening all included' },
     ],
   },
   {
-    role: { zh: 'AGENT / BROKERAGE · 持牌经纪', en: 'AGENT / BROKERAGE' },
+    role: { zh: '经纪', en: 'Agent' },
+    tagline: { zh: 'AI 后台,杂活全包', en: 'An AI back office for the busywork' },
     accent: '#2563EB',
-    tier: { zh: '经纪订阅 · Pro', en: 'Agent subscription · Pro' },
-    price: { zh: '$29 · 每月 / $59 团队', en: '$29 / month · $59 team' },
-    sub: { zh: '免费 / $29 / $59 三档 · 纯工具订阅', en: 'Free / $29 / $59 tiers · pure SaaS tooling' },
+    price: { zh: '$29', en: '$29' },
+    priceUnit: { zh: '/ 月', en: '/ month' },
+    priceNote: { zh: '免费档:5 客户/月 · 团队版 $59/月', en: 'Free tier: 5 clients/month · Team $59/month' },
     cta: { zh: '免费开始', en: 'Start free' },
     href: '/agent/onboarding',
     features: [
       { zh: 'Brief Agent 全功能', en: 'Full Brief agent' },
       { zh: 'RECO 合规工具 + 审计提醒', en: 'RECO compliance tools + audit reminders' },
       { zh: '客户管理 + 看房排程', en: 'Client management + showing scheduler' },
-      { zh: '客户跟进 + 反馈模板', en: 'Client follow-up + feedback templates' },
-      { zh: '纯 SaaS 工具 · 不抽佣金', en: 'Pure SaaS tooling · no commission cut' },
-      { zh: '免费档永久 · 5 个客户/月', en: 'Free tier forever · 5 clients/month' },
+      { zh: '跟进与催款,全自动', en: 'Follow-ups & collections, automated' },
+      { zh: '纯 SaaS 工具,不抽佣金', en: 'Pure SaaS — no commission cut' },
     ],
   },
 ]
@@ -114,23 +116,29 @@ export default function PricingPage() {
                 className={'sl-card flex flex-col p-7 ' + (c.highlight ? 'ring-2' : '')}
                 style={c.highlight ? { borderColor: c.accent, boxShadow: `0 0 0 1px ${c.accent}` } : undefined}
               >
-                {c.highlight && (
-                  <span className="mb-4 inline-flex w-fit items-center gap-1 rounded-md px-2 py-[4px] font-mono text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: c.accent }}>
-                    {zh ? '最受欢迎' : 'Most popular'}
-                  </span>
-                )}
-                <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg" style={{ color: c.accent }}>
-                  {c.role[lang]}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.accent }} />
+                    <h3 className="text-[24px] font-extrabold tracking-tight">{c.role[lang]}</h3>
+                  </div>
+                  {c.highlight && (
+                    <span className="rounded-md px-2 py-[4px] font-mono text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: c.accent }}>
+                      {zh ? '最受欢迎' : 'Most popular'}
+                    </span>
+                  )}
                 </div>
-                <h3 className="mt-2 text-[24px] font-bold tracking-tight">{c.tier[lang]}</h3>
-                <div className="mt-3 text-[28px] font-extrabold tracking-tight">{c.price[lang]}</div>
-                <div className="mt-2 inline-flex w-fit rounded-md px-2 py-[3px] font-mono text-[10.5px] font-bold" style={{ background: `${c.accent}14`, color: c.accent }}>
-                  {c.sub[lang]}
+                <p className="mt-1 text-[13.5px] text-body-2">{c.tagline[lang]}</p>
+
+                <div className="mt-5 flex items-baseline gap-2">
+                  <span className="text-[40px] font-extrabold leading-none tracking-tight">{c.price[lang]}</span>
+                  <span className="text-[14px] font-semibold text-body-2">{c.priceUnit[lang]}</span>
                 </div>
+                <div className="mt-2 text-[12.5px] text-body-3">{c.priceNote[lang]}</div>
 
                 <Link
                   href={c.href}
-                  className={'mt-5 inline-flex w-full items-center justify-center rounded-[10px] px-4 py-[12px] text-[14px] font-semibold transition ' + (c.highlight ? 'sl-btn-primary' : 'border border-line-strong bg-white text-body hover:border-brand hover:text-brand')}
+                  className="mt-5 inline-flex w-full items-center justify-center rounded-[10px] px-4 py-[12px] text-[14px] font-semibold text-white transition active:translate-y-px"
+                  style={{ background: c.accent, boxShadow: `0 6px 18px -8px ${c.accent}88` }}
                 >
                   {c.cta[lang]}
                 </Link>
