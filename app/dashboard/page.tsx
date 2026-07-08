@@ -21,6 +21,16 @@ export default function Dashboard() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [origin, setOrigin] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
+  // Listing display mode — persisted so the choice sticks across visits.
+  const [listingView, setListingView] = useState<'grid' | 'list'>('grid')
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('sl-listing-view') : null
+    if (saved === 'list' || saved === 'grid') setListingView(saved)
+  }, [])
+  const switchView = (v: 'grid' | 'list') => {
+    setListingView(v)
+    try { localStorage.setItem('sl-listing-view', v) } catch {}
+  }
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
   const [checkoutBanner, setCheckoutBanner] = useState<null | 'pending' | 'success' | 'cancel'>(null)
@@ -261,6 +271,25 @@ export default function Dashboard() {
                 <h2 className="text-[16px] font-bold tracking-tight">{lang === 'zh' ? '你的房源' : 'Your listings'}</h2>
                 <span className="font-mono text-[11px] text-body-3">{listings.length} {lang === 'zh' ? '套' : 'total'}</span>
               </div>
+              {/* Grid / list view switch */}
+              <div className="flex overflow-hidden rounded-lg border border-line-strong bg-white">
+                {(['grid', 'list'] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => switchView(v)}
+                    title={v === 'grid' ? (lang === 'zh' ? '卡片视图' : 'Card view') : (lang === 'zh' ? '列表视图' : 'List view')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold transition"
+                    style={listingView === v ? { background: '#171717', color: '#fff' } : { color: '#71717A' }}
+                  >
+                    {v === 'grid' ? (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
+                    ) : (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
+                    )}
+                    {v === 'grid' ? (lang === 'zh' ? '卡片' : 'Cards') : (lang === 'zh' ? '列表' : 'List')}
+                  </button>
+                ))}
+              </div>
             </div>
             {loading ? (
               <div className="p-10 text-center font-mono text-[12px] text-body-3">{lang === 'zh' ? '加载中…' : 'Loading…'}</div>
@@ -274,6 +303,58 @@ export default function Dashboard() {
                 >
                   {lang === 'zh' ? '创建你的第一个房源 →' : 'Create your first listing →'}
                 </Link>
+              </div>
+            ) : listingView === 'list' ? (
+              <div className="space-y-2.5">
+                {listings.map((l) => {
+                  const images: string[] = Array.isArray(l.images) ? l.images : []
+                  const specs = [
+                    l.bedrooms != null ? `${l.bedrooms}${lang === 'zh' ? ' 卧' : ' bd'}` : null,
+                    l.bathrooms != null ? `${l.bathrooms}${lang === 'zh' ? ' 浴' : ' ba'}` : null,
+                    l.sqft ? `${l.sqft} sqft` : null,
+                  ].filter(Boolean).join(' · ')
+                  const src = (l as any).source
+                  const vs = (l as any).verification_status
+                  return (
+                    <div key={l.id} className="sl-card flex flex-wrap items-center gap-4 p-3.5">
+                      <Link href={`/listings/${l.slug}`} className="h-14 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-surface-chip">
+                        {images[0] && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={images[0]} alt="" className="h-full w-full object-cover" />
+                        )}
+                      </Link>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-baseline gap-x-2.5">
+                          <span className="text-[16px] font-bold tracking-tight">${l.monthly_rent?.toLocaleString()}<span className="text-[11px] font-medium text-body-3">{lang === 'zh' ? '/月' : '/mo'}</span></span>
+                          {specs && <span className="text-[12.5px] font-semibold text-body-2">{specs}</span>}
+                        </div>
+                        <div className="truncate text-[13px] font-semibold">{l.address}{l.unit ? ` · ${l.unit}` : ''}</div>
+                        <div className="truncate text-[11.5px] text-body-3">{[l.neighborhood, l.city].filter(Boolean).join(' · ') || 'Toronto'}</div>
+                      </div>
+                      <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5">
+                        <span className="rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase text-white" style={{ background: l.is_active !== false ? '#047857' : '#6B7280' }}>
+                          {l.is_active !== false ? (lang === 'zh' ? '上架中' : 'ACTIVE') : (lang === 'zh' ? '已下架' : 'OFF')}
+                        </span>
+                        {src === 'realtor' ? (
+                          <span className="rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-white" style={{ background: '#B45309' }}>REALTOR.CA</span>
+                        ) : vs !== 'verified' ? (
+                          <span className="rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-white" style={{ background: '#A16207' }}>{lang === 'zh' ? '待验证' : 'PENDING'}</span>
+                        ) : (
+                          <span className="rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-white" style={{ background: '#7C3AED' }}>VERIFIED</span>
+                        )}
+                      </div>
+                      <div className="flex flex-shrink-0 items-center gap-1 text-[12px] font-semibold">
+                        <Link href={`/dashboard/listings/${l.id}/edit`} className="rounded-md px-2.5 py-1.5 text-body transition hover:bg-surface-chip">{lang === 'zh' ? '编辑' : 'Edit'}</Link>
+                        <button onClick={() => copyLink(l.slug)} className="rounded-md px-2.5 py-1.5 text-body transition hover:bg-surface-chip">{copiedSlug === l.slug ? '✓' : (lang === 'zh' ? '链接' : 'Link')}</button>
+                        <a href={`/listings/${l.slug}`} target="_blank" rel="noreferrer" className="rounded-md px-2.5 py-1.5 text-body transition hover:bg-surface-chip">{lang === 'zh' ? '查看' : 'View'} ↗</a>
+                        <button onClick={() => toggleListingActive(l.id, l.is_active !== false)} className="rounded-md px-2.5 py-1.5 transition hover:bg-surface-chip" style={{ color: l.is_active !== false ? '#D97706' : '#047857' }}>
+                          {l.is_active !== false ? (lang === 'zh' ? '下架' : 'Off') : (lang === 'zh' ? '上架' : 'On')}
+                        </button>
+                        <button onClick={() => { setDeletingListing(l); setDeleteReason('') }} className="rounded-md px-2.5 py-1.5 text-body-3 transition hover:bg-danger/5 hover:text-danger">{lang === 'zh' ? '删除' : 'Del'}</button>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             ) : (
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
