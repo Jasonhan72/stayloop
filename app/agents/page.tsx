@@ -5,7 +5,7 @@ import AudienceLanding from '@/components/marketing/AudienceLanding'
 export default function AgentsPage() {
   return (
     <AudienceLanding
-      agent={{ name: 'Brief', accent: 'mint', tier: 'Pro' }}
+      agent={{ name: 'AI Agent', accent: 'mint', tier: 'Pro' }}
       eyebrow_zh="经纪"
       eyebrow_en="AGENTS"
       title_zh="只做带看，不做文书。"
@@ -26,8 +26,8 @@ export default function AgentsPage() {
         {
           title_zh: 'Day Brief',
           title_en: 'Day Brief',
-          body_zh: 'Echo + Logic 早晨给你一份按地理聚类排好的当日任务：3 场带看 + 1 个待签 + Logic 推荐的开场白。',
-          body_en: 'Each morning, Echo + Logic deliver a geography-clustered day plan: today\u2019s showings, pending leases, and the highest-fit talking point per tour.',
+          body_zh: 'AI Agent 早晨给你一份按地理聚类排好的当日任务：3 场带看 + 1 个待签 + AI 推荐的开场白。',
+          body_en: 'Each morning, the AI agent delivers a geography-clustered day plan: today\u2019s showings, pending leases, and the highest-fit talking point per tour.',
         },
         {
           title_zh: 'MLS Ready Pack',

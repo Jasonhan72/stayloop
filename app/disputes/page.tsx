@@ -54,7 +54,7 @@ const CLOSED: { id: string; kind: LS; outcome: LS; how: LS; days: LS }[] = [
 ]
 
 const STAGES: { k: string; range: LS; title: LS; desc: LS; s: string }[] = [
-  { k: 'STAGE 1', range: { zh: '0-3 天', en: '0-3 days' }, title: { zh: '调解', en: 'Mediation' }, desc: { zh: 'Logic 出中立摘要 · 双方在线沟通 · 80% 案件这里和解', en: 'Logic produces a neutral summary · both sides communicate online · 80% of cases settle here' }, s: 'now' },
+  { k: 'STAGE 1', range: { zh: '0-3 天', en: '0-3 days' }, title: { zh: '调解', en: 'Mediation' }, desc: { zh: 'AI 出中立摘要 · 双方在线沟通 · 80% 案件这里和解', en: 'AI produces a neutral summary · both sides communicate online · 80% of cases settle here' }, s: 'now' },
   { k: 'STAGE 2', range: { zh: '3-7 天', en: '3-7 days' }, title: { zh: '仲裁员合议', en: 'Arbitrator deliberation' }, desc: { zh: '3 名独立仲裁员 · RTA / 案例库 · 出非约束建议', en: '3 independent arbitrators · RTA / case law · issues a non-binding recommendation' }, s: 'next' },
   { k: 'STAGE 3', range: { zh: '7-14 天', en: '7-14 days' }, title: { zh: '升级 LTB', en: 'Escalate to LTB' }, desc: { zh: 'Stayloop 把所有证据自动 prefill 到 LTB 表格', en: 'Stayloop auto-prefills all evidence into the LTB forms' }, s: 'next' },
 ]
@@ -228,8 +228,8 @@ export default function DisputesPage() {
               <h3 className="mt-2 text-[18px] font-bold">{zh ? 'Mia (租客) ⇄ Sarah (房东) · 退租基线对比中' : 'Mia (tenant) ⇄ Sarah (landlord) · comparing move-out baseline'}</h3>
               <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
                 {zh
-                  ? '房东主张扣 $480 清洁费。Logic 已比对入住 / 退租状态照与安省 RTA,出中立摘要;双方在线沟通中 —— 80% 同类案件在调解阶段就和解。'
-                  : 'The landlord claims a $480 cleaning deduction. Logic has compared the move-in / move-out condition photos against Ontario’s RTA and produced a neutral summary; both sides are talking online — 80% of similar cases settle at the mediation stage.'}
+                  ? '房东主张扣 $480 清洁费。AI 已比对入住 / 退租状态照与安省 RTA,出中立摘要;双方在线沟通中 —— 80% 同类案件在调解阶段就和解。'
+                  : 'The landlord claims a $480 cleaning deduction. The AI has compared the move-in / move-out condition photos against Ontario’s RTA and produced a neutral summary; both sides are talking online — 80% of similar cases settle at the mediation stage.'}
               </p>
               <div className="mt-5 font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '三阶递进' : 'Three escalating stages'}</div>
               <div className="mt-3 space-y-2">
@@ -255,7 +255,7 @@ export default function DisputesPage() {
               <div className="flex items-center gap-2.5">
                 <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)' }} />
                 <div>
-                  <div className="text-[14px] font-bold">{zh ? 'Logic-Legal · 专业模型' : 'Logic-Legal · specialist model'}</div>
+                  <div className="text-[14px] font-bold">{zh ? 'AI-Legal · 专业模型' : 'AI-Legal · specialist model'}</div>
                   <div className="font-mono text-[10.5px] text-body-3">{zh ? '引用 RTA / O.Reg / 1.4M CanLII 案例 · 不构成法律意见' : 'Cites RTA / O.Reg / 1.4M CanLII cases · not legal advice'}</div>
                 </div>
               </div>
@@ -393,8 +393,8 @@ export default function DisputesPage() {
           </div>
           <p className="mt-4 font-mono text-[11px] leading-relaxed text-body-3">
             {zh
-              ? '⚠ 免责声明 · Stayloop 仅维护 LSO 牌照真实性,不背书任何律师,不对其专业意见或服务质量负责。匹配度 (% MATCH) 是基于案件类型 + 经验 + 评价的算法参考,不是质量背书。Logic-Legal 不能替代真人律师。'
-              : '⚠ Disclaimer · Stayloop only verifies the validity of LSO licences, does not endorse any lawyer, and is not responsible for their professional opinions or service quality. The match score (% MATCH) is an algorithmic reference based on case type + experience + reviews — not a quality endorsement. Logic-Legal cannot replace a human lawyer.'}
+              ? '⚠ 免责声明 · Stayloop 仅维护 LSO 牌照真实性,不背书任何律师,不对其专业意见或服务质量负责。匹配度 (% MATCH) 是基于案件类型 + 经验 + 评价的算法参考,不是质量背书。AI-Legal 不能替代真人律师。'
+              : '⚠ Disclaimer · Stayloop only verifies the validity of LSO licences, does not endorse any lawyer, and is not responsible for their professional opinions or service quality. The match score (% MATCH) is an algorithmic reference based on case type + experience + reviews — not a quality endorsement. AI-Legal cannot replace a human lawyer.'}
           </p>
         </div>
       </section>

@@ -1,6 +1,7 @@
 'use client'
 
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
 
 /**
@@ -15,7 +16,7 @@ const STAGES = [
   { key: 'leased', label: { zh: '已成交', en: 'Leased' }, count: 1, accent: '#047857' },
 ]
 
-const CLIENTS = [
+const CLIENTS = (aiName: string) => [
   {
     name: 'Mia Chen',
     tier: 2,
@@ -23,7 +24,7 @@ const CLIENTS = [
     area: 'King West',
     stage: 'showing',
     next: { zh: '今天 14:00 · Unit 1207 · King West', en: 'Today 14:00 · Unit 1207 · King West' },
-    last: { zh: '昨晚和 Brief 聊了 30 min', en: 'Chatted with Brief 30 min last night' },
+    last: { zh: `昨晚和 ${aiName} 聊了 30 min`, en: `Chatted with ${aiName} 30 min last night` },
   },
   {
     name: 'Anna L.',
@@ -32,7 +33,7 @@ const CLIENTS = [
     area: 'The Annex / Forest Hill',
     stage: 'showing',
     next: { zh: '今天 14:00 · 432 Brunswick', en: 'Today 14:00 · 432 Brunswick' },
-    last: { zh: '昨晚和 Brief 聊了 30 min', en: 'Chatted with Brief 30 min last night' },
+    last: { zh: `昨晚和 ${aiName} 聊了 30 min`, en: `Chatted with ${aiName} 30 min last night` },
   },
   {
     name: 'Jason H.',
@@ -40,7 +41,7 @@ const CLIENTS = [
     budget: '$3,200–$3,600',
     area: 'King West / Liberty Village',
     stage: 'searching',
-    next: { zh: 'Brief 在筛选 5 套备选', en: 'Brief shortlisting 5 options' },
+    next: { zh: `${aiName} 在筛选 5 套备选`, en: `${aiName} shortlisting 5 options` },
     last: { zh: '5/4 给了 brief 包', en: 'Brief pack delivered 5/4' },
   },
   {
@@ -76,7 +77,7 @@ const CLIENTS = [
     budget: '$2,400',
     area: 'Cabbagetown',
     stage: 'searching',
-    next: { zh: 'Brief 在配对小户型', en: 'Brief matching small units' },
+    next: { zh: `${aiName} 在配对小户型`, en: `${aiName} matching small units` },
     last: { zh: '5/2 加入', en: 'Joined 5/2' },
   },
   {
@@ -127,6 +128,7 @@ const STAGE_STYLE: Record<string, { bg: string; fg: string; label: { zh: string;
 export default function AgentClientsPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
+  const aiName = useAIName('agent')
   return (
     <WorkspaceShell role="agent" aside={<Aside />}>
       <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
@@ -136,7 +138,7 @@ export default function AgentClientsPage() {
           </div>
           <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">{zh ? '客户管理' : 'Client management'}</h1>
           <p className="mt-1 text-[13.5px] text-body-2">
-            {zh ? 'Brief 自动 CRM · 按阶段 / 认证级别 / 预算分组 · 跟进自动安排' : 'Brief auto-CRM · grouped by stage / Tier / budget · follow-ups scheduled automatically'}
+            {zh ? `${aiName} 自动 CRM · 按阶段 / 认证级别 / 预算分组 · 跟进自动安排` : `${aiName} auto-CRM · grouped by stage / Tier / budget · follow-ups scheduled automatically`}
           </p>
         </div>
         <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{zh ? '+ 加客户' : '+ Add client'}</button>
@@ -181,7 +183,7 @@ export default function AgentClientsPage() {
             </tr>
           </thead>
           <tbody>
-            {CLIENTS.map((c) => {
+            {CLIENTS(aiName).map((c) => {
               const ss = STAGE_STYLE[c.stage]
               return (
                 <tr
@@ -249,10 +251,11 @@ function Th({ children, right }: { children: React.ReactNode; right?: boolean })
 function Aside() {
   const { lang } = useT()
   const zh = lang === 'zh'
+  const aiName = useAIName('agent')
   return (
     <div>
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        {zh ? 'Brief 跟进' : 'Brief follow-ups'}
+        {zh ? `${aiName} 跟进` : `${aiName} follow-ups`}
       </div>
       <div className="mt-3 space-y-3">
         {[

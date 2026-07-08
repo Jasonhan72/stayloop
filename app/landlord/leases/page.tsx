@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
+import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 
 // A real lease row from lease_documents, mapped to the display shape.
@@ -26,7 +27,7 @@ function mapDbLease(row: {
   id: string; tenant_name: string | null; tenant_email: string | null
   unit_label: string | null; monthly_rent: number | null
   start_date: string | null; end_date: string | null; status: string | null
-}): LeaseItem {
+}, aiName: string): LeaseItem {
   const status: LeaseItem['status'] =
     row.status === 'active' || row.status === 'signed_both' ? 'active'
     : row.status === 'ended' ? 'expired'
@@ -47,7 +48,7 @@ function mapDbLease(row: {
     onTime: '—',
     monthsLeft,
     nextRenewal: inWindow
-      ? { zh: '续约窗口已开 · Logic 已在工作台准备方案', en: 'Renewal window open · Logic prepared options in your workspace' }
+      ? { zh: `续约窗口已开 · ${aiName} 已在工作台准备方案`, en: `Renewal window open · ${aiName} prepared options in your workspace` }
       : { zh: '—', en: '—' },
   }
 }
@@ -103,8 +104,8 @@ const LEASES: LeaseItem[] = [
   },
 ]
 
-const ACTIVITY = [
-  { time: { zh: '今天 09:14', en: 'Today 09:14' }, text: { zh: 'Logic 已生成 L-205 续约草稿（Ontario LTB 标准租约），等待你审阅。', en: 'Logic has drafted the L-205 renewal (Ontario LTB Standard Lease), awaiting your review.' } },
+const ACTIVITY = (aiName: string) => [
+  { time: { zh: '今天 09:14', en: 'Today 09:14' }, text: { zh: `${aiName} 已生成 L-205 续约草稿（Ontario LTB 标准租约），等待你审阅。`, en: `${aiName} has drafted the L-205 renewal (Ontario LTB Standard Lease), awaiting your review.` } },
   { time: { zh: '昨天 16:30', en: 'Yesterday 16:30' }, text: { zh: 'L-198 转入 month-to-month。Kevin Tran 同意上调 $80/月。', en: 'L-198 moved to month-to-month. Kevin Tran agreed to a $80/mo increase.' } },
   { time: { zh: '5/4 11:00', en: '5/4 11:00' }, text: { zh: 'L-209 已发送给 Anna L. e-sign。', en: 'L-209 sent to Anna L. for e-sign.' } },
   { time: { zh: '5/2 10:00', en: '5/2 10:00' }, text: { zh: 'L-202 第 11 个月按时入账 — 认证信任记录 +1。', en: 'L-202 month 11 paid on time — trust record +1.' } },
@@ -131,6 +132,7 @@ export default function LandlordLeasesPage() {
   const { lang } = useT()
   const router = useRouter()
   const { landlord, loading: authLoading } = useLandlord()
+  const aiName = useAIName('landlord')
 
   // Real leases from lease_documents (RLS-scoped). While the user has none,
   // the design-canon demo fixtures render with an explicit 示范数据 notice.
@@ -142,8 +144,8 @@ export default function LandlordLeasesPage() {
       .from('lease_documents')
       .select('id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status')
       .order('end_date', { ascending: true })
-    if (!error && data) setRealLeases(data.map(mapDbLease))
-  }, [landlord])
+    if (!error && data) setRealLeases(data.map((row) => mapDbLease(row, aiName)))
+  }, [landlord, aiName])
   useEffect(() => { void loadLeases() }, [loadLeases])
 
   const liveMode = (realLeases?.length ?? 0) > 0
@@ -162,8 +164,8 @@ export default function LandlordLeasesPage() {
       {!liveMode && !authLoading && (
         <div className="mb-5 rounded-xl border border-line-strong bg-surface-chip px-4 py-2.5 font-mono text-[11px] leading-relaxed text-body-3">
           {lang === 'zh'
-            ? '示范数据 · 录入你的第一份真实租约后，此页与 Logic 的续约提醒将切换为你的真实数据'
-            : 'SAMPLE DATA · enter your first real lease and this page plus Logic’s renewal alerts switch to your live records'}
+            ? `示范数据 · 录入你的第一份真实租约后，此页与 ${aiName} 的续约提醒将切换为你的真实数据`
+            : `SAMPLE DATA · enter your first real lease and this page plus ${aiName}’s renewal alerts switch to your live records`}
         </div>
       )}
       <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
@@ -218,8 +220,8 @@ export default function LandlordLeasesPage() {
             <span className="mt-0.5 h-6 w-6 flex-none rounded-full" style={{ background: 'radial-gradient(circle at 35% 35%, #6EE7B7, #047857 70%)' }} />
             <div className="text-[13.5px] leading-relaxed text-body-2">
               {lang === 'zh'
-                ? <>有租约进入续约窗口。Logic 已在<Link href="/landlord/agent" className="mx-1 font-semibold text-landlord underline underline-offset-2">你的工作台</Link>准备好方案（不涨 / 指导上限 +2.5%）—— 批准后续约函会真实发送给租客。</>
-                : <>A lease entered its renewal window. Logic prepared options in <Link href="/landlord/agent" className="mx-1 font-semibold text-landlord underline underline-offset-2">your workspace</Link> — approve and the renewal letter is actually sent to your tenant.</>}
+                ? <>有租约进入续约窗口。{aiName} 已在<Link href="/landlord/agent" className="mx-1 font-semibold text-landlord underline underline-offset-2">你的工作台</Link>准备好方案（不涨 / 指导上限 +2.5%）—— 批准后续约函会真实发送给租客。</>
+                : <>A lease entered its renewal window. {aiName} prepared options in <Link href="/landlord/agent" className="mx-1 font-semibold text-landlord underline underline-offset-2">your workspace</Link> — approve and the renewal letter is actually sent to your tenant.</>}
             </div>
           </div>
         </div>
@@ -267,6 +269,7 @@ export default function LandlordLeasesPage() {
 }
 
 function RenewalPack({ lang }: { lang: Lang }) {
+  const aiName = useAIName('landlord')
   const [selected, setSelected] = useState<number | null>(null)
   const [confirmed, setConfirmed] = useState(false)
   const [declined, setDeclined] = useState(false)
@@ -291,7 +294,7 @@ function RenewalPack({ lang }: { lang: Lang }) {
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600 text-[16px]">✕</span>
           <div>
             <div className="text-[16px] font-bold">{zh ? '已选择不续约 · Thompson · Liberty Village 2B' : 'Chose not to renew · Thompson · Liberty Village 2B'}</div>
-            <p className="mt-1 text-[13px] text-body-2">{zh ? 'Logic 将在到期前 90 天提醒你发送 N12 通知。' : 'Logic will remind you to issue an N12 notice 90 days before expiry.'}</p>
+            <p className="mt-1 text-[13px] text-body-2">{zh ? `${aiName} 将在到期前 90 天提醒你发送 N12 通知。` : `${aiName} will remind you to issue an N12 notice 90 days before expiry.`}</p>
           </div>
         </div>
         <button onClick={() => { setDeclined(false); setSelected(null); setConfirmed(false) }} className="mt-4 text-[12.5px] font-semibold text-brand hover:underline">
@@ -309,7 +312,7 @@ function RenewalPack({ lang }: { lang: Lang }) {
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-700 text-[16px]">✓</span>
           <div>
             <div className="text-[16px] font-bold">{zh ? `已选方案 ${opt.tag[lang]} · $${opt.rent.toLocaleString()}/月` : `Selected ${opt.tag[lang]} · $${opt.rent.toLocaleString()}/mo`}</div>
-            <p className="mt-1 text-[13px] text-body-2">{zh ? 'Logic 正在为 Thompson 起草续约函...' : 'Logic is drafting the renewal letter for Thompson...'}</p>
+            <p className="mt-1 text-[13px] text-body-2">{zh ? `${aiName} 正在为 Thompson 起草续约函...` : `${aiName} is drafting the renewal letter for Thompson...`}</p>
           </div>
         </div>
         <div className="mt-4 flex gap-2">
@@ -317,7 +320,7 @@ function RenewalPack({ lang }: { lang: Lang }) {
             href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `用方案 ${opt.tag[lang]} ($${opt.rent}) 为 Thompson 起草 Liberty Village 2B 的续约函` : `Draft a renewal letter for Thompson at Liberty Village 2B using ${opt.tag[lang]} ($${opt.rent})`)}`}
             className="sl-btn-primary !px-4 !py-[10px] !text-[13px]"
           >
-            {zh ? '去 Logic 查看续约函 →' : 'View renewal letter in Logic →'}
+            {zh ? '去工作台查看续约函 →' : 'View renewal letter in your workspace →'}
           </Link>
           <button onClick={() => { setConfirmed(false); setSelected(null) }} className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body hover:border-brand hover:text-brand">
             {zh ? '改方案' : 'Change option'}
@@ -339,8 +342,8 @@ function RenewalPack({ lang }: { lang: Lang }) {
       </h2>
       <p className="mt-1 text-[13.5px] text-body-2">
         {zh
-          ? 'Logic 整理了 4 个数据维度 + 3 个建议方案。你 1 click 就好。'
-          : 'Logic has compiled 4 data dimensions + 3 suggested options. One click is all it takes.'}
+          ? `${aiName} 整理了 4 个数据维度 + 3 个建议方案。你 1 click 就好。`
+          : `${aiName} has compiled 4 data dimensions + 3 suggested options. One click is all it takes.`}
       </p>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -353,7 +356,7 @@ function RenewalPack({ lang }: { lang: Lang }) {
         ))}
       </div>
 
-      <div className="mt-4 font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? 'Logic 给你 3 个方案' : 'Logic offers 3 options'}</div>
+      <div className="mt-4 font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? `${aiName} 给你 3 个方案` : `${aiName} offers 3 options`}</div>
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
         {OPTIONS.map((o, i) => (
           <button
@@ -381,13 +384,13 @@ function RenewalPack({ lang }: { lang: Lang }) {
         <div className="text-[12.5px] leading-relaxed text-body-2">
           {zh ? (
             <>
-              <b className="text-body">Logic 解读：</b>B 方案是过去 3 年你这种「A 级租客」的最优 ROI。Thompson 价值 = 准时 + 0 维修争议 + 邻里好评 = 隐性 $5k+/年。
+              <b className="text-body">{aiName} 解读：</b>B 方案是过去 3 年你这种「A 级租客」的最优 ROI。Thompson 价值 = 准时 + 0 维修争议 + 邻里好评 = 隐性 $5k+/年。
               <br />
               <span className="text-body-3">注：Ontario 2026 涨幅上限 2.5%,但你这套 2018 后建,不在限制内 — 任何涨幅合法。</span>
             </>
           ) : (
             <>
-              <b className="text-body">{"Logic's read: "}</b>Option B is the best ROI for an A-grade tenant like this over the past 3 years. {"Thompson's"} value = on time + 0 repair disputes + good neighbor reviews = a hidden $5k+/yr.
+              <b className="text-body">{`${aiName}'s read: `}</b>Option B is the best ROI for an A-grade tenant like this over the past 3 years. {"Thompson's"} value = on time + 0 repair disputes + good neighbor reviews = a hidden $5k+/yr.
               <br />
               <span className="text-body-3">{"Note: Ontario's 2026 increase cap is 2.5%, but this unit was built post-2018 and is exempt — any increase is legal."}</span>
             </>
@@ -436,6 +439,7 @@ function LeaseEntryModal({ lang, landlordId, onClose, onSaved }: {
   onSaved: () => void
 }) {
   const zh = lang === 'zh'
+  const aiName = useAIName('landlord')
   const [f, setF] = useState({ tenant_name: '', tenant_email: '', unit_label: '', monthly_rent: '', start_date: '', end_date: '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -487,8 +491,8 @@ function LeaseEntryModal({ lang, landlordId, onClose, onSaved }: {
         <h3 className="text-[18px] font-bold tracking-tight">{zh ? '录入现有租约' : 'Enter an existing lease'}</h3>
         <p className="mt-1 text-[12.5px] leading-relaxed text-body-2">
           {zh
-            ? '录入后 Logic 会盯住到期日：进入 90 天续约窗口时自动准备方案，你批准后续约函会真实发送给租客。'
-            : 'Logic watches the end date: when the 90-day renewal window opens it prepares options, and on your approval the renewal letter is actually sent to your tenant.'}
+            ? `录入后 ${aiName} 会盯住到期日：进入 90 天续约窗口时自动准备方案，你批准后续约函会真实发送给租客。`
+            : `${aiName} watches the end date: when the 90-day renewal window opens it prepares options, and on your approval the renewal letter is actually sent to your tenant.`}
         </p>
         <div className="mt-4 grid gap-3">
           {field(zh ? '租客姓名 *' : 'Tenant name *', 'tenant_name', 'text', zh ? '例如 张伟' : 'e.g. Alex Wong')}
@@ -630,13 +634,14 @@ function StatusPill({ status }: { status: string }) {
 
 function RailAside({ lang }: { lang: Lang }) {
   const zh = lang === 'zh'
+  const aiName = useAIName('landlord')
   return (
     <div>
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
         {zh ? '最近活动' : 'Recent activity'}
       </div>
       <ul className="mt-3 space-y-4">
-        {ACTIVITY.map((a, i) => (
+        {ACTIVITY(aiName).map((a, i) => (
           <li key={i} className="border-l-2 border-line-divider pl-3">
             <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">
               {a.time[lang]}
@@ -653,13 +658,11 @@ function RailAside({ lang }: { lang: Lang }) {
         <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
           {zh ? (
             <>
-              安省 2026 涨租上限为 <b>2.5%</b>。但 2018 年 11 月后首次入住的单位不受限 —
-              Logic 会先判断房龄，再决定是否套用。
+              安省 2026 涨租上限为 <b>2.5%</b>。但 2018 年 11 月后首次入住的单位不受限 — {aiName} 会先判断房龄，再决定是否套用。
             </>
           ) : (
             <>
-              {"Ontario's"} 2026 rent-increase cap is <b>2.5%</b>. But units first occupied after November 2018 are exempt —
-              Logic checks the {"unit's"} age first, then decides whether the cap applies.
+              {"Ontario's"} 2026 rent-increase cap is <b>2.5%</b>. But units first occupied after November 2018 are exempt — {aiName} checks the {"unit's"} age first, then decides whether the cap applies.
             </>
           )}
         </p>

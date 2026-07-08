@@ -15,8 +15,8 @@ const CLAUSES = [
       en: 'Rent is CAD $2,800/month, due by the 1st of each month. After 5 days late, the landlord may issue notice via the LTB N4 process.',
     },
     explain: {
-      zh: 'Luna 解释: 这是 Ontario 标准 RTA 第 109 条要求,延期 5 天是法律允许的 grace period。',
-      en: 'Luna explains: This follows Ontario standard RTA s.109; the 5-day delay is a legally permitted grace period.',
+      zh: '解释: 这是 Ontario 标准 RTA 第 109 条要求,延期 5 天是法律允许的 grace period。',
+      en: 'explains: This follows Ontario standard RTA s.109; the 5-day delay is a legally permitted grace period.',
     },
   },
   {
@@ -27,8 +27,8 @@ const CLAUSES = [
       en: 'If you need to move out before the term ends, you must give 60 days written notice and help find a replacement tenant.',
     },
     explain: {
-      zh: 'Luna 提醒: 60 天通知是 Ontario 法定要求 (RTA s.47),"协助找新租客"是合理但非强制条款。',
-      en: 'Luna notes: 60 days notice is an Ontario legal requirement (RTA s.47); "help find a replacement tenant" is reasonable but not mandatory.',
+      zh: '提醒: 60 天通知是 Ontario 法定要求 (RTA s.47),"协助找新租客"是合理但非强制条款。',
+      en: 'notes: 60 days notice is an Ontario legal requirement (RTA s.47); "help find a replacement tenant" is reasonable but not mandatory.',
     },
     warn: true,
   },
@@ -40,8 +40,8 @@ const CLAUSES = [
       en: 'One small cat allowed, with a $500 deposit (deducted for wear and tear at move-out).',
     },
     explain: {
-      zh: 'Luna 注意: Ontario RTA 不允许 no-pet 条款,但允许 reasonable 的损耗费。$500 在合理范围。',
-      en: 'Luna notes: Ontario RTA prohibits no-pet clauses but allows reasonable wear-and-tear charges. $500 is within reason.',
+      zh: '注意: Ontario RTA 不允许 no-pet 条款,但允许 reasonable 的损耗费。$500 在合理范围。',
+      en: 'notes: Ontario RTA prohibits no-pet clauses but allows reasonable wear-and-tear charges. $500 is within reason.',
     },
   },
   {
@@ -52,8 +52,8 @@ const CLAUSES = [
       en: 'After the term ends it converts to month-to-month, unless either party gives valid notice to terminate under the RTA.',
     },
     explain: {
-      zh: 'Luna 解释: 这是 Ontario 默认续期规则 (RTA s.38),对你有利 —— 房东不能在租期内随意赶你走。',
-      en: 'Luna explains: This is the Ontario default renewal rule (RTA s.38), which works in your favor — the landlord cannot evict you at will during the term.',
+      zh: '解释: 这是 Ontario 默认续期规则 (RTA s.38),对你有利 —— 房东不能在租期内随意赶你走。',
+      en: 'explains: This is the Ontario default renewal rule (RTA s.38), which works in your favor — the landlord cannot evict you at will during the term.',
     },
   },
 ]
@@ -110,7 +110,7 @@ export default function TenantLeasePage() {
                   background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)',
                 }}
               />
-              <p className="text-[12.5px] leading-relaxed text-tenant-deep">{c.explain[lang].replace(/^Luna/, name)}</p>
+              <p className="text-[12.5px] leading-relaxed text-tenant-deep">{`${name} ${c.explain[lang]}`}</p>
             </div>
           </div>
         ))}

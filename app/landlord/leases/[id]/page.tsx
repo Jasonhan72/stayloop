@@ -10,6 +10,7 @@ import OntarioLeaseDoc from '@/components/lease/OntarioLeaseDoc'
 import type { OntarioLeaseTerms, LeaseSignature } from '@/lib/lease/ontario'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseBrowser } from '@/lib/supabase'
+import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -34,6 +35,7 @@ type DbLease = {
 function RealLeaseDetail({ id }: { id: string }) {
   const { lang } = useT()
   const zh = lang === 'zh'
+  const aiName = useAIName('landlord')
   const [lease, setLease] = useState<DbLease | null | 'missing'>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -205,8 +207,8 @@ function RealLeaseDetail({ id }: { id: string }) {
           ) : (
             <div className="p-8 text-center text-[13.5px] text-body-3">
               {zh
-                ? '这份租约是快速录入的（无完整条款文档）。Logic 用它跟踪续约窗口；如需可签署的标准租约，请用「起草新租约」。'
-                : 'This lease was quick-entered (no full terms document). Logic uses it to track the renewal window; to produce a signable standard lease, use "Draft new lease".'}
+                ? `这份租约是快速录入的（无完整条款文档）。${aiName} 用它跟踪续约窗口；如需可签署的标准租约，请用「起草新租约」。`
+                : `This lease was quick-entered (no full terms document). ${aiName} uses it to track the renewal window; to produce a signable standard lease, use "Draft new lease".`}
             </div>
           )}
         </div>
@@ -475,6 +477,7 @@ function KpiCard({ label, value, accent }: { label: string; value: string; accen
 
 function DetailAside({ lease, lang }: { lease: typeof LEASES[string]; lang: Lang }) {
   const zh = lang === 'zh'
+  const aiName = useAIName('landlord')
   return (
     <div>
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
@@ -526,8 +529,8 @@ function DetailAside({ lease, lang }: { lease: typeof LEASES[string]; lang: Lang
           <span className="h-5 w-5 flex-shrink-0 rounded-full" style={{ background: 'radial-gradient(circle at 35% 35%, #6EE7B7, #047857 70%)' }} />
           <p className="text-[12px] leading-relaxed text-body-2">
             {zh
-              ? <>Logic: {lease.tenant} 的信用历史在同类租客中排名前 15%。建议续约。</>
-              : <>Logic: {lease.tenant}'s credit history ranks in the top 15% among comparable tenants. Renewal recommended.</>
+              ? <>{aiName}: {lease.tenant} 的信用历史在同类租客中排名前 15%。建议续约。</>
+              : <>{aiName}: {lease.tenant}'s credit history ranks in the top 15% among comparable tenants. Renewal recommended.</>
             }
           </p>
         </div>

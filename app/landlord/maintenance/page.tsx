@@ -1,6 +1,7 @@
 'use client'
 
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 
 /**
@@ -69,6 +70,7 @@ const PRIORITY_STYLE: Record<string, { bg: string; fg: string; label: { zh: stri
 
 export default function LandlordMaintenancePage() {
   const { lang } = useT()
+  const aiName = useAIName('landlord')
   const open = TICKETS.filter((t) => t.status === 'open')
   const inProgress = TICKETS.filter((t) => t.status === 'in-progress')
   const resolved = TICKETS.filter((t) => t.status === 'resolved')
@@ -83,8 +85,8 @@ export default function LandlordMaintenancePage() {
           <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">{lang === 'zh' ? '维修工单' : 'Maintenance tickets'}</h1>
           <p className="mt-1 text-[13.5px] text-body-2">
             {lang === 'zh'
-              ? '租客提交 → Logic 分类 → 你审批 → 自动派工或自处理'
-              : 'Tenant submits → Logic categorizes → you approve → auto-dispatch or self-handle'}
+              ? `租客提交 → ${aiName} 分类 → 你审批 → 自动派工或自处理`
+              : `Tenant submits → ${aiName} categorizes → you approve → auto-dispatch or self-handle`}
           </p>
         </div>
         <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{lang === 'zh' ? '+ 创建工单' : '+ Create ticket'}</button>
@@ -223,6 +225,7 @@ function TicketCard({ t, lang }: { t: (typeof TICKETS)[number]; lang: Lang }) {
 }
 
 function Aside({ lang }: { lang: Lang }) {
+  const aiName = useAIName('landlord')
   return (
     <div>
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
@@ -230,8 +233,8 @@ function Aside({ lang }: { lang: Lang }) {
       </div>
       <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
         {lang === 'zh'
-          ? 'Logic 会按工单类别自动匹配你预设的服务商，或在 Stayloop 服务商网络里推荐。'
-          : 'Logic auto-matches your preset providers by ticket category, or recommends one from the Stayloop provider network.'}
+          ? `${aiName} 会按工单类别自动匹配你预设的服务商，或在 Stayloop 服务商网络里推荐。`
+          : `${aiName} auto-matches your preset providers by ticket category, or recommends one from the Stayloop provider network.`}
       </p>
       <div className="mt-3 space-y-2">
         {[

@@ -185,8 +185,8 @@ export default function ApplyPage() {
               <h2 className="mt-5 text-[24px] font-bold tracking-tight">{zh ? '申请已提交' : 'Application submitted'}</h2>
               <p className="mt-2 text-[14px] leading-relaxed text-body-2">
                 {zh
-                  ? '房东会尽快审阅你的申请并联系你。我们也会通过 Luna 通知你进度。'
-                  : 'The landlord will review your application and reach out soon. Luna will also keep you posted on progress.'}
+                  ? '房东会尽快审阅你的申请并联系你。我们也会通过你的 AI Agent 通知你进度。'
+                  : 'The landlord will review your application and reach out soon. Your AI agent will also keep you posted on progress.'}
               </p>
               <Link href="/listings" className="sl-btn-secondary mt-6 inline-flex">
                 {zh ? '继续浏览房源' : 'Keep browsing listings'}

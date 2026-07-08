@@ -1,6 +1,7 @@
 'use client'
 
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 
 /**
@@ -236,6 +237,7 @@ function Pill({ status }: { status: string }) {
 }
 
 function Aside({ lang }: { lang: Lang }) {
+  const aiName = useAIName('landlord')
   return (
     <div>
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
@@ -245,8 +247,8 @@ function Aside({ lang }: { lang: Lang }) {
         <div className="text-[14px] font-bold">CRA Schedule 776</div>
         <div className="mt-1 text-[12.5px] text-body-2">
           {lang === 'zh'
-            ? 'Logic 会把所有租金 / 支出按 776 表格归集，T1 报税季节一键导出。'
-            : 'Logic groups all rent and expenses by the Schedule 776 form, ready for one-click export at T1 tax time.'}
+            ? `${aiName} 会把所有租金 / 支出按 776 表格归集，T1 报税季节一键导出。`
+            : `${aiName} groups all rent and expenses by the Schedule 776 form, ready for one-click export at T1 tax time.`}
         </div>
         <button className="mt-3 w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-[12.5px] font-semibold transition hover:border-brand hover:text-brand">
           {lang === 'zh' ? '预览 2025 报税包' : 'Preview 2025 tax package'}
@@ -254,7 +256,7 @@ function Aside({ lang }: { lang: Lang }) {
       </div>
 
       <div className="mt-6 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        {lang === 'zh' ? 'Logic 提示' : 'Logic tips'}
+        {lang === 'zh' ? `${aiName} 提示` : `${aiName} tips`}
       </div>
       <div className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-body-2">
         {lang === 'zh' ? (

@@ -21,19 +21,19 @@ export const ROLE_META: Record<
   { name: string; accent: string; tagline: string; workflowType: string }
 > = {
   tenant: {
-    name: 'Luna',
+    name: 'AI Agent',
     accent: '#7C3AED',
     tagline: '开口找房、约看、一键申请 —— 资料只在你点头时分享。',
     workflowType: 'tenant_rental',
   },
   landlord: {
-    name: 'Logic',
+    name: 'AI Agent',
     accent: '#047857',
     tagline: '读懂每份申请、同步尽调、守住合规 —— 你只点头。',
     workflowType: 'landlord_screening',
   },
   agent: {
-    name: 'Brief',
+    name: 'AI Agent',
     accent: '#2563EB',
     tagline: '把行政杂活理顺,把时间留给带看与关系。',
     workflowType: 'agent_fieldwork',
@@ -101,12 +101,12 @@ export function buildRecommendations(
     case 'tenant':
       return [
         { id: 'passport', title: '升级到 Tier 2 解锁更多房源', description: '上传一张工资单或连接 Plaid,约 5 分钟。', href: '/tenant/passport', badge: 'NUDGE' },
-        { id: 'browse', title: '看 Luna 今天筛的房源', description: '已按预算、区域、Tier 匹配过滤。', href: '/listings', badge: 'SHORTLIST' },
+        { id: 'browse', title: '看 AI 今天筛的房源', description: '已按预算、区域、Tier 匹配过滤。', href: '/listings', badge: 'SHORTLIST' },
         { id: 'apps', title: '查看申请进度', description: '跟踪每份意向与房东回应。', href: '/tenant/applications', badge: 'STATUS' },
       ]
     case 'landlord':
       return [
-        { id: 'applicants', title: '审阅 7 份意向', description: 'Logic 已按你的政策排序与解释。', href: '/landlord/applicants', badge: 'INBOX' },
+        { id: 'applicants', title: '审阅 7 份意向', description: 'AI 已按你的政策排序与解释。', href: '/landlord/applicants', badge: 'INBOX' },
         { id: 'screening', title: '多维核查报告', description: '身份 / 收入 / 历史 / 行为,逐项可解释。', href: '/landlord/maintenance', badge: 'SCREENING' },
         { id: 'finance', title: '收租与财务', description: '平台不抽租金流水,手续费透明。', href: '/landlord/finance', badge: 'FINANCE' },
       ]

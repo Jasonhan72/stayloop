@@ -1,6 +1,7 @@
 'use client'
 
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
 
 /**
@@ -236,6 +237,7 @@ function Th({ children, right }: { children: React.ReactNode; right?: boolean })
 function Aside() {
   const { lang } = useT()
   const zh = lang === 'zh'
+  const aiName = useAIName('agent')
   return (
     <div>
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
@@ -252,7 +254,7 @@ function Aside() {
       </div>
 
       <div className="mt-6 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        {zh ? 'Brief 提示' : 'Brief tips'}
+        {zh ? `${aiName} 提示` : `${aiName} tips`}
       </div>
       <div className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-body-2">
         <p>{zh ? <>📈 你的成单率比 GTA 同行高 <b>27%</b> — 主要靠快速响应。</> : <>📈 Your close rate is <b>27%</b> higher than GTA peers — mostly from fast response.</>}</p>

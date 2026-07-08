@@ -50,8 +50,8 @@ const CFG: RoleLandingConfig = {
     {
       file: 'mia-02-luna.jpg',
       fallback: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=700&q=80&fit=crop&auto=format',
-      label: { zh: 'Luna 接手', en: 'Luna takes over' },
-      text: { zh: '一句话说清需求 —— 市中心、一居、能养猫。Luna 找房、约看、中文讲解租约、替她谈判。', en: 'One sentence — downtown, 1-bed, cats OK. Luna searches, books, explains the lease in Chinese and negotiates for her.' },
+      label: { zh: 'AI Agent 接手', en: 'The AI agent takes over' },
+      text: { zh: '一句话说清需求 —— 市中心、一居、能养猫。AI Agent 找房、约看、中文讲解租约、替她谈判。', en: 'One sentence — downtown, 1-bed, cats OK. The AI agent searches, books, explains the lease in Chinese and negotiates for her.' },
     },
     {
       file: 'mia-03-home.jpg',

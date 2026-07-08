@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
 
 /**
@@ -9,7 +10,7 @@ import { useT } from '@/lib/i18n'
  * Task queue with filters and SLA banner.
  */
 
-const TASKS = [
+const TASKS = (aiName: string) => [
   {
     id: 'T-301',
     type: 'showing',
@@ -41,11 +42,11 @@ const TASKS = [
   {
     id: 'T-291',
     type: 'lease',
-    title: { zh: 'Logic 草稿 → 你审 → 发租客签字', en: 'Logic drafts → you review → send to tenant for signing' },
+    title: { zh: '房东 AI 草稿 → 你审 → 发租客签字', en: "Landlord's AI drafts → you review → send to tenant for signing" },
     client: { zh: '15 Hanna Ave · Kevin Tran 续约', en: '15 Hanna Ave · Kevin Tran renewal' },
     sla: { zh: '5/12 前', en: 'By 5/12' },
     priority: 'medium',
-    note: { zh: 'Ontario LTB 租约 + Logic 风险审查通过', en: 'Ontario LTB lease + Logic risk review passed' },
+    note: { zh: 'Ontario LTB 租约 + AI 风险审查通过', en: 'Ontario LTB lease + AI risk review passed' },
   },
   {
     id: 'T-285',
@@ -76,9 +77,10 @@ const TYPE_ICON: Record<string, string> = {
 export default function AgentTasksPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
+  const aiName = useAIName('agent')
   const filters = zh
     ? ['全部', '看房', '审核', '租约', 'brief 包']
-    : ['All', 'Showings', 'Screening', 'Leases', 'Brief packs']
+    : ['All', 'Showings', 'Screening', 'Leases', 'Prep packs']
   return (
     <WorkspaceShell role="agent" aside={<Aside />}>
       <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
@@ -88,7 +90,7 @@ export default function AgentTasksPage() {
           </div>
           <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">{zh ? '任务队列' : 'Task queue'}</h1>
           <p className="mt-1 text-[13.5px] text-body-2">
-            {zh ? 'Brief 按 SLA 排序 — 越上面越紧急。完成一个就消失一个。' : 'Brief sorts by SLA — the higher up, the more urgent. Finish one and it disappears.'}
+            {zh ? `${aiName} 按 SLA 排序 — 越上面越紧急。完成一个就消失一个。` : `${aiName} sorts by SLA — the higher up, the more urgent. Finish one and it disappears.`}
           </p>
         </div>
         <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{zh ? '+ 新任务' : '+ New task'}</button>
@@ -124,13 +126,13 @@ export default function AgentTasksPage() {
           ⚡ NOW
         </span>
         <span className="text-body-2">
-          {zh ? '1 个任务 1 小时内开始（看房）— Brief 已自动生成路线和客户档案。' : '1 task starts within the hour (showing) — Brief has auto-generated the route and client profile.'}
+          {zh ? `1 个任务 1 小时内开始（看房）— ${aiName} 已自动生成路线和客户档案。` : `1 task starts within the hour (showing) — ${aiName} has auto-generated the route and client profile.`}
         </span>
       </div>
 
       {/* Task list */}
       <div className="sl-card overflow-hidden">
-        {TASKS.map((t, i) => {
+        {TASKS(aiName).map((t, i) => {
           const p = PRIORITY_STYLE[t.priority]
           return (
             <div
@@ -193,6 +195,7 @@ export default function AgentTasksPage() {
 function Aside() {
   const { lang } = useT()
   const zh = lang === 'zh'
+  const aiName = useAIName('agent')
   return (
     <div>
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
@@ -217,7 +220,7 @@ function Aside() {
       </div>
 
       <div className="mt-7 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        {zh ? 'Brief 提示' : 'Brief tips'}
+        {zh ? `${aiName} 提示` : `${aiName} tips`}
       </div>
       <div className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-body-2">
         <p>{zh ? '📍 14:00 看房在 The Annex — 离你 09:30 训练点 8 min。' : '📍 14:00 showing in The Annex — 8 min from your 09:30 training spot.'}</p>

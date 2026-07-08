@@ -2,6 +2,7 @@
 
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAuth } from '@/lib/useAuth'
+import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 
 type Icon = { ch: string; role: 'l' | 't' | 'a' | 'neutral' }
@@ -22,11 +23,11 @@ type InfoItem = {
   ts: Bi
 }
 
-const ACTION_REQUIRED: ActionItem[] = [
+const ACTION_REQUIRED = (tenantAi: string): ActionItem[] => [
   {
     icon: { ch: 'L', role: 'l' },
     title: { zh: 'Sarah 提议租约第 7 条改回 1 个月通知', en: 'Sarah proposes reverting lease clause 7 to 1-month notice' },
-    body: { zh: 'Luna 已起草你的回应 · 倾向接受 / 倾向拒绝 / 跟 Sarah 谈一下', en: 'Luna has drafted your reply · lean accept / lean decline / talk to Sarah' },
+    body: { zh: `${tenantAi} 已起草你的回应 · 倾向接受 / 倾向拒绝 / 跟 Sarah 谈一下`, en: `${tenantAi} has drafted your reply · lean accept / lean decline / talk to Sarah` },
     ts: { zh: '2 分钟前', en: '2 minutes ago' },
     action: { zh: '查看草稿', en: 'View draft' },
   },
@@ -39,7 +40,7 @@ const ACTION_REQUIRED: ActionItem[] = [
   },
   {
     icon: { ch: 'L', role: 't' },
-    title: { zh: 'Luna · Liberty 305 突然降价了', en: 'Luna · Liberty 305 just dropped its price' },
+    title: { zh: `${tenantAi} · Liberty 305 突然降价了`, en: `${tenantAi} · Liberty 305 just dropped its price` },
     body: { zh: '$2,650 → $2,500 · 是不是再去看一次？', en: '$2,650 → $2,500 · want to take another look?' },
     ts: { zh: '今早 09:14', en: 'Today 09:14' },
     action: { zh: '约看房', en: 'Book showing' },
@@ -117,6 +118,10 @@ export default function NotificationsPage() {
   const { lang } = useT()
   const { role } = useAuth()
   const shellRole = (role || 'tenant') as 'tenant' | 'landlord' | 'agent'
+  const tenantAi = useAIName('tenant')
+  const landlordAi = useAIName('landlord')
+  const agentAi = useAIName('agent')
+  const aiNames = Array.from(new Set([tenantAi, landlordAi, agentAi])).join(' / ')
   return (
     <WorkspaceShell role={shellRole} hideAside>
       <div className="mx-auto max-w-[920px]">
@@ -129,8 +134,8 @@ export default function NotificationsPage() {
             </h1>
             <p className="mt-2 text-body-2 text-[14px]">
               {lang === 'zh'
-                ? 'Luna / Logic / Brief 已经替你过滤掉营销通知 · 这里只剩需要你看到的'
-                : 'Luna / Logic / Brief already filtered out the marketing noise · only what you need to see remains'}
+                ? `${aiNames} 已经替你过滤掉营销通知 · 这里只剩需要你看到的`
+                : `${aiNames} already filtered out the marketing noise · only what you need to see remains`}
             </p>
           </div>
 
@@ -138,7 +143,7 @@ export default function NotificationsPage() {
             {lang === 'zh' ? '⚠ 需要你 1-CLICK' : '⚠ NEEDS YOU · 1-CLICK'}
           </div>
           <div className="mt-3.5 space-y-2.5">
-            {ACTION_REQUIRED.map((n, i) => (
+            {ACTION_REQUIRED(tenantAi).map((n, i) => (
               <ActionRow key={i} item={n} lang={lang} />
             ))}
           </div>

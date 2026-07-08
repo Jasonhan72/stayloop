@@ -71,7 +71,7 @@ export const SAMPLE_LISTINGS: SampleListing[] = [
     thumb: G('#047857', '#10B981'),
     description:
       '125-year-old converted warehouse loft. Exposed brick, 14ft ceilings, and original timber beams. Walkable to King West.',
-    agent: { name: 'Logic · Mike Park', role: 'landlord', rating: 4.7 },
+    agent: { name: 'AI · Mike Park', role: 'landlord', rating: 4.7 },
   },
   {
     slug: 'annex-victorian',

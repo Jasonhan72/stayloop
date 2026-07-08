@@ -5,6 +5,7 @@ export const runtime = 'edge'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
 
 /**
@@ -31,7 +32,7 @@ const QAS: QA[] = [
   },
   {
     q: { zh: '"你能不能再降 100？"', en: '"Can you knock off another 100?"' },
-    a: { zh: '✗ 不授权 · 让 Mia 走 Stayloop 谈判流程 · Logic 会给 Sarah 评估', en: '✗ Not authorized · route Mia through the Stayloop negotiation flow · Logic will assess for Sarah' },
+    a: { zh: '✗ 不授权 · 让 Mia 走 Stayloop 谈判流程 · 房东的 AI 会给 Sarah 评估', en: "✗ Not authorized · route Mia through the Stayloop negotiation flow · the landlord's AI will assess for Sarah" },
     authorized: false,
   },
 ]
@@ -61,6 +62,7 @@ export default function ShowingLivePage() {
   const { id } = useParams<{ id: string }>()
   const { lang } = useT()
   const zh = lang === 'zh'
+  const aiName = useAIName('agent')
   return (
     <WorkspaceShell role="agent" hideAside>
       <Link href="/agent/calendar" className="font-mono text-[12px] text-body-3 hover:text-body">
@@ -181,7 +183,7 @@ export default function ShowingLivePage() {
 
           {/* Helper note */}
           <div className="bg-white px-5 pb-5 text-[11.5px] leading-relaxed text-body-3">
-            {zh ? '反馈直接发给 Mia + Sarah · 你不需要写长文。Brief 帮你扩成完整反馈。' : 'Feedback goes straight to Mia + Sarah · no need to write a long note. Brief expands it into full feedback for you.'}
+            {zh ? `反馈直接发给 Mia + Sarah · 你不需要写长文。${aiName} 帮你扩成完整反馈。` : `Feedback goes straight to Mia + Sarah · no need to write a long note. ${aiName} expands it into full feedback for you.`}
           </div>
 
           {/* Link to feedback subpage */}

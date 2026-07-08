@@ -56,7 +56,7 @@ export const DICT = {
   'common.pro': { en: 'Pro', zh: '订阅版' },
 
   // Onboarding · Tier 1 (认证 1 级 · 90 秒身份验证)
-  'onb.hi': { en: "Hi, I'm Luna.", zh: '嗨，我是 Luna。' },
+  'onb.hi': { en: "Hi, I'm your AI agent.", zh: '嗨，我是你的 AI Agent。' },
   'onb.line2': { en: "First, let's verify your identity — 90 seconds.", zh: '先花 90 秒，验明你的身份。' },
   'onb.body': {
     en: 'This is Tier 1. Just your passport or licence plus a quick selfie — Persona handles it securely. A soft check that never touches your credit.',

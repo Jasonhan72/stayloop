@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import WorkspaceShell, { WorkspaceRole } from '@/components/WorkspaceShell'
+import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
 
 /**
@@ -29,7 +30,7 @@ interface AuditDay {
   events: AuditEvent[]
 }
 
-const DAYS: AuditDay[] = [
+const DAYS = (aiName: string): AuditDay[] => [
   {
     label: { zh: '2026/05/15 · 今天', en: '2026/05/15 · Today' },
     events: [
@@ -43,9 +44,9 @@ const DAYS: AuditDay[] = [
       },
       {
         ts: '18:38',
-        lead: { zh: 'Luna 起草反提议', en: 'Luna drafted a counter-proposal' },
+        lead: { zh: `${aiName} 起草反提议`, en: `${aiName} drafted a counter-proposal` },
         body: { zh: '第 7 条改为 RTA 标准 0.5 个月通知 · 经你确认', en: 'Clause 7 changed to the RTA-standard 0.5-month notice · confirmed by you' },
-        who: 'LUNA',
+        who: aiName.toUpperCase(),
         cat: 'lease',
         hash: '0x91…7ab3',
       },
@@ -121,7 +122,7 @@ const DAYS: AuditDay[] = [
       },
       {
         ts: '09:22',
-        body: { zh: '你给 Sarah Wang 发消息（Luna 起草，你确认）', en: 'You messaged Sarah Wang (drafted by Luna, confirmed by you)' },
+        body: { zh: `你给 Sarah Wang 发消息（${aiName} 起草，你确认）`, en: `You messaged Sarah Wang (drafted by ${aiName}, confirmed by you)` },
         who: 'SELF · TENANT',
         cat: 'lease',
         hash: '0x70…e3d5',
@@ -153,9 +154,10 @@ const FILTERS: { key: Category | 'all'; label: Bi }[] = [
 
 export default function AuditLog({ role }: { role: WorkspaceRole }) {
   const { lang } = useT()
+  const aiName = useAIName(role)
   const [active, setActive] = useState<Category | 'all'>('all')
 
-  const days = DAYS.map((d) => ({
+  const days = DAYS(aiName).map((d) => ({
     ...d,
     events: active === 'all' ? d.events : d.events.filter((e) => e.cat === active),
   })).filter((d) => d.events.length > 0)

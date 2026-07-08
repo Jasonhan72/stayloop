@@ -5,27 +5,27 @@ import AudienceLanding from '@/components/marketing/AudienceLanding'
 export default function LandlordsPage() {
   return (
     <AudienceLanding
-      agent={{ name: 'Logic', accent: 'emerald', tier: 'Pro' }}
+      agent={{ name: 'AI Agent', accent: 'emerald', tier: 'Pro' }}
       eyebrow_zh="房东"
       eyebrow_en="LANDLORDS"
       title_zh="AI 替你筛选每一位申请人。"
       title_en="AI ranks every applicant."
       accentWord_zh="筛选"
       accentWord_en="ranks"
-      subtitle_zh="Logic agent 综合支付能力、租房历史、合规风险打分。Nova 负责房源文案与定价。Sentinel 守住 OHRC 与 RTA 红线。你只需要做最终批准。"
-      subtitle_en="Logic agent scores ability-to-pay, rental history, and compliance risk. Nova drafts copy and pricing. Sentinel guards the OHRC + RTA red lines. You make the final call."
+      subtitle_zh="AI Agent 综合支付能力、租房历史、合规风险打分。Nova 负责房源文案与定价。Sentinel 守住 OHRC 与 RTA 红线。你只需要做最终批准。"
+      subtitle_en="The AI agent scores ability-to-pay, rental history, and compliance risk. Nova drafts copy and pricing. Sentinel guards the OHRC + RTA red lines. You make the final call."
       primaryCta={{ label_zh: '查看 Pipeline', label_en: 'Open Pipeline', href: '/landlord/applicants' }}
       secondaryCta={{ label_zh: '让 Nova 写房源', label_en: 'Draft a listing', href: '/dashboard/listings/new' }}
       stats={[
         { value: '6.2 d', label_zh: '平均挂牌天数（行业 18 d）', label_en: 'avg days-on-market (vs. 18 d industry)' },
-        { value: '92%', label_zh: 'Logic 推荐租客签约后好评率', label_en: 'positive review rate of Logic-picked tenants' },
+        { value: '92%', label_zh: 'AI 推荐租客签约后好评率', label_en: 'positive review rate of AI-picked tenants' },
         { value: '0', label_zh: 'OHRC 投诉案例（Sentinel 守门）', label_en: 'OHRC complaints (Sentinel guards listings)' },
         { value: '$29/mo', label_zh: 'Pro 起步价', label_en: 'Pro plan starting price' },
       ]}
       features={[
         {
-          title_zh: 'Logic AI Pipeline',
-          title_en: 'Logic AI Pipeline',
+          title_zh: 'AI Pipeline',
+          title_en: 'AI Pipeline',
           body_zh: 'Kanban 视图：新申请 → AI 审核 → 预约看房 → 起草租约。每位候选人都附带 6 维评分和理由说明。',
           body_en: 'Kanban: New → AI Reviewed → Showing Booked → Lease Drafted. Each candidate ships with a 6-axis score and a rationale you can question.',
         },

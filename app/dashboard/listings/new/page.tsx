@@ -6,14 +6,15 @@ import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
+import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 
-const STEPS = [
+const STEPS = (aiName: string) => [
   { n: 1, nm: { zh: '基本信息', en: 'Basics' }, desc: { zh: '地址 + 户型 + 面积', en: 'Address + layout + size' } },
-  { n: 2, nm: { zh: '照片 + 视频', en: 'Photos + video' }, desc: { zh: '至少 8 张 · Logic 自动排序', en: '8+ photos · Logic auto-orders' } },
-  { n: 3, nm: { zh: '价格 + 押金', en: 'Price + deposit' }, desc: { zh: 'Logic 给市场区间', en: 'Logic gives the market range' } },
+  { n: 2, nm: { zh: '照片 + 视频', en: 'Photos + video' }, desc: { zh: `至少 8 张 · ${aiName} 自动排序`, en: `8+ photos · ${aiName} auto-orders` } },
+  { n: 3, nm: { zh: '价格 + 押金', en: 'Price + deposit' }, desc: { zh: `${aiName} 给市场区间`, en: `${aiName} gives the market range` } },
   { n: 4, nm: { zh: '认证门槛', en: 'Verification threshold' }, desc: { zh: '接受什么级别申请人', en: 'Which applicant tier you accept' } },
-  { n: 5, nm: { zh: '最后审 + 发布', en: 'Review + publish' }, desc: { zh: 'Logic 起草 EN+ZH 文案', en: 'Logic drafts EN+ZH copy' } },
+  { n: 5, nm: { zh: '最后审 + 发布', en: 'Review + publish' }, desc: { zh: `${aiName} 起草 EN+ZH 文案`, en: `${aiName} drafts EN+ZH copy` } },
 ]
 
 const AMENITIES: { id: string; zh: string; en: string }[] = [
@@ -35,6 +36,7 @@ export default function NewListingPage() {
   const router = useRouter()
   const { lang } = useT()
   const { landlord, loading: authLoading } = useLandlord()
+  const aiName = useAIName('landlord')
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -134,7 +136,8 @@ export default function NewListingPage() {
     )
   }
 
-  const cur = STEPS.find((s) => s.n === step)!
+  const steps = STEPS(aiName)
+  const cur = steps.find((s) => s.n === step)!
 
   return (
     <WorkspaceShell role="landlord" hideAside>
@@ -152,15 +155,15 @@ export default function NewListingPage() {
               <span className="orb landlord mt-0.5 h-9 w-9 shrink-0" style={{ color: '#047857' }} />
               <div>
                 <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-brand">
-                  {lang === 'zh' ? '◐ LOGIC · 主动发现 + 三源导入' : '◐ LOGIC · Proactive discovery + 3-source import'}
+                  {lang === 'zh' ? `◐ ${aiName.toUpperCase()} · 主动发现 + 三源导入` : `◐ ${aiName.toUpperCase()} · Proactive discovery + 3-source import`}
                 </div>
                 <h2 className="mt-1 text-[18px] font-bold leading-snug">
                   {lang === 'zh' ? '把房源搬进 Stayloop' : 'Move your listing into Stayloop'}
                 </h2>
                 <p className="mt-1 text-[13px] text-body-2">
                   {lang === 'zh'
-                    ? '让 Logic 直接搬走你在别处的旧 listing，或贴链接 / 输 MLS# / 拖 PDF。Logic 会自动改写 EN+中文双语文案、整理照片、给定价建议。'
-                    : 'Let Logic pull your existing listing from elsewhere, or paste a link / enter an MLS# / drop a PDF. Logic rewrites the copy in EN + Chinese, organizes the photos, and suggests pricing.'}
+                    ? `让 ${aiName} 直接搬走你在别处的旧 listing，或贴链接 / 输 MLS# / 拖 PDF。${aiName} 会自动改写 EN+中文双语文案、整理照片、给定价建议。`
+                    : `Let ${aiName} pull your existing listing from elsewhere, or paste a link / enter an MLS# / drop a PDF. ${aiName} rewrites the copy in EN + Chinese, organizes the photos, and suggests pricing.`}
                 </p>
               </div>
             </div>
@@ -188,13 +191,13 @@ export default function NewListingPage() {
             </div>
 
             <div className="mt-3 flex items-center justify-center rounded-xl border border-dashed border-line-strong bg-surface px-4 py-5 text-[12.5px] text-body-3">
-              {lang === 'zh' ? '📄 拖一份 PDF / 截图到这里 · Logic 自动 OCR + 视觉解析' : '📄 Drop a PDF / screenshot here · Logic auto OCR + visual parsing'}
+              {lang === 'zh' ? `📄 拖一份 PDF / 截图到这里 · ${aiName} 自动 OCR + 视觉解析` : `📄 Drop a PDF / screenshot here · ${aiName} auto OCR + visual parsing`}
             </div>
 
             <p className="mt-3 text-[11.5px] text-body-3">
               {lang === 'zh'
-                ? '💡 Logic 会自动改写为 Stayloop 风格 · EN + 中文双语，去除 MLS 套话并做 RTA / RECO 合规检查。'
-                : '💡 Logic rewrites it in Stayloop style · EN + Chinese, strips MLS boilerplate, and runs RTA / RECO compliance checks.'}
+                ? `💡 ${aiName} 会自动改写为 Stayloop 风格 · EN + 中文双语，去除 MLS 套话并做 RTA / RECO 合规检查。`
+                : `💡 ${aiName} rewrites it in Stayloop style · EN + Chinese, strips MLS boilerplate, and runs RTA / RECO compliance checks.`}
             </p>
           </div>
 
@@ -207,18 +210,18 @@ export default function NewListingPage() {
               LISTING WIZARD · STEP {step} / 5 · {cur.nm[lang]}
             </div>
             <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[32px]">
-              {form.address ? `${form.unit ? 'UNIT ' + form.unit + ' · ' : ''}${lang === 'zh' ? '让 Logic 帮你整理这些字段' : 'Let Logic organize these fields'}` : (lang === 'zh' ? '填写房源信息 · 让 Logic 帮你整理' : 'Enter your listing · Logic organizes the fields')}
+              {form.address ? `${form.unit ? 'UNIT ' + form.unit + ' · ' : ''}${lang === 'zh' ? `让 ${aiName} 帮你整理这些字段` : `Let ${aiName} organize these fields`}` : (lang === 'zh' ? `填写房源信息 · 让 ${aiName} 帮你整理` : `Enter your listing · ${aiName} organizes the fields`)}
             </h1>
             <p className="mt-2 text-[13px] text-body-2">
               {lang === 'zh'
-                ? '填关键字段，Logic 自动生成英中文文案、推荐价格区间、SEO 描述'
-                : 'Fill in the key fields and Logic generates EN/Chinese copy, a recommended price range, and the SEO description.'}
+                ? `填关键字段，${aiName} 自动生成英中文文案、推荐价格区间、SEO 描述`
+                : `Fill in the key fields and ${aiName} generates EN/Chinese copy, a recommended price range, and the SEO description.`}
             </p>
           </div>
 
           {/* Step rail */}
           <div className="mb-6 grid gap-2 sm:grid-cols-5">
-            {STEPS.map((s) => {
+            {steps.map((s) => {
               const done = s.n < step
               const active = s.n === step
               return (
@@ -295,7 +298,7 @@ export default function NewListingPage() {
                   <Field label={lang === 'zh' ? '城市' : 'City'}><input className="sl-input" value={form.city} onChange={(e) => set('city', e.target.value)} /></Field>
                 </div>
 
-                <Field label={lang === 'zh' ? '配套（点选 · Logic 自动整理）' : 'Amenities (tap · Logic auto-organizes)'}>
+                <Field label={lang === 'zh' ? `配套（点选 · ${aiName} 自动整理）` : `Amenities (tap · ${aiName} auto-organizes)`}>
                   <div className="flex flex-wrap gap-2">
                     {AMENITIES.map((a) => {
                       const on = form.amenities.includes(a.id)
@@ -320,9 +323,9 @@ export default function NewListingPage() {
 
                 <div className="rounded-xl border border-brand/20 bg-brand/[0.04] p-4 text-[13px] leading-relaxed text-body">
                   {lang === 'zh' ? (
-                    <><b className="text-brand">💡 Logic：</b>你这套户型 + 配套，King West 区域过去 30 天 7 套同类已出租。市场租金中位数 <b>$2,820</b>。我建议挂 $2,850（轻微上浮可谈空间）。</>
+                    <><b className="text-brand">💡 {aiName}：</b>你这套户型 + 配套，King West 区域过去 30 天 7 套同类已出租。市场租金中位数 <b>$2,820</b>。我建议挂 $2,850（轻微上浮可谈空间）。</>
                   ) : (
-                    <><b className="text-brand">💡 Logic: </b>With this layout and amenities, 7 comparable King West units rented in the past 30 days. The market median is <b>$2,820</b>. I'd list at $2,850 (slight upside, with room to negotiate).</>
+                    <><b className="text-brand">💡 {aiName}: </b>With this layout and amenities, 7 comparable King West units rented in the past 30 days. The market median is <b>$2,820</b>. I'd list at $2,850 (slight upside, with room to negotiate).</>
                   )}
                 </div>
 
@@ -335,8 +338,8 @@ export default function NewListingPage() {
                 <h2 className="text-[18px] font-bold">{lang === 'zh' ? '2 · 照片 + 视频' : '2 · Photos + video'}</h2>
                 <p className="text-[13px] text-body-2">
                   {lang === 'zh'
-                    ? '至少上传 8 张照片，Logic 会自动排序、挑封面，并补一段房源短视频脚本。'
-                    : 'Upload at least 8 photos. Logic auto-orders them, picks the cover, and drafts a short listing-video script.'}
+                    ? `至少上传 8 张照片，${aiName} 会自动排序、挑封面，并补一段房源短视频脚本。`
+                    : `Upload at least 8 photos. ${aiName} auto-orders them, picks the cover, and drafts a short listing-video script.`}
                 </p>
                 <div className="grid grid-cols-4 gap-3">
                   {Array.from({ length: 7 }).map((_, i) => (
@@ -355,9 +358,9 @@ export default function NewListingPage() {
                 </div>
                 <div className="rounded-xl border border-brand/20 bg-brand/[0.04] p-4 text-[13px] leading-relaxed text-body">
                   {lang === 'zh' ? (
-                    <><b className="text-brand">💡 Logic：</b>已上传 8 张 · 我把客厅南向采光那张设为封面，King West 这类房源封面采光好可提升 30% 询盘。</>
+                    <><b className="text-brand">💡 {aiName}：</b>已上传 8 张 · 我把客厅南向采光那张设为封面，King West 这类房源封面采光好可提升 30% 询盘。</>
                   ) : (
-                    <><b className="text-brand">💡 Logic: </b>8 photos uploaded · I set the south-facing living-room shot as the cover. For King West listings, a bright cover photo can lift inquiries by 30%.</>
+                    <><b className="text-brand">💡 {aiName}: </b>8 photos uploaded · I set the south-facing living-room shot as the cover. For King West listings, a bright cover photo can lift inquiries by 30%.</>
                   )}
                 </div>
                 <div className="flex gap-3">
@@ -372,9 +375,9 @@ export default function NewListingPage() {
                 <h2 className="text-[18px] font-bold">{lang === 'zh' ? '3 · 价格 + 押金' : '3 · Price + deposit'}</h2>
                 <div className="rounded-xl border border-brand/20 bg-brand/[0.04] p-4 text-[13px] leading-relaxed text-body">
                   {lang === 'zh' ? (
-                    <><b className="text-brand">💡 Logic：</b>市场租金中位数 <b>$2,820</b> · 建议挂 <b>$2,850</b>（King West 1B+den · 轻微上浮可谈空间）。押金按 RTA 标准 = 一个月租金。</>
+                    <><b className="text-brand">💡 {aiName}：</b>市场租金中位数 <b>$2,820</b> · 建议挂 <b>$2,850</b>（King West 1B+den · 轻微上浮可谈空间）。押金按 RTA 标准 = 一个月租金。</>
                   ) : (
-                    <><b className="text-brand">💡 Logic: </b>Market median rent is <b>$2,820</b> · I'd list at <b>$2,850</b> (King West 1B+den · slight upside, room to negotiate). Deposit per RTA standard = one month's rent.</>
+                    <><b className="text-brand">💡 {aiName}: </b>Market median rent is <b>$2,820</b> · I'd list at <b>$2,850</b> (King West 1B+den · slight upside, room to negotiate). Deposit per RTA standard = one month's rent.</>
                   )}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -456,9 +459,9 @@ export default function NewListingPage() {
                   </div>
                   <p className="mt-2">
                     {lang === 'zh' ? (
-                      <><b className="text-brand">Logic 改写：</b>去 MLS 套话 · 加入 King West 步行细节（步行 4 分到 TTC，6 分到 Stackt Market）· 突出租客最关心的「包暖 + 水」与「允许猫」· 中文版同步生成。</>
+                      <><b className="text-brand">{aiName} 改写：</b>去 MLS 套话 · 加入 King West 步行细节（步行 4 分到 TTC，6 分到 Stackt Market）· 突出租客最关心的「包暖 + 水」与「允许猫」· 中文版同步生成。</>
                     ) : (
-                      <><b className="text-brand">Logic rewrite: </b>Stripped MLS boilerplate · added King West walk details (4 min walk to TTC, 6 min to Stackt Market) · highlighted what tenants care about most — "heat + water included" and "cats allowed" · Chinese version generated in parallel.</>
+                      <><b className="text-brand">{aiName} rewrite: </b>Stripped MLS boilerplate · added King West walk details (4 min walk to TTC, 6 min to Stackt Market) · highlighted what tenants care about most — "heat + water included" and "cats allowed" · Chinese version generated in parallel.</>
                     )}
                   </p>
                 </div>

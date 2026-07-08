@@ -324,7 +324,7 @@ export default function ListingDetailPage() {
                       letterSpacing: '0.08em',
                     }}
                   >
-                    {zh ? `LUNA · ${listing.match_score}% 匹配` : `LUNA · ${listing.match_score}% match`}
+                    {zh ? `AI · ${listing.match_score}% 匹配` : `AI · ${listing.match_score}% match`}
                   </span>
                 )}
                 {listing.verification_status === 'verified' && <span className="sl-chip fit">VERIFIED</span>}

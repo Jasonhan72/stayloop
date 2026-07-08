@@ -6,6 +6,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
 
 /**
@@ -62,6 +63,7 @@ export default function ShowingFeedbackPage() {
   const { id } = useParams<{ id: string }>()
   const { lang } = useT()
   const zh = lang === 'zh'
+  const aiName = useAIName('agent')
   const [reaction, setReaction] = useState<string>('喜欢')
   const [stars, setStars] = useState(4)
   const [nextStep, setNextStep] = useState<string>('想申请')
@@ -86,8 +88,8 @@ export default function ShowingFeedbackPage() {
             </div>
             <h1 className="mt-1.5 text-[22px] font-bold tracking-tight">
               {zh
-                ? '用 90 秒给反馈 · Brief 帮你扩成完整版本'
-                : 'Give feedback in 90 seconds · Brief expands it into a full version'}
+                ? `用 90 秒给反馈 · ${aiName} 帮你扩成完整版本`
+                : `Give feedback in 90 seconds · ${aiName} expands it into a full version`}
             </h1>
             <p className="mt-2 text-[13.5px] text-body-2">
               {zh
@@ -202,8 +204,8 @@ export default function ShowingFeedbackPage() {
               >
                 <span className="text-[13px] font-bold text-agent">
                   {zh
-                    ? '📝 Brief 帮你扩成完整版本（你确认才发出）'
-                    : '📝 Brief expands it into a full version (sent only after you confirm)'}
+                    ? `📝 ${aiName} 帮你扩成完整版本（你确认才发出）`
+                    : `📝 ${aiName} expands it into a full version (sent only after you confirm)`}
                 </span>
                 <span className="font-mono text-[12px] text-agent">
                   {briefOpen ? (zh ? '收起 ▲' : 'Collapse ▲') : zh ? '展开 ▼' : 'Expand ▼'}

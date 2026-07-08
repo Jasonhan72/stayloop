@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
 
 interface Applicant {
@@ -34,6 +35,7 @@ const SECTIONS = [
 
 export default function LandlordApplicantsPage() {
   const { lang } = useT()
+  const aiName = useAIName('landlord')
   return (
     <WorkspaceShell role="landlord" hideAside>
       <div className="mb-9 flex flex-wrap items-end justify-between gap-3">
@@ -41,7 +43,7 @@ export default function LandlordApplicantsPage() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
             APPLICANTS · UNIT 1207 · KING WEST
           </div>
-          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">{lang === 'zh' ? '7 份申请 · Logic 已分组' : '7 applications · grouped by Logic'}</h1>
+          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">{lang === 'zh' ? `7 份申请 · ${aiName} 已分组` : `7 applications · grouped by ${aiName}`}</h1>
           <p className="mt-2 text-[14px] text-body-2">
             {lang === 'zh'
               ? '按你的 认证 3 级 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整六维评分 + 文件。'

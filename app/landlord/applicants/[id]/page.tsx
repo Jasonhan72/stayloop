@@ -5,6 +5,7 @@ export const runtime = 'edge'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
 
 const DIMS = [
@@ -25,6 +26,7 @@ const FILES = [
 
 export default function ApplicantDetail() {
   const { lang } = useT()
+  const aiName = useAIName('landlord')
   const { id } = useParams<{ id: string }>()
   return (
     <WorkspaceShell role="landlord" hideAside>
@@ -90,7 +92,7 @@ export default function ApplicantDetail() {
 
         <div className="space-y-5">
           <div className="sl-card p-6">
-            <h3 className="text-[15px] font-bold tracking-tight">{lang === 'zh' ? 'Logic 建议' : 'Logic recommends'}</h3>
+            <h3 className="text-[15px] font-bold tracking-tight">{lang === 'zh' ? `${aiName} 建议` : `${aiName} recommends`}</h3>
             <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
               {lang === 'zh'
                 ? 'Mia 在六个维度全部超过你的政策门槛, 行为信号无负面记录, 与你过去 12 个月签的 7 位 认证 3 级 租客的 profile 高度相似 (88% 续签 / 0 投诉)。'
@@ -106,7 +108,7 @@ export default function ApplicantDetail() {
                 {lang === 'zh' ? '✓ 批准看房 · 派 David' : '✓ Approve showing · assign David'}
               </button>
               <button className="sl-btn-secondary">{lang === 'zh' ? '★★★ 请她升 认证 3 级' : '★★★ Ask her to upgrade to Tier 3'}</button>
-              <button className="sl-btn-secondary">{lang === 'zh' ? '💬 先跟她聊一下（Luna 中介）' : '💬 Chat with her first (via Luna)'}</button>
+              <button className="sl-btn-secondary">{lang === 'zh' ? '💬 先跟她聊一下（经她的 AI Agent 中介）' : '💬 Chat with her first (via her AI agent)'}</button>
               <button className="rounded-lg border border-danger/40 bg-white px-4 py-[10px] text-[13.5px] font-semibold text-danger">
                 {lang === 'zh' ? '✗ 不合适（需选理由）' : '✗ Not a fit (reason required)'}
               </button>
@@ -114,8 +116,8 @@ export default function ApplicantDetail() {
             <p className="mt-3 rounded-lg bg-danger/[0.06] px-3 py-2.5 text-[11.5px] leading-relaxed text-body-2">
               <b className="text-danger">⚠️ {lang === 'zh' ? 'RTA 提示：' : 'RTA notice: '}</b>
               {lang === 'zh'
-                ? '「不合适」理由不能是种族 / 国籍 / 来源国 / 家庭情况 / 性取向。Logic 会过滤这些，但你拒绝时仍需具体理由 — 写入 audit log。'
-                : 'A "not a fit" reason cannot be race / nationality / country of origin / family status / sexual orientation. Logic filters these out, but you still need a specific reason when declining — it is written to the audit log.'}
+                ? `「不合适」理由不能是种族 / 国籍 / 来源国 / 家庭情况 / 性取向。${aiName} 会过滤这些，但你拒绝时仍需具体理由 — 写入 audit log。`
+                : `A "not a fit" reason cannot be race / nationality / country of origin / family status / sexual orientation. ${aiName} filters these out, but you still need a specific reason when declining — it is written to the audit log.`}
             </p>
           </div>
 

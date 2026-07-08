@@ -50,14 +50,14 @@ const CFG: RoleLandingConfig = {
     {
       file: 'sarah-02-logic.jpg',
       fallback: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=700&q=80&fit=crop&auto=format',
-      label: { zh: 'Logic 接管', en: 'Logic takes over' },
+      label: { zh: 'AI Agent 接管', en: 'The AI agent takes over' },
       text: { zh: '4 分钟重做房源、多平台同步;每份申请 8 维尽调读完排好序,「不养宠」雷区当场拦下。', en: 'Listing rebuilt and synced in 4 minutes; every application read and ranked across 8 axes, the "no pets" landmine flagged on the spot.' },
     },
     {
       file: 'sarah-03-decide.jpg',
       fallback: 'https://images.unsplash.com/photo-1567496898669-ee935f5f647a?w=700&q=80&fit=crop&auto=format',
       label: { zh: '30 秒拍板', en: 'Decide in 30 seconds' },
-      text: { zh: '午休时按下「同意」,租约自动起草发出。夜间报修、Month 11 续约决策包,都有 Logic 盯着。', en: 'She pressed "Approve" during lunch; the lease drafted and sent itself. Night repairs and the Month-11 renewal pack are on Logic\'s watch.' },
+      text: { zh: '午休时按下「同意」,租约自动起草发出。夜间报修、Month 11 续约决策包,都有 AI Agent 盯着。', en: 'She pressed "Approve" during lunch; the lease drafted and sent itself. Night repairs and the Month-11 renewal pack are on the AI agent\'s watch.' },
     },
   ],
   scenario: {
