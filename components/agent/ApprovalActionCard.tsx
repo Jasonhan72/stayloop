@@ -18,17 +18,22 @@ export default function ApprovalActionCard({
   onDecide,
 }: {
   action: PendingAction
-  onDecide: (id: string, decision: 'approved' | 'rejected') => void | Promise<void>
+  onDecide: (id: string, decision: 'approved' | 'rejected', option?: 'A' | 'B') => void | Promise<void>
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const [busy, setBusy] = useState<null | 'approved' | 'rejected'>(null)
+  const [busy, setBusy] = useState<null | string>(null)
   const risk = RISK[action.risk_level]
 
-  const decide = async (d: 'approved' | 'rejected') => {
-    setBusy(d)
+  // Renewal letters carry a rent choice — the landlord must pick explicitly
+  // (no silent default to a rent increase). Other actions have one approve.
+  const isRenewal = action.action_type === 'send_renewal_letter'
+  const m = (action.metadata || {}) as { current_rent?: number; guideline_rent?: number; guideline_pct?: number }
+
+  const decide = async (d: 'approved' | 'rejected', option?: 'A' | 'B') => {
+    setBusy(option ? `approved:${option}` : d)
     try {
-      await onDecide(action.id, d)
+      await onDecide(action.id, d, option)
     } finally {
       setBusy(null)
     }
@@ -65,14 +70,43 @@ export default function ApprovalActionCard({
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={busy !== null}
-          onClick={() => decide('approved')}
-          className="sl-btn-primary !px-4 !py-[10px] !text-[13.5px] disabled:opacity-60"
-        >
-          {busy === 'approved' ? (zh ? '提交中…' : 'Submitting…') : zh ? '✓ 确认 · 替我执行' : '✓ Approve · Execute for me'}
-        </button>
+        {isRenewal ? (
+          <>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => decide('approved', 'A')}
+              className="rounded-lg border border-brand bg-white px-4 py-[9px] text-[13.5px] font-semibold text-brand transition hover:bg-brand/5 disabled:opacity-60"
+            >
+              {busy === 'approved:A'
+                ? (zh ? '发送中…' : 'Sending…')
+                : zh
+                  ? `✓ 不涨续约${m.current_rent ? ` · $${m.current_rent.toLocaleString()}` : ''}`
+                  : `✓ Renew, no increase${m.current_rent ? ` · $${m.current_rent.toLocaleString()}` : ''}`}
+            </button>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => decide('approved', 'B')}
+              className="sl-btn-primary !px-4 !py-[10px] !text-[13.5px] disabled:opacity-60"
+            >
+              {busy === 'approved:B'
+                ? (zh ? '发送中…' : 'Sending…')
+                : zh
+                  ? `✓ +${m.guideline_pct ?? 2.5}% 续约${m.guideline_rent ? ` · $${m.guideline_rent.toLocaleString()}` : ''}`
+                  : `✓ +${m.guideline_pct ?? 2.5}% renewal${m.guideline_rent ? ` · $${m.guideline_rent.toLocaleString()}` : ''}`}
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => decide('approved')}
+            className="sl-btn-primary !px-4 !py-[10px] !text-[13.5px] disabled:opacity-60"
+          >
+            {busy === 'approved' ? (zh ? '提交中…' : 'Submitting…') : zh ? '✓ 确认 · 替我执行' : '✓ Approve · Execute for me'}
+          </button>
+        )}
         <button
           type="button"
           disabled={busy !== null}

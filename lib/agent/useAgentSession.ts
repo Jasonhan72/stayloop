@@ -86,7 +86,7 @@ export type UseAgentSession = {
   status: AgentStatus
   error: string | null
   messages: ChatMessage[]
-  decide: (actionId: string, decision: 'approved' | 'rejected', note?: string) => Promise<void>
+  decide: (actionId: string, decision: 'approved' | 'rejected', option?: 'A' | 'B', note?: string) => Promise<void>
   sendMessage: (message: string, attachments?: ChatAttachment[]) => Promise<void>
 }
 
@@ -116,6 +116,10 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     (d: AgentSessionResponse, isLive: boolean) => {
       // Allow live data to override a demo settle, but never downgrade live → demo.
       if (settled.current && !isLive) return
+      // A late live settle can arrive AFTER the render-deadline already put us
+      // in demo mode and the user started typing. Upgrade the session data,
+      // but never wipe an in-progress conversation the user is mid-way through.
+      const wasDemoWithUserInput = settled.current && !live
       settled.current = true
       chatScopeRef.current = isLive && user?.id ? user.id.slice(0, 8) : 'anon'
       // The agent is named by the user at onboarding (localStorage).
@@ -130,14 +134,18 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       setLoading(false)
       // Restore conversation history from localStorage, or start with greeting.
       const saved = restoreMessages(role, chatScopeRef.current)
-      if (saved && saved.length > 0) {
-        msgSeq.current = saved.length
-        setMessages(saved)
-      } else {
-        setMessages([{ id: nextId(), role: 'agent', text: greeting(role, d.agent.agent_name) }])
-      }
+      setMessages((cur) => {
+        // Preserve a live conversation the user already typed into (more than
+        // the lone greeting) when a late settle overrides the demo render.
+        if (wasDemoWithUserInput && cur.length > 1) return cur
+        if (saved && saved.length > 0) {
+          msgSeq.current = saved.length
+          return saved
+        }
+        return [{ id: nextId(), role: 'agent', text: greeting(role, d.agent.agent_name) }]
+      })
     },
-    [role, user]
+    [role, user, live]
   )
 
   // Persist conversation history to localStorage on every change.
@@ -219,18 +227,23 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   }, [authLoading, user, role, settle])
 
   const decide = useCallback(
-    async (actionId: string, decision: 'approved' | 'rejected', note?: string) => {
+    async (actionId: string, decision: 'approved' | 'rejected', option?: 'A' | 'B', note?: string) => {
       // Optimistic removal, but keep what we removed so a failed RPC can
       // ROLL BACK — otherwise the card vanishes, the user believes the
       // action happened, and the still-pending row resurfaces on reload.
       let removed: AgentSessionResponse['pendingActions'][number] | undefined
       let prevStatus: AgentStatus | null = null
+      let remainingPending = 0
       setData((prev) => {
         if (!prev) return prev
         removed = prev.pendingActions.find((a) => a.id === actionId)
-        return { ...prev, pendingActions: prev.pendingActions.filter((a) => a.id !== actionId) }
+        const pendingActions = prev.pendingActions.filter((a) => a.id !== actionId)
+        remainingPending = pendingActions.length
+        return { ...prev, pendingActions }
       })
-      setStatus((s) => { prevStatus = s; return s === 'approval' ? 'result' : s })
+      // Only clear the approval state when NO cards remain — otherwise a second
+      // pending action would look 'handled' while still awaiting the user.
+      setStatus((s) => { prevStatus = s; return remainingPending > 0 ? s : (s === 'approval' ? 'result' : s) })
       if (!live) return
       try {
         await decidePendingAction(getSupabaseBrowser(), actionId, decision, note)
@@ -254,7 +267,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           const res = await fetch('/api/agent/execute', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ action_id: actionId }),
+            body: JSON.stringify({ action_id: actionId, option }),
           })
           const j = (await res.json()) as {
             executed?: boolean

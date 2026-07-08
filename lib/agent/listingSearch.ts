@@ -178,8 +178,11 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
       const imgs = r.images as unknown[] | null
       const amen = r.amenities as unknown[] | null
       return {
+        // Realtor-imported rows are admitted by the visibility filter; label
+        // them by their real source so the chat card shows the external /
+        // unverified banner instead of counting them as Stayloop inventory.
         id: String(r.id),
-        source: 'stayloop' as const,
+        source: (r.source === 'realtor' ? 'realtor' : 'stayloop') as 'stayloop' | 'realtor',
         title: (r.title as string) || (r.address as string) || '房源',
         address: (() => {
           const a = ((r.address as string) || '').trim()

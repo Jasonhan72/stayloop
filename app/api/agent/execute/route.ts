@@ -101,7 +101,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ executed: true, already: true, result: null })
   }
 
-  const option = body.option === 'A' ? 'A' : 'B'
+  // A rent increase must be an explicit landlord choice — never a silent
+  // default. If the approval didn't carry a valid option, release the claim
+  // and refuse rather than emailing the tenant an unauthorized increase.
+  if (body.option !== 'A' && body.option !== 'B') {
+    await admin.from('agent_pending_actions').update({ executed_at: null }).eq('id', action.id)
+    return NextResponse.json(
+      { executed: false, reason: 'no_renewal_option_chosen' },
+      { status: 422 },
+    )
+  }
+  const option = body.option
   const rent = option === 'A' ? m.current_rent : (m.guideline_rent ?? m.current_rent)
   const tenant = m.tenant_name || 'Tenant'
   const unit = m.unit_label || 'your unit'

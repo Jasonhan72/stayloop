@@ -20,22 +20,6 @@ export const runtime = 'edge'
 // path lives in the client (orchestrator.ts), which is a UX choice, not a
 // security boundary. Pattern mirrors /api/classify-files.
 const RATE_LIMIT_PER_HOUR = 60
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
-const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>()
-
-function checkRateLimit(userId: string): { ok: true } | { ok: false; retryAfterSeconds: number } {
-  const now = Date.now()
-  const bucket = rateLimitBuckets.get(userId)
-  if (!bucket || bucket.resetAt <= now) {
-    rateLimitBuckets.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
-    return { ok: true }
-  }
-  if (bucket.count >= RATE_LIMIT_PER_HOUR) {
-    return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) }
-  }
-  bucket.count++
-  return { ok: true }
-}
 
 type TurnRequest = {
   role: AgentRole
@@ -102,7 +86,7 @@ async function fetchUrlContent(url: string): Promise<FetchResult> {
       }
     }
     const host = parsed.hostname.toLowerCase()
-    if (host === 'localhost' || host.endsWith('.local') || host.startsWith('127.') || host.startsWith('10.') || host.startsWith('192.168.') || host === '[::1]' || host.startsWith('169.254.') || host.startsWith('172.16.') || host.startsWith('172.17.') || host.startsWith('172.18.') || host.startsWith('172.19.') || host.startsWith('172.2') || host.startsWith('172.30.') || host.startsWith('172.31.') || host === '0.0.0.0' || host.endsWith('.internal')) {
+    if (host === 'localhost' || host.endsWith('.local') || host.startsWith('127.') || host.startsWith('10.') || host.startsWith('192.168.') || host === '[::1]' || host.startsWith('169.254.') || /^172\.(1[6-9]|2[0-9]|3[01])\./.test(host) || host === '0.0.0.0' || host.endsWith('.internal')) {
       return { content: '[blocked: private/internal URLs not allowed]', images: [] }
     }
   } catch {
@@ -229,11 +213,14 @@ export async function POST(req: Request) {
   if (ue || !ud?.user) {
     return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
   }
-  const rl = checkRateLimit(ud.user.id)
-  if (!rl.ok) {
+  // Durable per-user hourly limit (edge module state is per-isolate and
+  // resets on recycle, so it can't gate spend). Fail-closed on error: if the
+  // limiter can't be reached we'd rather 429 than allow unbounded paid calls.
+  const { data: underLimit, error: rlErr } = await sbAuth.rpc('bump_agent_rate_limit', { p_limit: RATE_LIMIT_PER_HOUR })
+  if (rlErr || underLimit === false) {
     return NextResponse.json(
       { error: 'Rate limit exceeded — retry later' },
-      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } },
+      { status: 429, headers: { 'Retry-After': '600' } },
     )
   }
 

@@ -70,7 +70,7 @@ export default function Dashboard() {
       const { data } = await supabase
         .from('landlords')
         .select('plan')
-        .eq('id', landlord.landlordId)
+        .or(`id.eq.${landlord.landlordId},auth_id.eq.${landlord.landlordId}`)
         .maybeSingle()
       if (cancelled) return
       if (data?.plan && data.plan !== plan) {
@@ -127,7 +127,7 @@ export default function Dashboard() {
     const [appsRes, listingsRes, planRes] = await Promise.all([
       supabase.from('applications').select('*, listing:listings(*)').order('created_at', { ascending: false }),
       supabase.from('listings').select('*').eq('landlord_id', landlord!.landlordId).order('created_at', { ascending: false }),
-      supabase.from('landlords').select('plan').eq('id', landlord!.landlordId).maybeSingle(),
+      supabase.from('landlords').select('plan').or(`id.eq.${landlord!.landlordId},auth_id.eq.${landlord!.landlordId}`).maybeSingle(),
     ])
     if (appsRes.data) setApplications(appsRes.data as Application[])
     if (listingsRes.data) setListings(listingsRes.data as Listing[])
