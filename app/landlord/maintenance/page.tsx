@@ -1,5 +1,6 @@
 'use client'
 
+import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
@@ -91,6 +92,25 @@ export default function LandlordMaintenancePage() {
         </div>
         <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{lang === 'zh' ? '+ 创建工单' : '+ Create ticket'}</button>
       </div>
+
+      <AIProactive
+        role="landlord"
+        insights={[
+          {
+            text: {
+              zh: '厨房水槽工单已等待派单 9 小时。超过 RTA 合理响应窗口会累积风险，{ai} 可以帮你找可上门的师傅。',
+              en: 'The kitchen-sink ticket has waited 9 hours unassigned. Slipping past the RTA response window builds risk — {ai} can find available technicians.',
+            },
+            action: {
+              label: { zh: '让 {ai} 找师傅', en: 'Find a technician' },
+              prompt: {
+                zh: '帮我给厨房水槽漏水的工单找本周可上门的师傅，给我 2-3 个选择。',
+                en: 'Find 2-3 technicians available this week for the kitchen sink leak ticket.',
+              },
+            },
+          },
+        ]}
+      />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Counter label={lang === 'zh' ? '待响应' : 'Awaiting response'} value={open.length} accent="#B91C1C" sub={lang === 'zh' ? '超 4 小时未处理 · 自动升级' : 'Unhandled over 4h · auto-escalated'} />

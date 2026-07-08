@@ -1,5 +1,6 @@
 'use client'
 
+import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
@@ -50,6 +51,25 @@ export default function AgentEarningsPage() {
           {zh ? '示范数据 · 订阅后解锁完整面板' : 'Sample data · subscribe to unlock full dashboard'}
         </p>
       </div>
+
+      <AIProactive
+        role="agent"
+        insights={[
+          {
+            text: {
+              zh: '你的带看转化率高于区域均值。进入 Top 8% 可申请 Top Agent 入口，获得优先派单。',
+              en: 'Your showing conversion beats the area average. Reaching the top 8% unlocks the Top Agent lane with priority dispatch.',
+            },
+            action: {
+              label: { zh: '给我提升计划', en: 'Give me a plan' },
+              prompt: {
+                zh: '我现在的表现离 Top Agent 还差什么？给我一个提升计划。',
+                en: 'What separates me from Top Agent status? Give me an improvement plan.',
+              },
+            },
+          },
+        ]}
+      />
 
       {/* KPI strip */}
       <div className="grid gap-3 sm:grid-cols-4">

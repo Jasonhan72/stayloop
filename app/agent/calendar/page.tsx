@@ -1,5 +1,6 @@
 'use client'
 
+import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useT } from '@/lib/i18n'
 
@@ -76,6 +77,25 @@ export default function AgentCalendarPage() {
           </button>
         </div>
       </div>
+
+      <AIProactive
+        role="agent"
+        insights={[
+          {
+            text: {
+              zh: '明天 3 场带看的路线还没优化 — 按位置重排可以省约 40 分钟通勤。',
+              en: "Tomorrow's 3 showings aren't route-optimized — reordering by location saves ~40 minutes.",
+            },
+            action: {
+              label: { zh: '优化路线', en: 'Optimize route' },
+              prompt: {
+                zh: '帮我把明天的带看按位置优化路线。',
+                en: "Optimize tomorrow's showing route by location.",
+              },
+            },
+          },
+        ]}
+      />
 
       {/* Summary KPIs */}
       <div className="mb-6 grid gap-3 sm:grid-cols-3">

@@ -1,5 +1,6 @@
 'use client'
 
+import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
@@ -143,6 +144,25 @@ export default function AgentClientsPage() {
         </div>
         <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{zh ? '+ 加客户' : '+ Add client'}</button>
       </div>
+
+      <AIProactive
+        role="agent"
+        insights={[
+          {
+            text: {
+              zh: 'Lily Zhang 已 3 天没有跟进。超过 5 天未跟进的客户，流失率超过一半。',
+              en: "Lily Zhang hasn't been followed up in 3 days. Clients quiet for 5+ days churn more than half the time.",
+            },
+            action: {
+              label: { zh: '起草跟进', en: 'Draft follow-up' },
+              prompt: {
+                zh: '帮我给 Lily Zhang 起草一条自然的跟进消息，她在看 Downtown 一居室。',
+                en: "Draft a natural follow-up to Lily Zhang — she's looking at Downtown 1-beds.",
+              },
+            },
+          },
+        ]}
+      />
 
       {/* Stage chips */}
       <div className="mb-5 grid gap-3 sm:grid-cols-4">

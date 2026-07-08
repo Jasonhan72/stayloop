@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
@@ -52,6 +53,38 @@ export default function LandlordApplicantsPage() {
         </div>
         <button className="sl-btn-secondary">{lang === 'zh' ? '导出 CSV' : 'Export CSV'}</button>
       </div>
+
+      <AIProactive
+        role="landlord"
+        insights={[
+          {
+            text: {
+              zh: 'Mia Chen 收入 4.2× 租金、8 维尽调无红旗，已等待 26 小时 — 优质申请人平均 48 小时内会接受其他 offer。',
+              en: 'Mia Chen earns 4.2× rent with zero red flags across 8 axes, waiting 26 hours — strong applicants typically accept another offer within 48.',
+            },
+            action: {
+              label: { zh: '让 {ai} 给决策包', en: 'Get the decision pack' },
+              prompt: {
+                zh: '给我 Mia Chen 的一页式决策包：收入、历史、红旗、建议都要。',
+                en: 'Give me a one-page decision pack on Mia Chen: income, history, red flags and your recommendation.',
+              },
+            },
+          },
+          {
+            text: {
+              zh: '2 份申请缺推荐信。{ai} 可以代你追要材料，并设好 48 小时跟进提醒。',
+              en: 'Two applications are missing references. {ai} can chase the documents and set a 48-hour follow-up.',
+            },
+            action: {
+              label: { zh: '代我追材料', en: 'Chase documents' },
+              prompt: {
+                zh: '帮我向缺推荐信的申请人追要材料，并设置 48 小时跟进提醒。',
+                en: 'Chase the missing references from those applicants and set a 48-hour follow-up reminder.',
+              },
+            },
+          },
+        ]}
+      />
 
       {SECTIONS.map((s) => {
         const list = APPS.filter((a) => a.decision === s.decision)

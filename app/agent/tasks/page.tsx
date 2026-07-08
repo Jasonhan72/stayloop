@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
@@ -95,6 +96,25 @@ export default function AgentTasksPage() {
         </div>
         <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{zh ? '+ 新任务' : '+ New task'}</button>
       </div>
+
+      <AIProactive
+        role="agent"
+        insights={[
+          {
+            text: {
+              zh: '14:00 King West 带看的材料包已备好，但你还没确认。出发前 {ai} 可以带你过一遍授权问答边界。',
+              en: 'The 2pm King West showing pack is ready but unconfirmed. {ai} can run you through the authorized-Q&A boundaries before you leave.',
+            },
+            action: {
+              label: { zh: '过一遍材料包', en: 'Review the pack' },
+              prompt: {
+                zh: '帮我过一遍今天 14:00 King West 带看的材料包和授权问答边界。',
+                en: "Walk me through today's 2pm King West showing pack and the authorized Q&A boundaries.",
+              },
+            },
+          },
+        ]}
+      />
 
       {/* Filter bar */}
       <div className="mb-5 flex flex-wrap items-center gap-2">

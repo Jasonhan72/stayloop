@@ -10,11 +10,26 @@ import RecommendationDeck from '@/components/agent/RecommendationDeck'
 import PendingActionsPanel from '@/components/agent/PendingActionsPanel'
 import PrivateMemorySnapshot from '@/components/agent/PrivateMemorySnapshot'
 import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
+import { useEffect, useRef } from 'react'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
 import { useT } from '@/lib/i18n'
 
 export default function TenantAgentPage() {
   const { loading, live, data, status, messages, decide, sendMessage } = useAgentSession('tenant')
+
+  // Deep-link tasks: workspace CTAs navigate here with ?prompt=<task>.
+  // Auto-send it once the session settles, then strip the param so a
+  // refresh doesn't resend.
+  const promptSent = useRef(false)
+  useEffect(() => {
+    if (loading || promptSent.current) return
+    const p = new URLSearchParams(window.location.search).get('prompt')
+    if (!p || !p.trim()) return
+    promptSent.current = true
+    window.history.replaceState({}, '', window.location.pathname)
+    void sendMessage(p.trim())
+  }, [loading, sendMessage])
+
 
   if (loading || !data) {
     return (

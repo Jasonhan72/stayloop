@@ -1,5 +1,6 @@
 'use client'
 
+import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
@@ -56,6 +57,38 @@ export default function LandlordFinancePage() {
           <button className="sl-btn-primary !px-5 !py-[10px] !text-[13px]">{lang === 'zh' ? '报税包 →' : 'Tax package →'}</button>
         </div>
       </div>
+
+      <AIProactive
+        role="landlord"
+        insights={[
+          {
+            text: {
+              zh: 'Unit 1207 当前租金低于同区中位数约 6%。Month 11 续约时可建议 +2.5%（2026 合规上限）。',
+              en: 'Unit 1207 rents about 6% under the area median. At Month 11 you can propose +2.5% (the 2026 legal cap).',
+            },
+            action: {
+              label: { zh: '生成续约方案', en: 'Draft renewal options' },
+              prompt: {
+                zh: '帮我生成 Unit 1207 的续约方案，包含合规涨幅和市场对比。',
+                en: 'Draft renewal options for Unit 1207 with the legal increase and market comparison.',
+              },
+            },
+          },
+          {
+            text: {
+              zh: '3 月有一笔迟付。开启自动催租后，{ai} 会在到期前 3 天温和提醒租客。',
+              en: 'There was one late payment in March. With auto-reminders on, {ai} nudges tenants 3 days before rent is due.',
+            },
+            action: {
+              label: { zh: '开启催租提醒', en: 'Turn on reminders' },
+              prompt: {
+                zh: '帮我给所有租约开启到期前 3 天的自动缴租提醒。',
+                en: 'Turn on automatic rent reminders 3 days before due date for all my leases.',
+              },
+            },
+          },
+        ]}
+      />
 
       {/* KPI strip */}
       <div className="grid gap-3 sm:grid-cols-4">

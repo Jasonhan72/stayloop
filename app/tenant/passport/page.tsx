@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useT } from '@/lib/i18n'
 
@@ -106,6 +107,38 @@ export default function TenantPassport() {
               : 'Your Passport proves trustworthiness to landlords. Higher tiers mean faster approvals.'}
           </p>
         </div>
+
+        <AIProactive
+          role="tenant"
+          insights={[
+            {
+              text: {
+                zh: '升级到认证 3 级只差银行流水一步（约 5 分钟），可解锁多 42% 的房源，房东审批也更快。',
+                en: 'Tier 3 is one bank-transparency step away (~5 minutes) — it unlocks 42% more listings and faster approvals.',
+              },
+              action: {
+                label: { zh: '带我升级', en: 'Walk me through it' },
+                prompt: {
+                  zh: '帮我升级到认证 3 级，告诉我需要做什么。',
+                  en: 'Help me upgrade to Tier 3 — what do I need to do?',
+                },
+              },
+            },
+            {
+              text: {
+                zh: 'Sarah Wang 本月查看了你的资料 3 次 — 通常代表强意向。要不要主动跟进？',
+                en: 'Sarah Wang viewed your profile 3 times this month — usually a strong signal. Want to follow up?',
+              },
+              action: {
+                label: { zh: '主动跟进', en: 'Follow up' },
+                prompt: {
+                  zh: 'Sarah Wang 多次查看我的资料，帮我起草一条得体的跟进消息。',
+                  en: 'Sarah Wang keeps viewing my profile — draft a tasteful follow-up message.',
+                },
+              },
+            },
+          ]}
+        />
 
         {/* ── Progress card ── */}
         <div className="sl-card p-6 sm:p-8">

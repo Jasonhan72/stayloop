@@ -1,5 +1,6 @@
 'use client'
 
+import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
@@ -23,6 +24,25 @@ export default function TenantPaymentsPage() {
         </div>
         <h1 className="mt-2 text-[26px] sm:text-[36px] font-bold tracking-tight">{lang === 'zh' ? '租金支付' : 'Rent Payments'}</h1>
       </div>
+
+      <AIProactive
+        role="tenant"
+        insights={[
+          {
+            text: {
+              zh: '2 月那次迟付 3 天可以补充情况说明（如银行转账延迟），{ai} 帮你写好并归档，避免影响信任分。',
+              en: "February's 3-day late payment can carry an explanation (e.g. bank transfer delay). {ai} writes and files it so your trust score isn't dinged.",
+            },
+            action: {
+              label: { zh: '补充说明', en: 'Add explanation' },
+              prompt: {
+                zh: '帮我为 2 月迟付 3 天写一份情况说明并归档，原因是银行转账延迟。',
+                en: 'Write and file an explanation for the February 3-day late payment — cause was a bank transfer delay.',
+              },
+            },
+          },
+        ]}
+      />
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="sl-card p-7">

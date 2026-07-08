@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
@@ -239,6 +240,25 @@ export default function Dashboard() {
               </Link>
             </div>
           </div>
+
+          <AIProactive
+            role="landlord"
+            insights={[
+              {
+                text: {
+                  zh: '89 Estelle 挂牌 12 天还没有意向。定价高于同类约 8%，或文案曝光不足 — {ai} 可以诊断并给出调整建议。',
+                  en: '89 Estelle has been listed 12 days with no intents. It prices ~8% above comparables, or the copy is underexposed — {ai} can diagnose it.',
+                },
+                action: {
+                  label: { zh: '诊断这套房源', en: 'Diagnose this listing' },
+                  prompt: {
+                    zh: '帮我诊断 89 Estelle Avenue 为什么没有申请：定价、文案、照片，给出具体调整建议。',
+                    en: 'Diagnose why 89 Estelle Avenue gets no applications — pricing, copy, photos — with concrete fixes.',
+                  },
+                },
+              },
+            ]}
+          />
 
           {/* Stats */}
           <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">

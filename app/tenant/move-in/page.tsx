@@ -1,5 +1,6 @@
 'use client'
 
+import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
@@ -54,6 +55,25 @@ export default function TenantMoveInPage() {
               : 'Mia, your landlord Sarah Wang has handed over the unit. Complete these three steps and you’re officially settled in today.'}
           </p>
         </div>
+
+        <AIProactive
+          role="tenant"
+          insights={[
+            {
+              text: {
+                zh: '入住 7 天内拍照记录既有损耗，退租时是最有力的证据。{ai} 给你一份 Day-1 检查清单。',
+                en: 'Photographing existing wear within 7 days of move-in is your strongest move-out evidence. {ai} has a Day-1 checklist for you.',
+              },
+              action: {
+                label: { zh: '生成清单', en: 'Get the checklist' },
+                prompt: {
+                  zh: '给我一份入住第一天的检查清单，告诉我哪些地方必须拍照留证。',
+                  en: 'Give me a Day-1 move-in checklist and tell me exactly what to photograph.',
+                },
+              },
+            },
+          ]}
+        />
 
         {/* ── Luna guidance banner ── */}
         <div className="mb-6 sl-card border border-tenant/30 bg-tenant/[0.04] p-5">
