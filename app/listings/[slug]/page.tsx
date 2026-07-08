@@ -90,6 +90,8 @@ interface DBListing {
   lease_term: string | null
   virtual_tour_url: string | null
   mls_number: string | null
+  source: string | null
+  verification_status: string | null
 }
 
 const tierLabel: Record<number, { name: { zh: string; en: string }; reqs: { zh: string; en: string }[] }> = {
@@ -157,6 +159,7 @@ export default function ListingDetailPage() {
           .from('listings')
           .select('*')
           .eq('is_active', true)
+          .or('verification_status.eq.verified,source.eq.realtor')
           .neq('id', (data as any).id)
           .limit(3)
         if (!cancelled) setSimilar((rest || []) as DBListing[])
@@ -324,7 +327,23 @@ export default function ListingDetailPage() {
                     {zh ? `LUNA · ${listing.match_score}% 匹配` : `LUNA · ${listing.match_score}% match`}
                   </span>
                 )}
-                <span className="sl-chip fit">VERIFIED</span>
+                {listing.verification_status === 'verified' && <span className="sl-chip fit">VERIFIED</span>}
+                {listing.verification_status !== 'verified' && listing.source !== 'realtor' && (
+                  <span
+                    className="rounded-md border px-2.5 py-1 font-mono text-[10.5px] font-bold tracking-eyebrow"
+                    style={{ borderColor: '#C5BDAA', color: '#71717A' }}
+                  >
+                    {zh ? '待 Stayloop 验证' : 'PENDING VERIFICATION'}
+                  </span>
+                )}
+                {listing.source === 'realtor' && (
+                  <span
+                    className="rounded-md px-2.5 py-1 font-mono text-[10.5px] font-bold tracking-eyebrow text-white"
+                    style={{ background: '#B45309' }}
+                  >
+                    {zh ? 'REALTOR.CA 来源' : 'FROM REALTOR.CA'}
+                  </span>
+                )}
               </div>
 
               <h1 className="mt-3 text-[36px] font-extrabold tracking-tight sm:text-[44px]">

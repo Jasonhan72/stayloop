@@ -155,6 +155,7 @@ export default function EditDraftListingPage() {
         virtual_tour_url: form.virtual_tour_url ?? null,
         mls_number: form.mls_number ?? null,
         source_url: form.source_url ?? null,
+        source: form.mls_number || /realtor\.ca/i.test(form.source_url || '') ? 'realtor' : 'stayloop',
         neighborhood: form.neighborhood || null,
         slug,
         status: 'active',

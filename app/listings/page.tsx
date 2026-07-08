@@ -48,6 +48,8 @@ interface DBListing {
   images: string[] | null
   available_date?: string | null
   has_den?: boolean | null
+  source?: string | null
+  verification_status?: string | null
 }
 
 type SortKey = 'ai' | 'price_asc' | 'price_desc' | 'newest'
@@ -84,6 +86,9 @@ export default function ListingsPage() {
       .from('listings')
       .select('*')
       .eq('is_active', true)
+      // Public list shows verified listings; Realtor.ca-sourced ones show
+      // without verification (they carry a source badge instead).
+      .or('verification_status.eq.verified,source.eq.realtor')
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         setAll((data || []) as DBListing[])
@@ -585,6 +590,25 @@ function ListingCard({
             }}
           >
             {l.badge}
+          </span>
+        )}
+        {l.source === 'realtor' && (
+          <span
+            style={{
+              position: 'absolute',
+              bottom: 10,
+              left: 10,
+              background: 'rgba(180,83,9,0.92)',
+              color: '#fff',
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 9.5,
+              fontWeight: 700,
+              padding: '3px 7px',
+              borderRadius: 4,
+              letterSpacing: '0.08em',
+            }}
+          >
+            REALTOR.CA
           </span>
         )}
         <div

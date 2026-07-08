@@ -309,6 +309,20 @@ export default function Dashboard() {
                         >
                           {l.is_active !== false ? (lang === 'zh' ? '上架中' : 'ACTIVE') : (lang === 'zh' ? '已下架' : 'INACTIVE')}
                         </span>
+                        {/* Verification / source badge */}
+                        {(l as any).source === 'realtor' ? (
+                          <span className="absolute left-3 top-11 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: '#B45309' }}>
+                            REALTOR.CA
+                          </span>
+                        ) : (l as any).verification_status !== 'verified' ? (
+                          <span className="absolute left-3 top-11 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: '#A16207' }}>
+                            {lang === 'zh' ? '待验证 · 暂未公开' : 'PENDING · NOT PUBLIC'}
+                          </span>
+                        ) : (
+                          <span className="absolute left-3 top-11 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: '#7C3AED' }}>
+                            VERIFIED
+                          </span>
+                        )}
                         {/* Photo count */}
                         {images.length > 1 && (
                           <span className="absolute bottom-3 right-3 rounded-md bg-black/50 px-2 py-0.5 font-mono text-[11px] font-semibold text-white backdrop-blur">

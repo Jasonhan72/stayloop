@@ -102,7 +102,7 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
   const p = new URLSearchParams()
   p.set(
     'select',
-    'id,title,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,trust_tier,images,amenities,has_den,slug'
+    'id,title,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,trust_tier,images,amenities,has_den,slug,source,verification_status'
   )
   p.set('is_active', 'eq.true')
   const wantType = normalizeType(c)
@@ -111,11 +111,17 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
     // an unclassified house showing up in a 公寓 search is exactly the bug.
     p.set('property_type', `in.(${TYPE_MATCHES[wantType].join(',')})`)
   }
+  // Same visibility rule as the public listings page: verified, or
+  // Realtor.ca-sourced (which display without verification). Combined with
+  // the area OR-group via and=() — PostgREST allows only one bare `or` param.
+  const visibility = 'or(verification_status.eq.verified,source.eq.realtor)'
   if (c.area) {
     // Match city OR neighborhood OR address. Spaces become `*` wildcards so
     // "North York" matches without needing PostgREST value quoting.
     const pat = `*${c.area.replace(/[,()"']/g, ' ').trim().replace(/\s+/g, '*')}*`
-    p.set('or', `(city.ilike.${pat},neighborhood.ilike.${pat},address.ilike.${pat})`)
+    p.set('and', `(${visibility},or(city.ilike.${pat},neighborhood.ilike.${pat},address.ilike.${pat}))`)
+  } else {
+    p.set('or', `(verification_status.eq.verified,source.eq.realtor)`)
   }
   if (c.max_price) p.set('monthly_rent', `lte.${Math.round(c.max_price)}`)
   if (c.min_beds) p.set('bedrooms', `gte.${Math.round(c.min_beds)}`)

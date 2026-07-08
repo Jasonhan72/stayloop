@@ -134,6 +134,9 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
         virtual_tour_url: form.virtual_tour_url ?? null,
         mls_number: form.mls_number ?? null,
         source_url: form.source_url ?? null,
+        // Realtor.ca-sourced listings display immediately with a source badge;
+        // everything else waits for Stayloop verification (DB default 'pending').
+        source: form.mls_number || /realtor\.ca/i.test(form.source_url || '') ? 'realtor' : 'stayloop',
         neighborhood: form.neighborhood || null,
         slug,
         status: 'active',
@@ -161,6 +164,11 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
           </div>
           <div className="text-[15px] font-bold text-success">{zh ? '房源已发布' : 'Published!'}</div>
           <div className="text-[12px] text-body-3">{form.address}</div>
+          <div className="mt-1 text-[11.5px] text-body-3">
+            {form.mls_number || /realtor\.ca/i.test(form.source_url || '')
+              ? (zh ? 'Realtor.ca 来源 · 已直接上线并标注来源' : 'Realtor.ca-sourced · live now with a source badge')
+              : (zh ? '待 Stayloop 验证,通过后公开展示并打上 VERIFIED 标' : 'Pending Stayloop verification — goes public with a VERIFIED badge once approved')}
+          </div>
         </div>
       </div>
     )
