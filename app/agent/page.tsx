@@ -45,7 +45,7 @@ const CFG: RoleLandingConfig = {
       file: 'david-01-task.jpg',
       fallback: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=700&q=80&fit=crop&auto=format',
       label: { zh: '接到任务', en: 'Task lands' },
-      text: { zh: 'RECO 验证 30 秒通过。新任务推送:时间、地点、租客画像、报酬 $80 已预授权,Brief 备好材料包。', en: 'RECO verified in 30 seconds. A task arrives: time, place, tenant profile, $80 pre-authorized — Brief preps the full pack.' },
+      text: { zh: 'RECO 验证 30 秒通过。新任务推送:时间、地点、租客画像与授权问答清单,Brief 备好材料包。', en: 'RECO verified in 30 seconds. A task arrives: time, place, tenant profile and the authorized Q&A list — Brief preps the full pack.' },
     },
     {
       file: 'david-02-showing.jpg',
@@ -57,7 +57,7 @@ const CFG: RoleLandingConfig = {
       file: 'david-03-payout.jpg',
       fallback: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=700&q=80&fit=crop&auto=format',
       label: { zh: '当晚结算', en: 'Settled that night' },
-      text: { zh: 'Stripe 当晚到账 $80。月度回顾:带看 32 次、保留率 94%、Toronto West 区域 Top 8%。', en: '$80 lands via Stripe the same night. Monthly review: 32 showings, 94% retention, top 8% in Toronto West.' },
+      text: { zh: '带看记录当晚自动归档留痕。月度回顾:带看 32 次、保留率 94%、Toronto West 区域 Top 8%。', en: 'Showing notes filed and audited the same night. Monthly review: 32 showings, 94% retention, top 8% in Toronto West.' },
     },
   ],
   scenario: {

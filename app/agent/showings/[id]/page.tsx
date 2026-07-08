@@ -83,10 +83,10 @@ export default function ShowingLivePage() {
             </div>
             <h1 className="mt-1.5 text-[22px] font-bold tracking-tight">{zh ? '带看 · 客户 Mia Chen' : 'Showing · Client Mia Chen'}</h1>
             <div className="mt-1 font-mono text-[11.5px] text-white/80">
-              {zh ? '认证 2 级 · $80 已 Stripe 预授权' : 'Tier 2 · $80 pre-authorized on Stripe'}
+              {zh ? '认证 2 级 · 任务已确认' : 'Tier 2 · task confirmed'}
             </div>
             <div className="mt-1 font-mono text-[11.5px] text-white/70">
-              {zh ? '已 Check-in 23 分钟 · $80 即将释放' : 'Checked in 23 min · $80 releasing soon'}
+              {zh ? '已 Check-in 23 分钟 · 记录将自动归档' : 'Checked in 23 min · notes will auto-file'}
             </div>
           </div>
 

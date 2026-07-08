@@ -22,7 +22,7 @@ const CLIENTS = [
     budget: '$3,800–$4,500',
     area: 'King West',
     stage: 'showing',
-    next: { zh: '今天 14:00 · Unit 1207 · King West · $80', en: 'Today 14:00 · Unit 1207 · King West · $80' },
+    next: { zh: '今天 14:00 · Unit 1207 · King West', en: 'Today 14:00 · Unit 1207 · King West' },
     last: { zh: '昨晚和 Brief 聊了 30 min', en: 'Chatted with Brief 30 min last night' },
   },
   {

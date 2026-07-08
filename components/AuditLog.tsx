@@ -114,7 +114,7 @@ const DAYS: AuditDay[] = [
       {
         ts: '11:48',
         lead: { zh: 'Sarah Wang 批准 David Park 带看', en: 'Sarah Wang approved David Park to show the unit' },
-        body: { zh: 'Unit 1207 · King West · $80 Stripe 预授权', en: 'Unit 1207 · King West · $80 Stripe pre-authorization' },
+        body: { zh: 'Unit 1207 · King West · 带看任务已确认', en: 'Unit 1207 · King West · showing task confirmed' },
         who: 'LANDLORD',
         cat: 'payment',
         hash: '0x58…ac12',

@@ -18,7 +18,7 @@ const TASKS = [
     client: { zh: 'Mia Chen · Tenant', en: 'Mia Chen · Tenant' },
     sla: { zh: '1h 后开始', en: 'Starts in 1h' },
     priority: 'now',
-    note: { zh: '客户 认证 2 级 · $80 看房费（Stripe 预授权）· 看房后 30 min 内反馈', en: 'Client Tier 2 · $80 showing fee (Stripe pre-auth) · feedback within 30 min of showing' },
+    note: { zh: '客户 认证 2 级 · 看房后 30 min 内反馈', en: 'Client Tier 2 · feedback within 30 min of showing' },
   },
   {
     id: 'T-298',

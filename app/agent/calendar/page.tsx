@@ -31,7 +31,7 @@ interface Slot {
 const SLOTS: Slot[] = [
   { day: 0, start: 10, end: 11, type: 'showing', title: { zh: 'Brunswick Ave', en: 'Brunswick Ave' }, sub: { zh: 'Anna L. · T3', en: 'Anna L. · T3' } },
   { day: 0, start: 14, end: 15, type: 'photo', title: { zh: '88 Harbour 拍照', en: '88 Harbour shoot' }, sub: { zh: 'New listing', en: 'New listing' } },
-  { day: 1, start: 11, end: 12, type: 'showing', title: { zh: 'Unit 1207 · King West', en: 'Unit 1207 · King West' }, sub: { zh: 'Mia Chen · 认证 2 级 · $80', en: 'Mia Chen · Tier 2 · $80' } },
+  { day: 1, start: 11, end: 12, type: 'showing', title: { zh: 'Unit 1207 · King West', en: 'Unit 1207 · King West' }, sub: { zh: 'Mia Chen · 认证 2 级', en: 'Mia Chen · Tier 2' } },
   { day: 1, start: 16, end: 17, type: 'lease', title: { zh: 'Ontario LTB 租约签字', en: 'Ontario LTB lease signing' }, sub: { zh: 'Kevin Tran 续约', en: 'Kevin Tran renewal' } },
   { day: 2, start: 9, end: 11, type: 'block', title: { zh: '区域走访', en: 'Area canvass' }, sub: { zh: 'Yorkville', en: 'Yorkville' } },
   { day: 2, start: 14, end: 15.5, type: 'showing', title: { zh: '155 Cumberland', en: '155 Cumberland' }, sub: { zh: 'Eric K. · T4', en: 'Eric K. · T4' } },
