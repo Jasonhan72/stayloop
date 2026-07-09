@@ -252,8 +252,17 @@ export async function POST(req: Request) {
   }
 
   const memories = Array.isArray(body.memories) ? body.memories : []
-  const workflow: WorkflowState =
-    body.workflow ?? { workflow_type: '', workflow_id: null, current_stage: '', completed_steps: [], status: 'active' }
+  // Field-level normalization, not just `?? default` — a crafted payload with
+  // a partial workflow object (missing completed_steps) used to crash
+  // buildSystemPrompt's .join() into a bare worker 500.
+  const w = (body.workflow ?? {}) as Partial<WorkflowState>
+  const workflow: WorkflowState = {
+    workflow_type: typeof w.workflow_type === 'string' ? w.workflow_type : '',
+    workflow_id: w.workflow_id ?? null,
+    current_stage: typeof w.current_stage === 'string' ? w.current_stage : '',
+    completed_steps: Array.isArray(w.completed_steps) ? w.completed_steps : [],
+    status: typeof w.status === 'string' ? w.status : 'active',
+  }
   const system = buildSystemPrompt(role, agentName, memories, workflow, body.stageLabel)
 
   // ---- Heartbeat-streamed response ------------------------------------------
