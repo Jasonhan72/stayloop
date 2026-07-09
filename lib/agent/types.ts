@@ -174,6 +174,7 @@ export type MarketInsight = {
     prev_avg?: number | null
     leased?: number | null
     area: string
+    history?: { period: string; avg: number }[]
   }
 }
 

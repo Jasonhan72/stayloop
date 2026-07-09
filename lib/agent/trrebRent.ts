@@ -29,6 +29,8 @@ export type TrrebBenchmark = {
   // Which TRREB table row the number came from ('Toronto C14', 'Mississauga',
   // 'All TRREB Areas' fallback…).
   area: string
+  // Two years of quarterly averages, oldest first — powers the trend chart.
+  history?: { period: string; avg: number }[]
 }
 
 // User-facing area / neighbourhood terms → the TRREB report row that covers
@@ -213,7 +215,8 @@ export async function readTrrebBenchmark(
         property_type: `eq.${propertyType}`,
         bed_type: `eq.${bedType}`,
         order: 'period.desc',
-        limit: '6',
+        // 8 quarters = the 2-year trend chart; also covers the YoY lookup.
+        limit: '8',
         select: 'period,avg_rent,prev_avg_rent,leased',
       })
       const res = await fetch(`${url}/rest/v1/trreb_rent_stats?${q}`, {
@@ -230,7 +233,10 @@ export async function readTrrebBenchmark(
       const prevPeriod = `${Number(y) - 1} ${qn}`
       const hist = rows.find((r) => r.period === prevPeriod)
       const prev = cur.prev_avg_rent != null ? Number(cur.prev_avg_rent) : hist ? Number(hist.avg_rent) : null
-      return { period: cur.period, avg: Number(cur.avg_rent), prev_avg: prev, leased: cur.leased, area }
+      const history = rows
+        .map((r) => ({ period: r.period, avg: Number(r.avg_rent) }))
+        .reverse()
+      return { period: cur.period, avg: Number(cur.avg_rent), prev_avg: prev, leased: cur.leased, area, history }
     }
     return null
   } catch {

@@ -7,6 +7,7 @@ import { useT } from '@/lib/i18n'
 import AgentInputBar from './AgentInputBar'
 import DraftListingChatCard from './DraftListingChatCard'
 import ListingChatCard from './ListingChatCard'
+import TrrebTrendChart from './TrrebTrendChart'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage } from '@/lib/agent/types'
 
@@ -167,6 +168,9 @@ export default function AgentChat({
                         <> · {lang === 'zh' ? '同比' : 'YoY'} {(((m.market.trreb.avg - m.market.trreb.prev_avg) / m.market.trreb.prev_avg) * 100).toFixed(1)}%</>
                       )}
                     </p>
+                  )}
+                  {m.market.trreb?.history && m.market.trreb.history.length >= 4 && (
+                    <TrrebTrendChart history={m.market.trreb.history} accent={accent} />
                   )}
                 </div>
               )}
