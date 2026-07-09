@@ -9,14 +9,16 @@ export const runtime = 'edge'
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import OntarioLeaseDoc from '@/components/lease/OntarioLeaseDoc'
+import TrrebLeaseDoc from '@/components/lease/TrrebLeaseDoc'
 import type { OntarioLeaseTerms, LeaseSignature } from '@/lib/lease/ontario'
+import type { TrrebLeaseTerms } from '@/lib/lease/trreb'
 import { useT } from '@/lib/i18n'
 
 type ViewLease = {
   id: string
   form_type: string
   status: string
-  terms: OntarioLeaseTerms
+  terms: OntarioLeaseTerms | TrrebLeaseTerms
   tenant_name: string | null
   unit_label: string | null
   landlord_signature: LeaseSignature | null
@@ -126,12 +128,22 @@ export default function LeaseSignPage() {
       {/* The document */}
       <div className="mx-auto mt-6 max-w-[860px] px-5 print:mt-0 print:max-w-none print:px-0">
         <div className="sl-card overflow-hidden !p-0 print:border-none print:shadow-none">
-          <OntarioLeaseDoc
-            terms={lease.terms}
-            landlordSignature={lease.landlord_signature}
-            tenantSignature={lease.tenant_signature}
-            status={lease.status}
-          />
+          {/* Unknown/legacy form_type falls back to the Ontario renderer (back-compat). */}
+          {lease.form_type === 'trreb' ? (
+            <TrrebLeaseDoc
+              terms={lease.terms as TrrebLeaseTerms}
+              landlordSignature={lease.landlord_signature}
+              tenantSignature={lease.tenant_signature}
+              status={lease.status}
+            />
+          ) : (
+            <OntarioLeaseDoc
+              terms={lease.terms as OntarioLeaseTerms}
+              landlordSignature={lease.landlord_signature}
+              tenantSignature={lease.tenant_signature}
+              status={lease.status}
+            />
+          )}
         </div>
       </div>
 

@@ -107,6 +107,9 @@ export default function ApplicantDetail() {
               <button className="sl-btn-primary !py-[12px]">
                 {lang === 'zh' ? '✓ 批准看房 · 派 David' : '✓ Approve showing · assign David'}
               </button>
+              <Link href={`/landlord/leases/new?application_id=${id}`} className="sl-btn-secondary text-center">
+                {lang === 'zh' ? '📄 起草租约' : '📄 Draft lease'}
+              </Link>
               <button className="sl-btn-secondary">{lang === 'zh' ? '★★★ 请她升 认证 3 级' : '★★★ Ask her to upgrade to Tier 3'}</button>
               <button className="sl-btn-secondary">{lang === 'zh' ? '💬 先跟她聊一下（经她的 AI Agent 中介）' : '💬 Chat with her first (via her AI agent)'}</button>
               <button className="rounded-lg border border-danger/40 bg-white px-4 py-[10px] text-[13.5px] font-semibold text-danger">

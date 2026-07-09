@@ -278,10 +278,18 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           const sentTo = j.result?.sent_to
           const rentAmt = j.result?.rent
           if (j.executed && sentTo) {
+            // Name the artifact by type — "续约函" only for renewals; the newer
+            // executors (rent_reminder / send_message) send other emails.
+            const artifact =
+              removed?.action_type === 'send_renewal_letter'
+                ? '续约函'
+                : removed?.action_type === 'rent_reminder'
+                  ? '租金提醒'
+                  : '邮件'
             setMessages((msgs) => [...msgs, {
               id: nextId(),
               role: 'agent',
-              text: `✅ 已执行：「${removed?.title ?? '你批准的操作'}」— 续约函已真实发送至 ${sentTo}${rentAmt ? `（月租 $${rentAmt.toLocaleString()}）` : ''}。执行记录已写入审计日志。`,
+              text: `✅ 已执行：「${removed?.title ?? '你批准的操作'}」— ${artifact}已真实发送至 ${sentTo}${rentAmt ? `（月租 $${rentAmt.toLocaleString()}）` : ''}。执行记录已写入审计日志。`,
             }])
           } else if (j.executed) {
             // already executed earlier — nothing new to report

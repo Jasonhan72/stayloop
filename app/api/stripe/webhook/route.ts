@@ -13,7 +13,9 @@ export const runtime = 'edge'
  * using the edge-safe async constructor.
  *
  * Writes subscription state into public.landlords using the Supabase service
- * role key (bypasses RLS, server-only).
+ * role key (bypasses RLS, server-only). Checkout sessions tagged with
+ * metadata.kind === 'referral_fee' instead settle the referral-commission
+ * engine (public.commission / public.referral).
  *
  * Configure on Stripe Dashboard → Developers → Webhooks:
  *   URL:    https://www.stayloop.ai/api/stripe/webhook
@@ -67,6 +69,38 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
+
+        // Referral-fee payments (Connect commission engine) are tagged with
+        // metadata.kind by /api/stripe/connect/settle. Stamp the payment
+        // reference on the commission row and flip the referral to
+        // fee_settled — completely separate from the subscription flow below.
+        if (session.metadata?.kind === 'referral_fee') {
+          const commissionId = session.metadata.commission_id as string | undefined
+          const referralId = session.metadata.referral_id as string | undefined
+          const paymentIntent =
+            typeof session.payment_intent === 'string'
+              ? session.payment_intent
+              : session.payment_intent?.id
+
+          if (!commissionId || !referralId) {
+            console.warn('referral_fee session missing metadata ids', {
+              commissionId, referralId,
+            })
+            break
+          }
+
+          await admin
+            .from('commission')
+            .update({ stripe_transfer_id: paymentIntent ?? session.id })
+            .eq('id', commissionId)
+
+          await admin
+            .from('referral')
+            .update({ status: 'fee_settled', updated_at: new Date().toISOString() })
+            .eq('id', referralId)
+          break
+        }
+
         const landlordId =
           (session.metadata?.landlord_id as string | undefined) ||
           (session.client_reference_id as string | undefined)

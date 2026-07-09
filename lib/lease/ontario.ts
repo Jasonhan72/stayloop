@@ -1,7 +1,8 @@
 // Ontario Standard Form of Lease (Residential Tenancy Agreement, form 2229E
 // structure) — the digital terms model. This is system #1 of two: form_type
-// 'ontario_standard' now, RECO/TRREB agreement forms ('trreb') later share
-// the same lease_documents row shape with a different terms schema+renderer.
+// 'ontario_standard' here, the TRREB Agreement to Lease ('trreb', see
+// lib/lease/trreb.ts) shares the same lease_documents row shape with a
+// different terms schema+renderer.
 
 export type OntarioLeaseTerms = {
   // §1 Parties

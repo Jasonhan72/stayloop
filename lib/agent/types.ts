@@ -18,6 +18,8 @@ export type PendingActionType =
   | 'schedule_viewing'
   | 'sign_lease'
   | 'payment_authorization'
+  | 'send_renewal_letter'
+  | 'rent_reminder'
   | string
 
 export type PendingAction = {

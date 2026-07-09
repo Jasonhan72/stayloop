@@ -7,7 +7,9 @@ import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import OntarioLeaseDoc from '@/components/lease/OntarioLeaseDoc'
+import TrrebLeaseDoc from '@/components/lease/TrrebLeaseDoc'
 import type { OntarioLeaseTerms, LeaseSignature } from '@/lib/lease/ontario'
+import type { TrrebLeaseTerms } from '@/lib/lease/trreb'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAIName } from '@/lib/aiName'
@@ -21,7 +23,7 @@ type DbLease = {
   id: string
   form_type: string
   status: string
-  terms: OntarioLeaseTerms
+  terms: OntarioLeaseTerms | TrrebLeaseTerms
   tenant_name: string | null
   tenant_email: string | null
   unit_label: string | null
@@ -117,7 +119,10 @@ function RealLeaseDetail({ id }: { id: string }) {
   const l = lease
   const fullySigned = !!l.landlord_signature && !!l.tenant_signature
   const tenantLink = l.sign_token ? `${typeof window !== 'undefined' ? window.location.origin : 'https://www.stayloop.ai'}/lease/sign/${l.sign_token}` : null
+  // Both terms schemas carry landlord_legal_name — a filled one means a real document.
   const hasTerms = l.terms && (l.terms as OntarioLeaseTerms).landlord_legal_name !== undefined && !!(l.terms as OntarioLeaseTerms).landlord_legal_name
+  // Unknown/legacy form_type falls back to the Ontario renderer (back-compat).
+  const isTrreb = l.form_type === 'trreb'
 
   return (
     <WorkspaceShell role="landlord" hideAside>
@@ -129,7 +134,7 @@ function RealLeaseDetail({ id }: { id: string }) {
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-landlord">
-                ONTARIO STANDARD LEASE · {l.status.toUpperCase()}
+                {isTrreb ? 'TRREB FORM 400' : 'ONTARIO STANDARD LEASE'} · {l.status.toUpperCase()}
               </div>
               <h1 className="mt-1 text-[22px] font-bold tracking-tight sm:text-[28px]">
                 {l.tenant_name || '—'} · {l.unit_label || '—'}
@@ -198,12 +203,21 @@ function RealLeaseDetail({ id }: { id: string }) {
 
         <div className="mt-6 sl-card overflow-hidden !p-0 print:mt-0 print:border-none print:shadow-none">
           {hasTerms ? (
-            <OntarioLeaseDoc
-              terms={l.terms as OntarioLeaseTerms}
-              landlordSignature={l.landlord_signature}
-              tenantSignature={l.tenant_signature}
-              status={l.status}
-            />
+            isTrreb ? (
+              <TrrebLeaseDoc
+                terms={l.terms as TrrebLeaseTerms}
+                landlordSignature={l.landlord_signature}
+                tenantSignature={l.tenant_signature}
+                status={l.status}
+              />
+            ) : (
+              <OntarioLeaseDoc
+                terms={l.terms as OntarioLeaseTerms}
+                landlordSignature={l.landlord_signature}
+                tenantSignature={l.tenant_signature}
+                status={l.status}
+              />
+            )
           ) : (
             <div className="p-8 text-center text-[13.5px] text-body-3">
               {zh

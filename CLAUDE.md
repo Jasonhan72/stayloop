@@ -55,6 +55,7 @@ Optional (guarded with `if (process.env.X)` — features degrade gracefully when
 ```
 JINA_API_KEY                # agent listing search → realtor.ca scrape (lib/agent/listingSearch.ts)
 OPENCORPORATES_API_TOKEN    # deep-check / forensics arm's-length lookup (lib/forensics/arm-length.ts)
+CRON_SECRET                 # gates cron mode on /api/agent/proactive; same value stored as Supabase Vault secret 'cron_secret' (pg_cron job agent-proactive-daily, 13:00 UTC)
 ```
 
 Same vars are set in Cloudflare Pages dashboard for production.
@@ -99,10 +100,11 @@ Same vars are set in Cloudflare Pages dashboard for production.
 - `app/api/trust/verify/route.ts` — Trust API endpoint
 - `app/api/notify-landlord/route.ts` — email notifications
 - `app/api/agent/turn/route.ts` — Personal Agent reasoning step (Claude + Guardrail); durable rate limit via `bump_agent_rate_limit` RPC
-- `app/api/agent/proactive/route.ts` — renewal-window scanner → pending actions (carries lease metadata)
-- `app/api/agent/execute/route.ts` — executor for approved actions (send_renewal_letter; requires explicit A/B rent option)
-- `app/api/lease/{send,sign,view}/route.ts` — e-sign flow; sign route decouples signature-write from dual-sign finalize (race-safe)
-- `app/api/stripe/{checkout,portal,webhook}/route.ts` — billing
+- `app/api/agent/proactive/route.ts` — renewal-window scanner → pending actions; cron mode via `x-cron-secret` (service-role platform-wide sweep + month-end rent reminders), user-JWT mode on workspace load
+- `app/api/agent/execute/route.ts` — executor dispatch for approved actions: send_renewal_letter (explicit A/B rent option), send_message, rent_reminder — shared claim/release/audit plumbing
+- `app/api/lease/{send,sign,view}/route.ts` — e-sign flow; sign route decouples signature-write from dual-sign finalize (race-safe); form-agnostic (ontario_standard + trreb)
+- `app/api/stripe/{checkout,portal,webhook}/route.ts` — billing; webhook also settles referral fees (metadata kind='referral_fee' → commission.stripe_transfer_id + referral 'fee_settled')
+- `app/api/stripe/connect/{onboard,settle}/route.ts` — Connect Express onboarding (brokerages.stripe_connect_id) + referral-fee settlement (settle_referral_commission RPC → Checkout for the 25% fee)
 - `app/api/classify-files/route.ts` — upload classification
 
 ### Screening Module

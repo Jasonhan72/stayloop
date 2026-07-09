@@ -10,9 +10,15 @@
 //     the claim so retry works.
 //   • Unskippable audit: the execution audit event is written HERE with the
 //     service role — no client can execute without leaving a trail.
+//
+// Executors are registered per action_type in the dispatch switch at the
+// bottom of POST. Each executor validates its metadata contract BEFORE
+// claiming, then claim → effect → stamp execution_result → audit, using the
+// shared claim/release/finalize plumbing below.
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendEmail } from '@/lib/email'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { sendEmail, renderAgentMessageEmail, renderRentReminderEmail } from '@/lib/email'
 
 export const runtime = 'edge'
 
@@ -26,6 +32,7 @@ type ActionRow = {
   status: string
   executed_at: string | null
   metadata: {
+    // send_renewal_letter + rent_reminder (lease-derived)
     lease_id?: string
     tenant_name?: string
     tenant_email?: string
@@ -35,8 +42,230 @@ type ActionRow = {
     guideline_pct?: number
     end_date?: string
     notice_deadline?: string
+    // rent_reminder
+    monthly_rent?: number
+    due_date?: string
+    // send_message
+    to_email?: string
+    subject?: string
+    body?: string
   } | null
 }
+
+type Admin = SupabaseClient
+
+// ---------------------------------------------------------------------------
+// Shared plumbing — claim / release / finalize+audit
+// ---------------------------------------------------------------------------
+
+// Atomic idempotency claim — exactly one request wins. Returns false when
+// another request already holds (or completed) the execution.
+async function claimExecution(admin: Admin, actionId: string): Promise<boolean> {
+  const { data: claimed } = await admin
+    .from('agent_pending_actions')
+    .update({ executed_at: new Date().toISOString() })
+    .eq('id', actionId)
+    .is('executed_at', null)
+    .eq('status', 'approved')
+    .select('id')
+  return !!claimed && claimed.length > 0
+}
+
+// Release the claim so a retry can send. When the release is caused by a
+// failed effect, stamp the failure so the row explains itself.
+async function releaseClaim(admin: Admin, actionId: string, error?: string): Promise<void> {
+  const patch: Record<string, unknown> = { executed_at: null }
+  if (error) patch.execution_result = { ok: false, error, at: new Date().toISOString() }
+  await admin.from('agent_pending_actions').update(patch).eq('id', actionId)
+}
+
+// Stamp the successful execution_result and write the unskippable audit event
+// (service role — no client can execute without leaving a trail).
+async function finalizeExecution(
+  admin: Admin,
+  userId: string,
+  actionId: string,
+  auditAction: string,
+  executionResult: Record<string, unknown>,
+  auditMetadata: Record<string, unknown>,
+): Promise<NextResponse> {
+  await admin.from('agent_pending_actions')
+    .update({ execution_result: executionResult })
+    .eq('id', actionId)
+
+  const { error: auditErr } = await admin.from('agent_audit_events').insert({
+    actor_id: userId,
+    actor_type: 'agent',
+    action: auditAction,
+    target_type: 'agent_pending_action',
+    target_id: actionId,
+    metadata: auditMetadata,
+  })
+  if (auditErr) console.error('[agent/execute] audit insert failed:', auditErr.message)
+
+  return NextResponse.json({ executed: true, result: executionResult, audited: !auditErr })
+}
+
+const ALREADY = () => NextResponse.json({ executed: true, already: true, result: null })
+
+// ---------------------------------------------------------------------------
+// Executor: send_renewal_letter
+// metadata: { lease_id, tenant_name, tenant_email, unit_label, current_rent,
+//             guideline_rent, guideline_pct, end_date, notice_deadline }
+// ---------------------------------------------------------------------------
+async function executeSendRenewalLetter(
+  admin: Admin,
+  userId: string,
+  action: ActionRow,
+  option: 'A' | 'B' | undefined,
+): Promise<NextResponse> {
+  const m = action.metadata || {}
+  if (!m.tenant_email) {
+    return NextResponse.json({ executed: false, reason: 'lease has no tenant email on file' }, { status: 422 })
+  }
+
+  if (!(await claimExecution(admin, action.id))) return ALREADY()
+
+  // A rent increase must be an explicit landlord choice — never a silent
+  // default. If the approval didn't carry a valid option, release the claim
+  // and refuse rather than emailing the tenant an unauthorized increase.
+  if (option !== 'A' && option !== 'B') {
+    await releaseClaim(admin, action.id)
+    return NextResponse.json(
+      { executed: false, reason: 'no_renewal_option_chosen' },
+      { status: 422 },
+    )
+  }
+  const rent = option === 'A' ? m.current_rent : (m.guideline_rent ?? m.current_rent)
+  const tenant = m.tenant_name || 'Tenant'
+  const unit = m.unit_label || 'your unit'
+  const subject = `Lease renewal offer — ${unit}`
+  const text = `Hi ${tenant},
+
+Your current lease for ${unit} ends on ${m.end_date}. Your landlord would like to offer a renewal:
+
+  • Proposed monthly rent: $${(rent ?? 0).toLocaleString()}${option === 'B' ? ` (current $${(m.current_rent ?? 0).toLocaleString()} + ${m.guideline_pct ?? 2.5}% — within Ontario's 2026 rent increase guideline)` : ' (unchanged)'}
+  • New term: 12 months from ${m.end_date}
+
+Reply to this email to accept, discuss, or ask questions. Under Ontario's Residential Tenancies Act you may also choose to continue month-to-month on your existing terms.
+
+— Sent by the landlord's AI assistant on Stayloop, after landlord approval.
+此邮件由房东在 Stayloop 上批准后由其 AI 助手发送：${unit} 的租约将于 ${m.end_date} 到期，房东提议以月租 $${(rent ?? 0).toLocaleString()} 续约 12 个月。你也可以依据安省 RTA 按原条款转为月租。直接回复本邮件即可沟通。`
+
+  const result = await sendEmail({
+    to: m.tenant_email,
+    subject,
+    html: `<pre style="font-family:inherit;white-space:pre-wrap">${text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>`,
+    text,
+  })
+
+  if (!result.ok) {
+    await releaseClaim(admin, action.id, result.error)
+    return NextResponse.json({ executed: false, reason: result.error || 'send failed' }, { status: 502 })
+  }
+
+  const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: m.tenant_email, option, rent }
+  return finalizeExecution(admin, userId, action.id, 'executed_send_renewal_letter', executionResult, {
+    lease_id: m.lease_id,
+    sent_to: m.tenant_email,
+    option,
+    rent,
+    email_id: result.id,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Executor: send_message
+// metadata: { to_email, subject?, body } — body is treated as plain text
+// (any HTML is stripped); recipient_label is the fallback recipient when it
+// looks like an email address.
+// ---------------------------------------------------------------------------
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+async function executeSendMessage(
+  admin: Admin,
+  userId: string,
+  action: ActionRow,
+): Promise<NextResponse> {
+  const m = action.metadata || {}
+  const candidate = (typeof m.to_email === 'string' ? m.to_email : '').trim()
+  const fallback = (action.recipient_label || '').trim()
+  const to = EMAIL_RE.test(candidate) ? candidate : (EMAIL_RE.test(fallback) ? fallback : null)
+  if (!to) {
+    return NextResponse.json({ executed: false, reason: 'no valid recipient email' }, { status: 422 })
+  }
+  const bodyText = String(m.body ?? '').replace(/<[^>]*>/g, '').trim()
+  if (!bodyText) {
+    return NextResponse.json({ executed: false, reason: 'message body is empty' }, { status: 422 })
+  }
+  const subject =
+    (typeof m.subject === 'string' && m.subject.trim()) ||
+    '来自您的 Stayloop 代理的消息 / Message from your Stayloop agent'
+
+  if (!(await claimExecution(admin, action.id))) return ALREADY()
+
+  const { html, text } = renderAgentMessageEmail({ subject, body: bodyText })
+  const result = await sendEmail({ to, subject, html, text })
+
+  if (!result.ok) {
+    await releaseClaim(admin, action.id, result.error)
+    return NextResponse.json({ executed: false, reason: result.error || 'send failed' }, { status: 502 })
+  }
+
+  const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: to }
+  return finalizeExecution(admin, userId, action.id, 'executed_send_message', executionResult, {
+    sent_to: to,
+    subject,
+    email_id: result.id,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Executor: rent_reminder
+// metadata: { lease_id, tenant_email, tenant_name, unit_label, monthly_rent,
+//             due_date }
+// ---------------------------------------------------------------------------
+async function executeRentReminder(
+  admin: Admin,
+  userId: string,
+  action: ActionRow,
+): Promise<NextResponse> {
+  const m = action.metadata || {}
+  if (!m.tenant_email) {
+    return NextResponse.json({ executed: false, reason: 'lease has no tenant email on file' }, { status: 422 })
+  }
+  if (!m.due_date) {
+    return NextResponse.json({ executed: false, reason: 'reminder has no due date' }, { status: 422 })
+  }
+
+  if (!(await claimExecution(admin, action.id))) return ALREADY()
+
+  const { subject, html, text } = renderRentReminderEmail({
+    tenantName: m.tenant_name,
+    unitLabel: m.unit_label,
+    monthlyRent: Number(m.monthly_rent) || 0,
+    dueDate: m.due_date,
+  })
+  const result = await sendEmail({ to: m.tenant_email, subject, html, text })
+
+  if (!result.ok) {
+    await releaseClaim(admin, action.id, result.error)
+    return NextResponse.json({ executed: false, reason: result.error || 'send failed' }, { status: 502 })
+  }
+
+  const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: m.tenant_email }
+  return finalizeExecution(admin, userId, action.id, 'executed_rent_reminder', executionResult, {
+    lease_id: m.lease_id,
+    sent_to: m.tenant_email,
+    due_date: m.due_date,
+    monthly_rent: Number(m.monthly_rent) || 0,
+    email_id: result.id,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Route
+// ---------------------------------------------------------------------------
 
 export async function POST(req: Request) {
   const rawAuth = req.headers.get('authorization') || ''
@@ -76,88 +305,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ executed: false, reason: `action is ${action.status}, not approved` }, { status: 409 })
   }
   if (action.executed_at) {
-    return NextResponse.json({ executed: true, already: true, result: null })
+    return ALREADY()
   }
 
-  // Only action types with a real executor get claimed; everything else is
-  // approval-only for now (the approval itself was already recorded).
-  if (action.action_type !== 'send_renewal_letter') {
-    return NextResponse.json({ executed: false, reason: 'no_executor_for_type' })
+  // Per-type dispatch. Only action types with a real executor get claimed;
+  // everything else is approval-only for now (the approval itself was
+  // already recorded).
+  switch (action.action_type) {
+    case 'send_renewal_letter':
+      return executeSendRenewalLetter(admin, userId, action, body.option)
+    case 'send_message':
+      return executeSendMessage(admin, userId, action)
+    case 'rent_reminder':
+      return executeRentReminder(admin, userId, action)
+    default:
+      return NextResponse.json({ executed: false, reason: 'no_executor_for_type' })
   }
-  const m = action.metadata || {}
-  if (!m.tenant_email) {
-    return NextResponse.json({ executed: false, reason: 'lease has no tenant email on file' }, { status: 422 })
-  }
-
-  // Atomic idempotency claim — exactly one request wins.
-  const { data: claimed } = await admin
-    .from('agent_pending_actions')
-    .update({ executed_at: new Date().toISOString() })
-    .eq('id', action.id)
-    .is('executed_at', null)
-    .eq('status', 'approved')
-    .select('id')
-  if (!claimed || claimed.length === 0) {
-    return NextResponse.json({ executed: true, already: true, result: null })
-  }
-
-  // A rent increase must be an explicit landlord choice — never a silent
-  // default. If the approval didn't carry a valid option, release the claim
-  // and refuse rather than emailing the tenant an unauthorized increase.
-  if (body.option !== 'A' && body.option !== 'B') {
-    await admin.from('agent_pending_actions').update({ executed_at: null }).eq('id', action.id)
-    return NextResponse.json(
-      { executed: false, reason: 'no_renewal_option_chosen' },
-      { status: 422 },
-    )
-  }
-  const option = body.option
-  const rent = option === 'A' ? m.current_rent : (m.guideline_rent ?? m.current_rent)
-  const tenant = m.tenant_name || 'Tenant'
-  const unit = m.unit_label || 'your unit'
-  const subject = `Lease renewal offer — ${unit}`
-  const text = `Hi ${tenant},
-
-Your current lease for ${unit} ends on ${m.end_date}. Your landlord would like to offer a renewal:
-
-  • Proposed monthly rent: $${(rent ?? 0).toLocaleString()}${option === 'B' ? ` (current $${(m.current_rent ?? 0).toLocaleString()} + ${m.guideline_pct ?? 2.5}% — within Ontario's 2026 rent increase guideline)` : ' (unchanged)'}
-  • New term: 12 months from ${m.end_date}
-
-Reply to this email to accept, discuss, or ask questions. Under Ontario's Residential Tenancies Act you may also choose to continue month-to-month on your existing terms.
-
-— Sent by the landlord's AI assistant on Stayloop, after landlord approval.
-此邮件由房东在 Stayloop 上批准后由其 AI 助手发送：${unit} 的租约将于 ${m.end_date} 到期，房东提议以月租 $${(rent ?? 0).toLocaleString()} 续约 12 个月。你也可以依据安省 RTA 按原条款转为月租。直接回复本邮件即可沟通。`
-
-  const result = await sendEmail({
-    to: m.tenant_email,
-    subject,
-    html: `<pre style="font-family:inherit;white-space:pre-wrap">${text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>`,
-    text,
-  })
-
-  if (!result.ok) {
-    // Release the claim so a retry can send.
-    await admin.from('agent_pending_actions')
-      .update({ executed_at: null, execution_result: { ok: false, error: result.error, at: new Date().toISOString() } })
-      .eq('id', action.id)
-    return NextResponse.json({ executed: false, reason: result.error || 'send failed' }, { status: 502 })
-  }
-
-  const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: m.tenant_email, option, rent }
-  await admin.from('agent_pending_actions')
-    .update({ execution_result: executionResult })
-    .eq('id', action.id)
-
-  // Unskippable audit — written server-side with the service role.
-  const { error: auditErr } = await admin.from('agent_audit_events').insert({
-    actor_id: userId,
-    actor_type: 'agent',
-    action: 'executed_send_renewal_letter',
-    target_type: 'agent_pending_action',
-    target_id: action.id,
-    metadata: { lease_id: m.lease_id, sent_to: m.tenant_email, option, rent, email_id: result.id },
-  })
-  if (auditErr) console.error('[agent/execute] audit insert failed:', auditErr.message)
-
-  return NextResponse.json({ executed: true, result: executionResult, audited: !auditErr })
 }
