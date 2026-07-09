@@ -3,6 +3,7 @@
 // Stayloop has no match. Runs server-side (edge). Requires JINA_API_KEY.
 import type { ListingCard } from './types'
 import { LISTING_VISIBILITY_OR, LISTING_VISIBILITY_OR_GROUP } from '../listingVisibility'
+import { readTrrebBenchmark, type TrrebBenchmark } from './trrebRent'
 
 export type SearchCriteria = {
   area?: string | null
@@ -92,6 +93,7 @@ export type MarketStats = {
   median: number
   max: number
   budget?: number | null
+  trreb?: TrrebBenchmark
 }
 
 // One市场样本行：address 用于跨页去重（同一套房出现在通用页和卧室专属页时只计一次）。
@@ -139,12 +141,16 @@ export async function searchListings(
   const extPromise = jinaRealtor({ ...c, count: fetchCount }).catch(
     () => ({ cards: [] as ListingCard[], statRows: [] as StatRow[] }),
   )
+  // Official TRREB benchmark (cached quarterly report, fast DB read).
+  const trrebPromise = readTrrebBenchmark(c.min_beds).catch(() => null)
 
   // Stayloop's own listings come first (verified). If there aren't enough new
   // ones to meet what the user asked for, top up with external Realtor.ca.
   const stay = (await searchStayloop({ ...c, count: fetchCount })).filter(fresh)
   const extRes = await extPromise
   const market = buildMarket(c, extRes.statRows)
+  const trreb = await trrebPromise
+  if (market && trreb) market.trreb = trreb
   if (stay.length >= target) {
     return { listings: stay.slice(0, target), market }
   }

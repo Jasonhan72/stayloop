@@ -156,7 +156,7 @@ export type ChatAttachment = {
 }
 
 // Real market context computed server-side from actual listing prices
-// (Stayloop DB + Realtor.ca parse) — never hallucinated by the model.
+// (Realtor.ca parse) — never hallucinated by the model.
 export type MarketInsight = {
   area: string
   beds?: number | null
@@ -165,6 +165,14 @@ export type MarketInsight = {
   median: number
   max: number
   budget?: number | null
+  // Official benchmark from the TRREB quarterly Rental Market Report
+  // (average LEASED rent, TRREB-wide, cached in trreb_rent_stats).
+  trreb?: {
+    period: string
+    avg: number
+    prev_avg?: number | null
+    leased?: number | null
+  }
 }
 
 // A clarifying question the agent proactively asks, with tap-to-answer chips.
