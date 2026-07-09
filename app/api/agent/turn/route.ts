@@ -333,8 +333,14 @@ export async function POST(req: Request) {
     throw msg.startsWith('reasoning error') ? (e as Error) : new Error(`reasoning failed: ${msg}`)
   }
 
-  const fallbackReply = `我记下了:"${message.trim().slice(0, 120)}"。需要对外分享或提交的动作,都会先作为待批准卡片让你确认。`
   const parsed = safeParseJson(raw)
+  // The model occasionally answers a factual question in plain prose despite
+  // the JSON contract. Salvage that text as the reply — losing a real answer
+  // behind a canned "我记下了" (which falsely implies success) is worse.
+  const salvage = parsed ? '' : raw.replace(/```(?:json)?|```/g, '').trim()
+  const fallbackReply = salvage
+    ? salvage.slice(0, 2000)
+    : '这条我没生成出有效回复（输出格式出错了）。请把消息原样再发一次 —— 不用换措辞。'
   const normalized = normalizeOutput(parsed, fallbackReply)
 
   // Compliance Guardrail — the deterministic backstop on every AI output.
