@@ -278,12 +278,18 @@ async function readRealtorPage(
   }
 }
 
-// Realtor.ca also publishes bed-count-filtered SEO pages
-// (…/2-bedroom-apartments-for-rent) — a second full page of exactly the
-// segment the market card describes, roughly doubling the price sample.
-function bedPageUrl(base: string, beds?: number | null): string | null {
-  if (!beds || beds < 1 || beds > 4) return null
-  return base.replace(/\/apartments-for-rent$/, `/${beds}-bedroom-apartments-for-rent`)
+// Jina renders only the first ~11 rows of any Realtor.ca list page (JS
+// pagination is invisible to the reader, and the raw HTML carries the same
+// 11 listings). The way to approach "该区域所有同户型挂牌价" is the UNION of
+// the area's page VARIANTS — each surfaces a different subset: the
+// bed-filtered SEO page, apartments, condos, and the generic rentals page.
+// Measured on North York 2-bed: 7 → 22 unique units. All fetched in
+// parallel, so wall-clock stays ≈ one page read.
+function statPageUrls(areaBase: string, beds: number | null | undefined, house: boolean): string[] {
+  if (house) return [`${areaBase}/houses-for-rent`, `${areaBase}/rentals`]
+  const urls = [`${areaBase}/apartments-for-rent`, `${areaBase}/condos-for-rent`, `${areaBase}/rentals`]
+  if (beds && beds >= 1 && beds <= 4) urls.unshift(`${areaBase}/${beds}-bedroom-apartments-for-rent`)
+  return urls
 }
 
 async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; statRows: StatRow[] }> {
@@ -320,16 +326,13 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
     new Set((c.area_candidates ?? []).map(slugifyArea).filter((s): s is string => !!s)),
   ).slice(0, 3)
   if (slugs.length) {
-    // Primary area: general page + bed-filtered page IN PARALLEL — both feed
-    // the market sample (deduped by address in buildMarket).
-    const primaryBase = `https://www.realtor.ca/on/toronto/${slugs[0]}/${typePath}`
-    const primaryBed = house ? null : bedPageUrl(primaryBase, crit.min_beds)
-    const [rMain, rBed] = await Promise.all([
-      readRealtorPage(key, primaryBase, crit),
-      primaryBed ? readRealtorPage(key, primaryBed, crit) : Promise.resolve(null),
-    ])
-    merge(rMain, true)
-    merge(rBed, true)
+    // Primary area: ALL page variants IN PARALLEL — every one feeds the
+    // market sample (deduped by address in buildMarket) and the card pool.
+    const primaryBase = `https://www.realtor.ca/on/toronto/${slugs[0]}`
+    const primaryReads = await Promise.all(
+      statPageUrls(primaryBase, crit.min_beds, house).map((u) => readRealtorPage(key, u, crit)),
+    )
+    for (const r of primaryReads) merge(r, true)
     // Adjacent candidate pages top up CARDS only (consecutive searches
     // exclude already-shown addresses and drain thin pages fast).
     for (const slug of slugs.slice(1)) {
@@ -389,16 +392,13 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
   // host that slipped through the search results (SSRF hardening).
   if (!pageUrl || !/^https:\/\/(www\.)?realtor\.ca\//i.test(pageUrl)) return EMPTY
 
-  // 2. Read the page (and its bed-filtered sibling, in parallel), parse all
-  //    rows, then filter + rank for relevance.
-  const bedUrl = house ? null : bedPageUrl(pageUrl, crit.min_beds)
-  const [rMain, rBed] = await Promise.all([
-    readRealtorPage(key, pageUrl, crit),
-    bedUrl ? readRealtorPage(key, bedUrl, crit) : Promise.resolve(null),
-  ])
-  if (!rMain && !rBed) return EMPTY
-  merge(rMain, true)
-  merge(rBed, true)
+  // 2. Read the page — plus every sibling variant of the same area base, in
+  //    parallel — parse all rows, then filter + rank for relevance.
+  const baseM = pageUrl.match(/^(https:\/\/www\.realtor\.ca\/on\/[a-z0-9-]+(?:\/[a-z0-9-]+)?)\/[a-z0-9-]+$/i)
+  const urls = baseM ? Array.from(new Set([pageUrl, ...statPageUrls(baseM[1], crit.min_beds, house)])) : [pageUrl]
+  const reads = await Promise.all(urls.map((u) => readRealtorPage(key, u, crit)))
+  if (reads.every((r) => !r)) return EMPTY
+  for (const r of reads) merge(r, true)
   // Rank by budget relevance: houses → priciest-within-budget first
   // (closest to a high target like $6000); apartments → cheapest first.
   cards.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
