@@ -66,9 +66,9 @@ interface Props {
 // payouts or notifications for their own.
 const DEMO_DATA_ROUTES = new Set([
   '/notifications',
-  // /landlord/leases self-manages its notice — it renders REAL leases once
-  // the landlord enters one, demo fixtures (with its own label) before that.
-  '/landlord/applicants', '/landlord/finance', '/landlord/maintenance',
+  // /landlord/leases and /landlord/applicants self-manage their notice —
+  // they render REAL rows once any exist, labeled demo fixtures before that.
+  '/landlord/finance', '/landlord/maintenance',
   '/tenant/applications', '/tenant/payments', '/tenant/passport', '/tenant/lease', '/tenant/maintenance', '/tenant/move-in',
   '/agent/tasks', '/agent/clients', '/agent/calendar', '/agent/earnings',
 ])
