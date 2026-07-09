@@ -62,13 +62,23 @@ const AREA_ALIASES: Record<string, string> = {
   列治文山: 'Richmond Hill',
   旺市: 'Vaughan',
   奥克维尔: 'Oakville',
+  // Landmarks students actually search by — mapped to the neighbourhood
+  // Realtor.ca and our DB rows actually use.
+  多伦多大学: 'University of Toronto',
+  多倫多大學: 'University of Toronto',
+  多大: 'University of Toronto',
+  约克大学: 'York University',
+  約克大學: 'York University',
 }
 
 function normalizeArea(area?: string | null): string | null {
   const t = (area || '').trim()
   if (!t) return null
   for (const [zh, en] of Object.entries(AREA_ALIASES)) if (t.includes(zh)) return en
-  return t
+  // Model sometimes emits compound areas ("University of Toronto, Downtown
+  // Toronto"). Keep the most specific segment — the compound string matches
+  // nothing in the DB ilike pattern and dilutes the Realtor.ca query.
+  return t.split(',')[0].trim() || null
 }
 
 export type MarketStats = {
@@ -120,8 +130,11 @@ export async function searchListings(
   }
 
   const extRes = await jinaRealtor({ ...c, count: fetchCount }).catch(() => ({ cards: [] as ListingCard[], allPrices: [] as number[] }))
-  let ext = extRes.cards.filter(fresh)
-  if (!ext.length && stay.length === 0) ext = syntheticRealtor(c).filter(fresh)
+  // No synthetic fallback: when neither Stayloop nor Realtor.ca has a real
+  // match, return empty and let the reply say so honestly. Fabricated cards
+  // (budget-derived prices on a fixed street pool) are exactly what the
+  // guardrail exists to prevent.
+  const ext = extRes.cards.filter(fresh)
   const seen = new Set(stay.map((l) => l.address.toLowerCase()))
   const filled = [...stay, ...ext.filter((l) => !seen.has(l.address.toLowerCase()))]
   const prices = [...(await statsPromise), ...extRes.allPrices]
@@ -240,12 +253,27 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; a
       const houseRe = /realtor\.ca\/on\/.+\/(houses?-for-rent|homes-for-rent|townhomes?-for-rent|detached)/i
       const aptRe = /realtor\.ca\/on\/.+\/(apartments-for-rent|condos?-for-rent|rentals)/i
       const anyRe = /realtor\.ca\/on\/.+\/(rentals|for-rent)/i
-      const pick = (re: RegExp) => arr.find((r) => re.test(r.url || ''))?.url
-      pageUrl =
-        pick(house ? houseRe : aptRe) ||
-        pick(anyRe) ||
-        arr.find((r) => /realtor\.ca/i.test(r.url || ''))?.url ||
-        null
+      // Among type-matching candidates, prefer the AREA-specific page: for
+      // "University of Toronto" the results contain both the generic
+      // /on/toronto/apartments-for-rent and the campus-specific slug —
+      // taking the first regex hit used to always pick the generic one.
+      const tokens = area.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2 && w !== 'toronto')
+      const areaScore = (u: string) => tokens.reduce((n, t) => n + (u.toLowerCase().includes(t) ? 1 : 0), 0)
+      const candidates = arr.map((r) => r.url || '').filter((u) => /realtor\.ca/i.test(u))
+      const best = (re: RegExp | null): string | null => {
+        let bestU: string | null = null
+        let bestS = -1
+        for (const u of candidates) {
+          if (re && !re.test(u)) continue
+          const s = areaScore(u)
+          if (s > bestS) {
+            bestS = s
+            bestU = u
+          }
+        }
+        return bestU
+      }
+      pageUrl = best(house ? houseRe : aptRe) || best(anyRe) || candidates[0] || null
     }
   } catch {
     /* fall through */
@@ -319,30 +347,3 @@ function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; al
   return { cards: out, allPrices }
 }
 
-// ---------- Last-resort synthetic fallback (Jina unavailable) ----------
-function syntheticRealtor(c: SearchCriteria): ListingCard[] {
-  const area = c.area || 'Toronto'
-  const house = isHouseQuery(c.keywords, normalizeType(c))
-  const beds = c.min_beds || (house ? 3 : 1)
-  const cap = c.max_price || (house ? 3200 : 2400)
-  const streets = house
-    ? ['Bathurst St', 'Finch Ave W', 'Senlac Rd']
-    : ['Sheppard Ave E', 'Yonge St', 'Beecroft Rd']
-  const amen = c.pets ? ['允许宠物', '室内洗衣', '近地铁'] : ['室内洗衣', '近地铁', '中央空调']
-  return Array.from({ length: 3 }, (_, i) => ({
-    id: `ext-${i}`,
-    source: 'realtor' as const,
-    title: house ? '独立 House · 整栋' : '一居公寓',
-    address: `${120 + i * 41} ${streets[i % streets.length]}`,
-    neighborhood: area,
-    city: 'Toronto',
-    price: Math.round((cap - i * 120) / 50) * 50,
-    beds,
-    baths: house ? 2 : 1,
-    sqft: house ? 1400 + i * 160 : 620 + i * 45,
-    tags: house ? ['den', ...amen] : amen,
-    image: STOCK[i % STOCK.length],
-    url: 'https://www.realtor.ca/map#view=list&TransactionTypeId=3&PropertyTypeGroupID=1&Currency=CAD',
-    note: '外部房源 · 未经 Stayloop 验证 · 点开到 Realtor.ca',
-  }))
-}

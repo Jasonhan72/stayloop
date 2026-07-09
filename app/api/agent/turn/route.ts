@@ -365,6 +365,14 @@ export async function POST(req: Request) {
         const hasStay = result.listings.some((l) => l.source === 'stayloop')
         const hasRealtor = result.listings.some((l) => l.source === 'realtor')
         listingsSource = hasStay && !hasRealtor ? 'stayloop' : !hasStay && hasRealtor ? 'realtor' : undefined
+      } else {
+        // Zero real matches (Stayloop empty + Realtor.ca scrape missed).
+        // The model's reply usually promises cards — correct it honestly
+        // instead of fabricating inventory.
+        const zhMsg = /[一-鿿]/.test(message)
+        out.reply += zhMsg
+          ? '\n\n这次没能拿到符合条件的实时房源（Stayloop 库里没有匹配，Realtor.ca 抓取也没返回结果）。你可以换个说法再让我搜一次，或放宽预算/区域试试 —— 我不会拿编造的房源充数。'
+          : "\n\nI couldn't pull any real listings matching this just now (no Stayloop match, and the Realtor.ca fetch returned nothing). Try rephrasing or widening the budget/area — I won't pad the results with made-up listings."
       }
       // Proactive market context — real prices from the area sample, computed
       // server-side (never by the model).
