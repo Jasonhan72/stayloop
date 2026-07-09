@@ -166,12 +166,14 @@ export type MarketInsight = {
   max: number
   budget?: number | null
   // Official benchmark from the TRREB quarterly Rental Market Report
-  // (average LEASED rent, TRREB-wide, cached in trreb_rent_stats).
+  // (average LEASED rent for the resolved TRREB area, cached in
+  // trreb_rent_stats).
   trreb?: {
     period: string
     avg: number
     prev_avg?: number | null
     leased?: number | null
+    area: string
   }
 }
 

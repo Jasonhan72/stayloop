@@ -141,8 +141,15 @@ export async function searchListings(
   const extPromise = jinaRealtor({ ...c, count: fetchCount }).catch(
     () => ({ cards: [] as ListingCard[], statRows: [] as StatRow[] }),
   )
-  // Official TRREB benchmark (cached quarterly report, fast DB read).
-  const trrebPromise = readTrrebBenchmark(c.min_beds).catch(() => null)
+  // Official TRREB benchmark (cached quarterly report, fast DB read) —
+  // resolved to the user's area (district/municipality) when the map covers
+  // it, TRREB-wide otherwise. Townhouse searches read the townhouse tables.
+  const trrebType = normalizeType(c) === 'townhouse' ? 'townhouse' : 'apartment'
+  const trrebPromise = readTrrebBenchmark(
+    c.min_beds,
+    [c.area, ...(c.area_candidates ?? [])],
+    trrebType,
+  ).catch(() => null)
 
   // Stayloop's own listings come first (verified). If there aren't enough new
   // ones to meet what the user asked for, top up with external Realtor.ca.

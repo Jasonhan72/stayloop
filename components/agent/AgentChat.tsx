@@ -160,8 +160,8 @@ export default function AgentChat({
                   {m.market.trreb && (
                     <p className="mt-2 border-t border-line-divider pt-2 text-[11.5px] leading-relaxed text-body-3">
                       {lang === 'zh'
-                        ? `官方基准 · TRREB ${m.market.trreb.period}：${m.market.beds ? `${Math.min(m.market.beds, 3)} 房` : ''} condo 成交均价 $${m.market.trreb.avg.toLocaleString()}`
-                        : `Official benchmark · TRREB ${m.market.trreb.period}: ${m.market.beds ? `${Math.min(m.market.beds, 3)}-bed ` : ''}condo avg leased rent $${m.market.trreb.avg.toLocaleString()}`}
+                        ? `官方基准 · TRREB ${m.market.trreb.area} · ${m.market.trreb.period}：${m.market.beds ? `${Math.min(m.market.beds, 3)} 房` : ''} condo 成交均价 $${m.market.trreb.avg.toLocaleString()}`
+                        : `Official benchmark · TRREB ${m.market.trreb.area} · ${m.market.trreb.period}: ${m.market.beds ? `${Math.min(m.market.beds, 3)}-bed ` : ''}condo avg leased rent $${m.market.trreb.avg.toLocaleString()}`}
                       {m.market.trreb.leased != null && (lang === 'zh' ? ` · ${m.market.trreb.leased.toLocaleString()} 宗成交` : ` · ${m.market.trreb.leased.toLocaleString()} leases`)}
                       {m.market.trreb.prev_avg != null && m.market.trreb.prev_avg > 0 && (
                         <> · {lang === 'zh' ? '同比' : 'YoY'} {(((m.market.trreb.avg - m.market.trreb.prev_avg) / m.market.trreb.prev_avg) * 100).toFixed(1)}%</>

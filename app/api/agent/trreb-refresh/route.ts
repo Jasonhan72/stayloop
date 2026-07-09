@@ -43,6 +43,8 @@ export async function POST(req: Request) {
     const { error } = await admin.from('trreb_rent_stats').upsert(
       report.rows.map((r) => ({
         period: report.period,
+        area: 'All TRREB Areas',
+        property_type: 'apartment',
         bed_type: r.bed_type,
         avg_rent: r.avg_rent,
         prev_avg_rent: r.prev_avg_rent,
@@ -50,7 +52,7 @@ export async function POST(req: Request) {
         source_url: cand.url,
         fetched_at: new Date().toISOString(),
       })),
-      { onConflict: 'period,bed_type' },
+      { onConflict: 'period,area,property_type,bed_type' },
     )
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ period: report.period, rows: report.rows.length, source: cand.url })

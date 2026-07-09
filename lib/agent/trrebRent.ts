@@ -26,6 +26,72 @@ export type TrrebBenchmark = {
   avg: number
   prev_avg?: number | null
   leased?: number | null
+  // Which TRREB table row the number came from ('Toronto C14', 'Mississauga',
+  // 'All TRREB Areas' fallback…).
+  area: string
+}
+
+// User-facing area / neighbourhood terms → the TRREB report row that covers
+// them. Districts first (most specific), then municipality identity matches;
+// fallback is the TRREB-wide row. Substring match, lowercase.
+const TRREB_AREA_MAP: [string, string][] = [
+  ['bay street corridor', 'Toronto C01'],
+  ['university of toronto', 'Toronto C01'],
+  ['kensington', 'Toronto C01'],
+  ['chinatown', 'Toronto C01'],
+  ['entertainment district', 'Toronto C01'],
+  ['financial district', 'Toronto C01'],
+  ['liberty village', 'Toronto C01'],
+  ['king west', 'Toronto C01'],
+  ['cityplace', 'Toronto C01'],
+  ['harbourfront', 'Toronto C01'],
+  ['downtown', 'Toronto C01'],
+  ['yorkville', 'Toronto C02'],
+  ['annex', 'Toronto C02'],
+  ['st lawrence', 'Toronto C08'],
+  ['corktown', 'Toronto C08'],
+  ['regent park', 'Toronto C08'],
+  ['yonge and eglinton', 'Toronto C10'],
+  ['davisville', 'Toronto C10'],
+  ['midtown', 'Toronto C10'],
+  ['willowdale', 'Toronto C14'],
+  ['yonge and sheppard', 'Toronto C14'],
+  ['yonge & sheppard', 'Toronto C14'],
+  ['newtonbrook', 'Toronto C14'],
+  ['north york', 'Toronto C14'],
+  ['don mills', 'Toronto C15'],
+  ['henry farm', 'Toronto C15'],
+  ['york university', 'Toronto W05'],
+  ['mimico', 'Toronto W06'],
+  ['humber bay', 'Toronto W06'],
+  ['etobicoke', 'Toronto West'],
+  ['scarborough', 'Toronto East'],
+  ['east york', 'Toronto East'],
+  ['leslieville', 'Toronto E01'],
+  ['danforth', 'Toronto E03'],
+  ['mississauga', 'Mississauga'],
+  ['markham', 'Markham'],
+  ['vaughan', 'Vaughan'],
+  ['richmond hill', 'Richmond Hill'],
+  ['oakville', 'Oakville'],
+  ['burlington', 'Burlington'],
+  ['milton', 'Milton'],
+  ['brampton', 'Brampton'],
+  ['newmarket', 'Newmarket'],
+  ['aurora', 'Aurora'],
+  ['ajax', 'Ajax'],
+  ['pickering', 'Pickering'],
+  ['whitby', 'Whitby'],
+  ['oshawa', 'Oshawa'],
+]
+
+export function trrebAreaFor(terms: (string | null | undefined)[]): string | null {
+  for (const t of terms) {
+    const s = (t || '').toLowerCase()
+    if (!s) continue
+    for (const [key, area] of TRREB_AREA_MAP) if (s.includes(key)) return area
+  }
+  return null
 }
 
 // Candidate report URLs, newest quarter first. Reports publish ~2 months
@@ -125,21 +191,48 @@ export function bedTypeForMinBeds(minBeds?: number | null): number | null {
 }
 
 // Fast cached read for the agent turn (anon key; table is public-read).
-export async function readTrrebBenchmark(minBeds?: number | null): Promise<TrrebBenchmark | null> {
+// Resolves the user's area terms to a TRREB table row (district or
+// municipality), falling back to the TRREB-wide summary; the year-over-year
+// delta comes from the backfilled history (same quarter one year earlier).
+export async function readTrrebBenchmark(
+  minBeds?: number | null,
+  areaTerms: (string | null | undefined)[] = [],
+  propertyType: 'apartment' | 'townhouse' = 'apartment',
+): Promise<TrrebBenchmark | null> {
   const bedType = bedTypeForMinBeds(minBeds)
   if (bedType == null) return null
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !key) return null
+  const mapped = trrebAreaFor(areaTerms)
+  const areas = mapped ? [mapped, 'All TRREB Areas'] : ['All TRREB Areas']
   try {
-    const res = await fetch(
-      `${url}/rest/v1/trreb_rent_stats?bed_type=eq.${bedType}&order=period.desc&limit=1&select=period,avg_rent,prev_avg_rent,leased`,
-      { headers: { apikey: key, Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(4000) },
-    )
-    if (!res.ok) return null
-    const rows = (await res.json()) as { period: string; avg_rent: number; prev_avg_rent: number | null; leased: number | null }[]
-    if (!rows.length) return null
-    return { period: rows[0].period, avg: Number(rows[0].avg_rent), prev_avg: rows[0].prev_avg_rent != null ? Number(rows[0].prev_avg_rent) : null, leased: rows[0].leased }
+    for (const area of areas) {
+      const q = new URLSearchParams({
+        area: `eq.${area}`,
+        property_type: `eq.${propertyType}`,
+        bed_type: `eq.${bedType}`,
+        order: 'period.desc',
+        limit: '6',
+        select: 'period,avg_rent,prev_avg_rent,leased',
+      })
+      const res = await fetch(`${url}/rest/v1/trreb_rent_stats?${q}`, {
+        headers: { apikey: key, Authorization: `Bearer ${key}` },
+        signal: AbortSignal.timeout(4000),
+      })
+      if (!res.ok) continue
+      const rows = (await res.json()) as { period: string; avg_rent: number; prev_avg_rent: number | null; leased: number | null }[]
+      if (!rows.length) continue
+      const cur = rows[0]
+      // 'YYYY QN' → same quarter previous year, from the backfilled history;
+      // the summary-page prev value (if stored) wins when present.
+      const [y, qn] = cur.period.split(' ')
+      const prevPeriod = `${Number(y) - 1} ${qn}`
+      const hist = rows.find((r) => r.period === prevPeriod)
+      const prev = cur.prev_avg_rent != null ? Number(cur.prev_avg_rent) : hist ? Number(hist.avg_rent) : null
+      return { period: cur.period, avg: Number(cur.avg_rent), prev_avg: prev, leased: cur.leased, area }
+    }
+    return null
   } catch {
     return null
   }
