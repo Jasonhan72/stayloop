@@ -129,12 +129,6 @@ export default function AgentInputBar({
         value={value}
         disabled={disabled || sending}
         onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
-            submit()
-          }
-        }}
         aria-label={`Message ${agentName}`}
         placeholder={`告诉 ${agentName} 你想做什么 —— 文字、语音或上传文件都行`}
         className="block max-h-60 min-h-[80px] w-full resize-none bg-transparent px-4 pt-3.5 text-[14.5px] leading-relaxed text-body outline-none placeholder:text-body-4"
@@ -180,7 +174,7 @@ export default function AgentInputBar({
             </button>
           )}
           <span className="ml-1 font-mono text-[11px] text-body-4">
-            {recording ? '● 录音中… 再点停止' : '↵ 发送 · Shift + ↵ 换行'}
+            {recording ? '● 录音中… 再点停止' : '↵ 换行 · 点「发送」提交'}
           </span>
         </div>
         <button
