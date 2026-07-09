@@ -98,7 +98,9 @@ function buildMarket(c: SearchCriteria, prices: number[]): MarketStats | undefin
   const clean = prices.filter((p) => p > 300 && p < 60000).sort((a, b) => a - b)
   if (clean.length < 3) return undefined
   return {
-    area: c.area || 'Toronto',
+    // Landmark turns may carry candidates without a plain area — label the
+    // card with the resolved neighbourhood, not a misleading "Toronto".
+    area: c.area || c.area_candidates?.[0] || 'Toronto',
     beds: c.min_beds ?? null,
     sample: clean.length,
     min: clean[0],
@@ -171,11 +173,22 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
   // Realtor.ca-sourced (which display without verification). Combined with
   // the area OR-group via and=() — PostgREST allows only one bare `or` param.
   const visibility = LISTING_VISIBILITY_OR_GROUP
-  if (c.area) {
-    // Match city OR neighborhood OR address. Spaces become `*` wildcards so
-    // "North York" matches without needing PostgREST value quoting.
-    const pat = `*${c.area.replace(/[,()"']/g, ' ').trim().replace(/\s+/g, '*')}*`
-    p.set('and', `(${visibility},or(city.ilike.${pat},neighborhood.ilike.${pat},address.ilike.${pat}))`)
+  // Location filter honours BOTH the plain area and the model-resolved
+  // landmark neighbourhoods — a landmark turn may carry candidates with no
+  // area at all, and skipping the filter then leaks other cities' rows.
+  const areas = [c.area, ...(c.area_candidates ?? [])]
+    .map((a) => (a || '').trim())
+    .filter(Boolean)
+  if (areas.length) {
+    // Match city OR neighborhood OR address, for any area term. Spaces
+    // become `*` wildcards so "North York" matches without value quoting.
+    const ors = areas
+      .map((a) => {
+        const pat = `*${a.replace(/[,()"']/g, ' ').trim().replace(/\s+/g, '*')}*`
+        return `city.ilike.${pat},neighborhood.ilike.${pat},address.ilike.${pat}`
+      })
+      .join(',')
+    p.set('and', `(${visibility},or(${ors}))`)
   } else {
     p.set('or', `(${LISTING_VISIBILITY_OR})`)
   }
@@ -285,9 +298,11 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; a
   //    into official neighbourhoods, so read those pages DIRECTLY — no search
   //    hop needed. Cap at 2 page reads to bound latency.
   const typePath = house ? 'houses-for-rent' : 'apartments-for-rent'
+  // Up to 3 pages: consecutive searches exclude already-shown addresses, so
+  // one thin neighbourhood page often can't refill the requested count alone.
   const slugs = Array.from(
     new Set((c.area_candidates ?? []).map(slugifyArea).filter((s): s is string => !!s)),
-  ).slice(0, 2)
+  ).slice(0, 3)
   for (const slug of slugs) {
     const r = await readRealtorPage(key, `https://www.realtor.ca/on/toronto/${slug}/${typePath}`, crit)
     if (r) merge(r)

@@ -368,6 +368,15 @@ export async function POST(req: Request) {
         const hasStay = result.listings.some((l) => l.source === 'stayloop')
         const hasRealtor = result.listings.some((l) => l.source === 'realtor')
         listingsSource = hasStay && !hasRealtor ? 'stayloop' : !hasStay && hasRealtor ? 'realtor' : undefined
+        // The user asked for N and we found fewer — say so instead of letting
+        // the reply's "马上给你 N 套" stand uncorrected.
+        const wanted = typeof search.count === 'number' ? Math.min(Math.max(search.count, 1), 6) : null
+        if (wanted && result.listings.length < wanted) {
+          const zhMsg = /[一-鿿]/.test(message)
+          out.reply += zhMsg
+            ? `\n\n（符合条件且没给你看过的这次只找到 ${result.listings.length} 套 —— 该区域预算内的新房源有限。想看更多可以放宽预算/扩大区域，或过两天再来，我会盯着新上的。）`
+            : `\n\n(Only ${result.listings.length} new matches this time — inventory in this area within budget is thin. Widen the budget/area for more, or check back soon; I'll keep watching new listings.)`
+        }
       } else {
         // Zero real matches (Stayloop empty + Realtor.ca scrape missed).
         // The model's reply usually promises cards — correct it honestly
