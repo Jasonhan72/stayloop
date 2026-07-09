@@ -167,7 +167,7 @@ In `supabase/migrations/`:
 - Disputes: ART70 three-party arbitration workbench + ART71 4-step LTB prefill wizard (deeper net-new flows; rest of disputes aligned)
 - Onboarding: design has 2 screens (name → tier1); we kept extra `welcome` + `meet` screens — decide whether to remove
 - `/agent/onboarding` vs design route `/agent/onboard` — reconcile name; rework into Brief-voiced ART35 flow (RECO pledge, 3 steps, 画 3 个小区)
-- Wire billing engine (`get_entitlements`) into UI; Stripe Connect real payouts
+- Stripe Connect: fee-collection loop is live in test mode (Express onboarding + settle → Checkout → webhook fee_settled). Still open: outbound transfers to connected accounts (no flow pays agents through the platform yet), reconciling the two plan stores (`landlords.plan` written by the webhook vs the `subscription` table read by `get_entitlements` — entitlements currently always resolve 'free'), and spreading `get_entitlements` beyond the settings surface
 
 ## Route Map
 

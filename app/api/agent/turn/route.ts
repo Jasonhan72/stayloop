@@ -326,7 +326,11 @@ export async function POST(req: Request) {
     const data = (await res.json()) as { content?: Array<{ text?: string }> }
     raw = data.content?.[0]?.text || ''
   } catch (e) {
-    throw new Error(`reasoning timeout: ${(e as Error).message}`)
+    // Label honestly — quota/4xx errors are not timeouts, and the client
+    // shows different guidance for each (retry vs report).
+    const msg = (e as Error).message || ''
+    if ((e as Error).name === 'TimeoutError') throw new Error(`reasoning timeout: ${msg}`)
+    throw msg.startsWith('reasoning error') ? (e as Error) : new Error(`reasoning failed: ${msg}`)
   }
 
   const fallbackReply = `我记下了:"${message.trim().slice(0, 120)}"。需要对外分享或提交的动作,都会先作为待批准卡片让你确认。`
