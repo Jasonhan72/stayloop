@@ -6,11 +6,12 @@ import { useAuth } from '@/lib/useAuth'
 import { useI18n } from '@/lib/i18n'
 import { getAIName, setAIName, getDefaultName } from '@/lib/aiName'
 import { getSupabaseBrowser } from '@/lib/supabase'
+import { ROLE_THEME } from '@/lib/roleTheme'
 
 const ROLE_COLORS: Record<string, string> = {
-  tenant: '#7C3AED',
-  landlord: '#047857',
-  agent: '#2563EB',
+  tenant: ROLE_THEME.tenant.accent,
+  landlord: ROLE_THEME.landlord.accent,
+  agent: ROLE_THEME.agent.accent,
 }
 
 const ROLE_LABELS: Record<string, { zh: string; en: string }> = {
@@ -24,7 +25,7 @@ export default function SettingsPage() {
   const { lang } = useI18n()
   const zh = lang === 'zh'
   const shellRole = (auth.role || 'tenant') as WorkspaceRole
-  const color = ROLE_COLORS[shellRole] || '#7C3AED'
+  const color = ROLE_COLORS[shellRole] || ROLE_THEME.tenant.accent
 
   const initial = (auth.fullName || auth.email || 'U').slice(0, 1).toUpperCase()
   const aiName = getAIName(shellRole)

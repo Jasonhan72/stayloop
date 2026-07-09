@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Header from './Header'
 import { useI18n } from '@/lib/i18n'
+import { ROLE_THEME } from '@/lib/roleTheme'
 
 export type WorkspaceRole = 'tenant' | 'landlord' | 'agent'
 
@@ -45,9 +46,9 @@ const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
 }
 
 const ROLE_ACCENT: Record<WorkspaceRole, { bg: string; fg: string }> = {
-  tenant:   { bg: '#7C3AED', fg: '#5B21B6' },
-  landlord: { bg: '#047857', fg: '#065F46' },
-  agent:    { bg: '#2563EB', fg: '#1E3A8A' },
+  tenant:   { bg: ROLE_THEME.tenant.accent,   fg: ROLE_THEME.tenant.deep },
+  landlord: { bg: ROLE_THEME.landlord.accent, fg: ROLE_THEME.landlord.deep },
+  agent:    { bg: ROLE_THEME.agent.accent,    fg: ROLE_THEME.agent.deep },
 }
 
 interface Props {
@@ -168,14 +169,7 @@ function Rail({ role }: { role: WorkspaceRole }) {
       ) : (
         <div
           className="hidden h-8 w-8 rounded-full md:block"
-          style={{
-            background:
-              role === 'tenant'
-                ? 'linear-gradient(135deg,#C4B5FD,#7C3AED)'
-                : role === 'agent'
-                  ? 'linear-gradient(135deg,#93C5FD,#2563EB)'
-                  : 'linear-gradient(135deg,#6EE7B7,#047857)',
-          }}
+          style={{ background: ROLE_THEME[role].avatarGradient }}
         />
       )}
     </nav>

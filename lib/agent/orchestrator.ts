@@ -17,6 +17,7 @@ import type {
 } from './types'
 import { writeAuditEvent } from './audit'
 import { upsertMemories } from './memory'
+import { ROLE_THEME } from '../roleTheme'
 
 export const ROLE_META: Record<
   AgentRole,
@@ -24,19 +25,19 @@ export const ROLE_META: Record<
 > = {
   tenant: {
     name: 'AI Agent',
-    accent: '#7C3AED',
+    accent: ROLE_THEME.tenant.accent,
     tagline: '开口找房、约看、一键申请 —— 资料只在你点头时分享。',
     workflowType: 'tenant_rental',
   },
   landlord: {
     name: 'AI Agent',
-    accent: '#047857',
+    accent: ROLE_THEME.landlord.accent,
     tagline: '读懂每份申请、同步尽调、守住合规 —— 你只点头。',
     workflowType: 'landlord_screening',
   },
   agent: {
     name: 'AI Agent',
-    accent: '#2563EB',
+    accent: ROLE_THEME.agent.accent,
     tagline: '把行政杂活理顺,把时间留给带看与关系。',
     workflowType: 'agent_fieldwork',
   },

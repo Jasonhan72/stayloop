@@ -54,8 +54,8 @@ export interface UseAnonTrialReturn {
 }
 
 // ─── Module-level session cache ─────────────────────────────────────────────
-// Every page that uses AppHeader (or MarketingNav, or any component that calls
-// useUser) re-mounts on client-side navigation. Without a cache, each mount
+// Every page that uses AppHeader (or any component that calls useUser)
+// re-mounts on client-side navigation. Without a cache, each mount
 // re-runs initUser() and the avatar briefly disappears as `loading` flips back
 // to true. We cache the resolved session here so subsequent useUser() calls
 // hydrate instantly from the last-known value, then re-validate in the

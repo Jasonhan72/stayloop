@@ -6,6 +6,7 @@ import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import type { DraftListing } from '@/lib/agent/types'
+import { LISTING_PUBLISH_MSG, buildListingRow, computeListingSource, makeListingSlug, publishListing, resolveLandlordId } from '@/lib/listingPublish'
 
 const DRAFT_KEY = 'stayloop-draft-listing'
 
@@ -78,74 +79,12 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
     try {
       const client = getSupabaseBrowser()
       // Dual-ID: RLS requires landlords.id (profileId), not auth.uid()
-      const { data: landlord } = await client
-        .from('landlords')
-        .select('id')
-        .eq('auth_id', user.id)
-        .maybeSingle()
-      if (!landlord) throw new Error(zh ? '未找到房东档案，请先完成注册' : 'Landlord profile not found')
-      let dupQ = client.from('listings').select('id', { count: 'exact', head: true }).eq('landlord_id', landlord.id).ilike('address', form.address)
-      if (form.unit) dupQ = dupQ.eq('unit', form.unit)
-      else dupQ = dupQ.is('unit', null)
-      const { count: dupCount } = await dupQ
-      if (dupCount && dupCount > 0) throw new Error(zh ? '该地址已有相同房源，请勿重复发布' : 'A listing at this address already exists')
-      const slug = form.address.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now().toString(36)
-      const { error: insertErr } = await client.from('listings').insert({
-        landlord_id: landlord.id,
-        address: form.address,
-        unit: form.unit || null,
-        city: form.city || 'Toronto',
-        province: 'ON',
-        monthly_rent: form.monthly_rent,
-        bedrooms: form.bedrooms ?? null,
-        bathrooms: form.bathrooms ?? null,
-        sqft: form.sqft ?? null,
-        available_date: form.available_date || null,
-        title: form.title || form.address,
-        description: form.description || null,
-        parking: form.parking || null,
-        pet_policy: form.pet_policy || null,
-        amenities: form.amenities || [],
-        has_den: form.has_den ?? false,
-        property_type: form.property_type || 'condo',
-        ownership_title: form.ownership_title ?? null,
-        year_built: form.year_built ?? null,
-        storeys: form.storeys ?? null,
-        sqft_max: form.sqft_max ?? null,
-        bedrooms_above_grade: form.bedrooms_above_grade ?? null,
-        bedrooms_below_grade: form.bedrooms_below_grade ?? null,
-        bathrooms_half: form.bathrooms_half ?? null,
-        furnished: form.furnished ?? null,
-        pets_allowed: form.pets_allowed ?? null,
-        heating_type: form.heating_type ?? null,
-        heating_fuel: form.heating_fuel ?? null,
-        cooling: form.cooling ?? null,
-        basement_type: form.basement_type ?? null,
-        exterior_finish: form.exterior_finish ?? null,
-        land_size: form.land_size ?? null,
-        appliances: form.appliances ?? null,
-        building_features: form.building_features ?? null,
-        parking_spaces: form.parking_spaces ?? null,
-        maintenance_fee: form.maintenance_fee ?? null,
-        management_company: form.management_company ?? null,
-        cross_streets: form.cross_streets ?? null,
-        deposit: form.deposit ?? null,
-        lease_term: form.lease_term ?? null,
-        virtual_tour_url: form.virtual_tour_url ?? null,
-        mls_number: form.mls_number ?? null,
-        source_url: form.source_url ?? null,
-        // Realtor.ca-sourced listings display immediately with a source badge;
-        // everything else waits for Stayloop verification (DB default 'pending').
-        source: form.mls_number || /realtor\.ca/i.test(form.source_url || '') ? 'realtor' : 'stayloop',
-        neighborhood: form.neighborhood || null,
-        slug,
-        status: 'active',
-        is_active: true,
-        published_at: new Date().toISOString(),
-        images: photos.length ? photos : [],
-        photo_count: photos.length || 0,
-      })
-      if (insertErr) throw new Error(insertErr.message)
+      const landlordId = await resolveLandlordId(client, user.id)
+      if (!landlordId) throw new Error(zh ? LISTING_PUBLISH_MSG.landlordNotFound.zh : LISTING_PUBLISH_MSG.landlordNotFound.en)
+      const slug = makeListingSlug(form.address)
+      const row = buildListingRow(form, { landlordId, slug, photos })
+      const { error: publishErr } = await publishListing(client, row, { zh })
+      if (publishErr) throw new Error(publishErr)
       setPublished(true)
       onPublished?.(slug)
     } catch (e) {
@@ -165,7 +104,7 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
           <div className="text-[15px] font-bold text-success">{zh ? '房源已发布' : 'Published!'}</div>
           <div className="text-[12px] text-body-3">{form.address}</div>
           <div className="mt-1 text-[11.5px] text-body-3">
-            {form.mls_number || /realtor\.ca/i.test(form.source_url || '')
+            {computeListingSource(form) === 'realtor'
               ? (zh ? 'Realtor.ca 来源 · 已直接上线并标注来源' : 'Realtor.ca-sourced · live now with a source badge')
               : (zh ? '待 Stayloop 验证,通过后公开展示并打上 VERIFIED 标' : 'Pending Stayloop verification — goes public with a VERIFIED badge once approved')}
           </div>

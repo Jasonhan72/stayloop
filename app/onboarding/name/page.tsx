@@ -7,6 +7,7 @@ import { setAIName } from '@/lib/aiName'
 import { useAuth } from '@/lib/useAuth'
 import { useOnboarded } from '@/lib/useOnboarding'
 import { useT } from '@/lib/i18n'
+import { ROLE_THEME } from '@/lib/roleTheme'
 import type { AgentRole } from '@/lib/agent/types'
 
 const ROLE_CONFIG: Record<AgentRole, {
@@ -25,11 +26,11 @@ const ROLE_CONFIG: Record<AgentRole, {
   tenant: {
     default: 'Luna',
     suggestions: ['Luna', 'Mia', 'Aria', '小鹿', '木木', 'Echo', 'Nova', '豆包'],
-    color: '#7C3AED',
-    colorLight: 'rgba(124,58,237,0.10)',
-    accent: '#5B21B6',
-    orbBg: 'radial-gradient(circle at 32% 28%, rgba(196,181,253,0.95), #7C3AED 65%)',
-    orbShadow: '0 0 50px rgba(124,58,237,0.45)',
+    color: ROLE_THEME.tenant.accent,
+    colorLight: ROLE_THEME.tenant.lightRgba,
+    accent: ROLE_THEME.tenant.onboardingAccent,
+    orbBg: ROLE_THEME.tenant.onboardingOrb,
+    orbShadow: ROLE_THEME.tenant.orbShadow,
     desc: {
       zh: '她会读取你的专属记忆、理解你的进度，从这一刻起陪你走完注册 · 找房 · 申请 · 入住 · 以后所有事。',
       en: 'It reads your personal memory, understands your progress, and from this moment walks you through sign-up · finding · applying · moving in · everything after.',
@@ -52,11 +53,11 @@ const ROLE_CONFIG: Record<AgentRole, {
   landlord: {
     default: 'Logic',
     suggestions: ['Logic', 'Atlas', 'Slate', '逻辑', '清和', 'Orion', 'Apex', '稳哥'],
-    color: '#047857',
-    colorLight: 'rgba(4,120,87,0.10)',
-    accent: '#065F46',
-    orbBg: 'radial-gradient(circle at 32% 28%, rgba(110,231,183,0.95), #047857 65%)',
-    orbShadow: '0 0 50px rgba(4,120,87,0.45)',
+    color: ROLE_THEME.landlord.accent,
+    colorLight: ROLE_THEME.landlord.lightRgba,
+    accent: ROLE_THEME.landlord.onboardingAccent,
+    orbBg: ROLE_THEME.landlord.onboardingOrb,
+    orbShadow: ROLE_THEME.landlord.orbShadow,
     desc: {
       zh: '你的专属 AI 房东助手：整理申请、同步尽调、合规把关、起草租约 —— 决定权,始终在你手里。',
       en: 'Your dedicated AI landlord assistant: organizes applications, runs due diligence, ensures compliance, drafts leases — you keep the final say.',
@@ -79,11 +80,11 @@ const ROLE_CONFIG: Record<AgentRole, {
   agent: {
     default: 'Brief',
     suggestions: ['Brief', 'Scout', 'Relay', '飞书', '小布', 'Dash', 'Pace', '领航'],
-    color: '#2563EB',
-    colorLight: 'rgba(37,99,235,0.10)',
-    accent: '#1D4ED8',
-    orbBg: 'radial-gradient(circle at 32% 28%, rgba(147,197,253,0.95), #2563EB 65%)',
-    orbShadow: '0 0 50px rgba(37,99,235,0.45)',
+    color: ROLE_THEME.agent.accent,
+    colorLight: ROLE_THEME.agent.lightRgba,
+    accent: ROLE_THEME.agent.onboardingAccent,
+    orbBg: ROLE_THEME.agent.onboardingOrb,
+    orbShadow: ROLE_THEME.agent.orbShadow,
     desc: {
       zh: '你的专属 AI 经纪助手：整理客户、准备材料、安排看房、现场反馈 —— 行政杂活交给它,你专注做人和判断。',
       en: 'Your dedicated AI broker assistant: manages clients, prepares materials, schedules showings, collects feedback — admin work handled, you focus on people and judgment.',

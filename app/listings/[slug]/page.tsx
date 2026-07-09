@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import { PromoBadge, VerificationBadge } from '@/components/ListingBadges'
 import { supabase } from '@/lib/supabase'
 import { useT, type Lang } from '@/lib/i18n'
 import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
@@ -247,26 +248,7 @@ export default function ListingDetailPage() {
                   onClick={() => { if (imgs.length) { setGalleryIdx(0); setGalleryOpen(true) } }}
                 >
                   {!lead && <div className="absolute inset-0 bg-black/10" />}
-                  {listing.badge && (
-                    <span
-                      className="absolute left-4 top-4 font-mono"
-                      style={{
-                        background: listing.badge.startsWith('LUNA')
-                          ? '#7C3AED'
-                          : listing.badge.startsWith('NEW')
-                            ? '#DC2626'
-                            : '#047857',
-                        color: '#fff',
-                        fontSize: 10,
-                        fontWeight: 700,
-                        padding: '5px 10px',
-                        borderRadius: 4,
-                        letterSpacing: '0.10em',
-                      }}
-                    >
-                      {listing.badge}
-                    </span>
-                  )}
+                  <PromoBadge badge={listing.badge} variant="hero" />
                   <div className="absolute bottom-4 left-4 rounded-md bg-black/55 px-2.5 py-1 font-mono text-[11px] text-white">
                     1 / {listing.photo_count || imgs.length || 1}
                   </div>
@@ -332,23 +314,7 @@ export default function ListingDetailPage() {
                     {zh ? `AI · ${listing.match_score}% 匹配` : `AI · ${listing.match_score}% match`}
                   </span>
                 )}
-                {listing.verification_status === 'verified' && <span className="sl-chip fit">VERIFIED</span>}
-                {listing.verification_status !== 'verified' && listing.source !== 'realtor' && (
-                  <span
-                    className="rounded-md border px-2.5 py-1 font-mono text-[10.5px] font-bold tracking-eyebrow"
-                    style={{ borderColor: '#C5BDAA', color: '#71717A' }}
-                  >
-                    {zh ? '待 Stayloop 验证' : 'PENDING VERIFICATION'}
-                  </span>
-                )}
-                {listing.source === 'realtor' && (
-                  <span
-                    className="rounded-md px-2.5 py-1 font-mono text-[10.5px] font-bold tracking-eyebrow text-white"
-                    style={{ background: '#B45309' }}
-                  >
-                    {zh ? 'REALTOR.CA 来源' : 'FROM REALTOR.CA'}
-                  </span>
-                )}
+                <VerificationBadge listing={listing} variant="detail" zh={zh} />
               </div>
 
               <h1 className="mt-3 text-[36px] font-extrabold tracking-tight sm:text-[44px]">

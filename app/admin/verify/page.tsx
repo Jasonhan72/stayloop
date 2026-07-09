@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
+import { VerificationBadge } from '@/components/ListingBadges'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
@@ -156,9 +157,7 @@ export default function AdminVerifyPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[14.5px] font-bold">{r.address}{r.unit ? ` · ${r.unit}` : ''}</span>
-                    {r.source === 'realtor' && (
-                      <span className="rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-white" style={{ background: '#B45309' }}>REALTOR.CA</span>
-                    )}
+                    <VerificationBadge listing={r} variant="admin-row" />
                     <span
                       className="rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-white"
                       style={{ background: r.verification_status === 'verified' ? '#047857' : r.verification_status === 'rejected' ? '#DC2626' : '#A16207' }}

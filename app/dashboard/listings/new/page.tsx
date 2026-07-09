@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { supabase } from '@/lib/supabase'
+import { buildListingRow, publishListing } from '@/lib/listingPublish'
 import { useLandlord } from '@/lib/useLandlord'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
@@ -80,15 +81,6 @@ export default function NewListingPage() {
     }
     setError(null)
     setSubmitting(true)
-    let dupQ = supabase.from('listings').select('id', { count: 'exact', head: true }).eq('landlord_id', landlord.landlordId).ilike('address', form.address)
-    if (form.unit) dupQ = dupQ.eq('unit', form.unit)
-    else dupQ = dupQ.is('unit', null)
-    const { count: dupCount } = await dupQ
-    if (dupCount && dupCount > 0) {
-      setError(lang === 'zh' ? '该地址已有相同房源，请勿重复发布' : 'A listing at this address already exists')
-      setSubmitting(false)
-      return
-    }
     const slug =
       form.address
         .toLowerCase()
@@ -97,14 +89,11 @@ export default function NewListingPage() {
         .slice(0, 50) +
       '-' +
       Math.random().toString(36).slice(2, 6)
-    const { data, error: e } = await supabase
-      .from('listings')
-      .insert({
-        landlord_id: landlord.landlordId,
+    const row = buildListingRow(
+      {
         address: form.address,
-        unit: form.unit || null,
+        unit: form.unit,
         city: form.city,
-        province: form.province,
         monthly_rent: parseInt(form.monthly_rent) || null,
         bedrooms: parseInt(form.bedrooms),
         bathrooms: parseInt(form.bathrooms),
@@ -113,17 +102,16 @@ export default function NewListingPage() {
         deposit: parseInt(form.deposit) || null,
         year_built: parseInt(form.age) ? new Date().getFullYear() - parseInt(form.age) : null,
         amenities: form.amenities,
-        slug,
-        is_active: true,
-      })
-      .select('slug')
-      .single()
+      },
+      { landlordId: landlord.landlordId, slug, slim: true },
+    )
+    const { slug: newSlug, error: e } = await publishListing(supabase, row, { zh: lang === 'zh', selectSlug: true })
     setSubmitting(false)
     if (e) {
-      setError(e.message)
+      setError(e)
       return
     }
-    router.replace('/dashboard?new=' + (data?.slug || ''))
+    router.replace('/dashboard?new=' + newSlug)
   }
 
   if (authLoading || !landlord) {

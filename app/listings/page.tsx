@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Header from '@/components/Header'
+import { PromoBadge, VerificationBadge } from '@/components/ListingBadges'
 import ListingsMap from '@/components/ListingsMap'
 import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
@@ -573,49 +574,8 @@ function ListingCard({
           position: 'relative',
         }}
       >
-        {l.badge && (
-          <span
-            style={{
-              position: 'absolute',
-              top: 10,
-              left: 10,
-              background:
-                l.badge.startsWith('LUNA')
-                  ? '#7C3AED'
-                  : l.badge.startsWith('NEW')
-                    ? '#DC2626'
-                    : '#047857',
-              color: '#fff',
-              fontFamily: 'JetBrains Mono, monospace',
-              fontSize: 10,
-              fontWeight: 700,
-              padding: '4px 8px',
-              borderRadius: 4,
-              letterSpacing: '0.10em',
-            }}
-          >
-            {l.badge}
-          </span>
-        )}
-        {l.source === 'realtor' && (
-          <span
-            style={{
-              position: 'absolute',
-              bottom: 10,
-              left: 10,
-              background: 'rgba(180,83,9,0.92)',
-              color: '#fff',
-              fontFamily: 'JetBrains Mono, monospace',
-              fontSize: 9.5,
-              fontWeight: 700,
-              padding: '3px 7px',
-              borderRadius: 4,
-              letterSpacing: '0.08em',
-            }}
-          >
-            REALTOR.CA
-          </span>
-        )}
+        <PromoBadge badge={l.badge} variant="card" />
+        <VerificationBadge listing={l} variant="public-card" />
         <div
           style={{
             position: 'absolute',

@@ -7,6 +7,7 @@
 import Link from 'next/link'
 import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
+import { ROLE_THEME } from '@/lib/roleTheme'
 import type { AgentRole } from '@/lib/agent/types'
 
 const HOME: Record<AgentRole, string> = {
@@ -15,10 +16,9 @@ const HOME: Record<AgentRole, string> = {
   agent: '/agent/agent',
 }
 
-const THEME: Record<AgentRole, { accent: string; deep: string; orb: string; border: string; bg: string }> = {
-  tenant: { accent: '#7C3AED', deep: '#4C1D95', orb: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)', border: 'rgba(124,58,237,0.22)', bg: 'rgba(124,58,237,0.05)' },
-  landlord: { accent: '#047857', deep: '#064E3B', orb: 'radial-gradient(circle at 35% 35%, #6EE7B7, #047857 70%)', border: 'rgba(4,120,87,0.22)', bg: 'rgba(4,120,87,0.05)' },
-  agent: { accent: '#2563EB', deep: '#1E3A8A', orb: 'radial-gradient(circle at 35% 35%, #93C5FD, #2563EB 70%)', border: 'rgba(37,99,235,0.22)', bg: 'rgba(37,99,235,0.05)' },
+function themeFor(role: AgentRole): { accent: string; deep: string; orb: string; border: string; bg: string } {
+  const t = ROLE_THEME[role]
+  return { accent: t.accent, deep: t.deeper, orb: t.orbRadial, border: t.borderRgba, bg: t.bgRgba }
 }
 
 export type AIInsight = {
@@ -35,7 +35,7 @@ export default function AIProactive({ role, insights }: { role: AgentRole; insig
   const { lang } = useT()
   const zh = lang === 'zh'
   const aiName = useAIName(role)
-  const t = THEME[role]
+  const t = themeFor(role)
   if (!insights.length) return null
 
   const fill = (s: string) => s.replaceAll('{ai}', aiName)

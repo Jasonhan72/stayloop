@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
+import { VerificationBadge } from '@/components/ListingBadges'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
@@ -333,8 +334,6 @@ export default function Dashboard() {
                     l.bathrooms != null ? `${l.bathrooms}${lang === 'zh' ? ' 浴' : ' ba'}` : null,
                     l.sqft ? `${l.sqft} sqft` : null,
                   ].filter(Boolean).join(' · ')
-                  const src = (l as any).source
-                  const vs = (l as any).verification_status
                   return (
                     <div key={l.id} className="sl-card flex flex-wrap items-center gap-4 p-3.5">
                       <Link href={`/listings/${l.slug}`} className="h-14 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-surface-chip">
@@ -355,13 +354,7 @@ export default function Dashboard() {
                         <span className="rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold uppercase text-white" style={{ background: l.is_active !== false ? '#047857' : '#6B7280' }}>
                           {l.is_active !== false ? (lang === 'zh' ? '上架中' : 'ACTIVE') : (lang === 'zh' ? '已下架' : 'OFF')}
                         </span>
-                        {src === 'realtor' ? (
-                          <span className="rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-white" style={{ background: '#B45309' }}>REALTOR.CA</span>
-                        ) : vs !== 'verified' ? (
-                          <span className="rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-white" style={{ background: '#A16207' }}>{lang === 'zh' ? '待验证' : 'PENDING'}</span>
-                        ) : (
-                          <span className="rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-white" style={{ background: '#7C3AED' }}>VERIFIED</span>
-                        )}
+                        <VerificationBadge listing={l as any} variant="dashboard-list" zh={lang === 'zh'} />
                       </div>
                       <div className="flex flex-shrink-0 items-center gap-1 text-[12px] font-semibold">
                         <Link href={`/dashboard/listings/${l.id}/edit`} className="rounded-md px-2.5 py-1.5 text-body transition hover:bg-surface-chip">{lang === 'zh' ? '编辑' : 'Edit'}</Link>
@@ -411,19 +404,7 @@ export default function Dashboard() {
                           {l.is_active !== false ? (lang === 'zh' ? '上架中' : 'ACTIVE') : (lang === 'zh' ? '已下架' : 'INACTIVE')}
                         </span>
                         {/* Verification / source badge */}
-                        {(l as any).source === 'realtor' ? (
-                          <span className="absolute left-3 top-11 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: '#B45309' }}>
-                            REALTOR.CA
-                          </span>
-                        ) : (l as any).verification_status !== 'verified' ? (
-                          <span className="absolute left-3 top-11 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: '#A16207' }}>
-                            {lang === 'zh' ? '待验证 · 暂未公开' : 'PENDING · NOT PUBLIC'}
-                          </span>
-                        ) : (
-                          <span className="absolute left-3 top-11 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white" style={{ background: '#7C3AED' }}>
-                            VERIFIED
-                          </span>
-                        )}
+                        <VerificationBadge listing={l as any} variant="dashboard-grid" zh={lang === 'zh'} />
                         {/* Photo count */}
                         {images.length > 1 && (
                           <span className="absolute bottom-3 right-3 rounded-md bg-black/50 px-2 py-0.5 font-mono text-[11px] font-semibold text-white backdrop-blur">

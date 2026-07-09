@@ -88,7 +88,7 @@ Same vars are set in Cloudflare Pages dashboard for production.
 - **Compliance Guardrail** (`lib/agent/guardrail.ts`) = deterministic server-side filter on every turn output: blocks OHRC-protected-ground rejections, flags illegal lease terms, strips false "already done" claims, demotes over-reach scope. The LLM is also instructed but the guardrail is the backstop.
 - **Fallback**: anonymous/preview or any failure → canned acknowledgement (no LLM cost, no persistence). Real reasoning only for authed live sessions.
 - **Entry IA**: login → role's `/x/agent` (was: everyone → `/dashboard`). Header workspace link + WorkspaceShell rail treat the Agent home as the primary entry; V4 pages are related flows.
-- **Note**: prod has BOTH the V4 AI-native tables (`conversations`/`messages`/`user_facts`/`pending_actions` — empty/dead) and the active `agent_*` layer (has rows). The brain writes to the `agent_*` layer.
+- **Note**: the V4 AI-native tables (`conversations`/`messages`/`user_facts`/`tool_executions`/`pending_actions`/`audit_events`) were dropped 2026-07-08 (`20260708_drop_v4_agent_layer.sql`). Only the `agent_*` layer exists; Trust API audits also write `agent_audit_events` now.
 
 ### API Routes (all edge runtime)
 - `app/api/screen-score/route.ts` — Vision OCR + 6-dim scoring + streaming progress
@@ -133,10 +133,7 @@ In `supabase/migrations/`:
 - `20260606_agent_core_seed_all_roles.sql` — `seed_demo_agent_data(role)` RPC
 - `20260608_billing_commission.sql` — billing/commission tables + `get_entitlements(role)` + `settle_referral_commission` (25% engine + ComplianceGuard)
 - `20260608_security_fixes.sql` — security patches
-
-**Two agent DB layers coexist** (reconciliation TODO):
-1. Old AI-native: `conversations`, `messages`, `user_facts`, `tool_executions`, `pending_actions`, `audit_events`
-2. New spine: `agent_*` namespaced tables
+- `20260708_drop_v4_agent_layer.sql` — dropped the old V4 AI-native tables (`conversations`, `messages`, `user_facts`, `tool_executions`, `pending_actions`, `audit_events`); only the `agent_*` spine remains
 
 ## Design Source of Truth
 
@@ -168,7 +165,7 @@ In `supabase/migrations/`:
 - Disputes: ART70 three-party arbitration workbench + ART71 4-step LTB prefill wizard (deeper net-new flows; rest of disputes aligned)
 - Onboarding: design has 2 screens (name → tier1); we kept extra `welcome` + `meet` screens — decide whether to remove
 - `/agent/onboarding` vs design route `/agent/onboard` — reconcile name; rework into Brief-voiced ART35 flow (RECO pledge, 3 steps, 画 3 个小区)
-- Wire billing engine (`get_entitlements`) into UI; Stripe Connect real payouts; reconcile two agent DB layers
+- Wire billing engine (`get_entitlements`) into UI; Stripe Connect real payouts
 
 ## Route Map
 

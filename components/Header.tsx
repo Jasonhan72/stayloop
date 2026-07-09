@@ -8,11 +8,12 @@ import LanguageCurrencyModal from './LanguageCurrencyModal'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
+import { ROLE_THEME, type RoleKey } from '@/lib/roleTheme'
 
 const ROLE_META: Record<string, { label: string; labelEn: string; color: string; home: string; icon: string }> = {
-  tenant:   { label: '租客', labelEn: 'Tenant',   color: '#7C3AED', home: '/tenant/agent',   icon: '🏠' },
-  landlord: { label: '房东', labelEn: 'Landlord', color: '#047857', home: '/landlord/agent', icon: '🔑' },
-  agent:    { label: '经纪', labelEn: 'Agent',    color: '#2563EB', home: '/agent/agent',    icon: '💼' },
+  tenant:   { label: '租客', labelEn: 'Tenant',   color: ROLE_THEME.tenant.accent,   home: '/tenant/agent',   icon: '🏠' },
+  landlord: { label: '房东', labelEn: 'Landlord', color: ROLE_THEME.landlord.accent, home: '/landlord/agent', icon: '🔑' },
+  agent:    { label: '经纪', labelEn: 'Agent',    color: ROLE_THEME.agent.accent,    home: '/agent/agent',    icon: '💼' },
 }
 
 interface HeaderProps {
@@ -20,9 +21,9 @@ interface HeaderProps {
 }
 
 const PRODUCT_ITEMS = [
-  { key: 'nav.tenants', href: '/tenant', color: '#7C3AED', tag: { zh: '让 AI 替你找到家', en: 'AI finds you home' } },
-  { key: 'nav.landlords', href: '/landlord', color: '#047857', tag: { zh: '租得快,选得准', en: 'Rent faster, choose right' } },
-  { key: 'nav.agents', href: '/agent', color: '#2563EB', tag: { zh: '杂活交给 AI', en: 'Busywork goes to AI' } },
+  { key: 'nav.tenants', href: '/tenant', color: ROLE_THEME.tenant.accent, tag: { zh: '让 AI 替你找到家', en: 'AI finds you home' } },
+  { key: 'nav.landlords', href: '/landlord', color: ROLE_THEME.landlord.accent, tag: { zh: '租得快,选得准', en: 'Rent faster, choose right' } },
+  { key: 'nav.agents', href: '/agent', color: ROLE_THEME.agent.accent, tag: { zh: '杂活交给 AI', en: 'Busywork goes to AI' } },
 ]
 
 export default function Header({ variant = 'solid' }: HeaderProps) {
@@ -94,11 +95,7 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
     if (meta && typeof meta === 'string') setAvatarUrl(meta)
   }, [auth.user])
   const avatarBg =
-    currentRole === 'tenant'
-      ? 'linear-gradient(135deg,#C4B5FD,#7C3AED)'
-      : currentRole === 'agent'
-        ? 'linear-gradient(135deg,#93C5FD,#2563EB)'
-        : 'linear-gradient(135deg,#6EE7B7,#047857)'
+    (ROLE_THEME[currentRole as RoleKey] ?? ROLE_THEME.landlord).avatarGradient
 
   return (
     <>

@@ -112,11 +112,11 @@ export async function POST(req: NextRequest) {
   // Audit every call (immutable activity log). `audited` in the response
   // must reflect reality — a partner relying on our audit trail must not be
   // told a failed insert succeeded.
-  const { error: auditErr } = await admin.from('audit_events').insert({
+  const { error: auditErr } = await admin.from('agent_audit_events').insert({
     actor_type: 'system',
     action: 'trust_api_verify',
-    resource_type: 'rental_passport',
-    resource_id: passport.id,
+    target_type: 'rental_passport',
+    target_id: passport.id,
     metadata: { scopes: Array.from(requested), tier: passport.tier, partner_id: partner.id, partner_name: partner.partner_name },
   })
   if (auditErr) console.error('[trust/verify] audit insert failed:', auditErr.message)

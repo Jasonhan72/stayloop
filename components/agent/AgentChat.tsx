@@ -7,17 +7,18 @@ import { useT } from '@/lib/i18n'
 import AgentInputBar from './AgentInputBar'
 import DraftListingChatCard from './DraftListingChatCard'
 import ListingChatCard from './ListingChatCard'
+import { ROLE_THEME } from '@/lib/roleTheme'
 import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage } from '@/lib/agent/types'
 
 const ACCENT: Record<AgentRole, string> = {
-  tenant: '#7C3AED',
-  landlord: '#047857',
-  agent: '#2563EB',
+  tenant: ROLE_THEME.tenant.accent,
+  landlord: ROLE_THEME.landlord.accent,
+  agent: ROLE_THEME.agent.accent,
 }
 const ORB: Record<AgentRole, string> = {
-  tenant: 'linear-gradient(135deg,#C4B5FD,#7C3AED)',
-  landlord: 'linear-gradient(135deg,#6EE7B7,#047857)',
-  agent: 'linear-gradient(135deg,#93C5FD,#2563EB)',
+  tenant: ROLE_THEME.tenant.avatarGradient,
+  landlord: ROLE_THEME.landlord.avatarGradient,
+  agent: ROLE_THEME.agent.avatarGradient,
 }
 
 // Quick-start prompts shown while the thread is empty — one tap sends the
