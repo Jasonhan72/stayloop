@@ -94,8 +94,18 @@ export type MarketStats = {
   budget?: number | null
 }
 
-function buildMarket(c: SearchCriteria, prices: number[]): MarketStats | undefined {
-  const clean = prices.filter((p) => p > 300 && p < 60000).sort((a, b) => a - b)
+// One市场样本行：address 用于跨页去重（同一套房出现在通用页和卧室专属页时只计一次）。
+export type StatRow = { address: string; price: number }
+
+function buildMarket(c: SearchCriteria, rows: StatRow[]): MarketStats | undefined {
+  const byAddr = new Map<string, number>()
+  for (const r of rows) {
+    const k = r.address.toLowerCase()
+    if (!byAddr.has(k)) byAddr.set(k, r.price)
+  }
+  const clean = Array.from(byAddr.values())
+    .filter((p) => p > 300 && p < 60000)
+    .sort((a, b) => a - b)
   if (clean.length < 3) return undefined
   return {
     // Landmark turns may carry candidates without a plain area — label the
@@ -122,19 +132,23 @@ export async function searchListings(
   const fresh = (l: ListingCard) => !ex.has(l.address.toLowerCase())
   const fetchCount = Math.min(target + exclude.length, 12)
 
-  // Market sample: same area/beds/type but NO price cap — real market range,
-  // computed from actual prices (Stayloop DB + Realtor rows), never the LLM.
-  const statsPromise = statsStayloop(c).catch(() => [] as number[])
+  // Realtor.ca runs UNCONDITIONALLY (in parallel with the Stayloop query):
+  // the market card is computed exclusively from Realtor.ca asking prices —
+  // the primary area's full visible sample, pre-budget — never from our own
+  // inventory and never from the LLM.
+  const extPromise = jinaRealtor({ ...c, count: fetchCount }).catch(
+    () => ({ cards: [] as ListingCard[], statRows: [] as StatRow[] }),
+  )
 
   // Stayloop's own listings come first (verified). If there aren't enough new
   // ones to meet what the user asked for, top up with external Realtor.ca.
   const stay = (await searchStayloop({ ...c, count: fetchCount })).filter(fresh)
+  const extRes = await extPromise
+  const market = buildMarket(c, extRes.statRows)
   if (stay.length >= target) {
-    const prices = await statsPromise
-    return { listings: stay.slice(0, target), market: buildMarket(c, prices) }
+    return { listings: stay.slice(0, target), market }
   }
 
-  const extRes = await jinaRealtor({ ...c, count: fetchCount }).catch(() => ({ cards: [] as ListingCard[], allPrices: [] as number[] }))
   // No synthetic fallback: when neither Stayloop nor Realtor.ca has a real
   // match, return empty and let the reply say so honestly. Fabricated cards
   // (budget-derived prices on a fixed street pool) are exactly what the
@@ -142,14 +156,7 @@ export async function searchListings(
   const ext = extRes.cards.filter(fresh)
   const seen = new Set(stay.map((l) => l.address.toLowerCase()))
   const filled = [...stay, ...ext.filter((l) => !seen.has(l.address.toLowerCase()))]
-  const prices = [...(await statsPromise), ...extRes.allPrices]
-  return { listings: filled.slice(0, target), market: buildMarket(c, prices) }
-}
-
-// Price sample for the area (no budget cap) — powers the market-context card.
-async function statsStayloop(c: SearchCriteria): Promise<number[]> {
-  const rows = await searchStayloop({ ...c, max_price: null, count: 12 })
-  return rows.map((r) => r.price).filter(Boolean)
+  return { listings: filled.slice(0, target), market }
 }
 
 // ---------- Stayloop's own listings ----------
@@ -258,7 +265,7 @@ async function readRealtorPage(
   key: string,
   pageUrl: string,
   c: SearchCriteria,
-): Promise<{ cards: ListingCard[]; allPrices: number[] } | null> {
+): Promise<{ cards: ListingCard[]; rows: StatRow[] } | null> {
   try {
     const rres = await fetch(`https://r.jina.ai/${encodeURI(pageUrl)}`, {
       headers: { Authorization: `Bearer ${key}` },
@@ -271,8 +278,16 @@ async function readRealtorPage(
   }
 }
 
-async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; allPrices: number[] }> {
-  const EMPTY = { cards: [] as ListingCard[], allPrices: [] as number[] }
+// Realtor.ca also publishes bed-count-filtered SEO pages
+// (…/2-bedroom-apartments-for-rent) — a second full page of exactly the
+// segment the market card describes, roughly doubling the price sample.
+function bedPageUrl(base: string, beds?: number | null): string | null {
+  if (!beds || beds < 1 || beds > 4) return null
+  return base.replace(/\/apartments-for-rent$/, `/${beds}-bedroom-apartments-for-rent`)
+}
+
+async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; statRows: StatRow[] }> {
+  const EMPTY = { cards: [] as ListingCard[], statRows: [] as StatRow[] }
   const key = process.env.JINA_API_KEY
   if (!key) return EMPTY
   const area = c.area || 'Toronto'
@@ -281,10 +296,13 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; a
   const crit = { ...c, min_beds: c.min_beds ?? (house ? 3 : undefined) }
 
   const cards: ListingCard[] = []
-  const allPrices: number[] = []
+  // Market sample: the PRIMARY area's pages only — mixing adjacent
+  // neighbourhoods would misstate "该片区" on the card.
+  const statRows: StatRow[] = []
   const seen = new Set<string>()
-  const merge = (r: { cards: ListingCard[]; allPrices: number[] }) => {
-    allPrices.push(...r.allPrices)
+  const merge = (r: { cards: ListingCard[]; rows: StatRow[] } | null, primary: boolean) => {
+    if (!r) return
+    if (primary) statRows.push(...r.rows)
     for (const card of r.cards) {
       const k = card.address.toLowerCase()
       if (!seen.has(k)) {
@@ -296,23 +314,34 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; a
 
   // 0. Landmark path: the model already resolved a vague location ("多大附近")
   //    into official neighbourhoods, so read those pages DIRECTLY — no search
-  //    hop needed. Cap at 2 page reads to bound latency.
+  //    hop needed.
   const typePath = house ? 'houses-for-rent' : 'apartments-for-rent'
-  // Up to 3 pages: consecutive searches exclude already-shown addresses, so
-  // one thin neighbourhood page often can't refill the requested count alone.
   const slugs = Array.from(
     new Set((c.area_candidates ?? []).map(slugifyArea).filter((s): s is string => !!s)),
   ).slice(0, 3)
-  for (const slug of slugs) {
-    const r = await readRealtorPage(key, `https://www.realtor.ca/on/toronto/${slug}/${typePath}`, crit)
-    if (r) merge(r)
-    if (cards.length >= (c.count ?? 4)) break
+  if (slugs.length) {
+    // Primary area: general page + bed-filtered page IN PARALLEL — both feed
+    // the market sample (deduped by address in buildMarket).
+    const primaryBase = `https://www.realtor.ca/on/toronto/${slugs[0]}/${typePath}`
+    const primaryBed = house ? null : bedPageUrl(primaryBase, crit.min_beds)
+    const [rMain, rBed] = await Promise.all([
+      readRealtorPage(key, primaryBase, crit),
+      primaryBed ? readRealtorPage(key, primaryBed, crit) : Promise.resolve(null),
+    ])
+    merge(rMain, true)
+    merge(rBed, true)
+    // Adjacent candidate pages top up CARDS only (consecutive searches
+    // exclude already-shown addresses and drain thin pages fast).
+    for (const slug of slugs.slice(1)) {
+      if (cards.length >= (c.count ?? 4)) break
+      merge(await readRealtorPage(key, `https://www.realtor.ca/on/toronto/${slug}/${typePath}`, crit), false)
+    }
   }
   // Direct pages produced real rows (even if over budget) → that IS the
   // area's inventory; don't dilute it with the generic search fallback.
-  if (allPrices.length || cards.length) {
+  if (statRows.length || cards.length) {
     cards.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
-    return { cards: cards.slice(0, Math.min(c.count ?? 4, 12)), allPrices }
+    return { cards: cards.slice(0, Math.min(c.count ?? 4, 12)), statRows }
   }
 
   // 1. Find the Realtor.ca rentals page for this area.
@@ -360,21 +389,28 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; a
   // host that slipped through the search results (SSRF hardening).
   if (!pageUrl || !/^https:\/\/(www\.)?realtor\.ca\//i.test(pageUrl)) return EMPTY
 
-  // 2. Read the page, parse all rows, then filter + rank for relevance.
-  const r = await readRealtorPage(key, pageUrl, crit)
-  if (!r) return EMPTY
-  merge(r)
+  // 2. Read the page (and its bed-filtered sibling, in parallel), parse all
+  //    rows, then filter + rank for relevance.
+  const bedUrl = house ? null : bedPageUrl(pageUrl, crit.min_beds)
+  const [rMain, rBed] = await Promise.all([
+    readRealtorPage(key, pageUrl, crit),
+    bedUrl ? readRealtorPage(key, bedUrl, crit) : Promise.resolve(null),
+  ])
+  if (!rMain && !rBed) return EMPTY
+  merge(rMain, true)
+  merge(rBed, true)
   // Rank by budget relevance: houses → priciest-within-budget first
   // (closest to a high target like $6000); apartments → cheapest first.
   cards.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
-  return { cards: cards.slice(0, Math.min(c.count ?? 4, 12)), allPrices }
+  return { cards: cards.slice(0, Math.min(c.count ?? 4, 12)), statRows }
 }
 
-function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; allPrices: number[] } {
+function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; rows: StatRow[] } {
   const out: ListingCard[] = []
-  // Every bed-matching row's price, BEFORE the budget cap — the honest
-  // market sample for the area, not just what fits the user's budget.
-  const allPrices: number[] = []
+  // Every bed-matching row (address + price), BEFORE the budget cap — the
+  // honest market sample for the area, not just what fits the user's budget.
+  // Address keys let the caller dedupe the same unit across page variants.
+  const rows: StatRow[] = []
   for (const line of md.split('\n')) {
     if (!/\$[\d,]+\s*\/\s*Month/i.test(line)) continue
     const priceM = line.match(/\$([\d,]+)\s*\/\s*Month/i)
@@ -390,10 +426,10 @@ function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; al
     const beds = bedsM ? parseInt(bedsM[1], 10) : 0
     const hasDen = !!(bedsM && bedsM[2])
     if (c.min_beds && beds < c.min_beds) continue
-    allPrices.push(price)
-    if (c.max_price && price > c.max_price) continue
     const neighborhood = addrRaw.match(/\(([^)]+)\)/)?.[1]
     const street = addrRaw.split(',')[0].trim()
+    rows.push({ address: street || addrRaw || `row-${rows.length}`, price })
+    if (c.max_price && price > c.max_price) continue
     const sqft = sqftM ? parseInt(sqftM[1], 10) : 0
     out.push({
       id: url ? url.split('/').slice(-2, -1)[0] || `r-${out.length}` : `r-${out.length}`,
@@ -413,6 +449,6 @@ function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; al
     })
     if (out.length >= 40) break // safety cap; caller ranks + slices to 4
   }
-  return { cards: out, allPrices }
+  return { cards: out, rows }
 }
 
