@@ -351,6 +351,9 @@ export async function POST(req: Request) {
     try {
       const result = await searchListings({
         area: typeof search.area === 'string' ? search.area : null,
+        area_candidates: Array.isArray(search.area_candidates)
+          ? (search.area_candidates as unknown[]).filter((s): s is string => typeof s === 'string' && !!s.trim()).slice(0, 3)
+          : null,
         max_price: typeof search.max_price === 'number' ? search.max_price : null,
         min_beds: typeof search.min_beds === 'number' ? search.min_beds : null,
         pets: typeof search.pets === 'boolean' ? search.pets : null,

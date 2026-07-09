@@ -6,6 +6,9 @@ import { LISTING_VISIBILITY_OR, LISTING_VISIBILITY_OR_GROUP } from '../listingVi
 
 export type SearchCriteria = {
   area?: string | null
+  // Model-resolved neighbourhoods for landmark queries ("多大附近" →
+  // ["Bay Street Corridor", ...]) — official Realtor.ca names, best first.
+  area_candidates?: string[] | null
   max_price?: number | null
   min_beds?: number | null
   pets?: boolean | null
@@ -230,12 +233,72 @@ function isHouseQuery(kw?: string | null, propertyType?: string | null): boolean
   return /house|整栋|独立屋|townhouse|联排|town\s?home/i.test(kw || '')
 }
 
+// Neighbourhood name → Realtor.ca URL slug ("Bay Street Corridor" →
+// "bay-street-corridor"). Strictly [a-z0-9-] and the host is hardcoded at the
+// call site, so model-provided names can never steer the fetch off-site.
+function slugifyArea(name: string): string | null {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+  return /^[a-z0-9-]{3,60}$/.test(slug) ? slug : null
+}
+
+async function readRealtorPage(
+  key: string,
+  pageUrl: string,
+  c: SearchCriteria,
+): Promise<{ cards: ListingCard[]; allPrices: number[] } | null> {
+  try {
+    const rres = await fetch(`https://r.jina.ai/${encodeURI(pageUrl)}`, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(22000),
+    })
+    if (!rres.ok) return null
+    return parseRealtor(await rres.text(), c)
+  } catch {
+    return null
+  }
+}
+
 async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; allPrices: number[] }> {
   const EMPTY = { cards: [] as ListingCard[], allPrices: [] as number[] }
   const key = process.env.JINA_API_KEY
   if (!key) return EMPTY
   const area = c.area || 'Toronto'
   const house = isHouseQuery(c.keywords, normalizeType(c))
+  // A house search implies ≥3 beds unless the user said otherwise.
+  const crit = { ...c, min_beds: c.min_beds ?? (house ? 3 : undefined) }
+
+  const cards: ListingCard[] = []
+  const allPrices: number[] = []
+  const seen = new Set<string>()
+  const merge = (r: { cards: ListingCard[]; allPrices: number[] }) => {
+    allPrices.push(...r.allPrices)
+    for (const card of r.cards) {
+      const k = card.address.toLowerCase()
+      if (!seen.has(k)) {
+        seen.add(k)
+        cards.push(card)
+      }
+    }
+  }
+
+  // 0. Landmark path: the model already resolved a vague location ("多大附近")
+  //    into official neighbourhoods, so read those pages DIRECTLY — no search
+  //    hop needed. Cap at 2 page reads to bound latency.
+  const typePath = house ? 'houses-for-rent' : 'apartments-for-rent'
+  const slugs = Array.from(
+    new Set((c.area_candidates ?? []).map(slugifyArea).filter((s): s is string => !!s)),
+  ).slice(0, 2)
+  for (const slug of slugs) {
+    const r = await readRealtorPage(key, `https://www.realtor.ca/on/toronto/${slug}/${typePath}`, crit)
+    if (r) merge(r)
+    if (cards.length >= (c.count ?? 4)) break
+  }
+  // Direct pages produced real rows (even if over budget) → that IS the
+  // area's inventory; don't dilute it with the generic search fallback.
+  if (allPrices.length || cards.length) {
+    cards.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
+    return { cards: cards.slice(0, Math.min(c.count ?? 4, 12)), allPrices }
+  }
 
   // 1. Find the Realtor.ca rentals page for this area.
   let pageUrl: string | null = null
@@ -283,22 +346,13 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; a
   if (!pageUrl || !/^https:\/\/(www\.)?realtor\.ca\//i.test(pageUrl)) return EMPTY
 
   // 2. Read the page, parse all rows, then filter + rank for relevance.
-  try {
-    const rres = await fetch(`https://r.jina.ai/${encodeURI(pageUrl)}`, {
-      headers: { Authorization: `Bearer ${key}` },
-      signal: AbortSignal.timeout(22000),
-    })
-    if (!rres.ok) return EMPTY
-    // A house search implies ≥3 beds unless the user said otherwise.
-    const minBeds = c.min_beds ?? (house ? 3 : undefined)
-    const { cards: all, allPrices } = parseRealtor(await rres.text(), { ...c, min_beds: minBeds })
-    // Rank by budget relevance: houses → priciest-within-budget first
-    // (closest to a high target like $6000); apartments → cheapest first.
-    all.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
-    return { cards: all.slice(0, Math.min(c.count ?? 4, 12)), allPrices }
-  } catch {
-    return EMPTY
-  }
+  const r = await readRealtorPage(key, pageUrl, crit)
+  if (!r) return EMPTY
+  merge(r)
+  // Rank by budget relevance: houses → priciest-within-budget first
+  // (closest to a high target like $6000); apartments → cheapest first.
+  cards.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
+  return { cards: cards.slice(0, Math.min(c.count ?? 4, 12)), allPrices }
 }
 
 function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; allPrices: number[] } {
