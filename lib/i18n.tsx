@@ -73,7 +73,7 @@ export const DICT = {
   'common.bd': { en: 'bd', zh: '卧' },
   'common.ba': { en: 'ba', zh: '卫' },
   'listings.matchScore': { en: 'match', zh: '匹配' },
-  'foot.tag': { en: "Toronto's AI-native rental OS. Verify once, reuse everywhere.", zh: '为 AI 时代打造的多伦多租住操作系统。验证一次，处处通行。' },
+  'foot.tag': { en: 'The AI-native rental OS. Verify once, reuse everywhere.', zh: '为 AI 时代打造的租住操作系统。验证一次，处处通行。' },
   'foot.copy': { en: '© 2026 Stayloop Inc. · PIPEDA · OHRC · RTA compliant', zh: '© 2026 Stayloop Inc. · PIPEDA · OHRC · RTA 合规' },
   // Footer · column titles
   'foot.product': { en: 'Product', zh: '产品' },
