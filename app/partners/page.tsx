@@ -7,10 +7,10 @@ import { useT, type Lang } from '@/lib/i18n'
 
 const PARTNERS: { name: string; cat: Record<Lang, string>; use: Record<Lang, string> }[] = [
   { name: 'RBC', cat: { zh: '银行 · 按揭', en: 'Bank · mortgage' }, use: { zh: '租客按揭预审 · DTI / 收入即时验证', en: 'Tenant mortgage pre-qualification · instant DTI / income verification' } },
-  { name: 'Aviva', cat: { zh: '保险', en: 'Insurance' }, use: { zh: '租客保险定价 · 认证级别 自动定档', en: 'Tenant insurance pricing · auto-tiered by verification level' } },
-  { name: 'Equifax', cat: { zh: '信用', en: 'Credit' }, use: { zh: '一键信用查询 · 认证 4 级 入口', en: 'One-click credit check · Tier 4 gateway' } },
-  { name: 'Plaid / Flinks', cat: { zh: '银行连接', en: 'Bank connectivity' }, use: { zh: '工资 / 现金流 · 实时 认证 2-3 级 验证', en: 'Payroll / cash flow · real-time Tier 2–3 verification' } },
-  { name: 'Persona', cat: { zh: '身份', en: 'Identity' }, use: { zh: '认证 1 级 ID 验证 · 90 秒', en: 'Tier 1 ID verification · 90 seconds' } },
+  { name: 'Aviva', cat: { zh: '保险', en: 'Insurance' }, use: { zh: '租客保险定价 · 按盖章进度自动定档', en: 'Tenant insurance pricing · auto-priced by stamp progress' } },
+  { name: 'Equifax', cat: { zh: '信用', en: 'Credit' }, use: { zh: '一键信用查询 · 信用 + 法庭章 入口', en: 'One-click credit check · credit + court stamp gateway' } },
+  { name: 'Plaid / Flinks', cat: { zh: '银行连接', en: 'Bank connectivity' }, use: { zh: '工资 / 现金流 · 实时 收入章 / 银行章 验证', en: 'Payroll / cash flow · real-time income & bank stamp verification' } },
+  { name: 'Persona', cat: { zh: '身份', en: 'Identity' }, use: { zh: '身份章 ID 验证 · 90 秒', en: 'Identity stamp ID verification · 90 seconds' } },
   { name: 'CanLII', cat: { zh: 'LTB / 法庭', en: 'LTB / courts' }, use: { zh: '租赁纠纷判例查询', en: 'Rental dispute case-law search' } },
 ]
 

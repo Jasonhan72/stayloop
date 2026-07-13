@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { useAIName } from '@/lib/aiName'
+import { stampForTier } from '@/lib/passportStamps'
 import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 
 /**
@@ -680,7 +681,7 @@ function ListingCard({
                 color: tierClass === 't3' ? '#B45309' : '#047857',
               }}
             >
-              {zh ? `需 认证 ${l.trust_tier || 2} 级` : `Tier ${l.trust_tier || 2} required`}
+              {zh ? `需 ${stampForTier(l.trust_tier || 2).zh}` : `${stampForTier(l.trust_tier || 2).en} required`}
             </span>
           </div>
         )}

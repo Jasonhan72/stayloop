@@ -108,7 +108,7 @@ const ACTIVITY = (aiName: string) => [
   { time: { zh: '今天 09:14', en: 'Today 09:14' }, text: { zh: `${aiName} 已生成 L-205 续约草稿（Ontario LTB 标准租约），等待你审阅。`, en: `${aiName} has drafted the L-205 renewal (Ontario LTB Standard Lease), awaiting your review.` } },
   { time: { zh: '昨天 16:30', en: 'Yesterday 16:30' }, text: { zh: 'L-198 转入 month-to-month。Kevin Tran 同意上调 $80/月。', en: 'L-198 moved to month-to-month. Kevin Tran agreed to a $80/mo increase.' } },
   { time: { zh: '5/4 11:00', en: '5/4 11:00' }, text: { zh: 'L-209 已发送给 Anna L. e-sign。', en: 'L-209 sent to Anna L. for e-sign.' } },
-  { time: { zh: '5/2 10:00', en: '5/2 10:00' }, text: { zh: 'L-202 第 11 个月按时入账 — 认证信任记录 +1。', en: 'L-202 month 11 paid on time — trust record +1.' } },
+  { time: { zh: '5/2 10:00', en: '5/2 10:00' }, text: { zh: 'L-202 第 11 个月按时入账 — 护照信任记录 +1。', en: 'L-202 month 11 paid on time — trust record +1.' } },
 ]
 
 function downloadCSV(lang: Lang, rows: LeaseItem[]) {

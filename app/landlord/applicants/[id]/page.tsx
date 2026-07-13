@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { StampRow } from '@/components/StampBadge'
 import { useAIName } from '@/lib/aiName'
 import { useAuth } from '@/lib/useAuth'
 import { supabase, getSupabaseBrowser } from '@/lib/supabase'
@@ -198,7 +199,7 @@ function RealApplicantDetail({ id }: { id: string }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`tier-badge t${tier}`}>{zh ? `认证 ${tier} 级` : `Tier ${tier}`}</span>
+          <StampRow tier={tier} lang={lang} />
           {app.status === 'declined' ? (
             <span className="rounded-md bg-danger/10 px-2 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-danger">
               {zh ? '已拒绝' : 'Declined'}
@@ -282,10 +283,10 @@ function RealApplicantDetail({ id }: { id: string }) {
                 {zh ? '📄 起草租约' : '📄 Draft lease'}
               </Link>
               <Link
-                href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `请 ${name} 补充材料并升级到 认证 3 级。` : `Ask ${name} to submit full evidence and upgrade to Tier 3.`)}`}
+                href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `请 ${name} 补充材料并盖上银行章。` : `Ask ${name} to submit full evidence and earn the bank stamp.`)}`}
                 className="sl-btn-secondary text-center"
               >
-                {zh ? '★★★ 请 TA 升 认证 3 级' : '★★★ Ask to upgrade to Tier 3'}
+                {zh ? '★★★ 请 TA 盖银行章' : '★★★ Ask to earn the bank stamp'}
               </Link>
               <Link
                 href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `帮我联系申请人 ${name}（${app.email}），先聊聊入住时间和材料。` : `Contact applicant ${name} (${app.email}) about move-in timing and documents.`)}`}
@@ -407,7 +408,7 @@ function DemoApplicantDetail({ id }: { id: string }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="tier-badge t3">{lang === 'zh' ? '认证 3 级' : 'Tier 3'}</span>
+          <StampRow tier={3} lang={lang} />
           <span className="rounded-md bg-success/10 px-2 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-success">
             {lang === 'zh' ? '推荐审批' : 'Recommended'}
           </span>
@@ -451,13 +452,13 @@ function DemoApplicantDetail({ id }: { id: string }) {
             <h3 className="text-[15px] font-bold tracking-tight">{lang === 'zh' ? `${aiName} 建议` : `${aiName} recommends`}</h3>
             <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
               {lang === 'zh'
-                ? 'Mia 在六个维度全部超过你的政策门槛, 行为信号无负面记录, 与你过去 12 个月签的 7 位 认证 3 级 租客的 profile 高度相似 (88% 续签 / 0 投诉)。'
-                : 'Mia clears your policy threshold on all six dimensions, has no negative behavioral signals, and closely matches the profile of the 7 Tier 3 tenants you signed over the past 12 months (88% renewed / 0 complaints).'}
+                ? 'Mia 在六个维度全部超过你的政策门槛, 行为信号无负面记录, 与你过去 12 个月签的 7 位已盖银行章租客的 profile 高度相似 (88% 续签 / 0 投诉)。'
+                : 'Mia clears your policy threshold on all six dimensions, has no negative behavioral signals, and closely matches the profile of the 7 bank-stamped tenants you signed over the past 12 months (88% renewed / 0 complaints).'}
             </p>
             <p className="mt-2 text-[13px] font-semibold text-brand">
               {lang === 'zh'
-                ? '建议: 批看房，看完后请她升 认证 3 级 给你完整收入证据，再决定签约。'
-                : 'Suggestion: approve the showing, then ask her to upgrade to Tier 3 for full income evidence before deciding on the lease.'}
+                ? '建议: 批看房，看完后请她盖上银行章给你完整收入证据，再决定签约。'
+                : 'Suggestion: approve the showing, then ask her to earn the bank stamp for full income evidence before deciding on the lease.'}
             </p>
             <div className="mt-4 flex flex-col gap-2">
               <button className="sl-btn-primary !py-[12px]">
@@ -466,7 +467,7 @@ function DemoApplicantDetail({ id }: { id: string }) {
               <Link href={`/landlord/leases/new?application_id=${id}`} className="sl-btn-secondary text-center">
                 {lang === 'zh' ? '📄 起草租约' : '📄 Draft lease'}
               </Link>
-              <button className="sl-btn-secondary">{lang === 'zh' ? '★★★ 请她升 认证 3 级' : '★★★ Ask her to upgrade to Tier 3'}</button>
+              <button className="sl-btn-secondary">{lang === 'zh' ? '★★★ 请她盖银行章' : '★★★ Ask her to earn the bank stamp'}</button>
               <button className="sl-btn-secondary">{lang === 'zh' ? '💬 先跟她聊一下（经她的 AI Agent 中介）' : '💬 Chat with her first (via her AI agent)'}</button>
               <button className="rounded-lg border border-danger/40 bg-white px-4 py-[10px] text-[13.5px] font-semibold text-danger">
                 {lang === 'zh' ? '✗ 不合适（需选理由）' : '✗ Not a fit (reason required)'}

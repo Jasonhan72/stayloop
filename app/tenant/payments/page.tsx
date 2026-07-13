@@ -61,8 +61,8 @@ export default function TenantPaymentsPage() {
 
           <div className="mt-6 rounded-xl bg-success/10 p-4 text-[13px] text-success">
             {lang === 'zh'
-              ? '✓ 你今年所有付款都准时 · 你的还款记录已计入 认证 信任分'
-              : '✓ All your payments this year were on time · your payment record counts toward your Tier trust score'}
+              ? '✓ 你今年所有付款都准时 · 你的还款记录已计入 护照信任分'
+              : '✓ All your payments this year were on time · your payment record counts toward your Passport trust score'}
           </div>
         </div>
 

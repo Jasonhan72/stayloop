@@ -11,6 +11,7 @@ import { PromoBadge, VerificationBadge } from '@/components/ListingBadges'
 import { supabase } from '@/lib/supabase'
 import { useT, type Lang } from '@/lib/i18n'
 import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
+import { stampForTier } from '@/lib/passportStamps'
 
 /**
  * V5 ART · Listing Detail (L2)
@@ -98,18 +99,18 @@ interface DBListing {
 
 const tierLabel: Record<number, { name: { zh: string; en: string }; reqs: { zh: string; en: string }[] }> = {
   1: {
-    name: { zh: '入门 · 认证 1 级', en: 'Entry · Tier 1' },
+    name: { zh: '需 身份章', en: 'Identity stamp required' },
     reqs: [{ zh: 'ID 验证', en: 'ID verification' }],
   },
   2: {
-    name: { zh: '基础 · 认证 2 级', en: 'Basic · Tier 2' },
+    name: { zh: '需 收入章', en: 'Income stamp required' },
     reqs: [
       { zh: 'ID 验证', en: 'ID verification' },
       { zh: '收入 ≥ 房租 × 2.5', en: 'Income ≥ rent × 2.5' },
     ],
   },
   3: {
-    name: { zh: '标准 · 认证 3 级', en: 'Standard · Tier 3' },
+    name: { zh: '需 银行章', en: 'Bank stamp required' },
     reqs: [
       { zh: 'ID 验证', en: 'ID verification' },
       { zh: '收入 ≥ 房租 × 3', en: 'Income ≥ rent × 3' },
@@ -118,7 +119,7 @@ const tierLabel: Record<number, { name: { zh: string; en: string }; reqs: { zh: 
     ],
   },
   4: {
-    name: { zh: '严选 · 认证 4 级', en: 'Premium · Tier 4' },
+    name: { zh: '需 信用 + 法庭章', en: 'Credit + court stamp required' },
     reqs: [
       { zh: 'ID 验证', en: 'ID verification' },
       { zh: '收入 ≥ 房租 × 3', en: 'Income ≥ rent × 3' },
@@ -511,18 +512,18 @@ export default function ListingDetailPage() {
               <div className="rounded-[12px] border border-line-divider bg-white p-5">
                 <div className="text-[14px] font-semibold">
                   {zh
-                    ? `${listing.broker_name || '房东'} 接受 ${tierInfo.name.zh}（Banking-verified）`
-                    : `${listing.broker_name || 'Landlord'} accepts ${tierInfo.name.en} (Banking-verified)`}
+                    ? `${listing.broker_name || '房东'} 接受已盖「${stampForTier(tier).zh}」的申请人`
+                    : `${listing.broker_name || 'Landlord'} accepts applicants with the ${stampForTier(tier).en.toLowerCase()}`}
                 </div>
                 <p className="mt-1 text-[12.5px] text-body-2">
                   {zh ? (
                     <>
-                      房东设定:此房源最低 <b className="text-body">认证 {tier} 级</b> · 月收入 ≥ 房租 × 2.5。
+                      房东设定:此房源 <b className="text-body">需 {stampForTier(tier).zh}</b> · 月收入 ≥ 房租 × 2.5。
                       你需要完成以下验证才能提交看房意向：
                     </>
                   ) : (
                     <>
-                      Set by landlord: this listing requires at least <b className="text-body">Tier {tier}</b> · monthly income ≥ rent × 2.5.
+                      Set by landlord: this listing requires the <b className="text-body">{stampForTier(tier).en.toLowerCase()}</b> · monthly income ≥ rent × 2.5.
                       Complete the verifications below to submit a showing request:
                     </>
                   )}
@@ -548,13 +549,13 @@ export default function ListingDetailPage() {
                     href="/onboarding/tier1"
                     className="sl-btn-primary !px-5 !py-[10px] !text-[13px]"
                   >
-                    {zh ? '开始 认证验证 →' : 'Start verification →'}
+                    {zh ? '去盖章 →' : 'Earn the stamp →'}
                   </Link>
                   <Link
                     href="/pricing"
                     className="text-[13px] font-semibold text-brand transition hover:underline"
                   >
-                    {zh ? '了解 认证体系' : 'Learn about Tiers'}
+                    {zh ? '了解 盖章体系' : 'Learn about stamps'}
                   </Link>
                 </div>
               </div>
@@ -569,8 +570,8 @@ export default function ListingDetailPage() {
               <h3 className="mt-2 text-[20px] font-bold tracking-tight">{zh ? '想看这套？提交看房意向' : 'Want to see it? Submit a showing request'}</h3>
               <p className="mt-2 text-[13px] leading-relaxed text-body-2">
                 {zh
-                  ? 'Stayloop 不要你立刻申请。先告诉房东 / 经纪你的匿名 Tier 等级 + 入住时间，对方决定是否邀请你看房。'
-                  : 'Stayloop doesn’t make you apply right away. First share your anonymous Tier and move-in date with the landlord / agent — they decide whether to invite you for a showing.'}
+                  ? 'Stayloop 不要你立刻申请。先告诉房东 / 经纪你的匿名 盖章进度 + 入住时间，对方决定是否邀请你看房。'
+                  : 'Stayloop doesn’t make you apply right away. First share your anonymous stamp progress and move-in date with the landlord / agent — they decide whether to invite you for a showing.'}
               </p>
               <button
                 onClick={() => setIntentOpen(true)}
@@ -669,9 +670,9 @@ export default function ListingDetailPage() {
               </div>
               <p className="mt-3 text-[12px] leading-relaxed text-body-2">
                 {zh ? (
-                  <>同 Tier 同片区的房源平均 <b>4.2 天</b> 收第一份意向，这套已挂 <b>1 天</b>。</>
+                  <>同门槛同片区的房源平均 <b>4.2 天</b> 收第一份意向，这套已挂 <b>1 天</b>。</>
                 ) : (
-                  <>Comparable listings in this Tier and area get their first intent in <b>4.2 days</b> on average; this one has been live for <b>1 day</b>.</>
+                  <>Comparable listings with this threshold and area get their first intent in <b>4.2 days</b> on average; this one has been live for <b>1 day</b>.</>
                 )}
               </p>
             </div>
@@ -712,7 +713,7 @@ export default function ListingDetailPage() {
                           {s.bedrooms === 0 ? 'Studio' : `${s.bedrooms}B`} · {s.neighborhood}
                         </div>
                         <div className="font-mono text-[9.5px] uppercase tracking-eyebrowLg text-body-3">
-                          {zh ? `认证 ${s.trust_tier ?? 2} 级` : `Tier ${s.trust_tier ?? 2}`}
+                          {zh ? `需 ${stampForTier(s.trust_tier ?? 2).zh}` : `${stampForTier(s.trust_tier ?? 2).en} required`}
                         </div>
                       </div>
                     </Link>
@@ -906,8 +907,8 @@ function IntentModal({
         <h3 className="text-[20px] font-bold tracking-tight">{zh ? '提交看房意向' : 'Submit showing request'}</h3>
         <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
           {zh
-            ? '房东只看到匿名信息：Tier 等级、收入区间、入住意向时间。你的姓名 / 联系方式只在对方邀请你看房后才解锁。'
-            : 'The landlord only sees anonymous info: your Tier, income band, and desired move-in date. Your name and contact details unlock only after they invite you for a showing.'}
+            ? '房东只看到匿名信息：盖章进度、收入区间、入住意向时间。你的姓名 / 联系方式只在对方邀请你看房后才解锁。'
+            : 'The landlord only sees anonymous info: your stamp progress, income band, and desired move-in date. Your name and contact details unlock only after they invite you for a showing.'}
         </p>
         <div className="mt-5 space-y-3">
           <label className="block">

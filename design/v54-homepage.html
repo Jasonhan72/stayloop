@@ -1,0 +1,754 @@
+<meta charset="utf-8">
+<title>Stayloop 首页 · 高保真演示</title>
+<style>
+  :root {
+    --bg: #FAF9F6; --surface: #FFFFFF; --ink: #17161B; --ink-2: #56524A; --ink-3: #8A857A;
+    --line: #E8E4DC; --dark: #131118; --dark-2: #1B1824; --dark-ink: #EFEBF6; --dark-muted: #9A93AC;
+    --dark-line: rgba(255,255,255,.10);
+    --tenant: #7C3AED; --tenant-soft: #F3EEFB; --tenant-deep: #5B21B6; --tenant-light: #C4B5FD;
+    --landlord: #047857; --landlord-soft: #EBF4F0; --landlord-deep: #065F46; --landlord-light: #6EE7B7;
+    --agent: #2563EB; --agent-soft: #EBF1FD; --agent-deep: #1E3A8A; --agent-light: #93C5FD;
+    --gold: #B45309;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 15px; line-height: 1.75; -webkit-font-smoothing: antialiased; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
+  .eyebrow { font-family: ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 700; letter-spacing: .2em; }
+  .num { font-variant-numeric: tabular-nums; }
+  button { font-family: inherit; cursor: pointer; }
+
+  /* ============ NAV（复刻现网 Header，不改动） ============ */
+  nav { position: sticky; top: 0; z-index: 50; background: #fff; border-bottom: 1px solid var(--line); }
+  .nav-in { max-width: 1320px; margin: 0 auto; padding: 10px 28px; display: grid;
+    grid-template-columns: 1fr auto 1fr; align-items: center; }
+  .logo { font-weight: 800; font-size: 17px; letter-spacing: -.02em; justify-self: start; }
+  .logo .ai { background: linear-gradient(90deg, var(--tenant), var(--agent)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .nav-links { display: flex; gap: 24px; font-size: 13.5px; color: var(--ink); align-items: center; justify-self: center; }
+  .nav-links span { cursor: pointer; }
+  .nav-links .caretdn { font-size: 9px; color: var(--ink-3); margin-left: 3px; }
+  .nav-links .scr { color: var(--landlord); font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+  .nav-links .scr::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: var(--landlord); }
+  .nav-right { justify-self: end; display: flex; align-items: center; gap: 10px; }
+  .hamb { width: 38px; height: 38px; border: 1px solid var(--line); background: #fff; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; color: var(--ink-2); font-size: 15px; }
+  @media (max-width: 760px) { .nav-links { display: none; } }
+
+  /* ============ HERO ============ */
+  .hero { padding: 76px 0 24px; display: grid; grid-template-columns: 1.02fr .98fr; gap: 56px; align-items: center; }
+  @media (max-width: 980px) { .hero { grid-template-columns: 1fr; } }
+  .hero .eyebrow { color: var(--landlord); }
+  .hero h1 { font-size: clamp(34px, 4.6vw, 56px); line-height: 1.16; letter-spacing: -.02em; margin: 18px 0 0; font-weight: 800; text-wrap: balance; }
+  .hero h1 .grad { background: linear-gradient(90deg, var(--tenant), var(--agent)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero .sub { color: var(--ink-2); font-size: 17px; margin: 18px 0 0; max-width: 30em; }
+  .hero .sub b { color: var(--ink); }
+  .trybar { margin-top: 28px; display: flex; background: var(--surface); border: 1.5px solid var(--ink);
+    border-radius: 14px; overflow: hidden; max-width: 480px; box-shadow: 0 10px 30px -18px rgba(23,22,27,.35); }
+  .trybar .q { flex: 1; padding: 15px 18px; font-size: 14.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trybar .q .caret { display: inline-block; width: 2px; height: 1em; background: var(--tenant); vertical-align: -2px; margin-left: 2px; }
+  @media (prefers-reduced-motion: no-preference) { .trybar .q .caret { animation: blink 1s steps(1) infinite; } @keyframes blink { 50% { opacity: 0; } } }
+  .trybar button { background: var(--tenant); color: #fff; border: none; padding: 0 24px; font-size: 14.5px; font-weight: 700; }
+  .hero .note { margin-top: 12px; font-size: 12.5px; color: var(--ink-3); }
+  .whoare { margin-top: 26px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--ink-3); }
+  .whoare a { text-decoration: none; border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px;
+    padding: 7px 16px; font-size: 13px; font-weight: 700; color: var(--ink-2); display: inline-flex; align-items: center; gap: 7px; }
+  .whoare a .dot { width: 7px; height: 7px; border-radius: 999px; }
+  .whoare a:nth-of-type(1) .dot { background: var(--tenant); } .whoare a:nth-of-type(2) .dot { background: var(--landlord); } .whoare a:nth-of-type(3) .dot { background: var(--agent); }
+
+  /* hero 右侧：真产品演示卡 */
+  .demo { background: var(--dark); border-radius: 20px; padding: 20px 20px 16px; color: var(--dark-ink);
+    box-shadow: 0 30px 60px -30px rgba(23,22,27,.5); }
+  .demo-head { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--dark-line); }
+  .orb { width: 26px; height: 26px; border-radius: 999px; background: radial-gradient(circle at 32% 28%, var(--tenant-light), var(--tenant)); }
+  @media (prefers-reduced-motion: no-preference) { .demo-head .orb { animation: breathe 3.5s ease-in-out infinite; } @keyframes breathe { 50% { transform: scale(1.08); box-shadow: 0 0 18px rgba(124,58,237,.5); } } }
+  .demo-head b { font-size: 13.5px; }
+  .demo-head .st { margin-left: auto; font-family: ui-monospace, Menlo, monospace; font-size: 9.5px; letter-spacing: .12em; color: var(--landlord-light); }
+  .msgs { padding: 14px 0 4px; display: flex; flex-direction: column; gap: 10px; }
+  .m-user { align-self: flex-end; background: var(--tenant); color: #fff; border-radius: 12px 12px 3px 12px;
+    padding: 9px 14px; font-size: 13px; max-width: 85%; }
+  .m-ai { align-self: flex-start; background: var(--dark-2); border-radius: 12px 12px 12px 3px; padding: 9px 14px;
+    font-size: 13px; color: var(--dark-ink); max-width: 92%; }
+  .mkt { background: var(--dark-2); border: 1px solid var(--dark-line); border-radius: 12px; padding: 12px 14px; }
+  .mkt .lab { font-family: ui-monospace, Menlo, monospace; font-size: 9px; letter-spacing: .14em; color: var(--dark-muted); }
+  .mkt .row { display: flex; align-items: baseline; gap: 10px; margin-top: 4px; }
+  .mkt .range { font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
+  .mkt .med { font-size: 11px; color: var(--dark-muted); }
+  .mkt .med b { color: var(--dark-ink); }
+  .gauge { position: relative; height: 5px; border-radius: 999px; margin-top: 8px;
+    background: linear-gradient(90deg, #6EE7B7, #FBBF24, #F87171); opacity: .9; }
+  .gauge .pt { position: absolute; top: 50%; left: 34%; width: 11px; height: 11px; border-radius: 999px;
+    background: var(--tenant-light); border: 2px solid var(--dark); transform: translate(-50%,-50%); }
+  .mkt .trreb { margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--dark-line); font-size: 10.5px; color: var(--dark-muted); }
+  .mkt .trreb b { color: var(--dark-ink); }
+  .spark { display: block; width: 100%; margin-top: 6px; }
+  .demo-foot { margin-top: 10px; font-family: ui-monospace, Menlo, monospace; font-size: 9.5px; letter-spacing: .1em; color: var(--dark-muted); text-align: center; }
+  .demo-foot b { color: var(--tenant-light); }
+
+  /* ============ 信任带 ============ */
+  .trust { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); margin-top: 56px; }
+  .trust-in { max-width: 1180px; margin: 0 auto; padding: 22px 32px; display: flex; align-items: center; gap: 14px 34px; flex-wrap: wrap; justify-content: center; }
+  .trust .cap { font-family: ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: .16em; color: var(--ink-3); }
+  .plogo { font-weight: 800; font-size: 15px; color: #B4AFA5; letter-spacing: -.01em; filter: grayscale(1); }
+  .maple { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: var(--gold); border: 1px solid var(--line);
+    padding: 4px 12px; border-radius: 999px; letter-spacing: .1em; background: var(--bg); }
+
+  /* ============ 结果四格 ============ */
+  .results { padding: 84px 0 8px; text-align: center; }
+  .results h2 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; letter-spacing: -.015em; margin: 0; text-wrap: balance; }
+  .results .sub2 { color: var(--ink-2); margin: 10px auto 0; max-width: 40em; font-size: 15px; }
+  .quad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 38px; }
+  @media (max-width: 960px) { .quad { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .quad { grid-template-columns: 1fr; } }
+  .q-card:nth-child(5) .big { color: var(--tenant-deep); }
+  .q-card:nth-child(6) .big { color: var(--landlord-deep); }
+  .q-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 28px 20px 24px; }
+  .q-card .big { font-family: ui-monospace, Menlo, monospace; font-size: clamp(30px, 3.6vw, 40px); font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+  .q-card .big small { font-size: .42em; font-weight: 700; letter-spacing: 0; margin-left: 3px; }
+  .q-card p { margin: 10px 0 0; font-size: 13px; color: var(--ink-2); line-height: 1.55; }
+  .q-card:nth-child(1) .big { color: var(--tenant-deep); }
+  .q-card:nth-child(2) .big { color: var(--landlord-deep); }
+  .q-card:nth-child(3) .big { color: var(--agent-deep); }
+  .q-card:nth-child(4) .big { color: var(--gold); }
+
+  /* ============ 时代宣言 + 三角色（沿用 v2 分镜设计） ============ */
+  .era-sec { padding: 100px 0 30px; }
+  .era { text-align: center; max-width: 880px; margin: 0 auto; }
+  .era .eyebrow { color: var(--landlord); }
+  .era h2 { font-size: clamp(30px, 4.8vw, 48px); line-height: 1.22; letter-spacing: -.015em; margin: 18px 0 0; font-weight: 800; text-wrap: balance; }
+  .era h2 .muted { color: var(--ink-3); font-weight: 700; }
+  .era .answer { font-size: clamp(19px, 2.8vw, 26px); font-weight: 800; margin: 16px 0 0; }
+  .era .answer em { font-style: normal; background: linear-gradient(90deg, var(--tenant), var(--agent)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .shifts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 48px 0 56px; }
+  @media (max-width: 860px) { .shifts { grid-template-columns: 1fr; } }
+  .shift { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; text-align: center; }
+  .shift .who { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; letter-spacing: .16em; font-weight: 700; }
+  .shift .from { color: var(--ink-3); font-size: 14.5px; margin-top: 10px; }
+  .shift .arrow { color: var(--ink-3); margin: 0; }
+  .shift .to { font-size: 20px; font-weight: 800; }
+  .shift[data-r="tenant"] .who { color: var(--tenant); } .shift[data-r="tenant"] .to { color: var(--tenant-deep); }
+  .shift[data-r="landlord"] .who { color: var(--landlord); } .shift[data-r="landlord"] .to { color: var(--landlord-deep); }
+  .shift[data-r="agent"] .who { color: var(--agent); } .shift[data-r="agent"] .to { color: var(--agent-deep); }
+
+  .tabs { display: flex; gap: 10px; margin: 0 0 32px; flex-wrap: wrap; justify-content: center; }
+  .tab { border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 10px 24px;
+    font-size: 14px; font-weight: 700; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
+  .tab .dot { width: 8px; height: 8px; border-radius: 999px; }
+  .tab[data-role="tenant"] .dot { background: var(--tenant); }
+  .tab[data-role="landlord"] .dot { background: var(--landlord); }
+  .tab[data-role="agent"] .dot { background: var(--agent); }
+  .tab[aria-selected="true"] { color: var(--ink); }
+  .tab[data-role="tenant"][aria-selected="true"] { border-color: var(--tenant); background: var(--tenant-soft); }
+  .tab[data-role="landlord"][aria-selected="true"] { border-color: var(--landlord); background: var(--landlord-soft); }
+  .tab[data-role="agent"][aria-selected="true"] { border-color: var(--agent); background: var(--agent-soft); }
+  .tab:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  @media (prefers-reduced-motion: no-preference) {
+    .panel.active { animation: fadein .3s ease; }
+    @keyframes fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  }
+  .voice { text-align: center; max-width: 720px; margin: 0 auto 28px; }
+  .voice blockquote { margin: 0; font-size: clamp(18px, 2.4vw, 23px); font-weight: 800; line-height: 1.45; }
+  .voice blockquote::before { content: "“"; } .voice blockquote::after { content: "”"; }
+  .voice .who { margin-top: 8px; font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--ink-3); letter-spacing: .08em; }
+  .film { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 900px) { .film { grid-template-columns: 1fr; } }
+  .scene { border-radius: 16px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; }
+  .still { aspect-ratio: 7 / 5; position: relative; display: flex; align-items: flex-end; padding: 16px; color: #fff; }
+  .still .slot { position: absolute; top: 12px; right: 14px; font-family: ui-monospace, Menlo, monospace; font-size: 9px; opacity: .7; background: rgba(0,0,0,.35); padding: 3px 8px; border-radius: 6px; }
+  .still .act { font-family: ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: .18em; font-weight: 700; text-shadow: 0 1px 8px rgba(0,0,0,.5); }
+  .still .vign { position: absolute; inset: 0; box-shadow: inset 0 -70px 70px -30px rgba(0,0,0,.55); }
+  .still .orbchip { position: absolute; left: 14px; top: 12px; display: flex; align-items: center; gap: 7px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 9.5px; letter-spacing: .14em; font-weight: 700;
+    background: rgba(0,0,0,.42); padding: 4px 10px; border-radius: 999px; }
+  .still .orbchip .o { width: 13px; height: 13px; border-radius: 999px; }
+  .cap { padding: 14px 18px 16px; font-size: 13px; color: var(--ink-2); flex: 1; }
+  .cap b { color: var(--ink); display: block; margin-bottom: 2px; font-size: 13.5px; }
+  .panel[data-role="tenant"] .s1 .still { background: linear-gradient(160deg, #3A3247, #241F30 55%, #17131F); }
+  .panel[data-role="tenant"] .s2 .still { background: linear-gradient(150deg, #8B6BD9, #6D46C4 50%, #4A2E8E); }
+  .panel[data-role="tenant"] .s3 .still { background: linear-gradient(150deg, #E9C99B, #C08B57 55%, #7A4E3C); }
+  .panel[data-role="landlord"] .s1 .still { background: linear-gradient(160deg, #2A3550, #1D2438 55%, #131829); }
+  .panel[data-role="landlord"] .s2 .still { background: linear-gradient(150deg, #2E8B6E, #10614C 55%, #0A3D31); }
+  .panel[data-role="landlord"] .s3 .still { background: linear-gradient(150deg, #F3D9A4, #D9A05B 55%, #8C5B3F); }
+  .panel[data-role="agent"] .s1 .still { background: linear-gradient(160deg, #3C4658, #2A3140 55%, #1B202B); }
+  .panel[data-role="agent"] .s2 .still { background: linear-gradient(150deg, #5B8DEF, #2F63CF 55%, #1E3F8F); }
+  .panel[data-role="agent"] .s3 .still { background: linear-gradient(150deg, #F5C983, #DE9552 55%, #96583A); }
+  .panel[data-role="tenant"] .orbchip { color: var(--tenant-light); } .panel[data-role="tenant"] .orbchip .o { background: radial-gradient(circle at 32% 28%, var(--tenant-light), var(--tenant)); }
+  .panel[data-role="landlord"] .orbchip { color: var(--landlord-light); } .panel[data-role="landlord"] .orbchip .o { background: radial-gradient(circle at 32% 28%, var(--landlord-light), var(--landlord)); }
+  .panel[data-role="agent"] .orbchip { color: var(--agent-light); } .panel[data-role="agent"] .orbchip .o { background: radial-gradient(circle at 32% 28%, var(--agent-light), var(--agent)); }
+  .outcome { margin-top: 18px; border-radius: 18px; background: var(--dark); color: var(--dark-ink); padding: 30px 36px;
+    display: grid; grid-template-columns: auto 1fr auto; gap: 12px 38px; align-items: center; }
+  @media (max-width: 900px) { .outcome { grid-template-columns: 1fr; text-align: center; } }
+  .delta { font-family: ui-monospace, Menlo, monospace; font-weight: 800; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.02em; white-space: nowrap; }
+  .delta .fr { color: var(--dark-muted); text-decoration: line-through; text-decoration-thickness: 2px; font-size: .6em; vertical-align: 6px; margin-right: 12px; }
+  .outcome .why { font-size: 14px; color: var(--dark-muted); max-width: 34em; }
+  .outcome .why b { color: var(--dark-ink); }
+  .cta { border: none; border-radius: 12px; padding: 13px 24px; font-size: 14px; font-weight: 700; color: #fff; white-space: nowrap; justify-self: end; }
+  @media (max-width: 900px) { .cta { justify-self: center; } }
+  .panel[data-role="tenant"] .delta .to { color: var(--tenant-light); } .panel[data-role="tenant"] .cta { background: var(--tenant); }
+  .panel[data-role="landlord"] .delta .to { color: var(--landlord-light); } .panel[data-role="landlord"] .cta { background: var(--landlord); }
+  .panel[data-role="agent"] .delta .to { color: var(--agent-light); } .panel[data-role="agent"] .cta { background: var(--agent); }
+
+  /* ============ 深色证据 bento ============ */
+  .proof { background: var(--dark); color: var(--dark-ink); margin-top: 100px; padding: 92px 0 96px; }
+  .proof .eyebrow { color: var(--landlord-light); }
+  .proof h2 { font-size: clamp(28px, 4vw, 42px); font-weight: 800; letter-spacing: -.015em; margin: 16px 0 8px; text-wrap: balance; }
+  .proof .sub2 { color: var(--dark-muted); max-width: 42em; margin: 0; font-size: 15.5px; }
+  .bento { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; margin-top: 44px; }
+  .cell { background: var(--dark-2); border: 1px solid var(--dark-line); border-radius: 18px; padding: 24px 26px; }
+  .b1 { grid-column: span 5; } .b2 { grid-column: span 7; } .b3 { grid-column: span 7; } .b4 { grid-column: span 5; }
+  @media (max-width: 960px) { .b1,.b2,.b3,.b4 { grid-column: span 12; } }
+  .cell .lab { font-family: ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: .16em; color: var(--dark-muted); }
+  .cell h3 { margin: 8px 0 4px; font-size: 17.5px; font-weight: 800; letter-spacing: -.01em; }
+  .cell .d { font-size: 13px; color: var(--dark-muted); margin: 0 0 14px; }
+  .cell .d b { color: var(--dark-ink); }
+  /* 评分环 */
+  .ringwrap { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+  .dims { flex: 1; min-width: 190px; display: grid; gap: 7px; }
+  .dim { display: grid; grid-template-columns: 84px 1fr 26px; gap: 10px; align-items: center; font-size: 11px; color: var(--dark-muted); }
+  .dim .bar { height: 4px; border-radius: 999px; background: rgba(255,255,255,.09); position: relative; }
+  .dim .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--landlord-light); }
+  .dim b { color: var(--dark-ink); font-family: ui-monospace, Menlo, monospace; text-align: right; }
+  /* 市场卡（bento 内） */
+  .bigrange { font-size: 24px; font-weight: 800; letter-spacing: -.01em; }
+  /* 合规 */
+  .guard { background: rgba(185,28,28,.12); border: 1px solid rgba(248,113,113,.3); border-radius: 12px; padding: 12px 16px; font-size: 12.5px; }
+  .guard .tag { font-family: ui-monospace, Menlo, monospace; font-size: 9.5px; letter-spacing: .12em; color: #F87171; font-weight: 700; }
+  .audit { margin-top: 12px; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: var(--dark-muted); line-height: 1.9; }
+  .audit b { color: var(--landlord-light); }
+
+  /* ============ Passport 对比条 ============ */
+  .pass { padding: 100px 0 20px; }
+  .pass-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: stretch; margin-top: 40px; }
+  @media (max-width: 900px) { .pass-grid { grid-template-columns: 1fr; } .pass-vs { transform: rotate(90deg); } }
+  .pcol { border-radius: 16px; padding: 26px 28px; }
+  .pcol.old { background: var(--surface); border: 1px solid var(--line); }
+  .pcol.new { background: var(--tenant-soft); border: 1px solid var(--tenant-light); }
+  .pcol h3 { margin: 0 0 4px; font-size: 12px; font-family: ui-monospace, Menlo, monospace; letter-spacing: .14em; color: var(--ink-3); }
+  .pcol.new h3 { color: var(--tenant-deep); }
+  .pcol .h { font-size: 18px; font-weight: 800; margin: 0 0 14px; }
+  .stack { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pdf { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; padding: 5px 10px; border-radius: 7px;
+    background: var(--bg); border: 1px dashed var(--line); color: var(--ink-3); }
+  .pass-vs { align-self: center; font-family: ui-monospace, Menlo, monospace; font-weight: 800; color: var(--ink-3); }
+  .ppass { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1.5px solid var(--tenant);
+    border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
+  .ppass .ic { width: 42px; height: 42px; border-radius: 10px; background: radial-gradient(circle at 32% 28%, var(--tenant-light), var(--tenant));
+    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 19px; }
+  .ppass b { display: block; font-size: 14.5px; }
+  .ppass span { font-size: 12px; color: var(--ink-3); }
+  .reuse { font-size: 13.5px; color: var(--ink-2); margin: 0; }
+  .reuse b { color: var(--tenant-deep); }
+
+  /* ============ 三方互通 ============ */
+  .tri { padding: 96px 0 30px; text-align: center; }
+  .tri-stage { position: relative; max-width: 640px; margin: 44px auto 0; display: flex; justify-content: space-between; align-items: center; }
+  .tri-node { display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 1; }
+  .tri-node .o { width: 58px; height: 58px; border-radius: 999px; }
+  .tri-node:nth-child(1) .o { background: radial-gradient(circle at 32% 28%, var(--tenant-light), var(--tenant)); }
+  .tri-node:nth-child(3) .o { background: radial-gradient(circle at 32% 28%, var(--agent-light), var(--agent)); }
+  .tri-node:nth-child(5) .o { background: radial-gradient(circle at 32% 28%, var(--landlord-light), var(--landlord)); }
+  .tri-node .nm { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; letter-spacing: .14em; font-weight: 700; color: var(--ink-2); }
+  .tri-link { flex: 1; height: 2px; margin: 0 8px 26px; background: linear-gradient(90deg, var(--tenant-light), var(--agent-light)); position: relative; overflow: hidden; }
+  .tri-link:last-of-type { background: linear-gradient(90deg, var(--agent-light), var(--landlord-light)); }
+  @media (prefers-reduced-motion: no-preference) {
+    .tri-link::after { content: ""; position: absolute; top: -2px; width: 26px; height: 6px; border-radius: 999px;
+      background: rgba(255,255,255,.85); mix-blend-mode: overlay; filter: blur(1px); animation: pulseflow 2.6s linear infinite; }
+    @keyframes pulseflow { from { left: -30px; } to { left: 105%; } }
+  }
+  .tri .cap2 { margin: 26px auto 0; max-width: 40em; color: var(--ink-2); font-size: 15px; }
+  .tri .cap2 b { color: var(--ink); }
+
+  /* ============ Checklist 产品区 ============ */
+  .checklist { padding: 96px 0 20px; }
+  .cl-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 40px; }
+  @media (max-width: 1020px) { .cl-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .cl-grid { grid-template-columns: 1fr; } }
+  .cl-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px 22px 18px;
+    display: flex; flex-direction: column; }
+  .cl-card .no { font-family: ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: .16em; color: var(--ink-3); }
+  .cl-card h3 { margin: 8px 0 10px; font-size: 17.5px; font-weight: 800; letter-spacing: -.01em; }
+  .cl-card .was { font-size: 12.5px; color: var(--ink-3); text-decoration: line-through; margin: 0; }
+  .cl-card .now2 { font-size: 13.5px; color: var(--ink-2); margin: 6px 0 14px; flex: 1; }
+  .cl-card .now2 b { color: var(--ink); }
+  .cl-done { display: inline-flex; align-items: center; gap: 7px; align-self: flex-start;
+    font-family: ui-monospace, Menlo, monospace; font-size: 9.5px; letter-spacing: .1em; font-weight: 700;
+    padding: 5px 11px; border-radius: 999px; }
+  .cl-done .o { width: 12px; height: 12px; border-radius: 999px; }
+  .cl-done.t { background: var(--tenant-soft); color: var(--tenant-deep); }
+  .cl-done.t .o { background: radial-gradient(circle at 32% 28%, var(--tenant-light), var(--tenant)); }
+  .cl-done.l { background: var(--landlord-soft); color: var(--landlord-deep); }
+  .cl-done.l .o { background: radial-gradient(circle at 32% 28%, var(--landlord-light), var(--landlord)); }
+
+  /* ============ 定价对比卡 ============ */
+  .price-cmp { display: grid; grid-template-columns: 1fr 1.15fr; gap: 16px; margin: 40px auto 0; max-width: 920px; text-align: left; }
+  @media (max-width: 820px) { .price-cmp { grid-template-columns: 1fr; } }
+  .pc { border-radius: 16px; padding: 26px 28px; }
+  .pc.ind { background: var(--surface); border: 1px solid var(--line); }
+  .pc.us { background: var(--dark); color: var(--dark-ink); }
+  .pc h3 { margin: 0; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; letter-spacing: .16em; font-weight: 700; }
+  .pc.ind h3 { color: var(--ink-3); }
+  .pc.us h3 { color: var(--landlord-light); }
+  .pc ul { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 11px; }
+  .pc li { display: flex; gap: 10px; font-size: 13.5px; align-items: baseline; }
+  .pc.ind li { color: var(--ink-2); }
+  .pc.ind li::before { content: "✗"; color: var(--danger); font-weight: 700; }
+  .pc.us li { color: var(--dark-ink); }
+  .pc.us li::before { content: "✓"; color: var(--landlord-light); font-weight: 700; }
+  .pc .bigfree { font-family: ui-monospace, Menlo, monospace; font-size: 34px; font-weight: 800; letter-spacing: -.02em; margin: 14px 0 2px; }
+  .pc.ind .bigfree { color: var(--ink); }
+  .pc.us .bigfree { color: var(--landlord-light); }
+  .pc .bf-cap { font-size: 12px; }
+  .pc.ind .bf-cap { color: var(--ink-3); }
+  .pc.us .bf-cap { color: var(--dark-muted); }
+  .pc .tiers { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--dark-line);
+    font-size: 12px; color: var(--dark-muted); line-height: 1.9; }
+  .pc .tiers b { color: var(--dark-ink); font-family: ui-monospace, Menlo, monospace; }
+  .price-note { margin: 18px auto 0; font-size: 11.5px; color: var(--ink-3); max-width: 56em; }
+
+  /* ============ 金句 + 终幕 CTA ============ */
+  .creed { margin: 96px 0 0; background: var(--landlord-soft); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .creed-in { max-width: 900px; margin: 0 auto; padding: 72px 32px; text-align: center; }
+  .creed h2 { font-size: clamp(24px, 3.6vw, 36px); font-weight: 800; letter-spacing: -.015em; margin: 0; text-wrap: balance; }
+  .creed h2 b { color: var(--landlord-deep); }
+  .creed p { color: var(--ink-2); margin: 14px 0 0; }
+  .final { text-align: center; padding: 88px 0 96px; }
+  .final h2 { font-size: clamp(28px, 4.4vw, 46px); font-weight: 800; letter-spacing: -.02em; margin: 0 0 26px; }
+  .final .trybar { margin: 0 auto; }
+  .final .note { margin-top: 14px; font-size: 12.5px; color: var(--ink-3); }
+
+  /* ============ FOOTER（复刻现网 Footer，不改动） ============ */
+  footer { margin-top: 96px; border-top: 1px solid var(--line); background: #fff; }
+  .foot-grid { max-width: 1320px; margin: 0 auto; padding: 56px 32px; display: grid;
+    grid-template-columns: 1.4fr repeat(3, 1fr); gap: 56px; }
+  @media (max-width: 900px) { .foot-grid { grid-template-columns: 1fr 1fr; gap: 36px; } }
+  @media (max-width: 560px) { .foot-grid { grid-template-columns: 1fr; } }
+  .foot-tag { margin: 16px 0 0; max-width: 24em; font-size: 13px; line-height: 1.75; color: var(--ink-2); }
+  .foot-est { margin-top: 16px; display: flex; align-items: center; gap: 8px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: var(--ink-3); letter-spacing: .14em; }
+  .foot-grid h4 { margin: 0 0 16px; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px;
+    letter-spacing: .16em; font-weight: 700; color: var(--ink); }
+  .foot-grid ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .foot-grid li { font-size: 13.5px; color: var(--ink-2); cursor: pointer; }
+  .foot-grid li:hover { color: var(--tenant); }
+  .foot-bar { border-top: 1px solid var(--line); }
+  .foot-bar-in { max-width: 1320px; margin: 0 auto; padding: 16px 32px; display: flex;
+    justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink-3); }
+
+  /* scroll reveal */
+  .rv { opacity: 1; }
+  @media (prefers-reduced-motion: no-preference) {
+    .rv { opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; }
+    .rv.in { opacity: 1; transform: none; }
+  }
+</style>
+
+<nav>
+  <div class="nav-in">
+    <span class="logo">stayloop<span class="ai">.AI</span></span>
+    <div class="nav-links">
+      <span>我是<span class="caretdn">▾</span></span><span>房源</span><span>定价</span><span class="scr">租客背调</span>
+    </div>
+    <div class="nav-right"><button class="hamb" aria-label="Menu">≡</button></div>
+  </div>
+</nav>
+
+<!-- ================= HERO ================= -->
+<div class="wrap">
+  <div class="hero">
+    <div>
+      <div class="eyebrow">为 AI 时代而生 · 租房的信任基础设施</div>
+      <h1>说出你想要的生活，<br><span class="grad">AI 替你办到入住</span>。</h1>
+      <p class="sub">每个人都有自己的 Agent：找房、尽调、申请、签约、续约，它来跑 —— <b>每个关键决定，依然由你拍板。</b>全程可审计，官方数据背书。</p>
+      <div class="trybar">
+        <span class="q" id="typeq">北约克两房，预算 2800，能养猫<span class="caret"></span></span>
+        <button>试一句 →</button>
+      </div>
+      <p class="note">租客永远免费 · 不影响信用分 · 90 秒完成首次验证</p>
+      <div class="whoare">你是 —</div>
+      <div class="whoare" style="margin-top:8px">
+        <a href="#roles"><span class="dot"></span>租客</a>
+        <a href="#roles"><span class="dot"></span>房东</a>
+        <a href="#roles"><span class="dot"></span>经纪</a>
+      </div>
+    </div>
+
+    <!-- 真产品演示卡（受控演示：数据 = 2026-07 真实一轮对话） -->
+    <div class="demo">
+      <div class="demo-head"><span class="orb"></span><b>LUNA · 你的 AI</b><span class="st">● 在线 · 读取你的记忆</span></div>
+      <div class="msgs">
+        <div class="m-user">北约克两房，预算 2800，能养猫</div>
+        <div class="m-ai">好的，帮你搜北约克允许养猫的两房 —— 先看真实行情，再上房源 👇</div>
+        <div class="mkt">
+          <div class="lab">📊 NORTH YORK · 2 房+ 真实行情 · 样本 12 套</div>
+          <div class="row"><span class="range num">$2,300–$4,500</span><span class="med">中位 <b class="num">$2,820</b></span></div>
+          <div class="gauge"><span class="pt" title="你的预算"></span></div>
+          <div class="trreb">官方基准 · TRREB Toronto C14 · 2026 Q1：成交均价 <b class="num">$2,914</b> · 224 宗 · 同比 −4.6%
+            <svg class="spark" viewBox="0 0 260 44" role="img" aria-label="两年租金趋势">
+              <polyline fill="none" stroke="#C4B5FD" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"
+                points="6,16 42,10 78,15 114,21 150,23 186,20 222,22 254,32"/>
+              <circle cx="254" cy="32" r="3.4" fill="#C4B5FD" stroke="#131118" stroke-width="1.6"/>
+              <text x="252" y="14" text-anchor="end" font-size="9" font-family="ui-monospace, monospace" fill="#EFEBF6" font-weight="700">$2,914</text>
+            </svg>
+          </div>
+        </div>
+        <div class="m-ai">预算在中位以上，可以挑剔一点。3 套符合的房源卡已附上，第一套周六下午可看房，要我约吗？</div>
+      </div>
+      <div class="demo-foot">以上为<b>真实产品输出</b> · 数据来自 Realtor.ca 实时挂牌与 TRREB 季度成交</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 信任带 ================= -->
+<div class="trust">
+  <div class="trust-in">
+    <span class="cap">POWERED BY</span>
+    <span class="plogo">Persona</span><span class="plogo">Flinks</span><span class="plogo">Equifax</span>
+    <span class="plogo">TransUnion</span><span class="plogo">Stripe</span><span class="plogo">TRREB 数据</span>
+    <span class="maple">🍁 PROUDLY CANADIAN · 安省合规</span>
+  </div>
+</div>
+
+<!-- ================= 结果四格 ================= -->
+<div class="wrap results rv">
+  <h2>Stayloop 给你的六样东西</h2>
+  <p class="sub2">不是营销数字 —— 每一格都是产品今天就在交付的事实。</p>
+  <div class="quad">
+    <div class="q-card"><div class="big num">90<small>秒</small></div><p>Rental Passport 首次验证，之后每次申请一键复用。</p></div>
+    <div class="q-card"><div class="big num">8<small>维 · 504 数据点</small></div><p>可解释的深度尽调：每一分都告诉你我看了什么、为什么。</p></div>
+    <div class="q-card"><div class="big num">16,365<small>宗</small></div><p>TRREB 上季真实成交作为行情基准，议价有官方数据托底。</p></div>
+    <div class="q-card"><div class="big num">100<small>%</small></div><p>每个对外动作先经你批准、写入审计日志，RTA / OHRC 合规护栏全程在线。</p></div>
+    <div class="q-card"><div class="big num">24<small>/7</small></div><p>偏好说一次永远记得，你睡觉时它也在替你跟进。</p></div>
+    <div class="q-card"><div class="big num">中<small>文全程</small></div><p>找房到签约全程中文服务，英文租约逐条讲给你听 —— 为新移民与留学生而生。</p></div>
+  </div>
+</div>
+
+<!-- ================= 时代宣言 + 三角色 ================= -->
+<div class="wrap era-sec" id="roles">
+  <div class="era rv">
+    <div class="eyebrow">/ 三种角色 · 每人一个 Agent</div>
+    <h2>每个角色，都有自己的 Agent。<br><span class="muted">三种身份，就此升级。</span></h2>
+    <p class="answer">有了自己的 AI Agent 之后，他们各自成为了<em>更自由的人</em>。</p>
+  </div>
+
+  <div class="shifts rv">
+    <div class="shift" data-r="tenant"><div class="who">TENANT × LUNA</div><div class="from">申请人</div><p class="arrow">↓</p><div class="to">被数据争取的人</div></div>
+    <div class="shift" data-r="landlord"><div class="who">LANDLORD × LOGIC</div><div class="from">管理员</div><p class="arrow">↓</p><div class="to">只做决定的人</div></div>
+    <div class="shift" data-r="agent"><div class="who">AGENT × BRIEF</div><div class="from">业务员</div><p class="arrow">↓</p><div class="to">只做专业的人</div></div>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="选择角色">
+    <button class="tab" data-role="tenant" role="tab" aria-selected="true"><span class="dot"></span>Mia 的故事</button>
+    <button class="tab" data-role="landlord" role="tab" aria-selected="false"><span class="dot"></span>Sarah 的故事</button>
+    <button class="tab" data-role="agent" role="tab" aria-selected="false"><span class="dot"></span>David 的故事</button>
+  </div>
+
+  <div class="panel active" data-role="tenant" role="tabpanel">
+    <div class="voice"><blockquote>没有加拿大信用记录，我到底该怎么租房？</blockquote><div class="who">MIA CHEN · 27 · 软件工程师 · 新移民</div></div>
+    <div class="film">
+      <div class="scene s1"><div class="still"><div class="vign"></div><span class="slot">mia-01-anxious.jpg</span><span class="act">第一幕 · 深夜的申请表</span></div>
+        <div class="cap"><b>信用空白，被拒 3 次。</b>纸箱堆满旧住处，3 天后必须退房。五个网站刷到深夜，同样的资料填了一遍又一遍。</div></div>
+      <div class="scene s2"><div class="still"><div class="vign"></div><div class="orbchip"><span class="o"></span>LUNA 接手</div><span class="slot">mia-02-luna.jpg</span><span class="act">第二幕 · 一句话</span></div>
+        <div class="cap"><b>"市中心、一居、能养猫。"</b>Luna 翻遍全城、约看、比价，把英文租约逐条讲成中文，替她跟房东谈。</div></div>
+      <div class="scene s3"><div class="still"><div class="vign"></div><span class="slot">mia-03-home.jpg</span><span class="act">第三幕 · 城市灯火</span></div>
+        <div class="cap"><b>当天电子签约。</b>报修 2 小时响应，12 个月租金准时 —— 她的记录开始替她说话。</div></div>
+    </div>
+    <div class="outcome"><div class="delta"><span class="fr">Score 60</span><span class="to num">91</span></div>
+      <div class="why"><b>第二次搬家，她只说了一句话。</b>验证过一次的 Passport 处处通行，8 维评分让没有信用记录的人也有了会说话的履历。</div>
+      <button class="cta">唤醒你的 AI 租房助手 →</button></div>
+  </div>
+
+  <div class="panel" data-role="landlord" role="tabpanel">
+    <div class="voice"><blockquote>做决定前要查、要比，还怕踩 RTA 的雷。</blockquote><div class="who">SARAH WANG · 41 · 会计师 · 2 套投资公寓</div></div>
+    <div class="film">
+      <div class="scene s1"><div class="still"><div class="vign"></div><span class="slot">sarah-01-vacancy.jpg</span><span class="act">第一幕 · 空置在烧钱</span></div>
+        <div class="cap"><b>每月 $2,900 空置损失。</b>一叠申请不知道信谁 —— 工资单是真是假？深夜还被报修电话吵醒。</div></div>
+      <div class="scene s2"><div class="still"><div class="vign"></div><div class="orbchip"><span class="o"></span>LOGIC 接管</div><span class="slot">sarah-02-logic.jpg</span><span class="act">第二幕 · 尽调排好序</span></div>
+        <div class="cap"><b>4 分钟重做房源，多平台同步。</b>每份申请 8 维尽调读完排好序，「不养宠」这类 RTA 雷区当场被拦下。</div></div>
+      <div class="scene s3"><div class="still"><div class="vign"></div><span class="slot">sarah-03-decide.jpg</span><span class="act">第三幕 · 阳台上的早晨</span></div>
+        <div class="cap"><b>午休时按下「同意」。</b>租约自动起草电子签。夜间报修、Month 11 续约决策包，都有 Logic 盯着。</div></div>
+    </div>
+    <div class="outcome"><div class="delta"><span class="fr">30 分钟</span><span class="to">30 秒</span></div>
+      <div class="why"><b>她的工作只剩一件事：拍板。</b>接待、尽调、起草、收租、续约全部后台完成，每个对外动作先经她点头、留有审计痕迹。</div>
+      <button class="cta">让 Logic 接管你的房源 →</button></div>
+  </div>
+
+  <div class="panel" data-role="agent" role="tabpanel">
+    <div class="voice"><blockquote>不是没机会，是时间被行政碎片化了。</blockquote><div class="who">DAVID PARK · 35 · 持牌经纪 · RECO 6 年</div></div>
+    <div class="film">
+      <div class="scene s1"><div class="still"><div class="vign"></div><span class="slot">david-01-task.jpg</span><span class="act">第一幕 · 车里的任务</span></div>
+        <div class="cap"><b>70% 的时间耗在杂活上。</b>整理材料、排时间、催跟进；收入不稳，客户一忙就跟丢。</div></div>
+      <div class="scene s2"><div class="still"><div class="vign"></div><div class="orbchip"><span class="o"></span>BRIEF 编排</div><span class="slot">david-02-showing.jpg</span><span class="act">第二幕 · 专业带看</span></div>
+        <div class="cap"><b>他只做专业的部分。</b>时间地点、租客画像、授权问答清单 —— 材料包 Brief 已备好，记录自动归档留痕。</div></div>
+      <div class="scene s3"><div class="still"><div class="vign"></div><span class="slot">david-03-payout.jpg</span><span class="act">第三幕 · 落日与结算</span></div>
+        <div class="cap"><b>当晚自动结算。</b>月度回顾：带看 32 次、保留率 94%、Toronto West Top 8%。转介分账 RECO 合规、全程留痕。</div></div>
+    </div>
+    <div class="outcome"><div class="delta"><span class="fr">时薪 $25</span><span class="to num">$43</span></div>
+      <div class="why"><b>同样的一周，接得下两倍的客户。</b>AI 编排一切、当晚结算 —— 他的时间只花在带看与专业判断上。</div>
+      <button class="cta">让 Brief 打理你的业务 →</button></div>
+  </div>
+</div>
+
+<!-- ================= 深色证据 bento ================= -->
+<div class="proof">
+  <div class="wrap">
+    <div class="rv">
+      <div class="eyebrow">/ 凭什么信 · 证据全部可点开</div>
+      <h2>不给你形容词，<br>给你数据、理由和留痕。</h2>
+      <p class="sub2">下面每一块都是真实产品组件的实时输出 —— 不是宣传图。</p>
+    </div>
+    <div class="bento">
+      <div class="cell b1 rv">
+        <div class="lab">STAYLOOP SCORE · 可解释评分</div>
+        <h3>8 个维度，每一分都有理由</h3>
+        <p class="d">普通信用查询丢给你一个 675。我们把它拆成 <b>8 个独立维度 · 504 个数据点</b>，每一个都告诉你：看了什么、得了多少、为什么。</p>
+        <div class="ringwrap">
+          <svg width="120" height="120" viewBox="0 0 120 120" role="img" aria-label="综合评分 89">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="9"/>
+            <circle cx="60" cy="60" r="50" fill="none" stroke="#6EE7B7" stroke-width="9" stroke-linecap="round"
+              stroke-dasharray="279.6 314.2" transform="rotate(-90 60 60)"/>
+            <text x="60" y="66" text-anchor="middle" font-size="30" font-weight="800" fill="#EFEBF6" font-family="ui-monospace, monospace">89</text>
+            <text x="60" y="82" text-anchor="middle" font-size="8.5" fill="#9A93AC" font-family="ui-monospace, monospace">/ 100</text>
+          </svg>
+          <div class="dims">
+            <div class="dim"><span>身份核验</span><span class="bar"><i style="width:99%"></i></span><b>99</b></div>
+            <div class="dim"><span>收入流水</span><span class="bar"><i style="width:92%"></i></span><b>92</b></div>
+            <div class="dim"><span>租住历史</span><span class="bar"><i style="width:96%"></i></span><b>96</b></div>
+            <div class="dim"><span>文档反欺诈</span><span class="bar"><i style="width:94%"></i></span><b>94</b></div>
+            <div class="dim"><span>法庭裁定</span><span class="bar"><i style="width:100%"></i></span><b>100</b></div>
+            <div class="dim"><span>行为信号</span><span class="bar"><i style="width:88%"></i></span><b>88</b></div>
+          </div>
+        </div>
+      </div>
+      <div class="cell b2 rv">
+        <div class="lab">市场行情 · 双数据源</div>
+        <h3>实时挂牌 + 官方成交，一张卡看全</h3>
+        <p class="d">Realtor.ca 实时挂牌告诉你<b>现在要价多少</b>，TRREB 季度成交（我们入库了 <b>2019 年以来 6,401 行官方数据</b>）告诉你<b>实际成交多少</b> —— 议价的两个锚点都给你。</p>
+        <div class="mkt" style="background: rgba(255,255,255,.04)">
+          <div class="lab">📊 NORTH YORK · 2 房+ · 样本 12 套</div>
+          <div class="row"><span class="bigrange num">$2,300–$4,500</span><span class="med">中位 <b class="num">$2,820</b></span></div>
+          <div class="gauge"><span class="pt"></span></div>
+          <div class="trreb">官方基准 · TRREB Toronto C14 · 2026 Q1：<b class="num">$2,914</b> · 224 宗 · 同比 −4.6%
+            <svg class="spark" viewBox="0 0 560 76" role="img" aria-label="TRREB 两年趋势">
+              <line x1="8" y1="20" x2="552" y2="20" stroke="rgba(255,255,255,.09)"/>
+              <line x1="8" y1="44" x2="552" y2="44" stroke="rgba(255,255,255,.09)"/>
+              <line x1="8" y1="68" x2="552" y2="68" stroke="rgba(255,255,255,.09)"/>
+              <polyline fill="none" stroke="#C4B5FD" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"
+                points="20,30 96,18 172,29 248,40 324,44 400,39 476,42 544,60"/>
+              <circle cx="544" cy="60" r="4" fill="#C4B5FD" stroke="#1B1824" stroke-width="2"/>
+              <text x="540" y="48" text-anchor="end" font-size="11" font-weight="700" fill="#EFEBF6" font-family="ui-monospace, monospace">$2,914</text>
+              <text x="20" y="74" font-size="8.5" fill="#9A93AC" font-family="ui-monospace, monospace">24Q2</text>
+              <text x="544" y="74" text-anchor="end" font-size="8.5" fill="#9A93AC" font-family="ui-monospace, monospace">26Q1</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div class="cell b3 rv">
+        <div class="lab">COMPLIANCE GUARDRAIL · 拦截实录</div>
+        <h3>违规操作，AI 直接拦下</h3>
+        <p class="d">安省《住宅租赁法》和《人权法》写进了引擎。歧视性拒绝、非法条款、超限涨租 —— <b>在发出去之前就被拦截</b>，而不是收到投诉之后。</p>
+        <div class="guard">
+          <div class="tag">■ BLOCKED · OHRC 保护性事由</div>
+          「拒绝理由：家里有小孩」—— 家庭状况为受保护事由，已阻止发送并向房东说明合规拒绝方式。
+        </div>
+        <div class="audit">
+          <b>audit</b> 2026-07-09 14:02 · guardrail_blocked · actor=landlord_agent · 链上可查<br>
+          <b>audit</b> 2026-07-09 14:05 · application_declined · reason="收入未达标准" · ✓ 合规
+        </div>
+      </div>
+      <div class="cell b4 rv">
+        <div class="lab">RENTAL PASSPORT</div>
+        <h3>验证一次，处处通行</h3>
+        <p class="d">身份、收入、信用授权封装成一本<b>可携带的通行证</b>。每次分享给谁、分享哪些字段，都由你逐次点头 —— 隐私不是商品。</p>
+        <div class="ppass" style="background: rgba(255,255,255,.04); border-color: rgba(196,181,253,.5)">
+          <div class="ic">🛂</div>
+          <div><b style="color:#EFEBF6">Mia Chen · 认证 3 级</b><span style="color:#9A93AC">身份 ✓ 收入 ✓ 信用 ✓ · 90 秒完成</span></div>
+        </div>
+        <p class="d" style="margin:0">已复用 <b>7 次</b> · 0 次重复提交材料</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Passport 对比条 ================= -->
+<div class="wrap pass rv">
+  <div class="era">
+    <div class="eyebrow" style="color: var(--tenant)">/ RENTAL PASSPORT · 你的通行证</div>
+    <h2 style="font-size: clamp(26px,3.8vw,40px); margin-top: 16px;">验证一次，<span class="muted" style="color:var(--ink-3)">处处通行。</span></h2>
+  </div>
+  <div class="pass-grid" style="grid-template-columns: 1fr; max-width: 640px; margin-left: auto; margin-right: auto;">
+    <div class="pcol new">
+      <h3>STAYLOOP · 一本通行证</h3>
+      <div class="ppass">
+        <div class="ic">🛂</div>
+        <div><b>Rental Passport · 认证 3 级</b><span>90 秒验证 · 身份 / 收入 / 信用授权</span></div>
+      </div>
+      <p class="reuse">之后每次申请：<b>一键授权</b>，指定分享范围，房东只看到验证结果 —— <b>原件永不离开你</b>。每次分享留有记录，随时可撤。没有加拿大信用记录也没关系：8 维评分用收入流水、稳定性、行为信号替你说话。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 三方互通 ================= -->
+<div class="wrap tri rv">
+  <div class="era">
+    <div class="eyebrow" style="color: var(--agent)">/ 全市场独有 · 三方 AGENT 互通</div>
+    <h2 style="font-size: clamp(26px,3.8vw,40px); margin-top:16px;">你的 Agent，会和对面的 Agent 谈。</h2>
+  </div>
+  <div class="tri-stage">
+    <div class="tri-node"><span class="o"></span><span class="nm">LUNA · 租客</span></div>
+    <div class="tri-link"></div>
+    <div class="tri-node"><span class="o"></span><span class="nm">BRIEF · 经纪</span></div>
+    <div class="tri-link"></div>
+    <div class="tri-node"><span class="o"></span><span class="nm">LOGIC · 房东</span></div>
+  </div>
+  <p class="cap2">同一套信任引擎，三种人格。它们之间会对话、会交接 —— 约看、议价、材料授权在 Agent 之间完成，<b>但各自只忠于自己的那个人</b>。</p>
+</div>
+
+<!-- ================= Checklist 产品区 ================= -->
+<div class="wrap checklist rv">
+  <div class="era">
+    <div class="eyebrow" style="color: var(--tenant)">/ 你的租房清单 · 逐项有人管</div>
+    <h2 style="font-size: clamp(26px,3.8vw,40px); margin-top: 16px;">四件事，<span class="muted" style="color:var(--ink-3)">件件有人替你办。</span></h2>
+  </div>
+  <div class="cl-grid">
+    <div class="cl-card">
+      <div class="no">01 · 找房</div>
+      <h3>说一句，收房源</h3>
+      <p class="now2">对话式搜索全城实时房源，<b>行情卡 + TRREB 官方基准</b>自动附上，议价有底气。</p>
+      <span class="cl-done t"><span class="o"></span>LUNA 已接管</span>
+    </div>
+    <div class="cl-card">
+      <div class="no">02 · 尽调</div>
+      <h3>验一次，处处通行</h3>
+      <p class="now2">90 秒建好 Rental Passport，<b>8 维评分</b>替你说话 —— 每次申请一键复用。</p>
+      <span class="cl-done t"><span class="o"></span>LUNA 已接管</span>
+    </div>
+    <div class="cl-card">
+      <div class="no">03 · 签约</div>
+      <h3>看得懂，签得快</h3>
+      <p class="now2">安省标准 / TRREB 租约一键起草，<b>逐条中文解读</b>，当天电子签。</p>
+      <span class="cl-done l"><span class="o"></span>LOGIC 协同</span>
+    </div>
+    <div class="cl-card">
+      <div class="no">04 · 入住托管</div>
+      <h3>住进去，不断联</h3>
+      <p class="now2">缴租、维修、续约、退租全程照看，<b>续约提前 120 天</b>备好方案等你选。</p>
+      <span class="cl-done t"><span class="o"></span>LUNA 在岗</span>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 金句 + 定价对比 ================= -->
+<div class="creed rv">
+  <div class="creed-in">
+    <h2>租客永远免费。<br><b>你的隐私，永远不是商品。</b></h2>
+    <p>Stayloop 靠订阅收费 —— 房东与经纪按价值付费，没有人靠倒卖你的数据赚钱。</p>
+    <div class="price-cmp" style="grid-template-columns: 1fr; max-width: 620px;">
+      <div class="pc us">
+        <h3>STAYLOOP 定价 · 透明 · 无隐藏</h3>
+        <div class="bigfree num">$0</div>
+        <div class="bf-cap">租客申请，永远免费 · 次数不限 · 不影响信用分</div>
+        <ul>
+          <li>验证一次，N 次申请一键复用</li>
+          <li>你的评分你先看 —— 每一分都有理由</li>
+          <li>分享哪些字段，每次由你点头，原件永不离开你</li>
+        </ul>
+        <div class="tiers">房东：起步 <b>$0</b> · 专业 <b>$19/月</b> · 团队 <b>$39/月</b>　｜　经纪：免费入驻 · 转介分账 RECO 合规</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 终幕 CTA ================= -->
+<div class="wrap final rv">
+  <h2>现在，试一句。</h2>
+  <div class="trybar">
+    <span class="q">北约克两房，预算 2800，能养猫<span class="caret"></span></span>
+    <button>开始 →</button>
+  </div>
+  <p class="note">给你的 AI 起个名字 —— 让租房这件事，从此不一样。</p>
+</div>
+
+<footer>
+  <div class="foot-grid">
+    <div>
+      <span class="logo">stayloop<span class="ai">.AI</span></span>
+      <p class="foot-tag">为 AI 时代打造的租住操作系统。验证一次，处处通行。</p>
+      <div class="foot-est"><span>EST. TORONTO</span><span>·</span><span>v5.3</span></div>
+    </div>
+    <div>
+      <h4>产品</h4>
+      <ul><li>定价</li><li>Trust API</li><li>租客背调</li><li>租客护照</li><li>争议解决</li></ul>
+    </div>
+    <div>
+      <h4>为谁打造</h4>
+      <ul><li>租客</li><li>房东</li><li>经纪</li><li>合作伙伴</li></ul>
+    </div>
+    <div>
+      <h4>公司</h4>
+      <ul><li>关于</li><li>隐私</li><li>使用条款</li><li>联系</li><li>后台管理</li></ul>
+    </div>
+  </div>
+  <div class="foot-bar">
+    <div class="foot-bar-in">
+      <span>© 2026 Stayloop Inc. · PIPEDA · OHRC · RTA 合规</span>
+      <span class="mono">stayloop.ai · Toronto, ON</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // 角色 tabs
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('.panel');
+  tabs.forEach(tab => tab.addEventListener('click', () => {
+    tabs.forEach(t => t.setAttribute('aria-selected', String(t === tab)));
+    panels.forEach(p => p.classList.toggle('active', p.dataset.role === tab.dataset.role));
+  }));
+
+  // hero 输入框轮播打字（respect reduced motion）
+  const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const q = document.getElementById('typeq');
+  const lines = [
+    '北约克两房，预算 2800，能养猫',
+    '多大附近找 5 个两房，4000 以内',
+    '帮我发布我的公寓，租金 2600',
+    '这份租约的第 8 条什么意思？',
+  ];
+  if (!REDUCED && q) {
+    let li = 0;
+    const caret = '<span class="caret"></span>';
+    const typeLine = (text, done) => {
+      let i = 0;
+      const t = setInterval(() => {
+        i++;
+        q.innerHTML = text.slice(0, i) + caret;
+        if (i >= text.length) { clearInterval(t); setTimeout(done, 2600); }
+      }, 65);
+    };
+    const loop = () => { li = (li + 1) % lines.length; typeLine(lines[li], loop); };
+    setTimeout(() => typeLine(lines[0], loop), 1800);
+  }
+
+  // scroll reveal
+  if (!REDUCED && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver((es) => es.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    }), { threshold: .05 });
+    document.querySelectorAll('.rv').forEach(el => io.observe(el));
+    // IO 只在交叉状态"变化"时回调 —— 锚点/瞬时跳转会让被越过的区块
+    // 从未交叉（false→false），永远隐形。scroll 兜底把已进入或越过
+    // 视口的区块直接显示（.in 幂等）。
+    const catchUp = () => document.querySelectorAll('.rv:not(.in)').forEach(el => {
+      if (el.getBoundingClientRect().top < innerHeight) el.classList.add('in');
+    });
+    addEventListener('scroll', catchUp, { passive: true });
+    addEventListener('load', catchUp);
+  } else {
+    document.querySelectorAll('.rv').forEach(el => el.classList.add('in'));
+  }
+</script>

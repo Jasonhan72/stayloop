@@ -30,13 +30,13 @@ interface Slot {
 }
 
 const SLOTS: Slot[] = [
-  { day: 0, start: 10, end: 11, type: 'showing', title: { zh: 'Brunswick Ave', en: 'Brunswick Ave' }, sub: { zh: 'Anna L. · T3', en: 'Anna L. · T3' } },
+  { day: 0, start: 10, end: 11, type: 'showing', title: { zh: 'Brunswick Ave', en: 'Brunswick Ave' }, sub: { zh: 'Anna L. · 3/4 章', en: 'Anna L. · 3/4 stamps' } },
   { day: 0, start: 14, end: 15, type: 'photo', title: { zh: '88 Harbour 拍照', en: '88 Harbour shoot' }, sub: { zh: 'New listing', en: 'New listing' } },
-  { day: 1, start: 11, end: 12, type: 'showing', title: { zh: 'Unit 1207 · King West', en: 'Unit 1207 · King West' }, sub: { zh: 'Mia Chen · 认证 2 级', en: 'Mia Chen · Tier 2' } },
+  { day: 1, start: 11, end: 12, type: 'showing', title: { zh: 'Unit 1207 · King West', en: 'Unit 1207 · King West' }, sub: { zh: 'Mia Chen · 2/4 章', en: 'Mia Chen · 2/4 stamps' } },
   { day: 1, start: 16, end: 17, type: 'lease', title: { zh: 'Ontario LTB 租约签字', en: 'Ontario LTB lease signing' }, sub: { zh: 'Kevin Tran 续约', en: 'Kevin Tran renewal' } },
   { day: 2, start: 9, end: 11, type: 'block', title: { zh: '区域走访', en: 'Area canvass' }, sub: { zh: 'Yorkville', en: 'Yorkville' } },
-  { day: 2, start: 14, end: 15.5, type: 'showing', title: { zh: '155 Cumberland', en: '155 Cumberland' }, sub: { zh: 'Eric K. · T4', en: 'Eric K. · T4' } },
-  { day: 3, start: 10, end: 11, type: 'showing', title: { zh: '210 Sumach', en: '210 Sumach' }, sub: { zh: 'Sophie B. · T1', en: 'Sophie B. · T1' } },
+  { day: 2, start: 14, end: 15.5, type: 'showing', title: { zh: '155 Cumberland', en: '155 Cumberland' }, sub: { zh: 'Eric K. · 4/4 章', en: 'Eric K. · 4/4 stamps' } },
+  { day: 3, start: 10, end: 11, type: 'showing', title: { zh: '210 Sumach', en: '210 Sumach' }, sub: { zh: 'Sophie B. · 1/4 章', en: 'Sophie B. · 1/4 stamps' } },
   { day: 3, start: 13, end: 14, type: 'showing', title: { zh: 'Distillery 1207', en: 'Distillery 1207' }, sub: { zh: 'David Z. · T3', en: 'David Z. · T3' } },
   { day: 4, start: 11, end: 12, type: 'showing', title: { zh: 'Hanna Ave Loft', en: 'Hanna Ave Loft' }, sub: { zh: 'Yuki M. · T2', en: 'Yuki M. · T2' } },
   { day: 5, start: 12, end: 14, type: 'block', title: { zh: 'Open House', en: 'Open House' }, sub: { zh: '432 Brunswick', en: '432 Brunswick' } },

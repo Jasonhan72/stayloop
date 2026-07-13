@@ -9,12 +9,13 @@ import { buildListingRow, publishListing } from '@/lib/listingPublish'
 import { useLandlord } from '@/lib/useLandlord'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
+import { stampForTier } from '@/lib/passportStamps'
 
 const STEPS = (aiName: string) => [
   { n: 1, nm: { zh: '基本信息', en: 'Basics' }, desc: { zh: '地址 + 户型 + 面积', en: 'Address + layout + size' } },
   { n: 2, nm: { zh: '照片 + 视频', en: 'Photos + video' }, desc: { zh: `至少 8 张 · ${aiName} 自动排序`, en: `8+ photos · ${aiName} auto-orders` } },
   { n: 3, nm: { zh: '价格 + 押金', en: 'Price + deposit' }, desc: { zh: `${aiName} 给市场区间`, en: `${aiName} gives the market range` } },
-  { n: 4, nm: { zh: '认证门槛', en: 'Verification threshold' }, desc: { zh: '接受什么级别申请人', en: 'Which applicant tier you accept' } },
+  { n: 4, nm: { zh: '盖章门槛', en: 'Stamp threshold' }, desc: { zh: '要求申请人盖到哪枚章', en: 'Which stamps applicants need' } },
   { n: 5, nm: { zh: '最后审 + 发布', en: 'Review + publish' }, desc: { zh: `${aiName} 起草 EN+ZH 文案`, en: `${aiName} drafts EN+ZH copy` } },
 ]
 
@@ -374,32 +375,32 @@ export default function NewListingPage() {
                 </div>
                 <div className="flex gap-3">
                   <button onClick={() => setStep(2)} className="sl-btn-secondary">{lang === 'zh' ? '← 上一步' : '← Back'}</button>
-                  <button onClick={() => setStep(4)} className="sl-btn-primary flex-1 !py-[12px]">{lang === 'zh' ? '下一步 · 认证门槛' : 'Next · Verification threshold'}</button>
+                  <button onClick={() => setStep(4)} className="sl-btn-primary flex-1 !py-[12px]">{lang === 'zh' ? '下一步 · 盖章门槛' : 'Next · Stamp threshold'}</button>
                 </div>
               </div>
             )}
 
             {step === 4 && (
               <div>
-                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '4 · 认证门槛' : '4 · Verification threshold'}</h2>
+                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '4 · 盖章门槛' : '4 · Stamp threshold'}</h2>
                 <p className="mt-2 text-[13px] text-body-2">
                   {lang === 'zh'
-                    ? '这决定哪些租客可以申请。认证级别越高越严格。系统会按你设定自动筛选。'
-                    : 'This decides which tenants can apply. Higher tiers are stricter. The system auto-filters based on your setting.'}
+                    ? '这决定哪些租客可以申请。要求的章越多越严格。系统会按你设定自动筛选。'
+                    : 'This decides which tenants can apply. More required stamps means stricter. The system auto-filters based on your setting.'}
                 </p>
                 <div className="mt-5 space-y-3">
                   {(lang === 'zh'
                     ? [
-                        { n: 1, name: '认证 1 级 · 仅 ID 验证', desc: '租客只需护照 + 自拍。最快但筛选最弱。', stats: '~80% 通过率' },
-                        { n: 2, name: '认证 2 级 · ID + 收入',   desc: '工资单或 Plaid 月收入验证。',         stats: '~50% 通过率' },
-                        { n: 3, name: '认证 3 级 · ID + 收入 + 银行', desc: 'Plaid 直连 · 现金流可见。',          stats: '~30% 通过率' },
-                        { n: 4, name: '认证 4 级 · 全部 + 信用 + 法庭', desc: 'Equifax + CanLII LTB · 最严。',      stats: '~15% 通过率' },
+                        { n: 1, name: '需 身份章 🪪 · 仅 ID 验证', desc: '租客只需护照 + 自拍。最快但筛选最弱。', stats: '~80% 通过率' },
+                        { n: 2, name: '需 收入章 💼 · ID + 收入',   desc: '工资单或 Plaid 月收入验证。',         stats: '~50% 通过率' },
+                        { n: 3, name: '需 银行章 🏦 · ID + 收入 + 银行', desc: 'Plaid 直连 · 现金流可见。',          stats: '~30% 通过率' },
+                        { n: 4, name: '需 信用 + 法庭章 ⚖️ · 全部 + 信用 + 法庭', desc: 'Equifax + CanLII LTB · 最严。',      stats: '~15% 通过率' },
                       ]
                     : [
-                        { n: 1, name: 'Tier 1 · ID only', desc: 'Tenant just needs passport + selfie. Fastest, but the weakest filter.', stats: '~80% pass rate' },
-                        { n: 2, name: 'Tier 2 · ID + income', desc: 'Pay stub or Plaid monthly-income verification.', stats: '~50% pass rate' },
-                        { n: 3, name: 'Tier 3 · ID + income + bank', desc: 'Direct Plaid connection · cash flow visible.', stats: '~30% pass rate' },
-                        { n: 4, name: 'Tier 4 · Everything + credit + court', desc: 'Equifax + CanLII LTB · the strictest.', stats: '~15% pass rate' },
+                        { n: 1, name: 'Identity stamp 🪪 · ID only', desc: 'Tenant just needs passport + selfie. Fastest, but the weakest filter.', stats: '~80% pass rate' },
+                        { n: 2, name: 'Income stamp 💼 · ID + income', desc: 'Pay stub or Plaid monthly-income verification.', stats: '~50% pass rate' },
+                        { n: 3, name: 'Bank stamp 🏦 · ID + income + bank', desc: 'Direct Plaid connection · cash flow visible.', stats: '~30% pass rate' },
+                        { n: 4, name: 'Credit + court stamp ⚖️ · everything + credit + court', desc: 'Equifax + CanLII LTB · the strictest.', stats: '~15% pass rate' },
                       ]
                   ).map((t) => {
                     const sel = form.tier === t.n
@@ -462,7 +463,7 @@ export default function NewListingPage() {
                     <Row k={lang === 'zh' ? '地址' : 'Address'} v={form.address} />
                     <Row k={lang === 'zh' ? '户型' : 'Layout'} v={lang === 'zh' ? `${form.bedrooms} 卧 · ${form.bathrooms} 卫 · ${form.sqft} sqft` : `${form.bedrooms} bd · ${form.bathrooms} ba · ${form.sqft} sqft`} />
                     <Row k={lang === 'zh' ? '月租 / 押金' : 'Rent / deposit'} v={`$${form.monthly_rent} / $${form.deposit}`} />
-                    <Row k={lang === 'zh' ? '认证门槛' : 'Verification threshold'} v={lang === 'zh' ? `认证 ${form.tier} 级` : `Tier ${form.tier}`} />
+                    <Row k={lang === 'zh' ? '盖章门槛' : 'Stamp threshold'} v={lang === 'zh' ? `需 ${stampForTier(form.tier).zh}` : `${stampForTier(form.tier).en} required`} />
                     <Row k={lang === 'zh' ? '配套' : 'Amenities'} v={form.amenities.map((id) => AMENITIES.find((a) => a.id === id)?.[lang] ?? id).join(' · ') || '—'} />
                   </dl>
                 </div>

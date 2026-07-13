@@ -55,17 +55,17 @@ export const DICT = {
   'common.free': { en: 'Free', zh: '免费版' },
   'common.pro': { en: 'Pro', zh: '订阅版' },
 
-  // Onboarding · Tier 1 (认证 1 级 · 90 秒身份验证)
+  // Onboarding · Tier 1 (身份章 · 90 秒身份验证)
   'onb.hi': { en: "Hi, I'm your AI agent.", zh: '嗨，我是你的 AI Agent。' },
   'onb.line2': { en: "First, let's verify your identity — 90 seconds.", zh: '先花 90 秒，验明你的身份。' },
   'onb.body': {
-    en: 'This is Tier 1. Just your passport or licence plus a quick selfie — Persona handles it securely. A soft check that never touches your credit.',
-    zh: '这是 认证 1 级。只需护照 / 驾照 + 一张自拍，Persona 帮你安全完成。软查不影响信用。',
+    en: 'This is your identity stamp — the first of four. Just your passport or licence plus a quick selfie — Persona handles it securely. A soft check that never touches your credit.',
+    zh: '这是 身份章 —— 四枚章的第一枚。只需护照 / 驾照 + 一张自拍，Persona 帮你安全完成。软查不影响信用。',
   },
   'onb.f1': { en: 'Passport, driver’s licence, or PR card', zh: '护照 / 驾照 / PR 卡，三选一' },
   'onb.f2': { en: 'A quick liveness selfie to confirm it’s you', zh: '活体自拍，确认是你本人' },
   'onb.f3': { en: 'Encrypted end-to-end · your data stays yours · delete anytime', zh: '全程加密 · 资料只属于你 · 随时可删' },
-  'onb.cta1': { en: '✓ Start · Tier 1 · ~90 seconds', zh: '✓ 开始 · 认证 1 级 · 约 90 秒' },
+  'onb.cta1': { en: '✓ Start · identity stamp · ~90 seconds', zh: '✓ 开始 · 盖身份章 · 约 90 秒' },
   'onb.cta2': { en: 'Just browse listings first', zh: '先随便逛逛房源' },
   'onb.foot': { en: 'Stronger than 90% of Kijiji inquiries — landlords notice.', zh: '比 90% 的 Kijiji 询盘更让房东放心。' },
 

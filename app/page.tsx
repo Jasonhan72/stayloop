@@ -1,444 +1,1112 @@
 'use client'
 
+// v5.4 homepage — built strictly to design/v54-homepage.html (eleven acts).
+// Header/Footer are the real shared components; everything between them
+// reproduces the blueprint's layout, copy and interactions in Next/Tailwind.
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useT, type Lang } from '@/lib/i18n'
+import { ROLE_THEME, type RoleKey } from '@/lib/roleTheme'
+import { useOnboarded, ROLE_HOME } from '@/lib/useOnboarding'
 
-const GRAD = 'linear-gradient(135deg,#7C3AED,#2563EB)'
+/* ===================== palette (from the blueprint :root) ===================== */
+
+const BG = '#FAF9F6'
+const INK = '#17161B'
+const INK2 = '#56524A'
+const INK3 = '#8A857A'
+const LINE = '#E8E4DC'
+const DARK = '#131118'
+const DARK2 = '#1B1824'
+const DARK_INK = '#EFEBF6'
+const DARK_MUTED = '#9A93AC'
+const DARK_LINE = 'rgba(255,255,255,.10)'
+const GOLD = '#B45309'
+const GRAD = 'linear-gradient(90deg,#7C3AED,#2563EB)'
+const GRAD_TEXT: React.CSSProperties = {
+  background: GRAD,
+  WebkitBackgroundClip: 'text',
+  backgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+  color: 'transparent',
+}
+const SOFT: Record<RoleKey, string> = { tenant: '#F3EEFB', landlord: '#EBF4F0', agent: '#EBF1FD' }
+const ROLE_ORB = (r: RoleKey) =>
+  `radial-gradient(circle at 32% 28%, ${ROLE_THEME[r].light}, ${ROLE_THEME[r].accent})`
+
+type LS = Record<Lang, React.ReactNode>
+type LSS = Record<Lang, string>
+
+/* ===================== page ===================== */
 
 export default function HomePage() {
   const { lang } = useT()
   const zh = lang === 'zh'
+
+  // Scroll reveal: IO reveals on intersection change; the scroll catch-up
+  // fallback covers elements skipped by anchor / instant jumps (IO only fires
+  // on false→true transitions — a block jumped past never intersects and
+  // would stay invisible; `.in` is idempotent so the fallback is safe).
+  useEffect(() => {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const els = Array.from(document.querySelectorAll<HTMLElement>('.hp-rv'))
+    if (reduced || !('IntersectionObserver' in window)) {
+      els.forEach((el) => el.classList.add('in'))
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('in')
+            io.unobserve(e.target)
+          }
+        }),
+      { threshold: 0.05 },
+    )
+    els.forEach((el) => io.observe(el))
+    const catchUp = () =>
+      document.querySelectorAll<HTMLElement>('.hp-rv:not(.in)').forEach((el) => {
+        if (el.getBoundingClientRect().top < window.innerHeight) el.classList.add('in')
+      })
+    window.addEventListener('scroll', catchUp, { passive: true })
+    window.addEventListener('load', catchUp)
+    return () => {
+      io.disconnect()
+      window.removeEventListener('scroll', catchUp)
+      window.removeEventListener('load', catchUp)
+    }
+  }, [])
+
   return (
-    <div style={{ background: '#FAF7EE', color: '#171717' }}>
+    <div style={{ background: BG, color: INK }}>
+      <PageStyles />
       <Header variant="transparent" />
 
-      {/* ===== HERO ===== */}
-      <section
-        style={{ background: 'linear-gradient(180deg,#F2EEE5 0%,#E4EEE3 100%)' }}
-        className="overflow-hidden"
-      >
-        <div className="mx-auto grid max-w-[1240px] items-center gap-10 px-5 pb-8 pt-16 sm:px-7 lg:grid-cols-[1.05fr_0.95fr] lg:px-12 lg:pt-20">
+      {/* ============ ACT 0 · HERO ============ */}
+      <div className="mx-auto max-w-[1180px] px-5 sm:px-8">
+        <div className="grid items-center gap-10 pb-6 pt-14 lg:grid-cols-[1.02fr_0.98fr] lg:gap-14 lg:pt-[76px]">
           <div className="min-w-0">
-            <Eyebrow>{zh ? '为 AI 时代而生 · 多伦多租住操作系统' : 'Built for the AI era · Toronto rental OS'}</Eyebrow>
-            <h1 className="mt-4 text-[30px] font-extrabold leading-[1.05] tracking-tightest sm:text-[52px] lg:text-[58px]">
+            <Eyebrow color={ROLE_THEME.landlord.accent}>
+              {zh ? '为 AI 时代而生 · 租房的信任基础设施' : 'BUILT FOR THE AI ERA · TRUST INFRASTRUCTURE FOR RENTING'}
+            </Eyebrow>
+            <h1
+              className="mt-[18px] font-extrabold"
+              style={{ fontSize: 'clamp(34px,4.6vw,56px)', lineHeight: 1.16, letterSpacing: '-.02em', textWrap: 'balance' }}
+            >
               {zh ? (
                 <>
-                  在 AI 时代,
+                  说出你想要的生活，
                   <br />
-                  <span style={{ background: GRAD, WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                    不一样
-                  </span>
-                  的租房故事。
+                  <span style={GRAD_TEXT}>AI 替你办到入住</span>。
                 </>
               ) : (
                 <>
-                  In the AI era,
+                  Say the life you want —
                   <br />
-                  a{' '}
-                  <span style={{ background: GRAD, WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                    different
-                  </span>
-                  {' '}rental story.
+                  <span style={GRAD_TEXT}>AI gets you moved in</span>.
                 </>
               )}
             </h1>
-            <p className="mt-5 max-w-[560px] text-[17px] leading-relaxed text-body-2">
+            <p className="mt-[18px] max-w-[30em] text-[17px]" style={{ color: INK2 }}>
               {zh ? (
-                <>说出你想要的生活,AI 助手替你找房、尽调、申请、约看 —— 一路办到签约入住。<b className="text-body">每个关键决定,依然由你拍板。</b></>
+                <>
+                  每个人都有自己的 Agent：找房、尽调、申请、签约、续约，它来跑 ——{' '}
+                  <b style={{ color: INK }}>每个关键决定，依然由你拍板。</b>全程可审计，官方数据背书。
+                </>
               ) : (
-                <>Describe the life you want — your AI agent finds homes, runs diligence, applies and books viewings, all the way to signing. <b className="text-body">Every key decision is still yours.</b></>
+                <>
+                  Everyone gets their own agent: it runs the search, diligence, applications, signing and renewals —{' '}
+                  <b style={{ color: INK }}>every key decision is still yours.</b> Fully auditable, backed by official
+                  data.
+                </>
               )}
             </p>
-            <div className="mt-6 flex flex-wrap gap-2.5">
-              {PROMISES.map((m) => (
-                <div key={m.h.en} className="flex items-center gap-2.5 rounded-lg border border-line-divider bg-white/80 px-3.5 py-2">
-                  <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: GRAD }} />
-                  <span className="text-[13px] font-bold tracking-tight">{m.h[lang]}</span>
-                  <span className="hidden text-[12px] text-body-3 sm:inline">{m.l[lang]}</span>
-                </div>
+            <TryBar animate buttonLabel={zh ? '试一句 →' : 'Try it →'} />
+            <p className="mt-3 text-[12.5px]" style={{ color: INK3 }}>
+              {zh
+                ? '租客永远免费 · 不影响信用分 · 90 秒完成首次验证'
+                : 'Tenants free forever · never touches your credit · first verification in 90 seconds'}
+            </p>
+            <div className="mt-[26px] text-[13px]" style={{ color: INK3 }}>
+              {zh ? '你是 —' : 'You are —'}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2.5">
+              {(['tenant', 'landlord', 'agent'] as RoleKey[]).map((r) => (
+                <a
+                  key={r}
+                  href="#roles"
+                  className="inline-flex items-center gap-[7px] rounded-full bg-white px-4 py-[7px] text-[13px] font-bold"
+                  style={{ border: `1.5px solid ${LINE}`, color: INK2, textDecoration: 'none' }}
+                >
+                  <span className="h-[7px] w-[7px] rounded-full" style={{ background: ROLE_THEME[r].accent }} />
+                  {r === 'tenant' ? (zh ? '租客' : 'Tenant') : r === 'landlord' ? (zh ? '房东' : 'Landlord') : zh ? '经纪' : 'Agent'}
+                </a>
               ))}
             </div>
-            <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Link href="/onboarding/welcome" className="sl-btn-primary !px-6 !py-[14px] !text-[15px]">
-                {zh ? '和你的 AI 助手开始 →' : 'Start with your AI agent →'}
-              </Link>
-              <Link href="/listings" className="text-[14px] font-semibold text-body-2 underline-offset-4 hover:text-body hover:underline">
-                {zh ? '先浏览房源' : 'Browse listings first'}
-              </Link>
-            </div>
           </div>
-          <div className="min-w-0"><LunaChatDemo /></div>
-        </div>
-        <ChatInputBar />
-      </section>
 
-      {/* ===== TRUST STRIP ===== */}
-      <section className="border-y border-line-divider bg-white">
-        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-center gap-x-8 gap-y-3 px-5 py-5 sm:px-7 lg:px-12">
-          <span className="font-mono text-[11px] font-bold uppercase tracking-eyebrow text-body-3">
-            {zh ? '构建于可信的加拿大基础设施' : 'Built on trusted Canadian infrastructure'}
+          <HeroDemoCard zh={zh} />
+        </div>
+      </div>
+
+      {/* ============ ACT 1 · TRUST BAND ============ */}
+      <div className="mt-14 bg-white" style={{ borderTop: `1px solid ${LINE}`, borderBottom: `1px solid ${LINE}` }}>
+        <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-center gap-x-[34px] gap-y-3.5 px-5 py-[22px] sm:px-8">
+          <span className="font-mono text-[10px]" style={{ letterSpacing: '.16em', color: INK3 }}>
+            POWERED BY
           </span>
-          {['Persona', 'Flinks', 'Equifax', 'Stripe', 'Supabase'].map((b) => (
-            <span key={b} className="text-[14px] font-bold text-body-2">{b}</span>
+          {['Persona', 'Flinks', 'Equifax', 'TransUnion', 'Stripe', zh ? 'TRREB 数据' : 'TRREB Data'].map((b) => (
+            <span key={b} className="text-[15px] font-extrabold grayscale" style={{ color: '#B4AFA5', letterSpacing: '-.01em' }}>
+              {b}
+            </span>
+          ))}
+          <span
+            className="rounded-full px-3 py-1 font-mono text-[10.5px]"
+            style={{ color: GOLD, border: `1px solid ${LINE}`, background: BG, letterSpacing: '.1em' }}
+          >
+            🍁 PROUDLY CANADIAN · {zh ? '安省合规' : 'ONTARIO COMPLIANT'}
+          </span>
+        </div>
+      </div>
+
+      {/* ============ ACT 2 · SIX FACTS ============ */}
+      <div className="hp-rv mx-auto max-w-[1180px] px-5 pb-2 pt-[84px] text-center sm:px-8">
+        <h2 className="font-extrabold" style={{ fontSize: 'clamp(24px,3.4vw,34px)', letterSpacing: '-.015em', textWrap: 'balance' }}>
+          {zh ? 'Stayloop 给你的六样东西' : 'Six things Stayloop gives you'}
+        </h2>
+        <p className="mx-auto mt-2.5 max-w-[40em] text-[15px]" style={{ color: INK2 }}>
+          {zh
+            ? '不是营销数字 —— 每一格都是产品今天就在交付的事实。'
+            : 'Not marketing numbers — every tile is something the product delivers today.'}
+        </p>
+        <div className="mt-[38px] grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+          {FACTS.map((f) => (
+            <div key={f.key} className="rounded-2xl bg-white px-5 pb-6 pt-7" style={{ border: `1px solid ${LINE}` }}>
+              <div
+                className="hp-num font-mono font-extrabold"
+                style={{ fontSize: 'clamp(30px,3.6vw,40px)', letterSpacing: '-.03em', lineHeight: 1, color: f.color }}
+              >
+                {f.big[lang]}
+              </div>
+              <p className="mt-2.5 text-[13px]" style={{ color: INK2, lineHeight: 1.55 }}>
+                {f.p[lang]}
+              </p>
+            </div>
           ))}
         </div>
-      </section>
+      </div>
 
-      {/* ===== 01 · HOW IT WORKS ===== */}
-      <Section
-        n="01"
-        kicker={zh ? '端到端流程' : 'END-TO-END FLOW'}
-        title={zh ? <>从找房到入住,<br />一条路走完。</> : <>From search to move-in,<br />one path the whole way.</>}
-        lead={zh ? '不用在平台之间来回跳。AI 助手在每一步陪着你,但每个关键决定,始终是你的。' : 'No bouncing between platforms. Your AI agent is with you at every step — but every key decision is always yours.'}
-      >
-        <div className="relative">
-          <div className="absolute left-[10%] right-[10%] top-7 hidden h-[2px] lg:block" style={{ background: 'linear-gradient(90deg,#7C3AED,#94A3B8 55%,#047857)' }} />
-          <div className="relative grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
-            {JOURNEY.map((j, i) => (
-              <div key={j.h.zh} className="flex flex-col items-center text-center lg:items-start lg:text-left">
-                <JourneyIcon step={i} />
-                <div className="mt-3 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-brand">STEP 0{i + 1}</div>
-                <h4 className="mt-1.5 text-[14.5px] font-bold leading-snug">{j.h[lang]}</h4>
-                <p className="mt-1.5 text-[12px] leading-relaxed text-body-3">{j.b[lang]}</p>
+      {/* ============ ACT 3 · ERA + THREE ROLES ============ */}
+      <div id="roles" className="mx-auto max-w-[1180px] px-5 pb-[30px] pt-[100px] sm:px-8" style={{ scrollMarginTop: 70 }}>
+        <div className="hp-rv mx-auto max-w-[880px] text-center">
+          <Eyebrow color={ROLE_THEME.landlord.accent}>
+            {zh ? '/ 三种角色 · 每人一个 AGENT' : '/ THREE ROLES · ONE AGENT EACH'}
+          </Eyebrow>
+          <h2
+            className="mt-[18px] font-extrabold"
+            style={{ fontSize: 'clamp(30px,4.8vw,48px)', lineHeight: 1.22, letterSpacing: '-.015em', textWrap: 'balance' }}
+          >
+            {zh ? '每个角色，都有自己的 Agent。' : 'Every role gets its own agent.'}
+            <br />
+            <span className="font-bold" style={{ color: INK3 }}>
+              {zh ? '三种身份，就此升级。' : 'Three identities, upgraded.'}
+            </span>
+          </h2>
+          <p className="mt-4 font-extrabold" style={{ fontSize: 'clamp(19px,2.8vw,26px)' }}>
+            {zh ? (
+              <>
+                有了自己的 AI Agent 之后，他们各自成为了<em className="not-italic" style={GRAD_TEXT}>更自由的人</em>。
+              </>
+            ) : (
+              <>
+                With an agent of their own, each became <em className="not-italic" style={GRAD_TEXT}>a freer person</em>.
+              </>
+            )}
+          </p>
+        </div>
+
+        <div className="hp-rv mb-14 mt-12 grid gap-3.5 md:grid-cols-3">
+          {SHIFTS.map((s) => (
+            <div key={s.who} className="rounded-2xl bg-white px-6 py-[22px] text-center" style={{ border: `1px solid ${LINE}` }}>
+              <div className="font-mono text-[10.5px] font-bold" style={{ letterSpacing: '.16em', color: ROLE_THEME[s.role].accent }}>
+                {s.who}
               </div>
-            ))}
+              <div className="mt-2.5 text-[14.5px]" style={{ color: INK3 }}>
+                {s.from[lang]}
+              </div>
+              <p className="m-0" style={{ color: INK3 }}>
+                ↓
+              </p>
+              <div className="text-[20px] font-extrabold" style={{ color: ROLE_THEME[s.role].deep }}>
+                {s.to[lang]}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <RoleTabs lang={lang} zh={zh} />
+      </div>
+
+      {/* ============ ACT 4 · DARK EVIDENCE BENTO ============ */}
+      <div className="mt-[100px] pb-24 pt-[92px]" style={{ background: DARK, color: DARK_INK }}>
+        <div className="mx-auto max-w-[1180px] px-5 sm:px-8">
+          <div className="hp-rv">
+            <Eyebrow color={ROLE_THEME.landlord.light}>
+              {zh ? '/ 凭什么信 · 证据全部可点开' : '/ WHY TRUST US · EVERY PROOF CLICKS OPEN'}
+            </Eyebrow>
+            <h2 className="mb-2 mt-4 font-extrabold" style={{ fontSize: 'clamp(28px,4vw,42px)', letterSpacing: '-.015em', textWrap: 'balance' }}>
+              {zh ? (
+                <>
+                  不给你形容词，
+                  <br />
+                  给你数据、理由和留痕。
+                </>
+              ) : (
+                <>
+                  No adjectives —
+                  <br />
+                  just data, reasons and an audit trail.
+                </>
+              )}
+            </h2>
+            <p className="m-0 max-w-[42em] text-[15.5px]" style={{ color: DARK_MUTED }}>
+              {zh
+                ? '下面每一块都是真实产品组件的实时输出 —— 不是宣传图。'
+                : 'Every block below is live output from a real product component — not a marketing mock.'}
+            </p>
+          </div>
+
+          <div className="mt-11 grid grid-cols-1 gap-4 lg:grid-cols-12">
+            {/* b1 · score ring */}
+            <BentoCell span={5}>
+              <CellLab>{zh ? 'STAYLOOP SCORE · 可解释评分' : 'STAYLOOP SCORE · EXPLAINABLE'}</CellLab>
+              <CellH3>{zh ? '8 个维度，每一分都有理由' : '8 dimensions, a reason behind every point'}</CellH3>
+              <CellD>
+                {zh ? (
+                  <>
+                    普通信用查询丢给你一个 675。我们把它拆成 <b style={{ color: DARK_INK }}>8 个独立维度 · 504 个数据点</b>
+                    ，每一个都告诉你：看了什么、得了多少、为什么。
+                  </>
+                ) : (
+                  <>
+                    An ordinary credit pull hands you a 675. We split it into{' '}
+                    <b style={{ color: DARK_INK }}>8 independent dimensions · 504 data points</b> — each tells you what
+                    was checked, what it scored, and why.
+                  </>
+                )}
+              </CellD>
+              <div className="flex flex-wrap items-center gap-6">
+                <svg width="120" height="120" viewBox="0 0 120 120" role="img" aria-label={zh ? '综合评分 89' : 'Overall score 89'}>
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,.1)" strokeWidth="9" />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="50"
+                    fill="none"
+                    stroke="#6EE7B7"
+                    strokeWidth="9"
+                    strokeLinecap="round"
+                    strokeDasharray="279.6 314.2"
+                    transform="rotate(-90 60 60)"
+                  />
+                  <text x="60" y="66" textAnchor="middle" fontSize="30" fontWeight="800" fill={DARK_INK} fontFamily="ui-monospace, monospace">
+                    89
+                  </text>
+                  <text x="60" y="82" textAnchor="middle" fontSize="8.5" fill={DARK_MUTED} fontFamily="ui-monospace, monospace">
+                    / 100
+                  </text>
+                </svg>
+                <div className="grid min-w-[190px] flex-1 gap-[7px]">
+                  {DIMS.map((d) => (
+                    <div key={d.zh} className="grid items-center gap-2.5 text-[11px]" style={{ gridTemplateColumns: '84px 1fr 26px', color: DARK_MUTED }}>
+                      <span>{zh ? d.zh : d.en}</span>
+                      <span className="relative h-1 rounded-full" style={{ background: 'rgba(255,255,255,.09)' }}>
+                        <i className="absolute bottom-0 left-0 top-0 rounded-full" style={{ width: `${d.v}%`, background: ROLE_THEME.landlord.light }} />
+                      </span>
+                      <b className="hp-num text-right font-mono" style={{ color: DARK_INK }}>
+                        {d.v}
+                      </b>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </BentoCell>
+
+            {/* b2 · market card, big TRREB sparkline */}
+            <BentoCell span={7}>
+              <CellLab>{zh ? '市场行情 · 双数据源' : 'MARKET DATA · TWO SOURCES'}</CellLab>
+              <CellH3>{zh ? '实时挂牌 + 官方成交，一张卡看全' : 'Live listings + official leases, one card'}</CellH3>
+              <CellD>
+                {zh ? (
+                  <>
+                    Realtor.ca 实时挂牌告诉你<b style={{ color: DARK_INK }}>现在要价多少</b>，TRREB 季度成交（我们入库了{' '}
+                    <b style={{ color: DARK_INK }}>2019 年以来 6,401 行官方数据</b>）告诉你
+                    <b style={{ color: DARK_INK }}>实际成交多少</b> —— 议价的两个锚点都给你。
+                  </>
+                ) : (
+                  <>
+                    Realtor.ca live listings tell you <b style={{ color: DARK_INK }}>what is being asked now</b>; TRREB
+                    quarterly leases (<b style={{ color: DARK_INK }}>6,401 official rows since 2019</b> in our database)
+                    tell you <b style={{ color: DARK_INK }}>what actually closed</b> — both anchors for your negotiation.
+                  </>
+                )}
+              </CellD>
+              <div className="rounded-xl px-3.5 py-3" style={{ background: 'rgba(255,255,255,.04)', border: `1px solid ${DARK_LINE}` }}>
+                <div className="font-mono text-[9px]" style={{ letterSpacing: '.14em', color: DARK_MUTED }}>
+                  {zh ? '📊 NORTH YORK · 2 房+ · 样本 12 套' : '📊 NORTH YORK · 2BED+ · SAMPLE 12'}
+                </div>
+                <div className="mt-1 flex items-baseline gap-2.5">
+                  <span className="hp-num text-[24px] font-extrabold" style={{ letterSpacing: '-.01em' }}>
+                    $2,300–$4,500
+                  </span>
+                  <span className="text-[11px]" style={{ color: DARK_MUTED }}>
+                    {zh ? '中位' : 'median'}{' '}
+                    <b className="hp-num" style={{ color: DARK_INK }}>
+                      $2,820
+                    </b>
+                  </span>
+                </div>
+                <Gauge />
+                <div className="mt-2.5 pt-[9px] text-[10.5px]" style={{ borderTop: `1px dashed ${DARK_LINE}`, color: DARK_MUTED }}>
+                  {zh ? '官方基准 · TRREB Toronto C14 · 2026 Q1：' : 'Official benchmark · TRREB Toronto C14 · 2026 Q1: '}
+                  <b className="hp-num" style={{ color: DARK_INK }}>
+                    $2,914
+                  </b>{' '}
+                  {zh ? '· 224 宗 · 同比 −4.6%' : '· 224 leases · −4.6% YoY'}
+                  <svg className="mt-1.5 block w-full" viewBox="0 0 560 76" role="img" aria-label={zh ? 'TRREB 两年趋势' : 'TRREB 2-year trend'}>
+                    <line x1="8" y1="20" x2="552" y2="20" stroke="rgba(255,255,255,.09)" />
+                    <line x1="8" y1="44" x2="552" y2="44" stroke="rgba(255,255,255,.09)" />
+                    <line x1="8" y1="68" x2="552" y2="68" stroke="rgba(255,255,255,.09)" />
+                    <polyline
+                      fill="none"
+                      stroke="#C4B5FD"
+                      strokeWidth="2.4"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      points="20,30 96,18 172,29 248,40 324,44 400,39 476,42 544,60"
+                    />
+                    <circle cx="544" cy="60" r="4" fill="#C4B5FD" stroke={DARK2} strokeWidth="2" />
+                    <text x="540" y="48" textAnchor="end" fontSize="11" fontWeight="700" fill={DARK_INK} fontFamily="ui-monospace, monospace">
+                      $2,914
+                    </text>
+                    <text x="20" y="74" fontSize="8.5" fill={DARK_MUTED} fontFamily="ui-monospace, monospace">
+                      24Q2
+                    </text>
+                    <text x="544" y="74" textAnchor="end" fontSize="8.5" fill={DARK_MUTED} fontFamily="ui-monospace, monospace">
+                      26Q1
+                    </text>
+                  </svg>
+                </div>
+              </div>
+            </BentoCell>
+
+            {/* b3 · guardrail */}
+            <BentoCell span={7}>
+              <CellLab>{zh ? 'COMPLIANCE GUARDRAIL · 拦截实录' : 'COMPLIANCE GUARDRAIL · A REAL BLOCK'}</CellLab>
+              <CellH3>{zh ? '违规操作，AI 直接拦下' : 'Illegal moves, blocked by the AI'}</CellH3>
+              <CellD>
+                {zh ? (
+                  <>
+                    安省《住宅租赁法》和《人权法》写进了引擎。歧视性拒绝、非法条款、超限涨租 ——{' '}
+                    <b style={{ color: DARK_INK }}>在发出去之前就被拦截</b>，而不是收到投诉之后。
+                  </>
+                ) : (
+                  <>
+                    Ontario&apos;s RTA and Human Rights Code are written into the engine. Discriminatory rejections,
+                    illegal clauses, over-limit rent hikes — <b style={{ color: DARK_INK }}>blocked before they go out</b>
+                    , not after the complaint.
+                  </>
+                )}
+              </CellD>
+              <div className="rounded-xl px-4 py-3 text-[12.5px]" style={{ background: 'rgba(185,28,28,.12)', border: '1px solid rgba(248,113,113,.3)' }}>
+                <div className="font-mono text-[9.5px] font-bold" style={{ letterSpacing: '.12em', color: '#F87171' }}>
+                  ■ BLOCKED · {zh ? 'OHRC 保护性事由' : 'OHRC PROTECTED GROUND'}
+                </div>
+                {zh
+                  ? '「拒绝理由：家里有小孩」—— 家庭状况为受保护事由，已阻止发送并向房东说明合规拒绝方式。'
+                  : '"Rejection reason: they have kids" — family status is a protected ground. Sending was blocked and the landlord was shown a compliant way to decline.'}
+              </div>
+              <div className="mt-3 font-mono text-[10.5px]" style={{ color: DARK_MUTED, lineHeight: 1.9 }}>
+                <b style={{ color: ROLE_THEME.landlord.light }}>audit</b> 2026-07-09 14:02 · guardrail_blocked ·
+                actor=landlord_agent · {zh ? '链上可查' : 'on-chain verifiable'}
+                <br />
+                <b style={{ color: ROLE_THEME.landlord.light }}>audit</b> 2026-07-09 14:05 · application_declined ·
+                reason=&quot;{zh ? '收入未达标准' : 'income below threshold'}&quot; · ✓ {zh ? '合规' : 'compliant'}
+              </div>
+            </BentoCell>
+
+            {/* b4 · passport */}
+            <BentoCell span={5}>
+              <CellLab>RENTAL PASSPORT</CellLab>
+              <CellH3>{zh ? '验证一次，处处通行' : 'Verify once, go anywhere'}</CellH3>
+              <CellD>
+                {zh ? (
+                  <>
+                    身份、收入、信用授权封装成一本<b style={{ color: DARK_INK }}>可携带的通行证</b>
+                    。每次分享给谁、分享哪些字段，都由你逐次点头 —— 隐私不是商品。
+                  </>
+                ) : (
+                  <>
+                    Identity, income and credit authorization packed into{' '}
+                    <b style={{ color: DARK_INK }}>a portable passport</b>. Who sees it and which fields — you approve
+                    each time. Privacy is not a commodity.
+                  </>
+                )}
+              </CellD>
+              <div
+                className="mb-3.5 flex items-center gap-3.5 rounded-[14px] px-[18px] py-4"
+                style={{ background: 'rgba(255,255,255,.04)', border: '1.5px solid rgba(196,181,253,.5)' }}
+              >
+                <div className="flex h-[42px] w-[42px] items-center justify-center rounded-[10px] text-[19px] text-white" style={{ background: ROLE_ORB('tenant') }}>
+                  🛂
+                </div>
+                <div>
+                  <b className="block text-[14.5px]" style={{ color: DARK_INK }}>
+                    Mia Chen · {zh ? '已盖 3/4 枚章' : '3/4 stamps collected'}
+                  </b>
+                  <span className="text-[12px]" style={{ color: DARK_MUTED }}>
+                    {zh ? '身份 ✓ 收入 ✓ 信用 ✓ · 90 秒完成' : 'Identity ✓ Income ✓ Credit ✓ · done in 90s'}
+                  </span>
+                </div>
+              </div>
+              <p className="m-0 text-[13px]" style={{ color: DARK_MUTED }}>
+                {zh ? (
+                  <>
+                    已复用 <b style={{ color: DARK_INK }}>7 次</b> · 0 次重复提交材料
+                  </>
+                ) : (
+                  <>
+                    Reused <b style={{ color: DARK_INK }}>7 times</b> · 0 documents re-submitted
+                  </>
+                )}
+              </p>
+            </BentoCell>
           </div>
         </div>
-      </Section>
+      </div>
 
-      {/* ===== 02 · WHY AI-NATIVE ===== */}
-      <Section
-        n="02"
-        kicker={zh ? '为什么是 AI-NATIVE' : 'WHY AI-NATIVE'}
-        title={zh ? <>交给你的 AI agent,<br />它从头跟到尾。</> : <>Hand it to your AI agent —<br />it follows through end to end.</>}
-        lead={zh ? '你不用研究怎么用这个平台。把要的告诉 AI agent,找房、尽调、申请、起草租约,它从头跟到尾;你只在关键处拍板。' : "You don't have to learn how to use this platform. Tell the AI agent what you want — it searches, runs diligence, applies and drafts the lease end to end. You only make the calls that matter."}
-        tint
-      >
-        <div className="grid gap-5 lg:grid-cols-3">
-          {PILLARS.map((p) => (
-            <div key={p.h.en} className="flex flex-col rounded-2xl border border-line-divider bg-white p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl text-[18px] text-white" style={{ background: GRAD }}>
-                {p.icon}
+      {/* ============ ACT 5 · PASSPORT ============ */}
+      <div className="hp-rv mx-auto max-w-[1180px] px-5 pb-5 pt-[100px] sm:px-8">
+        <div className="mx-auto max-w-[880px] text-center">
+          <Eyebrow color={ROLE_THEME.tenant.accent}>
+            {zh ? '/ RENTAL PASSPORT · 你的通行证' : '/ RENTAL PASSPORT · YOUR PASS'}
+          </Eyebrow>
+          <h2 className="mt-4 font-extrabold" style={{ fontSize: 'clamp(26px,3.8vw,40px)', letterSpacing: '-.015em' }}>
+            {zh ? (
+              <>
+                验证一次，<span className="font-bold" style={{ color: INK3 }}>处处通行。</span>
+              </>
+            ) : (
+              <>
+                Verify once, <span className="font-bold" style={{ color: INK3 }}>go anywhere.</span>
+              </>
+            )}
+          </h2>
+        </div>
+        <div className="mx-auto mt-10 max-w-[640px]">
+          <div className="rounded-2xl px-7 py-[26px]" style={{ background: SOFT.tenant, border: `1px solid ${ROLE_THEME.tenant.light}` }}>
+            <h3 className="mb-3.5 mt-0 font-mono text-[12px]" style={{ letterSpacing: '.14em', color: ROLE_THEME.tenant.deep }}>
+              {zh ? 'STAYLOOP · 一本通行证' : 'STAYLOOP · ONE PASSPORT'}
+            </h3>
+            <div
+              className="mb-3.5 flex items-center gap-3.5 rounded-[14px] bg-white px-[18px] py-4"
+              style={{ border: `1.5px solid ${ROLE_THEME.tenant.accent}` }}
+            >
+              <div className="flex h-[42px] w-[42px] items-center justify-center rounded-[10px] text-[19px] text-white" style={{ background: ROLE_ORB('tenant') }}>
+                🛂
               </div>
-              <h4 className="mt-4 text-[19px] font-extrabold tracking-tight">{p.h[lang]}</h4>
-              <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">{p.b[lang]}</p>
-              <ul className="mt-4 space-y-2 border-t border-line-divider pt-4 text-[12.5px]">
-                {p.proofs.map((pr) => (
-                  <li key={pr.en} className="flex items-start gap-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="mt-[2px] flex-none"><path d="M20 6 9 17l-5-5" /></svg>
-                    <span className="text-body-2">{pr[lang]}</span>
+              <div>
+                <b className="block text-[14.5px]">Rental Passport · {zh ? '已盖 3/4 枚章' : '3/4 stamps collected'}</b>
+                <span className="text-[12px]" style={{ color: INK3 }}>
+                  {zh ? '身份 / 收入 / 信用已验证 · 90 秒完成' : 'identity / income / credit verified · done in 90s'}
+                </span>
+              </div>
+            </div>
+            <p className="m-0 text-[13.5px]" style={{ color: INK2 }}>
+              {zh ? (
+                <>
+                  之后每次申请：<b style={{ color: ROLE_THEME.tenant.deep }}>一键授权</b>，指定分享范围，房东只看到验证结果 ——{' '}
+                  <b style={{ color: ROLE_THEME.tenant.deep }}>原件永不离开你</b>
+                  。每次分享留有记录，随时可撤。没有加拿大信用记录也没关系：8 维评分用收入流水、稳定性、行为信号替你说话。
+                </>
+              ) : (
+                <>
+                  Every later application: <b style={{ color: ROLE_THEME.tenant.deep }}>one-tap authorization</b>, you
+                  set the sharing scope, the landlord sees only verified results —{' '}
+                  <b style={{ color: ROLE_THEME.tenant.deep }}>your originals never leave you</b>. Every share is logged
+                  and revocable. No Canadian credit history? The 8-dimension score speaks for you with cash flow,
+                  stability and behavior signals.
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ============ ACT 6 · TRI-AGENT ============ */}
+      <div className="hp-rv mx-auto max-w-[1180px] px-5 pb-[30px] pt-24 text-center sm:px-8">
+        <div className="mx-auto max-w-[880px]">
+          <Eyebrow color={ROLE_THEME.agent.accent}>
+            {zh ? '/ 全市场独有 · 三方 AGENT 互通' : '/ ONLY ON STAYLOOP · TRI-AGENT INTEROP'}
+          </Eyebrow>
+          <h2 className="mt-4 font-extrabold" style={{ fontSize: 'clamp(26px,3.8vw,40px)', letterSpacing: '-.015em' }}>
+            {zh ? '你的 Agent，会和对面的 Agent 谈。' : 'Your agent talks to the agent across the table.'}
+          </h2>
+        </div>
+        <div className="mx-auto mt-11 flex max-w-[640px] items-center justify-between">
+          <TriNode role="tenant" name={zh ? 'LUNA · 租客' : 'LUNA · TENANT'} />
+          <div
+            className="hp-trilink mx-2 mb-[26px] h-[2px] flex-1"
+            style={{ background: `linear-gradient(90deg, ${ROLE_THEME.tenant.light}, ${ROLE_THEME.agent.light})` }}
+          />
+          <TriNode role="agent" name={zh ? 'BRIEF · 经纪' : 'BRIEF · AGENT'} />
+          <div
+            className="hp-trilink mx-2 mb-[26px] h-[2px] flex-1"
+            style={{ background: `linear-gradient(90deg, ${ROLE_THEME.agent.light}, ${ROLE_THEME.landlord.light})` }}
+          />
+          <TriNode role="landlord" name={zh ? 'LOGIC · 房东' : 'LOGIC · LANDLORD'} />
+        </div>
+        <p className="mx-auto mt-[26px] max-w-[40em] text-[15px]" style={{ color: INK2 }}>
+          {zh ? (
+            <>
+              同一套信任引擎，三种人格。它们之间会对话、会交接 —— 约看、议价、材料授权在 Agent 之间完成，
+              <b style={{ color: INK }}>但各自只忠于自己的那个人</b>。
+            </>
+          ) : (
+            <>
+              One trust engine, three personalities. They converse and hand off — viewings, negotiation and document
+              authorization happen agent-to-agent, <b style={{ color: INK }}>yet each is loyal only to its own person</b>.
+            </>
+          )}
+        </p>
+      </div>
+
+      {/* ============ ACT 7 · CHECKLIST ============ */}
+      <div className="hp-rv mx-auto max-w-[1180px] px-5 pb-5 pt-24 sm:px-8">
+        <div className="mx-auto max-w-[880px] text-center">
+          <Eyebrow color={ROLE_THEME.tenant.accent}>
+            {zh ? '/ 你的租房清单 · 逐项有人管' : '/ YOUR RENTAL CHECKLIST · EVERY ITEM COVERED'}
+          </Eyebrow>
+          <h2 className="mt-4 font-extrabold" style={{ fontSize: 'clamp(26px,3.8vw,40px)', letterSpacing: '-.015em' }}>
+            {zh ? (
+              <>
+                四件事，<span className="font-bold" style={{ color: INK3 }}>件件有人替你办。</span>
+              </>
+            ) : (
+              <>
+                Four jobs, <span className="font-bold" style={{ color: INK3 }}>each with someone on it.</span>
+              </>
+            )}
+          </h2>
+        </div>
+        <div className="mt-10 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+          {CHECKLIST.map((c) => (
+            <div key={c.noKey} className="flex flex-col rounded-2xl bg-white px-[22px] pb-[18px] pt-[22px]" style={{ border: `1px solid ${LINE}` }}>
+              <div className="font-mono text-[10px]" style={{ letterSpacing: '.16em', color: INK3 }}>
+                {c.no[lang]}
+              </div>
+              <h3 className="mb-2.5 mt-2 text-[17.5px] font-extrabold" style={{ letterSpacing: '-.01em' }}>
+                {c.h[lang]}
+              </h3>
+              <p className="mb-3.5 mt-0 flex-1 text-[13.5px]" style={{ color: INK2 }}>
+                {c.p[lang]}
+              </p>
+              <span
+                className="inline-flex items-center gap-[7px] self-start rounded-full px-[11px] py-[5px] font-mono text-[9.5px] font-bold"
+                style={{ letterSpacing: '.1em', background: SOFT[c.chipRole], color: ROLE_THEME[c.chipRole].deep }}
+              >
+                <span className="h-3 w-3 rounded-full" style={{ background: ROLE_ORB(c.chipRole) }} />
+                {c.chip[lang]}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ============ ACT 8 · CREED + PRICING ============ */}
+      <div className="hp-rv mt-24" style={{ background: SOFT.landlord, borderTop: `1px solid ${LINE}`, borderBottom: `1px solid ${LINE}` }}>
+        <div className="mx-auto max-w-[900px] px-5 py-[72px] text-center sm:px-8">
+          <h2 className="m-0 font-extrabold" style={{ fontSize: 'clamp(24px,3.6vw,36px)', letterSpacing: '-.015em', textWrap: 'balance' }}>
+            {zh ? '租客永远免费。' : 'Tenants are free forever.'}
+            <br />
+            <b style={{ color: ROLE_THEME.landlord.deep }}>
+              {zh ? '你的隐私，永远不是商品。' : 'Your privacy is never for sale.'}
+            </b>
+          </h2>
+          <p className="mb-0 mt-3.5" style={{ color: INK2 }}>
+            {zh
+              ? 'Stayloop 靠订阅收费 —— 房东与经纪按价值付费，没有人靠倒卖你的数据赚钱。'
+              : 'Stayloop runs on subscriptions — landlords and agents pay for value. Nobody profits from reselling your data.'}
+          </p>
+          <div className="mx-auto mt-10 max-w-[620px] text-left">
+            <div className="rounded-2xl px-7 py-[26px]" style={{ background: DARK, color: DARK_INK }}>
+              <h3 className="m-0 font-mono text-[10.5px] font-bold" style={{ letterSpacing: '.16em', color: ROLE_THEME.landlord.light }}>
+                {zh ? 'STAYLOOP 定价 · 透明 · 无隐藏' : 'STAYLOOP PRICING · TRANSPARENT · NO HIDDEN FEES'}
+              </h3>
+              <div className="hp-num mb-0.5 mt-3.5 font-mono text-[34px] font-extrabold" style={{ letterSpacing: '-.02em', color: ROLE_THEME.landlord.light }}>
+                $0
+              </div>
+              <div className="text-[12px]" style={{ color: DARK_MUTED }}>
+                {zh
+                  ? '租客申请，永远免费 · 次数不限 · 不影响信用分'
+                  : 'Tenant applications free forever · unlimited · never touches your credit'}
+              </div>
+              <ul className="m-0 mt-4 grid list-none gap-[11px] p-0">
+                {PRICE_CHECKS.map((li) => (
+                  <li key={li.zh as string} className="flex items-baseline gap-2.5 text-[13.5px]">
+                    <span className="font-bold" style={{ color: ROLE_THEME.landlord.light }}>
+                      ✓
+                    </span>
+                    <span>{li[lang]}</span>
                   </li>
                 ))}
               </ul>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ===== 03 · THREE ROLES ===== */}
-      <RolesSection lang={lang} zh={zh} />
-
-      {/* ===== 04 · DEEP SCREENING ===== */}
-      <Section
-        n="04"
-        kicker={zh ? '深度尽调' : 'DEEP DILIGENCE'}
-        title={zh ? <>不止给你一个数字,<br />而是给你完整的理由。</> : <>Not just a number,<br />but the full reasoning.</>}
-        lead={zh ? '普通信用查询只丢给你一个 675。Stayloop 把它拆成 8 个独立维度,每一个都告诉你:我看了什么、得了多少分、为什么。' : "An ordinary credit check just hands you a 675. Stayloop breaks it into 8 independent dimensions, each telling you what was checked, the score, and why."}
-        tint
-      >
-        <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            {DIMS.map((d) => (
-              <div key={d.k} className="flex items-center gap-3 rounded-[10px] border border-line-divider bg-white px-[15px] py-[13px]">
-                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg font-mono text-[13px] font-extrabold" style={{ background: d.bg, color: d.fg }}>{d.k}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-bold leading-tight">{d.name[lang]}</div>
-                  <div className="font-mono text-[10.5px] text-body-3">{d.ev[lang]}</div>
-                </div>
-                <span className="font-mono text-[18px] font-bold" style={{ color: d.amber ? '#B45309' : '#047857' }}>{d.score}</span>
-              </div>
-            ))}
-          </div>
-          <div className="rounded-2xl border p-[34px] px-[30px] text-center" style={{ background: 'linear-gradient(180deg,#fff,#FBF8EE)', borderColor: '#047857' }}>
-            <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-success">{zh ? 'STAYLOOP SCORE · 综合' : 'STAYLOOP SCORE · OVERALL'}</div>
-            <div className="relative mx-auto my-5 h-[184px] w-[184px]">
-              <svg viewBox="0 0 184 184" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
-                <defs>
-                  <linearGradient id="slgrd" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stopColor="#10B981" />
-                    <stop offset="1" stopColor="#047857" />
-                  </linearGradient>
-                </defs>
-                <circle cx="92" cy="92" r="76" fill="none" stroke="#EFE9D8" strokeWidth="12" />
-                <circle cx="92" cy="92" r="76" fill="none" stroke="url(#slgrd)" strokeWidth="12" strokeLinecap="round" strokeDasharray="477.5" strokeDashoffset="52.5" style={{ filter: 'drop-shadow(0 0 6px rgba(4,120,87,0.30))' }} />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-                <b className="font-mono text-[56px] font-bold tracking-tightest">89</b>
-                <span className="mt-1.5 font-mono text-[10px] text-body-3">/ 100</span>
+              <div className="mt-4 pt-3.5 text-[12px]" style={{ borderTop: `1px dashed ${DARK_LINE}`, color: DARK_MUTED, lineHeight: 1.9 }}>
+                {zh ? (
+                  <>
+                    房东：起步 <b className="font-mono" style={{ color: DARK_INK }}>$0</b> · 专业{' '}
+                    <b className="font-mono" style={{ color: DARK_INK }}>$19/月</b> · 团队{' '}
+                    <b className="font-mono" style={{ color: DARK_INK }}>$39/月</b>　｜　经纪：免费入驻 · 转介分账 RECO 合规
+                  </>
+                ) : (
+                  <>
+                    Landlords: Starter <b className="font-mono" style={{ color: DARK_INK }}>$0</b> · Pro{' '}
+                    <b className="font-mono" style={{ color: DARK_INK }}>$19/mo</b> · Team{' '}
+                    <b className="font-mono" style={{ color: DARK_INK }}>$39/mo</b>　|　Agents: free to join ·
+                    RECO-compliant referral splits
+                  </>
+                )}
               </div>
             </div>
-            <div className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-bold text-success" style={{ background: 'rgba(4,120,87,0.10)' }}>
-              <span className="h-1.5 w-1.5 rounded-full bg-success" />{zh ? 'PROCEED · 高置信度' : 'PROCEED · high confidence'}
-            </div>
-            <div className="mt-[15px] font-mono text-[10px] leading-relaxed text-body-3">
-              {zh ? '7 PASS · 1 INFO · 0 红旗' : '7 PASS · 1 INFO · 0 red flags'}<br />{zh ? '504/504 dp · 链上可审 0xa481…3c92' : '504/504 dp · on-chain audit 0xa481…3c92'}
-            </div>
           </div>
         </div>
-      </Section>
+      </div>
 
-      {/* ===== CTA ===== */}
-      <section className="bg-white">
-        <div className="mx-auto max-w-[1240px] px-5 py-20 text-center sm:px-7 lg:px-12">
-          <h2 className="mx-auto max-w-[720px] text-[26px] font-extrabold leading-tight tracking-tight sm:text-[42px]">
-            {zh ? <>给你的 AI 助手起个名字,<br />让租房这件事,从此不一样。</> : <>Name your AI agent,<br />and renting is never the same again.</>}
-          </h2>
-          <div className="mt-7 flex flex-wrap justify-center gap-3">
-            <Link href="/onboarding/welcome" className="sl-btn-primary !px-7 !py-[14px] !text-[15px]">{zh ? '唤醒你的 AI 助手 →' : 'Wake up your AI agent →'}</Link>
-            <Link href="/listings" className="rounded-[10px] border border-line-strong bg-white px-6 py-[13px] text-[14px] font-semibold text-body transition hover:border-brand hover:text-brand">{zh ? '先浏览房源 →' : 'Browse listings first →'}</Link>
-          </div>
-          <p className="mt-4 font-mono text-[11px] uppercase tracking-eyebrow text-body-3">
-            {zh ? '免费开始 · 租客永远 $0 · 不影响信用分' : 'Free to start · always $0 for tenants · never touches your credit'}
-          </p>
-        </div>
-      </section>
+      {/* ============ ACT 9 · FINAL CTA ============ */}
+      <div className="hp-rv mx-auto max-w-[1180px] px-5 pb-24 pt-[88px] text-center sm:px-8">
+        <h2 className="mb-[26px] mt-0 font-extrabold" style={{ fontSize: 'clamp(28px,4.4vw,46px)', letterSpacing: '-.02em' }}>
+          {zh ? '现在，试一句。' : 'Now, try one sentence.'}
+        </h2>
+        <TryBar animate={false} centered buttonLabel={zh ? '开始 →' : 'Start →'} />
+        <p className="mt-3.5 text-[12.5px]" style={{ color: INK3 }}>
+          {zh
+            ? '给你的 AI 起个名字 —— 让租房这件事，从此不一样。'
+            : 'Name your AI — and renting is never the same again.'}
+        </p>
+      </div>
 
       <Footer />
     </div>
   )
 }
 
-/* ===================== building blocks ===================== */
+/* ===================== animations / reveal CSS ===================== */
 
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">{children}</div>
-}
-
-function Section({ n, kicker, title, lead, children, tint }: {
-  n: string; kicker: string; title: React.ReactNode; lead: string; children: React.ReactNode; tint?: boolean
-}) {
+function PageStyles() {
   return (
-    <section style={tint ? { background: '#F2EEE5' } : undefined}>
-      <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-7 lg:px-12">
-        <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">/ {n} · {kicker}</div>
-        <h2 className="mt-3 text-[30px] font-extrabold leading-tight tracking-tight sm:text-[38px]">{title}</h2>
-        <p className="mt-4 max-w-[820px] text-[15px] leading-relaxed text-body-2">{lead}</p>
-        <div className="mt-9">{children}</div>
-      </div>
-    </section>
+    <style>{`
+      .hp-num { font-variant-numeric: tabular-nums; }
+      .hp-rv { opacity: 1; }
+      .hp-caret { display: inline-block; width: 2px; height: 1em; background: #7C3AED; vertical-align: -2px; margin-left: 2px; }
+      .hp-trilink { position: relative; overflow: hidden; }
+      @media (prefers-reduced-motion: no-preference) {
+        .hp-rv { opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; }
+        .hp-rv.in { opacity: 1; transform: none; }
+        .hp-caret { animation: hpBlink 1s steps(1) infinite; }
+        @keyframes hpBlink { 50% { opacity: 0; } }
+        .hp-orb { animation: hpBreathe 3.5s ease-in-out infinite; }
+        @keyframes hpBreathe { 50% { transform: scale(1.08); box-shadow: 0 0 18px rgba(124,58,237,.5); } }
+        .hp-panel { animation: hpFadein .3s ease; }
+        @keyframes hpFadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        .hp-trilink::after { content: ""; position: absolute; top: -2px; width: 26px; height: 6px; border-radius: 999px;
+          background: rgba(255,255,255,.85); mix-blend-mode: overlay; filter: blur(1px); animation: hpFlow 2.6s linear infinite; }
+        @keyframes hpFlow { from { left: -30px; } to { left: 105%; } }
+      }
+    `}</style>
   )
 }
 
-function ChatInputBar() {
+/* ===================== small building blocks ===================== */
+
+function Eyebrow({ children, color }: { children: React.ReactNode; color: string }) {
+  return (
+    <div className="font-mono text-[11px] font-bold" style={{ letterSpacing: '.2em', color }}>
+      {children}
+    </div>
+  )
+}
+
+function BentoCell({ span, children }: { span: 5 | 7; children: React.ReactNode }) {
+  return (
+    <div
+      className={`hp-rv rounded-[18px] px-[26px] py-6 ${span === 5 ? 'lg:col-span-5' : 'lg:col-span-7'}`}
+      style={{ background: DARK2, border: `1px solid ${DARK_LINE}` }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function CellLab({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="font-mono text-[10px]" style={{ letterSpacing: '.16em', color: DARK_MUTED }}>
+      {children}
+    </div>
+  )
+}
+
+function CellH3({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="mb-1 mt-2 text-[17.5px] font-extrabold" style={{ letterSpacing: '-.01em' }}>
+      {children}
+    </h3>
+  )
+}
+
+function CellD({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-3.5 mt-0 text-[13px]" style={{ color: DARK_MUTED }}>
+      {children}
+    </p>
+  )
+}
+
+function TriNode({ role, name }: { role: RoleKey; name: string }) {
+  return (
+    <div className="z-[1] flex flex-col items-center gap-2.5">
+      <span className="h-[58px] w-[58px] rounded-full" style={{ background: ROLE_ORB(role) }} />
+      <span className="font-mono text-[10.5px] font-bold" style={{ letterSpacing: '.14em', color: INK2 }}>
+        {name}
+      </span>
+    </div>
+  )
+}
+
+function Gauge() {
+  return (
+    <div className="relative mt-2 h-[5px] rounded-full opacity-90" style={{ background: 'linear-gradient(90deg,#6EE7B7,#FBBF24,#F87171)' }}>
+      <span
+        className="absolute top-1/2 h-[11px] w-[11px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{ left: '34%', background: '#C4B5FD', border: `2px solid ${DARK}` }}
+      />
+    </div>
+  )
+}
+
+/* ===================== try bar (typewriter) ===================== */
+
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    setReduced(mq.matches)
+    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return reduced
+}
+
+function TryBar({ animate, buttonLabel, centered }: { animate: boolean; buttonLabel: string; centered?: boolean }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const prompts = zh
-    ? ['预算 2800, 能养猫, 走路到 King 站...', '市中心一居, 有阳台, 即刻入住...', '安静两居, 离 UofT 步行 10 分钟...']
-    : ['Budget $2,800, cats OK, walk to King...', 'Downtown 1-bed with balcony, move-in ready...', 'Quiet 2-bed, 10 min walk to UofT...']
-  const [idx, setIdx] = useState(0)
+  const lines = zh
+    ? ['北约克两房，预算 2800，能养猫', '多大附近找 5 个两房，4000 以内', '帮我发布我的公寓，租金 2600', '这份租约的第 8 条什么意思？']
+    : [
+        'Two-bed in North York, budget $2,800, cat-friendly',
+        'Find 5 two-beds near UofT under $4,000',
+        'List my condo for rent at $2,600',
+        'What does clause 8 of this lease mean?',
+      ]
+  const reduced = useReducedMotion()
+  const run = animate && !reduced
+  const [lineIdx, setLineIdx] = useState(0)
+  const [chars, setChars] = useState(9999)
 
   useEffect(() => {
-    const timer = setInterval(() => setIdx((i) => (i + 1) % prompts.length), 3000)
-    return () => clearInterval(timer)
-  }, [prompts.length])
+    if (!run) {
+      setLineIdx(0)
+      setChars(9999)
+      return
+    }
+    // Blueprint timing: 1800ms initial delay, 65ms/char, 2600ms hold per line.
+    let li = 0
+    let i = 0
+    let timer: ReturnType<typeof setTimeout>
+    setLineIdx(0)
+    setChars(9999)
+    const type = () => {
+      i++
+      setLineIdx(li)
+      setChars(i)
+      timer = i >= lines[li].length ? setTimeout(advance, 2600) : setTimeout(type, 65)
+    }
+    const advance = () => {
+      li = (li + 1) % lines.length
+      i = 0
+      timer = setTimeout(type, 65)
+    }
+    timer = setTimeout(() => {
+      i = 0
+      timer = setTimeout(type, 65)
+    }, 1800)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run, lang])
+
+  const current = lines[lineIdx] ?? lines[0]
+  const shown = run ? current.slice(0, chars) : lines[0]
+  const target = run ? current : lines[0]
 
   return (
-    <div className="mx-auto max-w-[720px] px-5 pb-12 sm:px-7 lg:px-12">
-      <Link
-        href="/onboarding/welcome"
-        className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3.5 shadow-sm transition hover:border-brand hover:shadow-md"
+    <div
+      className={`mt-7 flex max-w-[480px] overflow-hidden rounded-[14px] bg-white ${centered ? 'mx-auto' : ''}`}
+      style={{ border: `1.5px solid ${INK}`, boxShadow: '0 10px 30px -18px rgba(23,22,27,.35)' }}
+    >
+      <span
+        className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap px-[18px] py-[15px] text-left text-[14.5px]"
+        style={{ color: INK2 }}
+        aria-live="off"
       >
-        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full" style={{ background: GRAD }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-        </span>
-        <span className="flex-1 text-[14px] text-body-3 transition-opacity">
-          {prompts[idx]}
-          <span className="ml-0.5 inline-block h-[16px] w-[2px] animate-pulse align-text-bottom" style={{ background: '#7C3AED' }} />
-        </span>
-        <span className="rounded-lg bg-ink px-4 py-1.5 text-[13px] font-bold text-white">
-          {zh ? '开始 →' : 'Start →'}
-        </span>
+        {shown}
+        <span className="hp-caret" aria-hidden="true" />
+      </span>
+      <Link
+        href={`/tenant/agent?prompt=${encodeURIComponent(target)}`}
+        className="flex items-center px-6 text-[14.5px] font-bold text-white"
+        style={{ background: ROLE_THEME.tenant.accent }}
+      >
+        {buttonLabel}
       </Link>
     </div>
   )
 }
 
-function RolesSection({ lang, zh }: { lang: Lang; zh: boolean }) {
-  const [active, setActive] = useState(0)
-  const a = AGENTS[active]
-  const s = SCENARIOS[active]
+/* ===================== hero demo card ===================== */
 
+function HeroDemoCard({ zh }: { zh: boolean }) {
   return (
-    <Section
-      n="03"
-      kicker={zh ? '三种角色' : 'THREE ROLES'}
-      title={zh ? <>每个角色,<br />都有自己的 Agent。</> : <>Every role<br />has its own agent.</>}
-      lead={zh ? '同一套信任引擎,三种人格。它们之间会对话、会交接,但各自只忠于自己的那个人。' : 'One trust engine, three personalities. They talk to each other and hand off work — but each is loyal to only one person.'}
-    >
-      <div className="mb-8 flex flex-wrap gap-2">
-        {AGENTS.map((ag, i) => (
-          <button
-            key={ag.role.en}
-            onClick={() => setActive(i)}
-            className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-bold transition"
-            style={
-              i === active
-                ? { background: '#fff', border: `1.5px solid ${ag.color}`, color: ag.color, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }
-                : { background: 'transparent', border: '1.5px solid transparent', color: '#71717A' }
-            }
-          >
-            <span className="h-2 w-2 rounded-full" style={{ background: ag.color }} />
-            {ag.role[lang]}
-          </button>
-        ))}
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Agent card */}
-        <div className="sl-card flex flex-col overflow-hidden p-0">
-          <div
-            className="relative h-[160px] w-full"
-            style={{ backgroundImage: `url(${a.img})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-          >
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg,transparent 30%,rgba(11,11,14,0.55))' }} />
-            <span
-              className="absolute left-[18px] top-4 z-[2] rounded-md px-2.5 py-[5px] font-mono text-[10px] font-bold uppercase tracking-eyebrow text-white"
-              style={{ background: 'rgba(11,11,14,0.55)', backdropFilter: 'blur(4px)' }}
-            >
-              {a.role[lang]}
-            </span>
-            <span
-              className="absolute bottom-[-18px] left-5 z-[2] h-[44px] w-[44px] rounded-[12px] border-[3px] border-white"
-              style={{ background: a.av }}
-            />
-          </div>
-          <div className="flex flex-1 flex-col px-6 pb-6 pt-7">
-            <div className="flex items-baseline">
-              <span className="text-[19px] font-extrabold tracking-tight">{a.name}</span>
-              <span className="ml-1.5 text-[13px] font-semibold text-body-3">{a.sub[lang]}</span>
-            </div>
-            <p className="mt-2 text-[13px] leading-relaxed text-body-2">{a.desc[lang]}</p>
-            <ul className="mt-4 space-y-2 text-[12.5px]">
-              {a.points.map((pt) => (
-                <li key={pt[lang]} className="flex items-start gap-2">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a.color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="mt-[1px] flex-none"><path d="M20 6 9 17l-5-5" /></svg>
-                  <span className="text-body-2">{pt[lang]}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Scenario card */}
-        <div className="sl-card flex flex-col p-6">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 flex-shrink-0 rounded-full" style={{ backgroundImage: `url(${s.img})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-            <div>
-              <div className="text-[17px] font-extrabold tracking-tight">{s.name}</div>
-              <div className="font-mono text-[10.5px] text-body-3">{s.meta[lang]}</div>
-            </div>
-          </div>
-          <p className="mt-4 text-[15px] font-semibold leading-[1.55] tracking-tight">"{s.quote[lang]}"</p>
-          <div className="mt-5 space-y-3">
-            <div className="grid grid-cols-[42px_1fr] gap-3 text-[12.5px] leading-[1.55] text-body-2">
-              <span className="rounded-[5px] bg-[#F3EEE2] py-[3px] text-center font-mono text-[8.5px] font-bold text-body-3">{zh ? '之前' : 'BEFORE'}</span>
-              <span>{s.before[lang]}</span>
-            </div>
-            <div className="grid grid-cols-[42px_1fr] gap-3 text-[12.5px] leading-[1.55] text-body-2">
-              <span className="rounded-[5px] py-[3px] text-center font-mono text-[8.5px] font-bold" style={{ background: `${s.color}1a`, color: s.color }}>{zh ? '之后' : 'AFTER'}</span>
-              <span>{s.after[lang]}</span>
-            </div>
-          </div>
-          <div className="mt-auto flex items-center gap-2 border-t border-[#F0EBE0] pt-4">
-            <span className="rounded-full px-2.5 py-1 font-mono text-[10px] font-bold" style={{ background: `${s.color}1a`, color: s.color }}>{s.with[lang]}</span>
-            <span className="ml-auto font-mono text-[12px] font-bold text-success">{s.delta[lang]}</span>
-          </div>
-          <p className="mt-3 flex items-center gap-[7px] text-[13px] font-bold tracking-tight">
-            <span style={{ color: '#B45309' }}>✦</span>{s.punch[lang]}
-          </p>
-        </div>
-      </div>
-    </Section>
-  )
-}
-
-function JourneyIcon({ step }: { step: number }) {
-  // Uniform treatment: white circle + ring; the stroke color walks the same
-  // purple→green gradient as the connecting line, so the five steps read as
-  // one system instead of three different icon styles.
-  const COLORS = ['#7C3AED', '#6D51C6', '#5A6B9E', '#2F8A6B', '#047857']
-  const icons: Record<number, React.ReactNode> = {
-    0: <><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4" /><circle cx="12" cy="12" r="4" /></>,
-    1: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="11" r="2" /><path d="M14 9h4M14 13h4M5.5 16h7" /></>,
-    2: <><path d="M3 11l9-7 9 7" /><path d="M5 10v9h14v-9" /><path d="M10 19v-5h4v5" /></>,
-    3: <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />,
-    4: <path d="M20 6 9 17l-5-5" />,
-  }
-  return (
-    <span className="flex h-14 w-14 items-center justify-center rounded-full border border-line-divider bg-white ring-4 ring-[#F2EEE5]">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={COLORS[step]} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icons[step]}</svg>
-    </span>
-  )
-}
-
-function LunaChatDemo() {
-  const { lang } = useT()
-  const zh = lang === 'zh'
-  const LISTINGS = [
-    { name: zh ? '阳光一居 · 高层景观' : 'Sunlit 1-bed · high-floor view', meta: zh ? 'King 站步行 9 min · 允许养猫' : '9 min walk to King · cats OK', match: 92, price: '$2,750', img: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=400&q=80&fit=crop&auto=format' },
-    { name: zh ? '复式 LOFT · 温哥街' : 'Duplex LOFT · Wellington St', meta: zh ? 'King 站步行 12 min · 允许养猫' : '12 min walk to King · cats OK', match: 88, price: '$2,800', img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=400&q=80&fit=crop&auto=format' },
-  ]
-  return (
-    <div className="rounded-2xl p-5 text-[13px] shadow-card" style={{ background: '#0E1320', color: '#E5E7EB' }}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className="h-8 w-8 rounded-full" style={{ background: 'linear-gradient(135deg,#C4B5FD,#7C3AED)' }} />
-          <span className="text-[14px] font-bold">AI Agent</span>
-        </div>
-        <span className="flex items-center gap-1.5 font-mono text-[10.5px]" style={{ color: '#34D399' }}>
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#34D399' }} /> {zh ? '在线 · 读取你的记忆' : 'Online · reading your memory'}
+    <div className="min-w-0 rounded-[20px] px-5 pb-4 pt-5" style={{ background: DARK, color: DARK_INK, boxShadow: '0 30px 60px -30px rgba(23,22,27,.5)' }}>
+      <div className="flex items-center gap-2.5 pb-3" style={{ borderBottom: `1px solid ${DARK_LINE}` }}>
+        <span className="hp-orb h-[26px] w-[26px] rounded-full" style={{ background: ROLE_ORB('tenant') }} />
+        <b className="text-[13.5px]">{zh ? 'LUNA · 你的 AI' : 'LUNA · YOUR AI'}</b>
+        <span className="ml-auto font-mono text-[9.5px]" style={{ letterSpacing: '.12em', color: ROLE_THEME.landlord.light }}>
+          ● {zh ? '在线 · 读取你的记忆' : 'ONLINE · READING YOUR MEMORY'}
         </span>
       </div>
-      <div className="mt-4 flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-tr-sm px-3.5 py-2.5 leading-relaxed text-white" style={{ background: '#2563EB' }}>
-          {zh ? '预算 2800 以内,离 King 站走路 15 分钟,能养猫的一居。' : 'A 1-bed under $2,800, within a 15-min walk of King station, cats allowed.'}
+      <div className="flex flex-col gap-2.5 pb-1 pt-3.5">
+        <div className="max-w-[85%] self-end px-3.5 py-[9px] text-[13px] text-white" style={{ background: ROLE_THEME.tenant.accent, borderRadius: '12px 12px 3px 12px' }}>
+          {zh ? '北约克两房，预算 2800，能养猫' : 'Two-bed in North York, budget $2,800, cat-friendly'}
         </div>
-      </div>
-      <div className="mt-3 rounded-2xl rounded-tl-sm px-3.5 py-2.5 leading-relaxed" style={{ background: '#1B2230' }}>
-        {zh ? <>好的。我按你之前说的<b>采光要好</b>也一起筛了,3 套符合,都允许养宠:</> : <>Got it. I also filtered for <b>good natural light</b> like you mentioned before — 3 match, all pet-friendly:</>}
-      </div>
-      <div className="mt-3 space-y-2.5">
-        {LISTINGS.map((l) => (
-          <div key={l.name} className="flex items-center gap-3 rounded-xl p-2.5" style={{ background: '#161D2B' }}>
-            <div className="h-14 w-16 flex-shrink-0 rounded-lg" style={{ backgroundImage: `url(${l.img})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[12.5px] font-bold text-white">{l.name}</div>
-              <div className="font-mono text-[10.5px]" style={{ color: '#94A3B8' }}>{l.meta}</div>
-              <div className="mt-0.5 font-mono text-[10.5px]" style={{ color: '#A78BFA' }}>▶ {l.match}{zh ? '% 匹配你的偏好' : '% match to your preferences'}</div>
-            </div>
-            <div className="flex-shrink-0 font-mono text-[14px] font-bold text-white">{l.price}</div>
+        <div className="max-w-[92%] self-start px-3.5 py-[9px] text-[13px]" style={{ background: DARK2, borderRadius: '12px 12px 12px 3px', color: DARK_INK }}>
+          {zh
+            ? '好的，帮你搜北约克允许养猫的两房 —— 先看真实行情，再上房源 👇'
+            : 'On it — searching cat-friendly two-beds in North York. Real market data first, then the listings 👇'}
+        </div>
+        <div className="rounded-xl px-3.5 py-3" style={{ background: DARK2, border: `1px solid ${DARK_LINE}` }}>
+          <div className="font-mono text-[9px]" style={{ letterSpacing: '.14em', color: DARK_MUTED }}>
+            {zh ? '📊 NORTH YORK · 2 房+ 真实行情 · 样本 12 套' : '📊 NORTH YORK · 2BED+ LIVE MARKET · SAMPLE 12'}
           </div>
-        ))}
-      </div>
-      <div className="mt-3 rounded-2xl rounded-tl-sm px-3.5 py-2.5 leading-relaxed" style={{ background: '#1B2230' }}>
-        {zh ? <>要我帮你一键申请第一套吗?你的 Passport 已是 <b>认证 3 级</b>,无需重填资料。</> : <>Want me to one-click apply to the first one? Your Passport is already <b>Tier 3</b> — no need to re-enter anything.</>}
-      </div>
-      <div className="mt-3 flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-tr-sm px-3.5 py-2.5 leading-relaxed text-white" style={{ background: '#2563EB' }}>
-          {zh ? '第一套,帮我申请。我去开会了。' : "Apply to the first one for me. I'm heading into a meeting."}
+          <div className="mt-1 flex items-baseline gap-2.5">
+            <span className="hp-num text-[16px] font-extrabold" style={{ letterSpacing: '-.01em' }}>
+              $2,300–$4,500
+            </span>
+            <span className="text-[11px]" style={{ color: DARK_MUTED }}>
+              {zh ? '中位' : 'median'}{' '}
+              <b className="hp-num" style={{ color: DARK_INK }}>
+                $2,820
+              </b>
+            </span>
+          </div>
+          <Gauge />
+          <div className="mt-2.5 pt-[9px] text-[10.5px]" style={{ borderTop: `1px dashed ${DARK_LINE}`, color: DARK_MUTED }}>
+            {zh ? '官方基准 · TRREB Toronto C14 · 2026 Q1：成交均价 ' : 'Official benchmark · TRREB Toronto C14 · 2026 Q1: avg leased '}
+            <b className="hp-num" style={{ color: DARK_INK }}>
+              $2,914
+            </b>{' '}
+            {zh ? '· 224 宗 · 同比 −4.6%' : '· 224 leases · −4.6% YoY'}
+            <svg className="mt-1.5 block w-full" viewBox="0 0 260 44" role="img" aria-label={zh ? '两年租金趋势' : '2-year rent trend'}>
+              <polyline
+                fill="none"
+                stroke="#C4B5FD"
+                strokeWidth="2"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                points="6,16 42,10 78,15 114,21 150,23 186,20 222,22 254,32"
+              />
+              <circle cx="254" cy="32" r="3.4" fill="#C4B5FD" stroke={DARK} strokeWidth="1.6" />
+              <text x="252" y="14" textAnchor="end" fontSize="9" fontFamily="ui-monospace, monospace" fill={DARK_INK} fontWeight="700">
+                $2,914
+              </text>
+            </svg>
+          </div>
+        </div>
+        <div className="max-w-[92%] self-start px-3.5 py-[9px] text-[13px]" style={{ background: DARK2, borderRadius: '12px 12px 12px 3px', color: DARK_INK }}>
+          {zh
+            ? '预算在中位以上，可以挑剔一点。3 套符合的房源卡已附上，第一套周六下午可看房，要我约吗？'
+            : 'Your budget sits above the median — you can afford to be picky. 3 matching listing cards attached; the first has a Saturday-afternoon viewing. Want me to book it?'}
         </div>
       </div>
-      <div className="mt-3 rounded-xl p-3" style={{ background: '#11192563', border: '1px solid #233047' }}>
-        <div className="flex items-center gap-1.5 text-[12px] font-bold" style={{ color: '#34D399' }}>
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#34D399' }} /> {zh ? '已接手 · 后台持续执行' : 'On it · running in the background'}
+      <div className="mt-2.5 text-center font-mono text-[9.5px]" style={{ letterSpacing: '.1em', color: DARK_MUTED }}>
+        {zh ? (
+          <>
+            以上为<b style={{ color: ROLE_THEME.tenant.light }}>真实产品输出</b> · 数据来自 Realtor.ca 实时挂牌与 TRREB 季度成交
+          </>
+        ) : (
+          <>
+            <b style={{ color: ROLE_THEME.tenant.light }}>REAL PRODUCT OUTPUT</b> · Realtor.ca live listings + TRREB
+            quarterly leases
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ===================== role tabs / panels ===================== */
+
+function Still({
+  file,
+  gradient,
+  act,
+  orbchip,
+  orbRole,
+}: {
+  file: string
+  gradient: string
+  act: React.ReactNode
+  orbchip?: React.ReactNode
+  orbRole?: RoleKey
+}) {
+  // Persona still: /personas/<file> shows when it exists; the act gradient is
+  // the designed fallback (same approach as RoleLanding's story strip, minus
+  // stock photos).
+  const [imgOk, setImgOk] = useState(true)
+  return (
+    <div className="relative flex items-end p-4 text-white" style={{ aspectRatio: '7 / 5', background: gradient }}>
+      {imgOk && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`/personas/${file}`}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover"
+          onError={() => setImgOk(false)}
+        />
+      )}
+      <div className="pointer-events-none absolute inset-0" style={{ boxShadow: 'inset 0 -70px 70px -30px rgba(0,0,0,.55)' }} />
+      <span className="absolute right-3.5 top-3 rounded-md px-2 py-[3px] font-mono text-[9px] opacity-70" style={{ background: 'rgba(0,0,0,.35)' }}>
+        {file}
+      </span>
+      {orbchip && orbRole && (
+        <span
+          className="absolute left-3.5 top-3 flex items-center gap-[7px] rounded-full px-2.5 py-1 font-mono text-[9.5px] font-bold"
+          style={{ letterSpacing: '.14em', background: 'rgba(0,0,0,.42)', color: ROLE_THEME[orbRole].light }}
+        >
+          <span className="h-[13px] w-[13px] rounded-full" style={{ background: ROLE_ORB(orbRole) }} />
+          {orbchip}
+        </span>
+      )}
+      <span className="relative font-mono text-[10px] font-bold" style={{ letterSpacing: '.18em', textShadow: '0 1px 8px rgba(0,0,0,.5)' }}>
+        {act}
+      </span>
+    </div>
+  )
+}
+
+function RoleTabs({ lang, zh }: { lang: Lang; zh: boolean }) {
+  const [role, setRole] = useState<RoleKey>('tenant')
+  // Mimic RoleLanding's auth-aware CTAs: onboarded users of a role go straight
+  // to their agent home; everyone else hits the role's onboarding entry.
+  const onbTenant = useOnboarded('tenant')
+  const onbLandlord = useOnboarded('landlord')
+  const onbAgent = useOnboarded('agent')
+  const onb: Record<RoleKey, ReturnType<typeof useOnboarded>> = {
+    tenant: onbTenant,
+    landlord: onbLandlord,
+    agent: onbAgent,
+  }
+  const p = PANELS.find((x) => x.role === role)!
+  const th = ROLE_THEME[role]
+  const ctaHref = onb[role].onboarded ? ROLE_HOME[role] : p.onboardingHref
+
+  return (
+    <div>
+      <div role="tablist" aria-label={zh ? '选择角色' : 'Choose a role'} className="mb-8 flex flex-wrap justify-center gap-2.5">
+        {PANELS.map((panel) => {
+          const active = panel.role === role
+          const t = ROLE_THEME[panel.role]
+          return (
+            <button
+              key={panel.role}
+              id={`hp-tab-${panel.role}`}
+              role="tab"
+              aria-selected={active}
+              aria-controls={`hp-panel-${panel.role}`}
+              onClick={() => setRole(panel.role)}
+              className="flex items-center gap-2 rounded-full px-6 py-2.5 text-[14px] font-bold"
+              style={
+                active
+                  ? { border: `1.5px solid ${t.accent}`, background: SOFT[panel.role], color: INK }
+                  : { border: `1.5px solid ${LINE}`, background: '#fff', color: INK2 }
+              }
+            >
+              <span className="h-2 w-2 rounded-full" style={{ background: t.accent }} />
+              {panel.tab[lang]}
+            </button>
+          )
+        })}
+      </div>
+
+      <div key={role} id={`hp-panel-${role}`} role="tabpanel" aria-labelledby={`hp-tab-${role}`} className="hp-panel">
+        <div className="mx-auto mb-7 max-w-[720px] text-center">
+          <blockquote className="m-0 font-extrabold" style={{ fontSize: 'clamp(18px,2.4vw,23px)', lineHeight: 1.45 }}>
+            “{p.quote[lang]}”
+          </blockquote>
+          <div className="mt-2 font-mono text-[11px]" style={{ letterSpacing: '.08em', color: INK3 }}>
+            {p.who[lang]}
+          </div>
         </div>
-        <div className="mt-1.5 font-mono text-[10.5px]" style={{ color: '#94A3B8' }}>{zh ? '提交申请 · 跟进房东 · 协调看房时间' : 'Submit application · follow up with landlord · coordinate viewing'}</div>
-        <div className="mt-1 text-[11.5px]" style={{ color: '#94A3B8' }}>{zh ? '有进展用「邮件 / 短信」通知你 —— 你不用守着。' : "I'll ping you by email / SMS on any update — no need to watch."}</div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          {p.scenes.map((s) => (
+            <div key={s.file} className="flex flex-col overflow-hidden rounded-2xl bg-white" style={{ border: `1px solid ${LINE}` }}>
+              <Still file={s.file} gradient={s.gradient} act={s.act[lang]} orbchip={s.orbchip?.[lang]} orbRole={s.orbchip ? role : undefined} />
+              <div className="flex-1 px-[18px] pb-4 pt-3.5 text-[13px]" style={{ color: INK2 }}>
+                <b className="mb-0.5 block text-[13.5px]" style={{ color: INK }}>
+                  {s.capTitle[lang]}
+                </b>
+                {s.capBody[lang]}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          className="mt-[18px] grid grid-cols-1 items-center gap-3 rounded-[18px] px-9 py-[30px] text-center lg:grid-cols-[auto_1fr_auto] lg:gap-x-[38px] lg:text-left"
+          style={{ background: DARK, color: DARK_INK }}
+        >
+          <div className="hp-num whitespace-nowrap font-mono font-extrabold" style={{ fontSize: 'clamp(28px,4vw,42px)', letterSpacing: '-.02em' }}>
+            <span className="mr-3 align-[6px] line-through" style={{ color: DARK_MUTED, fontSize: '.6em', textDecorationThickness: 2 }}>
+              {p.deltaFrom[lang]}
+            </span>
+            <span style={{ color: th.light }}>{p.deltaTo[lang]}</span>
+          </div>
+          <div className="mx-auto max-w-[34em] text-[14px] lg:mx-0" style={{ color: DARK_MUTED }}>
+            <b style={{ color: DARK_INK }}>{p.whyLead[lang]}</b>
+            {p.whyBody[lang]}
+          </div>
+          <Link
+            href={ctaHref}
+            className="justify-self-center whitespace-nowrap rounded-xl px-6 py-[13px] text-[14px] font-bold text-white lg:justify-self-end"
+            style={{ background: th.accent }}
+          >
+            {p.cta[lang]}
+          </Link>
+        </div>
       </div>
     </div>
   )
@@ -446,71 +1114,332 @@ function LunaChatDemo() {
 
 /* ===================== data ===================== */
 
-type LS = Record<Lang, string>
-
-const PROMISES: { h: LS; l: LS }[] = [
-  { h: { zh: '它记得你', en: 'It remembers you' }, l: { zh: '偏好说一次,永远记得', en: 'say it once, remembered forever' } },
-  { h: { zh: '它替你跑', en: 'It runs for you' }, l: { zh: '你睡觉时,它在工作', en: 'it works while you sleep' } },
-  { h: { zh: '你只拍板', en: 'You make the calls' }, l: { zh: '关键决定,永远归你', en: 'every key decision stays yours' } },
-]
-
-const PILLARS: { icon: React.ReactNode; h: LS; b: LS; proofs: LS[] }[] = [
+const FACTS: { key: string; color: string; big: LS; p: LS }[] = [
   {
-    icon: <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a5 5 0 0 1 5 5c0 1.5-.5 2.5-1.5 3.5S14 14 14 16h-4c0-2-.5-3.5-1.5-4.5S7 9.5 7 8a5 5 0 0 1 5-5z" /><path d="M10 20h4M11 23h2" /></svg>,
-    h: { zh: '它认识你', en: 'It knows you' },
-    b: { zh: '偏好只说一次:预算、猫、采光、通勤 —— 它都记住,下次开口不用从头解释。', en: 'Say your preferences once — budget, cats, light, commute. It remembers, so you never explain from scratch again.' },
-    proofs: [
-      { zh: '对话找房,不用填表', en: 'Chat to search — no forms' },
-      { zh: '资料验一次,处处复用', en: 'Verify once, reuse everywhere' },
-    ],
+    key: '90s',
+    color: ROLE_THEME.tenant.deep,
+    big: { zh: <>90<Small>秒</Small></>, en: <>90<Small>s</Small></> },
+    p: {
+      zh: 'Rental Passport 首次验证，之后每次申请一键复用。',
+      en: 'First Rental Passport verification — every later application reuses it in one click.',
+    },
   },
   {
-    icon: <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" /></svg>,
-    h: { zh: '它替你跑', en: 'It runs for you' },
-    b: { zh: '布置完就走:筛房、尽调、申请、跟进,它在后台干到底,有进展才来找你。', en: 'Assign it and walk away: it filters, screens, applies and follows up in the background — and only pings you on progress.' },
-    proofs: [
-      { zh: '30 分钟的纠结,变成 30 秒的「同意」', en: '30 minutes of agonizing becomes a 30-second "Approve"' },
-      { zh: '你睡觉时,它还在工作', en: 'It keeps working while you sleep' },
-    ],
+    key: '8dim',
+    color: ROLE_THEME.landlord.deep,
+    big: { zh: <>8<Small>维 · 504 数据点</Small></>, en: <>8<Small>dims · 504 data points</Small></> },
+    p: {
+      zh: '可解释的深度尽调：每一分都告诉你我看了什么、为什么。',
+      en: 'Explainable deep diligence: every point tells you what was checked and why.',
+    },
   },
   {
-    icon: <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4" /></svg>,
-    h: { zh: '你只拍板', en: 'You make the calls' },
-    b: { zh: '它提案,你决定。对外分享资料、提交申请、签约 —— 每个关键动作都先经你点头,且留痕可审。', en: 'It proposes, you decide. Sharing data, submitting, signing — every key action waits for your nod, and every step is logged.' },
-    proofs: [
-      { zh: 'RTA / OHRC 合规自动把关', en: 'RTA / OHRC compliance on autopilot' },
-      { zh: '每一步留痕,随时可查', en: 'Every step audited, reviewable anytime' },
-    ],
+    key: '16365',
+    color: ROLE_THEME.agent.deep,
+    big: { zh: <>16,365<Small>宗</Small></>, en: <>16,365<Small>leases</Small></> },
+    p: {
+      zh: 'TRREB 上季真实成交作为行情基准，议价有官方数据托底。',
+      en: "Last quarter's real TRREB leases as your market benchmark — negotiate on official data.",
+    },
+  },
+  {
+    key: '100',
+    color: GOLD,
+    big: { zh: <>100<Small>%</Small></>, en: <>100<Small>%</Small></> },
+    p: {
+      zh: '每个对外动作先经你批准、写入审计日志，RTA / OHRC 合规护栏全程在线。',
+      en: 'Every outbound action needs your approval and lands in the audit log — RTA / OHRC guardrails always on.',
+    },
+  },
+  {
+    key: '247',
+    color: ROLE_THEME.tenant.deep,
+    big: { zh: <>24<Small>/7</Small></>, en: <>24<Small>/7</Small></> },
+    p: {
+      zh: '偏好说一次永远记得，你睡觉时它也在替你跟进。',
+      en: 'Say a preference once, remembered forever — it follows up while you sleep.',
+    },
+  },
+  {
+    key: 'zh',
+    color: ROLE_THEME.landlord.deep,
+    big: { zh: <>中<Small>文全程</Small></>, en: <>中<Small>Chinese, end to end</Small></> },
+    p: {
+      zh: '找房到签约全程中文服务，英文租约逐条讲给你听 —— 为新移民与留学生而生。',
+      en: 'Full Chinese service from search to signing; English leases explained clause by clause — built for newcomers and students.',
+    },
   },
 ]
 
-const AGENTS: { name: string; role: LS; sub: LS; color: string; av: string; img: string; desc: LS; points: LS[] }[] = [
-  { name: 'AI Agent', role: { zh: 'TENANT · 租客', en: 'TENANT' }, sub: { zh: '租客助手', en: 'Tenant assistant' }, color: '#7C3AED', av: 'radial-gradient(circle at 35% 30%,#C4B5FD,#7C3AED 75%)', img: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=700&q=80&fit=crop&auto=format', desc: { zh: '验证一次,处处通行。替你找房、比价、约看、一键申请,资料只在你点头时才分享。', en: 'Verify once, go anywhere. Searches, compares, books viewings and one-click applies — your data is shared only when you say so.' }, points: [{ zh: '对话式找房 + 主动匹配', en: 'Conversational search + proactive matching' }, { zh: '可复用 Rental Passport', en: 'Reusable Rental Passport' }, { zh: '缴租 · 维修 · 续约全程托管', en: 'Rent, maintenance & renewal fully managed' }] },
-  { name: 'AI Agent', role: { zh: 'LANDLORD · 房东', en: 'LANDLORD' }, sub: { zh: '房东助手', en: 'Landlord assistant' }, color: '#047857', av: 'radial-gradient(circle at 35% 30%,#6EE7B7,#047857 75%)', img: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format', desc: { zh: '是流水线,不是收件箱。替你整理申请、同步尽调、起草租约 —— 决定权始终在你手里。', en: 'A pipeline, not an inbox. Organizes applications, runs diligence and drafts leases — the decision is always yours.' }, points: [{ zh: '申请人 Pipeline 看板', en: 'Applicant pipeline board' }, { zh: '8 Engine 自动尽调 + 评分', en: '8-engine automated diligence + scoring' }, { zh: '合规教练 · 租约自动起草', en: 'Compliance coach · auto lease drafting' }] },
-  { name: 'AI Agent', role: { zh: 'AGENT · 经纪', en: 'AGENT' }, sub: { zh: '经纪助手', en: 'Agent assistant' }, color: '#2563EB', av: 'radial-gradient(circle at 35% 30%,#93C5FD,#2563EB 75%)', img: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=700&q=80&fit=crop&auto=format', desc: { zh: '把杂活交给系统,把关系留给人。替你整理客户、准备材料、安排看房和跟进。', en: 'Leave the busywork to the system, the relationships to you. Organizes clients, prepares materials, and schedules viewings and follow-ups.' }, points: [{ zh: '客户与房源材料整理', en: 'Client & listing material organization' }, { zh: '看房 Live · 现场记录', en: 'Live viewings · on-site notes' }, { zh: '佣金拆分 · 团队协作', en: 'Commission splits · team collaboration' }] },
+function Small({ children }: { children: React.ReactNode }) {
+  return (
+    <small className="ml-[3px] font-bold" style={{ fontSize: '.42em', letterSpacing: 0 }}>
+      {children}
+    </small>
+  )
+}
+
+const SHIFTS: { role: RoleKey; who: string; from: LS; to: LS }[] = [
+  { role: 'tenant', who: 'TENANT × LUNA', from: { zh: '申请人', en: 'Applicant' }, to: { zh: '被数据争取的人', en: 'The one data fights for' } },
+  { role: 'landlord', who: 'LANDLORD × LOGIC', from: { zh: '管理员', en: 'Property manager' }, to: { zh: '只做决定的人', en: 'The one who only decides' } },
+  { role: 'agent', who: 'AGENT × BRIEF', from: { zh: '业务员', en: 'Salesperson' }, to: { zh: '只做专业的人', en: 'The one who only does the craft' } },
 ]
 
-const SCENARIOS: { name: string; role: LS; color: string; meta: LS; img: string; quote: LS; before: LS; after: LS; with: LS; delta: LS; punch: LS }[] = [
-  { name: 'Mia Chen', role: { zh: '租客 · TENANT', en: 'TENANT' }, color: '#7C3AED', meta: { zh: '27 · 软件工程师 · 新移民', en: '27 · software engineer · newcomer' }, img: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=700&q=80&fit=crop&auto=format', quote: { zh: '没有加拿大信用记录,我到底该怎么租房?', en: 'With no Canadian credit history, how am I supposed to rent at all?' }, before: { zh: '信用空白,已被拒 3 次,3 天后必须退房。', en: 'No credit file, rejected 3 times, must move out in 3 days.' }, after: { zh: '90 秒验明身份,中文读懂租约,35 分钟签约入住。', en: 'Verified identity in 90s, explained the lease in Chinese, signed and moved in within 35 minutes.' }, with: { zh: 'AI Agent 陪同', en: 'with AI Agent' }, delta: { zh: 'Score 60 → 91', en: 'Score 60 → 91' }, punch: { zh: '第二次,比第一次更轻松。', en: 'The second time was even easier than the first.' } },
-  { name: 'Sarah Wang', role: { zh: '房东 · LANDLORD', en: 'LANDLORD' }, color: '#047857', meta: { zh: '41 · 会计师 · 2 套投资公寓', en: '41 · accountant · 2 investment condos' }, img: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=700&q=80&fit=crop&auto=format', quote: { zh: '做决定前要查、要比,还怕踩 RTA 的雷。', en: "Before deciding I have to research, compare — and worry about tripping over the RTA." }, before: { zh: '每月空置损失 $2,900,深夜被报修打扰,合规压力大。', en: '$2,900 lost to vacancy each month, late-night maintenance calls, constant compliance pressure.' }, after: { zh: '4 分钟重做房源、跑完尽调,关键时刻只按「同意」。', en: 'Rebuilt the listing and ran full diligence in 4 minutes; at the key moment she just pressed "Approve."' }, with: { zh: 'AI Agent 协同', en: 'with AI Agent' }, delta: { zh: '30 分钟 → 30 秒', en: '30 min → 30 sec' }, punch: { zh: '决定权,始终在你手里。', en: 'The decision is always in your hands.' } },
-  { name: 'David Park', role: { zh: '经纪 · AGENT', en: 'AGENT' }, color: '#2563EB', meta: { zh: '35 · 持牌经纪 · RECO 6 年', en: '35 · licensed agent · 6 years RECO' }, img: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=700&q=80&fit=crop&auto=format', quote: { zh: '不是没机会,是时间被行政碎片化了。', en: "It's not a lack of opportunity — my time gets shredded by admin." }, before: { zh: '70% 时间耗在行政,收入不稳,客户容易跟丢。', en: '70% of his time went to admin, income was unstable, and clients slipped away.' }, after: { zh: '编排任务、当晚结算,他只做带看与专业判断。', en: 'Tasks orchestrated and settled same night; he only handles showings and professional judgment.' }, with: { zh: 'AI Agent + Beacon', en: 'AI Agent + Beacon' }, delta: { zh: '时薪 $25 → $43', en: 'Hourly $25 → $43' }, punch: { zh: '剥离行政,放大专业。', en: 'Strip away admin, amplify expertise.' } },
+type Panel = {
+  role: RoleKey
+  tab: LSS
+  quote: LSS
+  who: LSS
+  scenes: { file: string; gradient: string; act: LSS; orbchip?: LSS; capTitle: LSS; capBody: LSS }[]
+  deltaFrom: LSS
+  deltaTo: LSS
+  whyLead: LSS
+  whyBody: LSS
+  cta: LSS
+  onboardingHref: string
+}
+
+const PANELS: Panel[] = [
+  {
+    role: 'tenant',
+    tab: { zh: 'Mia 的故事', en: "Mia's story" },
+    quote: { zh: '没有加拿大信用记录，我到底该怎么租房？', en: 'With no Canadian credit history, how am I supposed to rent at all?' },
+    who: { zh: 'MIA CHEN · 27 · 软件工程师 · 新移民', en: 'MIA CHEN · 27 · SOFTWARE ENGINEER · NEWCOMER' },
+    scenes: [
+      {
+        file: 'mia-01-anxious.jpg',
+        gradient: 'linear-gradient(160deg,#3A3247,#241F30 55%,#17131F)',
+        act: { zh: '第一幕 · 深夜的申请表', en: 'ACT 1 · FORMS AT MIDNIGHT' },
+        capTitle: { zh: '信用空白，被拒 3 次。', en: 'No credit file, rejected 3 times.' },
+        capBody: {
+          zh: '纸箱堆满旧住处，3 天后必须退房。五个网站刷到深夜，同样的资料填了一遍又一遍。',
+          en: 'Boxes piled in the old place, 3 days to move out. Five sites till midnight, the same forms over and over.',
+        },
+      },
+      {
+        file: 'mia-02-luna.jpg',
+        gradient: 'linear-gradient(150deg,#8B6BD9,#6D46C4 50%,#4A2E8E)',
+        act: { zh: '第二幕 · 一句话', en: 'ACT 2 · ONE SENTENCE' },
+        orbchip: { zh: 'LUNA 接手', en: 'LUNA TAKES OVER' },
+        capTitle: { zh: '"市中心、一居、能养猫。"', en: '"Downtown, one-bed, cat-friendly."' },
+        capBody: {
+          zh: 'Luna 翻遍全城、约看、比价，把英文租约逐条讲成中文，替她跟房东谈。',
+          en: 'Luna combs the whole city, books viewings, compares prices, explains the English lease clause by clause in Chinese, and negotiates with the landlord.',
+        },
+      },
+      {
+        file: 'mia-03-home.jpg',
+        gradient: 'linear-gradient(150deg,#E9C99B,#C08B57 55%,#7A4E3C)',
+        act: { zh: '第三幕 · 城市灯火', en: 'ACT 3 · CITY LIGHTS' },
+        capTitle: { zh: '当天电子签约。', en: 'E-signed the same day.' },
+        capBody: {
+          zh: '报修 2 小时响应，12 个月租金准时 —— 她的记录开始替她说话。',
+          en: 'Repairs answered within 2 hours, 12 months of on-time rent — her record starts speaking for her.',
+        },
+      },
+    ],
+    deltaFrom: { zh: 'Score 60', en: 'Score 60' },
+    deltaTo: { zh: '91', en: '91' },
+    whyLead: { zh: '第二次搬家，她只说了一句话。', en: 'Her second move took one sentence.' },
+    whyBody: {
+      zh: '验证过一次的 Passport 处处通行，8 维评分让没有信用记录的人也有了会说话的履历。',
+      en: ' A Passport verified once travels everywhere; the 8-dimension score gives people without credit history a résumé that speaks.',
+    },
+    cta: { zh: '唤醒你的 AI 租房助手 →', en: 'Wake up your rental AI →' },
+    onboardingHref: '/onboarding/welcome',
+  },
+  {
+    role: 'landlord',
+    tab: { zh: 'Sarah 的故事', en: "Sarah's story" },
+    quote: { zh: '做决定前要查、要比，还怕踩 RTA 的雷。', en: 'Before every decision I research, compare — and worry about tripping the RTA.' },
+    who: { zh: 'SARAH WANG · 41 · 会计师 · 2 套投资公寓', en: 'SARAH WANG · 41 · ACCOUNTANT · 2 INVESTMENT CONDOS' },
+    scenes: [
+      {
+        file: 'sarah-01-vacancy.jpg',
+        gradient: 'linear-gradient(160deg,#2A3550,#1D2438 55%,#131829)',
+        act: { zh: '第一幕 · 空置在烧钱', en: 'ACT 1 · VACANCY BURNS CASH' },
+        capTitle: { zh: '每月 $2,900 空置损失。', en: '$2,900 lost to vacancy each month.' },
+        capBody: {
+          zh: '一叠申请不知道信谁 —— 工资单是真是假？深夜还被报修电话吵醒。',
+          en: 'A stack of applications and no idea who to trust — are the pay stubs even real? Maintenance calls still wake her at night.',
+        },
+      },
+      {
+        file: 'sarah-02-logic.jpg',
+        gradient: 'linear-gradient(150deg,#2E8B6E,#10614C 55%,#0A3D31)',
+        act: { zh: '第二幕 · 尽调排好序', en: 'ACT 2 · DILIGENCE, RANKED' },
+        orbchip: { zh: 'LOGIC 接管', en: 'LOGIC TAKES OVER' },
+        capTitle: { zh: '4 分钟重做房源，多平台同步。', en: 'Listing rebuilt in 4 minutes, synced everywhere.' },
+        capBody: {
+          zh: '每份申请 8 维尽调读完排好序，「不养宠」这类 RTA 雷区当场被拦下。',
+          en: 'Every application arrives with 8-dimension diligence read and ranked; RTA landmines like "no pets" get blocked on the spot.',
+        },
+      },
+      {
+        file: 'sarah-03-decide.jpg',
+        gradient: 'linear-gradient(150deg,#F3D9A4,#D9A05B 55%,#8C5B3F)',
+        act: { zh: '第三幕 · 阳台上的早晨', en: 'ACT 3 · MORNING ON THE BALCONY' },
+        capTitle: { zh: '午休时按下「同意」。', en: 'She taps "Approve" on her lunch break.' },
+        capBody: {
+          zh: '租约自动起草电子签。夜间报修、Month 11 续约决策包，都有 Logic 盯着。',
+          en: 'The lease drafts and e-signs itself. Night maintenance and the Month-11 renewal decision pack — Logic watches it all.',
+        },
+      },
+    ],
+    deltaFrom: { zh: '30 分钟', en: '30 min' },
+    deltaTo: { zh: '30 秒', en: '30 sec' },
+    whyLead: { zh: '她的工作只剩一件事：拍板。', en: 'Her job is down to one thing: the decision.' },
+    whyBody: {
+      zh: '接待、尽调、起草、收租、续约全部后台完成，每个对外动作先经她点头、留有审计痕迹。',
+      en: ' Intake, diligence, drafting, rent and renewals all run in the background — every outbound action waits for her nod and leaves an audit trail.',
+    },
+    cta: { zh: '让 Logic 接管你的房源 →', en: 'Let Logic take over your listings →' },
+    onboardingHref: '/onboarding/name?role=landlord',
+  },
+  {
+    role: 'agent',
+    tab: { zh: 'David 的故事', en: "David's story" },
+    quote: { zh: '不是没机会，是时间被行政碎片化了。', en: "It's not a lack of opportunity — my time gets shredded by admin." },
+    who: { zh: 'DAVID PARK · 35 · 持牌经纪 · RECO 6 年', en: 'DAVID PARK · 35 · LICENSED AGENT · 6 YEARS RECO' },
+    scenes: [
+      {
+        file: 'david-01-task.jpg',
+        gradient: 'linear-gradient(160deg,#3C4658,#2A3140 55%,#1B202B)',
+        act: { zh: '第一幕 · 车里的任务', en: 'ACT 1 · TASKS FROM THE CAR' },
+        capTitle: { zh: '70% 的时间耗在杂活上。', en: '70% of his time went to busywork.' },
+        capBody: {
+          zh: '整理材料、排时间、催跟进；收入不稳，客户一忙就跟丢。',
+          en: 'Prepping materials, juggling schedules, chasing follow-ups; income unstable, clients lost the moment things get busy.',
+        },
+      },
+      {
+        file: 'david-02-showing.jpg',
+        gradient: 'linear-gradient(150deg,#5B8DEF,#2F63CF 55%,#1E3F8F)',
+        act: { zh: '第二幕 · 专业带看', en: 'ACT 2 · THE PROFESSIONAL SHOWING' },
+        orbchip: { zh: 'BRIEF 编排', en: 'BRIEF ORCHESTRATES' },
+        capTitle: { zh: '他只做专业的部分。', en: 'He only does the professional part.' },
+        capBody: {
+          zh: '时间地点、租客画像、授权问答清单 —— 材料包 Brief 已备好，记录自动归档留痕。',
+          en: 'Time and place, tenant profile, authorized Q&A checklist — Brief has the packet ready, and records archive themselves with a full trail.',
+        },
+      },
+      {
+        file: 'david-03-payout.jpg',
+        gradient: 'linear-gradient(150deg,#F5C983,#DE9552 55%,#96583A)',
+        act: { zh: '第三幕 · 落日与结算', en: 'ACT 3 · SUNSET AND SETTLEMENT' },
+        capTitle: { zh: '当晚自动结算。', en: 'Settled automatically that night.' },
+        capBody: {
+          zh: '月度回顾：带看 32 次、保留率 94%、Toronto West Top 8%。转介分账 RECO 合规、全程留痕。',
+          en: 'Monthly review: 32 showings, 94% retention, Toronto West Top 8%. Referral splits RECO-compliant, fully logged.',
+        },
+      },
+    ],
+    deltaFrom: { zh: '时薪 $25', en: 'Hourly $25' },
+    deltaTo: { zh: '$43', en: '$43' },
+    whyLead: { zh: '同样的一周，接得下两倍的客户。', en: 'The same week now fits twice the clients.' },
+    whyBody: {
+      zh: 'AI 编排一切、当晚结算 —— 他的时间只花在带看与专业判断上。',
+      en: ' AI orchestrates everything and settles the same night — his time goes only to showings and professional judgment.',
+    },
+    cta: { zh: '让 Brief 打理你的业务 →', en: 'Let Brief run your business →' },
+    onboardingHref: '/onboarding/name?role=agent',
+  },
 ]
 
-const JOURNEY: { h: LS; b: LS }[] = [
-  { h: { zh: '为 AI 起名', en: 'Name your AI' }, b: { zh: '起任何你喜欢的名字。从这一刻起,它只为你一个人。', en: 'Whatever name you like. From this moment, it works for you alone.' } },
-  { h: { zh: '验证一次,处处通行', en: 'Verify once, go anywhere' }, b: { zh: '护照加活体一次过,从此不再交一叠 PDF · 不影响信用分。', en: 'Passport plus liveness in one pass — never hand over a stack of PDFs again · never touches your credit.' } },
-  { h: { zh: '浏览房源', en: 'Browse listings' }, b: { zh: '地图加卡片,AI 主动按你的需求筛过 · 看中就直接问。', en: 'Map plus cards, pre-filtered by AI to your needs · see one you like and just ask.' } },
-  { h: { zh: '一键申请', en: 'One-click apply' }, b: { zh: '租房护照直接复用 · AI 自动跑完尽调 · 即出 Stayloop Score。', en: 'Reuse your Rental Passport directly · AI runs full diligence · instant Stayloop Score.' } },
-  { h: { zh: '入住,安心长住', en: 'Move in, settle in' }, b: { zh: '缴租、维修、续约、退租,AI 全程替你照看。', en: 'Rent, maintenance, renewal and move-out — AI looks after it all.' } },
+const DIMS: { zh: string; en: string; v: number }[] = [
+  { zh: '身份核验', en: 'Identity', v: 99 },
+  { zh: '收入流水', en: 'Income flow', v: 92 },
+  { zh: '租住历史', en: 'Rental history', v: 96 },
+  { zh: '文档反欺诈', en: 'Doc anti-fraud', v: 94 },
+  { zh: '法庭裁定', en: 'Court rulings', v: 100 },
+  { zh: '行为信号', en: 'Behavior signals', v: 88 },
 ]
 
-const DIMS: { k: string; name: LS; ev: LS; score: number; bg: string; fg: string; amber?: boolean }[] = [
-  { k: 'ID', name: { zh: 'Identity · 身份核验', en: 'Identity · identity verification' }, ev: { zh: '护照 · 活体 · 设备 · 32 dp', en: 'Passport · liveness · device · 32 dp' }, score: 99, bg: 'rgba(33,150,243,0.10)', fg: '#1E88E5' },
-  { k: '$', name: { zh: 'Income · 收入流水', en: 'Income · cash flow' }, ev: { zh: '工资单 · 银行 · T4 · 48 dp', en: 'Pay stubs · bank · T4 · 48 dp' }, score: 92, bg: 'rgba(76,175,80,0.10)', fg: '#2E7D32' },
-  { k: 'H', name: { zh: 'History · 租住历史', en: 'History · rental history' }, ev: { zh: '推荐信 · 反向核 · 52 dp', en: 'References · reverse-check · 52 dp' }, score: 96, bg: 'rgba(156,39,176,0.10)', fg: '#7B1FA2' },
-  { k: 'F', name: { zh: 'Fraud · 文档反欺诈', en: 'Fraud · document anti-fraud' }, ev: { zh: '字体 · PDF 编辑器 · 64 dp', en: 'Fonts · PDF editors · 64 dp' }, score: 94, bg: 'rgba(255,152,0,0.10)', fg: '#E65100' },
-  { k: 'B', name: { zh: 'Behavior · 行为信号', en: 'Behavior · behavioral signals' }, ev: { zh: '完整度 · 一致性 · 26 dp', en: 'Completeness · consistency · 26 dp' }, score: 88, bg: 'rgba(96,125,139,0.10)', fg: '#455A64' },
-  { k: 'X', name: { zh: 'X-Ref · 双征信', en: 'X-Ref · dual credit bureaus' }, ev: { zh: 'Equifax + TransUnion · 76 dp', en: 'Equifax + TransUnion · 76 dp' }, score: 90, bg: 'rgba(121,85,72,0.10)', fg: '#5D4037' },
-  { k: '⚖', name: { zh: 'LTB / Court · 法庭裁定', en: 'LTB / Court · court rulings' }, ev: { zh: '14 trib · CanLII · OSB · 122 dp', en: '14 trib · CanLII · OSB · 122 dp' }, score: 100, bg: 'rgba(124,58,237,0.10)', fg: '#7C3AED' },
-  { k: '⛓', name: { zh: 'Relations · 关联图谱', en: 'Relations · relationship graph' }, ev: { zh: '5 一度 · 14 二度 · 84 dp', en: '5 first-degree · 14 second-degree · 84 dp' }, score: 82, bg: 'rgba(124,58,237,0.10)', fg: '#7C3AED', amber: true },
+const CHECKLIST: { noKey: string; no: LSS; h: LSS; p: LS; chip: LSS; chipRole: RoleKey }[] = [
+  {
+    noKey: '01',
+    no: { zh: '01 · 找房', en: '01 · SEARCH' },
+    h: { zh: '说一句，收房源', en: 'Say it once, get listings' },
+    p: {
+      zh: (
+        <>
+          对话式搜索全城实时房源，<b style={{ color: INK }}>行情卡 + TRREB 官方基准</b>自动附上，议价有底气。
+        </>
+      ),
+      en: (
+        <>
+          Conversational search across live city listings, with the <b style={{ color: INK }}>market card + official TRREB benchmark</b>{' '}
+          attached — negotiate with confidence.
+        </>
+      ),
+    },
+    chip: { zh: 'LUNA 已接管', en: 'LUNA ON IT' },
+    chipRole: 'tenant',
+  },
+  {
+    noKey: '02',
+    no: { zh: '02 · 尽调', en: '02 · DILIGENCE' },
+    h: { zh: '验一次，处处通行', en: 'Verify once, go anywhere' },
+    p: {
+      zh: (
+        <>
+          90 秒建好 Rental Passport，<b style={{ color: INK }}>8 维评分</b>替你说话 —— 每次申请一键复用。
+        </>
+      ),
+      en: (
+        <>
+          Build your Rental Passport in 90 seconds; the <b style={{ color: INK }}>8-dimension score</b> speaks for you — reused in one
+          click on every application.
+        </>
+      ),
+    },
+    chip: { zh: 'LUNA 已接管', en: 'LUNA ON IT' },
+    chipRole: 'tenant',
+  },
+  {
+    noKey: '03',
+    no: { zh: '03 · 签约', en: '03 · SIGNING' },
+    h: { zh: '看得懂，签得快', en: 'Understand it, sign it fast' },
+    p: {
+      zh: (
+        <>
+          安省标准 / TRREB 租约一键起草，<b style={{ color: INK }}>逐条中文解读</b>，当天电子签。
+        </>
+      ),
+      en: (
+        <>
+          Ontario Standard / TRREB leases drafted in one click, <b style={{ color: INK }}>explained clause by clause in Chinese</b>,
+          e-signed the same day.
+        </>
+      ),
+    },
+    chip: { zh: 'LOGIC 协同', en: 'LOGIC IN SYNC' },
+    chipRole: 'landlord',
+  },
+  {
+    noKey: '04',
+    no: { zh: '04 · 入住托管', en: '04 · MOVE-IN CARE' },
+    h: { zh: '住进去，不断联', en: 'Move in, stay connected' },
+    p: {
+      zh: (
+        <>
+          缴租、维修、续约、退租全程照看，<b style={{ color: INK }}>续约提前 120 天</b>备好方案等你选。
+        </>
+      ),
+      en: (
+        <>
+          Rent, repairs, renewal and move-out all looked after — <b style={{ color: INK }}>renewal options ready 120 days ahead</b>,
+          waiting for your pick.
+        </>
+      ),
+    },
+    chip: { zh: 'LUNA 在岗', en: 'LUNA ON DUTY' },
+    chipRole: 'tenant',
+  },
+]
+
+const PRICE_CHECKS: LSS[] = [
+  { zh: '验证一次，N 次申请一键复用', en: 'Verify once, reuse across N applications in one click' },
+  { zh: '你的评分你先看 —— 每一分都有理由', en: 'You see your score first — a reason behind every point' },
+  { zh: '分享哪些字段，每次由你点头，原件永不离开你', en: 'You approve which fields to share, every time — originals never leave you' },
 ]

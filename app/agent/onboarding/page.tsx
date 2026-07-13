@@ -49,7 +49,7 @@ const PERKS = [
   { zh: '7×24 自动派单 — 无需自己拉客', en: '24/7 auto-dispatch — no need to chase leads yourself' },
   { zh: '佣金每单 24h 内到账（市场平均 30 天）', en: 'Commission paid within 24h per deal (market average 30 days)' },
   { zh: 'AI 帮你写 listing / brief 包 / OREA 表', en: 'AI drafts your listings / brief packs / OREA forms' },
-  { zh: 'Stayloop 客户已通过 Tier 验证 — no time wasters', en: 'Stayloop clients are Tier-verified — no time wasters' },
+  { zh: 'Stayloop 客户已通过盖章验证 — no time wasters', en: 'Stayloop clients are stamp-verified — no time wasters' },
   { zh: 'T4A / GST 自动归集', en: 'T4A / GST automatically reconciled' },
 ]
 
@@ -81,8 +81,8 @@ export default function AgentOnboardingPage() {
                 </h1>
                 <p className="mt-5 max-w-[560px] text-[16px] leading-relaxed text-body-2">
                   {zh
-                    ? '你的 AI Agent 是你的 copilot — 它接客户、配房源、写 brief、起草约 ;你做的是面对面的判断。已通过 Tier 验证的客户直接进你 inbox。'
-                    : 'Your AI agent is your copilot — it takes clients, matches listings, writes briefs and drafts leases; you make the face-to-face calls. Tier-verified clients land straight in your inbox.'}
+                    ? '你的 AI Agent 是你的 copilot — 它接客户、配房源、写 brief、起草约 ;你做的是面对面的判断。已通过盖章验证的客户直接进你 inbox。'
+                    : 'Your AI agent is your copilot — it takes clients, matches listings, writes briefs and drafts leases; you make the face-to-face calls. Stamp-verified clients land straight in your inbox.'}
                 </p>
                 <div className="mt-7 flex flex-wrap gap-3">
                   <Link

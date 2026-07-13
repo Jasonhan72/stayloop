@@ -61,7 +61,7 @@ function ProgressBar({ step }: { step: Step }) {
   const idx = step === 'intro' ? 0 : step === 'capture-id' ? 1 : step === 'selfie' ? 2 : 3
   return (
     <div className="mb-10 flex items-center gap-3">
-      <span className="tier-badge t1">认证 1 级 · ID</span>
+      <span className="tier-badge t1">🪪 身份章 · ID</span>
       <div className="h-1 flex-1 overflow-hidden rounded-full bg-line-divider">
         <div
           className="h-full rounded-full transition-all"
@@ -137,6 +137,7 @@ function CaptureCard({
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // v5.4: 实时重试引导 per v54-passport-stamps —— 照片模糊/证件不支持当场提示重试（Findigs 同款规范）
   const accept = (f: File | null | undefined) => {
     if (!f) return
     if (!f.type.startsWith('image/')) {
@@ -252,7 +253,7 @@ function ReviewCard({ onBack }: { onBack: () => void }) {
       <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brand/10 text-brand">
         <CheckIcon />
       </span>
-      <h2 className="mt-5 text-[26px] font-bold tracking-tight">{zh ? '认证 1 级 通过 ✓' : 'Tier 1 passed ✓'}</h2>
+      <h2 className="mt-5 text-[26px] font-bold tracking-tight">{zh ? '身份章 已盖 ✓' : 'Identity stamp earned ✓'}</h2>
       <p className="mt-3 text-[14px] leading-relaxed text-body-2">
         {zh
           ? <>身份已验证。{name} 已经在你的 Workspace 等你 — 现在就能浏览房源、提交看房意向。</>

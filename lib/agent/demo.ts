@@ -40,7 +40,7 @@ const DEMO: Record<AgentRole, RoleDemo> = {
     ],
     result: {
       title: 'AI 今天为你刷了 28 套房',
-      body: '基于你的预算 ($2,100–2,400) 和偏好区域,筛掉价格偏高、认证级别不匹配、已 dismiss 的房型,留下 4 套真正值得看的。',
+      body: '基于你的预算 ($2,100–2,400) 和偏好区域,筛掉价格偏高、盖章门槛不匹配、已 dismiss 的房型,留下 4 套真正值得看的。',
     },
   },
 
@@ -48,7 +48,7 @@ const DEMO: Record<AgentRole, RoleDemo> = {
     stage: 'decision',
     completed: ['intake', 'review_inbox', 'screening'],
     memories: [
-      { key: 'min_tier', label: '认证门槛', value: { value: '默认 认证 2 级 起申 · Unit 1207 提至 认证 3 级' }, confidence: 1, memory_type: 'preference' },
+      { key: 'min_tier', label: '盖章门槛', value: { value: '默认 需收入章 起申 · Unit 1207 提至 需银行章' }, confidence: 1, memory_type: 'preference' },
       { key: 'min_credit', label: 'CREDIT', value: { value: '最低 720 · 低于自动降级提示' }, confidence: 1, memory_type: 'constraint' },
       { key: 'dti', label: 'DTI', value: { value: '租金 / 收入 ≤ 35%' }, confidence: 1, memory_type: 'constraint' },
       { key: 'pets', label: 'PETS', value: { value: '猫 ✓ · 狗仅小型 + $500 押金' }, confidence: 0.9, memory_type: 'preference' },
@@ -60,7 +60,7 @@ const DEMO: Record<AgentRole, RoleDemo> = {
         workflow_id: null,
         action_type: 'send_lease',
         title: '把 Unit 1207 的电子租约寄给 Mia Chen?',
-        summary: 'Mia (认证 3 级, 92% match, 信用 758, 月入 $11k) 已通过 3-way 比较。租约草稿基于你批的 Ontario LTB 标准模板 + Unit 1207 特殊条款(宠物押金 $500)。',
+        summary: 'Mia (已盖 3/4 枚章, 92% match, 信用 758, 月入 $11k) 已通过 3-way 比较。租约草稿基于你批的 Ontario LTB 标准模板 + Unit 1207 特殊条款(宠物押金 $500)。',
         recipient_label: 'Mia Chen · 租客',
         data_scope: ['租约草稿', '起租日 6/1', '12 个月期', '宠物押金 $500'],
         excluded_data: ['你的其他房源数据', '其他申请人资料'],
@@ -71,7 +71,7 @@ const DEMO: Record<AgentRole, RoleDemo> = {
     ],
     result: {
       title: 'Unit 1207 收到 8 份询盘,我建议先看 3 份',
-      body: '已按你设的 认证 3 级 / 信用 ≥ 720 / DTI ≤ 35% 筛过:3 份完整匹配,1 份 认证 2 级 但材料齐全可破例,4 份不达标。',
+      body: '已按你设的 需银行章 / 信用 ≥ 720 / DTI ≤ 35% 筛过:3 份完整匹配,1 份只盖到收入章但材料齐全可破例,4 份不达标。',
     },
   },
 
@@ -90,8 +90,8 @@ const DEMO: Record<AgentRole, RoleDemo> = {
         workflow_id: null,
         action_type: 'schedule_viewing',
         title: '接 Sarah 派的带看单：周三 14:00 · King West Unit 1207 · 客户 Mia Chen?',
-        summary: 'Sarah Wang 派了一单。客户 Mia Chen (认证 2 级)。90 秒决定接不接。下面是 RECO 合规命脉：你被授权 / 不被授权回答的问题清单。',
-        recipient_label: 'Mia Chen · 认证 2 级 · 客户',
+        summary: 'Sarah Wang 派了一单。客户 Mia Chen (已盖 2/4 枚章)。90 秒决定接不接。下面是 RECO 合规命脉：你被授权 / 不被授权回答的问题清单。',
+        recipient_label: 'Mia Chen · 已盖 2/4 枚章 · 客户',
         data_scope: ['✓ 房东授权回答：租金 + 押金细则', '✓ 看房时间 / 钥匙安排', '✓ 房源配套 / 朝向 / 暖通'],
         excluded_data: ['✗ 不授权：房东个人信息', '✗ 不授权：其他申请人资料', '✗ 不授权：替房东谈判或承诺'],
         risk_level: 'low',

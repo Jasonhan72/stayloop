@@ -6,6 +6,7 @@
 // Realtor.ca results open in a new tab.
 import Link from 'next/link'
 import { useT } from '@/lib/i18n'
+import { stampForTier } from '@/lib/passportStamps'
 import type { ListingCard } from '@/lib/agent/types'
 
 export default function ListingChatCard({ l }: { l: ListingCard }) {
@@ -65,7 +66,7 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
             ))}
             {!external && l.tier && (
               <span className="rounded-md px-2 py-1 font-mono text-[10.5px]" style={{ background: 'rgba(180,83,9,0.10)', color: '#B45309' }}>
-                {zh ? `需 认证 ${l.tier} 级` : `Tier ${l.tier} required`}
+                {zh ? `需 ${stampForTier(l.tier).zh}` : `${stampForTier(l.tier).en} required`}
               </span>
             )}
           </div>

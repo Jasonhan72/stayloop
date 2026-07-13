@@ -77,7 +77,7 @@ const ALREADY_KNOWN: InfoItem[] = [
   },
   {
     icon: { ch: '★', role: 't' },
-    title: { zh: '你的 认证 3 级 完成 · Score 84', en: 'Your Tier 3 verification is complete · Score 84' },
+    title: { zh: '银行章 已盖 · 已盖 3/4 枚章 · Score 84', en: 'Bank stamp earned · 3/4 stamps · Score 84' },
     body: { zh: '解锁 23 套高端房源 · Sarah 已自动收到通知', en: 'Unlocked 23 premium listings · Sarah was notified automatically' },
     ts: { zh: '5/4 10:24', en: '5/4 10:24' },
   },
@@ -95,7 +95,7 @@ const ALREADY_KNOWN: InfoItem[] = [
   },
   {
     icon: { ch: '★', role: 't' },
-    title: { zh: 'Flinks 完成认证 3 级核验', en: 'Flinks completed Tier 3 verification' },
+    title: { zh: 'Flinks 完成 银行章 核验', en: 'Flinks completed the bank stamp verification' },
     body: { zh: '收入 · 身份 · 信用 已全部通过', en: 'Income · identity · credit all passed' },
     ts: { zh: '5/4 10:24', en: '5/4 10:24' },
   },

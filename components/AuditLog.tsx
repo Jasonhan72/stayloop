@@ -52,7 +52,7 @@ const DAYS = (aiName: string): AuditDay[] => [
       },
       {
         ts: '14:22',
-        body: { zh: 'Sarah Wang 查看了你的认证 2 级资料 · 第 3 次 · 停留 2m14s', en: 'Sarah Wang viewed your Tier 2 profile · 3rd time · 2m14s' },
+        body: { zh: 'Sarah Wang 查看了你的 身份 + 收入章 资料 · 第 3 次 · 停留 2m14s', en: 'Sarah Wang viewed your identity + income stamp profile · 3rd time · 2m14s' },
         who: 'LANDLORD',
         cat: 'access',
         hash: '0x2c…d740',
@@ -73,7 +73,7 @@ const DAYS = (aiName: string): AuditDay[] => [
       {
         ts: '10:21',
         lead: { zh: '你授权 Flinks 访问银行', en: 'You authorized Flinks bank access' },
-        body: { zh: '90 天银行流水（只读）· 认证 3 级 升级', en: '90 days of bank transactions (read-only) · Tier 3 upgrade' },
+        body: { zh: '90 天银行流水（只读）· 盖 银行章', en: '90 days of bank transactions (read-only) · bank stamp' },
         who: 'SELF · CONSENT',
         cat: 'consent',
         hash: '0xa3…5c01',
@@ -87,14 +87,14 @@ const DAYS = (aiName: string): AuditDay[] => [
       },
       {
         ts: '10:24',
-        body: { zh: 'Persona 完成身份核验（只读）· 认证 2 级 → 3 级', en: 'Persona completed identity verification (read-only) · Tier 2 → 3' },
+        body: { zh: 'Persona 完成身份核验（只读）· 已盖 2/4 → 3/4 枚章', en: 'Persona completed identity verification (read-only) · 2/4 → 3/4 stamps' },
         who: 'PERSONA API',
         cat: 'access',
         hash: '0xc1…44af',
       },
       {
         ts: '10:25',
-        body: { zh: 'Stayloop 向 Sarah Wang 发布认证 3 级衍生数据 · 不含具体交易', en: 'Stayloop released Tier 3 derived data to Sarah Wang · no individual transactions' },
+        body: { zh: 'Stayloop 向 Sarah Wang 发布 银行章 衍生数据 · 不含具体交易', en: 'Stayloop released bank-stamp derived data to Sarah Wang · no individual transactions' },
         who: 'SYSTEM',
         cat: 'access',
         hash: '0xd9…02e6',
@@ -135,7 +135,7 @@ const DAYS = (aiName: string): AuditDay[] => [
       {
         ts: '14:30',
         lead: { zh: '你提交看房意向', en: 'You submitted a showing request' },
-        body: { zh: 'Unit 1207 · King West · 认证 2 级资料分享 · 范围限定', en: 'Unit 1207 · King West · Tier 2 profile shared · scope-limited' },
+        body: { zh: 'Unit 1207 · King West · 身份 + 收入章 资料分享 · 范围限定', en: 'Unit 1207 · King West · identity + income stamp profile shared · scope-limited' },
         who: 'SELF · INTENT',
         cat: 'consent',
         hash: '0x8b…51c7',
@@ -283,7 +283,7 @@ function Aside() {
       </div>
       <div className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-body-2">
         <p>
-          👤 <b>Sarah Wang</b> · {lang === 'zh' ? '房东 · 认证 2 级资料 · 共查看 3 次' : 'Landlord · Tier 2 profile · viewed 3 times'}
+          👤 <b>Sarah Wang</b> · {lang === 'zh' ? '房东 · 身份 + 收入章 资料 · 共查看 3 次' : 'Landlord · identity + income stamp profile · viewed 3 times'}
         </p>
         <p>
           🏦 <b>Flinks</b> · {lang === 'zh' ? '90 天银行流水（只读）· 已授权' : '90 days of bank transactions (read-only) · authorized'}

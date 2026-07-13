@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
+import StampBadge from '@/components/StampBadge'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
 import { useAuth } from '@/lib/useAuth'
@@ -33,7 +34,7 @@ const DEMO_APPS: Applicant[] = [
   { id: '3', name: 'Karen Liu',    initial: 'K', avc: 'landlord', match: 84, tier: 3, income: 12300, qual: { zh: '收入 ✓ 信用 ✓ 自雇', en: 'Income ✓ Credit ✓ Self-employed' }, decision: 'approve', unitLabel: null },
   { id: '4', name: 'Lina Chen',    initial: 'L', avc: 'orange',   match: 81, tier: 2, income: 8900,  qual: { zh: '材料齐 · 短租意向 · 可议', en: 'Docs complete · short-term intent · negotiable' }, decision: 'review', unitLabel: null },
   { id: '5', name: 'Tom Zhao',     initial: 'T', avc: 'tenant',   match: 64, tier: 2, income: 7200,  qual: { zh: '近 1 年 LTB 1 起 (已结案)', en: '1 LTB case in past year (closed)' }, decision: 'review', unitLabel: null },
-  { id: '6', name: 'Anna Brooks',  initial: 'A', avc: 'agent',    match: 41, tier: 1, income: 5400,  qual: { zh: '未升级 认证 2 级 · 仅基本 ID', en: 'Not upgraded to Tier 2 · basic ID only' }, decision: 'decline', unitLabel: null },
+  { id: '6', name: 'Anna Brooks',  initial: 'A', avc: 'agent',    match: 41, tier: 1, income: 5400,  qual: { zh: '未盖 收入章 · 仅身份章', en: 'No income stamp yet · identity stamp only' }, decision: 'decline', unitLabel: null },
 ]
 
 const SECTIONS = [
@@ -122,8 +123,8 @@ function toApplicant(row: AppRow, idx: number): Applicant {
 
 function exportCsv(apps: Applicant[], zh: boolean) {
   const header = zh
-    ? ['姓名', '匹配分', '认证级', '月收入', '分组', '房源']
-    : ['Name', 'Match', 'Tier', 'Monthly income', 'Group', 'Listing']
+    ? ['姓名', '匹配分', '已盖章数', '月收入', '分组', '房源']
+    : ['Name', 'Match', 'Stamps', 'Monthly income', 'Group', 'Listing']
   const rows = apps.map((a) => [a.name, a.match ?? '', a.tier, a.income ?? '', a.decision, a.unitLabel ?? ''])
   const csv = [header, ...rows]
     .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
@@ -244,8 +245,8 @@ export default function LandlordApplicantsPage() {
           </h1>
           <p className="mt-2 text-[14px] text-body-2">
             {lang === 'zh'
-              ? '按你的 认证 3 级 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整六维评分 + 文件。'
-              : 'Sorted into 3 groups by your policy (Tier 3 / credit ≥ 720 / DTI ≤ 35%). Open any application to see the full six-dimension score and documents.'}
+              ? '按你的 需银行章 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整六维评分 + 文件。'
+              : 'Sorted into 3 groups by your policy (bank stamp required / credit ≥ 720 / DTI ≤ 35%). Open any application to see the full six-dimension score and documents.'}
             {!liveMode && rows !== null && (
               <span className="ml-2 font-mono text-[11px] uppercase tracking-wider text-body-3">
                 {lang === 'zh' ? '样本数据 · 收到真实申请后自动替换' : 'Sample data · replaced when real applications arrive'}
@@ -300,7 +301,7 @@ export default function LandlordApplicantsPage() {
                     <div className="mt-1 font-mono text-[11.5px] text-body-2">{a.qual[lang]}</div>
                   </div>
                   <div className="flex items-center gap-3 sm:contents">
-                    <span className={`tier-badge t${a.tier}`}>{lang === 'zh' ? `认证 ${a.tier} 级` : `Tier ${a.tier}`}</span>
+                    <StampBadge tier={a.tier} />
                     <div>
                       <div className="font-mono text-[24px] font-bold leading-none">{a.match ?? '—'}</div>
                       <div className="font-mono text-[10px] uppercase text-body-3">MATCH</div>

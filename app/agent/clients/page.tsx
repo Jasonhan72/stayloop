@@ -1,6 +1,7 @@
 'use client'
 
 import AIProactive from '@/components/AIProactive'
+import StampBadge from '@/components/StampBadge'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
@@ -61,7 +62,7 @@ const CLIENTS = (aiName: string) => [
     area: 'Liberty Village',
     stage: 'leased',
     next: { zh: '续约草稿 5/12 完成', en: 'Renewal draft due 5/12' },
-    last: { zh: '认证 2 级 · 12 个月按时', en: 'Tier 2 · 12 months on time' },
+    last: { zh: '已盖 2/4 枚章 · 12 个月按时', en: '2/4 stamps · 12 months on time' },
   },
   {
     name: 'David Z.',
@@ -96,7 +97,7 @@ const CLIENTS = (aiName: string) => [
     budget: '$1,800',
     area: 'Bachelor / Cabbagetown',
     stage: 'searching',
-    next: { zh: '提示她升级到 认证 2 级', en: 'Prompt her to upgrade to Tier 2' },
+    next: { zh: '提示她盖上收入章', en: 'Prompt her to earn the income stamp' },
     last: { zh: '4/30 加入', en: 'Joined 4/30' },
   },
   {
@@ -106,7 +107,7 @@ const CLIENTS = (aiName: string) => [
     area: 'Yorkville',
     stage: 'showing',
     next: { zh: '5/13 三套连看', en: 'Three back-to-back viewings 5/13' },
-    last: { zh: '只看高 认证级别 房源', en: 'Only views high-Tier listings' },
+    last: { zh: '只看高门槛房源', en: 'Only views high-threshold listings' },
   },
   {
     name: 'Yuki M.',
@@ -139,7 +140,7 @@ export default function AgentClientsPage() {
           </div>
           <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">{zh ? '客户管理' : 'Client management'}</h1>
           <p className="mt-1 text-[13.5px] text-body-2">
-            {zh ? `${aiName} 自动 CRM · 按阶段 / 认证级别 / 预算分组 · 跟进自动安排` : `${aiName} auto-CRM · grouped by stage / Tier / budget · follow-ups scheduled automatically`}
+            {zh ? `${aiName} 自动 CRM · 按阶段 / 盖章进度 / 预算分组 · 跟进自动安排` : `${aiName} auto-CRM · grouped by stage / stamps / budget · follow-ups scheduled automatically`}
           </p>
         </div>
         <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{zh ? '+ 加客户' : '+ Add client'}</button>
@@ -181,11 +182,11 @@ export default function AgentClientsPage() {
       {/* Search */}
       <div className="mb-4 flex items-center gap-2">
         <input
-          placeholder={zh ? '搜索客户 / 区域 / 认证级别' : 'Search clients / area / Tier'}
+          placeholder={zh ? '搜索客户 / 区域 / 盖章进度' : 'Search clients / area / stamps'}
           className="flex-1 rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] outline-none focus:border-brand"
         />
         <button className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
-          {zh ? '按 认证级别 ▾' : 'By Tier ▾'}
+          {zh ? '按 盖章进度 ▾' : 'By stamps ▾'}
         </button>
       </div>
 
@@ -195,7 +196,7 @@ export default function AgentClientsPage() {
           <thead className="bg-surface-chip">
             <tr>
               <Th>{zh ? '客户' : 'Client'}</Th>
-              <Th>{zh ? '认证级别' : 'Tier'}</Th>
+              <Th>{zh ? '盖章进度' : 'Stamps'}</Th>
               <Th>{zh ? '预算 · 区域' : 'Budget · Area'}</Th>
               <Th>{zh ? '阶段' : 'Stage'}</Th>
               <Th>{zh ? '下一步' : 'Next step'}</Th>
@@ -217,7 +218,7 @@ export default function AgentClientsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-3">
-                    <span className={`tier-badge t${c.tier}`}>{zh ? `认证 ${c.tier} 级` : `Tier ${c.tier}`}</span>
+                    <StampBadge tier={c.tier} />
                   </td>
                   <td className="px-6 py-3">
                     <div className="font-bold">{c.budget}</div>
@@ -281,7 +282,7 @@ function Aside() {
         {[
           { who: 'Anna L.', msg: { zh: '看房后 30 min 内问反馈', en: 'Ask for feedback within 30 min of showing' }, when: { zh: '今天 14:30', en: 'Today 14:30' } },
           { who: 'Jason H.', msg: { zh: '5 套 brief 包等你审', en: '5-listing brief pack awaiting your review' }, when: { zh: '本周内', en: 'This week' } },
-          { who: 'Sophie B.', msg: { zh: '提议升级到 认证 2 级', en: 'Suggest upgrade to Tier 2' }, when: { zh: '今天', en: 'Today' } },
+          { who: 'Sophie B.', msg: { zh: '提议盖上收入章', en: 'Suggest earning the income stamp' }, when: { zh: '今天', en: 'Today' } },
           { who: 'Kevin Tran', msg: { zh: '续约草稿审阅', en: 'Review renewal draft' }, when: { zh: '5/12 前', en: 'By 5/12' } },
         ].map((f, i) => (
           <div key={i} className="rounded-[10px] border border-line-divider bg-white p-3">

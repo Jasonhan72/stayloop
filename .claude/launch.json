@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "bytebot-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/neos/Documents/Claude/Projects/bytebot", "run", "dev", "--", "-p", "3111"],
+      "port": 3111
     }
   ]
 }

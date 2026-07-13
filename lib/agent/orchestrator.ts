@@ -46,7 +46,7 @@ export const ROLE_META: Record<
 // Ordered workflow stages per role → label, used by WorkflowStatusPanel.
 export const WORKFLOW_STAGES: Record<AgentRole, { key: string; label: string }[]> = {
   tenant: [
-    { key: 'intake', label: '身份验证 · Tier 1' },
+    { key: 'intake', label: '身份验证 · 身份章' },
     { key: 'preference_collection', label: '设定偏好 · 区域 / 预算 / 户型' },
     { key: 'passport_readiness', label: 'Passport 就绪检查' },
     { key: 'shortlist_and_apply', label: '筛选房源 + 提交意向' },
@@ -103,8 +103,8 @@ export function buildRecommendations(
   switch (role) {
     case 'tenant':
       return [
-        { id: 'passport', title: '升级到 Tier 2 解锁更多房源', description: '上传一张工资单或连接 Plaid,约 5 分钟。', href: '/tenant/passport', badge: 'NUDGE' },
-        { id: 'browse', title: '看 AI 今天筛的房源', description: '已按预算、区域、Tier 匹配过滤。', href: '/listings', badge: 'SHORTLIST' },
+        { id: 'passport', title: '盖上收入章解锁更多房源', description: '上传一张工资单或连接 Plaid,约 5 分钟。', href: '/tenant/passport', badge: 'NUDGE' },
+        { id: 'browse', title: '看 AI 今天筛的房源', description: '已按预算、区域、盖章门槛过滤。', href: '/listings', badge: 'SHORTLIST' },
         { id: 'apps', title: '查看申请进度', description: '跟踪每份意向与房东回应。', href: '/tenant/applications', badge: 'STATUS' },
       ]
     case 'landlord':

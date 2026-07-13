@@ -26,9 +26,9 @@ export default function PrivacyPage() {
           </Section>
           <Section title={zh ? '2 · 我们怎么用' : '2 · How we use it'}>
             <p>{zh ? (
-              <>仅用于 Stayloop 服务交付：Tier 评分、与房东 / 经纪 / 合作伙伴授权分享、AI 助手记忆。我们 <b>不</b> 把数据卖给任何第三方。</>
+              <>仅用于 Stayloop 服务交付：护照盖章评分、与房东 / 经纪 / 合作伙伴授权分享、AI 助手记忆。我们 <b>不</b> 把数据卖给任何第三方。</>
             ) : (
-              <>Only to deliver the Stayloop service: tier scoring, authorized sharing with landlords / agents / partners, and AI-assistant memory. We do <b>not</b> sell your data to any third party.</>
+              <>Only to deliver the Stayloop service: passport-stamp scoring, authorized sharing with landlords / agents / partners, and AI-assistant memory. We do <b>not</b> sell your data to any third party.</>
             )}</p>
           </Section>
           <Section title={zh ? '3 · 你的控制权' : '3 · Your control'}>

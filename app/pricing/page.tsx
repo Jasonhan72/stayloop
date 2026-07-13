@@ -50,7 +50,7 @@ const PLANS: RolePlan[] = [
         includesLabel: { zh: '全部包含:', en: 'Everything included:' },
         features: [
           { zh: '个人 AI Agent 全功能', en: 'Full personal AI agent' },
-          { zh: '认证 1–4 级,全部免费升级', en: 'Tiers 1–4 all upgraded free' },
+          { zh: '四枚章,全部免费盖', en: 'All four stamps free to earn' },
           { zh: '申请 · 签约 · 维修全流程', en: 'Apply, sign and maintenance end to end' },
           { zh: '看房免费(持牌经纪带看)', en: 'Free showings (licensed agent)' },
           { zh: '信用记录跨平台可携带', en: 'Portable tenant credit record' },
@@ -323,7 +323,7 @@ export default function PricingPage() {
           <h2 className="text-[24px] font-bold tracking-tight sm:text-[30px]">{zh ? '常见问题' : 'Frequently asked questions'}</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {[
-              { q: { zh: '租客真的永远免费吗?', en: 'Are tenants really free forever?' }, a: { zh: '是。租客侧不收任何交易费 —— 身份验证、Passport、申请、电子签约、维修都免费,且认证 1–4 级全部免费升级。租客的隐私永远不是商品。', en: 'Yes. There are no transaction fees on the tenant side — identity verification, Passport, applications, e-signing and maintenance are all free, and Tiers 1–4 are all upgraded free. A tenant’s privacy is never a product.' } },
+              { q: { zh: '租客真的永远免费吗?', en: 'Are tenants really free forever?' }, a: { zh: '是。租客侧不收任何交易费 —— 身份验证、Passport、申请、电子签约、维修都免费,且四枚章全部免费盖。租客的隐私永远不是商品。', en: 'Yes. There are no transaction fees on the tenant side — identity verification, Passport, applications, e-signing and maintenance are all free, and all four stamps are free to earn. A tenant’s privacy is never a product.' } },
               { q: { zh: '经纪订阅包含什么?', en: 'What does the agent subscription include?' }, a: { zh: 'AI Agent 全功能（任务编排、客户管理、看房排程、RECO 合规提醒）。免费档 5 个客户/月;Pro($29)无限客户;Team($59)多经纪协作 + 绩效面板。纯 SaaS 工具,不抽任何佣金。', en: 'Full AI agent (task orchestration, client management, showing scheduler, RECO compliance reminders). Free tier: 5 clients/month; Pro ($29): unlimited; Team ($59): multi-agent collaboration + performance dashboard. Pure SaaS tooling — no commission cut.' } },
               { q: { zh: '为什么不收带看费、不抽租金?', en: 'Why no showing fees and no rent skim?' }, a: { zh: '收租与筛查是订阅内的服务,不是交易抽成;租金流水我们一分不抽。这让定价远离合规红线,也让租客零负担。', en: 'Rent collection and screening are subscription services, not transactional cuts — we take nothing from the rent flow. This keeps pricing well clear of the compliance line and keeps tenants at zero cost.' } },
               { q: { zh: '房东免费档够用吗?', en: 'Is the landlord free tier enough?' }, a: { zh: '免费档永久可用,可发布 1 套房源、收申请、用 AI 摘要评分、Stripe 托管收租(平台不抽流水)。升级 Pro($19)或团队($39)解锁完整 AI Agent、无限房源与财务面板。', en: 'The free tier is permanent: list 1 property, receive applications, use AI summary scoring, and Stripe-managed rent collection (the platform takes no cut of the flow). Upgrade to Pro ($19) or Team ($39) to unlock the full AI agent, unlimited listings and the finance dashboard.' } },

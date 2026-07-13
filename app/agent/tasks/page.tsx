@@ -20,7 +20,7 @@ const TASKS = (aiName: string) => [
     client: { zh: 'Mia Chen · Tenant', en: 'Mia Chen · Tenant' },
     sla: { zh: '1h 后开始', en: 'Starts in 1h' },
     priority: 'now',
-    note: { zh: '客户 认证 2 级 · 看房后 30 min 内反馈', en: 'Client Tier 2 · feedback within 30 min of showing' },
+    note: { zh: '客户已盖 2/4 枚章 · 看房后 30 min 内反馈', en: 'Client has 2/4 stamps · feedback within 30 min of showing' },
   },
   {
     id: 'T-298',
@@ -38,7 +38,7 @@ const TASKS = (aiName: string) => [
     client: { zh: 'Jason H. · Tenant', en: 'Jason H. · Tenant' },
     sla: { zh: '本周内', en: 'This week' },
     priority: 'medium',
-    note: { zh: '客户预算 $3.2k–$3.6k · 认证 2 级 · 1B+den', en: 'Client budget $3.2k–$3.6k · Tier 2 · 1B+den' },
+    note: { zh: '客户预算 $3.2k–$3.6k · 已盖 2/4 枚章 · 1B+den', en: 'Client budget $3.2k–$3.6k · 2/4 stamps · 1B+den' },
   },
   {
     id: 'T-291',
@@ -57,7 +57,7 @@ const TASKS = (aiName: string) => [
     client: { zh: 'Lisa W. · Tenant', en: 'Lisa W. · Tenant' },
     sla: { zh: '2 天后', en: 'In 2 days' },
     priority: 'low',
-    note: { zh: '客户已通过 认证级别 验证', en: 'Client has passed Tier verification' },
+    note: { zh: '客户已完成盖章验证', en: 'Client has verified stamps' },
   },
 ]
 

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useT } from '@/lib/i18n'
+import { stampForTier, stampLabel, STAMP_CHECK_GREEN } from '@/lib/passportStamps'
 
 type Bi = { zh: string; en: string }
 
@@ -21,8 +22,8 @@ interface TierInfo {
 const TIERS: TierInfo[] = [
   {
     level: 1,
-    title: { zh: '身份认证', en: 'Identity' },
-    desc: { zh: '护照/驾照 + 自拍 · Persona 验证', en: 'Passport/licence + selfie · Persona verification' },
+    title: { zh: '身份章', en: 'Identity stamp' },
+    desc: { zh: '扫证件 + 自拍，90 秒 · Persona 验证', en: 'Scan ID + selfie, 90 seconds · Persona verification' },
     status: 'done',
     fields: [
       { zh: '法定姓名', en: 'Legal name' },
@@ -32,7 +33,7 @@ const TIERS: TierInfo[] = [
   },
   {
     level: 2,
-    title: { zh: '收入验证', en: 'Income' },
+    title: { zh: '收入章', en: 'Income stamp' },
     desc: { zh: '连接银行 · 雇主 + 月收入自动核实', en: 'Connect bank · employer + income auto-verified' },
     status: 'done',
     fields: [
@@ -43,17 +44,17 @@ const TIERS: TierInfo[] = [
   },
   {
     level: 3,
-    title: { zh: '银行透明度', en: 'Banking' },
-    desc: { zh: '现金流稳定性 + 退款记录', en: 'Cash-flow stability + NSF history' },
+    title: { zh: '银行章', en: 'Bank stamp' },
+    desc: { zh: '连接一次银行流水，约 5 分钟', en: 'Connect your bank once, ~5 minutes' },
     status: 'current',
     fields: [
-      { zh: '现金流评分', en: 'Cash-flow score' },
-      { zh: '退款/拒付次数', en: 'Returns / NSF count' },
+      { zh: '现金流稳定性', en: 'Cash-flow stability' },
+      { zh: '退款记录', en: 'NSF history' },
     ],
   },
   {
     level: 4,
-    title: { zh: '信用 + 法庭', en: 'Credit + Court' },
+    title: { zh: '信用 + 法庭章', en: 'Credit + court stamp' },
     desc: { zh: 'Equifax 信用分 + LTB 法庭记录', en: 'Equifax credit score + LTB court records' },
     status: 'locked',
     fields: [
@@ -103,8 +104,8 @@ export default function TenantPassport() {
           </h1>
           <p className="mt-1.5 max-w-[560px] text-[14px] leading-relaxed text-body-2">
             {zh
-              ? '你的 Passport 是你向房东展示可信度的通行证。等级越高，房东审批越快。'
-              : 'Your Passport proves trustworthiness to landlords. Higher tiers mean faster approvals.'}
+              ? '你的 Passport 是你向房东展示可信度的通行证。验证一次 · 处处通行，章越多，房东审批越快。'
+              : 'Your Passport proves trustworthiness to landlords. Verify once, travel everywhere — more stamps mean faster approvals.'}
           </p>
         </div>
 
@@ -113,14 +114,14 @@ export default function TenantPassport() {
           insights={[
             {
               text: {
-                zh: '升级到认证 3 级只差银行流水一步（约 5 分钟），可解锁多 42% 的房源，房东审批也更快。',
-                en: 'Tier 3 is one bank-transparency step away (~5 minutes) — it unlocks 42% more listings and faster approvals.',
+                zh: '盖上银行章（约 5 分钟）——连接一次银行流水，可解锁多 42% 的房源，房东审批也更快。',
+                en: 'Earn your bank stamp (~5 minutes) — one bank connection unlocks 42% more listings and faster approvals.',
               },
               action: {
-                label: { zh: '带我升级', en: 'Walk me through it' },
+                label: { zh: '带我盖章', en: 'Walk me through it' },
                 prompt: {
-                  zh: '帮我升级到认证 3 级，告诉我需要做什么。',
-                  en: 'Help me upgrade to Tier 3 — what do I need to do?',
+                  zh: '帮我盖上银行章，告诉我需要做什么。',
+                  en: 'Help me earn the bank stamp — what do I need to do?',
                 },
               },
             },
@@ -146,23 +147,20 @@ export default function TenantPassport() {
             <div>
               <div className="flex items-baseline gap-2">
                 <span className="text-[36px] sm:text-[42px] font-bold tracking-tight text-tenant">
-                  {zh ? `认证 ${completedCount} 级` : `Tier ${completedCount}`}
+                  {stampLabel(completedCount, lang)}
                 </span>
-                <span className="text-[14px] text-body-3">/ 4</span>
               </div>
               <p className="mt-1 text-[13.5px] text-body-2">
                 {zh
-                  ? `下一步：${currentTier.title.zh} — ${currentTier.desc.zh}`
-                  : `Next: ${currentTier.title.en} — ${currentTier.desc.en}`}
+                  ? `下一枚：${currentTier.title.zh} —— ${currentTier.desc.zh}`
+                  : `Next stamp: ${currentTier.title.en} — ${currentTier.desc.en}`}
               </p>
             </div>
             <Link
               href={currentTier.status === 'current' ? '/onboarding/tier1' : '#'}
               className="sl-btn-primary !px-6 !py-3 shrink-0"
             >
-              {zh
-                ? `升级到认证 ${currentTier.level} 级 →`
-                : `Upgrade to Tier ${currentTier.level} →`}
+              {zh ? '盖这枚章 →' : 'Stamp it →'}
             </Link>
           </div>
 
@@ -186,34 +184,84 @@ export default function TenantPassport() {
             </div>
           </div>
 
-          {/* Tier timeline */}
+          {/* Stamp cards (四枚章位：已盖 / 下一枚 / 待盖) */}
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {TIERS.map((t) => (
-              <div
-                key={t.level}
-                className={
-                  'rounded-xl border px-4 py-3 transition ' +
-                  (t.status === 'done'
-                    ? 'border-tenant/30 bg-tenant/[0.04]'
-                    : t.status === 'current'
-                    ? 'border-warning/40 bg-warning/[0.04]'
-                    : 'border-line-divider bg-surface-chip opacity-60')
-                }
-              >
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className="font-mono text-[11px] font-bold text-body-3">
-                    {t.status === 'done' ? '✓' : t.status === 'current' ? '◐' : '🔒'}{' '}
-                    {zh ? `认证 ${t.level} 级` : `Tier ${t.level}`}
+            {TIERS.map((t) => {
+              const stamp = stampForTier(t.level)
+              return (
+                <div
+                  key={t.level}
+                  className={
+                    'relative rounded-xl px-4 py-3 transition ' +
+                    (t.status === 'done'
+                      ? 'border border-tenant/40 bg-tenant/[0.06]'
+                      : t.status === 'current'
+                      ? 'border-[1.5px] border-dashed border-warning/50 bg-warning/[0.04]'
+                      : 'border-[1.5px] border-dashed border-line-divider bg-surface-chip opacity-60')
+                  }
+                >
+                  <span
+                    className={
+                      'absolute top-3 right-3 font-mono text-[9px] font-bold tracking-wide ' +
+                      (t.status === 'done'
+                        ? ''
+                        : t.status === 'current'
+                        ? 'text-warning'
+                        : 'text-body-3')
+                    }
+                    style={t.status === 'done' ? { color: STAMP_CHECK_GREEN } : undefined}
+                  >
+                    {t.status === 'done'
+                      ? zh ? '✓ 已盖章' : '✓ Stamped'
+                      : t.status === 'current'
+                      ? zh ? `● 下一枚${stamp.est_zh ? ` · ${stamp.est_zh}` : ''}` : `● Next${stamp.est_en ? ` · ${stamp.est_en}` : ''}`
+                      : zh ? '待盖' : 'Locked'}
                   </span>
+                  {/* Seal */}
+                  <div
+                    className={
+                      'relative mb-2 flex h-11 w-11 items-center justify-center rounded-full text-[20px] ' +
+                      (t.status === 'done'
+                        ? 'bg-gradient-to-br from-[#C4B5FD] to-tenant shadow-[0_4px_14px_rgba(124,58,237,0.4)]'
+                        : 'bg-surface-chip')
+                    }
+                    style={t.status === 'done' ? { transform: 'rotate(-8deg)' } : undefined}
+                  >
+                    <span className={t.status === 'locked' ? 'grayscale opacity-70' : ''}>{stamp.icon}</span>
+                    {t.status === 'done' && (
+                      <span
+                        aria-hidden
+                        className="absolute -right-[7px] -bottom-[7px] flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] font-extrabold text-white"
+                        style={{
+                          background: STAMP_CHECK_GREEN,
+                          border: '2.5px solid #131118',
+                          transform: 'rotate(8deg)',
+                        }}
+                      >
+                        ✓
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[13px] font-semibold tracking-tight">{t.title[lang]}</div>
+                  <div className="mt-0.5 text-[11.5px] leading-relaxed text-body-3">
+                    {zh ? stamp.what_zh : stamp.what_en}
+                  </div>
+                  <div className="mt-2 border-t border-dashed border-line-divider pt-1.5 text-[11.5px] leading-relaxed">
+                    <span className="block font-mono text-[9px] tracking-wider text-body-3">
+                      {zh ? '解锁' : 'UNLOCKS'}
+                    </span>
+                    <span className={t.status === 'done' ? 'text-tenant' : 'text-body-2'}>
+                      {zh ? stamp.gain_zh : stamp.gain_en}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-[13px] font-semibold tracking-tight">{t.title[lang]}</div>
-                <div className="mt-1 space-y-0.5">
-                  {t.fields.map((f) => (
-                    <div key={f.en} className="text-[11.5px] text-body-3">{f[lang]}</div>
-                  ))}
-                </div>
-              </div>
-            ))}
+              )
+            })}
+          </div>
+          <div className="mt-4 text-center font-mono text-[10.5px] tracking-wide text-body-3">
+            {zh
+              ? '支持 护照 · 签证 · 枫叶卡 · 工签 —— 没有加拿大信用记录，也能盖章。'
+              : 'Passport · visa · PR card · work permit all supported — no Canadian credit history needed to earn stamps.'}
           </div>
         </div>
 
@@ -303,7 +351,7 @@ export default function TenantPassport() {
               {
                 name: 'Sarah Wang',
                 role: { zh: '房东 · Unit 1207', en: 'Landlord · Unit 1207' },
-                scope: { zh: '认证 2 级数据', en: 'Tier 2 data' },
+                scope: { zh: '身份 + 收入章数据', en: 'Identity + income stamp data' },
                 color: '#F97316',
               },
               {
