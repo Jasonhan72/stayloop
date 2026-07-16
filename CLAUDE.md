@@ -140,7 +140,7 @@ In `supabase/migrations/`:
 
 ## Design Source of Truth
 
-- **v5.4 改版（2026-07-11 起）**：`design/v54-homepage.html` = 新首页唯一蓝本（十一幕、现网 header/footer、纯自证文案、reveal 兜底修复在内注释）；`design/v54-passport-stamps.html` = 认证体系蓝本（「认证 N 级」→ 四枚章 + 绿勾 #6AB344，`trust_tier` 数据字段与 tier-badge CSS 类名保持不动，仅表现层改名）
+- **v6 首页（2026-07-13 起）**：`design/v6-homepage.html` = 首页唯一蓝本（AI 剧场：痛点驱动三角色段 + 活的 Agent 会话流 + 编辑级设计——拱形封面照 `/home/hero-mist.jpg`、描边壹贰叁底字、斜切色块、纸叠会话卡、AI 跑马灯；文案平实专业口径，人物引语取剧本 canon）。v5.4 蓝本 `design/v54-homepage.html` 已被取代（仅存档）；`design/v54-passport-stamps.html` 认证体系蓝本继续有效（「认证 N 级」→ 四枚章 + 绿勾 #6AB344，`trust_tier` 数据字段与 tier-badge CSS 类名保持不动，仅表现层改名）
 - `design/v53-handbook-complete-zh.html` — full engineering handbook
 - `design/v53-vol1.html` through `v53-vol8.html` + `v53-vol-arch.html` — extracted volumes
 - VOL1=homepage, VOL2=workspace flows, VOL3=settings/pricing/agent, VOL4=more UI, VOL5-7=screening(skip), VOL8=disputes/LTB/legal
