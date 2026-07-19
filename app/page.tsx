@@ -9,22 +9,833 @@
 //      theatre panels don't cause horizontal scroll, and so position:sticky
 //      on the real Header keeps working); typography moves to .v6-page.
 //   2. .hero-in top padding 116px → 50px — the blueprint's nav was absolutely
-//      positioned; the real Header is sticky and occupies 66px of flow.
-// All class names and copy are unchanged from the blueprint.
+//     positioned; the real Header is sticky and occupies 66px of flow.
+// All class names are unchanged from the blueprint. Copy is bilingual: the
+// blueprint's zh strings are kept verbatim in COPY.zh; COPY.en is the English
+// rendering, selected at runtime via useI18n().lang (SSR/first frame renders
+// zh — the provider default — then hydrates to the stored/browser language).
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import { useI18n, type Lang } from '@/lib/i18n'
 
-/* Typewriter lines — verbatim from the blueprint script. */
-const TRY_LINES = [
-  '北约克两房，预算 2800，能养猫',
-  '1207 的三份申请，帮我看一下',
-  '明天的带看都排好',
-  '这份租约的第 8 条什么意思？',
-]
+/* Typewriter lines — zh verbatim from the blueprint script. */
+const TRY_LINES: Record<Lang, string[]> = {
+  zh: [
+    '北约克两房，预算 2800，能养猫',
+    '1207 的三份申请，帮我看一下',
+    '明天的带看都排好',
+    '这份租约的第 8 条什么意思？',
+  ],
+  en: [
+    '2-bed in North York, $2,800 budget, cat-friendly',
+    'Review the three applications for unit 1207',
+    "Schedule all of tomorrow's showings",
+    'What does clause 8 of this lease mean?',
+  ],
+}
 
 const promptHref = (line: string) => `/tenant/agent?prompt=${encodeURIComponent(line)}`
+
+/* ===================== bilingual copy ===================== */
+
+interface TheaterCopy {
+  act: ReactNode
+  h2: ReactNode
+  quote: string
+  who: string
+  answers: { an: string; b: string; body: ReactNode }[]
+  deltaFr: string
+  deltaTo: string
+  deltaCap: string
+  cta: string
+  feedName: string
+  feedSt: string
+  feedBody: ReactNode
+}
+
+interface HomeCopy {
+  heroH1: ReactNode
+  pains: ReactNode[]
+  sub: ReactNode
+  note: string
+  tryCta: string
+  heroAlt: string
+  vlabel: string
+  crew: { r: string; b: string; span: string; st: string }[]
+  ticker: { cls: string; node: ReactNode }[]
+  chars: [string, string, string]
+  theaters: [TheaterCopy, TheaterCopy, TheaterCopy]
+  creedoH2: ReactNode
+  creedo: { cn: string; b: string; p: ReactNode }[]
+  finZl: string
+  finH2: string
+  finCreed: string[]
+  finCta: string
+  finNote: string
+}
+
+const COPY: Record<Lang, HomeCopy> = {
+  /* ---------- zh — verbatim from the blueprint ---------- */
+  zh: {
+    heroH1: (
+      <>
+        租房路上的难题，
+        <br />
+        交给<span className="grad">各自的 AI</span>。
+      </>
+    ),
+    pains: [
+      <>
+        <b>房东</b>：租客筛选费时、租金回收缺保障、日常事务无人分担
+      </>,
+      <>
+        <b>租客</b>：材料反复提交、被拒无说明、缺少本地信用记录
+      </>,
+      <>
+        <b>经纪</b>：行政事务占用时间、佣金结算不透明
+      </>,
+    ],
+    sub: (
+      <>
+        Stayloop 为三种角色各提供一个<b>独立的 AI Agent</b>：日常事务由它处理，关键决定由你确认。
+      </>
+    ),
+    note: '由 Anthropic Claude 驱动 · 免注册体验 · 真实挂牌 + TRREB 官方行情作答',
+    tryCta: '试一句 →',
+    heroAlt: '晨雾中的多伦多 CN 塔',
+    vlabel: '晨雾 · 多伦多 · CN TOWER',
+    crew: [
+      { r: 'l', b: 'LOGIC · 房东的', span: '尽调、收租、续约', st: '● 待命' },
+      { r: 't', b: 'LUNA · 租客的', span: '找房、护照、租约', st: '● 待命' },
+      { r: 'a', b: 'BRIEF · 经纪的', span: '日程、材料包、结算', st: '● 待命' },
+    ],
+    ticker: [
+      { cls: 'tl', node: <>02:14 LOGIC 备好 <b>续约方案 A/B</b></> },
+      { cls: 'tt', node: <>08:02 LUNA 发现 <b>2 套低于预算的新房源</b></> },
+      { cls: 'ta', node: <>07:30 BRIEF 编排 <b>今日 3 场带看</b></> },
+      { cls: 'tl', node: <>02:15 GUARDRAIL <b>拦截 1 份伪造工资单</b></> },
+      { cls: 'tt', node: <>09:10 PASSPORT <b>第 3 枚章盖好</b></> },
+      { cls: 'ta', node: <>21:04 结算 <b>$1,225 已到账</b></> },
+    ],
+    chars: ['壹', '贰', '叁'],
+    theaters: [
+      {
+        act: (
+          <>
+            01 · 房东 · <b>SARAH WANG</b>
+          </>
+        ),
+        h2: (
+          <>
+            选对租客，按时收租，
+            <br />
+            后台有支持。
+          </>
+        ),
+        quote: '空置一个月，$2,900 就没了。一叠申请摆在面前——工资单是真是假？我不知道该信谁。',
+        who: 'SARAH WANG · 41 · 会计师 · 2 套投资公寓',
+        answers: [
+          {
+            an: '选对人',
+            b: '每份申请先过六维尽调',
+            body: (
+              <>
+                材料真伪、法庭记录都查过，<i>每一分写明理由</i>，伪造材料会被识别并拦下。
+              </>
+            ),
+          },
+          {
+            an: '收对租',
+            b: '租金回收由系统跟进',
+            body: (
+              <>
+                在线收租、月末自动提醒、逾期跟进；续约提前 120 天备好方案，<i>现金流不断档</i>。
+              </>
+            ),
+          },
+          {
+            an: '强后台',
+            b: 'AI 后台全天候在线',
+            body: (
+              <>
+                夜间报修接待、RTA/OHRC 合规拦截、全程审计留痕——<i>你只需要确认</i>。
+              </>
+            ),
+          },
+        ],
+        deltaFr: '每份申请 30 分钟',
+        deltaTo: '30 秒',
+        deltaCap: '审核提速，决定仍由她做。',
+        cta: '让 Logic 协助管理房源 →',
+        feedName: 'LOGIC · 房东 Agent',
+        feedSt: '● 后台运行中',
+        feedBody: (
+          <>
+            <div className="fm-u">1207 的三份申请，帮我看一下</div>
+            <div className="fm-a">
+              查完了。<b>Mia Chen 六维全过（87 分）</b>，法庭记录 0 条；有一份的工资单没过取证——细节如下：
+            </div>
+            <div className="fcard">
+              <div className="fl">六维尽调 · 3 份申请排序</div>
+              <div className="frow">
+                <b>① Mia Chen · 87</b>
+                <span className="ok">✓ 六维全过 · 建议面谈</span>
+              </div>
+              <div className="frow">
+                <b>② Kevin Tran · 74</b>
+                <span className="mut">稳定性 62 · 可备选</span>
+              </div>
+              <div className="frow">
+                <b>③ 申请人 C</b>
+                <span className="bad">✗ 工资单 CRA 扣缴对不上 · 拦下</span>
+              </div>
+            </div>
+            <div className="fm-a">
+              另外：Thompson 的租约 <b>92 天后到期</b>，续约信我拟好了两个方案，批准就发。
+            </div>
+            <div className="fcard">
+              <div className="fl">待你批准 · 生成于 02:14</div>
+              <div className="frow">
+                <b>方案 A · 不涨租</b>
+                <span className="ok">8 年 0 投诉 · 建议</span>
+              </div>
+              <div className="frow">
+                <b>方案 B · +2.5%</b>
+                <span className="mut">安省指导上限内</span>
+              </div>
+              <div className="fbtns">
+                <button type="button" className="go">批准并发送 →</button>
+                <button type="button" className="gh">改一改</button>
+                <span className="tm">02:14 自动生成</span>
+              </div>
+            </div>
+            <div className="syslog">
+              <div>
+                <span className="tme">02:14</span>
+                <span className="ok2">proactive.scan</span> · 续约窗口命中 · 方案已备
+              </div>
+              <div>
+                <span className="tme">02:15</span>
+                <span className="blk">guardrail.blocked</span> · 申请 C 材料取证未过 → 一票否决
+              </div>
+              <div>
+                <span className="tme">08:31</span>
+                <span className="ok2">audit.logged</span> · 每一步留痕，随时回查
+              </div>
+            </div>
+          </>
+        ),
+      },
+      {
+        act: (
+          <>
+            02 · 租客 · <b>MIA CHEN</b>
+          </>
+        ),
+        h2: (
+          <>
+            没有本地信用记录，
+            <br />
+            也能建立可信的租房履历。
+          </>
+        ),
+        quote: '信用空白，被拒 3 次。五个网站刷到深夜，同样的资料填了一遍又一遍。',
+        who: 'MIA CHEN · 27 · 软件工程师 · 新移民',
+        answers: [
+          {
+            an: '说一句',
+            b: '自然语言描述条件，房源真实可核',
+            body: (
+              <>
+                真实挂牌 + TRREB 官方行情实时对照，<i>绝不编造</i>；英文租约逐条讲成中文。
+              </>
+            ),
+          },
+          {
+            an: '验一次',
+            b: '四枚章盖好，处处通行',
+            body: (
+              <>
+                护照、枫叶卡、工签都支持——<i>申请任何房源不再重复交材料</i>。
+              </>
+            ),
+          },
+          {
+            an: '有记录',
+            b: '没有信用历史，也能积累记录',
+            body: (
+              <>
+                按时租金、真实记录都写进你的护照，<i>评分带理由</i>，拒绝你必须有依据。
+              </>
+            ),
+          },
+        ],
+        deltaFr: '综合分 60',
+        deltaTo: '91',
+        deltaCap: '第二次申请，材料无需重复提交。',
+        cta: '让 Luna 开始找 →',
+        feedName: 'LUNA · 租客 Agent',
+        feedSt: '● LIVE',
+        feedBody: (
+          <>
+            <div className="fm-u">市中心一居，能养猫，2300 以内</div>
+            <div className="fm-a">
+              Downtown 一居中位 <b>$2,210</b>（TRREB 官方 C01：$2,187 · 812 宗成交）——你的预算够用。
+              <b>3 套可养猫</b>的已挑好：
+            </div>
+            <div className="fcard">
+              <div className="fl">真实挂牌 · 已核对</div>
+              <div className="frow">
+                <b>Liberty Village 1B · $2,250</b>
+                <span className="ok">✓ 可养猫 · 地铁 8 分钟</span>
+              </div>
+              <div className="frow">
+                <b>King West Studio+ · $2,180</b>
+                <span className="ok">✓ 可养猫 · 平台已核验</span>
+              </div>
+              <div className="frow">
+                <b>Fort York 1B · $2,290</b>
+                <span className="mut">带家具 · 需快申</span>
+              </div>
+            </div>
+            <div className="fm-a">
+              你的护照已盖 <b>3/4 枚章</b>——选中哪套，材料一份不用再传，我直接替你递交。
+            </div>
+            <div className="fcard">
+              <div className="fbtns">
+                <button type="button" className="go">用护照一键申请 →</button>
+                <button type="button" className="gh">先约看</button>
+                <span className="tm">免费 · 永远</span>
+              </div>
+            </div>
+            <div className="fthink">
+              <i />
+              <i />
+              <i />
+              <span>Luna 正在核对挂牌真实性…</span>
+            </div>
+          </>
+        ),
+      },
+      {
+        act: (
+          <>
+            03 · 经纪 · <b>DAVID PARK</b>
+          </>
+        ),
+        h2: (
+          <>
+            行政事务交给 AI，
+            <br />
+            时间留给专业工作。
+          </>
+        ),
+        quote: '不是没机会，是时间被行政碎片化了——整理材料、排时间、催跟进，客户一忙就跟丢。',
+        who: 'DAVID PARK · 35 · 持牌经纪 · RECO 6 年',
+        answers: [
+          {
+            an: '只带看',
+            b: '材料包 Brief 已备好',
+            body: (
+              <>
+                时间地点、租客画像、<i>授权问答清单</i>（能说什么、不能说什么）——到场专注带看本身。
+              </>
+            ),
+          },
+          {
+            an: '不跟丢',
+            b: '反馈自动收集归档',
+            body: (
+              <>
+                看房意见整理好直达房东，<i>每个客户的进度都有人盯</i>。
+              </>
+            ),
+          },
+          {
+            an: '算得清',
+            b: '佣金当晚结算',
+            body: (
+              <>
+                转介分成在线到账、<i>每一笔流水可查</i>，RECO 合规全程留痕。
+              </>
+            ),
+          },
+        ],
+        deltaFr: '时薪 $25',
+        deltaTo: '$43',
+        deltaCap: '同样的时间，能服务更多客户。',
+        cta: '让 Brief 安排你的日程 →',
+        feedName: 'BRIEF · 经纪 Agent',
+        feedSt: '● 编排中',
+        feedBody: (
+          <>
+            <div className="fm-u">明天的带看都排好</div>
+            <div className="fm-a">
+              排好了，<b>3 场带看</b>，租客都已确认到场。每场的材料包在这里：
+            </div>
+            <div className="fcard">
+              <div className="fl">明日日程 · 已确认</div>
+              <div className="frow">
+                <b>11:00 · Liberty Village 2B</b>
+                <span className="ok">✓ Kevin 已确认 · 材料包好</span>
+              </div>
+              <div className="frow">
+                <b>14:00 · Unit 1207 King West</b>
+                <span className="ok">✓ 授权问答清单已生成</span>
+              </div>
+              <div className="frow">
+                <b>16:30 · 反馈汇总 → Sarah</b>
+                <span className="mut">自动整理 · 无需你动手</span>
+              </div>
+            </div>
+            <div className="fm-a">
+              上周的转介佣金 <b>$1,225 已到账</b>——流水在结算页随时可查。
+            </div>
+            <div className="syslog">
+              <div>
+                <span className="tme">07:30</span>
+                <span className="ok2">schedule.built</span> · 3 场带看编排完成
+              </div>
+              <div>
+                <span className="tme">07:31</span>
+                <span className="ok2">scope.filtered</span> · 房东不授权字段已从问答清单剔除
+              </div>
+              <div>
+                <span className="tme">21:04</span>
+                <span className="ok2">payout.settled</span> · $1,225 · via Stripe · 留痕
+              </div>
+            </div>
+          </>
+        ),
+      },
+    ],
+    creedoH2: (
+      <>
+        从底层为 AI 设计的
+        <br />
+        租住系统。
+      </>
+    ),
+    creedo: [
+      {
+        cn: '对话即入口',
+        b: '用自然语言沟通',
+        p: (
+          <>
+            地标、预算、偏好都能理解；<i>回答只引用真实挂牌和 TRREB 官方成交</i>，不做无依据的推断。
+          </>
+        ),
+      },
+      {
+        cn: '主动干活',
+        b: '例行工作自动完成',
+        p: (
+          <>
+            睡觉时扫续约窗口、盯新上房源、备租金提醒——<i>方案会提前准备好，等你确认</i>。
+          </>
+        ),
+      },
+      {
+        cn: '你来拍板',
+        b: 'AI 提议，你决定',
+        p: (
+          <>
+            发送、签署、付款先变成等你批准的卡片；<i>RTA/OHRC 违规直接拦截</i>，每一步留痕。
+          </>
+        ),
+      },
+    ],
+    finZl: 'TENANTS · FOREVER FREE · 隐私不是商品',
+    finH2: '下一个家，从一句话开始。',
+    finCreed: ['租客全程免费', '数据驻加拿大', '不出售个人数据', '房东按次付费，价格公开'],
+    finCta: '开始 →',
+    finNote: '免注册即可体验，随时开始。',
+  },
+
+  /* ---------- en ---------- */
+  en: {
+    heroH1: (
+      <>
+        The hard parts of renting,
+        <br />
+        handled by <span className="grad">your own AI</span>.
+      </>
+    ),
+    pains: [
+      <>
+        <b>Landlords</b>: screening takes hours, rent collection is uncertain, day-to-day tasks pile up
+      </>,
+      <>
+        <b>Tenants</b>: documents submitted over and over, rejections without reasons, no local credit history
+      </>,
+      <>
+        <b>Agents</b>: admin work eats the day, commission settlement is opaque
+      </>,
+    ],
+    sub: (
+      <>
+        Stayloop gives each of the three roles its own <b>dedicated AI agent</b>: it handles the routine work; you confirm the key decisions.
+      </>
+    ),
+    note: 'Powered by Anthropic Claude · Try without signing up · Answers from real listings + official TRREB market data',
+    tryCta: 'Try it →',
+    heroAlt: 'The Toronto CN Tower in morning mist',
+    vlabel: 'MORNING MIST · TORONTO · CN TOWER',
+    crew: [
+      { r: 'l', b: 'LOGIC · for landlords', span: 'Screening, rent, renewals', st: '● STANDBY' },
+      { r: 't', b: 'LUNA · for tenants', span: 'Search, passport, leases', st: '● STANDBY' },
+      { r: 'a', b: 'BRIEF · for agents', span: 'Schedule, briefs, settlement', st: '● STANDBY' },
+    ],
+    ticker: [
+      { cls: 'tl', node: <>02:14 LOGIC prepared <b>renewal options A/B</b></> },
+      { cls: 'tt', node: <>08:02 LUNA found <b>2 new listings under budget</b></> },
+      { cls: 'ta', node: <>07:30 BRIEF lined up <b>3 showings today</b></> },
+      { cls: 'tl', node: <>02:15 GUARDRAIL <b>blocked 1 forged pay stub</b></> },
+      { cls: 'tt', node: <>09:10 PASSPORT <b>third stamp earned</b></> },
+      { cls: 'ta', node: <>21:04 SETTLEMENT <b>$1,225 paid out</b></> },
+    ],
+    chars: ['I', 'II', 'III'],
+    theaters: [
+      {
+        act: (
+          <>
+            01 · LANDLORD · <b>SARAH WANG</b>
+          </>
+        ),
+        h2: (
+          <>
+            The right tenant, rent on time,
+            <br />
+            and a back office behind you.
+          </>
+        ),
+        quote: "One month vacant is $2,900 gone. A stack of applications in front of me — are the pay stubs real? I don't know who to trust.",
+        who: 'SARAH WANG · 41 · Accountant · 2 investment condos',
+        answers: [
+          {
+            an: 'Screen',
+            b: 'Every application goes through six-dimension screening first',
+            body: (
+              <>
+                Document authenticity and court records are checked, <i>every point comes with a reason</i>, and forged documents are flagged and blocked.
+              </>
+            ),
+          },
+          {
+            an: 'Collect',
+            b: 'Rent collection is tracked by the system',
+            body: (
+              <>
+                Online rent, month-end reminders, overdue follow-up; renewal options prepared 120 days ahead, <i>so cash flow never gaps</i>.
+              </>
+            ),
+          },
+          {
+            an: 'Backend',
+            b: 'An AI back office, on around the clock',
+            body: (
+              <>
+                Overnight maintenance intake, RTA/OHRC compliance blocking, a full audit trail — <i>you only confirm</i>.
+              </>
+            ),
+          },
+        ],
+        deltaFr: '30 min per application',
+        deltaTo: '30 s',
+        deltaCap: 'Faster review — the decision is still hers.',
+        cta: 'Let Logic help manage your rentals →',
+        feedName: 'LOGIC · Landlord Agent',
+        feedSt: '● RUNNING',
+        feedBody: (
+          <>
+            <div className="fm-u">Review the three applications for unit 1207</div>
+            <div className="fm-a">
+              Done. <b>Mia Chen passed all six dimensions (87)</b>, zero court records; one pay stub failed forensics — details below:
+            </div>
+            <div className="fcard">
+              <div className="fl">Six-dimension screening · 3 applications ranked</div>
+              <div className="frow">
+                <b>① Mia Chen · 87</b>
+                <span className="ok">✓ All six passed · interview suggested</span>
+              </div>
+              <div className="frow">
+                <b>② Kevin Tran · 74</b>
+                <span className="mut">Stability 62 · backup option</span>
+              </div>
+              <div className="frow">
+                <b>③ Applicant C</b>
+                <span className="bad">✗ Pay stub CRA withholding mismatch · blocked</span>
+              </div>
+            </div>
+            <div className="fm-a">
+              Also: Thompson&rsquo;s lease <b>expires in 92 days</b>. I&rsquo;ve drafted two renewal options — approve and I&rsquo;ll send.
+            </div>
+            <div className="fcard">
+              <div className="fl">Awaiting your approval · generated 02:14</div>
+              <div className="frow">
+                <b>Option A · no increase</b>
+                <span className="ok">8 yrs, 0 complaints · suggested</span>
+              </div>
+              <div className="frow">
+                <b>Option B · +2.5%</b>
+                <span className="mut">Within Ontario guideline</span>
+              </div>
+              <div className="fbtns">
+                <button type="button" className="go">Approve &amp; send →</button>
+                <button type="button" className="gh">Edit</button>
+                <span className="tm">Auto-generated 02:14</span>
+              </div>
+            </div>
+            <div className="syslog">
+              <div>
+                <span className="tme">02:14</span>
+                <span className="ok2">proactive.scan</span> · renewal window hit · options ready
+              </div>
+              <div>
+                <span className="tme">02:15</span>
+                <span className="blk">guardrail.blocked</span> · applicant C failed document forensics → hard block
+              </div>
+              <div>
+                <span className="tme">08:31</span>
+                <span className="ok2">audit.logged</span> · every step logged, reviewable anytime
+              </div>
+            </div>
+          </>
+        ),
+      },
+      {
+        act: (
+          <>
+            02 · TENANT · <b>MIA CHEN</b>
+          </>
+        ),
+        h2: (
+          <>
+            Build a trusted rental record,
+            <br />
+            even without local credit history.
+          </>
+        ),
+        quote: 'No credit file, rejected three times. Scrolling five sites past midnight, filling in the same documents again and again.',
+        who: 'MIA CHEN · 27 · Software engineer · Newcomer',
+        answers: [
+          {
+            an: 'Ask',
+            b: 'Describe what you want in plain language — listings are real and verifiable',
+            body: (
+              <>
+                Real listings cross-checked live against official TRREB market data, <i>never invented</i>; English leases explained clause by clause in Chinese.
+              </>
+            ),
+          },
+          {
+            an: 'Verify',
+            b: 'Earn the four stamps once, use them everywhere',
+            body: (
+              <>
+                Passport, PR card or work permit all supported — <i>apply to any listing without re-submitting documents</i>.
+              </>
+            ),
+          },
+          {
+            an: 'Record',
+            b: 'Build a record even without credit history',
+            body: (
+              <>
+                On-time rent and verified history go into your Tenant Passport; <i>scores come with reasons</i>, and rejecting you requires grounds.
+              </>
+            ),
+          },
+        ],
+        deltaFr: 'Overall score 60',
+        deltaTo: '91',
+        deltaCap: 'Second application, no documents re-submitted.',
+        cta: 'Let Luna start searching →',
+        feedName: 'LUNA · Tenant Agent',
+        feedSt: '● LIVE',
+        feedBody: (
+          <>
+            <div className="fm-u">Downtown one-bed, cat-friendly, under $2,300</div>
+            <div className="fm-a">
+              The downtown one-bed median is <b>$2,210</b> (official TRREB C01: $2,187 · 812 leases) — your budget works.
+              <b>3 cat-friendly picks</b> are ready:
+            </div>
+            <div className="fcard">
+              <div className="fl">Real listings · verified</div>
+              <div className="frow">
+                <b>Liberty Village 1B · $2,250</b>
+                <span className="ok">✓ Cats OK · 8 min to subway</span>
+              </div>
+              <div className="frow">
+                <b>King West Studio+ · $2,180</b>
+                <span className="ok">✓ Cats OK · platform-verified</span>
+              </div>
+              <div className="frow">
+                <b>Fort York 1B · $2,290</b>
+                <span className="mut">Furnished · apply fast</span>
+              </div>
+            </div>
+            <div className="fm-a">
+              Your passport has <b>3 of 4 stamps</b> — pick one and I&rsquo;ll submit for you, nothing to re-upload.
+            </div>
+            <div className="fcard">
+              <div className="fbtns">
+                <button type="button" className="go">Apply with your Passport →</button>
+                <button type="button" className="gh">Book a viewing</button>
+                <span className="tm">Free · forever</span>
+              </div>
+            </div>
+            <div className="fthink">
+              <i />
+              <i />
+              <i />
+              <span>Luna is verifying listing authenticity…</span>
+            </div>
+          </>
+        ),
+      },
+      {
+        act: (
+          <>
+            03 · AGENT · <b>DAVID PARK</b>
+          </>
+        ),
+        h2: (
+          <>
+            Admin goes to the AI,
+            <br />
+            your time goes to the real work.
+          </>
+        ),
+        quote: "It's not a lack of opportunities — my time gets shredded by admin. Prepping documents, juggling schedules, chasing follow-ups; one busy stretch and a client slips away.",
+        who: 'DAVID PARK · 35 · Licensed agent · RECO 6 yrs',
+        answers: [
+          {
+            an: 'Show',
+            b: 'The showing brief is ready before you arrive',
+            body: (
+              <>
+                Time and place, tenant profile, <i>an authorized Q&amp;A list</i> (what you can and cannot say) — on site you focus on the showing itself.
+              </>
+            ),
+          },
+          {
+            an: 'Track',
+            b: 'Feedback collected and filed automatically',
+            body: (
+              <>
+                Viewing feedback goes straight to the landlord, <i>and every client&rsquo;s progress is watched</i>.
+              </>
+            ),
+          },
+          {
+            an: 'Settle',
+            b: 'Commission settles the same night',
+            body: (
+              <>
+                Referral splits paid online, <i>every transaction traceable</i>, with a RECO-compliant audit trail throughout.
+              </>
+            ),
+          },
+        ],
+        deltaFr: '$25/hr',
+        deltaTo: '$43',
+        deltaCap: 'Same hours, more clients served.',
+        cta: 'Let Brief run your schedule →',
+        feedName: 'BRIEF · Realtor Agent',
+        feedSt: '● ORCHESTRATING',
+        feedBody: (
+          <>
+            <div className="fm-u">Schedule all of tomorrow&rsquo;s showings</div>
+            <div className="fm-a">
+              Done — <b>3 showings</b>, all tenants confirmed. Each showing&rsquo;s brief is here:
+            </div>
+            <div className="fcard">
+              <div className="fl">Tomorrow&rsquo;s schedule · confirmed</div>
+              <div className="frow">
+                <b>11:00 · Liberty Village 2B</b>
+                <span className="ok">✓ Kevin confirmed · brief ready</span>
+              </div>
+              <div className="frow">
+                <b>14:00 · Unit 1207 King West</b>
+                <span className="ok">✓ Authorized Q&amp;A list generated</span>
+              </div>
+              <div className="frow">
+                <b>16:30 · Feedback digest → Sarah</b>
+                <span className="mut">Auto-compiled · nothing for you to do</span>
+              </div>
+            </div>
+            <div className="fm-a">
+              Last week&rsquo;s referral commission of <b>$1,225 has landed</b> — the transaction is on your settlement page anytime.
+            </div>
+            <div className="syslog">
+              <div>
+                <span className="tme">07:30</span>
+                <span className="ok2">schedule.built</span> · 3 showings orchestrated
+              </div>
+              <div>
+                <span className="tme">07:31</span>
+                <span className="ok2">scope.filtered</span> · fields not authorized by the landlord removed from the Q&amp;A list
+              </div>
+              <div>
+                <span className="tme">21:04</span>
+                <span className="ok2">payout.settled</span> · $1,225 · via Stripe · logged
+              </div>
+            </div>
+          </>
+        ),
+      },
+    ],
+    creedoH2: (
+      <>
+        A rental system designed
+        <br />
+        for AI from the ground up.
+      </>
+    ),
+    creedo: [
+      {
+        cn: 'Conversation is the interface',
+        b: 'Talk in natural language',
+        p: (
+          <>
+            Landmarks, budgets and preferences are all understood; <i>answers cite only real listings and official TRREB transactions</i> — no ungrounded inference.
+          </>
+        ),
+      },
+      {
+        cn: 'Works proactively',
+        b: 'Routine work runs itself',
+        p: (
+          <>
+            While you sleep it scans renewal windows, watches new listings and preps rent reminders — <i>options are drafted ahead of time, waiting for your confirmation</i>.
+          </>
+        ),
+      },
+      {
+        cn: 'You make the call',
+        b: 'AI proposes, you decide',
+        p: (
+          <>
+            Sending, signing and paying first become cards awaiting your approval; <i>RTA/OHRC violations are blocked outright</i>, and every step leaves an audit trail.
+          </>
+        ),
+      },
+    ],
+    finZl: 'TENANTS · FOREVER FREE · PRIVACY IS NOT A PRODUCT',
+    finH2: 'Your next home starts with a sentence.',
+    finCreed: [
+      'Free for tenants, always',
+      'Data stays in Canada',
+      'Personal data never sold',
+      'Landlords pay per use, prices public',
+    ],
+    finCta: 'Start →',
+    finNote: 'No sign-up needed — start anytime.',
+  },
+}
 
 /* ===================== blueprint <style> (nav/footer sections removed) ===================== */
 
@@ -87,7 +898,7 @@ const CSS = `
   .trybar .q .caret { display: inline-block; width: 2px; height: 1em; background: var(--tenant); vertical-align: -2px; margin-left: 2px; }
   @media (prefers-reduced-motion: no-preference) { .trybar .q .caret { animation: blink 1s steps(1) infinite; } @keyframes blink { 50% { opacity: 0; } } }
   .trybar button, .trybar a { display: inline-flex; align-items: center; text-decoration: none;
-    background: linear-gradient(92deg, var(--tenant), #6D46C4); color: #fff; border: none; padding: 0 26px; font-size: 14.5px; font-weight: 700; }
+    background: linear-gradient(92deg, var(--tenant), #6D46C4); color: #fff; border: none; padding: 0 26px; font-size: 14.5px; font-weight: 700; white-space: nowrap; }
   .hero .note { margin-top: 13px; font-size: 12px; color: var(--ink-3); }
 
   /* 右：拱形照片 + 悬叠 Agent 卡 */
@@ -164,7 +975,7 @@ const CSS = `
   .ans span { display: block; font-size: 12.5px; color: var(--ink-2); margin-top: 3px; line-height: 1.75; }
   .ans span i { font-style: normal; color: var(--ink); font-weight: 600; }
   .delta-row { margin-top: 26px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
-  .delta { font-family: ui-monospace, Menlo, monospace; font-weight: 800; font-size: 30px; display: inline-flex; align-items: baseline; gap: 12px; }
+  .delta { font-family: ui-monospace, Menlo, monospace; font-weight: 800; font-size: 30px; display: inline-flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
   .delta .fr { color: var(--ink-3); text-decoration: line-through; text-decoration-thickness: 2px; font-size: 15px; }
   .delta .ar { color: var(--ink-3); font-size: 15px; }
   .th[data-r="l"] .delta .to { color: var(--landlord); }
@@ -271,11 +1082,19 @@ const CSS = `
   .fin .creed span::before { content: "✓ "; color: var(--landlord); font-weight: 800; }
   .fin .trybar { margin: 36px auto 0; }
   .fin .note { margin-top: 14px; font-size: 12px; color: var(--ink-3); }
+
+  /* ============ i18n (EN) minimal layout adaptations ============ */
+  .v6-page[data-lang="en"] .ans { grid-template-columns: 64px 1fr; }
+  .v6-page[data-lang="en"] .mono-quote::before { content: "\\201C"; }
 `
 
 /* ===================== page ===================== */
 
 export default function HomePage() {
+  const { lang } = useI18n()
+  const c = COPY[lang] ?? COPY.zh
+  const tryLines = TRY_LINES[lang] ?? TRY_LINES.zh
+
   // Scroll reveal — blueprint behavior: IO adds .in on intersection (and .play
   // on [data-feed]); reduced motion shows everything immediately.
   // 瞬时跳转（锚点/instant scroll）会让 IO 停留在 false→false 永不触发，
@@ -314,11 +1133,17 @@ export default function HomePage() {
     }
   }, [])
 
+  const theaterMeta = [
+    { r: 'l', side: 'r', id: 'l', href: '/landlord/agent' },
+    { r: 't', side: 'l', id: 't', href: '/tenant/agent' },
+    { r: 'a', side: 'r', id: 'a', href: '/agent/agent' },
+  ] as const
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <Header variant="transparent" />
-      <div className="v6-page">
+      <div className="v6-page" data-lang={lang}>
         {/* ================= HERO ================= */}
         <section className="hero">
           <div className="hero-in">
@@ -329,477 +1154,123 @@ export default function HomePage() {
                 <span>EST. 2026</span>
                 <span>VOL. 6</span>
               </div>
-              <h1>
-                租房路上的难题，
-                <br />
-                交给<span className="grad">各自的 AI</span>。
-              </h1>
+              <h1>{c.heroH1}</h1>
               <div className="pains">
-                <div className="pain">
-                  <span className="pd" />
-                  <span>
-                    <b>房东</b>：租客筛选费时、租金回收缺保障、日常事务无人分担
-                  </span>
-                </div>
-                <div className="pain">
-                  <span className="pd" />
-                  <span>
-                    <b>租客</b>：材料反复提交、被拒无说明、缺少本地信用记录
-                  </span>
-                </div>
-                <div className="pain">
-                  <span className="pd" />
-                  <span>
-                    <b>经纪</b>：行政事务占用时间、佣金结算不透明
-                  </span>
-                </div>
+                {c.pains.map((p, i) => (
+                  <div className="pain" key={i}>
+                    <span className="pd" />
+                    <span>{p}</span>
+                  </div>
+                ))}
               </div>
-              <p className="sub">
-                Stayloop 为三种角色各提供一个<b>独立的 AI Agent</b>：日常事务由它处理，关键决定由你确认。
-              </p>
-              <HeroTryBar />
-              <p className="note">由 Anthropic Claude 驱动 · 免注册体验 · 真实挂牌 + TRREB 官方行情作答</p>
+              <p className="sub">{c.sub}</p>
+              <HeroTryBar key={lang} lines={tryLines} cta={c.tryCta} />
+              <p className="note">{c.note}</p>
             </div>
             <div className="arch rv">
               <span className="ring" />
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/home/hero-mist.jpg" alt="晨雾中的多伦多 CN 塔" />
-              <span className="vlabel">晨雾 · 多伦多 · CN TOWER</span>
+              <img src="/home/hero-mist.jpg" alt={c.heroAlt} />
+              <span className="vlabel">{c.vlabel}</span>
               <div className="crew">
-                <div className="crew-card" data-r="l">
-                  <span className="o" />
-                  <span className="cw">
-                    <b>LOGIC · 房东的</b>
-                    <span>尽调、收租、续约</span>
-                  </span>
-                  <span className="st">● 待命</span>
-                </div>
-                <div className="crew-card" data-r="t">
-                  <span className="o" />
-                  <span className="cw">
-                    <b>LUNA · 租客的</b>
-                    <span>找房、护照、租约</span>
-                  </span>
-                  <span className="st">● 待命</span>
-                </div>
-                <div className="crew-card" data-r="a">
-                  <span className="o" />
-                  <span className="cw">
-                    <b>BRIEF · 经纪的</b>
-                    <span>日程、材料包、结算</span>
-                  </span>
-                  <span className="st">● 待命</span>
-                </div>
+                {c.crew.map((cc) => (
+                  <div className="crew-card" data-r={cc.r} key={cc.r}>
+                    <span className="o" />
+                    <span className="cw">
+                      <b>{cc.b}</b>
+                      <span>{cc.span}</span>
+                    </span>
+                    <span className="st">{cc.st}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
           <div className="tick" aria-hidden="true">
             <div className="tick-in">
-              <span className="tl"><i />02:14 LOGIC 备好 <b>续约方案 A/B</b></span>
-              <span className="tt"><i />08:02 LUNA 发现 <b>2 套低于预算的新房源</b></span>
-              <span className="ta"><i />07:30 BRIEF 编排 <b>今日 3 场带看</b></span>
-              <span className="tl"><i />02:15 GUARDRAIL <b>拦截 1 份伪造工资单</b></span>
-              <span className="tt"><i />09:10 PASSPORT <b>第 3 枚章盖好</b></span>
-              <span className="ta"><i />21:04 结算 <b>$1,225 已到账</b></span>
-              <span className="tl"><i />02:14 LOGIC 备好 <b>续约方案 A/B</b></span>
-              <span className="tt"><i />08:02 LUNA 发现 <b>2 套低于预算的新房源</b></span>
-              <span className="ta"><i />07:30 BRIEF 编排 <b>今日 3 场带看</b></span>
-              <span className="tl"><i />02:15 GUARDRAIL <b>拦截 1 份伪造工资单</b></span>
-              <span className="tt"><i />09:10 PASSPORT <b>第 3 枚章盖好</b></span>
-              <span className="ta"><i />21:04 结算 <b>$1,225 已到账</b></span>
+              {[0, 1].map((rep) =>
+                c.ticker.map((tk, i) => (
+                  <span className={tk.cls} key={`${rep}-${i}`}>
+                    <i />
+                    {tk.node}
+                  </span>
+                )),
+              )}
             </div>
           </div>
         </section>
 
-        {/* ================= 房东剧场 ================= */}
-        <section className="th" data-r="l" data-char="壹" data-side="r" id="l">
-          <div className="wrap">
-            <div className="th-head rv">
-              <div className="actline">
-                01 · 房东 · <b>SARAH WANG</b>
-              </div>
-              <h2>
-                选对租客，按时收租，
-                <br />
-                后台有支持。
-              </h2>
-            </div>
-            <div className="th-grid">
-              <div className="th-copy rv">
-                <p className="mono-quote">
-                  <span className="qin">
-                    空置一个月，$2,900 就没了。一叠申请摆在面前——工资单是真是假？我不知道该信谁。
-                  </span>
-                </p>
-                <div className="mono-who">SARAH WANG · 41 · 会计师 · 2 套投资公寓</div>
-                <div className="answers">
-                  <div className="ans">
-                    <span className="an">选对人</span>
-                    <div>
-                      <b>每份申请先过六维尽调</b>
-                      <span>
-                        材料真伪、法庭记录都查过，<i>每一分写明理由</i>，伪造材料会被识别并拦下。
+        {/* ================= 剧场段（房东 / 租客 / 经纪） ================= */}
+        {theaterMeta.map((m, i) => {
+          const th = c.theaters[i]
+          return (
+            <section className="th" data-r={m.r} data-char={c.chars[i]} data-side={m.side} id={m.id} key={m.id}>
+              <div className="wrap">
+                <div className="th-head rv">
+                  <div className="actline">{th.act}</div>
+                  <h2>{th.h2}</h2>
+                </div>
+                <div className="th-grid">
+                  <div className="th-copy rv">
+                    <p className="mono-quote">
+                      <span className="qin">{th.quote}</span>
+                    </p>
+                    <div className="mono-who">{th.who}</div>
+                    <div className="answers">
+                      {th.answers.map((a, j) => (
+                        <div className="ans" key={j}>
+                          <span className="an">{a.an}</span>
+                          <div>
+                            <b>{a.b}</b>
+                            <span>{a.body}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="delta-row">
+                      <span className="delta num">
+                        <span className="fr">{th.deltaFr}</span>
+                        <span className="ar">→</span>
+                        <span className="to">{th.deltaTo}</span>
+                      </span>
+                      <span className="delta-cap">
+                        <b>{th.deltaCap}</b>
                       </span>
                     </div>
+                    <Link className="th-cta" href={m.href}>
+                      {th.cta}
+                    </Link>
                   </div>
-                  <div className="ans">
-                    <span className="an">收对租</span>
-                    <div>
-                      <b>租金回收由系统跟进</b>
-                      <span>
-                        在线收租、月末自动提醒、逾期跟进；续约提前 120 天备好方案，<i>现金流不断档</i>。
-                      </span>
+                  <div className="feed rv" data-feed="">
+                    <div className="feed-head">
+                      <span className="o" />
+                      <b>{th.feedName}</b>
+                      <span className="st">{th.feedSt}</span>
                     </div>
-                  </div>
-                  <div className="ans">
-                    <span className="an">强后台</span>
-                    <div>
-                      <b>AI 后台全天候在线</b>
-                      <span>
-                        夜间报修接待、RTA/OHRC 合规拦截、全程审计留痕——<i>你只需要确认</i>。
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="delta-row">
-                  <span className="delta num">
-                    <span className="fr">每份申请 30 分钟</span>
-                    <span className="ar">→</span>
-                    <span className="to">30 秒</span>
-                  </span>
-                  <span className="delta-cap">
-                    <b>审核提速，决定仍由她做。</b>
-                  </span>
-                </div>
-                <Link className="th-cta" href="/landlord/agent">
-                  让 Logic 协助管理房源 →
-                </Link>
-              </div>
-              <div className="feed rv" data-feed="">
-                <div className="feed-head">
-                  <span className="o" />
-                  <b>LOGIC · 房东 Agent</b>
-                  <span className="st">● 后台运行中</span>
-                </div>
-                <div className="fmsgs">
-                  <div className="fm-u">1207 的三份申请，帮我看一下</div>
-                  <div className="fm-a">
-                    查完了。<b>Mia Chen 六维全过（87 分）</b>，法庭记录 0 条；有一份的工资单没过取证——细节如下：
-                  </div>
-                  <div className="fcard">
-                    <div className="fl">六维尽调 · 3 份申请排序</div>
-                    <div className="frow">
-                      <b>① Mia Chen · 87</b>
-                      <span className="ok">✓ 六维全过 · 建议面谈</span>
-                    </div>
-                    <div className="frow">
-                      <b>② Kevin Tran · 74</b>
-                      <span className="mut">稳定性 62 · 可备选</span>
-                    </div>
-                    <div className="frow">
-                      <b>③ 申请人 C</b>
-                      <span className="bad">✗ 工资单 CRA 扣缴对不上 · 拦下</span>
-                    </div>
-                  </div>
-                  <div className="fm-a">
-                    另外：Thompson 的租约 <b>92 天后到期</b>，续约信我拟好了两个方案，批准就发。
-                  </div>
-                  <div className="fcard">
-                    <div className="fl">待你批准 · 生成于 02:14</div>
-                    <div className="frow">
-                      <b>方案 A · 不涨租</b>
-                      <span className="ok">8 年 0 投诉 · 建议</span>
-                    </div>
-                    <div className="frow">
-                      <b>方案 B · +2.5%</b>
-                      <span className="mut">安省指导上限内</span>
-                    </div>
-                    <div className="fbtns">
-                      <button type="button" className="go">批准并发送 →</button>
-                      <button type="button" className="gh">改一改</button>
-                      <span className="tm">02:14 自动生成</span>
-                    </div>
-                  </div>
-                  <div className="syslog">
-                    <div>
-                      <span className="tme">02:14</span>
-                      <span className="ok2">proactive.scan</span> · 续约窗口命中 · 方案已备
-                    </div>
-                    <div>
-                      <span className="tme">02:15</span>
-                      <span className="blk">guardrail.blocked</span> · 申请 C 材料取证未过 → 一票否决
-                    </div>
-                    <div>
-                      <span className="tme">08:31</span>
-                      <span className="ok2">audit.logged</span> · 每一步留痕，随时回查
-                    </div>
+                    <div className="fmsgs">{th.feedBody}</div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ================= 租客剧场 ================= */}
-        <section className="th" data-r="t" data-char="贰" data-side="l" id="t">
-          <div className="wrap">
-            <div className="th-head rv">
-              <div className="actline">
-                02 · 租客 · <b>MIA CHEN</b>
-              </div>
-              <h2>
-                没有本地信用记录，
-                <br />
-                也能建立可信的租房履历。
-              </h2>
-            </div>
-            <div className="th-grid">
-              <div className="th-copy rv">
-                <p className="mono-quote">
-                  <span className="qin">信用空白，被拒 3 次。五个网站刷到深夜，同样的资料填了一遍又一遍。</span>
-                </p>
-                <div className="mono-who">MIA CHEN · 27 · 软件工程师 · 新移民</div>
-                <div className="answers">
-                  <div className="ans">
-                    <span className="an">说一句</span>
-                    <div>
-                      <b>自然语言描述条件，房源真实可核</b>
-                      <span>
-                        真实挂牌 + TRREB 官方行情实时对照，<i>绝不编造</i>；英文租约逐条讲成中文。
-                      </span>
-                    </div>
-                  </div>
-                  <div className="ans">
-                    <span className="an">验一次</span>
-                    <div>
-                      <b>四枚章盖好，处处通行</b>
-                      <span>
-                        护照、枫叶卡、工签都支持——<i>申请任何房源不再重复交材料</i>。
-                      </span>
-                    </div>
-                  </div>
-                  <div className="ans">
-                    <span className="an">有记录</span>
-                    <div>
-                      <b>没有信用历史，也能积累记录</b>
-                      <span>
-                        按时租金、真实记录都写进你的护照，<i>评分带理由</i>，拒绝你必须有依据。
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="delta-row">
-                  <span className="delta num">
-                    <span className="fr">综合分 60</span>
-                    <span className="ar">→</span>
-                    <span className="to">91</span>
-                  </span>
-                  <span className="delta-cap">
-                    <b>第二次申请，材料无需重复提交。</b>
-                  </span>
-                </div>
-                <Link className="th-cta" href="/tenant/agent">
-                  让 Luna 开始找 →
-                </Link>
-              </div>
-              <div className="feed rv" data-feed="">
-                <div className="feed-head">
-                  <span className="o" />
-                  <b>LUNA · 租客 Agent</b>
-                  <span className="st">● LIVE</span>
-                </div>
-                <div className="fmsgs">
-                  <div className="fm-u">市中心一居，能养猫，2300 以内</div>
-                  <div className="fm-a">
-                    Downtown 一居中位 <b>$2,210</b>（TRREB 官方 C01：$2,187 · 812 宗成交）——你的预算够用。
-                    <b>3 套可养猫</b>的已挑好：
-                  </div>
-                  <div className="fcard">
-                    <div className="fl">真实挂牌 · 已核对</div>
-                    <div className="frow">
-                      <b>Liberty Village 1B · $2,250</b>
-                      <span className="ok">✓ 可养猫 · 地铁 8 分钟</span>
-                    </div>
-                    <div className="frow">
-                      <b>King West Studio+ · $2,180</b>
-                      <span className="ok">✓ 可养猫 · 平台已核验</span>
-                    </div>
-                    <div className="frow">
-                      <b>Fort York 1B · $2,290</b>
-                      <span className="mut">带家具 · 需快申</span>
-                    </div>
-                  </div>
-                  <div className="fm-a">
-                    你的护照已盖 <b>3/4 枚章</b>——选中哪套，材料一份不用再传，我直接替你递交。
-                  </div>
-                  <div className="fcard">
-                    <div className="fbtns">
-                      <button type="button" className="go">用护照一键申请 →</button>
-                      <button type="button" className="gh">先约看</button>
-                      <span className="tm">免费 · 永远</span>
-                    </div>
-                  </div>
-                  <div className="fthink">
-                    <i />
-                    <i />
-                    <i />
-                    <span>Luna 正在核对挂牌真实性…</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ================= 经纪剧场 ================= */}
-        <section className="th" data-r="a" data-char="叁" data-side="r" id="a">
-          <div className="wrap">
-            <div className="th-head rv">
-              <div className="actline">
-                03 · 经纪 · <b>DAVID PARK</b>
-              </div>
-              <h2>
-                行政事务交给 AI，
-                <br />
-                时间留给专业工作。
-              </h2>
-            </div>
-            <div className="th-grid">
-              <div className="th-copy rv">
-                <p className="mono-quote">
-                  <span className="qin">
-                    不是没机会，是时间被行政碎片化了——整理材料、排时间、催跟进，客户一忙就跟丢。
-                  </span>
-                </p>
-                <div className="mono-who">DAVID PARK · 35 · 持牌经纪 · RECO 6 年</div>
-                <div className="answers">
-                  <div className="ans">
-                    <span className="an">只带看</span>
-                    <div>
-                      <b>材料包 Brief 已备好</b>
-                      <span>
-                        时间地点、租客画像、<i>授权问答清单</i>（能说什么、不能说什么）——到场专注带看本身。
-                      </span>
-                    </div>
-                  </div>
-                  <div className="ans">
-                    <span className="an">不跟丢</span>
-                    <div>
-                      <b>反馈自动收集归档</b>
-                      <span>
-                        看房意见整理好直达房东，<i>每个客户的进度都有人盯</i>。
-                      </span>
-                    </div>
-                  </div>
-                  <div className="ans">
-                    <span className="an">算得清</span>
-                    <div>
-                      <b>佣金当晚结算</b>
-                      <span>
-                        转介分成在线到账、<i>每一笔流水可查</i>，RECO 合规全程留痕。
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="delta-row">
-                  <span className="delta num">
-                    <span className="fr">时薪 $25</span>
-                    <span className="ar">→</span>
-                    <span className="to">$43</span>
-                  </span>
-                  <span className="delta-cap">
-                    <b>同样的时间，能服务更多客户。</b>
-                  </span>
-                </div>
-                <Link className="th-cta" href="/agent/agent">
-                  让 Brief 安排你的日程 →
-                </Link>
-              </div>
-              <div className="feed rv" data-feed="">
-                <div className="feed-head">
-                  <span className="o" />
-                  <b>BRIEF · 经纪 Agent</b>
-                  <span className="st">● 编排中</span>
-                </div>
-                <div className="fmsgs">
-                  <div className="fm-u">明天的带看都排好</div>
-                  <div className="fm-a">
-                    排好了，<b>3 场带看</b>，租客都已确认到场。每场的材料包在这里：
-                  </div>
-                  <div className="fcard">
-                    <div className="fl">明日日程 · 已确认</div>
-                    <div className="frow">
-                      <b>11:00 · Liberty Village 2B</b>
-                      <span className="ok">✓ Kevin 已确认 · 材料包好</span>
-                    </div>
-                    <div className="frow">
-                      <b>14:00 · Unit 1207 King West</b>
-                      <span className="ok">✓ 授权问答清单已生成</span>
-                    </div>
-                    <div className="frow">
-                      <b>16:30 · 反馈汇总 → Sarah</b>
-                      <span className="mut">自动整理 · 无需你动手</span>
-                    </div>
-                  </div>
-                  <div className="fm-a">
-                    上周的转介佣金 <b>$1,225 已到账</b>——流水在结算页随时可查。
-                  </div>
-                  <div className="syslog">
-                    <div>
-                      <span className="tme">07:30</span>
-                      <span className="ok2">schedule.built</span> · 3 场带看编排完成
-                    </div>
-                    <div>
-                      <span className="tme">07:31</span>
-                      <span className="ok2">scope.filtered</span> · 房东不授权字段已从问答清单剔除
-                    </div>
-                    <div>
-                      <span className="tme">21:04</span>
-                      <span className="ok2">payout.settled</span> · $1,225 · via Stripe · 留痕
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+            </section>
+          )
+        })}
 
         {/* ================= 原则带 ================= */}
         <div className="creedo">
           <div className="wrap">
             <div className="rv">
               <div className="eyebrow">/ BORN AI-NATIVE</div>
-              <h2>
-                从底层为 AI 设计的
-                <br />
-                租住系统。
-              </h2>
+              <h2>{c.creedoH2}</h2>
             </div>
             <div className="row3 rv">
-              <div className="cr">
-                <span className="bign">壹</span>
-                <div className="cn">对话即入口</div>
-                <b>用自然语言沟通</b>
-                <p>
-                  地标、预算、偏好都能理解；<i>回答只引用真实挂牌和 TRREB 官方成交</i>，不做无依据的推断。
-                </p>
-              </div>
-              <div className="cr">
-                <span className="bign">贰</span>
-                <div className="cn">主动干活</div>
-                <b>例行工作自动完成</b>
-                <p>
-                  睡觉时扫续约窗口、盯新上房源、备租金提醒——<i>方案会提前准备好，等你确认</i>。
-                </p>
-              </div>
-              <div className="cr">
-                <span className="bign">叁</span>
-                <div className="cn">你来拍板</div>
-                <b>AI 提议，你决定</b>
-                <p>
-                  发送、签署、付款先变成等你批准的卡片；<i>RTA/OHRC 违规直接拦截</i>，每一步留痕。
-                </p>
-              </div>
+              {c.creedo.map((cr, i) => (
+                <div className="cr" key={i}>
+                  <span className="bign">{c.chars[i]}</span>
+                  <div className="cn">{cr.cn}</div>
+                  <b>{cr.b}</b>
+                  <p>{cr.p}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -808,22 +1279,21 @@ export default function HomePage() {
         <div className="fin">
           <div className="wrap rv">
             <div className="zero num">$0</div>
-            <div className="zl">TENANTS · FOREVER FREE · 隐私不是商品</div>
-            <h2>下一个家，从一句话开始。</h2>
+            <div className="zl">{c.finZl}</div>
+            <h2>{c.finH2}</h2>
             <div className="creed">
-              <span>租客全程免费</span>
-              <span>数据驻加拿大</span>
-              <span>不出售个人数据</span>
-              <span>房东按次付费，价格公开</span>
+              {c.finCreed.map((s, i) => (
+                <span key={i}>{s}</span>
+              ))}
             </div>
             <div className="trybar">
               <span className="q">
-                {TRY_LINES[0]}
+                {tryLines[0]}
                 <span className="caret" aria-hidden="true" />
               </span>
-              <Link href={promptHref(TRY_LINES[0])}>开始 →</Link>
+              <Link href={promptHref(tryLines[0])}>{c.finCta}</Link>
             </div>
-            <p className="note">免注册即可体验，随时开始。</p>
+            <p className="note">{c.finNote}</p>
           </div>
         </div>
       </div>
@@ -834,12 +1304,13 @@ export default function HomePage() {
 
 /* ===================== hero trybar：打字机轮播 ===================== */
 
-function HeroTryBar() {
+function HeroTryBar({ lines, cta }: { lines: string[]; cta: string }) {
   // Blueprint timing: 1800ms initial delay, 65ms/char, 2600ms hold per line.
   // SSR/initial state shows line 0 in full (as in the blueprint markup);
   // prefers-reduced-motion keeps it static (caret blink is CSS-gated too).
+  // Keyed by lang in the parent, so a language switch remounts cleanly.
   const [li, setLi] = useState(0)
-  const [chars, setChars] = useState(TRY_LINES[0].length)
+  const [chars, setChars] = useState(lines[0].length)
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -850,10 +1321,10 @@ function HeroTryBar() {
       i++
       setLi(line)
       setChars(i)
-      timer = i >= TRY_LINES[line].length ? setTimeout(next, 2600) : setTimeout(type, 65)
+      timer = i >= lines[line].length ? setTimeout(next, 2600) : setTimeout(type, 65)
     }
     const next = () => {
-      line = (line + 1) % TRY_LINES.length
+      line = (line + 1) % lines.length
       i = 0
       type()
     }
@@ -862,16 +1333,16 @@ function HeroTryBar() {
       type()
     }, 1800)
     return () => clearTimeout(timer)
-  }, [])
+  }, [lines])
 
-  const full = TRY_LINES[li]
+  const full = lines[li]
   return (
     <div className="trybar">
       <span className="q">
         {full.slice(0, chars)}
         <span className="caret" aria-hidden="true" />
       </span>
-      <Link href={promptHref(full)}>试一句 →</Link>
+      <Link href={promptHref(full)}>{cta}</Link>
     </div>
   )
 }
