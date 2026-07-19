@@ -1095,6 +1095,14 @@ export default function HomePage() {
   const c = COPY[lang] ?? COPY.zh
   const tryLines = TRY_LINES[lang] ?? TRY_LINES.zh
 
+  // 静态 metadata 是双语合排；hydration 后按当前语言收窄标签页标题。
+  useEffect(() => {
+    document.title =
+      lang === 'zh'
+        ? 'Stayloop — 租房的 AI 操作系统 · Toronto'
+        : 'Stayloop — The AI-native rental OS for Toronto'
+  }, [lang])
+
   // Scroll reveal — blueprint behavior: IO adds .in on intersection (and .play
   // on [data-feed]); reduced motion shows everything immediately.
   // 瞬时跳转（锚点/instant scroll）会让 IO 停留在 false→false 永不触发，

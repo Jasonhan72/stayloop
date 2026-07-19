@@ -3,21 +3,23 @@ import './globals.css'
 import { I18nProvider } from '@/lib/i18n'
 
 export const metadata: Metadata = {
-  title: 'Stayloop — 为 AI 时代而生的租房方式 · Toronto AI rental agent',
+  title: 'Stayloop — 租房的 AI 操作系统 · The AI-native rental OS for Toronto',
   description:
-    '在 AI 时代,你只要说出想要的生活,你的专属 AI 助手就替你找房、尽调、申请、签约。每个关键决定,依然由你拍板。多伦多的可信任租住基础设施。',
+    '租房路上的难题，交给各自的 AI：找房、尽调、签约、续约，日常事务由 Agent 处理，关键决定由你确认。The AI-native rental OS for Toronto — dedicated agents for tenants, landlords and realtors; real listings and official TRREB data; you confirm every key decision.',
   metadataBase: new URL('https://www.stayloop.ai'),
   openGraph: {
-    title: 'Stayloop',
-    description: 'AI tenant screening + personal rental agent for Toronto.',
+    title: 'Stayloop — 租房的 AI 操作系统 · The AI-native rental OS',
+    description:
+      '找房、尽调、签约、续约，日常事务由 AI Agent 处理，关键决定由你确认。Dedicated AI agents for tenants, landlords and realtors in Toronto.',
     url: 'https://www.stayloop.ai',
     siteName: 'Stayloop',
     locale: 'zh_CN',
+    alternateLocale: ['en_CA'],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Stayloop',
+    title: 'Stayloop — 租房的 AI 操作系统 · The AI-native rental OS',
   },
 }
 
