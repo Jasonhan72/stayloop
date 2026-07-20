@@ -324,18 +324,14 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       setMessages((m) => [...m, { id: nextId(), role: 'user', text: message.trim(), attachments }])
       setStatus('understanding')
 
-      // Default acknowledgement — ONLY for anonymous preview sessions. A
-      // signed-in user whose live connection failed gets the honest version
-      // instead: the old canned "我记下了…" made a dead session look alive.
-      let result = user && !live
-        ? {
-            title: '会话未连接',
-            body: '⚠️ 当前会话没有连接到实时服务（预览模式），这条消息我没有真正处理。请刷新页面重连后再发一次 —— 如果反复出现，告诉我你的网络环境，我们来排查。',
-          }
-        : {
-            title: '收到了',
-            body: `我记下了:"${message.trim()}"。需要对外分享或提交的动作,都会先作为待批准卡片让你确认。`,
-          }
+      // Default result is only ever shown on the signed-in-but-disconnected
+      // path — honest, not the old canned "我记下了…" that made a dead session
+      // look alive. Anonymous visitors get REAL reasoning below (server-side
+      // anonymous preview mode), so their result is always overwritten.
+      let result = {
+        title: '会话未连接',
+        body: '⚠️ 当前会话没有连接到实时服务（预览模式），这条消息我没有真正处理。请刷新页面重连后再发一次 —— 如果反复出现，告诉我你的网络环境，我们来排查。',
+      }
       let memoryWrites: AgentSessionResponse['memories'] = []
       let proposedAction: AgentSessionResponse['pendingActions'][number] | null = null
       let nextStage: string | null = null
@@ -346,8 +342,9 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       let draftListing: ChatMessage['draftListing']
 
       setStatus('working')
-      // Real reasoning only for authenticated live sessions — anonymous preview
-      // keeps the canned acknowledgement (no LLM cost, no persistence target).
+      // Real reasoning for authenticated live sessions AND anonymous visitors
+      // (server-side anonymous preview: strict per-IP limit, zero persistence).
+      // Only a signed-in user whose live load failed gets the disconnect note.
       if (live && user) {
         try {
           const stageLabel = WORKFLOW_STAGES[role].find((s) => s.key === data.workflow.current_stage)?.label
@@ -394,6 +391,55 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
               ? '⚠️ 我处理这条消息超时了（链接抓取或推理耗时过长）。内容我没有真正读到 —— 请把这条消息重新发一次，通常第二次会快很多（页面已被缓存）。'
               : `⚠️ 这条消息我没有处理成功（${msg.slice(0, 120)}）。请重发一次；若持续失败，把内容以文字形式直接发给我。`,
           }
+        }
+      } else if (!user) {
+        // Anonymous visitor — real reasoning through the route's anonymous
+        // preview mode. No Authorization header, no persistence: memories and
+        // pending actions stay untouched (the server strips them anyway).
+        // Demo-session memories/workflow are staged FICTION (Sarah Wang, fake
+        // budgets) — never feed them to real reasoning; start from a blank
+        // intake context instead.
+        try {
+          const turn = await runAgentTurn({
+            role,
+            agentName: data.agent.agent_name,
+            message,
+            memories: [],
+            workflow: {
+              workflow_type: data.workflow.workflow_type,
+              workflow_id: null,
+              current_stage: 'intake',
+              completed_steps: [],
+              status: 'active',
+            },
+            attachments,
+            exclude: Array.from(shownListings.current),
+            history,
+            live: false,
+            anonymous: true,
+          })
+          result = turn.result
+          listings = turn.listings
+          listingsSource = turn.listingsSource
+          market = turn.market
+          followups = turn.followups
+          draftListing = turn.draftListing
+          if (turn.urlImages?.length) urlImagesRef.current = turn.urlImages
+          turn.listings?.forEach((l) => shownListings.current.add(l.address.toLowerCase()))
+        } catch (e) {
+          console.warn('[agent] anonymous turn failed —', (e as Error).message)
+          const msg = (e as Error).message || ''
+          result = /429/.test(msg)
+            ? {
+                title: '体验额度用完了',
+                body: '⚠️ 匿名体验每小时限 8 条消息，这个小时的额度用完了。登录后继续 —— 不受此额度限制，而且我能真正记住你的偏好、替你跟进申请。点右上角「登录」即可，1 分钟搞定。',
+              }
+            : {
+                title: '这条没处理成',
+                body: /timeout|504|network|failed to fetch/i.test(msg)
+                  ? '⚠️ 我处理这条消息超时了（链接抓取或推理耗时过长）。内容我没有真正读到 —— 请把这条消息重新发一次，通常第二次会快很多。'
+                  : `⚠️ 这条消息我没有处理成功（${msg.slice(0, 120)}）。请重发一次；若持续失败，把内容换个说法再发给我。`,
+              }
         }
       } else {
         await new Promise((r) => setTimeout(r, 350))

@@ -143,8 +143,10 @@ export type AgentTurn = {
 }
 
 export async function runAgentTurn(args: {
-  client: SupabaseClient
-  userId: string
+  // client/userId are absent on the anonymous path — there is nothing to
+  // persist to and no RLS scope to persist under.
+  client?: SupabaseClient
+  userId?: string
   role: AgentRole
   agentName: string
   message: string
@@ -155,8 +157,13 @@ export async function runAgentTurn(args: {
   exclude?: string[]
   history?: { role: 'user' | 'agent'; text: string }[]
   live: boolean
+  // Anonymous preview turn: call the route WITHOUT Authorization (the server
+  // runs real reasoning under its own strict per-IP limit) and skip every
+  // persistence step — no memory upsert, no pending action, no audit event.
+  anonymous?: boolean
 }): Promise<AgentTurn> {
   const { client, userId, role, agentName, message, memories, workflow, stageLabel, attachments, exclude, history, live } = args
+  const anonymous = !!args.anonymous || !args.client || !args.userId
   const name = agentName || ROLE_META[role].name
 
   // Images → base64 blocks the route forwards to Claude Vision; all filenames
@@ -166,16 +173,20 @@ export async function runAgentTurn(args: {
     .map((a) => ({ media_type: a.mediaType, data: a.dataUrl.split(';base64,')[1] }))
   const attachmentNames = (attachments ?? []).map((a) => a.name)
 
-  // The route requires a Supabase bearer token (cost gate) — attach the
-  // caller's session token. Demo/anonymous sessions never reach this code
-  // path (useAgentSession returns canned replies when live=false).
-  const { data: sessionData } = await client.auth.getSession()
-  const accessToken = sessionData?.session?.access_token
-  if (!accessToken) throw new Error('turn failed: no session')
+  // Authed turns attach the caller's session token (per-user cost gate).
+  // Anonymous preview turns send NO Authorization — the route runs them under
+  // its own strict per-IP anonymous limit with zero persistence.
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (!anonymous) {
+    const { data: sessionData } = await client!.auth.getSession()
+    const accessToken = sessionData?.session?.access_token
+    if (!accessToken) throw new Error('turn failed: no session')
+    headers.Authorization = `Bearer ${accessToken}`
+  }
 
   const res = await fetch('/api/agent/turn', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    headers,
     body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames, exclude: exclude ?? [], history: history ?? [] }),
   })
   if (!res.ok) throw new Error(`turn failed: ${res.status}`)
@@ -205,16 +216,19 @@ export async function runAgentTurn(args: {
 
   if (turn.error) throw new Error(turn.error)
 
-  const memoryWrites = turn.memory_writes ?? []
+  const memoryWrites = anonymous ? [] : (turn.memory_writes ?? [])
 
-  // §05 — persist implicit memory (RLS-scoped). Best-effort.
-  if (live && memoryWrites.length) {
+  // §05 — persist implicit memory (RLS-scoped). Best-effort. Never for
+  // anonymous turns (no user, and the server already strips the writes).
+  if (live && !anonymous && memoryWrites.length && client && userId) {
     await upsertMemories(client, userId, role, memoryWrites)
   }
 
   // Build the pending action. The model only proposes; this is an approval card.
+  // Anonymous turns never carry one (server forces proposed_action=null; the
+  // guard here is belt-and-suspenders — there is no userId to attribute it to).
   let proposedAction: PendingAction | null = null
-  if (turn.proposed_action) {
+  if (turn.proposed_action && !anonymous && userId) {
     const pa = turn.proposed_action
     const base = {
       user_id: userId,
@@ -234,7 +248,7 @@ export async function runAgentTurn(args: {
     }
     let id = (globalThis.crypto?.randomUUID?.() as string) || `act-${Date.now()}`
     let created_at = new Date().toISOString()
-    if (live) {
+    if (live && client) {
       const { data, error } = await client
         .from('agent_pending_actions')
         .insert(base)
@@ -250,14 +264,17 @@ export async function runAgentTurn(args: {
     proposedAction = { ...base, id, created_at }
   }
 
-  // Audit the turn (best-effort, RLS-scoped).
-  await writeAuditEvent(client, {
-    actorId: userId,
-    actorType: 'user',
-    action: `${role}_agent_turn`,
-    targetType: 'agent_message',
-    metadata: { message: message.slice(0, 500), proposed: proposedAction?.action_type ?? null },
-  })
+  // Audit the turn (best-effort, RLS-scoped). Anonymous turns leave no trail
+  // by contract — there is no actor to attribute the event to.
+  if (!anonymous && client && userId) {
+    await writeAuditEvent(client, {
+      actorId: userId,
+      actorType: 'user',
+      action: `${role}_agent_turn`,
+      targetType: 'agent_message',
+      metadata: { message: message.slice(0, 500), proposed: proposedAction?.action_type ?? null },
+    })
+  }
 
   return {
     result: { title: `${name} 回复`, body: turn.reply },

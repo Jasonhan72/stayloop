@@ -16,10 +16,27 @@ export const runtime = 'edge'
 
 // ── Auth + rate limiting ─────────────────────────────────────────────────────
 // This route spends real money (Claude call + up to 3 server-side URL
-// fetches per turn). It MUST be gated: the "anonymous → canned fallback"
-// path lives in the client (orchestrator.ts), which is a UX choice, not a
-// security boundary. Pattern mirrors /api/classify-files.
+// fetches per turn), so every path is gated by a durable rate limit:
+// - Authorization header present → must be a valid Supabase session
+//   (401 otherwise), then per-user hourly limit via bump_agent_rate_limit.
+// - No Authorization header → ANONYMOUS PREVIEW mode: real reasoning for
+//   the homepage's 免注册体验, strictly limited (8/hour per hashed IP via
+//   bump_anon_rate_limit, service-role only, fail-closed), zero persistence
+//   (memory_writes/proposed_action forced empty server-side).
 const RATE_LIMIT_PER_HOUR = 60
+const ANON_RATE_LIMIT_PER_HOUR = 8
+
+// Appended to the system prompt for anonymous preview turns. The server also
+// hard-strips memory_writes/proposed_action from the output — this is the
+// soft instruction, that is the enforcement.
+const ANON_PROMPT_ADDENDUM = `
+
+# 未登录预览会话（重要约束）
+这是一个未登录访客的预览会话:
+- 只做三类事:找房(search 照常可用)、市场行情解读、租约条款/租房流程解释。
+- proposed_action 永远输出 null —— 不要拟议任何关键动作。
+- memory_writes 永远输出空数组 [] —— 这个会话没有持久记忆,不要声称"我记住了/我已记下"。
+- 当用户想提交申请、盖护照章、发布房源、保存偏好、联系房东/租客等需要账号的能力时,自然地说明"登录后我可以替你……",然后把当下能答的部分照样答好。`
 
 type TurnRequest = {
   role: AgentRole
@@ -202,32 +219,69 @@ function normalizeOutput(parsed: Record<string, unknown> | null, fallbackReply: 
 }
 
 export async function POST(req: Request) {
-  // Auth gate BEFORE any token spend — reject anonymous callers with 401.
-  // The client's demo mode never calls this route for anonymous sessions;
-  // a 401 here only ever means a crafted/stale request.
+  // Cost gate BEFORE any token spend. With an Authorization header the
+  // caller must hold a valid session (401 otherwise — the authed path is
+  // unchanged). WITHOUT one this is an anonymous preview turn: allowed, but
+  // behind a strict fail-closed per-IP hourly limit and zero persistence.
   const rawAuth = req.headers.get('authorization') || ''
   const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
-  if (!authHeader) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-  }
-  const sbAuth = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { Authorization: authHeader } } },
-  )
-  const { data: ud, error: ue } = await sbAuth.auth.getUser()
-  if (ue || !ud?.user) {
-    return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
-  }
-  // Durable per-user hourly limit (edge module state is per-isolate and
-  // resets on recycle, so it can't gate spend). Fail-closed on error: if the
-  // limiter can't be reached we'd rather 429 than allow unbounded paid calls.
-  const { data: underLimit, error: rlErr } = await sbAuth.rpc('bump_agent_rate_limit', { p_limit: RATE_LIMIT_PER_HOUR })
-  if (rlErr || underLimit === false) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded — retry later' },
-      { status: 429, headers: { 'Retry-After': '600' } },
+  const anonymous = !authHeader
+  if (anonymous) {
+    // Limit key: SHA-256 of the caller IP (Cloudflare's cf-connecting-ip in
+    // prod, first x-forwarded-for hop otherwise). Hashing keeps raw IPs out
+    // of the rate-limit table; 'unknown' collapses header-less callers into
+    // one shared bucket, which fails safe (tighter, not looser).
+    const ip =
+      req.headers.get('cf-connecting-ip') ||
+      (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() ||
+      'unknown'
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('anon:' + ip))
+    const anonKey = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
+    // bump_anon_rate_limit is service-role-only by design (revoked from
+    // anon/authenticated) — the service client never leaves this handler.
+    // Fail-closed: missing key / RPC error / over limit all → 429.
+    let underAnonLimit = false
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (serviceKey) {
+      try {
+        const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        })
+        const { data: ok, error: anonErr } = await svc.rpc('bump_anon_rate_limit', {
+          p_key: anonKey,
+          p_limit: ANON_RATE_LIMIT_PER_HOUR,
+        })
+        underAnonLimit = !anonErr && ok === true
+      } catch {
+        underAnonLimit = false
+      }
+    }
+    if (!underAnonLimit) {
+      return NextResponse.json(
+        { error: `匿名体验每小时限 ${ANON_RATE_LIMIT_PER_HOUR} 条 —— 登录后不受此额度限制。` },
+        { status: 429, headers: { 'Retry-After': '3600' } },
+      )
+    }
+  } else {
+    const sbAuth = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: authHeader } } },
     )
+    const { data: ud, error: ue } = await sbAuth.auth.getUser()
+    if (ue || !ud?.user) {
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+    }
+    // Durable per-user hourly limit (edge module state is per-isolate and
+    // resets on recycle, so it can't gate spend). Fail-closed on error: if the
+    // limiter can't be reached we'd rather 429 than allow unbounded paid calls.
+    const { data: underLimit, error: rlErr } = await sbAuth.rpc('bump_agent_rate_limit', { p_limit: RATE_LIMIT_PER_HOUR })
+    if (rlErr || underLimit === false) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded — retry later' },
+        { status: 429, headers: { 'Retry-After': '600' } },
+      )
+    }
   }
 
   let body: TurnRequest
@@ -263,7 +317,9 @@ export async function POST(req: Request) {
     completed_steps: Array.isArray(w.completed_steps) ? w.completed_steps : [],
     status: typeof w.status === 'string' ? w.status : 'active',
   }
-  const system = buildSystemPrompt(role, agentName, memories, workflow, body.stageLabel)
+  const system =
+    buildSystemPrompt(role, agentName, memories, workflow, body.stageLabel) +
+    (anonymous ? ANON_PROMPT_ADDENDUM : '')
 
   // ---- Heartbeat-streamed response ------------------------------------------
   // URL fetching (Jina render of Airbnb/Realtor pages) plus Claude generation
@@ -532,8 +588,11 @@ export async function POST(req: Request) {
 
   return {
     reply: out.reply,
-    memory_writes: out.memoryWrites,
-    proposed_action: out.proposedAction,
+    // Anonymous preview is ZERO-persistence by contract — the model is told
+    // not to emit these, but the server strip (post-guardrail) is the
+    // guarantee, not the instruction.
+    memory_writes: anonymous ? [] : out.memoryWrites,
+    proposed_action: anonymous ? null : out.proposedAction,
     next_stage: out.nextStage,
     listings,
     listings_source: listingsSource,
