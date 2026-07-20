@@ -6,6 +6,7 @@
 // -----------------------------------------------------------------------------
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getModel } from '@/lib/modelConfig'
 
 // Lightweight classification endpoint. Accepts up to MAX_TOTAL_FILES via
 // multipart/form-data and returns, for each file, an array of document
@@ -63,11 +64,11 @@ const MAX_FILES_PER_BATCH = 5   // Keep each Claude call small to avoid timeouts
 const MAX_BYTES = 8 * 1024 * 1024 // 8MB per file
 const MAX_TOTAL_FILES = 20       // Absolute cap across all batches
 
-// Sonnet for rent extraction. The lease-table rent extraction problem
-// (multi-row tables, AcroForm leftover values, parking add-ons) is where
-// Haiku falls down — Sonnet's larger context window for visual layout
-// and label proximity reasoning is worth the cost.
-const CLASSIFIER_MODEL = 'claude-sonnet-4-6'
+// Classifier model comes from the admin-configurable 'classify' slot
+// (lib/modelConfig.ts; default: Sonnet). Historical note: the lease-table
+// rent extraction problem (multi-row tables, AcroForm leftover values,
+// parking add-ons) is where Haiku falls down — Sonnet-class visual layout
+// and label proximity reasoning is worth the cost here.
 
 async function toBase64(buf: ArrayBuffer): Promise<string> {
   const bytes = new Uint8Array(buf)
@@ -374,6 +375,8 @@ Return ONLY this JSON (no markdown, no prose):
     }
   }
 
+  // Admin-configurable model slot (60s edge cache) — see lib/modelConfig.ts.
+  const model = await getModel('classify')
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -381,9 +384,9 @@ Return ONLY this JSON (no markdown, no prose):
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
-    signal: AbortSignal.timeout(60_000), // 60s — Sonnet on multiple PDFs takes time
+    signal: AbortSignal.timeout(60_000), // 60s — Sonnet-class on multiple PDFs takes time
     body: JSON.stringify({
-      model: CLASSIFIER_MODEL,
+      model,
       max_tokens: 2500, // bumped — per-file output is more verbose now
       system: 'You classify uploaded rental-application documents and extract per-file rent + a top-level applicant name. Output strictly the JSON schema requested. No markdown, no prose.',
       messages: [{ role: 'user', content: contentBlocks }],

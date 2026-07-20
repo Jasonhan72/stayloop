@@ -20,12 +20,14 @@
 //      If they don't match, either the YTD or the period_net was edited.
 //
 // Note: We use Anthropic API directly (no SDK) for edge runtime compatibility.
-// Cost: ~$0.0003 per paystub with claude-haiku-4-5.
+// Cost: ~$0.0003 per paystub on the default forensics model (Haiku-class).
+// The model comes from the admin-configurable 'forensics' slot
+// (lib/modelConfig.ts) — assistant-prefill is dropped automatically on
+// models that reject it (everything in the whitelist except Haiku 4.5).
 // -----------------------------------------------------------------------------
 
+import { getModel, supportsAssistantPrefill } from '../modelConfig'
 import type { ForensicFlag, PaystubExtraction, PaystubMathResult } from './types'
-
-const HAIKU_MODEL = 'claude-haiku-4-5'
 
 const EXTRACT_PROMPT = `You are extracting numeric fields from a Canadian pay stub. Return ONLY a JSON object — no markdown, no prose. If a field is not visible on the stub, return null for that field. Do NOT guess or fill in values. Numbers must be raw (no commas, no $).
 
@@ -108,6 +110,10 @@ export async function extractPaystubFields(
     }
     content.push({ type: 'text', text: EXTRACT_PROMPT })
 
+    // Admin-configurable model slot (60s cache) — see lib/modelConfig.ts.
+    // Prefill JSON start only on models that still accept assistant-prefill.
+    const model = await getModel('forensics')
+    const prefill = supportsAssistantPrefill(model)
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -116,18 +122,21 @@ export async function extractPaystubFields(
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: HAIKU_MODEL,
+        model,
         max_tokens: 800,
-        messages: [
-          { role: 'user', content },
-          { role: 'assistant', content: '{' },  // prefill JSON start
-        ],
+        messages: prefill
+          ? [
+              { role: 'user', content },
+              { role: 'assistant', content: '{' },  // prefill JSON start
+            ]
+          : [{ role: 'user', content }],
       }),
       signal: AbortSignal.timeout(15000),
     })
     if (!res.ok) return null
     const data = await res.json() as { content?: Array<{ text?: string }> }
-    const raw = '{' + (data.content?.[0]?.text || '')
+    // Re-add the prefilled "{" only when we actually prefilled it.
+    const raw = (prefill ? '{' : '') + (data.content?.[0]?.text || '')
     return parseExtraction(raw)
   } catch {
     return null

@@ -11,6 +11,7 @@ import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } 
 import { buildSystemPrompt } from '@/lib/agent/prompts'
 import { applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
 import { searchListings } from '@/lib/agent/listingSearch'
+import { getModel, supportsTemperature } from '@/lib/modelConfig'
 
 export const runtime = 'edge'
 
@@ -368,6 +369,8 @@ export async function POST(req: Request) {
 
   let raw = ''
   try {
+    // Admin-configurable model slot (60s edge cache) — see lib/modelConfig.ts.
+    const model = await getModel('turn')
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -376,9 +379,10 @@ export async function POST(req: Request) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model,
         max_tokens: 2500,
-        temperature: 0.4,
+        // Sonnet 5 / Opus 4.8 reject sampling params (400) — omit there.
+        ...(supportsTemperature(model) ? { temperature: 0.4 } : {}),
         system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: userContent }],
       }),

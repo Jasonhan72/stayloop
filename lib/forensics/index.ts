@@ -31,6 +31,7 @@
 //   their PDF text OR their OCR text — still get flagged correctly.
 // -----------------------------------------------------------------------------
 
+import { getModel } from '../modelConfig'
 import { checkPdfMetadata, readPdfMetadata } from './pdf-metadata'
 import { checkTextDensity, readPdfTextDensity } from './pdf-text'
 import { checkPdfStructure } from './pdf-structure'
@@ -772,7 +773,8 @@ export interface CreditReportJudgment {
   elapsed_ms: number
 }
 
-const CREDIT_REPORT_JUDGE_MODEL = 'claude-haiku-4-5'
+// Judge model comes from the admin-configurable 'forensics' slot
+// (lib/modelConfig.ts; default Haiku-class — cost note above assumes it).
 
 const CREDIT_REPORT_JUDGE_PROMPT = `You are inspecting a document a Canadian rental applicant submitted, claiming it is a credit report. Decide whether the document is GENUINELY produced by a credit bureau — separately from whether the content is detailed or sparse.
 
@@ -844,7 +846,7 @@ async function judgeCreditReportAuthenticity(
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: CREDIT_REPORT_JUDGE_MODEL,
+        model: await getModel('forensics'),
         max_tokens: 400,
         messages: [
           { role: 'user', content },

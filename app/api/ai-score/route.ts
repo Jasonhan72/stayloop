@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { captureException } from '@/lib/observability/sentry'
+import { getModel } from '@/lib/modelConfig'
 
 export const runtime = 'edge'
 
@@ -152,6 +153,8 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
       userContent.push(...contentBlocks)
     }
 
+    // Legacy scoring shares the admin-configurable 'screening' slot.
+    const model = await getModel('screening')
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -160,7 +163,7 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model,
         max_tokens: 1500,
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }],

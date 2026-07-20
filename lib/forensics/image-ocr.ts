@@ -15,9 +15,8 @@
 // result means downstream checks fall back to text_density.text_sample.
 // -----------------------------------------------------------------------------
 
+import { getModel, supportsAssistantPrefill } from '../modelConfig'
 import type { OcrResult } from './types'
-
-const HAIKU_MODEL = 'claude-haiku-4-5'
 
 const OCR_PROMPT = `You are running OCR on a Canadian rental-application document that is likely an image-only PDF (a scan or photo). Extract ALL visible text verbatim plus a small set of structured fields.
 
@@ -55,6 +54,10 @@ export async function ocrImagePdf(
     }
     content.push({ type: 'text', text: OCR_PROMPT })
 
+    // Admin-configurable model slot (60s cache) — see lib/modelConfig.ts.
+    // Prefill JSON start only on models that still accept assistant-prefill
+    // (parseOcrOutput already tolerates both shapes).
+    const model = await getModel('forensics')
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -63,17 +66,19 @@ export async function ocrImagePdf(
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: HAIKU_MODEL,
+        model,
         // Bumped from 2500 to 4000: a dense Canadian passport biopage + visa
         // pages can yield 1500+ tokens of OCR text alone. With the prompt
         // overhead + JSON wrapper, 2500 was hitting the cap mid-output
         // and causing parseOcrOutput to silently return null. Cost delta
         // is ~$0.005 vs $0.003 per call — worth the reliability.
         max_tokens: 4000,
-        messages: [
-          { role: 'user', content },
-          { role: 'assistant', content: '{' },  // prefill JSON start for determinism
-        ],
+        messages: supportsAssistantPrefill(model)
+          ? [
+              { role: 'user', content },
+              { role: 'assistant', content: '{' },  // prefill JSON start for determinism
+            ]
+          : [{ role: 'user', content }],
       }),
       signal: AbortSignal.timeout(30_000),
     })

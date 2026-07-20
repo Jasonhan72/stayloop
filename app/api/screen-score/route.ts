@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { runForensics, forensicsToPromptBlock, type ForensicsReport } from '@/lib/forensics'
+import { getModel, supportsTemperature } from '@/lib/modelConfig'
 import { applyPageBudget } from '@/lib/anthropic/page-budget'
 import { captureException } from '@/lib/observability/sentry'
 import type { CourtQuery, CanLIIMatch, OntarioPortalMatch, V3Scores } from '@/lib/screening-types'
@@ -1154,6 +1155,8 @@ JSON DISCIPLINE (avoid parse errors):
       userContent.push(...contentBlocks)
     }
 
+    // Admin-configurable model slot (60s edge cache) — see lib/modelConfig.ts.
+    const scoringModel = await getModel('screening')
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -1162,10 +1165,11 @@ JSON DISCIPLINE (avoid parse errors):
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: scoringModel,
         // Temperature 0 = deterministic scoring. Same documents should
-        // produce the same scores every time.
-        temperature: CLAUDE_TEMPERATURE,
+        // produce the same scores every time. Sonnet 5 / Opus 4.8 reject
+        // sampling params outright (400) — omit the field there.
+        ...(supportsTemperature(scoringModel) ? { temperature: CLAUDE_TEMPERATURE } : {}),
         // With the lean v3 schema (sparse sub_coverage, tight length caps
         // on details/flags/action_items) the full output fits comfortably
         // under 2000 tokens. 3500 gives 75% headroom without wasting
