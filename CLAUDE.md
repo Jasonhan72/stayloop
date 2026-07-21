@@ -140,7 +140,7 @@ In `supabase/migrations/`:
 
 ## Design Source of Truth
 
-- **v6 首页（2026-07-13 起）**：`design/v6-homepage.html` = 首页唯一蓝本（AI 剧场：痛点驱动三角色段 + 活的 Agent 会话流 + 编辑级设计——拱形封面照 `/home/hero-mist.jpg`、描边壹贰叁底字、斜切色块、纸叠会话卡、AI 跑马灯；文案平实专业口径，人物引语取剧本 canon）。v5.4 蓝本 `design/v54-homepage.html` 已被取代（仅存档）；`design/v54-passport-stamps.html` 认证体系蓝本继续有效（「认证 N 级」→ 四枚章 + 绿勾 #6AB344，`trust_tier` 数据字段与 tier-badge CSS 类名保持不动，仅表现层改名）
+- **v7 首页（2026-07-20 起）**：`design/v7-homepage.html` = 首页唯一蓝本（「国际产品公司」方向：8pt 栅格设计系统、单主色纪律——品牌紫唯一强调、角色色仅作演示卡点缀，统一白卡/按钮/胶囊组件规范，动效只留淡入+打字机；结构=吸顶导航→Hero 产品卡→信任行→雾景照片带+浮出数据卡→三角色白卡演示段→三步→深色数据带→终幕照片 CTA；照片 `/home/hero-mist.jpg` + `/home/final-interior.jpg`；文案沿用已批准的平实口径，实现必须保留中英双语 COPY 机制）。v6 蓝本 `design/v6-homepage.html` 与 v5.4 蓝本 `design/v54-homepage.html` 已被取代（仅存档）；`design/v54-passport-stamps.html` 认证体系蓝本继续有效（「认证 N 级」→ 四枚章 + 绿勾 #6AB344，`trust_tier` 数据字段与 tier-badge CSS 类名保持不动，仅表现层改名）
 - `design/v53-handbook-complete-zh.html` — full engineering handbook
 - `design/v53-vol1.html` through `v53-vol8.html` + `v53-vol-arch.html` — extracted volumes
 - VOL1=homepage, VOL2=workspace flows, VOL3=settings/pricing/agent, VOL4=more UI, VOL5-7=screening(skip), VOL8=disputes/LTB/legal
