@@ -155,9 +155,25 @@ export async function searchListings(
   // ones to meet what the user asked for, top up with external Realtor.ca.
   const stay = (await searchStayloop({ ...c, count: fetchCount })).filter(fresh)
   const extRes = await extPromise
-  const market = buildMarket(c, extRes.statRows)
+  let market = buildMarket(c, extRes.statRows)
   const trreb = await trrebPromise
   if (market && trreb) market.trreb = trreb
+  // The Realtor.ca sample was too thin (<3 clean prices) but the official
+  // TRREB benchmark resolved — still show it: emit a minimal trreb-only
+  // market object. sample=0 tells the chat card to hide the live-sample rows
+  // (range / median / budget bar) and render only the benchmark section.
+  if (!market && trreb) {
+    market = {
+      area: c.area || c.area_candidates?.[0] || 'Toronto',
+      beds: c.min_beds ?? null,
+      sample: 0,
+      min: 0,
+      median: 0,
+      max: 0,
+      budget: c.max_price ?? null,
+      trreb,
+    }
+  }
   if (stay.length >= target) {
     return { listings: stay.slice(0, target), market }
   }

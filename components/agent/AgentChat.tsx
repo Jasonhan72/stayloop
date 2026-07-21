@@ -136,26 +136,35 @@ export default function AgentChat({
                 <div className="w-full max-w-[480px] rounded-xl border border-line-divider bg-white p-3.5">
                   <div className="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-eyebrow text-body-3">
                     📊 {lang === 'zh' ? `${m.market.area}${m.market.beds ? ` · ${m.market.beds} 房+` : ''} 真实行情` : `${m.market.area}${m.market.beds ? ` · ${m.market.beds}bd+` : ''} live market`}
-                    <span className="font-normal normal-case">· {lang === 'zh' ? `样本 ${m.market.sample} 套` : `${m.market.sample} listings`}</span>
-                  </div>
-                  <div className="mt-2 flex items-baseline gap-3">
-                    <span className="text-[18px] font-extrabold tracking-tight">${m.market.min.toLocaleString()}–${m.market.max.toLocaleString()}</span>
-                    <span className="text-[12px] text-body-3">{lang === 'zh' ? '中位' : 'median'} <b className="text-body">${m.market.median.toLocaleString()}</b></span>
-                  </div>
-                  {/* budget position bar */}
-                  <div className="relative mt-2.5 h-[6px] rounded-full bg-surface-chip">
-                    <div className="absolute inset-y-0 rounded-full" style={{ left: '0%', width: '100%', background: 'linear-gradient(90deg,#6EE7B7,#FBBF24,#F87171)' , opacity: 0.35 }} />
-                    {m.market.budget != null && m.market.max > m.market.min && (
-                      <span
-                        className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
-                        style={{ background: accent, left: `${Math.min(98, Math.max(2, ((m.market.budget - m.market.min) / (m.market.max - m.market.min)) * 100))}%` }}
-                        title={lang === 'zh' ? '你的预算' : 'Your budget'}
-                      />
+                    {m.market.sample > 0 && (
+                      <span className="font-normal normal-case">· {lang === 'zh' ? `样本 ${m.market.sample} 套` : `${m.market.sample} listings`}</span>
                     )}
                   </div>
-                  <p className="mt-2 text-[12px] leading-relaxed text-body-2">
-                    {marketVerdict(m.market, lang)}
-                  </p>
+                  {/* sample-derived rows only when a live asking-price sample
+                      exists — a trreb-only market (sample 0) skips straight to
+                      the official benchmark below */}
+                  {m.market.sample > 0 && (
+                    <>
+                      <div className="mt-2 flex items-baseline gap-3">
+                        <span className="text-[18px] font-extrabold tracking-tight">${m.market.min.toLocaleString()}–${m.market.max.toLocaleString()}</span>
+                        <span className="text-[12px] text-body-3">{lang === 'zh' ? '中位' : 'median'} <b className="text-body">${m.market.median.toLocaleString()}</b></span>
+                      </div>
+                      {/* budget position bar */}
+                      <div className="relative mt-2.5 h-[6px] rounded-full bg-surface-chip">
+                        <div className="absolute inset-y-0 rounded-full" style={{ left: '0%', width: '100%', background: 'linear-gradient(90deg,#6EE7B7,#FBBF24,#F87171)' , opacity: 0.35 }} />
+                        {m.market.budget != null && m.market.max > m.market.min && (
+                          <span
+                            className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
+                            style={{ background: accent, left: `${Math.min(98, Math.max(2, ((m.market.budget - m.market.min) / (m.market.max - m.market.min)) * 100))}%` }}
+                            title={lang === 'zh' ? '你的预算' : 'Your budget'}
+                          />
+                        )}
+                      </div>
+                      <p className="mt-2 text-[12px] leading-relaxed text-body-2">
+                        {marketVerdict(m.market, lang)}
+                      </p>
+                    </>
+                  )}
                   {/* Official TRREB quarterly benchmark — leased (closed) rents,
                       thousands of transactions, vs the asking-price sample above */}
                   {m.market.trreb && (

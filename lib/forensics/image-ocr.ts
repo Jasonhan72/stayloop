@@ -55,9 +55,10 @@ export async function ocrImagePdf(
     content.push({ type: 'text', text: OCR_PROMPT })
 
     // Admin-configurable model slot (60s cache) — see lib/modelConfig.ts.
-    // Prefill JSON start only on models that still accept assistant-prefill
-    // (parseOcrOutput already tolerates both shapes).
+    // Prefill JSON start only on models that still accept assistant-prefill;
+    // the '{' is re-added below ONLY when we actually prefilled it.
     const model = await getModel('forensics')
+    const prefill = supportsAssistantPrefill(model)
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -73,7 +74,7 @@ export async function ocrImagePdf(
         // and causing parseOcrOutput to silently return null. Cost delta
         // is ~$0.005 vs $0.003 per call — worth the reliability.
         max_tokens: 4000,
-        messages: supportsAssistantPrefill(model)
+        messages: prefill
           ? [
               { role: 'user', content },
               { role: 'assistant', content: '{' },  // prefill JSON start for determinism
@@ -88,7 +89,9 @@ export async function ocrImagePdf(
       return null
     }
     const json: any = await res.json()
-    const raw = json?.content?.[0]?.text || ''
+    // Re-add the prefilled "{" only when we actually prefilled it — blindly
+    // prepending to a non-prefilled, prose-wrapped answer corrupts parsing.
+    const raw = (prefill ? '{' : '') + (json?.content?.[0]?.text || '')
     const stopReason = json?.stop_reason
     const parsed = parseOcrOutput(raw)
     if (!parsed) {
@@ -112,19 +115,17 @@ export async function ocrImagePdf(
 }
 
 /**
- * Parse the OCR JSON the model emits. The prefilled "{" means we receive the
- * rest of the object — we add the leading brace back, then balance + clean.
+ * Parse the OCR JSON the model emits. When prefill was used, the caller has
+ * already re-added the leading "{" — here we just balance + clean.
  */
 function parseOcrOutput(raw: string): Omit<OcrResult, 'elapsed_ms'> | null {
   let candidate = raw.trim()
   if (!candidate) return null
   // Strip code fences just in case
   candidate = candidate.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '')
-  // The assistant content is "...}" because we prefilled "{". Re-add.
-  const reassembled = candidate.startsWith('{') ? candidate : '{' + candidate
 
   // Find the FIRST top-level balanced { ... } respecting string escapes.
-  const balanced = extractBalancedJson(reassembled)
+  const balanced = extractBalancedJson(candidate)
   if (!balanced) return null
 
   try {

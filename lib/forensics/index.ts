@@ -861,9 +861,11 @@ async function judgeCreditReportAuthenticity(
     }
     const json: any = await res.json()
     const raw = json?.content?.[0]?.text || ''
-    let candidate = raw.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\`\`\`\s*$/i, '')
-    const reassembled = candidate.startsWith('{') ? candidate : '{' + candidate
-    const balanced = extractBalancedJsonInline(reassembled)
+    // No assistant-prefill on this call — never prepend a '{' (doing so to a
+    // prose-wrapped answer corrupts the extraction). Just find the first
+    // balanced JSON object in the raw output.
+    const candidate = raw.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\`\`\`\s*$/i, '')
+    const balanced = extractBalancedJsonInline(candidate)
     if (!balanced) return null
     const cleaned = balanced.replace(/,(\s*[}\]])/g, '$1')
     try {

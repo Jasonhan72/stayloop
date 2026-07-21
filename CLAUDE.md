@@ -56,6 +56,10 @@ Optional (guarded with `if (process.env.X)` — features degrade gracefully when
 JINA_API_KEY                # agent listing search → realtor.ca scrape (lib/agent/listingSearch.ts)
 OPENCORPORATES_API_TOKEN    # deep-check / forensics arm's-length lookup (lib/forensics/arm-length.ts)
 CRON_SECRET                 # gates cron mode on /api/agent/proactive; same value stored as Supabase Vault secret 'cron_secret' (pg_cron job agent-proactive-daily, 13:00 UTC)
+DEEPSEEK_API_KEY            # optional · 后台模型配置用（/admin/models 槽位可选 DeepSeek 模型时需要）
+MOONSHOT_API_KEY            # optional · 后台模型配置用（Moonshot/Kimi）
+DASHSCOPE_API_KEY           # optional · 后台模型配置用（阿里 DashScope/Qwen）
+ZHIPU_API_KEY               # optional · 后台模型配置用（智谱 GLM）
 ```
 
 Same vars are set in Cloudflare Pages dashboard for production.
@@ -84,7 +88,7 @@ Same vars are set in Cloudflare Pages dashboard for production.
 - `useAgentSession` has 5s render deadline + 4s RPC timeout (falls back to demo if stalled)
 
 ### Agent Brain (2026-06-16 — AI-native reasoning loop)
-- **`app/api/agent/turn/route.ts`** (edge) = the Personal Agent reasoning step. STATELESS: client passes `{role, message, memories, workflow}`, route runs Claude (`claude-sonnet-4-6`) with a role system prompt (`lib/agent/prompts.ts` — Luna/Logic/Brief persona + 5 principles + "propose, don't decide"), returns `{reply, memory_writes, proposed_action, next_stage}`. Anthropic key stays server-side.
+- **`app/api/agent/turn/route.ts`** (edge) = the Personal Agent reasoning step. STATELESS: client passes `{role, message, memories, workflow}`, route runs the configured model — 模型经 `/admin/models` 槽位可配（`app_config.models`，默认 Sonnet 4.6）— with a role system prompt (`lib/agent/prompts.ts` — Luna/Logic/Brief persona + 5 principles + "propose, don't decide"), returns `{reply, memory_writes, proposed_action, next_stage}`. Anthropic key stays server-side.
 - **Split**: server = reasoning only; client (`runAgentTurn` in orchestrator.ts) persists via RLS-scoped browser client — implicit memory → `user_memories` (`upsertMemories`, onConflict `user_id,role,memory_type,key`; memory_type clamped to preference/profile/constraint/semantic/system), proposed action → `agent_pending_actions`, turn → `agent_audit_events`. Same pattern as existing memory.ts/approval-engine.ts.
 - **Compliance Guardrail** (`lib/agent/guardrail.ts`) = deterministic server-side filter on every turn output: blocks OHRC-protected-ground rejections, flags illegal lease terms, strips false "already done" claims, demotes over-reach scope. The LLM is also instructed but the guardrail is the backstop.
 - **Fallback**: anonymous/preview or any failure → canned acknowledgement (no LLM cost, no persistence). Real reasoning only for authed live sessions.
@@ -137,6 +141,8 @@ In `supabase/migrations/`:
 - `20260608_billing_commission.sql` — billing/commission tables + `get_entitlements(role)` + `settle_referral_commission` (25% engine + ComplianceGuard)
 - `20260608_security_fixes.sql` — security patches
 - `20260708_drop_v4_agent_layer.sql` — dropped the old V4 AI-native tables (`conversations`, `messages`, `user_facts`, `tool_executions`, `pending_actions`, `audit_events`); only the `agent_*` spine remains
+- `20260713_anon_rate_limit.sql` — `anon_rate_limits` table + `bump_anon_rate_limit()` (anonymous agent-turn rate limiting, service-role only)
+- `20260720_app_config_models.sql` — `app_config` table (admin-only RLS via `is_stayloop_admin()`); seeds the `models` key = AI model slots read by `/admin/models`
 
 ## Design Source of Truth
 
@@ -189,7 +195,7 @@ In `supabase/migrations/`:
 `/agent/agent` `/agent/calendar` `/agent/clients` `/agent/earnings` `/agent/tasks`
 
 ### Admin (Stayloop back-office — gated by `admin_users` / `is_stayloop_admin()`)
-`/admin` (console) `/admin/verify` (listing verification queue) `/admin/users` (member management)
+`/admin` (console) `/admin/verify` (listing verification queue) `/admin/users` (member management) `/admin/models` (AI 模型槽位配置)
 
 ### Other
 `/dashboard` `/settings` `/lease/sign/[token]` `/landlord/leases/new` `/landlord/leases/[id]` `/register` `/auth/reset-password`

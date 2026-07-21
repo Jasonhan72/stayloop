@@ -385,12 +385,22 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           // turn look like a successful one (user believed the agent absorbed
           // the request when nothing was processed).
           const msg = (e as Error).message || ''
-          result = {
-            title: '这条没处理成',
-            body: /timeout|504|network|failed to fetch/i.test(msg)
-              ? '⚠️ 我处理这条消息超时了（链接抓取或推理耗时过长）。内容我没有真正读到 —— 请把这条消息重新发一次，通常第二次会快很多（页面已被缓存）。'
-              : `⚠️ 这条消息我没有处理成功（${msg.slice(0, 120)}）。请重发一次；若持续失败，把内容以文字形式直接发给我。`,
-          }
+          result = /429|rate.?limit/i.test(msg)
+            ? {
+                title: '本小时额度用完了',
+                body: '⚠️ 你这一小时的对话额度已经用完了。额度按小时窗口恢复，大约 10 分钟后再来试就好 —— 这条消息不用急着重发。',
+              }
+            : /llm truncated/i.test(msg)
+              ? {
+                  title: '回复被截断了',
+                  body: '⚠️ 这条回复过长被截断了，我没能把答案完整生成出来。请把问题拆小一点、分成几条来问，我一条条答。',
+                }
+              : {
+                  title: '这条没处理成',
+                  body: /timeout|504|network|failed to fetch|llm http 5|llm unavailable/i.test(msg)
+                    ? '⚠️ 服务端处理这条消息时超时或暂时繁忙，内容我没有真正读到 —— 请把这条消息重新发一次，通常第二次就会成功（页面已被缓存）。'
+                    : `⚠️ 这条消息我没有处理成功（${msg.slice(0, 120)}）。请重发一次；若持续失败，把内容以文字形式直接发给我。`,
+                }
         }
       } else if (!user) {
         // Anonymous visitor — real reasoning through the route's anonymous
@@ -434,12 +444,17 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
                 title: '体验额度用完了',
                 body: '⚠️ 匿名体验每小时限 8 条消息，这个小时的额度用完了。登录后继续 —— 不受此额度限制，而且我能真正记住你的偏好、替你跟进申请。点右上角「登录」即可，1 分钟搞定。',
               }
-            : {
-                title: '这条没处理成',
-                body: /timeout|504|network|failed to fetch/i.test(msg)
-                  ? '⚠️ 我处理这条消息超时了（链接抓取或推理耗时过长）。内容我没有真正读到 —— 请把这条消息重新发一次，通常第二次会快很多。'
-                  : `⚠️ 这条消息我没有处理成功（${msg.slice(0, 120)}）。请重发一次；若持续失败，把内容换个说法再发给我。`,
-              }
+            : /llm truncated/i.test(msg)
+              ? {
+                  title: '回复被截断了',
+                  body: '⚠️ 这条回复过长被截断了，我没能把答案完整生成出来。请把问题拆小一点、分成几条来问，我一条条答。',
+                }
+              : {
+                  title: '这条没处理成',
+                  body: /timeout|504|network|failed to fetch|llm http 5|llm unavailable/i.test(msg)
+                    ? '⚠️ 服务端处理这条消息时超时或暂时繁忙，内容我没有真正读到 —— 请把这条消息重新发一次，通常第二次就会成功。'
+                    : `⚠️ 这条消息我没有处理成功（${msg.slice(0, 120)}）。请重发一次；若持续失败，把内容换个说法再发给我。`,
+                }
         }
       } else {
         await new Promise((r) => setTimeout(r, 350))

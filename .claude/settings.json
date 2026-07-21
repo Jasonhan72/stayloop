@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx @cloudflare/next-on-pages@1)",
+      "Bash(wrangler pages deploy *)",
+      "Bash(wrangler pages secret put *)",
+      "Bash(wrangler pages deployment *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push origin HEAD:v5.3-launch)",
+      "Bash(curl *)",
+      "Bash(python3 *)",
+      "Bash(pkill -f *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "mcp__19ab91fa-a475-4ee2-aa7a-dd45b1bbbcce__execute_sql",
+      "mcp__19ab91fa-a475-4ee2-aa7a-dd45b1bbbcce__apply_migration"
+    ]
+  }
+}

@@ -38,6 +38,19 @@ export class LlmHttpError extends Error {
   }
 }
 
+/**
+ * The provider returned an EMPTY visible answer because the token budget was
+ * consumed before any content was produced — openai-compat reasoning models
+ * (Kimi 思考型 etc.) burn max_tokens on reasoning_content, or the completion
+ * was cut at finish_reason='length' with nothing emitted yet.
+ */
+export class LlmTruncatedError extends Error {
+  constructor(detail: string) {
+    super(`llm output truncated: reasoning budget exhausted before visible content (${detail})`)
+    this.name = 'LlmTruncatedError'
+  }
+}
+
 export interface LlmChatParams {
   model: ModelDef
   system: string
@@ -130,8 +143,18 @@ async function openaiCompatChat(p: LlmChatParams, apiKey: string): Promise<LlmCh
     throw new LlmHttpError(res.status, (await res.text()).slice(0, 300))
   }
   const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>
+    choices?: Array<{ finish_reason?: string; message?: { content?: string; reasoning_content?: string } }>
     usage?: Record<string, unknown>
   }
-  return { text: data.choices?.[0]?.message?.content || '', usage: data.usage }
+  const choice = data.choices?.[0]
+  const text = choice?.message?.content || ''
+  // Empty visible content + (cut at length, or the budget went to hidden
+  // reasoning_content) = the answer never made it out. Surface it as a typed
+  // error instead of returning '' — callers show a "拆小问题" hint for this.
+  if (!text && (choice?.finish_reason === 'length' || choice?.message?.reasoning_content)) {
+    throw new LlmTruncatedError(
+      choice?.finish_reason === 'length' ? 'finish_reason=length' : 'reasoning_content only',
+    )
+  }
+  return { text, usage: data.usage }
 }

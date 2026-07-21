@@ -12,7 +12,7 @@ import { buildSystemPrompt } from '@/lib/agent/prompts'
 import { applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
 import { searchListings } from '@/lib/agent/listingSearch'
 import { DEFAULT_MODELS, getModel, getModelDef } from '@/lib/modelConfig'
-import { llmChat, LlmHttpError, type ChatMessage } from '@/lib/llmChat'
+import { llmChat, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
 
 export const runtime = 'edge'
 
@@ -233,10 +233,19 @@ export async function POST(req: Request) {
     // prod, first x-forwarded-for hop otherwise). Hashing keeps raw IPs out
     // of the rate-limit table; 'unknown' collapses header-less callers into
     // one shared bucket, which fails safe (tighter, not looser).
-    const ip =
+    const rawIp =
       req.headers.get('cf-connecting-ip') ||
       (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() ||
       'unknown'
+    // IPv6 callers can rotate interface IDs trivially (privacy extensions /
+    // whole-/64 allocations), so bucket them by the /64 prefix instead of the
+    // full address — approximated as the first 4 colon groups of the string
+    // form via split(':').slice(0,4). Exact for uncompressed addresses; for
+    // '::'-compressed forms the prefix may still carry interface bits, so the
+    // grouping is partial there — but never looser than the previous
+    // full-address key. Anything containing ':' is treated as IPv6; IPv4
+    // keys are unchanged.
+    const ip = rawIp.includes(':') ? rawIp.split(':').slice(0, 4).join(':') : rawIp
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('anon:' + ip))
     const anonKey = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
     // bump_anon_rate_limit is service-role-only by design (revoked from
@@ -293,7 +302,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 })
   }
 
-  const { role, agentName, message } = body
+  const { role, message } = body
+  // Input clamps (anonymous AND authed): every string here is interpolated
+  // into the system/user prompt, so unbounded client payloads are unbounded
+  // token spend. Truncate, don't reject — oversized-but-honest clients keep
+  // working.
+  const agentName = typeof body.agentName === 'string' ? body.agentName.slice(0, 40) : ''
   const imgs = (Array.isArray(body.images) ? body.images : [])
     .filter((im) => im && typeof im.data === 'string' && /^image\//.test(im.media_type || ''))
     .slice(0, 3)
@@ -307,7 +321,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'agent reasoning unavailable' }, { status: 503 })
   }
 
-  const memories = Array.isArray(body.memories) ? body.memories : []
+  const memories = (Array.isArray(body.memories) ? body.memories : [])
+    .slice(0, 50)
+    .map((m) => ({
+      ...m,
+      key: typeof m?.key === 'string' ? m.key.slice(0, 500) : m?.key,
+      value: typeof m?.value === 'string' ? m.value.slice(0, 500) : m?.value,
+    }))
   // Field-level normalization, not just `?? default` — a crafted payload with
   // a partial workflow object (missing completed_steps) used to crash
   // buildSystemPrompt's .join() into a bare worker 500.
@@ -316,7 +336,7 @@ export async function POST(req: Request) {
     workflow_type: typeof w.workflow_type === 'string' ? w.workflow_type : '',
     workflow_id: w.workflow_id ?? null,
     current_stage: typeof w.current_stage === 'string' ? w.current_stage : '',
-    completed_steps: Array.isArray(w.completed_steps) ? w.completed_steps : [],
+    completed_steps: Array.isArray(w.completed_steps) ? w.completed_steps.slice(0, 20) : [],
     status: typeof w.status === 'string' ? w.status : 'active',
   }
   const system =
@@ -335,7 +355,9 @@ export async function POST(req: Request) {
   // Fetch any URLs the user pasted so the agent can see the content.
   let urlContext = ''
   let urlImages: string[] = []
-  const urls = (message.match(URL_RE) || []).slice(0, 3)
+  // Each pasted URL costs a server-side fetch (Jina render) — anonymous
+  // preview turns get 1, authed turns keep 3.
+  const urls = (message.match(URL_RE) || []).slice(0, anonymous ? 1 : 3)
   if (urls.length) {
     const results = await Promise.all(urls.map((u) => fetchUrlContent(u).then((r) => ({ url: u, ...r }))))
     const fetched = results.filter((r) => r.content)
@@ -387,7 +409,10 @@ export async function POST(req: Request) {
       model: def,
       system,
       messages: [{ role: 'user', content: userContent }],
-      maxTokens: 2500,
+      // openai-compat reasoning models (Kimi 思考型 etc.) spend part of the
+      // budget on hidden reasoning_content before visible output — give them
+      // headroom so the JSON answer isn't cut. Anthropic keeps 2500.
+      maxTokens: def.provider === 'openai-compat' ? 4000 : 2500,
       temperature: 0.4,
       // 国产 openai-compat 路径强制 json_object，配合下方既有的 JSON 解析
       // + prose 抢救逻辑；Anthropic 路径行为不变（prompt 契约）。
@@ -396,9 +421,22 @@ export async function POST(req: Request) {
     })
     raw = text
   } catch (e) {
-    // Label honestly — quota/4xx errors are not timeouts, and the client
-    // shows different guidance for each (retry vs report).
-    if (e instanceof LlmHttpError) throw new Error(`reasoning error: ${e.body}`)
+    // Classify LLM failures HERE, once: full detail goes to the server log,
+    // the client gets a stable coarse label it can match on ('llm http N' /
+    // 'llm unavailable' / 'llm truncated') — provider response bodies are
+    // never forwarded to the browser.
+    if (e instanceof LlmHttpError) {
+      console.error(`[agent/turn] llm http ${e.status} (${modelUsed}):`, e.body)
+      throw new Error(`llm http ${e.status}`)
+    }
+    if (e instanceof LlmKeyMissingError) {
+      console.error(`[agent/turn] ${e.message}`)
+      throw new Error('llm unavailable')
+    }
+    if (e instanceof LlmTruncatedError) {
+      console.error(`[agent/turn] (${modelUsed}) ${e.message}`)
+      throw new Error('llm truncated')
+    }
     const msg = (e as Error).message || ''
     if ((e as Error).name === 'TimeoutError') throw new Error(`reasoning timeout: ${msg}`)
     throw new Error(`reasoning failed: ${msg}`)
@@ -408,7 +446,24 @@ export async function POST(req: Request) {
   // The model occasionally answers a factual question in plain prose despite
   // the JSON contract. Salvage that text as the reply — losing a real answer
   // behind a canned "我记下了" (which falsely implies success) is worse.
-  const salvage = parsed ? '' : raw.replace(/```(?:json)?|```/g, '').trim()
+  let salvage = parsed ? '' : raw.replace(/```(?:json)?|```/g, '').trim()
+  // BUT never surface a broken-JSON fragment as if it were prose: if the
+  // unparseable output still looks like JSON (starts with '{' or carries a
+  // "reply" field — typically truncated mid-object), pull just the value of
+  // "reply" out with an escape-aware regex; if even that fails, fall through
+  // to the honest 重发 copy below rather than echoing raw JSON at the user.
+  if (salvage && (salvage.startsWith('{') || salvage.includes('"reply"'))) {
+    const m = salvage.match(/"reply"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+    if (m) {
+      try {
+        salvage = JSON.parse(`"${m[1]}"`) as string
+      } catch {
+        salvage = m[1].replace(/\\"/g, '"').replace(/\\n/g, '\n')
+      }
+    } else {
+      salvage = ''
+    }
+  }
   const fallbackReply = salvage
     ? salvage.slice(0, 2000)
     : '这条我没生成出有效回复（输出格式出错了）。请把消息原样再发一次 —— 不用换措辞。'

@@ -660,7 +660,7 @@ const CSS = `
   body { margin: 0; background: #FBFBF9; overflow-x: hidden; }
   .v7-page {
     --bg: #FBFBF9; --surface: #FFFFFF; --wash: #F6F5F1;
-    --ink: #18181B; --ink-2: #52525B; --ink-3: #A1A1AA;
+    --ink: #18181B; --ink-2: #52525B; --ink-3: #71717A;
     --line: #E8E6E1; --line-2: #D6D3CC;
     --brand: #7C3AED; --brand-deep: #5B21B6; --brand-soft: #F4F0FD; --brand-light: #C4B5FD;
     --ok: #16A34A; --ok-soft: #EAF6EE;
@@ -753,7 +753,7 @@ const CSS = `
   .v7-page .mini .t .pr { font-weight: 700; font-size: 14px; color: var(--brand-deep); }
   .v7-page .mini .m2 { font-size: 12px; color: var(--ink-3); margin-top: 3px; }
   .v7-page .mini .m2 .okt { color: var(--ok); font-weight: 600; }
-  .v7-page .chat .act { display: flex; gap: 8px; margin-top: 2px; align-items: center; }
+  .v7-page .chat .act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; align-items: center; }
   .v7-page .chat .act .bp { background: var(--brand); border: none; color: #fff; border-radius: 9px; padding: 8px 15px; font-size: 12.5px; font-weight: 600; }
   .v7-page .chat .act .bs { background: #fff; border: 1px solid var(--line-2); color: var(--ink-2); border-radius: 9px; padding: 8px 13px; font-size: 12.5px; font-weight: 600; }
   .v7-page .chat .act .fr { margin-left: auto; font-size: 11px; color: var(--ink-3); }
@@ -839,6 +839,9 @@ const CSS = `
   .v7-page .demo[data-r="a"] .bp2 { background: var(--agnt); }
   .v7-page .demo-act .bs2 { background: #fff; border: 1px solid var(--line-2); color: var(--ink-2); border-radius: 10px; padding: 10px 15px; font-size: 13px; font-weight: 600; }
   .v7-page .demo-act .tm { margin-left: auto; font-size: 11.5px; color: var(--ink-3); }
+  /* adaptation: demo-card / chat "buttons" are decorative spans (aria-hidden demos) — no pointer affordance */
+  .v7-page .chat .act .bp, .v7-page .chat .act .bs,
+  .v7-page .demo-act .bp2, .v7-page .demo-act .bs2 { cursor: default; }
 
   /* ============ 三步 ============ */
   .v7-page .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
@@ -957,7 +960,7 @@ export default function HomePage() {
             </div>
             <div className="stage rv">
               <div className="panel">
-                <div className="chat">
+                <div className="chat" aria-hidden="true">
                   <div className="chat-h">
                     <span className="orb" />
                     <b>{c.chatName}</b>
@@ -975,8 +978,8 @@ export default function HomePage() {
                     </div>
                     <div className="m-a">{c.chatA2}</div>
                     <div className="act">
-                      <button type="button" className="bp">{c.chatBp}</button>
-                      <button type="button" className="bs">{c.chatBs}</button>
+                      <span className="bp">{c.chatBp}</span>
+                      <span className="bs">{c.chatBs}</span>
                       <span className="fr">{c.chatFr}</span>
                     </div>
                   </div>
@@ -1006,7 +1009,7 @@ export default function HomePage() {
           <div className="wrap rv">
             <div className="ph">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/home/hero-mist.jpg" alt={c.heroAlt} />
+              <img src="/home/hero-mist.jpg" alt={c.heroAlt} loading="lazy" decoding="async" />
               <span className="cap">{c.cap}</span>
             </div>
             <div className="stats">
@@ -1071,7 +1074,7 @@ export default function HomePage() {
                     </div>
                     <div className="demo" data-r={m.r}>
                       <div className="backwash" />
-                      <div className="demo-card">
+                      <div className="demo-card" aria-hidden="true">
                         <div className="demo-h">
                           <span className="o2" />
                           <b>{r.demoName}</b>
@@ -1090,10 +1093,8 @@ export default function HomePage() {
                         </div>
                         <div className="demo-note">{r.note}</div>
                         <div className="demo-act">
-                          <button type="button" className="bp2">{r.act1}</button>
-                          {r.act2 && (
-                            <button type="button" className="bs2">{r.act2}</button>
-                          )}
+                          <span className="bp2">{r.act1}</span>
+                          {r.act2 && <span className="bs2">{r.act2}</span>}
                           <span className="tm">{r.tm}</span>
                         </div>
                       </div>
@@ -1145,7 +1146,7 @@ export default function HomePage() {
           <div className="wrap rv">
             <div className="final-in">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/home/final-interior.jpg" alt={c.finalAlt} />
+              <img src="/home/final-interior.jpg" alt={c.finalAlt} loading="lazy" decoding="async" />
               <div className="veil" />
               <div className="final-copy">
                 <h2>{c.finalH2}</h2>

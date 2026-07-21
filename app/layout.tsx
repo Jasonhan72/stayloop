@@ -38,6 +38,9 @@ export default function RootLayout({
           rel="stylesheet"
         />
         <meta name="theme-color" content="#FAF7EE" />
+        <noscript>
+          <style>{`.v7-page .rv{opacity:1;transform:none}`}</style>
+        </noscript>
       </head>
       <body>
         <I18nProvider>{children}</I18nProvider>
