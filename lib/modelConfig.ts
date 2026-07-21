@@ -34,23 +34,64 @@ export const DEFAULT_MODELS: Record<ModelSlot, string> = {
   forensics: 'claude-haiku-4-5',
 }
 
-export interface AllowedModel {
+export type ModelProvider = 'anthropic' | 'openai-compat'
+
+/** 费用档（UI 展示用） */
+export type CostTier = '低' | '中' | '高'
+
+export interface ModelDef {
   id: string
   label: string
   /** 适用说明（zh，管理后台下拉展示用） */
   note: string
+  provider: ModelProvider
+  /** OpenAI-compatible base URL（不带尾部斜杠）— 仅 openai-compat 用 */
+  baseUrl?: string
+  /** 服务端环境变量名，存放该 provider 的 API key（绝不下发客户端） */
+  apiKeyEnv: string
+  /** 是否支持图片输入（Vision）。不支持的模型收到图片附件时由调用方回退默认模型。 */
+  vision: boolean
+  costTier: CostTier
+  /** 允许配置到哪些槽位。screening/forensics 涉及租客 PII 与视觉取证、classify 需要视觉，均锁 Anthropic。 */
+  allowedSlots: ModelSlot[]
+  /** openai-compat：该模型拒绝自定义 temperature（如 Kimi 思考型模型只允许 1）——请求时省略。 */
+  omitTemperature?: boolean
 }
+
+/** @deprecated 用 ModelDef */
+export type AllowedModel = ModelDef
+
+const ALL_SLOTS: ModelSlot[] = [...MODEL_SLOTS]
 
 // Whitelist shared by the admin UI dropdown and write validation. Adding a
 // model here is the only step needed to make it selectable.
-export const ALLOWED_MODELS: AllowedModel[] = [
-  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', note: '最新旗舰推理 — 编码/代理任务接近 Opus 级' },
-  { id: 'claude-opus-4-8', label: 'Claude Opus 4.8', note: '最强 Opus 级 — 最难的长程推理任务（成本最高）' },
-  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', note: '稳定基线 — 当前对话/评分/分类槽位的默认模型' },
-  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', note: '轻量抽取 — 低成本低延迟，适合取证类结构化抽取' },
+export const ALLOWED_MODELS: ModelDef[] = [
+  // ── Anthropic（全槽位可用）──────────────────────────────────────────────
+  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', note: '最新旗舰推理 — 编码/代理任务接近 Opus 级', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '高', allowedSlots: ALL_SLOTS },
+  { id: 'claude-opus-4-8', label: 'Claude Opus 4.8', note: '最强 Opus 级 — 最难的长程推理任务（成本最高）', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '高', allowedSlots: ALL_SLOTS },
+  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', note: '稳定基线 — 当前对话/评分/分类槽位的默认模型', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '中', allowedSlots: ALL_SLOTS },
+  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', note: '轻量抽取 — 低成本低延迟，适合取证类结构化抽取', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '低', allowedSlots: ALL_SLOTS },
+  // ── 国产 · OpenAI 兼容（仅 turn 槽位；无视觉，图片轮次自动回退默认）────
+  { id: 'deepseek-chat', label: 'DeepSeek Chat', note: 'DeepSeek V3 — 极低成本的中文对话/推理', provider: 'openai-compat', baseUrl: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  { id: 'kimi-k3', label: 'Kimi K3', note: 'Moonshot Kimi 旗舰 — 思考型模型，响应稍慢（含推理阶段）', provider: 'openai-compat', baseUrl: 'https://api.moonshot.cn/v1', apiKeyEnv: 'MOONSHOT_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true },
+  { id: 'kimi-k2.6', label: 'Kimi K2.6', note: 'Moonshot Kimi K2.6 — 思考型模型，响应稍慢（含推理阶段）', provider: 'openai-compat', baseUrl: 'https://api.moonshot.cn/v1', apiKeyEnv: 'MOONSHOT_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true },
+  { id: 'qwen-plus', label: '通义千问 Plus', note: '阿里通义 Qwen-Plus — 低成本均衡对话', provider: 'openai-compat', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKeyEnv: 'DASHSCOPE_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  { id: 'glm-4.6', label: '智谱 GLM-4.6', note: '智谱 GLM-4.6 — 低成本中文对话/代理', provider: 'openai-compat', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKeyEnv: 'ZHIPU_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
 ]
 
-const ALLOWED_IDS = new Set(ALLOWED_MODELS.map((m) => m.id))
+/** 按模型 id 查定义；未知 id 返回 undefined。 */
+export function getModelDef(modelId: string): ModelDef | undefined {
+  return ALLOWED_MODELS.find((m) => m.id === modelId)
+}
+
+/**
+ * SERVER-ONLY：该模型的 API key 环境变量是否已配置（非空）。
+ * 只返回布尔，key 值绝不外传。客户端 process.env 动态访问恒为 undefined，
+ * 所以此函数只能在服务端调用（管理页通过 /api/admin/model-providers 拿布尔）。
+ */
+export function providerAvailable(def: ModelDef): boolean {
+  return !!(process.env[def.apiKeyEnv] || '').trim()
+}
 
 // ── Per-model API-surface capabilities ───────────────────────────────────────
 // Newer models tightened the request surface; call sites must adapt or the
@@ -79,13 +120,20 @@ export function supportsAssistantPrefill(model: string): boolean {
 const CACHE_TTL_MS = 60_000
 let cache: { value: Record<ModelSlot, string>; fetchedAt: number } | null = null
 
-/** Whitelist-validate a raw jsonb value; non-conforming slots fall back to DEFAULT. */
+/**
+ * Whitelist-validate a raw jsonb value; non-conforming slots fall back to
+ * DEFAULT. A slot value must (1) be a whitelisted model, (2) be allowed for
+ * that slot (allowedSlots), and (3) have its provider API key configured on
+ * this server — otherwise the default takes over. SERVER-ONLY (reads env).
+ */
 function sanitize(raw: unknown): Record<ModelSlot, string> {
   const out: Record<ModelSlot, string> = { ...DEFAULT_MODELS }
   if (raw && typeof raw === 'object') {
     for (const slot of MODEL_SLOTS) {
       const v = (raw as Record<string, unknown>)[slot]
-      if (typeof v === 'string' && ALLOWED_IDS.has(v)) out[slot] = v
+      if (typeof v !== 'string') continue
+      const def = getModelDef(v)
+      if (def && def.allowedSlots.includes(slot) && providerAvailable(def)) out[slot] = v
     }
   }
   return out

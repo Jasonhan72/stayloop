@@ -11,7 +11,8 @@ import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } 
 import { buildSystemPrompt } from '@/lib/agent/prompts'
 import { applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
 import { searchListings } from '@/lib/agent/listingSearch'
-import { getModel, supportsTemperature } from '@/lib/modelConfig'
+import { DEFAULT_MODELS, getModel, getModelDef } from '@/lib/modelConfig'
+import { llmChat, LlmHttpError, type ChatMessage } from '@/lib/llmChat'
 
 export const runtime = 'edge'
 
@@ -360,46 +361,47 @@ export async function POST(req: Request) {
       '\n\n[当前消息]\n'
     : ''
   const userText = histText + (message.trim() || '（用户上传了文件,请查看并回应）').slice(0, 4000) + note + urlContext
-  const userContent: unknown = imgs.length
+  const userContent: ChatMessage['content'] = imgs.length
     ? [
         { type: 'text', text: userText },
-        ...imgs.map((im) => ({ type: 'image', source: { type: 'base64', media_type: im.media_type, data: im.data } })),
+        ...imgs.map((im) => ({ type: 'image' as const, source: { type: 'base64' as const, media_type: im.media_type, data: im.data } })),
       ]
     : userText
 
   let raw = ''
+  let modelUsed = DEFAULT_MODELS.turn
   try {
     // Admin-configurable model slot (60s edge cache) — see lib/modelConfig.ts.
-    const model = await getModel('turn')
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 2500,
-        // Sonnet 5 / Opus 4.8 reject sampling params (400) — omit there.
-        ...(supportsTemperature(model) ? { temperature: 0.4 } : {}),
-        system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: userContent }],
-      }),
+    // getModels() already guards allowedSlots + provider-key availability, so
+    // an openai-compat id only reaches here when its key is configured.
+    const configuredId = await getModel('turn')
+    let def = getModelDef(configuredId) ?? getModelDef(DEFAULT_MODELS.turn)!
+    // Vision guard: text-only 国产 models can't see image attachments — fall
+    // back to the Anthropic default for THIS turn only (don't break the user).
+    if (imgs.length && !def.vision) {
+      console.warn(`[agent/turn] model fallback: ${def.id} lacks vision, image turn routed to ${DEFAULT_MODELS.turn}`)
+      def = getModelDef(DEFAULT_MODELS.turn)!
+    }
+    modelUsed = def.id
+    const { text } = await llmChat({
+      model: def,
+      system,
+      messages: [{ role: 'user', content: userContent }],
+      maxTokens: 2500,
+      temperature: 0.4,
+      // 国产 openai-compat 路径强制 json_object，配合下方既有的 JSON 解析
+      // + prose 抢救逻辑；Anthropic 路径行为不变（prompt 契约）。
+      jsonMode: def.provider === 'openai-compat',
       signal: AbortSignal.timeout(45000),
     })
-    if (!res.ok) {
-      const errText = await res.text()
-      throw new Error(`reasoning error: ${errText.slice(0, 300)}`)
-    }
-    const data = (await res.json()) as { content?: Array<{ text?: string }> }
-    raw = data.content?.[0]?.text || ''
+    raw = text
   } catch (e) {
     // Label honestly — quota/4xx errors are not timeouts, and the client
     // shows different guidance for each (retry vs report).
+    if (e instanceof LlmHttpError) throw new Error(`reasoning error: ${e.body}`)
     const msg = (e as Error).message || ''
     if ((e as Error).name === 'TimeoutError') throw new Error(`reasoning timeout: ${msg}`)
-    throw msg.startsWith('reasoning error') ? (e as Error) : new Error(`reasoning failed: ${msg}`)
+    throw new Error(`reasoning failed: ${msg}`)
   }
 
   const parsed = safeParseJson(raw)
@@ -604,6 +606,9 @@ export async function POST(req: Request) {
     followups,
     draft_listing: draftListing,
     url_images: urlImages.length ? urlImages : undefined,
+    // Non-sensitive: the model id string that actually served this turn
+    // (post vision-fallback) — for verification and back-office debugging.
+    model_used: modelUsed,
     guardrail: { flagged: flags.length > 0, notes: flags },
   }
   }

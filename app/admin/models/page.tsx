@@ -17,6 +17,7 @@ import {
   ALLOWED_MODELS,
   DEFAULT_MODELS,
   MODEL_SLOTS,
+  type ModelDef,
   type ModelSlot,
 } from '@/lib/modelConfig'
 
@@ -47,7 +48,25 @@ const SLOT_META: Record<ModelSlot, { zh: string; en: string; descZh: string; des
   },
 }
 
-const ALLOWED_IDS = new Set(ALLOWED_MODELS.map((m) => m.id))
+// 敏感槽位（证件/流水/视觉取证）在下拉旁展示「仅限 Anthropic」说明。
+const SENSITIVE_SLOTS = new Set<ModelSlot>(['screening', 'classify', 'forensics'])
+
+const COST_LABEL: Record<ModelDef['costTier'], { zh: string; en: string }> = {
+  低: { zh: '费用低', en: 'low cost' },
+  中: { zh: '费用中', en: 'mid cost' },
+  高: { zh: '费用高', en: 'high cost' },
+}
+
+const PROVIDER_GROUP: Record<ModelDef['provider'], { zh: string; en: string }> = {
+  anthropic: { zh: 'Anthropic（Claude）', en: 'Anthropic (Claude)' },
+  'openai-compat': { zh: '国产 · OpenAI 兼容', en: 'Domestic · OpenAI-compatible' },
+}
+
+/** 该模型在管理页是否可选。availability 为 null（接口未返回）时保守处理：仅 Anthropic 可选。 */
+function modelUsable(m: ModelDef, availability: Record<string, boolean> | null): boolean {
+  if (availability) return availability[m.apiKeyEnv] === true
+  return m.provider === 'anthropic'
+}
 
 export default function AdminModelsPage() {
   const { lang } = useT()
@@ -60,6 +79,8 @@ export default function AdminModelsPage() {
   const [busy, setBusy] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  // apiKeyEnv → key configured?（只有布尔，key 值绝不下发）。null = 未取到。
+  const [availability, setAvailability] = useState<Record<string, boolean> | null>(null)
 
   const load = useCallback(async () => {
     setRowLoading(true)
@@ -72,7 +93,8 @@ export default function AdminModelsPage() {
     const raw = (data?.value ?? {}) as Record<string, unknown>
     for (const slot of MODEL_SLOTS) {
       const v = raw[slot]
-      if (typeof v === 'string' && ALLOWED_IDS.has(v)) next[slot] = v
+      const def = ALLOWED_MODELS.find((m) => m.id === v)
+      if (typeof v === 'string' && def && def.allowedSlots.includes(slot)) next[slot] = v
     }
     setValues(next)
     setUpdatedAt(data?.updated_at ?? null)
@@ -80,14 +102,35 @@ export default function AdminModelsPage() {
     setRowLoading(false)
   }, [])
 
+  const loadAvailability = useCallback(async () => {
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token
+      if (!token) return
+      const res = await fetch('/api/admin/model-providers', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) return
+      const json = (await res.json()) as { providers?: Record<string, boolean> }
+      if (json.providers) setAvailability(json.providers)
+    } catch {
+      // 保守失败：availability 保持 null → 仅 Anthropic 可选。
+    }
+  }, [])
+
   useEffect(() => {
-    if (role) load()
-  }, [role, load])
+    if (role) {
+      load()
+      loadAvailability()
+    }
+  }, [role, load, loadAvailability])
 
   const save = async () => {
-    // Whitelist validation before write (mirrors the server-side sanitize).
+    // Whitelist + slot-eligibility validation before write (mirrors the
+    // server-side sanitize in lib/modelConfig.ts).
     for (const slot of MODEL_SLOTS) {
-      if (!ALLOWED_IDS.has(values[slot])) {
+      const def = ALLOWED_MODELS.find((m) => m.id === values[slot])
+      if (!def || !def.allowedSlots.includes(slot)) {
         setMsg({ ok: false, text: zh ? `无效的模型：${values[slot]}` : `Invalid model: ${values[slot]}` })
         return
       }
@@ -174,6 +217,11 @@ export default function AdminModelsPage() {
             MODEL_SLOTS.map((slot) => {
               const meta = SLOT_META[slot]
               const current = ALLOWED_MODELS.find((m) => m.id === values[slot])
+              // 只展示允许配置到该槽位的模型，按 provider 分组。
+              const eligible = ALLOWED_MODELS.filter((m) => m.allowedSlots.includes(slot))
+              const groups = (['anthropic', 'openai-compat'] as const)
+                .map((p) => ({ provider: p, models: eligible.filter((m) => m.provider === p) }))
+                .filter((g) => g.models.length > 0)
               return (
                 <div key={slot} className="sl-card flex flex-wrap items-center gap-4 p-5">
                   <div className="min-w-0 flex-1">
@@ -190,9 +238,22 @@ export default function AdminModelsPage() {
                     </div>
                     <div className="mt-1 text-[12.5px] text-body-3">{zh ? meta.descZh : meta.descEn}</div>
                     {current && <div className="mt-1 text-[12px] text-body-2">{current.note}</div>}
+                    {SENSITIVE_SLOTS.has(slot) ? (
+                      <div className="mt-1.5 text-[11.5px] font-semibold" style={{ color: '#B45309' }}>
+                        {zh
+                          ? '涉及证件/流水等敏感材料与视觉能力，仅限 Anthropic（数据合规）'
+                          : 'Handles sensitive documents (IDs, bank statements) and needs vision — Anthropic only (data compliance)'}
+                      </div>
+                    ) : (
+                      <div className="mt-1.5 text-[11.5px] text-body-3">
+                        {zh
+                          ? '低价模型建议观察对话质量与 JSON 稳定性；国产模型数据出境，注意隐私口径'
+                          : 'Budget models: watch conversation quality and JSON stability. Domestic (China-hosted) providers mean data leaves the region — mind the privacy posture.'}
+                      </div>
+                    )}
                   </div>
                   <select
-                    className="sl-input w-auto min-w-[260px]"
+                    className="sl-input w-auto min-w-[300px]"
                     value={values[slot]}
                     onChange={(e) => {
                       setValues((prev) => ({ ...prev, [slot]: e.target.value }))
@@ -200,10 +261,22 @@ export default function AdminModelsPage() {
                       setMsg(null)
                     }}
                   >
-                    {ALLOWED_MODELS.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.label} · {m.id}
-                      </option>
+                    {groups.map((g) => (
+                      <optgroup key={g.provider} label={zh ? PROVIDER_GROUP[g.provider].zh : PROVIDER_GROUP[g.provider].en}>
+                        {g.models.map((m) => {
+                          const usable = modelUsable(m, availability)
+                          return (
+                            <option key={m.id} value={m.id} disabled={!usable}>
+                              {m.label} · {m.id} · {zh ? COST_LABEL[m.costTier].zh : COST_LABEL[m.costTier].en}
+                              {!usable
+                                ? zh
+                                  ? `（未配置 API Key（Cloudflare 环境变量 ${m.apiKeyEnv}））`
+                                  : ` (API key not configured — Cloudflare env var ${m.apiKeyEnv})`
+                                : ''}
+                            </option>
+                          )
+                        })}
+                      </optgroup>
                     ))}
                   </select>
                 </div>
