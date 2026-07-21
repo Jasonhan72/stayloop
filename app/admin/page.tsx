@@ -15,7 +15,9 @@ export default function AdminHomePage() {
   const auth = useAuth()
   const { loading, role } = useAdmin()
   const [pending, setPending] = useState<number | null>(null)
-  const [members, setMembers] = useState<number | null>(null)
+  // null = loading, number = count, 'error' = RPC failed (show an error
+  // state instead of a forever-spinning "…").
+  const [members, setMembers] = useState<number | 'error' | null>(null)
 
   useEffect(() => {
     if (!role) return
@@ -24,7 +26,7 @@ export default function AdminHomePage() {
       .select('id', { count: 'exact', head: true })
       .eq('verification_status', 'pending')
       .then(({ count }) => setPending(count ?? 0))
-    supabase.rpc('admin_list_members').then(({ data }) => setMembers(Array.isArray(data) ? data.length : null))
+    supabase.rpc('admin_list_members').then(({ data, error }) => setMembers(!error && Array.isArray(data) ? data.length : 'error'))
   }, [role])
 
   if (auth.loading || loading) {
@@ -64,8 +66,15 @@ export default function AdminHomePage() {
       icon: '👥',
       title: zh ? '用户与权限' : 'Users & permissions',
       desc: zh ? '管理后台管理组成员:添加、移除、调整 admin / superadmin 角色。' : 'Manage the admin group — add or remove members, set admin / superadmin roles.',
-      stat: members == null ? '…' : zh ? `${members} 位成员` : `${members} members`,
-      hot: false,
+      stat:
+        members == null
+          ? '…'
+          : members === 'error'
+            ? (zh ? '加载失败' : 'load failed')
+            : zh
+              ? `${members} 位成员`
+              : `${members} members`,
+      hot: members === 'error',
     },
     {
       href: '/admin/models',

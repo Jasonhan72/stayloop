@@ -108,6 +108,31 @@ async function fetchUrlContent(url: string): Promise<FetchResult> {
     if (host === 'localhost' || host.endsWith('.local') || host.startsWith('127.') || host.startsWith('10.') || host.startsWith('192.168.') || host === '[::1]' || host.startsWith('169.254.') || /^172\.(1[6-9]|2[0-9]|3[01])\./.test(host) || host === '0.0.0.0' || host.endsWith('.internal')) {
       return { content: '[blocked: private/internal URLs not allowed]', images: [] }
     }
+    // IP-literal escape hatches the dotted-prefix checks above can't see:
+    // bare decimal (http://2130706433 = 127.0.0.1), hex (0x7f000001), and
+    // bracketed IPv6 (::ffff:127.0.0.1, fd00::/8, …). Some URL parsers
+    // canonicalize these, some don't — reject them all conservatively; no
+    // legitimate listing/marketing page is served off a raw IP literal.
+    if (/^\d+$/.test(host) || /^0x/i.test(host) || host.startsWith('[')) {
+      return { content: '[blocked: IP-literal URLs not allowed]', images: [] }
+    }
+    // Dotted all-numeric host = IPv4 literal. Re-check private ranges on the
+    // parsed octets (catches unusual spellings), and reject leading-zero
+    // octets outright — octal ambiguity (0177.0.0.1) can hide a private IP.
+    const segs = host.split('.')
+    if (segs.length === 4 && segs.every((s) => /^\d+$/.test(s))) {
+      const n = segs.map(Number)
+      const octal = segs.some((s) => s.length > 1 && s.startsWith('0'))
+      const priv =
+        n[0] === 0 || n[0] === 10 || n[0] === 127 ||
+        (n[0] === 172 && n[1] >= 16 && n[1] <= 31) ||
+        (n[0] === 192 && n[1] === 168) ||
+        (n[0] === 169 && n[1] === 254) ||
+        (n[0] === 100 && n[1] >= 64 && n[1] <= 127)
+      if (octal || priv || n.some((x) => x > 255)) {
+        return { content: '[blocked: private/internal URLs not allowed]', images: [] }
+      }
+    }
   } catch {
     return { content: '[invalid URL]', images: [] }
   }

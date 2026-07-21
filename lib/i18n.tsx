@@ -642,18 +642,29 @@ function format(str: string, vars?: Record<string, string | number>) {
   return str.replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : `{${k}}`))
 }
 
+// Resolve the language synchronously on the client (SSR stays 'zh'). Must
+// mirror the inline <head> script in app/layout.tsx, which applies the same
+// logic to <html lang>/<data-lang> before first paint (anti-FOUC).
+function resolveInitialLang(): Lang {
+  if (typeof window === 'undefined') return 'zh'
+  try {
+    const stored = localStorage.getItem('stayloop_lang') as Lang | null
+    if (stored === 'en' || stored === 'zh') return stored
+    return (navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  } catch {
+    return 'zh'
+  }
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('zh')
+  // Lazy init: first client render already uses the user's language — no
+  // zh→en flash for EN users. The SSR HTML is zh; the resulting first-frame
+  // mismatch is patched by React (suppressHydrationWarning on <html> covers
+  // the lang attribute; body copy is state-driven and re-renders).
+  const [lang, setLangState] = useState<Lang>(resolveInitialLang)
   const [currency, setCurrencyState] = useState<Currency>('CAD')
 
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? (localStorage.getItem('stayloop_lang') as Lang | null) : null
-    if (stored === 'en' || stored === 'zh') {
-      setLangState(stored)
-    } else if (typeof navigator !== 'undefined') {
-      const browser = navigator.language || ''
-      setLangState(browser.toLowerCase().startsWith('zh') ? 'zh' : 'en')
-    }
     const storedCurrency = typeof window !== 'undefined' ? (localStorage.getItem('stayloop_currency') as Currency | null) : null
     if (storedCurrency && CURRENCIES.some(c => c.code === storedCurrency)) {
       setCurrencyState(storedCurrency)
@@ -663,6 +674,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof document !== 'undefined') {
       document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en'
+      document.documentElement.dataset.lang = lang
     }
   }, [lang])
 

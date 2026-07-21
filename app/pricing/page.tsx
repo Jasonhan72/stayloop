@@ -180,6 +180,7 @@ function RolePlansSection({ lang, zh }: { lang: Lang; zh: boolean }) {
           <button
             key={p.key}
             onClick={() => setActive(i)}
+            aria-pressed={i === active}
             className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] font-bold transition"
             style={
               i === active

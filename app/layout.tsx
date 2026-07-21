@@ -29,15 +29,20 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh">
+    // suppressHydrationWarning: the inline script below sets lang/data-lang on
+    // <html> before hydration (anti-FOUC for EN users), so the client attribute
+    // may legitimately differ from the server-rendered lang="zh".
+    <html lang="zh" suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
+        {/* Sync language BEFORE first paint — same resolution logic as
+            I18nProvider's lazy initial state (lib/i18n.tsx). Keep in sync. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var l=localStorage.getItem('stayloop_lang');if(l!=='en'&&l!=='zh'){l=((navigator.language||'').toLowerCase().indexOf('zh')===0)?'zh':'en'}var d=document.documentElement;d.lang=l==='zh'?'zh-CN':'en';d.dataset.lang=l}catch(e){}})()",
+          }}
         />
-        <meta name="theme-color" content="#FAF7EE" />
+        <meta name="theme-color" content="#FBFBF9" />
         <noscript>
           <style>{`.v7-page .rv{opacity:1;transform:none}`}</style>
         </noscript>

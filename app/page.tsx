@@ -936,7 +936,7 @@ export default function HomePage() {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <Header />
-      <div className="v7-page" data-lang={lang}>
+      <div className="v7-page">
         {/* ================= HERO ================= */}
         <header className="hero">
           <div className="wrap hero-in">
@@ -1207,7 +1207,7 @@ function HeroTryBar({ lines, cta }: { lines: string[]; cta: string }) {
   const full = lines[li]
   return (
     <div className="trybar">
-      <span className="q" id="typeq">
+      <span className="q">
         {full.slice(0, chars)}
         <span className="caret" aria-hidden="true" />
       </span>

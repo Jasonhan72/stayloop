@@ -184,15 +184,29 @@ export async function runAgentTurn(args: {
     headers.Authorization = `Bearer ${accessToken}`
   }
 
-  const res = await fetch('/api/agent/turn', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames, exclude: exclude ?? [], history: history ?? [] }),
-  })
-  if (!res.ok) throw new Error(`turn failed: ${res.status}`)
-  // The route streams heartbeat whitespace then the JSON body; errors that
-  // occur mid-stream arrive as { error } inside a 200 body.
-  const turn = (await res.json()) as {
+  // Hard client-side ceiling: the route heartbeats whitespace while it works,
+  // so a stalled turn would otherwise hang this await indefinitely. 100s
+  // aborts fetch AND body read; the error message matches the existing
+  // /timeout/ classifier in useAgentSession's fallback copy.
+  let res: Response
+  let rawBody: string
+  try {
+    res = await fetch('/api/agent/turn', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames, exclude: exclude ?? [], history: history ?? [] }),
+      signal: AbortSignal.timeout(100_000),
+    })
+    if (!res.ok) throw new Error(`turn failed: ${res.status}`)
+    // The route streams heartbeat whitespace then the JSON body; errors that
+    // occur mid-stream arrive as { error } inside a 200 body.
+    rawBody = await res.text()
+  } catch (e) {
+    const name_ = (e as Error)?.name
+    if (name_ === 'TimeoutError' || name_ === 'AbortError') throw new Error('turn failed: timeout')
+    throw e
+  }
+  const turn = JSON.parse(rawBody) as {
     error?: string
     reply: string
     memory_writes: MemoryItem[]
@@ -228,6 +242,7 @@ export async function runAgentTurn(args: {
   // Anonymous turns never carry one (server forces proposed_action=null; the
   // guard here is belt-and-suspenders — there is no userId to attribute it to).
   let proposedAction: PendingAction | null = null
+  let replyBody = turn.reply
   if (turn.proposed_action && !anonymous && userId) {
     const pa = turn.proposed_action
     const base = {
@@ -248,6 +263,7 @@ export async function runAgentTurn(args: {
     }
     let id = (globalThis.crypto?.randomUUID?.() as string) || `act-${Date.now()}`
     let created_at = new Date().toISOString()
+    let insertFailed = false
     if (live && client) {
       const { data, error } = await client
         .from('agent_pending_actions')
@@ -258,10 +274,17 @@ export async function runAgentTurn(args: {
         id = data.id as string
         created_at = (data.created_at as string) ?? created_at
       } else if (error) {
+        // A card that never persisted can't be approved — returning it would
+        // render a phantom approval card. Drop it and tell the user instead.
+        insertFailed = true
         console.warn('[agent] pending insert failed', error.message)
       }
     }
-    proposedAction = { ...base, id, created_at }
+    if (insertFailed) {
+      replyBody += '\n\n（提议动作保存失败，请重试）'
+    } else {
+      proposedAction = { ...base, id, created_at }
+    }
   }
 
   // Audit the turn (best-effort, RLS-scoped). Anonymous turns leave no trail
@@ -277,7 +300,7 @@ export async function runAgentTurn(args: {
   }
 
   return {
-    result: { title: `${name} 回复`, body: turn.reply },
+    result: { title: `${name} 回复`, body: replyBody },
     memoryWrites,
     proposedAction,
     nextStage: turn.next_stage,

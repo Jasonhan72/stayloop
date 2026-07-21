@@ -70,7 +70,7 @@ const config: Config = {
         trust: '#7C3AED',
       },
       fontFamily: {
-        sans: ['"Inter Tight"', '"Noto Sans SC"', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['"Inter Tight"', '"PingFang SC"', '"Microsoft YaHei"', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       borderRadius: {

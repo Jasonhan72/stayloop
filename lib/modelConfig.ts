@@ -118,7 +118,13 @@ export function supportsAssistantPrefill(model: string): boolean {
 // ── Server-side resolution with per-isolate cache ────────────────────────────
 
 const CACHE_TTL_MS = 60_000
-let cache: { value: Record<ModelSlot, string>; fetchedAt: number } | null = null
+// Negative cache: a FAILED lookup also writes the cache (old value or the
+// defaults) under a short TTL, so an outage doesn't hammer Supabase on every
+// request — but recovery is picked up within ~10s.
+const NEG_CACHE_TTL_MS = 10_000
+let cache: { value: Record<ModelSlot, string>; fetchedAt: number; ttl: number } | null = null
+// Coalesce concurrent first lookups in one isolate into a single query.
+let inFlight: Promise<Record<ModelSlot, string>> | null = null
 
 /**
  * Whitelist-validate a raw jsonb value; non-conforming slots fall back to
@@ -144,27 +150,35 @@ function sanitize(raw: unknown): Record<ModelSlot, string> {
  * Never throws — falls back to the cached value, then to DEFAULT_MODELS.
  */
 export async function getModels(): Promise<Record<ModelSlot, string>> {
-  const now = Date.now()
-  if (cache && now - cache.fetchedAt < CACHE_TTL_MS) return cache.value
-  try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!url || !key) throw new Error('supabase env missing')
-    const sb = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
-    const { data, error } = await sb
-      .from('app_config')
-      .select('value')
-      .eq('key', 'models')
-      .maybeSingle()
-    if (error) throw error
-    const value = sanitize(data?.value)
-    cache = { value, fetchedAt: now }
-    return value
-  } catch {
-    // Config-layer failure must not take AI features down: serve the stale
-    // cache if we ever resolved successfully, otherwise the defaults.
-    return cache ? cache.value : { ...DEFAULT_MODELS }
-  }
+  if (cache && Date.now() - cache.fetchedAt < cache.ttl) return cache.value
+  if (inFlight) return inFlight
+  inFlight = (async () => {
+    try {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (!url || !key) throw new Error('supabase env missing')
+      const sb = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+      const { data, error } = await sb
+        .from('app_config')
+        .select('value')
+        .eq('key', 'models')
+        .maybeSingle()
+      if (error) throw error
+      const value = sanitize(data?.value)
+      cache = { value, fetchedAt: Date.now(), ttl: CACHE_TTL_MS }
+      return value
+    } catch {
+      // Config-layer failure must not take AI features down: serve the stale
+      // cache if we ever resolved successfully, otherwise the defaults —
+      // negative-cached under the short TTL so failures don't stampede.
+      const value = cache ? cache.value : { ...DEFAULT_MODELS }
+      cache = { value, fetchedAt: Date.now(), ttl: NEG_CACHE_TTL_MS }
+      return value
+    } finally {
+      inFlight = null
+    }
+  })()
+  return inFlight
 }
 
 /** Convenience: resolve one slot. Server-only; never throws. */

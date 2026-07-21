@@ -11,10 +11,26 @@ import { parseTrrebRentalReport, trrebReportCandidates } from '@/lib/agent/trreb
 
 export const runtime = 'edge'
 
+// Constant-time secret comparison: hash both sides (fixed 32-byte digests),
+// then XOR-accumulate — no early exit, and the digest step hides length
+// information, so response timing can't be used to guess the secret.
+async function secretMatches(given: string, secret: string): Promise<boolean> {
+  const enc = new TextEncoder()
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(given)),
+    crypto.subtle.digest('SHA-256', enc.encode(secret)),
+  ])
+  const va = new Uint8Array(a)
+  const vb = new Uint8Array(b)
+  let diff = 0
+  for (let i = 0; i < va.length; i++) diff |= va[i] ^ vb[i]
+  return diff === 0
+}
+
 export async function POST(req: Request) {
   const secret = process.env.CRON_SECRET
   const given = req.headers.get('x-cron-secret') || ''
-  if (!secret || given !== secret) {
+  if (!secret || !(await secretMatches(given, secret))) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
   const jinaKey = process.env.JINA_API_KEY

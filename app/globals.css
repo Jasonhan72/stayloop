@@ -6,6 +6,26 @@
    Stayloop V5 — global styles + design tokens
    =========================================================== */
 
+/* Self-hosted fonts (no Google Fonts request at runtime).
+   Variable woff2, latin subset — CJK falls through to the system stack
+   (PingFang SC / Microsoft YaHei) via unicode-range. */
+@font-face {
+  font-family: 'Inter Tight';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/inter-tight-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   /* Surfaces */
   --sl-surface: #F2EEE5;
@@ -55,7 +75,7 @@
 html, body {
   background: var(--sl-surface);
   color: var(--sl-text);
-  font-family: 'Inter Tight', 'Noto Sans SC', 'PingFang SC', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter Tight', 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

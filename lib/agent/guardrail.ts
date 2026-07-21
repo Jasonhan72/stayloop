@@ -88,7 +88,7 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput): GuardrailResul
   //     injection channel (e.g. instructions smuggled in via a fetched web
   //     page). Drop instruction-shaped writes, cap lengths, clamp count.
   const INJECTION_SHAPE =
-    /(ignore|disregard|忽略|无视).{0,20}(instruction|rule|prompt|规则|指令|提示)|system\s*prompt|act\s+as\b|你(现在)?是(?!.{0,6}(租客|房东|经纪))|jailbreak|override.{0,12}(guard|compliance)/i
+    /(ignore|disregard|forget|忽略|无视|忘记|忘掉).{0,20}(instruction|rule|prompt|previous|above|规则|指令|提示|设定|之前|以上)|system\s*prompt|new\s+instructions?|act\s+as\b|你(现在)?是(?!.{0,6}(租客|房东|经纪))|jailbreak|override.{0,12}(guard|compliance|rule)/i
   const cleanedMemories = (out.memoryWrites || [])
     .filter((m) => {
       const blob = `${m.key ?? ''} ${String(m.value ?? '')}`
