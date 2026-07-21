@@ -44,16 +44,16 @@ const PLANS: RolePlan[] = [
         name: { zh: '免费', en: 'Free' },
         price: { zh: '$0', en: '$0' },
         priceUnit: { zh: '永远免费 · 无需信用卡', en: 'free forever · no credit card' },
-        tagline: { zh: '租客只有一档:全部功能,永远免费。隐私永远不是商品。', en: 'Tenants get one tier: everything, free forever. Privacy is never a product.' },
-        cta: { zh: '唤醒你的 AI 助手', en: 'Wake up your AI' },
+        tagline: { zh: '全部功能，永远免费。', en: 'Everything included, free forever.' },
+        cta: { zh: '免费开始', en: 'Start free' },
         href: '/onboarding/welcome',
         includesLabel: { zh: '全部包含:', en: 'Everything included:' },
         features: [
           { zh: '个人 AI Agent 全功能', en: 'Full personal AI agent' },
           { zh: '四枚章,全部免费盖', en: 'All four stamps free to earn' },
           { zh: '申请 · 签约 · 维修全流程', en: 'Apply, sign and maintenance end to end' },
-          { zh: '看房免费(持牌经纪带看)', en: 'Free showings (licensed agent)' },
-          { zh: '信用记录跨平台可携带', en: 'Portable tenant credit record' },
+          { zh: '持牌经纪免费带看', en: 'Free showings with licensed agents' },
+          { zh: '租房记录可携带', en: 'Portable rental record' },
           { zh: '数据可导出、可删除', en: 'Full data export / deletion rights' },
         ],
         highlight: true,
@@ -69,7 +69,7 @@ const PLANS: RolePlan[] = [
         name: { zh: '起步', en: 'Go' },
         price: { zh: '$0', en: '$0' },
         priceUnit: { zh: '永久免费', en: 'free forever' },
-        tagline: { zh: '一套房,先把 AI 用起来。', en: 'One property — start with the AI.' },
+        tagline: { zh: '一套房，免费开始。', en: 'One property, free to start.' },
         cta: { zh: '免费发布房源', en: 'List a property free' },
         href: '/dashboard/listings/new',
         includesLabel: { zh: '包含:', en: 'Included:' },
@@ -77,14 +77,14 @@ const PLANS: RolePlan[] = [
           { zh: '1 套房源', en: '1 listing' },
           { zh: 'AI 摘要评分', en: 'AI summary scoring' },
           { zh: '接收申请 + 看房意向', en: 'Applications + showing intents' },
-          { zh: '托管收租,不抽流水', en: 'Managed rent collection, no skim' },
+          { zh: '在线收租，不抽流水', en: 'Online rent collection, no cut' },
         ],
       },
       {
         name: { zh: '专业', en: 'Pro' },
         price: { zh: '$19', en: '$19' },
         priceUnit: { zh: '/ 月', en: '/ month' },
-        tagline: { zh: 'AI 替你出租和管房,全功能。', en: 'AI rents and manages for you, in full.' },
+        tagline: { zh: '全部功能，无限房源。', en: 'Everything, unlimited listings.' },
         cta: { zh: '升级到专业版', en: 'Upgrade to Pro' },
         href: '/dashboard/listings/new',
         includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Go, plus:' },
@@ -101,7 +101,7 @@ const PLANS: RolePlan[] = [
         name: { zh: '团队', en: 'Business' },
         price: { zh: '$39', en: '$39' },
         priceUnit: { zh: '/ 月', en: '/ month' },
-        tagline: { zh: '多人协作,管一整个组合。', en: 'Collaborate across a whole portfolio.' },
+        tagline: { zh: '团队协作，管理多套物业。', en: 'Team collaboration across properties.' },
         cta: { zh: '升级到团队版', en: 'Upgrade to Business' },
         href: '/dashboard/listings/new',
         includesLabel: { zh: '专业的全部,另加:', en: 'Everything in Pro, plus:' },
@@ -123,7 +123,7 @@ const PLANS: RolePlan[] = [
         name: { zh: '起步', en: 'Go' },
         price: { zh: '$0', en: '$0' },
         priceUnit: { zh: '永久免费', en: 'free forever' },
-        tagline: { zh: '每月 5 个客户,先试试 AI 后台。', en: 'Five clients a month — try the AI back office.' },
+        tagline: { zh: '每月 5 个客户，免费试用。', en: '5 clients a month, free.' },
         cta: { zh: '免费开始', en: 'Start free' },
         href: '/agent/onboarding',
         includesLabel: { zh: '包含:', en: 'Included:' },
@@ -138,7 +138,7 @@ const PLANS: RolePlan[] = [
         name: { zh: '专业', en: 'Pro' },
         price: { zh: '$29', en: '$29' },
         priceUnit: { zh: '/ 月', en: '/ month' },
-        tagline: { zh: '无限客户,杂活全交给 AI。', en: 'Unlimited clients — hand all the busywork to AI.' },
+        tagline: { zh: '无限客户，全部功能。', en: 'Unlimited clients, everything included.' },
         cta: { zh: '升级到专业版', en: 'Upgrade to Pro' },
         href: '/agent/onboarding',
         includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Go, plus:' },
@@ -146,7 +146,7 @@ const PLANS: RolePlan[] = [
           { zh: '无限客户', en: 'Unlimited clients' },
           { zh: 'AI Agent 全功能', en: 'Full AI agent' },
           { zh: 'RECO 合规工具 + 审计提醒', en: 'RECO compliance tools + audit reminders' },
-          { zh: '跟进与催款,全自动', en: 'Follow-ups & collections, automated' },
+          { zh: '自动跟进与催款', en: 'Automated follow-ups and collections' },
         ],
         highlight: true,
       },
@@ -154,7 +154,7 @@ const PLANS: RolePlan[] = [
         name: { zh: '团队', en: 'Business' },
         price: { zh: '$59', en: '$59' },
         priceUnit: { zh: '/ 月', en: '/ month' },
-        tagline: { zh: '多经纪协作的团队后台。', en: 'A shared back office for multi-agent teams.' },
+        tagline: { zh: '团队协作后台。', en: 'A shared team back office.' },
         cta: { zh: '升级到团队版', en: 'Upgrade to Business' },
         href: '/agent/onboarding',
         includesLabel: { zh: '专业的全部,另加:', en: 'Everything in Pro, plus:' },
@@ -263,10 +263,10 @@ export default function PricingPage() {
               {zh ? 'PRICING · 透明 · 无隐藏' : 'PRICING · Transparent · No hidden fees'}
             </div>
             <h1 className="mx-auto mt-3 max-w-[820px] text-[30px] font-extrabold leading-tight tracking-tight sm:text-[44px] lg:text-[52px]">
-              {zh ? <>租客永远免费<br />房东 / 经纪按价值付费</> : <>Tenants always free<br />Landlords / agents pay for value</>}
+              {zh ? <>租客永远免费<br />房东和经纪按月订阅</> : <>Tenants always free<br />Landlords and agents subscribe monthly</>}
             </h1>
             <p className="mx-auto mt-4 max-w-[680px] text-[15.5px] leading-relaxed text-body-2">
-              {zh ? 'Stayloop 靠订阅收费 —— 租客的隐私永远不是商品。' : 'Stayloop runs on subscriptions — a tenant’s privacy is never a product.'}
+              {zh ? '只收订阅费，不抽佣金、不抽租金。' : 'Subscription only — no commission, no cut of the rent.'}
             </p>
           </div>
         </section>
@@ -278,15 +278,15 @@ export default function PricingPage() {
         <section className="mx-auto max-w-[1100px] px-5 pb-12 sm:px-7 lg:px-12">
           <div className="sl-card overflow-hidden p-8" style={{ background: 'linear-gradient(135deg, #0B0B0E 0%, #1E293B 100%)' }}>
             <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#93C5FD' }}>
-              {zh ? 'TRUST API · 第 4 商业线' : 'TRUST API · 4th business line'}
+              {zh ? 'TRUST API · 企业服务' : 'TRUST API · Enterprise'}
             </div>
             <h2 className="mt-2 text-[26px] font-bold tracking-tight text-white">
-              {zh ? '把 Stayloop 的信任引擎给银行 / 保险 / 政府机构' : 'Give Stayloop’s trust engine to banks, insurers and government agencies'}
+              {zh ? '给银行和保险机构的验证接口' : 'A verification API for banks and insurers'}
             </h2>
             <p className="mt-3 max-w-[760px] text-[14px] leading-relaxed" style={{ color: '#CBD5E1' }}>
               {zh
-                ? '他们的产品里嵌入「Stayloop Trust Verified」。租客一次验证，到处通行。让 Stayloop 成为加拿大租住业的信任基础设施。'
-                : 'Embed “Stayloop Trust Verified” inside their products. Tenants verify once and go anywhere — making Stayloop the trust infrastructure for Canadian renting.'}
+                ? '机构通过 API 验证租客的租房资质，只得到「已验证」的结果，拿不到任何原始文件。'
+                : 'Institutions verify a tenant’s rental standing via API — they get a “verified” result, never the raw documents.'}
             </p>
             <Link
               href="/contact"
@@ -301,18 +301,14 @@ export default function PricingPage() {
         <section className="mx-auto max-w-[1100px] px-5 py-6 sm:px-7 lg:px-12">
           <div className="sl-card p-7">
             <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-              {zh ? '为什么这套定价合规' : 'Why this pricing is compliant'}
+              {zh ? '一条底线' : 'One rule'}
             </div>
-            <h2 className="mt-2 text-[22px] font-bold tracking-tight">{zh ? '租客的隐私永远不是商品。付费只加价值,绝不改变房东看到的资格或排名。' : 'A tenant’s privacy is never a product. Paying only adds value — it never changes the eligibility or ranking a landlord sees.'}</h2>
+            <h2 className="mt-2 text-[22px] font-bold tracking-tight">{zh ? '付费不改变任何评分或排名。' : 'Paying never changes a score or a ranking.'}</h2>
             <p className="mt-3 max-w-[820px] text-[14px] leading-relaxed text-body-2">
               {zh ? (
-                <>验证、筛查、收租、AI 起草 —— 全部含在 <b>订阅</b> 里,这些不是"交易行为",不碰合规红线。
-                真正的看房与撮合交给 <b>持牌经纪</b>,他们通过订阅使用 Stayloop 的 AI 工具（任务编排、客户管理、合规提醒）。
-                不抽佣金、不抽租金流水——纯工具订阅,零交易抽成。</>
+                <>验证、筛查、收租、租约起草都含在订阅里。带看由<b>持牌经纪</b>完成。我们不抽佣金、不抽租金流水——付费只解锁你自己的工具，不影响任何人的资格。</>
               ) : (
-                <>Verification, screening, rent collection and AI drafting are all bundled into the <b>subscription</b> — these aren’t “transactional” acts, so they stay clear of the compliance line.
-                Real showings and matchmaking are left to <b>licensed agents</b>, who subscribe to Stayloop's AI tools (task orchestration, client management, compliance reminders).
-                No commission cut, no skim on rent — pure SaaS tooling, zero transaction fees.</>
+                <>Verification, screening, rent collection and lease drafting are all part of the subscription. Showings are done by <b>licensed agents</b>. We take no commission and no cut of the rent — paying unlocks your own tools, and never affects anyone’s eligibility.</>
               )}
             </p>
           </div>
@@ -323,10 +319,10 @@ export default function PricingPage() {
           <h2 className="text-[24px] font-bold tracking-tight sm:text-[30px]">{zh ? '常见问题' : 'Frequently asked questions'}</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {[
-              { q: { zh: '租客真的永远免费吗?', en: 'Are tenants really free forever?' }, a: { zh: '是。租客侧不收任何交易费 —— 身份验证、Passport、申请、电子签约、维修都免费,且四枚章全部免费盖。租客的隐私永远不是商品。', en: 'Yes. There are no transaction fees on the tenant side — identity verification, Passport, applications, e-signing and maintenance are all free, and all four stamps are free to earn. A tenant’s privacy is never a product.' } },
-              { q: { zh: '经纪订阅包含什么?', en: 'What does the agent subscription include?' }, a: { zh: 'AI Agent 全功能（任务编排、客户管理、看房排程、RECO 合规提醒）。免费档 5 个客户/月;Pro($29)无限客户;Team($59)多经纪协作 + 绩效面板。纯 SaaS 工具,不抽任何佣金。', en: 'Full AI agent (task orchestration, client management, showing scheduler, RECO compliance reminders). Free tier: 5 clients/month; Pro ($29): unlimited; Team ($59): multi-agent collaboration + performance dashboard. Pure SaaS tooling — no commission cut.' } },
-              { q: { zh: '为什么不收带看费、不抽租金?', en: 'Why no showing fees and no rent skim?' }, a: { zh: '收租与筛查是订阅内的服务,不是交易抽成;租金流水我们一分不抽。这让定价远离合规红线,也让租客零负担。', en: 'Rent collection and screening are subscription services, not transactional cuts — we take nothing from the rent flow. This keeps pricing well clear of the compliance line and keeps tenants at zero cost.' } },
-              { q: { zh: '房东免费档够用吗?', en: 'Is the landlord free tier enough?' }, a: { zh: '免费档永久可用,可发布 1 套房源、收申请、用 AI 摘要评分、Stripe 托管收租(平台不抽流水)。升级 Pro($19)或团队($39)解锁完整 AI Agent、无限房源与财务面板。', en: 'The free tier is permanent: list 1 property, receive applications, use AI summary scoring, and Stripe-managed rent collection (the platform takes no cut of the flow). Upgrade to Pro ($19) or Team ($39) to unlock the full AI agent, unlimited listings and the finance dashboard.' } },
+              { q: { zh: '租客真的永远免费吗?', en: 'Are tenants really free forever?' }, a: { zh: '是。验证、护照、申请、签约、维修全部免费，四枚章也免费盖。', en: 'Yes. Verification, Passport, applications, signing and maintenance are all free — including all four stamps.' } },
+              { q: { zh: '经纪订阅包含什么?', en: 'What does the agent subscription include?' }, a: { zh: '日程编排、客户管理、RECO 合规提醒等全套工具。免费档 5 个客户/月，Pro 无限客户。不抽任何佣金。', en: 'The full toolset: scheduling, client management, RECO compliance reminders. Free tier is 5 clients/month; Pro is unlimited. No commission cut.' } },
+              { q: { zh: '为什么不收带看费、不抽租金?', en: 'Why no showing fees and no rent skim?' }, a: { zh: '我们只收订阅费。租金流水一分不抽，租客也零负担。', en: 'We only charge subscriptions. Nothing is taken from the rent, and tenants pay nothing.' } },
+              { q: { zh: '房东免费档够用吗?', en: 'Is the landlord free tier enough?' }, a: { zh: '一套房够用：发布房源、收申请、AI 评分、在线收租都在免费档。多套房或要完整 AI Agent 再升级。', en: 'For one property, yes: listing, applications, AI scoring and rent collection are all in the free tier. Upgrade when you have more properties or want the full AI agent.' } },
             ].map((f) => (
               <div key={f.q.zh} className="sl-card p-5">
                 <h4 className="text-[15px] font-bold">{f.q[lang]}</h4>
