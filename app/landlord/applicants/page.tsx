@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
+import LandlordThreeSteps from '@/components/landlord/LandlordThreeSteps'
 import StampBadge from '@/components/StampBadge'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
@@ -258,6 +259,8 @@ export default function LandlordApplicantsPage() {
           {lang === 'zh' ? '导出 CSV' : 'Export CSV'}
         </button>
       </div>
+
+      {!liveMode && <LandlordThreeSteps lang={lang} />}
 
       <AIProactive role="landlord" insights={insights} />
 

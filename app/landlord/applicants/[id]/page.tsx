@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import ApplicantReport, { type ReportDim } from '@/components/landlord/ApplicantReport'
 import { StampRow } from '@/components/StampBadge'
 import { useAIName } from '@/lib/aiName'
 import { useAuth } from '@/lib/useAuth'
@@ -32,6 +33,13 @@ const FILE_KIND_LABEL: Record<string, string> = {
   bank_statement: 'BANK',
   employment_letter: 'EMP',
   other: 'DOC',
+}
+
+// One-sentence AI advice for the report summary band. Splits on sentence
+// enders that can't be decimals ("4.2×" survives).
+function firstSentence(s: string): string {
+  const m = s.match(/^.*?(?:。|！|？|\.\s|!\s|\?\s)/)
+  return (m ? m[0] : s).trim()
 }
 
 function formatSize(bytes: number): string {
@@ -221,45 +229,46 @@ function RealApplicantDetail({ id }: { id: string }) {
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-        <div className="sl-card p-7">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-[18px] font-bold tracking-tight">{zh ? '六维 AI 评分' : 'Six-dimension AI score'}</h2>
-            <div className="text-right">
-              <div className="font-mono text-[40px] font-extrabold leading-none text-brand">{app.ai_score ?? '—'}</div>
-              <div className="font-mono text-[10.5px] uppercase text-body-3">/100</div>
-            </div>
+        {scored ? (
+          <div className="self-start">
+            <ApplicantReport
+              lang={lang}
+              score={app.ai_score!}
+              dims={DIM_META.map(
+                (d): ReportDim => ({
+                  key: d.key,
+                  name: d.name,
+                  val: (app[d.col] as number | null) ?? 0,
+                  w: d.w,
+                  color: d.color,
+                  note: typeof notes[d.key] === 'string' ? (notes[d.key] as string) : null,
+                }),
+              )}
+              aiLine={app.ai_summary ? firstSentence(app.ai_summary) : null}
+              ltbCount={app.ltb_records_found}
+              incomeRatio={
+                app.monthly_income != null && app.listing?.monthly_rent
+                  ? app.monthly_income / app.listing.monthly_rent
+                  : null
+              }
+            />
           </div>
-          {scored ? (
-            <div className="mt-6 space-y-4">
-              {DIM_META.map((d) => {
-                const val = (app[d.col] as number | null) ?? 0
-                const note = typeof notes[d.key] === 'string' ? (notes[d.key] as string) : null
-                return (
-                  <div key={d.key}>
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-[13.5px] font-semibold">
-                        {d.name[lang]} <span className="font-mono text-[10.5px] text-body-3">· {zh ? '权重' : 'Weight'} {d.w}%</span>
-                      </span>
-                      <span className="font-mono text-[14px] font-bold" style={{ color: d.color }}>
-                        {val}
-                      </span>
-                    </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line-divider">
-                      <span className="block h-full rounded-full" style={{ width: `${val}%`, background: d.color }} />
-                    </div>
-                    {note && <div className="mt-1 text-[12px] text-body-2">{note}</div>}
-                  </div>
-                )
-              })}
+        ) : (
+          <div className="sl-card p-7">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-[18px] font-bold tracking-tight">{zh ? '六维 AI 评分' : 'Six-dimension AI score'}</h2>
+              <div className="text-right">
+                <div className="font-mono text-[40px] font-extrabold leading-none text-brand">—</div>
+                <div className="font-mono text-[10.5px] uppercase text-body-3">/100</div>
+              </div>
             </div>
-          ) : (
             <p className="mt-6 rounded-lg bg-surface-chip px-4 py-6 text-center text-[13px] text-body-2">
               {zh
                 ? 'AI 评分尚未完成 — 材料上传后会自动跑六维尽调，通常几分钟内出分。'
                 : 'AI scoring has not completed yet — the six-dimension check runs automatically after documents upload, usually within minutes.'}
             </p>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="space-y-5">
           <div className="sl-card p-6">
@@ -367,12 +376,12 @@ function RealApplicantDetail({ id }: { id: string }) {
 // Design-canon walkthrough fixture (Mia Chen) — reachable only via the
 // non-UUID sample ids on the list page's zero-data fallback.
 const DIMS = [
-  { name: { zh: '证件真实性', en: 'ID authenticity' }, val: 96, w: 20, color: '#7C3AED', note: { zh: '护照 + 自拍均通过 · 与 Persona DB 100% 匹配', en: 'Passport + selfie both passed · 100% match against Persona DB' } },
-  { name: { zh: '支付能力', en: 'Ability to pay' },   val: 91, w: 20, color: '#047857', note: { zh: 'Plaid 直连 · DTI 30.8% · 6 个月最低存款 $18,400', en: 'Plaid linked · DTI 30.8% · 6-month low balance $18,400' } },
-  { name: { zh: '法庭记录', en: 'Court records' },   val: 100, w: 20, color: '#DC2626', note: { zh: 'CanLII / LTB 无任何相关记录', en: 'No related records on CanLII / LTB' } },
-  { name: { zh: '稳定性', en: 'Stability' },     val: 87, w: 15, color: '#2563EB', note: { zh: 'RBC 工作 2.4 年 · 现地址 1.2 年', en: '2.4 yrs at RBC · 1.2 yrs at current address' } },
-  { name: { zh: '行为信号', en: 'Behavioral signals' },   val: 88, w: 13, color: '#D97706', note: { zh: '上家房东评价 5/5 · 无违规', en: 'Prior landlord rating 5/5 · no violations' } },
-  { name: { zh: '信息一致性', en: 'Information consistency' }, val: 95, w: 12, color: '#0B0B0E', note: { zh: '所有字段在 4 份资料中一致 · 0 异常', en: 'All fields consistent across 4 documents · 0 anomalies' } },
+  { key: 'doc_authenticity', name: { zh: '证件真实性', en: 'ID authenticity' }, val: 96, w: 20, color: '#7C3AED', note: { zh: '护照 + 自拍均通过 · 与 Persona DB 100% 匹配', en: 'Passport + selfie both passed · 100% match against Persona DB' } },
+  { key: 'payment_ability', name: { zh: '支付能力', en: 'Ability to pay' },   val: 91, w: 20, color: '#047857', note: { zh: 'Plaid 直连 · DTI 30.8% · 6 个月最低存款 $18,400', en: 'Plaid linked · DTI 30.8% · 6-month low balance $18,400' } },
+  { key: 'court_records', name: { zh: '法庭记录', en: 'Court records' },   val: 100, w: 20, color: '#DC2626', note: { zh: 'CanLII / LTB 无任何相关记录', en: 'No related records on CanLII / LTB' } },
+  { key: 'stability', name: { zh: '稳定性', en: 'Stability' },     val: 87, w: 15, color: '#2563EB', note: { zh: 'RBC 工作 2.4 年 · 现地址 1.2 年', en: '2.4 yrs at RBC · 1.2 yrs at current address' } },
+  { key: 'behavior_signals', name: { zh: '行为信号', en: 'Behavioral signals' },   val: 88, w: 13, color: '#D97706', note: { zh: '上家房东评价 5/5 · 无违规', en: 'Prior landlord rating 5/5 · no violations' } },
+  { key: 'info_consistency', name: { zh: '信息一致性', en: 'Information consistency' }, val: 95, w: 12, color: '#0B0B0E', note: { zh: '所有字段在 4 份资料中一致 · 0 异常', en: 'All fields consistent across 4 documents · 0 anomalies' } },
 ]
 
 const FILES = [
@@ -416,35 +425,19 @@ function DemoApplicantDetail({ id }: { id: string }) {
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-        <div className="sl-card p-7">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-[18px] font-bold tracking-tight">{lang === 'zh' ? '六维 AI 评分' : 'Six-dimension AI score'}</h2>
-            <div className="text-right">
-              <div className="font-mono text-[40px] font-extrabold leading-none text-brand">92</div>
-              <div className="font-mono text-[10.5px] uppercase text-body-3">/100</div>
-            </div>
-          </div>
-          <div className="mt-6 space-y-4">
-            {DIMS.map((d) => (
-              <div key={d.name.en}>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-[13.5px] font-semibold">
-                    {d.name[lang]} <span className="font-mono text-[10.5px] text-body-3">· {lang === 'zh' ? '权重' : 'Weight'} {d.w}%</span>
-                  </span>
-                  <span className="font-mono text-[14px] font-bold" style={{ color: d.color }}>
-                    {d.val}
-                  </span>
-                </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line-divider">
-                  <span
-                    className="block h-full rounded-full"
-                    style={{ width: `${d.val}%`, background: d.color }}
-                  />
-                </div>
-                <div className="mt-1 text-[12px] text-body-2">{d.note[lang]}</div>
-              </div>
-            ))}
-          </div>
+        <div className="self-start">
+          <ApplicantReport
+            lang={lang}
+            score={92}
+            dims={DIMS.map((d): ReportDim => ({ ...d, note: d.note[lang] }))}
+            aiLine={
+              lang === 'zh'
+                ? 'Mia 在六个维度全部超过你的政策门槛，收入约为租金的 4.0 倍，行为信号无负面记录。'
+                : 'Mia clears your policy threshold on all six dimensions, earns about 4.0× the rent, and shows no negative behavioural signals.'
+            }
+            ltbCount={0}
+            incomeRatio={4.0}
+          />
         </div>
 
         <div className="space-y-5">
