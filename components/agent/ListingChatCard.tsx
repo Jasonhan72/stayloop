@@ -5,7 +5,9 @@
 // amenity pills · tier · note bar). Stayloop listings link internally; external
 // Realtor.ca results open in a new tab.
 import Link from 'next/link'
+import FavHeart from '@/components/FavHeart'
 import { useT } from '@/lib/i18n'
+import { favKey, useFavorites } from '@/lib/favorites'
 import { stampForTier } from '@/lib/passportStamps'
 import type { ListingCard } from '@/lib/agent/types'
 
@@ -13,6 +15,26 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const external = l.source === 'realtor'
+  const { isFav, toggle } = useFavorites()
+  // Same identity inputs as the /listings browse cards, so a heart tapped
+  // here reads as favorited there (and vice versa).
+  const fkey = favKey({ source: l.source, id: l.id, url: l.url, address: l.address })
+  const fav = isFav(fkey)
+  const toggleFav = () =>
+    toggle({
+      key: fkey,
+      source: l.source,
+      title: l.title || l.address,
+      address: l.address,
+      neighborhood: l.neighborhood,
+      city: l.city,
+      price: l.price,
+      beds: l.beds,
+      baths: l.baths ?? null,
+      sqft: l.sqft ?? null,
+      image: l.image || null,
+      href: l.url || '/listings',
+    })
   const den = !!l.tags?.includes('den')
   const specs = [
     `${l.beds}B${den ? ' + den' : ''}`,
@@ -34,9 +56,12 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
         >
           {external ? 'REALTOR.CA' : `TIER ${l.tier ?? 1}`}
         </span>
-        <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur">
-          <HeartIcon />
-        </span>
+        <FavHeart
+          fav={fav}
+          onToggle={toggleFav}
+          zh={zh}
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border-0 bg-black/45 text-white backdrop-blur transition hover:bg-black/60"
+        />
       </div>
 
       {/* body */}
@@ -103,10 +128,3 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
   )
 }
 
-function HeartIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
-  )
-}

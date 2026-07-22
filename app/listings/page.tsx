@@ -4,8 +4,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Header from '@/components/Header'
+import FavHeart from '@/components/FavHeart'
 import { PromoBadge, VerificationBadge } from '@/components/ListingBadges'
 import ListingsMap from '@/components/ListingsMap'
+import { favKey, useFavorites, type FavListing } from '@/lib/favorites'
 import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
@@ -56,6 +58,26 @@ interface DBListing {
 }
 
 type SortKey = 'ai' | 'price_asc' | 'price_desc' | 'newest'
+
+// Same identity inputs as the agent-chat listing cards (lib/agent/listingSearch
+// builds url=/listings/{slug} and source), so favorites match across surfaces.
+const dbFavKey = (l: DBListing) =>
+  favKey({ source: l.source, id: l.id, url: `/listings/${l.slug}`, address: l.address })
+
+const dbFavSnapshot = (l: DBListing): Omit<FavListing, 'savedAt'> => ({
+  key: dbFavKey(l),
+  source: l.source === 'realtor' ? 'realtor' : 'stayloop',
+  title: l.address + (l.unit ? ` · Unit ${l.unit}` : ''),
+  address: l.address,
+  neighborhood: l.neighborhood || undefined,
+  city: l.city,
+  price: l.monthly_rent,
+  beds: l.bedrooms,
+  baths: l.bathrooms,
+  sqft: l.sqft,
+  image: l.images && l.images.length > 0 ? l.images[0] : null,
+  href: `/listings/${l.slug}`,
+})
 const NEGATIVE_PETS = /(no\s*pets?|pets?\s+not|禁止|不允许|不可养)/i
 
 export default function ListingsPage() {
@@ -83,6 +105,8 @@ export default function ListingsPage() {
   const [sort, setSort] = useState<SortKey>('ai')
   const [openChip, setOpenChip] = useState<string | null>(null)
   const [aiFilterNote, setAiFilterNote] = useState<string | null>(null)
+  const [favOnly, setFavOnly] = useState(false)
+  const { favs, isFav, toggle, count: favCount } = useFavorites()
 
   useEffect(() => {
     supabase
@@ -106,6 +130,10 @@ export default function ListingsPage() {
 
   const items = useMemo(() => {
     let out = all.slice()
+    if (favOnly) {
+      const keys = new Set(favs.map((f) => f.key))
+      out = out.filter((l) => keys.has(dbFavKey(l)))
+    }
     // Query: a listing passes when ANY meaningful token hits any field —
     // multi-neighborhood queries ("King West, Liberty Village") are OR.
     const tokens = appliedQuery
@@ -132,9 +160,18 @@ export default function ListingsPage() {
       default: out.sort((a, b) => (b.match_score ?? -1) - (a.match_score ?? -1))
     }
     return out
-  }, [all, appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort])
+  }, [all, appliedQuery, priceMin, priceMax, minBeds, moveIn, pets, minBaths, minSqft, sort, favOnly, favs])
 
-  const count = items.length
+  // Favorited listings that aren't in the current dataset at all (e.g. external
+  // Realtor.ca cards saved from the agent chat) — rendered from their stored
+  // snapshot so the favorites view can always show them.
+  const extraFavs = useMemo(() => {
+    if (!favOnly) return [] as FavListing[]
+    const known = new Set(all.map(dbFavKey))
+    return favs.filter((f) => !known.has(f.key))
+  }, [favOnly, favs, all])
+
+  const count = items.length + extraFavs.length
 
   // "◐ {AI} 帮我筛" — pull the signed-in tenant's saved memories and turn the
   // parseable ones (budget / beds / pets) into live filters.
@@ -351,6 +388,24 @@ export default function ListingsPage() {
             </div>
           </Chip>
 
+          {/* My favorites — local-only filter */}
+          <button
+            onClick={() => setFavOnly((v) => !v)}
+            aria-pressed={favOnly}
+            style={{
+              padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              border: favOnly ? '1px solid #171717' : '1px solid #C5BDAA',
+              background: favOnly ? '#171717' : '#fff',
+              color: favOnly ? '#fff' : '#171717',
+            }}
+          >
+            <span aria-hidden style={{ color: favOnly ? '#FB7185' : '#A1A1AA', fontSize: 14, lineHeight: 1 }}>
+              {favOnly ? '♥' : '♡'}
+            </span>
+            {zh ? `我的收藏 ${favCount}` : `Saved ${favCount}`}
+          </button>
+
           {/* AI profile filter */}
           <button
             onClick={applyProfileFilters}
@@ -425,9 +480,11 @@ export default function ListingsPage() {
               {zh ? '加载中…' : 'Loading…'}
             </div>
           )}
-          {!loading && items.length === 0 && (
+          {!loading && items.length === 0 && extraFavs.length === 0 && (
             <div className="col-span-full p-10 text-center text-body-3">
-              {zh ? '没有匹配的房源 · 调整筛选条件试试' : 'No matching listings · try adjusting your filters'}
+              {favOnly
+                ? (zh ? '还没有收藏的房源 · 点房源卡右上角的 ♡ 收藏' : 'No saved homes yet · tap the ♡ on any listing card')
+                : (zh ? '没有匹配的房源 · 调整筛选条件试试' : 'No matching listings · try adjusting your filters')}
             </div>
           )}
           {items.map((l) => (
@@ -437,7 +494,12 @@ export default function ListingsPage() {
               zh={zh}
               isActive={active === l.id}
               onHover={() => setActive(l.id)}
+              fav={isFav(dbFavKey(l))}
+              onToggleFav={() => toggle(dbFavSnapshot(l))}
             />
+          ))}
+          {extraFavs.map((f) => (
+            <FavSnapshotCard key={f.key} f={f} zh={zh} onToggleFav={() => toggle(f)} />
           ))}
         </div>
 
@@ -543,11 +605,15 @@ function ListingCard({
   zh,
   isActive,
   onHover,
+  fav,
+  onToggleFav,
 }: {
   l: DBListing
   zh: boolean
   isActive: boolean
   onHover: () => void
+  fav: boolean
+  onToggleFav: () => void
 }) {
   const a = l.thumb_a || '#D4C4A8'
   const b = l.thumb_b || '#94815C'
@@ -577,7 +643,10 @@ function ListingCard({
       >
         <PromoBadge badge={l.badge} variant="card" />
         <VerificationBadge listing={l} variant="public-card" />
-        <div
+        <FavHeart
+          fav={fav}
+          onToggle={onToggleFav}
+          zh={zh}
           style={{
             position: 'absolute',
             top: 10,
@@ -585,16 +654,14 @@ function ListingCard({
             width: 30,
             height: 30,
             background: 'rgba(0,0,0,0.50)',
+            border: 'none',
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            fontSize: 14,
           }}
-        >
-          ♡
-        </div>
+        />
         {l.photo_count && (
           <span
             style={{
@@ -700,6 +767,94 @@ function ListingCard({
           <span dangerouslySetInnerHTML={{ __html: `◐ ${l.luna_note}` }} />
         </div>
       )}
+    </Link>
+  )
+}
+
+/**
+ * A favorited listing that isn't in the current /listings dataset (e.g. an
+ * external Realtor.ca card saved from the agent chat) — rendered from the
+ * snapshot stored at save time.
+ */
+function FavSnapshotCard({ f, zh, onToggleFav }: {
+  f: FavListing
+  zh: boolean
+  onToggleFav: () => void
+}) {
+  const external = f.href.startsWith('http')
+  const inner = (
+    <>
+      <div
+        style={{
+          aspectRatio: '1.5',
+          background: f.image
+            ? `url(${f.image}) center/cover no-repeat, linear-gradient(135deg,#D4C4A8,#94815C)`
+            : 'linear-gradient(135deg,#D4C4A8,#94815C)',
+          position: 'relative',
+        }}
+      >
+        {f.source === 'realtor' && (
+          <span
+            style={{
+              position: 'absolute', top: 10, left: 10, background: '#B45309', color: '#fff',
+              padding: '3px 8px', borderRadius: 4, fontFamily: 'JetBrains Mono, monospace',
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+            }}
+          >
+            REALTOR.CA
+          </span>
+        )}
+        <FavHeart
+          fav
+          onToggle={onToggleFav}
+          zh={zh}
+          style={{
+            position: 'absolute', top: 10, right: 10, width: 30, height: 30,
+            background: 'rgba(0,0,0,0.50)', border: 'none', borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
+          }}
+        />
+      </div>
+      <div style={{ padding: '14px 16px' }}>
+        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.01em' }}>
+          ${f.price.toLocaleString()}
+          <small style={{ fontSize: 12, fontWeight: 500, color: '#71717A' }}>{zh ? '/月' : '/mo'}</small>
+        </div>
+        <div style={{ fontSize: 13, color: '#3F3F46', margin: '4px 0 6px', display: 'flex', gap: 8, alignItems: 'center' }}>
+          {f.beds != null && <b style={{ color: '#171717' }}>{f.beds === 0 ? 'Studio' : `${f.beds}B`}</b>}
+          {f.baths != null && (
+            <>
+              <span style={{ width: 3, height: 3, background: '#C5BDAA', borderRadius: '50%' }} />
+              <b style={{ color: '#171717' }}>{f.baths} {zh ? '浴' : 'ba'}</b>
+            </>
+          )}
+          {f.sqft != null && (
+            <>
+              <span style={{ width: 3, height: 3, background: '#C5BDAA', borderRadius: '50%' }} />
+              <b style={{ color: '#171717' }}>{f.sqft} sqft</b>
+            </>
+          )}
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{f.title}</div>
+        {(f.neighborhood || f.city) && (
+          <div style={{ fontSize: 12, color: '#71717A', marginTop: 1 }}>
+            {[f.neighborhood, f.city].filter(Boolean).join(' · ')}
+          </div>
+        )}
+      </div>
+    </>
+  )
+  const cardStyle: React.CSSProperties = { border: '1px solid #E8E2D2', borderRadius: 12, overflow: 'hidden' }
+  if (external) {
+    return (
+      <a href={f.href} target="_blank" rel="noopener noreferrer" className="block bg-white transition" style={cardStyle}>
+        {inner}
+      </a>
+    )
+  }
+  return (
+    <Link href={f.href} className="block bg-white transition" style={cardStyle}>
+      {inner}
     </Link>
   )
 }
