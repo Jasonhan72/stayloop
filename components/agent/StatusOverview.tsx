@@ -1,12 +1,14 @@
 'use client'
 
 // 状态总览 — the at-a-glance panel at the top of the agent-workspace right
-// rail. One row per real-world fact (applications, lease, tickets, rent,
-// passport / clients, showings, commission…), each row linking to the page
-// where the user acts on it. Live sessions read real RLS-scoped tables in a
-// single mount-time sweep (silent empty state on failure/timeout — never
-// blocks the page); demo sessions show the design-canon sample numbers with
-// the usual 示范数据 tag.
+// rail. A compact icon+number tile grid (3 per row), one tile per real-world
+// fact (applications, lease, tickets, rent, passport / clients, showings,
+// commission…), each tile linking to the page where the user acts on it.
+// Long statuses compress to a 2-4 char word; the full sentence lives in a
+// dark hover tooltip (same pattern as the WorkspaceShell rail). Live sessions
+// read real RLS-scoped tables in a single mount-time sweep (silent empty
+// state on failure/timeout — never blocks the page); demo sessions show the
+// design-canon sample numbers with the usual 示范数据 tag.
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { getSupabaseBrowser } from '@/lib/supabase'
@@ -251,13 +253,14 @@ function loadStats(role: AgentRole, uid: string): Promise<Stats> {
 
 // ------------------------------------------------------------ formatting --
 
-const LEASE_LABEL: Record<string, { zh: string; en: string; tone: Tone }> = {
-  draft: { zh: '草拟中', en: 'Draft', tone: 'muted' },
-  sent: { zh: '待你签署', en: 'Awaiting your signature', tone: 'warn' },
-  signed_tenant: { zh: '待房东签', en: 'Awaiting landlord', tone: 'default' },
-  signed_both: { zh: '生效中', en: 'Active', tone: 'ok' },
-  active: { zh: '生效中', en: 'Active', tone: 'ok' },
-  ended: { zh: '已结束', en: 'Ended', tone: 'muted' },
+// Full sentence (tooltip) + 2-4 char short form (tile) per lease status.
+const LEASE_LABEL: Record<string, { zh: string; en: string; shortZh: string; shortEn: string; tone: Tone }> = {
+  draft: { zh: '草拟中', en: 'Draft', shortZh: '草拟中', shortEn: 'Draft', tone: 'muted' },
+  sent: { zh: '待你签署', en: 'Awaiting your signature', shortZh: '待你签', shortEn: 'To sign', tone: 'warn' },
+  signed_tenant: { zh: '待房东签', en: 'Awaiting landlord', shortZh: '待房东签', shortEn: 'Waiting', tone: 'default' },
+  signed_both: { zh: '生效中', en: 'Active', shortZh: '生效中', shortEn: 'Active', tone: 'ok' },
+  active: { zh: '生效中', en: 'Active', shortZh: '生效中', shortEn: 'Active', tone: 'ok' },
+  ended: { zh: '已结束', en: 'Ended', shortZh: '已结束', shortEn: 'Ended', tone: 'muted' },
 }
 
 function fmtDate(iso: string, lang: Lang): string {
@@ -273,11 +276,12 @@ const money = (n: number) => `$${n.toLocaleString()}`
 
 type Tone = 'ok' | 'warn' | 'muted' | 'default'
 
-type RowSpec = {
+type TileSpec = {
   key: string
   icon: React.ReactNode
   label: string
-  value: string
+  value: string // compact form shown on the tile (number / money / 2-4 char word)
+  full?: string // full sentence behind a compressed value — tooltip only
   sub?: string
   tone?: Tone
   href: string // '#…' = scroll to an in-page anchor (e.g. the approval card)
@@ -286,7 +290,7 @@ type RowSpec = {
 
 function Ic({ d }: { d: string }) {
   return (
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d={d} />
     </svg>
   )
@@ -310,7 +314,7 @@ const TONE_CLASS: Record<Tone, string> = {
   default: 'text-body',
 }
 
-function buildRows(role: AgentRole, s: Stats, lang: Lang, pendingCount: number): RowSpec[] {
+function buildTiles(role: AgentRole, s: Stats, lang: Lang, pendingCount: number): TileSpec[] {
   const zh = lang === 'zh'
   const n = (v: number | null | undefined) => (v == null ? '—' : String(v))
   const zeroTone = (v: number | null | undefined): Tone => (v == null ? 'muted' : v === 0 ? 'muted' : 'default')
@@ -331,7 +335,8 @@ function buildRows(role: AgentRole, s: Stats, lang: Lang, pendingCount: number):
         key: 'lease',
         icon: IC.home,
         label: zh ? '当前租约' : 'Current lease',
-        value: lease ? (zh ? lease.zh : lease.en) : zh ? '暂无租约' : 'No lease yet',
+        value: lease ? (zh ? lease.shortZh : lease.shortEn) : zh ? '暂无' : 'None',
+        full: lease ? (zh ? lease.zh : lease.en) : zh ? '暂无租约' : 'No lease yet',
         tone: lease ? lease.tone : 'muted',
         href: '/tenant/lease',
       },
@@ -348,7 +353,8 @@ function buildRows(role: AgentRole, s: Stats, lang: Lang, pendingCount: number):
         key: 'rent',
         icon: IC.dollar,
         label: zh ? '待付租金' : 'Rent due',
-        value: s.nextRent ? money(s.nextRent.amount) : zh ? '暂无待付' : 'Nothing due',
+        value: s.nextRent ? money(s.nextRent.amount) : zh ? '暂无' : 'None',
+        full: s.nextRent ? undefined : zh ? '暂无待付' : 'Nothing due',
         sub: s.nextRent
           ? s.nextRent.late
             ? zh
@@ -416,7 +422,14 @@ function buildRows(role: AgentRole, s: Stats, lang: Lang, pendingCount: number):
         key: 'rent',
         icon: IC.dollar,
         label: zh ? '本月收租' : "This month's rent",
-        value: rm ? `${money(rm.collected)} / ${money(rm.expected)}` : zh ? '本月暂无账单' : 'No rent due this month',
+        value: rm ? money(rm.collected) : zh ? '暂无' : 'None',
+        full: rm
+          ? zh
+            ? `已收 ${money(rm.collected)} / 应收 ${money(rm.expected)}`
+            : `${money(rm.collected)} collected of ${money(rm.expected)}`
+          : zh
+            ? '本月暂无账单'
+            : 'No rent due this month',
         sub: rentFull ? (zh ? '已收齐' : 'Fully collected') : undefined,
         tone: rm ? (rentFull ? 'ok' : 'default') : 'muted',
         href: '/landlord/finance',
@@ -457,7 +470,8 @@ function buildRows(role: AgentRole, s: Stats, lang: Lang, pendingCount: number):
       key: 'commission',
       icon: IC.dollar,
       label: zh ? '待结算佣金' : 'Commission to settle',
-      value: s.unsettled ? money(s.unsettled.amount) : zh ? '暂无待结算' : 'Nothing pending',
+      value: s.unsettled ? money(s.unsettled.amount) : zh ? '暂无' : 'None',
+      full: s.unsettled ? undefined : zh ? '暂无待结算' : 'Nothing pending',
       sub: s.unsettled ? (zh ? `${s.unsettled.count} 笔在途` : `${s.unsettled.count} in transit`) : undefined,
       tone: s.unsettled ? 'default' : 'muted',
       href: '/agent/earnings',
@@ -465,39 +479,50 @@ function buildRows(role: AgentRole, s: Stats, lang: Lang, pendingCount: number):
   ]
 }
 
-function Row({ row }: { row: RowSpec }) {
+function Tile({ tile }: { tile: TileSpec }) {
+  // Full semantics live in the aria-label + hover tooltip; the tile itself
+  // only shows the icon and the compact value.
+  const fullValue = tile.full ?? tile.value
+  const desc = [tile.full, tile.sub].filter(Boolean).join(' · ')
+  const aria = `${tile.label}：${fullValue}${tile.sub ? `（${tile.sub}）` : ''}`
   const body = (
     <>
-      <span className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-surface-chip text-body-3 transition group-hover:text-brand">
-        {row.icon}
+      <span className="text-body-3 transition group-hover:text-brand" aria-hidden>
+        {tile.icon}
       </span>
-      <div className="min-w-0">
-        <div className="text-[13px] font-semibold leading-snug text-body">{row.label}</div>
-        {row.sub && <div className="mt-[1px] text-[11px] leading-snug text-body-3">{row.sub}</div>}
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span className={`text-[13px] font-bold ${TONE_CLASS[row.tone ?? 'default']}`}>{row.value}</span>
-        {!row.dead && <span className="text-[14px] leading-none text-body-4 transition group-hover:text-brand">›</span>}
-      </div>
+      <span className={`max-w-full truncate text-[16px] font-semibold leading-tight ${TONE_CLASS[tile.tone ?? 'default']}`}>
+        {tile.value}
+      </span>
+      {/* hover tooltip — same dark pattern as the WorkspaceShell rail */}
+      <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 flex-col whitespace-nowrap rounded-lg bg-ink px-3 py-2 text-left shadow-lg md:group-hover:flex">
+        <span className="text-[12px] font-bold text-white">{tile.label}</span>
+        {desc && <span className="text-[11px] text-white/70">{desc}</span>}
+      </span>
     </>
   )
   const cls =
-    'group grid w-full grid-cols-[26px_1fr_auto] items-center gap-3 border-t border-dashed border-line-divider py-3 text-left first:border-0 first:pt-0'
+    'group relative flex w-full flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-3 text-center transition hover:bg-surface-muted'
 
-  if (row.dead) return <div className={cls}>{body}</div>
-  if (row.href.startsWith('#')) {
+  if (tile.dead)
+    return (
+      <div className={cls} aria-label={aria}>
+        {body}
+      </div>
+    )
+  if (tile.href.startsWith('#')) {
     return (
       <button
         type="button"
         className={cls}
-        onClick={() => document.getElementById(row.href.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        aria-label={aria}
+        onClick={() => document.getElementById(tile.href.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
       >
         {body}
       </button>
     )
   }
   return (
-    <Link href={row.href} className={cls}>
+    <Link href={tile.href} className={cls} aria-label={aria}>
       {body}
     </Link>
   )
@@ -547,13 +572,17 @@ export default function StatusOverview({
       </div>
 
       {stats === null ? (
-        <div className="space-y-3">
+        <div className="grid grid-cols-3 gap-1">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-8 animate-pulse rounded-lg bg-surface-muted" />
+            <div key={i} className="h-[70px] animate-pulse rounded-xl bg-surface-muted" />
           ))}
         </div>
       ) : (
-        buildRows(role, stats, lang, pendingCount).map((row) => <Row key={row.key} row={row} />)
+        <div className="grid grid-cols-3 gap-1">
+          {buildTiles(role, stats, lang, pendingCount).map((tile) => (
+            <Tile key={tile.key} tile={tile} />
+          ))}
+        </div>
       )}
     </div>
   )
