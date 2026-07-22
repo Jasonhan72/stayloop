@@ -345,7 +345,7 @@ export async function generateScreeningReport(
     <div><div class="val">$${rentNum ? rentNum.toLocaleString() : '—'}</div>${zh ? '目标月租金' : 'Monthly Rent'}</div>
     <div><div class="val">${ratio != null ? ratio.toFixed(1) + 'x' : 'N/A'}</div>${zh ? '收入/租金比' : 'Income Ratio'}</div>
     <div><div class="val">${filesCount}</div>${zh ? '文件已分析' : 'Files Analyzed'}</div>
-    <div><div class="val">${dbCount}</div>${zh ? '法庭库已查' : 'Court DBs'}</div>
+    <div><div class="val">${courtDbCount || dbCount}</div>${zh ? '法庭数据源已查' : 'Court sources'}</div>
   </div>`
   html += `</div>`
 
@@ -374,7 +374,7 @@ export async function generateScreeningReport(
       detail: dbCount === 0
         ? (zh ? '未查询' : 'Not searched')
         : totalHits === 0
-          ? (zh ? `已查 ${dbCount} 个数据库,无记录` : `${dbCount} databases searched, clear`)
+          ? (zh ? `已查 ${courtDbCount || dbCount} 个数据源,无记录` : `${courtDbCount || dbCount} sources searched, clear`)
           : (zh ? `${totalHits} 条记录命中` : `${totalHits} record(s) found`),
     },
     {
@@ -699,7 +699,7 @@ export async function generateScreeningReport(
       for (const c of checkMatrix) {
         const col = cmColor(c.status)
         const resTxt = c.status === 'na'
-          ? (zh ? '未执行（材料不适用）' : 'Not run (n/a)')
+          ? (zh ? '未执行（材料不适用或未启用）' : 'Not run (n/a or not enabled)')
           : c.findings === 0
             ? (zh ? `通过${c.positives ? ` · ${c.positives} 项佐证` : ''}` : `Pass${c.positives ? ` · ${c.positives} corroboration(s)` : ''}`)
             : (zh ? `${c.findings} 项发现${c.positives ? ` · ${c.positives} 项佐证` : ''}` : `${c.findings} finding(s)${c.positives ? ` · ${c.positives} corroboration(s)` : ''}`)
