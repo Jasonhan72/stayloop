@@ -288,23 +288,27 @@ type TileSpec = {
   dead?: boolean // no target to act on (e.g. 0 pending approvals) — render inert
 }
 
-function Ic({ d }: { d: string }) {
+function Ic({ d, bg, fg }: { d: string; bg: string; fg: string }) {
+  // Colored chip behind each icon — differentiates the overview tiles from the
+  // monochrome left rail (which uses bare stroke icons on the surface).
   return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d={d} />
-    </svg>
+    <span className="flex h-9 w-9 items-center justify-center rounded-[10px]" style={{ background: bg, color: fg }} aria-hidden>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d={d} />
+      </svg>
+    </span>
   )
 }
 
 const IC = {
-  doc: <Ic d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z M14 2v6h6" />,
-  home: <Ic d="M3 9.5 12 3l9 6.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22v-8h6v8" />,
-  tool: <Ic d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />,
-  dollar: <Ic d="M12 2v20 M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H7" />,
-  shield: <Ic d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M9 12l2 2 4-4" />,
-  users: <Ic d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9.5 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75" />,
-  calendar: <Ic d="M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />,
-  zap: <Ic d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />,
+  doc: <Ic bg="#F3EEFB" fg="#7C3AED" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z M14 2v6h6" />,
+  home: <Ic bg="#EBF4F0" fg="#047857" d="M3 9.5 12 3l9 6.5V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22v-8h6v8" />,
+  tool: <Ic bg="#FDF3E7" fg="#B45309" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />,
+  dollar: <Ic bg="#EBF1FD" fg="#2563EB" d="M12 2v20 M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H7" />,
+  shield: <Ic bg="#F0F7EC" fg="#6AB344" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M9 12l2 2 4-4" />,
+  users: <Ic bg="#EBF4F0" fg="#047857" d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9.5 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75" />,
+  calendar: <Ic bg="#F3EEFB" fg="#7C3AED" d="M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />,
+  zap: <Ic bg="#FCEBEA" fg="#DC2626" d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />,
 }
 
 const TONE_CLASS: Record<Tone, string> = {
@@ -487,9 +491,7 @@ function Tile({ tile }: { tile: TileSpec }) {
   const aria = `${tile.label}：${fullValue}${tile.sub ? `（${tile.sub}）` : ''}`
   const body = (
     <>
-      <span className="text-body-3 transition group-hover:text-brand" aria-hidden>
-        {tile.icon}
-      </span>
+      {tile.icon}
       <span className={`max-w-full truncate text-[16px] font-semibold leading-tight ${TONE_CLASS[tile.tone ?? 'default']}`}>
         {tile.value}
       </span>
