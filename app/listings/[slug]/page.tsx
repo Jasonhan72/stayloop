@@ -265,12 +265,54 @@ export default function ListingDetailPage() {
       <main className="bg-surface">
         {/* Breadcrumb + back */}
         <div className="mx-auto max-w-[1320px] px-6 pt-5 sm:px-8 lg:px-12">
-          <Link
-            href="/listings"
-            className="font-mono text-[11px] uppercase tracking-eyebrowLg text-body-3 transition hover:text-brand"
-          >
-            {zh ? '← 返回房源列表 / LISTINGS' : '← Back to listings / LISTINGS'}
-          </Link>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Link
+              href="/listings"
+              className="font-mono text-[11px] uppercase tracking-eyebrowLg text-body-3 transition hover:text-brand"
+            >
+              {zh ? '← 返回房源列表 / LISTINGS' : '← Back to listings / LISTINGS'}
+            </Link>
+          {/* Share + Save — Airbnb-style light actions, top-right of the title row */}
+          <div className="relative flex shrink-0 items-center gap-1 pt-2">
+            <button
+              type="button"
+              onClick={onShare}
+              className="inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[14px] font-semibold text-body-2 transition hover:bg-surface-2 hover:text-body hover:underline underline-offset-2"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 15V3" />
+                <path d="M8 7l4-4 4 4" />
+                <path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
+              </svg>
+              {zh ? '分享' : 'Share'}
+            </button>
+            <button
+              type="button"
+              aria-pressed={fav}
+              onClick={() => toggle(snap)}
+              className="inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[14px] font-semibold text-body-2 transition hover:bg-surface-2 hover:text-body hover:underline underline-offset-2"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill={fav ? '#FB7185' : 'none'}
+                stroke={fav ? '#FB7185' : 'currentColor'}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+              {fav ? (zh ? '取消收藏' : 'Saved') : (zh ? '收藏' : 'Save')}
+            </button>
+            {copied && (
+              <span className="absolute right-0 top-full z-10 mt-1.5 whitespace-nowrap rounded-[8px] bg-ink px-3 py-1.5 text-[12px] font-medium text-white shadow-lg">
+                {zh ? '链接已复制' : 'Link copied'}
+              </span>
+            )}
+          </div>
+          </div>
         </div>
 
         {/* Photo gallery — 1 lead + 4 thumbs */}
@@ -363,51 +405,11 @@ export default function ListingDetailPage() {
                 <VerificationBadge listing={listing} variant="detail" zh={zh} />
               </div>
 
-              <div className="mt-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+              <div className="mt-3">
                 <h1 className="text-[36px] font-extrabold tracking-tight sm:text-[44px]">
                   ${listing.monthly_rent.toLocaleString()}
                   <span className="ml-2 text-[18px] font-medium text-body-3">{zh ? '/ 月' : '/ month'}</span>
                 </h1>
-                {/* Share + Save — Airbnb-style light actions, top-right of the title row */}
-                <div className="relative flex shrink-0 items-center gap-1 pt-2">
-                  <button
-                    type="button"
-                    onClick={onShare}
-                    className="inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[14px] font-semibold text-body-2 transition hover:bg-surface-2 hover:text-body hover:underline underline-offset-2"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 15V3" />
-                      <path d="M8 7l4-4 4 4" />
-                      <path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
-                    </svg>
-                    {zh ? '分享' : 'Share'}
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={fav}
-                    onClick={() => toggle(snap)}
-                    className="inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[14px] font-semibold text-body-2 transition hover:bg-surface-2 hover:text-body hover:underline underline-offset-2"
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill={fav ? '#FB7185' : 'none'}
-                      stroke={fav ? '#FB7185' : 'currentColor'}
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                    </svg>
-                    {fav ? (zh ? '取消收藏' : 'Saved') : (zh ? '收藏' : 'Save')}
-                  </button>
-                  {copied && (
-                    <span className="absolute right-0 top-full z-10 mt-1.5 whitespace-nowrap rounded-[8px] bg-ink px-3 py-1.5 text-[12px] font-medium text-white shadow-lg">
-                      {zh ? '链接已复制' : 'Link copied'}
-                    </span>
-                  )}
-                </div>
               </div>
               <div className="mt-2 text-[15px] text-body-2">
                 {listing.address}
