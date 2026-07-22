@@ -2632,7 +2632,9 @@ export default function ScreenPage() {
 
               {/* Input fields + Submit — inside the panel */}
               <div style={{ padding: '18px 20px 22px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+                {/* Mobile: stack the two fields (side-by-side clipped the rent input
+                    at 375px). Tailwind cols use minmax(0,1fr) so inputs can shrink. */}
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14, marginBottom: 16 }}>
                   <div>
                     <label style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', letterSpacing: '0.02em', marginBottom: 6, display: 'block' }}>{t('screen.form.name.label')}</label>
                     <input
