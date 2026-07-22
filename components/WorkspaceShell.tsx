@@ -14,33 +14,34 @@ interface RailItem {
   href: string
   icon: ReactNode
   label: { zh: string; en: string }
+  desc: { zh: string; en: string }
 }
 
 const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   tenant: [
-    { key: 'home',      href: '/tenant/agent',     icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } },
-    { key: 'listings',  href: '/listings',         icon: <ListIcon />,    label: { zh: '房源', en: 'Listings' } },
-    { key: 'apps',      href: '/tenant/applications', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } },
-    { key: 'passport',  href: '/tenant/passport',  icon: <PassIcon />,    label: { zh: 'Passport', en: 'Passport' } },
-    { key: 'lease',     href: '/tenant/lease',     icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } },
-    { key: 'maint',     href: '/tenant/maintenance', icon: <ToolIcon />,  label: { zh: '维修', en: 'Maint.' } },
-    { key: 'pay',       href: '/tenant/payments',  icon: <CashIcon />,    label: { zh: '付款', en: 'Pay' } },
-    { key: 'audit',     href: '/tenant/audit',     icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } },
+    { key: 'home',      href: '/tenant/agent',     icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } , desc: { zh: '和 Luna 对话——找房、办事的入口', en: 'Chat with Luna — search and get things done' } },
+    { key: 'listings',  href: '/listings',         icon: <ListIcon />,    label: { zh: '房源', en: 'Listings' } , desc: { zh: '浏览全部房源', en: 'Browse all listings' } },
+    { key: 'apps',      href: '/tenant/applications', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } , desc: { zh: '我的申请进度', en: 'Track your applications' } },
+    { key: 'passport',  href: '/tenant/passport',  icon: <PassIcon />,    label: { zh: 'Passport', en: 'Passport' } , desc: { zh: '租客护照与四枚章', en: 'Your Passport and four stamps' } },
+    { key: 'lease',     href: '/tenant/lease',     icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } , desc: { zh: '查看与签署租约', en: 'View and sign leases' } },
+    { key: 'maint',     href: '/tenant/maintenance', icon: <ToolIcon />,  label: { zh: '维修', en: 'Maint.' } , desc: { zh: '报修与进度跟踪', en: 'Report and track repairs' } },
+    { key: 'pay',       href: '/tenant/payments',  icon: <CashIcon />,    label: { zh: '付款', en: 'Pay' } , desc: { zh: '房租账单与支付', en: 'Rent bills and payments' } },
+    { key: 'audit',     href: '/tenant/audit',     icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } , desc: { zh: '操作审计记录', en: 'Your audit trail' } },
   ],
   landlord: [
-    { key: 'home',      href: '/landlord/agent',   icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } },
-    { key: 'apps',      href: '/landlord/applicants', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } },
-    { key: 'lease',     href: '/landlord/leases',  icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } },
-    { key: 'maint',     href: '/landlord/maintenance', icon: <ToolIcon />,label: { zh: '维修', en: 'Maint.' } },
-    { key: 'fin',       href: '/landlord/finance', icon: <CashIcon />,    label: { zh: '财务', en: 'Finance' } },
-    { key: 'audit',     href: '/landlord/audit',   icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } },
+    { key: 'home',      href: '/landlord/agent',   icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } , desc: { zh: '和 Logic 对话——管房的入口', en: 'Chat with Logic — manage your rentals' } },
+    { key: 'apps',      href: '/landlord/applicants', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } , desc: { zh: '申请人审查与评分', en: 'Review and score applicants' } },
+    { key: 'lease',     href: '/landlord/leases',  icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } , desc: { zh: '租约管理与续约', en: 'Leases and renewals' } },
+    { key: 'maint',     href: '/landlord/maintenance', icon: <ToolIcon />,label: { zh: '维修', en: 'Maint.' } , desc: { zh: '维修工单处理', en: 'Handle maintenance tickets' } },
+    { key: 'fin',       href: '/landlord/finance', icon: <CashIcon />,    label: { zh: '财务', en: 'Finance' } , desc: { zh: '收租与财务面板', en: 'Rent collection and finances' } },
+    { key: 'audit',     href: '/landlord/audit',   icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } , desc: { zh: '操作审计记录', en: 'Your audit trail' } },
   ],
   agent: [
-    { key: 'home',      href: '/agent/agent',      icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } },
-    { key: 'tasks',     href: '/agent/tasks',      icon: <FileIcon />,    label: { zh: '任务', en: 'Tasks' } },
-    { key: 'clients',   href: '/agent/clients',    icon: <ListIcon />,    label: { zh: '客户', en: 'Clients' } },
-    { key: 'cal',       href: '/agent/calendar',   icon: <ToolIcon />,    label: { zh: '日历', en: 'Calendar' } },
-    { key: 'earn',      href: '/agent/earnings',   icon: <CashIcon />,    label: { zh: '佣金', en: 'Earnings' } },
+    { key: 'home',      href: '/agent/agent',      icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } , desc: { zh: '和 Brief 对话——业务的入口', en: 'Chat with Brief — run your business' } },
+    { key: 'tasks',     href: '/agent/tasks',      icon: <FileIcon />,    label: { zh: '任务', en: 'Tasks' } , desc: { zh: '今日任务与带看', en: "Today's tasks and showings" } },
+    { key: 'clients',   href: '/agent/clients',    icon: <ListIcon />,    label: { zh: '客户', en: 'Clients' } , desc: { zh: '客户管理', en: 'Manage clients' } },
+    { key: 'cal',       href: '/agent/calendar',   icon: <ToolIcon />,    label: { zh: '日历', en: 'Calendar' } , desc: { zh: '日程安排', en: 'Your calendar' } },
+    { key: 'earn',      href: '/agent/earnings',   icon: <CashIcon />,    label: { zh: '佣金', en: 'Earnings' } , desc: { zh: '佣金与结算', en: 'Commissions and payouts' } },
   ],
 }
 
@@ -134,14 +135,18 @@ function Rail({ role }: { role: WorkspaceRole }) {
             <Fragment key={it.key}>
               <Link
                 href={it.href}
-                title={lang === 'en' ? it.label.en : it.label.zh}
                 className={
-                  'flex h-11 w-11 flex-none items-center justify-center rounded-xl text-[16px] text-white shadow-sm transition ' +
+                  'group relative flex h-11 w-11 flex-none items-center justify-center rounded-xl text-[16px] text-white shadow-sm transition ' +
                   (on ? 'ring-2 ring-offset-2 ring-offset-surface-muted' : 'hover:opacity-90')
                 }
                 style={{ background: accent.bg, ['--tw-ring-color' as string]: accent.bg }}
               >
                 {it.icon}
+                {/* hover tooltip: label + one-line function intro */}
+                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 flex-col whitespace-nowrap rounded-lg bg-ink px-3 py-2 text-left shadow-lg md:group-hover:flex">
+                  <span className="text-[12px] font-bold text-white">{lang === 'en' ? it.label.en : it.label.zh}</span>
+                  <span className="text-[11px] text-white/70">{lang === 'en' ? it.desc.en : it.desc.zh}</span>
+                </span>
               </Link>
               <div className="my-1.5 hidden h-px w-7 bg-line-divider md:block" />
             </Fragment>
@@ -151,9 +156,8 @@ function Rail({ role }: { role: WorkspaceRole }) {
           <Link
             key={it.key}
             href={it.href}
-            title={lang === 'en' ? it.label.en : it.label.zh}
             className={
-              'flex h-11 w-11 flex-none items-center justify-center rounded-lg text-[16px] transition ' +
+              'group relative flex h-11 w-11 flex-none items-center justify-center rounded-lg text-[16px] transition ' +
               (on
                 ? 'bg-white text-brand shadow-sm'
                 : 'text-body-3 hover:bg-white/60 hover:text-body')
@@ -161,6 +165,11 @@ function Rail({ role }: { role: WorkspaceRole }) {
             style={on ? { color: accent.fg } : undefined}
           >
             {it.icon}
+            {/* hover tooltip: label + one-line function intro */}
+                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 flex-col whitespace-nowrap rounded-lg bg-ink px-3 py-2 text-left shadow-lg md:group-hover:flex">
+                  <span className="text-[12px] font-bold text-white">{lang === 'en' ? it.label.en : it.label.zh}</span>
+                  <span className="text-[11px] text-white/70">{lang === 'en' ? it.desc.en : it.desc.zh}</span>
+                </span>
           </Link>
         )
       })}
