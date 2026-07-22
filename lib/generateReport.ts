@@ -22,6 +22,173 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+// ─── Forensic check matrix (shared with /screening/[id]/report) ───
+// Groups the 65+ deterministic flag codes the forensics engine can emit into
+// human-readable check categories, and derives a per-category status from the
+// flags that actually fired. Categories that ran but produced NO flags are the
+// differentiator vs competitors' one-line "fraud check" — we can show the
+// landlord every test that was executed and passed.
+
+export interface ForensicCheckRow {
+  id: string
+  zh: string
+  en: string
+  /** what the check does, one line */
+  desc_zh: string
+  desc_en: string
+  status: 'pass' | 'warn' | 'fail' | 'na'
+  /** count of non-info (negative) flags in this category */
+  findings: number
+  /** count of info (authenticity-positive) flags in this category */
+  positives: number
+}
+
+type FlagLite = { code: string; severity: string }
+type PerFileLite = NonNullable<ScoreResult['forensics_detail']>['per_file'][number]
+
+/** Authenticity-POSITIVE corroboration: 'info' severity flags, plus codes that
+ *  carry a non-info severity for pipeline reasons but semantically document
+ *  evidence FOR the applicant (e.g. AI-verified-authentic credit report is
+ *  'low' so it sorts as informational, not because it's a risk signal). */
+const POSITIVE_FLAG_CODES = new Set(['credit_report_ai_verified'])
+export function isPositiveForensicFlag(f: { code: string; severity: string }): boolean {
+  return f.severity === 'info' || POSITIVE_FLAG_CODES.has(f.code)
+}
+
+const CHECK_CATEGORIES: Array<{
+  id: string
+  zh: string
+  en: string
+  desc_zh: string
+  desc_en: string
+  match: (code: string) => boolean
+}> = [
+  {
+    id: 'pdf_structure', zh: 'PDF 内部结构指纹', en: 'PDF internal structure fingerprint',
+    desc_zh: '扫描原始字节:pdf-lib 等伪造工具标记、%%EOF 增量修改、字体族混用',
+    desc_en: 'Raw-byte scan: forgery-tool markers (pdf-lib), incremental-update %%EOF count, mixed font families',
+    match: c => c.startsWith('pdf_structure_') || ['pdf_excessive_fonts', 'pdf_mixed_font_families', 'pdf_pdflib_font_signature'].includes(c),
+  },
+  {
+    id: 'text_density', zh: '文字密度 / 图片型 PDF 检测', en: 'Text density / image-only PDF detection',
+    desc_zh: '每页字符数分析——识别截图转存或扫描件',
+    desc_en: 'Chars-per-page analysis — detects screenshot-to-PDF or scanned documents',
+    match: c => c === 'pdf_pure_image' || c === 'pdf_low_text_density',
+  },
+  {
+    id: 'pdf_metadata', zh: 'PDF 元数据检查', en: 'PDF metadata inspection',
+    desc_zh: '生成工具(Producer/Creator)、内嵌标题、创建/修改时间戳',
+    desc_en: 'Producer/Creator tool, embedded title, creation & modification timestamps',
+    match: c => c.startsWith('pdf_') || c === 'timestamp_just_created',
+  },
+  {
+    id: 'benford', zh: 'Benford 数字分布分析', en: "Benford's Law digit analysis",
+    desc_zh: '对财务文件金额做首位数字 χ² 检验 + 尾数过整检测',
+    desc_en: 'Leading-digit chi-squared test + round-trailing-digit anomaly on financial amounts',
+    match: c => c.startsWith('benford') || c.startsWith('trailing_digits') || c === 'deposits_too_clean',
+  },
+  {
+    id: 'statutory', zh: 'CRA 法定扣缴复算', en: 'CRA statutory deduction recomputation',
+    desc_zh: '按当年 CRA 参数复算 CPP/CPP2/EI:超过法定上限=数学上不可能',
+    desc_en: 'CPP/CPP2/EI recomputed against CRA annual parameters — exceeding the legal max is mathematically impossible',
+    match: c => c.startsWith('paystub_deduction') || c === 'paystub_deductions_at_legal_max' || c === 'paystub_period_deductions_verified',
+  },
+  {
+    id: 'paystub_math', zh: '工资单数学一致性', en: 'Pay-stub math consistency',
+    desc_zh: 'YTD 累计 vs 年薪推算、时薪×工时 vs 期间总额、发薪节奏',
+    desc_en: 'YTD vs pro-rata expectation, hourly×hours vs stated gross, payroll pre-generation rhythm',
+    match: c => c.startsWith('paystub_'),
+  },
+  {
+    id: 'source_fingerprint', zh: '来源指纹(银行 / 征信局)', en: 'Source fingerprint (bank / bureau)',
+    desc_zh: '银行流水 Producer 白名单、Equifax/TransUnion 真伪标记 + AI 视觉复核',
+    desc_en: 'Bank-producer whitelist, Equifax/TransUnion authenticity markers + AI Vision second opinion',
+    match: c => c.startsWith('bank_') || c.startsWith('credit_report_'),
+  },
+  {
+    id: 'id_validation', zh: '证件号码校验', en: 'ID number validation',
+    desc_zh: 'SIN Luhn 校验和、安省驾照姓氏字母、OHIP 格式、证件与申请人姓名/生日比对',
+    desc_en: 'SIN Luhn checksum, Ontario DL surname letter, OHIP format, name/DOB match vs applicant',
+    match: c => c.startsWith('id_'),
+  },
+  {
+    id: 'cross_doc', zh: '跨文档交叉核对', en: 'Cross-document consistency',
+    desc_zh: '电话/邮箱/地址/雇主跨文件比对、HR 电话与申请人电话撞号、收入三方对账',
+    desc_en: 'Phones/emails/addresses/employers compared across files, HR-phone collision, 3-way income reconciliation',
+    match: c => c.startsWith('cross_doc_') || c === 'name_spelling_variation',
+  },
+  {
+    id: 'timestamp_cluster', zh: '时间戳聚类(批量伪造)', en: 'Timestamp clustering (batch forgery)',
+    desc_zh: '多份"不同时期"文件若在几分钟内批量生成=独立定罪信号',
+    desc_en: 'Multiple "different-period" documents created within minutes of each other = independent forgery signal',
+    match: c => c === 'timestamp_batch_creation',
+  },
+  {
+    id: 'ocr', zh: 'AI 视觉 OCR', en: 'AI Vision OCR',
+    desc_zh: '对图片型文件做视觉识别:证件类型、签发机构、防伪水印',
+    desc_en: 'Vision pass on image-only documents: document type, issuer, anti-tamper watermarks',
+    match: () => false,
+  },
+  {
+    id: 'arm_length', zh: '雇主独立性核查', en: "Employer arm's-length check",
+    desc_zh: '数字公司模式、姓氏与雇主重合、公司注册库比对(深度核查)',
+    desc_en: 'Numbered-company pattern, surname-in-employer, corporate-registry cross-check (deep check)',
+    match: c => c.startsWith('arm_length_') || c.startsWith('bn_'),
+  },
+]
+
+export function buildForensicCheckMatrix(
+  fd: ScoreResult['forensics_detail'],
+  deepCheck?: ScoreResult['deep_check_result'],
+): ForensicCheckRow[] {
+  if (!fd) return []
+  const perFile: PerFileLite[] = fd.per_file || []
+  const allFlags: FlagLite[] = (fd.all_flags || []) as FlagLite[]
+
+  const ranByCat: Record<string, boolean> = {
+    pdf_structure: perFile.some(pf => !!(pf as { pdf_structure?: unknown }).pdf_structure),
+    text_density: perFile.some(pf => !!pf.text_density),
+    pdf_metadata: perFile.some(pf => !!pf.pdf_metadata),
+    benford: perFile.some(pf => !!(pf as { benford?: unknown }).benford),
+    statutory: perFile.some(pf => !!pf.paystub_math),
+    paystub_math: perFile.some(pf => !!pf.paystub_math),
+    source_fingerprint: perFile.some(pf => !!pf.source_specific),
+    id_validation: perFile.some(pf => !!(pf.ocr?.text || pf.text_density?.text_sample)),
+    cross_doc: !!fd.cross_doc || (fd.cross_doc_flags?.length ?? 0) > 0,
+    timestamp_cluster: perFile.filter(pf => !!pf.pdf_metadata?.creation_date).length >= 2,
+    ocr: perFile.some(pf => !!pf.ocr),
+    arm_length: !!(deepCheck && deepCheck.checks?.length),
+  }
+
+  // Assign each flag to its FIRST matching category (order above encodes
+  // specificity: pdf_structure_ before the generic pdf_ prefix, statutory
+  // deduction codes before the generic paystub_ prefix).
+  const flagsByCat: Record<string, FlagLite[]> = {}
+  for (const f of allFlags) {
+    const cat = CHECK_CATEGORIES.find(c => c.match(f.code))
+    if (!cat) continue
+    ;(flagsByCat[cat.id] = flagsByCat[cat.id] || []).push(f)
+    // A category with fired flags definitionally ran (covers the cheap
+    // arm's-length pass which has no dedicated result object).
+    ranByCat[cat.id] = true
+  }
+
+  return CHECK_CATEGORIES.map(cat => {
+    const flags = flagsByCat[cat.id] || []
+    const negatives = flags.filter(f => !isPositiveForensicFlag(f))
+    const positives = flags.length - negatives.length
+    let status: ForensicCheckRow['status']
+    if (!ranByCat[cat.id]) status = 'na'
+    else if (negatives.some(f => f.severity === 'critical' || f.severity === 'high')) status = 'fail'
+    else if (negatives.length > 0) status = 'warn'
+    else status = 'pass'
+    return {
+      id: cat.id, zh: cat.zh, en: cat.en, desc_zh: cat.desc_zh, desc_en: cat.desc_en,
+      status, findings: negatives.length, positives,
+    }
+  })
+}
+
 function riskLabel(score: number, zh: boolean): { text: string; color: string; bg: string } {
   if (score >= 85) return { text: zh ? 'APPROVE — 优质' : 'APPROVE — Safe', color: '#16A34A', bg: '#F0FDF4' }
   if (score >= 70) return { text: zh ? 'APPROVE — 较安全' : 'APPROVE — Mostly Safe', color: '#65A30D', bg: '#F7FEE7' }
@@ -82,10 +249,19 @@ export async function generateScreeningReport(
   </div>`
 
   // ── 0. Report Meta + Applicant Information (FrontLobby-style block) ──
+  const courtDbCount = (result.court_records_detail as { databases_searched?: number } | undefined)?.databases_searched
   html += `<div style="border:1px solid #E2E8F0;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:10px;color:#475569">
-    ${zh ? '报告生成日期' : 'Report generated'}: <strong>${date}</strong>
+    <div>${zh ? '报告生成日期' : 'Report generated'}: <strong>${date}</strong>
+    ${result.screening_id ? ` &nbsp;·&nbsp; ${zh ? '报告编号' : 'Report ID'}: <strong style="font-family:monospace">${esc(result.screening_id)}</strong>` : ''}
     ${opts?.requestedBy ? ` &nbsp;·&nbsp; ${zh ? '申请方' : 'Requested by'}: <strong>${esc(opts.requestedBy)}</strong>` : ''}
-    &nbsp;·&nbsp; ${zh ? '分析引擎' : 'Engine'}: <strong>Stayloop AI v3</strong>
+    &nbsp;·&nbsp; ${zh ? '分析引擎' : 'Engine'}: <strong>Stayloop AI ${esc(result.model_version || 'v3')}</strong></div>
+    <div style="margin-top:4px;color:#64748B">${zh ? '数据来源' : 'Data sources'}: ${[
+      zh ? '确定性文件取证引擎（PDF 元数据 · 结构指纹 · 数学复算 · 跨文档核对）' : 'Deterministic document forensics engine (PDF metadata · structure fingerprints · math recomputation · cross-doc checks)',
+      zh ? 'Claude AI 视觉内容分析' : 'Claude AI Vision content analysis',
+      `CanLII${courtDbCount ? ` (${zh ? `${courtDbCount} 个数据源` : `${courtDbCount} sources`})` : ''}`,
+      zh ? '安省法院公开门户' : 'Ontario Courts public portal',
+      ...(result.deep_check_result?.checks?.length ? [zh ? '加拿大公司注册库' : 'Canadian corporate registries'] : []),
+    ].join(' · ')}</div>
   </div>
   <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px 14px;margin-bottom:14px">
     <div style="font-size:11px;font-weight:700;color:#0B1736;margin-bottom:6px">${zh ? '申请人信息' : 'Applicant Information'}</div>
@@ -255,6 +431,34 @@ export async function generateScreeningReport(
     </div>`
   }
 
+  // ── 1.65 Red flags & hard gates — full text, top of the report ──
+  // The summary table above only counts them; this lists each one verbatim so
+  // the landlord sees the exact findings before reading anything else.
+  if (gates.length > 0 || redFlagsArr.length > 0) {
+    html += `<h2>${zh ? '硬门槛与风险标记明细' : 'Hard Gates & Red Flags'}</h2>`
+    if (gates.length > 0) {
+      html += `<div style="font-size:10px;font-weight:700;color:#B91C1C;margin-bottom:4px">${zh ? `硬门槛(一票否决信号) · ${gates.length}` : `Hard gates (overriding signals) · ${gates.length}`}</div>`
+      for (const g of gates) {
+        html += `<div class="card" style="border-left:3px solid #DC2626;padding:8px 12px;margin-bottom:6px">
+          <span class="flag-badge" style="background:#DC2626">${zh ? '硬门槛' : 'GATE'}</span>
+          <span style="font-size:10.5px;font-family:monospace">${esc(g)}</span>
+        </div>`
+      }
+    }
+    if (redFlagsArr.length > 0) {
+      html += `<div style="font-size:10px;font-weight:700;color:#C2410C;margin:6px 0 4px">${zh ? `风险标记 · ${redFlagsArr.length}` : `Red flags · ${redFlagsArr.length}`}</div>`
+      for (const rf of redFlagsArr) {
+        html += `<div class="card" style="border-left:3px solid #EA580C;padding:8px 12px;margin-bottom:6px">
+          <span class="flag-badge" style="background:#EA580C">${zh ? '标记' : 'FLAG'}</span>
+          <span style="font-size:10.5px">${esc(rf)}</span>
+        </div>`
+      }
+    }
+    if (result.red_flag_penalty != null || result.gate_cap != null) {
+      html += `<div style="font-size:9px;color:#64748B;margin-top:2px">${zh ? '评分影响' : 'Score impact'}: ${result.red_flag_penalty != null ? `${zh ? '标记扣分' : 'flag penalty'} -${result.red_flag_penalty}` : ''}${result.red_flag_penalty != null && result.gate_cap != null ? ' · ' : ''}${result.gate_cap != null ? `${zh ? '硬门槛封顶' : 'gate score cap'} ${result.gate_cap}` : ''}</div>`
+    }
+  }
+
   // ── 1.7 Document completeness matrix — what was provided vs recommended ──
   {
     const provided = new Set(result.detected_document_kinds || [])
@@ -279,6 +483,40 @@ export async function generateScreeningReport(
       </tr>`
     }
     html += `</table>`
+
+    // Evidence sub-coverage — HOW each scoring sub-component was evidenced:
+    // measured from documents, inferred, pending landlord action, or missing.
+    const subCov = result.sub_coverage || {}
+    const subKeys = Object.keys(subCov)
+    if (subKeys.length > 0) {
+      const SUB_LABELS: Record<string, { zh: string; en: string }> = {
+        income_rent_ratio: { zh: '收入/租金比', en: 'Income-to-rent ratio' },
+        income_stability: { zh: '收入稳定性', en: 'Income stability' },
+        emergency_reserves: { zh: '应急储备金', en: 'Emergency reserves' },
+        credit_score: { zh: '信用分数', en: 'Credit score' },
+        dti: { zh: '非租负债比 (DTI)', en: 'Non-rent DTI' },
+        prior_landlord_refs: { zh: '前房东推荐', en: 'Prior landlord references' },
+        ltb_check: { zh: 'LTB 记录核查', en: 'LTB record check' },
+        employer_verify: { zh: '雇主核实', en: 'Employer verification' },
+        doc_authenticity: { zh: '文件真实性', en: 'Document authenticity' },
+        identity_match: { zh: '身份一致性', en: 'Identity match' },
+      }
+      const COV_STATUS: Record<string, { zh: string; en: string; color: string }> = {
+        measured: { zh: '✓ 已从文件实测', en: '✓ Measured from documents', color: '#16A34A' },
+        inferred: { zh: '◐ 间接推断', en: '◐ Inferred', color: '#A16207' },
+        action_pending: { zh: '⚠ 待房东核实', en: '⚠ Pending landlord action', color: '#D97706' },
+        missing: { zh: '✗ 证据缺失', en: '✗ Missing', color: '#DC2626' },
+      }
+      html += `<div style="font-size:11px;font-weight:700;color:#0B1736;margin:12px 0 5px">${zh ? '证据覆盖明细' : 'Evidence Coverage Detail'}${typeof result.evidence_coverage === 'number' ? ` · ${(result.evidence_coverage * 100).toFixed(0)}%` : ''}</div>
+      <div style="font-size:9px;color:#64748B;margin-bottom:5px">${zh ? '每个评分子项的证据来源等级。「已实测」计满分权重,「推断」0.6,「待核实」0.3,「缺失」0。' : 'Evidence grade per scoring sub-component. Weights: measured 1.0, inferred 0.6, pending 0.3, missing 0.'}</div>
+      <table><tr><th>${zh ? '评分子项' : 'Sub-component'}</th><th style="width:170px">${zh ? '证据等级' : 'Evidence grade'}</th></tr>`
+      for (const k of subKeys) {
+        const lbl = SUB_LABELS[k] || { zh: k, en: k }
+        const st = COV_STATUS[subCov[k]] || { zh: subCov[k], en: subCov[k], color: '#64748B' }
+        html += `<tr><td>${esc(zh ? lbl.zh : lbl.en)}</td><td style="color:${st.color};font-weight:600;font-size:9.5px">${zh ? st.zh : st.en}</td></tr>`
+      }
+      html += `</table>`
+    }
   }
 
   // ── 2. Summary ──
@@ -447,6 +685,34 @@ export async function generateScreeningReport(
     html += `<h2>${zh ? '文件取证分析' : 'Document Forensics'}</h2>
     <div class="kv"><span class="k">${zh ? '取证结论' : 'Verdict'}:</span><span class="v" style="font-weight:700;color:${sv.color}">${sv.text}</span></div>`
 
+    // Checks-performed matrix — every forensic test category that ran, with
+    // its outcome. Passed checks are listed too: "checked and clean" is
+    // disclosure a one-line fraud-check summary can't provide.
+    const checkMatrix = buildForensicCheckMatrix(fd, result.deep_check_result)
+    if (checkMatrix.length > 0) {
+      const ranCount = checkMatrix.filter(c => c.status !== 'na').length
+      const cmIcon = (s: string) => s === 'pass' ? '✓' : s === 'warn' ? '⚠' : s === 'fail' ? '✗' : '—'
+      const cmColor = (s: string) => s === 'pass' ? '#16A34A' : s === 'warn' ? '#D97706' : s === 'fail' ? '#DC2626' : '#94A3B8'
+      html += `<div style="font-size:10px;color:#64748B;margin:8px 0 4px">${zh ? `已执行取证检查 · ${ranCount} / ${checkMatrix.length} 类` : `Forensic checks performed · ${ranCount} of ${checkMatrix.length} categories`}</div>
+      <table>
+        <tr><th style="width:26px;text-align:center"></th><th style="width:150px">${zh ? '检查类别' : 'Check category'}</th><th>${zh ? '检查内容' : 'What it tests'}</th><th style="width:95px">${zh ? '结果' : 'Result'}</th></tr>`
+      for (const c of checkMatrix) {
+        const col = cmColor(c.status)
+        const resTxt = c.status === 'na'
+          ? (zh ? '未执行（材料不适用）' : 'Not run (n/a)')
+          : c.findings === 0
+            ? (zh ? `通过${c.positives ? ` · ${c.positives} 项佐证` : ''}` : `Pass${c.positives ? ` · ${c.positives} corroboration(s)` : ''}`)
+            : (zh ? `${c.findings} 项发现${c.positives ? ` · ${c.positives} 项佐证` : ''}` : `${c.findings} finding(s)${c.positives ? ` · ${c.positives} corroboration(s)` : ''}`)
+        html += `<tr>
+          <td style="text-align:center;color:${col};font-weight:800">${cmIcon(c.status)}</td>
+          <td style="font-weight:600;color:${c.status === 'na' ? '#94A3B8' : '#0B1736'}">${esc(zh ? c.zh : c.en)}</td>
+          <td style="font-size:9px;color:${c.status === 'na' ? '#94A3B8' : '#475569'}">${esc(zh ? c.desc_zh : c.desc_en)}</td>
+          <td style="color:${col};font-weight:600;font-size:9.5px">${resTxt}</td>
+        </tr>`
+      }
+      html += `</table>`
+    }
+
     // Per-file evidence cards — every analyzed file expanded with ALL real
     // forensic measurements: PDF metadata, text density, paystub math, bank /
     // Equifax markers, and every flag. The depth competitors show per credit
@@ -455,9 +721,9 @@ export async function generateScreeningReport(
       const money = (n: number | null | undefined) => (typeof n === 'number' ? '$' + Math.round(n).toLocaleString() : '—')
       html += `<div style="font-size:10px;color:#64748B;margin:6px 0 8px">${zh ? `逐文件取证明细 · 共 ${fd.per_file.length} 份文件` : `Per-document forensic detail · ${fd.per_file.length} file(s)`}</div>`
       for (const pf of fd.per_file) {
-        const negFlagCount = pf.flags.filter(f => f.severity !== 'info').length
+        const negFlagCount = pf.flags.filter(f => !isPositiveForensicFlag(f)).length
         const infoFlagCount = pf.flags.length - negFlagCount
-        const worst = pf.flags.reduce((acc, f) =>
+        const worst = pf.flags.filter(f => !isPositiveForensicFlag(f)).reduce((acc, f) =>
           f.severity === 'critical' || f.severity === 'high' ? 'bad' : (acc === 'bad' ? 'bad' : f.severity === 'medium' ? 'warn' : acc), 'clean' as 'clean' | 'warn' | 'bad')
         const vColor = worst === 'bad' ? '#DC2626' : worst === 'warn' ? '#D97706' : '#16A34A'
         const vText = negFlagCount === 0
@@ -491,7 +757,10 @@ export async function generateScreeningReport(
             <span style="font-size:10px;font-weight:700;color:${vColor};white-space:nowrap">${vText}</span>
           </div>`
         if (facts.length) html += `<table style="margin:4px 0"><tbody>${facts.map(([k, v]) => `<tr><td style="width:42%;color:#64748B;font-size:9.5px">${esc(k)}</td><td style="font-size:9.5px;font-family:monospace">${esc(v)}</td></tr>`).join('')}</tbody></table>`
-        for (const f of pf.flags) html += `<div style="margin-top:4px;font-size:10px;line-height:1.5"><span class="flag-badge" style="background:${sevColor(f.severity)}">${zh ? ({ critical: '严重', high: '高', medium: '中', low: '低', info: '佐证' }[f.severity] || f.severity) : f.severity.toUpperCase()}</span>${esc(zh ? f.evidence_zh : f.evidence_en)}</div>`
+        for (const f of pf.flags) {
+          const dispSev = isPositiveForensicFlag(f) ? 'info' : f.severity
+          html += `<div style="margin-top:4px;font-size:10px;line-height:1.5"><span class="flag-badge" style="background:${sevColor(dispSev)}">${zh ? ({ critical: '严重', high: '高', medium: '中', low: '低', info: '佐证' }[dispSev] || dispSev) : dispSev.toUpperCase()}</span>${esc(zh ? f.evidence_zh : f.evidence_en)}</div>`
+        }
         html += `</div>`
       }
     }
@@ -520,26 +789,36 @@ export async function generateScreeningReport(
     html += `<p style="font-size:10px;margin-bottom:8px;color:#475569">${esc(courtSummary)}</p>`
   }
   html += `<div class="kv"><span class="k">${zh ? '查询姓名' : 'Queried Name'}:</span><span class="v">${esc(queriedName)}</span></div>
-  <div class="kv"><span class="k">${zh ? '总命中数' : 'Total Hits'}:</span><span class="v" style="font-weight:700;color:${totalHits > 0 ? '#DC2626' : '#16A34A'}">${totalHits}</span></div>`
+  ${courtDbCount ? `<div class="kv"><span class="k">${zh ? '已检索数据源' : 'Sources searched'}:</span><span class="v">${courtDbCount}${zh ? ' 个（CanLII 安省全库 + 安省法院门户）' : ' (all CanLII Ontario databases + Ontario Courts Portal)'}</span></div>` : ''}
+  <div class="kv"><span class="k">${zh ? '总命中数' : 'Total Hits'}:</span><span class="v" style="font-weight:700;color:${totalHits > 0 ? '#DC2626' : '#16A34A'}">${totalHits}</span></div>
+  <div style="font-size:9px;color:#94A3B8;margin:2px 0 4px">${zh ? '「✓ 无记录」表示该库已实际检索且零命中——与「未检索」是两回事。未响应的库单独标注,不计入"无记录"。' : '"✓ Clear" means the source was actually searched with zero hits — distinct from "not searched". Sources that failed to respond are labelled separately, never counted as clear.'}</div>`
 
-  // DB summary table
+  // DB summary table — every free-tier query row is disclosed, including
+  // unavailable / timed-out / skipped sources ("searched and clear" vs
+  // "didn't answer" is a disclosure difference, not a cosmetic one).
   const dbRows = courtQueries.filter(q =>
-    !q.source.startsWith('──') && q.source !== 'rollup' && q.tier === 'free' &&
-    (q.status === 'ok' || q.status === 'unavailable')
+    !q.source.startsWith('──') && q.source !== 'rollup' && q.tier === 'free'
   )
   if (dbRows.length > 0) {
     html += `<table style="margin-top:6px">
-      <tr><th>${zh ? '数据库' : 'Database'}</th><th style="width:60px;text-align:center">${zh ? '命中数' : 'Hits'}</th><th style="width:80px;text-align:center">${zh ? '风险等级' : 'Risk'}</th></tr>`
+      <tr><th>${zh ? '数据库' : 'Database'}</th><th style="width:75px;text-align:center">${zh ? '结果' : 'Result'}</th><th style="width:70px;text-align:center">${zh ? '风险等级' : 'Risk'}</th><th>${zh ? '备注' : 'Note'}</th></tr>`
     for (const q of dbRows) {
       const hits = q.status === 'ok' ? (q.hits ?? 0) : -1
+      const statusTxt = q.status === 'ok'
+        ? (hits > 0 ? String(hits) : (zh ? '✓ 无记录' : '✓ Clear'))
+        : q.status === 'timeout' ? (zh ? '超时' : 'Timeout')
+        : q.status === 'skipped' ? (zh ? '已跳过' : 'Skipped')
+        : (zh ? '不可用' : 'N/A')
       const riskText = q.severity === 3 ? (zh ? '严重' : 'Critical') : q.severity === 2 ? (zh ? '高' : 'High') : q.severity === 1 ? (zh ? '中' : 'Medium') : (zh ? '无' : 'None')
       const riskColor = q.severity === 3 ? '#DC2626' : q.severity === 2 ? '#D97706' : q.severity === 1 ? '#1D4ED8' : '#16A34A'
       // Certn-style row tinting: green for cleared databases, red for hits
-      const rowBg = hits > 0 ? 'background:#FEF2F2' : hits === 0 ? 'background:#F0FDF4' : ''
+      const rowBg = hits > 0 ? 'background:#FEF2F2' : hits === 0 ? 'background:#F0FDF4' : 'background:#F8FAFC'
+      const stColorCourt = hits > 0 ? '#DC2626' : hits === 0 ? '#16A34A' : '#94A3B8'
       html += `<tr>
         <td style="${rowBg}">${esc(q.source)}</td>
-        <td style="${rowBg};text-align:center;font-weight:${hits > 0 ? '700' : '400'};color:${hits > 0 ? '#DC2626' : '#16A34A'}">${hits > 0 ? hits : hits === 0 ? (zh ? '✓ 无记录' : '✓ Clear') : (zh ? '不可用' : 'N/A')}</td>
-        <td style="${rowBg};text-align:center;color:${riskColor};font-weight:600;font-size:10px">${hits === 0 ? '—' : riskText}</td>
+        <td style="${rowBg};text-align:center;font-weight:${hits > 0 ? '700' : '400'};color:${stColorCourt}">${statusTxt}</td>
+        <td style="${rowBg};text-align:center;color:${riskColor};font-weight:600;font-size:10px">${hits > 0 ? riskText : '—'}</td>
+        <td style="${rowBg};font-size:8.5px;color:#64748B">${esc(q.note || '')}</td>
       </tr>`
     }
     html += `</table>`
@@ -682,6 +961,9 @@ export async function generateScreeningReport(
     <p style="margin-bottom:5px">${zh
       ? '本报告仅可在申请人知情同意下,为订立或续订租赁协议之目的查看与使用,不得向无正当目的的第三方分发。依据《安大略省人权法典》,受保护特征(种族、国籍、宗教、性别、年龄、家庭状况、残障等)未被用于评分;详见合规审计一节。'
       : 'This report may only be viewed and used, with the applicant\'s knowledge and consent, in connection with entering into or renewing a tenancy agreement, and may not be distributed to third parties without a valid purpose. Per the Ontario Human Rights Code, protected grounds (race, nationality, religion, sex, age, family status, disability, etc.) were excluded from scoring — see the Compliance Audit section.'}</p>
+    <p style="margin-bottom:5px">${zh
+      ? 'Stayloop 不是《消费者报告法》(Consumer Reporting Act) 意义上的信用报告机构,本报告亦非该法意义上的"消费者报告"。个人信息按 PIPEDA 要求加密存储,保留 7 年,申请人有权查阅其被收集的信息并要求更正。'
+      : 'Stayloop is not a consumer reporting agency within the meaning of the Consumer Reporting Act (Ontario), and this report is not a "consumer report" under that Act. Personal information is stored encrypted and retained for 7 years per PIPEDA; the applicant has the right to access and correct the information collected about them.'}</p>
     <p>${zh
       ? '评分为 AI 辅助评估,仅供参考,不构成法律、金融或租赁决策意见。最终决策责任由房东承担,建议结合面谈、推荐人核实与查档原件后综合判断。'
       : 'Scores are AI-assisted assessments for reference only and do not constitute legal, financial, or tenancy-decision advice. The final decision rests with the landlord; we recommend combining this report with interviews, reference checks, and original-document review.'}</p>
@@ -689,7 +971,7 @@ export async function generateScreeningReport(
 
   // ── Footer ──
   html += `<div class="footer">
-    Stayloop.ai &nbsp;|&nbsp; ${zh ? '此报告由 AI 自动生成，仅供参考，不构成法律意见' : 'AI-generated report — for reference only, not legal advice'} &nbsp;|&nbsp; ${date}${opts?.requestedBy ? ` &nbsp;|&nbsp; ${zh ? '申请方' : 'Requested by'}: ${esc(opts.requestedBy)}` : ''}
+    Stayloop.ai &nbsp;|&nbsp; ${zh ? '此报告由 AI 自动生成，仅供参考，不构成法律意见' : 'AI-generated report — for reference only, not legal advice'} &nbsp;|&nbsp; ${date}${result.screening_id ? ` &nbsp;|&nbsp; ${zh ? '报告编号' : 'Report ID'}: ${esc(result.screening_id)}` : ''}${opts?.requestedBy ? ` &nbsp;|&nbsp; ${zh ? '申请方' : 'Requested by'}: ${esc(opts.requestedBy)}` : ''}
   </div>`
 
   html += `</body></html>`
