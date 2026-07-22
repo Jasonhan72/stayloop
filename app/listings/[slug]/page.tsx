@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { useT, type Lang } from '@/lib/i18n'
 import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 import { stampForTier } from '@/lib/passportStamps'
+import { favKey, useFavorites, type FavListing } from '@/lib/favorites'
 
 /**
  * V5 ART · Listing Detail (L2)
@@ -130,6 +131,24 @@ const tierLabel: Record<number, { name: { zh: string; en: string }; reqs: { zh: 
   },
 }
 
+// Same identity inputs + snapshot shape as the /listings browse cards and the
+// agent-chat listing cards (lib/favorites.ts), so a favorite saved here reads
+// as favorited on every other surface.
+const favSnapshot = (l: DBListing): Omit<FavListing, 'savedAt'> => ({
+  key: favKey({ source: l.source, id: l.id, url: `/listings/${l.slug}`, address: l.address }),
+  source: l.source === 'realtor' ? 'realtor' : 'stayloop',
+  title: l.address + (l.unit ? ` · Unit ${l.unit}` : ''),
+  address: l.address,
+  neighborhood: l.neighborhood || undefined,
+  city: l.city,
+  price: l.monthly_rent,
+  beds: l.bedrooms,
+  baths: l.bathrooms,
+  sqft: l.sqft,
+  image: l.images && l.images.length > 0 ? l.images[0] : null,
+  href: `/listings/${l.slug}`,
+})
+
 export default function ListingDetailPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -142,6 +161,30 @@ export default function ListingDetailPage() {
   const [fieldAgentOpen, setFieldAgentOpen] = useState(false)
   const [galleryOpen, setGalleryOpen] = useState(false)
   const [galleryIdx, setGalleryIdx] = useState(0)
+  const { isFav, toggle } = useFavorites()
+  const [copied, setCopied] = useState(false)
+
+  const onShare = useCallback(async () => {
+    const url = window.location.href
+    const title = listing
+      ? `${listing.address}${listing.unit ? `, Unit ${listing.unit}` : ''} · $${listing.monthly_rent.toLocaleString()}/mo · Stayloop`
+      : 'Stayloop'
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title, url })
+      } catch {
+        // User dismissed the native share sheet — nothing else to do.
+      }
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard unavailable (permissions / insecure context) — no-op.
+    }
+  }, [listing])
 
   useEffect(() => {
     if (!slug) return
@@ -213,6 +256,8 @@ export default function ListingDetailPage() {
   const b = listing.thumb_b || '#94815C'
   const tier = (listing.trust_tier ?? 2) as 1 | 2 | 3 | 4
   const tierInfo = tierLabel[tier]
+  const snap = favSnapshot(listing)
+  const fav = isFav(snap.key)
 
   return (
     <>
@@ -318,10 +363,52 @@ export default function ListingDetailPage() {
                 <VerificationBadge listing={listing} variant="detail" zh={zh} />
               </div>
 
-              <h1 className="mt-3 text-[36px] font-extrabold tracking-tight sm:text-[44px]">
-                ${listing.monthly_rent.toLocaleString()}
-                <span className="ml-2 text-[18px] font-medium text-body-3">{zh ? '/ 月' : '/ month'}</span>
-              </h1>
+              <div className="mt-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                <h1 className="text-[36px] font-extrabold tracking-tight sm:text-[44px]">
+                  ${listing.monthly_rent.toLocaleString()}
+                  <span className="ml-2 text-[18px] font-medium text-body-3">{zh ? '/ 月' : '/ month'}</span>
+                </h1>
+                {/* Share + Save — Airbnb-style light actions, top-right of the title row */}
+                <div className="relative flex shrink-0 items-center gap-1 pt-2">
+                  <button
+                    type="button"
+                    onClick={onShare}
+                    className="inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[14px] font-semibold text-body-2 transition hover:bg-surface-2 hover:text-body hover:underline underline-offset-2"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 15V3" />
+                      <path d="M8 7l4-4 4 4" />
+                      <path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
+                    </svg>
+                    {zh ? '分享' : 'Share'}
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={fav}
+                    onClick={() => toggle(snap)}
+                    className="inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[14px] font-semibold text-body-2 transition hover:bg-surface-2 hover:text-body hover:underline underline-offset-2"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill={fav ? '#FB7185' : 'none'}
+                      stroke={fav ? '#FB7185' : 'currentColor'}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                    {fav ? (zh ? '取消收藏' : 'Saved') : (zh ? '收藏' : 'Save')}
+                  </button>
+                  {copied && (
+                    <span className="absolute right-0 top-full z-10 mt-1.5 whitespace-nowrap rounded-[8px] bg-ink px-3 py-1.5 text-[12px] font-medium text-white shadow-lg">
+                      {zh ? '链接已复制' : 'Link copied'}
+                    </span>
+                  )}
+                </div>
+              </div>
               <div className="mt-2 text-[15px] text-body-2">
                 {listing.address}
                 {listing.unit && `, Unit ${listing.unit}`} · {listing.neighborhood ?? ''}
