@@ -20,7 +20,6 @@ interface RailItem {
 const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   tenant: [
     { key: 'home',      href: '/tenant/agent',     icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } , desc: { zh: '和 Luna 对话——找房、办事的入口', en: 'Chat with Luna — search and get things done' } },
-    { key: 'listings',  href: '/listings',         icon: <ListIcon />,    label: { zh: '房源', en: 'Listings' } , desc: { zh: '浏览全部房源', en: 'Browse all listings' } },
     { key: 'apps',      href: '/tenant/applications', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } , desc: { zh: '我的申请进度', en: 'Track your applications' } },
     { key: 'passport',  href: '/tenant/passport',  icon: <PassIcon />,    label: { zh: 'Passport', en: 'Passport' } , desc: { zh: '租客护照与四枚章', en: 'Your Passport and four stamps' } },
     { key: 'lease',     href: '/tenant/lease',     icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } , desc: { zh: '查看与签署租约', en: 'View and sign leases' } },
