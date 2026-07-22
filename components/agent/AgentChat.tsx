@@ -122,9 +122,11 @@ export default function AgentChat({
                   <div className="mb-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
                     {listingsHeader(m.listings, lang)}
                   </div>
-                  <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
+                  {/* Responsive wrap grid — cards flow onto extra rows instead of
+                      widening/clipping the chat container; tracks container width. */}
+                  <div className="grid gap-3 pb-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
                     {m.listings.map((l) => (
-                      <div key={l.id} className="w-[280px] flex-none snap-start">
+                      <div key={l.id} className="min-w-0">
                         <ListingChatCard l={l} />
                       </div>
                     ))}
