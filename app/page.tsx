@@ -813,7 +813,7 @@ const CSS = `
   .v7-page .demo-h { display: flex; align-items: center; gap: 10px; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
   .v7-page .demo-h .o2 { width: 24px; height: 24px; border-radius: 999px; flex: none; }
   .v7-page .demo-h b { font-size: 13.5px; }
-  .v7-page .demo-h .st2 { margin-left: auto; font-size: 11px; font-weight: 600; }
+  .v7-page .demo-h .st2 { margin-left: auto; font-size: 11px; font-weight: 600; white-space: nowrap; }
   .v7-page .demo[data-r="l"] .o2 { background: radial-gradient(circle at 32% 28%, #6EE7B7, var(--lord)); }
   .v7-page .demo[data-r="l"] .st2 { color: var(--lord); }
   .v7-page .demo[data-r="t"] .o2 { background: radial-gradient(circle at 32% 28%, var(--brand-light), var(--brand)); }

@@ -253,7 +253,7 @@ export default function AdminModelsPage() {
                     )}
                   </div>
                   <select
-                    className="sl-input w-auto min-w-[300px]"
+                    className="sl-input w-full sm:w-auto sm:min-w-[300px]"
                     aria-label={zh ? `${meta.zh}模型` : `${meta.en} model`}
                     value={values[slot]}
                     onChange={(e) => {

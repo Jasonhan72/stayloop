@@ -45,7 +45,7 @@ export default function LandlordAgentPage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-        <div className="lg:h-[calc(100vh-150px)]">
+        <div className="min-w-0 lg:h-[calc(100vh-150px)]">
           <AgentChat
             role="landlord"
             agentName={agent.agent_name}
@@ -55,7 +55,7 @@ export default function LandlordAgentPage() {
           />
         </div>
 
-        <div className="space-y-6 lg:h-[calc(100vh-150px)] lg:overflow-y-auto lg:pr-1">
+        <div className="min-w-0 space-y-6 lg:h-[calc(100vh-150px)] lg:overflow-y-auto lg:pr-1">
           {pendingActions.length > 0 && (
             <div id="sl-approvals" className="scroll-mt-24">
               <PendingActionsPanel actions={pendingActions} onDecide={decide} />

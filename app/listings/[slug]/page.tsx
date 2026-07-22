@@ -380,7 +380,7 @@ export default function ListingDetailPage() {
           className="mx-auto mt-8 grid max-w-[1320px] gap-10 px-6 pb-24 sm:px-8 lg:grid-cols-[1.6fr_1fr] lg:px-12"
         >
           {/* Main column */}
-          <div>
+          <div className="min-w-0">
             {/* Title block */}
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -652,7 +652,7 @@ export default function ListingDetailPage() {
           </div>
 
           {/* Right aside */}
-          <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <aside className="min-w-0 space-y-4 lg:sticky lg:top-24 lg:self-start">
             {/* Submit intent */}
             <div className="sl-card p-6">
               <span className="sl-eyebrow">SUBMIT INTENT</span>

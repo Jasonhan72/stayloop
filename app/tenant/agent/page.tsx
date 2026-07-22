@@ -36,7 +36,7 @@ export default function TenantAgentPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
         {/* Conversation */}
-        <div className="lg:h-[calc(100vh-150px)]">
+        <div className="min-w-0 lg:h-[calc(100vh-150px)]">
           <AgentChat
             role="tenant"
             agentName={agent.agent_name}
@@ -47,7 +47,7 @@ export default function TenantAgentPage() {
         </div>
 
         {/* Controls — approvals · progress · memory · related */}
-        <div className="space-y-6 lg:h-[calc(100vh-150px)] lg:overflow-y-auto lg:pr-1">
+        <div className="min-w-0 space-y-6 lg:h-[calc(100vh-150px)] lg:overflow-y-auto lg:pr-1">
           {pendingActions.length > 0 && (
             <PendingActionsPanel actions={pendingActions} onDecide={decide} />
           )}

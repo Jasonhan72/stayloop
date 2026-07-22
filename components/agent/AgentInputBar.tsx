@@ -175,7 +175,7 @@ export default function AgentInputBar({
               <MicIcon recording={recording} />
             </button>
           )}
-          <span className="ml-1 font-mono text-[11px] text-body-4">
+          <span className={'ml-1 font-mono text-[11px] text-body-4 ' + (recording ? '' : 'hidden sm:inline')}>
             {recording
               ? (lang === 'zh' ? '● 录音中… 再点停止' : '● Recording… tap again to stop')
               : (lang === 'zh' ? '↵ 换行 · 点「发送」提交' : '↵ new line · click Send to submit')}
@@ -185,7 +185,7 @@ export default function AgentInputBar({
           type="button"
           onClick={submit}
           disabled={disabled || sending || (!value.trim() && atts.length === 0)}
-          className="sl-btn-primary !px-4 !py-[9px] !text-[13.5px] disabled:opacity-50"
+          className="sl-btn-primary flex-none whitespace-nowrap !px-4 !py-[9px] !text-[13.5px] disabled:opacity-50"
         >
           {sending ? '…' : lang === 'zh' ? '发送 →' : 'Send →'}
         </button>

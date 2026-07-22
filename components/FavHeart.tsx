@@ -36,6 +36,8 @@ export default function FavHeart({
       className={className}
       style={{ cursor: 'pointer', ...style }}
     >
+      {/* invisible expanded hit area — keeps the 30px visual while meeting ~44px touch targets */}
+      <span aria-hidden="true" style={{ position: 'absolute', inset: -7 }} />
       <svg
         width={size}
         height={size}

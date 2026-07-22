@@ -222,7 +222,7 @@ export default function AgentChat({
             <div className="mb-2.5 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">
               {lang === 'zh' ? '试试这些 · 一句话开工' : 'Try one — a single sentence starts the work'}
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {SUGGESTIONS[role].map((s) => (
                 <button
                   key={s.label.en}
