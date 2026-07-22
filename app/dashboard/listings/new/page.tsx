@@ -40,6 +40,7 @@ export default function NewListingPage() {
   const { landlord, loading: authLoading } = useLandlord()
   const aiName = useAIName('landlord')
   const [step, setStep] = useState(1)
+  const [importQuery, setImportQuery] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // This wizard publishes a REAL, publicly-visible listing (is_active:true).
@@ -159,13 +160,12 @@ export default function NewListingPage() {
 
             <div className="mt-4 flex flex-wrap gap-2">
               {IMPORT_SOURCES.map((s) => (
-                <button
+                <span
                   key={s}
-                  type="button"
-                  className="rounded-full border border-line-strong bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-body hover:border-brand"
+                  className="rounded-full border border-line-strong bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-body"
                 >
                   {s}
-                </button>
+                </span>
               ))}
             </div>
 
@@ -173,8 +173,20 @@ export default function NewListingPage() {
               <input
                 className="sl-input !border-none !bg-transparent font-mono text-[14px]"
                 placeholder={lang === 'zh' ? '贴链接 / 输 MLS#（如 C7845921）' : 'Paste link / enter MLS# (e.g. C7845921)'}
+                value={importQuery}
+                onChange={(e) => setImportQuery(e.target.value)}
               />
-              <button type="button" className="sl-btn-primary !py-[10px]">
+              <button
+                type="button"
+                onClick={() => {
+                  const q = importQuery.trim()
+                  if (!q) return
+                  router.push(
+                    `/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? `帮我导入这个房源并整理成 Stayloop 挂牌草稿：${q}` : `Import this listing and draft it for Stayloop: ${q}`)}`,
+                  )
+                }}
+                className="sl-btn-primary !py-[10px]"
+              >
                 {lang === 'zh' ? '解析 →' : 'Parse →'}
               </button>
             </div>
@@ -338,12 +350,12 @@ export default function NewListingPage() {
                       style={{ backgroundImage: 'linear-gradient(135deg,#a8966f,#7a6a4c)' }}
                     />
                   ))}
-                  <button
-                    type="button"
-                    className="flex aspect-square items-center justify-center rounded-lg border-2 border-dashed border-line-strong text-[28px] text-body-3 hover:border-brand"
+                  <div
+                    aria-hidden="true"
+                    className="flex aspect-square items-center justify-center rounded-lg border-2 border-dashed border-line-strong text-[28px] text-body-3"
                   >
                     +
-                  </button>
+                  </div>
                 </div>
                 <div className="rounded-xl border border-brand/20 bg-brand/[0.04] p-4 text-[13px] leading-relaxed text-body">
                   {lang === 'zh' ? (

@@ -155,16 +155,19 @@ export default function TenantLeasePage() {
           </p>
 
           <div className="mt-6 grid gap-2">
-            <button className="sl-btn-primary !py-[14px] !text-[14.5px]">
+            <div className="sl-btn-primary pointer-events-none !py-[14px] text-center !text-[14.5px]" aria-disabled="true">
               {lang === 'zh' ? '✓ 确认签署 · 已完成' : '✓ Confirm signature · Done'}
-            </button>
+            </div>
             <Link
               href="/tenant/move-in"
               className="rounded-[10px] border border-tenant/30 bg-tenant/5 px-5 py-[12px] text-center text-[14px] font-semibold text-tenant transition hover:bg-tenant/10"
             >
               {lang === 'zh' ? '双方签完 → 进入入住 Day-1 清单 →' : 'Both signed → go to move-in Day-1 checklist →'}
             </Link>
-            <button className="rounded-[10px] border border-line-strong bg-white px-5 py-[12px] text-[14px] font-semibold text-body">
+            <button
+              onClick={() => window.print()}
+              className="rounded-[10px] border border-line-strong bg-white px-5 py-[12px] text-[14px] font-semibold text-body transition hover:border-brand hover:text-brand"
+            >
               {lang === 'zh' ? '下载 PDF 给法务看' : 'Download PDF for legal review'}
             </button>
           </div>

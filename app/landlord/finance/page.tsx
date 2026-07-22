@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
@@ -51,10 +52,10 @@ export default function LandlordFinancePage() {
           </h1>
         </div>
         <div className="flex gap-2">
-          <button className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand">
+          <Link href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我导出 2026 年至今的租金和支出明细 CSV' : 'Export a CSV of my 2026 YTD rent and expenses')}`} className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand">
             {lang === 'zh' ? '导出 CSV' : 'Export CSV'}
-          </button>
-          <button className="sl-btn-primary !px-5 !py-[10px] !text-[13px]">{lang === 'zh' ? '报税包 →' : 'Tax package →'}</button>
+          </Link>
+          <Link href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我准备报税包（CRA Schedule 776 归集）' : 'Prepare my tax package (CRA Schedule 776 grouping)')}`} className="sl-btn-primary !px-5 !py-[10px] !text-[13px]">{lang === 'zh' ? '报税包 →' : 'Tax package →'}</Link>
         </div>
       </div>
 
@@ -283,9 +284,9 @@ function Aside({ lang }: { lang: Lang }) {
             ? `${aiName} 会把所有租金 / 支出按 776 表格归集，T1 报税季节一键导出。`
             : `${aiName} groups all rent and expenses by the Schedule 776 form, ready for one-click export at T1 tax time.`}
         </div>
-        <button className="mt-3 w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-[12.5px] font-semibold transition hover:border-brand hover:text-brand">
+        <Link href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '预览我的 2025 报税包（CRA Schedule 776）' : 'Preview my 2025 tax package (CRA Schedule 776)')}`} className="mt-3 block w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-center text-[12.5px] font-semibold transition hover:border-brand hover:text-brand">
           {lang === 'zh' ? '预览 2025 报税包' : 'Preview 2025 tax package'}
-        </button>
+        </Link>
       </div>
 
       <div className="mt-6 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">

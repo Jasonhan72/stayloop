@@ -394,7 +394,10 @@ export default function LeaseDetailPage() {
             </h2>
           </div>
           <div className="flex gap-2">
-            <button className="rounded-[10px] border border-line-strong bg-white px-4 py-[8px] text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
+            <button
+              onClick={() => window.print()}
+              className="rounded-[10px] border border-line-strong bg-white px-4 py-[8px] text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
+            >
               {zh ? '下载 PDF' : 'Download PDF'}
             </button>
             {lease.status === 'active' && (

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
@@ -55,8 +56,8 @@ export default function TenantPaymentsPage() {
           </div>
           <div className="mt-1 text-[13px] text-body-2">{lang === 'zh' ? '5月22日 · 自动扣款 · RBC ****8721' : 'May 22 · auto-debit · RBC ****8721'}</div>
           <div className="mt-5 flex flex-wrap gap-2">
-            <button className="sl-btn-secondary">{lang === 'zh' ? '立即支付（提前付）' : 'Pay now (early)'}</button>
-            <button className="sl-btn-ghost">{lang === 'zh' ? '暂停 1 个月（需房东同意）' : 'Pause 1 month (needs landlord consent)'}</button>
+            <Link href={`/tenant/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我提前支付这个月的房租 $2,800' : 'Help me pay this month’s $2,800 rent early')}`} className="sl-btn-secondary">{lang === 'zh' ? '立即支付（提前付）' : 'Pay now (early)'}</Link>
+            <Link href={`/tenant/agent?prompt=${encodeURIComponent(lang === 'zh' ? '我想申请暂停 1 个月房租扣款，帮我向房东发起申请' : 'I’d like to pause rent auto-debit for 1 month — help me request landlord consent')}`} className="sl-btn-ghost">{lang === 'zh' ? '暂停 1 个月（需房东同意）' : 'Pause 1 month (needs landlord consent)'}</Link>
           </div>
 
           <div className="mt-6 rounded-xl bg-success/10 p-4 text-[13px] text-success">
@@ -95,7 +96,7 @@ export default function TenantPaymentsPage() {
               )}
             </p>
             <p className="mt-3 text-[13px] text-body-2">{lang === 'zh' ? '我帮你准备续约谈判材料？' : 'Want me to prepare your renewal negotiation materials?'}</p>
-            <button className="sl-btn-secondary mt-3 w-full">{lang === 'zh' ? '→ 准备材料' : '→ Prepare materials'}</button>
+            <Link href={`/tenant/agent?prompt=${encodeURIComponent(lang === 'zh' ? '租约还有 2 个月到期，帮我准备续约谈判材料' : 'My lease ends in 2 months — help me prepare renewal negotiation materials')}`} className="sl-btn-secondary mt-3 block w-full text-center">{lang === 'zh' ? '→ 准备材料' : '→ Prepare materials'}</Link>
           </div>
         </div>
       </div>

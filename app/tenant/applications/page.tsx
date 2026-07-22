@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
@@ -59,7 +60,9 @@ export default function TenantApplications() {
   const { lang } = useT()
   const zh = lang === 'zh'
   const aiName = useAIName('tenant')
-  const active = APPS.filter((a) => a.status !== 'declined').length
+  const [archived, setArchived] = useState<string[]>([])
+  const apps = APPS.filter((a) => !archived.includes(a.addr))
+  const active = apps.filter((a) => a.status !== 'declined').length
 
   return (
     <WorkspaceShell role="tenant" hideAside>
@@ -69,7 +72,7 @@ export default function TenantApplications() {
             MY APPLICATIONS
           </div>
           <h1 className="mt-2 text-[26px] font-bold tracking-tight sm:text-[36px]">
-            {zh ? `我的申请 (${APPS.length})` : `My Applications (${APPS.length})`}
+            {zh ? `我的申请 (${apps.length})` : `My Applications (${apps.length})`}
           </h1>
         </div>
         <Link href="/listings" className="sl-btn-primary !py-[11px] !px-4 !text-[13.5px]">
@@ -88,7 +91,7 @@ export default function TenantApplications() {
       </div>
 
       <div className="space-y-4">
-        {APPS.map((a) => {
+        {apps.map((a) => {
           const declined = a.status === 'declined'
           return (
             <div key={a.addr} className={'sl-card overflow-hidden ' + (declined ? 'opacity-90' : '')}>
@@ -165,12 +168,18 @@ export default function TenantApplications() {
                   <div className="mt-4 flex flex-wrap gap-2">
                     {a.status === 'invited' && (
                       <>
-                        <button className="sl-btn-primary !py-[9px] !px-4 !text-[13px]">
+                        <Link
+                          href={`/tenant/agent?prompt=${encodeURIComponent(zh ? `帮我确认 ${a.addr} 的看房时间，三个时段里选周六 14:00` : `Confirm my showing time for ${a.addr} — Saturday 2pm out of the three slots`)}`}
+                          className="sl-btn-primary !py-[9px] !px-4 !text-[13px]"
+                        >
                           {zh ? '确认看房时间' : 'Confirm showing time'}
-                        </button>
-                        <button className="rounded-lg border border-line-strong bg-white px-4 py-[8px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand">
+                        </Link>
+                        <Link
+                          href={`/tenant/agent?prompt=${encodeURIComponent(zh ? `帮我联系 ${a.addr} 的房东，问问看房前需要准备什么` : `Message the landlord of ${a.addr} — ask what to prepare before the showing`)}`}
+                          className="rounded-lg border border-line-strong bg-white px-4 py-[8px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
+                        >
                           {zh ? '和房东对话' : 'Message landlord'}
-                        </button>
+                        </Link>
                       </>
                     )}
                     {a.status === 'in-review' && (
@@ -181,9 +190,12 @@ export default function TenantApplications() {
                         >
                           {zh ? `让 ${aiName} 跟进` : `Have ${aiName} follow up`}
                         </Link>
-                        <button className="rounded-lg border border-line-strong bg-white px-4 py-[8px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand">
+                        <Link
+                          href="/listings"
+                          className="rounded-lg border border-line-strong bg-white px-4 py-[8px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
+                        >
                           {zh ? '查看房源' : 'View listing'}
-                        </button>
+                        </Link>
                       </>
                     )}
                     {declined && (
@@ -194,7 +206,10 @@ export default function TenantApplications() {
                         >
                           {zh ? `让 ${aiName} 找相似房源` : `${aiName}, find similar`}
                         </Link>
-                        <button className="rounded-lg border border-line-strong bg-white px-4 py-[8px] text-[13px] font-semibold text-body-3 transition hover:border-line-strong">
+                        <button
+                          onClick={() => setArchived((prev) => [...prev, a.addr])}
+                          className="rounded-lg border border-line-strong bg-white px-4 py-[8px] text-[13px] font-semibold text-body-3 transition hover:border-line-strong"
+                        >
                           {zh ? '归档' : 'Archive'}
                         </button>
                       </>

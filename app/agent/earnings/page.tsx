@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
@@ -249,9 +250,9 @@ export default function AgentEarningsPage() {
               {zh ? '$3,315 已结 · $1,475 在途' : '$3,315 settled · $1,475 in transit'}
             </h2>
           </div>
-          <button className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand">
+          <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? '帮我导出 5 月的佣金明细 CSV' : 'Export a CSV of my May commission details')}`} className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand">
             {zh ? '导出 CSV' : 'Export CSV'}
-          </button>
+          </Link>
         </div>
         {/* Stacked horizontal bar */}
         <div className="mt-5 h-[18px] overflow-hidden rounded-full bg-surface-chip">
@@ -517,9 +518,9 @@ function Aside() {
         <p className="mt-1 text-[12.5px] text-body-2">
           {zh ? '全年总收入 $52,800 · Stripe 已自动报送 CRA。' : 'Total annual income $52,800 · Stripe has auto-filed with CRA.'}
         </p>
-        <button className="mt-3 w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-[12.5px] font-semibold transition hover:border-brand hover:text-brand">
+        <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? '帮我下载 2025 年的 T4A PDF' : 'Get me my 2025 T4A PDF')}`} className="mt-3 block w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-center text-[12.5px] font-semibold transition hover:border-brand hover:text-brand">
           {zh ? '下载 T4A PDF' : 'Download T4A PDF'}
-        </button>
+        </Link>
       </div>
 
       <div className="mt-6 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">

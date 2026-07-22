@@ -220,12 +220,12 @@ export default function ShowingFeedbackPage() {
 
             {/* Actions */}
             <div className="mt-5 flex gap-2.5">
-              <button className="sl-btn-primary flex-1 rounded-xl py-3.5 text-[14px] font-bold">
+              <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? `把这份带看反馈（${id}）按当前版本发给客户和房东` : `Send this showing feedback (${id}) to the client and landlord as-is`)}`} className="sl-btn-primary flex-1 rounded-xl py-3.5 text-center text-[14px] font-bold">
                 {zh ? '✓ 用这版发出' : '✓ Send this version'}
-              </button>
-              <button className="rounded-xl border border-line-divider bg-white px-5 py-3.5 text-[14px] font-bold text-body-2">
+              </Link>
+              <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? `帮我改一改带看反馈（${id}）的措辞再发` : `Help me tweak the wording of showing feedback (${id}) before sending`)}`} className="rounded-xl border border-line-divider bg-white px-5 py-3.5 text-center text-[14px] font-bold text-body-2">
                 {zh ? '改一改' : 'Tweak it'}
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -253,6 +253,8 @@ function ChipPicker({
   tone: 'pro' | 'con'
   lang: Lang
 }) {
+  const [extra, setExtra] = useState<{ zh: string; en: string }[]>([])
+  const allOptions = [...options, ...extra]
   const onClass =
     tone === 'pro'
       ? 'border-success/40 bg-success/10 text-success'
@@ -261,7 +263,7 @@ function ChipPicker({
     <div className="mt-5">
       <div className="font-mono text-[11px] uppercase tracking-eyebrowLg text-body-3">{label}</div>
       <div className="mt-2 flex flex-wrap gap-2">
-        {options.map((o) => {
+        {allOptions.map((o) => {
           const on = selected.has(o.zh)
           return (
             <button
@@ -276,7 +278,15 @@ function ChipPicker({
             </button>
           )
         })}
-        <button className="rounded-full border border-dashed border-line-divider bg-white px-3 py-1.5 text-[13px] font-medium text-body-3">
+        <button
+          onClick={() => {
+            const v = window.prompt(lang === 'zh' ? '添加一个标签' : 'Add a tag')?.trim()
+            if (!v) return
+            if (!allOptions.some((o) => o.zh === v)) setExtra((prev) => [...prev, { zh: v, en: v }])
+            onToggle(v)
+          }}
+          className="rounded-full border border-dashed border-line-divider bg-white px-3 py-1.5 text-[13px] font-medium text-body-3 transition hover:border-brand hover:text-brand"
+        >
           {lang === 'zh' ? '+ 添加' : '+ Add'}
         </button>
       </div>

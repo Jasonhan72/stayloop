@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useState } from 'react'
 import { useAIName } from '@/lib/aiName'
@@ -151,16 +152,16 @@ export default function TenantMaintenancePage() {
                 <div className="flex gap-2">
                   {t.status === 'review' && (
                     <>
-                      <button className="sl-btn-primary !py-[8px] !px-4 !text-[12.5px]">{zh ? '确认完工 ✓' : 'Confirm done ✓'}</button>
-                      <button className="rounded-lg border border-line-strong bg-white px-3.5 py-[7px] text-[12.5px] font-semibold text-body transition hover:border-danger hover:text-danger">
+                      <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? `确认工单「${t.title.zh}」已完工，帮我关闭工单` : `Confirm ticket "${t.title.en}" is done and close it for me`)}`} className="sl-btn-primary !py-[8px] !px-4 !text-[12.5px]">{zh ? '确认完工 ✓' : 'Confirm done ✓'}</Link>
+                      <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? `工单「${t.title.zh}」还有问题，帮我重开并说明情况` : `Ticket "${t.title.en}" still has issues — reopen it and note what's wrong`)}`} className="rounded-lg border border-line-strong bg-white px-3.5 py-[7px] text-[12.5px] font-semibold text-body transition hover:border-danger hover:text-danger">
                         {zh ? '有问题,重开' : 'Reopen'}
-                      </button>
+                      </Link>
                     </>
                   )}
                   {t.status === 'in-progress' && (
-                    <button className="rounded-lg border border-line-strong bg-white px-3.5 py-[7px] text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
+                    <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? `帮我联系工单「${t.title.zh}」的维修师傅${t.tech ? ` ${t.tech.name}` : ''}，确认上门时间` : `Contact the technician${t.tech ? ` ${t.tech.name}` : ''} for ticket "${t.title.en}" and confirm the visit time`)}`} className="rounded-lg border border-line-strong bg-white px-3.5 py-[7px] text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
                       {zh ? '联系师傅' : 'Contact technician'}
-                    </button>
+                    </Link>
                   )}
                 </div>
               </div>

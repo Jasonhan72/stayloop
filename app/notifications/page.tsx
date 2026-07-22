@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAuth } from '@/lib/useAuth'
 import { useAIName } from '@/lib/aiName'
@@ -14,6 +15,7 @@ type ActionItem = {
   body: Bi
   ts: Bi
   action: Bi
+  href: string
 }
 
 type InfoItem = {
@@ -30,6 +32,7 @@ const ACTION_REQUIRED = (tenantAi: string): ActionItem[] => [
     body: { zh: `${tenantAi} 已起草你的回应 · 倾向接受 / 倾向拒绝 / 跟 Sarah 谈一下`, en: `${tenantAi} has drafted your reply · lean accept / lean decline / talk to Sarah` },
     ts: { zh: '2 分钟前', en: '2 minutes ago' },
     action: { zh: '查看草稿', en: 'View draft' },
+    href: '/tenant/lease',
   },
   {
     icon: { ch: 'B', role: 'a' },
@@ -37,6 +40,7 @@ const ACTION_REQUIRED = (tenantAi: string): ActionItem[] => [
     body: { zh: '"Mia 很喜欢主卧采光，问了猫的进出问题，对租金接受度高"', en: '"Mia loved the master bedroom light, asked about cat access, and is comfortable with the rent."' },
     ts: { zh: '3 小时前', en: '3 hours ago' },
     action: { zh: '安排下一步', en: 'Plan next step' },
+    href: '/tenant/applications',
   },
   {
     icon: { ch: 'L', role: 't' },
@@ -44,6 +48,7 @@ const ACTION_REQUIRED = (tenantAi: string): ActionItem[] => [
     body: { zh: '$2,650 → $2,500 · 是不是再去看一次？', en: '$2,650 → $2,500 · want to take another look?' },
     ts: { zh: '今早 09:14', en: 'Today 09:14' },
     action: { zh: '约看房', en: 'Book showing' },
+    href: '/listings',
   },
   {
     icon: { ch: '✓', role: 'l' },
@@ -51,6 +56,7 @@ const ACTION_REQUIRED = (tenantAi: string): ActionItem[] => [
     body: { zh: 'Unit 1207 · King West · David Park 带看', en: 'Unit 1207 · King West · shown by David Park' },
     ts: { zh: '今早 08:02', en: 'Today 08:02' },
     action: { zh: '✓ 确认', en: '✓ Confirm' },
+    href: '/tenant/applications',
   },
   {
     icon: { ch: '✎', role: 't' },
@@ -58,6 +64,7 @@ const ACTION_REQUIRED = (tenantAi: string): ActionItem[] => [
     body: { zh: 'Unit 1207 · King West · $2,800 / 月', en: 'Unit 1207 · King West · $2,800 / month' },
     ts: { zh: '昨天', en: 'Yesterday' },
     action: { zh: '去签字', en: 'Sign now' },
+    href: '/tenant/lease',
   },
   {
     icon: { ch: '$', role: 'l' },
@@ -65,6 +72,7 @@ const ACTION_REQUIRED = (tenantAi: string): ActionItem[] => [
     body: { zh: 'RBC ****8721 · 如需更换扣款账户请提前 3 天', en: 'RBC ****8721 · change the debit account at least 3 days ahead' },
     ts: { zh: '昨天', en: 'Yesterday' },
     action: { zh: '改账户', en: 'Change account' },
+    href: '/tenant/payments',
   },
 ]
 
@@ -185,9 +193,9 @@ function ActionRow({ item, lang }: { item: ActionItem; lang: Lang }) {
       <div className="hidden shrink-0 font-mono text-[11px] text-body-3 sm:block">
         {item.ts[lang]}
       </div>
-      <button className="sl-btn-primary shrink-0 whitespace-nowrap px-3.5 py-2 text-[12.5px]">
+      <Link href={item.href} className="sl-btn-primary shrink-0 whitespace-nowrap px-3.5 py-2 text-[12.5px]">
         {item.action[lang]}
-      </button>
+      </Link>
     </div>
   )
 }

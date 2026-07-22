@@ -153,11 +153,17 @@ export default function ApplicationDetailPage() {
               <div className="sl-card p-6">
                 <h3 className="text-[15px] font-bold tracking-tight">{lang === 'zh' ? '决策' : 'Decision'}</h3>
                 <div className="mt-4 flex flex-col gap-2">
-                  <button className="sl-btn-primary !py-[12px]">{lang === 'zh' ? '✓ 批准 · 准备租约' : '✓ Approve · prepare lease'}</button>
-                  <button className="sl-btn-secondary">{lang === 'zh' ? '面谈 / 索取更多资料' : 'Interview / request more documents'}</button>
-                  <button className="rounded-lg border border-danger/40 bg-white px-4 py-[10px] text-[13.5px] font-semibold text-danger">
+                  <Link href={`/landlord/leases/new?application_id=${id}`} className="sl-btn-primary !py-[12px] text-center">{lang === 'zh' ? '✓ 批准 · 准备租约' : '✓ Approve · prepare lease'}</Link>
+                  <Link
+                    href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? `帮我联系申请人 ${fullName}，安排面谈并索取更多资料` : `Contact applicant ${fullName} to arrange an interview and request more documents`)}`}
+                    className="sl-btn-secondary text-center"
+                  >{lang === 'zh' ? '面谈 / 索取更多资料' : 'Interview / request more documents'}</Link>
+                  <Link
+                    href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? `我想婉拒申请人 ${fullName}，帮我走合规流程（需要具体、非歧视性的理由）` : `I want to decline applicant ${fullName} — walk me through the compliant process (specific, non-discriminatory reason)`)}`}
+                    className="rounded-lg border border-danger/40 bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-danger"
+                  >
                     {lang === 'zh' ? '婉拒' : 'Decline'}
-                  </button>
+                  </Link>
                 </div>
               </div>
 

@@ -167,13 +167,16 @@ export default function AgentOnboardingPage() {
                     ))}
                   </div>
                 </div>
-                <button className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body transition hover:border-agent hover:text-agent">
+                <Link
+                  href={`/agent/agent?prompt=${encodeURIComponent(zh ? `帮我完成入驻第 ${s.n} 步：${s.title.zh}` : `Help me complete onboarding step ${s.n}: ${s.title.en}`)}`}
+                  className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13px] font-semibold text-body transition hover:border-agent hover:text-agent"
+                >
                   {s.n === 1
                     ? (zh ? '上传执照' : 'Upload license')
                     : s.n === 4
                       ? (zh ? '约时间' : 'Book time')
                       : (zh ? '设定' : 'Set up')}
-                </button>
+                </Link>
               </div>
             ))}
           </div>

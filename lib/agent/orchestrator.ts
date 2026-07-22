@@ -113,7 +113,7 @@ export function buildRecommendations(
     case 'landlord':
       return [
         { id: 'applicants', title: { zh: '审阅 7 份意向', en: 'Review 7 applications' }, description: { zh: 'AI 已按你的政策排序与解释。', en: 'AI has ranked and explained them by your policies.' }, href: '/landlord/applicants', badge: 'INBOX' },
-        { id: 'screening', title: { zh: '多维核查报告', en: 'Multi-dimension screening report' }, description: { zh: '身份 / 收入 / 历史 / 行为,逐项可解释。', en: 'Identity / income / history / behaviour — each explainable.' }, href: '/landlord/maintenance', badge: 'SCREENING' },
+        { id: 'screening', title: { zh: '多维核查报告', en: 'Multi-dimension screening report' }, description: { zh: '身份 / 收入 / 历史 / 行为,逐项可解释。', en: 'Identity / income / history / behaviour — each explainable.' }, href: '/screening', badge: 'SCREENING' },
         { id: 'finance', title: { zh: '收租与财务', en: 'Rent collection & finance' }, description: { zh: '平台不抽租金流水,手续费透明。', en: 'No cut of your rent flow — transparent fees.' }, href: '/landlord/finance', badge: 'FINANCE' },
       ]
     case 'agent':

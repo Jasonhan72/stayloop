@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
@@ -90,7 +91,7 @@ export default function LandlordMaintenancePage() {
               : `Tenant submits → ${aiName} categorizes → you approve → auto-dispatch or self-handle`}
           </p>
         </div>
-        <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{lang === 'zh' ? '+ 创建工单' : '+ Create ticket'}</button>
+        <Link href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我创建一个新的维修工单' : 'Help me create a new maintenance ticket')}`} className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{lang === 'zh' ? '+ 创建工单' : '+ Create ticket'}</Link>
       </div>
 
       <AIProactive
@@ -231,13 +232,13 @@ function TicketCard({ t, lang }: { t: (typeof TICKETS)[number]; lang: Lang }) {
         </div>
       )}
       <div className="mt-3 flex gap-2">
-        <button className="flex-1 rounded-[8px] border border-line-strong bg-white py-[7px] text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
+        <Link href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? `打开工单 ${t.id}「${t.title.zh}」的详情和处理进度` : `Open ticket ${t.id} "${t.title.en}" — show details and progress`)}`} className="flex-1 rounded-[8px] border border-line-strong bg-white py-[7px] text-center text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
           {lang === 'zh' ? '打开' : 'Open'}
-        </button>
+        </Link>
         {t.status === 'open' && (
-          <button className="flex-1 rounded-[8px] bg-ink py-[7px] text-[11.5px] font-semibold text-white">
+          <Link href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? `为工单 ${t.id}「${t.title.zh}」派工，帮我推荐师傅和报价` : `Dispatch ticket ${t.id} "${t.title.en}" — recommend a technician and quote`)}`} className="flex-1 rounded-[8px] bg-ink py-[7px] text-center text-[11.5px] font-semibold text-white">
             {lang === 'zh' ? '派工' : 'Dispatch'}
-          </button>
+          </Link>
         )}
       </div>
     </div>

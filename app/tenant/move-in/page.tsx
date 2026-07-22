@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
@@ -105,8 +106,9 @@ export default function TenantMoveInPage() {
             {PHOTO_TILES.map((t) => {
               const captured = typeof t.done === 'number'
               return (
-                <button
+                <Link
                   key={t.room.en}
+                  href={`/tenant/agent?prompt=${encodeURIComponent(lang === 'zh' ? `我要上传${t.room.zh}的入住状态照片，帮我记录进 audit log` : `I want to upload move-in condition photos of the ${t.room.en.toLowerCase()} — log them in my audit trail`)}`}
                   className={
                     'flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-5 text-center transition ' +
                     (captured
@@ -125,7 +127,7 @@ export default function TenantMoveInPage() {
                       {t.need[lang]}
                     </span>
                   )}
-                </button>
+                </Link>
               )
             })}
           </div>
@@ -216,8 +218,8 @@ export default function TenantMoveInPage() {
 
         {/* ── Actions ── */}
         <div className="mt-7 flex flex-wrap justify-center gap-3">
-          <button className="sl-btn-primary px-7 py-3.5">{lang === 'zh' ? '完成入住检查 · 提交给 Sarah' : 'Finish move-in check · submit to Sarah'}</button>
-          <button className="sl-btn-ghost px-6 py-3.5">{lang === 'zh' ? '有问题，先暂停' : 'Something’s wrong, pause'}</button>
+          <Link href={`/tenant/agent?prompt=${encodeURIComponent(lang === 'zh' ? '入住检查完成，帮我把检查结果提交给房东 Sarah' : 'Move-in check complete — submit the results to landlord Sarah for me')}`} className="sl-btn-primary px-7 py-3.5">{lang === 'zh' ? '完成入住检查 · 提交给 Sarah' : 'Finish move-in check · submit to Sarah'}</Link>
+          <Link href={`/tenant/agent?prompt=${encodeURIComponent(lang === 'zh' ? '入住检查发现问题，先暂停提交，帮我记录问题清单' : 'Found issues during move-in check — pause the submission and help me log them')}`} className="sl-btn-ghost px-6 py-3.5">{lang === 'zh' ? '有问题，先暂停' : 'Something’s wrong, pause'}</Link>
         </div>
       </div>
     </WorkspaceShell>

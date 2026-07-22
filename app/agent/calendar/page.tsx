@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useT } from '@/lib/i18n'
@@ -66,15 +67,15 @@ export default function AgentCalendarPage() {
           <p className="mt-1 text-[13.5px] text-body-2">{zh ? '绿 = 已完成 · 蓝 = 已确认 · 黄 = 等你接' : 'Green = done · Blue = confirmed · Yellow = awaiting you'}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="rounded-[10px] border border-line-strong bg-white px-3 py-[8px] text-[12.5px] font-semibold">
+          <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? '给我看上周（第 19 周）的带看记录和结算情况' : 'Show me last week’s (week 19) showings and settlements')}`} className="rounded-[10px] border border-line-strong bg-white px-3 py-[8px] text-[12.5px] font-semibold transition hover:border-brand hover:text-brand">
             {zh ? '← 上周' : '← Last week'}
-          </button>
-          <button className="rounded-[10px] border border-ink bg-ink px-3 py-[8px] text-[12.5px] font-semibold text-white">
+          </Link>
+          <span aria-current="true" className="rounded-[10px] border border-ink bg-ink px-3 py-[8px] text-[12.5px] font-semibold text-white">
             {zh ? '本周' : 'This week'}
-          </button>
-          <button className="rounded-[10px] border border-line-strong bg-white px-3 py-[8px] text-[12.5px] font-semibold">
+          </span>
+          <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? '给我看下周（第 21 周）已排的带看和空档' : 'Show me next week’s (week 21) booked showings and open slots')}`} className="rounded-[10px] border border-line-strong bg-white px-3 py-[8px] text-[12.5px] font-semibold transition hover:border-brand hover:text-brand">
             {zh ? '下周 →' : 'Next week →'}
-          </button>
+          </Link>
         </div>
       </div>
 

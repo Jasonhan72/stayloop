@@ -732,12 +732,12 @@ export default function ListingDetailPage() {
                   <div className="mt-1 text-[12px] text-body-2">★ 4.8 · 27 transactions</div>
                 </div>
               </div>
-              <button
-                type="button"
-                className="mt-4 w-full rounded-[10px] border border-line-strong bg-white py-[10px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
+              <Link
+                href={`/tenant/agent?prompt=${encodeURIComponent(zh ? `我想咨询 ${listing.address} 这个房源，帮我联系${listing.broker_name ? `经纪 ${listing.broker_name}` : '房东'}` : `I'd like to ask about the listing at ${listing.address} — connect me with ${listing.broker_name ? `agent ${listing.broker_name}` : 'the landlord'}`)}`}
+                className="mt-4 block w-full rounded-[10px] border border-line-strong bg-white py-[10px] text-center text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
               >
                 {zh ? '和 AI Agent 对话' : 'Chat with AI Agent'}
-              </button>
+              </Link>
             </div>
 
             {/* Heat card */}

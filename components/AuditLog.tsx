@@ -198,7 +198,7 @@ export default function AuditLog({ role }: { role: WorkspaceRole }) {
             </button>
           )
         })}
-        <button className="ml-auto rounded-full border border-line-strong bg-white px-3.5 py-[6px] text-[12px] font-semibold text-body-2 transition hover:border-brand hover:text-brand">
+        <button onClick={() => window.print()} className="ml-auto rounded-full border border-line-strong bg-white px-3.5 py-[6px] text-[12px] font-semibold text-body-2 transition hover:border-brand hover:text-brand">
           {lang === 'zh' ? '下载 PDF' : 'Download PDF'}
         </button>
       </div>
@@ -273,7 +273,7 @@ function Aside() {
             ? '每条事件都写入链上哈希，任何人无法事后修改或删除。争议进入 LTB 时，这份记录即为最终证据。'
             : 'Every event is written to an on-chain hash that no one can later alter or delete. If a dispute reaches the LTB, this record is the final evidence.'}
         </div>
-        <button className="mt-3 w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-[12.5px] font-semibold transition hover:border-brand hover:text-brand">
+        <button onClick={() => window.print()} className="mt-3 w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-[12.5px] font-semibold transition hover:border-brand hover:text-brand">
           {lang === 'zh' ? '下载完整 PDF 报告' : 'Download full PDF report'}
         </button>
       </div>

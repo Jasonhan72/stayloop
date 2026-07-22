@@ -461,17 +461,29 @@ function DemoApplicantDetail({ id }: { id: string }) {
                 : 'Suggestion: approve the showing, then ask her to earn the bank stamp for full income evidence before deciding on the lease.'}
             </p>
             <div className="mt-4 flex flex-col gap-2">
-              <button className="sl-btn-primary !py-[12px]">
+              <Link
+                href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '批准 Mia Chen 的看房，并派 David Park 带看 Unit 1207 King West' : 'Approve Mia Chen’s showing and assign David Park to show Unit 1207 King West')}`}
+                className="sl-btn-primary !py-[12px] text-center"
+              >
                 {lang === 'zh' ? '✓ 批准看房 · 派 David' : '✓ Approve showing · assign David'}
-              </button>
+              </Link>
               <Link href={`/landlord/leases/new?application_id=${id}`} className="sl-btn-secondary text-center">
                 {lang === 'zh' ? '📄 起草租约' : '📄 Draft lease'}
               </Link>
-              <button className="sl-btn-secondary">{lang === 'zh' ? '★★★ 请她盖银行章' : '★★★ Ask her to earn the bank stamp'}</button>
-              <button className="sl-btn-secondary">{lang === 'zh' ? '💬 先跟她聊一下（经她的 AI Agent 中介）' : '💬 Chat with her first (via her AI agent)'}</button>
-              <button className="rounded-lg border border-danger/40 bg-white px-4 py-[10px] text-[13.5px] font-semibold text-danger">
+              <Link
+                href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '请 Mia Chen 补充银行流水并盖上银行章，给我完整收入证据' : 'Ask Mia Chen to connect her bank and earn the bank stamp for full income evidence')}`}
+                className="sl-btn-secondary text-center"
+              >{lang === 'zh' ? '★★★ 请她盖银行章' : '★★★ Ask her to earn the bank stamp'}</Link>
+              <Link
+                href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我通过 Mia Chen 的 AI Agent 先跟她聊一下入住时间和养猫的情况' : 'Chat with Mia Chen via her AI agent about move-in timing and her cat')}`}
+                className="sl-btn-secondary text-center"
+              >{lang === 'zh' ? '💬 先跟她聊一下（经她的 AI Agent 中介）' : '💬 Chat with her first (via her AI agent)'}</Link>
+              <Link
+                href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '我想婉拒 Mia Chen 的申请，帮我走合规流程（需要具体、非歧视性的理由，写入 audit log）' : 'I want to decline Mia Chen’s application — walk me through the compliant process (specific, non-discriminatory reason, logged to audit)')}`}
+                className="rounded-lg border border-danger/40 bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-danger"
+              >
                 {lang === 'zh' ? '✗ 不合适（需选理由）' : '✗ Not a fit (reason required)'}
-              </button>
+              </Link>
             </div>
             <p className="mt-3 rounded-lg bg-danger/[0.06] px-3 py-2.5 text-[11.5px] leading-relaxed text-body-2">
               <b className="text-danger">⚠️ {lang === 'zh' ? 'RTA 提示：' : 'RTA notice: '}</b>

@@ -205,7 +205,7 @@ export default function DisputesPage() {
                   {c.urgent && <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: c.color }} />}
                   {c.statusLabel[lang]}
                 </span>
-                <Link href="#" className="flex-shrink-0 text-[12.5px] font-semibold hover:underline" style={{ color: '#7C3AED' }}>
+                <Link href="#case-detail" className="flex-shrink-0 text-[12.5px] font-semibold hover:underline" style={{ color: '#7C3AED' }}>
                   {zh ? '打开 →' : 'Open →'}
                 </Link>
               </div>
@@ -218,7 +218,7 @@ export default function DisputesPage() {
         <div className="mx-auto grid max-w-[1240px] gap-6 px-5 py-8 sm:px-7 lg:grid-cols-[1.3fr_0.7fr] lg:px-12">
           {/* case detail + stages */}
           <div className="space-y-6">
-            <div className="sl-card p-6">
+            <div id="case-detail" className="sl-card scroll-mt-24 p-6">
               <div className="flex items-center justify-between">
                 <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '当前案件 · DSP-2K8X · DAY 3 / 14' : 'CURRENT CASE · DSP-2K8X · DAY 3 / 14'}</div>
                 <span className="flex items-center gap-1.5 rounded-md px-2 py-[3px] font-mono text-[10px] font-bold" style={{ background: 'rgba(220,38,38,0.10)', color: '#DC2626' }}>
@@ -272,8 +272,8 @@ export default function DisputesPage() {
                 )}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button className="rounded-lg px-4 py-[9px] text-[13px] font-semibold text-white" style={{ background: '#7C3AED' }}>{zh ? '查看协商函草稿' : 'View negotiation letter draft'}</button>
-                <button className="rounded-lg border border-line-strong bg-white px-4 py-[8px] text-[13px] font-semibold text-body hover:border-[#7C3AED]" style={{ ['--tw-text-opacity' as string]: 1 }}>{zh ? '📋 帮我升级 LTB' : '📋 Help me escalate to LTB'}</button>
+                <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '给我看 DSP-2K8X 押金争议的协商函草稿' : 'Show me the negotiation letter draft for deposit dispute DSP-2K8X')}`} className="rounded-lg px-4 py-[9px] text-[13px] font-semibold text-white" style={{ background: '#7C3AED' }}>{zh ? '查看协商函草稿' : 'View negotiation letter draft'}</Link>
+                <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '调解没有进展，帮我把 DSP-2K8X 押金争议升级到 LTB，准备 T1 表格' : 'Mediation stalled — escalate deposit dispute DSP-2K8X to the LTB and prepare the T1 form')}`} className="rounded-lg border border-line-strong bg-white px-4 py-[8px] text-[13px] font-semibold text-body hover:border-[#7C3AED]" style={{ ['--tw-text-opacity' as string]: 1 }}>{zh ? '📋 帮我升级 LTB' : '📋 Help me escalate to LTB'}</Link>
               </div>
             </div>
           </div>
@@ -375,7 +375,7 @@ export default function DisputesPage() {
                     <span className="font-mono text-[13px] font-bold" style={{ color: '#7C3AED' }}>{l.rate}</span>
                     <span className="ml-2 font-mono text-[10.5px] text-body-3">{l.ratePkg[lang]}</span>
                   </div>
-                  <button className="rounded-lg px-3 py-[7px] text-[11.5px] font-semibold text-white" style={{ background: '#7C3AED' }}>{l.video[lang]}</button>
+                  <Link href="/contact" className="rounded-lg px-3 py-[7px] text-[11.5px] font-semibold text-white" style={{ background: '#7C3AED' }}>{l.video[lang]}</Link>
                 </div>
               </div>
             ))}

@@ -114,9 +114,9 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
     </div>
   )
 
-  if (external) {
+  if (external && l.url) {
     return (
-      <a href={l.url || '#'} target="_blank" rel="noopener noreferrer" className="block h-full">
+      <a href={l.url} target="_blank" rel="noopener noreferrer" className="block h-full">
         {inner}
       </a>
     )

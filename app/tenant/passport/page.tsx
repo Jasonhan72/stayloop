@@ -157,7 +157,7 @@ export default function TenantPassport() {
               </p>
             </div>
             <Link
-              href={currentTier.status === 'current' ? '/onboarding/tier1' : '#'}
+              href="/onboarding/tier1"
               className="sl-btn-primary !px-6 !py-3 shrink-0"
             >
               {zh ? '盖这枚章 →' : 'Stamp it →'}

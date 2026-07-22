@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
@@ -82,6 +83,11 @@ export default function AgentTasksPage() {
   const filters = zh
     ? ['全部', '看房', '审核', '租约', 'brief 包']
     : ['All', 'Showings', 'Screening', 'Leases', 'Prep packs']
+  const FILTER_TYPES = [null, 'showing', 'screening', 'lease', 'package'] as const
+  const [filterIdx, setFilterIdx] = useState(0)
+  const visibleTasks = TASKS(aiName).filter(
+    (t) => FILTER_TYPES[filterIdx] === null || t.type === FILTER_TYPES[filterIdx],
+  )
   return (
     <WorkspaceShell role="agent" aside={<Aside />}>
       <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
@@ -94,7 +100,7 @@ export default function AgentTasksPage() {
             {zh ? `${aiName} 按 SLA 排序 — 越上面越紧急。完成一个就消失一个。` : `${aiName} sorts by SLA — the higher up, the more urgent. Finish one and it disappears.`}
           </p>
         </div>
-        <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{zh ? '+ 新任务' : '+ New task'}</button>
+        <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? '帮我创建一个新任务，排进今天的队列' : 'Create a new task for me and slot it into today’s queue')}`} className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{zh ? '+ 新任务' : '+ New task'}</Link>
       </div>
 
       <AIProactive
@@ -121,9 +127,11 @@ export default function AgentTasksPage() {
         {filters.map((f, i) => (
           <button
             key={f}
+            onClick={() => setFilterIdx(i)}
+            aria-pressed={i === filterIdx}
             className={
               'rounded-[8px] border px-3 py-[6px] text-[12.5px] font-semibold transition ' +
-              (i === 0
+              (i === filterIdx
                 ? 'border-ink bg-ink text-white'
                 : 'border-line-strong bg-white text-body hover:border-brand hover:text-brand')
             }
@@ -152,7 +160,7 @@ export default function AgentTasksPage() {
 
       {/* Task list */}
       <div className="sl-card overflow-hidden">
-        {TASKS(aiName).map((t, i) => {
+        {visibleTasks.map((t, i) => {
           const p = PRIORITY_STYLE[t.priority]
           return (
             <div
@@ -196,13 +204,13 @@ export default function AgentTasksPage() {
                     {zh ? '看房现场 →' : 'Showing live →'}
                   </Link>
                 ) : (
-                  <button className="rounded-[8px] bg-ink px-3 py-[7px] text-[11.5px] font-semibold text-white">
+                  <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? `开始任务 ${t.id}「${t.title.zh}」，带我过一遍要做的事` : `Start task ${t.id} "${t.title.en}" — walk me through what's needed`)}`} className="rounded-[8px] bg-ink px-3 py-[7px] text-center text-[11.5px] font-semibold text-white">
                     {zh ? '开始' : 'Start'}
-                  </button>
+                  </Link>
                 )}
-                <button className="rounded-[8px] border border-line-strong bg-white px-3 py-[7px] text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
+                <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? `帮我把任务 ${t.id}「${t.title.zh}」延期，并通知相关客户` : `Defer task ${t.id} "${t.title.en}" and notify the client involved`)}`} className="rounded-[8px] border border-line-strong bg-white px-3 py-[7px] text-center text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
                   {zh ? '延期' : 'Defer'}
-                </button>
+                </Link>
               </div>
             </div>
           )

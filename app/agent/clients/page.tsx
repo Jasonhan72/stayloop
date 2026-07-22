@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import StampBadge from '@/components/StampBadge'
 import WorkspaceShell from '@/components/WorkspaceShell'
@@ -131,6 +133,10 @@ export default function AgentClientsPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
   const aiName = useAIName('agent')
+  const [sortByStamps, setSortByStamps] = useState(false)
+  const clients = sortByStamps
+    ? [...CLIENTS(aiName)].sort((a, b) => b.tier - a.tier)
+    : CLIENTS(aiName)
   return (
     <WorkspaceShell role="agent" aside={<Aside />}>
       <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
@@ -143,7 +149,7 @@ export default function AgentClientsPage() {
             {zh ? `${aiName} 自动 CRM · 按阶段 / 盖章进度 / 预算分组 · 跟进自动安排` : `${aiName} auto-CRM · grouped by stage / stamps / budget · follow-ups scheduled automatically`}
           </p>
         </div>
-        <button className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{zh ? '+ 加客户' : '+ Add client'}</button>
+        <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? '帮我添加一位新客户，记录姓名、预算、目标区域和盖章进度' : 'Add a new client for me — name, budget, target area and stamp progress')}`} className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{zh ? '+ 加客户' : '+ Add client'}</Link>
       </div>
 
       <AIProactive
@@ -185,8 +191,17 @@ export default function AgentClientsPage() {
           placeholder={zh ? '搜索客户 / 区域 / 盖章进度' : 'Search clients / area / stamps'}
           className="flex-1 rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] outline-none focus:border-brand"
         />
-        <button className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
-          {zh ? '按 盖章进度 ▾' : 'By stamps ▾'}
+        <button
+          onClick={() => setSortByStamps((v) => !v)}
+          aria-pressed={sortByStamps}
+          className={
+            'rounded-[10px] border px-4 py-[10px] text-[12.5px] font-semibold transition ' +
+            (sortByStamps
+              ? 'border-brand bg-brand/5 text-brand'
+              : 'border-line-strong bg-white text-body hover:border-brand hover:text-brand')
+          }
+        >
+          {zh ? (sortByStamps ? '按 盖章进度 ✓' : '按 盖章进度 ▾') : (sortByStamps ? 'By stamps ✓' : 'By stamps ▾')}
         </button>
       </div>
 
@@ -204,7 +219,7 @@ export default function AgentClientsPage() {
             </tr>
           </thead>
           <tbody>
-            {CLIENTS(aiName).map((c) => {
+            {clients.map((c) => {
               const ss = STAGE_STYLE[c.stage]
               return (
                 <tr
@@ -242,9 +257,9 @@ export default function AgentClientsPage() {
                   </td>
                   <td className="px-6 py-3 text-[12.5px] text-body-2">{c.next[lang]}</td>
                   <td className="px-6 py-3 text-right">
-                    <button className="rounded-[8px] border border-line-strong bg-white px-3 py-[6px] text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
+                    <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? `打开客户 ${c.name} 的档案，给我最新进展和下一步建议` : `Open ${c.name}'s client file — latest progress and next-step suggestions`)}`} className="inline-block rounded-[8px] border border-line-strong bg-white px-3 py-[6px] text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
                       {zh ? '打开' : 'Open'}
-                    </button>
+                    </Link>
                   </td>
                 </tr>
               )
