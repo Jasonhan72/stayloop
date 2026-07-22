@@ -6,6 +6,7 @@ import AgentChat from '@/components/agent/AgentChat'
 import WorkflowStatusPanel from '@/components/agent/WorkflowStatusPanel'
 import RecommendationDeck from '@/components/agent/RecommendationDeck'
 import PendingActionsPanel from '@/components/agent/PendingActionsPanel'
+import StatusOverview from '@/components/agent/StatusOverview'
 import PrivateMemorySnapshot from '@/components/agent/PrivateMemorySnapshot'
 import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
 import { useEffect, useRef } from 'react'
@@ -55,7 +56,12 @@ export default function LandlordAgentPage() {
         </div>
 
         <div className="space-y-6 lg:h-[calc(100vh-150px)] lg:overflow-y-auto lg:pr-1">
-          {pendingActions.length > 0 && <PendingActionsPanel actions={pendingActions} onDecide={decide} />}
+          {pendingActions.length > 0 && (
+            <div id="sl-approvals" className="scroll-mt-24">
+              <PendingActionsPanel actions={pendingActions} onDecide={decide} />
+            </div>
+          )}
+          <StatusOverview role="landlord" live={live} pendingCount={pendingActions.length} />
           <WorkflowStatusPanel role="landlord" workflow={workflow} />
           <RecommendationDeck items={recommendations} />
           <PrivateMemorySnapshot agentName={agent.agent_name} memories={memories} />
