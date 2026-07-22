@@ -1,5 +1,5 @@
 -- P2: anon_rate_limits daily cleanup + app_config.updated_by integrity.
--- PENDING prod apply (Supabase MCP down 2026-07-21) — paste in Studio SQL editor.
+-- Applied to prod 2026-07-22 via Supabase MCP (was pending during outage).
 create or replace function public.cleanup_anon_rate_limits() returns void
 language sql security definer set search_path to 'public'
 as $$ delete from public.anon_rate_limits where window_start < now() - interval '1 day'; $$;

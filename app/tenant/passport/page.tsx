@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useT } from '@/lib/i18n'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/useAuth'
 import { stampForTier, stampLabel, STAMP_CHECK_GREEN } from '@/lib/passportStamps'
 
 type Bi = { zh: string; en: string }
@@ -82,8 +84,19 @@ const SHARING_MODES: Array<{ key: SharingMode; title: Bi; desc: Bi }> = [
   },
 ]
 
-/** Demo read-only share link (Mia Chen canon). */
-const SHARE_URL = 'stayloop.ai/p/mia-chen-7f3a'
+/** Demo read-only share link (Mia Chen canon — shown to anonymous/preview visitors). */
+const DEMO_SHARE_URL = 'stayloop.ai/p/mia-chen-7f3a'
+
+/** 24 random bytes → 32-char base64url token (matches the DB check: ≥32, [A-Za-z0-9_-]). */
+function generateShareToken(): string {
+  const bytes = new Uint8Array(24)
+  crypto.getRandomValues(bytes)
+  let bin = ''
+  bytes.forEach((b) => {
+    bin += String.fromCharCode(b)
+  })
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
 
 /** Rent record — same 5 months as /tenant/payments history, oldest first. */
 const RENT_RECORD: Array<{ month: Bi; status: 'paid' | 'late' }> = [
@@ -126,11 +139,107 @@ function QrPlaceholder() {
 export default function TenantPassport() {
   const { lang } = useT()
   const zh = lang === 'zh'
+  const { user } = useAuth()
   const [sharingMode, setSharingMode] = useState<SharingMode>('open')
   const [copied, setCopied] = useState(false)
 
+  // ── Off-platform share token (real rows for logged-in tenants; demo otherwise) ──
+  const [shareToken, setShareToken] = useState<{ token: string; expires_at: string } | null>(null)
+  const [shareBusy, setShareBusy] = useState(false)
+  const [shareErr, setShareErr] = useState(false)
+
+  // ── Rent-reporting waitlist (user_memories, zero new tables) ──
+  const [waitlistJoined, setWaitlistJoined] = useState(false)
+  const [waitlistBusy, setWaitlistBusy] = useState(false)
+
+  useEffect(() => {
+    if (!user) {
+      setShareToken(null)
+      setWaitlistJoined(false)
+      return
+    }
+    let cancelled = false
+    // Active token, if any (RLS scopes to the tenant's own rows).
+    supabase
+      .from('passport_share_tokens')
+      .select('token,expires_at')
+      .is('revoked_at', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data }) => {
+        if (!cancelled && data && data.length) setShareToken(data[0])
+      })
+    // Already on the rent-reporting waitlist?
+    supabase
+      .from('user_memories')
+      .select('id')
+      .eq('role', 'tenant')
+      .eq('key', 'waitlist_rent_reporting')
+      .limit(1)
+      .then(({ data }) => {
+        if (!cancelled && data && data.length) setWaitlistJoined(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+
+  const handleGenerate = async () => {
+    if (!user || shareBusy) return
+    setShareBusy(true)
+    setShareErr(false)
+    const token = generateShareToken()
+    const { data, error } = await supabase
+      .from('passport_share_tokens')
+      .insert({ token, tenant_user_id: user.id })
+      .select('token,expires_at')
+      .single()
+    if (!error && data) setShareToken(data)
+    else setShareErr(true)
+    setShareBusy(false)
+  }
+
+  const handleRevoke = async () => {
+    if (!user || !shareToken || shareBusy) return
+    setShareBusy(true)
+    const { error } = await supabase
+      .from('passport_share_tokens')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('token', shareToken.token)
+    if (!error) setShareToken(null)
+    setShareBusy(false)
+  }
+
+  const handleJoinWaitlist = async () => {
+    if (!user || waitlistJoined || waitlistBusy) return
+    setWaitlistBusy(true)
+    const { error } = await supabase.from('user_memories').upsert(
+      {
+        user_id: user.id,
+        role: 'tenant',
+        memory_type: 'system',
+        key: 'waitlist_rent_reporting',
+        label: '租金上报征信 · 等候名单',
+        value: { joined_at: new Date().toISOString() },
+        confidence: 1,
+        source: 'waitlist',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,role,memory_type,key' }
+    )
+    if (!error) setWaitlistJoined(true)
+    setWaitlistBusy(false)
+  }
+
+  // Display path (real token when logged-in with an active row; demo otherwise).
+  const isRealShare = !!(user && shareToken)
+  const shareUrlDisplay = isRealShare ? `stayloop.ai/p/${shareToken!.token}` : DEMO_SHARE_URL
+
   const handleCopy = async () => {
-    const text = `https://${SHARE_URL}`
+    const text = isRealShare
+      ? `${window.location.origin}/p/${shareToken!.token}`
+      : `https://${DEMO_SHARE_URL}`
     let ok = false
     try {
       await navigator.clipboard.writeText(text)
@@ -347,19 +456,58 @@ export default function TenantPassport() {
                   : "Landlord not on Stayloop? One read-only link is all it takes — no sign-up needed on their side. One passport that wins over every landlord."}
               </p>
 
-              {/* Link + copy */}
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span className="min-w-0 truncate rounded-lg bg-surface-chip px-3.5 py-2.5 font-mono text-[12.5px] text-body">
-                  {SHARE_URL}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="sl-btn-secondary shrink-0 !px-4 !py-2.5 text-[13px]"
-                >
-                  {copied ? (zh ? '已复制 ✓' : 'Copied ✓') : zh ? '复制链接' : 'Copy link'}
-                </button>
-              </div>
+              {/* Link + copy — real token for logged-in tenants, demo otherwise */}
+              {user && !shareToken ? (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={handleGenerate}
+                    disabled={shareBusy}
+                    className="sl-btn-primary !px-5 !py-2.5 text-[13px] disabled:opacity-60"
+                  >
+                    {shareBusy
+                      ? zh ? '生成中…' : 'Generating…'
+                      : zh ? '生成分享链接' : 'Generate share link'}
+                  </button>
+                  {shareErr && (
+                    <p className="mt-2 text-[12px] text-danger">
+                      {zh
+                        ? '生成失败，请稍后重试。'
+                        : 'Could not generate the link — please try again shortly.'}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <span className="min-w-0 max-w-full truncate rounded-lg bg-surface-chip px-3.5 py-2.5 font-mono text-[12.5px] text-body">
+                    {shareUrlDisplay}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="sl-btn-secondary shrink-0 !px-4 !py-2.5 text-[13px]"
+                  >
+                    {copied ? (zh ? '已复制 ✓' : 'Copied ✓') : zh ? '复制链接' : 'Copy link'}
+                  </button>
+                  {isRealShare && (
+                    <button
+                      type="button"
+                      onClick={handleRevoke}
+                      disabled={shareBusy}
+                      className="shrink-0 rounded-lg px-3 py-2.5 text-[13px] font-semibold text-danger transition hover:bg-danger/5 disabled:opacity-60"
+                    >
+                      {shareBusy ? (zh ? '撤销中…' : 'Revoking…') : zh ? '撤销' : 'Revoke'}
+                    </button>
+                  )}
+                </div>
+              )}
+              {isRealShare && (
+                <p className="mt-2 font-mono text-[10.5px] tracking-wide text-body-3">
+                  {zh
+                    ? `有效至 ${new Date(shareToken!.expires_at).toLocaleDateString('zh-CN')} · 撤销后立即失效`
+                    : `Valid until ${new Date(shareToken!.expires_at).toLocaleDateString('en-CA')} · revoking takes effect immediately`}
+                </p>
+              )}
 
               <ul className="mt-4 space-y-1.5 text-[12.5px] leading-relaxed text-body-2">
                 {[
@@ -557,6 +705,48 @@ export default function TenantPassport() {
               <span className="block text-body-3">
                 {zh ? '2 月迟付 3 天 · 已附情况说明（银行转账延迟）' : 'Feb was 3 days late · explanation on file (bank transfer delay)'}
               </span>
+            </div>
+          </div>
+
+          {/* ── Rent reporting to credit bureau — waitlist ── */}
+          <div className="mt-6 rounded-2xl border border-dashed border-line-strong bg-surface-chip p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-[14px] font-bold tracking-tight">
+                {zh ? '上报到信用局' : 'Report rent to the credit bureau'}
+              </h3>
+              <span className="rounded-full bg-tenant/10 px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-wide text-tenant">
+                {zh ? '即将上线' : 'COMING SOON'}
+              </span>
+            </div>
+            <p className="mt-2 max-w-[560px] text-[13px] leading-relaxed text-body-2">
+              {zh
+                ? '按时交租也能积累信用：我们正在接入信用局，把你的按时租金记录上报 Equifax，帮你建立加拿大信用历史——对新移民尤其有用。上线后由你自主选择是否开启。'
+                : 'On-time rent can build credit too: we are working on reporting your on-time rent payments to Equifax to help build Canadian credit history — especially useful for newcomers. Opt-in only, once it launches.'}
+            </p>
+            <div className="mt-3">
+              {!user ? (
+                <Link href="/login" className="sl-btn-secondary inline-flex !px-4 !py-2 text-[13px]">
+                  {zh ? '登录后加入等候名单' : 'Log in to join the waitlist'}
+                </Link>
+              ) : waitlistJoined ? (
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-semibold"
+                  style={{ color: STAMP_CHECK_GREEN }}
+                >
+                  {zh ? '已加入 ✓' : 'Joined ✓'}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleJoinWaitlist}
+                  disabled={waitlistBusy}
+                  className="sl-btn-secondary !px-4 !py-2 text-[13px] disabled:opacity-60"
+                >
+                  {waitlistBusy
+                    ? zh ? '提交中…' : 'Joining…'
+                    : zh ? '加入等候名单' : 'Join the waitlist'}
+                </button>
+              )}
             </div>
           </div>
         </div>

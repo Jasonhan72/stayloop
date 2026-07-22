@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
+import InsuranceReferralCard from '@/components/tenant/InsuranceReferralCard'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
@@ -215,6 +216,9 @@ export default function TenantMoveInPage() {
             )}
           </div>
         </div>
+
+        {/* ── Optional insurance referral (config-driven; hidden unless enabled in app_config) ── */}
+        <InsuranceReferralCard />
 
         {/* ── Actions ── */}
         <div className="mt-7 flex flex-wrap justify-center gap-3">
