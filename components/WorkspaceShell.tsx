@@ -18,7 +18,7 @@ interface RailItem {
 
 const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   tenant: [
-    { key: 'home',      href: '/tenant/agent',     icon: <HomeIcon />,    label: { zh: '主页', en: 'Home' } },
+    { key: 'home',      href: '/tenant/agent',     icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } },
     { key: 'listings',  href: '/listings',         icon: <ListIcon />,    label: { zh: '房源', en: 'Listings' } },
     { key: 'apps',      href: '/tenant/applications', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } },
     { key: 'passport',  href: '/tenant/passport',  icon: <PassIcon />,    label: { zh: 'Passport', en: 'Passport' } },
@@ -28,8 +28,7 @@ const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
     { key: 'audit',     href: '/tenant/audit',     icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } },
   ],
   landlord: [
-    { key: 'home',      href: '/landlord/agent',   icon: <HomeIcon />,    label: { zh: '主页', en: 'Home' } },
-    { key: 'listings',  href: '/dashboard',        icon: <ListIcon />,    label: { zh: '房源', en: 'Listings' } },
+    { key: 'home',      href: '/landlord/agent',   icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } },
     { key: 'apps',      href: '/landlord/applicants', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } },
     { key: 'lease',     href: '/landlord/leases',  icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } },
     { key: 'maint',     href: '/landlord/maintenance', icon: <ToolIcon />,label: { zh: '维修', en: 'Maint.' } },
@@ -37,7 +36,7 @@ const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
     { key: 'audit',     href: '/landlord/audit',   icon: <AuditIcon />,   label: { zh: '审计', en: 'Audit' } },
   ],
   agent: [
-    { key: 'home',      href: '/agent/agent',      icon: <HomeIcon />,    label: { zh: '主页', en: 'Home' } },
+    { key: 'home',      href: '/agent/agent',      icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } },
     { key: 'tasks',     href: '/agent/tasks',      icon: <FileIcon />,    label: { zh: '任务', en: 'Tasks' } },
     { key: 'clients',   href: '/agent/clients',    icon: <ListIcon />,    label: { zh: '客户', en: 'Clients' } },
     { key: 'cal',       href: '/agent/calendar',   icon: <ToolIcon />,    label: { zh: '日历', en: 'Calendar' } },
@@ -188,6 +187,7 @@ const I = (d: string) => (
 )
 
 function HomeIcon()  { return I('M3 9l9-7 9 7v11a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2z') }
+function ChatIcon()  { return I('M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z') }
 function ListIcon()  { return I('M3 6h18|M3 12h18|M3 18h18') }
 function FileIcon()  { return I('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z|M14 2v6h6|M16 13H8|M16 17H8|M10 9H8') }
 function PassIcon()  { return I('M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z|M3 10h18|M9 16h.01') }
