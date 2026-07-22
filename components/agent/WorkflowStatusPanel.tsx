@@ -24,7 +24,7 @@ export default function WorkflowStatusPanel({
         const done = i < curIdx || workflow.completed_steps.includes(s.key)
         const now = i === curIdx
         const state: 'done' | 'now' | 'next' = done ? 'done' : now ? 'now' : 'next'
-        return <Row key={s.key} state={state} label={s.label} />
+        return <Row key={s.key} state={state} label={s.label[lang]} />
       })}
     </div>
   )

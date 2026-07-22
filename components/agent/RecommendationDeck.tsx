@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useT } from '@/lib/i18n'
-import type { Recommendation } from '@/lib/agent/types'
+import type { BiText, Recommendation } from '@/lib/agent/types'
 
 export default function RecommendationDeck({
   items,
@@ -10,6 +10,7 @@ export default function RecommendationDeck({
   items: Recommendation[]
 }) {
   const { lang } = useT()
+  const txt = (v: BiText) => (typeof v === 'string' ? v : v[lang])
   if (!items?.length) return null
   return (
     <div>
@@ -26,14 +27,14 @@ export default function RecommendationDeck({
             <div className="sl-card group flex items-center gap-3 p-3.5 transition hover:border-brand hover:shadow-sm">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-[13.5px] font-bold leading-snug group-hover:text-brand">{r.title}</span>
+                  <span className="truncate text-[13.5px] font-bold leading-snug group-hover:text-brand">{txt(r.title)}</span>
                   {r.badge && (
                     <span className="flex-none rounded bg-brand/10 px-1.5 py-[2px] font-mono text-[9px] font-bold uppercase tracking-wider text-brand">
                       {r.badge}
                     </span>
                   )}
                 </div>
-                <div className="mt-0.5 truncate text-[12px] text-body-3">{r.description}</div>
+                <div className="mt-0.5 truncate text-[12px] text-body-3">{txt(r.description)}</div>
               </div>
               <span className="flex-none text-[14px] text-body-4 transition group-hover:translate-x-0.5 group-hover:text-brand">→</span>
             </div>

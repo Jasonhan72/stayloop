@@ -11,6 +11,7 @@
  */
 
 import { STAMPS, STAMP_CHECK_GREEN } from '@/lib/passportStamps'
+import { useT } from '@/lib/i18n'
 
 function clampTier(tier: number): number {
   return Math.min(Math.max(Math.round(tier), 0), 4)
@@ -18,6 +19,7 @@ function clampTier(tier: number): number {
 
 /** Compact pill: `2/4 章` with a tiny green ✓ when at least one stamp is earned. */
 export function StampBadge({ tier, className = '' }: { tier: number; className?: string }) {
+  const { lang } = useT()
   const t = clampTier(tier)
   return (
     <span className={`tier-badge t${Math.max(t, 1)} ${className}`.trim()}>
@@ -30,7 +32,7 @@ export function StampBadge({ tier, className = '' }: { tier: number; className?:
           ✓
         </span>
       )}
-      {t}/4 章
+      {lang === 'zh' ? `${t}/4 章` : `${t}/4 stamps`}
     </span>
   )
 }

@@ -115,7 +115,7 @@ export default function AgentInputBar({
                 type="button"
                 onClick={() => setAtts((p) => p.filter((_, j) => j !== i))}
                 className="text-[14px] leading-none text-body-3 transition hover:text-danger"
-                aria-label="移除附件"
+                aria-label={lang === 'zh' ? '移除附件' : 'Remove attachment'}
               >
                 ×
               </button>
@@ -130,7 +130,9 @@ export default function AgentInputBar({
         disabled={disabled || sending}
         onChange={(e) => setValue(e.target.value)}
         aria-label={`Message ${agentName}`}
-        placeholder={`告诉 ${agentName} 你想做什么 —— 文字、语音或上传文件都行`}
+        placeholder={lang === 'zh'
+          ? `告诉 ${agentName} 你想做什么 —— 文字、语音或上传文件都行`
+          : `Tell ${agentName} what you need — type, speak, or upload a file`}
         className="block max-h-60 min-h-[80px] w-full resize-none bg-transparent px-4 pt-3.5 text-[14.5px] leading-relaxed text-body outline-none placeholder:text-body-4"
       />
 
@@ -152,8 +154,8 @@ export default function AgentInputBar({
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={disabled || sending}
-            title="上传图片 / PDF"
-            aria-label="上传文件"
+            title={lang === 'zh' ? '上传图片 / PDF' : 'Upload image / PDF'}
+            aria-label={lang === 'zh' ? '上传文件' : 'Upload file'}
             className="flex h-9 w-9 items-center justify-center rounded-lg text-body-3 transition hover:bg-surface-chip hover:text-body disabled:opacity-50"
           >
             <ClipIcon />
@@ -163,8 +165,8 @@ export default function AgentInputBar({
               type="button"
               onClick={toggleVoice}
               disabled={disabled || sending}
-              title="语音输入"
-              aria-label="语音输入"
+              title={lang === 'zh' ? '语音输入' : 'Voice input'}
+              aria-label={lang === 'zh' ? '语音输入' : 'Voice input'}
               className={
                 'flex h-9 w-9 items-center justify-center rounded-lg transition disabled:opacity-50 ' +
                 (recording ? 'bg-danger/10 text-danger' : 'text-body-3 hover:bg-surface-chip hover:text-body')
@@ -174,7 +176,9 @@ export default function AgentInputBar({
             </button>
           )}
           <span className="ml-1 font-mono text-[11px] text-body-4">
-            {recording ? '● 录音中… 再点停止' : '↵ 换行 · 点「发送」提交'}
+            {recording
+              ? (lang === 'zh' ? '● 录音中… 再点停止' : '● Recording… tap again to stop')
+              : (lang === 'zh' ? '↵ 换行 · 点「发送」提交' : '↵ new line · click Send to submit')}
           </span>
         </div>
         <button
@@ -183,7 +187,7 @@ export default function AgentInputBar({
           disabled={disabled || sending || (!value.trim() && atts.length === 0)}
           className="sl-btn-primary !px-4 !py-[9px] !text-[13.5px] disabled:opacity-50"
         >
-          {sending ? '…' : '发送 →'}
+          {sending ? '…' : lang === 'zh' ? '发送 →' : 'Send →'}
         </button>
       </div>
     </div>

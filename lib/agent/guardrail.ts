@@ -41,7 +41,8 @@ const KEY_ACTION =
 
 export type GuardrailResult = { out: TurnOutput; flags: string[] }
 
-export function applyGuardrail(role: AgentRole, out: TurnOutput): GuardrailResult {
+export function applyGuardrail(role: AgentRole, out: TurnOutput, lang: 'zh' | 'en' = 'zh'): GuardrailResult {
+  const zh = lang === 'zh'
   const flags: string[] = []
   let reply = out.reply
   let action = out.proposedAction
@@ -54,8 +55,9 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput): GuardrailResul
     if (isRejection && PROTECTED_GROUNDS.test(blob)) {
       flags.push('blocked_discriminatory_rejection')
       action = null
-      reply +=
-        '\n\n⚠️ 这个理由涉及受保护特征（种族 / 国籍 / 家庭状况 / 性取向等），按安省人权法（OHRC）不能作为拒绝依据。我不会替你生成这张卡片。如果要拒绝，请给一个具体、与租住能力相关的合法理由（如收入不足、材料不全）。'
+      reply += zh
+        ? '\n\n⚠️ 这个理由涉及受保护特征（种族 / 国籍 / 家庭状况 / 性取向等），按安省人权法（OHRC）不能作为拒绝依据。我不会替你生成这张卡片。如果要拒绝，请给一个具体、与租住能力相关的合法理由（如收入不足、材料不全）。'
+        : "\n\n⚠️ That reason involves a protected ground (race / national origin / family status / sexual orientation, etc.), which under the Ontario Human Rights Code (OHRC) cannot be a basis for rejection. I won't generate that card for you. To reject, give a specific, lawful reason tied to ability to rent (e.g. insufficient income, incomplete documents)."
     }
   }
   if (role === 'landlord' && PROTECTED_GROUNDS.test(reply) && /(拒绝|不合适|不租|reject|decline)/i.test(reply)) {
@@ -65,22 +67,24 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput): GuardrailResul
   // 2) Illegal lease terms — never draft a void clause.
   if (ILLEGAL_LEASE.test(reply) || (action && ILLEGAL_LEASE.test(`${action.title} ${action.summary}`))) {
     flags.push('illegal_lease_term')
-    reply +=
-      '\n\n注：安省 RTA 下「禁止养宠」「押金超过一个月」等条款无效,我不会写进租约。'
+    reply += zh
+      ? '\n\n注：安省 RTA 下「禁止养宠」「押金超过一个月」等条款无效,我不会写进租约。'
+      : '\n\nNote: under the Ontario RTA, clauses like "no pets" or "deposit above one month" are void — I won\'t write them into a lease.'
   }
 
   // 3) No false "already done" claims — the agent proposes, it never executes.
   if (action && EXECUTED_CLAIM.test(`${action.title} ${action.summary}`)) {
     flags.push('rewrote_executed_claim')
-    action = { ...action, summary: action.summary.replace(new RegExp(EXECUTED_CLAIM.source, 'g'), '已准备好（待你确认）') }
+    action = { ...action, summary: action.summary.replace(new RegExp(EXECUTED_CLAIM.source, 'g'), zh ? '已准备好（待你确认）' : 'prepared (awaiting your confirmation)') }
   }
   // 3b) The reply TEXT can also falsely claim execution — worst when there is
   //     no pending card to correct the impression. Appending a correction is
   //     safer than regex-rewriting prose (which garbles mid-sentence Chinese).
   if (!action && EXECUTED_CLAIM.test(reply)) {
     flags.push('executed_claim_in_reply')
-    reply +=
-      '\n\n注：以上提到的操作**尚未真正执行**——任何对外发送、提交、签署或付款都会先以待确认卡片出现，经你批准后才会发生。'
+    reply += zh
+      ? '\n\n注：以上提到的操作**尚未真正执行**——任何对外发送、提交、签署或付款都会先以待确认卡片出现，经你批准后才会发生。'
+      : '\n\nNote: the actions mentioned above have **not actually been executed** — any outbound send, submission, signing or payment first appears as a confirmation card and only happens after you approve it.'
   }
 
   // 3c) Memory hygiene — LLM-authored memories are re-injected into every
@@ -128,7 +132,9 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput): GuardrailResul
  *  and a note explains why. */
 export function sanitizeDraftListing<T extends { title?: string; description?: string; pet_policy?: string }>(
   draft: T,
+  lang: 'zh' | 'en' = 'zh',
 ): { draft: T; flags: string[]; note: string | null } {
+  const zh = lang === 'zh'
   const flags: string[] = []
   const out = { ...draft }
   const NO_PETS = /(禁止养宠|不(允许|得|可)养宠|no[\s-]?pets?\b|pets?\s+not\s+allowed)/i
@@ -141,12 +147,16 @@ export function sanitizeDraftListing<T extends { title?: string; description?: s
       delete out[field]
     } else if (NO_PETS.test(v)) {
       flags.push(`draft_listing_illegal_term_${field}`)
-      if (field === 'pet_policy') out.pet_policy = '宠物友好政策待定（安省 RTA 下"禁止养宠"条款无效）'
+      if (field === 'pet_policy') out.pet_policy = zh
+        ? '宠物友好政策待定（安省 RTA 下"禁止养宠"条款无效）'
+        : 'Pet policy to be confirmed ("no pets" clauses are void under the Ontario RTA)'
       else delete out[field]
     }
   }
   const note = flags.length
-    ? '注：草稿中涉及 OHRC 受保护特征或 RTA 无效条款（如"禁止养宠"/排除家庭）的内容已被移除——这些不能出现在房源信息里。'
+    ? (zh
+        ? '注：草稿中涉及 OHRC 受保护特征或 RTA 无效条款（如"禁止养宠"/排除家庭）的内容已被移除——这些不能出现在房源信息里。'
+        : 'Note: content in the draft touching OHRC protected grounds or RTA-void clauses (e.g. "no pets" / excluding families) has been removed — these cannot appear in listing information.')
     : null
   return { draft: out, flags, note }
 }

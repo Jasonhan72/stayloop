@@ -58,10 +58,11 @@ export default function Tier1OnboardingPage() {
 }
 
 function ProgressBar({ step }: { step: Step }) {
+  const { lang } = useI18n()
   const idx = step === 'intro' ? 0 : step === 'capture-id' ? 1 : step === 'selfie' ? 2 : 3
   return (
     <div className="mb-10 flex items-center gap-3">
-      <span className="tier-badge t1">🪪 身份章 · ID</span>
+      <span className="tier-badge t1">{lang === 'zh' ? '🪪 身份章 · ID' : '🪪 Identity stamp · ID'}</span>
       <div className="h-1 flex-1 overflow-hidden rounded-full bg-line-divider">
         <div
           className="h-full rounded-full transition-all"

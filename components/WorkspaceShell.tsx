@@ -75,12 +75,15 @@ const DEMO_DATA_ROUTES = new Set([
 
 function DemoDataNotice() {
   const path = usePathname() || ''
+  const { lang } = useI18n()
   const isDemo = DEMO_DATA_ROUTES.has(path) ||
     [...DEMO_DATA_ROUTES].some(r => r !== '/notifications' && path.startsWith(r + '/'))
   if (!isDemo) return null
   return (
     <div className="mb-5 rounded-xl border border-line-strong bg-surface-chip px-4 py-2.5 font-mono text-[11px] leading-relaxed text-body-3">
-      示范数据 · 此页面当前展示的是产品演示内容,并非你的真实数据 · SAMPLE DATA — not your live records
+      {lang === 'zh'
+        ? '示范数据 · 此页面当前展示的是产品演示内容,并非你的真实数据 · SAMPLE DATA — not your live records'
+        : 'SAMPLE DATA · This page currently shows product demo content, not your live records'}
     </div>
   )
 }

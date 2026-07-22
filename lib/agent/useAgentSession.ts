@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
+import { useT, type Lang } from '@/lib/i18n'
 import type { AgentRole, AgentSessionResponse, AgentStatus, ChatAttachment, ChatMessage } from './types'
 import { loadAgentSession } from './session-loader'
 import { decidePendingAction } from './approval-engine'
@@ -71,7 +72,14 @@ async function reconcileAgentName(
   }
 }
 
-function greeting(role: AgentRole, name: string): string {
+function greeting(role: AgentRole, name: string, lang: Lang): string {
+  if (lang === 'en') {
+    if (role === 'tenant')
+      return `Hi, I'm ${name}. Tell me what kind of home you're after — area, budget, layout, hard requirements. Just say it, and I'll remember it all for you.`
+    if (role === 'landlord')
+      return `Hi, I'm ${name}. Leave applications, due diligence, compliance and renewals to me — you only nod at the 1–2 moments that matter.`
+    return `Hi, I'm ${name}. Showings, prep packs, on-site feedback, settlement — I take the busywork so you can focus on people and judgment.`
+  }
   if (role === 'tenant')
     return `你好,我是 ${name}。告诉我你想找什么样的家 —— 区域、预算、户型、硬条件,直接说就好,我都帮你记住。`
   if (role === 'landlord')
@@ -94,6 +102,11 @@ const RENDER_DEADLINE_MS = 10000
 
 export function useAgentSession(role: AgentRole): UseAgentSession {
   const { loading: authLoading, user } = useAuth()
+  const { lang } = useT()
+  // Read through a ref inside stable callbacks so a language switch doesn't
+  // recreate them (and re-trigger the load effects).
+  const langRef = useRef<Lang>(lang)
+  langRef.current = lang
   const [loading, setLoading] = useState(true)
   const [live, setLive] = useState(false)
   const [data, setData] = useState<AgentSessionResponse | null>(null)
@@ -142,7 +155,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           msgSeq.current = saved.length
           return saved
         }
-        return [{ id: nextId(), role: 'agent', text: greeting(role, d.agent.agent_name) }]
+        return [{ id: nextId(), role: 'agent', text: greeting(role, d.agent.agent_name, langRef.current) }]
       })
     },
     [role, user, live]
@@ -153,11 +166,23 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     if (messages.length > 1) saveMessages(role, chatScopeRef.current, messages)
   }, [messages, role])
 
+  // Demo mode only: when the language toggles, re-derive the demo fixtures so
+  // the preview cards/memories follow the switch. Live sessions hold real user
+  // data — never regenerated. Keep the (possibly user-named) agent identity.
+  useEffect(() => {
+    if (!settled.current || live) return
+    setData((prev) => {
+      if (!prev) return prev
+      const fresh = demoSession(role, lang)
+      return { ...fresh, agent: prev.agent }
+    })
+  }, [lang, live, role])
+
   // Safety net: render within RENDER_DEADLINE_MS no matter what (auth slow,
   // network hung, RPC stalled). Demo content mirrors the design, so the
   // worst case still looks right.
   useEffect(() => {
-    const t = setTimeout(() => settle(demoSession(role), false), RENDER_DEADLINE_MS)
+    const t = setTimeout(() => settle(demoSession(role, langRef.current), false), RENDER_DEADLINE_MS)
     return () => clearTimeout(t)
   }, [role, settle])
 
@@ -168,7 +193,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     let cancelled = false
     ;(async () => {
       if (!user) {
-        settle(demoSession(role), false)
+        settle(demoSession(role, langRef.current), false)
         return
       }
       try {
@@ -211,14 +236,16 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
               setMessages((msgs) => [...msgs, {
                 id: nextId(),
                 role: 'agent',
-                text: `我在你离开的时候检查了你的租约：有 ${j.created} 份租约进入了续约窗口。我已经算好方案（不涨 / 按 2026 指导上限 +2.5%），放在右侧待你批准 —— 批准后我会把续约函真实发送给租客。`,
+                text: langRef.current === 'zh'
+                  ? `我在你离开的时候检查了你的租约：有 ${j.created} 份租约进入了续约窗口。我已经算好方案（不涨 / 按 2026 指导上限 +2.5%），放在右侧待你批准 —— 批准后我会把续约函真实发送给租客。`
+                  : `While you were away I checked your leases: ${j.created} lease(s) entered the renewal window. I've worked out the options (no increase / +2.5% per the 2026 guideline cap) — they're on the right awaiting your approval. Once you approve, I'll actually send the renewal letter to your tenant.`,
               }])
             } catch { /* sweep is best-effort */ }
           })()
         }
       } catch (e) {
         console.warn('[agent] live load failed twice, using demo —', (e as Error).message)
-        if (!cancelled) settle(demoSession(role), false)
+        if (!cancelled) settle(demoSession(role, langRef.current), false)
       }
     })()
     return () => {
@@ -277,19 +304,27 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           }
           const sentTo = j.result?.sent_to
           const rentAmt = j.result?.rent
+          const zh = langRef.current === 'zh'
           if (j.executed && sentTo) {
             // Name the artifact by type — "续约函" only for renewals; the newer
             // executors (rent_reminder / send_message) send other emails.
-            const artifact =
-              removed?.action_type === 'send_renewal_letter'
-                ? '续约函'
-                : removed?.action_type === 'rent_reminder'
-                  ? '租金提醒'
-                  : '邮件'
+            const artifact = zh
+              ? (removed?.action_type === 'send_renewal_letter'
+                  ? '续约函'
+                  : removed?.action_type === 'rent_reminder'
+                    ? '租金提醒'
+                    : '邮件')
+              : (removed?.action_type === 'send_renewal_letter'
+                  ? 'renewal letter'
+                  : removed?.action_type === 'rent_reminder'
+                    ? 'rent reminder'
+                    : 'email')
             setMessages((msgs) => [...msgs, {
               id: nextId(),
               role: 'agent',
-              text: `✅ 已执行：「${removed?.title ?? '你批准的操作'}」— ${artifact}已真实发送至 ${sentTo}${rentAmt ? `（月租 $${rentAmt.toLocaleString()}）` : ''}。执行记录已写入审计日志。`,
+              text: zh
+                ? `✅ 已执行：「${removed?.title ?? '你批准的操作'}」— ${artifact}已真实发送至 ${sentTo}${rentAmt ? `（月租 $${rentAmt.toLocaleString()}）` : ''}。执行记录已写入审计日志。`
+                : `✅ Done: "${removed?.title ?? 'the action you approved'}" — the ${artifact} was actually sent to ${sentTo}${rentAmt ? ` (monthly rent $${rentAmt.toLocaleString()})` : ''}. The execution was written to the audit log.`,
             }])
           } else if (j.executed) {
             // already executed earlier — nothing new to report
@@ -299,14 +334,18 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
             setMessages((msgs) => [...msgs, {
               id: nextId(),
               role: 'agent',
-              text: `⚠️ 批准已记录，但执行未完成（${j.reason || '发送失败'}）。这不会重复发送 —— 你可以稍后在待办里重试，或让我检查租客邮箱是否有误。`,
+              text: zh
+                ? `⚠️ 批准已记录，但执行未完成（${j.reason || '发送失败'}）。这不会重复发送 —— 你可以稍后在待办里重试，或让我检查租客邮箱是否有误。`
+                : `⚠️ Your approval was recorded, but execution didn't complete (${j.reason || 'send failed'}). Nothing will be double-sent — retry from your pending items later, or ask me to check whether the tenant's email address is wrong.`,
             }])
           }
         } catch {
           setMessages((msgs) => [...msgs, {
             id: nextId(),
             role: 'agent',
-            text: '⚠️ 批准已记录，但执行请求没有送达服务器。刷新后可重试，不会重复发送。',
+            text: langRef.current === 'zh'
+              ? '⚠️ 批准已记录，但执行请求没有送达服务器。刷新后可重试，不会重复发送。'
+              : "⚠️ Your approval was recorded, but the execution request never reached the server. Refresh and retry — nothing will be double-sent.",
           }])
         }
       }
@@ -328,10 +367,17 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       // path — honest, not the old canned "我记下了…" that made a dead session
       // look alive. Anonymous visitors get REAL reasoning below (server-side
       // anonymous preview mode), so their result is always overwritten.
-      let result = {
-        title: '会话未连接',
-        body: '⚠️ 当前会话没有连接到实时服务（预览模式），这条消息我没有真正处理。请刷新页面重连后再发一次 —— 如果反复出现，告诉我你的网络环境，我们来排查。',
-      }
+      const uiLang = langRef.current
+      const zhUi = uiLang === 'zh'
+      let result = zhUi
+        ? {
+            title: '会话未连接',
+            body: '⚠️ 当前会话没有连接到实时服务（预览模式），这条消息我没有真正处理。请刷新页面重连后再发一次 —— 如果反复出现，告诉我你的网络环境，我们来排查。',
+          }
+        : {
+            title: 'Session not connected',
+            body: "⚠️ This session isn't connected to the live service (preview mode), so this message wasn't actually processed. Refresh the page to reconnect and send it again — if it keeps happening, tell me about your network setup and we'll debug it.",
+          }
       let memoryWrites: AgentSessionResponse['memories'] = []
       let proposedAction: AgentSessionResponse['pendingActions'][number] | null = null
       let nextStage: string | null = null
@@ -347,8 +393,9 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       // Only a signed-in user whose live load failed gets the disconnect note.
       if (live && user) {
         try {
-          const stageLabel = WORKFLOW_STAGES[role].find((s) => s.key === data.workflow.current_stage)?.label
+          const stageLabel = WORKFLOW_STAGES[role].find((s) => s.key === data.workflow.current_stage)?.label[uiLang]
           const turn = await runAgentTurn({
+            lang: uiLang,
             client: getSupabaseBrowser(),
             userId: user.id,
             role,
@@ -386,21 +433,38 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           // the request when nothing was processed).
           const msg = (e as Error).message || ''
           result = /429|rate.?limit/i.test(msg)
-            ? {
-                title: '本小时额度用完了',
-                body: '⚠️ 你这一小时的对话额度已经用完了。额度按小时窗口恢复，大约 10 分钟后再来试就好 —— 这条消息不用急着重发。',
-              }
+            ? (zhUi
+                ? {
+                    title: '本小时额度用完了',
+                    body: '⚠️ 你这一小时的对话额度已经用完了。额度按小时窗口恢复，大约 10 分钟后再来试就好 —— 这条消息不用急着重发。',
+                  }
+                : {
+                    title: 'Hourly quota used up',
+                    body: "⚠️ You've used up this hour's conversation quota. It refills on an hourly window — try again in about 10 minutes. No rush to resend this message.",
+                  })
             : /llm truncated/i.test(msg)
-              ? {
-                  title: '回复被截断了',
-                  body: '⚠️ 这条回复过长被截断了，我没能把答案完整生成出来。请把问题拆小一点、分成几条来问，我一条条答。',
-                }
-              : {
-                  title: '这条没处理成',
-                  body: /timeout|504|network|failed to fetch|llm http 5|llm unavailable/i.test(msg)
-                    ? '⚠️ 服务端处理这条消息时超时或暂时繁忙，内容我没有真正读到 —— 请把这条消息重新发一次，通常第二次就会成功（页面已被缓存）。'
-                    : `⚠️ 这条消息我没有处理成功（${msg.slice(0, 120)}）。请重发一次；若持续失败，把内容以文字形式直接发给我。`,
-                }
+              ? (zhUi
+                  ? {
+                      title: '回复被截断了',
+                      body: '⚠️ 这条回复过长被截断了，我没能把答案完整生成出来。请把问题拆小一点、分成几条来问，我一条条答。',
+                    }
+                  : {
+                      title: 'Reply was cut off',
+                      body: "⚠️ That reply ran too long and got truncated — I couldn't finish generating the answer. Break the question into smaller pieces and ask them one at a time; I'll answer each.",
+                    })
+              : (zhUi
+                  ? {
+                      title: '这条没处理成',
+                      body: /timeout|504|network|failed to fetch|llm http 5|llm unavailable/i.test(msg)
+                        ? '⚠️ 服务端处理这条消息时超时或暂时繁忙，内容我没有真正读到 —— 请把这条消息重新发一次，通常第二次就会成功（页面已被缓存）。'
+                        : `⚠️ 这条消息我没有处理成功（${msg.slice(0, 120)}）。请重发一次；若持续失败，把内容以文字形式直接发给我。`,
+                    }
+                  : {
+                      title: "That message didn't go through",
+                      body: /timeout|504|network|failed to fetch|llm http 5|llm unavailable/i.test(msg)
+                        ? '⚠️ The server timed out or was briefly busy handling this message — I never actually read it. Please send it again; the second try usually succeeds (the page is cached).'
+                        : `⚠️ I couldn't process this message (${msg.slice(0, 120)}). Please resend it; if it keeps failing, paste the content to me as plain text.`,
+                    })
         }
       } else if (!user) {
         // Anonymous visitor — real reasoning through the route's anonymous
@@ -411,6 +475,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
         // intake context instead.
         try {
           const turn = await runAgentTurn({
+            lang: uiLang,
             role,
             agentName: data.agent.agent_name,
             message,
@@ -440,21 +505,38 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           console.warn('[agent] anonymous turn failed —', (e as Error).message)
           const msg = (e as Error).message || ''
           result = /429/.test(msg)
-            ? {
-                title: '体验额度用完了',
-                body: '⚠️ 匿名体验每小时限 8 条消息，这个小时的额度用完了。登录后继续 —— 不受此额度限制，而且我能真正记住你的偏好、替你跟进申请。点右上角「登录」即可，1 分钟搞定。',
-              }
+            ? (zhUi
+                ? {
+                    title: '体验额度用完了',
+                    body: '⚠️ 匿名体验每小时限 8 条消息，这个小时的额度用完了。登录后继续 —— 不受此额度限制，而且我能真正记住你的偏好、替你跟进申请。点右上角「登录」即可，1 分钟搞定。',
+                  }
+                : {
+                    title: 'Preview quota used up',
+                    body: '⚠️ The anonymous preview allows 8 messages per hour, and this hour\'s quota is used up. Sign in to continue — no such limit applies, and I can truly remember your preferences and follow up on applications for you. Click "Sign in" at the top right; it takes a minute.',
+                  })
             : /llm truncated/i.test(msg)
-              ? {
-                  title: '回复被截断了',
-                  body: '⚠️ 这条回复过长被截断了，我没能把答案完整生成出来。请把问题拆小一点、分成几条来问，我一条条答。',
-                }
-              : {
-                  title: '这条没处理成',
-                  body: /timeout|504|network|failed to fetch|llm http 5|llm unavailable/i.test(msg)
-                    ? '⚠️ 服务端处理这条消息时超时或暂时繁忙，内容我没有真正读到 —— 请把这条消息重新发一次，通常第二次就会成功。'
-                    : `⚠️ 这条消息我没有处理成功（${msg.slice(0, 120)}）。请重发一次；若持续失败，把内容换个说法再发给我。`,
-                }
+              ? (zhUi
+                  ? {
+                      title: '回复被截断了',
+                      body: '⚠️ 这条回复过长被截断了，我没能把答案完整生成出来。请把问题拆小一点、分成几条来问，我一条条答。',
+                    }
+                  : {
+                      title: 'Reply was cut off',
+                      body: "⚠️ That reply ran too long and got truncated — I couldn't finish generating the answer. Break the question into smaller pieces and ask them one at a time; I'll answer each.",
+                    })
+              : (zhUi
+                  ? {
+                      title: '这条没处理成',
+                      body: /timeout|504|network|failed to fetch|llm http 5|llm unavailable/i.test(msg)
+                        ? '⚠️ 服务端处理这条消息时超时或暂时繁忙，内容我没有真正读到 —— 请把这条消息重新发一次，通常第二次就会成功。'
+                        : `⚠️ 这条消息我没有处理成功（${msg.slice(0, 120)}）。请重发一次；若持续失败，把内容换个说法再发给我。`,
+                    }
+                  : {
+                      title: "That message didn't go through",
+                      body: /timeout|504|network|failed to fetch|llm http 5|llm unavailable/i.test(msg)
+                        ? '⚠️ The server timed out or was briefly busy handling this message — I never actually read it. Please send it again; the second try usually succeeds.'
+                        : `⚠️ I couldn't process this message (${msg.slice(0, 120)}). Please resend it, or try phrasing it differently.`,
+                    })
         }
       } else {
         await new Promise((r) => setTimeout(r, 350))

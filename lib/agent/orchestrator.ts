@@ -43,28 +43,29 @@ export const ROLE_META: Record<
   },
 }
 
-// Ordered workflow stages per role → label, used by WorkflowStatusPanel.
-export const WORKFLOW_STAGES: Record<AgentRole, { key: string; label: string }[]> = {
+// Ordered workflow stages per role → bilingual label, used by
+// WorkflowStatusPanel (resolved per lang) and the turn's stage hint.
+export const WORKFLOW_STAGES: Record<AgentRole, { key: string; label: { zh: string; en: string } }[]> = {
   tenant: [
-    { key: 'intake', label: '身份验证 · 身份章' },
-    { key: 'preference_collection', label: '设定偏好 · 区域 / 预算 / 户型' },
-    { key: 'passport_readiness', label: 'Passport 就绪检查' },
-    { key: 'shortlist_and_apply', label: '筛选房源 + 提交意向' },
-    { key: 'application_review', label: '申请 → 房东审核 → 看房' },
-    { key: 'sign_and_move_in', label: '电子签约 + 入住' },
+    { key: 'intake', label: { zh: '身份验证 · 身份章', en: 'Identity check · identity stamp' } },
+    { key: 'preference_collection', label: { zh: '设定偏好 · 区域 / 预算 / 户型', en: 'Set preferences · area / budget / layout' } },
+    { key: 'passport_readiness', label: { zh: 'Passport 就绪检查', en: 'Passport readiness check' } },
+    { key: 'shortlist_and_apply', label: { zh: '筛选房源 + 提交意向', en: 'Shortlist homes + apply' } },
+    { key: 'application_review', label: { zh: '申请 → 房东审核 → 看房', en: 'Application → landlord review → viewing' } },
+    { key: 'sign_and_move_in', label: { zh: '电子签约 + 入住', en: 'E-sign + move in' } },
   ],
   landlord: [
-    { key: 'intake', label: '接入房源 / 申请' },
-    { key: 'review_inbox', label: '审阅申请收件箱' },
-    { key: 'screening', label: '多维核查 + 排序' },
-    { key: 'decision', label: '一页式决策包 → 拍板' },
-    { key: 'lease', label: '起草租约 + 签署' },
+    { key: 'intake', label: { zh: '接入房源 / 申请', en: 'Connect listings / applications' } },
+    { key: 'review_inbox', label: { zh: '审阅申请收件箱', en: 'Review application inbox' } },
+    { key: 'screening', label: { zh: '多维核查 + 排序', en: 'Multi-dimension screening + ranking' } },
+    { key: 'decision', label: { zh: '一页式决策包 → 拍板', en: 'One-page decision pack → decide' } },
+    { key: 'lease', label: { zh: '起草租约 + 签署', en: 'Draft lease + sign' } },
   ],
   agent: [
-    { key: 'intake', label: '接入转介' },
-    { key: 'task_inbox', label: '任务收件箱' },
-    { key: 'fieldwork', label: '带看 / 拍照 / 留痕' },
-    { key: 'settlement', label: '成交分成结算' },
+    { key: 'intake', label: { zh: '接入转介', en: 'Take referrals' } },
+    { key: 'task_inbox', label: { zh: '任务收件箱', en: 'Task inbox' } },
+    { key: 'fieldwork', label: { zh: '带看 / 拍照 / 留痕', en: 'Showings / photos / records' } },
+    { key: 'settlement', label: { zh: '成交分成结算', en: 'Deal-split settlement' } },
   ],
 }
 
@@ -84,14 +85,16 @@ export function deriveStatus(pending: PendingAction[]): AgentStatus {
 export function nextBestAction(
   role: AgentRole,
   workflow: WorkflowState,
-  pending: PendingAction[]
+  pending: PendingAction[],
+  lang: 'zh' | 'en' = 'zh'
 ): string {
   const open = pending.find((p) => p.status === 'pending')
   if (open) return open.title
   const stages = WORKFLOW_STAGES[role]
   const idx = stageIndex(role, workflow.current_stage)
   const cur = stages[idx]
-  return cur ? `下一步 · ${cur.label}` : '准备就绪'
+  if (!cur) return lang === 'zh' ? '准备就绪' : 'Ready'
+  return lang === 'zh' ? `下一步 · ${cur.label.zh}` : `Next · ${cur.label.en}`
 }
 
 // MVP rule-based recommendations. For tenants we surface the next concrete
@@ -103,21 +106,21 @@ export function buildRecommendations(
   switch (role) {
     case 'tenant':
       return [
-        { id: 'passport', title: '盖上收入章解锁更多房源', description: '上传一张工资单或连接 Plaid,约 5 分钟。', href: '/tenant/passport', badge: 'NUDGE' },
-        { id: 'browse', title: '看 AI 今天筛的房源', description: '已按预算、区域、盖章门槛过滤。', href: '/listings', badge: 'SHORTLIST' },
-        { id: 'apps', title: '查看申请进度', description: '跟踪每份意向与房东回应。', href: '/tenant/applications', badge: 'STATUS' },
+        { id: 'passport', title: { zh: '盖上收入章解锁更多房源', en: 'Earn your income stamp to unlock more homes' }, description: { zh: '上传一张工资单或连接 Plaid,约 5 分钟。', en: 'Upload a pay stub or connect Plaid — about 5 minutes.' }, href: '/tenant/passport', badge: 'NUDGE' },
+        { id: 'browse', title: { zh: '看 AI 今天筛的房源', en: "See today's AI-screened listings" }, description: { zh: '已按预算、区域、盖章门槛过滤。', en: 'Filtered by budget, area and stamp requirements.' }, href: '/listings', badge: 'SHORTLIST' },
+        { id: 'apps', title: { zh: '查看申请进度', en: 'Track application progress' }, description: { zh: '跟踪每份意向与房东回应。', en: 'Follow each application and landlord response.' }, href: '/tenant/applications', badge: 'STATUS' },
       ]
     case 'landlord':
       return [
-        { id: 'applicants', title: '审阅 7 份意向', description: 'AI 已按你的政策排序与解释。', href: '/landlord/applicants', badge: 'INBOX' },
-        { id: 'screening', title: '多维核查报告', description: '身份 / 收入 / 历史 / 行为,逐项可解释。', href: '/landlord/maintenance', badge: 'SCREENING' },
-        { id: 'finance', title: '收租与财务', description: '平台不抽租金流水,手续费透明。', href: '/landlord/finance', badge: 'FINANCE' },
+        { id: 'applicants', title: { zh: '审阅 7 份意向', en: 'Review 7 applications' }, description: { zh: 'AI 已按你的政策排序与解释。', en: 'AI has ranked and explained them by your policies.' }, href: '/landlord/applicants', badge: 'INBOX' },
+        { id: 'screening', title: { zh: '多维核查报告', en: 'Multi-dimension screening report' }, description: { zh: '身份 / 收入 / 历史 / 行为,逐项可解释。', en: 'Identity / income / history / behaviour — each explainable.' }, href: '/landlord/maintenance', badge: 'SCREENING' },
+        { id: 'finance', title: { zh: '收租与财务', en: 'Rent collection & finance' }, description: { zh: '平台不抽租金流水,手续费透明。', en: 'No cut of your rent flow — transparent fees.' }, href: '/landlord/finance', badge: 'FINANCE' },
       ]
     case 'agent':
       return [
-        { id: 'tasks', title: '今日任务', description: '带看 / 拍照 / Listing prep,授权范围已标注。', href: '/agent/tasks', badge: 'TASKS' },
-        { id: 'clients', title: '客户与回复', description: '2 位客户在等你回复。', href: '/agent/clients', badge: 'CLIENTS' },
-        { id: 'earnings', title: '本周收益', description: '成交后 25% 分成,Stripe 自动结算。', href: '/agent/earnings', badge: 'EARNINGS' },
+        { id: 'tasks', title: { zh: '今日任务', en: "Today's tasks" }, description: { zh: '带看 / 拍照 / Listing prep,授权范围已标注。', en: 'Showings / photos / listing prep, authorization scope marked.' }, href: '/agent/tasks', badge: 'TASKS' },
+        { id: 'clients', title: { zh: '客户与回复', en: 'Clients & replies' }, description: { zh: '2 位客户在等你回复。', en: '2 clients are waiting on your reply.' }, href: '/agent/clients', badge: 'CLIENTS' },
+        { id: 'earnings', title: { zh: '本周收益', en: "This week's earnings" }, description: { zh: '成交后 25% 分成,Stripe 自动结算。', en: '25% split on close, auto-settled via Stripe.' }, href: '/agent/earnings', badge: 'EARNINGS' },
       ]
     default:
       return []
@@ -161,8 +164,11 @@ export async function runAgentTurn(args: {
   // runs real reasoning under its own strict per-IP limit) and skip every
   // persistence step — no memory upsert, no pending action, no audit event.
   anonymous?: boolean
+  // UI language for the few client-authored strings in the turn result.
+  lang?: 'zh' | 'en'
 }): Promise<AgentTurn> {
   const { client, userId, role, agentName, message, memories, workflow, stageLabel, attachments, exclude, history, live } = args
+  const lang = args.lang === 'en' ? 'en' : 'zh'
   const anonymous = !!args.anonymous || !args.client || !args.userId
   const name = agentName || ROLE_META[role].name
 
@@ -194,7 +200,7 @@ export async function runAgentTurn(args: {
     res = await fetch('/api/agent/turn', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames, exclude: exclude ?? [], history: history ?? [] }),
+      body: JSON.stringify({ role, agentName: name, message, memories, workflow, stageLabel, images, attachment_names: attachmentNames, exclude: exclude ?? [], history: history ?? [], lang }),
       signal: AbortSignal.timeout(100_000),
     })
     if (!res.ok) throw new Error(`turn failed: ${res.status}`)
@@ -281,7 +287,9 @@ export async function runAgentTurn(args: {
       }
     }
     if (insertFailed) {
-      replyBody += '\n\n（提议动作保存失败，请重试）'
+      replyBody += lang === 'zh'
+        ? '\n\n（提议动作保存失败，请重试）'
+        : '\n\n(The proposed action failed to save — please try again)'
     } else {
       proposedAction = { ...base, id, created_at }
     }
@@ -300,7 +308,7 @@ export async function runAgentTurn(args: {
   }
 
   return {
-    result: { title: `${name} 回复`, body: replyBody },
+    result: { title: lang === 'zh' ? `${name} 回复` : `${name} replied`, body: replyBody },
     memoryWrites,
     proposedAction,
     nextStage: turn.next_stage,

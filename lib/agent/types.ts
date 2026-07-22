@@ -196,10 +196,14 @@ export type ChatMessage = {
   draftListing?: DraftListing
 }
 
+// Bilingual UI text: a plain string (legacy/demo content) or a per-language
+// pair resolved at render time so the language toggle applies instantly.
+export type BiText = string | { zh: string; en: string }
+
 export type Recommendation = {
   id: string
-  title: string
-  description: string
+  title: BiText
+  description: BiText
   href?: string
   badge?: string
 }

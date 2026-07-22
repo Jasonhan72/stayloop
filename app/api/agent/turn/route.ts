@@ -51,6 +51,10 @@ type TurnRequest = {
   attachment_names?: string[]
   exclude?: string[]
   history?: { role: 'user' | 'agent'; text: string }[]
+  // UI language of the caller — drives the reply-language instruction and
+  // every server-authored string appended to the reply (guardrail notes,
+  // fallbacks). Defaults to zh (the product's primary language).
+  lang?: 'zh' | 'en'
 }
 
 const VALID_ROLES = new Set<AgentRole>(['tenant', 'landlord', 'agent'])
@@ -200,7 +204,7 @@ function safeParseJson(raw: string): Record<string, unknown> | null {
   }
 }
 
-function normalizeOutput(parsed: Record<string, unknown> | null, fallbackReply: string): TurnOutput {
+function normalizeOutput(parsed: Record<string, unknown> | null, fallbackReply: string, lang: 'zh' | 'en' = 'zh'): TurnOutput {
   if (!parsed) return { reply: fallbackReply, memoryWrites: [], proposedAction: null, nextStage: null }
 
   const memoryWrites = Array.isArray(parsed.memory_writes)
@@ -226,7 +230,7 @@ function normalizeOutput(parsed: Record<string, unknown> | null, fallbackReply: 
     pa && typeof pa === 'object' && typeof pa.action_type === 'string'
       ? {
           action_type: safeType,
-          title: String(pa.title ?? '待你确认'),
+          title: String(pa.title ?? (lang === 'zh' ? '待你确认' : 'Awaiting your confirmation')),
           summary: String(pa.summary ?? ''),
           recipient_label: pa.recipient_label ? String(pa.recipient_label) : null,
           data_scope: Array.isArray(pa.data_scope) ? (pa.data_scope as unknown[]).map(String) : [],
@@ -333,6 +337,7 @@ export async function POST(req: Request) {
   // token spend. Truncate, don't reject — oversized-but-honest clients keep
   // working.
   const agentName = typeof body.agentName === 'string' ? body.agentName.slice(0, 40) : ''
+  const uiLang: 'zh' | 'en' = body.lang === 'en' ? 'en' : 'zh'
   const imgs = (Array.isArray(body.images) ? body.images : [])
     .filter((im) => im && typeof im.data === 'string' && /^image\//.test(im.media_type || ''))
     .slice(0, 3)
@@ -365,7 +370,7 @@ export async function POST(req: Request) {
     status: typeof w.status === 'string' ? w.status : 'active',
   }
   const system =
-    buildSystemPrompt(role, agentName, memories, workflow, body.stageLabel) +
+    buildSystemPrompt(role, agentName, memories, workflow, body.stageLabel, uiLang) +
     (anonymous ? ANON_PROMPT_ADDENDUM : '')
 
   // ---- Heartbeat-streamed response ------------------------------------------
@@ -491,11 +496,13 @@ export async function POST(req: Request) {
   }
   const fallbackReply = salvage
     ? salvage.slice(0, 2000)
-    : '这条我没生成出有效回复（输出格式出错了）。请把消息原样再发一次 —— 不用换措辞。'
-  const normalized = normalizeOutput(parsed, fallbackReply)
+    : uiLang === 'zh'
+      ? '这条我没生成出有效回复（输出格式出错了）。请把消息原样再发一次 —— 不用换措辞。'
+      : "I couldn't produce a valid reply for that one (the output format broke). Please send the message again exactly as it was — no need to rephrase."
+  const normalized = normalizeOutput(parsed, fallbackReply, uiLang)
 
   // Compliance Guardrail — the deterministic backstop on every AI output.
-  const { out, flags } = applyGuardrail(role, normalized)
+  const { out, flags } = applyGuardrail(role, normalized, uiLang)
 
   // Listing search (tenant): when the model flags intent, search Stayloop's
   // own listings first, then fall back to external (Realtor.ca).
@@ -643,7 +650,7 @@ export async function POST(req: Request) {
     }
     // The draft card renders with an edit/publish CTA — it must pass the
     // same OHRC/RTA compliance filters as the reply text.
-    const sanitized = sanitizeDraftListing(draftListing)
+    const sanitized = sanitizeDraftListing(draftListing, uiLang)
     draftListing = sanitized.draft
     if (sanitized.flags.length) {
       flags.push(...sanitized.flags)
@@ -666,8 +673,9 @@ export async function POST(req: Request) {
       if (streetNum && !groundText.includes(streetNum)) {
         flags.push('draft_listing_ungrounded_address')
         draftListing = undefined
-        out.reply +=
-          '\n\n⚠️ 我刚才差点用了一个不是你提供的地址，已经拦下。请把房源地址（含门牌号和单元号）发给我，我再生成预览卡片。'
+        out.reply += uiLang === 'zh'
+          ? '\n\n⚠️ 我刚才差点用了一个不是你提供的地址，已经拦下。请把房源地址（含门牌号和单元号）发给我，我再生成预览卡片。'
+          : "\n\n⚠️ I almost used an address you didn't provide — I stopped it. Send me the listing address (with street number and unit) and I'll generate the preview card."
       }
     }
   }

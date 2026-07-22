@@ -86,7 +86,7 @@ export default function PrivateMemorySnapshot({
               </span>
               <div className="min-w-0">
                 <span className="text-[12.5px] font-bold leading-snug">{m.label}</span>
-                <span className="ml-1.5 text-[12.5px] leading-snug text-body-2">{humanize(formatMemoryValue(m))}</span>
+                <span className="ml-1.5 text-[12.5px] leading-snug text-body-2">{humanize(formatMemoryValue(m, lang))}</span>
               </div>
             </div>
           )

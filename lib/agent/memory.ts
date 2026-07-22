@@ -72,7 +72,8 @@ export async function upsertMemories(
 }
 
 // Render a memory value as a short, human line for the snapshot panel.
-export function formatMemoryValue(item: MemoryItem): string {
+export function formatMemoryValue(item: MemoryItem, lang: 'zh' | 'en' = 'zh'): string {
+  const zh = lang === 'zh'
   const v = item.value as Record<string, unknown> | null
   if (v == null || typeof v !== 'object') return String(v ?? '—')
 
@@ -80,20 +81,22 @@ export function formatMemoryValue(item: MemoryItem): string {
     case 'budget': {
       const min = v.min as number, max = v.max as number
       const cur = (v.currency as string) || ''
-      if (min != null && max != null) return `$${min.toLocaleString()}–${max.toLocaleString()} ${cur}/月`
+      if (min != null && max != null) return `$${min.toLocaleString()}–${max.toLocaleString()} ${cur}${zh ? '/月' : '/mo'}`
       return JSON.stringify(v)
     }
     case 'preferred_areas':
       return Array.isArray(v.areas) ? (v.areas as string[]).join(' · ') : JSON.stringify(v)
     case 'move_in_date':
-      return `${v.target ?? ''}${v.flexible ? ' · 可灵活' : ''}`
+      return `${v.target ?? ''}${v.flexible ? (zh ? ' · 可灵活' : ' · flexible') : ''}`
     case 'transit':
-      return v.requires_transit ? `需公交 · 步行 ≤ ${v.max_walk_minutes ?? '?'} 分` : '无公交要求'
+      return v.requires_transit
+        ? (zh ? `需公交 · 步行 ≤ ${v.max_walk_minutes ?? '?'} 分` : `Transit needed · ≤ ${v.max_walk_minutes ?? '?'} min walk`)
+        : (zh ? '无公交要求' : 'No transit requirement')
     case 'home_type': {
       const bits: string[] = []
       if (v.beds != null) bits.push(`${v.beds}BR`)
-      if (v.in_unit_laundry) bits.push('室内洗衣')
-      if (v.quiet) bits.push('安静')
+      if (v.in_unit_laundry) bits.push(zh ? '室内洗衣' : 'in-unit laundry')
+      if (v.quiet) bits.push(zh ? '安静' : 'quiet')
       return bits.join(' · ') || JSON.stringify(v)
     }
     default: {
