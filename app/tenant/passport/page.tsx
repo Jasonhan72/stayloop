@@ -82,10 +82,79 @@ const SHARING_MODES: Array<{ key: SharingMode; title: Bi; desc: Bi }> = [
   },
 ]
 
+/** Demo read-only share link (Mia Chen canon). */
+const SHARE_URL = 'stayloop.ai/p/mia-chen-7f3a'
+
+/** Rent record — same 5 months as /tenant/payments history, oldest first. */
+const RENT_RECORD: Array<{ month: Bi; status: 'paid' | 'late' }> = [
+  { month: { zh: '1月', en: 'Jan' }, status: 'paid' },
+  { month: { zh: '2月', en: 'Feb' }, status: 'late' },
+  { month: { zh: '3月', en: 'Mar' }, status: 'paid' },
+  { month: { zh: '4月', en: 'Apr' }, status: 'paid' },
+  { month: { zh: '5月', en: 'May' }, status: 'paid' },
+]
+
+/** Decorative QR placeholder (demo — not scannable). */
+function QrPlaceholder() {
+  const cells: JSX.Element[] = []
+  // deterministic pseudo-random module pattern
+  for (let y = 0; y < 11; y++) {
+    for (let x = 0; x < 11; x++) {
+      const inFinder = (x < 4 && y < 4) || (x > 6 && y < 4) || (x < 4 && y > 6)
+      if (inFinder) continue
+      if ((x * 7 + y * 13 + ((x * y) % 5)) % 3 === 0) {
+        cells.push(<rect key={`${x}-${y}`} x={x * 6} y={y * 6} width={5} height={5} />)
+      }
+    }
+  }
+  const finder = (fx: number, fy: number) => (
+    <g key={`f${fx}${fy}`}>
+      <rect x={fx} y={fy} width={21} height={21} fill="none" stroke="currentColor" strokeWidth={4} />
+      <rect x={fx + 7} y={fy + 7} width={7} height={7} />
+    </g>
+  )
+  return (
+    <svg viewBox="-2 -2 70 70" className="h-full w-full" fill="currentColor" aria-hidden>
+      {finder(0, 0)}
+      {finder(45, 0)}
+      {finder(0, 45)}
+      {cells}
+    </svg>
+  )
+}
+
 export default function TenantPassport() {
   const { lang } = useT()
   const zh = lang === 'zh'
   const [sharingMode, setSharingMode] = useState<SharingMode>('open')
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    const text = `https://${SHARE_URL}`
+    let ok = false
+    try {
+      await navigator.clipboard.writeText(text)
+      ok = true
+    } catch {
+      // Fallback for contexts where the async clipboard API is unavailable
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = text
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        ok = document.execCommand('copy')
+        document.body.removeChild(ta)
+      } catch {
+        ok = false
+      }
+    }
+    if (ok) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
 
   const currentTier = TIERS.find((t) => t.status === 'current') ?? TIERS[2]
   const completedCount = TIERS.filter((t) => t.status === 'done').length
@@ -265,6 +334,70 @@ export default function TenantPassport() {
           </div>
         </div>
 
+        {/* ── Off-platform share (read-only snapshot) ── */}
+        <div className="sl-card p-6 sm:p-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[18px] font-bold tracking-tight">
+                {zh ? '分享给站外房东' : 'Share with any landlord'}
+              </h2>
+              <p className="mt-1 max-w-[460px] text-[13.5px] leading-relaxed text-body-2">
+                {zh
+                  ? '房东不在 Stayloop？一条只读链接就够了——对方无需注册，打开即可看到你已盖的章。一本护照，打动所有房东。'
+                  : "Landlord not on Stayloop? One read-only link is all it takes — no sign-up needed on their side. One passport that wins over every landlord."}
+              </p>
+
+              {/* Link + copy */}
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="min-w-0 truncate rounded-lg bg-surface-chip px-3.5 py-2.5 font-mono text-[12.5px] text-body">
+                  {SHARE_URL}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="sl-btn-secondary shrink-0 !px-4 !py-2.5 text-[13px]"
+                >
+                  {copied ? (zh ? '已复制 ✓' : 'Copied ✓') : zh ? '复制链接' : 'Copy link'}
+                </button>
+              </div>
+
+              <ul className="mt-4 space-y-1.5 text-[12.5px] leading-relaxed text-body-2">
+                {[
+                  {
+                    zh: '只读快照 —— 只显示验证结果，不含证件原件',
+                    en: 'Read-only snapshot — verification results only, never your original documents',
+                  },
+                  {
+                    zh: '由 Stayloop 直发，房东可验真，无法伪造',
+                    en: 'Served directly by Stayloop — landlords can verify authenticity, it cannot be forged',
+                  },
+                  {
+                    zh: '可随时失效 · 每次访问都进审计日志',
+                    en: 'Revoke any time · every view lands in your audit log',
+                  },
+                ].map((b) => (
+                  <li key={b.en} className="flex items-start gap-2">
+                    <span className="mt-[1px] font-bold" style={{ color: STAMP_CHECK_GREEN }}>
+                      ✓
+                    </span>
+                    <span>{zh ? b.zh : b.en}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* QR slot */}
+            <div className="shrink-0 self-center sm:self-start">
+              <div className="mx-auto flex h-[104px] w-[104px] items-center justify-center rounded-xl border border-line-divider bg-white p-3 text-body">
+                <QrPlaceholder />
+              </div>
+              <div className="mt-2 text-center font-mono text-[10px] tracking-wide text-body-3">
+                {zh ? '看房现场出示' : 'Show at viewings'}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* ── Sharing mode ── */}
         <div className="sl-card p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
@@ -381,6 +514,50 @@ export default function TenantPassport() {
             >
               {zh ? '查看全部 4 项授权 →' : 'View all 4 authorizations →'}
             </Link>
+          </div>
+        </div>
+
+        {/* ── Rent record ── */}
+        <div className="sl-card p-6 sm:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-[18px] font-bold tracking-tight">
+                {zh ? '租金记录' : 'Rent record'}
+              </h2>
+              <p className="mt-1 max-w-[520px] text-[13.5px] leading-relaxed text-body-2">
+                {zh
+                  ? '每一笔按时租金都写进你的护照——对下一任房东，这是最有说服力的履约证明。经你授权才可见。'
+                  : "Every on-time rent payment is written into your Passport — the most convincing proof of reliability for your next landlord. Visible only with your authorization."}
+              </p>
+            </div>
+            <Link href="/tenant/payments" className="sl-btn-secondary shrink-0">
+              {zh ? '付款历史 →' : 'Payment history →'}
+            </Link>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            {RENT_RECORD.map((m) => (
+              <div key={m.month.en} className="flex flex-col items-center gap-1.5">
+                <span
+                  className={
+                    'flex h-9 w-9 items-center justify-center rounded-full text-[14px] font-extrabold text-white ' +
+                    (m.status === 'late' ? 'bg-warning' : '')
+                  }
+                  style={m.status === 'paid' ? { background: STAMP_CHECK_GREEN } : undefined}
+                >
+                  {m.status === 'paid' ? '✓' : '!'}
+                </span>
+                <span className="font-mono text-[10.5px] text-body-3">{m.month[lang]}</span>
+              </div>
+            ))}
+            <div className="ml-1 text-[12.5px] leading-relaxed text-body-2">
+              <span className="font-semibold">
+                {zh ? '近 5 个月 4 次准时' : '4 of the last 5 months on time'}
+              </span>
+              <span className="block text-body-3">
+                {zh ? '2 月迟付 3 天 · 已附情况说明（银行转账延迟）' : 'Feb was 3 days late · explanation on file (bank transfer delay)'}
+              </span>
+            </div>
           </div>
         </div>
 

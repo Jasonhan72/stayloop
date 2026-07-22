@@ -64,6 +64,9 @@ export default function TenantPaymentsPage() {
             {lang === 'zh'
               ? '✓ 你今年所有付款都准时 · 你的还款记录已计入 护照信任分'
               : '✓ All your payments this year were on time · your payment record counts toward your Passport trust score'}
+            <Link href="/tenant/passport" className="ml-2 font-semibold underline underline-offset-2">
+              {lang === 'zh' ? '在护照中查看 →' : 'View in Passport →'}
+            </Link>
           </div>
         </div>
 

@@ -68,6 +68,45 @@ const CFG: RoleLandingConfig = {
     after: { zh: 'AI 用她已验证的 Passport 直接申请,中文逐条讲解租约,当天签约入住。第二次搬家,她只说了一句话。', en: 'Her AI applied with her verified Passport, walked her through the lease in Chinese, and got her signed the same day. Her second move took a single sentence.' },
     delta: { zh: 'Score 60 → 91', en: 'Score 60 → 91' },
   },
+  valueBand: {
+    eyebrow: { zh: 'RENTAL PASSPORT · 你的护照能做什么', en: 'RENTAL PASSPORT · WHAT IT DOES' },
+    h2: { zh: '一本护照,打动所有房东。', en: 'One passport that wins over every landlord.' },
+    items: [
+      {
+        icon: '🛂',
+        h: { zh: '验证一次,处处通行', en: 'Verify once, go anywhere' },
+        b: {
+          zh: '四枚章盖在你的护照上,申请任何房源直接复用。不再一遍遍交同一叠 PDF。',
+          en: 'Four stamps, earned once, reused on every application. Never hand over the same stack of PDFs again.',
+        },
+      },
+      {
+        icon: '🆓',
+        h: { zh: '对租客永久免费', en: 'Free for tenants, always' },
+        b: {
+          zh: '不按报告收费,也没有订阅。验证、分享、复用,都不花钱。',
+          en: 'No per-report fees, no subscription. Verifying, sharing and reusing cost nothing.',
+        },
+      },
+      {
+        icon: '🧳',
+        h: { zh: '记录跟着你走', en: 'Your record travels with you' },
+        b: {
+          zh: '按时租金和履约历史写进护照,换房时它替你说话——只读分享页,站外房东也能看。',
+          en: 'On-time rent and rental history live in your Passport and speak for you — a read-only share page works even for landlords off Stayloop.',
+        },
+      },
+      {
+        icon: '🔐',
+        h: { zh: '隐私和信用都无损', en: 'No cost to privacy or credit' },
+        b: {
+          zh: '共享哪几项,你逐项说了算,随时撤销;重复申请也不会反复硬查你的信用。',
+          en: 'You decide field by field what to share, revocable any time — and applying again never means another hard credit pull.',
+        },
+      },
+    ],
+    cta: { label: { zh: '打开我的护照 →', en: 'Open my Passport →' }, href: '/tenant/passport' },
+  },
   stats: [
     { k: { zh: '偏好说一次,永远记得', en: 'say it once, remembered' }, v: { zh: '它认识你', en: 'It knows you' } },
     { k: { zh: '你睡觉时,它也在替你跑', en: 'works while you sleep' }, v: { zh: '24/7 在岗', en: 'On duty 24/7' } },

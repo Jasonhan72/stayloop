@@ -36,6 +36,14 @@ export type RoleLandingConfig = {
   story?: { file: string; fallback: string; label: Bi; text: Bi }[]
   stats: { k: Bi; v: Bi }[]
   ctaNote?: Bi
+  // Optional value band ("what your passport does" etc.) — restrained
+  // self-referential list rendered between JOURNEY and SCENARIO.
+  valueBand?: {
+    eyebrow: Bi
+    h2: Bi
+    items: { icon: string; h: Bi; b: Bi }[]
+    cta?: { label: Bi; href: string }
+  }
 }
 
 export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
@@ -158,6 +166,40 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
           </div>
         </div>
       </section>
+
+      {/* VALUE BAND (optional) */}
+      {cfg.valueBand && (
+        <section className="border-y border-line-divider bg-white">
+          <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-7 lg:px-12">
+            <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: c }}>
+              {cfg.valueBand.eyebrow[lang]}
+            </div>
+            <h2 className="mt-3 text-[30px] font-extrabold leading-tight tracking-tight sm:text-[36px]">
+              {cfg.valueBand.h2[lang]}
+            </h2>
+            <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {cfg.valueBand.items.map((it) => (
+                <div key={it.h.en} className="sl-card p-5 transition hover:shadow-card">
+                  <span className="text-[22px]">{it.icon}</span>
+                  <h4 className="mt-3 text-[14.5px] font-bold leading-snug">{it.h[lang]}</h4>
+                  <p className="mt-1.5 text-[12.5px] leading-relaxed text-body-3">{it.b[lang]}</p>
+                </div>
+              ))}
+            </div>
+            {cfg.valueBand.cta && (
+              <div className="mt-7">
+                <Link
+                  href={cfg.valueBand.cta.href}
+                  className="text-[14px] font-semibold underline-offset-4 hover:underline"
+                  style={{ color: c }}
+                >
+                  {cfg.valueBand.cta.label[lang]}
+                </Link>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* SCENARIO */}
       <section style={{ background: '#F2EEE5' }}>
