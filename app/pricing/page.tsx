@@ -264,7 +264,7 @@ export default function PricingPage() {
               {zh ? 'PRICING · 透明 · 无隐藏' : 'PRICING · Transparent · No hidden fees'}
             </div>
             <h1 className="mx-auto mt-3 max-w-[820px] text-[30px] font-extrabold leading-tight tracking-tight sm:text-[44px] lg:text-[52px]">
-              {zh ? <>租客永远免费<br />房东和经纪按月订阅</> : <>Tenants always free<br />Landlords and agents subscribe monthly</>}
+              {zh ? <>简单透明的订阅定价</> : <>Simple, transparent subscription pricing</>}
             </h1>
             <p className="mx-auto mt-4 max-w-[680px] text-[15.5px] leading-relaxed text-body-2">
               {zh ? '只收订阅费，不抽佣金、不抽租金。' : 'Subscription only — no commission, no cut of the rent.'}
