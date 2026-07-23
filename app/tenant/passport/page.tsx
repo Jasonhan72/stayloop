@@ -278,7 +278,7 @@ export default function TenantPassport() {
             RENTAL PASSPORT
           </div>
           <h1 className="mt-2 text-[26px] sm:text-[32px] font-bold tracking-tight">
-            {zh ? '信任仪表盘' : 'Trust Dashboard'}
+            {zh ? '租客护照' : 'Tenant Passport'}
           </h1>
           <p className="mt-1.5 max-w-[560px] text-[14px] leading-relaxed text-body-2">
             {zh
