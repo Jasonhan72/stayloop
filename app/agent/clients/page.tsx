@@ -171,6 +171,36 @@ export default function AgentClientsPage() {
         ]}
       />
 
+      {/* Screening workflow band — order screening for a client, share the report with the landlord */}
+      <section className="mb-5 sl-card p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-agent">
+              {zh ? '背调工作流' : 'Screening workflow'}
+            </div>
+            <h2 className="mt-1 text-[16px] font-bold tracking-tight">
+              {zh ? '替客户下单背调，报告直接给房东' : 'Order screening for a client — the report goes straight to the landlord'}
+            </h2>
+            <ol className="mt-2 space-y-1 text-[12.5px] leading-relaxed text-body-2">
+              <li>{zh ? '① 上传客户的申请材料，几分钟出 6 维报告（付款能力 / 信用 / 司法记录）' : '① Upload the client’s application docs — a 6-dimension report (ability to pay / credit / court records) in minutes'}</li>
+              <li>{zh ? '② 报告页链接可直接转发房东，不用截图拼图' : '② Send the report link to the landlord directly — no screenshot collages'}</li>
+              <li>{zh ? '③ 客户的认证护照（四枚章）随申请一起展示，申请更有说服力' : '③ The client’s verified passport (four stamps) travels with the application and strengthens it'}</li>
+            </ol>
+          </div>
+          <div className="flex shrink-0 flex-col gap-2">
+            <Link href="/screening" className="sl-btn-primary !px-5 !py-[10px] !text-[12.5px]">
+              {zh ? '发起背调 →' : 'Start a screening →'}
+            </Link>
+            <Link
+              href={`/agent/agent?prompt=${encodeURIComponent(zh ? '给我讲讲租客认证护照：四枚章分别验证什么，我怎么帮客户补齐，怎么转发给房东？' : 'Explain the tenant verified passport: what each of the four stamps verifies, how I help a client complete them, and how to forward it to a landlord.')}`}
+              className="rounded-[10px] border border-line-strong bg-white px-5 py-[9px] text-center text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
+            >
+              {zh ? '秒懂认证护照' : 'Passport in 60s'}
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Stage chips */}
       <div className="mb-5 grid gap-3 sm:grid-cols-4">
         {STAGES.map((s) => (
@@ -207,7 +237,7 @@ export default function AgentClientsPage() {
 
       {/* Client table */}
       <div className="sl-card overflow-x-auto">
-        <table className="w-full min-w-[720px] text-[13.5px]">
+        <table className="w-full min-w-[800px] text-[13.5px]">
           <thead className="bg-surface-chip">
             <tr>
               <Th>{zh ? '客户' : 'Client'}</Th>
@@ -241,7 +271,7 @@ export default function AgentClientsPage() {
                   </td>
                   <td className="px-6 py-3">
                     <span
-                      className="font-mono"
+                      className="font-mono whitespace-nowrap"
                       style={{
                         background: ss.bg,
                         color: ss.fg,
@@ -257,9 +287,20 @@ export default function AgentClientsPage() {
                   </td>
                   <td className="px-6 py-3 text-[12.5px] text-body-2">{c.next[lang]}</td>
                   <td className="px-6 py-3 text-right">
-                    <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? `打开客户 ${c.name} 的档案，给我最新进展和下一步建议` : `Open ${c.name}'s client file — latest progress and next-step suggestions`)}`} className="inline-block rounded-[8px] border border-line-strong bg-white px-3 py-[6px] text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
-                      {zh ? '打开' : 'Open'}
-                    </Link>
+                    <div className="inline-flex flex-col items-stretch gap-1.5">
+                      <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? `打开客户 ${c.name} 的档案，给我最新进展和下一步建议` : `Open ${c.name}'s client file — latest progress and next-step suggestions`)}`} className="inline-block whitespace-nowrap rounded-[8px] border border-line-strong bg-white px-3 py-[6px] text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
+                        {zh ? '打开' : 'Open'}
+                      </Link>
+                      {c.stage === 'applied' || c.stage === 'leased' ? (
+                        <Link href="/screening" className="inline-block whitespace-nowrap rounded-[8px] border border-agent/40 bg-agent/[0.06] px-3 py-[6px] text-[11.5px] font-semibold text-agent transition hover:border-agent">
+                          {zh ? '发起背调' : 'Screen'}
+                        </Link>
+                      ) : (
+                        <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? `查看 ${c.name} 的认证护照进度（已盖 ${c.tier}/4 枚章），列出还缺的章和最快补齐路径` : `Check ${c.name}'s verified passport progress (${c.tier}/4 stamps) — list the missing stamps and the fastest way to complete them`)}`} className="inline-block whitespace-nowrap rounded-[8px] border border-line-strong bg-white px-3 py-[6px] text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
+                          {zh ? '护照状态' : 'Passport'}
+                        </Link>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )

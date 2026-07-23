@@ -203,6 +203,13 @@ export default function AgentTasksPage() {
                   >
                     {zh ? '看房现场 →' : 'Showing live →'}
                   </Link>
+                ) : t.type === 'screening' ? (
+                  <Link
+                    href="/screening"
+                    className="rounded-[8px] bg-ink px-3 py-[7px] text-center text-[11.5px] font-semibold text-white"
+                  >
+                    {zh ? '打开背调 →' : 'Open screening →'}
+                  </Link>
                 ) : (
                   <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? `开始任务 ${t.id}「${t.title.zh}」，带我过一遍要做的事` : `Start task ${t.id} "${t.title.en}" — walk me through what's needed`)}`} className="rounded-[8px] bg-ink px-3 py-[7px] text-center text-[11.5px] font-semibold text-white">
                     {zh ? '开始' : 'Start'}

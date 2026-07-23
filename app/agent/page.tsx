@@ -23,6 +23,8 @@ const CFG: RoleLandingConfig = {
     { zh: '日历排程 · 路线规划', en: 'Calendar & route planning' },
     { zh: '跟进催款,全自动', en: 'Follow-ups & collections, automated' },
     { zh: 'RECO 合规提醒 · 留痕', en: 'RECO reminders · audit trail' },
+    { zh: '替客户下单租客背调,几分钟出报告', en: 'Order tenant screening for clients — report in minutes' },
+    { zh: '背调报告 · 认证护照,一键转发房东', en: 'Screening report & verified passport, one click to the landlord' },
   ],
   demo: {
     ask: { zh: '明天 3 个带看,资料帮我备好。', en: 'Three showings tomorrow — prep everything for me.' },
