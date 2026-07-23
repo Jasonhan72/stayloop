@@ -109,19 +109,19 @@ const COPY: Record<Lang, HomeCopy> = {
     tag: 'AI-Native Rental OS · Toronto',
     heroH1: (
       <>
-        每一步有人办，
+        租房路上的难题，
         <br />
-        每一步<em>有据可查</em>。
+        交给<em>各自的 AI</em>。
       </>
     ),
     sub: (
       <>
-        这才叫租得放心——Stayloop 为租客、房东、经纪各配一个<b>独立的 AI Agent</b>：你说一句，它去办，关键决定回到你手上确认。
+        Stayloop 为租客、房东、经纪各提供一个<b>独立的 AI Agent</b>：日常事务由它处理，关键决定由你确认。
       </>
     ),
     pains: [
       <>
-        <b>房东</b>——申请查过真伪和法庭记录，租金收得放心
+        <b>房东</b>——筛租客、收租金、日常事务，后台有支持
       </>,
       <>
         <b>租客</b>——材料交一次，没有本地信用也能开始
@@ -180,7 +180,7 @@ const COPY: Record<Lang, HomeCopy> = {
       { b: '全程留痕', s: '每一步可追问、可回查、可审计' },
     ],
     rolesH2: '三种角色，各自的 Agent',
-    rolesSub: '不是同一个客服机器人——是三个立场不同、只对你负责的 AI，把同一份放心办到每个人身上。',
+    rolesSub: '不是同一个客服机器人——是三个立场不同、只对你负责的 AI。',
     roles: [
       {
         tag: '房东 × LOGIC',
@@ -191,7 +191,7 @@ const COPY: Record<Lang, HomeCopy> = {
             后台有支持。
           </>
         ),
-        lead: '房东的放心，是每份材料都查过：Logic 把每份申请查完材料真伪和法庭记录，每一分写明理由，再排好序给你。',
+        lead: 'Logic 把每份申请查完材料真伪和法庭记录，每一分写明理由，再排好序给你。',
         benefits: [
           { b: '每份申请先过六维尽调', s: '材料真伪、法庭记录都查过，伪造材料会被识别并拦下。' },
           { b: '租金回收由系统跟进', s: '在线收租、月末自动提醒；续约提前 120 天备好方案。' },
@@ -226,7 +226,7 @@ const COPY: Record<Lang, HomeCopy> = {
             也能建立可信的租房履历。
           </>
         ),
-        lead: '租客的放心，是不用一遍遍自证：条件说人话，房源全是真的；四枚章盖好，申请任何房源不再重复交材料。',
+        lead: '条件说人话，房源全是真的；四枚章盖好，申请任何房源不再重复交材料。',
         benefits: [
           { b: '真实挂牌 + 官方行情作答', s: 'TRREB 官方成交对照，绝不编造；英文租约逐条讲成中文。' },
           { b: '验证一次，处处通行', s: '护照、枫叶卡、工签都支持——材料只交一次。' },
@@ -261,7 +261,7 @@ const COPY: Record<Lang, HomeCopy> = {
             时间留给专业工作。
           </>
         ),
-        lead: '经纪的放心，是时间花在该花的地方：确认到场、发提醒、收反馈、算佣金——这些吃掉半天的事，Brief 全部接走。',
+        lead: '确认到场、发提醒、收反馈、算佣金——这些吃掉半天的事，Brief 全部接走。',
         benefits: [
           { b: '日程自动编排', s: '租客到场自动确认，材料包与授权问答清单提前备好。' },
           { b: '反馈自动收集归档', s: '看房意见整理好直达房东，每个客户的进度都有人盯。' },
@@ -287,8 +287,8 @@ const COPY: Record<Lang, HomeCopy> = {
         tm: '07:30 编排完成',
       },
     ],
-    stepsH2: '放心，是这样办出来的',
-    stepsSub: '没有表单迷宫——对话就是入口，每件事办到你确认为止。',
+    stepsH2: '怎么开始',
+    stepsSub: '没有表单迷宫——对话就是入口。',
     steps: [
       {
         h: '说一句',
@@ -315,7 +315,7 @@ const COPY: Record<Lang, HomeCopy> = {
         ),
       },
     ],
-    darkH2: '「放心」不靠形容词，靠可以验证的东西',
+    darkH2: '不给形容词，给可以验证的东西',
     darkSub: '页面上的每个数字，都来自线上正在运行的系统。',
     facts: [
       {
@@ -359,7 +359,7 @@ const COPY: Record<Lang, HomeCopy> = {
         从一句话开始。
       </>
     ),
-    finalP: '免注册体验——说一句话，剩下的有人办、有据可查。',
+    finalP: '免注册体验——你的 Agent 现在就能开始干活。',
     finalCta: '开始 →',
     finalNote: '免注册即可体验，随时开始。',
   },
@@ -369,19 +369,19 @@ const COPY: Record<Lang, HomeCopy> = {
     tag: 'AI-Native Rental OS · Toronto',
     heroH1: (
       <>
-        Every step handled,
+        The hard parts of renting,
         <br />
-        every step <em>on the record</em>.
+        handled by <em>your own AI</em>.
       </>
     ),
     sub: (
       <>
-        That&rsquo;s what renting with confidence means — Stayloop gives tenants, landlords and agents each a <b>dedicated AI agent</b>: you say it, it gets it done, and the key decisions come back to you to confirm.
+        Stayloop gives tenants, landlords and agents each a <b>dedicated AI agent</b>: it handles the routine work; you confirm the key decisions.
       </>
     ),
     pains: [
       <>
-        <b>Landlords</b> — applications checked for authenticity and court records; collect rent with confidence
+        <b>Landlords</b> — screening, rent collection, day-to-day tasks, with a back office behind you
       </>,
       <>
         <b>Tenants</b> — submit documents once; start even without local credit
@@ -440,7 +440,7 @@ const COPY: Record<Lang, HomeCopy> = {
       { b: 'Fully logged', s: 'Every step can be questioned, reviewed and audited' },
     ],
     rolesH2: 'Three roles, each with its own agent',
-    rolesSub: 'Not one shared support bot — three AIs with different loyalties, each answering only to you, bringing that same confidence to every role.',
+    rolesSub: 'Not one shared support bot — three AIs with different loyalties, each answering only to you.',
     roles: [
       {
         tag: 'Landlord × LOGIC',
@@ -451,7 +451,7 @@ const COPY: Record<Lang, HomeCopy> = {
             and a back office behind you.
           </>
         ),
-        lead: 'A landlord’s confidence starts with every document checked: Logic verifies each application for authenticity and court records, explains every point, then ranks them for you.',
+        lead: 'Logic checks every application for document authenticity and court records, explains every point, then ranks them for you.',
         benefits: [
           {
             b: 'Every application goes through six-dimension screening first',
@@ -495,7 +495,7 @@ const COPY: Record<Lang, HomeCopy> = {
             even without local credit history.
           </>
         ),
-        lead: 'A tenant’s confidence means never proving yourself twice: say what you want in plain language — every listing is real; earn the four stamps once and apply anywhere without re-submitting documents.',
+        lead: 'Say what you want in plain language — every listing is real; earn the four stamps once and apply anywhere without re-submitting documents.',
         benefits: [
           {
             b: 'Real listings + official market data',
@@ -539,7 +539,7 @@ const COPY: Record<Lang, HomeCopy> = {
             your time goes to the real work.
           </>
         ),
-        lead: 'An agent’s confidence is time spent where it counts: confirming attendance, sending reminders, collecting feedback, settling commissions — the tasks that eat half a day, Brief takes them all.',
+        lead: 'Confirming attendance, sending reminders, collecting feedback, settling commissions — the tasks that eat half a day, Brief takes them all.',
         benefits: [
           {
             b: 'Schedules orchestrated automatically',
@@ -574,8 +574,8 @@ const COPY: Record<Lang, HomeCopy> = {
         tm: 'Orchestrated 07:30',
       },
     ],
-    stepsH2: 'How the confidence gets built',
-    stepsSub: 'No form maze — conversation is the interface, and nothing counts as done until you confirm.',
+    stepsH2: 'How to start',
+    stepsSub: 'No form maze — conversation is the interface.',
     steps: [
       {
         h: 'Say it',
@@ -602,7 +602,7 @@ const COPY: Record<Lang, HomeCopy> = {
         ),
       },
     ],
-    darkH2: 'Confidence isn’t adjectives — it’s things you can verify',
+    darkH2: 'No adjectives — only things you can verify',
     darkSub: 'Every number on this page comes from the system running in production.',
     facts: [
       {
@@ -646,7 +646,7 @@ const COPY: Record<Lang, HomeCopy> = {
         starts with a sentence.
       </>
     ),
-    finalP: 'Try without signing up — say one sentence; the rest gets handled, on the record.',
+    finalP: 'Try without signing up — your agent can start working right now.',
     finalCta: 'Start →',
     finalNote: 'No sign-up needed — start anytime.',
   },
