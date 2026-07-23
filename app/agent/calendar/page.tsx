@@ -62,7 +62,7 @@ export default function AgentCalendarPage() {
             {zh ? 'DAVID PARK · 第 20 周 · 5/11–5/17' : 'DAVID PARK · WEEK 20 · 5/11–5/17'}
           </div>
           <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[32px]">
-            {zh ? '本周 9 场带看 · $720 已锁' : '9 showings this week · $720 locked'}
+            {zh ? '本周 9 场带看' : '9 showings this week'}
           </h1>
           <p className="mt-1 text-[13.5px] text-body-2">{zh ? '绿 = 已完成 · 蓝 = 已确认 · 黄 = 等你接' : 'Green = done · Blue = confirmed · Yellow = awaiting you'}</p>
         </div>
@@ -106,8 +106,8 @@ export default function AgentCalendarPage() {
           <div className="mt-0.5 text-[11.5px] text-brand">{zh ? '▲ 4 待评价' : '▲ 4 awaiting review'}</div>
         </div>
         <div className="sl-card p-5">
-          <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '本周已锁收入' : 'Income locked this week'}</div>
-          <div className="mt-1 text-[28px] font-extrabold tracking-tight">$720</div>
+          <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '本月转介佣金' : 'Referral commission this month'}</div>
+          <div className="mt-1 text-[28px] font-extrabold tracking-tight">$1,225</div>
           <div className="mt-0.5 text-[11.5px] text-brand">{zh ? '▲ 比上周 +12%' : '▲ +12% vs last week'}</div>
         </div>
         <div className="sl-card p-5">

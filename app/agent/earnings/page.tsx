@@ -205,7 +205,7 @@ export default function AgentEarningsPage() {
           AGENT · EARNINGS
         </div>
         <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">
-          {zh ? '本周 9 场带看 · $720 已锁' : '9 showings this week · $720 locked'}
+          {zh ? '本周 9 场带看 · 佣金透明结算' : '9 showings this week · transparent commission settlement'}
         </h1>
         <p className="mt-1 text-[13.5px] text-body-2">
           {zh ? '示范数据 · 订阅后解锁完整面板' : 'Sample data · subscribe to unlock full dashboard'}
