@@ -116,18 +116,18 @@ const COPY: Record<Lang, HomeCopy> = {
     ),
     sub: (
       <>
-        Stayloop 为租客、房东、经纪各提供一个<b>独立的 AI Agent</b>：日常事务由它处理，关键决定由你确认。
+        Stayloop 为租客、房东、经纪各提供一个<b>独立的 AI Agent</b>：你说一句，它去办，关键决定由你确认。
       </>
     ),
     pains: [
       <>
-        <b>房东</b>——筛租客、收租金、日常事务，后台有支持
+        <b>房东</b>——怕租错人？每份申请先查真伪和法庭记录
       </>,
       <>
-        <b>租客</b>——材料交一次，没有本地信用也能开始
+        <b>租客</b>——怕材料白填？交一次，处处通行
       </>,
       <>
-        <b>经纪</b>——行政事务交给 AI，时间留给专业
+        <b>经纪</b>——怕杂活吃掉专业？行政事务全交给 AI
       </>,
     ],
     tryCta: '试一句 →',
@@ -191,7 +191,7 @@ const COPY: Record<Lang, HomeCopy> = {
             后台有支持。
           </>
         ),
-        lead: 'Logic 把每份申请查完材料真伪和法庭记录，每一分写明理由，再排好序给你。',
+        lead: '房东的难题，Logic 接：把每份申请查完材料真伪和法庭记录，每一分写明理由，再排好序给你。',
         benefits: [
           { b: '每份申请先过六维尽调', s: '材料真伪、法庭记录都查过，伪造材料会被识别并拦下。' },
           { b: '租金回收由系统跟进', s: '在线收租、月末自动提醒；续约提前 120 天备好方案。' },
@@ -226,7 +226,7 @@ const COPY: Record<Lang, HomeCopy> = {
             也能建立可信的租房履历。
           </>
         ),
-        lead: '条件说人话，房源全是真的；四枚章盖好，申请任何房源不再重复交材料。',
+        lead: '租客的难题，Luna 接：条件说人话，房源全是真的；四枚章盖好，申请任何房源不再重复交材料。',
         benefits: [
           { b: '真实挂牌 + 官方行情作答', s: 'TRREB 官方成交对照，绝不编造；英文租约逐条讲成中文。' },
           { b: '验证一次，处处通行', s: '护照、枫叶卡、工签都支持——材料只交一次。' },
@@ -261,7 +261,7 @@ const COPY: Record<Lang, HomeCopy> = {
             时间留给专业工作。
           </>
         ),
-        lead: '确认到场、发提醒、收反馈、算佣金——这些吃掉半天的事，Brief 全部接走。',
+        lead: '经纪的难题，Brief 接：确认到场、发提醒、收反馈、算佣金——这些吃掉半天的事全部接走。',
         benefits: [
           { b: '日程自动编排', s: '租客到场自动确认，材料包与授权问答清单提前备好。' },
           { b: '反馈自动收集归档', s: '看房意见整理好直达房东，每个客户的进度都有人盯。' },
@@ -287,7 +287,7 @@ const COPY: Record<Lang, HomeCopy> = {
         tm: '07:30 编排完成',
       },
     ],
-    stepsH2: '怎么开始',
+    stepsH2: '把难题交出去，只要三步',
     stepsSub: '没有表单迷宫——对话就是入口。',
     steps: [
       {
@@ -376,18 +376,18 @@ const COPY: Record<Lang, HomeCopy> = {
     ),
     sub: (
       <>
-        Stayloop gives tenants, landlords and agents each a <b>dedicated AI agent</b>: it handles the routine work; you confirm the key decisions.
+        Stayloop gives tenants, landlords and agents each a <b>dedicated AI agent</b>: say it, it gets done, and you confirm the key decisions.
       </>
     ),
     pains: [
       <>
-        <b>Landlords</b> — screening, rent collection, day-to-day tasks, with a back office behind you
+        <b>Landlords</b> — worried about the wrong tenant? Every application is verified first
       </>,
       <>
-        <b>Tenants</b> — submit documents once; start even without local credit
+        <b>Tenants</b> — tired of re-submitting documents? Verify once, use everywhere
       </>,
       <>
-        <b>Agents</b> — admin goes to the AI, your time goes to the real work
+        <b>Agents</b> — admin eating your day? Hand it all to the AI
       </>,
     ],
     tryCta: 'Try it →',
@@ -451,7 +451,7 @@ const COPY: Record<Lang, HomeCopy> = {
             and a back office behind you.
           </>
         ),
-        lead: 'Logic checks every application for document authenticity and court records, explains every point, then ranks them for you.',
+        lead: "A landlord's problems go to Logic: it checks every application for document authenticity and court records, explains every point, then ranks them for you.",
         benefits: [
           {
             b: 'Every application goes through six-dimension screening first',
@@ -495,7 +495,7 @@ const COPY: Record<Lang, HomeCopy> = {
             even without local credit history.
           </>
         ),
-        lead: 'Say what you want in plain language — every listing is real; earn the four stamps once and apply anywhere without re-submitting documents.',
+        lead: "A tenant's problems go to Luna: say what you want in plain language — every listing is real; earn the four stamps once and apply anywhere without re-submitting.",
         benefits: [
           {
             b: 'Real listings + official market data',
@@ -539,7 +539,7 @@ const COPY: Record<Lang, HomeCopy> = {
             your time goes to the real work.
           </>
         ),
-        lead: 'Confirming attendance, sending reminders, collecting feedback, settling commissions — the tasks that eat half a day, Brief takes them all.',
+        lead: "An agent's problems go to Brief: confirmations, reminders, feedback, commissions — the tasks that eat half a day, taken over so your time goes to closing.",
         benefits: [
           {
             b: 'Schedules orchestrated automatically',
@@ -574,7 +574,7 @@ const COPY: Record<Lang, HomeCopy> = {
         tm: 'Orchestrated 07:30',
       },
     ],
-    stepsH2: 'How to start',
+    stepsH2: 'Handing it over takes three steps',
     stepsSub: 'No form maze — conversation is the interface.',
     steps: [
       {
