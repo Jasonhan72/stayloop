@@ -153,6 +153,7 @@ In `supabase/migrations/`:
 - `design/v53-vol1.html` through `v53-vol8.html` + `v53-vol-arch.html` — extracted volumes
 - VOL1=homepage, VOL2=workspace flows, VOL3=settings/pricing/agent, VOL4=more UI, VOL5-7=screening(skip), VOL8=disputes/LTB/legal
 - **Rule: build STRICTLY to these designs — exact copy, exact routes, exact layout. Don't improvise.**
+- 设计探索辅助：`.claude/skills/design-taste-frontend/`（开源 taste-skill，Leonxlnx/taste-skill@66k⭐ 的 anti-slop 前端品味规则）。**仅限**做新蓝本/新营销页的设计探索阶段（产出先落 `design/` 给用户定稿）；已定稿蓝本和产线页面一律以蓝本为准，此 skill 不得凌驾设计蓝本。它反对的 "AI 紫渐变" 默认色不适用于我们——品牌紫是既定决策。
 
 ### Design Alignment Status (as of 2026-06-16)
 
