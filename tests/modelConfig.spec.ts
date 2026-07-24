@@ -43,7 +43,7 @@ describe('sanitize — dirty values fall back to defaults', () => {
 
   it('a whitelisted model WITHOUT its provider key falls back to the default', () => {
     vi.stubEnv('DEEPSEEK_API_KEY', '')
-    const out = sanitize({ turn: 'deepseek-chat' })
+    const out = sanitize({ turn: 'deepseek-v4-flash' })
     expect(out.turn).toBe(DEFAULT_MODELS.turn)
   })
 
@@ -57,17 +57,17 @@ describe('sanitize — dirty values fall back to defaults', () => {
 })
 
 describe('allowedSlots — 国产 openai-compat models are locked out of PII slots', () => {
-  it('deepseek-chat in the screening slot is rejected even with its key configured', () => {
+  it('deepseek-v4-flash in the screening slot is rejected even with its key configured', () => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
-    const out = sanitize({ screening: 'deepseek-chat', forensics: 'deepseek-chat', classify: 'deepseek-chat' })
+    const out = sanitize({ screening: 'deepseek-v4-flash', forensics: 'deepseek-v4-flash', classify: 'deepseek-v4-flash' })
     expect(out.screening).toBe(DEFAULT_MODELS.screening)
     expect(out.forensics).toBe(DEFAULT_MODELS.forensics)
     expect(out.classify).toBe(DEFAULT_MODELS.classify)
   })
 
-  it('deepseek-chat IS accepted in the turn slot when its key is configured', () => {
+  it('deepseek-v4-flash IS accepted in the turn slot when its key is configured', () => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
-    expect(sanitize({ turn: 'deepseek-chat' }).turn).toBe('deepseek-chat')
+    expect(sanitize({ turn: 'deepseek-v4-flash' }).turn).toBe('deepseek-v4-flash')
   })
 
   it('structural invariant: every non-Anthropic model is turn-only', () => {
