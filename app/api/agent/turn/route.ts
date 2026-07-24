@@ -10,6 +10,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
 import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback } from '@/lib/agent/prompts'
 import { applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
+import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
 import { DEFAULT_MODELS, getModel, getModelDef } from '@/lib/modelConfig'
 import { llmChat, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
@@ -190,20 +191,6 @@ async function fetchUrlContent(url: string): Promise<FetchResult> {
   }
 }
 
-function safeParseJson(raw: string): Record<string, unknown> | null {
-  // The model is asked for bare JSON, but tolerate ```json fences / prose.
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  const body = fenced ? fenced[1] : raw
-  const start = body.indexOf('{')
-  const end = body.lastIndexOf('}')
-  if (start === -1 || end === -1 || end < start) return null
-  try {
-    return JSON.parse(body.slice(start, end + 1)) as Record<string, unknown>
-  } catch {
-    return null
-  }
-}
-
 function normalizeOutput(parsed: Record<string, unknown> | null, fallbackReply: string, lang: 'zh' | 'en' = 'zh'): TurnOutput {
   if (!parsed) return { reply: fallbackReply, memoryWrites: [], proposedAction: null, nextStage: null }
 
@@ -269,15 +256,8 @@ export async function POST(req: Request) {
       req.headers.get('cf-connecting-ip') ||
       (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() ||
       'unknown'
-    // IPv6 callers can rotate interface IDs trivially (privacy extensions /
-    // whole-/64 allocations), so bucket them by the /64 prefix instead of the
-    // full address — approximated as the first 4 colon groups of the string
-    // form via split(':').slice(0,4). Exact for uncompressed addresses; for
-    // '::'-compressed forms the prefix may still carry interface bits, so the
-    // grouping is partial there — but never looser than the previous
-    // full-address key. Anything containing ':' is treated as IPv6; IPv4
-    // keys are unchanged.
-    const ip = rawIp.includes(':') ? rawIp.split(':').slice(0, 4).join(':') : rawIp
+    // IPv6 /64 bucketing — see bucketAnonIp in lib/agent/turnHelpers.ts.
+    const ip = bucketAnonIp(rawIp)
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('anon:' + ip))
     const anonKey = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
     // bump_anon_rate_limit is service-role-only by design (revoked from
@@ -354,24 +334,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'agent reasoning unavailable' }, { status: 503 })
   }
 
-  const memories = (Array.isArray(body.memories) ? body.memories : [])
-    .slice(0, 50)
-    .map((m) => ({
-      ...m,
-      key: typeof m?.key === 'string' ? m.key.slice(0, 500) : m?.key,
-      value: typeof m?.value === 'string' ? m.value.slice(0, 500) : m?.value,
-    }))
-  // Field-level normalization, not just `?? default` — a crafted payload with
-  // a partial workflow object (missing completed_steps) used to crash
-  // buildSystemPrompt's .join() into a bare worker 500.
-  const w = (body.workflow ?? {}) as Partial<WorkflowState>
-  const workflow: WorkflowState = {
-    workflow_type: typeof w.workflow_type === 'string' ? w.workflow_type : '',
-    workflow_id: w.workflow_id ?? null,
-    current_stage: typeof w.current_stage === 'string' ? w.current_stage : '',
-    completed_steps: Array.isArray(w.completed_steps) ? w.completed_steps.slice(0, 20) : [],
-    status: typeof w.status === 'string' ? w.status : 'active',
-  }
+  // Input clamps + partial-workflow hardening — see lib/agent/turnHelpers.ts.
+  const memories = clampMemories(body.memories)
+  const workflow: WorkflowState = normalizeWorkflow(body.workflow)
   // ── 续约/涨租/谈判专线(租客) ──────────────────────────────────────────────
   // Two-stage intent detection. Stage 1 (here, pre-LLM, deterministic
   // keywords on the message + recent user history): inject the RTA facts
@@ -566,24 +531,8 @@ export async function POST(req: Request) {
   // The model occasionally answers a factual question in plain prose despite
   // the JSON contract. Salvage that text as the reply — losing a real answer
   // behind a canned "我记下了" (which falsely implies success) is worse.
-  let salvage = parsed ? '' : raw.replace(/```(?:json)?|```/g, '').trim()
-  // BUT never surface a broken-JSON fragment as if it were prose: if the
-  // unparseable output still looks like JSON (starts with '{' or carries a
-  // "reply" field — typically truncated mid-object), pull just the value of
-  // "reply" out with an escape-aware regex; if even that fails, fall through
-  // to the honest 重发 copy below rather than echoing raw JSON at the user.
-  if (salvage && (salvage.startsWith('{') || salvage.includes('"reply"'))) {
-    const m = salvage.match(/"reply"\s*:\s*"((?:[^"\\]|\\.)*)"/)
-    if (m) {
-      try {
-        salvage = JSON.parse(`"${m[1]}"`) as string
-      } catch {
-        salvage = m[1].replace(/\\"/g, '"').replace(/\\n/g, '\n')
-      }
-    } else {
-      salvage = ''
-    }
-  }
+  // (JSON-fragment protection lives in salvageReply — lib/agent/turnHelpers.ts.)
+  const salvage = parsed ? '' : salvageReply(raw)
   const fallbackReply = salvage
     ? salvage.slice(0, 2000)
     : uiLang === 'zh'

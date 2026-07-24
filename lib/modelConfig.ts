@@ -131,8 +131,10 @@ let inFlight: Promise<Record<ModelSlot, string>> | null = null
  * DEFAULT. A slot value must (1) be a whitelisted model, (2) be allowed for
  * that slot (allowedSlots), and (3) have its provider API key configured on
  * this server — otherwise the default takes over. SERVER-ONLY (reads env).
+ * Exported for unit tests (pure given process.env) — production callers go
+ * through getModels()/getModel().
  */
-function sanitize(raw: unknown): Record<ModelSlot, string> {
+export function sanitize(raw: unknown): Record<ModelSlot, string> {
   const out: Record<ModelSlot, string> = { ...DEFAULT_MODELS }
   if (raw && typeof raw === 'object') {
     for (const slot of MODEL_SLOTS) {
