@@ -3,80 +3,108 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stayloop v8 首页蓝本 · taste-skill 探索稿（未定稿）</title>
+<title>Stayloop v8b 首页蓝本 · taste-skill 探索稿（未定稿）</title>
 <!--
-  v8 homepage blueprint (design exploration, NOT canon until approved)
-  Method: taste-skill (design-taste-frontend). Design read: trust-first consumer
-  SaaS + AI-native, redesign-overhaul of the v7 8pt / single-purple system.
-  Dials: VARIANCE 7 / MOTION 5 / DENSITY 4.
-  Copy: verbatim from the approved v7 COPY (zh). Photos: production /home/*.jpg.
-  Shape lock: cards 16px, interactive pills full-radius, inputs 10px.
-  Eyebrow budget: 3 max (hero tag, roles, dark band). Accent: brand #7C3AED only.
+  v8b homepage blueprint (design exploration, NOT canon until approved)
+  Iteration on v8 after review: (1) header nav + footer replicate PRODUCTION
+  content exactly (我是 dropdown / 房源 / 定价 / 租客背调 / 登录 / 开始使用 →;
+  footer 4-col: brand tag + 产品/为谁打造/公司 + compliance line) — do not
+  change them again. (2) overall craft raised: hero atmosphere (layered brand
+  wash + hairline grid), ghost-numeral editorial pains & steps, full-bleed
+  photo band with glass stat strip, richer role panel, dark band glow.
+  Copy: verbatim from approved COPY.zh. Dials: VARIANCE 7 / MOTION 5 / DENSITY 4.
+  Shape lock: cards 16px, interactive pills full-radius.
 -->
 <style>
   :root{
     --brand:#7C3AED; --brand-2:#6D28D9; --brand-soft:#F3EEFB;
     --ink:#18181B; --ink-2:#52525B; --ink-3:#A1A1AA;
     --line:#E4E4E7; --line-soft:#F0F0F2;
-    --bg:#FFFFFF; --bg-2:#FAFAFB; --dark:#131316; --dark-2:#1C1C21;
-    --ok:#6AB344; --warn:#D97706; --bad:#DC2626;
-    --r-card:16px; --r-input:10px;
+    --bg:#FFFFFF; --bg-2:#FAFAFB; --dark:#131316;
+    --ok:#6AB344; --bad:#DC2626;
+    --r-card:16px;
   }
   *{margin:0;padding:0;box-sizing:border-box}
   html{scroll-behavior:smooth}
   body{font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",sans-serif;
        color:var(--ink);background:var(--bg);line-height:1.6;font-size:16px;
-       -webkit-font-smoothing:antialiased}
+       -webkit-font-smoothing:antialiased;overflow-x:hidden}
   img{max-width:100%;display:block}
   a{color:inherit;text-decoration:none}
-  .wrap{max-width:1180px;margin:0 auto;padding:0 32px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 32px;width:100%}
   @media(max-width:640px){.wrap{padding:0 20px}}
-
-  /* reveal on scroll */
-  .rv{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
+  .rv{opacity:0;transform:translateY(20px);transition:opacity .65s ease,transform .65s ease}
   .rv.on{opacity:1;transform:none}
+  .d1{transition-delay:.08s}.d2{transition-delay:.16s}.d3{transition-delay:.24s}
   @media(prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}}
 
-  /* ============ nav (64px, one line) ============ */
-  nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.86);backdrop-filter:blur(12px);
-      border-bottom:1px solid var(--line-soft)}
-  .nav-in{height:64px;display:flex;align-items:center;gap:28px}
+  /* ============ nav — PRODUCTION content, do not alter ============ */
+  nav.top{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.88);
+      backdrop-filter:blur(14px);border-bottom:1px solid var(--line-soft)}
+  .nav-in{height:64px;display:flex;align-items:center;gap:26px}
   .logo{font-weight:800;font-size:19px;letter-spacing:-.02em}
   .logo em{font-style:normal;background:linear-gradient(90deg,var(--brand),#3B82F6);
            -webkit-background-clip:text;background-clip:text;color:transparent}
-  .nav-links{display:flex;gap:22px;font-size:14px;color:var(--ink-2);margin-left:8px}
-  .nav-links a:hover{color:var(--ink)}
-  .nav-cta{margin-left:auto;display:flex;gap:10px;align-items:center}
+  .nav-links{display:flex;gap:24px;font-size:14px;color:var(--ink-2);align-items:center}
+  .nav-links>a:hover{color:var(--ink)}
+  .dd{position:relative}
+  .dd>button{display:flex;align-items:center;gap:5px;font-size:14px;color:var(--ink-2);
+             background:none;border:none;cursor:pointer;font-family:inherit;padding:0}
+  .dd>button:hover{color:var(--ink)}
+  .dd>button::after{content:"";width:7px;height:7px;border-right:1.5px solid currentColor;
+      border-bottom:1.5px solid currentColor;transform:rotate(45deg) translateY(-2px)}
+  .dd-menu{position:absolute;top:calc(100% + 14px);left:-14px;background:#fff;border:1px solid var(--line);
+      border-radius:12px;box-shadow:0 16px 40px -16px rgba(24,24,27,.18);padding:6px;min-width:150px;
+      opacity:0;visibility:hidden;transform:translateY(-4px);transition:all .18s ease}
+  .dd:hover .dd-menu{opacity:1;visibility:visible;transform:none}
+  .dd-menu a{display:block;padding:9px 14px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--ink)}
+  .dd-menu a:hover{background:var(--bg-2)}
+  .dd-menu a span{display:block;font-size:12px;font-weight:400;color:var(--ink-3)}
+  .nav-cta{margin-left:auto;display:flex;gap:14px;align-items:center}
+  .nav-login{font-size:14px;color:var(--ink-2)}
+  .nav-login:hover{color:var(--ink)}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;
        border-radius:999px;font-weight:600;font-size:14.5px;padding:10px 22px;cursor:pointer;
-       transition:transform .15s ease,box-shadow .15s ease;border:none}
+       transition:transform .15s ease,box-shadow .2s ease,background .15s ease;border:none;font-family:inherit}
   .btn:active{transform:translateY(1px) scale(.98)}
-  .btn-p{background:var(--brand);color:#fff;box-shadow:0 1px 2px rgba(124,58,237,.3)}
-  .btn-p:hover{background:var(--brand-2)}
-  .btn-g{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn-p{background:var(--brand);color:#fff;box-shadow:0 1px 2px rgba(124,58,237,.35)}
+  .btn-p:hover{background:var(--brand-2);box-shadow:0 6px 20px -6px rgba(124,58,237,.5)}
+  .btn-g{background:#fff;color:var(--ink);border:1px solid var(--line)}
   .btn-g:hover{border-color:var(--ink-3)}
-  .nav-login{font-size:14px;color:var(--ink-2)}
   @media(max-width:900px){.nav-links{display:none}}
 
-  /* ============ hero: 55/45 asymmetric split ============ */
-  .hero{padding:72px 0 0;position:relative;overflow:hidden}
-  .hero::after{content:"";position:absolute;top:-140px;right:-160px;width:560px;height:560px;
-    background:radial-gradient(closest-side,rgba(124,58,237,.07),transparent 70%);pointer-events:none}
-  .hero-in{display:grid;grid-template-columns:1.1fr .9fr;gap:64px;align-items:center}
-  @media(max-width:980px){.hero-in{grid-template-columns:1fr;gap:44px}}
-  .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.14em;
+  /* ============ hero: atmosphere + asymmetric split ============ */
+  .hero{position:relative;padding:60px 0 84px;overflow:hidden}
+  .hero .atmo{position:absolute;inset:0;pointer-events:none}
+  .hero .atmo::before{content:"";position:absolute;top:-220px;right:-180px;width:760px;height:760px;
+      background:radial-gradient(closest-side,rgba(124,58,237,.10),transparent 68%)}
+  .hero .atmo::after{content:"";position:absolute;bottom:-260px;left:-200px;width:640px;height:640px;
+      background:radial-gradient(closest-side,rgba(59,130,246,.06),transparent 70%)}
+  .hero .grid-tex{position:absolute;inset:0;
+      background-image:linear-gradient(rgba(24,24,27,.028) 1px,transparent 1px),
+                       linear-gradient(90deg,rgba(24,24,27,.028) 1px,transparent 1px);
+      background-size:56px 56px;
+      -webkit-mask-image:radial-gradient(ellipse 75% 65% at 50% 0%,#000 30%,transparent 75%);
+              mask-image:radial-gradient(ellipse 75% 65% at 50% 0%,#000 30%,transparent 75%)}
+  .hero-in{position:relative;display:grid;grid-template-columns:1.08fr .92fr;gap:72px;align-items:center}
+  @media(max-width:980px){.hero-in{grid-template-columns:1fr;gap:52px}}
+  .tag{display:inline-flex;align-items:center;gap:9px;font-size:12px;letter-spacing:.15em;
        text-transform:uppercase;color:var(--brand);font-weight:700}
-  .tag::before{content:"";width:22px;height:1.5px;background:var(--brand)}
-  .hero h1{font-size:clamp(38px,4.6vw,58px);font-weight:800;letter-spacing:-.025em;line-height:1.14;margin-top:20px}
-  .hero h1 em{font-style:normal;color:var(--brand)}
-  .hero .sub{color:var(--ink-2);font-size:17.5px;margin-top:20px;max-width:29em}
+  .tag::before{content:"";width:24px;height:1.5px;background:var(--brand)}
+  .hero h1{font-size:clamp(38px,4.5vw,54px);font-weight:800;letter-spacing:-.026em;line-height:1.13;margin-top:18px}
+  .hero h1 em{font-style:normal;color:var(--brand);position:relative}
+  .hero h1 em::after{content:"";position:absolute;left:0;right:0;bottom:4px;height:10px;
+      background:var(--brand-soft);z-index:-1;border-radius:3px}
+  .hero .sub{color:var(--ink-2);font-size:17px;margin-top:18px;max-width:29em}
   .hero .sub b{color:var(--ink);font-weight:600}
-  .hero .ctas{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap}
-  .hero .note{margin-top:14px;font-size:13px;color:var(--ink-3)}
+  .hero .ctas{display:flex;gap:12px;margin-top:26px;flex-wrap:wrap}
+  .hero .ctas .btn{padding:12px 28px;font-size:15px}
+  .hero .note{margin-top:16px;font-size:13px;color:var(--ink-3)}
 
-  /* hero right: real mini chat (product IS the visual) */
-  .chat{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);
-        box-shadow:0 24px 60px -24px rgba(24,24,27,.18),0 2px 8px rgba(24,24,27,.05);overflow:hidden}
+  /* hero right: chat + overlapping approval card */
+  .stage{position:relative;padding-bottom:44px}
+  .chat{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;
+        box-shadow:0 1px 2px rgba(24,24,27,.04),0 32px 72px -28px rgba(76,29,149,.22)}
   .chat-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line-soft)}
   .chat-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--brand),#3B82F6);
            color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
@@ -87,183 +115,233 @@
   .m-u{align-self:flex-end;background:var(--ink);color:#fff;border-bottom-right-radius:4px}
   .m-a{align-self:flex-start;background:#fff;border:1px solid var(--line-soft);border-bottom-left-radius:4px}
   .m-a b{color:var(--brand)}
-  .mini{align-self:flex-start;width:88%;background:#fff;border:1px solid var(--line);border-radius:12px;
-        padding:12px 14px;display:flex;gap:12px;align-items:center}
-  .mini-ph{width:52px;height:52px;border-radius:8px;flex:none;
+  .mini{align-self:flex-start;width:90%;background:#fff;border:1px solid var(--line);border-radius:12px;
+        padding:12px 14px;display:flex;gap:12px;align-items:center;
+        box-shadow:0 4px 14px -6px rgba(24,24,27,.08)}
+  .mini-ph{width:54px;height:54px;border-radius:9px;flex:none;
            background:url('https://www.stayloop.ai/home/final-interior.jpg') center/cover}
   .mini-t{font-size:13px;font-weight:700}
-  .mini-pr{font-size:13px;color:var(--brand);font-weight:700}
+  .mini-pr{font-size:13px;color:var(--brand);font-weight:700;margin-left:auto;flex:none}
   .mini-m{font-size:12px;color:var(--ink-2)}
   .okt{color:var(--ok);font-weight:600}
-  .chat-acts{display:flex;gap:8px;align-items:center;padding:0 18px 16px;background:var(--bg-2)}
-  .chip{border-radius:999px;font-size:12.5px;font-weight:600;padding:8px 14px;cursor:pointer;border:none}
+  .chat-acts{display:flex;gap:8px;align-items:center;padding:14px 18px;background:var(--bg-2);
+             border-top:1px solid var(--line-soft)}
+  .chip{border-radius:999px;font-size:12.5px;font-weight:600;padding:8px 15px;cursor:pointer;border:none;font-family:inherit}
   .chip-p{background:var(--brand);color:#fff}
   .chip-g{background:#fff;border:1px solid var(--line);color:var(--ink)}
   .chat-fr{margin-left:auto;font-size:12px;color:var(--ink-3)}
-  .float{display:flex;gap:10px;align-items:center;margin-top:14px;padding:12px 16px;background:#fff;
-         border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px -12px rgba(24,24,27,.12)}
+  .float{position:absolute;right:-14px;bottom:0;display:flex;gap:10px;align-items:center;
+         padding:13px 18px;background:#fff;border:1px solid var(--line);border-radius:13px;
+         box-shadow:0 18px 44px -16px rgba(24,24,27,.22)}
+  @media(max-width:640px){.float{right:0}}
   .float-dot{width:8px;height:8px;border-radius:50%;background:var(--brand);flex:none;
              animation:pulse 2.4s ease-in-out infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   @media(prefers-reduced-motion:reduce){.float-dot{animation:none}}
-  .float b{font-size:13.5px}
+  .float b{font-size:13.5px;display:block}
   .float span{font-size:12.5px;color:var(--ink-2)}
 
-  /* ============ trust strip: plain divide row, no cards ============ */
-  .trust{margin-top:64px;border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);
-         background:var(--bg-2)}
-  .trust-in{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
-  .trust-in>div{padding:18px 20px;font-size:13.5px;color:var(--ink-2);text-align:center}
+  /* trust strip */
+  .trust{border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);background:var(--bg-2)}
+  .trust-in{display:grid;grid-template-columns:repeat(4,1fr)}
+  .trust-in>div{padding:20px;font-size:13.5px;color:var(--ink-2);text-align:center}
   .trust-in>div+div{border-left:1px solid var(--line-soft)}
   .trust-in b{color:var(--ink);font-weight:600}
   @media(max-width:900px){.trust-in{grid-template-columns:1fr 1fr}
     .trust-in>div:nth-child(3){border-left:none;border-top:1px solid var(--line-soft)}
     .trust-in>div:nth-child(4){border-top:1px solid var(--line-soft)}}
 
-  /* ============ pains: type-only tri-column, border-t grouping ============ */
-  .pains{padding:88px 0 0}
-  .pains-in{display:grid;grid-template-columns:repeat(3,1fr);gap:40px}
-  @media(max-width:900px){.pains-in{grid-template-columns:1fr;gap:28px}}
-  .pain{border-top:2px solid var(--ink);padding-top:18px}
-  .pain .who{font-size:13px;font-weight:800;letter-spacing:.06em;color:var(--brand)}
-  .pain p{margin-top:8px;font-size:16.5px;line-height:1.6}
+  /* ============ pains: editorial rows with ghost numerals ============ */
+  .pains{padding:104px 0}
+  .pains-in{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line)}
+  @media(max-width:900px){.pains-in{grid-template-columns:1fr}}
+  .pain{position:relative;padding:34px 34px 40px 0;overflow:hidden}
+  .pain+.pain{padding-left:34px;border-left:1px solid var(--line-soft)}
+  @media(max-width:900px){.pain+.pain{padding-left:0;border-left:none;border-top:1px solid var(--line-soft)}}
+  .pain .gn{position:absolute;top:10px;right:6px;font-size:96px;font-weight:800;line-height:1;
+            color:var(--ink);opacity:.045;letter-spacing:-.04em;pointer-events:none}
+  .pain .who{display:inline-flex;font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--brand);
+             background:var(--brand-soft);border-radius:999px;padding:4px 12px}
+  .pain p{margin-top:14px;font-size:17px;line-height:1.65}
   .pain p b{font-weight:700}
 
-  /* ============ photo band: 2/3 photo + 1/3 stat column ============ */
-  .band{padding:88px 0 0}
-  .band-in{display:grid;grid-template-columns:2fr 1fr;gap:0;border-radius:var(--r-card);overflow:hidden;
-           border:1px solid var(--line)}
-  @media(max-width:900px){.band-in{grid-template-columns:1fr}}
-  .band-ph{position:relative;min-height:460px;background:url('https://www.stayloop.ai/home/hero-mist.jpg') center/cover}
-  .band-cap{position:absolute;left:20px;bottom:16px;font-size:12.5px;color:#fff;background:rgba(19,19,22,.55);
-            backdrop-filter:blur(6px);padding:6px 12px;border-radius:999px}
-  .band-stats{display:flex;flex-direction:column;background:var(--bg)}
-  .band-stats>div{flex:1;padding:24px 28px;display:flex;flex-direction:column;justify-content:center}
-  .band-stats>div+div{border-top:1px solid var(--line-soft)}
-  .band-stats .b{font-size:26px;font-weight:800;letter-spacing:-.02em}
-  .band-stats .b.num{font-variant-numeric:tabular-nums}
-  .band-stats .s{font-size:13.5px;color:var(--ink-2);margin-top:3px}
+  /* ============ photo band: full-bleed + glass stat strip ============ */
+  .band{position:relative;min-height:560px;display:flex;align-items:flex-end;
+        background:url('https://www.stayloop.ai/home/hero-mist.jpg') center/cover}
+  .band::before{content:"";position:absolute;inset:0;
+        background:linear-gradient(180deg,rgba(19,19,22,.05) 30%,rgba(19,19,22,.52) 100%)}
+  .band-cap{position:absolute;top:28px;left:50%;transform:translateX(-50%);font-size:12.5px;color:#fff;
+            background:rgba(19,19,22,.4);backdrop-filter:blur(8px);padding:7px 16px;border-radius:999px;
+            border:1px solid rgba(255,255,255,.16)}
+  .band .wrap{position:relative;z-index:1;padding-bottom:40px}
+  .gstats{display:grid;grid-template-columns:repeat(4,1fr);border-radius:var(--r-card);overflow:hidden;
+          background:rgba(255,255,255,.12);backdrop-filter:blur(18px);
+          border:1px solid rgba(255,255,255,.22);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 24px 60px -24px rgba(19,19,22,.5)}
+  @media(max-width:900px){.gstats{grid-template-columns:1fr 1fr}}
+  .gstat{padding:26px 26px;color:#fff}
+  .gstat+.gstat{border-left:1px solid rgba(255,255,255,.16)}
+  @media(max-width:900px){.gstat:nth-child(3){border-left:none}
+    .gstat:nth-child(n+3){border-top:1px solid rgba(255,255,255,.16)}}
+  .gstat .b{font-size:27px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .gstat .s{font-size:13px;color:rgba(255,255,255,.82);margin-top:4px;line-height:1.5}
 
-  /* ============ roles: eyebrow + tabbed single panel ============ */
-  .roles{padding:104px 0 0}
+  /* ============ roles: tabs + rich panel ============ */
+  .roles{padding:112px 0 0}
+  .roles-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
   .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--brand);font-weight:700}
-  .roles h2{font-size:clamp(28px,3.2vw,40px);font-weight:800;letter-spacing:-.02em;margin-top:12px}
-  .roles .rsub{color:var(--ink-2);margin-top:10px;max-width:34em}
-  .rtabs{display:flex;gap:8px;margin-top:32px;flex-wrap:wrap}
-  .rtab{border-radius:999px;border:1px solid var(--line);background:#fff;padding:10px 20px;font-size:14px;
-        font-weight:700;cursor:pointer;color:var(--ink-2);transition:all .18s ease}
-  .rtab:hover{border-color:var(--ink-3)}
-  .rtab.on{background:var(--ink);border-color:var(--ink);color:#fff}
-  .rpanel{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);
-          border-radius:var(--r-card);overflow:hidden;background:var(--bg)}
+  .roles h2{font-size:clamp(30px,3.4vw,42px);font-weight:800;letter-spacing:-.022em;margin-top:12px}
+  .roles .rsub{color:var(--ink-2);margin-top:12px;max-width:34em}
+  .rtabs{display:flex;gap:8px;flex-wrap:wrap}
+  .rtab{border-radius:999px;border:1px solid var(--line);background:#fff;padding:11px 22px;font-size:14px;
+        font-weight:700;cursor:pointer;color:var(--ink-2);transition:all .18s ease;font-family:inherit}
+  .rtab:hover{border-color:var(--ink-3);transform:translateY(-1px)}
+  .rtab.on{background:var(--ink);border-color:var(--ink);color:#fff;box-shadow:0 8px 20px -8px rgba(24,24,27,.4)}
+  .rpanel{margin-top:36px;display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);
+          border-radius:var(--r-card);overflow:hidden;background:#fff;
+          box-shadow:0 32px 72px -36px rgba(24,24,27,.16)}
   @media(max-width:900px){.rpanel{grid-template-columns:1fr}}
-  .rp-l{padding:40px 44px;display:flex;flex-direction:column}
-  @media(max-width:640px){.rp-l{padding:28px 24px}}
-  .rp-l h3{font-size:clamp(22px,2.4vw,28px);font-weight:800;letter-spacing:-.015em;line-height:1.3}
+  .rp-l{padding:44px 48px;display:flex;flex-direction:column}
+  @media(max-width:640px){.rp-l{padding:30px 24px}}
+  .rp-tag{display:inline-flex;align-self:flex-start;font-size:11.5px;font-weight:800;letter-spacing:.1em;
+          color:var(--brand);background:var(--brand-soft);border-radius:999px;padding:5px 13px}
+  .rp-l h3{font-size:clamp(23px,2.5vw,29px);font-weight:800;letter-spacing:-.016em;line-height:1.3;margin-top:18px}
   .rp-l .lead{color:var(--ink-2);font-size:15px;margin-top:14px}
-  .rp-bens{margin-top:22px;display:flex;flex-direction:column;gap:14px}
-  .rp-ben{display:flex;gap:12px;align-items:flex-start}
-  .rp-ben::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--brand);flex:none;margin-top:8px}
+  .rp-bens{margin-top:26px;display:flex;flex-direction:column;gap:16px}
+  .rp-ben{display:flex;gap:14px;align-items:flex-start}
+  .rp-ben .bn{flex:none;width:24px;height:24px;border-radius:50%;background:var(--brand-soft);color:var(--brand);
+              font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
   .rp-ben .bb{font-size:14.5px;font-weight:700}
-  .rp-ben .bs{font-size:13.5px;color:var(--ink-2)}
-  .rp-quote{margin-top:auto;padding-top:24px;border-top:1px solid var(--line-soft)}
-  .rp-quote p{font-size:14px;color:var(--ink-2);line-height:1.6}
-  .rp-quote .who{display:flex;gap:10px;align-items:center;margin-top:10px}
-  .rp-quote .av{width:30px;height:30px;border-radius:50%;background:var(--brand-soft);color:var(--brand);
+  .rp-ben .bs{font-size:13.5px;color:var(--ink-2);margin-top:2px}
+  .rp-quote{margin-top:auto;padding-top:26px;border-top:1px solid var(--line-soft)}
+  .rp-quote p{font-size:14px;color:var(--ink-2);line-height:1.65}
+  .rp-quote .who{display:flex;gap:10px;align-items:center;margin-top:12px}
+  .rp-quote .av{width:32px;height:32px;border-radius:50%;background:var(--brand-soft);color:var(--brand);
                 font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center}
   .rp-quote .wn{font-size:12.5px;color:var(--ink-3)}
-  .rp-cta{margin-top:22px}
-  .rp-r{background:var(--bg-2);border-left:1px solid var(--line-soft);padding:32px;display:flex;
-        flex-direction:column;justify-content:center}
+  .rp-cta{margin-top:24px}
+  .rp-r{position:relative;background:linear-gradient(150deg,#F7F4FC 0%,var(--bg-2) 60%);
+        border-left:1px solid var(--line-soft);padding:40px 36px;display:flex;flex-direction:column;
+        justify-content:center;overflow:hidden}
+  .rp-r::before{content:"";position:absolute;top:-120px;right:-120px;width:340px;height:340px;
+        background:radial-gradient(closest-side,rgba(124,58,237,.09),transparent 70%)}
   @media(max-width:900px){.rp-r{border-left:none;border-top:1px solid var(--line-soft)}}
-  .demo{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;
-        box-shadow:0 16px 40px -20px rgba(24,24,27,.14)}
-  .demo-h{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line-soft);
+  .demo{position:relative;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+        box-shadow:0 24px 56px -24px rgba(76,29,149,.24)}
+  .demo-h{display:flex;align-items:center;gap:8px;padding:13px 17px;border-bottom:1px solid var(--line-soft);
           font-size:12.5px;font-weight:700}
   .demo-h .st{margin-left:auto;font-weight:600;color:var(--ok)}
-  .demo-rows{display:flex;flex-direction:column}
-  .demo-row{display:flex;align-items:center;gap:12px;padding:13px 16px}
+  .demo-row{display:flex;align-items:center;gap:12px;padding:14px 17px}
   .demo-row+.demo-row{border-top:1px solid var(--line-soft)}
   .demo-row .rb{font-size:13.5px;font-weight:700}
-  .demo-row .rs{font-size:12px;color:var(--ink-2)}
-  .pill{margin-left:auto;flex:none;font-size:11.5px;font-weight:700;border-radius:999px;padding:4px 10px}
+  .demo-row .rs{font-size:12px;color:var(--ink-2);margin-top:1px}
+  .pill{margin-left:auto;flex:none;font-size:11.5px;font-weight:700;border-radius:999px;padding:4px 11px}
   .pill.g{background:#F0F7EC;color:#4C8A2E}
   .pill.n{background:var(--line-soft);color:var(--ink-2)}
   .pill.r{background:#FDECEC;color:var(--bad)}
-  .demo-note{padding:13px 16px;border-top:1px solid var(--line-soft);font-size:13px;color:var(--ink-2);
+  .demo-note{padding:14px 17px;border-top:1px solid var(--line-soft);font-size:13px;color:var(--ink-2);
              background:var(--bg-2)}
   .demo-note b{color:var(--ink)}
-  .demo-acts{display:flex;gap:8px;align-items:center;padding:12px 16px;border-top:1px solid var(--line-soft)}
+  .demo-acts{display:flex;gap:8px;align-items:center;padding:13px 17px;border-top:1px solid var(--line-soft)}
   .demo-tm{margin-left:auto;font-size:11.5px;color:var(--ink-3)}
-  .rpanel.swap{animation:swap .35s ease}
-  @keyframes swap{from{opacity:.4;transform:translateY(8px)}to{opacity:1;transform:none}}
-  @media(prefers-reduced-motion:reduce){.rpanel.swap{animation:none}}
+  .rpanel.swap .rp-l,.rpanel.swap .rp-r{animation:swap .4s ease}
+  @keyframes swap{from{opacity:.35;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){.rpanel.swap .rp-l,.rpanel.swap .rp-r{animation:none}}
 
-  /* ============ steps: horizontal timeline, no cards ============ */
-  .steps{padding:104px 0 0}
-  .steps h2{font-size:clamp(28px,3.2vw,40px);font-weight:800;letter-spacing:-.02em}
-  .steps .ssub{color:var(--ink-2);margin-top:10px}
-  .steps-in{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;margin-top:44px;position:relative}
-  .steps-in::before{content:"";position:absolute;top:19px;left:calc(16.66% + 20px);right:calc(16.66% + 20px);
-                    height:1px;background:var(--line)}
-  @media(max-width:900px){.steps-in{grid-template-columns:1fr;gap:32px}.steps-in::before{display:none}}
-  .step{position:relative}
-  .step .n{width:38px;height:38px;border-radius:50%;background:var(--bg);border:1.5px solid var(--brand);
-           color:var(--brand);font-weight:800;font-size:15px;display:flex;align-items:center;
-           justify-content:center;position:relative;z-index:1}
-  .step h3{font-size:18px;font-weight:800;margin-top:16px}
-  .step p{font-size:14.5px;color:var(--ink-2);margin-top:8px}
+  /* ============ steps: ghost numerals + timeline ============ */
+  .steps{padding:112px 0}
+  .steps h2{font-size:clamp(30px,3.4vw,42px);font-weight:800;letter-spacing:-.022em}
+  .steps .ssub{color:var(--ink-2);margin-top:12px}
+  .steps-in{display:grid;grid-template-columns:repeat(3,1fr);gap:44px;margin-top:52px;position:relative}
+  .steps-in::before{content:"";position:absolute;top:21px;left:calc(16.66% + 24px);right:calc(16.66% + 24px);
+                    height:1px;background:linear-gradient(90deg,var(--line),var(--brand-soft),var(--line))}
+  @media(max-width:900px){.steps-in{grid-template-columns:1fr;gap:36px}.steps-in::before{display:none}}
+  .step{position:relative;overflow:hidden;padding-top:2px}
+  .step .gn{position:absolute;top:-18px;right:0;font-size:120px;font-weight:800;line-height:1;
+            color:var(--brand);opacity:.05;letter-spacing:-.05em;pointer-events:none}
+  .step .n{width:42px;height:42px;border-radius:50%;background:#fff;border:1.5px solid var(--brand);
+           color:var(--brand);font-weight:800;font-size:16px;display:flex;align-items:center;
+           justify-content:center;position:relative;z-index:1;box-shadow:0 0 0 6px #fff}
+  .step h3{font-size:19px;font-weight:800;margin-top:18px}
+  .step p{font-size:14.5px;color:var(--ink-2);margin-top:9px}
   .step p b{color:var(--ink);font-weight:600}
 
-  /* ============ dark facts band: huge numerals, divide-x ============ */
-  .dark{margin-top:104px;background:var(--dark);color:#fff;padding:80px 0}
+  /* ============ dark facts band ============ */
+  .dark{position:relative;background:var(--dark);color:#fff;padding:88px 0;overflow:hidden}
+  .dark::before{content:"";position:absolute;top:-200px;left:50%;transform:translateX(-50%);
+      width:900px;height:480px;background:radial-gradient(closest-side,rgba(124,58,237,.16),transparent 70%)}
+  .dark .wrap{position:relative}
   .dark .eyebrow{color:#B79CF0}
-  .dark h2{font-size:clamp(26px,3vw,36px);font-weight:800;letter-spacing:-.02em;margin-top:12px}
-  .dark .dsub{color:rgba(255,255,255,.55);margin-top:10px;font-size:15px}
-  .facts{display:grid;grid-template-columns:repeat(4,1fr);margin-top:48px;border-top:1px solid rgba(255,255,255,.12)}
+  .dark h2{font-size:clamp(28px,3.2vw,38px);font-weight:800;letter-spacing:-.022em;margin-top:12px}
+  .dark .dsub{color:rgba(255,255,255,.55);margin-top:12px;font-size:15px}
+  .facts{display:grid;grid-template-columns:repeat(4,1fr);margin-top:54px;border-top:1px solid rgba(255,255,255,.13)}
   @media(max-width:900px){.facts{grid-template-columns:1fr 1fr}}
-  .fact{padding:28px 24px 0}
-  .fact+.fact{border-left:1px solid rgba(255,255,255,.12)}
+  .fact{padding:30px 26px 0}
+  .fact+.fact{border-left:1px solid rgba(255,255,255,.13)}
   @media(max-width:900px){.fact:nth-child(3){border-left:none}}
-  .fact .b{font-size:clamp(34px,3.6vw,46px);font-weight:800;letter-spacing:-.03em;
-           font-variant-numeric:tabular-nums}
-  .fact .s{font-size:13.5px;color:rgba(255,255,255,.6);margin-top:8px;line-height:1.55}
+  .fact .b{font-size:clamp(36px,3.8vw,48px);font-weight:800;letter-spacing:-.03em;
+           font-variant-numeric:tabular-nums;
+           background:linear-gradient(180deg,#fff 55%,#B79CF0 130%);
+           -webkit-background-clip:text;background-clip:text;color:transparent}
+  .fact .s{font-size:13.5px;color:rgba(255,255,255,.6);margin-top:9px;line-height:1.55}
   .fact .s i{font-style:normal;color:rgba(255,255,255,.85)}
 
-  /* ============ final CTA: full-bleed photo + scrim ============ */
-  .final{position:relative;min-height:520px;display:flex;align-items:center;
+  /* ============ final CTA ============ */
+  .final{position:relative;min-height:540px;display:flex;align-items:center;
          background:url('https://www.stayloop.ai/home/final-interior.jpg') center/cover}
-  .final::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(19,19,22,.72) 0%,rgba(19,19,22,.38) 60%,rgba(19,19,22,.15) 100%)}
-  .final .wrap{width:100%}
-  .final-in{position:relative;z-index:1;color:#fff;padding:96px 0}
-  .final h2{font-size:clamp(34px,4vw,52px);font-weight:800;letter-spacing:-.025em;line-height:1.18}
-  .final p{margin-top:16px;font-size:16.5px;color:rgba(255,255,255,.85);max-width:26em}
-  .final .btn-p{margin-top:28px;padding:13px 34px;font-size:15.5px}
+  .final::before{content:"";position:absolute;inset:0;
+      background:linear-gradient(90deg,rgba(19,19,22,.74) 0%,rgba(19,19,22,.4) 58%,rgba(19,19,22,.12) 100%)}
+  .final .wrap{position:relative;z-index:1;color:#fff;padding-top:96px;padding-bottom:96px}
+  .final h2{font-size:clamp(36px,4.2vw,54px);font-weight:800;letter-spacing:-.026em;line-height:1.16}
+  .final p{margin-top:18px;font-size:16.5px;color:rgba(255,255,255,.85);max-width:26em}
+  .final .btn-p{margin-top:30px;padding:14px 36px;font-size:15.5px}
   .final .fnote{margin-top:14px;font-size:13px;color:rgba(255,255,255,.6)}
 
-  footer{background:var(--dark);color:rgba(255,255,255,.5);font-size:13px;padding:28px 0;
-         border-top:1px solid rgba(255,255,255,.08)}
-  .foot-in{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  /* ============ footer — PRODUCTION content, do not alter ============ */
+  footer{background:var(--dark);color:rgba(255,255,255,.55);font-size:13.5px}
+  .foot-grid{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:56px;padding:56px 0 48px}
+  @media(max-width:900px){.foot-grid{grid-template-columns:1fr 1fr;gap:36px}}
+  @media(max-width:640px){.foot-grid{grid-template-columns:1fr}}
+  .foot-brand .logo{color:#fff}
+  .foot-brand p{margin-top:14px;max-width:24em;line-height:1.7}
+  .foot-col h4{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;
+               color:rgba(255,255,255,.85)}
+  .foot-col ul{list-style:none;margin-top:16px;display:flex;flex-direction:column;gap:10px}
+  .foot-col a:hover{color:#fff}
+  .foot-bot{border-top:1px solid rgba(255,255,255,.1);padding:22px 0;display:flex;
+            justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:12.5px;
+            color:rgba(255,255,255,.4)}
 </style>
 </head>
 <body>
 
-<nav>
+<!-- NAV: production content — 我是 dropdown · 房源 · 定价 · 租客背调 · 登录 · 开始使用 → -->
+<nav class="top">
   <div class="wrap nav-in">
     <a class="logo" href="#">stayloop<em>.AI</em></a>
     <div class="nav-links">
-      <a href="#roles">我是租客</a><a href="#roles">我是房东</a><a href="#roles">我是经纪</a>
-      <a href="#">房源</a><a href="#">定价</a><a href="#">租客背调</a>
+      <div class="dd">
+        <button>我是</button>
+        <div class="dd-menu">
+          <a href="#">租客 <span>找房 · 护照 · 免费</span></a>
+          <a href="#">房东 <span>筛查 · 收租 · 续约</span></a>
+          <a href="#">经纪 <span>日程 · 佣金 · 转介</span></a>
+        </div>
+      </div>
+      <a href="#">房源</a>
+      <a href="#">定价</a>
+      <a href="#">租客背调</a>
     </div>
     <div class="nav-cta">
       <a class="nav-login" href="#">登录</a>
-      <button class="btn btn-p">免费开始</button>
+      <button class="btn btn-p">开始使用 →</button>
     </div>
   </div>
 </nav>
 
-<!-- HERO: asymmetric split, max 4 text elements (tag / h1 / sub / ctas) -->
+<!-- HERO -->
 <header class="hero">
+  <div class="atmo"></div><div class="grid-tex"></div>
   <div class="wrap hero-in">
     <div>
       <span class="tag">AI-Native Rental OS · Toronto</span>
@@ -275,7 +353,7 @@
       </div>
       <p class="note">由 Anthropic Claude 驱动 · 免注册体验 · 真实挂牌 + TRREB 官方行情作答</p>
     </div>
-    <div class="rv on">
+    <div class="stage rv on">
       <div class="chat">
         <div class="chat-h">
           <span class="chat-av">L</span>
@@ -303,78 +381,83 @@
       </div>
       <div class="float">
         <span class="float-dot"></span>
-        <div><b>AI 提议，你决定</b><br><span>对外动作先经你批准 · 全程留痕</span></div>
+        <div><b>AI 提议，你决定</b><span>对外动作先经你批准 · 全程留痕</span></div>
       </div>
-    </div>
-  </div>
-
-  <!-- trust strip: plain divided row, no cards -->
-  <div class="trust">
-    <div class="wrap trust-in">
-      <div>技术 <b>Anthropic Claude</b></div>
-      <div>行情 <b>TRREB · Realtor.ca 官方数据</b></div>
-      <div>合规 <b>RTA · OHRC · PIPEDA</b></div>
-      <div>🍁 <b>Proudly Canadian</b> · 数据驻加</div>
     </div>
   </div>
 </header>
 
-<!-- PAINS: type-only tri-column, border-top grouping (no cards) -->
+<!-- trust strip -->
+<div class="trust">
+  <div class="wrap trust-in">
+    <div>技术 <b>Anthropic Claude</b></div>
+    <div>行情 <b>TRREB · Realtor.ca 官方数据</b></div>
+    <div>合规 <b>RTA · OHRC · PIPEDA</b></div>
+    <div>🍁 <b>Proudly Canadian</b> · 数据驻加</div>
+  </div>
+</div>
+
+<!-- PAINS -->
 <section class="pains">
   <div class="wrap pains-in">
-    <div class="pain rv"><div class="who">房东</div><p>怕租错人？<b>每份申请先查真伪和法庭记录</b></p></div>
-    <div class="pain rv"><div class="who">租客</div><p>怕材料白填？<b>交一次，处处通行</b></p></div>
-    <div class="pain rv"><div class="who">经纪</div><p>怕杂活吃掉专业？<b>行政事务全交给 AI</b></p></div>
+    <div class="pain rv"><span class="gn">01</span><span class="who">房东</span>
+      <p>怕租错人？<b>每份申请先查真伪和法庭记录</b></p></div>
+    <div class="pain rv d1"><span class="gn">02</span><span class="who">租客</span>
+      <p>怕材料白填？<b>交一次，处处通行</b></p></div>
+    <div class="pain rv d2"><span class="gn">03</span><span class="who">经纪</span>
+      <p>怕杂活吃掉专业？<b>行政事务全交给 AI</b></p></div>
   </div>
 </section>
 
-<!-- PHOTO BAND: 2/3 photo + 1/3 stat column -->
+<!-- PHOTO BAND: full-bleed + glass stats -->
 <section class="band">
+  <span class="band-cap">多伦多 · 我们的主场</span>
   <div class="wrap">
-    <div class="band-in rv">
-      <div class="band-ph"><span class="band-cap">多伦多 · 我们的主场</span></div>
-      <div class="band-stats">
-        <div><span class="b num">$0</span><span class="s">租客永远免费，隐私不是商品</span></div>
-        <div><span class="b">验证一次</span><span class="s">四枚章盖好，申请不再重复交材料</span></div>
-        <div><span class="b num">29 个季度</span><span class="s">TRREB 官方成交数据入库，行情有据</span></div>
-        <div><span class="b">全程留痕</span><span class="s">每一步可追问、可回查、可审计</span></div>
-      </div>
+    <div class="gstats rv">
+      <div class="gstat"><div class="b">$0</div><div class="s">租客永远免费，隐私不是商品</div></div>
+      <div class="gstat"><div class="b">验证一次</div><div class="s">四枚章盖好，申请不再重复交材料</div></div>
+      <div class="gstat"><div class="b">29 个季度</div><div class="s">TRREB 官方成交数据入库，行情有据</div></div>
+      <div class="gstat"><div class="b">全程留痕</div><div class="s">每一步可追问、可回查、可审计</div></div>
     </div>
   </div>
 </section>
 
-<!-- ROLES: tab switcher, one large split panel -->
+<!-- ROLES -->
 <section class="roles" id="roles">
   <div class="wrap">
-    <span class="eyebrow">Three Agents</span>
-    <h2>三种角色，各自的 Agent</h2>
-    <p class="rsub">不是同一个客服机器人——是三个立场不同、只对你负责的 AI。</p>
-    <div class="rtabs" role="tablist">
-      <button class="rtab on" data-r="0" role="tab" aria-selected="true">房东 × LOGIC</button>
-      <button class="rtab" data-r="1" role="tab" aria-selected="false">租客 × LUNA</button>
-      <button class="rtab" data-r="2" role="tab" aria-selected="false">经纪 × BRIEF</button>
+    <div class="roles-head">
+      <div>
+        <span class="eyebrow">Three Agents</span>
+        <h2>三种角色，各自的 Agent</h2>
+        <p class="rsub">不是同一个客服机器人——是三个立场不同、只对你负责的 AI。</p>
+      </div>
+      <div class="rtabs" role="tablist">
+        <button class="rtab on" data-r="0" role="tab" aria-selected="true">房东 × LOGIC</button>
+        <button class="rtab" data-r="1" role="tab" aria-selected="false">租客 × LUNA</button>
+        <button class="rtab" data-r="2" role="tab" aria-selected="false">经纪 × BRIEF</button>
+      </div>
     </div>
     <div class="rpanel rv" id="rpanel"></div>
   </div>
 </section>
 
-<!-- STEPS: horizontal numbered timeline, no cards -->
+<!-- STEPS -->
 <section class="steps">
   <div class="wrap">
     <h2>把难题交出去，只要三步</h2>
     <p class="ssub">没有表单迷宫——对话就是入口。</p>
     <div class="steps-in">
-      <div class="step rv"><span class="n">1</span><h3>说一句</h3>
+      <div class="step rv"><span class="gn">01</span><span class="n">1</span><h3>说一句</h3>
         <p>“多大附近、能养猫、4000 以内”——<b>地标、预算、偏好</b>都能理解。</p></div>
-      <div class="step rv"><span class="n">2</span><h3>Agent 去办</h3>
+      <div class="step rv d1"><span class="gn">02</span><span class="n">2</span><h3>Agent 去办</h3>
         <p>查真实挂牌、对官方行情、备好材料——<b>例行工作自动完成</b>，睡觉时也在盯。</p></div>
-      <div class="step rv"><span class="n">3</span><h3>你来确认</h3>
+      <div class="step rv d2"><span class="gn">03</span><span class="n">3</span><h3>你来确认</h3>
         <p>发送、签署、付款先变成<b>等你批准的卡片</b>；每一步留痕，随时回查。</p></div>
     </div>
   </div>
 </section>
 
-<!-- DARK FACTS: huge numerals, divided columns -->
+<!-- DARK FACTS -->
 <section class="dark">
   <div class="wrap">
     <span class="eyebrow">Verifiable</span>
@@ -382,16 +465,16 @@
     <p class="dsub">页面上的每个数字，都来自线上正在运行的系统。</p>
     <div class="facts">
       <div class="fact rv"><div class="b">6 维</div><div class="s">AI 尽调评分，<i>每一分写明理由</i></div></div>
-      <div class="fact rv"><div class="b">4 枚章</div><div class="s">租客护照，<i>验证一次处处通行</i></div></div>
-      <div class="fact rv"><div class="b">29 季</div><div class="s">TRREB 官方成交数据，<i>2019 年至今全量入库</i></div></div>
-      <div class="fact rv"><div class="b">$0</div><div class="s">租客全程免费，<i>数据驻加拿大、绝不出售</i></div></div>
+      <div class="fact rv d1"><div class="b">4 枚章</div><div class="s">租客护照，<i>验证一次处处通行</i></div></div>
+      <div class="fact rv d2"><div class="b">29 季</div><div class="s">TRREB 官方成交数据，<i>2019 年至今全量入库</i></div></div>
+      <div class="fact rv d3"><div class="b">$0</div><div class="s">租客全程免费，<i>数据驻加拿大、绝不出售</i></div></div>
     </div>
   </div>
 </section>
 
-<!-- FINAL: full-bleed photo CTA -->
+<!-- FINAL -->
 <section class="final">
-  <div class="wrap final-in">
+  <div class="wrap">
     <h2>下一个家，<br>从一句话开始。</h2>
     <p>免注册体验——你的 Agent 现在就能开始干活。</p>
     <button class="btn btn-p">开始 →</button>
@@ -399,17 +482,55 @@
   </div>
 </section>
 
+<!-- FOOTER: production content — brand tag + 产品 / 为谁打造 / 公司 + compliance line -->
 <footer>
-  <div class="wrap foot-in">
-    <span>© 2026 Stayloop · v8 蓝本探索稿（未定稿，仅供评审）</span>
-    <span>隐私政策 · 服务条款 · PIPEDA 合规</span>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <span class="logo">stayloop<em>.AI</em></span>
+        <p>为 AI 时代打造的租住操作系统。验证一次，处处通行。</p>
+      </div>
+      <div class="foot-col">
+        <h4>产品</h4>
+        <ul>
+          <li><a href="#">定价</a></li>
+          <li><a href="#">Trust API</a></li>
+          <li><a href="#">租客背调</a></li>
+          <li><a href="#">租客护照</a></li>
+          <li><a href="#">争议解决</a></li>
+        </ul>
+      </div>
+      <div class="foot-col">
+        <h4>为谁打造</h4>
+        <ul>
+          <li><a href="#">租客</a></li>
+          <li><a href="#">房东</a></li>
+          <li><a href="#">经纪</a></li>
+          <li><a href="#">合作伙伴</a></li>
+        </ul>
+      </div>
+      <div class="foot-col">
+        <h4>公司</h4>
+        <ul>
+          <li><a href="#">关于</a></li>
+          <li><a href="#">隐私</a></li>
+          <li><a href="#">使用条款</a></li>
+          <li><a href="#">联系</a></li>
+          <li><a href="#">后台管理</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bot">
+      <span>© 2026 Stayloop Inc. · PIPEDA · OHRC · RTA 合规</span>
+      <span>Stayloop v5.3</span>
+    </div>
   </div>
 </footer>
 
 <script>
-/* roles data: copy verbatim from approved COPY.zh.roles */
 const ROLES = [
   {
+    tag:'房东 × LOGIC',
     h3:'选对租客，按时收租，<br>后台有支持。',
     lead:'房东的难题，Logic 接：把每份申请查完材料真伪和法庭记录，每一分写明理由，再排好序给你。',
     bens:[
@@ -427,6 +548,7 @@ const ROLES = [
     a1:'批准并发送 →', a2:'改一改', tm:'02:14 自动生成'
   },
   {
+    tag:'租客 × LUNA',
     h3:'没有本地信用记录，<br>也能建立可信的租房履历。',
     lead:'租客的难题，Luna 接：条件说人话，房源全是真的；四枚章盖好，申请任何房源不再重复交材料。',
     bens:[
@@ -444,6 +566,7 @@ const ROLES = [
     a1:'用护照一键申请 →', a2:'先约看', tm:'免费 · 永远'
   },
   {
+    tag:'经纪 × BRIEF',
     h3:'行政事务交给 AI，<br>时间留给专业工作。',
     lead:'经纪的难题，Brief 接：确认到场、发提醒、收反馈、算佣金——这些吃掉半天的事全部接走。',
     bens:[
@@ -467,10 +590,12 @@ function renderRole(i){
   const el = document.getElementById('rpanel');
   el.innerHTML = `
     <div class="rp-l">
+      <span class="rp-tag">${r.tag}</span>
       <h3>${r.h3}</h3>
       <p class="lead">${r.lead}</p>
-      <div class="rp-bens">${r.bens.map(b=>`
-        <div class="rp-ben"><div><div class="bb">${b[0]}</div><div class="bs">${b[1]}</div></div></div>`).join('')}
+      <div class="rp-bens">${r.bens.map((b,j)=>`
+        <div class="rp-ben"><span class="bn">${j+1}</span>
+          <div><div class="bb">${b[0]}</div><div class="bs">${b[1]}</div></div></div>`).join('')}
       </div>
       <div class="rp-quote">
         <p>${r.quote}</p>
@@ -481,7 +606,7 @@ function renderRole(i){
     <div class="rp-r">
       <div class="demo">
         <div class="demo-h">${r.dn}<span class="st">${r.st}</span></div>
-        <div class="demo-rows">${r.rows.map(w=>`
+        <div>${r.rows.map(w=>`
           <div class="demo-row"><div><div class="rb">${w[0]}</div><div class="rs">${w[1]}</div></div>
           <span class="pill ${w[3]}">${w[2]}</span></div>`).join('')}
         </div>
@@ -502,13 +627,11 @@ document.querySelectorAll('.rtab').forEach(t=>t.addEventListener('click',()=>{
   renderRole(+t.dataset.r);
 }));
 
-/* scroll reveal */
 const io = new IntersectionObserver(es=>es.forEach(e=>{
   if(e.isIntersecting){e.target.classList.add('on');io.unobserve(e.target)}
 }),{threshold:.12});
 document.querySelectorAll('.rv').forEach(el=>io.observe(el));
 
-/* typewriter on the hero user message (AI-feel, fires once) */
 (function(){
   const el = document.getElementById('tw'); if(!el) return;
   if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
