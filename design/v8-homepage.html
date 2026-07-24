@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stayloop v8 首页蓝本 · taste-skill 探索稿（未定稿）</title>
+<!--
+  v8 homepage blueprint (design exploration, NOT canon until approved)
+  Method: taste-skill (design-taste-frontend). Design read: trust-first consumer
+  SaaS + AI-native, redesign-overhaul of the v7 8pt / single-purple system.
+  Dials: VARIANCE 7 / MOTION 5 / DENSITY 4.
+  Copy: verbatim from the approved v7 COPY (zh). Photos: production /home/*.jpg.
+  Shape lock: cards 16px, interactive pills full-radius, inputs 10px.
+  Eyebrow budget: 3 max (hero tag, roles, dark band). Accent: brand #7C3AED only.
+-->
+<style>
+  :root{
+    --brand:#7C3AED; --brand-2:#6D28D9; --brand-soft:#F3EEFB;
+    --ink:#18181B; --ink-2:#52525B; --ink-3:#A1A1AA;
+    --line:#E4E4E7; --line-soft:#F0F0F2;
+    --bg:#FFFFFF; --bg-2:#FAFAFB; --dark:#131316; --dark-2:#1C1C21;
+    --ok:#6AB344; --warn:#D97706; --bad:#DC2626;
+    --r-card:16px; --r-input:10px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",sans-serif;
+       color:var(--ink);background:var(--bg);line-height:1.6;font-size:16px;
+       -webkit-font-smoothing:antialiased}
+  img{max-width:100%;display:block}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 32px}
+  @media(max-width:640px){.wrap{padding:0 20px}}
+
+  /* reveal on scroll */
+  .rv{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
+  .rv.on{opacity:1;transform:none}
+  @media(prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}}
+
+  /* ============ nav (64px, one line) ============ */
+  nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.86);backdrop-filter:blur(12px);
+      border-bottom:1px solid var(--line-soft)}
+  .nav-in{height:64px;display:flex;align-items:center;gap:28px}
+  .logo{font-weight:800;font-size:19px;letter-spacing:-.02em}
+  .logo em{font-style:normal;background:linear-gradient(90deg,var(--brand),#3B82F6);
+           -webkit-background-clip:text;background-clip:text;color:transparent}
+  .nav-links{display:flex;gap:22px;font-size:14px;color:var(--ink-2);margin-left:8px}
+  .nav-links a:hover{color:var(--ink)}
+  .nav-cta{margin-left:auto;display:flex;gap:10px;align-items:center}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;
+       border-radius:999px;font-weight:600;font-size:14.5px;padding:10px 22px;cursor:pointer;
+       transition:transform .15s ease,box-shadow .15s ease;border:none}
+  .btn:active{transform:translateY(1px) scale(.98)}
+  .btn-p{background:var(--brand);color:#fff;box-shadow:0 1px 2px rgba(124,58,237,.3)}
+  .btn-p:hover{background:var(--brand-2)}
+  .btn-g{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn-g:hover{border-color:var(--ink-3)}
+  .nav-login{font-size:14px;color:var(--ink-2)}
+  @media(max-width:900px){.nav-links{display:none}}
+
+  /* ============ hero: 55/45 asymmetric split ============ */
+  .hero{padding:72px 0 0;position:relative;overflow:hidden}
+  .hero::after{content:"";position:absolute;top:-140px;right:-160px;width:560px;height:560px;
+    background:radial-gradient(closest-side,rgba(124,58,237,.07),transparent 70%);pointer-events:none}
+  .hero-in{display:grid;grid-template-columns:1.1fr .9fr;gap:64px;align-items:center}
+  @media(max-width:980px){.hero-in{grid-template-columns:1fr;gap:44px}}
+  .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.14em;
+       text-transform:uppercase;color:var(--brand);font-weight:700}
+  .tag::before{content:"";width:22px;height:1.5px;background:var(--brand)}
+  .hero h1{font-size:clamp(38px,4.6vw,58px);font-weight:800;letter-spacing:-.025em;line-height:1.14;margin-top:20px}
+  .hero h1 em{font-style:normal;color:var(--brand)}
+  .hero .sub{color:var(--ink-2);font-size:17.5px;margin-top:20px;max-width:29em}
+  .hero .sub b{color:var(--ink);font-weight:600}
+  .hero .ctas{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap}
+  .hero .note{margin-top:14px;font-size:13px;color:var(--ink-3)}
+
+  /* hero right: real mini chat (product IS the visual) */
+  .chat{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-card);
+        box-shadow:0 24px 60px -24px rgba(24,24,27,.18),0 2px 8px rgba(24,24,27,.05);overflow:hidden}
+  .chat-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line-soft)}
+  .chat-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--brand),#3B82F6);
+           color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .chat-nm{font-size:13px;font-weight:700;letter-spacing:.02em}
+  .chat-st{margin-left:auto;font-size:12px;color:var(--ok)}
+  .chat-b{padding:18px;display:flex;flex-direction:column;gap:12px;background:var(--bg-2)}
+  .m{max-width:88%;padding:11px 14px;border-radius:14px;font-size:13.5px;line-height:1.55}
+  .m-u{align-self:flex-end;background:var(--ink);color:#fff;border-bottom-right-radius:4px}
+  .m-a{align-self:flex-start;background:#fff;border:1px solid var(--line-soft);border-bottom-left-radius:4px}
+  .m-a b{color:var(--brand)}
+  .mini{align-self:flex-start;width:88%;background:#fff;border:1px solid var(--line);border-radius:12px;
+        padding:12px 14px;display:flex;gap:12px;align-items:center}
+  .mini-ph{width:52px;height:52px;border-radius:8px;flex:none;
+           background:url('https://www.stayloop.ai/home/final-interior.jpg') center/cover}
+  .mini-t{font-size:13px;font-weight:700}
+  .mini-pr{font-size:13px;color:var(--brand);font-weight:700}
+  .mini-m{font-size:12px;color:var(--ink-2)}
+  .okt{color:var(--ok);font-weight:600}
+  .chat-acts{display:flex;gap:8px;align-items:center;padding:0 18px 16px;background:var(--bg-2)}
+  .chip{border-radius:999px;font-size:12.5px;font-weight:600;padding:8px 14px;cursor:pointer;border:none}
+  .chip-p{background:var(--brand);color:#fff}
+  .chip-g{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .chat-fr{margin-left:auto;font-size:12px;color:var(--ink-3)}
+  .float{display:flex;gap:10px;align-items:center;margin-top:14px;padding:12px 16px;background:#fff;
+         border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px -12px rgba(24,24,27,.12)}
+  .float-dot{width:8px;height:8px;border-radius:50%;background:var(--brand);flex:none;
+             animation:pulse 2.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @media(prefers-reduced-motion:reduce){.float-dot{animation:none}}
+  .float b{font-size:13.5px}
+  .float span{font-size:12.5px;color:var(--ink-2)}
+
+  /* ============ trust strip: plain divide row, no cards ============ */
+  .trust{margin-top:64px;border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);
+         background:var(--bg-2)}
+  .trust-in{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+  .trust-in>div{padding:18px 20px;font-size:13.5px;color:var(--ink-2);text-align:center}
+  .trust-in>div+div{border-left:1px solid var(--line-soft)}
+  .trust-in b{color:var(--ink);font-weight:600}
+  @media(max-width:900px){.trust-in{grid-template-columns:1fr 1fr}
+    .trust-in>div:nth-child(3){border-left:none;border-top:1px solid var(--line-soft)}
+    .trust-in>div:nth-child(4){border-top:1px solid var(--line-soft)}}
+
+  /* ============ pains: type-only tri-column, border-t grouping ============ */
+  .pains{padding:88px 0 0}
+  .pains-in{display:grid;grid-template-columns:repeat(3,1fr);gap:40px}
+  @media(max-width:900px){.pains-in{grid-template-columns:1fr;gap:28px}}
+  .pain{border-top:2px solid var(--ink);padding-top:18px}
+  .pain .who{font-size:13px;font-weight:800;letter-spacing:.06em;color:var(--brand)}
+  .pain p{margin-top:8px;font-size:16.5px;line-height:1.6}
+  .pain p b{font-weight:700}
+
+  /* ============ photo band: 2/3 photo + 1/3 stat column ============ */
+  .band{padding:88px 0 0}
+  .band-in{display:grid;grid-template-columns:2fr 1fr;gap:0;border-radius:var(--r-card);overflow:hidden;
+           border:1px solid var(--line)}
+  @media(max-width:900px){.band-in{grid-template-columns:1fr}}
+  .band-ph{position:relative;min-height:460px;background:url('https://www.stayloop.ai/home/hero-mist.jpg') center/cover}
+  .band-cap{position:absolute;left:20px;bottom:16px;font-size:12.5px;color:#fff;background:rgba(19,19,22,.55);
+            backdrop-filter:blur(6px);padding:6px 12px;border-radius:999px}
+  .band-stats{display:flex;flex-direction:column;background:var(--bg)}
+  .band-stats>div{flex:1;padding:24px 28px;display:flex;flex-direction:column;justify-content:center}
+  .band-stats>div+div{border-top:1px solid var(--line-soft)}
+  .band-stats .b{font-size:26px;font-weight:800;letter-spacing:-.02em}
+  .band-stats .b.num{font-variant-numeric:tabular-nums}
+  .band-stats .s{font-size:13.5px;color:var(--ink-2);margin-top:3px}
+
+  /* ============ roles: eyebrow + tabbed single panel ============ */
+  .roles{padding:104px 0 0}
+  .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--brand);font-weight:700}
+  .roles h2{font-size:clamp(28px,3.2vw,40px);font-weight:800;letter-spacing:-.02em;margin-top:12px}
+  .roles .rsub{color:var(--ink-2);margin-top:10px;max-width:34em}
+  .rtabs{display:flex;gap:8px;margin-top:32px;flex-wrap:wrap}
+  .rtab{border-radius:999px;border:1px solid var(--line);background:#fff;padding:10px 20px;font-size:14px;
+        font-weight:700;cursor:pointer;color:var(--ink-2);transition:all .18s ease}
+  .rtab:hover{border-color:var(--ink-3)}
+  .rtab.on{background:var(--ink);border-color:var(--ink);color:#fff}
+  .rpanel{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);
+          border-radius:var(--r-card);overflow:hidden;background:var(--bg)}
+  @media(max-width:900px){.rpanel{grid-template-columns:1fr}}
+  .rp-l{padding:40px 44px;display:flex;flex-direction:column}
+  @media(max-width:640px){.rp-l{padding:28px 24px}}
+  .rp-l h3{font-size:clamp(22px,2.4vw,28px);font-weight:800;letter-spacing:-.015em;line-height:1.3}
+  .rp-l .lead{color:var(--ink-2);font-size:15px;margin-top:14px}
+  .rp-bens{margin-top:22px;display:flex;flex-direction:column;gap:14px}
+  .rp-ben{display:flex;gap:12px;align-items:flex-start}
+  .rp-ben::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--brand);flex:none;margin-top:8px}
+  .rp-ben .bb{font-size:14.5px;font-weight:700}
+  .rp-ben .bs{font-size:13.5px;color:var(--ink-2)}
+  .rp-quote{margin-top:auto;padding-top:24px;border-top:1px solid var(--line-soft)}
+  .rp-quote p{font-size:14px;color:var(--ink-2);line-height:1.6}
+  .rp-quote .who{display:flex;gap:10px;align-items:center;margin-top:10px}
+  .rp-quote .av{width:30px;height:30px;border-radius:50%;background:var(--brand-soft);color:var(--brand);
+                font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .rp-quote .wn{font-size:12.5px;color:var(--ink-3)}
+  .rp-cta{margin-top:22px}
+  .rp-r{background:var(--bg-2);border-left:1px solid var(--line-soft);padding:32px;display:flex;
+        flex-direction:column;justify-content:center}
+  @media(max-width:900px){.rp-r{border-left:none;border-top:1px solid var(--line-soft)}}
+  .demo{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+        box-shadow:0 16px 40px -20px rgba(24,24,27,.14)}
+  .demo-h{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line-soft);
+          font-size:12.5px;font-weight:700}
+  .demo-h .st{margin-left:auto;font-weight:600;color:var(--ok)}
+  .demo-rows{display:flex;flex-direction:column}
+  .demo-row{display:flex;align-items:center;gap:12px;padding:13px 16px}
+  .demo-row+.demo-row{border-top:1px solid var(--line-soft)}
+  .demo-row .rb{font-size:13.5px;font-weight:700}
+  .demo-row .rs{font-size:12px;color:var(--ink-2)}
+  .pill{margin-left:auto;flex:none;font-size:11.5px;font-weight:700;border-radius:999px;padding:4px 10px}
+  .pill.g{background:#F0F7EC;color:#4C8A2E}
+  .pill.n{background:var(--line-soft);color:var(--ink-2)}
+  .pill.r{background:#FDECEC;color:var(--bad)}
+  .demo-note{padding:13px 16px;border-top:1px solid var(--line-soft);font-size:13px;color:var(--ink-2);
+             background:var(--bg-2)}
+  .demo-note b{color:var(--ink)}
+  .demo-acts{display:flex;gap:8px;align-items:center;padding:12px 16px;border-top:1px solid var(--line-soft)}
+  .demo-tm{margin-left:auto;font-size:11.5px;color:var(--ink-3)}
+  .rpanel.swap{animation:swap .35s ease}
+  @keyframes swap{from{opacity:.4;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){.rpanel.swap{animation:none}}
+
+  /* ============ steps: horizontal timeline, no cards ============ */
+  .steps{padding:104px 0 0}
+  .steps h2{font-size:clamp(28px,3.2vw,40px);font-weight:800;letter-spacing:-.02em}
+  .steps .ssub{color:var(--ink-2);margin-top:10px}
+  .steps-in{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;margin-top:44px;position:relative}
+  .steps-in::before{content:"";position:absolute;top:19px;left:calc(16.66% + 20px);right:calc(16.66% + 20px);
+                    height:1px;background:var(--line)}
+  @media(max-width:900px){.steps-in{grid-template-columns:1fr;gap:32px}.steps-in::before{display:none}}
+  .step{position:relative}
+  .step .n{width:38px;height:38px;border-radius:50%;background:var(--bg);border:1.5px solid var(--brand);
+           color:var(--brand);font-weight:800;font-size:15px;display:flex;align-items:center;
+           justify-content:center;position:relative;z-index:1}
+  .step h3{font-size:18px;font-weight:800;margin-top:16px}
+  .step p{font-size:14.5px;color:var(--ink-2);margin-top:8px}
+  .step p b{color:var(--ink);font-weight:600}
+
+  /* ============ dark facts band: huge numerals, divide-x ============ */
+  .dark{margin-top:104px;background:var(--dark);color:#fff;padding:80px 0}
+  .dark .eyebrow{color:#B79CF0}
+  .dark h2{font-size:clamp(26px,3vw,36px);font-weight:800;letter-spacing:-.02em;margin-top:12px}
+  .dark .dsub{color:rgba(255,255,255,.55);margin-top:10px;font-size:15px}
+  .facts{display:grid;grid-template-columns:repeat(4,1fr);margin-top:48px;border-top:1px solid rgba(255,255,255,.12)}
+  @media(max-width:900px){.facts{grid-template-columns:1fr 1fr}}
+  .fact{padding:28px 24px 0}
+  .fact+.fact{border-left:1px solid rgba(255,255,255,.12)}
+  @media(max-width:900px){.fact:nth-child(3){border-left:none}}
+  .fact .b{font-size:clamp(34px,3.6vw,46px);font-weight:800;letter-spacing:-.03em;
+           font-variant-numeric:tabular-nums}
+  .fact .s{font-size:13.5px;color:rgba(255,255,255,.6);margin-top:8px;line-height:1.55}
+  .fact .s i{font-style:normal;color:rgba(255,255,255,.85)}
+
+  /* ============ final CTA: full-bleed photo + scrim ============ */
+  .final{position:relative;min-height:520px;display:flex;align-items:center;
+         background:url('https://www.stayloop.ai/home/final-interior.jpg') center/cover}
+  .final::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(19,19,22,.72) 0%,rgba(19,19,22,.38) 60%,rgba(19,19,22,.15) 100%)}
+  .final .wrap{width:100%}
+  .final-in{position:relative;z-index:1;color:#fff;padding:96px 0}
+  .final h2{font-size:clamp(34px,4vw,52px);font-weight:800;letter-spacing:-.025em;line-height:1.18}
+  .final p{margin-top:16px;font-size:16.5px;color:rgba(255,255,255,.85);max-width:26em}
+  .final .btn-p{margin-top:28px;padding:13px 34px;font-size:15.5px}
+  .final .fnote{margin-top:14px;font-size:13px;color:rgba(255,255,255,.6)}
+
+  footer{background:var(--dark);color:rgba(255,255,255,.5);font-size:13px;padding:28px 0;
+         border-top:1px solid rgba(255,255,255,.08)}
+  .foot-in{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-in">
+    <a class="logo" href="#">stayloop<em>.AI</em></a>
+    <div class="nav-links">
+      <a href="#roles">我是租客</a><a href="#roles">我是房东</a><a href="#roles">我是经纪</a>
+      <a href="#">房源</a><a href="#">定价</a><a href="#">租客背调</a>
+    </div>
+    <div class="nav-cta">
+      <a class="nav-login" href="#">登录</a>
+      <button class="btn btn-p">免费开始</button>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO: asymmetric split, max 4 text elements (tag / h1 / sub / ctas) -->
+<header class="hero">
+  <div class="wrap hero-in">
+    <div>
+      <span class="tag">AI-Native Rental OS · Toronto</span>
+      <h1>租房路上的难题，<br>交给<em>各自的 AI</em>。</h1>
+      <p class="sub">Stayloop 为租客、房东、经纪各提供一个<b>独立的 AI Agent</b>：你说一句，它去办，关键决定由你确认。</p>
+      <div class="ctas">
+        <button class="btn btn-p">免费开始</button>
+        <a class="btn btn-g" href="#roles">看看它怎么工作</a>
+      </div>
+      <p class="note">由 Anthropic Claude 驱动 · 免注册体验 · 真实挂牌 + TRREB 官方行情作答</p>
+    </div>
+    <div class="rv on">
+      <div class="chat">
+        <div class="chat-h">
+          <span class="chat-av">L</span>
+          <span class="chat-nm">LUNA · 你的租房 Agent</span>
+          <span class="chat-st">● 在线</span>
+        </div>
+        <div class="chat-b">
+          <div class="m m-u" id="tw">北约克两房，预算 2800，能养猫</div>
+          <div class="m m-a">North York 两房中位 <b>$2,795</b>（TRREB 官方 C14：$2,914 · 224 宗成交）——预算合理。<b>3 套可养猫</b>的已挑好：</div>
+          <div class="mini">
+            <div class="mini-ph"></div>
+            <div>
+              <div class="mini-t">Liberty Village 2B</div>
+              <div class="mini-m"><span class="okt">✓ 可养猫</span> · 地铁 8 分钟 · 平台已核验</div>
+            </div>
+            <div class="mini-pr">$2,750/月</div>
+          </div>
+          <div class="m m-a">你的护照已盖 <b>3/4 枚章</b>——材料一份不用再传，我直接替你递交。</div>
+        </div>
+        <div class="chat-acts">
+          <button class="chip chip-p">用护照一键申请</button>
+          <button class="chip chip-g">先约看</button>
+          <span class="chat-fr">免费 · 永远</span>
+        </div>
+      </div>
+      <div class="float">
+        <span class="float-dot"></span>
+        <div><b>AI 提议，你决定</b><br><span>对外动作先经你批准 · 全程留痕</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- trust strip: plain divided row, no cards -->
+  <div class="trust">
+    <div class="wrap trust-in">
+      <div>技术 <b>Anthropic Claude</b></div>
+      <div>行情 <b>TRREB · Realtor.ca 官方数据</b></div>
+      <div>合规 <b>RTA · OHRC · PIPEDA</b></div>
+      <div>🍁 <b>Proudly Canadian</b> · 数据驻加</div>
+    </div>
+  </div>
+</header>
+
+<!-- PAINS: type-only tri-column, border-top grouping (no cards) -->
+<section class="pains">
+  <div class="wrap pains-in">
+    <div class="pain rv"><div class="who">房东</div><p>怕租错人？<b>每份申请先查真伪和法庭记录</b></p></div>
+    <div class="pain rv"><div class="who">租客</div><p>怕材料白填？<b>交一次，处处通行</b></p></div>
+    <div class="pain rv"><div class="who">经纪</div><p>怕杂活吃掉专业？<b>行政事务全交给 AI</b></p></div>
+  </div>
+</section>
+
+<!-- PHOTO BAND: 2/3 photo + 1/3 stat column -->
+<section class="band">
+  <div class="wrap">
+    <div class="band-in rv">
+      <div class="band-ph"><span class="band-cap">多伦多 · 我们的主场</span></div>
+      <div class="band-stats">
+        <div><span class="b num">$0</span><span class="s">租客永远免费，隐私不是商品</span></div>
+        <div><span class="b">验证一次</span><span class="s">四枚章盖好，申请不再重复交材料</span></div>
+        <div><span class="b num">29 个季度</span><span class="s">TRREB 官方成交数据入库，行情有据</span></div>
+        <div><span class="b">全程留痕</span><span class="s">每一步可追问、可回查、可审计</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ROLES: tab switcher, one large split panel -->
+<section class="roles" id="roles">
+  <div class="wrap">
+    <span class="eyebrow">Three Agents</span>
+    <h2>三种角色，各自的 Agent</h2>
+    <p class="rsub">不是同一个客服机器人——是三个立场不同、只对你负责的 AI。</p>
+    <div class="rtabs" role="tablist">
+      <button class="rtab on" data-r="0" role="tab" aria-selected="true">房东 × LOGIC</button>
+      <button class="rtab" data-r="1" role="tab" aria-selected="false">租客 × LUNA</button>
+      <button class="rtab" data-r="2" role="tab" aria-selected="false">经纪 × BRIEF</button>
+    </div>
+    <div class="rpanel rv" id="rpanel"></div>
+  </div>
+</section>
+
+<!-- STEPS: horizontal numbered timeline, no cards -->
+<section class="steps">
+  <div class="wrap">
+    <h2>把难题交出去，只要三步</h2>
+    <p class="ssub">没有表单迷宫——对话就是入口。</p>
+    <div class="steps-in">
+      <div class="step rv"><span class="n">1</span><h3>说一句</h3>
+        <p>“多大附近、能养猫、4000 以内”——<b>地标、预算、偏好</b>都能理解。</p></div>
+      <div class="step rv"><span class="n">2</span><h3>Agent 去办</h3>
+        <p>查真实挂牌、对官方行情、备好材料——<b>例行工作自动完成</b>，睡觉时也在盯。</p></div>
+      <div class="step rv"><span class="n">3</span><h3>你来确认</h3>
+        <p>发送、签署、付款先变成<b>等你批准的卡片</b>；每一步留痕，随时回查。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- DARK FACTS: huge numerals, divided columns -->
+<section class="dark">
+  <div class="wrap">
+    <span class="eyebrow">Verifiable</span>
+    <h2>不给形容词，给可以验证的东西</h2>
+    <p class="dsub">页面上的每个数字，都来自线上正在运行的系统。</p>
+    <div class="facts">
+      <div class="fact rv"><div class="b">6 维</div><div class="s">AI 尽调评分，<i>每一分写明理由</i></div></div>
+      <div class="fact rv"><div class="b">4 枚章</div><div class="s">租客护照，<i>验证一次处处通行</i></div></div>
+      <div class="fact rv"><div class="b">29 季</div><div class="s">TRREB 官方成交数据，<i>2019 年至今全量入库</i></div></div>
+      <div class="fact rv"><div class="b">$0</div><div class="s">租客全程免费，<i>数据驻加拿大、绝不出售</i></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL: full-bleed photo CTA -->
+<section class="final">
+  <div class="wrap final-in">
+    <h2>下一个家，<br>从一句话开始。</h2>
+    <p>免注册体验——你的 Agent 现在就能开始干活。</p>
+    <button class="btn btn-p">开始 →</button>
+    <p class="fnote">免注册即可体验，随时开始。</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <span>© 2026 Stayloop · v8 蓝本探索稿（未定稿，仅供评审）</span>
+    <span>隐私政策 · 服务条款 · PIPEDA 合规</span>
+  </div>
+</footer>
+
+<script>
+/* roles data: copy verbatim from approved COPY.zh.roles */
+const ROLES = [
+  {
+    h3:'选对租客，按时收租，<br>后台有支持。',
+    lead:'房东的难题，Logic 接：把每份申请查完材料真伪和法庭记录，每一分写明理由，再排好序给你。',
+    bens:[
+      ['每份申请先过六维尽调','材料真伪、法庭记录都查过，伪造材料会被识别并拦下。'],
+      ['租金回收由系统跟进','在线收租、月末自动提醒；续约提前 120 天备好方案。'],
+      ['AI 后台全天候在线','夜间报修接待、合规拦截、审计留痕——你只需要确认。']],
+    quote:'“空置一个月，$2,900 就没了。工资单是真是假？我不知道该信谁。”',
+    who:'Sarah Wang · 会计师 · 2 套投资公寓', av:'SW', cta:'让 Logic 协助管理房源 →',
+    dn:'LOGIC · 房东 Agent', st:'● 后台运行中',
+    rows:[
+      ['① Mia Chen · 87 分','六维全过 · 法庭记录 0 条','建议面谈','g'],
+      ['② Kevin Tran · 74 分','稳定性 62','可备选','n'],
+      ['③ 申请人 C','工资单 CRA 扣缴对不上','已拦下','r']],
+    note:'<b>Thompson 的租约 92 天后到期</b>——续约方案 A（不涨）/ B（+2.5%）已拟好，批准就发。',
+    a1:'批准并发送 →', a2:'改一改', tm:'02:14 自动生成'
+  },
+  {
+    h3:'没有本地信用记录，<br>也能建立可信的租房履历。',
+    lead:'租客的难题，Luna 接：条件说人话，房源全是真的；四枚章盖好，申请任何房源不再重复交材料。',
+    bens:[
+      ['真实挂牌 + 官方行情作答','TRREB 官方成交对照，绝不编造；英文租约逐条讲成中文。'],
+      ['验证一次，处处通行','护照、枫叶卡、工签都支持——材料只交一次。'],
+      ['评分带理由，拒绝有依据','按时租金、真实记录都写进你的护照，替你说话。']],
+    quote:'“信用空白，被拒 3 次。同样的资料填了一遍又一遍。”',
+    who:'Mia Chen · 软件工程师 · 新移民', av:'MC', cta:'让 Luna 开始找 →',
+    dn:'LUNA · 租客 Agent', st:'● 在线',
+    rows:[
+      ['Liberty Village 1B · $2,250','地铁 8 分钟','✓ 可养猫','g'],
+      ['King West Studio+ · $2,180','平台已核验','✓ 可养猫','g'],
+      ['Fort York 1B · $2,290','带家具','需快申','n']],
+    note:'你的护照已盖 <b>3/4 枚章</b>——选中哪套，材料一份不用再传。',
+    a1:'用护照一键申请 →', a2:'先约看', tm:'免费 · 永远'
+  },
+  {
+    h3:'行政事务交给 AI，<br>时间留给专业工作。',
+    lead:'经纪的难题，Brief 接：确认到场、发提醒、收反馈、算佣金——这些吃掉半天的事全部接走。',
+    bens:[
+      ['日程自动编排','租客到场自动确认，材料包与授权问答清单提前备好。'],
+      ['反馈自动收集归档','看房意见整理好直达房东，每个客户的进度都有人盯。'],
+      ['佣金结算透明','转介分成在线到账，每一笔流水可查，RECO 合规留痕。']],
+    quote:'“不是没机会，是时间被行政碎片化了。”',
+    who:'David Park · 持牌经纪 · RECO 6 年', av:'DP', cta:'让 Brief 安排日程 →',
+    dn:'BRIEF · 经纪 Agent', st:'● 编排中',
+    rows:[
+      ['11:00 · Liberty Village 2B','Kevin 已确认 · 材料包好','✓ 就绪','g'],
+      ['14:00 · Unit 1207 King West','授权问答清单已生成','✓ 就绪','g'],
+      ['16:30 · 反馈汇总 → Sarah','自动整理，无需动手','待办','n']],
+    note:'上周转介佣金 <b>$1,225 已到账</b>——流水在结算页随时可查。',
+    a1:'看今日日程 →', a2:'', tm:'07:30 编排完成'
+  }
+];
+
+function renderRole(i){
+  const r = ROLES[i];
+  const el = document.getElementById('rpanel');
+  el.innerHTML = `
+    <div class="rp-l">
+      <h3>${r.h3}</h3>
+      <p class="lead">${r.lead}</p>
+      <div class="rp-bens">${r.bens.map(b=>`
+        <div class="rp-ben"><div><div class="bb">${b[0]}</div><div class="bs">${b[1]}</div></div></div>`).join('')}
+      </div>
+      <div class="rp-quote">
+        <p>${r.quote}</p>
+        <div class="who"><span class="av">${r.av}</span><span class="wn">${r.who}</span></div>
+      </div>
+      <div class="rp-cta"><button class="btn btn-p">${r.cta}</button></div>
+    </div>
+    <div class="rp-r">
+      <div class="demo">
+        <div class="demo-h">${r.dn}<span class="st">${r.st}</span></div>
+        <div class="demo-rows">${r.rows.map(w=>`
+          <div class="demo-row"><div><div class="rb">${w[0]}</div><div class="rs">${w[1]}</div></div>
+          <span class="pill ${w[3]}">${w[2]}</span></div>`).join('')}
+        </div>
+        <div class="demo-note">${r.note}</div>
+        <div class="demo-acts">
+          <button class="chip chip-p">${r.a1}</button>
+          ${r.a2?`<button class="chip chip-g">${r.a2}</button>`:''}
+          <span class="demo-tm">${r.tm}</span>
+        </div>
+      </div>
+    </div>`;
+  el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap');
+}
+renderRole(0);
+document.querySelectorAll('.rtab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.rtab').forEach(x=>{x.classList.remove('on');x.setAttribute('aria-selected','false')});
+  t.classList.add('on'); t.setAttribute('aria-selected','true');
+  renderRole(+t.dataset.r);
+}));
+
+/* scroll reveal */
+const io = new IntersectionObserver(es=>es.forEach(e=>{
+  if(e.isIntersecting){e.target.classList.add('on');io.unobserve(e.target)}
+}),{threshold:.12});
+document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+
+/* typewriter on the hero user message (AI-feel, fires once) */
+(function(){
+  const el = document.getElementById('tw'); if(!el) return;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const full = el.textContent; el.textContent='';
+  let i=0; const t=setInterval(()=>{ el.textContent=full.slice(0,++i); if(i>=full.length) clearInterval(t); },55);
+})();
+</script>
+</body>
+</html>
