@@ -1,47 +1,53 @@
 'use client'
 
-// v7 homepage — built strictly to design/v7-homepage.html (the definitive
-// blueprint). The blueprint's <style> block is kept below, minus the
-// nav/footer sections (we render the real <Header/> / <Footer/> components
-// instead) and three documented adaptations:
-//   1. Scoping — every selector is prefixed with .v7-page so the page CSS
-//      cannot leak into Header/Footer (which share class names like .orb);
-//      the blueprint's :root variables move onto .v7-page. body keeps only
-//      margin/background/overflow-x (overflow-x must live on body so the
-//      hero::before glow doesn't cause horizontal scroll and position:sticky
-//      on the real Header keeps working); typography moves to .v7-page.
-//   2. .hero top padding 96px → 84px — the blueprint's sticky nav is ~53px
-//      tall, the real sticky Header occupies 66px of flow; 84px keeps the
-//      same visual distance from the top of the viewport.
-//   3. .trybar .go is rendered as a <Link> (deep-links into
-//      /tenant/agent?prompt=…), so an anchor-flex rule is appended.
-// All class names are unchanged from the blueprint. Copy is bilingual: the
-// blueprint's zh strings are kept verbatim in COPY.zh; COPY.en is the English
-// rendering, selected at runtime via useI18n().lang (SSR/first frame renders
-// zh — the provider default — then hydrates to the stored/browser language).
+// v8 homepage — built strictly to design/v8-homepage.html (the v8b blueprint).
+// The blueprint's <style> block is kept below, minus the nav/footer sections
+// (we render the real <Header/> / <Footer/> components instead) and these
+// documented adaptations:
+//   1. Scoping — every selector is prefixed with .v8-page so the page CSS
+//      cannot leak into Header/Footer; the blueprint's :root variables move
+//      onto .v8-page (which also carries the body typography/background).
+//      body keeps only overflow-x handling (so the hero atmosphere glows
+//      don't cause horizontal scroll). The blueprint's @font-face is dropped
+//      — globals.css already loads Inter Tight. Keyframes are renamed
+//      (pulse → v8-pulse, swap → v8-swap) because @keyframes cannot be
+//      scoped and "pulse" would collide with Tailwind's.
+//   2. The .btn / .btn-p / .btn-g rules live in the blueprint's nav section
+//      but are used by hero/roles/final — they are kept (scoped).
+//   3. Photos use the local copies: /home/hero-mist.jpg (.band) and
+//      /home/final-interior.jpg (.mini-ph, .final).
+//   4. Links — hero primary CTA "免费开始" → /register (same target as the
+//      Header's 开始使用); hero secondary anchors to #roles; the chat card's
+//      "用护照一键申请" chip and the final "开始 →" CTA deep-link to
+//      /tenant/agent?prompt=<chatU> via promptHref (the v7 no-signup entry,
+//      preserved). Role-panel CTAs keep the v7 hrefs (/landlord/agent,
+//      /tenant/agent, /agent/agent). Anchor-rendered chips get a small
+//      display rule appended; decorative demo chips get cursor:default.
+//   5. Pains — COPY[lang].pains embeds the role label in the copy
+//      (<b>房东</b>——…), so the blueprint's separate .who pill is not
+//      rendered; the pain <p> shows the COPY node verbatim (COPY is kept
+//      word-for-word from v7 and stays authoritative).
+// All other class names are unchanged from the blueprint. Copy is bilingual:
+// the blueprint's zh strings are kept verbatim in COPY.zh; COPY.en is the
+// English rendering, selected at runtime via useI18n().lang (SSR/first frame
+// renders zh — the provider default — then hydrates to the stored/browser
+// language).
 import Link from 'next/link'
 import { ReactNode, useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useI18n, type Lang } from '@/lib/i18n'
 
-/* Typewriter lines — zh verbatim from the blueprint script. */
-const TRY_LINES: Record<Lang, string[]> = {
-  zh: [
-    '北约克两房，预算 2800，能养猫',
-    '1207 的三份申请，帮我看一下',
-    '明天的带看都排好',
-    '这份租约的第 8 条什么意思？',
-  ],
-  en: [
-    '2-bed in North York, $2,800 budget, cat-friendly',
-    'Review the three applications for unit 1207',
-    "Schedule all of tomorrow's showings",
-    'What does clause 8 of this lease mean?',
-  ],
+const promptHref = (line: string) => `/tenant/agent?prompt=${encodeURIComponent(line)}`
+
+/* Hero CTA labels — zh verbatim from the blueprint (not part of the carried-over COPY shape). */
+const HERO_CTAS: Record<Lang, { primary: string; secondary: string }> = {
+  zh: { primary: '免费开始', secondary: '看看它怎么工作' },
+  en: { primary: 'Start free', secondary: 'See how it works' },
 }
 
-const promptHref = (line: string) => `/tenant/agent?prompt=${encodeURIComponent(line)}`
+/* Role-panel CTA targets — carried over unchanged from the v7 page (blueprint tab order: 房东 / 租客 / 经纪). */
+const ROLE_HREFS = ['/landlord/agent', '/tenant/agent', '/agent/agent'] as const
 
 /* ===================== bilingual copy ===================== */
 
@@ -652,229 +658,269 @@ const COPY: Record<Lang, HomeCopy> = {
   },
 }
 
-/* ===================== blueprint <style> (nav/footer sections removed, selectors scoped to .v7-page) ===================== */
+/* ===================== blueprint <style> (nav/footer sections removed, selectors scoped to .v8-page) ===================== */
 
 const CSS = `
   html { scroll-behavior: smooth; }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-  body { margin: 0; background: #FBFBF9; overflow-x: hidden; }
-  .v7-page {
-    --bg: #FBFBF9; --surface: #FFFFFF; --wash: #F6F5F1;
-    --ink: #18181B; --ink-2: #52525B; --ink-3: #71717A;
-    --line: #E8E6E1; --line-2: #D6D3CC;
-    --brand: #7C3AED; --brand-deep: #5B21B6; --brand-soft: #F4F0FD; --brand-light: #C4B5FD;
-    --ok: #16A34A; --ok-soft: #EAF6EE;
-    --lord: #047857; --agnt: #2563EB;
-    --dark: #131118; --dark-ink: #EFEBF6; --dark-muted: #9A93AC;
-    --r-ctl: 12px; --r-card: 16px; --r-photo: 24px;
-    --sh-sm: 0 1px 2px rgba(24,24,27,.05), 0 1px 6px rgba(24,24,27,.04);
-    --sh-md: 0 12px 32px -16px rgba(24,24,27,.18);
-    --sh-lg: 0 32px 64px -32px rgba(24,24,27,.28);
-    color: var(--ink);
-    font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
-    font-size: 16px; line-height: 1.75; -webkit-font-smoothing: antialiased;
+  body { overflow-x: hidden; }
+  .v8-page {
+    --brand:#7C3AED; --brand-2:#6D28D9; --brand-soft:#F3EEFB;
+    --ink:#18181B; --ink-2:#52525B; --ink-3:#A1A1AA;
+    --line:#E5E1D4; --line-soft:#EEEAe0;
+    --bg:#FDFBF6; --bg-2:#F6F3EA; --nav:#FAF7EE; --dark:#131316;
+    --ok:#6AB344; --bad:#DC2626;
+    --r-card:16px;
+    font-family:'Inter Tight','PingFang SC','Microsoft YaHei',system-ui,-apple-system,sans-serif;
+    color:var(--ink);background:var(--bg);line-height:1.6;font-size:16px;
+    -webkit-font-smoothing:antialiased;
   }
-  .v7-page, .v7-page * { box-sizing: border-box; }
-  .v7-page .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
-  .v7-page .num { font-variant-numeric: tabular-nums; }
-  .v7-page .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
-  .v7-page button { font-family: inherit; cursor: pointer; }
-  .v7-page h1, .v7-page h2, .v7-page h3 { text-wrap: balance; margin: 0; }
-  .v7-page img { display: block; max-width: 100%; }
-  .v7-page .rv { opacity: 0; transform: translateY(16px); transition: opacity .6s ease, transform .6s ease; }
-  .v7-page .rv.in { opacity: 1; transform: none; }
-  @media (prefers-reduced-motion: reduce) { .v7-page .rv { opacity: 1; transform: none; transition: none; } }
+  .v8-page, .v8-page *{margin:0;padding:0;box-sizing:border-box}
+  .v8-page img{max-width:100%;display:block}
+  .v8-page a{color:inherit;text-decoration:none}
+  .v8-page .wrap{max-width:1180px;margin:0 auto;padding:0 32px;width:100%}
+  @media(max-width:640px){.v8-page .wrap{padding:0 20px}}
+  .v8-page .rv{opacity:0;transform:translateY(20px);transition:opacity .65s ease,transform .65s ease}
+  .v8-page .rv.on{opacity:1;transform:none}
+  .v8-page .d1{transition-delay:.08s}.v8-page .d2{transition-delay:.16s}.v8-page .d3{transition-delay:.24s}
+  @media(prefers-reduced-motion:reduce){.v8-page .rv{opacity:1;transform:none;transition:none}}
 
-  /* —— 组件规范 —— */
-  .v7-page .btn-p { display: inline-flex; align-items: center; gap: 6px; background: var(--brand); color: #fff;
-    border: none; border-radius: var(--r-ctl); padding: 13px 24px; font-size: 15px; font-weight: 600;
-    text-decoration: none; box-shadow: var(--sh-sm); transition: background .15s ease; }
-  .v7-page .btn-p:hover { background: var(--brand-deep); }
-  .v7-page .btn-s { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); color: var(--ink);
-    border: 1px solid var(--line-2); border-radius: var(--r-ctl); padding: 12px 22px; font-size: 15px;
-    font-weight: 600; text-decoration: none; }
-  .v7-page .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--sh-sm); }
-  .v7-page .tag { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2);
-    background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px; }
-  .v7-page .tag .d { width: 7px; height: 7px; border-radius: 999px; background: var(--brand); }
-  .v7-page .sec { padding: 112px 0 0; }
-  .v7-page .sec-head { text-align: center; max-width: 640px; margin: 0 auto 56px; }
-  .v7-page .sec-head h2 { font-size: clamp(30px, 3.6vw, 40px); font-weight: 800; letter-spacing: -.01em; line-height: 1.3; }
-  .v7-page .sec-head p { color: var(--ink-2); margin: 14px 0 0; font-size: 16px; }
+  /* .btn set — lives in the blueprint's nav block but is used page-wide, so it is kept */
+  .v8-page .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;
+       border-radius:999px;font-weight:600;font-size:14.5px;padding:10px 22px;cursor:pointer;
+       transition:transform .15s ease,box-shadow .2s ease,background .15s ease;border:none;font-family:inherit}
+  .v8-page .btn:active{transform:translateY(1px) scale(.98)}
+  .v8-page .btn-p{background:var(--brand);color:#fff;box-shadow:0 1px 2px rgba(124,58,237,.35)}
+  .v8-page .btn-p:hover{background:var(--brand-2);box-shadow:0 6px 20px -6px rgba(124,58,237,.5)}
+  .v8-page .btn-g{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .v8-page .btn-g:hover{border-color:var(--ink-3)}
 
-  /* ============ HERO ============ */
-  /* top padding 96px → 84px: the blueprint's sticky nav is ~53px tall, the
-     real sticky Header occupies 66px of flow — 84px keeps the same visual
-     distance from the top of the viewport. */
-  .v7-page .hero { position: relative; padding: 84px 0 0; }
-  .v7-page .hero::before { content: ""; position: absolute; top: -80px; right: -10%; width: 720px; height: 720px;
-    background: radial-gradient(circle, rgba(124,58,237,.07), transparent 62%); pointer-events: none; }
-  .v7-page .hero-in { display: grid; grid-template-columns: 1.02fr .98fr; gap: 72px; align-items: center; }
-  @media (max-width: 980px) { .v7-page .hero-in { grid-template-columns: 1fr; } }
-  .v7-page .hero h1 { font-size: clamp(40px, 5vw, 62px); font-weight: 800; letter-spacing: -.02em; line-height: 1.16; }
-  .v7-page .hero h1 em { font-style: normal; color: var(--brand); }
-  .v7-page .hero .sub { color: var(--ink-2); font-size: 18px; margin: 22px 0 0; max-width: 30em; }
-  .v7-page .hero .sub b { color: var(--ink); font-weight: 600; }
-  .v7-page .painline { margin: 26px 0 0; display: flex; flex-direction: column; gap: 10px; font-size: 15px; color: var(--ink-2); }
-  .v7-page .painline div { display: flex; gap: 10px; align-items: baseline; }
-  .v7-page .painline b { color: var(--ink); font-weight: 600; flex: none; }
-  .v7-page .painline .ck { color: var(--brand); font-weight: 700; flex: none; }
-  .v7-page .trybar { margin-top: 32px; display: flex; background: var(--surface); border: 1px solid var(--line-2);
-    border-radius: 14px; overflow: hidden; max-width: 520px; box-shadow: var(--sh-md); }
-  .v7-page .trybar:focus-within { border-color: var(--brand); }
-  .v7-page .trybar .q { flex: 1; padding: 17px 20px; font-size: 15px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .v7-page .trybar .q .caret { display: inline-block; width: 2px; height: 1em; background: var(--brand); vertical-align: -2px; margin-left: 2px; }
-  @media (prefers-reduced-motion: no-preference) { .v7-page .trybar .q .caret { animation: blink 1s steps(1) infinite; } @keyframes blink { 50% { opacity: 0; } } }
-  .v7-page .trybar .go { background: var(--brand); color: #fff; border: none; padding: 0 26px; font-size: 15px; font-weight: 600; }
-  .v7-page .trybar .go:hover { background: var(--brand-deep); }
-  /* adaptation: the trybar CTA is a Link (anchor) instead of a button */
-  .v7-page .trybar a.go { display: inline-flex; align-items: center; text-decoration: none; white-space: nowrap; }
-  .v7-page .hero .note { margin-top: 14px; font-size: 13px; color: var(--ink-3); }
+  /* ============ hero: atmosphere + asymmetric split ============ */
+  .v8-page .hero{position:relative;padding:60px 0 84px;overflow:hidden;background:linear-gradient(180deg,var(--nav) 0%,var(--bg) 34%)}
+  .v8-page .hero .atmo{position:absolute;inset:0;pointer-events:none}
+  .v8-page .hero .atmo::before{content:"";position:absolute;top:-220px;right:-180px;width:760px;height:760px;
+      background:radial-gradient(closest-side,rgba(124,58,237,.10),transparent 68%)}
+  .v8-page .hero .atmo::after{content:"";position:absolute;bottom:-260px;left:-200px;width:640px;height:640px;
+      background:radial-gradient(closest-side,rgba(59,130,246,.06),transparent 70%)}
+  .v8-page .hero .grid-tex{position:absolute;inset:0;
+      background-image:linear-gradient(rgba(24,24,27,.028) 1px,transparent 1px),
+                       linear-gradient(90deg,rgba(24,24,27,.028) 1px,transparent 1px);
+      background-size:56px 56px;
+      -webkit-mask-image:radial-gradient(ellipse 75% 65% at 50% 0%,#000 30%,transparent 75%);
+              mask-image:radial-gradient(ellipse 75% 65% at 50% 0%,#000 30%,transparent 75%)}
+  .v8-page .hero-in{position:relative;display:grid;grid-template-columns:1.08fr .92fr;gap:72px;align-items:center}
+  @media(max-width:980px){.v8-page .hero-in{grid-template-columns:1fr;gap:52px}}
+  .v8-page .tag{display:inline-flex;align-items:center;gap:9px;font-size:12px;letter-spacing:.15em;
+       text-transform:uppercase;color:var(--brand);font-weight:700}
+  .v8-page .tag::before{content:"";width:24px;height:1.5px;background:var(--brand)}
+  .v8-page .hero h1{font-size:clamp(38px,4.5vw,54px);font-weight:800;letter-spacing:-.026em;line-height:1.13;margin-top:18px}
+  .v8-page .hero h1 em{font-style:normal;color:var(--brand);position:relative}
+  .v8-page .hero h1 em::after{content:"";position:absolute;left:0;right:0;bottom:4px;height:10px;
+      background:var(--brand-soft);z-index:-1;border-radius:3px}
+  .v8-page .hero .sub{color:var(--ink-2);font-size:17px;margin-top:18px;max-width:29em}
+  .v8-page .hero .sub b{color:var(--ink);font-weight:600}
+  .v8-page .hero .ctas{display:flex;gap:12px;margin-top:26px;flex-wrap:wrap}
+  .v8-page .hero .ctas .btn{padding:12px 28px;font-size:15px}
+  .v8-page .hero .note{margin-top:16px;font-size:13px;color:var(--ink-3)}
 
-  /* hero 右：产品组合 */
-  .v7-page .stage { position: relative; }
-  .v7-page .stage .panel { background: linear-gradient(160deg, var(--brand-soft), #EFF3FD 70%, var(--wash));
-    border-radius: var(--r-photo); padding: 40px 36px 44px; }
-  .v7-page .chat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
-    box-shadow: var(--sh-lg); padding: 18px; max-width: 430px; margin: 0 auto; }
-  .v7-page .chat-h { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
-  .v7-page .orb { width: 26px; height: 26px; border-radius: 999px; background: radial-gradient(circle at 32% 28%, var(--brand-light), var(--brand)); flex: none; }
-  @media (prefers-reduced-motion: no-preference) { .v7-page .chat-h .orb { animation: breathe 4s ease-in-out infinite; }
-    @keyframes breathe { 50% { transform: scale(1.08); } } }
-  .v7-page .chat-h b { font-size: 13.5px; }
-  .v7-page .chat-h .st { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--ok); }
-  .v7-page .msgs { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; }
-  .v7-page .m-u { align-self: flex-end; background: var(--brand); color: #fff; border-radius: 12px 12px 4px 12px; padding: 9px 14px; font-size: 13.5px; max-width: 85%; }
-  .v7-page .m-a { align-self: flex-start; background: var(--wash); border-radius: 12px 12px 12px 4px; padding: 9px 14px; font-size: 13.5px; color: var(--ink-2); max-width: 92%; }
-  .v7-page .m-a b { color: var(--ink); font-weight: 600; }
-  .v7-page .mini { border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px; }
-  .v7-page .mini .t { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-  .v7-page .mini .t b { font-size: 13.5px; }
-  .v7-page .mini .t .pr { font-weight: 700; font-size: 14px; color: var(--brand-deep); }
-  .v7-page .mini .m2 { font-size: 12px; color: var(--ink-3); margin-top: 3px; }
-  .v7-page .mini .m2 .okt { color: var(--ok); font-weight: 600; }
-  .v7-page .chat .act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; align-items: center; }
-  .v7-page .chat .act .bp { background: var(--brand); border: none; color: #fff; border-radius: 9px; padding: 8px 15px; font-size: 12.5px; font-weight: 600; }
-  .v7-page .chat .act .bs { background: #fff; border: 1px solid var(--line-2); color: var(--ink-2); border-radius: 9px; padding: 8px 13px; font-size: 12.5px; font-weight: 600; }
-  .v7-page .chat .act .fr { margin-left: auto; font-size: 11px; color: var(--ink-3); }
-  .v7-page .float-note { position: absolute; right: 18px; bottom: -18px; background: var(--surface); border: 1px solid var(--line);
-    border-radius: 12px; padding: 10px 16px; box-shadow: var(--sh-md); display: flex; align-items: center; gap: 10px; }
-  .v7-page .float-note .ck2 { width: 24px; height: 24px; border-radius: 999px; background: var(--ok); color: #fff; font-size: 12px;
-    font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
-  .v7-page .float-note b { display: block; font-size: 12.5px; line-height: 1.4; }
-  .v7-page .float-note span { display: block; font-size: 11px; color: var(--ink-3); }
+  /* hero right: chat + overlapping approval card */
+  .v8-page .stage{position:relative;padding-bottom:44px}
+  .v8-page .chat{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;
+        box-shadow:0 1px 2px rgba(24,24,27,.04),0 32px 72px -28px rgba(76,29,149,.22)}
+  .v8-page .chat-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line-soft)}
+  .v8-page .chat-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--brand),#3B82F6);
+           color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .v8-page .chat-nm{font-size:13px;font-weight:700;letter-spacing:.02em}
+  .v8-page .chat-st{margin-left:auto;font-size:12px;color:var(--ok)}
+  .v8-page .chat-b{padding:18px;display:flex;flex-direction:column;gap:12px;background:var(--bg-2)}
+  .v8-page .m{max-width:88%;padding:11px 14px;border-radius:14px;font-size:13.5px;line-height:1.55}
+  .v8-page .m-u{align-self:flex-end;background:var(--ink);color:#fff;border-bottom-right-radius:4px}
+  .v8-page .m-a{align-self:flex-start;background:#fff;border:1px solid var(--line-soft);border-bottom-left-radius:4px}
+  .v8-page .m-a b{color:var(--brand)}
+  .v8-page .mini{align-self:flex-start;width:90%;background:#fff;border:1px solid var(--line);border-radius:12px;
+        padding:12px 14px;display:flex;gap:12px;align-items:center;
+        box-shadow:0 4px 14px -6px rgba(24,24,27,.08)}
+  .v8-page .mini-ph{width:54px;height:54px;border-radius:9px;flex:none;
+           background:url('/home/final-interior.jpg') center/cover}
+  .v8-page .mini-t{font-size:13px;font-weight:700}
+  .v8-page .mini-pr{font-size:13px;color:var(--brand);font-weight:700;margin-left:auto;flex:none}
+  .v8-page .mini-m{font-size:12px;color:var(--ink-2)}
+  .v8-page .okt{color:var(--ok);font-weight:600}
+  .v8-page .chat-acts{display:flex;gap:8px;align-items:center;padding:14px 18px;background:var(--bg-2);
+             border-top:1px solid var(--line-soft)}
+  .v8-page .chip{border-radius:999px;font-size:12.5px;font-weight:600;padding:8px 15px;cursor:pointer;border:none;font-family:inherit}
+  .v8-page .chip-p{background:var(--brand);color:#fff}
+  .v8-page .chip-g{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .v8-page .chat-fr{margin-left:auto;font-size:12px;color:var(--ink-3)}
+  .v8-page .float{position:absolute;right:-14px;bottom:0;display:flex;gap:10px;align-items:center;
+         padding:13px 18px;background:#fff;border:1px solid var(--line);border-radius:13px;
+         box-shadow:0 18px 44px -16px rgba(24,24,27,.22)}
+  @media(max-width:640px){.v8-page .float{right:0}}
+  .v8-page .float-dot{width:8px;height:8px;border-radius:50%;background:var(--brand);flex:none;
+             animation:v8-pulse 2.4s ease-in-out infinite}
+  @keyframes v8-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  @media(prefers-reduced-motion:reduce){.v8-page .float-dot{animation:none}}
+  .v8-page .float b{font-size:13.5px;display:block}
+  .v8-page .float span{font-size:12.5px;color:var(--ink-2)}
+  /* adaptation: the chat's primary chip is a Link (anchor); decorative chips get no pointer affordance */
+  .v8-page a.chip{display:inline-flex;align-items:center;justify-content:center}
+  .v8-page .chat-acts .chip-g, .v8-page .demo-acts .chip{cursor:default}
 
-  /* ============ 信任行 ============ */
-  .v7-page .trust { margin-top: 72px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); }
-  .v7-page .trust-in { max-width: 1180px; margin: 0 auto; padding: 18px 32px; display: flex; align-items: center;
-    justify-content: center; gap: 12px 40px; flex-wrap: wrap; font-size: 13px; color: var(--ink-3); }
-  .v7-page .trust-in b { color: var(--ink-2); font-weight: 600; }
+  /* trust strip */
+  .v8-page .trust{border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);background:var(--bg-2)}
+  .v8-page .trust-in{display:grid;grid-template-columns:repeat(4,1fr)}
+  .v8-page .trust-in>div{padding:20px;font-size:13.5px;color:var(--ink-2);text-align:center}
+  .v8-page .trust-in>div+div{border-left:1px solid var(--line-soft)}
+  .v8-page .trust-in b{color:var(--ink);font-weight:600}
+  @media(max-width:900px){.v8-page .trust-in{grid-template-columns:1fr 1fr}
+    .v8-page .trust-in>div:nth-child(3){border-left:none;border-top:1px solid var(--line-soft)}
+    .v8-page .trust-in>div:nth-child(4){border-top:1px solid var(--line-soft)}}
 
-  /* ============ 照片数据带 ============ */
-  .v7-page .photoband { padding-top: 112px; }
-  .v7-page .photoband .ph { position: relative; border-radius: var(--r-photo); overflow: hidden; box-shadow: var(--sh-lg); }
-  .v7-page .photoband img { width: 100%; height: 400px; object-fit: cover; object-position: center 58%; filter: saturate(.85); }
-  .v7-page .photoband .cap { position: absolute; top: 20px; left: 24px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,.95);
-    background: rgba(19,17,24,.4); backdrop-filter: blur(8px); border-radius: 999px; padding: 6px 14px; }
-  .v7-page .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: -44px; position: relative; padding: 0 40px; }
-  @media (max-width: 900px) { .v7-page .stats { grid-template-columns: repeat(2, 1fr); padding: 0 16px; } }
-  .v7-page .stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
-    box-shadow: var(--sh-md); padding: 22px 24px; }
-  .v7-page .stat b { display: block; font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
-  .v7-page .stat span { display: block; font-size: 13px; color: var(--ink-2); margin-top: 4px; line-height: 1.6; }
+  /* ============ pains: editorial rows with ghost numerals ============ */
+  .v8-page .pains{padding:104px 0}
+  .v8-page .pains-in{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line)}
+  @media(max-width:900px){.v8-page .pains-in{grid-template-columns:1fr}}
+  .v8-page .pain{position:relative;padding:34px 34px 40px 0;overflow:hidden}
+  .v8-page .pain+.pain{padding-left:34px;border-left:1px solid var(--line-soft)}
+  @media(max-width:900px){.v8-page .pain+.pain{padding-left:0;border-left:none;border-top:1px solid var(--line-soft)}}
+  .v8-page .pain .gn{position:absolute;top:10px;right:6px;font-size:96px;font-weight:800;line-height:1;
+            color:var(--ink);opacity:.045;letter-spacing:-.04em;pointer-events:none}
+  .v8-page .pain .who{display:inline-flex;font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--brand);
+             background:var(--brand-soft);border-radius:999px;padding:4px 12px}
+  .v8-page .pain p{margin-top:14px;font-size:17px;line-height:1.65}
+  .v8-page .pain p b{font-weight:700}
 
-  /* ============ 三角色 ============ */
-  .v7-page .role { padding: 96px 0 0; }
-  .v7-page .role-in { display: grid; grid-template-columns: .94fr 1.06fr; gap: 72px; align-items: center; }
-  .v7-page .role.flip .role-in { grid-template-columns: 1.06fr .94fr; }
-  .v7-page .role.flip .role-copy { order: 2; }
-  @media (max-width: 980px) { .v7-page .role-in, .v7-page .role.flip .role-in { grid-template-columns: 1fr; }
-    .v7-page .role.flip .role-copy { order: 0; } }
-  .v7-page .role-copy h2 { font-size: clamp(28px, 3.2vw, 36px); font-weight: 800; letter-spacing: -.015em; line-height: 1.32; margin-top: 18px; }
-  .v7-page .role-copy .lead { color: var(--ink-2); font-size: 16px; margin: 16px 0 0; max-width: 28em; }
-  .v7-page .benefits { margin: 26px 0 0; display: flex; flex-direction: column; gap: 14px; }
-  .v7-page .bene { display: flex; gap: 12px; }
-  .v7-page .bene .ic { width: 22px; height: 22px; border-radius: 7px; background: var(--brand-soft); color: var(--brand-deep);
-    font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; margin-top: 3px; }
-  .v7-page .bene b { display: block; font-size: 15px; font-weight: 600; }
-  .v7-page .bene span { display: block; font-size: 13.5px; color: var(--ink-2); margin-top: 1px; line-height: 1.65; }
-  .v7-page .quoterow { margin-top: 26px; display: flex; gap: 12px; align-items: flex-start; border-top: 1px solid var(--line); padding-top: 20px; }
-  .v7-page .avatar { width: 36px; height: 36px; border-radius: 999px; background: var(--wash); border: 1px solid var(--line);
-    color: var(--ink-2); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; }
-  .v7-page .quoterow p { margin: 0; font-size: 14px; color: var(--ink-2); font-style: italic; line-height: 1.7; }
-  .v7-page .quoterow .who { display: block; font-style: normal; font-size: 12px; color: var(--ink-3); margin-top: 5px; }
-  .v7-page .role-cta { margin-top: 24px; }
+  /* ============ photo band: full-bleed + glass stat strip ============ */
+  .v8-page .band{position:relative;min-height:560px;display:flex;align-items:flex-end;
+        background:url('/home/hero-mist.jpg') center/cover}
+  .v8-page .band::before{content:"";position:absolute;inset:0;
+        background:linear-gradient(180deg,rgba(19,19,22,.05) 30%,rgba(19,19,22,.52) 100%)}
+  .v8-page .band-cap{position:absolute;top:28px;left:50%;transform:translateX(-50%);font-size:12.5px;color:#fff;
+            background:rgba(19,19,22,.4);backdrop-filter:blur(8px);padding:7px 16px;border-radius:999px;
+            border:1px solid rgba(255,255,255,.16)}
+  .v8-page .band .wrap{position:relative;z-index:1;padding-bottom:40px}
+  .v8-page .gstats{display:grid;grid-template-columns:repeat(4,1fr);border-radius:var(--r-card);overflow:hidden;
+          background:rgba(255,255,255,.12);backdrop-filter:blur(18px);
+          border:1px solid rgba(255,255,255,.22);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 24px 60px -24px rgba(19,19,22,.5)}
+  @media(max-width:900px){.v8-page .gstats{grid-template-columns:1fr 1fr}}
+  .v8-page .gstat{padding:26px 26px;color:#fff}
+  .v8-page .gstat+.gstat{border-left:1px solid rgba(255,255,255,.16)}
+  @media(max-width:900px){.v8-page .gstat:nth-child(3){border-left:none}
+    .v8-page .gstat:nth-child(n+3){border-top:1px solid rgba(255,255,255,.16)}}
+  .v8-page .gstat .b{font-size:27px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .v8-page .gstat .s{font-size:13px;color:rgba(255,255,255,.82);margin-top:4px;line-height:1.5}
 
-  /* 角色演示卡（统一白卡 · 角色色只做点缀） */
-  .v7-page .demo { position: relative; }
-  .v7-page .demo .backwash { position: absolute; inset: 8% -6% -6% 8%; border-radius: var(--r-photo); background: var(--wash); z-index: -1; }
-  .v7-page .demo-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
-    box-shadow: var(--sh-lg); padding: 20px; }
-  .v7-page .demo-h { display: flex; align-items: center; gap: 10px; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
-  .v7-page .demo-h .o2 { width: 24px; height: 24px; border-radius: 999px; flex: none; }
-  .v7-page .demo-h b { font-size: 13.5px; }
-  .v7-page .demo-h .st2 { margin-left: auto; font-size: 11px; font-weight: 600; white-space: nowrap; }
-  .v7-page .demo[data-r="l"] .o2 { background: radial-gradient(circle at 32% 28%, #6EE7B7, var(--lord)); }
-  .v7-page .demo[data-r="l"] .st2 { color: var(--lord); }
-  .v7-page .demo[data-r="t"] .o2 { background: radial-gradient(circle at 32% 28%, var(--brand-light), var(--brand)); }
-  .v7-page .demo[data-r="t"] .st2 { color: var(--brand); }
-  .v7-page .demo[data-r="a"] .o2 { background: radial-gradient(circle at 32% 28%, #93C5FD, var(--agnt)); }
-  .v7-page .demo[data-r="a"] .st2 { color: var(--agnt); }
-  .v7-page .rows { padding-top: 8px; }
-  .v7-page .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 2px;
-    border-bottom: 1px solid var(--line); font-size: 14px; }
-  .v7-page .row:last-child { border-bottom: none; }
-  .v7-page .row .l b { display: block; font-size: 14px; font-weight: 600; }
-  .v7-page .row .l span { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 1px; }
-  .v7-page .pill { font-size: 12px; font-weight: 600; border-radius: 999px; padding: 4px 12px; white-space: nowrap; }
-  .v7-page .pill.g { background: var(--ok-soft); color: var(--ok); }
-  .v7-page .pill.n { background: var(--wash); color: var(--ink-2); }
-  .v7-page .pill.r { background: #FCEBEA; color: #DC2626; }
-  .v7-page .demo-note { margin-top: 14px; background: var(--wash); border-radius: 12px; padding: 12px 16px; font-size: 13px; color: var(--ink-2); }
-  .v7-page .demo-note b { color: var(--ink); font-weight: 600; }
-  .v7-page .demo-act { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
-  .v7-page .demo-act .bp2 { border: none; color: #fff; border-radius: 10px; padding: 10px 18px; font-size: 13px; font-weight: 600; }
-  .v7-page .demo[data-r="l"] .bp2 { background: var(--lord); }
-  .v7-page .demo[data-r="t"] .bp2 { background: var(--brand); }
-  .v7-page .demo[data-r="a"] .bp2 { background: var(--agnt); }
-  .v7-page .demo-act .bs2 { background: #fff; border: 1px solid var(--line-2); color: var(--ink-2); border-radius: 10px; padding: 10px 15px; font-size: 13px; font-weight: 600; }
-  .v7-page .demo-act .tm { margin-left: auto; font-size: 11.5px; color: var(--ink-3); }
-  /* adaptation: demo-card / chat "buttons" are decorative spans (aria-hidden demos) — no pointer affordance */
-  .v7-page .chat .act .bp, .v7-page .chat .act .bs,
-  .v7-page .demo-act .bp2, .v7-page .demo-act .bs2 { cursor: default; }
+  /* ============ roles: tabs + rich panel ============ */
+  .v8-page .roles{padding:112px 0 0}
+  .v8-page .roles-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
+  .v8-page .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--brand);font-weight:700}
+  .v8-page .roles h2{font-size:clamp(30px,3.4vw,42px);font-weight:800;letter-spacing:-.022em;margin-top:12px}
+  .v8-page .roles .rsub{color:var(--ink-2);margin-top:12px;max-width:34em}
+  .v8-page .rtabs{display:flex;gap:8px;flex-wrap:wrap}
+  .v8-page .rtab{border-radius:999px;border:1px solid var(--line);background:#fff;padding:11px 22px;font-size:14px;
+        font-weight:700;cursor:pointer;color:var(--ink-2);transition:all .18s ease;font-family:inherit}
+  .v8-page .rtab:hover{border-color:var(--ink-3);transform:translateY(-1px)}
+  .v8-page .rtab.on{background:var(--ink);border-color:var(--ink);color:#fff;box-shadow:0 8px 20px -8px rgba(24,24,27,.4)}
+  .v8-page .rpanel{margin-top:36px;display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);
+          border-radius:var(--r-card);overflow:hidden;background:#fff;
+          box-shadow:0 32px 72px -36px rgba(24,24,27,.16)}
+  @media(max-width:900px){.v8-page .rpanel{grid-template-columns:1fr}}
+  .v8-page .rp-l{padding:44px 48px;display:flex;flex-direction:column}
+  @media(max-width:640px){.v8-page .rp-l{padding:30px 24px}}
+  .v8-page .rp-tag{display:inline-flex;align-self:flex-start;font-size:11.5px;font-weight:800;letter-spacing:.1em;
+          color:var(--brand);background:var(--brand-soft);border-radius:999px;padding:5px 13px}
+  .v8-page .rp-l h3{font-size:clamp(23px,2.5vw,29px);font-weight:800;letter-spacing:-.016em;line-height:1.3;margin-top:18px}
+  .v8-page .rp-l .lead{color:var(--ink-2);font-size:15px;margin-top:14px}
+  .v8-page .rp-bens{margin-top:26px;display:flex;flex-direction:column;gap:16px}
+  .v8-page .rp-ben{display:flex;gap:14px;align-items:flex-start}
+  .v8-page .rp-ben .bn{flex:none;width:24px;height:24px;border-radius:50%;background:var(--brand-soft);color:var(--brand);
+              font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .v8-page .rp-ben .bb{font-size:14.5px;font-weight:700}
+  .v8-page .rp-ben .bs{font-size:13.5px;color:var(--ink-2);margin-top:2px}
+  .v8-page .rp-quote{margin-top:auto;padding-top:26px;border-top:1px solid var(--line-soft)}
+  .v8-page .rp-quote p{font-size:14px;color:var(--ink-2);line-height:1.65}
+  .v8-page .rp-quote .who{display:flex;gap:10px;align-items:center;margin-top:12px}
+  .v8-page .rp-quote .av{width:32px;height:32px;border-radius:50%;background:var(--brand-soft);color:var(--brand);
+                font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .v8-page .rp-quote .wn{font-size:12.5px;color:var(--ink-3)}
+  .v8-page .rp-cta{margin-top:24px}
+  .v8-page .rp-r{position:relative;background:linear-gradient(150deg,#F7F4FC 0%,var(--bg-2) 60%);
+        border-left:1px solid var(--line-soft);padding:40px 36px;display:flex;flex-direction:column;
+        justify-content:center;overflow:hidden}
+  .v8-page .rp-r::before{content:"";position:absolute;top:-120px;right:-120px;width:340px;height:340px;
+        background:radial-gradient(closest-side,rgba(124,58,237,.09),transparent 70%)}
+  @media(max-width:900px){.v8-page .rp-r{border-left:none;border-top:1px solid var(--line-soft)}}
+  .v8-page .demo{position:relative;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+        box-shadow:0 24px 56px -24px rgba(76,29,149,.24)}
+  .v8-page .demo-h{display:flex;align-items:center;gap:8px;padding:13px 17px;border-bottom:1px solid var(--line-soft);
+          font-size:12.5px;font-weight:700}
+  .v8-page .demo-h .st{margin-left:auto;font-weight:600;color:var(--ok)}
+  .v8-page .demo-row{display:flex;align-items:center;gap:12px;padding:14px 17px}
+  .v8-page .demo-row+.demo-row{border-top:1px solid var(--line-soft)}
+  .v8-page .demo-row .rb{font-size:13.5px;font-weight:700}
+  .v8-page .demo-row .rs{font-size:12px;color:var(--ink-2);margin-top:1px}
+  .v8-page .pill{margin-left:auto;flex:none;font-size:11.5px;font-weight:700;border-radius:999px;padding:4px 11px}
+  .v8-page .pill.g{background:#F0F7EC;color:#4C8A2E}
+  .v8-page .pill.n{background:var(--line-soft);color:var(--ink-2)}
+  .v8-page .pill.r{background:#FDECEC;color:var(--bad)}
+  .v8-page .demo-note{padding:14px 17px;border-top:1px solid var(--line-soft);font-size:13px;color:var(--ink-2);
+             background:var(--bg-2)}
+  .v8-page .demo-note b{color:var(--ink)}
+  .v8-page .demo-acts{display:flex;gap:8px;align-items:center;padding:13px 17px;border-top:1px solid var(--line-soft)}
+  .v8-page .demo-tm{margin-left:auto;font-size:11.5px;color:var(--ink-3)}
+  .v8-page .rpanel.swap .rp-l,.v8-page .rpanel.swap .rp-r{animation:v8-swap .4s ease}
+  @keyframes v8-swap{from{opacity:.35;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){.v8-page .rpanel.swap .rp-l,.v8-page .rpanel.swap .rp-r{animation:none}}
 
-  /* ============ 三步 ============ */
-  .v7-page .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-  @media (max-width: 900px) { .v7-page .steps { grid-template-columns: 1fr; } }
-  .v7-page .step { padding: 32px 28px; }
-  .v7-page .step .n { width: 40px; height: 40px; border-radius: 12px; background: var(--brand-soft); color: var(--brand-deep);
-    font-size: 16px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
-  .v7-page .step h3 { font-size: 19px; font-weight: 700; margin-top: 18px; }
-  .v7-page .step p { font-size: 14px; color: var(--ink-2); margin: 8px 0 0; line-height: 1.7; }
-  .v7-page .step p b { color: var(--ink); font-weight: 600; }
+  /* ============ steps: ghost numerals + timeline ============ */
+  .v8-page .steps{padding:112px 0}
+  .v8-page .steps h2{font-size:clamp(30px,3.4vw,42px);font-weight:800;letter-spacing:-.022em}
+  .v8-page .steps .ssub{color:var(--ink-2);margin-top:12px}
+  .v8-page .steps-in{display:grid;grid-template-columns:repeat(3,1fr);gap:44px;margin-top:52px;position:relative}
+  .v8-page .steps-in::before{content:"";position:absolute;top:21px;left:calc(16.66% + 24px);right:calc(16.66% + 24px);
+                    height:1px;background:linear-gradient(90deg,var(--line),var(--brand-soft),var(--line))}
+  @media(max-width:900px){.v8-page .steps-in{grid-template-columns:1fr;gap:36px}.v8-page .steps-in::before{display:none}}
+  .v8-page .step{position:relative;overflow:hidden;padding-top:2px}
+  .v8-page .step .gn{position:absolute;top:-18px;right:0;font-size:120px;font-weight:800;line-height:1;
+            color:var(--brand);opacity:.05;letter-spacing:-.05em;pointer-events:none}
+  .v8-page .step .n{width:42px;height:42px;border-radius:50%;background:#fff;border:1.5px solid var(--brand);
+           color:var(--brand);font-weight:800;font-size:16px;display:flex;align-items:center;
+           justify-content:center;position:relative;z-index:1;box-shadow:0 0 0 6px #fff}
+  .v8-page .step h3{font-size:19px;font-weight:800;margin-top:18px}
+  .v8-page .step p{font-size:14.5px;color:var(--ink-2);margin-top:9px}
+  .v8-page .step p b{color:var(--ink);font-weight:600}
 
-  /* ============ 深色数据带 ============ */
-  .v7-page .darkband { margin-top: 112px; background: var(--dark); color: var(--dark-ink); padding: 88px 0; }
-  .v7-page .darkband h2 { font-size: clamp(28px, 3.4vw, 38px); font-weight: 800; letter-spacing: -.01em; text-align: center; }
-  .v7-page .darkband .sub { color: var(--dark-muted); text-align: center; margin: 14px auto 0; max-width: 36em; font-size: 15px; }
-  .v7-page .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 56px; border-left: 1px solid rgba(255,255,255,.1); }
-  @media (max-width: 900px) { .v7-page .facts { grid-template-columns: repeat(2, 1fr); } }
-  .v7-page .fact { border-right: 1px solid rgba(255,255,255,.1); padding: 8px 28px; }
-  .v7-page .fact b { display: block; font-size: clamp(28px, 3vw, 36px); font-weight: 800; letter-spacing: -.02em; }
-  .v7-page .fact span { display: block; font-size: 13px; color: var(--dark-muted); margin-top: 6px; line-height: 1.7; }
-  .v7-page .fact span i { font-style: normal; color: var(--dark-ink); }
+  /* ============ dark facts band ============ */
+  .v8-page .dark{position:relative;background:var(--dark);color:#fff;padding:88px 0;overflow:hidden}
+  .v8-page .dark::before{content:"";position:absolute;top:-200px;left:50%;transform:translateX(-50%);
+      width:900px;height:480px;background:radial-gradient(closest-side,rgba(124,58,237,.16),transparent 70%)}
+  .v8-page .dark .wrap{position:relative}
+  .v8-page .dark .eyebrow{color:#B79CF0}
+  .v8-page .dark h2{font-size:clamp(28px,3.2vw,38px);font-weight:800;letter-spacing:-.022em;margin-top:12px}
+  .v8-page .dark .dsub{color:rgba(255,255,255,.55);margin-top:12px;font-size:15px}
+  .v8-page .facts{display:grid;grid-template-columns:repeat(4,1fr);margin-top:54px;border-top:1px solid rgba(255,255,255,.13)}
+  @media(max-width:900px){.v8-page .facts{grid-template-columns:1fr 1fr}}
+  .v8-page .fact{padding:30px 26px 0}
+  .v8-page .fact+.fact{border-left:1px solid rgba(255,255,255,.13)}
+  @media(max-width:900px){.v8-page .fact:nth-child(3){border-left:none}}
+  .v8-page .fact .b{font-size:clamp(36px,3.8vw,48px);font-weight:800;letter-spacing:-.03em;
+           font-variant-numeric:tabular-nums;
+           background:linear-gradient(180deg,#fff 55%,#B79CF0 130%);
+           -webkit-background-clip:text;background-clip:text;color:transparent}
+  .v8-page .fact .s{font-size:13.5px;color:rgba(255,255,255,.6);margin-top:9px;line-height:1.55}
+  .v8-page .fact .s i{font-style:normal;color:rgba(255,255,255,.85)}
 
-  /* ============ 终幕 ============ */
-  .v7-page .final { padding: 112px 0; }
-  .v7-page .final-in { position: relative; border-radius: var(--r-photo); overflow: hidden; box-shadow: var(--sh-lg); }
-  .v7-page .final-in img { width: 100%; height: 480px; object-fit: cover; }
-  .v7-page .final-in .veil { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(19,17,24,.55) 0%, rgba(19,17,24,.15) 60%, transparent); }
-  .v7-page .final-copy { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 64px; max-width: 560px; }
-  @media (max-width: 700px) { .v7-page .final-copy { padding: 0 28px; } }
-  .v7-page .final-copy h2 { color: #fff; font-size: clamp(30px, 3.8vw, 44px); font-weight: 800; letter-spacing: -.015em; line-height: 1.25; }
-  .v7-page .final-copy p { color: rgba(255,255,255,.9); font-size: 15.5px; margin: 14px 0 0; }
-  .v7-page .final-copy .trybar { box-shadow: 0 24px 56px -20px rgba(0,0,0,.5); }
-  .v7-page .final-copy .fnote { color: rgba(255,255,255,.75); font-size: 12.5px; margin-top: 12px; }
+  /* ============ final CTA ============ */
+  .v8-page .final{position:relative;min-height:540px;display:flex;align-items:center;
+         background:url('/home/final-interior.jpg') center/cover}
+  .v8-page .final::before{content:"";position:absolute;inset:0;
+      background:linear-gradient(90deg,rgba(19,19,22,.74) 0%,rgba(19,19,22,.4) 58%,rgba(19,19,22,.12) 100%)}
+  .v8-page .final .wrap{position:relative;z-index:1;color:#fff;padding-top:96px;padding-bottom:96px}
+  .v8-page .final h2{font-size:clamp(36px,4.2vw,54px);font-weight:800;letter-spacing:-.026em;line-height:1.16}
+  .v8-page .final p{margin-top:18px;font-size:16.5px;color:rgba(255,255,255,.85);max-width:26em}
+  .v8-page .final .btn-p{margin-top:30px;padding:14px 36px;font-size:15.5px}
+  .v8-page .final .fnote{margin-top:14px;font-size:13px;color:rgba(255,255,255,.6)}
 `
 
 /* ===================== page ===================== */
@@ -882,7 +928,9 @@ const CSS = `
 export default function HomePage() {
   const { lang } = useI18n()
   const c = COPY[lang] ?? COPY.zh
-  const tryLines = TRY_LINES[lang] ?? TRY_LINES.zh
+  const heroCtas = HERO_CTAS[lang] ?? HERO_CTAS.zh
+  const [tab, setTab] = useState(0)
+  const role = c.roles[tab]
 
   // 静态 metadata 是双语合排；hydration 后按当前语言收窄标签页标题。
   useEffect(() => {
@@ -892,30 +940,30 @@ export default function HomePage() {
         : 'Stayloop — The AI-native rental OS for Toronto'
   }, [lang])
 
-  // Scroll reveal — blueprint behavior: IO adds .in at threshold .08;
+  // Scroll reveal — blueprint behavior: IO adds .on at threshold .12;
   // reduced motion shows everything immediately.
   // 瞬时跳转（锚点/instant scroll）会让 IO 停留在 false→false 永不触发，
-  // 兜底在 scroll/load 时逐帧检查 top < innerHeight 补 .in（.in 幂等，安全）。
+  // 兜底在 scroll/load 时逐帧检查 top < innerHeight 补 .on（.on 幂等，安全）。
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduced || !('IntersectionObserver' in window)) {
-      document.querySelectorAll('.rv').forEach((el) => el.classList.add('in'))
+      document.querySelectorAll('.rv').forEach((el) => el.classList.add('on'))
       return
     }
     const io = new IntersectionObserver(
       (es) =>
         es.forEach((e) => {
           if (e.isIntersecting) {
-            e.target.classList.add('in')
+            e.target.classList.add('on')
             io.unobserve(e.target)
           }
         }),
-      { threshold: 0.08 },
+      { threshold: 0.12 },
     )
     document.querySelectorAll('.rv').forEach((el) => io.observe(el))
     const catchUp = () =>
-      document.querySelectorAll('.rv:not(.in)').forEach((el) => {
-        if (el.getBoundingClientRect().top < window.innerHeight) el.classList.add('in')
+      document.querySelectorAll('.rv:not(.on)').forEach((el) => {
+        if (el.getBoundingClientRect().top < window.innerHeight) el.classList.add('on')
       })
     window.addEventListener('scroll', catchUp, { passive: true })
     window.addEventListener('load', catchUp)
@@ -926,67 +974,60 @@ export default function HomePage() {
     }
   }, [])
 
-  const roleMeta = [
-    { r: 'l', id: 'l', flip: false, href: '/landlord/agent', dot: 'var(--lord)' },
-    { r: 't', id: 't', flip: true, href: '/tenant/agent', dot: undefined },
-    { r: 'a', id: 'a', flip: false, href: '/agent/agent', dot: 'var(--agnt)' },
-  ] as const
-
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <Header />
-      <div className="v7-page">
+      <div className="v8-page">
         {/* ================= HERO ================= */}
         <header className="hero">
+          <div className="atmo" />
+          <div className="grid-tex" />
           <div className="wrap hero-in">
             <div>
-              <span className="tag">
-                <span className="d" />
-                {c.tag}
-              </span>
-              <h1 style={{ marginTop: 22 }}>{c.heroH1}</h1>
+              <span className="tag">{c.tag}</span>
+              <h1>{c.heroH1}</h1>
               <p className="sub">{c.sub}</p>
-              <div className="painline">
-                {c.pains.map((p, i) => (
-                  <div key={i}>
-                    <span className="ck">✓</span>
-                    <span>{p}</span>
-                  </div>
-                ))}
+              <div className="ctas">
+                <Link className="btn btn-p" href="/register">
+                  {heroCtas.primary}
+                </Link>
+                <a className="btn btn-g" href="#roles">
+                  {heroCtas.secondary}
+                </a>
               </div>
-              <HeroTryBar key={lang} lines={tryLines} cta={c.tryCta} />
               <p className="note">{c.note}</p>
             </div>
-            <div className="stage rv">
-              <div className="panel">
-                <div className="chat" aria-hidden="true">
-                  <div className="chat-h">
-                    <span className="orb" />
-                    <b>{c.chatName}</b>
-                    <span className="st">{c.chatSt}</span>
-                  </div>
-                  <div className="msgs">
-                    <div className="m-u">{c.chatU}</div>
-                    <div className="m-a">{c.chatA1}</div>
-                    <div className="mini">
-                      <div className="t">
-                        <b>{c.miniT}</b>
-                        <span className="pr num">{c.miniPr}</span>
-                      </div>
-                      <div className="m2">{c.miniM2}</div>
+            <div className="stage rv on">
+              <div className="chat">
+                <div className="chat-h">
+                  <span className="chat-av">L</span>
+                  <span className="chat-nm">{c.chatName}</span>
+                  <span className="chat-st">{c.chatSt}</span>
+                </div>
+                <div className="chat-b" aria-hidden="true">
+                  <ChatUserTypewriter text={c.chatU} key={lang} />
+                  <div className="m m-a">{c.chatA1}</div>
+                  <div className="mini">
+                    <div className="mini-ph" />
+                    <div>
+                      <div className="mini-t">{c.miniT}</div>
+                      <div className="mini-m">{c.miniM2}</div>
                     </div>
-                    <div className="m-a">{c.chatA2}</div>
-                    <div className="act">
-                      <span className="bp">{c.chatBp}</span>
-                      <span className="bs">{c.chatBs}</span>
-                      <span className="fr">{c.chatFr}</span>
-                    </div>
+                    <div className="mini-pr">{c.miniPr}</div>
                   </div>
+                  <div className="m m-a">{c.chatA2}</div>
+                </div>
+                <div className="chat-acts">
+                  <Link className="chip chip-p" href={promptHref(c.chatU)}>
+                    {c.chatBp}
+                  </Link>
+                  <span className="chip chip-g">{c.chatBs}</span>
+                  <span className="chat-fr">{c.chatFr}</span>
                 </div>
               </div>
-              <div className="float-note">
-                <span className="ck2">✓</span>
+              <div className="float">
+                <span className="float-dot" />
                 <div>
                   <b>{c.floatB}</b>
                   <span>{c.floatS}</span>
@@ -994,128 +1035,135 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-
-          <div className="trust rv">
-            <div className="trust-in">
-              {c.trust.map((t, i) => (
-                <span key={i}>{t}</span>
-              ))}
-            </div>
-          </div>
         </header>
 
-        {/* ================= 照片数据带 ================= */}
-        <section className="photoband">
-          <div className="wrap rv">
-            <div className="ph">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/home/hero-mist.jpg" alt={c.heroAlt} loading="lazy" decoding="async" />
-              <span className="cap">{c.cap}</span>
-            </div>
-            <div className="stats">
+        {/* ================= trust strip ================= */}
+        <div className="trust">
+          <div className="wrap trust-in">
+            {c.trust.map((t, i) => (
+              <div key={i}>{t}</div>
+            ))}
+          </div>
+        </div>
+
+        {/* ================= PAINS ================= */}
+        <section className="pains">
+          <div className="wrap pains-in">
+            {c.pains.map((p, i) => (
+              <div className={i ? `pain rv d${i}` : 'pain rv'} key={i}>
+                <span className="gn">0{i + 1}</span>
+                <p>{p}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ================= PHOTO BAND: full-bleed + glass stats ================= */}
+        <section className="band">
+          <span className="band-cap">{c.cap}</span>
+          <div className="wrap">
+            <div className="gstats rv">
               {c.stats.map((s, i) => (
-                <div className="stat" key={i}>
-                  <b className={s.num ? 'num' : undefined}>{s.b}</b>
-                  <span>{s.s}</span>
+                <div className="gstat" key={i}>
+                  <div className="b">{s.b}</div>
+                  <div className="s">{s.s}</div>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ================= 三角色 ================= */}
-        <section className="sec">
+        {/* ================= ROLES ================= */}
+        <section className="roles" id="roles">
           <div className="wrap">
-            <div className="sec-head rv">
-              <h2>{c.rolesH2}</h2>
-              <p>{c.rolesSub}</p>
+            <div className="roles-head">
+              <div>
+                <span className="eyebrow">Three Agents</span>
+                <h2>{c.rolesH2}</h2>
+                <p className="rsub">{c.rolesSub}</p>
+              </div>
+              <div className="rtabs" role="tablist">
+                {c.roles.map((r, i) => (
+                  <button
+                    className={i === tab ? 'rtab on' : 'rtab'}
+                    key={i}
+                    role="tab"
+                    aria-selected={i === tab}
+                    onClick={() => setTab(i)}
+                  >
+                    {r.tag}
+                  </button>
+                ))}
+              </div>
             </div>
-
-            {roleMeta.map((m, i) => {
-              const r = c.roles[i]
-              return (
-                <div
-                  className={m.flip ? 'role flip rv' : 'role rv'}
-                  id={m.id}
-                  key={m.id}
-                  style={i === 0 ? { paddingTop: 0 } : undefined}
-                >
-                  <div className="role-in">
-                    <div className="role-copy">
-                      <span className="tag">
-                        <span className="d" style={m.dot ? { background: m.dot } : undefined} />
-                        {r.tag}
-                      </span>
-                      <h2>{r.h2}</h2>
-                      <p className="lead">{r.lead}</p>
-                      <div className="benefits">
-                        {r.benefits.map((b, j) => (
-                          <div className="bene" key={j}>
-                            <span className="ic">✓</span>
-                            <div>
-                              <b>{b.b}</b>
-                              <span>{b.s}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="quoterow">
-                        <span className="avatar">{r.avatar}</span>
-                        <p>
-                          {r.quote}
-                          <span className="who">{r.who}</span>
-                        </p>
-                      </div>
-                      <div className="role-cta">
-                        <Link className="btn-p" href={m.href}>
-                          {r.cta}
-                        </Link>
+            {/* .swap stays on; the keyed children remount on tab change, replaying the swap animation */}
+            <div className="rpanel rv swap">
+              <div className="rp-l" key={`l-${tab}`}>
+                <span className="rp-tag">{role.tag}</span>
+                <h3>{role.h2}</h3>
+                <p className="lead">{role.lead}</p>
+                <div className="rp-bens">
+                  {role.benefits.map((b, j) => (
+                    <div className="rp-ben" key={j}>
+                      <span className="bn">{j + 1}</span>
+                      <div>
+                        <div className="bb">{b.b}</div>
+                        <div className="bs">{b.s}</div>
                       </div>
                     </div>
-                    <div className="demo" data-r={m.r}>
-                      <div className="backwash" />
-                      <div className="demo-card" aria-hidden="true">
-                        <div className="demo-h">
-                          <span className="o2" />
-                          <b>{r.demoName}</b>
-                          <span className="st2">{r.demoSt}</span>
-                        </div>
-                        <div className="rows">
-                          {r.rows.map((row, j) => (
-                            <div className="row" key={j}>
-                              <div className="l">
-                                <b>{row.b}</b>
-                                <span>{row.s}</span>
-                              </div>
-                              <span className={`pill ${row.pillCls}`}>{row.pill}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="demo-note">{r.note}</div>
-                        <div className="demo-act">
-                          <span className="bp2">{r.act1}</span>
-                          {r.act2 && <span className="bs2">{r.act2}</span>}
-                          <span className="tm">{r.tm}</span>
-                        </div>
-                      </div>
-                    </div>
+                  ))}
+                </div>
+                <div className="rp-quote">
+                  <p>{role.quote}</p>
+                  <div className="who">
+                    <span className="av">{role.avatar}</span>
+                    <span className="wn">{role.who}</span>
                   </div>
                 </div>
-              )
-            })}
+                <div className="rp-cta">
+                  <Link className="btn btn-p" href={ROLE_HREFS[tab]}>
+                    {role.cta}
+                  </Link>
+                </div>
+              </div>
+              <div className="rp-r" key={`r-${tab}`}>
+                <div className="demo" aria-hidden="true">
+                  <div className="demo-h">
+                    {role.demoName}
+                    <span className="st">{role.demoSt}</span>
+                  </div>
+                  <div>
+                    {role.rows.map((row, j) => (
+                      <div className="demo-row" key={j}>
+                        <div>
+                          <div className="rb">{row.b}</div>
+                          <div className="rs">{row.s}</div>
+                        </div>
+                        <span className={`pill ${row.pillCls}`}>{row.pill}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="demo-note">{role.note}</div>
+                  <div className="demo-acts">
+                    <span className="chip chip-p">{role.act1}</span>
+                    {role.act2 && <span className="chip chip-g">{role.act2}</span>}
+                    <span className="demo-tm">{role.tm}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* ================= 三步 ================= */}
-        <section className="sec">
+        {/* ================= STEPS ================= */}
+        <section className="steps">
           <div className="wrap">
-            <div className="sec-head rv">
-              <h2>{c.stepsH2}</h2>
-              <p>{c.stepsSub}</p>
-            </div>
-            <div className="steps rv">
+            <h2>{c.stepsH2}</h2>
+            <p className="ssub">{c.stepsSub}</p>
+            <div className="steps-in">
               {c.steps.map((s, i) => (
-                <div className="step card" key={i}>
+                <div className={i ? `step rv d${i}` : 'step rv'} key={i}>
+                  <span className="gn">0{i + 1}</span>
                   <span className="n">{i + 1}</span>
                   <h3>{s.h}</h3>
                   <p>{s.p}</p>
@@ -1125,44 +1173,32 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ================= 深色数据带 ================= */}
-        <section className="darkband rv">
+        {/* ================= DARK FACTS ================= */}
+        <section className="dark">
           <div className="wrap">
+            <span className="eyebrow">Verifiable</span>
             <h2>{c.darkH2}</h2>
-            <p className="sub">{c.darkSub}</p>
+            <p className="dsub">{c.darkSub}</p>
             <div className="facts">
               {c.facts.map((f, i) => (
-                <div className="fact" key={i}>
-                  <b className="num">{f.b}</b>
-                  <span>{f.s}</span>
+                <div className={i ? `fact rv d${i}` : 'fact rv'} key={i}>
+                  <div className="b">{f.b}</div>
+                  <div className="s">{f.s}</div>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ================= 终幕 ================= */}
+        {/* ================= FINAL ================= */}
         <section className="final">
-          <div className="wrap rv">
-            <div className="final-in">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/home/final-interior.jpg" alt={c.finalAlt} loading="lazy" decoding="async" />
-              <div className="veil" />
-              <div className="final-copy">
-                <h2>{c.finalH2}</h2>
-                <p>{c.finalP}</p>
-                <div className="trybar" style={{ marginTop: 24 }}>
-                  <span className="q">
-                    {tryLines[0]}
-                    <span className="caret" aria-hidden="true" />
-                  </span>
-                  <Link className="go" href={promptHref(tryLines[0])}>
-                    {c.finalCta}
-                  </Link>
-                </div>
-                <p className="fnote">{c.finalNote}</p>
-              </div>
-            </div>
+          <div className="wrap">
+            <h2>{c.finalH2}</h2>
+            <p>{c.finalP}</p>
+            <Link className="btn btn-p" href={promptHref(c.chatU)}>
+              {c.finalCta}
+            </Link>
+            <p className="fnote">{c.finalNote}</p>
           </div>
         </section>
       </div>
@@ -1171,49 +1207,26 @@ export default function HomePage() {
   )
 }
 
-/* ===================== hero trybar：打字机轮播 ===================== */
+/* ===================== hero chat：用户消息打字机 ===================== */
 
-function HeroTryBar({ lines, cta }: { lines: string[]; cta: string }) {
-  // Blueprint timing: 1600ms initial delay, 65ms/char, 2600ms hold per line.
-  // SSR/initial state shows line 0 in full (as in the blueprint markup);
-  // prefers-reduced-motion keeps it static (caret blink is CSS-gated too).
-  // Keyed by lang in the parent, so a language switch remounts cleanly.
-  const [li, setLi] = useState(0)
-  const [chars, setChars] = useState(lines[0].length)
+function ChatUserTypewriter({ text }: { text: string }) {
+  // Blueprint timing: 55ms/char, types COPY[lang].chatU once (no loop).
+  // SSR/initial state shows the full line (as in the blueprint markup);
+  // prefers-reduced-motion keeps it static. Keyed by lang in the parent,
+  // so a language switch remounts cleanly.
+  const [chars, setChars] = useState(text.length)
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    let line = 0
     let i = 0
-    let timer: ReturnType<typeof setTimeout>
-    const type = () => {
+    setChars(0)
+    const t = setInterval(() => {
       i++
-      setLi(line)
       setChars(i)
-      timer = i >= lines[line].length ? setTimeout(next, 2600) : setTimeout(type, 65)
-    }
-    const next = () => {
-      line = (line + 1) % lines.length
-      i = 0
-      type()
-    }
-    timer = setTimeout(() => {
-      i = 0
-      type()
-    }, 1600)
-    return () => clearTimeout(timer)
-  }, [lines])
+      if (i >= text.length) clearInterval(t)
+    }, 55)
+    return () => clearInterval(t)
+  }, [text])
 
-  const full = lines[li]
-  return (
-    <div className="trybar">
-      <span className="q">
-        {full.slice(0, chars)}
-        <span className="caret" aria-hidden="true" />
-      </span>
-      <Link className="go" href={promptHref(full)}>
-        {cta}
-      </Link>
-    </div>
-  )
+  return <div className="m m-u">{text.slice(0, chars)}</div>
 }
