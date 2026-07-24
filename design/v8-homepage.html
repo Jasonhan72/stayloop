@@ -16,6 +16,9 @@
   Shape lock: cards 16px, interactive pills full-radius.
 -->
 <style>
+  @font-face{font-family:'Inter Tight';font-style:normal;font-weight:400 800;font-display:swap;
+    src:url('https://www.stayloop.ai/fonts/inter-tight-latin.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
   :root{
     --brand:#7C3AED; --brand-2:#6D28D9; --brand-soft:#F3EEFB;
     --ink:#18181B; --ink-2:#52525B; --ink-3:#A1A1AA;
@@ -26,7 +29,7 @@
   }
   *{margin:0;padding:0;box-sizing:border-box}
   html{scroll-behavior:smooth}
-  body{font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",sans-serif;
+  body{font-family:'Inter Tight','PingFang SC','Microsoft YaHei',system-ui,-apple-system,sans-serif;
        color:var(--ink);background:var(--bg);line-height:1.6;font-size:16px;
        -webkit-font-smoothing:antialiased;overflow-x:hidden}
   img{max-width:100%;display:block}
@@ -41,9 +44,9 @@
   /* ============ nav — PRODUCTION header replica, DO NOT ALTER ============ */
   nav.top{position:sticky;top:0;z-index:50;background:var(--nav);border-bottom:1px solid var(--line-soft)}
   .nav-in{height:72px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
-  .logo{font-weight:800;font-size:19px;letter-spacing:-.02em;justify-self:start}
-  .logo em{font-style:normal;background:linear-gradient(90deg,var(--brand),#3B82F6);
-           -webkit-background-clip:text;background-clip:text;color:transparent}
+  .logo{font-weight:800;font-size:18px;letter-spacing:-.025em;justify-self:start;font-family:'Inter Tight',system-ui,sans-serif}
+  .logo em{font-style:normal;background:linear-gradient(135deg,#7C3AED,#2563EB);
+           -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
   .nav-links{display:flex;gap:26px;font-size:14px;color:#3F3F46;align-items:center;justify-self:center}
   .nav-links>a{font-weight:400}
   .nav-links>a:hover{color:#171717}
