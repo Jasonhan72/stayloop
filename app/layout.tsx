@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   description:
     '租房路上的难题，交给各自的 AI：找房、尽调、签约、续约，日常事务由 Agent 处理，关键决定由你确认。The AI-native rental OS for Toronto — dedicated agents for tenants, landlords and realtors; real listings and official TRREB data; you confirm every key decision.',
   metadataBase: new URL('https://www.stayloop.ai'),
+  icons: { icon: '/icon.svg' },
   openGraph: {
     title: 'Stayloop — 租房的 AI 操作系统 · The AI-native rental OS',
     description:
