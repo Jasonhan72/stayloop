@@ -6,9 +6,9 @@
 // RLS-scoped Supabase client (same pattern as memory.ts / approval-engine.ts).
 // The Anthropic key stays server-side only.
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
-import { buildSystemPrompt } from '@/lib/agent/prompts'
+import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback } from '@/lib/agent/prompts'
 import { applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
 import { searchListings } from '@/lib/agent/listingSearch'
 import { DEFAULT_MODELS, getModel, getModelDef } from '@/lib/modelConfig'
@@ -257,6 +257,9 @@ export async function POST(req: Request) {
   const rawAuth = req.headers.get('authorization') || ''
   const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
   const anonymous = !authHeader
+  // RLS-scoped client of the AUTHED caller — kept for later reads that must
+  // stay inside the user's own row visibility (renewal-intent lease lookup).
+  let sbAuth: SupabaseClient | null = null
   if (anonymous) {
     // Limit key: SHA-256 of the caller IP (Cloudflare's cf-connecting-ip in
     // prod, first x-forwarded-for hop otherwise). Hashing keeps raw IPs out
@@ -303,7 +306,7 @@ export async function POST(req: Request) {
       )
     }
   } else {
-    const sbAuth = createClient(
+    sbAuth = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { global: { headers: { Authorization: authHeader } } },
@@ -369,8 +372,95 @@ export async function POST(req: Request) {
     completed_steps: Array.isArray(w.completed_steps) ? w.completed_steps.slice(0, 20) : [],
     status: typeof w.status === 'string' ? w.status : 'active',
   }
+  // ── 续约/涨租/谈判专线(租客) ──────────────────────────────────────────────
+  // Two-stage intent detection. Stage 1 (here, pre-LLM, deterministic
+  // keywords on the message + recent user history): inject the RTA facts
+  // pack and the tenant's REAL lease so the model reasons from evidence.
+  // Stage 2 (post-LLM, below): the model's own `intent` field — either
+  // trigger suppresses listing cards while keeping the market-stats card.
+  const histUserText = (Array.isArray(body.history) ? body.history : [])
+    .filter((h) => h && h.role === 'user')
+    .slice(-4)
+    .map((h) => String(h.text || ''))
+    .join('\n')
+  const renewalCtx =
+    role === 'tenant' && (RENEWAL_INTENT_RE.test(message) || RENEWAL_INTENT_RE.test(histUserText))
+  // Lease-derived market hints (area/beds), used when the model's search
+  // object doesn't carry them — the negotiation evidence should be priced
+  // against WHERE THE TENANT LIVES, not a generic Toronto sample.
+  let leaseArea: string | null = null
+  let leaseNeighborhood: string | null = null
+  let leaseBeds: number | null = null
+  let renewalAddendum = ''
+  if (renewalCtx) {
+    let leaseBlock = renewalLeaseFallback(anonymous ? 'anonymous' : 'none')
+    if (!anonymous && sbAuth) {
+      try {
+        // RLS ("leases_parties") scopes rows to this tenant — no explicit
+        // tenant_id filter needed (and the tenants.id ≠ auth.uid mapping
+        // lives inside the policy). Active lease first, latest end_date wins.
+        const { data: leaseRows } = await sbAuth
+          .from('lease_documents')
+          .select('status,monthly_rent,start_date,end_date,unit_label,tenant_name,form_type,terms,listing:listings(address,unit,city,neighborhood,bedrooms)')
+          .in('status', ['active', 'signed_both', 'signed_tenant', 'sent'])
+          .order('end_date', { ascending: false, nullsFirst: false })
+          .limit(5)
+        const prio: Record<string, number> = { active: 0, signed_both: 1, signed_tenant: 2, sent: 3 }
+        const rows = (leaseRows ?? []) as Record<string, unknown>[]
+        const lease = rows.sort(
+          (a, b) => (prio[String(a.status)] ?? 9) - (prio[String(b.status)] ?? 9),
+        )[0]
+        if (lease) {
+          // Both terms schemas (ontario_standard / trreb) share these paths;
+          // every field is optional — render only what actually exists.
+          const terms = (lease.terms ?? {}) as {
+            landlord_legal_name?: string
+            rent?: { amount?: number }
+            term?: { start_date?: string; end_date?: string; type?: string }
+            unit?: { street?: string; unit?: string; city?: string }
+            premises?: { street?: string; unit?: string; city?: string }
+          }
+          const listing = (lease.listing ?? null) as
+            | { address?: string; unit?: string; city?: string; neighborhood?: string; bedrooms?: number }
+            | null
+          const loc = terms.unit ?? terms.premises
+          const address =
+            [loc?.unit, loc?.street, loc?.city].filter(Boolean).join(', ') ||
+            [listing?.unit, listing?.address, listing?.city].filter(Boolean).join(', ') ||
+            (lease.unit_label ? String(lease.unit_label) : '')
+          const rent = Number(lease.monthly_rent) || terms.rent?.amount || null
+          const start = (lease.start_date as string) || terms.term?.start_date || null
+          const end = (lease.end_date as string) || terms.term?.end_date || null
+          const termType =
+            terms.term?.type === 'monthly' ? 'month-to-month(逐月)' : terms.term?.type === 'fixed' ? '固定租期' : null
+          const statusZh =
+            lease.status === 'active' ? 'active(生效中)' : `${lease.status}(已签署/待生效)`
+          leaseNeighborhood = listing?.neighborhood || null
+          leaseArea = listing?.neighborhood || listing?.city || loc?.city || null
+          leaseBeds = typeof listing?.bedrooms === 'number' ? listing.bedrooms : null
+          leaseBlock =
+            '## 你的租约(Stayloop 数据库真实记录 —— ①里引用这些条款,不要改动数字)\n' +
+            [
+              address ? `- 地址: ${address}` : null,
+              rent ? `- 月租: $${rent}` : null,
+              start || end ? `- 租期: ${start || '?'} → ${end || '(未填)'}${termType ? `(${termType})` : ''}` : null,
+              `- 状态: ${statusZh}`,
+              terms.landlord_legal_name ? `- 房东: ${terms.landlord_legal_name}` : null,
+            ]
+              .filter(Boolean)
+              .join('\n') +
+            '\n(缺的字段就是数据库里没有 —— 需要时请用户补充,不要臆测。)'
+        }
+      } catch (e) {
+        console.warn('[agent/turn] renewal lease lookup failed', (e as Error).message)
+      }
+    }
+    renewalAddendum = renewalPlaybook(leaseBlock)
+  }
+
   const system =
     buildSystemPrompt(role, agentName, memories, workflow, body.stageLabel, uiLang) +
+    renewalAddendum +
     (anonymous ? ANON_PROMPT_ADDENDUM : '')
 
   // ---- Heartbeat-streamed response ------------------------------------------
@@ -511,7 +601,38 @@ export async function POST(req: Request) {
   let market: Record<string, unknown> | undefined
   let followups: { question: string; options: string[] }[] | undefined
   const search = parsed?.search as Record<string, unknown> | null | undefined
-  if (role === 'tenant' && search && typeof search === 'object') {
+  // Renewal/negotiation lane — second safeguard: EITHER the deterministic
+  // keyword hit on the CURRENT message OR the model's own intent field
+  // suppresses listing cards. History-only keyword hits deliberately don't
+  // suppress on their own (a renewal thread can pivot back to a real search;
+  // the model's intent=null is the tiebreaker there).
+  const renewalTurn =
+    role === 'tenant' && (RENEWAL_INTENT_RE.test(message) || parsed?.intent === 'renewal')
+  if (renewalTurn) {
+    // Market evidence ONLY: median asking price + TRREB official benchmark
+    // for the tenant's area — never listing cards, never followup chips.
+    // Area preference: model's search object → lease address → nothing
+    // (searchListings then falls back to a Toronto-wide sample).
+    const s = (search && typeof search === 'object' ? search : {}) as Record<string, unknown>
+    const modelCandidates = Array.isArray(s.area_candidates)
+      ? (s.area_candidates as unknown[]).filter((x): x is string => typeof x === 'string' && !!x.trim()).slice(0, 3)
+      : []
+    try {
+      const result = await searchListings({
+        area: typeof s.area === 'string' && s.area.trim() ? s.area : leaseArea,
+        area_candidates: modelCandidates.length ? modelCandidates : leaseNeighborhood ? [leaseNeighborhood] : null,
+        max_price: null,
+        min_beds: typeof s.min_beds === 'number' ? s.min_beds : leaseBeds,
+        pets: null,
+        property_type: typeof s.property_type === 'string' ? s.property_type : null,
+        keywords: null,
+        count: null,
+      })
+      if (result.market) market = result.market as unknown as Record<string, unknown>
+    } catch (e) {
+      console.warn('[agent] renewal market lookup failed', (e as Error).message)
+    }
+  } else if (role === 'tenant' && search && typeof search === 'object') {
     try {
       const result = await searchListings({
         area: typeof search.area === 'string' ? search.area : null,

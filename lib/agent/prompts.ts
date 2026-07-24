@@ -27,6 +27,65 @@ const PERSONA: Record<AgentRole, { name: string; persona: string; caps: string }
   },
 }
 
+// ── 租客「续约/涨租/谈判」专线 ────────────────────────────────────────────────
+// First line of defense: deterministic keyword detection on the user message
+// (the model's own `intent` output field is the second). A renewal turn must
+// NEVER produce listing cards — the tenant is negotiating, not moving.
+export const RENEWAL_INTENT_RE =
+  /续约|續約|续租|續租|涨租|漲租|加租|涨房租|漲房租|租金上涨|租金上漲|租金要涨|涨租金|漲租金|renew(?:al|ing)?\s+(?:my\s+|the\s+)?lease|lease\s+renew|rent\s+increase|(?:raise|raising|increas\w*)\s+(?:my\s+|the\s+)?rent|negotiat|跟房东谈|和房东谈|与房东谈|谈判|談判|N1\s*表|above.guideline|AGI\s*申请|month.to.month|逐月续/i
+
+// RTA 事实包 —— 全部为可公开验证的安省规则(维护者注,来源):
+// - 2026 年租金指导上涨上限 2.5% — Ontario rent increase guideline,安省政府
+//   年度公告(依据 RTA s.120 的计算公式,上限封顶 2.5%)。
+// - 涨租须提前至少 90 天书面通知(N1 表)— RTA s.116。
+// - 12 个月内只能涨一次租 — RTA s.119。
+// - 2018-11-15 之后首次入住的单位不受指导上限约束 — RTA s.6.1(2018 年安省
+//   新供给豁免)。
+// - 固定租约到期自动转 month-to-month,租客无义务签新固定租约,房东不能因
+//   不签而驱逐 — RTA s.38(续期)+ s.37(终止只能按法定理由)。
+// - 超过指导线的涨幅须 LTB 批准(above-guideline increase, AGI)— RTA s.126。
+const RTA_RENEWAL_FACTS = `## 安省法规事实包(RTA —— 只可引用下面这些,不得自行补充细节或编造法条编号)
+- 2026 年租金指导上涨上限(rent increase guideline)为 2.5%:受指导约束的单位,房东一年内涨租不得超过这个比例。
+- 任何涨租都必须提前至少 90 天用书面通知(N1 表)送达;通知不合规,涨租无效。
+- 同一租客 12 个月内最多只能涨一次租。
+- 【重要例外】2018 年 11 月 15 日之后才首次有人入住的单位,不受指导上限约束——这类单位房东可提任意涨幅(但仍须 90 天 N1 书面通知,且 12 个月一次)。
+- 固定租约到期后自动转为 month-to-month(逐月续租),原条款继续有效;租客【没有义务】签新的固定租约,房东也不能因为租客不签新约而驱逐。
+- 受指导约束的单位,房东想超过指导线涨租,必须先向 LTB 申请 above-guideline increase(AGI)获批。`
+
+/** 续约/谈判专线的 system prompt 附加块 —— 仅租客 role、检测到续约意图时注入。
+ *  leaseBlock 由服务端从 lease_documents 查出的真实租约渲染(或如实说明没有)。 */
+export function renewalPlaybook(leaseBlock: string): string {
+  return `
+
+# 续约/涨租/谈判专线(本轮已激活)
+用户当前对话涉及租约续约/涨租应对/与房东的租金谈判。这不是找房:
+- 本轮系统【不会】附任何房源卡片。绝不要说"帮你找了几套房源",也不要主动建议搬家。
+- 但系统会在你的回复下方附上真实行情卡(该区域挂牌中位价 + TRREB 官方成交基准),这是谈判的市场证据。为了让行情卡出现,请照常填写 search 字段:area 优先用下方租约地址所在的社区/城市,其次用记忆里的区域;卧室数已知就填 min_beds;不要填 max_price / count。
+- 同时把 intent 字段填为 "renewal"。
+- 例外:如果用户这条消息其实是明确的找房请求(与续约无关,如"帮我找两居室"),忽略本节,intent 填 null,按正常找房流程处理。
+
+${RTA_RENEWAL_FACTS}
+
+## 引用纪律(铁律)
+每条建议都必须落在三类依据之一,并明说出处:①用户租约的真实条款(下方"你的租约")②上面的 RTA 事实包 ③系统附上的行情数据(只做定性引用,绝不手写价格数字)。三类依据都够不着时,直说不确定并建议向 LTB / 社区法律援助核实。绝不编造法条编号、判例或具体数字。
+
+## 回复结构(reply 按这五段组织,用「① ② ③ ④ ⑤」小标题)
+① 你的租约现状 —— 引用下方真实条款(月租、到期日、租期类型、地址);没有租约记录就如实说明,并请用户提供当前月租和到期日,不要假装知道。
+② 法规要点 —— 从事实包里挑与这个场景最相关的 3-4 条。
+③ 市场证据 —— 一句话引导看下方行情卡(如"给你拉了 XX 区的实时行情和 TRREB 官方基准,见下方 👇"),不手写任何价格数字。
+④ 谈判建议与话术要点 —— 基于①②③给出具体策略,例如:核对涨幅是否超 2.5% 指导线(注意单位是否属 2018-11-15 后豁免)、核对 N1 通知是否满 90 天、"到期不签新约自动转 month-to-month"是租客的合法退路、用行情中位价与官方基准还价。
+⑤ 下一步 —— 可以提议替用户起草一封给房东的回信(proposed_action: send_message,summary 写清信件要点),等用户确认后才会发出。
+
+${leaseBlock}`
+}
+
+/** 无租约/未登录时的 leaseBlock 兜底文案。 */
+export function renewalLeaseFallback(kind: 'none' | 'anonymous'): string {
+  return kind === 'anonymous'
+    ? '## 你的租约\n(未登录会话,读不到租约记录 —— 在①里如实说明,并请用户提供当前月租、到期日和单位首次入住年代,再给针对性建议。)'
+    : '## 你的租约\n(Stayloop 数据库中没有找到这位租客的租约记录 —— 在①里如实说明"我这边没有你的租约存档",请用户提供当前月租和到期日,不要假装知道任何条款。)'
+}
+
 const KEY_ACTIONS: Record<AgentRole, string> = {
   tenant: 'share_passport_summary（分享资料给房东）, submit_application（提交申请）, send_message（替你发消息给对方）, sign_lease（签租约）, payment_authorization（付款/押金）, tier_upgrade（盖下一枚章）',
   landlord: 'send_message（发消息给申请人/经纪）, approve_applicant（批准看房/申请）, reject_applicant（拒绝,必须合法理由）, send_lease（发送租约）, dispatch_agent（派经纪带看,Stripe 预授权）',
@@ -82,6 +141,7 @@ ${memLines}
 # 输出格式(【铁律】任何情况下都只输出下面这个 JSON 对象 —— 闲聊、事实问答、拒绝、报错都一样,把要说的话放进 reply 字段。输出任何 JSON 以外的文字都会导致整条回复丢失,用户只会看到系统兜底提示)
 {
   "reply": "你对用户说的话(用户的语言,默认中文,温度合适、简洁)",
+  "intent": "renewal" 或 null(租客在谈租约续约/涨租应对/与房东谈租金时填 "renewal" —— 该意图下系统只附行情卡、不附房源卡;找房及其他一切情况填 null),
   "memory_writes": [ { "key": "snake_case_key", "label": "中文短标签", "value": <任意JSON>, "memory_type": "preference|profile|constraint|semantic", "confidence": 0.0-1.0 } ],
   "proposed_action": null 或 {
     "action_type": "上面列出的某个关键动作",
