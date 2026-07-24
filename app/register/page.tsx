@@ -45,9 +45,13 @@ export default function RegisterPage() {
         }
         throw error
       }
-      // mailer_autoconfirm is ON in Supabase: signUp returns a live session
-      // and no verification email is sent — go straight in. The check-your-
-      // email screen only shows if autoconfirm is ever turned off.
+      // With email confirmation ON, signUp for an already-registered address
+      // returns success with an empty identities array (anti-enumeration).
+      if (data.user && data.user.identities?.length === 0) {
+        throw new Error(zh ? '该邮箱已注册，请直接登录' : 'This email is already registered — please sign in')
+      }
+      // Session returned only when autoconfirm is on; otherwise the user
+      // must click the verification link first.
       if (data.session) {
         window.location.href = '/auth/callback'
         return

@@ -46,17 +46,23 @@ export default function LoginPage() {
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [needsConfirm, setNeedsConfirm] = useState(false)
 
   const handlePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setErr(null)
+    setNeedsConfirm(false)
     try {
       const supabase = getSupabaseBrowser()
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
         if (error.message?.includes('Invalid login credentials')) {
           throw new Error(zh ? '邮箱或密码错误' : 'Invalid email or password')
+        }
+        if (error.message?.includes('Email not confirmed')) {
+          setNeedsConfirm(true)
+          throw new Error(zh ? '邮箱尚未验证，请先点击注册邮件里的确认链接' : 'Email not verified yet — please click the link in your sign-up email first')
         }
         throw error
       }
@@ -104,6 +110,29 @@ export default function LoginPage() {
       if (error) throw error
     } catch (e: unknown) {
       setErr((e as { message?: string })?.message || (zh ? '登录失败' : 'Sign-in failed'))
+    }
+  }
+
+  const handleResendConfirm = async () => {
+    setLoading(true)
+    setErr(null)
+    try {
+      const supabase = getSupabaseBrowser()
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo:
+            typeof window !== 'undefined' ? callbackUrl() : undefined,
+        },
+      })
+      if (error) throw error
+      setNeedsConfirm(false)
+      setSent(true)
+    } catch (e: unknown) {
+      setErr((e as { message?: string })?.message || (zh ? '发送失败' : 'Failed to send'))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -262,6 +291,15 @@ export default function LoginPage() {
                 {err && (
                   <div className="rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">
                     {err}
+                    {needsConfirm && (
+                      <button
+                        type="button"
+                        onClick={handleResendConfirm}
+                        className="mt-1 block font-semibold underline"
+                      >
+                        {zh ? '重发验证邮件' : 'Resend verification email'}
+                      </button>
+                    )}
                   </div>
                 )}
                 <button
