@@ -1,15 +1,27 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
+import { useAuth } from '@/lib/useAuth'
+import { ROLE_HOME } from '@/lib/useOnboarding'
 
 export default function RegisterPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
+  const router = useRouter()
+  const { loading: authLoading, user, role } = useAuth()
+
+  // Already signed in → no reason to see the register form; go to the
+  // user's workspace (mirrors the /login behavior).
+  useEffect(() => {
+    if (authLoading || !user) return
+    router.replace(role ? ROLE_HOME[role] : '/dashboard')
+  }, [authLoading, user, role, router])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [password2, setPassword2] = useState('')

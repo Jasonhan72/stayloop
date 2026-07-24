@@ -37,6 +37,8 @@ import { ReactNode, useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useI18n, type Lang } from '@/lib/i18n'
+import { useAuth } from '@/lib/useAuth'
+import { ROLE_HOME } from '@/lib/useOnboarding'
 
 const promptHref = (line: string) => `/tenant/agent?prompt=${encodeURIComponent(line)}`
 
@@ -932,6 +934,13 @@ export default function HomePage() {
   const [tab, setTab] = useState(0)
   const role = c.roles[tab]
 
+  // Auth-aware CTAs: a signed-in user clicking 免费开始/开始 must land in
+  // their own workspace, never on /register (login/register already bounce
+  // authed visitors, but the homepage shouldn't send them there at all).
+  const { user, role: authRole } = useAuth()
+  const startHref = user ? (authRole ? ROLE_HOME[authRole] : '/dashboard') : '/register'
+  const finalHref = user ? startHref : promptHref(c.chatU)
+
   // 静态 metadata 是双语合排；hydration 后按当前语言收窄标签页标题。
   useEffect(() => {
     document.title =
@@ -989,7 +998,7 @@ export default function HomePage() {
               <h1>{c.heroH1}</h1>
               <p className="sub">{c.sub}</p>
               <div className="ctas">
-                <Link className="btn btn-p" href="/register">
+                <Link className="btn btn-p" href={startHref}>
                   {heroCtas.primary}
                 </Link>
                 <a className="btn btn-g" href="#roles">
@@ -1195,7 +1204,7 @@ export default function HomePage() {
           <div className="wrap">
             <h2>{c.finalH2}</h2>
             <p>{c.finalP}</p>
-            <Link className="btn btn-p" href={promptHref(c.chatU)}>
+            <Link className="btn btn-p" href={finalHref}>
               {c.finalCta}
             </Link>
             <p className="fnote">{c.finalNote}</p>
