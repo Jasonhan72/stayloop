@@ -150,7 +150,7 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
 
           <NavLink i18nKey="nav.listings" href="/listings" active={isActive('/listings')} />
           <NavLink i18nKey="nav.pricing" href="/pricing" active={isActive('/pricing')} />
-          <NavLink i18nKey="nav.screening" href="/screening" active={isActive('/screening')} alwaysLive />
+          <NavLink i18nKey="nav.screening" href="/screening" active={isActive('/screening')} />
         </nav>
 
         {/* Right side — minimal: avatar + hamburger only */}
