@@ -16,6 +16,7 @@ export const metadata: Metadata = {
     locale: 'zh_CN',
     alternateLocale: ['en_CA'],
     type: 'website',
+    images: ['/home/hero-mist.jpg'],
   },
   twitter: {
     card: 'summary_large_image',

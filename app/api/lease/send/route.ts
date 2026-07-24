@@ -44,7 +44,10 @@ export async function POST(req: Request) {
     .from('lease_documents')
     .update({ sign_token: token, sent_at: new Date().toISOString(), status: lease.status === 'draft' ? 'sent' : lease.status })
     .eq('id', lease.id)
-  if (upErr) return NextResponse.json({ error: `send failed: ${upErr.message}` }, { status: 500 })
+  if (upErr) {
+    console.error('lease send update failed:', upErr.message)
+    return NextResponse.json({ error: 'send failed' }, { status: 500 })
+  }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai'
   const link = `${siteUrl}/lease/sign/${token}`

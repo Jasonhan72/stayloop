@@ -32,6 +32,18 @@ probe_page() { # name path [needle (grep -Ei)]
 echo "── Stayloop smoke → $BASE ──"
 
 probe_page "home 200 + brand string"        "/?v=$(date +%s)" "stayloop"
+
+# Security headers (middleware-set) must be present on document responses.
+probe_headers() {
+  local hdrs
+  hdrs=$(curl -sSI --max-time 30 "$BASE/?h=$(date +%s)" 2>"$TMP/err") || { bad "security headers" "curl: $(cat "$TMP/err")"; return; }
+  if echo "$hdrs" | grep -qi '^strict-transport-security:' && echo "$hdrs" | grep -qi '^x-frame-options:'; then
+    ok "security headers (HSTS + XFO)"
+  else
+    bad "security headers (HSTS + XFO)" "missing from response"
+  fi
+}
+probe_headers
 probe_page "pricing 200"                    "/pricing"        "stayloop"
 probe_page "listings browse 200"            "/listings"       "stayloop"
 probe_page "tenant role page 200"           "/tenant"         "stayloop"

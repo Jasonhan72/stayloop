@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
     const { data: signed, error: signErr } = await supabase
       .storage.from('tenant-files').createSignedUrl(path, 600)
     if (signErr || !signed?.signedUrl) {
-      return NextResponse.json({ error: signErr?.message || 'sign failed' }, { status: 500 })
+      console.error('file-url sign failed:', signErr?.message)
+      return NextResponse.json({ error: 'sign failed' }, { status: 500 })
     }
 
     return NextResponse.json({ url: signed.signedUrl })
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     console.error('[file-url] uncaught:', e)
     captureException(e, { route: 'file-url', level: 'error' })
     return NextResponse.json(
-      { error: 'file-url failed: ' + (e?.message || String(e) || 'unknown error').slice(0, 300) },
+      { error: 'file-url failed' },
       { status: 500 }
     )
   }

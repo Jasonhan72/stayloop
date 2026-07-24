@@ -41,7 +41,7 @@ export default function LeaseSignPage() {
     try {
       const res = await fetch(`/api/lease/view?token=${encodeURIComponent(token)}`)
       if (!res.ok) {
-        setLoadErr(res.status === 404 ? (zh ? '链接无效或已撤回。' : 'This link is invalid or was revoked.') : (zh ? '加载失败，请刷新重试。' : 'Failed to load — please refresh.'))
+        setLoadErr(res.status === 404 || res.status === 400 ? (zh ? '链接无效或已撤回。' : 'This link is invalid or was revoked.') : (zh ? '加载失败，请刷新重试。' : 'Failed to load — please refresh.'))
         return
       }
       const j = (await res.json()) as { lease: ViewLease }

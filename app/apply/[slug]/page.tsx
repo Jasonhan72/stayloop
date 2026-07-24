@@ -2,7 +2,7 @@
 
 export const runtime = 'edge'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/Header'
@@ -52,6 +52,28 @@ export default function ApplyPage() {
   })
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }))
+
+  // Early slug validation on load — same visibility query as the submit path,
+  // so an invalid/unpublished listing shows a branded notice instead of a form
+  // that can only fail at submit time.
+  const [listingCheck, setListingCheck] = useState<'checking' | 'ok' | 'notfound'>('checking')
+  useEffect(() => {
+    if (!params?.slug) return
+    let cancelled = false
+    ;(async () => {
+      const { data: listing, error: qErr } = await supabase
+        .from('listings')
+        .select('id')
+        .eq('slug', params.slug)
+        .eq('is_active', true)
+        .or(LISTING_VISIBILITY_OR)
+        .maybeSingle()
+      if (cancelled) return
+      // On a query error, fail open ('ok') — the submit-time check still guards.
+      setListingCheck(!qErr && !listing ? 'notfound' : 'ok')
+    })()
+    return () => { cancelled = true }
+  }, [params?.slug])
 
   function addFiles(kind: FileKind, fileList: FileList | null) {
     if (!fileList) return
@@ -173,6 +195,35 @@ export default function ApplyPage() {
     setUploadProgress(null)
     setLoading(false)
     setSubmitted(true)
+  }
+
+  if (listingCheck === 'notfound') {
+    return (
+      <>
+        <Header />
+        <main className="bg-surface">
+          <div className="mx-auto flex min-h-[60vh] max-w-md items-center justify-center px-4 py-12">
+            <div className="sl-card p-10 text-center">
+              <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
+                404
+              </div>
+              <h2 className="mt-3 text-[24px] font-bold tracking-tight">
+                {zh ? '找不到对应房源' : 'Listing not found'}
+              </h2>
+              <p className="mt-2 text-[14px] leading-relaxed text-body-2">
+                {zh
+                  ? '该房源可能已下架、未通过审核，或链接有误。'
+                  : 'This listing may have been taken down, is not yet verified, or the link is incorrect.'}
+              </p>
+              <Link href="/listings" className="sl-btn-primary mt-6 inline-flex">
+                {zh ? '浏览房源' : 'Browse listings'}
+              </Link>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </>
+    )
   }
 
   if (submitted) {

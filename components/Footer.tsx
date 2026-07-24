@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import Logo from './Logo'
 import { useI18n } from '@/lib/i18n'
+import { useAdmin } from '@/lib/useAdmin'
 
 interface Group {
   titleKey: string
@@ -43,6 +44,7 @@ const GROUPS: Group[] = [
 
 export default function Footer() {
   const { t } = useI18n()
+  const { role: adminRole } = useAdmin()
   return (
     <footer className="mt-24 border-t border-line-divider bg-surface-nav">
       <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-14 sm:px-7 lg:grid-cols-[1.4fr_repeat(3,1fr)] lg:gap-14 lg:px-8">
@@ -61,7 +63,9 @@ export default function Footer() {
           <div key={g.titleKey}>
             <h4 className="sl-eyebrow text-body">{t(g.titleKey)}</h4>
             <ul className="mt-4 space-y-3">
-              {g.links.map((l) => (
+              {g.links
+                .filter((l) => l.key !== 'foot.admin' || adminRole)
+                .map((l) => (
                 <li key={l.key}>
                   <Link
                     href={l.href}

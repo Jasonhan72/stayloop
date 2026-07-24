@@ -138,7 +138,8 @@ async function runCronSweep(): Promise<NextResponse> {
     .order('end_date', { ascending: true })
     .limit(CRON_SCAN_LIMIT)
   if (leaseErr) {
-    return NextResponse.json({ error: `lease scan failed: ${leaseErr.message}` }, { status: 500 })
+    console.error('proactive lease scan failed:', leaseErr.message)
+    return NextResponse.json({ error: 'lease scan failed' }, { status: 500 })
   }
 
   // 2) Month-end rent reminders for the 1st of next month (cron mode only).
@@ -158,7 +159,8 @@ async function runCronSweep(): Promise<NextResponse> {
       .not('tenant_email', 'is', null)
       .limit(CRON_SCAN_LIMIT)
     if (error) {
-      return NextResponse.json({ error: `reminder scan failed: ${error.message}` }, { status: 500 })
+      console.error('proactive reminder scan failed:', error.message)
+      return NextResponse.json({ error: 'reminder scan failed' }, { status: 500 })
     }
     reminderLeases = (data ?? []) as LeaseRow[]
   }
@@ -183,7 +185,8 @@ async function runCronSweep(): Promise<NextResponse> {
       .select('id, auth_id')
       .or(`id.in.${inList},auth_id.in.${inList}`)
     if (error) {
-      return NextResponse.json({ error: `landlord resolve failed: ${error.message}` }, { status: 500 })
+      console.error('proactive landlord resolve failed:', error.message)
+      return NextResponse.json({ error: 'landlord resolve failed' }, { status: 500 })
     }
     for (const r of (landlordRows ?? []) as { id: string; auth_id: string | null }[]) {
       if (r.auth_id) {
@@ -209,7 +212,8 @@ async function runCronSweep(): Promise<NextResponse> {
     .in('action_type', ['send_renewal_letter', 'rent_reminder'])
     .in('user_id', affectedUserIds)
   if (existErr) {
-    return NextResponse.json({ error: `idempotency scan failed: ${existErr.message}` }, { status: 500 })
+    console.error('proactive idempotency scan failed:', existErr.message)
+    return NextResponse.json({ error: 'idempotency scan failed' }, { status: 500 })
   }
   const renewalProposed = new Set<string>()
   const reminderProposed = new Set<string>()
@@ -237,7 +241,8 @@ async function runCronSweep(): Promise<NextResponse> {
   }
   const { error: insErr } = await admin.from('agent_pending_actions').insert(inserts)
   if (insErr) {
-    return NextResponse.json({ error: `proposal insert failed: ${insErr.message}` }, { status: 500 })
+    console.error('proactive proposal insert failed:', insErr.message)
+    return NextResponse.json({ error: 'proposal insert failed' }, { status: 500 })
   }
   return NextResponse.json({ created: inserts.length, mode: 'cron' })
 }
@@ -245,12 +250,25 @@ async function runCronSweep(): Promise<NextResponse> {
 // ---------------------------------------------------------------------------
 // Route
 // ---------------------------------------------------------------------------
+
+// Constant-time string comparison (edge runtime has no node:crypto
+// timingSafeEqual). XORs every byte so runtime does not depend on where
+// the first mismatch occurs.
+function timingSafeEqual(a: string, b: string): boolean {
+  const ab = new TextEncoder().encode(a)
+  const bb = new TextEncoder().encode(b)
+  let diff = ab.length ^ bb.length
+  const n = Math.max(ab.length, bb.length)
+  for (let i = 0; i < n; i++) diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0)
+  return diff === 0
+}
+
 export async function POST(req: Request) {
   // Cron mode: shared-secret header, only when CRON_SECRET is configured —
   // an unset env var disables the path entirely (no empty-matches-empty).
   const cronSecret = process.env.CRON_SECRET
   const givenSecret = (req.headers.get('x-cron-secret') || '').trim()
-  if (cronSecret && givenSecret && givenSecret === cronSecret) {
+  if (cronSecret && givenSecret && timingSafeEqual(givenSecret, cronSecret)) {
     return runCronSweep()
   }
 
@@ -279,7 +297,8 @@ export async function POST(req: Request) {
     .order('end_date', { ascending: true })
     .limit(20)
   if (leaseErr) {
-    return NextResponse.json({ error: `lease scan failed: ${leaseErr.message}` }, { status: 500 })
+    console.error('proactive lease scan failed:', leaseErr.message)
+    return NextResponse.json({ error: 'lease scan failed' }, { status: 500 })
   }
   if (!leases || leases.length === 0) {
     return NextResponse.json({ created: 0, actions: [] })
@@ -308,7 +327,8 @@ export async function POST(req: Request) {
     .insert(inserts)
     .select('id, title, summary, recipient_label, action_type, risk_level, data_scope, excluded_data, status, created_at')
   if (insErr) {
-    return NextResponse.json({ error: `proposal insert failed: ${insErr.message}` }, { status: 500 })
+    console.error('proactive proposal insert failed:', insErr.message)
+    return NextResponse.json({ error: 'proposal insert failed' }, { status: 500 })
   }
   return NextResponse.json({ created: created?.length ?? 0, actions: created ?? [] })
 }
