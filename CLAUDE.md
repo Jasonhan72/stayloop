@@ -29,7 +29,7 @@ Double-click `ship2-v53.command` in Finder. It does:
 
 **Critical:** use global `wrangler`, NOT `npx wrangler` (hangs on install prompt).
 
-**Gate (mandatory):** before any deploy run `npx tsc --noEmit && npm test` — both must be fully green; after the deploy run `bash scripts/smoke.sh` (read-only prod probes, PASS/FAIL summary) and treat any FAIL as a rollback trigger.
+**Gate (mandatory):** before any deploy run `npx tsc --noEmit && npm test` — both must be fully green; after the build verify `.vercel/output/static/_worker.js` exists (a failed next-on-pages build can leave a static-only bundle that kills ALL API/dynamic routes — happened 2026-07-24 via `app/icon.svg`; ship2-v53.command now aborts on this); after the deploy run `bash scripts/smoke.sh` (read-only prod probes, PASS/FAIL summary) and treat any FAIL as a rollback trigger.
 
 Verify deploy: `curl -s 'https://www.stayloop.ai/?v=<timestamp>' | head`
 
