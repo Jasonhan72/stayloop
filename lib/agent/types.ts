@@ -191,6 +191,9 @@ export type ChatMessage = {
   attachments?: ChatAttachment[]
   listings?: ListingCard[]
   listingsSource?: 'stayloop' | 'realtor'
+  // Honest street/building-level caveat ("「Sugar Wharf」暂无直接挂牌，以下
+  // 是同片区…") rendered under the listings header.
+  listingsNotice?: string
   market?: MarketInsight
   followups?: FollowUp[]
   draftListing?: DraftListing

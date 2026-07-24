@@ -122,6 +122,14 @@ export default function AgentChat({
                   <div className="mb-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
                     {listingsHeader(m.listings, lang)}
                   </div>
+                  {/* Street/building query with no exact-address hit — the
+                      honest "same area, not that building" caveat. Matches
+                      the external note bar's amber. */}
+                  {m.listingsNotice && (
+                    <div className="mb-1.5 text-[12px] leading-snug" style={{ color: '#B45309' }}>
+                      {m.listingsNotice}
+                    </div>
+                  )}
                   {/* Responsive wrap grid — cards flow onto extra rows instead of
                       widening/clipping the chat container; tracks container width. */}
                   <div className="grid gap-3 pb-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>

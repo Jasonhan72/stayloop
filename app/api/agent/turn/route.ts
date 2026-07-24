@@ -547,6 +547,7 @@ export async function POST(req: Request) {
   // own listings first, then fall back to external (Realtor.ca).
   let listings: ListingCard[] | undefined
   let listingsSource: 'stayloop' | 'realtor' | undefined
+  let listingsNotice: string | undefined
   let market: Record<string, unknown> | undefined
   let followups: { question: string; options: string[] }[] | undefined
   const search = parsed?.search as Record<string, unknown> | null | undefined
@@ -597,6 +598,9 @@ export async function POST(req: Request) {
       }, Array.isArray(body.exclude) ? body.exclude.map(String) : [])
       if (result.listings.length) {
         listings = result.listings
+        // Street/building queries with no exact-address hit carry an honest
+        // "same area, not that building" notice — surface it with the cards.
+        listingsNotice = result.notice
         // Stayloop-first results may be topped up with external — derive the
         // banner from what actually came back.
         const hasStay = result.listings.some((l) => l.source === 'stayloop')
@@ -760,6 +764,7 @@ export async function POST(req: Request) {
     next_stage: out.nextStage,
     listings,
     listings_source: listingsSource,
+    listings_notice: listingsNotice,
     market,
     followups,
     draft_listing: draftListing,

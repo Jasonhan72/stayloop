@@ -139,6 +139,7 @@ export type AgentTurn = {
   nextStage: string | null
   listings?: ListingCard[]
   listingsSource?: 'stayloop' | 'realtor'
+  listingsNotice?: string
   market?: MarketInsight
   followups?: FollowUp[]
   draftListing?: DraftListing
@@ -228,6 +229,7 @@ export async function runAgentTurn(args: {
     next_stage: string | null
     listings?: ListingCard[]
     listings_source?: 'stayloop' | 'realtor'
+    listings_notice?: string
     market?: MarketInsight
     followups?: FollowUp[]
     draft_listing?: DraftListing
@@ -314,6 +316,7 @@ export async function runAgentTurn(args: {
     nextStage: turn.next_stage,
     listings: turn.listings,
     listingsSource: turn.listings_source,
+    listingsNotice: turn.listings_notice,
     market: turn.market,
     followups: turn.followups,
     draftListing: turn.draft_listing,

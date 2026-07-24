@@ -46,9 +46,14 @@ const STOCK = [
   'https://images.unsplash.com/photo-1567496898669-ee935f5f647a?w=600&q=80&auto=format&fit=crop',
 ]
 
-// The model may emit the area in Chinese ("北约克"); DB values and Realtor.ca
-// queries are English, so normalize before filtering.
+// The model may emit the area in Chinese ("北约克") or as a building /
+// development name; DB values and Realtor.ca queries are English official
+// neighbourhoods, so normalize before filtering. Keys are matched
+// case-insensitively (lowercase keys suffice for the English entries).
 const AREA_ALIASES: Record<string, string> = {
+  'sugar wharf': 'Harbourfront',
+  cityplace: 'Fort York',
+  'city place': 'Fort York',
   北约克: 'North York',
   北約克: 'North York',
   士嘉堡: 'Scarborough',
@@ -75,14 +80,73 @@ const AREA_ALIASES: Record<string, string> = {
   約克大學: 'York University',
 }
 
-function normalizeArea(area?: string | null): string | null {
+export function normalizeArea(area?: string | null): string | null {
   const t = (area || '').trim()
   if (!t) return null
-  for (const [zh, en] of Object.entries(AREA_ALIASES)) if (t.includes(zh)) return en
+  const lower = t.toLowerCase()
+  for (const [alias, en] of Object.entries(AREA_ALIASES))
+    if (lower.includes(alias.toLowerCase())) return en
   // Model sometimes emits compound areas ("University of Toronto, Downtown
   // Toronto"). Keep the most specific segment — the compound string matches
   // nothing in the DB ilike pattern and dilutes the Realtor.ca query.
   return t.split(',')[0].trim() || null
+}
+
+// ---------- Street / building-level matching ----------
+// Development / building names tenants search by directly. Realtor.ca card
+// addresses carry the street, not the marketing name, so an alias hit here
+// usually ends in the honest "no direct listing" notice rather than passing
+// off same-area inventory as the named building.
+const BUILDING_TOKENS = ['sugar wharf', 'cityplace', 'city place']
+
+// "55 Cooper St" / "queens quay" style street references inside keywords.
+const STREET_RE =
+  /(?:\d+\s+)?([a-z][a-z.'-]*(?:\s+[a-z][a-z.'-]*)?)\s+(?:st|street|ave|avenue|rd|road|blvd|dr|drive|quay|lane|way|court|crt)\b/i
+
+export type StreetRef = { token: string; label: string }
+
+// Extract a street/building token from the model's keywords. Pure —
+// unit-tested directly. "找 55 Cooper St 的房子" → { token: 'cooper',
+// label: '55 Cooper St' }; "sugar wharf 一居" → alias hit; plain type
+// keywords ("house", "北约克两房") → null.
+export function extractStreetRef(keywords?: string | null): StreetRef | null {
+  const kw = (keywords || '').trim()
+  if (!kw) return null
+  const lower = kw.toLowerCase()
+  for (const b of BUILDING_TOKENS) {
+    const i = lower.indexOf(b)
+    if (i >= 0) return { token: b, label: kw.slice(i, i + b.length) }
+  }
+  const m = kw.match(STREET_RE)
+  if (!m) return null
+  // The last word of the street name is the distinctive match token
+  // ("55 Cooper St" → cooper).
+  const words = m[1].trim().split(/\s+/)
+  const token = (words[words.length - 1] || '').toLowerCase()
+  return token.length >= 3 ? { token, label: m[0].trim() } : null
+}
+
+export function extractStreetToken(keywords?: string | null): string | null {
+  return extractStreetRef(keywords)?.token ?? null
+}
+
+// Street-level relevance pass over the assembled cards: token hits float to
+// the front; when NOTHING matches, keep the cards but attach an honest zh
+// notice — never silently present same-area listings as the named
+// building/street. Pure — unit-tested directly.
+export function filterByStreetToken(
+  listings: ListingCard[],
+  ref: StreetRef | null,
+  areaLabel: string,
+): { listings: ListingCard[]; notice?: string } {
+  if (!ref || !listings.length) return { listings }
+  const hit = (l: ListingCard) => l.address.toLowerCase().includes(ref.token)
+  const hits = listings.filter(hit)
+  if (hits.length) return { listings: [...hits, ...listings.filter((l) => !hit(l))] }
+  return {
+    listings,
+    notice: `「${ref.label}」在 Realtor.ca 上暂无直接挂牌，以下是同片区（${areaLabel}）当前在租的房源`,
+  }
 }
 
 export type MarketStats = {
@@ -125,8 +189,13 @@ function buildMarket(c: SearchCriteria, rows: StatRow[]): MarketStats | undefine
 export async function searchListings(
   c: SearchCriteria,
   exclude: string[] = []
-): Promise<{ listings: ListingCard[]; market?: MarketStats }> {
+): Promise<{ listings: ListingCard[]; market?: MarketStats; notice?: string }> {
   c = { ...c, area: normalizeArea(c.area) }
+  // Street/building reference in the keywords ("55 Cooper St", "Sugar
+  // Wharf") — used AFTER assembly to rank exact-street cards first, or to
+  // attach the honest same-area notice when none match.
+  const streetRef = extractStreetRef(c.keywords)
+  const areaLabel = () => c.area || c.area_candidates?.[0] || 'Toronto'
   const target = Math.min(Math.max(c.count ?? 4, 1), 6)
   // Already-shown addresses (this conversation) are skipped so "再找几个 /
   // 换一批" returns NEW results. Over-fetch a bit to leave room after filtering.
@@ -175,7 +244,8 @@ export async function searchListings(
     }
   }
   if (stay.length >= target) {
-    return { listings: stay.slice(0, target), market }
+    const f = filterByStreetToken(stay, streetRef, areaLabel())
+    return { listings: f.listings.slice(0, target), market, notice: f.notice }
   }
 
   // No synthetic fallback: when neither Stayloop nor Realtor.ca has a real
@@ -185,7 +255,8 @@ export async function searchListings(
   const ext = extRes.cards.filter(fresh)
   const seen = new Set(stay.map((l) => l.address.toLowerCase()))
   const filled = [...stay, ...ext.filter((l) => !seen.has(l.address.toLowerCase()))]
-  return { listings: filled.slice(0, target), market }
+  const f = filterByStreetToken(filled, streetRef, areaLabel())
+  return { listings: f.listings.slice(0, target), market, notice: f.notice }
 }
 
 // ---------- Stayloop's own listings ----------
