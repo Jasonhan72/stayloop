@@ -79,7 +79,7 @@ Same vars are set in Cloudflare Pages dashboard for production.
 ### Components
 - `components/Header.tsx` — global nav: **我是** dropdown (租客/房东/经纪) · 房源 · 定价 · 租客背调(→/screening); admins also see a 后台管理 entry in the avatar menu (Trust API NOT in nav)
 - `components/Footer.tsx` — footer with v5.3 label
-- `components/Logo.tsx` — `stayloop.AI` (`.AI` in purple→blue gradient)
+- `components/Logo.tsx` — wordmark `stay` + `loop.AI`（`loop.AI` 整段紫→蓝渐变；勿改成只给 `.AI` 上色）
 - `components/WorkspaceShell.tsx` — all workspace pages use this (role-based theming)
 - `components/RoleLanding.tsx` — shared template for /tenant /landlord /agent marketing pages
 - `components/agent/*` — 9 agent UI components (AgentHeroStatus, ApprovalActionCard, etc.)
