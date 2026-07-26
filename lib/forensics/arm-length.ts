@@ -512,8 +512,8 @@ export async function checkArmLength(
       flags.push({
         code: 'arm_length_company_not_found',
         severity: 'low',
-        evidence_en: `"${employerName}" was not found in the Canadian federal corporate registry (Corporations Canada). It may be provincially registered (e.g., Ontario / BC / Quebec), a sole proprietorship, or a regulated financial institution — none of which are in the federal dataset.`,
-        evidence_zh: `在加拿大联邦公司注册数据库（Corporations Canada）中未找到"${employerName}"。可能是省级注册（Ontario / BC / Quebec 等）、个人经营、或受金融监管机构（如银行、券商）——这几类都不在联邦数据集中。`,
+        evidence_en: `"${employerName}" was not found in the federal registry (Corporations Canada) or in the participating provincial registries searched via Canada's Business Registries (ON, BC, AB, QC, MB, SK, NS). It may be a sole proprietorship or operating/trade name (no corporate record), registered in a non-participating jurisdiction (NB, PE, NL, territories), or a regulated financial institution.`,
+        evidence_zh: `在联邦注册库（Corporations Canada）以及加拿大商业登记（CBR）联查的各省注册库（安省、BC、阿省、魁省、曼省、萨省、新斯科舍）中均未找到"${employerName}"。可能是个人经营/商号（无公司注册记录）、注册在未接入的辖区（新不伦瑞克、PEI、纽芬兰、各地区），或受金融监管机构（如银行、券商）。`,
       })
     } else {
       flags.push({

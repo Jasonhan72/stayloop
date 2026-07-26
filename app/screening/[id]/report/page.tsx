@@ -1272,7 +1272,7 @@ export default function ReportPage() {
                         </div>
                       ) : (
                         <div className="mt-2">
-                          <p className="text-[12px] italic text-body-3">{zh ? '联邦库（Corporations Canada）未收录——省级注册公司不在其中，需省级核验' : 'Not in the federal registry — provincial corps are excluded; verify at the provincial registry'}</p>
+                          <p className="text-[12px] italic text-body-3">{zh ? '联邦库与各省注册库（CBR 联查）均未收录——可能是个人经营/商号，或注册在未接入的辖区' : 'Not found in the federal or participating provincial registries (via CBR) — may be a sole proprietorship/trade name, or a non-participating jurisdiction'}</p>
                           {(() => {
                             const links = registryLinks(check.employer_name, inferProvince(check.company_info?.registered_address) ?? 'ON')
                             return (

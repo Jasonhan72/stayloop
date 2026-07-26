@@ -35,6 +35,7 @@ export const runtime = 'edge'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { runDeepCheck } from '@/lib/forensics'
 import { canonicalizeEmployerName, searchOpenCorporates, RegistryAuthError } from '@/lib/forensics/arm-length'
+import { searchCbrRegistry } from '@/lib/forensics/cbr-registry'
 import type { CompanyRegistryInfo } from '@/lib/forensics/arm-length'
 import { extractBNs, verifyBN, bnCheckFlags } from '@/lib/forensics/bn-check'
 import type { BNLookupResult } from '@/lib/forensics/bn-check'
@@ -54,12 +55,17 @@ function makeServiceClient() {
  *    Canada open data — OGL-Canada, commercial use OK, ~1.5M federal corps).
  *    Queried via the `search_corp_registry` RPC using pg_trgm similarity.
  *
- * 2. Optional fallback: OpenCorporates — ONLY when OPENCORPORATES_API_TOKEN
+ * 2. Canada's Business Registries (CBR/MRAS) — free official federated
+ *    search covering PROVINCIAL registries (ON/BC/AB/QC/MB/SK/NS) plus
+ *    federal. No key. This is what makes provincially-incorporated
+ *    employers findable at all.
+ *
+ * 3. Optional fallback: OpenCorporates — ONLY when OPENCORPORATES_API_TOKEN
  *    is set. Still goes through the old 7-day `employer_lookup_cache` to
  *    preserve quota. If no token, we skip this tier entirely — no errors
  *    thrown, just return null.
  *
- * 3. Null means "not found in any configured source". The caller in
+ * 4. Null means "not found in any configured source". The caller in
  *    arm-length.ts decides how to phrase that (registry_not_configured vs
  *    not_found_in_federal_registry).
  */
@@ -150,7 +156,15 @@ function makeCachedCompanyLookup(supabase: SupabaseClient) {
     const caHit = await searchCanadianRegistry(supabase, name)
     if (caHit) return caHit
 
-    // Tier 2: optional OpenCorporates fallback via 7-day cache. Only active
+    // Tier 2: Canada's Business Registries (CBR/MRAS) — the FREE official
+    // federated search. This is what finally covers PROVINCIALLY registered
+    // employers (ON/BC/AB/QC/MB/SK/NS), which the federal-only Tier 1 can
+    // never match and which are the majority of small-business employers on
+    // rental applications. No key, no quota; a failure just falls through.
+    const cbrHit = await searchCbrRegistry(name)
+    if (cbrHit) return cbrHit
+
+    // Tier 3: optional OpenCorporates fallback via 7-day cache. Only active
     // when OPENCORPORATES_API_TOKEN is configured. searchOpenCorporates
     // itself returns null without network calls when the token is missing.
     const canonical = canonicalizeEmployerName(name)

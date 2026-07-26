@@ -3254,8 +3254,8 @@ export default function ScreenPage() {
                         <div style={{ marginBottom: check.flags.length > 0 ? 10 : 0 }}>
                           <div style={{ fontSize: 11, color: '#94A3B8', fontStyle: 'italic' }}>
                             {lang === 'zh'
-                              ? '联邦库（Corporations Canada）未收录——省级注册公司不在其中，需省级核验'
-                              : 'Not in the federal registry (Corporations Canada) — provincially-registered companies are excluded; verify at the provincial registry'}
+                              ? '联邦库与各省注册库（CBR 联查）均未收录——可能是个人经营/商号，或注册在未接入的辖区'
+                              : 'Not found in the federal or participating provincial registries (via CBR) — may be a sole proprietorship/trade name, or a non-participating jurisdiction'}
                           </div>
                           {(() => {
                             const links = registryLinks(check.employer_name, 'ON')
