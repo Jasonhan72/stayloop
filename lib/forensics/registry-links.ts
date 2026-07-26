@@ -38,7 +38,11 @@ const OC_JURIS: Record<ProvinceCode, string> = {
 
 // Official free search entry points per province.
 const OFFICIAL: Record<ProvinceCode, { url: string; zh: string; en: string }> = {
-  ON: { url: 'https://www.ontario.ca/page/search-corporations-and-businesses', zh: '安省企业注册局 (OBR)', en: 'Ontario Business Registry (OBR)' },
+  // ontario.ca landing, NOT the ONBIS app URL: appmybizaccount.gov.on.ca sits
+  // behind a bot-protection challenge and 403s anything without a real browser
+  // session, and its per-search URLs carry a session id that dies with the
+  // session. The landing page carries the working "search" entry point.
+  ON: { url: 'https://www.ontario.ca/page/ontario-business-registry', zh: '安省企业注册局 (OBR)', en: 'Ontario Business Registry (OBR)' },
   BC: { url: 'https://www.bcregistry.gov.bc.ca/', zh: 'BC 企业注册局', en: 'BC Registries' },
   AB: { url: 'https://www.alberta.ca/search-corporate-registration-information', zh: '阿省企业注册局', en: 'Alberta Corporate Registry' },
   QC: { url: 'https://www.registreentreprises.gouv.qc.ca/en/consulter/rechercher/', zh: '魁省企业登记处 (REQ)', en: 'Registraire des entreprises (REQ)' },
