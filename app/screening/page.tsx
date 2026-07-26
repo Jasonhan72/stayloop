@@ -7,6 +7,7 @@ import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
 import Header from '@/components/Header'
 import AuthModal from '@/components/AuthModal'
 import { generateScreeningReport } from '@/lib/generateReport'
+import { registryLinks } from '@/lib/forensics/registry-links'
 import type { CanLIIMatch, OntarioPortalMatch, CourtQuery, AiFlag, ScoreResult, V3DimKey } from '@/lib/screening-types'
 
 // ───────────────────────────────────────────────────────── Types ──
@@ -3089,19 +3090,33 @@ export default function ScreenPage() {
                     }
                     <span style={{ fontSize: 9, opacity: 0.85, padding: '1px 5px', background: 'rgba(255,255,255,0.2)', borderRadius: 3 }}>PRO</span>
                   </button>
-                ) : (
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6,
-                    background: deepCheckResult.overall_risk === 'high' ? '#FEE2E2' : deepCheckResult.overall_risk === 'medium' ? '#FEF3C7' : '#DCFCE7',
-                    color: deepCheckResult.overall_risk === 'high' ? '#991B1B' : deepCheckResult.overall_risk === 'medium' ? '#92400E' : '#166534',
-                  }}>
-                    {deepCheckResult.overall_risk === 'high'
-                      ? (lang === 'zh' ? '⚠ 高风险 — 非独立关系' : '⚠ High Risk — Not Arm\'s Length')
-                      : deepCheckResult.overall_risk === 'medium'
-                        ? (lang === 'zh' ? '⚡ 中等风险' : '⚡ Medium Risk')
-                        : (lang === 'zh' ? '✓ 正常' : '✓ Clean')}
-                  </span>
-                )}
+                ) : (() => {
+                  // "Not found in the federal registry" is NOT a verified pass —
+                  // it means arm's-length could not be checked (provincial corps
+                  // aren't in the federal dataset). Only show the green ✓ when
+                  // something was actually verified: at least one company was
+                  // found in a registry. Otherwise render a neutral "需省级核验".
+                  const anyFound = (deepCheckResult.checks || []).some((c: { company_info?: unknown }) => !!c.company_info)
+                  const unverified = deepCheckResult.overall_risk === 'low' && !anyFound
+                  const tone = deepCheckResult.overall_risk === 'high'
+                    ? { bg: '#FEE2E2', fg: '#991B1B' }
+                    : deepCheckResult.overall_risk === 'medium'
+                      ? { bg: '#FEF3C7', fg: '#92400E' }
+                      : unverified
+                        ? { bg: '#F1F5F9', fg: '#475569' }
+                        : { bg: '#DCFCE7', fg: '#166534' }
+                  return (
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6, background: tone.bg, color: tone.fg }}>
+                      {deepCheckResult.overall_risk === 'high'
+                        ? (lang === 'zh' ? '⚠ 高风险 — 非独立关系' : '⚠ High Risk — Not Arm\'s Length')
+                        : deepCheckResult.overall_risk === 'medium'
+                          ? (lang === 'zh' ? '⚡ 中等风险' : '⚡ Medium Risk')
+                          : unverified
+                            ? (lang === 'zh' ? '○ 需省级核验' : '○ Unverified — check provincial')
+                            : (lang === 'zh' ? '✓ 正常' : '✓ Clean')}
+                    </span>
+                  )
+                })()}
               </div>
 
               {/* Phase 4 UX: manual employer input when extraction failed */}
@@ -3236,8 +3251,27 @@ export default function ScreenPage() {
                           </>}
                         </div>
                       ) : (
-                        <div style={{ fontSize: 11, color: '#94A3B8', fontStyle: 'italic', marginBottom: check.flags.length > 0 ? 10 : 0 }}>
-                          {lang === 'zh' ? '未在加拿大公司注册数据库中找到' : 'Not found in Canadian corporate registries'}
+                        <div style={{ marginBottom: check.flags.length > 0 ? 10 : 0 }}>
+                          <div style={{ fontSize: 11, color: '#94A3B8', fontStyle: 'italic' }}>
+                            {lang === 'zh'
+                              ? '联邦库（Corporations Canada）未收录——省级注册公司不在其中，需省级核验'
+                              : 'Not in the federal registry (Corporations Canada) — provincially-registered companies are excluded; verify at the provincial registry'}
+                          </div>
+                          {(() => {
+                            const links = registryLinks(check.employer_name, 'ON')
+                            return (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                                <a href={links.openCorporatesUrl} target="_blank" rel="noopener noreferrer"
+                                  style={{ fontSize: 11, fontWeight: 600, color: '#2563EB', textDecoration: 'none', border: '1px solid #BFDBFE', borderRadius: 6, padding: '4px 10px', background: '#EFF6FF' }}>
+                                  {lang === 'zh' ? '🔎 OpenCorporates 省级搜索' : '🔎 Search OpenCorporates'}
+                                </a>
+                                <a href={links.officialUrl} target="_blank" rel="noopener noreferrer"
+                                  style={{ fontSize: 11, fontWeight: 600, color: '#2563EB', textDecoration: 'none', border: '1px solid #BFDBFE', borderRadius: 6, padding: '4px 10px', background: '#EFF6FF' }}>
+                                  {lang === 'zh' ? `🏛 ${links.officialLabelZh}` : `🏛 ${links.officialLabelEn}`}
+                                </a>
+                              </div>
+                            )
+                          })()}
                         </div>
                       )}
 

@@ -31,6 +31,7 @@ import { useT } from '@/lib/i18n'
 import type { ScoreResult, CourtQuery, OntarioPortalMatch } from '@/lib/screening-types'
 import { sevColor } from '@/lib/screening-types'
 import { buildForensicCheckMatrix, generateScreeningReport, isPositiveForensicFlag } from '@/lib/generateReport'
+import { registryLinks, inferProvince } from '@/lib/forensics/registry-links'
 
 /* ─────────────────────────── HELPERS ─────────────────────────── */
 
@@ -1270,7 +1271,18 @@ export default function ReportPage() {
                           )}
                         </div>
                       ) : (
-                        <p className="mt-2 text-[12px] italic text-body-3">{zh ? '未在加拿大公司注册数据库中找到该雇主' : 'Employer not found in Canadian corporate registries'}</p>
+                        <div className="mt-2">
+                          <p className="text-[12px] italic text-body-3">{zh ? '联邦库（Corporations Canada）未收录——省级注册公司不在其中，需省级核验' : 'Not in the federal registry — provincial corps are excluded; verify at the provincial registry'}</p>
+                          {(() => {
+                            const links = registryLinks(check.employer_name, inferProvince(check.company_info?.registered_address) ?? 'ON')
+                            return (
+                              <div className="mt-1.5 flex flex-wrap gap-2">
+                                <a href={links.openCorporatesUrl} target="_blank" rel="noopener noreferrer" className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-600 no-underline">{zh ? '🔎 OpenCorporates 省级搜索' : '🔎 Search OpenCorporates'}</a>
+                                <a href={links.officialUrl} target="_blank" rel="noopener noreferrer" className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-600 no-underline">{zh ? `🏛 ${links.officialLabelZh}` : `🏛 ${links.officialLabelEn}`}</a>
+                              </div>
+                            )
+                          })()}
+                        </div>
                       )}
                       {check.flags?.length > 0 && (
                         <div className="mt-2.5 space-y-1.5">
