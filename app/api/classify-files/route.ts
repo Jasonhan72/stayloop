@@ -100,6 +100,8 @@ async function classifyBatch(
   files: PerFileExtraction[]
   applicant_name: string | null
   employers_visible: string[]
+  application_rent: number | null
+  application_rent_label: string | null
 }> {
   const contentBlocks: any[] = [
     {
@@ -232,6 +234,33 @@ ALSO at the top level:
                      | Prefer values from a lease's TENANT field, then ID
                      | documents, then employment letters.
 
+  application_rent   | integer or null. The monthly rent the applicant is
+                     | APPLYING FOR — i.e. the rent of the unit/premises this
+                     | rental APPLICATION FORM is for. This is a SEPARATE field
+                     | from the per-file lease rent_amount above, and it is the
+                     | ONLY place a rental-application form's rent may be
+                     | reported. Extract ONLY from a rental application form
+                     | (the "blank/generic rental application" that is
+                     | classified 'other'). Rules:
+                     |   • Take the rent for the PREMISES BEING APPLIED FOR —
+                     |     labels like "Monthly Rent", "Rent $___/month",
+                     |     "Rent applied for", "Premises — Monthly Rent",
+                     |     "拟租金额", "申请租金", "月租金" in the section
+                     |     describing the unit being applied to.
+                     |   • EXCLUDE the applicant's CURRENT / present rent at
+                     |     their existing address ("Current rent", "Present
+                     |     rent", "Rent at current address", "现居租金") —
+                     |     that is their old home, NOT the target rent. If the
+                     |     form ONLY shows a current-address rent and no
+                     |     applied-for rent, return null.
+                     |   • Same exclusions as lease rent: never a deposit,
+                     |     parking, storage, or a first+last (2×) figure.
+                     |   • Sanity bounds $500–$25,000; else null.
+                     |   • null if no rental application form is present.
+  application_rent_label | string or null. The EXACT label text next to the
+                     | number you picked for application_rent. null if
+                     | application_rent is null.
+
   employers_visible  | string[] (may be empty). EVERY employer or own-business
                      | company name visible anywhere in the uploaded files.
                      | Pull from these sources:
@@ -345,7 +374,9 @@ Return ONLY this JSON (no markdown, no prose):
     ...
   ],
   "applicant_name": "<name or null>",
-  "employers_visible": ["<full legal company name>", ...]
+  "employers_visible": ["<full legal company name>", ...],
+  "application_rent": <integer or null>,
+  "application_rent_label": "<exact label string or null>"
 }`,
     },
   ]
@@ -412,8 +443,21 @@ Return ONLY this JSON (no markdown, no prose):
       }>
       applicant_name?: string | null
       employers_visible?: string[]
+      application_rent?: number | null
+      application_rent_label?: string | null
     }
+    const appRent =
+      typeof parsed.application_rent === 'number' &&
+      parsed.application_rent >= 500 &&
+      parsed.application_rent <= 25000
+        ? Math.round(parsed.application_rent)
+        : null
     return {
+      application_rent: appRent,
+      application_rent_label:
+        appRent != null && typeof parsed.application_rent_label === 'string'
+          ? parsed.application_rent_label
+          : null,
       files: Array.isArray(parsed.files)
         ? parsed.files.map(f => ({
             index: typeof f.index === 'number' ? f.index : -1,
@@ -523,6 +567,7 @@ export async function POST(req: NextRequest) {
   // Merge results across batches
   const validKindSet = new Set<string>(VALID_KINDS)
   let applicantName: string | null = null
+  let applicationRent: number | null = null   // applied-for rent from a rental application form (lease-absent fallback)
   const employersAcc: string[] = []   // dedup of all employers_visible across batches
   const allClassifications: {
     index: number
@@ -542,6 +587,9 @@ export async function POST(req: NextRequest) {
       const parsed = result.value
       if (!applicantName && parsed.applicant_name) {
         applicantName = parsed.applicant_name
+      }
+      if (applicationRent === null && typeof parsed.application_rent === 'number') {
+        applicationRent = parsed.application_rent
       }
       // Merge employers_visible across batches with canonical dedup so
       // "ABC Consulting" / "ABC Consulting Inc." / "ABC CONSULTING LIMITED"
@@ -608,9 +656,17 @@ export async function POST(req: NextRequest) {
   // proposed), pick the largest. Rents trend upward at renewal, deposits
   // and stale-form-data leftovers tend to be smaller, so max is the
   // right tiebreaker for the common cases.
+  // Lease rent is the strongest signal and always wins. When NO lease was
+  // uploaded (application-only screening), fall back to the rent the
+  // applicant is applying for, read off the rental application form. This
+  // fallback never overrides a lease and never lets a non-lease file's
+  // rent-shaped number pose as the lease rent — application_rent is a
+  // separate, application-form-only field with its own sanity bounds.
   let monthlyRent: number | null = null
   if (leaseRents.length > 0) {
     monthlyRent = Math.round(Math.max(...leaseRents))
+  } else if (applicationRent != null && applicationRent >= 500 && applicationRent <= 25000) {
+    monthlyRent = Math.round(applicationRent)
   }
 
   return NextResponse.json({
