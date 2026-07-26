@@ -183,6 +183,49 @@ export function isRegistryConfigured(): boolean {
   return !!process.env.OPENCORPORATES_API_TOKEN
 }
 
+/**
+ * Pick the best registry candidate for a target company name.
+ *
+ * Both sides are canonicalized (legal suffixes stripped) BEFORE comparison,
+ * so "Inc"/"Ltd" can't inflate a match — the previous scoring counted them
+ * as ordinary words, which let "ABC Auto Inc" match an unrelated "XYZ Auto
+ * Inc" at 2/3. Matching the WRONG company is worse than no match here: this
+ * feeds an arm's-length fraud check, and a wrong hit would show someone
+ * else's officers and address as if verified.
+ *
+ * Acceptance is deliberately strict and two-sided:
+ *   • containment — EVERY word of the target must appear in the candidate
+ *   • precision   — at least half the candidate's words are explained by
+ *                   the target (blocks "Northline" → "Northline Pacific
+ *                   Shipping Holdings International")
+ * Ranked by precision, so the tightest name wins.
+ *
+ * Pure — unit-tested directly.
+ */
+export function pickBestCompanyMatch<T extends { name?: string }>(
+  targetName: string,
+  candidates: T[],
+): T | null {
+  const targetWords = canonicalizeEmployerName(targetName || '').split(/\s+/).filter(Boolean)
+  if (targetWords.length === 0) return null
+  let best: T | null = null
+  let bestPrecision = 0
+  for (const c of candidates || []) {
+    const candWords = canonicalizeEmployerName(c?.name || '').split(/\s+/).filter(Boolean)
+    if (candWords.length === 0) continue
+    const candSet = new Set(candWords)
+    const hits = targetWords.filter((w) => candSet.has(w)).length
+    if (hits !== targetWords.length) continue          // containment must be total
+    const precision = hits / candWords.length
+    if (precision < 0.5) continue
+    if (precision > bestPrecision) {
+      bestPrecision = precision
+      best = c
+    }
+  }
+  return best
+}
+
 export async function searchOpenCorporates(companyName: string): Promise<CompanyRegistryInfo | null> {
   if (!companyName || companyName.trim().length < 3) return null
 
@@ -197,68 +240,49 @@ export async function searchOpenCorporates(companyName: string): Promise<Company
   if (!apiToken) return null
   const tokenParam = `&api_token=${encodeURIComponent(apiToken)}`
 
-  const jurisdictions = ['ca_on', 'ca_bc', 'ca_ab', 'ca_qc', 'ca_mb', 'ca_sk', 'ca_ns', 'ca_nb', 'ca']
+  // ONE call for all Canadian jurisdictions (country_code=ca), not one call
+  // per province. The old 9-way fan-out burned 9 requests per employer
+  // against a quota that starts at 200/month — ~20 lookups. At 1 search + 1
+  // officer detail it's ~100. country_code also covers the provinces the
+  // hardcoded list missed entirely (PE, NL, and the territories).
   const query = encodeURIComponent(companyName.trim())
-  const target = companyName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
-  const targetWords = target.split(/\s+/).filter(Boolean)
+  const url =
+    `https://api.opencorporates.com/v0.4/companies/search?q=${query}` +
+    `&country_code=ca&normalise_company_name=true&per_page=30${tokenParam}`
 
-  // Parallel fan-out
-  const perCallTimeoutMs = 6000
-  let authErrorSeen = false
-  const searches = jurisdictions.map(async (jurisdiction) => {
-    try {
-      const url = `https://api.opencorporates.com/v0.4/companies/search?q=${query}&jurisdiction_code=${jurisdiction}&per_page=5${tokenParam}`
-      const res = await fetch(url, {
-        headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(perCallTimeoutMs),
-      })
-      if (res.status === 401 || res.status === 403) {
-        authErrorSeen = true
-        return null
+  let companies: Array<{ company?: Record<string, any> }> = []
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (res.status === 401 || res.status === 403) {
+      throw new RegistryAuthError(
+        'OpenCorporates rejected the API token — check OPENCORPORATES_API_TOKEN in Cloudflare env',
+      )
+    }
+    if (!res.ok) return null
+    const data = (await res.json()) as any
+    // Defensive: the API sometimes returns 200 with an error body shape.
+    if (data?.error?.message) {
+      if (/token|auth/i.test(String(data.error.message))) {
+        throw new RegistryAuthError(
+          'OpenCorporates rejected the API token — check OPENCORPORATES_API_TOKEN in Cloudflare env',
+        )
       }
-      if (!res.ok) return null
-      const data = await res.json() as any
-      // Defensive: API sometimes returns 200 with an error body shape
-      if (data?.error?.message) {
-        if (/token|auth/i.test(String(data.error.message))) authErrorSeen = true
-        return null
-      }
-      const companies = data?.results?.companies || []
-      return companies.length ? companies : null
-    } catch {
       return null
     }
-  })
-  const settled = await Promise.allSettled(searches)
-
-  if (authErrorSeen) {
-    throw new RegistryAuthError(
-      apiToken
-        ? 'OpenCorporates rejected the API token — check OPENCORPORATES_API_TOKEN in Cloudflare env'
-        : 'OpenCorporates requires an API token. Set OPENCORPORATES_API_TOKEN in Cloudflare Pages env vars (sign up for free at opencorporates.com/users/sign_up).'
-    )
+    companies = data?.results?.companies || []
+  } catch (e) {
+    if (e instanceof RegistryAuthError) throw e
+    return null   // network/timeout — caller renders "not found in registry"
   }
 
-  // Score every candidate across all jurisdictions
-  let bestMatch: any = null
-  let bestScore = 0
-  for (const r of settled) {
-    if (r.status !== 'fulfilled' || !r.value) continue
-    for (const c of r.value) {
-      const co = c.company
-      const coName = (co.name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
-      const coWords = new Set(coName.split(/\s+/))
-      const overlap = targetWords.length > 0
-        ? targetWords.filter(w => coWords.has(w)).length / targetWords.length
-        : 0
-      if (overlap > bestScore) {
-        bestScore = overlap
-        bestMatch = co
-      }
-    }
-  }
-
-  if (!bestMatch || bestScore < 0.5) return null
+  const bestMatch = pickBestCompanyMatch(
+    companyName,
+    companies.map((c) => c.company || {}).filter((co) => !!co.name),
+  ) as Record<string, any> | null
+  if (!bestMatch) return null
 
   // Officer lookup for the winner
   let officers: Array<{ name: string; position: string }> = []
