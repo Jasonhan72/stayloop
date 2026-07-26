@@ -562,7 +562,7 @@ export default function ReportPage() {
               <div className="mb-2 font-mono text-[10px] font-bold uppercase text-body-3">{zh ? '数据来源清单' : 'Data sources used'}</div>
               <ul className="space-y-1.5 text-[13px] text-body-2">
                 <li>• {zh ? '确定性文件取证引擎 — PDF 元数据、内部结构指纹、数学复算（CRA 扣缴 / YTD / Benford）、跨文档核对，全部在服务端确定性计算，非 AI 推断' : 'Deterministic document forensics engine — PDF metadata, internal structure fingerprints, math recomputation (CRA deductions / YTD / Benford), cross-document checks. Computed server-side, not AI-inferred.'}</li>
-                <li>• {zh ? 'Claude AI 视觉分析 — 文件内容读取、OCR、信用报告真伪视觉复核' : 'Claude AI Vision — document content reading, OCR, credit-report authenticity second opinion'}</li>
+                <li>• {zh ? 'AI 视觉分析 — 文件内容读取、OCR、信用报告真伪视觉复核' : 'AI vision analysis — document content reading, OCR, credit-report authenticity second opinion'}</li>
                 <li>• {zh ? `CanLII 公开判例库 — 安省全部法院/仲裁庭数据库${sourcesSearched ? `（本次共检索 ${sourcesSearched} 个数据源）` : ''}` : `CanLII public case-law — all Ontario court/tribunal databases${sourcesSearched ? ` (${sourcesSearched} sources searched this run)` : ''}`}</li>
                 <li>• {zh ? '安省法院公开门户 — 民事与小额法庭立案系统（含 CanLII 未收录的新近立案）' : 'Ontario Courts public portal — Civil & Small Claims filings (incl. recent cases not yet on CanLII)'}</li>
                 {dc && dc.checks?.length > 0 && (

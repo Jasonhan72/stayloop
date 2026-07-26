@@ -96,7 +96,7 @@ const PIPELINE_STAGES: { key: string; pct: number; zh: string; en: string; icon:
   { key: 'uploading',           pct: 3,   zh: '安全上传文件',           en: 'Uploading files securely',          icon: '📤' },
   { key: 'signing_files',       pct: 6,   zh: '生成加密文件链接',       en: 'Signing encrypted file URLs',       icon: '🔐' },
   { key: 'court_and_forensics', pct: 16,  zh: '法院记录检索 × 文件取证', en: 'Court records × document forensics', icon: '⚖️' },
-  { key: 'ai_scoring',          pct: 38,  zh: 'Claude 深度分析全部文件', en: 'Claude analyzing all documents',    icon: '🧠' },
+  { key: 'ai_scoring',          pct: 38,  zh: 'AI 深度分析全部文件',     en: 'AI analyzing all documents',        icon: '🧠' },
   { key: 'post_processing',     pct: 72,  zh: '计算风险门槛与扣分',     en: 'Applying risk gates & penalties',   icon: '🧮' },
   { key: 'supplemental_courts', pct: 86,  zh: '补充法院检索（AI 提取的姓名）', en: 'Supplemental court search (AI-extracted names)', icon: '🔍' },
   { key: 'done',                pct: 100, zh: '生成风险报告',           en: 'Building the risk report',          icon: '📊' },
@@ -1497,6 +1497,8 @@ export default function ScreenPage() {
   const [progressDetail, setProgressDetail] = useState<{ zh: string; en: string } | null>(null)
   const [scanLog, setScanLog] = useState<Array<{ at: number; zh: string; en: string }>>([])
   const scanLogBoxRef = useRef<HTMLDivElement | null>(null)
+  // Verified-check tally shown in the progress header (✓ lines only).
+  const verifiedCount = scanLog.filter(l => l.zh.startsWith('✓')).length
   // Fixed time origin for scan-log [Xs] labels — scanLog[0].at shifts when
   // the 50-entry cap trims the head, which would make times run backwards.
   const scanStartRef = useRef(0)
@@ -2148,13 +2150,43 @@ export default function ScreenPage() {
         }
       }
       forensicQueue.push({ zh: '跨文档一致性：电话碰撞 × 时间戳聚类 × 收入对账（LOE ↔ 工资单 ↔ YTD）', en: 'Cross-doc: phone collisions × timestamp clusters × income reconciliation (LOE ↔ stub ↔ YTD)' })
+
+      // The AI stage is the LONGEST leg (38%→72%) and used to leave the feed
+      // frozen on one line — the scan looked stalled exactly when the most
+      // work was happening. These are the checks the scoring pass actually
+      // performs (6 dimensions + the cross-document verification block +
+      // registry lookup), echoed one at a time so every verified detail gets
+      // its own ✓.
+      const aiQueue: Array<{ zh: string; en: string }> = [
+        { zh: '资料真实性：12 项取证矩阵逐条复核', en: 'Document authenticity: 12-point forensic matrix' },
+        { zh: '银行流水户名与实体核验（个人 / 企业 / 第三方）', en: 'Bank statement holder & entity check (personal / business / third-party)' },
+        { zh: '个人工资入账佐证：声称收入 ↔ 实际入账比对', en: 'Personal payroll corroboration: claimed income ↔ observed deposits' },
+        { zh: '收入 / 租金比核算与承租能力判定', en: 'Income-to-rent ratio & affordability assessment' },
+        { zh: '雇主公司注册核验：联邦 + 各省注册库联查', en: 'Employer registry check: federal + provincial registries' },
+        { zh: '关联方雇佣信号：签署人 / 姓氏 / 邮箱别名 / 同址比对', en: 'Related-party signals: signatory / surname / email alias / shared address' },
+        { zh: '法庭记录交叉比对：LTB 驱逐 × Small Claims 判决', en: 'Court cross-reference: LTB evictions × Small Claims judgments' },
+        { zh: '租务历史：前房东信息与租住时间线', en: 'Rental history: prior landlords & tenancy timeline' },
+        { zh: '信用健康度：分数区间 / 债务服务比 / 不良记录', en: 'Credit health: score band / debt-service ratio / derogatories' },
+        { zh: '稳定性评估：居住与雇佣连续性', en: 'Stability: residence & employment continuity' },
+        { zh: '申请表摘要提取与留空栏目标注', en: 'Application form summary & blank-section flagging' },
+        { zh: 'OHRC 合规过滤：受保护特征不参与评分', en: 'OHRC compliance filter: protected grounds excluded from scoring' },
+        { zh: '证据充足度加权与可解释理由生成', en: 'Evidence-coverage weighting & explainable rationale' },
+      ]
       let scanIdx = 0
+      let aiIdx = 0
+      const AI_STAGES = new Set(['ai_scoring', 'post_processing', 'supplemental_courts'])
       const scannerTimer = setInterval(() => {
-        if (pollStop || scanIdx >= forensicQueue.length) return
+        if (pollStop) return
         const st = progressStageRef.current
-        if (st !== 'signing_files' && st !== 'court_and_forensics') return
-        const item = forensicQueue[scanIdx++]
-        setScanLog(prev => [...prev.slice(-49), { at: Date.now(), zh: `✓ ${item.zh}`, en: `✓ ${item.en}` }])
+        if (st === 'signing_files' || st === 'court_and_forensics') {
+          if (scanIdx >= forensicQueue.length) return
+          const item = forensicQueue[scanIdx++]
+          setScanLog(prev => [...prev.slice(-49), { at: Date.now(), zh: `✓ ${item.zh}`, en: `✓ ${item.en}` }])
+        } else if (AI_STAGES.has(st)) {
+          if (aiIdx >= aiQueue.length) return
+          const item = aiQueue[aiIdx++]
+          setScanLog(prev => [...prev.slice(-49), { at: Date.now(), zh: `✓ ${item.zh}`, en: `✓ ${item.en}` }])
+        }
       }, 850)
       progressTimers.push(pollTimer, creepTimer, scannerTimer)
     }
@@ -2772,7 +2804,22 @@ export default function ScreenPage() {
                     </div>
                   </div>
                 </div>
-                <span className="mono" style={{ fontSize: 22, fontWeight: 800, color: accentColor }}>{Math.round(progress)}%</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  {/* Running tally of verified checks — the antivirus "it is
+                      working for you" signal. Counts only ✓ lines, i.e. checks
+                      that actually completed. */}
+                  {verifiedCount > 0 && (
+                    <div style={{ textAlign: 'right', lineHeight: 1.15 }}>
+                      <div className="mono" style={{ fontSize: 15, fontWeight: 800, color: '#15803D' }}>
+                        ✓ {verifiedCount}
+                      </div>
+                      <div style={{ fontSize: 9.5, color: '#64748B', letterSpacing: '0.04em' }}>
+                        {lang === 'zh' ? '项已核实' : 'checks passed'}
+                      </div>
+                    </div>
+                  )}
+                  <span className="mono" style={{ fontSize: 22, fontWeight: 800, color: accentColor }}>{Math.round(progress)}%</span>
+                </div>
               </div>
 
               {/* Progress bar */}

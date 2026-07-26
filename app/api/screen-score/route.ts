@@ -983,7 +983,7 @@ export async function POST(req: NextRequest) {
       forensics_detail: forensicsReport,
       tier: (plan === 'pro' || plan === 'team') ? 'pro' : 'free',
       status: 'scoring',
-      progress: { stage: 'ai_scoring', pct: 38, at: new Date().toISOString(), detail_zh: '文件 + 取证结果已送入 Claude · 等待首个输出', detail_en: 'Documents + forensics sent to Claude · awaiting first output' },
+      progress: { stage: 'ai_scoring', pct: 38, at: new Date().toISOString(), detail_zh: '文件 + 取证结果已送入 AI · 等待首个输出', detail_en: 'Documents + forensics sent to AI · awaiting first output' },
     }).eq('id', screening_id)
 
     // ---- Stage 3: Build v3 Claude prompt ----

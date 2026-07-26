@@ -257,7 +257,7 @@ export async function generateScreeningReport(
     &nbsp;·&nbsp; ${zh ? '分析引擎' : 'Engine'}: <strong>Stayloop AI ${esc(result.model_version || 'v3')}</strong></div>
     <div style="margin-top:4px;color:#64748B">${zh ? '数据来源' : 'Data sources'}: ${[
       zh ? '确定性文件取证引擎（PDF 元数据 · 结构指纹 · 数学复算 · 跨文档核对）' : 'Deterministic document forensics engine (PDF metadata · structure fingerprints · math recomputation · cross-doc checks)',
-      zh ? 'Claude AI 视觉内容分析' : 'Claude AI Vision content analysis',
+      zh ? 'AI 视觉内容分析' : 'AI vision content analysis',
       `CanLII${courtDbCount ? ` (${zh ? `${courtDbCount} 个数据源` : `${courtDbCount} sources`})` : ''}`,
       zh ? '安省法院公开门户' : 'Ontario Courts public portal',
       ...(result.deep_check_result?.checks?.length ? [zh ? '加拿大公司注册库' : 'Canadian corporate registries'] : []),
