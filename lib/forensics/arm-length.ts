@@ -6,7 +6,10 @@
 // family business, shell corp) undermines all income verification.
 //
 // Data sources:
-//   1. OpenCorporates API (free tier, no key needed, 500 req/mo)
+//   1. OpenCorporates API — PAID ONLY. Verified 2026-07-26: there is no free
+//      API tier; the cheapest self-serve plan is GBP 2,250/yr for 500 calls/mo
+//      (the "free" tier on their site is website search, not API). Runs only
+//      when OPENCORPORATES_API_TOKEN is set, which today it is NOT.
 //      — company name, incorporation date, status, jurisdiction, officers
 //   2. Cross-doc entity matching (applicant name vs signatory/director)
 //   3. Heuristics (numbered company, recent incorporation, etc.)
@@ -152,7 +155,8 @@ function addressOverlap(addr1: string, addr2: string): boolean {
 
 /**
  * Search OpenCorporates for a company name in Canadian jurisdictions.
- * Free tier: no API key needed, 500 req/month, basic company info.
+ * Requires a PAID plan token (no free API tier — see the note at the top of
+ * this file). Returns null without any network call when unset.
  * Officers may or may not be available depending on the jurisdiction.
  *
  * Phase 3 change: jurisdictions are queried in PARALLEL (was serial, 9×8s worst
