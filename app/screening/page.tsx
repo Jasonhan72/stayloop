@@ -2829,6 +2829,38 @@ export default function ScreenPage() {
                 </div>
               </div>
 
+
+              {/* Live check feed — light, matching the page surface. Sits
+                  directly under the progress bar so the running activity is
+                  the first thing read, with the stage checklist below it. */}
+              {scanLog.length > 0 && (
+                <div style={{ margin: '10px 22px 0', borderRadius: 10, background: '#F8F7F2', border: '1px solid #E9E5DA', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 12px', borderBottom: '1px solid #E9E5DA' }}>
+                    <span className="mono" style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#8C8778', fontWeight: 700 }}>
+                      SCAN LOG {lang === 'zh' ? '· 实时检查记录' : '· live check feed'}
+                    </span>
+                    <span className="mono" style={{ fontSize: 9.5, color: '#A8A296' }}>
+                      {lang === 'zh' ? `已执行 ${scanLog.length} 项` : `${scanLog.length} checks run`}
+                    </span>
+                  </div>
+                  <div ref={scanLogBoxRef} style={{ maxHeight: 138, overflowY: 'auto', padding: '8px 12px 6px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {scanLog.map((l, i) => {
+                      const isLast = i === scanLog.length - 1
+                      const dt = ((l.at - (scanStartRef.current || scanLog[0].at)) / 1000).toFixed(1)
+                      return (
+                        <div key={i} className="mono" style={{ fontSize: 10, lineHeight: 1.55, color: isLast ? '#15803D' : '#5F6B62', opacity: isLast ? 1 : 0.8, fontWeight: isLast ? 700 : 400, wordBreak: 'break-all' }}>
+                          <span style={{ color: '#B4AEA0', marginRight: 6 }}>[{dt}s]</span>
+                          {lang === 'zh' ? l.zh : l.en}
+                        </div>
+                      )
+                    })}
+                    <div className="mono" style={{ fontSize: 10, color: '#15803D' }}>
+                      <span style={{ animation: 'slPulse 1.1s ease-in-out infinite', display: 'inline-block' }}>▌</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Live stage checklist — each row reflects the REAL backend
                   pipeline stage read from screenings.progress */}
               <div style={{ padding: '12px 22px 20px', display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -2885,34 +2917,6 @@ export default function ScreenPage() {
                     </div>
                   )
                 })}
-                {/* Antivirus-style scan console — real backend activity feed */}
-                {scanLog.length > 0 && (
-                  <div style={{ marginTop: 10, borderRadius: 10, background: '#0B1220', border: '1px solid #1E293B', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 12px', borderBottom: '1px solid #1E293B' }}>
-                      <span className="mono" style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#64748B', fontWeight: 700 }}>
-                        SCAN LOG {lang === 'zh' ? '· 实时检查记录' : '· live check feed'}
-                      </span>
-                      <span className="mono" style={{ fontSize: 9.5, color: '#475569' }}>
-                        {lang === 'zh' ? `已执行 ${scanLog.length} 项` : `${scanLog.length} checks run`}
-                      </span>
-                    </div>
-                    <div ref={scanLogBoxRef} style={{ maxHeight: 138, overflowY: 'auto', padding: '8px 12px 6px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      {scanLog.map((l, i) => {
-                        const isLast = i === scanLog.length - 1
-                        const dt = ((l.at - (scanStartRef.current || scanLog[0].at)) / 1000).toFixed(1)
-                        return (
-                          <div key={i} className="mono" style={{ fontSize: 10, lineHeight: 1.55, color: isLast ? '#6EE7B7' : '#3E9E77', opacity: isLast ? 1 : 0.75, wordBreak: 'break-all' }}>
-                            <span style={{ color: '#334155', marginRight: 6 }}>[{dt}s]</span>
-                            {lang === 'zh' ? l.zh : l.en}
-                          </div>
-                        )
-                      })}
-                      <div className="mono" style={{ fontSize: 10, color: '#6EE7B7' }}>
-                        <span style={{ animation: 'slPulse 1.1s ease-in-out infinite', display: 'inline-block' }}>▌</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
                 <div style={{ fontSize: 10.5, color: '#94A3B8', textAlign: 'center', marginTop: 10 }}>
                   {lang === 'zh'
                     ? '进度与日志由后端真实分析步骤驱动 · AI 阶段按实际生成 token 推进 · 通常 20–40 秒'
