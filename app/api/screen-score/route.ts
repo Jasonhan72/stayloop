@@ -16,7 +16,7 @@ import { runForensics, forensicsToPromptBlock, type ForensicsReport } from '@/li
 import { getModel, supportsTemperature } from '@/lib/modelConfig'
 import { applyPageBudget } from '@/lib/anthropic/page-budget'
 import { captureException } from '@/lib/observability/sentry'
-import type { CourtQuery, CanLIIMatch, OntarioPortalMatch, V3Scores } from '@/lib/screening-types'
+import type { CourtQuery, CanLIIMatch, OntarioPortalMatch, V3Scores, CrossDocVerification } from '@/lib/screening-types'
 import { V3_WEIGHTS } from '@/lib/screening-types'
 
 export const runtime = 'edge'
@@ -1078,6 +1078,15 @@ Check if the employment letter or offer letter is self-issued (applicant works a
 - HR contact phone or email matches the applicant's own contact information
 If detected: trigger "self_issued_employment_letter" red flag, set ability_to_pay income_stability sub-score to 20-35 (self-verified income is unreliable), and note it prominently in details_en/details_zh and flags. The income from a self-issued letter should NOT be treated as verified — mark income_evidence as "self-issued (unverified)" and recommend landlord verify via bank deposit history or CRA notice of assessment.
 
+CROSS-DOCUMENT EVIDENCE VERIFICATION — MANDATORY (fill "cross_doc_verification" in the output JSON):
+1. BANK ACCOUNT OWNERSHIP — for EVERY bank statement, emit {holder_name, entity_type: personal|business, is_applicant, statement_period}. is_applicant=true ONLY when the account holder name matches the applicant's name. A BUSINESS account, or ANY account whose holder ≠ applicant, MUST NOT be treated as evidence of the applicant's personal income — and details_en/details_zh.ability_to_pay MUST name it explicitly (e.g. "submitted statement is a business account of NLMA AUTO INC., not the applicant's personal account" / "提交的流水为 NLMA AUTO INC. 企业账户，非申请人个人账户").
+2. INCOME CORROBORATION — in PERSONAL accounts only, look for RECURRING payroll deposits within ±25% of the claimed monthly income. Emit {claimed_monthly, personal_payroll_seen, observed_pattern, verdict: corroborated|partial|uncorroborated, detail}. If no personal payroll trail exists, verdict=uncorroborated and detail states plainly what WAS observed (e.g. "only a business account receiving ~$18,194/mo from the employer, then transferring $2,000/mo to the applicant"). When verdict=uncorroborated: ability_to_pay MUST NOT exceed 60 and income_stability sub_coverage MUST be "action_pending" (backend enforces both).
+3. RELATED-PARTY SIGNALS — compare (a) employment-letter signatory name/surname vs applicant name, (b) applicant email alias vs signatory/company name, (c) supervisor name on the application vs signatory, (d) employer address vs bank-statement entity address, (e) applicant listed as owner/director. Emit {suspected, signals[]}. 2 or more signals → suspected=true, AND details_en/details_zh.verification MUST name the specific people and signals (e.g. "letter signed by Sia Allas (Director/Owner); applicant email alias 'allas' shares the surname; supervisor is Siavash Allas") and state that the income claim comes from a non-arm's-length party and requires independent proof (CRA NOA / T4 or personal-account payroll deposits).
+4. APPLICATION SUMMARY — from the rental application form (OREA 410 or similar) extract {applying_rent, prev_residences: [{address, period, landlord_name, landlord_phone}], vacating_reason, vehicles[], blank_sections[]}. blank_sections lists form sections left EMPTY (e.g. bank information, financial obligations, personal references).
+5. VERIFICATION CHECKLIST — 3-6 concrete steps the landlord can execute TODAY, each citing the exact names and phone numbers found in the documents (e.g. "Call current landlord Eithar Naman 647-563-9100 to verify the 2023-2026 tenancy and payment record", "Request CRA Notice of Assessment or 3 months of PERSONAL-account statements", "Call the employer's letterhead main line — not the letter signatory's cell — to confirm employment"). Include a phone number whenever one appears in the documents.
+6. SUSPICIOUS FUND FLOWS — any transfer in the statements whose counterparty matches a person named on the application (current/previous landlord, the applicant) goes into suspicious_transfers[] with amount and match (e.g. "business account sent $4,000 e-Transfer to 'eithar' — matches current landlord's first name; rent apparently paid by the company: a positive stability signal but also evidence of commingled personal/business funds").
+If a sub-object has no source document (no bank statement, no application form), emit null for that sub-object (or [] for arrays) — NEVER invent data. When rules 1-3 fire, the ability_to_pay and verification entries in details_en/details_zh MAY exceed the SPEED length caps (up to 30 English words / 45 Chinese chars) — naming the specific entities takes precedence over brevity.
+
 ACTION ITEMS (critical for L3 sub-components):
 Generate 1-4 action_items the landlord must perform to close evidence gaps. Each item:
 - id: short snake_case
@@ -1113,6 +1122,7 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble.
  "bank_min_balance":<number or null>,
  "identity_match_score":<0-100 or null>,
  "credit_report":{"present":<true ONLY if a GENUINE consumer credit report (Equifax/TransUnion/SingleKey/FrontLobby/Borrowell) was uploaded; else false>,"bureau":"Equifax|TransUnion|Dual|other|null","credit_score":<300-900 integer or null>,"score_band":"Poor|Fair|Good|Very Good|Excellent|null","report_date":"YYYY-MM-DD or as shown or null","tradelines":[{"creditor":"","type":"Revolving|Installment|Open|Mortgage|Lease|other","date_opened":"","balance":<number or null>,"high_credit":<number or null>,"past_due":<number or null>,"payment_status":"","late_30_60_90":"0/0/0"}],"collections":[{"creditor":"","date_assigned":"","original_amount":<number or null>,"balance":<number or null>}],"bankruptcies":[{"date_filed":"","type":"","amount":<number or null>,"disposition":""}],"inquiries":[{"date":"","creditor":""}],"total_debt":<number or null>,"monthly_debt_payments":<number or null>},
+ "cross_doc_verification":{"bank_accounts":[{"holder_name":"","entity_type":"personal|business","is_applicant":<bool — true ONLY if holder name matches applicant>,"statement_period":"as shown or null"}],"income_corroboration":{"claimed_monthly":<number or null>,"personal_payroll_seen":<bool>,"observed_pattern":"≤25 words — what deposits ACTUALLY recur","verdict":"corroborated|partial|uncorroborated","detail":"≤35 words, plain truth"},"related_party":{"suspected":<bool>,"signals":["one signal per entry, name the people"]},"application_summary":{"applying_rent":<number or null>,"prev_residences":[{"address":"","period":"","landlord_name":"","landlord_phone":""}],"vacating_reason":"as stated or null","vehicles":["..."],"blank_sections":["form sections left empty"]},"suspicious_transfers":["amount + counterparty + which application name it matches"],"verification_checklist":["3-6 executable steps, include phone numbers found in docs"]},
  "scores":{"ability_to_pay":<0-100>,"credit_health":<0-100>,"rental_history":<0-100>,"verification":<0-100>,"communication":<0-100>},
  "sub_coverage":{"only_non_measured_keys":"action_pending|missing"},
  "details_en":{"ability_to_pay":"","credit_health":"","rental_history":"","verification":"","communication":""},
@@ -1209,6 +1219,7 @@ JSON DISCIPLINE (avoid parse errors):
       ['"hard_gates_triggered"', '检查欺诈硬门槛', 'Checking fraud hard gates'],
       ['"details_', '撰写五维评分依据', 'Writing per-dimension evidence'],
       ['"scores"', '五维风险评分中', 'Scoring the five risk dimensions'],
+      ['"cross_doc_verification"', '跨文档证据核验：户名 × 工资入账 × 利益相关方', 'Cross-doc verification: account holders × payroll trail × related parties'],
       ['"tradelines"', '逐条转录信用账户（tradelines）', 'Transcribing credit tradelines'],
       ['"credit_report"', '读取并转录信用报告', 'Reading & transcribing the credit report'],
       ['"detected_monthly_income"', '核算收入证据', 'Reconciling income evidence'],
@@ -1561,6 +1572,104 @@ JSON DISCIPLINE (avoid parse errors):
     }
     parsed.details_en = detailsEn
     parsed.details_zh = detailsZh
+
+    // ---- Stage 3.6: Cross-document verification enforcement -----------
+    // The prompt asks the model to fill cross_doc_verification (bank account
+    // ownership, income corroboration, related-party signals, application
+    // summary, verification checklist, suspicious fund flows). Sanitize the
+    // block here — null-tolerant, never trust shape — then enforce the two
+    // deterministic rules the prompt states the backend enforces:
+    //   1. income_corroboration.verdict === 'uncorroborated' → ability_to_pay
+    //      capped at 60 (a claimed income with NO personal-account payroll
+    //      trail is not verified income).
+    //   2. same verdict → income_stability sub-coverage downgraded to
+    //      action_pending so evidence_coverage reflects the gap.
+    const crossDocVerification: CrossDocVerification | null = (() => {
+      const raw: any = (parsed as any).cross_doc_verification
+      if (!raw || typeof raw !== 'object') return null
+      const str = (v: any) => (typeof v === 'string' ? v : '')
+      const strOrNull = (v: any) => (typeof v === 'string' && v.trim() ? v : null)
+      const num = (v: any) => (typeof v === 'number' && isFinite(v) ? v : null)
+      const strArr = (a: any, max: number) =>
+        (Array.isArray(a) ? a : []).filter((x: any) => typeof x === 'string' && x.trim()).slice(0, max)
+
+      const bankAccounts = (Array.isArray(raw.bank_accounts) ? raw.bank_accounts : [])
+        .slice(0, 10)
+        .map((b: any) => ({
+          holder_name: str(b?.holder_name),
+          entity_type: (b?.entity_type === 'business' ? 'business' : 'personal') as 'personal' | 'business',
+          is_applicant: b?.is_applicant === true,
+          statement_period: strOrNull(b?.statement_period),
+        }))
+        .filter((b: { holder_name: string }) => b.holder_name)
+
+      const ic = raw.income_corroboration
+      const VERDICTS = new Set(['corroborated', 'partial', 'uncorroborated'])
+      const incomeCorroboration = (ic && typeof ic === 'object' && VERDICTS.has(ic.verdict))
+        ? {
+            claimed_monthly: num(ic.claimed_monthly),
+            personal_payroll_seen: ic.personal_payroll_seen === true,
+            observed_pattern: str(ic.observed_pattern),
+            verdict: ic.verdict as 'corroborated' | 'partial' | 'uncorroborated',
+            detail: str(ic.detail),
+          }
+        : null
+
+      const rp = raw.related_party
+      const relatedParty = (rp && typeof rp === 'object')
+        ? { suspected: rp.suspected === true, signals: strArr(rp.signals, 8) }
+        : null
+
+      const ap = raw.application_summary
+      const applicationSummary = (ap && typeof ap === 'object')
+        ? {
+            applying_rent: num(ap.applying_rent),
+            prev_residences: (Array.isArray(ap.prev_residences) ? ap.prev_residences : [])
+              .slice(0, 6)
+              .map((p: any) => ({
+                address: str(p?.address),
+                period: str(p?.period),
+                landlord_name: str(p?.landlord_name),
+                landlord_phone: str(p?.landlord_phone),
+              }))
+              .filter((p: { address: string; landlord_name: string }) => p.address || p.landlord_name),
+            vacating_reason: strOrNull(ap.vacating_reason),
+            vehicles: strArr(ap.vehicles, 5),
+            blank_sections: strArr(ap.blank_sections, 10),
+          }
+        : null
+
+      const suspiciousTransfers = strArr(raw.suspicious_transfers, 10)
+      const verificationChecklist = strArr(raw.verification_checklist, 8)
+
+      // Empty across the board → treat as absent so old-report semantics hold.
+      if (
+        bankAccounts.length === 0 && !incomeCorroboration && !relatedParty &&
+        !applicationSummary && suspiciousTransfers.length === 0 && verificationChecklist.length === 0
+      ) return null
+
+      return {
+        bank_accounts: bankAccounts,
+        income_corroboration: incomeCorroboration,
+        related_party: relatedParty,
+        application_summary: applicationSummary,
+        suspicious_transfers: suspiciousTransfers,
+        verification_checklist: verificationChecklist,
+      }
+    })()
+
+    if (crossDocVerification?.income_corroboration?.verdict === 'uncorroborated') {
+      // Rule 1 — payment ability can't score above 60 on unverified income.
+      s.ability_to_pay = Math.min(s.ability_to_pay, 60)
+      // Rule 2 — the income_stability evidence grade drops to action_pending
+      // (unless the model already marked it missing, which is stricter).
+      const rawSubCovPre: Record<string, string> =
+        (parsed.sub_coverage && typeof parsed.sub_coverage === 'object') ? parsed.sub_coverage : {}
+      if (rawSubCovPre.income_stability !== 'missing') {
+        rawSubCovPre.income_stability = 'action_pending'
+      }
+      parsed.sub_coverage = rawSubCovPre
+    }
 
     // ---- Stage 4: Apply hard gates + red flag penalties + coverage ----
     const HARD_GATE_CAPS: Record<string, number> = {
@@ -2107,6 +2216,7 @@ JSON DISCIPLINE (avoid parse errors):
         extracted_names: extractedNames,
         legacy_scores: legacy,
         credit_report: creditReport,
+        cross_doc_verification: crossDocVerification,
       },
       _details_en: parsed.details_en,
       _details_zh: parsed.details_zh,
@@ -2184,6 +2294,7 @@ JSON DISCIPLINE (avoid parse errors):
       bank_min_balance: typeof parsed.bank_min_balance === 'number' ? parsed.bank_min_balance : null,
       identity_match_score: identityMatch,
       credit_report: creditReport,
+      cross_doc_verification: crossDocVerification,
       monthly_rent: monthlyRent || null,
       income_rent_ratio: computedRatio,
       extracted_name: finalExtractedName,

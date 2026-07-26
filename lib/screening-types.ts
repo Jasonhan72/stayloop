@@ -78,6 +78,44 @@ export interface CreditReport {
   monthly_debt_payments?: number | null
 }
 
+// Cross-document evidence verification (2026-07 — v3 prompt addition).
+// Emitted by the scoring model, sanitized server-side, persisted inside
+// ai_dimension_notes._v3.cross_doc_verification. ALL fields optional so old
+// reports (which predate this block) reconstruct cleanly with null.
+export interface CrossDocVerification {
+  bank_accounts?: Array<{
+    holder_name: string
+    entity_type: 'personal' | 'business'
+    is_applicant: boolean
+    statement_period?: string | null
+  }>
+  income_corroboration?: {
+    claimed_monthly: number | null
+    personal_payroll_seen: boolean
+    observed_pattern: string
+    verdict: 'corroborated' | 'partial' | 'uncorroborated'
+    detail: string
+  } | null
+  related_party?: {
+    suspected: boolean
+    signals: string[]
+  } | null
+  application_summary?: {
+    applying_rent: number | null
+    prev_residences: Array<{
+      address: string
+      period: string
+      landlord_name: string
+      landlord_phone: string
+    }>
+    vacating_reason: string | null
+    vehicles: string[]
+    blank_sections: string[]
+  } | null
+  suspicious_transfers?: string[]
+  verification_checklist?: string[]
+}
+
 export interface ArmLengthCheck {
   employer_name: string
   company_info: {
@@ -221,6 +259,7 @@ export interface ScoreResult {
   forensics_detail?: ForensicsDetail | null
   forensics_penalty?: number
   forensics_zeroed_dims?: string[]
+  cross_doc_verification?: CrossDocVerification | null
   screening_id?: string
   file_count?: number
   deep_check_result?: {

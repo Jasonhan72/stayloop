@@ -598,6 +598,120 @@ export async function generateScreeningReport(
     }
   }
 
+  // ── 3.7 Application Summary & Cross-Document Verification ──
+  // 2026-07 — cross_doc_verification block from the scoring prompt: bank
+  // account ownership, income corroboration, related-party signals, the
+  // rental-application summary and an executable verification checklist.
+  // Old reports have no data → the whole section is skipped; every
+  // sub-block is individually guarded so nothing renders undefined.
+  {
+    const cdv = result.cross_doc_verification
+    const app = cdv?.application_summary
+    const hasCdv = !!(cdv && (
+      (cdv.bank_accounts?.length || 0) > 0 ||
+      cdv.income_corroboration ||
+      (cdv.related_party && (cdv.related_party.suspected || (cdv.related_party.signals?.length || 0) > 0)) ||
+      app ||
+      (cdv.suspicious_transfers?.length || 0) > 0 ||
+      (cdv.verification_checklist?.length || 0) > 0
+    ))
+    if (hasCdv && cdv) {
+      const money = (n: number | null | undefined) => (typeof n === 'number' ? '$' + Math.round(n).toLocaleString() : '—')
+      html += `<h2>${zh ? '申请表摘要与核验清单' : 'Application Summary & Verification Checklist'}</h2>`
+
+      // Application form summary
+      if (app) {
+        if (app.applying_rent != null) html += `<div class="kv"><span class="k">${zh ? '拟租租金' : 'Applying rent'}:</span><span class="v" style="font-weight:600">${money(app.applying_rent)}/${zh ? '月' : 'mo'}</span></div>`
+        if (app.vacating_reason) html += `<div class="kv"><span class="k">${zh ? '搬家原因' : 'Vacating reason'}:</span><span class="v">${esc(app.vacating_reason)}</span></div>`
+        if ((app.vehicles || []).length > 0) html += `<div class="kv"><span class="k">${zh ? '车辆' : 'Vehicle(s)'}:</span><span class="v">${(app.vehicles || []).map(v => esc(v)).join(' · ')}</span></div>`
+        if ((app.prev_residences || []).length > 0) {
+          html += `<table style="margin-top:6px">
+            <tr><th>${zh ? '居住地址' : 'Address'}</th><th style="width:90px">${zh ? '期间' : 'Period'}</th><th style="width:110px">${zh ? '房东' : 'Landlord'}</th><th style="width:100px">${zh ? '电话' : 'Phone'}</th></tr>`
+          for (const p of app.prev_residences || []) {
+            html += `<tr><td>${esc(p.address || '—')}</td><td style="font-size:9px">${esc(p.period || '—')}</td><td style="font-weight:600">${esc(p.landlord_name || '—')}</td><td style="font-family:monospace;font-size:9px">${esc(p.landlord_phone || '—')}</td></tr>`
+          }
+          html += `</table>`
+        }
+        if ((app.blank_sections || []).length > 0) {
+          html += `<div style="font-size:10px;color:#B45309;margin:4px 0 8px"><strong>${zh ? '申请表留空栏目' : 'Form sections left blank'}:</strong> ${(app.blank_sections || []).map(b => esc(b)).join(' · ')}</div>`
+        }
+      }
+
+      // Bank account ownership
+      if ((cdv.bank_accounts || []).length > 0) {
+        html += `<div style="font-size:11px;font-weight:700;color:#0B1736;margin:10px 0 5px">${zh ? '银行流水户名核验' : 'Bank Statement Account Holders'}</div>
+        <table>
+          <tr><th>${zh ? '户名' : 'Holder'}</th><th style="width:75px">${zh ? '账户类型' : 'Type'}</th><th style="width:100px">${zh ? '对账期间' : 'Period'}</th><th>${zh ? '结论' : 'Verdict'}</th></tr>`
+        for (const b of cdv.bank_accounts || []) {
+          const ok = b.is_applicant && b.entity_type === 'personal'
+          const col = ok ? '#16A34A' : '#DC2626'
+          html += `<tr>
+            <td style="font-weight:600">${esc(b.holder_name)}</td>
+            <td style="color:${b.entity_type === 'business' ? '#DC2626' : '#16A34A'};font-weight:600">${b.entity_type === 'business' ? (zh ? '企业' : 'Business') : (zh ? '个人' : 'Personal')}</td>
+            <td style="font-size:9px">${esc(b.statement_period || '—')}</td>
+            <td style="color:${col};font-weight:600;font-size:9.5px">${b.is_applicant ? (zh ? '✓ 申请人本人' : '✓ Applicant') : (zh ? '✗ 非申请人本人 — 不能作为个人收入佐证' : '✗ Not the applicant — not personal-income evidence')}</td>
+          </tr>`
+        }
+        html += `</table>`
+      }
+
+      // Income corroboration
+      if (cdv.income_corroboration) {
+        const ic = cdv.income_corroboration
+        const vMap: Record<string, { text: string; color: string }> = {
+          corroborated: { text: zh ? '已佐证' : 'Corroborated', color: '#16A34A' },
+          partial: { text: zh ? '部分佐证' : 'Partial', color: '#D97706' },
+          uncorroborated: { text: zh ? '未获佐证' : 'Uncorroborated', color: '#DC2626' },
+        }
+        const v = vMap[ic.verdict] || vMap.partial
+        html += `<div class="card" style="border-left:3px solid ${v.color};margin-top:8px">
+          <div style="font-size:11px;font-weight:700;color:#0B1736;margin-bottom:4px">${zh ? '收入佐证核验' : 'Income Corroboration'} · <span style="color:${v.color}">${v.text}</span></div>
+          ${ic.claimed_monthly != null ? `<div class="kv"><span class="k">${zh ? '声称月收入' : 'Claimed income'}:</span><span class="v">${money(ic.claimed_monthly)}/${zh ? '月' : 'mo'}</span></div>` : ''}
+          <div class="kv"><span class="k">${zh ? '个人账户工资入账' : 'Personal payroll seen'}:</span><span class="v" style="color:${ic.personal_payroll_seen ? '#16A34A' : '#DC2626'};font-weight:600">${ic.personal_payroll_seen ? (zh ? '✓ 有' : '✓ Yes') : (zh ? '✗ 未见' : '✗ None seen')}</span></div>
+          ${ic.observed_pattern ? `<div class="kv"><span class="k">${zh ? '实际观察' : 'Observed pattern'}:</span><span class="v">${esc(ic.observed_pattern)}</span></div>` : ''}
+          ${ic.detail ? `<div style="font-size:10px;color:#475569;margin-top:3px">${esc(ic.detail)}</div>` : ''}
+          ${ic.verdict === 'uncorroborated' ? `<div style="font-size:9px;color:#DC2626;margin-top:4px">${zh ? '后端已强制：付款能力分数封顶 60 · 收入稳定性证据降级为「待房东核实」' : 'Backend-enforced: ability-to-pay capped at 60 · income-stability evidence downgraded to pending landlord action'}</div>` : ''}
+        </div>`
+      }
+
+      // Related-party signals
+      if (cdv.related_party && (cdv.related_party.suspected || (cdv.related_party.signals || []).length > 0)) {
+        const rp = cdv.related_party
+        const col = rp.suspected ? '#DC2626' : '#16A34A'
+        html += `<div class="card" style="border-left:3px solid ${col};margin-top:8px">
+          <div style="font-size:11px;font-weight:700;color:${col};margin-bottom:4px">${zh ? '利益相关方信号' : 'Related-Party Signals'} · ${rp.suspected ? (zh ? '疑似利益相关方' : 'SUSPECTED') : (zh ? '未达疑似阈值' : 'Below threshold')}</div>`
+        for (const sig of rp.signals || []) {
+          html += `<div style="font-size:10px;line-height:1.6;color:#334155">· ${esc(sig)}</div>`
+        }
+        if (rp.suspected) {
+          html += `<div style="font-size:9.5px;color:#64748B;margin-top:4px">${zh ? '收入声明来自利益相关方，需独立核实（CRA NOA / T4 或个人账户工资流水）。' : 'The income claim comes from a non-arm\'s-length party — require independent proof (CRA NOA / T4 or personal-account payroll deposits).'}</div>`
+        }
+        html += `</div>`
+      }
+
+      // Suspicious fund flows
+      if ((cdv.suspicious_transfers || []).length > 0) {
+        html += `<div style="font-size:11px;font-weight:700;color:#B91C1C;margin:10px 0 5px">${zh ? '可疑资金流' : 'Suspicious Fund Flows'} · ${(cdv.suspicious_transfers || []).length}</div>`
+        for (const t of cdv.suspicious_transfers || []) {
+          html += `<div class="card" style="border-left:3px solid #DC2626;padding:8px 12px;margin-bottom:6px">
+            <span class="flag-badge" style="background:#DC2626">${zh ? '资金流' : 'FLOW'}</span>
+            <span style="font-size:10.5px">${esc(t)}</span>
+          </div>`
+        }
+      }
+
+      // Verification checklist
+      if ((cdv.verification_checklist || []).length > 0) {
+        html += `<div style="font-size:11px;font-weight:700;color:#0B1736;margin:10px 0 5px">${zh ? '房东可执行核验清单' : 'Landlord Verification Checklist'} · ${(cdv.verification_checklist || []).length}</div>
+        <table><tr><th style="width:26px;text-align:center">#</th><th>${zh ? '核验步骤' : 'Verification step'}</th></tr>`
+        ;(cdv.verification_checklist || []).forEach((c, i) => {
+          html += `<tr><td style="text-align:center;font-weight:700;color:#047857">${i + 1}</td><td>${esc(c)}</td></tr>`
+        })
+        html += `</table>`
+      }
+    }
+  }
+
   // ── 3.8 Credit Bureau (transcribed from an uploaded credit report) ──
   // Rendered ONLY when the applicant uploaded a real credit report and the
   // AI transcribed it. All figures are copied from that document — Stayloop

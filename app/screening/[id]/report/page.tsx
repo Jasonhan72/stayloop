@@ -123,6 +123,10 @@ function reconstructResult(row: any): ScoreResult {
     identity_match_score: v3.identity_match_score ?? row.identity_match_score ?? null,
     bank_min_balance: v3.bank_min_balance ?? (row.bank_min_balance != null ? Number(row.bank_min_balance) : null),
     credit_report: v3.credit_report ?? null,
+    // 2026-07 cross-document verification block — only exists on reports
+    // scored after the prompt addition; old reports reconstruct as null and
+    // the section stays hidden.
+    cross_doc_verification: v3.cross_doc_verification ?? null,
     action_items: v3.action_items || row.action_items || [],
     compliance_audit: v3.compliance_audit ?? row.compliance_audit ?? null,
     forensics_detail: v3.forensics_detail ?? row.forensics_detail ?? null,
@@ -299,6 +303,24 @@ export default function ReportPage() {
 
   const cr = r.credit_report
   const hasCreditReport = !!(cr && (cr.credit_score != null || (cr.tradelines && cr.tradelines.length > 0) || (cr.collections && cr.collections.length) || (cr.bankruptcies && cr.bankruptcies.length)))
+
+  // Cross-document verification block (2026-07). Old reports have no data —
+  // the whole section hides; every sub-block is individually guarded too.
+  const cdv = r.cross_doc_verification
+  const cdvApp = cdv?.application_summary
+  const hasCdv = !!(cdv && (
+    (cdv.bank_accounts?.length || 0) > 0 ||
+    cdv.income_corroboration ||
+    (cdv.related_party && (cdv.related_party.suspected || (cdv.related_party.signals?.length || 0) > 0)) ||
+    cdvApp ||
+    (cdv.suspicious_transfers?.length || 0) > 0 ||
+    (cdv.verification_checklist?.length || 0) > 0
+  ))
+  const CDV_VERDICT: Record<string, { zh: string; en: string; color: string }> = {
+    corroborated: { zh: '已佐证', en: 'CORROBORATED', color: '#16A34A' },
+    partial: { zh: '部分佐证', en: 'PARTIAL', color: '#D97706' },
+    uncorroborated: { zh: '未获佐证', en: 'UNCORROBORATED', color: '#DC2626' },
+  }
 
   const dc = r.deep_check_result
   const ca = r.compliance_audit
@@ -678,6 +700,187 @@ export default function ReportPage() {
                       ? 'YTD 一致性 = 工资单年初至今总额 ÷ 按声明年薪推算的预期值。接近 1.0 表示文件内部自洽；偏离过大是伪造信号。CRA 法定扣缴（CPP/EI）另行复算，见取证一节。'
                       : 'YTD ratio = stated year-to-date gross ÷ expected from annual salary. Near 1.0 = internally consistent; large deviation is a forgery signal. CRA statutory deductions (CPP/EI) are recomputed separately — see the forensics section.'}
                   </p>
+                </div>
+              )}
+            </SectionShell>
+          )}
+
+          {/* Application summary & cross-document verification checklist */}
+          {hasCdv && cdv && (
+            <SectionShell
+              id="cross-doc-verification"
+              title={zh ? '申请表摘要与核验清单' : 'APPLICATION SUMMARY & VERIFICATION CHECKLIST'}
+              subtitle={zh
+                ? '跨文档证据核验 · 银行户名 · 收入佐证 · 利益相关方'
+                : 'Cross-document verification · account holders · income corroboration · related parties'}
+            >
+              {/* Application form summary */}
+              {cdvApp && (
+                <div>
+                  <div className="mb-2 font-mono text-[10px] font-bold uppercase text-body-3">{zh ? '租房申请表摘要' : 'Rental application summary'}</div>
+                  <div className="space-y-0.5">
+                    {cdvApp.applying_rent != null && (
+                      <KV k={zh ? '拟租租金' : 'Applying rent'}>{money(cdvApp.applying_rent)}/{zh ? '月' : 'mo'}</KV>
+                    )}
+                    {cdvApp.vacating_reason && (
+                      <KV k={zh ? '搬家原因' : 'Vacating reason'}>{cdvApp.vacating_reason}</KV>
+                    )}
+                    {(cdvApp.vehicles || []).length > 0 && (
+                      <KV k={zh ? '车辆' : 'Vehicle(s)'}>{(cdvApp.vehicles || []).join(' · ')}</KV>
+                    )}
+                  </div>
+                  {(cdvApp.prev_residences || []).length > 0 && (
+                    <div className="mt-3 overflow-x-auto">
+                      <table className="w-full min-w-[560px] border-collapse text-[12.5px]">
+                        <thead>
+                          <tr className="border-b border-line-divider text-left font-mono text-[10px] uppercase text-body-3">
+                            <th className="py-2 pr-3">{zh ? '居住地址' : 'Address'}</th>
+                            <th className="py-2 pr-3">{zh ? '期间' : 'Period'}</th>
+                            <th className="py-2 pr-3">{zh ? '房东' : 'Landlord'}</th>
+                            <th className="py-2">{zh ? '电话' : 'Phone'}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(cdvApp.prev_residences || []).map((p, i) => (
+                            <tr key={i} className="border-b border-line-divider/60">
+                              <td className="py-2 pr-3">{p.address || '—'}</td>
+                              <td className="py-2 pr-3 font-mono text-[11px]">{p.period || '—'}</td>
+                              <td className="py-2 pr-3 font-semibold">{p.landlord_name || '—'}</td>
+                              <td className="py-2 font-mono text-[11px]">{p.landlord_phone || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {(cdvApp.blank_sections || []).length > 0 && (
+                    <div className="mt-3">
+                      <div className="mb-1.5 font-mono text-[10px] font-bold" style={{ color: '#D97706' }}>
+                        {zh ? `申请表留空栏目 · ${(cdvApp.blank_sections || []).length}` : `Form sections left blank · ${(cdvApp.blank_sections || []).length}`}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {(cdvApp.blank_sections || []).map((b, i) => (
+                          <span key={i} className="rounded-lg border px-3 py-1.5 text-[12px]" style={{ borderColor: '#D9770640', background: '#D9770608', color: '#A16207' }}>{b}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Bank account ownership */}
+              {(cdv.bank_accounts || []).length > 0 && (
+                <div className={cdvApp ? 'mt-6' : ''}>
+                  <div className="mb-2 font-mono text-[10px] font-bold uppercase text-body-3">{zh ? '银行流水户名核验' : 'Bank statement account holders'}</div>
+                  <div className="space-y-2">
+                    {(cdv.bank_accounts || []).map((b, i) => {
+                      const ok = b.is_applicant && b.entity_type === 'personal'
+                      const col = ok ? '#16A34A' : '#DC2626'
+                      return (
+                        <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line-divider/60 px-4 py-2.5" style={{ background: col + '06' }}>
+                          <Badge label={b.entity_type === 'business' ? (zh ? '企业账户' : 'BUSINESS') : (zh ? '个人账户' : 'PERSONAL')} color={b.entity_type === 'business' ? '#DC2626' : '#16A34A'} />
+                          <span className="text-[13px] font-semibold text-body">{b.holder_name}</span>
+                          {b.statement_period && <span className="font-mono text-[11px] text-body-3">{b.statement_period}</span>}
+                          <span className="ml-auto whitespace-nowrap font-mono text-[11px] font-bold" style={{ color: col }}>
+                            {b.is_applicant ? (zh ? '✓ 申请人本人' : '✓ Applicant') : (zh ? '✗ 非申请人本人 — 不能作为个人收入佐证' : '✗ Not the applicant — not personal-income evidence')}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Income corroboration */}
+              {cdv.income_corroboration && (
+                <div className="mt-6">
+                  <div className="mb-2 font-mono text-[10px] font-bold uppercase text-body-3">{zh ? '收入佐证核验' : 'Income corroboration'}</div>
+                  <div className="rounded-xl border border-line-divider p-4" style={{ borderLeft: `3px solid ${(CDV_VERDICT[cdv.income_corroboration.verdict] || CDV_VERDICT.partial).color}`, background: '#FAFAF8' }}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        label={zh ? (CDV_VERDICT[cdv.income_corroboration.verdict]?.zh || cdv.income_corroboration.verdict) : (CDV_VERDICT[cdv.income_corroboration.verdict]?.en || cdv.income_corroboration.verdict)}
+                        color={(CDV_VERDICT[cdv.income_corroboration.verdict] || CDV_VERDICT.partial).color}
+                      />
+                      {cdv.income_corroboration.claimed_monthly != null && (
+                        <span className="font-mono text-[12px] text-body-3">{zh ? '声称月收入' : 'Claimed'} {money(cdv.income_corroboration.claimed_monthly)}/{zh ? '月' : 'mo'}</span>
+                      )}
+                      <span className="font-mono text-[11px]" style={{ color: cdv.income_corroboration.personal_payroll_seen ? '#16A34A' : '#DC2626' }}>
+                        {cdv.income_corroboration.personal_payroll_seen
+                          ? (zh ? '✓ 个人账户见工资入账' : '✓ personal payroll deposits seen')
+                          : (zh ? '✗ 个人账户未见工资入账' : '✗ no personal payroll deposits seen')}
+                      </span>
+                    </div>
+                    {cdv.income_corroboration.observed_pattern && (
+                      <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">{zh ? '实际观察' : 'Observed'}: {cdv.income_corroboration.observed_pattern}</p>
+                    )}
+                    {cdv.income_corroboration.detail && (
+                      <p className="mt-1 text-[12.5px] leading-relaxed text-body-3">{cdv.income_corroboration.detail}</p>
+                    )}
+                    {cdv.income_corroboration.verdict === 'uncorroborated' && (
+                      <p className="mt-2 font-mono text-[11px]" style={{ color: '#DC2626' }}>
+                        {zh ? '后端已强制：付款能力分数封顶 60 · 收入稳定性证据降级为「待房东核实」' : 'Backend-enforced: ability-to-pay capped at 60 · income-stability evidence downgraded to "pending landlord action"'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Related-party signals */}
+              {cdv.related_party && (cdv.related_party.suspected || (cdv.related_party.signals || []).length > 0) && (
+                <div className="mt-6">
+                  <div className="mb-2 font-mono text-[10px] font-bold uppercase text-body-3">{zh ? '利益相关方信号' : 'Related-party signals'}</div>
+                  <div className="rounded-xl border border-line-divider p-4" style={{ borderLeft: `3px solid ${cdv.related_party.suspected ? '#DC2626' : '#16A34A'}`, background: '#FAFAF8' }}>
+                    <Badge
+                      label={cdv.related_party.suspected ? (zh ? '疑似利益相关方' : 'SUSPECTED RELATED PARTY') : (zh ? '未达疑似阈值' : 'BELOW THRESHOLD')}
+                      color={cdv.related_party.suspected ? '#DC2626' : '#16A34A'}
+                    />
+                    {(cdv.related_party.signals || []).length > 0 && (
+                      <ul className="mt-2 space-y-1">
+                        {(cdv.related_party.signals || []).map((sig, i) => (
+                          <li key={i} className="flex items-start gap-2 text-[12.5px] leading-relaxed text-body-2">
+                            <span className="mt-0.5 font-mono font-bold" style={{ color: '#DC2626' }}>·</span>{sig}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {cdv.related_party.suspected && (
+                      <p className="mt-2 text-[11.5px] leading-relaxed text-body-3">
+                        {zh
+                          ? '收入声明来自利益相关方，需独立核实（CRA NOA / T4 或个人账户工资流水）。'
+                          : 'The income claim comes from a non-arm\'s-length party — require independent proof (CRA NOA / T4 or personal-account payroll deposits).'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Suspicious fund flows */}
+              {(cdv.suspicious_transfers || []).length > 0 && (
+                <div className="mt-6">
+                  <div className="mb-2 font-mono text-[10px] font-bold uppercase" style={{ color: '#DC2626' }}>{zh ? '可疑资金流' : 'Suspicious fund flows'} · {(cdv.suspicious_transfers || []).length}</div>
+                  <div className="space-y-2">
+                    {(cdv.suspicious_transfers || []).map((t, i) => (
+                      <div key={i} className="flex items-start gap-2 rounded-lg px-4 py-2.5 text-[12.5px] leading-relaxed text-body-2" style={{ background: '#DC262608' }}>
+                        <Badge label={zh ? '资金流' : 'FLOW'} color="#DC2626" />
+                        <span>{t}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Verification checklist */}
+              {(cdv.verification_checklist || []).length > 0 && (
+                <div className="mt-6">
+                  <div className="mb-2 font-mono text-[10px] font-bold uppercase text-body-3">{zh ? '房东可执行核验清单' : 'Landlord verification checklist'} · {(cdv.verification_checklist || []).length}</div>
+                  <div className="space-y-2">
+                    {(cdv.verification_checklist || []).map((c, i) => (
+                      <div key={i} className="flex items-start gap-3 rounded-lg border border-line-divider px-4 py-3">
+                        <span className="mt-0.5 font-mono text-[12px] font-bold" style={{ color: '#047857' }}>{i + 1}.</span>
+                        <span className="text-[13px] leading-relaxed text-body-2">{c}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </SectionShell>
