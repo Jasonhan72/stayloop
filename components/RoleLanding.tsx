@@ -164,54 +164,55 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
             {cfg.ctaNote && <p className="mt-4 text-[13px] text-body-3">{cfg.ctaNote[lang]}</p>}
           </div>
 
-          {/* agent console — dark, alive, working */}
-          <div
-            className="min-w-0 rounded-[16px] p-5 text-[13px]"
-            style={{
-              background: '#131316',
-              color: '#E5E7EB',
-              border: '1px solid rgba(255,255,255,.08)',
-              boxShadow: '0 1px 2px rgba(24,24,27,.04), 0 32px 72px -28px rgba(76,29,149,.28)',
-            }}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className={`orb ${cfg.role} h-9 w-9`} />
-                <div>
-                  <div className="text-[14px] font-bold text-white">{cfg.agentName}</div>
-                  <div className="text-[10px] font-bold uppercase tracking-[.12em]" style={{ color: '#94A3B8' }}>
-                    {zh ? '你的专属 AI' : 'Your personal AI'}
+          {/* Agent chat — mirrors the live thread (components/agent/AgentChat.tsx):
+              white card, role orb, stacked name + "online / reading your memory"
+              status, accent user bubble right, chip-surface agent bubble left. */}
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-line-divider bg-white"
+               style={{ boxShadow: '0 1px 2px rgba(24,24,27,.04), 0 32px 72px -28px rgba(76,29,149,.22)' }}>
+            {/* header */}
+            <div className="flex items-center gap-3 border-b border-line-divider px-5 py-3.5">
+              <span className={`orb ${cfg.role} h-9 w-9 flex-none`} />
+              <div>
+                <div className="text-[15px] font-bold tracking-tight">{cfg.agentName}</div>
+                <div className="flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[.1em] text-body-3">
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#34D399' }} />
+                  {zh ? '在线 · 读取你的记忆' : 'ONLINE · READING YOUR MEMORY'}
+                </div>
+              </div>
+            </div>
+
+            {/* thread */}
+            <div className="space-y-4 px-5 py-5">
+              <div className="flex justify-end">
+                <div className="max-w-[82%] rounded-2xl rounded-tr-sm px-4 py-2.5 text-[14px] leading-relaxed text-white"
+                     style={{ background: c }}>
+                  {cfg.demo.ask[lang]}
+                </div>
+              </div>
+
+              <div className="flex justify-start">
+                <span className={`orb ${cfg.role} mr-2 mt-0.5 h-7 w-7 flex-none`} />
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <div className="rounded-2xl rounded-tl-sm bg-surface-chip px-4 py-2.5 text-[14px] leading-relaxed text-body">
+                    {cfg.demo.reply[lang]}
+                  </div>
+
+                  {/* running-task card — the live thread's "working" state */}
+                  <div className="rounded-xl border p-3"
+                       style={{ background: `${c}0A`, borderColor: `${c}22` }}>
+                    <div className="flex items-center gap-1.5 text-[12px] font-bold" style={{ color: c }}>
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: c }} />
+                      {zh ? '已接手 · 后台持续执行' : 'On it · running in the background'}
+                    </div>
+                    <div className="mt-1.5 font-mono text-[10.5px] text-body-3">{cfg.demo.task[lang]}</div>
+                    <div className="mt-1 text-[11.5px] text-body-2">{cfg.demo.note[lang]}</div>
                   </div>
                 </div>
               </div>
-              <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: '#6AB344' }}>
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: '#6AB344' }} />
-                {zh ? '在线 · 为你工作中' : 'Online · working for you'}
-              </span>
             </div>
-            <div className="mt-4 flex justify-end">
-              <div className="max-w-[88%] rounded-[14px] rounded-br-[4px] px-3.5 py-2.5 leading-relaxed text-white" style={{ background: c }}>
-                {cfg.demo.ask[lang]}
-              </div>
-            </div>
-            <div
-              className="mt-3 max-w-[92%] rounded-[14px] rounded-bl-[4px] px-3.5 py-2.5 leading-relaxed"
-              style={{ background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.06)' }}
-            >
-              {cfg.demo.reply[lang]}
-            </div>
-            <div className="mt-3 rounded-xl p-3" style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.09)' }}>
-              <div className="flex items-center gap-1.5 text-[12px] font-bold" style={{ color: '#6AB344' }}>
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#6AB344' }} />
-                {zh ? '已接手 · 后台持续执行' : 'On it · running in the background'}
-              </div>
-              <div className="mt-1.5 font-mono text-[10.5px]" style={{ color: '#94A3B8' }}>{cfg.demo.task[lang]}</div>
-              <div className="mt-1 text-[11.5px]" style={{ color: '#94A3B8' }}>{cfg.demo.note[lang]}</div>
-            </div>
-            <ul
-              className="mt-4 grid gap-x-4 gap-y-1.5 border-t pt-3.5 text-[11.5px] sm:grid-cols-2"
-              style={{ borderColor: 'rgba(255,255,255,.09)', color: '#94A3B8' }}
-            >
+
+            {/* capability strip */}
+            <ul className="grid gap-x-4 gap-y-1.5 border-t border-line-divider px-5 py-3.5 text-[11.5px] text-body-2 sm:grid-cols-2">
               {cfg.agentPoints.map((p) => (
                 <li key={p.en} className="flex items-start gap-1.5">
                   <span className="mt-[1px] font-bold" style={{ color: '#6AB344' }}>✓</span>

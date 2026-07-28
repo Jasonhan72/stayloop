@@ -140,8 +140,8 @@ const COPY: Record<Lang, HomeCopy> = {
     ],
     tryCta: '试一句 →',
     note: '由 Anthropic Claude 驱动 · 免注册体验 · 真实挂牌 + TRREB 官方行情作答',
-    chatName: 'LUNA · 你的租房 Agent',
-    chatSt: '● 在线',
+    chatName: 'AI Agent',
+    chatSt: '在线 · 读取你的记忆',
     chatU: '北约克两房，预算 2800，能养猫',
     chatA1: (
       <>
@@ -400,8 +400,8 @@ const COPY: Record<Lang, HomeCopy> = {
     ],
     tryCta: 'Try it →',
     note: 'Powered by Anthropic Claude · Try without signing up · Answers from real listings + official TRREB market data',
-    chatName: 'LUNA · Your rental Agent',
-    chatSt: '● Online',
+    chatName: 'AI Agent',
+    chatSt: 'Online · reading your memory',
     chatU: '2-bed in North York, $2,800 budget, cat-friendly',
     chatA1: (
       <>
@@ -726,18 +726,29 @@ const CSS = `
   .v8-page .hero .note{margin-top:16px;font-size:13px;color:var(--ink-3)}
 
   /* hero right: chat + overlapping approval card */
-  .v8-page .stage{position:relative;padding-bottom:44px}
+  /* Reserve room for the floating approval card BELOW the chat so it never
+     covers the action chips (the taller live-style bubbles pushed it up). */
+  .v8-page .stage{position:relative;padding-bottom:106px}
   .v8-page .chat{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;
         box-shadow:0 1px 2px rgba(24,24,27,.04),0 32px 72px -28px rgba(76,29,149,.22)}
   .v8-page .chat-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line-soft)}
-  .v8-page .chat-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--brand),#3B82F6);
-           color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
-  .v8-page .chat-nm{font-size:13px;font-weight:700;letter-spacing:.02em}
-  .v8-page .chat-st{margin-left:auto;font-size:12px;color:var(--ok)}
+  /* Avatar = the live chat's role orb (ROLE_THEME.tenant.avatarGradient). */
+  .v8-page .chat-av{width:36px;height:36px;border-radius:50%;flex:none;
+           background:linear-gradient(135deg,#C4B5FD,#7C3AED)}
+  .v8-page .chat-nm{font-size:15px;font-weight:700;letter-spacing:-.01em}
+  /* Status line matches the live header: mono, uppercase, green dot. */
+  .v8-page .chat-st{display:flex;align-items:center;gap:6px;font-size:10.5px;
+           letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
+           font-family:'JetBrains Mono',ui-monospace,monospace}
+  .v8-page .chat-st::before{content:"";width:6px;height:6px;border-radius:50%;background:#34D399}
   .v8-page .chat-b{padding:18px;display:flex;flex-direction:column;gap:12px;background:var(--bg-2)}
-  .v8-page .m{max-width:88%;padding:11px 14px;border-radius:14px;font-size:13.5px;line-height:1.55}
-  .v8-page .m-u{align-self:flex-end;background:var(--ink);color:#fff;border-bottom-right-radius:4px}
-  .v8-page .m-a{align-self:flex-start;background:#fff;border:1px solid var(--line-soft);border-bottom-left-radius:4px}
+  .v8-page .m{max-width:88%;padding:11px 15px;border-radius:16px;font-size:14px;line-height:1.6}
+  /* Agent turns carry the small orb, as in the live thread. */
+  .v8-page .m-row{display:flex;align-items:flex-start;gap:8px;align-self:flex-start;max-width:96%}
+  .v8-page .m-orb{width:28px;height:28px;border-radius:50%;flex:none;margin-top:2px;
+           background:linear-gradient(135deg,#C4B5FD,#7C3AED)}
+  .v8-page .m-u{align-self:flex-end;background:#7C3AED;color:#fff;border-top-right-radius:4px}
+  .v8-page .m-a{align-self:flex-start;background:#F6F3EA;color:var(--ink);border-top-left-radius:4px}
   .v8-page .m-a b{color:var(--brand)}
   .v8-page .mini{align-self:flex-start;width:90%;background:#fff;border:1px solid var(--line);border-radius:12px;
         padding:12px 14px;display:flex;gap:12px;align-items:center;
@@ -1010,13 +1021,18 @@ export default function HomePage() {
             <div className="stage rv on">
               <div className="chat">
                 <div className="chat-h">
-                  <span className="chat-av">L</span>
-                  <span className="chat-nm">{c.chatName}</span>
-                  <span className="chat-st">{c.chatSt}</span>
+                  <span className="chat-av" />
+                  <div>
+                    <div className="chat-nm">{c.chatName}</div>
+                    <div className="chat-st">{c.chatSt}</div>
+                  </div>
                 </div>
                 <div className="chat-b" aria-hidden="true">
                   <ChatUserTypewriter text={c.chatU} key={lang} />
-                  <div className="m m-a">{c.chatA1}</div>
+                  <div className="m-row">
+                    <span className="m-orb" />
+                    <div className="m m-a">{c.chatA1}</div>
+                  </div>
                   <div className="mini">
                     <div className="mini-ph" />
                     <div>
@@ -1025,7 +1041,10 @@ export default function HomePage() {
                     </div>
                     <div className="mini-pr">{c.miniPr}</div>
                   </div>
-                  <div className="m m-a">{c.chatA2}</div>
+                  <div className="m-row">
+                    <span className="m-orb" />
+                    <div className="m m-a">{c.chatA2}</div>
+                  </div>
                 </div>
                 <div className="chat-acts">
                   <Link className="chip chip-p" href={promptHref(c.chatU)}>
