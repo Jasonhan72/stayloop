@@ -1,9 +1,21 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import {
+  AsideBlock,
+  EmptyState,
+  PageHeader,
+  SectionCard,
+  StatStrip,
+  StatusPill,
+  Table,
+  Td,
+  Tr,
+  type PillTone,
+} from '@/components/workspace'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
 import { useAIName } from '@/lib/aiName'
@@ -159,50 +171,67 @@ export default function LandlordLeasesPage() {
     return !isNaN(end.getTime()) && end.getFullYear() === now.getFullYear() && end.getMonth() === now.getMonth()
   }).length
 
+  // The renewal-window notice is advisory — it now lives in the right rail
+  // instead of pushing the lease list below the fold (design/v9-workspace-*).
+  const renewalNotice: ReactNode =
+    liveMode && expiringSoon >= 0 && active.some((l) => l.nextRenewal.zh !== '—') ? (
+      <div className="rounded-xl border border-landlord/25 bg-landlord/[0.05] p-3">
+        <div className="flex items-start gap-2.5">
+          <span className="mt-0.5 h-5 w-5 flex-none rounded-full" style={{ background: 'radial-gradient(circle at 35% 35%, #6EE7B7, #047857 70%)' }} />
+          <div className="text-[12.5px] leading-relaxed text-body-2">
+            {lang === 'zh'
+              ? <>有租约进入续约窗口。{aiName} 已在<Link href="/landlord/agent" className="mx-1 font-semibold text-landlord underline underline-offset-2">你的工作台</Link>准备好方案（不涨 / 指导上限 +2.5%）—— 批准后续约函会真实发送给租客。</>
+              : <>A lease entered its renewal window. {aiName} prepared options in <Link href="/landlord/agent" className="mx-1 font-semibold text-landlord underline underline-offset-2">your workspace</Link> — approve and the renewal letter is actually sent to your tenant.</>}
+          </div>
+        </div>
+      </div>
+    ) : null
+
   return (
-    <WorkspaceShell role="landlord" aside={<RailAside lang={lang} />}>
+    <WorkspaceShell role="landlord" aside={<RailAside lang={lang} aiNotice={renewalNotice} />}>
       {!liveMode && !authLoading && (
-        <div className="mb-5 rounded-xl border border-line-strong bg-surface-chip px-4 py-2.5 font-mono text-[11px] leading-relaxed text-body-3">
+        <div className="mb-3 rounded-xl border border-line-strong bg-surface-chip px-4 py-2.5 font-mono text-[11px] leading-relaxed text-body-3">
           {lang === 'zh'
             ? `示范数据 · 录入你的第一份真实租约后，此页与 ${aiName} 的续约提醒将切换为你的真实数据`
             : `SAMPLE DATA · enter your first real lease and this page plus ${aiName}’s renewal alerts switch to your live records`}
         </div>
       )}
-      <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-landlord">
-            LANDLORD · LEASES
-          </div>
-          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">{lang === 'zh' ? '租约管理' : 'Lease management'}</h1>
-          <p className="mt-1 text-[13.5px] text-body-2">
+      <PageHeader
+        title={lang === 'zh' ? '租约管理' : 'Lease management'}
+        sub={
+          <>
+            <span className="font-mono text-[11px] uppercase tracking-eyebrow text-landlord">LANDLORD · LEASES</span>
+            <span className="mx-1.5 text-body-3">·</span>
             {lang === 'zh'
               ? 'Ontario LTB 标准租约 · RTA 条款自动校验 · 续约 / 涨租通知一键发送'
               : 'Ontario LTB Standard Lease · automatic RTA clause checks · one-click renewal / rent-increase notices'}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => downloadCSV(lang, rows)}
-            className="rounded-[10px] border border-line-strong bg-white px-4 py-[12px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
-          >
-            {lang === 'zh' ? '导出 CSV' : 'Export CSV'}
-          </button>
-          {landlord && (
+          </>
+        }
+        actions={
+          <>
             <button
-              onClick={() => setShowEntry(true)}
-              className="rounded-[10px] border border-landlord bg-landlord/10 px-4 py-[12px] text-[13px] font-semibold text-landlord transition hover:bg-landlord/20"
+              onClick={() => downloadCSV(lang, rows)}
+              className="rounded-[10px] border border-line-strong bg-white px-4 py-2 text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
             >
-              {lang === 'zh' ? '＋ 录入现有租约' : '+ Enter existing lease'}
+              {lang === 'zh' ? '导出 CSV' : 'Export CSV'}
             </button>
-          )}
-          <button
-            onClick={() => router.push('/landlord/leases/new')}
-            className="sl-btn-primary !px-5 !py-[12px] !text-[13px]"
-          >
-            {lang === 'zh' ? '+ 起草新租约' : '+ Draft new lease'}
-          </button>
-        </div>
-      </div>
+            {landlord && (
+              <button
+                onClick={() => setShowEntry(true)}
+                className="rounded-[10px] border border-landlord bg-landlord/10 px-4 py-2 text-[12.5px] font-semibold text-landlord transition hover:bg-landlord/20"
+              >
+                {lang === 'zh' ? '＋ 录入现有租约' : '+ Enter existing lease'}
+              </button>
+            )}
+            <button
+              onClick={() => router.push('/landlord/leases/new')}
+              className="sl-btn-primary !px-4 !py-2 !text-[12.5px]"
+            >
+              {lang === 'zh' ? '+ 起草新租约' : '+ Draft new lease'}
+            </button>
+          </>
+        }
+      />
 
       {showEntry && landlord && (
         <LeaseEntryModal
@@ -214,56 +243,42 @@ export default function LandlordLeasesPage() {
       )}
 
       {!liveMode && <RenewalPack lang={lang} />}
-      {liveMode && expiringSoon >= 0 && active.some((l) => l.nextRenewal.zh !== '—') && (
-        <div className="mb-10 rounded-2xl border border-landlord/25 bg-landlord/[0.05] p-5">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 h-6 w-6 flex-none rounded-full" style={{ background: 'radial-gradient(circle at 35% 35%, #6EE7B7, #047857 70%)' }} />
-            <div className="text-[13.5px] leading-relaxed text-body-2">
-              {lang === 'zh'
-                ? <>有租约进入续约窗口。{aiName} 已在<Link href="/landlord/agent" className="mx-1 font-semibold text-landlord underline underline-offset-2">你的工作台</Link>准备好方案（不涨 / 指导上限 +2.5%）—— 批准后续约函会真实发送给租客。</>
-                : <>A lease entered its renewal window. {aiName} prepared options in <Link href="/landlord/agent" className="mx-1 font-semibold text-landlord underline underline-offset-2">your workspace</Link> — approve and the renewal letter is actually sent to your tenant.</>}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Quick stats */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label={lang === 'zh' ? '活跃租约' : 'Active leases'} value={active.length} accent="#047857" />
-        <Stat label={lang === 'zh' ? '待签字' : 'Awaiting signature'} value={pending.length} accent="#B45309" />
-        <Stat label={lang === 'zh' ? '本月到期' : 'Expiring this month'} value={liveMode ? expiringSoon : 1} accent="#71717A" />
-      </div>
+      <StatStrip
+        stats={[
+          { label: lang === 'zh' ? '活跃租约' : 'Active leases', value: String(active.length) },
+          { label: lang === 'zh' ? '待签字' : 'Awaiting signature', value: String(pending.length) },
+          { label: lang === 'zh' ? '本月到期' : 'Expiring this month', value: String(liveMode ? expiringSoon : 1) },
+        ]}
+      />
 
-      {/* Active section */}
-      <section className="mt-10">
-        <SectionHead
-          title={lang === 'zh' ? '活跃租约' : 'Active leases'}
-          eyebrow="ACTIVE"
-          count={active.length}
-          right={lang === 'zh' ? '按到期日 ↑' : 'By end date ↑'}
-        />
-        <LeaseList items={active} lang={lang} live={liveMode} />
-      </section>
+      <LeaseSection
+        title={lang === 'zh' ? '活跃租约' : 'Active leases'}
+        eyebrow="ACTIVE"
+        count={active.length}
+        right={lang === 'zh' ? '按到期日 ↑' : 'By end date ↑'}
+        items={active}
+        lang={lang}
+      />
 
-      <section className="mt-10">
-        <SectionHead
-          title={lang === 'zh' ? '等待签字' : 'Awaiting signature'}
-          eyebrow="PENDING"
-          count={pending.length}
-          right={lang === 'zh' ? '本月新增 1' : '1 new this month'}
-        />
-        <LeaseList items={pending} lang={lang} live={liveMode} />
-      </section>
+      <LeaseSection
+        title={lang === 'zh' ? '等待签字' : 'Awaiting signature'}
+        eyebrow="PENDING"
+        count={pending.length}
+        right={lang === 'zh' ? '本月新增 1' : '1 new this month'}
+        items={pending}
+        lang={lang}
+      />
 
-      <section className="mt-10">
-        <SectionHead
-          title={lang === 'zh' ? '已结束 / 月租中' : 'Ended / month-to-month'}
-          eyebrow="EXPIRED"
-          count={expired.length}
-          right={lang === 'zh' ? '近 6 个月' : 'Last 6 months'}
-        />
-        <LeaseList items={expired} lang={lang} live={liveMode} />
-      </section>
+      <LeaseSection
+        title={lang === 'zh' ? '已结束 / 月租中' : 'Ended / month-to-month'}
+        eyebrow="EXPIRED"
+        count={expired.length}
+        right={lang === 'zh' ? '近 6 个月' : 'Last 6 months'}
+        items={expired}
+        lang={lang}
+      />
     </WorkspaceShell>
   )
 }
@@ -289,7 +304,7 @@ function RenewalPack({ lang }: { lang: Lang }) {
 
   if (declined) {
     return (
-      <section className="mb-10 sl-card overflow-hidden p-7">
+      <SectionCard className="mb-4">
         <div className="flex items-center gap-3">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600 text-[16px]">✕</span>
           <div>
@@ -300,14 +315,14 @@ function RenewalPack({ lang }: { lang: Lang }) {
         <button onClick={() => { setDeclined(false); setSelected(null); setConfirmed(false) }} className="mt-4 text-[12.5px] font-semibold text-brand hover:underline">
           {zh ? '撤回决定' : 'Undo decision'}
         </button>
-      </section>
+      </SectionCard>
     )
   }
 
   if (confirmed && selected !== null) {
     const opt = OPTIONS[selected]
     return (
-      <section className="mb-10 sl-card overflow-hidden p-7">
+      <SectionCard className="mb-4">
         <div className="flex items-center gap-3">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-700 text-[16px]">✓</span>
           <div>
@@ -326,29 +341,29 @@ function RenewalPack({ lang }: { lang: Lang }) {
             {zh ? '改方案' : 'Change option'}
           </button>
         </div>
-      </section>
+      </SectionCard>
     )
   }
 
   return (
-    <section className="mb-10 sl-card overflow-hidden p-7">
+    <SectionCard className="mb-4">
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-landlord">
         {zh ? '续约决策包 · LIBERTY VILLAGE 2B' : 'RENEWAL PACK · LIBERTY VILLAGE 2B'}
       </div>
-      <h2 className="mt-2 text-[22px] font-bold tracking-tight">
+      <h2 className="mt-1.5 text-[18px] font-bold tracking-tight">
         {zh
           ? 'Thompson 租期 6/30 到期 · 续不续？涨多少？'
           : "Thompson's lease ends 6/30 · Renew? By how much?"}
       </h2>
-      <p className="mt-1 text-[13.5px] text-body-2">
+      <p className="mt-1 text-[13px] text-body-2">
         {zh
           ? `${aiName} 整理了 4 个数据维度 + 3 个建议方案。你 1 click 就好。`
           : `${aiName} has compiled 4 data dimensions + 3 suggested options. One click is all it takes.`}
       </p>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
         {DIMS.map((d) => (
-          <div key={d.k.en} className="rounded-xl bg-surface-chip p-4">
+          <div key={d.k.en} className="rounded-xl bg-surface-chip p-3">
             <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrow text-body-3">{d.k[lang]}</div>
             <div className="mt-1 text-[20px] font-extrabold tracking-tight" style={{ color: d.accent }}>{typeof d.v === 'string' ? d.v : d.v[lang]}</div>
             <div className="mt-1 text-[11.5px] leading-snug text-body-2">{d.d[lang]}</div>
@@ -362,7 +377,7 @@ function RenewalPack({ lang }: { lang: Lang }) {
           <button
             key={o.tag.en}
             onClick={() => setSelected(i)}
-            className={'rounded-xl border p-4 text-left transition ' + (
+            className={'rounded-xl border p-3 text-left transition ' + (
               selected === i
                 ? 'border-landlord bg-landlord/[0.10] ring-2 ring-landlord/30'
                 : o.hot
@@ -398,13 +413,13 @@ function RenewalPack({ lang }: { lang: Lang }) {
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <button
           onClick={() => {
             if (selected === null) setSelected(1)
             setConfirmed(true)
           }}
-          className="sl-btn-primary !px-5 !py-[12px] !text-[13.5px]"
+          className="sl-btn-primary !px-4 !py-2 !text-[12.5px]"
         >
           {selected !== null
             ? (zh ? `✓ 用 ${OPTIONS[selected].tag[lang]} · $${OPTIONS[selected].rent.toLocaleString()} · 起草续约函` : `✓ Use ${OPTIONS[selected].tag[lang]} · $${OPTIONS[selected].rent.toLocaleString()} · draft renewal`)
@@ -413,18 +428,18 @@ function RenewalPack({ lang }: { lang: Lang }) {
         </button>
         <button
           onClick={() => setSelected(null)}
-          className="rounded-[10px] border border-line-strong bg-white px-4 py-[12px] text-[13.5px] font-semibold text-body hover:border-brand hover:text-brand"
+          className="rounded-[10px] border border-line-strong bg-white px-4 py-2 text-[12.5px] font-semibold text-body hover:border-brand hover:text-brand"
         >
           {zh ? '改方案' : 'Adjust option'}
         </button>
         <button
           onClick={() => setDeclined(true)}
-          className="rounded-[10px] border border-line-strong bg-white px-4 py-[12px] text-[13.5px] font-semibold text-body-3 hover:border-red-400 hover:text-red-600"
+          className="rounded-[10px] border border-line-strong bg-white px-4 py-2 text-[12.5px] font-semibold text-body-3 hover:border-red-400 hover:text-red-600"
         >
           {zh ? '不续约' : "Don't renew"}
         </button>
       </div>
-    </section>
+    </SectionCard>
   )
 }
 
@@ -518,144 +533,115 @@ function LeaseEntryModal({ lang, landlordId, onClose, onSaved }: {
   )
 }
 
-function Stat({ label, value, accent }: { label: string; value: number; accent: string }) {
-  return (
-    <div className="sl-card p-5">
-      <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        {label}
-      </div>
-      <div className="mt-1.5 text-[28px] font-extrabold tracking-tight" style={{ color: accent }}>
-        {value}
-      </div>
-    </div>
-  )
+// Lease status → the shared status vocabulary. Labels are unchanged.
+const LEASE_STATUS: Record<LeaseItem['status'], { tone: PillTone; label: string }> = {
+  active: { tone: 'ok', label: 'ACTIVE' },
+  pending: { tone: 'pending', label: 'PENDING' },
+  expired: { tone: 'neutral', label: 'EXPIRED' },
 }
 
-function SectionHead({
+function LeaseSection({
   title,
   eyebrow,
   count,
   right,
+  items,
+  lang,
 }: {
   title: string
   eyebrow: string
   count: number
   right?: string
+  items: LeaseItem[]
+  lang: Lang
 }) {
   return (
-    <div className="mb-3 flex items-end justify-between border-b border-line-divider pb-2">
-      <div>
-        <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-body-3">
-          {eyebrow} · {count}
-        </div>
-        <h2 className="text-[20px] font-bold tracking-tight">{title}</h2>
-      </div>
-      {right && (
-        <span className="font-mono text-[11px] uppercase tracking-eyebrow text-body-3">
-          {right}
-        </span>
-      )}
-    </div>
-  )
-}
-
-function LeaseList({ items, lang, live }: { items: LeaseItem[]; lang: Lang; live?: boolean }) {
-  if (items.length === 0) {
-    return (
-      <div className="sl-card p-8 text-center text-[13.5px] text-body-3">
-        {lang === 'zh' ? '暂无 — 这里会列出对应状态的租约。' : 'None yet — leases with this status will appear here.'}
-      </div>
-    )
-  }
-  return (
-    <div className="sl-card overflow-hidden">
-      {items.map((l, i) => (
-        <div
-          key={l.id}
-          className={
-            'grid grid-cols-[1fr_auto] items-center gap-4 px-6 py-5 sm:grid-cols-[1.6fr_1fr_1fr_auto] ' +
-            (i > 0 ? 'border-t border-line-divider' : '')
-          }
-        >
-          <div>
-            <div className="text-[14px] font-bold">{l.tenant}</div>
-            <div className="text-[12.5px] text-body-2">{l.unit}</div>
-            <div className="mt-1 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
-              {l.id} · {l.start} → {l.end}
-            </div>
-          </div>
-          <div className="hidden text-[13px] sm:block">
-            <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">
-              {lang === 'zh' ? '月租' : 'Monthly rent'}
-            </div>
-            <div className="font-bold">${l.rent.toLocaleString()}</div>
-            <div className="text-[11.5px] text-body-2">{lang === 'zh' ? '按时' : 'On time'} {l.onTime}</div>
-          </div>
-          <div className="hidden text-[13px] sm:block">
-            <StatusPill status={l.status} />
-            <div className="mt-1 text-[12px] text-body-2">{l.nextRenewal[lang]}</div>
-          </div>
-          <Link
-            href={`/landlord/leases/${l.id}`}
-            className="rounded-[10px] border border-line-strong bg-white px-4 py-[8px] text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
-          >
-            {lang === 'zh' ? '打开 →' : 'Open →'}
-          </Link>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function StatusPill({ status }: { status: string }) {
-  const map: Record<string, { bg: string; fg: string; label: string }> = {
-    active: { bg: 'rgba(4,120,87,0.10)', fg: '#047857', label: 'ACTIVE' },
-    pending: { bg: 'rgba(217,119,6,0.10)', fg: '#B45309', label: 'PENDING' },
-    expired: { bg: 'rgba(113,113,122,0.10)', fg: '#52525B', label: 'EXPIRED' },
-  }
-  const m = map[status]
-  return (
-    <span
-      className="inline-block font-mono"
-      style={{
-        background: m.bg,
-        color: m.fg,
-        padding: '3px 8px',
-        borderRadius: 4,
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: '0.10em',
-      }}
+    <SectionCard
+      className="mb-3"
+      padded={false}
+      title={
+        <>
+          {title}
+          <span className="ml-2 font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-body-3">
+            {eyebrow} · {count}
+          </span>
+        </>
+      }
+      meta={right}
     >
-      {m.label}
-    </span>
+      {items.length === 0 ? (
+        <EmptyState>
+          {lang === 'zh' ? '暂无 — 这里会列出对应状态的租约。' : 'None yet — leases with this status will appear here.'}
+        </EmptyState>
+      ) : (
+        <Table
+          head={[
+            lang === 'zh' ? '租客' : 'Tenant',
+            lang === 'zh' ? '月租' : 'Monthly rent',
+            lang === 'zh' ? '状态' : 'Status',
+            '',
+          ]}
+        >
+          {items.map((l) => {
+            const s = LEASE_STATUS[l.status]
+            return (
+              <Tr key={l.id}>
+                <Td>
+                  <div className="text-[13px] font-semibold">{l.tenant}</div>
+                  <div className="text-[12px] text-body-2">{l.unit}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">
+                    {l.id} · {l.start} → {l.end}
+                  </div>
+                </Td>
+                <Td align="right" mono>
+                  <div className="font-semibold">${l.rent.toLocaleString()}</div>
+                  <div className="text-[11px] font-normal text-body-2">
+                    {lang === 'zh' ? '按时' : 'On time'} {l.onTime}
+                  </div>
+                </Td>
+                <Td align="right">
+                  <StatusPill tone={s.tone}>{s.label}</StatusPill>
+                  <div className="mt-0.5 text-[11.5px] text-body-2">{l.nextRenewal[lang]}</div>
+                </Td>
+                <Td align="right">
+                  <Link
+                    href={`/landlord/leases/${l.id}`}
+                    className="inline-block whitespace-nowrap rounded-[8px] border border-line-strong bg-white px-3 py-1.5 text-[12px] font-semibold text-body transition hover:border-brand hover:text-brand"
+                  >
+                    {lang === 'zh' ? '打开 →' : 'Open →'}
+                  </Link>
+                </Td>
+              </Tr>
+            )
+          })}
+        </Table>
+      )}
+    </SectionCard>
   )
 }
 
-function RailAside({ lang }: { lang: Lang }) {
+function RailAside({ lang, aiNotice }: { lang: Lang; aiNotice?: ReactNode }) {
   const zh = lang === 'zh'
   const aiName = useAIName('landlord')
   return (
     <div>
-      <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        {zh ? '最近活动' : 'Recent activity'}
-      </div>
-      <ul className="mt-3 space-y-4">
-        {ACTIVITY(aiName).map((a, i) => (
-          <li key={i} className="border-l-2 border-line-divider pl-3">
-            <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">
-              {a.time[lang]}
-            </div>
-            <div className="mt-1 text-[12.5px] leading-relaxed text-body-2">{a.text[lang]}</div>
-          </li>
-        ))}
-      </ul>
+      {aiNotice && <AsideBlock title={zh ? 'AI 建议' : 'AI SUGGESTIONS'}>{aiNotice}</AsideBlock>}
 
-      <div className="mt-8 sl-card p-4">
-        <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-body-3">
-          {zh ? 'LTB 提醒' : 'LTB reminder'}
-        </div>
-        <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
+      <AsideBlock title={zh ? '最近活动' : 'Recent activity'}>
+        <ul className="space-y-3.5">
+          {ACTIVITY(aiName).map((a, i) => (
+            <li key={i} className="border-l-2 border-line-divider pl-3">
+              <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">
+                {a.time[lang]}
+              </div>
+              <div className="mt-1 text-[12.5px] leading-relaxed text-body-2">{a.text[lang]}</div>
+            </li>
+          ))}
+        </ul>
+      </AsideBlock>
+
+      <AsideBlock title={zh ? 'LTB 提醒' : 'LTB reminder'}>
+        <p className="text-[12.5px] leading-relaxed text-body-2">
           {zh ? (
             <>
               安省 2026 涨租上限为 <b>2.5%</b>。但 2018 年 11 月后首次入住的单位不受限 — {aiName} 会先判断房龄，再决定是否套用。
@@ -672,7 +658,7 @@ function RailAside({ lang }: { lang: Lang }) {
         >
           {zh ? '查看 N1 / N2 通知模板 →' : 'View N1 / N2 notice templates →'}
         </Link>
-      </div>
+      </AsideBlock>
     </div>
   )
 }

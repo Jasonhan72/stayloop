@@ -31,7 +31,18 @@ export type AIInsight = {
   link?: { label: { zh: string; en: string }; href: string }
 }
 
-export default function AIProactive({ role, insights }: { role: AgentRole; insights: AIInsight[] }) {
+export default function AIProactive({
+  role,
+  insights,
+  // 'banner' = the original full-width block above page content.
+  // 'rail'   = stacked cards for the right rail, so advice no longer pushes
+  //            the actual work below the fold (design/v9-workspace-*).
+  variant = 'banner',
+}: {
+  role: AgentRole
+  insights: AIInsight[]
+  variant?: 'banner' | 'rail'
+}) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const aiName = useAIName(role)
@@ -39,6 +50,44 @@ export default function AIProactive({ role, insights }: { role: AgentRole; insig
   if (!insights.length) return null
 
   const fill = (s: string) => s.replaceAll('{ai}', aiName)
+
+  if (variant === 'rail') {
+    return (
+      <div className="space-y-2.5">
+        {insights.map((ins, i) => (
+          <div key={i} className="rounded-xl border p-3" style={{ borderColor: t.border, background: t.bg }}>
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <span className="h-4 w-4 flex-none rounded-full" style={{ background: t.orb }} />
+              <span className="font-mono text-[9.5px] font-bold uppercase tracking-eyebrow" style={{ color: t.accent }}>
+                {aiName}
+              </span>
+            </div>
+            <p className="text-[12.5px] leading-relaxed" style={{ color: t.deep }}>
+              {fill(ins.text[lang])}
+            </p>
+            {ins.action && (
+              <Link
+                href={`${HOME[role]}?prompt=${encodeURIComponent(fill(ins.action.prompt[lang]))}`}
+                className="mt-2 block rounded-lg px-3 py-1.5 text-center text-[12px] font-bold text-white transition active:translate-y-px"
+                style={{ background: t.accent }}
+              >
+                {fill(ins.action.label[lang])} →
+              </Link>
+            )}
+            {ins.link && (
+              <Link
+                href={ins.link.href}
+                className="mt-2 block rounded-lg border bg-white px-3 py-1.5 text-center text-[12px] font-bold transition"
+                style={{ borderColor: t.border, color: t.accent }}
+              >
+                {fill(ins.link.label[lang])} →
+              </Link>
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="mb-6 rounded-xl border px-4 py-3.5" style={{ borderColor: t.border, background: t.bg }}>

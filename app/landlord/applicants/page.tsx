@@ -6,6 +6,7 @@ import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import LandlordThreeSteps from '@/components/landlord/LandlordThreeSteps'
 import StampBadge from '@/components/StampBadge'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { AsideBlock, PageHeader, SectionCard, StatusPill, type PillTone } from '@/components/workspace'
 import { useAIName } from '@/lib/aiName'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
@@ -38,11 +39,11 @@ const DEMO_APPS: Applicant[] = [
   { id: '6', name: 'Anna Brooks',  initial: 'A', avc: 'agent',    match: 41, tier: 1, income: 5400,  qual: { zh: '未盖 收入章 · 仅身份章', en: 'No income stamp yet · identity stamp only' }, decision: 'decline', unitLabel: null },
 ]
 
-const SECTIONS = [
-  { decision: 'approve', label: { zh: '推荐审批', en: 'Recommended' }, tone: 'bg-success/10 text-success border-success/30' },
-  { decision: 'review',  label: { zh: '需面谈', en: 'Needs interview' }, tone: 'bg-warning/10 text-warning border-warning/30' },
-  { decision: 'decline', label: { zh: '不达标', en: 'Below threshold' }, tone: 'bg-danger/10 text-danger border-danger/30' },
-] as const
+const SECTIONS: { decision: Decision; label: { zh: string; en: string }; tone: PillTone }[] = [
+  { decision: 'approve', label: { zh: '推荐审批', en: 'Recommended' }, tone: 'ok' },
+  { decision: 'review',  label: { zh: '需面谈', en: 'Needs interview' }, tone: 'warn' },
+  { decision: 'decline', label: { zh: '不达标', en: 'Below threshold' }, tone: 'danger' },
+]
 
 const AVC_CYCLE = ['tenant', 'agent', 'landlord', 'orange'] as const
 
@@ -237,14 +238,20 @@ export default function LandlordApplicantsPage() {
       ]
 
   return (
-    <WorkspaceShell role="landlord" hideAside>
-      <div className="mb-9 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">{eyebrow}</div>
-          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">
-            {lang === 'zh' ? `${apps.length} 份申请 · ${aiName} 已分组` : `${apps.length} applications · grouped by ${aiName}`}
-          </h1>
-          <p className="mt-2 text-[14px] text-body-2">
+    <WorkspaceShell
+      role="landlord"
+      aside={
+        <AsideBlock title={lang === 'zh' ? 'AI 建议' : 'AI SUGGESTIONS'}>
+          <AIProactive role="landlord" insights={insights} variant="rail" />
+        </AsideBlock>
+      }
+    >
+      <PageHeader
+        title={lang === 'zh' ? `${apps.length} 份申请 · ${aiName} 已分组` : `${apps.length} applications · grouped by ${aiName}`}
+        sub={
+          <>
+            <span className="font-mono text-[11px] uppercase tracking-eyebrow text-brand">{eyebrow}</span>
+            <span className="mx-1.5 text-body-3">·</span>
             {lang === 'zh'
               ? '按你的 需银行章 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整六维评分 + 文件。'
               : 'Sorted into 3 groups by your policy (bank stamp required / credit ≥ 720 / DTI ≤ 35%). Open any application to see the full six-dimension score and documents.'}
@@ -253,68 +260,68 @@ export default function LandlordApplicantsPage() {
                 {lang === 'zh' ? '样本数据 · 收到真实申请后自动替换' : 'Sample data · replaced when real applications arrive'}
               </span>
             )}
-          </p>
-        </div>
-        <button className="sl-btn-secondary" onClick={() => exportCsv(apps, lang === 'zh')}>
-          {lang === 'zh' ? '导出 CSV' : 'Export CSV'}
-        </button>
-      </div>
+          </>
+        }
+        actions={
+          <button className="sl-btn-secondary !px-4 !py-2 !text-[12.5px]" onClick={() => exportCsv(apps, lang === 'zh')}>
+            {lang === 'zh' ? '导出 CSV' : 'Export CSV'}
+          </button>
+        }
+      />
 
       {!liveMode && <LandlordThreeSteps lang={lang} />}
-
-      <AIProactive role="landlord" insights={insights} />
 
       {SECTIONS.map((s) => {
         const list = apps.filter((a) => a.decision === s.decision)
         if (liveMode && list.length === 0) return null
         return (
-          <div key={s.decision} className="mb-8">
-            <div className={`mb-3 inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[13px] font-bold ${s.tone}`}>
-              {s.label[lang]}
-              <span className="font-mono text-[11px]">{list.length}</span>
-            </div>
-            <div className="space-y-2">
-              {list.map((a) => (
-                <Link
-                  key={a.id}
-                  href={`/landlord/applicants/${a.id}`}
-                  className="grid grid-cols-[44px_1fr_auto] items-center gap-3 rounded-xl border border-line-divider bg-white p-4 transition hover:border-brand/40 hover:shadow-md sm:grid-cols-[44px_1fr_120px_140px_60px] sm:gap-4"
+          <SectionCard
+            key={s.decision}
+            className="mb-3"
+            padded={false}
+            title={<StatusPill tone={s.tone}>{s.label[lang]}</StatusPill>}
+            meta={<span className="font-mono">{list.length}</span>}
+          >
+            {list.map((a) => (
+              <Link
+                key={a.id}
+                href={`/landlord/applicants/${a.id}`}
+                className="grid grid-cols-[36px_1fr_auto] items-center gap-3 border-b border-line-divider px-4 py-2.5 transition last:border-b-0 hover:bg-surface-chip sm:grid-cols-[36px_1fr_110px_64px_16px] sm:gap-4"
+              >
+                <span
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-bold text-white"
+                  style={{
+                    background:
+                      a.avc === 'tenant'
+                        ? 'linear-gradient(135deg,#C4B5FD,#7C3AED)'
+                        : a.avc === 'agent'
+                          ? 'linear-gradient(135deg,#93C5FD,#2563EB)'
+                          : a.avc === 'orange'
+                            ? 'linear-gradient(135deg,#FDBA74,#EA580C)'
+                            : 'linear-gradient(135deg,#6EE7B7,#047857)',
+                  }}
                 >
-                  <span
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-[15px] font-bold text-white"
-                    style={{
-                      background:
-                        a.avc === 'tenant'
-                          ? 'linear-gradient(135deg,#C4B5FD,#7C3AED)'
-                          : a.avc === 'agent'
-                            ? 'linear-gradient(135deg,#93C5FD,#2563EB)'
-                            : a.avc === 'orange'
-                              ? 'linear-gradient(135deg,#FDBA74,#EA580C)'
-                              : 'linear-gradient(135deg,#6EE7B7,#047857)',
-                    }}
-                  >
-                    {a.initial}
-                  </span>
-                  <div>
-                    <div className="text-[15px] font-bold">{a.name}</div>
-                    <div className="font-mono text-[11px] text-body-3">
-                      {a.income != null ? `$${a.income.toLocaleString()}/mo` : lang === 'zh' ? '收入未填' : 'No income given'}
-                      {a.unitLabel ? ` · ${a.unitLabel}` : ''}
-                    </div>
-                    <div className="mt-1 font-mono text-[11.5px] text-body-2">{a.qual[lang]}</div>
+                  {a.initial}
+                </span>
+                <div className="min-w-0">
+                  <div className="text-[13.5px] font-bold">{a.name}</div>
+                  <div className="font-mono text-[10.5px] text-body-3">
+                    {a.income != null ? `$${a.income.toLocaleString()}/mo` : lang === 'zh' ? '收入未填' : 'No income given'}
+                    {a.unitLabel ? ` · ${a.unitLabel}` : ''}
                   </div>
-                  <div className="flex items-center gap-3 sm:contents">
-                    <StampBadge tier={a.tier} />
-                    <div>
-                      <div className="font-mono text-[24px] font-bold leading-none">{a.match ?? '—'}</div>
-                      <div className="font-mono text-[10px] uppercase text-body-3">MATCH</div>
-                    </div>
-                    <span className="text-right text-body-3">›</span>
+                  <div className="font-mono text-[11px] text-body-2">{a.qual[lang]}</div>
+                </div>
+                <div className="flex items-center gap-3 sm:contents">
+                  <StampBadge tier={a.tier} />
+                  <div className="text-right">
+                    <div className="font-mono text-[17px] font-bold leading-none [font-variant-numeric:tabular-nums]">{a.match ?? '—'}</div>
+                    <div className="font-mono text-[9.5px] uppercase text-body-3">MATCH</div>
                   </div>
-                </Link>
-              ))}
-            </div>
-          </div>
+                  <span className="text-right text-body-3">›</span>
+                </div>
+              </Link>
+            ))}
+          </SectionCard>
         )
       })}
     </WorkspaceShell>

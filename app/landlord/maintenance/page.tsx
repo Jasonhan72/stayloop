@@ -1,14 +1,24 @@
 'use client'
 
 import Link from 'next/link'
-import AIProactive from '@/components/AIProactive'
+import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import {
+  AsideBlock,
+  EmptyState,
+  PageHeader,
+  SectionCard,
+  StatStrip,
+  StatusPill,
+  type PillTone,
+} from '@/components/workspace'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 
 /**
  * V5 ART 26 · Landlord · Maintenance
  * Tickets queue with status lanes (open / in-progress / resolved).
+ * Layout follows design/v9-workspace-finance.html.
  */
 
 const TICKETS = [
@@ -64,10 +74,11 @@ const TICKETS = [
   },
 ]
 
-const PRIORITY_STYLE: Record<string, { bg: string; fg: string; label: { zh: string; en: string } }> = {
-  high: { bg: 'rgba(220,38,38,0.10)', fg: '#B91C1C', label: { zh: '紧急', en: 'Urgent' } },
-  medium: { bg: 'rgba(217,119,6,0.10)', fg: '#B45309', label: { zh: '中等', en: 'Medium' } },
-  low: { bg: 'rgba(4,120,87,0.10)', fg: '#047857', label: { zh: '一般', en: 'Low' } },
+// Priority maps onto the shared status vocabulary — labels unchanged.
+const PRIORITY_STYLE: Record<string, { tone: PillTone; label: { zh: string; en: string } }> = {
+  high: { tone: 'danger', label: { zh: '紧急', en: 'Urgent' } },
+  medium: { tone: 'warn', label: { zh: '中等', en: 'Medium' } },
+  low: { tone: 'ok', label: { zh: '一般', en: 'Low' } },
 }
 
 export default function LandlordMaintenancePage() {
@@ -77,79 +88,75 @@ export default function LandlordMaintenancePage() {
   const inProgress = TICKETS.filter((t) => t.status === 'in-progress')
   const resolved = TICKETS.filter((t) => t.status === 'resolved')
 
+  const insights: AIInsight[] = [
+    {
+      text: {
+        zh: '厨房水槽工单已等待派单 9 小时。超过 RTA 合理响应窗口会累积风险，{ai} 可以帮你找可上门的师傅。',
+        en: 'The kitchen-sink ticket has waited 9 hours unassigned. Slipping past the RTA response window builds risk — {ai} can find available technicians.',
+      },
+      action: {
+        label: { zh: '让 {ai} 找师傅', en: 'Find a technician' },
+        prompt: {
+          zh: '帮我给厨房水槽漏水的工单找本周可上门的师傅，给我 2-3 个选择。',
+          en: 'Find 2-3 technicians available this week for the kitchen sink leak ticket.',
+        },
+      },
+    },
+  ]
+
   return (
-    <WorkspaceShell role="landlord" aside={<Aside lang={lang} />}>
-      <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-landlord">
-            LANDLORD · MAINTENANCE
-          </div>
-          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">{lang === 'zh' ? '维修工单' : 'Maintenance tickets'}</h1>
-          <p className="mt-1 text-[13.5px] text-body-2">
+    <WorkspaceShell role="landlord" aside={<Aside lang={lang} insights={insights} />}>
+      <PageHeader
+        title={lang === 'zh' ? '维修工单' : 'Maintenance tickets'}
+        sub={
+          <>
+            <span className="font-mono text-[11px] uppercase tracking-eyebrow text-body-3">LANDLORD · MAINTENANCE</span>
+            <span className="mx-1.5 text-body-3">·</span>
             {lang === 'zh'
               ? `租客提交 → ${aiName} 分类 → 你审批 → 自动派工或自处理`
               : `Tenant submits → ${aiName} categorizes → you approve → auto-dispatch or self-handle`}
-          </p>
-        </div>
-        <Link href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我创建一个新的维修工单' : 'Help me create a new maintenance ticket')}`} className="sl-btn-primary !px-5 !py-[12px] !text-[13px]">{lang === 'zh' ? '+ 创建工单' : '+ Create ticket'}</Link>
-      </div>
+          </>
+        }
+        actions={
+          <Link
+            href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我创建一个新的维修工单' : 'Help me create a new maintenance ticket')}`}
+            className="sl-btn-primary !px-4 !py-2 !text-[12.5px]"
+          >
+            {lang === 'zh' ? '+ 创建工单' : '+ Create ticket'}
+          </Link>
+        }
+      />
 
-      <AIProactive
-        role="landlord"
-        insights={[
+      <StatStrip
+        stats={[
           {
-            text: {
-              zh: '厨房水槽工单已等待派单 9 小时。超过 RTA 合理响应窗口会累积风险，{ai} 可以帮你找可上门的师傅。',
-              en: 'The kitchen-sink ticket has waited 9 hours unassigned. Slipping past the RTA response window builds risk — {ai} can find available technicians.',
-            },
-            action: {
-              label: { zh: '让 {ai} 找师傅', en: 'Find a technician' },
-              prompt: {
-                zh: '帮我给厨房水槽漏水的工单找本周可上门的师傅，给我 2-3 个选择。',
-                en: 'Find 2-3 technicians available this week for the kitchen sink leak ticket.',
-              },
-            },
+            label: lang === 'zh' ? '待响应' : 'Awaiting response',
+            value: String(open.length),
+            sub: lang === 'zh' ? '超 4 小时未处理 · 自动升级' : 'Unhandled over 4h · auto-escalated',
+            tone: 'down',
+          },
+          {
+            label: lang === 'zh' ? '处理中' : 'In progress',
+            value: String(inProgress.length),
+            sub: lang === 'zh' ? '已派工或自处理中' : 'Dispatched or self-handled',
+            tone: 'warn',
+          },
+          {
+            label: lang === 'zh' ? '本月已解决' : 'Resolved this month',
+            value: String(resolved.length + 4),
+            sub: lang === 'zh' ? '平均响应 14h · 平均完成 2.1d' : 'Avg response 14h · avg completion 2.1d',
+            tone: 'up',
           },
         ]}
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Counter label={lang === 'zh' ? '待响应' : 'Awaiting response'} value={open.length} accent="#B91C1C" sub={lang === 'zh' ? '超 4 小时未处理 · 自动升级' : 'Unhandled over 4h · auto-escalated'} />
-        <Counter label={lang === 'zh' ? '处理中' : 'In progress'} value={inProgress.length} accent="#B45309" sub={lang === 'zh' ? '已派工或自处理中' : 'Dispatched or self-handled'} />
-        <Counter label={lang === 'zh' ? '本月已解决' : 'Resolved this month'} value={resolved.length + 4} accent="#047857" sub={lang === 'zh' ? '平均响应 14h · 平均完成 2.1d' : 'Avg response 14h · avg completion 2.1d'} />
-      </div>
-
       {/* Lanes */}
-      <div className="mt-10 grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         <Lane title={lang === 'zh' ? '待响应' : 'Awaiting response'} eyebrow="OPEN" tickets={open} lang={lang} />
         <Lane title={lang === 'zh' ? '处理中' : 'In progress'} eyebrow="IN PROGRESS" tickets={inProgress} lang={lang} />
         <Lane title={lang === 'zh' ? '已解决（近 30 天）' : 'Resolved (last 30 days)'} eyebrow="RESOLVED" tickets={resolved} lang={lang} />
       </div>
     </WorkspaceShell>
-  )
-}
-
-function Counter({
-  label,
-  value,
-  accent,
-  sub,
-}: {
-  label: string
-  value: number
-  accent: string
-  sub: string
-}) {
-  return (
-    <div className="sl-card p-5">
-      <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        {label}
-      </div>
-      <div className="mt-1 text-[28px] font-extrabold tracking-tight" style={{ color: accent }}>
-        {value}
-      </div>
-      <div className="mt-1 text-[11.5px] text-body-2">{sub}</div>
-    </div>
   )
 }
 
@@ -166,20 +173,18 @@ function Lane({
 }) {
   return (
     <div>
-      <div className="mb-3 flex items-baseline justify-between">
-        <div>
-          <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-body-3">
-            {eyebrow}
-          </div>
-          <h3 className="text-[16px] font-bold tracking-tight">
-            {title} · {tickets.length}
-          </h3>
-        </div>
+      <div className="mb-2 flex items-baseline gap-2">
+        <h3 className="text-[13px] font-bold tracking-tight">
+          {title} · {tickets.length}
+        </h3>
+        <span className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-body-3">{eyebrow}</span>
       </div>
       {tickets.length === 0 ? (
-        <div className="sl-card p-6 text-center text-[12px] text-body-3">{lang === 'zh' ? '这一栏暂时为空' : 'This lane is empty for now'}</div>
+        <SectionCard padded={false}>
+          <EmptyState>{lang === 'zh' ? '这一栏暂时为空' : 'This lane is empty for now'}</EmptyState>
+        </SectionCard>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {tickets.map((t) => (
             <TicketCard key={t.id} t={t} lang={lang} />
           ))}
@@ -192,34 +197,21 @@ function Lane({
 function TicketCard({ t, lang }: { t: (typeof TICKETS)[number]; lang: Lang }) {
   const p = PRIORITY_STYLE[t.priority]
   return (
-    <div className="sl-card p-4">
+    <SectionCard>
       <div className="flex items-start justify-between gap-3">
         <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">
           {t.id} · {t.created[lang]}
         </div>
-        <span
-          className="font-mono"
-          style={{
-            background: p.bg,
-            color: p.fg,
-            padding: '2px 7px',
-            borderRadius: 4,
-            fontSize: 9.5,
-            fontWeight: 700,
-            letterSpacing: '0.10em',
-          }}
-        >
-          {p.label[lang]}
-        </span>
+        <StatusPill tone={p.tone}>{p.label[lang]}</StatusPill>
       </div>
       <div className="mt-2 text-[14px] font-bold">{t.title[lang]}</div>
       <div className="mt-1 text-[12px] text-body-2">{t.unit}</div>
-      <div className="mt-2 text-[11.5px] text-body-3">
+      <div className="mt-1.5 text-[11.5px] text-body-3">
         {t.tenant} · {t.category[lang]}
         {t.photos > 0 && ` · 📷 ${t.photos}`}
       </div>
       {(t as any).assignee && (
-        <div className="mt-3 rounded-[8px] border border-line-divider bg-surface px-3 py-2 text-[11.5px]">
+        <div className="mt-2.5 rounded-[8px] border border-line-divider bg-surface px-3 py-2 text-[11.5px]">
           🛠 {(t as any).assignee[lang]}
           {(t as any).eta && (
             <span className="ml-2 font-mono text-[10px] text-body-3">ETA {(t as any).eta}</span>
@@ -231,7 +223,7 @@ function TicketCard({ t, lang }: { t: (typeof TICKETS)[number]; lang: Lang }) {
           )}
         </div>
       )}
-      <div className="mt-3 flex gap-2">
+      <div className="mt-2.5 flex gap-2">
         <Link href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? `打开工单 ${t.id}「${t.title.zh}」的详情和处理进度` : `Open ticket ${t.id} "${t.title.en}" — show details and progress`)}`} className="flex-1 rounded-[8px] border border-line-strong bg-white py-[7px] text-center text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand">
           {lang === 'zh' ? '打开' : 'Open'}
         </Link>
@@ -241,42 +233,46 @@ function TicketCard({ t, lang }: { t: (typeof TICKETS)[number]; lang: Lang }) {
           </Link>
         )}
       </div>
-    </div>
+    </SectionCard>
   )
 }
 
-function Aside({ lang }: { lang: Lang }) {
+function Aside({ lang, insights }: { lang: Lang; insights: AIInsight[] }) {
   const aiName = useAIName('landlord')
+  const zh = lang === 'zh'
   return (
     <div>
-      <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        {lang === 'zh' ? '服务商' : 'Service providers'}
-      </div>
-      <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
-        {lang === 'zh'
-          ? `${aiName} 会按工单类别自动匹配你预设的服务商，或在 Stayloop 服务商网络里推荐。`
-          : `${aiName} auto-matches your preset providers by ticket category, or recommends one from the Stayloop provider network.`}
-      </p>
-      <div className="mt-3 space-y-2">
-        {[
-          { name: 'Toronto HVAC Pros', cat: { zh: 'HVAC', en: 'HVAC' }, rating: 4.9 },
-          { name: 'GE Repair Toronto', cat: { zh: '电器', en: 'Appliance' }, rating: 4.7 },
-          { name: 'Best Plumber GTA', cat: { zh: '水电', en: 'Plumbing' }, rating: 4.8 },
-        ].map((s) => (
-          <div
-            key={s.name}
-            className="flex items-center justify-between rounded-[8px] border border-line-divider bg-white px-3 py-2 text-[12px]"
-          >
-            <div>
-              <div className="font-bold">{s.name}</div>
-              <div className="font-mono text-[9.5px] uppercase tracking-eyebrow text-body-3">
-                {s.cat[lang]}
+      <AsideBlock title={zh ? 'AI 建议' : 'AI SUGGESTIONS'}>
+        <AIProactive role="landlord" insights={insights} variant="rail" />
+      </AsideBlock>
+
+      <AsideBlock title={zh ? '服务商' : 'Service providers'}>
+        <p className="text-[12.5px] leading-relaxed text-body-2">
+          {zh
+            ? `${aiName} 会按工单类别自动匹配你预设的服务商，或在 Stayloop 服务商网络里推荐。`
+            : `${aiName} auto-matches your preset providers by ticket category, or recommends one from the Stayloop provider network.`}
+        </p>
+        <div className="mt-3 space-y-2">
+          {[
+            { name: 'Toronto HVAC Pros', cat: { zh: 'HVAC', en: 'HVAC' }, rating: 4.9 },
+            { name: 'GE Repair Toronto', cat: { zh: '电器', en: 'Appliance' }, rating: 4.7 },
+            { name: 'Best Plumber GTA', cat: { zh: '水电', en: 'Plumbing' }, rating: 4.8 },
+          ].map((s) => (
+            <div
+              key={s.name}
+              className="flex items-center justify-between rounded-[8px] border border-line-divider bg-white px-3 py-2 text-[12px]"
+            >
+              <div>
+                <div className="font-bold">{s.name}</div>
+                <div className="font-mono text-[9.5px] uppercase tracking-eyebrow text-body-3">
+                  {s.cat[lang]}
+                </div>
               </div>
+              <div className="text-[11px] text-body-2">★ {s.rating}</div>
             </div>
-            <div className="text-[11px] text-body-2">★ {s.rating}</div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </AsideBlock>
     </div>
   )
 }
