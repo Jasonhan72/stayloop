@@ -103,3 +103,26 @@ describe('finance rent roll', () => {
     }
   })
 })
+
+describe('agent CRM agrees with the commission book', () => {
+  // Four clients carried a settled commission while the CRM still had them
+  // shopping — David Z. was "awaiting landlord reply" on the same date his
+  // Distillery 1207 fee was booked.
+  it('every client with a settled deal is at the leased stage', async () => {
+    const { CLOSED_DEALS } = await import('../lib/demo/agentBook')
+    const { CLIENTS } = await import('../lib/demo/agentClients')
+    const stages = new Map(CLIENTS('AI').map((c) => [c.name, c.stage]))
+    for (const d of CLOSED_DEALS) {
+      const key = d.clientKey
+      if (!key || !stages.has(key)) continue
+      expect(stages.get(key), `${key} has a settled deal but is at stage ${stages.get(key)}`).toBe('leased')
+    }
+  })
+
+  it('every closed deal can be matched back to the CRM', async () => {
+    // Four of the six deals had no clientKey, which is why the drift went
+    // unseen: the CRM simply rendered nothing for them.
+    const { CLOSED_DEALS } = await import('../lib/demo/agentBook')
+    for (const d of CLOSED_DEALS) expect(d.clientKey, `${d.client.en} has no clientKey`).toBeTruthy()
+  })
+})

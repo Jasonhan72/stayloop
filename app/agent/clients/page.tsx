@@ -26,6 +26,7 @@ import {
   netCommission,
   platformFee,
 } from '@/lib/demo/agentBook'
+import { CLIENTS } from '@/lib/demo/agentClients'
 
 /**
  * V5 Agent · Clients — layout follows design/v9-workspace-finance.html.
@@ -41,119 +42,6 @@ import {
 /** Days since the last two-way contact — drives the follow-up alert. */
 const SILENT_WARN = 3
 const SILENT_DANGER = 5
-
-const CLIENTS = (aiName: string) => [
-  {
-    name: 'Mia Chen',
-    tier: 3,
-    budget: '$3,800–$4,500',
-    area: 'King West',
-    stage: 'showing',
-    silent: 0,
-    next: { zh: '今天 11:00 · Unit 1207 · King West', en: 'Today 11:00 · Unit 1207 · King West' },
-    last: { zh: `昨晚和 ${aiName} 聊了 30 min`, en: `Chatted with ${aiName} 30 min last night` },
-  },
-  {
-    name: 'Anna L.',
-    tier: 3,
-    budget: '$3,800–$4,500',
-    area: 'The Annex / Forest Hill',
-    stage: 'showing',
-    silent: 0,
-    next: { zh: '昨天已看 432 Brunswick · 等反馈表', en: 'Viewed 432 Brunswick yesterday · feedback pending' },
-    last: { zh: `昨晚和 ${aiName} 聊了 30 min`, en: `Chatted with ${aiName} 30 min last night` },
-  },
-  {
-    name: 'Jason H.',
-    tier: 2,
-    budget: '$3,200–$3,600',
-    area: 'King West / Liberty Village',
-    stage: 'searching',
-    silent: 5,
-    next: { zh: `${aiName} 在筛选 5 套备选`, en: `${aiName} shortlisting 5 options` },
-    last: { zh: '5/4 给了 brief 包', en: 'Brief pack delivered 5/4' },
-  },
-  {
-    name: 'Lisa W.',
-    tier: 4,
-    budget: '$4,500+',
-    area: 'Yorkville',
-    stage: 'searching',
-    silent: 2,
-    next: { zh: '等 5/14 看 88 Harbour', en: 'Awaiting 5/14 viewing · 88 Harbour' },
-    last: { zh: '明确要 24h concierge', en: 'Specifically wants 24h concierge' },
-  },
-  {
-    name: 'Kevin Tran',
-    tier: 2,
-    budget: '$2,800–$3,000',
-    area: 'Liberty Village',
-    stage: 'leased',
-    silent: 1,
-    next: { zh: '续约草稿 5/12 完成', en: 'Renewal draft due 5/12' },
-    last: { zh: '已盖 2/4 枚章 · 12 个月按时', en: '2/4 stamps · 12 months on time' },
-  },
-  {
-    name: 'David Z.',
-    tier: 3,
-    budget: '$3,400',
-    area: 'Distillery District',
-    stage: 'applied',
-    silent: 3,
-    next: { zh: '等房东回复', en: 'Awaiting landlord reply' },
-    last: { zh: '5/3 提交完整申请', en: 'Full application submitted 5/3' },
-  },
-  {
-    name: 'Priya S.',
-    tier: 2,
-    budget: '$2,400',
-    area: 'Cabbagetown',
-    stage: 'searching',
-    silent: 4,
-    next: { zh: `${aiName} 在配对小户型`, en: `${aiName} matching small units` },
-    last: { zh: '5/2 加入', en: 'Joined 5/2' },
-  },
-  {
-    name: 'Marcus T.',
-    tier: 3,
-    budget: '$3,600',
-    area: 'Leslieville',
-    stage: 'applied',
-    silent: 3,
-    next: { zh: '等房东 5/13 回复', en: 'Awaiting landlord reply 5/13' },
-    last: { zh: '5/1 提交申请', en: 'Application submitted 5/1' },
-  },
-  {
-    name: 'Sophie B.',
-    tier: 1,
-    budget: '$1,800',
-    area: 'Bachelor / Cabbagetown',
-    stage: 'searching',
-    silent: 4,
-    next: { zh: '提示她盖上收入章', en: 'Prompt her to earn the income stamp' },
-    last: { zh: '4/30 加入', en: 'Joined 4/30' },
-  },
-  {
-    name: 'Eric K.',
-    tier: 4,
-    budget: '$5,200',
-    area: 'Yorkville',
-    stage: 'showing',
-    silent: 3,
-    next: { zh: '5/13 三套连看', en: 'Three back-to-back viewings 5/13' },
-    last: { zh: '只看高门槛房源', en: 'Only views high-threshold listings' },
-  },
-  {
-    name: 'Yuki M.',
-    tier: 2,
-    budget: '$2,950',
-    area: 'King West',
-    stage: 'leased',
-    silent: 1,
-    next: { zh: '5/8 成交 · 租约到期 2027-05', en: 'Closed 5/8 · lease ends 2027-05' },
-    last: { zh: '4/28 银行透明度通过', en: 'Bank transparency passed 4/28' },
-  },
-]
 
 const STAGE_STYLE: Record<string, { tone: PillTone; label: { zh: string; en: string } }> = {
   searching: { tone: 'info', label: { zh: '寻房中', en: 'Searching' } },
