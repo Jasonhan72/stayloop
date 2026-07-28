@@ -82,9 +82,13 @@ interface HomeCopy {
   chatSt: string
   chatU: string
   chatA1: ReactNode
-  miniT: string
-  miniPr: string
-  miniM2: ReactNode
+  cards: { t: string; pr: string; spec: string; hood: string; badge: string; note: string; img: string }[]
+  mktH: string
+  mktP: string
+  mktSub: string
+  mktNote: ReactNode
+  inputPh: string
+  sendLbl: string
   chatA2: ReactNode
   chatBp: string
   chatBs: string
@@ -148,13 +152,22 @@ const COPY: Record<Lang, HomeCopy> = {
         North York 两房中位 <b>$2,795</b>（TRREB 官方 C14：$2,914 · 224 宗成交）——预算合理。<b>3 套可养猫</b>的已挑好：
       </>
     ),
-    miniT: 'Liberty Village 2B',
-    miniPr: '$2,750/月',
-    miniM2: (
+    cards: [
+      { t: '18 - 85 EAST LIBERTY ST', pr: '$2,750', spec: '2B · 1 浴 · 780 sqft', hood: 'Liberty Village · Toronto',
+        badge: 'TIER 2', note: '◑ 平台已核验 · 可养猫 · 地铁 8 分钟', img: '/home/final-interior.jpg' },
+      { t: '1204 - 55 COOPER ST', pr: '$2,690', spec: '2B · 2 浴 · 720 sqft', hood: 'Waterfront · Toronto',
+        badge: 'REALTOR.CA', note: '◧ 外部房源 · Realtor.ca 实时 · 未经 Stayloop 验证', img: '/home/hero-mist.jpg' },
+    ],
+    mktH: 'NORTH YORK · 2 房 · 真实行情 · 样本 22 套',
+    mktP: '$2,180–$3,600',
+    mktSub: '中位 $2,795',
+    mktNote: (
       <>
-        <span className="okt">✓ 可养猫</span> · 地铁 8 分钟 · 平台已核验
+        官方基准 · TRREB C14 · 2026 Q1：2 房成交均价 <b>$2,914</b> · 224 宗成交
       </>
     ),
+    inputPh: '告诉 AI Agent 你想做什么 —— 文字、语音或上传文件都行',
+    sendLbl: '发送 →',
     chatA2: (
       <>
         你的护照已盖 <b>3/4 枚章</b>——材料一份不用再传，我直接替你递交。
@@ -408,13 +421,22 @@ const COPY: Record<Lang, HomeCopy> = {
         The North York two-bed median is <b>$2,795</b> (official TRREB C14: $2,914 · 224 leases) — your budget works. <b>3 cat-friendly picks</b> are ready:
       </>
     ),
-    miniT: 'Liberty Village 2B',
-    miniPr: '$2,750/mo',
-    miniM2: (
+    cards: [
+      { t: '18 - 85 EAST LIBERTY ST', pr: '$2,750', spec: '2B · 1 bath · 780 sqft', hood: 'Liberty Village · Toronto',
+        badge: 'TIER 2', note: '◑ Platform-verified · cats OK · 8 min to subway', img: '/home/final-interior.jpg' },
+      { t: '1204 - 55 COOPER ST', pr: '$2,690', spec: '2B · 2 bath · 720 sqft', hood: 'Waterfront · Toronto',
+        badge: 'REALTOR.CA', note: '◧ External listing · live from Realtor.ca · not Stayloop-verified', img: '/home/hero-mist.jpg' },
+    ],
+    mktH: 'NORTH YORK · 2-BED · LIVE MARKET · 22 LISTINGS',
+    mktP: '$2,180–$3,600',
+    mktSub: 'median $2,795',
+    mktNote: (
       <>
-        <span className="okt">✓ Cats OK</span> · 8 min to subway · platform-verified
+        Official benchmark · TRREB C14 · 2026 Q1: 2-bed average <b>$2,914</b> · 224 leases
       </>
     ),
+    inputPh: 'Tell AI Agent what you need — text, voice or upload a file',
+    sendLbl: 'Send →',
     chatA2: (
       <>
         Your passport has <b>3 of 4 stamps</b> — nothing to re-upload, I&rsquo;ll submit for you.
@@ -741,7 +763,10 @@ const CSS = `
            letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
            font-family:'JetBrains Mono',ui-monospace,monospace}
   .v8-page .chat-st::before{content:"";width:6px;height:6px;border-radius:50%;background:#34D399}
-  .v8-page .chat-b{padding:18px;display:flex;flex-direction:column;gap:12px;background:var(--bg-2)}
+  .v8-page .chat-b{padding:16px;display:flex;flex-direction:column;gap:11px;background:var(--bg-2);
+           max-height:430px;overflow:hidden;
+           -webkit-mask-image:linear-gradient(180deg,#000 84%,transparent 100%);
+                   mask-image:linear-gradient(180deg,#000 84%,transparent 100%)}
   .v8-page .m{max-width:88%;padding:11px 15px;border-radius:16px;font-size:14px;line-height:1.6}
   /* Agent turns carry the small orb, as in the live thread. */
   .v8-page .m-row{display:flex;align-items:flex-start;gap:8px;align-self:flex-start;max-width:96%}
@@ -750,14 +775,46 @@ const CSS = `
   .v8-page .m-u{align-self:flex-end;background:#7C3AED;color:#fff;border-top-right-radius:4px}
   .v8-page .m-a{align-self:flex-start;background:#F6F3EA;color:var(--ink);border-top-left-radius:4px}
   .v8-page .m-a b{color:var(--brand)}
-  .v8-page .mini{align-self:flex-start;width:90%;background:#fff;border:1px solid var(--line);border-radius:12px;
-        padding:12px 14px;display:flex;gap:12px;align-items:center;
-        box-shadow:0 4px 14px -6px rgba(24,24,27,.08)}
-  .v8-page .mini-ph{width:54px;height:54px;border-radius:9px;flex:none;
-           background:url('/home/final-interior.jpg') center/cover}
-  .v8-page .mini-t{font-size:13px;font-weight:700}
-  .v8-page .mini-pr{font-size:13px;color:var(--brand);font-weight:700;margin-left:auto;flex:none}
-  .v8-page .mini-m{font-size:12px;color:var(--ink-2)}
+  /* Listing results — same anatomy as components/agent/ListingChatCard:
+     photo (1.5/1) + source badge + heart, then price · specs · address ·
+     neighbourhood, closed by the provenance note bar. */
+  .v8-page .lgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-self:stretch}
+  .v8-page .lcard{display:flex;flex-direction:column;overflow:hidden;border-radius:14px;
+           border:1px solid var(--line);background:#fff}
+  .v8-page .lph{position:relative;aspect-ratio:2/1;background-size:cover;background-position:center}
+  .v8-page .lbadge{position:absolute;left:8px;top:8px;border-radius:5px;padding:3px 6px;
+           font-family:'JetBrains Mono',ui-monospace,monospace;font-size:8.5px;font-weight:700;
+           letter-spacing:.06em;text-transform:uppercase;color:#fff}
+  .v8-page .lheart{position:absolute;right:8px;top:8px;width:22px;height:22px;border-radius:50%;
+           background:rgba(0,0,0,.45);backdrop-filter:blur(4px);color:#fff;font-size:11px;
+           display:flex;align-items:center;justify-content:center}
+  .v8-page .lbody{padding:9px 10px 10px}
+  .v8-page .lpr{font-size:16px;font-weight:800;letter-spacing:-.02em}
+  .v8-page .lpr span{font-size:10px;font-weight:500;color:var(--ink-3);margin-left:2px}
+  .v8-page .lspec{margin-top:2px;font-size:11px;font-weight:700;color:var(--ink-2)}
+  .v8-page .laddr{margin-top:5px;font-size:12px;font-weight:700;line-height:1.35}
+  .v8-page .lhood{font-size:11px;color:var(--ink-3)}
+  .v8-page .lnote{border-top:1px solid var(--line-soft);padding:6px 11px;font-size:9.5px;line-height:1.4}
+
+  /* Market card — the live thread's TRREB strip (range + benchmark line). */
+  .v8-page .mkt{align-self:stretch;border:1px solid var(--line);border-radius:14px;background:#fff;padding:11px 12px}
+  .v8-page .mkt-h{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:9px;letter-spacing:.1em;
+           text-transform:uppercase;color:var(--ink-3)}
+  .v8-page .mkt-p{margin-top:5px;font-size:15px;font-weight:800;letter-spacing:-.02em}
+  .v8-page .mkt-p b{font-size:11px;font-weight:600;color:var(--ink-3);margin-left:6px}
+  .v8-page .mkt-bar{position:relative;height:5px;border-radius:99px;margin-top:8px;
+           background:linear-gradient(90deg,#6EE7B7,#FBBF24,#F87171);opacity:.45}
+  .v8-page .mkt-dot{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
+           background:var(--brand);border:2px solid #fff;transform:translate(-50%,-50%)}
+  .v8-page .mkt-n{margin-top:8px;font-size:10.5px;color:var(--ink-2);line-height:1.5}
+
+  /* Input bar — mirrors components/agent/AgentInputBar. */
+  .v8-page .ibar{display:flex;align-items:center;gap:9px;border-top:1px solid var(--line-soft);
+           padding:11px 16px;background:#fff}
+  .v8-page .ibar-ic{color:var(--ink-3);font-size:14px}
+  .v8-page .ibar-ph{flex:1;font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .v8-page .ibar-send{border-radius:9px;background:var(--brand);color:#fff;font-size:11.5px;
+           font-weight:700;padding:6px 12px;flex:none}
   .v8-page .okt{color:var(--ok);font-weight:600}
   .v8-page .chat-acts{display:flex;gap:8px;align-items:center;padding:14px 18px;background:var(--bg-2);
              border-top:1px solid var(--line-soft)}
@@ -1033,25 +1090,48 @@ export default function HomePage() {
                     <span className="m-orb" />
                     <div className="m m-a">{c.chatA1}</div>
                   </div>
-                  <div className="mini">
-                    <div className="mini-ph" />
-                    <div>
-                      <div className="mini-t">{c.miniT}</div>
-                      <div className="mini-m">{c.miniM2}</div>
-                    </div>
-                    <div className="mini-pr">{c.miniPr}</div>
+                  <div className="lgrid">
+                    {c.cards.map((card) => (
+                      <div className="lcard" key={card.t}>
+                        <div className="lph" style={{ backgroundImage: `url(${card.img})` }}>
+                          <span className="lbadge" style={{ background: card.badge === 'REALTOR.CA' ? '#B45309' : '#047857' }}>
+                            {card.badge}
+                          </span>
+                          <span className="lheart">♡</span>
+                        </div>
+                        <div className="lbody">
+                          <div className="lpr">{card.pr}<span>{lang === 'zh' ? '/月' : '/mo'}</span></div>
+                          <div className="lspec">{card.spec}</div>
+                          <div className="laddr">{card.t}</div>
+                          <div className="lhood">{card.hood}</div>
+                        </div>
+                        <div
+                          className="lnote"
+                          style={card.badge === 'REALTOR.CA'
+                            ? { background: 'rgba(180,83,9,0.05)', color: '#92400E' }
+                            : { background: 'rgba(124,58,237,0.05)', color: '#5B21B6' }}
+                        >
+                          {card.note}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mkt">
+                    <div className="mkt-h">{c.mktH}</div>
+                    <div className="mkt-p">{c.mktP}<b>{c.mktSub}</b></div>
+                    <div className="mkt-bar"><span className="mkt-dot" style={{ left: '62%' }} /></div>
+                    <div className="mkt-n">{c.mktNote}</div>
                   </div>
                   <div className="m-row">
                     <span className="m-orb" />
                     <div className="m m-a">{c.chatA2}</div>
                   </div>
                 </div>
-                <div className="chat-acts">
-                  <Link className="chip chip-p" href={promptHref(c.chatU)}>
-                    {c.chatBp}
-                  </Link>
-                  <span className="chip chip-g">{c.chatBs}</span>
-                  <span className="chat-fr">{c.chatFr}</span>
+                <div className="ibar">
+                  <span className="ibar-ic">🔗</span>
+                  <span className="ibar-ic">🎙</span>
+                  <span className="ibar-ph">{c.inputPh}</span>
+                  <Link className="ibar-send" href={promptHref(c.chatU)}>{c.sendLbl}</Link>
                 </div>
               </div>
               <div className="float">

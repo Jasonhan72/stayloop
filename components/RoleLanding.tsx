@@ -211,6 +211,19 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
               </div>
             </div>
 
+            {/* input bar — same affordances as components/agent/AgentInputBar */}
+            <div className="flex items-center gap-2.5 border-t border-line-divider px-4 py-2.5">
+              <span className="text-[13px] text-body-3">🔗</span>
+              <span className="text-[13px] text-body-3">🎙</span>
+              <span className="min-w-0 flex-1 truncate text-[12px] text-body-3">
+                {zh ? `告诉 ${cfg.agentName} 你想做什么 —— 文字、语音或上传文件都行`
+                    : `Tell ${cfg.agentName} what you need — text, voice or upload a file`}
+              </span>
+              <span className="flex-none rounded-lg px-3 py-1.5 text-[11.5px] font-bold text-white" style={{ background: c }}>
+                {zh ? '发送 →' : 'Send →'}
+              </span>
+            </div>
+
             {/* capability strip */}
             <ul className="grid gap-x-4 gap-y-1.5 border-t border-line-divider px-5 py-3.5 text-[11.5px] text-body-2 sm:grid-cols-2">
               {cfg.agentPoints.map((p) => (
