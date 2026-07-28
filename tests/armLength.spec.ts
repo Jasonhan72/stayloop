@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { pickBestCompanyMatch, canonicalizeEmployerName } from '../lib/forensics/arm-length'
+import { nameMatches } from '../lib/forensics/bn-check'
 
 const co = (name: string) => ({ name })
 
@@ -51,5 +52,34 @@ describe('canonicalizeEmployerName', () => {
     expect(canonicalizeEmployerName('Northline Motors Inc.')).toBe('northline motors')
     expect(canonicalizeEmployerName('NLMA AUTO INC.')).toBe('nlma auto')
     expect(canonicalizeEmployerName('Acme Holdings Co., Ltd.')).toBe('acme holdings')
+  })
+})
+
+describe('BN name matching — must not clear a forged letter', () => {
+  const m = (a: string, b: string) =>
+    nameMatches(canonicalizeEmployerName(a), canonicalizeEmployerName(b))
+
+  it('matches the same company across legal-suffix and word-order noise', () => {
+    expect(m('Northline Motors Inc.', 'NORTHLINE MOTORS INC')).toBe(true)
+    expect(m('NLMA Auto', 'NLMA Auto Sales Ltd.')).toBe(true)
+    expect(m('Costco', 'Costco Wholesale Canada Ltd.')).toBe(true)
+  })
+
+  it('does NOT clear a BN registered to a different company', () => {
+    // One shared industry word used to be enough, so a forged BN pointing at
+    // any company with "Motors" in the name came back verified.
+    expect(m('Northline Motors', 'Toronto Motors Leasing Inc.')).toBe(false)
+    expect(m('Apex Consulting Group', 'Summit Consulting Partners')).toBe(false)
+    expect(m('Costco', 'Cost Plus Holdings Inc.')).toBe(false)
+  })
+})
+
+describe('employer canonicalization does not eat words', () => {
+  it('only strips a legal suffix at a word boundary', () => {
+    // Without the boundary, "Costco" collapsed to "cost" and "Visa Inc" to "vi",
+    // which then matched unrelated companies.
+    expect(canonicalizeEmployerName('Costco')).toBe('costco')
+    expect(canonicalizeEmployerName('Cisco Systems')).toBe('cisco systems')
+    expect(canonicalizeEmployerName('Visa Inc')).toBe('visa')
   })
 })

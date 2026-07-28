@@ -3,7 +3,7 @@
 // prompt-injection channel via LLM-authored memories is filtered, and
 // (2) OHRC protected-ground rejections are blocked, lawful ones pass.
 import { describe, expect, it } from 'vitest'
-import { applyGuardrail, type ProposedAction, type TurnOutput } from '@/lib/agent/guardrail'
+import { applyGuardrail, sanitizeDraftListing, type ProposedAction, type TurnOutput } from '@/lib/agent/guardrail'
 import type { MemoryItem } from '@/lib/agent/types'
 
 function mem(value: string, key = 'note'): MemoryItem {
@@ -144,5 +144,51 @@ describe('false "already executed" claims', () => {
     )
     expect(flags).toContain('rewrote_executed_claim')
     expect(result.proposedAction?.summary).not.toContain('已提交')
+  })
+})
+
+describe('executed-claim detection (regression: EN was entirely inert)', () => {
+  const mk = (reply: string) => ({ reply, memory_writes: [], proposed_action: null }) as never
+  const flagged = (reply: string, lang: 'zh' | 'en' = 'zh') =>
+    (applyGuardrail('tenant', mk(reply), lang).flags || []).some((f) => /claim|execut/i.test(f))
+
+  it('catches Chinese claims with an interposed object', () => {
+    // The old pattern required the verb immediately after 已/已经, so these
+    // real phrasings all slipped through.
+    expect(flagged('已经把你的申请提交给房东了')).toBe(true)
+    expect(flagged('我已帮你提交了申请')).toBe(true)
+    expect(flagged('已替你把资料分享给 Sarah')).toBe(true)
+    expect(flagged('资料已经发出去了')).toBe(true)
+  })
+
+  it('catches English claims — the control used to have no English at all', () => {
+    expect(flagged('I have already sent your application', 'en')).toBe(true)
+    expect(flagged('Your application has been submitted', 'en')).toBe(true)
+    expect(flagged("I've submitted your application", 'en')).toBe(true)
+    expect(flagged('I already shared your documents', 'en')).toBe(true)
+  })
+
+  it('does not flag proposals, which are the whole point of the product', () => {
+    expect(flagged('我可以帮你起草一份申请，你确认后我再提交。')).toBe(false)
+    expect(flagged('I can draft the application — I will submit it once you approve.', 'en')).toBe(false)
+    expect(flagged('Would you like me to send it?', 'en')).toBe(false)
+  })
+})
+
+describe('draft listing sanitisation keeps lawful copy', () => {
+  it('keeps family-friendly and accessibility copy (mentioning ≠ excluding)', () => {
+    const out = sanitizeDraftListing(
+      { title: '阳光两居 · 适合有孩子的家庭', description: '非常适合有小孩的家庭，楼下有无障碍通道。', pet_policy: '欢迎养猫' },
+      'zh',
+    ) as { draft: Record<string, string> }
+    expect(out.draft.title).toBeTruthy()
+    expect(out.draft.description).toBeTruthy()
+  })
+
+  it('still strips exclusion-shaped copy', () => {
+    const out = sanitizeDraftListing({ title: '两居', description: '仅限本地白人，不接受新移民。' }, 'zh') as {
+      draft: Record<string, string | undefined>
+    }
+    expect(out.draft.description).toBeUndefined()
   })
 })

@@ -182,6 +182,63 @@ Reply to this email to accept, discuss, or ask questions. Under Ontario's Reside
 // ---------------------------------------------------------------------------
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/**
+ * The set of addresses a caller is allowed to message.
+ *
+ * Pending actions are written client-side under RLS, so `metadata.to_email` is
+ * attacker-controlled — without this check /api/agent/execute is an open mail
+ * relay on the Stayloop sending domain. A recipient is allowed only when the
+ * caller is a party to a lease with that address, or the address belongs to an
+ * applicant on one of the caller's listings.
+ */
+async function isKnownCounterparty(admin: Admin, userId: string, email: string): Promise<boolean> {
+  const target = email.trim().toLowerCase()
+  if (!target) return false
+
+  const { data: landlordRows } = await admin.from('landlords').select('id').eq('auth_id', userId)
+  const landlordIds = (landlordRows ?? []).map((r: { id: string }) => r.id)
+  const { data: tenantRows } = await admin.from('tenants').select('id').eq('auth_id', userId)
+  const tenantIds = (tenantRows ?? []).map((r: { id: string }) => r.id)
+
+  // Counterparties on the caller's leases.
+  if (landlordIds.length > 0) {
+    const { data } = await admin
+      .from('lease_documents')
+      .select('tenant_email')
+      .in('landlord_id', landlordIds)
+      .not('tenant_email', 'is', null)
+    if ((data ?? []).some((l: { tenant_email: string | null }) => l.tenant_email?.trim().toLowerCase() === target)) {
+      return true
+    }
+  }
+  if (tenantIds.length > 0) {
+    const { data } = await admin
+      .from('lease_documents')
+      .select('landlord_id')
+      .in('tenant_id', tenantIds)
+    const ids = (data ?? []).map((l: { landlord_id: string | null }) => l.landlord_id).filter(Boolean)
+    if (ids.length > 0) {
+      const { data: ll } = await admin.from('landlords').select('email').in('id', ids as string[])
+      if ((ll ?? []).some((l: { email: string | null }) => l.email?.trim().toLowerCase() === target)) return true
+    }
+  }
+
+  // Applicants on the caller's listings.
+  if (landlordIds.length > 0) {
+    const { data: listings } = await admin.from('listings').select('id').in('landlord_id', landlordIds)
+    const listingIds = (listings ?? []).map((l: { id: string }) => l.id)
+    if (listingIds.length > 0) {
+      const { data: apps } = await admin
+        .from('applications')
+        .select('email')
+        .in('listing_id', listingIds)
+        .not('email', 'is', null)
+      if ((apps ?? []).some((a: { email: string | null }) => a.email?.trim().toLowerCase() === target)) return true
+    }
+  }
+  return false
+}
+
 async function executeSendMessage(
   admin: Admin,
   userId: string,
@@ -194,7 +251,13 @@ async function executeSendMessage(
   if (!to) {
     return NextResponse.json({ executed: false, reason: 'no valid recipient email' }, { status: 422 })
   }
-  const bodyText = String(m.body ?? '').replace(/<[^>]*>/g, '').trim()
+  if (!(await isKnownCounterparty(admin, userId, to))) {
+    return NextResponse.json(
+      { executed: false, reason: 'recipient is not a counterparty on any of your leases or applications' },
+      { status: 403 },
+    )
+  }
+  const bodyText = String(m.body ?? '').replace(/<[^>]*>/g, '').trim().slice(0, 5000)
   if (!bodyText) {
     return NextResponse.json({ executed: false, reason: 'message body is empty' }, { status: 422 })
   }
@@ -278,6 +341,9 @@ export async function POST(req: Request) {
   )
   const { data: ud, error: ue } = await sbAuth.auth.getUser()
   if (ue || !ud?.user) return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+  if (ud.user.is_anonymous) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
   const userId = ud.user.id
 
   let body: { action_id?: string; option?: 'A' | 'B' }

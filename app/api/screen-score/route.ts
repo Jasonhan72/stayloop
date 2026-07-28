@@ -729,6 +729,38 @@ function mapV3ToLegacy(
   }
 }
 
+// Databases that legitimately signal tenant payment risk. Everything else —
+// notably `onhrt` (Human Rights Tribunal), `oncj`, `oncicb`, `onorb` — must
+// NEVER influence a score: those records turn on protected grounds under the
+// Ontario Human Rights Code. Both the first and the supplemental court pass
+// go through this function; the supplemental pass previously counted every
+// name-in-title hit and silently re-admitted them.
+const DEBT_RELEVANT_CANLII_DBS = new Set([
+  'onltb',    // Landlord & Tenant Board
+  'onsc',     // Ontario Superior Court (civil)
+  'onscdc',   // Divisional Court (civil appeals)
+  'onscsm',   // Small Claims Court
+  'onca',     // Court of Appeal (civil)
+])
+
+/**
+ * Count scoring-eligible court hits, deduped by case identity so the same case
+ * found under two spellings of a name (or via two co-applicants) counts once —
+ * double counting used to escalate a single case to the "multi" gate (cap 25).
+ */
+export function countDebtRelevantHits(
+  records: { nameInTitle?: boolean; databaseId?: string; caseId?: string; citation?: string; title?: string }[],
+): number {
+  const seen = new Set<string>()
+  for (const r of records || []) {
+    if (!r?.nameInTitle) continue
+    if (!DEBT_RELEVANT_CANLII_DBS.has((r.databaseId || '').toLowerCase())) continue
+    const key = (r.caseId || r.citation || r.title || '').trim().toLowerCase()
+    seen.add(key || `anon-${seen.size}`)
+  }
+  return seen.size
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { screening_id } = await req.json()
@@ -1721,7 +1753,12 @@ JSON DISCIPLINE (avoid parse errors):
       s.verification * V3_WEIGHTS.verification +
       s.communication * V3_WEIGHTS.communication
 
-    const hardGates: string[] = Array.isArray(parsed.hard_gates_triggered) ? parsed.hard_gates_triggered : []
+    // Model-supplied. An unrecognised gate name caps nothing (HARD_GATE_CAPS
+    // lookup falls back to 100) but still forces tier='decline', so a single
+    // hallucinated string would auto-decline an applicant. Only gates we
+    // actually define may influence the verdict.
+    const hardGates: string[] = (Array.isArray(parsed.hard_gates_triggered) ? parsed.hard_gates_triggered : [])
+      .filter((g: unknown): g is string => typeof g === 'string' && g in HARD_GATE_CAPS)
     const redFlags: string[] = Array.isArray(parsed.red_flags) ? parsed.red_flags : []
 
     // Enforce hard gates in backend (don't fully trust Claude).
@@ -1903,16 +1940,7 @@ JSON DISCIPLINE (avoid parse errors):
     // These cases falsely escalated otherwise-clean applicants to "decline".
     // Only count hits in databases that legitimately signal tenant risk:
     // LTB (eviction), Superior/Divisional/Appeal (civil debt), Small Claims.
-    const DEBT_RELEVANT_CANLII_DBS = new Set([
-      'onltb',    // Landlord & Tenant Board
-      'onsc',     // Ontario Superior Court (civil)
-      'onscdc',   // Divisional Court (civil appeals)
-      'onscsm',   // Small Claims Court
-      'onca',     // Court of Appeal (civil)
-    ])
-    const canliiPartyHits = courtDetail.records.filter(r =>
-      r.nameInTitle && DEBT_RELEVANT_CANLII_DBS.has((r.databaseId || '').toLowerCase())
-    ).length
+    const canliiPartyHits = countDebtRelevantHits(courtDetail.records)
     const totalCourtHits = portalDefendantCases.length + canliiPartyHits
 
     if (totalCourtHits > 0) {
@@ -1998,15 +2026,16 @@ JSON DISCIPLINE (avoid parse errors):
       (sum, k) => sum + (coverageWeights[subCov[k]] ?? 1.0), 0
     ) / ALL_SUB_COMPONENTS.length
 
-    // Determine tier
+    // Determine tier. A triggered hard gate outranks sparse evidence — a proven
+    // forgery or eviction must not be softened to "insufficient_evidence".
     let tier: 'approve' | 'conditional' | 'decline'
     let tierReason = ''
-    if (evidenceCoverage < 0.4) {
-      tier = 'conditional'
-      tierReason = 'insufficient_evidence'
-    } else if (hardGates.length > 0) {
+    if (hardGates.length > 0) {
       tier = 'decline'
       tierReason = 'hard_gate_triggered'
+    } else if (evidenceCoverage < 0.4) {
+      tier = 'conditional'
+      tierReason = 'insufficient_evidence'
     } else if (evidenceCoverage < 0.6) {
       tier = 'conditional'
       tierReason = 'low_confidence'
@@ -2023,7 +2052,7 @@ JSON DISCIPLINE (avoid parse errors):
     // Behavioral red flags only — forensics_* entries are already counted
     // upstream via hardGates + forensicsPenalty; don't double-count them here.
     const behavioralRedFlagCount = redFlags.filter(f => !f.startsWith('forensics_')).length
-    const legacy = mapV3ToLegacy(s, behavioralRedFlagCount, identityMatch, totalCourtHits)
+    let legacy = mapV3ToLegacy(s, behavioralRedFlagCount, identityMatch, totalCourtHits)
 
     // ---- Stage 5.5: Supplemental court searches for AI-extracted names ----
     // The initial court search (Stage 2) only used the landlord-provided
@@ -2100,7 +2129,7 @@ JSON DISCIPLINE (avoid parse errors):
         const role = (r.partyRole || '').toLowerCase()
         return role.includes('defendant') || role.includes('debtor') || role.includes('respondent')
       })
-      const allCanliiPartyHits = courtDetail.records.filter(r => r.nameInTitle).length
+      const allCanliiPartyHits = countDebtRelevantHits(courtDetail.records)
       const allCourtHits = allPortalDefendant.length + allCanliiPartyHits
       if (allCourtHits > 0) {
         const rhCap = allCourtHits >= 2 ? 10 : 25
@@ -2135,6 +2164,29 @@ JSON DISCIPLINE (avoid parse errors):
         ? Math.min(...hardGates.map(g => HARD_GATE_CAPS[g] ?? 100))
         : 100
       overall = Math.round(Math.max(0, Math.min(100, Math.min(baseScore - penalty, gateCap))))
+
+      // Re-derive the verdict from the post-merge state. Without this the
+      // persisted tier/legacy still reflect the pre-supplemental scores.
+      if (hardGates.length > 0) {
+        tier = 'decline'
+        tierReason = 'hard_gate_triggered'
+      } else if (evidenceCoverage < 0.4) {
+        tier = 'conditional'
+        tierReason = 'insufficient_evidence'
+      } else if (evidenceCoverage < 0.6) {
+        tier = 'conditional'
+        tierReason = 'low_confidence'
+      } else if (overall >= 85) {
+        tier = 'approve'
+        tierReason = ''
+      } else if (overall >= 70) {
+        tier = 'conditional'
+        tierReason = ''
+      } else {
+        tier = 'decline'
+        tierReason = ''
+      }
+      legacy = mapV3ToLegacy(s, behavioralRedFlagCount, identityMatch, allCourtHits)
     }
 
     const detectedIncome = typeof parsed.detected_monthly_income === 'number' && parsed.detected_monthly_income > 0

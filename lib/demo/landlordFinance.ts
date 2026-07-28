@@ -88,26 +88,30 @@ export type PropertyPnl = {
   vacancyNote?: { zh: string; en: string }
 }
 
+/** All ledger spend booked against a property, by its description prefix. */
+const spendFor = (prefix: string) =>
+  EXPENSES.filter((e) => e.desc.en.startsWith(prefix)).reduce((sum, e) => sum + e.amount, 0)
+
 export const PROPERTY_PNL: PropertyPnl[] = [
   {
     name: 'Unit 1207 · King West',
     tenant: { zh: 'Mia Chen', en: 'Mia Chen' },
     rent: 14000,
-    expense: 925,
+    expense: spendFor('Unit 1207'),
     vacantDays: 0,
   },
   {
     name: 'Liberty Village 2B',
     tenant: { zh: 'Thompson', en: 'Thompson' },
     rent: 16000,
-    expense: 460,
+    expense: spendFor('Liberty Village 2B'),
     vacantDays: 0,
   },
   {
     name: '432 Brunswick Ave',
     tenant: { zh: 'Anna L.（待入住）', en: 'Anna L. (moving in)' },
     rent: 0,
-    expense: 420,
+    expense: spendFor('432 Brunswick'),
     vacantDays: null,
     vacancyNote: { zh: '待入住', en: 'Moving in' },
   },

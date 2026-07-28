@@ -105,7 +105,10 @@ function isCommonSurname(name: string): boolean {
 export function canonicalizeEmployerName(name: string): string {
   let s = name.toLowerCase().trim()
   // Strip trailing legal suffixes, possibly repeated
-  const suffixRe = /\s*[,.]?\s*(incorporated|incorporée|corporation|corp|company|co|limited|limitée|ltée|ltd|inc|llc|llp|lp|pc|plc|gmbh|ag|sa)\s*\.?$/i
+  // The separator prefix is REQUIRED: without it the alternation matches inside
+  // a word ("Costco" -> "cost", "Visa Inc" -> "vi"), which produced confident
+  // matches against unrelated companies.
+  const suffixRe = /(?:^|[\s,.])(incorporated|incorporée|corporation|corp|company|co|limited|limitée|ltée|ltd|inc|llc|llp|lp|pc|plc|gmbh|ag|sa)[\s.,]*$/i
   for (let i = 0; i < 3; i++) {
     const prev = s
     s = s.replace(suffixRe, '').trim()
@@ -147,10 +150,22 @@ function addressOverlap(addr1: string, addr2: string): boolean {
   const a1 = normalize(addr1)
   const a2 = normalize(addr2)
   // Check if they share a city name (word of 4+ chars)
-  const words1 = a1.split(/\s+/).filter(w => w.length >= 4)
-  const words2 = new Set(a2.split(/\s+/).filter(w => w.length >= 4))
-  const commonWords = words1.filter(w => words2.has(w))
-  return commonWords.length >= 2 // At least 2 common location words
+  // City/province tokens are shared by nearly every address in a Toronto-only
+  // product; matching on them alone flagged unrelated parties as co-located.
+  const GENERIC_LOCATION = new Set([
+    'toronto', 'ontario', 'canada', 'north', 'south', 'east', 'west', 'unit', 'suite',
+    'street', 'avenue', 'road', 'drive', 'boulevard', 'court', 'lane', 'york', 'scarborough',
+    'etobicoke', 'mississauga', 'markham', 'vaughan', 'brampton',
+  ])
+  const distinctive = (a: string) =>
+    a.split(/\s+/).filter(w => w.length >= 4 && !GENERIC_LOCATION.has(w))
+  const words2 = new Set(distinctive(a2))
+  const commonWords = distinctive(a1).filter(w => words2.has(w))
+  // A shared street NUMBER plus a distinctive word is the real signal.
+  const num1 = a1.match(/\b\d{1,6}\b/)?.[0]
+  const num2 = a2.match(/\b\d{1,6}\b/)?.[0]
+  const sameNumber = !!num1 && num1 === num2
+  return commonWords.length >= 2 || (sameNumber && commonWords.length >= 1)
 }
 
 /**

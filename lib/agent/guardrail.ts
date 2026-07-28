@@ -29,8 +29,24 @@ const PROTECTED_GROUNDS =
 
 // Phrases that falsely claim a key action already happened — actions must be
 // proposed as approval cards, never reported as done by the agent itself.
-const EXECUTED_CLAIM =
-  /(已(经)?(发送|提交|分享|签署|签好|扣款|付款|批准|拒绝|预约|下单|升级))|(已为你(发送|提交|分享|签|扣))/
+const EXEC_VERBS_ZH = '发送|发出|提交|递交|分享|签署|签好|签了|扣款|付款|支付|批准|拒绝|婉拒|预约|安排|下单|升级|申请'
+const EXEC_VERBS_EN =
+  'sent|submitted|shared|signed|scheduled|booked|paid|approved|rejected|declined|applied|cancelled|canceled|upgraded'
+const EXECUTED_CLAIM = new RegExp(
+  [
+    // 已 / 已经 (+ optional 帮你 / 替你 / 为你 / short object) + verb
+    `已(经)?[^。！!？?\n]{0,12}(${EXEC_VERBS_ZH})`,
+    // "…已发出去了" / "…已提交成功" — verb reached from the other side
+    `(${EXEC_VERBS_ZH})(好了|完成|成功|出去了|过了)`,
+    // English: the control was previously inert for lang='en'
+    String.raw`\b(already|just)\s+(${EXEC_VERBS_EN})\b`,
+    String.raw`\bhas\s+been\s+(${EXEC_VERBS_EN})\b`,
+    String.raw`\bhave\s+been\s+(${EXEC_VERBS_EN})\b`,
+    String.raw`\bi(?:'|\u2019)?ve\s+(${EXEC_VERBS_EN})\b`,
+    String.raw`\bi\s+(${EXEC_VERBS_EN})\s+(it|them|your|the)\b`,
+  ].join('|'),
+  'i',
+)
 
 // Lease clauses that are void/illegal in Ontario.
 const ILLEGAL_LEASE =
@@ -139,10 +155,23 @@ export function sanitizeDraftListing<T extends { title?: string; description?: s
   const out = { ...draft }
   const NO_PETS = /(禁止养宠|不(允许|得|可)养宠|no[\s-]?pets?\b|pets?\s+not\s+allowed)/i
   const NO_KIDS = /(不(允许|接受|租)(有)?(小孩|孩子|儿童|家庭)|no\s+(children|kids|families))/i
+  // Excluding people on a protected ground is unlawful; MENTIONING one is not.
+  // "适合有孩子的家庭" and "wheelchair accessible" are lawful — and useful — so
+  // only exclusion-shaped phrasing is stripped.
+  const EXCLUSION_SHAPED = new RegExp(
+    [
+      `(不|拒绝|谢绝|勿)\\s*(接受|租给|考虑|招|要)\\s*[^。；;\\n]{0,10}(种族|国籍|原籍|民族|宗教|信仰|残疾|残障|低保|社会援助|单亲|新移民|留学生)`,
+      `(仅限|只限|只租给|限)\\s*[^。；;\\n]{0,10}(本地|白人|华人|男性|女性|夫妻|无孩|未婚|已婚|基督|穆斯林)`,
+      `\\b(no|not)\\s+(newcomers?|immigrants?|students?|single\\s+parents?|welfare|social\\s+assistance)\\b`,
+      `\\b(adults?\\s+only|couples?\\s+only|professionals?\\s+only|men\\s+only|women\\s+only)\\b`,
+      `\\bmust\\s+be\\s+(christian|muslim|jewish|hindu|single|married)\\b`,
+    ].join('|'),
+    'i',
+  )
   for (const field of ['title', 'description', 'pet_policy'] as const) {
     const v = out[field]
     if (typeof v !== 'string' || !v) continue
-    if (NO_KIDS.test(v) || PROTECTED_GROUNDS.test(v)) {
+    if (NO_KIDS.test(v) || EXCLUSION_SHAPED.test(v)) {
       flags.push(`draft_listing_protected_ground_${field}`)
       delete out[field]
     } else if (NO_PETS.test(v)) {

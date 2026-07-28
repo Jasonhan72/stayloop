@@ -27,9 +27,9 @@ const HISTORY = [
 /**
  * Deposits and one-time charges.
  * Ontario compliance: the RTA only permits a rent deposit (last month's rent)
- * and a key deposit — never a "damage deposit". The $500 pet item is a lease
- * clause settled against actual wear and tear at move-out, matching the wording
- * already used on /tenant/lease.
+ * and a key deposit — never a "damage deposit" and never a pet deposit. Pet
+ * damage is settled against actual wear and tear at move-out under the lease,
+ * not collected up front, matching the wording already used on /tenant/lease.
  */
 const DEPOSITS = [
   {

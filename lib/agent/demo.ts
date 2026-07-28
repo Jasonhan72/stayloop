@@ -53,7 +53,7 @@ const DEMO_ZH: Record<AgentRole, RoleDemo> = {
       { key: 'min_tier', label: '盖章门槛', value: { value: '默认 需收入章 起申 · Unit 1207 提至 需银行章' }, confidence: 1, memory_type: 'preference' },
       { key: 'min_credit', label: 'CREDIT', value: { value: '最低 720 · 低于自动降级提示' }, confidence: 1, memory_type: 'constraint' },
       { key: 'dti', label: 'DTI', value: { value: '租金 / 收入 ≤ 35%' }, confidence: 1, memory_type: 'constraint' },
-      { key: 'pets', label: 'PETS', value: { value: '猫 ✓ · 狗仅小型 + $500 押金' }, confidence: 0.9, memory_type: 'preference' },
+      { key: 'pets', label: 'PETS', value: { value: '猫 ✓ · 狗仅小型（宠物押金在 Ontario 违法）' }, confidence: 0.9, memory_type: 'preference' },
       { key: 'term', label: 'TERM', value: { value: '12 个月起 · 拒绝 < 6 个月' }, confidence: 1, memory_type: 'preference' },
     ],
     pending: [
@@ -150,7 +150,7 @@ const DEMO_EN: Record<AgentRole, RoleDemo> = {
       { key: 'min_tier', label: 'Stamp threshold', value: { value: 'Default: income stamp to apply · Unit 1207 raised to bank stamp' }, confidence: 1, memory_type: 'preference' },
       { key: 'min_credit', label: 'CREDIT', value: { value: 'Min 720 · below triggers auto-downgrade notice' }, confidence: 1, memory_type: 'constraint' },
       { key: 'dti', label: 'DTI', value: { value: 'Rent / income ≤ 35%' }, confidence: 1, memory_type: 'constraint' },
-      { key: 'pets', label: 'PETS', value: { value: 'Cats ✓ · small dogs only + $500 deposit' }, confidence: 0.9, memory_type: 'preference' },
+      { key: 'pets', label: 'PETS', value: { value: 'Cats ✓ · small dogs only (pet deposits are illegal in Ontario)' }, confidence: 0.9, memory_type: 'preference' },
       { key: 'term', label: 'TERM', value: { value: '12 months minimum · reject < 6 months' }, confidence: 1, memory_type: 'preference' },
     ],
     pending: [
@@ -161,7 +161,7 @@ const DEMO_EN: Record<AgentRole, RoleDemo> = {
         title: 'Send the Unit 1207 e-lease to Mia Chen?',
         summary: 'Mia (3/4 stamps, 92% match, credit 758, $11k monthly income) passed the 3-way comparison. The lease draft is based on your approved Ontario LTB standard template + Unit 1207 special terms (cats permitted; tenant repairs pet damage).',
         recipient_label: 'Mia Chen · tenant',
-        data_scope: ['Lease draft', 'Start date 6/1', '12-month term', 'Pet deposit $500'],
+        data_scope: ['Lease draft', 'Start date 6/1', '12-month term', 'Key deposit $75 (replacement cost)'],
         excluded_data: ['Your other listing data', "Other applicants' files"],
         risk_level: 'high',
         expires_at: null,

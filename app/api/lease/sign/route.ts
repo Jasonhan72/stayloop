@@ -66,14 +66,27 @@ export async function POST(req: Request) {
     )
     const { data: ud, error: ue } = await sb.auth.getUser()
     if (ue || !ud?.user) return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
+    if (ud.user.is_anonymous) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
     actorId = ud.user.id
-    // RLS-scoped read = ownership check.
     const { data } = await sb
       .from('lease_documents')
       .select('id, status, terms, tenant_name, tenant_email, unit_label, sign_token, landlord_signature, tenant_signature, landlord_id')
       .eq('id', body.lease_id)
       .maybeSingle<LeaseRow>()
     lease = data
+    // An RLS read is NOT an ownership check here: the `leases_parties` policy
+    // grants BOTH parties access to the row, so a tenant passing `lease_id`
+    // would otherwise land a landlord_signature and fully execute the lease.
+    // Verify the caller actually owns the landlord side.
+    if (lease) {
+      const { data: mine } = await sb.from('landlords').select('id').eq('auth_id', ud.user.id)
+      const ownsLandlordSide = (mine ?? []).some((l: { id: string }) => l.id === lease!.landlord_id)
+      if (!ownsLandlordSide) {
+        return NextResponse.json({ error: 'not the landlord on this lease' }, { status: 403 })
+      }
+    }
   } else {
     return NextResponse.json({ error: 'token or lease_id required' }, { status: 400 })
   }

@@ -474,13 +474,19 @@ function RenewalPack({ lang }: { lang: Lang }) {
             <>
               <b className="text-body">{aiName} 解读：</b>B 方案是过去 3 年你这种「A 级租客」的最优 ROI。Thompson 价值 = 准时 + 0 维修争议 + 邻里好评 = 隐性 $5k+/年。
               <br />
-              <span className="text-body-3">注：Ontario 2026 涨幅上限 2.5%,但你这套 2018 后建,不在限制内 — 任何涨幅合法。</span>
+              <span className="text-body-3">
+                注：Ontario 2026 涨幅上限 2.5%。豁免看的是「首次住人日期」而不是建成年份 —— 只有 2018-11-15 之后首次作住宅使用的单元才豁免（RTA s.6.1），请先核对这套的首次入住日期再选 B/C。无论是否豁免，涨租都要提前 90 天送达 N1，且距上次涨租满 12 个月。
+              </span>
             </>
           ) : (
             <>
               <b className="text-body">{`${aiName}'s read: `}</b>Option B is the best ROI for an A-grade tenant like this over the past 3 years. {"Thompson's"} value = on time + 0 repair disputes + good neighbor reviews = a hidden $5k+/yr.
               <br />
-              <span className="text-body-3">{"Note: Ontario's 2026 increase cap is 2.5%, but this unit was built post-2018 and is exempt — any increase is legal."}</span>
+              <span className="text-body-3">
+                {
+                  "Note: Ontario's 2026 cap is 2.5%. The exemption turns on FIRST RESIDENTIAL OCCUPANCY, not the year built — only units first occupied after Nov 15 2018 are exempt (RTA s.6.1), so confirm this unit's first-occupancy date before choosing B or C. Exempt or not, an increase still requires an N1 served 90 days ahead and 12 months since the last increase."
+                }
+              </span>
             </>
           )}
         </div>

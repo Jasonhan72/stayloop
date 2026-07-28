@@ -130,7 +130,7 @@ export async function verifyBN(
  * Conservative on the "match" side: false negatives (failing to confirm) are
  * preferred over false positives (incorrectly clearing a forged letter).
  */
-function nameMatches(claimed: string, registered: string): boolean {
+export function nameMatches(claimed: string, registered: string): boolean {
   if (!claimed || !registered) return false
   if (claimed === registered) return true
   const STOP = new Set(['the', 'and', 'of', 'inc', 'ltd', 'corp', 'corporation',
@@ -139,8 +139,14 @@ function nameMatches(claimed: string, registered: string): boolean {
   const cw = claimed.split(/\s+/).filter(w => w.length >= 4 && !STOP.has(w))
   const rw = new Set(registered.split(/\s+/).filter(w => w.length >= 4 && !STOP.has(w)))
   if (cw.length === 0 || rw.size === 0) return false
-  // At least one non-trivial word in common
-  return cw.some(w => rw.has(w))
+  const shared = cw.filter(w => rw.has(w))
+  if (shared.length >= 2) return true
+  // One shared token is only a match when it IS the whole of the shorter name
+  // ("Costco" vs "Costco Wholesale"). Two multi-word names that merely share an
+  // industry word ("Northline Motors" vs "Toronto Motors Leasing") are NOT the
+  // same company — and treating them as one CLEARED a forged BN, the exact
+  // false positive this function's contract says it must avoid.
+  return shared.length === 1 && (cw.length === 1 || rw.size === 1)
 }
 
 /**
