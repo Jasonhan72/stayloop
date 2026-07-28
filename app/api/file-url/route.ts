@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
 import { captureException } from '@/lib/observability/sentry'
 
@@ -6,7 +7,9 @@ export const runtime = 'edge'
 
 export async function POST(req: NextRequest) {
   try {
-    const { path } = await req.json()
+    const body = await readJsonBody<{ path?: string }>(req)
+    if (!body) return NextResponse.json(INVALID_BODY, { status: 400 })
+    const { path } = body
     if (!path || typeof path !== 'string') {
       return NextResponse.json({ error: 'path required' }, { status: 400 })
     }

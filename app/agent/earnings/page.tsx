@@ -253,7 +253,7 @@ export default function AgentEarningsPage() {
     realInvoices ? (zh ? '转介平台费' : 'Platform referral fee') : FEE_INVOICES[i].deal[lang]
 
   return (
-    <WorkspaceShell role="agent" aside={<Aside hasReal={hasReal} />}>
+    <WorkspaceShell role="agent" aside={<Aside hasReal={hasReal} ytdGross={ytdGross} />}>
       {hasReal && (
         <div className="mb-3 rounded-xl border border-success/30 bg-success/[0.06] px-4 py-2.5 font-mono text-[11px] leading-relaxed text-body-2">
           {zh
@@ -546,7 +546,7 @@ function GoalFigure({
   )
 }
 
-function Aside({ hasReal }: { hasReal: boolean }) {
+function Aside({ hasReal, ytdGross }: { hasReal: boolean; ytdGross: number }) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const aiName = useAIName('agent')
@@ -583,8 +583,8 @@ function Aside({ hasReal }: { hasReal: boolean }) {
           <div className="text-[13.5px] font-bold">{zh ? '2025 报税包' : '2025 tax pack'}</div>
           <p className="mt-1 text-[12.5px] leading-relaxed text-body-2">
             {zh
-              ? `${hasReal ? '' : '示范数据 · '}全年总佣金 $52,800，平台转介费已按单开票，可一并导出给会计。`
-              : `${hasReal ? '' : 'Sample data · '}$52,800 gross commission for the year; platform fees are invoiced per deal and export together for your accountant.`}
+              ? `${hasReal ? '' : '示范数据 · '}全年总佣金 ${money(ytdGross)}，平台转介费已按单开票，可一并导出给会计。`
+              : `${hasReal ? '' : 'Sample data · '}${money(ytdGross)} gross commission for the year; platform fees are invoiced per deal and export together for your accountant.`}
           </p>
           <Link
             href={`/agent/agent?prompt=${encodeURIComponent(zh ? '帮我把 2025 年的佣金、平台转介费和发票整理成报税包' : 'Assemble my 2025 commission, platform fees and invoices into a tax pack')}`}

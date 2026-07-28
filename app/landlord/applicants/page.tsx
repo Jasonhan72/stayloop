@@ -327,9 +327,13 @@ export default function LandlordApplicantsPage() {
           <>
             <span className="font-mono text-[11px] uppercase tracking-eyebrow text-brand">{eyebrow}</span>
             <span className="mx-1.5 text-body-3">·</span>
-            {lang === 'zh'
-              ? '按你的 需银行章 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整六维评分 + 文件。'
-              : 'Sorted into 3 groups by your policy (bank stamp required / credit ≥ 720 / DTI ≤ 35%). Open any application to see the full six-dimension score and documents.'}
+            {liveMode
+              ? lang === 'zh'
+                ? '按默认门槛（需银行章 / 信用 ≥ 720 / DTI ≤ 35%）分组 —— 这是推荐模板，不是你设定的政策。点开任一申请查看完整六维评分 + 文件。'
+                : 'Grouped by the default thresholds (bank stamp / credit ≥ 720 / DTI ≤ 35%) — a suggested template, not a policy you set. Open any application for the full six-dimension score and documents.'
+              : lang === 'zh'
+                ? '按你的 需银行章 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整六维评分 + 文件。'
+                : 'Sorted into 3 groups by your policy (bank stamp required / credit ≥ 720 / DTI ≤ 35%). Open any application to see the full six-dimension score and documents.'}
             {!liveMode && rows !== null && (
               <span className="ml-2 font-mono text-[11px] uppercase tracking-wider text-body-3">
                 {lang === 'zh' ? '样本数据 · 收到真实申请后自动替换' : 'Sample data · replaced when real applications arrive'}
@@ -460,8 +464,16 @@ function PolicyCard({
   return (
     <SectionCard
       className="mb-3"
-      title={zh ? '我的筛选政策' : 'Your screening policy'}
-      meta={zh ? `${aiName} 按此分组` : `${aiName} sorts by this`}
+      title={showHits ? (zh ? '我的筛选政策' : 'Your screening policy') : zh ? '推荐筛选门槛' : 'Suggested screening thresholds'}
+      meta={
+        showHits
+          ? zh
+            ? `${aiName} 按此分组`
+            : `${aiName} sorts by this`
+          : zh
+            ? '默认模板 · 未自定义'
+            : 'Default template · not customised'
+      }
       action={
         <Link
           href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我复核 Unit 1207 的筛选门槛（收入 / 信用 / DTI / 租期），并指出哪些条件把合格申请人挡在门外' : 'Review my screening thresholds for Unit 1207 (income / credit / DTI / term) and flag any that are screening out qualified applicants')}`}

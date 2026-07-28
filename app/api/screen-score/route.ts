@@ -11,6 +11,7 @@
 //         additions can't reintroduce a leak by hand-rolling a fetch.
 // 2026-06-02 — Code review §6 P1 — Aggregate 12s budget on CanLII fan-out (circuit breaker)
 import { NextRequest, NextResponse } from 'next/server'
+import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
 import { runForensics, forensicsToPromptBlock, type ForensicsReport } from '@/lib/forensics'
 import { getModel, supportsTemperature } from '@/lib/modelConfig'
@@ -763,8 +764,10 @@ export function countDebtRelevantHits(
 
 export async function POST(req: NextRequest) {
   try {
-    const { screening_id } = await req.json()
-    if (!screening_id) {
+    const body = await readJsonBody<{ screening_id?: string }>(req)
+    if (!body) return NextResponse.json(INVALID_BODY, { status: 400 })
+    const { screening_id } = body
+    if (!screening_id || typeof screening_id !== 'string') {
       return NextResponse.json({ error: 'screening_id required' }, { status: 400 })
     }
 

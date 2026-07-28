@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
 import { captureException } from '@/lib/observability/sentry'
 import { getModel } from '@/lib/modelConfig'
@@ -33,7 +34,12 @@ const WEIGHTS: Record<keyof SixDimScores, number> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { application_id } = await req.json()
+    const body = await readJsonBody<{ application_id?: string }>(req)
+    if (!body) return NextResponse.json(INVALID_BODY, { status: 400 })
+    const { application_id } = body
+    if (!application_id || typeof application_id !== 'string') {
+      return NextResponse.json({ error: 'application_id required' }, { status: 400 })
+    }
 
     const authHeader = req.headers.get('authorization') || ''
     const supabase = createClient(
