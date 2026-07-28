@@ -234,6 +234,7 @@ export async function runAgentTurn(args: {
     followups?: FollowUp[]
     draft_listing?: DraftListing
     url_images?: string[]
+    guardrail?: { flagged: boolean; notes: string[] }
   }
 
   if (turn.error) throw new Error(turn.error)
@@ -305,7 +306,16 @@ export async function runAgentTurn(args: {
       actorType: 'user',
       action: `${role}_agent_turn`,
       targetType: 'agent_message',
-      metadata: { message: message.slice(0, 500), proposed: proposedAction?.action_type ?? null },
+      metadata: {
+        message: message.slice(0, 500),
+        proposed: proposedAction?.action_type ?? null,
+        // The guardrail is the compliance backstop we tell landlords exists;
+        // its verdict was computed on every turn and then thrown away, so an
+        // OHRC block or a stripped "already sent" claim left no trace in the
+        // audit log the /audit pages render.
+        guardrail_flagged: turn.guardrail?.flagged ?? false,
+        guardrail_notes: (turn.guardrail?.notes ?? []).slice(0, 12),
+      },
     })
   }
 

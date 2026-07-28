@@ -1457,6 +1457,33 @@ JSON DISCIPLINE (avoid parse errors):
       }, { status: 500 })
     }
 
+    // A max_tokens stop means the JSON was cut off mid-stream. extractJson's
+    // salvage pass can still hand back parseable JSON by closing the open
+    // brackets — but every field the model had not emitted yet is simply
+    // GONE, and the fields it emits last are the ones carrying negative
+    // signal (flags, hard gates, the compliance audit). Accepting that
+    // salvage produced a report that reads CLEAN because the model ran out of
+    // room, and persisted it as a completed screening. Truncation is now
+    // fatal unless every integrity-bearing section survived.
+    if (stopReason === 'max_tokens') {
+      const REQUIRED_ON_TRUNCATION = [
+        'scores', 'flags', 'hard_gates_triggered', 'compliance_audit',
+        'sub_coverage', 'action_items', 'summary_zh', 'summary_en',
+      ] as const
+      const missing = REQUIRED_ON_TRUNCATION.filter((k) => parsed[k] === undefined)
+      if (missing.length > 0) {
+        await supabase.from('screenings').update({
+          status: 'error',
+          error: `AI output truncated — missing: ${missing.join(', ')}`.slice(0, 200),
+        }).eq('id', screening_id)
+        return NextResponse.json({
+          error: 'AI output was truncated — please retry (the model produced too much text).',
+          stop_reason: stopReason,
+          missing_sections: missing,
+        }, { status: 500 })
+      }
+    }
+
     const s: V3Scores = parsed.scores || {}
     // 2026-06-02 P0 — Validate AND clamp all 5 dimensions. Previously only
     // ability_to_pay was checked; if Sonnet omitted another dim or returned
@@ -1637,12 +1664,24 @@ JSON DISCIPLINE (avoid parse errors):
 
       const ic = raw.income_corroboration
       const VERDICTS = new Set(['corroborated', 'partial', 'uncorroborated'])
-      const incomeCorroboration = (ic && typeof ic === 'object' && VERDICTS.has(ic.verdict))
+      // Fail CLOSED on an unrecognized verdict. Previously any string outside
+      // the enum ("unverified", "not corroborated", "none") nulled this block,
+      // which silently dropped the ability_to_pay cap below — an off-enum word
+      // from the model turned an UNVERIFIED income into an unpenalized one.
+      const normVerdict = (v: unknown): 'corroborated' | 'partial' | 'uncorroborated' | null => {
+        if (typeof v !== 'string') return null
+        const k = v.trim().toLowerCase().replace(/[\s-]+/g, '_')
+        if (VERDICTS.has(k)) return k as 'corroborated' | 'partial' | 'uncorroborated'
+        if (/^(partial|partially)/.test(k)) return 'partial'
+        return 'uncorroborated'
+      }
+      const icVerdict = ic && typeof ic === 'object' ? normVerdict(ic.verdict) : null
+      const incomeCorroboration = (ic && typeof ic === 'object' && icVerdict)
         ? {
             claimed_monthly: num(ic.claimed_monthly),
             personal_payroll_seen: ic.personal_payroll_seen === true,
             observed_pattern: str(ic.observed_pattern),
-            verdict: ic.verdict as 'corroborated' | 'partial' | 'uncorroborated',
+            verdict: icVerdict,
             detail: str(ic.detail),
           }
         : null
@@ -1689,6 +1728,21 @@ JSON DISCIPLINE (avoid parse errors):
         verification_checklist: verificationChecklist,
       }
     })()
+
+    // Deterministic backstop for the rule the prompt states but the model is
+    // free to ignore: a business account is not a personal payroll trail. If
+    // every account we saw belongs to a business (or to someone other than the
+    // applicant) and no personal payroll was observed, the income claim is
+    // uncorroborated no matter what verdict the model wrote.
+    const cdvAccounts = crossDocVerification?.bank_accounts ?? []
+    if (crossDocVerification?.income_corroboration && cdvAccounts.length > 0) {
+      const hasPersonalApplicantAccount = cdvAccounts.some(
+        (b) => b.entity_type === 'personal' && b.is_applicant,
+      )
+      if (!hasPersonalApplicantAccount && !crossDocVerification.income_corroboration.personal_payroll_seen) {
+        crossDocVerification.income_corroboration.verdict = 'uncorroborated'
+      }
+    }
 
     if (crossDocVerification?.income_corroboration?.verdict === 'uncorroborated') {
       // Rule 1 — payment ability can't score above 60 on unverified income.

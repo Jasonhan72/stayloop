@@ -556,8 +556,21 @@ export async function POST(req: Request) {
   // suppresses listing cards. History-only keyword hits deliberately don't
   // suppress on their own (a renewal thread can pivot back to a real search;
   // the model's intent=null is the tiebreaker there).
+  // The playbook tells the model that an explicit find-a-home request inside a
+  // renewal thread ("我不想续约了,帮我找两居室") should fall back to the normal
+  // search flow — but a keyword hit alone used to suppress listings anyway, so
+  // that documented exception never fired and the tenant got market cards
+  // instead of the homes they asked for. The playbook also says NOT to fill
+  // max_price / count on a renewal turn, so those fields are the model's own
+  // deterministic signal that it treated this as a real search.
+  const searchObj = (search && typeof search === 'object' ? search : {}) as Record<string, unknown>
+  const modelSignalsRealSearch =
+    parsed?.intent !== 'renewal' &&
+    (typeof searchObj.max_price === 'number' || typeof searchObj.count === 'number')
   const renewalTurn =
-    role === 'tenant' && (RENEWAL_INTENT_RE.test(message) || parsed?.intent === 'renewal')
+    role === 'tenant' &&
+    !modelSignalsRealSearch &&
+    (RENEWAL_INTENT_RE.test(message) || parsed?.intent === 'renewal')
   if (renewalTurn) {
     // Market evidence ONLY: median asking price + TRREB official benchmark
     // for the tenant's area — never listing cards, never followup chips.
