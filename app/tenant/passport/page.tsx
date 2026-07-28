@@ -2,9 +2,19 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import AIProactive from '@/components/AIProactive'
+import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
-import { useT } from '@/lib/i18n'
+import {
+  AsideBlock,
+  PageHeader,
+  SectionCard,
+  StatStrip,
+  StatusPill,
+  Table,
+  Td,
+  Tr,
+} from '@/components/workspace'
+import { useT, type Lang } from '@/lib/i18n'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { stampForTier, stampLabel, STAMP_CHECK_GREEN } from '@/lib/passportStamps'
@@ -106,6 +116,37 @@ const RENT_RECORD: Array<{ month: Bi; status: 'paid' | 'late' }> = [
   { month: { zh: '4月', en: 'Apr' }, status: 'paid' },
   { month: { zh: '5月', en: 'May' }, status: 'paid' },
 ]
+
+/**
+ * Passport view log (demo) — makes good on the promise printed on the share
+ * card: "every view lands in your audit log".
+ */
+const VIEWS: Array<{ when: string; who: Bi; saw: Bi; tone: 'info' | 'neutral' }> = [
+  {
+    when: '5/14 20:11',
+    who: { zh: '站外只读链接', en: 'Off-platform read-only link' },
+    saw: { zh: '身份章 ✓ 收入章 ✓', en: 'Identity ✓ Income ✓' },
+    tone: 'info',
+  },
+  {
+    when: '5/12 09:40',
+    who: { zh: 'Sarah Wang（平台内授权）', en: 'Sarah Wang (in-platform authorization)' },
+    saw: { zh: '身份 + 收入章数据', en: 'Identity + income stamp data' },
+    tone: 'neutral',
+  },
+]
+
+/** What is still missing for each un-stamped seal. */
+const TODO: Record<number, { need: Bi; status: Bi }> = {
+  3: {
+    need: { zh: '需要：一次银行流水连接 · 预计 5 分钟', en: 'Needs: one bank connection · about 5 minutes' },
+    status: { zh: '当前状态：未开始', en: 'Status: not started' },
+  },
+  4: {
+    need: { zh: '需要：授权信用分与 LTB 法庭记录查询', en: 'Needs: authorize credit score + LTB record lookup' },
+    status: { zh: '当前状态：未开始', en: 'Status: not started' },
+  },
+}
 
 /** Decorative QR placeholder (demo — not scannable). */
 function QrPlaceholder() {
@@ -269,66 +310,86 @@ export default function TenantPassport() {
   const completedCount = TIERS.filter((t) => t.status === 'done').length
   const progressPercent = (completedCount / TIERS.length) * 100
 
+  const insights: AIInsight[] = [
+    {
+      text: {
+        zh: '盖上银行章（约 5 分钟）——连接一次银行流水，可解锁多 42% 的房源，房东审批也更快。',
+        en: 'Earn your bank stamp (~5 minutes) — one bank connection unlocks 42% more listings and faster approvals.',
+      },
+      action: {
+        label: { zh: '带我盖章', en: 'Walk me through it' },
+        prompt: {
+          zh: '帮我盖上银行章，告诉我需要做什么。',
+          en: 'Help me earn the bank stamp — what do I need to do?',
+        },
+      },
+    },
+    {
+      text: {
+        zh: 'Sarah Wang 本月查看了你的资料 3 次 — 通常代表强意向。要不要主动跟进？',
+        en: 'Sarah Wang viewed your profile 3 times this month — usually a strong signal. Want to follow up?',
+      },
+      action: {
+        label: { zh: '主动跟进', en: 'Follow up' },
+        prompt: {
+          zh: 'Sarah Wang 多次查看我的资料，帮我起草一条得体的跟进消息。',
+          en: 'Sarah Wang keeps viewing my profile — draft a tasteful follow-up message.',
+        },
+      },
+    },
+  ]
+
   return (
-    <WorkspaceShell role="tenant" hideAside>
-      <div className="space-y-6">
-        {/* ── Header ── */}
-        <div>
-          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-tenant">
-            RENTAL PASSPORT
-          </div>
-          <h1 className="mt-2 text-[26px] sm:text-[32px] font-bold tracking-tight">
-            {zh ? '租客护照' : 'Tenant Passport'}
-          </h1>
-          <p className="mt-1.5 max-w-[560px] text-[14px] leading-relaxed text-body-2">
+    <WorkspaceShell role="tenant" aside={<Aside lang={lang} insights={insights} />}>
+      <PageHeader
+        title={zh ? '租客护照' : 'Tenant Passport'}
+        sub={
+          <>
+            <span className="font-mono text-[11px] uppercase tracking-eyebrow text-tenant">RENTAL PASSPORT</span>
+            <span className="mx-1.5 text-body-3">·</span>
             {zh
               ? '你的 Passport 是你向房东展示可信度的通行证。验证一次 · 处处通行，章越多，房东审批越快。'
               : 'Your Passport proves trustworthiness to landlords. Verify once, travel everywhere — more stamps mean faster approvals.'}
-          </p>
-        </div>
+          </>
+        }
+      />
 
-        <AIProactive
-          role="tenant"
-          insights={[
-            {
-              text: {
-                zh: '盖上银行章（约 5 分钟）——连接一次银行流水，可解锁多 42% 的房源，房东审批也更快。',
-                en: 'Earn your bank stamp (~5 minutes) — one bank connection unlocks 42% more listings and faster approvals.',
-              },
-              action: {
-                label: { zh: '带我盖章', en: 'Walk me through it' },
-                prompt: {
-                  zh: '帮我盖上银行章，告诉我需要做什么。',
-                  en: 'Help me earn the bank stamp — what do I need to do?',
-                },
-              },
-            },
-            {
-              text: {
-                zh: 'Sarah Wang 本月查看了你的资料 3 次 — 通常代表强意向。要不要主动跟进？',
-                en: 'Sarah Wang viewed your profile 3 times this month — usually a strong signal. Want to follow up?',
-              },
-              action: {
-                label: { zh: '主动跟进', en: 'Follow up' },
-                prompt: {
-                  zh: 'Sarah Wang 多次查看我的资料，帮我起草一条得体的跟进消息。',
-                  en: 'Sarah Wang keeps viewing my profile — draft a tasteful follow-up message.',
-                },
-              },
-            },
-          ]}
-        />
+      <StatStrip
+        stats={[
+          {
+            label: zh ? '盖章进度' : 'Stamps earned',
+            value: `${completedCount}/${TIERS.length}`,
+            sub: zh ? `下一枚：${currentTier.title.zh}` : `Next: ${currentTier.title.en}`,
+          },
+          {
+            label: zh ? '分享链接被查看' : 'Share link views',
+            value: zh ? '7 次' : '7',
+            sub: zh ? '每次访问都进审计日志' : 'Every view lands in your audit log',
+          },
+          {
+            label: zh ? '有效授权' : 'Active authorizations',
+            value: zh ? '4 项' : '4',
+            sub: zh ? '本月被查询 3 次' : '3 queries this month',
+          },
+          {
+            label: zh ? '最近更新' : 'Last updated',
+            value: '5/12',
+            sub: zh ? '收入章数据刷新' : 'Income stamp data refreshed',
+          },
+        ]}
+      />
 
+      <div className="space-y-4">
         {/* ── Progress card ── */}
-        <div className="sl-card p-6 sm:p-8">
+        <SectionCard className="p-4 sm:p-5" padded={false}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <div className="flex items-baseline gap-2">
-                <span className="text-[36px] sm:text-[42px] font-bold tracking-tight text-tenant">
+                <span className="text-[20px] font-bold tracking-tight text-tenant">
                   {stampLabel(completedCount, lang)}
                 </span>
               </div>
-              <p className="mt-1 text-[13.5px] text-body-2">
+              <p className="mt-1 text-[13px] text-body-2">
                 {zh
                   ? `下一枚：${currentTier.title.zh} —— ${currentTier.desc.zh}`
                   : `Next stamp: ${currentTier.title.en} — ${currentTier.desc.en}`}
@@ -336,14 +397,14 @@ export default function TenantPassport() {
             </div>
             <Link
               href="/onboarding/tier1"
-              className="sl-btn-primary !px-6 !py-3 shrink-0"
+              className="sl-btn-primary shrink-0 !px-4 !py-2 !text-[12.5px]"
             >
               {zh ? '盖这枚章 →' : 'Stamp it →'}
             </Link>
           </div>
 
           {/* Progress bar */}
-          <div className="mt-6">
+          <div className="mt-4">
             <div className="flex items-center justify-between text-[11px] font-mono font-semibold text-body-3 mb-2">
               {TIERS.map((t) => (
                 <span key={t.level} className={t.status === 'done' ? 'text-tenant' : ''}>
@@ -424,6 +485,31 @@ export default function TenantPassport() {
                   <div className="mt-0.5 text-[11.5px] leading-relaxed text-body-3">
                     {zh ? stamp.what_zh : stamp.what_en}
                   </div>
+                  {/* Which fields this stamp covers — verified list, or what's still missing */}
+                  <div className="mt-2 border-t border-dashed border-line-divider pt-1.5">
+                    <span className="block font-mono text-[9px] tracking-wider text-body-3">
+                      {t.status === 'done' ? (zh ? '已验证' : 'VERIFIED') : zh ? '补齐清单' : 'TO COMPLETE'}
+                    </span>
+                    <ul className="mt-1 space-y-0.5 text-[11.5px] leading-relaxed">
+                      {t.fields.map((f) => (
+                        <li key={f.en} className="flex items-start gap-1">
+                          <span
+                            className="mt-[1px] flex-none font-bold"
+                            style={t.status === 'done' ? { color: STAMP_CHECK_GREEN } : undefined}
+                          >
+                            {t.status === 'done' ? '✓' : '○'}
+                          </span>
+                          <span className={t.status === 'done' ? 'text-body-2' : 'text-body-3'}>{f[lang]}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {t.status !== 'done' && TODO[t.level] && (
+                      <div className="mt-1 text-[11px] leading-relaxed text-body-3">
+                        <div>{TODO[t.level].need[lang]}</div>
+                        <div>{TODO[t.level].status[lang]}</div>
+                      </div>
+                    )}
+                  </div>
                   <div className="mt-2 border-t border-dashed border-line-divider pt-1.5 text-[11.5px] leading-relaxed">
                     <span className="block font-mono text-[9px] tracking-wider text-body-3">
                       {zh ? '解锁' : 'UNLOCKS'}
@@ -441,16 +527,16 @@ export default function TenantPassport() {
               ? '支持 护照 · 签证 · 枫叶卡 · 工签 —— 没有加拿大信用记录，也能盖章。'
               : 'Passport · visa · PR card · work permit all supported — no Canadian credit history needed to earn stamps.'}
           </div>
-        </div>
+        </SectionCard>
 
         {/* ── Off-platform share (read-only snapshot) ── */}
-        <div className="sl-card p-6 sm:p-8">
+        <SectionCard className="p-4 sm:p-5" padded={false}>
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 flex-1">
-              <h2 className="text-[18px] font-bold tracking-tight">
+              <h2 className="text-[16px] font-bold tracking-tight">
                 {zh ? '分享给站外房东' : 'Share with any landlord'}
               </h2>
-              <p className="mt-1 max-w-[460px] text-[13.5px] leading-relaxed text-body-2">
+              <p className="mt-1 max-w-[460px] text-[13px] leading-relaxed text-body-2">
                 {zh
                   ? '房东不在 Stayloop？一条只读链接就够了——对方无需注册，打开即可看到你已盖的章。一本护照，打动所有房东。'
                   : "Landlord not on Stayloop? One read-only link is all it takes — no sign-up needed on their side. One passport that wins over every landlord."}
@@ -544,13 +630,45 @@ export default function TenantPassport() {
               </div>
             </div>
           </div>
-        </div>
+        </SectionCard>
+
+        {/* ── Who viewed the Passport (audit trail for the share link) ── */}
+        <SectionCard
+          title={zh ? '谁看过我的护照' : 'Who viewed your Passport'}
+          meta={zh ? '示范数据' : 'SAMPLE DATA'}
+          padded={false}
+          action={
+            <Link href="/tenant/audit" className="text-[12px] font-semibold text-tenant hover:underline">
+              {zh ? '完整审计日志 →' : 'Full audit log →'}
+            </Link>
+          }
+        >
+          <Table
+            head={[
+              zh ? '时间' : 'When',
+              zh ? '访问来源' : 'Source',
+              zh ? '看到了什么' : 'What they saw',
+            ]}
+          >
+            {VIEWS.map((v) => (
+              <Tr key={v.when}>
+                <Td mono>{v.when}</Td>
+                <Td align="right">
+                  <StatusPill tone={v.tone}>{v.who[lang]}</StatusPill>
+                </Td>
+                <Td align="right" muted>
+                  {v.saw[lang]}
+                </Td>
+              </Tr>
+            ))}
+          </Table>
+        </SectionCard>
 
         {/* ── Sharing mode ── */}
-        <div className="sl-card p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+        <SectionCard className="p-4 sm:p-5" padded={false}>
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h2 className="text-[18px] font-bold tracking-tight">
+              <h2 className="text-[16px] font-bold tracking-tight">
                 {zh ? '共享策略' : 'Sharing policy'}
               </h2>
               <p className="mt-1 text-[13px] text-body-2">
@@ -603,16 +721,16 @@ export default function TenantPassport() {
               </p>
             </div>
           )}
-        </div>
+        </SectionCard>
 
         {/* ── Sharing summary + link ── */}
-        <div className="sl-card p-6 sm:p-8">
+        <SectionCard className="p-4 sm:p-5" padded={false}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h2 className="text-[18px] font-bold tracking-tight">
+              <h2 className="text-[16px] font-bold tracking-tight">
                 {zh ? '授权管理' : 'Authorizations'}
               </h2>
-              <p className="mt-1 text-[13.5px] text-body-2">
+              <p className="mt-1 text-[13px] text-body-2">
                 {zh
                   ? '已授权 4 人/服务查看你的数据 · 本月被查询 3 次'
                   : '4 people/services authorized · 3 queries this month'}
@@ -620,7 +738,7 @@ export default function TenantPassport() {
             </div>
             <Link
               href="/tenant/passport/sharing"
-              className="sl-btn-secondary shrink-0"
+              className="sl-btn-secondary shrink-0 !px-4 !py-2 !text-[12.5px]"
             >
               {zh ? '管理授权 →' : 'Manage access →'}
             </Link>
@@ -663,22 +781,22 @@ export default function TenantPassport() {
               {zh ? '查看全部 4 项授权 →' : 'View all 4 authorizations →'}
             </Link>
           </div>
-        </div>
+        </SectionCard>
 
         {/* ── Rent record ── */}
-        <div className="sl-card p-6 sm:p-8">
+        <SectionCard className="p-4 sm:p-5" padded={false}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h2 className="text-[18px] font-bold tracking-tight">
+              <h2 className="text-[16px] font-bold tracking-tight">
                 {zh ? '租金记录' : 'Rent record'}
               </h2>
-              <p className="mt-1 max-w-[520px] text-[13.5px] leading-relaxed text-body-2">
+              <p className="mt-1 max-w-[520px] text-[13px] leading-relaxed text-body-2">
                 {zh
                   ? '每一笔按时租金都写进你的护照——对下一任房东，这是最有说服力的履约证明。经你授权才可见。'
                   : "Every on-time rent payment is written into your Passport — the most convincing proof of reliability for your next landlord. Visible only with your authorization."}
               </p>
             </div>
-            <Link href="/tenant/payments" className="sl-btn-secondary shrink-0">
+            <Link href="/tenant/payments" className="sl-btn-secondary shrink-0 !px-4 !py-2 !text-[12.5px]">
               {zh ? '付款历史 →' : 'Payment history →'}
             </Link>
           </div>
@@ -749,13 +867,53 @@ export default function TenantPassport() {
               )}
             </div>
           </div>
-        </div>
+        </SectionCard>
+
+        {/* ── Verification history (archive) ── */}
+        <SectionCard
+          title={zh ? '验证历史' : 'Verification history'}
+          meta={zh ? '示范数据' : 'SAMPLE DATA'}
+          padded={false}
+        >
+          <Table
+            head={[
+              zh ? '章' : 'Stamp',
+              zh ? '验证内容' : 'Fields verified',
+              zh ? '更新时间' : 'Updated',
+              zh ? '状态' : 'Status',
+            ]}
+          >
+            {TIERS.map((t) => (
+              <Tr key={t.level}>
+                <Td>
+                  <div className="font-semibold">{t.title[lang]}</div>
+                  <div className="mt-0.5 text-[11.5px] text-body-3">{t.desc[lang]}</div>
+                </Td>
+                <Td align="right" muted>
+                  {t.fields.map((f) => f[lang]).join(' · ')}
+                </Td>
+                <Td align="right" mono muted>
+                  {t.status === 'done' ? (t.level === 1 ? '2025-08-01' : '2026-05-12') : '—'}
+                </Td>
+                <Td align="right">
+                  <StatusPill tone={t.status === 'done' ? 'ok' : t.status === 'current' ? 'pending' : 'neutral'}>
+                    {t.status === 'done'
+                      ? zh ? '已盖章' : 'Stamped'
+                      : t.status === 'current'
+                      ? zh ? '下一枚' : 'Next'
+                      : zh ? '待盖' : 'Locked'}
+                  </StatusPill>
+                </Td>
+              </Tr>
+            ))}
+          </Table>
+        </SectionCard>
 
         {/* ── Quick actions ── */}
         <div className="grid gap-4 sm:grid-cols-2">
           <Link
             href="/tenant/audit"
-            className="sl-card flex items-center gap-4 p-5 transition hover:border-line-strong"
+            className="flex items-center gap-4 rounded-xl border border-line-divider bg-white p-4 transition hover:border-line-strong"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-chip text-[18px]">
               📋
@@ -769,7 +927,7 @@ export default function TenantPassport() {
           </Link>
           <Link
             href="/settings"
-            className="sl-card flex items-center gap-4 p-5 transition hover:border-line-strong"
+            className="flex items-center gap-4 rounded-xl border border-line-divider bg-white p-4 transition hover:border-line-strong"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-chip text-[18px]">
               🔐
@@ -784,5 +942,24 @@ export default function TenantPassport() {
         </div>
       </div>
     </WorkspaceShell>
+  )
+}
+
+function Aside({ lang, insights }: { lang: Lang; insights: AIInsight[] }) {
+  const zh = lang === 'zh'
+  return (
+    <div>
+      <AsideBlock title={zh ? 'AI 建议' : 'AI SUGGESTIONS'}>
+        <AIProactive role="tenant" insights={insights} variant="rail" />
+      </AsideBlock>
+
+      <AsideBlock title={zh ? '护照怎么用' : 'HOW TO USE IT'}>
+        <ul className="space-y-2 text-[12.5px] leading-relaxed text-body-2">
+          <li>{zh ? '· 申请房源时自动附上，房东无需再要材料' : '· Attached automatically when you apply — landlords stop asking for documents'}</li>
+          <li>{zh ? '· 房东不在 Stayloop？发只读链接或现场出示二维码' : '· Landlord not on Stayloop? Send the read-only link or show the QR at the viewing'}</li>
+          <li>{zh ? '· 授权随时可撤回，每次访问都进审计日志' : '· Revoke any authorization at any time — every view lands in your audit log'}</li>
+        </ul>
+      </AsideBlock>
+    </div>
   )
 }

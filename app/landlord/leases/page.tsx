@@ -116,6 +116,60 @@ const LEASES: LeaseItem[] = [
   },
 ]
 
+// E-sign progress for leases already out for signature. Keyed by lease id so
+// live rows (which carry no e-sign trail yet) simply render a dash.
+const SIGNING: Record<string, { sent: string; landlord: boolean; tenant: boolean; days: number }> = {
+  'L-209': { sent: '5/4 11:00', landlord: true, tenant: false, days: 4 },
+}
+
+// Ontario LTB notice forms the landlord can actually reach for. Each one
+// states its own timing rule; the rent-increase cap is never shown without
+// the post-2018 exemption beside it.
+const N_FORMS: { code: string; title: { zh: string; en: string }; rule: { zh: string; en: string }; prompt: { zh: string; en: string } }[] = [
+  {
+    code: 'N1',
+    title: { zh: '涨租', en: 'Rent increase' },
+    rule: {
+      zh: '提前 90 天 · 12 个月一次 · 2026 指导上限 2.5%',
+      en: '90 days notice · once per 12 months · 2026 guideline cap 2.5%',
+    },
+    prompt: {
+      zh: '帮我准备一份 N1 涨租通知，检查 90 天提前期、12 个月间隔和 2026 指导上限 2.5% 是否满足。',
+      en: 'Prepare an N1 rent-increase notice for me and check the 90-day notice period, the 12-month interval and the 2026 guideline cap of 2.5%.',
+    },
+  },
+  {
+    code: 'N2',
+    title: { zh: '豁免单位涨租', en: 'Rent increase · exempt unit' },
+    rule: {
+      zh: '2018 年 11 月后首次入住的单位不受指导上限约束',
+      en: 'Units first occupied after November 2018 are exempt from the guideline cap',
+    },
+    prompt: {
+      zh: '我的单位是 2018 年 11 月之后首次入住，帮我准备 N2 涨租通知，并确认豁免条件成立。',
+      en: 'My unit was first occupied after November 2018 — prepare an N2 rent-increase notice and confirm the exemption applies.',
+    },
+  },
+  {
+    code: 'N4',
+    title: { zh: '欠租', en: 'Non-payment of rent' },
+    rule: { zh: '到期后 5 天宽限期届满才可送达', en: 'Serve only after the 5-day grace period following the due date' },
+    prompt: {
+      zh: '帮我准备 N4 欠租通知，核对到期日、5 天宽限期和欠款金额。',
+      en: 'Prepare an N4 non-payment notice and verify the due date, the 5-day grace period and the arrears amount.',
+    },
+  },
+  {
+    code: 'N12',
+    title: { zh: '房东自用', en: "Landlord's own use" },
+    rule: { zh: '到期前 90 天送达 · 需支付一个月补偿', en: 'Serve 90 days before term end · one month compensation required' },
+    prompt: {
+      zh: '帮我准备 N12 房东自用通知，核对 90 天提前期和一个月补偿要求。',
+      en: 'Prepare an N12 notice for landlord’s own use and verify the 90-day notice period and the one-month compensation requirement.',
+    },
+  },
+]
+
 const ACTIVITY = (aiName: string) => [
   { time: { zh: '今天 09:14', en: 'Today 09:14' }, text: { zh: `${aiName} 已生成 L-205 续约草稿（Ontario LTB 标准租约），等待你审阅。`, en: `${aiName} has drafted the L-205 renewal (Ontario LTB Standard Lease), awaiting your review.` } },
   { time: { zh: '昨天 16:30', en: 'Yesterday 16:30' }, text: { zh: 'L-198 转入 month-to-month。Kevin Tran 同意上调 $80/月。', en: 'L-198 moved to month-to-month. Kevin Tran agreed to a $80/mo increase.' } },
@@ -170,6 +224,12 @@ export default function LandlordLeasesPage() {
     const end = new Date(l.end)
     return !isNaN(end.getTime()) && end.getFullYear() === now.getFullYear() && end.getMonth() === now.getMonth()
   }).length
+  // Leases that still bill going forward — the basis for the annualized rent
+  // and the average remaining term (ended / month-to-month rows are excluded).
+  const billing = [...active, ...pending]
+  const avgMonthsLeft = billing.length
+    ? (billing.reduce((s, l) => s + l.monthsLeft, 0) / billing.length).toFixed(1)
+    : '0.0'
 
   // The renewal-window notice is advisory — it now lives in the right rail
   // instead of pushing the lease list below the fold (design/v9-workspace-*).
@@ -250,8 +310,20 @@ export default function LandlordLeasesPage() {
           { label: lang === 'zh' ? '活跃租约' : 'Active leases', value: String(active.length) },
           { label: lang === 'zh' ? '待签字' : 'Awaiting signature', value: String(pending.length) },
           { label: lang === 'zh' ? '本月到期' : 'Expiring this month', value: String(liveMode ? expiringSoon : 1) },
+          {
+            label: lang === 'zh' ? '年化租金' : 'Annualized rent',
+            value: `$${(billing.reduce((s, l) => s + l.rent, 0) * 12).toLocaleString()}`,
+            sub: lang === 'zh' ? '活跃 + 待签字 · 月租 × 12' : 'Active + awaiting signature · rent × 12',
+          },
+          {
+            label: lang === 'zh' ? '平均剩余租期' : 'Avg term remaining',
+            value: lang === 'zh' ? `${avgMonthsLeft} 个月` : `${avgMonthsLeft} mo`,
+            sub: lang === 'zh' ? '按到期日计算' : 'By end date',
+          },
         ]}
       />
+
+      <ExpiryTimeline lang={lang} leases={billing} liveMode={liveMode} />
 
       <LeaseSection
         title={lang === 'zh' ? '活跃租约' : 'Active leases'}
@@ -269,6 +341,7 @@ export default function LandlordLeasesPage() {
         right={lang === 'zh' ? '本月新增 1' : '1 new this month'}
         items={pending}
         lang={lang}
+        showSigning
       />
 
       <LeaseSection
@@ -533,6 +606,115 @@ function LeaseEntryModal({ lang, landlordId, onClose, onSaved }: {
   )
 }
 
+/**
+ * Twelve-month expiry timeline. Each slot is a calendar month; a lease lands
+ * in the month its term ends. Two or more expiries in one month is the shape
+ * that hurts (one vacancy window, doubled exposure), so it turns red.
+ *
+ * The window starts at the earliest upcoming expiry in sample mode and at the
+ * current month once real leases are loaded.
+ */
+function ExpiryTimeline({ lang, leases, liveMode }: { lang: Lang; leases: LeaseItem[]; liveMode: boolean }) {
+  const zh = lang === 'zh'
+  const aiName = useAIName('landlord')
+  const dated = leases
+    .map((l) => ({ l, end: new Date(l.end) }))
+    .filter((x) => !isNaN(x.end.getTime()))
+  if (dated.length === 0) return null
+
+  const earliest = dated.reduce((a, b) => (a.end < b.end ? a : b)).end
+  const anchor = liveMode ? new Date() : earliest
+  const startY = anchor.getFullYear()
+  const startM = anchor.getMonth()
+
+  const slots = Array.from({ length: 12 }, (_, i) => {
+    const y = startY + Math.floor((startM + i) / 12)
+    const m = (startM + i) % 12
+    return {
+      y,
+      m,
+      nextYear: y > startY,
+      items: dated.filter((x) => x.end.getFullYear() === y && x.end.getMonth() === m).map((x) => x.l),
+    }
+  })
+
+  // Longest run of consecutive months that each carry at least one expiry.
+  let bestStart = -1
+  let bestLen = 0
+  let runStart = -1
+  for (let i = 0; i <= slots.length; i++) {
+    const filled = i < slots.length && slots[i].items.length > 0
+    if (filled && runStart < 0) runStart = i
+    if (!filled && runStart >= 0) {
+      if (i - runStart > bestLen) {
+        bestLen = i - runStart
+        bestStart = runStart
+      }
+      runStart = -1
+    }
+  }
+  const run = bestLen >= 2 ? slots.slice(bestStart, bestStart + bestLen) : null
+  const runExposure = run
+    ? run.reduce((s, sl) => s + sl.items.reduce((t, l) => t + l.rent, 0), 0)
+    : 0
+  const monthLabel = (s: (typeof slots)[number]) =>
+    zh
+      ? `${s.nextYear ? '次年 ' : ''}${s.m + 1}月`
+      : `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][s.m]}${s.nextYear ? ` ’${String(s.y).slice(2)}` : ''}`
+
+  return (
+    <SectionCard
+      className="mb-3"
+      title={zh ? '到期时间轴 · 未来 12 个月' : 'Expiry timeline · next 12 months'}
+      meta={zh ? '同月 2 份以上标红' : '2+ in one month flagged'}
+    >
+      <div className="overflow-x-auto">
+        <div className="grid min-w-[720px] grid-cols-12 gap-1.5">
+          {slots.map((s) => {
+            const crowded = s.items.length >= 2
+            return (
+              <div
+                key={`${s.y}-${s.m}`}
+                className={
+                  'min-h-[86px] rounded-[8px] border px-2 py-1.5 ' +
+                  (crowded
+                    ? 'border-danger/40 bg-danger/[0.06]'
+                    : s.items.length > 0
+                      ? 'border-landlord/30 bg-landlord/[0.06]'
+                      : 'border-line-divider bg-surface')
+                }
+              >
+                <div
+                  className={
+                    'font-mono text-[10px] uppercase tracking-eyebrow ' +
+                    (crowded ? 'text-danger' : s.items.length > 0 ? 'text-landlord' : 'text-body-3')
+                  }
+                >
+                  {monthLabel(s)}
+                </div>
+                {s.items.map((l) => (
+                  <div key={l.id} className="mt-1.5">
+                    <div className="font-mono text-[10px] font-bold">{l.id}</div>
+                    <div className="text-[10.5px] leading-tight text-body-2">{l.unit}</div>
+                    <div className="font-mono text-[10.5px] font-semibold">${l.rent.toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      {run && (
+        <p className="mt-3 rounded-lg bg-surface-chip px-3 py-2.5 text-[12px] leading-relaxed text-body-2">
+          {zh
+            ? `${run.map((s) => `${s.nextYear ? '次年 ' : ''}${s.m + 1}`).join('-')} 月连续到期，合计 $${runExposure.toLocaleString()}/月敞口 · ${aiName} 建议错开续约起始日。`
+            : `Back-to-back expiries across ${run.map(monthLabel).join(' – ')}, $${runExposure.toLocaleString()}/mo of exposure · ${aiName} suggests staggering the renewal start dates.`}
+        </p>
+      )}
+    </SectionCard>
+  )
+}
+
 // Lease status → the shared status vocabulary. Labels are unchanged.
 const LEASE_STATUS: Record<LeaseItem['status'], { tone: PillTone; label: string }> = {
   active: { tone: 'ok', label: 'ACTIVE' },
@@ -547,6 +729,8 @@ function LeaseSection({
   right,
   items,
   lang,
+  /** Adds the e-sign progress column — only the awaiting-signature lane has one. */
+  showSigning,
 }: {
   title: string
   eyebrow: string
@@ -554,7 +738,9 @@ function LeaseSection({
   right?: string
   items: LeaseItem[]
   lang: Lang
+  showSigning?: boolean
 }) {
+  const zh = lang === 'zh'
   return (
     <SectionCard
       className="mb-3"
@@ -578,6 +764,7 @@ function LeaseSection({
           head={[
             lang === 'zh' ? '租客' : 'Tenant',
             lang === 'zh' ? '月租' : 'Monthly rent',
+            ...(showSigning ? [lang === 'zh' ? '签署状态' : 'Signature status'] : []),
             lang === 'zh' ? '状态' : 'Status',
             '',
           ]}
@@ -599,6 +786,38 @@ function LeaseSection({
                     {lang === 'zh' ? '按时' : 'On time'} {l.onTime}
                   </div>
                 </Td>
+                {showSigning && (
+                  <Td align="right">
+                    {SIGNING[l.id] ? (
+                      <>
+                        <div className="text-[11.5px] leading-snug text-body-2">
+                          {zh
+                            ? `已发送 ${SIGNING[l.id].sent} · ${SIGNING[l.id].landlord ? '房东已签' : '房东待签'} · ${SIGNING[l.id].tenant ? '租客已签' : '待租客签'}`
+                            : `Sent ${SIGNING[l.id].sent} · ${SIGNING[l.id].landlord ? 'landlord signed' : 'landlord to sign'} · ${SIGNING[l.id].tenant ? 'tenant signed' : 'awaiting tenant'}`}
+                        </div>
+                        <div className="font-mono text-[10.5px] text-body-3">
+                          {zh ? `已 ${SIGNING[l.id].days} 天` : `${SIGNING[l.id].days} days`}
+                        </div>
+                        <div className="mt-1 flex justify-end gap-1.5">
+                          <Link
+                            href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `帮我重新给 ${l.tenant} 发送租约 ${l.id} 的签署链接` : `Resend the e-sign link for lease ${l.id} to ${l.tenant}`)}`}
+                            className="whitespace-nowrap rounded-[6px] border border-line-strong bg-white px-2 py-[3px] text-[11px] font-semibold text-body transition hover:border-brand hover:text-brand"
+                          >
+                            {zh ? '重发链接' : 'Resend link'}
+                          </Link>
+                          <Link
+                            href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `我想撤回租约 ${l.id} 的签署请求，帮我走流程并通知 ${l.tenant}` : `I want to withdraw the signature request for lease ${l.id} — walk me through it and notify ${l.tenant}`)}`}
+                            className="whitespace-nowrap rounded-[6px] border border-line-strong bg-white px-2 py-[3px] text-[11px] font-semibold text-body-3 transition hover:border-red-400 hover:text-red-600"
+                          >
+                            {zh ? '撤回' : 'Withdraw'}
+                          </Link>
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-[12px] text-body-3">—</span>
+                    )}
+                  </Td>
+                )}
                 <Td align="right">
                   <StatusPill tone={s.tone}>{s.label}</StatusPill>
                   <div className="mt-0.5 text-[11.5px] text-body-2">{l.nextRenewal[lang]}</div>
@@ -638,6 +857,24 @@ function RailAside({ lang, aiNotice }: { lang: Lang; aiNotice?: ReactNode }) {
             </li>
           ))}
         </ul>
+      </AsideBlock>
+
+      <AsideBlock title={zh ? 'N 表单工具箱' : 'N-form toolbox'}>
+        <div className="space-y-2">
+          {N_FORMS.map((f) => (
+            <Link
+              key={f.code}
+              href={`/landlord/agent?prompt=${encodeURIComponent(f.prompt[lang])}`}
+              className="block rounded-[8px] border border-line-divider bg-white px-3 py-2 transition hover:border-landlord/50"
+            >
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono text-[11px] font-bold text-landlord">{f.code}</span>
+                <span className="text-[12.5px] font-semibold">{f.title[lang]}</span>
+              </div>
+              <div className="mt-0.5 text-[11.5px] leading-snug text-body-3">{f.rule[lang]}</div>
+            </Link>
+          ))}
+        </div>
       </AsideBlock>
 
       <AsideBlock title={zh ? 'LTB 提醒' : 'LTB reminder'}>

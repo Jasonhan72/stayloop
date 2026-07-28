@@ -1,10 +1,21 @@
 'use client'
 
 import Link from 'next/link'
+import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import {
+  AsideBlock,
+  PageHeader,
+  SectionCard,
+  StatStrip,
+  StatusPill,
+  Table,
+  Td,
+  Tr,
+} from '@/components/workspace'
 import { useState } from 'react'
 import { useAIName } from '@/lib/aiName'
-import { useT } from '@/lib/i18n'
+import { useT, type Lang } from '@/lib/i18n'
 
 const STAGES = { zh: ['已报修', '已派单', '维修中', '完成'], en: ['Reported', 'Assigned', 'In repair', 'Done'] }
 
@@ -41,42 +52,114 @@ const TICKETS = [
   },
 ]
 
+/**
+ * Response-time log for the open ticket — automatically recorded by the
+ * platform. It is a record you can keep; Stayloop does not file complaints
+ * on your behalf.
+ */
+const SLA_LOG: Array<{ when: { zh: string; en: string }; what: { zh: string; en: string } }> = [
+  { when: { zh: '08:42', en: '08:42' }, what: { zh: '你提交（附 3 张照片）', en: 'You submitted (3 photos attached)' } },
+  { when: { zh: '09:31', en: '09:31' }, what: { zh: 'Sarah 已读', en: 'Sarah read it' } },
+  { when: { zh: '10:30', en: '10:30' }, what: { zh: '派单 Alex 李师傅', en: 'Dispatched to Alex 李师傅' } },
+  { when: { zh: '次日 10:00', en: 'Next day 10:00' }, what: { zh: '上门', en: 'On-site visit' } },
+]
+
+/** Resolved tickets in the last 12 months — titles reuse the TICKETS canon. */
+const RESOLVED = [
+  {
+    id: 'M-103',
+    cat: { zh: '电气', en: 'Electrical' },
+    reported: { zh: '5/1 报修', en: 'Reported 5/1' },
+    finished: { zh: '5/1 完工', en: 'Completed 5/1' },
+    turnaround: { zh: '当天', en: 'Same day' },
+    status: { zh: '已确认', en: 'Confirmed' },
+  },
+]
+
+function downloadSlaCSV(lang: Lang, ticketId: string) {
+  const header = lang === 'zh' ? '工单,时间,事件' : 'Ticket,Time,Event'
+  const lines = SLA_LOG.map((e) => `${ticketId},"${e.when[lang]}","${e.what[lang]}"`)
+  const csv = [header, ...lines].join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `stayloop-${ticketId.toLowerCase()}-timeline.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function TenantMaintenancePage() {
   const [open, setOpen] = useState(false)
   const { lang } = useT()
   const zh = lang === 'zh'
   const aiName = useAIName('tenant')
   const openCount = TICKETS.filter((t) => t.status !== 'done').length
+  // Resolved tickets move to the history table at the bottom of the page.
+  const activeTickets: typeof TICKETS = TICKETS.filter((t) => t.status !== 'done')
+  const inProgress = TICKETS.filter((t) => t.status === 'in-progress').length
+  const toConfirm = TICKETS.filter((t) => t.status === 'review').length
+
+  const insights: AIInsight[] = [
+    {
+      text: {
+        zh: `{ai} 盯着 ${openCount} 个进行中的工单 —— 超过 RTA 响应标准会自动催房东,全程留痕可溯。也可以直接对 {ai} 说一句"厨房漏水",工单自动生成。`,
+        en: `{ai} is watching ${openCount} open tickets — landlords get nudged automatically past the RTA response window, and everything is logged. You can also just tell {ai} "the kitchen is leaking" and a ticket writes itself.`,
+      },
+      action: {
+        label: { zh: '口述一个新工单', en: 'Describe a new issue' },
+        prompt: {
+          zh: '帮我提交一个新的维修请求，我先描述情况。',
+          en: 'Help me file a new maintenance request — I will describe the issue.',
+        },
+      },
+    },
+  ]
 
   return (
-    <WorkspaceShell role="tenant" hideAside>
-      <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-tenant">
-            MAINTENANCE
-          </div>
-          <h1 className="mt-2 text-[26px] font-bold tracking-tight sm:text-[36px]">{zh ? '维修请求' : 'Maintenance Requests'}</h1>
-        </div>
-        <button onClick={() => setOpen(true)} className="sl-btn-primary !py-[12px]">
-          {zh ? '+ 提交新请求' : '+ New request'}
-        </button>
-      </div>
+    <WorkspaceShell role="tenant" aside={<Aside lang={lang} insights={insights} />}>
+      <PageHeader
+        title={zh ? '维修请求' : 'Maintenance Requests'}
+        sub={<span className="font-mono text-[11px] uppercase tracking-eyebrow text-tenant">MAINTENANCE</span>}
+        actions={
+          <button onClick={() => setOpen(true)} className="sl-btn-primary !px-4 !py-2 !text-[12.5px]">
+            {zh ? '+ 提交新请求' : '+ New request'}
+          </button>
+        }
+      />
 
-      {/* AI watch bar */}
-      <div className="mb-6 flex items-center gap-3 rounded-xl border border-tenant/22 bg-tenant/5 px-4 py-3">
-        <span className="h-6 w-6 flex-none rounded-full" style={{ background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)' }} />
-        <p className="text-[13px] leading-relaxed text-tenant-deep">
-          {zh
-            ? <><b>{aiName}</b> 盯着 {openCount} 个进行中的工单 —— 超过 RTA 响应标准会自动催房东,全程留痕可溯。也可以直接对{aiName}说一句"厨房漏水",工单自动生成。</>
-            : <><b>{aiName}</b> is watching {openCount} open tickets — landlords get nudged automatically past the RTA response window, and everything is logged. You can also just tell {aiName} "the kitchen is leaking" and a ticket writes itself.</>}
-        </p>
-      </div>
+      <StatStrip
+        stats={[
+          {
+            label: zh ? '进行中' : 'In progress',
+            value: String(inProgress),
+            sub: zh ? '已派单 · 等待上门' : 'Dispatched · awaiting visit',
+          },
+          {
+            label: zh ? '待我确认' : 'Waiting on you',
+            value: String(toConfirm),
+            sub: zh ? '完工待确认' : 'Work done · confirm it',
+            tone: 'warn',
+          },
+          {
+            label: zh ? '本年已解决' : 'Resolved this year',
+            value: '6',
+            sub: zh ? '含本页 1 单' : 'Including 1 on this page',
+          },
+          {
+            label: zh ? '平均响应' : 'Avg response',
+            value: zh ? '1.4 小时' : '1.4 hrs',
+            sub: zh ? 'RTA 48h 内' : 'Within the RTA 48h standard',
+            tone: 'up',
+          },
+        ]}
+      />
 
       <div className="space-y-4">
-        {TICKETS.map((t) => {
+        {activeTickets.map((t) => {
           const done = t.status === 'done'
           return (
-            <div key={t.id} className={'sl-card p-5 sm:p-6 ' + (done ? 'opacity-85' : '')}>
+            <SectionCard key={t.id} className={done ? 'opacity-85' : ''}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-center gap-4">
                   <span
@@ -99,24 +182,15 @@ export default function TenantMaintenancePage() {
                     <div className="mt-0.5 text-[12.5px] text-body-2">{t.sub[lang]} · <span className="text-success">{t.sla[lang]}</span></div>
                   </div>
                 </div>
-                <span
-                  className={
-                    'rounded-md px-2 py-1 font-mono text-[10.5px] font-bold uppercase ' +
-                    (t.status === 'done'
-                      ? 'bg-success/10 text-success'
-                      : t.status === 'review'
-                        ? 'bg-warning/10 text-warning'
-                        : 'bg-info/10 text-info')
-                  }
-                >
+                <StatusPill tone={t.status === 'done' ? 'ok' : t.status === 'review' ? 'warn' : 'info'}>
                   {zh
                     ? (t.status === 'done' ? '完成' : t.status === 'review' ? '待确认' : '处理中')
                     : (t.status === 'done' ? 'Done' : t.status === 'review' ? 'To confirm' : 'In progress')}
-                </span>
+                </StatusPill>
               </div>
 
               {/* 4-stage progress */}
-              <div className="mt-5 flex items-center gap-1.5">
+              <div className="mt-4 flex items-center gap-1.5">
                 {STAGES[lang].map((s, i) => (
                   <div key={s} className="flex flex-1 flex-col gap-1.5">
                     <span
@@ -165,13 +239,157 @@ export default function TenantMaintenancePage() {
                   )}
                 </div>
               </div>
-            </div>
+
+              {t.status === 'in-progress' && <SlaLog lang={lang} ticketId={t.id} />}
+            </SectionCard>
           )
         })}
       </div>
 
+      {/* Ticket history */}
+      <div className="mt-4">
+        <SectionCard
+          title={zh ? '历史工单（近 12 个月）' : 'Ticket history (last 12 months)'}
+          meta={zh ? '示范数据' : 'SAMPLE DATA'}
+          padded={false}
+        >
+          <Table
+            head={[
+              zh ? '工单' : 'Ticket',
+              zh ? '类别' : 'Category',
+              zh ? '报修 / 完工' : 'Reported / completed',
+              zh ? '用时' : 'Turnaround',
+              zh ? '状态' : 'Status',
+            ]}
+          >
+            {RESOLVED.map((r) => {
+              const src = TICKETS.find((t) => t.id === r.id)
+              return (
+                <Tr key={r.id}>
+                  <Td>
+                    <div className="font-semibold">{src ? src.title[lang] : r.id}</div>
+                    <div className="mt-0.5 font-mono text-[11px] text-body-3">{r.id}</div>
+                  </Td>
+                  <Td align="right" muted>
+                    {r.cat[lang]}
+                  </Td>
+                  <Td align="right" muted>
+                    {r.reported[lang]} · {r.finished[lang]}
+                  </Td>
+                  <Td align="right" mono>
+                    {r.turnaround[lang]}
+                  </Td>
+                  <Td align="right">
+                    <StatusPill tone="ok">{r.status[lang]}</StatusPill>
+                  </Td>
+                </Tr>
+              )
+            })}
+          </Table>
+        </SectionCard>
+      </div>
+
       {open && <NewTicketModal onClose={() => setOpen(false)} />}
     </WorkspaceShell>
+  )
+}
+
+/** Collapsible response-time record for an open ticket. */
+function SlaLog({ lang, ticketId }: { lang: Lang; ticketId: string }) {
+  const [show, setShow] = useState(false)
+  const zh = lang === 'zh'
+  return (
+    <div className="mt-4 border-t border-line-divider pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          onClick={() => setShow((v) => !v)}
+          className="text-[12.5px] font-semibold text-body-2 transition hover:text-brand"
+        >
+          {show ? '▾ ' : '▸ '}
+          {zh ? '响应时效记录' : 'Response-time record'}
+        </button>
+        {show && (
+          <button
+            onClick={() => downloadSlaCSV(lang, ticketId)}
+            className="rounded-lg border border-line-strong bg-white px-3 py-1 text-[11.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
+          >
+            {zh ? '导出 CSV' : 'Export CSV'}
+          </button>
+        )}
+      </div>
+      {show && (
+        <>
+          <ol className="mt-3 space-y-2.5">
+            {SLA_LOG.map((e, i) => (
+              <li key={e.when.en} className="grid grid-cols-[10px_1fr] gap-2.5">
+                <span
+                  className={
+                    'mt-[5px] h-2 w-2 rounded-full ' + (i === SLA_LOG.length - 1 ? 'bg-line-strong' : 'bg-success')
+                  }
+                />
+                <div className="text-[12.5px] leading-relaxed">
+                  <span className="font-mono text-[11px] text-body-3">{e.when[lang]}</span>
+                  <span className="ml-2 text-body-2">{e.what[lang]}</span>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-3 text-[11.5px] leading-relaxed text-body-3">
+            {zh
+              ? '响应时间由平台自动记录，可作为你自己的记录留存。Stayloop 不代为申诉或提交投诉。'
+              : 'Response times are logged automatically and can be kept as your own record. Stayloop does not file complaints or appeals on your behalf.'}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
+function Aside({ lang, insights }: { lang: Lang; insights: AIInsight[] }) {
+  const zh = lang === 'zh'
+  return (
+    <div>
+      <AsideBlock title={zh ? 'AI 建议' : 'AI SUGGESTIONS'}>
+        <AIProactive role="tenant" insights={insights} variant="rail" />
+      </AsideBlock>
+
+      <AsideBlock title={zh ? '紧急情况怎么办' : 'IF IT IS AN EMERGENCY'}>
+        <ol className="space-y-2.5 text-[12.5px] leading-relaxed text-body-2">
+          <li className="grid grid-cols-[18px_1fr] gap-1.5">
+            <span className="font-mono text-[11px] font-bold text-tenant">1</span>
+            <span>
+              {zh
+                ? '供暖 / 漏水 / 断电属 vital service，房东有法定即时义务。'
+                : 'Heat, water leaks and power are vital services — the landlord has an immediate legal duty.'}
+            </span>
+          </li>
+          <li className="grid grid-cols-[18px_1fr] gap-1.5">
+            <span className="font-mono text-[11px] font-bold text-tenant">2</span>
+            <span>
+              {zh ? '24 小时无响应 → 让 AI 起草升级函（自动附时间线）。' : 'No response in 24 hours → have the AI draft an escalation letter (timeline attached).'}
+              <Link
+                href={`/tenant/agent?prompt=${encodeURIComponent(
+                  zh
+                    ? '房东超过 24 小时没有回应我的维修请求，帮我起草一封升级函，并附上响应时效记录。'
+                    : 'The landlord has not responded to my maintenance request in 24 hours — draft an escalation letter and attach the response-time record.'
+                )}`}
+                className="ml-1 font-semibold text-tenant hover:underline"
+              >
+                {zh ? '起草升级函 →' : 'Draft it →'}
+              </Link>
+            </span>
+          </li>
+          <li className="grid grid-cols-[18px_1fr] gap-1.5">
+            <span className="font-mono text-[11px] font-bold text-tenant">3</span>
+            <span>
+              {zh
+                ? 'Toronto 311 · 物业标准投诉（由你自行提交，Stayloop 不代为申诉）。'
+                : 'Toronto 311 · property-standards complaint (you file it yourself — Stayloop does not file on your behalf).'}
+            </span>
+          </li>
+        </ol>
+      </AsideBlock>
+    </div>
   )
 }
 

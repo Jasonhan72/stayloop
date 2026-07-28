@@ -6,11 +6,21 @@ import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import LandlordThreeSteps from '@/components/landlord/LandlordThreeSteps'
 import StampBadge from '@/components/StampBadge'
 import WorkspaceShell from '@/components/WorkspaceShell'
-import { AsideBlock, PageHeader, SectionCard, StatusPill, type PillTone } from '@/components/workspace'
+import {
+  AsideBlock,
+  PageHeader,
+  SectionCard,
+  StatStrip,
+  StatusPill,
+  Table,
+  Td,
+  Tr,
+  type PillTone,
+} from '@/components/workspace'
 import { useAIName } from '@/lib/aiName'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
-import { useT } from '@/lib/i18n'
+import { useT, type Lang } from '@/lib/i18n'
 import type { ApplicationFile } from '@/types'
 
 type Decision = 'approve' | 'review' | 'decline'
@@ -46,6 +56,57 @@ const SECTIONS: { decision: Decision; label: { zh: string; en: string }; tone: P
 ]
 
 const AVC_CYCLE = ['tenant', 'agent', 'landlord', 'orange'] as const
+
+// The landlord's own screening policy, as the applicants above were sorted by.
+// Every rule here is about ability to perform the tenancy (documented income,
+// credit, debt load, term) — never a personal characteristic. The OHRC notice
+// under the list is the same wording the decision screen carries.
+const POLICY: { rule: { zh: string; en: string }; hit?: { zh: string; en: string } }[] = [
+  {
+    rule: { zh: '需银行章起申（Unit 1207 提至银行章）', en: 'Bank stamp required to apply (Unit 1207 raised to bank stamp)' },
+    hit: { zh: '命中 3 / 未达 3', en: '3 meet / 3 below' },
+  },
+  { rule: { zh: '信用 ≥ 720', en: 'Credit ≥ 720' }, hit: { zh: '命中 4', en: '4 meet' } },
+  { rule: { zh: 'DTI ≤ 35%', en: 'DTI ≤ 35%' }, hit: { zh: '命中 5', en: '5 meet' } },
+  { rule: { zh: '12 个月起租，拒绝 < 6 个月', en: 'Minimum 12-month term; under 6 months declined' } },
+  { rule: { zh: '猫 ✓ · 小型犬 ✓（安省禁止收宠物押金，禁养条款无效）', en: 'Cats ✓ · small dogs ✓ (Ontario bans pet deposits; no-pet clauses are void)' } },
+]
+
+// Applications that already have a decision — kept visible so the audit trail
+// is on the same page as the queue.
+const DECIDED: {
+  name: string
+  unit: string
+  decision: { zh: string; en: string }
+  tone: PillTone
+  date: string
+  followUp?: { zh: string; en: string }
+}[] = [
+  {
+    name: 'Mia Chen',
+    unit: 'Unit 1207',
+    decision: { zh: '已批准', en: 'Approved' },
+    tone: 'ok',
+    date: '5/14',
+    followUp: { zh: '已发租约 L-202', en: 'Lease L-202 sent' },
+  },
+  {
+    name: 'Anna Brooks',
+    unit: 'Unit 1207',
+    decision: { zh: '已通知不符合', en: 'Notified — below threshold' },
+    tone: 'neutral',
+    date: '5/12',
+  },
+]
+
+// Inquiry → lease funnel for the listing this queue belongs to.
+const FUNNEL: { stage: { zh: string; en: string }; n: number }[] = [
+  { stage: { zh: '询盘', en: 'Inquiries' }, n: 8 },
+  { stage: { zh: '完整申请', en: 'Complete applications' }, n: 6 },
+  { stage: { zh: '达标', en: 'Meet threshold' }, n: 3 },
+  { stage: { zh: '面谈', en: 'Interviewed' }, n: 2 },
+  { stage: { zh: '发租约', en: 'Lease sent' }, n: 1 },
+]
 
 type AppRow = {
   id: string
@@ -177,6 +238,24 @@ export default function LandlordApplicantsPage() {
     ? `APPLICANTS · ${(apps.find((a) => a.unitLabel)?.unitLabel || 'ALL LISTINGS').toUpperCase()}`
     : 'APPLICANTS · UNIT 1207 · KING WEST'
 
+  // Queue health. Derived from the real rows when they exist; the design-canon
+  // numbers stand in while the page is showing sample data.
+  const undecided = liveMode ? rows!.filter((r) => r.status !== 'approved' && r.status !== 'declined') : []
+  const pendingCount = liveMode ? undecided.length : 4
+  const leasesSent = liveMode ? rows!.filter((r) => r.status === 'approved').length : 1
+  const avgWaitHours = liveMode
+    ? undecided.length === 0
+      ? 0
+      : Math.max(
+          0,
+          Math.round(
+            undecided.reduce((s, r) => s + (Date.now() - new Date(r.created_at).getTime()), 0) /
+              undecided.length /
+              3_600_000,
+          ),
+        )
+    : 26
+
   const topScored = liveMode ? apps.filter((a) => a.match != null).sort((a, b) => (b.match ?? 0) - (a.match ?? 0))[0] : null
   const insights: AIInsight[] = liveMode
     ? [
@@ -240,11 +319,7 @@ export default function LandlordApplicantsPage() {
   return (
     <WorkspaceShell
       role="landlord"
-      aside={
-        <AsideBlock title={lang === 'zh' ? 'AI 建议' : 'AI SUGGESTIONS'}>
-          <AIProactive role="landlord" insights={insights} variant="rail" />
-        </AsideBlock>
-      }
+      aside={<RailAside lang={lang} insights={insights} showFunnel={!liveMode} />}
     >
       <PageHeader
         title={lang === 'zh' ? `${apps.length} 份申请 · ${aiName} 已分组` : `${apps.length} applications · grouped by ${aiName}`}
@@ -269,7 +344,43 @@ export default function LandlordApplicantsPage() {
         }
       />
 
+      <StatStrip
+        stats={[
+          {
+            label: lang === 'zh' ? '新申请' : 'New applications',
+            value: String(apps.length),
+            sub: lang === 'zh' ? `${aiName} 已按你的政策分组` : `Grouped by ${aiName} against your policy`,
+          },
+          {
+            label: lang === 'zh' ? '待你决定' : 'Awaiting your decision',
+            value: String(pendingCount),
+            sub: lang === 'zh' ? '推荐审批 + 需面谈' : 'Recommended + needs interview',
+            tone: 'warn',
+          },
+          {
+            label: lang === 'zh' ? '平均等待' : 'Average wait',
+            value: lang === 'zh' ? `${avgWaitHours} 小时` : `${avgWaitHours} h`,
+            sub:
+              lang === 'zh'
+                ? '优质申请人常在 48 小时内接受其他 offer'
+                : 'Strong applicants often accept elsewhere within 48h',
+            tone: 'down',
+          },
+          {
+            label: lang === 'zh' ? '已发租约' : 'Leases sent',
+            value: String(leasesSent),
+            sub: liveMode
+              ? lang === 'zh'
+                ? '已批准的申请'
+                : 'Approved applications'
+              : 'Mia Chen · 5/14',
+          },
+        ]}
+      />
+
       {!liveMode && <LandlordThreeSteps lang={lang} />}
+
+      <PolicyCard lang={lang} showHits={!liveMode} />
 
       {SECTIONS.map((s) => {
         const list = apps.filter((a) => a.decision === s.decision)
@@ -324,6 +435,151 @@ export default function LandlordApplicantsPage() {
           </SectionCard>
         )
       })}
+
+      {!liveMode && <DecidedTable lang={lang} />}
     </WorkspaceShell>
+  )
+}
+
+/**
+ * The landlord's own screening policy, shown next to the queue it produced.
+ * Compliance: only performance-related criteria may appear here, and the OHRC
+ * notice below is the same wording carried on the decision screen
+ * (app/landlord/applicants/[id]/page.tsx).
+ */
+function PolicyCard({
+  lang,
+  /** Per-rule hit counts belong to the sample queue — hidden in live mode. */
+  showHits,
+}: {
+  lang: Lang
+  showHits: boolean
+}) {
+  const zh = lang === 'zh'
+  const aiName = useAIName('landlord')
+  return (
+    <SectionCard
+      className="mb-3"
+      title={zh ? '我的筛选政策' : 'Your screening policy'}
+      meta={zh ? `${aiName} 按此分组` : `${aiName} sorts by this`}
+      action={
+        <Link
+          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我复核 Unit 1207 的筛选门槛（收入 / 信用 / DTI / 租期），并指出哪些条件把合格申请人挡在门外' : 'Review my screening thresholds for Unit 1207 (income / credit / DTI / term) and flag any that are screening out qualified applicants')}`}
+          className="text-[12px] font-semibold text-brand hover:underline"
+        >
+          {zh ? '复核门槛 →' : 'Review thresholds →'}
+        </Link>
+      }
+    >
+      <ul className="space-y-2">
+        {POLICY.map((p) => (
+          <li
+            key={p.rule.en}
+            className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[8px] border border-line-divider bg-surface px-3 py-2"
+          >
+            <span className="text-[12.5px] font-semibold">{p.rule[lang]}</span>
+            {showHits && p.hit && (
+              <span className="font-mono text-[11px] text-body-3">{p.hit[lang]}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 rounded-lg bg-danger/[0.06] px-3 py-2.5 text-[11.5px] leading-relaxed text-body-2">
+        <b className="text-danger">⚠️ {zh ? 'RTA 提示：' : 'RTA notice: '}</b>
+        {zh
+          ? `「不合适」理由不能是种族 / 国籍 / 来源国 / 家庭情况 / 性取向。${aiName} 会过滤这些，但你拒绝时仍需具体理由 — 写入 audit log。`
+          : `A "not a fit" reason cannot be race / nationality / country of origin / family status / sexual orientation. ${aiName} filters these out, but you still need a specific reason when declining — it is written to the audit log.`}
+      </p>
+    </SectionCard>
+  )
+}
+
+function DecidedTable({ lang }: { lang: Lang }) {
+  const zh = lang === 'zh'
+  return (
+    <SectionCard
+      className="mb-3"
+      padded={false}
+      title={zh ? '已决定 / 已归档' : 'Decided / archived'}
+      meta={<span className="font-mono">{DECIDED.length}</span>}
+    >
+      <Table
+        head={[
+          zh ? '申请人' : 'Applicant',
+          zh ? '决定' : 'Decision',
+          zh ? '日期' : 'Date',
+          zh ? '后续' : 'Follow-up',
+        ]}
+      >
+        {DECIDED.map((d) => (
+          <Tr key={d.name}>
+            <Td>
+              <div className="text-[13px] font-semibold">{d.name}</div>
+              <div className="text-[11.5px] text-body-2">{d.unit}</div>
+            </Td>
+            <Td align="right">
+              <StatusPill tone={d.tone}>{d.decision[lang]}</StatusPill>
+            </Td>
+            <Td align="right" mono muted>
+              {d.date}
+            </Td>
+            <Td align="right" muted>
+              {d.followUp?.[lang] ?? '—'}
+            </Td>
+          </Tr>
+        ))}
+      </Table>
+    </SectionCard>
+  )
+}
+
+function RailAside({
+  lang,
+  insights,
+  showFunnel,
+}: {
+  lang: Lang
+  insights: AIInsight[]
+  /** The funnel is design-canon sample data — hidden once real applications land. */
+  showFunnel: boolean
+}) {
+  const zh = lang === 'zh'
+  const aiName = useAIName('landlord')
+  const top = FUNNEL[0].n
+  const qualifiedRate = Math.round((FUNNEL[2].n / FUNNEL[1].n) * 100)
+  return (
+    <div>
+      <AsideBlock title={zh ? 'AI 建议' : 'AI SUGGESTIONS'}>
+        <AIProactive role="landlord" insights={insights} variant="rail" />
+      </AsideBlock>
+
+      {showFunnel && (
+      <AsideBlock title={zh ? '本房源询盘漏斗' : 'Listing inquiry funnel'}>
+        <div className="rounded-xl border border-line-divider bg-white p-3.5">
+          <ul className="space-y-2">
+            {FUNNEL.map((f) => (
+              <li key={f.stage.en}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[12px] text-body-2">{f.stage[lang]}</span>
+                  <span className="font-mono text-[12px] font-bold [font-variant-numeric:tabular-nums]">{f.n}</span>
+                </div>
+                <div className="mt-1 h-1.5 rounded-full bg-surface-chip">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${(f.n / top) * 100}%`, background: 'rgba(4,120,87,0.55)' }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 border-t border-line-divider pt-2.5 text-[11.5px] leading-relaxed text-body-3">
+            {zh
+              ? `达标率 ${qualifiedRate}% · 若连续两批 < 30%，${aiName} 会提示复核门槛或定价。`
+              : `${qualifiedRate}% meet threshold · if two consecutive batches fall under 30%, ${aiName} will flag your thresholds or pricing for review.`}
+          </p>
+        </div>
+      </AsideBlock>
+      )}
+    </div>
   )
 }

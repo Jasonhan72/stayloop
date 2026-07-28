@@ -1,14 +1,35 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import AIProactive from '@/components/AIProactive'
+import AIProactive, { type AIInsight } from '@/components/AIProactive'
+import TrrebTrendChart from '@/components/agent/TrrebTrendChart'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import {
+  AsideBlock,
+  PageHeader,
+  SectionCard,
+  StatStrip,
+  StatusPill,
+  Table,
+  Td,
+  Tr,
+} from '@/components/workspace'
 import { useAIName } from '@/lib/aiName'
+import { readTrrebBenchmark, type TrrebBenchmark } from '@/lib/agent/trrebRent'
+import {
+  CRA776_LABEL,
+  EXPENSES,
+  PROPERTY_PNL,
+  cra776Subtotals,
+} from '@/lib/demo/landlordFinance'
 import { useT, type Lang } from '@/lib/i18n'
+import { ROLE_THEME } from '@/lib/roleTheme'
 
 /**
  * V5 ART 27 / 43 · Landlord · Finance
  * Monthly rent collection + expenses + KPIs across all properties.
+ * Layout follows design/v9-workspace-finance.html.
  */
 
 const MONTHS = [
@@ -26,295 +47,419 @@ const PROPERTIES = [
   { name: '432 Brunswick Ave', tenant: { zh: 'Anna L.（待入住）', en: 'Anna L. (moving in)' }, rent: 4250, status: 'upcoming', tier: 3 },
 ]
 
-const EXPENSES = [
-  { date: '5/2', desc: { zh: 'Liberty Village 2B · 洗碗机维修', en: 'Liberty Village 2B · dishwasher repair' }, amount: 280 },
-  { date: '4/22', desc: { zh: 'Unit 1207 · 物业管理费', en: 'Unit 1207 · property management fee' }, amount: 645 },
-  { date: '4/15', desc: { zh: '432 Brunswick · 屋顶检查', en: '432 Brunswick · roof inspection' }, amount: 420 },
-  { date: '4/3', desc: { zh: 'Liberty Village 2B · 空调清洗', en: 'Liberty Village 2B · AC cleaning' }, amount: 180 },
+// Receivables — the ledger behind the collection chart. The December bar sits
+// below its expected line; these rows say why, and that it was settled.
+const RECEIVABLES = [
+  {
+    period: { zh: '2026-05 · 本月', en: '2026-05 · this month' },
+    expected: 10590,
+    collected: 10590,
+    note: { zh: '逾期 $0', en: 'Arrears $0' },
+    tone: 'ok' as const,
+  },
+  {
+    period: { zh: '2025-12', en: '2025-12' },
+    expected: 10590,
+    collected: 9540,
+    note: { zh: '差额 $1,050 · 已结清', en: 'Shortfall $1,050 · settled' },
+    tone: 'neutral' as const,
+  },
+  {
+    period: { zh: '2026-03', en: '2026-03' },
+    expected: 10590,
+    collected: 10590,
+    note: { zh: '迟付 3 天 · 已结清', en: 'Paid 3 days late · settled' },
+    tone: 'neutral' as const,
+  },
 ]
 
 export default function LandlordFinancePage() {
   const { lang } = useT()
-  const totalCollected = MONTHS.reduce((s, m) => s + m.collected, 0)
-  const totalExpected = MONTHS.reduce((s, m) => s + m.expected, 0)
-  const collectionRate = (totalCollected / totalExpected) * 100
-  const totalExpense = EXPENSES.reduce((s, e) => s + e.amount, 0)
+  const zh = lang === 'zh'
+  const subtotals = cra776Subtotals()
+
+  const insights: AIInsight[] = [
+    {
+      text: {
+        zh: 'Unit 1207 当前租金低于同区中位数约 6%。Month 11 续约时可建议 +2.5%（2026 合规上限）。',
+        en: 'Unit 1207 rents about 6% under the area median. At Month 11 you can propose +2.5% (the 2026 legal cap).',
+      },
+      action: {
+        label: { zh: '生成续约方案', en: 'Draft renewal options' },
+        prompt: {
+          zh: '帮我生成 Unit 1207 的续约方案，包含合规涨幅和市场对比。',
+          en: 'Draft renewal options for Unit 1207 with the legal increase and market comparison.',
+        },
+      },
+    },
+    {
+      text: {
+        zh: '3 月有一笔迟付。开启自动催租后，{ai} 会在到期前 3 天温和提醒租客。',
+        en: 'There was one late payment in March. With auto-reminders on, {ai} nudges tenants 3 days before rent is due.',
+      },
+      action: {
+        label: { zh: '开启催租提醒', en: 'Turn on reminders' },
+        prompt: {
+          zh: '帮我给所有租约开启到期前 3 天的自动缴租提醒。',
+          en: 'Turn on automatic rent reminders 3 days before due date for all my leases.',
+        },
+      },
+    },
+  ]
 
   return (
-    <WorkspaceShell role="landlord" aside={<Aside lang={lang} />}>
-      <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-landlord">
-            {lang === 'zh' ? '财务 · 2026 YTD' : 'Finance · 2026 YTD'}
-          </div>
-          <h1 className="mt-2 text-[24px] font-bold tracking-tight sm:text-[36px]">
-            {lang === 'zh' ? 'Sarah 你今年到 5 月赚了 $30,000' : 'Sarah, you’ve earned $30,000 through May this year'}
-          </h1>
-        </div>
-        <div className="flex gap-2">
-          <Link href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我导出 2026 年至今的租金和支出明细 CSV' : 'Export a CSV of my 2026 YTD rent and expenses')}`} className="rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand">
-            {lang === 'zh' ? '导出 CSV' : 'Export CSV'}
-          </Link>
-          <Link href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我准备报税包（CRA Schedule 776 归集）' : 'Prepare my tax package (CRA Schedule 776 grouping)')}`} className="sl-btn-primary !px-5 !py-[10px] !text-[13px]">{lang === 'zh' ? '报税包 →' : 'Tax package →'}</Link>
-        </div>
-      </div>
+    <WorkspaceShell role="landlord" aside={<Aside lang={lang} insights={insights} />}>
+      <PageHeader
+        title={zh ? '财务 · 2026 YTD' : 'Finance · 2026 YTD'}
+        sub={
+          <>
+            <span className="font-mono text-[11px] uppercase tracking-eyebrow text-landlord">LANDLORD · FINANCE</span>
+            <span className="mx-1.5 text-body-3">·</span>
+            {zh ? 'Sarah 你今年到 5 月赚了 $30,000' : 'Sarah, you’ve earned $30,000 through May this year'}
+          </>
+        }
+        actions={
+          <>
+            <Link
+              href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我导出 2026 年至今的租金和支出明细 CSV' : 'Export a CSV of my 2026 YTD rent and expenses')}`}
+              className="rounded-[10px] border border-line-strong bg-white px-4 py-2 text-[12.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
+            >
+              {zh ? '导出 CSV' : 'Export CSV'}
+            </Link>
+            <Link
+              href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我准备报税包（CRA Schedule 776 归集）' : 'Prepare my tax package (CRA Schedule 776 grouping)')}`}
+              className="sl-btn-primary !px-4 !py-2 !text-[12.5px]"
+            >
+              {zh ? '报税包 →' : 'Tax package →'}
+            </Link>
+          </>
+        }
+      />
 
-      <AIProactive
-        role="landlord"
-        insights={[
+      <StatStrip
+        stats={[
           {
-            text: {
-              zh: 'Unit 1207 当前租金低于同区中位数约 6%。Month 11 续约时可建议 +2.5%（2026 合规上限）。',
-              en: 'Unit 1207 rents about 6% under the area median. At Month 11 you can propose +2.5% (the 2026 legal cap).',
-            },
-            action: {
-              label: { zh: '生成续约方案', en: 'Draft renewal options' },
-              prompt: {
-                zh: '帮我生成 Unit 1207 的续约方案，包含合规涨幅和市场对比。',
-                en: 'Draft renewal options for Unit 1207 with the legal increase and market comparison.',
-              },
-            },
+            label: zh ? 'YTD 租金收入' : 'YTD rent income',
+            value: '$30,000',
+            sub: '▲ +12% vs 2025',
+            tone: 'up',
           },
           {
-            text: {
-              zh: '3 月有一笔迟付。开启自动催租后，{ai} 会在到期前 3 天温和提醒租客。',
-              en: 'There was one late payment in March. With auto-reminders on, {ai} nudges tenants 3 days before rent is due.',
-            },
-            action: {
-              label: { zh: '开启催租提醒', en: 'Turn on reminders' },
-              prompt: {
-                zh: '帮我给所有租约开启到期前 3 天的自动缴租提醒。',
-                en: 'Turn on automatic rent reminders 3 days before due date for all my leases.',
-              },
-            },
+            label: zh ? 'YTD 净利' : 'YTD net profit',
+            value: '$22,840',
+            sub: zh ? '▲ +14% · 维修成本下降' : '▲ +14% · repair costs down',
+            tone: 'up',
+          },
+          {
+            label: zh ? '空置率' : 'Vacancy rate',
+            value: '2.4%',
+            sub: zh ? '▼ 区域均 8.7%' : '▼ area avg 8.7%',
+          },
+          {
+            label: zh ? '税务待缴' : 'Tax payable',
+            value: '$3,420',
+            sub: zh ? 'CRA Q2 · 6/15 截止' : 'CRA Q2 · due 6/15',
+            tone: 'warn',
           },
         ]}
       />
 
-      {/* KPI strip */}
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Kpi label={lang === 'zh' ? 'YTD 租金收入' : 'YTD rent income'} value="$30,000" accent="#047857" sub={lang === 'zh' ? '▲ +12% vs 2025' : '▲ +12% vs 2025'} />
-        <Kpi label={lang === 'zh' ? 'YTD 净利' : 'YTD net profit'} value="$22,840" accent="#047857" sub={lang === 'zh' ? '▲ +14% · 维修成本下降' : '▲ +14% · repair costs down'} />
-        <Kpi label={lang === 'zh' ? '空置率' : 'Vacancy rate'} value="2.4%" accent="#171717" sub={lang === 'zh' ? '▼ 区域均 8.7%' : '▼ area avg 8.7%'} />
-        <Kpi
-          label={lang === 'zh' ? '税务待缴' : 'Tax payable'}
-          value="$3,420"
-          accent="#B45309"
-          sub={lang === 'zh' ? 'CRA Q2 · 6/15 截止' : 'CRA Q2 · due 6/15'}
-        />
-      </div>
-
       {/* Chart */}
-      <section className="mt-10 sl-card p-7">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-              {lang === 'zh' ? '月度收租' : 'Monthly rent collected'}
-            </div>
-            <h2 className="text-[18px] font-bold tracking-tight">{lang === 'zh' ? '最近 6 个月' : 'Last 6 months'}</h2>
-          </div>
-          <div className="font-mono text-[11px] uppercase tracking-eyebrow text-body-3">
-            {lang === 'zh' ? '▮ 实收 ▯ 应收' : '▮ Collected ▯ Expected'}
-          </div>
-        </div>
-        <div className="mt-6 grid grid-cols-6 items-end gap-3">
+      <SectionCard
+        className="mb-3"
+        title={zh ? '月度收租 · 最近 6 个月' : 'Monthly rent collected · last 6 months'}
+        meta={zh ? '▮ 实收 ▯ 应收' : '▮ Collected ▯ Expected'}
+      >
+        <div className="grid grid-cols-6 items-end gap-3">
           {MONTHS.map((m) => {
             const max = Math.max(...MONTHS.map((x) => x.expected))
             const ch = (m.collected / max) * 100
             const eh = (m.expected / max) * 100
             return (
-              <div key={m.m.en} className="flex flex-col items-center gap-1">
-                <div className="flex h-[180px] w-full items-end gap-1">
-                  <div
-                    className="flex-1 rounded-t-[3px]"
-                    style={{ height: `${ch}%`, background: '#047857' }}
-                  />
-                  <div
-                    className="flex-1 rounded-t-[3px]"
-                    style={{ height: `${eh}%`, background: 'rgba(4,120,87,0.20)' }}
-                  />
+              <div key={m.m.en} className="flex flex-col items-center gap-1.5">
+                <div className="flex h-[118px] w-full items-end gap-1">
+                  <div className="flex-1 rounded-t-[3px]" style={{ height: `${ch}%`, background: '#047857' }} />
+                  <div className="flex-1 rounded-t-[3px]" style={{ height: `${eh}%`, background: 'rgba(4,120,87,0.18)' }} />
                 </div>
-                <div className="font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
-                  {m.m[lang]}
-                </div>
+                <div className="text-[11px] text-body-3">{m.m[lang]}</div>
               </div>
             )
           })}
         </div>
-      </section>
+      </SectionCard>
+
+      {/* Receivables & arrears — explains the December gap in the chart above */}
+      <SectionCard
+        className="mb-3"
+        padded={false}
+        title={zh ? '应收与逾期' : 'Receivables & arrears'}
+        meta={zh ? '已全部结清' : 'All settled'}
+      >
+        <Table
+          head={[
+            zh ? '期间' : 'Period',
+            zh ? '应收' : 'Expected',
+            zh ? '已收' : 'Collected',
+            zh ? '状态' : 'Status',
+          ]}
+        >
+          {RECEIVABLES.map((r) => (
+            <Tr key={r.period.en}>
+              <Td strong>{r.period[lang]}</Td>
+              <Td align="right" mono>
+                ${r.expected.toLocaleString()}
+              </Td>
+              <Td align="right" mono>
+                ${r.collected.toLocaleString()}
+              </Td>
+              <Td align="right">
+                <StatusPill tone={r.tone}>{r.note[lang]}</StatusPill>
+              </Td>
+            </Tr>
+          ))}
+        </Table>
+      </SectionCard>
+
+      {/* Per-property P&L */}
+      <SectionCard
+        className="mb-3"
+        padded={false}
+        title={zh ? '按房源盈亏 · YTD' : 'Per-property P&L · YTD'}
+        meta={zh ? '租金 − 支出' : 'Rent − expenses'}
+      >
+        <Table
+          head={[
+            zh ? '房源' : 'Property',
+            zh ? '租金' : 'Rent',
+            zh ? '支出' : 'Expenses',
+            zh ? '净额' : 'Net',
+            zh ? '净利率' : 'Margin',
+            zh ? '空置' : 'Vacancy',
+          ]}
+        >
+          {PROPERTY_PNL.map((p) => {
+            const net = p.rent - p.expense
+            return (
+              <Tr key={p.name}>
+                <Td>
+                  <div className="text-[13px] font-semibold">{p.name}</div>
+                  <div className="text-[11.5px] text-body-2">{p.tenant[lang]}</div>
+                </Td>
+                <Td align="right" mono>
+                  ${p.rent.toLocaleString()}
+                </Td>
+                <Td align="right" mono muted>
+                  ${p.expense.toLocaleString()}
+                </Td>
+                <Td align="right" mono strong>
+                  <span className={net < 0 ? 'text-danger' : undefined}>
+                    {net < 0 ? '−' : ''}${Math.abs(net).toLocaleString()}
+                  </span>
+                </Td>
+                <Td align="right" mono>
+                  {p.rent > 0 ? `${Math.round((net / p.rent) * 100)}%` : '—'}
+                </Td>
+                <Td align="right">
+                  {p.vacantDays != null
+                    ? zh
+                      ? `${p.vacantDays} 天`
+                      : `${p.vacantDays} days`
+                    : (p.vacancyNote?.[lang] ?? '—')}
+                </Td>
+              </Tr>
+            )
+          })}
+        </Table>
+      </SectionCard>
 
       {/* Two columns */}
-      <div className="mt-10 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <section className="sl-card overflow-hidden">
-          <div className="border-b border-line-divider px-6 py-4">
-            <h3 className="text-[16px] font-bold tracking-tight">{lang === 'zh' ? '本月收租明细' : 'Rent ledger · this month'}</h3>
-          </div>
-          <div className="overflow-x-auto">
-          <table className="w-full min-w-[460px] text-[13.5px]">
-            <thead className="bg-surface-chip">
-              <tr>
-                <Th>{lang === 'zh' ? '房产' : 'Property'}</Th>
-                <Th>{lang === 'zh' ? '租客' : 'Tenant'}</Th>
-                <Th right>{lang === 'zh' ? '金额' : 'Amount'}</Th>
-                <Th right>{lang === 'zh' ? '状态' : 'Status'}</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {PROPERTIES.map((p) => (
-                <tr key={p.name} className="border-t border-line-divider">
-                  <td className="px-6 py-3 text-[12.5px] font-bold">{p.name}</td>
-                  <td className="px-6 py-3 text-[12.5px] text-body-2">{p.tenant[lang]}</td>
-                  <td className="px-6 py-3 text-right font-mono font-bold">
-                    ${p.rent.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-3 text-right">
-                    <Pill status={p.status} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </section>
-
-        <section className="sl-card overflow-hidden">
-          <div className="border-b border-line-divider px-6 py-4">
-            <h3 className="text-[16px] font-bold tracking-tight">{lang === 'zh' ? '支出 / 维修' : 'Expenses / repairs'}</h3>
-          </div>
-          <ul>
-            {EXPENSES.map((e, i) => (
-              <li
-                key={i}
-                className={
-                  'flex items-center justify-between px-6 py-3 ' +
-                  (i > 0 ? 'border-t border-line-divider' : '')
-                }
-              >
-                <div>
-                  <div className="text-[12.5px] font-semibold">{e.desc[lang]}</div>
-                  <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">
-                    {e.date}
-                  </div>
-                </div>
-                <div className="font-mono text-[13px] font-bold text-danger">
-                  −${e.amount.toLocaleString()}
-                </div>
-              </li>
+      <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
+        <SectionCard padded={false} title={zh ? '本月收租明细' : 'Rent ledger · this month'}>
+          <Table
+            head={[
+              zh ? '房产' : 'Property',
+              zh ? '租客' : 'Tenant',
+              zh ? '金额' : 'Amount',
+              zh ? '状态' : 'Status',
+            ]}
+          >
+            {PROPERTIES.map((p) => (
+              <Tr key={p.name}>
+                <Td strong>{p.name}</Td>
+                <Td align="right" muted>
+                  {p.tenant[lang]}
+                </Td>
+                <Td align="right" mono strong>
+                  ${p.rent.toLocaleString()}
+                </Td>
+                <Td align="right">
+                  <StatusPill tone={p.status === 'paid' ? 'ok' : 'pending'}>
+                    {p.status === 'paid' ? (zh ? '已收' : 'Paid') : zh ? '待入住' : 'Upcoming'}
+                  </StatusPill>
+                </Td>
+              </Tr>
             ))}
-          </ul>
-        </section>
+          </Table>
+        </SectionCard>
+
+        <SectionCard padded={false} title={zh ? '支出 / 维修' : 'Expenses / repairs'}>
+          {/* CRA Schedule 776 subtotals — the grouping promised in the rail */}
+          <div className="flex flex-wrap gap-1.5 border-b border-line-divider bg-surface-chip px-4 py-2.5">
+            {subtotals.map((c) => (
+              <span
+                key={c.key}
+                className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-semibold text-body-2 ring-1 ring-line-divider"
+              >
+                {CRA776_LABEL[c.key][lang]} <span className="font-mono">${c.total.toLocaleString()}</span>
+              </span>
+            ))}
+          </div>
+          <Table
+            head={[
+              zh ? '支出' : 'Expense',
+              zh ? 'CRA 776 分类' : 'CRA 776 line',
+              zh ? '金额' : 'Amount',
+            ]}
+          >
+            {EXPENSES.map((e) => (
+              <Tr key={`${e.date}-${e.desc.en}`}>
+                <Td>
+                  <div className="text-[12.5px] font-semibold">{e.desc[lang]}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{e.date}</div>
+                </Td>
+                <Td align="right" muted>
+                  {CRA776_LABEL[e.cra776][lang]}
+                </Td>
+                <Td align="right" mono strong>
+                  <span className="text-danger">−${e.amount.toLocaleString()}</span>
+                </Td>
+              </Tr>
+            ))}
+          </Table>
+        </SectionCard>
       </div>
     </WorkspaceShell>
   )
 }
 
-function Kpi({
-  label,
-  value,
-  accent,
-  sub,
-}: {
-  label: string
-  value: string
-  accent: string
-  sub?: string
-}) {
+function Aside({ lang, insights }: { lang: Lang; insights: AIInsight[] }) {
+  const aiName = useAIName('landlord')
+  const zh = lang === 'zh'
   return (
-    <div className="sl-card p-5">
-      <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        {label}
-      </div>
-      <div className="mt-1.5 text-[24px] font-extrabold tracking-tight" style={{ color: accent }}>
-        {value}
-      </div>
-      {sub && <div className="mt-1 text-[11px] text-body-3">{sub}</div>}
+    <div>
+      <AsideBlock title={zh ? 'AI 建议' : 'AI SUGGESTIONS'}>
+        <AIProactive role="landlord" insights={insights} variant="rail" />
+      </AsideBlock>
+
+      <AsideBlock title={zh ? '市场对照' : 'Market benchmark'}>
+        <MarketBenchmark lang={lang} />
+      </AsideBlock>
+
+      <AsideBlock title={zh ? '税务' : 'Taxes'}>
+        <div className="rounded-xl border border-line-divider bg-white p-3.5">
+          <div className="text-[14px] font-bold">CRA Schedule 776</div>
+          <div className="mt-1 text-[12.5px] text-body-2">
+            {zh
+              ? `${aiName} 会把所有租金 / 支出按 776 表格归集，T1 报税季节一键导出。`
+              : `${aiName} groups all rent and expenses by the Schedule 776 form, ready for one-click export at T1 tax time.`}
+          </div>
+          <Link
+            href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '预览我的 2025 报税包（CRA Schedule 776）' : 'Preview my 2025 tax package (CRA Schedule 776)')}`}
+            className="mt-3 block w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-center text-[12.5px] font-semibold transition hover:border-brand hover:text-brand"
+          >
+            {zh ? '预览 2025 报税包' : 'Preview 2025 tax package'}
+          </Link>
+        </div>
+      </AsideBlock>
+
+      <AsideBlock title={zh ? `${aiName} 提示` : `${aiName} tips`}>
+        <div className="space-y-2 text-[12.5px] leading-relaxed text-body-2">
+          {zh ? (
+            <>
+              <p>
+                📈 你 6 个月平均收租率 <b>98.4%</b> — 高于 GTA 业主平均 <b>92.1%</b>。
+              </p>
+              <p>
+                💡 Unit 1207 的市场租金已升至 $2,980。续约时可考虑上调到 LTB 上限。
+              </p>
+              <p>🧾 上次 GST 申报：2026 Q1 已完成。</p>
+            </>
+          ) : (
+            <>
+              <p>
+                📈 Your 6-month average collection rate is <b>98.4%</b> — above the GTA landlord average of <b>92.1%</b>.
+              </p>
+              <p>
+                💡 Market rent for Unit 1207 has risen to $2,980. Consider raising to the LTB cap at renewal.
+              </p>
+              <p>🧾 Last GST filing: 2026 Q1 completed.</p>
+            </>
+          )}
+        </div>
+      </AsideBlock>
     </div>
   )
 }
 
-function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
-  return (
-    <th
-      className={
-        'px-6 py-3 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3 ' +
-        (right ? 'text-right' : 'text-left')
-      }
-    >
-      {children}
-    </th>
-  )
-}
+/**
+ * Official TRREB quarterly benchmark for the King West unit, read from the
+ * same cache the agent workspace uses (lib/agent/trrebRent). No cached row →
+ * the block renders nothing rather than an invented number.
+ */
+function MarketBenchmark({ lang }: { lang: Lang }) {
+  const zh = lang === 'zh'
+  const accent = ROLE_THEME.landlord.accent
+  const [bm, setBm] = useState<TrrebBenchmark | null>(null)
 
-function Pill({ status }: { status: string }) {
-  const map: Record<string, { bg: string; fg: string; label: string }> = {
-    paid: { bg: 'rgba(4,120,87,0.10)', fg: '#047857', label: 'PAID' },
-    late: { bg: 'rgba(220,38,38,0.10)', fg: '#B91C1C', label: 'LATE' },
-    upcoming: { bg: 'rgba(113,113,122,0.10)', fg: '#52525B', label: 'UPCOMING' },
-  }
-  const m = map[status] || map.upcoming
-  return (
-    <span
-      className="font-mono"
-      style={{
-        background: m.bg,
-        color: m.fg,
-        padding: '3px 8px',
-        borderRadius: 4,
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: '0.10em',
-      }}
-    >
-      {m.label}
-    </span>
-  )
-}
+  useEffect(() => {
+    let cancelled = false
+    void readTrrebBenchmark(1, ['King West'], 'apartment').then((r) => {
+      if (!cancelled) setBm(r)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-function Aside({ lang }: { lang: Lang }) {
-  const aiName = useAIName('landlord')
-  return (
-    <div>
-      <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        {lang === 'zh' ? '税务' : 'Taxes'}
-      </div>
-      <div className="mt-3 sl-card p-4">
-        <div className="text-[14px] font-bold">CRA Schedule 776</div>
-        <div className="mt-1 text-[12.5px] text-body-2">
-          {lang === 'zh'
-            ? `${aiName} 会把所有租金 / 支出按 776 表格归集，T1 报税季节一键导出。`
-            : `${aiName} groups all rent and expenses by the Schedule 776 form, ready for one-click export at T1 tax time.`}
-        </div>
-        <Link href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '预览我的 2025 报税包（CRA Schedule 776）' : 'Preview my 2025 tax package (CRA Schedule 776)')}`} className="mt-3 block w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-center text-[12.5px] font-semibold transition hover:border-brand hover:text-brand">
-          {lang === 'zh' ? '预览 2025 报税包' : 'Preview 2025 tax package'}
-        </Link>
-      </div>
+  const CURRENT_RENT = 2800
+  const delta = bm ? ((CURRENT_RENT - bm.avg) / bm.avg) * 100 : null
 
-      <div className="mt-6 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-        {lang === 'zh' ? `${aiName} 提示` : `${aiName} tips`}
-      </div>
-      <div className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-body-2">
-        {lang === 'zh' ? (
-          <>
-            <p>
-              📈 你 6 个月平均收租率 <b>98.4%</b> — 高于 GTA 业主平均 <b>92.1%</b>。
-            </p>
-            <p>
-              💡 Unit 1207 的市场租金已升至 $2,980。续约时可考虑上调到 LTB 上限。
-            </p>
-            <p>🧾 上次 GST 申报：2026 Q1 已完成。</p>
-          </>
-        ) : (
-          <>
-            <p>
-              📈 Your 6-month average collection rate is <b>98.4%</b> — above the GTA landlord average of <b>92.1%</b>.
-            </p>
-            <p>
-              💡 Market rent for Unit 1207 has risen to $2,980. Consider raising to the LTB cap at renewal.
-            </p>
-            <p>🧾 Last GST filing: 2026 Q1 completed.</p>
-          </>
-        )}
-      </div>
+  return (
+    <div className="rounded-xl border border-line-divider bg-white p-3.5">
+      <div className="text-[12.5px] font-bold">TRREB Rental Market Report</div>
+      {bm ? (
+        <>
+          <div className="mt-0.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
+            {bm.period} · {bm.area}
+          </div>
+          <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
+            {zh
+              ? `官方 1 房成交均价 $${bm.avg.toLocaleString()}。Unit 1207 现租 $${CURRENT_RENT.toLocaleString()} · `
+              : `Official 1-bed average leased rent $${bm.avg.toLocaleString()}. Unit 1207 currently rents at $${CURRENT_RENT.toLocaleString()} · `}
+            <b style={{ color: accent }}>
+              {delta != null && delta >= 0
+                ? zh
+                  ? `高于官方均值 ${delta.toFixed(1)}%`
+                  : `${delta.toFixed(1)}% above the official average`
+                : zh
+                  ? `低于官方均值 ${Math.abs(delta ?? 0).toFixed(1)}%`
+                  : `${Math.abs(delta ?? 0).toFixed(1)}% below the official average`}
+            </b>
+          </p>
+          {bm.history && bm.history.length >= 4 && <TrrebTrendChart history={bm.history} accent={accent} />}
+        </>
+      ) : (
+        <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
+          {zh
+            ? '官方季度基准正在刷新，稍后再看。Unit 1207 现租 $2,800。'
+            : 'The official quarterly benchmark is refreshing — check back shortly. Unit 1207 currently rents at $2,800.'}
+        </p>
+      )}
+      <p className="mt-2.5 border-t border-line-divider pt-2 text-[11px] leading-relaxed text-body-3">
+        {zh
+          ? '涨租仍受 2026 指导上限 2.5% 约束；2018 年 11 月后首次入住的单位豁免。'
+          : 'Rent increases remain bound by the 2026 guideline cap of 2.5%; units first occupied after November 2018 are exempt.'}
+      </p>
     </div>
   )
 }

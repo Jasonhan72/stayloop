@@ -34,7 +34,7 @@ const STEPS = [
   {
     n: 3,
     title: { zh: 'Stripe Connect', en: 'Stripe Connect' },
-    desc: { zh: '佣金每单 24h 内结算到你的银行账户，T4A 自动报送 CRA。', en: 'Commissions settle to your bank account within 24h per deal, with T4A auto-filed to CRA.' },
+    desc: { zh: '转介费在线结算，每笔自动开具含 HST 的发票，报税时直接导出。', en: 'Referral fees settle online, each with an HST invoice issued automatically — export them at tax time.' },
     fields: [{ zh: 'Stripe Connect 授权', en: 'Stripe Connect authorization' }],
   },
   {

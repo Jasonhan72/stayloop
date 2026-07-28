@@ -62,9 +62,9 @@ const DEMO_ZH: Record<AgentRole, RoleDemo> = {
         workflow_id: null,
         action_type: 'send_lease',
         title: '把 Unit 1207 的电子租约寄给 Mia Chen?',
-        summary: 'Mia (已盖 3/4 枚章, 92% match, 信用 758, 月入 $11k) 已通过 3-way 比较。租约草稿基于你批的 Ontario LTB 标准模板 + Unit 1207 特殊条款(宠物押金 $500)。',
+        summary: 'Mia (已盖 3/4 枚章, 92% match, 信用 758, 月入 $11k) 已通过 3-way 比较。租约草稿基于你批的 Ontario LTB 标准模板 + Unit 1207 特殊条款(允许养猫，宠物损坏由租客修复)。',
         recipient_label: 'Mia Chen · 租客',
-        data_scope: ['租约草稿', '起租日 6/1', '12 个月期', '宠物押金 $500'],
+        data_scope: ['租约草稿', '起租日 6/1', '12 个月期', '宠物条款'],
         excluded_data: ['你的其他房源数据', '其他申请人资料'],
         risk_level: 'high',
         expires_at: null,
@@ -83,7 +83,9 @@ const DEMO_ZH: Record<AgentRole, RoleDemo> = {
     memories: [
       { key: 'area', label: 'AREA', value: { value: 'Liberty · King West · Annex' }, confidence: 0.9, memory_type: 'preference' },
       { key: 'style', label: 'STYLE', value: { value: '更擅长讲故事 · 喜欢拍照' }, confidence: 0.8, memory_type: 'profile' },
-      { key: 'goal', label: 'GOAL', value: { value: '本月目标 $7,200 · 已 $3,840' }, confidence: 1, memory_type: 'profile' },
+      // Keep in step with lib/demo/agentBook.ts (MONTH_GOAL / MONTH_GROSS) —
+      // /agent/earnings renders the same target and progress.
+      { key: 'goal', label: 'GOAL', value: { value: '本月目标 $7,200 · 已 $3,315' }, confidence: 1, memory_type: 'profile' },
       { key: 'reco', label: 'RECO', value: { value: '#7892341 · Toronto West · 4.9★ 47 评' }, confidence: 1, memory_type: 'profile' },
     ],
     pending: [
@@ -157,7 +159,7 @@ const DEMO_EN: Record<AgentRole, RoleDemo> = {
         workflow_id: null,
         action_type: 'send_lease',
         title: 'Send the Unit 1207 e-lease to Mia Chen?',
-        summary: 'Mia (3/4 stamps, 92% match, credit 758, $11k monthly income) passed the 3-way comparison. The lease draft is based on your approved Ontario LTB standard template + Unit 1207 special terms (pet deposit $500).',
+        summary: 'Mia (3/4 stamps, 92% match, credit 758, $11k monthly income) passed the 3-way comparison. The lease draft is based on your approved Ontario LTB standard template + Unit 1207 special terms (cats permitted; tenant repairs pet damage).',
         recipient_label: 'Mia Chen · tenant',
         data_scope: ['Lease draft', 'Start date 6/1', '12-month term', 'Pet deposit $500'],
         excluded_data: ['Your other listing data', "Other applicants' files"],
@@ -178,7 +180,7 @@ const DEMO_EN: Record<AgentRole, RoleDemo> = {
     memories: [
       { key: 'area', label: 'AREA', value: { value: 'Liberty · King West · Annex' }, confidence: 0.9, memory_type: 'preference' },
       { key: 'style', label: 'STYLE', value: { value: 'Better at storytelling · loves photography' }, confidence: 0.8, memory_type: 'profile' },
-      { key: 'goal', label: 'GOAL', value: { value: 'Monthly goal $7,200 · at $3,840' }, confidence: 1, memory_type: 'profile' },
+      { key: 'goal', label: 'GOAL', value: { value: 'Monthly goal $7,200 · at $3,315' }, confidence: 1, memory_type: 'profile' },
       { key: 'reco', label: 'RECO', value: { value: '#7892341 · Toronto West · 4.9★ 47 reviews' }, confidence: 1, memory_type: 'profile' },
     ],
     pending: [

@@ -10,9 +10,18 @@ import {
   SectionCard,
   StatStrip,
   StatusPill,
+  Table,
+  Td,
+  Tr,
   type PillTone,
 } from '@/components/workspace'
 import { useAIName } from '@/lib/aiName'
+import {
+  CRA776_LABEL,
+  MAINTENANCE_SPEND,
+  REPAIR_HOTSPOTS,
+  REPAIR_SPEND_TOTALS,
+} from '@/lib/demo/landlordFinance'
 import { useT, type Lang } from '@/lib/i18n'
 
 /**
@@ -32,6 +41,8 @@ const TICKETS = [
     status: 'open',
     created: { zh: '今天 08:42', en: 'Today 08:42' },
     photos: 3,
+    // Hours unassigned — drives the RTA response timer on the card.
+    waitedHours: 9,
   },
   {
     id: 'M-117',
@@ -71,6 +82,21 @@ const TICKETS = [
     photos: 2,
     assignee: { zh: 'GE Repair', en: 'GE Repair' },
     resolvedAt: '4/30',
+  },
+]
+
+// Right-rail timeline — same shape as the leases page's recent-activity rail.
+const ACTIVITY = [
+  {
+    time: { zh: '今天 08:42', en: 'Today 08:42' },
+    text: { zh: 'Mia Chen 提交 M-118（3 张照片）。', en: 'Mia Chen submitted M-118 (3 photos).' },
+  },
+  {
+    time: { zh: '昨天 15:20', en: 'Yesterday 15:20' },
+    text: {
+      zh: 'Toronto HVAC Pros 接单 M-117，ETA 5/11。',
+      en: 'Toronto HVAC Pros accepted M-117, ETA 5/11.',
+    },
   },
 ]
 
@@ -156,7 +182,107 @@ export default function LandlordMaintenancePage() {
         <Lane title={lang === 'zh' ? '处理中' : 'In progress'} eyebrow="IN PROGRESS" tickets={inProgress} lang={lang} />
         <Lane title={lang === 'zh' ? '已解决（近 30 天）' : 'Resolved (last 30 days)'} eyebrow="RESOLVED" tickets={resolved} lang={lang} />
       </div>
+
+      <RepairSpend lang={lang} />
+      <Hotspots lang={lang} />
     </WorkspaceShell>
+  )
+}
+
+/**
+ * What the queue above actually cost. Same rows as the finance page — both
+ * read lib/demo/landlordFinance so a repair is never described twice.
+ */
+function RepairSpend({ lang }: { lang: Lang }) {
+  const zh = lang === 'zh'
+  return (
+    <SectionCard
+      className="mt-4"
+      padded={false}
+      title={zh ? '维修支出' : 'Repair spend'}
+      meta={zh ? 'CRA Schedule 776 归集' : 'Grouped for CRA Schedule 776'}
+      action={
+        <Link href="/landlord/finance" className="text-[12px] font-semibold text-brand hover:underline">
+          {zh ? '财务页 →' : 'Finance →'}
+        </Link>
+      }
+    >
+      <Table
+        head={[
+          zh ? '支出' : 'Expense',
+          zh ? '服务商 / 工单' : 'Vendor / ticket',
+          zh ? 'CRA 776 分类' : 'CRA 776 line',
+          zh ? '金额' : 'Amount',
+        ]}
+      >
+        {MAINTENANCE_SPEND.map((e) => (
+          <Tr key={`${e.date}-${e.desc.en}`}>
+            <Td>
+              <div className="text-[12.5px] font-semibold">{e.desc[lang]}</div>
+              <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{e.date}</div>
+            </Td>
+            <Td align="right" muted>
+              {[e.vendor, e.ticket ? (zh ? `工单 ${e.ticket}` : `Ticket ${e.ticket}`) : null]
+                .filter(Boolean)
+                .join(' · ') || '—'}
+            </Td>
+            <Td align="right" muted>
+              {CRA776_LABEL[e.cra776][lang]}
+            </Td>
+            <Td align="right" mono strong>
+              <span className="text-danger">−${e.amount.toLocaleString()}</span>
+            </Td>
+          </Tr>
+        ))}
+      </Table>
+      <div className="flex justify-end gap-4 border-t border-line-divider bg-surface-chip px-4 py-2.5 text-[12px]">
+        <span className="text-body-2">
+          {zh ? '本月' : 'This month'}{' '}
+          <b className="font-mono">${REPAIR_SPEND_TOTALS.month.toLocaleString()}</b>
+        </span>
+        <span className="text-body-2">
+          {zh ? '本年' : 'Year to date'}{' '}
+          <b className="font-mono">${REPAIR_SPEND_TOTALS.year.toLocaleString()}</b>
+        </span>
+      </div>
+    </SectionCard>
+  )
+}
+
+/** Which units keep coming back, and for what — the signal behind a capex call. */
+function Hotspots({ lang }: { lang: Lang }) {
+  const zh = lang === 'zh'
+  return (
+    <SectionCard
+      className="mt-4"
+      padded={false}
+      title={zh ? '复发与房源热点' : 'Recurring issues by property'}
+      meta={zh ? '近 12 个月' : 'Last 12 months'}
+    >
+      <Table
+        head={[
+          zh ? '房源' : 'Property',
+          zh ? '工单数' : 'Tickets',
+          zh ? '主要类别' : 'Main categories',
+          zh ? '累计支出' : 'Total spend',
+        ]}
+      >
+        {REPAIR_HOTSPOTS.map((h) => (
+          <Tr key={h.property}>
+            <Td strong>{h.property}</Td>
+            <Td align="right" mono>
+              {zh ? `${h.tickets} 单` : h.tickets}
+            </Td>
+            <Td align="right" muted>
+              {h.categories[lang]}
+            </Td>
+            <Td align="right" mono strong>
+              ${h.total.toLocaleString()}
+            </Td>
+          </Tr>
+        ))}
+      </Table>
+    </SectionCard>
   )
 }
 
@@ -210,6 +336,19 @@ function TicketCard({ t, lang }: { t: (typeof TICKETS)[number]; lang: Lang }) {
         {t.tenant} · {t.category[lang]}
         {t.photos > 0 && ` · 📷 ${t.photos}`}
       </div>
+      {/* RTA response timer — the clock a landlord is actually judged on. */}
+      {t.status === 'open' && (t as any).waitedHours != null && (
+        <div
+          className={
+            'mt-1.5 text-[11.5px] font-semibold ' +
+            ((t as any).waitedHours >= 24 ? 'text-danger' : 'text-warning')
+          }
+        >
+          {lang === 'zh'
+            ? `已等 ${(t as any).waitedHours} 小时 · 紧急件建议 24 小时内派工`
+            : `Waiting ${(t as any).waitedHours}h · urgent tickets should be dispatched within 24h`}
+        </div>
+      )}
       {(t as any).assignee && (
         <div className="mt-2.5 rounded-[8px] border border-line-divider bg-surface px-3 py-2 text-[11.5px]">
           🛠 {(t as any).assignee[lang]}
@@ -244,6 +383,17 @@ function Aside({ lang, insights }: { lang: Lang; insights: AIInsight[] }) {
     <div>
       <AsideBlock title={zh ? 'AI 建议' : 'AI SUGGESTIONS'}>
         <AIProactive role="landlord" insights={insights} variant="rail" />
+      </AsideBlock>
+
+      <AsideBlock title={zh ? '最近动态' : 'Recent activity'}>
+        <ul className="space-y-3.5">
+          {ACTIVITY.map((a, i) => (
+            <li key={i} className="border-l-2 border-line-divider pl-3">
+              <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{a.time[lang]}</div>
+              <div className="mt-1 text-[12.5px] leading-relaxed text-body-2">{a.text[lang]}</div>
+            </li>
+          ))}
+        </ul>
       </AsideBlock>
 
       <AsideBlock title={zh ? '服务商' : 'Service providers'}>

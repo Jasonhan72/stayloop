@@ -59,7 +59,14 @@ const TONE: Record<NonNullable<Stat['tone']>, string> = {
 }
 
 export function StatStrip({ stats }: { stats: Stat[] }) {
-  const cols = stats.length >= 4 ? 'sm:grid-cols-4' : stats.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
+  const cols =
+    stats.length >= 5
+      ? 'sm:grid-cols-5'
+      : stats.length === 4
+        ? 'sm:grid-cols-4'
+        : stats.length === 3
+          ? 'sm:grid-cols-3'
+          : 'sm:grid-cols-2'
   return (
     <div className={`mb-4 grid grid-cols-2 overflow-hidden rounded-xl border border-line-divider bg-white ${cols}`}>
       {stats.map((s, i) => (
@@ -68,8 +75,8 @@ export function StatStrip({ stats }: { stats: Stat[] }) {
           className={
             'px-4 py-3 ' +
             (i > 0 ? 'border-l border-line-divider ' : '') +
-            // 2-up on mobile: the 3rd cell starts a new row, so it owns no left rule
-            (i === 2 ? 'max-sm:border-l-0 ' : '') +
+            // 2-up on mobile: every even cell starts a new row, so it owns no left rule
+            (i > 0 && i % 2 === 0 ? 'max-sm:border-l-0 ' : '') +
             (i >= 2 ? 'max-sm:border-t max-sm:border-line-divider' : '')
           }
         >
