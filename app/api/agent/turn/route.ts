@@ -804,8 +804,22 @@ export async function POST(req: Request) {
         })
         .catch((e) => {
           clearInterval(hb)
+          // The status line is already on the wire by the time runTurn can
+          // fail, so an error here has to ride inside a 200 — the client reads
+          // `{ error }` out of the body. What it must NOT carry is the raw
+          // message: that is whatever the upstream model provider, Supabase or
+          // fetch produced, and it goes straight to the browser. Classify to a
+          // safe string (keeping the 'timeout' token useAgentSession matches on)
+          // and keep the detail in the server log.
+          const raw = (e as Error)?.message || ''
+          console.error('agent turn failed', raw)
+          const safe = /timeout|abort/i.test(raw)
+            ? 'turn failed: timeout'
+            : /rate.?limit|429/i.test(raw)
+              ? 'Rate limit exceeded — retry later'
+              : 'agent reasoning unavailable'
           try {
-            controller.enqueue(encoder.encode(JSON.stringify({ error: ((e as Error)?.message || 'turn failed').slice(0, 300) })))
+            controller.enqueue(encoder.encode(JSON.stringify({ error: safe })))
             controller.close()
           } catch { /* stream already dead */ }
         })
