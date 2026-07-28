@@ -139,3 +139,29 @@ export const REPAIR_HOTSPOTS = [
     total: repairSpendFor('Liberty Village 2B'),
   },
 ]
+
+// ── Rent roll ───────────────────────────────────────────────────────────────
+// One source for every rent figure on /landlord/finance. Three different
+// monthly totals used to be hand-written across the page (10,590 in the chart
+// and the receivables, 10,250 in the ledger table), and the YTD KPI ($30,000)
+// agreed with none of them — it matched PROPERTY_PNL, which is the set that is
+// actually right: only occupied units collect, and 432 Brunswick has not moved
+// in yet. Everything below is derived so a change to one figure moves all of
+// them together.
+
+/** Months of collected rent booked so far this year (Jan–May). */
+export const YTD_MONTHS = 5
+
+/** Rent collected each month from currently-occupied units. */
+export const MONTHLY_EXPECTED = PROPERTY_PNL.filter((p) => p.rent > 0).reduce(
+  (sum, p) => sum + p.rent / YTD_MONTHS,
+  0,
+)
+
+/** Rent collected year to date, across all properties. */
+export const YTD_RENT = PROPERTY_PNL.reduce((sum, p) => sum + p.rent, 0)
+
+/** Every expense in the ledger is a YTD expense — see MAINTENANCE_SPEND.year. */
+export const YTD_EXPENSES = EXPENSES.reduce((sum, e) => sum + e.amount, 0)
+
+export const YTD_NET = YTD_RENT - YTD_EXPENSES

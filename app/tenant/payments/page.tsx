@@ -93,6 +93,7 @@ export default function TenantPaymentsPage() {
 
   const paidYtd = HISTORY.reduce((sum, p) => sum + p.amount, 0)
   const onTime = HISTORY.filter((p) => p.status === 'paid').length
+  const allOnTime = onTime === HISTORY.length
 
   const insights: AIInsight[] = [
     {
@@ -164,9 +165,13 @@ export default function TenantPaymentsPage() {
           </div>
 
           <div className="mt-4 rounded-xl bg-success/10 p-3.5 text-[12.5px] leading-relaxed text-success">
-            {zh
-              ? '✓ 你今年所有付款都准时 · 你的还款记录已计入 护照信任分'
-              : '✓ All your payments this year were on time · your payment record counts toward your Passport trust score'}
+            {allOnTime
+              ? zh
+                ? '✓ 你今年所有付款都准时 · 你的还款记录已计入 护照信任分'
+                : '✓ All your payments this year were on time · your payment record counts toward your Passport trust score'
+              : zh
+                ? `${onTime}/${HISTORY.length} 期准时（2 月迟付 3 天）· 你的还款记录已计入 护照信任分`
+                : `${onTime}/${HISTORY.length} periods on time (February was 3 days late) · your payment record counts toward your Passport trust score`}
             <Link href="/tenant/passport" className="ml-2 font-semibold underline underline-offset-2">
               {zh ? '在护照中查看 →' : 'View in Passport →'}
             </Link>
@@ -176,11 +181,11 @@ export default function TenantPaymentsPage() {
         {/* Right column — matches V5.3 design: 房客信用 + LUNA 续约提醒 */}
         <div className="flex flex-col gap-4">
           <SectionCard title={zh ? '你的房客信用' : 'Your tenant credit'}>
-            <div className="text-[24px] font-extrabold leading-none text-success">A+</div>
+            <div className="text-[24px] font-extrabold leading-none text-success">{allOnTime ? 'A+' : 'A-'}</div>
             <p className="mt-2.5 text-[12.5px] leading-relaxed text-body-2">
               {zh
-                ? '10/10 准时 · 优于 92% Stayloop 用户。下个房东会自动看到你的纪录（你授权才能看）。'
-                : '10/10 on time · better than 92% of Stayloop users. Your next landlord will automatically see your record (only with your authorization).'}
+                ? `${onTime}/${HISTORY.length} 期准时 · 最近一次迟付 3 天。下个房东会自动看到你的纪录（你授权才能看）。`
+                : `${onTime}/${HISTORY.length} periods on time · the one late payment was 3 days. Your next landlord will automatically see your record (only with your authorization).`}
             </p>
           </SectionCard>
 

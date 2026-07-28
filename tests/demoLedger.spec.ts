@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import {
   EXPENSES,
+  MONTHLY_EXPECTED,
   PROPERTY_PNL,
   REPAIR_HOTSPOTS,
+  YTD_MONTHS,
+  YTD_NET,
+  YTD_RENT,
   cra776Subtotals,
 } from '../lib/demo/landlordFinance'
 import * as agentBook from '../lib/demo/agentBook'
@@ -74,5 +78,28 @@ describe('agent commission book', () => {
 
   it('no deal carries a negative or zero gross', () => {
     for (const d of b.CLOSED_DEALS) expect(d.gross).toBeGreaterThan(0)
+  })
+})
+
+describe('finance rent roll', () => {
+  // The page carried three different monthly totals (10,590 in the chart and
+  // the receivables, 10,250 in the ledger) and a YTD KPI that agreed with none
+  // of them, while the per-property P&L directly below said something else.
+  it('monthly expected times the elapsed months equals YTD rent', () => {
+    expect(MONTHLY_EXPECTED * YTD_MONTHS).toBe(YTD_RENT)
+  })
+
+  it('YTD rent equals the sum of the per-property P&L', () => {
+    expect(YTD_RENT).toBe(PROPERTY_PNL.reduce((s, p) => s + p.rent, 0))
+  })
+
+  it('YTD net is rent minus the expense ledger, not a standalone figure', () => {
+    expect(YTD_NET).toBe(YTD_RENT - EXPENSES.reduce((s, e) => s + e.amount, 0))
+  })
+
+  it('a vacant property contributes no rent', () => {
+    for (const p of PROPERTY_PNL) {
+      if (p.vacancyNote) expect(p.rent).toBe(0)
+    }
   })
 })

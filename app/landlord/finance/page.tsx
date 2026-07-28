@@ -20,7 +20,10 @@ import { readTrrebBenchmark, type TrrebBenchmark } from '@/lib/agent/trrebRent'
 import {
   CRA776_LABEL,
   EXPENSES,
+  MONTHLY_EXPECTED,
   PROPERTY_PNL,
+  YTD_NET,
+  YTD_RENT,
   cra776Subtotals,
 } from '@/lib/demo/landlordFinance'
 import { useT, type Lang } from '@/lib/i18n'
@@ -32,13 +35,17 @@ import { ROLE_THEME } from '@/lib/roleTheme'
  * Layout follows design/v9-workspace-finance.html.
  */
 
+// Expected = MONTHLY_EXPECTED for every month, so Jan–May sums to the same
+// YTD_RENT the KPI strip and the per-property P&L report. December (2025) came
+// in short and is called out in RECEIVABLES below.
+const DEC_SHORTFALL = 600
 const MONTHS = [
-  { m: { zh: '12月', en: 'Dec' }, collected: 9540, expected: 10590 },
-  { m: { zh: '1月', en: 'Jan' }, collected: 10590, expected: 10590 },
-  { m: { zh: '2月', en: 'Feb' }, collected: 10590, expected: 10590 },
-  { m: { zh: '3月', en: 'Mar' }, collected: 10590, expected: 10590 },
-  { m: { zh: '4月', en: 'Apr' }, collected: 10590, expected: 10590 },
-  { m: { zh: '5月', en: 'May' }, collected: 10590, expected: 10590 },
+  { m: { zh: '12月', en: 'Dec' }, collected: MONTHLY_EXPECTED - DEC_SHORTFALL, expected: MONTHLY_EXPECTED },
+  { m: { zh: '1月', en: 'Jan' }, collected: MONTHLY_EXPECTED, expected: MONTHLY_EXPECTED },
+  { m: { zh: '2月', en: 'Feb' }, collected: MONTHLY_EXPECTED, expected: MONTHLY_EXPECTED },
+  { m: { zh: '3月', en: 'Mar' }, collected: MONTHLY_EXPECTED, expected: MONTHLY_EXPECTED },
+  { m: { zh: '4月', en: 'Apr' }, collected: MONTHLY_EXPECTED, expected: MONTHLY_EXPECTED },
+  { m: { zh: '5月', en: 'May' }, collected: MONTHLY_EXPECTED, expected: MONTHLY_EXPECTED },
 ]
 
 const PROPERTIES = [
@@ -52,22 +59,25 @@ const PROPERTIES = [
 const RECEIVABLES = [
   {
     period: { zh: '2026-05 · 本月', en: '2026-05 · this month' },
-    expected: 10590,
-    collected: 10590,
+    expected: MONTHLY_EXPECTED,
+    collected: MONTHLY_EXPECTED,
     note: { zh: '逾期 $0', en: 'Arrears $0' },
     tone: 'ok' as const,
   },
   {
     period: { zh: '2025-12', en: '2025-12' },
-    expected: 10590,
-    collected: 9540,
-    note: { zh: '差额 $1,050 · 已结清', en: 'Shortfall $1,050 · settled' },
+    expected: MONTHLY_EXPECTED,
+    collected: MONTHLY_EXPECTED - DEC_SHORTFALL,
+    note: {
+      zh: `差额 $${DEC_SHORTFALL.toLocaleString()} · 已结清`,
+      en: `Shortfall $${DEC_SHORTFALL.toLocaleString()} · settled`,
+    },
     tone: 'neutral' as const,
   },
   {
     period: { zh: '2026-03', en: '2026-03' },
-    expected: 10590,
-    collected: 10590,
+    expected: MONTHLY_EXPECTED,
+    collected: MONTHLY_EXPECTED,
     note: { zh: '迟付 3 天 · 已结清', en: 'Paid 3 days late · settled' },
     tone: 'neutral' as const,
   },
@@ -115,7 +125,9 @@ export default function LandlordFinancePage() {
           <>
             <span className="font-mono text-[11px] uppercase tracking-eyebrow text-landlord">LANDLORD · FINANCE</span>
             <span className="mx-1.5 text-body-3">·</span>
-            {zh ? 'Sarah 你今年到 5 月赚了 $30,000' : 'Sarah, you’ve earned $30,000 through May this year'}
+            {zh
+              ? `Sarah 你今年到 5 月收租 $${YTD_RENT.toLocaleString()}`
+              : `Sarah, you’ve collected $${YTD_RENT.toLocaleString()} in rent through May`}
           </>
         }
         actions={
@@ -140,13 +152,13 @@ export default function LandlordFinancePage() {
         stats={[
           {
             label: zh ? 'YTD 租金收入' : 'YTD rent income',
-            value: '$30,000',
+            value: `$${YTD_RENT.toLocaleString()}`,
             sub: '▲ +12% vs 2025',
             tone: 'up',
           },
           {
             label: zh ? 'YTD 净利' : 'YTD net profit',
-            value: '$22,840',
+            value: `$${YTD_NET.toLocaleString()}`,
             sub: zh ? '▲ +14% · 维修成本下降' : '▲ +14% · repair costs down',
             tone: 'up',
           },
