@@ -20,6 +20,7 @@ import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
+import { downloadCsv, toCsv } from '@/lib/csv'
 
 // A real lease row from lease_documents, mapped to the display shape.
 type LeaseItem = {
@@ -181,17 +182,11 @@ function downloadCSV(lang: Lang, rows: LeaseItem[]) {
   const header = lang === 'zh'
     ? '租约编号,租客,单元,月租,开始日期,结束日期,状态,按时率'
     : 'Lease ID,Tenant,Unit,Monthly Rent,Start Date,End Date,Status,On-time Rate'
-  const lines = rows.map(l =>
-    `${l.id},${l.tenant},"${l.unit}",${l.rent},${l.start},${l.end},${l.status},${l.onTime}`
+  const csv = toCsv(
+    header.split(','),
+    rows.map(l => [l.id, l.tenant, l.unit, l.rent, l.start, l.end, l.status, l.onTime]),
   )
-  const csv = [header, ...lines].join('\n')
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `stayloop-leases-${new Date().toISOString().slice(0, 10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+  downloadCsv(`stayloop-leases-${new Date().toISOString().slice(0, 10)}.csv`, csv)
 }
 
 export default function LandlordLeasesPage() {

@@ -22,6 +22,7 @@ import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
 import { useT, type Lang } from '@/lib/i18n'
 import type { ApplicationFile } from '@/types'
+import { downloadCsv, toCsv } from '@/lib/csv'
 
 type Decision = 'approve' | 'review' | 'decline'
 
@@ -188,16 +189,11 @@ function exportCsv(apps: Applicant[], zh: boolean) {
   const header = zh
     ? ['姓名', '匹配分', '已盖章数', '月收入', '分组', '房源']
     : ['Name', 'Match', 'Stamps', 'Monthly income', 'Group', 'Listing']
-  const rows = apps.map((a) => [a.name, a.match ?? '', a.tier, a.income ?? '', a.decision, a.unitLabel ?? ''])
-  const csv = [header, ...rows]
-    .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
-    .join('\n')
-  const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'stayloop-applicants.csv'
-  a.click()
-  URL.revokeObjectURL(url)
+  const csv = toCsv(
+    header,
+    apps.map((a) => [a.name, a.match ?? '', a.tier, a.income ?? '', a.decision, a.unitLabel ?? '']),
+  )
+  downloadCsv('stayloop-applicants.csv', csv)
 }
 
 export default function LandlordApplicantsPage() {

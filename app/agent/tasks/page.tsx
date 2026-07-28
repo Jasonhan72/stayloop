@@ -53,7 +53,7 @@ const TASKS = (aiName: string): TaskRow[] => [
     client: { zh: 'Mia Chen · Tenant', en: 'Mia Chen · Tenant' },
     sla: { zh: '1h 后开始', en: 'Starts in 1h' },
     priority: 'now',
-    note: { zh: '客户已盖 2/4 枚章 · 看房后 30 min 内反馈', en: 'Client has 2/4 stamps · feedback within 30 min of showing' },
+    note: { zh: '客户已盖 3/4 枚章 · 看房后 30 min 内反馈', en: 'Client has 3/4 stamps · feedback within 30 min of showing' },
     payoutCents: SHOWING_FEE * 100,
   },
   {

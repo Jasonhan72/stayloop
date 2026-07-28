@@ -16,6 +16,7 @@ import {
 import { useState } from 'react'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
+import { downloadCsv, toCsv } from '@/lib/csv'
 
 const STAGES = { zh: ['已报修', '已派单', '维修中', '完成'], en: ['Reported', 'Assigned', 'In repair', 'Done'] }
 
@@ -78,15 +79,11 @@ const RESOLVED = [
 
 function downloadSlaCSV(lang: Lang, ticketId: string) {
   const header = lang === 'zh' ? '工单,时间,事件' : 'Ticket,Time,Event'
-  const lines = SLA_LOG.map((e) => `${ticketId},"${e.when[lang]}","${e.what[lang]}"`)
-  const csv = [header, ...lines].join('\n')
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `stayloop-${ticketId.toLowerCase()}-timeline.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+  const csv = toCsv(
+    header.split(','),
+    SLA_LOG.map((e) => [ticketId, e.when[lang], e.what[lang]]),
+  )
+  downloadCsv(`stayloop-${ticketId.toLowerCase()}-timeline.csv`, csv)
 }
 
 export default function TenantMaintenancePage() {

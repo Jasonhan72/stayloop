@@ -62,7 +62,7 @@ interface Slot {
 const SLOTS: Slot[] = [
   { day: 0, start: 10, end: 11, type: 'showing', showingSlug: 'sh-brunswick-anna', done: true, title: { zh: 'Brunswick Ave', en: 'Brunswick Ave' }, sub: { zh: 'Anna L. · 3/4 章', en: 'Anna L. · 3/4 stamps' } },
   { day: 0, start: 14, end: 15, type: 'photo', title: { zh: '88 Harbour 拍照', en: '88 Harbour shoot' }, sub: { zh: 'New listing', en: 'New listing' } },
-  { day: 1, start: 11, end: 12, type: 'showing', showingSlug: 'sh-1207-mia', title: { zh: 'Unit 1207 · King West', en: 'Unit 1207 · King West' }, sub: { zh: 'Mia Chen · 2/4 章', en: 'Mia Chen · 2/4 stamps' } },
+  { day: 1, start: 11, end: 12, type: 'showing', showingSlug: 'sh-1207-mia', title: { zh: 'Unit 1207 · King West', en: 'Unit 1207 · King West' }, sub: { zh: 'Mia Chen · 3/4 章', en: 'Mia Chen · 3/4 stamps' } },
   { day: 1, start: 16, end: 17, type: 'lease', title: { zh: 'Ontario LTB 租约签字', en: 'Ontario LTB lease signing' }, sub: { zh: 'Kevin Tran 续约', en: 'Kevin Tran renewal' } },
   { day: 2, start: 9, end: 11, type: 'block', title: { zh: '区域走访', en: 'Area canvass' }, sub: { zh: 'Yorkville', en: 'Yorkville' } },
   { day: 2, start: 14, end: 15.5, type: 'showing', showingSlug: 'sh-cumberland-eric', title: { zh: '155 Cumberland', en: '155 Cumberland' }, sub: { zh: 'Eric K. · 4/4 章', en: 'Eric K. · 4/4 stamps' } },

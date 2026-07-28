@@ -45,7 +45,7 @@ const SILENT_DANGER = 5
 const CLIENTS = (aiName: string) => [
   {
     name: 'Mia Chen',
-    tier: 2,
+    tier: 3,
     budget: '$3,800–$4,500',
     area: 'King West',
     stage: 'showing',

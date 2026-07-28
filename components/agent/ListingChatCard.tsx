@@ -50,11 +50,17 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
         className="relative aspect-[1.5/1] w-full bg-surface-chip"
         style={l.image ? { backgroundImage: `url(${l.image})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
       >
+        {/* `l.tier` is the stamp the LANDLORD requires of an applicant, not a
+            quality grade on the listing — showing it here as a green "TIER 3"
+            read as a verification badge, and used the Tier-N wording the
+            passport rename retired. The requirement is already stated
+            correctly as a "需 银行章 / Bank stamp required" pill below, so this
+            slot now carries the same source/verification chip as /listings. */}
         <span
           className="absolute left-3 top-3 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white"
-          style={{ background: external ? '#B45309' : '#047857' }}
+          style={{ background: external ? '#B45309' : '#7C3AED' }}
         >
-          {external ? 'REALTOR.CA' : `TIER ${l.tier ?? 1}`}
+          {external ? 'REALTOR.CA' : 'VERIFIED'}
         </span>
         <FavHeart
           fav={fav}

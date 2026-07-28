@@ -15,6 +15,7 @@ import {
 } from '@/components/workspace'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
+import { downloadCsv, toCsv } from '@/lib/csv'
 
 const HISTORY = [
   { date: '2026-05-01', amount: 2800, status: 'paid', method: { zh: 'Plaid · RBC ****8721', en: 'Plaid · RBC ****8721' } },
@@ -78,18 +79,11 @@ const ACTIVITY = [
 
 function downloadCSV(lang: Lang, rows: typeof HISTORY) {
   const header = lang === 'zh' ? '日期,期间,金额,方式,状态' : 'Date,Period,Amount,Method,Status'
-  const lines = rows.map(
-    (p) =>
-      `${p.date},${p.date.slice(0, 7)},${p.amount},"${p.method[lang]}",${p.status}`
+  const csv = toCsv(
+    header.split(','),
+    rows.map((p) => [p.date, p.date.slice(0, 7), p.amount, p.method[lang], p.status]),
   )
-  const csv = [header, ...lines].join('\n')
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `stayloop-rent-payments-${new Date().toISOString().slice(0, 10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
+  downloadCsv(`stayloop-rent-payments-${new Date().toISOString().slice(0, 10)}.csv`, csv)
 }
 
 export default function TenantPaymentsPage() {
