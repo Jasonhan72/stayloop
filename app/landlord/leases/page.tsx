@@ -21,6 +21,7 @@ import { useLandlord } from '@/lib/useLandlord'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 import { downloadCsv, toCsv } from '@/lib/csv'
+import { daysBetween, monthsBetween, parseDateOnly, todayUtc } from '@/lib/dates'
 
 // A real lease row from lease_documents, mapped to the display shape.
 type LeaseItem = {
@@ -45,10 +46,10 @@ function mapDbLease(row: {
     row.status === 'active' || row.status === 'signed_both' ? 'active'
     : row.status === 'ended' ? 'expired'
     : 'pending'
-  const end = row.end_date ? new Date(row.end_date) : null
-  const now = new Date()
-  const monthsLeft = end ? Math.max(0, (end.getFullYear() - now.getFullYear()) * 12 + end.getMonth() - now.getMonth()) : 0
-  const daysToEnd = end ? Math.ceil((end.getTime() - now.getTime()) / 86_400_000) : Infinity
+  const end = parseDateOnly(row.end_date)
+  const now = todayUtc()
+  const monthsLeft = end ? monthsBetween(now, end) : 0
+  const daysToEnd = end ? daysBetween(now, end) : Infinity
   const inWindow = status === 'active' && daysToEnd <= 120 && daysToEnd >= 0
   return {
     id: row.id,
@@ -214,10 +215,10 @@ export default function LandlordLeasesPage() {
   const active = rows.filter((l) => l.status === 'active')
   const pending = rows.filter((l) => l.status === 'pending')
   const expired = rows.filter((l) => l.status === 'expired')
-  const now = new Date()
+  const now = todayUtc()
   const expiringSoon = active.filter((l) => {
-    const end = new Date(l.end)
-    return !isNaN(end.getTime()) && end.getFullYear() === now.getFullYear() && end.getMonth() === now.getMonth()
+    const end = parseDateOnly(l.end)
+    return !!end && end.getUTCFullYear() === now.getUTCFullYear() && end.getUTCMonth() === now.getUTCMonth()
   }).length
   // Leases that still bill going forward — the basis for the annualized rent
   // and the average remaining term (ended / month-to-month rows are excluded).
@@ -619,14 +620,14 @@ function ExpiryTimeline({ lang, leases, liveMode }: { lang: Lang; leases: LeaseI
   const zh = lang === 'zh'
   const aiName = useAIName('landlord')
   const dated = leases
-    .map((l) => ({ l, end: new Date(l.end) }))
-    .filter((x) => !isNaN(x.end.getTime()))
+    .map((l) => ({ l, end: parseDateOnly(l.end) }))
+    .filter((x): x is { l: LeaseItem; end: Date } => x.end !== null)
   if (dated.length === 0) return null
 
   const earliest = dated.reduce((a, b) => (a.end < b.end ? a : b)).end
-  const anchor = liveMode ? new Date() : earliest
-  const startY = anchor.getFullYear()
-  const startM = anchor.getMonth()
+  const anchor = liveMode ? todayUtc() : earliest
+  const startY = anchor.getUTCFullYear()
+  const startM = anchor.getUTCMonth()
 
   const slots = Array.from({ length: 12 }, (_, i) => {
     const y = startY + Math.floor((startM + i) / 12)
@@ -635,7 +636,7 @@ function ExpiryTimeline({ lang, leases, liveMode }: { lang: Lang; leases: LeaseI
       y,
       m,
       nextYear: y > startY,
-      items: dated.filter((x) => x.end.getFullYear() === y && x.end.getMonth() === m).map((x) => x.l),
+      items: dated.filter((x) => x.end.getUTCFullYear() === y && x.end.getUTCMonth() === m).map((x) => x.l),
     }
   })
 

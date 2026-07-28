@@ -67,8 +67,8 @@ const SLOTS: Slot[] = [
   { day: 2, start: 9, end: 11, type: 'block', title: { zh: '区域走访', en: 'Area canvass' }, sub: { zh: 'Yorkville', en: 'Yorkville' } },
   { day: 2, start: 14, end: 15.5, type: 'showing', showingSlug: 'sh-cumberland-eric', title: { zh: '155 Cumberland', en: '155 Cumberland' }, sub: { zh: 'Eric K. · 4/4 章', en: 'Eric K. · 4/4 stamps' } },
   { day: 3, start: 10, end: 11, type: 'showing', showingSlug: 'sh-sumach-sophie', title: { zh: '210 Sumach', en: '210 Sumach' }, sub: { zh: 'Sophie B. · 1/4 章', en: 'Sophie B. · 1/4 stamps' } },
-  { day: 3, start: 13, end: 14, type: 'showing', showingSlug: 'sh-distillery-david', title: { zh: 'Distillery 1207', en: 'Distillery 1207' }, sub: { zh: 'David Z. · 认证 3 级', en: 'David Z. · Tier 3' } },
-  { day: 4, start: 11, end: 12, type: 'showing', showingSlug: 'sh-hanna-yuki', title: { zh: 'Hanna Ave Loft', en: 'Hanna Ave Loft' }, sub: { zh: 'Yuki M. · 认证 2 级', en: 'Yuki M. · Tier 2' } },
+  { day: 3, start: 13, end: 14, type: 'showing', showingSlug: 'sh-distillery-david', title: { zh: 'Distillery 1207', en: 'Distillery 1207' }, sub: { zh: 'David Z. · 3/4 章', en: 'David Z. · 3/4 stamps' } },
+  { day: 4, start: 11, end: 12, type: 'showing', showingSlug: 'sh-hanna-yuki', title: { zh: 'Hanna Ave Loft', en: 'Hanna Ave Loft' }, sub: { zh: 'Yuki M. · 2/4 章', en: 'Yuki M. · 2/4 stamps' } },
   { day: 5, start: 12, end: 14, type: 'block', title: { zh: 'Open House', en: 'Open House' }, sub: { zh: '432 Brunswick', en: '432 Brunswick' } },
   { day: 6, start: 10, end: 11.5, type: 'photo', title: { zh: 'Leslieville 拍照', en: 'Leslieville shoot' }, sub: { zh: '1162 Queen E', en: '1162 Queen E' } },
 ]

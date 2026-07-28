@@ -10,7 +10,7 @@ import { useT } from '@/lib/i18n'
 
 /**
  * V5.3 ART 28 · Field Agent · 看房现场（Mobile）
- * David Park 现场带看 · 秒级响应 · 单手操作 · RECO 授权回答合规核心。
+ * 现场带看 · 秒级响应 · 单手操作 · RECO 授权回答合规核心。
  */
 
 interface QA {
@@ -36,6 +36,25 @@ const QAS: QA[] = [
     authorized: false,
   },
 ]
+
+// The calendar links six distinct showings here. Every one of them used to
+// render Mia Chen at Unit 1207, so an agent tapping Anna's Brunswick Ave
+// showing saw another client's name, stamps and unit. Keyed by the same slugs
+// the calendar emits; the 1207 case stays the default for an unknown slug.
+interface Showing {
+  client: string
+  stamps: number
+  unit: { zh: string; en: string }
+}
+
+const SHOWINGS: Record<string, Showing> = {
+  'sh-1207-mia': { client: 'Mia Chen', stamps: 3, unit: { zh: 'KING WEST UNIT 1207', en: 'KING WEST UNIT 1207' } },
+  'sh-brunswick-anna': { client: 'Anna L.', stamps: 3, unit: { zh: 'BRUNSWICK AVE', en: 'BRUNSWICK AVE' } },
+  'sh-cumberland-eric': { client: 'Eric K.', stamps: 4, unit: { zh: '155 CUMBERLAND', en: '155 CUMBERLAND' } },
+  'sh-sumach-sophie': { client: 'Sophie B.', stamps: 1, unit: { zh: '210 SUMACH', en: '210 SUMACH' } },
+  'sh-distillery-david': { client: 'David Z.', stamps: 3, unit: { zh: 'DISTILLERY 1207', en: 'DISTILLERY 1207' } },
+  'sh-hanna-yuki': { client: 'Yuki M.', stamps: 2, unit: { zh: 'HANNA AVE LOFT', en: 'HANNA AVE LOFT' } },
+}
 
 const PREFS = [
   { label: { zh: '客户偏好', en: 'Client prefs' }, tone: 'plain' as const },
@@ -63,6 +82,7 @@ export default function ShowingLivePage() {
   const { lang } = useT()
   const zh = lang === 'zh'
   const aiName = useAIName('agent')
+  const showing = SHOWINGS[id] ?? SHOWINGS['sh-1207-mia']
   return (
     <WorkspaceShell role="agent" hideAside>
       <Link href="/agent/calendar" className="font-mono text-[12px] text-body-3 hover:text-body">
@@ -81,11 +101,13 @@ export default function ShowingLivePage() {
           {/* Showing header */}
           <div className="bg-agent px-5 py-5 text-white">
             <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-white/80">
-              {zh ? '⏱ 现在 · KING WEST UNIT 1207' : '⏱ NOW · KING WEST UNIT 1207'}
+              {zh ? `⏱ 现在 · ${showing.unit.zh}` : `⏱ NOW · ${showing.unit.en}`}
             </div>
-            <h1 className="mt-1.5 text-[22px] font-bold tracking-tight">{zh ? '带看 · 客户 Mia Chen' : 'Showing · Client Mia Chen'}</h1>
+            <h1 className="mt-1.5 text-[22px] font-bold tracking-tight">
+              {zh ? `带看 · 客户 ${showing.client}` : `Showing · Client ${showing.client}`}
+            </h1>
             <div className="mt-1 font-mono text-[11.5px] text-white/80">
-              {zh ? '已盖 3/4 枚章 · 任务已确认' : '3/4 stamps · task confirmed'}
+              {zh ? `已盖 ${showing.stamps}/4 枚章 · 任务已确认` : `${showing.stamps}/4 stamps · task confirmed`}
             </div>
             <div className="mt-1 font-mono text-[11.5px] text-white/70">
               {zh ? '已 Check-in 23 分钟 · 记录将自动归档' : 'Checked in 23 min · notes will auto-file'}
@@ -198,7 +220,7 @@ export default function ShowingLivePage() {
         </div>
 
         <div className="mt-4 text-center font-mono text-[10.5px] text-body-3">
-          {zh ? `看房 #${id} · DAVID PARK · FIELD AGENT` : `Showing #${id} · DAVID PARK · FIELD AGENT`}
+          {zh ? `看房 #${id} · FIELD AGENT` : `Showing #${id} · FIELD AGENT`}
         </div>
       </div>
     </WorkspaceShell>

@@ -65,6 +65,12 @@ export async function POST(req: NextRequest) {
     { auth: { persistSession: false, autoRefreshToken: false } }
   )
 
+  // Stripe retries a delivery until it gets a 2xx, so every handler below must
+  // be safe to run twice on the same event. Today they all are — each one is an
+  // .update() to a fixed value, so a replay writes the identical row. There is
+  // deliberately no event-id ledger; if a handler is ever added that INSERTS,
+  // increments, transfers funds or sends mail, it needs its own idempotency key
+  // (or this route needs that ledger) before it ships.
   try {
     switch (event.type) {
       case 'checkout.session.completed': {

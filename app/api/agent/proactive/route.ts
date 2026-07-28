@@ -22,6 +22,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { daysBetween, isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
 
 export const runtime = 'edge'
 
@@ -35,7 +36,7 @@ const CRON_SCAN_LIMIT = 200
 // of the next month.
 const REMINDER_TAIL_DAYS = 5
 
-const iso = (d: Date) => d.toISOString().slice(0, 10)
+const iso = isoDate
 
 type LeaseRow = {
   id: string
@@ -51,9 +52,13 @@ type LeaseRow = {
 function buildRenewalProposal(userId: string, l: LeaseRow, today: Date) {
   const rent = Number(l.monthly_rent) || 0
   const raised = Math.round(rent * (1 + GUIDELINE_PCT / 100) * 100) / 100
-  const end = new Date(l.end_date)
+  // end_date is a date-only column: parsed as UTC midnight, so `today` has to
+  // be UTC midnight too. Subtracting a wall-clock instant from it drifted the
+  // countdown by a day — and this deadline is the RTA s.116 90-day N1 service
+  // date, which is not a number to be off by one on.
+  const end = parseDateOnly(l.end_date) ?? todayUtc()
   const noticeDeadline = new Date(end.getTime() - NOTICE_DAYS * 86_400_000)
-  const daysToEnd = Math.ceil((end.getTime() - today.getTime()) / 86_400_000)
+  const daysToEnd = daysBetween(todayUtc(today), end)
   const tenant = l.tenant_name || '租客'
   return {
     user_id: userId,
@@ -133,7 +138,7 @@ async function runCronSweep(): Promise<NextResponse> {
     .from('lease_documents')
     .select('id, landlord_id, tenant_name, tenant_email, unit_label, monthly_rent, end_date')
     .in('status', ['active', 'signed_both'])
-    .gte('end_date', iso(today))
+    .gte('end_date', iso(todayUtc(today)))
     .lte('end_date', iso(horizon))
     .order('end_date', { ascending: true })
     .limit(CRON_SCAN_LIMIT)
@@ -292,7 +297,7 @@ export async function POST(req: Request) {
     .from('lease_documents')
     .select('id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status')
     .in('status', ['active', 'signed_both'])
-    .gte('end_date', iso(today))
+    .gte('end_date', iso(todayUtc(today)))
     .lte('end_date', iso(horizon))
     .order('end_date', { ascending: true })
     .limit(20)
