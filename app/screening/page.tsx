@@ -2162,7 +2162,10 @@ export default function ScreenPage() {
         { zh: '银行流水户名与实体核验（个人 / 企业 / 第三方）', en: 'Bank statement holder & entity check (personal / business / third-party)' },
         { zh: '个人工资入账佐证：声称收入 ↔ 实际入账比对', en: 'Personal payroll corroboration: claimed income ↔ observed deposits' },
         { zh: '收入 / 租金比核算与承租能力判定', en: 'Income-to-rent ratio & affordability assessment' },
-        { zh: '雇主公司注册核验：联邦 + 各省注册库联查', en: 'Employer registry check: federal + provincial registries' },
+        // NOTE: do NOT list the corporate-registry lookup here — that runs in
+        // /api/deep-check (a separate PRO action), not in this scoring pass.
+        // Every line in this queue must correspond to work screen-score
+        // actually performs, or the feed is lying to the landlord.
         { zh: '关联方雇佣信号：签署人 / 姓氏 / 邮箱别名 / 同址比对', en: 'Related-party signals: signatory / surname / email alias / shared address' },
         { zh: '法庭记录交叉比对：LTB 驱逐 × Small Claims 判决', en: 'Court cross-reference: LTB evictions × Small Claims judgments' },
         { zh: '租务历史：前房东信息与租住时间线', en: 'Rental history: prior landlords & tenancy timeline' },
@@ -2335,7 +2338,7 @@ export default function ScreenPage() {
           <div style={{ textAlign: 'center' }}>
             <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: '50%', border: '3px solid #E4E8F0', borderTopColor: '#10B981', animation: 'spin 1s linear infinite' }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-            <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>Authenticating...</div>
+            <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>{t('common.authenticating')}</div>
           </div>
         </div>
       </div>
