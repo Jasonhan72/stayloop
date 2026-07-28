@@ -103,6 +103,18 @@ const PIPELINE_STAGES: { key: string; pct: number; zh: string; en: string; icon:
 ]
 const stageIndex = (key: string) => PIPELINE_STAGES.findIndex(s => s.key === key)
 
+// Subscription plan → the SAME display names the pricing page uses
+// (起步 / 专业 / 团队 · Go / Pro / Business). Badges in this module show the
+// caller's actual plan instead of a hardcoded "PRO", so a free user never sees
+// a tag implying they're on a paid tier.
+type PlanKey = 'free' | 'pro' | 'team'
+const PLAN_LABEL: Record<PlanKey, { zh: string; en: string }> = {
+  free: { zh: '起步', en: 'Go' },
+  pro: { zh: '专业', en: 'Pro' },
+  team: { zh: '团队', en: 'Business' },
+}
+const planLabel = (plan: PlanKey, lang: string) => (lang === 'zh' ? PLAN_LABEL[plan].zh : PLAN_LABEL[plan].en)
+
 // Map raw backend/PostgREST errors to friendly bilingual messages so the
 // user never sees "Could not find a relationship ... in the schema cache".
 function friendlyError(raw: string, lang: string): string {
@@ -2479,14 +2491,13 @@ export default function ScreenPage() {
                     </div>
                   </div>
                 </div>
-                {isPro && (
-                  <span style={{
-                    fontSize: 10.5, fontWeight: 700, padding: '4px 10px', borderRadius: 6,
-                    background: '#F3E8FF', color: '#6D28D9',
-                    border: '1px solid rgba(124, 58, 237, 0.30)',
-                    letterSpacing: '0.08em', textTransform: 'uppercase',
-                  }}>PRO</span>
-                )}
+                <span style={{
+                  fontSize: 10.5, fontWeight: 700, padding: '4px 10px', borderRadius: 6,
+                  background: isPro ? '#F3E8FF' : '#EEF2F6',
+                  color: isPro ? '#6D28D9' : '#64748B',
+                  border: `1px solid ${isPro ? 'rgba(124, 58, 237, 0.30)' : '#DDE3EA'}`,
+                  letterSpacing: '0.06em',
+                }}>{planLabel(plan, lang)}</span>
               </div>
 
               {/* Drop Zone — compact */}
@@ -2739,14 +2750,6 @@ export default function ScreenPage() {
                       {classifying
                         ? (lang === 'zh' ? '⏳ 正在识别文件…' : '⏳ Classifying files…')
                         : (lang === 'zh' ? '🛡 开始筛查' : '🛡 Start Screening')}
-                      {!classifying && isPro && (
-                        <span style={{
-                          marginLeft: 10, fontSize: 10.5, fontWeight: 700,
-                          padding: '3px 8px', borderRadius: 5, letterSpacing: '0.08em',
-                          background: 'rgba(255, 255, 255, 0.28)',
-                          color: '#FFFFFF',
-                        }}>PRO</span>
-                      )}
                     </button>
                   )
                 })()}
@@ -3140,9 +3143,13 @@ export default function ScreenPage() {
                         ? (lang === 'zh' ? '⏳ 跳转中…' : '⏳ Redirecting…')
                         : isPro
                           ? (lang === 'zh' ? '🔍 运行深度检查' : '🔍 Run Deep Check')
-                          : (lang === 'zh' ? '🔒 升级 Pro 解锁' : '🔒 Upgrade to Pro')
+                          : (lang === 'zh' ? '🔒 升级到专业版解锁' : '🔒 Upgrade to Pro to unlock')
                     }
-                    <span style={{ fontSize: 9, opacity: 0.85, padding: '1px 5px', background: 'rgba(255,255,255,0.2)', borderRadius: 3 }}>PRO</span>
+                    {!isPro && (
+                      <span style={{ fontSize: 9, opacity: 0.85, padding: '1px 5px', background: 'rgba(255,255,255,0.2)', borderRadius: 3 }}>
+                        {planLabel('pro', lang)}
+                      </span>
+                    )}
                   </button>
                 ) : (() => {
                   // "Not found in the federal registry" is NOT a verified pass —
