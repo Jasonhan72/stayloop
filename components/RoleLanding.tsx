@@ -239,9 +239,12 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
 
       {/* PROMISES — v8 trust-strip treatment */}
       <section style={{ background: '#F6F3EA', borderTop: '1px solid #EEEAE0', borderBottom: '1px solid #EEEAE0' }}>
-        <div className="mx-auto grid max-w-[1180px] grid-cols-3 divide-x divide-[#EEEAE0] px-5 sm:px-8">
+        {/* [&>*]:min-w-0 is required, not cosmetic: grid items default to
+            min-width:auto, so at 320px these three cells refused to go below
+            their min-content and pushed the whole page 9px past the viewport. */}
+        <div className="mx-auto grid max-w-[1180px] grid-cols-3 divide-x divide-[#EEEAE0] px-5 [&>*]:min-w-0 sm:px-8">
           {cfg.stats.map((s) => (
-            <div key={s.k.en} className="px-4 py-6 text-center">
+            <div key={s.k.en} className="px-2 py-6 text-center sm:px-4">
               <div className="text-[19px] font-extrabold tracking-[-0.02em] [font-variant-numeric:tabular-nums] sm:text-[26px]" style={{ color: c }}>
                 {s.v[lang]}
               </div>

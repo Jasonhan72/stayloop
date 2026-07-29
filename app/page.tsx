@@ -785,8 +785,17 @@ const CSS = `
      the headline, the sub-line and the right half of this chat card rather
      than scrolling. Every nested track from .chat down needs the same floor. */
   .v8-page .lgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-self:stretch}
-  .v8-page .lcard,.v8-page .m-row,.v8-page .mkt,.v8-page .chat,.v8-page .chat-b,.v8-page .chat-h{min-width:0}
-  .v8-page .hero-in>*{min-width:0}
+  /* Grid and flex items default to min-width:auto — they refuse to shrink
+     below their content's min-content width. On a phone that silently makes a
+     container wider than the screen, and because .hero and the section
+     wrappers clip rather than scroll, the overflow is INVISIBLE: the headline
+     just loses its last characters. Nothing on this page wants that floor, so
+     every layout container here opts out at once rather than one selector at a
+     time (enumerating them by hand is how .rpanel got missed). */
+  .v8-page :is(.hero-in,.lgrid,.trust-in,.pains-in,.gstats,.rpanel,.steps-in,.facts,
+               .rp-l,.rp-r,.rp-bens,.rp-ben,.chat,.chat-b,.chat-h,.chat-acts,.m-row,
+               .lcard,.mkt,.band,.demo-row,.demo-h,.demo-acts,.roles-head,.final,.ibar)>*{min-width:0}
+  .v8-page :is(.rp-l,.rp-r,.rp-bens,.rp-ben,.chat,.chat-b,.chat-h,.m-row,.lcard,.mkt){min-width:0}
   .v8-page .lcard{display:flex;flex-direction:column;overflow:hidden;border-radius:14px;
            border:1px solid var(--line);background:#fff}
   .v8-page .lph{position:relative;aspect-ratio:2/1;background-size:cover;background-position:center}
@@ -846,7 +855,6 @@ const CSS = `
 
   /* trust strip */
   .v8-page .trust{border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);background:var(--bg-2)}
-  .v8-page .trust-in>*{min-width:0}
   .v8-page .trust-in{display:grid;grid-template-columns:repeat(4,1fr)}
   .v8-page .trust-in>div{padding:20px;font-size:13.5px;color:var(--ink-2);text-align:center}
   .v8-page .trust-in>div+div{border-left:1px solid var(--line-soft)}
@@ -857,7 +865,6 @@ const CSS = `
 
   /* ============ pains: editorial rows with ghost numerals ============ */
   .v8-page .pains{padding:104px 0}
-  .v8-page .pains-in>*{min-width:0}
   .v8-page .pains-in{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line)}
   @media(max-width:900px){.v8-page .pains-in{grid-template-columns:1fr}}
   .v8-page .pain{position:relative;padding:34px 34px 40px 0;overflow:hidden}
@@ -879,7 +886,6 @@ const CSS = `
             background:rgba(19,19,22,.4);backdrop-filter:blur(8px);padding:7px 16px;border-radius:999px;
             border:1px solid rgba(255,255,255,.16)}
   .v8-page .band .wrap{position:relative;z-index:1;padding-bottom:40px}
-  .v8-page .gstats>*{min-width:0}
   .v8-page .gstats{display:grid;grid-template-columns:repeat(4,1fr);border-radius:var(--r-card);overflow:hidden;
           background:rgba(255,255,255,.12);backdrop-filter:blur(18px);
           border:1px solid rgba(255,255,255,.22);
@@ -958,7 +964,6 @@ const CSS = `
   .v8-page .steps{padding:112px 0}
   .v8-page .steps h2{font-size:clamp(30px,3.4vw,42px);font-weight:800;letter-spacing:-.022em}
   .v8-page .steps .ssub{color:var(--ink-2);margin-top:12px}
-  .v8-page .steps-in>*{min-width:0}
   .v8-page .steps-in{display:grid;grid-template-columns:repeat(3,1fr);gap:44px;margin-top:52px;position:relative}
   .v8-page .steps-in::before{content:"";position:absolute;top:21px;left:calc(16.66% + 24px);right:calc(16.66% + 24px);
                     height:1px;background:linear-gradient(90deg,var(--line),var(--brand-soft),var(--line))}
@@ -981,7 +986,6 @@ const CSS = `
   .v8-page .dark .eyebrow{color:#B79CF0}
   .v8-page .dark h2{font-size:clamp(28px,3.2vw,38px);font-weight:800;letter-spacing:-.022em;margin-top:12px}
   .v8-page .dark .dsub{color:rgba(255,255,255,.55);margin-top:12px;font-size:15px}
-  .v8-page .facts>*{min-width:0}
   .v8-page .facts{display:grid;grid-template-columns:repeat(4,1fr);margin-top:54px;border-top:1px solid rgba(255,255,255,.13)}
   @media(max-width:900px){.v8-page .facts{grid-template-columns:1fr 1fr}}
   .v8-page .fact{padding:30px 26px 0}
