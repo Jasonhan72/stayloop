@@ -104,7 +104,7 @@ export default function AIProactive({
       <div className="mt-2.5 space-y-2.5">
         {insights.map((ins, i) => (
           <div key={i} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <p className="min-w-0 flex-1 text-[13px] leading-relaxed" style={{ color: t.deep }}>
+            <p className="min-w-0 basis-full text-[13px] leading-relaxed sm:flex-1 sm:basis-0" style={{ color: t.deep }}>
               {fill(ins.text[lang])}
             </p>
             {ins.action && (

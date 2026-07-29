@@ -112,8 +112,8 @@ export function SectionCard({
   return (
     <section className={`overflow-hidden rounded-xl border border-line-divider bg-white ${className}`}>
       {(title || action || meta) && (
-        <div className="flex items-center justify-between gap-3 border-b border-line-divider px-4 py-3">
-          <div className="min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line-divider px-4 py-3">
+          <div className="min-w-0 flex-1 basis-[12rem]">
             {title && <h2 className="text-[14px] font-bold tracking-tight">{title}</h2>}
           </div>
           <div className="flex flex-none items-center gap-3">

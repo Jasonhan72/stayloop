@@ -74,8 +74,8 @@ export default function SettingsPage() {
 
         <div className="mt-8 flex flex-col gap-8 sm:flex-row sm:items-start">
           {/* Profile card */}
-          <div className="flex-none">
-            <div className="sl-card flex w-[220px] flex-col items-center px-6 py-8 text-center">
+          <div className="sm:flex-none">
+            <div className="sl-card flex w-full flex-col items-center px-6 py-8 text-center sm:w-[220px]">
               <input ref={fileRef} type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
               <div
                 className="group relative cursor-pointer"
@@ -149,10 +149,10 @@ export default function SettingsPage() {
 
 function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-3 text-[14px]">
-      <span className="text-[16px]">{icon}</span>
-      <span className="text-body-3">{label}:</span>
-      <span className="font-medium">{value}</span>
+    <div className="flex items-start gap-3 text-[14px]">
+      <span className="flex-none text-[16px]">{icon}</span>
+      <span className="flex-none text-body-3">{label}:</span>
+      <span className="min-w-0 break-words font-medium">{value}</span>
     </div>
   )
 }

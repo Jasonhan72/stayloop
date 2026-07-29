@@ -180,7 +180,22 @@ export default function LandlordFinancePage() {
       <SectionCard
         className="mb-3"
         title={zh ? '月度收租 · 最近 6 个月' : 'Monthly rent collected · last 6 months'}
-        meta={zh ? '▮ 实收 ▯ 应收' : '▮ Collected ▯ Expected'}
+        meta={
+          // U+25AE/25AF are not in the self-hosted Inter Tight, so the legend
+          // depended on whatever the device fell back to — one of the two
+          // rendered as a tofu box in testing. Real swatches also carry the
+          // actual bar colours, which the glyphs never could.
+          <span className="inline-flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2 rounded-[2px]" style={{ background: '#047857' }} />
+              {zh ? '实收' : 'Collected'}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2 rounded-[2px]" style={{ background: 'rgba(4,120,87,0.18)' }} />
+              {zh ? '应收' : 'Expected'}
+            </span>
+          </span>
+        }
       >
         <div className="grid grid-cols-6 items-end gap-3">
           {MONTHS.map((m) => {
