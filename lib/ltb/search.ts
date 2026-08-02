@@ -128,13 +128,31 @@ export async function searchLtbOrders(
     if (p.key) streetKeys.push(p.key)
   }
 
-  const { data, error } = await rpc('search_ltb_orders', {
-    p_name: norm,
-    p_key: nameKey(fullName),
-    p_postals: postals,
-    p_street_keys: streetKeys,
-    p_limit: 25,
-  })
+  // Coverage is fetched alongside the search, not assumed. The catalogue only
+  // holds 2026-01 → 2026-05 today and grows in phases, so a report that does not
+  // state the window it searched is implying completeness it does not have —
+  // "no LTB record" means nothing without "…in the five months we hold".
+  const [{ data, error }, coverageRes] = await Promise.all([
+    rpc('search_ltb_orders', {
+      p_name: norm,
+      p_key: nameKey(fullName),
+      p_postals: postals,
+      p_street_keys: streetKeys,
+      p_limit: 25,
+    }),
+    // Supabase's .rpc() returns a thenable builder, not a Promise, so .catch is
+    // not available on it until it has been awaited.
+    Promise.resolve(rpc('ltb_coverage', {})).catch(() => ({ data: null, error: null })),
+  ])
+
+  const covRow = (Array.isArray(coverageRes?.data) ? coverageRes.data[0] : null) as
+    | { coverage_from?: string; coverage_to?: string; order_count?: number }
+    | null
+  const coverage = {
+    from: covRow?.coverage_from ?? null,
+    to: covRow?.coverage_to ?? null,
+    orders: typeof covRow?.order_count === 'number' ? covRow.order_count : Number(covRow?.order_count) || null,
+  }
 
   if (error) {
     return { status: 'unavailable', note: 'LTB catalogue lookup failed', queried_name: norm, ...empty }
@@ -157,8 +175,18 @@ export async function searchLtbOrders(
     as_respondent: asRespondent,
     as_applicant: asApplicant,
     corroborated,
-    coverage: { from: null, to: null, orders: null },
+    coverage,
   }
+}
+
+/** " (catalogue covers 2026-01-02 to 2026-05-29, 40,838 orders)" — or '' if unknown. */
+function coverageWindow(result: LtbResult, lang: 'en' | 'zh'): string {
+  const { from, to, orders } = result.coverage
+  if (!from || !to) return ''
+  const n = orders ? orders.toLocaleString() : ''
+  return lang === 'zh'
+    ? `（目录当前收录 ${from} 至 ${to}${n ? ` 共 ${n} 份判令` : ''}）`
+    : ` (catalogue currently covers ${from} to ${to}${n ? `, ${n} orders` : ''})`
 }
 
 /**
@@ -176,9 +204,10 @@ export function summarizeLtb(result: LtbResult, lang: 'en' | 'zh'): string {
     return zh ? 'LTB 判令目录暂时无法查询。' : 'The LTB order catalogue could not be queried.'
   }
   if (result.as_respondent.length === 0) {
+    const w = coverageWindow(result, lang)
     return zh
-      ? '在已收录的 LTB 判令中，未发现以该姓名作为被申请租客的记录。'
-      : 'No LTB order in the published catalogue names this person as a responding tenant.'
+      ? `在已收录的 LTB 判令中，未发现以该姓名作为被申请租客的记录${w}。`
+      : `No LTB order in the published catalogue names this person as a responding tenant${w}.`
   }
 
   const n = result.as_respondent.length
