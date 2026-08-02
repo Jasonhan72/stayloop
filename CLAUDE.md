@@ -15,10 +15,12 @@ AI-powered tenant screening SaaS for Ontario landlords. Live at **www.stayloop.a
 
 ## Repo & Branches
 
-- GitHub: `github.com/Jasonhan72/stayloop` (private, PAT in `.git/config`)
+- GitHub: `github.com/Jasonhan72/stayloop` — **public**（曾误记为 private，2026-08-02 核实；已确认仓库里没有真实密钥，只有 `.env.example` 之类的占位符）。PAT 在 `.git/config`（本地，未入库）
 - Local branch: `v5`
 - Push target: `v5.3-launch`
-- CF Pages prod branch: **`main`** — deploy always uses `--branch main`
+- **GitHub 默认分支：`v5.3-launch`**（2026-08-02 从 `main` 切换）。原因：定时 workflow **只在默认分支上注册与运行**，而 `main` 停在 2026-06-03、落后 221 个提交、且与 v5.3-launch 真正分叉（main 独有 335 个提交）。切换后 `.github/workflows/` 下两个刷新任务才真正生效
+- CF Pages prod branch: **`main`** — deploy always uses `--branch main`（这是 wrangler 的 CF Pages 分支标签，**与 git 分支无关**）
+- ⚠️ **不要 push 到 git `main`**：那上面的 `.github/workflows/deploy.yml` 触发条件是 `push: branches:[main]`，会把 2026-06-03 的旧代码部署到生产、覆盖当前线上版本。它现在已不在默认分支上（GitHub 标为 deleted、无法通过 API disable），但**推 main 仍会从 main 那份定义执行**。部署一律走 `ship2-v53.command`
 
 ## Deploy
 
@@ -32,6 +34,17 @@ Double-click `ship2-v53.command` in Finder. It does:
 **Gate (mandatory):** before any deploy run `npx tsc --noEmit && npm test` — both must be fully green; after the build verify `.vercel/output/static/_worker.js` exists (a failed next-on-pages build can leave a static-only bundle that kills ALL API/dynamic routes — happened 2026-07-24 via `app/icon.svg`; ship2-v53.command now aborts on this); after the deploy run `bash scripts/smoke.sh` (read-only prod probes, PASS/FAIL summary) and treat any FAIL as a rollback trigger.
 
 Verify deploy: `curl -s 'https://www.stayloop.ai/?v=<timestamp>' | head`
+
+## Scheduled Jobs (GitHub Actions)
+
+两个数据刷新任务，都在 `.github/workflows/`，都**只有 `schedule` + `workflow_dispatch` 触发器**——仓库是 public 且这两个 job 持有可绕过 RLS 的 service-role key，加 `pull_request` 会让 fork 的 PR 拿到密钥。
+
+- `ltb-refresh.yml` — 每月 3 号 07:00 UTC，跑 `scripts/ltb_ingest.mjs`（LTB 判令目录，增 + 删）
+- `refresh-ca-corp-registry.yml` — 每月 5 号 06:00 UTC，跑 `scripts/ingest-ca-corp-registry.mjs`（联邦公司注册库，deep-check 的雇主/BN 核验靠它）
+
+**唯一需要的 secret 是 `SUPABASE_SERVICE_ROLE_KEY`。** Supabase URL 是 `NEXT_PUBLIC_`、本来就在浏览器包里，已内联进 workflow——曾经因为「需要两个 secret」而长期只配了零个：CA registry 从 2026-05 起每月失败、`ca_corp_registry` 陈旧了三个月无人察觉。两个 job 现在都有 preflight，缺 secret 时直接报可执行的错误。
+
+**踩过的坑**：`npm ci` 在 runner 上失败而本地通过——`actions/setup-node@v4` + node 20 给的是 npm 10，而本地 npm 11 写的 lockfile 省略了 `node_modules/tsx/node_modules/esbuild` 这个嵌套条目（顶层 esbuild 被别的依赖钉在 0.15.18）。改 package.json 后要用 `npx npm@10 install --package-lock-only` 重新生成，并确认 npm 10 与 11 都能 `npm ci`。
 
 ## Env Vars
 
