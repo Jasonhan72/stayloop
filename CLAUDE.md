@@ -100,7 +100,7 @@ Same vars are set in Cloudflare Pages dashboard for production.
 ### API Routes (all edge runtime)
 - `app/api/screen-score/route.ts` — Vision OCR + 6-dim scoring + streaming progress
 - `app/api/deep-check/route.ts` — deep background check
-- `app/api/ltb-search/route.ts` — CanLII court records
+- `app/api/ltb-search/route.ts` — CanLII court records（历史深度；LTB 开放数据目录见 `lib/ltb/`）
 - `app/api/file-url/route.ts` — signed URL for file viewing
 - `app/api/ai-score/route.ts` — legacy scoring
 - `app/api/trust/verify/route.ts` — Trust API endpoint
@@ -113,6 +113,16 @@ Same vars are set in Cloudflare Pages dashboard for production.
 - `app/api/stripe/{checkout,portal,webhook}/route.ts` — billing; webhook also settles referral fees (metadata kind='referral_fee' → commission.stripe_transfer_id + referral 'fee_settled')
 - `app/api/stripe/connect/{onboard,settle}/route.ts` — Connect Express onboarding (brokerages.stripe_connect_id) + referral-fee settlement (settle_referral_commission RPC → Checkout for the 25% fee)
 - `app/api/classify-files/route.ts` — upload classification
+
+### LTB Order Catalogue (2026-08-02)
+
+安省 2026-07-24 把 LTB 终局判令发到开放数据（`data.ontario.ca/dataset/ltb-order-catalogue`，Open Government Licence – Ontario，可商用需署名）。当前覆盖 2026-01～2026-05 共 40,844 份判令，2021 年起的历史判令分阶段补齐，新判令签发后 2-3 个月发布。**与 CanLII 互补而非替代**——CanLII 有多年深度，目录目前只有 5 个月。
+
+- `lib/ltb/normalize.ts` — 姓名/地址归一化，**ingest 与查询共用同一份**（两边不一致 = 记录进了库却查不到，是最难发现的假阴性）
+- `lib/ltb/search.ts` — 查询 + 分类；`scripts/ltb_ingest.mjs` — 每月重跑（资源列表从 CKAN 发现，不写死 resource id，否则 2021 补齐上线时会静默停止覆盖）
+- **不走他们的实时 API**：CKAN 的 `q` 是「词之间 OR + 搜所有列」，`q=David Park` 会返回名叫 David 的房东、Park Road 的地址。必须自己落库匹配。
+- **匹配用 token 包含关系而非纯 trigram**：0.62 相似度会把 DAVID PARKER(0.71)/DAVID PARRY(0.64) 当成 David Park。
+- **三条红线**（见 `lib/ltb/search.ts` 顶部注释）：① 只有「房东发起(L)且对方是租客」才算风险信号，T1/T2/T5/T6 是租客主张自身权利，只作中性上下文、绝不扣分；② 姓名命中在地址佐证前一律视为同名，只有佐证过的才进 hard gate；③ 目录**没有判决结果字段**，任何地方都不得写「已被驱逐/确认欠款」，只能说「已出判令」并给出 PDF 链接。
 
 ### Screening Module
 - `app/screening/page.tsx` — main screening page with streaming progress
@@ -145,6 +155,7 @@ In `supabase/migrations/`:
 - `20260708_drop_v4_agent_layer.sql` — dropped the old V4 AI-native tables (`conversations`, `messages`, `user_facts`, `tool_executions`, `pending_actions`, `audit_events`); only the `agent_*` spine remains
 - `20260713_anon_rate_limit.sql` — `anon_rate_limits` table + `bump_anon_rate_limit()` (anonymous agent-turn rate limiting, service-role only)
 - `20260720_app_config_models.sql` — `app_config` table (admin-only RLS via `is_stayloop_admin()`); seeds the `models` key = AI model slots read by `/admin/models`
+- `20260802_ltb_order_catalogue.sql` — `ltb_orders`（安省开放数据 LTB 判令目录，按「每人每角色一行」展开）+ `ltb_ingest_runs` + `search_ltb_orders()` / `ltb_coverage()` RPC（SECURITY DEFINER，仅 authenticated/service_role 可执行，表本身无 policy 不可直读）
 
 ## Design Source of Truth
 

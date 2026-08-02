@@ -179,3 +179,21 @@ $$;
 -- Callable by a signed-in landlord running a screening; the function reads only
 -- published open data and returns at most p_limit rows.
 grant execute on function public.search_ltb_orders(text, text, text[], text[], integer) to authenticated, service_role;
+
+-- Applied as a follow-up after verifying the deployed ACLs: PUBLIC holds
+-- EXECUTE on new functions by default, so granting to `authenticated` above did
+-- NOT stop `anon` from calling these — anyone holding the browser anon key
+-- could look up a person's LTB history without signing in. Screening is a paid,
+-- authenticated, audited action and the catalogue lookup must inherit that.
+-- (Same default-grant trap as 20260728_lock_down_definer_rpcs.sql.)
+revoke execute on function public.search_ltb_orders(text, text, text[], text[], integer) from public, anon;
+revoke execute on function public.ltb_coverage() from public, anon;
+grant execute on function public.search_ltb_orders(text, text, text[], text[], integer) to authenticated, service_role;
+grant execute on function public.ltb_coverage() to authenticated, service_role;
+
+-- RLS with zero policies already denies every row; the table grants should not
+-- exist either, so a future migration toggling RLS cannot expose the catalogue.
+revoke all on public.ltb_orders from public, anon, authenticated;
+revoke all on public.ltb_ingest_runs from public, anon, authenticated;
+grant all on public.ltb_orders to service_role;
+grant all on public.ltb_ingest_runs to service_role;
