@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch the landlord row for this auth user (RLS: "own profile")
-    const { data: landlord, error: landlordErr } = await supabase
+    const { data: found, error: landlordErr } = await supabase
       .from('landlords')
       .select('id, email, plan, stripe_customer_id')
       // Dual-ID invariant (CLAUDE.md): legacy landlord rows are keyed by
@@ -40,6 +40,26 @@ export async function POST(req: NextRequest) {
       .or(`id.eq.${user.id},auth_id.eq.${user.id}`)
       .limit(1)
       .maybeSingle()
+
+    let landlord = found
+
+    // Self-heal a missing profile instead of dead-ending the purchase.
+    //
+    // The landlords row is created lazily by useLandlord() → claim_landlord(),
+    // which only runs on workspace pages. A user who signs up and goes straight
+    // to /screening never has one, so clicking Upgrade returned
+    // "landlord not found" and there was no way forward from the UI. That was
+    // 45 of 96 accounts. claim_landlord() is SECURITY DEFINER and idempotent
+    // (returns the existing row, claims one matching the email, or inserts a
+    // free/landlord row), so calling it here is safe and is exactly what the
+    // workspace would have done.
+    if (!landlordErr && !landlord) {
+      const { data: claimed } = await supabase.rpc('claim_landlord')
+      const row = Array.isArray(claimed) ? claimed[0] : claimed
+      if (row && typeof row === 'object' && 'id' in row) {
+        landlord = row as typeof found
+      }
+    }
 
     if (landlordErr || !landlord) {
       return NextResponse.json({ error: 'landlord not found' }, { status: 404 })
