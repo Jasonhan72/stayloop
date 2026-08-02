@@ -70,6 +70,12 @@ type Sb = ReturnType<typeof getSupabaseBrowser>
 const OPEN_TICKETS = '(done,cancelled)' // maintenance statuses that count as closed
 
 async function loadTenantStats(sb: Sb, uid: string): Promise<Stats> {
+  // Every tenant-side row here hangs off a `tenants` record, and nothing in the
+  // product writes that table — 0 rows against 96 accounts — so in practice this
+  // returns the empty shape for everyone. That is the correct output (show
+  // nothing rather than invent a tier), but it means the queries below are
+  // currently unreachable; they stay because they are right for when the tenant
+  // profile is actually created.
   const { data: t } = await sb.from('tenants').select('id, tier').eq('auth_id', uid).maybeSingle()
   if (!t) return { apps: 0, leaseStatus: null, openTickets: 0, nextRent: null, passportTier: null }
   const tid = t.id as string
@@ -87,7 +93,11 @@ async function loadTenantStats(sb: Sb, uid: string): Promise<Stats> {
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tid)
       .not('status', 'in', OPEN_TICKETS),
-    sb.from('rental_passports').select('tier').eq('tenant_id', tid).maybeSingle(),
+    // `rental_passports` does NOT exist in this database. Left in place it would
+    // reject this whole Promise.all the moment a tenants row makes this branch
+    // reachable, taking the lease/maintenance/rent panels down with it. The
+    // stamp tier on the tenants row is the only source that exists.
+    Promise.resolve({ data: { tier: t.tier } as { tier: number | null } }),
   ])
 
   // The lease that matters most: an in-force one first, else the freshest

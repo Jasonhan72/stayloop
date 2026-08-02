@@ -59,11 +59,24 @@ export default function PublicPassportView({ snapshot }: { snapshot: PassportSna
                   <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-tenant">
                     RENTAL PASSPORT · {zh ? '只读快照' : 'READ-ONLY SNAPSHOT'}
                   </div>
+                  {/* With no stamps verified, "0/4 枚章" reads like a poor score
+                      rather than an absent record — and the whole point of this
+                      page is that a landlord can trust what it says. State the
+                      absence in words instead. */}
                   <h1 className="mt-1 text-[22px] font-bold tracking-tight">
-                    {zh
-                      ? `已盖 ${snapshot.stampedCount}/4 枚章`
-                      : `${snapshot.stampedCount}/4 stamps earned`}
+                    {snapshot.stampedCount === 0
+                      ? zh ? '尚无已验证的认证章' : 'No verified stamps yet'
+                      : zh
+                        ? `已盖 ${snapshot.stampedCount}/4 枚章`
+                        : `${snapshot.stampedCount}/4 stamps earned`}
                   </h1>
+                  {snapshot.stampedCount === 0 && (
+                    <p className="mt-1 text-[12.5px] leading-relaxed text-body-2">
+                      {zh
+                        ? '该租客尚未完成任何一项验证。本页只展示 Stayloop 已核实的内容——没有核实的，这里不会显示。'
+                        : 'This tenant has not completed any verification yet. This page shows only what Stayloop has verified — nothing is shown that has not been.'}
+                    </p>
+                  )}
                 </div>
                 {/* Authenticity badge */}
                 <span

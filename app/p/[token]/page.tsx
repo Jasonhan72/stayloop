@@ -58,26 +58,14 @@ async function loadSnapshot(token: string): Promise<PassportSnapshot | null> {
     /* non-fatal */
   }
 
-  // ── Tenant profile (name initials + tier) ───────────────────────────────
+  // ── Tenant profile (name initials) ──────────────────────────────────────
+  // Resolved from the auth user on the token, NOT from a `tenants` row. Nothing
+  // in the product writes that table — it has 0 rows against 96 accounts — so
+  // keying off it meant this lookup always failed and every field below fell to
+  // its default.
   let fullName: string | null = null
   let email: string | null = null
-  let tier = 1
-  let tenantId: string | null = null
-  try {
-    const { data: tenant } = await sb
-      .from('tenants')
-      .select('id,full_name,email,tier')
-      .eq('auth_id', row.tenant_user_id)
-      .maybeSingle()
-    if (tenant) {
-      tenantId = tenant.id
-      fullName = tenant.full_name
-      email = tenant.email
-      tier = Math.min(Math.max(Number(tenant.tier) || 1, 1), 4)
-    }
-  } catch {
-    /* tolerated — fall through to auth lookup */
-  }
+  const tenantId: string | null = null
   if (!fullName && !email) {
     try {
       const { data } = await sb.auth.admin.getUserById(row.tenant_user_id)
@@ -88,25 +76,21 @@ async function loadSnapshot(token: string): Promise<PassportSnapshot | null> {
     }
   }
 
-  // ── Stamp statuses: tier N = first N stamped; rental_passports flags win ─
-  const done: [boolean, boolean, boolean, boolean] = [tier >= 1, tier >= 2, tier >= 3, tier >= 4]
-  if (tenantId) {
-    try {
-      const { data: pass } = await sb
-        .from('rental_passports')
-        .select('tier,id_verified,income_verified,bank_verified,credit_score,court_records_json')
-        .eq('tenant_id', tenantId)
-        .maybeSingle()
-      if (pass) {
-        done[0] = !!pass.id_verified || (Number(pass.tier) || 0) >= 1
-        done[1] = !!pass.income_verified || (Number(pass.tier) || 0) >= 2
-        done[2] = !!pass.bank_verified || (Number(pass.tier) || 0) >= 3
-        done[3] = pass.credit_score != null || pass.court_records_json != null || (Number(pass.tier) || 0) >= 4
-      }
-    } catch {
-      /* tolerated — tenants.tier fallback stands */
-    }
-  }
+  // ── Stamp statuses ──────────────────────────────────────────────────────
+  // No stamp is claimed unless something in the database substantiates it.
+  //
+  // This used to start from `tenants.tier` (empty table) and then let a
+  // `rental_passports` query override it — a table that does not exist in this
+  // database at all, so that query threw on every request and the catch
+  // swallowed it. The page therefore always rendered "已盖 1/4 枚章": not a
+  // measurement, just the floor value left behind by two failed lookups. A
+  // landlord opening the link saw a credential-looking card that asserted a
+  // verified identity stamp nobody had verified.
+  //
+  // Until the verification flows exist and write somewhere, the honest output
+  // is zero stamps, and view.tsx says so in words rather than showing 0/4 as
+  // though it were a poor score.
+  const done: [boolean, boolean, boolean, boolean] = [false, false, false, false]
 
   // ── Rent punctuality (statuses only — no amounts) ───────────────────────
   let rentRecord: PassportSnapshot['rentRecord'] = null
