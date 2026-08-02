@@ -1145,8 +1145,8 @@ export default function ReportPage() {
               </div>
               <p className="mt-2 text-[11px] leading-relaxed text-body-3">
                 {zh
-                  ? '「✓ 无记录」表示该库已实际检索且零命中——与「未检索」是两回事。未响应/不可用的库单独标注，不计入「无记录」。'
-                  : '"✓ Clear" means the source was actually searched with zero hits — distinct from "not searched". Unresponsive sources are labelled separately and never counted as clear.'}
+                  ? '「✓ 无记录」表示该数据源已按姓名实际检索且零命中——与「未检索」是两回事。不可用/未响应的数据源单独标注，绝不计入「无记录」。CanLII 现列为「不可用」：其 API 只支持按日期分页，不提供姓名或全文检索，因此无法用于查人。'
+                  : '"✓ Clear" means that source was actually searched by name and returned nothing — distinct from "not searched". Unavailable sources are labelled separately and are never counted as clear. CanLII is listed unavailable: its API filters by date only and offers no name or full-text search, so it cannot be used to look a person up.'}
               </p>
 
               {courtRows.length > 0 && (

@@ -60,8 +60,6 @@ const ONTARIO_PORTAL_TIMEOUT_MS = 8000
 const CLAUDE_MAX_TOKENS = 6000
 const CLAUDE_TEMPERATURE = 0
 
-// Cache the Ontario database list across warm edge invocations
-let ontarioDbCache: { dbs: CanLIIDatabase[]; fetchedAt: number } | null = null
 
 // §6 P2 — CanLII URL helpers ------------------------------------------------
 // buildCanLiiUrl appends api_key + caller-supplied query params, in that
@@ -99,24 +97,6 @@ function fetchCanLii(url: string, init?: RequestInit): Promise<Response> {
     ...init,
     referrerPolicy: 'no-referrer',
   })
-}
-
-async function listOntarioDatabases(apiKey: string): Promise<CanLIIDatabase[]> {
-  const now = Date.now()
-  if (ontarioDbCache && now - ontarioDbCache.fetchedAt < DB_CACHE_TTL_MS) {
-    return ontarioDbCache.dbs
-  }
-  try {
-    const url = buildCanLiiUrl('caseBrowse/en/', apiKey)
-    const res = await fetchCanLii(url, { signal: AbortSignal.timeout(CANLII_DB_LIST_TIMEOUT_MS) })
-    if (!res.ok) return ontarioDbCache?.dbs || []
-    const data = await res.json() as { caseDatabases?: CanLIIDatabase[] }
-    const dbs = (data.caseDatabases || []).filter(d => d.jurisdiction === 'on')
-    ontarioDbCache = { dbs, fetchedAt: now }
-    return dbs
-  } catch {
-    return ontarioDbCache?.dbs || []
-  }
 }
 
 // ── CanLII search helpers ─────────────────────────────────────────────
@@ -175,100 +155,6 @@ function nameMatchesTitle(searchName: string, caseTitle: string): boolean {
   return parts.every(part => titleLower.includes(part))
 }
 
-/**
- * Search a single CanLII database for the tenant's full name.
- * Uses exact-phrase fullText search, then filters to party matches only.
- */
-// 2026-06-02 — Code review §6 P1 — Optional `aggregateSignal` lets the
-// caller share a single AbortController across the entire CanLII fan-out so
-// we can cap TOTAL court-record time, not just per-request time. When the
-// signal fires we let the AbortError surface to the caller (allSettled
-// observes it as 'rejected' with reason.name === 'AbortError') so callers
-// can distinguish a timed-out source from one that legitimately returned
-// zero hits.
-async function searchCanLIIDb(
-  fullName: string,
-  db: CanLIIDatabase,
-  apiKey: string,
-  aggregateSignal?: AbortSignal,
-): Promise<CanLIIMatch[]> {
-  // Combine the per-request 6s timeout with the optional aggregate signal:
-  // whichever fires first aborts the underlying fetch. AbortSignal.any is
-  // the standard way; we keep a manual fallback for runtimes that haven't
-  // shipped it (older Cloudflare Workers builds).
-  const perReqSignal = AbortSignal.timeout(CANLII_PER_REQ_TIMEOUT_MS)
-  const signal: AbortSignal =
-    aggregateSignal && typeof (AbortSignal as { any?: unknown }).any === 'function'
-      ? (AbortSignal as unknown as { any: (sigs: AbortSignal[]) => AbortSignal }).any([
-          perReqSignal,
-          aggregateSignal,
-        ])
-      : aggregateSignal
-        ? mergeSignals(perReqSignal, aggregateSignal)
-        : perReqSignal
-
-  try {
-    // Search with the FULL NAME in exact-phrase quotes. URL built via
-    // buildCanLiiUrl so api_key is appended in one consistent place (§6 P2).
-    const url = buildCanLiiUrl(`caseBrowse/en/${db.databaseId}/`, apiKey, {
-      resultCount: 10,
-      offset: 0,
-      publishedBefore: '2026-12-31',
-      publishedAfter: '2015-01-01',
-      fullText: `"${fullName}"`,
-    })
-    const res = await fetchCanLii(url, { signal })
-    if (!res.ok) return []
-    const data = await res.json() as { cases?: Array<{ databaseId: string; caseId: { en: string }; title: string; citation: string }> }
-    const cases = data.cases || []
-
-    // Fetch metadata (real URLs) and check party match IN PARALLEL
-    const results = await Promise.all(cases.map(async c => {
-      const cid = c.caseId?.en || ''
-      const dbId = c.databaseId || db.databaseId
-      let caseUrl = `https://www.canlii.org/en/on/${dbId}/`
-      if (cid) {
-        try {
-          const metaRes = await fetchCanLii(
-            buildCanLiiUrl(`caseBrowse/en/${dbId}/${cid}`, apiKey),
-            { signal: AbortSignal.timeout(CANLII_DECISION_TIMEOUT_MS) },
-          )
-          if (metaRes.ok) {
-            const meta = await metaRes.json() as { url?: string }
-            caseUrl = meta.url || `https://www.canlii.org/en/on/${dbId}/doc/${cid.slice(0, 4)}/${cid}/${cid}.html`
-          } else {
-            caseUrl = `https://www.canlii.org/en/on/${dbId}/doc/${cid.slice(0, 4)}/${cid}/${cid}.html`
-          }
-        } catch {
-          caseUrl = `https://www.canlii.org/en/on/${dbId}/doc/${cid.slice(0, 4)}/${cid}/${cid}.html`
-        }
-      }
-      return {
-        title: c.title,
-        citation: c.citation,
-        databaseId: dbId,
-        databaseName: db.name,
-        caseId: cid,
-        url: caseUrl,
-        nameInTitle: nameMatchesTitle(fullName, c.title),
-      }
-    }))
-
-    // ONLY return cases where the tenant is confirmed as a party
-    return results.filter(r => r.nameInTitle)
-  } catch (err) {
-    // 2026-06-02 — §6 P1 — Surface aggregate-budget aborts so the caller
-    // can mark this source as 'timeout' instead of silently 0-hit.
-    const e = err as { name?: string } | null
-    if (
-      e?.name === 'AbortError' &&
-      aggregateSignal?.aborted
-    ) {
-      throw err
-    }
-    return []
-  }
-}
 
 // 2026-06-02 — §6 P1 — Minimal AbortSignal merger for runtimes that don't
 // expose AbortSignal.any. Returns a signal that aborts as soon as ANY of
@@ -528,126 +414,44 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
     return reason?.name === 'AbortError'
   }
 
-  // ── Step 1: ALWAYS query the two priority databases (LTB + Small Claims) ──
-  // These are hardcoded so they fire even if the full DB list fetch fails.
-  const prioritySettled = await Promise.allSettled(
-    PRIORITY_DBS.map(db => searchCanLIIDb(searchName, db, apiKey, aggregateSignal))
-  )
-  const priorityDbIds = new Set(PRIORITY_DBS.map(d => d.databaseId))
-  const priorityResults: Array<{ db: CanLIIDatabase; records: CanLIIMatch[]; hits: number }> = []
-  for (let i = 0; i < PRIORITY_DBS.length; i++) {
-    const r = prioritySettled[i]
-    const records = r.status === 'fulfilled' ? r.value : []
-    if (isAbortReason(r)) timedOutDbIds.add(PRIORITY_DBS[i].databaseId)
-    priorityResults.push({ db: PRIORITY_DBS[i], records, hits: records.length })
-  }
-
-  // ── Step 2: Discover remaining Ontario databases and query them ──
-  // Short-circuit Step 2 if the aggregate budget has already been blown
-  // — there's no point making more requests we'll just abort immediately.
-  const allDbs = aggregateSignal.aborted ? [] : await listOntarioDatabases(apiKey)
-  // Exclude already-queried priority DBs
-  const extraDbs = allDbs.filter(db => !priorityDbIds.has(db.databaseId))
-  const extraSettled = aggregateSignal.aborted
-    ? ([] as PromiseSettledResult<CanLIIMatch[]>[])
-    : await Promise.allSettled(
-        extraDbs.map(db => searchCanLIIDb(searchName, db, apiKey, aggregateSignal))
-      )
-  const extraResults: Array<{ db: CanLIIDatabase; records: CanLIIMatch[]; hits: number }> = []
-  for (let i = 0; i < extraDbs.length; i++) {
-    const r = extraSettled[i]
-    if (!r) {
-      // Skipped because the budget was already blown — count as timeout.
-      timedOutDbIds.add(extraDbs[i].databaseId)
-      extraResults.push({ db: extraDbs[i], records: [], hits: 0 })
-      continue
-    }
-    const records = r.status === 'fulfilled' ? r.value : []
-    if (isAbortReason(r)) timedOutDbIds.add(extraDbs[i].databaseId)
-    extraResults.push({ db: extraDbs[i], records, hits: records.length })
-  }
-
-  // Clear the timer — either we finished before the budget, or we already
-  // aborted. Either way the setTimeout reference shouldn't leak.
-  clearTimeout(aggregateTimeout)
-  const aggregatePartial = aggregateSignal.aborted
-
-  // ── Step 3: Merge and build response ──
-  // searchCanLIIDb already filters to party-only matches (name in title).
-  // All records here are confirmed cases where the tenant is a party.
-  const allResults = [...priorityResults, ...extraResults]
-  const allRecords: CanLIIMatch[] = []
-  for (const { records } of allResults) allRecords.push(...records)
-  const totalHits = allRecords.length
-  const totalDbsSearched = PRIORITY_DBS.length + extraDbs.length
-
-  // Rollup query row
+  // ── CanLII: disclosed, not searched ────────────────────────────────────
+  //
+  // This used to fan out across ~78 Ontario databases with
+  //     caseBrowse/en/<db>/?fullText="<applicant name>"
+  // and filter the results by whether the name appeared in the case title.
+  //
+  // CanLII's API has no full-text or party-name search. `fullText` is not one
+  // of its parameters and is silently ignored — the documented filters are
+  // date and pagination only. Verified against the live API: the same request
+  // with no fullText, with a real applicant's name, and with the nonsense
+  // string "zzqqxx9988nonsense" returns byte-identical results. Every call was
+  // fetching that database's N most recent decisions — the same ones for every
+  // applicant — and asking whether the name happened to be in one of those
+  // titles. It essentially never was.
+  //
+  // So this reported "✓ 无记录 / CLEAR" for every applicant who ever ran a
+  // screening, next to copy stating that a clear result means the source was
+  // actually searched. A tenant with a real, live LTB eviction came back clean.
+  //
+  // It is not fixable with better parameters, so it is not presented as a
+  // searched source. What actually searches by name stays: the Ontario Courts
+  // Portal (party search, below) and the LTB Order Catalogue (Ontario Open
+  // Data, indexed by us — see Stage 3.7 in the POST handler).
   queries.push({
-    source: `CanLII — all Ontario databases (${totalDbsSearched} searched)`,
+    source: 'CanLII',
     tier: 'free',
-    status: 'ok',
-    hits: totalHits,
-    note: totalHits === 0
-      ? 'No matches across Ontario courts, tribunals, or boards'
-      : `${totalHits} case(s) with "${searchName}" as party in ${allResults.filter(d => d.hits > 0).length} database(s)`,
+    status: 'unavailable',
+    hits: null,
+    note: 'CanLII publishes no name-search API — its endpoints filter by date only. Not searched; use the sources below.',
+    url: 'https://www.canlii.org/en/on/',
   })
 
-  // Always show priority DBs as explicit rows (even 0-hit) so the user sees
-  // that LTB and Small Claims were actually queried every time.
-  // 2026-06-02 — §6 P1 — surface aggregate-budget timeouts as a distinct
-  // status so the UI can show "timed out" instead of "no records".
-  for (const pr of priorityResults) {
-    const didTimeout = timedOutDbIds.has(pr.db.databaseId)
-    const severity = getSeverity(pr.db.databaseId, pr.hits > 0)
-    queries.push({
-      source: `CanLII — ${pr.db.name}`,
-      tier: 'free',
-      status: didTimeout ? 'timeout' : 'ok',
-      hits: didTimeout ? null : pr.hits,
-      severity: pr.hits > 0 ? severity : 0,
-      records: pr.records.length > 0 ? pr.records : undefined,
-      url: pr.records[0]?.url,
-      note: didTimeout ? 'Source did not respond within the 12s aggregate budget' : undefined,
-    })
-  }
+  const allRecords: CanLIIMatch[] = []
+  let totalHits = 0
+  const totalDbsSearched = 0
+  const aggregatePartial = false
+  clearTimeout(aggregateTimeout)
 
-  // Extra DBs with hits (after filtering), sorted by severity desc then hit count desc
-  const extraWithHits = extraResults
-    .filter(d => d.hits > 0)
-    .sort((a, b) => {
-      const sevA = getSeverity(a.db.databaseId, true)
-      const sevB = getSeverity(b.db.databaseId, true)
-      if (sevA !== sevB) return sevB - sevA
-      return b.hits - a.hits
-    })
-
-  for (const { db, records, hits } of extraWithHits) {
-    const severity = getSeverity(db.databaseId, true)
-    queries.push({
-      source: `CanLII — ${db.name}`,
-      tier: 'free',
-      status: 'ok',
-      hits,
-      severity,
-      records,
-      url: records[0]?.url,
-    })
-  }
-
-  // 2026-06-02 — §6 P1 — Emit timeout rows for any extra DBs that didn't
-  // finish, so the user can see those sources weren't actually clean
-  // — they just didn't answer in time.
-  for (const er of extraResults) {
-    if (!timedOutDbIds.has(er.db.databaseId)) continue
-    queries.push({
-      source: `CanLII — ${er.db.name}`,
-      tier: 'free',
-      status: 'timeout',
-      hits: null,
-      severity: 0,
-      note: 'Source did not respond within the 12s aggregate budget',
-    })
-  }
 
   // ── Step 4: Ontario Courts Portal (direct API) — free tier ──
   // This covers Civil and Small Claims Court cases from courts.ontario.ca

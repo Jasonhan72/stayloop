@@ -113,7 +113,7 @@ Same vars are set in Cloudflare Pages dashboard for production.
 ### API Routes (all edge runtime)
 - `app/api/screen-score/route.ts` — Vision OCR + 6-dim scoring + streaming progress
 - `app/api/deep-check/route.ts` — deep background check
-- `app/api/ltb-search/route.ts` — CanLII court records（历史深度；LTB 开放数据目录见 `lib/ltb/`）
+- `app/api/ltb-search/route.ts` — LTB 判令检索（走开放数据目录 `lib/ltb/`）
 - `app/api/file-url/route.ts` — signed URL for file viewing
 - `app/api/ai-score/route.ts` — legacy scoring
 - `app/api/trust/verify/route.ts` — Trust API endpoint
@@ -126,6 +126,25 @@ Same vars are set in Cloudflare Pages dashboard for production.
 - `app/api/stripe/{checkout,portal,webhook}/route.ts` — billing; webhook also settles referral fees (metadata kind='referral_fee' → commission.stripe_transfer_id + referral 'fee_settled')
 - `app/api/stripe/connect/{onboard,settle}/route.ts` — Connect Express onboarding (brokerages.stripe_connect_id) + referral-fee settlement (settle_referral_commission RPC → Checkout for the 25% fee)
 - `app/api/classify-files/route.ts` — upload classification
+
+### ⚠️ CanLII 不能按姓名查（2026-08-02 实测确认）
+
+**CanLII 的 API 没有全文检索、也没有当事人检索。** 官方文档里 caseBrowse 的参数只有
+`publishedBefore/After`、`modifiedBefore/After`、`changedBefore/After`、`decisionDateBefore/After`
+——**没有 `fullText`**。传了会被静默忽略。
+
+线上实测(同一 endpoint、三次请求)：不传 fullText / 传真实申请人姓名 / 传 `"zzqqxx9988nonsense"`
+→ **返回结果完全相同**，都是该库最近 N 份判决。
+
+原来的代码在 78 个安省库上跑 `caseBrowse/en/<db>/?fullText="<姓名>"`，再用姓名比对标题。
+等于对**每个申请人**都拉同样那 780 份近期判决，几乎必然 0 命中，然后报 **"✓ 无记录"**——
+而报告里还写着"✓ 无记录表示该库已实际检索"。一个真的被 LTB 驱逐过的租客因此显示为干净。
+
+**已删除该检索路径**（含 `searchCanLIIDb` / `listOntarioDatabases`，-112 行），CanLII 现在
+只作为"不可用"披露。`tests/ltb.spec.ts` 有回归守卫：仓库里出现任何构造 `fullText` 的代码即失败。
+
+**真正能按姓名查的只有两个**：① 安省法院门户(Civil & Small Claims，真当事人检索)；
+② LTB 开放数据目录(下节，我们自己落库建索引)。
 
 ### LTB Order Catalogue (2026-08-02)
 

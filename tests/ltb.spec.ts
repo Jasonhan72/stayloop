@@ -154,3 +154,38 @@ describe('LTB classification — the rules that protect the applicant', () => {
     expect(describeCodes(['L1'], 'zh')).toMatch(/欠租/)
   })
 })
+
+describe('CanLII cannot be searched by name — regression guard', () => {
+  it('no CanLII name/full-text query is constructed anywhere', async () => {
+    // CanLII's API documents exactly these filters for caseBrowse:
+    // publishedBefore/After, modifiedBefore/After, changedBefore/After,
+    // decisionDateBefore/After. There is no fullText and no party search.
+    // Passing one is silently ignored, and the endpoint returns that database's
+    // most recent decisions — the same ones for every applicant. Verified live:
+    // no fullText, a real applicant name, and "zzqqxx9988nonsense" all returned
+    // byte-identical results.
+    //
+    // That shipped as "✓ 无记录 / CLEAR" for every applicant who ever ran a
+    // screening, including one with a live LTB eviction.
+    const { execSync } = await import('node:child_process')
+    let hits = ''
+    try {
+      hits = execSync(
+        `git grep -nI "fullText" -- 'app/**' 'lib/**' ':!**/*.spec.ts'`,
+        { cwd: process.cwd(), encoding: 'utf8' },
+      )
+    } catch {
+      hits = '' // git grep exits 1 when there are no matches
+    }
+    const offending = hits
+      .split('\n')
+      .filter(Boolean)
+      .filter((line) => {
+        // "path:lineno:code" — keep only lines whose CODE (not a comment
+        // explaining why this is banned) constructs the parameter.
+        const code = line.split(':').slice(2).join(':').trim()
+        return code && !code.startsWith('//') && !code.startsWith('*') && !code.startsWith('/*')
+      })
+    expect(offending, `CanLII fullText is inert — these would silently return unrelated cases:\n${offending.join('\n')}`).toEqual([])
+  })
+})
