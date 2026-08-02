@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { courtDefendantHitsFromGates, revolvingUtilisation, scoreRubric, usableIncome, type RubricFacts } from '../lib/screening/rubric'
+import { RUBRIC_WEIGHTS, courtDefendantHitsFromGates, revolvingUtilisation, scoreRubric, usableIncome, type RubricFacts } from '../lib/screening/rubric'
 
 // The applicant that exposed the problem: six runs of identical documents
 // scored 19, 22, 22, 24, 27, 28. These facts are lifted from the stored
@@ -156,5 +156,49 @@ describe('court records: only defendant classification may penalise', () => {
   it('leaves rental_history untouched when there is no defendant classification', () => {
     const clean = scoreRubric({ ...ALALEH, courtDefendantHits: courtDefendantHitsFromGates(['self_issued_employment']) })
     expect(clean.hits.find((h) => h.code === 'court_defendant')).toBeUndefined()
+  })
+})
+
+describe('regressions the cutover review caught', () => {
+  it('re-scoring after a supplemental court pass stays on the rubric', () => {
+    // The supplemental pass (fired when the documents yield a second name — a
+    // co-applicant, or an ID spelling variant) used to recompute from the OLD
+    // weighted sum, subtract the model penalty on top, and re-derive tier from
+    // the OLD 85/70 cutoffs. Multi-party applicants silently fell back to the
+    // non-deterministic scoring this replaced.
+    //
+    // Only one input can change there: added court gates. Re-scoring from the
+    // same facts with those gates must be stable and must move the score DOWN.
+    const before = scoreRubric(ALALEH)
+    const after = scoreRubric({
+      ...ALALEH,
+      courtDefendantHits: courtDefendantHitsFromGates(['court_record_defendant_multi']),
+    })
+    expect(after.overall).toBeLessThan(before.overall)
+    expect(scoreRubric({ ...ALALEH, courtDefendantHits: 2 }).overall).toBe(after.overall)
+  })
+
+  it('never yields a NaN or out-of-range score on sparse facts', () => {
+    // The old path 500'd a whole screening when the model omitted a dimension.
+    const bare = scoreRubric({
+      monthly_rent: null, claimed_monthly_income: null, verified_monthly_income: null,
+      credit: null, crossDoc: null, ltbCorroborated: 0, courtDefendantHits: 0,
+      landlordRefs: 0, declaredAddresses: 0, documentKinds: [], contradictions: [],
+      forgedDocuments: 0, blankApplicationFields: 0, applicationSigned: null,
+    })
+    expect(Number.isFinite(bare.overall)).toBe(true)
+    expect(bare.overall).toBeGreaterThanOrEqual(0)
+    expect(bare.overall).toBeLessThanOrEqual(100)
+    for (const v of Object.values(bare.dimensions)) {
+      expect(Number.isFinite(v)).toBe(true)
+      expect(v).toBeGreaterThanOrEqual(0)
+      expect(v).toBeLessThanOrEqual(100)
+    }
+    expect(bare.unknown.length).toBeGreaterThan(0)
+  })
+
+  it('weights sum to 1 so the overall really is a 0–100 scale', () => {
+    const total = Object.values(RUBRIC_WEIGHTS).reduce((a, b) => a + b, 0)
+    expect(Number(total.toFixed(6))).toBe(1)
   })
 })

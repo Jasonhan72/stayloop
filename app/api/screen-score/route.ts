@@ -1298,8 +1298,13 @@ JSON DISCIPLINE (avoid parse errors):
     // ability_to_pay was checked; if Sonnet omitted another dim or returned
     // non-numeric (string / null / NaN / 150), baseScore arithmetic produced
     // NaN that propagated through the entire score, gate, and tier logic.
+    // `communication` is deliberately NOT here. The rubric does not use it (see
+    // lib/screening/rubric.ts — nothing in a pile of PDFs measures how a person
+    // communicates, and it returned 52–55 on every run of every applicant), so
+    // failing an entire screening because the model omitted it would be failing
+    // on a field that changes no outcome. It is still clamped below if present.
     const ALL_V3_DIMS: Array<keyof V3Scores> = [
-      'ability_to_pay', 'credit_health', 'rental_history', 'verification', 'communication',
+      'ability_to_pay', 'credit_health', 'rental_history', 'verification',
     ]
     for (const k of ALL_V3_DIMS) {
       const v = (s as any)[k]
@@ -1316,6 +1321,10 @@ JSON DISCIPLINE (avoid parse errors):
       // sum + hard gates assume 0-100; out-of-range inputs corrupt them.
       ;(s as any)[k] = Math.max(0, Math.min(100, Math.round(v)))
     }
+    // Non-fatal: normalise communication if the model sent it, default it if not.
+    s.communication = typeof s.communication === 'number' && isFinite(s.communication)
+      ? Math.max(0, Math.min(100, Math.round(s.communication)))
+      : 0
 
     // ---- Stage 3.5: Forensics-driven dimension zeroing ----------------
     // If a critical/high forensics flag confirms a specific evidence file is
@@ -1974,9 +1983,10 @@ JSON DISCIPLINE (avoid parse errors):
     // See lib/screening/rubric.ts. The model's own numbers stay in scores_v3 for
     // comparison but drive nothing.
     let rubric: RubricResult | null = null
+    let rubricFacts: RubricFacts | null = null
     try {
       const prev = crossDocVerification?.application_summary?.prev_residences ?? []
-      rubric = scoreRubric({
+      rubricFacts = {
         monthly_rent: monthlyRent || crossDocVerification?.application_summary?.applying_rent || null,
         claimed_monthly_income: detectedIncomeForGate,
         // Only a corroborated figure counts. An employment letter the applicant
@@ -1997,7 +2007,8 @@ JSON DISCIPLINE (avoid parse errors):
         forgedDocuments: dimsZeroed.length,
         blankApplicationFields: crossDocVerification?.application_summary?.blank_sections?.length ?? 0,
         applicationSigned: null,
-      } as RubricFacts)
+      } as RubricFacts
+      rubric = scoreRubric(rubricFacts)
       s.ability_to_pay = rubric.dimensions.ability_to_pay
       s.credit_health = rubric.dimensions.credit_health
       s.rental_history = rubric.dimensions.rental_history
@@ -2154,8 +2165,10 @@ JSON DISCIPLINE (avoid parse errors):
         const role = (r.partyRole || '').toLowerCase()
         return role.includes('defendant') || role.includes('debtor') || role.includes('respondent')
       })
-      const allCanliiPartyHits = countDebtRelevantHits(courtDetail.records)
-      const allCourtHits = allPortalDefendant.length + allCanliiPartyHits
+      // CanLII contributed nothing here even before it was removed (its API
+      // cannot search by name), and courtDetail.records is now always empty.
+      // The Ontario Courts Portal is the only source that classifies a party.
+      const allCourtHits = allPortalDefendant.length
       if (allCourtHits > 0) {
         const rhCap = allCourtHits >= 2 ? 10 : 25
         s.rental_history = Math.min(s.rental_history, rhCap)
@@ -2177,18 +2190,39 @@ JSON DISCIPLINE (avoid parse errors):
           hardGates.push('court_record_active')
         }
       }
-      // Recalculate overall with corrected scores and new gates
-      baseScore = Math.round(
-        s.ability_to_pay * 0.40 +
-        s.credit_health * 0.25 +
-        s.rental_history * 0.20 +
-        s.verification * 0.10 +
-        s.communication * 0.05
-      )
+      // Re-score after the supplemental court pass.
+      //
+      // This block used to recompute baseScore from the OLD five-dimension
+      // weighted sum with the OLD weights, subtract the model's penalty on top,
+      // and re-derive tier from the OLD 85/70 cutoffs — none of which the rubric
+      // uses. The effect was that any applicant whose documents yielded a second
+      // name (a co-applicant, or an ID spelling variant) silently fell back to
+      // the non-deterministic scoring this cutover replaced, in exactly the
+      // multi-party cases where the stakes are highest.
+      //
+      // Only one rubric input can change here: the supplemental pass may add
+      // court gates. Re-score from the same facts with those gates applied.
+      if (rubric && rubricFacts) {
+        rubricFacts = { ...rubricFacts, courtDefendantHits: courtDefendantHitsFromGates(hardGates) }
+        rubric = scoreRubric(rubricFacts)
+        s.ability_to_pay = rubric.dimensions.ability_to_pay
+        s.credit_health = rubric.dimensions.credit_health
+        s.rental_history = rubric.dimensions.rental_history
+        s.verification = rubric.dimensions.verification
+        baseScore = rubric.overall
+      } else {
+        baseScore = Math.round(
+          s.ability_to_pay * V3_WEIGHTS.ability_to_pay +
+          s.credit_health * V3_WEIGHTS.credit_health +
+          s.rental_history * V3_WEIGHTS.rental_history +
+          s.verification * V3_WEIGHTS.verification +
+          s.communication * V3_WEIGHTS.communication
+        )
+      }
       gateCap = hardGates.length > 0
         ? Math.min(...hardGates.map(g => HARD_GATE_CAPS[g] ?? 100))
         : 100
-      overall = Math.round(Math.max(0, Math.min(100, Math.min(baseScore - penalty, gateCap))))
+      overall = Math.round(Math.max(0, Math.min(100, Math.min(rubric ? baseScore : baseScore - penalty, gateCap))))
 
       // Re-derive the verdict from the post-merge state. Without this the
       // persisted tier/legacy still reflect the pre-supplemental scores.
@@ -2201,6 +2235,9 @@ JSON DISCIPLINE (avoid parse errors):
       } else if (evidenceCoverage < 0.6) {
         tier = 'conditional'
         tierReason = 'low_confidence'
+      } else if (rubric) {
+        tier = rubric.band === 'proceed' ? 'approve' : rubric.band === 'decline' ? 'decline' : 'conditional'
+        tierReason = `rubric_${rubric.band}`
       } else if (overall >= 85) {
         tier = 'approve'
         tierReason = ''

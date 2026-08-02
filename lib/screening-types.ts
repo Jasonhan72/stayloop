@@ -270,6 +270,8 @@ export interface ScoreResult {
   court_records_detail: { queries: CourtQuery[]; total_hits: number; queried_name: string }
   /** LTB Order Catalogue result — null when the source was unavailable or the run predates it. */
   ltb_check?: LtbCheck | null
+  /** Deterministic rubric result — the rules that produced the score. Null on runs predating it. */
+  rubric?: unknown
   tier: 'free' | 'pro'
   model_version?: string
   scores_v3?: Record<string, number>

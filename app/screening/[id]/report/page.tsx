@@ -31,6 +31,7 @@ import { useT } from '@/lib/i18n'
 import type { ScoreResult, CourtQuery, OntarioPortalMatch, LtbCheck } from '@/lib/screening-types'
 import { sevColor } from '@/lib/screening-types'
 import { describeCodes } from '@/lib/ltb/search'
+import { RUBRIC_WEIGHTS, type RubricResult } from '@/lib/screening/rubric'
 import { buildForensicCheckMatrix, generateScreeningReport, isPositiveForensicFlag } from '@/lib/generateReport'
 import { registryLinks, inferProvince } from '@/lib/forensics/registry-links'
 
@@ -51,12 +52,18 @@ function tierInfo(tier: string): { label: string; color: string } {
   return { label: 'DECLINE', color: '#DC2626' }
 }
 
-const DIMENSION_LABELS: Record<string, { en: string; zh: string; weight: number }> = {
-  ability_to_pay: { en: 'Income / Ability to Pay', zh: '付款能力', weight: 0.40 },
-  credit_health:  { en: 'Credit Health', zh: '信用健康度', weight: 0.25 },
-  rental_history: { en: 'Rental & Legal History', zh: '租务与司法历史', weight: 0.20 },
-  verification:   { en: 'Identity & Employer', zh: '身份与雇主核实', weight: 0.10 },
-  communication:  { en: 'Application Quality', zh: '申请完整度与沟通', weight: 0.05 },
+// Weights come from the rubric, not from a second copy that can drift. The old
+// literals here (0.40/0.25/0.20/0.10 + 0.05 for communication) were the
+// pre-rubric ones and stopped being true the moment scoring moved; a report
+// that prints a weight it does not apply is worse than one that prints none.
+// `communication` is retained only to render historical reports — it carries no
+// weight now, and the UI labels it as such.
+const DIMENSION_LABELS: Record<string, { en: string; zh: string; weight: number | null }> = {
+  ability_to_pay: { en: 'Income / Ability to Pay', zh: '付款能力', weight: RUBRIC_WEIGHTS.ability_to_pay },
+  credit_health:  { en: 'Credit Health', zh: '信用健康度', weight: RUBRIC_WEIGHTS.credit_health },
+  rental_history: { en: 'Rental & Legal History', zh: '租务与司法历史', weight: RUBRIC_WEIGHTS.rental_history },
+  verification:   { en: 'Identity & Employer', zh: '身份与雇主核实', weight: RUBRIC_WEIGHTS.verification },
+  communication:  { en: 'Application Quality', zh: '申请完整度与沟通', weight: null },
 }
 
 const money = (n: number | null | undefined) =>
@@ -112,6 +119,7 @@ function reconstructResult(row: any): ScoreResult {
     court_summary_zh: v3.court_summary_zh || row.court_summary_zh || '',
     court_records_detail: v3.court_records_detail ?? row.court_records_detail ?? { queries: [], total_hits: 0, queried_name: '' },
     ltb_check: v3.ltb_check ?? null,
+    rubric: v3.rubric ?? null,
     tier: row.tier === 'pro' ? 'pro' : 'free',
     model_version: v3.model_version || row.model_version || undefined,
     scores_v3: scoresV3,
@@ -273,6 +281,7 @@ export default function ReportPage() {
   const forensics = r.forensics_detail
   const courtDetail = r.court_records_detail as { queries: CourtQuery[]; total_hits: number; queried_name: string; databases_searched?: number; partial?: boolean }
   const ltb = (r as { ltb_check?: LtbCheck | null }).ltb_check ?? null
+  const rubric = (r as { rubric?: RubricResult | null }).rubric ?? null
   const courtQueries: CourtQuery[] = courtDetail?.queries || []
   const redFlags = r.red_flags || []
   const hardGates = r.hard_gates_triggered || []
@@ -533,8 +542,10 @@ export default function ReportPage() {
                       <Badge label={zeroed ? (zh ? '取证归零' : 'ZEROED') : dimStatus} color={statusColor(dimStatus)} />
                     </div>
                     <div className="mt-1 text-[12px] font-semibold text-body">{zh ? meta.zh : meta.en}</div>
-                    {meta.weight > 0 && (
+                    {meta.weight != null && meta.weight > 0 ? (
                       <div className="font-mono text-[10px] text-body-4">{Math.round(meta.weight * 100)}% {zh ? '权重' : 'weight'}</div>
+                    ) : (
+                      <div className="font-mono text-[10px] text-body-4">{zh ? '不计权重' : 'not weighted'}</div>
                     )}
                   </div>
                 )
@@ -596,6 +607,44 @@ export default function ReportPage() {
           {/* Dimension Detail */}
           {Object.keys(dims).length > 0 && (
             <SectionShell id="dimensions" title={zh ? '维度评分明细' : 'DIMENSION SCORES'} subtitle={zh ? `${Object.keys(dims).length} 个维度评估` : `${Object.keys(dims).length} dimensions evaluated`}>
+              {/* The score is a published rule applied to measured facts, so the
+                  report has to show which rules fired and on what number. Without
+                  this the landlord gets a number with no way to check it — and
+                  cannot answer a tenant who asks why. */}
+              {rubric && rubric.hits.length > 0 && (
+                <div className="mb-5 rounded-xl border border-line-divider" style={{ background: '#FAFAF8' }}>
+                  <div className="border-b border-line-divider px-4 py-2.5 font-mono text-[10px] font-bold uppercase tracking-wider text-body-3">
+                    {zh ? '触发的评分规则 · 每条注明所依据的数值' : 'RULES APPLIED · each cites the value it read'}
+                  </div>
+                  <div className="divide-y divide-line-divider">
+                    {rubric.hits.map((h, i) => (
+                      <div key={i} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5">
+                        <span
+                          className="font-mono text-[11px] font-bold tabular-nums"
+                          style={{ color: h.delta < 0 ? '#DC2626' : h.delta > 0 ? '#047857' : '#71717A', minWidth: 34 }}
+                        >
+                          {h.delta > 0 ? '+' : ''}{h.delta}
+                        </span>
+                        <span className="text-[12.5px] font-semibold text-body">
+                          {DIMENSION_LABELS[h.dim] ? (zh ? DIMENSION_LABELS[h.dim].zh : DIMENSION_LABELS[h.dim].en) : h.dim}
+                        </span>
+                        <span className="font-mono text-[10.5px] text-body-3">{h.code}</span>
+                        <span className="w-full text-[12px] text-body-2 sm:w-auto sm:flex-1">{h.observed}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {rubric.unknown.length > 0 && (
+                    <div className="border-t border-line-divider px-4 py-2.5 text-[11.5px] leading-relaxed text-body-2">
+                      <b>{zh ? '未测得：' : 'Not measured: '}</b>
+                      {rubric.unknown.map((d) => (DIMENSION_LABELS[d] ? (zh ? DIMENSION_LABELS[d].zh : DIMENSION_LABELS[d].en) : d)).join(zh ? '、' : ', ')}
+                      {' — '}
+                      {zh
+                        ? '这些维度没有可依据的材料，按「未知」计入，不作为正面证据。'
+                        : 'no evidence was available for these; they are carried as unknown and are not treated as a positive.'}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="space-y-5">
                 {Object.entries(dims).map(([key, val]) => {
                   const dimScore = typeof val === 'number' ? val : 0
@@ -610,7 +659,9 @@ export default function ReportPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-[13px] font-semibold text-body">
                           {zh ? meta.zh : meta.en}
-                          {meta.weight > 0 && <span className="ml-2 font-mono text-[10px] text-body-3">({Math.round(meta.weight * 100)}%)</span>}
+                          {meta.weight != null && meta.weight > 0
+                            ? <span className="ml-2 font-mono text-[10px] text-body-3">({Math.round(meta.weight * 100)}%)</span>
+                            : <span className="ml-2 font-mono text-[10px] text-body-3">({zh ? '不计权重' : 'not weighted'})</span>}
                           {zeroed && <span className="ml-2 font-mono text-[10px] font-bold" style={{ color: '#DC2626' }}>{zh ? '取证归零' : 'FORENSICS ZEROED'}</span>}
                         </span>
                         <span className="font-mono text-[16px] font-extrabold" style={{ color }}>{dimScore}</span>
