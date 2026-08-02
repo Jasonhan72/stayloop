@@ -43,7 +43,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # 22, not 20: @supabase/supabase-js constructs a RealtimeClient on
+          # createClient() and that needs a native WebSocket, which Node 20 does
+          # not have — the job died with "Node.js 20 detected without native
+          # WebSocket support". Node 22 also ends the runner's Node-20
+          # deprecation warnings.
+          node-version: '22'
           cache: npm
 
       - run: npm ci
