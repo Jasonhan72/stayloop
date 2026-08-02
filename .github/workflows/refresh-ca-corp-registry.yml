@@ -1,0 +1,64 @@
+name: Refresh CA Corporate Registry
+
+# Ported from the old default branch (main) on 2026-08-02, together with
+# scripts/ingest-ca-corp-registry.mjs. Both lived only on main, so when the
+# default branch moved to v5.3-launch this job would otherwise have stopped
+# being scheduled at all.
+#
+# It had been failing every month since at least 2026-05 with
+# "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars" — the secrets
+# were never set — so ca_corp_registry, which backs employer and BN
+# verification in deep-check, went stale for three months without anyone
+# noticing. Two changes below make that harder to repeat.
+
+on:
+  # Monthly on the 5th at 06:00 UTC (~01:00 EST) — ISED refreshes the dataset
+  # weekly; monthly is plenty for landlord-screening freshness.
+  schedule:
+    - cron: '0 6 5 * *'
+  workflow_dispatch:
+
+# This repository is public and this job holds a key that bypasses RLS. Only
+# schedule and workflow_dispatch can run from this repo, so a pull request —
+# including one from a fork — can never reach it. Do not add `pull_request`,
+# `pull_request_target` or `issue_comment`.
+permissions:
+  contents: read
+
+concurrency:
+  group: ca-corp-registry-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run ingestion
+        env:
+          # Deliberately NOT a secret: this is the NEXT_PUBLIC_ Supabase URL,
+          # already compiled into the browser bundle and committed in CLAUDE.md.
+          # Requiring it as a secret is what made this job need two secrets, and
+          # a job that needs two is twice as likely to sit half-configured — as
+          # this one did, for three months. The script reads SUPABASE_URL or
+          # NEXT_PUBLIC_SUPABASE_URL.
+          SUPABASE_URL: https://upbkcbicjjpznojkpqtg.supabase.co
+          # This one IS a secret — it bypasses RLS entirely.
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::SUPABASE_SERVICE_ROLE_KEY is not set — this job cannot run."
+            echo "Settings -> Secrets and variables -> Actions, or from a checkout:"
+            echo "  grep '^SUPABASE_SERVICE_ROLE_KEY=' .env.local | cut -d= -f2- | tr -d '\"' | gh secret set SUPABASE_SERVICE_ROLE_KEY"
+            exit 1
+          fi
+          node --version
+          node ./scripts/ingest-ca-corp-registry.mjs
