@@ -25,14 +25,35 @@ export function makeListingSlug(address: string): string {
   return address.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now().toString(36)
 }
 
-// Dual-ID: RLS requires landlords.id (profileId), not auth.uid()
+// Dual-ID: RLS requires landlords.id (profileId), not auth.uid().
+//
+// Self-heals a missing profile rather than returning null. The landlords row is
+// created lazily by useLandlord()/useUser() → claim_landlord(), which only runs
+// on workspace pages; a user who signs up and publishes from the agent chat or
+// the listing wizard without visiting one had no row, and both call sites turned
+// that into a hard "未找到房东档案，请先完成注册" with no way forward. Same defect
+// class as the Upgrade button, which was dead for 45 of 96 accounts.
+//
+// claim_landlord() is SECURITY DEFINER and idempotent — returns an existing row,
+// claims a pre-seeded one matching the email, or inserts a free/landlord row.
 export async function resolveLandlordId(client: SupabaseClient, authUserId: string): Promise<string | null> {
   const { data } = await client
     .from('landlords')
     .select('id')
-    .eq('auth_id', authUserId)
+    // Match either column: the documented invariant is that legacy rows are
+    // keyed by profileId. (All 52 production rows currently carry auth_id, but
+    // the query should not depend on that staying true.)
+    .or(`id.eq.${authUserId},auth_id.eq.${authUserId}`)
+    .limit(1)
     .maybeSingle()
-  return data?.id ?? null
+  if (data?.id) return data.id
+
+  const { data: claimed } = await client.rpc('claim_landlord')
+  const row = Array.isArray(claimed) ? claimed[0] : claimed
+  if (row && typeof row === 'object' && 'id' in row) {
+    return (row as { id: string }).id ?? null
+  }
+  return null
 }
 
 type BuildListingRowOpts = {
