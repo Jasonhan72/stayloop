@@ -50,11 +50,19 @@ jobs:
 
       - name: Refresh the LTB order catalogue
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          # Deliberately NOT a secret. NEXT_PUBLIC_* is compiled into the browser
+          # bundle, and this value is already committed in CLAUDE.md and
+          # DEPLOY.md in this repo. Storing it as a secret would add a setup step
+          # that protects nothing; keeping it inline means the only credential
+          # this workflow needs is the one that genuinely is one.
+          NEXT_PUBLIC_SUPABASE_URL: https://upbkcbicjjpznojkpqtg.supabase.co
+          # This one IS a secret: it bypasses RLS entirely.
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "SUPABASE_SERVICE_ROLE_KEY is not set — add it under Settings → Secrets → Actions."
+            echo "::error::SUPABASE_SERVICE_ROLE_KEY is not set. Add it in"
+            echo "Settings -> Secrets and variables -> Actions, or from a checkout run:"
+            echo "  grep '^SUPABASE_SERVICE_ROLE_KEY=' .env.local | cut -d= -f2- | gh secret set SUPABASE_SERVICE_ROLE_KEY"
             exit 1
           fi
-          npx tsx scripts/ltb_ingest.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+          ./node_modules/.bin/tsx scripts/ltb_ingest.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
