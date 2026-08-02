@@ -28,8 +28,9 @@ import Footer from '@/components/Footer'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
-import type { ScoreResult, CourtQuery, OntarioPortalMatch } from '@/lib/screening-types'
+import type { ScoreResult, CourtQuery, OntarioPortalMatch, LtbCheck } from '@/lib/screening-types'
 import { sevColor } from '@/lib/screening-types'
+import { describeCodes } from '@/lib/ltb/search'
 import { buildForensicCheckMatrix, generateScreeningReport, isPositiveForensicFlag } from '@/lib/generateReport'
 import { registryLinks, inferProvince } from '@/lib/forensics/registry-links'
 
@@ -110,6 +111,7 @@ function reconstructResult(row: any): ScoreResult {
     court_summary_en: v3.court_summary_en || row.court_summary_en || '',
     court_summary_zh: v3.court_summary_zh || row.court_summary_zh || '',
     court_records_detail: v3.court_records_detail ?? row.court_records_detail ?? { queries: [], total_hits: 0, queried_name: '' },
+    ltb_check: v3.ltb_check ?? null,
     tier: row.tier === 'pro' ? 'pro' : 'free',
     model_version: v3.model_version || row.model_version || undefined,
     scores_v3: scoresV3,
@@ -270,6 +272,7 @@ export default function ReportPage() {
   const altSummary = zh ? (r.summary_en || '') : (r.summary_zh || '')
   const forensics = r.forensics_detail
   const courtDetail = r.court_records_detail as { queries: CourtQuery[]; total_hits: number; queried_name: string; databases_searched?: number; partial?: boolean }
+  const ltb = (r as { ltb_check?: LtbCheck | null }).ltb_check ?? null
   const courtQueries: CourtQuery[] = courtDetail?.queries || []
   const redFlags = r.red_flags || []
   const hardGates = r.hard_gates_triggered || []
@@ -1164,6 +1167,79 @@ export default function ReportPage() {
                       </div>
                     )
                   })}
+                </div>
+              )}
+
+              {ltb && (ltb.as_respondent.length > 0 || ltb.as_applicant.length > 0) && (
+                <div className="mt-5">
+                  <div className="mb-2 font-mono text-[10px] font-bold uppercase text-body-3">
+                    {zh ? 'LTB 判令目录（安省开放数据）' : 'LTB Order Catalogue (Ontario Open Data)'}
+                  </div>
+                  <p className="mb-2.5 text-[12px] leading-relaxed text-body-2">{zh ? ltb.summary_zh : ltb.summary_en}</p>
+
+                  {ltb.as_respondent.map((m, i) => (
+                    <div
+                      key={`r${i}`}
+                      className="mb-2 rounded-lg border px-4 py-2.5 text-[13px]"
+                      style={{
+                        borderColor: m.address_match ? '#FCA5A5' : '#E7E2D6',
+                        background: m.address_match ? '#FEF2F2' : '#FAFAF8',
+                      }}
+                    >
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <Badge
+                          label={m.address_match
+                            ? (zh ? '地址已佐证' : 'ADDRESS CORROBORATED')
+                            : (zh ? '仅姓名匹配' : 'NAME ONLY')}
+                          color={m.address_match ? '#DC2626' : '#A16207'}
+                        />
+                        <strong>{m.file_number}</strong>
+                        <span className="text-body-3">{m.order_date}</span>
+                        <span className="text-body-2">{describeCodes(m.application_codes, zh ? 'zh' : 'en')}</span>
+                      </div>
+                      <div className="mt-1 text-[12px] text-body-2">
+                        {m.person_name}{m.unit_address ? ` · ${m.unit_address}` : ''}
+                      </div>
+                      {!m.address_match && (
+                        <div className="mt-1 text-[11.5px] text-body-3">
+                          {zh
+                            ? '此单元地址与申请人自报的居住地址不符 —— 可能为同名他人，未计入评分。'
+                            : 'This unit address does not match any address the applicant declared — possibly a different person, and not scored.'}
+                        </div>
+                      )}
+                      {m.order_pdf_url && (
+                        <a
+                          href={m.order_pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 inline-block text-[12px] font-semibold text-brand hover:underline"
+                        >
+                          {zh ? '查看判令原件 →' : 'Read the order →'}
+                        </a>
+                      )}
+                    </div>
+                  ))}
+
+                  {ltb.as_applicant.length > 0 && (
+                    <div className="mt-3 rounded-lg border border-line-divider px-4 py-3" style={{ background: '#F6F8FB' }}>
+                      <div className="text-[12px] font-semibold">
+                        {zh
+                          ? `另有 ${ltb.as_applicant.length} 份是该申请人自己提起的申诉`
+                          : `${ltb.as_applicant.length} further order(s) are applications this person BROUGHT`}
+                      </div>
+                      <p className="mt-1 text-[11.5px] leading-relaxed text-body-2">
+                        {zh
+                          ? '这类记录（T1/T2/T5/T6）是租客依《住宅租赁法》主张自身权利，不构成负面信号，也不计入评分。以此拒租涉嫌报复，属违法。'
+                          : 'These (T1/T2/T5/T6) are the tenant asserting their own rights under the RTA. They are not a negative signal, are not scored, and declining an applicant on this basis is unlawful reprisal.'}
+                      </p>
+                    </div>
+                  )}
+
+                  <p className="mt-2.5 text-[11px] leading-relaxed text-body-3">
+                    {zh
+                      ? '来源：安省开放数据 LTB 判令目录（含依《安大略省开放政府许可》授权的信息）。目录只收录已签发的终局判令，不含判决结果字段，也不含受保密令保护的案件；当前收录范围见上。判令是否被复核、撤销或已结清，需查看原件。'
+                      : 'Source: Ontario Open Data LTB Order Catalogue (contains information licensed under the Open Government Licence – Ontario). The catalogue lists issued final orders only. It carries no outcome field and excludes orders under a confidentiality order. Whether an order was reviewed, set aside or satisfied can only be seen in the order itself.'}
+                  </p>
                 </div>
               )}
 

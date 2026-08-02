@@ -17,7 +17,8 @@ import { runForensics, forensicsToPromptBlock, type ForensicsReport } from '@/li
 import { getModel, supportsTemperature } from '@/lib/modelConfig'
 import { applyPageBudget } from '@/lib/anthropic/page-budget'
 import { captureException } from '@/lib/observability/sentry'
-import type { CourtQuery, CanLIIMatch, OntarioPortalMatch, V3Scores, CrossDocVerification } from '@/lib/screening-types'
+import type { CourtQuery, CanLIIMatch, OntarioPortalMatch, V3Scores, CrossDocVerification, LtbCheck } from '@/lib/screening-types'
+import { describeCodes, searchLtbOrders, summarizeLtb } from '@/lib/ltb/search'
 import { V3_WEIGHTS } from '@/lib/screening-types'
 
 export const runtime = 'edge'
@@ -1818,6 +1819,78 @@ JSON DISCIPLINE (avoid parse errors):
       .filter((g: unknown): g is string => typeof g === 'string' && g in HARD_GATE_CAPS)
     const redFlags: string[] = Array.isArray(parsed.red_flags) ? parsed.red_flags : []
 
+    // ---- Stage 3.7: LTB Order Catalogue -------------------------------
+    // Ontario Open Data (data.ontario.ca/dataset/ltb-order-catalogue), published
+    // 2026-07-24 under the Open Government Licence – Ontario.
+    //
+    // It runs HERE, after the model has parsed the application, because
+    // corroboration is measured against the addresses the applicant declared
+    // themselves — and those only exist once cross_doc_verification is built.
+    //
+    // Three limits, in order of how badly getting them wrong would hurt someone:
+    //  · Only the tenant side of a LANDLORD-filed application counts. A T1/T2/T6
+    //    is the applicant asserting their own RTA rights, and scoring that down
+    //    is retaliation by proxy — those are carried as context only.
+    //  · A name match is a namesake until an address corroborates it. 143,869
+    //    person-rows; common names collide. Only corroborated hits reach a gate.
+    //  · The catalogue has no disposition field, so nothing may claim the person
+    //    was evicted or owes money. We state that an order issued, and link it.
+    let ltbCheck: LtbCheck | null = null
+    try {
+      const declaredAddresses = (crossDocVerification?.application_summary?.prev_residences ?? [])
+        .map((r) => r.address)
+        .filter((a): a is string => typeof a === 'string' && a.trim().length > 0)
+
+      // Prefer the ID-verified name over the self-typed one, same as the
+      // existing court lookups.
+      const ltbName = (typeof parsed.extracted_name === 'string' && parsed.extracted_name.trim())
+        || nameForLookup
+
+      const r = await searchLtbOrders(
+        (fn, args) => supabase.rpc(fn, args) as never,
+        ltbName,
+        declaredAddresses,
+      )
+      ltbCheck = {
+        status: r.status,
+        queried_name: r.queried_name,
+        as_respondent: r.as_respondent,
+        as_applicant: r.as_applicant,
+        corroborated: r.corroborated,
+        summary_en: summarizeLtb(r, 'en'),
+        summary_zh: summarizeLtb(r, 'zh'),
+        coverage: r.coverage,
+      }
+
+      const codes = [...new Set(r.as_respondent.flatMap((m) => m.application_codes))]
+      courtDetail.queries.push({
+        source: 'LTB Order Catalogue — Ontario Open Data',
+        tier: 'free',
+        status: r.status === 'ok' || r.status === 'no_results' ? 'ok' : r.status === 'skipped' ? 'skipped' : 'unavailable',
+        hits: r.status === 'ok' || r.status === 'no_results' ? r.as_respondent.length : null,
+        // Severity is raised only by a corroborated hit: an uncorroborated name
+        // match must not colour this source red for what may be another person.
+        severity: r.corroborated.length > 0 ? 2 : 0,
+        note: r.as_respondent.length === 0
+          ? summarizeLtb(r, 'en')
+          : `${r.as_respondent.length} order(s) name this person as a responding tenant (${describeCodes(codes, 'en')}); ${r.corroborated.length} corroborated by a declared address`,
+        url: 'https://data.ontario.ca/dataset/ltb-order-catalogue',
+      })
+
+      // Reuses the existing court gates rather than adding new ones, so the same
+      // underlying fact cannot cap an applicant twice via two sources.
+      if (r.corroborated.length >= 2) {
+        if (!hardGates.includes('court_record_defendant_multi')) hardGates.push('court_record_defendant_multi')
+      } else if (r.corroborated.length === 1) {
+        if (!hardGates.includes('court_record_defendant') && !hardGates.includes('court_record_defendant_multi')) {
+          hardGates.push('court_record_defendant')
+        }
+      }
+    } catch {
+      // A catalogue outage must never fail a screening; the other sources stand.
+      ltbCheck = null
+    }
+
     // Enforce hard gates in backend (don't fully trust Claude).
     //
     // 2026-06-02 P0 — Use the document-derived income for the gate, not
@@ -2326,6 +2399,7 @@ JSON DISCIPLINE (avoid parse errors):
         legacy_scores: legacy,
         credit_report: creditReport,
         cross_doc_verification: crossDocVerification,
+        ltb_check: ltbCheck,
       },
       _details_en: parsed.details_en,
       _details_zh: parsed.details_zh,

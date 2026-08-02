@@ -37,6 +37,44 @@ export interface CourtQuery {
   portalRecords?: OntarioPortalMatch[]
 }
 
+/**
+ * A person named on a published LTB order (Ontario Open Data LTB Order
+ * Catalogue). Note what this type does NOT carry: an outcome. The catalogue has
+ * no disposition field, so nothing downstream may render "evicted" or "owes".
+ */
+export interface LtbOrderMatch {
+  file_number: string
+  document_id: string
+  order_date: string
+  application_codes: string[]
+  application_type: string
+  document_type: string | null
+  /** respondent = a landlord filed against them; applicant = they filed. */
+  party_side: 'respondent' | 'applicant' | 'coop'
+  role: string
+  person_name: string
+  unit_address: string | null
+  order_pdf_url: string | null
+  match_kind: 'exact' | 'reordered' | 'subset' | 'fuzzy'
+  similarity: number
+  /** True when the order's unit address matches one the applicant declared. */
+  address_match: boolean
+}
+
+export interface LtbCheck {
+  status: 'ok' | 'skipped' | 'unavailable' | 'no_results'
+  queried_name: string
+  /** Landlord-filed applications naming the applicant as a tenant. */
+  as_respondent: LtbOrderMatch[]
+  /** Applications the applicant brought themselves — context, never a penalty. */
+  as_applicant: LtbOrderMatch[]
+  /** as_respondent entries corroborated by a declared address. Scoring-eligible. */
+  corroborated: LtbOrderMatch[]
+  summary_en: string
+  summary_zh: string
+  coverage: { from: string | null; to: string | null; orders: number | null }
+}
+
 export interface AiFlag {
   type: 'danger' | 'warning' | 'info' | 'success'
   text_en: string
@@ -230,6 +268,8 @@ export interface ScoreResult {
   court_summary_en?: string
   court_summary_zh?: string
   court_records_detail: { queries: CourtQuery[]; total_hits: number; queried_name: string }
+  /** LTB Order Catalogue result — null when the source was unavailable or the run predates it. */
+  ltb_check?: LtbCheck | null
   tier: 'free' | 'pro'
   model_version?: string
   scores_v3?: Record<string, number>
