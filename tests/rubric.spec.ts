@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { revolvingUtilisation, scoreRubric, usableIncome, type RubricFacts } from '../lib/screening/rubric'
+import { courtDefendantHitsFromGates, revolvingUtilisation, scoreRubric, usableIncome, type RubricFacts } from '../lib/screening/rubric'
 
 // The applicant that exposed the problem: six runs of identical documents
 // scored 19, 22, 22, 24, 27, 28. These facts are lifted from the stored
@@ -137,5 +137,24 @@ describe('signals that must move the verdict', () => {
     })
     expect(strong.band).toBe('proceed')
     expect(strong.overall).toBeGreaterThan(scoreRubric(ALALEH).overall + 25)
+  })
+})
+
+describe('court records: only defendant classification may penalise', () => {
+  it('ignores a raw hit count and reads the party-role gates instead', () => {
+    // court_records_detail.total_hits counts every name match in every database,
+    // including cases where the applicant is the plaintiff and including plain
+    // namesakes. Penalising on it means penalising people for their surname.
+    expect(courtDefendantHitsFromGates([])).toBe(0)
+    expect(courtDefendantHitsFromGates(['income_severe'])).toBe(0)
+    expect(courtDefendantHitsFromGates(['court_record_defendant'])).toBe(1)
+    expect(courtDefendantHitsFromGates(['court_record_active'])).toBe(1)
+    expect(courtDefendantHitsFromGates(['court_record_defendant_multi'])).toBe(2)
+    expect(courtDefendantHitsFromGates(null)).toBe(0)
+  })
+
+  it('leaves rental_history untouched when there is no defendant classification', () => {
+    const clean = scoreRubric({ ...ALALEH, courtDefendantHits: courtDefendantHitsFromGates(['self_issued_employment']) })
+    expect(clean.hits.find((h) => h.code === 'court_defendant')).toBeUndefined()
   })
 })

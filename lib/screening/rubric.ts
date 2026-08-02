@@ -64,7 +64,18 @@ export interface RubricFacts {
   crossDoc: CrossDocVerification | null
   /** Landlord-filed LTB orders corroborated by a declared address. */
   ltbCorroborated: number
-  /** Court records where the applicant is defendant/debtor. */
+  /**
+   * Court records where the applicant is the DEFENDANT/DEBTOR — not a raw hit
+   * count. This distinction is load-bearing: `court_records_detail.total_hits`
+   * counts every name match across every database, including cases where the
+   * applicant is the plaintiff and including plain namesakes. Feeding that in
+   * penalises people for sharing a name with a litigant, which is the same
+   * mistake the LTB module exists to avoid.
+   *
+   * Derive it from the gates screen-score already computes by party role:
+   *   court_record_defendant_multi → 2, court_record_defendant → 1, else 0.
+   * See courtDefendantHitsFromGates().
+   */
   courtDefendantHits: number
   /** Prior-landlord references with a contactable name AND phone. */
   landlordRefs: number
@@ -145,6 +156,20 @@ export function usableIncome(f: RubricFacts): { monthly: number | null; basis: '
     return { monthly: f.claimed_monthly_income, basis: 'verified' }
   }
   return { monthly: null, basis: 'unverified' }
+}
+
+/**
+ * The only supported way to populate RubricFacts.courtDefendantHits.
+ *
+ * screen-score already classifies court records by party role and records the
+ * outcome as a hard gate; that classification is what may move a score. A raw
+ * hit count may not.
+ */
+export function courtDefendantHitsFromGates(hardGates: string[] | null | undefined): number {
+  const g = hardGates ?? []
+  if (g.includes('court_record_defendant_multi')) return 2
+  if (g.includes('court_record_defendant') || g.includes('court_record_active')) return 1
+  return 0
 }
 
 export function scoreRubric(f: RubricFacts): RubricResult {

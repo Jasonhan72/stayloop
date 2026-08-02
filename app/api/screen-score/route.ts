@@ -19,6 +19,7 @@ import { applyPageBudget } from '@/lib/anthropic/page-budget'
 import { captureException } from '@/lib/observability/sentry'
 import type { CourtQuery, CanLIIMatch, OntarioPortalMatch, V3Scores, CrossDocVerification, LtbCheck } from '@/lib/screening-types'
 import { describeCodes, searchLtbOrders, summarizeLtb } from '@/lib/ltb/search'
+import { courtDefendantHitsFromGates, scoreRubric, type RubricFacts, type RubricResult } from '@/lib/screening/rubric'
 import { V3_WEIGHTS } from '@/lib/screening-types'
 
 export const runtime = 'edge'
@@ -2125,7 +2126,89 @@ JSON DISCIPLINE (avoid parse errors):
       ? Math.min(...hardGates.map(g => HARD_GATE_CAPS[g] ?? 100))
       : 100
 
-    let overall = Math.round(Math.max(0, Math.min(100, Math.min(baseScore - penalty, gateCap))))
+    // Hoisted above the rubric: it needs the sanitised credit report, and this
+    // IIFE depends only on `parsed`. The guard inside it matters — a credit
+    // report is only honoured when the model marked it present AND a
+    // credit_report document was actually detected, so a hallucinated bureau
+    // block cannot feed the score.
+    const creditReport = (() => {
+      const cr: any = (parsed as any).credit_report
+      const hasCreditDoc = (Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds : []).includes('credit_report')
+      if (!cr || cr.present !== true || !hasCreditDoc) return null
+      const num = (v: any) => (typeof v === 'number' && isFinite(v) ? v : null)
+      const arr = (a: any) => (Array.isArray(a) ? a : [])
+      const str = (v: any) => (typeof v === 'string' ? v : '')
+      return {
+        bureau: typeof cr.bureau === 'string' ? cr.bureau : null,
+        credit_score: num(cr.credit_score),
+        score_band: typeof cr.score_band === 'string' ? cr.score_band : null,
+        report_date: typeof cr.report_date === 'string' ? cr.report_date : null,
+        tradelines: arr(cr.tradelines).slice(0, 25).map((t: any) => ({
+          creditor: str(t?.creditor), type: str(t?.type), date_opened: str(t?.date_opened),
+          balance: num(t?.balance), high_credit: num(t?.high_credit), past_due: num(t?.past_due),
+          payment_status: str(t?.payment_status), late_30_60_90: str(t?.late_30_60_90),
+        })),
+        collections: arr(cr.collections).slice(0, 15).map((c: any) => ({
+          creditor: str(c?.creditor), date_assigned: str(c?.date_assigned),
+          original_amount: num(c?.original_amount), balance: num(c?.balance),
+        })),
+        bankruptcies: arr(cr.bankruptcies).slice(0, 10).map((b: any) => ({
+          date_filed: str(b?.date_filed), type: str(b?.type), amount: num(b?.amount), disposition: str(b?.disposition),
+        })),
+        inquiries: arr(cr.inquiries).slice(0, 15).map((i: any) => ({ date: str(i?.date), creditor: str(i?.creditor) })),
+        total_debt: num(cr.total_debt),
+        monthly_debt_payments: num(cr.monthly_debt_payments),
+      }
+    })()
+
+    // ── Deterministic rubric ────────────────────────────────────────────
+    // The model's dimension numbers no longer decide the score. Six runs of one
+    // applicant's identical documents scored 19–28 because ability_to_pay came
+    // back 38/42/48 and verification 32/35/38 — free-hand numbers with nothing
+    // anchoring them, which temperature:0 (already set) cannot hold still. The
+    // EXTRACTION was identical on all six, so the facts score deterministically.
+    // See lib/screening/rubric.ts. The model's own numbers stay in scores_v3 for
+    // comparison but drive nothing.
+    let rubric: RubricResult | null = null
+    try {
+      const prev = crossDocVerification?.application_summary?.prev_residences ?? []
+      rubric = scoreRubric({
+        monthly_rent: monthlyRent || crossDocVerification?.application_summary?.applying_rent || null,
+        claimed_monthly_income: detectedIncomeForGate,
+        // Only a corroborated figure counts. An employment letter the applicant
+        // supplied about themselves is a claim, not a measurement.
+        verified_monthly_income:
+          crossDocVerification?.income_corroboration?.verdict === 'corroborated'
+            ? detectedIncomeForGate
+            : null,
+        credit: creditReport ?? null,
+        crossDoc: crossDocVerification,
+        ltbCorroborated: ltbCheck?.corroborated.length ?? 0,
+        // Party-role classification, never the raw hit count — see the field doc.
+        courtDefendantHits: courtDefendantHitsFromGates(hardGates),
+        landlordRefs: prev.filter((p) => p.landlord_name && p.landlord_phone).length,
+        declaredAddresses: prev.length,
+        documentKinds: Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds : [],
+        contradictions: redFlags.filter((r: string) => /contradict|mismatch|collision/i.test(r)),
+        forgedDocuments: dimsZeroed.length,
+        blankApplicationFields: crossDocVerification?.application_summary?.blank_sections?.length ?? 0,
+        applicationSigned: null,
+      } as RubricFacts)
+      s.ability_to_pay = rubric.dimensions.ability_to_pay
+      s.credit_health = rubric.dimensions.credit_health
+      s.rental_history = rubric.dimensions.rental_history
+      s.verification = rubric.dimensions.verification
+      baseScore = rubric.overall
+    } catch (err) {
+      // Never fail a screening because the rubric threw — fall back to the
+      // weighted sum, which is what shipped before this.
+      console.error('[screen-score] rubric failed, using model dimensions', err)
+      rubric = null
+    }
+
+    // The rubric prices every negative signal through its own rule hits, so the
+    // model's separate penalty would charge the same facts twice.
+    let overall = Math.round(Math.max(0, Math.min(100, Math.min((rubric ? baseScore : baseScore - penalty), gateCap))))
 
     // Evidence coverage — weight each sub-coverage tag. The v3 prompt
     // now emits sub_coverage SPARSELY: only keys with action_pending or
@@ -2169,6 +2252,14 @@ JSON DISCIPLINE (avoid parse errors):
     } else if (evidenceCoverage < 0.6) {
       tier = 'conditional'
       tierReason = 'low_confidence'
+    } else if (rubric) {
+      // One set of thresholds. Leaving the old 85/70 cutoffs here alongside the
+      // rubric's 70/55/40 bands would let the report say "需补件" in the
+      // breakdown and "拒绝" on the front page for the same applicant.
+      // 'review' folds into conditional: both mean "there is a specific thing to
+      // resolve before deciding", which is what the landlord acts on.
+      tier = rubric.band === 'proceed' ? 'approve' : rubric.band === 'decline' ? 'decline' : 'conditional'
+      tierReason = `rubric_${rubric.band}`
     } else if (overall >= 85) {
       tier = 'approve'
     } else if (overall >= 70) {
@@ -2328,35 +2419,6 @@ JSON DISCIPLINE (avoid parse errors):
     // credit report. Retained ONLY when present===true AND a credit_report
     // document was actually detected — defense against hallucinated bureau
     // data when no real report was provided.
-    const creditReport = (() => {
-      const cr: any = (parsed as any).credit_report
-      const hasCreditDoc = (Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds : []).includes('credit_report')
-      if (!cr || cr.present !== true || !hasCreditDoc) return null
-      const num = (v: any) => (typeof v === 'number' && isFinite(v) ? v : null)
-      const arr = (a: any) => (Array.isArray(a) ? a : [])
-      const str = (v: any) => (typeof v === 'string' ? v : '')
-      return {
-        bureau: typeof cr.bureau === 'string' ? cr.bureau : null,
-        credit_score: num(cr.credit_score),
-        score_band: typeof cr.score_band === 'string' ? cr.score_band : null,
-        report_date: typeof cr.report_date === 'string' ? cr.report_date : null,
-        tradelines: arr(cr.tradelines).slice(0, 25).map((t: any) => ({
-          creditor: str(t?.creditor), type: str(t?.type), date_opened: str(t?.date_opened),
-          balance: num(t?.balance), high_credit: num(t?.high_credit), past_due: num(t?.past_due),
-          payment_status: str(t?.payment_status), late_30_60_90: str(t?.late_30_60_90),
-        })),
-        collections: arr(cr.collections).slice(0, 15).map((c: any) => ({
-          creditor: str(c?.creditor), date_assigned: str(c?.date_assigned),
-          original_amount: num(c?.original_amount), balance: num(c?.balance),
-        })),
-        bankruptcies: arr(cr.bankruptcies).slice(0, 10).map((b: any) => ({
-          date_filed: str(b?.date_filed), type: str(b?.type), amount: num(b?.amount), disposition: str(b?.disposition),
-        })),
-        inquiries: arr(cr.inquiries).slice(0, 15).map((i: any) => ({ date: str(i?.date), creditor: str(i?.creditor) })),
-        total_debt: num(cr.total_debt),
-        monthly_debt_payments: num(cr.monthly_debt_payments),
-      }
-    })()
 
     // Pack the full v3 payload into ai_dimension_notes._v3
     const mergedNotes: Record<string, any> = {
@@ -2400,6 +2462,7 @@ JSON DISCIPLINE (avoid parse errors):
         credit_report: creditReport,
         cross_doc_verification: crossDocVerification,
         ltb_check: ltbCheck,
+        rubric,
       },
       _details_en: parsed.details_en,
       _details_zh: parsed.details_zh,
