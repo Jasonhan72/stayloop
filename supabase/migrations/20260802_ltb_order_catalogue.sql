@@ -197,3 +197,39 @@ revoke all on public.ltb_orders from public, anon, authenticated;
 revoke all on public.ltb_ingest_runs from public, anon, authenticated;
 grant all on public.ltb_orders to service_role;
 grant all on public.ltb_ingest_runs to service_role;
+
+-- ── Follow-ups applied after measuring against the loaded table ─────────────
+
+-- Withdrawal tracking. The catalogue excludes orders placed under a
+-- confidentiality order and reissues corrected ones, but the ingest only ever
+-- ADDED rows — an order sealed after we first read it would sit here forever
+-- and keep appearing on screening reports, i.e. we would be publishing
+-- something Ontario has taken down. Each row now carries the run that last saw
+-- it, and the ingest prunes whatever the source no longer lists.
+alter table public.ltb_orders add column if not exists resource_id text;
+alter table public.ltb_orders add column if not exists last_seen_run bigint;
+create index if not exists ltb_orders_resource_run_idx on public.ltb_orders (resource_id, last_seen_run);
+
+-- Index-served matching. At 143,869 rows a common name took 904ms: the trigram
+-- prefilter ran at the default 0.3 threshold and handed 1,073 candidates to a
+-- filter that recomputed similarity() and string_to_array() per row. That is
+-- ~8s once the 2021 backfill brings this to ~1.2M rows. Each match branch now
+-- has an index, and search_ltb_orders raises the trigram threshold to 0.85 via
+-- set_limit() so `%` means what the fuzzy branch means instead of being a wide
+-- prefilter. Measured after: 19.6ms, identical results.
+-- (plpgsql rather than SQL only because Supabase forbids a function-level SET
+-- of pg_trgm.similarity_threshold, while set_limit() is callable.)
+create index if not exists ltb_orders_person_norm_idx on public.ltb_orders (person_norm);
+create index if not exists ltb_orders_tokens_idx
+  on public.ltb_orders using gin (string_to_array(person_norm, ' '));
+
+-- The monthly refresh rewrites every row in one burst, so the default 20%
+-- autovacuum threshold leaves the table bloated between runs.
+alter table public.ltb_orders set (
+  autovacuum_vacuum_scale_factor = 0.05,
+  autovacuum_analyze_scale_factor = 0.05,
+  autovacuum_vacuum_cost_delay = 0
+);
+
+-- NOTE: the deployed search_ltb_orders body is the plpgsql version described
+-- above; see migration ltb_index_served_search_and_withdrawals.

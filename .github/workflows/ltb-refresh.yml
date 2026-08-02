@@ -1,0 +1,60 @@
+name: LTB catalogue refresh
+
+# Ontario publishes new LTB orders monthly, 2–3 months after issuance, and is
+# backfilling to 2021 in phases. This keeps ltb_orders in step with the source —
+# adding new orders AND removing any the catalogue has stopped listing (orders
+# placed under a confidentiality order are withdrawn at source, and continuing
+# to show one on a screening report would mean publishing something Ontario has
+# taken down).
+#
+# TRIGGERS ARE DELIBERATELY LIMITED. This repository is public and this job
+# needs the Supabase service-role key, which bypasses RLS. `schedule` and
+# `workflow_dispatch` can only run from this repo, so a pull request — including
+# one from a fork — can never reach the secret. Do not add `pull_request`,
+# `pull_request_target` or `issue_comment` here.
+on:
+  schedule:
+    # 07:00 UTC on the 3rd of each month. The LTB posts on no fixed day, so this
+    # sits far enough into the month to pick up a new file, and a missed month
+    # costs nothing — the next run is a full refresh, not an increment.
+    - cron: '0 7 3 * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Parse and report without writing'
+        type: boolean
+        default: false
+
+# One refresh at a time: two concurrent runs would interleave their run stamps
+# and each would treat the other's rows as withdrawn.
+concurrency:
+  group: ltb-refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Refresh the LTB order catalogue
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "SUPABASE_SERVICE_ROLE_KEY is not set — add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          npx tsx scripts/ltb_ingest.mjs ${{ inputs.dry_run && '--dry-run' || '' }}

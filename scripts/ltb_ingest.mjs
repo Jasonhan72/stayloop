@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 // Ingest the Ontario LTB Order Catalogue into public.ltb_orders.
 //
-//   node scripts/ltb_ingest.mjs                 # incremental (default)
-//   node scripts/ltb_ingest.mjs --full          # re-read every resource
+//   node scripts/ltb_ingest.mjs                 # refresh (default)
 //   node scripts/ltb_ingest.mjs --dry-run       # parse + report, write nothing
+//
+// A refresh is a full re-read that both ADDS and REMOVES. Removal matters: the
+// catalogue excludes orders placed under a confidentiality order and reissues
+// corrected ones, so an order sealed after we first read it must not survive in
+// our table — that would leave us publishing something Ontario has taken down.
+// Every row is stamped with the run that last saw it, and anything the source
+// no longer lists is pruned at the end of a successful pass.
 //
 // Reads .env.local for NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY.
 //
@@ -29,9 +35,28 @@ const BATCH = 1000
 const argv = process.argv.slice(2)
 const DRY = argv.includes('--dry-run')
 
+/**
+ * Credentials come from the process environment first (CI), falling back to
+ * .env.local (a developer running this by hand). CI has no .env.local, so
+ * reading the file unconditionally would break the scheduled refresh.
+ */
 function env(file = '.env.local') {
-  return Object.fromEntries(
-    readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')
+  const fromProcess = {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  }
+  if (fromProcess.NEXT_PUBLIC_SUPABASE_URL && fromProcess.SUPABASE_SERVICE_ROLE_KEY) return fromProcess
+
+  let text
+  try {
+    text = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')
+  } catch {
+    throw new Error(
+      'Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the environment, or provide .env.local',
+    )
+  }
+  const parsed = Object.fromEntries(
+    text
       .split('\n')
       .filter((l) => l.includes('=') && !l.trimStart().startsWith('#'))
       .map((l) => {
@@ -39,6 +64,7 @@ function env(file = '.env.local') {
         return [l.slice(0, i).trim(), l.slice(i + 1).trim()]
       }),
   )
+  return { ...parsed, ...Object.fromEntries(Object.entries(fromProcess).filter(([, v]) => v)) }
 }
 
 // Column names carry both languages and, in one case, a stray double slash.
@@ -91,7 +117,7 @@ function pick(header, re) {
   return i
 }
 
-function explode(header, row) {
+function explode(header, row, resourceId, runId) {
   const at = (re) => { const i = pick(header, re); return i >= 0 ? (row[i] || '').trim() : '' }
   const fileNumber = at(COL.file)
   const documentId = at(COL.docId)
@@ -119,6 +145,8 @@ function explode(header, row) {
       if (seen.has(dedupe)) continue
       seen.add(dedupe)
       out.push({
+        resource_id: resourceId,
+        last_seen_run: runId,
         file_number: fileNumber,
         document_id: documentId,
         order_date: orderDate,
@@ -162,6 +190,7 @@ async function main() {
 
   let ingested = 0
   let orders = 0
+  let pruned = 0
   let minDate = null
   let maxDate = null
 
@@ -175,17 +204,57 @@ async function main() {
       orders += body.length
 
       let buf = []
+      let seenThisResource = 0
       for (const r of body) {
-        const recs = explode(header, r)
+        const recs = explode(header, r, res.id, runId)
         for (const rec of recs) {
           if (!minDate || rec.order_date < minDate) minDate = rec.order_date
           if (!maxDate || rec.order_date > maxDate) maxDate = rec.order_date
         }
         buf.push(...recs)
-        if (buf.length >= BATCH) { ingested += await flush(db, buf, DRY); buf = [] }
+        if (buf.length >= BATCH) { const n = await flush(db, buf, DRY); ingested += n; seenThisResource += n; buf = [] }
       }
-      if (buf.length) ingested += await flush(db, buf, DRY)
+      if (buf.length) { const n = await flush(db, buf, DRY); ingested += n; seenThisResource += n }
       console.log(`  ${body.length} orders → ${ingested} person-rows so far`)
+
+      // Prune what this resource no longer lists. Guarded: a truncated download
+      // must not be allowed to delete most of the catalogue, so if this pass saw
+      // less than half of what we already hold for the resource, we keep the old
+      // rows and fail loudly instead.
+      if (!DRY && runId) {
+        const { count: held } = await db.from('ltb_orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('resource_id', res.id)
+          .lt('last_seen_run', runId)
+        const stale = held ?? 0
+        if (stale > 0 && seenThisResource < stale * 0.5) {
+          throw new Error(
+            `refusing to prune: this pass saw ${seenThisResource} rows for ${res.id} but ${stale} older rows are held. ` +
+            'That looks like a truncated download, not a withdrawal.',
+          )
+        }
+        if (stale > 0) {
+          const { error: delErr } = await db.from('ltb_orders')
+            .delete().eq('resource_id', res.id).lt('last_seen_run', runId)
+          if (delErr) throw new Error(`prune failed: ${delErr.message}`)
+          console.log(`  pruned ${stale} row(s) the catalogue no longer lists`)
+          pruned += stale
+        }
+      }
+    }
+
+    // Rows from before withdrawal tracking existed carry no resource_id. After a
+    // complete successful pass every row still in the source has been stamped,
+    // so anything left unstamped is by definition gone from the catalogue.
+    if (!DRY && runId) {
+      const { count: orphans } = await db.from('ltb_orders')
+        .select('id', { count: 'exact', head: true }).is('resource_id', null)
+      if (orphans && orphans > 0) {
+        const { error: orphErr } = await db.from('ltb_orders').delete().is('resource_id', null)
+        if (orphErr) throw new Error(`orphan cleanup failed: ${orphErr.message}`)
+        console.log(`  removed ${orphans} row(s) predating withdrawal tracking`)
+        pruned += orphans
+      }
     }
 
     if (!DRY && runId) {
@@ -194,7 +263,7 @@ async function main() {
         coverage_from: minDate, coverage_to: maxDate, status: 'ok',
       }).eq('id', runId)
     }
-    console.log(`\n${DRY ? '[dry-run] would ingest' : 'ingested'} ${ingested} person-rows from ${orders} orders (${minDate} → ${maxDate})`)
+    console.log(`\n${DRY ? '[dry-run] would ingest' : 'ingested'} ${ingested} person-rows from ${orders} orders (${minDate} → ${maxDate})${pruned ? `, pruned ${pruned}` : ''}`)
   } catch (err) {
     if (!DRY && runId) {
       await db.from('ltb_ingest_runs').update({
@@ -208,7 +277,7 @@ async function main() {
 async function flush(db, rows, dry) {
   if (dry) return rows.length
   const { error } = await db.from('ltb_orders')
-    .upsert(rows, { onConflict: 'document_id,role,person_norm', ignoreDuplicates: true })
+    .upsert(rows, { onConflict: 'document_id,role,person_norm', ignoreDuplicates: false })
   if (error) throw new Error(`upsert failed: ${error.message}`)
   return rows.length
 }
