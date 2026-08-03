@@ -33,7 +33,12 @@ Double-click `ship2-v53.command` in Finder. It does:
 
 **Critical:** use global `wrangler`, NOT `npx wrangler` (hangs on install prompt).
 
-**Gate (mandatory):** before any deploy run `npx tsc --noEmit && npm test` — both must be fully green; after the build verify `.vercel/output/static/_worker.js` exists (a failed next-on-pages build can leave a static-only bundle that kills ALL API/dynamic routes — happened 2026-07-24 via `app/icon.svg`; ship2-v53.command now aborts on this); after the deploy run `bash scripts/smoke.sh` (read-only prod probes, PASS/FAIL summary) and treat any FAIL as a rollback trigger.
+**Gate：已内置在 `ship2-v53.command` 里，不再依赖人记得。** 脚本按顺序执行并在任一步失败时中止且**不部署**：
+1. `npx tsc --noEmit` + `npm test`（此前只写在本文件里，那天 `app/icon.svg` 把整站 API 打挂时它没有运行）
+2. push → 清构建缓存 → `npx @cloudflare/next-on-pages@1`
+3. **`_worker.js` 入口检查**——next-on-pages 产出的 `_worker.js` 是**目录**（内含 `index.js`），而原来的守卫写的是 `[ -f ]`（测试普通文件），**对目录恒为假，所以自加上之日起就在无条件中止部署**；无人察觉是因为大家改成手动逐步部署了。现已同时接受目录形态与单文件形态，并要求入口非空
+4. `wrangler pages deploy`
+5. **部署后 smoke，失败自动重试一次**（30s 后）。九个探针里有两个在刚部署时会合理地闪红：边缘缓存传播、以及依赖实时抓 Realtor.ca 的行情探针。真回归会两次都红——**两次都红 = 回滚信号**
 
 Verify deploy: `curl -s 'https://www.stayloop.ai/?v=<timestamp>' | head`
 
