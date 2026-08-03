@@ -35,6 +35,7 @@ const ALALEH: RubricFacts = {
   forgedDocuments: 0,
   blankApplicationFields: 6,
   applicationSigned: null,
+  creditReportAgeDays: 18, // fresh at the time of the six runs
 }
 
 describe('the property that was missing: same facts, same score', () => {
@@ -186,6 +187,7 @@ describe('regressions the cutover review caught', () => {
       credit: null, crossDoc: null, ltbCorroborated: 0, courtDefendantHits: 0,
       landlordRefs: 0, declaredAddresses: 0, documentKinds: [], contradictions: [],
       forgedDocuments: 0, blankApplicationFields: 0, applicationSigned: null,
+      creditReportAgeDays: null,
     })
     expect(Number.isFinite(bare.overall)).toBe(true)
     expect(bare.overall).toBeGreaterThanOrEqual(0)
@@ -252,5 +254,55 @@ describe('document kinds the rubric asks for are kinds the extractor emits', () 
     for (const k of matched) {
       expect(PROMPT_VOCABULARY, `rubric matches on '${k}', which no extractor emits`).toContain(k)
     }
+  })
+})
+
+describe('rules the Quiroga and Allasvandi files exposed', () => {
+  it('prefers the assigned credit limit over high_credit, which detects over-limit', () => {
+    // Real case: Visa at $10,470 against a $10,000 limit — 104.7% and over
+    // limit — read as UNDER its $11,664 high_credit, so the old fallback
+    // could never fire the over-limit rule.
+    const credit = {
+      ...ALALEH.credit!,
+      tradelines: [
+        { type: 'Revolving', creditor: 'ROYAL BANK VISA', balance: 10470, credit_limit: 10000, high_credit: 11664, past_due: 0, payment_status: 'R1', date_opened: '2020-01-23', late_30_60_90: '0/0/0' },
+        { type: 'Revolving', creditor: 'ROYAL BK', balance: 48472, credit_limit: 50000, high_credit: 48472, past_due: 0, payment_status: 'R1', date_opened: '2021-07-09', late_30_60_90: '0/0/0' },
+        { type: 'Revolving', creditor: 'TD CREDIT CARDS', balance: 8643, credit_limit: 9000, high_credit: 9939, past_due: 0, payment_status: 'R1', date_opened: '2019-10-15', late_30_60_90: '0/0/0' },
+      ],
+    }
+    const u = revolvingUtilisation(credit as never)
+    expect(u.limit).toBe(69000)          // limits, not high_credit
+    expect(u.overLimit).toBe(1)          // the Visa, invisible before
+    const r = scoreRubric({ ...ALALEH, credit: credit as never })
+    expect(r.hits.some((h) => h.code === 'account_over_limit')).toBe(true)
+  })
+
+  it('falls back to high_credit only when no limit was printed', () => {
+    const u = revolvingUtilisation(ALALEH.credit) // fixture has no credit_limit
+    expect(u.limit).toBe(11664 + 48472 + 9939)
+  })
+
+  it('treats a bureau report over a year old as no current report', () => {
+    // Real case: credit_health scored 95 from a clean pull 22 months old that
+    // predated the applicant becoming a defendant in an active case.
+    const r = scoreRubric({ ...ALALEH, creditReportAgeDays: 22 * 30 })
+    expect(r.unknown).toContain('credit_health')
+    expect(r.dimensions.credit_health).toBe(45)
+    const hit = r.hits.find((h) => h.code === 'credit_report_stale')
+    expect(hit).toBeTruthy()
+    expect(hit!.observed).toContain('months')
+    // The stale snapshot's utilisation must not fire either.
+    expect(r.hits.some((h) => h.code === 'revolving_utilisation')).toBe(false)
+  })
+
+  it('scores an aging (91–365d) report but records the age', () => {
+    const r = scoreRubric({ ...ALALEH, creditReportAgeDays: 200 })
+    expect(r.unknown).not.toContain('credit_health')
+    expect(r.hits.some((h) => h.code === 'credit_report_aging')).toBe(true)
+  })
+
+  it('a fresh report records no age hit', () => {
+    const r = scoreRubric({ ...ALALEH, creditReportAgeDays: 18 })
+    expect(r.hits.some((h) => h.code.startsWith('credit_report_'))).toBe(false)
   })
 })

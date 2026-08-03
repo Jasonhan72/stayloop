@@ -961,7 +961,7 @@ If detected: trigger "self_issued_employment_letter" red flag, set ability_to_pa
 CROSS-DOCUMENT EVIDENCE VERIFICATION — MANDATORY (fill "cross_doc_verification" in the output JSON):
 1. BANK ACCOUNT OWNERSHIP — for EVERY bank statement, emit {holder_name, entity_type: personal|business, is_applicant, statement_period}. is_applicant=true ONLY when the account holder name matches the applicant's name. A BUSINESS account, or ANY account whose holder ≠ applicant, MUST NOT be treated as evidence of the applicant's personal income — and details_en/details_zh.ability_to_pay MUST name it explicitly (e.g. "submitted statement is a business account of NLMA AUTO INC., not the applicant's personal account" / "提交的流水为 NLMA AUTO INC. 企业账户，非申请人个人账户").
 2. INCOME CORROBORATION — in PERSONAL accounts only, look for RECURRING payroll deposits within ±25% of the claimed monthly income. Emit {claimed_monthly, personal_payroll_seen, observed_pattern, verdict: corroborated|partial|uncorroborated, detail}. If no personal payroll trail exists, verdict=uncorroborated and detail states plainly what WAS observed (e.g. "only a business account receiving ~$18,194/mo from the employer, then transferring $2,000/mo to the applicant"). When verdict=uncorroborated: ability_to_pay MUST NOT exceed 60 and income_stability sub_coverage MUST be "action_pending" (backend enforces both).
-3. RELATED-PARTY SIGNALS — compare (a) employment-letter signatory name/surname vs applicant name, (b) applicant email alias vs signatory/company name, (c) supervisor name on the application vs signatory, (d) employer address vs bank-statement entity address, (e) applicant listed as owner/director. Emit {suspected, signals[]}. 2 or more signals → suspected=true, AND details_en/details_zh.verification MUST name the specific people and signals (e.g. "letter signed by Sia Allas (Director/Owner); applicant email alias 'allas' shares the surname; supervisor is Siavash Allas") and state that the income claim comes from a non-arm's-length party and requires independent proof (CRA NOA / T4 or personal-account payroll deposits).
+3. RELATED-PARTY SIGNALS — compare (a) employment-letter signatory name/surname vs applicant name, (b) applicant email alias vs signatory/company name, (c) supervisor name on the application vs signatory, (d) employer address vs bank-statement entity address, (e) applicant listed as owner/director, (f) the credit report's Employment section vs the claimed employer — if the bureau lists the claimed employer as PREVIOUS (or lists a different current employer), that is an independent signal the employment claim is stale or false; name it explicitly in details. Emit {suspected, signals[]}. 2 or more signals → suspected=true, AND details_en/details_zh.verification MUST name the specific people and signals (e.g. "letter signed by Sia Allas (Director/Owner); applicant email alias 'allas' shares the surname; supervisor is Siavash Allas") and state that the income claim comes from a non-arm's-length party and requires independent proof (CRA NOA / T4 or personal-account payroll deposits).
 4. APPLICATION SUMMARY — from the rental application form (OREA 410 or similar) extract {applying_rent, prev_residences: [{address, period, landlord_name, landlord_phone}], vacating_reason, vehicles[], blank_sections[]}. blank_sections lists form sections left EMPTY (e.g. bank information, financial obligations, personal references).
 5. VERIFICATION CHECKLIST — 3-6 concrete steps the landlord can execute TODAY, each citing the exact names and phone numbers found in the documents (e.g. "Call current landlord Eithar Naman 647-563-9100 to verify the 2023-2026 tenancy and payment record", "Request CRA Notice of Assessment or 3 months of PERSONAL-account statements", "Call the employer's letterhead main line — not the letter signatory's cell — to confirm employment"). Include a phone number whenever one appears in the documents.
 6. SUSPICIOUS FUND FLOWS — any transfer in the statements whose counterparty matches a person named on the application (current/previous landlord, the applicant) goes into suspicious_transfers[] with amount and match (e.g. "business account sent $4,000 e-Transfer to 'eithar' — matches current landlord's first name; rent apparently paid by the company: a positive stability signal but also evidence of commingled personal/business funds").
@@ -1001,7 +1001,7 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble.
  "detected_document_kinds":["..."],
  "bank_min_balance":<number or null>,
  "identity_match_score":<0-100 or null>,
- "credit_report":{"present":<true ONLY if a GENUINE consumer credit report (Equifax/TransUnion/SingleKey/FrontLobby/Borrowell) was uploaded; else false>,"bureau":"Equifax|TransUnion|Dual|other|null","credit_score":<300-900 integer or null>,"score_band":"Poor|Fair|Good|Very Good|Excellent|null","report_date":"YYYY-MM-DD or as shown or null","tradelines":[{"creditor":"","type":"Revolving|Installment|Open|Mortgage|Lease|other","date_opened":"","balance":<number or null>,"high_credit":<number or null>,"past_due":<number or null>,"payment_status":"","late_30_60_90":"0/0/0"}],"collections":[{"creditor":"","date_assigned":"","original_amount":<number or null>,"balance":<number or null>}],"bankruptcies":[{"date_filed":"","type":"","amount":<number or null>,"disposition":""}],"inquiries":[{"date":"","creditor":""}],"total_debt":<number or null>,"monthly_debt_payments":<number or null>},
+ "credit_report":{"present":<true ONLY if a GENUINE consumer credit report (Equifax/TransUnion/SingleKey/FrontLobby/Borrowell) was uploaded; else false>,"bureau":"Equifax|TransUnion|Dual|other|null","credit_score":<300-900 integer or null>,"score_band":"Poor|Fair|Good|Very Good|Excellent|null","report_date":"YYYY-MM-DD or as shown or null","employment":{"current":"employer name as printed in the report's Employment section or null","previous":"or null"},"tradelines":[{"creditor":"","type":"Revolving|Installment|Open|Mortgage|Lease|other","date_opened":"","balance":<number or null>,"credit_limit":<the ASSIGNED limit as printed, or null — distinct from high_credit>,"high_credit":<highest balance carried, or null>,"past_due":<number or null>,"payment_status":"","late_30_60_90":"0/0/0"}],"collections":[{"creditor":"","date_assigned":"","original_amount":<number or null>,"balance":<number or null>}],"bankruptcies":[{"date_filed":"","type":"","amount":<number or null>,"disposition":""}],"inquiries":[{"date":"","creditor":""}],"total_debt":<number or null>,"monthly_debt_payments":<number or null>},
  "cross_doc_verification":{"bank_accounts":[{"holder_name":"","entity_type":"personal|business","is_applicant":<bool — true ONLY if holder name matches applicant>,"statement_period":"as shown or null"}],"income_corroboration":{"claimed_monthly":<number or null>,"personal_payroll_seen":<bool>,"observed_pattern":"≤25 words — what deposits ACTUALLY recur","verdict":"corroborated|partial|uncorroborated","detail":"≤35 words, plain truth"},"related_party":{"suspected":<bool>,"signals":["one signal per entry, name the people"]},"application_summary":{"applying_rent":<number or null>,"prev_residences":[{"address":"","period":"","landlord_name":"","landlord_phone":""}],"vacating_reason":"as stated or null","vehicles":["..."],"blank_sections":["form sections left empty"]},"suspicious_transfers":["amount + counterparty + which application name it matches"],"verification_checklist":["3-6 executable steps, include phone numbers found in docs"]},
  "scores":{"ability_to_pay":<0-100>,"credit_health":<0-100>,"rental_history":<0-100>,"verification":<0-100>,"communication":<0-100>},
  "sub_coverage":{"only_non_measured_keys":"action_pending|missing"},
@@ -1446,9 +1446,14 @@ JSON DISCIPLINE (avoid parse errors):
       const top = [...pf.flags].sort((a, b) => (sevOrder[a.severity] ?? 9) - (sevOrder[b.severity] ?? 9))[0]
       const kindEn = KIND_LABEL_EN[pf.file_kind] || pf.file_kind.replace('_', ' ')
       const kindZh = KIND_LABEL_ZH[pf.file_kind] || pf.file_kind
+      // Wording deliberately does NOT claim a number. Under the rubric the
+      // dimension is not forced to 0 — forgery is priced by its own rules
+      // (document_forged −50 on verification, decline band) — and a real
+      // report shipped saying "维度被置零" beside a score of 30. The note
+      // states the fact (the evidence is forged); the rules state the price.
       const reason: DimZeroReason = {
-        en: `Score forced to 0: the underlying ${kindEn} (${pf.file_name}) was determined to be forged. ${top.evidence_en}`,
-        zh: `维度被置零：作为依据的${kindZh}文件（${pf.file_name}）被判定为伪造。${top.evidence_zh}`,
+        en: `The underlying ${kindEn} (${pf.file_name}) was determined to be forged and cannot support this dimension. ${top.evidence_en}`,
+        zh: `作为依据的${kindZh}文件（${pf.file_name}）被判定为伪造，不能作为本维度的证据。${top.evidence_zh}`,
       }
       for (const dim of dims) {
         // First reason wins, but if multiple files of the same kind are forged,
@@ -2003,9 +2008,18 @@ JSON DISCIPLINE (avoid parse errors):
         credit_score: num(cr.credit_score),
         score_band: typeof cr.score_band === 'string' ? cr.score_band : null,
         report_date: typeof cr.report_date === 'string' ? cr.report_date : null,
+        // The bureau's Employment section — independent of the application's
+        // own documents, which is what makes it evidence (see the type doc).
+        employment: cr.employment && typeof cr.employment === 'object'
+          ? {
+              current: typeof cr.employment.current === 'string' ? cr.employment.current : null,
+              previous: typeof cr.employment.previous === 'string' ? cr.employment.previous : null,
+            }
+          : null,
         tradelines: arr(cr.tradelines).slice(0, 25).map((t: any) => ({
           creditor: str(t?.creditor), type: str(t?.type), date_opened: str(t?.date_opened),
-          balance: num(t?.balance), high_credit: num(t?.high_credit), past_due: num(t?.past_due),
+          balance: num(t?.balance), credit_limit: num(t?.credit_limit),
+          high_credit: num(t?.high_credit), past_due: num(t?.past_due),
           payment_status: str(t?.payment_status), late_30_60_90: str(t?.late_30_60_90),
         })),
         collections: arr(cr.collections).slice(0, 15).map((c: any) => ({
@@ -2054,6 +2068,20 @@ JSON DISCIPLINE (avoid parse errors):
         forgedDocuments: forgedDocCount,
         blankApplicationFields: crossDocVerification?.application_summary?.blank_sections?.length ?? 0,
         applicationSigned: null,
+        // Deterministic staleness: days from the report's own date to now,
+        // parsed as UTC (lib/dates.ts discipline — a local-getter read here
+        // would drift the age by a day across midnight). Unparseable → null,
+        // which the rubric treats as "age unknown", never as fresh.
+        creditReportAgeDays: (() => {
+          const d = creditReport?.report_date
+          if (!d || !/^\d{4}-\d{2}-\d{2}/.test(d)) return null
+          const t = Date.parse(`${d.slice(0, 10)}T00:00:00Z`)
+          if (!Number.isFinite(t)) return null
+          const days = Math.floor((Date.now() - t) / 86_400_000)
+          // A report "dated in the future" is a clock/extraction artifact;
+          // clamp to 0 rather than rewarding it.
+          return Math.max(0, days)
+        })(),
       } as RubricFacts
       rubric = scoreRubric(rubricFacts)
       s.ability_to_pay = rubric.dimensions.ability_to_pay

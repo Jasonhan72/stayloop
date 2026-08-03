@@ -253,7 +253,13 @@ async function analyzeFile(
         // other forgery tools by scanning raw bytes, fonts, and %%EOF count.
         // Runs in parallel with no external calls.
         try {
-          const { result: structResult, flags: structFlags } = await checkPdfStructure(bytes, f.name, canonicalKind, text?.text_sample)
+          const { result: structResult, flags: structFlags } = await checkPdfStructure(
+            bytes, f.name, canonicalKind, text?.text_sample,
+            // The parsed Producer/Creator — see the parameter doc: a default
+            // pdf-lib save hides its Producer inside object streams where the
+            // structure check's own byte scan cannot see it.
+            meta ? `${meta.producer || ''} ${meta.creator || ''}`.trim() : null,
+          )
           out.pdf_structure = structResult
           out.flags.push(...structFlags)
         } catch {

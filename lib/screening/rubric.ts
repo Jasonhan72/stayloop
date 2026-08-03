@@ -91,6 +91,15 @@ export interface RubricFacts {
   blankApplicationFields: number
   /** The application form carries the applicant's signature. */
   applicationSigned: boolean | null
+  /**
+   * Days between the credit report's own report_date and the screening run.
+   * Null when no report or no legible date. A report describes the person AS
+   * OF its date and nothing after: a real case scored credit_health 95 from a
+   * clean bureau pull that was 22 months old — and predated the applicant
+   * becoming a defendant in an active court case. Staleness is measured here
+   * deterministically, not left to the model to notice.
+   */
+  creditReportAgeDays: number | null
 }
 
 export interface RuleHit {
@@ -119,12 +128,15 @@ const clamp = (n: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, Math.ro
 /**
  * Revolving utilisation across all open revolving tradelines.
  *
- * CAVEAT worth knowing when reading the number: bureaus report `high_credit`
- * (the highest balance ever carried), not the assigned credit limit. On a card
- * that has been run near its limit the two converge, but where they differ this
- * UNDERSTATES utilisation — for this applicant it gives 96% against the 98% you
- * get from the limits printed elsewhere in the same report. It never overstates,
- * so it cannot manufacture a penalty; it can only be slightly kind.
+ * Denominator preference: the ASSIGNED credit limit when the extraction has
+ * it, falling back to `high_credit` (the highest balance ever carried) only
+ * when it does not. The two are different numbers and the difference decides
+ * whether over-limit is even detectable: a real case had a Visa at $10,470
+ * against a $10,000 limit — 104.7% utilised, over limit — that read as UNDER
+ * its $11,664 high_credit, so the fallback can never fire the over-limit rule
+ * (a balance above its own historical maximum is a near-contradiction). The
+ * fallback only understates, so it cannot manufacture a penalty; it can only
+ * be kind.
  */
 export function revolvingUtilisation(credit: CreditReport | null): { used: number; limit: number; pct: number | null; overLimit: number } {
   const lines = (credit?.tradelines ?? []).filter((t) => /revolving/i.test(t.type || ''))
@@ -133,10 +145,10 @@ export function revolvingUtilisation(credit: CreditReport | null): { used: numbe
   let overLimit = 0
   for (const t of lines) {
     const bal = Number(t.balance) || 0
-    const hi = Number(t.high_credit) || 0
+    const cap = Number(t.credit_limit) || Number(t.high_credit) || 0
     used += bal
-    limit += hi
-    if (hi > 0 && bal > hi) overLimit++
+    limit += cap
+    if (cap > 0 && bal > cap) overLimit++
   }
   return { used, limit, pct: limit > 0 ? used / limit : null, overLimit }
 }
@@ -218,10 +230,20 @@ export function scoreRubric(f: RubricFacts): RubricResult {
   // ── Credit health ───────────────────────────────────────────────────────
   let creditScore: number
   const sc = f.credit?.credit_score ?? null
-  if (sc == null) {
+  // A bureau report over a year old is treated as no report: it measures a
+  // person who existed then, not the applicant in front of the landlord now.
+  // Between 91 and 365 days it still scores but records a staleness hit for
+  // the report to cite; over 365 the dimension is unknown.
+  const stale = f.creditReportAgeDays != null && f.creditReportAgeDays > 365
+  if (sc == null || stale) {
     creditScore = 45
     unknown.push('credit_health')
-    add('credit_health', 'no_credit_report', 45, 'no bureau report supplied')
+    if (stale) {
+      add('credit_health', 'credit_report_stale', 45,
+        `report dated ${Math.round(f.creditReportAgeDays! / 30)} months before this screening — treated as no current report`)
+    } else {
+      add('credit_health', 'no_credit_report', 45, 'no bureau report supplied')
+    }
   } else {
     creditScore =
       sc >= 760 ? 95 :
@@ -230,15 +252,24 @@ export function scoreRubric(f: RubricFacts): RubricResult {
       sc >= 600 ? 50 :
       sc >= 560 ? 34 : 20
     add('credit_health', 'bureau_score', creditScore, `${sc} (${f.credit?.bureau ?? 'bureau'})`)
+    if (f.creditReportAgeDays != null && f.creditReportAgeDays > 90) {
+      // Aging but not expired: scored, with the age on the record so the
+      // landlord knows what vintage of person the number describes.
+      creditScore += add('credit_health', 'credit_report_aging', -6,
+        `report is ${Math.round(f.creditReportAgeDays / 30)} months old — request a current pull`)
+    }
   }
 
+  // Utilisation is a SNAPSHOT — meaningless from an expired report, so it is
+  // skipped when stale. Collections and bankruptcies below are historical
+  // facts that a stale report still proves, so they always count.
   const util = revolvingUtilisation(f.credit)
-  if (util.pct != null) {
+  if (!stale && util.pct != null) {
     const d = util.pct >= 0.9 ? -22 : util.pct >= 0.75 ? -14 : util.pct >= 0.5 ? -6 : util.pct <= 0.1 ? +4 : 0
     if (d) creditScore += add('credit_health', 'revolving_utilisation', d,
       `${(util.pct * 100).toFixed(0)}% of $${util.limit.toLocaleString()} revolving`)
   }
-  if (util.overLimit > 0) {
+  if (!stale && util.overLimit > 0) {
     creditScore += add('credit_health', 'account_over_limit', -8, `${util.overLimit} account(s) above limit`)
   }
   const openCollections = (f.credit?.collections ?? []).filter((c) => (Number(c.balance) || 0) > 0)

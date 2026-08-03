@@ -128,13 +128,30 @@ export interface CreditReport {
   tradelines?: Array<{
     creditor: string; type: string; date_opened: string
     balance: number | null; high_credit: number | null
-    past_due: number | null; payment_status: string; late_30_60_90: string
+    /**
+     * The assigned credit limit, distinct from high_credit (the highest
+     * balance ever carried). The distinction is load-bearing: a real case had
+     * a Visa at $10,470 against a $10,000 limit — 104.7% utilised, over
+     * limit — that read as UNDER its $11,664 high_credit. Utilisation and
+     * over-limit checks prefer this and fall back to high_credit only when
+     * the report does not print a limit.
+     */
+    credit_limit?: number | null
+    past_due?: number | null; payment_status: string; late_30_60_90: string
   }>
   collections?: Array<{ creditor: string; date_assigned: string; original_amount: number | null; balance: number | null }>
   bankruptcies?: Array<{ date_filed: string; type: string; amount: number | null; disposition: string }>
   inquiries?: Array<{ date: string; creditor: string }>
   total_debt?: number | null
   monthly_debt_payments?: number | null
+  /**
+   * The bureau's Employment section (current/previous employer), transcribed
+   * verbatim. Self-reported to lenders and often stale — but INDEPENDENT of
+   * this application's documents, which is what makes it evidence: a real case
+   * claimed a $12,500/mo manager role at one company while the bureau file
+   * said that employer was PREVIOUS and the current one was a fast-food chain.
+   */
+  employment?: { current?: string | null; previous?: string | null } | null
 }
 
 // Cross-document evidence verification (2026-07 — v3 prompt addition).

@@ -541,7 +541,7 @@ export default function ReportPage() {
                   <div key={key} className="rounded-xl border border-line-divider p-3">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-[20px] font-extrabold">{dimScore}</span>
-                      <Badge label={zeroed ? (zh ? '取证归零' : 'ZEROED') : dimStatus} color={statusColor(dimStatus)} />
+                      <Badge label={zeroed ? (zh ? '证据伪造' : 'EVIDENCE FORGED') : dimStatus} color={statusColor(dimStatus)} />
                     </div>
                     <div className="mt-1 text-[12px] font-semibold text-body">{zh ? meta.zh : meta.en}</div>
                     {meta.weight != null && meta.weight > 0 ? (
@@ -668,7 +668,7 @@ export default function ReportPage() {
                           {meta.weight != null && meta.weight > 0
                             ? <span className="ml-2 font-mono text-[10px] text-body-3">({Math.round(meta.weight * 100)}%)</span>
                             : <span className="ml-2 font-mono text-[10px] text-body-3">({zh ? '不计权重' : 'not weighted'})</span>}
-                          {zeroed && <span className="ml-2 font-mono text-[10px] font-bold" style={{ color: '#DC2626' }}>{zh ? '取证归零' : 'FORENSICS ZEROED'}</span>}
+                          {zeroed && <span className="ml-2 font-mono text-[10px] font-bold" style={{ color: '#DC2626' }}>{zh ? '证据伪造' : 'EVIDENCE FORGED'}</span>}
                         </span>
                         <span className="font-mono text-[16px] font-extrabold" style={{ color }}>{dimScore}</span>
                       </div>

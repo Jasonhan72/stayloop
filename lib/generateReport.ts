@@ -8,14 +8,21 @@
 
 import type { OntarioPortalMatch, CanLIIMatch, CourtQuery, AiFlag, ScoreResult } from './screening-types'
 import { scoreColor, sevColor, SCORE_BANDS } from './screening-types'
+import { RUBRIC_WEIGHTS, type RubricResult } from './screening/rubric'
 
 // ─── Helpers ──────────────────────────────────────────────────────
+// Weights reference the rubric so they cannot drift from what is applied.
+// The literals previously here (0.40/0.25/0.20/0.10 + 0.05 communication) were
+// the pre-rubric ones: this PDF kept printing them for a month after scoring
+// moved — a printed weight that is not applied is worse than none. The screen
+// report had the same defect and was fixed first; the print path was missed.
+// `communication` renders for historical reports but carries no weight.
 const DIMS = [
-  { id: 'ability_to_pay', zhLabel: '付款能力', enLabel: 'Ability to Pay', weight: 0.40 },
-  { id: 'credit_health', zhLabel: '信用健康度', enLabel: 'Credit & Debt Health', weight: 0.25 },
-  { id: 'rental_history', zhLabel: '租务与司法历史', enLabel: 'Rental & Legal History', weight: 0.20 },
-  { id: 'verification', zhLabel: '身份与雇主核实', enLabel: 'Identity & Employer', weight: 0.10 },
-  { id: 'communication', zhLabel: '申请完整度与沟通', enLabel: 'Application Quality', weight: 0.05 },
+  { id: 'ability_to_pay', zhLabel: '付款能力', enLabel: 'Ability to Pay', weight: RUBRIC_WEIGHTS.ability_to_pay },
+  { id: 'credit_health', zhLabel: '信用健康度', enLabel: 'Credit & Debt Health', weight: RUBRIC_WEIGHTS.credit_health },
+  { id: 'rental_history', zhLabel: '租务与司法历史', enLabel: 'Rental & Legal History', weight: RUBRIC_WEIGHTS.rental_history },
+  { id: 'verification', zhLabel: '身份与雇主核实', enLabel: 'Identity & Employer', weight: RUBRIC_WEIGHTS.verification },
+  { id: 'communication', zhLabel: '申请完整度与沟通', enLabel: 'Application Quality', weight: null as number | null },
 ]
 
 function esc(s: string): string {
@@ -546,15 +553,41 @@ export async function generateScreeningReport(
     const barColor = zeroed ? '#DC2626' : (sc != null ? scoreColor(sc) : '#CBD5E1')
     html += `<tr>
       <td style="font-weight:600">${zh ? dim.zhLabel : dim.enLabel}</td>
-      <td style="text-align:center">${(dim.weight * 100).toFixed(0)}%</td>
+      <td style="text-align:center">${dim.weight != null ? (dim.weight * 100).toFixed(0) + '%' : (zh ? '不计' : '—')}</td>
       <td style="text-align:center;font-weight:700;color:${sc != null ? scoreColor(sc) : '#64748B'}">
         ${sc ?? '—'}${zeroed ? ' <span style="color:#DC2626;font-size:9px">⚠</span>' : ''}
         <div style="height:4px;border-radius:2px;background:#E2E8F0;margin-top:3px;overflow:hidden"><div style="height:100%;width:${sc ?? 0}%;background:${barColor}"></div></div>
       </td>
-      <td>${esc(detail)}${zeroed ? ` <span style="color:#DC2626;font-size:9px">(${zh ? '取证归零' : 'Forensics zeroed'})</span>` : ''}</td>
+      <td>${esc(detail)}${zeroed ? ` <span style="color:#DC2626;font-size:9px">(${zh ? '证据伪造' : 'Evidence forged'})</span>` : ''}</td>
     </tr>`
   }
   html += `</table>`
+
+  // The rules that produced the score, each citing the value it read. The
+  // dimension table's prose comes from the model; these numbers are the law.
+  const rubricRes = result.rubric as RubricResult | null | undefined
+  if (rubricRes && Array.isArray(rubricRes.hits) && rubricRes.hits.length > 0) {
+    const dimName = (d: string) => {
+      const m = DIMS.find((x) => x.id === d)
+      return m ? (zh ? m.zhLabel : m.enLabel) : d
+    }
+    html += `<h3 style="font-size:11px;font-weight:700;color:#1E3A5F;margin:10px 0 6px">${zh ? '触发的评分规则 · 每条注明所依据的数值' : 'Rules applied · each cites the value it read'}</h3>
+    <table>
+      <tr><th style="width:45px;text-align:right">Δ</th><th style="width:120px">${zh ? '维度' : 'Dimension'}</th><th style="width:150px">${zh ? '规则' : 'Rule'}</th><th>${zh ? '所读数值' : 'Observed'}</th></tr>`
+    for (const h of rubricRes.hits) {
+      const c = h.delta < 0 ? '#DC2626' : h.delta > 0 ? '#047857' : '#64748B'
+      html += `<tr>
+        <td style="text-align:right;font-weight:700;color:${c}">${h.delta > 0 ? '+' : ''}${h.delta}</td>
+        <td>${esc(dimName(h.dim))}</td>
+        <td style="font-family:monospace;font-size:9px">${esc(h.code)}</td>
+        <td style="font-size:9.5px">${esc(h.observed)}</td>
+      </tr>`
+    }
+    html += `</table>`
+    if (Array.isArray(rubricRes.unknown) && rubricRes.unknown.length > 0) {
+      html += `<div style="font-size:9px;color:#64748B;margin:4px 0 6px">${zh ? '未测得: ' : 'Not measured: '}${rubricRes.unknown.map(dimName).map(esc).join(zh ? '、' : ', ')} — ${zh ? '这些维度没有可依据的材料,按「未知」计入,不作为正面证据。' : 'no evidence was available; carried as unknown, never as a positive.'}</div>`
+    }
+  }
 
   // ── 3.5 Income & Affordability ──
   // Only renders rows backed by real extracted data — no fabricated numbers.

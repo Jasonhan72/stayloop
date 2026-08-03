@@ -95,6 +95,18 @@ export async function checkPdfStructure(
   fileName: string,
   kind: string,
   textContent?: string,
+  /**
+   * Producer/Creator strings the metadata pass already parsed. This closes the
+   * blind spot that let a pdf-lib-generated "Equifax" credit report through
+   * with zero flags: pdf-lib saves with object streams by default, so its
+   * Producer string sits inside a Flate-compressed stream where the raw-byte
+   * scan below cannot see it — while the metadata check, which CAN see it,
+   * lists /pdf-lib/i as "recognized" and stays silent, deferring to this
+   * check. Each pass held half the truth. The parsed metadata is the
+   * authoritative source; the byte scan remains as the fallback for files
+   * whose metadata was stripped.
+   */
+  metadataProducer?: string | null,
 ): Promise<{ result: PdfStructureResult; flags: ForensicFlag[] }> {
   const flags: ForensicFlag[] = []
   const isFinancial = FINANCIAL_KINDS.has(kind)
@@ -133,8 +145,11 @@ export async function checkPdfStructure(
     }
   }
 
-  // --- 1. Raw byte scan for pdf-lib markers ---
-  const pdflibMatch = rawText.match(/pdf-lib(?:\s*(?:version\s*)?(\d+\.\d+\.\d+))?/i)
+  // --- 1. pdf-lib markers: parsed metadata first, raw bytes as fallback ---
+  // The metadata Producer is what actually catches a default pdf-lib save
+  // (object streams compress the Info dict out of the byte scan's sight).
+  const producerScan = `${metadataProducer || ''} ${rawText}`
+  const pdflibMatch = producerScan.match(/(?:pdf-lib|jsPDF|pdfmake)(?:\s*(?:version\s*)?(\d+\.\d+\.\d+))?/i)
   const hasPdflibMarker = pdflibMatch !== null
   const pdflibVersion = pdflibMatch?.[1] || null
 
