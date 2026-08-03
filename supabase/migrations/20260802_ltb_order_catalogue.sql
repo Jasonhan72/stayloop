@@ -8,11 +8,18 @@
 --
 -- WHY WE INGEST INSTEAD OF QUERYING THEIR API
 -- The catalogue is CKAN-backed with datastore_active = true, so a live endpoint
--- exists — but its full-text `q` is OR-across-words AND searches every column.
--- `q=David Park` comes back with a landlord named David, an address on Park
--- Road, and a landlord named David Park. It cannot answer "was THIS PERSON a
--- tenant on an order", which is the only question screening asks. Matching has
--- to happen here, on exploded, normalized, role-tagged rows.
+-- exists. Measured against it (2026-08-02) rather than assumed:
+--   · `q` ANDs its words — `q=Florentina zzqqxx9988` returns 0 — but searches
+--     EVERY column, which is the disqualifying part. `q=David Park` returns 39
+--     rows whose first five are a tenant named DAVID HUTCHINSON living on PARK
+--     ROAD, a landlord named David Atwell on West Park Avenue, and a landlord
+--     literally named David Park. None is a tenant named David Park.
+--   · `filters` matches a whole cell exactly, and 13,384 of the 40,844 orders
+--     pack co-respondents into one cell ("A and B"), so exact match misses them.
+--   · `datastore_search_sql` is blocked by the portal (HTML error page / 429).
+-- So the endpoint cannot answer "was THIS PERSON a tenant on an order", which is
+-- the only question screening asks. Matching has to happen here, on exploded,
+-- normalized, role-tagged rows.
 --
 -- WHAT A ROW DOES AND DOES NOT PROVE
 -- The catalogue carries no disposition field: Document Type is only

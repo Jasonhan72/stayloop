@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   addressParts, isSearchableName, nameKey, normalizeName, partySide,
@@ -187,5 +188,42 @@ describe('CanLII cannot be searched by name — regression guard', () => {
         return code && !code.startsWith('//') && !code.startsWith('*') && !code.startsWith('/*')
       })
     expect(offending, `CanLII fullText is inert — these would silently return unrelated cases:\n${offending.join('\n')}`).toEqual([])
+  })
+})
+
+describe('the court page reports what was searched, not a fixed list', () => {
+  // /screening/[id]/ltb used to render eight databases — LTB, CanLII, OSB,
+  // Small Claims, Construction Lien, PPSA, CRA, OHRT — each with a green check
+  // and a literal 0, under "All queried · Federal + Ontario coverage". Five had
+  // never been queried by this product at all. And `hasRecords` was
+  // `Array.isArray(court_records_detail)`, which is an object, so the page
+  // printed "0 HITS · CLEAN" on every screening regardless of the result.
+  //
+  // Same failure as the CanLII guard above, one layer up: an assertion of due
+  // diligence that no search backs.
+  const page = readFileSync(
+    new URL('../app/screening/[id]/ltb/page.tsx', import.meta.url),
+    'utf8',
+  )
+  const code = page
+    .split('\n')
+    .filter((l) => {
+      const t = l.trim()
+      return t && !t.startsWith('//') && !t.startsWith('*') && !t.startsWith('/*')
+    })
+    .join('\n')
+
+  it('does not name sources the product never queries', () => {
+    for (const src of ['OSB', 'PPSA', 'Construction Lien', 'Superintendent of Bankruptcy']) {
+      expect(code, `the page names ${src}, which nothing in this codebase searches`).not.toContain(src)
+    }
+  })
+
+  it('renders the recorded per-source results instead of a constant', () => {
+    expect(code).toContain('court_records_detail')
+    expect(code).toContain('ltb_check')
+    // The old bug in one line: an object can never be an array, so the branch
+    // reading "records found" was dead and the clean branch always won.
+    expect(code).not.toMatch(/Array\.isArray\(\s*court\s*\)/)
   })
 })
