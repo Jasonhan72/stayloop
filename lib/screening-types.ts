@@ -30,11 +30,32 @@ export interface CourtQuery {
   tier: 'free' | 'pro'
   status: 'ok' | 'unavailable' | 'skipped' | 'coming_soon' | 'timeout'
   hits: number | null
+  /**
+   * What a hit on this row IS. 'party' (and legacy undefined) — a record naming
+   * this person as a litigant; may reach gates/caps. 'mention' — a page that
+   * merely contains the name (web-index search of canlii.org); display-only,
+   * never counted into total_hits and never scored.
+   */
+  hitKind?: 'party' | 'mention'
   url?: string
   note?: string
   severity?: number
   records?: CanLIIMatch[]
   portalRecords?: OntarioPortalMatch[]
+  indexRecords?: CanliiIndexMatch[]
+}
+
+/**
+ * A canlii.org decision page that MENTIONS the applicant's name, found via a
+ * public web-search index — not via CanLII's API (which cannot search by name)
+ * and not by scraping canlii.org. A mention is NOT a party record: this type
+ * deliberately carries none of the fields (`nameInTitle`, `databaseId`) that
+ * countDebtRelevantHits() reads, so even a wiring mistake cannot score it.
+ */
+export interface CanliiIndexMatch {
+  title: string
+  url: string
+  snippet: string
 }
 
 /**

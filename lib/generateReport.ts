@@ -932,22 +932,27 @@ export async function generateScreeningReport(
         ? `<span style="color:#16A34A;font-weight:700">✓</span>`
         : q.status === 'timeout' ? (zh ? '超时' : 'Timeout')
         : '—'
+      // 'mention' rows (CanLII via the web index) are amber, never red: a page
+      // containing the name is not a record naming a party.
+      const isMention = q.hitKind === 'mention'
       const statusTxt = q.status === 'ok'
-        ? (hits > 0 ? `${hits} ${zh ? '条命中' : 'hit(s)'}` : (zh ? '无记录' : 'Clear'))
+        ? (hits > 0
+          ? `${hits} ${isMention ? (zh ? '处提及' : 'mention(s)') : (zh ? '条命中' : 'hit(s)')}`
+          : (zh ? '无记录' : 'Clear'))
         : q.status === 'timeout' ? (zh ? '超时' : 'Timeout')
         : q.status === 'skipped' ? (zh ? '未检索' : 'Not searched')
         : (zh ? '不可用' : 'N/A')
       const riskText = q.severity === 3 ? (zh ? '严重' : 'Critical') : q.severity === 2 ? (zh ? '高' : 'High') : q.severity === 1 ? (zh ? '中' : 'Medium') : (zh ? '无' : 'None')
       const riskColor = q.severity === 3 ? '#DC2626' : q.severity === 2 ? '#D97706' : q.severity === 1 ? '#1D4ED8' : '#16A34A'
       // Certn-style row tinting: green for cleared databases, red for hits
-      const rowBg = hits > 0 ? 'background:#FEF2F2' : hits === 0 ? 'background:#F0FDF4' : 'background:#F8FAFC'
-      const stColorCourt = hits > 0 ? '#DC2626' : hits === 0 ? '#16A34A' : '#94A3B8'
+      const rowBg = hits > 0 ? (isMention ? 'background:#FFFBEB' : 'background:#FEF2F2') : hits === 0 ? 'background:#F0FDF4' : 'background:#F8FAFC'
+      const stColorCourt = hits > 0 ? (isMention ? '#B45309' : '#DC2626') : hits === 0 ? '#16A34A' : '#94A3B8'
       // A source that could not be searched automatically may still carry a
       // pre-filled manual search URL (CanLII: the website searches, the API
       // does not). Print it — this is a paper trail, and the link is the step
       // the landlord is being asked to take.
-      const manualLink = q.url && q.status !== 'ok'
-        ? ` <a href="${esc(q.url)}" style="color:#6D28D9">${zh ? '一键人工检索' : 'run the search yourself'}</a>`
+      const manualLink = q.url && (q.status !== 'ok' || isMention)
+        ? ` <a href="${esc(q.url)}" style="color:#6D28D9">${zh ? (q.status === 'ok' ? '完整站内检索' : '一键人工检索') : (q.status === 'ok' ? 'full site search' : 'run the search yourself')}</a>`
         : ''
       html += `<tr>
         <td style="${rowBg}">${esc(q.source)}</td>
@@ -958,6 +963,15 @@ export async function generateScreeningReport(
       </tr>`
     }
     html += `</table>`
+
+    const mentionRows = dbRows.filter(q => (q.indexRecords ?? []).length > 0)
+    for (const q of mentionRows) {
+      html += `<h3 style="font-size:11px;font-weight:700;color:#1E3A5F;margin:10px 0 6px">${esc(q.source)} — ${zh ? '提及清单（非当事人记录）' : 'mentions (not party records)'}</h3>`
+      for (const m of q.indexRecords!) {
+        html += `<div style="font-size:9.5px;margin:0 0 4px"><a href="${esc(m.url)}" style="color:#6D28D9">${esc(m.title)}</a>${m.snippet ? ` <span style="color:#64748B">— ${esc(m.snippet)}</span>` : ''}</div>`
+      }
+      html += `<div style="font-size:9px;color:#B45309;margin:2px 0 6px">${zh ? '以上为「提及」而非当事人记录——律师、仲裁员、他案当事人常与申请人同名。逐条核读后再下结论;不参与评分。' : 'Mentions, not party records — counsel, adjudicators and unrelated parties share names. Read each before concluding anything; none of this affects the score.'}</div>`
+    }
   }
 
   // CanLII case details

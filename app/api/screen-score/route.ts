@@ -20,6 +20,7 @@ import { captureException } from '@/lib/observability/sentry'
 import type { CourtQuery, CanLIIMatch, OntarioPortalMatch, V3Scores, CrossDocVerification, LtbCheck } from '@/lib/screening-types'
 import { describeCodes, searchLtbOrders, summarizeLtb } from '@/lib/ltb/search'
 import { courtDefendantHitsFromGates, scoreRubric, type RubricFacts, type RubricResult } from '@/lib/screening/rubric'
+import { searchCanliiViaIndex } from '@/lib/screening/canliiIndex'
 import { V3_WEIGHTS } from '@/lib/screening-types'
 
 export const runtime = 'edge'
@@ -440,24 +441,49 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
   // (party search, below) and the LTB Order Catalogue (Ontario Open Data,
   // indexed by us — see Stage 3.7 in the POST handler).
   //
-  // What we CAN honestly offer is canlii.org itself: the WEBSITE has real
-  // full-text search — only the API lacks it — and its results page is a plain
-  // shareable URL. So the entry carries a link with the applicant's name
-  // pre-filled, one click for the landlord, running in their own browser
-  // (which also sidesteps CanLII's bot protection, which 403s server-side
-  // fetches). It is labelled a manual step, never counted as searched, and no
-  // hit count is ever derived from it: the same search for "David Park"
-  // returns Crown counsel David Parke, arbitrator David Parkes, and the
-  // sentence "Mr. David parked his car" — a human reads that correctly,
-  // a scorer must not.
-  queries.push({
-    source: 'CanLII',
-    tier: 'free',
-    status: 'unavailable',
-    hits: null,
-    note: 'CanLII\'s API has no name search (date filters only), so this source cannot be searched automatically. Its website can: use the link to run the pre-filled full-text search across all Ontario databases and read the matches yourself.',
-    url: `https://www.canlii.org/en/#search/type=decision&jId=on&text=${encodeURIComponent(`"${searchName}"`)}`,
-  })
+  // What we CAN honestly do instead, in order of preference:
+  //
+  //  1. Search the public WEB INDEX of canlii.org (Google Programmable Search,
+  //     lib/screening/canliiIndex.ts) — automated, no click, and it queries
+  //     Google's API, never CanLII's servers. A hit there is a decision page
+  //     that MENTIONS the name: the live search for "David Park" returns Crown
+  //     counsel David Parke, arbitrator David Parkes, and the sentence
+  //     "Mr. David parked his car". So index results are hitKind:'mention',
+  //     display-only — never added to total_hits, never fed to
+  //     countDebtRelevantHits(), never allowed to move a score. A human reads
+  //     them; a scorer must not.
+  //
+  //  2. When that is unconfigured or fails: the pre-filled manual link. The
+  //     canlii.org WEBSITE has real full-text search (only the API lacks it)
+  //     and its results page is a plain shareable URL, run in the landlord's
+  //     own browser (which also sidesteps CanLII's bot protection — it 403s
+  //     server-side fetches, and CanLII's terms prohibit scraping the site).
+  const canliiManualUrl = `https://www.canlii.org/en/#search/type=decision&jId=on&text=${encodeURIComponent(`"${searchName}"`)}`
+  const idx = await searchCanliiViaIndex(searchName)
+  if (idx.status === 'ok') {
+    queries.push({
+      source: 'CanLII (via public web index)',
+      tier: 'free',
+      status: 'ok',
+      hits: idx.matches.length,
+      hitKind: 'mention',
+      // Severity stays 0 unconditionally: a mention colours nothing.
+      note: idx.matches.length === 0
+        ? 'Full-text search of canlii.org via its public web index: no page mentions this exact name.'
+        : `${idx.matches.length} decision page(s) on canlii.org mention this exact name. A mention is NOT a party record — counsel, adjudicators and unrelated cases share names. Read each linked decision before drawing any conclusion; these results carry no weight in the score.`,
+      url: canliiManualUrl,
+      indexRecords: idx.matches,
+    })
+  } else {
+    queries.push({
+      source: 'CanLII',
+      tier: 'free',
+      status: 'unavailable',
+      hits: null,
+      note: 'CanLII\'s API has no name search (date filters only), so this source cannot be searched automatically. Its website can: use the link to run the pre-filled full-text search across all Ontario databases and read the matches yourself.',
+      url: canliiManualUrl,
+    })
+  }
 
   const allRecords: CanLIIMatch[] = []
   let totalHits = 0

@@ -76,6 +76,8 @@ Optional (guarded with `if (process.env.X)` — features degrade gracefully when
 
 ```
 JINA_API_KEY                # agent listing search → realtor.ca scrape (lib/agent/listingSearch.ts)
+GOOGLE_CSE_KEY              # CanLII 自动检索（查 Google 对 canlii.org 的索引，lib/screening/canliiIndex.ts）。缺省时报告回退为预填姓名的一键人工检索链接
+GOOGLE_CSE_CX               # 同上——Programmable Search Engine 的引擎 ID（限定 canlii.org）。注意：索引命中是「提及」不是当事人记录，hitKind='mention'，永不进评分/total_hits
 OPENCORPORATES_API_TOKEN    # deep-check / forensics arm's-length lookup (lib/forensics/arm-length.ts)
 CRON_SECRET                 # gates cron mode on /api/agent/proactive; same value stored as Supabase Vault secret 'cron_secret' (pg_cron job agent-proactive-daily, 13:00 UTC)
 DEEPSEEK_API_KEY            # optional · 后台模型配置用（/admin/models 槽位可选 DeepSeek 模型时需要）

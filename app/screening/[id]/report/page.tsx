@@ -1210,7 +1210,7 @@ export default function ReportPage() {
                 <div className="mt-4 space-y-2">
                   {courtRows.map((q, i) => {
                     const hits = q.status === 'ok' ? (q.hits ?? 0) : null
-                    const col = hits == null ? '#94A3B8' : hits > 0 ? '#DC2626' : '#16A34A'
+                    const col = hits == null ? '#94A3B8' : hits > 0 ? (q.hitKind === 'mention' ? '#B45309' : '#DC2626') : '#16A34A'
                     // Two separate facts, two separate badges: "was this source
                     // actually searched" (the ✓) and "what did it return". The
                     // old single badge fused them — a red "3 条命中" carried no
@@ -1221,9 +1221,14 @@ export default function ReportPage() {
                       : q.status === 'timeout' ? { label: zh ? '超时' : 'TIMEOUT', color: '#D97706' }
                       : q.status === 'skipped' ? { label: zh ? '未检索' : 'NOT SEARCHED', color: '#94A3B8' }
                       : { label: zh ? '不可用' : 'UNAVAILABLE', color: '#94A3B8' }
+                    // A 'mention' row (CanLII via the web index) is amber, never
+                    // red: a page containing the name is not a record naming a
+                    // party, and the two must not look alike.
                     const resultBadge = q.status === 'ok'
                       ? (hits! > 0
-                        ? { label: `${hits} ${zh ? '条命中' : 'HIT(S)'}`, color: '#DC2626' }
+                        ? (q.hitKind === 'mention'
+                          ? { label: `${hits} ${zh ? '处提及' : 'MENTION(S)'}`, color: '#B45309' }
+                          : { label: `${hits} ${zh ? '条命中' : 'HIT(S)'}`, color: '#DC2626' })
                         : { label: zh ? '无记录' : 'NO RECORDS', color: '#16A34A' })
                       : null
                     return (
@@ -1246,6 +1251,23 @@ export default function ReportPage() {
                               ? (zh ? '数据源' : 'source')
                               : (zh ? '一键人工检索 ↗' : 'run the search yourself ↗')}
                           </a>
+                        )}
+                        {(q.indexRecords ?? []).length > 0 && (
+                          <div className="mt-1 w-full space-y-1.5 border-t border-line-divider/60 pt-2">
+                            {q.indexRecords!.map((m, j) => (
+                              <div key={j} className="text-[12px] leading-relaxed">
+                                <a href={m.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline" style={{ color: '#6D28D9' }}>
+                                  {m.title}
+                                </a>
+                                {m.snippet && <span className="text-body-3"> — {m.snippet}</span>}
+                              </div>
+                            ))}
+                            <p className="text-[11px]" style={{ color: '#B45309' }}>
+                              {zh
+                                ? '以上为「提及」而非当事人记录——律师、仲裁员、他案当事人常与申请人同名。逐条点开核读后再下结论；这些结果不参与评分。'
+                                : 'These are mentions, not party records — counsel, adjudicators and unrelated parties share names. Open and read each before concluding anything; none of this affects the score.'}
+                            </p>
+                          </div>
                         )}
                       </div>
                     )

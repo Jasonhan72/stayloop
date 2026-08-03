@@ -257,13 +257,18 @@ export default function LTBPage() {
                 {queries.map((q, i) => {
                   const st = STATUS_STYLE[q.status] ?? STATUS_STYLE.skipped
                   const hits = q.status === 'ok' ? (q.hits ?? 0) : null
+                  // 'mention' rows (CanLII web-index) are amber, never red: a
+                  // page containing the name is not a record naming a party.
+                  const mention = q.hitKind === 'mention'
                   return (
                     <div key={i} className="flex flex-wrap items-start gap-x-3 gap-y-1.5 rounded-lg border border-line-divider bg-[#FAFAF8] px-4 py-3">
                       <Badge label={zh ? st.zh : st.en} color={st.color} />
                       {hits != null && (
                         <Badge
-                          label={hits > 0 ? `${hits} ${zh ? '条命中' : 'HIT(S)'}` : (zh ? '无记录' : 'NO RECORDS')}
-                          color={hits > 0 ? '#DC2626' : '#047857'}
+                          label={hits > 0
+                            ? `${hits} ${mention ? (zh ? '处提及' : 'MENTION(S)') : (zh ? '条命中' : 'HIT(S)')}`
+                            : (zh ? '无记录' : 'NO RECORDS')}
+                          color={hits > 0 ? (mention ? '#B45309' : '#DC2626') : '#047857'}
                         />
                       )}
                       <div className="min-w-0 flex-1 basis-[14rem]">
@@ -271,8 +276,25 @@ export default function LTBPage() {
                         {q.note && <div className="mt-0.5 break-words text-[12px] leading-relaxed text-body-3">{q.note}</div>}
                         {q.url && (
                           <a href={q.url} target="_blank" rel="noopener noreferrer" className="mt-0.5 inline-block font-mono text-[11px] underline" style={{ color: '#6D28D9' }}>
-                            {zh ? '数据源' : 'source'}
+                            {q.status === 'ok' ? (zh ? '数据源' : 'source') : (zh ? '一键人工检索 ↗' : 'run the search yourself ↗')}
                           </a>
+                        )}
+                        {(q.indexRecords ?? []).length > 0 && (
+                          <div className="mt-2 space-y-1.5 border-t border-line-divider pt-2">
+                            {q.indexRecords!.map((m, j) => (
+                              <div key={j} className="text-[12px] leading-relaxed">
+                                <a href={m.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline" style={{ color: '#6D28D9' }}>
+                                  {m.title}
+                                </a>
+                                {m.snippet && <span className="text-body-3"> — {m.snippet}</span>}
+                              </div>
+                            ))}
+                            <p className="text-[11px]" style={{ color: '#B45309' }}>
+                              {zh
+                                ? '以上为「提及」而非当事人记录——律师、仲裁员、他案当事人常与申请人同名。逐条核读后再下结论；不参与评分。'
+                                : 'Mentions, not party records — counsel, adjudicators and unrelated parties share names. Read each before concluding anything; none of this affects the score.'}
+                            </p>
+                          </div>
                         )}
                       </div>
                       <span className="font-mono text-[13px] font-extrabold tabular-nums" style={{ color: q.hits ? '#D97706' : st.color }}>
