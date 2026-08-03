@@ -1,12 +1,12 @@
-===== pre-flight: types + tests (Sun Aug  2 20:47:29 EDT 2026) =====
+===== pre-flight: types + tests (Sun Aug  2 20:54:56 EDT 2026) =====
 
  RUN  v4.1.10 /Users/neos/Documents/Claude/Projects/stayloop
 
 
  Test Files  17 passed (17)
       Tests  197 passed (197)
-   Start at  20:47:32
-   Duration  850ms (transform 765ms, setup 0ms, import 1.14s, tests 326ms, environment 1ms)
+   Start at  20:54:59
+   Duration  1.07s (transform 772ms, setup 0ms, import 1.11s, tests 394ms, environment 1ms)
 
 pre-flight OK
 ===== commit + push =====
