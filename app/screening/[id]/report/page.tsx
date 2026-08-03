@@ -1202,8 +1202,8 @@ export default function ReportPage() {
               </div>
               <p className="mt-2 text-[11px] leading-relaxed text-body-3">
                 {zh
-                  ? '「✓ 无记录」表示该数据源已按姓名实际检索且零命中——与「未检索」是两回事。不可用/未响应的数据源单独标注，绝不计入「无记录」。CanLII 无法自动检索（其 API 只支持按日期分页，不提供姓名或全文检索），但 CanLII 网站本身可以全文检索——其条目附带已预填申请人姓名的一键检索链接，点开自行核读；同名者（律师、仲裁员、他案当事人）很常见，命中不等于同一人。'
-                  : '"✓ Clear" means that source was actually searched by name and returned nothing — distinct from "not searched". Unavailable sources are labelled separately and are never counted as clear. CanLII cannot be searched automatically (its API filters by date only), but the CanLII website can — its row carries a one-click link with the applicant\'s name pre-filled. Read matches yourself: namesakes (counsel, arbitrators, parties in unrelated cases) are common, and a hit is not the same person until you have read it.'}
+                  ? '「✓ 已检索」表示该数据源已按姓名实际执行检索——绿勾只代表查过，结果（无记录 / N 条命中）单独标注。未检索、超时、不可用的数据源不带勾，绝不计入「无记录」。CanLII 无法自动检索（其 API 只支持按日期分页，不提供姓名或全文检索），但 CanLII 网站本身可以全文检索——其条目附带已预填申请人姓名的一键检索链接，点开自行核读；同名者（律师、仲裁员、他案当事人）很常见，命中不等于同一人。'
+                  : 'A "✓ Searched" check means that source was actually queried by name — the check only says it ran; the result (no records / N hits) is badged separately. Sources not searched, timed out, or unavailable carry no check and are never counted as clear. CanLII cannot be searched automatically (its API filters by date only), but the CanLII website can — its row carries a one-click link with the applicant\'s name pre-filled. Read matches yourself: namesakes (counsel, arbitrators, parties in unrelated cases) are common, and a hit is not the same person until you have read it.'}
               </p>
 
               {courtRows.length > 0 && (
@@ -1211,14 +1211,25 @@ export default function ReportPage() {
                   {courtRows.map((q, i) => {
                     const hits = q.status === 'ok' ? (q.hits ?? 0) : null
                     const col = hits == null ? '#94A3B8' : hits > 0 ? '#DC2626' : '#16A34A'
-                    const label = q.status === 'ok'
-                      ? (hits! > 0 ? `${hits} ${zh ? '条命中' : 'HIT(S)'}` : (zh ? '✓ 无记录' : '✓ CLEAR'))
-                      : q.status === 'timeout' ? (zh ? '超时' : 'TIMEOUT')
-                      : q.status === 'skipped' ? (zh ? '已跳过' : 'SKIPPED')
-                      : (zh ? '不可用' : 'N/A')
+                    // Two separate facts, two separate badges: "was this source
+                    // actually searched" (the ✓) and "what did it return". The
+                    // old single badge fused them — a red "3 条命中" carried no
+                    // ✓, so the row least safe to skim was the one that did not
+                    // look searched.
+                    const searchedBadge = q.status === 'ok'
+                      ? { label: zh ? '✓ 已检索' : '✓ SEARCHED', color: '#16A34A' }
+                      : q.status === 'timeout' ? { label: zh ? '超时' : 'TIMEOUT', color: '#D97706' }
+                      : q.status === 'skipped' ? { label: zh ? '未检索' : 'NOT SEARCHED', color: '#94A3B8' }
+                      : { label: zh ? '不可用' : 'UNAVAILABLE', color: '#94A3B8' }
+                    const resultBadge = q.status === 'ok'
+                      ? (hits! > 0
+                        ? { label: `${hits} ${zh ? '条命中' : 'HIT(S)'}`, color: '#DC2626' }
+                        : { label: zh ? '无记录' : 'NO RECORDS', color: '#16A34A' })
+                      : null
                     return (
                       <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line-divider/60 px-4 py-2.5" style={{ background: col + '06' }}>
-                        <Badge label={label} color={col} />
+                        <Badge label={searchedBadge.label} color={searchedBadge.color} />
+                        {resultBadge && <Badge label={resultBadge.label} color={resultBadge.color} />}
                         <span className="min-w-0 flex-1 text-[13px] text-body-2">{q.source}</span>
                         {q.note && <span className="w-full text-[11px] text-body-3 sm:w-auto">{q.note}</span>}
                         {q.url && (

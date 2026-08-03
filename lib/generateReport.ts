@@ -912,7 +912,7 @@ export async function generateScreeningReport(
   }
   html += `<div class="kv"><span class="k">${zh ? '查询姓名' : 'Queried Name'}:</span><span class="v">${esc(queriedName)}</span></div>
   <div class="kv"><span class="k">${zh ? '总命中数' : 'Total Hits'}:</span><span class="v" style="font-weight:700;color:${totalHits > 0 ? '#DC2626' : '#16A34A'}">${totalHits}</span></div>
-  <div style="font-size:9px;color:#94A3B8;margin:2px 0 4px">${zh ? '「✓ 无记录」表示该库已实际检索且零命中——与「未检索」是两回事。未响应的库单独标注,不计入"无记录"。' : '"✓ Clear" means the source was actually searched with zero hits — distinct from "not searched". Sources that failed to respond are labelled separately, never counted as clear.'}</div>`
+  <div style="font-size:9px;color:#94A3B8;margin:2px 0 4px">${zh ? '「已检索」列的 ✓ 表示该库已按姓名实际执行检索;结果列单独标注(无记录 / N 条命中)。未检索、超时、不可用的库不带 ✓,绝不计入"无记录"。' : 'A ✓ in the Searched column means that source actually ran a name search; the Result column states only what came back (clear / N hits). Sources not searched, timed out, or unavailable carry no ✓ and are never counted as clear.'}</div>`
 
   // DB summary table — every free-tier query row is disclosed, including
   // unavailable / timed-out / skipped sources ("searched and clear" vs
@@ -922,13 +922,20 @@ export async function generateScreeningReport(
   )
   if (dbRows.length > 0) {
     html += `<table style="margin-top:6px">
-      <tr><th>${zh ? '数据库' : 'Database'}</th><th style="width:75px;text-align:center">${zh ? '结果' : 'Result'}</th><th style="width:70px;text-align:center">${zh ? '风险等级' : 'Risk'}</th><th>${zh ? '备注' : 'Note'}</th></tr>`
+      <tr><th>${zh ? '数据库' : 'Database'}</th><th style="width:60px;text-align:center">${zh ? '已检索' : 'Searched'}</th><th style="width:75px;text-align:center">${zh ? '结果' : 'Result'}</th><th style="width:70px;text-align:center">${zh ? '风险等级' : 'Risk'}</th><th>${zh ? '备注' : 'Note'}</th></tr>`
     for (const q of dbRows) {
       const hits = q.status === 'ok' ? (q.hits ?? 0) : -1
-      const statusTxt = q.status === 'ok'
-        ? (hits > 0 ? String(hits) : (zh ? '✓ 无记录' : '✓ Clear'))
+      // The ✓ answers exactly one question — did this search run — and the
+      // result column answers only what it returned. Fused, a red hit count
+      // carried no ✓ and the least-skimmable row looked unsearched.
+      const searchedTxt = q.status === 'ok'
+        ? `<span style="color:#16A34A;font-weight:700">✓</span>`
         : q.status === 'timeout' ? (zh ? '超时' : 'Timeout')
-        : q.status === 'skipped' ? (zh ? '已跳过' : 'Skipped')
+        : '—'
+      const statusTxt = q.status === 'ok'
+        ? (hits > 0 ? `${hits} ${zh ? '条命中' : 'hit(s)'}` : (zh ? '无记录' : 'Clear'))
+        : q.status === 'timeout' ? (zh ? '超时' : 'Timeout')
+        : q.status === 'skipped' ? (zh ? '未检索' : 'Not searched')
         : (zh ? '不可用' : 'N/A')
       const riskText = q.severity === 3 ? (zh ? '严重' : 'Critical') : q.severity === 2 ? (zh ? '高' : 'High') : q.severity === 1 ? (zh ? '中' : 'Medium') : (zh ? '无' : 'None')
       const riskColor = q.severity === 3 ? '#DC2626' : q.severity === 2 ? '#D97706' : q.severity === 1 ? '#1D4ED8' : '#16A34A'
@@ -944,6 +951,7 @@ export async function generateScreeningReport(
         : ''
       html += `<tr>
         <td style="${rowBg}">${esc(q.source)}</td>
+        <td style="${rowBg};text-align:center">${searchedTxt}</td>
         <td style="${rowBg};text-align:center;font-weight:${hits > 0 ? '700' : '400'};color:${stColorCourt}">${statusTxt}</td>
         <td style="${rowBg};text-align:center;color:${riskColor};font-weight:600;font-size:10px">${hits > 0 ? riskText : '—'}</td>
         <td style="${rowBg};font-size:8.5px;color:#64748B">${esc(q.note || '')}${manualLink}</td>

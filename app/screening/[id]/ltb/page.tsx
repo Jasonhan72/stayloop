@@ -53,8 +53,10 @@ function Badge({ label, color }: { label: string; color: string }) {
   )
 }
 
+// The ✓ marks exactly one thing: this source actually ran a search. Result
+// badges are separate, so a red hit-count row still visibly carries its check.
 const STATUS_STYLE: Record<CourtQuery['status'], { color: string; en: string; zh: string }> = {
-  ok: { color: '#047857', en: 'SEARCHED', zh: '已检索' },
+  ok: { color: '#047857', en: '✓ SEARCHED', zh: '✓ 已检索' },
   unavailable: { color: '#B45309', en: 'UNAVAILABLE', zh: '不可用' },
   skipped: { color: '#71717A', en: 'NOT SEARCHED', zh: '未检索' },
   coming_soon: { color: '#71717A', en: 'NOT SEARCHED', zh: '未检索' },
@@ -254,9 +256,16 @@ export default function LTBPage() {
               <div className="mt-5 space-y-2.5">
                 {queries.map((q, i) => {
                   const st = STATUS_STYLE[q.status] ?? STATUS_STYLE.skipped
+                  const hits = q.status === 'ok' ? (q.hits ?? 0) : null
                   return (
                     <div key={i} className="flex flex-wrap items-start gap-x-3 gap-y-1.5 rounded-lg border border-line-divider bg-[#FAFAF8] px-4 py-3">
                       <Badge label={zh ? st.zh : st.en} color={st.color} />
+                      {hits != null && (
+                        <Badge
+                          label={hits > 0 ? `${hits} ${zh ? '条命中' : 'HIT(S)'}` : (zh ? '无记录' : 'NO RECORDS')}
+                          color={hits > 0 ? '#DC2626' : '#047857'}
+                        />
+                      )}
                       <div className="min-w-0 flex-1 basis-[14rem]">
                         <div className="text-[13.5px] font-semibold text-body">{q.source}</div>
                         {q.note && <div className="mt-0.5 break-words text-[12px] leading-relaxed text-body-3">{q.note}</div>}
