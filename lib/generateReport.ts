@@ -249,7 +249,11 @@ export async function generateScreeningReport(
   </div>`
 
   // ── 0. Report Meta + Applicant Information (FrontLobby-style block) ──
-  const courtDbCount = (result.court_records_detail as { databases_searched?: number } | undefined)?.databases_searched
+  // `court_records_detail.databases_searched` is deliberately NOT read
+  // anywhere anymore. On legacy reports it holds the CanLII fan-out count
+  // (~78), and every one of those "searches" hit an endpoint that ignores the
+  // name parameter — printing "78 sources searched" from it asserts diligence
+  // that never happened. Only rows with status==='ok' (dbCount) are counted.
   html += `<div style="border:1px solid #E2E8F0;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:10px;color:#475569">
     <div>${zh ? '报告生成日期' : 'Report generated'}: <strong>${date}</strong>
     ${result.screening_id ? ` &nbsp;·&nbsp; ${zh ? '报告编号' : 'Report ID'}: <strong style="font-family:monospace">${esc(result.screening_id)}</strong>` : ''}
@@ -258,7 +262,11 @@ export async function generateScreeningReport(
     <div style="margin-top:4px;color:#64748B">${zh ? '数据来源' : 'Data sources'}: ${[
       zh ? '确定性文件取证引擎（PDF 元数据 · 结构指纹 · 数学复算 · 跨文档核对）' : 'Deterministic document forensics engine (PDF metadata · structure fingerprints · math recomputation · cross-doc checks)',
       zh ? 'AI 视觉内容分析' : 'AI vision content analysis',
-      `CanLII${courtDbCount ? ` (${zh ? `${courtDbCount} 个数据源` : `${courtDbCount} sources`})` : ''}`,
+      // CanLII is deliberately NOT in this list. Its API cannot search by name,
+      // so it is never a source this report draws on — the court table below
+      // discloses it as a manual step with a pre-filled link instead. Listing
+      // it here would claim a search that never ran.
+      zh ? 'LTB 判令目录（安省开放数据）' : 'LTB Order Catalogue (Ontario Open Data)',
       zh ? '安省法院公开门户' : 'Ontario Courts public portal',
       ...(result.deep_check_result?.checks?.length ? [zh ? '加拿大公司注册库' : 'Canadian corporate registries'] : []),
     ].join(' · ')}</div>
@@ -345,7 +353,7 @@ export async function generateScreeningReport(
     <div><div class="val">$${rentNum ? rentNum.toLocaleString() : '—'}</div>${zh ? '目标月租金' : 'Monthly Rent'}</div>
     <div><div class="val">${ratio != null ? ratio.toFixed(1) + 'x' : 'N/A'}</div>${zh ? '收入/租金比' : 'Income Ratio'}</div>
     <div><div class="val">${filesCount}</div>${zh ? '文件已分析' : 'Files Analyzed'}</div>
-    <div><div class="val">${courtDbCount || dbCount}</div>${zh ? '法庭数据源已查' : 'Court sources'}</div>
+    <div><div class="val">${dbCount}</div>${zh ? '法庭数据源已查' : 'Court sources'}</div>
   </div>`
   html += `</div>`
 
@@ -374,7 +382,7 @@ export async function generateScreeningReport(
       detail: dbCount === 0
         ? (zh ? '未查询' : 'Not searched')
         : totalHits === 0
-          ? (zh ? `已查 ${courtDbCount || dbCount} 个数据源,无记录` : `${courtDbCount || dbCount} sources searched, clear`)
+          ? (zh ? `已查 ${dbCount} 个数据源,无记录` : `${dbCount} sources searched, clear`)
           : (zh ? `${totalHits} 条记录命中` : `${totalHits} record(s) found`),
     },
     {
@@ -903,7 +911,6 @@ export async function generateScreeningReport(
     html += `<p style="font-size:10px;margin-bottom:8px;color:#475569">${esc(courtSummary)}</p>`
   }
   html += `<div class="kv"><span class="k">${zh ? '查询姓名' : 'Queried Name'}:</span><span class="v">${esc(queriedName)}</span></div>
-  ${courtDbCount ? `<div class="kv"><span class="k">${zh ? '已检索数据源' : 'Sources searched'}:</span><span class="v">${courtDbCount}${zh ? ' 个（CanLII 安省全库 + 安省法院门户）' : ' (all CanLII Ontario databases + Ontario Courts Portal)'}</span></div>` : ''}
   <div class="kv"><span class="k">${zh ? '总命中数' : 'Total Hits'}:</span><span class="v" style="font-weight:700;color:${totalHits > 0 ? '#DC2626' : '#16A34A'}">${totalHits}</span></div>
   <div style="font-size:9px;color:#94A3B8;margin:2px 0 4px">${zh ? '「✓ 无记录」表示该库已实际检索且零命中——与「未检索」是两回事。未响应的库单独标注,不计入"无记录"。' : '"✓ Clear" means the source was actually searched with zero hits — distinct from "not searched". Sources that failed to respond are labelled separately, never counted as clear.'}</div>`
 
@@ -928,11 +935,18 @@ export async function generateScreeningReport(
       // Certn-style row tinting: green for cleared databases, red for hits
       const rowBg = hits > 0 ? 'background:#FEF2F2' : hits === 0 ? 'background:#F0FDF4' : 'background:#F8FAFC'
       const stColorCourt = hits > 0 ? '#DC2626' : hits === 0 ? '#16A34A' : '#94A3B8'
+      // A source that could not be searched automatically may still carry a
+      // pre-filled manual search URL (CanLII: the website searches, the API
+      // does not). Print it — this is a paper trail, and the link is the step
+      // the landlord is being asked to take.
+      const manualLink = q.url && q.status !== 'ok'
+        ? ` <a href="${esc(q.url)}" style="color:#6D28D9">${zh ? '一键人工检索' : 'run the search yourself'}</a>`
+        : ''
       html += `<tr>
         <td style="${rowBg}">${esc(q.source)}</td>
         <td style="${rowBg};text-align:center;font-weight:${hits > 0 ? '700' : '400'};color:${stColorCourt}">${statusTxt}</td>
         <td style="${rowBg};text-align:center;color:${riskColor};font-weight:600;font-size:10px">${hits > 0 ? riskText : '—'}</td>
-        <td style="${rowBg};font-size:8.5px;color:#64748B">${esc(q.note || '')}</td>
+        <td style="${rowBg};font-size:8.5px;color:#64748B">${esc(q.note || '')}${manualLink}</td>
       </tr>`
     }
     html += `</table>`
@@ -1070,8 +1084,8 @@ export async function generateScreeningReport(
   html += `<h2>${zh ? '法律声明与方法说明' : 'Legal & Methodology'}</h2>
   <div style="font-size:9px;color:#64748B;line-height:1.7">
     <p style="margin-bottom:5px">${zh
-      ? '本报告由 Stayloop AI 基于申请人自愿提交的文件自动生成,数据来源包括:上传文件的 AI 内容分析与确定性取证检测(PDF 元数据、文字密度、来源指纹、跨文档一致性)、CanLII 公开判例库、安大略省法院公开门户,以及加拿大公司注册公开数据。本报告不含信用局(Equifax/TransUnion)征信数据。'
-      : 'This report was generated automatically by Stayloop AI from documents voluntarily submitted by the applicant. Data sources include: AI content analysis and deterministic forensics of the uploaded files (PDF metadata, text density, source fingerprints, cross-document consistency), the public CanLII case-law database, the Ontario Courts public portal, and public Canadian corporate-registry data. This report does NOT include credit-bureau (Equifax/TransUnion) data.'}</p>
+      ? '本报告由 Stayloop AI 基于申请人自愿提交的文件自动生成,数据来源包括:上传文件的 AI 内容分析与确定性取证检测(PDF 元数据、文字密度、来源指纹、跨文档一致性)、安省 LTB 判令目录(开放数据,依《安大略省开放政府许可》使用)、安大略省法院公开门户,以及加拿大公司注册公开数据。CanLII 不在自动检索之列(其 API 不支持按姓名检索),报告仅提供预填姓名的人工检索链接。本报告不含信用局(Equifax/TransUnion)征信数据。'
+      : 'This report was generated automatically by Stayloop AI from documents voluntarily submitted by the applicant. Data sources include: AI content analysis and deterministic forensics of the uploaded files (PDF metadata, text density, source fingerprints, cross-document consistency), the Ontario LTB Order Catalogue (open data, used under the Open Government Licence – Ontario), the Ontario Courts public portal, and public Canadian corporate-registry data. CanLII is not searched automatically (its API offers no name search); the report provides a pre-filled manual search link instead. This report does NOT include credit-bureau (Equifax/TransUnion) data.'}</p>
     <p style="margin-bottom:5px">${zh
       ? '本报告仅可在申请人知情同意下,为订立或续订租赁协议之目的查看与使用,不得向无正当目的的第三方分发。依据《安大略省人权法典》,受保护特征(种族、国籍、宗教、性别、年龄、家庭状况、残障等)未被用于评分;详见合规审计一节。'
       : 'This report may only be viewed and used, with the applicant\'s knowledge and consent, in connection with entering into or renewing a tenancy agreement, and may not be distributed to third parties without a valid purpose. Per the Ontario Human Rights Code, protected grounds (race, nationality, religion, sex, age, family status, disability, etc.) were excluded from scoring — see the Compliance Audit section.'}</p>

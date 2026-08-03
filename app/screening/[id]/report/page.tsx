@@ -307,7 +307,9 @@ export default function ReportPage() {
   const portalRecords: OntarioPortalMatch[] = courtQueries.flatMap(q => q.portalRecords || [])
   const totalHits = courtDetail?.total_hits || 0
   const queriedName = courtDetail?.queried_name || '—'
-  const sourcesSearched = courtDetail?.databases_searched
+  // courtDetail.databases_searched is deliberately unused: on legacy rows it
+  // holds the CanLII fan-out count (~78), and those "searches" hit an endpoint
+  // that ignores the name — the count measured requests, not diligence.
   const okDbCount = courtRows.filter(q => q.status === 'ok').length
 
   // Income: per-paystub verification rows from forensics
@@ -525,7 +527,7 @@ export default function ReportPage() {
             {ratio != null && <span>{zh ? '收入/租金' : 'Income/Rent'}: {ratio.toFixed(1)}x</span>}
             <span>{zh ? '文件' : 'Files'}: {fileCount}</span>
             {checksRan > 0 && <span>{zh ? '取证检查' : 'Forensic checks'}: {checksRan}/{checkMatrix.length}</span>}
-            {sourcesSearched != null && <span>{zh ? '法庭数据源' : 'Court sources'}: {sourcesSearched}</span>}
+            {okDbCount > 0 && <span>{zh ? '法庭数据源' : 'Court sources'}: {okDbCount}</span>}
           </div>
 
           {Object.keys(dims).length > 0 && (
@@ -577,10 +579,14 @@ export default function ReportPage() {
               <ul className="space-y-1.5 text-[13px] text-body-2">
                 <li>• {zh ? '确定性文件取证引擎 — PDF 元数据、内部结构指纹、数学复算（CRA 扣缴 / YTD / Benford）、跨文档核对，全部在服务端确定性计算，非 AI 推断' : 'Deterministic document forensics engine — PDF metadata, internal structure fingerprints, math recomputation (CRA deductions / YTD / Benford), cross-document checks. Computed server-side, not AI-inferred.'}</li>
                 <li>• {zh ? 'AI 视觉分析 — 文件内容读取、OCR、信用报告真伪视觉复核' : 'AI vision analysis — document content reading, OCR, credit-report authenticity second opinion'}</li>
-                <li>• {zh ? `CanLII 公开判例库 — 安省全部法院/仲裁庭数据库${sourcesSearched ? `（本次共检索 ${sourcesSearched} 个数据源）` : ''}` : `CanLII public case-law — all Ontario court/tribunal databases${sourcesSearched ? ` (${sourcesSearched} sources searched this run)` : ''}`}</li>
+                {/* CanLII is not listed as a searched source: its API has no name
+                    search, so the report only offers a pre-filled manual link (court
+                    table). Claiming "N databases searched" from the legacy field
+                    asserted diligence that never ran. */}
+                <li>• {zh ? 'LTB 判令目录（安省开放数据）— 按姓名建库检索，地址佐证后方可影响评分' : 'LTB Order Catalogue (Ontario Open Data) — name-indexed by us; only address-corroborated hits may affect the score'}</li>
                 <li>• {zh ? '安省法院公开门户 — 民事与小额法庭立案系统（含 CanLII 未收录的新近立案）' : 'Ontario Courts public portal — Civil & Small Claims filings (incl. recent cases not yet on CanLII)'}</li>
                 {dc && dc.checks?.length > 0 && (
-                  <li>• {zh ? '加拿大公司注册库（OpenCorporates）— 雇主独立性深度核查' : "Canadian corporate registries (OpenCorporates) — employer arm's-length deep check"}</li>
+                  <li>• {zh ? '加拿大公司注册库（本地联邦库 + CBR/MRAS 官方联查）— 雇主独立性深度核查' : "Canadian corporate registries (local federal table + official CBR/MRAS federated search) — employer arm's-length deep check"}</li>
                 )}
               </ul>
               <p className="mt-3 text-[11px] leading-relaxed text-body-3">
@@ -1179,8 +1185,8 @@ export default function ReportPage() {
               id="court"
               title={zh ? '法庭 / LTB 记录检索披露' : 'COURT / LTB SEARCH DISCLOSURE'}
               subtitle={zh
-                ? `${sourcesSearched ?? okDbCount} 个数据源已检索 · ${totalHits} 条命中`
-                : `${sourcesSearched ?? okDbCount} sources searched · ${totalHits} hit(s)`}
+                ? `${okDbCount} 个数据源已检索 · ${totalHits} 条命中`
+                : `${okDbCount} sources searched · ${totalHits} hit(s)`}
             >
               {(r.court_summary_en || r.court_summary_zh) && (
                 <p className="mb-4 text-[13px] text-body-2">
@@ -1196,8 +1202,8 @@ export default function ReportPage() {
               </div>
               <p className="mt-2 text-[11px] leading-relaxed text-body-3">
                 {zh
-                  ? '「✓ 无记录」表示该数据源已按姓名实际检索且零命中——与「未检索」是两回事。不可用/未响应的数据源单独标注，绝不计入「无记录」。CanLII 现列为「不可用」：其 API 只支持按日期分页，不提供姓名或全文检索，因此无法用于查人。'
-                  : '"✓ Clear" means that source was actually searched by name and returned nothing — distinct from "not searched". Unavailable sources are labelled separately and are never counted as clear. CanLII is listed unavailable: its API filters by date only and offers no name or full-text search, so it cannot be used to look a person up.'}
+                  ? '「✓ 无记录」表示该数据源已按姓名实际检索且零命中——与「未检索」是两回事。不可用/未响应的数据源单独标注，绝不计入「无记录」。CanLII 无法自动检索（其 API 只支持按日期分页，不提供姓名或全文检索），但 CanLII 网站本身可以全文检索——其条目附带已预填申请人姓名的一键检索链接，点开自行核读；同名者（律师、仲裁员、他案当事人）很常见，命中不等于同一人。'
+                  : '"✓ Clear" means that source was actually searched by name and returned nothing — distinct from "not searched". Unavailable sources are labelled separately and are never counted as clear. CanLII cannot be searched automatically (its API filters by date only), but the CanLII website can — its row carries a one-click link with the applicant\'s name pre-filled. Read matches yourself: namesakes (counsel, arbitrators, parties in unrelated cases) are common, and a hit is not the same person until you have read it.'}
               </p>
 
               {courtRows.length > 0 && (
@@ -1215,6 +1221,21 @@ export default function ReportPage() {
                         <Badge label={label} color={col} />
                         <span className="min-w-0 flex-1 text-[13px] text-body-2">{q.source}</span>
                         {q.note && <span className="w-full text-[11px] text-body-3 sm:w-auto">{q.note}</span>}
+                        {q.url && (
+                          <a
+                            href={q.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-[11px] underline"
+                            style={{ color: '#6D28D9' }}
+                          >
+                            {/* For a source we could not search automatically, the link IS the
+                                check — a pre-filled search the landlord runs themselves. */}
+                            {q.status === 'ok'
+                              ? (zh ? '数据源' : 'source')
+                              : (zh ? '一键人工检索 ↗' : 'run the search yourself ↗')}
+                          </a>
+                        )}
                       </div>
                     )
                   })}

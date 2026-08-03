@@ -433,17 +433,30 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
   // screening, next to copy stating that a clear result means the source was
   // actually searched. A tenant with a real, live LTB eviction came back clean.
   //
-  // It is not fixable with better parameters, so it is not presented as a
-  // searched source. What actually searches by name stays: the Ontario Courts
-  // Portal (party search, below) and the LTB Order Catalogue (Ontario Open
-  // Data, indexed by us — see Stage 3.7 in the POST handler).
+  // It is not fixable with better parameters (re-verified 2026-08-02, with the
+  // configured API key: no fullText, a real name, and a nonsense string still
+  // return byte-identical result sets), so it is never presented as a searched
+  // source. What actually searches by name stays: the Ontario Courts Portal
+  // (party search, below) and the LTB Order Catalogue (Ontario Open Data,
+  // indexed by us — see Stage 3.7 in the POST handler).
+  //
+  // What we CAN honestly offer is canlii.org itself: the WEBSITE has real
+  // full-text search — only the API lacks it — and its results page is a plain
+  // shareable URL. So the entry carries a link with the applicant's name
+  // pre-filled, one click for the landlord, running in their own browser
+  // (which also sidesteps CanLII's bot protection, which 403s server-side
+  // fetches). It is labelled a manual step, never counted as searched, and no
+  // hit count is ever derived from it: the same search for "David Park"
+  // returns Crown counsel David Parke, arbitrator David Parkes, and the
+  // sentence "Mr. David parked his car" — a human reads that correctly,
+  // a scorer must not.
   queries.push({
     source: 'CanLII',
     tier: 'free',
     status: 'unavailable',
     hits: null,
-    note: 'CanLII publishes no name-search API — its endpoints filter by date only. Not searched; use the sources below.',
-    url: 'https://www.canlii.org/en/on/',
+    note: 'CanLII\'s API has no name search (date filters only), so this source cannot be searched automatically. Its website can: use the link to run the pre-filled full-text search across all Ontario databases and read the matches yourself.',
+    url: `https://www.canlii.org/en/#search/type=decision&jId=on&text=${encodeURIComponent(`"${searchName}"`)}`,
   })
 
   const allRecords: CanLIIMatch[] = []

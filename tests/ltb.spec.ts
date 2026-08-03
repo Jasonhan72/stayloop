@@ -227,3 +227,36 @@ describe('the court page reports what was searched, not a fixed list', () => {
     expect(code).not.toMatch(/Array\.isArray\(\s*court\s*\)/)
   })
 })
+
+describe('no surface claims the CanLII fan-out was a search', () => {
+  // The legacy field court_records_detail.databases_searched counts the old
+  // ~78-database CanLII fan-out — requests to an endpoint that ignores the
+  // name parameter. Any copy that renders it as "N sources searched", or
+  // describes CanLII as a searched database set, asserts diligence that never
+  // ran. CanLII appears only as a pre-filled MANUAL search link.
+  it('the banned phrasings appear nowhere in app/ or lib/', async () => {
+    const { execSync } = await import('node:child_process')
+    const banned = [
+      'all CanLII Ontario databases',
+      'CanLII 安省全库',
+      '安省全部法院/仲裁庭数据库',
+      'sources searched this run',
+      '本次共检索',
+    ]
+    const offending: string[] = []
+    for (const phrase of banned) {
+      let hits = ''
+      try {
+        hits = execSync(
+          `git grep -nI --fixed-strings ${JSON.stringify(phrase)} -- 'app/**' 'lib/**' ':!**/*.spec.ts'`,
+          { cwd: process.cwd(), encoding: 'utf8' },
+        )
+      } catch { hits = '' }
+      offending.push(...hits.split('\n').filter(Boolean).filter((line) => {
+        const code = line.split(':').slice(2).join(':').trim()
+        return code && !code.startsWith('//') && !code.startsWith('*') && !code.startsWith('/*') && !code.startsWith('--')
+      }))
+    }
+    expect(offending, `these lines claim a CanLII search that never ran:\n${offending.join('\n')}`).toEqual([])
+  })
+})
