@@ -176,6 +176,14 @@ export interface CrossDocVerification {
     suspected: boolean
     signals: string[]
   } | null
+  /**
+   * Who signed the employment letter, and the title printed beside the
+   * signature. Feeds deep-check's arm's-length verification: a signer titled
+   * "Director/Owner" whose surname is a family variant of the applicant's is
+   * the non-arm's-length finding, straight from the letter — no registry
+   * needed (CBR publishes no directors; OpenCorporates needs a paid token).
+   */
+  employment_letter_signatory?: { name?: string | null; title?: string | null } | null
   application_summary?: {
     applying_rent: number | null
     prev_residences: Array<{

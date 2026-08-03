@@ -221,6 +221,7 @@ interface DeepCheckPayload {
   applicant_phone?: string
   applicant_email?: string
   signatory_name?: string
+  signatory_title?: string
   signatory_phone?: string
   /** true if cross_doc flagged HR phone == applicant phone (self-verification) */
   hr_phone_collision?: boolean
@@ -413,6 +414,7 @@ export async function POST(req: Request) {
         applicant_phone: body.applicant_phone,
         applicant_email: body.applicant_email,
         signatory_name: body.signatory_name,
+        signatory_title: body.signatory_title,
         signatory_phone: body.signatory_phone,
         hr_phone_collision: body.hr_phone_collision,
         employer_doc_text: body.employer_doc_text,
@@ -451,6 +453,7 @@ export async function POST(req: Request) {
       applicant_phone: payload.applicant_phone,
       applicant_email: payload.applicant_email,
       signatory_name: payload.signatory_name,
+      signatory_title: payload.signatory_title,
       signatory_phone: payload.signatory_phone,
       hr_phone_collision: payload.hr_phone_collision,
       companyLookup: makeCachedCompanyLookup(cacheClient),

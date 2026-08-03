@@ -1681,6 +1681,13 @@ export default function ScreenPage() {
           applicant_address: firstOr(cross.addresses),
           applicant_phone: firstOr(cross.phones),
           applicant_email: firstOr(cross.emails),
+          // Who signed the employment letter + their printed title. Extracted
+          // by scoring into cross_doc_verification; without these the server's
+          // signatory comparison never ran — the arm's-length check returned
+          // "clean" for a letter signed by a Director/Owner sharing the
+          // applicant's family surname, because nobody told it who signed.
+          signatory_name: result?.cross_doc_verification?.employment_letter_signatory?.name || undefined,
+          signatory_title: result?.cross_doc_verification?.employment_letter_signatory?.title || undefined,
           hr_phone_collision: forensics?.cross_doc?.hr_phone_collision === true,
           // Aggregate text from employment-related docs so the server can
           // scan for Business Numbers and cross-check against the federal

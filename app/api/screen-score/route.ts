@@ -1002,7 +1002,7 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble.
  "bank_min_balance":<number or null>,
  "identity_match_score":<0-100 or null>,
  "credit_report":{"present":<true ONLY if a GENUINE consumer credit report (Equifax/TransUnion/SingleKey/FrontLobby/Borrowell) was uploaded; else false>,"bureau":"Equifax|TransUnion|Dual|other|null","credit_score":<300-900 integer or null>,"score_band":"Poor|Fair|Good|Very Good|Excellent|null","report_date":"YYYY-MM-DD or as shown or null","employment":{"current":"employer name as printed in the report's Employment section or null","previous":"or null"},"tradelines":[{"creditor":"","type":"Revolving|Installment|Open|Mortgage|Lease|other","date_opened":"","balance":<number or null>,"credit_limit":<the ASSIGNED limit as printed, or null — distinct from high_credit>,"high_credit":<highest balance carried, or null>,"past_due":<number or null>,"payment_status":"","late_30_60_90":"0/0/0"}],"collections":[{"creditor":"","date_assigned":"","original_amount":<number or null>,"balance":<number or null>}],"bankruptcies":[{"date_filed":"","type":"","amount":<number or null>,"disposition":""}],"inquiries":[{"date":"","creditor":""}],"total_debt":<number or null>,"monthly_debt_payments":<number or null>},
- "cross_doc_verification":{"bank_accounts":[{"holder_name":"","entity_type":"personal|business","is_applicant":<bool — true ONLY if holder name matches applicant>,"statement_period":"as shown or null"}],"income_corroboration":{"claimed_monthly":<number or null>,"personal_payroll_seen":<bool>,"observed_pattern":"≤25 words — what deposits ACTUALLY recur","verdict":"corroborated|partial|uncorroborated","detail":"≤35 words, plain truth"},"related_party":{"suspected":<bool>,"signals":["one signal per entry, name the people"]},"application_summary":{"applying_rent":<number or null>,"prev_residences":[{"address":"","period":"","landlord_name":"","landlord_phone":""}],"vacating_reason":"as stated or null","vehicles":["..."],"blank_sections":["form sections left empty"]},"suspicious_transfers":["amount + counterparty + which application name it matches"],"verification_checklist":["3-6 executable steps, include phone numbers found in docs"]},
+ "cross_doc_verification":{"bank_accounts":[{"holder_name":"","entity_type":"personal|business","is_applicant":<bool — true ONLY if holder name matches applicant>,"statement_period":"as shown or null"}],"income_corroboration":{"claimed_monthly":<number or null>,"personal_payroll_seen":<bool>,"observed_pattern":"≤25 words — what deposits ACTUALLY recur","verdict":"corroborated|partial|uncorroborated","detail":"≤35 words, plain truth"},"related_party":{"suspected":<bool>,"signals":["one signal per entry, name the people"]},"employment_letter_signatory":{"name":"the person who SIGNED the employment/offer letter, exactly as signed, or null","title":"their printed title beside the signature (e.g. Director/Owner, HR Manager) or null"},"application_summary":{"applying_rent":<number or null>,"prev_residences":[{"address":"","period":"","landlord_name":"","landlord_phone":""}],"vacating_reason":"as stated or null","vehicles":["..."],"blank_sections":["form sections left empty"]},"suspicious_transfers":["amount + counterparty + which application name it matches"],"verification_checklist":["3-6 executable steps, include phone numbers found in docs"]},
  "scores":{"ability_to_pay":<0-100>,"credit_health":<0-100>,"rental_history":<0-100>,"verification":<0-100>,"communication":<0-100>},
  "sub_coverage":{"only_non_measured_keys":"action_pending|missing"},
  "details_en":{"ability_to_pay":"","credit_health":"","rental_history":"","verification":"","communication":""},
@@ -1589,10 +1589,21 @@ JSON DISCIPLINE (avoid parse errors):
         !applicationSummary && suspiciousTransfers.length === 0 && verificationChecklist.length === 0
       ) return null
 
+      // Who signed the employment letter — the input deep-check's arm's-length
+      // verification was missing (see CrossDocVerification type doc).
+      const rawSig = raw.employment_letter_signatory
+      const signatory = rawSig && typeof rawSig === 'object'
+        ? {
+            name: typeof rawSig.name === 'string' && rawSig.name.trim() ? rawSig.name.trim().slice(0, 120) : null,
+            title: typeof rawSig.title === 'string' && rawSig.title.trim() ? rawSig.title.trim().slice(0, 120) : null,
+          }
+        : null
+
       return {
         bank_accounts: bankAccounts,
         income_corroboration: incomeCorroboration,
         related_party: relatedParty,
+        employment_letter_signatory: signatory,
         application_summary: applicationSummary,
         suspicious_transfers: suspiciousTransfers,
         verification_checklist: verificationChecklist,

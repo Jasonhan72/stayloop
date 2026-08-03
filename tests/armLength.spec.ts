@@ -83,3 +83,83 @@ describe('employer canonicalization does not eat words', () => {
     expect(canonicalizeEmployerName('Visa Inc')).toBe('visa')
   })
 })
+import { checkArmLength } from '../lib/forensics/arm-length'
+
+// The lookup deep-check actually has today: CBR/MRAS — company exists, but the
+// registry publishes NO directors, and OpenCorporates has no token.
+const cbrNorthline = async () => ({
+  name: 'NORTHLINE MOTORS INC.',
+  company_number: '1873411',
+  jurisdiction: 'Ontario',
+  incorporation_date: '2012-05-16',
+  status: 'Active (incorporated)',
+  registered_address: 'WOODBRIDGE, Ontario',
+  company_type: 'ONTARIO BUSINESS CORP.',
+  officers: [],
+  registry_url: 'https://example.invalid',
+  source: 'cbr_on',
+})
+
+describe("arm's-length: the case-21 letter, replayed", () => {
+  // Employment letter signed "Sia Allas (Director/Owner)" for applicant
+  // "Alaleh Allasvandi Toghian". Shipped verdict: clean. Three misses at once:
+  // the client never sent the signatory, last-token surname equality failed on
+  // a compound surname + truncated family variant, and the registry has no
+  // directors to compare against — while rendering "clean" as if it had.
+  it('flags the letter-asserted family ownership as high risk', async () => {
+    const r = await checkArmLength(
+      'Northline Motors Inc.',
+      'Alaleh Allasvandi Toghian',
+      undefined,
+      'Sia Allas',
+      { signatory_title: 'Director/Owner', companyLookup: cbrNorthline },
+    )
+    expect(r.arm_length_risk).toBe('high')
+    expect(r.flags.some((f) => f.code === 'arm_length_signatory_owner_family')).toBe(true)
+    expect(r.applicant_lastname_match).toBe(true)
+  })
+
+  it('surname relation handles compound surnames and truncated variants', async () => {
+    // ALLAS (5 chars) is a prefix of ALLASVANDI, which is not the last token.
+    const r = await checkArmLength(
+      'Northline Motors Inc.', 'Alaleh Allasvandi Toghian', undefined, 'Siavash Allas',
+      { companyLookup: cbrNorthline },
+    )
+    expect(r.applicant_lastname_match).toBe(true)
+  })
+
+  it('does not relate Park to Parker — the surname-substitution pair stays apart', async () => {
+    // 4-char prefix is below the bar precisely because PARK/PARKER are
+    // different surnames (documented in the LTB matching work).
+    const r = await checkArmLength(
+      'Acme Corp', 'David Park', undefined, 'Susan Parker',
+      { companyLookup: cbrNorthline },
+    )
+    expect(r.applicant_lastname_match).toBe(false)
+  })
+
+  it('a registry without directors is disclosed, not silently clean', async () => {
+    const r = await checkArmLength(
+      'Northline Motors Inc.', 'Jane Doe', undefined, undefined,
+      { companyLookup: cbrNorthline },
+    )
+    expect(r.flags.some((f) => f.code === 'arm_length_officers_unavailable')).toBe(true)
+  })
+
+  it('an unrelated signatory without an ownership title stays clean', async () => {
+    const r = await checkArmLength(
+      'Northline Motors Inc.', 'Alaleh Allasvandi Toghian', undefined, 'Marta Kowalski',
+      { signatory_title: 'HR Manager', companyLookup: cbrNorthline },
+    )
+    expect(r.arm_length_risk).toBe('clean')
+    expect(r.flags.some((f) => f.code === 'arm_length_signatory_owner_family')).toBe(false)
+  })
+
+  it('ownership title alone, without a family surname, does not fire the family flag', async () => {
+    const r = await checkArmLength(
+      'Northline Motors Inc.', 'Alaleh Allasvandi Toghian', undefined, 'John Ingrisilli',
+      { signatory_title: 'Director/Owner', companyLookup: cbrNorthline },
+    )
+    expect(r.flags.some((f) => f.code === 'arm_length_signatory_owner_family')).toBe(false)
+  })
+})

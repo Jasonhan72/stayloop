@@ -119,14 +119,32 @@ export function canonicalizeEmployerName(name: string): string {
 
 // Check if two names likely refer to the same person (fuzzy last-name match)
 function lastNameMatch(name1: string, name2: string): boolean {
+  // Family-relatedness, not same-person identity — deliberately broader than
+  // the LTB module's matching, because the question here is "could these two
+  // people be relatives", and the cost of a hit is a review flag, not a score.
+  //
+  // The case that forced this shape: employment letter signed "Sia Allas
+  // (Director/Owner)" for applicant "Alaleh Allasvandi Toghian". Last-token
+  // equality failed three ways at once — the applicant's surname is compound
+  // (last token: TOGHIAN), the family surname is not the last token
+  // (ALLASVANDI), and the signatory used the truncated variant (ALLAS). So:
+  // compare EVERY token of one name against every token of the other, and
+  // accept equality or a >=5-char prefix relation (5, not 4, so Park/Parker —
+  // a genuinely different surname pair the LTB work documented — stays apart).
+  // Given names colliding this way (e.g. two Mohammads) is possible; the
+  // common-surname downgrade in the caller absorbs that class.
   const normalize = (n: string) => n.toLowerCase().replace(/[^a-z\s]/g, '').trim()
-  const parts1 = normalize(name1).split(/\s+/)
-  const parts2 = normalize(name2).split(/\s+/)
+  const parts1 = normalize(name1).split(/\s+/).filter((p) => p.length >= 3)
+  const parts2 = normalize(name2).split(/\s+/).filter((p) => p.length >= 3)
   if (parts1.length === 0 || parts2.length === 0) return false
-  const last1 = parts1[parts1.length - 1]
-  const last2 = parts2[parts2.length - 1]
-  if (last1.length < 3 || last2.length < 3) return false
-  return last1 === last2
+  for (const a of parts1) {
+    for (const b of parts2) {
+      if (a === b) return true
+      const [short, long] = a.length <= b.length ? [a, b] : [b, a]
+      if (short.length >= 5 && long.startsWith(short)) return true
+    }
+  }
+  return false
 }
 
 // Check if name1 is a fuzzy match of name2 (same person)
@@ -346,6 +364,8 @@ export async function searchOpenCorporates(companyName: string): Promise<Company
  * @param signatory - name of the person who signed the employment letter (if extractable)
  */
 export interface CheckArmLengthOptions {
+  /** signatory's printed title on the letter, e.g. "Director/Owner" */
+  signatory_title?: string
   /** phone extracted from ID or lease application (applicant's phone) */
   applicant_phone?: string
   /** email extracted from ID or lease application */
@@ -400,11 +420,20 @@ export async function checkArmLength(
   }
 
   // Also check signatory name if provided
+  let signatoryOwnerFamily = false
   if (signatory && applicantName) {
     if (fullNameMatch(signatory, applicantName)) {
       applicantIsOfficer = true
     } else if (lastNameMatch(signatory, applicantName)) {
       applicantLastnameMatch = true
+      // The letter's own words: a signer titled Director/Owner who shares the
+      // applicant's family name needs no registry to establish the
+      // relationship — the letter asserts it. This is what the registries
+      // could not see (CBR carries no officers, OpenCorporates has no token):
+      // the evidence was on the letter the whole time.
+      if (/owner|director|president|proprietor|principal|founder/i.test(options.signatory_title || '')) {
+        signatoryOwnerFamily = true
+      }
     }
   }
 
@@ -425,6 +454,8 @@ export async function checkArmLength(
 
   let risk: 'high' | 'medium' | 'low' | 'clean' = 'clean'
   if (applicantIsOfficer) {
+    risk = 'high'
+  } else if (signatoryOwnerFamily) {
     risk = 'high'
   } else if (effectiveLastnameMatch && (numbered || recentlyIncorporated)) {
     risk = 'high'
@@ -454,7 +485,16 @@ export async function checkArmLength(
     })
   }
 
-  if (applicantLastnameMatch && !applicantIsOfficer) {
+  if (signatoryOwnerFamily && !applicantIsOfficer) {
+    flags.push({
+      code: 'arm_length_signatory_owner_family',
+      severity: 'critical',
+      evidence_en: `The employment letter is signed by "${signatory}" whose printed title is "${options.signatory_title}" and whose surname is related to the applicant's ("${applicantName}"). By the letter's own words, the income claim is issued by a family-owned company — not an arm's-length employer. Require independent proof: CRA Notice of Assessment, T4, or personal-account payroll deposits.`,
+      evidence_zh: `雇佣信由"${signatory}"签署，信上头衔为"${options.signatory_title}"，且其姓氏与申请人（"${applicantName}"）为同族变体。按雇佣信自己的表述，收入声明出自亲属所有的公司——不是独立第三方雇主。需要独立证据：CRA 税务评估通知（NOA）、T4，或个人账户的工资入账。`,
+    })
+  }
+
+  if (applicantLastnameMatch && !applicantIsOfficer && !signatoryOwnerFamily) {
     const matchingOfficer = companyInfo?.officers.find(o => lastNameMatch(o.name, applicantName))
     const matchName = matchingOfficer?.name || signatory || ''
     // Downgrade severity when surname is common and not corroborated.
@@ -499,6 +539,19 @@ export async function checkArmLength(
       severity: 'medium',
       evidence_en: `"${employerName}" was incorporated on ${incDate} (less than 2 years ago). Recently formed companies claiming long-term employment are suspicious.`,
       evidence_zh: `"${employerName}"注册于 ${incDate}（不到两年前）。新成立的公司声称长期雇佣关系令人怀疑。`,
+    })
+  }
+
+  if (companyInfo && companyInfo.officers.length === 0 && !applicantIsOfficer && !signatoryOwnerFamily) {
+    // CBR/MRAS carries no director data, and OpenCorporates runs only with a
+    // paid token. Without this line a "clean" verdict reads as "directors
+    // checked, no relationship found" when the truth is "directors could not
+    // be checked". The signatory comparison above still ran.
+    flags.push({
+      code: 'arm_length_officers_unavailable',
+      severity: 'low',
+      evidence_en: `The registry consulted (${companyInfo.source}) does not publish director/officer names, so the applicant-vs-directors comparison could NOT be performed for "${employerName}". A clean result here reflects only the checks that ran (company existence, incorporation date, signatory name).`,
+      evidence_zh: `所查询的注册库（${companyInfo.source}）不公开董事/高管名单，因此无法对"${employerName}"执行申请人与董事的比对。此项"无发现"仅代表已执行的检查（公司存在性、注册日期、签署人比对），不代表董事核验通过。`,
     })
   }
 

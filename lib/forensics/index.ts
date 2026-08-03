@@ -697,6 +697,7 @@ export async function runDeepCheck(input: {
   applicant_phone?: string
   applicant_email?: string
   signatory_name?: string
+  signatory_title?: string
   signatory_phone?: string
   /** true if cross_doc flagged HR-phone == applicant-phone collision */
   hr_phone_collision?: boolean
@@ -727,6 +728,7 @@ export async function runDeepCheck(input: {
       input.applicant_address,
       input.signatory_name,
       {
+        signatory_title: input.signatory_title,
         applicant_phone: input.applicant_phone,
         applicant_email: input.applicant_email,
         hr_phone_collision: input.hr_phone_collision,
