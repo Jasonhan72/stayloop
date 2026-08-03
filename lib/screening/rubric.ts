@@ -275,10 +275,24 @@ export function scoreRubric(f: RubricFacts): RubricResult {
   }
 
   // ── Verification ────────────────────────────────────────────────────────
-  const REQUIRED = ['id', 'income_proof', 'bank_statement', 'credit_report']
-  const present = REQUIRED.filter((k) => f.documentKinds.some((d) => d.includes(k))).length
+  // The vocabulary here has to be the one the extractor actually emits
+  // (screen-score's prompt: lease, employment_letter, pay_stub, bank_statement,
+  // id_document, credit_report, offer_letter, reference, other). It previously
+  // asked for 'income_proof', which no extractor has ever produced — so proof of
+  // income could not be counted even when a pay stub AND an employment letter
+  // were on file, capping every applicant at 3/4 and printing "3/4 required
+  // kinds" underneath a complete document set. A rule that cannot fire is worse
+  // than no rule: it looks like a measurement.
+  const REQUIRED: Array<{ label: string; kinds: string[] }> = [
+    { label: 'id', kinds: ['id_document'] },
+    { label: 'income_proof', kinds: ['pay_stub', 'employment_letter', 'offer_letter'] },
+    { label: 'bank_statement', kinds: ['bank_statement'] },
+    { label: 'credit_report', kinds: ['credit_report'] },
+  ]
+  const present = REQUIRED.filter((r) => f.documentKinds.some((d) => r.kinds.includes(d))).length
   let verification = Math.round((present / REQUIRED.length) * 70) + 20
-  add('verification', 'documents_present', verification, `${present}/${REQUIRED.length} required kinds`)
+  add('verification', 'documents_present', verification,
+    `${present}/${REQUIRED.length} required kinds (${f.documentKinds.join(', ') || 'none detected'})`)
 
   if (f.contradictions.length) {
     verification += add('verification', 'cross_doc_contradiction', -12 * Math.min(f.contradictions.length, 3),

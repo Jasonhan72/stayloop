@@ -104,6 +104,28 @@ grant execute on function public.ltb_coverage() to authenticated, service_role;
 --
 -- address_match is what separates a corroborated hit from a namesake. It is
 -- returned, never applied: the caller decides what a corroborated hit is worth.
+-- Matching rules, and why each exists:
+--   exact / reordered   — person_norm, or its tokens sorted, so an order printed
+--                         "WANG SARAH" still matches "Sarah Wang".
+--   subset              — token containment, which is what actually makes this
+--                         safe. Pure trigram similarity on short names is
+--                         dominated by the shared GIVEN name: at 0.62 "DAVID
+--                         PARK" pulled in DAVID PARKER (0.71) and DAVID PARRY
+--                         (0.64) — different people, different surnames, printed
+--                         on someone else's report. Containment still tolerates a
+--                         missing or extra middle name and rejects a substituted
+--                         surname outright.
+--   fuzzy               — a narrow escape hatch for transliteration drift only,
+--                         at >= 0.85, above every surname-substitution pair
+--                         observed in the catalogue.
+--
+-- plpgsql rather than SQL purely so this can run: Supabase does not permit a
+-- function-level SET of pg_trgm.similarity_threshold, but set_limit() is
+-- callable. Raising the threshold to 0.85 makes `%` mean exactly what the fuzzy
+-- branch means, so the trigram index returns a handful of rows instead of a
+-- thousand the function then has to re-filter. Each of the other branches has
+-- its own index (person_norm btree, person_key btree, gin on the token array).
+-- Measured at 143,869 rows: 904ms before, 19.6ms after, identical results.
 create or replace function public.search_ltb_orders(
   p_name        text,
   p_key         text,
@@ -123,57 +145,52 @@ returns table (
   person_name       text,
   unit_address      text,
   order_pdf_url     text,
-  match_kind        text,     -- exact | reordered | fuzzy
+  match_kind        text,     -- exact | reordered | subset | fuzzy
   similarity        real,
   address_match     boolean
 )
-language sql
+language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 stable
 as $$
+declare
+  v_tokens text[] := string_to_array(p_name, ' ');
+begin
+  -- A full name is required; single tokens are far too ambiguous to search on.
+  if length(coalesce(p_name, '')) < 5 or position(' ' in p_name) = 0 then
+    return;
+  end if;
+
+  perform set_limit(0.85);
+
+  return query
   select o.file_number, o.document_id, o.order_date, o.application_codes,
          o.application_type, o.document_type, o.party_side, o.role, o.person_name,
          o.unit_address, o.order_pdf_url,
          case when o.person_norm = p_name then 'exact'
               when o.person_key  = p_key  then 'reordered'
-              when string_to_array(o.person_norm, ' ') @> string_to_array(p_name, ' ')
-                or string_to_array(p_name, ' ') @> string_to_array(o.person_norm, ' ') then 'subset'
-              else 'fuzzy' end as match_kind,
-         similarity(o.person_norm, p_name) as similarity,
+              when string_to_array(o.person_norm, ' ') @> v_tokens
+                or string_to_array(o.person_norm, ' ') <@ v_tokens then 'subset'
+              else 'fuzzy' end,
+         similarity(o.person_norm, p_name),
          (
            (o.address_postal is not null and o.address_postal = any(p_postals))
            or (o.address_norm is not null and o.address_norm = any(p_street_keys))
-         ) as address_match
+         )
   from public.ltb_orders o
   where
-    -- A full name is required; single tokens are far too ambiguous to search on.
-    length(coalesce(p_name, '')) >= 5
-    and position(' ' in p_name) > 0
-    -- Trigram prefilter, served by ltb_orders_person_trgm_idx. Every branch
-    -- below implies substantial character overlap, so this narrows the scan
-    -- without changing the result set.
-    and o.person_norm % p_name
-    and (
-      o.person_norm = p_name
-      or o.person_key = p_key
-      -- Token containment, which is what actually makes this safe. Pure trigram
-      -- similarity on short names is dominated by the shared GIVEN name: at 0.62,
-      -- "DAVID PARK" pulled in DAVID PARKER (0.71) and DAVID PARRY (0.64) —
-      -- different people, different surnames, printed on someone else's report.
-      -- Requiring one name's tokens to contain the other's still allows a missing
-      -- or extra middle name, and rejects a substituted surname outright.
-      or string_to_array(o.person_norm, ' ') @> string_to_array(p_name, ' ')
-      or string_to_array(p_name, ' ') @> string_to_array(o.person_norm, ' ')
-      -- Narrow escape hatch for transliteration drift only. 0.85 is above every
-      -- surname-substitution pair observed in the catalogue.
-      or similarity(o.person_norm, p_name) >= 0.85
-    )
+        o.person_norm = p_name                                  -- btree
+     or o.person_key  = p_key                                   -- btree
+     or string_to_array(o.person_norm, ' ') @> v_tokens         -- gin
+     or string_to_array(o.person_norm, ' ') <@ v_tokens         -- gin
+     or o.person_norm % p_name                                  -- gin_trgm, now >= 0.85
   order by
     (o.address_postal is not null and o.address_postal = any(p_postals)) desc,
     similarity(o.person_norm, p_name) desc,
     o.order_date desc
-  limit least(greatest(coalesce(p_limit, 25), 1), 100)
+  limit least(greatest(coalesce(p_limit, 25), 1), 100);
+end;
 $$;
 
 -- Callable by a signed-in landlord running a screening; the function reads only
@@ -231,5 +248,11 @@ alter table public.ltb_orders set (
   autovacuum_vacuum_cost_delay = 0
 );
 
--- NOTE: the deployed search_ltb_orders body is the plpgsql version described
--- above; see migration ltb_index_served_search_and_withdrawals.
+-- This file is the consolidated form of five migrations applied to production
+-- on 2026-08-02 (ltb_order_catalogue, ltb_search_token_containment,
+-- ltb_lock_down_anon_access, ltb_index_served_search_and_withdrawals,
+-- ltb_autovacuum_for_bulk_refresh). It carried the FIRST version of
+-- search_ltb_orders long after the fourth had superseded it, so re-applying it —
+-- on a fresh environment, or over production — would have silently replaced the
+-- 19.6ms index-served function with the 904ms one. Anything changed here from
+-- now on must be diffed against pg_get_functiondef() in production.

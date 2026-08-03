@@ -227,10 +227,17 @@ async function main() {
           .eq('resource_id', res.id)
           .lt('last_seen_run', runId)
         const stale = held ?? 0
-        if (stale > 0 && seenThisResource < stale * 0.5) {
+        // The rule is "refuse if this pass saw less than half of what we hold",
+        // and what we hold is the rows re-stamped this pass PLUS the stale ones.
+        // The guard used to compare against `stale` alone (seen < stale * 0.5),
+        // which is a much weaker bar: it permits deleting up to twice as many
+        // rows as were read, i.e. a download delivering only a third of the
+        // catalogue would have passed and taken two thirds of the table with it.
+        const heldTotal = seenThisResource + stale
+        if (stale > 0 && seenThisResource < heldTotal * 0.5) {
           throw new Error(
-            `refusing to prune: this pass saw ${seenThisResource} rows for ${res.id} but ${stale} older rows are held. ` +
-            'That looks like a truncated download, not a withdrawal.',
+            `refusing to prune: this pass saw ${seenThisResource} rows for ${res.id} out of ${heldTotal} held ` +
+            `(${stale} would be deleted). That looks like a truncated download, not a withdrawal.`,
           )
         }
         if (stale > 0) {

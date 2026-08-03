@@ -65,15 +65,12 @@ async function loadSnapshot(token: string): Promise<PassportSnapshot | null> {
   // its default.
   let fullName: string | null = null
   let email: string | null = null
-  const tenantId: string | null = null
-  if (!fullName && !email) {
-    try {
-      const { data } = await sb.auth.admin.getUserById(row.tenant_user_id)
-      fullName = ((data?.user?.user_metadata as Record<string, unknown>)?.full_name as string) || null
-      email = data?.user?.email || null
-    } catch {
-      /* tolerated */
-    }
+  try {
+    const { data } = await sb.auth.admin.getUserById(row.tenant_user_id)
+    fullName = ((data?.user?.user_metadata as Record<string, unknown>)?.full_name as string) || null
+    email = data?.user?.email || null
+  } catch {
+    /* tolerated */
   }
 
   // ── Stamp statuses ──────────────────────────────────────────────────────
@@ -93,13 +90,21 @@ async function loadSnapshot(token: string): Promise<PassportSnapshot | null> {
   const done: [boolean, boolean, boolean, boolean] = [false, false, false, false]
 
   // ── Rent punctuality (statuses only — no amounts) ───────────────────────
+  //
+  // Keyed off the lease's tenant_email, not a `tenants` row. When the stamp
+  // lookup above was rewritten, tenantId became a `const … = null` and this
+  // whole block went statically dead while still reading as live code — the
+  // same shape of defect (a branch that can never be taken) that made the page
+  // claim an unverified stamp in the first place. lease_documents is empty
+  // today, so nothing renders either way; the point is that it will render when
+  // there is something to render, instead of silently never doing so.
   let rentRecord: PassportSnapshot['rentRecord'] = null
-  if (tenantId) {
+  if (email) {
     try {
       const { data: leases } = await sb
         .from('lease_documents')
         .select('id')
-        .eq('tenant_id', tenantId)
+        .eq('tenant_email', email)
         .limit(20)
       const leaseIds = (leases ?? []).map((l) => l.id)
       if (leaseIds.length) {

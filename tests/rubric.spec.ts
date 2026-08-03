@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { RUBRIC_WEIGHTS, courtDefendantHitsFromGates, revolvingUtilisation, scoreRubric, usableIncome, type RubricFacts } from '../lib/screening/rubric'
 
@@ -200,5 +201,56 @@ describe('regressions the cutover review caught', () => {
   it('weights sum to 1 so the overall really is a 0–100 scale', () => {
     const total = Object.values(RUBRIC_WEIGHTS).reduce((a, b) => a + b, 0)
     expect(Number(total.toFixed(6))).toBe(1)
+  })
+})
+
+// The rubric asked for a document kind called 'income_proof'. No extractor has
+// ever emitted that string — screen-score's prompt offers pay_stub /
+// employment_letter / offer_letter — so proof of income could not be counted
+// even when both were on file. Every applicant sat at 3/4 required kinds, lost
+// 17 verification points, and the report printed "3/4" beneath a complete
+// document set. The dimension read like a measurement and was a constant.
+//
+// The two vocabularies live in different files and neither imports the other,
+// so this pins them together: the guard is the corpus, not a fixture.
+describe('document kinds the rubric asks for are kinds the extractor emits', () => {
+  const PROMPT_VOCABULARY = [
+    'lease', 'employment_letter', 'pay_stub', 'bank_statement',
+    'id_document', 'credit_report', 'offer_letter', 'reference', 'other',
+  ]
+
+  it('scores a complete file as complete', () => {
+    const complete = scoreRubric({
+      ...ALALEH,
+      documentKinds: ['id_document', 'pay_stub', 'employment_letter', 'bank_statement', 'credit_report'],
+      contradictions: [],
+      blankApplicationFields: 0,
+      crossDoc: null,
+    })
+    const docs = complete.hits.find((h) => h.code === 'documents_present')
+    expect(docs, 'documents_present did not fire').toBeTruthy()
+    expect(docs!.observed).toContain('4/4')
+    expect(docs!.delta).toBe(90)
+  })
+
+  it('counts income proof from any of the kinds that actually carry it', () => {
+    for (const kind of ['pay_stub', 'employment_letter', 'offer_letter']) {
+      const r = scoreRubric({ ...ALALEH, documentKinds: [kind] })
+      const docs = r.hits.find((h) => h.code === 'documents_present')!
+      expect(docs.observed, `${kind} was not counted as income proof`).toContain('1/4')
+    }
+  })
+
+  it('matches only on kinds the prompt can produce', () => {
+    // Read the kinds the rubric matches on straight out of the source, so a
+    // rename on either side fails here instead of silently capping a dimension.
+    const src = readFileSync(new URL('../lib/screening/rubric.ts', import.meta.url), 'utf8')
+    const block = src.slice(src.indexOf('const REQUIRED'), src.indexOf('const present'))
+    const matched = [...block.matchAll(/kinds:\s*\[([^\]]+)\]/g)]
+      .flatMap((m) => [...m[1].matchAll(/'([a-z_]+)'/g)].map((k) => k[1]))
+    expect(matched.length, 'no kinds parsed — the REQUIRED shape changed').toBeGreaterThan(3)
+    for (const k of matched) {
+      expect(PROMPT_VOCABULARY, `rubric matches on '${k}', which no extractor emits`).toContain(k)
+    }
   })
 })

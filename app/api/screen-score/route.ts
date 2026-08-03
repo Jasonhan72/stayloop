@@ -1388,11 +1388,19 @@ JSON DISCIPLINE (avoid parse errors):
     const dimZeroReasons: Partial<Record<keyof V3Scores, DimZeroReason>> = {}
     const sevOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
 
+    // Documents judged forged, counted before the dimension mapping. The rubric
+    // used to be handed `dimsZeroed.length` for this, which counts DIMENSIONS —
+    // so one forged credit report was reported to the landlord as "2
+    // document(s)", and a forged file of a kind with no KIND_TO_ZERO_DIMS entry
+    // counted as zero and never reached the rubric's decline rule at all.
+    let forgedDocCount = 0
+
     for (const pf of forensicsReport.per_file) {
       const isForged = pf.flags.some(f =>
         f.severity === 'critical' || (f.severity === 'high' && FORGERY_INDICATING_CODES.has(f.code))
       )
       if (!isForged) continue
+      forgedDocCount++
       const dims = KIND_TO_ZERO_DIMS[pf.file_kind]
       if (!dims) continue
       // Pick the most severe flag as the explanation
@@ -2004,7 +2012,7 @@ JSON DISCIPLINE (avoid parse errors):
         declaredAddresses: prev.length,
         documentKinds: Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds : [],
         contradictions: redFlags.filter((r: string) => /contradict|mismatch|collision/i.test(r)),
-        forgedDocuments: dimsZeroed.length,
+        forgedDocuments: forgedDocCount,
         blankApplicationFields: crossDocVerification?.application_summary?.blank_sections?.length ?? 0,
         applicationSigned: null,
       } as RubricFacts
