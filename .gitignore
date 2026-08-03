@@ -57,3 +57,6 @@ stripe-resend.patch
 # Claude Code local/temp settings (may contain tokens)
 .claude/settings.local.json
 .claude/*.tmp*
+
+# Deploy log written by ship2-v53.command on every run — build noise, not source.
+ship2.log
