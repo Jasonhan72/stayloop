@@ -73,23 +73,62 @@ export function parseCanliiIndexItems(json: unknown): CanliiIndexMatch[] {
 }
 
 export type CanliiIndexResult =
-  | { status: 'ok'; matches: CanliiIndexMatch[] }
+  | { status: 'ok'; matches: CanliiIndexMatch[]; provider: 'cse' | 'jina' }
   | { status: 'unconfigured' }
   | { status: 'error'; reason: string }
 
-export async function searchCanliiViaIndex(
-  fullName: string,
-  fetchImpl: typeof fetch = fetch,
+/**
+ * Jina's search product (s.jina.ai) as an alternative index. Same posture as
+ * CSE: Jina runs the SERP work on their infrastructure under their agreements;
+ * we are an API customer, not a scraper. The response shape is
+ * {data: [{title, url, description}]}; it is mapped into the CSE item shape so
+ * one parser enforces the decision-page filter for both providers — the filter
+ * is the safety property, so it must not fork per provider.
+ *
+ * Known state when this was written: s.jina.ai had been in major outage since
+ * 2026-08-01 (88% error rate on status.jina.ai) while r.jina.ai (which listing
+ * search uses) was fine. The chain treats Jina as best-effort: any failure
+ * lands on the manual-link fallback, and the feature lights up by itself when
+ * the outage ends.
+ */
+async function searchViaJina(
+  name: string,
+  key: string,
+  fetchImpl: typeof fetch,
 ): Promise<CanliiIndexResult> {
-  const key = process.env.GOOGLE_CSE_KEY
-  const cx = process.env.GOOGLE_CSE_CX
-  if (!key || !cx) return { status: 'unconfigured' }
+  const ctl = new AbortController()
+  const timer = setTimeout(() => ctl.abort(), 8000)
+  try {
+    const res = await fetchImpl(`https://s.jina.ai/?q=${encodeURIComponent(`"${name}" site:canlii.org`)}`, {
+      headers: {
+        Authorization: `Bearer ${key}`,
+        Accept: 'application/json',
+        // Titles and URLs suffice; full page content would be slow and unused.
+        'X-Respond-With': 'no-content',
+      },
+      signal: ctl.signal,
+    })
+    if (!res.ok) return { status: 'error', reason: `jina http ${res.status}` }
+    const body = (await res.json()) as { data?: Array<{ title?: unknown; url?: unknown; description?: unknown }> }
+    const items = (Array.isArray(body.data) ? body.data : []).map((d) => ({
+      title: d.title,
+      link: d.url,
+      snippet: d.description,
+    }))
+    return { status: 'ok', matches: parseCanliiIndexItems({ items }), provider: 'jina' }
+  } catch (err) {
+    return { status: 'error', reason: err instanceof Error ? err.name : 'fetch failed' }
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
-  const name = (fullName || '').trim()
-  // Same bar as every other name search here: a single token matches far too
-  // many strangers to be worth listing.
-  if (!name || !name.includes(' ')) return { status: 'error', reason: 'name not searchable' }
-
+async function searchViaCse(
+  name: string,
+  key: string,
+  cx: string,
+  fetchImpl: typeof fetch,
+): Promise<CanliiIndexResult> {
   const params = new URLSearchParams({
     key,
     cx,
@@ -98,7 +137,6 @@ export async function searchCanliiViaIndex(
     exactTerms: name,
     num: String(MAX_MATCHES),
   })
-
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), 6000)
   try {
@@ -106,10 +144,48 @@ export async function searchCanliiViaIndex(
       signal: ctl.signal,
     })
     if (!res.ok) return { status: 'error', reason: `cse http ${res.status}` }
-    return { status: 'ok', matches: parseCanliiIndexItems(await res.json()) }
+    return { status: 'ok', matches: parseCanliiIndexItems(await res.json()), provider: 'cse' }
   } catch (err) {
     return { status: 'error', reason: err instanceof Error ? err.name : 'fetch failed' }
   } finally {
     clearTimeout(timer)
   }
+}
+
+/**
+ * Provider chain: Google CSE when configured AND working, else Jina search when
+ * its key exists, else unconfigured. CSE goes first because it is the cheap,
+ * exact-phrase-capable option — but as of 2026-08 Google denies the Custom
+ * Search JSON API to (at least) newly-created projects with a project-level
+ * 403 that no console setting clears, so on this deployment the CSE branch
+ * fails fast and Jina is the live path.
+ */
+export async function searchCanliiViaIndex(
+  fullName: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<CanliiIndexResult> {
+  const name = (fullName || '').trim()
+  // Same bar as every other name search here: a single token matches far too
+  // many strangers to be worth listing.
+  if (!name || !name.includes(' ')) return { status: 'error', reason: 'name not searchable' }
+
+  const cseKey = process.env.GOOGLE_CSE_KEY
+  const cseCx = process.env.GOOGLE_CSE_CX
+  const jinaKey = process.env.JINA_API_KEY
+
+  // The last failure is worth reporting precisely — "cse http 403" vs a
+  // generic wrapper is the difference between diagnosing the Google project
+  // gate in one glance and re-running the whole ladder by hand.
+  let lastError: CanliiIndexResult | null = null
+  if (cseKey && cseCx) {
+    const r = await searchViaCse(name, cseKey, cseCx, fetchImpl)
+    if (r.status === 'ok') return r
+    lastError = r
+  }
+  if (jinaKey) {
+    const r = await searchViaJina(name, jinaKey, fetchImpl)
+    if (r.status === 'ok') return r
+    lastError = r
+  }
+  return lastError ?? { status: 'unconfigured' }
 }

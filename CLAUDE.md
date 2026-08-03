@@ -75,8 +75,8 @@ NEXT_PUBLIC_GOOGLE_MAPS_KEY
 Optional (guarded with `if (process.env.X)` — features degrade gracefully when absent):
 
 ```
-JINA_API_KEY                # agent listing search → realtor.ca scrape (lib/agent/listingSearch.ts)
-GOOGLE_CSE_KEY              # CanLII 自动检索（查 Google 对 canlii.org 的索引，lib/screening/canliiIndex.ts）。缺省时报告回退为预填姓名的一键人工检索链接
+JINA_API_KEY                # agent listing search → realtor.ca scrape (lib/agent/listingSearch.ts)；兼作 CanLII 索引检索的现役后端（s.jina.ai，lib/screening/canliiIndex.ts 提供商链第二级）
+GOOGLE_CSE_KEY              # CanLII 自动检索提供商链第一级（Google CSE）。⚠️ 2026-08 实测 Google 对（新）项目关闭了此 API（项目级 403，启用/结算/新 key 都解不开），本部署实际走 Jina；key 留着无害，链会自动跳过。全链失败时回退为预填姓名的一键人工检索链接
 GOOGLE_CSE_CX               # 同上——Programmable Search Engine 的引擎 ID（限定 canlii.org）。注意：索引命中是「提及」不是当事人记录，hitKind='mention'，永不进评分/total_hits
 OPENCORPORATES_API_TOKEN    # deep-check / forensics arm's-length lookup (lib/forensics/arm-length.ts)
 CRON_SECRET                 # gates cron mode on /api/agent/proactive; same value stored as Supabase Vault secret 'cron_secret' (pg_cron job agent-proactive-daily, 13:00 UTC)

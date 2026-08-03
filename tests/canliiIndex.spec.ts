@@ -69,8 +69,10 @@ describe('CanLII web-index search — degradation', () => {
   it('reports unconfigured without fetching when the keys are absent', async () => {
     const hadKey = process.env.GOOGLE_CSE_KEY
     const hadCx = process.env.GOOGLE_CSE_CX
+    const hadJina = process.env.JINA_API_KEY
     delete process.env.GOOGLE_CSE_KEY
     delete process.env.GOOGLE_CSE_CX
+    delete process.env.JINA_API_KEY
     try {
       let fetched = false
       const r = await searchCanliiViaIndex('David Park', (async () => { fetched = true; throw new Error('no') }) as unknown as typeof fetch)
@@ -79,12 +81,14 @@ describe('CanLII web-index search — degradation', () => {
     } finally {
       if (hadKey) process.env.GOOGLE_CSE_KEY = hadKey
       if (hadCx) process.env.GOOGLE_CSE_CX = hadCx
+      if (hadJina) process.env.JINA_API_KEY = hadJina
     }
   })
 
   it('refuses a single-token name and reports errors instead of throwing', async () => {
     process.env.GOOGLE_CSE_KEY = 'k'
     process.env.GOOGLE_CSE_CX = 'c'
+    delete process.env.JINA_API_KEY
     try {
       const single = await searchCanliiViaIndex('Chen', (async () => { throw new Error('must not fetch') }) as unknown as typeof fetch)
       expect(single.status).toBe('error')
@@ -103,6 +107,7 @@ describe('CanLII web-index search — degradation', () => {
   it('parses a successful response end to end', async () => {
     process.env.GOOGLE_CSE_KEY = 'k'
     process.env.GOOGLE_CSE_CX = 'c'
+    delete process.env.JINA_API_KEY
     try {
       const r = await searchCanliiViaIndex('David Park', (async () =>
         new Response(JSON.stringify(cse([
@@ -113,6 +118,68 @@ describe('CanLII web-index search — degradation', () => {
     } finally {
       delete process.env.GOOGLE_CSE_KEY
       delete process.env.GOOGLE_CSE_CX
+    }
+  })
+})
+
+describe('CanLII web-index search — provider chain', () => {
+  const jinaBody = JSON.stringify({
+    data: [
+      { title: 'park v Gao, 2025 ONLTB 43947', url: 'https://www.canlii.org/en/on/onltb/doc/2025/2025onltb43947/2025onltb43947.html', description: 'mention…' },
+      { title: 'off-site', url: 'https://example.com/x', description: '' },
+    ],
+  })
+
+  it('falls from a failing CSE to Jina, and the same decision-page filter applies', async () => {
+    process.env.GOOGLE_CSE_KEY = 'k'
+    process.env.GOOGLE_CSE_CX = 'c'
+    process.env.JINA_API_KEY = 'j'
+    try {
+      const r = await searchCanliiViaIndex('David Park', (async (url: RequestInfo | URL) =>
+        String(url).includes('googleapis.com')
+          ? new Response('denied', { status: 403 })
+          : new Response(jinaBody, { status: 200 })) as unknown as typeof fetch)
+      expect(r.status).toBe('ok')
+      if (r.status === 'ok') {
+        expect(r.provider).toBe('jina')
+        expect(r.matches).toHaveLength(1) // the off-site row is filtered out
+        expect(r.matches[0].url).toContain('canlii.org')
+      }
+    } finally {
+      delete process.env.GOOGLE_CSE_KEY
+      delete process.env.GOOGLE_CSE_CX
+      delete process.env.JINA_API_KEY
+    }
+  })
+
+  it('uses Jina alone when CSE is unconfigured', async () => {
+    delete process.env.GOOGLE_CSE_KEY
+    delete process.env.GOOGLE_CSE_CX
+    process.env.JINA_API_KEY = 'j'
+    try {
+      const r = await searchCanliiViaIndex('David Park', (async () =>
+        new Response(jinaBody, { status: 200 })) as unknown as typeof fetch)
+      expect(r.status).toBe('ok')
+      if (r.status === 'ok') expect(r.provider).toBe('jina')
+    } finally {
+      delete process.env.JINA_API_KEY
+    }
+  })
+
+  it('reports the LAST provider failure when the whole chain is down', async () => {
+    // s.jina.ai was in major outage when this shipped; the row must degrade to
+    // the manual link with a diagnosable reason, not a generic wrapper.
+    process.env.GOOGLE_CSE_KEY = 'k'
+    process.env.GOOGLE_CSE_CX = 'c'
+    process.env.JINA_API_KEY = 'j'
+    try {
+      const r = await searchCanliiViaIndex('David Park', (async (url: RequestInfo | URL) =>
+        new Response('down', { status: String(url).includes('googleapis.com') ? 403 : 500 })) as unknown as typeof fetch)
+      expect(r).toEqual({ status: 'error', reason: 'jina http 500' })
+    } finally {
+      delete process.env.GOOGLE_CSE_KEY
+      delete process.env.GOOGLE_CSE_CX
+      delete process.env.JINA_API_KEY
     }
   })
 })

@@ -443,9 +443,9 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
   //
   // What we CAN honestly do instead, in order of preference:
   //
-  //  1. Search the public WEB INDEX of canlii.org (Google Programmable Search,
-  //     lib/screening/canliiIndex.ts) — automated, no click, and it queries
-  //     Google's API, never CanLII's servers. A hit there is a decision page
+  //  1. Search the public WEB INDEX of canlii.org (lib/screening/canliiIndex.ts,
+  //     provider chain: Google CSE → Jina search) — automated, no click, and it
+  //     queries the search provider's API, never CanLII's servers. A hit there is a decision page
   //     that MENTIONS the name: the live search for "David Park" returns Crown
   //     counsel David Parke, arbitrator David Parkes, and the sentence
   //     "Mr. David parked his car". So index results are hitKind:'mention',
