@@ -29,7 +29,7 @@ const SLOT_META: Record<ModelSlot, { zh: string; en: string; descZh: string; des
     descEn: 'Every Luna / Logic / Brief agent turn (/api/agent/turn)',
   },
   screening: {
-    zh: '背调评分',
+    zh: '筛查评分',
     en: 'Screening score',
     descZh: '六维评分与旧版评分（/api/screen-score · /api/ai-score）',
     descEn: 'Six-dimension scoring + legacy scoring (/api/screen-score, /api/ai-score)',

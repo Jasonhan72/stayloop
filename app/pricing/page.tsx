@@ -91,7 +91,7 @@ const PLANS: RolePlan[] = [
         features: [
           { zh: '无限发布房源', en: 'Unlimited listings' },
           { zh: 'AI Agent 全功能', en: 'Full AI agent' },
-          { zh: '验证 / 背调全含', en: 'Verification / screening included' },
+          { zh: '验证 / 筛查全含', en: 'Verification / screening included' },
           { zh: '租约起草 + 一键续约', en: 'Lease drafting + 1-click renewals' },
           { zh: '财务面板 + 税务表(T776)', en: 'Finance dashboard + tax forms (T776)' },
         ],

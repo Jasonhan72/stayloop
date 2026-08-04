@@ -397,13 +397,13 @@ export default function NewListingPage() {
                 <h2 className="text-[18px] font-bold">{lang === 'zh' ? '4 · 盖章门槛' : '4 · Stamp threshold'}</h2>
                 <p className="mt-2 text-[13px] text-body-2">
                   {lang === 'zh'
-                    ? '这决定哪些租客可以申请。要求的章越多越严格。系统会按你设定自动筛选。'
+                    ? '这决定哪些租客可以申请。要求的章越多越严格。系统会按你设定自动筛查。'
                     : 'This decides which tenants can apply. More required stamps means stricter. The system auto-filters based on your setting.'}
                 </p>
                 <div className="mt-5 space-y-3">
                   {(lang === 'zh'
                     ? [
-                        { n: 1, name: '需 身份章 🪪 · 仅 ID 验证', desc: '租客只需护照 + 自拍。最快但筛选最弱。', stats: '~80% 通过率' },
+                        { n: 1, name: '需 身份章 🪪 · 仅 ID 验证', desc: '租客只需护照 + 自拍。最快但筛查最弱。', stats: '~80% 通过率' },
                         { n: 2, name: '需 收入章 💼 · ID + 收入',   desc: '工资单或 Plaid 月收入验证。',         stats: '~50% 通过率' },
                         { n: 3, name: '需 银行章 🏦 · ID + 收入 + 银行', desc: 'Plaid 直连 · 现金流可见。',          stats: '~30% 通过率' },
                         { n: 4, name: '需 信用 + 法庭章 ⚖️ · 全部 + 信用 + 法庭', desc: 'Equifax + CanLII LTB · 最严。',      stats: '~15% 通过率' },

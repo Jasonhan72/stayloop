@@ -460,7 +460,7 @@ function PolicyCard({
   return (
     <SectionCard
       className="mb-3"
-      title={showHits ? (zh ? '我的筛选政策' : 'Your screening policy') : zh ? '推荐筛选门槛' : 'Suggested screening thresholds'}
+      title={showHits ? (zh ? '我的筛查政策' : 'Your screening policy') : zh ? '推荐筛查门槛' : 'Suggested screening thresholds'}
       meta={
         showHits
           ? zh
@@ -472,7 +472,7 @@ function PolicyCard({
       }
       action={
         <Link
-          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我复核 Unit 1207 的筛选门槛（收入 / 信用 / DTI / 租期），并指出哪些条件把合格申请人挡在门外' : 'Review my screening thresholds for Unit 1207 (income / credit / DTI / term) and flag any that are screening out qualified applicants')}`}
+          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我复核 Unit 1207 的筛查门槛（收入 / 信用 / DTI / 租期），并指出哪些条件把合格申请人挡在门外' : 'Review my screening thresholds for Unit 1207 (income / credit / DTI / term) and flag any that are screening out qualified applicants')}`}
           className="text-[12px] font-semibold text-brand hover:underline"
         >
           {zh ? '复核门槛 →' : 'Review thresholds →'}

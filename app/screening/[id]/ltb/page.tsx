@@ -151,10 +151,10 @@ export default function LTBPage() {
     return (
       <Shell>
         <div className="text-center">
-          <h2 className="text-[22px] font-extrabold">{zh ? '未找到该背调' : 'Screening not found'}</h2>
+          <h2 className="text-[22px] font-extrabold">{zh ? '未找到该筛查' : 'Screening not found'}</h2>
           <p className="mt-2 text-[14px] text-[#999]">{zh ? '记录不存在，或你没有访问权限。' : 'This screening does not exist or you do not have access.'}</p>
           <Link href="/screening" className="mt-6 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#047857' }}>
-            {zh ? '返回背调列表' : 'Back to screenings'}
+            {zh ? '返回筛查列表' : 'Back to screenings'}
           </Link>
         </div>
       </Shell>
@@ -213,7 +213,7 @@ export default function LTBPage() {
           </h1>
           <p className="mt-3 max-w-[820px] text-[14px] leading-relaxed text-body-2">
             {zh
-              ? '下面列出的是这次背调实际检索过的数据源与结果。未检索或不可用的数据源单独标注，绝不计为「无记录」。'
+              ? '下面列出的是这次筛查实际检索过的数据源与结果。未检索或不可用的数据源单独标注，绝不计为「无记录」。'
               : 'What follows is the set of sources this screening actually queried, and what each returned. Sources that were not searched, or that failed, are labelled as such and are never counted as clear.'}
           </p>
 
@@ -249,7 +249,7 @@ export default function LTBPage() {
             {queries.length === 0 ? (
               <p className="mt-5 text-[13px] text-body-2">
                 {zh
-                  ? '这次背调没有记录任何法庭检索——它可能早于法庭检索上线，请重新运行以获取记录。'
+                  ? '这次筛查没有记录任何法庭检索——它可能早于法庭检索上线，请重新运行以获取记录。'
                   : 'This screening recorded no court search. It likely predates the court lookups; re-run it to get one.'}
               </p>
             ) : (

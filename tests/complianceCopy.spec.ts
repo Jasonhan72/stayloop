@@ -69,3 +69,31 @@ describe('Ontario RTA — copy that would put a landlord in breach', () => {
     expect(hits, `s.14 makes these void:\n${hits.join('\n')}`).toEqual([])
   })
 })
+
+describe('terminology — the product screens, it does not investigate', () => {
+  // 2026-08-03, checked against the actual regulatory landscape before
+  // renaming: O. Reg. 290/98 under the Human Rights Code frames what landlords
+  // do as SELECTING tenants using permitted tools (credit references, rental
+  // history, credit checks, income information) and the OHRC's rental-housing
+  // policy consistently says "screening". Ontario's Consumer Reporting Act, by
+  // contrast, regulates furnishing "consumer reports" containing credit and
+  // *personal* information (character, reputation, mode of living) — the
+  // territory the word 背调/背景调查 ("background INVESTIGATION") evokes, and
+  // our own report's legal section explicitly disclaims being a consumer
+  // report under that Act. A product name that says "investigation" while the
+  // disclaimer says "not a consumer report" argues with itself. 筛查 says what
+  // the product does: screen applicant-submitted documents and public records.
+  //
+  // 筛选 stays legal for listing FILTERS ("调整筛选条件") — this bans only the
+  // investigation-flavoured words.
+  it('UI copy never calls the product an investigation', () => {
+    const hits: string[] = []
+    for (const f of FILES) {
+      const lines = readFileSync(f, 'utf8').split('\n')
+      lines.forEach((line, i) => {
+        if (/背调|背景调查|背景核查|背景审查/.test(line)) hits.push(`${f}:${i + 1}: ${line.trim()}`)
+      })
+    }
+    expect(hits, `investigation-flavoured naming crept back in:\n${hits.join('\n')}`).toEqual([])
+  })
+})

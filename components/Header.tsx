@@ -300,7 +300,7 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
                               <div className="text-[12px] text-[#717171]">
                                 {r === 'tenant'
                                   ? (lang === 'zh' ? '找房 · 申请 · 签约' : 'Search · Apply · Lease')
-                                  : (lang === 'zh' ? '管房 · 背调 · 收租' : 'Manage · Screen · Collect')}
+                                  : (lang === 'zh' ? '管房 · 筛查 · 收租' : 'Manage · Screen · Collect')}
                               </div>
                             </div>
                           </button>

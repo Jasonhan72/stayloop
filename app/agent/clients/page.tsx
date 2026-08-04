@@ -123,10 +123,10 @@ export default function AgentClientsPage() {
       {/* Screening workflow — order screening for a client, share it with the landlord */}
       <SectionCard
         className="mb-4"
-        title={zh ? '替客户下单背调，报告直接给房东' : 'Order screening for a client — the report goes straight to the landlord'}
+        title={zh ? '替客户下单筛查，报告直接给房东' : 'Order screening for a client — the report goes straight to the landlord'}
         action={
           <Link href="/screening" className="sl-btn-primary !px-4 !py-2 !text-[12px]">
-            {zh ? '发起背调 →' : 'Start a screening →'}
+            {zh ? '发起筛查 →' : 'Start a screening →'}
           </Link>
         }
       >
@@ -220,7 +220,7 @@ export default function AgentClientsPage() {
                         href="/screening"
                         className="rounded-[8px] border border-agent/40 bg-agent/[0.06] px-2.5 py-[5px] text-[11.5px] font-semibold text-agent transition hover:border-agent"
                       >
-                        {zh ? '发起背调' : 'Screen'}
+                        {zh ? '发起筛查' : 'Screen'}
                       </Link>
                     ) : (
                       <Link

@@ -80,7 +80,7 @@ export default function AdminHomePage() {
       href: '/admin/models',
       icon: '🧠',
       title: zh ? '模型配置' : 'Model config',
-      desc: zh ? '为对话推理、背调评分、材料分类、取证抽取四个槽位切换 Claude 模型,60 秒内全站生效。' : 'Switch the Claude model behind agent turns, screening, classification and forensics — live within 60s.',
+      desc: zh ? '为对话推理、筛查评分、材料分类、取证抽取四个槽位切换 Claude 模型,60 秒内全站生效。' : 'Switch the Claude model behind agent turns, screening, classification and forensics — live within 60s.',
       stat: zh ? '4 个槽位' : '4 slots',
       hot: false,
     },

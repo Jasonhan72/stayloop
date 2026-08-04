@@ -37,7 +37,7 @@ export const DICT = {
   'nav.agents': { en: 'Agent', zh: '经纪' },
   'nav.product': { en: 'I’m a…', zh: '我是' },
   'nav.pricing': { en: 'Pricing', zh: '定价' },
-  'nav.screening': { en: 'Screening', zh: '租客背调' },
+  'nav.screening': { en: 'Screening', zh: '租客筛查' },
   'nav.screenings': { en: 'Screenings', zh: '租客筛查' },
   'nav.login': { en: 'Sign in', zh: '登录' },
   'nav.signOut': { en: 'Sign out', zh: '退出登录' },
@@ -82,7 +82,7 @@ export const DICT = {
   // Footer · product links
   'foot.pricing': { en: 'Pricing', zh: '定价' },
   'foot.trustApi': { en: 'Trust API', zh: 'Trust API' },
-  'foot.screening': { en: 'Screening', zh: '租客背调' },
+  'foot.screening': { en: 'Screening', zh: '租客筛查' },
   'foot.passport': { en: 'Tenant Passport', zh: '租客护照' },
   'foot.disputes': { en: 'Disputes', zh: '争议解决' },
   // Footer · for-whom links

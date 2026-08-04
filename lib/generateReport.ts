@@ -221,7 +221,7 @@ export async function generateScreeningReport(
 
   // ── Build HTML sections ──
   let html = `<!DOCTYPE html><html lang="${zh ? 'zh' : 'en'}"><head><meta charset="utf-8">
-<title>Stayloop ${zh ? '租户筛选报告' : 'Screening Report'} — ${esc(result.extracted_name || '')}</title>
+<title>Stayloop ${zh ? '租客筛查报告' : 'Screening Report'} — ${esc(result.extracted_name || '')}</title>
 <style>
   @page { size: A4; margin: 18mm 16mm 16mm 16mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -252,7 +252,7 @@ export async function generateScreeningReport(
   // ── Header ──
   html += `<div class="header">
     <h1>STAYLOOP</h1>
-    <div class="sub">${zh ? '租户筛选评估报告' : 'Tenant Screening Report'} &nbsp;|&nbsp; ${date} &nbsp;|&nbsp; stayloop.ai</div>
+    <div class="sub">${zh ? '租客筛查评估报告' : 'Tenant Screening Report'} &nbsp;|&nbsp; ${date} &nbsp;|&nbsp; stayloop.ai</div>
   </div>`
 
   // ── 0. Report Meta + Applicant Information (FrontLobby-style block) ──

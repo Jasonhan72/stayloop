@@ -25,7 +25,7 @@ const STEPS: { n: string; title: Bi; desc: Bi; cta: Bi; href: string }[] = [
       zh: '身份、收入、法庭记录、材料真伪、一致性 — 几分钟出分，无需你动手。',
       en: 'Identity, income, court records, document fraud, consistency — scored in minutes, hands-free.',
     },
-    cta: { zh: '也可自己发起背调 →', en: 'Or run a screening yourself →' },
+    cta: { zh: '也可自己发起筛查 →', en: 'Or run a screening yourself →' },
     href: '/screening',
   },
   {
