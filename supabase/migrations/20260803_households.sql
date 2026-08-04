@@ -334,3 +334,18 @@ create policy tenancy_files_member_write on storage.objects
     bucket_id = 'tenancy-files'
     and public.is_household_member(((storage.foldername(name))[1])::uuid)
   );
+
+-- ── Applied as follow-up migration households_lease_imported_status ─────────
+-- The E2E caught what the schema listing didn't show: lease_documents carries
+-- CHECK constraints on status and form_type (the earlier probe batched two
+-- statements and the MCP returned only the second result set — single-statement
+-- probes from now on). Both now admit the imported shape.
+-- alter table lease_documents ... check (form_type in ('ontario_standard','trreb','imported'))
+-- alter table lease_documents ... check (status in ('draft','sent','signed_tenant','signed_both','active','ended','imported'))
+
+-- ── Applied as follow-up migration households_rent_payments_repoint ─────────
+-- rent_payments.lease_id pointed at lease_agreements (a THIRD legacy lease
+-- table: 0 rows, zero consumers) and tenant_id at the dead `tenants` table.
+-- Both empty, nothing writes them → lease_id now references
+-- lease_documents(id) on delete cascade, tenant_id FK dropped (column stays,
+-- carries auth.users.id).
