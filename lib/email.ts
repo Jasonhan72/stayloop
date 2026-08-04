@@ -301,3 +301,49 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
 }
+
+// ─── Household invite ────────────────────────────────────────────────────────
+
+function esc(x: string): string {
+  return x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+export interface HouseholdInviteEmailInput {
+  inviterName: string
+  address: string
+  roleZh: string
+  roleEn: string
+  joinUrl: string
+}
+
+/**
+ * Deliberately sparse: no rent, no dates, no lease details. The recipient has
+ * not consented to receiving those over email, and an invite that carries the
+ * whole tenancy is a phishing template. Address + inviter + role is enough to
+ * decide whether to click.
+ */
+export function renderHouseholdInviteEmail(i: HouseholdInviteEmailInput): {
+  subject: string
+  html: string
+  text: string
+} {
+  const subject = `${i.inviterName} 邀请你共同管理 ${i.address} — Stayloop invitation`
+  const text = `${i.inviterName} 邀请你以「${i.roleZh}」身份加入 ${i.address} 的在管租约。
+
+在 Stayloop 上,租约各方可以在一个地方对话、报修、收租金提醒。
+
+接受或拒绝邀请:
+${i.joinUrl}
+
+${i.inviterName} invited you to join the managed tenancy at ${i.address} as ${i.roleEn}. Accept or decline at the link above. If you don't recognize this, you can safely ignore this email or decline at the link.
+
+— Stayloop · www.stayloop.ai`
+  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1a1a1a">
+  <div style="font-size:18px;font-weight:800;margin-bottom:4px">stay<span style="color:#7C3AED">loop.AI</span></div>
+  <p style="font-size:15px;line-height:1.7"><strong>${esc(i.inviterName)}</strong> 邀请你以「<strong>${esc(i.roleZh)}</strong>」身份加入 <strong>${esc(i.address)}</strong> 的在管租约。</p>
+  <p style="font-size:13px;color:#555;line-height:1.7">在 Stayloop 上,租约各方可以在一个地方对话、报修、收租金提醒。点击下方按钮查看详情后再决定接受或拒绝。</p>
+  <p style="margin:24px 0"><a href="${esc(i.joinUrl)}" style="background:#7C3AED;color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:14px">查看邀请 · View invitation</a></p>
+  <p style="font-size:12px;color:#888;line-height:1.6">${esc(i.inviterName)} invited you to join the managed tenancy at ${esc(i.address)} as ${esc(i.roleEn)}. If you don't recognize this, ignore this email or decline at the link.</p>
+</div>`
+  return { subject, html, text }
+}

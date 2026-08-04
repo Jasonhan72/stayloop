@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import HouseholdList from '@/components/HouseholdList'
 import {
   AsideBlock,
   EmptyState,
@@ -245,6 +246,7 @@ export default function LandlordLeasesPage() {
 
   return (
     <WorkspaceShell role="landlord" aside={<RailAside lang={lang} aiNotice={renewalNotice} />}>
+      <HouseholdList />
       {!liveMode && !authLoading && (
         <div className="mb-3 rounded-xl border border-line-strong bg-surface-chip px-4 py-2.5 font-mono text-[11px] leading-relaxed text-body-3">
           {lang === 'zh'

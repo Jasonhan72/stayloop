@@ -5,6 +5,7 @@
 import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import HouseholdList from '@/components/HouseholdList'
 import {
   AsideBlock,
   PageHeader,
@@ -129,6 +130,7 @@ export default function TenantLeasePage() {
 
   return (
     <WorkspaceShell role="tenant" aside={<SigningAside lang={lang} insights={insights} />}>
+      <HouseholdList />
       <PageHeader
         title={zh ? 'Unit 1207 · King West 租约' : 'Unit 1207 · King West Lease'}
         sub={
