@@ -153,7 +153,7 @@ export default function LTBPage() {
         <div className="text-center">
           <h2 className="text-[22px] font-extrabold">{zh ? '未找到该筛查' : 'Screening not found'}</h2>
           <p className="mt-2 text-[14px] text-[#999]">{zh ? '记录不存在，或你没有访问权限。' : 'This screening does not exist or you do not have access.'}</p>
-          <Link href="/screening" className="mt-6 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#047857' }}>
+          <Link href="/screening/app" className="mt-6 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#047857' }}>
             {zh ? '返回筛查列表' : 'Back to screenings'}
           </Link>
         </div>

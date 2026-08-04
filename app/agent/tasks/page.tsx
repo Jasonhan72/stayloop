@@ -322,7 +322,7 @@ export default function AgentTasksPage() {
                       </Link>
                     ) : t.type === 'screening' ? (
                       <Link
-                        href="/screening"
+                        href="/screening/app"
                         className="rounded-[8px] bg-ink px-3 py-[7px] text-center text-[11.5px] font-semibold text-white"
                       >
                         {zh ? '打开筛查 →' : 'Open screening →'}

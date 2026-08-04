@@ -125,7 +125,7 @@ export default function AgentClientsPage() {
         className="mb-4"
         title={zh ? '替客户下单筛查，报告直接给房东' : 'Order screening for a client — the report goes straight to the landlord'}
         action={
-          <Link href="/screening" className="sl-btn-primary !px-4 !py-2 !text-[12px]">
+          <Link href="/screening/app" className="sl-btn-primary !px-4 !py-2 !text-[12px]">
             {zh ? '发起筛查 →' : 'Start a screening →'}
           </Link>
         }
@@ -217,7 +217,7 @@ export default function AgentClientsPage() {
                     </Link>
                     {c.stage === 'applied' || c.stage === 'leased' ? (
                       <Link
-                        href="/screening"
+                        href="/screening/app"
                         className="rounded-[8px] border border-agent/40 bg-agent/[0.06] px-2.5 py-[5px] text-[11.5px] font-semibold text-agent transition hover:border-agent"
                       >
                         {zh ? '发起筛查' : 'Screen'}

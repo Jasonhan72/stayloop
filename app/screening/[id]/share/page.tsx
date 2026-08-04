@@ -55,7 +55,7 @@ function NotFoundShell() {
           <div className="text-[48px]">&#128269;</div>
           <h2 className="mt-4 text-[22px] font-extrabold">Screening not found</h2>
           <p className="mt-2 text-[14px] text-[#999]">This screening does not exist or you do not have access.</p>
-          <Link href="/screening" className="mt-6 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#047857' }}>
+          <Link href="/screening/app" className="mt-6 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#047857' }}>
             Back to Screenings
           </Link>
         </div>
