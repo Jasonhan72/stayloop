@@ -26,10 +26,24 @@ export const metadata: Metadata = {
   description:
     '安省租客筛查:AI 读取申请材料,确定性取证引擎核验文件真伪,检索 LTB 判令目录与安省法院公开门户,生成可追溯的筛查报告。免注册可试一单。Ontario tenant screening with document forensics, LTB order catalogue and court portal checks.',
   alternates: { canonical: 'https://www.stayloop.ai/screening' },
+  keywords: [
+    '租客筛查', '租客背景', '租客信用检查', '房东 筛查 租客', '多伦多 租客筛查',
+    'tenant screening ontario', 'tenant screening toronto', 'ltb record check',
+    'tenant credit check canada', 'rental applicant screening',
+  ],
   openGraph: {
     title: '租客筛查 · Stayloop',
-    description: '上传申请材料,几分钟得到一份每个结论都注明依据的筛查报告。',
+    description: '上传申请材料,几分钟得到一份每个结论都注明依据的筛查报告。免注册可试一单。',
     url: 'https://www.stayloop.ai/screening',
+    siteName: 'Stayloop',
+    type: 'website',
+    locale: 'zh_CN',
+    images: ['/home/hero-mist.jpg'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: '租客筛查 · 几分钟出报告 | Stayloop',
+    description: '安省租客筛查:文件取证 + LTB 判令目录 + 法院门户,每个结论注明依据。',
   },
 }
 
@@ -80,11 +94,102 @@ const PRINCIPLES = [
   },
 ]
 
+const STEPS = [
+  {
+    zh: '上传申请材料',
+    descZh: '租约申请表、工资单、雇主信、银行流水、租客自行下载的信用报告——支持 PDF 与照片。',
+  },
+  {
+    zh: 'AI 抽取事实,规则计算评分',
+    descZh: 'AI 只负责读出材料里的事实;分数由公开的确定性规则计算——同样的材料永远得到同样的分数。同时执行文件取证与法庭/LTB 检索。',
+  },
+  {
+    zh: '拿到可追溯的报告',
+    descZh: '四维评分、触发的每条规则与所读数值、逐数据源检索状态、取证发现、待办核验清单。可打印、可存档。',
+  },
+]
+
+// One source of truth for the FAQ: the visible section and the FAQPage
+// JSON-LD are generated from this array, because Google requires the
+// structured data to match the on-page content.
+const FAQS = [
+  {
+    q: '租客筛查会查哪些内容?',
+    a: '五类:①上传文件的确定性取证(PDF 元数据、生成工具指纹、工资单数学、跨文档一致性);②租客自行提供的信用报告转录与核验;③安省 LTB 判令目录(开放数据)按姓名检索;④安省法院公开门户的当事人检索;⑤雇主真实性与独立性核验(公司注册库)。每个数据源在报告里带自己的检索状态。',
+  },
+  {
+    q: '这在安省合法吗?',
+    a: '合法。安省《人权法典》下的 O. Reg. 290/98 明确允许房东在选择租客时使用信用参考、租史、信用检查与收入信息,并要求整体考量、不得歧视性使用。Stayloop 把 OHRC 受保护特征(种族、宗教、残障、家庭状况等)排除在检索与评分之外,合规审计随每份报告输出。',
+  },
+  {
+    q: '会查刑事记录吗?',
+    a: '不会。筛查只使用申请人自愿提交的文件与公开的民事记录(LTB 判令、法院门户)。Stayloop 不进行警方记录核查,也不是《消费者报告法》(安省)意义上的消费者报告机构。',
+  },
+  {
+    q: '租客需要做什么?',
+    a: '提交申请材料即可——通常是申请表、收入证明和自行从 Equifax/TransUnion 下载的信用报告。Stayloop 不直连征信局,信用信息只来自租客自己提供的报告。',
+  },
+  {
+    q: '多快能拿到报告?',
+    a: '通常几分钟。上传材料后,抽取、取证、法庭与 LTB 检索、评分是流水线并行执行的,页面上能看到每一步的进度。',
+  },
+  {
+    q: '怎么收费?',
+    a: '免注册可以完整体验一单。注册后保留历史记录;深度核验(雇主注册库联查等)属于 Pro 功能,定价见定价页。',
+  },
+  {
+    q: 'LTB(房东与租客委员会)记录是怎么查的?',
+    a: '使用安省 2026 年发布的 LTB 判令目录开放数据,按姓名建库检索。姓名命中必须经申请人自报地址佐证才影响评分——同名不等于同一个人;目录不含判决结果,报告只说明「已出判令」并附判令原件链接。',
+  },
+  {
+    q: '报告可以给别人看吗?',
+    a: '报告供房东在申请人知情同意下、为订立租约之目的使用,不得向无正当目的的第三方分发。报告内置打印版式,便于存档。',
+  },
+]
+
 export default function ScreeningLanding() {
   return (
     <div style={{ background: '#FDFBF6', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="transparent" />
       <AutoEnter />
+      <script
+        type="application/ld+json"
+        // Service + FAQ + breadcrumb, generated from the same arrays the page
+        // renders — structured data that drifts from visible content is a
+        // Google penalty, not a boost.
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              '@context': 'https://schema.org',
+              '@type': 'Service',
+              name: '租客筛查 Tenant Screening',
+              serviceType: 'Tenant screening',
+              provider: { '@type': 'Organization', name: 'Stayloop', url: 'https://www.stayloop.ai' },
+              areaServed: { '@type': 'State', name: 'Ontario' },
+              description:
+                '安省租客筛查:AI 读取申请材料,确定性规则计算评分,LTB 判令目录与安省法院公开门户按姓名实际检索,生成每个结论都注明依据的报告。',
+              url: 'https://www.stayloop.ai/screening',
+            },
+            {
+              '@context': 'https://schema.org',
+              '@type': 'FAQPage',
+              mainEntity: FAQS.map((f) => ({
+                '@type': 'Question',
+                name: f.q,
+                acceptedAnswer: { '@type': 'Answer', text: f.a },
+              })),
+            },
+            {
+              '@context': 'https://schema.org',
+              '@type': 'BreadcrumbList',
+              itemListElement: [
+                { '@type': 'ListItem', position: 1, name: 'Stayloop', item: 'https://www.stayloop.ai' },
+                { '@type': 'ListItem', position: 2, name: '租客筛查', item: 'https://www.stayloop.ai/screening' },
+              ],
+            },
+          ]),
+        }}
+      />
 
       <main className="flex-1">
         {/* Hero */}
@@ -149,6 +254,21 @@ export default function ScreeningLanding() {
           </div>
         </section>
 
+        {/* How it works */}
+        <section className="mx-auto max-w-[880px] px-5 pb-14">
+          <h2 className="text-[22px] font-extrabold tracking-tight">怎么进行一次租客筛查</h2>
+          <p className="mt-1 text-[13px] text-body-3">How tenant screening works on Stayloop — 三步,全程可见。</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            {STEPS.map((st, i) => (
+              <div key={st.zh} className="rounded-xl border border-line-divider bg-white p-5">
+                <div className="font-mono text-[24px] font-extrabold" style={{ color: '#7C3AED' }}>{i + 1}</div>
+                <div className="mt-1 text-[14.5px] font-bold">{st.zh}</div>
+                <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">{st.descZh}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Compliance strip */}
         <section className="border-y border-line-divider bg-white">
           <div className="mx-auto max-w-[880px] px-5 py-10">
@@ -159,6 +279,23 @@ export default function ScreeningLanding() {
               Stayloop 不是《消费者报告法》(安省)意义上的消费者报告机构,本报告亦非该法意义上的消费者报告。
               个人信息按 PIPEDA 要求加密存储,申请人有权查阅并要求更正。
             </p>
+          </div>
+        </section>
+
+        {/* FAQ — same array feeds the FAQPage JSON-LD above */}
+        <section className="mx-auto max-w-[880px] px-5 py-14">
+          <h2 className="text-[22px] font-extrabold tracking-tight">常见问题</h2>
+          <p className="mt-1 text-[13px] text-body-3">Tenant screening in Ontario — FAQ</p>
+          <div className="mt-6 space-y-3">
+            {FAQS.map((f) => (
+              <details key={f.q} className="group rounded-xl border border-line-divider bg-white px-5 py-4">
+                <summary className="cursor-pointer list-none text-[14.5px] font-bold marker:content-none">
+                  <span className="mr-2 font-mono text-[12px]" style={{ color: '#7C3AED' }}>Q</span>
+                  {f.q}
+                </summary>
+                <p className="mt-3 text-[13px] leading-relaxed text-body-2">{f.a}</p>
+              </details>
+            ))}
           </div>
         </section>
 

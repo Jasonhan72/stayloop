@@ -24,6 +24,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return PUBLIC_ROUTES.map((path) => ({
     url: `${BASE}${path === '/' ? '' : path}`,
     changeFrequency: 'weekly',
-    priority: path === '/' ? 1 : 0.7,
+    // /screening is the money keyword's landing and the page most worth
+    // crawl budget after the homepage.
+    priority: path === '/' ? 1 : path === '/screening' ? 0.9 : 0.7,
+    lastModified: new Date(),
   }))
 }
