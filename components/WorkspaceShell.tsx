@@ -118,15 +118,24 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
   },
 }
 
-function DemoGate({ children }: { children: React.ReactNode }) {
+function useDemoGate() {
   const path = usePathname() || ''
-  const { lang } = useI18n()
-  const zh = lang === 'zh'
-  const gate = DEMO_GATE[path]
+  const gate = DEMO_GATE[path] ?? null
   const [showDemo, setShowDemo] = useState(false)
   useEffect(() => {
     try { setShowDemo(sessionStorage.getItem('sl-show-demo') === '1') } catch {}
   }, [])
+  return { gate, showDemo, setShowDemo }
+}
+
+function DemoGate({ children, gate, showDemo, setShowDemo }: {
+  children: React.ReactNode
+  gate: (typeof DEMO_GATE)[string] | null
+  showDemo: boolean
+  setShowDemo: (v: boolean) => void
+}) {
+  const { lang } = useI18n()
+  const zh = lang === 'zh'
   if (!gate) return <>{children}</>
   if (showDemo) {
     return (
@@ -167,6 +176,10 @@ function DemoGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function WorkspaceShell({ role, aside, children, hideAside }: Props) {
+  const { gate, showDemo, setShowDemo } = useDemoGate()
+  // On a gated route the aside is demo narrative too (Unit 1207 stories) —
+  // an honest empty state beside a fixture-driven aside defeats the point.
+  const asideHidden = hideAside || (gate != null && !showDemo)
   return (
     <>
       <Header variant="solid" />
@@ -176,9 +189,9 @@ export default function WorkspaceShell({ role, aside, children, hideAside }: Pro
         <div className="md:flex md:min-h-[calc(100vh-66px)]">
           <Rail role={role} />
           <div className="min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12">
-            <DemoGate>{children}</DemoGate>
+            <DemoGate gate={gate} showDemo={showDemo} setShowDemo={setShowDemo}>{children}</DemoGate>
           </div>
-          {!hideAside && (
+          {!asideHidden && (
             <aside className="border-t border-line-divider bg-white px-5 py-6 md:w-[320px] md:flex-none md:overflow-y-auto md:border-l md:border-t-0 md:p-6">
               {aside}
             </aside>
