@@ -43,9 +43,12 @@ import { ROLE_HOME } from '@/lib/useOnboarding'
 const promptHref = (line: string) => `/tenant/agent?prompt=${encodeURIComponent(line)}`
 
 /* Hero CTA labels — zh verbatim from the blueprint (not part of the carried-over COPY shape). */
+// Primary CTA points at the one product production data proves people come
+// for (activation plan, 2026-08-12): screening, try-one-without-signup.
+// The platform story stays — it is the secondary path, not the front door.
 const HERO_CTAS: Record<Lang, { primary: string; secondary: string }> = {
-  zh: { primary: '免费开始', secondary: '看看它怎么工作' },
-  en: { primary: 'Start free', secondary: 'See how it works' },
+  zh: { primary: '试一单租客筛查 · 免注册', secondary: '看看它怎么工作' },
+  en: { primary: 'Try a tenant screening — no signup', secondary: 'See how it works' },
 }
 
 /* Role-panel CTA targets — carried over unchanged from the v7 page (blueprint tab order: 房东 / 租客 / 经纪). */
@@ -340,18 +343,18 @@ const COPY: Record<Lang, HomeCopy> = {
     darkSub: '页面上的每个数字，都来自线上正在运行的系统。',
     facts: [
       {
-        b: '6 维',
+        b: '180+',
         s: (
           <>
-            AI 尽调评分，<i>每一分写明理由</i>
+            份筛查报告已生成，<i>每条结论注明所依据的数值</i>
           </>
         ),
       },
       {
-        b: '4 枚章',
+        b: '4 万+',
         s: (
           <>
-            租客护照，<i>验证一次处处通行</i>
+            份 LTB 判令已入库可查，<i>姓名命中须地址佐证</i>
           </>
         ),
       },
@@ -636,18 +639,18 @@ const COPY: Record<Lang, HomeCopy> = {
     darkSub: 'Every number on this page comes from the system running in production.',
     facts: [
       {
-        b: '6 dims',
+        b: '180+',
         s: (
           <>
-            AI screening score, <i>every point comes with a reason</i>
+            screening reports generated, <i>every conclusion cites the value it read</i>
           </>
         ),
       },
       {
-        b: '4 stamps',
+        b: '40k+',
         s: (
           <>
-            Tenant Passport — <i>verify once, use it everywhere</i>
+            LTB orders indexed and searchable, <i>name hits need address corroboration</i>
           </>
         ),
       },
@@ -1024,6 +1027,9 @@ export default function HomePage() {
   // authed visitors, but the homepage shouldn't send them there at all).
   const { user, role: authRole } = useAuth()
   const startHref = user ? (authRole ? ROLE_HOME[authRole] : '/dashboard') : '/register'
+  // Hero primary → screening. Signed-in users land in the app directly;
+  // visitors get the public landing (which explains before it asks).
+  const heroHref = user ? '/screening/app' : '/screening'
   const finalHref = user ? startHref : promptHref(c.chatU)
 
   // 静态 metadata 是双语合排；hydration 后按当前语言收窄标签页标题。
@@ -1083,7 +1089,7 @@ export default function HomePage() {
               <h1>{c.heroH1}</h1>
               <p className="sub">{c.sub}</p>
               <div className="ctas">
-                <Link className="btn btn-p" href={startHref}>
+                <Link className="btn btn-p" href={heroHref}>
                   {heroCtas.primary}
                 </Link>
                 <a className="btn btn-g" href="#roles">

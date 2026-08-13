@@ -560,6 +560,34 @@ export default function ReportPage() {
         <div className="mt-8 space-y-4">
 
           {/* Report provenance / methodology */}
+          {/* The bridge from a one-shot screening into a managed tenancy.
+              households sat at zero adoption because nothing in the ONLY live
+              funnel (screening) ever pointed at it — this card is that
+              pointer, shown exactly when the decision is "proceed". */}
+          {tier === 'approve' && (
+            <div className="mb-6 rounded-2xl border p-6" style={{ borderColor: '#BBF7D0', background: '#F0FDF4' }}>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                <div className="min-w-0 flex-1 basis-[16rem]">
+                  <h2 className="text-[16px] font-extrabold tracking-tight" style={{ color: '#166534' }}>
+                    {zh ? '打算批准这位申请人?' : 'Going ahead with this applicant?'}
+                  </h2>
+                  <p className="mt-1 text-[13px] leading-relaxed text-body-2">
+                    {zh
+                      ? '签好租约后把它导入 Stayloop——对话、报修、租金提醒、续约雷达都在一个地方,双方各自可见同一份事实。'
+                      : 'After signing, import the lease into Stayloop — messaging, maintenance, rent reminders and the renewal radar all live in one place, both parties seeing the same facts.'}
+                  </p>
+                </div>
+                <Link
+                  href="/leases/import"
+                  className="rounded-xl px-5 py-3 text-[13.5px] font-bold text-white"
+                  style={{ background: '#16A34A' }}
+                >
+                  {zh ? '导入已签租约 →' : 'Import the signed lease →'}
+                </Link>
+              </div>
+            </div>
+          )}
+
           <SectionShell
             id="provenance"
             title={zh ? '报告来源与方法论' : 'REPORT PROVENANCE & METHODOLOGY'}

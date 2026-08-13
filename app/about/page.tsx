@@ -44,7 +44,7 @@ export default function AboutPage() {
             ))}
           </div>
           <div className="mt-12 flex flex-wrap gap-3">
-            <Link href="/onboarding/welcome" className="sl-btn-primary !px-6 !py-[13px] !text-[15px]">{zh ? '开始使用 →' : 'Get started →'}</Link>
+            <Link href="/onboarding/name" className="sl-btn-primary !px-6 !py-[13px] !text-[15px]">{zh ? '开始使用 →' : 'Get started →'}</Link>
             <Link href="/contact" className="rounded-[10px] border border-line-strong bg-white px-6 py-[12px] text-[14px] font-semibold text-body transition hover:border-brand hover:text-brand">{zh ? '联系我们' : 'Contact us'}</Link>
           </div>
         </div>

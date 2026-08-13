@@ -46,7 +46,7 @@ const PLANS: RolePlan[] = [
         priceUnit: { zh: '永远免费 · 无需信用卡', en: 'free forever · no credit card' },
         tagline: { zh: '全部功能，永远免费。', en: 'Everything included, free forever.' },
         cta: { zh: '免费开始', en: 'Start free' },
-        href: '/onboarding/welcome',
+        href: '/onboarding/name',
         includesLabel: { zh: '全部包含:', en: 'Everything included:' },
         features: [
           { zh: '个人 AI Agent 全功能', en: 'Full personal AI agent' },

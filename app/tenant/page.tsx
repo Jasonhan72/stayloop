@@ -15,7 +15,7 @@ const CFG: RoleLandingConfig = {
     zh: '它记得你的每个偏好,替你翻遍全城、约看、比价、申请 —— 你睡觉时它也在工作。没有加拿大信用记录也没关系:验证一次,处处通行。每个关键决定,依然由你拍板。',
     en: "It remembers every preference, combs the whole city, books viewings, compares and applies — working even while you sleep. No Canadian credit history? No problem: verify once, go anywhere. Every key decision stays yours.",
   },
-  primaryCta: { label: { zh: '唤醒你的 AI 租房助手 →', en: 'Wake up your rental AI →' }, href: '/onboarding/welcome', authedHref: '/tenant/agent' },
+  primaryCta: { label: { zh: '唤醒你的 AI 租房助手 →', en: 'Wake up your rental AI →' }, href: '/onboarding/name', authedHref: '/tenant/agent' },
   secondaryCta: { label: { zh: '先浏览房源', en: 'Browse listings first' }, href: '/listings' },
   ctaNote: { zh: '租客永远免费 · 不影响信用分', en: 'Always free for tenants · never touches your credit' },
   agentPoints: [

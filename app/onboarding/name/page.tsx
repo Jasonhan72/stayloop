@@ -155,15 +155,18 @@ function NamePageInner() {
     setSubmitting(true)
     setAIName(name ?? final, role)
     setRole(role)
-    router.push(AGENT_HOME[role])
+    // First-time landlords land on the aha moment, not a chat shell.
+    // Production data (2026-08-12): 33 signups/30d but 3 active screeners —
+    // the activation gap lives in this exact hop. Returning users are
+    // unaffected (the onboarded-check above skips this page entirely).
+    router.push(role === 'landlord' ? '/screening/app' : AGENT_HOME[role])
   }
 
   return (
     <OnboardingStage
-      step={3}
-      totalSteps={4}
+      step={1}
+      totalSteps={2}
       eyebrow="NAME YOUR AGENT"
-      back={{ href: '/onboarding/meet', label: zh ? '回上一步' : 'Back' }}
     >
       <span
         className="pulse"
