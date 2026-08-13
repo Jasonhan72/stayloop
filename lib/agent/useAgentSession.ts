@@ -129,12 +129,20 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     (d: AgentSessionResponse, isLive: boolean) => {
       // Allow live data to override a demo settle, but never downgrade live → demo.
       if (settled.current && !isLive) return
-      // A late live settle can arrive AFTER the render-deadline already put us
-      // in demo mode and the user started typing. Upgrade the session data,
-      // but never wipe an in-progress conversation the user is mid-way through.
-      const wasDemoWithUserInput = settled.current && !live
+      // The thread-rebuild decision is keyed on the STORAGE SCOPE, not on a
+      // captured `live` flag. The old guard (`settled.current && !live`) read
+      // `live` from the closure, so a SECOND live settle (loader retry,
+      // visibility refresh) judged "not demo-with-input" and restored the
+      // last-persisted history over an in-flight turn — eating the newest
+      // bubbles in real time. And when a late live settle upgraded the scope
+      // (anon → user) mid-conversation, the messages the user could SEE were
+      // persisted under the anon key only, so a reload restored the user
+      // scope without the latest round.
+      const settledBefore = settled.current
+      const nextScope = isLive && user?.id ? user.id.slice(0, 8) : 'anon'
+      const scopeChanged = chatScopeRef.current !== nextScope
       settled.current = true
-      chatScopeRef.current = isLive && user?.id ? user.id.slice(0, 8) : 'anon'
+      chatScopeRef.current = nextScope
       // The agent is named by the user at onboarding (localStorage).
       // The session's agent_name defaults to ROLE_META — override it so the
       // workspace, input bar, memory aside, and LLM all use the chosen name.
@@ -145,12 +153,19 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       setStatus(d.status)
       setLive(isLive)
       setLoading(false)
-      // Restore conversation history from localStorage, or start with greeting.
-      const saved = restoreMessages(role, chatScopeRef.current)
       setMessages((cur) => {
-        // Preserve a live conversation the user already typed into (more than
-        // the lone greeting) when a late settle overrides the demo render.
-        if (wasDemoWithUserInput && cur.length > 1) return cur
+        // Same scope, already settled → the thread is already the truth.
+        // Never rebuild it from storage.
+        if (settledBefore && !scopeChanged) return cur
+        // Scope upgrade mid-conversation (user typed during the demo phase):
+        // keep exactly what they see, and re-home it to the new scope so a
+        // reload restores it from the right key.
+        if (cur.length > 1) {
+          saveMessages(role, nextScope, cur)
+          return cur
+        }
+        // Fresh render for this scope: restore its history, or greet.
+        const saved = restoreMessages(role, nextScope)
         if (saved && saved.length > 0) {
           msgSeq.current = saved.length
           return saved
@@ -158,7 +173,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
         return [{ id: nextId(), role: 'agent', text: greeting(role, d.agent.agent_name, langRef.current) }]
       })
     },
-    [role, user, live]
+    [role, user]
   )
 
   // Persist conversation history to localStorage on every change.

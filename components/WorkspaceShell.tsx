@@ -58,31 +58,110 @@ interface Props {
   hideAside?: boolean
 }
 
-// Workspace pages that still render hardcoded design-canon fixtures (Mia
-// Chen / Thompson / Kevin Tran…) instead of the user's real data. Until each
-// one is wired to live tables, every route on this list gets a visible
-// "示范数据" notice — a real landlord must never mistake canned tenants,
-// payouts or notifications for their own.
-const DEMO_DATA_ROUTES = new Set([
-  '/notifications',
-  // /landlord/leases and /landlord/applicants self-manage their notice —
-  // they render REAL rows once any exist, labeled demo fixtures before that.
-  '/landlord/finance', '/landlord/maintenance',
-  '/tenant/applications', '/tenant/payments', '/tenant/passport', '/tenant/lease', '/tenant/maintenance', '/tenant/move-in',
-  '/agent/tasks', '/agent/clients', '/agent/calendar', '/agent/earnings',
-])
+// Workspace routes whose page body is still design-canon fixture content
+// (Mia Chen / Thompson / Kevin Tran…). The old treatment kept the fixtures
+// on screen with a banner on top; real users still read canned tenants as
+// their own data, and new users met a wall of somebody else's numbers.
+// Activation plan 2026-08-12: the DEFAULT is an honest empty state carrying
+// the next-step CTA for that surface; the fixtures stay one click away
+// behind "查看产品演示" (session-scoped).
+//
+// /tenant/passport and /tenant/lease are deliberately NOT gated: both carry
+// real functionality (share-token generation; HouseholdList) mixed with
+// demo sections, and blanket-hiding them would hide the real parts too.
+// /landlord/leases and /landlord/applicants self-manage (real rows render
+// once any exist).
+const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: string; href: string }> = {
+  '/notifications': {
+    zh: '还没有通知。你的 AI 与各方产生的动态会出现在这里。', en: 'No notifications yet — activity from your AI and counterparties lands here.',
+    ctaZh: '回到工作台', ctaEn: 'Back to workspace', href: '/dashboard',
+  },
+  '/landlord/finance': {
+    zh: '还没有收支记录。导入一份已签租约,租金台账从第一天起自动记录。', en: 'No ledger yet. Import a signed lease and the rent ledger starts itself.',
+    ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
+  },
+  '/landlord/maintenance': {
+    zh: '还没有报修工单。工单来自你的在管租约——导入后租客可直接在站内报修。', en: 'No tickets yet. Tickets come from your managed tenancies — import a lease and tenants file them here.',
+    ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
+  },
+  '/tenant/applications': {
+    zh: '还没有租房申请。让 Luna 按你的预算和区域先找几套,再一键申请。', en: 'No applications yet. Let Luna shortlist homes for your budget and area first.',
+    ctaZh: '让 Luna 开始找房 →', ctaEn: 'Let Luna start searching →', href: '/tenant/agent',
+  },
+  '/tenant/payments': {
+    zh: '还没有租金记录。加入或导入你的在管租约后,每月租金在这里留痕——准时记录会进入你的租客护照。', en: 'No rent records yet. Join or import your managed tenancy and every month leaves a record here.',
+    ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
+  },
+  '/tenant/move-in': {
+    zh: '入住清单会在你的租约开始时生成。', en: 'Your move-in checklist is generated when a tenancy starts.',
+    ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
+  },
+  '/tenant/maintenance': {
+    zh: '还没有报修记录。加入你的在管租约后,报修、进度、留痕都在这里。', en: 'No maintenance yet. Join your managed tenancy and repairs live here.',
+    ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
+  },
+  '/agent/tasks': {
+    zh: '还没有客户任务。替客户下单一次租客筛查,任务与进度在这里跟踪。', en: 'No client tasks yet. Order a screening for a client and track it here.',
+    ctaZh: '发起筛查 →', ctaEn: 'Start a screening →', href: '/screening/app',
+  },
+  '/agent/clients': {
+    zh: '还没有客户档案。从替第一位客户下单筛查开始。', en: 'No clients yet. Start by ordering a screening for your first one.',
+    ctaZh: '发起筛查 →', ctaEn: 'Start a screening →', href: '/screening/app',
+  },
+  '/agent/calendar': {
+    zh: '还没有带看日程。让 Brief 帮你安排第一场。', en: 'No showings yet. Let Brief schedule your first.',
+    ctaZh: '打开 Brief →', ctaEn: 'Open Brief →', href: '/agent/agent',
+  },
+  '/agent/earnings': {
+    zh: '还没有结算记录。完成的转介与筛查服务会在这里对账。', en: 'No settlements yet. Completed referrals and screenings reconcile here.',
+    ctaZh: '打开 Brief →', ctaEn: 'Open Brief →', href: '/agent/agent',
+  },
+}
 
-function DemoDataNotice() {
+function DemoGate({ children }: { children: React.ReactNode }) {
   const path = usePathname() || ''
   const { lang } = useI18n()
-  const isDemo = DEMO_DATA_ROUTES.has(path) ||
-    [...DEMO_DATA_ROUTES].some(r => r !== '/notifications' && path.startsWith(r + '/'))
-  if (!isDemo) return null
+  const zh = lang === 'zh'
+  const gate = DEMO_GATE[path]
+  const [showDemo, setShowDemo] = useState(false)
+  useEffect(() => {
+    try { setShowDemo(sessionStorage.getItem('sl-show-demo') === '1') } catch {}
+  }, [])
+  if (!gate) return <>{children}</>
+  if (showDemo) {
+    return (
+      <>
+        <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-strong bg-surface-chip px-4 py-2.5 font-mono text-[11px] leading-relaxed text-body-3">
+          <span className="min-w-0 flex-1">
+            {zh
+              ? '产品演示 · 以下是演示内容,并非你的真实数据'
+              : 'PRODUCT DEMO · what follows is demo content, not your live records'}
+          </span>
+          <button
+            className="underline"
+            onClick={() => { try { sessionStorage.removeItem('sl-show-demo') } catch {}; setShowDemo(false) }}
+          >
+            {zh ? '返回' : 'Exit demo'}
+          </button>
+        </div>
+        {children}
+      </>
+    )
+  }
   return (
-    <div className="mb-5 rounded-xl border border-line-strong bg-surface-chip px-4 py-2.5 font-mono text-[11px] leading-relaxed text-body-3">
-      {lang === 'zh'
-        ? '示范数据 · 此页面当前展示的是产品演示内容,并非你的真实数据 · SAMPLE DATA — not your live records'
-        : 'SAMPLE DATA · This page currently shows product demo content, not your live records'}
+    <div className="rounded-2xl border border-line-divider bg-white px-6 py-16 text-center">
+      <p className="mx-auto max-w-[420px] text-[14px] leading-relaxed text-body-2">{zh ? gate.zh : gate.en}</p>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <Link href={gate.href} className="rounded-xl px-6 py-3 text-[14px] font-bold text-white" style={{ background: '#7C3AED' }}>
+          {zh ? gate.ctaZh : gate.ctaEn}
+        </Link>
+        <button
+          className="rounded-xl border border-line-divider px-5 py-3 text-[13px] font-semibold text-body-2"
+          onClick={() => { try { sessionStorage.setItem('sl-show-demo', '1') } catch {}; setShowDemo(true) }}
+        >
+          {zh ? '查看产品演示' : 'View product demo'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -97,8 +176,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside }: Pro
         <div className="md:flex md:min-h-[calc(100vh-66px)]">
           <Rail role={role} />
           <div className="min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12">
-            <DemoDataNotice />
-            {children}
+            <DemoGate>{children}</DemoGate>
           </div>
           {!hideAside && (
             <aside className="border-t border-line-divider bg-white px-5 py-6 md:w-[320px] md:flex-none md:overflow-y-auto md:border-l md:border-t-0 md:p-6">
