@@ -15,6 +15,7 @@ export default function AdminHomePage() {
   const auth = useAuth()
   const { loading, role } = useAdmin()
   const [pending, setPending] = useState<number | null>(null)
+  const [stats, setStats] = useState<Record<string, number> | 'error' | null>(null)
   // null = loading, number = count, 'error' = RPC failed (show an error
   // state instead of a forever-spinning "…").
   const [members, setMembers] = useState<number | 'error' | null>(null)
@@ -27,6 +28,8 @@ export default function AdminHomePage() {
       .eq('verification_status', 'pending')
       .then(({ count }) => setPending(count ?? 0))
     supabase.rpc('admin_list_members').then(({ data, error }) => setMembers(!error && Array.isArray(data) ? data.length : 'error'))
+    supabase.rpc('admin_platform_stats').then(({ data, error }) =>
+      setStats(!error && data && !(data as Record<string, unknown>).error ? (data as Record<string, number>) : 'error'))
   }, [role])
 
   if (auth.loading || loading) {
@@ -65,7 +68,7 @@ export default function AdminHomePage() {
       href: '/admin/users',
       icon: '👥',
       title: zh ? '用户与权限' : 'Users & permissions',
-      desc: zh ? '管理后台管理组成员:添加、移除、调整 admin / superadmin 角色。' : 'Manage the admin group — add or remove members, set admin / superadmin roles.',
+      desc: zh ? '全站用户名册(注册/匿名/角色/筛查量)+ 后台管理组成员管理。' : 'Full user roster (real/anon, role, screenings) plus admin-group management.',
       stat:
         members == null
           ? '…'
@@ -93,6 +96,37 @@ export default function AdminHomePage() {
           STAYLOOP ADMIN · {role === 'superadmin' ? 'SUPERADMIN' : 'ADMIN'}
         </div>
         <h1 className="mt-2 text-[30px] font-extrabold tracking-tight">{zh ? '后台管理' : 'Back office'}</h1>
+
+        {/* Platform truth — real accounts and anonymous sessions NEVER share a
+            number (the "33 signups" incident, 2026-08-12). */}
+        <div className="mt-8 rounded-2xl border border-line-divider bg-white p-6">
+          <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-body-3">
+            {zh ? '平台实况 · 真实账号与匿名会话分开统计' : 'Platform · real accounts and anonymous sessions counted separately'}
+          </div>
+          {stats === 'error' ? (
+            <p className="mt-3 text-[13px] text-red-600">{zh ? '指标加载失败' : 'Stats failed to load'}</p>
+          ) : stats == null ? (
+            <p className="mt-3 text-[13px] text-body-3">…</p>
+          ) : (
+            <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+              {([
+                [zh ? '真实注册' : 'Real users', stats.real_users, zh ? `30 天 +${stats.real_users_30d}` : `+${stats.real_users_30d} /30d`],
+                [zh ? '匿名试用会话' : 'Anon sessions', stats.anon_sessions, zh ? `${stats.anon_with_screenings} 个跑过筛查` : `${stats.anon_with_screenings} screened`],
+                [zh ? '筛查总量' : 'Screenings', stats.screenings_total, zh ? `30 天 ${stats.screenings_30d} 单 · ${stats.screeners_30d} 人` : `${stats.screenings_30d} /30d by ${stats.screeners_30d}`],
+                [zh ? '在管租约' : 'Households', stats.households, zh ? `${stats.household_invites_pending} 邀请待接受` : `${stats.household_invites_pending} invites pending`],
+                [zh ? '公开房源' : 'Public listings', stats.listings_public, zh ? `${stats.listings_pending} 待审` : `${stats.listings_pending} pending`],
+                [zh ? 'Agent 事件(30 天)' : 'Agent events /30d', stats.agent_events_30d, ''],
+              ] as Array<[string, number, string]>).map(([label, val, sub]) => (
+                <div key={label}>
+                  <div className="font-mono text-[24px] font-extrabold leading-none">{val}</div>
+                  <div className="mt-1 text-[12px] font-semibold text-body-2">{label}</div>
+                  {sub && <div className="text-[11px] text-body-3">{sub}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="mt-8 grid gap-5 sm:grid-cols-2">
           {cards.map((c) => (
             <Link key={c.href} href={c.href} className="sl-card group p-6 transition hover:shadow-card">

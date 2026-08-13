@@ -12,6 +12,11 @@ import { useAdmin } from '@/lib/useAdmin'
 import { useT } from '@/lib/i18n'
 
 type Member = { user_id: string; email: string; role: 'admin' | 'superadmin'; note: string | null; created_at: string }
+type RosterRow = {
+  user_id: string; email: string | null; is_anonymous: boolean; created_at: string
+  last_sign_in_at: string | null; profile_role: string | null; plan: string | null
+  screenings: number; is_admin: boolean
+}
 
 const ERR_MSG: Record<string, { zh: string; en: string }> = {
   not_superadmin: { zh: '只有 superadmin 可以管理组成员', en: 'Only a superadmin can manage members' },
@@ -31,6 +36,8 @@ export default function AdminUsersPage() {
   const [newRole, setNewRole] = useState<'admin' | 'superadmin'>('admin')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [roster, setRoster] = useState<RosterRow[] | null>(null)
+  const [showAnon, setShowAnon] = useState(false)
 
   const load = useCallback(async () => {
     setListLoading(true)
@@ -42,6 +49,12 @@ export default function AdminUsersPage() {
   useEffect(() => {
     if (role) load()
   }, [role, load])
+
+  useEffect(() => {
+    if (!role) return
+    supabase.rpc('admin_list_users', { p_limit: 500 }).then(({ data }) =>
+      setRoster(Array.isArray(data) ? (data as RosterRow[]) : []))
+  }, [role, msg])
 
   const runRpc = async (fn: string, args: Record<string, unknown>, okText: string) => {
     setBusy(true)
@@ -196,6 +209,68 @@ export default function AdminUsersPage() {
               </div>
             ))
           )}
+        </div>
+
+        {/* Full user roster — the registrations view. Real accounts and
+            anonymous trial sessions never share a bucket (2026-08-12). */}
+        <div className="sl-card mt-8 p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-[14.5px] font-bold">{zh ? '全站用户' : 'All users'}</div>
+            {roster && (
+              <span className="font-mono text-[11px] text-body-3">
+                {zh
+                  ? `${roster.filter((r) => !r.is_anonymous).length} 真实注册 · ${roster.filter((r) => r.is_anonymous).length} 匿名试用会话`
+                  : `${roster.filter((r) => !r.is_anonymous).length} real · ${roster.filter((r) => r.is_anonymous).length} anonymous sessions`}
+              </span>
+            )}
+            <label className="ml-auto flex items-center gap-1.5 text-[12px] text-body-2">
+              <input type="checkbox" checked={showAnon} onChange={(e) => setShowAnon(e.target.checked)} />
+              {zh ? '显示匿名会话' : 'Show anonymous'}
+            </label>
+          </div>
+          <div className="mt-4 space-y-1.5">
+            {roster == null ? (
+              <p className="text-[13px] text-body-3">…</p>
+            ) : (
+              roster
+                .filter((r) => showAnon || !r.is_anonymous)
+                .map((r) => (
+                  <div key={r.user_id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line-divider/60 px-3.5 py-2.5 text-[12.5px]">
+                    <span className="min-w-0 flex-1 basis-[14rem] break-all font-semibold">
+                      {r.is_anonymous ? (
+                        <span className="font-mono text-body-3">{zh ? '匿名会话' : 'anonymous'} · {r.user_id.slice(0, 8)}</span>
+                      ) : (
+                        r.email
+                      )}
+                    </span>
+                    {r.is_admin && <span className="rounded bg-brand/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand">ADMIN</span>}
+                    {r.profile_role && <span className="rounded bg-surface-chip px-1.5 py-0.5 font-mono text-[10px]">{r.profile_role}</span>}
+                    {r.plan && r.plan !== 'free' && <span className="rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-emerald-700">{r.plan.toUpperCase()}</span>}
+                    {r.screenings > 0 && <span className="font-mono text-[11px] text-body-3">{r.screenings} {zh ? '单筛查' : 'screenings'}</span>}
+                    <span className="font-mono text-[11px] text-body-3">
+                      {zh ? '注册' : 'joined'} {new Date(r.created_at).toLocaleDateString()}
+                      {r.last_sign_in_at ? ` · ${zh ? '最后登录' : 'last'} ${new Date(r.last_sign_in_at).toLocaleDateString()}` : ''}
+                    </span>
+                    {isSuper && !r.is_admin && r.user_id !== auth.user?.id && (
+                      <button
+                        className="font-mono text-[11px] font-bold text-red-500 hover:underline disabled:opacity-50"
+                        disabled={busy}
+                        onClick={() => {
+                          const label = r.email || r.user_id.slice(0, 8)
+                          if (window.confirm(zh
+                            ? `确定删除用户 ${label}?其账号与关联档案会被移除,筛查记录保留。`
+                            : `Delete user ${label}? Account and profile are removed; screening rows remain.`)) {
+                            runRpc('admin_delete_user', { p_user_id: r.user_id }, zh ? '已删除' : 'Deleted')
+                          }
+                        }}
+                      >
+                        {zh ? '删除' : 'Delete'}
+                      </button>
+                    )}
+                  </div>
+                ))
+            )}
+          </div>
         </div>
       </div>
     </Shell>

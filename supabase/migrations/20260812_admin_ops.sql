@@ -1,0 +1,12 @@
+-- Back-office ops RPCs (applied to prod 2026-08-12 as migration admin_ops).
+-- Guarded inside the body with is_stayloop_admin()/superadmin; public/anon
+-- revoked in the same migration (default-PUBLIC-EXECUTE trap, see 20260728).
+--
+-- admin_platform_stats(): every user metric separates real accounts from
+--   anonymous trial sessions — the "33 signups" that were 30 anon sessions +
+--   3 test leftovers must never be reportable again.
+-- admin_list_users(p_limit): full roster, anonymous flagged, with profile
+--   role/plan, screening counts and admin membership.
+-- admin_delete_user(p_user_id): superadmin only; refuses self and admins
+--   (demote first); cleans household_members + landlords, then auth.users.
+-- Bodies: see the applied migration (single source: pg_get_functiondef).
