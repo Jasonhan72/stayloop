@@ -93,7 +93,11 @@ async function main() {
         await admin.from('households').delete().eq('id', hid)
         if (h?.current_lease_id) await admin.from('lease_documents').delete().eq('id', h.current_lease_id)
       }
-      await admin.auth.admin.deleteUser(u.user.id)
+      // Check the error: three sequential admin deletes once hit a silent
+      // failure (likely rate limiting) and left test users in auth.users for
+      // days — they then polluted the "signups last 30 days" metric.
+      const { error: delErr } = await admin.auth.admin.deleteUser(u.user.id)
+      if (delErr) console.error(`CLEANUP FAILED for ${email}: ${delErr.message} — delete manually`)
       await admin.from('landlords').delete().eq('auth_id', u.user.id)
     }
   }
