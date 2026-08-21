@@ -253,8 +253,16 @@ export function checkTimestampClustering(
 ): ForensicFlag[] {
   const flags: ForensicFlag[] = []
 
-  // Only check files with valid creation dates AND strict kinds
-  const CLUSTER_KINDS = new Set(['bank_statement', 'pay_stub', 'credit_report'])
+  // Only check files with valid creation dates AND strict kinds.
+  // credit_report is deliberately EXCLUDED: the rule's premise ("documents
+  // covering different periods should be generated weeks apart") only holds
+  // for period documents. A credit report is a point-in-time snapshot
+  // generated at request time — co-applicants downloading their own reports
+  // in one sitting, or one person pulling Equifax + TransUnion the same
+  // evening, is the EXPECTED honest behavior. Two genuine co-applicant
+  // Equifax downloads 42 seconds apart were hard-gated as "batch forgery"
+  // under the old rule.
+  const CLUSTER_KINDS = new Set(['bank_statement', 'pay_stub'])
   const dated = files
     .filter(f => f.creation_date && CLUSTER_KINDS.has(f.file_kind))
     .map(f => ({

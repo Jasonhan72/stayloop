@@ -25,9 +25,14 @@ import { PDFDocument, PDFName, PDFDict, PDFArray, PDFRef } from 'pdf-lib'
 import type { ForensicFlag } from './types'
 
 // Documents where pdf-lib is suspicious IF the content doesn't match a known
-// enterprise system. Banks and credit bureaus never use pdf-lib, but modern
-// SaaS payroll systems (Workday, Gusto, Rippling, BambooHR) DO — so pay_stub
-// requires a content check before flagging.
+// enterprise system. Banks never use pdf-lib, but modern SaaS payroll systems
+// (Workday, Gusto, Rippling, BambooHR) DO — so pay_stub requires a content
+// check before flagging. Credit bureaus are the sharper trap: Equifax
+// Canada's own consumer portal renders its download PDF client-side with
+// pdf-lib (verified 2026-08 against known-genuine consumer downloads across
+// separate applicants and dates — every one carries Producer "pdf-lib"), so
+// for credit_report the producer string cannot distinguish a real download
+// from a fabricated one. See CONSUMER_BUREAU_PORTAL_MARKERS below.
 const FINANCIAL_KINDS = new Set([
   'bank_statement',
   'credit_report',
@@ -74,6 +79,45 @@ function detectEnterpriseSystem(textContent: string): string | null {
   if (!textContent) return null
   for (const sys of ENTERPRISE_SYSTEM_MARKERS) {
     if (sys.patterns.some(p => p.test(textContent))) return sys.name
+  }
+  return null
+}
+
+// Consumer credit-bureau portals whose GENUINE download PDFs are rendered
+// client-side by JS libraries. A pdf-lib Producer on a credit_report matching
+// one of these is the portal's own rendering tool — flagging it as a
+// fabrication tool would fail every real Equifax consumer download (and did:
+// two genuine co-applicant reports were hard-gated as batch forgery).
+// A marker match does NOT verify authenticity — anyone can type these strings
+// into a fake — it only means the producer signal is uninformative here, so
+// authenticity rests on the content checks (source fingerprint, cross-doc,
+// tradeline consistency). ≥2 distinct markers required so a stray bureau
+// mention elsewhere in a document doesn't qualify.
+const CONSUMER_BUREAU_PORTAL_MARKERS: Array<{ name: string; patterns: RegExp[] }> = [
+  {
+    name: 'Equifax Canada consumer portal',
+    patterns: [
+      /consumer\.equifax\.ca/i,
+      /Equifax\s+Canada\s+Co\b/i,
+      /EQUIFAX\s+REFERENCE\s+NUMBER/i,
+      /equifax\.ca\/personal\/dispute-credit-report/i,
+    ],
+  },
+  {
+    name: 'TransUnion Canada consumer portal',
+    patterns: [
+      /transunion\.ca/i,
+      /TransUnion\s+(?:of\s+)?Canada/i,
+      /Consumer\s+Disclosure/i,
+    ],
+  },
+]
+
+function detectConsumerBureauPortal(textContent: string): string | null {
+  if (!textContent) return null
+  for (const portal of CONSUMER_BUREAU_PORTAL_MARKERS) {
+    const hits = portal.patterns.filter(rx => rx.test(textContent)).length
+    if (hits >= 2) return portal.name
   }
   return null
 }
@@ -156,8 +200,27 @@ export async function checkPdfStructure(
   // Also check for other forgery-tool byte markers
   const toolFingerprint = detectToolFingerprint(rawText)
 
+  // Portal detection runs on visible text AND raw bytes — the reference
+  // number and dispute URL sit in the page text, which the caller passes as
+  // textContent when text extraction succeeded.
+  const bureauPortal = kind === 'credit_report'
+    ? detectConsumerBureauPortal(`${textContent || ''}\n${rawText}`)
+    : null
+
   if (hasPdflibMarker) {
-    if (isFinancial && enterpriseSystem) {
+    if (kind === 'credit_report' && bureauPortal) {
+      // pdf-lib on a credit report whose content matches a consumer-bureau
+      // portal fingerprint: that portal's genuine downloads ARE pdf-lib
+      // renders, so the producer proves nothing either way. Disclose, don't
+      // penalize — content-level checks carry the authenticity question.
+      flags.push({
+        code: 'pdf_structure_pdflib_bureau_portal',
+        severity: 'info',
+        file: fileName,
+        evidence_en: `PDF Producer is pdf-lib${pdflibVersion ? ` v${pdflibVersion}` : ''} and the content matches the ${bureauPortal} fingerprint. That portal's genuine consumer downloads are rendered client-side with pdf-lib, so the producer string cannot distinguish a real download from a fabricated one — authenticity rests on the content checks (source fingerprint, cross-document consistency, tradeline data).`,
+        evidence_zh: `PDF 生成器为 pdf-lib${pdflibVersion ? ` v${pdflibVersion}` : ''}，且内容匹配 ${bureauPortal} 指纹。该门户的真实消费者下载版报告本身就是用 pdf-lib 在浏览器端渲染的，因此生成器字段无法区分真件与伪造件——真伪判断依赖内容级检查（来源指纹、跨文档一致性、账户数据）。`,
+      })
+    } else if (isFinancial && enterpriseSystem) {
       // pdf-lib detected BUT the document content contains markers from a
       // known enterprise system (Workday, ADP, Gusto, etc.) that legitimately
       // uses JS PDF rendering. Not a forgery signal — informational only.

@@ -60,3 +60,6 @@ stripe-resend.patch
 
 # Deploy log written by ship2-v53.command on every run — build noise, not source.
 ship2.log
+
+# local forensic case files — real applicant PII, never commit
+.forensics-tmp/
