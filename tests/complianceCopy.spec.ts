@@ -97,3 +97,16 @@ describe('terminology — the product screens, it does not investigate', () => {
     expect(hits, `investigation-flavoured naming crept back in:\n${hits.join('\n')}`).toEqual([])
   })
 })
+
+// Red line ③ (LTB module): the catalogue has no disposition field, so no UI
+// surface may present the court search as finding "驱逐/判决" outcomes. The
+// progress feed shipped a "LTB 驱逐 × Small Claims 判决" line once.
+import { readFileSync as rfs } from 'node:fs'
+describe('court-outcome overclaim guard', () => {
+  it('the screening app never claims to cross-reference evictions/judgments', () => {
+    const src = rfs('app/screening/app/page.tsx', 'utf8')
+    expect(src).not.toMatch(/LTB\s*驱逐/)
+    expect(src).not.toMatch(/LTB evictions/i)
+    expect(src).not.toMatch(/Small Claims judgments/i)
+  })
+})

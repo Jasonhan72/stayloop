@@ -6,7 +6,7 @@ export const runtime = 'edge'
 // Route: /screening/[id]/share
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -71,6 +71,15 @@ export default function ShareConfigPage() {
   const params = useParams()
   const id = params?.id as string
   const { loading: authLoading, user } = useAuth()
+  const router = useRouter()
+  // A logged-out visitor (expired session, pasted URL in a fresh browser)
+  // used to hang on the loading spinner forever — the fetch effect never runs
+  // without a user and nothing else resolved the state.
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`)
+    }
+  }, [authLoading, user, router])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [screening, setScreening] = useState<any>(null)
   const [loadError, setLoadError] = useState(false)
@@ -115,7 +124,7 @@ export default function ShareConfigPage() {
 
   const applicantName = screening.ai_extracted_name || screening.tenant_name || 'Applicant'
   const score = screening.ai_score ?? 0
-  const tier = screening.v3_tier ?? 'decline'
+  const tier = screening.v3_tier ?? 'none'  // absence of a verdict must not render as DECLINE
   const generatedLink = `https://app.stayloop.ai/s/${id.slice(0, 8)}`
 
   const toggleField = (fieldId: string) => {
@@ -187,7 +196,7 @@ export default function ShareConfigPage() {
           <span className="font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-body-3">SCORE</span>
           <span className="font-mono text-[12px] font-bold" style={{ color: '#047857' }}>{score}</span>
           <span className="font-mono text-[11px] text-body-3">&middot;</span>
-          <span className="font-mono text-[11px] font-bold uppercase" style={{ color: tier === 'approve' ? '#047857' : tier === 'conditional' ? '#D97706' : '#DC2626' }}>
+          <span className="font-mono text-[11px] font-bold uppercase" style={{ color: tier === 'approve' ? '#047857' : tier === 'conditional' ? '#D97706' : tier === 'decline' ? '#DC2626' : '#64748B' }}>
             {tier}
           </span>
           <span className="font-mono text-[11px] text-body-3">&middot;</span>
@@ -332,7 +341,7 @@ export default function ShareConfigPage() {
                         color: field.checked ? '#fff' : 'transparent',
                       }}
                     >
-                      {field.checked ? '&#10003;' : ''}
+                      {field.checked ? '\u2713' : ''}
                     </span>
                     <input type="checkbox" checked={field.checked} onChange={() => toggleField(field.id)} className="sr-only" />
                     <span className="text-[14px]">{field.label}</span>
@@ -463,8 +472,8 @@ export default function ShareConfigPage() {
                     <span
                       className="rounded-md px-2 py-0.5 font-mono text-[10px] font-bold uppercase"
                       style={{
-                        color: tier === 'approve' ? '#047857' : tier === 'conditional' ? '#D97706' : '#DC2626',
-                        background: tier === 'approve' ? '#04785714' : tier === 'conditional' ? '#D9770614' : '#DC262614',
+                        color: tier === 'approve' ? '#047857' : tier === 'conditional' ? '#D97706' : tier === 'decline' ? '#DC2626' : '#64748B',
+                        background: tier === 'approve' ? '#04785714' : tier === 'conditional' ? '#D9770614' : tier === 'decline' ? '#DC262614' : '#64748B14',
                       }}
                     >
                       {tier}

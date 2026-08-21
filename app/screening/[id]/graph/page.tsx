@@ -5,13 +5,33 @@ export const runtime = 'edge'
 // V5.3 · Relationship Graph / Dimension Visualization — loads real data from Supabase.
 // Route: /screening/[id]/graph
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
+
+// scores_v3 lives in ai_dimension_notes._v3.scores (the scoring route never
+// writes a scores_v3 column) — per-column values are the fallback for old
+// rows. Mirrors reconstructResult in ../report.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function dimsOf(row: any): Record<string, number> {
+  const v3 = (row?.ai_dimension_notes && row.ai_dimension_notes._v3) || {}
+  if (v3.scores && typeof v3.scores === 'object') return v3.scores
+  if (row?.scores_v3 && typeof row.scores_v3 === 'object') return row.scores_v3
+  if (row?.ability_to_pay_score != null) {
+    return {
+      ability_to_pay: row.ability_to_pay_score ?? 0,
+      credit_health: row.credit_health_score ?? 0,
+      rental_history: row.rental_history_score ?? 0,
+      verification: row.verification_score ?? 0,
+      communication: row.communication_score ?? 0,
+    }
+  }
+  return {}
+}
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
@@ -181,6 +201,15 @@ export default function GraphPage() {
   const params = useParams()
   const id = params?.id as string
   const { loading: authLoading, user } = useAuth()
+  const router = useRouter()
+  // A logged-out visitor (expired session, pasted URL in a fresh browser)
+  // used to hang on the loading spinner forever — the fetch effect never runs
+  // without a user and nothing else resolved the state.
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`)
+    }
+  }, [authLoading, user, router])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [screening, setScreening] = useState<any>(null)
   const [loadError, setLoadError] = useState(false)
@@ -204,9 +233,9 @@ export default function GraphPage() {
   if (loadError) return <NotFoundShell />
 
   const applicantName = screening.ai_extracted_name || screening.tenant_name || 'Applicant'
-  const dims = screening.scores_v3 || {}
+  const dims = dimsOf(screening)
   const score = screening.ai_score ?? 0
-  const tier = screening.v3_tier ?? 'decline'
+  const tier = screening.v3_tier ?? 'none'
   const coverage = screening.evidence_coverage != null ? Math.round(screening.evidence_coverage * 100) : null
   const redFlags = screening.red_flags || []
   const hardGates = screening.hard_gates_triggered || []
@@ -272,8 +301,8 @@ export default function GraphPage() {
                 <div className="mt-0.5 text-[11px] text-body-3">out of 100</div>
               </div>
               <div className="rounded-xl border border-line-divider bg-[#FAFAF8] p-4 text-center">
-                <div className="font-mono text-[28px] font-extrabold" style={{ color: tier === 'approve' ? '#047857' : tier === 'conditional' ? '#D97706' : '#DC2626' }}>
-                  {tier === 'approve' ? 'PASS' : tier === 'conditional' ? 'COND' : 'FAIL'}
+                <div className="font-mono text-[28px] font-extrabold" style={{ color: tier === 'approve' ? '#047857' : tier === 'conditional' ? '#D97706' : tier === 'decline' ? '#DC2626' : '#64748B' }}>
+                  {tier === 'approve' ? 'PASS' : tier === 'conditional' ? 'COND' : tier === 'decline' ? 'FAIL' : '—'}
                 </div>
                 <div className="mt-1 text-[13px] font-bold text-body">Recommendation</div>
                 <div className="mt-0.5 text-[11px] text-body-3">{tier}</div>

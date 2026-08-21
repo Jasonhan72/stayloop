@@ -74,6 +74,10 @@ export interface LtbResult {
    */
   corroborated: LtbMatch[]
   coverage: { from: string | null; to: string | null; orders: number | null }
+  /** How many declared addresses corroboration was measured against — 0 means
+   *  "nothing to compare", which the summary must state instead of implying a
+   *  comparison ran and found nothing. */
+  declared_count?: number
 }
 
 const TENANT_SIDE_ROLES = new Set(['tenant', 'former_tenant', 'sub_tenant', 'occupant'])
@@ -96,10 +100,12 @@ type Rpc = (
 
 /**
  * @param declaredAddresses addresses the applicant listed on their own
- *        application (screening already parses these into
- *        cross_doc_verification.application_summary.prev_residences), plus the
- *        unit being applied for. These are what corroboration is measured
- *        against — never an address we inferred.
+ *        application (screening parses these into
+ *        cross_doc_verification.application_summary.prev_residences). The
+ *        applied-for unit is deliberately NOT included — orders against that
+ *        unit's previous tenants who share the name would corroborate falsely.
+ *        These are what corroboration is measured against — never an address
+ *        we inferred.
  */
 export async function searchLtbOrders(
   rpc: Rpc,
@@ -158,12 +164,45 @@ export async function searchLtbOrders(
     return { status: 'unavailable', note: 'LTB catalogue lookup failed', queried_name: norm, ...empty }
   }
 
-  const rows = (Array.isArray(data) ? data : []) as LtbMatch[]
+  const rawRows = (Array.isArray(data) ? data : []) as LtbMatch[]
+
+  // Rule 2¼ — the RPC's subset direction admits records whose tokens are a
+  // subset of the query's ("DAVID MICHAEL PARK" query ⊇ record "DAVID
+  // MICHAEL" — surname Michael, a different person). A subset match must
+  // still carry the query's surname token; the other direction (record has
+  // MORE tokens) contains it by construction and passes unchanged.
+  const querySurname = norm.split(' ').filter(Boolean).pop() || ''
+  const rows = rawRows.filter((r) => {
+    if (r.match_kind !== 'subset') return true
+    return normalizeName(r.person_name).split(' ').includes(querySurname)
+  })
+
+  // Rule 2½ — corroboration binding. The RPC's address_match accepts a bare
+  // street-key equality ("25 KING") — but common street names exist in every
+  // Ontario city, so "25 King St, Ottawa" must not corroborate an order at
+  // "25 KING STREET W, KITCHENER". Recompute: a postal match corroborates on
+  // its own (postals are city-unique, present on 98.6% of orders); a street
+  // key only corroborates when the declared text also names the order's city.
+  const strongAddressMatch = (unitAddress: string | null): boolean => {
+    if (!unitAddress) return false
+    const rp = addressParts(unitAddress)
+    const rowCity = ((unitAddress.toUpperCase().split(',')[1] || '').trim().split(/\s+/)[0]) || null
+    for (const d of declaredAddresses) {
+      const dp = addressParts(d)
+      if (rp.postal && dp.postal && rp.postal === dp.postal) return true
+      if (rp.key && dp.key && rp.key === dp.key && rowCity && d.toUpperCase().includes(rowCity)) return true
+    }
+    return false
+  }
 
   // Rule 1 — the landlord/agent rows in the catalogue share the same name space
   // as tenants. A landlord who happens to share the applicant's name is not a
   // signal about the applicant at all, so those rows are dropped outright.
-  const tenantSide = rows.filter((r) => TENANT_SIDE_ROLES.has(r.role))
+  const tenantSide = rows
+    .filter((r) => TENANT_SIDE_ROLES.has(r.role))
+    // address_match is re-derived with the stronger binding so every display
+    // surface ("ADDRESS CORROBORATED" badges) agrees with what actually gates.
+    .map((r) => ({ ...r, address_match: strongAddressMatch(r.unit_address) }))
 
   const asRespondent = tenantSide.filter((r) => r.party_side === 'respondent')
   const asApplicant = tenantSide.filter((r) => r.party_side === 'applicant')
@@ -176,6 +215,7 @@ export async function searchLtbOrders(
     as_applicant: asApplicant,
     corroborated,
     coverage,
+    declared_count: declaredAddresses.length,
   }
 }
 
@@ -214,14 +254,17 @@ export function summarizeLtb(result: LtbResult, lang: 'en' | 'zh'): string {
   const c = result.corroborated.length
   const codes = [...new Set(result.as_respondent.flatMap((r) => r.application_codes))]
 
+  const noDeclared = (result.declared_count ?? 0) === 0
   if (zh) {
     const base = `已收录判令中有 ${n} 份以该姓名列为被申请租客（${describeCodes(codes, 'zh')}）。`
-    return c > 0
-      ? `${base}其中 ${c} 份的房屋地址与申请人自报的居住地址吻合。判令目录不含判决结果，是否欠款/被终止租约需查看判令原件。`
+    if (c > 0) return `${base}其中 ${c} 份的房屋地址与申请人自报的居住地址吻合。判令目录不含判决结果，是否欠款/被终止租约需查看判令原件。`
+    return noDeclared
+      ? `${base}申请人未提供可比对的自报地址，无法进行地址佐证——姓名匹配可能是同名他人。判令目录不含判决结果，需查看原件核实。`
       : `${base}但没有一份的房屋地址与申请人自报地址吻合，可能是同名他人。判令目录不含判决结果，需查看原件核实。`
   }
   const base = `${n} published order(s) name this person as a responding tenant (${describeCodes(codes, 'en')}).`
-  return c > 0
-    ? `${base} ${c} of them is at an address the applicant declared. The catalogue carries no outcome — read the order to see what was decided.`
+  if (c > 0) return `${base} ${c} of them is at an address the applicant declared. The catalogue carries no outcome — read the order to see what was decided.`
+  return noDeclared
+    ? `${base} No declared addresses were available to compare against, so address corroboration could not run — a name match may be a namesake. The catalogue carries no outcome — read the order to see what was decided.`
     : `${base} None is at an address the applicant declared, so this may be a namesake. The catalogue carries no outcome — read the order to see what was decided.`
 }

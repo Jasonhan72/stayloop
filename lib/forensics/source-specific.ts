@@ -215,7 +215,13 @@ export function checkSourceSpecific(
       const expected = BANK_MARKERS[matched]
       const producerOk = expected.producer.some(re => re.test(producer))
       result.bank_producer_whitelisted = producerOk
-      if (!producerOk && producer.trim().length > 0) {
+      // Skip the producer comparison for image-only PDFs: the bank was
+      // identified from OCR text (the orchestrator feeds OCR back in for
+      // exactly that purpose), but a scanned/photographed statement's
+      // Producer is the SCANNER's ("iOS Quartz PDFContext"), never the
+      // bank's — comparing it fired a high flag on every genuine scan.
+      // Scans carry their own disclosure via pdf_pure_image instead.
+      if (!producerOk && producer.trim().length > 0 && !text?.is_likely_image_pdf) {
         flags.push({
           code: 'bank_producer_mismatch',
           severity: 'high',

@@ -301,7 +301,7 @@ export function checkPaystubMath(
               if (rescuedRatio >= 0.5 && rescuedRatio <= 1.5) {
                 flags.push({
                   code: 'paystub_rate_reclassified',
-                  severity: 'low',
+                  severity: 'info',  // a successful self-consistency rescue — weighs 0
                   file,
                   evidence_en: `Extracted "annual salary" $${ext.annual_salary.toLocaleString()} produced a YTD ratio of ${ytdRatio.toFixed(2)}x — matching ${ppy} pay periods/year. Reinterpreted as a per-period rate: annualized salary $${rescuedAnnual.toLocaleString()}, YTD ratio ${rescuedRatio.toFixed(2)}x (consistent).`,
                   evidence_zh: `提取到的"年薪" $${ext.annual_salary.toLocaleString()} 得出 YTD 比例 ${ytdRatio.toFixed(2)} 倍——恰好等于每年 ${ppy} 个发薪期。已重新判定为单期薪资：年化 $${rescuedAnnual.toLocaleString()}，YTD 比例 ${rescuedRatio.toFixed(2)} 倍（自洽）。`,
@@ -359,13 +359,26 @@ export function checkPaystubMath(
     derivedPeriodGross = ext.hourly_rate * ext.hours_worked
     const diff = Math.abs(derivedPeriodGross - ext.period_gross)
     periodMathErrorPct = (diff / ext.period_gross) * 100
-    if (periodMathErrorPct > 5) {
+    // Two tiers: only >15% reaches the gating code. The 5–15% band is real
+    // on genuine stubs — hours_worked often includes OT hours while
+    // hourly_rate is the base rate, so the 1.5× premium alone breaks 5%
+    // once OT passes ~12.5% of hours (80h reg + 10h OT: 5.3% off). A
+    // likely_fraud verdict needs math that overtime cannot explain.
+    if (periodMathErrorPct > 15) {
       flags.push({
         code: 'paystub_period_math_error',
         severity: 'high',
         file,
-        evidence_en: `Pay stub shows ${ext.hours_worked}h × $${ext.hourly_rate}/hr = $${derivedPeriodGross.toFixed(2)}, but stated period gross is $${ext.period_gross.toFixed(2)} (off by ${periodMathErrorPct.toFixed(1)}%). Internal math doesn't add up.`,
-        evidence_zh: `工资单显示 ${ext.hours_worked} 小时 × $${ext.hourly_rate}/小时 = $${derivedPeriodGross.toFixed(2)}，但本期毛收入填的是 $${ext.period_gross.toFixed(2)}（差 ${periodMathErrorPct.toFixed(1)}%）。内部数学对不上。`,
+        evidence_en: `Pay stub shows ${ext.hours_worked}h × $${ext.hourly_rate}/hr = $${derivedPeriodGross.toFixed(2)}, but stated period gross is $${ext.period_gross.toFixed(2)} (off by ${periodMathErrorPct.toFixed(1)}%). Internal math doesn't add up beyond what overtime premiums could explain.`,
+        evidence_zh: `工资单显示 ${ext.hours_worked} 小时 × $${ext.hourly_rate}/小时 = $${derivedPeriodGross.toFixed(2)}，但本期毛收入填的是 $${ext.period_gross.toFixed(2)}（差 ${periodMathErrorPct.toFixed(1)}%）。差距超出加班费溢价所能解释的范围，内部数学对不上。`,
+      })
+    } else if (periodMathErrorPct > 5) {
+      flags.push({
+        code: 'paystub_period_math_variance',
+        severity: 'medium',
+        file,
+        evidence_en: `Pay stub shows ${ext.hours_worked}h × $${ext.hourly_rate}/hr = $${derivedPeriodGross.toFixed(2)} vs stated period gross $${ext.period_gross.toFixed(2)} (${periodMathErrorPct.toFixed(1)}% apart). Consistent with overtime/shift premiums on the base rate — verify against a second stub rather than treating as forgery.`,
+        evidence_zh: `工资单显示 ${ext.hours_worked} 小时 × $${ext.hourly_rate}/小时 = $${derivedPeriodGross.toFixed(2)}，与本期毛收入 $${ext.period_gross.toFixed(2)} 相差 ${periodMathErrorPct.toFixed(1)}%。与基础时薪之外的加班/轮班溢价一致——建议用第二张工资单核对，而非按伪造处理。`,
       })
     }
   }

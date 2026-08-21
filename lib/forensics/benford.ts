@@ -40,8 +40,11 @@ export function checkBenford(
   const trailingAmounts = amounts.filter(a => a >= 1)
 
   // --- Leading digit distribution (Benford's Law) ---
-  const leadingDigits = amounts
-    .filter(a => a >= 10)
+  // Deduplicate identical amounts first: statements dominated by recurring
+  // identical entries (rent, payroll, subscriptions) repeat one leading
+  // digit many times for a single underlying fact — Benford applies to
+  // independent amounts, not to one amount echoed 12 times.
+  const leadingDigits = Array.from(new Set(amounts.filter(a => a >= 10)))
     .map(a => firstSignificantDigit(a))
     .filter((d): d is number => d !== null)
 
@@ -51,7 +54,11 @@ export function checkBenford(
   const sampleSize = leadingDigits.length
   let chiSquared: number | null = null
 
-  if (sampleSize >= 30 && isStrict) {
+  // n >= 100, not 30: the chi-squared approximation needs expected counts of
+  // at least ~5 in every cell, and the rarest leading digit (9) has expected
+  // frequency 4.6% — at n=30 that cell expects 1.4 and the printed p-values
+  // are fiction. ~110 amounts is the honest floor.
+  if (sampleSize >= 100 && isStrict) {
     chiSquared = 0
     for (let d = 1; d <= 9; d++) {
       const observed = distribution[d] / sampleSize
@@ -97,8 +104,11 @@ export function checkBenford(
     // (rent, subscriptions, round transfers). Above 60% is suspicious.
     if (trailingRoundPct > 0.70) {
       flags.push({
+        // medium, not high: e-transfer-heavy accounts (students, cash-based
+        // workers, rent+utilities-only accounts) are legitimately dominated
+        // by round amounts — this is corroborating, not conclusive.
         code: 'trailing_digits_too_round',
-        severity: 'high',
+        severity: 'medium',
         file: fileName,
         evidence_en: `${Math.round(trailingRoundPct * 100)}% of ${trailingSampleSize} transaction amounts end in .00 or .50 (expected ~15%). Forgers strongly favor round numbers — real bank transactions have varied cents values.`,
         evidence_zh: `${trailingSampleSize} 笔交易中 ${Math.round(trailingRoundPct * 100)}% 的金额以 .00 或 .50 结尾（预期约 15%）。伪造者偏好整数——真实银行交易的分位值是多样的。`,

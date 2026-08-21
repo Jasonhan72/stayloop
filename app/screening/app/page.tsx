@@ -8,6 +8,7 @@ import Header from '@/components/Header'
 import AuthModal from '@/components/AuthModal'
 import { generateScreeningReport } from '@/lib/generateReport'
 import { registryLinks } from '@/lib/forensics/registry-links'
+import { RUBRIC_WEIGHTS } from '@/lib/screening/rubric'
 import type { CanLIIMatch, OntarioPortalMatch, CourtQuery, AiFlag, ScoreResult, V3DimKey } from '@/lib/screening-types'
 
 // ───────────────────────────────────────────────────────── Types ──
@@ -44,11 +45,16 @@ const CATEGORIES: {
   zhLabel: string
   enLabel: string
 }[] = [
-  { id: 'ability_to_pay', labelKey: 'cat.ability_to_pay.label', descKey: 'cat.ability_to_pay.desc', icon: '💰', weight: 0.40, zhLabel: '付款能力',         enLabel: 'Ability to Pay' },
-  { id: 'credit_health',  labelKey: 'cat.credit_health.label',  descKey: 'cat.credit_health.desc',  icon: '📊', weight: 0.25, zhLabel: '信用健康度',       enLabel: 'Credit & Debt Health' },
-  { id: 'rental_history', labelKey: 'cat.rental_history.label', descKey: 'cat.rental_history.desc', icon: '⚖️', weight: 0.20, zhLabel: '租务与司法历史',   enLabel: 'Rental & Legal History' },
-  { id: 'verification',   labelKey: 'cat.verification.label',   descKey: 'cat.verification.desc',   icon: '🔍', weight: 0.10, zhLabel: '身份与雇主核实',   enLabel: 'Identity & Employer' },
-  { id: 'communication',  labelKey: 'cat.communication.label',  descKey: 'cat.communication.desc',  icon: '🏠', weight: 0.05, zhLabel: '申请完整度与沟通', enLabel: 'Application Quality' },
+  // Weights come from RUBRIC_WEIGHTS — the numbers the score is actually
+  // computed with. This table previously hardcoded the retired 40/25/20/10/5
+  // set, so the on-screen weights disagreed with the PDF report for the same
+  // screening. communication carries NO weight under the rubric (weight 0 →
+  // rendered as 不计权重), matching [id]/report and generateReport.
+  { id: 'ability_to_pay', labelKey: 'cat.ability_to_pay.label', descKey: 'cat.ability_to_pay.desc', icon: '💰', weight: RUBRIC_WEIGHTS.ability_to_pay, zhLabel: '付款能力',         enLabel: 'Ability to Pay' },
+  { id: 'credit_health',  labelKey: 'cat.credit_health.label',  descKey: 'cat.credit_health.desc',  icon: '📊', weight: RUBRIC_WEIGHTS.credit_health, zhLabel: '信用健康度',       enLabel: 'Credit & Debt Health' },
+  { id: 'rental_history', labelKey: 'cat.rental_history.label', descKey: 'cat.rental_history.desc', icon: '⚖️', weight: RUBRIC_WEIGHTS.rental_history, zhLabel: '租务与司法历史',   enLabel: 'Rental & Legal History' },
+  { id: 'verification',   labelKey: 'cat.verification.label',   descKey: 'cat.verification.desc',   icon: '🔍', weight: RUBRIC_WEIGHTS.verification, zhLabel: '身份与雇主核实',   enLabel: 'Identity & Employer' },
+  { id: 'communication',  labelKey: 'cat.communication.label',  descKey: 'cat.communication.desc',  icon: '🏠', weight: 0, zhLabel: '申请完整度与沟通', enLabel: 'Application Quality' },
 ]
 
 interface RiskLevel { min: number; labelKey: DictKey; tagKey: DictKey; color: string; bg: string }
@@ -754,7 +760,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
   const dbQueries = queries.slice(1).filter(q =>
     // Name separator rows (e.g. "── JOHN SMITH ──") always pass through
     q.source.startsWith('──') ||
-    (q.tier === 'free' && (q.status === 'ok' || q.status === 'unavailable') && ((q.hits ?? 0) > 0 || ALWAYS_SHOW_DBS.some(name => q.source.includes(name))))
+    (q.tier === 'free' && (q.status === 'ok' || q.status === 'unavailable' || q.status === 'timeout') && ((q.hits ?? 0) > 0 || q.status === 'timeout' || ALWAYS_SHOW_DBS.some(name => q.source.includes(name))))
   )
   const proQueries = queries.filter(q => q.tier === 'pro')
 
@@ -947,7 +953,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
         <div style={{ padding: '16px', textAlign: 'center', background: '#16A34A10', borderRadius: 8, border: '1px solid #1D7C4A40', marginBottom: 12 }}>
           <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
           <div style={{ fontSize: 13, color: '#15803D', fontWeight: 600 }}>{t('screen.result.court.clean.title')}</div>
-          <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>{t('screen.result.court.clean.sub', { n: queries.filter(q => q.status === 'ok').length })}</div>
+          <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>{t('screen.result.court.clean.sub', { n: queries.filter(q => q.status === 'ok' && !q.source.startsWith('──')).length })}</div>
         </div>
       )}
 
@@ -1107,9 +1113,13 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
       // Check if files WERE uploaded — the issue is forensics data missing, not files
       const hasFiles = (result.detected_document_kinds || []).length > 0
       return (
-        <div style={{ fontSize: 11.5, color: hasFiles ? '#15803D' : '#64748B', fontStyle: 'italic', padding: '6px 2px' }}>
+        <div style={{ fontSize: 11.5, color: '#64748B', fontStyle: 'italic', padding: '6px 2px' }}>
           {hasFiles
-            ? (lang === 'zh' ? '✓ 已分析上传文件，未检测到篡改信号。' : '✓ Uploaded files analyzed — no tampering signals detected.')
+            // Absent forensics data means the checks did NOT run (failed run or
+            // legacy row) — rendering that as a green "no tampering" pass was
+            // exactly the false-checkmark class this product bans. The PDF
+            // report renders "Not run" for the same state.
+            ? (lang === 'zh' ? '取证数据缺失——本次未执行文件取证，不代表文件干净。' : 'Forensics data missing — checks did not run for this screening. Absence of data is not a clean result.')
             : (lang === 'zh' ? '本次未上传可分析的 PDF/图片文件。' : 'No analyzable PDF/image files were uploaded.')}
         </div>
       )
@@ -1282,7 +1292,7 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
               const kinds = result.detected_document_kinds || []
               const hasEmpDocs = kinds.some(k => ['pay_stub', 'employment_letter', 'offer_letter'].includes(k))
               if (hasEmpDocs) {
-                return lang === 'zh' ? '已上传雇主相关文件，未检测到异常。' : 'Employer files uploaded — no anomalies detected.'
+                return lang === 'zh' ? '已上传雇主相关文件；本区块无逐项核验数据（旧记录或核验未运行）。' : 'Employer files uploaded; no per-check data for this section (legacy row or checks did not run).'
               }
               return lang === 'zh' ? '未上传雇主信 / 工资单 / Offer。' : 'No employment letter, pay stub, or offer letter uploaded.'
             })()}
@@ -1510,7 +1520,10 @@ export default function ScreenPage() {
   const [scanLog, setScanLog] = useState<Array<{ at: number; zh: string; en: string }>>([])
   const scanLogBoxRef = useRef<HTMLDivElement | null>(null)
   // Verified-check tally shown in the progress header (✓ lines only).
-  const verifiedCount = scanLog.filter(l => l.zh.startsWith('✓')).length
+  // Monotonic count of ✓ lines ever echoed — counting inside the capped
+  // scanLog buffer made the number DROP once the log hit its 50-line cap.
+  const verifiedCountRef = useRef(0)
+  const [verifiedCount, setVerifiedCount] = useState(0)
   // Fixed time origin for scan-log [Xs] labels — scanLog[0].at shifts when
   // the 50-entry cap trims the head, which would make times run backwards.
   const scanStartRef = useRef(0)
@@ -1859,15 +1872,20 @@ export default function ScreenPage() {
 
   const handleFiles = useCallback((list: FileList | File[] | null) => {
     if (!list) return
+    let rejected = false
     const incoming = Array.from(list).filter(f => {
       if (f.size > 10 * 1024 * 1024) {
         setError(t('screen.err.tooBig', { name: f.name }))
+        rejected = true
         return false
       }
       return true
     })
     setFiles(prev => [...prev, ...incoming])
-    setError(null)
+    // React batches state updates: clearing unconditionally here erased the
+    // too-big message set two lines up — the oversized file just silently
+    // vanished while the landlord believed all files were analyzed.
+    if (!rejected) setError(null)
     // Kick off classification for newly added files only
     if (incoming.length > 0) {
       classifyNewFiles(incoming)
@@ -2038,9 +2056,18 @@ export default function ScreenPage() {
     setManualEmployerName('')
     setDeepCheckStage(0)
     setDeepChecking(false)
+    // Otherwise the previous run's kinds back-feed phantom counts into the
+    // file-type badges of the fresh upload panel.
+    setLastDetectedKinds([])
+    setScanLog([])
+    verifiedCountRef.current = 0
+    setVerifiedCount(0)
   }
 
   async function runAnalysis() {
+    // A double-click that beats the re-render would insert two screening rows
+    // and upload everything twice.
+    if (analyzing) return
     if (!landlord) return
     // Block while classification is still in flight — concurrent classify +
     // upload requests exhaust the browser connection pool → "Failed to fetch".
@@ -2186,7 +2213,9 @@ export default function ScreenPage() {
         // Every line in this queue must correspond to work screen-score
         // actually performs, or the feed is lying to the landlord.
         { zh: '关联方雇佣信号：签署人 / 姓氏 / 邮箱别名 / 同址比对', en: 'Related-party signals: signatory / surname / email alias / shared address' },
-        { zh: '法庭记录交叉比对：LTB 驱逐 × Small Claims 判决', en: 'Court cross-reference: LTB evictions × Small Claims judgments' },
+        // Wording matters: the catalogue has no disposition field, so this
+        // line must not say 驱逐/判决 — the search finds ORDERS and FILINGS.
+        { zh: '法庭记录交叉比对：LTB 判令目录 × 安省法院门户当事人检索', en: 'Court cross-reference: LTB order catalogue × Ontario Courts Portal party search' },
         { zh: '租务历史：前房东信息与租住时间线', en: 'Rental history: prior landlords & tenancy timeline' },
         { zh: '信用健康度：分数区间 / 债务服务比 / 不良记录', en: 'Credit health: score band / debt-service ratio / derogatories' },
         { zh: '稳定性评估：居住与雇佣连续性', en: 'Stability: residence & employment continuity' },
@@ -2200,13 +2229,17 @@ export default function ScreenPage() {
       const scannerTimer = setInterval(() => {
         if (pollStop) return
         const st = progressStageRef.current
-        if (st === 'signing_files' || st === 'court_and_forensics') {
+        if (st === 'court_and_forensics') {
           if (scanIdx >= forensicQueue.length) return
           const item = forensicQueue[scanIdx++]
+          verifiedCountRef.current += 1
+          setVerifiedCount(verifiedCountRef.current)
           setScanLog(prev => [...prev.slice(-49), { at: Date.now(), zh: `✓ ${item.zh}`, en: `✓ ${item.en}` }])
         } else if (AI_STAGES.has(st)) {
           if (aiIdx >= aiQueue.length) return
           const item = aiQueue[aiIdx++]
+          verifiedCountRef.current += 1
+          setVerifiedCount(verifiedCountRef.current)
           setScanLog(prev => [...prev.slice(-49), { at: Date.now(), zh: `✓ ${item.zh}`, en: `✓ ${item.en}` }])
         }
       }, 850)
@@ -2455,7 +2488,7 @@ export default function ScreenPage() {
       `}</style>
 
       {/* Auth gate modal — shown when anonymous user has used their 1 free trial */}
-      <AuthModal open={showAuthGate} onClose={() => setShowAuthGate(false)} defaultTab="register" next="/screen" />
+      <AuthModal open={showAuthGate} onClose={() => setShowAuthGate(false)} defaultTab="register" next="/screening/app" />
 
       <div className="container-narrow">
         {!result && !analyzing && (
@@ -2828,7 +2861,7 @@ export default function ScreenPage() {
                     fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
                     whiteSpace: 'nowrap',
                   }}>
-                    ✓ {verifiedCount} {lang === 'zh' ? '项已核实' : 'checks passed'}
+                    ✓ {verifiedCount} {lang === 'zh' ? '项检查已执行' : 'checks run'}
                   </span>
                 )}
               </div>
@@ -3024,7 +3057,7 @@ export default function ScreenPage() {
                       {t('screen.result.stat.ratio')}
                     </div>
                     <div><div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>{result.file_count ?? files.length}</div>{t('screen.result.stat.files')}</div>
-                    <div><div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>{result.court_records_detail?.queries.filter(q => q.status === 'ok').length || 0}</div>{t('screen.result.stat.courts')}</div>
+                    <div><div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>{result.court_records_detail?.queries.filter(q => q.status === 'ok' && !q.source.startsWith('──')).length || 0}</div>{t('screen.result.stat.courts')}</div>
                   </div>
                 )
               })()}
@@ -3038,7 +3071,7 @@ export default function ScreenPage() {
 
             {/* Download PDF Report Button — React state (NOT direct DOM
                 textContent mutation, which destroyed the SVG icon child) */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
               <button
                 disabled={pdfGenerating}
                 onClick={async () => {
@@ -3077,6 +3110,26 @@ export default function ScreenPage() {
                 {pdfGenerating
                   ? (lang === 'zh' ? '正在生成报告…' : 'Generating…')
                   : (lang === 'zh' ? '下载评估报告 (PDF)' : 'Download Report (PDF)')}
+              </button>
+              {/* Start-over: without this the only way to run a second
+                  screening was a hard page reload (reset() was dead code). */}
+              <button
+                onClick={reset}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '10px 24px', borderRadius: 10,
+                  background: '#FFFFFF', color: '#0B1736',
+                  fontSize: 13, fontWeight: 600, letterSpacing: '0.02em',
+                  border: '1px solid #E4E8F0', cursor: 'pointer',
+                  transition: 'background .15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9" /><polyline points="3 3 3 9 9 9" />
+                </svg>
+                {lang === 'zh' ? '再筛查一位申请人' : 'Screen another applicant'}
               </button>
             </div>
 
@@ -3494,7 +3547,7 @@ export default function ScreenPage() {
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{cat.icon}</div>
                     <div style={{ fontSize: 11, color: '#0B1736', fontWeight: 700 }}>{lang === 'zh' ? cat.zhLabel : cat.enLabel}</div>
                     <div style={{ fontSize: 9, color: '#64748B', fontWeight: 500, marginTop: 1 }}>{lang === 'zh' ? cat.enLabel : cat.zhLabel}</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: cat.id === 'rental_history' ? '#6D28D9' : '#10B981', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{(cat.weight * 100).toFixed(0)}%</div>
+                    <div style={{ fontSize: cat.weight === 0 ? 11 : 16, fontWeight: cat.weight === 0 ? 600 : 800, color: cat.weight === 0 ? '#94A3B8' : cat.id === 'rental_history' ? '#6D28D9' : '#10B981', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{cat.weight === 0 ? (lang === 'zh' ? '不计权重' : 'not weighted') : `${(cat.weight * 100).toFixed(0)}%`}</div>
                   </div>
                 ))}
               </div>

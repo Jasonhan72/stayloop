@@ -249,8 +249,17 @@ export async function checkPdfStructure(
   }
 
   // --- 2. Multiple %%EOF markers = incremental updates ---
+  // Two classes of GENUINE documents carry extra %%EOFs by design and are
+  // exempted: linearized ("Fast Web View") PDFs — which many enterprise
+  // statement pipelines emit — have two %%EOF markers per spec, and
+  // digitally-signed/certified PDFs append their signature as an incremental
+  // update. "Official documents are generated once and never modified" is
+  // empirically wrong for both.
   const eofCount = countEofMarkers(bytes)
-  const hasIncrementalUpdates = eofCount > 1
+  const isLinearized = /\/Linearized\s/.test(rawText.slice(0, 2048))
+  const hasSignature = /\/Type\s*\/Sig\b|\/ByteRange\s*\[/.test(rawText)
+  const eofAllowance = 1 + (isLinearized ? 1 : 0) + (hasSignature ? 1 : 0)
+  const hasIncrementalUpdates = eofCount > eofAllowance
 
   if (hasIncrementalUpdates && isFinancial) {
     flags.push({
@@ -289,7 +298,7 @@ export async function checkPdfStructure(
 
   // --- 4. pdf-lib generates a very specific font set ---
   const pdflibFontSignature = fontNames.some(f =>
-    /^(Helvetica|Courier|TimesRoman|Symbol|ZapfDingbats)$/i.test(f)
+    /^(Helvetica|Courier|Times-?Roman|Symbol|ZapfDingbats)$/i.test(f)
   ) && fontNames.length <= 3 && !fontNames.some(f =>
     /Arial|Calibri|Verdana|Tahoma|Segoe/i.test(f)
   )

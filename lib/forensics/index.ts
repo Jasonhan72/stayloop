@@ -98,10 +98,13 @@ const HARD_GATE_RULES: Array<{
   // pdf-lib alone is HIGH severity but not a hard gate — employment letters,
   // OREA forms, and offer letters legitimately use JS PDF libraries.
   { gate: 'pdf_fabrication_tool', mode: 'all', triggers: ['pdf_structure_pdflib_detected', 'timestamp_batch_creation'] },
-  // Batch creation on its own (without pdf-lib) is still a hard gate —
-  // multiple "different-period" documents created within minutes is
-  // independently damning regardless of the generation tool.
-  { gate: 'batch_forgery', mode: 'any', triggers: ['timestamp_batch_creation'] },
+  // NOTE: batch creation on its own is deliberately NOT a hard gate any more.
+  // Portal-rendered documents (and even bank statements at banks that render
+  // on demand) legitimately cluster when downloaded in one sitting — the
+  // enterprise_system exemption catches the known portals, but the honest
+  // residue is too large for an automatic likely_fraud verdict. The flag
+  // stays HIGH severity (weight 4) and still gates when paired with a
+  // fabrication-tool producer (pdf_fabrication_tool above).
 ]
 
 const SEVERITY_WEIGHT: Record<string, number> = {
@@ -144,6 +147,7 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
       file_name: pf.file_name,
       file_kind: pf.file_kind,
       creation_date: pf.pdf_metadata!.creation_date,
+      enterprise_system: pf.pdf_structure?.enterprise_system ?? null,
     }))
   const timestampFlags = checkTimestampClustering(timestampFiles)
   crossDocFlags.push(...timestampFlags)
@@ -160,12 +164,19 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
   for (const pf of perFile) allFlags.push(...pf.flags)
   allFlags.push(...crossDocFlags)
 
-  // Determine forensics-derived hard gates
+  // Determine forensics-derived hard gates.
+  // 'all'-mode rules are conjunctions of signals about the SAME document —
+  // file A being a pure-image scan while unrelated file B was produced by
+  // Word proves nothing about either. So 'all' rules are evaluated within
+  // each file's own flag set; cross-doc flags (batch clustering etc.) carry
+  // no single file and count for every file.
   const flagCodes = new Set(allFlags.map(f => f.code))
+  const crossDocCodes = new Set(crossDocFlags.map(f => f.code))
+  const perFileCodes = perFile.map(pf => new Set(pf.flags.map(f => f.code)))
   const hardGates: string[] = []
   for (const rule of HARD_GATE_RULES) {
     const match = rule.mode === 'all'
-      ? rule.triggers.every(t => flagCodes.has(t))  // ALL must be present
+      ? perFileCodes.some(fileSet => rule.triggers.every(t => fileSet.has(t) || crossDocCodes.has(t)))
       : rule.triggers.some(t => flagCodes.has(t))   // ANY is enough
     if (match && !hardGates.includes(rule.gate)) hardGates.push(rule.gate)
   }
@@ -233,6 +244,18 @@ async function analyzeFile(
     // Only PDFs get metadata + text density. Images get source-specific only.
     if (f.mime === 'application/pdf') {
       const bytes = await fetchBytes(f.signed_url)
+      if (!bytes) {
+        // A file we could not fetch skipped EVERY byte-level check and then
+        // rendered as "No forensics flags" — a forged PDF whose signed URL
+        // 403s scanned as clean. Disclose loudly instead.
+        out.flags.push({
+          code: 'file_unreadable',
+          severity: 'medium',
+          file: f.name,
+          evidence_en: `File could not be fetched for forensic analysis (storage/network error). NO byte-level checks ran on this document — it is unverified, not clean.`,
+          evidence_zh: `无法获取该文件进行取证分析（存储/网络错误）。本文件未经过任何字节级检查——状态是"未核验"，不是"干净"。`,
+        })
+      }
       if (bytes) {
         // Run metadata + text in parallel
         const [meta, text] = await Promise.all([
@@ -246,7 +269,10 @@ async function analyzeFile(
         if (text) {
           const fileSize = meta?.file_size_bytes ?? bytes.byteLength
           out.text_density = text
-          out.flags.push(...checkTextDensity(text, fileSize, f.name, canonicalKind))
+          // Producer/creator MUST be passed — the scan-tool exemption inside
+          // checkTextDensity is keyed on them, and omitting them silently
+          // flagged every genuine iPhone/Quartz scan as pdf_pure_image.
+          out.flags.push(...checkTextDensity(text, fileSize, f.name, canonicalKind, meta?.producer ?? undefined, meta?.creator ?? undefined))
         }
 
         // P0 — PDF internal structure fingerprinting: detect pdf-lib and
@@ -336,7 +362,7 @@ async function analyzeFile(
             out.flags = out.flags.filter(fl => fl.code !== 'credit_report_no_bureau_markers')
             out.flags.push({
               code: 'credit_report_ai_verified',
-              severity: 'low',  // informational, not a risk signal
+              severity: 'info',  // authenticity-POSITIVE — must weigh 0, 'low' still added +1 suspicion
               file: f.name,
               evidence_en: `Credit report visually confirmed as a genuine ${judgment.bureau || 'Canadian bureau'} report${judgment.score_visible ? ` (score ${judgment.score_visible})` : ''}. Regex bureau-marker check missed it because this is a consumer-portal export with different vocabulary (e.g. "Credit Score" instead of "Risk Score").`,
               evidence_zh: `AI 视觉确认这是真实的 ${judgment.bureau || '加拿大征信局'} 信用报告${judgment.score_visible ? `（分数 ${judgment.score_visible}）` : ''}。正则没匹配是因为消费者版报告用词不同（如 "Credit Score" 而不是 "Risk Score"）。`,
@@ -357,9 +383,18 @@ async function analyzeFile(
               evidence_zh: `Claude Vision 判断这不是真实的征信局报告。原因：${judgment.reasoning.slice(0, 300)}`,
             })
           }
-          // If judgment === null (API call failed / parse error), keep the
-          // regex flag — better to over-flag than to silently let a fake
-          // through.
+          else {
+            // judgment === null: the AI judge never ran (API outage / parse
+            // error). The regex flag alone then flows into
+            // FORGERY_INDICATING_CODES → forgedDocCount → forced decline —
+            // a genuine report plus one transient API failure was declined
+            // as a forger. Downgrade to a verify-first severity: the report
+            // still surfaces the concern, but an unverified regex miss is
+            // not proof of forgery.
+            out.flags = out.flags.map(fl => fl.code === 'credit_report_no_bureau_markers'
+              ? { ...fl, severity: 'medium' as const, evidence_en: `${fl.evidence_en} (AI second-opinion check could not run — treat as unverified, not as proof of forgery.)`, evidence_zh: `${fl.evidence_zh}（AI 复核未能运行——按待核实处理，不作为伪造证据。）` }
+              : fl)
+          }
         }
 
         // ID-number validation. Prefer OCR text (image-only ID scans) if
@@ -371,7 +406,7 @@ async function analyzeFile(
             ? applicantName.trim().split(/\s+/).pop()
             : undefined
           out.flags.push(
-            ...checkIdValidation(validationText, f.name, canonicalKind, surname, out.ocr?.apparent_name)
+            ...checkIdValidation(validationText, f.name, canonicalKind, surname, out.ocr?.apparent_name, Boolean(out.ocr?.text))
           )
         }
       }
@@ -386,7 +421,7 @@ async function analyzeFile(
           ? applicantName.trim().split(/\s+/).pop()
           : undefined
         out.flags.push(
-          ...checkIdValidation(ocrResult.text, f.name, canonicalKind, surname, ocrResult.apparent_name)
+          ...checkIdValidation(ocrResult.text, f.name, canonicalKind, surname, ocrResult.apparent_name, true)
         )
         // Run source-specific on the OCR text for image uploads too.
         // A photo of a credit report should be fingerprinted the same way
@@ -411,7 +446,7 @@ async function analyzeFile(
             out.flags = out.flags.filter(fl => fl.code !== 'credit_report_no_bureau_markers')
             out.flags.push({
               code: 'credit_report_ai_verified',
-              severity: 'low',
+              severity: 'info',
               file: f.name,
               evidence_en: `Credit report visually confirmed as a genuine ${judgment.bureau || 'Canadian bureau'} report${judgment.score_visible ? ` (score ${judgment.score_visible})` : ''}.`,
               evidence_zh: `AI 视觉确认这是真实的 ${judgment.bureau || '加拿大征信局'} 信用报告${judgment.score_visible ? `（分数 ${judgment.score_visible}）` : ''}。`,
@@ -670,8 +705,11 @@ function checkCheapArmLength(
 
   if (surname && !ARM_COMMON_SURNAMES.has(surname) && employerHasSurname(employerName, surname)) {
     flags.push({
+      // medium, not high: surnames that are ordinary words ("Best", "Fox",
+      // "Stone") appear in big-brand employer names for unrelated reasons —
+      // the deep arm's-length check (registry officers) is the decisive pass.
       code: 'arm_length_surname_in_employer',
-      severity: 'high',
+      severity: 'medium',
       file: fileName,
       evidence_en: `Applicant's surname "${surname}" appears in the employer name "${employerName}". Likely a family business / sole proprietorship — self-issued income letters cannot be used as third-party verification.`,
       evidence_zh: `申请人的姓 "${surname}" 出现在雇主名称 "${employerName}" 中。可能是家族企业 / 个体户 — 自己开给自己的雇主信不能作为第三方收入验证。`,

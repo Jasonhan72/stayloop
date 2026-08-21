@@ -146,9 +146,15 @@ export function revolvingUtilisation(credit: CreditReport | null): { used: numbe
   for (const t of lines) {
     const bal = Number(t.balance) || 0
     const cap = Number(t.credit_limit) || Number(t.high_credit) || 0
+    // A line with a balance but NO usable denominator is excluded from BOTH
+    // sides — adding its balance to `used` while adding 0 to `limit` would
+    // overstate the pooled percentage (one $5,000 no-limit line against a
+    // $10,000-limit card at $100 reads 51% instead of 1%). Excluding it
+    // understates at worst, which is the kind direction.
+    if (cap <= 0) continue
     used += bal
     limit += cap
-    if (cap > 0 && bal > cap) overLimit++
+    if (bal > cap) overLimit++
   }
   return { used, limit, pct: limit > 0 ? used / limit : null, overLimit }
 }

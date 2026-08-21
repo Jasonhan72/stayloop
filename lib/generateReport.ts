@@ -217,7 +217,8 @@ export async function generateScreeningReport(
   const courtQueries = result.court_records_detail?.queries || []
   const totalHits = result.court_records_detail?.total_hits || 0
   const queriedName = result.court_records_detail?.queried_name || '—'
-  const dbCount = courtQueries.filter(q => q.status === 'ok').length
+  // Name-separator rows ('── name ──') are visual grouping, not sources.
+  const dbCount = courtQueries.filter(q => q.status === 'ok' && !q.source.startsWith('──')).length
 
   // ── Build HTML sections ──
   let html = `<!DOCTYPE html><html lang="${zh ? 'zh' : 'en'}"><head><meta charset="utf-8">
@@ -1164,12 +1165,24 @@ export async function generateScreeningReport(
   const url = URL.createObjectURL(blob)
   const win = window.open(url, '_blank')
   if (win) {
-    win.onload = () => {
+    // The blob can finish loading BEFORE this handler is assigned (fast
+    // paths do) — then print() never fired and the object URL leaked.
+    // Fire once, from whichever side wins.
+    let fired = false
+    const firePrint = () => {
+      if (fired) return
+      fired = true
       setTimeout(() => {
         win.print()
         URL.revokeObjectURL(url)
       }, 300)
     }
+    win.onload = firePrint
+    try {
+      if (win.document && win.document.readyState === 'complete') firePrint()
+    } catch { /* cross-origin state before load — onload will fire */ }
+    // Last-resort: a window that never reports load still gets its print.
+    setTimeout(firePrint, 2500)
   } else {
     // Popup blocked — fallback: download HTML file
     const a = document.createElement('a')

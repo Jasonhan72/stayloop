@@ -348,18 +348,24 @@ export function checkPdfMetadata(
   }
 
   // 1b. Doc creation tools — suspicious for bank_statement/credit_report/pay_stub
-  //     but NORMAL for employment_letter/offer_letter (often typed in Word)
+  //     but NORMAL for employment_letter/offer_letter (often typed in Word).
+  //     Pay stubs get their OWN code: very small employers genuinely produce
+  //     stubs from Word/Excel templates, so a Word stub is a high-severity
+  //     verify signal but NOT the standalone producer_consumer_tool hard gate
+  //     that bank statements and credit reports (never legitimately produced
+  //     by Word) carry.
   if (!producerFlagged) {
-    const docToolSuspicious = kind === 'bank_statement' || kind === 'credit_report' || kind === 'pay_stub'
+    const docToolGating = kind === 'bank_statement' || kind === 'credit_report'
+    const docToolSuspicious = docToolGating || kind === 'pay_stub'
     for (const { pattern, tool } of DOC_CREATION_PATTERNS) {
       if (pattern.test(combined)) {
         if (docToolSuspicious) {
           flags.push({
-            code: 'pdf_producer_consumer_tool',
+            code: docToolGating ? 'pdf_producer_consumer_tool' : 'pdf_producer_paystub_doc_tool',
             severity: 'high',
             file,
-            evidence_en: `PDF Producer="${producer || creator}" indicates ${tool}. Real ${kind.replace('_', ' ')} PDFs are server-generated — ${tool} suggests manual creation.`,
-            evidence_zh: `PDF 生成工具为 "${producer || creator}"（${tool}）。真实的${zhKind(kind)}由服务器生成，${tool} 表明是手工制作的。`,
+            evidence_en: `PDF Producer="${producer || creator}" indicates ${tool}. Real ${kind.replace('_', ' ')} PDFs are ${docToolGating ? 'server-generated — ' + tool + ' suggests manual creation.' : 'usually server-generated; ' + tool + ' is consistent with a very small employer\'s manual template, but also with fabrication — verify with the employer.'}`,
+            evidence_zh: `PDF 生成工具为 "${producer || creator}"（${tool}）。${docToolGating ? `真实的${zhKind(kind)}由服务器生成，${tool} 表明是手工制作的。` : `真实的${zhKind(kind)}通常由工资系统生成；${tool} 可能是小微雇主手工模板，也可能是伪造——建议向雇主核实。`}`,
           })
           producerFlagged = true
         }

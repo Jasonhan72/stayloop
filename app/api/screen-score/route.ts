@@ -207,7 +207,10 @@ async function portalQuery(
       'partyHeader.partyActorInstance.displayNameSearchType': searchType,
       'caseHeader.courtID': ONTARIO_PORTAL_CIVIL_COURT_ID,
       'page': '0',
-      'size': '10',
+      // 50, not 10: a common-name applicant can have >10 exact-name results
+      // and the true record past the first page — which then reported
+      // "No matches" unconditionally.
+      'size': '50',
     })
     const url = `https://api1.courts.ontario.ca/courts/cms/parties?${params.toString()}`
     const res = await fetch(url, { signal: AbortSignal.timeout(ONTARIO_PORTAL_TIMEOUT_MS) })
@@ -380,12 +383,11 @@ const PRIORITY_DBS: CanLIIDatabase[] = [
 
 async function runCourtRecordCheck(name: string, plan: string): Promise<{ queries: CourtQuery[]; total_hits: number; queried_name: string; records: CanLIIMatch[]; databases_searched: number; portal_hits?: number; portal_records?: OntarioPortalMatch[]; court_summary_en?: string; court_summary_zh?: string; partial?: boolean }> {
   const queries: CourtQuery[] = []
-  const apiKey = process.env.CANLII_API_KEY
-
-  if (!apiKey) {
-    queries.push({ source: 'CanLII — all Ontario databases', tier: 'free', status: 'unavailable', hits: null, note: 'API key not configured' })
-    return { queries, total_hits: 0, queried_name: name || '', records: [], databases_searched: 0 }
-  }
+  // NOTE: no CANLII_API_KEY gate here. The CanLII fan-out that needed the key
+  // was deleted (its API has no name search); the web-index chain uses
+  // GOOGLE_CSE_KEY/JINA_API_KEY and the Ontario Courts Portal needs no key at
+  // all. The old gate meant a rotated-out key silently disabled the portal —
+  // the only true party-name search — for every screening.
   const searchName = (name || '').trim()
   if (!isValidFullName(searchName)) {
     const reason = !searchName
@@ -393,26 +395,6 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
       : 'Full name required (first + last name). Single names are too ambiguous for court record lookup.'
     queries.push({ source: 'CanLII — all Ontario databases', tier: 'free', status: 'skipped', hits: null, note: reason })
     return { queries, total_hits: 0, queried_name: searchName, records: [], databases_searched: 0 }
-  }
-
-  // ── 2026-06-02 — §6 P1 — Aggregate circuit breaker ──────────────────
-  // Cap the entire CanLII fan-out (priority DBs + Ontario DB discovery +
-  // every extra DB query) at 12 seconds. Previously each DB had its own
-  // 6s timeout but the whole sweep could run for 6s × N databases in the
-  // worst case if every backend hung in series. With this signal, the
-  // whole sweep aborts at 12s and we return whatever partial results we
-  // have, marking sources that didn't finish as `status: 'timeout'`
-  // instead of silently dropping them.
-  const aggregateCtrl = new AbortController()
-  const aggregateTimeout = setTimeout(() => aggregateCtrl.abort(), CANLII_AGGREGATE_BUDGET_MS)
-  const aggregateSignal = aggregateCtrl.signal
-
-  // Track which DBs timed out vs returned a real (possibly 0-hit) answer.
-  const timedOutDbIds = new Set<string>()
-  const isAbortReason = (r: PromiseSettledResult<CanLIIMatch[]>): boolean => {
-    if (r.status !== 'rejected') return false
-    const reason = r.reason as { name?: string } | null
-    return reason?.name === 'AbortError'
   }
 
   // ── CanLII: disclosed, not searched ────────────────────────────────────
@@ -489,7 +471,6 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
   let totalHits = 0
   const totalDbsSearched = 0
   const aggregatePartial = false
-  clearTimeout(aggregateTimeout)
 
 
   // ── Step 4: Ontario Courts Portal (direct API) — free tier ──
@@ -508,15 +489,23 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
       url: 'https://courts.ontario.ca/portal/search/party',
     })
   } else {
+    // Red severity ONLY when a defendant/debtor/respondent-side match exists.
+    // An applicant who sued a former landlord (plaintiff) is exercising their
+    // rights — painting that red is the Small-Claims analogue of scoring
+    // tenant-filed LTB applications.
+    const portalDefendantSide = portalResult.matches.filter(m => {
+      const role = (m.partyRole || '').toLowerCase()
+      return role.includes('defendant') || role.includes('debtor') || role.includes('respondent')
+    }).length
     queries.push({
       source: 'Ontario Courts Portal — Civil & Small Claims',
       tier: 'free',
       status: 'ok',
       hits: portalHits,
-      severity: portalHits > 0 ? 2 : 0,
+      severity: portalDefendantSide > 0 ? 2 : 0,
       note: portalHits === 0
-        ? 'No matches in Ontario Courts Portal'
-        : `${portalHits} case(s) found (of ${portalResult.totalElements} total results)`,
+        ? `No matches in Ontario Courts Portal${(portalResult.totalElements ?? 0) > portalHits ? ` (examined first ${portalHits || 0} of ${portalResult.totalElements} name results)` : ''}`
+        : `${portalHits} case(s) found (of ${portalResult.totalElements} total results; ${portalDefendantSide} on the defendant side). Name-only matches — the portal carries no DOB/address, so identity must be verified before drawing conclusions.`,
       portalRecords: portalHits > 0 ? portalResult.matches : undefined,
       url: 'https://courts.ontario.ca/portal/search/party',
     })
@@ -675,7 +664,8 @@ export async function POST(req: NextRequest) {
         .select('id', { count: 'exact', head: true })
         .in('landlord_id', landlordIds)
         .gte('created_at', monthStart)
-        .neq('status', 'pending') // only count completed/scoring screenings
+        .neq('status', 'pending')
+        .neq('status', 'error') // failed runs don't consume the allowance — retries were locking users out
       if (count !== null && count >= 5) {
         return NextResponse.json(
           { error: 'Monthly screening limit reached (5/5). Upgrade to Pro for unlimited screenings.' },
@@ -727,6 +717,11 @@ export async function POST(req: NextRequest) {
       supabase.storage.from('tenant-files').createSignedUrl(f.path, 600)
         .then(r => ({ file: { ...f, mime: fixMime(f) }, url: r.data?.signedUrl }))
     ))
+    // Files whose signed URL failed are invisible to BOTH the AI pass and
+    // forensics — without disclosure they read as "scanned clean" while
+    // never being scanned at all. Surface them in the prompt so coverage
+    // and action items reflect reality.
+    const unreadableFiles = signedResults.filter(r => !r.url).map(r => r.file.name)
 
     // Apply Anthropic's 100-PDF-page request budget. For 5+ files or any
     // very long PDF, this fetches + counts pages, then truncates over-quota
@@ -815,8 +810,8 @@ export async function POST(req: NextRequest) {
     }
 
     writeProgress('court_and_forensics', 16,
-      '并行运行：9 个法庭数据库检索 × 逐文件取证扫描',
-      'Running in parallel: 9 court databases × per-file forensics scan')
+      '并行运行：法院门户当事人检索 + CanLII 网页索引 × 逐文件取证扫描',
+      'Running in parallel: court portal party search + CanLII web index × per-file forensics scan')
     // The two branches finish at different times — report each completion so
     // the bar keeps moving instead of sitting at 16% for the whole stage.
     // AWAITED (not fire-and-forget): an in-flight pct-25/34 write racing the
@@ -875,33 +870,22 @@ Self-reported income: $${monthlyIncome || 'N/A'}/mo${incomeRatio ? ` (ratio ${in
 Landlord notes: ${screening.notes || 'N/A'}
 
 Uploaded: ${files.length === 0 ? 'NONE' : files.map(f => `${formatKind(f.kind)}(${f.name})`).join(', ')}
+${unreadableFiles.length > 0 ? `WARNING — ${unreadableFiles.length} file(s) could NOT be read (storage error): ${unreadableFiles.join(', ')}. These files were NOT analyzed and NOT scanned by forensics. Mark affected sub-components action_pending and add an action item to re-upload them. Do not describe them as verified or clean.` : ''}
 NOTE: When you see "bundle [A + B + C]" above, ONE PDF file contains MULTIPLE document kinds. Look inside that single attachment for ALL listed kinds — do NOT report them as missing just because they share a filename.
 
-COURT RECORD LOOKUP — ALL ONTARIO SOURCES (${courtDetail.databases_searched} sources incl. CanLII DBs + Ontario Courts Portal):
-${courtDetail.queries.filter(q => q.tier === 'free').map(q => `  - ${q.source}: ${q.status === 'ok' ? `${q.hits} hit(s)` : q.status}${q.note ? ` (${q.note})` : ''}`).join('\n')}
+COURT RECORD LOOKUP (Ontario Courts Portal party search + CanLII web-index mention scan; the LTB Order Catalogue runs deterministically after scoring):
+${courtDetail.queries.filter(q => q.tier === 'free').map(q => `  - ${q.source}: ${q.status === 'ok' ? (q.hitKind === 'mention' ? `${q.hits} page mention(s) — NOT party records, display-only, never scored` : `${q.hits} hit(s)`) : q.status}${q.note ? ` (${q.note})` : ''}`).join('\n')}
 ${courtDetail.records.length > 0 ? `\nCANLII MATCHED CASES (verify name collision is not a false positive — common names can false-match):\n${courtDetail.records.slice(0, 8).map(r => `  · [${r.databaseName || r.databaseId}] ${r.title} — ${r.citation}`).join('\n')}` : ''}
 ${(courtDetail.portal_records?.length || 0) > 0 ? `\nONTARIO COURTS PORTAL CASES (Civil & Small Claims Court — direct from courts.ontario.ca):\n${courtDetail.portal_records!.slice(0, 8).map(r => `  · [${r.courtAbbreviation}] ${r.caseTitle} — ${r.caseNumber} (${r.partyRole}, filed ${r.filedDate ? new Date(r.filedDate).toLocaleDateString('en-CA') : 'unknown'}, ${r.closedFlag ? 'Inactive' : 'Active'})`).join('\n')}` : ''}
-${courtDetail.total_hits === 0 ? '\nNo hits in any Ontario court database or portal for this applicant name.' : ''}
+${courtDetail.total_hits === 0 ? '\nNo party-record hits in the Ontario Courts Portal for this applicant name (the sources listed above are what was actually searched).' : ''}
 
-SCORING GUIDANCE for rental_history.ltb_check and red flags:
-- 0 hits across ALL Ontario DBs AND Ontario Courts Portal → high score (90+), ltb_check = "measured"
-- 1 hit in onltb (LTB) → investigate (30-50), mark "action_pending" to verify identity, consider "ltb_eviction" gate IF case is an eviction order
-- 2+ hits in onltb → strong negative, trigger "ltb_eviction" hard gate (caps at 40)
-- Hits in onsc / onca / onscdc (civil courts) against this person as debtor/defendant → STRONG negative signal, rental_history should be 20 or below
-- Hits in onhrt (Human Rights Tribunal) AGAINST this person as respondent → note only, do NOT use for scoring (HRC protected)
-- Hits in oncj criminal matters → note in reviewer_note, do NOT auto-score (landlord decides)
-
-ONTARIO COURTS PORTAL hits — CRITICAL (these are DIRECT government records, not just case law):
-ANY court record as defendant/debtor means the person has DEFAULTED on financial obligations and is FUNDAMENTALLY UNTRUSTWORTHY as a tenant. This is one of the strongest negative signals possible.
-- Portal cases where applicant is DEFENDANT or DEBTOR → rental_history MUST be 20 or below, credit_health MUST be 35 or below. This person was SUED for not paying.
-- 1 Small Claims case as Defendant → rental_history = 15-25, credit_health = 30-40. Trigger "court_record_defendant" hard gate.
-- 2+ Small Claims cases as Defendant/Debtor → rental_history = 5-15, credit_health = 15-25. Trigger "court_record_defendant_multi" hard gate.
-- ACTIVE (non-closed) cases → rental_history = 0-10, credit_health = 10-20. Trigger "court_record_active" hard gate. Person is CURRENTLY being sued.
-- Portal cases where applicant is PLAINTIFF → neutral (they sued someone else, not a risk signal)
-- The portal records are from courts.ontario.ca and are VERIFIED government data — treat them with ABSOLUTE confidence
-- Do NOT give benefit of the doubt when court records exist. The person had legal proceedings against them — this is objective fact, not inference.
-
-- If 0 hits AND no prior landlord reference → ltb_check "measured", prior_landlord_refs "action_pending"
+COURT RECORD RULES — READ CAREFULLY:
+- CanLII web-index results are MENTIONS of the name on decision pages (counsel, adjudicators and strangers share names). They carry ZERO weight: never move any score, never trigger any gate, never cite them as tenant risk. At most, note them for the landlord to read.
+- Ontario Courts Portal matches are NAME-ONLY: the portal carries no DOB or address, so a match may be a different person with the same name. Do NOT emit any court/LTB hard gate yourself — the backend derives court and LTB gates deterministically from corroborated records only. Describe portal matches in reviewer_note/action_items as "records matching the applicant's name — verify identity with the applicant", in allegation language.
+- A court FILING has no outcome attached. NEVER state that the person defaulted, was evicted, owes money, or lost a case — a record proves only that a proceeding named someone with this name.
+- Portal cases where the name appears as PLAINTIFF are the person exercising their own rights — neutral, never a risk signal. Human Rights Tribunal matters are protected — never scored.
+- The LTB Order Catalogue search runs AFTER your scoring pass, deterministically. Do not mark ltb_check "measured" yourself; if portal defendant-side records exist, mark ltb_check "action_pending" with an identity-verification action item.
+- If no prior landlord reference → prior_landlord_refs "action_pending"
 ${screening.pasted_text ? `\n--- PASTED TEXT ---\n${screening.pasted_text}\n` : ''}`
 
     const systemPrompt = `You are Stayloop, an AI tenant-screening analyst for Ontario, Canada landlords. Score risk using the Stayloop v3 model.
@@ -1440,7 +1424,12 @@ JSON DISCIPLINE (avoid parse errors):
       )
       if (!isForged) continue
       forgedDocCount++
-      const dims = KIND_TO_ZERO_DIMS[pf.file_kind]
+      // file_kind can be a comma-joined bundle ("employment_letter,pay_stub") —
+      // exact-match lookup made bundled forgeries count without annotating any
+      // dimension. First listed kind with a mapping wins.
+      const dims = (pf.file_kind || '').split(',')
+        .map(k => KIND_TO_ZERO_DIMS[k.trim()])
+        .find(Boolean)
       if (!dims) continue
       // Pick the most severe flag as the explanation
       const top = [...pf.flags].sort((a, b) => (sevOrder[a.severity] ?? 9) - (sevOrder[b.severity] ?? 9))[0]
@@ -1666,6 +1655,10 @@ JSON DISCIPLINE (avoid parse errors):
       // Business Number cross-check — critical forgery signal. Copy-paste of
       // a real BN onto a fabricated letterhead is a classic fraud pattern.
       bn_employer_mismatch: 35,
+      // Forensics conjunction gate: fabrication-tool producer on a financial
+      // doc + batch-created cluster. Deterministic proof → tighter than the
+      // visual doc_tampering (55).
+      pdf_fabrication_tool: 45,
     }
     const RED_FLAG_PENALTIES: Record<string, number> = {
       rush_move_in: 4,
@@ -1692,8 +1685,13 @@ JSON DISCIPLINE (avoid parse errors):
     // lookup falls back to 100) but still forces tier='decline', so a single
     // hallucinated string would auto-decline an applicant. Only gates we
     // actually define may influence the verdict.
+    // Court/LTB gates may ONLY be derived by the backend from corroborated
+    // records (Stage 3.7 + the portal logic below). The model sees name-only
+    // matches and web-index mentions — letting it emit these gates turned a
+    // namesake mention into an auto-decline.
+    const MODEL_BANNED_GATES = new Set(['ltb_eviction', 'court_record_defendant', 'court_record_defendant_multi', 'court_record_active'])
     const hardGates: string[] = (Array.isArray(parsed.hard_gates_triggered) ? parsed.hard_gates_triggered : [])
-      .filter((g: unknown): g is string => typeof g === 'string' && g in HARD_GATE_CAPS)
+      .filter((g: unknown): g is string => typeof g === 'string' && g in HARD_GATE_CAPS && !MODEL_BANNED_GATES.has(g))
     const redFlags: string[] = Array.isArray(parsed.red_flags) ? parsed.red_flags : []
 
     // ---- Stage 3.7: LTB Order Catalogue -------------------------------
@@ -1921,10 +1919,10 @@ JSON DISCIPLINE (avoid parse errors):
         || !/\d/.test(existingEn)
 
       if (shouldRewriteZh) {
-        detailsZh.rental_history = `命中 ${partsZh.join('，')}${activeSuffixZh}（姓名一致）`
+        detailsZh.rental_history = `发现 ${partsZh.join('，')}${activeSuffixZh}（仅姓名匹配——门户不含生日/地址，须先核实是否同一人，未计入评分）`
       }
       if (shouldRewriteEn) {
-        detailsEn.rental_history = `Hits: ${partsEn.join(', ')}${activeSuffixEn} (name in title)`
+        detailsEn.rental_history = `Found: ${partsEn.join(', ')}${activeSuffixEn} (name-only matches — the portal carries no DOB/address; verify identity before drawing conclusions. Not scored.)`
       }
       parsedObj.details_zh = detailsZh
       parsedObj.details_en = detailsEn
@@ -1935,58 +1933,22 @@ JSON DISCIPLINE (avoid parse errors):
       return role.includes('defendant') || role.includes('debtor') || role.includes('respondent')
     })
 
-    // 2026-06-02 P1 — Filter CanLII hits to debt/tenant-relevant databases.
-    // Previously every nameInTitle CanLII match counted toward the
-    // court_record_defendant hard gate, including:
-    //   - onhrt (Human Rights Tribunal) — legally protected, cannot be
-    //     used for scoring per Ontario Human Rights Code
-    //   - oncj (criminal court) — landlord judgment area, not deterministic
-    //   - oncicb (Criminal Injuries Compensation) — applicant may be a victim
-    //   - oncfsrb (Child & Family Services Review Board) — family disputes
-    //   - onorb (Ontario Review Board) — criminal matters
-    // These cases falsely escalated otherwise-clean applicants to "decline".
-    // Only count hits in databases that legitimately signal tenant risk:
-    // LTB (eviction), Superior/Divisional/Appeal (civil debt), Small Claims.
-    const canliiPartyHits = countDebtRelevantHits(courtDetail.records)
-    const totalCourtHits = portalDefendantCases.length + canliiPartyHits
-
+    // Portal matches are NAME-ONLY: the portal payload carries no DOB and no
+    // address, so there is nothing to corroborate against — the same rule the
+    // LTB module lives by ("a name match is a namesake until an address
+    // corroborates it") applies with full force. These records therefore
+    // SURFACE prominently (red rows in the court section, details text below,
+    // a verification red flag) but do NOT cap dimensions or trigger hard
+    // gates. An exact-name Small Claims defendant who is a different person
+    // with the same name used to auto-decline the applicant here.
+    const totalCourtHits = portalDefendantCases.length + countDebtRelevantHits(courtDetail.records)
     if (totalCourtHits > 0) {
-      // Court records as defendant/debtor = fundamentally untrustworthy.
-      // 1 hit → rental_history capped at 25, 2+ hits → capped at 10
-      const rhCap = totalCourtHits >= 2 ? 10 : 25
-      s.rental_history = Math.min(s.rental_history, rhCap)
-      // Also penalize credit_health — debt disputes imply credit issues
-      const chCap = totalCourtHits >= 2 ? 20 : 40
-      s.credit_health = Math.min(s.credit_health, chCap)
-      // Trigger hard gate to cap OVERALL score
-      if (totalCourtHits >= 2 && !hardGates.includes('court_record_defendant_multi')) {
-        hardGates.push('court_record_defendant_multi')
-      } else if (!hardGates.includes('court_record_defendant')) {
-        hardGates.push('court_record_defendant')
-      }
-      // Force the details card text to match the actual hit count, so the
-      // UI doesn't say "no LTB/court records" while 2 records sit below it.
+      if (!redFlags.includes('portal_name_match_unverified')) redFlags.push('portal_name_match_unverified')
+      // Force the details card text to acknowledge the name matches, so the
+      // UI doesn't say "no court records" while records sit below it.
       patchRentalHistoryDetailsForCourt(parsed, courtDetail.records, courtDetail.portal_records || [])
     }
-    // Active (non-closed) cases are even worse — person is currently being sued
-    const activeDefendantCases = portalDefendantCases.filter(r => !r.closedFlag)
-    if (activeDefendantCases.length > 0) {
-      s.rental_history = Math.min(s.rental_history, 5)
-      s.credit_health = Math.min(s.credit_health, 15)
-      if (!hardGates.includes('court_record_active')) {
-        hardGates.push('court_record_active')
-      }
-    }
-    // Recalculate base score after court record corrections
-    if (totalCourtHits > 0) {
-      baseScore = Math.round(
-        s.ability_to_pay * 0.40 +
-        s.credit_health * 0.25 +
-        s.rental_history * 0.20 +
-        s.verification * 0.10 +
-        s.communication * 0.05
-      )
-    }
+
 
     // Apply forensics red-flag penalties (separate scale: critical=10, high=5)
     const forensicsPenalty = forensicsReport.all_flags.reduce((sum, f) => {
@@ -2070,8 +2032,13 @@ JSON DISCIPLINE (avoid parse errors):
         credit: creditReport ?? null,
         crossDoc: crossDocVerification,
         ltbCorroborated: ltbCheck?.corroborated.length ?? 0,
-        // Party-role classification, never the raw hit count — see the field doc.
-        courtDefendantHits: courtDefendantHitsFromGates(hardGates),
+        // 0, deliberately: the only court gates the backend derives now come
+        // from corroborated LTB orders — which ltbCorroborated above already
+        // prices. Deriving courtDefendantHits from those same gates charged
+        // one order twice (−30 ltb_order_corroborated PLUS −22 court_defendant).
+        // Portal name-only matches are namesakes until corroborated and are
+        // never scored (see the portal block).
+        courtDefendantHits: 0,
         landlordRefs: prev.filter((p) => p.landlord_name && p.landlord_phone).length,
         declaredAddresses: prev.length,
         documentKinds: Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds : [],
@@ -2136,6 +2103,13 @@ JSON DISCIPLINE (avoid parse errors):
     for (const k of ALL_SUB_COMPONENTS) {
       subCov[k] = rawSubCov[k] || 'measured'
     }
+    // ltb_check is owned by the backend: the LTB Order Catalogue (Stage 3.7)
+    // is the only real LTB source, and it runs after the model. Defaulting to
+    // 'measured' claimed an LTB search that may never have run — the exact
+    // "✓ searched when it wasn't" class this project keeps stamping out.
+    subCov.ltb_check = (ltbCheck && (ltbCheck.status === 'ok' || ltbCheck.status === 'no_results'))
+      ? 'measured'
+      : 'action_pending'
     const evidenceCoverage = ALL_SUB_COMPONENTS.reduce(
       (sum, k) => sum + (coverageWeights[subCov[k]] ?? 1.0), 0
     ) / ALL_SUB_COMPONENTS.length
@@ -2144,9 +2118,18 @@ JSON DISCIPLINE (avoid parse errors):
     // forgery or eviction must not be softened to "insufficient_evidence".
     let tier: 'approve' | 'conditional' | 'decline'
     let tierReason = ''
-    if (hardGates.length > 0) {
+    // Affordability gates cap the score (55/65) but must not auto-refuse:
+    // OHRC caselaw (Kearney v. Bramalea) bars rent-to-income ratios as the
+    // sole ground for refusing a tenancy, and the ratio can rest on
+    // self-typed form income. They resolve to 'conditional' with the cap.
+    const AFFORDABILITY_ONLY_GATES = new Set(['income_severe', 'affordability_severe'])
+    const nonAffordabilityGates = hardGates.filter(g => !AFFORDABILITY_ONLY_GATES.has(g))
+    if (nonAffordabilityGates.length > 0) {
       tier = 'decline'
       tierReason = 'hard_gate_triggered'
+    } else if (hardGates.length > 0) {
+      tier = 'conditional'
+      tierReason = 'affordability_gate'
     } else if (evidenceCoverage < 0.4) {
       tier = 'conditional'
       tierReason = 'insufficient_evidence'
@@ -2170,7 +2153,9 @@ JSON DISCIPLINE (avoid parse errors):
     }
 
     // ---- Stage 5: Map to legacy columns for backward compat ----
-    const identityMatch = typeof parsed.identity_match_score === 'number' ? parsed.identity_match_score : 70
+    const identityMatch = (typeof parsed.identity_match_score === 'number' && Number.isFinite(parsed.identity_match_score))
+      ? Math.max(0, Math.min(100, parsed.identity_match_score))
+      : 70
     // Behavioral red flags only — forensics_* entries are already counted
     // upstream via hardGates + forensicsPenalty; don't double-count them here.
     const behavioralRedFlagCount = redFlags.filter(f => !f.startsWith('forensics_')).length
@@ -2195,7 +2180,7 @@ JSON DISCIPLINE (avoid parse errors):
       // Insert a name separator for the primary name so the UI clearly
       // labels which group of queries belongs to which person.
       const primaryHits = courtDetail.total_hits
-      courtDetail.queries.splice(1, 0, {
+      courtDetail.queries.splice(0, 0, {
         source: `── ${nameForLookup} ──`,
         tier: 'free',
         status: 'ok',
@@ -2246,35 +2231,66 @@ JSON DISCIPLINE (avoid parse errors):
         court_records_detail: courtDetail,
       }).eq('id', screening_id)
 
-      // Re-enforce court record penalties with merged supplemental results
+      // LTB Order Catalogue for each additional validated name. This is the
+      // screening's strongest LTB source and previously ran only for the
+      // primary name — a co-applicant's corroborable LTB history was never
+      // checked while the per-name query list implied full coverage. Same
+      // rules as the primary pass: corroborated hits reuse the court gates,
+      // uncorroborated name matches stay namesakes.
+      let supplementalLtbCorroborated = 0
+      for (const extraName of newNames) {
+        try {
+          const declaredForExtra = (crossDocVerification?.application_summary?.prev_residences ?? [])
+            .map((r) => r.address)
+            .filter((a): a is string => typeof a === 'string' && a.trim().length > 0)
+          const lr = await searchLtbOrders(
+            (fn, args) => supabase.rpc(fn, args) as never,
+            extraName,
+            declaredForExtra,
+          )
+          const lrOk = lr.status === 'ok' || lr.status === 'no_results'
+          const lrCodes = [...new Set(lr.as_respondent.flatMap((m) => m.application_codes))]
+          courtDetail.queries.push({
+            source: `LTB Order Catalogue — Ontario Open Data (${extraName})`,
+            tier: 'free',
+            status: lrOk ? 'ok' : lr.status === 'skipped' ? 'skipped' : 'unavailable',
+            hits: lrOk ? lr.as_respondent.length : null,
+            severity: lr.corroborated.length > 0 ? 2 : 0,
+            note: lr.as_respondent.length === 0
+              ? summarizeLtb(lr, 'en')
+              : `${lr.as_respondent.length} order(s) name this person as a responding tenant (${describeCodes(lrCodes, 'en')}); ${lr.corroborated.length} corroborated by a declared address`,
+            url: 'https://data.ontario.ca/dataset/ltb-order-catalogue',
+          })
+          if (lr.corroborated.length >= 2) {
+            if (!hardGates.includes('court_record_defendant_multi')) hardGates.push('court_record_defendant_multi')
+          } else if (lr.corroborated.length === 1) {
+            if (!hardGates.includes('court_record_defendant') && !hardGates.includes('court_record_defendant_multi')) {
+              hardGates.push('court_record_defendant')
+            }
+          }
+          supplementalLtbCorroborated += lr.corroborated.length
+        } catch {
+          courtDetail.queries.push({
+            source: `LTB Order Catalogue — Ontario Open Data (${extraName})`,
+            tier: 'free',
+            status: 'unavailable',
+            hits: null,
+            note: 'Catalogue query failed for this name — not searched.',
+            url: 'https://data.ontario.ca/dataset/ltb-order-catalogue',
+          })
+        }
+      }
+
+      // Supplemental portal matches follow the same namesake rule as the
+      // primary pass: name-only, so they surface (rows + details text + red
+      // flag) but never cap or gate.
       const allPortalDefendant = (courtDetail.portal_records || []).filter(r => {
         const role = (r.partyRole || '').toLowerCase()
         return role.includes('defendant') || role.includes('debtor') || role.includes('respondent')
       })
-      // CanLII contributed nothing here even before it was removed (its API
-      // cannot search by name), and courtDetail.records is now always empty.
-      // The Ontario Courts Portal is the only source that classifies a party.
-      const allCourtHits = allPortalDefendant.length
-      if (allCourtHits > 0) {
-        const rhCap = allCourtHits >= 2 ? 10 : 25
-        s.rental_history = Math.min(s.rental_history, rhCap)
-        const chCap = allCourtHits >= 2 ? 20 : 40
-        s.credit_health = Math.min(s.credit_health, chCap)
-        if (allCourtHits >= 2 && !hardGates.includes('court_record_defendant_multi')) {
-          hardGates.push('court_record_defendant_multi')
-        } else if (allCourtHits === 1 && !hardGates.includes('court_record_defendant')) {
-          hardGates.push('court_record_defendant')
-        }
-        // Re-patch details text to reflect the post-merge record counts.
+      if (allPortalDefendant.length > 0) {
+        if (!redFlags.includes('portal_name_match_unverified')) redFlags.push('portal_name_match_unverified')
         patchRentalHistoryDetailsForCourt(parsed, courtDetail.records, courtDetail.portal_records || [])
-      }
-      const allActive = allPortalDefendant.filter(r => !r.closedFlag)
-      if (allActive.length > 0) {
-        s.rental_history = Math.min(s.rental_history, 5)
-        s.credit_health = Math.min(s.credit_health, 15)
-        if (!hardGates.includes('court_record_active')) {
-          hardGates.push('court_record_active')
-        }
       }
       // Re-score after the supplemental court pass.
       //
@@ -2289,7 +2305,10 @@ JSON DISCIPLINE (avoid parse errors):
       // Only one rubric input can change here: the supplemental pass may add
       // court gates. Re-score from the same facts with those gates applied.
       if (rubric && rubricFacts) {
-        rubricFacts = { ...rubricFacts, courtDefendantHits: courtDefendantHitsFromGates(hardGates) }
+        // courtDefendantHits stays 0 — same double-count reasoning as the
+        // primary rubric feed. Corroborated LTB orders found for supplemental
+        // names DO price in, through the same ltbCorroborated input.
+        rubricFacts = { ...rubricFacts, ltbCorroborated: (rubricFacts.ltbCorroborated ?? 0) + supplementalLtbCorroborated }
         rubric = scoreRubric(rubricFacts)
         s.ability_to_pay = rubric.dimensions.ability_to_pay
         s.credit_health = rubric.dimensions.credit_health
@@ -2312,9 +2331,12 @@ JSON DISCIPLINE (avoid parse errors):
 
       // Re-derive the verdict from the post-merge state. Without this the
       // persisted tier/legacy still reflect the pre-supplemental scores.
-      if (hardGates.length > 0) {
+      if (hardGates.some(g => !AFFORDABILITY_ONLY_GATES.has(g))) {
         tier = 'decline'
         tierReason = 'hard_gate_triggered'
+      } else if (hardGates.length > 0) {
+        tier = 'conditional'
+        tierReason = 'affordability_gate'
       } else if (evidenceCoverage < 0.4) {
         tier = 'conditional'
         tierReason = 'insufficient_evidence'
@@ -2334,7 +2356,7 @@ JSON DISCIPLINE (avoid parse errors):
         tier = 'decline'
         tierReason = ''
       }
-      legacy = mapV3ToLegacy(s, behavioralRedFlagCount, identityMatch, allCourtHits)
+      legacy = mapV3ToLegacy(s, behavioralRedFlagCount, identityMatch, allPortalDefendant.length)
     }
 
     const detectedIncome = typeof parsed.detected_monthly_income === 'number' && parsed.detected_monthly_income > 0
@@ -2357,7 +2379,7 @@ JSON DISCIPLINE (avoid parse errors):
         details_zh: parsed.details_zh || {},
         hard_gates_triggered: hardGates,
         red_flags: redFlags,
-        red_flag_penalty: penalty,
+        red_flag_penalty: rubric ? 0 : penalty, // under the rubric the model penalty is not applied — showing it would display a deduction that had no effect
         gate_cap: gateCap,
         evidence_coverage: Number(evidenceCoverage.toFixed(2)),
         tier,
@@ -2423,7 +2445,7 @@ JSON DISCIPLINE (avoid parse errors):
       tier_reason: tierReason,
       hard_gates_triggered: hardGates,
       red_flags: redFlags,
-      red_flag_penalty: penalty,
+      red_flag_penalty: rubric ? 0 : penalty, // under the rubric the model penalty is not applied — showing it would display a deduction that had no effect
       action_items: Array.isArray(parsed.action_items) ? parsed.action_items : [],
       compliance_audit: parsed.compliance_audit || null,
       sub_coverage: subCov,
@@ -2451,7 +2473,7 @@ JSON DISCIPLINE (avoid parse errors):
       tier_reason: tierReason,
       hard_gates_triggered: hardGates,
       red_flags: redFlags,
-      red_flag_penalty: penalty,
+      red_flag_penalty: rubric ? 0 : penalty, // under the rubric the model penalty is not applied — showing it would display a deduction that had no effect
       gate_cap: gateCap,
       evidence_coverage: Number(evidenceCoverage.toFixed(2)),
       sub_coverage: subCov,

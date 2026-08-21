@@ -102,3 +102,50 @@ describe('timestamp clustering: credit reports are point-in-time documents', () 
     expect(flags.filter(f => f.code === 'timestamp_batch_creation')).toHaveLength(0)
   })
 })
+
+describe('cross-doc phone collision: third-party-voice documents only', () => {
+  it("the applicant's own phone inside their own credit report / application does NOT flag", async () => {
+    const { runCrossDocChecks } = await import('../lib/forensics/cross-doc')
+    const { flags } = runCrossDocChecks({
+      files: [
+        { name: 'efx.pdf', kind: 'credit_report', text_sample: 'Personal Information: Phone 416-555-1234' },
+        { name: 'application.pdf', kind: 'application_form', text_sample: 'Applicant phone: (416) 555-1234' },
+        { name: 'statement.pdf', kind: 'bank_statement', text_sample: 'e-Transfer to 4165551234' },
+      ],
+      applicant_name: 'Sarah Wang',
+      applicant_phone: '416-555-1234',
+    })
+    expect(flags.filter(f => f.code === 'cross_doc_phone_collision')).toHaveLength(0)
+  })
+
+  it("the applicant's phone as the employment letter's contact number DOES flag", async () => {
+    const { runCrossDocChecks } = await import('../lib/forensics/cross-doc')
+    const { flags } = runCrossDocChecks({
+      files: [
+        { name: 'letter.pdf', kind: 'employment_letter', text_sample: 'For verification call HR at 416-555-1234' },
+      ],
+      applicant_name: 'Sarah Wang',
+      applicant_phone: '416-555-1234',
+    })
+    expect(flags.some(f => f.code === 'cross_doc_phone_collision')).toBe(true)
+  })
+})
+
+describe('timestamp clustering: enterprise-portal downloads are exempt', () => {
+  it('Workday-rendered stubs downloaded in one sitting do not flag', () => {
+    const flags = checkTimestampClustering([
+      { file_name: 'stub-1.pdf', file_kind: 'pay_stub', creation_date: '2026-07-25T14:29:12Z', enterprise_system: 'Workday' },
+      { file_name: 'stub-2.pdf', file_kind: 'pay_stub', creation_date: '2026-07-25T14:29:40Z', enterprise_system: 'Workday' },
+      { file_name: 'stub-3.pdf', file_kind: 'pay_stub', creation_date: '2026-07-25T14:30:05Z', enterprise_system: 'Workday' },
+    ])
+    expect(flags.filter(f => f.code === 'timestamp_batch_creation')).toHaveLength(0)
+  })
+
+  it('bundled comma-joined kinds still enter clustering', () => {
+    const flags = checkTimestampClustering([
+      { file_name: 'bundle.pdf', file_kind: 'employment_letter,pay_stub', creation_date: '2026-07-25T14:29:12Z' },
+      { file_name: 'stub.pdf', file_kind: 'pay_stub', creation_date: '2026-07-25T14:30:05Z' },
+    ])
+    expect(flags.some(f => f.code === 'timestamp_batch_creation')).toBe(true)
+  })
+})

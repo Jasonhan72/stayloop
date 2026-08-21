@@ -143,7 +143,7 @@ export default function LandingBody() {
             {zh ? '下一位申请人,用报告说话' : 'Let the report speak for your next applicant'}
           </h2>
           <p className="mx-auto mt-2 max-w-[460px] text-[13.5px] text-body-2">
-            {zh ? '免注册可完整体验一单;注册后保留历史、解锁深度核验。' : 'Run one full screening without an account; register to keep history and unlock deep verification.'}
+            {zh ? '免注册可完整体验一单;注册账号可保留后续筛查历史、解锁深度核验。' : 'Run one full screening without an account; registered accounts keep their screening history and unlock deep verification.'}
           </p>
           <Link
             href="/screening/app"

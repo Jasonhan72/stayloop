@@ -24,7 +24,7 @@ export const runtime = 'edge'
 // and ltb_check from the Ontario Open Data catalogue. Sources we do not query
 // are not listed; sources that failed say so.
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
@@ -116,6 +116,15 @@ export default function LTBPage() {
   const params = useParams()
   const id = params?.id as string
   const { loading: authLoading, user } = useAuth()
+  const router = useRouter()
+  // A logged-out visitor (expired session, pasted URL in a fresh browser)
+  // used to hang on the loading spinner forever — the fetch effect never runs
+  // without a user and nothing else resolved the state.
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`)
+    }
+  }, [authLoading, user, router])
   const { lang } = useT()
   const zh = lang === 'zh'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -173,9 +182,15 @@ export default function LTBPage() {
   const ltb = (v3.ltb_check ?? null) as LtbCheck | null
   const courtSummary = (zh ? v3.court_summary_zh : v3.court_summary_en) || v3.court_summary_en || screening.court_summary_en || ''
 
-  const searched = queries.filter((q) => q.status === 'ok')
-  const unavailable = queries.filter((q) => q.status !== 'ok')
-  const hits = searched.reduce((n, q) => n + (q.hits ?? 0), 0)
+  // Separator rows ('── name ──') are visual grouping, not sources — they
+  // also carry that group's TOTAL as `hits`, so counting them double-counted
+  // every supplemental group. CanLII index mentions are display-only and the
+  // page's own copy says they carry no weight, so they stay out of the hit
+  // stat too.
+  const realQueries = queries.filter((q) => !q.source.startsWith('──'))
+  const searched = realQueries.filter((q) => q.status === 'ok')
+  const unavailable = realQueries.filter((q) => q.status !== 'ok')
+  const hits = searched.reduce((n, q) => n + (q.hitKind === 'mention' ? 0 : (q.hits ?? 0)), 0)
   const corroborated = ltb?.corroborated.length ?? 0
   const portalRecords: OntarioPortalMatch[] = queries.flatMap((q) => q.portalRecords ?? [])
 

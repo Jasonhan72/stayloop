@@ -114,8 +114,40 @@ describe('LTB classification — the rules that protect the applicant', () => {
   })
 
   it('corroborates only when an address the applicant declared lines up', async () => {
-    const r = await searchLtbOrders(rpcReturning([order({ address_match: true })]), 'Sarah Wang')
+    // Corroboration is recomputed app-side against the DECLARED addresses —
+    // the RPC's address_match alone (bare street-key equality) is no longer
+    // trusted, because "25 KING" exists in every Ontario city.
+    const r = await searchLtbOrders(
+      rpcReturning([order({ address_match: true })]),
+      'Sarah Wang',
+      ['111 Belmont Dr, London ON N6J 4X9'],
+    )
     expect(r.corroborated).toHaveLength(1)
+  })
+
+  it('postal match corroborates on its own; bare street key in another city does not', async () => {
+    // Same street number + first street word, different city, no postal
+    // overlap → must NOT corroborate ("25 King St, Ottawa" vs an order at
+    // "25 KING STREET W, KITCHENER").
+    const kitchener = order({ address_match: true, unit_address: '25 KING STREET W, KITCHENER, ON N2G1A1' })
+    const noCity = await searchLtbOrders(rpcReturning([kitchener]), 'Sarah Wang', ['25 King St, Ottawa ON K1P5G3'])
+    expect(noCity.corroborated).toHaveLength(0)
+    // Street key + the order's city named in the declared text → corroborates.
+    const withCity = await searchLtbOrders(rpcReturning([kitchener]), 'Sarah Wang', ['25 King Street West, Kitchener'])
+    expect(withCity.corroborated).toHaveLength(1)
+    // Postal equality corroborates without any street/city agreement.
+    const postal = await searchLtbOrders(rpcReturning([kitchener]), 'Sarah Wang', ['Unit 4, 25 King St W, N2G 1A1'])
+    expect(postal.corroborated).toHaveLength(1)
+  })
+
+  it('a subset match missing the query surname is dropped', async () => {
+    // RPC subset direction: record tokens ⊆ query tokens. "DAVID MICHAEL"
+    // (surname Michael) must not survive a query for "David Michael Park".
+    const r = await searchLtbOrders(
+      rpcReturning([order({ person_name: 'DAVID MICHAEL', match_kind: 'subset' })]),
+      'David Michael Park',
+    )
+    expect(r.as_respondent).toHaveLength(0)
   })
 
   it('refuses to search a single-token name', async () => {

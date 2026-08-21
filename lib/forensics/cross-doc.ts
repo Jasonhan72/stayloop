@@ -97,11 +97,26 @@ export function runCrossDocChecks(
   if (input.applicant_name) entities.names.push({ value: input.applicant_name, from: 'application_form' })
   if (input.applicant_address) entities.addresses.push({ value: input.applicant_address, from: 'application_form' })
 
+  // Kinds whose text speaks in a THIRD PARTY's voice — employer letters and
+  // references. A phone found here is expected to be the employer's/referee's,
+  // so colliding with the applicant's own number is the fake-reference signal.
+  // Everything else (credit reports, application forms, leases, bank
+  // statements) legitimately contains the applicant's own phone — an Equifax
+  // consumer disclosure prints it in Personal Information, an application form
+  // contains it by definition. Scanning those produced critical false
+  // positives on genuine files.
+  const THIRD_PARTY_VOICE_KINDS = new Set(['employment_letter', 'offer_letter', 'reference'])
+
   // ---- Collect entities from each file ----
+  // thirdPartyPhones additionally tracks only the numbers that claim to belong
+  // to someone OTHER than the applicant (see THIRD_PARTY_VOICE_KINDS + the
+  // paystub's employer_phone field) — Rules 1 and 4 operate on these only.
+  const thirdPartyPhones: Array<{ value: string; from: string }> = []
   for (const f of input.files) {
     if (f.text_sample) {
       for (const p of extractPhones(f.text_sample)) {
         entities.phones.push({ value: p, from: f.name })
+        if (THIRD_PARTY_VOICE_KINDS.has(f.kind)) thirdPartyPhones.push({ value: p, from: f.name })
       }
       for (const e of extractEmails(f.text_sample)) {
         entities.emails.push({ value: e, from: f.name })
@@ -116,7 +131,10 @@ export function runCrossDocChecks(
     if (f.paystub) {
       if (f.paystub.employer_phone) {
         const np = normalizePhone(f.paystub.employer_phone)
-        if (np) entities.phones.push({ value: np, from: f.name })
+        if (np) {
+          entities.phones.push({ value: np, from: f.name })
+          thirdPartyPhones.push({ value: np, from: f.name })
+        }
       }
       if (f.paystub.employer_name) entities.employers.push({ value: f.paystub.employer_name, from: f.name })
     }
@@ -130,8 +148,7 @@ export function runCrossDocChecks(
   )
   let hrPhoneCollision = false
   if (applicantPhones.size > 0) {
-    for (const p of entities.phones) {
-      if (p.from === 'application_form') continue
+    for (const p of thirdPartyPhones) {
       if (applicantPhones.has(p.value)) {
         // Find which file it came from
         flags.push({
@@ -246,6 +263,10 @@ export interface TimestampClusterInput {
   file_name: string
   file_kind: string
   creation_date: string | null
+  /** Enterprise payroll/HR system detected in the file (structure pass).
+   *  Portal-rendered documents get their CreationDate at download time, so
+   *  same-sitting downloads cluster legitimately — exempt from batching. */
+  enterprise_system?: string | null
 }
 
 export function checkTimestampClustering(
@@ -262,9 +283,20 @@ export function checkTimestampClustering(
   // evening, is the EXPECTED honest behavior. Two genuine co-applicant
   // Equifax downloads 42 seconds apart were hard-gated as "batch forgery"
   // under the old rule.
+  // Files whose enterprise_system was identified are ALSO excluded: Workday/
+  // Dayforce/ADP portals render the PDF at download time, so an applicant
+  // grabbing their last 3 stubs in one sitting — the single most common
+  // honest pre-application behavior — produces CreationDates minutes apart.
+  // Batch timing only incriminates documents with no known portal origin.
+  // file_kind can be a comma-joined bundle ("employment_letter,pay_stub") —
+  // match on the split list, not the raw string.
   const CLUSTER_KINDS = new Set(['bank_statement', 'pay_stub'])
   const dated = files
-    .filter(f => f.creation_date && CLUSTER_KINDS.has(f.file_kind))
+    .filter(f =>
+      f.creation_date &&
+      !f.enterprise_system &&
+      f.file_kind.split(',').some(k => CLUSTER_KINDS.has(k.trim()))
+    )
     .map(f => ({
       name: f.file_name,
       kind: f.file_kind,

@@ -64,6 +64,15 @@ function extractSINs(text: string): Array<{ raw: string; normalized: string }> {
     // Skip obvious non-SIN patterns (all same digit, 123456789, etc.)
     if (/^(\d)\1{8}$/.test(normalized)) continue
     if (normalized === '123456789' || normalized === '987654321') continue
+    // Require a SIN-adjacent keyword within 80 chars BEFORE the number (same
+    // pass the BN check uses). Application forms and statements are full of
+    // 9-digit runs that are NOT SINs — reference numbers, account numbers,
+    // transit+account concatenations — and ~90% of arbitrary 9-digit strings
+    // fail Luhn, so treating every 3-3-3 run as a SIN produced critical
+    // "fabricated SIN" verdicts on genuine documents.
+    const ctxStart = Math.max(0, m.index - 80)
+    const ctx = text.slice(ctxStart, m.index)
+    if (!/\b(?:SIN|S\.I\.N|social\s+insurance|NAS|num[ée]ro\s+d'assurance\s+sociale)\b/i.test(ctx)) continue
     seen.add(normalized)
     out.push({ raw, normalized })
   }
@@ -253,6 +262,10 @@ export function checkIdValidation(
   fileKind: string,
   surname?: string,
   docName?: string | null,
+  /** true when `text` came from OCR of a photo/scan — a single misread digit
+   *  on a GENUINE SIN fails Luhn, so OCR-sourced checksum failures are a
+   *  verify-first signal, not proof of fabrication. */
+  isOcrText?: boolean,
 ): ForensicFlag[] {
   // Only check ID-like documents. Application forms and credit reports often
   // contain ID numbers too, but the risk of false positives from noise is
@@ -284,16 +297,29 @@ export function checkIdValidation(
   const flags: ForensicFlag[] = []
   const ids = extractAndValidateIds(text, surname)
 
-  // SIN with bad Luhn checksum → strong forgery signal
+  // SIN with bad Luhn checksum → strong forgery signal on machine-produced
+  // text; on OCR text a single misread digit produces the same failure on a
+  // genuine SIN, so it downgrades to a verify-first code that carries no
+  // hard gate (id_sin_invalid_checksum is an identity_mismatch trigger).
   for (const sin of ids.sins) {
     if (!sin.luhn_valid) {
-      flags.push({
-        code: 'id_sin_invalid_checksum',
-        severity: 'critical',
-        file,
-        evidence_en: `SIN ${sin.normalized.slice(0, 3)}-***-${sin.normalized.slice(-3)} fails the Luhn checksum. Real SINs always pass — this is either fabricated or a typo that the applicant didn't bother to fix.`,
-        evidence_zh: `SIN ${sin.normalized.slice(0, 3)}-***-${sin.normalized.slice(-3)} 未通过 Luhn 校验。真实的 SIN 必然通过此校验 — 这要么是伪造，要么是申请人没检查就提交的错号。`,
-      })
+      if (isOcrText) {
+        flags.push({
+          code: 'id_sin_checksum_unverified',
+          severity: 'medium',
+          file,
+          evidence_en: `SIN ${sin.normalized.slice(0, 3)}-***-${sin.normalized.slice(-3)} (read via OCR) fails the Luhn checksum. Real SINs always pass, but a single OCR misread produces the same failure — verify the number against the original document before drawing conclusions.`,
+          evidence_zh: `SIN ${sin.normalized.slice(0, 3)}-***-${sin.normalized.slice(-3)}（OCR 识别）未通过 Luhn 校验。真实 SIN 必然通过校验，但 OCR 认错一个数字也会产生同样的结果——请先对照原件核实号码，再下结论。`,
+        })
+      } else {
+        flags.push({
+          code: 'id_sin_invalid_checksum',
+          severity: 'critical',
+          file,
+          evidence_en: `SIN ${sin.normalized.slice(0, 3)}-***-${sin.normalized.slice(-3)} fails the Luhn checksum. Real SINs always pass — this is either fabricated or a typo that the applicant didn't bother to fix.`,
+          evidence_zh: `SIN ${sin.normalized.slice(0, 3)}-***-${sin.normalized.slice(-3)} 未通过 Luhn 校验。真实的 SIN 必然通过此校验 — 这要么是伪造，要么是申请人没检查就提交的错号。`,
+        })
+      }
     }
   }
 

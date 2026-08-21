@@ -22,7 +22,7 @@ export const runtime = 'edge'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useAuth } from '@/lib/useAuth'
@@ -244,6 +244,15 @@ export default function ReportPage() {
   const params = useParams()
   const id = params?.id as string
   const { loading: authLoading, user } = useAuth()
+  const router = useRouter()
+  // A logged-out visitor (expired session, pasted URL in a fresh browser)
+  // used to hang on the loading spinner forever — the fetch effect never runs
+  // without a user and nothing else resolved the state.
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`)
+    }
+  }, [authLoading, user, router])
   const { lang } = useT()
   const zh = lang === 'zh'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1213,8 +1222,8 @@ export default function ReportPage() {
               id="court"
               title={zh ? '法庭 / LTB 记录检索披露' : 'COURT / LTB SEARCH DISCLOSURE'}
               subtitle={zh
-                ? `${okDbCount} 个数据源已检索 · ${totalHits} 条命中`
-                : `${okDbCount} sources searched · ${totalHits} hit(s)`}
+                ? `${okDbCount} 个数据源已检索 · 门户命中 ${totalHits} 条`
+                : `${okDbCount} sources searched · ${totalHits} portal hit(s)`}
             >
               {(r.court_summary_en || r.court_summary_zh) && (
                 <p className="mb-4 text-[13px] text-body-2">
@@ -1223,7 +1232,7 @@ export default function ReportPage() {
               )}
               <div className="space-y-0.5">
                 <KV k={zh ? '检索姓名' : 'Queried name'}><strong>{queriedName}</strong></KV>
-                <KV k={zh ? '总命中数' : 'Total hits'}><strong style={{ color: totalHits > 0 ? '#DC2626' : '#16A34A' }}>{totalHits}</strong></KV>
+                <KV k={zh ? '法院门户命中' : 'Portal hits'}><strong style={{ color: totalHits > 0 ? '#DC2626' : '#16A34A' }}>{totalHits}</strong></KV>
                 {courtDetail?.partial && (
                   <KV k={zh ? '完整性' : 'Completeness'}><span style={{ color: '#D97706' }}>{zh ? '部分数据源在 12 秒预算内未响应，见下表标注' : 'Some sources did not respond within the 12s budget — see rows below'}</span></KV>
                 )}

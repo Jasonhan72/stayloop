@@ -131,14 +131,22 @@ function lastNameMatch(name1: string, name2: string): boolean {
   // compare EVERY token of one name against every token of the other, and
   // accept equality or a >=5-char prefix relation (5, not 4, so Park/Parker —
   // a genuinely different surname pair the LTB work documented — stays apart).
-  // Given names colliding this way (e.g. two Mohammads) is possible; the
-  // common-surname downgrade in the caller absorbs that class.
+  // One pairing is excluded: BOTH tokens sitting in given-name position
+  // (first token of a multi-token name). "David Nowak" vs signatory
+  // "David Thompson" shares only the first name — a coincidence of two
+  // Davids, not family relatedness — and the common-surname downgrade can't
+  // absorb it because it inspects surnames, not given names. Any pairing
+  // that involves at least one surname-position token still counts.
   const normalize = (n: string) => n.toLowerCase().replace(/[^a-z\s]/g, '').trim()
   const parts1 = normalize(name1).split(/\s+/).filter((p) => p.length >= 3)
   const parts2 = normalize(name2).split(/\s+/).filter((p) => p.length >= 3)
   if (parts1.length === 0 || parts2.length === 0) return false
-  for (const a of parts1) {
-    for (const b of parts2) {
+  for (let i = 0; i < parts1.length; i++) {
+    for (let j = 0; j < parts2.length; j++) {
+      const a = parts1[i]
+      const b = parts2[j]
+      const bothGivenPosition = i === 0 && parts1.length > 1 && j === 0 && parts2.length > 1
+      if (bothGivenPosition) continue
       if (a === b) return true
       const [short, long] = a.length <= b.length ? [a, b] : [b, a]
       if (short.length >= 5 && long.startsWith(short)) return true

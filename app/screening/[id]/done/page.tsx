@@ -5,7 +5,7 @@ export const runtime = 'edge'
 // V5.3 · Scan Complete / Stayloop Score — loads real data from Supabase.
 // Route: /screening/[id]/done
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
@@ -42,10 +42,33 @@ function dimScoreColor(score: number): string {
   return '#DC2626'
 }
 
+
+// scores_v3 lives in ai_dimension_notes._v3.scores (the scoring route never
+// writes a scores_v3 column) — per-column values are the fallback for old
+// rows. Mirrors reconstructResult in ../report.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function dimsOf(row: any): Record<string, number> {
+  const v3 = (row?.ai_dimension_notes && row.ai_dimension_notes._v3) || {}
+  if (v3.scores && typeof v3.scores === 'object') return v3.scores
+  if (row?.scores_v3 && typeof row.scores_v3 === 'object') return row.scores_v3
+  if (row?.ability_to_pay_score != null) {
+    return {
+      ability_to_pay: row.ability_to_pay_score ?? 0,
+      credit_health: row.credit_health_score ?? 0,
+      rental_history: row.rental_history_score ?? 0,
+      verification: row.verification_score ?? 0,
+      communication: row.communication_score ?? 0,
+    }
+  }
+  return {}
+}
+
 function tierInfo(tier: string): { label: string; color: string; bg: string } {
   if (tier === 'approve') return { label: 'PROCEED', color: '#047857', bg: '#04785714' }
   if (tier === 'conditional') return { label: 'CONDITIONAL', color: '#D97706', bg: '#D9770614' }
-  return { label: 'DECLINE', color: '#DC2626', bg: '#DC262614' }
+  if (tier === 'decline') return { label: 'DECLINE', color: '#DC2626', bg: '#DC262614' }
+  // Pre-v3 rows have no verdict — absence renders neutral, never as DECLINE.
+  return { label: 'NO VERDICT', color: '#64748B', bg: '#64748B14' }
 }
 
 const DIMENSION_META: Record<string, { icon: string; name: string; label: string }> = {
@@ -98,6 +121,15 @@ export default function ScanDonePage() {
   const params = useParams()
   const id = params?.id as string
   const { loading: authLoading, user } = useAuth()
+  const router = useRouter()
+  // A logged-out visitor (expired session, pasted URL in a fresh browser)
+  // used to hang on the loading spinner forever — the fetch effect never runs
+  // without a user and nothing else resolved the state.
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`)
+    }
+  }, [authLoading, user, router])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [screening, setScreening] = useState<any>(null)
   const [loadError, setLoadError] = useState(false)
@@ -123,10 +155,10 @@ export default function ScanDonePage() {
   // Extract real data
   const score = screening.ai_score ?? 0
   const maxScore = 100
-  const tier = screening.v3_tier ?? 'decline'
+  const tier = screening.v3_tier ?? 'none'
   const ti = tierInfo(tier)
   const applicantName = screening.ai_extracted_name || screening.tenant_name || 'Applicant'
-  const dims = screening.scores_v3 || {}
+  const dims = dimsOf(screening)
   const redFlags = screening.red_flags || []
   const hardGates = screening.hard_gates_triggered || []
   const passCount = Object.values(dims).filter((v: unknown) => typeof v === 'number' && (v as number) >= 70).length

@@ -59,6 +59,15 @@ export function checkStatutoryDeductions(
   const maxCpp = Math.round((p.ympe - p.basicExemption) * p.cppRate * 100) / 100
   const maxCpp2 = Math.round((p.yampe - p.ympe) * p.cpp2Rate * 100) / 100
   const maxEi = Math.round(p.mie * p.eiRate * 100) / 100
+  // The extraction prompt folds QPP into cpp_ytd ("CPP / QPP"), and Quebec's
+  // QPP employee rate (6.40%) is higher than CPP's 5.95% — a genuine Quebec
+  // stub legitimately exceeds the CPP max by ~$300/yr. The impossibility
+  // ceiling for Check A must therefore be the HIGHER (QPP) figure, or every
+  // real QC-employer stub hard-gates as forged. Check B (exactly-at-max
+  // corroboration) keeps using the CPP figure — landing exactly on either
+  // cap is handled there as a positive, not a gate.
+  const QPP_RATE = 0.064
+  const maxCppOrQpp = Math.round((p.ympe - p.basicExemption) * QPP_RATE * 100) / 100
 
   // ---------------------------------------------------------------------------
   // Check A: YTD contributions must not exceed the legal annual maximum.
@@ -66,8 +75,8 @@ export function checkStatutoryDeductions(
   // $2 tolerance absorbs rounding across pay periods.
   // ---------------------------------------------------------------------------
   const excesses: string[] = []
-  if (ext.cpp_ytd !== null && ext.cpp_ytd > maxCpp + 2) {
-    excesses.push(`CPP $${fmt(ext.cpp_ytd)} > legal max $${fmt(maxCpp)}`)
+  if (ext.cpp_ytd !== null && ext.cpp_ytd > maxCppOrQpp + 2) {
+    excesses.push(`CPP/QPP $${fmt(ext.cpp_ytd)} > legal max $${fmt(maxCppOrQpp)} (QPP ceiling)`)
   }
   if (ext.cpp2_ytd !== null && ext.cpp2_ytd > maxCpp2 + 2) {
     excesses.push(`CPP2 $${fmt(ext.cpp2_ytd)} > legal max $${fmt(maxCpp2)}`)

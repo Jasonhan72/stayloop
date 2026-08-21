@@ -63,9 +63,15 @@ export function isSearchableName(norm: string): boolean {
  */
 export function splitPartyNames(cell: string | null | undefined): string[] {
   if (!cell) return []
+  // Collapse runs of whitespace FIRST, and do not split on them: the
+  // catalogue's real delimiters are " and ", commas, semicolons and "&".
+  // Splitting on double spaces turned a data-entry "SARAH  WANG" into two
+  // single tokens, both then dropped as unsearchable — the person silently
+  // never entered the table (the hardest-to-see false negative).
   return cell
+    .replace(/\s+/g, ' ')
     .replace(/\s+and\s+/gi, ',')
-    .split(/[;,&]|\s{2,}/)
+    .split(/[;,&]/)
     .map((p) => p.trim())
     .filter(Boolean)
 }
@@ -127,11 +133,19 @@ export function unwrapHyperlink(raw: string | null | undefined): string | null {
   return /^https?:\/\//i.test(url) ? url : null
 }
 
-/** L = landlord brought it (tenant is respondent); T = the tenant brought it. */
+/** L = landlord brought it (tenant is respondent); T = the tenant brought it.
+ *
+ * Fails CLOSED: only an explicit L-type classifies the tenant as respondent —
+ * the risk side that can eventually gate a screening. A blank or unrecognised
+ * application type must never default a tenant onto the risk side (red line ①
+ * inversion: a tenant-filed T2 with a blank type cell would have read as a
+ * landlord application naming them). Unknown types read as tenant-applicant,
+ * which is neutral context and never scored. */
 export function partySide(applicationType: string, role: string): 'respondent' | 'applicant' | 'coop' {
-  const t = (applicationType || '').toUpperCase()
+  const t = (applicationType || '').toUpperCase().trim()
   const tenantSide = role === 'tenant' || role === 'former_tenant' || role === 'sub_tenant' || role === 'occupant'
-  if (t === 'C') return 'coop'
-  if (t === 'T') return tenantSide ? 'applicant' : 'respondent'
-  return tenantSide ? 'respondent' : 'applicant'
+  if (t.startsWith('C')) return 'coop'
+  if (t.startsWith('L')) return tenantSide ? 'respondent' : 'applicant'
+  // 'T', blank, and anything unrecognised: tenant side reads as applicant.
+  return tenantSide ? 'applicant' : 'respondent'
 }

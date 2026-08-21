@@ -111,8 +111,8 @@ export const FAQS = [
     en: { q: 'How fast is the report?', a: 'Usually minutes. After upload, extraction, forensics, court and LTB searches, and scoring run as a parallel pipeline, with each step visible on screen as it completes.' },
   },
   {
-    zh: { q: '怎么收费?', a: '免注册可以完整体验一单。注册后保留历史记录;深度核验(雇主注册库联查等)属于 Pro 功能,定价见定价页。' },
-    en: { q: 'What does it cost?', a: 'You can run one full screening without an account. Registering keeps your history; deep verification (employer registry cross-checks and more) is a Pro feature — see the pricing page.' },
+    zh: { q: '怎么收费?', a: '免注册可以完整体验一单。注册账号可保留后续筛查的历史记录;深度核验(雇主注册库联查等)属于 Pro 功能,定价见定价页。' },
+    en: { q: 'What does it cost?', a: 'You can run one full screening without an account. Registered accounts keep the history of their screenings; deep verification (employer registry cross-checks and more) is a Pro feature — see the pricing page.' },
   },
   {
     zh: { q: 'LTB(房东与租客委员会)记录是怎么查的?', a: '使用安省 2026 年发布的 LTB 判令目录开放数据,按姓名建库检索。姓名命中必须经申请人自报地址佐证才影响评分——同名不等于同一个人;目录不含判决结果,报告只说明「已出判令」并附判令原件链接。' },
