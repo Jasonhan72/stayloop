@@ -2837,14 +2837,14 @@ export default function ScreenPage() {
                   inside it. The label flips from dark (over the empty track)
                   to white once the fill has swept past the midpoint. */}
               <div style={{ padding: '0 22px' }}>
-                <div style={{ position: 'relative', height: 22, borderRadius: 11, background: 'rgba(11, 23, 54, 0.06)', margin: '16px 0 4px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', borderRadius: 11, background: `linear-gradient(90deg, ${accentColor}88, ${accentColor})`, width: `${progress}%`, transition: 'width 0.5s ease' }} />
+                <div style={{ position: 'relative', height: 28, borderRadius: 14, background: 'rgba(11, 23, 54, 0.06)', margin: '16px 0 4px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: 14, background: `linear-gradient(90deg, ${accentColor}88, ${accentColor})`, width: `${progress}%`, transition: 'width 0.5s ease' }} />
                   <span className="mono" style={{
                     position: 'absolute', inset: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 11.5, fontWeight: 800, letterSpacing: '0.02em',
+                    fontSize: 16, fontWeight: 800, letterSpacing: '0.02em',
                     color: progress >= 54 ? '#FFFFFF' : '#0B1736',
-                    textShadow: progress >= 54 ? '0 1px 2px rgba(0,0,0,0.18)' : 'none',
+                    textShadow: progress >= 54 ? '0 1px 2px rgba(0,0,0,0.22)' : 'none',
                     transition: 'color 0.4s',
                     pointerEvents: 'none',
                   }}>
