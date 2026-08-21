@@ -2804,9 +2804,9 @@ export default function ScreenPage() {
                 background: accentBg,
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div className="spin" style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid rgba(11, 23, 54, 0.08)', borderTopColor: accentColor }} />
-                  <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, marginRight: 12 }}>
+                  <div className="spin" style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid rgba(11, 23, 54, 0.08)', borderTopColor: accentColor, flexShrink: 0 }} />
+                  <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#0B1736' }}>
                       {lang === 'zh' ? 'AI 正在筛查…' : 'AI screening in progress…'}
                     </div>
@@ -2817,28 +2817,29 @@ export default function ScreenPage() {
                     </div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  {/* Running tally of verified checks — the antivirus "it is
-                      working for you" signal. Counts only ✓ lines, i.e. checks
-                      that actually completed. */}
+                {/* One hero number (progress %), with the verified-checks
+                    tally as a quiet pill beneath it — stacking kills the
+                    two-bold-numbers collision the side-by-side layout had. */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                  <span className="mono" style={{ fontSize: 24, fontWeight: 800, color: accentColor, lineHeight: 1, letterSpacing: '-0.01em' }}>{Math.round(progress)}%</span>
                   {verifiedCount > 0 && (
-                    <div style={{ textAlign: 'right', lineHeight: 1.15 }}>
-                      <div className="mono" style={{ fontSize: 15, fontWeight: 800, color: '#15803D' }}>
-                        ✓ {verifiedCount}
-                      </div>
-                      <div style={{ fontSize: 9.5, color: '#64748B', letterSpacing: '0.04em' }}>
-                        {lang === 'zh' ? '项已核实' : 'checks passed'}
-                      </div>
-                    </div>
+                    <span className="mono" style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      padding: '2.5px 9px', borderRadius: 999,
+                      background: 'rgba(21, 128, 61, 0.08)', color: '#15803D',
+                      fontSize: 10, fontWeight: 700, letterSpacing: '0.03em',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      ✓ {verifiedCount} {lang === 'zh' ? '项已核实' : 'passed'}
+                    </span>
                   )}
-                  <span className="mono" style={{ fontSize: 22, fontWeight: 800, color: accentColor }}>{Math.round(progress)}%</span>
                 </div>
               </div>
 
               {/* Progress bar */}
               <div style={{ padding: '0 22px' }}>
-                <div style={{ height: 4, borderRadius: 2, background: 'rgba(11, 23, 54, 0.06)', margin: '16px 0 4px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', borderRadius: 2, background: `linear-gradient(90deg, ${accentColor}88, ${accentColor})`, width: `${progress}%`, transition: 'width 0.5s ease' }} />
+                <div style={{ height: 5, borderRadius: 3, background: 'rgba(11, 23, 54, 0.06)', margin: '16px 0 4px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${accentColor}88, ${accentColor})`, width: `${progress}%`, transition: 'width 0.5s ease' }} />
                 </div>
               </div>
 
@@ -2847,12 +2848,13 @@ export default function ScreenPage() {
                   directly under the progress bar so the running activity is
                   the first thing read, with the stage checklist below it. */}
               {scanLog.length > 0 && (
-                <div style={{ margin: '10px 22px 0', borderRadius: 10, background: '#F8F7F2', border: '1px solid #E9E5DA', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 12px', borderBottom: '1px solid #E9E5DA' }}>
-                    <span className="mono" style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#8C8778', fontWeight: 700 }}>
+                <div style={{ margin: '10px 22px 0', borderRadius: 10, background: '#0F172A', border: '1px solid #1E293B', overflow: 'hidden', boxShadow: 'inset 0 1px 8px rgba(0,0,0,0.25)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 12px', borderBottom: '1px solid #1E293B', background: 'rgba(255,255,255,0.02)' }}>
+                    <span className="mono" style={{ fontSize: 9.5, letterSpacing: '0.12em', color: '#7DD3FC', fontWeight: 700 }}>
+                      <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#34D399', marginRight: 7, verticalAlign: 'middle', animation: 'slPulse 1.4s ease-in-out infinite' }} />
                       SCAN LOG {lang === 'zh' ? '· 实时检查记录' : '· live check feed'}
                     </span>
-                    <span className="mono" style={{ fontSize: 9.5, color: '#A8A296' }}>
+                    <span className="mono" style={{ fontSize: 9.5, color: '#64748B' }}>
                       {lang === 'zh' ? `已执行 ${scanLog.length} 项` : `${scanLog.length} checks run`}
                     </span>
                   </div>
@@ -2861,13 +2863,13 @@ export default function ScreenPage() {
                       const isLast = i === scanLog.length - 1
                       const dt = ((l.at - (scanStartRef.current || scanLog[0].at)) / 1000).toFixed(1)
                       return (
-                        <div key={i} className="mono" style={{ fontSize: 10, lineHeight: 1.55, color: isLast ? '#15803D' : '#5F6B62', opacity: isLast ? 1 : 0.8, fontWeight: isLast ? 700 : 400, wordBreak: 'break-all' }}>
-                          <span style={{ color: '#B4AEA0', marginRight: 6 }}>[{dt}s]</span>
+                        <div key={i} className="mono" style={{ fontSize: 10, lineHeight: 1.55, color: isLast ? '#6EE7B7' : '#94A3B8', opacity: isLast ? 1 : 0.75, fontWeight: isLast ? 700 : 400, wordBreak: 'break-all' }}>
+                          <span style={{ color: '#475569', marginRight: 6 }}>[{dt}s]</span>
                           {lang === 'zh' ? l.zh : l.en}
                         </div>
                       )
                     })}
-                    <div className="mono" style={{ fontSize: 10, color: '#15803D' }}>
+                    <div className="mono" style={{ fontSize: 10, color: '#6EE7B7' }}>
                       <span style={{ animation: 'slPulse 1.1s ease-in-out infinite', display: 'inline-block' }}>▌</span>
                     </div>
                   </div>
