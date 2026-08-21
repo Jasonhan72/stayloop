@@ -2817,29 +2817,39 @@ export default function ScreenPage() {
                     </div>
                   </div>
                 </div>
-                {/* One hero number (progress %), with the verified-checks
-                    tally as a quiet pill beneath it — stacking kills the
-                    two-bold-numbers collision the side-by-side layout had. */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                  <span className="mono" style={{ fontSize: 24, fontWeight: 800, color: accentColor, lineHeight: 1, letterSpacing: '-0.01em' }}>{Math.round(progress)}%</span>
-                  {verifiedCount > 0 && (
-                    <span className="mono" style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                      padding: '2.5px 9px', borderRadius: 999,
-                      background: 'rgba(21, 128, 61, 0.08)', color: '#15803D',
-                      fontSize: 10, fontWeight: 700, letterSpacing: '0.03em',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      ✓ {verifiedCount} {lang === 'zh' ? '项已核实' : 'passed'}
-                    </span>
-                  )}
-                </div>
+                {/* The percentage lives inside the progress bar below — the
+                    header right keeps only the verified-checks pill, so the
+                    two numbers can never crowd each other again. */}
+                {verifiedCount > 0 && (
+                  <span className="mono" style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '4px 11px', borderRadius: 999, flexShrink: 0,
+                    background: 'rgba(21, 128, 61, 0.08)', color: '#15803D',
+                    fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    ✓ {verifiedCount} {lang === 'zh' ? '项已核实' : 'checks passed'}
+                  </span>
+                )}
               </div>
 
-              {/* Progress bar */}
+              {/* Progress bar — wide track with the percentage centered
+                  inside it. The label flips from dark (over the empty track)
+                  to white once the fill has swept past the midpoint. */}
               <div style={{ padding: '0 22px' }}>
-                <div style={{ height: 5, borderRadius: 3, background: 'rgba(11, 23, 54, 0.06)', margin: '16px 0 4px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', borderRadius: 3, background: `linear-gradient(90deg, ${accentColor}88, ${accentColor})`, width: `${progress}%`, transition: 'width 0.5s ease' }} />
+                <div style={{ position: 'relative', height: 22, borderRadius: 11, background: 'rgba(11, 23, 54, 0.06)', margin: '16px 0 4px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: 11, background: `linear-gradient(90deg, ${accentColor}88, ${accentColor})`, width: `${progress}%`, transition: 'width 0.5s ease' }} />
+                  <span className="mono" style={{
+                    position: 'absolute', inset: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11.5, fontWeight: 800, letterSpacing: '0.02em',
+                    color: progress >= 54 ? '#FFFFFF' : '#0B1736',
+                    textShadow: progress >= 54 ? '0 1px 2px rgba(0,0,0,0.18)' : 'none',
+                    transition: 'color 0.4s',
+                    pointerEvents: 'none',
+                  }}>
+                    {Math.round(progress)}%
+                  </span>
                 </div>
               </div>
 
