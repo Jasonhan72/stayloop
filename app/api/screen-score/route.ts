@@ -11,6 +11,7 @@
 //         additions can't reintroduce a leak by hand-rolling a fetch.
 // 2026-06-02 — Code review §6 P1 — Aggregate 12s budget on CanLII fan-out (circuit breaker)
 import { NextRequest, NextResponse } from 'next/server'
+import { repairUnescapedQuotes } from '@/lib/screening/jsonRepair'
 import { llmChatStream } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
@@ -1093,7 +1094,7 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble.
 JSON DISCIPLINE (avoid parse errors):
 - NO unescaped newlines inside strings (use a space)
 - NO commas inside numeric values (write 15090 not 15,090)
-- Escape inner double quotes as \\"
+- NEVER put an ASCII double quote (") inside a string value — not around names, titles or quoted phrases. Use 「」 / 『』 in Chinese and single quotes ' in English instead (e.g. 作者「Johnson Osei」, author 'Johnson Osei'). If you must, escape it as \\"
 - Close every string and bracket before ending`
 
     const userContent: any[] = [
@@ -1233,6 +1234,11 @@ JSON DISCIPLINE (avoid parse errors):
     function extractJson(input: string): string {
       let t = input.trim()
       t = t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+      // (0) Unescaped ASCII quotes inside string values (e.g. a person name
+      // copied from forensics metadata: 由个人作者"Johnson Osei."用Excel制作)
+      // broke every other scoring of case 24 on 2026-08-22 — repair first.
+      try { JSON.parse(t); return t } catch {}
+      t = repairUnescapedQuotes(t)
       // Fix unescaped newlines inside JSON string values — a common LLM issue.
       // Walk char-by-char: inside a string, replace raw \n \r with a space.
       {

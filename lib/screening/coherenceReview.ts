@@ -22,6 +22,7 @@
 // -----------------------------------------------------------------------------
 
 import type { ForensicFlag } from '@/lib/forensics/types'
+import { parseModelJson, repairUnescapedQuotes } from './jsonRepair'
 import { llmChat, LlmKeyMissingError, type ChatContentBlock } from '../llmChat'
 import type { ModelDef } from '../modelConfig'
 
@@ -89,7 +90,7 @@ HARD RULES:
 2. Never report, infer, or mention protected grounds (race, ethnicity, national origin, religion, disability, family status, marital status, sexual orientation, gender identity, age as a characteristic, receipt of public assistance). Age only matters arithmetically (e.g. a minor opening an account).
 3. A court/tribunal filing proves a filing, not an outcome. A web mention is not a party record. Do not conclude guilt, eviction, debt or fraud — describe the contradiction and what would resolve it.
 4. Be specific and short. No advice about approving or declining.
-5. Output ONLY the JSON object below — no markdown, no prose.
+5. Output ONLY the JSON object below — no markdown, no prose. Inside string values NEVER use an ASCII double quote (") — use 「」 in Chinese and single quotes in English (verbatim evidence included: quote it with 「」 or ').
 
 {
   "anomalies": [
@@ -175,8 +176,9 @@ export function sanitizeCoherenceOutput(raw: unknown, model: string | null, elap
 }
 
 function extractJson(text: string): unknown {
-  const t = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
-  try { return JSON.parse(t) } catch { /* fall through */ }
+  const direct = parseModelJson(text)
+  if (direct) return direct
+  const t = repairUnescapedQuotes(text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''))
   const a = t.indexOf('{'), b = t.lastIndexOf('}')
   if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)) } catch { /* ignore */ } }
   return salvageTruncated(t)
