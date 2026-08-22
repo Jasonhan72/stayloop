@@ -131,7 +131,8 @@ async function openaiCompatChat(p: LlmChatParams, apiKey: string): Promise<LlmCh
     },
     body: JSON.stringify({
       model: p.model.id,
-      max_tokens: p.maxTokens,
+      // OpenAI GPT-5 系列只认 max_completion_tokens（max_tokens → 400）；其余沿用 max_tokens。
+      [p.model.maxTokensParam || 'max_tokens']: p.maxTokens,
       messages,
       // Kimi 思考型模型只允许 temperature=1 —— 标了 omitTemperature 的省略该参数。
       ...(p.temperature !== undefined && !p.model.omitTemperature ? { temperature: p.temperature } : {}),

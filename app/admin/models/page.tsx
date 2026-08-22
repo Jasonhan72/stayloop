@@ -59,7 +59,7 @@ const COST_LABEL: Record<ModelDef['costTier'], { zh: string; en: string }> = {
 
 const PROVIDER_GROUP: Record<ModelDef['provider'], { zh: string; en: string }> = {
   anthropic: { zh: 'Anthropic（Claude）', en: 'Anthropic (Claude)' },
-  'openai-compat': { zh: '国产 · OpenAI 兼容', en: 'Domestic · OpenAI-compatible' },
+  'openai-compat': { zh: 'OpenAI 兼容（OpenAI / 国产）', en: 'OpenAI-compatible (OpenAI / domestic)' },
 }
 
 /** 该模型在管理页是否可选。availability 为 null（接口未返回）时保守处理：仅 Anthropic 可选。 */

@@ -56,6 +56,8 @@ export interface ModelDef {
   allowedSlots: ModelSlot[]
   /** openai-compat：该模型拒绝自定义 temperature（如 Kimi 思考型模型只允许 1）——请求时省略。 */
   omitTemperature?: boolean
+  /** openai-compat：token 上限参数名。OpenAI GPT-5 系列拒绝 `max_tokens`（400 unsupported parameter），要用 `max_completion_tokens`；国产四家仍用 `max_tokens`。默认 max_tokens。 */
+  maxTokensParam?: 'max_tokens' | 'max_completion_tokens'
 }
 
 /** @deprecated 用 ModelDef */
@@ -76,6 +78,9 @@ export const ALLOWED_MODELS: ModelDef[] = [
   { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', note: 'DeepSeek V4 强化档 — 更强推理，成本仍低于 Claude', provider: 'openai-compat', baseUrl: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
   { id: 'kimi-k3', label: 'Kimi K3', note: 'Moonshot Kimi 旗舰 — 思考型模型，响应稍慢（含推理阶段）', provider: 'openai-compat', baseUrl: 'https://api.moonshot.cn/v1', apiKeyEnv: 'MOONSHOT_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true },
   { id: 'kimi-k2.6', label: 'Kimi K2.6', note: 'Moonshot Kimi K2.6 — 思考型模型，响应稍慢（含推理阶段）', provider: 'openai-compat', baseUrl: 'https://api.moonshot.cn/v1', apiKeyEnv: 'MOONSHOT_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true },
+  // ── OpenAI（turn 槽位；GPT-5 系列：max_completion_tokens、不接受自定义 temperature）──
+  { id: 'gpt-5.4', label: 'GPT-5.4', note: 'OpenAI 旗舰 — 推理/代理能力强，成本中等', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: false, costTier: '中', allowedSlots: ['turn'], omitTemperature: true, maxTokensParam: 'max_completion_tokens' },
+  { id: 'gpt-5.4-mini', label: 'GPT-5.4 mini', note: 'OpenAI 轻量档 — 低成本、快速响应', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true, maxTokensParam: 'max_completion_tokens' },
   { id: 'qwen-plus', label: '通义千问 Plus', note: '阿里通义 Qwen-Plus — 低成本均衡对话', provider: 'openai-compat', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKeyEnv: 'DASHSCOPE_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
   { id: 'glm-4.6', label: '智谱 GLM-4.6', note: '智谱 GLM-4.6 — 低成本中文对话/代理', provider: 'openai-compat', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKeyEnv: 'ZHIPU_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
 ]

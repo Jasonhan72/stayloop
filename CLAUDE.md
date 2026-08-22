@@ -86,6 +86,7 @@ OPENCORPORATES_API_TOKEN    # deep-check / forensics arm's-length lookup (lib/fo
 CRON_SECRET                 # gates cron mode on /api/agent/proactive; same value stored as Supabase Vault secret 'cron_secret' (pg_cron job agent-proactive-daily, 13:00 UTC)
 DEEPSEEK_API_KEY            # optional · 后台模型配置用（/admin/models 槽位可选 DeepSeek 模型时需要）
 MOONSHOT_API_KEY            # optional · 后台模型配置用（Moonshot/Kimi）
+OPENAI_API_KEY              # optional · 后台模型配置用（OpenAI GPT-5.4 / 5.4 mini，turn 槽位；GPT-5 系列走 max_completion_tokens）
 DASHSCOPE_API_KEY           # optional · 后台模型配置用（阿里 DashScope/Qwen）
 ZHIPU_API_KEY               # optional · 后台模型配置用（智谱 GLM）
 ```
