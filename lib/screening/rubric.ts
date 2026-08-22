@@ -52,6 +52,10 @@ export const RUBRIC_WEIGHTS: Record<DimKey, number> = {
 }
 
 export interface RubricFacts {
+  /** A deterministic check proved the bureau report cannot be this
+   *  applicant's (accounts opened in childhood, etc.). Scored as a hard
+   *  negative, not as unknown: the applicant submitted it as theirs. */
+  creditReportUnreliable?: boolean
   monthly_rent: number | null
   /** What the applicant CLAIMS, from the form or an employment letter. */
   claimed_monthly_income: number | null
@@ -241,7 +245,15 @@ export function scoreRubric(f: RubricFacts): RubricResult {
   // Between 91 and 365 days it still scores but records a staleness hit for
   // the report to cite; over 365 the dimension is unknown.
   const stale = f.creditReportAgeDays != null && f.creditReportAgeDays > 365
-  if (sc == null || stale) {
+  if (f.creditReportUnreliable) {
+    // The report was submitted as the applicant's own and a deterministic
+    // check proved it cannot be (e.g. accounts opened when they were a
+    // child). Nothing on it — score, utilisation, collections — can be
+    // read either way; and presenting it is itself the negative.
+    creditScore = 20
+    add('credit_health', 'credit_report_unreliable', 20,
+      'bureau report contradicts the applicant\'s date of birth — not usable as their credit history')
+  } else if (sc == null || stale) {
     creditScore = 45
     unknown.push('credit_health')
     if (stale) {
@@ -270,19 +282,19 @@ export function scoreRubric(f: RubricFacts): RubricResult {
   // skipped when stale. Collections and bankruptcies below are historical
   // facts that a stale report still proves, so they always count.
   const util = revolvingUtilisation(f.credit)
-  if (!stale && util.pct != null) {
+  if (!stale && !f.creditReportUnreliable && util.pct != null) {
     const d = util.pct >= 0.9 ? -22 : util.pct >= 0.75 ? -14 : util.pct >= 0.5 ? -6 : util.pct <= 0.1 ? +4 : 0
     if (d) creditScore += add('credit_health', 'revolving_utilisation', d,
       `${(util.pct * 100).toFixed(0)}% of $${util.limit.toLocaleString()} revolving`)
   }
-  if (!stale && util.overLimit > 0) {
+  if (!stale && !f.creditReportUnreliable && util.overLimit > 0) {
     creditScore += add('credit_health', 'account_over_limit', -8, `${util.overLimit} account(s) above limit`)
   }
-  const openCollections = (f.credit?.collections ?? []).filter((c) => (Number(c.balance) || 0) > 0)
+  const openCollections = f.creditReportUnreliable ? [] : (f.credit?.collections ?? []).filter((c) => (Number(c.balance) || 0) > 0)
   if (openCollections.length) {
     creditScore += add('credit_health', 'open_collections', -20, `${openCollections.length} unsettled`)
   }
-  if ((f.credit?.bankruptcies ?? []).length) {
+  if (!f.creditReportUnreliable && (f.credit?.bankruptcies ?? []).length) {
     creditScore += add('credit_health', 'bankruptcy', -35, `${f.credit!.bankruptcies!.length} on file`)
   }
 

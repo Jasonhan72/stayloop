@@ -1,3 +1,4 @@
+import type { CoherenceReview } from './screening/coherenceReview'
 // Shared types for the screening module — single source of truth.
 // Consumed by: app/screening/page.tsx, lib/generateReport.ts, app/api/screen-score/route.ts
 
@@ -121,6 +122,12 @@ export const V3_WEIGHTS: Record<V3DimKey, number> = {
 }
 
 export interface CreditReport {
+  /** Set when a deterministic check proves the report cannot be this
+   *  applicant's (e.g. accounts opened before they were 16). The report is
+   *  still transcribed for the landlord to see, but it is not evidence. */
+  unreliable?: boolean
+  unreliable_reason_zh?: string
+  unreliable_reason_en?: string
   bureau?: string | null
   credit_score?: number | null
   score_band?: string | null
@@ -345,6 +352,8 @@ export interface ScoreResult {
     reviewer_note?: string
   } | null
   forensics_detail?: ForensicsDetail | null
+  /** AI document coherence review (lib/screening/coherenceReview.ts). */
+  coherence_review?: CoherenceReview | null
   forensics_penalty?: number
   forensics_zeroed_dims?: string[]
   cross_doc_verification?: CrossDocVerification | null

@@ -138,6 +138,7 @@ function reconstructResult(row: any): ScoreResult {
     // scored after the prompt addition; old reports reconstruct as null and
     // the section stays hidden.
     cross_doc_verification: v3.cross_doc_verification ?? null,
+    coherence_review: v3.coherence_review ?? null,
     action_items: v3.action_items || row.action_items || [],
     compliance_audit: v3.compliance_audit ?? row.compliance_audit ?? null,
     forensics_detail: v3.forensics_detail ?? row.forensics_detail ?? null,
@@ -991,6 +992,13 @@ export default function ReportPage() {
               title={zh ? '信用报告（来自上传文件）' : 'CREDIT REPORT (FROM UPLOADED DOCUMENT)'}
               subtitle={zh ? 'AI 转录 · 已做真伪取证' : 'AI-transcribed · authenticity-checked'}
             >
+              {cr.unreliable && (
+                <div className="mb-4 rounded-xl border px-4 py-3" style={{ borderColor: '#FCA5A5', borderLeft: '5px solid #B91C1C', background: '#FEF2F2' }}>
+                  <div className="text-[13px] font-extrabold" style={{ color: '#B91C1C' }}>{zh ? '此报告不可采信——不能作为该申请人的信用历史' : "This report is NOT credible as the applicant's credit history"}</div>
+                  <div className="mt-1 text-[12px] text-body-2">{zh ? cr.unreliable_reason_zh : cr.unreliable_reason_en}</div>
+                  <div className="mt-1 text-[11px] text-body-3">{zh ? '下方转录仅供核对原件；分数、账户与查询均未计入评分。' : 'The transcription below is for checking against the original only; score, tradelines and inquiries were not credited.'}</div>
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-6">
                 {cr.credit_score != null && (
                   <div>
@@ -1211,6 +1219,42 @@ export default function ReportPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </SectionShell>
+          )}
+
+          {/* AI document coherence review — read-everything pass, verify-first */}
+          {r.coherence_review && (
+            <SectionShell
+              id="coherence"
+              title={zh ? 'AI 整体一致性审查' : 'AI DOCUMENT COHERENCE REVIEW'}
+              subtitle={r.coherence_review.status !== 'ok'
+                ? (zh ? `本次未能执行（${r.coherence_review.status}）` : `Not run (${r.coherence_review.status})`)
+                : (zh ? `${r.coherence_review.anomalies.length} 项矛盾 · 逐条引用原文 · 待核实` : `${r.coherence_review.anomalies.length} contradiction(s) · verbatim evidence · verify-first`)}
+            >
+              {r.coherence_review.status === 'ok' && r.coherence_review.anomalies.length === 0 && (
+                <p className="text-[13px]" style={{ color: '#16A34A' }}>{zh ? '模型通读全部文件后未发现内部或跨文件矛盾。' : 'Reading every document side by side, the reviewer found no internal or cross-document contradictions.'}</p>
+              )}
+              {r.coherence_review.status === 'ok' && r.coherence_review.anomalies.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[11.5px] text-body-3">{zh ? '由模型通读全部文件、逐条引用原文得出。性质为「待核实」：提示问题，不下结论；确定性取证另有独立判定。' : 'Found by the model reading every document in full, each anchored to a verbatim quote. Verify-first: these raise questions, they do not conclude.'}</p>
+                  {r.coherence_review.anomalies.map((a) => {
+                    const color = a.severity === 'critical' ? '#B91C1C' : a.severity === 'high' ? '#EA580C' : a.severity === 'medium' ? '#D97706' : '#64748B'
+                    const sevZh: Record<string, string> = { critical: '严重', high: '高', medium: '中', low: '低' }
+                    return (
+                      <div key={a.id} className="rounded-lg border border-line-divider bg-white px-4 py-3" style={{ borderLeft: `3px solid ${color}` }}>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded px-2 py-0.5 font-mono text-[10px] font-bold text-white" style={{ background: color }}>{zh ? sevZh[a.severity] : a.severity}</span>
+                          <span className="font-mono text-[10px] text-body-3">{a.category}</span>
+                          {a.files.length > 0 && <span className="text-[10px] text-body-3">{a.files.join(' · ')}</span>}
+                        </div>
+                        <div className="mt-1 text-[13px] font-semibold">{zh ? (a.claim_zh || a.claim_en) : (a.claim_en || a.claim_zh)}</div>
+                        <div className="mt-1 text-[12px] text-body-2">{zh ? '依据：' : 'Evidence: '}{a.evidence.map((e) => `“${e}”`).join(zh ? '｜' : ' | ')}</div>
+                        <div className="mt-1 text-[12px]" style={{ color: '#0F766E' }}>{zh ? '核实：' : 'Resolve: '}{zh ? (a.check_zh || a.check_en) : (a.check_en || a.check_zh)}</div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </SectionShell>

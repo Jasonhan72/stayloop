@@ -765,6 +765,14 @@ export async function generateScreeningReport(
     const sc = cr.credit_score
     const scColor = sc == null ? '#64748B' : sc >= 760 ? '#16A34A' : sc >= 725 ? '#65A30D' : sc >= 660 ? '#A16207' : sc >= 560 ? '#C2410C' : '#DC2626'
     html += `<h2>${zh ? '信用报告（来自上传文件）' : 'Credit Report (from uploaded document)'}</h2>`
+    if (cr.unreliable) {
+      html += `<div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #FCA5A5;border-left:5px solid #B91C1C;border-radius:8px;background:#FEF2F2;padding:10px 14px;margin-bottom:10px">
+        <span style="font-size:16px;color:#B91C1C;font-weight:800">✕</span>
+        <div><div style="font-size:11px;font-weight:800;color:#B91C1C">${zh ? '此报告不可采信——不能作为该申请人的信用历史' : 'This report is NOT credible as the applicant\'s credit history'}</div>
+        <div style="font-size:10px;color:#475569;margin-top:3px;line-height:1.6">${zh ? (cr.unreliable_reason_zh || '') : (cr.unreliable_reason_en || '')}</div>
+        <div style="font-size:9px;color:#64748B;margin-top:3px">${zh ? '下方转录仅供核对原件；分数、账户与查询均未计入评分。' : 'The transcription below is for checking against the original only; score, tradelines and inquiries were not credited.'}</div></div>
+      </div>`
+    }
     html += `<div style="display:flex;gap:14px;align-items:center;border:1px solid #E2E8F0;border-radius:10px;padding:14px;margin-bottom:10px">`
     if (sc != null) {
       const pct = Math.max(0, Math.min(100, ((sc - 300) / 600) * 100))
@@ -934,6 +942,29 @@ export async function generateScreeningReport(
         </tr>`
       }
       html += `</table>`
+    }
+  }
+
+  // ── 4b. AI document coherence review ──
+  const coh = result.coherence_review
+  if (coh) {
+    html += `<h2>${zh ? 'AI 整体一致性审查' : 'AI Document Coherence Review'}</h2>`
+    if (coh.status !== 'ok') {
+      html += `<p style="font-size:10px;color:#64748B">${zh ? `本次未能执行（${coh.status}${coh.error ? '：' + coh.error : ''}）。` : `Not run this time (${coh.status}${coh.error ? ': ' + coh.error : ''}).`}</p>`
+    } else if (!coh.anomalies.length) {
+      html += `<p style="font-size:10px;color:#16A34A">${zh ? '模型通读全部文件后未发现内部或跨文件矛盾。' : 'Reading every document side by side, the reviewer found no internal or cross-document contradictions.'}</p>`
+    } else {
+      html += `<p style="font-size:9.5px;color:#64748B;margin-bottom:6px">${zh ? '由模型通读全部文件、逐条引用原文得出的矛盾清单。性质为「待核实」：它提示问题，不下结论；确定性取证另有独立判定。' : 'Contradictions found by the model reading every document in full, each anchored to a verbatim quote. Verify-first: these raise questions, they do not conclude; deterministic forensics carries its own verdicts.'}</p>`
+      const sevColor: Record<string, string> = { critical: '#B91C1C', high: '#EA580C', medium: '#D97706', low: '#64748B' }
+      const sevZh: Record<string, string> = { critical: '严重', high: '高', medium: '中', low: '低' }
+      for (const a of coh.anomalies) {
+        html += `<div class="card" style="border-left:3px solid ${sevColor[a.severity] || '#64748B'};padding:8px 12px;margin-bottom:6px">
+          <div><span class="flag-badge" style="background:${sevColor[a.severity] || '#64748B'}">${zh ? sevZh[a.severity] || a.severity : a.severity}</span><span style="font-family:monospace;font-size:9px;color:#64748B">${a.category}</span>${a.files.length ? `<span style="font-size:9px;color:#94A3B8;margin-left:6px">${a.files.join(' · ')}</span>` : ''}</div>
+          <div style="font-size:10.5px;font-weight:600;margin-top:3px">${zh ? a.claim_zh || a.claim_en : a.claim_en || a.claim_zh}</div>
+          <div style="font-size:9.5px;color:#475569;margin-top:3px">${zh ? '依据：' : 'Evidence: '}${a.evidence.map(e => `“${e}”`).join(zh ? '｜' : ' | ')}</div>
+          <div style="font-size:9.5px;color:#0F766E;margin-top:3px">${zh ? '核实：' : 'Resolve: '}${zh ? a.check_zh || a.check_en : a.check_en || a.check_zh}</div>
+        </div>`
+      }
     }
   }
 

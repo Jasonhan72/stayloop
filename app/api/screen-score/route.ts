@@ -17,9 +17,10 @@ import { runForensics, forensicsToPromptBlock, type ForensicsReport } from '@/li
 import { getModel, supportsTemperature } from '@/lib/modelConfig'
 import { applyPageBudget } from '@/lib/anthropic/page-budget'
 import { captureException } from '@/lib/observability/sentry'
-import type { CourtQuery, CanLIIMatch, OntarioPortalMatch, V3Scores, CrossDocVerification, LtbCheck } from '@/lib/screening-types'
+import type { CourtQuery, CanLIIMatch, OntarioPortalMatch, V3Scores, CrossDocVerification, LtbCheck, CreditReport } from '@/lib/screening-types'
 import { describeCodes, searchLtbOrders, summarizeLtb } from '@/lib/ltb/search'
 import { checkTradelineAges } from '@/lib/screening/creditAge'
+import { runCoherenceReview, coherenceToPromptBlock, coherenceToFlags, type CoherenceReview } from '@/lib/screening/coherenceReview'
 import { courtDefendantHitsFromGates, scoreRubric, type RubricFacts, type RubricResult } from '@/lib/screening/rubric'
 import { searchCanliiViaIndex } from '@/lib/screening/canliiIndex'
 import { V3_WEIGHTS } from '@/lib/screening-types'
@@ -838,7 +839,25 @@ export async function POST(req: NextRequest) {
           .eq('id', screening_id)
       } catch { /* progress writes must never fail the pipeline */ }
     }
-    const [courtDetail, forensicsReport] = await Promise.all([
+    // ---- Stage 2b: AI document coherence review (concurrent) ----
+    // Reads every document as a whole and lists contradictions with
+    // verbatim evidence — the pass two human reviewers did by eye on case
+    // 24 and the rules could not. Runs alongside court + forensics so it
+    // adds no latency; its findings feed the scoring prompt below.
+    const coherenceModel = await getModel('screening')
+    const coherencePromise: Promise<CoherenceReview> = runCoherenceReview({
+      contentBlocks,
+      model: coherenceModel,
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      supportsTemperature: supportsTemperature(coherenceModel),
+      applicant: {
+        name: nameForLookup || null,
+        phone: phoneMatch ? `${phoneMatch[1]}${phoneMatch[2]}${phoneMatch[3]}` : null,
+        email: emailMatch ? emailMatch[0].toLowerCase() : null,
+      },
+    }).catch((e): CoherenceReview => ({ status: 'failed', model: coherenceModel, anomalies: [], documents: [], error: String(e?.message || e).slice(0, 200), elapsed_ms: 0 }))
+
+    const [courtDetail, forensicsReport, coherence] = await Promise.all([
       runCourtRecordCheck(nameForLookup, plan).then(async r => {
         await cfBump('法庭库检索完成 · 等待文件取证收尾', 'Court search done · finishing document forensics')
         return r
@@ -862,6 +881,7 @@ export async function POST(req: NextRequest) {
           schema_version: 1,
         }
       }),
+      coherencePromise,
     ])
 
     await supabase.from('screenings').update({
@@ -1035,6 +1055,15 @@ JSON DISCIPLINE (avoid parse errors):
           'you MUST include "doc_tampering" or the matching v3 gate (employer_fraud for cross_doc_collision) in hard_gates_triggered.',
       })
     }
+    userContent.push({
+      type: 'text',
+      text: '\n--- INDEPENDENT DOCUMENT COHERENCE REVIEW (AI, read-everything pass; verify-first) ---\n' +
+        coherenceToPromptBlock(coherence) +
+        '\n\nThese anomalies were found by a separate examiner reading all documents side by side. ' +
+        'Treat CRITICAL/HIGH anomalies as unresolved contradictions: reflect them in the affected dimension\'s details, ' +
+        'add a concrete action_item for each, and do NOT describe a document as genuine/verified/excellent while a critical anomaly about it stands. ' +
+        'Do not restate them as settled fact — they are contradictions to resolve, not findings of fraud.',
+    })
     if (contentBlocks.length > 0) {
       userContent.push({ type: 'text', text: '\n--- UPLOADED DOCUMENTS ---\n' })
       userContent.push(...contentBlocks)
@@ -1987,7 +2016,7 @@ JSON DISCIPLINE (avoid parse errors):
     // report is only honoured when the model marked it present AND a
     // credit_report document was actually detected, so a hallucinated bureau
     // block cannot feed the score.
-    const creditReport = (() => {
+    const creditReport: (CreditReport & Record<string, any>) | null = (() => {
       const cr: any = (parsed as any).credit_report
       const hasCreditDoc = (Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds : []).includes('credit_report')
       if (!cr || cr.present !== true || !hasCreditDoc) return null
@@ -2063,9 +2092,34 @@ JSON DISCIPLINE (avoid parse errors):
         if (impossible) {
           if (!hardGates.includes('doc_tampering')) hardGates.push('doc_tampering')
           forgedDocCount += 1
+          // The report cannot be this applicant's. Everything downstream must
+          // say so: the rubric scores it as a hard negative (not as "808 —
+          // Excellent"), the dimension text is rewritten, the credit section
+          // gets a banner, and the finding sits on the credit file's own card.
+          creditReport.unreliable = true
+          creditReport.unreliable_reason_zh = `${rows.length} 个账户在申请人（${applicantDob.slice(0, 4)} 年生）未成年时开立：${listZh}。这份报告不能作为该申请人的信用历史。`
+          creditReport.unreliable_reason_en = `${rows.length} account(s) were opened when the applicant (born ${applicantDob.slice(0, 4)}) was a minor: ${listEn}. This report cannot be treated as the applicant's credit history.`
+          const dz = (parsed.details_zh && typeof parsed.details_zh === 'object') ? parsed.details_zh : (parsed.details_zh = {})
+          const de = (parsed.details_en && typeof parsed.details_en === 'object') ? parsed.details_en : (parsed.details_en = {})
+          dz.credit_health = `信用报告与申请人出生日期矛盾——${rows.length} 个账户在其未成年时开立（${listZh}）。报告不能作为该申请人的信用历史；表面的 ${creditReport.credit_score ?? '—'} 分不予采信。请由房东经申请人书面同意自行调取新报告。`
+          de.credit_health = `The credit report contradicts the applicant's date of birth — ${rows.length} account(s) opened while they were a minor (${listEn}). It cannot be treated as this applicant's history; the apparent score of ${creditReport.credit_score ?? '—'} is not credited. Pull a fresh report with the applicant's written consent.`
+          if (!Array.isArray(parsed.flags)) parsed.flags = []
+          parsed.flags.unshift({ type: 'danger', text_zh: `信用报告账户开户年龄与出生日期矛盾（${rows.length} 个账户开立于未成年时）——报告不可采信`, text_en: `Credit report accounts predate the applicant's majority (${rows.length} opened as a minor) — report not credible` })
+          parsed.flags = parsed.flags.filter((fl: any) => !(fl && fl.type === 'info' && /信用分|credit score/i.test(`${fl.text_zh || ''} ${fl.text_en || ''}`)))
+          for (const pf of forensicsReport.per_file) {
+            if ((pf.file_kind || '').split(',').map(k => k.trim()).includes('credit_report')) {
+              pf.flags.push({ code: 'credit_tradelines_predate_dob', severity: 'critical', file: pf.file_name, evidence_en: creditReport.unreliable_reason_en!, evidence_zh: creditReport.unreliable_reason_zh! })
+            }
+          }
         }
         if (!redFlags.includes('credit_report_age_inconsistent')) redFlags.push('credit_report_age_inconsistent')
       }
+    }
+
+    // AI coherence anomalies → flags table (low weight; surfaced, not gating)
+    forensicsReport.all_flags.push(...coherenceToFlags(coherence))
+    if (coherence.status === 'ok' && coherence.anomalies.some(a => a.severity === 'critical' || a.severity === 'high')) {
+      if (!redFlags.includes('coherence_anomaly')) redFlags.push('coherence_anomaly')
     }
 
     // ── Deterministic rubric ────────────────────────────────────────────
@@ -2090,6 +2144,7 @@ JSON DISCIPLINE (avoid parse errors):
             ? detectedIncomeForGate
             : null,
         credit: creditReport ?? null,
+        creditReportUnreliable: creditReport?.unreliable === true,
         crossDoc: crossDocVerification,
         ltbCorroborated: ltbCheck?.corroborated.length ?? 0,
         // 0, deliberately: the only court gates the backend derives now come
@@ -2473,6 +2528,7 @@ JSON DISCIPLINE (avoid parse errors):
         legacy_scores: legacy,
         credit_report: creditReport,
         cross_doc_verification: crossDocVerification,
+        coherence_review: coherence,
         ltb_check: ltbCheck,
         rubric,
       },
@@ -2553,6 +2609,7 @@ JSON DISCIPLINE (avoid parse errors):
       identity_match_score: identityMatch,
       credit_report: creditReport,
       cross_doc_verification: crossDocVerification,
+        coherence_review: coherence,
       monthly_rent: monthlyRent || null,
       income_rent_ratio: computedRatio,
       extracted_name: finalExtractedName,

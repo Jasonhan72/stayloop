@@ -58,6 +58,10 @@ const STRICT_KINDS = new Set([
 // Cached dynamic-import promise so we only load the pdf.js engine once per
 // warm worker. Subsequent calls re-await the resolved module.
 let _unpdfPromise: Promise<typeof import('unpdf')> | null = null
+/** The last extraction failure (message), for the admin diagnostic route —
+ *  readPdfTextDensity itself stays silent so a pdf.js hiccup never fails a
+ *  screening, but "silent" must not mean "invisible". */
+export let lastTextExtractError: string | null = null
 function loadUnpdf(): Promise<typeof import('unpdf')> {
   if (!_unpdfPromise) {
     _unpdfPromise = import('unpdf')
@@ -96,7 +100,8 @@ export async function readPdfTextDensity(
       // the credit report start on page 6+ — a 2000-char sample never sees it.
       text_sample: text.slice(0, 50000),
     }
-  } catch {
+  } catch (e) {
+    lastTextExtractError = `${(e as Error)?.name || 'Error'}: ${(e as Error)?.message || String(e)}`.slice(0, 400)
     return null
   }
 }
