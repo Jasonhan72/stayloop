@@ -57,3 +57,19 @@ describe.each([
     expect(codes).not.toContain('pdf_parse_failed')        // encryption explains the strict-parser failure
   })
 })
+
+describe('readPdfTextDensity never detaches the caller\'s bytes', () => {
+  it('input stays intact after extraction (pdf.js transfers the buffer it is given)', async () => {
+    const { readPdfTextDensity } = await import('@/lib/forensics/pdf-text')
+    const { PDFDocument, StandardFonts } = await import('pdf-lib')
+    const doc = await PDFDocument.create()
+    const page = doc.addPage([300, 200])
+    page.drawText('hello forensics', { x: 20, y: 100, size: 18, font: await doc.embedFont(StandardFonts.Helvetica) })
+    const bytes = await doc.save()
+    const before = bytes.byteLength
+    const d = await readPdfTextDensity(bytes)
+    expect(d?.total_chars).toBeGreaterThan(0)
+    expect(bytes.byteLength).toBe(before)
+    expect(bytes[0]).toBe(0x25) // '%PDF' still there
+  })
+})

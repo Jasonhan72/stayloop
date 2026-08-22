@@ -390,7 +390,7 @@ export default function AdminModelsPage() {
                     <>
                       <label className="flex items-center gap-1.5">{zh ? 'PDF 输入' : 'PDF input'}
                         <select className="sl-input !py-1 !text-[12px]" value={form.pdf_input} onChange={(e) => setForm({ ...form, pdf_input: e.target.value as FormState['pdf_input'] })}>
-                          <option value="text">{zh ? '仅文本提取（通用）' : 'text extraction (generic)'}</option>
+                          <option value="text">{zh ? '文本提取 + 扫描件 Qwen OCR（通用）' : 'text extraction + Qwen OCR for scans (generic)'}</option>
                           <option value="file">{zh ? '原生 file 块（OpenAI / Qwen 3.8）' : 'native file part (OpenAI / Qwen 3.8)'}</option>
                           <option value="image_url">{zh ? 'image_url 携带 PDF（Gemini）' : 'image_url with PDF (Gemini)'}</option>
                         </select>
@@ -444,7 +444,7 @@ export default function AdminModelsPage() {
                       <div className="font-mono text-[10.5px]" style={{ color: keyOk(m.apiKeyEnv) ? '#047857' : '#B45309' }}>{keyOk(m.apiKeyEnv) ? '● ' : '○ '}{m.apiKeyEnv}</div>
                       {m.baseUrl && <div className="max-w-[220px] truncate font-mono text-[10px] text-body-3" title={m.baseUrl}>{m.baseUrl.replace(/^https:\/\//, '')}</div>}
                     </td>
-                    <td className="px-3 py-2.5">{m.allowedSlots.map((s) => (zh ? SLOT_SHORT[s].zh : SLOT_SHORT[s].en)).join(' · ')}{m.vision && <span className="ml-1 text-[10px] text-body-3" title={zh ? '支持图片' : 'vision'}>👁</span>}{m.provider !== 'anthropic' && m.vision && <div className="font-mono text-[10px] text-body-3">PDF: {m.pdfInput === 'file' ? (zh ? '原生' : 'native') : m.pdfInput === 'image_url' ? (zh ? '原生(image_url)' : 'native (image_url)') : (zh ? '仅文本' : 'text only')}</div>}</td>
+                    <td className="px-3 py-2.5">{m.allowedSlots.map((s) => (zh ? SLOT_SHORT[s].zh : SLOT_SHORT[s].en)).join(' · ')}{m.vision && <span className="ml-1 text-[10px] text-body-3" title={zh ? '支持图片' : 'vision'}>👁</span>}{m.provider !== 'anthropic' && m.vision && <div className="font-mono text-[10px] text-body-3">PDF: {m.pdfInput === 'file' ? (zh ? '原生' : 'native') : m.pdfInput === 'image_url' ? (zh ? '原生(image_url)' : 'native (image_url)') : (zh ? '文本+OCR' : 'text+OCR')}</div>}</td>
                     <td className="px-3 py-2.5">{zh ? COST_LABEL[m.costTier].zh : COST_LABEL[m.costTier].en}</td>
                     <td className="px-3 py-2.5"><Toggle on={m.userSelectable} onChange={(v) => quickToggle(m, { user_selectable: v })} /></td>
                     <td className="px-3 py-2.5"><Toggle on={m.enabled} onChange={(v) => quickToggle(m, { enabled: v })} /></td>

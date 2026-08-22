@@ -197,7 +197,14 @@ export async function readPdfTextDensity(
 ): Promise<TextDensityResult | null> {
   try {
     const { extractText, getDocumentProxy } = await loadUnpdf()
-    const buf = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+    // pdf.js TRANSFERS (detaches) the buffer it is given — the caller's
+    // Uint8Array becomes zero-length afterwards (measured 2026-08-22: 607,160
+    // → 0 bytes). Forensics reads the same bytes again after this call
+    // (structure fingerprint, OCR page-image extraction), so hand pdf.js a
+    // private copy and leave the caller's array untouched.
+    const src = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+    const buf = new Uint8Array(src.byteLength)
+    buf.set(src)
     const pdf = await getDocumentProxy(buf)
     const result = await extractText(pdf, { mergePages: true })
 

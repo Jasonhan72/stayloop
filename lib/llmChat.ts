@@ -243,16 +243,35 @@ async function pdfToTextBlock(b64: string, title: string | undefined, maxChars =
   const label = title ? `"${title}"` : 'document'
   try {
     const { readPdfTextDensity } = await import('./forensics/pdf-text')
-    const d = await readPdfTextDensity(base64ToBytes(b64))
+    const bytes = base64ToBytes(b64)
+    const d = await readPdfTextDensity(bytes)
     if (!d) return `[PDF ${label}: could not be parsed by this model path — treat as UNREADABLE and say so explicitly; do not guess its contents.]`
-    if (!d.text_sample.trim()) {
-      return `[PDF ${label}: ${d.page_count} page(s), scanned/image-only — this model cannot read scanned PDFs. Treat the file as UNREADABLE (not as missing, not as suspicious by itself) and say so explicitly.]`
+    const live = d.text_sample.trim()
+    // Scanned / sparse PDFs: recover the page images with the Qwen OCR layer
+    // (lib/ocr/qwenOcr.ts — DASHSCOPE_API_KEY). Null = no key, no extractable
+    // page images (vector-outline pages, JPX/CCITT) or OCR failure.
+    let ocr: Awaited<ReturnType<typeof import('./ocr/qwenOcr').ocrPdfScan>> = null
+    if (!live || d.is_likely_image_pdf) {
+      try {
+        const { ocrPdfScan } = await import('./ocr/qwenOcr')
+        ocr = await ocrPdfScan(bytes)
+      } catch { ocr = null }
     }
-    const body = d.text_sample.length > maxChars ? d.text_sample.slice(0, maxChars) + `\n[… truncated at ${maxChars} chars]` : d.text_sample
-    // Low density = mostly scanned pages with a little live text (headers,
-    // stamps): pass what there is, but flag that most content is invisible.
-    const sparse = d.is_likely_image_pdf ? ' VERY LITTLE text was found — most pages are probably scanned images that this model cannot see; treat the document as only PARTIALLY readable.' : ''
-    return `[PDF ${label}: ${d.page_count} page(s); text extracted — layout, images and signatures are NOT visible to you.${sparse}]\n${body}\n[end of PDF ${label}]`
+    if (!live && !ocr) {
+      return `[PDF ${label}: ${d.page_count} page(s), scanned/image-only and no OCR text could be recovered — this model cannot read it. Treat the file as UNREADABLE (not as missing, not as suspicious by itself) and say so explicitly.]`
+    }
+    const parts: string[] = []
+    if (live) {
+      const body = d.text_sample.length > maxChars ? d.text_sample.slice(0, maxChars) + `\n[… truncated at ${maxChars} chars]` : d.text_sample
+      const sparse = d.is_likely_image_pdf && !ocr ? ' VERY LITTLE text was found — most pages are probably scanned images that this model cannot see; treat the document as only PARTIALLY readable.' : ''
+      parts.push(`[PDF ${label}: ${d.page_count} page(s); text layer extracted — layout, images and signatures are NOT visible to you.${sparse}]\n${body}`)
+    }
+    if (ocr) {
+      const body = ocr.text.length > maxChars ? ocr.text.slice(0, maxChars) + `\n[… truncated at ${maxChars} chars]` : ocr.text
+      const coverage = ocr.pages_ocred < ocr.pages_total ? ` Only ${ocr.pages_ocred} of ${ocr.pages_total} pages had recoverable page images${ocr.unsupported ? ` (${ocr.unsupported} image(s) in an unsupported encoding)` : ''}; the remaining pages are NOT visible to you — say so if they matter.` : ''
+      parts.push(`[PDF ${label}: scanned pages — text recovered by OCR (${ocr.model}); OCR may contain recognition errors, layout is approximate.${coverage}]\n${body}`)
+    }
+    return parts.join('\n\n') + `\n[end of PDF ${label}]`
   } catch {
     return `[PDF ${label}: text extraction failed — treat as UNREADABLE and say so explicitly.]`
   }
