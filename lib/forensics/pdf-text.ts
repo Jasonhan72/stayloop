@@ -58,12 +58,83 @@ const STRICT_KINDS = new Set([
 // Cached dynamic-import promise so we only load the pdf.js engine once per
 // warm worker. Subsequent calls re-await the resolved module.
 let _unpdfPromise: Promise<typeof import('unpdf')> | null = null
+
+// ---------------------------------------------------------------------------
+// Edge-runtime polyfills for pdf.js.
+//
+// Production evidence (2026-08-21): 0 of 275 files in 45 days ever carried
+// text_density. The admin diagnostic returned the real reason —
+//   "Serverless PDF.js bundle could not be resolved: ReferenceError:
+//    DOMMatrix is not defined"
+// — pdf.js touches the browser's DOMMatrix (and Path2D/ImageData) at module
+// load, which Cloudflare Workers do not provide. Text extraction itself never
+// needs them (getTextContent works on plain transform arrays), so a small
+// 2-D affine DOMMatrix plus inert Path2D/ImageData stand-ins are enough to
+// let the bundle load. Installed only when the globals are missing.
+// ---------------------------------------------------------------------------
+function installPdfjsPolyfills(): void {
+  const g = globalThis as unknown as Record<string, unknown>
+  if (typeof g.DOMMatrix === 'undefined') {
+    class DOMMatrixPolyfill {
+      a = 1; b = 0; c = 0; d = 1; e = 0; f = 0
+      constructor(init?: number[] | string | DOMMatrixPolyfill) {
+        if (Array.isArray(init) && init.length >= 6) {
+          const [a, b, c, d, e, f] = init.length === 16 ? [init[0], init[1], init[4], init[5], init[12], init[13]] : init
+          this.a = a; this.b = b; this.c = c; this.d = d; this.e = e; this.f = f
+        } else if (init && typeof init === 'object') {
+          const m = init as DOMMatrixPolyfill
+          this.a = m.a; this.b = m.b; this.c = m.c; this.d = m.d; this.e = m.e; this.f = m.f
+        }
+      }
+      get is2D() { return true }
+      get isIdentity() { return this.a === 1 && this.b === 0 && this.c === 0 && this.d === 1 && this.e === 0 && this.f === 0 }
+      get m11() { return this.a } get m12() { return this.b } get m21() { return this.c } get m22() { return this.d } get m41() { return this.e } get m42() { return this.f }
+      multiply(o: DOMMatrixPolyfill) {
+        return new DOMMatrixPolyfill([
+          this.a * o.a + this.c * o.b, this.b * o.a + this.d * o.b,
+          this.a * o.c + this.c * o.d, this.b * o.c + this.d * o.d,
+          this.a * o.e + this.c * o.f + this.e, this.b * o.e + this.d * o.f + this.f,
+        ])
+      }
+      multiplySelf(o: DOMMatrixPolyfill) { const r = this.multiply(o); Object.assign(this, { a: r.a, b: r.b, c: r.c, d: r.d, e: r.e, f: r.f }); return this }
+      preMultiplySelf(o: DOMMatrixPolyfill) { const r = o.multiply(this); Object.assign(this, { a: r.a, b: r.b, c: r.c, d: r.d, e: r.e, f: r.f }); return this }
+      translate(tx = 0, ty = 0) { return this.multiply(new DOMMatrixPolyfill([1, 0, 0, 1, tx, ty])) }
+      translateSelf(tx = 0, ty = 0) { return this.multiplySelf(new DOMMatrixPolyfill([1, 0, 0, 1, tx, ty])) }
+      scale(sx = 1, sy = sx) { return this.multiply(new DOMMatrixPolyfill([sx, 0, 0, sy, 0, 0])) }
+      scaleSelf(sx = 1, sy = sx) { return this.multiplySelf(new DOMMatrixPolyfill([sx, 0, 0, sy, 0, 0])) }
+      inverse() {
+        const det = this.a * this.d - this.b * this.c
+        if (!det) return new DOMMatrixPolyfill([NaN, NaN, NaN, NaN, NaN, NaN])
+        return new DOMMatrixPolyfill([this.d / det, -this.b / det, -this.c / det, this.a / det, (this.c * this.f - this.d * this.e) / det, (this.b * this.e - this.a * this.f) / det])
+      }
+      invertSelf() { const r = this.inverse(); Object.assign(this, { a: r.a, b: r.b, c: r.c, d: r.d, e: r.e, f: r.f }); return this }
+      transformPoint(p: { x?: number; y?: number } = {}) { const x = p.x ?? 0, y = p.y ?? 0; return { x: this.a * x + this.c * y + this.e, y: this.b * x + this.d * y + this.f, z: 0, w: 1 } }
+      toFloat32Array() { return new Float32Array([this.a, this.b, 0, 0, this.c, this.d, 0, 0, 0, 0, 1, 0, this.e, this.f, 0, 1]) }
+      toFloat64Array() { return new Float64Array(this.toFloat32Array()) }
+      toString() { return `matrix(${this.a}, ${this.b}, ${this.c}, ${this.d}, ${this.e}, ${this.f})` }
+    }
+    g.DOMMatrix = DOMMatrixPolyfill
+  }
+  if (typeof g.Path2D === 'undefined') {
+    g.Path2D = class Path2DPolyfill { addPath() {} closePath() {} moveTo() {} lineTo() {} bezierCurveTo() {} quadraticCurveTo() {} arc() {} arcTo() {} ellipse() {} rect() {} roundRect() {} }
+  }
+  if (typeof g.ImageData === 'undefined') {
+    g.ImageData = class ImageDataPolyfill {
+      data: Uint8ClampedArray; width: number; height: number
+      constructor(a: number | Uint8ClampedArray, b: number, c?: number) {
+        if (typeof a === 'number') { this.width = a; this.height = b; this.data = new Uint8ClampedArray(a * b * 4) }
+        else { this.data = a; this.width = b; this.height = c ?? (a.length / 4 / b) }
+      }
+    }
+  }
+}
 /** The last extraction failure (message), for the admin diagnostic route —
  *  readPdfTextDensity itself stays silent so a pdf.js hiccup never fails a
  *  screening, but "silent" must not mean "invisible". */
 export let lastTextExtractError: string | null = null
 function loadUnpdf(): Promise<typeof import('unpdf')> {
   if (!_unpdfPromise) {
+    installPdfjsPolyfills()
     _unpdfPromise = import('unpdf')
   }
   return _unpdfPromise
