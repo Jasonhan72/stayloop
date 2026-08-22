@@ -152,6 +152,7 @@ export function checkStatutoryDeductions(
   const ppy = ext.pay_frequency ? PERIODS_PER_YEAR[ext.pay_frequency] : null
   const verified: string[] = []
   const deviations: string[] = []
+  const deviationSigns: number[] = []
 
   if (ppy && ext.period_gross && ext.cpp_period !== null && ext.cpp_period > 0
       && (ext.cpp_ytd === null || ext.cpp_ytd < maxCpp - 5)) {
@@ -161,6 +162,7 @@ export function checkStatutoryDeductions(
       verified.push(`CPP $${fmt(ext.cpp_period)} ≈ (gross − $${fmt(p.basicExemption / ppy)} exemption) × ${(p.cppRate * 100).toFixed(2)}%`)
     } else if (Math.abs(dev) > 0.25) {
       deviations.push(`CPP $${fmt(ext.cpp_period)} vs expected $${fmt(expectedCpp)} (${(dev * 100).toFixed(0)}% off)`)
+      deviationSigns.push(Math.sign(dev))
     }
   }
   if (ext.period_gross && ext.ei_period !== null && ext.ei_period > 0
@@ -171,6 +173,7 @@ export function checkStatutoryDeductions(
       verified.push(`EI $${fmt(ext.ei_period)} ≈ gross × ${(p.eiRate * 100).toFixed(2)}%`)
     } else if (Math.abs(dev) > 0.25) {
       deviations.push(`EI $${fmt(ext.ei_period)} vs expected $${fmt(expectedEi)} (${(dev * 100).toFixed(0)}% off)`)
+      deviationSigns.push(Math.sign(dev))
     }
   }
 
@@ -183,7 +186,19 @@ export function checkStatutoryDeductions(
       evidence_zh: `本期法定扣缴按 ${year} 年 CRA 费率复算吻合：${verified.join('；')}。与真实工资系统输出一致。`,
     })
   }
-  if (deviations.length > 0) {
+  // BOTH statutory lines off by >25% in the SAME direction is no longer
+  // extraction noise or a benefits adjustment — it is a stub whose numbers
+  // were written against a different year's (or no) rate table. Case 24:
+  // CPP −26% and EI −37% on all three stubs, consistently.
+  if (deviations.length >= 2 && deviationSigns.every(s => s === deviationSigns[0])) {
+    flags.push({
+      code: 'paystub_statutory_rates_systematically_off',
+      severity: 'medium',
+      file,
+      evidence_en: `Both CPP and EI this period deviate from ${year} CRA rates in the same direction (${deviations.join('; ')}). One line off can be a benefits adjustment or extraction noise; both off together, the same way, means the deductions were not produced by payroll software using the current rate table.`,
+      evidence_zh: `本期 CPP 与 EI 两项法定扣缴同时、同方向偏离 ${year} 年 CRA 费率（${deviations.join('；')}）。单项偏差可能是福利调整或提取误差；两项一起、同向偏差，说明扣缴数字不是由使用当年费率表的工资软件算出来的。`,
+    })
+  } else if (deviations.length > 0) {
     flags.push({
       code: 'paystub_deduction_rate_mismatch',
       severity: 'low',

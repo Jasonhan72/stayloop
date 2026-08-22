@@ -31,6 +31,7 @@
 
 import { PDFDocument } from 'pdf-lib'
 import type { ForensicFlag, PdfMetadataResult } from './types'
+import { computeFileKey, decryptObjectBytes, findEncryptInfos, parsePdfStringAt } from './pdf-decrypt'
 
 // ---------------------------------------------------------------------------
 // Raw PDF byte parser — reads Info dictionary directly from the binary stream.
@@ -197,7 +198,12 @@ const EDITING_TOOL_PATTERNS: Array<{ pattern: RegExp; tool: string }> = [
  *  created in Word is normal. Severity depends on doc kind. */
 const DOC_CREATION_PATTERNS: Array<{ pattern: RegExp; tool: string }> = [
   { pattern: /Microsoft\s*Word/i,           tool: 'Microsoft Word' },
+  // Excel was missing: case 24's three "ADP" pay stubs carried
+  // Producer "Microsoft® Excel® 2013" and matched nothing here.
+  { pattern: /Microsoft\s*®?\s*Excel/i,     tool: 'Microsoft Excel' },
   { pattern: /Microsoft.*Office/i,          tool: 'Microsoft Office' },
+  { pattern: /Numbers\s+\d/i,               tool: 'Apple Numbers' },
+  { pattern: /Google\s*Sheets/i,            tool: 'Google Sheets export' },
   { pattern: /Pages\s+\d/i,                 tool: 'Apple Pages' },
   { pattern: /LibreOffice/i,                tool: 'LibreOffice' },
   { pattern: /OpenOffice/i,                 tool: 'OpenOffice' },
@@ -277,26 +283,247 @@ export async function readPdfMetadata(
     const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
     const fileSize = u8.byteLength
 
-    // Raw byte parse — ground truth for Producer/Creator/dates
-    const raw = parseRawPdfMetadata(u8)
+    // Raw byte parse — ground truth for Producer/Creator/dates when the Info
+    // dictionary sits uncompressed in the byte stream. On an ENCRYPTED file
+    // the raw strings are ciphertext (case 24's letter read back as
+    // "¥ÕóÙä[úl…" for Producer), so raw is discarded and the decrypting deep
+    // scan is authoritative.
+    const isEncrypted = findEncryptInfos(u8).length > 0
+    const raw = isEncrypted ? null : parseRawPdfMetadata(u8)
 
-    // pdf-lib — only for page_count (and fallback metadata if raw parse missed)
-    const doc = await PDFDocument.load(u8, {
-      ignoreEncryption: true,
-      throwOnInvalidObject: false,
-      updateMetadata: false,
-    })
+    // pdf-lib — page_count and fallback metadata. Its strict parser throws on
+    // many EDITED files (incremental updates with rewritten xref streams) —
+    // exactly the files this module most needs to see. A throw here must
+    // never null the whole result: it is recorded as parse_failed and the
+    // deep scan below recovers the fields.
+    let doc: PDFDocument | null = null
+    try {
+      doc = await PDFDocument.load(u8, {
+        ignoreEncryption: true,
+        throwOnInvalidObject: false,
+        updateMetadata: false,
+      })
+    } catch {
+      doc = null
+    }
+    let pageCount = 0
+    if (doc) {
+      try { pageCount = doc.getPageCount() } catch { doc = null }
+    }
 
+    // Deep scan when neither the raw parse nor pdf-lib produced the core
+    // fields (Info dict inside a compressed object stream, or pdf-lib dead).
+    const needDeep = isEncrypted || (!raw?.producer && !raw?.creation_date && !(doc && (doc.getProducer() || doc.getCreationDate())))
+    const deep = needDeep ? await deepScanPdfMetadata(u8) : null
+
+    const safe = <T,>(fn: () => T): T | null => { try { return fn() } catch { return null } }
+    if (isEncrypted) doc = null  // pdf-lib cannot decrypt — its strings would be ciphertext
     return {
-      title: raw?.title ?? doc.getTitle() ?? null,
-      author: raw?.author ?? doc.getAuthor() ?? null,
-      subject: raw?.subject ?? doc.getSubject() ?? null,
-      producer: raw?.producer ?? doc.getProducer() ?? null,
-      creator: raw?.creator ?? doc.getCreator() ?? null,
-      creation_date: raw?.creation_date ?? doc.getCreationDate()?.toISOString() ?? null,
-      modification_date: raw?.modification_date ?? doc.getModificationDate()?.toISOString() ?? null,
-      page_count: doc.getPageCount(),
+      title: raw?.title ?? deep?.fields.title ?? (doc ? safe(() => doc!.getTitle()) : null) ?? null,
+      author: raw?.author ?? deep?.fields.author ?? (doc ? safe(() => doc!.getAuthor()) : null) ?? null,
+      subject: raw?.subject ?? deep?.fields.subject ?? (doc ? safe(() => doc!.getSubject()) : null) ?? null,
+      producer: raw?.producer ?? deep?.fields.producer ?? (doc ? safe(() => doc!.getProducer()) : null) ?? null,
+      creator: raw?.creator ?? deep?.fields.creator ?? (doc ? safe(() => doc!.getCreator()) : null) ?? null,
+      creation_date: raw?.creation_date ?? deep?.fields.creation_date ?? (doc ? safe(() => doc!.getCreationDate()?.toISOString() ?? null) : null) ?? null,
+      modification_date: raw?.modification_date ?? deep?.fields.modification_date ?? (doc ? safe(() => doc!.getModificationDate()?.toISOString() ?? null) : null) ?? null,
+      page_count: pageCount || deep?.page_count_estimate || 0,
       file_size_bytes: fileSize,
+      parse_failed: !doc,
+      info_revisions: deep?.revisions,
+      encrypted: deep?.encrypted ?? isEncrypted,
+      encrypt_dict_count: deep?.encrypt_dict_count ?? (isEncrypted ? 1 : 0),
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Tolerant deep scan — the fallback that does NOT depend on pdf-lib's strict
+ * parser or on the Info dictionary sitting uncompressed in the byte stream.
+ *
+ * Case 24 (2026-08-21): pdf-lib threw on 5 of 6 uploaded PDFs (an edited
+ * Equifax report, three Excel-made pay stubs, a Word letter) and the Info
+ * dictionaries lived inside Flate-compressed object streams — so BOTH the
+ * raw byte scan and pdf-lib came back empty, readPdfMetadata returned null,
+ * and every metadata rule silently skipped. poppler read them all:
+ * Created 2023, Author "Johnson Osei", Excel 2013, Modified 2026-08-13.
+ *
+ * Here every FlateDecode stream is inflated (DecompressionStream, available
+ * on the edge and in Node 18+) and the inflated text is scanned for Info
+ * keys. The LAST occurrence of each key wins — incremental updates append,
+ * so the last one is the current revision — and distinct ModDate values
+ * are counted as revisions.
+ */
+async function deepScanPdfMetadata(u8: Uint8Array): Promise<{
+  fields: { title: string | null; author: string | null; subject: string | null; producer: string | null; creator: string | null; creation_date: string | null; modification_date: string | null }
+  revisions: number
+  page_count_estimate: number
+  encrypted: boolean
+  encrypt_dict_count: number
+  decrypted: boolean
+} | null> {
+  const MAX_TOTAL = 24 * 1024 * 1024
+  const latin1 = (b: Uint8Array) => {
+    let out = ''
+    const CH = 0x8000
+    for (let i = 0; i < b.length; i += CH) out += String.fromCharCode.apply(null, Array.from(b.subarray(i, i + CH)) as unknown as number[])
+    return out
+  }
+  const inflate = async (b: Uint8Array): Promise<string | null> => {
+    try {
+      if (typeof DecompressionStream === 'undefined') return null
+      const ds = new DecompressionStream('deflate')
+      const writer = ds.writable.getWriter()
+      // Copy into a fresh ArrayBuffer-backed view — TS's BufferSource type
+      // rejects a view over a possibly-shared buffer.
+      void writer.write(new Uint8Array(b)).catch(() => {})
+      void writer.close().catch(() => {})
+      const buf = await new Response(ds.readable).arrayBuffer()
+      return latin1(new Uint8Array(buf))
+    } catch {
+      return null
+    }
+  }
+  try {
+    const raw = latin1(u8)
+    const encInfos = findEncryptInfos(u8)
+    const encrypted = encInfos.length > 0
+    let decrypted = false
+    const chunks: string[] = encrypted ? [] : [raw]
+    let total = 0
+    const INFO_KEYS = ['Title', 'Author', 'Subject', 'Producer', 'Creator', 'CreationDate', 'ModDate']
+    const esc = (v: Uint8Array) => latin1(v).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+    const stripEol = (start: number, end: number) => {
+      let e = end
+      while (e > start && (u8[e - 1] === 0x0A || u8[e - 1] === 0x0D)) e--
+      return e
+    }
+
+    if (encrypted) {
+      // Encrypted file: try every /Encrypt dictionary (an incremental update
+      // may have re-encrypted with a new one; the LAST is the current
+      // revision). With the empty user password, walk every object: streams
+      // are decrypted (then inflated) and scanned; Info-dictionary strings
+      // are decrypted individually.
+      for (const info of [...encInfos].reverse()) {
+        const key = await computeFileKey(info)
+        if (!key) continue
+        const reObj = /(^|[^0-9])(\d+)\s+(\d+)\s+obj\b/g
+        let om: RegExpExecArray | null
+        let found = 0
+        while ((om = reObj.exec(raw))) {
+          const objNum = Number(om[2]), gen = Number(om[3])
+          if (objNum === info.objNum) continue
+          const bodyStart = om.index + om[0].length
+          const bodyEnd = raw.indexOf('endobj', bodyStart)
+          if (bodyEnd < 0) break
+          const body = raw.slice(bodyStart, bodyEnd)
+          const sIdx = body.search(/stream\r?\n/)
+          if (sIdx >= 0) {
+            const sm = body.slice(sIdx).match(/^stream\r?\n/)!
+            const dataStart = bodyStart + sIdx + sm[0].length
+            const endIdx = raw.indexOf('endstream', dataStart)
+            if (endIdx < 0) continue
+            const dataEnd = stripEol(dataStart, endIdx)
+            const len = dataEnd - dataStart
+            if (len <= 0 || len > 8 * 1024 * 1024) continue
+            total += len
+            if (total > MAX_TOTAL) break
+            const dec = await decryptObjectBytes(info, key, objNum, gen, u8.subarray(dataStart, dataEnd), 'stream')
+            if (!dec) continue
+            const dictPart = body.slice(0, sIdx)
+            const text = /\/FlateDecode/.test(dictPart) ? await inflate(dec) : latin1(dec)
+            if (text) { chunks.push(text); found++ }
+          } else if (INFO_KEYS.some(k => body.includes('/' + k))) {
+            for (const k of INFO_KEYS) {
+              const km = body.match(new RegExp(`/${k}\\s*`))
+              if (!km || km.index === undefined) continue
+              const sv = parsePdfStringAt(body, km.index + km[0].length)
+              if (!sv) continue
+              const dec = await decryptObjectBytes(info, key, objNum, gen, sv.bytes, 'string')
+              if (dec) { chunks.push(`/${k} (${esc(dec)})`); found++ }
+            }
+          }
+          reObj.lastIndex = bodyEnd
+        }
+        if (found > 0) { decrypted = true; break }
+      }
+    } else {
+      const re = /\/Filter\s*(?:\/FlateDecode|\[\s*\/FlateDecode\s*\])[^]*?stream\r?\n/g
+      let m: RegExpExecArray | null
+      while ((m = re.exec(raw))) {
+        const start = m.index + m[0].length
+        const end = raw.indexOf('endstream', start)
+        if (end < 0) break
+        const len = end - start
+        if (len <= 0 || len > 8 * 1024 * 1024) continue
+        total += len
+        if (total > MAX_TOTAL) break
+        const text = await inflate(u8.subarray(start, end))
+        if (text) chunks.push(text)
+        re.lastIndex = end
+      }
+    }
+    const all = chunks.join('\n')
+    const grab = (key: string): { value: string | null; count: number } => {
+      const rx = new RegExp(`/${key}\\s*(\\(((?:\\\\.|[^\\\\)])*)\\)|<([0-9A-Fa-f\\s]+)>)`, 'g')
+      let last: string | null = null
+      const seen = new Set<string>()
+      let mm: RegExpExecArray | null
+      while ((mm = rx.exec(all))) {
+        let v: string
+        if (mm[2] !== undefined) {
+          v = mm[2].replace(/\\\\([()\\\\])/g, '$1')
+          if (v.charCodeAt(0) === 0xFE && v.charCodeAt(1) === 0xFF) {
+            let u = ''
+            for (let i = 2; i + 1 < v.length; i += 2) u += String.fromCharCode((v.charCodeAt(i) << 8) | v.charCodeAt(i + 1))
+            v = u
+          }
+        } else {
+          const hex = (mm[3] || '').replace(/\s/g, '')
+          let str = ''
+          for (let i = 0; i + 1 < hex.length; i += 2) str += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16))
+          if (str.charCodeAt(0) === 0xFE && str.charCodeAt(1) === 0xFF) {
+            let u = ''
+            for (let i = 2; i + 1 < str.length; i += 2) u += String.fromCharCode((str.charCodeAt(i) << 8) | str.charCodeAt(i + 1))
+            str = u
+          }
+          v = str
+        }
+        v = v.trim()
+        if (!v) continue
+        seen.add(v)
+        last = v
+      }
+      return { value: last, count: seen.size }
+    }
+    const parseDate = (raw: string | null): string | null => {
+      if (!raw) return null
+      const m1 = raw.match(/D:(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?([+-Z])?(\d{2})?'?(\d{2})?/)
+      if (!m1) return null
+      const [, y, mo, d, h = '00', mi = '00', se = '00', tz, tzH, tzM] = m1
+      const off = tz === '+' || tz === '-' ? `${tz}${tzH || '00'}:${tzM || '00'}` : 'Z'
+      return `${y}-${mo}-${d}T${h}:${mi}:${se}${off}`
+    }
+    const title = grab('Title'), author = grab('Author'), subject = grab('Subject')
+    const producer = grab('Producer'), creator = grab('Creator')
+    const cdate = grab('CreationDate'), mdate = grab('ModDate')
+    const nothing = !producer.value && !creator.value && !cdate.value && !mdate.value
+    if (nothing && !encrypted) return null
+    // Page objects, approximately: "/Type /Page" not followed by "s".
+    const pageMatches = all.match(/\/Type\s*\/Page\b(?!s)/g)
+    return {
+      fields: {
+        title: title.value, author: author.value, subject: subject.value,
+        producer: producer.value, creator: creator.value,
+        creation_date: parseDate(cdate.value), modification_date: parseDate(mdate.value),
+      },
+      revisions: Math.max(mdate.count, cdate.count),
+      page_count_estimate: pageMatches ? pageMatches.length : 0,
+      encrypted,
+      encrypt_dict_count: encInfos.length,
+      decrypted,
     }
   } catch {
     return null
@@ -319,6 +546,96 @@ export function checkPdfMetadata(
   const creator = meta.creator || ''
   const title = meta.title || ''
   const combined = `${producer} ${creator}`
+  const FINANCIAL = kind === 'bank_statement' || kind === 'credit_report' || kind === 'pay_stub'
+
+  // ---------------------------------------------------------------------------
+  // Rule 0a: the strict parser could not read the file. Bank/bureau/payroll
+  // exports parse cleanly; files that have been through an editor (incremental
+  // updates, rewritten xref streams) are what break it. Disclosed, not
+  // swallowed — this used to render as "✓ 无异常".
+  // ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Rule 0: encryption. Bank, bureau and payroll exports are never
+  // password-protected; an applicant-encrypted file is either privacy-minded
+  // or hiding an edit. TWO /Encrypt dictionaries means an incremental update
+  // re-encrypted the file: it was edited and re-saved with protection on.
+  // Case 24: all five edited documents were AES-256 with an empty user
+  // password, the four financial ones re-encrypted after the edit.
+  // ---------------------------------------------------------------------------
+  if (meta.encrypted) {
+    const re = (meta.encrypt_dict_count ?? 1) > 1
+    if (re && FINANCIAL) {
+      flags.push({
+        code: 'pdf_reencrypted_after_edit',
+        severity: 'high',
+        file,
+        evidence_en: `The file carries ${meta.encrypt_dict_count} encryption dictionaries: an incremental update re-encrypted it after the original save — the ${kind.replace('_', ' ')} was opened, edited and saved again with protection on. Bank, bureau and payroll exports are written once and never password-protected.`,
+        evidence_zh: `文件内含 ${meta.encrypt_dict_count} 个加密字典：在原始保存之后，一次增量更新重新加密了它——这份${zhKind(kind)}被打开、编辑并再次带密码保存。银行/征信局/工资系统导出的文件是一次写成、从不加密的。`,
+      })
+    } else {
+      flags.push({
+        code: 'pdf_encrypted',
+        severity: FINANCIAL ? 'medium' : 'low',
+        file,
+        evidence_en: `The PDF is encrypted (empty user password${meta.producer ? ', decrypted for analysis' : ' — contents could not be decrypted'}). ${FINANCIAL ? 'Bank, bureau and payroll systems do not password-protect their exports; the protection was added by whoever handled the file afterwards.' : 'Unusual for a letter exported directly from a word processor; verify the original.'}`,
+        evidence_zh: `PDF 带加密（空用户密码${meta.producer ? '，已解密分析' : '——内容无法解密'}）。${FINANCIAL ? '银行/征信局/工资系统不会给导出文件加密；保护是之后经手文件的人加上的。' : '对直接从文字处理软件导出的信件来说不常见；请核对原件。'}`,
+      })
+    }
+  }
+  if (meta.parse_failed && isStrict && !meta.encrypted) {
+    flags.push({
+      code: 'pdf_parse_failed',
+      severity: 'medium',
+      file,
+      evidence_en: `The PDF could not be parsed by a strict PDF reader (metadata recovered by a tolerant scan instead). Bank, bureau and payroll exports parse cleanly; a damaged cross-reference structure is typical of a file that has been opened, edited and re-saved.`,
+      evidence_zh: `严格 PDF 解析器无法解析此文件（元数据由容错扫描恢复）。银行/征信局/工资系统导出的文件结构规整；交叉引用表损坏通常意味着文件被打开、编辑并重新保存过。`,
+    })
+  }
+  if ((meta.info_revisions ?? 0) > 1 && FINANCIAL) {
+    flags.push({
+      code: 'pdf_info_revisions',
+      severity: 'medium',
+      file,
+      evidence_en: `The file carries ${meta.info_revisions} distinct metadata revisions (incremental updates append a new Info dictionary each time the file is re-saved). A ${kind.replace('_', ' ')} exported once has exactly one.`,
+      evidence_zh: `文件内含 ${meta.info_revisions} 个不同版本的元数据字典（每次重新保存都会追加一份）。一次性导出的${zhKind(kind)}只有一份。`,
+    })
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rule 0b: a PERSONAL author on a financial document. Payroll, bank and
+  // bureau systems stamp no Author (or a system/company string); a human name
+  // means a person's desktop application wrote the file. Case 24: three
+  // "ADP" pay stubs, Author "Johnson Osei.".
+  // ---------------------------------------------------------------------------
+  const author = (meta.author || '').trim()
+  if (FINANCIAL && author) {
+    const looksPersonal = /^[A-Za-z][A-Za-z'’.-]+(?:\s+[A-Za-z][A-Za-z'’.-]+){1,2}\.?$/.test(author)
+      && !/\b(inc|ltd|corp|bank|payroll|systems?|services?|adp|ceridian|workday|equifax|transunion|server|generator)\b/i.test(author)
+    if (looksPersonal) {
+      flags.push({
+        code: 'pdf_author_personal',
+        severity: 'medium',
+        file,
+        evidence_en: `PDF Author is a personal name ("${author}"). Payroll, bank and bureau exports carry no personal author — a named author means the file was produced from someone's desktop application.`,
+        evidence_zh: `PDF 作者字段是一个人名（"${author}"）。工资系统/银行/征信局导出的文件不会带个人作者——有具名作者说明文件出自某人的桌面软件。`,
+      })
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rule 0c: the title betrays an office-document source on a financial kind
+  // ("Microsoft Word - NEHroughemploy.docx", "payslip.xlsx"). Employment
+  // letters are legitimately Word documents; statements and stubs are not.
+  // ---------------------------------------------------------------------------
+  if (FINANCIAL && /\.(docx?|xlsx?|pages|numbers)\b|Microsoft\s+(Word|Excel)\s*-/i.test(title)) {
+    flags.push({
+      code: 'pdf_title_office_source',
+      severity: 'medium',
+      file,
+      evidence_en: `PDF title "${title}" names an office document source. A ${kind.replace('_', ' ')} produced by a bank, bureau or payroll system does not originate from a Word/Excel file.`,
+      evidence_zh: `PDF 标题 "${title}" 暴露了办公文档来源。银行/征信局/工资系统生成的${zhKind(kind)}不会来自 Word/Excel 文件。`,
+    })
+  }
 
   // ---------------------------------------------------------------------------
   // Rule 1: Check Producer/Creator against categorized tool lists.
@@ -434,7 +751,7 @@ export function checkPdfMetadata(
   // Rule 4: Metadata stripped (no Producer at all). Common in re-saved PDFs.
   // Real server-generated PDFs always set Producer.
   // ---------------------------------------------------------------------------
-  if (!producer && !creator && isStrict) {
+  if (!meta.encrypted && !producer && !creator && isStrict) {
     flags.push({
       code: 'pdf_metadata_stripped',
       severity: 'medium',

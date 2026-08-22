@@ -19,6 +19,7 @@ import { applyPageBudget } from '@/lib/anthropic/page-budget'
 import { captureException } from '@/lib/observability/sentry'
 import type { CourtQuery, CanLIIMatch, OntarioPortalMatch, V3Scores, CrossDocVerification, LtbCheck } from '@/lib/screening-types'
 import { describeCodes, searchLtbOrders, summarizeLtb } from '@/lib/ltb/search'
+import { checkTradelineAges } from '@/lib/screening/creditAge'
 import { courtDefendantHitsFromGates, scoreRubric, type RubricFacts, type RubricResult } from '@/lib/screening/rubric'
 import { searchCanliiViaIndex } from '@/lib/screening/canliiIndex'
 import { V3_WEIGHTS } from '@/lib/screening-types'
@@ -504,7 +505,7 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
       hits: portalHits,
       severity: portalDefendantSide > 0 ? 2 : 0,
       note: portalHits === 0
-        ? `No matches in Ontario Courts Portal${(portalResult.totalElements ?? 0) > portalHits ? ` (examined first ${portalHits || 0} of ${portalResult.totalElements} name results)` : ''}`
+        ? `No matches in Ontario Courts Portal${(portalResult.totalElements ?? 0) > 0 ? ` (${portalResult.totalElements} name-search results returned; none matched the applicant's exact name after verification)` : ''}`
         : `${portalHits} case(s) found (of ${portalResult.totalElements} total results; ${portalDefendantSide} on the defendant side). Name-only matches — the portal carries no DOB/address, so identity must be verified before drawing conclusions.`,
       portalRecords: portalHits > 0 ? portalResult.matches : undefined,
       url: 'https://courts.ontario.ca/portal/search/party',
@@ -995,7 +996,7 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble.
  "detected_document_kinds":["..."],
  "bank_min_balance":<number or null>,
  "identity_match_score":<0-100 or null>,
- "credit_report":{"present":<true ONLY if a GENUINE consumer credit report (Equifax/TransUnion/SingleKey/FrontLobby/Borrowell) was uploaded; else false>,"bureau":"Equifax|TransUnion|Dual|other|null","credit_score":<300-900 integer or null>,"score_band":"Poor|Fair|Good|Very Good|Excellent|null","report_date":"YYYY-MM-DD or as shown or null","employment":{"current":"employer name as printed in the report's Employment section or null","previous":"or null"},"tradelines":[{"creditor":"","type":"Revolving|Installment|Open|Mortgage|Lease|other","date_opened":"","balance":<number or null>,"credit_limit":<the ASSIGNED limit as printed, or null — distinct from high_credit>,"high_credit":<highest balance carried, or null>,"past_due":<number or null>,"payment_status":"","late_30_60_90":"0/0/0"}],"collections":[{"creditor":"","date_assigned":"","original_amount":<number or null>,"balance":<number or null>}],"bankruptcies":[{"date_filed":"","type":"","amount":<number or null>,"disposition":""}],"inquiries":[{"date":"","creditor":""}],"total_debt":<number or null>,"monthly_debt_payments":<number or null>},
+ "credit_report":{"present":<true ONLY if a GENUINE consumer credit report (Equifax/TransUnion/SingleKey/FrontLobby/Borrowell) was uploaded; else false>,"bureau":"Equifax|TransUnion|Dual|other|null","credit_score":<300-900 integer or null>,"score_band":"Poor|Fair|Good|Very Good|Excellent|null","report_date":"YYYY-MM-DD or as shown or null","employment":{"current":"employer name as printed in the report's Employment section or null","previous":"or null"},"tradelines":[{"creditor":"","type":"Revolving|Installment|Open|Mortgage|Lease|other","date_opened":"","responsibility":"Individual|Joint|Authorized|null (the account responsibility/association column as printed)","balance":<number or null>,"credit_limit":<the ASSIGNED limit as printed, or null — distinct from high_credit>,"high_credit":<highest balance carried, or null>,"past_due":<number or null>,"payment_status":"","late_30_60_90":"0/0/0"}],"collections":[{"creditor":"","date_assigned":"","original_amount":<number or null>,"balance":<number or null>}],"bankruptcies":[{"date_filed":"","type":"","amount":<number or null>,"disposition":""}],"inquiries":[{"date":"","creditor":""}],"total_debt":<number or null>,"monthly_debt_payments":<number or null>},
  "cross_doc_verification":{"bank_accounts":[{"holder_name":"","entity_type":"personal|business","is_applicant":<bool — true ONLY if holder name matches applicant>,"statement_period":"as shown or null"}],"income_corroboration":{"claimed_monthly":<number or null>,"personal_payroll_seen":<bool>,"observed_pattern":"≤25 words — what deposits ACTUALLY recur","verdict":"corroborated|partial|uncorroborated","detail":"≤35 words, plain truth"},"related_party":{"suspected":<bool>,"signals":["one signal per entry, name the people"]},"employment_letter_signatory":{"name":"the person who SIGNED the employment/offer letter, exactly as signed, or null","title":"their printed title beside the signature (e.g. Director/Owner, HR Manager) or null"},"application_summary":{"applying_rent":<number or null>,"prev_residences":[{"address":"","period":"","landlord_name":"","landlord_phone":""}],"vacating_reason":"as stated or null","vehicles":["..."],"blank_sections":["form sections left empty"]},"suspicious_transfers":["amount + counterparty + which application name it matches"],"verification_checklist":["3-6 executable steps, include phone numbers found in docs"]},
  "scores":{"ability_to_pay":<0-100>,"credit_health":<0-100>,"rental_history":<0-100>,"verification":<0-100>,"communication":<0-100>},
  "sub_coverage":{"only_non_measured_keys":"action_pending|missing"},
@@ -1389,6 +1390,10 @@ JSON DISCIPLINE (avoid parse errors):
       // removed AND replaced by credit_report_ai_judged_fake (AI says fake).
       'credit_report_no_bureau_markers',   // no Equifax AND no TransUnion markers
       'bank_producer_mismatch',            // bank text but wrong PDF Producer
+      // A file created months/years BEFORE the date it prints for itself is
+      // a reused template with the figures changed (case 24: 2026 stubs
+      // created in 2023, a 2026 letter created in 2024).
+      'pdf_created_before_document_date',
     ])
 
     // file_kind → list of v3 dimensions to zero when that file is forged
@@ -2004,6 +2009,7 @@ JSON DISCIPLINE (avoid parse errors):
           : null,
         tradelines: arr(cr.tradelines).slice(0, 25).map((t: any) => ({
           creditor: str(t?.creditor), type: str(t?.type), date_opened: str(t?.date_opened),
+          responsibility: str(t?.responsibility) || null,
           balance: num(t?.balance), credit_limit: num(t?.credit_limit),
           high_credit: num(t?.high_credit), past_due: num(t?.past_due),
           payment_status: str(t?.payment_status), late_30_60_90: str(t?.late_30_60_90),
@@ -2020,6 +2026,47 @@ JSON DISCIPLINE (avoid parse errors):
         monthly_debt_payments: num(cr.monthly_debt_payments),
       }
     })()
+
+    // ── Credit-report tradeline ages vs applicant DOB ─────────────────
+    // A minor cannot open an individual credit account, so a tradeline
+    // opened before the applicant was 16 means the report is not theirs,
+    // is merged, or was edited. DOB: the bureau report prints it masked
+    // ("2003-xx-27" — year is enough), the Ontario licence encodes it.
+    const applicantDob: string | null = (() => {
+      for (const pf of forensicsReport.per_file) {
+        const t = pf.text_density?.text_sample || ''
+        if ((pf.file_kind || '').split(',').map(k => k.trim()).includes('credit_report')) {
+          const m = t.match(/Date\s+Of\s+Birth[\s\S]{0,300}?\b((?:19|20)\d{2})-(xx|\d{2})-(\d{2})\b/i)
+          if (m) return m[2] === 'xx' ? m[1] : `${m[1]}-${m[2]}-${m[3]}`
+        }
+      }
+      for (const pf of forensicsReport.per_file) {
+        const t = pf.ocr?.text || ''
+        const m = t.match(/(?:DOB|Date\s+of\s+Birth|Birth|NAISS|DDN)[^0-9]{0,20}((?:19|20)\d{2})[\/\-.](\d{2})[\/\-.](\d{2})/i)
+        if (m) return `${m[1]}-${m[2]}-${m[3]}`
+      }
+      return null
+    })()
+    if (creditReport && applicantDob) {
+      const ages = checkTradelineAges(creditReport.tradelines ?? [], applicantDob)
+      if (ages.impossible.length > 0 || ages.underage.length >= 2) {
+        const rows = [...ages.impossible, ...ages.underage]
+        const listEn = rows.map(r => `${r.creditor} opened ${r.opened} (age ${r.age})`).join('; ')
+        const listZh = rows.map(r => `${r.creditor} 开户 ${r.opened}（当时 ${r.age} 岁）`).join('；')
+        const impossible = ages.impossible.length > 0
+        forensicsReport.all_flags.push({
+          code: 'credit_tradelines_predate_dob',
+          severity: impossible ? 'critical' : 'high',
+          evidence_en: `${rows.length} tradeline(s) on the credit report were opened when the applicant (born ${applicantDob.slice(0, 4)}) was ${impossible ? 'a child' : 'a minor'}: ${listEn}. A minor cannot hold an individual credit account — the report either belongs to someone else, is a merged file, or has been edited. It cannot be used as evidence of this applicant's credit history.`,
+          evidence_zh: `信用报告中有 ${rows.length} 个账户在申请人（${applicantDob.slice(0, 4)} 年生）${impossible ? '尚是儿童' : '未成年'}时开立：${listZh}。未成年人无法持有个人信用账户——这份报告要么属于他人，要么是合并档案，要么被编辑过，不能作为该申请人信用历史的证据。`,
+        })
+        if (impossible) {
+          if (!hardGates.includes('doc_tampering')) hardGates.push('doc_tampering')
+          forgedDocCount += 1
+        }
+        if (!redFlags.includes('credit_report_age_inconsistent')) redFlags.push('credit_report_age_inconsistent')
+      }
+    }
 
     // ── Deterministic rubric ────────────────────────────────────────────
     // The model's dimension numbers no longer decide the score. Six runs of one

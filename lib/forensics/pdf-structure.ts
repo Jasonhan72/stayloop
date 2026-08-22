@@ -165,6 +165,15 @@ export async function checkPdfStructure(
     (textContent ? detectEnterpriseSystem(textContent) : null) ||
     detectEnterpriseSystem(rawText)
 
+  // Byte-level facts are computed BEFORE the strict parse so a pdf-lib
+  // failure (common on edited files — case 24: 5 of 6 uploads) cannot
+  // hide them. %%EOF counting, linearization and signature detection do
+  // not need a parsed document.
+  const eofCountEarly = countEofMarkers(bytes)
+  const isLinearizedEarly = /\/Linearized\s/.test(rawText.slice(0, 2048))
+  const hasSignatureEarly = /\/Type\s*\/Sig\b|\/ByteRange\s*\[/.test(rawText)
+  const eofAllowanceEarly = 1 + (isLinearizedEarly ? 1 : 0) + (hasSignatureEarly ? 1 : 0)
+
   let doc: PDFDocument
   try {
     doc = await PDFDocument.load(bytes, {
@@ -172,18 +181,31 @@ export async function checkPdfStructure(
       throwOnInvalidObject: false,
       updateMetadata: false,
     })
+    // getPages() is where a broken page tree actually throws.
+    doc.getPageCount()
   } catch {
+    const incremental = eofCountEarly > eofAllowanceEarly
+    if (incremental && isFinancial) {
+      flags.push({
+        code: 'pdf_incremental_update',
+        severity: 'medium',
+        file: fileName,
+        evidence_en: `PDF contains ${eofCountEarly} %%EOF markers, indicating ${eofCountEarly - 1} incremental update(s). The original PDF was modified after initial creation — official documents are generated once and never modified.`,
+        evidence_zh: `PDF 包含 ${eofCountEarly} 个 %%EOF 标记，说明文件在初始创建后被修改了 ${eofCountEarly - 1} 次。官方文件都是一次性生成的，不会被后续修改。`,
+      })
+    }
+    const producerScanEarly = `${metadataProducer || ''} ${rawText}`
     return {
       result: {
-        has_pdflib_marker: false,
+        has_pdflib_marker: /(?:pdf-lib|jsPDF|pdfmake)/i.test(producerScanEarly),
         pdflib_version: null,
-        eof_count: 0,
-        has_incremental_updates: false,
+        eof_count: eofCountEarly,
+        has_incremental_updates: incremental,
         embedded_font_names: [],
         font_count: 0,
         has_mixed_font_families: false,
-        creation_tool_fingerprint: null,
-        enterprise_system: null,
+        creation_tool_fingerprint: detectToolFingerprint(rawText),
+        enterprise_system: enterpriseSystem,
       },
       flags,
     }

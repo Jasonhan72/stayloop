@@ -38,6 +38,23 @@ export interface PdfMetadataResult {
   modification_date: string | null  // ISO 8601
   page_count: number
   file_size_bytes: number
+  /** pdf-lib (the strict parser) could not parse the file; fields above
+   *  were recovered by the tolerant deep scan. Typical of edited/re-saved
+   *  files — disclosed as a flag, never silently swallowed. */
+  parse_failed?: boolean
+  /** The file is encrypted (standard security handler). Strings and
+   *  streams were decrypted with the EMPTY user password when possible —
+   *  bank/bureau/payroll exports are never password-protected, so this is
+   *  a disclosure in its own right. */
+  encrypted?: boolean
+  /** Distinct /Encrypt dictionaries referenced by trailers: >1 means an
+   *  incremental update RE-encrypted the file — i.e. it was edited and
+   *  re-saved with protection on. */
+  encrypt_dict_count?: number
+  /** Distinct Info-dictionary revisions found in the byte stream (an
+   *  incremental update appends a new Info; >1 = the file has a revision
+   *  history). */
+  info_revisions?: number
 }
 
 export interface TextDensityResult {

@@ -44,6 +44,8 @@ import type { TimestampClusterInput } from './cross-doc'
 import { checkArmLength, canonicalizeEmployerName } from './arm-length'
 import type { CompanyRegistryInfo } from './arm-length'
 import { checkIdValidation } from './id-validation'
+import { checkDocumentDateConsistency, checkDocumentDateConflicts, extractDocumentDate } from './date-consistency'
+import { searchCbrRegistry } from './cbr-registry'
 import { ocrImagePdf } from './image-ocr'
 import type {
   ForensicFlag,
@@ -158,6 +160,50 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
   // anomaly that the employment letter independently corroborates is demoted
   // from fraud-gate to verify-first BEFORE hard gates are computed below.
   reconcileIncomeAcrossDocs(perFile, crossDocFlags)
+
+  // Cross-doc step 4: employer registry existence (cheap, name-only).
+  // The deep arm's-length check (officers, BN) stays behind the Pro button,
+  // but "does this employer exist at all, and is it still alive?" belongs
+  // in every screening. Case 24: the employer on three stubs and a letter
+  // was a federal corporation dissolved in 2015 — a public record nothing
+  // in the base pass consulted. One federated CBR/MRAS query per distinct
+  // employer; an outage surfaces as 'unavailable', never as 'verified'.
+  try {
+    const names = Array.from(new Set(perFile
+      .map(pf => (pf.paystub_math?.extraction.employer_name || '').trim())
+      .filter(n => n.length >= 3)))
+      .slice(0, 3)
+    for (const name of names) {
+      const info = await searchCbrRegistry(name)
+      if (!info) {
+        crossDocFlags.push({
+          code: 'employer_registry_unmatched',
+          severity: 'low',
+          evidence_en: `Employer "${name}" was not matched in Canada's federated business registries (Corporations Canada + provincial registries). Sole proprietorships and trade names can be absent legitimately — ask for a business number or registration profile.`,
+          evidence_zh: `雇主 "${name}" 在加拿大联邦+各省联合企业登记检索中未匹配到记录。个体户/商号名可能合法缺席——建议索取商业编号或企业登记档案。`,
+        })
+        continue
+      }
+      const status = (info.status || '').toLowerCase()
+      const dead = /dissolv|inactive|cancel|revok|struck|terminat|discontinu|amalgamat|not in good standing/.test(status)
+      const alive = /active|incorporated|in good standing|registered|continued/.test(status) && !dead
+      if (dead) {
+        crossDocFlags.push({
+          code: 'employer_registry_dissolved',
+          severity: 'high',
+          evidence_en: `Employer "${name}" matches ${info.name}${info.jurisdiction ? ` (${info.jurisdiction})` : ''}${info.company_number ? ` #${info.company_number}` : ''} whose registry status is "${info.status}"${info.incorporation_date ? ` (incorporated ${info.incorporation_date})` : ''}. A dissolved or inactive corporation cannot be issuing current pay stubs and employment letters — unless a different, active entity of the same name exists, this employer does not exist as claimed.`,
+          evidence_zh: `雇主 "${name}" 匹配到企业登记记录 ${info.name}${info.jurisdiction ? `（${info.jurisdiction}）` : ''}${info.company_number ? ` #${info.company_number}` : ''}，登记状态为 "${info.status}"${info.incorporation_date ? `（成立于 ${info.incorporation_date}）` : ''}。已解散/非活跃的公司不可能在开出当前的工资单和雇佣信——除非存在另一家同名且活跃的实体，否则该雇主并不如其声称那样存在。`,
+        })
+      } else if (alive) {
+        crossDocFlags.push({
+          code: 'employer_registry_active',
+          severity: 'info',
+          evidence_en: `Employer "${name}" matches an active registry record: ${info.name}${info.jurisdiction ? ` (${info.jurisdiction})` : ''}, status "${info.status}". Existence corroborated — not the employment itself.`,
+          evidence_zh: `雇主 "${name}" 匹配到活跃的企业登记记录：${info.name}${info.jurisdiction ? `（${info.jurisdiction}）` : ''}，状态 "${info.status}"。佐证了公司存在——不等于佐证了雇佣关系本身。`,
+        })
+      }
+    }
+  } catch { /* registry outage must never fail forensics */ }
 
   // Aggregate
   const allFlags: ForensicFlag[] = []
@@ -523,6 +569,27 @@ async function analyzeFile(
       evidence_zh: `本文件取证分析失败：${(e as Error).message?.slice(0, 200)}`,
     })
   }
+
+  // Document-date vs file-date consistency (lib/forensics/date-consistency.ts).
+  // The date the document prints for itself — pay date from the stub
+  // extraction, else a labelled/long-form date in the text — against the
+  // file's own CreationDate/ModDate. Case 24: July-2026 stubs created in
+  // 2023, an August-2026 letter created in 2024 — template reuse that
+  // nothing else in the pipeline can see.
+  try {
+    if (out.pdf_metadata) {
+      const docDate = out.paystub_math?.extraction.pay_date
+        || extractDocumentDate(canonicalKind, out.text_density?.text_sample || out.ocr?.text || '')
+      out.flags.push(...checkDocumentDateConsistency({
+        kind: canonicalKind,
+        file: f.name,
+        creation_date: out.pdf_metadata.creation_date,
+        modification_date: out.pdf_metadata.modification_date,
+        document_date: docDate,
+      }))
+    }
+    out.flags.push(...checkDocumentDateConflicts(canonicalKind, f.name, out.text_density?.text_sample || ''))
+  } catch { /* never fatal */ }
 
   out.elapsed_ms = Date.now() - startedAt
   return out

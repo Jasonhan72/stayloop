@@ -65,7 +65,7 @@ Examples:
 - Workday stub showing "Earnings ... 720 $61,487" then "Regular $42,752" then "PTO $7,657" then "Sick Pay $1,730" then "EIP Bonus $9,346" then "Taxable Benefits $1,823" → ytd_gross=61487 - 1823 = 59664 (Earnings total minus only the Taxable Benefits; PTO/Sick/Bonus are real cash income; this employer has no employer pension match line under Earnings)
 
 STATUTORY DEDUCTIONS — extract employee-side CPP/EI when visible:
-- Deduction lines are labelled CPP / QPP (Canada/Quebec Pension Plan), CPP2 ("CPP2", "Second CPP", "CPP Additional"), EI ("EI", "Employment Insurance").
+- Deduction lines are labelled CPP / QPP (Canada/Quebec Pension Plan), CPP2 ("CPP2", "Second CPP", "CPP Additional"), EI ("EI", "Employment Insurance"). ADP-style stubs abbreviate: "GOVT PEN" / "GOV PENSION" / "C.P.P." / "CAN PEN" = CPP; "EI CONT" / "E.I." / "EMP INS" = EI; "FEDL TAX" = federal income tax (not CPP/EI).
 - Extract the EMPLOYEE contribution (not employer portion), both this period's amount and the YTD column.
 - A BLANK current-period CPP/EI cell next to a non-zero YTD usually means the annual maximum was already reached — report the YTD as printed and leave the period field null. Do NOT treat the blank as suspicious.
 
@@ -355,6 +355,22 @@ export function checkPaystubMath(
   // of displayed hourly rate and minor overtime/shift-differential variances
   // that the primary-rate line doesn't capture).
   // ---------------------------------------------------------------------------
+  // Hours sanity: a pay period cannot contain more than ~400 hours. When
+  // hours_worked is implausible — typically the extractor read the AMOUNT
+  // column into HRS on a misaligned ADP layout (case 24: hours=4014.32,
+  // which was the period gross) — the derived-gross check would print a
+  // nonsense 740,000% error and gate on it. Disclose and skip instead.
+  if (ext.hours_worked && ext.hours_worked > 400) {
+    const echoesGross = ext.period_gross != null && Math.abs(ext.hours_worked - ext.period_gross) < 1
+    flags.push({
+      code: 'paystub_fields_unreliable',
+      severity: 'low',
+      file,
+      evidence_en: `Extracted hours_worked=${ext.hours_worked} is not a plausible pay-period figure${echoesGross ? ' (it equals the period gross — column misalignment on the stub)' : ''}. Hourly×hours reconciliation skipped for this stub; verify the stub layout by eye.`,
+      evidence_zh: `提取到的本期工时 ${ext.hours_worked} 不是合理的单期数字${echoesGross ? '（与本期毛收入相同——工资单列对齐错位）' : ''}。已跳过本张的「时薪×工时」复算；请目视核对工资单版式。`,
+    })
+    ext.hours_worked = null
+  }
   if (ext.hourly_rate && ext.hours_worked && ext.period_gross) {
     derivedPeriodGross = ext.hourly_rate * ext.hours_worked
     const diff = Math.abs(derivedPeriodGross - ext.period_gross)
