@@ -1344,6 +1344,9 @@ JSON DISCIPLINE (avoid parse errors):
           : `AI parse error: ${(e?.message || 'unknown').slice(0, 150)} — head: "${snippet.slice(0, 120)}" — tail: "${tail.slice(0, 120)}"`,
         stop_reason: stopReason,
         stream_diag: { saw_stop: sawMessageStop, stream_error: streamError, chars: rawText.length, model: scoringDef.id },
+        // Diagnostic (2026-08-22): the full raw model output, so a malformed /
+        // cut stream can be inspected without server-log access. Own data only.
+        raw_full: rawText,
         raw: rawText.slice(0, 4000),
       }, { status: 500 })
     }
