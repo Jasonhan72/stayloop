@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase'
 import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
 import Header from '@/components/Header'
-import AuthModal from '@/components/AuthModal'
 import { generateScreeningReport } from '@/lib/generateReport'
 import { registryLinks } from '@/lib/forensics/registry-links'
 import { RUBRIC_WEIGHTS } from '@/lib/screening/rubric'
@@ -1478,7 +1477,7 @@ export default function ScreenPage() {
   const { t, lang } = useT()
   // No redirect and no anonymous sign-in: screening requires a registered
   // account (2026-08-21). Logged-out visitors and leftover anonymous
-  // sessions see the page with a register prompt (AuthModal) instead of
+  // sessions see the page with an inline register prompt instead of
   // being silently bounced - closing the prompt returns to the landing.
   const { user: landlord, loading: authLoading, signOut } = useUser({
     redirectIfMissing: false,
@@ -2074,7 +2073,7 @@ export default function ScreenPage() {
     // Block while classification is still in flight — concurrent classify +
     // upload requests exhaust the browser connection pool → "Failed to fetch".
     if (classifying) return
-    // Registered accounts only - the AuthModal gate covers the UI, this is
+    // Registered accounts only - the register gate page covers the UI, this is
     // the in-function backstop.
     if (landlord.isAnonymous) return
     if (files.length === 0 && !applicantName.trim()) {
@@ -2411,7 +2410,9 @@ export default function ScreenPage() {
     return (
       <div style={{ background: '#FAF7EE', minHeight: '100vh' }}>
         <Header />
-        <AuthModal open onClose={() => { window.location.href = '/screening' }} defaultTab="register" next="/screening/app" />
+        {/* Inline card, deliberately NOT a modal: a full-screen overlay covered
+            the Header, so a leftover anonymous session could not even reach
+            退出 / 登录 from here. */}
         <div style={{ maxWidth: 560, margin: '56px auto 0', padding: '24px 28px', background: '#FFFFFF', border: '1px solid #E4E8F0', borderRadius: 16, textAlign: 'center' }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: '#0B1736' }}>
             {lang === 'zh' ? '租客筛查需要注册账号（免费）' : 'Tenant screening requires a free account'}
