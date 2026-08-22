@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback, type ReactNode, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { useUser, useAnonTrialCheck } from '@/lib/useUser'
+import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
 import Header from '@/components/Header'
 import AuthModal from '@/components/AuthModal'
@@ -1476,12 +1476,14 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
 
 export default function ScreenPage() {
   const { t, lang } = useT()
+  // No redirect and no anonymous sign-in: screening requires a registered
+  // account (2026-08-21). Logged-out visitors and leftover anonymous
+  // sessions see the page with a register prompt (AuthModal) instead of
+  // being silently bounced - closing the prompt returns to the landing.
   const { user: landlord, loading: authLoading, signOut } = useUser({
-    redirectIfMissing: true,
-    allowAnonymous: true,
-    redirectPath: '/login?next=/screening/app',
+    redirectIfMissing: false,
   })
-  const { canScreen: anonCanScreen, trialUsed, markTrialUsed } = useAnonTrialCheck()
+  const needsAccount = !authLoading && (!landlord || landlord.isAnonymous)
 
   const [plan, setPlan] = useState<'free' | 'pro' | 'team'>('free')
   // Tier is derived from the user's plan — no manual toggle on screen page.
@@ -1537,7 +1539,6 @@ export default function ScreenPage() {
   const [history, setHistory] = useState<Screening[]>([])
   const [viewingHistoryId, setViewingHistoryId] = useState<string | null>(null)
   const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null)
-  const [showAuthGate, setShowAuthGate] = useState(false)
   const [deepChecking, setDeepChecking] = useState(false)
   const [deepCheckResult, setDeepCheckResult] = useState<ScoreResult['deep_check_result']>(null)
   // Phase 4 UX: fallback when extraction failed to find an employer name
@@ -1600,7 +1601,8 @@ export default function ScreenPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
-        setShowAuthGate(true)
+        // No session at all - the register-required gate (needsAccount)
+        // already covers this state; just bail.
         return
       }
       const res = await fetch('/api/stripe/checkout', {
@@ -2072,11 +2074,9 @@ export default function ScreenPage() {
     // Block while classification is still in flight — concurrent classify +
     // upload requests exhaust the browser connection pool → "Failed to fetch".
     if (classifying) return
-    // Anonymous trial limit: 1 free screening, then must register
-    if (landlord.isAnonymous && !anonCanScreen) {
-      setShowAuthGate(true)
-      return
-    }
+    // Registered accounts only - the AuthModal gate covers the UI, this is
+    // the in-function backstop.
+    if (landlord.isAnonymous) return
     if (files.length === 0 && !applicantName.trim()) {
       setError(t('screen.err.min'))
       return
@@ -2091,6 +2091,11 @@ export default function ScreenPage() {
     setSawSupplemental(false)
     setProgressDetail(null)
     scanStartRef.current = Date.now()
+    // Monotonic per-RUN counter: without this, a retry after a failed run
+    // (which never passes through reset()) kept counting from the previous
+    // run's total and the pill showed an inflated number.
+    verifiedCountRef.current = 0
+    setVerifiedCount(0)
     setScanLog([{ at: Date.now(), zh: `开始筛查 · ${files.length} 个文件已加入扫描队列`, en: `Scan started · ${files.length} file(s) queued` }])
     const startedAt = Date.now()
     setElapsedSec(0)
@@ -2371,8 +2376,6 @@ export default function ScreenPage() {
       setFreshResult(true)
       setResult({ ...(data as ScoreResult), file_count: files.length })
       setLastDetectedKinds(Array.isArray((data as ScoreResult).detected_document_kinds) ? (data as ScoreResult).detected_document_kinds! : [])
-      // Mark anonymous trial as used after successful screening
-      if (landlord.isAnonymous) markTrialUsed()
       loadHistory()
     } catch (e: any) {
       setError(friendlyError(e?.message || '', lang) || t('screen.err.unknown'))
@@ -2382,7 +2385,10 @@ export default function ScreenPage() {
     }
   }
 
-  if (authLoading || !landlord) {
+  // Spinner ONLY while auth is genuinely loading. The old condition
+  // (authLoading || !landlord) kept spinning forever after sign-out —
+  // the user was null, loading was false, and nothing ever resolved it.
+  if (authLoading) {
     return (
       <div style={{ background: '#FAF7EE', minHeight: '100vh' }}>
         <Header />
@@ -2391,6 +2397,37 @@ export default function ScreenPage() {
             <div style={{ width: 40, height: 40, margin: '0 auto 12px', borderRadius: '50%', border: '3px solid #E4E8F0', borderTopColor: '#10B981', animation: 'spin 1s linear infinite' }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
             <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>{t('common.authenticating')}</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Register-required gate: screening has no anonymous trial (2026-08-21).
+  // Logged-out visitors, leftover anonymous sessions, and the state right
+  // after sign-out all land here — an explainer card plus the auth modal
+  // (register tab first; closing it returns to the landing page).
+  if (needsAccount || !landlord) {
+    return (
+      <div style={{ background: '#FAF7EE', minHeight: '100vh' }}>
+        <Header />
+        <AuthModal open onClose={() => { window.location.href = '/screening' }} defaultTab="register" next="/screening/app" />
+        <div style={{ maxWidth: 560, margin: '56px auto 0', padding: '24px 28px', background: '#FFFFFF', border: '1px solid #E4E8F0', borderRadius: 16, textAlign: 'center' }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#0B1736' }}>
+            {lang === 'zh' ? '租客筛查需要注册账号（免费）' : 'Tenant screening requires a free account'}
+          </div>
+          <div style={{ marginTop: 8, fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>
+            {lang === 'zh'
+              ? '注册后即可开始筛查，免费档每月 5 单；历史记录云端保留。'
+              : 'Register to start screening — the free tier includes 5 screenings per month, with your history saved to your account.'}
+          </div>
+          <div style={{ marginTop: 14, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link href="/register?redirect=%2Fscreening%2Fapp" style={{ padding: '9px 18px', borderRadius: 10, background: '#7C3AED', color: '#fff', fontSize: 13, fontWeight: 700 }}>
+              {lang === 'zh' ? '免费注册' : 'Create a free account'}
+            </Link>
+            <Link href="/login?next=%2Fscreening%2Fapp" style={{ padding: '9px 18px', borderRadius: 10, background: '#fff', border: '1px solid #E4E8F0', color: '#0B1736', fontSize: 13, fontWeight: 600 }}>
+              {lang === 'zh' ? '已有账号，登录' : 'I have an account — sign in'}
+            </Link>
           </div>
         </div>
       </div>
@@ -2487,8 +2524,6 @@ export default function ScreenPage() {
         details.sl-card[open] > summary svg { transform: rotate(90deg); }
       `}</style>
 
-      {/* Auth gate modal — shown when anonymous user has used their 1 free trial */}
-      <AuthModal open={showAuthGate} onClose={() => setShowAuthGate(false)} defaultTab="register" next="/screening/app" />
 
       <div className="container-narrow">
         {!result && !analyzing && (

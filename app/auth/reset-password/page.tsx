@@ -64,7 +64,10 @@ export default function ResetPasswordPage() {
       const { error } = await supabase.auth.updateUser({ password: pw })
       if (error) throw error
       setPhase('done')
-      setTimeout(() => router.replace('/tenant/agent'), 1400)
+      // /auth/callback resolves the user's actual role (localStorage ->
+      // agent_configs -> signup metadata); hardcoding /tenant/agent sent
+      // landlords into the tenant workspace after every reset.
+      setTimeout(() => router.replace('/auth/callback'), 1400)
     } catch (e: unknown) {
       setErr((e as { message?: string })?.message || (zh ? '重置失败，请重试。' : 'Reset failed, please try again.'))
     } finally {

@@ -47,7 +47,7 @@ export default function AuthCallback() {
         // Honor an explicit ?next= destination (set by AuthModal) when it's a
         // safe same-origin path — otherwise fall back to role-based routing.
         const rawNext = new URLSearchParams(window.location.search).get('next')
-        const safeNext = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null
+        const safeNext = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.startsWith('/\\') ? rawNext : null
 
         // First-time users name their agent, then go straight to the chat.
         // Returning users (role known) skip naming entirely.
@@ -69,7 +69,12 @@ export default function AuthCallback() {
               .order('updated_at', { ascending: false })
               .limit(1)
               .maybeSingle()
-            const role = (cfg as { role?: string } | null)?.role
+            // Fall back to the role the user picked at signup (AuthModal
+            // writes it to user_metadata; nothing read it before, so a
+            // landlord choosing 房东 in the modal was defaulted into
+            // tenant onboarding).
+            const metaRole = (user.user_metadata as { role?: string } | undefined)?.role
+            const role = (cfg as { role?: string } | null)?.role || (metaRole && AGENT_HOME[metaRole] ? metaRole : undefined)
             if (role && AGENT_HOME[role]) {
               window.localStorage.setItem('sl-active-role', role)
               dest = AGENT_HOME[role]

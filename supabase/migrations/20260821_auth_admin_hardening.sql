@@ -1,0 +1,20 @@
+-- STUB — applied to prod 2026-08-21 via Supabase MCP as 'auth_admin_hardening'.
+-- Full definition lives in the applied migration; summary of what it did:
+--   · admin_users.must_change_password column (server-held rotation flag)
+--   · is_stayloop_admin()/is_stayloop_superadmin(): refuse sessions whose
+--     account still carries the rotation flag (metadata or column) — the
+--     temp-password credential gate is no longer client-side-only
+--   · admin_ack_password_changed(): clears the column after rotation
+--   · admin_add_member(): refuses demoting the LAST superadmin (self-demotion
+--     lockout)
+--   · admin_delete_user(): revokes outstanding household invites, deletes
+--     tenants row (anon sessions), returns {ok:false,error:'has_linked_records'}
+--     on FK conflicts instead of a raw Postgres error
+--   · admin_platform_stats()/admin_user_counts(): real-user counts exclude
+--     %@stayloop-test.local; new counts RPC for untruncated roster totals
+--   · admin_list_users(): screening counts cover BOTH landlord_id keyings
+--     (authId + legacy profileId)
+--   · claim_landlord(): refuses anonymous users (no more guest_* junk rows),
+--     ON CONFLICT (auth_id) DO NOTHING + re-select for first-login races;
+--     purged the 2 existing anon guest rows
+select 1;

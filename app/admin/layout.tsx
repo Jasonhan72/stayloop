@@ -48,6 +48,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         data: { must_change_password: false },
       })
       if (error) throw error
+      // Clear the SERVER-held rotation flag too — is_stayloop_admin()
+      // refuses un-rotated sessions, so without this ack the account
+      // passes the client gate but every admin RPC stays forbidden.
+      await supabase.rpc('admin_ack_password_changed')
       setMustChange(false)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'failed')

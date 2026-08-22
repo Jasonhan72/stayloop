@@ -18,8 +18,12 @@ type AuthTab = 'password' | 'magic-link'
 // the two so bookmarked deep links survive the sign-in round-trip.
 function callbackUrl(): string {
   if (typeof window === 'undefined') return '/auth/callback'
-  const redirect = new URLSearchParams(window.location.search).get('redirect')
-  const next = redirect && redirect.startsWith('/') && !redirect.startsWith('//')
+  // Half the app sends ?next= (screening subpages, /h/[id], lease import),
+  // the other half ?redirect= — honor both, and reject /\ alongside //
+  // (browsers treat backslash as slash: '/\evil.com' escapes the origin).
+  const q = new URLSearchParams(window.location.search)
+  const redirect = q.get('next') ?? q.get('redirect')
+  const next = redirect && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/\\')
     ? `?next=${encodeURIComponent(redirect)}`
     : ''
   return `${window.location.origin}/auth/callback${next}`
@@ -35,8 +39,13 @@ export default function LoginPage() {
   // ?redirect= target, else the user's workspace by active role.
   useEffect(() => {
     if (authLoading || !user) return
-    const redirect = new URLSearchParams(window.location.search).get('redirect')
-    const safe = redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : null
+    // An ANONYMOUS session must not bounce away from the login form —
+    // it used to make signing into a real account impossible after the
+    // visitor had touched the (now retired) anonymous trial.
+    if ((user as { is_anonymous?: boolean }).is_anonymous) return
+    const q2 = new URLSearchParams(window.location.search)
+    const redirect = q2.get('next') ?? q2.get('redirect')
+    const safe = redirect && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/\\') ? redirect : null
     router.replace(safe ?? (role ? ROLE_HOME[role] : '/dashboard'))
   }, [authLoading, user, role, router])
 

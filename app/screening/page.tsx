@@ -20,7 +20,7 @@ import { FAQS } from './copy'
 export const metadata: Metadata = {
   title: '租客筛查 · 几分钟出报告 | Stayloop Tenant Screening',
   description:
-    '安省租客筛查:AI 读取申请材料,确定性取证引擎核验文件真伪,检索 LTB 判令目录与安省法院公开门户,生成可追溯的筛查报告。免注册可试一单。Ontario tenant screening with document forensics, LTB order catalogue and court portal checks.',
+    '安省租客筛查:AI 读取申请材料,确定性取证引擎核验文件真伪,检索 LTB 判令目录与安省法院公开门户,生成可追溯的筛查报告。注册即可免费试用。Ontario tenant screening with document forensics, LTB order catalogue and court portal checks.',
   alternates: { canonical: 'https://www.stayloop.ai/screening' },
   keywords: [
     '租客筛查', '租客背景', '租客信用检查', '房东 筛查 租客', '多伦多 租客筛查',
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: '租客筛查 · Stayloop',
-    description: '上传申请材料,几分钟得到一份每个结论都注明依据的筛查报告。免注册可试一单。',
+    description: '上传申请材料,几分钟得到一份每个结论都注明依据的筛查报告。注册即可免费试用。',
     url: 'https://www.stayloop.ai/screening',
     siteName: 'Stayloop',
     type: 'website',

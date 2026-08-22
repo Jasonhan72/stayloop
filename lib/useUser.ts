@@ -20,6 +20,7 @@
 'use client'
 
 import { supabase } from './supabase'
+import { clearCachedAiNames } from '@/lib/aiName'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -47,11 +48,6 @@ export interface UseUserReturn {
   signOut: () => Promise<void>
 }
 
-export interface UseAnonTrialReturn {
-  canScreen: boolean
-  trialUsed: boolean
-  markTrialUsed: () => void
-}
 
 // ─── Module-level session cache ─────────────────────────────────────────────
 // Every page that uses AppHeader (or any component that calls useUser)
@@ -204,6 +200,30 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
         const authId = authUser.id
         const email = authUser.email || ''
 
+        // Anonymous sessions (leftovers from the retired trial flow) are
+        // never landlords: the landlords fetch below would miss, and the
+        // claim-attempted fallback used to rebuild them as
+        // {role:'landlord', isAnonymous:false} — which is what let the old
+        // anonymous trial gate be bypassed entirely. Classify honestly and
+        // never call claim_landlord for them (the RPC also refuses).
+        if ((authUser as { is_anonymous?: boolean }).is_anonymous) {
+          const anonSession: UserSession = {
+            authId,
+            email: '',
+            profileId: '',
+            role: 'tenant',
+            fullName: '',
+            plan: 'free',
+            isAnonymous: true,
+          }
+          cachedUser = anonSession
+          if (isMounted) {
+            setUser(anonSession)
+            setLoading(false)
+          }
+          return
+        }
+
         // Fetch profile from landlords table (using auth_id)
         const { data: profileData, error: profileError } = await supabase
           .from('landlords')
@@ -345,6 +365,7 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
   }, [redirectIfMissing, allowAnonymous, redirectPath, router])
 
   const signOut = async () => {
+    clearCachedAiNames()
     cachedUser = null
     // §9 P1: forget every per-user claim flag on explicit signOut() too.
     for (const k of Object.keys(_claimAttempted)) {
@@ -370,30 +391,5 @@ export function useRequireAuth(): UseUserReturn {
  * Hook to manage anonymous user trial screening limit
  * Tracks trial usage in localStorage and enforces the 1-screen limit
  */
-export function useAnonTrialCheck(): UseAnonTrialReturn {
-  const [canScreen, setCanScreen] = useState(true)
-  const [trialUsed, setTrialUsed] = useState(false)
-
-  useEffect(() => {
-    const screens = localStorage.getItem('sl_anon_screens')
-    const screensCount = screens ? parseInt(screens, 10) : 0
-
-    if (screensCount >= 1) {
-      setCanScreen(false)
-      setTrialUsed(true)
-    } else {
-      setCanScreen(true)
-      setTrialUsed(false)
-    }
-  }, [])
-
-  const markTrialUsed = () => {
-    const screens = localStorage.getItem('sl_anon_screens')
-    const screensCount = (screens ? parseInt(screens, 10) : 0) + 1
-    localStorage.setItem('sl_anon_screens', screensCount.toString())
-    setCanScreen(false)
-    setTrialUsed(true)
-  }
-
-  return { canScreen, trialUsed, markTrialUsed }
-}
+// useAnonTrialCheck was removed 2026-08-21: screening requires a registered
+// account now (the localStorage-counted anonymous trial is retired).

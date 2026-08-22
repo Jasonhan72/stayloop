@@ -44,14 +44,14 @@ export default function LandingBody() {
               className="rounded-xl px-7 py-3.5 text-[15px] font-bold text-white shadow-lg"
               style={{ background: '#7C3AED' }}
             >
-              {zh ? '开始筛查 · 免注册试一单 →' : 'Start a screening — try one free, no signup →'}
+              {zh ? '开始筛查 · 注册即免费试用 →' : 'Start a screening — free with a quick signup →'}
             </Link>
             <Link href="/pricing" className="rounded-xl border border-line-divider bg-white px-6 py-3.5 text-[14px] font-semibold text-body-2">
               {zh ? '查看定价' : 'See pricing'}
             </Link>
           </div>
           <p className="mt-3 text-[12px] text-body-3">
-            {zh ? 'Ontario tenant screening · report in minutes · try one without an account' : '安省租客筛查 · 几分钟出报告 · 免注册可试一单'}
+            {zh ? 'Ontario tenant screening · report in minutes · free tier included' : '安省租客筛查 · 几分钟出报告 · 注册即可免费试用'}
           </p>
         </section>
 
@@ -143,7 +143,7 @@ export default function LandingBody() {
             {zh ? '下一位申请人,用报告说话' : 'Let the report speak for your next applicant'}
           </h2>
           <p className="mx-auto mt-2 max-w-[460px] text-[13.5px] text-body-2">
-            {zh ? '免注册可完整体验一单;注册账号可保留后续筛查历史、解锁深度核验。' : 'Run one full screening without an account; registered accounts keep their screening history and unlock deep verification.'}
+            {zh ? '注册免费账号即可开始筛查(免费档每月 5 单);历史记录云端保留,并可解锁深度核验。' : 'Create a free account to start screening (5 free per month); your history is saved to your account, and deep verification unlocks.'}
           </p>
           <Link
             href="/screening/app"

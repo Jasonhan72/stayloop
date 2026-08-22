@@ -47,8 +47,8 @@ const promptHref = (line: string) => `/tenant/agent?prompt=${encodeURIComponent(
 // for (activation plan, 2026-08-12): screening, try-one-without-signup.
 // The platform story stays — it is the secondary path, not the front door.
 const HERO_CTAS: Record<Lang, { primary: string; secondary: string }> = {
-  zh: { primary: '试一单租客筛查 · 免注册', secondary: '看看它怎么工作' },
-  en: { primary: 'Try a tenant screening — no signup', secondary: 'See how it works' },
+  zh: { primary: '试一单租客筛查 · 注册免费用', secondary: '看看它怎么工作' },
+  en: { primary: 'Try a tenant screening — free tier', secondary: 'See how it works' },
 }
 
 /* Role-panel CTA targets — carried over unchanged from the v7 page (blueprint tab order: 房东 / 租客 / 经纪). */

@@ -20,6 +20,10 @@ export default function RegisterPage() {
   // user's workspace (mirrors the /login behavior).
   useEffect(() => {
     if (authLoading || !user) return
+    // An anonymous session (retired trial flow leftover) must be able to
+    // reach the registration form — bouncing it away made creating a real
+    // account impossible from that state.
+    if ((user as { is_anonymous?: boolean }).is_anonymous) return
     router.replace(role ? ROLE_HOME[role] : '/dashboard')
   }, [authLoading, user, role, router])
   const [email, setEmail] = useState('')

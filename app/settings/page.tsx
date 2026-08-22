@@ -192,7 +192,13 @@ function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: bool
     if (user) {
       try {
         const client = getSupabaseBrowser()
-        await client.from('agent_configs').update({ agent_name: trimmed }).eq('user_id', user.id).eq('role', role)
+        // upsert, not update: for a role the user never visited there is no
+        // agent_configs row, so update() matched 0 rows while the UI showed
+        // a saved checkmark and the name evaporated cross-device.
+        await client.from('agent_configs').upsert(
+          { user_id: user.id, role, agent_name: trimmed },
+          { onConflict: 'user_id,role' },
+        )
       } catch {}
     }
     setSaving(false)

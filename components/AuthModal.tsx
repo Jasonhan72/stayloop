@@ -97,9 +97,11 @@ function maskEmail(email: string): string {
 ════════════════════════════════════════════════════════════════ */
 
 export default function AuthModal({ open, onClose, defaultTab, next = '/' }: AuthModalProps) {
-  const { t } = useT()
+  const { t, lang } = useT()
   const router = useRouter()
-  const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/'
+  // Reject protocol-relative (//) AND backslash (/\) prefixes: browsers
+  // treat \ as / when resolving, so '/\evil.com' escapes the origin.
+  const safeNext = next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') ? next : '/'
 
   /* State */
   const [step, setStep] = useState<Step>('email')
@@ -186,10 +188,21 @@ export default function AuthModal({ open, onClose, defaultTab, next = '/' }: Aut
     setPassword('')
   }
 
+  // A leftover anonymous session (retired trial flow) must be cleared
+  // before signing in/up as a real account — otherwise the anon session
+  // lingers underneath and the auth listener races the new session.
+  async function clearAnonSession() {
+    const { data: cur } = await supabase.auth.getSession()
+    if ((cur.session?.user as { is_anonymous?: boolean } | undefined)?.is_anonymous) {
+      await supabase.auth.signOut()
+    }
+  }
+
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true)
     setError(null)
+    await clearAnonSession()
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
     setSubmitting(false)
     if (authError) { setError(authError.message); return }
@@ -202,10 +215,11 @@ export default function AuthModal({ open, onClose, defaultTab, next = '/' }: Aut
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedRole) { setError(t('register.roleRequired')); return }
-    if (password.length < 6) { setError(t('register.passwordTooShort')); return }
+    if (password.length < 8) { setError(t('register.passwordTooShort')); return }
     if (!isValidEmail(email)) { setError(t('am.emailInvalid')); return }
     setSubmitting(true)
     setError(null)
+    await clearAnonSession()
 
     const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
     const { data, error: authError } = await supabase.auth.signUp({
@@ -214,6 +228,15 @@ export default function AuthModal({ open, onClose, defaultTab, next = '/' }: Aut
     })
     setSubmitting(false)
     if (authError) { setError(authError.message); return }
+    // With email confirmation ON, signUp for an already-registered address
+    // returns success with an EMPTY identities array (anti-enumeration).
+    // Without this check the modal showed 'check your email' and no email
+    // ever arrived — a hard dead-end at the exact conversion moment.
+    if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      setError(lang === 'zh' ? '该邮箱已注册，请直接登录' : 'This email is already registered — please sign in')
+      setStep('signin')
+      return
+    }
     saveWelcomeBack(email)
     if (data?.session) { onClose(); window.location.href = safeNext; return }
     setStep('check_email')

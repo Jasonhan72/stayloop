@@ -497,7 +497,7 @@ export const DICT = {
   'register.success': { en: 'Account created! Check your email to verify.', zh: '账户已创建！请查收邮箱验证。' },
   'register.sentDetail': { en: 'We sent a verification link to {email}. Click it to activate your account.', zh: '我们已向 {email} 发送验证链接，点击即可激活账户。' },
   'register.roleRequired': { en: 'Please select your role.', zh: '请选择您的角色。' },
-  'register.passwordTooShort': { en: 'Password must be at least 6 characters.', zh: '密码至少需要 6 个字符。' },
+  'register.passwordTooShort': { en: 'Password must be at least 8 characters.', zh: '密码至少需要 8 个字符。' },
   'register.footer': { en: 'Encrypted · PIPEDA compliant · Built in Ontario', zh: '加密 · PIPEDA 合规 · 安省出品' },
 
   // Updated login page

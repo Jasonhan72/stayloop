@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { clearCachedAiNames } from '@/lib/aiName'
 import { getSupabaseBrowser } from './supabase'
 import type { Session, User } from '@supabase/supabase-js'
 
@@ -92,9 +93,15 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
   }
 
   const signOut = async () => {
+    clearCachedAiNames()
     const supabase = getSupabaseBrowser()
     await supabase.auth.signOut()
     setRole(null)
+    // Hard navigation home: drops every in-memory cache (avatar, role,
+    // agent state) so the next account on this browser starts clean, and
+    // no page is left rendering a user-null state it never designed for
+    // (the screening app sat on its "authenticating" spinner forever).
+    if (typeof window !== 'undefined') window.location.assign('/')
   }
 
   return { ...state, setRole, signOut }

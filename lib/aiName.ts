@@ -56,6 +56,18 @@ export function getDefaultName(_role: string = 'tenant'): string {
 // agent_configs SELECT on each navigation.
 const nameResolve = new Map<string, Promise<string | null>>()
 
+/** Clear every per-role cached agent name (localStorage + in-flight resolve
+ *  cache). Called on sign-out: without this, user B signing in on user A's
+ *  browser inherited A's agent name — and reconcileAgentName then wrote it
+ *  into B's own agent_configs row. */
+export function clearCachedAiNames() {
+  nameResolve.clear()
+  if (typeof window === 'undefined') return
+  for (const role of ['tenant', 'landlord', 'agent']) {
+    try { window.localStorage.removeItem(`sl-${role}-ai-name`) } catch { /* ignore */ }
+  }
+}
+
 function resolveDbName(role: string): Promise<string | null> {
   const cached = nameResolve.get(role)
   if (cached) return cached

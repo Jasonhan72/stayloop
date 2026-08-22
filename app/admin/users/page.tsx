@@ -50,10 +50,19 @@ export default function AdminUsersPage() {
     if (role) load()
   }, [role, load])
 
+  // Totals come from admin_user_counts, NOT from the fetched page: the
+  // roster is capped (500) and ordered by created_at desc, so deriving
+  // counts from the truncated array understated both numbers once
+  // anon+real exceeded the cap — while looking authoritative.
+  const [totals, setTotals] = useState<{ real: number; anon: number; test: number } | null>(null)
   useEffect(() => {
     if (!role) return
     supabase.rpc('admin_list_users', { p_limit: 500 }).then(({ data }) =>
       setRoster(Array.isArray(data) ? (data as RosterRow[]) : []))
+    supabase.rpc('admin_user_counts').then(({ data }) => {
+      const d = data as { real?: number; anon?: number; test?: number } | null
+      if (d && typeof d.real === 'number') setTotals({ real: d.real, anon: d.anon ?? 0, test: d.test ?? 0 })
+    })
   }, [role, msg])
 
   const runRpc = async (fn: string, args: Record<string, unknown>, okText: string) => {
@@ -179,6 +188,10 @@ export default function AdminUsersPage() {
                 </span>
                 {isSuper && (
                   <div className="flex items-center gap-2">
+                    {/* Self-demotion hidden: demoting yourself as the only
+                        superadmin would lock the whole admin group (the
+                        server now also rejects last-superadmin demotion). */}
+                    {!(m.user_id === auth.user?.id && m.role === 'superadmin') && (
                     <button
                       className="rounded-lg border border-line-strong bg-white px-3 py-1.5 text-[12px] font-semibold text-body-2 hover:border-brand hover:text-brand disabled:opacity-50"
                       disabled={busy}
@@ -192,6 +205,7 @@ export default function AdminUsersPage() {
                     >
                       {m.role === 'admin' ? (zh ? '升为 superadmin' : 'Make superadmin') : (zh ? '降为 admin' : 'Make admin')}
                     </button>
+                    )}
                     <button
                       className="rounded-lg border px-3 py-1.5 text-[12px] font-semibold disabled:opacity-50"
                       style={{ borderColor: '#DC2626', color: '#DC2626' }}
@@ -219,8 +233,8 @@ export default function AdminUsersPage() {
             {roster && (
               <span className="font-mono text-[11px] text-body-3">
                 {zh
-                  ? `${roster.filter((r) => !r.is_anonymous).length} 真实注册 · ${roster.filter((r) => r.is_anonymous).length} 匿名试用会话`
-                  : `${roster.filter((r) => !r.is_anonymous).length} real · ${roster.filter((r) => r.is_anonymous).length} anonymous sessions`}
+                  ? `${totals ? totals.real : roster.filter((r) => !r.is_anonymous).length} 真实注册 · ${totals ? totals.anon : roster.filter((r) => r.is_anonymous).length} 匿名会话${totals && totals.test > 0 ? ` · ${totals.test} 测试账号` : ''}${totals && roster.length >= 500 ? '（列表仅显示最近 500 条）' : ''}`
+                  : `${totals ? totals.real : roster.filter((r) => !r.is_anonymous).length} real · ${totals ? totals.anon : roster.filter((r) => r.is_anonymous).length} anonymous${totals && totals.test > 0 ? ` · ${totals.test} test` : ''}${totals && roster.length >= 500 ? ' (showing latest 500)' : ''}`}
               </span>
             )}
             <label className="ml-auto flex items-center gap-1.5 text-[12px] text-body-2">

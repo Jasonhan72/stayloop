@@ -625,6 +625,16 @@ export async function POST(req: NextRequest) {
     if (userErr || !userData?.user) {
       return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
     }
+    // Screening requires a REGISTERED account (product decision 2026-08-21:
+    // the anonymous trial is retired — its gate was client-side only, and
+    // anonymous screenings orphaned when the visitor registered). The UI
+    // shows a register prompt; this is the server-side enforcement.
+    if (userData.user.is_anonymous) {
+      return NextResponse.json(
+        { error: 'Registration required — create a free account to run a screening. / 筛查需要注册账号（免费）。' },
+        { status: 403 },
+      )
+    }
 
     const { data: screening, error } = await supabase
       .from('screenings')
@@ -1810,6 +1820,9 @@ JSON DISCIPLINE (avoid parse errors):
     // system so they contribute to the penalty score.
     const idFailureCodes = new Set([
       'id_sin_invalid_checksum',
+      // OCR-sourced checksum failure: verify-first (no hard gate), but it
+      // still earns the id_format_invalid red-flag penalty.
+      'id_sin_checksum_unverified',
       'id_dl_surname_mismatch',
       'id_dl_dob_mismatch',
       'id_ohip_invalid_format',
@@ -2159,7 +2172,10 @@ JSON DISCIPLINE (avoid parse errors):
     // Behavioral red flags only — forensics_* entries are already counted
     // upstream via hardGates + forensicsPenalty; don't double-count them here.
     const behavioralRedFlagCount = redFlags.filter(f => !f.startsWith('forensics_')).length
-    let legacy = mapV3ToLegacy(s, behavioralRedFlagCount, identityMatch, totalCourtHits)
+    // 0 court hits into the legacy mapping: portal matches are name-only
+    // namesakes until corroborated — the legacy court_records column must
+    // not be depressed by them any more than the v3 dimensions are.
+    let legacy = mapV3ToLegacy(s, behavioralRedFlagCount, identityMatch, 0)
 
     // ---- Stage 5.5: Supplemental court searches for AI-extracted names ----
     // The initial court search (Stage 2) only used the landlord-provided
@@ -2356,7 +2372,7 @@ JSON DISCIPLINE (avoid parse errors):
         tier = 'decline'
         tierReason = ''
       }
-      legacy = mapV3ToLegacy(s, behavioralRedFlagCount, identityMatch, allPortalDefendant.length)
+      legacy = mapV3ToLegacy(s, behavioralRedFlagCount, identityMatch, 0)
     }
 
     const detectedIncome = typeof parsed.detected_monthly_income === 'number' && parsed.detected_monthly_income > 0
