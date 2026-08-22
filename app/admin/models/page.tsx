@@ -26,7 +26,7 @@ import { useT } from '@/lib/i18n'
 import {
   DEFAULT_MODELS,
   MODEL_SLOTS,
-  SENSITIVE_SLOTS,
+  VISION_SLOTS,
   PROVIDER_KEYS,
   PROVIDER_KEY_ENVS,
   MODEL_ID_RE,
@@ -53,27 +53,27 @@ const COST_LABEL: Record<CatalogModel['costTier'], { zh: string; en: string }> =
 
 type FormState = {
   id: string; label: string; note: string; api_key_env: string; base_url: string; vision: boolean; cost_tier: '低' | '中' | '高'
-  allowed_slots: ModelSlot[]; omit_temperature: boolean; max_tokens_param: 'max_tokens' | 'max_completion_tokens'
+  allowed_slots: ModelSlot[]; omit_temperature: boolean; max_tokens_param: 'max_tokens' | 'max_completion_tokens'; pdf_input: 'text' | 'file' | 'image_url'
   user_selectable: boolean; enabled: boolean; sort_order: number
 }
 const EMPTY_FORM: FormState = {
   id: '', label: '', note: '', api_key_env: 'OPENAI_API_KEY', base_url: PROVIDER_KEYS.OPENAI_API_KEY.defaultBaseUrl || '', vision: false, cost_tier: '中',
-  allowed_slots: ['turn'], omit_temperature: false, max_tokens_param: 'max_tokens', user_selectable: true, enabled: true, sort_order: 1000,
+  allowed_slots: ['turn'], omit_temperature: false, max_tokens_param: 'max_tokens', pdf_input: 'text', user_selectable: true, enabled: true, sort_order: 1000,
 }
 function modelToForm(m: CatalogModel): FormState {
   return {
     id: m.id, label: m.label, note: m.note, api_key_env: m.apiKeyEnv, base_url: m.baseUrl || '', vision: m.vision, cost_tier: m.costTier,
-    allowed_slots: [...m.allowedSlots], omit_temperature: !!m.omitTemperature, max_tokens_param: m.maxTokensParam || 'max_tokens',
+    allowed_slots: [...m.allowedSlots], omit_temperature: !!m.omitTemperature, max_tokens_param: m.maxTokensParam || 'max_tokens', pdf_input: m.pdfInput || 'text',
     user_selectable: m.userSelectable, enabled: m.enabled, sort_order: m.sortOrder,
   }
 }
-function formToRow(f: FormState, userId: string | null, builtin: boolean): CatalogRow & { builtin: boolean; updated_at: string; updated_by: string | null } {
+function formToRow(f: FormState, userId: string | null, builtin: boolean): CatalogRow & { pdf_input: string; builtin: boolean; updated_at: string; updated_by: string | null } {
   const provider = PROVIDER_KEYS[f.api_key_env]?.provider || 'openai-compat'
   return {
     id: f.id.trim(), label: f.label.trim() || f.id.trim(), note: f.note.trim(), provider,
     base_url: provider === 'anthropic' ? null : (f.base_url.trim().replace(/\/+$/, '') || null),
-    api_key_env: f.api_key_env, vision: provider === 'anthropic' ? f.vision : false, cost_tier: f.cost_tier,
-    allowed_slots: f.allowed_slots, omit_temperature: f.omit_temperature, max_tokens_param: f.max_tokens_param,
+    api_key_env: f.api_key_env, vision: f.vision, cost_tier: f.cost_tier,
+    allowed_slots: f.vision ? f.allowed_slots : f.allowed_slots.filter((s) => !VISION_SLOTS.includes(s)), omit_temperature: f.omit_temperature, max_tokens_param: f.max_tokens_param, pdf_input: provider === 'anthropic' ? 'text' : f.pdf_input,
     user_selectable: f.user_selectable, enabled: f.enabled, sort_order: Number.isFinite(f.sort_order) ? Math.round(f.sort_order) : 1000,
     builtin, updated_at: new Date().toISOString(), updated_by: userId,
   }
@@ -279,9 +279,9 @@ export default function AdminModelsPage() {
                   </div>
                   <div className="mt-1 text-[12.5px] text-body-3">{zh ? meta.descZh : meta.descEn}</div>
                   {current && <div className="mt-1 text-[12px] text-body-2">{current.note}</div>}
-                  {SENSITIVE_SLOTS.includes(slot) ? (
+                  {VISION_SLOTS.includes(slot) ? (
                     <div className="mt-1.5 text-[11.5px] font-semibold" style={{ color: '#B45309' }}>
-                      {zh ? '涉及证件/流水等敏感材料与视觉能力，仅限 Anthropic（数据合规）' : 'Handles sensitive documents (IDs, bank statements) and needs vision — Anthropic only (data compliance)'}
+                      {zh ? '处理证件/流水/工资单的图片与 PDF：仅视觉模型可选；非 Anthropic 厂商的 PDF 能力见目录说明（原生 / 仅文本提取），且材料会送往该厂商（数据出境）' : 'Feeds IDs / statements / pay stubs as images and PDFs: vision models only; see the catalogue note for each third-party model\'s PDF support (native vs text-only), and note the data leaves to that provider'}
                     </div>
                   ) : (
                     <div className="mt-1.5 text-[11.5px] text-body-3">
@@ -344,8 +344,7 @@ export default function AdminModelsPage() {
               <Field label={zh ? '厂商 / API Key 环境变量' : 'Provider / API key env var'}>
                 <select className="sl-input w-full" value={form.api_key_env} onChange={(e) => {
                   const env = e.target.value; const info = PROVIDER_KEYS[env]
-                  setForm({ ...form, api_key_env: env, base_url: info?.provider === 'anthropic' ? '' : (info?.defaultBaseUrl || form.base_url),
-                    allowed_slots: info?.provider === 'anthropic' ? form.allowed_slots : form.allowed_slots.filter((s) => !SENSITIVE_SLOTS.includes(s)).length ? form.allowed_slots.filter((s) => !SENSITIVE_SLOTS.includes(s)) : ['turn'] })
+                  setForm({ ...form, api_key_env: env, base_url: info?.provider === 'anthropic' ? '' : (info?.defaultBaseUrl || form.base_url), vision: info?.provider === 'anthropic' ? true : form.vision })
                 }}>
                   {PROVIDER_KEY_ENVS.map((env) => (
                     <option key={env} value={env}>{PROVIDER_KEYS[env].label} · {env} {keyOk(env) ? '✓' : (zh ? '（未配置）' : '(not configured)')}</option>
@@ -374,11 +373,11 @@ export default function AdminModelsPage() {
               <Field label={zh ? '可用槽位' : 'Allowed slots'}>
                 <div className="flex flex-wrap gap-3 pt-1.5">
                   {MODEL_SLOTS.map((s) => {
-                    const locked = formProvider !== 'anthropic' && SENSITIVE_SLOTS.includes(s)
+                    const locked = !form.vision && VISION_SLOTS.includes(s)
                     return (
                       <label key={s} className={'flex items-center gap-1.5 text-[13px] ' + (locked ? 'opacity-40' : '')}>
                         <input type="checkbox" disabled={locked} checked={form.allowed_slots.includes(s)} onChange={(e) => setForm({ ...form, allowed_slots: e.target.checked ? [...form.allowed_slots, s] : form.allowed_slots.filter((x) => x !== s) })} />
-                        {zh ? SLOT_SHORT[s].zh : SLOT_SHORT[s].en}{locked && <span className="text-[10px]">{zh ? '(仅 Anthropic)' : '(Anthropic only)'}</span>}
+                        {zh ? SLOT_SHORT[s].zh : SLOT_SHORT[s].en}{locked && <span className="text-[10px]">{zh ? '(需支持图片)' : '(needs vision)'}</span>}
                       </label>
                     )
                   })}
@@ -386,9 +385,16 @@ export default function AdminModelsPage() {
               </Field>
               <Field label={zh ? '请求参数' : 'Request parameters'}>
                 <div className="flex flex-wrap gap-3 pt-1.5 text-[13px]">
-                  {formProvider === 'anthropic' && <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.vision} onChange={(e) => setForm({ ...form, vision: e.target.checked })} />{zh ? '支持图片' : 'vision'}</label>}
+                  <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.vision} onChange={(e) => setForm({ ...form, vision: e.target.checked, allowed_slots: e.target.checked ? form.allowed_slots : form.allowed_slots.filter((s) => !VISION_SLOTS.includes(s)) })} />{zh ? '支持图片（筛查/分类/取证槽位必需）' : 'vision (required for screening/classify/forensics)'}</label>
                   {formProvider !== 'anthropic' && (
                     <>
+                      <label className="flex items-center gap-1.5">{zh ? 'PDF 输入' : 'PDF input'}
+                        <select className="sl-input !py-1 !text-[12px]" value={form.pdf_input} onChange={(e) => setForm({ ...form, pdf_input: e.target.value as FormState['pdf_input'] })}>
+                          <option value="text">{zh ? '仅文本提取（通用）' : 'text extraction (generic)'}</option>
+                          <option value="file">{zh ? '原生 file 块（OpenAI / Qwen 3.8）' : 'native file part (OpenAI / Qwen 3.8)'}</option>
+                          <option value="image_url">{zh ? 'image_url 携带 PDF（Gemini）' : 'image_url with PDF (Gemini)'}</option>
+                        </select>
+                      </label>
                       <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.omit_temperature} onChange={(e) => setForm({ ...form, omit_temperature: e.target.checked })} />{zh ? '不发送 temperature' : 'omit temperature'}</label>
                       <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.max_tokens_param === 'max_completion_tokens'} onChange={(e) => setForm({ ...form, max_tokens_param: e.target.checked ? 'max_completion_tokens' : 'max_tokens' })} />max_completion_tokens{zh ? '（GPT-5 系列）' : ' (GPT-5 family)'}</label>
                     </>
@@ -438,7 +444,7 @@ export default function AdminModelsPage() {
                       <div className="font-mono text-[10.5px]" style={{ color: keyOk(m.apiKeyEnv) ? '#047857' : '#B45309' }}>{keyOk(m.apiKeyEnv) ? '● ' : '○ '}{m.apiKeyEnv}</div>
                       {m.baseUrl && <div className="max-w-[220px] truncate font-mono text-[10px] text-body-3" title={m.baseUrl}>{m.baseUrl.replace(/^https:\/\//, '')}</div>}
                     </td>
-                    <td className="px-3 py-2.5">{m.allowedSlots.map((s) => (zh ? SLOT_SHORT[s].zh : SLOT_SHORT[s].en)).join(' · ')}{m.vision && <span className="ml-1 text-[10px] text-body-3">👁</span>}</td>
+                    <td className="px-3 py-2.5">{m.allowedSlots.map((s) => (zh ? SLOT_SHORT[s].zh : SLOT_SHORT[s].en)).join(' · ')}{m.vision && <span className="ml-1 text-[10px] text-body-3" title={zh ? '支持图片' : 'vision'}>👁</span>}{m.provider !== 'anthropic' && m.vision && <div className="font-mono text-[10px] text-body-3">PDF: {m.pdfInput === 'file' ? (zh ? '原生' : 'native') : m.pdfInput === 'image_url' ? (zh ? '原生(image_url)' : 'native (image_url)') : (zh ? '仅文本' : 'text only')}</div>}</td>
                     <td className="px-3 py-2.5">{zh ? COST_LABEL[m.costTier].zh : COST_LABEL[m.costTier].en}</td>
                     <td className="px-3 py-2.5"><Toggle on={m.userSelectable} onChange={(v) => quickToggle(m, { user_selectable: v })} /></td>
                     <td className="px-3 py-2.5"><Toggle on={m.enabled} onChange={(v) => quickToggle(m, { enabled: v })} /></td>

@@ -70,11 +70,12 @@ describe('allowedSlots — 国产 openai-compat models are locked out of PII slo
     expect(sanitize({ turn: 'deepseek-v4-flash' }).turn).toBe('deepseek-v4-flash')
   })
 
-  it('structural invariant: every non-Anthropic model is turn-only', () => {
-    for (const m of ALLOWED_MODELS.filter((m) => m.provider !== 'anthropic')) {
-      expect(m.allowedSlots, `${m.id} allowedSlots`).toEqual(['turn'])
-      expect(m.vision, `${m.id} must not claim vision`).toBe(false)
-      expect(m.baseUrl, `${m.id} needs baseUrl`).toMatch(/^https:\/\//)
+  it('structural invariant: document slots (screening/classify/forensics) only on vision models; text-only models are turn-only; compat models carry https baseUrl', () => {
+    for (const m of ALLOWED_MODELS) {
+      const docSlots = m.allowedSlots.filter((sl) => sl !== 'turn')
+      if (!m.vision) expect(docSlots, `${m.id} is text-only and must be turn-only`).toEqual([])
+      if (docSlots.length) expect(m.vision, `${m.id} serves document slots so it must have vision`).toBe(true)
+      if (m.provider !== 'anthropic') expect(m.baseUrl, `${m.id} needs baseUrl`).toMatch(/^https:\/\//)
     }
   })
 

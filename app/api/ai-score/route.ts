@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { anthropicText } from '@/lib/llmChat'
+import { llmChat, type ChatContentBlock } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
 import { captureException } from '@/lib/observability/sentry'
-import { getModel } from '@/lib/modelConfig'
+import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '@/lib/modelConfig'
 
 export const runtime = 'edge'
 
@@ -161,30 +161,22 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     }
 
     // Legacy scoring shares the admin-configurable 'screening' slot.
-    const model = await getModel('screening')
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1500,
+    const modelId = await getModel('screening')
+    const def = (await getModelDefAsync(modelId)) ?? getModelDef(DEFAULT_MODELS.screening)!
+    let text: string
+    try {
+      const out = await llmChat({
+        model: def,
         system: systemPrompt,
-        messages: [{ role: 'user', content: userContent }],
-      }),
-      signal: AbortSignal.timeout(60000),
-    })
-
-    if (!response.ok) {
-      const errText = await response.text()
-      return NextResponse.json({ error: `Anthropic API error: ${errText}` }, { status: 500 })
+        messages: [{ role: 'user', content: userContent as ChatContentBlock[] }],
+        maxTokens: 1500,
+        jsonMode: true,
+        signal: AbortSignal.timeout(60000),
+      })
+      text = out.text || '{}'
+    } catch (e) {
+      return NextResponse.json({ error: `Model API error (${def.id}): ${(e instanceof Error ? e.message : String(e)).slice(0, 300)}` }, { status: 500 })
     }
-
-    const aiData = await response.json() as { content?: Array<{ text: string }> }
-    let text = anthropicText(aiData) || '{}'
     text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
 
     let parsed: { extracted_name?: string; scores?: SixDimScores; notes?: Record<string, string>; summary?: string }

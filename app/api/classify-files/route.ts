@@ -5,9 +5,9 @@
 // API key budget by spamming the route. Auth pattern mirrors /api/deep-check.
 // -----------------------------------------------------------------------------
 import { NextRequest, NextResponse } from 'next/server'
-import { anthropicText } from '@/lib/llmChat'
+import { llmChat, type ChatContentBlock } from '@/lib/llmChat'
 import { createClient } from '@supabase/supabase-js'
-import { getModel } from '@/lib/modelConfig'
+import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '@/lib/modelConfig'
 
 // Lightweight classification endpoint. Accepts up to MAX_TOTAL_FILES via
 // multipart/form-data and returns, for each file, an array of document
@@ -408,30 +408,24 @@ Return ONLY this JSON (no markdown, no prose):
   }
 
   // Admin-configurable model slot (60s edge cache) — see lib/modelConfig.ts.
-  const model = await getModel('classify')
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    signal: AbortSignal.timeout(60_000), // 60s — Sonnet-class on multiple PDFs takes time
-    body: JSON.stringify({
-      model,
-      max_tokens: 2500, // bumped — per-file output is more verbose now
+  // Any vision-capable catalogue model may serve this slot; llmChat converts
+  // the document/image blocks per provider (PDF → file / image_url / text).
+  const modelId = await getModel('classify')
+  const def = (await getModelDefAsync(modelId)) ?? getModelDef(DEFAULT_MODELS.classify)!
+  let text: string
+  try {
+    const out = await llmChat({
+      model: def,
       system: 'You classify uploaded rental-application documents and extract per-file rent + a top-level applicant name. Output strictly the JSON schema requested. No markdown, no prose.',
-      messages: [{ role: 'user', content: contentBlocks }],
-    }),
-  })
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '')
-    throw new Error(`Classifier HTTP ${res.status}: ${errText.slice(0, 300)}`)
+      messages: [{ role: 'user', content: contentBlocks as ChatContentBlock[] }],
+      maxTokens: 2500, // bumped — per-file output is more verbose now
+      jsonMode: true,
+      signal: AbortSignal.timeout(60_000), // 60s — Sonnet-class on multiple PDFs takes time
+    })
+    text = out.text || '{}'
+  } catch (e) {
+    throw new Error(`Classifier (${def.id}) failed: ${(e instanceof Error ? e.message : String(e)).slice(0, 300)}`)
   }
-
-  const aiData = (await res.json()) as { content?: Array<{ text: string }> }
-  let text = anthropicText(aiData) || '{}'
   text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
 
   try {

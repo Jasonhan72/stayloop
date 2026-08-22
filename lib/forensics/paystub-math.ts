@@ -26,8 +26,8 @@
 // models that reject it (everything in the whitelist except Haiku 4.5).
 // -----------------------------------------------------------------------------
 
-import { getModel, supportsAssistantPrefill } from '../modelConfig'
-import { anthropicText } from '../llmChat'
+import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '../modelConfig'
+import { llmChat, type ChatContentBlock } from '../llmChat'
 import type { ForensicFlag, PaystubExtraction, PaystubMathResult } from './types'
 
 const EXTRACT_PROMPT = `You are extracting numeric fields from a Canadian pay stub. Return ONLY a JSON object — no markdown, no prose. If a field is not visible on the stub, return null for that field. Do NOT guess or fill in values. Numbers must be raw (no commas, no $).
@@ -112,32 +112,17 @@ export async function extractPaystubFields(
     content.push({ type: 'text', text: EXTRACT_PROMPT })
 
     // Admin-configurable model slot (60s cache) — see lib/modelConfig.ts.
-    // Prefill JSON start only on models that still accept assistant-prefill.
-    const model = await getModel('forensics')
-    const prefill = supportsAssistantPrefill(model)
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 800,
-        messages: prefill
-          ? [
-              { role: 'user', content },
-              { role: 'assistant', content: '{' },  // prefill JSON start
-            ]
-          : [{ role: 'user', content }],
-      }),
+    // llmChat: assistant-prefill "{" on Haiku, JSON mode elsewhere.
+    const def = (await getModelDefAsync(await getModel('forensics'))) ?? getModelDef(DEFAULT_MODELS.forensics)!
+    if (!apiKey && def.provider === 'anthropic') return null
+    const { text: raw } = await llmChat({
+      model: def,
+      system: 'You extract pay-stub fields. Output strictly the JSON requested — no markdown, no prose.',
+      messages: [{ role: 'user', content: content as ChatContentBlock[] }],
+      maxTokens: 800,
+      prefillJson: true,
       signal: AbortSignal.timeout(15000),
     })
-    if (!res.ok) return null
-    const data = await res.json() as { content?: Array<{ text?: string }> }
-    // Re-add the prefilled "{" only when we actually prefilled it.
-    const raw = (prefill ? '{' : '') + anthropicText(data)
     return parseExtraction(raw)
   } catch {
     return null

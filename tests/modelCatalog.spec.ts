@@ -41,10 +41,10 @@ describe('rowToModel — security allow-list', () => {
     expect(baseUrlAllowedFor('CUSTOM_LLM_API_KEY_1', 'https://my-gateway.example/v1')).toBe(true)
     expect(baseUrlAllowedFor('ANTHROPIC_API_KEY', undefined)).toBe(true)
   })
-  it('clamps sensitive slots to Anthropic even if the row claims them', () => {
-    const m = rowToModel({ ...okRow, allowed_slots: ['turn', 'screening', 'forensics'] })!
+  it('clamps document slots for text-only models even if the row claims them', () => {
+    const m = rowToModel({ ...okRow, allowed_slots: ['turn', 'screening', 'forensics'] })!   // vision:false
     expect(m.allowedSlots).toEqual(['turn'])
-    const a = rowToModel({ ...okRow, id: 'claude-x', provider: 'anthropic', api_key_env: 'ANTHROPIC_API_KEY', base_url: null, allowed_slots: ['turn', 'screening'] })!
+    const a = rowToModel({ ...okRow, id: 'claude-x', provider: 'anthropic', api_key_env: 'ANTHROPIC_API_KEY', base_url: null, vision: true, allowed_slots: ['turn', 'screening'] })!
     expect(a.allowedSlots).toEqual(['turn', 'screening'])
   })
   it('rejects malformed ids and unknown providers', () => {
@@ -99,5 +99,31 @@ describe('pickUserModel', () => {
     vi.stubEnv('ANTHROPIC_API_KEY', 'k')
     vi.stubEnv('DASHSCOPE_API_KEY', '')
     expect(pickUserModel('qwen3-max', 'turn', mergeCatalog([okRow]), 'claude-sonnet-4-6')).toBe('claude-sonnet-4-6')
+  })
+})
+
+describe('document slots open to any VISION model (2026-08-22)', () => {
+  it('a vision-capable third-party row keeps screening/classify/forensics; a text-only one is clamped to turn', () => {
+    const vis = rowToModel({ ...okRow, vision: true, allowed_slots: ['turn', 'screening', 'classify', 'forensics'], pdf_input: 'file' })!
+    expect(vis.allowedSlots).toEqual(['turn', 'screening', 'classify', 'forensics'])
+    expect(vis.vision).toBe(true)
+    expect(vis.pdfInput).toBe('file')
+    const txt = rowToModel({ ...okRow, vision: false, allowed_slots: ['turn', 'screening'] })!
+    expect(txt.allowedSlots).toEqual(['turn'])
+    expect(txt.pdfInput).toBeUndefined()
+  })
+  it('builtin capability flags: GPT-5/Gemini/Qwen3.8/Kimi are vision + document-slot eligible; DeepSeek/GLM are turn-only', () => {
+    const byId = Object.fromEntries(BUILTIN_MODELS.map((m) => [m.id, m]))
+    for (const id of ['gpt-5.4-mini', 'gemini-3.7-flash', 'qwen3.8-max', 'kimi-k3']) {
+      expect(byId[id].vision, id).toBe(true)
+      expect(byId[id].allowedSlots, id).toContain('screening')
+    }
+    for (const id of ['deepseek-v4-flash', 'glm-5.3']) {
+      expect(byId[id].vision, id).toBe(false)
+      expect(byId[id].allowedSlots, id).toEqual(['turn'])
+    }
+    expect(byId['gpt-5.4-mini'].pdfInput).toBe('file')
+    expect(byId['gemini-3.7-flash'].pdfInput).toBe('image_url')
+    expect(byId['kimi-k3'].pdfInput).toBe('text')
   })
 })

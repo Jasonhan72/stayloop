@@ -31,8 +31,8 @@
 //   their PDF text OR their OCR text — still get flagged correctly.
 // -----------------------------------------------------------------------------
 
-import { getModel } from '../modelConfig'
-import { anthropicText } from '../llmChat'
+import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '../modelConfig'
+import { llmChat, type ChatContentBlock } from '../llmChat'
 import { checkPdfMetadata, readPdfMetadata } from './pdf-metadata'
 import { checkTextDensity, readPdfTextDensity } from './pdf-text'
 import { checkPdfStructure } from './pdf-structure'
@@ -952,29 +952,22 @@ async function judgeCreditReportAuthenticity(
     }
     content.push({ type: 'text', text: CREDIT_REPORT_JUDGE_PROMPT })
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: await getModel('forensics'),
-        max_tokens: 400,
-        messages: [
-          { role: 'user', content },
-        ],
-      }),
-      signal: AbortSignal.timeout(30_000),
-    })
-
-    if (!res.ok) {
-      console.warn('[credit-report-judge] Haiku HTTP', res.status, await res.text().catch(() => ''))
+    const def = (await getModelDefAsync(await getModel('forensics'))) ?? getModelDef(DEFAULT_MODELS.forensics)!
+    let raw = ''
+    try {
+      const out = await llmChat({
+        model: def,
+        system: 'You judge whether a credit report document is authentic. Output strictly the JSON requested — no markdown, no prose.',
+        messages: [{ role: 'user', content: content as ChatContentBlock[] }],
+        maxTokens: 400,
+        jsonMode: true,
+        signal: AbortSignal.timeout(30_000),
+      })
+      raw = out.text
+    } catch (e) {
+      console.warn('[credit-report-judge] model call failed', def.id, (e as Error)?.message)
       return null
     }
-    const json: any = await res.json()
-    const raw = anthropicText(json)
     // No assistant-prefill on this call — never prepend a '{' (doing so to a
     // prose-wrapped answer corrupts the extraction). Just find the first
     // balanced JSON object in the raw output.

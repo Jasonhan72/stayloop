@@ -44,8 +44,15 @@ export const MODEL_SLOTS: ModelSlot[] = ['turn', 'screening', 'classify', 'foren
 /** Slots a signed-in user may override for themselves (/settings/models). classify/forensics are internal mechanics. */
 export const USER_SLOTS: ModelSlot[] = ['turn', 'screening']
 
-/** 敏感槽位：证件/流水/视觉取证，只允许 Anthropic 模型（数据合规 + 需要视觉）。服务端与后台 UI 同时强制。 */
-export const SENSITIVE_SLOTS: ModelSlot[] = ['screening', 'classify', 'forensics']
+/**
+ * 文档槽位：证件/流水/工资单/信用报告的图片与 PDF 页都会进模型，所以模型必须
+ * 支持图片输入（vision=true）。2026-08-22 起不再限定 Anthropic（产品决定：
+ * 开放给全部厂商），服务端与后台 UI 同时强制 vision；非 Anthropic 厂商只作
+ * 「数据出境」提示。
+ */
+export const VISION_SLOTS: ModelSlot[] = ['screening', 'classify', 'forensics']
+/** @deprecated 名称保留给旧导入；语义已变为 VISION_SLOTS（需要视觉，不再锁厂商）。 */
+export const SENSITIVE_SLOTS: ModelSlot[] = VISION_SLOTS
 
 // Must stay in sync with the seed row in
 // supabase/migrations/20260720_app_config_models.sql.
@@ -80,6 +87,14 @@ export interface ModelDef {
   omitTemperature?: boolean
   /** openai-compat：token 上限参数名。OpenAI GPT-5 系列拒绝 `max_tokens`（400 unsupported parameter），要用 `max_completion_tokens`；国产四家仍用 `max_tokens`。默认 max_tokens。 */
   maxTokensParam?: 'max_tokens' | 'max_completion_tokens'
+  /**
+   * openai-compat：PDF 怎么送进模型（2026-08-22 实测）：
+   *   'file'      OpenAI、Qwen 3.8 Max —— `{type:'file', file_data}` 原生 PDF
+   *   'image_url' Gemini —— `image_url` 携带 data:application/pdf
+   *   'text'      其余 —— 服务端用 unpdf 抽文本后作为文字送入（扫描件不可读，会明示）
+   * anthropic 忽略（原生 document 块）。默认 'text'。
+   */
+  pdfInput?: 'file' | 'image_url' | 'text'
 }
 
 /** A catalogue entry = ModelDef + admin switches. */
@@ -147,27 +162,27 @@ export const BUILTIN_MODELS: ModelDef[] = [
   { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', note: '稳定基线 — 当前对话/评分/分类槽位的默认模型', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '中', allowedSlots: ALL_SLOTS },
   { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', note: '高性价比 — 低成本低延迟，适合取证类结构化抽取', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '低', allowedSlots: ALL_SLOTS },
   // ── OpenAI（turn 槽位；GPT-5 系列：max_completion_tokens、不接受自定义 temperature）──
-  { id: 'gpt-5.5', label: 'GPT-5.5', note: 'OpenAI 最新旗舰（2026-04）— 最强推理/代理，成本高', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: false, costTier: '高', allowedSlots: ['turn'], omitTemperature: true, maxTokensParam: 'max_completion_tokens' },
-  { id: 'gpt-5.4', label: 'GPT-5.4', note: 'OpenAI 旗舰 — 推理/代理能力强，成本中等', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: false, costTier: '中', allowedSlots: ['turn'], omitTemperature: true, maxTokensParam: 'max_completion_tokens' },
-  { id: 'gpt-5.4-mini', label: 'GPT-5.4 mini', note: 'OpenAI 高性价比档 — 低成本、快速响应', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true, maxTokensParam: 'max_completion_tokens' },
-  { id: 'gpt-5.4-nano', label: 'GPT-5.4 nano', note: 'OpenAI 最低价档 — 极低成本、最快，适合简单轮次', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true, maxTokensParam: 'max_completion_tokens' },
+  { id: 'gpt-5.5', label: 'GPT-5.5', note: 'OpenAI 最新旗舰（2026-04）— 最强推理/代理，成本高；支持图片与 PDF', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: true, costTier: '高', allowedSlots: ALL_SLOTS, omitTemperature: true, maxTokensParam: 'max_completion_tokens', pdfInput: 'file' },
+  { id: 'gpt-5.4', label: 'GPT-5.4', note: 'OpenAI 旗舰 — 推理/代理能力强，成本中等；支持图片与 PDF', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: true, costTier: '中', allowedSlots: ALL_SLOTS, omitTemperature: true, maxTokensParam: 'max_completion_tokens', pdfInput: 'file' },
+  { id: 'gpt-5.4-mini', label: 'GPT-5.4 mini', note: 'OpenAI 高性价比档 — 低成本、快速响应；支持图片与 PDF', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: true, costTier: '低', allowedSlots: ALL_SLOTS, omitTemperature: true, maxTokensParam: 'max_completion_tokens', pdfInput: 'file' },
+  { id: 'gpt-5.4-nano', label: 'GPT-5.4 nano', note: 'OpenAI 最低价档 — 极低成本、最快，适合简单轮次；支持图片与 PDF', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: true, costTier: '低', allowedSlots: ALL_SLOTS, omitTemperature: true, maxTokensParam: 'max_completion_tokens', pdfInput: 'file' },
   // ── Google Gemini（turn 槽位；走 AI Studio 的 OpenAI 兼容端点；思考型模型靠 4000 token 预算留出推理余量）──
-  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash', note: 'Google 最新 Flash — 低成本、快速，思考型', provider: 'openai-compat', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKeyEnv: 'GEMINI_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
-  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (preview)', note: 'Google Gemini Pro 预览版 — 更强推理，成本中等', provider: 'openai-compat', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKeyEnv: 'GEMINI_API_KEY', vision: false, costTier: '中', allowedSlots: ['turn'] },
-  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', note: 'Google 最低价档 — 极低成本、极快', provider: 'openai-compat', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKeyEnv: 'GEMINI_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash', note: 'Google 最新 Flash — 低成本、快速，思考型；支持图片与 PDF', provider: 'openai-compat', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKeyEnv: 'GEMINI_API_KEY', vision: true, costTier: '低', allowedSlots: ALL_SLOTS, pdfInput: 'image_url' },
+  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (preview)', note: 'Google Gemini Pro 预览版 — 更强推理，成本中等；支持图片与 PDF', provider: 'openai-compat', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKeyEnv: 'GEMINI_API_KEY', vision: true, costTier: '中', allowedSlots: ALL_SLOTS, pdfInput: 'image_url' },
+  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', note: 'Google 最低价档 — 极低成本、极快；支持图片与 PDF', provider: 'openai-compat', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKeyEnv: 'GEMINI_API_KEY', vision: true, costTier: '低', allowedSlots: ALL_SLOTS, pdfInput: 'image_url' },
   // ── DeepSeek ──
-  { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', note: 'DeepSeek 最新强化档 — 更强推理，成本仍低于 Claude', provider: 'openai-compat', baseUrl: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
-  { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', note: 'DeepSeek 高性价比档 — 极低成本、快速响应', provider: 'openai-compat', baseUrl: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', note: 'DeepSeek 最新强化档 — 更强推理，成本仍低于 Claude（纯文本，仅对话）', provider: 'openai-compat', baseUrl: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', note: 'DeepSeek 高性价比档 — 极低成本、快速响应（纯文本，仅对话）', provider: 'openai-compat', baseUrl: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
   // ── Moonshot Kimi ──
-  { id: 'kimi-k3', label: 'Kimi K3', note: 'Moonshot 最新旗舰 — 思考型模型，响应稍慢（含推理阶段）', provider: 'openai-compat', baseUrl: 'https://api.moonshot.cn/v1', apiKeyEnv: 'MOONSHOT_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true },
-  { id: 'kimi-k2.6', label: 'Kimi K2.6', note: 'Moonshot 高性价比档 — 思考型模型，响应稍慢（含推理阶段）', provider: 'openai-compat', baseUrl: 'https://api.moonshot.cn/v1', apiKeyEnv: 'MOONSHOT_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true },
+  { id: 'kimi-k3', label: 'Kimi K3', note: 'Moonshot 最新旗舰 — 思考型模型，响应稍慢（含推理阶段）；支持图片，PDF 仅文本提取', provider: 'openai-compat', baseUrl: 'https://api.moonshot.cn/v1', apiKeyEnv: 'MOONSHOT_API_KEY', vision: true, costTier: '低', allowedSlots: ALL_SLOTS, omitTemperature: true, pdfInput: 'text' },
+  { id: 'kimi-k2.6', label: 'Kimi K2.6', note: 'Moonshot 高性价比档 — 思考型模型，响应稍慢（含推理阶段）；支持图片，PDF 仅文本提取', provider: 'openai-compat', baseUrl: 'https://api.moonshot.cn/v1', apiKeyEnv: 'MOONSHOT_API_KEY', vision: true, costTier: '低', allowedSlots: ALL_SLOTS, omitTemperature: true, pdfInput: 'text' },
   // ── 阿里云百炼 Qwen ──
-  { id: 'qwen3.8-max', label: '通义千问 3.8 Max', note: '阿里最新旗舰 — 最强推理，成本中等', provider: 'openai-compat', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKeyEnv: 'DASHSCOPE_API_KEY', vision: false, costTier: '中', allowedSlots: ['turn'] },
-  { id: 'qwen3.7-plus', label: '通义千问 3.7 Plus', note: '阿里均衡档 — 性能与成本平衡', provider: 'openai-compat', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKeyEnv: 'DASHSCOPE_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
-  { id: 'qwen3.7-flash', label: '通义千问 3.7 Flash', note: '阿里高性价比档 — 低成本、快速', provider: 'openai-compat', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKeyEnv: 'DASHSCOPE_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  { id: 'qwen3.8-max', label: '通义千问 3.8 Max', note: '阿里最新旗舰 — 最强推理，成本中等；支持图片与 PDF', provider: 'openai-compat', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKeyEnv: 'DASHSCOPE_API_KEY', vision: true, costTier: '中', allowedSlots: ALL_SLOTS, pdfInput: 'file' },
+  { id: 'qwen3.7-plus', label: '通义千问 3.7 Plus', note: '阿里均衡档 — 性能与成本平衡；支持图片，PDF 仅文本提取', provider: 'openai-compat', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKeyEnv: 'DASHSCOPE_API_KEY', vision: true, costTier: '低', allowedSlots: ALL_SLOTS, pdfInput: 'text' },
+  { id: 'qwen3.7-flash', label: '通义千问 3.7 Flash', note: '阿里高性价比档 — 低成本、快速；支持图片，PDF 仅文本提取', provider: 'openai-compat', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKeyEnv: 'DASHSCOPE_API_KEY', vision: true, costTier: '低', allowedSlots: ALL_SLOTS, pdfInput: 'text' },
   // ── 智谱 GLM ──
-  { id: 'glm-5.3', label: '智谱 GLM-5.3', note: '智谱最新旗舰 — 中文对话/代理，成本低', provider: 'openai-compat', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKeyEnv: 'ZHIPU_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
-  { id: 'glm-5-turbo', label: '智谱 GLM-5 Turbo', note: '智谱高性价比档 — 更快、更便宜', provider: 'openai-compat', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKeyEnv: 'ZHIPU_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  { id: 'glm-5.3', label: '智谱 GLM-5.3', note: '智谱最新旗舰 — 中文对话/代理，成本低（纯文本，仅对话）', provider: 'openai-compat', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKeyEnv: 'ZHIPU_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  { id: 'glm-5-turbo', label: '智谱 GLM-5 Turbo', note: '智谱高性价比档 — 更快、更便宜（纯文本，仅对话）', provider: 'openai-compat', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKeyEnv: 'ZHIPU_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
 ]
 
 /** @deprecated 用 BUILTIN_MODELS（或服务端 getCatalog()）。保留给旧导入。 */
@@ -218,6 +233,7 @@ export interface CatalogRow {
   allowed_slots: string[] | null
   omit_temperature: boolean | null
   max_tokens_param: string | null
+  pdf_input?: string | null
   user_selectable: boolean | null
   enabled: boolean | null
   sort_order: number | null
@@ -227,7 +243,7 @@ export interface CatalogRow {
 /**
  * Validate + convert one DB row. Returns null for anything that would be
  * unsafe or unusable (unknown env, disallowed host, bad provider/tier/id).
- * Sensitive slots are clamped to Anthropic regardless of what the row says.
+ * Document (vision) slots are dropped for non-vision models regardless of what the row says.
  * Pure — shared by the server merge and the admin form's pre-write check.
  */
 export function rowToModel(row: unknown): CatalogModel | null {
@@ -240,9 +256,11 @@ export function rowToModel(row: unknown): CatalogModel | null {
   const baseUrl = typeof r.base_url === 'string' && r.base_url.trim() ? r.base_url.trim().replace(/\/+$/, '') : undefined
   if (!baseUrlAllowedFor(r.api_key_env, baseUrl)) return null
   const costTier: CostTier = r.cost_tier === '低' || r.cost_tier === '中' || r.cost_tier === '高' ? r.cost_tier : '中'
+  const vision = r.provider === 'anthropic' ? r.vision !== false : r.vision === true
   let slots = (Array.isArray(r.allowed_slots) ? r.allowed_slots : []).filter((s): s is ModelSlot => (MODEL_SLOTS as string[]).includes(s))
-  if (r.provider !== 'anthropic') slots = slots.filter((s) => !SENSITIVE_SLOTS.includes(s))
-  if (!slots.length) slots = r.provider === 'anthropic' ? [...MODEL_SLOTS] : ['turn']
+  // Document slots feed images/PDF pages to the model — a text-only model cannot serve them.
+  if (!vision) slots = slots.filter((s) => !VISION_SLOTS.includes(s))
+  if (!slots.length) slots = vision ? [...MODEL_SLOTS] : ['turn']
   const label = typeof r.label === 'string' && r.label.trim() ? r.label.trim().slice(0, 80) : r.id
   return {
     id: r.id,
@@ -251,11 +269,12 @@ export function rowToModel(row: unknown): CatalogModel | null {
     provider: r.provider,
     baseUrl,
     apiKeyEnv: r.api_key_env,
-    vision: r.provider === 'anthropic' ? r.vision !== false : false,
+    vision,
     costTier,
     allowedSlots: slots,
     omitTemperature: r.omit_temperature === true || undefined,
     maxTokensParam: r.max_tokens_param === 'max_completion_tokens' ? 'max_completion_tokens' : undefined,
+    pdfInput: r.pdf_input === 'file' || r.pdf_input === 'image_url' ? r.pdf_input : (r.pdf_input === 'text' ? 'text' : undefined),
     userSelectable: r.user_selectable !== false,
     enabled: r.enabled !== false,
     builtin: !!BUILTIN_MODELS.find((m) => m.id === r.id),

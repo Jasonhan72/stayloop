@@ -22,6 +22,8 @@
 // -----------------------------------------------------------------------------
 
 import type { ForensicFlag } from '@/lib/forensics/types'
+import { llmChat, LlmKeyMissingError, type ChatContentBlock } from '../llmChat'
+import type { ModelDef } from '../modelConfig'
 
 export type CoherenceCategory =
   | 'internal_inconsistency'   // a document contradicts itself
@@ -184,39 +186,30 @@ function extractJson(text: string): unknown {
  */
 export async function runCoherenceReview(args: {
   contentBlocks: unknown[]
-  model: string
-  apiKey: string | undefined
+  /** Catalogue model definition — any vision-capable provider (llmChat converts the blocks). */
+  model: ModelDef
   applicant: { name?: string | null; phone?: string | null; email?: string | null }
-  supportsTemperature?: boolean
 }): Promise<CoherenceReview> {
   const started = Date.now()
-  if (!args.apiKey) return { status: 'skipped', model: null, anomalies: [], documents: [], error: 'no api key', elapsed_ms: 0 }
-  if (!args.contentBlocks.length) return { status: 'skipped', model: args.model, anomalies: [], documents: [], error: 'no documents', elapsed_ms: 0 }
+  const modelId = args.model.id
+  if (!args.contentBlocks.length) return { status: 'skipped', model: modelId, anomalies: [], documents: [], error: 'no documents', elapsed_ms: 0 }
   try {
     const ctx = `APPLICANT (as typed by the landlord — may itself be wrong): name="${args.applicant.name || 'unknown'}"${args.applicant.phone ? `, phone=${args.applicant.phone}` : ''}${args.applicant.email ? `, email=${args.applicant.email}` : ''}.`
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': args.apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: args.model,
-        ...(args.supportsTemperature === false ? {} : { temperature: 0 }),
-        max_tokens: 6000,
-        system: [{ type: 'text', text: PROMPT }],
-        messages: [{ role: 'user', content: [{ type: 'text', text: ctx }, ...args.contentBlocks, { type: 'text', text: 'Return the JSON object now.' }] }],
-      }),
+    const { text } = await llmChat({
+      model: args.model,
+      system: PROMPT,
+      messages: [{ role: 'user', content: [{ type: 'text', text: ctx }, ...(args.contentBlocks as ChatContentBlock[]), { type: 'text', text: 'Return the JSON object now.' }] }],
+      temperature: 0,
+      maxTokens: 6000,
+      jsonMode: true,
       signal: AbortSignal.timeout(170_000),
     })
-    if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      return { status: 'failed', model: args.model, anomalies: [], documents: [], error: `HTTP ${res.status} ${body.slice(0, 200)}`, elapsed_ms: Date.now() - started }
-    }
-    const data = await res.json() as { content?: Array<{ type: string; text?: string }> }
-    const text = (data.content || []).filter(c => c.type === 'text').map(c => c.text || '').join('')
     const parsed = extractJson(text)
-    if (!parsed) return { status: 'failed', model: args.model, anomalies: [], documents: [], error: 'unparseable output', elapsed_ms: Date.now() - started }
-    return sanitizeCoherenceOutput(parsed, args.model, Date.now() - started)
+    if (!parsed) return { status: 'failed', model: modelId, anomalies: [], documents: [], error: 'unparseable output', elapsed_ms: Date.now() - started }
+    return sanitizeCoherenceOutput(parsed, modelId, Date.now() - started)
   } catch (e) {
-    return { status: 'failed', model: args.model, anomalies: [], documents: [], error: (e as Error)?.message?.slice(0, 200) || 'error', elapsed_ms: Date.now() - started }
+    if (e instanceof LlmKeyMissingError) return { status: 'skipped', model: modelId, anomalies: [], documents: [], error: 'no api key', elapsed_ms: 0 }
+    return { status: 'failed', model: modelId, anomalies: [], documents: [], error: (e as Error)?.message?.slice(0, 200) || 'error', elapsed_ms: Date.now() - started }
   }
 }
 

@@ -11,10 +11,11 @@
 //         additions can't reintroduce a leak by hand-rolling a fetch.
 // 2026-06-02 — Code review §6 P1 — Aggregate 12s budget on CanLII fan-out (circuit breaker)
 import { NextRequest, NextResponse } from 'next/server'
+import { llmChatStream } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
 import { runForensics, forensicsToPromptBlock, type ForensicsReport } from '@/lib/forensics'
-import { getModelForUser, supportsTemperature } from '@/lib/modelConfig'
+import { DEFAULT_MODELS, getModelDef, getModelDefAsync, getModelForUser } from '@/lib/modelConfig'
 import { applyPageBudget } from '@/lib/anthropic/page-budget'
 import { captureException } from '@/lib/observability/sentry'
 import type { CourtQuery, CanLIIMatch, OntarioPortalMatch, V3Scores, CrossDocVerification, LtbCheck, CreditReport } from '@/lib/screening-types'
@@ -845,11 +846,10 @@ export async function POST(req: NextRequest) {
     // 24 and the rules could not. Runs alongside court + forensics so it
     // adds no latency; its findings feed the scoring prompt below.
     const coherenceModel = await getModelForUser('screening', userData.user.id)
+    const coherenceDef = (await getModelDefAsync(coherenceModel)) ?? getModelDef(DEFAULT_MODELS.screening)!
     const coherencePromise: Promise<CoherenceReview> = runCoherenceReview({
       contentBlocks,
-      model: coherenceModel,
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      supportsTemperature: supportsTemperature(coherenceModel),
+      model: coherenceDef,
       applicant: {
         name: nameForLookup || null,
         phone: phoneMatch ? `${phoneMatch[1]}${phoneMatch[2]}${phoneMatch[3]}` : null,
@@ -1069,46 +1069,12 @@ JSON DISCIPLINE (avoid parse errors):
       userContent.push(...contentBlocks)
     }
 
-    // Admin-configurable model slot (60s edge cache) — see lib/modelConfig.ts.
+    // Admin-configurable model slot (60s edge cache) + per-user preference —
+    // see lib/modelConfig.ts. Any vision-capable catalogue model may serve this
+    // slot (2026-08-22); llmChatStream converts documents/images per provider
+    // and streams text deltas so the progress bar reflects real generation.
     const scoringModel = await getModelForUser('screening', userData.user.id)
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: scoringModel,
-        // Temperature 0 = deterministic scoring. Same documents should
-        // produce the same scores every time. Sonnet 5 / Opus 4.8 reject
-        // sampling params outright (400) — omit the field there.
-        ...(supportsTemperature(scoringModel) ? { temperature: CLAUDE_TEMPERATURE } : {}),
-        // With the lean v3 schema (sparse sub_coverage, tight length caps
-        // on details/flags/action_items) the full output fits comfortably
-        // under 2000 tokens. 3500 gives 75% headroom without wasting
-        // decode time on excessive budget.
-        // Lean v3 output is ~2k tokens, but transcribing a full credit
-        // report (tradelines + collections + inquiries) can add several k,
-        // so give generous headroom to avoid mid-report truncation.
-        max_tokens: CLAUDE_MAX_TOKENS,
-        // Streaming lets us report REAL generation progress (output chars →
-        // pct 38-71) instead of freezing the bar for the whole 20-40s call.
-        stream: true,
-        system: [
-          { type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } },
-        ],
-        messages: [
-          { role: 'user', content: userContent },
-        ],
-      }),
-    })
-
-    if (!response.ok || !response.body) {
-      const errText = await response.text()
-      await supabase.from('screenings').update({ status: 'error', error: errText.slice(0, 500) }).eq('id', screening_id)
-      return NextResponse.json({ error: `Anthropic API error: ${errText}` }, { status: 500 })
-    }
+    const scoringDef = (await getModelDefAsync(scoringModel)) ?? getModelDef(DEFAULT_MODELS.screening)!
 
     // ---- Consume the SSE stream, reporting real generation progress ----
     // The v3 schema keys are emitted in a fixed order, so the most recent
@@ -1148,58 +1114,44 @@ JSON DISCIPLINE (avoid parse errors):
     let streamError: string | null = null
     let sawMessageStop = false
     let lastProgressWrite = 0
-    {
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let sseBuf = ''
-      const processLine = (rawLine: string) => {
-        const line = rawLine.trim()
-        if (!line.startsWith('data:')) return
-        try {
-          const ev = JSON.parse(line.slice(5).trim()) as {
-            type?: string
-            delta?: { type?: string; text?: string; stop_reason?: string }
-            error?: { type?: string; message?: string }
+    try {
+      const streamed = await llmChatStream({
+        model: scoringDef,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userContent }],
+        // Temperature 0 = deterministic scoring. Same documents should
+        // produce the same scores every time (omitted automatically on
+        // models that reject sampling params).
+        temperature: CLAUDE_TEMPERATURE,
+        // Lean v3 output is ~2k tokens, but transcribing a full credit
+        // report (tradelines + collections + inquiries) can add several k,
+        // so give generous headroom to avoid mid-report truncation.
+        maxTokens: CLAUDE_MAX_TOKENS,
+        jsonMode: true,
+        onText: (acc) => {
+          const now = Date.now()
+          if (now - lastProgressWrite > 1200 && acc.length > 0) {
+            lastProgressWrite = now
+            const pct = 38 + Math.round(Math.min(0.95, acc.length / EXPECTED_CHARS) * 35)
+            const [zh, en] = sniffSection(acc)
+            writeProgress('ai_scoring', pct, `${zh} · 已生成 ${acc.length.toLocaleString()} 字符`, `${en} · ${acc.length.toLocaleString()} chars generated`)
           }
-          if (ev.type === 'content_block_delta' && ev.delta?.text) rawText += ev.delta.text
-          else if (ev.type === 'message_delta' && ev.delta?.stop_reason) stopReason = ev.delta.stop_reason
-          else if (ev.type === 'message_stop') sawMessageStop = true
-          else if (ev.type === 'error') {
-            // Mid-stream API error (overloaded_error etc). MUST be surfaced:
-            // a partial rawText would otherwise be salvage-parsed into valid
-            // JSON and the screening would "succeed" with missing sections.
-            streamError = ev.error?.type || 'stream_error'
-          }
-        } catch { /* keep-alive / non-JSON lines are expected in SSE */ }
-      }
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) break
-        sseBuf += decoder.decode(value, { stream: true })
-        let nl: number
-        while ((nl = sseBuf.indexOf('\n')) >= 0) {
-          processLine(sseBuf.slice(0, nl))
-          sseBuf = sseBuf.slice(nl + 1)
-        }
-        const now = Date.now()
-        if (now - lastProgressWrite > 1200 && rawText.length > 0) {
-          lastProgressWrite = now
-          const pct = 38 + Math.round(Math.min(0.95, rawText.length / EXPECTED_CHARS) * 35)
-          const [zh, en] = sniffSection(rawText)
-          writeProgress('ai_scoring', pct, `${zh} · 已生成 ${rawText.length.toLocaleString()} 字符`, `${en} · ${rawText.length.toLocaleString()} chars generated`)
-        }
-      }
-      // Flush: a final line without a trailing \n (proxy trim / clean
-      // half-close) would otherwise be dropped — it can carry the closing
-      // message_delta (stop_reason) or the last content delta.
-      sseBuf += decoder.decode()
-      for (const tail of sseBuf.split('\n')) processLine(tail)
+        },
+      })
+      rawText = streamed.text
+      stopReason = streamed.stopReason
+      streamError = streamed.streamError
+      sawMessageStop = streamed.sawStop
+    } catch (e) {
+      const errText = e instanceof Error ? e.message : String(e)
+      await supabase.from('screenings').update({ status: 'error', error: errText.slice(0, 500) }).eq('id', screening_id)
+      return NextResponse.json({ error: `Model API error (${scoringDef.id}): ${errText.slice(0, 300)}` }, { status: 500 })
     }
     // A mid-stream error means the output is incomplete — fail the screening
     // loudly rather than salvage-parsing a partial report. (A message_stop
     // after the error would mean the stream actually completed; keep it.)
     if (streamError && !sawMessageStop) {
-      const errMsg = `Anthropic stream error after ${rawText.length} chars: ${streamError}`
+      const errMsg = `Model stream error after ${rawText.length} chars: ${streamError}`
       await supabase.from('screenings').update({ status: 'error', error: errMsg }).eq('id', screening_id)
       return NextResponse.json({ error: errMsg }, { status: 500 })
     }

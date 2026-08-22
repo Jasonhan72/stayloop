@@ -102,3 +102,14 @@ insert into public.model_catalog (id, label, note, provider, base_url, api_key_e
 on conflict (id) do nothing;
 -- Superseded aliases stay in history but are switched off (any preference pointing at them falls back to the default).
 update public.model_catalog set enabled = false, builtin = false, updated_at = now() where id in ('qwen-plus', 'glm-4.6');
+
+-- 2026-08-22: document slots opened to every vision-capable provider (product decision).
+-- pdf_input = how PDFs reach an openai-compat model (see lib/modelConfig.ts ModelDef.pdfInput).
+alter table public.model_catalog add column if not exists pdf_input text not null default 'text'
+  check (pdf_input in ('text','file','image_url'));
+update public.model_catalog set vision = true, allowed_slots = '{turn,screening,classify,forensics}', pdf_input = 'file', updated_at = now()
+  where builtin and id in ('gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','qwen3.8-max');
+update public.model_catalog set vision = true, allowed_slots = '{turn,screening,classify,forensics}', pdf_input = 'image_url', updated_at = now()
+  where builtin and id in ('gemini-3.7-flash','gemini-3.1-pro-preview','gemini-3.5-flash-lite');
+update public.model_catalog set vision = true, allowed_slots = '{turn,screening,classify,forensics}', pdf_input = 'text', updated_at = now()
+  where builtin and id in ('kimi-k3','kimi-k2.6','qwen3.7-plus','qwen3.7-flash');

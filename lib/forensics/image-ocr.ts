@@ -15,8 +15,8 @@
 // result means downstream checks fall back to text_density.text_sample.
 // -----------------------------------------------------------------------------
 
-import { getModel, supportsAssistantPrefill } from '../modelConfig'
-import { anthropicText } from '../llmChat'
+import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '../modelConfig'
+import { llmChat, type ChatContentBlock } from '../llmChat'
 import type { OcrResult } from './types'
 
 const OCR_PROMPT = `You are running OCR on a Canadian rental-application document that is likely an image-only PDF (a scan or photo). Extract ALL visible text verbatim plus a small set of structured fields.
@@ -56,44 +56,31 @@ export async function ocrImagePdf(
     content.push({ type: 'text', text: OCR_PROMPT })
 
     // Admin-configurable model slot (60s cache) — see lib/modelConfig.ts.
-    // Prefill JSON start only on models that still accept assistant-prefill;
-    // the '{' is re-added below ONLY when we actually prefilled it.
-    const model = await getModel('forensics')
-    const prefill = supportsAssistantPrefill(model)
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
+    // llmChat handles provider differences: assistant-prefill "{" on Haiku,
+    // JSON mode elsewhere; documents/images converted per provider.
+    const def = (await getModelDefAsync(await getModel('forensics'))) ?? getModelDef(DEFAULT_MODELS.forensics)!
+    if (!apiKey && def.provider === 'anthropic') return null
+    let raw = ''
+    let stopReason: string | undefined
+    try {
+      const out = await llmChat({
+        model: def,
+        system: 'You are a document OCR engine. Output strictly the JSON requested — no markdown, no prose.',
+        messages: [{ role: 'user', content: content as ChatContentBlock[] }],
         // Bumped from 2500 to 4000: a dense Canadian passport biopage + visa
         // pages can yield 1500+ tokens of OCR text alone. With the prompt
         // overhead + JSON wrapper, 2500 was hitting the cap mid-output
-        // and causing parseOcrOutput to silently return null. Cost delta
-        // is ~$0.005 vs $0.003 per call — worth the reliability.
-        max_tokens: 4000,
-        messages: prefill
-          ? [
-              { role: 'user', content },
-              { role: 'assistant', content: '{' },  // prefill JSON start for determinism
-            ]
-          : [{ role: 'user', content }],
-      }),
-      signal: AbortSignal.timeout(30_000),
-    })
-
-    if (!res.ok) {
-      console.warn('[image-ocr] Haiku HTTP', res.status, await res.text().catch(() => ''))
+        // and causing parseOcrOutput to silently return null.
+        maxTokens: 4000,
+        prefillJson: true,
+        signal: AbortSignal.timeout(30_000),
+      })
+      raw = out.text
+      stopReason = out.stopReason
+    } catch (e) {
+      console.warn('[image-ocr] model call failed', def.id, (e as Error)?.message)
       return null
     }
-    const json: any = await res.json()
-    // Re-add the prefilled "{" only when we actually prefilled it — blindly
-    // prepending to a non-prefilled, prose-wrapped answer corrupts parsing.
-    const raw = (prefill ? '{' : '') + anthropicText(json)
-    const stopReason = json?.stop_reason
     const parsed = parseOcrOutput(raw)
     if (!parsed) {
       // Most common cause of failure: stop_reason='max_tokens' truncated the
