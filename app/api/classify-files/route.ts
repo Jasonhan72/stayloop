@@ -573,10 +573,19 @@ export async function POST(req: NextRequest) {
     rent_label_seen: string | null
   }[] = []
 
+  // Batch failures must be VISIBLE (2026-08-22): a rejected batch used to
+  // degrade silently into "no kinds" for every file, which the UI showed as
+  // a mysterious classification failure. Collect reasons and return them.
+  const batchErrors: string[] = []
   for (let bi = 0; bi < batches.length; bi++) {
     const batch = batches[bi]
     const batchStart = bi * MAX_FILES_PER_BATCH
     const result = batchResults[bi]
+    if (result.status === 'rejected') {
+      const msg = String((result.reason as Error)?.message || result.reason).slice(0, 300)
+      console.error(`[classify-files] batch ${bi} failed:`, msg)
+      batchErrors.push(`batch ${bi + 1}: ${msg}`)
+    }
 
     if (result.status === 'fulfilled') {
       const parsed = result.value
@@ -668,6 +677,10 @@ export async function POST(req: NextRequest) {
     classifications: allClassifications,
     applicant_name: applicantName,
     monthly_rent: monthlyRent,
+    // Non-empty when one or more model batches failed (files in those
+    // batches carry no kinds). The UI surfaces this instead of guessing.
+    batch_errors: batchErrors,
+    ...(batchErrors.length === batches.length ? { error: `Classification failed: ${batchErrors[0]}` } : {}),
     // 2026-06-02 — Employers visible in ANY uploaded document, not just
     // paystubs / employment letters. Lets the downstream Arm's Length
     // check auto-run for self-employed applicants who only have a
