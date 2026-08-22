@@ -2361,7 +2361,9 @@ export default function ScreenPage() {
       // raw "Unexpected token <" parse error is useless to the user.
       const data = await res.json().catch(() => ({} as Record<string, unknown>))
       stopProgressTracking()
-      if (!res.ok) throw new Error(data.error || `Scoring failed (HTTP ${res.status})`)
+      // The route answers 200 + keepalive stream for long runs (Cloudflare 524
+      // shield) and carries a failed handler result as {error, __status}.
+      if (!res.ok || typeof data.error === 'string') throw new Error((data.error as string) || `Scoring failed (HTTP ${res.status})`)
       // 200 with an empty/garbled body must not render a broken report
       if (typeof data.overall !== 'number') {
         throw new Error(lang === 'zh' ? '评分服务返回了不完整的结果,请重试。' : 'The scoring service returned an incomplete result. Please retry.')

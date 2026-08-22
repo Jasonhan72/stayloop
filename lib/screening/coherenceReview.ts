@@ -202,7 +202,9 @@ export async function runCoherenceReview(args: {
       temperature: 0,
       maxTokens: 6000,
       jsonMode: true,
-      signal: AbortSignal.timeout(170_000),
+      // 120 s: generous for 7+ documents, but bounded — the review is an input to
+      // scoring, and the whole screening must stay well inside the worker budget.
+      signal: AbortSignal.timeout(120_000),
     })
     const parsed = extractJson(text)
     if (!parsed) return { status: 'failed', model: modelId, anomalies: [], documents: [], error: 'unparseable output', elapsed_ms: Date.now() - started }

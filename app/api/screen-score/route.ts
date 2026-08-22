@@ -599,7 +599,64 @@ export function countDebtRelevantHits(
   return seen.size
 }
 
+// ---------------------------------------------------------------------------
+// Gateway-timeout shield (2026-08-22). Cloudflare returns HTTP 524 to the
+// browser when the origin has not started its response within ~100 s — and a
+// full screening (court lookups + forensics + the read-everything coherence
+// review, then streamed scoring) can legitimately take longer than that. The
+// backend kept running; the user saw "Scoring failed (HTTP 524)".
+//
+// Fix: the real handler is unchanged below; POST races it against an 8 s
+// timer. Fast outcomes (validation / auth / not-found) keep their real status.
+// Anything slower is answered IMMEDIATELY with a 200 whose body is a stream:
+// whitespace heartbeats every 10 s (JSON.parse tolerates leading whitespace),
+// then the handler's JSON body. A non-2xx handler result is carried inside
+// the JSON as {error, __status} — the client checks `data.error` too.
+// ---------------------------------------------------------------------------
+const STREAM_AFTER_MS = 8_000
+const HEARTBEAT_MS = 10_000
+
 export async function POST(req: NextRequest) {
+  const work = handleScreenScore(req)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const quick = await Promise.race([
+    work.then((r) => ({ r })).catch((e) => ({ e })),
+    new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), STREAM_AFTER_MS) }),
+  ])
+  if (quick) {
+    if (timer) clearTimeout(timer)
+    if ('r' in quick) return quick.r
+    return NextResponse.json({ error: String((quick.e as Error)?.message || quick.e).slice(0, 300) }, { status: 500 })
+  }
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>()
+  const writer = writable.getWriter()
+  const enc = new TextEncoder()
+  const hb = setInterval(() => { writer.write(enc.encode(' ')).catch(() => {}) }, HEARTBEAT_MS)
+  ;(async () => {
+    let payload: string
+    try {
+      const r = await work
+      const text = await r.text()
+      if (r.ok) payload = text
+      else {
+        let j: Record<string, unknown> = {}
+        try { j = JSON.parse(text) } catch { /* non-JSON error body */ }
+        payload = JSON.stringify({ ...j, error: (typeof j.error === 'string' && j.error) || text.slice(0, 300) || `HTTP ${r.status}`, __status: r.status })
+      }
+    } catch (e) {
+      payload = JSON.stringify({ error: String((e as Error)?.message || e).slice(0, 300), __status: 500 })
+    }
+    clearInterval(hb)
+    try { await writer.write(enc.encode('\n' + payload)) } catch { /* client gone */ }
+    try { await writer.close() } catch { /* already closed */ }
+  })()
+  return new Response(readable, {
+    status: 200,
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Stayloop-Stream': 'keepalive' },
+  })
+}
+
+async function handleScreenScore(req: NextRequest): Promise<Response> {
   try {
     const body = await readJsonBody<{ screening_id?: string }>(req)
     if (!body) return NextResponse.json(INVALID_BODY, { status: 400 })
