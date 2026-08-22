@@ -72,8 +72,39 @@ let _unpdfPromise: Promise<typeof import('unpdf')> | null = null
 // 2-D affine DOMMatrix plus inert Path2D/ImageData stand-ins are enough to
 // let the bundle load. Installed only when the globals are missing.
 // ---------------------------------------------------------------------------
+// next-on-pages wraps every route chunk as `(self, globalThis, global) => …`
+// and passes a per-route proxy, so `globalThis.DOMMatrix = …` lands on the
+// proxy — while pdf.js's module-level `let x = new DOMMatrix` is a bare
+// identifier resolved against the REAL V8 global, which never sees it
+// (diagnosed 2026-08-21: the proxy reported DOMMatrix === 'function' and the
+// bundle still threw "DOMMatrix is not defined"). The standard way to reach
+// the real global without eval/Function (both disallowed in Workers) is the
+// globalThis-proposal polyfill trick: a temporary Object.prototype getter
+// whose `this` is the receiver of a bare-identifier lookup.
+declare const __stayloop_real_global__: Record<string, unknown>
+export function getRealGlobal(): Record<string, unknown> {
+  const fallback = globalThis as unknown as Record<string, unknown>
+  const key = '__stayloop_real_global__'
+  try {
+    Object.defineProperty(Object.prototype, key, { get() { return this }, configurable: true })
+    try {
+      const g = __stayloop_real_global__
+      return (g && typeof g === 'object') ? g : fallback
+    } finally {
+      delete (Object.prototype as unknown as Record<string, unknown>)[key]
+    }
+  } catch {
+    return fallback
+  }
+}
+
 export function installPdfjsPolyfills(): void {
-  const g = globalThis as unknown as Record<string, unknown>
+  installPdfjsPolyfillsOn(globalThis as unknown as Record<string, unknown>)
+  const real = getRealGlobal()
+  if (real !== (globalThis as unknown)) installPdfjsPolyfillsOn(real)
+}
+
+function installPdfjsPolyfillsOn(g: Record<string, unknown>): void {
   if (typeof g.DOMMatrix === 'undefined') {
     class DOMMatrixPolyfill {
       a = 1; b = 0; c = 0; d = 1; e = 0; f = 0
@@ -140,7 +171,13 @@ try { installPdfjsPolyfills() } catch { /* never fatal */ }
 /** For the admin diagnostic route. */
 export function pdfTextDebugInfo(): Record<string, unknown> {
   const g = globalThis as unknown as Record<string, unknown>
-  return { DOMMatrix: typeof g.DOMMatrix, Path2D: typeof g.Path2D, ImageData: typeof g.ImageData, OffscreenCanvas: typeof g.OffscreenCanvas, lastError: lastTextExtractError }
+  const real = getRealGlobal()
+  return {
+    DOMMatrix: typeof g.DOMMatrix, Path2D: typeof g.Path2D, ImageData: typeof g.ImageData, OffscreenCanvas: typeof g.OffscreenCanvas,
+    realGlobalIsGlobalThis: real === (globalThis as unknown),
+    real_DOMMatrix: typeof real.DOMMatrix, real_Path2D: typeof real.Path2D, real_ImageData: typeof real.ImageData,
+    lastError: lastTextExtractError,
+  }
 }
 
 function loadUnpdf(): Promise<typeof import('unpdf')> {
