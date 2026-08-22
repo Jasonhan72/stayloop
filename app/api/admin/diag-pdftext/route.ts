@@ -9,7 +9,7 @@ export const runtime = 'edge'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { PDFDocument, StandardFonts } from 'pdf-lib'
-import { readPdfTextDensity, lastTextExtractError } from '@/lib/forensics/pdf-text'
+import { readPdfTextDensity, lastTextExtractError, installPdfjsPolyfills, pdfTextDebugInfo } from '@/lib/forensics/pdf-text'
 
 export async function GET(req: NextRequest) {
   const auth = (req.headers.get('authorization') || '').replace(/[^\x20-\x7E]/g, '').trim()
@@ -24,6 +24,9 @@ export async function GET(req: NextRequest) {
   page.drawText('Stayloop text extraction diagnostic 2026', { x: 20, y: 100, size: 14, font })
   const bytes = await doc.save()
 
+  const before = pdfTextDebugInfo()
+  installPdfjsPolyfills()
+  const after = pdfTextDebugInfo()
   const t0 = Date.now()
   const result = await readPdfTextDensity(bytes)
   return NextResponse.json({
@@ -31,6 +34,8 @@ export async function GET(req: NextRequest) {
     elapsed_ms: Date.now() - t0,
     result,
     last_error: lastTextExtractError,
+    globals_before: before,
+    globals_after: after,
     runtime: 'edge',
   })
 }

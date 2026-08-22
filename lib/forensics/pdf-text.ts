@@ -72,7 +72,7 @@ let _unpdfPromise: Promise<typeof import('unpdf')> | null = null
 // 2-D affine DOMMatrix plus inert Path2D/ImageData stand-ins are enough to
 // let the bundle load. Installed only when the globals are missing.
 // ---------------------------------------------------------------------------
-function installPdfjsPolyfills(): void {
+export function installPdfjsPolyfills(): void {
   const g = globalThis as unknown as Record<string, unknown>
   if (typeof g.DOMMatrix === 'undefined') {
     class DOMMatrixPolyfill {
@@ -132,6 +132,17 @@ function installPdfjsPolyfills(): void {
  *  readPdfTextDensity itself stays silent so a pdf.js hiccup never fails a
  *  screening, but "silent" must not mean "invisible". */
 export let lastTextExtractError: string | null = null
+// Install at MODULE EVALUATION too: if the bundler inlines the pdf.js chunk
+// so that it is evaluated at worker boot, the call-time install above would
+// come too late. Top-level + call-time covers both shapes.
+try { installPdfjsPolyfills() } catch { /* never fatal */ }
+
+/** For the admin diagnostic route. */
+export function pdfTextDebugInfo(): Record<string, unknown> {
+  const g = globalThis as unknown as Record<string, unknown>
+  return { DOMMatrix: typeof g.DOMMatrix, Path2D: typeof g.Path2D, ImageData: typeof g.ImageData, OffscreenCanvas: typeof g.OffscreenCanvas, lastError: lastTextExtractError }
+}
+
 function loadUnpdf(): Promise<typeof import('unpdf')> {
   if (!_unpdfPromise) {
     installPdfjsPolyfills()
