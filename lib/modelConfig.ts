@@ -1,29 +1,51 @@
 // -----------------------------------------------------------------------------
-// Admin-switchable AI model slots (2026-07-20)
+// AI model catalogue + slots + per-user preferences (2026-07-20, reworked 2026-08-21)
 //
-// Single source of truth for which Claude model each AI surface uses. The
-// value lives in public.app_config (key='models', jsonb) and is editable from
-// /admin/models; RLS restricts reads/writes to is_stayloop_admin(), while the
-// server reads via the service-role key (RLS bypass).
+// Three layers, all resolved server-side with a per-isolate cache:
+//
+//   1. CATALOGUE — which models exist at all. Seeded from BUILTIN_MODELS (this
+//      file) and extended/overridden by admins through public.model_catalog
+//      (/admin/models → 「模型目录」). A DB row with the same id as a builtin
+//      overrides it (so admins can disable or relabel builtins); unknown ids
+//      are appended. If the table is unreachable the builtins alone serve.
+//   2. SLOTS — which catalogue model each AI surface uses by default. Lives in
+//      public.app_config (key='models'); edited from /admin/models.
+//   3. USER PREFERENCES — a signed-in user may pick, per user-facing slot, a
+//      catalogue model flagged user_selectable (/settings/models). Stored in
+//      public.user_model_preferences; resolved by getModelForUser().
 //
 // Design constraints:
-//   • getModels()/getModel() are SERVER-ONLY (edge-safe) — they use
-//     SUPABASE_SERVICE_ROLE_KEY. Never call them from client components.
-//   • ALLOWED_MODELS / DEFAULT_MODELS / MODEL_SLOTS / the capability helpers
-//     are safe to import from client code — the admin UI shares this
-//     whitelist for its dropdown and pre-write validation.
+//   • getCatalog()/getModels()/getModel()/getModelForUser() are SERVER-ONLY
+//     (edge-safe) — they use SUPABASE_SERVICE_ROLE_KEY. Never call them from
+//     client components.
+//   • BUILTIN_MODELS / DEFAULT_MODELS / MODEL_SLOTS / PROVIDER_KEYS / the
+//     capability helpers / rowToModel / mergeCatalog are safe to import from
+//     client code — the admin + settings UIs share them for validation.
 //   • The config layer must NEVER take an AI feature down: any failure
 //     (missing table, bad row, network) falls back to the last cached value,
-//     then to DEFAULT_MODELS. Non-whitelisted values in the DB are replaced
-//     per-slot by the default (dirty-data guard).
+//     then to the builtins + DEFAULT_MODELS. Non-conforming values are
+//     replaced per-slot by the default (dirty-data guard).
+//   • SECURITY: a catalogue row names the env var holding its API key and the
+//     base URL the key is sent to. An admin-level compromise must not turn
+//     this into a key-exfiltration channel, so rowToModel() enforces
+//     PROVIDER_KEYS: the env name must be a known provider key AND the base
+//     URL host must be on that provider's allow-list. The two CUSTOM_LLM
+//     envs are the escape hatch for gateways like OpenRouter: any https host,
+//     but only ever carrying their own dedicated key.
 //   • Per-isolate in-memory cache, 60s TTL — a saved change propagates to
-//     every edge isolate within at most ~60 seconds.
+//     every edge isolate within at most ~60 seconds (user prefs: 30s).
 // -----------------------------------------------------------------------------
 import { createClient } from '@supabase/supabase-js'
 
 export type ModelSlot = 'turn' | 'screening' | 'classify' | 'forensics'
 
 export const MODEL_SLOTS: ModelSlot[] = ['turn', 'screening', 'classify', 'forensics']
+
+/** Slots a signed-in user may override for themselves (/settings/models). classify/forensics are internal mechanics. */
+export const USER_SLOTS: ModelSlot[] = ['turn', 'screening']
+
+/** 敏感槽位：证件/流水/视觉取证，只允许 Anthropic 模型（数据合规 + 需要视觉）。服务端与后台 UI 同时强制。 */
+export const SENSITIVE_SLOTS: ModelSlot[] = ['screening', 'classify', 'forensics']
 
 // Must stay in sync with the seed row in
 // supabase/migrations/20260720_app_config_models.sql.
@@ -60,14 +82,63 @@ export interface ModelDef {
   maxTokensParam?: 'max_tokens' | 'max_completion_tokens'
 }
 
+/** A catalogue entry = ModelDef + admin switches. */
+export interface CatalogModel extends ModelDef {
+  /** 用户可在 /settings/models 自选（后台开关，默认开）。 */
+  userSelectable: boolean
+  /** 停用后：不可被槽位/用户选中，已选的回退默认。 */
+  enabled: boolean
+  /** 来自代码内置清单（可被后台覆盖，不可删除——删除行即恢复内置定义）。 */
+  builtin: boolean
+  sortOrder: number
+}
+
 /** @deprecated 用 ModelDef */
 export type AllowedModel = ModelDef
 
 const ALL_SLOTS: ModelSlot[] = [...MODEL_SLOTS]
 
-// Whitelist shared by the admin UI dropdown and write validation. Adding a
-// model here is the only step needed to make it selectable.
-export const ALLOWED_MODELS: ModelDef[] = [
+// ── Provider key registry (the security allow-list) ──────────────────────────
+//
+// env → which provider type it belongs to and which hosts it may be sent to.
+// hosts '*' = any https host (dedicated keys for custom gateways only).
+export interface ProviderKeyInfo {
+  label: string
+  provider: ModelProvider
+  hosts: string[] | '*'
+  /** 建议 baseUrl（后台「添加模型」预填） */
+  defaultBaseUrl?: string
+}
+export const PROVIDER_KEYS: Record<string, ProviderKeyInfo> = {
+  ANTHROPIC_API_KEY: { label: 'Anthropic (Claude)', provider: 'anthropic', hosts: ['api.anthropic.com'] },
+  OPENAI_API_KEY: { label: 'OpenAI', provider: 'openai-compat', hosts: ['api.openai.com'], defaultBaseUrl: 'https://api.openai.com/v1' },
+  GEMINI_API_KEY: { label: 'Google Gemini (AI Studio)', provider: 'openai-compat', hosts: ['generativelanguage.googleapis.com'], defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai' },
+  DEEPSEEK_API_KEY: { label: 'DeepSeek', provider: 'openai-compat', hosts: ['api.deepseek.com'], defaultBaseUrl: 'https://api.deepseek.com' },
+  MOONSHOT_API_KEY: { label: 'Moonshot (Kimi)', provider: 'openai-compat', hosts: ['api.moonshot.cn', 'api.moonshot.ai'], defaultBaseUrl: 'https://api.moonshot.cn/v1' },
+  DASHSCOPE_API_KEY: { label: '阿里云百炼 (Qwen)', provider: 'openai-compat', hosts: ['dashscope.aliyuncs.com', 'dashscope-intl.aliyuncs.com'], defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+  ZHIPU_API_KEY: { label: '智谱 (GLM)', provider: 'openai-compat', hosts: ['open.bigmodel.cn'], defaultBaseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
+  OPENROUTER_API_KEY: { label: 'OpenRouter', provider: 'openai-compat', hosts: ['openrouter.ai'], defaultBaseUrl: 'https://openrouter.ai/api/v1' },
+  CUSTOM_LLM_API_KEY_1: { label: '自定义网关 1（任意 OpenAI 兼容 https 端点）', provider: 'openai-compat', hosts: '*' },
+  CUSTOM_LLM_API_KEY_2: { label: '自定义网关 2（任意 OpenAI 兼容 https 端点）', provider: 'openai-compat', hosts: '*' },
+}
+export const PROVIDER_KEY_ENVS = Object.keys(PROVIDER_KEYS)
+
+/** baseUrl 是否允许搭配该 env（https + host 在白名单内）。纯函数，客户端可用。 */
+export function baseUrlAllowedFor(apiKeyEnv: string, baseUrl: string | undefined): boolean {
+  const info = PROVIDER_KEYS[apiKeyEnv]
+  if (!info) return false
+  if (info.provider === 'anthropic') return !baseUrl
+  if (!baseUrl) return false
+  let u: URL
+  try { u = new URL(baseUrl) } catch { return false }
+  if (u.protocol !== 'https:') return false
+  if (u.username || u.password) return false
+  if (info.hosts === '*') return true
+  return info.hosts.includes(u.hostname.toLowerCase())
+}
+
+// ── Builtin catalogue (code-level seed + fallback) ───────────────────────────
+export const BUILTIN_MODELS: ModelDef[] = [
   // ── Anthropic（全槽位可用）──────────────────────────────────────────────
   { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', note: '最新旗舰推理 — 编码/代理任务接近 Opus 级', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '高', allowedSlots: ALL_SLOTS },
   { id: 'claude-opus-4-8', label: 'Claude Opus 4.8', note: '最强 Opus 级 — 最难的长程推理任务（成本最高）', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '高', allowedSlots: ALL_SLOTS },
@@ -88,9 +159,22 @@ export const ALLOWED_MODELS: ModelDef[] = [
   { id: 'glm-4.6', label: '智谱 GLM-4.6', note: '智谱 GLM-4.6 — 低成本中文对话/代理', provider: 'openai-compat', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKeyEnv: 'ZHIPU_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
 ]
 
-/** 按模型 id 查定义；未知 id 返回 undefined。 */
+/** @deprecated 用 BUILTIN_MODELS（或服务端 getCatalog()）。保留给旧导入。 */
+export const ALLOWED_MODELS: ModelDef[] = BUILTIN_MODELS
+
+/** Builtins lifted to CatalogModel (the no-DB fallback). */
+export const BUILTIN_CATALOG: CatalogModel[] = BUILTIN_MODELS.map((m, i) => ({
+  ...m, userSelectable: true, enabled: true, builtin: true, sortOrder: (i + 1) * 10,
+}))
+
+/** 按模型 id 查【内置】定义；未知 id 返回 undefined。服务端请用 findModel(id, await getCatalog())。 */
 export function getModelDef(modelId: string): ModelDef | undefined {
-  return ALLOWED_MODELS.find((m) => m.id === modelId)
+  return BUILTIN_MODELS.find((m) => m.id === modelId)
+}
+
+/** 在目录中查模型（含停用行——调用方自行检查 enabled）。 */
+export function findModel(modelId: string, catalog: CatalogModel[]): CatalogModel | undefined {
+  return catalog.find((m) => m.id === modelId)
 }
 
 /**
@@ -99,7 +183,90 @@ export function getModelDef(modelId: string): ModelDef | undefined {
  * 所以此函数只能在服务端调用（管理页通过 /api/admin/model-providers 拿布尔）。
  */
 export function providerAvailable(def: ModelDef): boolean {
-  return !!(process.env[def.apiKeyEnv] || '').trim()
+  return providerEnvAvailable(def.apiKeyEnv)
+}
+export function providerEnvAvailable(apiKeyEnv: string): boolean {
+  if (!PROVIDER_KEYS[apiKeyEnv]) return false
+  return !!(process.env[apiKeyEnv] || '').trim()
+}
+
+// ── Catalogue rows (public.model_catalog) ────────────────────────────────────
+
+export const MODEL_ID_RE = /^[a-z0-9][a-z0-9._:/-]{1,95}$/i
+
+/** DB row shape (snake_case, as stored). */
+export interface CatalogRow {
+  id: string
+  label: string
+  note: string | null
+  provider: string
+  base_url: string | null
+  api_key_env: string
+  vision: boolean
+  cost_tier: string
+  allowed_slots: string[] | null
+  omit_temperature: boolean | null
+  max_tokens_param: string | null
+  user_selectable: boolean | null
+  enabled: boolean | null
+  sort_order: number | null
+  builtin?: boolean | null
+}
+
+/**
+ * Validate + convert one DB row. Returns null for anything that would be
+ * unsafe or unusable (unknown env, disallowed host, bad provider/tier/id).
+ * Sensitive slots are clamped to Anthropic regardless of what the row says.
+ * Pure — shared by the server merge and the admin form's pre-write check.
+ */
+export function rowToModel(row: unknown): CatalogModel | null {
+  if (!row || typeof row !== 'object') return null
+  const r = row as Partial<CatalogRow>
+  if (typeof r.id !== 'string' || !MODEL_ID_RE.test(r.id)) return null
+  if (r.provider !== 'anthropic' && r.provider !== 'openai-compat') return null
+  if (typeof r.api_key_env !== 'string' || !PROVIDER_KEYS[r.api_key_env]) return null
+  if (PROVIDER_KEYS[r.api_key_env].provider !== r.provider) return null
+  const baseUrl = typeof r.base_url === 'string' && r.base_url.trim() ? r.base_url.trim().replace(/\/+$/, '') : undefined
+  if (!baseUrlAllowedFor(r.api_key_env, baseUrl)) return null
+  const costTier: CostTier = r.cost_tier === '低' || r.cost_tier === '中' || r.cost_tier === '高' ? r.cost_tier : '中'
+  let slots = (Array.isArray(r.allowed_slots) ? r.allowed_slots : []).filter((s): s is ModelSlot => (MODEL_SLOTS as string[]).includes(s))
+  if (r.provider !== 'anthropic') slots = slots.filter((s) => !SENSITIVE_SLOTS.includes(s))
+  if (!slots.length) slots = r.provider === 'anthropic' ? [...MODEL_SLOTS] : ['turn']
+  const label = typeof r.label === 'string' && r.label.trim() ? r.label.trim().slice(0, 80) : r.id
+  return {
+    id: r.id,
+    label,
+    note: typeof r.note === 'string' ? r.note.slice(0, 300) : '',
+    provider: r.provider,
+    baseUrl,
+    apiKeyEnv: r.api_key_env,
+    vision: r.provider === 'anthropic' ? r.vision !== false : false,
+    costTier,
+    allowedSlots: slots,
+    omitTemperature: r.omit_temperature === true || undefined,
+    maxTokensParam: r.max_tokens_param === 'max_completion_tokens' ? 'max_completion_tokens' : undefined,
+    userSelectable: r.user_selectable !== false,
+    enabled: r.enabled !== false,
+    builtin: !!BUILTIN_MODELS.find((m) => m.id === r.id),
+    sortOrder: typeof r.sort_order === 'number' && Number.isFinite(r.sort_order) ? r.sort_order : 1000,
+  }
+}
+
+/**
+ * Builtins + DB rows → effective catalogue. DB rows override builtins by id
+ * (that is how admins disable/relabel a builtin); invalid rows are skipped;
+ * a builtin with no row keeps its code definition. Sorted by sortOrder then
+ * by builtin order. Pure.
+ */
+export function mergeCatalog(rows: unknown[] | null | undefined): CatalogModel[] {
+  const byId = new Map<string, CatalogModel>()
+  for (const b of BUILTIN_CATALOG) byId.set(b.id, b)
+  for (const raw of rows || []) {
+    const m = rowToModel(raw)
+    if (m) byId.set(m.id, m)
+  }
+  const order = new Map(BUILTIN_CATALOG.map((b, i) => [b.id, i]))
+  return [...byId.values()].sort((a, b) => (a.sortOrder - b.sortOrder) || ((order.get(a.id) ?? 1e6) - (order.get(b.id) ?? 1e6)) || a.id.localeCompare(b.id))
 }
 
 // ── Per-model API-surface capabilities ───────────────────────────────────────
@@ -131,26 +298,71 @@ const CACHE_TTL_MS = 60_000
 // defaults) under a short TTL, so an outage doesn't hammer Supabase on every
 // request — but recovery is picked up within ~10s.
 const NEG_CACHE_TTL_MS = 10_000
+
+function serviceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) throw new Error('supabase env missing')
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
+let catalogCache: { value: CatalogModel[]; fetchedAt: number; ttl: number } | null = null
+let catalogInFlight: Promise<CatalogModel[]> | null = null
+
+/**
+ * Effective catalogue (all rows, including disabled — consumers filter).
+ * Server-only; never throws; falls back to stale cache → builtins.
+ */
+export async function getCatalog(): Promise<CatalogModel[]> {
+  if (catalogCache && Date.now() - catalogCache.fetchedAt < catalogCache.ttl) return catalogCache.value
+  if (catalogInFlight) return catalogInFlight
+  catalogInFlight = (async () => {
+    try {
+      const { data, error } = await serviceClient().from('model_catalog').select('*')
+      if (error) throw error
+      const value = mergeCatalog(data)
+      catalogCache = { value, fetchedAt: Date.now(), ttl: CACHE_TTL_MS }
+      return value
+    } catch {
+      const value = catalogCache ? catalogCache.value : BUILTIN_CATALOG
+      catalogCache = { value, fetchedAt: Date.now(), ttl: NEG_CACHE_TTL_MS }
+      return value
+    } finally {
+      catalogInFlight = null
+    }
+  })()
+  return catalogInFlight
+}
+
+/** 服务端：按 id 查有效目录里的模型定义（含停用行）。 */
+export async function getModelDefAsync(modelId: string): Promise<CatalogModel | undefined> {
+  return findModel(modelId, await getCatalog())
+}
+
 let cache: { value: Record<ModelSlot, string>; fetchedAt: number; ttl: number } | null = null
 // Coalesce concurrent first lookups in one isolate into a single query.
 let inFlight: Promise<Record<ModelSlot, string>> | null = null
 
+/** A model may serve a slot: in catalogue, enabled, slot-allowed, key configured. SERVER-ONLY (reads env). */
+export function modelUsableForSlot(def: CatalogModel | undefined, slot: ModelSlot): def is CatalogModel {
+  return !!def && def.enabled && def.allowedSlots.includes(slot) && providerAvailable(def)
+}
+
 /**
  * Whitelist-validate a raw jsonb value; non-conforming slots fall back to
- * DEFAULT. A slot value must (1) be a whitelisted model, (2) be allowed for
- * that slot (allowedSlots), and (3) have its provider API key configured on
+ * DEFAULT. A slot value must (1) be a catalogue model, (2) be enabled and
+ * allowed for that slot, and (3) have its provider API key configured on
  * this server — otherwise the default takes over. SERVER-ONLY (reads env).
- * Exported for unit tests (pure given process.env) — production callers go
- * through getModels()/getModel().
+ * Exported for unit tests (pure given process.env + catalog) — production
+ * callers go through getModels()/getModel().
  */
-export function sanitize(raw: unknown): Record<ModelSlot, string> {
+export function sanitize(raw: unknown, catalog: CatalogModel[] = BUILTIN_CATALOG): Record<ModelSlot, string> {
   const out: Record<ModelSlot, string> = { ...DEFAULT_MODELS }
   if (raw && typeof raw === 'object') {
     for (const slot of MODEL_SLOTS) {
       const v = (raw as Record<string, unknown>)[slot]
       if (typeof v !== 'string') continue
-      const def = getModelDef(v)
-      if (def && def.allowedSlots.includes(slot) && providerAvailable(def)) out[slot] = v
+      if (modelUsableForSlot(findModel(v, catalog), slot)) out[slot] = v
     }
   }
   return out
@@ -165,17 +377,12 @@ export async function getModels(): Promise<Record<ModelSlot, string>> {
   if (inFlight) return inFlight
   inFlight = (async () => {
     try {
-      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-      if (!url || !key) throw new Error('supabase env missing')
-      const sb = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
-      const { data, error } = await sb
-        .from('app_config')
-        .select('value')
-        .eq('key', 'models')
-        .maybeSingle()
-      if (error) throw error
-      const value = sanitize(data?.value)
+      const [catalog, res] = await Promise.all([
+        getCatalog(),
+        serviceClient().from('app_config').select('value').eq('key', 'models').maybeSingle(),
+      ])
+      if (res.error) throw res.error
+      const value = sanitize(res.data?.value, catalog)
       cache = { value, fetchedAt: Date.now(), ttl: CACHE_TTL_MS }
       return value
     } catch {
@@ -192,7 +399,70 @@ export async function getModels(): Promise<Record<ModelSlot, string>> {
   return inFlight
 }
 
-/** Convenience: resolve one slot. Server-only; never throws. */
+/** Convenience: resolve one slot (system default). Server-only; never throws. */
 export async function getModel(slot: ModelSlot): Promise<string> {
   return (await getModels())[slot]
+}
+
+// ── Per-user preferences (public.user_model_preferences) ─────────────────────
+
+const PREF_TTL_MS = 30_000
+const PREF_CACHE_MAX = 2000
+const prefCache = new Map<string, { value: Partial<Record<ModelSlot, string>>; fetchedAt: number }>()
+
+/**
+ * A user's pick is honoured only if it is STILL a legitimate choice right
+ * now: catalogue model, enabled, user_selectable, allowed for the slot, key
+ * configured, and the slot is user-overridable. Otherwise the system default.
+ * Pure given env — exported for tests.
+ */
+export function pickUserModel(
+  pref: string | undefined | null,
+  slot: ModelSlot,
+  catalog: CatalogModel[],
+  fallback: string,
+): string {
+  if (!pref || !USER_SLOTS.includes(slot)) return fallback
+  const def = findModel(pref, catalog)
+  return modelUsableForSlot(def, slot) && def.userSelectable ? pref : fallback
+}
+
+async function getUserPrefs(userId: string): Promise<Partial<Record<ModelSlot, string>>> {
+  const hit = prefCache.get(userId)
+  if (hit && Date.now() - hit.fetchedAt < PREF_TTL_MS) return hit.value
+  let value: Partial<Record<ModelSlot, string>> = {}
+  try {
+    const { data, error } = await serviceClient()
+      .from('user_model_preferences')
+      .select('slot, model_id')
+      .eq('user_id', userId)
+    if (error) throw error
+    for (const row of data || []) {
+      if ((MODEL_SLOTS as string[]).includes(row.slot) && typeof row.model_id === 'string') value[row.slot as ModelSlot] = row.model_id
+    }
+  } catch {
+    value = hit ? hit.value : {}
+  }
+  if (prefCache.size >= PREF_CACHE_MAX) prefCache.clear()
+  prefCache.set(userId, { value, fetchedAt: Date.now() })
+  return value
+}
+
+/**
+ * Resolve the model for ONE user on a slot: their preference when valid,
+ * else the system default. userId null/undefined (anonymous) → default.
+ * Server-only; never throws.
+ */
+export async function getModelForUser(slot: ModelSlot, userId: string | null | undefined): Promise<string> {
+  const fallback = await getModel(slot)
+  if (!userId || !USER_SLOTS.includes(slot)) return fallback
+  const [prefs, catalog] = await Promise.all([getUserPrefs(userId), getCatalog()])
+  return pickUserModel(prefs[slot], slot, catalog, fallback)
+}
+
+/** Test hook: drop every server cache. */
+export function __resetModelConfigCaches(): void {
+  cache = null
+  catalogCache = null
+  prefCache.clear()
 }

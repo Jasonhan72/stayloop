@@ -82,9 +82,9 @@ export default function AdminHomePage() {
     {
       href: '/admin/models',
       icon: '🧠',
-      title: zh ? '模型配置' : 'Model config',
-      desc: zh ? '为对话推理、筛查评分、材料分类、取证抽取四个槽位切换 Claude 模型,60 秒内全站生效。' : 'Switch the Claude model behind agent turns, screening, classification and forensics — live within 60s.',
-      stat: zh ? '4 个槽位' : '4 slots',
+      title: zh ? 'AI 模型' : 'AI models',
+      desc: zh ? '全站模型目录（添加/启用/用户可选/测试连通）+ 四个能力槽位的系统默认模型,60 秒内全站生效。' : 'System-wide model catalogue (add / enable / user-selectable / connectivity test) + the default model per AI slot — live within 60s.',
+      stat: zh ? '目录 + 4 个槽位' : 'catalogue + 4 slots',
       hot: false,
     },
   ]

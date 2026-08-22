@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
 import { runForensics, forensicsToPromptBlock, type ForensicsReport } from '@/lib/forensics'
-import { getModel, supportsTemperature } from '@/lib/modelConfig'
+import { getModelForUser, supportsTemperature } from '@/lib/modelConfig'
 import { applyPageBudget } from '@/lib/anthropic/page-budget'
 import { captureException } from '@/lib/observability/sentry'
 import type { CourtQuery, CanLIIMatch, OntarioPortalMatch, V3Scores, CrossDocVerification, LtbCheck, CreditReport } from '@/lib/screening-types'
@@ -844,7 +844,7 @@ export async function POST(req: NextRequest) {
     // verbatim evidence — the pass two human reviewers did by eye on case
     // 24 and the rules could not. Runs alongside court + forensics so it
     // adds no latency; its findings feed the scoring prompt below.
-    const coherenceModel = await getModel('screening')
+    const coherenceModel = await getModelForUser('screening', userData.user.id)
     const coherencePromise: Promise<CoherenceReview> = runCoherenceReview({
       contentBlocks,
       model: coherenceModel,
@@ -1070,7 +1070,7 @@ JSON DISCIPLINE (avoid parse errors):
     }
 
     // Admin-configurable model slot (60s edge cache) — see lib/modelConfig.ts.
-    const scoringModel = await getModel('screening')
+    const scoringModel = await getModelForUser('screening', userData.user.id)
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {

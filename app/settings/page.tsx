@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import WorkspaceShell, { type WorkspaceRole } from '@/components/WorkspaceShell'
 import { useAuth } from '@/lib/useAuth'
 import { useI18n } from '@/lib/i18n'
@@ -139,6 +140,13 @@ export default function SettingsPage() {
               >
                 <AssistantNameEditor role={shellRole} zh={zh} user={auth.user} color={color} />
               </QuickAction>
+              <Link href="/settings/models" className="flex w-full items-center justify-between rounded-xl border border-line-divider bg-white px-4 py-3 text-left transition hover:bg-surface-chip">
+                <div>
+                  <div className="text-[14px] font-semibold">{zh ? 'AI 模型' : 'AI models'}</div>
+                  <div className="text-[12px] text-body-3">{zh ? '为你的对话与筛查选择模型（默认跟随系统）' : 'Pick the models for your conversations and screenings (defaults follow the system)'}</div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-body-3"><path d="M9 18l6-6-6-6" /></svg>
+              </Link>
             </div>
           </div>
         </div>

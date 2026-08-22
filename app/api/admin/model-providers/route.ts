@@ -1,12 +1,13 @@
 // GET /api/admin/model-providers — provider API-key availability for the
-// /admin/models dropdown. Returns BOOLEANS ONLY, keyed by env-var name
-// (e.g. { ANTHROPIC_API_KEY: true, DEEPSEEK_API_KEY: false }); no key value
-// ever leaves the server. Gated on the caller's JWT belonging to the
-// Stayloop back-office admin group (admin_users, same source of truth as
-// is_stayloop_admin()) — the row read runs under the caller's RLS.
+// /admin/models page. Returns BOOLEANS ONLY, keyed by env-var name
+// (e.g. { ANTHROPIC_API_KEY: true, DEEPSEEK_API_KEY: false }) for every
+// provider key in the PROVIDER_KEYS registry; no key value ever leaves the
+// server. Gated on the caller's JWT belonging to the Stayloop back-office
+// admin group (admin_users, same source of truth as is_stayloop_admin()) —
+// the row read runs under the caller's RLS.
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { ALLOWED_MODELS, providerAvailable } from '@/lib/modelConfig'
+import { PROVIDER_KEY_ENVS, providerEnvAvailable } from '@/lib/modelConfig'
 
 export const runtime = 'edge'
 
@@ -40,8 +41,8 @@ export async function GET(req: Request) {
   }
 
   const providers: Record<string, boolean> = {}
-  for (const m of ALLOWED_MODELS) {
-    providers[m.apiKeyEnv] = providerAvailable(m)
+  for (const env of PROVIDER_KEY_ENVS) {
+    providers[env] = providerEnvAvailable(env)
   }
   return NextResponse.json({ providers })
 }

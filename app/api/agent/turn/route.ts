@@ -12,7 +12,7 @@ import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFall
 import { applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
-import { DEFAULT_MODELS, getModel, getModelDef } from '@/lib/modelConfig'
+import { DEFAULT_MODELS, getModelForUser, getCatalog, findModel, type CatalogModel } from '@/lib/modelConfig'
 import { llmChat, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
 
 export const runtime = 'edge'
@@ -247,6 +247,8 @@ export async function POST(req: Request) {
   // RLS-scoped client of the AUTHED caller — kept for later reads that must
   // stay inside the user's own row visibility (renewal-intent lease lookup).
   let sbAuth: SupabaseClient | null = null
+  // Authed caller's auth.users id (null for anonymous) — drives per-user model preference.
+  let turnUserId: string | null = null
   if (anonymous) {
     // Limit key: SHA-256 of the caller IP (Cloudflare's cf-connecting-ip in
     // prod, first x-forwarded-for hop otherwise). Hashing keeps raw IPs out
@@ -295,6 +297,7 @@ export async function POST(req: Request) {
     if (ue || !ud?.user) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
     }
+    turnUserId = ud.user.is_anonymous ? null : ud.user.id
     // Durable per-user hourly limit (edge module state is per-isolate and
     // resets on recycle, so it can't gate spend). Fail-closed on error: if the
     // limiter can't be reached we'd rather 429 than allow unbounded paid calls.
@@ -481,13 +484,16 @@ export async function POST(req: Request) {
     // Admin-configurable model slot (60s edge cache) — see lib/modelConfig.ts.
     // getModels() already guards allowedSlots + provider-key availability, so
     // an openai-compat id only reaches here when its key is configured.
-    const configuredId = await getModel('turn')
-    let def = getModelDef(configuredId) ?? getModelDef(DEFAULT_MODELS.turn)!
+    // Per-user preference (/settings/models) when valid, else the system slot.
+    const configuredId = await getModelForUser('turn', anonymous ? null : turnUserId)
+    const catalog = await getCatalog()
+    const defaultDef = findModel(DEFAULT_MODELS.turn, catalog) as CatalogModel
+    let def: CatalogModel = findModel(configuredId, catalog) ?? defaultDef
     // Vision guard: text-only 国产 models can't see image attachments — fall
     // back to the Anthropic default for THIS turn only (don't break the user).
     if (imgs.length && !def.vision) {
       console.warn(`[agent/turn] model fallback: ${def.id} lacks vision, image turn routed to ${DEFAULT_MODELS.turn}`)
-      def = getModelDef(DEFAULT_MODELS.turn)!
+      def = defaultDef
     }
     modelUsed = def.id
     const { text } = await llmChat({
