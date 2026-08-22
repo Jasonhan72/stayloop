@@ -87,3 +87,18 @@ insert into public.model_catalog (id, label, note, provider, base_url, api_key_e
   ('qwen-plus',              '通义千问 Plus',             '阿里通义 Qwen-Plus — 低成本均衡对话',                               'openai-compat', 'https://dashscope.aliyuncs.com/compatible-mode/v1',          'DASHSCOPE_API_KEY', false, '低', '{turn}', false, 'max_tokens', true, 130),
   ('glm-4.6',                '智谱 GLM-4.6',              '智谱 GLM-4.6 — 低成本中文对话/代理',                                'openai-compat', 'https://open.bigmodel.cn/api/paas/v4',                       'ZHIPU_API_KEY',     false, '低', '{turn}', false, 'max_tokens', true, 140)
 on conflict (id) do nothing;
+
+-- 2026-08-22: latest + value tier per provider (lib/modelConfig.ts BUILTIN_MODELS).
+insert into public.model_catalog (id, label, note, provider, base_url, api_key_env, vision, cost_tier, allowed_slots, omit_temperature, max_tokens_param, builtin, sort_order) values
+  ('claude-opus-5',         'Claude Opus 5',         '最新旗舰（Claude 5 代）— 最强推理，成本最高',                 'anthropic',     null,                                                      'ANTHROPIC_API_KEY', true,  '高', '{turn,screening,classify,forensics}', false, 'max_tokens', true, 5),
+  ('gpt-5.5',               'GPT-5.5',               'OpenAI 最新旗舰（2026-04）— 最强推理/代理，成本高',           'openai-compat', 'https://api.openai.com/v1',                               'OPENAI_API_KEY',    false, '高', '{turn}', true,  'max_completion_tokens', true, 85),
+  ('gpt-5.4-nano',          'GPT-5.4 nano',          'OpenAI 最低价档 — 极低成本、最快，适合简单轮次',               'openai-compat', 'https://api.openai.com/v1',                               'OPENAI_API_KEY',    false, '低', '{turn}', true,  'max_completion_tokens', true, 105),
+  ('gemini-3.5-flash-lite', 'Gemini 3.5 Flash-Lite', 'Google 最低价档 — 极低成本、极快',                             'openai-compat', 'https://generativelanguage.googleapis.com/v1beta/openai', 'GEMINI_API_KEY',    false, '低', '{turn}', false, 'max_tokens', true, 125),
+  ('qwen3.8-max',           '通义千问 3.8 Max',       '阿里最新旗舰 — 最强推理，成本中等',                            'openai-compat', 'https://dashscope.aliyuncs.com/compatible-mode/v1',       'DASHSCOPE_API_KEY', false, '中', '{turn}', false, 'max_tokens', true, 128),
+  ('qwen3.7-plus',          '通义千问 3.7 Plus',      '阿里均衡档 — 性能与成本平衡',                                  'openai-compat', 'https://dashscope.aliyuncs.com/compatible-mode/v1',       'DASHSCOPE_API_KEY', false, '低', '{turn}', false, 'max_tokens', true, 129),
+  ('qwen3.7-flash',         '通义千问 3.7 Flash',     '阿里高性价比档 — 低成本、快速',                                'openai-compat', 'https://dashscope.aliyuncs.com/compatible-mode/v1',       'DASHSCOPE_API_KEY', false, '低', '{turn}', false, 'max_tokens', true, 131),
+  ('glm-5.3',               '智谱 GLM-5.3',           '智谱最新旗舰 — 中文对话/代理，成本低',                         'openai-compat', 'https://open.bigmodel.cn/api/paas/v4',                    'ZHIPU_API_KEY',     false, '低', '{turn}', false, 'max_tokens', true, 138),
+  ('glm-5-turbo',           '智谱 GLM-5 Turbo',       '智谱高性价比档 — 更快、更便宜',                                'openai-compat', 'https://open.bigmodel.cn/api/paas/v4',                    'ZHIPU_API_KEY',     false, '低', '{turn}', false, 'max_tokens', true, 139)
+on conflict (id) do nothing;
+-- Superseded aliases stay in history but are switched off (any preference pointing at them falls back to the default).
+update public.model_catalog set enabled = false, builtin = false, updated_at = now() where id in ('qwen-plus', 'glm-4.6');

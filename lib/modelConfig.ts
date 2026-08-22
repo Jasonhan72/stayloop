@@ -139,24 +139,35 @@ export function baseUrlAllowedFor(apiKeyEnv: string, baseUrl: string | undefined
 
 // ── Builtin catalogue (code-level seed + fallback) ───────────────────────────
 export const BUILTIN_MODELS: ModelDef[] = [
+  // 每家保持两档：「最新版」与「高性价比版」（2026-08-22 按各家 /models 实测在线清单核对）。
   // ── Anthropic（全槽位可用）──────────────────────────────────────────────
-  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', note: '最新旗舰推理 — 编码/代理任务接近 Opus 级', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '高', allowedSlots: ALL_SLOTS },
-  { id: 'claude-opus-4-8', label: 'Claude Opus 4.8', note: '最强 Opus 级 — 最难的长程推理任务（成本最高）', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '高', allowedSlots: ALL_SLOTS },
+  { id: 'claude-opus-5', label: 'Claude Opus 5', note: '最新旗舰（Claude 5 代）— 最强推理，成本最高', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '高', allowedSlots: ALL_SLOTS },
+  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', note: '最新均衡档（Claude 5 代）— 编码/代理任务接近 Opus 级', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '高', allowedSlots: ALL_SLOTS },
+  { id: 'claude-opus-4-8', label: 'Claude Opus 4.8', note: '上一代旗舰 — 最难的长程推理任务（成本高）', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '高', allowedSlots: ALL_SLOTS },
   { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', note: '稳定基线 — 当前对话/评分/分类槽位的默认模型', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '中', allowedSlots: ALL_SLOTS },
-  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', note: '轻量抽取 — 低成本低延迟，适合取证类结构化抽取', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '低', allowedSlots: ALL_SLOTS },
-  // ── 国产 · OpenAI 兼容（仅 turn 槽位；无视觉，图片轮次自动回退默认）────
-  { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', note: 'DeepSeek V4 轻量档 — 极低成本、快速响应（deepseek-chat 已被官方下线）', provider: 'openai-compat', baseUrl: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
-  { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', note: 'DeepSeek V4 强化档 — 更强推理，成本仍低于 Claude', provider: 'openai-compat', baseUrl: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
-  { id: 'kimi-k3', label: 'Kimi K3', note: 'Moonshot Kimi 旗舰 — 思考型模型，响应稍慢（含推理阶段）', provider: 'openai-compat', baseUrl: 'https://api.moonshot.cn/v1', apiKeyEnv: 'MOONSHOT_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true },
-  { id: 'kimi-k2.6', label: 'Kimi K2.6', note: 'Moonshot Kimi K2.6 — 思考型模型，响应稍慢（含推理阶段）', provider: 'openai-compat', baseUrl: 'https://api.moonshot.cn/v1', apiKeyEnv: 'MOONSHOT_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true },
+  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', note: '高性价比 — 低成本低延迟，适合取证类结构化抽取', provider: 'anthropic', apiKeyEnv: 'ANTHROPIC_API_KEY', vision: true, costTier: '低', allowedSlots: ALL_SLOTS },
   // ── OpenAI（turn 槽位；GPT-5 系列：max_completion_tokens、不接受自定义 temperature）──
+  { id: 'gpt-5.5', label: 'GPT-5.5', note: 'OpenAI 最新旗舰（2026-04）— 最强推理/代理，成本高', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: false, costTier: '高', allowedSlots: ['turn'], omitTemperature: true, maxTokensParam: 'max_completion_tokens' },
   { id: 'gpt-5.4', label: 'GPT-5.4', note: 'OpenAI 旗舰 — 推理/代理能力强，成本中等', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: false, costTier: '中', allowedSlots: ['turn'], omitTemperature: true, maxTokensParam: 'max_completion_tokens' },
-  { id: 'gpt-5.4-mini', label: 'GPT-5.4 mini', note: 'OpenAI 轻量档 — 低成本、快速响应', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true, maxTokensParam: 'max_completion_tokens' },
+  { id: 'gpt-5.4-mini', label: 'GPT-5.4 mini', note: 'OpenAI 高性价比档 — 低成本、快速响应', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true, maxTokensParam: 'max_completion_tokens' },
+  { id: 'gpt-5.4-nano', label: 'GPT-5.4 nano', note: 'OpenAI 最低价档 — 极低成本、最快，适合简单轮次', provider: 'openai-compat', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true, maxTokensParam: 'max_completion_tokens' },
   // ── Google Gemini（turn 槽位；走 AI Studio 的 OpenAI 兼容端点；思考型模型靠 4000 token 预算留出推理余量）──
-  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash', note: 'Google Gemini 轻量旗舰 — 低成本、快速，思考型', provider: 'openai-compat', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKeyEnv: 'GEMINI_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash', note: 'Google 最新 Flash — 低成本、快速，思考型', provider: 'openai-compat', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKeyEnv: 'GEMINI_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
   { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (preview)', note: 'Google Gemini Pro 预览版 — 更强推理，成本中等', provider: 'openai-compat', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKeyEnv: 'GEMINI_API_KEY', vision: false, costTier: '中', allowedSlots: ['turn'] },
-  { id: 'qwen-plus', label: '通义千问 Plus', note: '阿里通义 Qwen-Plus — 低成本均衡对话', provider: 'openai-compat', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKeyEnv: 'DASHSCOPE_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
-  { id: 'glm-4.6', label: '智谱 GLM-4.6', note: '智谱 GLM-4.6 — 低成本中文对话/代理', provider: 'openai-compat', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKeyEnv: 'ZHIPU_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', note: 'Google 最低价档 — 极低成本、极快', provider: 'openai-compat', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKeyEnv: 'GEMINI_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  // ── DeepSeek ──
+  { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', note: 'DeepSeek 最新强化档 — 更强推理，成本仍低于 Claude', provider: 'openai-compat', baseUrl: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', note: 'DeepSeek 高性价比档 — 极低成本、快速响应', provider: 'openai-compat', baseUrl: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  // ── Moonshot Kimi ──
+  { id: 'kimi-k3', label: 'Kimi K3', note: 'Moonshot 最新旗舰 — 思考型模型，响应稍慢（含推理阶段）', provider: 'openai-compat', baseUrl: 'https://api.moonshot.cn/v1', apiKeyEnv: 'MOONSHOT_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true },
+  { id: 'kimi-k2.6', label: 'Kimi K2.6', note: 'Moonshot 高性价比档 — 思考型模型，响应稍慢（含推理阶段）', provider: 'openai-compat', baseUrl: 'https://api.moonshot.cn/v1', apiKeyEnv: 'MOONSHOT_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'], omitTemperature: true },
+  // ── 阿里云百炼 Qwen ──
+  { id: 'qwen3.8-max', label: '通义千问 3.8 Max', note: '阿里最新旗舰 — 最强推理，成本中等', provider: 'openai-compat', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKeyEnv: 'DASHSCOPE_API_KEY', vision: false, costTier: '中', allowedSlots: ['turn'] },
+  { id: 'qwen3.7-plus', label: '通义千问 3.7 Plus', note: '阿里均衡档 — 性能与成本平衡', provider: 'openai-compat', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKeyEnv: 'DASHSCOPE_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  { id: 'qwen3.7-flash', label: '通义千问 3.7 Flash', note: '阿里高性价比档 — 低成本、快速', provider: 'openai-compat', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKeyEnv: 'DASHSCOPE_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  // ── 智谱 GLM ──
+  { id: 'glm-5.3', label: '智谱 GLM-5.3', note: '智谱最新旗舰 — 中文对话/代理，成本低', provider: 'openai-compat', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKeyEnv: 'ZHIPU_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
+  { id: 'glm-5-turbo', label: '智谱 GLM-5 Turbo', note: '智谱高性价比档 — 更快、更便宜', provider: 'openai-compat', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKeyEnv: 'ZHIPU_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
 ]
 
 /** @deprecated 用 BUILTIN_MODELS（或服务端 getCatalog()）。保留给旧导入。 */
@@ -274,11 +285,11 @@ export function mergeCatalog(rows: unknown[] | null | undefined): CatalogModel[]
 // request 400s and the feature silently degrades.
 
 /**
- * claude-opus-4-7+ / claude-sonnet-5 / claude-fable-5 reject sampling params
+ * claude-opus-4-7+ / Claude 5 family (opus-5 / sonnet-5) / claude-fable-5 reject sampling params
  * (`temperature` returns 400). Call sites spread `temperature` conditionally.
  */
 export function supportsTemperature(model: string): boolean {
-  return !/^claude-(opus-4-[789]|sonnet-5|fable|mythos)/.test(model)
+  return !/^claude-(opus-4-[789]|opus-5|sonnet-5|haiku-5|fable|mythos)/.test(model)
 }
 
 /**
