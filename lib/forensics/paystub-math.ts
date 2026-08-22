@@ -27,6 +27,7 @@
 // -----------------------------------------------------------------------------
 
 import { getModel, supportsAssistantPrefill } from '../modelConfig'
+import { anthropicText } from '../llmChat'
 import type { ForensicFlag, PaystubExtraction, PaystubMathResult } from './types'
 
 const EXTRACT_PROMPT = `You are extracting numeric fields from a Canadian pay stub. Return ONLY a JSON object — no markdown, no prose. If a field is not visible on the stub, return null for that field. Do NOT guess or fill in values. Numbers must be raw (no commas, no $).
@@ -136,7 +137,7 @@ export async function extractPaystubFields(
     if (!res.ok) return null
     const data = await res.json() as { content?: Array<{ text?: string }> }
     // Re-add the prefilled "{" only when we actually prefilled it.
-    const raw = (prefill ? '{' : '') + (data.content?.[0]?.text || '')
+    const raw = (prefill ? '{' : '') + anthropicText(data)
     return parseExtraction(raw)
   } catch {
     return null

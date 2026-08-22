@@ -76,6 +76,19 @@ export async function llmChat(p: LlmChatParams): Promise<LlmChatResult> {
 
 // ── Anthropic Messages API ───────────────────────────────────────────────────
 
+/**
+ * First text block of an Anthropic Messages response. Claude 5 models (Opus 5
+ * etc.) may put a `thinking` block FIRST — `content[0].text` is then
+ * undefined and the reply silently became '' (found 2026-08-22 via the admin
+ * model test: Opus 5 returned ok with empty text). Always use this.
+ */
+export function anthropicText(data: unknown): string {
+  const content = (data as { content?: Array<{ type?: string; text?: string }> } | null)?.content
+  if (!Array.isArray(content)) return ''
+  const parts = content.filter((b) => b && (b.type === 'text' || (b.type === undefined && typeof b.text === 'string')) && typeof b.text === 'string').map((b) => b.text as string)
+  return parts.join('')
+}
+
 async function anthropicChat(p: LlmChatParams, apiKey: string): Promise<LlmChatResult> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -97,8 +110,8 @@ async function anthropicChat(p: LlmChatParams, apiKey: string): Promise<LlmChatR
   if (!res.ok) {
     throw new LlmHttpError(res.status, (await res.text()).slice(0, 300))
   }
-  const data = (await res.json()) as { content?: Array<{ text?: string }>; usage?: Record<string, unknown> }
-  return { text: data.content?.[0]?.text || '', usage: data.usage }
+  const data = (await res.json()) as { content?: Array<{ type?: string; text?: string }>; usage?: Record<string, unknown> }
+  return { text: anthropicText(data), usage: data.usage }
 }
 
 // ── OpenAI-compatible chat/completions ───────────────────────────────────────

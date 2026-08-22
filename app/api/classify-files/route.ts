@@ -5,6 +5,7 @@
 // API key budget by spamming the route. Auth pattern mirrors /api/deep-check.
 // -----------------------------------------------------------------------------
 import { NextRequest, NextResponse } from 'next/server'
+import { anthropicText } from '@/lib/llmChat'
 import { createClient } from '@supabase/supabase-js'
 import { getModel } from '@/lib/modelConfig'
 
@@ -430,7 +431,7 @@ Return ONLY this JSON (no markdown, no prose):
   }
 
   const aiData = (await res.json()) as { content?: Array<{ text: string }> }
-  let text = aiData.content?.[0]?.text || '{}'
+  let text = anthropicText(aiData) || '{}'
   text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
 
   try {

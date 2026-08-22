@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { anthropicText } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
 import { captureException } from '@/lib/observability/sentry'
@@ -183,7 +184,7 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
     }
 
     const aiData = await response.json() as { content?: Array<{ text: string }> }
-    let text = aiData.content?.[0]?.text || '{}'
+    let text = anthropicText(aiData) || '{}'
     text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
 
     let parsed: { extracted_name?: string; scores?: SixDimScores; notes?: Record<string, string>; summary?: string }

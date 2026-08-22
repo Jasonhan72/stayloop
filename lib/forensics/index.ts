@@ -32,6 +32,7 @@
 // -----------------------------------------------------------------------------
 
 import { getModel } from '../modelConfig'
+import { anthropicText } from '../llmChat'
 import { checkPdfMetadata, readPdfMetadata } from './pdf-metadata'
 import { checkTextDensity, readPdfTextDensity } from './pdf-text'
 import { checkPdfStructure } from './pdf-structure'
@@ -973,7 +974,7 @@ async function judgeCreditReportAuthenticity(
       return null
     }
     const json: any = await res.json()
-    const raw = json?.content?.[0]?.text || ''
+    const raw = anthropicText(json)
     // No assistant-prefill on this call — never prepend a '{' (doing so to a
     // prose-wrapped answer corrupts the extraction). Just find the first
     // balanced JSON object in the raw output.

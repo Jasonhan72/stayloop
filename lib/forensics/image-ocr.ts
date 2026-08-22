@@ -16,6 +16,7 @@
 // -----------------------------------------------------------------------------
 
 import { getModel, supportsAssistantPrefill } from '../modelConfig'
+import { anthropicText } from '../llmChat'
 import type { OcrResult } from './types'
 
 const OCR_PROMPT = `You are running OCR on a Canadian rental-application document that is likely an image-only PDF (a scan or photo). Extract ALL visible text verbatim plus a small set of structured fields.
@@ -91,7 +92,7 @@ export async function ocrImagePdf(
     const json: any = await res.json()
     // Re-add the prefilled "{" only when we actually prefilled it — blindly
     // prepending to a non-prefilled, prose-wrapped answer corrupts parsing.
-    const raw = (prefill ? '{' : '') + (json?.content?.[0]?.text || '')
+    const raw = (prefill ? '{' : '') + anthropicText(json)
     const stopReason = json?.stop_reason
     const parsed = parseOcrOutput(raw)
     if (!parsed) {
