@@ -1172,7 +1172,12 @@ JSON DISCIPLINE (avoid parse errors):
     let sawMessageStop = false
     let lastProgressWrite = 0
     try {
-      const streamed = await llmChatStream({
+      // One automatic retry when the stream ends without a clean stop (mid-
+      // stream provider error / dropped connection) — seen 2026-08-22 as an
+      // "AI parse error" on a JSON cut at ~8k chars with no max_tokens.
+      let streamed!: Awaited<ReturnType<typeof llmChatStream>>
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        streamed = await llmChatStream({
         model: scoringDef,
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }],
@@ -1195,6 +1200,10 @@ JSON DISCIPLINE (avoid parse errors):
           }
         },
       })
+        if (streamed.sawStop && !streamed.streamError) break
+        console.warn(`[screen-score] scoring stream ended unclean (attempt ${attempt}): sawStop=${streamed.sawStop} streamError=${streamed.streamError} stop=${streamed.stopReason} chars=${streamed.text.length}`)
+        if (attempt === 1) writeProgress('ai_scoring', 40, '模型流中断,自动重试一次…', 'Model stream interrupted — retrying once…')
+      }
       rawText = streamed.text
       stopReason = streamed.stopReason
       streamError = streamed.streamError
@@ -1334,6 +1343,7 @@ JSON DISCIPLINE (avoid parse errors):
           ? 'AI output was truncated — please retry (the model produced too much text).'
           : `AI parse error: ${(e?.message || 'unknown').slice(0, 150)} — head: "${snippet.slice(0, 120)}" — tail: "${tail.slice(0, 120)}"`,
         stop_reason: stopReason,
+        stream_diag: { saw_stop: sawMessageStop, stream_error: streamError, chars: rawText.length, model: scoringDef.id },
         raw: rawText.slice(0, 4000),
       }, { status: 500 })
     }
