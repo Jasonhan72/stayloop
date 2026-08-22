@@ -66,3 +66,14 @@ describe('rubric: proven-unreliable credit report', () => {
     expect(r.hits.some(h => h.code === 'bureau_score')).toBe(false)
   })
 })
+
+describe('salvageTruncated — output cut at max_tokens keeps complete anomalies', () => {
+  it('recovers the finished anomaly objects and drops the broken tail', async () => {
+    const { salvageTruncated } = await import('../lib/screening/coherenceReview')
+    const cut = '{"anomalies":[{"id":"A1","category":"impossibility","severity":"critical","files":["Eq.pdf"],"claim_zh":"x","claim_en":"opened at 2","evidence":["2005/08/05"],"check_zh":"y","check_en":"z","confidence":0.9},{"id":"A2","category":"cross_document","severity":"high","files":["a"],"claim_zh":"q","claim_en":"phone differs","evidence":["647-"],"check_zh":"c","check_en":"d","confidence":0.8},{"id":"A3","category":"omission","severity":"low","files":["b"],"claim_zh":"…","claim_en":"cut mid wa'
+    const r = salvageTruncated(cut) as { anomalies: unknown[]; truncated: boolean } | null
+    expect(r?.truncated).toBe(true)
+    expect(r?.anomalies).toHaveLength(2)
+    expect(salvageTruncated('no json here')).toBeNull()
+  })
+})

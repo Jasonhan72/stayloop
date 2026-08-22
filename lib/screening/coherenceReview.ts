@@ -92,22 +92,6 @@ HARD RULES:
 5. Output ONLY the JSON object below — no markdown, no prose.
 
 {
-  "documents": [
-    {
-      "file": "<file name as given>",
-      "kind": "<credit_report|pay_stub|employment_letter|bank_statement|id_document|application_form|reference|lease|other>",
-      "summary_zh": "<one sentence, Chinese>",
-      "summary_en": "<one sentence>",
-      "key_facts": {
-        "dob": "<YYYY-MM-DD as printed, or null>",
-        "names": ["<every full name printed for the applicant>"],
-        "phones": ["<every phone number printed>"],
-        "addresses": ["<every address printed>"],
-        "dates": ["<every distinct report/request/as-of/statement/pay/letter date printed, YYYY-MM-DD>"],
-        "employer": "<employer name as printed or null>"
-      }
-    }
-  ],
   "anomalies": [
     {
       "id": "A1",
@@ -115,16 +99,34 @@ HARD RULES:
       "severity": "critical|high|medium|low",
       "files": ["<file names involved>"],
       "claim_zh": "<what is contradictory/impossible, Chinese, ≤ 60 chars>",
-      "claim_en": "<same, English, ≤ 200 chars>",
-      "evidence": ["<verbatim quote 1>", "<verbatim quote 2>"],
-      "check_zh": "<what the landlord should do to resolve it, Chinese>",
-      "check_en": "<same, English>",
+      "claim_en": "<same, English, ≤ 160 chars>",
+      "evidence": ["<verbatim quote 1, ≤ 120 chars>", "<verbatim quote 2>"],
+      "check_zh": "<what the landlord should do to resolve it, Chinese, ≤ 40 chars>",
+      "check_en": "<same, English, ≤ 120 chars>",
       "confidence": <0.0-1.0>
+    }
+  ],
+  "documents": [
+    {
+      "file": "<file name as given>",
+      "kind": "<credit_report|pay_stub|employment_letter|bank_statement|id_document|application_form|reference|lease|other>",
+      "summary_zh": "<≤ 25 Chinese characters>",
+      "summary_en": "<≤ 15 words>",
+      "key_facts": {
+        "dob": "<YYYY-MM-DD as printed, or null>",
+        "names": ["<full names printed for the applicant (max 3)>"],
+        "phones": ["<phone numbers printed (max 3)>"],
+        "addresses": ["<addresses printed (max 3)>"],
+        "dates": ["<distinct report/request/statement/pay/letter dates, YYYY-MM-DD (max 6)>"],
+        "employer": "<employer name as printed or null>"
+      }
     }
   ]
 }
 
-Severity guide: critical = cannot be genuine as presented (e.g. accounts opened in childhood, a date that predates the document); high = strong contradiction needing explanation; medium = notable inconsistency; low = minor/likely clerical. Report at most 20 anomalies, most severe first. If you find none, return an empty "anomalies" array — do not invent.`
+OUTPUT SIZE: compact JSON on a single line, no indentation, no trailing prose. Anomalies first. Keep the whole answer under ~2500 tokens — brevity over completeness in "documents"; never cut an anomaly short.
+
+Severity guide: critical = cannot be genuine as presented (e.g. accounts opened in childhood, a date that predates the document); high = strong contradiction needing explanation; medium = notable inconsistency; low = minor/likely clerical. Report at most 12 anomalies, most severe first. If you find none, return an empty "anomalies" array — do not invent.`
 
 const clampStr = (v: unknown, n: number): string => (typeof v === 'string' ? v.trim().slice(0, n) : '')
 const strArr = (v: unknown, n: number, each: number): string[] =>
@@ -177,7 +179,32 @@ function extractJson(text: string): unknown {
   try { return JSON.parse(t) } catch { /* fall through */ }
   const a = t.indexOf('{'), b = t.lastIndexOf('}')
   if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)) } catch { /* ignore */ } }
-  return null
+  return salvageTruncated(t)
+}
+
+/**
+ * Output cut at max_tokens (seen 2026-08-22: 7 documents, 110 s, "unparseable
+ * output"): keep every COMPLETE anomaly object that was emitted. Anomalies are
+ * first in the schema precisely so a truncated answer still yields them.
+ * Exported for tests.
+ */
+export function salvageTruncated(t: string): unknown {
+  const key = t.indexOf('"anomalies"')
+  if (key < 0) return null
+  const arr = t.indexOf('[', key)
+  if (arr < 0) return null
+  const anomalies: unknown[] = []
+  let depth = 0, inStr = false, esc = false, objStart = -1
+  for (let i = arr + 1; i < t.length; i++) {
+    const ch = t[i]
+    if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue }
+    if (ch === '"') { inStr = true; continue }
+    if (ch === '{') { if (depth === 0) objStart = i; depth++ }
+    else if (ch === '}') { depth--; if (depth === 0 && objStart >= 0) { try { anomalies.push(JSON.parse(t.slice(objStart, i + 1))) } catch { /* skip broken */ } objStart = -1 } }
+    else if (ch === ']' && depth === 0) break
+  }
+  if (!anomalies.length) return null
+  return { anomalies, documents: [], truncated: true }
 }
 
 /**
@@ -200,18 +227,22 @@ export async function runCoherenceReview(args: {
       system: PROMPT,
       messages: [{ role: 'user', content: [{ type: 'text', text: ctx }, ...(args.contentBlocks as ChatContentBlock[]), { type: 'text', text: 'Return the JSON object now.' }] }],
       temperature: 0,
-      maxTokens: 6000,
+      maxTokens: 7000,
       jsonMode: true,
-      // 120 s: generous for 7+ documents, but bounded — the review is an input to
-      // scoring, and the whole screening must stay well inside the worker budget.
-      signal: AbortSignal.timeout(120_000),
+      // 140 s: the review is an input to scoring, so it is bounded; with the
+      // compact output contract above a 7-document case finishes in ~40-60 s.
+      signal: AbortSignal.timeout(140_000),
     })
     const parsed = extractJson(text)
-    if (!parsed) return { status: 'failed', model: modelId, anomalies: [], documents: [], error: 'unparseable output', elapsed_ms: Date.now() - started }
+    if (!parsed) {
+      console.warn('[coherence] unparseable output from', modelId, 'len=', text.length, 'head=', text.slice(0, 160))
+      return { status: 'failed', model: modelId, anomalies: [], documents: [], error: 'unparseable output', elapsed_ms: Date.now() - started }
+    }
     return sanitizeCoherenceOutput(parsed, modelId, Date.now() - started)
   } catch (e) {
     if (e instanceof LlmKeyMissingError) return { status: 'skipped', model: modelId, anomalies: [], documents: [], error: 'no api key', elapsed_ms: 0 }
-    return { status: 'failed', model: modelId, anomalies: [], documents: [], error: (e as Error)?.message?.slice(0, 200) || 'error', elapsed_ms: Date.now() - started }
+    console.warn('[coherence] failed', modelId, (e as Error)?.name, (e as Error)?.message?.slice(0, 300))
+    return { status: 'failed', model: modelId, anomalies: [], documents: [], error: `${(e as Error)?.name || 'error'}: ${(e as Error)?.message?.slice(0, 200) || ''}`, elapsed_ms: Date.now() - started }
   }
 }
 
