@@ -367,7 +367,7 @@ Return ONLY this JSON (no markdown, no prose):
 {
   "files": [
     {
-      "index": <0-based index>,
+      "index": <the number after "FILE #" exactly as labelled above — NOT a 0-based position within this message>,
       "kinds": ["..."],
       "rent_amount": <integer or null>,
       "rent_label_seen": "<exact label string or null>"
@@ -613,9 +613,16 @@ export async function POST(req: NextRequest) {
         if (!isDup) employersAcc.push(emp)
         if (employersAcc.length >= 3) break  // mirror Sonnet's cap
       }
+      // Index convention guard (2026-08-22): the prompt labels files with their
+      // GLOBAL index (FILE #5…), but some models (GPT-5.4 mini) answer with
+      // batch-RELATIVE indices (0…n-1). When no global index matches and every
+      // returned index fits inside this batch, read them as relative —
+      // otherwise the second batch of an 8-file upload silently got no kinds.
+      const returnedIdx = parsed.files.map(x => x.index).filter((x): x is number => typeof x === 'number')
+      const looksRelative = batchStart > 0 && returnedIdx.length > 0 && returnedIdx.every(x => x >= 0 && x < batch.length) && !returnedIdx.some(x => x >= batchStart)
       for (let i = 0; i < batch.length; i++) {
         const globalIdx = batchStart + i
-        const entry = parsed.files.find(x => x.index === globalIdx)
+        const entry = parsed.files.find(x => x.index === (looksRelative ? i : globalIdx))
         const kinds = entry?.kinds
           ? (entry.kinds.filter(k => validKindSet.has(k)) as Kind[])
           : []
