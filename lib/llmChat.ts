@@ -27,6 +27,7 @@
 // NEVER import from client components — it reads process.env[apiKeyEnv].
 // -----------------------------------------------------------------------------
 import { type ModelDef, supportsAssistantPrefill, supportsTemperature } from './modelConfig'
+import { normalizeUsage, recordUsage, type LlmUsageMeta, type UsageTokens } from './llmUsage'
 
 export type ChatSource =
   | { type: 'base64'; media_type: string; data: string }
@@ -87,6 +88,8 @@ export interface LlmChatParams {
   /** anthropic: add cache_control to the system block (default true). */
   cacheSystem?: boolean
   signal?: AbortSignal
+  /** Metering context (who / which screening / which slot) — recorded to ai_usage with tokens + cost. */
+  meta?: LlmUsageMeta
 }
 
 export interface LlmChatResult {
@@ -100,13 +103,23 @@ export interface LlmChatResult {
 export async function llmChat(p: LlmChatParams): Promise<LlmChatResult> {
   const apiKey = (process.env[p.model.apiKeyEnv] || '').trim()
   if (!apiKey) throw new LlmKeyMissingError(p.model.apiKeyEnv)
-  return p.model.provider === 'anthropic' ? anthropicChat(p, apiKey) : openaiCompatChat(p, apiKey)
+  const t0 = Date.now()
+  try {
+    const r = p.model.provider === 'anthropic' ? await anthropicChat(p, apiKey) : await openaiCompatChat(p, apiKey)
+    await recordUsage({ model: p.model, usage: normalizeUsage(p.model.provider, r.usage), latencyMs: Date.now() - t0, ok: true, meta: p.meta })
+    return r
+  } catch (e) {
+    await recordUsage({ model: p.model, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, latencyMs: Date.now() - t0, ok: false, error: (e as Error)?.message, meta: p.meta })
+    throw e
+  }
 }
 
 // ── Streaming ────────────────────────────────────────────────────────────────
 
 export interface LlmStreamResult {
   text: string
+  /** provider usage, normalised (present when the stream reported it) */
+  usage?: UsageTokens
   stopReason: string
   /** Provider signalled an error mid-stream (Anthropic `error` event / OpenAI error chunk). */
   streamError: string | null
@@ -123,7 +136,15 @@ export interface LlmStreamParams extends LlmChatParams {
 export async function llmChatStream(p: LlmStreamParams): Promise<LlmStreamResult> {
   const apiKey = (process.env[p.model.apiKeyEnv] || '').trim()
   if (!apiKey) throw new LlmKeyMissingError(p.model.apiKeyEnv)
-  return p.model.provider === 'anthropic' ? anthropicStream(p, apiKey) : openaiCompatStream(p, apiKey)
+  const t0 = Date.now()
+  try {
+    const r = p.model.provider === 'anthropic' ? await anthropicStream(p, apiKey) : await openaiCompatStream(p, apiKey)
+    await recordUsage({ model: p.model, usage: r.usage || { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, latencyMs: Date.now() - t0, ok: !r.streamError, error: r.streamError, meta: p.meta })
+    return r
+  } catch (e) {
+    await recordUsage({ model: p.model, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, latencyMs: Date.now() - t0, ok: false, error: (e as Error)?.message, meta: p.meta })
+    throw e
+  }
 }
 
 // ── Anthropic Messages API ───────────────────────────────────────────────────
@@ -194,15 +215,20 @@ async function anthropicStream(p: LlmStreamParams, apiKey: string): Promise<LlmS
   let stopReason = ''
   let streamError: string | null = null
   let sawStop = false
+  const usageRaw: Record<string, unknown> = {}
   await readSse(res.body, (payload) => {
-    let ev: { type?: string; delta?: { type?: string; text?: string; stop_reason?: string }; error?: { type?: string; message?: string } }
+    let ev: { type?: string; delta?: { type?: string; text?: string; stop_reason?: string }; error?: { type?: string; message?: string }; message?: { usage?: Record<string, unknown> }; usage?: Record<string, unknown> }
     try { ev = JSON.parse(payload) } catch { return }
     if (ev.type === 'content_block_delta' && ev.delta?.text) { text += ev.delta.text; p.onText?.(text) }
-    else if (ev.type === 'message_delta' && ev.delta?.stop_reason) stopReason = ev.delta.stop_reason === 'end_turn' ? 'end' : ev.delta.stop_reason
+    else if (ev.type === 'message_start' && ev.message?.usage) Object.assign(usageRaw, ev.message.usage)
+    else if (ev.type === 'message_delta') {
+      if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason === 'end_turn' ? 'end' : ev.delta.stop_reason
+      if (ev.usage) Object.assign(usageRaw, ev.usage)
+    }
     else if (ev.type === 'message_stop') sawStop = true
     else if (ev.type === 'error') streamError = ev.error?.type || 'stream_error'
   })
-  return { text, stopReason, streamError, sawStop }
+  return { text, usage: normalizeUsage('anthropic', usageRaw), stopReason, streamError, sawStop }
 }
 
 // ── OpenAI-compatible chat/completions ───────────────────────────────────────
@@ -239,7 +265,7 @@ function base64ToBytes(b64: string): Uint8Array {
 }
 
 /** Text of a PDF for providers that cannot ingest PDFs (layout lost; scans unreadable). */
-async function pdfToTextBlock(b64: string, title: string | undefined, maxChars = 60_000): Promise<string> {
+async function pdfToTextBlock(b64: string, title: string | undefined, maxChars = 60_000, meta?: LlmUsageMeta): Promise<string> {
   const label = title ? `"${title}"` : 'document'
   try {
     const { readPdfTextDensity } = await import('./forensics/pdf-text')
@@ -254,7 +280,7 @@ async function pdfToTextBlock(b64: string, title: string | undefined, maxChars =
     if (!live || d.is_likely_image_pdf) {
       try {
         const { ocrPdfScan } = await import('./ocr/qwenOcr')
-        ocr = await ocrPdfScan(bytes)
+        ocr = await ocrPdfScan(bytes, { meta })
       } catch { ocr = null }
     }
     if (!live && !ocr) {
@@ -287,6 +313,7 @@ export async function toOpenAIContent(
   content: string | ChatContentBlock[],
   model: ModelDef,
   signal?: AbortSignal,
+  meta?: LlmUsageMeta,
 ): Promise<string | OpenAIPart[]> {
   if (typeof content === 'string') return content
   const parts: OpenAIPart[] = []
@@ -313,7 +340,7 @@ export async function toOpenAIContent(
       parts.push({ type: 'text', text: `[attached PDF: ${title}]` })
       parts.push({ type: 'image_url', image_url: { url: `data:application/pdf;base64,${b.data}` } })
     } else {
-      parts.push({ type: 'text', text: await pdfToTextBlock(b.data, title) })
+      parts.push({ type: 'text', text: await pdfToTextBlock(b.data, title, 60_000, meta) })
     }
   }
   // Merge adjacent text parts (some providers reject many tiny parts); a
@@ -336,7 +363,7 @@ function safeFilename(title: string): string {
 async function openaiBody(p: LlmChatParams, stream: boolean) {
   const messages = [
     { role: 'system' as const, content: p.system },
-    ...(await Promise.all(p.messages.map(async (m) => ({ role: m.role, content: await toOpenAIContent(m.content, p.model, p.signal) })))),
+    ...(await Promise.all(p.messages.map(async (m) => ({ role: m.role, content: await toOpenAIContent(m.content, p.model, p.signal, p.meta) })))),
   ]
   const jsonMode = !!(p.jsonMode || p.prefillJson)
   return {
@@ -347,7 +374,9 @@ async function openaiBody(p: LlmChatParams, stream: boolean) {
     // Kimi 思考型模型 / GPT-5 只允许默认 temperature —— 标了 omitTemperature 的省略该参数。
     ...(p.temperature !== undefined && !p.model.omitTemperature ? { temperature: p.temperature } : {}),
     ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
-    ...(stream ? { stream: true } : {}),
+    // stream_options.include_usage makes the final chunk carry token usage
+    // (OpenAI / DeepSeek / DashScope / Moonshot / Gemini-compat all accept it).
+    ...(stream ? { stream: true, stream_options: { include_usage: true } } : {}),
   }
 }
 
@@ -396,18 +425,20 @@ async function openaiCompatStream(p: LlmStreamParams, apiKey: string): Promise<L
   let stopReason = ''
   let streamError: string | null = null
   let sawStop = false
+  let usageRaw: Record<string, unknown> | null = null
   await readSse(res.body, (payload) => {
     if (payload === '[DONE]') { sawStop = true; return }
-    let ev: { choices?: Array<{ delta?: { content?: string }; finish_reason?: string | null }>; error?: { message?: string; type?: string } }
+    let ev: { choices?: Array<{ delta?: { content?: string }; finish_reason?: string | null }>; error?: { message?: string; type?: string }; usage?: Record<string, unknown> | null }
     try { ev = JSON.parse(payload) } catch { return }
     if (ev.error) { streamError = ev.error.type || ev.error.message || 'stream_error'; return }
+    if (ev.usage && typeof ev.usage === 'object') usageRaw = ev.usage
     const c = ev.choices?.[0]
     if (c?.delta?.content) { text += c.delta.content; p.onText?.(text) }
     if (c?.finish_reason) stopReason = c.finish_reason === 'length' ? 'max_tokens' : c.finish_reason === 'stop' ? 'end' : c.finish_reason
   })
   // Some providers omit [DONE] but do send finish_reason — treat that as a clean stop.
   if (!sawStop && stopReason) sawStop = true
-  return { text, stopReason, streamError, sawStop }
+  return { text, usage: usageRaw ? normalizeUsage('openai-compat', usageRaw) : undefined, stopReason, streamError, sawStop }
 }
 
 /** Minimal SSE reader: calls onData with each `data:` payload (trimmed). Flushes a final unterminated line. */

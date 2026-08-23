@@ -50,6 +50,7 @@ export async function POST(req: Request) {
       maxTokens: 1200,
       temperature: 0.2,
       signal: AbortSignal.timeout(40_000),
+      meta: { userId: ud.user.id, slot: 'test', source: 'admin/model-test' },
     })
     return NextResponse.json({ ok: true, latency_ms: Date.now() - t0, text: (text || '').slice(0, 80), model: def.id })
   } catch (e) {

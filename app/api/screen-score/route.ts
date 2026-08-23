@@ -864,7 +864,9 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     const notesBlob = `${screening.notes || ''}\n${screening.pasted_text || ''}`
     const phoneMatch = notesBlob.match(/(?:\+?1[\s.-]?)?\(?(\d{3})\)?[\s.-]?(\d{3})[\s.-]?(\d{4})/)
     const emailMatch = notesBlob.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
+    const usageMeta = { userId: userData.user.id, screeningId: screening_id, source: 'screen-score' }
     const forensicsInput = {
+      usage_meta: { ...usageMeta, slot: 'forensics' },
       files: signedResults
         .filter(r => !!r.url)
         .map(r => ({
@@ -908,6 +910,7 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     const coherencePromise: Promise<CoherenceReview> = runCoherenceReview({
       contentBlocks,
       model: coherenceDef,
+      meta: usageMeta,
       applicant: {
         name: nameForLookup || null,
         phone: phoneMatch ? `${phoneMatch[1]}${phoneMatch[2]}${phoneMatch[3]}` : null,
@@ -1224,6 +1227,7 @@ JSON DISCIPLINE (avoid parse errors):
         // so give generous headroom to avoid mid-report truncation.
         maxTokens: CLAUDE_MAX_TOKENS,
         jsonMode: true,
+        meta: { ...usageMeta, slot: 'screening' },
         onText: (acc) => {
           const now = Date.now()
           if (now - lastProgressWrite > 1200 && acc.length > 0) {

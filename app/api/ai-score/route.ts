@@ -172,6 +172,7 @@ RESPOND WITH ONLY THIS JSON (no markdown, no fences):
         maxTokens: 1500,
         jsonMode: true,
         signal: AbortSignal.timeout(60000),
+        meta: { slot: 'screening', source: 'ai-score' },
       })
       text = out.text || '{}'
     } catch (e) {

@@ -17,6 +17,7 @@
 
 import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '../modelConfig'
 import { llmChat, type ChatContentBlock } from '../llmChat'
+import type { LlmUsageMeta } from '../llmUsage'
 import type { OcrResult } from './types'
 
 const OCR_PROMPT = `You are running OCR on a Canadian rental-application document that is likely an image-only PDF (a scan or photo). Extract ALL visible text verbatim plus a small set of structured fields.
@@ -41,6 +42,7 @@ export async function ocrImagePdf(
   signedFileUrl: string,
   mime: string,
   apiKey: string,
+  usageMeta?: LlmUsageMeta,
 ): Promise<OcrResult | null> {
   if (!apiKey) return null
   const startedAt = Date.now()
@@ -74,6 +76,7 @@ export async function ocrImagePdf(
         maxTokens: 4000,
         prefillJson: true,
         signal: AbortSignal.timeout(30_000),
+        meta: { ...(usageMeta || {}), slot: 'forensics' },
       })
       raw = out.text
       stopReason = out.stopReason

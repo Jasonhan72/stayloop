@@ -95,6 +95,8 @@ export interface ModelDef {
    * anthropic 忽略（原生 document 块）。默认 'text'。
    */
   pdfInput?: 'file' | 'image_url' | 'text'
+  /** USD per 1M tokens — drives ai_usage.cost_usd. Admin-editable in the catalogue; builtin defaults below (official list prices, 2026-08-23). */
+  pricing?: { input: number; output: number; cacheRead?: number; cacheWrite?: number }
 }
 
 /** A catalogue entry = ModelDef + admin switches. */
@@ -185,6 +187,33 @@ export const BUILTIN_MODELS: ModelDef[] = [
   { id: 'glm-5-turbo', label: '智谱 GLM-5 Turbo', note: '智谱高性价比档 — 更快、更便宜（纯文本，仅对话）', provider: 'openai-compat', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKeyEnv: 'ZHIPU_API_KEY', vision: false, costTier: '低', allowedSlots: ['turn'] },
 ]
 
+/**
+ * Official list prices, USD per 1M tokens (checked 2026-08-23 against each
+ * provider's pricing page; Kimi converted from CNY at ~7.2). Models absent
+ * here (Qwen, GLM — pricing pages are JS-rendered / CNY tiers) stay unpriced
+ * until an admin fills them in /admin/models; the dashboard counts unpriced
+ * calls. DeepSeek uses the PEAK cache-miss rate (conservative).
+ */
+export const BUILTIN_PRICING: Record<string, NonNullable<ModelDef['pricing']>> = {
+  'claude-opus-5':          { input: 5,    output: 25,   cacheRead: 0.5,   cacheWrite: 6.25 },
+  'claude-sonnet-5':        { input: 3,    output: 15,   cacheRead: 0.3,   cacheWrite: 3.75 },
+  'claude-opus-4-8':        { input: 5,    output: 25,   cacheRead: 0.5,   cacheWrite: 6.25 },
+  'claude-sonnet-4-6':      { input: 3,    output: 15,   cacheRead: 0.3,   cacheWrite: 3.75 },
+  'claude-haiku-4-5':       { input: 1,    output: 5,    cacheRead: 0.1,   cacheWrite: 1.25 },
+  'gpt-5.5':                { input: 5,    output: 30,   cacheRead: 0.5 },
+  'gpt-5.4':                { input: 2.5,  output: 15,   cacheRead: 0.25 },
+  'gpt-5.4-mini':           { input: 0.75, output: 4.5,  cacheRead: 0.075 },
+  'gpt-5.4-nano':           { input: 0.2,  output: 1.25, cacheRead: 0.02 },
+  'gemini-3.7-flash':       { input: 0.75, output: 3.75 },
+  'gemini-3.1-pro-preview': { input: 2,    output: 12 },
+  'gemini-3.5-flash-lite':  { input: 0.3,  output: 2.5 },
+  'deepseek-v4-flash':      { input: 0.44, output: 1.32, cacheRead: 0.014 },
+  'deepseek-v4-pro':        { input: 1.32, output: 3.96, cacheRead: 0.044 },
+  'kimi-k3':                { input: 2.78, output: 13.9, cacheRead: 0.28 },
+  'kimi-k2.6':              { input: 0.9,  output: 3.75, cacheRead: 0.15 },
+}
+for (const m of BUILTIN_MODELS) if (BUILTIN_PRICING[m.id]) m.pricing = BUILTIN_PRICING[m.id]
+
 /** @deprecated 用 BUILTIN_MODELS（或服务端 getCatalog()）。保留给旧导入。 */
 export const ALLOWED_MODELS: ModelDef[] = BUILTIN_MODELS
 
@@ -234,6 +263,10 @@ export interface CatalogRow {
   omit_temperature: boolean | null
   max_tokens_param: string | null
   pdf_input?: string | null
+  price_input_per_m?: number | string | null
+  price_output_per_m?: number | string | null
+  price_cache_read_per_m?: number | string | null
+  price_cache_write_per_m?: number | string | null
   user_selectable: boolean | null
   enabled: boolean | null
   sort_order: number | null
@@ -275,11 +308,22 @@ export function rowToModel(row: unknown): CatalogModel | null {
     omitTemperature: r.omit_temperature === true || undefined,
     maxTokensParam: r.max_tokens_param === 'max_completion_tokens' ? 'max_completion_tokens' : undefined,
     pdfInput: r.pdf_input === 'file' || r.pdf_input === 'image_url' ? r.pdf_input : (r.pdf_input === 'text' ? 'text' : undefined),
+    pricing: rowPricing(r) ?? BUILTIN_PRICING[r.id],
     userSelectable: r.user_selectable !== false,
     enabled: r.enabled !== false,
     builtin: !!BUILTIN_MODELS.find((m) => m.id === r.id),
     sortOrder: typeof r.sort_order === 'number' && Number.isFinite(r.sort_order) ? r.sort_order : 1000,
   }
+}
+
+function rowPricing(r: Partial<CatalogRow>): ModelDef['pricing'] | undefined {
+  const num = (v: unknown): number | undefined => {
+    const n = typeof v === 'string' ? Number(v) : v
+    return typeof n === 'number' && Number.isFinite(n) && n >= 0 ? n : undefined
+  }
+  const input = num(r.price_input_per_m), output = num(r.price_output_per_m)
+  if (input === undefined || output === undefined) return undefined
+  return { input, output, cacheRead: num(r.price_cache_read_per_m), cacheWrite: num(r.price_cache_write_per_m) }
 }
 
 /**

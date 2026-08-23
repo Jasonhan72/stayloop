@@ -80,6 +80,14 @@ export default function AdminHomePage() {
       hot: members === 'error',
     },
     {
+      href: '/admin/usage',
+      icon: '💸',
+      title: zh ? 'AI 用量与成本' : 'AI usage & cost',
+      desc: zh ? '每次模型调用的 token 与美元成本：按天、按模型、按槽位、按用户；单次筛查平均成本。' : 'Tokens and USD cost per model call: by day, model, slot and user; average cost per screening.',
+      stat: zh ? '计量看板' : 'metering',
+      hot: false,
+    },
+    {
       href: '/admin/models',
       icon: '🧠',
       title: zh ? 'AI 模型' : 'AI models',

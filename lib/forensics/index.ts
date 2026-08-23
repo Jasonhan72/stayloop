@@ -33,6 +33,7 @@
 
 import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '../modelConfig'
 import { llmChat, type ChatContentBlock } from '../llmChat'
+import type { LlmUsageMeta } from '../llmUsage'
 import { checkPdfMetadata, readPdfMetadata } from './pdf-metadata'
 import { checkTextDensity, readPdfTextDensity } from './pdf-text'
 import { checkPdfStructure } from './pdf-structure'
@@ -67,6 +68,8 @@ export interface ForensicsInput {
     signed_url: string
   }>
   applicant_name?: string
+  /** metering context for ai_usage (user / screening) */
+  usage_meta?: LlmUsageMeta
   applicant_phone?: string
   applicant_email?: string
   applicant_address?: string
@@ -125,7 +128,7 @@ const SEVERITY_WEIGHT: Record<string, number> = {
 export async function runForensics(input: ForensicsInput): Promise<ForensicsReport> {
   const startedAt = Date.now()
   const perFile: PerFileForensics[] = await Promise.all(
-    input.files.map(f => analyzeFile(f, input.anthropic_api_key, input.applicant_name))
+    input.files.map(f => analyzeFile(f, input.anthropic_api_key, input.applicant_name, input.usage_meta))
   )
 
   // Cross-doc step: collect text samples + paystub extractions
@@ -276,6 +279,7 @@ async function analyzeFile(
   f: ForensicsInput['files'][number],
   apiKey?: string,
   applicantName?: string,
+  usageMeta?: LlmUsageMeta,
 ): Promise<PerFileForensics> {
   const startedAt = Date.now()
   // Use the strictest single kind for forensics rules that look up a
@@ -363,7 +367,7 @@ async function analyzeFile(
         // Trigger threshold: text_density flagged is_likely_image_pdf, which
         // means < ~50 chars/page average.
         if (text?.is_likely_image_pdf && apiKey) {
-          const ocrResult = await ocrImagePdf(f.signed_url, f.mime, apiKey)
+          const ocrResult = await ocrImagePdf(f.signed_url, f.mime, apiKey, usageMeta)
           if (ocrResult) out.ocr = ocrResult
         }
 
@@ -407,7 +411,7 @@ async function analyzeFile(
         // clearer one).
         if (kindIncludes(f.kind, 'credit_report') && apiKey
             && out.flags.some(fl => fl.code === 'credit_report_no_bureau_markers')) {
-          const judgment = await judgeCreditReportAuthenticity(f.signed_url, f.mime, apiKey)
+          const judgment = await judgeCreditReportAuthenticity(f.signed_url, f.mime, apiKey, usageMeta)
           if (judgment?.is_authentic) {
             // Suppress the regex false positive — AI confirmed it's a real
             // bureau report. Record the positive finding so the UI can show
@@ -494,7 +498,7 @@ async function analyzeFile(
         // credit reports too. See note in PDF branch above.
         if (kindIncludes(f.kind, 'credit_report') && apiKey
             && out.flags.some(fl => fl.code === 'credit_report_no_bureau_markers')) {
-          const judgment = await judgeCreditReportAuthenticity(f.signed_url, f.mime, apiKey)
+          const judgment = await judgeCreditReportAuthenticity(f.signed_url, f.mime, apiKey, usageMeta)
           if (judgment?.is_authentic) {
             out.flags = out.flags.filter(fl => fl.code !== 'credit_report_no_bureau_markers')
             out.flags.push({
@@ -523,7 +527,7 @@ async function analyzeFile(
     // bundled PDFs ("employment_letter,pay_stub,credit_report") still trigger
     // the paystub math check on the pay_stub portion.
     if (kindIncludes(f.kind, 'pay_stub') && apiKey) {
-      const ext = await extractPaystubFields(f.signed_url, f.mime, apiKey)
+      const ext = await extractPaystubFields(f.signed_url, f.mime, apiKey, usageMeta)
       if (ext) {
         // The stub's own "Pay Period N of 24" beats the model's frequency guess.
         applyTextPayFrequency(ext, out.text_density?.text_sample)
@@ -946,6 +950,7 @@ async function judgeCreditReportAuthenticity(
   signedFileUrl: string,
   mime: string,
   apiKey: string,
+  usageMeta?: LlmUsageMeta,
 ): Promise<CreditReportJudgment | null> {
   if (!apiKey) return null
   const startedAt = Date.now()
@@ -970,6 +975,7 @@ async function judgeCreditReportAuthenticity(
         maxTokens: 400,
         jsonMode: true,
         signal: AbortSignal.timeout(30_000),
+        meta: { ...(usageMeta || {}), slot: 'forensics' },
       })
       raw = out.text
     } catch (e) {

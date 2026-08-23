@@ -25,6 +25,7 @@ import type { ForensicFlag } from '@/lib/forensics/types'
 import { parseModelJson, repairUnescapedQuotes } from './jsonRepair'
 import { llmChat, LlmKeyMissingError, type ChatContentBlock } from '../llmChat'
 import type { ModelDef } from '../modelConfig'
+import type { LlmUsageMeta } from '../llmUsage'
 
 export type CoherenceCategory =
   | 'internal_inconsistency'   // a document contradicts itself
@@ -232,6 +233,7 @@ export async function runCoherenceReview(args: {
   /** Catalogue model definition — any vision-capable provider (llmChat converts the blocks). */
   model: ModelDef
   applicant: { name?: string | null; phone?: string | null; email?: string | null }
+  meta?: LlmUsageMeta
 }): Promise<CoherenceReview> {
   const started = Date.now()
   const modelId = args.model.id
@@ -248,6 +250,7 @@ export async function runCoherenceReview(args: {
       // 140 s: the review is an input to scoring, so it is bounded; with the
       // compact output contract above a 7-document case finishes in ~40-60 s.
       signal: AbortSignal.timeout(140_000),
+      meta: { ...(args.meta || {}), slot: 'coherence' },
     })
     const parsed = extractJson(text)
     if (!parsed) {

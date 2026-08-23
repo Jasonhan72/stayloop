@@ -96,7 +96,8 @@ interface PerFileExtraction {
 async function classifyBatch(
   files: File[],
   startIndex: number,
-  apiKey: string
+  apiKey: string,
+  usageUserId?: string | null,
 ): Promise<{
   files: PerFileExtraction[]
   applicant_name: string | null
@@ -421,6 +422,7 @@ Return ONLY this JSON (no markdown, no prose):
       maxTokens: 2500, // bumped — per-file output is more verbose now
       jsonMode: true,
       signal: AbortSignal.timeout(60_000), // 60s — Sonnet-class on multiple PDFs takes time
+      meta: { userId: usageUserId, slot: 'classify', source: 'classify-files' },
     })
     text = out.text || '{}'
   } catch (e) {
@@ -556,7 +558,7 @@ export async function POST(req: NextRequest) {
 
   // Run batches in parallel (each is a separate Claude call)
   const batchResults = await Promise.allSettled(
-    batches.map((batch, bi) => classifyBatch(batch, bi * MAX_FILES_PER_BATCH, apiKey))
+    batches.map((batch, bi) => classifyBatch(batch, bi * MAX_FILES_PER_BATCH, apiKey, userId))
   )
 
   // Merge results across batches

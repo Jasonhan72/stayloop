@@ -55,19 +55,24 @@ type FormState = {
   id: string; label: string; note: string; api_key_env: string; base_url: string; vision: boolean; cost_tier: '低' | '中' | '高'
   allowed_slots: ModelSlot[]; omit_temperature: boolean; max_tokens_param: 'max_tokens' | 'max_completion_tokens'; pdf_input: 'text' | 'file' | 'image_url'
   user_selectable: boolean; enabled: boolean; sort_order: number
+  price_in: string; price_out: string; price_cache_read: string; price_cache_write: string
 }
 const EMPTY_FORM: FormState = {
   id: '', label: '', note: '', api_key_env: 'OPENAI_API_KEY', base_url: PROVIDER_KEYS.OPENAI_API_KEY.defaultBaseUrl || '', vision: false, cost_tier: '中',
   allowed_slots: ['turn'], omit_temperature: false, max_tokens_param: 'max_tokens', pdf_input: 'text', user_selectable: true, enabled: true, sort_order: 1000,
+  price_in: '', price_out: '', price_cache_read: '', price_cache_write: '',
 }
 function modelToForm(m: CatalogModel): FormState {
   return {
     id: m.id, label: m.label, note: m.note, api_key_env: m.apiKeyEnv, base_url: m.baseUrl || '', vision: m.vision, cost_tier: m.costTier,
     allowed_slots: [...m.allowedSlots], omit_temperature: !!m.omitTemperature, max_tokens_param: m.maxTokensParam || 'max_tokens', pdf_input: m.pdfInput || 'text',
     user_selectable: m.userSelectable, enabled: m.enabled, sort_order: m.sortOrder,
+    price_in: m.pricing ? String(m.pricing.input) : '', price_out: m.pricing ? String(m.pricing.output) : '',
+    price_cache_read: m.pricing?.cacheRead != null ? String(m.pricing.cacheRead) : '', price_cache_write: m.pricing?.cacheWrite != null ? String(m.pricing.cacheWrite) : '',
   }
 }
 function formToRow(f: FormState, userId: string | null, builtin: boolean): CatalogRow & { pdf_input: string; builtin: boolean; updated_at: string; updated_by: string | null } {
+  const num = (v: string) => { const n = Number(v); return v.trim() !== '' && Number.isFinite(n) && n >= 0 ? n : null }
   const provider = PROVIDER_KEYS[f.api_key_env]?.provider || 'openai-compat'
   return {
     id: f.id.trim(), label: f.label.trim() || f.id.trim(), note: f.note.trim(), provider,
@@ -75,6 +80,7 @@ function formToRow(f: FormState, userId: string | null, builtin: boolean): Catal
     api_key_env: f.api_key_env, vision: f.vision, cost_tier: f.cost_tier,
     allowed_slots: f.vision ? f.allowed_slots : f.allowed_slots.filter((s) => !VISION_SLOTS.includes(s)), omit_temperature: f.omit_temperature, max_tokens_param: f.max_tokens_param, pdf_input: provider === 'anthropic' ? 'text' : f.pdf_input,
     user_selectable: f.user_selectable, enabled: f.enabled, sort_order: Number.isFinite(f.sort_order) ? Math.round(f.sort_order) : 1000,
+    price_input_per_m: num(f.price_in), price_output_per_m: num(f.price_out), price_cache_read_per_m: num(f.price_cache_read), price_cache_write_per_m: num(f.price_cache_write),
     builtin, updated_at: new Date().toISOString(), updated_by: userId,
   }
 }
@@ -401,6 +407,15 @@ export default function AdminModelsPage() {
                   )}
                 </div>
               </Field>
+              <Field label={zh ? '单价（USD / 1M tokens：输入 · 输出 · 缓存读 · 缓存写）' : 'Prices (USD per 1M tokens: input · output · cache read · cache write)'}>
+                <div className="flex flex-wrap gap-2">
+                  <input className="sl-input w-[88px]" placeholder={zh ? '输入' : 'in'} value={form.price_in} onChange={(e) => setForm({ ...form, price_in: e.target.value })} />
+                  <input className="sl-input w-[88px]" placeholder={zh ? '输出' : 'out'} value={form.price_out} onChange={(e) => setForm({ ...form, price_out: e.target.value })} />
+                  <input className="sl-input w-[88px]" placeholder={zh ? '缓存读' : 'cache rd'} value={form.price_cache_read} onChange={(e) => setForm({ ...form, price_cache_read: e.target.value })} />
+                  <input className="sl-input w-[88px]" placeholder={zh ? '缓存写' : 'cache wr'} value={form.price_cache_write} onChange={(e) => setForm({ ...form, price_cache_write: e.target.value })} />
+                </div>
+                <div className="mt-1 text-[11px] text-body-3">{zh ? '留空 = 未定价（用量看板会标出未定价的调用）。内置模型已按官方价预填。' : 'Blank = unpriced (the usage dashboard flags unpriced calls). Builtins are prefilled with list prices.'}</div>
+              </Field>
               <Field label={zh ? '开关' : 'Switches'}>
                 <div className="flex flex-wrap gap-3 pt-1.5 text-[13px]">
                   <label className="flex items-center gap-1.5"><input type="checkbox" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} />{zh ? '启用' : 'enabled'}</label>
@@ -445,7 +460,7 @@ export default function AdminModelsPage() {
                       {m.baseUrl && <div className="max-w-[220px] truncate font-mono text-[10px] text-body-3" title={m.baseUrl}>{m.baseUrl.replace(/^https:\/\//, '')}</div>}
                     </td>
                     <td className="px-3 py-2.5">{m.allowedSlots.map((s) => (zh ? SLOT_SHORT[s].zh : SLOT_SHORT[s].en)).join(' · ')}{m.vision && <span className="ml-1 text-[10px] text-body-3" title={zh ? '支持图片' : 'vision'}>👁</span>}{m.provider !== 'anthropic' && m.vision && <div className="font-mono text-[10px] text-body-3">PDF: {m.pdfInput === 'file' ? (zh ? '原生' : 'native') : m.pdfInput === 'image_url' ? (zh ? '原生(image_url)' : 'native (image_url)') : (zh ? '文本+OCR' : 'text+OCR')}</div>}</td>
-                    <td className="px-3 py-2.5">{zh ? COST_LABEL[m.costTier].zh : COST_LABEL[m.costTier].en}</td>
+                    <td className="px-3 py-2.5">{zh ? COST_LABEL[m.costTier].zh : COST_LABEL[m.costTier].en}{m.pricing ? <div className="font-mono text-[10px] text-body-3">${m.pricing.input}/${m.pricing.output}</div> : <div className="text-[10px]" style={{ color: '#B45309' }}>{zh ? '未定价' : 'unpriced'}</div>}</td>
                     <td className="px-3 py-2.5"><Toggle on={m.userSelectable} onChange={(v) => quickToggle(m, { user_selectable: v })} /></td>
                     <td className="px-3 py-2.5"><Toggle on={m.enabled} onChange={(v) => quickToggle(m, { enabled: v })} /></td>
                     <td className="px-3 py-2.5">

@@ -30,6 +30,7 @@
 // -----------------------------------------------------------------------------
 import { PDFDocument, PDFName, PDFArray, PDFDict, PDFNumber, PDFRawStream, PDFRef, type PDFObject } from 'pdf-lib'
 import { findEncryptInfos, computeFileKey, decryptObjectBytes } from '../forensics/pdf-decrypt'
+import { normalizeUsage, recordUsage, type LlmUsageMeta } from '../llmUsage'
 
 export const OCR_MODEL_PRIMARY = 'qwen3.5-ocr'
 export const OCR_MODEL_FALLBACK = 'qwen-vl-ocr-latest'
@@ -37,6 +38,9 @@ export const OCR_MAX_PAGES = 12
 const OCR_MAX_IMAGE_BYTES = 9 * 1024 * 1024
 const OCR_ENDPOINT = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
 const OCR_PROMPT = 'Read all the text in the image. Preserve the reading order and line breaks; keep tables as rows with cells separated by " | ". Output plain text only — no commentary, no markdown fences.'
+
+/** USD per 1M tokens — fill in once DashScope's OCR list price is confirmed (admins see unpriced calls on /admin/usage). */
+export const OCR_PRICING: Record<string, { input: number; output: number } | undefined> = {}
 
 export function ocrAvailable(): boolean {
   return !!(process.env.DASHSCOPE_API_KEY || '').trim()
@@ -66,7 +70,7 @@ export interface PdfImageExtraction {
 export async function ocrImageBase64(
   b64: string,
   mime: string,
-  opts: { signal?: AbortSignal; model?: string; pixels?: number } = {},
+  opts: { signal?: AbortSignal; model?: string; pixels?: number; meta?: LlmUsageMeta } = {},
 ): Promise<{ text: string; model: string } | null> {
   const key = (process.env.DASHSCOPE_API_KEY || '').trim()
   if (!key) return null
@@ -77,6 +81,7 @@ export async function ocrImageBase64(
   const small = typeof opts.pixels === 'number' && opts.pixels > 0 && opts.pixels < 250_000
   const models = opts.model ? [opts.model] : small ? [OCR_MODEL_FALLBACK, OCR_MODEL_PRIMARY] : [OCR_MODEL_PRIMARY, OCR_MODEL_FALLBACK]
   for (const model of models) {
+    const t0 = Date.now()
     try {
       const res = await fetch(OCR_ENDPOINT, {
         method: 'POST',
@@ -97,8 +102,9 @@ export async function ocrImageBase64(
         console.warn('[qwen-ocr]', model, 'HTTP', res.status, body.slice(0, 160))
         continue
       }
-      const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> }
+      const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }>; usage?: Record<string, unknown> }
       const text = cleanOcrText(data.choices?.[0]?.message?.content || '')
+      await recordUsage({ model: { id: model, provider: 'dashscope-ocr', pricing: OCR_PRICING[model] }, usage: normalizeUsage('openai-compat', data.usage), latencyMs: Date.now() - t0, ok: true, meta: { ...(opts.meta || {}), slot: 'ocr' } })
       if (text) return { text, model }
     } catch (e) {
       // network / timeout → try next
@@ -478,7 +484,7 @@ function toBase64(bytes: Uint8Array): string {
  * with page markers. Returns null when nothing could be read (no key, no
  * extractable images, all OCR calls failed) — callers then say "unreadable".
  */
-export async function ocrPdfScan(bytes: Uint8Array | ArrayBuffer, opts: { signal?: AbortSignal; maxPages?: number } = {}): Promise<PdfOcrResult | null> {
+export async function ocrPdfScan(bytes: Uint8Array | ArrayBuffer, opts: { signal?: AbortSignal; maxPages?: number; meta?: LlmUsageMeta } = {}): Promise<PdfOcrResult | null> {
   if (!ocrAvailable()) return null
   const ex = await extractPdfPageImages(bytes, opts.maxPages ?? OCR_MAX_PAGES)
   if (!ex.images.length) return null
@@ -491,7 +497,7 @@ export async function ocrPdfScan(bytes: Uint8Array | ArrayBuffer, opts: { signal
       const i = cursor++
       if (i >= ex.images.length) return
       const im = ex.images[i]
-      const run = () => ocrImageBase64(toBase64(im.data), im.mime, { signal: opts.signal, pixels: im.width && im.height ? im.width * im.height : undefined })
+      const run = () => ocrImageBase64(toBase64(im.data), im.mime, { signal: opts.signal, pixels: im.width && im.height ? im.width * im.height : undefined, meta: opts.meta })
       const r = im.ref ? await (memo.get(im.ref) ?? (memo.set(im.ref, run()), memo.get(im.ref)!)) : await run()
       if (r) { results[i] = { page: im.page, text: r.text }; model = model || r.model }
     }

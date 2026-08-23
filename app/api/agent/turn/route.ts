@@ -509,6 +509,7 @@ export async function POST(req: Request) {
       // + prose 抢救逻辑；Anthropic 路径行为不变（prompt 契约）。
       jsonMode: def.provider === 'openai-compat',
       signal: AbortSignal.timeout(45000),
+      meta: { userId: anonymous ? null : turnUserId, slot: 'turn', source: 'agent/turn' },
     })
     raw = text
   } catch (e) {

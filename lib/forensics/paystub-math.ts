@@ -28,6 +28,7 @@
 
 import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '../modelConfig'
 import { llmChat, type ChatContentBlock } from '../llmChat'
+import type { LlmUsageMeta } from '../llmUsage'
 import type { ForensicFlag, PaystubExtraction, PaystubMathResult } from './types'
 
 const EXTRACT_PROMPT = `You are extracting numeric fields from a Canadian pay stub. Return ONLY a JSON object — no markdown, no prose. If a field is not visible on the stub, return null for that field. Do NOT guess or fill in values. Numbers must be raw (no commas, no $).
@@ -98,7 +99,8 @@ Required fields:
 export async function extractPaystubFields(
   signedFileUrl: string,
   mime: string,
-  apiKey: string
+  apiKey: string,
+  usageMeta?: LlmUsageMeta,
 ): Promise<PaystubExtraction | null> {
   try {
     const content: any[] = []
@@ -122,6 +124,7 @@ export async function extractPaystubFields(
       maxTokens: 800,
       prefillJson: true,
       signal: AbortSignal.timeout(15000),
+      meta: { ...(usageMeta || {}), slot: 'forensics' },
     })
     return parseExtraction(raw)
   } catch {
