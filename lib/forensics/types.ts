@@ -131,6 +131,8 @@ export interface SourceSpecificResult {
   bank_producer_whitelisted: boolean | null
   /** the known-bank whitelist match, if any */
   matched_bank: string | null
+  /** payroll provider recognised from text/producer (ADP, Humi, …) */
+  matched_payroll?: string | null
 }
 
 /**

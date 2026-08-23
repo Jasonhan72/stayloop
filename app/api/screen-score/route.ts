@@ -970,7 +970,6 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
               evidence_en: `"${d.file}" states employment with ${r.employer} from ${d.start}, but the business registry shows ${r.matched_name} incorporated on ${r.incorporation_date.slice(0, 10)} — ${daysBefore} days later. A company cannot employ anyone before it exists (a predecessor sole proprietorship is possible — ask for proof: T4s, CRA NOA, or the predecessor's business registration).`,
               evidence_zh: `"${d.file}" 称自 ${d.start} 起受雇于 ${r.employer}，但企业登记显示 ${r.matched_name} 成立于 ${r.incorporation_date.slice(0, 10)}——晚了 ${daysBefore} 天。公司不可能在成立之前雇人（若有前身个体户需提供证明：T4、CRA NOA 或前身的商业登记）。`,
             })
-            if (!earlyRedFlags.includes('employment_predates_incorporation')) earlyRedFlags.push('employment_predates_incorporation')
           }
         }
       }

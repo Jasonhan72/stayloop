@@ -389,6 +389,9 @@ async function analyzeFile(
         const { result: src, flags: srcFlags } = checkSourceSpecific(meta, textForFingerprint, f.name, canonicalKind)
         out.source_specific = src
         out.flags.push(...srcFlags)
+        // A recognised payroll provider (Humi → Prawn, etc.) explains the PDF
+        // producer — drop the generic "producer not in whitelist" note for it.
+        if (src.matched_payroll) out.flags = out.flags.filter(fl => fl.code !== 'pdf_producer_unknown')
 
         // 2026-06-02 — Credit-report AI authenticity overrule.
         // The regex-based source-specific check was tuned on the B2B

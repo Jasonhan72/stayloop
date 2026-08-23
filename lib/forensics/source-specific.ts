@@ -130,6 +130,7 @@ export function checkSourceSpecific(
     equifax_authentic_markers: null,
     bank_producer_whitelisted: null,
     matched_bank: null,
+    matched_payroll: null,
   }
 
   const sample = text?.text_sample || ''
@@ -265,6 +266,7 @@ export function checkSourceSpecific(
         break
       }
     }
+    result.matched_payroll = matched
     if (!matched && sample.length > 100) {
       // Many small employers run custom payroll, so this is just informational
       flags.push({
