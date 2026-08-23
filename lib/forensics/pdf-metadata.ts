@@ -649,16 +649,34 @@ export function checkPdfMetadata(
   // ---------------------------------------------------------------------------
   let producerFlagged = false
 
-  // 1a. Editing tools — always suspicious for any strict kind
+  // 1a. Editing tools — always suspicious for any strict kind.
+  //     Self-authored documents are different (2026-08-22, case 25): an OREA
+  //     Form 410 rental application exported from Canva is the applicant's
+  //     OWN declaration — there is no third-party original to tamper with, so
+  //     it carries a verify signal, not the doc_tampering hard gate that
+  //     capped that screening at 50 and printed "建议拒绝" over a clean credit
+  //     file. The gate stays for evidentiary documents (statements, stubs,
+  //     letters, IDs, credit reports).
+  const SELF_AUTHORED = kind === 'other' || kind === 'lease' || kind === 'reference'
   for (const { pattern, tool } of EDITING_TOOL_PATTERNS) {
     if (pattern.test(combined)) {
-      flags.push({
-        code: 'pdf_producer_consumer_tool',
-        severity: isStrict ? 'critical' : 'high',
-        file,
-        evidence_en: `PDF Producer="${producer || creator}" indicates ${tool} — an image editing tool. Documents edited in ${tool} are highly likely to be tampered.`,
-        evidence_zh: `PDF 生成工具为 "${producer || creator}"（${tool}），这是图片编辑软件。经过 ${tool} 编辑的文件极可能被篡改。`,
-      })
+      if (SELF_AUTHORED) {
+        flags.push({
+          code: 'pdf_producer_consumer_tool_selfauthored',
+          severity: 'medium',
+          file,
+          evidence_en: `PDF Producer="${producer || creator}" indicates ${tool} — an image/design editor. For a self-authored document (application form, lease draft, reference) this is a verify signal, not proof of tampering: confirm the content with its source rather than relying on the PDF.`,
+          evidence_zh: `PDF 生成工具为 "${producer || creator}"（${tool}），这是图片/设计编辑软件。对申请表、租约草稿、推荐信这类自述/非第三方原件的文件，这只是「需核实」信号而非篡改证据：请向来源核实内容，不要仅凭 PDF 本身采信。`,
+        })
+      } else {
+        flags.push({
+          code: 'pdf_producer_consumer_tool',
+          severity: isStrict ? 'critical' : 'high',
+          file,
+          evidence_en: `PDF Producer="${producer || creator}" indicates ${tool} — an image editing tool. Documents edited in ${tool} are highly likely to be tampered.`,
+          evidence_zh: `PDF 生成工具为 "${producer || creator}"（${tool}），这是图片编辑软件。经过 ${tool} 编辑的文件极可能被篡改。`,
+        })
+      }
       producerFlagged = true
       break
     }

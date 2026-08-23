@@ -235,4 +235,7 @@ export interface ForensicsReport {
   schema_version: 1
   /** arm's-length employment check results (populated by deep check) */
   arm_length?: ArmLengthCheckResult[]
+  /** Base-pass registry lookups (name-only) — lets downstream checks compare
+   *  claimed employment dates with the employer's incorporation date. */
+  employer_registry?: Array<{ employer: string; matched_name: string; status: string | null; incorporation_date: string | null; jurisdiction: string | null }>
 }

@@ -212,6 +212,57 @@ const PERIODS_PER_YEAR: Record<string, number> = {
   weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12,
 }
 
+/**
+ * Pay frequency printed on the stub itself (deterministic, beats the model's
+ * guess). Case 25 (2026-08-22): four Humi stubs all print "Pay Period 12 of
+ * 24" (semi-monthly) yet the extractor annualised one stub at ×26 ($81,250)
+ * and another at ×24 ($57,500) — the report then "corroborated" a $75,000
+ * letter against $81,250 with an 8.3 % deviation that did not exist.
+ * Exported for tests.
+ */
+export function inferPayFrequencyFromText(text: string | null | undefined): PaystubExtraction['pay_frequency'] | null {
+  if (!text) return null
+  const t = text.replace(/\s+/g, ' ')
+  // pdf.js emits table labels before values ("Pay Period Period Range Pay
+  // Date 14 of 24 …"), so require the "pay period" label anywhere and the
+  // "N of 24" pair anywhere — not adjacent.
+  const m = /pay\s*period/i.test(t) ? /\b\d{1,2}\s*(?:of|\/)\s*(12|24|26|52)\b/i.exec(t) : null
+  if (m) return m[1] === '52' ? 'weekly' : m[1] === '26' ? 'biweekly' : m[1] === '24' ? 'semimonthly' : 'monthly'
+  if (/semi[\s-]?monthly|twice\s+a\s+month|bimonthly/i.test(t)) return 'semimonthly'
+  if (/bi[\s-]?weekly|every\s+(two|2)\s+weeks|fortnightly/i.test(t)) return 'biweekly'
+  if (/\bweekly\b/i.test(t) && !/bi[\s-]?weekly/i.test(t)) return 'weekly'
+  if (/\bmonthly\b/i.test(t) && !/semi[\s-]?monthly|bi[\s-]?monthly/i.test(t)) return 'monthly'
+  return null
+}
+
+/**
+ * Reconcile the model's extraction with the frequency printed on the stub:
+ * when the stub states its frequency and the extracted annual salary equals
+ * period_gross × a DIFFERENT periods-per-year count, the model annualised
+ * with the wrong frequency — recompute. Mutates and returns ext.
+ */
+export function applyTextPayFrequency(ext: PaystubExtraction, text: string | null | undefined): PaystubExtraction {
+  const freq = inferPayFrequencyFromText(text)
+  if (!freq) return ext
+  const ppy = PERIODS_PER_YEAR[freq]
+  const wasFreq = ext.pay_frequency
+  ext.pay_frequency = freq
+  if (ext.period_gross && ext.period_gross > 0) {
+    const expected = Math.round(ext.period_gross * ppy * 100) / 100
+    if (!ext.annual_salary) {
+      ext.annual_salary = expected
+    } else {
+      // ×24 vs ×26 differ by only 8 % — so decide by which periods-per-year
+      // count the extracted figure matches EXACTLY, not by a loose band.
+      const exact = (n: number) => Math.abs(ext.annual_salary! / (ext.period_gross! * n) - 1) <= 0.02
+      const matchesStated = exact(ppy)
+      const matchesOther = Object.values(PERIODS_PER_YEAR).some((n) => n !== ppy && exact(n))
+      if (!matchesStated && (matchesOther || (wasFreq !== freq && Math.abs(ext.annual_salary / expected - 1) > 0.15))) ext.annual_salary = expected
+    }
+  }
+  return ext
+}
+
 function normalizeExtraction(ext: PaystubExtraction): PaystubExtraction {
   if (ext.hourly_rate && ext.hourly_rate > 200) {
     if (ext.hourly_rate >= 10_000) {

@@ -103,6 +103,20 @@ const PAYROLL_MARKERS: Record<string, { producer: RegExp[]; text: RegExp[] }> = 
     producer: [/QuickBooks/i, /Intuit/i],
     text: [/QuickBooks\s+Payroll/i, /Intuit/i],
   },
+  // Canadian SMB payroll SaaS (2026-08-22, case 25: four genuine Humi stubs
+  // were flagged "unknown payroll system" + "producer Prawn unknown"). Humi
+  // renders its PDFs with Prawn (Ruby) and prints "Powered by www.humi.ca".
+  Humi: {
+    producer: [/Prawn/i],
+    text: [/humi\.ca/i, /\bHUMI\b/, /Employment\s+Hero/i],
+  },
+  Payworks: { producer: [], text: [/Payworks/i] },
+  Wagepoint: { producer: [], text: [/Wagepoint/i] },
+  Rise: { producer: [], text: [/Rise\s+People/i, /risepeople\.com/i] },
+  Knit: { producer: [], text: [/Knit\s+People/i, /knitpeople\.com/i] },
+  Wave: { producer: [], text: [/Wave\s+Payroll/i, /waveapps\.com/i] },
+  Nethris: { producer: [], text: [/Nethris/i] },
+  Workday: { producer: [], text: [/Workday/i] },
 }
 
 export function checkSourceSpecific(
@@ -257,8 +271,8 @@ export function checkSourceSpecific(
         code: 'paystub_unknown_payroll_system',
         severity: 'low',
         file,
-        evidence_en: `Pay stub doesn't match common payroll providers (ADP, Ceridian, Dayforce, QuickBooks). Custom in-house payroll is plausible for small employers but warrants direct employer verification.`,
-        evidence_zh: `工资单不属于常见工资系统（ADP、Ceridian、Dayforce、QuickBooks）。小公司用自建工资系统可能合理，但建议直接联系雇主核实。`,
+        evidence_en: `Pay stub doesn't match common payroll providers (ADP, Ceridian/Dayforce, QuickBooks, Humi, Payworks, Wagepoint, Rise, Knit, Wave, Nethris, Workday). Custom in-house payroll is plausible for small employers but warrants direct employer verification.`,
+        evidence_zh: `工资单不属于常见工资系统（ADP、Ceridian/Dayforce、QuickBooks、Humi、Payworks、Wagepoint、Rise、Knit、Wave、Nethris、Workday）。小公司用自建工资系统可能合理，但建议直接联系雇主核实。`,
       })
     }
   }

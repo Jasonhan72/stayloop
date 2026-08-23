@@ -37,7 +37,7 @@ import { checkPdfMetadata, readPdfMetadata } from './pdf-metadata'
 import { checkTextDensity, readPdfTextDensity } from './pdf-text'
 import { checkPdfStructure } from './pdf-structure'
 import { checkBenford } from './benford'
-import { checkPaystubMath, extractPaystubFields } from './paystub-math'
+import { applyTextPayFrequency, checkPaystubMath, extractPaystubFields } from './paystub-math'
 import { checkStatutoryDeductions } from './statutory-deductions'
 import { checkSourceSpecific } from './source-specific'
 import { runCrossDocChecks, checkTimestampClustering, reconcileIncomeAcrossDocs } from './cross-doc'
@@ -169,6 +169,7 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
   // was a federal corporation dissolved in 2015 — a public record nothing
   // in the base pass consulted. One federated CBR/MRAS query per distinct
   // employer; an outage surfaces as 'unavailable', never as 'verified'.
+  const employerRegistry: NonNullable<ForensicsReport['employer_registry']> = []
   try {
     const names = Array.from(new Set(perFile
       .map(pf => (pf.paystub_math?.extraction.employer_name || '').trim())
@@ -199,10 +200,11 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
         crossDocFlags.push({
           code: 'employer_registry_active',
           severity: 'info',
-          evidence_en: `Employer "${name}" matches an active registry record: ${info.name}${info.jurisdiction ? ` (${info.jurisdiction})` : ''}, status "${info.status}". Existence corroborated — not the employment itself.`,
-          evidence_zh: `雇主 "${name}" 匹配到活跃的企业登记记录：${info.name}${info.jurisdiction ? `（${info.jurisdiction}）` : ''}，状态 "${info.status}"。佐证了公司存在——不等于佐证了雇佣关系本身。`,
+          evidence_en: `Employer "${name}" matches an active registry record: ${info.name}${info.jurisdiction ? ` (${info.jurisdiction})` : ''}, status "${info.status}"${info.incorporation_date ? `, incorporated ${info.incorporation_date}` : ''}. Existence corroborated — not the employment itself.`,
+          evidence_zh: `雇主 "${name}" 匹配到活跃的企业登记记录：${info.name}${info.jurisdiction ? `（${info.jurisdiction}）` : ''}，状态 "${info.status}"${info.incorporation_date ? `，成立于 ${info.incorporation_date}` : ''}。佐证了公司存在——不等于佐证了雇佣关系本身。`,
         })
       }
+      employerRegistry.push({ employer: name, matched_name: info.name, status: info.status || null, incorporation_date: info.incorporation_date || null, jurisdiction: info.jurisdiction || null })
     }
   } catch { /* registry outage must never fail forensics */ }
 
@@ -236,6 +238,7 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
     cross_doc: crossDocResult,
     cross_doc_flags: crossDocFlags,
     all_flags: allFlags,
+    employer_registry: employerRegistry,
     hard_gates: hardGates,
     severity,
     elapsed_ms: Date.now() - startedAt,
@@ -519,6 +522,8 @@ async function analyzeFile(
     if (kindIncludes(f.kind, 'pay_stub') && apiKey) {
       const ext = await extractPaystubFields(f.signed_url, f.mime, apiKey)
       if (ext) {
+        // The stub's own "Pay Period N of 24" beats the model's frequency guess.
+        applyTextPayFrequency(ext, out.text_density?.text_sample)
         const { result: math, flags: mathFlags } = checkPaystubMath(ext, f.name)
         out.paystub_math = math
         out.flags.push(...mathFlags)

@@ -61,6 +61,10 @@ export interface CoherenceDocSummary {
     /** every distinct report/request/as-of/statement date printed on it */
     dates?: string[]
     employer?: string | null
+    /** employment start date if the document states one (letter / application form) */
+    employment_start?: string | null
+    /** every employer the document lists for the applicant (e.g. a credit report's Employment section) */
+    employers_listed?: string[]
   }
 }
 
@@ -84,6 +88,12 @@ Look for (non-exhaustive — use judgement):
 - Content that is conspicuously absent: a large auto loan on the credit report but "vehicles" left blank on the application; an employer everywhere but no contact path except a personal cell; a stated rent with no lease.
 - Provenance mismatches: a document whose layout, wording, fonts or field labels do not match what its claimed source (Equifax/TransUnion, a bank, ADP/Ceridian, Service Ontario) actually produces — say precisely what differs.
 - Text that looks overlaid, re-typed or misaligned relative to the rest of the page.
+- Ages at claimed dates (arithmetic from the date of birth on the ID): a senior title (COO, director, manager) or an employment start that falls before age 16–18; an account opened before adulthood.
+- Employers the CREDIT REPORT lists (its "Employment" section) vs employers declared on the application / letter — an undisclosed current employer is an omission to resolve.
+- Residence history vs the credit file's address history — a residence claimed for more than a year that never appears on the credit report, or a licence/credit address in another province while the applicant claims to have lived locally for years.
+- Pay changes right before the application: a base salary that steps up within ~60 days of the newest document (quote the two period amounts and the dates).
+- Employment start date vs the employer's incorporation/registration date when either document states one — employment cannot predate the employer.
+- Full-time enrolment letters alongside a "permanent, full-time" job: not a finding by itself, but report it as a plausibility question the landlord should ask (hours per week vs study load).
 
 HARD RULES:
 1. Every anomaly MUST include at least one VERBATIM quote from the document(s) in "evidence" (copy the exact characters; do not paraphrase). If you cannot quote it, do not report it.
@@ -119,7 +129,9 @@ HARD RULES:
         "phones": ["<phone numbers printed (max 3)>"],
         "addresses": ["<addresses printed (max 3)>"],
         "dates": ["<distinct report/request/statement/pay/letter dates, YYYY-MM-DD (max 6)>"],
-        "employer": "<employer name as printed or null>"
+        "employer": "<employer name as printed or null>",
+        "employment_start": "<YYYY-MM-DD start date if the document states one, else null>",
+        "employers_listed": ["<every employer the document lists for the applicant, e.g. a credit report's Employment section (max 5)>"]
       }
     }
   ]
@@ -151,6 +163,8 @@ export function sanitizeCoherenceOutput(raw: unknown, model: string | null, elap
       addresses: strArr(d?.key_facts?.addresses, 10, 160),
       dates: strArr(d?.key_facts?.dates, 20, 20),
       employer: clampStr(d?.key_facts?.employer, 120) || null,
+      employment_start: clampStr(d?.key_facts?.employment_start, 20) || null,
+      employers_listed: strArr(d?.key_facts?.employers_listed, 5, 120),
     },
   })).filter(d => d.file)
   const anomalies: CoherenceAnomaly[] = (Array.isArray(o.anomalies) ? o.anomalies : []).slice(0, 20).map((a: any, i: number) => {

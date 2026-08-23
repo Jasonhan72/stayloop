@@ -942,6 +942,40 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
       coherencePromise,
     ])
 
+    // Employment start vs employer incorporation (2026-08-22, case 25): the
+    // letter says "Start Date: September 3, 2024" while the federated registry
+    // shows Cashew Corp. incorporated 2026-04-21 — employment cannot predate
+    // the employer. Both facts were already on the report, on different pages;
+    // nothing compared them. Deterministic: registry date × the coherence
+    // review's extracted employment_start (employment letters / forms).
+    const earlyRedFlags: string[] = []
+    try {
+      const reg = forensicsReport.employer_registry || []
+      const starts = (coherence.status === 'ok' ? coherence.documents : [])
+        .map(d => ({ file: d.file, kind: d.kind, start: d.key_facts.employment_start, employer: d.key_facts.employer || '' }))
+        .filter(d => d.start && /^\d{4}-\d{2}-\d{2}$/.test(d.start))
+      for (const r of reg) {
+        if (!r.incorporation_date || !/^\d{4}-\d{2}-\d{2}/.test(r.incorporation_date)) continue
+        const inc = Date.parse(r.incorporation_date.slice(0, 10))
+        for (const d of starts) {
+          const st = Date.parse(d.start as string)
+          const sameEmployer = !d.employer || d.employer.toLowerCase().split(/\s+/)[0] === r.employer.toLowerCase().split(/\s+/)[0]
+          if (!sameEmployer || !Number.isFinite(inc) || !Number.isFinite(st)) continue
+          const daysBefore = Math.round((inc - st) / 86_400_000)
+          if (daysBefore > 90) {
+            forensicsReport.all_flags.push({
+              code: 'employment_predates_incorporation',
+              severity: 'high',
+              file: d.file,
+              evidence_en: `"${d.file}" states employment with ${r.employer} from ${d.start}, but the business registry shows ${r.matched_name} incorporated on ${r.incorporation_date.slice(0, 10)} — ${daysBefore} days later. A company cannot employ anyone before it exists (a predecessor sole proprietorship is possible — ask for proof: T4s, CRA NOA, or the predecessor's business registration).`,
+              evidence_zh: `"${d.file}" 称自 ${d.start} 起受雇于 ${r.employer}，但企业登记显示 ${r.matched_name} 成立于 ${r.incorporation_date.slice(0, 10)}——晚了 ${daysBefore} 天。公司不可能在成立之前雇人（若有前身个体户需提供证明：T4、CRA NOA 或前身的商业登记）。`,
+            })
+            if (!earlyRedFlags.includes('employment_predates_incorporation')) earlyRedFlags.push('employment_predates_incorporation')
+          }
+        }
+      }
+    } catch { /* never fatal */ }
+
     await supabase.from('screenings').update({
       court_records_detail: courtDetail,
       forensics_detail: forensicsReport,
@@ -1765,6 +1799,7 @@ JSON DISCIPLINE (avoid parse errors):
     const hardGates: string[] = (Array.isArray(parsed.hard_gates_triggered) ? parsed.hard_gates_triggered : [])
       .filter((g: unknown): g is string => typeof g === 'string' && g in HARD_GATE_CAPS && !MODEL_BANNED_GATES.has(g))
     const redFlags: string[] = Array.isArray(parsed.red_flags) ? parsed.red_flags : []
+    for (const f of earlyRedFlags) if (!redFlags.includes(f)) redFlags.push(f)
 
     // ---- Stage 3.7: LTB Order Catalogue -------------------------------
     // Ontario Open Data (data.ontario.ca/dataset/ltb-order-catalogue), published

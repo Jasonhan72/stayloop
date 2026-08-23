@@ -39,6 +39,8 @@ export interface ArmLengthResult {
   is_recently_incorporated: boolean      // < 2 years old
   applicant_is_officer: boolean          // applicant name matches a director/officer
   applicant_lastname_match: boolean      // last name matches a director/officer
+  /** the employer's NAME itself carries the applicant's surname ("Natha Holdings" ↔ Tahir Natha) */
+  employer_name_surname_match?: boolean
   company_address_matches_applicant: boolean
   arm_length_risk: 'high' | 'medium' | 'low' | 'clean'
   flags: ForensicFlag[]
@@ -118,6 +120,16 @@ export function canonicalizeEmployerName(name: string): string {
 }
 
 // Check if two names likely refer to the same person (fuzzy last-name match)
+const EMPLOYER_GENERIC_TOKENS = new Set(['inc', 'ltd', 'limited', 'corp', 'corporation', 'company', 'co', 'holdings', 'group', 'enterprises', 'services', 'consulting', 'canada', 'ontario', 'alberta', 'the', 'and', 'of', 'international', 'solutions', 'research', 'financial', 'capital', 'partners', 'associates', 'technologies', 'systems'])
+/** Does the employer NAME contain the applicant's surname as a whole token (ignoring corporate boilerplate)? Exported for tests. */
+export function employerNameCarriesSurname(employerName: string, applicantName: string): boolean {
+  const parts = (applicantName || '').trim().split(/\s+/).filter(Boolean)
+  if (parts.length < 2) return false
+  const surnames = new Set([parts[parts.length - 1], parts[0]].map((x) => x.toLowerCase().replace(/[^a-z\u00C0-\u024F'-]/g, '')).filter((x) => x.length >= 3))
+  const tokens = (employerName || '').toLowerCase().replace(/[^a-z\u00C0-\u024F'\s-]/g, ' ').split(/\s+/).filter(Boolean)
+  return tokens.some((t) => t.length >= 3 && !EMPLOYER_GENERIC_TOKENS.has(t) && surnames.has(t))
+}
+
 function lastNameMatch(name1: string, name2: string): boolean {
   // Family-relatedness, not same-person identity — deliberately broader than
   // the LTB module's matching, because the question here is "could these two
@@ -398,6 +410,10 @@ export async function checkArmLength(
   const flags: ForensicFlag[] = []
   const numbered = isNumberedCompany(employerName)
   const commonSurname = isCommonSurname(applicantName)
+  // Case 25 (2026-08-22): prior employer "Natha Holdings Ltd." for applicant
+  // Tahir Natha was reported 正常 — 独立雇佣关系 because only officers and the
+  // signatory were compared. The company NAME is the loudest signal.
+  const employerNameSurname = employerNameCarriesSurname(employerName, applicantName)
 
   // 1. Registry lookup (cache-aware if caller injected companyLookup)
   const lookup = options.companyLookup || searchOpenCorporates
@@ -458,7 +474,7 @@ export async function checkArmLength(
   // HR phone collision) before escalating risk.
   const hrPhoneCollision = !!options.hr_phone_collision
   const corroboratingSignal = numbered || recentlyIncorporated || addressMatch || hrPhoneCollision
-  const effectiveLastnameMatch = applicantLastnameMatch && (!commonSurname || corroboratingSignal)
+  const effectiveLastnameMatch = (applicantLastnameMatch || employerNameSurname) && (!commonSurname || corroboratingSignal)
 
   let risk: 'high' | 'medium' | 'low' | 'clean' = 'clean'
   if (applicantIsOfficer) {
@@ -519,6 +535,15 @@ export async function checkArmLength(
       severity,
       evidence_en: `Company officer "${matchName}" shares last name with applicant "${applicantName}"${commonNote_en}. ${severity === 'low' ? 'Informational.' : 'Likely a family business — employment verification is not arm\'s-length.'}`,
       evidence_zh: `公司高管"${matchName}"与申请人"${applicantName}"姓氏相同${commonNote_zh}。${severity === 'low' ? '仅供参考。' : '很可能是家族企业——雇佣证明不是独立第三方出具的。'}`,
+    })
+  }
+
+  if (employerNameSurname && !applicantIsOfficer && !signatoryOwnerFamily) {
+    flags.push({
+      code: 'arm_length_surname_in_employer',
+      severity: commonSurname && !corroboratingSignal ? 'low' : 'medium',
+      evidence_en: `The employer's name "${employerName}" carries the applicant's surname ("${applicantName}"). Likely a family business or self-employment — an employment reference from it is not arm's-length; require CRA Notice of Assessment / T4 / personal-account payroll deposits.`,
+      evidence_zh: `雇主名称 "${employerName}" 含申请人姓氏（"${applicantName}"）。很可能是家族企业或自雇——其出具的雇佣证明不是独立第三方证据；需要 CRA 税务评估通知（NOA）/ T4 / 个人账户工资入账。`,
     })
   }
 
@@ -608,6 +633,7 @@ export async function checkArmLength(
     is_recently_incorporated: recentlyIncorporated,
     applicant_is_officer: applicantIsOfficer,
     applicant_lastname_match: applicantLastnameMatch,
+    employer_name_surname_match: employerNameSurname,
     company_address_matches_applicant: addressMatch,
     arm_length_risk: risk,
     flags,
