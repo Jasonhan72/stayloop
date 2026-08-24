@@ -239,12 +239,16 @@ In `supabase/migrations/`:
 - `lib/agent/demo.ts` aligned to canon so agent spine renders design content (incl. RECO 授权/不授权 via data_scope/excluded_data)
 - Nav wired: Header bell → `/notifications`; tenant+landlord rail 审计 icon → audit pages; lease page → move-in link; agent tasks showing → `/agent/showings/[slug]`
 
-**Remaining (next session — deferred deliberately):**
-- Agent workspaces: hard-author the design's fixed KPI strip / YOUR PROFILE aside / RECO checklist as components (currently fed via demo data through the intentional spine — true rebuild conflicts with spine architecture, needs a design call)
-- Disputes: ART70 three-party arbitration workbench + ART71 4-step LTB prefill wizard (deeper net-new flows; rest of disputes aligned)
-- Onboarding: design has 2 screens (name → tier1); we kept extra `welcome` + `meet` screens — decide whether to remove
-- `/agent/onboarding` vs design route `/agent/onboard` — reconcile name; rework into Brief-voiced ART35 flow (RECO pledge, 3 steps, 画 3 个小区)
-- Stripe Connect: fee-collection loop is live in test mode (Express onboarding + settle → Checkout → webhook fee_settled). Still open: outbound transfers to connected accounts (no flow pays agents through the platform yet), reconciling the two plan stores (`landlords.plan` written by the webhook vs the `subscription` table read by `get_entitlements` — entitlements currently always resolve 'free'), and spreading `get_entitlements` beyond the settings surface
+**Backlog 已结案（2026-08-24 与生产代码逐项核对后关闭）：**
+- ~~Agent workspaces 硬编码设计件（KPI 条 / YOUR PROFILE / RECO checklist）~~ — **实现已超过蓝本**：`StatusOverview` 是按角色实读 RLS 表的活数据瓦片（蓝本那条是静态数字），`PrivateMemorySnapshot` 承担 YOUR PROFILE，再加上 2026-08-24 的 `user_model` 自学习画像。回头照静态蓝本重做是倒退，不做
+- ~~Disputes ART70 / ART71~~ — **无后端可依**：全库没有任何 dispute 表，`/disputes` 是纯静态营销页；三方仲裁台还需要真人仲裁员运营。产品未到该阶段，不做。**但留一条待办见下**
+- ~~Onboarding welcome/meet 去留 · `/agent/onboarding` 改名 `/agent/onboard`~~ — **已自然消解**：全站 CTA（tenant/landlord/agent 营销页、pricing、about、auth/callback）一律指向 `/onboarding/name`，`welcome`/`meet` 只有 meet 的返回键还引用 welcome，属无入口死路由（315 行，无害）；`/agent/onboarding` 被 pricing 三处链接引用，改名纯属对齐蓝本字面且会断链。都不做
+- ~~Stripe Connect 出账闭环~~ — **零用户可服务**：prod 里 brokerages / referral / commission / invoice / subscription 全部 0 行，平台上没有经纪。付款路径无人可付，等有真实经纪再建
+- ~~密钥旋转~~ — 用户 2026-07 已明确决定暂不处理
+
+**核对里掉出来的两条：**
+- ~~`get_entitlements` 与真实计划源脱节~~ — **已修（2026-08-24，迁移 `20260824_entitlements_plan_source.sql`，已应用 prod）**。付费门禁的真实执行方（`app/api/screen-score` 配额、`app/api/deep-check` 的 pro 门）读 `landlords.plan`，Stripe webhook 也写这一列——这条链一直是对的；出错的是 `get_entitlements`，它读 `public.subscription`（0 行、无任何写入方），于是真付费房东在 `/settings` 的「当前计划」上显示成 free。现在 landlord 分支以 `landlords.plan` 为准（`subscription` 若将来有行则优先），并把 `team` 补进解锁集合与 screen-score/deep-check 对齐。tenant/agent 没有计划存储，继续如实解析 free。已验证：pro 房东 → `plan:"pro" · full_screening:true`
+- ⚠️ **`/disputes` 公开页展示编造的执业者（待你拍板）**：页脚直链、无任何示范/demo 标注，页面上有 `David Chen, J.D. · LSO #L88421`、`Sanjay Patel · LSO #P22186` 等虚构律师/paralegal，带虚构的 LSO 执照号、胜率、评分，以及「平均 8.7 天结案」这类虚构统计。LSO 号是安省法律协会的真实监管标识，编造的号还可能撞上真实执业者。选项：加显著示范标注 / 换成明显非真实的占位 / 该页下线。属产品决策，未擅动
 
 ## Route Map
 
