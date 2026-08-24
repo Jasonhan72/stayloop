@@ -12,6 +12,7 @@ import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFall
 import { applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
+import { buildUserContext, parseLookup, runLookup } from '@/lib/agent/userContext'
 import { DEFAULT_MODELS, getModelForUser, getCatalog, findModel, type CatalogModel } from '@/lib/modelConfig'
 import { llmChat, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
 
@@ -481,10 +482,23 @@ export async function POST(req: Request) {
     }
   }
 
+  // Per-user data snapshot (applications / screenings / leases / maintenance
+  // …, RLS-scoped) — the agent must KNOW the user's own Stayloop data, not
+  // deny it. Failures degrade to an empty block.
+  let userContextAddendum = ''
+  if (!anonymous && sbAuth && turnUserId) {
+    try {
+      userContextAddendum = await buildUserContext(sbAuth, role, turnUserId)
+    } catch (e) {
+      console.warn('[agent/turn] user context failed', (e as Error).message)
+    }
+  }
+
   const system =
     buildSystemPrompt(role, agentName, memories, workflow, body.stageLabel, uiLang) +
     renewalAddendum +
     landlordAddendum +
+    userContextAddendum +
     (anonymous ? ANON_PROMPT_ADDENDUM : '')
 
   // ---- Heartbeat-streamed response ------------------------------------------
@@ -536,6 +550,8 @@ export async function POST(req: Request) {
 
   let raw = ''
   let modelUsed = DEFAULT_MODELS.turn
+  // Hoisted for the lookup second pass below (def itself is try-scoped).
+  let turnDef: CatalogModel | null = null
   try {
     // Admin-configurable model slot (60s edge cache) — see lib/modelConfig.ts.
     // getModels() already guards allowedSlots + provider-key availability, so
@@ -552,6 +568,7 @@ export async function POST(req: Request) {
       def = defaultDef
     }
     modelUsed = def.id
+    turnDef = def
     const { text } = await llmChat({
       model: def,
       system,
@@ -593,7 +610,38 @@ export async function POST(req: Request) {
     throw new Error(`reasoning failed: ${msg}`)
   }
 
-  const parsed = safeParseJson(raw)
+  let parsed = safeParseJson(raw)
+
+  // On-demand lookup (second pass): the model asked for user data the
+  // snapshot didn't carry — run ONE whitelisted RLS query and re-ask with
+  // the real rows. Authed turns only; at most one lookup per turn.
+  const lookupReq = !anonymous && sbAuth && turnUserId && turnDef ? parseLookup(parsed?.lookup) : null
+  if (lookupReq && sbAuth && turnUserId && turnDef) {
+    try {
+      const lookupResult = await runLookup(sbAuth, role, turnUserId, lookupReq)
+      const { text: raw2 } = await llmChat({
+        model: turnDef,
+        system,
+        messages: [
+          { role: 'user', content: userContent },
+          { role: 'assistant', content: raw },
+          { role: 'user', content: `--- 数据库查询结果（${lookupReq.entity}${lookupReq.query ? ` · "${lookupReq.query}"` : ''}，RLS 范围内的真实数据）---\n${lookupResult}\n\n请基于以上真实数据直接回答用户刚才的问题，输出格式不变；本轮 lookup 必须填 null；查询结果为空就如实说没有。` },
+        ],
+        maxTokens: turnDef.provider === 'openai-compat' ? 4000 : 2500,
+        temperature: 0.4,
+        jsonMode: turnDef.provider === 'openai-compat',
+        signal: AbortSignal.timeout(75000),
+        meta: { userId: turnUserId, slot: 'turn', source: 'agent/turn-lookup' },
+      })
+      const parsed2 = safeParseJson(raw2)
+      if (parsed2 && typeof parsed2.reply === 'string') {
+        parsed = parsed2
+        raw = raw2
+      }
+    } catch (e) {
+      console.warn('[agent/turn] lookup pass failed', (e as Error).message)
+    }
+  }
   // The model occasionally answers a factual question in plain prose despite
   // the JSON contract. Salvage that text as the reply — losing a real answer
   // behind a canned "我记下了" (which falsely implies success) is worse.
