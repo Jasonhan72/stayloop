@@ -2,7 +2,7 @@
 
 // Claude-style conversation panel for a Personal Agent workspace: a scrolling
 // message thread (user ↔ agent bubbles) with the input pinned at the bottom.
-import { useEffect, useRef } from 'react'
+import {useEffect, useRef, useState} from 'react'
 import { useT } from '@/lib/i18n'
 import AgentInputBar from './AgentInputBar'
 import DraftListingChatCard from './DraftListingChatCard'
@@ -255,11 +255,7 @@ export default function AgentChat({
         {thinking && (
           <div className="flex justify-start">
             <span className="mr-2 mt-0.5 h-7 w-7 flex-none rounded-full" style={{ background: ORB[role] }} />
-            <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm bg-surface-chip px-4 py-3.5">
-              <Dot delay="0s" />
-              <Dot delay="0.15s" />
-              <Dot delay="0.3s" />
-            </div>
+            <ThinkingIndicator status={status} lang={lang} />
           </div>
         )}
         <div ref={endRef} />
@@ -309,5 +305,55 @@ function Dot({ delay }: { delay: string }) {
       className="inline-block h-1.5 w-1.5 animate-bounce rounded-full"
       style={{ background: '#A1A1AA', animationDelay: delay }}
     />
+  )
+}
+
+
+// "Thinking…" indicator (2026-08-24): staged labels that advance with wall
+// time, so a 10-second generation reads as progress instead of silence —
+// understanding → thinking → checking your data → drafting the answer.
+const THINKING_STAGES: { zh: string; en: string }[] = [
+  { zh: '正在理解你的问题', en: 'Understanding your question' },
+  { zh: '思考中', en: 'Thinking' },
+  { zh: '正在核对你的数据', en: 'Checking your data' },
+  { zh: '正在整理建议', en: 'Drafting the answer' },
+]
+
+function ThinkingIndicator({ status, lang }: { status: AgentStatus; lang: 'zh' | 'en' }) {
+  const [stage, setStage] = useState(0)
+  useEffect(() => {
+    setStage(status === 'understanding' ? 0 : 1)
+    if (status !== 'working') return
+    // Advance 思考中 → 核对数据 → 整理建议, then hold on the last stage.
+    const timers = [
+      setTimeout(() => setStage(2), 4000),
+      setTimeout(() => setStage(3), 9000),
+    ]
+    return () => timers.forEach(clearTimeout)
+  }, [status])
+  const label = THINKING_STAGES[stage][lang === 'zh' ? 'zh' : 'en']
+  return (
+    <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm bg-surface-chip px-4 py-3">
+      <span className="flex items-center gap-1">
+        <Dot delay="0s" />
+        <Dot delay="0.15s" />
+        <Dot delay="0.3s" />
+      </span>
+      <span className="sl-thinking-shimmer text-[12.5px] font-medium">{label}…</span>
+      <style jsx>{`
+        .sl-thinking-shimmer {
+          background: linear-gradient(90deg, #94a3b8 20%, #334155 50%, #94a3b8 80%);
+          background-size: 200% 100%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+          animation: sl-shimmer 1.8s linear infinite;
+        }
+        @keyframes sl-shimmer {
+          0% { background-position: 180% 0; }
+          100% { background-position: -20% 0; }
+        }
+      `}</style>
+    </div>
   )
 }
