@@ -255,3 +255,20 @@ html, body {
   40% { transform: scale(1.3); }
   100% { transform: scale(1); }
 }
+
+/* ── iOS 焦点缩放（手机端全站）────────────────────────────────────────────
+   Safari on iOS 会在聚焦一个**字号小于 16px** 的表单控件时把整页放大，而且
+   放大后不会自己退回来——用户从此在一个 1.3 倍、布局已经错位的页面上继续
+   填表。站内的共享输入框 `.sl-input` 是 14px（另有个别 12–13px 的行内控件），
+   所以每一个表单在 iPhone 上都会触发这件事：登录、注册、联系、申请、发布
+   房源、导入租约、设置……
+   修法是把手机断点上的文本类控件抬到 16px。桌面端字号一点不动；勾选框、
+   单选、滑块、文件选择本来就不触发缩放，排除掉以免撑坏它们的方框。
+   需要 !important 是因为要盖过 Tailwind 的 `!text-[12px]` 这类行内工具类。 */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

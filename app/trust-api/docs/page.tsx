@@ -844,6 +844,20 @@ const result = await client.screen({...})`}
             padding: 24px !important;
           }
         }
+        /* 端点标题是不可断的等宽串（GET /v1/listings/{id}/compliance 在 224px
+           的正文列里要 278px），窄屏上它是本页唯一撑破文档宽度的东西。左侧导航
+           里的同一串也一样。代码块自己有 overflow:auto，不受这条影响。 */
+        .tapi-docs-main h1,
+        .tapi-docs-main h2,
+        .tapi-docs-main h3,
+        .tapi-docs-nav a {
+          overflow-wrap: anywhere;
+        }
+        @media (max-width: 400px) {
+          .tapi-docs-main {
+            padding: 16px !important;
+          }
+        }
       `}</style>
     </div>
   )
