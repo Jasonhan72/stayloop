@@ -426,9 +426,54 @@ export async function POST(req: Request) {
     renewalAddendum = renewalPlaybook(leaseBlock)
   }
 
+  // Landlord context: the landlord's OWN listings, straight from the DB.
+  // Without this the landlord agent had no listing data at all (search only
+  // runs for tenants) and answered "我这边没有这个房源的记录" about a listing
+  // sitting right in /dashboard/listings (case: 89 Estelle Avenue, 2026-08-23).
+  let landlordAddendum = ''
+  if (role === 'landlord' && !anonymous && sbAuth) {
+    try {
+      // Dual-ID invariant: listings.landlord_id references landlords.id
+      // (profileId), which may differ from auth.uid() — resolve both.
+      const { data: lp } = await sbAuth
+        .from('landlords')
+        .select('id')
+        .or(`id.eq.${turnUserId},auth_id.eq.${turnUserId}`)
+      const ids = Array.from(new Set([...(lp ?? []).map((r: { id: string }) => r.id), turnUserId].filter(Boolean))) as string[]
+      const { data: myListings } = await sbAuth
+        .from('listings')
+        .select('title,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,is_active,verification_status,source,slug')
+        .in('landlord_id', ids)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (myListings && myListings.length) {
+        const line = (l: Record<string, unknown>) => {
+          const status = !l.is_active
+            ? '已下架'
+            : l.source === 'realtor'
+              ? '上架中(Realtor.ca 导入)'
+              : l.verification_status === 'verified'
+                ? '上架中(已验证)'
+                : '待审核(未公开)'
+          return `- ${[l.unit, l.address].filter(Boolean).join(' ')} · ${[l.neighborhood, l.city].filter(Boolean).join(' · ')} · $${l.monthly_rent}/月 · ${l.bedrooms ?? '?'}卧${l.bathrooms ?? '?'}浴${l.sqft ? ` · ${l.sqft}sqft` : ''} · 状态: ${status}${l.slug ? ` · /listings/${l.slug}` : ''}`
+        }
+        landlordAddendum =
+          `
+
+## 你的房源（Stayloop 数据库实时记录，共 ${myListings.length} 套 —— 回答房源相关问题时以此为准）
+` +
+          myListings.map(line).join('\n') +
+          '\n（只有当用户问到的房源不在上表时才说没有记录。缺的字段就是库里没有——需要时请用户补充或到 /dashboard/listings 编辑，不要臆测。诊断定价/文案/照片时基于上表数据 + 用户补充的材料。）'
+      }
+    } catch (e) {
+      console.warn('[agent/turn] landlord listings lookup failed', (e as Error).message)
+    }
+  }
+
   const system =
     buildSystemPrompt(role, agentName, memories, workflow, body.stageLabel, uiLang) +
     renewalAddendum +
+    landlordAddendum +
     (anonymous ? ANON_PROMPT_ADDENDUM : '')
 
   // ---- Heartbeat-streamed response ------------------------------------------
