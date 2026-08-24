@@ -553,7 +553,10 @@ export async function POST(req: Request) {
       // 国产 openai-compat 路径强制 json_object，配合下方既有的 JSON 解析
       // + prose 抢救逻辑；Anthropic 路径行为不变（prompt 契约）。
       jsonMode: def.provider === 'openai-compat',
-      signal: AbortSignal.timeout(45000),
+      // 75 s: landlord listing-diagnostic answers measured at ~44 s on the
+      // turn model — 45 s produced spurious 'turn failed: timeout'. The route
+      // heartbeats every 3 s, so the gateway is not a constraint.
+      signal: AbortSignal.timeout(75000),
       meta: { userId: anonymous ? null : turnUserId, slot: 'turn', source: 'agent/turn' },
     })
     raw = text
