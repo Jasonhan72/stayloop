@@ -308,6 +308,9 @@ export async function runAgentTurn(args: {
       targetType: 'agent_message',
       metadata: {
         message: message.slice(0, 500),
+        // Reply snippet feeds the nightly reflection pass (lib/agent/reflection.ts)
+        // — without it the user-model synthesis only sees one side of the dialogue.
+        reply: (replyBody || '').slice(0, 400),
         proposed: proposedAction?.action_type ?? null,
         // The guardrail is the compliance backstop we tell landlords exists;
         // its verdict was computed on every turn and then thrown away, so an

@@ -13,6 +13,8 @@ import { applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/age
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
 import { buildUserContext, parseLookup, runLookup } from '@/lib/agent/userContext'
+import { needsReflection, reflectUser, USER_MODEL_KEY, userModelToPromptBlock } from '@/lib/agent/reflection'
+import { getRequestContext } from '@cloudflare/next-on-pages'
 import { DEFAULT_MODELS, getModelForUser, getCatalog, findModel, type CatalogModel } from '@/lib/modelConfig'
 import { llmChat, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
 
@@ -486,9 +488,24 @@ export async function POST(req: Request) {
   // …, RLS-scoped) — the agent must KNOW the user's own Stayloop data, not
   // deny it. Failures degrade to an empty block.
   let userContextAddendum = ''
+  // Long-term user model ("学习画像") — synthesized by lib/agent/reflection.ts,
+  // injected on every authed turn so the agent starts out knowing the person.
+  type UserModelRow = { value?: unknown; updated_at?: string | null }
+  let userModelRow: UserModelRow | null = null
   if (!anonymous && sbAuth && turnUserId) {
     try {
-      userContextAddendum = await buildUserContext(sbAuth, role, turnUserId)
+      const [ctx, modelRow] = await Promise.all([
+        buildUserContext(sbAuth, role, turnUserId),
+        sbAuth
+          .from('user_memories')
+          .select('value,updated_at')
+          .eq('user_id', turnUserId)
+          .eq('role', role)
+          .eq('key', USER_MODEL_KEY)
+          .maybeSingle(),
+      ])
+      userModelRow = (modelRow?.data as UserModelRow | null) ?? null
+      userContextAddendum = ctx + userModelToPromptBlock(userModelRow?.value)
     } catch (e) {
       console.warn('[agent/turn] user context failed', (e as Error).message)
     }
@@ -915,6 +932,23 @@ export async function POST(req: Request) {
           clearInterval(hb)
           controller.enqueue(encoder.encode(JSON.stringify(payload)))
           controller.close()
+          // Self-learning trigger: after the reply is on the wire, refresh this
+          // user's long-term model in the background — at most ~once a day per
+          // user+role (needsReflection gate). Runs on the caller's own RLS
+          // client, so it can only ever read/write what the user can.
+          if (!anonymous && sbAuth && turnUserId && needsReflection(userModelRow)) {
+            const p = reflectUser(sbAuth, turnUserId, role).catch((e) =>
+              console.warn('[agent/turn] background reflection failed', (e as Error).message),
+            )
+            try {
+              // Cloudflare cancels post-response work unless it rides waitUntil;
+              // in `next dev` getRequestContext throws — the floating promise
+              // is enough there (node keeps the event loop alive).
+              getRequestContext().ctx.waitUntil(p)
+            } catch {
+              void p
+            }
+          }
         })
         .catch((e) => {
           clearInterval(hb)
