@@ -112,7 +112,13 @@ function RadarChart({ dims }: { dims: Record<string, number> }) {
   const gridLevels = [0.25, 0.5, 0.75, 1.0]
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="block mx-auto">
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="mx-auto block h-auto w-full"
+      style={{ maxWidth: size }}
+    >
       {/* Grid rings */}
       {gridLevels.map((level) => (
         <polygon

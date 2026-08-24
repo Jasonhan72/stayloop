@@ -98,14 +98,16 @@ export default function AdminUsagePage() {
             {stats.daily.length > 0 && <div className="mt-1 flex justify-between font-mono text-[10px] text-body-3"><span>{stats.daily[0].day}</span><span>{stats.daily[stats.daily.length - 1].day}</span></div>}
 
             <div className="mt-8 grid gap-6 lg:grid-cols-2">
-              <div>
+              {/* min-w-0：两列里都是带 overflow-x-auto 的宽表，栅格子项默认
+                  min-width:auto 会被表格固有宽度撑开，滚动容器就永远不生效。 */}
+              <div className="min-w-0">
                 <h2 className="text-[16px] font-extrabold tracking-tight">{zh ? '按模型' : 'By model'}</h2>
                 <Table head={[zh ? '模型' : 'Model', zh ? '调用' : 'Calls', zh ? '成本' : 'Cost', zh ? 'Token 入/出/缓存' : 'Tokens in/out/cached', zh ? '均延迟' : 'Avg ms']}
                   rows={stats.by_model.map((m) => [
                     <span key="m"><span className="font-mono text-[11.5px]">{m.model}</span>{m.unpriced > 0 && <span className="ml-1 text-[10px]" style={{ color: '#B45309' }}>{zh ? `未定价 ${m.unpriced}` : `${m.unpriced} unpriced`}</span>}</span>,
                     fmt(m.calls), usd(m.cost_usd), `${fmt(m.input_tokens)} / ${fmt(m.output_tokens)} / ${fmt(m.cache_read_tokens)}`, fmt(m.avg_latency_ms)])} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-[16px] font-extrabold tracking-tight">{zh ? '按槽位' : 'By slot'}</h2>
                 <Table head={[zh ? '槽位' : 'Slot', zh ? '调用' : 'Calls', zh ? '成本' : 'Cost']} rows={stats.by_slot.map((s) => [<span key="s" className="font-mono text-[11.5px]">{s.slot}</span>, fmt(s.calls), usd(s.cost_usd)])} />
                 <h2 className="mt-6 text-[16px] font-extrabold tracking-tight">{zh ? '用量最高的用户' : 'Top users'}</h2>

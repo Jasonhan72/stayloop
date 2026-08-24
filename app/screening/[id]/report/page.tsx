@@ -186,7 +186,7 @@ function SectionShell({
 function Badge({ label, color }: { label: string; color: string }) {
   return (
     <span
-      className="inline-block rounded-md px-2 py-0.5 font-mono text-[10px] font-bold"
+      className="inline-block flex-none rounded-md px-2 py-0.5 font-mono text-[10px] font-bold"
       style={{ color, background: color + '12' }}
     >
       {label}
@@ -489,9 +489,9 @@ export default function ReportPage() {
                 </div>
                 <div className="space-y-2">
                   {hardGates.map((g: string, i: number) => (
-                    <div key={i} className="flex items-center gap-2 rounded-lg px-4 py-2.5" style={{ background: '#DC262608' }}>
+                    <div key={i} className="flex items-start gap-2 rounded-lg px-4 py-2.5" style={{ background: '#DC262608' }}>
                       <Badge label="GATE" color="#DC2626" />
-                      <span className="font-mono text-[12px] text-body-2">{g}</span>
+                      <span className="min-w-0 break-words font-mono text-[12px] text-body-2">{g}</span>
                     </div>
                   ))}
                 </div>
@@ -504,9 +504,9 @@ export default function ReportPage() {
                 </div>
                 <div className="space-y-2">
                   {redFlags.map((f: string, i: number) => (
-                    <div key={i} className="flex items-center gap-2 rounded-lg px-4 py-2.5" style={{ background: '#EA580C08' }}>
+                    <div key={i} className="flex items-start gap-2 rounded-lg px-4 py-2.5" style={{ background: '#EA580C08' }}>
                       <Badge label="FLAG" color="#EA580C" />
-                      <span className="text-[13px] text-body-2">{f}</span>
+                      <span className="min-w-0 break-words text-[13px] text-body-2">{f}</span>
                     </div>
                   ))}
                 </div>

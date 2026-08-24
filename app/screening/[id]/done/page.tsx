@@ -349,7 +349,7 @@ export default function ScanDonePage() {
                   <div className="font-mono text-[10px] font-bold mb-2" style={{ color: '#DC2626' }}>HARD GATES</div>
                   <div className="flex flex-wrap gap-2">
                     {hardGates.map((g: string, i: number) => (
-                      <span key={i} className="rounded-md px-2.5 py-1 text-[11px] font-mono font-bold" style={{ color: '#DC2626', background: '#FEF2F2' }}>{g}</span>
+                      <span key={i} className="max-w-full break-words rounded-md px-2.5 py-1 text-[11px] font-mono font-bold" style={{ color: '#DC2626', background: '#FEF2F2' }}>{g}</span>
                     ))}
                   </div>
                 </div>
@@ -359,7 +359,7 @@ export default function ScanDonePage() {
                   <div className="font-mono text-[10px] font-bold mb-2" style={{ color: '#EA580C' }}>RED FLAGS</div>
                   <div className="flex flex-wrap gap-2">
                     {redFlags.map((f: string, i: number) => (
-                      <span key={i} className="rounded-md px-2.5 py-1 text-[11px] font-mono font-bold" style={{ color: '#EA580C', background: '#FFF7ED' }}>{f}</span>
+                      <span key={i} className="max-w-full break-words rounded-md px-2.5 py-1 text-[11px] font-mono font-bold" style={{ color: '#EA580C', background: '#FFF7ED' }}>{f}</span>
                     ))}
                   </div>
                 </div>
