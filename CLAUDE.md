@@ -282,35 +282,40 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 
 ## 手机端（2026-08-24 全站复核）
 
-全部 60 条路由在 **375px 与 320px** 两个宽度上逐条量过（文档级横向溢出 + 被
-`overflow:hidden` 裁掉的正文/可交互元素），结果是**结构上零缺陷**——2026-07 那次
-`min-w-0` 适配的纪律一直被守着，之后新增的页面（households、admin/usage、
-admin/models、settings/models、agent 聊天重写、screening 报告重建）也都跟上了。
+全部路由在 **375px 与 320px** 两个宽度上逐条量过（文档级横向溢出 + 被
+`overflow:hidden` 裁掉的正文/可交互元素）。**匿名可见的 60 条路由零缺陷**——
+2026-07 那次 `min-w-0` 适配的纪律一直被守着。**缺陷全部集中在登录后才渲染的页面**，
+因为它们从来没被这样量过，共 4 处，均已修复并线上复验（320px 溢出归零）：
 
-两条现行约定，改动时别破坏：
+| 页面 | 320px 溢出 | 根因 | 修法 |
+|---|---|---|---|
+| `/admin/usage` | 102px | `lg:grid-cols-2` 的两个子项里都是带 `overflow-x-auto` 的宽表，子项默认 `min-width:auto` 被表格固有宽度撑开，滚动容器永远不生效 | 两个子项加 `min-w-0` |
+| `/screening/[id]/report` | 50px | 硬门槛/风险标记行是 `flex` + 徽章 + 一行长说明，文字列没有 `min-w-0` 无法收缩 | `items-start` + 文字 `min-w-0 break-words` + `Badge` 加 `flex-none` |
+| `/screening/[id]/graph` | 25px | 雷达图 `<svg width={300}>` 硬写，而 320px 屏上卡片内容宽只有 232px | `w-full h-auto` + `maxWidth:300`（viewBox 本来就在，几何坐标未动） |
+| `/screening/[id]/done` | 33px | 门槛/标记 chip 在 `flex-wrap` 里，单个 chip 自身文字不换行 | chip 加 `max-w-full break-words` |
 
-- **宽表一律 `overflow-x-auto` 包一层，`min-w-[Npx]` 放在里面的 table/grid 上。**
-  全站 10 处都是这个形状（admin/models 860、landlord/leases 720、dashboard 680、
-  agent/calendar 680、screening 报告 4 张 560–640、workspace `Table` 440、
-  landlord/leases/[id] 400）。直接给 table 加 min-w 而不包 scroller = 撑破页面
+另修 `/trust-api/docs`：端点标题（`GET /v1/listings/{id}/compliance` 这类不可断的
+等宽串）在 320px 下撑出 6px → `overflow-wrap: anywhere` + ≤400px 内边距 24→16。
+
+三条现行约定，改动时别破坏：
+
+- **宽表一律 `overflow-x-auto` 包一层，`min-w-[Npx]` 放在里面的 table/grid 上，
+  而且外面那层若是 flex/grid 子项必须带 `min-w-0`。** 少了 `min-w-0` 就是
+  `/admin/usage` 那个 102px——滚动容器看着写了，实际从不生效
 - **手机断点上文本类表单控件必须 ≥16px**（`app/globals.css` 末尾的
   `@media (max-width:767px)`）。iOS Safari 聚焦 <16px 的控件会把整页放大且不退回，
   而共享的 `.sl-input` 是 14px——没有这条规则时站内每个表单在 iPhone 上都中招。
   勾选框/单选/滑块/文件选择已排除（它们不触发缩放，放大反而撑坏方框）。守卫：
   `tests/mobileForms.spec.ts`
-
-本轮改的：`/trust-api/docs` 的端点标题（`GET /v1/listings/{id}/compliance` 这种
-不可断的等宽串）在 320px 下撑出 6px，加了 `overflow-wrap: anywhere` + ≤400px 时
-内边距 24→16。
+- **SVG 不要硬写 width。** 有 viewBox 就用 `w-full h-auto` + `maxWidth` 封顶
 
 **复核方法**（下次重跑用）：本地 dev 起同源 iframe、设成 375/320 宽逐条载入路由，
 比 `documentElement.scrollWidth` 与 `clientWidth`，再回溯"最外层越界元素"并跳过
-`overflow-x:auto/scroll` 的正当滚动容器。工作台页要先
-`sessionStorage.setItem('sl-show-demo','1')` 才会渲染密集的演示态，否则量到的是空态。
-注意 `middleware.ts` 的 `X-Frame-Options: DENY` 会挡住 iframe——临时放开、量完必须还原。
-**登录后才可见的页面量不到**（admin 五页、screening 报告页、landlord/applicants/[id]、
-`/h/[id]`），这些只做了静态扫描（Tailwind 里的无响应前缀多列栅格 + 超宽固定宽度），
-未发现问题；要真机量需要一个已登录会话。
+`overflow-x:auto/scroll` 的正当滚动容器。两个坑：① 工作台页要先
+`sessionStorage.setItem('sl-show-demo','1')` 才渲染密集的演示态，否则量到的是空态；
+② `middleware.ts` 的 `X-Frame-Options: DENY` 会挡住 iframe，需临时放开、量完必须还原。
+**登录后的页面 iframe 量不到**（本轮是借浏览器里已登录的生产会话逐页量的，只取几何
+不取文本）——这正是四个缺陷藏身之处，下次复核务必覆盖。
 
 ## Terminology(2026-08-03 定稿)
 
