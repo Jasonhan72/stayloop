@@ -442,7 +442,7 @@ export async function POST(req: Request) {
       const ids = Array.from(new Set([...(lp ?? []).map((r: { id: string }) => r.id), turnUserId].filter(Boolean))) as string[]
       const { data: myListings } = await sbAuth
         .from('listings')
-        .select('title,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,is_active,verification_status,source,slug')
+        .select('title,description,images,amenities,address,unit,city,neighborhood,monthly_rent,bedrooms,bathrooms,sqft,is_active,verification_status,source,slug')
         .in('landlord_id', ids)
         .order('created_at', { ascending: false })
         .limit(20)
@@ -455,7 +455,18 @@ export async function POST(req: Request) {
               : l.verification_status === 'verified'
                 ? '上架中(已验证)'
                 : '待审核(未公开)'
-          return `- ${[l.unit, l.address].filter(Boolean).join(' ')} · ${[l.neighborhood, l.city].filter(Boolean).join(' · ')} · $${l.monthly_rent}/月 · ${l.bedrooms ?? '?'}卧${l.bathrooms ?? '?'}浴${l.sqft ? ` · ${l.sqft}sqft` : ''} · 状态: ${status}${l.slug ? ` · /listings/${l.slug}` : ''}`
+          const imgs = Array.isArray(l.images) ? l.images.length : 0
+          const amen = Array.isArray(l.amenities) ? (l.amenities as string[]).slice(0, 10).join(', ') : ''
+          const desc = typeof l.description === 'string' && l.description.trim() ? l.description.trim().slice(0, 500) : ''
+          const head = `- ${[l.unit, l.address].filter(Boolean).join(' ')} · ${[l.neighborhood, l.city].filter(Boolean).join(' · ')} · $${l.monthly_rent}/月 · ${l.bedrooms ?? '?'}卧${l.bathrooms ?? '?'}浴${l.sqft ? ` · ${l.sqft}sqft` : ''} · 照片 ${imgs} 张 · 状态: ${status}${l.slug ? ` · /listings/${l.slug}` : ''}`
+          // 文案与照片是房东最常问的诊断对象 —— 把库里实际存的标题/描述/设施
+          // 一并注入（缺 = 库里真没有，让模型如实说并给补法，而不是说"没存到"）。
+          const details = [
+            l.title ? `  · 标题: ${String(l.title).slice(0, 120)}` : '  · 标题: (未填)',
+            desc ? `  · 描述(${desc.length >= 500 ? '前500字' : `全文 ${desc.length} 字`}): ${desc.replace(/\s+/g, ' ')}` : '  · 描述: (未填)',
+            amen ? `  · 设施: ${amen}` : null,
+          ].filter(Boolean).join('\n')
+          return `${head}\n${details}`
         }
         landlordAddendum =
           `
@@ -463,7 +474,7 @@ export async function POST(req: Request) {
 ## 你的房源（Stayloop 数据库实时记录，共 ${myListings.length} 套 —— 回答房源相关问题时以此为准）
 ` +
           myListings.map(line).join('\n') +
-          '\n（只有当用户问到的房源不在上表时才说没有记录。缺的字段就是库里没有——需要时请用户补充或到 /dashboard/listings 编辑，不要臆测。诊断定价/文案/照片时基于上表数据 + 用户补充的材料。）'
+          '\n（只有当用户问到的房源不在上表时才说没有记录。缺的字段就是库里没有——如实说明并告诉用户到 /dashboard/listings 补充，不要臆测。诊断文案/照片时：直接引用并点评上面的实际标题与描述（长度、语言、是否有租客视角卖点），照片按张数评估数量是否足够；照片内容库里看不到，需要用户发图才能逐张点评。）'
       }
     } catch (e) {
       console.warn('[agent/turn] landlord listings lookup failed', (e as Error).message)
