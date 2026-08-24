@@ -263,7 +263,7 @@ export default function AgentChat({
 
       {/* input */}
       <div className="border-t border-line-divider p-3">
-        <AgentInputBar agentName={agentName} onSend={onSend} disabled={thinking} />
+        <AgentInputBar agentName={agentName} role={role} onSend={onSend} disabled={thinking} />
       </div>
     </div>
   )

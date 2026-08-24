@@ -1,28 +1,49 @@
 'use client'
 
+// Chat input bar, claude.ai-style (2026-08-24): one rounded container — the
+// message field on top, and a bottom rail with 「+」 attach on the left and,
+// on the right, the turn-model selector (writes user_model_preferences, the
+// same store as /settings/models), the mic, and a square accent send key (↑).
+// Enter sends, Shift+Enter inserts a newline.
 import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/lib/i18n'
-import type { ChatAttachment } from '@/lib/agent/types'
+import { useAuth } from '@/lib/useAuth'
+import { getSupabaseBrowser } from '@/lib/supabase'
+import type { AgentRole, ChatAttachment } from '@/lib/agent/types'
+import { ROLE_THEME } from '@/lib/roleTheme'
 
 const MAX_FILES = 3
 const MAX_BYTES = 4 * 1024 * 1024 // 4MB
 
+type TurnModelState = {
+  options: { id: string; label: string }[]
+  /** '' = follow the system default */
+  selected: string
+  defaultLabel: string
+}
+
 export default function AgentInputBar({
   agentName,
+  role,
   disabled,
   onSend,
 }: {
   agentName: string
+  role?: AgentRole
   disabled?: boolean
   onSend: (message: string, attachments?: ChatAttachment[]) => void | Promise<void>
 }) {
   const { lang } = useI18n()
+  const auth = useAuth()
+  const accent = role ? ROLE_THEME[role].accent : ROLE_THEME.tenant.accent
   const [value, setValue] = useState('')
   const [sending, setSending] = useState(false)
   const [atts, setAtts] = useState<ChatAttachment[]>([])
   const [recording, setRecording] = useState(false)
   const [voiceOk, setVoiceOk] = useState(false)
+  const [models, setModels] = useState<TurnModelState | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const taRef = useRef<HTMLTextAreaElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recRef = useRef<any>(null)
 
@@ -31,6 +52,50 @@ export default function AgentInputBar({
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     setVoiceOk(!!SR)
   }, [])
+
+  // Turn-model selector data: the SAME catalogue + preference store as
+  // /settings/models — picking here is picking there. Signed-in users only.
+  useEffect(() => {
+    if (!auth.user || auth.user.is_anonymous) return
+    let dead = false
+    ;(async () => {
+      try {
+        const sb = getSupabaseBrowser()
+        const { data: sess } = await sb.auth.getSession()
+        const token = sess.session?.access_token
+        if (!token) return
+        const res = await fetch('/api/models/catalog', { headers: { Authorization: `Bearer ${token}` } })
+        if (!res.ok) return
+        const j = (await res.json()) as {
+          defaults: Record<string, string>
+          models: { id: string; label: string; slots: string[] }[]
+          prefs: Record<string, string>
+        }
+        const options = j.models.filter((m) => m.slots.includes('turn')).map((m) => ({ id: m.id, label: m.label }))
+        const def = options.find((o) => o.id === j.defaults.turn)
+        if (!dead && options.length) {
+          setModels({ options, selected: j.prefs.turn || '', defaultLabel: def?.label || j.defaults.turn || 'Auto' })
+        }
+      } catch { /* selector is optional chrome — never break the input bar */ }
+    })()
+    return () => { dead = true }
+  }, [auth.user])
+
+  const chooseModel = async (id: string) => {
+    if (!models || !auth.user) return
+    setModels({ ...models, selected: id })
+    try {
+      const sb = getSupabaseBrowser()
+      if (id) {
+        await sb.from('user_model_preferences').upsert(
+          { user_id: auth.user.id, slot: 'turn', model_id: id, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id,slot' },
+        )
+      } else {
+        await sb.from('user_model_preferences').delete().eq('user_id', auth.user.id).eq('slot', 'turn')
+      }
+    } catch { /* best-effort; the server falls back to the default anyway */ }
+  }
 
   const submit = async () => {
     const msg = value.trim()
@@ -98,6 +163,17 @@ export default function AgentInputBar({
     rec.start()
   }
 
+  // Auto-grow like claude.ai: one quiet line at rest, expands with content.
+  const autoGrow = () => {
+    const ta = taRef.current
+    if (!ta) return
+    ta.style.height = 'auto'
+    ta.style.height = Math.min(ta.scrollHeight, 240) + 'px'
+  }
+  useEffect(autoGrow, [value])
+
+  const canSend = !disabled && !sending && (!!value.trim() || atts.length > 0)
+
   return (
     <div className="rounded-2xl border border-line-strong bg-white shadow-sm transition focus-within:border-brand focus-within:shadow-md">
       {atts.length > 0 && (
@@ -125,15 +201,21 @@ export default function AgentInputBar({
       )}
 
       <textarea
-        rows={3}
+        ref={taRef}
+        rows={1}
         value={value}
         disabled={disabled || sending}
         onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          // claude.ai convention: Enter sends, Shift+Enter breaks the line.
+          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault()
+            submit()
+          }
+        }}
         aria-label={`Message ${agentName}`}
-        placeholder={lang === 'zh'
-          ? `告诉 ${agentName} 你想做什么 —— 文字、语音或上传文件都行`
-          : `Tell ${agentName} what you need — type, speak, or upload a file`}
-        className="block max-h-60 min-h-[80px] w-full resize-none bg-transparent px-4 pt-3.5 text-[14.5px] leading-relaxed text-body outline-none placeholder:text-body-4"
+        placeholder={lang === 'zh' ? '写点什么…' : 'Write a message…'}
+        className="block max-h-60 min-h-[52px] w-full resize-none bg-transparent px-4 pt-4 text-[15px] leading-relaxed text-body outline-none placeholder:text-body-4"
       />
 
       <input
@@ -148,7 +230,7 @@ export default function AgentInputBar({
         }}
       />
 
-      <div className="flex items-center justify-between gap-2 px-3 pb-2.5 pt-1">
+      <div className="flex items-center justify-between gap-2 px-2.5 pb-2.5 pt-1">
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -156,10 +238,39 @@ export default function AgentInputBar({
             disabled={disabled || sending}
             title={lang === 'zh' ? '上传图片 / PDF' : 'Upload image / PDF'}
             aria-label={lang === 'zh' ? '上传文件' : 'Upload file'}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-body-3 transition hover:bg-surface-chip hover:text-body disabled:opacity-50"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-[20px] leading-none text-body-3 transition hover:bg-surface-chip hover:text-body disabled:opacity-50"
           >
-            <ClipIcon />
+            +
           </button>
+          {recording && (
+            <span className="ml-1 font-mono text-[11px] text-danger">
+              {lang === 'zh' ? '● 录音中… 再点停止' : '● Recording… tap to stop'}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {models && (
+            <label className="relative flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[12.5px] text-body-2 transition hover:bg-surface-chip" title={lang === 'zh' ? '本对话使用的 AI 模型（与设置 → AI 模型同步）' : 'Model for your conversations (synced with Settings → AI models)'}>
+              <span className="max-w-[140px] truncate font-medium">
+                {models.selected
+                  ? models.options.find((o) => o.id === models.selected)?.label || models.selected
+                  : models.defaultLabel}
+              </span>
+              <ChevronIcon />
+              <select
+                aria-label={lang === 'zh' ? '选择 AI 模型' : 'Choose AI model'}
+                value={models.selected}
+                onChange={(e) => chooseModel(e.target.value)}
+                className="absolute inset-0 cursor-pointer opacity-0"
+              >
+                <option value="">{lang === 'zh' ? `默认 · ${models.defaultLabel}` : `Default · ${models.defaultLabel}`}</option>
+                {models.options.map((o) => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+          )}
           {voiceOk && (
             <button
               type="button"
@@ -175,29 +286,35 @@ export default function AgentInputBar({
               <MicIcon recording={recording} />
             </button>
           )}
-          <span className={'ml-1 font-mono text-[11px] text-body-4 ' + (recording ? '' : 'hidden sm:inline')}>
-            {recording
-              ? (lang === 'zh' ? '● 录音中… 再点停止' : '● Recording… tap again to stop')
-              : (lang === 'zh' ? '↵ 换行 · 点「发送」提交' : '↵ new line · click Send to submit')}
-          </span>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!canSend}
+            title={lang === 'zh' ? '发送（Enter）' : 'Send (Enter)'}
+            aria-label={lang === 'zh' ? '发送' : 'Send'}
+            className="flex h-9 w-9 flex-none items-center justify-center rounded-lg text-white transition disabled:opacity-35"
+            style={{ background: accent }}
+          >
+            {sending ? <span className="text-[13px]">…</span> : <ArrowUpIcon />}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={disabled || sending || (!value.trim() && atts.length === 0)}
-          className="sl-btn-primary flex-none whitespace-nowrap !px-4 !py-[9px] !text-[13.5px] disabled:opacity-50"
-        >
-          {sending ? '…' : lang === 'zh' ? '发送 →' : 'Send →'}
-        </button>
       </div>
     </div>
   )
 }
 
-function ClipIcon() {
+function ArrowUpIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 19V5M5 12l7-7 7 7" />
+    </svg>
+  )
+}
+
+function ChevronIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-body-3">
+      <path d="M6 9l6 6 6-6" />
     </svg>
   )
 }
