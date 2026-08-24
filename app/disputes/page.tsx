@@ -2,6 +2,12 @@
 
 // V5.3 · Disputes & arbitration (handbook §06 / VOL 8). 三方共用:
 // 仲裁工作台 · LTB 表格 · 律师目录 · AI 法律助手。
+//
+// ⚠️ 这是一个**纯示范页**——没有任何后端(全库无 dispute 表),页面上的案件、
+// 当事人、律师、LSO 执照号、评分/胜率与统计数字全部是虚构样例。因此每一块
+// 虚构数据旁边都必须有 <SampleTag/>,页顶必须有 <SampleBanner/>。
+// LSO 号是安省法律协会的真实监管标识,示范用号一律写成 SAMPLE-NN 形态,
+// 绝不能再出现 #L88421 这种可能撞上真实执业者的真格式号。
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -81,7 +87,7 @@ const LAWYERS: { initials: string; name: string; match: number; lso: LS; rate: s
     initials: 'JL',
     name: 'Jennifer Lee',
     match: 96,
-    lso: { zh: 'P1 PARALEGAL · LSO #P12389 · 8 年 · 中 / EN', en: 'P1 PARALEGAL · LSO #P12389 · 8 yrs · ZH / EN' },
+    lso: { zh: 'P1 PARALEGAL · LSO #SAMPLE-03 · 8 年 · 中 / EN', en: 'P1 PARALEGAL · LSO #SAMPLE-03 · 8 yrs · ZH / EN' },
     rate: '$180/h',
     ratePkg: { zh: '$300 听证打包价', en: '$300 hearing package' },
     tags: [{ zh: '押金 / T1 · 142 件', en: 'Deposits / T1 · 142 cases' }, { zh: '维修 / T6', en: 'Maintenance / T6' }, { zh: 'Legal Aid ✓', en: 'Legal Aid ✓' }, { zh: '7 天内可约', en: 'Available within 7 days' }],
@@ -96,7 +102,7 @@ const LAWYERS: { initials: string; name: string; match: number; lso: LS; rate: s
     initials: 'DC',
     name: 'David Chen, J.D.',
     match: 91,
-    lso: { zh: 'LAWYER · LSO #L88421 · 12 年 · EN / 粤', en: 'LAWYER · LSO #L88421 · 12 yrs · EN / Cantonese' },
+    lso: { zh: 'LAWYER · LSO #SAMPLE-01 · 12 年 · EN / 粤', en: 'LAWYER · LSO #SAMPLE-01 · 12 yrs · EN / Cantonese' },
     rate: '$420/h',
     ratePkg: { zh: '第一次 30min 免费', en: 'First 30 min free' },
     tags: [{ zh: 'RTA 全谱', en: 'Full RTA spectrum' }, { zh: '驱逐复议', en: 'Eviction reviews' }, { zh: '复杂案', en: 'Complex cases' }, { zh: '不接 Legal Aid', en: 'No Legal Aid' }],
@@ -111,7 +117,7 @@ const LAWYERS: { initials: string; name: string; match: number; lso: LS; rate: s
     initials: 'SP',
     name: 'Sanjay Patel',
     match: 88,
-    lso: { zh: 'P1 PARALEGAL · LSO #P22186 · 5 年 · EN / 印', en: 'P1 PARALEGAL · LSO #P22186 · 5 yrs · EN / Hindi' },
+    lso: { zh: 'P1 PARALEGAL · LSO #SAMPLE-02 · 5 年 · EN / 印', en: 'P1 PARALEGAL · LSO #SAMPLE-02 · 5 yrs · EN / Hindi' },
     rate: '$120/h',
     ratePkg: { zh: 'flat $250 case', en: 'flat $250 case' },
     tags: [{ zh: '租客权益', en: 'Tenant rights' }, { zh: 'Legal Aid ✓', en: 'Legal Aid ✓' }, { zh: '明天可约', en: 'Available tomorrow' }],
@@ -126,7 +132,7 @@ const LAWYERS: { initials: string; name: string; match: number; lso: LS; rate: s
     initials: 'CT',
     name: 'Catherine Tremblay',
     match: 84,
-    lso: { zh: 'P1 PARALEGAL · LSO #P09812 · 14 年 · EN / FR', en: 'P1 PARALEGAL · LSO #P09812 · 14 yrs · EN / FR' },
+    lso: { zh: 'P1 PARALEGAL · LSO #SAMPLE-04 · 14 年 · EN / FR', en: 'P1 PARALEGAL · LSO #SAMPLE-04 · 14 yrs · EN / FR' },
     rate: '$220/h',
     ratePkg: { zh: '分期可', en: 'Installments available' },
     tags: [{ zh: '押金 / 维修', en: 'Deposits / maintenance' }, { zh: '骚扰', en: 'Harassment' }, { zh: 'FR available', en: 'FR available' }],
@@ -139,17 +145,74 @@ const LAWYERS: { initials: string; name: string; match: number; lso: LS; rate: s
   },
 ]
 
+/**
+ * 页顶示范横幅。这一页没有任何真实数据源,横幅必须在 Header 之下、Hero 之上,
+ * 且不可被折叠/关闭——它是本页唯一说明「你看到的全是虚构样例」的地方。
+ */
+function SampleBanner({ zh }: { zh: boolean }) {
+  return (
+    <div role="note" style={{ background: '#FEF3C7', borderBottom: '1px solid rgba(180,83,9,0.35)' }}>
+      <div className="mx-auto flex max-w-[1240px] flex-col gap-2.5 px-5 py-4 sm:flex-row sm:items-start sm:gap-3.5 sm:px-7 lg:px-12">
+        <span
+          className="w-fit flex-shrink-0 rounded-md px-2.5 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-white"
+          style={{ background: '#B45309' }}
+        >
+          {zh ? '产品示范' : 'Sample'}
+        </span>
+        <p className="text-[12.5px] font-semibold leading-relaxed" style={{ color: '#78350F' }}>
+          {zh
+            ? '本页展示的是产品示范。页面上的案件编号、当事人、律师姓名、LSO 执照号、评分、胜率与所有统计数字均为虚构样例,不对应任何真实案件或真实执业者。争议调解与律师目录尚未上线。'
+            : 'This page is a product demonstration. Every case number, party, lawyer name, LSO licence number, rating, win rate and statistic shown here is a fabricated sample — none of them correspond to a real case or a real licensee. Dispute mediation and the lawyer directory are not live yet.'}
+          <br />
+          {zh
+            ? '如果你正面临真实纠纷,请直接联系 '
+            : 'If you are facing an actual dispute, contact the '}
+          <a href="https://tribunalsontario.ca/ltb/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+            {zh ? '安省房东与租客委员会 (LTB)' : 'Landlord and Tenant Board'}
+          </a>
+          {zh ? ' 或 ' : ' or the '}
+          <a href="https://lso.ca/public-resources/finding-a-lawyer-or-paralegal" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+            {zh ? '安省法律协会 (LSO) 的转介服务' : 'Law Society of Ontario referral service'}
+          </a>
+          {zh ? '。' : ' directly.'}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/** 区块级示范角标 — 每一块虚构数据的标题行都要挂一个。 */
+function SampleTag({ zh, tone = 'quiet' }: { zh: boolean; tone?: 'quiet' | 'loud' }) {
+  const loud = tone === 'loud'
+  return (
+    <span
+      className="w-fit flex-shrink-0 rounded-full px-2 py-[2px] font-mono text-[9.5px] font-bold uppercase tracking-wider"
+      style={
+        loud
+          ? { background: '#B45309', color: '#fff' }
+          : { background: 'rgba(180,83,9,0.12)', color: '#92400E' }
+      }
+    >
+      {zh ? '示范数据' : 'Sample'}
+    </span>
+  )
+}
+
 export default function DisputesPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
   return (
     <div style={{ background: '#FAF7EE', color: '#171717' }}>
       <Header variant="transparent" />
+      <SampleBanner zh={zh} />
 
       <section style={{ background: 'linear-gradient(180deg,#F2EEE5 0%,rgba(139,92,246,0.06) 100%)' }}>
         <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-7 lg:px-12">
-          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#7C3AED' }}>
-            {zh ? 'DISPUTE CENTER · 仲裁案件中心' : 'DISPUTE CENTER'}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#7C3AED' }}>
+              {zh ? 'DISPUTE CENTER · 仲裁案件中心' : 'DISPUTE CENTER'}
+            </span>
+            <SampleTag zh={zh} tone="loud" />
           </div>
           <h1 className="mt-4 max-w-[820px] text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[44px] lg:text-[48px]">
             {zh ? <>出了纠纷,<br />也有 AI 陪你走完流程。</> : <>When a dispute arises,<br />AI walks you through it too.</>}
@@ -159,8 +222,14 @@ export default function DisputesPage() {
               ? 'Stayloop 内部 dispute resolution 是非约束性的 · 双方任何阶段均可终止并直接诉诸 LTB / 法院 · 仲裁员独立中立 · 每一步留痕可查。'
               : 'Stayloop’s in-house dispute resolution is non-binding · either party can stop at any stage and go straight to the LTB / courts · arbitrators are independent and neutral · every step is logged and traceable.'}
           </p>
-          {/* Quick stats */}
-          <div className="mt-8 flex flex-wrap gap-8">
+          {/* Quick stats — 虚构样例,见页顶横幅 */}
+          <div className="mt-8 flex items-center gap-2.5">
+            <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">
+              {zh ? '示范指标' : 'Sample metrics'}
+            </span>
+            <SampleTag zh={zh} />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-8">
             {[
               { v: '4', l: { zh: '进行中', en: 'In progress' } },
               { v: '12', l: { zh: '本月已结', en: 'Closed this month' } },
@@ -180,6 +249,12 @@ export default function DisputesPage() {
       <section>
         <div className="mx-auto max-w-[1240px] px-5 py-12 sm:px-7 lg:px-12">
           <div className="sl-card overflow-hidden">
+            <div className="flex items-center justify-between gap-3 border-b border-line-divider px-5 py-4 sm:px-6">
+              <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
+                {zh ? '进行中的案件' : 'Cases in progress'}
+              </span>
+              <SampleTag zh={zh} />
+            </div>
             {CASES.map((c, i) => (
               <div
                 key={c.id}
@@ -220,7 +295,10 @@ export default function DisputesPage() {
           <div className="space-y-6">
             <div id="case-detail" className="sl-card scroll-mt-24 p-6">
               <div className="flex items-center justify-between">
-                <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '当前案件 · DSP-2K8X · DAY 3 / 14' : 'CURRENT CASE · DSP-2K8X · DAY 3 / 14'}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '当前案件 · DSP-2K8X · DAY 3 / 14' : 'CURRENT CASE · DSP-2K8X · DAY 3 / 14'}</span>
+                  <SampleTag zh={zh} />
+                </div>
                 <span className="flex items-center gap-1.5 rounded-md px-2 py-[3px] font-mono text-[10px] font-bold" style={{ background: 'rgba(220,38,38,0.10)', color: '#DC2626' }}>
                   <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#DC2626]" />{zh ? '等你回' : 'Awaiting you'}
                 </span>
@@ -262,6 +340,9 @@ export default function DisputesPage() {
               <div className="mt-3 rounded-md px-3 py-2 font-mono text-[10.5px] font-bold" style={{ background: 'rgba(220,38,38,0.06)', color: '#DC2626' }}>
                 ⚠ AI-GENERATED CONTENT · NOT LEGAL ADVICE
               </div>
+              <div className="mt-2 rounded-md px-3 py-2 font-mono text-[10.5px] font-bold" style={{ background: 'rgba(180,83,9,0.10)', color: '#92400E' }}>
+                {zh ? '⚠ 以下是针对虚构案件 DSP-2K8X 的示范分析' : '⚠ The analysis below is a sample, written for the fictional case DSP-2K8X'}
+              </div>
               <div className="mt-3 rounded-xl rounded-tl-sm bg-surface-chip p-3 text-[13px] leading-relaxed text-body-2">
                 {zh ? (
                   <>清洁费扣减须有合理依据并提供凭证(RTA s.105 / 109)。我已比对你的退租状态照,
@@ -281,7 +362,15 @@ export default function DisputesPage() {
           {/* LTB forms */}
           <div>
             <div className="sl-card p-6">
-              <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? 'LTB 表格 · 一键生成' : 'LTB forms · one-click generate'}</div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? 'LTB 表格 · 一键生成' : 'LTB forms · one-click generate'}</span>
+                <SampleTag zh={zh} />
+              </div>
+              <p className="mt-2 text-[12px] leading-relaxed text-body-3">
+                {zh
+                  ? '表格清单是真实的 LTB 表格;一键生成功能尚未上线,「生成」按钮在本页不可用。'
+                  : 'The form list is real LTB paperwork; one-click generation is not live yet and the “Generate” action does nothing on this page.'}
+              </p>
               <div className="mt-4 space-y-2">
                 {LTB_FORMS.map((f) => (
                   <div key={f.code} className="flex items-center gap-3 rounded-lg border border-line-divider bg-white p-3">
@@ -312,8 +401,11 @@ export default function DisputesPage() {
       <section>
         <div className="mx-auto max-w-[1240px] px-5 pb-4 sm:px-7 lg:px-12">
           <div className="sl-card overflow-hidden">
-            <div className="border-b border-line-divider px-6 py-4 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
-              {zh ? '已结案 · 最近 5' : 'Closed · last 5'}
+            <div className="flex items-center justify-between gap-3 border-b border-line-divider px-6 py-4">
+              <span className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">
+                {zh ? '已结案 · 最近 5' : 'Closed · last 5'}
+              </span>
+              <SampleTag zh={zh} />
             </div>
             {CLOSED.map((c, i) => (
               <div
@@ -334,12 +426,23 @@ export default function DisputesPage() {
       {/* lawyer directory */}
       <section style={{ background: '#F2EEE5' }}>
         <div className="mx-auto max-w-[1240px] px-5 py-16 sm:px-7 lg:px-12">
-          <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#7C3AED' }}>
-            {zh ? 'Lawyer Directory · 律师目录' : 'Lawyer Directory'}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#7C3AED' }}>
+              {zh ? 'Lawyer Directory · 律师目录' : 'Lawyer Directory'}
+            </span>
+            <SampleTag zh={zh} tone="loud" />
           </div>
           <h2 className="mt-3 text-[28px] font-extrabold tracking-tight sm:text-[34px]">{zh ? '需要真人时,对接持牌律师。' : 'When you need a human, connect with a licensed lawyer.'}</h2>
           <p className="mt-2 font-mono text-[11px] uppercase tracking-eyebrow text-body-3">
             RANKED BY CASE FIT · LSO LICENSED · NO COMMISSION · YOU PAY THEM DIRECTLY
+          </p>
+          <p
+            className="mt-3 max-w-[720px] rounded-lg px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed"
+            style={{ background: 'rgba(180,83,9,0.10)', color: '#78350F' }}
+          >
+            {zh
+              ? '⚠ 下面四位是示范档案,不是真实执业者。姓名、执照号(SAMPLE-NN)、费率、评分、胜率与响应时间全部虚构。目录尚未上线,没有任何律师入驻。'
+              : '⚠ The four profiles below are sample records, not real licensees. The names, licence numbers (SAMPLE-NN), rates, ratings, win rates and response times are all fabricated. The directory is not live — no lawyer has joined it.'}
           </p>
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             {LAWYERS.map((l) => (
@@ -351,6 +454,7 @@ export default function DisputesPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[16px] font-bold">{l.name}</span>
+                      <SampleTag zh={zh} />
                       <span className="rounded-md px-2 py-[2px] font-mono text-[9.5px] font-bold" style={{ background: 'rgba(124,58,237,0.10)', color: '#7C3AED' }}>
                         ★ MATCH {l.match}%
                       </span>
@@ -387,14 +491,14 @@ export default function DisputesPage() {
             </div>
             <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
               {zh
-                ? '所有律师由 Law Society of Ontario 持牌 · Stayloop 不收任何介绍费 · 你直接付律师 · 评价系统由验证客户匿名打分 · 律师可申诉但不能删评。'
-                : 'All lawyers are licensed by the Law Society of Ontario · Stayloop charges no referral fee · you pay the lawyer directly · reviews are rated anonymously by verified clients · lawyers may appeal but cannot delete reviews.'}
+                ? '目录上线后的规则:所有律师须由 Law Society of Ontario 持牌 · Stayloop 不收任何介绍费 · 你直接付律师 · 评价系统由验证客户匿名打分 · 律师可申诉但不能删评。以上为承诺的运行规则,当前页面上没有任何真实入驻律师。'
+                : 'The rules once the directory goes live: every lawyer must be licensed by the Law Society of Ontario · Stayloop charges no referral fee · you pay the lawyer directly · reviews are rated anonymously by verified clients · lawyers may appeal but cannot delete reviews. These are the committed operating rules — no real lawyer has joined yet.'}
             </p>
           </div>
           <p className="mt-4 font-mono text-[11px] leading-relaxed text-body-3">
             {zh
-              ? '⚠ 免责声明 · Stayloop 仅维护 LSO 牌照真实性,不背书任何律师,不对其专业意见或服务质量负责。匹配度 (% MATCH) 是基于案件类型 + 经验 + 评价的算法参考,不是质量背书。AI-Legal 不能替代真人律师。'
-              : '⚠ Disclaimer · Stayloop only verifies the validity of LSO licences, does not endorse any lawyer, and is not responsible for their professional opinions or service quality. The match score (% MATCH) is an algorithmic reference based on case type + experience + reviews — not a quality endorsement. AI-Legal cannot replace a human lawyer.'}
+              ? '⚠ 免责声明 · 本页所有律师档案与执照号均为示范用虚构数据,不指向任何真实执业者;SAMPLE-NN 不是有效的 LSO 号。目录上线后:Stayloop 仅核验 LSO 牌照真实性,不背书任何律师,不对其专业意见或服务质量负责;匹配度 (% MATCH) 是基于案件类型 + 经验 + 评价的算法参考,不是质量背书。AI-Legal 不能替代真人律师。'
+              : '⚠ Disclaimer · Every lawyer profile and licence number on this page is fabricated sample data pointing to no real licensee; SAMPLE-NN is not a valid LSO number. Once the directory is live: Stayloop only verifies the validity of LSO licences, does not endorse any lawyer, and is not responsible for their professional opinions or service quality; the match score (% MATCH) is an algorithmic reference based on case type + experience + reviews — not a quality endorsement. AI-Legal cannot replace a human lawyer.'}
           </p>
         </div>
       </section>
