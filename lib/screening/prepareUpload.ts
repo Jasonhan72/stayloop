@@ -52,6 +52,9 @@ function isImage(f: File): boolean {
 }
 
 async function loadBitmap(file: File): Promise<ImageBitmap | HTMLImageElement | null> {
+  // No DOM (SSR, or a unit test) — the caller falls back to the original file
+  // and the plain size check, which is the correct behaviour anyway.
+  if (typeof document === 'undefined') return null
   // createImageBitmap is the fast path and handles HEIC wherever the browser
   // decodes it natively (iOS Safari does; desktop Chrome does not).
   if (typeof createImageBitmap === 'function') {
