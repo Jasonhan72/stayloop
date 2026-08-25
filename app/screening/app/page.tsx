@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback, type ReactNode, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { prepareUploads } from '@/lib/screening/prepareUpload'
 import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
 import Header from '@/components/Header'
@@ -1498,6 +1499,15 @@ export default function ScreenPage() {
   // self-employed applicant who only uploaded a corporate registration.
   const [classifyEmployers, setClassifyEmployers] = useState<string[]>([])
   const [classifying, setClassifying] = useState(false)
+  // Photo downscaling runs before upload and can take a beat on a phone —
+  // the CTA stays disabled while it does, so nobody submits half a batch.
+  const [preparing, setPreparing] = useState(false)
+  const [prepNote, setPrepNote] = useState<string | null>(null)
+  // The real 开始筛查 button, and whether it is currently on screen. On a
+  // phone the form is taller than the viewport and the button lands below the
+  // fold; while it is out of view a fixed action bar carries the same action.
+  const ctaRef = useRef<HTMLButtonElement>(null)
+  const [ctaOnScreen, setCtaOnScreen] = useState(true)
   const [classifyError, setClassifyError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [applicantName, setApplicantName] = useState('')
@@ -1871,27 +1881,60 @@ export default function ScreenPage() {
     }
   }
 
-  const handleFiles = useCallback((list: FileList | File[] | null) => {
+  // Files arriving from the picker or a drop. Phone photos are downscaled
+  // before they ever reach the size gate (see lib/screening/prepareUpload.ts):
+  // a landlord photographing a paystub on an iPhone produces a 4–12 MB file,
+  // and the old flow just told them "over 10 MB" with no way forward on a
+  // phone. PDFs are never re-encoded — forensics reads their structure.
+  const handleFiles = useCallback(async (list: FileList | File[] | null) => {
     if (!list) return
-    let rejected = false
-    const incoming = Array.from(list).filter(f => {
-      if (f.size > 10 * 1024 * 1024) {
-        setError(t('screen.err.tooBig', { name: f.name }))
-        rejected = true
-        return false
+    const incomingRaw = Array.from(list)
+    if (incomingRaw.length === 0) return
+
+    setPreparing(true)
+    let accepted: File[] = []
+    let compressedCount = 0
+    try {
+      const res = await prepareUploads(incomingRaw)
+      accepted = res.accepted.map(a => a.file)
+      compressedCount = res.accepted.filter(a => a.originalSize != null).length
+      if (res.rejected.length > 0) {
+        const r = res.rejected[0]
+        // React batches state updates: clearing the error unconditionally
+        // below would erase this message and the oversized file would just
+        // silently vanish while the landlord believed everything uploaded.
+        setError(t(r.reason === 'too_big_image' ? 'screen.err.tooBigImage' : 'screen.err.tooBig', { name: r.name }))
+      } else {
+        setError(null)
       }
-      return true
-    })
-    setFiles(prev => [...prev, ...incoming])
-    // React batches state updates: clearing unconditionally here erased the
-    // too-big message set two lines up — the oversized file just silently
-    // vanished while the landlord believed all files were analyzed.
-    if (!rejected) setError(null)
-    // Kick off classification for newly added files only
-    if (incoming.length > 0) {
-      classifyNewFiles(incoming)
+    } finally {
+      setPreparing(false)
+    }
+
+    setPrepNote(compressedCount > 0 ? t('screen.prep.compressed', { n: String(compressedCount) }) : null)
+    if (accepted.length > 0) {
+      setFiles(prev => [...prev, ...accepted])
+      // Kick off classification for newly added files only
+      classifyNewFiles(accepted)
     }
   }, [t])
+
+  // Watch the real CTA. `result`/`analyzing` swap the whole panel out, so the
+  // observer is re-attached whenever the form comes back.
+  useEffect(() => {
+    const el = ctaRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setCtaOnScreen(true)
+      return
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => setCtaOnScreen(entry.isIntersecting),
+      // A button peeking 1px above the fold is not "found" — require most of it.
+      { threshold: 0.6 }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [result, analyzing, files.length])
 
   const fileKey = (f: { name: string; size: number }) => `${f.name}__${f.size}`
 
@@ -2467,6 +2510,22 @@ export default function ScreenPage() {
       <div className="screen-app">
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
         <style>{`
+        /* Mobile action bar for 开始筛查 — see the JSX at the end of this file.
+           Desktop keeps the button in view, so the bar is phone/tablet only. */
+        .screen-cta-bar {
+          position: fixed;
+          left: 0; right: 0; bottom: 0;
+          z-index: 60;
+          padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+          background: rgba(255, 255, 255, 0.96);
+          -webkit-backdrop-filter: blur(10px);
+          backdrop-filter: blur(10px);
+          border-top: 1px solid #E0DACE;
+          box-shadow: 0 -6px 20px -12px rgba(31, 25, 11, 0.35);
+        }
+        @media (min-width: 768px) { .screen-cta-bar { display: none; } }
+        /* Room for the bar so it never covers the last row of the form. */
+        @media (max-width: 767px) { .screen-app { padding-bottom: 88px; } }
         .sl-header { padding: 20px 24px; }
         .sl-brand-sub { display: block; }
         .sl-container { max-width: 800px; margin: 0 auto; padding: 24px 16px; }
@@ -2537,12 +2596,19 @@ export default function ScreenPage() {
               border: '1px solid #D8D2C2',
               borderRadius: 20,
               boxShadow: '0 1px 3px rgba(31, 25, 11, 0.04), 0 12px 32px -8px rgba(31, 25, 11, 0.06)',
-              overflow: 'hidden',
+              // `clip`, not `hidden`: overflow:hidden turns this card into a
+              // scroll container, which silently disables the position:sticky
+              // on the 开始筛查 button further down. `clip` gives the same
+              // corner clipping without becoming a scroll container. The header
+              // strip below also carries its own top radius so the corners stay
+              // round on browsers too old for `clip` (it falls back to visible).
+              overflow: 'clip',
             }}>
               {/* Panel Header */}
               <div style={{
                 padding: '18px 20px',
                 borderBottom: '1px solid #E0DACE',
+                borderRadius: '20px 20px 0 0',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -2601,7 +2667,7 @@ export default function ScreenPage() {
                   ref={fileInputRef}
                   type="file"
                   multiple
-                  accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.doc,.docx"
                   onChange={e => handleFiles(e.target.files)}
                   style={{ display: 'none' }}
                 />
@@ -2801,10 +2867,25 @@ export default function ScreenPage() {
                   <div style={{ marginBottom: 14, padding: '12px 16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, fontSize: 13, color: '#B91C1C', lineHeight: 1.5 }}>⚠ {error}</div>
                 )}
 
+                {prepNote && (
+                  <div style={{ marginBottom: 14, padding: '10px 14px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, fontSize: 12.5, color: '#166534', lineHeight: 1.5 }}>✓ {prepNote}</div>
+                )}
+
+                {/* On a phone the form (drop zone + file list + name + rent)
+                    is taller than the viewport, so this button sits below the
+                    fold: a first-time landlord uploaded files and then had
+                    nothing obvious to press. `ctaRef` is watched by an
+                    IntersectionObserver; while this button is off screen a
+                    fixed mobile action bar (rendered at the end of the page)
+                    carries the same action. position:sticky was tried first
+                    and does not work here — the button is near the bottom of
+                    its parent, so it would have almost no travel to stick over. */}
                 {(() => {
-                  const isDisabled = (files.length === 0 && !applicantName.trim()) || classifying
+                  const isDisabled = (files.length === 0 && !applicantName.trim()) || classifying || preparing
                   return (
+                    <div>
                     <button
+                      ref={ctaRef}
                       onClick={runAnalysis}
                       disabled={isDisabled}
                       style={{
@@ -2825,10 +2906,13 @@ export default function ScreenPage() {
                         transition: 'transform .15s ease, box-shadow .15s ease',
                       }}
                     >
-                      {classifying
-                        ? (lang === 'zh' ? '⏳ 正在识别文件…' : '⏳ Classifying files…')
-                        : (lang === 'zh' ? '🛡 开始筛查' : '🛡 Start Screening')}
+                      {preparing
+                        ? (lang === 'zh' ? '⏳ 正在处理照片…' : '⏳ Preparing photos…')
+                        : classifying
+                          ? (lang === 'zh' ? '⏳ 正在识别文件…' : '⏳ Classifying files…')
+                          : (lang === 'zh' ? '🛡 开始筛查' : '🛡 Start Screening')}
                     </button>
+                    </div>
                   )
                 })()}
 
@@ -3670,6 +3754,57 @@ export default function ScreenPage() {
         </div>
       </div>
       </section>
+
+      {/* ── Mobile action bar ──────────────────────────────────────────
+          Reported from a phone: "开始筛查这个按钮要滑动才能看到，新用户可能
+          会找不到". The form is taller than a phone viewport, so the real CTA
+          lands below the fold and a first-time landlord uploads files and then
+          sees no next step. This bar appears only when (a) the form step is
+          showing and (b) the real button is off screen, so the two are never
+          visible at once. Hidden ≥768px via .screen-cta-bar in the page style
+          block — desktop always has the button in view. */}
+      {!result && !analyzing && !ctaOnScreen && (
+        <div className="screen-cta-bar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#0B1736', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {files.length > 0
+                  ? (lang === 'zh' ? `${files.length} 个文件已就绪` : `${files.length} file(s) ready`)
+                  : (lang === 'zh' ? '上传文件或填写姓名' : 'Add files or a name')}
+              </div>
+              {applicantName.trim() && (
+                <div style={{ fontSize: 11, color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{applicantName.trim()}</div>
+              )}
+            </div>
+            {(() => {
+              const isDisabled = (files.length === 0 && !applicantName.trim()) || classifying || preparing
+              return (
+                <button
+                  onClick={runAnalysis}
+                  disabled={isDisabled}
+                  style={{
+                    flex: '0 0 auto', padding: '13px 22px', fontSize: 14.5, borderRadius: 12, fontWeight: 650,
+                    minHeight: 48,
+                    background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+                    color: '#FFFFFF',
+                    boxShadow: '0 8px 22px -10px rgba(52, 211, 153, 0.45), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
+                    border: 'none',
+                    opacity: isDisabled ? 0.55 : 1,
+                    cursor: isDisabled ? 'not-allowed' : 'pointer',
+                    pointerEvents: isDisabled ? 'none' : 'auto',
+                  }}
+                >
+                  {preparing
+                    ? (lang === 'zh' ? '⏳ 处理中…' : '⏳ Preparing…')
+                    : classifying
+                      ? (lang === 'zh' ? '⏳ 识别中…' : '⏳ Reading…')
+                      : (lang === 'zh' ? '🛡 开始筛查' : '🛡 Start')}
+                </button>
+              )
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

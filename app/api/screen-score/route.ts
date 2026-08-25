@@ -12,7 +12,7 @@
 // 2026-06-02 — Code review §6 P1 — Aggregate 12s budget on CanLII fan-out (circuit breaker)
 import { NextRequest, NextResponse } from 'next/server'
 import { repairUnescapedQuotes } from '@/lib/screening/jsonRepair'
-import { llmChatStream } from '@/lib/llmChat'
+import { llmChat, llmChatStream } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
 import { runForensics, forensicsToPromptBlock, type ForensicsReport } from '@/lib/forensics'
@@ -1422,6 +1422,9 @@ JSON DISCIPLINE (avoid parse errors):
     }
 
     const s: V3Scores = parsed.scores || {}
+    // Dimensions recovered by the repair pass below — surfaced on the report
+    // so a landlord can see which number came from a second ask.
+    let repairedDims: Array<keyof V3Scores> = []
     // 2026-06-02 P0 — Validate AND clamp all 5 dimensions. Previously only
     // ability_to_pay was checked; if Sonnet omitted another dim or returned
     // non-numeric (string / null / NaN / 150), baseScore arithmetic produced
@@ -1434,6 +1437,75 @@ JSON DISCIPLINE (avoid parse errors):
     const ALL_V3_DIMS: Array<keyof V3Scores> = [
       'ability_to_pay', 'credit_health', 'rental_history', 'verification',
     ]
+    // 2026-08-25 — Repair pass before failing on a missing dimension.
+    // The scoring slot is admin-configurable and no longer necessarily
+    // Anthropic. gpt-5.4 dropped `credit_health` from `scores` on a real
+    // 9-file screening (2,516 output tokens — nowhere near the 6,000 cap, so
+    // NOT truncation: the model simply did not emit the key), and the whole
+    // screening 500'd after every expensive stage had already run — forensics,
+    // coherence, court lookups, all thrown away.
+    //
+    // Re-ask for ONLY the missing dimensions, with the same documents and the
+    // same rubric, so the repaired number is still the model reading the
+    // evidence — never a default, never derived. If the repair also fails to
+    // produce a usable number, the screening still fails loudly as before.
+    const missingDims = ALL_V3_DIMS.filter((k) => {
+      const v = (s as any)[k]
+      return typeof v !== 'number' || !isFinite(v)
+    })
+    if (missingDims.length > 0) {
+      // More than two missing means the output is broken in a way a patch
+      // cannot honestly fix — fail rather than reconstruct half a report.
+      if (missingDims.length <= 2) {
+        console.warn(`[screen-score] scores missing ${missingDims.join(', ')} from ${scoringDef.id} — running repair pass`)
+        writeProgress('post_processing', 74,
+          `模型漏了 ${missingDims.join('、')} 维度 · 正在补评`,
+          `Model omitted ${missingDims.join(', ')} — re-scoring those dimensions`)
+        try {
+          const repairSystem = `${systemPrompt}
+
+REPAIR PASS. You already produced a score report for this applicant but omitted ${missingDims.length === 1 ? 'one dimension' : 'some dimensions'}. Score ONLY the dimension(s) listed by the user, using the SAME rubric and the SAME attached evidence. Output nothing else.
+Reply with exactly this JSON and no other keys:
+{"scores":{${missingDims.map((k) => `"${k}":<0-100>`).join(',')}},"details_en":{${missingDims.map((k) => `"${k}":""`).join(',')}},"details_zh":{${missingDims.map((k) => `"${k}":""`).join(',')}}}
+If the uploaded evidence does not support the dimension, score it per the rubric's insufficient-evidence rule and say so in details — do NOT invent a document you were not given.`
+          const repair = await llmChat({
+            model: scoringDef,
+            system: repairSystem,
+            messages: [
+              { role: 'user', content: userContent },
+              { role: 'assistant', content: JSON.stringify({ scores: s }) },
+              { role: 'user', content: `You omitted: ${missingDims.join(', ')}. Return the repair JSON now.` },
+            ],
+            temperature: CLAUDE_TEMPERATURE,
+            maxTokens: 900,
+            jsonMode: true,
+            meta: { ...usageMeta, slot: 'screening_repair' },
+          })
+          const rp = JSON.parse(extractJson(repair.text || '{}'))
+          for (const k of missingDims) {
+            const v = rp?.scores?.[k]
+            if (typeof v === 'number' && isFinite(v)) (s as any)[k] = v
+            const de = rp?.details_en?.[k]
+            const dz = rp?.details_zh?.[k]
+            if (typeof de === 'string' && de) {
+              parsed.details_en = { ...(parsed.details_en || {}), [k]: de }
+            }
+            if (typeof dz === 'string' && dz) {
+              parsed.details_zh = { ...(parsed.details_zh || {}), [k]: dz }
+            }
+          }
+          repairedDims = missingDims.filter((k) => typeof (s as any)[k] === 'number' && isFinite((s as any)[k]))
+          if (repairedDims.length > 0) {
+            console.log(`[screen-score] repair pass recovered: ${repairedDims.join(', ')}`)
+          }
+        } catch (e) {
+          console.warn('[screen-score] repair pass failed:', e instanceof Error ? e.message : String(e))
+        }
+      } else {
+        console.warn(`[screen-score] ${missingDims.length} dimensions missing — too broken to repair`)
+      }
+    }
+
     for (const k of ALL_V3_DIMS) {
       const v = (s as any)[k]
       if (typeof v !== 'number' || !isFinite(v)) {
@@ -2589,6 +2661,10 @@ JSON DISCIPLINE (avoid parse errors):
         forensics_detail: forensicsReport,
         forensics_penalty: forensicsPenalty,
         forensics_zeroed_dims: dimsZeroed,
+        // Dimensions the model omitted on the first pass and that the repair
+        // pass re-asked for (same model, same evidence, same rubric). Empty
+        // on a normal run; non-empty is the audit trail for a second ask.
+        repaired_dims: repairedDims,
         extracted_name: finalExtractedName,
         extracted_names: extractedNames,
         legacy_scores: legacy,

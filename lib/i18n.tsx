@@ -142,7 +142,12 @@ export const DICT = {
   'screen.submit': { en: '🔍 Start AI Risk Analysis', zh: '🔍 开始 AI 风控分析' },
   'screen.submit.pro': { en: ' · Pro', zh: ' · Pro' },
   'screen.err.min': { en: 'Please upload at least one file or enter an applicant name', zh: '请至少上传一个文件或填写申请人姓名' },
-  'screen.err.tooBig': { en: '{name} is over 10 MB', zh: '{name} 超过 10 MB' },
+  'screen.err.tooBig': { en: '{name} is over 25 MB — split the PDF and upload it in parts', zh: '{name} 超过 25 MB —— 请把 PDF 拆开分次上传' },
+  // A photo that is still oversized after downscaling means the browser could
+  // not decode it (HEIC on desktop Chrome is the usual case).
+  'screen.err.tooBigImage': { en: '{name} could not be compressed on this browser — save it as JPEG and retry', zh: '{name} 在当前浏览器上无法压缩 —— 请另存为 JPEG 再试' },
+  'screen.prep.working': { en: 'Preparing photos…', zh: '正在处理照片…' },
+  'screen.prep.compressed': { en: '{n} photo(s) compressed for upload — full quality kept for text', zh: '已压缩 {n} 张照片以便上传 —— 文字清晰度不受影响' },
   'screen.err.unknown': { en: 'Unknown error', zh: '未知错误' },
 
   // Analysis progress labels
