@@ -317,6 +317,40 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 **登录后的页面 iframe 量不到**（本轮是借浏览器里已登录的生产会话逐页量的，只取几何
 不取文本）——这正是四个缺陷藏身之处，下次复核务必覆盖。
 
+## 筛查上传上限（2026-08-25 · 一次真实事故）
+
+一位房东上传 11 个文件跑筛查，报告以 `Missing or invalid v3 score: credit_health`
+整单失败。表面看是模型漏字段，**真正的原因在上传层**：`tenant-files` 桶当时卡
+10MB，其中两个文件被前端直接丢掉——
+
+| 文件 | 大小 | 结果 |
+|---|---|---|
+| `ID_Leo.pdf` | 32.4 MB | 丢弃（Illustrator 导出，17MB 的 FlateDecode 原始位图） |
+| `TU_CR_NathalieCipriani2024.pdf` | 14.0 MB | 丢弃 —— **主申请人的 TransUnion 征信报告** |
+
+库里那条 screening 的 files 正好是 11−2=9 个，与本地文件逐一对得上。模型手上
+只有同住人的征信报告、没有主申请人的，于是干脆不输出 `credit_health` 这个 key，
+后端校验直接 500——取证 8 次调用、coherence、法庭检索全部白跑。
+
+**教训：上传层静默丢文件，会在下游变成一个看起来完全无关的模型错误。** 三处修复：
+
+- 桶上限 10MB → **25MB**，白名单加 HEIC/HEIF（`20260825_tenant_files_limits.sql`）。
+  25 不是随便定的：Anthropic 单请求上限 32MB，Worker 内存 128MB，再往上会把失败
+  推到更深、更难解释的地方
+- 图片在**上传前**降采样（`lib/screening/prepareUpload.ts`，长边 2600px/JPEG q0.85）。
+  不只是为了桶——screen-score 与取证 OCR 都是把图片**按 URL** 交给模型，各家对
+  抓取的图片卡在 ~5MB。**PDF 一律不重编码**：取证读的就是 producer 串/对象结构/
+  增量更新痕迹（本例中「一张 ID 由 Adobe Illustrator 导出」本身就是信号）
+- 被拒文件变成**常驻的黄色警示块**（不是一闪而过的 error 字符串），并把文件名写进
+  `screenings.notes` → 进 prompt，让模型知道「这份文档没看到」而不是「记录干净」
+
+配套：prompt 增加「五个维度分数一律必填，无证据是低分+说明，不是省略 key」；
+`screen-score` 在硬失败前加一次**定向补评**（同模型、同证据、同评分标准，只问缺的
+维度，缺 3 个以上不补），补到的维度记在 `ai_dimension_notes._v3.repaired_dims`。
+
+守卫 `tests/screeningUpload.spec.ts`：桶上限、前端 `MAX_UPLOAD_BYTES`、用户文案
+三处的「25MB」必须一致——这三个数一旦漂移就是最难查的那类故障。
+
 ## Terminology(2026-08-03 定稿)
 
 产品动作一律叫「**租客筛查 / 筛查**」(英文 Screening 不变),不叫「背调/背景调查」。依据:O. Reg. 290/98 与 OHRC 租房政策的语汇是 tenant screening/selection(许可的工具=信用参考/租史/信用检查/收入信息);而「背景调查」一词指向安省《消费者报告法》所规管的含 personal information(品行/声誉/生活方式)的 consumer report——报告法务节明确声明我们**不是**该法意义上的报告机构,产品名不能与免责声明打架。`tests/complianceCopy.spec.ts` 有语料守卫:UI 代码出现 背调/背景调查/背景核查/背景审查 即红。「筛选」保留给房源过滤器语境。
