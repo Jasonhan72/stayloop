@@ -37,12 +37,14 @@ export type PreparedFile = {
   file: File
   /** Set when the file was re-encoded, for the "compressed from X" note. */
   originalSize?: number
+  /** Set on pages produced from an oversized PDF (lib/screening/pdfShrink.ts). */
+  convertedFrom?: { name: string; size: number; pageCount: number }
 }
 
 export type PrepareResult = {
   accepted: PreparedFile[]
   /** Files that are still too large after preparation, with a reason to show. */
-  rejected: { name: string; size: number; reason: 'too_big_pdf' | 'too_big_image' }[]
+  rejected: { name: string; size: number; reason: 'too_big_pdf' | 'too_big_image' | 'too_many_pages' }[]
 }
 
 function isImage(f: File): boolean {
@@ -130,6 +132,22 @@ export async function prepareUploads(files: File[]): Promise<PrepareResult> {
   for (const f of files) {
     let out: File = f
     let originalSize: number | undefined
+
+    // Oversized PDF → rasterize to JPEG pages in the browser. This is the
+    // rescue path for files like a 32 MB Illustrator-exported ID: the server
+    // image-extraction can't decode them, but pdf.js can render them.
+    const looksPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name)
+    if (looksPdf && f.size > MAX_UPLOAD_BYTES) {
+      const { shrinkPdfToImages } = await import('./pdfShrink')
+      const shrunk = await shrinkPdfToImages(f)
+      if (typeof shrunk === 'string') {
+        rejected.push({ name: f.name, size: f.size, reason: shrunk === 'too_many_pages' ? 'too_many_pages' : 'too_big_pdf' })
+      } else {
+        const meta = { name: f.name, size: f.size, pageCount: shrunk.pageCount }
+        for (const page of shrunk.pages) accepted.push({ file: page, convertedFrom: meta })
+      }
+      continue
+    }
 
     if (isImage(f) && f.size > IMAGE_TARGET_BYTES) {
       const smaller = await downscaleImage(f)

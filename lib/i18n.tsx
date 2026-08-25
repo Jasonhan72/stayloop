@@ -122,8 +122,8 @@ export const DICT = {
   'screen.result.footer.dataSourcePro': { en: ' + Ontario Courts Portal', zh: ' + Ontario Courts Portal' },
   'screen.drop.title': { en: 'Drop tenant application files here', zh: '拖放租客申请文件到这里' },
   'screen.drop.sub': {
-    en: 'PDF, JPG, PNG, DOC — Employment Letter, Pay Stubs, Bank Statements, ID, Credit Report…',
-    zh: '支持 PDF, JPG, PNG, DOC — Employment Letter, Pay Stubs, Bank Statements, ID, Credit Report 等',
+    en: 'PDF, JPG, PNG, HEIC — Employment Letter, Pay Stubs, Bank Statements, ID, Credit Report… · up to 25 MB per file (large photos are compressed automatically)',
+    zh: '支持 PDF, JPG, PNG, HEIC — Employment Letter, Pay Stubs, Bank Statements, ID, Credit Report 等 · 单个文件 ≤ 25 MB（大照片会自动压缩）',
   },
   'screen.drop.pick': { en: '📎 Choose files', zh: '📎 选择文件' },
   'screen.filetype.employment': { en: 'Employment Letter', zh: 'Employment Letter' },
@@ -148,6 +148,11 @@ export const DICT = {
   'screen.err.tooBigImage': { en: '{name} could not be compressed on this browser — save it as JPEG and retry', zh: '{name} 在当前浏览器上无法压缩 —— 请另存为 JPEG 再试' },
   'screen.prep.working': { en: 'Preparing photos…', zh: '正在处理照片…' },
   'screen.prep.compressed': { en: '{n} photo(s) compressed for upload — full quality kept for text', zh: '已压缩 {n} 张照片以便上传 —— 文字清晰度不受影响' },
+  // Oversized-PDF rasterization (lib/screening/pdfShrink.ts). The forensic
+  // caveat is part of the message on purpose — a converted file loses PDF
+  // structure analysis and the landlord should know that.
+  'screen.prep.pdfConverted': { en: '{name} ({mb} MB) exceeds 25 MB — converted to {n} image page(s) for upload; document forensics will run in OCR mode for this file', zh: '{name}（{mb} MB）超过 25 MB —— 已转成 {n} 张图片上传；该文件的文档取证将按图片（OCR）模式进行' },
+  'screen.err.tooManyPages': { en: '{name} is over 25 MB with more than 12 pages — split it and upload in parts', zh: '{name} 超过 25 MB 且超过 12 页 —— 请拆分后分次上传' },
   'screen.err.unknown': { en: 'Unknown error', zh: '未知错误' },
 
   // Analysis progress labels

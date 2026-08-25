@@ -351,6 +351,17 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 守卫 `tests/screeningUpload.spec.ts`：桶上限、前端 `MAX_UPLOAD_BYTES`、用户文案
 三处的「25MB」必须一致——这三个数一旦漂移就是最难查的那类故障。
 
+**超限 PDF 的救援路径（2026-08-25 晚补）**：>25MB 的 PDF 不再直接拒——
+`lib/screening/pdfShrink.ts` 在浏览器里用 `unpdf/pdfjs`（unpdf 自带的 pdf.js
+单文件 bundle，含 WorkerMessageHandler，主线程可跑，动态 import 约 1.6MB）把
+每页渲染成 JPEG（长边 2600px / q0.85）再走正常上传。真实 `ID_Leo.pdf`
+（32.4MB，qwenOcr 的抽图层报 unsupported——Illustrator 的编码不在它支持的
+两种之内）实测 → 1 张 659KB JPEG，dev 下 ~98s（生产更快，UI 有「处理中」态罩着）。
+**>12 页的超限 PDF 仍拒**（静默转一半文档 = 部分证据装完整，正是要防的事）。
+转换过的文件会写进 `screenings.notes` 的 CONVERTED 块——模型和取证都知道
+这是同一份文档的页图、PDF 结构分析没跑过。上传区文案已带显式提示
+「单个文件 ≤ 25 MB（大照片会自动压缩）」。
+
 ## Terminology(2026-08-03 定稿)
 
 产品动作一律叫「**租客筛查 / 筛查**」(英文 Screening 不变),不叫「背调/背景调查」。依据:O. Reg. 290/98 与 OHRC 租房政策的语汇是 tenant screening/selection(许可的工具=信用参考/租史/信用检查/收入信息);而「背景调查」一词指向安省《消费者报告法》所规管的含 personal information(品行/声誉/生活方式)的 consumer report——报告法务节明确声明我们**不是**该法意义上的报告机构,产品名不能与免责声明打架。`tests/complianceCopy.spec.ts` 有语料守卫:UI 代码出现 背调/背景调查/背景核查/背景审查 即红。「筛选」保留给房源过滤器语境。

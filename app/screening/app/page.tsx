@@ -1516,6 +1516,8 @@ export default function ScreenPage() {
   // until the run, and the names are sent with the screening so the report
   // can say what it never saw.
   const [rejectedFiles, setRejectedFiles] = useState<{ name: string; size: number }[]>([])
+  // "orig.pdf (32.4 MB) -> 1 page(s)" strings for screenings.notes.
+  const [convertedNotes, setConvertedNotes] = useState<string[]>([])
   const [classifyError, setClassifyError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [applicantName, setApplicantName] = useState('')
@@ -1901,9 +1903,11 @@ export default function ScreenPage() {
 
     setPreparing(true)
     let accepted: File[] = []
+    let prepared: Awaited<ReturnType<typeof prepareUploads>>['accepted'] = []
     let compressedCount = 0
     try {
       const res = await prepareUploads(incomingRaw)
+      prepared = res.accepted
       accepted = res.accepted.map(a => a.file)
       compressedCount = res.accepted.filter(a => a.originalSize != null).length
       if (res.rejected.length > 0) {
@@ -1917,7 +1921,32 @@ export default function ScreenPage() {
       setPreparing(false)
     }
 
-    setPrepNote(compressedCount > 0 ? t('screen.prep.compressed', { n: String(compressedCount) }) : null)
+    // One note line per rescue that happened: photo compression count, plus
+    // one line per converted PDF (rare enough that per-file detail is worth it).
+    const noteParts: string[] = []
+    if (compressedCount > 0) noteParts.push(t('screen.prep.compressed', { n: String(compressedCount) }))
+    const seenConv = new Set<string>()
+    for (const a of prepared) {
+      if (a.convertedFrom && !seenConv.has(a.convertedFrom.name)) {
+        seenConv.add(a.convertedFrom.name)
+        noteParts.push(t('screen.prep.pdfConverted', {
+          name: a.convertedFrom.name,
+          mb: (a.convertedFrom.size / 1024 / 1024).toFixed(1),
+          n: String(a.convertedFrom.pageCount),
+        }))
+      }
+    }
+    setPrepNote(noteParts.length > 0 ? noteParts.join(' · ') : null)
+    if (seenConv.size > 0) {
+      setConvertedNotes(prev => {
+        const have = new Set(prev)
+        const added = [...seenConv].map(name => {
+          const m = prepared.find(a => a.convertedFrom?.name === name)!.convertedFrom!
+          return `${m.name} (${(m.size / 1024 / 1024).toFixed(1)} MB) -> ${m.pageCount} page(s)`
+        })
+        return [...prev, ...added.filter(x => !have.has(x))]
+      })
+    }
     if (accepted.length > 0) {
       setFiles(prev => [...prev, ...accepted])
       // Kick off classification for newly added files only
@@ -2316,9 +2345,18 @@ export default function ScreenPage() {
           // reads `notes`, so this keeps a partial evidence set from reading
           // as a complete one (2026-08-25: a dropped credit report made the
           // model omit credit_health entirely and 500 the whole screening).
-          notes: rejectedFiles.length > 0
-            ? `[NOT UPLOADED — over the 25 MB per-file cap, these documents were NOT seen: ${rejectedFiles.map(r => r.name).join(', ')}]`
-            : null,
+          notes: (() => {
+            const parts: string[] = []
+            if (rejectedFiles.length > 0) {
+              parts.push(`[NOT UPLOADED — over the 25 MB per-file cap, these documents were NOT seen: ${rejectedFiles.map(r => r.name).join(', ')}]`)
+            }
+            // Rasterized PDFs upload as .pN.jpg pages; tell the model they are
+            // pages of one converted document, not independent photos — and
+            // that PDF-structure forensics could not run on them.
+            const conv = convertedNotes
+            if (conv.length > 0) parts.push(`[CONVERTED — these PDFs exceeded 25 MB and were rasterized client-side to image pages (original PDF structure unavailable to forensics): ${conv.join('; ')}]`)
+            return parts.length > 0 ? parts.join('\n') : null
+          })(),
         })
         .select('id')
         .single()
@@ -2900,8 +2938,8 @@ export default function ScreenPage() {
                     </ul>
                     <div>
                       {lang === 'zh'
-                        ? '单个文件上限 25 MB。请用「预览 / Acrobat → 导出 → 减小文件大小」重新保存后再传；多页文档也可以拆开分次上传。缺少的文件会导致对应维度没有依据。'
-                        : 'The per-file cap is 25 MB. Re-save it smaller (Preview / Acrobat → Export → Reduce File Size), or split a multi-page document and upload it in parts. A missing document leaves its dimension without evidence.'}
+                        ? '单个文件上限 25 MB（超限的 PDF 会自动转成图片上传，超过 12 页的除外）。请用「预览 / Acrobat → 导出 → 减小文件大小」重新保存后再传，或拆开分次上传。缺少的文件会导致对应维度没有依据。'
+                        : 'The per-file cap is 25 MB (oversized PDFs are auto-converted to images, except those over 12 pages). Re-save it smaller (Preview / Acrobat → Export → Reduce File Size), or split it and upload in parts. A missing document leaves its dimension without evidence.'}
                     </div>
                     <button
                       onClick={() => setRejectedFiles([])}
