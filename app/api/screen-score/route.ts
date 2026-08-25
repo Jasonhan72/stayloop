@@ -1127,6 +1127,8 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble.
  "court_summary_zh":"法庭记录风险评估 ≤40 字。评估哪些库最相关（LTB > 法院 > 仲裁庭）、姓名常见度、仅从法庭记录角度的风险。"
 }
 
+ALL FIVE SCORES ARE MANDATORY. The scores object must always carry ability_to_pay, credit_health, rental_history, verification and communication as numbers 0-100 — even when a dimension has no supporting document. 'No credit report was provided' is a LOW-EVIDENCE score plus an explicit note in details, NEVER an omitted key. (2026-08-25: a screening was run where the primary applicant's credit report had failed to upload; the model dropped the credit_health key entirely and the whole report was lost.) If the SCREENING CONTEXT says a document was NOT uploaded, treat that dimension as unevidenced — do not read it as a clean record.
+
 JSON DISCIPLINE (avoid parse errors):
 - NO unescaped newlines inside strings (use a space)
 - NO commas inside numeric values (write 15090 not 15,090)

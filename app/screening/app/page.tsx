@@ -1508,6 +1508,14 @@ export default function ScreenPage() {
   // fold; while it is out of view a fixed action bar carries the same action.
   const ctaRef = useRef<HTMLButtonElement>(null)
   const [ctaOnScreen, setCtaOnScreen] = useState(true)
+  // Files that never made it in. This is state, not a transient error string,
+  // on purpose: 2026-08-25 a landlord uploaded 11 files, two were silently
+  // dropped for being over the old 10 MB cap — one of them the PRIMARY
+  // applicant's credit report — and the screening ran on the remaining 9 as
+  // though the evidence set were complete. The list below stays on screen
+  // until the run, and the names are sent with the screening so the report
+  // can say what it never saw.
+  const [rejectedFiles, setRejectedFiles] = useState<{ name: string; size: number }[]>([])
   const [classifyError, setClassifyError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [applicantName, setApplicantName] = useState('')
@@ -1899,14 +1907,12 @@ export default function ScreenPage() {
       accepted = res.accepted.map(a => a.file)
       compressedCount = res.accepted.filter(a => a.originalSize != null).length
       if (res.rejected.length > 0) {
-        const r = res.rejected[0]
-        // React batches state updates: clearing the error unconditionally
-        // below would erase this message and the oversized file would just
-        // silently vanish while the landlord believed everything uploaded.
-        setError(t(r.reason === 'too_big_image' ? 'screen.err.tooBigImage' : 'screen.err.tooBig', { name: r.name }))
-      } else {
-        setError(null)
+        setRejectedFiles(prev => {
+          const seen = new Set(prev.map(x => x.name))
+          return [...prev, ...res.rejected.filter(r => !seen.has(r.name)).map(r => ({ name: r.name, size: r.size }))]
+        })
       }
+      setError(null)
     } finally {
       setPreparing(false)
     }
@@ -2306,6 +2312,13 @@ export default function ScreenPage() {
           tenant_name: applicantName || null,
           monthly_rent: targetRent ? Number(targetRent) : null,
           status: 'uploading',
+          // Files the landlord tried to attach that never uploaded. The model
+          // reads `notes`, so this keeps a partial evidence set from reading
+          // as a complete one (2026-08-25: a dropped credit report made the
+          // model omit credit_health entirely and 500 the whole screening).
+          notes: rejectedFiles.length > 0
+            ? `[NOT UPLOADED — over the 25 MB per-file cap, these documents were NOT seen: ${rejectedFiles.map(r => r.name).join(', ')}]`
+            : null,
         })
         .select('id')
         .single()
@@ -2869,6 +2882,34 @@ export default function ScreenPage() {
 
                 {prepNote && (
                   <div style={{ marginBottom: 14, padding: '10px 14px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, fontSize: 12.5, color: '#166534', lineHeight: 1.5 }}>✓ {prepNote}</div>
+                )}
+
+                {rejectedFiles.length > 0 && (
+                  <div style={{ marginBottom: 14, padding: '12px 16px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, fontSize: 12.5, color: '#78350F', lineHeight: 1.6 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                      ⚠ {lang === 'zh'
+                        ? `${rejectedFiles.length} 个文件未上传，不会参与本次筛查`
+                        : `${rejectedFiles.length} file(s) were NOT uploaded and will not be screened`}
+                    </div>
+                    <ul style={{ margin: '0 0 6px', paddingLeft: 18 }}>
+                      {rejectedFiles.map(r => (
+                        <li key={r.name} style={{ wordBreak: 'break-word' }}>
+                          {r.name} <span style={{ opacity: 0.75 }}>({(r.size / 1024 / 1024).toFixed(1)} MB)</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div>
+                      {lang === 'zh'
+                        ? '单个文件上限 25 MB。请用「预览 / Acrobat → 导出 → 减小文件大小」重新保存后再传；多页文档也可以拆开分次上传。缺少的文件会导致对应维度没有依据。'
+                        : 'The per-file cap is 25 MB. Re-save it smaller (Preview / Acrobat → Export → Reduce File Size), or split a multi-page document and upload it in parts. A missing document leaves its dimension without evidence.'}
+                    </div>
+                    <button
+                      onClick={() => setRejectedFiles([])}
+                      style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, fontSize: 12, fontWeight: 700, color: '#92400E', textDecoration: 'underline', cursor: 'pointer' }}
+                    >
+                      {lang === 'zh' ? '我知道了，仍然继续' : 'Understood — continue anyway'}
+                    </button>
+                  </div>
                 )}
 
                 {/* On a phone the form (drop zone + file list + name + rent)
