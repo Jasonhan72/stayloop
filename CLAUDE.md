@@ -362,6 +362,30 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 这是同一份文档的页图、PDF 结构分析没跑过。上传区文案已带显式提示
 「单个文件 ≤ 25 MB（大照片会自动压缩）」。
 
+## 信用分析层（2026-08-26 · 对标 SingleKey 二轮）
+
+用户拿 SingleKey 30 页双局报告逐页对比后的结论：我们的**转录**早就齐了
+（score/tradelines/collections/bankruptcies/inquiries 全在 `CreditReport`），
+缺的是转录之上的**分析层**。补法分两半，边界刻意划死：
+
+- **算术一律确定性代码**：`lib/screening/creditAnalysis.ts`（纯函数，
+  `tests/creditAnalysis.spec.ts` 9 条钉死）。分数档位（SingleKey 五档
+  300-559/560-639/640-699/700-759/760+）、DTI、循环利用率（用 `credit_limit`，
+  缺失回退 `high_credit`——104.7% 超限真实案例是它的存在理由）、按类别聚合
+  （分期/按揭/车贷**不算利用率**——摊还本金 ≈ 原额是常态，新学生贷会假报 100%）、
+  三种逾期信号（past_due / late 计数 / R9-I9-M5 状态码）任一命中即 delinquent、
+  查询次数以 report_date 锚定只数 12 个月内。房东要拿这些数对银行口径，
+  **不能出自模型之口**
+- **叙述才归模型**：prompt 新增 `credit_report.analysis_en/zh`（3-5 句、
+  必须点名具体账户与趋势）；`credit_health` 的 details 上限从 15 字放宽到
+  45 字（其余维度的 SPEED 上限不动）。渲染在报告页与打印版
+  （`app/screening/[id]/report/page.tsx` 信用节 + `lib/generateReport.ts`）：
+  档位刻度条、四块 KPI、衍生风险行、类别卡（利用率进度条）、逾期聚焦、AI 叙述框
+
+**存量报告立即受益**（分析层从已存的 `_v3.credit_report` 现算）；AI 叙述只有
+新筛查才有。`unreliable`（身份对不上的报告）不进分析层——已宣布非证据的数字
+不能再穿一层「分析」外衣。干净档案输出一条 ✓ info 而不是沉默。
+
 ## Terminology(2026-08-03 定稿)
 
 产品动作一律叫「**租客筛查 / 筛查**」(英文 Screening 不变),不叫「背调/背景调查」。依据:O. Reg. 290/98 与 OHRC 租房政策的语汇是 tenant screening/selection(许可的工具=信用参考/租史/信用检查/收入信息);而「背景调查」一词指向安省《消费者报告法》所规管的含 personal information(品行/声誉/生活方式)的 consumer report——报告法务节明确声明我们**不是**该法意义上的报告机构,产品名不能与免责声明打架。`tests/complianceCopy.spec.ts` 有语料守卫:UI 代码出现 背调/背景调查/背景核查/背景审查 即红。「筛选」保留给房源过滤器语境。
