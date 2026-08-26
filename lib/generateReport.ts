@@ -7,6 +7,7 @@
  */
 
 import type { OntarioPortalMatch, CanLIIMatch, CourtQuery, AiFlag, ScoreResult } from './screening-types'
+import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
 import { scoreColor, sevColor, SCORE_BANDS } from './screening-types'
 import { RUBRIC_WEIGHTS, type RubricResult } from './screening/rubric'
 
@@ -787,6 +788,40 @@ export async function generateScreeningReport(
       ${cr.total_debt != null ? `<div class="kv"><span class="k">${zh ? '总负债' : 'Total debt'}:</span><span class="v" style="font-weight:600">${money(cr.total_debt)}</span></div>` : ''}
       ${cr.monthly_debt_payments != null ? `<div class="kv"><span class="k">${zh ? '每月还款' : 'Monthly debt pmts'}:</span><span class="v">${money(cr.monthly_debt_payments)}</span></div>` : ''}
     </div></div>`
+
+    // Derived analysis strip (deterministic — lib/screening/creditAnalysis.ts)
+    const crA = cr.unreliable ? null : analyzeCreditReport(cr, { monthlyIncome: result.effective_monthly_income ?? result.detected_monthly_income })
+    if (crA) {
+      const pctTxt = (x: number | null) => (x == null ? '—' : Math.round(x * 100) + '%')
+      const kpi = (label: string, value: string, warn: boolean) =>
+        `<div style="flex:1;min-width:110px;border:1px solid #E2E8F0;border-radius:8px;padding:8px 10px"><div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase">${label}</div><div style="font-size:14px;font-weight:800;color:${warn ? '#DC2626' : '#0B1736'}">${value}</div></div>`
+      html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        ${kpi(zh ? '每月还款/收入' : 'Debt-to-income', pctTxt(crA.dti), crA.dti != null && crA.dti > 0.4)}
+        ${kpi(zh ? '循环利用率' : 'Revolving util.', pctTxt(crA.revolvingUtilization), crA.revolvingUtilization != null && crA.revolvingUtilization > 0.8)}
+        ${kpi(zh ? '当前逾期总额' : 'Total past due', money(crA.totalPastDue), crA.totalPastDue > 0)}
+        ${kpi(zh ? '近12月查询' : 'Inquiries 12mo', String(crA.inquiries12mo), crA.inquiries12mo >= 5)}
+      </div>`
+      if (crA.flags.length > 0) {
+        html += `<div style="margin-bottom:8px">`
+        for (const f of crA.flags) {
+          const c = f.severity === 'high' ? '#DC2626' : f.severity === 'medium' ? '#C2410C' : '#047857'
+          html += `<div style="font-size:10px;color:${c};line-height:1.7">${f.severity === 'info' ? '✓' : '⚠'} ${esc(zh ? f.zh : f.en)}</div>`
+        }
+        html += `</div>`
+      }
+      if (crA.categories.length > 0) {
+        html += `<table><tr><th>${zh ? '账户类别' : 'Category'}</th><th style="width:50px;text-align:right">${zh ? '账户数' : 'Accts'}</th><th style="width:85px;text-align:right">${zh ? '余额' : 'Balance'}</th><th style="width:85px;text-align:right">${zh ? '额度' : 'Limit'}</th><th style="width:70px;text-align:right">${zh ? '利用率' : 'Util.'}</th><th style="width:75px;text-align:right">${zh ? '逾期' : 'Past due'}</th></tr>`
+        for (const c of crA.categories) {
+          const uc = c.utilization == null ? '#64748B' : c.utilization > 1 ? '#DC2626' : c.utilization > 0.8 ? '#C2410C' : '#047857'
+          html += `<tr><td>${esc(zh ? c.zh : c.en)}</td><td style="text-align:right">${c.count}</td><td style="text-align:right">${money(c.balance)}</td><td style="text-align:right">${c.limit != null ? money(c.limit) : '—'}</td><td style="text-align:right;color:${uc};font-weight:600">${pctTxt(c.utilization)}</td><td style="text-align:right;color:${c.pastDue > 0 ? '#DC2626' : '#334155'};font-weight:${c.pastDue > 0 ? 700 : 400}">${money(c.pastDue)}</td></tr>`
+        }
+        html += `</table>`
+      }
+      const narrative = zh ? cr.analysis_zh : cr.analysis_en
+      if (narrative) {
+        html += `<div style="border:1px solid #E2E8F0;border-radius:8px;background:#FAFAF8;padding:9px 12px;margin:8px 0"><div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase;margin-bottom:3px">${zh ? 'AI 信用分析（引用具体账户）' : 'AI credit analysis (account-cited)'}</div><div style="font-size:10px;color:#334155;line-height:1.7">${esc(narrative)}</div></div>`
+      }
+    }
 
     // Tradelines (credit accounts)
     const tl = cr.tradelines || []

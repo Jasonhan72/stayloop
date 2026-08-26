@@ -152,6 +152,14 @@ export interface CreditReport {
   total_debt?: number | null
   monthly_debt_payments?: number | null
   /**
+   * Model-written analysis paragraph citing SPECIFIC accounts (2026-08-25,
+   * SingleKey comparison). The arithmetic layer (utilisation, DTI,
+   * delinquency roll-ups) is deterministic — lib/screening/creditAnalysis.ts;
+   * this is only the reading a human analyst would add on top.
+   */
+  analysis_en?: string | null
+  analysis_zh?: string | null
+  /**
    * The bureau's Employment section (current/previous employer), transcribed
    * verbatim. Self-reported to lenders and often stale — but INDEPENDENT of
    * this application's documents, which is what makes it evidence: a real case

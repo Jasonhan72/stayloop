@@ -34,6 +34,7 @@ import { describeCodes } from '@/lib/ltb/search'
 import { RUBRIC_WEIGHTS, type RubricResult } from '@/lib/screening/rubric'
 import { buildForensicCheckMatrix, generateScreeningReport, isPositiveForensicFlag } from '@/lib/generateReport'
 import { registryLinks, inferProvince } from '@/lib/forensics/registry-links'
+import { analyzeCreditReport, SCORE_BANDS } from '@/lib/screening/creditAnalysis'
 
 /* ─────────────────────────── HELPERS ─────────────────────────── */
 
@@ -183,6 +184,16 @@ function SectionShell({
   )
 }
 
+function CreditKpi({ label, value, sub, warn }: { label: string; value: string; sub?: string; warn?: boolean }) {
+  return (
+    <div className="rounded-xl border border-line-divider px-3.5 py-2.5">
+      <div className="font-mono text-[9.5px] font-bold uppercase tracking-wide text-body-3">{label}</div>
+      <div className="mt-0.5 font-mono text-[18px] font-extrabold" style={{ color: warn ? '#DC2626' : undefined }}>{value}</div>
+      {sub && <div className="text-[10.5px] text-body-3">{sub}</div>}
+    </div>
+  )
+}
+
 function Badge({ label, color }: { label: string; color: string }) {
   return (
     <span
@@ -328,6 +339,13 @@ export default function ReportPage() {
 
   const cr = r.credit_report
   const hasCreditReport = !!(cr && (cr.credit_score != null || (cr.tradelines && cr.tradelines.length > 0) || (cr.collections && cr.collections.length) || (cr.bankruptcies && cr.bankruptcies.length)))
+  // Deterministic analysis layer over the transcription (SingleKey-style
+  // derived metrics). Skipped for a report that failed identity checks —
+  // computing ratios over numbers we've declared non-evidence would dress
+  // them back up as analysis.
+  const crA = hasCreditReport && cr && !cr.unreliable
+    ? analyzeCreditReport(cr, { monthlyIncome: r.effective_monthly_income ?? r.detected_monthly_income })
+    : null
 
   // Cross-document verification block (2026-07). Old reports have no data —
   // the whole section hides; every sub-block is individually guarded too.
@@ -1015,6 +1033,106 @@ export default function ReportPage() {
                   {cr.monthly_debt_payments != null && <KV k={zh ? '每月还款' : 'Monthly pmts'}>{money(cr.monthly_debt_payments)}</KV>}
                 </div>
               </div>
+
+              {/* ── Derived analysis (deterministic — lib/screening/creditAnalysis.ts) ── */}
+              {crA && (
+                <div className="mt-5 space-y-4">
+                  {/* Score band scale */}
+                  {crA.score != null && (
+                    <div>
+                      <div className="flex h-2 w-full overflow-hidden rounded-full">
+                        {SCORE_BANDS.map(b => (
+                          <div key={b.key} style={{ background: b.color, opacity: crA.band?.key === b.key ? 1 : 0.25, width: `${((b.max - b.min) / 600) * 100}%` }} />
+                        ))}
+                      </div>
+                      <div className="mt-1 flex justify-between font-mono text-[9.5px] text-body-3">
+                        {SCORE_BANDS.map(b => (
+                          <span key={b.key} style={{ color: crA.band?.key === b.key ? b.color : undefined, fontWeight: crA.band?.key === b.key ? 800 : 400 }}>
+                            {zh ? b.zh : b.en} {b.min}–{b.max === 900 ? '900' : b.max}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* KPI tiles */}
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <CreditKpi label={zh ? '每月还款 / 收入' : 'Debt-to-income'} value={crA.dti != null ? `${Math.round(crA.dti * 100)}%` : '—'} warn={crA.dti != null && crA.dti > 0.4} sub={zh ? '按申报收入' : 'of stated income'} />
+                    <CreditKpi label={zh ? '循环信贷利用率' : 'Revolving utilisation'} value={crA.revolvingUtilization != null ? `${Math.round(crA.revolvingUtilization * 100)}%` : '—'} warn={crA.revolvingUtilization != null && crA.revolvingUtilization > 0.8} sub={zh ? '余额 ÷ 额度' : 'balance ÷ limit'} />
+                    <CreditKpi label={zh ? '当前逾期总额' : 'Total past due'} value={money(crA.totalPastDue)} warn={crA.totalPastDue > 0} sub={crA.delinquent.length > 0 ? (zh ? `${crA.delinquent.length} 个账户` : `${crA.delinquent.length} account(s)`) : (zh ? '无逾期' : 'none past due')} />
+                    <CreditKpi label={zh ? '近 12 月查询' : 'Inquiries (12 mo)'} value={String(crA.inquiries12mo)} warn={crA.inquiries12mo >= 5} sub={zh ? '硬查询次数' : 'hard pulls'} />
+                  </div>
+
+                  {/* Derived risk flags */}
+                  {crA.flags.length > 0 && (
+                    <div className="space-y-1.5">
+                      {crA.flags.map((f, i) => (
+                        <div key={i} className="flex items-start gap-2 rounded-lg px-3 py-2 text-[12.5px] leading-relaxed" style={{ background: f.severity === 'high' ? '#DC262608' : f.severity === 'medium' ? '#EA580C08' : '#04785708', color: f.severity === 'info' ? '#047857' : undefined }}>
+                          <span className="mt-0.5 font-mono text-[11px] font-extrabold" style={{ color: f.severity === 'high' ? '#DC2626' : f.severity === 'medium' ? '#EA580C' : '#047857' }}>{f.severity === 'info' ? '✓' : '⚠'}</span>
+                          <span className="min-w-0 break-words">{zh ? f.zh : f.en}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Debt by category with utilisation bars */}
+                  {crA.categories.length > 0 && (
+                    <div>
+                      <div className="mb-2 font-mono text-[10px] font-bold uppercase text-body-3">{zh ? '负债构成（按账户类别）' : 'Debt by category'}</div>
+                      <div className="grid gap-2.5 sm:grid-cols-2">
+                        {crA.categories.map(c => (
+                          <div key={c.key} className="rounded-xl border border-line-divider px-4 py-3">
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="text-[13px] font-semibold">{zh ? c.zh : c.en}</span>
+                              <span className="font-mono text-[10.5px] text-body-3">{c.count} {zh ? '个账户' : 'acct(s)'}</span>
+                            </div>
+                            <div className="mt-1 flex items-baseline justify-between gap-2">
+                              <span className="font-mono text-[15px] font-extrabold">{money(c.balance)}</span>
+                              {c.limit != null && <span className="font-mono text-[11px] text-body-3">/ {money(c.limit)} {zh ? '额度' : 'limit'}</span>}
+                            </div>
+                            {c.utilization != null && (
+                              <div className="mt-2">
+                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-chip">
+                                  <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round(c.utilization * 100))}%`, background: c.utilization > 1 ? '#DC2626' : c.utilization > 0.8 ? '#EA580C' : '#047857' }} />
+                                </div>
+                                <div className="mt-0.5 font-mono text-[10px]" style={{ color: c.utilization > 1 ? '#DC2626' : c.utilization > 0.8 ? '#EA580C' : '#64748B' }}>
+                                  {Math.round(c.utilization * 100)}% {zh ? '已用' : 'used'}{c.utilization > 1 ? (zh ? ' · 超额度' : ' · OVER LIMIT') : ''}
+                                </div>
+                              </div>
+                            )}
+                            {c.pastDue > 0 && <div className="mt-1 font-mono text-[11px] font-bold" style={{ color: '#DC2626' }}>{zh ? '逾期' : 'Past due'} {money(c.pastDue)}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Delinquent accounts spotlight */}
+                  {crA.delinquent.length > 0 && (
+                    <div>
+                      <div className="mb-2 font-mono text-[10px] font-bold uppercase" style={{ color: '#DC2626' }}>{zh ? '逾期 / 不良账户' : 'Delinquent accounts'} · {crA.delinquent.length}</div>
+                      <div className="space-y-1.5">
+                        {crA.delinquent.map((d, i) => (
+                          <div key={i} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 rounded-lg border border-line-divider px-3.5 py-2 text-[12.5px]" style={{ background: '#DC262606' }}>
+                            <span className="font-semibold">{d.creditor}</span>
+                            {d.pastDue > 0 && <span className="font-mono font-bold" style={{ color: '#DC2626' }}>{money(d.pastDue)} {zh ? '逾期' : 'past due'}</span>}
+                            {d.late && d.late !== '0/0/0' && <span className="font-mono text-[11px]" style={{ color: '#DC2626' }}>30/60/90: {d.late}</span>}
+                            <span className="min-w-0 break-words text-[11.5px] text-body-3">{d.status}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Model-written cited narrative */}
+                  {(zh ? cr.analysis_zh : cr.analysis_en) && (
+                    <div className="rounded-xl border border-line-divider px-4 py-3" style={{ background: '#FAFAF8' }}>
+                      <div className="mb-1 font-mono text-[10px] font-bold uppercase text-body-3">{zh ? 'AI 信用分析（引用具体账户）' : 'AI credit analysis (account-cited)'}</div>
+                      <p className="text-[13px] leading-relaxed text-body-2">{zh ? cr.analysis_zh : cr.analysis_en}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {(cr.tradelines || []).length > 0 && (
                 <div className="mt-5">
