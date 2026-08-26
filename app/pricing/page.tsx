@@ -82,11 +82,11 @@ const PLANS: RolePlan[] = [
       },
       {
         name: { zh: '专业', en: 'Pro' },
-        price: { zh: '$19', en: '$19' },
+        price: { zh: '$29', en: '$29' },
         priceUnit: { zh: '/ 月', en: '/ month' },
         tagline: { zh: '全部功能，无限房源。', en: 'Everything, unlimited listings.' },
         cta: { zh: '升级到专业版', en: 'Upgrade to Pro' },
-        href: '/dashboard/listings/new',
+        href: '/dashboard?upgrade=1',
         includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Go, plus:' },
         features: [
           { zh: '无限发布房源', en: 'Unlimited listings' },
@@ -103,7 +103,7 @@ const PLANS: RolePlan[] = [
         priceUnit: { zh: '/ 月', en: '/ month' },
         tagline: { zh: '团队协作，管理多套物业。', en: 'Team collaboration across properties.' },
         cta: { zh: '升级到团队版', en: 'Upgrade to Business' },
-        href: '/dashboard/listings/new',
+        href: '/contact',
         includesLabel: { zh: '专业的全部,另加:', en: 'Everything in Pro, plus:' },
         features: [
           { zh: '多成员协作 + 权限', en: 'Multi-member collaboration + roles' },
