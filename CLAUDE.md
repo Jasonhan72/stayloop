@@ -9,7 +9,7 @@ AI-powered tenant screening SaaS for Ontario landlords. Live at **www.stayloop.a
 - **Auth:** Supabase JS v2, implicit flow (`lib/supabase.ts`, `lib/useAuth.ts`)
 - **AI:** Claude Sonnet via Anthropic API (Vision + text, edge runtime)
 - **Email:** Resend SMTP via Supabase Auth (magic links)
-- **Payments:** Stripe (test mode)
+- **Payments:** Stripe（**test mode**，账号已完成实名、charges_enabled——切 live 只差换密钥/建 live price/注册 live webhook，见下「支付模块」节）
 - **Maps:** Google Maps API
 - **DB:** Supabase (project `upbkcbicjjpznojkpqtg`)
 
@@ -385,6 +385,46 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 **存量报告立即受益**（分析层从已存的 `_v3.credit_report` 现算）；AI 叙述只有
 新筛查才有。`unreliable`（身份对不上的报告）不进分析层——已宣布非证据的数字
 不能再穿一层「分析」外衣。干净档案输出一条 ✓ info 而不是沉默。
+
+## 支付模块（2026-08-26 全链路审计 + 真金 E2E）
+
+**真实用户路径已端到端验证**（浏览器走完 test 收银台 4242 卡付款）：
+checkout 路由（含 `claim_landlord` 自愈）→ Stripe 托管页 → `checkout.session.completed`
+webhook → `landlords.plan='pro'` → portal 路由（billing.stripe.com URL 正常）→
+取消订阅 → `plan='free'`。探针（用户/landlord 行/Stripe customer/订阅）已全部清理。
+
+**本轮修的三处真伤：**
+
+1. **`NEXT_PUBLIC_SITE_URL` 烤进生产的是 `localhost:3000`**。Next 在构建时内联
+   `NEXT_PUBLIC_*`，而 ship 脚本在本机构建、`.env.local` 里是 localhost——
+   CF Pages 后台配的值对内联变量**不生效**。受污染 8 处：Stripe checkout/portal/
+   connect 回跳、租约 sign/send 链接、household 邀请、notify-landlord 邮件链接
+   ——**生产所有邮件链接和付款回跳都指向 localhost**（真实付款照样入账、plan 照样
+   翻 pro，只是用户落在打不开的页面）。修法：`.env.local` 持 prod URL（构建用），
+   `.env.development.local` 持 localhost（只有 `next dev` 读，优先级更高）。
+   **教训：`.env.local` 里任何 NEXT_PUBLIC_* 都会进生产构建**
+2. **pricing 页 Pro 写 $19/月，Stripe 实收 $29 CAD/月**（dashboard 弹窗也是 $29）。
+   已把页面对齐到实收 $29；**若想真卖 $19 需在 Stripe 建新价并换
+   `NEXT_PUBLIC_STRIPE_PRICE_ID`**。CTA 原链到 `/dashboard/listings/new`（到不了
+   付款），已改 `/dashboard?upgrade=1`（打开升级弹窗）；团队版无 Stripe 价，CTA
+   暂指 `/contact`
+3. **同一 URL 注册了两个 test webhook 端点**，各有各的签名密钥；实测（订阅取消
+   事件被处理）证明匹配生产密钥的是 3 事件端点（缺 `customer.subscription.created`），
+   另一个的投递永远验签 400。已给匹配端点补上第 4 个事件（更新不换密钥）、删除
+   死端点。注意：重建端点的脚本会被 auto-mode 分类器拦（动支付基础设施+密钥），
+   这个窄修复（改事件列表+删死端点）不动密钥所以能过
+
+**已知非阻断**：`checkout.session.completed` 不写 `plan_current_period_end`（那是
+subscription.created/updated 的活），而 created 事件可能先于 completed 到达、
+按 `stripe_customer_id` 匹配不到行（行里还没写 customer id）——首月 period_end
+可能为空，下一次任何 subscription.updated 会补上。代码注释已记录该竞态。
+
+**切 live 清单**（账号 charges_enabled=true，随时可切）：① Stripe Dashboard 切到
+live mode 建 Pro 价（$29 或拍板 $19）；② live 密钥换入 CF Pages（`STRIPE_SECRET_KEY`）
+与本地 `.env.local`，`NEXT_PUBLIC_STRIPE_PRICE_ID` 换 live price id；③ live mode 注册
+webhook `https://www.stayloop.ai/api/stripe/webhook`（4 个事件），新 `whsec_` 写入
+CF Pages `STRIPE_WEBHOOK_SECRET`；④ 重新部署（Pages secret 变更需重部署才生效）；
+⑤ 用真卡付一单再退款验证。webhook 处理器/路由代码不需要任何改动。
 
 ## Terminology(2026-08-03 定稿)
 
