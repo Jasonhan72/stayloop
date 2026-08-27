@@ -9,6 +9,7 @@ import { getAIName, setAIName, getDefaultName } from '@/lib/aiName'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useEntitlements } from '@/lib/useEntitlements'
 import { ROLE_THEME } from '@/lib/roleTheme'
+import SubscriptionCard from '@/components/settings/SubscriptionCard'
 
 const ROLE_COLORS: Record<string, string> = {
   tenant: ROLE_THEME.tenant.accent,
@@ -131,6 +132,13 @@ export default function SettingsPage() {
                 <InfoRow icon="🔒" label={zh ? '登录方式' : 'Sign-in'} value="Magic Link" />
               </div>
             </div>
+
+            {/* Subscription & billing — landlord is the only role with a
+                plan store; the card covers upgrade (checkout), manage/cancel
+                (Stripe portal) and the comped-Pro case. */}
+            {shellRole === 'landlord' && auth.user && (
+              <SubscriptionCard userId={auth.user.id} zh={zh} />
+            )}
 
             {/* Quick actions */}
             <div className="space-y-2">

@@ -47,10 +47,19 @@ export async function POST(req: NextRequest) {
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai'
 
+    // Optional whitelisted return target — /settings hosts the subscription
+    // card, /dashboard the upgrade modal. Anything else falls back to the
+    // dashboard (never echo caller-supplied URLs into Stripe).
+    let returnPath = '/dashboard'
+    try {
+      const body = await req.json()
+      if (body?.return === 'settings') returnPath = '/settings'
+    } catch { /* no body — default */ }
+
     const stripe = getStripe()
     const session = await stripe.billingPortal.sessions.create({
       customer: landlord.stripe_customer_id,
-      return_url: `${siteUrl}/dashboard`,
+      return_url: `${siteUrl}${returnPath}`,
     })
 
     return NextResponse.json({ url: session.url })
