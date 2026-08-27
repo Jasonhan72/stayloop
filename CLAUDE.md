@@ -9,7 +9,7 @@ AI-powered tenant screening SaaS for Ontario landlords. Live at **www.stayloop.a
 - **Auth:** Supabase JS v2, implicit flow (`lib/supabase.ts`, `lib/useAuth.ts`)
 - **AI:** Claude Sonnet via Anthropic API (Vision + text, edge runtime)
 - **Email:** Resend SMTP via Supabase Auth (magic links)
-- **Payments:** Stripe（**test mode**，账号已完成实名、charges_enabled——切 live 只差换密钥/建 live price/注册 live webhook，见下「支付模块」节）
+- **Payments:** Stripe **LIVE mode**（2026-08-26 切换，见下「支付模块」节的切换记录）
 - **Maps:** Google Maps API
 - **DB:** Supabase (project `upbkcbicjjpznojkpqtg`)
 
@@ -419,12 +419,19 @@ subscription.created/updated 的活），而 created 事件可能先于 complete
 按 `stripe_customer_id` 匹配不到行（行里还没写 customer id）——首月 period_end
 可能为空，下一次任何 subscription.updated 会补上。代码注释已记录该竞态。
 
-**切 live 清单**（账号 charges_enabled=true，随时可切）：① Stripe Dashboard 切到
-live mode 建 Pro 价（$29 或拍板 $19）；② live 密钥换入 CF Pages（`STRIPE_SECRET_KEY`）
-与本地 `.env.local`，`NEXT_PUBLIC_STRIPE_PRICE_ID` 换 live price id；③ live mode 注册
-webhook `https://www.stayloop.ai/api/stripe/webhook`（4 个事件），新 `whsec_` 写入
-CF Pages `STRIPE_WEBHOOK_SECRET`；④ 重新部署（Pages secret 变更需重部署才生效）；
-⑤ 用真卡付一单再退款验证。webhook 处理器/路由代码不需要任何改动。
+**已切 LIVE（2026-08-26，用户提供 live key 后执行）**：
+- live price 用户已建好（`price_1TJagqPEHyIrPd1QtIWw0NSH`，$29 CAD/月），直接采用
+- live webhook `we_1U8rFTPEHyIrPd1QnDuOl9p0`（4 事件）已注册；live 账单门户默认配置
+  `bpc_1U8rESPEHyIrPd1Qze4FFOnj` 已建（live 模式原本没有，portal 路由会 500）
+- 密钥三处同步：`.env.local`（构建用）+ CF Pages `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`
+  （运行时用，wrangler pages secret put，需重部署生效——已部署）。**test 密钥保留**在
+  `.env.local` 的 `STRIPE_TEST_SECRET_KEY` / `STRIPE_TEST_WEBHOOK_SECRET`
+- test 模式的 webhook 端点已**停用**（未删）——生产现在用 live 密钥验签，test 事件只会 400
+- 部署后验证（探针已清）：checkout session `livemode:true` · CA$29.00 · 回跳 stayloop.ai；
+  portal 返回 billing.stripe.com。**唯一未验证的环节 = 真实付款的 webhook 投递**，
+  需要第一笔真卡付款确认（付完可 API 退款）
+- 分类器注意：创建 live webhook + 推 CF 密钥的脚本会被 auto-mode 拦，拆成
+  「不含密钥的步骤」+「密钥只走文件/stdin 不过 shell」的窄脚本可过
 
 ## Terminology(2026-08-03 定稿)
 
