@@ -88,6 +88,7 @@ export default function Dashboard() {
   }, [checkoutBanner, landlord, plan])
 
   async function startCheckout() {
+    if (plan === 'pro' || plan === 'team') return
     setCheckoutLoading(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -118,7 +119,16 @@ export default function Dashboard() {
       if (!res.ok || !data.url) throw new Error(data.error || 'portal failed')
       window.location.href = data.url
     } catch (err: any) {
-      alert(`Billing portal error: ${err?.message || 'unknown'}`)
+      const msg = String(err?.message || '')
+      if (msg.includes('no stripe customer')) {
+        // Comped / directly-granted Pro — there is no Stripe subscription to
+        // manage, and that is not an error worth alarming anyone about.
+        alert(lang === 'zh'
+          ? '你的 Pro 由 Stayloop 直接开通，没有需要管理的 Stripe 订阅。'
+          : 'Your Pro plan was granted directly by Stayloop — there is no Stripe subscription to manage.')
+      } else {
+        alert(`Billing portal error: ${msg || 'unknown'}`)
+      }
       setPortalLoading(false)
     }
   }
@@ -637,7 +647,9 @@ export default function Dashboard() {
               </div>
               <div className="relative rounded-2xl border-2 border-brand bg-brand/5 p-5">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-brand px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-white">
-                  {lang === 'zh' ? '推荐' : 'RECOMMENDED'}
+                  {(plan === 'pro' || plan === 'team')
+                    ? (lang === 'zh' ? '✓ 当前方案' : '✓ CURRENT PLAN')
+                    : (lang === 'zh' ? '推荐' : 'RECOMMENDED')}
                 </div>
                 <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrow text-brand">
                   Pro
@@ -653,13 +665,30 @@ export default function Dashboard() {
                   <li>{lang === 'zh' ? '✓ 自定义品牌 apply 页' : '✓ Custom-branded apply page'}</li>
                   <li>{lang === 'zh' ? '✓ 邮件 + Slack 通知' : '✓ Email + Slack notifications'}</li>
                 </ul>
-                <button
-                  onClick={startCheckout}
-                  disabled={checkoutLoading}
-                  className="sl-btn-primary mt-5 w-full !py-[12px]"
-                >
-                  {checkoutLoading ? (lang === 'zh' ? '跳转 Stripe…' : 'Redirecting to Stripe…') : (lang === 'zh' ? '升级到 Pro →' : 'Upgrade to Pro →')}
-                </button>
+                {(plan === 'pro' || plan === 'team') ? (
+                  <div className="mt-5 space-y-2">
+                    <div className="w-full rounded-xl border border-brand/40 bg-white py-[12px] text-center text-[14px] font-bold text-brand">
+                      {lang === 'zh' ? '✓ 你已在使用 Pro' : '✓ You are on Pro'}
+                    </div>
+                    <button
+                      onClick={openBillingPortal}
+                      disabled={portalLoading}
+                      className="w-full rounded-xl border border-line-divider bg-white py-[10px] text-[13px] font-semibold text-body-2 hover:border-brand"
+                    >
+                      {portalLoading
+                        ? (lang === 'zh' ? '打开中…' : 'Opening…')
+                        : (lang === 'zh' ? '管理订阅 / 发票 / 取消' : 'Manage subscription / invoices / cancel')}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={startCheckout}
+                    disabled={checkoutLoading}
+                    className="sl-btn-primary mt-5 w-full !py-[12px]"
+                  >
+                    {checkoutLoading ? (lang === 'zh' ? '跳转 Stripe…' : 'Redirecting to Stripe…') : (lang === 'zh' ? '升级到 Pro →' : 'Upgrade to Pro →')}
+                  </button>
+                )}
               </div>
             </div>
             <p className="mt-4 text-center font-mono text-[10px] text-body-3">
