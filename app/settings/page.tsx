@@ -7,7 +7,6 @@ import { useAuth } from '@/lib/useAuth'
 import { useI18n } from '@/lib/i18n'
 import { getAIName, setAIName, getDefaultName } from '@/lib/aiName'
 import { getSupabaseBrowser } from '@/lib/supabase'
-import { useEntitlements } from '@/lib/useEntitlements'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import SubscriptionCard from '@/components/settings/SubscriptionCard'
 
@@ -33,14 +32,6 @@ export default function SettingsPage() {
   const initial = (auth.fullName || auth.email || 'U').slice(0, 1).toUpperCase()
   const aiName = getAIName(shellRole)
 
-  // Plan-derived entitlements (get_entitlements RPC) — null when anonymous.
-  const { entitlements, loading: entLoading } = useEntitlements(auth.user ? shellRole : null)
-  const plan = typeof entitlements?.plan === 'string' ? (entitlements.plan as string) : null
-  const planLabel = entLoading
-    ? '…'
-    : plan
-      ? plan.charAt(0).toUpperCase() + plan.slice(1)
-      : '—'
   const fileRef = useRef<HTMLInputElement>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
@@ -128,14 +119,14 @@ export default function SettingsPage() {
                 <InfoRow icon="✉" label={zh ? '邮箱' : 'Email'} value={auth.email || '—'} />
                 <InfoRow icon="🌐" label={zh ? '语言' : 'Language'} value={zh ? '中文 · English' : 'Chinese · English'} />
                 <InfoRow icon="🤖" label={zh ? 'AI 助手' : 'AI Assistant'} value={aiName || getDefaultName(shellRole)} />
-                <InfoRow icon="💳" label={zh ? '当前计划' : 'Current plan'} value={planLabel} />
                 <InfoRow icon="🔒" label={zh ? '登录方式' : 'Sign-in'} value="Magic Link" />
               </div>
             </div>
 
             {/* Subscription & billing — landlord is the only role with a
-                plan store; the card covers upgrade (checkout), manage/cancel
-                (Stripe portal) and the comped-Pro case. */}
+                plan store; this card is the single place the plan is shown
+                (the old "当前计划" info row read a different source and could
+                disagree with it). */}
             {shellRole === 'landlord' && auth.user && (
               <SubscriptionCard userId={auth.user.id} zh={zh} />
             )}

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>订阅与账单 v2 — 四状态蓝本</title>
+<style>
+  :root{
+    --paper:#FDFBF6; --paper2:#F6F3EA;
+    --ink:#171717; --ink2:#3F3F46; --ink3:#71717A; --ink4:#A1A1AA;
+    --line:#E0DACE; --line-strong:#C5BDAA;
+    --brand:#047857; --brand-deep:#065F46; --brand-wash:#E4EEE3; --mint:#34D399;
+    --danger:#DC2626; --warn:#D97706;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Inter Tight","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    background:var(--paper);color:var(--ink);padding:48px 24px 96px;font-size:14px;line-height:1.55}
+  .mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+  .wrap{max-width:640px;margin:0 auto}
+  h1{font-size:22px;letter-spacing:-.02em;margin-bottom:4px}
+  .sub{color:var(--ink3);font-size:13px;margin-bottom:40px}
+  .state-label{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--ink4);margin:44px 0 10px}
+  .state-label b{color:var(--ink2)}
+
+  /* ============ the card ============ */
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    box-shadow:0 1px 3px rgba(31,25,11,.04),0 12px 32px -8px rgba(31,25,11,.06)}
+  .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+    padding:20px 20px 16px;flex-wrap:wrap}
+  .plan-name{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .plan-name .name{font-size:24px;font-weight:800;letter-spacing:-.02em}
+  .plan-name .price{font-size:14px;color:var(--ink3);font-weight:600}
+  .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 10px;
+    font-size:11.5px;font-weight:700}
+  .pill.ok{background:var(--brand-wash);color:var(--brand-deep)}
+  .pill.ok::before{content:'';width:6px;height:6px;border-radius:99px;background:var(--brand)}
+  .pill.warn{background:#FEF3E2;color:#B45309}
+  .pill.warn::before{content:'';width:6px;height:6px;border-radius:99px;background:var(--warn)}
+  .pill.bad{background:#FEF2F2;color:#B91C1C}
+  .pill.bad::before{content:'';width:6px;height:6px;border-radius:99px;background:var(--danger)}
+  .pill.free{background:var(--paper2);color:var(--ink3);border:1px solid var(--line)}
+  .head-meta{margin-top:6px;font-size:12.5px;color:var(--ink3)}
+  .head-meta b{color:var(--ink2);font-weight:600}
+
+  .btn{appearance:none;border:0;cursor:pointer;border-radius:12px;font-weight:700;font-size:13.5px;
+    padding:11px 20px;font-family:inherit;transition:.15s}
+  .btn-primary{background:linear-gradient(135deg,var(--brand),var(--brand-deep));color:#fff;
+    box-shadow:0 8px 22px -10px rgba(52,211,153,.45)}
+  .btn-primary:hover{filter:brightness(1.06)}
+  .btn-danger{background:linear-gradient(135deg,var(--danger),#B91C1C);color:#fff}
+
+  /* free 态卖点区 */
+  .pitch{padding:0 20px 18px}
+  .pitch-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;margin-top:4px}
+  @media(max-width:520px){.pitch-grid{grid-template-columns:1fr}}
+  .pitch-row{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--ink2)}
+  .pitch-row .tick{flex:none;width:17px;height:17px;border-radius:99px;background:var(--brand-wash);
+    color:var(--brand);display:grid;place-items:center;font-size:11px;font-weight:800;margin-top:1px}
+  .pitch-note{margin-top:14px;font-size:12px;color:var(--ink3)}
+
+  /* paid 态操作行 */
+  .doors{border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:520px){.doors{grid-template-columns:1fr}}
+  .door{display:flex;align-items:center;gap:10px;padding:13px 18px;font-size:13px;font-weight:600;
+    color:var(--ink2);text-decoration:none;border-right:1px solid var(--line);transition:.12s;cursor:pointer;background:#fff}
+  .door:last-child{border-right:0}
+  @media(max-width:520px){.door{border-right:0;border-bottom:1px solid var(--line)}.door:last-child{border-bottom:0}}
+  .door:hover{background:var(--paper2)}
+  .door .ic{flex:none;width:28px;height:28px;border-radius:8px;background:var(--paper2);
+    display:grid;place-items:center;font-size:13px}
+  .door.quiet{color:var(--ink3)}
+  .door small{display:block;font-weight:500;font-size:11px;color:var(--ink4)}
+
+  /* 警示横幅 */
+  .banner{margin:0 20px 16px;border-radius:10px;padding:11px 14px;font-size:12.5px;font-weight:600;line-height:1.5}
+  .banner.bad{background:#FEF2F2;color:#B91C1C}
+  .banner.warn{background:#FFFBEB;color:#92400E}
+
+  .foot{padding:12px 20px 16px;font-size:11.5px;color:var(--ink4);line-height:1.6;border-top:1px dashed var(--line)}
+
+  .annot{margin-top:10px;font-size:12px;color:var(--ink3);padding-left:12px;border-left:2px solid var(--line-strong)}
+  .annot b{color:var(--ink2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>订阅与账单 · v2 蓝本</h1>
+  <div class="sub">/settings 内嵌卡片重做 — 四个状态。原则不变：应用只展示状态、开门；操作本体仍在 Stripe Portal（用 flow deep-link 直达对应流程）。</div>
+
+  <!-- ============ STATE 1: FREE ============ -->
+  <div class="state-label">STATE 1 · <b>Free（未订阅）</b></div>
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="plan-name">
+          <span class="name">Free</span>
+          <span class="pill free">当前计划</span>
+        </div>
+        <div class="head-meta">升级到 <b>Pro · $29/月（CAD）</b>，随时可取消</div>
+      </div>
+      <button class="btn btn-primary">升级到 Pro →</button>
+    </div>
+    <div class="pitch">
+      <div class="pitch-grid">
+        <div class="pitch-row"><span class="tick">✓</span>无限房源发布</div>
+        <div class="pitch-row"><span class="tick">✓</span>无限次租客筛查</div>
+        <div class="pitch-row"><span class="tick">✓</span>深度核查（法庭 · 取证 · 雇主）</div>
+        <div class="pitch-row"><span class="tick">✓</span>报告导出与分享</div>
+      </div>
+      <div class="pitch-note">由 Stripe 安全托管付款 · 取消即时生效于本期末，不扣下期</div>
+    </div>
+  </div>
+  <div class="annot"><b>改动点：</b>计划名 24px 成为卡片主角；价格锚点上移到头部；卖点从一行灰字变成两列勾选，可扫读；CTA 与头部同排，不再沉底。</div>
+
+  <!-- ============ STATE 2: PRO ACTIVE ============ -->
+  <div class="state-label">STATE 2 · <b>Pro 生效中</b></div>
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="plan-name">
+          <span class="name">Pro</span>
+          <span class="price">$29/月</span>
+          <span class="pill ok">生效中</span>
+        </div>
+        <div class="head-meta">下次续费：<b>2026年9月26日</b> · Visa ···· 4242</div>
+      </div>
+    </div>
+    <div class="doors">
+      <a class="door"><span class="ic">💳</span><span>更新付款方式<small>直达 Stripe 安全页</small></span></a>
+      <a class="door"><span class="ic">🧾</span><span>发票与收据<small>查看 · 下载 PDF</small></span></a>
+      <a class="door quiet"><span class="ic">✕</span><span>取消订阅<small>本期末生效</small></span></a>
+    </div>
+    <div class="foot">订阅由 Stripe 托管。取消后 Pro 功能保留至本期结束，且可在期内随时恢复。</div>
+  </div>
+  <div class="annot"><b>改动点：</b>状态徽章中文化（不再裸渲染 <span class="mono">active</span>）；三个操作拆成直达门（portal flow deep-link：<span class="mono">payment_method_update</span> / 发票列表 / <span class="mono">subscription_cancel</span>），用户不用进 portal 再找按钮；卡末补付款方式尾号（webhook 已知）。</div>
+
+  <!-- ============ STATE 3: 已设定期末取消 ============ -->
+  <div class="state-label">STATE 3 · <b>Pro · 已设定期末取消</b>（现在完全不可见的状态）</div>
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="plan-name">
+          <span class="name">Pro</span>
+          <span class="price">$29/月</span>
+          <span class="pill warn">将于期末取消</span>
+        </div>
+        <div class="head-meta">Pro 功能保留至 <b>2026年9月26日</b>，之后自动降回 Free，不再扣款</div>
+      </div>
+      <button class="btn btn-primary">恢复订阅</button>
+    </div>
+    <div class="foot">改变主意了？在到期前恢复订阅，计划无缝延续，无需重新付款设置。</div>
+  </div>
+  <div class="annot"><b>改动点：</b>这是当前 UI 的信息错误——用户在 portal 设了取消，回来卡片仍写「下次续费」。需要 webhook 落一列 <span class="mono">plan_cancel_at_period_end</span>（subscription.updated 里现成字段，一次小迁移），卡片读它切到本状态。</div>
+
+  <!-- ============ STATE 4: PAST DUE ============ -->
+  <div class="state-label">STATE 4 · <b>扣款失败（past_due）</b></div>
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="plan-name">
+          <span class="name">Pro</span>
+          <span class="price">$29/月</span>
+          <span class="pill bad">扣款失败</span>
+        </div>
+        <div class="head-meta">Stripe 将自动重试数次；持续失败订阅将被取消</div>
+      </div>
+      <button class="btn btn-danger">更新付款方式</button>
+    </div>
+    <div class="banner bad">上次扣款未成功 — 更新付款方式后 Stripe 会自动重试，Pro 功能在重试期内保留。</div>
+  </div>
+  <div class="annot"><b>改动点：</b>主按钮直达 portal 的付款方式流程（不是笼统的「管理订阅」）；同时修掉 review 里那条 bug——此状态下 webhook 已把 plan 写回 free，旧卡片会显示「升级到 Pro」，再点就买出第二份订阅。判定改为：<span class="mono">status ∈ {past_due, unpaid} 且有 stripe_customer_id → 走本状态</span>，永不显示升级按钮。</div>
+
+</div>
+</body>
+</html>

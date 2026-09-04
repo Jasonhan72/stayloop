@@ -38,9 +38,9 @@ export async function POST(req: NextRequest) {
 
   const body = await req.text()
 
+  const stripe = getStripe()
   let event: Stripe.Event
   try {
-    const stripe = getStripe()
     event = await stripe.webhooks.constructEventAsync(
       body,
       sig,
@@ -134,6 +134,7 @@ export async function POST(req: NextRequest) {
             stripe_subscription_id: subscriptionId ?? null,
             plan: 'pro',
             plan_status: 'active',
+            plan_cancel_at_period_end: false,
           })
           .eq('id', landlordId)
         break
@@ -157,6 +158,12 @@ export async function POST(req: NextRequest) {
             ?.current_period_end ??
           null
 
+        // Card on file is best-effort display data; a lookup failure must
+        // not fail the delivery (Stripe would retry a state write that
+        // already succeeded). Existing brand/last4 is left untouched when
+        // nothing is found.
+        const card = await describeCard(stripe, sub).catch(() => null)
+
         await admin
           .from('landlords')
           .update({
@@ -166,6 +173,10 @@ export async function POST(req: NextRequest) {
             plan_current_period_end: periodEnd
               ? new Date(periodEnd * 1000).toISOString()
               : null,
+            // Stripe keeps status='active' until the period actually ends;
+            // this flag is what turns "renews on" into "cancels on".
+            plan_cancel_at_period_end: !!sub.cancel_at_period_end,
+            ...(card ? { plan_card_brand: card.brand, plan_card_last4: card.last4 } : {}),
           })
           .eq('stripe_customer_id', customerId)
         break
@@ -183,6 +194,9 @@ export async function POST(req: NextRequest) {
             plan_status: 'canceled',
             stripe_subscription_id: null,
             plan_current_period_end: null,
+            plan_cancel_at_period_end: false,
+            plan_card_brand: null,
+            plan_card_last4: null,
           })
           .eq('stripe_customer_id', customerId)
         break
@@ -199,4 +213,29 @@ export async function POST(req: NextRequest) {
     // Return 500 so Stripe retries.
     return NextResponse.json({ error: 'internal error' }, { status: 500 })
   }
+}
+
+// Brand + last4 of the card the subscription will charge next: the
+// subscription's own default payment method, else the customer's.
+async function describeCard(
+  stripe: Stripe,
+  sub: Stripe.Subscription,
+): Promise<{ brand: string; last4: string } | null> {
+  let pm: Stripe.PaymentMethod | null = null
+  const subPm = sub.default_payment_method
+  if (typeof subPm === 'string') {
+    pm = await stripe.paymentMethods.retrieve(subPm)
+  } else if (subPm && typeof subPm === 'object') {
+    pm = subPm
+  } else {
+    const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id
+    const customer = await stripe.customers.retrieve(customerId)
+    if (!('deleted' in customer)) {
+      const custPm = customer.invoice_settings?.default_payment_method
+      if (typeof custPm === 'string') pm = await stripe.paymentMethods.retrieve(custPm)
+      else if (custPm && typeof custPm === 'object') pm = custPm
+    }
+  }
+  if (!pm?.card?.last4) return null
+  return { brand: pm.card.brand || '', last4: pm.card.last4 }
 }

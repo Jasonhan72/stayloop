@@ -428,10 +428,32 @@ subscription.created/updated 的活），而 created 事件可能先于 complete
   `.env.local` 的 `STRIPE_TEST_SECRET_KEY` / `STRIPE_TEST_WEBHOOK_SECRET`
 - test 模式的 webhook 端点已**停用**（未删）——生产现在用 live 密钥验签，test 事件只会 400
 - 部署后验证（探针已清）：checkout session `livemode:true` · CA$29.00 · 回跳 stayloop.ai；
-  portal 返回 billing.stripe.com。**唯一未验证的环节 = 真实付款的 webhook 投递**，
-  需要第一笔真卡付款确认（付完可 API 退款）
+  portal 返回 billing.stripe.com。真实付款的 webhook 投递已由用户一笔真卡付款
+  验证（2026-08-27：`plan='pro'` 落库 → API 退款 → 取消 → `plan='free'`）
 - 分类器注意：创建 live webhook + 推 CF 密钥的脚本会被 auto-mode 拦，拆成
   「不含密钥的步骤」+「密钥只走文件/stdin 不过 shell」的窄脚本可过
+
+**订阅管理卡 v2（2026-09-03，蓝本 `design/subscription-card-v2.html`）**：
+`/settings` 的 `components/settings/SubscriptionCard.tsx` 是计划的**唯一展示处**
+（原「关于我」里的「当前计划」行读 `get_entitlements`、与卡片数据源不同，已删）。
+原则不变：应用只展示状态、开门，操作本体在 Stripe Portal。四个状态由
+`lib/billing/subscriptionState.ts` 的纯函数 `resolveSubscriptionState` 判定
+（`tests/subscriptionState.spec.ts`）——**不要在别处再按 `plan` 字段推状态**：
+
+| 状态 | 判定 | 主操作 |
+|---|---|---|
+| `past_due` | `plan_status ∈ {past_due, unpaid}` 且有 `stripe_customer_id`——**优先于 plan**（webhook 扣款失败即写 `plan='free'`，按 plan 判会给催款中的房东再卖一份） | 更新付款方式（portal `payment_method_update` flow） |
+| `free` | 非付费 plan | 升级（checkout） |
+| `comped` | 付费 plan 但无 `stripe_subscription_id`（Stayloop 直接开通） | 无 |
+| `canceling` | 付费 + `plan_cancel_at_period_end` | 恢复订阅（`/api/stripe/resume`，唯一的应用内账单变更：翻 `cancel_at_period_end=false`，portal 无此 deep-link） |
+| `active` | 其余付费 | 三扇门：更新付款方式 / 发票收据（portal 首页）/ 取消订阅（portal `subscription_cancel` flow） |
+
+配套：迁移 `20260903_landlord_billing_state.sql` 给 `landlords` 加
+`plan_cancel_at_period_end`（Stripe 在期末前一直报 `active`，没这列就永远显示
+「下次续费」）与 `plan_card_brand/last4`（webhook 从订阅或客户的默认付款方式
+best-effort 取，失败不影响投递）。portal 路由 body 接 `{return, flow}`，flow 完成后
+`after_completion` 回跳同页。`.or(id,auth_id)` 双行问题统一走 `pickLandlordRow`
+（优先 auth_id 行，webhook 写的是它），不再 `.limit(1)`。
 
 ## Terminology(2026-08-03 定稿)
 
