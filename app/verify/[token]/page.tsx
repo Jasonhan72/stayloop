@@ -188,7 +188,7 @@ export default function VerifyPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <div className="text-[15px] font-bold">{L.steps[k].t}</div>
                             <StatusPill status={st.status} label={L.status[st.status]} />
-                            {st.sandbox && <span className="rounded-md bg-amber-50 px-1.5 py-[1px] font-mono text-[10px] font-bold text-amber-700">{L.sandbox}</span>}
+                            {st.sandbox && st.status !== 'not_configured' && <span className="rounded-md bg-amber-50 px-1.5 py-[1px] font-mono text-[10px] font-bold text-amber-700">{L.sandbox}</span>}
                           </div>
                           <div className="mt-1 text-[12.5px] leading-relaxed text-body-3">{L.steps[k].d}</div>
                           {st.summary && <div className="mt-1.5 font-mono text-[11.5px] text-body-2">{st.summary}</div>}
