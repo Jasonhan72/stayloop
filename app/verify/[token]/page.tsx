@@ -31,6 +31,8 @@ export default function VerifyPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [bankFrame, setBankFrame] = useState<string | null>(null)
+  const [creditForm, setCreditForm] = useState(false)
+  const [cf, setCf] = useState({ first_name: '', last_name: '', date_of_birth: '', line1: '', city: '', province: 'ON', postal_code: '' })
   const bankHandled = useRef(false)
 
   const api = useCallback(async (path: string, body?: unknown) => {
@@ -105,6 +107,26 @@ export default function VerifyPage() {
     }
     if (step === 'id' && data.url) { window.location.href = data.url; return }
     if (step === 'bank' && data.iframe_url) { setBankFrame(data.iframe_url) }
+    if (step === 'credit' && data.form === 'credit') {
+      const [first, ...rest] = (view && view !== 'missing' && view.tenant_name ? view.tenant_name : '').split(/\s+/).filter(Boolean)
+      setCf((c) => ({ ...c, first_name: c.first_name || first || '', last_name: c.last_name || rest.join(' ') }))
+      setCreditForm(true)
+    }
+    setBusy(null)
+  }
+
+  async function submitCredit() {
+    setBusy('credit'); setErr(null)
+    const { res, data } = await api('/credit', {
+      first_name: cf.first_name, last_name: cf.last_name, date_of_birth: cf.date_of_birth,
+      address: { line1: cf.line1, city: cf.city, province: cf.province, postal_code: cf.postal_code },
+    })
+    if (!res.ok) {
+      setErr(data?.error === 'fields_required'
+        ? (zh ? '请填写全部字段（出生日期格式 YYYY-MM-DD）。' : 'Please fill in every field (date of birth as YYYY-MM-DD).')
+        : (zh ? `征信拉取失败：${data?.detail || data?.error || res.status}` : `Credit pull failed: ${data?.detail || data?.error || res.status}`))
+    } else { setCreditForm(false) }
+    if (data?.ok) setView(data as View)
     setBusy(null)
   }
 
@@ -210,6 +232,30 @@ export default function VerifyPage() {
 
             {err && <div className="mt-3 text-[12.5px] font-semibold" style={{ color: '#DC2626' }}>⚠ {err}</div>}
           </>
+        )}
+
+        {creditForm && (
+          <div role="dialog" aria-modal="true" className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-3" onClick={() => setCreditForm(false)}>
+            <div className="w-full max-w-[440px] rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
+              <div className="text-[16px] font-bold">{zh ? '拉取你自己的信用报告' : 'Pull your own credit report'}</div>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-body-3">
+                {zh ? 'Equifax 按姓名、出生日期和现住址匹配你的档案；我们不收集社会保险号。这是一次本人授权的查询，不会作为贷款申请出现在你的报告上。' : 'Equifax matches your file by name, date of birth and current address; we do not collect your SIN. This is a consumer-authorised enquiry and does not appear as a credit application.'}
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <input className="sl-input" placeholder={zh ? '名' : 'First name'} value={cf.first_name} onChange={(e) => setCf({ ...cf, first_name: e.target.value })} />
+                <input className="sl-input" placeholder={zh ? '姓' : 'Last name'} value={cf.last_name} onChange={(e) => setCf({ ...cf, last_name: e.target.value })} />
+                <input className="sl-input col-span-2" type="date" placeholder="YYYY-MM-DD" value={cf.date_of_birth} onChange={(e) => setCf({ ...cf, date_of_birth: e.target.value })} />
+                <input className="sl-input col-span-2" placeholder={zh ? '街道地址' : 'Street address'} value={cf.line1} onChange={(e) => setCf({ ...cf, line1: e.target.value })} />
+                <input className="sl-input" placeholder={zh ? '城市' : 'City'} value={cf.city} onChange={(e) => setCf({ ...cf, city: e.target.value })} />
+                <input className="sl-input" placeholder={zh ? '省（如 ON）' : 'Province (e.g. ON)'} value={cf.province} maxLength={2} onChange={(e) => setCf({ ...cf, province: e.target.value.toUpperCase() })} />
+                <input className="sl-input col-span-2" placeholder={zh ? '邮编' : 'Postal code'} value={cf.postal_code} onChange={(e) => setCf({ ...cf, postal_code: e.target.value.toUpperCase() })} />
+              </div>
+              <div className="mt-4 flex gap-2">
+                <button onClick={submitCredit} disabled={busy === 'credit'} className="sl-btn-primary flex-1 !py-[10px] disabled:opacity-50">{busy === 'credit' ? '…' : (zh ? '授权并拉取' : 'Authorise and pull')}</button>
+                <button onClick={() => setCreditForm(false)} className="rounded-xl border border-line-divider px-4 text-[13px] text-body-3">{zh ? '取消' : 'Cancel'}</button>
+              </div>
+            </div>
+          </div>
         )}
 
         {bankFrame && (

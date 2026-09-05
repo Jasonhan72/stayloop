@@ -7,6 +7,7 @@ import type {
 import { CONSENT_VERSION } from './consent'
 import { veriffConfigured } from './providers/veriff'
 import { flinksConfig } from './providers/flinks'
+import { creditProvider, creditProviderIsSandbox } from './providers/equifax'
 
 export function adminClient(): SupabaseClient {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -36,9 +37,9 @@ export function providerAvailability(): Record<VerifyStepKey, { available: boole
     // be clickable but always fail, so it is "未开通" instead.
     bank: { available: !!(process.env.FLINKS_BEARER || process.env.FLINKS_AUTH_KEY), provider: 'flinks', sandbox: f.sandbox },
     credit: {
-      available: !!process.env.CREDIT_PULL_PROVIDER,
-      provider: process.env.CREDIT_PULL_PROVIDER || null,
-      sandbox: false,
+      available: !!creditProvider(),
+      provider: creditProvider(),
+      sandbox: creditProviderIsSandbox(),
     },
   }
 }
@@ -48,6 +49,10 @@ function stepSummary(key: VerifyStepKey, step: VerifyStep | undefined): string |
   if (key === 'id') {
     const r = step.result as { decision?: string; document_type?: string | null }
     return [r.decision, r.document_type].filter(Boolean).join(' · ') || null
+  }
+  if (key === 'credit') {
+    const r = step.result as { bureau?: string | null; score?: number | null; report?: { tradelines?: unknown[] } | null }
+    return [r.bureau, typeof r.score === 'number' ? `score ${r.score}` : null, r.report?.tradelines ? `${r.report.tradelines.length} tradeline(s)` : null].filter(Boolean).join(' · ') || null
   }
   if (key === 'bank') {
     const r = step.result as { institution?: string | null; accounts?: unknown[]; payroll_monthly_estimate?: number | null }

@@ -103,7 +103,8 @@ VERIFF_SECRET_KEY           # 同上 · 决策 webhook 的 HMAC-SHA256 共享密
 FLINKS_BEARER               # optional · 申请人银行直连（Flinks）。缺则银行步「未开通」。沙箱：FLINKS_INSTANCE=toolbox（默认）
 FLINKS_AUTH_KEY             # 同上（Flinks 发的另一种凭证；两者任一即可）
 FLINKS_INSTANCE / FLINKS_CUSTOMER_ID / FLINKS_API_BASE / NEXT_PUBLIC_FLINKS_CONNECT_URL   # 生产实例；不设=公共 toolbox 沙箱（结果带 sandbox:true，评分不采信）
-CREDIT_PULL_PROVIDER        # optional · 征信本人授权直拉供应商（尚未签约；不设=征信步「未开通」）
+CREDIT_PULL_PROVIDER        # optional · 征信本人授权直拉：'equifax'（需下面的 EQUIFAX_* 才算可用）或 'mock'（仅本地 .env.development.local，fixture 走全链路，sandbox:true 不计分）。不设=征信步「未开通」
+EQUIFAX_CLIENT_ID / EQUIFAX_CLIENT_SECRET / EQUIFAX_MEMBER_NUMBER / EQUIFAX_SECURITY_CODE / EQUIFAX_CUSTOMER_CODE   # Equifax 开发者门户 App + 加拿大商业协议下发；EQUIFAX_ENV=sandbox|test|production
 ```
 
 Same vars are set in Cloudflare Pages dashboard for production.
@@ -497,7 +498,14 @@ Pro / 已解锁 / 额度，`lib/billing/access.ts hasProAccess`），申请人�
 身份 Veriff（托管 URL，决策 webhook 走 HMAC，只留证件末四位）、银行 Flinks Connect
 （iframe → loginId → 服务端 Authorize → GetAccountsDetail Days90 → **只存确定性摘要**：
 掩码账号、持有人、循环入账、`payroll_monthly_estimate`、NSF 次数；原始流水不落库）、
-征信（供应商未签，显示未开通）。表 `verification_requests`（房东只读自己的行，
+征信（**供应商已定 Equifax**，2026-09-05：`lib/verify/providers/equifax.ts`——申请人在
+`/verify` 页填姓名/出生日期/现住址（**不收 SIN**），`/api/verify/<token>/credit` 拉取，
+结果落成与上传报告**同一个 `CreditReport` 形状**，`screen-score` 里 `creditReport` IIFE
+优先取它、丢弃模型对 PDF 的转录、只保留模型按 prompt 里的局方事实写的
+analysis_en/zh；报告页「已核验事实」栏加征信卡。传输层的请求/响应映射
+`buildInquiry`/`mapReport` 是**临时版本**，等 Equifax 加拿大 API 参考拿到后按规格定稿；
+`CREDIT_PULL_PROVIDER=mock` 用 fixture 走全链路，`tests/verifyCredit.spec.ts` 钉住
+fixture → 分析层）。表 `verification_requests`（房东只读自己的行，
 所有写入 service role），完成态快照进 `screenings.verification`。收入识别
 `lib/verify/income.ts` 是纯函数（`tests/verifyIncome.spec.ts`）——同信用分析层，
 **数字不出自模型**；沙箱结果 `sandbox:true` 一律不进评分。评分接入：`screen-score`

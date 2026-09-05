@@ -62,11 +62,17 @@ export type BankResult = {
   closing_balance_total: number | null
 }
 
+// Applicant-authorised credit pull. `report` is in the SAME shape the
+// screening pipeline already uses for uploaded reports (CreditReport), so a
+// bureau-sourced report drops straight into the deterministic credit
+// analysis layer and replaces the model's transcription of a PDF.
 export type CreditResult = {
-  provider: string
+  provider: string                    // 'equifax' | 'mock'
   bureau: string | null
   score: number | null
   report_date: string | null
+  report: import('../screening-types').CreditReport | null
+  reference: string | null            // bureau transaction / file reference, never the SIN
   summary: Record<string, unknown> | null
 }
 

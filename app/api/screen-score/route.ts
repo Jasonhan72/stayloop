@@ -44,6 +44,13 @@ function buildVerifiedBlock(v: ScreeningVerification): string {
     lines.push(`- Bank (Flinks read-only, ${b.window_days} days, ${b.institution || 'institution n/a'}): ${b.accounts.length} account(s); holders: ${b.holder_names.join(', ') || 'n/a'}; recurring payroll-like deposits ≈ ${b.payroll_monthly_estimate == null ? 'none detected' : `$${Math.round(b.payroll_monthly_estimate)}/mo`}; NSF/returned items: ${b.nsf_count}; closing balance total: ${b.closing_balance_total == null ? 'n/a' : `$${Math.round(b.closing_balance_total)}`}`)
     for (const d of b.recurring_deposits.slice(0, 5)) lines.push(`    · ${d.label}: ${d.occurrences}× ~$${Math.round(d.avg_amount)} every ~${Math.round(d.avg_interval_days)} days (≈ $${Math.round(d.monthly_equivalent)}/mo), last ${d.last_date}`)
   } else lines.push('- Bank: not performed')
+  if (v.credit && v.credit.status === 'verified' && v.credit.report) {
+    const r = v.credit.report
+    const tl = (r.tradelines || []).slice(0, 20).map((t) => ({ creditor: t.creditor, type: t.type, opened: t.date_opened, balance: t.balance, limit: t.credit_limit ?? null, high: t.high_credit, past_due: t.past_due ?? null, status: t.payment_status, late: t.late_30_60_90 }))
+    lines.push(`- Credit (${r.bureau || v.credit.provider}, applicant-authorised pull${v.credit.reference ? `, ref ${v.credit.reference}` : ''}, ${r.report_date || 'date n/a'}): score ${r.credit_score ?? 'n/a'}; ${tl.length} tradeline(s); ${(r.collections || []).length} collection(s); ${(r.bankruptcies || []).length} bankruptcy record(s); ${(r.inquiries || []).length} inquiry(ies)${r.employment?.current ? `; bureau employment: ${r.employment.current}` : ''}`)
+    lines.push(`    BUREAU FACTS (JSON): ${JSON.stringify({ tradelines: tl, collections: r.collections || [], bankruptcies: r.bankruptcies || [], inquiries: (r.inquiries || []).slice(0, 12) })}`)
+    lines.push('    → Treat these as THE credit report: set credit_report.present=true, bureau/score/date as above, and write credit_report.analysis_en/analysis_zh from these bureau facts. Do not transcribe any uploaded credit-report PDF over them; the backend replaces the transcription with the bureau data.')
+  } else lines.push('- Credit: not performed')
   lines.push('RULES: these are verified facts, not document inference. Where the bank holder is the applicant, bank-verified recurring income OVERRIDES pay-stub-derived income for ability_to_pay (the backend also enforces this). Identity APPROVED with a name matching the documents counts as verified identity for the verification dimension; DECLINED is an identity_mismatch signal. Never reward a step that was not performed, and never penalise its absence.\n')
   return lines.join('\n')
 }
@@ -2237,6 +2244,22 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // block cannot feed the score.
     const creditReport: (CreditReport & Record<string, any>) | null = (() => {
       const cr: any = (parsed as any).credit_report
+      // Applicant-authorised bureau pull (lib/verify, Equifax) outranks the
+      // model's transcription of an uploaded PDF: same CreditReport shape,
+      // but the numbers came from the bureau, not from reading a document.
+      // The model's narrative (analysis_en/zh), written from the facts we
+      // put in the prompt, is kept.
+      const bureau = verifiedFacts?.credit
+      if (bureau && bureau.status === 'verified' && bureau.report) {
+        return {
+          ...bureau.report,
+          source: 'bureau_pull',
+          source_provider: bureau.provider,
+          source_reference: bureau.reference,
+          analysis_en: typeof cr?.analysis_en === 'string' ? cr.analysis_en : null,
+          analysis_zh: typeof cr?.analysis_zh === 'string' ? cr.analysis_zh : null,
+        } as CreditReport & Record<string, any>
+      }
       const hasCreditDoc = (Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds : []).includes('credit_report')
       if (!cr || cr.present !== true || !hasCreditDoc) return null
       const num = (v: any) => (typeof v === 'number' && isFinite(v) ? v : null)

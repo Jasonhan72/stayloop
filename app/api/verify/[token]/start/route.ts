@@ -45,7 +45,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
       await writeStep(admin, row, 'bank', { status: 'started', provider: 'flinks', sandbox: cfg.sandbox })
       return NextResponse.json({ ok: true, iframe_url: flinksConnectUrl(), sandbox: cfg.sandbox })
     }
-    return NextResponse.json({ ok: false, error: 'not_configured' }, { status: 404 })
+    // credit: the applicant fills the identity form on the page and the page
+    // posts it to /credit — nothing to start here beyond confirming availability.
+    return NextResponse.json({ ok: true, form: 'credit', sandbox: avail.sandbox })
   } catch (err: any) {
     console.error('verify/start error', err?.message || err)
     return NextResponse.json({ ok: false, error: 'provider_error', detail: String(err?.message || '').slice(0, 160) }, { status: 502 })

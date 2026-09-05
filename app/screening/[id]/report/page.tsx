@@ -1949,6 +1949,18 @@ function VerifiedFactsSection({ v, zh }: { v: NonNullable<ScoreResult['verificat
           )}
         </div>
       </div>
+      {v.credit && (
+        <div className="mt-3 rounded-xl border border-line-divider bg-white p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[13px] font-bold">{zh ? '征信 · 本人授权直拉' : 'Credit · applicant-authorised pull'}</div>
+            {pill(v.credit.status)}
+          </div>
+          <div className="mt-2 text-[12.5px] text-body-2">
+            {v.credit.bureau || v.credit.provider}{typeof v.credit.score === 'number' ? <> · {zh ? '分数' : 'score'} <span className="font-mono font-bold">{v.credit.score}</span></> : null}{v.credit.report_date ? <> · {v.credit.report_date}</> : null}{v.credit.reference ? <> · <span className="font-mono text-[11px] text-body-3">{v.credit.reference}</span></> : null}
+          </div>
+          <div className="mt-1 text-[11.5px] text-body-3">{zh ? '完整账户明细与确定性分析见下方「信用报告」节——该节的数据来自这次直拉，不是文件转录。' : 'Full tradelines and the deterministic analysis are in the “Credit report” section below — that section is fed by this pull, not by a transcribed document.'}</div>
+        </div>
+      )}
       <div className="mt-3 text-[11.5px] leading-relaxed text-body-3">
         {zh
           ? '以上由申请人本人在 Stayloop 核验页授权、由持牌供应商执行；Stayloop 只保存摘要（账号掩码、持有人、循环入账），不保存原始交易与证件号。'
