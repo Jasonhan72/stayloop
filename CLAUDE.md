@@ -500,8 +500,14 @@ Pro / 已解锁 / 额度，`lib/billing/access.ts hasProAccess`），申请人�
 征信（供应商未签，显示未开通）。表 `verification_requests`（房东只读自己的行，
 所有写入 service role），完成态快照进 `screenings.verification`。收入识别
 `lib/verify/income.ts` 是纯函数（`tests/verifyIncome.spec.ts`）——同信用分析层，
-**数字不出自模型**；沙箱结果 `sandbox:true` 一律不进评分。**评分与报告接入尚未做**
-（下一步：`screen-score` 读 `screenings.verification` 作为「已核验事实」块）。
+**数字不出自模型**；沙箱结果 `sandbox:true` 一律不进评分。评分接入：`screen-score`
+把 `screenings.verification` 渲染成「APPLICANT-AUTHORISED VERIFICATION」事实块进
+prompt，并在后端**确定性覆盖** `income_corroboration`——银行持有人与申请人同名
+（`namesMatch` 宽松 token 匹配）且有 `payroll_monthly_estimate` 时，verdict 按
+银行入账 / 自报收入的比例定（≥75% corroborated、≥50% partial、否则 uncorroborated），
+模型对流水 PDF 的判断被替换；持有人不是申请人则不动模型结论。快照同时写进
+`_v3.verification` 与响应。报告页 `VerifiedFactsSection` 单独成「已核验事实」栏
+（绿底、标「非模型推断」、沙箱打标），放在跨文档核验之前——这是 P1-2「事实/推断分栏」的第一步。
 
 ## Terminology(2026-08-03 定稿)
 

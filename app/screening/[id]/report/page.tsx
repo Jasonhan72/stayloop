@@ -139,6 +139,9 @@ function reconstructResult(row: any): ScoreResult {
     // scored after the prompt addition; old reports reconstruct as null and
     // the section stays hidden.
     cross_doc_verification: v3.cross_doc_verification ?? null,
+    // Applicant-authorised verification snapshot (2026-09): _v3 copy from
+    // scoring time, else the live column (a link completed after scoring).
+    verification: v3.verification ?? row.verification ?? null,
     coherence_review: v3.coherence_review ?? null,
     action_items: v3.action_items || row.action_items || [],
     compliance_audit: v3.compliance_audit ?? row.compliance_audit ?? null,
@@ -823,6 +826,8 @@ export default function ReportPage() {
           )}
 
           {/* Application summary & cross-document verification checklist */}
+          {r.verification && <VerifiedFactsSection v={r.verification} zh={zh} />}
+
           {hasCdv && cdv && (
             <SectionShell
               id="cross-doc-verification"
@@ -1838,5 +1843,91 @@ export default function ReportPage() {
 
       <Footer />
     </div>
+  )
+}
+
+
+// Applicant-authorised verification — the "verified facts" column of the
+// report (competitor review P1-2, first step): what a licensed third party
+// established with the applicant's consent, kept visually apart from what
+// the model inferred from documents.
+function VerifiedFactsSection({ v, zh }: { v: NonNullable<ScoreResult['verification']>; zh: boolean }) {
+  const idS = v.id
+  const bank = v.bank
+  if (!idS && !bank && !v.credit) return null
+  const money = (n: number | null | undefined) => (typeof n === 'number' ? `$${Math.round(n).toLocaleString()}` : '—')
+  const pill = (status: string) => {
+    const st = status === 'verified' ? { bg: '#E4EEE3', fg: '#065F46', t: zh ? '已核验' : 'Verified' }
+      : status === 'failed' ? { bg: '#FEF2F2', fg: '#B91C1C', t: zh ? '未通过' : 'Not verified' }
+      : { bg: '#FEF3E2', fg: '#B45309', t: zh ? '待结果' : 'Pending' }
+    return <span className="rounded-full px-2 py-[2px] font-mono text-[10px] font-bold" style={{ background: st.bg, color: st.fg }}>{st.t}</span>
+  }
+  return (
+    <section className="mb-8 rounded-2xl border p-5 sm:p-6" style={{ borderColor: '#C5E3D3', background: '#F4FAF6' }}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: '#047857' }}>
+            {zh ? '已核验事实 · 申请人本人授权 · 第三方执行' : 'Verified facts · applicant-authorised · third-party performed'}
+          </div>
+          <h2 className="mt-1 text-[18px] font-bold">{zh ? '核验结果（非模型推断）' : 'Verification results (not model inference)'}</h2>
+        </div>
+        <div className="text-[11px] text-body-3">
+          {zh ? '同意版本' : 'Consent'} <span className="font-mono">{v.consent_version}</span> · {new Date(v.consented_at).toLocaleDateString(zh ? 'zh-CN' : 'en-CA')}
+          {v.sandbox && <span className="ml-2 rounded-md bg-amber-100 px-1.5 py-[1px] font-mono text-[10px] font-bold text-amber-800">{zh ? '沙箱数据 · 不计分' : 'Sandbox · not scored'}</span>}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="rounded-xl border border-line-divider bg-white p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[13px] font-bold">{zh ? '身份 · Veriff' : 'Identity · Veriff'}</div>
+            {idS ? pill(idS.status) : <span className="text-[11px] text-body-4">{zh ? '未进行' : 'Not performed'}</span>}
+          </div>
+          {idS && (
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[12.5px]">
+              <dt className="text-body-3">{zh ? '结论' : 'Decision'}</dt><dd className="font-mono font-semibold">{idS.decision}</dd>
+              <dt className="text-body-3">{zh ? '姓名' : 'Name'}</dt><dd>{[idS.first_name, idS.last_name].filter(Boolean).join(' ') || '—'}</dd>
+              <dt className="text-body-3">{zh ? '出生日期' : 'DOB'}</dt><dd className="font-mono">{idS.date_of_birth || '—'}</dd>
+              <dt className="text-body-3">{zh ? '证件' : 'Document'}</dt><dd>{[idS.document_type, idS.document_country].filter(Boolean).join(' · ') || '—'}{idS.document_last4 ? <span className="font-mono"> ···· {idS.document_last4}</span> : null}</dd>
+              {idS.reason && <><dt className="text-body-3">{zh ? '说明' : 'Note'}</dt><dd>{idS.reason}</dd></>}
+            </dl>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-line-divider bg-white p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[13px] font-bold">{zh ? '银行流水 · Flinks 直连（只读 90 天）' : 'Bank · Flinks read-only, 90 days'}</div>
+            {bank ? pill(bank.status) : <span className="text-[11px] text-body-4">{zh ? '未进行' : 'Not performed'}</span>}
+          </div>
+          {bank && (
+            <>
+              <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-lg bg-surface-chip p-2"><div className="font-mono text-[15px] font-extrabold">{money(bank.payroll_monthly_estimate)}</div><div className="text-[10.5px] text-body-3">{zh ? '循环入账 / 月' : 'Recurring / mo'}</div></div>
+                <div className="rounded-lg bg-surface-chip p-2"><div className="font-mono text-[15px] font-extrabold">{money(bank.closing_balance_total)}</div><div className="text-[10.5px] text-body-3">{zh ? '期末余额' : 'Closing balance'}</div></div>
+                <div className="rounded-lg bg-surface-chip p-2"><div className="font-mono text-[15px] font-extrabold" style={{ color: bank.nsf_count > 0 ? '#B91C1C' : undefined }}>{bank.nsf_count}</div><div className="text-[10.5px] text-body-3">NSF</div></div>
+              </div>
+              <div className="mt-2 text-[12px] text-body-2">
+                {bank.institution || '—'} · {bank.accounts.length} {zh ? '个账户' : 'account(s)'} · {zh ? '持有人' : 'Holder'}: {bank.holder_names.join(', ') || '—'}
+              </div>
+              {bank.recurring_deposits.length > 0 && (
+                <ul className="mt-2 space-y-1 text-[12px]">
+                  {bank.recurring_deposits.slice(0, 4).map((d) => (
+                    <li key={d.label} className="flex items-baseline justify-between gap-2">
+                      <span className="min-w-0 truncate">{d.label}</span>
+                      <span className="whitespace-nowrap font-mono text-body-3">{d.occurrences}× ~{money(d.avg_amount)} / {Math.round(d.avg_interval_days)}d</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+      <div className="mt-3 text-[11.5px] leading-relaxed text-body-3">
+        {zh
+          ? '以上由申请人本人在 Stayloop 核验页授权、由持牌供应商执行；Stayloop 只保存摘要（账号掩码、持有人、循环入账），不保存原始交易与证件号。'
+          : 'Authorised by the applicant on the Stayloop verification page and performed by licensed providers; Stayloop stores only the summary (masked accounts, holders, recurring deposits), never raw transactions or document numbers.'}
+      </div>
+    </section>
   )
 }

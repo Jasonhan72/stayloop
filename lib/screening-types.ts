@@ -1,4 +1,5 @@
 import type { CoherenceReview } from './screening/coherenceReview'
+import type { ScreeningVerification } from './verify/types'
 // Shared types for the screening module — single source of truth.
 // Consumed by: app/screening/page.tsx, lib/generateReport.ts, app/api/screen-score/route.ts
 
@@ -365,6 +366,9 @@ export interface ScoreResult {
   forensics_penalty?: number
   forensics_zeroed_dims?: string[]
   cross_doc_verification?: CrossDocVerification | null
+  // Applicant-authorised third-party verification snapshot (2026-09) —
+  // facts, not inference. Null on screenings without a completed link.
+  verification?: ScreeningVerification | null
   screening_id?: string
   file_count?: number
   deep_check_result?: {

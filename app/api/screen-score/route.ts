@@ -11,6 +11,7 @@
 //         additions can't reintroduce a leak by hand-rolling a fetch.
 // 2026-06-02 — Code review §6 P1 — Aggregate 12s budget on CanLII fan-out (circuit breaker)
 import { NextRequest, NextResponse } from 'next/server'
+import type { ScreeningVerification } from '@/lib/verify/types'
 import { repairUnescapedQuotes } from '@/lib/screening/jsonRepair'
 import { llmChat, llmChatStream } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
@@ -28,6 +29,34 @@ import { searchCanliiViaIndex } from '@/lib/screening/canliiIndex'
 import { V3_WEIGHTS } from '@/lib/screening-types'
 
 export const runtime = 'edge'
+
+// Applicant-authorised verification facts, rendered for the model as facts
+// (not inference) with the rules that keep them from being double-counted.
+function buildVerifiedBlock(v: ScreeningVerification): string {
+  const lines: string[] = []
+  lines.push(`\nAPPLICANT-AUTHORISED VERIFICATION (third-party facts; consent ${v.consent_version} at ${v.consented_at}):`)
+  if (v.id) {
+    const d = v.id
+    lines.push(`- Identity (Veriff liveness + document): ${d.decision.toUpperCase()}${d.first_name || d.last_name ? ` — ${[d.first_name, d.last_name].filter(Boolean).join(' ')}` : ''}${d.date_of_birth ? `, DOB ${d.date_of_birth}` : ''}${d.document_type ? `, ${d.document_type}${d.document_country ? ` (${d.document_country})` : ''}` : ''}${d.document_last4 ? ` ending ${d.document_last4}` : ''}${d.reason ? ` — ${d.reason}` : ''}`)
+  } else lines.push('- Identity: not performed')
+  if (v.bank) {
+    const b = v.bank
+    lines.push(`- Bank (Flinks read-only, ${b.window_days} days, ${b.institution || 'institution n/a'}): ${b.accounts.length} account(s); holders: ${b.holder_names.join(', ') || 'n/a'}; recurring payroll-like deposits ≈ ${b.payroll_monthly_estimate == null ? 'none detected' : `$${Math.round(b.payroll_monthly_estimate)}/mo`}; NSF/returned items: ${b.nsf_count}; closing balance total: ${b.closing_balance_total == null ? 'n/a' : `$${Math.round(b.closing_balance_total)}`}`)
+    for (const d of b.recurring_deposits.slice(0, 5)) lines.push(`    · ${d.label}: ${d.occurrences}× ~$${Math.round(d.avg_amount)} every ~${Math.round(d.avg_interval_days)} days (≈ $${Math.round(d.monthly_equivalent)}/mo), last ${d.last_date}`)
+  } else lines.push('- Bank: not performed')
+  lines.push('RULES: these are verified facts, not document inference. Where the bank holder is the applicant, bank-verified recurring income OVERRIDES pay-stub-derived income for ability_to_pay (the backend also enforces this). Identity APPROVED with a name matching the documents counts as verified identity for the verification dimension; DECLINED is an identity_mismatch signal. Never reward a step that was not performed, and never penalise its absence.\n')
+  return lines.join('\n')
+}
+
+// Loose person-name match: every token of the shorter name appears in the
+// longer one (handles "Nathalie C. Cipriani" vs "CIPRIANI NATHALIE").
+function namesMatch(a: string, b: string): boolean {
+  const tok = (s: string) => s.toLowerCase().replace(/[^a-z\u00c0-\u024f\u4e00-\u9fff\s]/g, ' ').split(/\s+/).filter((t) => t.length > 1)
+  const ta = tok(a), tb = tok(b)
+  if (!ta.length || !tb.length) return false
+  const [short, long] = ta.length <= tb.length ? [ta, tb] : [tb, ta]
+  return short.every((t) => long.includes(t))
+}
 
 // -----------------------------------------------------------------------------
 // Stayloop Risk Model v3 (2026)
@@ -764,6 +793,18 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
 
     const monthlyRent = Number(screening.monthly_rent) || 0
     const monthlyIncome = Number(screening.monthly_income) || 0
+
+    // Applicant-authorised verification (2026-09, lib/verify): third-party
+    // FACTS the applicant consented to share — identity decision, bank
+    // summary. Sandbox results never reach scoring; a snapshot with no
+    // usable step is treated as absent.
+    const verifiedFacts: ScreeningVerification | null = (() => {
+      const v = (screening as { verification?: ScreeningVerification | null }).verification
+      if (!v || typeof v !== 'object' || v.sandbox) return null
+      if (!v.id && !v.bank && !v.credit) return null
+      return v
+    })()
+    const verifiedBlock = verifiedFacts ? buildVerifiedBlock(verifiedFacts) : ''
     const incomeRatio = monthlyRent > 0 ? monthlyIncome / monthlyRent : 0
     const files: ScreenFile[] = Array.isArray(screening.files) ? screening.files : []
 
@@ -998,7 +1039,7 @@ IMPORTANT: If you see MULTIPLE ID documents for DIFFERENT people, extract ALL th
 Monthly rent: $${monthlyRent || 'N/A'}
 Self-reported income: $${monthlyIncome || 'N/A'}/mo${incomeRatio ? ` (ratio ${incomeRatio.toFixed(2)}x)` : ''}
 Landlord notes: ${screening.notes || 'N/A'}
-
+${verifiedBlock}
 Uploaded: ${files.length === 0 ? 'NONE' : files.map(f => `${formatKind(f.kind)}(${f.name})`).join(', ')}
 ${unreadableFiles.length > 0 ? `WARNING — ${unreadableFiles.length} file(s) could NOT be read (storage error): ${unreadableFiles.join(', ')}. These files were NOT analyzed and NOT scanned by forensics. Mark affected sub-components action_pending and add an action item to re-upload them. Do not describe them as verified or clean.` : ''}
 NOTE: When you see "bundle [A + B + C]" above, ONE PDF file contains MULTIPLE document kinds. Look inside that single attachment for ALL listed kinds — do NOT report them as missing just because they share a filename.
@@ -1690,7 +1731,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     //      trail is not verified income).
     //   2. same verdict → income_stability sub-coverage downgraded to
     //      action_pending so evidence_coverage reflects the gap.
-    const crossDocVerification: CrossDocVerification | null = (() => {
+    let crossDocVerification: CrossDocVerification | null = (() => {
       const raw: any = (parsed as any).cross_doc_verification
       if (!raw || typeof raw !== 'object') return null
       const str = (v: any) => (typeof v === 'string' ? v : '')
@@ -1799,6 +1840,39 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       )
       if (!hasPersonalApplicantAccount && !crossDocVerification.income_corroboration.personal_payroll_seen) {
         crossDocVerification.income_corroboration.verdict = 'uncorroborated'
+      }
+    }
+
+    // Applicant-authorised bank connection (Flinks, read-only) outranks any
+    // PDF-based reading of income: when the applicant is a holder of the
+    // connected account(s), the deterministic payroll estimate becomes the
+    // income-corroboration verdict, whatever the model concluded from
+    // statements. Holder ≠ applicant leaves the model's verdict alone (a
+    // connected account belonging to someone else proves nothing about the
+    // applicant's income).
+    const bankFacts = verifiedFacts?.bank
+    if (bankFacts && bankFacts.status === 'verified') {
+      const applicantNames = [nameForLookup, ...(Array.isArray((parsed as any).extracted_names) ? (parsed as any).extracted_names : []), (parsed as any).extracted_name]
+        .filter((x): x is string => typeof x === 'string' && x.trim().length > 1)
+      const holderIsApplicant = bankFacts.holder_names.some((h) => applicantNames.some((n) => namesMatch(h, n)))
+      if (holderIsApplicant && typeof bankFacts.payroll_monthly_estimate === 'number') {
+        const est = bankFacts.payroll_monthly_estimate
+        const claimed = monthlyIncome || null
+        const ratio = claimed ? est / claimed : null
+        const verdict: 'corroborated' | 'partial' | 'uncorroborated' =
+          ratio === null ? 'corroborated' : ratio >= 0.75 ? 'corroborated' : ratio >= 0.5 ? 'partial' : 'uncorroborated'
+        const labels = bankFacts.recurring_deposits.slice(0, 3).map((d) => `${d.label} ~$${Math.round(d.avg_amount)} every ${Math.round(d.avg_interval_days)}d`).join('; ')
+        const base = crossDocVerification ?? ({} as CrossDocVerification)
+        base.income_corroboration = {
+          claimed_monthly: claimed,
+          personal_payroll_seen: true,
+          observed_pattern: `Bank-verified (Flinks, ${bankFacts.window_days}d): ~$${Math.round(est)}/mo recurring — ${labels || 'no labelled payroll'}`.slice(0, 200),
+          verdict,
+          detail: ratio === null
+            ? 'Applicant-authorised bank connection; no self-reported income to compare.'
+            : `Bank-verified recurring deposits are ${Math.round(ratio * 100)}% of the self-reported $${Math.round(claimed!)}/mo.`,
+        }
+        if (!crossDocVerification) crossDocVerification = base
       }
     }
 
@@ -2677,7 +2751,8 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         legacy_scores: legacy,
         credit_report: creditReport,
         cross_doc_verification: crossDocVerification,
-        coherence_review: coherence,
+      verification: verifiedFacts,
+      coherence_review: coherence,
         ltb_check: ltbCheck,
         rubric,
       },
@@ -2758,7 +2833,8 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       identity_match_score: identityMatch,
       credit_report: creditReport,
       cross_doc_verification: crossDocVerification,
-        coherence_review: coherence,
+      verification: verifiedFacts,
+      coherence_review: coherence,
       monthly_rent: monthlyRent || null,
       income_rent_ratio: computedRatio,
       extracted_name: finalExtractedName,
