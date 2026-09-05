@@ -1,0 +1,333 @@
+<title>Stayloop 竞品对照 2026-09</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<style>
+  :root{
+    --paper:#FDFBF6; --paper-2:#F6F3EA; --card:#FFFFFF;
+    --ink:#171717; --ink-2:#3F3F46; --ink-3:#71717A; --ink-4:#A1A1AA;
+    --line:#E0DACE; --line-strong:#C5BDAA;
+    --brand:#047857; --brand-deep:#065F46; --brand-wash:#E4EEE3;
+    --amber:#B45309; --amber-wash:#FEF3E2;
+    --red:#B91C1C; --red-wash:#FEF2F2;
+    --blue:#1D4ED8; --blue-wash:#E8EEFB;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#141311; --paper-2:#1C1A17; --card:#201E1A;
+      --ink:#F3F0E8; --ink-2:#D6D1C6; --ink-3:#A39D90; --ink-4:#7C766B;
+      --line:#332F29; --line-strong:#4A443B;
+      --brand:#34D399; --brand-deep:#6EE7B7; --brand-wash:#0F2A22;
+      --amber:#FBBF24; --amber-wash:#2A2010;
+      --red:#F87171; --red-wash:#2C1414;
+      --blue:#93C5FD; --blue-wash:#141F36;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#141311; --paper-2:#1C1A17; --card:#201E1A;
+    --ink:#F3F0E8; --ink-2:#D6D1C6; --ink-3:#A39D90; --ink-4:#7C766B;
+    --line:#332F29; --line-strong:#4A443B;
+    --brand:#34D399; --brand-deep:#6EE7B7; --brand-wash:#0F2A22;
+    --amber:#FBBF24; --amber-wash:#2A2010;
+    --red:#F87171; --red-wash:#2C1414;
+    --blue:#93C5FD; --blue-wash:#141F36;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);
+    font-family:"Inter Tight","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    font-size:15px;line-height:1.65;padding:0 0 96px}
+  .mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace;font-variant-numeric:tabular-nums}
+  .wrap{max-width:920px;margin:0 auto;padding:0 28px}
+  h1,h2,h3{text-wrap:balance;letter-spacing:-.015em;line-height:1.2}
+  h1{font-size:34px;font-weight:800}
+  h2{font-size:22px;font-weight:700;margin:56px 0 14px;padding-top:22px;border-top:1px solid var(--line)}
+  h3{font-size:15.5px;font-weight:700;margin:22px 0 8px}
+  p{max-width:68ch;margin:0 0 12px;color:var(--ink-2)}
+  p b,li b{color:var(--ink);font-weight:600}
+  ul,ol{max-width:70ch;padding-left:1.25em;color:var(--ink-2)}
+  li{margin:5px 0}
+  a{color:var(--brand);text-decoration:none;border-bottom:1px solid transparent}
+  a:hover{border-bottom-color:var(--brand)}
+  .eyebrow{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4)}
+
+  /* masthead */
+  .mast{padding:52px 0 26px;border-bottom:1px solid var(--line);margin-bottom:26px}
+  .mast .meta{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:14px;font-size:12.5px;color:var(--ink-3)}
+  .mast .meta b{color:var(--ink-2);font-weight:600}
+
+  /* summary */
+  .lede{font-size:17px;color:var(--ink);max-width:66ch;margin-bottom:18px}
+  .verdicts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0 6px}
+  @media(max-width:720px){.verdicts{grid-template-columns:1fr}}
+  .verdict{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 16px 14px}
+  .verdict .k{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--brand);margin-bottom:6px}
+  .verdict .t{font-size:14.5px;font-weight:700;line-height:1.35;margin-bottom:6px}
+  .verdict .d{font-size:13px;color:var(--ink-3);line-height:1.5}
+
+  /* competitor cards */
+  .comps{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.comps{grid-template-columns:1fr}}
+  .comp{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;display:flex;flex-direction:column;gap:10px}
+  .comp header{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .comp .name{font-size:18px;font-weight:800;letter-spacing:-.01em}
+  .comp .geo{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:700;color:var(--ink-4);letter-spacing:.06em}
+  .comp .price{font-family:"JetBrains Mono",monospace;font-size:12.5px;font-weight:600;color:var(--ink-2);background:var(--paper-2);border-radius:8px;padding:8px 10px;line-height:1.5}
+  .comp .price small{display:block;font-family:inherit;font-weight:400;color:var(--ink-3);font-size:11.5px}
+  .comp ul{padding-left:1.1em;font-size:13.5px}
+  .comp li{margin:3px 0}
+  .comp .take{font-size:13px;color:var(--ink-3);border-top:1px dashed var(--line);padding-top:10px;margin-top:auto}
+  .comp .take b{color:var(--ink-2)}
+
+  /* matrix */
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+  table{border-collapse:collapse;width:100%;min-width:760px;font-size:13px}
+  th,td{padding:9px 11px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+  th{font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--ink-3);background:var(--paper-2);white-space:nowrap}
+  th.us{color:var(--brand)}
+  tr:last-child td{border-bottom:0}
+  td.cap{font-weight:600;color:var(--ink);white-space:nowrap}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:99px;vertical-align:-1px;margin-right:6px}
+  .y .dot{background:var(--brand)} .p .dot{background:var(--amber)} .n .dot{background:var(--line-strong)}
+  .y{color:var(--ink-2)} .p{color:var(--ink-2)} .n{color:var(--ink-4)}
+  .legend{display:flex;gap:18px;font-size:12px;color:var(--ink-3);margin:8px 0 0}
+
+  /* cost bars */
+  .bars{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px 12px;margin:14px 0 8px}
+  .bars .row{display:grid;grid-template-columns:150px 1fr 82px;align-items:center;gap:12px;padding:5px 0}
+  .bars .lbl{font-size:13px;font-weight:600;color:var(--ink-2)}
+  .bars .track{height:14px;background:var(--paper-2);border-radius:4px;overflow:hidden}
+  .bars .fill{height:100%;background:var(--brand);border-radius:4px}
+  .bars .row.us .fill{background:var(--amber)}
+  .bars .val{font-family:"JetBrains Mono",monospace;font-size:12.5px;font-weight:700;text-align:right;color:var(--ink)}
+  .bars .axis{display:grid;grid-template-columns:150px 1fr 82px;gap:12px;margin-top:6px}
+  .bars .axis div:nth-child(2){display:flex;justify-content:space-between;font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--ink-4)}
+  .bars .note{font-size:12px;color:var(--ink-3);margin-top:10px}
+
+  /* gaps */
+  .gap{border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:10px;background:var(--card);padding:14px 16px;margin:12px 0}
+  .gap.crit{border-left-color:var(--red)}
+  .gap.keep{border-left-color:var(--brand)}
+  .gap .h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .gap .h b{font-size:15px}
+  .tag{font-family:"JetBrains Mono",monospace;font-size:10.5px;font-weight:700;letter-spacing:.06em;border-radius:6px;padding:2px 7px}
+  .tag.crit{background:var(--red-wash);color:var(--red)}
+  .tag.warn{background:var(--amber-wash);color:var(--amber)}
+  .tag.keep{background:var(--brand-wash);color:var(--brand-deep)}
+  .tag.info{background:var(--blue-wash);color:var(--blue)}
+  .gap p{margin-bottom:6px;font-size:14px}
+  .gap p:last-child{margin-bottom:0}
+
+  /* plan table */
+  .plan td:first-child{font-family:"JetBrains Mono",monospace;font-weight:700;white-space:nowrap}
+  .plan .P0{color:var(--red)} .plan .P1{color:var(--amber)} .plan .P2{color:var(--ink-3)}
+
+  .sources{font-size:12.5px;color:var(--ink-3);columns:2;column-gap:28px;max-width:none}
+  @media(max-width:720px){.sources{columns:1}}
+  .sources li{break-inside:avoid;margin:3px 0}
+  .foot{margin-top:40px;font-size:12px;color:var(--ink-4);border-top:1px solid var(--line);padding-top:14px}
+</style>
+
+<div class="wrap">
+  <div class="mast">
+    <div class="eyebrow">Competitive review · 2026-09-04</div>
+    <h1 style="margin-top:8px">Stayloop 竞品对照：加拿大三家、美国两家</h1>
+    <div class="meta">
+      <span>对象：<b>SingleKey · liv.rent · Openroom · TransUnion SmartMove · TurboTenant</b></span>
+      <span>基准：<b>www.stayloop.ai</b> 当前生产（Pro $29 CAD/月）</span>
+      <span>方法：公开定价页、产品页、第三方评测，逐条核对；无法核实的项标为「未公开」</span>
+    </div>
+  </div>
+
+  <p class="lede">五家里没有一家在做我们做的事——把申请人交来的文件当证据做取证、再给出可解释的评分。但五家全都在做我们没做的事：直接从征信局拉数据、直接核身份、直接连银行核收入。这三条「直连」是整个行业的地板，我们现在在地板之下；而取证与解释层是天花板，我们在天花板之上。改进方案就是把地板补上、把天花板亮出来。</p>
+
+  <div class="verdicts">
+    <div class="verdict"><div class="k">01 · 结构</div><div class="t">数据源是最大的差距，不是功能</div><div class="d">竞品全员直连 Equifax/TransUnion；我们靠租客自己上传征信报告 PDF——这既是转化摩擦，也是最大的可篡改面。</div></div>
+    <div class="verdict"><div class="k">02 · 商业</div><div class="t">基础筛查我们最慷慨，深度核查却只有订阅一扇门</div><div class="d">免费档每月 5 次筛查已含取证与信用分析，比五家都大方；但深度核查只能靠 $29/月订阅解锁，而行业按次 $17–$45、且能让租客付。<b>（已修：2026-09-04 上线单次解锁 $14.99，可发给申请人付。）</b></div></div>
+    <div class="verdict"><div class="k">03 · 优势</div><div class="t">取证 + 解释层没人有，但首页没说</div><div class="d">美国做真文件取证的 Snappt/Docuverus 只对企业报价；我们把它给了个体房东，却没把它当卖点。</div></div>
+  </div>
+
+  <h2>一、五家画像</h2>
+  <p>每家只记录能从公开页面核实的部分。价格单位按各自站点：加拿大 CAD、美国 USD。</p>
+  <div class="comps">
+
+    <div class="comp">
+      <header><span class="name">SingleKey</span><span class="geo">CA · 多伦多</span></header>
+      <div class="price">单局 $29.99 · 双局 $44.99 /份<small>房东付，或转给租客付；租金担保另售（月租 5% 起）</small></div>
+      <ul>
+        <li>Equifax 或 TransUnion 直连，双局可选；48 个月付款史、tradelines、催收</li>
+        <li>驱逐/公共记录：<b>Openroom + SOQUIJ + CanLII</b> 三源；「20 万+ 数据库」的刑事与欺诈记录检索</li>
+        <li><b>银行直连收入</b>（流水模式与余额）+ 收入文件篡改扫描 + 自拍活体 ID 核验 + 社媒公开档案</li>
+        <li>房东直接录入申请人信息时「5 分钟出结果」；免费 eLease 与 Pre-Screen 引流</li>
+        <li>2022 年收购 Naborly，自称加拿大第一；BBB A 级、1000+ 评价 4.6 星</li>
+      </ul>
+      <div class="take"><b>对我们的意义：</b>这是安省房东的默认选项，也是我们报告结构的对标物。它的 AI 只在身份与文件两处，评分交给房东自己判。</div>
+    </div>
+
+    <div class="comp">
+      <header><span class="name">liv.rent</span><span class="geo">CA · 温哥华</span></header>
+      <div class="price">Trust Score $16.99 /份<small>Growth $48/月（年付，含 2 份）· Business $399/月（含 15 份）</small></div>
+      <ul>
+        <li><b>Trust Score 四段构成</b>：Equifax 信用摘要 55 分 + 风险评估 20 分 + 「可信度」20 分 + 收入租金比 5 分；90+ 优秀、75–89 很好、60–74 一般、&lt;60 差</li>
+        <li>Equifax 近 4 年全账户分析；收入、身份、雇主由人工核验；含法院记录</li>
+        <li>租房全链路：认证房源、申请、数字合同、收租，租客侧免费</li>
+        <li>页面不提 AI 与文件篡改检测；强调「多层核验」与人工复核</li>
+      </ul>
+      <div class="take"><b>对我们的意义：</b>唯一一家和我们一样敢给「一个分数」的加拿大产品，而且把权重公开。它证明市场接受可解释的综合分，前提是构成透明。</div>
+    </div>
+
+    <div class="comp">
+      <header><span class="name">Openroom</span><span class="geo">CA · 多伦多</span></header>
+      <div class="price">公共记录检索免费<small>租金债务上报 Equifax、Rent Rewards 等增值服务价格未公开</small></div>
+      <ul>
+        <li>LTB 与各省租务法庭判令库：<b>20 万+ 姓名身份、回溯 7 年</b>，众包 + 信息公开申请获取，人工复核后发布</li>
+        <li><b>安省注册消费者报告机构（CRA）</b>，受《消费者报告法》约束；有租客争议通道；租客胜诉的案子不可被检索</li>
+        <li>2024-08 起 Equifax 合作：房东可上报欠租、租客可用按时缴租建信用</li>
+        <li>65,000+ 会员；它同时是 SingleKey 报告里「驱逐记录」的数据供应方</li>
+      </ul>
+      <div class="take"><b>对我们的意义：</b>我们的 LTB 目录只覆盖 2026-01 至 05 的 5 个月，它有 7 年。而且它走的正是我们法务节声明「不是」的那条路——注册成 CRA。</div>
+    </div>
+
+    <div class="comp">
+      <header><span class="name">TransUnion SmartMove</span><span class="geo">US · 全国</span></header>
+      <div class="price">Basic $25 · Plus $40 · Premium $49 /份（USD）<small>房东或申请人付，按州允许；无会员、无最低量</small></div>
+      <ul>
+        <li>征信局自营：Credit Report + <b>ResidentScore</b>（基于租赁结果数据训练的统计模型，非 AI）</li>
+        <li>Plus 加驱逐记录；Premium 再加 Income Insights（收入洞察）与 Identity Check</li>
+        <li>申请人自证身份后「大多当天出报告」</li>
+      </ul>
+      <div class="take"><b>对我们的意义：</b>行业价格锚。也是「评分」这件事最保守的做法——分数由征信局背书，产品不做任何主观解读。</div>
+    </div>
+
+    <div class="comp">
+      <header><span class="name">TurboTenant</span><span class="geo">US · 全国</span></header>
+      <div class="price">房东 $0 · 租客付 $45–$55 /份（USD）<small>Premium 年费 $200 以内，不限房源；筛查由 Rent Butter 供应</small></div>
+      <ul>
+        <li>免费层已含招租、申请、收租、报修、消息与筛查工具；靠租客付费的筛查与增值服务变现</li>
+        <li>标准 TransUnion 报告（信用/刑事/驱逐），<b>筛查本身没有 AI 层</b></li>
+        <li>AI 用在别处：房源文案生成、AI 报修助手（向租客追问故障细节）</li>
+      </ul>
+      <div class="take"><b>对我们的意义：</b>「房东零成本、租客付费」的模式在美国已是主流；也说明 AI 在筛查之外（文案、报修）落地更快、争议更少。</div>
+    </div>
+
+  </div>
+
+  <h2>二、能力矩阵</h2>
+  <p>绿点 = 已有；黄点 = 部分或形式不同；灰点 = 没有或未公开。Stayloop 一列按当前生产代码填写。</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>能力</th><th class="us">Stayloop</th><th>SingleKey</th><th>liv.rent</th><th>Openroom</th><th>SmartMove</th><th>TurboTenant</th></tr></thead>
+      <tbody>
+        <tr><td class="cap">征信局直连</td><td class="n"><span class="dot"></span>无，转录租客上传的报告</td><td class="y"><span class="dot"></span>Equifax/TU，双局可选</td><td class="y"><span class="dot"></span>Equifax</td><td class="p"><span class="dot"></span>只做租金上报</td><td class="y"><span class="dot"></span>自营 TU</td><td class="y"><span class="dot"></span>经 Rent Butter</td></tr>
+        <tr><td class="cap">身份核验（活体/证件）</td><td class="n"><span class="dot"></span>无</td><td class="y"><span class="dot"></span>自拍活体 + 证件比对</td><td class="y"><span class="dot"></span>ID 核验（人工）</td><td class="n"><span class="dot"></span>—</td><td class="y"><span class="dot"></span>Premium 含</td><td class="p"><span class="dot"></span>视报告层级</td></tr>
+        <tr><td class="cap">收入：银行直连</td><td class="n"><span class="dot"></span>无，靠文件</td><td class="y"><span class="dot"></span>Bank-Verified Income</td><td class="p"><span class="dot"></span>人工核验</td><td class="n"><span class="dot"></span>—</td><td class="p"><span class="dot"></span>Income Insights（模型推断）</td><td class="p"><span class="dot"></span>付费层含</td></tr>
+        <tr><td class="cap">文件篡改取证</td><td class="y"><span class="dot"></span>PDF 结构/生产者/增量更新/日期一致性，8 次取证调用</td><td class="p"><span class="dot"></span>文本/字体篡改扫描</td><td class="n"><span class="dot"></span>未提</td><td class="n"><span class="dot"></span>—</td><td class="n"><span class="dot"></span>—</td><td class="n"><span class="dot"></span>—</td></tr>
+        <tr><td class="cap">法庭 / LTB 记录</td><td class="p"><span class="dot"></span>自建 LTB 目录（5 个月）+ 法院门户 + CanLII 披露</td><td class="y"><span class="dot"></span>Openroom+SOQUIJ+CanLII</td><td class="p"><span class="dot"></span>含法院记录</td><td class="y"><span class="dot"></span>7 年、20 万+ 身份</td><td class="y"><span class="dot"></span>Eviction Report（美国）</td><td class="y"><span class="dot"></span>Eviction（美国）</td></tr>
+        <tr><td class="cap">综合评分 + 解释</td><td class="y"><span class="dot"></span>5 维分数 + 硬门槛 + 逐项证据</td><td class="n"><span class="dot"></span>不打分</td><td class="y"><span class="dot"></span>Trust Score，权重公开</td><td class="n"><span class="dot"></span>不打分</td><td class="p"><span class="dot"></span>ResidentScore（黑箱）</td><td class="n"><span class="dot"></span>不打分</td></tr>
+        <tr><td class="cap">信用分析层（DTI/利用率/逾期）</td><td class="y"><span class="dot"></span>确定性算术 + 模型叙述</td><td class="p"><span class="dot"></span>报告原样呈现</td><td class="p"><span class="dot"></span>摘要</td><td class="n"><span class="dot"></span>—</td><td class="p"><span class="dot"></span>报告原样</td><td class="p"><span class="dot"></span>报告原样</td></tr>
+        <tr><td class="cap">合规姿态</td><td class="p"><span class="dot"></span>声明非 CRA；OHRC guardrail；筛查用语</td><td class="p"><span class="dot"></span>PIPEDA 同意流</td><td class="p"><span class="dot"></span>同意流</td><td class="y"><span class="dot"></span>安省注册 CRA，争议通道</td><td class="y"><span class="dot"></span>FCRA</td><td class="y"><span class="dot"></span>FCRA</td></tr>
+        <tr><td class="cap">租客付费选项</td><td class="n"><span class="dot"></span>无</td><td class="y"><span class="dot"></span>可转租客</td><td class="n"><span class="dot"></span>房东付</td><td class="y"><span class="dot"></span>免费</td><td class="y"><span class="dot"></span>可选</td><td class="y"><span class="dot"></span>租客付为默认</td></tr>
+        <tr><td class="cap">按次付费</td><td class="n"><span class="dot"></span>只有 $29/月订阅</td><td class="y"><span class="dot"></span>$29.99/$44.99</td><td class="y"><span class="dot"></span>$16.99</td><td class="y"><span class="dot"></span>免费</td><td class="y"><span class="dot"></span>$25–49</td><td class="y"><span class="dot"></span>$45–55（租客）</td></tr>
+        <tr><td class="cap">筛查之后（租约/收租/担保）</td><td class="p"><span class="dot"></span>电子签租约、在管租约、AI 管家；无收租与担保</td><td class="y"><span class="dot"></span>eLease、收租、租金担保</td><td class="y"><span class="dot"></span>数字合同、收租</td><td class="p"><span class="dot"></span>欠租上报、租金建信</td><td class="n"><span class="dot"></span>只做筛查</td><td class="y"><span class="dot"></span>全套物业管理</td></tr>
+        <tr><td class="cap">语言</td><td class="y"><span class="dot"></span>中英双语</td><td class="p"><span class="dot"></span>英/法</td><td class="p"><span class="dot"></span>英/中（部分）</td><td class="n"><span class="dot"></span>英</td><td class="n"><span class="dot"></span>英</td><td class="n"><span class="dot"></span>英</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="legend"><span><span class="dot" style="background:var(--brand)"></span>已有</span><span><span class="dot" style="background:var(--amber)"></span>部分 / 形式不同</span><span><span class="dot" style="background:var(--line-strong)"></span>没有或未公开</span></div>
+
+  <h2>三、定价：一个年筛两次的房东各花多少</h2>
+  <p>安省绝大多数个体房东只有 1–2 套房，一年筛 1–3 次。按「一年两次、每次都要完整核查」算总支出（各按本币，不换汇）。<b>更正：</b>本文初稿把 Stayloop 记成 $348——那是按订阅算的；实际上免费档每月已含 5 次筛查（取证与信用分析在内），Pro 锁住的只是深度核查。按 2026-09-04 上线的单次解锁计：</p>
+  <div class="bars">
+    <div class="row"><div class="lbl">SmartMove Premium</div><div class="track"><div class="fill" style="width:100%"></div></div><div class="val">$98</div></div>
+    <div class="row"><div class="lbl">SingleKey 单局</div><div class="track"><div class="fill" style="width:61.2%"></div></div><div class="val">$60</div></div>
+    <div class="row"><div class="lbl">liv.rent 按次</div><div class="track"><div class="fill" style="width:34.7%"></div></div><div class="val">$34</div></div>
+    <div class="row us"><div class="lbl">Stayloop 单次解锁</div><div class="track"><div class="fill" style="width:30.6%"></div></div><div class="val">$30</div></div>
+    <div class="row us"><div class="lbl">Stayloop 仅基础筛查</div><div class="track"><div class="fill" style="width:0%"></div></div><div class="val">$0</div></div>
+    <div class="row"><div class="lbl">TurboTenant（房东）</div><div class="track"><div class="fill" style="width:0%"></div></div><div class="val">$0</div></div>
+    <div class="row"><div class="lbl">Openroom 检索</div><div class="track"><div class="fill" style="width:0%"></div></div><div class="val">$0</div></div>
+    <div class="axis"><div></div><div><span>$0</span><span>$25</span><span>$50</span><span>$75</span><span>$98</span></div><div></div></div>
+    <div class="note">Stayloop 的基础筛查（5 维评分 + 取证 + 信用分析 + LTB/法院记录）在免费档内；只有深度核查按申请人 $14.99 解锁，或 Pro $29/月不限次。等身份/银行/征信直连上线，这个解锁就是对标 SingleKey 单局 $29.99 的「验证包」，届时定价另议。</div>
+  </div>
+
+  <h2>四、差距与建议</h2>
+
+  <div class="gap crit">
+    <div class="h"><span class="tag crit">结构性</span><b>征信数据靠租客自己上传</b></div>
+    <p>五家竞品全部直连征信局。我们让租客先去 Equifax/TransUnion 拉一份报告再上传，然后我们转录它。后果有三：转化摩擦（8 月那位房东的 11 个文件里，主申请人 14MB 的 TU 报告就是这样被上传层丢掉的）；报告是租客经手的文件，篡改面最大——我们的取证层本质上是在补这个洞；以及报告日期由租客决定，「近 4 年全账户」这种时效承诺给不出。</p>
+    <p><b>建议：</b>这是一个业务决定而不是工程任务。直连征信局意味着我们代房东获取消费者报告，按安省《消费者报告法》大概率要像 Openroom 一样注册为 CRA——这与报告法务节现在「不是该法意义上的报告机构」的声明正面冲突，要先由你定方向。工程上有两条路：① 注册 CRA 后接 Equifax 经销（SingleKey/Certn 走的路，1–3 个月）；② 不注册，改为让租客<b>在我们的流程里授权直拉</b>（租客本人拉自己的报告、授权分享给房东，是 liv.rent 免注册的做法）。②快得多，也保留了「租客交来的证据」这个取证前提。</p>
+  </div>
+
+  <div class="gap crit">
+    <div class="h"><span class="tag crit">P0</span><b>没有身份核验，没有银行直连收入</b></div>
+    <p>SingleKey 把「自拍活体 + 证件比对」和「银行流水直连」做成了标配；SmartMove Premium 含 Identity Check。我们的 ID 核验完全靠模型看一张证件图（且 ID_Leo.pdf 那种 32MB 的 Illustrator 导出件差点把整单筛查带崩），收入核验靠工资单 + 取证。AI 伪造工资单已经是安省物业管理公司公开讨论的常态，「看文件」这条路的上限到了。</p>
+    <p><b>建议：</b>身份接 Persona 或 Veriff（1 周，按次 $1–2）；收入接 Flinks（加拿大银行覆盖最全，1–2 周，需签约）。两者都是租客侧一次授权，结果直接进现有的 5 维评分——收入维度从「文件推断」变成「银行事实」，取证层转为对**不肯授权直连**的申请人加严，这才是取证该待的位置。</p>
+  </div>
+
+  <div class="gap keep">
+    <div class="h"><span class="tag keep">P0 · 已上线 2026-09-04</span><b>深度核查只有订阅一扇门，不能按次、不能让租客付</b></div>
+    <p>加拿大两家按次 $17–$45，美国两家默认租客付。我们的基础筛查免费档已经够用（每月 5 次），但深度核查只能靠 $29/月的 Pro——对 1–2 套房的房东是「为一次核查付一年」；而这群人正是 SingleKey 的基本盘。</p>
+    <p><b>已做：</b>Stripe 一次性价 CA$14.99「单次核查解锁」，只对一条筛查生效；筛查页深度核查按钮对免费用户弹三选一——我来付 / 生成 24 小时付款链接发给申请人付 / 升级 Pro。webhook 走事件账本防重复记账；预付未绑定筛查的解锁记为额度，下次核查时原子扣减。身份/银行/征信直连上线后，同一 SKU 升级成「验证包」并重新定价（建议 $34.99）。</p>
+  </div>
+
+  <div class="gap">
+    <div class="h"><span class="tag warn">P1</span><b>法庭记录覆盖：5 个月 vs 7 年</b></div>
+    <p>我们的 LTB 目录来自安省开放数据，目前只有 2026-01 至 05；Openroom 靠众包和信息公开申请攒了 7 年、20 万+ 身份，而且 SingleKey 直接买它的数据。安省承诺回填 2021 年起的判令，但节奏不由我们控制。</p>
+    <p><b>建议：</b>短期把「覆盖窗口」在报告里写得更显眼（现在的三条红线已经防止了误报，但「没查到」的含义需要房东一眼看懂）；中期谈 Openroom 数据许可——它是注册 CRA、有争议通道，从它取数比我们自己众包干净得多。众包这条路我们不要走：那正是隐私专员对「黑名单」的执法对象。</p>
+  </div>
+
+  <div class="gap">
+    <div class="h"><span class="tag warn">P1</span><b>「AI 给人打分」正在被市场单独拎出来审视</b></div>
+    <p>美国的评测已经把 AI 筛查分成两桶：「AI 核文件」被视为可辩护，「AI 给人打分」被视为风险；加拿大三家隐私专员 2024 年起联合调查 Certn 的同意与准确性义务，至今未结。我们恰好在第二桶：5 维分数 + 硬门槛。liv.rent 证明分数可以被接受，条件是构成公开、可争议。</p>
+    <p><b>建议：</b>三件事把我们从「黑箱评分」变成「可审计评分」——① 报告里把每一维拆成「事实（转录/取证）」与「推断（模型）」两栏，事实可点回原文件；② 给申请人一条争议通道（Openroom 有，我们的 disputes 页现在还是样例）；③ 拒绝时给房东一份可发给申请人的通知模板（安省《消费者报告法》第 10 条要求基于报告拒绝时告知）。guardrail 已经在做的「不用受保护特征」要写进报告页脚，让它成为可见的承诺。</p>
+  </div>
+
+  <div class="gap keep">
+    <div class="h"><span class="tag keep">保持并放大</span><b>取证层与信用分析层是真差异，但首页一个字没提</b></div>
+    <p>美国做真正文件取证的 Snappt 与 Docuverus 只对企业按年报价；我们把 PDF 结构、生产者串、增量更新痕迹、日期一致性的 8 次取证调用给了个体房东，还把 DTI、循环利用率、逾期信号做成了确定性算术。SingleKey 只做「字体/文本篡改扫描」。这是我们能对 SingleKey 说「你有的我们都会做，我们有的你没有」的地方。</p>
+    <p><b>建议：</b>首页与 /screening 加一段「我们怎么核文件」——用一份脱敏样本报告展示取证结论与信用分析条；定价页放一张对照表（就用本文第二节的矩阵，去掉未公开项）。SingleKey 把「15% 的申请含伪造文件」当营销数字用，我们有真实的取证命中率可以算。</p>
+  </div>
+
+  <div class="gap keep">
+    <div class="h"><span class="tag keep">保持</span><b>双语、AI 管家、租约与在管租约</b></div>
+    <p>五家里没有一家有完整中文界面；没有一家在筛查之后有 Luna/Logic/Brief 这样持续跟着用户的管家层；只有 TurboTenant 和 liv.rent 有筛查后的租约与收租。这三样不需要改，需要的是别让它们被筛查模块的短板拖累——一个被 SingleKey 抢走首单的房东，永远看不到我们的管家。</p>
+  </div>
+
+  <div class="gap">
+    <div class="h"><span class="tag info">P2</span><b>租客侧：可复用报告与租金建信</b></div>
+    <p>SingleKey 卖租客自查报告，liv.rent 的 Trust Score 一次生成多处投递，Openroom 让租客用按时缴租建信用。我们有 /tenant/passport 的「认证 N 级」体系，正好是这个位置，但它现在只是展示，没有一份可以带走投给别的房东的报告。</p>
+    <p><b>建议：</b>等 P0 的直连做完，把「一次授权、多次投递」做成 passport 的真实能力；租金建信找 FrontLobby 或 Openroom 的 BureauEdge 做合作而不是自建。</p>
+  </div>
+
+  <h2>五、实施顺序</h2>
+  <div class="tablewrap">
+    <table class="plan">
+      <thead><tr><th>优先</th><th>事项</th><th>工期</th><th>前置 / 需要你定的事</th></tr></thead>
+      <tbody>
+        <tr><td class="P0">P0-1 ✓</td><td>单次核查解锁 $14.99 + 「发给申请人付」链接；Pro 留给多房源（已上线 2026-09-04）</td><td>—</td><td>直连上线后升级为验证包并重定价</td></tr>
+        <tr><td class="P0">P0-2</td><td>身份核验（Persona / Veriff）接进筛查申请流</td><td>1 周</td><td>选供应商、签约；按次成本约 $1–2</td></tr>
+        <tr><td class="P0">P0-3</td><td>银行直连收入（Flinks）→ 收入维度改为银行事实</td><td>1–2 周</td><td>Flinks 签约；租客授权文案走 PIPEDA 同意流</td></tr>
+        <tr><td class="P1">P1-1</td><td>征信直连：租客本人授权直拉（免 CRA 注册）</td><td>2–4 周</td><td><b>方向决定</b>：走租客授权，还是注册 CRA 接 Equifax 经销</td></tr>
+        <tr><td class="P1">P1-2</td><td>报告「事实 / 推断」分栏 + 申请人争议通道 + 拒绝通知模板</td><td>1–2 周</td><td>触碰筛查模块，需明确授权</td></tr>
+        <tr><td class="P1">P1-3</td><td>首页 / 定价页放取证与信用分析证据、对照表、脱敏样本报告</td><td>3–5 天</td><td>选一份可脱敏的真实报告</td></tr>
+        <tr><td class="P1">P1-4</td><td>Openroom 数据许可洽谈；报告里显性标注 LTB 覆盖窗口</td><td>标注 1 天；洽谈另计</td><td>商务</td></tr>
+        <tr><td class="P2">P2-1</td><td>Passport 可复用报告（一次授权多次投递）</td><td>2 周</td><td>依赖 P0-2 / P0-3 / P1-1</td></tr>
+        <tr><td class="P2">P2-2</td><td>租金建信合作（FrontLobby / Openroom BureauEdge）</td><td>商务为主</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:14px">P0 三项加起来不到三周，不动筛查模块的评分逻辑，只给它更好的输入。P1-1 是唯一需要你先拍板方向的事——它决定我们是「帮租客把自己的证据交给房东的平台」还是「替房东取证据的报告机构」，两者的法务身份不同，后者需要注册。</p>
+
+  <h2>六、来源</h2>
+  <ul class="sources">
+    <li><a href="https://www.singlekey.com/en-ca/tenant-report/">SingleKey · Tenant Report（定价与报告内容）</a></li>
+    <li><a href="https://www.singlekey.com/rental-application-fraud-detection/">SingleKey · Rental Application Fraud Detection</a></li>
+    <li><a href="https://www.businesswire.com/news/home/20221020005110/en/">SingleKey 收购 Naborly（2022-10）</a></li>
+    <li><a href="https://landlords.liv.rent/screening/">liv.rent · Tenant Screening（Trust Score 定价）</a></li>
+    <li><a href="https://liv.rent/blog/livrent/trust-score-explained/">liv.rent · Trust Score 构成</a></li>
+    <li><a href="https://openroom.ca/">Openroom 首页</a> · <a href="https://openroom.ca/tenant-screening/">Tenant Screening</a></li>
+    <li><a href="https://www.mysmartmove.com/pricing">TransUnion SmartMove · Pricing</a></li>
+    <li><a href="https://www.credaily.com/reviews/turbotenant-review/">CRE Daily · TurboTenant 2026 Review</a></li>
+    <li><a href="https://aitoolsbakery.com/blog/best-ai-tenant-screening-tools/">AI Tools Bakery · Best AI Tenant Screening Tools 2026（「核文件 vs 给人打分」两桶）</a></li>
+    <li><a href="https://www.priv.gc.ca/en/opc-news/news-and-announcements/2024/an_240604/">加拿大隐私专员办公室 · 联合调查 Certn（2024-06）</a></li>
+    <li><a href="https://royalyorkpropertymanagement.ca/news-article/the-verified-applicant-illusion-how-fake-documents-slip-through-ontario-rental-screening-and-how-landlords-reduce-the-risk">Royal York PM · 安省伪造文件现状</a></li>
+    <li><a href="https://www.ocrolus.com/blog/ai-document-fraud-tenant-screening/">Ocrolus · AI 生成文件对筛查的影响</a></li>
+  </ul>
+  <div class="foot">Stayloop 一列依据 2026-09-04 生产代码与 CLAUDE.md；竞品数据均为其公开页面所述，未做账号内验证。liv.rent 与 TurboTenant 官方定价页拒绝抓取，数字取自其博客与第三方评测。</div>
+</div>

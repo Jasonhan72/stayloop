@@ -1486,6 +1486,17 @@ export default function ScreenPage() {
   const needsAccount = !authLoading && (!landlord || landlord.isAnonymous)
 
   const [plan, setPlan] = useState<'free' | 'pro' | 'team'>('free')
+  // Per-applicant unlock (2026-09-04): a free landlord can pay once for
+  // Pro-level checks on ONE screening (or hold prepaid credits). The server
+  // gates deep-check on screenings.unlocked_at / consume_unlock_credit; this
+  // state only decides which button the landlord sees.
+  const [unlockCredits, setUnlockCredits] = useState(0)
+  const [unlocked, setUnlocked] = useState(false)
+  const [unlockOpen, setUnlockOpen] = useState(false)
+  const [unlockBusy, setUnlockBusy] = useState<null | 'landlord' | 'tenant'>(null)
+  const [tenantPayLink, setTenantPayLink] = useState<string | null>(null)
+  const [tenantPayEmail, setTenantPayEmail] = useState('')
+  const deepLinkHandledRef = useRef(false)
   // Tier is derived from the user's plan — no manual toggle on screen page.
   const tier: 'free' | 'pro' = (plan === 'pro' || plan === 'team') ? 'pro' : 'free'
 
@@ -1587,6 +1598,22 @@ export default function ScreenPage() {
     if (landlord) {
       loadHistory()
       loadPlan()
+      // Return from the unlock checkout: ?screening=<id>&unlocked=1 reopens
+      // that screening; the webhook has (or is about to have) stamped
+      // unlocked_at, so the deep-check button goes straight to "run".
+      if (!deepLinkHandledRef.current && typeof window !== 'undefined') {
+        deepLinkHandledRef.current = true
+        const qs = new URLSearchParams(window.location.search)
+        const sid = qs.get('screening')
+        if (sid && /^[0-9a-f-]{36}$/i.test(sid)) {
+          loadPastScreening(sid).then(() => { if (qs.get('unlocked') === '1') setUnlocked(true) })
+        } else if (qs.get('unlocked') === '1') {
+          loadPlan()
+        }
+        if (qs.has('screening') || qs.has('unlocked')) {
+          window.history.replaceState(null, '', window.location.pathname)
+        }
+      }
     }
   }, [landlord])
 
@@ -1604,11 +1631,14 @@ export default function ScreenPage() {
     ].filter(Boolean).join(',')
     const { data } = await supabase
       .from('landlords')
-      .select('plan')
+      .select('plan, unlock_credits')
       .or(conditions)
       .limit(1)
     if (data?.[0]?.plan) {
       setPlan(data[0].plan as 'free' | 'pro' | 'team')
+    }
+    if (typeof data?.[0]?.unlock_credits === 'number') {
+      setUnlockCredits(data[0].unlock_credits as number)
     }
   }
 
@@ -1639,9 +1669,11 @@ export default function ScreenPage() {
   }
 
   async function runDeepCheck(manualEmployer?: string) {
-    // Gate: only PRO users can run deep check
-    if (plan !== 'pro' && plan !== 'team') {
-      startProUpgrade()
+    // Gate: Pro plan, an unlocked screening, or a prepaid credit (which the
+    // server spends atomically). Otherwise offer the one-time unlock.
+    const proNow = plan === 'pro' || plan === 'team' || unlocked
+    if (!proNow && unlockCredits <= 0) {
+      setUnlockOpen(true)
       return
     }
     if (!result || deepChecking) return
@@ -1710,6 +1742,8 @@ export default function ScreenPage() {
           Authorization: `Bearer ${session?.access_token || ''}`,
         },
         body: JSON.stringify({
+          // Lets the server apply a per-screening unlock / spend a credit.
+          screening_id: result.screening_id || viewingHistoryId || undefined,
           employer_names,
           applicant_name,
           applicant_address: firstOr(cross.addresses),
@@ -1766,6 +1800,11 @@ export default function ScreenPage() {
 
       setDeepCheckResult(data)
       setResult(prev => prev ? { ...prev, deep_check_result: data } : prev)
+      if (plan !== 'pro' && plan !== 'team' && !unlocked) {
+        // A prepaid credit was spent server-side on this screening.
+        setUnlocked(true)
+        setUnlockCredits(c => Math.max(0, c - 1))
+      }
     } catch (e: any) {
       alert(lang === 'zh'
         ? `深度检查失败: ${e.message}`
@@ -1878,6 +1917,7 @@ export default function ScreenPage() {
       setFreshResult(false) // history loads render instantly, no typewriter
       setResult(reconstructed)
       setViewingHistoryId(id)
+      setUnlocked(!!(data as { unlocked_at?: string | null }).unlocked_at)
       // Sync arm's-length card state so previously-run deep checks render
       setDeepCheckResult(data.deep_check_result ?? null)
       // Scroll to top so the user lands on the report
@@ -2117,6 +2157,7 @@ export default function ScreenPage() {
     setFiles([])
     setFileKinds({})
     setResult(null)
+    setUnlocked(false)
     setDeepCheckResult(null)
     setProgress(0)
     // progressLabel was replaced by the real-stage pipeline state
@@ -2160,6 +2201,7 @@ export default function ScreenPage() {
     }
     setAnalyzing(true)
     setResult(null)
+    setUnlocked(false)
     setError(null)
     setFreshResult(false)
     setProgress(0)
@@ -2469,7 +2511,8 @@ export default function ScreenPage() {
       await new Promise(r => setTimeout(r, 450))
 
       setFreshResult(true)
-      setResult({ ...(data as ScoreResult), file_count: files.length })
+      setResult({ ...(data as ScoreResult), screening_id: (data as ScoreResult).screening_id || screeningId, file_count: files.length })
+      setUnlocked(false)
       setLastDetectedKinds(Array.isArray((data as ScoreResult).detected_document_kinds) ? (data as ScoreResult).detected_document_kinds! : [])
       loadHistory()
     } catch (e: any) {
@@ -2532,6 +2575,7 @@ export default function ScreenPage() {
   }
 
   const isPro = plan === 'pro' || plan === 'team'
+  const effectivePro = isPro || unlocked
 
   // Flags come from the AI's actual analysis of this specific applicant
   // (backend returns flags[] with text_en / text_zh per flag). We only
@@ -3384,6 +3428,41 @@ export default function ScreenPage() {
             )}
 
             {/* Deep Check — Arm's-Length Employment Verification */}
+            {unlockOpen && (
+              <UnlockModal
+                lang={lang}
+                busy={unlockBusy}
+                tenantLink={tenantPayLink}
+                tenantEmail={tenantPayEmail}
+                onTenantEmail={setTenantPayEmail}
+                onClose={() => { setUnlockOpen(false); setTenantPayLink(null) }}
+                onPro={() => { setUnlockOpen(false); startProUpgrade() }}
+                onUnlock={async (payer) => {
+                  setUnlockBusy(payer)
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession()
+                    if (!session?.access_token) throw new Error(lang === 'zh' ? '请先登录' : 'not signed in')
+                    const res = await fetch('/api/stripe/unlock', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+                      body: JSON.stringify({
+                        screening_id: result?.screening_id || viewingHistoryId || undefined,
+                        payer,
+                        tenant_email: payer === 'tenant' && tenantPayEmail ? tenantPayEmail : undefined,
+                      }),
+                    })
+                    const data = await res.json()
+                    if (!res.ok || !data.url) throw new Error(data.error || 'unlock failed')
+                    if (payer === 'landlord') { window.location.href = data.url; return }
+                    setTenantPayLink(data.url)
+                  } catch (e: any) {
+                    alert((lang === 'zh' ? '解锁失败：' : 'Unlock failed: ') + (e?.message || 'unknown'))
+                  } finally {
+                    setUnlockBusy(null)
+                  }
+                }}
+              />
+            )}
             <div className="sl-card" style={{ background: 'var(--bg-card)', border: `1px solid ${deepCheckResult?.overall_risk === 'high' ? 'rgba(220, 38, 38, 0.4)' : deepCheckResult?.overall_risk === 'medium' ? 'rgba(245, 158, 11, 0.4)' : 'var(--border-subtle)'}`, backdropFilter: 'blur(14px)', marginBottom: 18 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                 <div>
@@ -3414,11 +3493,13 @@ export default function ScreenPage() {
                           : (deepCheckStage === 0 ? '⏳ Registry lookup…' : deepCheckStage === 1 ? '⏳ Checking officers…' : '⏳ Cross-referencing…'))
                       : upgradeLoading
                         ? (lang === 'zh' ? '⏳ 跳转中…' : '⏳ Redirecting…')
-                        : isPro
+                        : effectivePro
                           ? (lang === 'zh' ? '🔍 运行深度检查' : '🔍 Run Deep Check')
-                          : (lang === 'zh' ? '🔒 升级到专业版解锁' : '🔒 Upgrade to Pro to unlock')
+                          : unlockCredits > 0
+                            ? (lang === 'zh' ? `🔍 运行深度检查（用 1 次解锁额度，剩 ${unlockCredits}）` : `🔍 Run Deep Check (uses 1 of ${unlockCredits} credits)`)
+                            : (lang === 'zh' ? '🔓 解锁本次核查 $14.99' : '🔓 Unlock this check · $14.99')
                     }
-                    {!isPro && (
+                    {!effectivePro && unlockCredits <= 0 && (
                       <span style={{ fontSize: 9, opacity: 0.85, padding: '1px 5px', background: 'rgba(255,255,255,0.2)', borderRadius: 3 }}>
                         {planLabel('pro', lang)}
                       </span>
@@ -3884,6 +3965,91 @@ export default function ScreenPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+
+// One-time per-applicant unlock chooser (2026-09-04). Three doors: the
+// landlord pays now, the landlord forwards a Stripe link for the applicant to
+// pay, or the landlord upgrades to Pro. Copy is inline like the rest of this
+// page (lang ternaries), not i18n keys.
+function UnlockModal({ lang, busy, tenantLink, tenantEmail, onTenantEmail, onClose, onPro, onUnlock }: {
+  lang: string
+  busy: null | 'landlord' | 'tenant'
+  tenantLink: string | null
+  tenantEmail: string
+  onTenantEmail: (v: string) => void
+  onClose: () => void
+  onPro: () => void
+  onUnlock: (payer: 'landlord' | 'tenant') => void
+}) {
+  const zh = lang === 'zh'
+  const [copied, setCopied] = useState(false)
+  return (
+    <div role="dialog" aria-modal="true" onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(23,23,23,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ width: '100%', maxWidth: 440, background: '#fff', borderRadius: 16, padding: '22px 22px 18px', boxShadow: '0 24px 64px -16px rgba(0,0,0,0.35)' }}>
+        <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.01em' }}>
+          {zh ? '解锁这位申请人的深度核查' : 'Unlock deep checks for this applicant'}
+        </div>
+        <div style={{ fontSize: 12.5, color: '#71717A', marginTop: 4, lineHeight: 1.5 }}>
+          {zh
+            ? '一次性 CA$14.99，只对本次筛查生效：公司注册交叉核查 · 董事/股东比对 · 关联关系识别。身份、银行流水、征信直连上线后自动包含。'
+            : 'One-time CA$14.99 for this screening only: company-registry cross-check · director matching · related-party detection. ID, bank and credit direct verification are included as they launch.'}
+        </div>
+
+        {!tenantLink ? (
+          <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
+            <button onClick={() => onUnlock('landlord')} disabled={busy !== null}
+              style={{ padding: '11px 14px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#047857,#065F46)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>
+              {busy === 'landlord' ? (zh ? '跳转 Stripe…' : 'Redirecting…') : (zh ? '我来付 · $14.99' : 'I’ll pay · $14.99')}
+            </button>
+            <div style={{ border: '1px solid #E0DACE', borderRadius: 10, padding: '10px 12px' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700 }}>{zh ? '让申请人付' : 'Ask the applicant to pay'}</div>
+              <div style={{ fontSize: 11.5, color: '#71717A', margin: '2px 0 8px' }}>
+                {zh ? '生成一条 24 小时有效的付款链接，发给申请人；付完解锁自动落到本次筛查。' : 'Generates a 24-hour Stripe link to forward; once paid, the unlock lands on this screening automatically.'}
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input type="email" value={tenantEmail} onChange={e => onTenantEmail(e.target.value)}
+                  placeholder={zh ? '申请人邮箱（可选，预填收据）' : 'Applicant email (optional, prefills receipt)'}
+                  style={{ flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: 8, border: '1px solid #E0DACE', fontSize: 13 }} />
+                <button onClick={() => onUnlock('tenant')} disabled={busy !== null}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #E0DACE', background: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}>
+                  {busy === 'tenant' ? (zh ? '生成中…' : 'Creating…') : (zh ? '生成链接' : 'Create link')}
+                </button>
+              </div>
+            </div>
+            <button onClick={onPro}
+              style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #E0DACE', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', color: '#3F3F46' }}>
+              {zh ? '多套房？升级 Pro $29/月，不限次数' : 'More than one property? Pro $29/mo, unlimited'}
+            </button>
+          </div>
+        ) : (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700 }}>{zh ? '付款链接已生成（24 小时内有效）' : 'Payment link ready (valid 24 hours)'}</div>
+            <div style={{ marginTop: 8, padding: '9px 10px', borderRadius: 8, background: '#F6F3EA', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, wordBreak: 'break-all', color: '#3F3F46' }}>{tenantLink}</div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button onClick={async () => { try { await navigator.clipboard.writeText(tenantLink); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch {} }}
+                style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: 'none', background: '#047857', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                {copied ? (zh ? '已复制 ✓' : 'Copied ✓') : (zh ? '复制链接' : 'Copy link')}
+              </button>
+              <a href={`mailto:${tenantEmail || ''}?subject=${encodeURIComponent(zh ? 'Stayloop 租客筛查 · 核查费用付款链接' : 'Stayloop screening · verification payment link')}&body=${encodeURIComponent(tenantLink)}`}
+                style={{ flex: 1, textAlign: 'center', padding: '10px 12px', borderRadius: 10, border: '1px solid #E0DACE', background: '#fff', fontWeight: 700, fontSize: 13, color: '#3F3F46', textDecoration: 'none' }}>
+                {zh ? '用邮件发送' : 'Send by email'}
+              </a>
+            </div>
+            <div style={{ fontSize: 11.5, color: '#71717A', marginTop: 10, lineHeight: 1.5 }}>
+              {zh ? '申请人付款后，回到这条筛查记录即可运行深度核查。' : 'After the applicant pays, reopen this screening to run the deep check.'}
+            </div>
+          </div>
+        )}
+
+        <button onClick={onClose} style={{ marginTop: 12, background: 'none', border: 'none', color: '#71717A', fontSize: 12.5, cursor: 'pointer', padding: 4 }}>
+          {zh ? '暂不' : 'Not now'}
+        </button>
+      </div>
     </div>
   )
 }

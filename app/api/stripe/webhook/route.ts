@@ -23,6 +23,11 @@ export const runtime = 'edge'
  *           customer.subscription.created
  *           customer.subscription.updated
  *           customer.subscription.deleted
+ *
+ * Idempotency: subscription handlers write fixed values (replay-safe). The
+ * per-applicant unlock handler INCREMENTS a credit, so it goes through the
+ * stripe_events ledger first — a redelivered event is acknowledged, not
+ * re-credited.
  */
 export async function POST(req: NextRequest) {
   const sig = req.headers.get('stripe-signature')
@@ -66,15 +71,53 @@ export async function POST(req: NextRequest) {
   )
 
   // Stripe retries a delivery until it gets a 2xx, so every handler below must
-  // be safe to run twice on the same event. Today they all are — each one is an
-  // .update() to a fixed value, so a replay writes the identical row. There is
-  // deliberately no event-id ledger; if a handler is ever added that INSERTS,
-  // increments, transfers funds or sends mail, it needs its own idempotency key
-  // (or this route needs that ledger) before it ships.
+  // be safe to run twice on the same event. The subscription handlers are
+  // .update()s to fixed values, so a replay writes the identical row. The
+  // unlock handler increments a credit and therefore records event.id in
+  // stripe_events first (unique violation = already processed). Any future
+  // handler that INSERTS, increments, transfers funds or sends mail must use
+  // that ledger the same way.
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
+
+        // Per-applicant unlock (one-time payment, /api/stripe/unlock).
+        if (session.metadata?.kind === 'unlock') {
+          const landlordId = session.metadata.landlord_id as string | undefined
+          const screeningId = (session.metadata.screening_id as string | undefined) || null
+          const payer = session.metadata.payer === 'tenant' ? 'tenant' : 'landlord'
+          if (!landlordId) {
+            console.warn('unlock session missing landlord_id', session.id)
+            break
+          }
+          // Ledger first: a replayed delivery must not credit twice.
+          const { error: ledgerErr } = await admin
+            .from('stripe_events')
+            .insert({ id: event.id, type: event.type })
+          if (ledgerErr) {
+            if ((ledgerErr as { code?: string }).code === '23505') break // already processed
+            throw ledgerErr
+          }
+          if (screeningId) {
+            await admin
+              .from('screenings')
+              .update({ unlocked_at: new Date().toISOString(), unlock_paid_by: payer })
+              .eq('id', screeningId)
+              .is('unlocked_at', null)
+          } else {
+            const { data: row } = await admin
+              .from('landlords')
+              .select('unlock_credits')
+              .eq('id', landlordId)
+              .maybeSingle()
+            await admin
+              .from('landlords')
+              .update({ unlock_credits: ((row?.unlock_credits as number | null) ?? 0) + 1 })
+              .eq('id', landlordId)
+          }
+          break
+        }
 
         // Referral-fee payments (Connect commission engine) are tagged with
         // metadata.kind by /api/stripe/connect/settle. Stamp the payment

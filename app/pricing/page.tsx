@@ -75,7 +75,8 @@ const PLANS: RolePlan[] = [
         includesLabel: { zh: '包含:', en: 'Included:' },
         features: [
           { zh: '1 套房源', en: '1 listing' },
-          { zh: 'AI 摘要评分', en: 'AI summary scoring' },
+          { zh: '每月 5 次租客筛查（含取证与信用分析）', en: '5 tenant screenings a month (forensics + credit analysis included)' },
+          { zh: '深度核查按次解锁 $14.99，可让申请人付', en: 'Deep checks unlock per applicant at $14.99 — the applicant can pay' },
           { zh: '接收申请 + 看房意向', en: 'Applications + showing intents' },
           { zh: '在线收租，不抽流水', en: 'Online rent collection, no cut' },
         ],
@@ -324,6 +325,7 @@ export default function PricingPage() {
               { q: { zh: '经纪订阅包含什么?', en: 'What does the agent subscription include?' }, a: { zh: '日程编排、客户管理、RECO 合规提醒等全套工具。免费档 5 个客户/月，Pro 无限客户。不抽任何佣金。', en: 'The full toolset: scheduling, client management, RECO compliance reminders. Free tier is 5 clients/month; Pro is unlimited. No commission cut.' } },
               { q: { zh: '为什么不收带看费、不抽租金?', en: 'Why no showing fees and no rent skim?' }, a: { zh: '我们只收订阅费。租金流水一分不抽，租客也零负担。', en: 'We only charge subscriptions. Nothing is taken from the rent, and tenants pay nothing.' } },
               { q: { zh: '房东免费档够用吗?', en: 'Is the landlord free tier enough?' }, a: { zh: '一套房够用：发布房源、收申请、AI 评分、在线收租都在免费档。多套房或要完整 AI Agent 再升级。', en: 'For one property, yes: listing, applications, AI scoring and rent collection are all in the free tier. Upgrade when you have more properties or want the full AI agent.' } },
+              { q: { zh: '只筛一两个人，非要订阅吗?', en: 'Screening one or two applicants — do I need a subscription?' }, a: { zh: '不用。免费档每月 5 次筛查；只有深度核查（公司注册交叉核查、董事比对、关联关系识别，以及陆续上线的身份 / 银行 / 征信直连）需要解锁——单个申请人 $14.99 一次性，付款链接可以直接发给申请人由他付。多套房再考虑 Pro。', en: 'No. The free tier includes 5 screenings a month. Only deep checks (company-registry cross-check, director matching, related-party detection, and the ID / bank / credit direct verification as it launches) need an unlock — $14.99 one-time per applicant, and you can send the payment link to the applicant. Pro is for landlords with several properties.' } },
             ].map((f) => (
               <div key={f.q.zh} className="sl-card p-5">
                 <h4 className="text-[15px] font-bold">{f.q[lang]}</h4>

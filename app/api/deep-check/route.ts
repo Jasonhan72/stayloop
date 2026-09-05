@@ -340,7 +340,7 @@ function dedupeStrings(list: string[]): string[] {
  *
  * Returns null when the caller is authorized; otherwise a Response to return.
  */
-async function enforceProGate(req: Request): Promise<Response | null> {
+async function enforceProGate(req: Request, screeningId: string | null): Promise<Response | null> {
   const rawAuth = req.headers.get('authorization') || ''
   const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
   if (!authHeader) {
@@ -384,25 +384,41 @@ async function enforceProGate(req: Request): Promise<Response | null> {
   }
 
   const plan = (landlord?.plan as string | undefined) || 'free'
-  if (plan !== 'pro' && plan !== 'team') {
-    return bad(
-      'Deep check requires a Pro subscription',
-      '深度检查为 Pro 功能，请先升级',
-      403,
-    )
+  if (plan === 'pro' || plan === 'team') return null  // authorized by subscription
+
+  // Per-applicant unlock (2026-09-04): a free landlord may have paid a
+  // one-time unlock for THIS screening, or hold a prepaid credit that the
+  // consume_unlock_credit RPC spends atomically (ownership checked inside).
+  if (screeningId) {
+    const { data: s } = await rlsClient
+      .from('screenings')
+      .select('unlocked_at')
+      .eq('id', screeningId)
+      .maybeSingle()
+    if (s?.unlocked_at) return null
+    const { data: spent } = await rlsClient.rpc('consume_unlock_credit', { p_screening_id: screeningId })
+    if (spent === true) return null
   }
 
-  return null  // authorized
+  return bad(
+    'Deep check requires a Pro subscription or a one-time applicant unlock',
+    '深度检查需要 Pro 订阅，或为本次筛查购买单次解锁',
+    403,
+  )
 }
 
 export async function POST(req: Request) {
   const t0 = Date.now()
   try {
-    // Enforce PRO plan server-side before any expensive lookups
-    const gate = await enforceProGate(req)
-    if (gate) return gate
-
     const body = (await req.json().catch(() => ({}))) as Partial<DeepCheckPayload> & { screening_id?: string }
+
+    // Enforce PRO plan (or a per-applicant unlock) server-side before any
+    // expensive lookups. The body is read first only to learn which
+    // screening the unlock would apply to.
+    const gateScreeningId = typeof body.screening_id === 'string' && /^[0-9a-f-]{36}$/i.test(body.screening_id)
+      ? body.screening_id : null
+    const gate = await enforceProGate(req, gateScreeningId)
+    if (gate) return gate
 
     // Resolve payload: prefer structured body; fall back to screening_id lookup.
     let payload: DeepCheckPayload

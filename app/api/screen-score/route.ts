@@ -726,6 +726,11 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
       }
     }
 
+    // Per-applicant unlock (2026-09-04): a paid unlock gives THIS screening
+    // Pro-level treatment — it neither counts against the free monthly
+    // allowance nor stays on the free court tier.
+    if (plan === 'free' && screening.unlocked_at) plan = 'pro'
+
     // ---- Quota enforcement for free plan ----
     if (plan === 'free') {
       const now = new Date()

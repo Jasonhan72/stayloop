@@ -463,6 +463,27 @@ best-effort 取，失败不影响投递）。portal 路由 body 接 `{return, fl
 `after_completion` 回跳同页。`.or(id,auth_id)` 双行问题统一走 `pickLandlordRow`
 （优先 auth_id 行，webhook 写的是它），不再 `.limit(1)`。
 
+**按申请人单次解锁（2026-09-04，竞品对照 P0-1）**：免费档本来就有**每月 5 次筛查**
+（含取证与信用分析；`screen-score` 按 `landlords.plan` 计月配额），Pro 真正锁住的是
+深度核查（`/api/deep-check` 的 `enforceProGate`）与不限次数。竞品按次 $17–45 且可
+转给租客付，所以加了一扇不动订阅的门：
+
+- Stripe live 一次性价 `NEXT_PUBLIC_STRIPE_UNLOCK_PRICE_ID`（CA$14.99，产品
+  `prod_VCYjEnThGXgTd2`，`.env.local` 构建内联）。身份/银行/征信直连上线后，这个 SKU
+  就是「验证包」，届时建新价换 env 即可（$34.99 是对照报告里的建议）
+- `/api/stripe/unlock`：`{screening_id?, payer:'landlord'|'tenant', tenant_email?}` →
+  `mode:'payment'`，metadata `kind='unlock'`。房东付=复用其 Stripe customer；
+  租客付=游客结账、24 小时过期、链接由房东转发，解锁仍落在房东的筛查上
+- webhook：`kind='unlock'` 先写 `stripe_events` 账本（唯一冲突=已处理，**这是本路由
+  第一个非幂等处理器**），再写 `screenings.unlocked_at/unlock_paid_by` 或
+  `landlords.unlock_credits += 1`（无 screening_id 时的预付额度）
+- 消费：`deep-check` 门 = plan pro/team **或** 该 screening 已 `unlocked_at` **或**
+  RPC `consume_unlock_credit(screening_id)`（SECURITY DEFINER，校验归属、原子扣 1 并
+  盖 `unlocked_at`）。`screen-score` 对 `unlocked_at` 的筛查按 pro 处理（不计免费月配额）
+- 筛查页：免费用户点深度核查弹 `UnlockModal`（我来付 / 生成租客付款链接 / 升级 Pro）；
+  回跳 `?screening=<id>&unlocked=1` 自动重开该记录。迁移
+  `20260904_applicant_unlock.sql`
+
 ## Terminology(2026-08-03 定稿)
 
 产品动作一律叫「**租客筛查 / 筛查**」(英文 Screening 不变),不叫「背调/背景调查」。依据:O. Reg. 290/98 与 OHRC 租房政策的语汇是 tenant screening/selection(许可的工具=信用参考/租史/信用检查/收入信息);而「背景调查」一词指向安省《消费者报告法》所规管的含 personal information(品行/声誉/生活方式)的 consumer report——报告法务节明确声明我们**不是**该法意义上的报告机构,产品名不能与免责声明打架。`tests/complianceCopy.spec.ts` 有语料守卫:UI 代码出现 背调/背景调查/背景核查/背景审查 即红。「筛选」保留给房源过滤器语境。
