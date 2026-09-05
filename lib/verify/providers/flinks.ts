@@ -18,31 +18,55 @@ export function flinksConfig() {
   return { instance, customerId, apiBase, sandbox }
 }
 
+// Credentials Flinks issues per instance (Dashboard → Settings → instance):
+//   FLINKS_AUTH_KEY   — `flinks-auth-key`, only used to mint the short-lived
+//                       Authorize Token that Flinks Connect has required in
+//                       its URL since October 2024
+//   FLINKS_API_SECRET — `x-api-key`, used on the aggregation endpoints
+//                       (Authorize, GetAccountsDetail …)
+export function flinksConfigured(): boolean {
+  return !!(process.env.FLINKS_AUTH_KEY && process.env.FLINKS_API_SECRET)
+}
+
+// Short-lived token that must ride in the Connect URL (`authorizeToken`).
+export async function flinksGenerateAuthorizeToken(): Promise<string> {
+  const { apiBase, customerId } = flinksConfig()
+  const res = await fetch(`${apiBase}/v3/${customerId}/BankingServices/GenerateAuthorizeToken`, {
+    method: 'POST', signal: AbortSignal.timeout(15000),
+    headers: { 'Content-Type': 'application/json', 'flinks-auth-key': process.env.FLINKS_AUTH_KEY || '' },
+    body: '{}',
+  })
+  const data = await res.json().catch(() => ({})) as { Token?: string; token?: string; HttpStatusCode?: number; Message?: string }
+  const token = data.Token || data.token
+  if (!res.ok || !token) throw new Error(`flinks authorize-token ${res.status} ${data.HttpStatusCode ?? ''}: ${data.Message || ''}`.trim())
+  return token
+}
+
 // Connect iframe URL. `demo=true` only makes sense on the sandbox instance.
-export function flinksConnectUrl(): string {
+// redirectUrl must be on a domain Flinks has whitelisted for this instance;
+// OAuth institutions land there with ?loginId=… appended.
+export function flinksConnectUrl(opts: { authorizeToken: string; redirectUrl: string; lang?: 'en' | 'fr' }): string {
   const { instance, sandbox } = flinksConfig()
   const explicit = process.env.NEXT_PUBLIC_FLINKS_CONNECT_URL
   const base = explicit || `https://${instance}-iframe.private.fin.ag/v2/`
   const u = new URL(base)
   if (sandbox) u.searchParams.set('demo', 'true')
+  u.searchParams.set('authorizeToken', opts.authorizeToken)
+  u.searchParams.set('redirectUrl', opts.redirectUrl)
   u.searchParams.set('daysOfTransactions', 'Days90')
   u.searchParams.set('consentEnable', 'true')
+  u.searchParams.set('customerName', 'Stayloop')
   u.searchParams.set('accountSelectorEnable', 'true')
-  u.searchParams.set('language', 'en')
+  u.searchParams.set('accountSelectorMultiple', 'true')
+  u.searchParams.set('language', opts.lang || 'en')
+  u.searchParams.set('theme', 'light')
   return u.toString()
 }
 
-// The public toolbox sandbox authenticates with the bearer token Flinks
-// publishes on its own help page ("How to test our APIs"); production uses
-// the credentials Flinks issues with the contract.
-const SANDBOX_BEARER = 'O2r9FLhO7PBqz9L'
-
 function headers(): Record<string, string> {
-  const { sandbox } = flinksConfig()
   const h: Record<string, string> = { 'Content-Type': 'application/json' }
-  const bearer = process.env.FLINKS_BEARER || (sandbox ? SANDBOX_BEARER : '')
-  if (bearer) h.Authorization = `Bearer ${bearer}`
-  if (process.env.FLINKS_AUTH_KEY) h['flinks-auth-key'] = process.env.FLINKS_AUTH_KEY
+  if (process.env.FLINKS_API_SECRET) h['x-api-key'] = process.env.FLINKS_API_SECRET
+  if (process.env.FLINKS_BEARER) h.Authorization = `Bearer ${process.env.FLINKS_BEARER}`
   return h
 }
 

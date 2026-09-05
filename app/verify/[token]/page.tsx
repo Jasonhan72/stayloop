@@ -54,17 +54,29 @@ export default function VerifyPage() {
 
   useEffect(() => { if (token) reload() }, [token, reload])
 
-  // Returning from Veriff (?step=id&returned=1): the decision arrives by
-  // webhook a little later — poll briefly so the card updates on its own.
+  // Returning from a provider (?returned=1):
+  //   · Veriff: the decision arrives by webhook a little later — poll briefly
+  //   · Flinks OAuth institutions land here with ?loginId=… — exchange it
   useEffect(() => {
     if (typeof window === 'undefined') return
     const qs = new URLSearchParams(window.location.search)
     if (qs.get('returned') !== '1') return
+    const loginId = qs.get('loginId')
     window.history.replaceState(null, '', window.location.pathname)
+    if (loginId && /^[0-9a-f-]{20,64}$/i.test(loginId) && !bankHandled.current) {
+      bankHandled.current = true
+      setBusy('bank')
+      api('/bank', { login_id: loginId }).then(({ res, data }) => {
+        if (!res.ok) setErr(zh ? `银行数据读取失败：${data?.detail || data?.error || res.status}` : `Bank read failed: ${data?.detail || data?.error || res.status}`)
+        if (data?.ok) setView(data as View)
+        setBusy(null)
+      })
+      return
+    }
     let n = 0
     const t = setInterval(() => { n++; reload(); if (n >= 10) clearInterval(t) }, 4000)
     return () => clearInterval(t)
-  }, [reload])
+  }, [reload, api, zh])
 
   // Flinks Connect posts its lifecycle events to the parent window; REDIRECT
   // carries the loginId we exchange server-side.
@@ -98,7 +110,7 @@ export default function VerifyPage() {
 
   async function start(step: VerifyStepKey) {
     setBusy(step); setErr(null)
-    const { res, data } = await api('/start', { step })
+    const { res, data } = await api('/start', { step, lang: zh ? 'en' : 'en' })
     if (!res.ok) {
       setErr(data?.error === 'not_configured'
         ? (zh ? '这一项尚未开通。' : 'This step is not available yet.')

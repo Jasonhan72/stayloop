@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isVerifyToken } from '@/lib/verify/token'
 import { adminClient, isExpired, loadRequest, providerAvailability, writeStep } from '@/lib/verify/store'
 import { veriffCreateSession } from '@/lib/verify/providers/veriff'
-import { flinksConfig, flinksConnectUrl } from '@/lib/verify/providers/flinks'
+import { flinksConfig, flinksConnectUrl, flinksGenerateAuthorizeToken } from '@/lib/verify/providers/flinks'
 import type { VerifyStepKey } from '@/lib/verify/types'
 
 export const runtime = 'edge'
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
     if (isExpired(row)) return NextResponse.json({ ok: false, error: 'expired' }, { status: 410 })
     if (!row.consent) return NextResponse.json({ ok: false, error: 'consent_required' }, { status: 403 })
 
-    const body = (await req.json().catch(() => ({}))) as { step?: string }
+    const body = (await req.json().catch(() => ({}))) as { step?: string; lang?: string }
     const step = body.step as VerifyStepKey
     if (!['id', 'bank', 'credit'].includes(step)) return NextResponse.json({ ok: false, error: 'bad_step' }, { status: 400 })
     const avail = providerAvailability()[step]
@@ -42,8 +42,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
     }
     if (step === 'bank') {
       const cfg = flinksConfig()
+      const authorizeToken = await flinksGenerateAuthorizeToken()
+      const lang = body && (body as { lang?: string }).lang === 'fr' ? 'fr' : 'en'
+      const iframeUrl = flinksConnectUrl({
+        authorizeToken,
+        redirectUrl: `${siteUrl}/verify/${token}?step=bank&returned=1`,
+        lang,
+      })
       await writeStep(admin, row, 'bank', { status: 'started', provider: 'flinks', sandbox: cfg.sandbox })
-      return NextResponse.json({ ok: true, iframe_url: flinksConnectUrl(), sandbox: cfg.sandbox })
+      return NextResponse.json({ ok: true, iframe_url: iframeUrl, sandbox: cfg.sandbox })
     }
     // credit: the applicant fills the identity form on the page and the page
     // posts it to /credit — nothing to start here beyond confirming availability.

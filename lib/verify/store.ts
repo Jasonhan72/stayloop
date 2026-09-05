@@ -6,7 +6,7 @@ import type {
 } from './types'
 import { CONSENT_VERSION } from './consent'
 import { veriffConfigured } from './providers/veriff'
-import { flinksConfig } from './providers/flinks'
+import { flinksConfig, flinksConfigured } from './providers/flinks'
 import { creditProvider, creditProviderIsSandbox } from './providers/equifax'
 
 export function adminClient(): SupabaseClient {
@@ -35,7 +35,7 @@ export function providerAvailability(): Record<VerifyStepKey, { available: boole
     // Flinks needs issued credentials even on the public toolbox instance
     // (the tokens on its help page are stale) — without them the step would
     // be clickable but always fail, so it is "未开通" instead.
-    bank: { available: !!(process.env.FLINKS_BEARER || process.env.FLINKS_AUTH_KEY), provider: 'flinks', sandbox: f.sandbox },
+    bank: { available: flinksConfigured(), provider: 'flinks', sandbox: f.sandbox },
     credit: {
       available: !!creditProvider(),
       provider: creditProvider(),
