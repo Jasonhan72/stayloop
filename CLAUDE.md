@@ -98,6 +98,12 @@ OPENAI_API_KEY              # optional · 后台模型配置用（OpenAI GPT-5.4
 GEMINI_API_KEY              # optional · 后台模型配置用（Google Gemini 3.7 Flash / 3.1 Pro，turn 槽位；AI Studio key，走 generativelanguage .../v1beta/openai 兼容端点）
 DASHSCOPE_API_KEY           # optional · 后台模型配置用（阿里 DashScope/Qwen）
 ZHIPU_API_KEY               # optional · 后台模型配置用（智谱 GLM）
+VERIFF_API_KEY              # optional · 申请人身份核验（Veriff 托管会话）。缺则 /verify 页身份步显示「未开通」
+VERIFF_SECRET_KEY           # 同上 · 决策 webhook 的 HMAC-SHA256 共享密钥（/api/verify/webhook/veriff）
+FLINKS_BEARER               # optional · 申请人银行直连（Flinks）。缺则银行步「未开通」。沙箱：FLINKS_INSTANCE=toolbox（默认）
+FLINKS_AUTH_KEY             # 同上（Flinks 发的另一种凭证；两者任一即可）
+FLINKS_INSTANCE / FLINKS_CUSTOMER_ID / FLINKS_API_BASE / NEXT_PUBLIC_FLINKS_CONNECT_URL   # 生产实例；不设=公共 toolbox 沙箱（结果带 sandbox:true，评分不采信）
+CREDIT_PULL_PROVIDER        # optional · 征信本人授权直拉供应商（尚未签约；不设=征信步「未开通」）
 ```
 
 Same vars are set in Cloudflare Pages dashboard for production.
@@ -483,6 +489,19 @@ best-effort 取，失败不影响投递）。portal 路由 body 接 `{return, fl
 - 筛查页：免费用户点深度核查弹 `UnlockModal`（我来付 / 生成租客付款链接 / 升级 Pro）；
   回跳 `?screening=<id>&unlocked=1` 自动重开该记录。迁移
   `20260904_applicant_unlock.sql`
+
+**申请人本人核验链路（2026-09-04，竞品对照 P0-2 / P0-3 / P1-1；设计 `design/verification-flow-plan.md`）**：
+房东在筛查记录上生成 `/verify/<token>` 链接（`VerificationCard`，门与深度核查同一扇：
+Pro / 已解锁 / 额度，`lib/billing/access.ts hasProAccess`），申请人本人先签**版本化同意**
+（`lib/verify/consent.ts`，`v1-2026-09`，写目的/内容/谁看/保留/撤回）再逐步授权：
+身份 Veriff（托管 URL，决策 webhook 走 HMAC，只留证件末四位）、银行 Flinks Connect
+（iframe → loginId → 服务端 Authorize → GetAccountsDetail Days90 → **只存确定性摘要**：
+掩码账号、持有人、循环入账、`payroll_monthly_estimate`、NSF 次数；原始流水不落库）、
+征信（供应商未签，显示未开通）。表 `verification_requests`（房东只读自己的行，
+所有写入 service role），完成态快照进 `screenings.verification`。收入识别
+`lib/verify/income.ts` 是纯函数（`tests/verifyIncome.spec.ts`）——同信用分析层，
+**数字不出自模型**；沙箱结果 `sandbox:true` 一律不进评分。**评分与报告接入尚未做**
+（下一步：`screen-score` 读 `screenings.verification` 作为「已核验事实」块）。
 
 ## Terminology(2026-08-03 定稿)
 

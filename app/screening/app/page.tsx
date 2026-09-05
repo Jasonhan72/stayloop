@@ -3427,6 +3427,19 @@ export default function ScreenPage() {
               <ForensicsCard report={result.forensics_detail} />
             )}
 
+            {/* Applicant-authorised verification (ID · bank · credit) — 2026-09-04.
+                Same gate as deep check: Pro, an unlocked screening, or a credit. */}
+            {(result.screening_id || viewingHistoryId) && (
+              <VerificationCard
+                lang={lang}
+                screeningId={(result.screening_id || viewingHistoryId) as string}
+                tenantName={result.extracted_name || null}
+                canRun={effectivePro || unlockCredits > 0}
+                onLocked={() => setUnlockOpen(true)}
+                onUnlockedByCredit={() => { setUnlocked(true); setUnlockCredits(c => Math.max(0, c - 1)) }}
+              />
+            )}
+
             {/* Deep Check — Arm's-Length Employment Verification */}
             {unlockOpen && (
               <UnlockModal
@@ -4050,6 +4063,129 @@ function UnlockModal({ lang, busy, tenantLink, tenantEmail, onTenantEmail, onClo
           {zh ? '暂不' : 'Not now'}
         </button>
       </div>
+    </div>
+  )
+}
+
+
+// Landlord-side entry to the applicant verification link (design/verification-
+// flow-plan.md). Creates or reuses the link, shows per-step status read from
+// verification_requests (RLS: own rows), and offers copy / email.
+function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onUnlockedByCredit }: {
+  lang: string
+  screeningId: string
+  tenantName: string | null
+  canRun: boolean
+  onLocked: () => void
+  onUnlockedByCredit: () => void
+}) {
+  const zh = lang === 'zh'
+  const [row, setRow] = useState<{ token: string; status: string; steps: Record<string, { status?: string; sandbox?: boolean; result?: any }>; tenant_email: string | null; expires_at: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [email, setEmail] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function load() {
+    const { data } = await supabase
+      .from('verification_requests')
+      .select('token, status, steps, tenant_email, expires_at')
+      .eq('screening_id', screeningId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    const r = data?.[0] as typeof row | undefined
+    setRow(r ?? null)
+    if (r?.tenant_email && !email) setEmail(r.tenant_email)
+  }
+  useEffect(() => { load() // eslint-disable-line react-hooks/exhaustive-deps
+  }, [screeningId])
+
+  async function create(sendEmail: boolean) {
+    if (!canRun) { onLocked(); return }
+    setBusy(true); setErr(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error(zh ? '请先登录' : 'not signed in')
+      const res = await fetch('/api/verify/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ screening_id: screeningId, tenant_name: tenantName || undefined, tenant_email: email || undefined, send_email: sendEmail }),
+      })
+      const data = await res.json()
+      if (res.status === 403 && data.code === 'locked') { onLocked(); return }
+      if (!res.ok) throw new Error(data.error || 'failed')
+      if (data.via === 'credit') onUnlockedByCredit()
+      await load()
+    } catch (e: any) {
+      setErr(String(e?.message || 'unknown'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const url = row ? `${typeof window !== 'undefined' ? window.location.origin : ''}/verify/${row.token}` : null
+  const stepLabel = (k: string) => zh ? ({ id: '身份', bank: '银行流水', credit: '征信' } as Record<string, string>)[k] : ({ id: 'ID', bank: 'Bank', credit: 'Credit' } as Record<string, string>)[k]
+  const stStyle = (st?: string) =>
+    st === 'verified' ? { background: '#E4EEE3', color: '#065F46' }
+    : st === 'failed' ? { background: '#FEF2F2', color: '#B91C1C' }
+    : st === 'submitted' || st === 'started' ? { background: '#FEF3E2', color: '#B45309' }
+    : { background: '#F6F3EA', color: '#71717A' }
+  const stText = (st?: string) => zh
+    ? ({ verified: '已核验', failed: '未通过', submitted: '等待结果', started: '进行中', not_configured: '未开通' } as Record<string, string>)[st || ''] || '未开始'
+    : ({ verified: 'verified', failed: 'not verified', submitted: 'awaiting', started: 'in progress', not_configured: 'n/a' } as Record<string, string>)[st || ''] || 'not started'
+
+  return (
+    <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <div>
+          <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#64748B' }}>
+            {zh ? '🪪 申请人本人核验 · 身份 / 银行流水 / 征信' : '🪪 Applicant-authorised verification · ID / bank / credit'}
+          </div>
+          <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 3 }}>
+            {zh ? '发一条链接给申请人，由本人授权直连；结果作为「已核验事实」进报告，替代对文件的推断。' : 'Send the applicant one link; they authorise each source themselves. Results enter the report as verified facts, replacing document inference.'}
+          </div>
+        </div>
+        {!row && (
+          <button onClick={() => create(false)} disabled={busy}
+            style={{ padding: '8px 18px', borderRadius: 8, background: 'linear-gradient(135deg,#047857,#065F46)', color: '#fff', fontSize: 12, fontWeight: 600, border: 'none', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+            {busy ? '…' : canRun ? (zh ? '生成核验链接' : 'Create verification link') : (zh ? '🔓 解锁后邀请' : '🔓 Unlock to invite')}
+          </button>
+        )}
+      </div>
+
+      {row && url && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+            {['id', 'bank', 'credit'].map(k => {
+              const st = row.steps?.[k]?.status
+              return (
+                <span key={k} style={{ ...stStyle(st), fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999 }}>
+                  {stepLabel(k)} · {stText(st)}{row.steps?.[k]?.sandbox ? (zh ? '（沙箱）' : ' (sandbox)') : ''}
+                </span>
+              )
+            })}
+            {row.status === 'complete' && <span style={{ fontSize: 11, fontWeight: 700, color: '#065F46' }}>{zh ? '✓ 申请人已完成' : '✓ Applicant finished'}</span>}
+          </div>
+          <div style={{ padding: '8px 10px', borderRadius: 8, background: '#F6F3EA', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, wordBreak: 'break-all', color: '#3F3F46' }}>{url}</div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+            <button onClick={async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1600) } catch {} }}
+              style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: '#047857', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+              {copied ? (zh ? '已复制 ✓' : 'Copied ✓') : (zh ? '复制链接' : 'Copy link')}
+            </button>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={zh ? '申请人邮箱' : 'Applicant email'}
+              style={{ flex: 1, minWidth: 160, padding: '7px 10px', borderRadius: 8, border: '1px solid #E0DACE', fontSize: 12.5 }} />
+            <button onClick={() => create(true)} disabled={busy || !email}
+              style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #E0DACE', background: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', opacity: (busy || !email) ? 0.5 : 1 }}>
+              {zh ? '邮件发送' : 'Send by email'}
+            </button>
+            <button onClick={load} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #E0DACE', background: '#fff', fontSize: 12, cursor: 'pointer', color: '#71717A' }}>{zh ? '刷新状态' : 'Refresh'}</button>
+          </div>
+          <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 6 }}>
+            {zh ? `链接 7 天内有效（至 ${new Date(row.expires_at).toLocaleDateString('zh-CN')}）。` : `Link valid for 7 days (until ${new Date(row.expires_at).toLocaleDateString('en-CA')}).`}
+          </div>
+        </div>
+      )}
+      {err && <div style={{ marginTop: 8, fontSize: 12, color: '#DC2626', fontWeight: 600 }}>⚠ {err}</div>}
     </div>
   )
 }
