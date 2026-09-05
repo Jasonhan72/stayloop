@@ -34,6 +34,12 @@ export const SOURCES = [
     descEn: "Transcribes the applicant's own uploaded credit report (every tradeline, limit, collection) and checks authenticity markers and report freshness. Stayloop does not pull from the bureaus.",
   },
   {
+    zh: '申请人本人授权核验(身份 · 银行流水)',
+    en: 'Applicant-authorised verification (identity · bank)',
+    descZh: '房东发一条链接,申请人本人先签同意再授权:Veriff 活体 + 证件核验,Flinks 只读直连银行近 90 天流水。结果作为「已核验事实」进报告,与模型对文件的推断分栏——银行入账直接替代工资单推断。',
+    descEn: 'The landlord sends one link; the applicant signs a consent, then authorises Veriff liveness + document checks and a read-only Flinks bank connection (last 90 days). Results enter the report as verified facts, kept apart from model inference — bank deposits replace pay-stub estimates outright.',
+  },
+  {
     zh: '雇主独立性核验',
     en: "Employer arm's-length checks",
     descZh: '联邦公司注册库 + 官方 CBR/MRAS 联查:雇主是否真实存在、雇佣信签署人是否与申请人是关联方(家族公司自开收入证明是最常见的造假形态)。',
@@ -122,4 +128,18 @@ export const FAQS = [
     zh: { q: '报告可以给别人看吗?', a: '报告供房东在申请人知情同意下、为订立租约之目的使用,不得向无正当目的的第三方分发。报告内置打印版式,便于存档。' },
     en: { q: 'Can the report be shared?', a: "The report is for the landlord's use, with the applicant's knowledge and consent, for the purpose of entering a tenancy — not for distribution to third parties without a valid purpose. A print layout is built in for archiving." },
   },
+]
+
+// Side-by-side with a typical per-report screening product (the SingleKey /
+// SmartMove shape). Only claims the report itself can back; "typical" rows
+// describe what those products advertise, not a specific vendor's terms.
+export const COMPARISON = [
+  { zh: '文件取证(PDF 结构 · 生成工具指纹 · 增量修改痕迹 · CRA 扣缴复算)', en: 'Document forensics (PDF structure · generator fingerprints · edit trails · CRA deduction recomputation)', us: true, typical: false, typicalNoteZh: '一般只做字体/文本篡改扫描', typicalNoteEn: 'usually a font/text tamper scan only' },
+  { zh: '信用分析层:DTI、循环利用率、逾期信号由确定性算术得出', en: 'Credit analysis layer: DTI, revolving utilisation, delinquency signals by deterministic arithmetic', us: true, typical: false, typicalNoteZh: '报告原样呈现', typicalNoteEn: 'report shown as-is' },
+  { zh: '可解释评分:五个维度、硬门槛与证据逐条列出', en: 'Explainable score: five dimensions, hard gates and evidence itemised', us: true, typical: false, typicalNoteZh: '不打分,或黑箱分数', typicalNoteEn: 'no score, or a black-box score' },
+  { zh: 'LTB 判令目录 + 安省法院门户按姓名实际检索,注明收录窗口', en: 'LTB Order Catalogue + Ontario Courts portal searched by name, coverage window stated', us: true, typical: true, typicalNoteZh: '', typicalNoteEn: '' },
+  { zh: '申请人本人授权的身份与银行直连', en: 'Applicant-authorised identity and bank connection', us: true, typical: true, typicalNoteZh: '', typicalNoteEn: '' },
+  { zh: '征信局直连', en: 'Direct bureau pull', us: false, typical: true, typicalNoteZh: '我们转录申请人自行上传的报告;本人授权直拉筹备中', typicalNoteEn: 'we transcribe the applicant’s own report; own-authorised pull in preparation' },
+  { zh: '中英双语报告与界面', en: 'Bilingual (zh/en) report and interface', us: true, typical: false, typicalNoteZh: '', typicalNoteEn: '' },
+  { zh: '基础筛查免费(每月 5 次);深度核查按申请人 $14.99 或 Pro $29/月', en: 'Basic screening free (5/month); deep checks $14.99 per applicant or Pro $29/mo', us: true, typical: false, typicalNoteZh: '按份 $17–$45', typicalNoteEn: '$17–$45 per report' },
 ]

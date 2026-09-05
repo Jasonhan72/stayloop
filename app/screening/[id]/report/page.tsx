@@ -452,6 +452,12 @@ export default function ReportPage() {
             {zh ? 'LTB 深查' : 'LTB Deep Dive'} &rarr;
           </Link>
           <Link
+            href={`/screening/${id}/notice`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line-divider bg-white px-4 py-2 font-mono text-[12px] text-body-2 transition hover:border-line-strong"
+          >
+            {zh ? '申请人通知' : 'Applicant notice'} &rarr;
+          </Link>
+          <Link
             href={`/screening/${id}/graph`}
             className="inline-flex items-center gap-1.5 rounded-lg border border-line-divider bg-white px-4 py-2 font-mono text-[12px] text-body-2 transition hover:border-line-strong"
           >
@@ -1476,6 +1482,26 @@ export default function ReportPage() {
                       </div>
                     )
                   })}
+                </div>
+              )}
+
+              {/* LTB coverage window — stated whether or not there were hits
+                  (competitor review P1-4): "no record" only ever means "no
+                  record inside this window", and the window is five months
+                  today while Openroom holds seven years. */}
+              {ltb && (
+                <div className="mt-5 rounded-xl border px-4 py-3 text-[12.5px] leading-relaxed" style={{ borderColor: '#F3D9A4', background: '#FFFBEB', color: '#7C5A12' }}>
+                  <div className="font-mono text-[10px] font-bold uppercase tracking-wider" style={{ color: '#B45309' }}>{zh ? 'LTB 判令目录 · 收录范围' : 'LTB Order Catalogue · coverage window'}</div>
+                  <div className="mt-1">
+                    {ltb.coverage?.from && ltb.coverage?.to
+                      ? (zh
+                          ? `本次检索覆盖安省开放数据 LTB 判令目录 ${ltb.coverage.from} 至 ${ltb.coverage.to}${ltb.coverage.orders ? `（${ltb.coverage.orders.toLocaleString()} 份判令）` : ''}。该窗口之前的判令安省尚未发布，`
+                          : `This search covers the Ontario Open Data LTB Order Catalogue from ${ltb.coverage.from} to ${ltb.coverage.to}${ltb.coverage.orders ? ` (${ltb.coverage.orders.toLocaleString()} orders)` : ''}. Orders before that window have not been released by Ontario, `)
+                      : (zh ? '本次检索覆盖安省开放数据 LTB 判令目录当前已发布的范围。' : 'This search covers what the Ontario Open Data LTB Order Catalogue has released so far. ')}
+                    {ltb.as_respondent.length === 0 && ltb.as_applicant.length === 0
+                      ? (zh ? '所以「未查到」只表示该窗口内没有与申请人姓名匹配的判令，不是「从未涉诉」。更早的历史请向申请人索取前房东联系方式核实。' : 'so "no record" means no order matching the applicant’s name inside that window — not "never involved in a proceeding". For earlier history, verify with previous landlords.')
+                      : (zh ? '以下命中同样只来自该窗口。' : 'the matches below come from that window only.')}
+                  </div>
                 </div>
               )}
 

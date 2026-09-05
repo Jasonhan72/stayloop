@@ -10,7 +10,7 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useT } from '@/lib/i18n'
-import { FAQS, PRINCIPLES, SOURCES, STEPS } from './copy'
+import { COMPARISON, FAQS, PRINCIPLES, SOURCES, STEPS } from './copy'
 
 export default function LandingBody() {
   const { lang } = useT()
@@ -71,6 +71,37 @@ export default function LandingBody() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* Comparison — what the report does that a per-report product does not */}
+        <section className="mx-auto max-w-[880px] px-5 py-14">
+          <h2 className="text-[22px] font-extrabold tracking-tight">{zh ? '和按份出售的筛查报告有什么不同' : 'How this differs from a per-report screening product'}</h2>
+          <p className="mt-1 text-[13px] text-body-3">
+            {zh ? '右列描述的是加拿大与美国常见按份报告产品的一般做法,不针对任何一家。' : 'The right-hand column describes what typical per-report products in Canada and the US advertise, not any one vendor.'}
+          </p>
+          <div className="mt-6 overflow-x-auto rounded-xl border border-line-divider bg-white">
+            <table className="w-full min-w-[620px] border-collapse text-[13px]">
+              <thead>
+                <tr className="border-b border-line-divider bg-[#FDFBF6] text-left font-mono text-[10.5px] uppercase tracking-wide text-body-3">
+                  <th className="px-4 py-2.5 font-bold">{zh ? '能力' : 'Capability'}</th>
+                  <th className="px-4 py-2.5 font-bold" style={{ color: '#047857' }}>Stayloop</th>
+                  <th className="px-4 py-2.5 font-bold">{zh ? '典型按份报告' : 'Typical per-report product'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARISON.map((row) => (
+                  <tr key={row.en} className="border-b border-line-divider last:border-b-0 align-top">
+                    <td className="px-4 py-2.5 text-body-2">{zh ? row.zh : row.en}</td>
+                    <td className="px-4 py-2.5 font-semibold" style={{ color: row.us ? '#047857' : '#A1A1AA' }}>{row.us ? '✓' : '—'}</td>
+                    <td className="px-4 py-2.5 text-body-3">
+                      <span className="font-semibold" style={{ color: row.typical ? '#3F3F46' : '#A1A1AA' }}>{row.typical ? '✓' : '—'}</span>
+                      {(zh ? row.typicalNoteZh : row.typicalNoteEn) && <span className="ml-2 text-[12px]">{zh ? row.typicalNoteZh : row.typicalNoteEn}</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
 
