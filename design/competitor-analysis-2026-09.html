@@ -301,18 +301,18 @@
       <thead><tr><th>优先</th><th>事项</th><th>工期</th><th>前置 / 需要你定的事</th></tr></thead>
       <tbody>
         <tr><td class="P0">P0-1 ✓</td><td>单次核查解锁 $14.99 + 「发给申请人付」链接；Pro 留给多房源（已上线 2026-09-04）</td><td>—</td><td>直连上线后升级为验证包并重定价</td></tr>
-        <tr><td class="P0">P0-2</td><td>身份核验（Persona / Veriff）接进筛查申请流</td><td>1 周</td><td>选供应商、签约；按次成本约 $1–2</td></tr>
-        <tr><td class="P0">P0-3</td><td>银行直连收入（Flinks）→ 收入维度改为银行事实</td><td>1–2 周</td><td>Flinks 签约；租客授权文案走 PIPEDA 同意流</td></tr>
-        <tr><td class="P1">P1-1</td><td>征信直连：租客本人授权直拉（免 CRA 注册）</td><td>2–4 周</td><td><b>方向决定</b>：走租客授权，还是注册 CRA 接 Equifax 经销</td></tr>
-        <tr><td class="P1">P1-2</td><td>报告「事实 / 推断」分栏 + 申请人争议通道 + 拒绝通知模板</td><td>1–2 周</td><td>触碰筛查模块，需明确授权</td></tr>
-        <tr><td class="P1">P1-3</td><td>首页 / 定价页放取证与信用分析证据、对照表、脱敏样本报告</td><td>3–5 天</td><td>选一份可脱敏的真实报告</td></tr>
-        <tr><td class="P1">P1-4</td><td>Openroom 数据许可洽谈；报告里显性标注 LTB 覆盖窗口</td><td>标注 1 天；洽谈另计</td><td>商务</td></tr>
+        <tr><td class="P0">P0-2 ◐</td><td>身份核验（Veriff 托管会话 + HMAC webhook）——链路已上线（2026-09-04），等 Veriff 账号</td><td>—</td><td><b>你来开 Veriff 账号</b>，把 API key / secret 交给我配到 CF；webhook 地址 <span class="mono">/api/verify/webhook/veriff</span></td></tr>
+        <tr><td class="P0">P0-3 ◐</td><td>银行直连（Flinks Connect → 确定性收入摘要 → 覆盖评分）——链路已上线，等 Flinks 凭证</td><td>—</td><td><b>你来注册 Flinks 开发者沙箱</b>拿 bearer / auth key；公共沙箱的旧 token 已失效</td></tr>
+        <tr><td class="P1">P1-1 ◐</td><td>征信：租客本人授权直拉——同意流、步骤位、报告位都已就绪，供应商未签</td><td>—</td><td>选供应商（Equifax 消费者授权接口 / 经销商）；不注册 CRA 的方向已定</td></tr>
+        <tr><td class="P1">P1-2 ◐</td><td>报告「已核验事实」栏已上线；申请人通知信 <span class="mono">/screening/[id]/notice</span> 已上线；争议通道 v1 = privacy@ 邮箱</td><td>—</td><td>争议表单化等有真实量再做</td></tr>
+        <tr><td class="P1">P1-3 ✓</td><td>/screening 营销页对照表 + 「申请人本人授权核验」数据源卡（已上线）</td><td>—</td><td>脱敏样本报告待你挑一份</td></tr>
+        <tr><td class="P1">P1-4 ◐</td><td>报告 LTB 披露节无论有无命中都显示收录窗口（已上线）；Openroom 数据许可待洽谈</td><td>—</td><td>商务</td></tr>
         <tr><td class="P2">P2-1</td><td>Passport 可复用报告（一次授权多次投递）</td><td>2 周</td><td>依赖 P0-2 / P0-3 / P1-1</td></tr>
         <tr><td class="P2">P2-2</td><td>租金建信合作（FrontLobby / Openroom BureauEdge）</td><td>商务为主</td><td>—</td></tr>
       </tbody>
     </table>
   </div>
-  <p style="margin-top:14px">P0 三项加起来不到三周，不动筛查模块的评分逻辑，只给它更好的输入。P1-1 是唯一需要你先拍板方向的事——它决定我们是「帮租客把自己的证据交给房东的平台」还是「替房东取证据的报告机构」，两者的法务身份不同，后者需要注册。</p>
+  <p style="margin-top:14px"><b>2026-09-04 进度：</b>✓ 已完成，◐ 代码已上线、等外部凭证或商务。P1-1 方向已定为「租客本人授权直拉」，Stayloop 仍是帮申请人把自己的证据交给房东的平台，不注册 CRA。剩下需要你动手的只有三件：开 Veriff 账号、注册 Flinks 开发者沙箱、选征信供应商。</p>
 
   <h2>六、来源</h2>
   <ul class="sources">
