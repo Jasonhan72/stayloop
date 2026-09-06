@@ -2528,7 +2528,7 @@ export default function ScreenPage() {
   // the user was null, loading was false, and nothing ever resolved it.
   if (authLoading) {
     return (
-      <div style={{ background: '#FAF7EE', minHeight: '100vh' }}>
+      <div style={{ background: '#FFFFFF', minHeight: '100vh' }}>
         <Header />
         <div className="screen-app" style={{ minHeight: 'calc(100vh - 66px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontFamily: "'Inter', sans-serif" }}>
           <div style={{ textAlign: 'center' }}>
@@ -2547,7 +2547,7 @@ export default function ScreenPage() {
   // (register tab first; closing it returns to the landing page).
   if (needsAccount || !landlord) {
     return (
-      <div style={{ background: '#FAF7EE', minHeight: '100vh' }}>
+      <div style={{ background: '#FFFFFF', minHeight: '100vh' }}>
         <Header />
         {/* Inline card, deliberately NOT a modal: a full-screen overlay covered
             the Header, so a leftover anonymous session could not even reach
@@ -2599,7 +2599,7 @@ export default function ScreenPage() {
   const riskOverall = result ? getRiskLevel(result.overall) : null
 
   return (
-    <div style={{ background: '#FAF7EE', minHeight: '100vh' }}>
+    <div style={{ background: '#FFFFFF', minHeight: '100vh' }}>
       <Header />
       <section className="mx-auto max-w-[900px] px-5 py-10">
       <div className="screen-app">
@@ -2615,7 +2615,7 @@ export default function ScreenPage() {
           background: rgba(255, 255, 255, 0.96);
           -webkit-backdrop-filter: blur(10px);
           backdrop-filter: blur(10px);
-          border-top: 1px solid #E0DACE;
+          border-top: 1px solid #E2E8F0;
           box-shadow: 0 -6px 20px -12px rgba(31, 25, 11, 0.35);
         }
         @media (min-width: 768px) { .screen-cta-bar { display: none; } }
@@ -2662,7 +2662,7 @@ export default function ScreenPage() {
            the panel background. Warm border + inset shadow at rest, brand
            emerald ring on focus. !important beats the global .input rules. */
         .sl-field {
-          border: 1.5px solid #D8D2C2 !important;
+          border: 1.5px solid #CBD5E1 !important;
           background: #FFFFFF !important;
           box-shadow: inset 0 1px 2px rgba(31, 25, 11, 0.05);
           transition: border-color .15s ease, box-shadow .15s ease;
@@ -2688,7 +2688,7 @@ export default function ScreenPage() {
             {/* ─── Scanner Panel ─── */}
             <div style={{
               background: '#FFFFFF',
-              border: '1px solid #D8D2C2',
+              border: '1px solid #CBD5E1',
               borderRadius: 20,
               boxShadow: '0 1px 3px rgba(31, 25, 11, 0.04), 0 12px 32px -8px rgba(31, 25, 11, 0.06)',
               // `clip`, not `hidden`: overflow:hidden turns this card into a
@@ -2702,7 +2702,7 @@ export default function ScreenPage() {
               {/* Panel Header */}
               <div style={{
                 padding: '18px 20px',
-                borderBottom: '1px solid #E0DACE',
+                borderBottom: '1px solid #E2E8F0',
                 borderRadius: '20px 20px 0 0',
                 display: 'flex',
                 alignItems: 'center',
@@ -2747,7 +2747,7 @@ export default function ScreenPage() {
                 onClick={() => fileInputRef.current?.click()}
                 style={{
                   margin: '16px 18px 0',
-                  border: `2px dashed ${dragOver ? '#047857' : '#C5BDAA'}`,
+                  border: `2px dashed ${dragOver ? '#047857' : '#94A3B8'}`,
                   borderRadius: 14,
                   padding: files.length > 0 ? '20px 16px' : '36px 16px',
                   textAlign: 'center',
@@ -2833,7 +2833,7 @@ export default function ScreenPage() {
                           display: 'flex', alignItems: 'center', gap: 5,
                           padding: '7px 10px', borderRadius: 8,
                           background: uploaded ? 'rgba(4, 120, 87, 0.10)' : '#FAF7EF',
-                          border: uploaded ? '1px solid rgba(4, 120, 87, 0.40)' : '1px solid #D8D2C2',
+                          border: uploaded ? '1px solid rgba(4, 120, 87, 0.40)' : '1px solid #CBD5E1',
                           fontSize: 11, fontWeight: uploaded ? 600 : 500,
                           color: uploaded ? '#047857' : '#52525B',
                           transition: 'all 0.2s',
@@ -2901,7 +2901,7 @@ export default function ScreenPage() {
                         <div key={i} style={{
                           display: 'flex', alignItems: 'center', gap: 10,
                           padding: '8px 12px', background: '#FAF7EF', borderRadius: 10,
-                          border: '1px solid #EAE5D9', fontSize: 12.5,
+                          border: '1px solid #EEF2F6', fontSize: 12.5,
                           minHeight: 38,
                         }}>
                           <span style={{ fontSize: 13, flexShrink: 0 }}>{isPdf ? '📄' : isImage ? '🖼️' : '📎'}</span>
@@ -4019,7 +4019,7 @@ function UnlockModal({ lang, busy, tenantLink, tenantEmail, onTenantEmail, onClo
               style={{ padding: '11px 14px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#047857,#065F46)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>
               {busy === 'landlord' ? (zh ? '跳转 Stripe…' : 'Redirecting…') : (zh ? '我来付 · $14.99' : 'I’ll pay · $14.99')}
             </button>
-            <div style={{ border: '1px solid #E0DACE', borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ border: '1px solid #E2E8F0', borderRadius: 10, padding: '10px 12px' }}>
               <div style={{ fontSize: 12.5, fontWeight: 700 }}>{zh ? '让申请人付' : 'Ask the applicant to pay'}</div>
               <div style={{ fontSize: 11.5, color: '#71717A', margin: '2px 0 8px' }}>
                 {zh ? '生成一条 24 小时有效的付款链接，发给申请人；付完解锁自动落到本次筛查。' : 'Generates a 24-hour Stripe link to forward; once paid, the unlock lands on this screening automatically.'}
@@ -4027,29 +4027,29 @@ function UnlockModal({ lang, busy, tenantLink, tenantEmail, onTenantEmail, onClo
               <div style={{ display: 'flex', gap: 6 }}>
                 <input type="email" value={tenantEmail} onChange={e => onTenantEmail(e.target.value)}
                   placeholder={zh ? '申请人邮箱（可选，预填收据）' : 'Applicant email (optional, prefills receipt)'}
-                  style={{ flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: 8, border: '1px solid #E0DACE', fontSize: 13 }} />
+                  style={{ flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 13 }} />
                 <button onClick={() => onUnlock('tenant')} disabled={busy !== null}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #E0DACE', background: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}>
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}>
                   {busy === 'tenant' ? (zh ? '生成中…' : 'Creating…') : (zh ? '生成链接' : 'Create link')}
                 </button>
               </div>
             </div>
             <button onClick={onPro}
-              style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #E0DACE', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', color: '#3F3F46' }}>
+              style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', color: '#3F3F46' }}>
               {zh ? '多套房？升级 Pro $29/月，不限次数' : 'More than one property? Pro $29/mo, unlimited'}
             </button>
           </div>
         ) : (
           <div style={{ marginTop: 16 }}>
             <div style={{ fontSize: 12.5, fontWeight: 700 }}>{zh ? '付款链接已生成（24 小时内有效）' : 'Payment link ready (valid 24 hours)'}</div>
-            <div style={{ marginTop: 8, padding: '9px 10px', borderRadius: 8, background: '#F6F3EA', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, wordBreak: 'break-all', color: '#3F3F46' }}>{tenantLink}</div>
+            <div style={{ marginTop: 8, padding: '9px 10px', borderRadius: 8, background: '#F8FAFC', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, wordBreak: 'break-all', color: '#3F3F46' }}>{tenantLink}</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
               <button onClick={async () => { try { await navigator.clipboard.writeText(tenantLink); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch {} }}
                 style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: 'none', background: '#047857', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                 {copied ? (zh ? '已复制 ✓' : 'Copied ✓') : (zh ? '复制链接' : 'Copy link')}
               </button>
               <a href={`mailto:${tenantEmail || ''}?subject=${encodeURIComponent(zh ? 'Stayloop 租客筛查 · 核查费用付款链接' : 'Stayloop screening · verification payment link')}&body=${encodeURIComponent(tenantLink)}`}
-                style={{ flex: 1, textAlign: 'center', padding: '10px 12px', borderRadius: 10, border: '1px solid #E0DACE', background: '#fff', fontWeight: 700, fontSize: 13, color: '#3F3F46', textDecoration: 'none' }}>
+                style={{ flex: 1, textAlign: 'center', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#fff', fontWeight: 700, fontSize: 13, color: '#3F3F46', textDecoration: 'none' }}>
                 {zh ? '用邮件发送' : 'Send by email'}
               </a>
             </div>
@@ -4129,7 +4129,7 @@ function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onU
     st === 'verified' ? { background: '#E4EEE3', color: '#065F46' }
     : st === 'failed' ? { background: '#FEF2F2', color: '#B91C1C' }
     : st === 'submitted' || st === 'started' ? { background: '#FEF3E2', color: '#B45309' }
-    : { background: '#F6F3EA', color: '#71717A' }
+    : { background: '#F8FAFC', color: '#71717A' }
   const stText = (st?: string) => zh
     ? ({ verified: '已核验', failed: '未通过', submitted: '等待结果', started: '进行中', not_configured: '未开通' } as Record<string, string>)[st || ''] || '未开始'
     : ({ verified: 'verified', failed: 'not verified', submitted: 'awaiting', started: 'in progress', not_configured: 'n/a' } as Record<string, string>)[st || ''] || 'not started'
@@ -4166,19 +4166,19 @@ function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onU
             })}
             {row.status === 'complete' && <span style={{ fontSize: 11, fontWeight: 700, color: '#065F46' }}>{zh ? '✓ 申请人已完成' : '✓ Applicant finished'}</span>}
           </div>
-          <div style={{ padding: '8px 10px', borderRadius: 8, background: '#F6F3EA', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, wordBreak: 'break-all', color: '#3F3F46' }}>{url}</div>
+          <div style={{ padding: '8px 10px', borderRadius: 8, background: '#F8FAFC', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, wordBreak: 'break-all', color: '#3F3F46' }}>{url}</div>
           <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
             <button onClick={async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1600) } catch {} }}
               style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: '#047857', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
               {copied ? (zh ? '已复制 ✓' : 'Copied ✓') : (zh ? '复制链接' : 'Copy link')}
             </button>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={zh ? '申请人邮箱' : 'Applicant email'}
-              style={{ flex: 1, minWidth: 160, padding: '7px 10px', borderRadius: 8, border: '1px solid #E0DACE', fontSize: 12.5 }} />
+              style={{ flex: 1, minWidth: 160, padding: '7px 10px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12.5 }} />
             <button onClick={() => create(true)} disabled={busy || !email}
-              style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #E0DACE', background: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', opacity: (busy || !email) ? 0.5 : 1 }}>
+              style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', opacity: (busy || !email) ? 0.5 : 1 }}>
               {zh ? '邮件发送' : 'Send by email'}
             </button>
-            <button onClick={load} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #E0DACE', background: '#fff', fontSize: 12, cursor: 'pointer', color: '#71717A' }}>{zh ? '刷新状态' : 'Refresh'}</button>
+            <button onClick={load} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', fontSize: 12, cursor: 'pointer', color: '#71717A' }}>{zh ? '刷新状态' : 'Refresh'}</button>
           </div>
           <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 6 }}>
             {zh ? `链接 7 天内有效（至 ${new Date(row.expires_at).toLocaleDateString('zh-CN')}）。` : `Link valid for 7 days (until ${new Date(row.expires_at).toLocaleDateString('en-CA')}).`}

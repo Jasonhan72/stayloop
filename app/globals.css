@@ -28,20 +28,20 @@
 
 :root {
   /* Surfaces */
-  --sl-surface: #F2EEE5;
+  --sl-surface: #F4F6F9;
   --sl-surface-card: #FFFFFF;
-  --sl-surface-muted: #EAE5D9;
+  --sl-surface-muted: #EEF2F6;
   --sl-surface-tint: #E8F0E8;
   --sl-surface-wash: #E4EEE3;
-  --sl-surface-nav: #FAF7EE;
+  --sl-surface-nav: #FFFFFF;
   --sl-ink: #0B0B0E;
   --sl-ink-2: #16161B;
   --sl-ink-3: #1B1B22;
 
   /* Borders */
-  --sl-border: #D8D2C2;
-  --sl-border-strong: #C5BDAA;
-  --sl-divider: #E0DACE;
+  --sl-border: #CBD5E1;
+  --sl-border-strong: #94A3B8;
+  --sl-divider: #E2E8F0;
 
   /* Text */
   --sl-text: #171717;
@@ -98,7 +98,7 @@ html, body {
   }
   .sl-btn-primary:disabled,
   .sl-btn-primary.disabled {
-    background: #C5BDAA;
+    background: #94A3B8;
     color: #71717A;
     cursor: not-allowed;
     box-shadow: none;
@@ -226,7 +226,7 @@ html, body {
   /* Chip */
   .sl-chip {
     @apply inline-flex items-center gap-1 rounded-md px-2 py-[2px] font-mono text-[11px] font-medium;
-    background: var(--sl-surface-chip, #F8F5EC);
+    background: var(--sl-surface-chip, #F1F5F9);
     border: 1px solid var(--sl-divider);
     color: var(--sl-text-2);
   }

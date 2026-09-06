@@ -375,7 +375,7 @@ export default function HouseholdHub() {
 
 function Shell({ zh, children }: { zh: boolean; children: React.ReactNode }) {
   return (
-    <div style={{ background: '#FAF7EE', minHeight: '100vh' }} className="flex flex-col">
+    <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="transparent" />
       <div className="mx-auto w-full max-w-[860px] flex-1 px-5 py-10">{children}</div>
       <Footer />

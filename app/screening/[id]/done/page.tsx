@@ -22,7 +22,7 @@ function ScoreRing({ score, max = 100, size = 180 }: { score: number; max?: numb
   const progress = (score / max) * circumference
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="block">
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#E0DACE" strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#E2E8F0" strokeWidth={stroke} />
       <circle
         cx={size / 2} cy={size / 2} r={radius}
         fill="none" stroke="#047857" strokeWidth={stroke}
@@ -83,7 +83,7 @@ const DIMENSION_META: Record<string, { icon: string; name: string; label: string
 
 function LoadingShell() {
   return (
-    <div style={{ background: '#FAF7EE', minHeight: '100vh' }} className="flex flex-col">
+    <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="solid" />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
@@ -98,7 +98,7 @@ function LoadingShell() {
 
 function NotFoundShell() {
   return (
-    <div style={{ background: '#FAF7EE', minHeight: '100vh' }} className="flex flex-col">
+    <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="solid" />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
@@ -169,11 +169,11 @@ export default function ScanDonePage() {
   const createdAt = screening.created_at ? new Date(screening.created_at).toLocaleString() : ''
 
   return (
-    <div style={{ background: '#FAF7EE', color: '#171717', minHeight: '100vh' }}>
+    <div style={{ background: '#FFFFFF', color: '#171717', minHeight: '100vh' }}>
       <Header variant="solid" />
 
       {/* Step bar */}
-      <div className="border-b border-line-divider" style={{ background: '#F2EEE5' }}>
+      <div className="border-b border-line-divider" style={{ background: '#F4F6F9' }}>
         <div className="mx-auto flex max-w-[1240px] items-center gap-3 px-5 py-3 sm:px-7 lg:px-12">
           <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#047857' }}>
             SCREENING

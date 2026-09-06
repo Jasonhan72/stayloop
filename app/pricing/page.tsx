@@ -258,7 +258,7 @@ export default function PricingPage() {
       <main>
         <section
           className="relative overflow-hidden"
-          style={{ background: 'linear-gradient(180deg, #F2EEE5 0%, #E4EEE3 100%)', marginTop: -72, paddingTop: 72 }}
+          style={{ background: 'linear-gradient(180deg, #F4F6F9 0%, #E4EEE3 100%)', marginTop: -72, paddingTop: 72 }}
         >
           <div className="mx-auto max-w-[1100px] px-5 pb-10 pt-20 text-center sm:px-7 lg:px-12">
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">

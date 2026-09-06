@@ -23,7 +23,7 @@ export default function OnboardingStage({ step, totalSteps, eyebrow, children, b
     <main
       className="px-4 sm:px-6"
       style={{
-        background: 'linear-gradient(180deg,#F2EEE5 0%,#E4EEE3 100%)',
+        background: 'linear-gradient(180deg,#F4F6F9 0%,#E4EEE3 100%)',
         minHeight: '100vh',
         position: 'relative',
         paddingTop: 60,
@@ -51,7 +51,7 @@ export default function OnboardingStage({ step, totalSteps, eyebrow, children, b
                   style={{
                     height: 3,
                     borderRadius: 2,
-                    background: i < step ? '#7C3AED' : '#E0DACE',
+                    background: i < step ? '#7C3AED' : '#E2E8F0',
                   }}
                 />
               ))}
@@ -66,7 +66,7 @@ export default function OnboardingStage({ step, totalSteps, eyebrow, children, b
           className="px-5 py-8 sm:px-12 sm:py-11"
           style={{
             background: '#fff',
-            border: '1px solid #E0DACE',
+            border: '1px solid #E2E8F0',
             borderRadius: 18,
             maxWidth: 600,
             width: '100%',

@@ -72,7 +72,7 @@ export default function OnboardingWelcomePage() {
       <ul
         style={{
           textAlign: 'left',
-          background: '#F8F5EC',
+          background: '#F1F5F9',
           borderRadius: 10,
           padding: '16px 20px',
           margin: '0 0 28px',

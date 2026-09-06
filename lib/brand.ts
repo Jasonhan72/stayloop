@@ -16,22 +16,22 @@ export const v3 = {
   // surfaceMuted (used by in-app pages) sits one notch deeper than surface
   // so the dashboard / pipeline / disputes pages feel slightly more
   // "workspace-y" while still reading as part of the same family.
-  surface: '#F2EEE5',
+  surface: '#F4F6F9',
   /** Pure white for cards and elevated panels — pops against cream surface. */
   surfaceCard: '#FFFFFF',
   /** Soft mint, used for hero / accent panels. */
   surfaceTint: '#E8F0E8',
   /** Slightly deeper cream, used for in-app body / sidebars. */
-  surfaceMuted: '#EAE5D9',
+  surfaceMuted: '#EEF2F6',
   /** Deep dark for the passport card and any "always-dark" surfaces. */
   ink: '#0B0B0E',
   ink2: '#16161B',
   ink3: '#1B1B22',
 
   // ── Borders / dividers (lifted to remain visible against deeper cream) ──
-  border: '#D8D2C2',
-  borderStrong: '#C5BDAA',
-  divider: '#E0DACE',
+  border: '#CBD5E1',
+  borderStrong: '#94A3B8',
+  divider: '#E2E8F0',
 
   // ── Text ────────────────────────────────────────────────────────────────
   textPrimary: '#171717',

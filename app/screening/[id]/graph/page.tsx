@@ -54,7 +54,7 @@ const DIMENSION_META: Record<string, { label: string; fullLabel: string }> = {
 
 function LoadingShell() {
   return (
-    <div style={{ background: '#FAF7EE', minHeight: '100vh' }} className="flex flex-col">
+    <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="transparent" />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
@@ -69,7 +69,7 @@ function LoadingShell() {
 
 function NotFoundShell() {
   return (
-    <div style={{ background: '#FAF7EE', minHeight: '100vh' }} className="flex flex-col">
+    <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="transparent" />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
@@ -125,7 +125,7 @@ function RadarChart({ dims }: { dims: Record<string, number> }) {
           key={level}
           points={polygonPoints(() => maxR * level)}
           fill="none"
-          stroke="#E0DACE"
+          stroke="#E2E8F0"
           strokeWidth={1}
           opacity={0.6}
         />
@@ -141,7 +141,7 @@ function RadarChart({ dims }: { dims: Record<string, number> }) {
             y1={cy}
             x2={cx + maxR * Math.cos(angle)}
             y2={cy + maxR * Math.sin(angle)}
-            stroke="#E0DACE"
+            stroke="#E2E8F0"
             strokeWidth={1}
             opacity={0.4}
           />
@@ -248,11 +248,11 @@ export default function GraphPage() {
   const hasDims = Object.keys(dims).length > 0
 
   return (
-    <div style={{ background: '#FAF7EE', color: '#171717', minHeight: '100vh' }}>
+    <div style={{ background: '#FFFFFF', color: '#171717', minHeight: '100vh' }}>
       <Header variant="transparent" />
 
       {/* Hero */}
-      <section style={{ background: 'linear-gradient(180deg,#F2EEE5 0%,#E4E8EE 100%)' }}>
+      <section style={{ background: 'linear-gradient(180deg,#F4F6F9 0%,#E4E8EE 100%)' }}>
         <div className="mx-auto max-w-[1240px] px-5 py-16 sm:px-7 lg:px-12">
           <Link
             href={`/screening/${id}/report`}

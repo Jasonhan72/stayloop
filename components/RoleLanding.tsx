@@ -6,7 +6,7 @@
 // conversation + background task), not a feature checklist.
 //
 // Visual layer aligned to design/v8-homepage.html (v8 design language):
-// warm-paper surfaces (#FDFBF6 / #F6F3EA, hairlines #E5E1D4/#EEEAE0),
+// warm-paper surfaces (#FFFFFF / #F8FAFC, hairlines #E5E1D4/#EEEAE0),
 // brand purple as the only large accent (role colors stay button/badge-level),
 // 16px cards + full-radius pills, purple-tinted shadows rgba(76,29,149,.2x),
 // editorial ghost numerals, 96–112px section rhythm, .rv/.on scroll reveal.
@@ -55,7 +55,7 @@ export type RoleLandingConfig = {
 
 /* v8 token layer — scoped to .v8r so it can't leak into Header/Footer */
 const V8_CSS = `
-  .v8r { background: #FDFBF6; }
+  .v8r { background: #FFFFFF; }
   .v8r .rv { opacity: 0; transform: translateY(20px); transition: opacity .65s ease, transform .65s ease; }
   .v8r .rv.on { opacity: 1; transform: none; }
   .v8r .d1 { transition-delay: .08s; } .v8r .d2 { transition-delay: .16s; }
@@ -72,7 +72,7 @@ const V8_CSS = `
     color: #18181B; opacity: .045; letter-spacing: -.04em; pointer-events: none; user-select: none; }
 
   .v8r .v8-hero { position: relative; overflow: hidden;
-    background: linear-gradient(180deg, #FAF7EE 0%, #FDFBF6 40%); }
+    background: linear-gradient(180deg, #FFFFFF 0%, #FFFFFF 40%); }
   .v8r .v8-atmo { position: absolute; inset: 0; pointer-events: none; }
   .v8r .v8-atmo::before { content: ""; position: absolute; top: -220px; right: -180px; width: 760px; height: 760px;
     background: radial-gradient(closest-side, rgba(124,58,237,.10), transparent 68%); }
@@ -238,7 +238,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
       </section>
 
       {/* PROMISES — v8 trust-strip treatment */}
-      <section style={{ background: '#F6F3EA', borderTop: '1px solid #EEEAE0', borderBottom: '1px solid #EEEAE0' }}>
+      <section style={{ background: '#F8FAFC', borderTop: '1px solid #EEEAE0', borderBottom: '1px solid #EEEAE0' }}>
         {/* [&>*]:min-w-0 is required, not cosmetic: grid items default to
             min-width:auto, so at 320px these three cells refused to go below
             their min-content and pushed the whole page 9px past the viewport. */}
@@ -297,7 +297,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
             </h2>
             <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {cfg.valueBand.items.map((it, i) => (
-                <div key={it.h.en} className={`v8-card rv p-5 ${i > 0 ? `d${Math.min(i, 4)}` : ''}`} style={{ background: '#FDFBF6' }}>
+                <div key={it.h.en} className={`v8-card rv p-5 ${i > 0 ? `d${Math.min(i, 4)}` : ''}`} style={{ background: '#FFFFFF' }}>
                   <span className="text-[22px]">{it.icon}</span>
                   <h4 className="mt-3 text-[14.5px] font-extrabold leading-snug">{it.h[lang]}</h4>
                   <p className="mt-1.5 text-[12.5px] leading-relaxed text-body-3">{it.b[lang]}</p>
@@ -320,7 +320,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
       )}
 
       {/* SCENARIO */}
-      <section style={{ background: '#F6F3EA' }}>
+      <section style={{ background: '#F8FAFC' }}>
         <div className="mx-auto max-w-[1180px] px-5 py-24 sm:px-8 lg:py-28">
           <div className="v8-eyebrow" style={{ color: c }}>
             {lang === 'zh' ? '真实场景' : 'REAL SCENARIO'}

@@ -98,7 +98,7 @@ export default function JoinInvitePage() {
   const roleLabel = peek?.invited_role ? (zh ? ROLE_ZH[peek.invited_role] ?? peek.invited_role : peek.invited_role.replace('_', ' ')) : ''
 
   return (
-    <div style={{ background: '#FAF7EE', minHeight: '100vh' }} className="flex flex-col">
+    <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="transparent" />
       <div className="mx-auto w-full max-w-[520px] flex-1 px-5 py-16">
         {!peek ? (

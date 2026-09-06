@@ -10,15 +10,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Surfaces — warm cream
+        // Surfaces — cool neutral (2026-09 redesign: white pages, slate
+        // greys; the warm cream palette is retired)
         surface: {
-          DEFAULT: '#F2EEE5',
+          DEFAULT: '#F4F6F9',
           card: '#FFFFFF',
-          muted: '#EAE5D9',
+          muted: '#EEF2F6',
           tint: '#E8F0E8',
           wash: '#E4EEE3',
-          nav: '#FAF7EE',
-          chip: '#F8F5EC',
+          nav: '#FFFFFF',
+          chip: '#F1F5F9',
         },
         ink: {
           DEFAULT: '#0B0B0E',
@@ -27,9 +28,9 @@ const config: Config = {
         },
         // Borders
         line: {
-          DEFAULT: '#D8D2C2',
-          strong: '#C5BDAA',
-          divider: '#E0DACE',
+          DEFAULT: '#CBD5E1',
+          strong: '#94A3B8',
+          divider: '#E2E8F0',
         },
         // Text
         body: {

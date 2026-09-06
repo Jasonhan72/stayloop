@@ -16,7 +16,7 @@ export default function ScreeningNewRedirect() {
 
   return (
     <div
-      style={{ background: '#FAF7EE', minHeight: '100vh' }}
+      style={{ background: '#FFFFFF', minHeight: '100vh' }}
       className="flex items-center justify-center"
     >
       <div className="text-center">

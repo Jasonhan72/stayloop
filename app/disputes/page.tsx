@@ -202,11 +202,11 @@ export default function DisputesPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
   return (
-    <div style={{ background: '#FAF7EE', color: '#171717' }}>
+    <div style={{ background: '#FFFFFF', color: '#171717' }}>
       <Header variant="transparent" />
       <SampleBanner zh={zh} />
 
-      <section style={{ background: 'linear-gradient(180deg,#F2EEE5 0%,rgba(139,92,246,0.06) 100%)' }}>
+      <section style={{ background: 'linear-gradient(180deg,#F4F6F9 0%,rgba(139,92,246,0.06) 100%)' }}>
         <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-7 lg:px-12">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#7C3AED' }}>
@@ -424,7 +424,7 @@ export default function DisputesPage() {
       </section>
 
       {/* lawyer directory */}
-      <section style={{ background: '#F2EEE5' }}>
+      <section style={{ background: '#F4F6F9' }}>
         <div className="mx-auto max-w-[1240px] px-5 py-16 sm:px-7 lg:px-12">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#7C3AED' }}>

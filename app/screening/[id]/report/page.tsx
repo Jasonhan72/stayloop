@@ -221,7 +221,7 @@ function KV({ k, children }: { k: string; children: React.ReactNode }) {
 
 function LoadingShell() {
   return (
-    <div style={{ background: '#FAF7EE', minHeight: '100vh' }} className="flex flex-col">
+    <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="solid" />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
@@ -236,7 +236,7 @@ function LoadingShell() {
 
 function NotFoundShell() {
   return (
-    <div style={{ background: '#FAF7EE', minHeight: '100vh' }} className="flex flex-col">
+    <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="solid" />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
@@ -405,7 +405,7 @@ export default function ReportPage() {
   const cmColor = (s: string) => (s === 'pass' ? '#16A34A' : s === 'warn' ? '#D97706' : s === 'fail' ? '#DC2626' : '#94A3B8')
 
   return (
-    <div style={{ background: '#FAF7EE', color: '#171717', minHeight: '100vh' }}>
+    <div style={{ background: '#FFFFFF', color: '#171717', minHeight: '100vh' }}>
       <Header variant="solid" />
 
       <div className="mx-auto max-w-[1100px] px-5 pb-24 pt-10 sm:px-7 lg:px-8">

@@ -195,7 +195,7 @@ export default function ListingsMap({ listings, active, onPick }: Props) {
         position: 'sticky',
         top: 0,
         height: 'calc(100vh - 0px)',
-        borderLeft: '1px solid #E0DACE',
+        borderLeft: '1px solid #E2E8F0',
         overflow: 'hidden',
         background: '#E5E3DC',
       }}
@@ -219,7 +219,7 @@ export default function ListingsMap({ listings, active, onPick }: Props) {
           top: 18,
           left: 18,
           background: '#fff',
-          border: '1px solid #E0DACE',
+          border: '1px solid #E2E8F0',
           borderRadius: 8,
           padding: '8px 12px',
           fontSize: 12,
@@ -293,7 +293,7 @@ const MAP_STYLE = [
   {
     featureType: 'road.highway',
     elementType: 'geometry',
-    stylers: [{ color: '#EAE5D9' }],
+    stylers: [{ color: '#EEF2F6' }],
   },
   {
     featureType: 'transit',

@@ -18,9 +18,9 @@ export default function PartnersPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
   return (
-    <div style={{ background: '#FAF7EE', color: '#171717' }}>
+    <div style={{ background: '#FFFFFF', color: '#171717' }}>
       <Header variant="transparent" />
-      <section style={{ background: 'linear-gradient(180deg,#F2EEE5 0%,#E4EEE3 100%)' }}>
+      <section style={{ background: 'linear-gradient(180deg,#F4F6F9 0%,#E4EEE3 100%)' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-24 sm:px-7 lg:px-12">
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">{zh ? 'PARTNERS · 银行 / 保险 / 法务' : 'PARTNERS · Banking / Insurance / Legal'}</div>
           <h1 className="mt-4 max-w-[760px] text-[30px] font-extrabold leading-[1.08] tracking-tight sm:text-[44px] lg:text-[52px]">

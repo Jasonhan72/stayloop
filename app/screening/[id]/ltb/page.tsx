@@ -37,7 +37,7 @@ import type { CourtQuery, LtbCheck, LtbOrderMatch, OntarioPortalMatch } from '@/
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: '#FAF7EE', minHeight: '100vh' }} className="flex flex-col">
+    <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="transparent" />
       <div className="flex flex-1 items-center justify-center px-5">{children}</div>
       <Footer />
@@ -209,10 +209,10 @@ export default function LTBPage() {
   )
 
   return (
-    <div style={{ background: '#FAF7EE', color: '#171717', minHeight: '100vh' }}>
+    <div style={{ background: '#FFFFFF', color: '#171717', minHeight: '100vh' }}>
       <Header variant="transparent" />
 
-      <section style={{ background: 'linear-gradient(180deg,#F2EEE5 0%,#E8E4DC 100%)' }}>
+      <section style={{ background: 'linear-gradient(180deg,#F4F6F9 0%,#E8E4DC 100%)' }}>
         <div className="mx-auto max-w-[1240px] px-5 py-16 sm:px-7 lg:px-12">
           <Link href={`/screening/${id}/report`} className="font-mono text-[12px] text-body-3 hover:text-body">
             &larr; {zh ? '返回报告' : 'Back to report'}

@@ -108,7 +108,7 @@ export function VerificationBadge({
         {status === 'pending' && (
           <span
             className="rounded-md border px-2.5 py-1 font-mono text-[10.5px] font-bold tracking-eyebrow"
-            style={{ borderColor: '#C5BDAA', color: '#71717A' }}
+            style={{ borderColor: '#94A3B8', color: '#71717A' }}
           >
             {zh ? '待 Stayloop 验证' : 'PENDING VERIFICATION'}
           </span>

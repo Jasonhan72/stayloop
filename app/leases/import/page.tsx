@@ -171,7 +171,7 @@ export default function LeaseImportPage() {
 
   if (!loading && !user) {
     return (
-      <div style={{ background: '#FAF7EE', minHeight: '100vh' }} className="flex flex-col">
+      <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
         <Header variant="transparent" />
         <div className="flex flex-1 items-center justify-center px-5 text-center">
           <div>
@@ -191,7 +191,7 @@ export default function LeaseImportPage() {
   const label = 'mb-1 mt-4 block text-[12px] font-semibold text-body-2'
 
   return (
-    <div style={{ background: '#FAF7EE', minHeight: '100vh' }} className="flex flex-col">
+    <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="transparent" />
       <div className="mx-auto w-full max-w-[680px] flex-1 px-5 py-12">
         <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#7C3AED' }}>
