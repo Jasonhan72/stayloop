@@ -73,7 +73,11 @@ const V8_CSS = `
 
   .v8r .v8-hero { position: relative; overflow: hidden;
     background: linear-gradient(180deg, #FFFFFF 0%, #FFFFFF 40%); }
-  .v8r .v8-atmo { position: absolute; inset: 0; pointer-events: none; }
+  /* 2026-09 v9: atmosphere blobs, grid texture and ghost numbers retired
+     (white base, no decorative texture). Rules kept so the markup stays. */
+  .v8r .v8-atmo { display: none; }
+  .v8r .v8-grid-tex { display: none; }
+  .v8r .gn { display: none; }
   .v8r .v8-atmo::before { content: ""; position: absolute; top: -220px; right: -180px; width: 760px; height: 760px;
     background: radial-gradient(closest-side, rgba(124,58,237,.10), transparent 68%); }
   .v8r .v8-atmo::after { content: ""; position: absolute; bottom: -260px; left: -200px; width: 640px; height: 640px;

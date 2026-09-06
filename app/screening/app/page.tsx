@@ -6,6 +6,8 @@ import { prepareUploads } from '@/lib/screening/prepareUpload'
 import { useUser } from '@/lib/useUser'
 import { useT, LanguageToggle, type DictKey } from '@/lib/i18n'
 import Header from '@/components/Header'
+import WorkspaceShell, { type WorkspaceRole } from '@/components/WorkspaceShell'
+import { useAuth } from '@/lib/useAuth'
 import { generateScreeningReport } from '@/lib/generateReport'
 import { registryLinks } from '@/lib/forensics/registry-links'
 import { RUBRIC_WEIGHTS } from '@/lib/screening/rubric'
@@ -1480,6 +1482,10 @@ export default function ScreenPage() {
   // account (2026-08-21). Logged-out visitors and leftover anonymous
   // sessions see the page with an inline register prompt instead of
   // being silently bounced - closing the prompt returns to the landing.
+  // 2026-09 redesign: the screening app lives inside the workspace shell
+  // (navy sidebar). The rail follows the signed-in role; landlord by default.
+  const { role: authRole } = useAuth()
+  const shellRole: WorkspaceRole = authRole === 'tenant' || authRole === 'agent' ? authRole : 'landlord'
   const { user: landlord, loading: authLoading, signOut } = useUser({
     redirectIfMissing: false,
   })
@@ -2599,9 +2605,8 @@ export default function ScreenPage() {
   const riskOverall = result ? getRiskLevel(result.overall) : null
 
   return (
-    <div style={{ background: '#FFFFFF', minHeight: '100vh' }}>
-      <Header />
-      <section className="mx-auto max-w-[900px] px-5 py-10">
+    <WorkspaceShell role={shellRole} hideAside>
+      <section className="mx-auto max-w-[960px]">
       <div className="screen-app">
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet" />
         <style>{`
@@ -2788,9 +2793,9 @@ export default function ScreenPage() {
                         fontSize: 13,
                         fontWeight: 600,
                         borderRadius: 10,
-                        background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+                        background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
                         color: '#FFFFFF',
-                        boxShadow: '0 8px 22px -10px rgba(52, 211, 153, 0.45), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
+                        boxShadow: '0 8px 22px -10px rgba(124, 58, 237, 0.35), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
                       }}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -2844,7 +2849,7 @@ export default function ScreenPage() {
                         {uploaded && (
                           <span style={{
                             fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 6,
-                            background: 'linear-gradient(135deg, #10B981, #059669)', color: '#fff',
+                            background: 'linear-gradient(135deg, #7C3AED, #6D28D9)', color: '#fff',
                             lineHeight: '14px', minWidth: 16, textAlign: 'center',
                           }}>
                             {count}
@@ -3020,9 +3025,9 @@ export default function ScreenPage() {
                         // (which would re-apply the brighter #10B981→#059669 gradient
                         // and override these styles) and just use cursor:not-allowed +
                         // pointer-events:none for the disabled affordance.
-                        background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+                        background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
                         color: '#FFFFFF',
-                        boxShadow: '0 8px 22px -10px rgba(52, 211, 153, 0.45), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
+                        boxShadow: '0 8px 22px -10px rgba(124, 58, 237, 0.35), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
                         border: 'none',
                         cursor: isDisabled ? 'not-allowed' : 'pointer',
                         pointerEvents: isDisabled ? 'none' : 'auto',
@@ -3958,9 +3963,9 @@ export default function ScreenPage() {
                   style={{
                     flex: '0 0 auto', padding: '13px 22px', fontSize: 14.5, borderRadius: 12, fontWeight: 650,
                     minHeight: 48,
-                    background: 'linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)',
+                    background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
                     color: '#FFFFFF',
-                    boxShadow: '0 8px 22px -10px rgba(52, 211, 153, 0.45), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
+                    boxShadow: '0 8px 22px -10px rgba(124, 58, 237, 0.35), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
                     border: 'none',
                     opacity: isDisabled ? 0.55 : 1,
                     cursor: isDisabled ? 'not-allowed' : 'pointer',
@@ -3978,7 +3983,7 @@ export default function ScreenPage() {
           </div>
         </div>
       )}
-    </div>
+    </WorkspaceShell>
   )
 }
 
