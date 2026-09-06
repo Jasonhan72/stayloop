@@ -18,7 +18,7 @@ export default function AboutPage() {
   return (
     <div style={{ background: '#FFFFFF', color: '#171717' }}>
       <Header variant="transparent" />
-      <section style={{ background: 'linear-gradient(180deg,#F4F6F9 0%,#E4EEE3 100%)' }}>
+      <section style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
         <div className="mx-auto max-w-[900px] px-5 py-24 sm:px-7 lg:px-12">
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">ABOUT · STAYLOOP</div>
           <h1 className="mt-4 text-[30px] font-extrabold leading-[1.08] tracking-tight sm:text-[44px] lg:text-[54px]">

@@ -12,7 +12,7 @@ export default function ContactPage() {
   return (
     <div style={{ background: '#FFFFFF', color: '#171717' }}>
       <Header variant="transparent" />
-      <section style={{ background: 'linear-gradient(180deg,#F4F6F9 0%,#E4EEE3 100%)' }}>
+      <section style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
         <div className="mx-auto max-w-[820px] px-5 pb-10 pt-20 sm:px-7 lg:px-12">
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">{zh ? 'CONTACT · 合作 / 投资 / 媒体' : 'CONTACT · Partnerships / Investors / Press'}</div>
           <h1 className="mt-4 text-[28px] font-extrabold leading-[1.1] tracking-tight sm:text-[46px]">
