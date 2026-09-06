@@ -47,8 +47,8 @@ const promptHref = (line: string) => `/tenant/agent?prompt=${encodeURIComponent(
 // for (activation plan, 2026-08-12): screening, try-one-without-signup.
 // The platform story stays — it is the secondary path, not the front door.
 const HERO_CTAS: Record<Lang, { primary: string; secondary: string }> = {
-  zh: { primary: '免费开始', secondary: '看房东怎么用' },
-  en: { primary: 'Start free', secondary: 'See it for landlords' },
+  zh: { primary: '试一单租客筛查 · 注册免费用', secondary: '看看它怎么工作' },
+  en: { primary: 'Try a tenant screening — free tier', secondary: 'See how it works' },
 }
 
 /* Role-panel CTA targets — carried over unchanged from the v7 page (blueprint tab order: 房东 / 租客 / 经纪). */
@@ -685,150 +685,336 @@ const COPY: Record<Lang, HomeCopy> = {
   },
 }
 
-/* ===================== v9 styles (2026-09 redesign, blueprint design/redesign-2026-09/Main.dc.html) ===================== */
-// White base, cool slate neutrals, one accent (brand purple), 10/12px radii.
-// Motion: fade-up reveals only (.rv → .on), disabled under reduced motion.
+/* ===================== blueprint <style> (nav/footer sections removed, selectors scoped to .v8-page) ===================== */
 
 const CSS = `
-.v9{--acc:#1B1B3C;--acc-2:#12122B;--ink:#0f172a;--ink-2:#334155;--ink-3:#475569;--mute:#64748b;--line:#e2e8f0;--bg:#ffffff;--bg-2:#f8fafc;--ok:#047857;--ok-bg:#ecfdf5;--ok-line:#a7f3d0;
-  background:var(--bg);color:var(--ink);font-family:"Inter Tight","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;}
-.v9 .wrap{max-width:1312px;margin:0 auto;padding:0 64px;}
-.v9 .mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;}
-.v9 .btn{display:inline-flex;align-items:center;justify-content:center;height:46px;padding:0 22px;border-radius:10px;font-weight:700;font-size:15px;white-space:nowrap;text-decoration:none;transition:transform .15s,filter .15s;}
-.v9 .btn:active{transform:translateY(1px);}
-.v9 .btn-p{background:var(--acc);color:#fff;} .v9 .btn-p:hover{filter:brightness(1.06);}
-.v9 .btn-g{background:#fff;color:var(--ink);border:1px solid #cbd5e1;} .v9 .btn-g:hover{border-color:#94a3b8;}
-.v9 .card{background:#fff;border:1px solid var(--line);border-radius:12px;}
-.v9 .muted{color:var(--mute);}
-.v9 h1,.v9 h2,.v9 h3{margin:0;letter-spacing:-.02em;line-height:1.15;text-wrap:balance;}
-.v9 .h2{font-size:34px;font-weight:800;}
-.v9 .bar{height:6px;border-radius:999px;background:var(--line);overflow:hidden;}
-.v9 .bar i{display:block;height:100%;background:var(--acc);border-radius:999px;}
-.v9 .pill{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;}
-.v9 .pill.g{background:var(--ok-bg);color:var(--ok);} .v9 .pill.n{background:#f1f5f9;color:#475569;} .v9 .pill.r{background:#fef2f2;color:#b91c1c;}
-.v9 .rv{opacity:0;transform:translateY(14px);transition:opacity .5s cubic-bezier(.16,1,.3,1),transform .5s cubic-bezier(.16,1,.3,1);}
-.v9 .rv.on{opacity:1;transform:none;}
-.v9 .rv.d1{transition-delay:.08s}.v9 .rv.d2{transition-delay:.16s}.v9 .rv.d3{transition-delay:.24s}
-@media(prefers-reduced-motion:reduce){.v9 .rv{opacity:1;transform:none;transition:none}}
+/* 2026-09-05: palette only — structure, copy and the chat demo are the approved v8 page. */
+.v8-page .atmo,.v8-page .grid-tex{display:none !important;}
 
-/* hero */
-.v9 .hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;padding-top:64px;padding-bottom:56px;align-items:center;}
-.v9 .hero h1{font-size:56px;line-height:1.06;letter-spacing:-.03em;font-weight:800;}
-.v9 .hero h1 em{font-style:normal;color:#00ACE4;}
-.v9 .hero .sub{font-size:19px;line-height:1.55;color:var(--ink-3);margin:22px 0 0;max-width:34ch;}
-.v9 .hero .ctas{display:flex;gap:12px;align-items:center;margin-top:24px;flex-wrap:wrap;}
-.v9 .preview{padding:20px;box-shadow:0 24px 60px -24px rgba(15,23,42,.25);display:flex;flex-direction:column;gap:16px;}
-.v9 .preview .who{display:flex;align-items:center;justify-content:space-between;gap:12px;}
-.v9 .avatar{width:36px;height:36px;border-radius:999px;background:#EEF2F6;display:grid;place-items:center;font-weight:800;color:var(--acc);font-size:13px;flex:none;}
-.v9 .dims{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;}
-.v9 .dims .l{font-size:11px;color:var(--mute);margin-bottom:6px;white-space:nowrap;}
-.v9 .fact{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--bg-2);border:1px solid var(--line);font-size:13px;}
-.v9 .fact.ok{background:var(--ok-bg);border-color:var(--ok-line);}
-.v9 .fact svg{flex:none;}
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { overflow-x: hidden; }
+  .v8-page {
+    --brand:#1B1B3C; --brand-2:#12122B; --brand-soft:#EEF2F6;
+    --ink:#18181B; --ink-2:#52525B; --ink-3:#A1A1AA;
+    --line:#CBD5E1; --line-soft:#E2E8F0;
+    --bg:#FFFFFF; --bg-2:#F8FAFC; --nav:#FFFFFF; --dark:#131316;
+    --ok:#6AB344; --bad:#DC2626;
+    --r-card:16px;
+    font-family:'Inter Tight','PingFang SC','Microsoft YaHei',system-ui,-apple-system,sans-serif;
+    color:var(--ink);background:var(--bg);line-height:1.6;font-size:16px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .v8-page, .v8-page *{margin:0;padding:0;box-sizing:border-box}
+  .v8-page img{max-width:100%;display:block}
+  .v8-page a{color:inherit;text-decoration:none}
+  .v8-page .wrap{max-width:1180px;margin:0 auto;padding:0 32px;width:100%}
+  @media(max-width:640px){.v8-page .wrap{padding:0 20px}}
+  .v8-page .rv{opacity:0;transform:translateY(20px);transition:opacity .65s ease,transform .65s ease}
+  .v8-page .rv.on{opacity:1;transform:none}
+  .v8-page .d1{transition-delay:.08s}.v8-page .d2{transition-delay:.16s}.v8-page .d3{transition-delay:.24s}
+  @media(prefers-reduced-motion:reduce){.v8-page .rv{opacity:1;transform:none;transition:none}}
 
-/* trust */
-.v9 .trust{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg-2);}
-.v9 .trust .wrap{display:flex;justify-content:space-between;align-items:center;gap:16px;padding-top:18px;padding-bottom:18px;font-size:13px;color:var(--mute);flex-wrap:wrap;}
-.v9 .trust b{color:var(--ink);}
+  /* .btn set — lives in the blueprint's nav block but is used page-wide, so it is kept */
+  .v8-page .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;
+       border-radius:999px;font-weight:600;font-size:14.5px;padding:10px 22px;cursor:pointer;
+       transition:transform .15s ease,box-shadow .2s ease,background .15s ease;border:none;font-family:inherit}
+  .v8-page .btn:active{transform:translateY(1px) scale(.98)}
+  .v8-page .btn-p{background:var(--brand);color:#fff;box-shadow:0 1px 2px rgba(27,27,60,.35)}
+  .v8-page .btn-p:hover{background:var(--brand-2);box-shadow:0 6px 20px -6px rgba(27,27,60,.5)}
+  .v8-page .btn-g{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .v8-page .btn-g:hover{border-color:var(--ink-3)}
 
-/* roles */
-.v9 .roles{padding:88px 0 40px;}
-.v9 .roles .head{display:flex;flex-direction:column;gap:10px;max-width:60ch;}
-.v9 .roles .ssub{font-size:17px;color:var(--mute);margin:0;line-height:1.5;}
-.v9 .tabs{display:flex;gap:8px;margin:28px 0;flex-wrap:wrap;}
-.v9 .tab{height:38px;padding:0 16px;border-radius:10px;font-size:14px;font-weight:700;border:1px solid #cbd5e1;background:#fff;color:var(--ink);cursor:pointer;font-family:inherit;}
-.v9 .tab.on{background:var(--acc);border-color:var(--acc);color:#fff;}
-.v9 .role{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:48px;align-items:start;}
-.v9 .role h3{font-size:28px;font-weight:800;line-height:1.2;}
-.v9 .benefits{display:flex;flex-direction:column;gap:18px;margin:24px 0;}
-.v9 .benefit{display:flex;gap:12px;}
-.v9 .benefit .ic{width:36px;height:36px;flex:none;border-radius:10px;background:#f1f5f9;display:grid;place-items:center;}
-.v9 .benefit b{display:block;font-size:15px;}
-.v9 .benefit span{display:block;font-size:14px;line-height:1.5;color:var(--mute);}
-.v9 .demo{padding:18px;display:flex;flex-direction:column;gap:12px;background:var(--bg-2);}
-.v9 .demo .top{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700;}
-.v9 .demo .row{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
-.v9 .demo .row b{display:block;font-size:14px;}
-.v9 .demo .row span.s{display:block;font-size:12.5px;color:var(--mute);}
-.v9 .demo .note{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:10px;background:#fff;border:1px dashed #cbd5e1;font-size:13px;flex-wrap:wrap;}
-.v9 .demo .acts{display:flex;gap:8px;}
-.v9 .demo .acts .btn{height:34px;font-size:13px;padding:0 14px;}
+  /* ============ hero: atmosphere + asymmetric split ============ */
+  .v8-page .hero{position:relative;padding:60px 0 84px;overflow:hidden;background:linear-gradient(180deg,var(--nav) 0%,var(--bg) 34%)}
+  .v8-page .hero .atmo{position:absolute;inset:0;pointer-events:none}
+  .v8-page .hero .atmo::before{content:"";position:absolute;top:-220px;right:-180px;width:760px;height:760px;
+      background:radial-gradient(closest-side,rgba(27,27,60,.10),transparent 68%)}
+  .v8-page .hero .atmo::after{content:"";position:absolute;bottom:-260px;left:-200px;width:640px;height:640px;
+      background:radial-gradient(closest-side,rgba(59,130,246,.06),transparent 70%)}
+  .v8-page .hero .grid-tex{position:absolute;inset:0;
+      background-image:linear-gradient(rgba(24,24,27,.028) 1px,transparent 1px),
+                       linear-gradient(90deg,rgba(24,24,27,.028) 1px,transparent 1px);
+      background-size:56px 56px;
+      -webkit-mask-image:radial-gradient(ellipse 75% 65% at 50% 0%,#000 30%,transparent 75%);
+              mask-image:radial-gradient(ellipse 75% 65% at 50% 0%,#000 30%,transparent 75%)}
+  .v8-page .hero-in{position:relative;display:grid;grid-template-columns:1.08fr .92fr;gap:72px;align-items:center}
+  @media(max-width:980px){.v8-page .hero-in{grid-template-columns:1fr;gap:52px}}
+  .v8-page .tag{display:inline-flex;align-items:center;gap:9px;font-size:12px;letter-spacing:.15em;
+       text-transform:uppercase;color:var(--brand);font-weight:700}
+  .v8-page .tag::before{content:"";width:24px;height:1.5px;background:var(--brand)}
+  .v8-page .hero h1{font-size:clamp(38px,4.5vw,54px);font-weight:800;letter-spacing:-.026em;line-height:1.13;margin-top:18px}
+  .v8-page .hero h1 em{font-style:normal;color:var(--brand);position:relative}
+  .v8-page .hero h1 em::after{content:"";position:absolute;left:0;right:0;bottom:4px;height:10px;
+      background:var(--brand-soft);z-index:-1;border-radius:3px}
+  .v8-page .hero .sub{color:var(--ink-2);font-size:17px;margin-top:18px;max-width:29em}
+  .v8-page .hero .sub b{color:var(--ink);font-weight:600}
+  .v8-page .hero .ctas{display:flex;gap:12px;margin-top:26px;flex-wrap:wrap}
+  .v8-page .hero .ctas .btn{padding:12px 28px;font-size:15px}
+  .v8-page .hero .note{margin-top:16px;font-size:13px;color:var(--ink-3)}
 
-/* band */
-.v9 .band{padding:48px 0 0;}
-.v9 .band .img{position:relative;border-radius:16px;overflow:hidden;height:420px;}
-.v9 .band img{width:100%;height:100%;object-fit:cover;display:block;}
-.v9 .stats{position:absolute;left:24px;right:24px;bottom:24px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
-.v9 .stat{background:rgba(255,255,255,.92);border-radius:12px;padding:16px;}
-.v9 .stat .b{font-size:22px;font-weight:800;line-height:1.1;}
-.v9 .stat .b.num{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:26px;font-weight:700;}
-.v9 .stat .s{font-size:12.5px;line-height:1.4;color:var(--mute);margin-top:4px;}
+  /* hero right: chat + overlapping approval card */
+  /* Reserve room for the floating approval card BELOW the chat so it never
+     covers the action chips (the taller live-style bubbles pushed it up). */
+  .v8-page .stage{position:relative;padding-bottom:106px}
+  .v8-page .chat{background:#fff;border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;
+        box-shadow:0 1px 2px rgba(24,24,27,.04),0 32px 72px -28px rgba(76,29,149,.22)}
+  .v8-page .chat-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line-soft)}
+  /* Avatar = the live chat's role orb (ROLE_THEME.tenant.avatarGradient). */
+  .v8-page .chat-av{width:36px;height:36px;border-radius:50%;flex:none;
+           background:linear-gradient(135deg,#94A3B8,#1B1B3C)}
+  .v8-page .chat-nm{font-size:15px;font-weight:700;letter-spacing:-.01em}
+  /* Status line matches the live header: mono, uppercase, green dot. */
+  .v8-page .chat-st{display:flex;align-items:center;gap:6px;font-size:10.5px;
+           letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
+           font-family:'JetBrains Mono',ui-monospace,monospace}
+  .v8-page .chat-st::before{content:"";width:6px;height:6px;border-radius:50%;background:#34D399}
+  .v8-page .chat-b{padding:16px;display:flex;flex-direction:column;gap:11px;background:var(--bg-2);
+           max-height:430px;overflow:hidden;
+           -webkit-mask-image:linear-gradient(180deg,#000 84%,transparent 100%);
+                   mask-image:linear-gradient(180deg,#000 84%,transparent 100%)}
+  .v8-page .m{max-width:88%;padding:11px 15px;border-radius:16px;font-size:14px;line-height:1.6}
+  /* Agent turns carry the small orb, as in the live thread. */
+  .v8-page .m-row{display:flex;align-items:flex-start;gap:8px;align-self:flex-start;max-width:96%}
+  .v8-page .m-orb{width:28px;height:28px;border-radius:50%;flex:none;margin-top:2px;
+           background:linear-gradient(135deg,#94A3B8,#1B1B3C)}
+  .v8-page .m-u{align-self:flex-end;background:#1B1B3C;color:#fff;border-top-right-radius:4px}
+  .v8-page .m-a{align-self:flex-start;background:#F8FAFC;color:var(--ink);border-top-left-radius:4px}
+  .v8-page .m-a b{color:var(--brand)}
+  /* Listing results — same anatomy as components/agent/ListingChatCard:
+     photo (1.5/1) + source badge + heart, then price · specs · address ·
+     neighbourhood, closed by the provenance note bar. */
+  /* minmax(0,…) is load-bearing, not a style choice: a bare 1fr keeps an
+     auto min-content floor, so the two listing cards min-content (~194px
+     each) propagated all the way up and forced the whole single-column hero
+     to ~440px inside a 375px phone — where .hero{overflow:hidden} then CLIPPED
+     the headline, the sub-line and the right half of this chat card rather
+     than scrolling. Every nested track from .chat down needs the same floor. */
+  .v8-page .lgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-self:stretch}
+  /* Grid and flex items default to min-width:auto — they refuse to shrink
+     below their content's min-content width. On a phone that silently makes a
+     container wider than the screen, and because .hero and the section
+     wrappers clip rather than scroll, the overflow is INVISIBLE: the headline
+     just loses its last characters. Nothing on this page wants that floor, so
+     every layout container here opts out at once rather than one selector at a
+     time (enumerating them by hand is how .rpanel got missed). */
+  .v8-page :is(.hero-in,.lgrid,.trust-in,.pains-in,.gstats,.rpanel,.steps-in,.facts,
+               .rp-l,.rp-r,.rp-bens,.rp-ben,.chat,.chat-b,.chat-h,.chat-acts,.m-row,
+               .lcard,.mkt,.band,.demo-row,.demo-h,.demo-acts,.roles-head,.final,.ibar)>*{min-width:0}
+  .v8-page :is(.rp-l,.rp-r,.rp-bens,.rp-ben,.chat,.chat-b,.chat-h,.m-row,.lcard,.mkt){min-width:0}
+  .v8-page .lcard{display:flex;flex-direction:column;overflow:hidden;border-radius:14px;
+           border:1px solid var(--line);background:#fff}
+  .v8-page .lph{position:relative;aspect-ratio:2/1;background-size:cover;background-position:center}
+  .v8-page .lbadge{position:absolute;left:8px;top:8px;border-radius:5px;padding:3px 6px;
+           font-family:'JetBrains Mono',ui-monospace,monospace;font-size:8.5px;font-weight:700;
+           letter-spacing:.06em;text-transform:uppercase;color:#fff}
+  .v8-page .lheart{position:absolute;right:8px;top:8px;width:22px;height:22px;border-radius:50%;
+           background:rgba(0,0,0,.45);backdrop-filter:blur(4px);color:#fff;font-size:11px;
+           display:flex;align-items:center;justify-content:center}
+  .v8-page .lbody{padding:9px 10px 10px}
+  .v8-page .lpr{font-size:16px;font-weight:800;letter-spacing:-.02em}
+  .v8-page .lpr span{font-size:10px;font-weight:500;color:var(--ink-3);margin-left:2px}
+  .v8-page .lspec{margin-top:2px;font-size:11px;font-weight:700;color:var(--ink-2)}
+  .v8-page .laddr{margin-top:5px;font-size:12px;font-weight:700;line-height:1.35}
+  .v8-page .lhood{font-size:11px;color:var(--ink-3)}
+  .v8-page .lnote{border-top:1px solid var(--line-soft);padding:6px 11px;font-size:9.5px;line-height:1.4}
 
-/* steps */
-.v9 .steps{padding:88px 0;}
-.v9 .steps .ssub{font-size:17px;color:var(--mute);margin:10px 0 0;}
-.v9 .steps-in{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin-top:32px;}
-.v9 .step{display:flex;flex-direction:column;gap:12px;padding-top:20px;border-top:2px solid var(--line);}
-.v9 .step .n{width:32px;height:32px;border-radius:999px;display:grid;place-items:center;background:var(--acc);color:#fff;font-weight:800;font-size:14px;}
-.v9 .step h3{font-size:17px;font-weight:700;}
-.v9 .step p{margin:0;font-size:14.5px;line-height:1.55;color:var(--mute);}
+  /* Market card — the live thread's TRREB strip (range + benchmark line). */
+  .v8-page .mkt{align-self:stretch;border:1px solid var(--line);border-radius:14px;background:#fff;padding:11px 12px}
+  .v8-page .mkt-h{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:9px;letter-spacing:.1em;
+           text-transform:uppercase;color:var(--ink-3)}
+  .v8-page .mkt-p{margin-top:5px;font-size:15px;font-weight:800;letter-spacing:-.02em}
+  .v8-page .mkt-p b{font-size:11px;font-weight:600;color:var(--ink-3);margin-left:6px}
+  .v8-page .mkt-bar{position:relative;height:5px;border-radius:99px;margin-top:8px;
+           background:linear-gradient(90deg,#6EE7B7,#FBBF24,#F87171);opacity:.45}
+  .v8-page .mkt-dot{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
+           background:var(--brand);border:2px solid #fff;transform:translate(-50%,-50%)}
+  .v8-page .mkt-n{margin-top:8px;font-size:10.5px;color:var(--ink-2);line-height:1.5}
 
-/* final */
-.v9 .final{margin:0 0 72px;}
-.v9 .final .box{border-radius:16px;background:#0f172a;color:#fff;padding:56px 64px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:center;}
-.v9 .final h2{font-size:32px;font-weight:800;}
-.v9 .final p{margin:10px 0 0;font-size:16px;color:#cbd5e1;}
-.v9 .final .btn{background:#fff;color:var(--ink);}
+  /* Input bar — mirrors components/agent/AgentInputBar. */
+  .v8-page .ibar{display:flex;align-items:center;gap:9px;border-top:1px solid var(--line-soft);
+           padding:11px 16px;background:#fff}
+  .v8-page .ibar-ic{color:var(--ink-3);font-size:14px}
+  .v8-page .ibar-ph{flex:1;font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .v8-page .ibar-send{border-radius:9px;background:var(--brand);color:#fff;font-size:11.5px;
+           font-weight:700;padding:6px 12px;flex:none}
+  .v8-page .okt{color:var(--ok);font-weight:600}
+  .v8-page .chat-acts{display:flex;gap:8px;align-items:center;padding:14px 18px;background:var(--bg-2);
+             border-top:1px solid var(--line-soft)}
+  .v8-page .chip{border-radius:999px;font-size:12.5px;font-weight:600;padding:8px 15px;cursor:pointer;border:none;font-family:inherit}
+  .v8-page .chip-p{background:var(--brand);color:#fff}
+  .v8-page .chip-g{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .v8-page .chat-fr{margin-left:auto;font-size:12px;color:var(--ink-3)}
+  .v8-page .float{position:absolute;right:-14px;bottom:0;display:flex;gap:10px;align-items:center;
+         padding:13px 18px;background:#fff;border:1px solid var(--line);border-radius:13px;
+         box-shadow:0 18px 44px -16px rgba(24,24,27,.22)}
+  @media(max-width:640px){.v8-page .float{right:0}}
+  .v8-page .float-dot{width:8px;height:8px;border-radius:50%;background:var(--brand);flex:none;
+             animation:v8-pulse 2.4s ease-in-out infinite}
+  @keyframes v8-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  @media(prefers-reduced-motion:reduce){.v8-page .float-dot{animation:none}}
+  .v8-page .float b{font-size:13.5px;display:block}
+  .v8-page .float span{font-size:12.5px;color:var(--ink-2)}
+  /* adaptation: the chat's primary chip is a Link (anchor); decorative chips get no pointer affordance */
+  .v8-page a.chip{display:inline-flex;align-items:center;justify-content:center}
+  .v8-page .chat-acts .chip-g, .v8-page .demo-acts .chip{cursor:default}
 
-@media(max-width:1024px){
-  .v9 .wrap{padding:0 28px;}
-  .v9 .hero{grid-template-columns:1fr;gap:28px;padding-top:40px;padding-bottom:32px;}
-  .v9 .hero h1{font-size:40px;}
-  .v9 .role{grid-template-columns:1fr;gap:28px;}
-  .v9 .stats{grid-template-columns:repeat(2,minmax(0,1fr));}
-  .v9 .steps-in{grid-template-columns:1fr;}
-  .v9 .final .box{grid-template-columns:1fr;padding:36px 28px;}
-}
-@media(max-width:640px){
-  .v9 .wrap{padding:0 20px;}
-  .v9 .hero h1{font-size:34px;}
-  .v9 .hero .sub{font-size:16px;}
-  .v9 .hero .ctas .btn{width:100%;}
-  .v9 .h2{font-size:26px;}
-  .v9 .dims .l{display:none;}
-  .v9 .trust .wrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px;}
-  .v9 .band .img{height:240px;}
-  .v9 .stats{left:12px;right:12px;bottom:12px;gap:8px;}
-  .v9 .stat{padding:10px 12px;} .v9 .stat .b{font-size:18px;} .v9 .stat .b.num{font-size:20px;} .v9 .stat .s{font-size:11px;}
-  .v9 .stat:nth-child(n+3){display:none;}
-  .v9 .tabs{overflow-x:auto;flex-wrap:nowrap;margin-left:-20px;margin-right:-20px;padding:0 20px;}
-  .v9 .demo .row{flex-wrap:wrap;}
-}
+  /* trust strip */
+  .v8-page .trust{border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);background:var(--bg-2)}
+  .v8-page .trust-in{display:grid;grid-template-columns:repeat(4,1fr)}
+  .v8-page .trust-in>div{padding:20px;font-size:13.5px;color:var(--ink-2);text-align:center}
+  .v8-page .trust-in>div+div{border-left:1px solid var(--line-soft)}
+  .v8-page .trust-in b{color:var(--ink);font-weight:600}
+  @media(max-width:900px){.v8-page .trust-in{grid-template-columns:1fr 1fr}
+    .v8-page .trust-in>div:nth-child(3){border-left:none;border-top:1px solid var(--line-soft)}
+    .v8-page .trust-in>div:nth-child(4){border-top:1px solid var(--line-soft)}}
+
+  /* ============ pains: editorial rows with ghost numerals ============ */
+  .v8-page .pains{padding:104px 0}
+  .v8-page .pains-in{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line)}
+  @media(max-width:900px){.v8-page .pains-in{grid-template-columns:1fr}}
+  .v8-page .pain{position:relative;padding:34px 34px 40px 0;overflow:hidden}
+  .v8-page .pain+.pain{padding-left:34px;border-left:1px solid var(--line-soft)}
+  @media(max-width:900px){.v8-page .pain+.pain{padding-left:0;border-left:none;border-top:1px solid var(--line-soft)}}
+  .v8-page .pain .gn{position:absolute;top:10px;right:6px;font-size:96px;font-weight:800;line-height:1;
+            color:var(--ink);opacity:.045;letter-spacing:-.04em;pointer-events:none}
+  .v8-page .pain .who{display:inline-flex;font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--brand);
+             background:var(--brand-soft);border-radius:999px;padding:4px 12px}
+  .v8-page .pain p{margin-top:14px;font-size:17px;line-height:1.65}
+  .v8-page .pain p b{font-weight:700}
+
+  /* ============ photo band: full-bleed + glass stat strip ============ */
+  .v8-page .band{position:relative;min-height:560px;display:flex;align-items:flex-end;
+        background:url('/home/hero-mist.jpg') center/cover}
+  .v8-page .band::before{content:"";position:absolute;inset:0;
+        background:linear-gradient(180deg,rgba(19,19,22,.05) 30%,rgba(19,19,22,.52) 100%)}
+  .v8-page .band-cap{position:absolute;top:28px;left:50%;transform:translateX(-50%);font-size:12.5px;color:#fff;
+            background:rgba(19,19,22,.4);backdrop-filter:blur(8px);padding:7px 16px;border-radius:999px;
+            border:1px solid rgba(255,255,255,.16)}
+  .v8-page .band .wrap{position:relative;z-index:1;padding-bottom:40px}
+  .v8-page .gstats{display:grid;grid-template-columns:repeat(4,1fr);border-radius:var(--r-card);overflow:hidden;
+          background:rgba(255,255,255,.12);backdrop-filter:blur(18px);
+          border:1px solid rgba(255,255,255,.22);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 24px 60px -24px rgba(19,19,22,.5)}
+  @media(max-width:900px){.v8-page .gstats{grid-template-columns:1fr 1fr}}
+  .v8-page .gstat{padding:26px 26px;color:#fff}
+  .v8-page .gstat+.gstat{border-left:1px solid rgba(255,255,255,.16)}
+  @media(max-width:900px){.v8-page .gstat:nth-child(3){border-left:none}
+    .v8-page .gstat:nth-child(n+3){border-top:1px solid rgba(255,255,255,.16)}}
+  .v8-page .gstat .b{font-size:27px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .v8-page .gstat .s{font-size:13px;color:rgba(255,255,255,.82);margin-top:4px;line-height:1.5}
+
+  /* ============ roles: tabs + rich panel ============ */
+  .v8-page .roles{padding:112px 0 0}
+  .v8-page .roles-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
+  .v8-page .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--brand);font-weight:700}
+  .v8-page .roles h2{font-size:clamp(30px,3.4vw,42px);font-weight:800;letter-spacing:-.022em;margin-top:12px}
+  .v8-page .roles .rsub{color:var(--ink-2);margin-top:12px;max-width:34em}
+  .v8-page .rtabs{display:flex;gap:8px;flex-wrap:wrap}
+  .v8-page .rtab{border-radius:999px;border:1px solid var(--line);background:#fff;padding:11px 22px;font-size:14px;
+        font-weight:700;cursor:pointer;color:var(--ink-2);transition:all .18s ease;font-family:inherit}
+  .v8-page .rtab:hover{border-color:var(--ink-3);transform:translateY(-1px)}
+  .v8-page .rtab.on{background:var(--ink);border-color:var(--ink);color:#fff;box-shadow:0 8px 20px -8px rgba(24,24,27,.4)}
+  .v8-page .rpanel{margin-top:36px;display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);
+          border-radius:var(--r-card);overflow:hidden;background:#fff;
+          box-shadow:0 32px 72px -36px rgba(24,24,27,.16)}
+  @media(max-width:900px){.v8-page .rpanel{grid-template-columns:1fr}}
+  .v8-page .rp-l{padding:44px 48px;display:flex;flex-direction:column}
+  @media(max-width:640px){.v8-page .rp-l{padding:30px 24px}}
+  .v8-page .rp-tag{display:inline-flex;align-self:flex-start;font-size:11.5px;font-weight:800;letter-spacing:.1em;
+          color:var(--brand);background:var(--brand-soft);border-radius:999px;padding:5px 13px}
+  .v8-page .rp-l h3{font-size:clamp(23px,2.5vw,29px);font-weight:800;letter-spacing:-.016em;line-height:1.3;margin-top:18px}
+  .v8-page .rp-l .lead{color:var(--ink-2);font-size:15px;margin-top:14px}
+  .v8-page .rp-bens{margin-top:26px;display:flex;flex-direction:column;gap:16px}
+  .v8-page .rp-ben{display:flex;gap:14px;align-items:flex-start}
+  .v8-page .rp-ben .bn{flex:none;width:24px;height:24px;border-radius:50%;background:var(--brand-soft);color:var(--brand);
+              font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .v8-page .rp-ben .bb{font-size:14.5px;font-weight:700}
+  .v8-page .rp-ben .bs{font-size:13.5px;color:var(--ink-2);margin-top:2px}
+  .v8-page .rp-quote{margin-top:auto;padding-top:26px;border-top:1px solid var(--line-soft)}
+  .v8-page .rp-quote p{font-size:14px;color:var(--ink-2);line-height:1.65}
+  .v8-page .rp-quote .who{display:flex;gap:10px;align-items:center;margin-top:12px}
+  .v8-page .rp-quote .av{width:32px;height:32px;border-radius:50%;background:var(--brand-soft);color:var(--brand);
+                font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .v8-page .rp-quote .wn{font-size:12.5px;color:var(--ink-3)}
+  .v8-page .rp-cta{margin-top:24px}
+  .v8-page .rp-r{position:relative;background:linear-gradient(150deg,#F1F5F9 0%,var(--bg-2) 60%);
+        border-left:1px solid var(--line-soft);padding:40px 36px;display:flex;flex-direction:column;
+        justify-content:center;overflow:hidden}
+  .v8-page .rp-r::before{content:"";position:absolute;top:-120px;right:-120px;width:340px;height:340px;
+        background:radial-gradient(closest-side,rgba(27,27,60,.09),transparent 70%)}
+  @media(max-width:900px){.v8-page .rp-r{border-left:none;border-top:1px solid var(--line-soft)}}
+  .v8-page .demo{position:relative;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+        box-shadow:0 24px 56px -24px rgba(76,29,149,.24)}
+  .v8-page .demo-h{display:flex;align-items:center;gap:8px;padding:13px 17px;border-bottom:1px solid var(--line-soft);
+          font-size:12.5px;font-weight:700}
+  .v8-page .demo-h .st{margin-left:auto;font-weight:600;color:var(--ok)}
+  .v8-page .demo-row{display:flex;align-items:center;gap:12px;padding:14px 17px}
+  .v8-page .demo-row+.demo-row{border-top:1px solid var(--line-soft)}
+  .v8-page .demo-row .rb{font-size:13.5px;font-weight:700}
+  .v8-page .demo-row .rs{font-size:12px;color:var(--ink-2);margin-top:1px}
+  .v8-page .pill{margin-left:auto;flex:none;font-size:11.5px;font-weight:700;border-radius:999px;padding:4px 11px}
+  .v8-page .pill.g{background:#F0F7EC;color:#4C8A2E}
+  .v8-page .pill.n{background:var(--line-soft);color:var(--ink-2)}
+  .v8-page .pill.r{background:#FDECEC;color:var(--bad)}
+  .v8-page .demo-note{padding:14px 17px;border-top:1px solid var(--line-soft);font-size:13px;color:var(--ink-2);
+             background:var(--bg-2)}
+  .v8-page .demo-note b{color:var(--ink)}
+  .v8-page .demo-acts{display:flex;gap:8px;align-items:center;padding:13px 17px;border-top:1px solid var(--line-soft)}
+  .v8-page .demo-tm{margin-left:auto;font-size:11.5px;color:var(--ink-3)}
+  .v8-page .rpanel.swap .rp-l,.v8-page .rpanel.swap .rp-r{animation:v8-swap .4s ease}
+  @keyframes v8-swap{from{opacity:.35;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){.v8-page .rpanel.swap .rp-l,.v8-page .rpanel.swap .rp-r{animation:none}}
+
+  /* ============ steps: ghost numerals + timeline ============ */
+  .v8-page .steps{padding:112px 0}
+  .v8-page .steps h2{font-size:clamp(30px,3.4vw,42px);font-weight:800;letter-spacing:-.022em}
+  .v8-page .steps .ssub{color:var(--ink-2);margin-top:12px}
+  .v8-page .steps-in{display:grid;grid-template-columns:repeat(3,1fr);gap:44px;margin-top:52px;position:relative}
+  .v8-page .steps-in::before{content:"";position:absolute;top:21px;left:calc(16.66% + 24px);right:calc(16.66% + 24px);
+                    height:1px;background:linear-gradient(90deg,var(--line),var(--brand-soft),var(--line))}
+  @media(max-width:900px){.v8-page .steps-in{grid-template-columns:1fr;gap:36px}.v8-page .steps-in::before{display:none}}
+  .v8-page .step{position:relative;overflow:hidden;padding-top:2px}
+  .v8-page .step .gn{position:absolute;top:-18px;right:0;font-size:120px;font-weight:800;line-height:1;
+            color:var(--brand);opacity:.05;letter-spacing:-.05em;pointer-events:none}
+  .v8-page .step .n{width:42px;height:42px;border-radius:50%;background:#fff;border:1.5px solid var(--brand);
+           color:var(--brand);font-weight:800;font-size:16px;display:flex;align-items:center;
+           justify-content:center;position:relative;z-index:1;box-shadow:0 0 0 6px #fff}
+  .v8-page .step h3{font-size:19px;font-weight:800;margin-top:18px}
+  .v8-page .step p{font-size:14.5px;color:var(--ink-2);margin-top:9px}
+  .v8-page .step p b{color:var(--ink);font-weight:600}
+
+  /* ============ dark facts band ============ */
+  .v8-page .dark{position:relative;background:var(--dark);color:#fff;padding:88px 0;overflow:hidden}
+  .v8-page .dark::before{content:"";position:absolute;top:-200px;left:50%;transform:translateX(-50%);
+      width:900px;height:480px;background:radial-gradient(closest-side,rgba(27,27,60,.16),transparent 70%)}
+  .v8-page .dark .wrap{position:relative}
+  .v8-page .dark .eyebrow{color:#6B6B8F}
+  .v8-page .dark h2{font-size:clamp(28px,3.2vw,38px);font-weight:800;letter-spacing:-.022em;margin-top:12px}
+  .v8-page .dark .dsub{color:rgba(255,255,255,.55);margin-top:12px;font-size:15px}
+  .v8-page .facts{display:grid;grid-template-columns:repeat(4,1fr);margin-top:54px;border-top:1px solid rgba(255,255,255,.13)}
+  @media(max-width:900px){.v8-page .facts{grid-template-columns:1fr 1fr}}
+  .v8-page .fact{padding:30px 26px 0}
+  .v8-page .fact+.fact{border-left:1px solid rgba(255,255,255,.13)}
+  @media(max-width:900px){.v8-page .fact:nth-child(3){border-left:none}}
+  .v8-page .fact .b{font-size:clamp(36px,3.8vw,48px);font-weight:800;letter-spacing:-.03em;
+           font-variant-numeric:tabular-nums;
+           background:linear-gradient(180deg,#fff 55%,#6B6B8F 130%);
+           -webkit-background-clip:text;background-clip:text;color:transparent}
+  .v8-page .fact .s{font-size:13.5px;color:rgba(255,255,255,.6);margin-top:9px;line-height:1.55}
+  .v8-page .fact .s i{font-style:normal;color:rgba(255,255,255,.85)}
+
+  /* ============ final CTA ============ */
+  .v8-page .final{position:relative;min-height:540px;display:flex;align-items:center;
+         background:url('/home/final-interior.jpg') center/cover}
+  .v8-page .final::before{content:"";position:absolute;inset:0;
+      background:linear-gradient(90deg,rgba(19,19,22,.74) 0%,rgba(19,19,22,.4) 58%,rgba(19,19,22,.12) 100%)}
+  .v8-page .final .wrap{position:relative;z-index:1;color:#fff;padding-top:96px;padding-bottom:96px}
+  .v8-page .final h2{font-size:clamp(36px,4.2vw,54px);font-weight:800;letter-spacing:-.026em;line-height:1.16}
+  .v8-page .final p{margin-top:18px;font-size:16.5px;color:rgba(255,255,255,.85);max-width:26em}
+  .v8-page .final .btn-p{margin-top:30px;padding:14px 36px;font-size:15.5px}
+  .v8-page .final .fnote{margin-top:14px;font-size:13px;color:rgba(255,255,255,.6)}
 `
-
-/* Hero product preview — a real mini screening report (sample data, same cast as the role panels). */
-const PREVIEW: Record<Lang, { title: string; sub: string; verdict: string; dims: string[]; facts: [string, string, string] }> = {
-  zh: {
-    title: 'Mia Chen · 筛查报告', sub: '1207 King West · $2,800/月', verdict: '综合 · 建议面谈',
-    dims: ['支付能力', '信用健康', '租史', '核验', '沟通'],
-    facts: ['已核验事实 · 身份 Veriff 通过 · 银行入账 ≈ $6,240/月（Flinks 直连）', '文件取证 · 3 份文件 · PDF 结构一致 · 无修改痕迹', 'LTB 判令目录 + 安省法院门户 · 已按姓名检索 · 0 条'],
-  },
-  en: {
-    title: 'Mia Chen · Screening report', sub: '1207 King West · $2,800/mo', verdict: 'Overall · Interview',
-    dims: ['Ability to pay', 'Credit', 'Rental history', 'Verification', 'Communication'],
-    facts: ['Verified facts · Veriff identity approved · bank deposits ≈ $6,240/mo (Flinks)', 'Document forensics · 3 files · PDF structure consistent · no edit trail', 'LTB Order Catalogue + Ontario Courts portal · searched by name · 0 records'],
-  },
-}
-
-const ROLE_ICONS = [
-  <svg key="a" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>,
-  <svg key="b" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>,
-  <svg key="c" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>,
-]
-
-const CheckIcon = ({ color }: { color: string }) => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-)
 
 /* ===================== page ===================== */
 
@@ -836,127 +1022,268 @@ export default function HomePage() {
   const { lang } = useI18n()
   const c = COPY[lang] ?? COPY.zh
   const heroCtas = HERO_CTAS[lang] ?? HERO_CTAS.zh
-  const pv = PREVIEW[lang] ?? PREVIEW.zh
   const [tab, setTab] = useState(0)
   const role = c.roles[tab]
 
-  // Auth-aware CTAs: a signed-in user clicking 免费开始 must land in their own
-  // workspace, never on /register.
+  // Auth-aware CTAs: a signed-in user clicking 免费开始/开始 must land in
+  // their own workspace, never on /register (login/register already bounce
+  // authed visitors, but the homepage shouldn't send them there at all).
   const { user, role: authRole } = useAuth()
   const startHref = user ? (authRole ? ROLE_HOME[authRole] : '/dashboard') : '/register'
-  // Hero primary → screening (activation plan, 2026-08-12): signed-in users
-  // land in the app, visitors on the public landing that explains first.
+  // Hero primary → screening. Signed-in users land in the app directly;
+  // visitors get the public landing (which explains before it asks).
   const heroHref = user ? '/screening/app' : '/screening'
   const finalHref = user ? startHref : promptHref(c.chatU)
 
+  // 静态 metadata 是双语合排；hydration 后按当前语言收窄标签页标题。
   useEffect(() => {
-    document.title = lang === 'zh' ? 'Stayloop — 租房的 AI 操作系统 · Toronto' : 'Stayloop — The AI-native rental OS for Toronto'
+    document.title =
+      lang === 'zh'
+        ? 'Stayloop — 租房的 AI 操作系统 · Toronto'
+        : 'Stayloop — The AI-native rental OS for Toronto'
   }, [lang])
 
-  // Scroll reveal (.rv → .on); reduced motion shows everything immediately.
+  // Scroll reveal — blueprint behavior: IO adds .on at threshold .12;
+  // reduced motion shows everything immediately.
+  // 瞬时跳转（锚点/instant scroll）会让 IO 停留在 false→false 永不触发，
+  // 兜底在 scroll/load 时逐帧检查 top < innerHeight 补 .on（.on 幂等，安全）。
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduced || !('IntersectionObserver' in window)) {
       document.querySelectorAll('.rv').forEach((el) => el.classList.add('on'))
       return
     }
-    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target) } }), { threshold: 0.12 })
+    const io = new IntersectionObserver(
+      (es) =>
+        es.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('on')
+            io.unobserve(e.target)
+          }
+        }),
+      { threshold: 0.12 },
+    )
     document.querySelectorAll('.rv').forEach((el) => io.observe(el))
-    const catchUp = () => document.querySelectorAll('.rv:not(.on)').forEach((el) => { if (el.getBoundingClientRect().top < window.innerHeight) el.classList.add('on') })
+    const catchUp = () =>
+      document.querySelectorAll('.rv:not(.on)').forEach((el) => {
+        if (el.getBoundingClientRect().top < window.innerHeight) el.classList.add('on')
+      })
+    window.addEventListener('scroll', catchUp, { passive: true })
     window.addEventListener('load', catchUp)
-    catchUp()
-    return () => { io.disconnect(); window.removeEventListener('load', catchUp) }
+    return () => {
+      io.disconnect()
+      window.removeEventListener('scroll', catchUp)
+      window.removeEventListener('load', catchUp)
+    }
   }, [])
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <Header />
-      <div className="v9">
+      <div className="v8-page">
         {/* ================= HERO ================= */}
-        <header className="wrap hero">
-          <div>
-            <h1>{c.heroH1}</h1>
-            <p className="sub">{c.sub}</p>
-            <div className="ctas">
-              <Link className="btn btn-p" href={heroHref}>{heroCtas.primary}</Link>
-              <a className="btn btn-g" href="#roles">{heroCtas.secondary}</a>
-            </div>
-          </div>
-          <div className="card preview" aria-label={pv.title}>
-            <div className="who">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div className="avatar">MC</div>
-                <div><div style={{ fontWeight: 700, fontSize: 15 }}>{pv.title}</div><div className="muted" style={{ fontSize: 12 }}>{pv.sub}</div></div>
+        <header className="hero">
+          <div className="atmo" />
+          <div className="grid-tex" />
+          <div className="wrap hero-in">
+            <div>
+              <span className="tag">{c.tag}</span>
+              <h1>{c.heroH1}</h1>
+              <p className="sub">{c.sub}</p>
+              <div className="ctas">
+                <Link className="btn btn-p" href={heroHref}>
+                  {heroCtas.primary}
+                </Link>
+                <a className="btn btn-g" href="#roles">
+                  {heroCtas.secondary}
+                </a>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="mono" style={{ fontSize: 30, fontWeight: 700, color: 'var(--ok)', lineHeight: 1 }}>87</div>
-                <div className="muted" style={{ fontSize: 11 }}>{pv.verdict}</div>
+              <p className="note">{c.note}</p>
+            </div>
+            <div className="stage rv on">
+              <div className="chat">
+                <div className="chat-h">
+                  <span className="chat-av" />
+                  <div>
+                    <div className="chat-nm">{c.chatName}</div>
+                    <div className="chat-st">{c.chatSt}</div>
+                  </div>
+                </div>
+                <div className="chat-b" aria-hidden="true">
+                  <ChatUserTypewriter text={c.chatU} key={lang} />
+                  <div className="m-row">
+                    <span className="m-orb" />
+                    <div className="m m-a">{c.chatA1}</div>
+                  </div>
+                  <div className="lgrid">
+                    {c.cards.map((card) => (
+                      <div className="lcard" key={card.t}>
+                        <div className="lph" style={{ backgroundImage: `url(${card.img})` }}>
+                          <span className="lbadge" style={{ background: card.badge === 'REALTOR.CA' ? '#B45309' : '#047857' }}>
+                            {card.badge}
+                          </span>
+                          <span className="lheart">♡</span>
+                        </div>
+                        <div className="lbody">
+                          <div className="lpr">{card.pr}<span>{lang === 'zh' ? '/月' : '/mo'}</span></div>
+                          <div className="lspec">{card.spec}</div>
+                          <div className="laddr">{card.t}</div>
+                          <div className="lhood">{card.hood}</div>
+                        </div>
+                        <div
+                          className="lnote"
+                          style={card.badge === 'REALTOR.CA'
+                            ? { background: 'rgba(180,83,9,0.05)', color: '#92400E' }
+                            : { background: 'rgba(27,27,60,0.05)', color: '#12122B' }}
+                        >
+                          {card.note}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mkt">
+                    <div className="mkt-h">{c.mktH}</div>
+                    <div className="mkt-p">{c.mktP}<b>{c.mktSub}</b></div>
+                    <div className="mkt-bar"><span className="mkt-dot" style={{ left: '62%' }} /></div>
+                    <div className="mkt-n">{c.mktNote}</div>
+                  </div>
+                  <div className="m-row">
+                    <span className="m-orb" />
+                    <div className="m m-a">{c.chatA2}</div>
+                  </div>
+                </div>
+                <div className="ibar">
+                  <span className="ibar-ic">🔗</span>
+                  <span className="ibar-ic">🎙</span>
+                  <span className="ibar-ph">{c.inputPh}</span>
+                  <Link className="ibar-send" href={promptHref(c.chatU)}>{c.sendLbl}</Link>
+                </div>
               </div>
-            </div>
-            <div className="dims">
-              {[90, 84, 88, 92, 80].map((w, i) => (
-                <div key={i}><div className="l">{pv.dims[i]}</div><div className="bar"><i style={{ width: `${w}%` }} /></div></div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div className="fact ok"><CheckIcon color="#047857" /><div><b>{pv.facts[0].split(' · ')[0]}</b>{pv.facts[0].slice(pv.facts[0].indexOf(' · '))}</div></div>
-              <div className="fact"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4" /><circle cx="12" cy="12" r="9" /></svg><div><b>{pv.facts[1].split(' · ')[0]}</b>{pv.facts[1].slice(pv.facts[1].indexOf(' · '))}</div></div>
-              <div className="fact"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14" /><path d="M9 21v-6h6v6" /></svg><div><b>{pv.facts[2].split(' · ')[0]}</b>{pv.facts[2].slice(pv.facts[2].indexOf(' · '))}</div></div>
+              <div className="float">
+                <span className="float-dot" />
+                <div>
+                  <b>{c.floatB}</b>
+                  <span>{c.floatS}</span>
+                </div>
+              </div>
             </div>
           </div>
         </header>
 
         {/* ================= trust strip ================= */}
-        <section className="trust">
-          <div className="wrap">{c.trust.map((t, i) => <div key={i}>{t}</div>)}</div>
+        <div className="trust">
+          <div className="wrap trust-in">
+            {c.trust.map((t, i) => (
+              <div key={i}>{t}</div>
+            ))}
+          </div>
+        </div>
+
+        {/* ================= PAINS ================= */}
+        <section className="pains">
+          <div className="wrap pains-in">
+            {c.pains.map((p, i) => (
+              <div className={i ? `pain rv d${i}` : 'pain rv'} key={i}>
+                <span className="gn">0{i + 1}</span>
+                <p>{p}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ================= PHOTO BAND: full-bleed + glass stats ================= */}
+        <section className="band">
+          <span className="band-cap">{c.cap}</span>
+          <div className="wrap">
+            <div className="gstats rv">
+              {c.stats.map((s, i) => (
+                <div className="gstat" key={i}>
+                  <div className="b">{s.b}</div>
+                  <div className="s">{s.s}</div>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
         {/* ================= ROLES ================= */}
         <section className="roles" id="roles">
           <div className="wrap">
-            <div className="head">
-              <h2 className="h2">{c.rolesH2}</h2>
-              <p className="ssub">{c.rolesSub}</p>
-            </div>
-            <div className="tabs" role="tablist">
-              {c.roles.map((r, i) => (
-                <button key={i} type="button" role="tab" aria-selected={tab === i} className={tab === i ? 'tab on' : 'tab'} onClick={() => setTab(i)}>{r.tag}</button>
-              ))}
-            </div>
-            <div className="role" key={`${lang}-${tab}`}>
+            <div className="roles-head">
               <div>
+                <span className="eyebrow">Three Agents</span>
+                <h2>{c.rolesH2}</h2>
+                <p className="rsub">{c.rolesSub}</p>
+              </div>
+              <div className="rtabs" role="tablist">
+                {c.roles.map((r, i) => (
+                  <button
+                    className={i === tab ? 'rtab on' : 'rtab'}
+                    key={i}
+                    role="tab"
+                    aria-selected={i === tab}
+                    onClick={() => setTab(i)}
+                  >
+                    {r.tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* .swap stays on; the keyed children remount on tab change, replaying the swap animation */}
+            <div className="rpanel rv swap">
+              <div className="rp-l" key={`l-${tab}`}>
+                <span className="rp-tag">{role.tag}</span>
                 <h3>{role.h2}</h3>
-                <div className="benefits">
-                  {role.benefits.map((b, i) => (
-                    <div className="benefit" key={i}><div className="ic">{ROLE_ICONS[i % 3]}</div><div><b>{b.b}</b><span>{b.s}</span></div></div>
+                <p className="lead">{role.lead}</p>
+                <div className="rp-bens">
+                  {role.benefits.map((b, j) => (
+                    <div className="rp-ben" key={j}>
+                      <span className="bn">{j + 1}</span>
+                      <div>
+                        <div className="bb">{b.b}</div>
+                        <div className="bs">{b.s}</div>
+                      </div>
+                    </div>
                   ))}
                 </div>
-                <Link className="btn btn-p" href={user ? ROLE_HREFS[tab] : '/register'}>{role.cta}</Link>
-              </div>
-              <div className="card demo">
-                <div className="top"><span>{role.demoName}</span><span className="muted mono" style={{ fontSize: 11, fontWeight: 500 }}>{role.tm}</span></div>
-                {role.rows.map((r, i) => (
-                  <div className="card row" key={i}><div><b>{r.b}</b><span className="s">{r.s}</span></div><span className={`pill ${r.pillCls}`}>{r.pill}</span></div>
-                ))}
-                <div className="note">
-                  <div>{role.note}</div>
-                  <div className="acts"><span className="btn btn-p">{role.act1}</span>{role.act2 && <span className="btn btn-g">{role.act2}</span>}</div>
+                <div className="rp-quote">
+                  <p>{role.quote}</p>
+                  <div className="who">
+                    <span className="av">{role.avatar}</span>
+                    <span className="wn">{role.who}</span>
+                  </div>
+                </div>
+                <div className="rp-cta">
+                  <Link className="btn btn-p" href={ROLE_HREFS[tab]}>
+                    {role.cta}
+                  </Link>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ================= PHOTO BAND + STATS ================= */}
-        <section className="band">
-          <div className="wrap">
-            <div className="img">
-              <img src="/home/hero-mist.jpg" alt={c.heroAlt} loading="lazy" />
-              <div className="stats">
-                {c.stats.map((s, i) => (
-                  <div className={i ? `stat rv d${i}` : 'stat rv'} key={i}><div className={s.num ? 'b num' : 'b'}>{s.b}</div><div className="s">{s.s}</div></div>
-                ))}
+              <div className="rp-r" key={`r-${tab}`}>
+                <div className="demo" aria-hidden="true">
+                  <div className="demo-h">
+                    {role.demoName}
+                    <span className="st">{role.demoSt}</span>
+                  </div>
+                  <div>
+                    {role.rows.map((row, j) => (
+                      <div className="demo-row" key={j}>
+                        <div>
+                          <div className="rb">{row.b}</div>
+                          <div className="rs">{row.s}</div>
+                        </div>
+                        <span className={`pill ${row.pillCls}`}>{row.pill}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="demo-note">{role.note}</div>
+                  <div className="demo-acts">
+                    <span className="chip chip-p">{role.act1}</span>
+                    {role.act2 && <span className="chip chip-g">{role.act2}</span>}
+                    <span className="demo-tm">{role.tm}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -965,11 +1292,33 @@ export default function HomePage() {
         {/* ================= STEPS ================= */}
         <section className="steps">
           <div className="wrap">
-            <h2 className="h2">{c.stepsH2}</h2>
+            <h2>{c.stepsH2}</h2>
             <p className="ssub">{c.stepsSub}</p>
             <div className="steps-in">
               {c.steps.map((s, i) => (
-                <div className={i ? `step rv d${i}` : 'step rv'} key={i}><span className="n">{i + 1}</span><h3>{s.h}</h3><p>{s.p}</p></div>
+                <div className={i ? `step rv d${i}` : 'step rv'} key={i}>
+                  <span className="gn">0{i + 1}</span>
+                  <span className="n">{i + 1}</span>
+                  <h3>{s.h}</h3>
+                  <p>{s.p}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ================= DARK FACTS ================= */}
+        <section className="dark">
+          <div className="wrap">
+            <span className="eyebrow">Verifiable</span>
+            <h2>{c.darkH2}</h2>
+            <p className="dsub">{c.darkSub}</p>
+            <div className="facts">
+              {c.facts.map((f, i) => (
+                <div className={i ? `fact rv d${i}` : 'fact rv'} key={i}>
+                  <div className="b">{f.b}</div>
+                  <div className="s">{f.s}</div>
+                </div>
               ))}
             </div>
           </div>
@@ -978,14 +1327,40 @@ export default function HomePage() {
         {/* ================= FINAL ================= */}
         <section className="final">
           <div className="wrap">
-            <div className="box">
-              <div><h2>{c.finalH2}</h2><p>{c.note}</p></div>
-              <Link className="btn" href={finalHref}>{c.finalCta}</Link>
-            </div>
+            <h2>{c.finalH2}</h2>
+            <p>{c.finalP}</p>
+            <Link className="btn btn-p" href={finalHref}>
+              {c.finalCta}
+            </Link>
+            <p className="fnote">{c.finalNote}</p>
           </div>
         </section>
       </div>
       <Footer />
     </>
   )
+}
+
+/* ===================== hero chat：用户消息打字机 ===================== */
+
+function ChatUserTypewriter({ text }: { text: string }) {
+  // Blueprint timing: 55ms/char, types COPY[lang].chatU once (no loop).
+  // SSR/initial state shows the full line (as in the blueprint markup);
+  // prefers-reduced-motion keeps it static. Keyed by lang in the parent,
+  // so a language switch remounts cleanly.
+  const [chars, setChars] = useState(text.length)
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let i = 0
+    setChars(0)
+    const t = setInterval(() => {
+      i++
+      setChars(i)
+      if (i >= text.length) clearInterval(t)
+    }, 55)
+    return () => clearInterval(t)
+  }, [text])
+
+  return <div className="m m-u">{text.slice(0, chars)}</div>
 }
