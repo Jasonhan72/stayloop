@@ -712,7 +712,7 @@ const CSS = `
 @media(prefers-reduced-motion:reduce){.v9 .rv{opacity:1;transform:none;transition:none}}
 
 /* hero */
-.v9 .hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;padding:64px 0 56px;align-items:center;}
+.v9 .hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;padding-top:64px;padding-bottom:56px;align-items:center;}
 .v9 .hero h1{font-size:56px;line-height:1.06;letter-spacing:-.03em;font-weight:800;}
 .v9 .hero h1 em{font-style:normal;color:var(--acc);}
 .v9 .hero .sub{font-size:19px;line-height:1.55;color:var(--ink-3);margin:22px 0 0;max-width:34ch;}
@@ -782,7 +782,7 @@ const CSS = `
 
 @media(max-width:1024px){
   .v9 .wrap{padding:0 28px;}
-  .v9 .hero{grid-template-columns:1fr;gap:28px;padding:40px 0 32px;}
+  .v9 .hero{grid-template-columns:1fr;gap:28px;padding-top:40px;padding-bottom:32px;}
   .v9 .hero h1{font-size:40px;}
   .v9 .role{grid-template-columns:1fr;gap:28px;}
   .v9 .stats{grid-template-columns:repeat(2,minmax(0,1fr));}
