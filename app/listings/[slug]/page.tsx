@@ -389,9 +389,9 @@ export default function ListingDetailPage() {
                   <span
                     className="font-mono"
                     style={{
-                      background: 'linear-gradient(135deg,rgba(124,58,237,0.10),rgba(37,99,235,0.10))',
+                      background: 'linear-gradient(135deg,rgba(27,27,60,0.10),rgba(37,99,235,0.10))',
                       color: '#5B21B6',
-                      border: '1px solid rgba(124,58,237,0.40)',
+                      border: '1px solid rgba(27,27,60,0.40)',
                       borderRadius: 6,
                       padding: '4px 10px',
                       fontSize: 10.5,
@@ -718,8 +718,8 @@ export default function ListingDetailPage() {
                     height: 48,
                     borderRadius: '50%',
                     background:
-                      'linear-gradient(135deg,rgba(124,58,237,0.20),rgba(37,99,235,0.25))',
-                    border: '1px solid rgba(124,58,237,0.30)',
+                      'linear-gradient(135deg,rgba(27,27,60,0.20),rgba(37,99,235,0.25))',
+                    border: '1px solid rgba(27,27,60,0.30)',
                   }}
                 />
                 <div>

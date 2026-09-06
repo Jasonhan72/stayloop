@@ -690,7 +690,7 @@ const COPY: Record<Lang, HomeCopy> = {
 // Motion: fade-up reveals only (.rv → .on), disabled under reduced motion.
 
 const CSS = `
-.v9{--acc:#7C3AED;--acc-2:#6D28D9;--ink:#0f172a;--ink-2:#334155;--ink-3:#475569;--mute:#64748b;--line:#e2e8f0;--bg:#ffffff;--bg-2:#f8fafc;--ok:#047857;--ok-bg:#ecfdf5;--ok-line:#a7f3d0;
+.v9{--acc:#1B1B3C;--acc-2:#12122B;--ink:#0f172a;--ink-2:#334155;--ink-3:#475569;--mute:#64748b;--line:#e2e8f0;--bg:#ffffff;--bg-2:#f8fafc;--ok:#047857;--ok-bg:#ecfdf5;--ok-line:#a7f3d0;
   background:var(--bg);color:var(--ink);font-family:"Inter Tight","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;}
 .v9 .wrap{max-width:1312px;margin:0 auto;padding:0 64px;}
 .v9 .mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;}
@@ -714,12 +714,12 @@ const CSS = `
 /* hero */
 .v9 .hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;padding-top:64px;padding-bottom:56px;align-items:center;}
 .v9 .hero h1{font-size:56px;line-height:1.06;letter-spacing:-.03em;font-weight:800;}
-.v9 .hero h1 em{font-style:normal;color:var(--acc);}
+.v9 .hero h1 em{font-style:normal;color:#00ACE4;}
 .v9 .hero .sub{font-size:19px;line-height:1.55;color:var(--ink-3);margin:22px 0 0;max-width:34ch;}
 .v9 .hero .ctas{display:flex;gap:12px;align-items:center;margin-top:24px;flex-wrap:wrap;}
 .v9 .preview{padding:20px;box-shadow:0 24px 60px -24px rgba(15,23,42,.25);display:flex;flex-direction:column;gap:16px;}
 .v9 .preview .who{display:flex;align-items:center;justify-content:space-between;gap:12px;}
-.v9 .avatar{width:36px;height:36px;border-radius:999px;background:#f3eefe;display:grid;place-items:center;font-weight:800;color:var(--acc);font-size:13px;flex:none;}
+.v9 .avatar{width:36px;height:36px;border-radius:999px;background:#EEF2F6;display:grid;place-items:center;font-weight:800;color:var(--acc);font-size:13px;flex:none;}
 .v9 .dims{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;}
 .v9 .dims .l{font-size:11px;color:var(--mute);margin-bottom:6px;white-space:nowrap;}
 .v9 .fact{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--bg-2);border:1px solid var(--line);font-size:13px;}

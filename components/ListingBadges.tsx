@@ -5,7 +5,7 @@
 type PromoVariant = 'card' | 'hero'
 
 const promoColor = (badge: string) =>
-  badge.startsWith('LUNA') ? '#7C3AED' : badge.startsWith('NEW') ? '#DC2626' : '#047857'
+  badge.startsWith('LUNA') ? '#1B1B3C' : badge.startsWith('NEW') ? '#DC2626' : '#047857'
 
 export function PromoBadge({ badge, variant }: { badge?: string | null; variant: PromoVariant }) {
   if (!badge) return null
@@ -149,5 +149,5 @@ export function VerificationBadge({
         : zh ? '待验证' : 'PENDING'
     return <span className={cls} style={{ background: '#A16207' }}>{label}</span>
   }
-  return <span className={cls} style={{ background: '#7C3AED' }}>VERIFIED</span>
+  return <span className={cls} style={{ background: '#1B1B3C' }}>VERIFIED</span>
 }

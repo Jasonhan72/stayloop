@@ -1052,7 +1052,7 @@ export async function generateScreeningReport(
       // does not). Print it — this is a paper trail, and the link is the step
       // the landlord is being asked to take.
       const manualLink = q.url && (q.status !== 'ok' || isMention)
-        ? ` <a href="${esc(q.url)}" style="color:#6D28D9">${zh ? (q.status === 'ok' ? '完整站内检索' : '一键人工检索') : (q.status === 'ok' ? 'full site search' : 'run the search yourself')}</a>`
+        ? ` <a href="${esc(q.url)}" style="color:#12122B">${zh ? (q.status === 'ok' ? '完整站内检索' : '一键人工检索') : (q.status === 'ok' ? 'full site search' : 'run the search yourself')}</a>`
         : ''
       html += `<tr>
         <td style="${rowBg}">${esc(q.source)}</td>
@@ -1068,7 +1068,7 @@ export async function generateScreeningReport(
     for (const q of mentionRows) {
       html += `<h3 style="font-size:11px;font-weight:700;color:#1E3A5F;margin:10px 0 6px">${esc(q.source)} — ${zh ? '提及清单（非当事人记录）' : 'mentions (not party records)'}</h3>`
       for (const m of q.indexRecords!) {
-        html += `<div style="font-size:9.5px;margin:0 0 4px"><a href="${esc(m.url)}" style="color:#6D28D9">${esc(m.title)}</a>${m.snippet ? ` <span style="color:#64748B">— ${esc(m.snippet)}</span>` : ''}</div>`
+        html += `<div style="font-size:9.5px;margin:0 0 4px"><a href="${esc(m.url)}" style="color:#12122B">${esc(m.title)}</a>${m.snippet ? ` <span style="color:#64748B">— ${esc(m.snippet)}</span>` : ''}</div>`
       }
       html += `<div style="font-size:9px;color:#B45309;margin:2px 0 6px">${zh ? '以上为「提及」而非当事人记录——律师、仲裁员、他案当事人常与申请人同名。逐条核读后再下结论;不参与评分。' : 'Mentions, not party records — counsel, adjudicators and unrelated parties share names. Read each before concluding anything; none of this affects the score.'}</div>`
     }
@@ -1161,7 +1161,7 @@ export async function generateScreeningReport(
     html += `<h2>${zh ? '待人工核实清单' : 'Action Items'}</h2>
     <p style="font-size:10px;color:#64748B;margin-bottom:6px">${zh ? '以下内容无法仅凭上传文档确认，需要您亲自核实。' : 'These items cannot be verified from documents alone.'}</p>
     <table>
-      <tr><th style="background:#6D28D9">${zh ? '项目' : 'Item'}</th><th style="background:#6D28D9;width:80px">${zh ? '维度' : 'Dimension'}</th><th style="background:#6D28D9">${zh ? '详情' : 'Details'}</th><th style="background:#6D28D9;width:90px">${zh ? '对评分影响' : 'Impact'}</th></tr>`
+      <tr><th style="background:#12122B">${zh ? '项目' : 'Item'}</th><th style="background:#12122B;width:80px">${zh ? '维度' : 'Dimension'}</th><th style="background:#12122B">${zh ? '详情' : 'Details'}</th><th style="background:#12122B;width:90px">${zh ? '对评分影响' : 'Impact'}</th></tr>`
     for (const item of result.action_items) {
       html += `<tr>
         <td style="font-weight:600">${esc(zh ? item.title_zh : item.title_en)}</td>

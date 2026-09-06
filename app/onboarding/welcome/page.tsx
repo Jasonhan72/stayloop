@@ -33,7 +33,7 @@ export default function OnboardingWelcomePage() {
     <OnboardingStage step={1} totalSteps={4} eyebrow="TENANT · STAYLOOP">
       {/* Three small orbs representing tenant / landlord / agent — same orb design system from Hi-Fi */}
       <div className="flex justify-center gap-3" style={{ marginBottom: 22 }}>
-        <Orb color="#7C3AED" size={44} pulse />
+        <Orb color="#1B1B3C" size={44} pulse />
         <Orb color="#047857" size={32} />
         <Orb color="#2563EB" size={32} />
       </div>

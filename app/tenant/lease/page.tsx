@@ -227,7 +227,7 @@ export default function TenantLeasePage() {
               <span
                 className="h-5 w-5 rounded-full"
                 style={{
-                  background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)',
+                  background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #1B1B3C 70%)',
                 }}
               />
               <p className="text-[12.5px] leading-relaxed text-tenant-deep">{`${name} ${c.explain[lang]}`}</p>
@@ -372,7 +372,7 @@ function SigningAside({ lang, insights }: { lang: Lang; insights: AIInsight[] })
         <div className="flex items-center gap-2.5">
           <span
             className="flex h-8 w-8 items-center justify-center rounded-full"
-            style={{ background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)' }}
+            style={{ background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #1B1B3C 70%)' }}
           />
           <div>
             <div className="text-[13px] font-bold">{zh ? `${name} 在这里 · SIGNING` : `${name} is here · SIGNING`}</div>

@@ -50,14 +50,14 @@
   --sl-text-4: #A1A1AA;
 
   /* Brand */
-  --sl-brand: #047857;
-  --sl-brand-strong: #065F46;
-  --sl-brand-bright: #10B981;
-  --sl-brand-bright-2: #34D399;
-  --sl-brand-wash: #E4EEE3;
+  --sl-brand: #1B1B3C;
+  --sl-brand-strong: #12122B;
+  --sl-brand-bright: #00ACE4;
+  --sl-brand-bright-2: #33BCEA;
+  --sl-brand-wash: #EEF2F6;
 
   /* Roles */
-  --sl-tenant: #7C3AED;
+  --sl-tenant: #1B1B3C;
   --sl-landlord: #047857;
   --sl-agent: #2563EB;
 
@@ -83,18 +83,18 @@ html, body {
 /* ============ V5 component utilities ============ */
 
 @layer components {
-  /* Primary CTA — brand purple→blue gradient (matches the .AI wordmark) */
+  /* Primary CTA — solid navy ink (flinks.com scheme, 2026-09-05) */
   .sl-btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded-[10px] px-[22px] py-3 text-[15px] font-semibold text-white transition active:translate-y-px;
-    background: linear-gradient(135deg, #7C3AED 0%, #2563EB 100%);
-    box-shadow: 0 8px 22px -10px rgba(124, 58, 237, 0.5),
-                0 1px 0 rgba(255, 255, 255, 0.22) inset;
+    background: #1B1B3C;
+    box-shadow: 0 8px 22px -10px rgba(27, 27, 60, 0.35),
+                0 1px 0 rgba(255, 255, 255, 0.10) inset;
   }
   .sl-btn-primary:hover {
-    background: linear-gradient(135deg, #6D28D9 0%, #1D4ED8 100%);
+    background: #12122B;
   }
   .sl-btn-primary.dark {
-    background: #4C1D95;
+    background: #12122B;
   }
   .sl-btn-primary:disabled,
   .sl-btn-primary.disabled {
@@ -160,7 +160,7 @@ html, body {
     @apply inline-flex items-center text-[18px] font-extrabold tracking-tight;
   }
   .sl-wordmark .accent {
-    background: linear-gradient(135deg, #7C3AED, #2563EB);
+    background: linear-gradient(90deg, #1B1B3C 0%, #00ACE4 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -173,7 +173,7 @@ html, body {
   }
   .tier-badge.t1 { background: rgba(22,163,74,0.12); color: #16A34A; }
   .tier-badge.t2 { background: rgba(37,99,235,0.12); color: #2563EB; }
-  .tier-badge.t3 { background: rgba(124,58,237,0.12); color: #7C3AED; }
+  .tier-badge.t3 { background: rgba(27,27,60,0.12); color: #1B1B3C; }
   .tier-badge.t4 { background: rgba(180,83,9,0.12); color: #B45309; }
 
   /* Agent orb (Luna / Logic / Brief) */
@@ -181,8 +181,8 @@ html, body {
     @apply relative flex-shrink-0 rounded-full;
   }
   .orb.tenant {
-    background: radial-gradient(circle at 35% 35%, #C4B5FD 0%, #7C3AED 60%, #5B21B6 100%);
-    box-shadow: 0 0 24px rgba(124, 58, 237, 0.4);
+    background: radial-gradient(circle at 35% 35%, #C4B5FD 0%, #1B1B3C 60%, #5B21B6 100%);
+    box-shadow: 0 0 24px rgba(27, 27, 60, 0.4);
   }
   .orb.landlord {
     background: radial-gradient(circle at 35% 35%, #6EE7B7 0%, #047857 60%, #064E3B 100%);
@@ -231,7 +231,7 @@ html, body {
     color: var(--sl-text-2);
   }
   .sl-chip.fit { background: rgba(4,120,87,0.10); border-color: rgba(4,120,87,0.22); color: #047857; }
-  .sl-chip.tier { background: rgba(124,58,237,0.10); border-color: rgba(124,58,237,0.22); color: #7C3AED; }
+  .sl-chip.tier { background: rgba(27,27,60,0.10); border-color: rgba(27,27,60,0.22); color: #1B1B3C; }
   .sl-chip.lock { background: rgba(217,119,6,0.10); border-color: rgba(217,119,6,0.32); color: #B45309; }
 }
 

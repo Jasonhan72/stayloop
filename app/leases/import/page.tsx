@@ -177,7 +177,7 @@ export default function LeaseImportPage() {
           <div>
             <h1 className="text-[22px] font-extrabold">{zh ? '导入已有租约' : 'Import an existing lease'}</h1>
             <p className="mt-2 text-[14px] text-body-2">{zh ? '请先登录后再导入。' : 'Please sign in first.'}</p>
-            <Link href="/login?next=/leases/import" className="mt-5 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#7C3AED' }}>
+            <Link href="/login?next=/leases/import" className="mt-5 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#1B1B3C' }}>
               {zh ? '去登录' : 'Sign in'}
             </Link>
           </div>
@@ -194,7 +194,7 @@ export default function LeaseImportPage() {
     <div style={{ background: '#FFFFFF', minHeight: '100vh' }} className="flex flex-col">
       <Header variant="transparent" />
       <div className="mx-auto w-full max-w-[680px] flex-1 px-5 py-12">
-        <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#7C3AED' }}>
+        <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#1B1B3C' }}>
           {zh ? '在管租约 · 导入' : 'MANAGED TENANCY · IMPORT'}
         </div>
         <h1 className="mt-2 text-[26px] font-extrabold tracking-tight">
@@ -216,7 +216,7 @@ export default function LeaseImportPage() {
               <button
                 key={r.id}
                 onClick={() => { setRole(r.id); setStep('files') }}
-                className="w-full rounded-xl border border-line-divider bg-white px-5 py-4 text-left transition hover:border-[#7C3AED]"
+                className="w-full rounded-xl border border-line-divider bg-white px-5 py-4 text-left transition hover:border-[#1B1B3C]"
               >
                 <div className="text-[15px] font-bold">{zh ? r.zh : r.en}</div>
                 <div className="mt-0.5 text-[12.5px] text-body-3">{zh ? r.descZh : r.descEn}</div>
@@ -229,7 +229,7 @@ export default function LeaseImportPage() {
           <div className="mt-8">
             <button
               onClick={() => fileInput.current?.click()}
-              className="w-full rounded-xl border-2 border-dashed border-line-divider bg-white px-5 py-12 text-center transition hover:border-[#7C3AED]"
+              className="w-full rounded-xl border-2 border-dashed border-line-divider bg-white px-5 py-12 text-center transition hover:border-[#1B1B3C]"
             >
               <div className="text-[15px] font-bold">{zh ? '选择租约文件' : 'Choose lease file(s)'}</div>
               <div className="mt-1 text-[12.5px] text-body-3">{zh ? 'PDF 或照片 · 最多 3 个 · 共 10MB' : 'PDF or photos · up to 3 files · 10MB total'}</div>
@@ -255,7 +255,7 @@ export default function LeaseImportPage() {
           <div className="mt-8 rounded-xl border border-line-divider bg-white p-6">
             {extracting ? (
               <div className="py-10 text-center">
-                <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[#7C3AED] border-t-transparent" />
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[#1B1B3C] border-t-transparent" />
                 <p className="mt-3 text-[13px] text-body-3">{zh ? 'AI 正在读取租约…' : 'Reading the lease…'}</p>
               </div>
             ) : (
@@ -307,7 +307,7 @@ export default function LeaseImportPage() {
                   onClick={() => void createHousehold()}
                   disabled={creating}
                   className="mt-6 w-full rounded-lg py-3 text-[14px] font-bold text-white disabled:opacity-60"
-                  style={{ background: '#7C3AED' }}
+                  style={{ background: '#1B1B3C' }}
                 >
                   {creating ? (zh ? '创建中…' : 'Creating…') : (zh ? '确认并创建' : 'Confirm & create')}
                 </button>
@@ -352,7 +352,7 @@ export default function LeaseImportPage() {
                 onClick={() => void sendInvites()}
                 disabled={inviting}
                 className="flex-1 rounded-lg py-3 text-[14px] font-bold text-white disabled:opacity-60"
-                style={{ background: '#7C3AED' }}
+                style={{ background: '#1B1B3C' }}
               >
                 {inviting ? (zh ? '发送中…' : 'Sending…') : (zh ? '发送邀请' : 'Send invites')}
               </button>
@@ -373,7 +373,7 @@ export default function LeaseImportPage() {
             <button
               onClick={() => householdId && router.push(`/h/${householdId}`)}
               className="mt-5 rounded-lg px-6 py-3 text-[14px] font-bold text-white"
-              style={{ background: '#7C3AED' }}
+              style={{ background: '#1B1B3C' }}
             >
               {zh ? '进入管理页' : 'Open the household'}
             </button>

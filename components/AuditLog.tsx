@@ -236,7 +236,7 @@ export default function AuditLog({ role }: { role: WorkspaceRole }) {
                       <span
                         className="inline-flex items-center gap-1 rounded-[4px] font-mono"
                         style={{
-                          background: 'rgba(124,58,237,0.08)',
+                          background: 'rgba(27,27,60,0.08)',
                           color: '#5B21B6',
                           padding: '2px 7px',
                           fontSize: 9.5,

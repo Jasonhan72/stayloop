@@ -13,7 +13,7 @@ const sizeMap = {
 }
 
 /**
- * Stayloop wordmark — "stay**loop**" with purple→blue gradient on "loop".
+ * Stayloop wordmark — "stay**loop**" with navy→light-blue gradient on "loop.AI".
  * Used everywhere: public header, workspace rail, footer, etc.
  */
 export default function Logo({ size = 'md', href = '/', withMark = false }: LogoProps) {
@@ -24,8 +24,8 @@ export default function Logo({ size = 'md', href = '/', withMark = false }: Logo
           aria-hidden
           className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-lg text-white"
           style={{
-            background: 'linear-gradient(135deg, #047857 0%, #10B981 100%)',
-            boxShadow: '0 4px 12px -4px rgba(4,120,87,0.5)',
+            background: 'linear-gradient(135deg, #1B1B3C 0%, #00ACE4 100%)',
+            boxShadow: '0 4px 12px -4px rgba(27,27,60,0.4)',
           }}
         >
           <span className="font-extrabold leading-none">S</span>

@@ -39,13 +39,14 @@ const config: Config = {
           3: '#71717A',
           4: '#A1A1AA',
         },
-        // Brand — dark emerald (cream-safe)
+        // Brand — navy ink with one light-blue highlight (2026-09-05, user
+        // asked for the flinks.com grey/navy scheme instead of purple)
         brand: {
-          DEFAULT: '#047857',
-          strong: '#065F46',
-          bright: '#10B981',
-          'bright-2': '#34D399',
-          wash: '#E4EEE3',
+          DEFAULT: '#1B1B3C',
+          strong: '#12122B',
+          bright: '#00ACE4',
+          'bright-2': '#33BCEA',
+          wash: '#EEF2F6',
         },
         // Roles
         tenant: {

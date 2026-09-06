@@ -454,8 +454,8 @@ export default function NewListingPage() {
             {step === 5 && (
               <div className="space-y-4">
                 <h2 className="text-[18px] font-bold">{lang === 'zh' ? '5 · 最后审 + 发布' : '5 · Review + publish'}</h2>
-                <div className="rounded-xl border border-[#7C3AED]/20 bg-[#7C3AED]/[0.04] p-4 text-[13px] leading-relaxed text-body">
-                  <div className="font-mono text-[11.5px] font-bold tracking-eyebrow text-[#7C3AED]">
+                <div className="rounded-xl border border-[#1B1B3C]/20 bg-[#1B1B3C]/[0.04] p-4 text-[13px] leading-relaxed text-body">
+                  <div className="font-mono text-[11.5px] font-bold tracking-eyebrow text-[#1B1B3C]">
                     {lang === 'zh' ? '📝 已改写为 Stayloop 风格 · EN + 中文双语' : '📝 Rewritten in Stayloop style · EN + Chinese'}
                   </div>
                   <p className="mt-2">

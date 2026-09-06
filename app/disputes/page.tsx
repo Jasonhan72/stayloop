@@ -38,7 +38,7 @@ const CASES: { id: string; title: LS; parties: LS; statusLabel: LS; color: strin
     title: { zh: '租金涨幅争议 · DSP-7K2L', en: 'Rent increase dispute · DSP-7K2L' },
     parties: { zh: 'D. Tay (租客) ⇄ 房东 · 涨幅 4.8% 超过 2026 安省指引 2.5% · 等仲裁员合议', en: 'D. Tay (tenant) ⇄ landlord · 4.8% increase exceeds the 2026 Ontario guideline of 2.5% · awaiting arbitrator deliberation' },
     statusLabel: { zh: '合议中', en: 'In deliberation' },
-    color: '#7C3AED',
+    color: '#1B1B3C',
     day: 'DAY 4 / 14',
   },
   {
@@ -209,7 +209,7 @@ export default function DisputesPage() {
       <section style={{ background: 'linear-gradient(180deg,#F4F6F9 0%,rgba(139,92,246,0.06) 100%)' }}>
         <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-7 lg:px-12">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#7C3AED' }}>
+            <span className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#1B1B3C' }}>
               {zh ? 'DISPUTE CENTER · 仲裁案件中心' : 'DISPUTE CENTER'}
             </span>
             <SampleTag zh={zh} tone="loud" />
@@ -280,7 +280,7 @@ export default function DisputesPage() {
                   {c.urgent && <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: c.color }} />}
                   {c.statusLabel[lang]}
                 </span>
-                <Link href="#case-detail" className="flex-shrink-0 text-[12.5px] font-semibold hover:underline" style={{ color: '#7C3AED' }}>
+                <Link href="#case-detail" className="flex-shrink-0 text-[12.5px] font-semibold hover:underline" style={{ color: '#1B1B3C' }}>
                   {zh ? '打开 →' : 'Open →'}
                 </Link>
               </div>
@@ -315,10 +315,10 @@ export default function DisputesPage() {
                   <div
                     key={s.k}
                     className={'rounded-xl border px-4 py-3 ' +
-                      (s.s === 'now' ? 'border-[rgba(124,58,237,0.40)] bg-[rgba(124,58,237,0.06)]' : 'border-line-divider bg-white')}
+                      (s.s === 'now' ? 'border-[rgba(27,27,60,0.40)] bg-[rgba(27,27,60,0.06)]' : 'border-line-divider bg-white')}
                   >
                     <div className="flex items-baseline gap-2">
-                      <span className={'font-mono text-[11px] font-bold ' + (s.s === 'now' ? 'text-[#7C3AED]' : 'text-body-3')}>{s.k}</span>
+                      <span className={'font-mono text-[11px] font-bold ' + (s.s === 'now' ? 'text-[#1B1B3C]' : 'text-body-3')}>{s.k}</span>
                       <span className="font-mono text-[10px] text-body-3">{s.range[lang]}</span>
                       <span className="text-[13.5px] font-bold">{s.title[lang]}</span>
                     </div>
@@ -331,7 +331,7 @@ export default function DisputesPage() {
             {/* AI legal assistant */}
             <div className="sl-card p-6">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)' }} />
+                <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #1B1B3C 70%)' }} />
                 <div>
                   <div className="text-[14px] font-bold">{zh ? 'AI-Legal · 专业模型' : 'AI-Legal · specialist model'}</div>
                   <div className="font-mono text-[10.5px] text-body-3">{zh ? '引用 RTA / O.Reg / 1.4M CanLII 案例 · 不构成法律意见' : 'Cites RTA / O.Reg / 1.4M CanLII cases · not legal advice'}</div>
@@ -353,8 +353,8 @@ export default function DisputesPage() {
                 )}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '给我看 DSP-2K8X 押金争议的协商函草稿' : 'Show me the negotiation letter draft for deposit dispute DSP-2K8X')}`} className="rounded-lg px-4 py-[9px] text-[13px] font-semibold text-white" style={{ background: '#7C3AED' }}>{zh ? '查看协商函草稿' : 'View negotiation letter draft'}</Link>
-                <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '调解没有进展，帮我把 DSP-2K8X 押金争议升级到 LTB，准备 T1 表格' : 'Mediation stalled — escalate deposit dispute DSP-2K8X to the LTB and prepare the T1 form')}`} className="rounded-lg border border-line-strong bg-white px-4 py-[8px] text-[13px] font-semibold text-body hover:border-[#7C3AED]" style={{ ['--tw-text-opacity' as string]: 1 }}>{zh ? '📋 帮我升级 LTB' : '📋 Help me escalate to LTB'}</Link>
+                <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '给我看 DSP-2K8X 押金争议的协商函草稿' : 'Show me the negotiation letter draft for deposit dispute DSP-2K8X')}`} className="rounded-lg px-4 py-[9px] text-[13px] font-semibold text-white" style={{ background: '#1B1B3C' }}>{zh ? '查看协商函草稿' : 'View negotiation letter draft'}</Link>
+                <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '调解没有进展，帮我把 DSP-2K8X 押金争议升级到 LTB，准备 T1 表格' : 'Mediation stalled — escalate deposit dispute DSP-2K8X to the LTB and prepare the T1 form')}`} className="rounded-lg border border-line-strong bg-white px-4 py-[8px] text-[13px] font-semibold text-body hover:border-[#1B1B3C]" style={{ ['--tw-text-opacity' as string]: 1 }}>{zh ? '📋 帮我升级 LTB' : '📋 Help me escalate to LTB'}</Link>
               </div>
             </div>
           </div>
@@ -374,12 +374,12 @@ export default function DisputesPage() {
               <div className="mt-4 space-y-2">
                 {LTB_FORMS.map((f) => (
                   <div key={f.code} className="flex items-center gap-3 rounded-lg border border-line-divider bg-white p-3">
-                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg font-mono text-[12px] font-bold" style={{ background: 'rgba(124,58,237,0.10)', color: '#7C3AED' }}>{f.code}</span>
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg font-mono text-[12px] font-bold" style={{ background: 'rgba(27,27,60,0.10)', color: '#1B1B3C' }}>{f.code}</span>
                     <div className="min-w-0 flex-1">
                       <div className="text-[13px] font-bold leading-tight">{f.name[lang]}</div>
                       <div className="font-mono text-[10.5px] text-body-3">{f.who[lang]}</div>
                     </div>
-                    <span className="text-[12px] font-semibold" style={{ color: '#7C3AED' }}>{zh ? '生成 →' : 'Generate →'}</span>
+                    <span className="text-[12px] font-semibold" style={{ color: '#1B1B3C' }}>{zh ? '生成 →' : 'Generate →'}</span>
                   </div>
                 ))}
               </div>
@@ -427,7 +427,7 @@ export default function DisputesPage() {
       <section style={{ background: '#F4F6F9' }}>
         <div className="mx-auto max-w-[1240px] px-5 py-16 sm:px-7 lg:px-12">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#7C3AED' }}>
+            <span className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#1B1B3C' }}>
               {zh ? 'Lawyer Directory · 律师目录' : 'Lawyer Directory'}
             </span>
             <SampleTag zh={zh} tone="loud" />
@@ -448,14 +448,14 @@ export default function DisputesPage() {
             {LAWYERS.map((l) => (
               <div key={l.name} className="sl-card p-6">
                 <div className="flex items-start gap-3">
-                  <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold text-white" style={{ background: '#7C3AED' }}>
+                  <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full font-mono text-[13px] font-bold text-white" style={{ background: '#1B1B3C' }}>
                     {l.initials}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[16px] font-bold">{l.name}</span>
                       <SampleTag zh={zh} />
-                      <span className="rounded-md px-2 py-[2px] font-mono text-[9.5px] font-bold" style={{ background: 'rgba(124,58,237,0.10)', color: '#7C3AED' }}>
+                      <span className="rounded-md px-2 py-[2px] font-mono text-[9.5px] font-bold" style={{ background: 'rgba(27,27,60,0.10)', color: '#1B1B3C' }}>
                         ★ MATCH {l.match}%
                       </span>
                     </div>
@@ -476,17 +476,17 @@ export default function DisputesPage() {
                 </div>
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line-divider pt-3">
                   <div>
-                    <span className="font-mono text-[13px] font-bold" style={{ color: '#7C3AED' }}>{l.rate}</span>
+                    <span className="font-mono text-[13px] font-bold" style={{ color: '#1B1B3C' }}>{l.rate}</span>
                     <span className="ml-2 font-mono text-[10.5px] text-body-3">{l.ratePkg[lang]}</span>
                   </div>
-                  <Link href="/contact" className="rounded-lg px-3 py-[7px] text-[11.5px] font-semibold text-white" style={{ background: '#7C3AED' }}>{l.video[lang]}</Link>
+                  <Link href="/contact" className="rounded-lg px-3 py-[7px] text-[11.5px] font-semibold text-white" style={{ background: '#1B1B3C' }}>{l.video[lang]}</Link>
                 </div>
               </div>
             ))}
           </div>
 
           <div className="mt-6 sl-card p-5">
-            <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#7C3AED' }}>
+            <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#1B1B3C' }}>
               {zh ? 'STAYLOOP 不抽佣 · 透明披露' : 'STAYLOOP takes no commission · transparent disclosure'}
             </div>
             <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">

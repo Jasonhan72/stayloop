@@ -103,7 +103,7 @@ export default function JoinInvitePage() {
       <div className="mx-auto w-full max-w-[520px] flex-1 px-5 py-16">
         {!peek ? (
           <div className="py-20 text-center">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[#7C3AED] border-t-transparent" />
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[#1B1B3C] border-t-transparent" />
           </div>
         ) : declined ? (
           <div className="rounded-xl border border-line-divider bg-white p-8 text-center">
@@ -127,7 +127,7 @@ export default function JoinInvitePage() {
           </div>
         ) : (
           <div className="rounded-xl border border-line-divider bg-white p-8">
-            <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#7C3AED' }}>
+            <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#1B1B3C' }}>
               {zh ? '在管租约邀请' : 'MANAGED TENANCY INVITATION'}
             </div>
             <h1 className="mt-3 text-[20px] font-extrabold leading-snug">
@@ -147,7 +147,7 @@ export default function JoinInvitePage() {
             {loading ? null : user ? (
               <div className="mt-6 flex gap-3">
                 <button onClick={() => void accept()} disabled={busy}
-                  className="flex-1 rounded-lg py-3 text-[14px] font-bold text-white disabled:opacity-60" style={{ background: '#7C3AED' }}>
+                  className="flex-1 rounded-lg py-3 text-[14px] font-bold text-white disabled:opacity-60" style={{ background: '#1B1B3C' }}>
                   {busy ? '…' : (zh ? '接受并加入' : 'Accept & join')}
                 </button>
                 <button onClick={() => void decline()} disabled={busy}
@@ -170,7 +170,7 @@ export default function JoinInvitePage() {
                     type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
                   />
                   <button onClick={() => void sendMagicLink()} disabled={busy}
-                    className="rounded-lg px-4 text-[13px] font-bold text-white disabled:opacity-60" style={{ background: '#7C3AED' }}>
+                    className="rounded-lg px-4 text-[13px] font-bold text-white disabled:opacity-60" style={{ background: '#1B1B3C' }}>
                     {zh ? '发送' : 'Send'}
                   </button>
                 </div>

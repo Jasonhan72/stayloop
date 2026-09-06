@@ -51,7 +51,7 @@ export default function OnboardingStage({ step, totalSteps, eyebrow, children, b
                   style={{
                     height: 3,
                     borderRadius: 2,
-                    background: i < step ? '#7C3AED' : '#E2E8F0',
+                    background: i < step ? '#1B1B3C' : '#E2E8F0',
                   }}
                 />
               ))}
@@ -80,7 +80,7 @@ export default function OnboardingStage({ step, totalSteps, eyebrow, children, b
               style={{
                 fontSize: 10.5,
                 fontWeight: 700,
-                color: '#7C3AED',
+                color: '#1B1B3C',
                 letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 marginBottom: 16,

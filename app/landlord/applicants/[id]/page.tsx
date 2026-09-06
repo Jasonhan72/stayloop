@@ -19,7 +19,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // Six-dimension display config — weights/colors match the scoring engine
 // (app/api/ai-score/route.ts WEIGHTS) and the design volumes.
 const DIM_META = [
-  { key: 'doc_authenticity', col: 'doc_authenticity_score', name: { zh: '证件真实性', en: 'ID authenticity' }, w: 20, color: '#7C3AED' },
+  { key: 'doc_authenticity', col: 'doc_authenticity_score', name: { zh: '证件真实性', en: 'ID authenticity' }, w: 20, color: '#1B1B3C' },
   { key: 'payment_ability', col: 'payment_ability_score', name: { zh: '支付能力', en: 'Ability to pay' }, w: 20, color: '#047857' },
   { key: 'court_records', col: 'court_records_score', name: { zh: '法庭记录', en: 'Court records' }, w: 20, color: '#DC2626' },
   { key: 'stability', col: 'stability_score', name: { zh: '稳定性', en: 'Stability' }, w: 15, color: '#2563EB' },
@@ -195,7 +195,7 @@ function RealApplicantDetail({ id }: { id: string }) {
         <div className="flex items-center gap-4">
           <span
             className="flex h-14 w-14 items-center justify-center rounded-full text-[22px] font-bold text-white"
-            style={{ background: 'linear-gradient(135deg,#C4B5FD,#7C3AED)' }}
+            style={{ background: 'linear-gradient(135deg,#C4B5FD,#1B1B3C)' }}
           >
             {(name[0] || '?').toUpperCase()}
           </span>
@@ -376,7 +376,7 @@ function RealApplicantDetail({ id }: { id: string }) {
 // Design-canon walkthrough fixture (Mia Chen) — reachable only via the
 // non-UUID sample ids on the list page's zero-data fallback.
 const DIMS = [
-  { key: 'doc_authenticity', name: { zh: '证件真实性', en: 'ID authenticity' }, val: 96, w: 20, color: '#7C3AED', note: { zh: '护照 + 自拍均通过 · 与 Persona DB 100% 匹配', en: 'Passport + selfie both passed · 100% match against Persona DB' } },
+  { key: 'doc_authenticity', name: { zh: '证件真实性', en: 'ID authenticity' }, val: 96, w: 20, color: '#1B1B3C', note: { zh: '护照 + 自拍均通过 · 与 Persona DB 100% 匹配', en: 'Passport + selfie both passed · 100% match against Persona DB' } },
   { key: 'payment_ability', name: { zh: '支付能力', en: 'Ability to pay' },   val: 91, w: 20, color: '#047857', note: { zh: 'Plaid 直连 · DTI 30.8% · 6 个月最低存款 $18,400', en: 'Plaid linked · DTI 30.8% · 6-month low balance $18,400' } },
   { key: 'court_records', name: { zh: '法庭记录', en: 'Court records' },   val: 100, w: 20, color: '#DC2626', note: { zh: 'CanLII / LTB 无任何相关记录', en: 'No related records on CanLII / LTB' } },
   { key: 'stability', name: { zh: '稳定性', en: 'Stability' },     val: 87, w: 15, color: '#2563EB', note: { zh: 'RBC 工作 2.4 年 · 现地址 1.2 年', en: '2.4 yrs at RBC · 1.2 yrs at current address' } },
@@ -403,7 +403,7 @@ function DemoApplicantDetail({ id }: { id: string }) {
         <div className="flex items-center gap-4">
           <span
             className="flex h-14 w-14 items-center justify-center rounded-full text-[22px] font-bold text-white"
-            style={{ background: 'linear-gradient(135deg,#C4B5FD,#7C3AED)' }}
+            style={{ background: 'linear-gradient(135deg,#C4B5FD,#1B1B3C)' }}
           >
             M
           </span>

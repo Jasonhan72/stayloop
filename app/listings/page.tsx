@@ -412,8 +412,8 @@ export default function ListingsPage() {
             style={{
               marginLeft: 12,
               padding: '8px 14px',
-              background: 'linear-gradient(135deg,rgba(124,58,237,0.10),rgba(37,99,235,0.10))',
-              border: '1px solid rgba(124,58,237,0.40)',
+              background: 'linear-gradient(135deg,rgba(27,27,60,0.10),rgba(37,99,235,0.10))',
+              border: '1px solid rgba(27,27,60,0.40)',
               borderRadius: 8,
               fontSize: 13,
               fontWeight: 600,
@@ -756,8 +756,8 @@ function ListingCard({
       {l.luna_note && (
         <div
           style={{
-            background: 'rgba(124,58,237,0.06)',
-            borderTop: '1px solid rgba(124,58,237,0.15)',
+            background: 'rgba(27,27,60,0.06)',
+            borderTop: '1px solid rgba(27,27,60,0.15)',
             padding: '8px 16px',
             fontSize: 11.5,
             color: '#5B21B6',

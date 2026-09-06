@@ -156,7 +156,7 @@ function DemoGate({ children, gate, showDemo, setShowDemo }: {
     <div className="rounded-2xl border border-line-divider bg-white px-6 py-16 text-center">
       <p className="mx-auto max-w-[420px] text-[14px] leading-relaxed text-body-2">{zh ? gate.zh : gate.en}</p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-        <Link href={gate.href} className="rounded-xl px-6 py-3 text-[14px] font-bold text-white" style={{ background: '#7C3AED' }}>
+        <Link href={gate.href} className="rounded-xl px-6 py-3 text-[14px] font-bold text-white" style={{ background: '#1B1B3C' }}>
           {zh ? gate.ctaZh : gate.ctaEn}
         </Link>
         <button

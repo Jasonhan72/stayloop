@@ -18,7 +18,7 @@ import Footer from '@/components/Footer'
 import { useT } from '@/lib/i18n'
 import { COMPARISON, FAQS, PRINCIPLES, SOURCES, STEPS } from './copy'
 
-const ACC = '#7C3AED'
+const ACC = '#1B1B3C'
 const OK = '#047857'
 
 const SOURCE_ICONS: ReactNode[] = [

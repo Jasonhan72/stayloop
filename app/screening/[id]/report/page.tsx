@@ -1453,7 +1453,7 @@ export default function ReportPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="font-mono text-[11px] underline"
-                            style={{ color: '#6D28D9' }}
+                            style={{ color: '#12122B' }}
                           >
                             {/* For a source we could not search automatically, the link IS the
                                 check — a pre-filled search the landlord runs themselves. */}
@@ -1466,7 +1466,7 @@ export default function ReportPage() {
                           <div className="mt-1 w-full space-y-1.5 border-t border-line-divider/60 pt-2">
                             {q.indexRecords!.map((m, j) => (
                               <div key={j} className="text-[12px] leading-relaxed">
-                                <a href={m.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline" style={{ color: '#6D28D9' }}>
+                                <a href={m.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline" style={{ color: '#12122B' }}>
                                   {m.title}
                                 </a>
                                 {m.snippet && <span className="text-body-3"> — {m.snippet}</span>}
@@ -1797,7 +1797,7 @@ export default function ReportPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-[14px] font-bold" style={{ color: '#D97706' }}>&rarr;</span>
                         <span className="text-[13px] font-bold text-body">{zh ? item.title_zh || item.title_en : item.title_en || item.title_zh}</span>
-                        {item.dimension && <Badge label={item.dimension} color="#6D28D9" />}
+                        {item.dimension && <Badge label={item.dimension} color="#12122B" />}
                       </div>
                       {(item.details_en || item.details_zh) && (
                         <p className="mt-1 pl-6 text-[12.5px] leading-relaxed text-body-2">{zh ? item.details_zh || item.details_en : item.details_en || item.details_zh}</p>

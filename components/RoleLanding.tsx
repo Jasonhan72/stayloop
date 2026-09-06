@@ -79,7 +79,7 @@ const V8_CSS = `
   .v8r .v8-grid-tex { display: none; }
   .v8r .gn { display: none; }
   .v8r .v8-atmo::before { content: ""; position: absolute; top: -220px; right: -180px; width: 760px; height: 760px;
-    background: radial-gradient(closest-side, rgba(124,58,237,.10), transparent 68%); }
+    background: radial-gradient(closest-side, rgba(27,27,60,.10), transparent 68%); }
   .v8r .v8-atmo::after { content: ""; position: absolute; bottom: -260px; left: -200px; width: 640px; height: 640px;
     background: radial-gradient(closest-side, rgba(59,130,246,.06), transparent 70%); }
   .v8r .v8-grid-tex { position: absolute; inset: 0; pointer-events: none;
@@ -91,7 +91,7 @@ const V8_CSS = `
 
   .v8r .v8-dark { position: relative; overflow: hidden; background: #131316; }
   .v8r .v8-dark::before { content: ""; position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
-    width: 900px; height: 480px; background: radial-gradient(closest-side, rgba(124,58,237,.16), transparent 70%); }
+    width: 900px; height: 480px; background: radial-gradient(closest-side, rgba(27,27,60,.16), transparent 70%); }
 `
 
 export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {

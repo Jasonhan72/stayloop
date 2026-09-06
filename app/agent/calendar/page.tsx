@@ -75,7 +75,7 @@ const SLOTS: Slot[] = [
 
 const TYPE_STYLE: Record<string, { bg: string; fg: string; bd: string }> = {
   showing: { bg: 'rgba(37,99,235,0.10)', fg: '#1E3A8A', bd: 'rgba(37,99,235,0.40)' },
-  photo: { bg: 'rgba(124,58,237,0.10)', fg: '#5B21B6', bd: 'rgba(124,58,237,0.40)' },
+  photo: { bg: 'rgba(27,27,60,0.10)', fg: '#5B21B6', bd: 'rgba(27,27,60,0.40)' },
   lease: { bg: 'rgba(4,120,87,0.10)', fg: '#047857', bd: 'rgba(4,120,87,0.40)' },
   block: { bg: 'rgba(113,113,122,0.10)', fg: '#52525B', bd: 'rgba(113,113,122,0.30)' },
 }

@@ -42,7 +42,7 @@ export default function HouseholdList() {
         <Link
           href="/leases/import"
           className="ml-auto rounded-lg px-4 py-2 text-[12.5px] font-bold text-white"
-          style={{ background: '#7C3AED' }}
+          style={{ background: '#1B1B3C' }}
         >
           + {zh ? '导入已有租约' : 'Import a lease'}
         </Link>
@@ -59,7 +59,7 @@ export default function HouseholdList() {
             <Link
               key={h.id}
               href={`/h/${h.id}`}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line-divider/70 px-4 py-3 text-[13.5px] transition hover:border-[#7C3AED]"
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line-divider/70 px-4 py-3 text-[13.5px] transition hover:border-[#1B1B3C]"
             >
               <span className="font-semibold">
                 {[h.address, h.unit ? `#${h.unit}` : null, h.city].filter(Boolean).join(', ')}

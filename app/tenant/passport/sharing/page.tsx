@@ -46,7 +46,7 @@ const GRANTS: Grant[] = [
     id: 'persona',
     name: 'Persona SDK',
     initial: 'P',
-    color: '#8B5CF6',
+    color: '#2A2A5A',
     role: { zh: '身份验证服务', en: 'Identity verification service' },
     time: { zh: '2026/04/28 · 永久加密存储', en: '2026/04/28 · permanent encrypted storage' },
     scopes: { zh: '护照/驾照 + 自拍 (仅用于身份核验)', en: 'Passport/licence + selfie (identity verification only)' },

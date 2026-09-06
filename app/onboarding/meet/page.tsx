@@ -67,8 +67,8 @@ export default function OnboardingMeetPage() {
 
       <div
         style={{
-          background: 'linear-gradient(135deg,rgba(124,58,237,0.06),rgba(37,99,235,0.04))',
-          border: '1px solid rgba(124,58,237,0.22)',
+          background: 'linear-gradient(135deg,rgba(27,27,60,0.06),rgba(37,99,235,0.04))',
+          border: '1px solid rgba(27,27,60,0.22)',
           borderRadius: 12,
           padding: '18px 20px',
           margin: '0 0 26px',
@@ -134,9 +134,9 @@ function BigOrb() {
         height: 120,
         borderRadius: '50%',
         background:
-          'radial-gradient(circle at 32% 28%, rgba(196,181,253,0.95), #7C3AED 65%)',
+          'radial-gradient(circle at 32% 28%, rgba(196,181,253,0.95), #1B1B3C 65%)',
         boxShadow:
-          '0 0 60px rgba(124,58,237,0.45), 0 0 0 1px rgba(124,58,237,0.20)',
+          '0 0 60px rgba(27,27,60,0.45), 0 0 0 1px rgba(27,27,60,0.20)',
         display: 'inline-block',
         position: 'relative',
       }}
@@ -147,7 +147,7 @@ function BigOrb() {
           position: 'absolute',
           inset: -16,
           borderRadius: '50%',
-          border: '2px solid rgba(124,58,237,0.30)',
+          border: '2px solid rgba(27,27,60,0.30)',
           animation: 'orb-pulse 2s ease-out infinite',
         }}
       />

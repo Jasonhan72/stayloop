@@ -38,7 +38,7 @@ const PLANS: RolePlan[] = [
   {
     key: 'tenant',
     role: { zh: '租客', en: 'Tenant' },
-    accent: '#7C3AED',
+    accent: '#1B1B3C',
     tiers: [
       {
         name: { zh: '免费', en: 'Free' },

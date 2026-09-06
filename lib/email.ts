@@ -339,10 +339,10 @@ ${i.inviterName} invited you to join the managed tenancy at ${i.address} as ${i.
 
 — Stayloop · www.stayloop.ai`
   const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1a1a1a">
-  <div style="font-size:18px;font-weight:800;margin-bottom:4px">stay<span style="color:#7C3AED">loop.AI</span></div>
+  <div style="font-size:18px;font-weight:800;margin-bottom:4px">stay<span style="color:#1B1B3C">loop.AI</span></div>
   <p style="font-size:15px;line-height:1.7"><strong>${esc(i.inviterName)}</strong> 邀请你以「<strong>${esc(i.roleZh)}</strong>」身份加入 <strong>${esc(i.address)}</strong> 的在管租约。</p>
   <p style="font-size:13px;color:#555;line-height:1.7">在 Stayloop 上,租约各方可以在一个地方对话、报修、收租金提醒。点击下方按钮查看详情后再决定接受或拒绝。</p>
-  <p style="margin:24px 0"><a href="${esc(i.joinUrl)}" style="background:#7C3AED;color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:14px">查看邀请 · View invitation</a></p>
+  <p style="margin:24px 0"><a href="${esc(i.joinUrl)}" style="background:#1B1B3C;color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:14px">查看邀请 · View invitation</a></p>
   <p style="font-size:12px;color:#888;line-height:1.6">${esc(i.inviterName)} invited you to join the managed tenancy at ${esc(i.address)} as ${esc(i.roleEn)}. If you don't recognize this, ignore this email or decline at the link.</p>
 </div>`
   return { subject, html, text }

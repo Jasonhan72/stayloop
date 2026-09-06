@@ -143,7 +143,7 @@ export default function ListingsMap({ listings, active, onPick }: Props) {
         },
         icon: {
           path: 'M -22 -14 L 22 -14 L 22 14 L 4 14 L 0 20 L -4 14 L -22 14 Z',
-          fillColor: isLuna ? '#7C3AED' : '#171717',
+          fillColor: isLuna ? '#1B1B3C' : '#171717',
           fillOpacity: 1,
           strokeColor: '#fff',
           strokeWeight: 2,
@@ -177,7 +177,7 @@ export default function ListingsMap({ listings, active, onPick }: Props) {
       const isLuna = l.match_score && l.match_score >= 85
       marker.setIcon({
         path: 'M -22 -14 L 22 -14 L 22 14 L 4 14 L 0 20 L -4 14 L -22 14 Z',
-        fillColor: isActive ? '#047857' : isLuna ? '#7C3AED' : '#171717',
+        fillColor: isActive ? '#047857' : isLuna ? '#1B1B3C' : '#171717',
         fillOpacity: 1,
         strokeColor: '#fff',
         strokeWeight: isActive ? 3 : 2,

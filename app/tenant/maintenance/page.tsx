@@ -492,7 +492,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
           <div className="flex items-center gap-2">
             <span
               className="h-5 w-5 rounded-full"
-              style={{ background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #7C3AED 70%)' }}
+              style={{ background: 'radial-gradient(circle at 35% 35%, #C4B5FD, #1B1B3C 70%)' }}
             />
             <span className="text-[12px] font-bold text-tenant-deep">{lang === 'zh' ? `${name} · 你提交后会发生什么：` : `${name} · what happens after you submit:`}</span>
           </div>
