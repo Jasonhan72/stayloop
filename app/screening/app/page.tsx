@@ -2752,15 +2752,15 @@ export default function ScreenPage() {
                 onClick={() => fileInputRef.current?.click()}
                 style={{
                   margin: '16px 18px 0',
-                  border: `2px dashed ${dragOver ? '#047857' : '#94A3B8'}`,
+                  border: `2px dashed ${dragOver ? '#7C3AED' : '#94A3B8'}`,
                   borderRadius: 14,
                   padding: files.length > 0 ? '20px 16px' : '36px 16px',
                   textAlign: 'center',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   background: dragOver
-                    ? 'radial-gradient(ellipse at center, rgba(4, 120, 87, 0.10), transparent 70%)'
-                    : '#FAF7EF',
+                    ? 'rgba(124, 58, 237, 0.06)'
+                    : '#F8FAFC',
                 }}
               >
                 <input
@@ -2837,7 +2837,7 @@ export default function ScreenPage() {
                         style={{
                           display: 'flex', alignItems: 'center', gap: 5,
                           padding: '7px 10px', borderRadius: 8,
-                          background: uploaded ? 'rgba(4, 120, 87, 0.10)' : '#FAF7EF',
+                          background: uploaded ? 'rgba(4, 120, 87, 0.10)' : '#F8FAFC',
                           border: uploaded ? '1px solid rgba(4, 120, 87, 0.40)' : '1px solid #CBD5E1',
                           fontSize: 11, fontWeight: uploaded ? 600 : 500,
                           color: uploaded ? '#047857' : '#52525B',
@@ -2905,7 +2905,7 @@ export default function ScreenPage() {
                       return (
                         <div key={i} style={{
                           display: 'flex', alignItems: 'center', gap: 10,
-                          padding: '8px 12px', background: '#FAF7EF', borderRadius: 10,
+                          padding: '8px 12px', background: '#F8FAFC', borderRadius: 10,
                           border: '1px solid #EEF2F6', fontSize: 12.5,
                           minHeight: 38,
                         }}>
