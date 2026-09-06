@@ -1,0 +1,12 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "title": "首页 · 桌面 1440", "x": 0, "y": 0, "w": 1440, "h": 3120 },
+    { "file": "MobileHome.dc.html", "title": "首页 · 手机 390", "x": 1560, "y": 0, "w": 390, "h": 2080 },
+    { "file": "Screening.dc.html", "title": "租客筛查页 · 桌面 1440", "x": 0, "y": 3260, "w": 1440, "h": 2160 },
+    { "file": "Console.dc.html", "title": "房东工作台 · 筛查结果（控制台风格）", "x": 0, "y": 5560, "w": 1440, "h": 900, "is_interactive": false }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 1560, "y": 2200, "w": 380, "text": "设计读法：营销页学 SingleKey / TurboTenant 的转化式 SaaS 语言（白底、单一强调色、产品预览做主视觉、信任行、三步）；登录后的工作台学 Flinks / Veriff 控制台（深色侧栏、白卡、极简数据行）。\n\n强调色是可调的 tweak：默认品牌紫 #7C3AED，也备了蓝 #2563EB、绿 #047857、墨 #0F172A。\n\n文案沿用已批准口径，只改标点；数字与人物为现有样例（Mia Chen / Kevin Tran / 1207 King West）。" }
+  ],
+  "launch": { "view": "canvas" }
+}

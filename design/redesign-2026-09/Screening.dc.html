@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+  <style>
+    body { margin: 0; background: #ffffff; color: #0f172a; font-family: "Inter Tight", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: var(--accent); text-decoration: none; } a:hover { color: #0f172a; }
+    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; height: 46px; padding: 0 22px; border-radius: 10px; font-weight: 700; font-size: 15px; white-space: nowrap; }
+    .btn-primary { background: var(--accent); color: #ffffff; }
+    .btn-ghost { background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }
+    .muted { color: #64748b; }
+    .h2 { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin: 0; text-wrap: balance; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; }
+    th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    th { font-size: 12px; color: #64748b; font-weight: 700; background: #f8fafc; }
+    .yes { color: #047857; font-weight: 800; } .no { color: #94a3b8; font-weight: 700; }
+    .ic { width: 40px; height: 40px; border-radius: 10px; background: #f1f5f9; display: grid; place-items: center; flex: none; }
+  </style>
+</helmet>
+
+<div style="--accent: {{accent}}; width: 1440px; background: #ffffff;">
+
+  <div style="height: 68px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 64px;">
+    <div style="display: flex; align-items: center; gap: 40px;">
+      <div style="font-size: 22px; font-weight: 800; letter-spacing: -0.02em;">stay<span style="background: linear-gradient(90deg, #7C3AED, #2563EB); -webkit-background-clip: text; color: transparent;">loop.AI</span></div>
+      <div style="display: flex; gap: 28px; font-size: 14px; font-weight: 600; color: #334155;"><span>我是 ▾</span><span>房源</span><span>定价</span><span style="color: #0f172a;">租客筛查</span></div>
+    </div>
+    <a href="#" class="btn btn-primary" style="height: 40px; font-size: 14px;">免费开始筛查</a>
+  </div>
+
+  <!-- Hero -->
+  <div style="display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: 56px; padding: 72px 64px 56px; align-items: center;">
+    <div style="display: flex; flex-direction: column; gap: 22px;">
+      <h1 style="font-size: 52px; line-height: 1.08; letter-spacing: -0.03em; font-weight: 800; margin: 0; text-wrap: balance;">租客筛查，几分钟出一份注明依据的报告。</h1>
+      <p style="font-size: 18px; line-height: 1.55; color: #475569; margin: 0; max-width: 36ch;">上传申请材料，取证引擎核文件真伪，LTB 判令目录与安省法院门户按姓名检索，申请人本人授权身份与银行直连。每个结论都写明依据。</p>
+      <div style="display: flex; gap: 12px;">
+        <a href="#" class="btn btn-primary">免费开始筛查</a>
+        <a href="#" class="btn btn-ghost">看一份样本报告</a>
+      </div>
+      <div class="muted" style="font-size: 13px;">免费档每月 5 次 · 深度核查按申请人 $14.99 · 无需信用卡</div>
+    </div>
+
+    <div class="card" style="padding: 0; overflow: hidden; box-shadow: 0 24px 60px -24px rgba(15, 23, 42, 0.25);">
+      <div style="padding: 14px 18px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+        <div style="font-weight: 700; font-size: 14px;">筛查进度 · Nathalie C.</div>
+        <span class="mono muted" style="font-size: 12px;">4 / 6 完成</span>
+      </div>
+      <div style="padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 12px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><div style="font-size: 14px;">文件分类 · 11 份材料，2 份自动压缩</div></div>
+        <div style="display: flex; align-items: center; gap: 12px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><div style="font-size: 14px;">文件取证 · PDF 结构、生成工具、修改痕迹、CRA 扣缴复算</div></div>
+        <div style="display: flex; align-items: center; gap: 12px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><div style="font-size: 14px;">信用报告转录与确定性分析 · DTI、利用率、逾期信号</div></div>
+        <div style="display: flex; align-items: center; gap: 12px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><div style="font-size: 14px;">安省法院门户 · 当事人检索 · 0 条</div></div>
+        <div style="display: flex; align-items: center; gap: 12px;"><span style="width: 18px; height: 18px; border-radius: 999px; border: 2px solid var(--accent); border-top-color: transparent; display: inline-block;"></span><div style="font-size: 14px;">LTB 判令目录 · 按姓名 + 地址佐证</div></div>
+        <div style="display: flex; align-items: center; gap: 12px;"><span style="width: 18px; height: 18px; border-radius: 999px; border: 2px solid #cbd5e1; display: inline-block;"></span><div class="muted" style="font-size: 14px;">五维评分与报告</div></div>
+      </div>
+      <div style="padding: 12px 18px; border-top: 1px solid #e2e8f0; background: #f8fafc;"><div style="height: 8px; border-radius: 999px; background: #e2e8f0;"><div style="width: 68%; height: 100%; border-radius: 999px; background: var(--accent);"></div></div></div>
+    </div>
+  </div>
+
+  <!-- Sources: 3 + 3 grid with real icons -->
+  <div style="padding: 48px 64px 72px; display: flex; flex-direction: column; gap: 28px; border-top: 1px solid #e2e8f0;">
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 60ch;">
+      <h2 class="h2">实际检索的数据源</h2>
+      <p class="muted" style="font-size: 16px; margin: 0;">每个数据源在报告里带着自己的检索状态。查过和没查过，分开说。</p>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+      <div class="card" style="padding: 20px; display: flex; gap: 14px;"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></div><div><div style="font-weight: 700; font-size: 15px;">LTB 判令目录（安省开放数据）</div><div class="muted" style="font-size: 13.5px; line-height: 1.5; margin-top: 4px;">按姓名建库检索终局判令；姓名命中须经地址佐证才计入。目录不含判决结果，报告只说「已出判令」并附原件。</div></div></div>
+      <div class="card" style="padding: 20px; display: flex; gap: 14px;"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 8l7-5 7 5M5 8v0a4 4 0 0 0 8 0M11 8a4 4 0 0 0 8 0"/></svg></div><div><div style="font-weight: 700; font-size: 15px;">安省法院公开门户</div><div class="muted" style="font-size: 13.5px; line-height: 1.5; margin-top: 4px;">民事与小额法庭的真实当事人检索，区分被告与原告。只有被告或债务人记录才影响评分。</div></div></div>
+      <div class="card" style="padding: 20px; display: flex; gap: 14px;"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 13h6M9 17h6"/></svg></div><div><div style="font-weight: 700; font-size: 15px;">确定性文件取证引擎</div><div class="muted" style="font-size: 13.5px; line-height: 1.5; margin-top: 4px;">PDF 元数据与生成工具指纹、内部结构、CRA 法定扣缴复算、工资单数学一致性、跨文档交叉核对。服务端确定性计算，不是 AI 猜测。</div></div></div>
+      <div class="card" style="padding: 20px; display: flex; gap: 14px;"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 15l3-3 2 2 5-5"/></svg></div><div><div style="font-weight: 700; font-size: 15px;">信用报告转录与分析</div><div class="muted" style="font-size: 13.5px; line-height: 1.5; margin-top: 4px;">逐条账户、额度、催收转录；DTI、循环利用率、逾期信号由确定性算术得出。Stayloop 不直连征信局。</div></div></div>
+      <div class="card" style="padding: 20px; display: flex; gap: 14px; border-color: #a7f3d0; background: #f0fdf7;"><div class="ic" style="background: #d1fae5;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></div><div><div style="font-weight: 700; font-size: 15px;">申请人本人授权核验</div><div class="muted" style="font-size: 13.5px; line-height: 1.5; margin-top: 4px;">房东发一条链接，申请人先签同意再授权：Veriff 活体与证件，Flinks 只读直连近 90 天流水。结果作为已核验事实进报告，银行入账直接替代工资单推断。</div></div></div>
+      <div class="card" style="padding: 20px; display: flex; gap: 14px;"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div><div style="font-weight: 700; font-size: 15px;">雇主独立性核验</div><div class="muted" style="font-size: 13.5px; line-height: 1.5; margin-top: 4px;">联邦公司注册库与 CBR/MRAS 联查：雇主是否真实存在，雇佣信签署人是否与申请人是关联方。</div></div></div>
+    </div>
+  </div>
+
+  <!-- Comparison -->
+  <div style="padding: 0 64px 72px; display: flex; flex-direction: column; gap: 24px;">
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 60ch;">
+      <h2 class="h2">和按份出售的筛查报告有什么不同</h2>
+      <p class="muted" style="font-size: 16px; margin: 0;">右列是加拿大与美国常见按份报告产品的一般做法，不针对任何一家。</p>
+    </div>
+    <div class="card" style="overflow: hidden;">
+      <table>
+        <thead><tr><th style="width: 52%;">能力</th><th>Stayloop</th><th>典型按份报告</th></tr></thead>
+        <tbody>
+          <tr><td>文件取证：PDF 结构、生成工具指纹、修改痕迹、CRA 扣缴复算</td><td class="yes">✓</td><td><span class="no">–</span> <span class="muted">一般只做字体篡改扫描</span></td></tr>
+          <tr><td>信用分析层：DTI、利用率、逾期信号由确定性算术得出</td><td class="yes">✓</td><td><span class="no">–</span> <span class="muted">报告原样呈现</span></td></tr>
+          <tr><td>可解释评分：五个维度、硬门槛与证据逐条列出</td><td class="yes">✓</td><td><span class="no">–</span> <span class="muted">不打分，或黑箱分数</span></td></tr>
+          <tr><td>LTB 判令目录 + 安省法院门户按姓名检索，注明收录窗口</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>申请人本人授权的身份与银行直连</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+          <tr><td>征信局直连</td><td><span class="no">–</span> <span class="muted">本人授权直拉筹备中</span></td><td class="yes">✓</td></tr>
+          <tr><td>中英双语报告与界面</td><td class="yes">✓</td><td class="no">–</td></tr>
+          <tr><td>基础筛查免费（每月 5 次）；深度核查按申请人 $14.99 或 Pro $29/月</td><td class="yes">✓</td><td><span class="no">–</span> <span class="muted">按份 $17 到 $45</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pricing strip -->
+  <div style="padding: 0 64px 88px;">
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+      <div class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 10px;"><div class="muted" style="font-size: 13px; font-weight: 700;">免费档</div><div><span class="mono" style="font-size: 34px; font-weight: 700;">$0</span></div><div style="font-size: 14px; line-height: 1.55; color: #334155;">每月 5 次筛查，含取证与信用分析、LTB 与法院记录。</div><a href="#" class="btn btn-ghost" style="margin-top: 6px;">免费开始</a></div>
+      <div class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 10px; border-color: var(--accent); box-shadow: 0 16px 40px -20px rgba(15,23,42,0.3);"><div style="font-size: 13px; font-weight: 700; color: var(--accent);">单次解锁</div><div><span class="mono" style="font-size: 34px; font-weight: 700;">$14.99</span> <span class="muted" style="font-size: 13px;">/ 申请人</span></div><div style="font-size: 14px; line-height: 1.55; color: #334155;">深度核查与本人授权核验，只对这一位申请人生效。付款链接可以发给申请人由他付。</div><a href="#" class="btn btn-primary" style="margin-top: 6px;">解锁一位申请人</a></div>
+      <div class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 10px;"><div class="muted" style="font-size: 13px; font-weight: 700;">Pro</div><div><span class="mono" style="font-size: 34px; font-weight: 700;">$29</span> <span class="muted" style="font-size: 13px;">/ 月 CAD</span></div><div style="font-size: 14px; line-height: 1.55; color: #334155;">不限次数、不限房源，深度核查与 AI Agent 全含。多套房的房东选这个。</div><a href="#" class="btn btn-ghost" style="margin-top: 6px;">升级到 Pro</a></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#7C3AED","options":["#7C3AED","#2563EB","#047857","#0F172A"],"section":"Brand"}}'>
+class Component extends DCLogic {
+  renderVals() { return { accent: this.props.accent ?? '#7C3AED' }; }
+}
+</script>
+</body>
+</html>
