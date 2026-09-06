@@ -404,7 +404,7 @@ export default function LandlordApplicantsPage() {
                   style={{
                     background:
                       a.avc === 'tenant'
-                        ? 'linear-gradient(135deg,#C4B5FD,#1B1B3C)'
+                        ? 'linear-gradient(135deg,#C4B5FD,#00ACE4)'
                         : a.avc === 'agent'
                           ? 'linear-gradient(135deg,#93C5FD,#2563EB)'
                           : a.avc === 'orange'

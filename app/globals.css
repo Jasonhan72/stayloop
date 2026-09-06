@@ -28,36 +28,36 @@
 
 :root {
   /* Surfaces */
-  --sl-surface: #F4F6F9;
+  --sl-surface: #F3F8FC;
   --sl-surface-card: #FFFFFF;
-  --sl-surface-muted: #EEF2F6;
+  --sl-surface-muted: #E3F2FC;
   --sl-surface-tint: #E8F0E8;
   --sl-surface-wash: #E4EEE3;
   --sl-surface-nav: #FFFFFF;
-  --sl-ink: #0B0B0E;
-  --sl-ink-2: #16161B;
-  --sl-ink-3: #1B1B22;
+  --sl-ink: #1B1B3C;
+  --sl-ink-2: #23234A;
+  --sl-ink-3: #2B2B55;
 
   /* Borders */
-  --sl-border: #CBD5E1;
-  --sl-border-strong: #94A3B8;
-  --sl-divider: #E2E8F0;
+  --sl-border: #D3E3EF;
+  --sl-border-strong: #9FBBD0;
+  --sl-divider: #E4EEF6;
 
   /* Text */
-  --sl-text: #171717;
-  --sl-text-2: #3F3F46;
-  --sl-text-3: #71717A;
-  --sl-text-4: #A1A1AA;
+  --sl-text: #1B1B3C;
+  --sl-text-2: #4A4A6A;
+  --sl-text-3: #6E6E8A;
+  --sl-text-4: #A0A0B8;
 
   /* Brand */
-  --sl-brand: #1B1B3C;
-  --sl-brand-strong: #12122B;
+  --sl-brand: #00ACE4;
+  --sl-brand-strong: #0094C6;
   --sl-brand-bright: #00ACE4;
   --sl-brand-bright-2: #33BCEA;
-  --sl-brand-wash: #EEF2F6;
+  --sl-brand-wash: #E3F2FC;
 
   /* Roles */
-  --sl-tenant: #1B1B3C;
+  --sl-tenant: #00ACE4;
   --sl-landlord: #047857;
   --sl-agent: #2563EB;
 
@@ -83,22 +83,22 @@ html, body {
 /* ============ V5 component utilities ============ */
 
 @layer components {
-  /* Primary CTA — solid navy ink (flinks.com scheme, 2026-09-05) */
+  /* Primary CTA — flinks.com bright-blue pill (2026-09-05) */
   .sl-btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-[10px] px-[22px] py-3 text-[15px] font-semibold text-white transition active:translate-y-px;
-    background: #1B1B3C;
-    box-shadow: 0 8px 22px -10px rgba(27, 27, 60, 0.35),
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-[22px] py-3 text-[15px] font-semibold text-white transition active:translate-y-px;
+    background: #00ACE4;
+    box-shadow: 0 8px 22px -10px rgba(0, 172, 228, 0.35),
                 0 1px 0 rgba(255, 255, 255, 0.10) inset;
   }
   .sl-btn-primary:hover {
-    background: #12122B;
+    background: #0094C6;
   }
   .sl-btn-primary.dark {
-    background: #12122B;
+    background: #0094C6;
   }
   .sl-btn-primary:disabled,
   .sl-btn-primary.disabled {
-    background: #94A3B8;
+    background: #9FBBD0;
     color: #71717A;
     cursor: not-allowed;
     box-shadow: none;
@@ -106,7 +106,7 @@ html, body {
 
   /* Secondary outlined */
   .sl-btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-[10px] px-5 py-[11px] text-[14px] font-semibold text-body transition;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-[11px] text-[14px] font-semibold text-body transition;
     background: #FFFFFF;
     border: 1px solid var(--sl-border-strong);
   }
@@ -117,7 +117,7 @@ html, body {
 
   /* Ghost link */
   .sl-btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-[10px] px-4 py-2 text-[14px] font-semibold transition;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-[14px] font-semibold transition;
     color: var(--sl-brand);
   }
   .sl-btn-ghost:hover {
@@ -173,7 +173,7 @@ html, body {
   }
   .tier-badge.t1 { background: rgba(22,163,74,0.12); color: #16A34A; }
   .tier-badge.t2 { background: rgba(37,99,235,0.12); color: #2563EB; }
-  .tier-badge.t3 { background: rgba(27,27,60,0.12); color: #1B1B3C; }
+  .tier-badge.t3 { background: rgba(0,172,228,0.12); color: #00ACE4; }
   .tier-badge.t4 { background: rgba(180,83,9,0.12); color: #B45309; }
 
   /* Agent orb (Luna / Logic / Brief) */
@@ -181,8 +181,8 @@ html, body {
     @apply relative flex-shrink-0 rounded-full;
   }
   .orb.tenant {
-    background: radial-gradient(circle at 35% 35%, #C4B5FD 0%, #1B1B3C 60%, #5B21B6 100%);
-    box-shadow: 0 0 24px rgba(27, 27, 60, 0.4);
+    background: radial-gradient(circle at 35% 35%, #C4B5FD 0%, #00ACE4 60%, #5B21B6 100%);
+    box-shadow: 0 0 24px rgba(0, 172, 228, 0.4);
   }
   .orb.landlord {
     background: radial-gradient(circle at 35% 35%, #6EE7B7 0%, #047857 60%, #064E3B 100%);
@@ -226,12 +226,12 @@ html, body {
   /* Chip */
   .sl-chip {
     @apply inline-flex items-center gap-1 rounded-md px-2 py-[2px] font-mono text-[11px] font-medium;
-    background: var(--sl-surface-chip, #F1F5F9);
+    background: var(--sl-surface-chip, #EEF5FA);
     border: 1px solid var(--sl-divider);
     color: var(--sl-text-2);
   }
   .sl-chip.fit { background: rgba(4,120,87,0.10); border-color: rgba(4,120,87,0.22); color: #047857; }
-  .sl-chip.tier { background: rgba(27,27,60,0.10); border-color: rgba(27,27,60,0.22); color: #1B1B3C; }
+  .sl-chip.tier { background: rgba(0,172,228,0.10); border-color: rgba(0,172,228,0.22); color: #00ACE4; }
   .sl-chip.lock { background: rgba(217,119,6,0.10); border-color: rgba(217,119,6,0.32); color: #B45309; }
 }
 

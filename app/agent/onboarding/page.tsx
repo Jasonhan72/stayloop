@@ -65,7 +65,7 @@ export default function AgentOnboardingPage() {
           className="relative overflow-hidden"
           style={{
             background:
-              'linear-gradient(180deg,#F4F6F9 0%, rgba(37,99,235,0.10) 100%)',
+              'linear-gradient(180deg,#F3F8FC 0%, rgba(37,99,235,0.10) 100%)',
             marginTop: -72,
             paddingTop: 72,
           }}

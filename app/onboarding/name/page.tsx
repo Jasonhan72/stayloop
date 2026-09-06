@@ -205,7 +205,7 @@ function NamePageInner() {
               alignItems: 'center',
               gap: 10,
               padding: '14px 16px',
-              border: '1.5px solid #94A3B8',
+              border: '1.5px solid #9FBBD0',
               borderRadius: 12,
               background: '#fff',
             }}

@@ -230,8 +230,8 @@ export async function generateScreeningReport(
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif; font-size: 11px; color: #1E293B; line-height: 1.6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .header { background: #0B1736; color: #fff; padding: 18px 24px; margin: -18mm -16mm 16px -16mm; width: calc(100% + 32mm); }
   .header h1 { font-size: 20px; font-weight: 800; letter-spacing: 2px; margin-bottom: 2px; }
-  .header .sub { font-size: 10px; color: #CBD5E1; }
-  h2 { font-size: 13px; font-weight: 700; color: #0B1736; border-bottom: 1.5px solid #E2E8F0; padding-bottom: 4px; margin: 18px 0 10px 0; page-break-after: avoid; }
+  .header .sub { font-size: 10px; color: #D3E3EF; }
+  h2 { font-size: 13px; font-weight: 700; color: #0B1736; border-bottom: 1.5px solid #E4EEF6; padding-bottom: 4px; margin: 18px 0 10px 0; page-break-after: avoid; }
   .score-box { text-align: center; padding: 20px; border: 2px solid ${risk.color}20; border-radius: 12px; background: ${risk.bg}; margin-bottom: 16px; }
   .score-num { font-size: 48px; font-weight: 800; color: ${risk.color}; }
   .score-sub { font-size: 10px; color: #64748B; }
@@ -240,14 +240,14 @@ export async function generateScreeningReport(
   .stats .val { font-size: 16px; font-weight: 700; color: #334155; }
   table { width: 100%; border-collapse: collapse; margin: 6px 0 12px 0; font-size: 10px; }
   th { background: #0B1736; color: #fff; font-weight: 600; text-align: left; padding: 5px 8px; }
-  td { padding: 5px 8px; border: 1px solid #E2E8F0; vertical-align: top; }
-  tr:nth-child(even) td { background: #F8FAFC; }
+  td { padding: 5px 8px; border: 1px solid #E4EEF6; vertical-align: top; }
+  tr:nth-child(even) td { background: #F3F8FC; }
   .kv { display: flex; gap: 6px; margin-bottom: 3px; }
   .kv .k { font-weight: 600; color: #64748B; min-width: 100px; flex-shrink: 0; }
   .kv .v { color: #334155; }
   .flag-badge { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 9px; font-weight: 700; color: #fff; margin-right: 4px; }
-  .card { border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px; margin-bottom: 10px; page-break-inside: avoid; }
-  .footer { text-align: center; font-size: 8px; color: #94A3B8; margin-top: 20px; padding-top: 10px; border-top: 1px solid #E2E8F0; }
+  .card { border: 1px solid #E4EEF6; border-radius: 8px; padding: 12px; margin-bottom: 10px; page-break-inside: avoid; }
+  .footer { text-align: center; font-size: 8px; color: #9FBBD0; margin-top: 20px; padding-top: 10px; border-top: 1px solid #E4EEF6; }
   @media print { .no-print { display: none !important; } }
 </style></head><body>`
 
@@ -263,7 +263,7 @@ export async function generateScreeningReport(
   // (~78), and every one of those "searches" hit an endpoint that ignores the
   // name parameter — printing "78 sources searched" from it asserts diligence
   // that never happened. Only rows with status==='ok' (dbCount) are counted.
-  html += `<div style="border:1px solid #E2E8F0;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:10px;color:#475569">
+  html += `<div style="border:1px solid #E4EEF6;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:10px;color:#475569">
     <div>${zh ? '报告生成日期' : 'Report generated'}: <strong>${date}</strong>
     ${result.screening_id ? ` &nbsp;·&nbsp; ${zh ? '报告编号' : 'Report ID'}: <strong style="font-family:monospace">${esc(result.screening_id)}</strong>` : ''}
     ${opts?.requestedBy ? ` &nbsp;·&nbsp; ${zh ? '申请方' : 'Requested by'}: <strong>${esc(opts.requestedBy)}</strong>` : ''}
@@ -280,9 +280,9 @@ export async function generateScreeningReport(
       ...(result.deep_check_result?.checks?.length ? [zh ? '加拿大公司注册库' : 'Canadian corporate registries'] : []),
     ].join(' · ')}</div>
   </div>
-  <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px 14px;margin-bottom:14px">
+  <div style="background:#F3F8FC;border:1px solid #E4EEF6;border-radius:8px;padding:12px 14px;margin-bottom:14px">
     <div style="font-size:11px;font-weight:700;color:#0B1736;margin-bottom:6px">${zh ? '申请人信息' : 'Applicant Information'}</div>
-    <div class="kv"><span class="k">${zh ? '申请人姓名' : 'Name'}:</span><span class="v" style="font-weight:700">${esc(result.extracted_name || '—')}</span>${result.name_was_extracted ? `<span style="font-size:9px;color:#94A3B8;margin-left:6px">${zh ? '(AI 从文件提取)' : '(AI-extracted from documents)'}</span>` : ''}</div>
+    <div class="kv"><span class="k">${zh ? '申请人姓名' : 'Name'}:</span><span class="v" style="font-weight:700">${esc(result.extracted_name || '—')}</span>${result.name_was_extracted ? `<span style="font-size:9px;color:#9FBBD0;margin-left:6px">${zh ? '(AI 从文件提取)' : '(AI-extracted from documents)'}</span>` : ''}</div>
     <div class="kv"><span class="k">${zh ? '法院查询姓名' : 'Court search name'}:</span><span class="v">${esc(queriedName)}</span></div>
     <div class="kv"><span class="k">${zh ? '目标月租金' : 'Target rent'}:</span><span class="v">${result.monthly_rent ? '$' + result.monthly_rent.toLocaleString() + ' CAD' : '—'}</span></div>
     <div class="kv"><span class="k">${zh ? '提交文件' : 'Documents'}:</span><span class="v">${filesCount} ${zh ? '份' : 'file(s)'}${(result.detected_document_kinds || []).length ? ' — ' + esc((result.detected_document_kinds || []).join(', ')) : ''}</span></div>`
@@ -305,7 +305,7 @@ export async function generateScreeningReport(
     if (nm.length || ph.length || em.length || ad.length || ep.length) {
       const row = (label: string, vals: string[]) => vals.length
         ? `<div class="kv"><span class="k">${label}:</span><span class="v">${vals.map(v => esc(v)).join('&nbsp;·&nbsp; ')}</span></div>` : ''
-      html += `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #E2E8F0">
+      html += `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #E4EEF6">
         <div style="font-size:10px;font-weight:600;color:#64748B;margin-bottom:4px">${zh ? '从文件中提取的联系/身份/雇主信息' : 'Contact / identity / employer details extracted from documents'}</div>`
       html += row(zh ? '检测到的姓名' : 'Names detected', nm)
       html += row(zh ? '雇主' : 'Employer(s)', ep)
@@ -331,7 +331,7 @@ export async function generateScreeningReport(
       const inBand = result.overall >= b.min && result.overall <= b.max
       return `<td style="border:none;padding:0 1px;width:20%">
         <div style="height:8px;border-radius:3px;background:${b.color}${inBand ? '' : '30'};position:relative">${inBand ? `<div style="position:absolute;top:-5px;left:${Math.round(((result.overall - b.min) / Math.max(1, b.max - b.min)) * 100)}%;width:2px;height:18px;background:#0B1736"></div>` : ''}</div>
-        <div style="font-size:8px;text-align:center;margin-top:3px;color:${inBand ? b.color : '#94A3B8'};font-weight:${inBand ? 700 : 400}">${zh ? b.zh : b.en}<br>${b.min}–${b.max}</div>
+        <div style="font-size:8px;text-align:center;margin-top:3px;color:${inBand ? b.color : '#9FBBD0'};font-weight:${inBand ? 700 : 400}">${zh ? b.zh : b.en}<br>${b.min}–${b.max}</div>
       </td>`
     }).join('')}</tr>
   </table>`
@@ -418,8 +418,8 @@ export async function generateScreeningReport(
     },
   ]
   const stIcon = (s: Check['status']) => s === 'pass' ? '✓' : s === 'warn' ? '⚠' : s === 'fail' ? '✗' : '—'
-  const stColor = (s: Check['status']) => s === 'pass' ? '#16A34A' : s === 'warn' ? '#D97706' : s === 'fail' ? '#DC2626' : '#94A3B8'
-  const stBg = (s: Check['status']) => s === 'pass' ? '#F0FDF4' : s === 'warn' ? '#FFFBEB' : s === 'fail' ? '#FEF2F2' : '#F8FAFC'
+  const stColor = (s: Check['status']) => s === 'pass' ? '#16A34A' : s === 'warn' ? '#D97706' : s === 'fail' ? '#DC2626' : '#9FBBD0'
+  const stBg = (s: Check['status']) => s === 'pass' ? '#F0FDF4' : s === 'warn' ? '#FFFBEB' : s === 'fail' ? '#FEF2F2' : '#F3F8FC'
   html += `<h2>${zh ? '筛查结果总览' : 'Screening Summary'}</h2>
   <table>
     <tr><th style="width:30px;text-align:center"></th><th>${zh ? '检查项' : 'Check'}</th><th>${zh ? '结果' : 'Result'}</th></tr>
@@ -494,9 +494,9 @@ export async function generateScreeningReport(
     for (const r of recommended) {
       const ok = provided.has(r.key)
       html += `<tr>
-        <td style="text-align:center;background:${ok ? '#F0FDF4' : '#F8FAFC'};color:${ok ? '#16A34A' : '#CBD5E1'};font-weight:800">${ok ? '✓' : '—'}</td>
-        <td style="background:${ok ? '#F0FDF4' : '#F8FAFC'};font-weight:${ok ? 600 : 400};color:${ok ? '#0B1736' : '#94A3B8'}">${zh ? r.zh : r.en}</td>
-        <td style="text-align:center;background:${ok ? '#F0FDF4' : '#F8FAFC'};color:${ok ? '#15803D' : '#94A3B8'};font-size:10px;font-weight:600">${ok ? (zh ? '已提供' : 'Provided') : (zh ? '未提供' : 'Missing')}</td>
+        <td style="text-align:center;background:${ok ? '#F0FDF4' : '#F3F8FC'};color:${ok ? '#16A34A' : '#D3E3EF'};font-weight:800">${ok ? '✓' : '—'}</td>
+        <td style="background:${ok ? '#F0FDF4' : '#F3F8FC'};font-weight:${ok ? 600 : 400};color:${ok ? '#0B1736' : '#9FBBD0'}">${zh ? r.zh : r.en}</td>
+        <td style="text-align:center;background:${ok ? '#F0FDF4' : '#F3F8FC'};color:${ok ? '#15803D' : '#9FBBD0'};font-size:10px;font-weight:600">${ok ? (zh ? '已提供' : 'Provided') : (zh ? '未提供' : 'Missing')}</td>
       </tr>`
     }
     html += `</table>`
@@ -552,13 +552,13 @@ export async function generateScreeningReport(
       : (result.details_en as any)?.[dim.id] || ''
     const zeroed = result.forensics_zeroed_dims?.includes(dim.id)
     const sc = typeof score === 'number' ? score : null
-    const barColor = zeroed ? '#DC2626' : (sc != null ? scoreColor(sc) : '#CBD5E1')
+    const barColor = zeroed ? '#DC2626' : (sc != null ? scoreColor(sc) : '#D3E3EF')
     html += `<tr>
       <td style="font-weight:600">${zh ? dim.zhLabel : dim.enLabel}</td>
       <td style="text-align:center">${dim.weight != null ? (dim.weight * 100).toFixed(0) + '%' : (zh ? '不计' : '—')}</td>
       <td style="text-align:center;font-weight:700;color:${sc != null ? scoreColor(sc) : '#64748B'}">
         ${sc ?? '—'}${zeroed ? ' <span style="color:#DC2626;font-size:9px">⚠</span>' : ''}
-        <div style="height:4px;border-radius:2px;background:#E2E8F0;margin-top:3px;overflow:hidden"><div style="height:100%;width:${sc ?? 0}%;background:${barColor}"></div></div>
+        <div style="height:4px;border-radius:2px;background:#E4EEF6;margin-top:3px;overflow:hidden"><div style="height:100%;width:${sc ?? 0}%;background:${barColor}"></div></div>
       </td>
       <td>${esc(detail)}${zeroed ? ` <span style="color:#DC2626;font-size:9px">(${zh ? '证据伪造' : 'Evidence forged'})</span>` : ''}</td>
     </tr>`
@@ -637,7 +637,7 @@ export async function generateScreeningReport(
         </tr>`
       }
       html += `</table>
-      <div style="font-size:9px;color:#94A3B8;margin-top:3px">${zh ? 'YTD 一致性 = 工资单年初至今总额 ÷ 按声明年薪推算的预期值。接近 1.0 表示文件内部自洽。' : 'YTD consistency = stated year-to-date gross ÷ expected from annual salary. Near 1.0 = internally consistent.'}</div>`
+      <div style="font-size:9px;color:#9FBBD0;margin-top:3px">${zh ? 'YTD 一致性 = 工资单年初至今总额 ÷ 按声明年薪推算的预期值。接近 1.0 表示文件内部自洽。' : 'YTD consistency = stated year-to-date gross ÷ expected from annual salary. Near 1.0 = internally consistent.'}</div>`
     }
   }
 
@@ -774,11 +774,11 @@ export async function generateScreeningReport(
         <div style="font-size:9px;color:#64748B;margin-top:3px">${zh ? '下方转录仅供核对原件；分数、账户与查询均未计入评分。' : 'The transcription below is for checking against the original only; score, tradelines and inquiries were not credited.'}</div></div>
       </div>`
     }
-    html += `<div style="display:flex;gap:14px;align-items:center;border:1px solid #E2E8F0;border-radius:10px;padding:14px;margin-bottom:10px">`
+    html += `<div style="display:flex;gap:14px;align-items:center;border:1px solid #E4EEF6;border-radius:10px;padding:14px;margin-bottom:10px">`
     if (sc != null) {
       const pct = Math.max(0, Math.min(100, ((sc - 300) / 600) * 100))
       html += `<div style="text-align:center;flex-shrink:0">
-        <svg width="120" height="68" viewBox="0 0 120 68"><path d="M 14 56 A 46 46 0 0 1 106 56" fill="none" stroke="#E2E8F0" stroke-width="9" stroke-linecap="round"/><path d="M 14 56 A 46 46 0 0 1 106 56" fill="none" stroke="${scColor}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${(Math.PI * 46).toFixed(1)}" stroke-dashoffset="${(Math.PI * 46 * (1 - pct / 100)).toFixed(1)}"/><text x="60" y="50" text-anchor="middle" font-size="22" font-weight="800" fill="${scColor}">${sc}</text></svg>
+        <svg width="120" height="68" viewBox="0 0 120 68"><path d="M 14 56 A 46 46 0 0 1 106 56" fill="none" stroke="#E4EEF6" stroke-width="9" stroke-linecap="round"/><path d="M 14 56 A 46 46 0 0 1 106 56" fill="none" stroke="${scColor}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${(Math.PI * 46).toFixed(1)}" stroke-dashoffset="${(Math.PI * 46 * (1 - pct / 100)).toFixed(1)}"/><text x="60" y="50" text-anchor="middle" font-size="22" font-weight="800" fill="${scColor}">${sc}</text></svg>
         <div style="font-size:9px;color:#64748B">${esc(cr.score_band || '')} · 300–900</div>
       </div>`
     }
@@ -794,7 +794,7 @@ export async function generateScreeningReport(
     if (crA) {
       const pctTxt = (x: number | null) => (x == null ? '—' : Math.round(x * 100) + '%')
       const kpi = (label: string, value: string, warn: boolean) =>
-        `<div style="flex:1;min-width:110px;border:1px solid #E2E8F0;border-radius:8px;padding:8px 10px"><div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase">${label}</div><div style="font-size:14px;font-weight:800;color:${warn ? '#DC2626' : '#0B1736'}">${value}</div></div>`
+        `<div style="flex:1;min-width:110px;border:1px solid #E4EEF6;border-radius:8px;padding:8px 10px"><div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase">${label}</div><div style="font-size:14px;font-weight:800;color:${warn ? '#DC2626' : '#0B1736'}">${value}</div></div>`
       html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
         ${kpi(zh ? '每月还款/收入' : 'Debt-to-income', pctTxt(crA.dti), crA.dti != null && crA.dti > 0.4)}
         ${kpi(zh ? '循环利用率' : 'Revolving util.', pctTxt(crA.revolvingUtilization), crA.revolvingUtilization != null && crA.revolvingUtilization > 0.8)}
@@ -819,7 +819,7 @@ export async function generateScreeningReport(
       }
       const narrative = zh ? cr.analysis_zh : cr.analysis_en
       if (narrative) {
-        html += `<div style="border:1px solid #E2E8F0;border-radius:8px;background:#FAFAF8;padding:9px 12px;margin:8px 0"><div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase;margin-bottom:3px">${zh ? 'AI 信用分析（引用具体账户）' : 'AI credit analysis (account-cited)'}</div><div style="font-size:10px;color:#334155;line-height:1.7">${esc(narrative)}</div></div>`
+        html += `<div style="border:1px solid #E4EEF6;border-radius:8px;background:#FAFAF8;padding:9px 12px;margin:8px 0"><div style="font-size:8px;font-weight:700;color:#64748B;text-transform:uppercase;margin-bottom:3px">${zh ? 'AI 信用分析（引用具体账户）' : 'AI credit analysis (account-cited)'}</div><div style="font-size:10px;color:#334155;line-height:1.7">${esc(narrative)}</div></div>`
       }
     }
 
@@ -868,7 +868,7 @@ export async function generateScreeningReport(
       for (const i of iq) html += `<tr><td style="font-size:9px">${esc(i.date)}</td><td>${esc(i.creditor)}</td></tr>`
       html += `</table>`
     }
-    html += `<div style="font-size:9px;color:#94A3B8;margin-top:4px;font-style:italic">${zh ? '以上数据由 AI 从申请人上传的信用报告转录,请与原件核对。Stayloop 不直接对接信用局。' : 'Transcribed by AI from the uploaded credit report — verify against the original. Stayloop does not pull bureau data directly.'}</div>`
+    html += `<div style="font-size:9px;color:#9FBBD0;margin-top:4px;font-style:italic">${zh ? '以上数据由 AI 从申请人上传的信用报告转录,请与原件核对。Stayloop 不直接对接信用局。' : 'Transcribed by AI from the uploaded credit report — verify against the original. Stayloop does not pull bureau data directly.'}</div>`
   }
 
   // ── 4. Document Forensics ──
@@ -891,7 +891,7 @@ export async function generateScreeningReport(
     if (checkMatrix.length > 0) {
       const ranCount = checkMatrix.filter(c => c.status !== 'na').length
       const cmIcon = (s: string) => s === 'pass' ? '✓' : s === 'warn' ? '⚠' : s === 'fail' ? '✗' : '—'
-      const cmColor = (s: string) => s === 'pass' ? '#16A34A' : s === 'warn' ? '#D97706' : s === 'fail' ? '#DC2626' : '#94A3B8'
+      const cmColor = (s: string) => s === 'pass' ? '#16A34A' : s === 'warn' ? '#D97706' : s === 'fail' ? '#DC2626' : '#9FBBD0'
       html += `<div style="font-size:10px;color:#64748B;margin:8px 0 4px">${zh ? `已执行取证检查 · ${ranCount} / ${checkMatrix.length} 类` : `Forensic checks performed · ${ranCount} of ${checkMatrix.length} categories`}</div>
       <table>
         <tr><th style="width:26px;text-align:center"></th><th style="width:150px">${zh ? '检查类别' : 'Check category'}</th><th>${zh ? '检查内容' : 'What it tests'}</th><th style="width:95px">${zh ? '结果' : 'Result'}</th></tr>`
@@ -904,8 +904,8 @@ export async function generateScreeningReport(
             : (zh ? `${c.findings} 项发现${c.positives ? ` · ${c.positives} 项佐证` : ''}` : `${c.findings} finding(s)${c.positives ? ` · ${c.positives} corroboration(s)` : ''}`)
         html += `<tr>
           <td style="text-align:center;color:${col};font-weight:800">${cmIcon(c.status)}</td>
-          <td style="font-weight:600;color:${c.status === 'na' ? '#94A3B8' : '#0B1736'}">${esc(zh ? c.zh : c.en)}</td>
-          <td style="font-size:9px;color:${c.status === 'na' ? '#94A3B8' : '#475569'}">${esc(zh ? c.desc_zh : c.desc_en)}</td>
+          <td style="font-weight:600;color:${c.status === 'na' ? '#9FBBD0' : '#0B1736'}">${esc(zh ? c.zh : c.en)}</td>
+          <td style="font-size:9px;color:${c.status === 'na' ? '#9FBBD0' : '#475569'}">${esc(zh ? c.desc_zh : c.desc_en)}</td>
           <td style="color:${col};font-weight:600;font-size:9.5px">${resTxt}</td>
         </tr>`
       }
@@ -994,7 +994,7 @@ export async function generateScreeningReport(
       const sevZh: Record<string, string> = { critical: '严重', high: '高', medium: '中', low: '低' }
       for (const a of coh.anomalies) {
         html += `<div class="card" style="border-left:3px solid ${sevColor[a.severity] || '#64748B'};padding:8px 12px;margin-bottom:6px">
-          <div><span class="flag-badge" style="background:${sevColor[a.severity] || '#64748B'}">${zh ? sevZh[a.severity] || a.severity : a.severity}</span><span style="font-family:monospace;font-size:9px;color:#64748B">${a.category}</span>${a.files.length ? `<span style="font-size:9px;color:#94A3B8;margin-left:6px">${a.files.join(' · ')}</span>` : ''}</div>
+          <div><span class="flag-badge" style="background:${sevColor[a.severity] || '#64748B'}">${zh ? sevZh[a.severity] || a.severity : a.severity}</span><span style="font-family:monospace;font-size:9px;color:#64748B">${a.category}</span>${a.files.length ? `<span style="font-size:9px;color:#9FBBD0;margin-left:6px">${a.files.join(' · ')}</span>` : ''}</div>
           <div style="font-size:10.5px;font-weight:600;margin-top:3px">${zh ? a.claim_zh || a.claim_en : a.claim_en || a.claim_zh}</div>
           <div style="font-size:9.5px;color:#475569;margin-top:3px">${zh ? '依据：' : 'Evidence: '}${a.evidence.map(e => `“${e}”`).join(zh ? '｜' : ' | ')}</div>
           <div style="font-size:9.5px;color:#0F766E;margin-top:3px">${zh ? '核实：' : 'Resolve: '}${zh ? a.check_zh || a.check_en : a.check_en || a.check_zh}</div>
@@ -1012,7 +1012,7 @@ export async function generateScreeningReport(
   }
   html += `<div class="kv"><span class="k">${zh ? '查询姓名' : 'Queried Name'}:</span><span class="v">${esc(queriedName)}</span></div>
   <div class="kv"><span class="k">${zh ? '总命中数' : 'Total Hits'}:</span><span class="v" style="font-weight:700;color:${totalHits > 0 ? '#DC2626' : '#16A34A'}">${totalHits}</span></div>
-  <div style="font-size:9px;color:#94A3B8;margin:2px 0 4px">${zh ? '「已检索」列的 ✓ 表示该库已按姓名实际执行检索;结果列单独标注(无记录 / N 条命中)。未检索、超时、不可用的库不带 ✓,绝不计入"无记录"。' : 'A ✓ in the Searched column means that source actually ran a name search; the Result column states only what came back (clear / N hits). Sources not searched, timed out, or unavailable carry no ✓ and are never counted as clear.'}</div>`
+  <div style="font-size:9px;color:#9FBBD0;margin:2px 0 4px">${zh ? '「已检索」列的 ✓ 表示该库已按姓名实际执行检索;结果列单独标注(无记录 / N 条命中)。未检索、超时、不可用的库不带 ✓,绝不计入"无记录"。' : 'A ✓ in the Searched column means that source actually ran a name search; the Result column states only what came back (clear / N hits). Sources not searched, timed out, or unavailable carry no ✓ and are never counted as clear.'}</div>`
 
   // DB summary table — every free-tier query row is disclosed, including
   // unavailable / timed-out / skipped sources ("searched and clear" vs
@@ -1045,14 +1045,14 @@ export async function generateScreeningReport(
       const riskText = q.severity === 3 ? (zh ? '严重' : 'Critical') : q.severity === 2 ? (zh ? '高' : 'High') : q.severity === 1 ? (zh ? '中' : 'Medium') : (zh ? '无' : 'None')
       const riskColor = q.severity === 3 ? '#DC2626' : q.severity === 2 ? '#D97706' : q.severity === 1 ? '#1D4ED8' : '#16A34A'
       // Certn-style row tinting: green for cleared databases, red for hits
-      const rowBg = hits > 0 ? (isMention ? 'background:#FFFBEB' : 'background:#FEF2F2') : hits === 0 ? 'background:#F0FDF4' : 'background:#F8FAFC'
-      const stColorCourt = hits > 0 ? (isMention ? '#B45309' : '#DC2626') : hits === 0 ? '#16A34A' : '#94A3B8'
+      const rowBg = hits > 0 ? (isMention ? 'background:#FFFBEB' : 'background:#FEF2F2') : hits === 0 ? 'background:#F0FDF4' : 'background:#F3F8FC'
+      const stColorCourt = hits > 0 ? (isMention ? '#B45309' : '#DC2626') : hits === 0 ? '#16A34A' : '#9FBBD0'
       // A source that could not be searched automatically may still carry a
       // pre-filled manual search URL (CanLII: the website searches, the API
       // does not). Print it — this is a paper trail, and the link is the step
       // the landlord is being asked to take.
       const manualLink = q.url && (q.status !== 'ok' || isMention)
-        ? ` <a href="${esc(q.url)}" style="color:#12122B">${zh ? (q.status === 'ok' ? '完整站内检索' : '一键人工检索') : (q.status === 'ok' ? 'full site search' : 'run the search yourself')}</a>`
+        ? ` <a href="${esc(q.url)}" style="color:#0094C6">${zh ? (q.status === 'ok' ? '完整站内检索' : '一键人工检索') : (q.status === 'ok' ? 'full site search' : 'run the search yourself')}</a>`
         : ''
       html += `<tr>
         <td style="${rowBg}">${esc(q.source)}</td>
@@ -1068,7 +1068,7 @@ export async function generateScreeningReport(
     for (const q of mentionRows) {
       html += `<h3 style="font-size:11px;font-weight:700;color:#1E3A5F;margin:10px 0 6px">${esc(q.source)} — ${zh ? '提及清单（非当事人记录）' : 'mentions (not party records)'}</h3>`
       for (const m of q.indexRecords!) {
-        html += `<div style="font-size:9.5px;margin:0 0 4px"><a href="${esc(m.url)}" style="color:#12122B">${esc(m.title)}</a>${m.snippet ? ` <span style="color:#64748B">— ${esc(m.snippet)}</span>` : ''}</div>`
+        html += `<div style="font-size:9.5px;margin:0 0 4px"><a href="${esc(m.url)}" style="color:#0094C6">${esc(m.title)}</a>${m.snippet ? ` <span style="color:#64748B">— ${esc(m.snippet)}</span>` : ''}</div>`
       }
       html += `<div style="font-size:9px;color:#B45309;margin:2px 0 6px">${zh ? '以上为「提及」而非当事人记录——律师、仲裁员、他案当事人常与申请人同名。逐条核读后再下结论;不参与评分。' : 'Mentions, not party records — counsel, adjudicators and unrelated parties share names. Read each before concluding anything; none of this affects the score.'}</div>`
     }
@@ -1147,7 +1147,7 @@ export async function generateScreeningReport(
         if (ci.officers.length > 0) html += `<div class="kv"><span class="k">${zh ? '董事/高管' : 'Officers'}:</span><span class="v"${check.applicant_is_officer ? ' style="color:#DC2626;font-weight:700"' : ''}>${esc(ci.officers.map(o => o.name + (o.position ? ` (${o.position})` : '')).join(', '))}${check.applicant_is_officer ? (zh ? ' ⚠ 申请人是公司高管' : ' ⚠ applicant is an officer') : ''}</span></div>`
         if (ci.registered_address) html += `<div class="kv"><span class="k">${zh ? '注册地址' : 'Address'}:</span><span class="v"${check.company_address_matches_applicant ? ' style="color:#DC2626;font-weight:700"' : ''}>${esc(ci.registered_address)}${check.company_address_matches_applicant ? (zh ? ' ⚠ 与申请人地址重叠' : ' ⚠ overlaps applicant address') : ''}</span></div>`
       } else {
-        html += `<div style="font-size:10px;color:#94A3B8;font-style:italic">${zh ? '未在加拿大公司注册数据库中找到该雇主' : 'Employer not found in Canadian corporate registries'}</div>`
+        html += `<div style="font-size:10px;color:#9FBBD0;font-style:italic">${zh ? '未在加拿大公司注册数据库中找到该雇主' : 'Employer not found in Canadian corporate registries'}</div>`
       }
       for (const f of check.flags) {
         html += `<div style="margin-top:4px;font-size:10px"><span class="flag-badge" style="background:${sevColor(f.severity)}">${zh ? ({ critical: '严重', high: '高', medium: '中', low: '低', info: '佐证' }[f.severity] || f.severity) : f.severity.toUpperCase()}</span>${esc(zh ? f.evidence_zh : f.evidence_en)}</div>`
@@ -1161,7 +1161,7 @@ export async function generateScreeningReport(
     html += `<h2>${zh ? '待人工核实清单' : 'Action Items'}</h2>
     <p style="font-size:10px;color:#64748B;margin-bottom:6px">${zh ? '以下内容无法仅凭上传文档确认，需要您亲自核实。' : 'These items cannot be verified from documents alone.'}</p>
     <table>
-      <tr><th style="background:#12122B">${zh ? '项目' : 'Item'}</th><th style="background:#12122B;width:80px">${zh ? '维度' : 'Dimension'}</th><th style="background:#12122B">${zh ? '详情' : 'Details'}</th><th style="background:#12122B;width:90px">${zh ? '对评分影响' : 'Impact'}</th></tr>`
+      <tr><th style="background:#0094C6">${zh ? '项目' : 'Item'}</th><th style="background:#0094C6;width:80px">${zh ? '维度' : 'Dimension'}</th><th style="background:#0094C6">${zh ? '详情' : 'Details'}</th><th style="background:#0094C6;width:90px">${zh ? '对评分影响' : 'Impact'}</th></tr>`
     for (const item of result.action_items) {
       html += `<tr>
         <td style="font-weight:600">${esc(zh ? item.title_zh : item.title_en)}</td>

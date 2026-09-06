@@ -59,7 +59,7 @@ export default function ApplicationDetailPage() {
     app.email
   const overall = app.ai_overall_score ?? app.ai_score ?? null
   const dims = [
-    { name: lang === 'zh' ? '证件真实性' : 'Document authenticity', v: app.doc_authenticity ?? null,  note: app.doc_authenticity_note,  w: 20, color: '#1B1B3C' },
+    { name: lang === 'zh' ? '证件真实性' : 'Document authenticity', v: app.doc_authenticity ?? null,  note: app.doc_authenticity_note,  w: 20, color: '#00ACE4' },
     { name: lang === 'zh' ? '支付能力' : 'Ability to pay',          v: app.payment_ability ?? null,    note: app.payment_ability_note,    w: 20, color: '#047857' },
     { name: lang === 'zh' ? '法庭记录' : 'Court records',           v: app.court_records ?? app.court_records_score ?? null, note: app.court_records_note ?? app.court_search_summary, w: 20, color: '#DC2626' },
     { name: lang === 'zh' ? '稳定性' : 'Stability',                 v: app.stability ?? null,          note: app.stability_note,          w: 15, color: '#2563EB' },

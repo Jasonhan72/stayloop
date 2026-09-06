@@ -135,9 +135,9 @@ export default function TrustApiPage() {
       <section
         style={{
           background: `
-            radial-gradient(circle at 50% -8%, rgba(27,27,60,0.15), transparent 34%),
+            radial-gradient(circle at 50% -8%, rgba(0,172,228,0.15), transparent 34%),
             radial-gradient(circle at 8% 58%, rgba(4,120,87,0.06), transparent 32%),
-            radial-gradient(circle at 94% 74%, rgba(27,27,60,0.07), transparent 38%),
+            radial-gradient(circle at 94% 74%, rgba(0,172,228,0.07), transparent 38%),
             linear-gradient(180deg, #fff 0%, #FBFAF7 46%, ${v3.surface} 100%)
           `,
           padding: '72px 24px 88px',
@@ -155,7 +155,7 @@ export default function TrustApiPage() {
               borderRadius: 999,
               background: 'rgba(255,255,255,0.78)',
               border: `1px solid ${accent.soft}`,
-              boxShadow: '0 12px 36px rgba(27,27,60,0.10)',
+              boxShadow: '0 12px 36px rgba(0,172,228,0.10)',
               marginBottom: 22,
               backdropFilter: 'blur(18px)',
               flexWrap: 'wrap',
@@ -478,7 +478,7 @@ export default function TrustApiPage() {
                 <span
                   style={{
                     background:
-                      'linear-gradient(90deg, #4F46E5 0%, #1B1B3C 50%, #A855F7 100%)',
+                      'linear-gradient(90deg, #4F46E5 0%, #00ACE4 50%, #A855F7 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     backgroundClip: 'text',

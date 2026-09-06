@@ -103,7 +103,7 @@ function OrderCard({ m, zh, context }: { m: LtbOrderMatch; zh: boolean; context?
           target="_blank"
           rel="noopener noreferrer"
           className="mt-1 inline-block font-mono text-[11px] underline"
-          style={{ color: '#12122B' }}
+          style={{ color: '#0094C6' }}
         >
           {zh ? '查看判令原件 (PDF)' : 'Open the order (PDF)'}
         </a>
@@ -212,7 +212,7 @@ export default function LTBPage() {
     <div style={{ background: '#FFFFFF', color: '#171717', minHeight: '100vh' }}>
       <Header variant="transparent" />
 
-      <section style={{ background: 'linear-gradient(180deg,#F4F6F9 0%,#E8E4DC 100%)' }}>
+      <section style={{ background: 'linear-gradient(180deg,#F3F8FC 0%,#E8E4DC 100%)' }}>
         <div className="mx-auto max-w-[1240px] px-5 py-16 sm:px-7 lg:px-12">
           <Link href={`/screening/${id}/report`} className="font-mono text-[12px] text-body-3 hover:text-body">
             &larr; {zh ? '返回报告' : 'Back to report'}
@@ -290,7 +290,7 @@ export default function LTBPage() {
                         <div className="text-[13.5px] font-semibold text-body">{q.source}</div>
                         {q.note && <div className="mt-0.5 break-words text-[12px] leading-relaxed text-body-3">{q.note}</div>}
                         {q.url && (
-                          <a href={q.url} target="_blank" rel="noopener noreferrer" className="mt-0.5 inline-block font-mono text-[11px] underline" style={{ color: '#12122B' }}>
+                          <a href={q.url} target="_blank" rel="noopener noreferrer" className="mt-0.5 inline-block font-mono text-[11px] underline" style={{ color: '#0094C6' }}>
                             {q.status === 'ok' ? (zh ? '数据源' : 'source') : (zh ? '一键人工检索 ↗' : 'run the search yourself ↗')}
                           </a>
                         )}
@@ -298,7 +298,7 @@ export default function LTBPage() {
                           <div className="mt-2 space-y-1.5 border-t border-line-divider pt-2">
                             {q.indexRecords!.map((m, j) => (
                               <div key={j} className="text-[12px] leading-relaxed">
-                                <a href={m.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline" style={{ color: '#12122B' }}>
+                                <a href={m.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline" style={{ color: '#0094C6' }}>
                                   {m.title}
                                 </a>
                                 {m.snippet && <span className="text-body-3"> — {m.snippet}</span>}

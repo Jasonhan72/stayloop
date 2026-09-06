@@ -152,7 +152,7 @@ export default function HouseholdHub() {
     return (
       <Shell zh={zh}><div className="py-20 text-center">
         <p className="text-[14px] text-body-2">{zh ? '请先登录。' : 'Please sign in.'}</p>
-        <Link href={`/login?next=/h/${id}`} className="mt-4 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#1B1B3C' }}>
+        <Link href={`/login?next=/h/${id}`} className="mt-4 inline-block rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#00ACE4' }}>
           {zh ? '去登录' : 'Sign in'}
         </Link>
       </div></Shell>
@@ -167,7 +167,7 @@ export default function HouseholdHub() {
     )
   }
   if (!household) {
-    return <Shell zh={zh}><div className="py-24 text-center"><div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[#1B1B3C] border-t-transparent" /></div></Shell>
+    return <Shell zh={zh}><div className="py-24 text-center"><div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-[#00ACE4] border-t-transparent" /></div></Shell>
   }
 
   const address = [household.address, household.unit ? `#${household.unit}` : null, household.city].filter(Boolean).join(', ')
@@ -202,7 +202,7 @@ export default function HouseholdHub() {
       <div className="mt-6 flex gap-1 border-b border-line-divider">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`px-4 py-2.5 text-[13px] font-semibold ${tab === t.id ? 'border-b-2 border-[#1B1B3C] text-[#1B1B3C]' : 'text-body-3'}`}>
+            className={`px-4 py-2.5 text-[13px] font-semibold ${tab === t.id ? 'border-b-2 border-[#00ACE4] text-[#00ACE4]' : 'text-body-3'}`}>
             {zh ? t.zh : t.en}
           </button>
         ))}
@@ -212,7 +212,7 @@ export default function HouseholdHub() {
         <div className="mt-6 space-y-5">
           <section className="rounded-xl border border-line-divider bg-white p-5">
             <h2 className="text-[14px] font-extrabold">{zh ? '租约文件' : 'Lease document'}</h2>
-            <button onClick={() => void openLeaseFile()} className="mt-3 rounded-lg border border-line-divider px-4 py-2 text-[13px] font-semibold hover:border-[#1B1B3C]">
+            <button onClick={() => void openLeaseFile()} className="mt-3 rounded-lg border border-line-divider px-4 py-2 text-[13px] font-semibold hover:border-[#00ACE4]">
               {zh ? '查看租约原件 ↗' : 'Open the lease ↗'}
             </button>
             <p className="mt-2 text-[11.5px] text-body-3">
@@ -258,7 +258,7 @@ export default function HouseholdHub() {
               return (
                 <div key={m.id} className={`mb-3 flex ${mine ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[75%] rounded-xl px-4 py-2.5 text-[13.5px] leading-relaxed ${mine ? 'text-white' : 'bg-[#F4F1E8] text-body'}`}
-                    style={mine ? { background: '#1B1B3C' } : undefined}>
+                    style={mine ? { background: '#00ACE4' } : undefined}>
                     {!mine && <div className="mb-0.5 font-mono text-[10px] font-bold opacity-70">{zh ? ROLE_ZH[role ?? ''] ?? '成员' : role ?? 'member'}</div>}
                     <div className="whitespace-pre-wrap break-words">{m.body}</div>
                     <div className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-body-3'}`}>{new Date(m.created_at).toLocaleString()}</div>
@@ -272,7 +272,7 @@ export default function HouseholdHub() {
             <input className={input} value={draft} placeholder={zh ? '输入消息…' : 'Type a message…'}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send() } }} />
-            <button onClick={() => void send()} className="rounded-lg px-5 text-[13px] font-bold text-white" style={{ background: '#1B1B3C' }}>
+            <button onClick={() => void send()} className="rounded-lg px-5 text-[13px] font-bold text-white" style={{ background: '#00ACE4' }}>
               {zh ? '发送' : 'Send'}
             </button>
           </div>
@@ -305,7 +305,7 @@ export default function HouseholdHub() {
                         <span className="font-mono text-[10px] font-bold text-body-3">{zh ? '未到期' : 'UPCOMING'}</span>
                       ) : (
                         <button onClick={() => void markPaid(p.due)} disabled={busy}
-                          className="rounded-md border border-line-divider px-3 py-1 text-[11px] font-bold hover:border-[#1B1B3C] disabled:opacity-50">
+                          className="rounded-md border border-line-divider px-3 py-1 text-[11px] font-bold hover:border-[#00ACE4] disabled:opacity-50">
                           {zh ? '标记已付' : 'Mark paid'}
                         </button>
                       )}
@@ -321,7 +321,7 @@ export default function HouseholdHub() {
       {tab === 'maintenance' && (
         <div className="mt-6 space-y-4">
           {!showTicketForm ? (
-            <button onClick={() => setShowTicketForm(true)} className="rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#1B1B3C' }}>
+            <button onClick={() => setShowTicketForm(true)} className="rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#00ACE4' }}>
               + {zh ? '提交报修' : 'New request'}
             </button>
           ) : (
@@ -338,7 +338,7 @@ export default function HouseholdHub() {
                   <option value="high">{zh ? '高 · 紧急' : 'High / urgent'}</option>
                 </select>
                 <button onClick={() => void createTicket()} disabled={busy || !ticketForm.title.trim()}
-                  className="rounded-lg px-5 py-2 text-[13px] font-bold text-white disabled:opacity-50" style={{ background: '#1B1B3C' }}>
+                  className="rounded-lg px-5 py-2 text-[13px] font-bold text-white disabled:opacity-50" style={{ background: '#00ACE4' }}>
                   {zh ? '提交' : 'Submit'}
                 </button>
                 <button onClick={() => setShowTicketForm(false)} className="text-[12.5px] text-body-3 underline">{zh ? '取消' : 'Cancel'}</button>
@@ -361,7 +361,7 @@ export default function HouseholdHub() {
               </div>
               {t.description && <p className="mt-2 text-[13px] leading-relaxed text-body-2">{t.description}</p>}
               {t.status !== 'resolved' && (
-                <button onClick={() => void advanceTicket(t)} className="mt-3 rounded-md border border-line-divider px-3 py-1 text-[11px] font-bold hover:border-[#1B1B3C]">
+                <button onClick={() => void advanceTicket(t)} className="mt-3 rounded-md border border-line-divider px-3 py-1 text-[11px] font-bold hover:border-[#00ACE4]">
                   {t.status === 'new' ? (zh ? '开始处理' : 'Start') : (zh ? '标记已解决' : 'Mark resolved')}
                 </button>
               )}

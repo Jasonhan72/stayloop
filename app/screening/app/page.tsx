@@ -278,7 +278,7 @@ function CategoryBar({ category, score, animDelay = 0, tier, shortNote, detail, 
               </span>
             )}
             {isCourtRecord && !zeroed && (
-              <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: tier === 'pro' ? '#2A2A5A20' : '#E4E8F0', color: tier === 'pro' ? '#12122B' : '#64748B', fontWeight: 600 }}>
+              <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: tier === 'pro' ? '#2A2A5A20' : '#E4E8F0', color: tier === 'pro' ? '#0094C6' : '#64748B', fontWeight: 600 }}>
                 {tier === 'pro' ? t('screen.tier.pro') : t('screen.tier.freeCanlii')}
               </span>
             )}
@@ -397,7 +397,7 @@ function ForensicsCard({ report }: { report: NonNullable<ScoreResult['forensics_
       case 'high':     return { bg: '#EA580C', text: '#FFF' }
       case 'medium':   return { bg: '#D97706', text: '#FFF' }
       case 'info':     return { bg: '#047857', text: '#FFF' }
-      default:         return { bg: '#94A3B8', text: '#FFF' }
+      default:         return { bg: '#9FBBD0', text: '#FFF' }
     }
   }
   const sevLabel = (sev: string): string => {
@@ -631,14 +631,14 @@ function CaseRecordCard({ record, lang, sevColor, isParty }: { record: CanLIIMat
             {lang === 'zh' ? '当事人' : 'PARTY'}
           </span>
         ) : (
-          <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 6px', borderRadius: 3, background: '#E2E8F0', color: '#64748B', flexShrink: 0 }}>
+          <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 6px', borderRadius: 3, background: '#E4EEF6', color: '#64748B', flexShrink: 0 }}>
             {lang === 'zh' ? '提及' : 'MENTION'}
           </span>
         )}
         <span style={{
           fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
           padding: '2px 6px', borderRadius: 3,
-          background: isParty ? sevColor.bg : '#94A3B8', color: '#fff',
+          background: isParty ? sevColor.bg : '#9FBBD0', color: '#fff',
           flexShrink: 0,
         }}>
           {record.databaseName || record.databaseId}
@@ -691,7 +691,7 @@ function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMat
         </span>
         <span style={{
           fontSize: 9, padding: '1px 5px', borderRadius: 3, fontWeight: 600,
-          background: record.closedFlag ? '#94A3B840' : '#FEF08A',
+          background: record.closedFlag ? '#9FBBD040' : '#FEF08A',
           color: record.closedFlag ? '#64748B' : '#92400E',
         }}>
           {record.closedFlag ? (lang === 'zh' ? '已结案' : 'Closed') : (lang === 'zh' ? '进行中' : 'Active')}
@@ -721,7 +721,7 @@ function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMat
       </div>
       {/* Row 4: Source link — direct to case detail when we have a UUID,
           else fall back to the generic portal search page. */}
-      <div style={{ fontSize: 9, color: '#94A3B8', marginTop: 6 }}>
+      <div style={{ fontSize: 9, color: '#9FBBD0', marginTop: 6 }}>
         {lang === 'zh' ? '数据来源：' : 'Source: '}
         <a
           href={(() => {
@@ -803,7 +803,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
           <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#64748B' }}>{t('screen.result.court.title')}</div>
           <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>{t('screen.result.court.queriedName')} <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#0B1736' }}>{queriedName || '—'}</span></div>
         </div>
-        <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, background: tier === 'pro' ? '#2A2A5A20' : '#E4E8F0', color: tier === 'pro' ? '#12122B' : '#64748B', border: `1px solid ${tier === 'pro' ? '#2A2A5A40' : '#E4E8F0'}`, fontWeight: 600 }}>
+        <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, background: tier === 'pro' ? '#2A2A5A20' : '#E4E8F0', color: tier === 'pro' ? '#0094C6' : '#64748B', border: `1px solid ${tier === 'pro' ? '#2A2A5A40' : '#E4E8F0'}`, fontWeight: 600 }}>
           {tier === 'pro' ? t('screen.result.court.pro') : t('screen.result.court.free')}
         </span>
       </div>
@@ -964,11 +964,11 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 12, borderTop: '1px solid var(--border-subtle)' }}>
           {proQueries.map((q, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#475569', fontSize: 12 }}>
-              <span style={{ width: 18, height: 18, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, background: '#2A2A5A20', color: '#12122B', border: '1px solid #2A2A5A40' }}>
+              <span style={{ width: 18, height: 18, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, background: '#2A2A5A20', color: '#0094C6', border: '1px solid #2A2A5A40' }}>
                 💎
               </span>
               <span style={{ flex: 1 }}>{q.source}</span>
-              <span style={{ fontSize: 10, fontWeight: 600, color: '#12122B' }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: '#0094C6' }}>
                 {q.status === 'coming_soon' ? t('screen.result.court.comingSoon') : t('screen.result.court.needPro')}
               </span>
             </div>
@@ -981,7 +981,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
         <div style={{ marginTop: 14, padding: '12px 14px', background: '#2A2A5A10', border: '1px solid #2A2A5A30', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 16 }}>💎</span>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#12122B' }}>{t('screen.result.court.upgrade.title')}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#0094C6' }}>{t('screen.result.court.upgrade.title')}</div>
             <div style={{ fontSize: 11, color: '#5B21B6', marginTop: 2 }}>{t('screen.result.court.upgrade.sub')}</div>
           </div>
         </div>
@@ -1081,7 +1081,7 @@ function AuthenticityCard({ result }: { result: ScoreResult }) {
       case 'high':     return { bg: '#EA580C', text: '#FFF' }
       case 'medium':   return { bg: '#D97706', text: '#FFF' }
       case 'info':     return { bg: '#047857', text: '#FFF' }
-      default:         return { bg: '#94A3B8', text: '#FFF' }
+      default:         return { bg: '#9FBBD0', text: '#FFF' }
     }
   }
   const sevLabel = (sev: string): string => {
@@ -2568,7 +2568,7 @@ export default function ScreenPage() {
               : 'Register to start screening — the free tier includes 5 screenings per month, with your history saved to your account.'}
           </div>
           <div style={{ marginTop: 14, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/register?redirect=%2Fscreening%2Fapp" style={{ padding: '9px 18px', borderRadius: 10, background: '#1B1B3C', color: '#fff', fontSize: 13, fontWeight: 700 }}>
+            <Link href="/register?redirect=%2Fscreening%2Fapp" style={{ padding: '9px 18px', borderRadius: 10, background: '#00ACE4', color: '#fff', fontSize: 13, fontWeight: 700 }}>
               {lang === 'zh' ? '免费注册' : 'Create a free account'}
             </Link>
             <Link href="/login?next=%2Fscreening%2Fapp" style={{ padding: '9px 18px', borderRadius: 10, background: '#fff', border: '1px solid #E4E8F0', color: '#0B1736', fontSize: 13, fontWeight: 600 }}>
@@ -2620,7 +2620,7 @@ export default function ScreenPage() {
           background: rgba(255, 255, 255, 0.96);
           -webkit-backdrop-filter: blur(10px);
           backdrop-filter: blur(10px);
-          border-top: 1px solid #E2E8F0;
+          border-top: 1px solid #E4EEF6;
           box-shadow: 0 -6px 20px -12px rgba(31, 25, 11, 0.35);
         }
         @media (min-width: 768px) { .screen-cta-bar { display: none; } }
@@ -2667,7 +2667,7 @@ export default function ScreenPage() {
            the panel background. Warm border + inset shadow at rest, brand
            emerald ring on focus. !important beats the global .input rules. */
         .sl-field {
-          border: 1.5px solid #CBD5E1 !important;
+          border: 1.5px solid #D3E3EF !important;
           background: #FFFFFF !important;
           box-shadow: inset 0 1px 2px rgba(31, 25, 11, 0.05);
           transition: border-color .15s ease, box-shadow .15s ease;
@@ -2693,7 +2693,7 @@ export default function ScreenPage() {
             {/* ─── Scanner Panel ─── */}
             <div style={{
               background: '#FFFFFF',
-              border: '1px solid #CBD5E1',
+              border: '1px solid #D3E3EF',
               borderRadius: 20,
               boxShadow: '0 1px 3px rgba(31, 25, 11, 0.04), 0 12px 32px -8px rgba(31, 25, 11, 0.06)',
               // `clip`, not `hidden`: overflow:hidden turns this card into a
@@ -2707,7 +2707,7 @@ export default function ScreenPage() {
               {/* Panel Header */}
               <div style={{
                 padding: '18px 20px',
-                borderBottom: '1px solid #E2E8F0',
+                borderBottom: '1px solid #E4EEF6',
                 borderRadius: '20px 20px 0 0',
                 display: 'flex',
                 alignItems: 'center',
@@ -2737,9 +2737,9 @@ export default function ScreenPage() {
                 </div>
                 <span style={{
                   fontSize: 10.5, fontWeight: 700, padding: '4px 10px', borderRadius: 6,
-                  background: isPro ? '#F3E8FF' : '#EEF2F6',
-                  color: isPro ? '#12122B' : '#64748B',
-                  border: `1px solid ${isPro ? 'rgba(27, 27, 60, 0.30)' : '#DDE3EA'}`,
+                  background: isPro ? '#F3E8FF' : '#E3F2FC',
+                  color: isPro ? '#0094C6' : '#64748B',
+                  border: `1px solid ${isPro ? 'rgba(0, 172, 228, 0.30)' : '#DDE3EA'}`,
                   letterSpacing: '0.06em',
                 }}>{planLabel(plan, lang)}</span>
               </div>
@@ -2752,15 +2752,15 @@ export default function ScreenPage() {
                 onClick={() => fileInputRef.current?.click()}
                 style={{
                   margin: '16px 18px 0',
-                  border: `2px dashed ${dragOver ? '#1B1B3C' : '#94A3B8'}`,
+                  border: `2px dashed ${dragOver ? '#00ACE4' : '#9FBBD0'}`,
                   borderRadius: 14,
                   padding: files.length > 0 ? '20px 16px' : '36px 16px',
                   textAlign: 'center',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   background: dragOver
-                    ? 'rgba(27, 27, 60, 0.06)'
-                    : '#F8FAFC',
+                    ? 'rgba(0, 172, 228, 0.06)'
+                    : '#F3F8FC',
                 }}
               >
                 <input
@@ -2793,9 +2793,9 @@ export default function ScreenPage() {
                         fontSize: 13,
                         fontWeight: 600,
                         borderRadius: 10,
-                        background: 'linear-gradient(135deg, #1B1B3C 0%, #12122B 100%)',
+                        background: 'linear-gradient(135deg, #00ACE4 0%, #0094C6 100%)',
                         color: '#FFFFFF',
-                        boxShadow: '0 8px 22px -10px rgba(27, 27, 60, 0.35), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
+                        boxShadow: '0 8px 22px -10px rgba(0, 172, 228, 0.35), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
                       }}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -2837,8 +2837,8 @@ export default function ScreenPage() {
                         style={{
                           display: 'flex', alignItems: 'center', gap: 5,
                           padding: '7px 10px', borderRadius: 8,
-                          background: uploaded ? 'rgba(4, 120, 87, 0.10)' : '#F8FAFC',
-                          border: uploaded ? '1px solid rgba(4, 120, 87, 0.40)' : '1px solid #CBD5E1',
+                          background: uploaded ? 'rgba(4, 120, 87, 0.10)' : '#F3F8FC',
+                          border: uploaded ? '1px solid rgba(4, 120, 87, 0.40)' : '1px solid #D3E3EF',
                           fontSize: 11, fontWeight: uploaded ? 600 : 500,
                           color: uploaded ? '#047857' : '#52525B',
                           transition: 'all 0.2s',
@@ -2849,7 +2849,7 @@ export default function ScreenPage() {
                         {uploaded && (
                           <span style={{
                             fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 6,
-                            background: 'linear-gradient(135deg, #1B1B3C, #12122B)', color: '#fff',
+                            background: 'linear-gradient(135deg, #00ACE4, #0094C6)', color: '#fff',
                             lineHeight: '14px', minWidth: 16, textAlign: 'center',
                           }}>
                             {count}
@@ -2905,15 +2905,15 @@ export default function ScreenPage() {
                       return (
                         <div key={i} style={{
                           display: 'flex', alignItems: 'center', gap: 10,
-                          padding: '8px 12px', background: '#F8FAFC', borderRadius: 10,
-                          border: '1px solid #EEF2F6', fontSize: 12.5,
+                          padding: '8px 12px', background: '#F3F8FC', borderRadius: 10,
+                          border: '1px solid #E3F2FC', fontSize: 12.5,
                           minHeight: 38,
                         }}>
                           <span style={{ fontSize: 13, flexShrink: 0 }}>{isPdf ? '📄' : isImage ? '🖼️' : '📎'}</span>
                           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0B1736', fontWeight: 500 }}>{f.name}</span>
                           {kindLabel && <span style={{ fontSize: 11, flexShrink: 0 }}>{kindLabel}</span>}
-                          <span style={{ fontSize: 10, color: '#94A3B8', flexShrink: 0 }}>{(f.size / 1024).toFixed(0)}KB</span>
-                          <button onClick={(e) => { e.stopPropagation(); removeFile(i) }} style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>×</button>
+                          <span style={{ fontSize: 10, color: '#9FBBD0', flexShrink: 0 }}>{(f.size / 1024).toFixed(0)}KB</span>
+                          <button onClick={(e) => { e.stopPropagation(); removeFile(i) }} style={{ background: 'none', border: 'none', color: '#9FBBD0', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>×</button>
                         </div>
                       )
                     })}
@@ -2944,7 +2944,7 @@ export default function ScreenPage() {
                         background: '#FFFFFF', caretColor: '#0B1736',
                       }}
                     />
-                    <div style={{ fontSize: 10.5, color: '#94A3B8', marginTop: 5 }}>{t('screen.form.name.hint')}</div>
+                    <div style={{ fontSize: 10.5, color: '#9FBBD0', marginTop: 5 }}>{t('screen.form.name.hint')}</div>
                   </div>
                   <div>
                     <label style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', letterSpacing: '0.02em', marginBottom: 6, display: 'block' }}>{t('screen.form.rent.label')}</label>
@@ -3025,9 +3025,9 @@ export default function ScreenPage() {
                         // (which would re-apply the brighter #10B981→#059669 gradient
                         // and override these styles) and just use cursor:not-allowed +
                         // pointer-events:none for the disabled affordance.
-                        background: 'linear-gradient(135deg, #1B1B3C 0%, #12122B 100%)',
+                        background: 'linear-gradient(135deg, #00ACE4 0%, #0094C6 100%)',
                         color: '#FFFFFF',
-                        boxShadow: '0 8px 22px -10px rgba(27, 27, 60, 0.35), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
+                        boxShadow: '0 8px 22px -10px rgba(0, 172, 228, 0.35), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
                         border: 'none',
                         cursor: isDisabled ? 'not-allowed' : 'pointer',
                         pointerEvents: isDisabled ? 'none' : 'auto',
@@ -3045,13 +3045,13 @@ export default function ScreenPage() {
                 })()}
 
                 {/* What happens next — compact pipeline */}
-                <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 11.5, color: '#94A3B8', flexWrap: 'wrap' }}>
+                <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 11.5, color: '#9FBBD0', flexWrap: 'wrap' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>📋 {lang === 'zh' ? 'AI 分析' : 'AI Analysis'}</span>
-                  <span style={{ color: '#CBD5E1', fontSize: 10 }}>→</span>
+                  <span style={{ color: '#D3E3EF', fontSize: 10 }}>→</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>⚖️ {lang === 'zh' ? '法院记录' : 'Court Records'}</span>
-                  <span style={{ color: '#CBD5E1', fontSize: 10 }}>→</span>
+                  <span style={{ color: '#D3E3EF', fontSize: 10 }}>→</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>🔒 {lang === 'zh' ? '取证检测' : 'Forensics'}</span>
-                  <span style={{ color: '#CBD5E1', fontSize: 10 }}>→</span>
+                  <span style={{ color: '#D3E3EF', fontSize: 10 }}>→</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>📊 {lang === 'zh' ? '风险报告' : 'Risk Report'}</span>
                 </div>
               </div>
@@ -3096,7 +3096,7 @@ export default function ScreenPage() {
                     <div style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
                       {files.length} {lang === 'zh' ? '个文件' : 'file(s)'}
                       {applicantName.trim() && ` · ${applicantName.trim()}`}
-                      <span className="mono" style={{ marginLeft: 8, color: '#94A3B8' }}>{mm}:{ss}</span>
+                      <span className="mono" style={{ marginLeft: 8, color: '#9FBBD0' }}>{mm}:{ss}</span>
                     </div>
                   </div>
                 </div>
@@ -3156,7 +3156,7 @@ export default function ScreenPage() {
                       const isLast = i === scanLog.length - 1
                       const dt = ((l.at - (scanStartRef.current || scanLog[0].at)) / 1000).toFixed(1)
                       return (
-                        <div key={i} className="mono" style={{ fontSize: 10, lineHeight: 1.55, color: isLast ? '#6EE7B7' : '#94A3B8', opacity: isLast ? 1 : 0.75, fontWeight: isLast ? 700 : 400, wordBreak: 'break-all' }}>
+                        <div key={i} className="mono" style={{ fontSize: 10, lineHeight: 1.55, color: isLast ? '#6EE7B7' : '#9FBBD0', opacity: isLast ? 1 : 0.75, fontWeight: isLast ? 700 : 400, wordBreak: 'break-all' }}>
                           <span style={{ color: '#475569', marginRight: 6 }}>[{dt}s]</span>
                           {lang === 'zh' ? l.zh : l.en}
                         </div>
@@ -3192,14 +3192,14 @@ export default function ScreenPage() {
                             background: accentColor, animation: 'slPulse 1.1s ease-in-out infinite',
                           }} />
                         ) : (
-                          <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#CBD5E1' }} />
+                          <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#D3E3EF' }} />
                         )}
                       </span>
                       <span style={{ fontSize: 13, flexShrink: 0 }}>{s.icon}</span>
                       <span style={{
                         flex: 1, fontSize: 12.5,
                         fontWeight: stateOf === 'current' ? 700 : 500,
-                        color: stateOf === 'done' ? '#64748B' : stateOf === 'current' ? '#0B1736' : '#94A3B8',
+                        color: stateOf === 'done' ? '#64748B' : stateOf === 'current' ? '#0B1736' : '#9FBBD0',
                         textDecoration: 'none',
                         transition: 'color 0.3s',
                       }}>
@@ -3211,7 +3211,7 @@ export default function ScreenPage() {
                         </span>
                       )}
                       {stateOf === 'done' && (
-                        <span className="mono" style={{ fontSize: 9.5, color: '#94A3B8', letterSpacing: '0.05em' }}>
+                        <span className="mono" style={{ fontSize: 9.5, color: '#9FBBD0', letterSpacing: '0.05em' }}>
                           {lang === 'zh' ? '完成' : 'DONE'}
                         </span>
                       )}
@@ -3225,7 +3225,7 @@ export default function ScreenPage() {
                     </div>
                   )
                 })}
-                <div style={{ fontSize: 10.5, color: '#94A3B8', textAlign: 'center', marginTop: 10 }}>
+                <div style={{ fontSize: 10.5, color: '#9FBBD0', textAlign: 'center', marginTop: 10 }}>
                   {lang === 'zh'
                     ? '进度与日志由后端真实分析步骤驱动 · AI 阶段按实际生成 token 推进 · 通常 20–40 秒'
                     : 'Progress & log driven by real backend steps · AI stage advances with actual token generation · typically 20–40s'}
@@ -3254,7 +3254,7 @@ export default function ScreenPage() {
               {/* Real analysis provenance — only for fresh runs where we
                   actually measured the pipeline duration */}
               {freshResult && elapsedSec > 0 && (
-                <div className="mono" style={{ marginTop: 10, fontSize: 10, color: '#94A3B8', letterSpacing: '0.04em' }}>
+                <div className="mono" style={{ marginTop: 10, fontSize: 10, color: '#9FBBD0', letterSpacing: '0.04em' }}>
                   {lang === 'zh' ? 'AI 分析用时' : 'Analyzed in'} {elapsedSec}s
                   {result.model_version && ` · ${result.model_version}`}
                 </div>
@@ -3373,7 +3373,7 @@ export default function ScreenPage() {
                   border: '1px solid #E4E8F0', cursor: 'pointer',
                   transition: 'background .15s',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#F3F8FC' }}
                 onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF' }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3487,7 +3487,7 @@ export default function ScreenPage() {
                   <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#64748B' }}>
                     {lang === 'zh' ? '🏢 深度交叉检查 · Arm\'s Length' : '🏢 Deep Cross-Check · Arm\'s Length'}
                   </div>
-                  <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 3 }}>
+                  <div style={{ fontSize: 11, color: '#9FBBD0', marginTop: 3 }}>
                     {lang === 'zh' ? '公司注册信息查询 · 董事/股东交叉比对 · 关联关系识别' : 'Company registry lookup · Director cross-reference · Relationship detection'}
                   </div>
                 </div>
@@ -3498,7 +3498,7 @@ export default function ScreenPage() {
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6,
                       padding: '8px 18px', borderRadius: 8,
-                      background: isPro ? 'linear-gradient(135deg, #1B1B3C, #2A2A5A)' : 'linear-gradient(135deg, #1B1B3C, #2A2A5A)',
+                      background: isPro ? 'linear-gradient(135deg, #00ACE4, #2A2A5A)' : 'linear-gradient(135deg, #00ACE4, #2A2A5A)',
                       color: '#fff', fontSize: 12, fontWeight: 600,
                       border: 'none', cursor: (deepChecking || upgradeLoading) ? 'wait' : 'pointer',
                       opacity: (deepChecking || upgradeLoading) ? 0.6 : 1,
@@ -3536,7 +3536,7 @@ export default function ScreenPage() {
                     : deepCheckResult.overall_risk === 'medium'
                       ? { bg: '#FEF3C7', fg: '#92400E' }
                       : unverified
-                        ? { bg: '#F1F5F9', fg: '#475569' }
+                        ? { bg: '#EEF5FA', fg: '#475569' }
                         : { bg: '#DCFCE7', fg: '#166534' }
                   return (
                     <span style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6, background: tone.bg, color: tone.fg }}>
@@ -3556,8 +3556,8 @@ export default function ScreenPage() {
               {manualEmployerPrompt && !deepCheckResult && (
                 <div style={{
                   marginTop: 14, padding: 14, borderRadius: 10,
-                  background: 'rgba(27, 27, 60, 0.04)',
-                  border: '1px solid rgba(27, 27, 60, 0.2)',
+                  background: 'rgba(0, 172, 228, 0.04)',
+                  border: '1px solid rgba(0, 172, 228, 0.2)',
                 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: '#5B21B6', marginBottom: 6 }}>
                     {lang === 'zh' ? '未能自动识别雇主' : 'Employer name could not be auto-detected'}
@@ -3597,7 +3597,7 @@ export default function ScreenPage() {
                       disabled={deepChecking || manualEmployerName.trim().length < 2}
                       style={{
                         padding: '8px 14px', borderRadius: 8,
-                        background: 'linear-gradient(135deg, #1B1B3C, #2A2A5A)',
+                        background: 'linear-gradient(135deg, #00ACE4, #2A2A5A)',
                         color: '#fff', fontSize: 12, fontWeight: 600, border: 'none',
                         cursor: (deepChecking || manualEmployerName.trim().length < 2) ? 'not-allowed' : 'pointer',
                         opacity: (deepChecking || manualEmployerName.trim().length < 2) ? 0.5 : 1,
@@ -3647,22 +3647,22 @@ export default function ScreenPage() {
                       {/* Company Info */}
                       {check.company_info ? (
                         <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '3px 12px', fontSize: 11, color: '#475569', marginBottom: check.flags.length > 0 ? 10 : 0 }}>
-                          <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '注册名' : 'Registered'}:</span>
+                          <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '注册名' : 'Registered'}:</span>
                           <span style={{ fontWeight: 600 }}>{check.company_info.name}</span>
                           {check.company_info.incorporation_date && <>
-                            <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '成立日期' : 'Incorporated'}:</span>
+                            <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '成立日期' : 'Incorporated'}:</span>
                             <span style={{ fontWeight: check.is_recently_incorporated ? 700 : 400, color: check.is_recently_incorporated ? '#B91C1C' : undefined }}>{check.company_info.incorporation_date}{check.is_recently_incorporated ? (lang === 'zh' ? ' ⚠ 不到2年' : ' ⚠ <2yr') : ''}</span>
                           </>}
                           {check.company_info.status && <>
-                            <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '状态' : 'Status'}:</span>
+                            <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '状态' : 'Status'}:</span>
                             <span>{check.company_info.status}</span>
                           </>}
                           {check.company_info.company_type && <>
-                            <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '类型' : 'Type'}:</span>
+                            <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '类型' : 'Type'}:</span>
                             <span>{check.company_info.company_type}</span>
                           </>}
                           {check.company_info.officers.length > 0 && <>
-                            <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '董事/高管' : 'Officers'}:</span>
+                            <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '董事/高管' : 'Officers'}:</span>
                             <span>
                               {check.company_info.officers.map((o, oi) => (
                                 <span key={oi} style={{
@@ -3675,17 +3675,17 @@ export default function ScreenPage() {
                             </span>
                           </>}
                           {check.company_info.registered_address && <>
-                            <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '注册地址' : 'Address'}:</span>
+                            <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '注册地址' : 'Address'}:</span>
                             <span style={{ color: check.company_address_matches_applicant ? '#B91C1C' : undefined, fontWeight: check.company_address_matches_applicant ? 600 : 400 }}>{check.company_info.registered_address}{check.company_address_matches_applicant ? (lang === 'zh' ? ' ⚠ 与申请人地址重叠' : ' ⚠ overlaps applicant') : ''}</span>
                           </>}
                           {check.company_info.registry_url && <>
-                            <span style={{ color: '#94A3B8' }}>{lang === 'zh' ? '来源' : 'Source'}:</span>
+                            <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '来源' : 'Source'}:</span>
                             <span><a href={check.company_info.registry_url} target="_blank" rel="noopener noreferrer" style={{ color: '#2563EB', textDecoration: 'underline' }}>{check.company_info.source}</a></span>
                           </>}
                         </div>
                       ) : (
                         <div style={{ marginBottom: check.flags.length > 0 ? 10 : 0 }}>
-                          <div style={{ fontSize: 11, color: '#94A3B8', fontStyle: 'italic' }}>
+                          <div style={{ fontSize: 11, color: '#9FBBD0', fontStyle: 'italic' }}>
                             {lang === 'zh'
                               ? '联邦库与各省注册库（CBR 联查）均未收录——可能是个人经营/商号，或注册在未接入的辖区'
                               : 'Not found in the federal or participating provincial registries (via CBR) — may be a sole proprietorship/trade name, or a non-participating jurisdiction'}
@@ -3733,7 +3733,7 @@ export default function ScreenPage() {
                       )}
                     </div>
                   ))}
-                  <div style={{ fontSize: 10, color: '#94A3B8', textAlign: 'right' }}>
+                  <div style={{ fontSize: 10, color: '#9FBBD0', textAlign: 'right' }}>
                     {lang === 'zh' ? '数据来源: OpenCorporates · 加拿大公司注册' : 'Source: OpenCorporates · Canadian Corporate Registry'}
                     {' · '}{new Date(deepCheckResult.checked_at).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}
                   </div>
@@ -3769,7 +3769,7 @@ export default function ScreenPage() {
             {/* Action Items — L3 indicators that can only be resolved via landlord action */}
             {result.action_items && result.action_items.length > 0 && (
               <div className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid rgba(139, 92, 246, 0.35)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
-                <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: '#12122B' }}>
+                <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: '#0094C6' }}>
                   {lang === 'zh' ? '待人工核实清单' : 'Action Items'}
                 </div>
                 <div style={{ fontSize: 11, color: '#64748B', marginBottom: 12 }}>
@@ -3785,7 +3785,7 @@ export default function ScreenPage() {
                         <div style={{ fontSize: 12.5, fontWeight: 700, color: '#5B21B6' }}>
                           {lang === 'zh' ? item.title_zh : item.title_en}
                         </div>
-                        <span className="mono" style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: 'rgba(139, 92, 246, 0.18)', color: '#12122B', whiteSpace: 'nowrap' }}>
+                        <span className="mono" style={{ fontSize: 9, padding: '2px 7px', borderRadius: 4, background: 'rgba(139, 92, 246, 0.18)', color: '#0094C6', whiteSpace: 'nowrap' }}>
                           {item.dimension}
                         </span>
                       </div>
@@ -3837,7 +3837,7 @@ export default function ScreenPage() {
             <details className="sl-card" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', backdropFilter: 'blur(14px)', marginBottom: 18 }}>
               <summary style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', listStyle: 'none', WebkitAppearance: 'none' as any }}>
                 <span className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#64748B', margin: 0 }}>{t('screen.result.weights')}</span>
-                <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 11, color: '#9FBBD0', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ transition: 'transform .2s' }}><path d="M5 3.5L9 7L5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </span>
               </summary>
@@ -3847,7 +3847,7 @@ export default function ScreenPage() {
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{cat.icon}</div>
                     <div style={{ fontSize: 11, color: '#0B1736', fontWeight: 700 }}>{lang === 'zh' ? cat.zhLabel : cat.enLabel}</div>
                     <div style={{ fontSize: 9, color: '#64748B', fontWeight: 500, marginTop: 1 }}>{lang === 'zh' ? cat.enLabel : cat.zhLabel}</div>
-                    <div style={{ fontSize: cat.weight === 0 ? 11 : 16, fontWeight: cat.weight === 0 ? 600 : 800, color: cat.weight === 0 ? '#94A3B8' : cat.id === 'rental_history' ? '#12122B' : '#10B981', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{cat.weight === 0 ? (lang === 'zh' ? '不计权重' : 'not weighted') : `${(cat.weight * 100).toFixed(0)}%`}</div>
+                    <div style={{ fontSize: cat.weight === 0 ? 11 : 16, fontWeight: cat.weight === 0 ? 600 : 800, color: cat.weight === 0 ? '#9FBBD0' : cat.id === 'rental_history' ? '#0094C6' : '#10B981', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{cat.weight === 0 ? (lang === 'zh' ? '不计权重' : 'not weighted') : `${(cat.weight * 100).toFixed(0)}%`}</div>
                   </div>
                 ))}
               </div>
@@ -3869,7 +3869,7 @@ export default function ScreenPage() {
             </div>
 
             {/* Footer */}
-            <div style={{ textAlign: 'center', padding: '16px', fontSize: 11, color: '#94A3B8', borderTop: '1px solid #E4E8F0' }}>
+            <div style={{ textAlign: 'center', padding: '16px', fontSize: 11, color: '#9FBBD0', borderTop: '1px solid #E4E8F0' }}>
               Stayloop Screening v1.1 · {new Date().toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA')}<br />
               {t('screen.result.footer.dataSource')}{result.tier === 'pro' ? t('screen.result.footer.dataSourcePro') : ''}<br />
               {t('screen.result.footer.notice')}
@@ -3963,9 +3963,9 @@ export default function ScreenPage() {
                   style={{
                     flex: '0 0 auto', padding: '13px 22px', fontSize: 14.5, borderRadius: 12, fontWeight: 650,
                     minHeight: 48,
-                    background: 'linear-gradient(135deg, #1B1B3C 0%, #12122B 100%)',
+                    background: 'linear-gradient(135deg, #00ACE4 0%, #0094C6 100%)',
                     color: '#FFFFFF',
-                    boxShadow: '0 8px 22px -10px rgba(27, 27, 60, 0.35), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
+                    boxShadow: '0 8px 22px -10px rgba(0, 172, 228, 0.35), 0 1px 0 rgba(255, 255, 255, 0.30) inset',
                     border: 'none',
                     opacity: isDisabled ? 0.55 : 1,
                     cursor: isDisabled ? 'not-allowed' : 'pointer',
@@ -4021,10 +4021,10 @@ function UnlockModal({ lang, busy, tenantLink, tenantEmail, onTenantEmail, onClo
         {!tenantLink ? (
           <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
             <button onClick={() => onUnlock('landlord')} disabled={busy !== null}
-              style={{ padding: '11px 14px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#1B1B3C,#12122B)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>
+              style={{ padding: '11px 14px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#00ACE4,#0094C6)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>
               {busy === 'landlord' ? (zh ? '跳转 Stripe…' : 'Redirecting…') : (zh ? '我来付 · $14.99' : 'I’ll pay · $14.99')}
             </button>
-            <div style={{ border: '1px solid #E2E8F0', borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ border: '1px solid #E4EEF6', borderRadius: 10, padding: '10px 12px' }}>
               <div style={{ fontSize: 12.5, fontWeight: 700 }}>{zh ? '让申请人付' : 'Ask the applicant to pay'}</div>
               <div style={{ fontSize: 11.5, color: '#71717A', margin: '2px 0 8px' }}>
                 {zh ? '生成一条 24 小时有效的付款链接，发给申请人；付完解锁自动落到本次筛查。' : 'Generates a 24-hour Stripe link to forward; once paid, the unlock lands on this screening automatically.'}
@@ -4032,29 +4032,29 @@ function UnlockModal({ lang, busy, tenantLink, tenantEmail, onTenantEmail, onClo
               <div style={{ display: 'flex', gap: 6 }}>
                 <input type="email" value={tenantEmail} onChange={e => onTenantEmail(e.target.value)}
                   placeholder={zh ? '申请人邮箱（可选，预填收据）' : 'Applicant email (optional, prefills receipt)'}
-                  style={{ flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 13 }} />
+                  style={{ flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: 8, border: '1px solid #E4EEF6', fontSize: 13 }} />
                 <button onClick={() => onUnlock('tenant')} disabled={busy !== null}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}>
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}>
                   {busy === 'tenant' ? (zh ? '生成中…' : 'Creating…') : (zh ? '生成链接' : 'Create link')}
                 </button>
               </div>
             </div>
             <button onClick={onPro}
-              style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', color: '#3F3F46' }}>
+              style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #E4EEF6', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', color: '#3F3F46' }}>
               {zh ? '多套房？升级 Pro $29/月，不限次数' : 'More than one property? Pro $29/mo, unlimited'}
             </button>
           </div>
         ) : (
           <div style={{ marginTop: 16 }}>
             <div style={{ fontSize: 12.5, fontWeight: 700 }}>{zh ? '付款链接已生成（24 小时内有效）' : 'Payment link ready (valid 24 hours)'}</div>
-            <div style={{ marginTop: 8, padding: '9px 10px', borderRadius: 8, background: '#F8FAFC', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, wordBreak: 'break-all', color: '#3F3F46' }}>{tenantLink}</div>
+            <div style={{ marginTop: 8, padding: '9px 10px', borderRadius: 8, background: '#F3F8FC', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, wordBreak: 'break-all', color: '#3F3F46' }}>{tenantLink}</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
               <button onClick={async () => { try { await navigator.clipboard.writeText(tenantLink); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch {} }}
-                style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: 'none', background: '#1B1B3C', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: 'none', background: '#00ACE4', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                 {copied ? (zh ? '已复制 ✓' : 'Copied ✓') : (zh ? '复制链接' : 'Copy link')}
               </button>
               <a href={`mailto:${tenantEmail || ''}?subject=${encodeURIComponent(zh ? 'Stayloop 租客筛查 · 核查费用付款链接' : 'Stayloop screening · verification payment link')}&body=${encodeURIComponent(tenantLink)}`}
-                style={{ flex: 1, textAlign: 'center', padding: '10px 12px', borderRadius: 10, border: '1px solid #E2E8F0', background: '#fff', fontWeight: 700, fontSize: 13, color: '#3F3F46', textDecoration: 'none' }}>
+                style={{ flex: 1, textAlign: 'center', padding: '10px 12px', borderRadius: 10, border: '1px solid #E4EEF6', background: '#fff', fontWeight: 700, fontSize: 13, color: '#3F3F46', textDecoration: 'none' }}>
                 {zh ? '用邮件发送' : 'Send by email'}
               </a>
             </div>
@@ -4134,7 +4134,7 @@ function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onU
     st === 'verified' ? { background: '#E4EEE3', color: '#065F46' }
     : st === 'failed' ? { background: '#FEF2F2', color: '#B91C1C' }
     : st === 'submitted' || st === 'started' ? { background: '#FEF3E2', color: '#B45309' }
-    : { background: '#F8FAFC', color: '#71717A' }
+    : { background: '#F3F8FC', color: '#71717A' }
   const stText = (st?: string) => zh
     ? ({ verified: '已核验', failed: '未通过', submitted: '等待结果', started: '进行中', not_configured: '未开通' } as Record<string, string>)[st || ''] || '未开始'
     : ({ verified: 'verified', failed: 'not verified', submitted: 'awaiting', started: 'in progress', not_configured: 'n/a' } as Record<string, string>)[st || ''] || 'not started'
@@ -4146,13 +4146,13 @@ function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onU
           <div className="sl-section-title" style={{ fontSize: 13, fontWeight: 700, color: '#64748B' }}>
             {zh ? '🪪 申请人本人核验 · 身份 / 银行流水 / 征信' : '🪪 Applicant-authorised verification · ID / bank / credit'}
           </div>
-          <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 3 }}>
+          <div style={{ fontSize: 11, color: '#9FBBD0', marginTop: 3 }}>
             {zh ? '发一条链接给申请人，由本人授权直连；结果作为「已核验事实」进报告，替代对文件的推断。' : 'Send the applicant one link; they authorise each source themselves. Results enter the report as verified facts, replacing document inference.'}
           </div>
         </div>
         {!row && (
           <button onClick={() => create(false)} disabled={busy}
-            style={{ padding: '8px 18px', borderRadius: 8, background: 'linear-gradient(135deg,#1B1B3C,#12122B)', color: '#fff', fontSize: 12, fontWeight: 600, border: 'none', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+            style={{ padding: '8px 18px', borderRadius: 8, background: 'linear-gradient(135deg,#00ACE4,#0094C6)', color: '#fff', fontSize: 12, fontWeight: 600, border: 'none', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}>
             {busy ? '…' : canRun ? (zh ? '生成核验链接' : 'Create verification link') : (zh ? '🔓 解锁后邀请' : '🔓 Unlock to invite')}
           </button>
         )}
@@ -4171,21 +4171,21 @@ function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onU
             })}
             {row.status === 'complete' && <span style={{ fontSize: 11, fontWeight: 700, color: '#065F46' }}>{zh ? '✓ 申请人已完成' : '✓ Applicant finished'}</span>}
           </div>
-          <div style={{ padding: '8px 10px', borderRadius: 8, background: '#F8FAFC', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, wordBreak: 'break-all', color: '#3F3F46' }}>{url}</div>
+          <div style={{ padding: '8px 10px', borderRadius: 8, background: '#F3F8FC', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, wordBreak: 'break-all', color: '#3F3F46' }}>{url}</div>
           <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
             <button onClick={async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1600) } catch {} }}
-              style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: '#1B1B3C', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+              style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: '#00ACE4', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
               {copied ? (zh ? '已复制 ✓' : 'Copied ✓') : (zh ? '复制链接' : 'Copy link')}
             </button>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={zh ? '申请人邮箱' : 'Applicant email'}
-              style={{ flex: 1, minWidth: 160, padding: '7px 10px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12.5 }} />
+              style={{ flex: 1, minWidth: 160, padding: '7px 10px', borderRadius: 8, border: '1px solid #E4EEF6', fontSize: 12.5 }} />
             <button onClick={() => create(true)} disabled={busy || !email}
-              style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', opacity: (busy || !email) ? 0.5 : 1 }}>
+              style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', opacity: (busy || !email) ? 0.5 : 1 }}>
               {zh ? '邮件发送' : 'Send by email'}
             </button>
-            <button onClick={load} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', fontSize: 12, cursor: 'pointer', color: '#71717A' }}>{zh ? '刷新状态' : 'Refresh'}</button>
+            <button onClick={load} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontSize: 12, cursor: 'pointer', color: '#71717A' }}>{zh ? '刷新状态' : 'Refresh'}</button>
           </div>
-          <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 6 }}>
+          <div style={{ fontSize: 11, color: '#9FBBD0', marginTop: 6 }}>
             {zh ? `链接 7 天内有效（至 ${new Date(row.expires_at).toLocaleDateString('zh-CN')}）。` : `Link valid for 7 days (until ${new Date(row.expires_at).toLocaleDateString('en-CA')}).`}
           </div>
         </div>

@@ -20,7 +20,7 @@ export default function PartnersPage() {
   return (
     <div style={{ background: '#FFFFFF', color: '#171717' }}>
       <Header variant="transparent" />
-      <section style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+      <section style={{ background: '#F3F8FC', borderBottom: '1px solid #E4EEF6' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-24 sm:px-7 lg:px-12">
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">{zh ? 'PARTNERS · 银行 / 保险 / 法务' : 'PARTNERS · Banking / Insurance / Legal'}</div>
           <h1 className="mt-4 max-w-[760px] text-[30px] font-extrabold leading-[1.08] tracking-tight sm:text-[44px] lg:text-[52px]">

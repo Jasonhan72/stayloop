@@ -292,6 +292,6 @@ function StatusPill({ status, label }: { status: string; label: string }) {
     status === 'verified' ? { background: '#E4EEE3', color: '#065F46' }
     : status === 'failed' ? { background: '#FEF2F2', color: '#B91C1C' }
     : status === 'submitted' || status === 'started' ? { background: '#FEF3E2', color: '#B45309' }
-    : { background: '#F8FAFC', color: '#71717A' }
+    : { background: '#F3F8FC', color: '#71717A' }
   return <span className="rounded-full px-2 py-[2px] text-[11px] font-bold" style={style}>{label}</span>
 }

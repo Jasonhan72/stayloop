@@ -58,7 +58,7 @@ function LoadingShell() {
       <Header variant="transparent" />
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <div className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-[#1B1B3C] border-t-transparent" />
+          <div className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-[#00ACE4] border-t-transparent" />
           <p className="mt-4 font-mono text-[13px] text-[#999]">Loading graph...</p>
         </div>
       </div>
@@ -125,7 +125,7 @@ function RadarChart({ dims }: { dims: Record<string, number> }) {
           key={level}
           points={polygonPoints(() => maxR * level)}
           fill="none"
-          stroke="#E2E8F0"
+          stroke="#E4EEF6"
           strokeWidth={1}
           opacity={0.6}
         />
@@ -141,7 +141,7 @@ function RadarChart({ dims }: { dims: Record<string, number> }) {
             y1={cy}
             x2={cx + maxR * Math.cos(angle)}
             y2={cy + maxR * Math.sin(angle)}
-            stroke="#E2E8F0"
+            stroke="#E4EEF6"
             strokeWidth={1}
             opacity={0.4}
           />
@@ -252,7 +252,7 @@ export default function GraphPage() {
       <Header variant="transparent" />
 
       {/* Hero */}
-      <section style={{ background: 'linear-gradient(180deg,#F4F6F9 0%,#E4E8EE 100%)' }}>
+      <section style={{ background: 'linear-gradient(180deg,#F3F8FC 0%,#E4E8EE 100%)' }}>
         <div className="mx-auto max-w-[1240px] px-5 py-16 sm:px-7 lg:px-12">
           <Link
             href={`/screening/${id}/report`}
@@ -261,8 +261,8 @@ export default function GraphPage() {
             &larr; Back to Report
           </Link>
 
-          <div className="mt-5 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#1B1B3C' }}>
-            <span className="inline-block h-[6px] w-[6px] rounded-full" style={{ background: '#1B1B3C', boxShadow: '0 0 6px #1B1B3C' }} />
+          <div className="mt-5 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#00ACE4' }}>
+            <span className="inline-block h-[6px] w-[6px] rounded-full" style={{ background: '#00ACE4', boxShadow: '0 0 6px #00ACE4' }} />
             SCREENING VISUALIZATION
           </div>
 

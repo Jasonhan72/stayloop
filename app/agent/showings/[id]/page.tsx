@@ -74,7 +74,7 @@ const CHIP_TONE: Record<string, string> = {
   plain: 'border-line-divider bg-surface-chip text-body-2',
   green: 'border-success/30 bg-success/10 text-success',
   blue: 'border-agent/30 bg-agent/10 text-agent',
-  purple: 'border-[#1B1B3C]/30 bg-[#1B1B3C]/10 text-[#1B1B3C]',
+  purple: 'border-[#00ACE4]/30 bg-[#00ACE4]/10 text-[#00ACE4]',
 }
 
 export default function ShowingLivePage() {

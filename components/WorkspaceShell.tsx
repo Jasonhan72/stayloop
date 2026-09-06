@@ -156,7 +156,7 @@ function DemoGate({ children, gate, showDemo, setShowDemo }: {
     <div className="rounded-2xl border border-line-divider bg-white px-6 py-16 text-center">
       <p className="mx-auto max-w-[420px] text-[14px] leading-relaxed text-body-2">{zh ? gate.zh : gate.en}</p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-        <Link href={gate.href} className="rounded-xl px-6 py-3 text-[14px] font-bold text-white" style={{ background: '#1B1B3C' }}>
+        <Link href={gate.href} className="rounded-xl px-6 py-3 text-[14px] font-bold text-white" style={{ background: '#00ACE4' }}>
           {zh ? gate.ctaZh : gate.ctaEn}
         </Link>
         <button
@@ -178,7 +178,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside }: Pro
   return (
     <>
       <Header variant="solid" />
-      <main style={{ background: '#f4f6f9' }}>
+      <main style={{ background: '#F3F8FC' }}>
         {/* mobile: stacked (Rail becomes a fixed bottom tab bar); md+: navy
             sidebar left · content · aside right (2026-09 console redesign,
             design/redesign-2026-09/Console.dc.html) */}
@@ -215,7 +215,7 @@ function Rail({ role }: { role: WorkspaceRole }) {
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-around gap-1 overflow-x-auto px-2 md:static md:h-auto md:w-[220px] md:flex-none md:flex-col md:items-stretch md:justify-start md:gap-1 md:overflow-visible md:px-[14px] md:py-[18px]"
-      style={{ background: '#0f1b33' }}
+      style={{ background: '#1B1B3C' }}
     >
       {/* role card (md+) */}
       <div className="mb-3 hidden items-center gap-3 rounded-[10px] px-3 py-[10px] md:flex" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>

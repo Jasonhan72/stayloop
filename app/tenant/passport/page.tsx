@@ -417,7 +417,7 @@ export default function TenantPassport() {
                 className="h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${progressPercent}%`,
-                  background: 'linear-gradient(90deg, #1B1B3C 0%, #6B6B8F 100%)',
+                  background: 'linear-gradient(90deg, #00ACE4 0%, #6B6B8F 100%)',
                 }}
               />
             </div>
@@ -461,7 +461,7 @@ export default function TenantPassport() {
                     className={
                       'relative mb-2 flex h-11 w-11 items-center justify-center rounded-full text-[20px] ' +
                       (t.status === 'done'
-                        ? 'bg-gradient-to-br from-[#C4B5FD] to-tenant shadow-[0_4px_14px_rgba(27,27,60,0.4)]'
+                        ? 'bg-gradient-to-br from-[#C4B5FD] to-tenant shadow-[0_4px_14px_rgba(0,172,228,0.4)]'
                         : 'bg-surface-chip')
                     }
                     style={t.status === 'done' ? { transform: 'rotate(-8deg)' } : undefined}

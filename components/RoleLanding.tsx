@@ -6,7 +6,7 @@
 // conversation + background task), not a feature checklist.
 //
 // Visual layer aligned to design/v8-homepage.html (v8 design language):
-// warm-paper surfaces (#FFFFFF / #F8FAFC, hairlines #E5E1D4/#EEEAE0),
+// warm-paper surfaces (#FFFFFF / #F3F8FC, hairlines #E5E1D4/#EEEAE0),
 // brand purple as the only large accent (role colors stay button/badge-level),
 // 16px cards + full-radius pills, purple-tinted shadows rgba(76,29,149,.2x),
 // editorial ghost numerals, 96–112px section rhythm, .rv/.on scroll reveal.
@@ -79,7 +79,7 @@ const V8_CSS = `
   .v8r .v8-grid-tex { display: none; }
   .v8r .gn { display: none; }
   .v8r .v8-atmo::before { content: ""; position: absolute; top: -220px; right: -180px; width: 760px; height: 760px;
-    background: radial-gradient(closest-side, rgba(27,27,60,.10), transparent 68%); }
+    background: radial-gradient(closest-side, rgba(0,172,228,.10), transparent 68%); }
   .v8r .v8-atmo::after { content: ""; position: absolute; bottom: -260px; left: -200px; width: 640px; height: 640px;
     background: radial-gradient(closest-side, rgba(59,130,246,.06), transparent 70%); }
   .v8r .v8-grid-tex { position: absolute; inset: 0; pointer-events: none;
@@ -91,7 +91,7 @@ const V8_CSS = `
 
   .v8r .v8-dark { position: relative; overflow: hidden; background: #131316; }
   .v8r .v8-dark::before { content: ""; position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
-    width: 900px; height: 480px; background: radial-gradient(closest-side, rgba(27,27,60,.16), transparent 70%); }
+    width: 900px; height: 480px; background: radial-gradient(closest-side, rgba(0,172,228,.16), transparent 70%); }
 `
 
 export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
@@ -242,7 +242,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
       </section>
 
       {/* PROMISES — v8 trust-strip treatment */}
-      <section style={{ background: '#F8FAFC', borderTop: '1px solid #EEEAE0', borderBottom: '1px solid #EEEAE0' }}>
+      <section style={{ background: '#F3F8FC', borderTop: '1px solid #EEEAE0', borderBottom: '1px solid #EEEAE0' }}>
         {/* [&>*]:min-w-0 is required, not cosmetic: grid items default to
             min-width:auto, so at 320px these three cells refused to go below
             their min-content and pushed the whole page 9px past the viewport. */}
@@ -324,7 +324,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
       )}
 
       {/* SCENARIO */}
-      <section style={{ background: '#F8FAFC' }}>
+      <section style={{ background: '#F3F8FC' }}>
         <div className="mx-auto max-w-[1180px] px-5 py-24 sm:px-8 lg:py-28">
           <div className="v8-eyebrow" style={{ color: c }}>
             {lang === 'zh' ? '真实场景' : 'REAL SCENARIO'}

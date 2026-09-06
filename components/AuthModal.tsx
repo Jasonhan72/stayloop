@@ -396,7 +396,7 @@ export default function AuthModal({ open, onClose, defaultTab, next = '/' }: Aut
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: mk.text, transition: 'background .15s',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#F1F5F9')}
+              onMouseEnter={e => (e.currentTarget.style.background = '#EEF5FA')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               aria-label="Close"
             >

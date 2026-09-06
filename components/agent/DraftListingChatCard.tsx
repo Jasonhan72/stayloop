@@ -200,7 +200,7 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
 
       {/* note bar — same as ListingChatCard */}
       {form.description && (
-        <div className="border-t border-line-divider px-4 py-2.5 text-[11.5px] leading-snug" style={{ background: 'rgba(27,27,60,0.05)', color: '#5B21B6' }}>
+        <div className="border-t border-line-divider px-4 py-2.5 text-[11.5px] leading-snug" style={{ background: 'rgba(0,172,228,0.05)', color: '#5B21B6' }}>
           ◑ {form.description.length > 60 ? form.description.slice(0, 60) + '…' : form.description}
         </div>
       )}

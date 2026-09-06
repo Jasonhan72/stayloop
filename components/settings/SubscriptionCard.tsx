@@ -109,7 +109,7 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
 
   const pill = (() => {
     switch (state) {
-      case 'free': return { text: zh ? '当前计划' : 'Current plan', bg: '#F8FAFC', fg: '#71717A', dot: null, border: true }
+      case 'free': return { text: zh ? '当前计划' : 'Current plan', bg: '#F3F8FC', fg: '#71717A', dot: null, border: true }
       case 'active': return { text: trialing ? (zh ? '试用中' : 'Trial') : (zh ? '生效中' : 'Active'), bg: '#E4EEE3', fg: GREEN_DEEP, dot: GREEN, border: false }
       case 'comped': return { text: zh ? '生效中' : 'Active', bg: '#E4EEE3', fg: GREEN_DEEP, dot: GREEN, border: false }
       case 'canceling': return { text: zh ? '将于期末取消' : 'Cancels at period end', bg: '#FEF3E2', fg: '#B45309', dot: '#D97706', border: false }
@@ -156,7 +156,7 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
             )}
             <span
               className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[11.5px] font-bold"
-              style={{ background: pill.bg, color: pill.fg, border: pill.border ? '1px solid #E2E8F0' : undefined }}
+              style={{ background: pill.bg, color: pill.fg, border: pill.border ? '1px solid #E4EEF6' : undefined }}
             >
               {pill.dot && <span className="h-1.5 w-1.5 rounded-full" style={{ background: pill.dot }} />}
               {pill.text}

@@ -105,7 +105,7 @@ export default function PublicPassportView({ snapshot }: { snapshot: PassportSna
                         className={
                           'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[16px] ' +
                           (on
-                            ? 'bg-gradient-to-br from-[#C4B5FD] to-tenant shadow-[0_3px_10px_rgba(27,27,60,0.35)]'
+                            ? 'bg-gradient-to-br from-[#C4B5FD] to-tenant shadow-[0_3px_10px_rgba(0,172,228,0.35)]'
                             : 'bg-surface-chip grayscale opacity-60')
                         }
                       >

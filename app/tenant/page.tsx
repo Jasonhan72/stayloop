@@ -6,7 +6,7 @@ const CFG: RoleLandingConfig = {
   role: 'tenant',
   eyebrow: 'TENANT · 租客 · AI Agent',
   agentName: 'AI Agent',
-  color: '#1B1B3C',
+  color: '#00ACE4',
   h1: {
     zh: <>说出你想要的生活,<br />AI 替你找到家。</>,
     en: <>Describe the life you want —<br />your AI finds you home.</>,

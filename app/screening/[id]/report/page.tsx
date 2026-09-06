@@ -402,7 +402,7 @@ export default function ReportPage() {
   ]
 
   const cmIcon = (s: string) => (s === 'pass' ? '✓' : s === 'warn' ? '⚠' : s === 'fail' ? '✗' : '—')
-  const cmColor = (s: string) => (s === 'pass' ? '#16A34A' : s === 'warn' ? '#D97706' : s === 'fail' ? '#DC2626' : '#94A3B8')
+  const cmColor = (s: string) => (s === 'pass' ? '#16A34A' : s === 'warn' ? '#D97706' : s === 'fail' ? '#DC2626' : '#9FBBD0')
 
   return (
     <div style={{ background: '#FFFFFF', color: '#171717', minHeight: '100vh' }}>
@@ -1420,7 +1420,7 @@ export default function ReportPage() {
                 <div className="mt-4 space-y-2">
                   {courtRows.map((q, i) => {
                     const hits = q.status === 'ok' ? (q.hits ?? 0) : null
-                    const col = hits == null ? '#94A3B8' : hits > 0 ? (q.hitKind === 'mention' ? '#B45309' : '#DC2626') : '#16A34A'
+                    const col = hits == null ? '#9FBBD0' : hits > 0 ? (q.hitKind === 'mention' ? '#B45309' : '#DC2626') : '#16A34A'
                     // Two separate facts, two separate badges: "was this source
                     // actually searched" (the ✓) and "what did it return". The
                     // old single badge fused them — a red "3 条命中" carried no
@@ -1429,8 +1429,8 @@ export default function ReportPage() {
                     const searchedBadge = q.status === 'ok'
                       ? { label: zh ? '✓ 已检索' : '✓ SEARCHED', color: '#16A34A' }
                       : q.status === 'timeout' ? { label: zh ? '超时' : 'TIMEOUT', color: '#D97706' }
-                      : q.status === 'skipped' ? { label: zh ? '未检索' : 'NOT SEARCHED', color: '#94A3B8' }
-                      : { label: zh ? '不可用' : 'UNAVAILABLE', color: '#94A3B8' }
+                      : q.status === 'skipped' ? { label: zh ? '未检索' : 'NOT SEARCHED', color: '#9FBBD0' }
+                      : { label: zh ? '不可用' : 'UNAVAILABLE', color: '#9FBBD0' }
                     // A 'mention' row (CanLII via the web index) is amber, never
                     // red: a page containing the name is not a record naming a
                     // party, and the two must not look alike.
@@ -1453,7 +1453,7 @@ export default function ReportPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="font-mono text-[11px] underline"
-                            style={{ color: '#12122B' }}
+                            style={{ color: '#0094C6' }}
                           >
                             {/* For a source we could not search automatically, the link IS the
                                 check — a pre-filled search the landlord runs themselves. */}
@@ -1466,7 +1466,7 @@ export default function ReportPage() {
                           <div className="mt-1 w-full space-y-1.5 border-t border-line-divider/60 pt-2">
                             {q.indexRecords!.map((m, j) => (
                               <div key={j} className="text-[12px] leading-relaxed">
-                                <a href={m.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline" style={{ color: '#12122B' }}>
+                                <a href={m.url} target="_blank" rel="noopener noreferrer" className="font-semibold underline" style={{ color: '#0094C6' }}>
                                   {m.title}
                                 </a>
                                 {m.snippet && <span className="text-body-3"> — {m.snippet}</span>}
@@ -1764,7 +1764,7 @@ export default function ReportPage() {
                       const ok = detectedKinds.has(d.key)
                       return (
                         <div key={d.key} className="flex items-center gap-2 rounded-lg border border-line-divider/60 px-3.5 py-2" style={{ background: ok ? '#16A34A06' : '#FAFAF8' }}>
-                          <span className="font-mono text-[13px] font-extrabold" style={{ color: ok ? '#16A34A' : '#CBD5E1' }}>{ok ? '✓' : '—'}</span>
+                          <span className="font-mono text-[13px] font-extrabold" style={{ color: ok ? '#16A34A' : '#D3E3EF' }}>{ok ? '✓' : '—'}</span>
                           <span className="text-[12.5px]" style={{ color: ok ? undefined : '#999' }}>{zh ? d.zh : d.en}</span>
                           <span className="ml-auto font-mono text-[10px] font-bold" style={{ color: ok ? '#16A34A' : '#999' }}>{ok ? (zh ? '已提供' : 'PROVIDED') : (zh ? '未提供' : 'MISSING')}</span>
                         </div>
@@ -1797,7 +1797,7 @@ export default function ReportPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-[14px] font-bold" style={{ color: '#D97706' }}>&rarr;</span>
                         <span className="text-[13px] font-bold text-body">{zh ? item.title_zh || item.title_en : item.title_en || item.title_zh}</span>
-                        {item.dimension && <Badge label={item.dimension} color="#12122B" />}
+                        {item.dimension && <Badge label={item.dimension} color="#0094C6" />}
                       </div>
                       {(item.details_en || item.details_zh) && (
                         <p className="mt-1 pl-6 text-[12.5px] leading-relaxed text-body-2">{zh ? item.details_zh || item.details_en : item.details_en || item.details_zh}</p>

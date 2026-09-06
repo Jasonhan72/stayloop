@@ -175,7 +175,7 @@ export default function ShareConfigPage() {
       <Header variant="solid" />
 
       {/* Top bar */}
-      <div className="border-b border-line-divider" style={{ background: '#F4F6F9' }}>
+      <div className="border-b border-line-divider" style={{ background: '#F3F8FC' }}>
         <div className="mx-auto flex max-w-[1320px] items-center justify-between px-5 py-3 sm:px-7 lg:px-8">
           <div className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#047857' }}>
             <span className="inline-block h-[6px] w-[6px] rounded-full" style={{ background: '#047857', boxShadow: '0 0 6px #047857' }} />
@@ -222,11 +222,11 @@ export default function ShareConfigPage() {
                 <label
                   className="flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition"
                   style={{
-                    borderColor: visibilityMode === 'email' ? '#047857' : '#E2E8F0',
+                    borderColor: visibilityMode === 'email' ? '#047857' : '#E4EEF6',
                     background: visibilityMode === 'email' ? '#F0FDF4' : '#FAFAF8',
                   }}
                 >
-                  <span className="mt-0.5 flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full border-2" style={{ borderColor: visibilityMode === 'email' ? '#047857' : '#CBD5E1' }}>
+                  <span className="mt-0.5 flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full border-2" style={{ borderColor: visibilityMode === 'email' ? '#047857' : '#D3E3EF' }}>
                     {visibilityMode === 'email' && (
                       <span className="block h-[8px] w-[8px] rounded-full" style={{ background: '#047857' }} />
                     )}
@@ -240,11 +240,11 @@ export default function ShareConfigPage() {
                 <label
                   className="flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition"
                   style={{
-                    borderColor: visibilityMode === 'link' ? '#047857' : '#E2E8F0',
+                    borderColor: visibilityMode === 'link' ? '#047857' : '#E4EEF6',
                     background: visibilityMode === 'link' ? '#F0FDF4' : '#FAFAF8',
                   }}
                 >
-                  <span className="mt-0.5 flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full border-2" style={{ borderColor: visibilityMode === 'link' ? '#047857' : '#CBD5E1' }}>
+                  <span className="mt-0.5 flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full border-2" style={{ borderColor: visibilityMode === 'link' ? '#047857' : '#D3E3EF' }}>
                     {visibilityMode === 'link' && (
                       <span className="block h-[8px] w-[8px] rounded-full" style={{ background: '#047857' }} />
                     )}
@@ -329,14 +329,14 @@ export default function ShareConfigPage() {
                     key={field.id}
                     className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition hover:bg-[#FAFAF8]"
                     style={{
-                      borderColor: field.checked ? '#047857' : '#E2E8F0',
+                      borderColor: field.checked ? '#047857' : '#E4EEF6',
                       background: field.checked ? '#F0FDF410' : 'transparent',
                     }}
                   >
                     <span
                       className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded border-2 text-[11px] font-bold transition"
                       style={{
-                        borderColor: field.checked ? '#047857' : '#CBD5E1',
+                        borderColor: field.checked ? '#047857' : '#D3E3EF',
                         background: field.checked ? '#047857' : 'transparent',
                         color: field.checked ? '#fff' : 'transparent',
                       }}

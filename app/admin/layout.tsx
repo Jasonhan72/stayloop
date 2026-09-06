@@ -98,7 +98,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 onClick={() => void changePassword()}
                 disabled={busy}
                 className="mt-6 w-full rounded-lg py-3 text-[14px] font-bold text-white disabled:opacity-60"
-                style={{ background: '#1B1B3C' }}
+                style={{ background: '#00ACE4' }}
               >
                 {busy ? (zh ? '保存中…' : 'Saving…') : (zh ? '保存并进入后台' : 'Save & enter')}
               </button>

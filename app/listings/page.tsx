@@ -270,7 +270,7 @@ export default function ListingsPage() {
       {/* Filters — every chip is functional */}
       <section
         className="bg-white px-5 sm:px-8"
-        style={{ paddingTop: 12, paddingBottom: 12, borderBottom: '1px solid #E2E8F0' }}
+        style={{ paddingTop: 12, paddingBottom: 12, borderBottom: '1px solid #E4EEF6' }}
       >
         <div className="relative mx-auto flex w-full max-w-[1080px] flex-wrap items-center justify-center gap-[10px]">
           {/* Mode (only rentals live today) */}
@@ -287,10 +287,10 @@ export default function ListingsPage() {
               <div style={{ display: 'flex', gap: 6 }}>
                 <input type="text" inputMode="numeric" placeholder={zh ? '$ 最低' : '$ Min'} value={priceMin ?? ''}
                   onChange={(e) => { const n = e.target.value.replace(/[^0-9]/g, ''); setPriceMin(n ? Number(n) : null) }}
-                  style={{ width: '50%', padding: '9px 10px', border: '1px solid #94A3B8', borderRadius: 8, fontSize: 13.5 }} />
+                  style={{ width: '50%', padding: '9px 10px', border: '1px solid #9FBBD0', borderRadius: 8, fontSize: 13.5 }} />
                 <input type="text" inputMode="numeric" placeholder={zh ? '$ 最高' : '$ Max'} value={priceMax ?? ''}
                   onChange={(e) => { const n = e.target.value.replace(/[^0-9]/g, ''); setPriceMax(n ? Number(n) : null) }}
-                  style={{ width: '50%', padding: '9px 10px', border: '1px solid #94A3B8', borderRadius: 8, fontSize: 13.5 }} />
+                  style={{ width: '50%', padding: '9px 10px', border: '1px solid #9FBBD0', borderRadius: 8, fontSize: 13.5 }} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                 {[[null, 2000], [2000, 3000], [3000, 4500], [4500, null]].map(([a, b], i) => {
@@ -298,7 +298,7 @@ export default function ListingsPage() {
                   return (
                     <button key={i} onClick={() => { setPriceMin(a as number | null); setPriceMax(b as number | null) }}
                       style={{
-                        padding: '7px 10px', border: isOn ? '1px solid #171717' : '1px solid #94A3B8', borderRadius: 999,
+                        padding: '7px 10px', border: isOn ? '1px solid #171717' : '1px solid #9FBBD0', borderRadius: 999,
                         fontSize: 12.5, whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none',
                         background: isOn ? '#171717' : '#fff', color: isOn ? '#fff' : '#171717',
                       }}>
@@ -321,7 +321,7 @@ export default function ListingsPage() {
                   style={{
                     padding: '7px 14px', borderRadius: 999, fontSize: 13, cursor: 'pointer',
                     whiteSpace: 'nowrap', userSelect: 'none', flexShrink: 0,
-                    border: minBeds === v ? '1px solid #171717' : '1px solid #94A3B8',
+                    border: minBeds === v ? '1px solid #171717' : '1px solid #9FBBD0',
                     background: minBeds === v ? '#171717' : '#fff',
                     color: minBeds === v ? '#fff' : '#171717',
                   }}>
@@ -335,7 +335,7 @@ export default function ListingsPage() {
           <Chip label={moveInLabel} on={!!moveIn} open={openChip === 'movein'} onToggle={() => setOpenChip(openChip === 'movein' ? null : 'movein')}>
             <div style={{ display: 'grid', gap: 8 }}>
               <input type="date" value={moveIn} onChange={(e) => setMoveIn(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', border: '1px solid #94A3B8', borderRadius: 8, fontSize: 13 }} />
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid #9FBBD0', borderRadius: 8, fontSize: 13 }} />
               <div style={{ fontSize: 11.5, color: '#71717A' }}>
                 {zh ? '显示该日期前可入住（或随时可入住）的房源' : 'Shows homes available by this date (or anytime)'}
               </div>
@@ -352,7 +352,7 @@ export default function ListingsPage() {
             onClick={() => setPets((v) => !v)}
             style={{
               padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              border: pets ? '1px solid #171717' : '1px solid #94A3B8',
+              border: pets ? '1px solid #171717' : '1px solid #9FBBD0',
               background: pets ? '#171717' : '#fff',
               color: pets ? '#fff' : '#171717',
             }}
@@ -371,7 +371,7 @@ export default function ListingsPage() {
                       style={{
                         padding: '6px 12px', borderRadius: 999, fontSize: 12.5, cursor: 'pointer',
                         whiteSpace: 'nowrap', userSelect: 'none', flexShrink: 0,
-                        border: minBaths === v ? '1px solid #171717' : '1px solid #94A3B8',
+                        border: minBaths === v ? '1px solid #171717' : '1px solid #9FBBD0',
                         background: minBaths === v ? '#171717' : '#fff',
                         color: minBaths === v ? '#fff' : '#171717',
                       }}>
@@ -383,7 +383,7 @@ export default function ListingsPage() {
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 5 }}>{zh ? '最小面积 (sqft)' : 'Min size (sqft)'}</div>
                 <input type="number" placeholder="600" value={minSqft ?? ''} onChange={(e) => setMinSqft(e.target.value ? Number(e.target.value) : null)}
-                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #94A3B8', borderRadius: 8, fontSize: 13 }} />
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #9FBBD0', borderRadius: 8, fontSize: 13 }} />
               </div>
             </div>
           </Chip>
@@ -395,7 +395,7 @@ export default function ListingsPage() {
             style={{
               padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              border: favOnly ? '1px solid #171717' : '1px solid #94A3B8',
+              border: favOnly ? '1px solid #171717' : '1px solid #9FBBD0',
               background: favOnly ? '#171717' : '#fff',
               color: favOnly ? '#fff' : '#171717',
             }}
@@ -412,8 +412,8 @@ export default function ListingsPage() {
             style={{
               marginLeft: 12,
               padding: '8px 14px',
-              background: 'linear-gradient(135deg,rgba(27,27,60,0.10),rgba(37,99,235,0.10))',
-              border: '1px solid rgba(27,27,60,0.40)',
+              background: 'linear-gradient(135deg,rgba(0,172,228,0.10),rgba(37,99,235,0.10))',
+              border: '1px solid rgba(0,172,228,0.40)',
               borderRadius: 8,
               fontSize: 13,
               fontWeight: 600,
@@ -560,7 +560,7 @@ function Chip({ label, on, open, onToggle, children }: {
         style={{
           padding: '8px 14px',
           background: on ? '#171717' : '#fff',
-          border: on ? '1px solid #171717' : '1px solid #94A3B8',
+          border: on ? '1px solid #171717' : '1px solid #9FBBD0',
           borderRadius: 8,
           fontSize: 13,
           fontWeight: 600,
@@ -587,7 +587,7 @@ function Chip({ label, on, open, onToggle, children }: {
             maxWidth: 'min(92vw, 400px)',
             zIndex: 50,
             background: '#fff',
-            border: '1px solid #E2E8F0',
+            border: '1px solid #E4EEF6',
             borderRadius: 12,
             boxShadow: '0 12px 32px rgba(0,0,0,0.12)',
             padding: 14,
@@ -700,11 +700,11 @@ function ListingCard({
               {l.bedrooms === 0 ? 'Studio' : `${l.bedrooms}B${l.has_den ? ' + den' : ''}`}
             </b>
           )}
-          <span style={{ width: 3, height: 3, background: '#94A3B8', borderRadius: '50%' }} />
+          <span style={{ width: 3, height: 3, background: '#9FBBD0', borderRadius: '50%' }} />
           <b style={{ color: '#171717' }}>{l.bathrooms} {zh ? '浴' : 'ba'}</b>
           {l.sqft && (
             <>
-              <span style={{ width: 3, height: 3, background: '#94A3B8', borderRadius: '50%' }} />
+              <span style={{ width: 3, height: 3, background: '#9FBBD0', borderRadius: '50%' }} />
               <b style={{ color: '#171717' }}>{l.sqft} sqft</b>
             </>
           )}
@@ -756,8 +756,8 @@ function ListingCard({
       {l.luna_note && (
         <div
           style={{
-            background: 'rgba(27,27,60,0.06)',
-            borderTop: '1px solid rgba(27,27,60,0.15)',
+            background: 'rgba(0,172,228,0.06)',
+            borderTop: '1px solid rgba(0,172,228,0.15)',
             padding: '8px 16px',
             fontSize: 11.5,
             color: '#5B21B6',
@@ -824,13 +824,13 @@ function FavSnapshotCard({ f, zh, onToggleFav }: {
           {f.beds != null && <b style={{ color: '#171717' }}>{f.beds === 0 ? 'Studio' : `${f.beds}B`}</b>}
           {f.baths != null && (
             <>
-              <span style={{ width: 3, height: 3, background: '#94A3B8', borderRadius: '50%' }} />
+              <span style={{ width: 3, height: 3, background: '#9FBBD0', borderRadius: '50%' }} />
               <b style={{ color: '#171717' }}>{f.baths} {zh ? '浴' : 'ba'}</b>
             </>
           )}
           {f.sqft != null && (
             <>
-              <span style={{ width: 3, height: 3, background: '#94A3B8', borderRadius: '50%' }} />
+              <span style={{ width: 3, height: 3, background: '#9FBBD0', borderRadius: '50%' }} />
               <b style={{ color: '#171717' }}>{f.sqft} sqft</b>
             </>
           )}

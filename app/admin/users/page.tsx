@@ -182,7 +182,7 @@ export default function AdminUsersPage() {
                 </div>
                 <span
                   className="rounded-md px-2 py-1 font-mono text-[10.5px] font-bold uppercase"
-                  style={m.role === 'superadmin' ? { background: 'rgba(27,27,60,0.10)', color: '#1B1B3C' } : { background: 'rgba(4,120,87,0.08)', color: '#047857' }}
+                  style={m.role === 'superadmin' ? { background: 'rgba(0,172,228,0.10)', color: '#00ACE4' } : { background: 'rgba(4,120,87,0.08)', color: '#047857' }}
                 >
                   {m.role}
                 </span>

@@ -393,7 +393,7 @@ export function sevColor(sev: string): string {
     case 'high': return '#EA580C'
     case 'medium': return '#D97706'
     case 'info': return '#047857'
-    default: return '#94A3B8'
+    default: return '#9FBBD0'
   }
 }
 

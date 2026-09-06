@@ -82,7 +82,7 @@ function IntroCard({ onStart }: { onStart: () => void }) {
   const name = useAIName()
   return (
     <div className="sl-card mx-auto max-w-[580px] px-8 py-10 text-center sm:px-12 sm:py-12">
-      <div className="orb tenant pulse mx-auto h-[88px] w-[88px]" style={{ color: '#1B1B3C' }} />
+      <div className="orb tenant pulse mx-auto h-[88px] w-[88px]" style={{ color: '#00ACE4' }} />
       <h1 className="mt-6 text-[28px] font-bold leading-tight tracking-tight sm:text-[32px]">
         {lang === 'en' ? `Hi, I'm ${name}.` : `嗨，我是 ${name}。`}
         <br />

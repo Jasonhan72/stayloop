@@ -91,7 +91,7 @@ export default function AdminUsagePage() {
               {stats.daily.length === 0 && <div className="text-[12px] text-body-3">{zh ? '暂无数据' : 'No data yet'}</div>}
               {stats.daily.map((d) => (
                 <div key={d.day} className="flex-1" title={`${d.day} · ${usd(d.cost_usd)} · ${d.calls} calls`}>
-                  <div className="w-full rounded-t" style={{ height: `${Math.max(2, (Number(d.cost_usd) / maxDaily) * 110)}px`, background: '#1B1B3C' }} />
+                  <div className="w-full rounded-t" style={{ height: `${Math.max(2, (Number(d.cost_usd) / maxDaily) * 110)}px`, background: '#00ACE4' }} />
                 </div>
               ))}
             </div>

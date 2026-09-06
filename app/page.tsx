@@ -695,10 +695,10 @@ const CSS = `
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   body { overflow-x: hidden; }
   .v8-page {
-    --brand:#1B1B3C; --brand-2:#12122B; --brand-soft:#EEF2F6;
-    --ink:#18181B; --ink-2:#52525B; --ink-3:#A1A1AA;
-    --line:#CBD5E1; --line-soft:#E2E8F0;
-    --bg:#FFFFFF; --bg-2:#F8FAFC; --nav:#FFFFFF; --dark:#131316;
+    --brand:#00ACE4; --brand-2:#0094C6; --brand-soft:#E3F2FC;
+    --ink:#1B1B3C; --ink-2:#4A4A6A; --ink-3:#A0A0B8;
+    --line:#D3E3EF; --line-soft:#E4EEF6;
+    --bg:#FFFFFF; --bg-2:#F3F8FC; --nav:#FFFFFF; --dark:#1B1B3C;
     --ok:#6AB344; --bad:#DC2626;
     --r-card:16px;
     font-family:'Inter Tight','PingFang SC','Microsoft YaHei',system-ui,-apple-system,sans-serif;
@@ -720,16 +720,16 @@ const CSS = `
        border-radius:999px;font-weight:600;font-size:14.5px;padding:10px 22px;cursor:pointer;
        transition:transform .15s ease,box-shadow .2s ease,background .15s ease;border:none;font-family:inherit}
   .v8-page .btn:active{transform:translateY(1px) scale(.98)}
-  .v8-page .btn-p{background:var(--brand);color:#fff;box-shadow:0 1px 2px rgba(27,27,60,.35)}
-  .v8-page .btn-p:hover{background:var(--brand-2);box-shadow:0 6px 20px -6px rgba(27,27,60,.5)}
+  .v8-page .btn-p{background:var(--brand);color:#fff;box-shadow:0 1px 2px rgba(0,172,228,.35)}
+  .v8-page .btn-p:hover{background:var(--brand-2);box-shadow:0 6px 20px -6px rgba(0,172,228,.5)}
   .v8-page .btn-g{background:#fff;color:var(--ink);border:1px solid var(--line)}
   .v8-page .btn-g:hover{border-color:var(--ink-3)}
 
   /* ============ hero: atmosphere + asymmetric split ============ */
-  .v8-page .hero{position:relative;padding:60px 0 84px;overflow:hidden;background:linear-gradient(180deg,var(--nav) 0%,var(--bg) 34%)}
+  .v8-page .hero{position:relative;padding:60px 0 84px;overflow:hidden;background:linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)}
   .v8-page .hero .atmo{position:absolute;inset:0;pointer-events:none}
   .v8-page .hero .atmo::before{content:"";position:absolute;top:-220px;right:-180px;width:760px;height:760px;
-      background:radial-gradient(closest-side,rgba(27,27,60,.10),transparent 68%)}
+      background:radial-gradient(closest-side,rgba(0,172,228,.10),transparent 68%)}
   .v8-page .hero .atmo::after{content:"";position:absolute;bottom:-260px;left:-200px;width:640px;height:640px;
       background:radial-gradient(closest-side,rgba(59,130,246,.06),transparent 70%)}
   .v8-page .hero .grid-tex{position:absolute;inset:0;
@@ -762,7 +762,7 @@ const CSS = `
   .v8-page .chat-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line-soft)}
   /* Avatar = the live chat's role orb (ROLE_THEME.tenant.avatarGradient). */
   .v8-page .chat-av{width:36px;height:36px;border-radius:50%;flex:none;
-           background:linear-gradient(135deg,#94A3B8,#1B1B3C)}
+           background:linear-gradient(135deg,#9FBBD0,#00ACE4)}
   .v8-page .chat-nm{font-size:15px;font-weight:700;letter-spacing:-.01em}
   /* Status line matches the live header: mono, uppercase, green dot. */
   .v8-page .chat-st{display:flex;align-items:center;gap:6px;font-size:10.5px;
@@ -777,9 +777,9 @@ const CSS = `
   /* Agent turns carry the small orb, as in the live thread. */
   .v8-page .m-row{display:flex;align-items:flex-start;gap:8px;align-self:flex-start;max-width:96%}
   .v8-page .m-orb{width:28px;height:28px;border-radius:50%;flex:none;margin-top:2px;
-           background:linear-gradient(135deg,#94A3B8,#1B1B3C)}
-  .v8-page .m-u{align-self:flex-end;background:#1B1B3C;color:#fff;border-top-right-radius:4px}
-  .v8-page .m-a{align-self:flex-start;background:#F8FAFC;color:var(--ink);border-top-left-radius:4px}
+           background:linear-gradient(135deg,#9FBBD0,#00ACE4)}
+  .v8-page .m-u{align-self:flex-end;background:#00ACE4;color:#fff;border-top-right-radius:4px}
+  .v8-page .m-a{align-self:flex-start;background:#F3F8FC;color:var(--ink);border-top-left-radius:4px}
   .v8-page .m-a b{color:var(--brand)}
   /* Listing results — same anatomy as components/agent/ListingChatCard:
      photo (1.5/1) + source badge + heart, then price · specs · address ·
@@ -938,11 +938,11 @@ const CSS = `
                 font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center}
   .v8-page .rp-quote .wn{font-size:12.5px;color:var(--ink-3)}
   .v8-page .rp-cta{margin-top:24px}
-  .v8-page .rp-r{position:relative;background:linear-gradient(150deg,#F1F5F9 0%,var(--bg-2) 60%);
+  .v8-page .rp-r{position:relative;background:linear-gradient(150deg,#EEF5FA 0%,var(--bg-2) 60%);
         border-left:1px solid var(--line-soft);padding:40px 36px;display:flex;flex-direction:column;
         justify-content:center;overflow:hidden}
   .v8-page .rp-r::before{content:"";position:absolute;top:-120px;right:-120px;width:340px;height:340px;
-        background:radial-gradient(closest-side,rgba(27,27,60,.09),transparent 70%)}
+        background:radial-gradient(closest-side,rgba(0,172,228,.09),transparent 70%)}
   @media(max-width:900px){.v8-page .rp-r{border-left:none;border-top:1px solid var(--line-soft)}}
   .v8-page .demo{position:relative;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;
         box-shadow:0 24px 56px -24px rgba(76,29,149,.24)}
@@ -987,7 +987,7 @@ const CSS = `
   /* ============ dark facts band ============ */
   .v8-page .dark{position:relative;background:var(--dark);color:#fff;padding:88px 0;overflow:hidden}
   .v8-page .dark::before{content:"";position:absolute;top:-200px;left:50%;transform:translateX(-50%);
-      width:900px;height:480px;background:radial-gradient(closest-side,rgba(27,27,60,.16),transparent 70%)}
+      width:900px;height:480px;background:radial-gradient(closest-side,rgba(0,172,228,.16),transparent 70%)}
   .v8-page .dark .wrap{position:relative}
   .v8-page .dark .eyebrow{color:#6B6B8F}
   .v8-page .dark h2{font-size:clamp(28px,3.2vw,38px);font-weight:800;letter-spacing:-.022em;margin-top:12px}
@@ -1135,7 +1135,7 @@ export default function HomePage() {
                           className="lnote"
                           style={card.badge === 'REALTOR.CA'
                             ? { background: 'rgba(180,83,9,0.05)', color: '#92400E' }
-                            : { background: 'rgba(27,27,60,0.05)', color: '#12122B' }}
+                            : { background: 'rgba(0,172,228,0.05)', color: '#0094C6' }}
                         >
                           {card.note}
                         </div>

@@ -143,7 +143,7 @@ export default function ListingsMap({ listings, active, onPick }: Props) {
         },
         icon: {
           path: 'M -22 -14 L 22 -14 L 22 14 L 4 14 L 0 20 L -4 14 L -22 14 Z',
-          fillColor: isLuna ? '#1B1B3C' : '#171717',
+          fillColor: isLuna ? '#00ACE4' : '#171717',
           fillOpacity: 1,
           strokeColor: '#fff',
           strokeWeight: 2,
@@ -177,7 +177,7 @@ export default function ListingsMap({ listings, active, onPick }: Props) {
       const isLuna = l.match_score && l.match_score >= 85
       marker.setIcon({
         path: 'M -22 -14 L 22 -14 L 22 14 L 4 14 L 0 20 L -4 14 L -22 14 Z',
-        fillColor: isActive ? '#047857' : isLuna ? '#1B1B3C' : '#171717',
+        fillColor: isActive ? '#047857' : isLuna ? '#00ACE4' : '#171717',
         fillOpacity: 1,
         strokeColor: '#fff',
         strokeWeight: isActive ? 3 : 2,
@@ -195,7 +195,7 @@ export default function ListingsMap({ listings, active, onPick }: Props) {
         position: 'sticky',
         top: 0,
         height: 'calc(100vh - 0px)',
-        borderLeft: '1px solid #E2E8F0',
+        borderLeft: '1px solid #E4EEF6',
         overflow: 'hidden',
         background: '#E5E3DC',
       }}
@@ -219,7 +219,7 @@ export default function ListingsMap({ listings, active, onPick }: Props) {
           top: 18,
           left: 18,
           background: '#fff',
-          border: '1px solid #E2E8F0',
+          border: '1px solid #E4EEF6',
           borderRadius: 8,
           padding: '8px 12px',
           fontSize: 12,
@@ -293,7 +293,7 @@ const MAP_STYLE = [
   {
     featureType: 'road.highway',
     elementType: 'geometry',
-    stylers: [{ color: '#EEF2F6' }],
+    stylers: [{ color: '#E3F2FC' }],
   },
   {
     featureType: 'transit',

@@ -10,7 +10,7 @@ import type { MemoryItem } from '@/lib/agent/types'
 import { formatMemoryValue } from '@/lib/agent/memory'
 
 const TYPE_META: Record<string, { zh: string; en: string; color: string }> = {
-  preference: { zh: '偏好', en: 'PREF', color: '#1B1B3C' },
+  preference: { zh: '偏好', en: 'PREF', color: '#00ACE4' },
   profile: { zh: '档案', en: 'PROFILE', color: '#2563EB' },
   constraint: { zh: '约束', en: 'LIMIT', color: '#B45309' },
   semantic: { zh: '事实', en: 'FACT', color: '#047857' },
@@ -60,7 +60,7 @@ export default function PrivateMemorySnapshot({
           {zh ? `${agentName} 记得 · 关于你` : `${agentName} REMEMBERS`}
         </h4>
         {human.length > 0 && (
-          <span className="rounded-full px-2 py-[2px] font-mono text-[10px] font-bold" style={{ background: 'rgba(27,27,60,0.08)', color: '#1B1B3C' }}>
+          <span className="rounded-full px-2 py-[2px] font-mono text-[10px] font-bold" style={{ background: 'rgba(0,172,228,0.08)', color: '#00ACE4' }}>
             {human.length}
           </span>
         )}

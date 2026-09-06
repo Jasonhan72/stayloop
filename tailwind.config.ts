@@ -13,40 +13,40 @@ const config: Config = {
         // Surfaces — cool neutral (2026-09 redesign: white pages, slate
         // greys; the warm cream palette is retired)
         surface: {
-          DEFAULT: '#F4F6F9',
+          DEFAULT: '#F3F8FC',
           card: '#FFFFFF',
-          muted: '#EEF2F6',
+          muted: '#E3F2FC',
           tint: '#E8F0E8',
           wash: '#E4EEE3',
           nav: '#FFFFFF',
-          chip: '#F1F5F9',
+          chip: '#EEF5FA',
         },
         ink: {
-          DEFAULT: '#0B0B0E',
-          2: '#16161B',
-          3: '#1B1B22',
+          DEFAULT: '#1B1B3C',
+          2: '#23234A',
+          3: '#2B2B55',
         },
         // Borders
         line: {
-          DEFAULT: '#CBD5E1',
-          strong: '#94A3B8',
-          divider: '#E2E8F0',
+          DEFAULT: '#D3E3EF',
+          strong: '#9FBBD0',
+          divider: '#E4EEF6',
         },
         // Text
         body: {
-          DEFAULT: '#171717',
-          2: '#3F3F46',
-          3: '#71717A',
-          4: '#A1A1AA',
+          DEFAULT: '#1B1B3C',
+          2: '#4A4A6A',
+          3: '#6E6E8A',
+          4: '#A0A0B8',
         },
-        // Brand — navy ink with one light-blue highlight (2026-09-05, user
+        // Brand — flinks.com bright blue on navy ink (2026-09-05 evening, user
         // asked for the flinks.com grey/navy scheme instead of purple)
         brand: {
-          DEFAULT: '#1B1B3C',
-          strong: '#12122B',
+          DEFAULT: '#00ACE4',
+          strong: '#0094C6',
           bright: '#00ACE4',
           'bright-2': '#33BCEA',
-          wash: '#EEF2F6',
+          wash: '#E3F2FC',
         },
         // Roles
         tenant: {

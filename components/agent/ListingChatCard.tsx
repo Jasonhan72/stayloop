@@ -58,7 +58,7 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
             slot now carries the same source/verification chip as /listings. */}
         <span
           className="absolute left-3 top-3 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-white"
-          style={{ background: external ? '#B45309' : '#1B1B3C' }}
+          style={{ background: external ? '#B45309' : '#00ACE4' }}
         >
           {external ? 'REALTOR.CA' : 'VERIFIED'}
         </span>
@@ -109,7 +109,7 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
         <div
           className="border-t border-line-divider px-4 py-2.5 text-[11.5px] leading-snug"
           style={{
-            background: external ? 'rgba(180,83,9,0.05)' : 'rgba(27,27,60,0.05)',
+            background: external ? 'rgba(180,83,9,0.05)' : 'rgba(0,172,228,0.05)',
             color: external ? '#92400E' : '#5B21B6',
           }}
         >

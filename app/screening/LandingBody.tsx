@@ -23,7 +23,7 @@ export default function LandingBody() {
       <main className="flex-1">
         {/* Hero */}
         <section className="mx-auto max-w-[880px] px-5 pb-14 pt-16 text-center">
-          <div className="font-mono text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: '#1B1B3C' }}>
+          <div className="font-mono text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: '#00ACE4' }}>
             STAYLOOP · TENANT SCREENING
           </div>
           <h1 className="mx-auto mt-4 max-w-[640px] text-[34px] font-extrabold leading-tight tracking-tight sm:text-[44px]">
@@ -41,12 +41,12 @@ export default function LandingBody() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/screening/app"
-              className="rounded-xl px-7 py-3.5 text-[15px] font-bold text-white shadow-lg"
-              style={{ background: '#1B1B3C' }}
+              className="rounded-full px-7 py-3.5 text-[15px] font-bold text-white shadow-lg"
+              style={{ background: '#00ACE4' }}
             >
               {zh ? '开始筛查 · 注册即免费试用 →' : 'Start a screening — free with a quick signup →'}
             </Link>
-            <Link href="/pricing" className="rounded-xl border border-line-divider bg-white px-6 py-3.5 text-[14px] font-semibold text-body-2">
+            <Link href="/pricing" className="rounded-full border border-line-divider bg-white px-6 py-3.5 text-[14px] font-semibold text-body-2">
               {zh ? '查看定价' : 'See pricing'}
             </Link>
           </div>
@@ -111,7 +111,7 @@ export default function LandingBody() {
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {PRINCIPLES.map((p, i) => (
               <div key={p.zh} className="rounded-xl border border-line-divider bg-white p-5">
-                <div className="font-mono text-[20px] font-extrabold" style={{ color: '#1B1B3C22' }}>0{i + 1}</div>
+                <div className="font-mono text-[20px] font-extrabold" style={{ color: '#00ACE422' }}>0{i + 1}</div>
                 <div className="mt-1 text-[14.5px] font-bold">{zh ? p.zh : p.en}</div>
                 <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">{zh ? p.descZh : p.descEn}</p>
               </div>
@@ -128,7 +128,7 @@ export default function LandingBody() {
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             {STEPS.map((st, i) => (
               <div key={st.zh} className="rounded-xl border border-line-divider bg-white p-5">
-                <div className="font-mono text-[24px] font-extrabold" style={{ color: '#1B1B3C' }}>{i + 1}</div>
+                <div className="font-mono text-[24px] font-extrabold" style={{ color: '#00ACE4' }}>{i + 1}</div>
                 <div className="mt-1 text-[14.5px] font-bold">{zh ? st.zh : st.en}</div>
                 <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">{zh ? st.descZh : st.descEn}</p>
               </div>
@@ -158,7 +158,7 @@ export default function LandingBody() {
               return (
                 <details key={f.zh.q} className="group rounded-xl border border-line-divider bg-white px-5 py-4">
                   <summary className="cursor-pointer list-none text-[14.5px] font-bold marker:content-none">
-                    <span className="mr-2 font-mono text-[12px]" style={{ color: '#1B1B3C' }}>Q</span>
+                    <span className="mr-2 font-mono text-[12px]" style={{ color: '#00ACE4' }}>Q</span>
                     {item.q}
                   </summary>
                   <p className="mt-3 text-[13px] leading-relaxed text-body-2">{item.a}</p>
@@ -178,8 +178,8 @@ export default function LandingBody() {
           </p>
           <Link
             href="/screening/app"
-            className="mt-6 inline-block rounded-xl px-8 py-4 text-[15px] font-bold text-white shadow-lg"
-            style={{ background: '#1B1B3C' }}
+            className="mt-6 inline-block rounded-full px-8 py-4 text-[15px] font-bold text-white shadow-lg"
+            style={{ background: '#00ACE4' }}
           >
             {zh ? '开始筛查 →' : 'Start a screening →'}
           </Link>

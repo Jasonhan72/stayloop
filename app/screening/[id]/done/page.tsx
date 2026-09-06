@@ -22,7 +22,7 @@ function ScoreRing({ score, max = 100, size = 180 }: { score: number; max?: numb
   const progress = (score / max) * circumference
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="block">
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#E2E8F0" strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#E4EEF6" strokeWidth={stroke} />
       <circle
         cx={size / 2} cy={size / 2} r={radius}
         fill="none" stroke="#047857" strokeWidth={stroke}
@@ -173,7 +173,7 @@ export default function ScanDonePage() {
       <Header variant="solid" />
 
       {/* Step bar */}
-      <div className="border-b border-line-divider" style={{ background: '#F4F6F9' }}>
+      <div className="border-b border-line-divider" style={{ background: '#F3F8FC' }}>
         <div className="mx-auto flex max-w-[1240px] items-center gap-3 px-5 py-3 sm:px-7 lg:px-12">
           <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: '#047857' }}>
             SCREENING

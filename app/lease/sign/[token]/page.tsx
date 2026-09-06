@@ -88,7 +88,7 @@ export default function LeaseSignPage() {
   if (!lease) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-surface">
-        <span className="orb tenant pulse h-12 w-12" style={{ color: '#1B1B3C' }} />
+        <span className="orb tenant pulse h-12 w-12" style={{ color: '#00ACE4' }} />
       </main>
     )
   }

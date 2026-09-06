@@ -25,7 +25,7 @@ export default function Logo({ size = 'md', href = '/', withMark = false }: Logo
           className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-lg text-white"
           style={{
             background: 'linear-gradient(135deg, #1B1B3C 0%, #00ACE4 100%)',
-            boxShadow: '0 4px 12px -4px rgba(27,27,60,0.4)',
+            boxShadow: '0 4px 12px -4px rgba(0,172,228,0.4)',
           }}
         >
           <span className="font-extrabold leading-none">S</span>

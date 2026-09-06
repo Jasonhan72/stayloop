@@ -281,7 +281,7 @@ export default function AdminModelsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[14.5px] font-bold">{zh ? meta.zh : meta.en}</span>
                     <span className="rounded px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-body-3" style={{ background: 'rgba(0,0,0,0.05)' }}>{slot}</span>
-                    {values[slot] !== DEFAULT_MODELS[slot] && <span className="rounded-md px-1.5 py-0.5 font-mono text-[9.5px] font-bold" style={{ background: 'rgba(27,27,60,0.10)', color: '#1B1B3C' }}>{zh ? '非默认' : 'CUSTOM'}</span>}
+                    {values[slot] !== DEFAULT_MODELS[slot] && <span className="rounded-md px-1.5 py-0.5 font-mono text-[9.5px] font-bold" style={{ background: 'rgba(0,172,228,0.10)', color: '#00ACE4' }}>{zh ? '非默认' : 'CUSTOM'}</span>}
                   </div>
                   <div className="mt-1 text-[12.5px] text-body-3">{zh ? meta.descZh : meta.descEn}</div>
                   {current && <div className="mt-1 text-[12px] text-body-2">{current.note}</div>}
@@ -503,7 +503,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button type="button" role="switch" aria-checked={on} onClick={() => onChange(!on)} className="relative h-[20px] w-[36px] rounded-full transition" style={{ background: on ? '#1B1B3C' : 'rgba(0,0,0,0.18)' }}>
+    <button type="button" role="switch" aria-checked={on} onClick={() => onChange(!on)} className="relative h-[20px] w-[36px] rounded-full transition" style={{ background: on ? '#00ACE4' : 'rgba(0,0,0,0.18)' }}>
       <span className="absolute top-[2px] h-[16px] w-[16px] rounded-full bg-white shadow transition" style={{ left: on ? 18 : 2 }} />
     </button>
   )

@@ -5,7 +5,7 @@
 type PromoVariant = 'card' | 'hero'
 
 const promoColor = (badge: string) =>
-  badge.startsWith('LUNA') ? '#1B1B3C' : badge.startsWith('NEW') ? '#DC2626' : '#047857'
+  badge.startsWith('LUNA') ? '#00ACE4' : badge.startsWith('NEW') ? '#DC2626' : '#047857'
 
 export function PromoBadge({ badge, variant }: { badge?: string | null; variant: PromoVariant }) {
   if (!badge) return null
@@ -108,7 +108,7 @@ export function VerificationBadge({
         {status === 'pending' && (
           <span
             className="rounded-md border px-2.5 py-1 font-mono text-[10.5px] font-bold tracking-eyebrow"
-            style={{ borderColor: '#94A3B8', color: '#71717A' }}
+            style={{ borderColor: '#9FBBD0', color: '#71717A' }}
           >
             {zh ? '待 Stayloop 验证' : 'PENDING VERIFICATION'}
           </span>
@@ -149,5 +149,5 @@ export function VerificationBadge({
         : zh ? '待验证' : 'PENDING'
     return <span className={cls} style={{ background: '#A16207' }}>{label}</span>
   }
-  return <span className={cls} style={{ background: '#1B1B3C' }}>VERIFIED</span>
+  return <span className={cls} style={{ background: '#00ACE4' }}>VERIFIED</span>
 }

@@ -38,7 +38,7 @@ const PLANS: RolePlan[] = [
   {
     key: 'tenant',
     role: { zh: '租客', en: 'Tenant' },
-    accent: '#1B1B3C',
+    accent: '#00ACE4',
     tiers: [
       {
         name: { zh: '免费', en: 'Free' },
@@ -258,7 +258,7 @@ export default function PricingPage() {
       <main>
         <section
           className="relative overflow-hidden"
-          style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', marginTop: -72, paddingTop: 72 }}
+          style={{ background: '#F3F8FC', borderBottom: '1px solid #E4EEF6', marginTop: -72, paddingTop: 72 }}
         >
           <div className="mx-auto max-w-[1100px] px-5 pb-10 pt-20 text-center sm:px-7 lg:px-12">
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
@@ -285,7 +285,7 @@ export default function PricingPage() {
             <h2 className="mt-2 text-[26px] font-bold tracking-tight text-white">
               {zh ? '给银行和保险机构的验证接口' : 'A verification API for banks and insurers'}
             </h2>
-            <p className="mt-3 max-w-[760px] text-[14px] leading-relaxed" style={{ color: '#CBD5E1' }}>
+            <p className="mt-3 max-w-[760px] text-[14px] leading-relaxed" style={{ color: '#D3E3EF' }}>
               {zh
                 ? '机构通过 API 验证租客的租房资质，只得到「已验证」的结果，拿不到任何原始文件。'
                 : 'Institutions verify a tenant’s rental standing via API — they get a “verified” result, never the raw documents.'}
