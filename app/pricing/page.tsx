@@ -63,7 +63,7 @@ const PLANS: RolePlan[] = [
   {
     key: 'landlord',
     role: { zh: '房东', en: 'Landlord' },
-    accent: '#047857',
+    accent: '#00ACE4',
     tiers: [
       {
         name: { zh: '起步', en: 'Go' },
@@ -118,7 +118,7 @@ const PLANS: RolePlan[] = [
   {
     key: 'agent',
     role: { zh: '经纪', en: 'Agent' },
-    accent: '#2563EB',
+    accent: '#00ACE4',
     tiers: [
       {
         name: { zh: '起步', en: 'Go' },
