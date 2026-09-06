@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { SampleBanner } from '@/components/SampleNotice'
 import OntarioLeaseDoc from '@/components/lease/OntarioLeaseDoc'
 import TrrebLeaseDoc from '@/components/lease/TrrebLeaseDoc'
 import type { OntarioLeaseTerms, LeaseSignature } from '@/lib/lease/ontario'
@@ -348,6 +349,10 @@ export default function LeaseDetailPage() {
 
   return (
     <WorkspaceShell role="landlord" aside={<DetailAside lease={lease} lang={lang} />}>
+      <SampleBanner
+        zh={zh}
+        note={{ zh: '这是设计样例租约；录入真实租约后，详情页会显示可签署、可下载的安省标准租约。', en: 'This is a design-canon sample lease; once you enter a real lease, its detail page shows the signable, downloadable Ontario Standard Lease.' }}
+      />
       <div className="mb-4">
         <Link href="/landlord/leases" className="text-[13px] text-brand font-semibold hover:underline">
           {zh ? '← 所有租约' : '← All leases'}

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { SampleBanner } from '@/components/SampleNotice'
 import ApplicantReport, { type ReportDim } from '@/components/landlord/ApplicantReport'
 import { StampRow } from '@/components/StampBadge'
 import { useAIName } from '@/lib/aiName'
@@ -396,6 +397,10 @@ function DemoApplicantDetail({ id }: { id: string }) {
   const aiName = useAIName('landlord')
   return (
     <WorkspaceShell role="landlord" hideAside>
+      <SampleBanner
+        zh={lang === 'zh'}
+        note={{ zh: '这是设计样例申请人 Mia Chen；收到真实申请后，列表与详情会自动换成真实数据。', en: 'This is the design-canon sample applicant, Mia Chen; once a real application arrives the list and detail switch to live data.' }}
+      />
       <Link href="/landlord/applicants" className="font-mono text-[12px] text-body-3 hover:text-body">
         {lang === 'zh' ? '← 返回所有申请' : '← Back to all applications'}
       </Link>

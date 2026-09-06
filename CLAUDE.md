@@ -530,6 +530,25 @@ prompt，并在后端**确定性覆盖** `income_corroboration`——银行持�
   右列写「典型按份产品」的一般做法、不点名）与「申请人本人授权核验」数据源卡；
   征信那张卡仍如实写「Stayloop 不直连征信局」
 
+## 示范数据标注（2026-09-06 全站核对）
+
+用户拿 `/tenant/payments` 的「立即支付」问「这还是演示吧」——是：全站没有任何租金收付通道
+（Stripe 路由只有房东订阅/按次解锁；`rent_payments` 唯一写入方是 `/h/[id]` 的自述「标记已付」），
+那颗按钮只是把一句话预填给管家，管家生成的 `payment_authorization` 待办在 `execute` 路由里
+**没有执行器**（返回 `no_executor_for_type`）。于是定下规则：**凡是页面主体仍是设计样例
+（Mia Chen / Sarah Wang / Unit 1207…）或按钮做不到它所写的事，必须挂 `components/SampleNotice.tsx`
+的琥珀色 `SampleBanner`**（文案明说「按钮不会执行真实操作，只会交给助手生成待确认卡片」）。
+
+- 工作台路由由 `components/WorkspaceShell.tsx` 统一处理，不逐页改：`DEMO_GATE`（默认诚实空态 +
+  「查看产品演示」，演示态顶部挂 SampleBanner，可带 per-route `note`——payments 的 note 直说
+  「在线收租尚未上线，立即支付不会扣款」）现覆盖 15 条路由（新增 `/tenant/passport/sharing`、
+  `/tenant/audit`、`/landlord/audit`、`/agent/showings/*`——键以 `/*` 结尾为前缀匹配）；
+  `SAMPLE_NOTE` 给「真实功能 + 样例段落」混合页常驻横幅并写明哪部分是真的
+  （`/tenant/passport` 只有分享链接与候补是真；`/tenant/lease` 只有在管租约列表是真）
+- 样例 id 打开的详情页（`/landlord/applicants/<非 UUID>`、`/landlord/leases/L-xxx`）在组件内自挂横幅
+- `/disputes` 沿用它自己更重的 SampleBanner/SampleTag；营销页（首页对话演示、角色页）是产品插图，不标
+- 守卫 `tests/sampleNotice.spec.ts`：新加纯样例工作台页而没进 `DEMO_GATE`/`SAMPLE_NOTE` 即红
+
 ## Terminology(2026-08-03 定稿)
 
 产品动作一律叫「**租客筛查 / 筛查**」(英文 Screening 不变),不叫「背调/背景调查」。依据:O. Reg. 290/98 与 OHRC 租房政策的语汇是 tenant screening/selection(许可的工具=信用参考/租史/信用检查/收入信息);而「背景调查」一词指向安省《消费者报告法》所规管的含 personal information(品行/声誉/生活方式)的 consumer report——报告法务节明确声明我们**不是**该法意义上的报告机构,产品名不能与免责声明打架。`tests/complianceCopy.spec.ts` 有语料守卫:UI 代码出现 背调/背景调查/背景核查/背景审查 即红。「筛选」保留给房源过滤器语境。

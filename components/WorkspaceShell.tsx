@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import Header from './Header'
 import { useI18n } from '@/lib/i18n'
 import { ROLE_THEME } from '@/lib/roleTheme'
+import { SampleBanner } from './SampleNotice'
 
 export type WorkspaceRole = 'tenant' | 'landlord' | 'agent'
 
@@ -66,7 +67,8 @@ interface Props {
 // demo sections, and blanket-hiding them would hide the real parts too.
 // /landlord/leases and /landlord/applicants self-manage (real rows render
 // once any exist).
-const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: string; href: string }> = {
+type GateNote = { zh: string; en: string }
+const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: string; href: string; note?: GateNote }> = {
   '/notifications': {
     zh: '还没有通知。你的 AI 与各方产生的动态会出现在这里。', en: 'No notifications yet — activity from your AI and counterparties lands here.',
     ctaZh: '回到工作台', ctaEn: 'Back to workspace', href: '/dashboard',
@@ -86,6 +88,10 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
   '/tenant/payments': {
     zh: '还没有租金记录。加入或导入你的在管租约后,每月租金在这里留痕——准时记录会进入你的租客护照。', en: 'No rent records yet. Join or import your managed tenancy and every month leaves a record here.',
     ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
+    note: {
+      zh: '在线收租尚未上线：「立即支付」不会扣款，没有任何银行或支付机构接入。',
+      en: 'Online rent collection is not live yet: "Pay now" does not debit anything — no bank or payment processor is connected.',
+    },
   },
   '/tenant/move-in': {
     zh: '入住清单会在你的租约开始时生成。', en: 'Your move-in checklist is generated when a tenancy starts.',
@@ -111,16 +117,53 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
     zh: '还没有结算记录。完成的转介与筛查服务会在这里对账。', en: 'No settlements yet. Completed referrals and screenings reconcile here.',
     ctaZh: '打开 Brief →', ctaEn: 'Open Brief →', href: '/agent/agent',
   },
+  '/tenant/passport/sharing': {
+    zh: '还没有授权记录。第一次分享护照后，谁能看到什么会列在这里。', en: 'No grants yet. Once you share your Passport, who can see what is listed here.',
+    ctaZh: '打开护照 →', ctaEn: 'Open Passport →', href: '/tenant/passport',
+  },
+  '/tenant/audit': {
+    zh: '还没有审计记录。助手替你做的每件事都会在这里留痕。', en: 'No audit events yet. Everything your assistant does for you is logged here.',
+    ctaZh: '打开 Luna →', ctaEn: 'Open Luna →', href: '/tenant/agent',
+  },
+  '/landlord/audit': {
+    zh: '还没有审计记录。助手替你做的每件事都会在这里留痕。', en: 'No audit events yet. Everything your assistant does for you is logged here.',
+    ctaZh: '打开 Logic →', ctaEn: 'Open Logic →', href: '/landlord/agent',
+  },
+  '/agent/showings/*': {
+    zh: '还没有带看任务。让 Brief 帮你接第一场。', en: 'No showings yet. Let Brief book your first.',
+    ctaZh: '打开 Brief →', ctaEn: 'Open Brief →', href: '/agent/agent',
+  },
+}
+
+// Routes that mix real functionality with fixture sections (deliberately not
+// gated — see above). They carry the banner permanently; the note says which
+// parts are real.
+const SAMPLE_NOTE: Record<string, GateNote> = {
+  '/tenant/passport': {
+    zh: '本页只有「分享链接」与「租金上报候补」是真实功能；四枚章的状态、查看记录与验证历史是示范数据。',
+    en: 'Only the share link and the rent-reporting waitlist are live here; stamp status, view log and verification history are sample data.',
+  },
+  '/tenant/lease': {
+    zh: '本页只有「在管租约」列表是真实数据；租约条款、签署进度与助手解读是示范数据。',
+    en: 'Only the managed-lease list is live here; the clauses, signing progress and assistant commentary are sample data.',
+  },
+}
+
+function lookupGate(path: string) {
+  if (DEMO_GATE[path]) return DEMO_GATE[path]
+  const prefix = Object.keys(DEMO_GATE).find((k) => k.endsWith('/*') && path.startsWith(k.slice(0, -1)))
+  return prefix ? DEMO_GATE[prefix] : null
 }
 
 function useDemoGate() {
   const path = usePathname() || ''
-  const gate = DEMO_GATE[path] ?? null
+  const gate = lookupGate(path)
+  const sampleNote = SAMPLE_NOTE[path] ?? null
   const [showDemo, setShowDemo] = useState(false)
   useEffect(() => {
     try { setShowDemo(sessionStorage.getItem('sl-show-demo') === '1') } catch {}
   }, [])
-  return { gate, showDemo, setShowDemo }
+  return { gate, sampleNote, showDemo, setShowDemo }
 }
 
 function DemoGate({ children, gate, showDemo, setShowDemo }: {
@@ -135,19 +178,11 @@ function DemoGate({ children, gate, showDemo, setShowDemo }: {
   if (showDemo) {
     return (
       <>
-        <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-strong bg-surface-chip px-4 py-2.5 font-mono text-[11px] leading-relaxed text-body-3">
-          <span className="min-w-0 flex-1">
-            {zh
-              ? '产品演示 · 以下是演示内容,并非你的真实数据'
-              : 'PRODUCT DEMO · what follows is demo content, not your live records'}
-          </span>
-          <button
-            className="underline"
-            onClick={() => { try { sessionStorage.removeItem('sl-show-demo') } catch {}; setShowDemo(false) }}
-          >
-            {zh ? '返回' : 'Exit demo'}
-          </button>
-        </div>
+        <SampleBanner
+          zh={zh}
+          note={gate.note}
+          onExit={() => { try { sessionStorage.removeItem('sl-show-demo') } catch {}; setShowDemo(false) }}
+        />
         {children}
       </>
     )
@@ -171,7 +206,8 @@ function DemoGate({ children, gate, showDemo, setShowDemo }: {
 }
 
 export default function WorkspaceShell({ role, aside, children, hideAside }: Props) {
-  const { gate, showDemo, setShowDemo } = useDemoGate()
+  const { gate, sampleNote, showDemo, setShowDemo } = useDemoGate()
+  const { lang } = useI18n()
   // On a gated route the aside is demo narrative too (Unit 1207 stories) —
   // an honest empty state beside a fixture-driven aside defeats the point.
   const asideHidden = hideAside || (gate != null && !showDemo)
@@ -185,6 +221,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside }: Pro
         <div className="md:flex md:min-h-[calc(100vh-66px)]">
           <Rail role={role} />
           <div className="min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12">
+            {sampleNote && <SampleBanner zh={lang === 'zh'} note={sampleNote} />}
             <DemoGate gate={gate} showDemo={showDemo} setShowDemo={setShowDemo}>{children}</DemoGate>
           </div>
           {!asideHidden && (
