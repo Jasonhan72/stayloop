@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Header from '@/components/Header'
+import { SampleBanner } from '@/components/SampleNotice'
 import FavHeart from '@/components/FavHeart'
 import { PromoBadge, VerificationBadge } from '@/components/ListingBadges'
 import ListingsMap from '@/components/ListingsMap'
@@ -227,6 +228,15 @@ export default function ListingsPage() {
   return (
     <div className="bg-white" style={{ minHeight: '100vh' }}>
       <Header />
+      <div className="mx-auto max-w-[1240px] px-5 pt-4 sm:px-8">
+        <SampleBanner
+          zh={lang === 'zh'}
+          text={{
+            zh: '示范阶段：TRREB 房源数据库尚未接入，这里目前只有少量房源（平台核验的房东挂牌 + Realtor.ca 导入）。接入后会显示完整房源。',
+            en: 'Demo stage: the TRREB listings feed is not connected yet, so only a handful of listings show here (platform-verified landlord listings plus Realtor.ca imports). The full inventory appears once it is connected.',
+          }}
+        />
+      </div>
 
       {/* Search row */}
       <section
