@@ -10,15 +10,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
-
-const HIDE_PREFIXES = ['/onboarding', '/login', '/register', '/auth', '/verify', '/lease/sign', '/join', '/p/', '/h/', '/dashboard', '/settings', '/admin', '/screening/app', '/screening/']
-const WORKSPACE_ROLE_PREFIXES = ['/tenant/', '/landlord/', '/agent/']
-
-export function shouldShowMobileNav(path: string): boolean {
-  if (HIDE_PREFIXES.some((p) => path.startsWith(p))) return false
-  if (WORKSPACE_ROLE_PREFIXES.some((p) => path.startsWith(p))) return false
-  return true
-}
+import { shouldShowMobileNav } from '@/lib/mobileNavRoutes'
 
 const HOME: Record<string, string> = { tenant: '/tenant/agent', landlord: '/landlord/agent', agent: '/agent/agent' }
 

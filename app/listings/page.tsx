@@ -10,6 +10,7 @@ import { PromoBadge, VerificationBadge } from '@/components/ListingBadges'
 import ListingsMap from '@/components/ListingsMap'
 import { favKey, useFavorites, type FavListing } from '@/lib/favorites'
 import { supabase } from '@/lib/supabase'
+import { renderNote } from '@/lib/safeNote'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { useAIName } from '@/lib/aiName'
@@ -962,7 +963,7 @@ function ListingCard({
             lineHeight: 1.45,
           }}
         >
-          <span dangerouslySetInnerHTML={{ __html: `◐ ${l.luna_note}` }} />
+          <span>◐ {renderNote(l.luna_note)}</span>
         </div>
       )}
     </Link>

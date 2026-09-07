@@ -582,7 +582,7 @@ export default function ListingDetailPage() {
                   value={listing.postal_code || `${listing.city.slice(0, 3).toUpperCase()} ···`}
                 />
               </div>
-              {listing.virtual_tour_url && (
+              {listing.virtual_tour_url && /^https?:\/\//i.test(listing.virtual_tour_url) && (
                 <a
                   href={listing.virtual_tour_url}
                   target="_blank"
