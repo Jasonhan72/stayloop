@@ -23,15 +23,30 @@ import Footer from '@/components/Footer'
 import AgentChat from '@/components/agent/AgentChat'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
 import { useT, type Lang } from '@/lib/i18n'
+import { GENERIC_AI_NAME, useAIName } from '@/lib/aiName'
 import type { AgentRole } from '@/lib/agent/types'
 
 type Bi = { zh: string; en: string }
 const pick = (b: Bi, lang: Lang) => (lang === 'zh' ? b.zh : b.en)
 
 const ROLE_LABEL: Record<AgentRole, Bi> = {
-  tenant: { zh: '我是租客 · Luna', en: 'Tenant · Luna' },
-  landlord: { zh: '我是房东 · Logic', en: 'Landlord · Logic' },
-  agent: { zh: '我是经纪 · Brief', en: 'Agent · Brief' },
+  tenant: { zh: '我是租客', en: 'Tenant' },
+  landlord: { zh: '我是房东', en: 'Landlord' },
+  agent: { zh: '我是经纪', en: 'Agent' },
+}
+
+// One source for the assistant's name everywhere on the page: the name the
+// signed-in user gave it (agent_configs) or, for visitors, nothing — the
+// chat header then shows the generic label and the copy says "AI". The
+// marketing names (Luna / Logic / Brief) are never shown here because the
+// live chat panel would contradict them.
+function customName(n: string): string | null {
+  const t = (n || '').trim()
+  return t && t !== GENERIC_AI_NAME ? t : null
+}
+const NAME_TOKEN = '{ai}'
+function withName(b: Bi, lang: Lang, name: string | null): string {
+  return pick(b, lang).split(NAME_TOKEN).join(name ?? 'AI')
 }
 
 // Per-role sections. Copy follows the approved homepage; the landlord's
@@ -48,11 +63,11 @@ const ROLES: {
 }[] = [
   {
     key: 'landlord',
-    tag: { zh: '房东 × LOGIC', en: 'Landlord × LOGIC' },
+    tag: { zh: '房东 × {ai}', en: 'Landlord × {ai}' },
     h2: { zh: '选对租客，按时收租，后台有支持。', en: 'Pick the right tenant, get paid on time, with a back office behind you.' },
     lead: {
-      zh: '房东的难题，Logic 接：把每份申请查完材料真伪和法庭记录，每一分写明理由，再排好序给你。',
-      en: "A landlord's problems go to Logic: it checks every application for document authenticity and court records, explains every point, then ranks them for you.",
+      zh: '房东的难题，{ai} 接：把每份申请查完材料真伪和法庭记录，每一分写明理由，再排好序给你。',
+      en: "A landlord's problems go to {ai}: it checks every application for document authenticity and court records, explains every point, then ranks them for you.",
     },
     benefits: [
       { b: { zh: '每份申请先过六维筛查', en: 'Every application goes through six-dimension screening first' }, s: { zh: '材料真伪、LTB 判令与法院记录都查过，伪造材料会被识别并拦下。', en: 'Document authenticity, LTB orders and court records are checked; forged files are flagged and stopped.' } },
@@ -65,16 +80,16 @@ const ROLES: {
       { label: { zh: '合规检查', en: 'Compliance check' }, prompt: { zh: '帮我检查我的房源和租约有没有 RTA 合规风险。', en: 'Check my listings and leases for RTA compliance risks.' } },
       { label: { zh: '发布房源', en: 'List a property' }, prompt: { zh: '我要发布一个新房源，你来帮我整理信息。', en: 'I want to list a new property — help me put it together.' } },
     ],
-    cta: { zh: '让 Logic 协助管理房源 →', en: 'Let Logic help manage your rentals →' },
+    cta: { zh: '让 {ai} 协助管理房源 →', en: 'Let {ai} help manage your rentals →' },
     href: '/landlord',
   },
   {
     key: 'tenant',
-    tag: { zh: '租客 × LUNA', en: 'Tenant × LUNA' },
+    tag: { zh: '租客 × {ai}', en: 'Tenant × {ai}' },
     h2: { zh: '没有本地信用记录，也能建立可信的租房履历。', en: 'Build a trusted rental record, even without local credit history.' },
     lead: {
-      zh: '租客的难题，Luna 接：条件说人话，房源全是真的；四枚章盖好，申请任何房源不再重复交材料。',
-      en: "A tenant's problems go to Luna: say what you want in plain language — every listing is real; earn the four stamps once and apply anywhere without re-submitting.",
+      zh: '租客的难题，{ai} 接：条件说人话，房源全是真的；四枚章盖好，申请任何房源不再重复交材料。',
+      en: "A tenant's problems go to {ai}: say what you want in plain language — every listing is real; earn the four stamps once and apply anywhere without re-submitting.",
     },
     benefits: [
       { b: { zh: '真实挂牌 + 官方行情作答', en: 'Real listings + official market data' }, s: { zh: 'TRREB 官方成交对照，绝不编造；英文租约逐条讲成中文。', en: 'Checked against official TRREB transactions, never invented; English leases explained clause by clause.' } },
@@ -87,20 +102,20 @@ const ROLES: {
       { label: { zh: '解读租约', en: 'Explain my lease' }, prompt: { zh: '帮我逐条解释租约里最需要注意的条款。', en: 'Walk me through the lease clauses I should watch out for.' } },
       { label: { zh: '发起报修', en: 'Report a repair' }, prompt: { zh: '厨房水槽漏水，帮我整理成报修工单发给房东。', en: 'The kitchen sink is leaking — turn this into a repair ticket for my landlord.' } },
     ],
-    cta: { zh: '让 Luna 开始找 →', en: 'Let Luna start searching →' },
+    cta: { zh: '让 {ai} 开始找 →', en: 'Let {ai} start searching →' },
     href: '/tenant',
   },
   {
     key: 'agent',
-    tag: { zh: '经纪 × BRIEF', en: 'Agent × BRIEF' },
+    tag: { zh: '经纪 × {ai}', en: 'Agent × {ai}' },
     h2: { zh: '行政事务交给 AI，时间留给专业工作。', en: 'Hand the admin to AI, keep your time for the work that closes.' },
     lead: {
-      zh: '经纪的难题，Brief 接：替客户把关、记住每位客户的偏好、把报告直接送到房东手上。',
-      en: "An agent's problems go to Brief: vouch for clients with evidence, remember every client's preferences, and put the report straight in the landlord's hands.",
+      zh: '经纪的难题，{ai} 接：替客户把关、记住每位客户的偏好、把报告直接送到房东手上。',
+      en: "An agent's problems go to {ai}: vouch for clients with evidence, remember every client's preferences, and put the report straight in the landlord's hands.",
     },
     benefits: [
       { b: { zh: '替客户下单筛查，报告直接分享给房东', en: 'Order a screening for a client, share the report with the landlord' }, s: { zh: '你、客户、房东看到的是同一份报告。', en: 'You, your client and the landlord read the same report.' } },
-      { b: { zh: 'Brief 记住每位客户', en: 'Brief remembers every client' }, s: { zh: '预算、区域、偏好只说一次；下次开口它就接上。', en: 'Budget, area, preferences said once; next time it picks up where you left off.' } },
+      { b: { zh: '{ai} 记住每位客户', en: '{ai} remembers every client' }, s: { zh: '预算、区域、偏好只说一次；下次开口它就接上。', en: 'Budget, area, preferences said once; next time it picks up where you left off.' } },
       { b: { zh: '带看日程、反馈归档、佣金结算', en: 'Showing schedules, feedback filing, commission settlement' }, s: { zh: '上线前不进首页数字。', en: 'Not counted on this page until it ships.' }, soon: true },
     ],
     chips: [
@@ -108,7 +123,7 @@ const ROLES: {
       { label: { zh: 'RECO 边界', en: 'RECO boundaries' }, prompt: { zh: '下一场带看，哪些问题我被授权回答、哪些不能答？', en: 'For my next showing, what am I authorized to answer — and what not?' } },
       { label: { zh: '替客户筛查', en: 'Screen for a client' }, prompt: { zh: '我有一位客户要申请房源，帮我准备一次租客筛查需要哪些材料。', en: 'A client is applying for a unit — what do I need to run a tenant screening for them?' } },
     ],
-    cta: { zh: '让 Brief 安排工作 →', en: 'Let Brief run your day →' },
+    cta: { zh: '让 {ai} 安排工作 →', en: 'Let {ai} run your day →' },
     href: '/agent',
   },
 ]
@@ -133,6 +148,14 @@ export default function HomeNext() {
   const [queued, setQueued] = useState<{ role: AgentRole; prompt: string } | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
   const heroRef = useRef<HTMLDivElement>(null)
+  const tenantName = useAIName('tenant')
+  const landlordName = useAIName('landlord')
+  const agentName = useAIName('agent')
+  const names: Record<AgentRole, string | null> = {
+    tenant: customName(tenantName),
+    landlord: customName(landlordName),
+    agent: customName(agentName),
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -180,12 +203,12 @@ export default function HomeNext() {
                   className="rounded-full px-4 py-2 text-[13.5px] font-bold transition"
                   style={role === r ? { background: '#1B1B3C', color: '#fff' } : { background: '#fff', color: '#1B1B3C', border: '1px solid #D3E3EF' }}
                 >
-                  {pick(ROLE_LABEL[r], lang)}
+                  {pick(ROLE_LABEL[r], lang)}{names[r] ? ` · ${names[r]}` : ''}
                 </button>
               ))}
             </div>
             <div className="h-[560px] sm:h-[600px]">
-              <AssistantPanel key={role} role={role} queued={queued} onQueuedSent={() => setQueued(null)} />
+              <AssistantPanel key={role} role={role} name={names[role]} queued={queued} onQueuedSent={() => setQueued(null)} />
             </div>
             <div className="mt-3 flex flex-col items-center justify-between gap-2 text-[12px] text-body-3 sm:flex-row">
               <span>{zh ? '免注册体验 · 每小时有次数上限 · 登录后它才会记住你' : 'Try without signing up · hourly limit · it only remembers you after you sign in'}</span>
@@ -212,9 +235,9 @@ export default function HomeNext() {
       {/* ================= PAINS ================= */}
       <section className="mx-auto max-w-[1100px] px-5 py-14 sm:px-7">
         <div className="grid gap-8 md:grid-cols-3">
-          <Pain who={zh ? '房东' : 'Landlord'} text={zh ? '怕租错人？每份申请先查真伪和法庭记录。' : 'Afraid of the wrong tenant? Every application is checked for authenticity and court records first.'} onTry={() => ask('landlord', zh ? '帮我看看最新的申请，按质量排序并说明理由。' : 'Review my latest applications, rank them and explain why.')} tryLabel={zh ? '对 Logic 说' : 'Ask Logic'} />
-          <Pain who={zh ? '租客' : 'Tenant'} text={zh ? '怕材料白填？交一次，处处通行。' : 'Tired of re-submitting documents? Submit once, use it everywhere.'} onTry={() => ask('tenant', zh ? '我现在盖了几枚章？下一枚怎么盖，能解锁什么？' : 'How many stamps do I have? How do I earn the next one, and what does it unlock?')} tryLabel={zh ? '对 Luna 说' : 'Ask Luna'} />
-          <Pain who={zh ? '经纪' : 'Agent'} text={zh ? '怕杂活吃掉专业？行政事务全交给 AI。' : 'Admin eating your day? Hand it to the AI.'} onTry={() => ask('agent', zh ? '哪些客户需要跟进？帮我列出来并起草跟进消息。' : 'Which clients need follow-ups? List them and draft the messages.')} tryLabel={zh ? '对 Brief 说' : 'Ask Brief'} />
+          <Pain who={zh ? '房东' : 'Landlord'} text={zh ? '怕租错人？每份申请先查真伪和法庭记录。' : 'Afraid of the wrong tenant? Every application is checked for authenticity and court records first.'} onTry={() => ask('landlord', zh ? '帮我看看最新的申请，按质量排序并说明理由。' : 'Review my latest applications, rank them and explain why.')} tryLabel={zh ? `对${names.landlord ? ' ' + names.landlord : '房东 AI'} 说` : `Ask ${names.landlord ?? 'the landlord AI'}`} />
+          <Pain who={zh ? '租客' : 'Tenant'} text={zh ? '怕材料白填？交一次，处处通行。' : 'Tired of re-submitting documents? Submit once, use it everywhere.'} onTry={() => ask('tenant', zh ? '我现在盖了几枚章？下一枚怎么盖，能解锁什么？' : 'How many stamps do I have? How do I earn the next one, and what does it unlock?')} tryLabel={zh ? `对${names.tenant ? ' ' + names.tenant : '租客 AI'} 说` : `Ask ${names.tenant ?? 'the tenant AI'}`} />
+          <Pain who={zh ? '经纪' : 'Agent'} text={zh ? '怕杂活吃掉专业？行政事务全交给 AI。' : 'Admin eating your day? Hand it to the AI.'} onTry={() => ask('agent', zh ? '哪些客户需要跟进？帮我列出来并起草跟进消息。' : 'Which clients need follow-ups? List them and draft the messages.')} tryLabel={zh ? `对${names.agent ? ' ' + names.agent : '经纪 AI'} 说` : `Ask ${names.agent ?? 'the agent AI'}`} />
         </div>
       </section>
 
@@ -225,7 +248,7 @@ export default function HomeNext() {
             <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? '三种角色，各自的 Agent' : 'Three roles, each with its own agent'}</h2>
             <p className="mt-2 text-[16px] text-body-2">{zh ? '不是同一个客服机器人——是三个立场不同、只对你负责的 AI。每个板块的例句都能直接发给它。' : 'Not one shared support bot — three AIs with different loyalties, each answering only to you. Every example below sends straight to it.'}</p>
           </div>
-          <RoleTabs lang={lang} onAsk={ask} />
+          <RoleTabs lang={lang} names={names} onAsk={ask} />
         </div>
       </section>
 
@@ -274,7 +297,7 @@ export default function HomeNext() {
 }
 
 // One live session per role; remounted (key=role) when the role switches.
-function AssistantPanel({ role, queued, onQueuedSent }: { role: AgentRole; queued: { role: AgentRole; prompt: string } | null; onQueuedSent: () => void }) {
+function AssistantPanel({ role, name, queued, onQueuedSent }: { role: AgentRole; name: string | null; queued: { role: AgentRole; prompt: string } | null; onQueuedSent: () => void }) {
   const { loading, data, status, messages, sendMessage } = useAgentSession(role)
   const sentRef = useRef<string | null>(null)
   useEffect(() => {
@@ -288,7 +311,7 @@ function AssistantPanel({ role, queued, onQueuedSent }: { role: AgentRole; queue
   if (loading || !data) {
     return <div className="h-full animate-pulse rounded-2xl border border-line-divider bg-white" />
   }
-  return <AgentChat role={role} agentName={data.agent.agent_name} status={status} messages={messages} onSend={sendMessage} />
+  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} status={status} messages={messages} onSend={sendMessage} />
 }
 
 function Pain({ who, text, onTry, tryLabel }: { who: string; text: string; onTry: () => void; tryLabel: string }) {
@@ -310,31 +333,32 @@ function Fact({ n, s }: { n: string; s: ReactNode }) {
   )
 }
 
-function RoleTabs({ lang, onAsk }: { lang: Lang; onAsk: (r: AgentRole, prompt: string) => void }) {
+function RoleTabs({ lang, names, onAsk }: { lang: Lang; names: Record<AgentRole, string | null>; onAsk: (r: AgentRole, prompt: string) => void }) {
   const [tab, setTab] = useState<AgentRole>('landlord')
   const zh = lang === 'zh'
   const r = ROLES.find((x) => x.key === tab)!
+  const nm = names[r.key]
   return (
     <div className="mt-8">
       <div className="flex flex-wrap gap-2">
         {ROLES.map((x) => (
           <button key={x.key} type="button" onClick={() => setTab(x.key)} className="rounded-full px-4 py-2 text-[13.5px] font-bold transition"
             style={tab === x.key ? { background: '#1B1B3C', color: '#fff' } : { background: '#fff', color: '#1B1B3C', border: '1px solid #D3E3EF' }}>
-            {pick(x.tag, lang)}
+            {withName(x.tag, lang, names[x.key] ? names[x.key]!.toUpperCase() : null)}
           </button>
         ))}
       </div>
       <div className="mt-6 grid gap-8 rounded-2xl border border-line-divider bg-white p-6 sm:p-8 lg:grid-cols-[5fr_6fr] lg:gap-12">
         <div>
-          <h3 className="text-[24px] font-extrabold leading-tight tracking-tight sm:text-[28px]">{pick(r.h2, lang)}</h3>
-          <p className="mt-3 text-[15px] leading-relaxed text-body-2">{pick(r.lead, lang)}</p>
+          <h3 className="text-[24px] font-extrabold leading-tight tracking-tight sm:text-[28px]">{withName(r.h2, lang, nm)}</h3>
+          <p className="mt-3 text-[15px] leading-relaxed text-body-2">{withName(r.lead, lang, nm)}</p>
           <ul className="mt-6 space-y-4">
             {r.benefits.map((b) => (
               <li key={b.b.en} className="flex gap-3">
                 <span className="mt-[7px] h-2 w-2 flex-none rounded-full" style={{ background: b.soon ? '#9FBBD0' : '#00ACE4' }} />
                 <div>
                   <div className="text-[15px] font-bold">
-                    {pick(b.b, lang)}
+                    {withName(b.b, lang, nm)}
                     {b.soon && <span className="ml-2 rounded-full px-2 py-[2px] font-mono text-[10px] font-bold" style={{ background: '#EEF0F4', color: '#6E6E8A' }}>{zh ? '即将' : 'SOON'}</span>}
                   </div>
                   <div className="mt-0.5 text-[13.5px] leading-relaxed text-body-2">{pick(b.s, lang)}</div>
@@ -342,7 +366,7 @@ function RoleTabs({ lang, onAsk }: { lang: Lang; onAsk: (r: AgentRole, prompt: s
               </li>
             ))}
           </ul>
-          <Link href={r.href} className="sl-btn-secondary mt-7 inline-flex">{pick(r.cta, lang)}</Link>
+          <Link href={r.href} className="sl-btn-secondary mt-7 inline-flex">{withName(r.cta, lang, nm)}</Link>
         </div>
         <div className="rounded-xl p-5" style={{ background: '#F3F8FC' }}>
           <div className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-body-3">{zh ? '对它说 · 点一下就发到上面的对话里' : 'Say it · one tap sends it to the conversation above'}</div>
