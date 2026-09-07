@@ -222,7 +222,7 @@ export async function generateScreeningReport(
   const dbCount = courtQueries.filter(q => q.status === 'ok' && !q.source.startsWith('──')).length
 
   // ── Build HTML sections ──
-  let html = `<!DOCTYPE html><html lang="${zh ? 'zh' : 'en'}"><head><meta charset="utf-8">
+  let html = `<!DOCTYPE html><html lang="${zh ? 'zh' : 'en'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stayloop ${zh ? '租客筛查报告' : 'Screening Report'} — ${esc(result.extracted_name || '')}</title>
 <style>
   @page { size: A4; margin: 18mm 16mm 16mm 16mm; }
@@ -248,8 +248,27 @@ export async function generateScreeningReport(
   .flag-badge { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 9px; font-weight: 700; color: #fff; margin-right: 4px; }
   .card { border: 1px solid #E4EEF6; border-radius: 8px; padding: 12px; margin-bottom: 10px; page-break-inside: avoid; }
   .footer { text-align: center; font-size: 8px; color: #9FBBD0; margin-top: 20px; padding-top: 10px; border-top: 1px solid #E4EEF6; }
-  @media print { .no-print { display: none !important; } }
-</style></head><body>`
+  /* On screen the same document is shown as an A4 sheet (2026-09-06): the
+     tab that opens before the print dialog used to render edge-to-edge at
+     viewport width, so it looked nothing like the PDF it was about to print. */
+  @media screen {
+    html { background: #E2E8F0; }
+    body { padding: 20px 12px 48px 12px; }
+    .toolbar { width: 210mm; max-width: 100%; margin: 0 auto 12px auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; color: #475569; }
+    .toolbar button { font: inherit; font-weight: 700; color: #fff; background: #0B1736; border: 0; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
+    .sheet { width: 210mm; max-width: 100%; margin: 0 auto; background: #fff; padding: 18mm 16mm 16mm 16mm; box-shadow: 0 2px 24px rgba(15, 23, 42, 0.18); overflow: hidden; }
+  }
+  @media print {
+    .no-print { display: none !important; }
+    body { padding: 0; }
+    .sheet { width: auto; max-width: none; margin: 0; padding: 0; box-shadow: none; overflow: visible; }
+  }
+</style></head><body>
+<div class="toolbar no-print">
+  <span>${zh ? '预览与打印后的 PDF 版式一致 · 在打印对话框里选「另存为 PDF」' : 'This preview matches the printed PDF · choose "Save as PDF" in the print dialog'}</span>
+  <button type="button" onclick="window.print()">${zh ? '打印 / 保存为 PDF' : 'Print / Save as PDF'}</button>
+</div>
+<div class="sheet">`
 
   // ── Header ──
   html += `<div class="header">
@@ -1224,7 +1243,7 @@ export async function generateScreeningReport(
     Stayloop.ai &nbsp;|&nbsp; ${zh ? '此报告由 AI 自动生成，仅供参考，不构成法律意见' : 'AI-generated report — for reference only, not legal advice'} &nbsp;|&nbsp; ${date}${result.screening_id ? ` &nbsp;|&nbsp; ${zh ? '报告编号' : 'Report ID'}: ${esc(result.screening_id)}` : ''}${opts?.requestedBy ? ` &nbsp;|&nbsp; ${zh ? '申请方' : 'Requested by'}: ${esc(opts.requestedBy)}` : ''}
   </div>`
 
-  html += `</body></html>`
+  html += `</div></body></html>`
 
   // ── Open & print ──
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' })

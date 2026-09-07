@@ -378,6 +378,15 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 这是同一份文档的页图、PDF 结构分析没跑过。上传区文案已带显式提示
 「单个文件 ≤ 25 MB（大照片会自动压缩）」。
 
+## 报告打印页的屏幕版式（2026-09-06）
+
+「下载评估报告 (PDF)」= `lib/generateReport.ts` 生成 HTML → 新标签页 → `window.print()`。
+此前新标签页本身按视口宽度平铺（body 无边距、页眉的负 margin 只在 @page 边距下成立），
+与打印出来的 A4 PDF 完全两样，用户以为是两份东西。现在 `@media screen` 下整份文档包在
+`.sheet`（210mm 宽、内边距 = @page 边距、灰底居中带阴影）里，顶部一条 `.toolbar.no-print`
+提供「打印 / 保存为 PDF」按钮（打印对话框被关掉后仍可再触发）；`@media print` 去掉这层框，
+PDF 输出不变。本地核对办法：scratchpad 里用 tsx 桩掉 Blob/window.open 把 HTML 落盘再开浏览器看。
+
 ## 信用分析层（2026-08-26 · 对标 SingleKey 二轮）
 
 用户拿 SingleKey 30 页双局报告逐页对比后的结论：我们的**转录**早就齐了
