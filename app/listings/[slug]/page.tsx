@@ -1123,8 +1123,8 @@ function FieldAgentModal({
 
         <p className="mt-4 text-[11px] leading-relaxed text-body-3">
           {zh
-            ? '* 对你不收费。依 RECO / TRESA 规定，接单经纪在代表你之前可能会请你签一份租客代理服务协议，签前会向你说明内容。'
-            : '* No charge to you. Under RECO / TRESA rules the agent may ask you to sign a tenant representation agreement before acting for you; they will explain it first.'}
+            ? '* 对你不收费。依 RECO / TRESA 规定，经纪在提供任何服务前须先向你提供并说明 RECO《信息指南》；带看即代表你，会与你建立租客代理关系并签代理协议（TRESA 要求最晚在你提交要约前落成书面）。'
+            : '* No charge to you. Under RECO / TRESA rules the agent must give you and explain the RECO Information Guide before any service, and acts as your representative under a tenant representation agreement (TRESA requires it in writing no later than before you make an offer).'}
         </p>
 
         <div className="mt-5 flex gap-2">
