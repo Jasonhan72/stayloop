@@ -543,7 +543,7 @@ export default function ListingsPage() {
       {!mapOpen && items.some((l) => l.lat != null && l.lng != null) && (
         <button
           type="button"
-          onClick={() => setMapOpen(true)}
+          onClick={() => { setActive(null); setMapOpen(true) }}
           className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full px-5 py-3 text-[14px] font-bold text-white shadow-lg lg:hidden"
           style={{ background: '#1B1B3C' }}
           aria-label={zh ? '打开地图' : 'Open map'}
