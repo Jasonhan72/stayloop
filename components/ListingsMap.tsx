@@ -146,7 +146,14 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
   const listingsRef = useRef(listings); listingsRef.current = listings
   const onOpenGroupRef = useRef(onOpenGroup); onOpenGroupRef.current = onOpenGroup
   const onViewportRef = useRef(onViewport); onViewportRef.current = onViewport
+  const onPickRef = useRef(onPick); onPickRef.current = onPick
+  const onOpenRef = useRef(onOpen); onOpenRef.current = onOpen
+  const bottomInsetRef = useRef(bottomInset); bottomInsetRef.current = bottomInset
   const clustersRef = useRef<any[]>([])
+  // Cluster pass bookkeeping: which markers are on the map, and the last
+  // cluster layout — so an idle that changes nothing touches nothing.
+  const shownRef = useRef<Set<string>>(new Set())
+  const clusterKeyRef = useRef('')
 
   // Clustering (RealMaster-style): tags whose screen positions fall within
   // CLUSTER_PX of each other collapse into one red disc with the count.
@@ -175,11 +182,17 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
       g.x = g.items.reduce((a, it) => a + it.x, 0) / g.items.length
       g.y = g.items.reduce((a, it) => a + it.y, 0) / g.items.length
     }
-    clustersRef.current.forEach((m) => m.setMap(null))
-    clustersRef.current = []
     const single = new Set<string>()
-    for (const g of groups) {
-      if (g.items.length === 1) { single.add(g.items[0].l.id); continue }
+    const multi = groups.filter((g) => g.items.length > 1)
+    groups.forEach((g) => { if (g.items.length === 1) single.add(g.items[0].l.id) })
+    const clusterKey = multi.map((g) => g.items.map((it) => it.l.id).sort().join(',')).sort().join('|')
+    const clustersChanged = clusterKey !== clusterKeyRef.current
+    if (clustersChanged) {
+      clustersRef.current.forEach((m) => m.setMap(null))
+      clustersRef.current = []
+      clusterKeyRef.current = clusterKey
+    }
+    for (const g of clustersChanged ? multi : []) {
       const lat = g.items.reduce((a, it) => a + Number(it.l.lat), 0) / g.items.length
       const lng = g.items.reduce((a, it) => a + Number(it.l.lng), 0) / g.items.length
       const count = g.items.length
@@ -212,7 +225,12 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
       })
       clustersRef.current.push(disc)
     }
-    markersRef.current.forEach((m, id) => m.setMap(single.has(id) ? map : null))
+    markersRef.current.forEach((m, id) => {
+      const want = single.has(id)
+      const has = shownRef.current.has(id)
+      if (want && !has) { m.setMap(map); shownRef.current.add(id) }
+      else if (!want && has) { m.setMap(null); shownRef.current.delete(id) }
+    })
     if (ref.current) ref.current.dataset.clusters = String(clustersRef.current.length)
     const vb = map.getBounds()
     if (vb && onViewportRef.current) {
@@ -258,6 +276,10 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
     // Remove old markers
     markersRef.current.forEach((m) => m.setMap(null))
     markersRef.current.clear()
+    clustersRef.current.forEach((m) => m.setMap(null))
+    clustersRef.current = []
+    clusterKeyRef.current = ''
+    shownRef.current = new Set()
 
     // Initial view frames the Greater Toronto listings; anything far outside
     // (a Montréal import, say) stays on the map but must not drag the zoom
@@ -282,8 +304,8 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
         icon: tagIcon(google, label, l.id === active),
         zIndex: l.id === active ? 10 : 1,
       })
-      marker.addListener('click', () => { onPick(l.id); if (onOpen) onOpen(l.id) })
-      if (mode === 'split') marker.addListener('mouseover', () => onPick(l.id))
+      marker.addListener('click', () => { onPickRef.current(l.id); if (onOpenRef.current) onOpenRef.current(l.id) })
+      if (mode === 'split') marker.addListener('mouseover', () => onPickRef.current(l.id))
       markersRef.current.set(l.id, marker)
     })
     if (ref.current) ref.current.dataset.markers = String(placed)
@@ -295,13 +317,13 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
         mapRef.current.setCenter(frame.getCenter())
         mapRef.current.setZoom(14)
       } else {
-        mapRef.current.fitBounds(frame, { top: 60, right: 40, bottom: 40 + bottomInset, left: 40 })
+        mapRef.current.fitBounds(frame, { top: 60, right: 40, bottom: 40 + bottomInsetRef.current, left: 40 })
       }
     }
     // fitBounds fires 'idle' → renderClusters; a map that did not move needs it explicitly.
     renderClusters()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, listings, onPick, onOpen, mode, bottomInset, renderClusters])
+  }, [ready, listings, mode, renderClusters])
 
   // When active changes, re-color the markers
   useEffect(() => {

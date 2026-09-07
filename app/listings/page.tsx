@@ -190,6 +190,10 @@ export default function ListingsPage() {
     return favs.filter((f) => !known.has(f.key))
   }, [favOnly, favs, all])
 
+  const mapListings = useMemo(
+    () => items.map((l) => ({ id: l.id, slug: l.slug, lat: l.lat, lng: l.lng, monthly_rent: l.monthly_rent, match_score: l.match_score })),
+    [items],
+  )
   const shown = useMemo(
     () => (viewportIds ? items.filter((l) => l.lat == null || l.lng == null || viewportIds.has(l.id)) : items),
     [items, viewportIds],
@@ -538,14 +542,7 @@ export default function ListingsPage() {
         {/* Map (sticky, Google Maps) — hidden on mobile, shown in split view on lg+ */}
         <div className="hidden lg:block">
           <ListingsMap
-            listings={items.map((l) => ({
-              id: l.id,
-              slug: l.slug,
-              lat: l.lat,
-              lng: l.lng,
-              monthly_rent: l.monthly_rent,
-              match_score: l.match_score,
-            }))}
+            listings={mapListings}
             active={active}
             onPick={setActive}
             onOpen={(id) => { setGroup(null); setPeek(id) }}
@@ -582,7 +579,7 @@ export default function ListingsPage() {
           <ListingsMap
             mode="full"
             bottomInset={active ? 180 : 0}
-            listings={items.map((l) => ({ id: l.id, slug: l.slug, lat: l.lat, lng: l.lng, monthly_rent: l.monthly_rent, match_score: l.match_score }))}
+            listings={mapListings}
             active={active}
             onPick={(id) => { setGroup(null); setActive(id) }}
             onOpenGroup={(ids) => { setActive(null); setGroup(ids) }}
