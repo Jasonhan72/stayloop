@@ -570,6 +570,16 @@ prompt，并在后端**确定性覆盖** `income_corroboration`——银行持�
 - `/disputes` 沿用它自己更重的 SampleBanner/SampleTag；营销页（首页对话演示、角色页）是产品插图，不标
 - 守卫 `tests/sampleNotice.spec.ts`：新加纯样例工作台页而没进 `DEMO_GATE`/`SAMPLE_NOTE` 即红
 
+## 语言初始化与水合（2026-09-07）
+
+`lib/i18n.tsx` 的 `LanguageProvider` **客户端首屏一律用 zh 水合**（与 SSR 一致），再在
+`useLayoutEffect`（绘制前）里切到 localStorage / navigator 解析出的语言。此前用惰性初始
+state 直接按浏览器语言渲染，英文访客每个页面都报 React #418（水合文字不匹配），React 随即
+丢弃服务端 HTML 整树重渲染——既慢，又有 zh→en 闪动。**不要**再把语言判断放回 useState 初始
+值，也不要在别的组件里用 localStorage / navigator 决定首屏文字（同样会触发 #418）；需要
+客户端才知道的值，一律先渲染服务端默认再在 effect 里更新。`app/layout.tsx` 的首屏内联脚本只
+负责提前设置 `<html lang>` 与 `data-lang`，与此规则配合。
+
 ## Terminology(2026-08-03 定稿)
 
 产品动作一律叫「**租客筛查 / 筛查**」(英文 Screening 不变),不叫「背调/背景调查」。依据:O. Reg. 290/98 与 OHRC 租房政策的语汇是 tenant screening/selection(许可的工具=信用参考/租史/信用检查/收入信息);而「背景调查」一词指向安省《消费者报告法》所规管的含 personal information(品行/声誉/生活方式)的 consumer report——报告法务节明确声明我们**不是**该法意义上的报告机构,产品名不能与免责声明打架。`tests/complianceCopy.spec.ts` 有语料守卫:UI 代码出现 背调/背景调查/背景核查/背景审查 即红。「筛选」保留给房源过滤器语境。
