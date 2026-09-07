@@ -690,7 +690,7 @@ export default function ListingDetailPage() {
                 className="mt-2 w-full rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
               >
                 {listing.source === 'realtor'
-                  ? (zh ? '找经纪带我看房 · 免费' : 'Find an agent to show me · free')
+                  ? (zh ? '找经纪带我看房' : 'Find an agent to show me')
                   : (zh ? '找经纪带我看房 · 可选' : 'Find an agent to show me · optional')}
               </button>
               <div className="mt-2 text-center text-[11px] leading-relaxed text-body-3">
@@ -1096,10 +1096,6 @@ function FieldAgentModal({
             <span className="text-[13px] text-body-2">{zh ? '月租' : 'Rent'}</span>
             <span className="text-[13px] font-semibold">${listing.monthly_rent?.toLocaleString()}/mo</span>
           </div>
-          <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
-            <span className="text-[13px] font-semibold">{zh ? '看房服务费' : 'Viewing fee'}</span>
-            <span className="text-[15px] font-bold text-brand">{zh ? '免费' : 'Free'}</span>
-          </div>
         </div>
 
         <div className="mt-5 space-y-3">
@@ -1124,12 +1120,6 @@ function FieldAgentModal({
             />
           </label>
         </div>
-
-        <p className="mt-4 text-[11px] text-body-3">
-          {zh
-            ? '* 看房完成后收费。如经纪人无法进入房源，不收费。'
-            : '* Charged after the visit. No charge if the agent cannot access the property.'}
-        </p>
 
         <div className="mt-5 flex gap-2">
           <button
