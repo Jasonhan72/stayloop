@@ -272,3 +272,8 @@ html, body {
     font-size: 16px !important;
   }
 }
+
+/* Phone bottom tab bar (components/MobileBottomNav.tsx) reserves its height. */
+@media (max-width: 767px) {
+  body.has-bottom-nav { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+}

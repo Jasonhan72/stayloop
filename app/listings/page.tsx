@@ -566,7 +566,7 @@ export default function ListingsPage() {
         <button
           type="button"
           onClick={() => { setActive(null); setGroup(null); setMapOpen(true) }}
-          className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full px-5 py-3 text-[14px] font-bold text-white shadow-lg lg:hidden"
+          className="fixed bottom-[calc(76px+env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full px-5 py-3 text-[14px] font-bold text-white shadow-lg md:bottom-6 lg:hidden"
           style={{ background: '#1B1B3C' }}
           aria-label={zh ? '打开地图' : 'Open map'}
         >

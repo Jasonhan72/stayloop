@@ -213,7 +213,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside }: Pro
   const asideHidden = hideAside || (gate != null && !showDemo)
   return (
     <>
-      <Header variant="solid" />
+      <Header variant="solid" mobileNav={false} />
       <main style={{ background: '#F3F8FC' }}>
         {/* mobile: stacked (Rail becomes a fixed bottom tab bar); md+: navy
             sidebar left · content · aside right (2026-09 console redesign,

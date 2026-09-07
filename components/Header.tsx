@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import Logo from './Logo'
+import MobileBottomNav from './MobileBottomNav'
 import LanguageCurrencyModal from './LanguageCurrencyModal'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
@@ -18,6 +19,8 @@ const ROLE_META: Record<string, { label: string; labelEn: string; color: string;
 
 interface HeaderProps {
   variant?: 'transparent' | 'solid'
+  /** Phone bottom tab bar for public pages (WorkspaceShell turns it off — it has its own rail). */
+  mobileNav?: boolean
 }
 
 const PRODUCT_ITEMS = [
@@ -26,7 +29,7 @@ const PRODUCT_ITEMS = [
   { key: 'nav.agents', href: '/agent', color: ROLE_THEME.agent.accent, tag: { zh: '杂活交给 AI', en: 'Busywork goes to AI' } },
 ]
 
-export default function Header({ variant = 'solid' }: HeaderProps) {
+export default function Header({ variant = 'solid', mobileNav = true }: HeaderProps) {
   const pathname = usePathname() || '/'
   const router = useRouter()
   const { lang, t } = useI18n()
@@ -363,6 +366,7 @@ export default function Header({ variant = 'solid' }: HeaderProps) {
         open={langModalOpen}
         onClose={() => setLangModalOpen(false)}
       />
+      {mobileNav && <MobileBottomNav />}
     </>
   )
 }
