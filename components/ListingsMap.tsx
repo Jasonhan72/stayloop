@@ -139,7 +139,6 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
   const ref = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const markersRef = useRef<Map<string, any>>(new Map())
-  const infoRef = useRef<any>(null)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   // Latest props for listeners registered once (map 'idle').
@@ -162,6 +161,7 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
     const google = window.google
     const map = mapRef.current
     if (!google || !map) return
+    if (!ref.current || ref.current.clientWidth === 0 || ref.current.clientHeight === 0) return
     const proj = map.getProjection()
     const zoom = map.getZoom()
     if (!proj || zoom == null) return
@@ -209,7 +209,7 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
           strokeColor: '#fff',
           strokeWeight: 2.5,
         },
-        title: `${count} listings`,
+        title: `×${count}`,
       })
       const members = g.items
       disc.addListener('click', () => {
@@ -257,7 +257,6 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
           gestureHandling: 'greedy',
           styles: MAP_STYLE,
         })
-        infoRef.current = new google.maps.InfoWindow({ disableAutoPan: true })
         mapRef.current.addListener('idle', renderClusters)
         setReady(true)
       })
