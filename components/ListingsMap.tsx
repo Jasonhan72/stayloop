@@ -37,6 +37,10 @@ interface Props {
   fullLabel?: string
   /** Overlays (peek card etc.) rendered inside the map frame. */
   children?: ReactNode
+  /** Click on a cluster disc: the ids in that group (replaces the zoom-in). */
+  onOpenGroup?: (ids: string[]) => void
+  /** Fires on every idle with the ids inside the current viewport. */
+  onViewport?: (ids: string[]) => void
 }
 
 // RealMaster-style price tag: the number only, in thousands.
@@ -128,7 +132,7 @@ declare global {
   }
 }
 
-export default function ListingsMap({ listings, active, onPick, mode = 'split', bottomInset = 0, onOpen, onToggleFull, fullLabel, children }: Props) {
+export default function ListingsMap({ listings, active, onPick, mode = 'split', bottomInset = 0, onOpen, onToggleFull, fullLabel, children, onOpenGroup, onViewport }: Props) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''
@@ -140,6 +144,8 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
   const [error, setError] = useState<string | null>(null)
   // Latest props for listeners registered once (map 'idle').
   const listingsRef = useRef(listings); listingsRef.current = listings
+  const onOpenGroupRef = useRef(onOpenGroup); onOpenGroupRef.current = onOpenGroup
+  const onViewportRef = useRef(onViewport); onViewportRef.current = onViewport
   const clustersRef = useRef<any[]>([])
 
   // Clustering (RealMaster-style): tags whose screen positions fall within
@@ -194,6 +200,7 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
       })
       const members = g.items
       disc.addListener('click', () => {
+        if (onOpenGroupRef.current) { onOpenGroupRef.current(members.map((it) => it.l.id)); return }
         const b = new google.maps.LatLngBounds()
         members.forEach((it) => b.extend({ lat: Number(it.l.lat), lng: Number(it.l.lng) }))
         const before = map.getZoom()
@@ -207,6 +214,10 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
     }
     markersRef.current.forEach((m, id) => m.setMap(single.has(id) ? map : null))
     if (ref.current) ref.current.dataset.clusters = String(clustersRef.current.length)
+    const vb = map.getBounds()
+    if (vb && onViewportRef.current) {
+      onViewportRef.current(pts.filter((p) => vb.contains({ lat: Number(p.l.lat), lng: Number(p.l.lng) })).map((p) => p.l.id))
+    }
   }, [])
 
   // Initial mount: load script + create map
@@ -310,7 +321,7 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
       className={mode === 'split' ? 'hidden lg:block' : 'block'}
       style={
         mode === 'split'
-          ? { position: 'sticky', top: 0, height: 'calc(100vh - 0px)', borderLeft: '1px solid #E4EEF6', overflow: 'hidden', background: '#E5E3DC' }
+          ? { position: 'sticky', top: 66, height: 'calc(100vh - 66px)', borderLeft: '1px solid #E4EEF6', overflow: 'hidden', background: '#E5E3DC' }
           : { position: 'absolute', inset: 0, overflow: 'hidden', background: '#E5E3DC' }
       }
     >

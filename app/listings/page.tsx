@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Header from '@/components/Header'
 import { SampleBanner } from '@/components/SampleNotice'
 import FavHeart from '@/components/FavHeart'
@@ -96,6 +96,11 @@ export default function ListingsPage() {
   const [mapOpen, setMapOpen] = useState(false)
   // Desktop split view: the listing whose tag was clicked (popup over the map).
   const [peek, setPeek] = useState<string | null>(null)
+  // Cluster disc tapped: the group's ids, shown as a horizontal strip.
+  const [group, setGroup] = useState<string[] | null>(null)
+  // Desktop: ids inside the map viewport — the list follows the map.
+  const [viewportIds, setViewportIds] = useState<Set<string> | null>(null)
+  const onViewport = useCallback((ids: string[]) => setViewportIds(new Set(ids)), [])
   useEffect(() => {
     if (!mapOpen) return
     const prev = document.body.style.overflow
@@ -185,7 +190,11 @@ export default function ListingsPage() {
     return favs.filter((f) => !known.has(f.key))
   }, [favOnly, favs, all])
 
-  const count = items.length + extraFavs.length
+  const shown = useMemo(
+    () => (viewportIds ? items.filter((l) => l.lat == null || l.lng == null || viewportIds.has(l.id)) : items),
+    [items, viewportIds],
+  )
+  const count = shown.length + extraFavs.length
 
   // "◐ {AI} 帮我筛" — pull the signed-in tenant's saved memories and turn the
   // parseable ones (budget / beds / pets) into live filters.
@@ -510,7 +519,7 @@ export default function ListingsPage() {
                 : (zh ? '没有匹配的房源 · 调整筛选条件试试' : 'No matching listings · try adjusting your filters')}
             </div>
           )}
-          {items.map((l) => (
+          {shown.map((l) => (
             <ListingCard
               key={l.id}
               l={l}
@@ -539,11 +548,16 @@ export default function ListingsPage() {
             }))}
             active={active}
             onPick={setActive}
-            onOpen={(id) => setPeek(id)}
-            onToggleFull={() => { setPeek(null); setMapOpen(true) }}
+            onOpen={(id) => { setGroup(null); setPeek(id) }}
+            onOpenGroup={(ids) => { setPeek(null); setGroup(ids) }}
+            onViewport={onViewport}
+            onToggleFull={() => { setPeek(null); setGroup(null); setMapOpen(true) }}
             fullLabel={zh ? '全屏' : 'Fullscreen'}
           >
-            {peek && items.find((l) => l.id === peek) && (
+            {group && group.length > 0 && (
+              <MapGroupStrip items={items.filter((l) => group.includes(l.id))} zh={zh} onClose={() => setGroup(null)} />
+            )}
+            {!group && peek && items.find((l) => l.id === peek) && (
               <MapPeekCard l={items.find((l) => l.id === peek)!} zh={zh} onClose={() => setPeek(null)} />
             )}
           </ListingsMap>
@@ -554,7 +568,7 @@ export default function ListingsPage() {
       {!mapOpen && items.some((l) => l.lat != null && l.lng != null) && (
         <button
           type="button"
-          onClick={() => { setActive(null); setMapOpen(true) }}
+          onClick={() => { setActive(null); setGroup(null); setMapOpen(true) }}
           className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full px-5 py-3 text-[14px] font-bold text-white shadow-lg lg:hidden"
           style={{ background: '#1B1B3C' }}
           aria-label={zh ? '打开地图' : 'Open map'}
@@ -570,7 +584,8 @@ export default function ListingsPage() {
             bottomInset={active ? 180 : 0}
             listings={items.map((l) => ({ id: l.id, slug: l.slug, lat: l.lat, lng: l.lng, monthly_rent: l.monthly_rent, match_score: l.match_score }))}
             active={active}
-            onPick={setActive}
+            onPick={(id) => { setGroup(null); setActive(id) }}
+            onOpenGroup={(ids) => { setActive(null); setGroup(ids) }}
           />
           {/* top bar */}
           <div className="absolute left-3 right-3 top-3 z-10 flex items-center justify-between gap-2">
@@ -588,8 +603,12 @@ export default function ListingsPage() {
               {count} {zh ? '套' : 'listings'}
             </span>
           </div>
+          {/* tapped cluster: every listing in it, scrollable sideways */}
+          {group && group.length > 0 && (
+            <MapGroupStrip items={items.filter((l) => group.includes(l.id))} zh={zh} onClose={() => setGroup(null)} />
+          )}
           {/* peek card for the tapped tag */}
-          {active && items.find((l) => l.id === active) && (
+          {!group && active && items.find((l) => l.id === active) && (
             <MapPeekCard l={items.find((l) => l.id === active)!} zh={zh} onClose={() => setActive(null)} />
           )}
         </div>
@@ -598,14 +617,35 @@ export default function ListingsPage() {
   )
 }
 
-/** Compact card shown over the phone map for the tapped price tag. */
+/** Every listing of a tapped cluster, side by side; scrolls sideways when
+ *  they do not fit. Same card body as the single-tag peek. */
+function MapGroupStrip({ items, zh, onClose }: { items: DBListing[]; zh: boolean; onClose: () => void }) {
+  return (
+    <div className="absolute inset-x-0 bottom-0 z-10">
+      <div className="flex items-center justify-between px-3 pb-1.5">
+        <span className="rounded-full bg-white px-3 py-1 font-mono text-[11px] font-bold shadow-md" style={{ color: '#1B1B3C' }}>
+          {items.length} {zh ? '套 · 左右滑动' : 'listings · swipe'}
+        </span>
+        <button type="button" onClick={onClose} aria-label={zh ? '关闭' : 'Close'} className="flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-3 pb-4" style={{ scrollbarWidth: 'thin' }}>
+        {items.map((l) => (
+          <div key={l.id} className="w-[min(88vw,360px)] flex-none snap-start">
+            <PeekBody l={l} zh={zh} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Compact card shown over the map for the tapped price tag. */
 function MapPeekCard({ l, zh, onClose }: { l: DBListing; zh: boolean; onClose: () => void }) {
-  const img = l.images && l.images.length > 0 ? l.images[0] : null
-  const a = l.thumb_a || '#D4C4A8'
-  const b = l.thumb_b || '#94815C'
   return (
     <div className="absolute inset-x-3 bottom-4 z-10 lg:inset-x-auto lg:bottom-5 lg:left-5 lg:w-[400px]">
-      <div className="relative overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_rgba(0,0,0,0.22)]">
+      <div className="relative">
         <button
           type="button"
           onClick={onClose}
@@ -614,6 +654,18 @@ function MapPeekCard({ l, zh, onClose }: { l: DBListing; zh: boolean; onClose: (
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
+        <PeekBody l={l} zh={zh} />
+      </div>
+    </div>
+  )
+}
+
+function PeekBody({ l, zh }: { l: DBListing; zh: boolean }) {
+  const img = l.images && l.images.length > 0 ? l.images[0] : null
+  const a = l.thumb_a || '#D4C4A8'
+  const b = l.thumb_b || '#94815C'
+  return (
+    <div className="relative h-full overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_rgba(0,0,0,0.22)]">
         <Link href={`/listings/${l.slug}`} className="flex gap-3 p-3">
           <div
             className="h-[104px] w-[124px] flex-none rounded-xl"
@@ -631,7 +683,6 @@ function MapPeekCard({ l, zh, onClose }: { l: DBListing; zh: boolean; onClose: (
             <div className="mt-1.5 text-[12px] font-bold" style={{ color: '#00ACE4' }}>{zh ? '查看详情 →' : 'View details →'}</div>
           </div>
         </Link>
-      </div>
     </div>
   )
 }
