@@ -1,5 +1,5 @@
 'use client'
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, ReactNode, useLayoutEffect } from 'react'
 
 export type Lang = 'en' | 'zh'
 export type Currency = 'CAD' | 'USD' | 'CNY' | 'EUR' | 'GBP' | 'JPY' | 'KRW' | 'INR' | 'HKD' | 'AUD'
@@ -666,13 +666,25 @@ function resolveInitialLang(): Lang {
   }
 }
 
+// Layout effect on the client, plain effect during SSR (where layout effects
+// are a no-op anyway) — keeps React quiet on the server.
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  // Lazy init: first client render already uses the user's language — no
-  // zh→en flash for EN users. The SSR HTML is zh; the resulting first-frame
-  // mismatch is patched by React (suppressHydrationWarning on <html> covers
-  // the lang attribute; body copy is state-driven and re-renders).
-  const [lang, setLangState] = useState<Lang>(resolveInitialLang)
+  // The first client render MUST match the server HTML (zh) — hydrating with
+  // the browser's language instead threw React #418 on every page for EN
+  // visitors, which made React throw the server HTML away and re-render the
+  // whole tree on the client (a visible zh→en flash plus a slower first
+  // paint). The user's language is applied in a layout effect: it runs after
+  // hydration but BEFORE the browser paints, so EN visitors still never see
+  // Chinese, and nothing mismatches. (2026-09-07)
+  const [lang, setLangState] = useState<Lang>('zh')
   const [currency, setCurrencyState] = useState<Currency>('CAD')
+
+  useIsomorphicLayoutEffect(() => {
+    const resolved = resolveInitialLang()
+    if (resolved !== 'zh') setLangState(resolved)
+  }, [])
 
   useEffect(() => {
     const storedCurrency = typeof window !== 'undefined' ? (localStorage.getItem('stayloop_currency') as Currency | null) : null
