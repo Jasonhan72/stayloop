@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useT } from '@/lib/i18n'
 
 /**
@@ -58,6 +58,7 @@ function pillPath(label: string): string {
 }
 
 const TAG_RED = '#E53935'
+const CLUSTER_PX = 48
 const TAG_RED_ACTIVE = '#B71C1C'
 
 function tagIcon(google: any, label: string, isActive: boolean) {
@@ -130,6 +131,76 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
   const infoRef = useRef<any>(null)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Latest props for listeners registered once (map 'idle').
+  const listingsRef = useRef(listings); listingsRef.current = listings
+  const clustersRef = useRef<any[]>([])
+
+  // Clustering (RealMaster-style): tags whose screen positions fall within
+  // CLUSTER_PX of each other collapse into one red disc with the count.
+  // Recomputed on every idle (pan/zoom); tapping a disc zooms into its group.
+  const renderClusters = useCallback(() => {
+    const google = window.google
+    const map = mapRef.current
+    if (!google || !map) return
+    const proj = map.getProjection()
+    const zoom = map.getZoom()
+    if (!proj || zoom == null) return
+    const scale = Math.pow(2, zoom)
+    type Pt = { l: MapListing; x: number; y: number }
+    const pts: Pt[] = []
+    for (const l of listingsRef.current) {
+      if (l.lat == null || l.lng == null) continue
+      const wp = proj.fromLatLngToPoint(new google.maps.LatLng(Number(l.lat), Number(l.lng)))
+      if (!wp) continue
+      pts.push({ l, x: wp.x * scale, y: wp.y * scale })
+    }
+    const groups: { x: number; y: number; items: Pt[] }[] = []
+    for (const p of pts) {
+      let g = groups.find((gr) => Math.hypot(gr.x - p.x, gr.y - p.y) < CLUSTER_PX)
+      if (!g) { g = { x: p.x, y: p.y, items: [] }; groups.push(g) }
+      g.items.push(p)
+      g.x = g.items.reduce((a, it) => a + it.x, 0) / g.items.length
+      g.y = g.items.reduce((a, it) => a + it.y, 0) / g.items.length
+    }
+    clustersRef.current.forEach((m) => m.setMap(null))
+    clustersRef.current = []
+    const single = new Set<string>()
+    for (const g of groups) {
+      if (g.items.length === 1) { single.add(g.items[0].l.id); continue }
+      const lat = g.items.reduce((a, it) => a + Number(it.l.lat), 0) / g.items.length
+      const lng = g.items.reduce((a, it) => a + Number(it.l.lng), 0) / g.items.length
+      const count = g.items.length
+      const disc = new google.maps.Marker({
+        position: { lat, lng },
+        map,
+        zIndex: 5,
+        label: { text: String(count), color: '#fff', fontSize: '13px', fontWeight: '800', fontFamily: 'Inter Tight, system-ui, sans-serif' },
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: count >= 10 ? 22 : 18,
+          fillColor: TAG_RED,
+          fillOpacity: 1,
+          strokeColor: '#fff',
+          strokeWeight: 2.5,
+        },
+        title: `${count} listings`,
+      })
+      const members = g.items
+      disc.addListener('click', () => {
+        const b = new google.maps.LatLngBounds()
+        members.forEach((it) => b.extend({ lat: Number(it.l.lat), lng: Number(it.l.lng) }))
+        const before = map.getZoom()
+        map.fitBounds(b, { top: 90, right: 60, bottom: 90, left: 60 })
+        // Identical coordinates never spread — step the zoom instead.
+        google.maps.event.addListenerOnce(map, 'idle', () => {
+          if (map.getZoom() <= before) map.setZoom(Math.min(before + 2, 20))
+        })
+      })
+      clustersRef.current.push(disc)
+    }
+    markersRef.current.forEach((m, id) => m.setMap(single.has(id) ? map : null))
+    if (ref.current) ref.current.dataset.clusters = String(clustersRef.current.length)
+  }, [])
 
   // Initial mount: load script + create map
   useEffect(() => {
@@ -151,6 +222,7 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
           styles: MAP_STYLE,
         })
         infoRef.current = new google.maps.InfoWindow({ disableAutoPan: true })
+        mapRef.current.addListener('idle', renderClusters)
         setReady(true)
       })
       .catch((e) => {
@@ -159,7 +231,7 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
     return () => {
       cancelled = true
     }
-  }, [apiKey])
+  }, [apiKey, renderClusters])
 
   // Recreate markers when the listings change OR when the map first becomes ready
   useEffect(() => {
@@ -179,7 +251,7 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
       const label = priceTag(l.monthly_rent)
       const marker = new google.maps.Marker({
         position: pos,
-        map: mapRef.current,
+        map: null,
         title: `$${l.monthly_rent.toLocaleString()}`,
         label: { text: label, color: '#fff', fontSize: '12px', fontWeight: '800', fontFamily: 'Inter Tight, system-ui, sans-serif' },
         icon: tagIcon(google, label, l.id === active),
@@ -199,8 +271,10 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
         mapRef.current.fitBounds(bounds, { top: 60, right: 40, bottom: 40 + bottomInset, left: 40 })
       }
     }
+    // fitBounds fires 'idle' → renderClusters; a map that did not move needs it explicitly.
+    renderClusters()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, listings, onPick, mode, bottomInset])
+  }, [ready, listings, onPick, mode, bottomInset, renderClusters])
 
   // When active changes, re-color the markers
   useEffect(() => {
