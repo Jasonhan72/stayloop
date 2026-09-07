@@ -241,12 +241,19 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
     markersRef.current.forEach((m) => m.setMap(null))
     markersRef.current.clear()
 
+    // Initial view frames the Greater Toronto listings; anything far outside
+    // (a Montréal import, say) stays on the map but must not drag the zoom
+    // out until the whole city collapses into one cluster.
+    const inGta = (lat: number, lng: number) => lat > 43.3 && lat < 44.2 && lng > -80.2 && lng < -78.6
     const bounds = new google.maps.LatLngBounds()
+    const allBounds = new google.maps.LatLngBounds()
     let placed = 0
+    let framed = 0
     listings.forEach((l) => {
       if (l.lat == null || l.lng == null) return
       const pos = { lat: Number(l.lat), lng: Number(l.lng) }
-      bounds.extend(pos)
+      allBounds.extend(pos)
+      if (inGta(pos.lat, pos.lng)) { bounds.extend(pos); framed += 1 }
       placed += 1
       const label = priceTag(l.monthly_rent)
       const marker = new google.maps.Marker({
@@ -263,12 +270,14 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
     })
     if (ref.current) ref.current.dataset.markers = String(placed)
 
-    if (placed > 0) {
-      if (placed === 1) {
-        mapRef.current.setCenter(bounds.getCenter())
+    const frame = framed > 0 ? bounds : allBounds
+    const n = framed > 0 ? framed : placed
+    if (n > 0) {
+      if (n === 1) {
+        mapRef.current.setCenter(frame.getCenter())
         mapRef.current.setZoom(14)
       } else {
-        mapRef.current.fitBounds(bounds, { top: 60, right: 40, bottom: 40 + bottomInset, left: 40 })
+        mapRef.current.fitBounds(frame, { top: 60, right: 40, bottom: 40 + bottomInset, left: 40 })
       }
     }
     // fitBounds fires 'idle' → renderClusters; a map that did not move needs it explicitly.
