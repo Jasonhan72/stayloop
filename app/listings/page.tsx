@@ -123,6 +123,9 @@ export default function ListingsPage() {
   const [minSqft, setMinSqft] = useState<number | null>(null)
   const [sort, setSort] = useState<SortKey>('ai')
   const [openChip, setOpenChip] = useState<string | null>(null)
+  // Filter chips live in a collapsible panel (2026-09-07) so they cost no
+  // height until wanted; the toolbar shows how many are active.
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [aiFilterNote, setAiFilterNote] = useState<string | null>(null)
   const [favOnly, setFavOnly] = useState(false)
   const { favs, isFav, toggle, count: favCount } = useFavorites()
@@ -250,6 +253,8 @@ export default function ListingsPage() {
     : (zh ? '卧室' : 'Beds')
   const moveInLabel = moveIn || (zh ? '入住日期' : 'Move-in date')
   const moreOn = minBaths != null || minSqft != null
+  const activeChipCount = [priceMin != null || priceMax != null, minBeds != null, !!moveIn, pets, moreOn].filter(Boolean).length
+  const clearChips = () => { setPriceMin(null); setPriceMax(null); setMinBeds(null); setMoveIn(''); setPets(false); setMinBaths(null); setMinSqft(null); setOpenChip(null) }
 
   return (
     <div className="bg-white" style={{ minHeight: '100vh' }}>
@@ -303,12 +308,77 @@ export default function ListingsPage() {
         </div>
       </section>
 
-      {/* Filters — every chip is functional */}
+      {/* Filters — a one-line toolbar; the chips unfold beneath it on demand */}
       <section
         className="bg-white px-5 sm:px-8"
-        style={{ paddingTop: 12, paddingBottom: 12, borderBottom: '1px solid #E4EEF6' }}
+        style={{ paddingTop: 10, paddingBottom: 10, borderBottom: '1px solid #E4EEF6' }}
       >
-        <div className="relative mx-auto flex w-full max-w-[1080px] flex-wrap items-center justify-center gap-[10px]">
+        <div className="mx-auto flex w-full max-w-[1080px] items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+            style={{
+              padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', flexShrink: 0,
+              border: '1px solid ' + (filtersOpen || activeChipCount ? '#171717' : '#9FBBD0'),
+              background: filtersOpen ? '#171717' : '#fff',
+              color: filtersOpen ? '#fff' : '#171717',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+            {zh ? '筛选' : 'Filters'}
+            {activeChipCount > 0 && (
+              <span style={{ background: filtersOpen ? '#fff' : '#00ACE4', color: filtersOpen ? '#171717' : '#fff', borderRadius: 999, fontSize: 11, fontWeight: 800, padding: '1px 7px' }}>{activeChipCount}</span>
+            )}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: filtersOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          {activeChipCount > 0 && !filtersOpen && (
+            <button type="button" onClick={clearChips} style={{ fontSize: 12.5, fontWeight: 600, color: '#6E6E8A', whiteSpace: 'nowrap', flexShrink: 0, background: 'none', border: 0, cursor: 'pointer', padding: '0 4px' }}>
+              {zh ? '清除' : 'Clear'}
+            </button>
+          )}
+          <span style={{ flex: 1 }} />
+          {/* My favorites — local-only filter */}
+          <button
+            onClick={() => setFavOnly((v) => !v)}
+            aria-pressed={favOnly}
+            style={{
+              padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', flexShrink: 0,
+              border: favOnly ? '1px solid #171717' : '1px solid #9FBBD0',
+              background: favOnly ? '#171717' : '#fff',
+              color: favOnly ? '#fff' : '#171717',
+            }}
+          >
+            <span aria-hidden style={{ color: favOnly ? '#FB7185' : '#A1A1AA', fontSize: 14, lineHeight: 1 }}>
+              {favOnly ? '♥' : '♡'}
+            </span>
+            {zh ? `我的收藏 ${favCount}` : `Saved ${favCount}`}
+          </button>
+
+          {/* AI profile filter */}
+          <button
+            onClick={applyProfileFilters}
+            style={{
+              padding: '8px 14px',
+              background: 'linear-gradient(135deg,rgba(0,172,228,0.10),rgba(37,99,235,0.10))',
+              border: '1px solid rgba(0,172,228,0.40)',
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#5B21B6',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+          >
+            {zh ? `◐ ${aiName} 帮我筛 (匹配我的 Profile)` : `◐ Let ${aiName} filter (match my profile)`}
+          </button>
+        </div>
+
+        {filtersOpen && (
+        <div className="relative mx-auto mt-3 flex w-full max-w-[1080px] flex-wrap items-center justify-center gap-[10px]">
           {/* Mode (only rentals live today) */}
           <Chip label={zh ? '出租' : 'For rent'} on open={openChip === 'mode'} onToggle={() => setOpenChip(openChip === 'mode' ? null : 'mode')}>
             <div style={{ fontSize: 13 }}>
@@ -424,41 +494,7 @@ export default function ListingsPage() {
             </div>
           </Chip>
 
-          {/* My favorites — local-only filter */}
-          <button
-            onClick={() => setFavOnly((v) => !v)}
-            aria-pressed={favOnly}
-            style={{
-              padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              border: favOnly ? '1px solid #171717' : '1px solid #9FBBD0',
-              background: favOnly ? '#171717' : '#fff',
-              color: favOnly ? '#fff' : '#171717',
-            }}
-          >
-            <span aria-hidden style={{ color: favOnly ? '#FB7185' : '#A1A1AA', fontSize: 14, lineHeight: 1 }}>
-              {favOnly ? '♥' : '♡'}
-            </span>
-            {zh ? `我的收藏 ${favCount}` : `Saved ${favCount}`}
-          </button>
 
-          {/* AI profile filter */}
-          <button
-            onClick={applyProfileFilters}
-            style={{
-              marginLeft: 12,
-              padding: '8px 14px',
-              background: 'linear-gradient(135deg,rgba(0,172,228,0.10),rgba(37,99,235,0.10))',
-              border: '1px solid rgba(0,172,228,0.40)',
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              color: '#5B21B6',
-              cursor: 'pointer',
-            }}
-          >
-            {zh ? `◐ ${aiName} 帮我筛 (匹配我的 Profile)` : `◐ Let ${aiName} filter (match my profile)`}
-          </button>
 
           {anyFilter && (
             <button onClick={clearAll} style={{ fontSize: 12.5, color: '#71717A', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
@@ -466,6 +502,7 @@ export default function ListingsPage() {
             </button>
           )}
         </div>
+        )}
         {aiFilterNote && (
           <div className="mx-auto mt-2 max-w-[1080px] text-center" style={{ fontSize: 12.5, color: '#5B21B6' }}>
             ◐ {aiFilterNote}
