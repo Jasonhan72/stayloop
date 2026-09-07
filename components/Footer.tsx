@@ -47,8 +47,9 @@ export default function Footer() {
   const { role: adminRole } = useAdmin()
   return (
     <footer className="mt-24 border-t border-line-divider bg-surface-nav">
-      <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-14 sm:px-7 lg:grid-cols-[1.4fr_repeat(3,1fr)] lg:gap-14 lg:px-8">
-        <div>
+      <div className="mx-auto grid max-w-[1320px] grid-cols-2 gap-x-6 gap-y-10 px-5 py-12 sm:grid-cols-3 sm:px-7 sm:py-14 lg:grid-cols-[1.4fr_repeat(3,1fr)] lg:gap-14 lg:px-8">
+        {/* phones: brand spans the row, the three link groups share two columns; tablets: three groups in a row */}
+        <div className="col-span-2 sm:col-span-3 lg:col-span-1">
           <Logo size="md" />
           <p className="mt-4 max-w-sm text-[13px] leading-relaxed text-body-2">
             {t('foot.tag')}
@@ -60,7 +61,7 @@ export default function Footer() {
           </div>
         </div>
         {GROUPS.map((g) => (
-          <div key={g.titleKey}>
+          <div key={g.titleKey} className="min-w-0">
             <h4 className="sl-eyebrow text-body">{t(g.titleKey)}</h4>
             <ul className="mt-4 space-y-3">
               {g.links
