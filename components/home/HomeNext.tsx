@@ -178,8 +178,8 @@ export default function HomeNext() {
 
       {/* ================= HERO = the assistant ================= */}
       <section style={{ background: 'linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)' }}>
-        <div className="pb-10 pt-12 lg:pt-16">
-          <div className="mx-auto max-w-[760px] px-5 text-center sm:px-7">
+        <div className="mx-auto max-w-[1100px] px-5 pb-10 pt-12 sm:px-7 lg:pt-16">
+          <div className="mx-auto max-w-[760px] text-center">
             <div className="font-mono text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: '#00ACE4' }}>
               AI-Native Rental OS · Toronto
             </div>
@@ -194,10 +194,7 @@ export default function HomeNext() {
           </div>
 
           {/* role switch + live assistant */}
-          {/* The assistant takes the full page width: 8px gutters on phones,
-              wider on desktop, capped only so ultra-wide monitors keep the
-              thread readable. */}
-          <div ref={heroRef} id="assistant" className="mx-auto mt-8 w-full max-w-[1600px] scroll-mt-24 px-2 sm:px-5 lg:px-8">
+          <div ref={heroRef} id="assistant" className="mx-auto mt-8 max-w-[920px] scroll-mt-24">
             <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
               {(['tenant', 'landlord', 'agent'] as AgentRole[]).map((r) => (
                 <button
@@ -211,10 +208,10 @@ export default function HomeNext() {
                 </button>
               ))}
             </div>
-            <div className="lg:h-[calc(100svh-180px)] lg:min-h-[560px] lg:max-h-[820px]">
+            <div className="h-[560px] sm:h-[600px]">
               <AssistantPanel key={role} role={role} name={names[role]} queued={queued} onQueuedSent={() => setQueued(null)} />
             </div>
-            <div className="mt-3 flex flex-col items-center justify-between gap-2 px-2 text-[12px] text-body-3 sm:flex-row">
+            <div className="mt-3 flex flex-col items-center justify-between gap-2 text-[12px] text-body-3 sm:flex-row">
               <span>{zh ? '免注册体验 · 每小时有次数上限 · 登录后它才会记住你' : 'Try without signing up · hourly limit · it only remembers you after you sign in'}</span>
               <span className="inline-flex items-center gap-2 rounded-full border border-line-divider bg-white px-3 py-1">
                 <span className="h-2 w-2 rounded-full" style={{ background: '#00ACE4' }} />
