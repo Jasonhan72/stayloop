@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useT } from '@/lib/i18n'
 
 /**
@@ -30,6 +30,13 @@ interface Props {
   mode?: 'split' | 'full'
   /** Pixels reserved at the bottom (the phone peek card) when fitting bounds. */
   bottomInset?: number
+  /** Click on a price tag (hover still only calls onPick). */
+  onOpen?: (id: string) => void
+  /** Renders a fullscreen toggle in the top-right corner. */
+  onToggleFull?: () => void
+  fullLabel?: string
+  /** Overlays (peek card etc.) rendered inside the map frame. */
+  children?: ReactNode
 }
 
 // RealMaster-style price tag: the number only, in thousands.
@@ -121,7 +128,7 @@ declare global {
   }
 }
 
-export default function ListingsMap({ listings, active, onPick, mode = 'split', bottomInset = 0 }: Props) {
+export default function ListingsMap({ listings, active, onPick, mode = 'split', bottomInset = 0, onOpen, onToggleFull, fullLabel, children }: Props) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''
@@ -264,7 +271,7 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
         icon: tagIcon(google, label, l.id === active),
         zIndex: l.id === active ? 10 : 1,
       })
-      marker.addListener('click', () => onPick(l.id))
+      marker.addListener('click', () => { onPick(l.id); if (onOpen) onOpen(l.id) })
       if (mode === 'split') marker.addListener('mouseover', () => onPick(l.id))
       markersRef.current.set(l.id, marker)
     })
@@ -283,7 +290,7 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
     // fitBounds fires 'idle' → renderClusters; a map that did not move needs it explicitly.
     renderClusters()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, listings, onPick, mode, bottomInset, renderClusters])
+  }, [ready, listings, onPick, onOpen, mode, bottomInset, renderClusters])
 
   // When active changes, re-color the markers
   useEffect(() => {
@@ -310,6 +317,18 @@ export default function ListingsMap({ listings, active, onPick, mode = 'split', 
       <div ref={ref} style={{ position: 'absolute', inset: 0 }} />
 
       {error === 'missing-key' && <NoKeyFallback zh={zh} />}
+      {onToggleFull && (
+        <button
+          type="button"
+          onClick={onToggleFull}
+          className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[12.5px] font-bold shadow-md"
+          style={{ color: '#1B1B3C' }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+          {fullLabel}
+        </button>
+      )}
+      {children}
       {error && error !== 'missing-key' && (
         <div
           className="absolute inset-0 flex items-center justify-center bg-surface text-[13px] text-body-2"

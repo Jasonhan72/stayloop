@@ -94,11 +94,15 @@ export default function ListingsPage() {
   // Phone map mode (RealMaster-style): full-screen map with red price tags;
   // tapping a tag shows that listing's card at the bottom.
   const [mapOpen, setMapOpen] = useState(false)
+  // Desktop split view: the listing whose tag was clicked (popup over the map).
+  const [peek, setPeek] = useState<string | null>(null)
   useEffect(() => {
     if (!mapOpen) return
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMapOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey) }
   }, [mapOpen])
   const [loading, setLoading] = useState(true)
 
@@ -535,7 +539,14 @@ export default function ListingsPage() {
             }))}
             active={active}
             onPick={setActive}
-          />
+            onOpen={(id) => setPeek(id)}
+            onToggleFull={() => { setPeek(null); setMapOpen(true) }}
+            fullLabel={zh ? '全屏' : 'Fullscreen'}
+          >
+            {peek && items.find((l) => l.id === peek) && (
+              <MapPeekCard l={items.find((l) => l.id === peek)!} zh={zh} onClose={() => setPeek(null)} />
+            )}
+          </ListingsMap>
         </div>
       </section>
 
@@ -553,7 +564,7 @@ export default function ListingsPage() {
         </button>
       )}
       {mapOpen && (
-        <div className="fixed inset-0 z-[60] lg:hidden" style={{ background: '#E5E3DC' }}>
+        <div className="fixed inset-0 z-[60]" style={{ background: '#E5E3DC' }}>
           <ListingsMap
             mode="full"
             bottomInset={active ? 180 : 0}
@@ -570,7 +581,8 @@ export default function ListingsPage() {
               style={{ color: '#1B1B3C' }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-              {zh ? '列表' : 'List'}
+              <span className="lg:hidden">{zh ? '列表' : 'List'}</span>
+              <span className="hidden lg:inline">{zh ? '退出全屏' : 'Exit fullscreen'}</span>
             </button>
             <span className="rounded-full bg-white px-3 py-2 font-mono text-[11px] font-bold shadow-md" style={{ color: '#1B1B3C' }}>
               {count} {zh ? '套' : 'listings'}
@@ -592,7 +604,7 @@ function MapPeekCard({ l, zh, onClose }: { l: DBListing; zh: boolean; onClose: (
   const a = l.thumb_a || '#D4C4A8'
   const b = l.thumb_b || '#94815C'
   return (
-    <div className="absolute inset-x-3 bottom-4 z-10">
+    <div className="absolute inset-x-3 bottom-4 z-10 lg:inset-x-auto lg:bottom-5 lg:left-5 lg:w-[400px]">
       <div className="relative overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_rgba(0,0,0,0.22)]">
         <button
           type="button"
