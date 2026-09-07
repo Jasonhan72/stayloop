@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+  <style>
+    body { margin: 0; background: #ffffff; color: #1B1B3C; font-family: "Inter Tight", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: inherit; text-decoration: none; }
+    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+    .eyebrow { font-family: "JetBrains Mono", monospace; font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; height: 46px; padding: 0 20px; border-radius: 999px; font-weight: 700; font-size: 15px; white-space: nowrap; }
+    .btn-primary { background: var(--accent); color: #ffffff; }
+    .btn-ghost { background: #ffffff; color: #1B1B3C; border: 1px solid #D3E3EF; }
+    .card { background: #ffffff; border: 1px solid #D3E3EF; border-radius: 14px; }
+    .muted { color: #6E6E8A; }
+    .ink2 { color: #4A4A6A; }
+    .h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin: 0; text-wrap: balance; }
+    .chip { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: 999px; font-family: "JetBrains Mono", monospace; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; }
+    .chip-ok { background: #E6F4EF; color: #047857; }
+    .chip-part { background: #FEF3C7; color: #B45309; }
+    .seat { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; border: 1px solid #E4EEF6; background: #ffffff; }
+    .seat.on { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 16%, #ffffff); }
+    .seat .lbl { display: flex; align-items: center; gap: 8px; font-family: "JetBrains Mono", monospace; font-size: 10px; letter-spacing: 0.1em; color: #6E6E8A; font-weight: 700; }
+    .seat .av { width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center; font-weight: 800; font-size: 9px; color: #ffffff; }
+    .seat .body { font-size: 13.5px; line-height: 1.5; }
+    .stage { display: flex; gap: 12px; align-items: flex-start; }
+    .stage .n { width: 26px; height: 26px; flex: none; border-radius: 999px; display: grid; place-items: center; font-family: "JetBrains Mono", monospace; font-size: 11px; font-weight: 700; color: #ffffff; background: var(--accent); }
+    .stage .n.off { background: #D3E3EF; color: #4A4A6A; }
+    .stage b { font-size: 15px; display: block; }
+    .stage span { font-size: 13px; color: #4A4A6A; line-height: 1.5; display: block; margin-top: 2px; }
+    .rule b { font-size: 15px; display: block; }
+    .rule span { font-size: 13px; color: #B7C2D6; display: block; line-height: 1.5; margin-top: 2px; }
+  </style>
+</helmet>
+
+<div style="--accent: {{accent}}; width: 390px; background: #ffffff; box-sizing: border-box;">
+  <!-- Nav -->
+  <div style="height: 60px; border-bottom: 1px solid #E4EEF6; display: flex; align-items: center; justify-content: space-between; padding: 0 20px;">
+    <div style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em;">stay<span style="background: linear-gradient(90deg, #1B1B3C, #00ACE4); -webkit-background-clip: text; color: transparent;">loop.AI</span></div>
+    <div style="width: 40px; height: 40px; border-radius: 999px; border: 1px solid #D3E3EF; display: grid; place-items: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B1B3C" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></div>
+  </div>
+
+  <!-- Hero -->
+  <div style="background: linear-gradient(180deg, #E9F5FD 0%, #ffffff 100%); padding: 36px 20px 28px; display: flex; flex-direction: column; gap: 18px;">
+    <div class="eyebrow">STAYLOOP · 租房的共享记录 · 各自的 AI</div>
+    <h1 style="font-size: 36px; line-height: 1.1; letter-spacing: -0.03em; font-weight: 800; margin: 0; text-wrap: balance;">租房这件事，让每一方都在 loop 里。</h1>
+    <p class="ink2" style="font-size: 16px; line-height: 1.55; margin: 0;">租客、房东、经纪共用一条记录，各自有一个 AI 助手。申请到哪一步、材料是真是假、下一步谁来做，不用再追问。</p>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <a href="#" class="btn btn-primary">房东：试一单筛查 · 免费</a>
+      <a href="#" class="btn btn-ghost">租客：免费开始</a>
+    </div>
+
+    <!-- Loop card, stacked seats -->
+    <div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 20px 50px -28px rgba(27, 27, 60, 0.35);">
+      <div class="eyebrow" style="color: #6E6E8A;">一件事 · 三个座位</div>
+      <div style="font-weight: 800; font-size: 15px;">Mia Chen 的申请 · 筛查完成</div>
+      <div class="seat"><div class="lbl"><span class="av" style="background: #7C3AED;">MC</span>租客看到</div><div class="body">进度：<b>房东已收到报告，建议面谈</b></div></div>
+      <div class="seat on"><div class="lbl"><span class="av" style="background: #047857;">SW</span>房东看到</div><div class="body"><span class="mono" style="font-size: 16px; font-weight: 700; color: #047857;">87</span> · <b>身份经本人授权核验 · LTB 判令 0 条</b></div></div>
+      <div class="seat"><div class="lbl"><span class="av" style="background: #2563EB;">DP</span>经纪看到</div><div class="body">客户 Mia <b>进入面谈</b>，看房反馈已送达房东。</div></div>
+    </div>
+    <div class="muted" style="font-size: 12px; line-height: 1.6;">Anthropic Claude 驱动 · TRREB / Realtor.ca 官方数据 · RTA · OHRC · PIPEDA · 数据驻加</div>
+  </div>
+
+  <!-- Pains -->
+  <div style="background: #F3F8FC; border-top: 1px solid #E4EEF6; border-bottom: 1px solid #E4EEF6; padding: 22px 20px; display: flex; flex-direction: column; gap: 14px;">
+    <div><div class="eyebrow" style="color: #6E6E8A;">租客</div><div style="font-size: 15px; font-weight: 600; margin-top: 3px;">申请交出去两周，没人告诉你到了哪一步。</div></div>
+    <div><div class="eyebrow" style="color: #6E6E8A;">房东</div><div style="font-size: 15px; font-weight: 600; margin-top: 3px;">工资单看起来像真的。空置一个月，$2,900 就没了。</div></div>
+    <div><div class="eyebrow" style="color: #6E6E8A;">经纪</div><div style="font-size: 15px; font-weight: 600; margin-top: 3px;">房东问「那个租客靠谱吗」，你只能凭感觉答。</div></div>
+  </div>
+
+  <!-- Loop stages, vertical -->
+  <div style="padding: 44px 20px; display: flex; flex-direction: column; gap: 22px;">
+    <div style="display: flex; flex-direction: column; gap: 8px;"><div class="eyebrow">租房的 LOOP</div><h2 class="h2">一段租约的五步，每一步都有人和你同在</h2></div>
+    <div style="display: flex; flex-direction: column; gap: 18px; border-left: 2px solid #D3E3EF; margin-left: 12px; padding-left: 18px;">
+      <div class="stage" style="margin-left: -32px;"><div class="n">1</div><div><b>找房 / 挂牌 <span class="chip chip-ok">已上线</span></b><span>真实房源，官方行情作答。</span></div></div>
+      <div class="stage" style="margin-left: -32px;"><div class="n">2</div><div><b>申请 / 筛查 <span class="chip chip-ok">已上线</span></b><span>每个数字能回答「从哪儿来」；申请人本人授权核验。</span></div></div>
+      <div class="stage" style="margin-left: -32px;"><div class="n">3</div><div><b>签约 <span class="chip chip-ok">已上线</span></b><span>安省标准租约，逐条讲明白，双方电子签。</span></div></div>
+      <div class="stage" style="margin-left: -32px;"><div class="n off">4</div><div><b>在住 <span class="chip chip-part">部分</span></b><span>对话、租金记录、报修三方共见。</span></div></div>
+      <div class="stage" style="margin-left: -32px;"><div class="n off">5</div><div><b>续约 / 退租 <span class="chip chip-part">部分</span></b><span>到期前 120 天有人提醒；履历跟着租客走。</span></div></div>
+    </div>
+  </div>
+
+  <!-- Roles: stacked cards -->
+  <div style="padding: 0 20px 44px; display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; flex-direction: column; gap: 8px;"><div class="eyebrow">三方各自得到什么</div><h2 class="h2">同一条记录，三种立场</h2></div>
+    <div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 8px;"><div class="mono muted" style="font-size: 10.5px; letter-spacing: 0.1em;">房东 × LOGIC</div><div style="font-size: 17px; font-weight: 800; line-height: 1.3;">每个结论有出处，申请人自己来证明。</div><div class="ink2" style="font-size: 13.5px; line-height: 1.5;">筛查报告每个数字可追问；身份经本人授权核验；租约、电子签、续约提醒在一条记录里。</div><a href="#" class="btn btn-primary" style="height: 40px; font-size: 14px; align-self: flex-start; margin-top: 4px;">试一单筛查 · 免费</a></div>
+    <div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 8px;"><div class="mono muted" style="font-size: 10.5px; letter-spacing: 0.1em;">租客 × LUNA</div><div style="font-size: 17px; font-weight: 800; line-height: 1.3;">材料交一次，进度随时看，记录跟着你走。</div><div class="ink2" style="font-size: 13.5px; line-height: 1.5;">一个分享链接代替反复交材料；租约逐条讲成中文再电子签；在住记录三方共见。</div><a href="#" class="btn btn-ghost" style="height: 40px; font-size: 14px; align-self: flex-start; margin-top: 4px;">免费开始</a></div>
+    <div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 8px;"><div class="mono muted" style="font-size: 10.5px; letter-spacing: 0.1em;">经纪 × BRIEF</div><div style="font-size: 17px; font-weight: 800; line-height: 1.3;">替客户把关，不当传话筒。</div><div class="ink2" style="font-size: 13.5px; line-height: 1.5;">替客户下单筛查，报告直接分享给房东；自己的 AI 记住每位客户。</div></div>
+  </div>
+
+  <!-- Trust band -->
+  <div style="margin: 0 20px; border-radius: 16px; background: #1B1B3C; color: #ffffff; padding: 28px 22px; display: flex; flex-direction: column; gap: 16px;">
+    <div class="eyebrow" style="color: #33BCEA;">为什么可信</div>
+    <div style="font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2;">不给形容词，给可以验证的规则</div>
+    <div class="rule"><b>AI 提议，你决定。</b><span>发送、签署、付款都先变成等你确认的卡片。</span></div>
+    <div class="rule"><b>每个分数注明依据。</b><span>查不到就写「未查到」，不写「干净」。</span></div>
+    <div class="rule"><b>受保护特征不进评分。</b><span>不是《消费者报告法》意义上的报告机构。</span></div>
+    <div class="rule"><b>数据驻加。</b><span>按 PIPEDA 加密保存，申请人有权查阅与更正。</span></div>
+  </div>
+
+  <!-- Pricing + final -->
+  <div style="padding: 36px 20px 40px; display: flex; flex-direction: column; gap: 18px;">
+    <div class="ink2" style="font-size: 14.5px; line-height: 1.55;">租客永远免费。房东免费档每月 5 次筛查，深度核查按次 $14.99，或 $29 / 月不限次。</div>
+    <div style="position: relative; border-radius: 16px; overflow: hidden; height: 300px;">
+      <img src="hero-mist.jpg" alt="" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+      <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(27,27,60,0.05) 10%, rgba(27,27,60,0.75) 100%);"></div>
+      <div style="position: absolute; left: 18px; right: 18px; bottom: 18px; color: #ffffff; display: flex; flex-direction: column; gap: 12px;">
+        <div style="font-size: 24px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15;">下一段租约，从大家都在 loop 里开始。</div>
+        <a href="#" class="btn btn-primary" style="height: 42px; font-size: 14px;">房东：试一单筛查</a>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#00ACE4","options":["#00ACE4","#1B1B3C","#2563EB"],"section":"Brand"}}'>
+class Component extends DCLogic {
+  renderVals() { return { accent: this.props.accent ?? '#00ACE4' }; }
+}
+</script>
+</body>
+</html>

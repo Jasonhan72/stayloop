@@ -1,0 +1,11 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "title": "首页 v10 · 桌面 1440 · Loop", "x": 0, "y": 0, "w": 1440, "h": 3540 },
+    { "file": "MobileHome.dc.html", "title": "首页 v10 · 手机 390", "x": 1560, "y": 0, "w": 390, "h": 2760 },
+    { "file": "Roles.dc.html", "title": "§4 三角色 tab · 三个状态并排", "x": 0, "y": 3700, "w": 1440, "h": 1060 }
+  ],
+  "annotations": [
+    { "id": "read", "x": 1560, "y": 2880, "w": 380, "text": "设计读法：定位从「各自的 AI」转到「stay in the loop」——租客、房东、经纪共用一条记录，各自有 AI。Hero 右侧的 Loop 卡是全站最独特的一屏：同一个事件，三个座位看到各自的版本。\n\n三处自行拍板：① Hero 用 Loop 卡，对话演示下移到「怎么用」；② 经纪 tab 精简为两条已上线 + 一条「即将」；③ 「在线收租」从全部文案撤下，改写为「租金记录三方共见」。\n\n配色沿用 flinks.com：亮蓝 #00ACE4 唯一强调色（可在 Brand 里切换试看），墨蓝 #1B1B3C 标题与深色带，浅蓝渐变 hero。Header / Footer / logo 不动。所有未上线能力只以「即将 / 部分」角标出现，不进标题与数字。" }
+  ],
+  "launch": { "view": "canvas" }
+}

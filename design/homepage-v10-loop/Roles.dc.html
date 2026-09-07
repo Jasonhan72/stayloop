@@ -1,0 +1,122 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+  <style>
+    body { margin: 0; background: #ffffff; color: #1B1B3C; font-family: "Inter Tight", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: inherit; text-decoration: none; }
+    .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+    .eyebrow { font-family: "JetBrains Mono", monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 22px; border-radius: 999px; font-weight: 700; font-size: 14px; white-space: nowrap; }
+    .btn-primary { background: var(--accent); color: #ffffff; }
+    .btn-ghost { background: #ffffff; color: #1B1B3C; border: 1px solid #D3E3EF; }
+    .btn-navy { background: #1B1B3C; color: #ffffff; }
+    .card { background: #ffffff; border: 1px solid #D3E3EF; border-radius: 14px; }
+    .muted { color: #6E6E8A; }
+    .ink2 { color: #4A4A6A; }
+    .chip { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; font-family: "JetBrains Mono", monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
+    .chip-ok { background: #E6F4EF; color: #047857; }
+    .chip-part { background: #FEF3C7; color: #B45309; }
+    .chip-soon { background: #EEF0F4; color: #6E6E8A; }
+    .col { display: flex; flex-direction: column; gap: 20px; padding: 28px; border: 1px solid #D3E3EF; border-radius: 18px; background: #ffffff; min-width: 0; }
+    .pain { font-size: 13.5px; color: #6E6E8A; border-left: 2px solid #D3E3EF; padding-left: 12px; line-height: 1.5; }
+    .benefit { display: flex; flex-direction: column; gap: 3px; }
+    .benefit b { font-size: 15px; }
+    .benefit span { font-size: 13.5px; color: #4A4A6A; line-height: 1.5; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 14px; border-radius: 10px; border: 1px solid #E4EEF6; background: #ffffff; font-size: 13px; }
+    .pill { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .bar { height: 6px; border-radius: 999px; background: #E4EEF6; overflow: hidden; }
+    .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+  </style>
+</helmet>
+
+<div style="--accent: {{accent}}; width: 1440px; background: #ffffff; padding: 56px 64px 64px; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px;">
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div class="eyebrow">§4 三角色 TAB · 三个状态并排</div>
+    <div style="font-size: 30px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15;">同一条记录，三种立场，各自的 AI</div>
+    <div class="ink2" style="font-size: 15px;">线上一次只显示一个 tab；这里并排给出三份文案与各自的真实功能预览，方便一次审完。</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; align-items: start;">
+
+    <!-- Tenant -->
+    <div class="col">
+      <div style="display: flex; gap: 8px;"><span class="btn btn-navy" style="height: 36px; font-size: 13px; padding: 0 14px;">租客 × Luna</span></div>
+      <div style="font-size: 24px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; text-wrap: balance;">材料交一次，进度随时看，记录跟着你走。</div>
+      <div class="pain">掉出 loop 的时刻：投了申请石沉大海；同样的资料填了第四遍；英文租约签了也没看懂。</div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="benefit"><b>一个分享链接代替反复交材料 <span class="chip chip-ok">已上线</span></b><span>租客护照生成只读链接，房东点开即看，到期自动失效。</span></div>
+        <div class="benefit"><b>租约逐条讲成中文，再电子签 <span class="chip chip-ok">已上线</span></b><span>安省标准租约，每一条附解释；签完双方各留一份。</span></div>
+        <div class="benefit"><b>在住期间的对话、租金、报修在同一处 <span class="chip chip-ok">已上线</span></b><span>与房东共见，不再靠聊天截图当证据。</span></div>
+        <div class="benefit"><b>准时缴租成为你的履历 <span class="chip chip-part">部分</span></b><span>记录已留存；上报征信局在候补名单。</span></div>
+      </div>
+      <!-- Real feature: passport share -->
+      <div class="card" style="padding: 16px; background: #F3F8FC; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;"><div style="font-weight: 700; font-size: 13.5px;">租客护照 · 分享链接</div><span class="chip chip-ok">真实功能</span></div>
+        <div class="row"><span class="mono" style="font-size: 12px;">stayloop.ai/p/mia-chen-7f3a</span><span class="pill" style="background: #E6F4EF; color: #047857;">7 天有效</span></div>
+        <div class="row"><span>身份 · 收入 · 租史 · 银行</span><span class="mono muted" style="font-size: 11px;">3 / 4 枚章</span></div>
+        <div class="row"><span>Sarah Wang（房东）查看了 2 次</span><span class="mono muted" style="font-size: 11px;">昨天 14:22</span></div>
+      </div>
+      <a href="#" class="btn btn-primary" style="align-self: flex-start;">免费开始</a>
+    </div>
+
+    <!-- Landlord -->
+    <div class="col" style="border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 14%, #ffffff);">
+      <div style="display: flex; gap: 8px;"><span class="btn btn-navy" style="height: 36px; font-size: 13px; padding: 0 14px;">房东 × Logic</span></div>
+      <div style="font-size: 24px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; text-wrap: balance;">每个结论有出处，申请人自己来证明。</div>
+      <div class="pain">掉出 loop 的时刻：工资单像真的；上一任房东联系不上；空置一个月，$2,900 没了。</div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="benefit"><b>筛查报告，每个数字可追问 <span class="chip chip-ok">已上线</span></b><span>六维评分 + 文件取证 + LTB 判令目录、法院门户按姓名实查。免费档每月 5 次。</span></div>
+        <div class="benefit"><b>申请人本人授权核验 <span class="chip chip-part">部分</span></b><span>身份核验已上线；银行流水与征信直连接入中。深度核查按次 $14.99，可转给申请人付。</span></div>
+        <div class="benefit"><b>租约、电子签、续约提醒在一条记录里 <span class="chip chip-ok">已上线</span></b><span>到期前 120 天，续约方案先拟好等你批准。</span></div>
+        <div class="benefit"><b>合规兜底 <span class="chip chip-ok">已上线</span></b><span>受保护特征不进评分；申请人通知信一键生成。</span></div>
+      </div>
+      <!-- Real feature: report -->
+      <div class="card" style="padding: 16px; background: #F3F8FC; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;"><div style="font-weight: 700; font-size: 13.5px;">Mia Chen · 筛查报告</div><span class="mono" style="font-size: 22px; font-weight: 700; color: #047857;">87</span></div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+          <div><div class="muted" style="font-size: 10.5px; margin-bottom: 4px;">支付能力</div><div class="bar"><i style="width: 90%"></i></div></div>
+          <div><div class="muted" style="font-size: 10.5px; margin-bottom: 4px;">信用健康</div><div class="bar"><i style="width: 84%"></i></div></div>
+          <div><div class="muted" style="font-size: 10.5px; margin-bottom: 4px;">租史</div><div class="bar"><i style="width: 88%"></i></div></div>
+        </div>
+        <div class="row" style="background: #E6F4EF; border-color: #A7D9C3;"><span><b>已核验事实</b> · 身份核验通过 · 本人授权</span></div>
+        <div class="row"><span>LTB 判令目录 · 法院门户</span><span class="muted">未查到 · 2026-01 至 05</span></div>
+      </div>
+      <a href="#" class="btn btn-primary" style="align-self: flex-start;">试一单筛查 · 免费</a>
+    </div>
+
+    <!-- Agent (trimmed: two live points, one preview) -->
+    <div class="col">
+      <div style="display: flex; gap: 8px;"><span class="btn btn-navy" style="height: 36px; font-size: 13px; padding: 0 14px;">经纪 × Brief</span></div>
+      <div style="font-size: 24px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; text-wrap: balance;">替客户把关，不当传话筒。</div>
+      <div class="pain">掉出 loop 的时刻：房东问「那个租客靠谱吗」，你只能凭感觉答；看房反馈靠回忆转述。</div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="benefit"><b>替客户下单筛查，报告直接分享给房东 <span class="chip chip-ok">已上线</span></b><span>你、客户、房东看到的是同一份报告。</span></div>
+        <div class="benefit"><b>自己的 AI 记住每位客户 <span class="chip chip-ok">已上线</span></b><span>预算、区域、偏好只说一次；下次开口它就接上。</span></div>
+        <div class="benefit"><b>带看日程、反馈归档、佣金结算 <span class="chip chip-soon">即将</span></b><span>上线前不进首页数字。</span></div>
+      </div>
+      <!-- Real feature: shared report -->
+      <div class="card" style="padding: 16px; background: #F3F8FC; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;"><div style="font-weight: 700; font-size: 13.5px;">客户 Mia Chen · 报告分享</div><span class="chip chip-ok">真实功能</span></div>
+        <div class="row"><span>发送给 Sarah Wang（房东）</span><span class="pill" style="background: #E6F4EF; color: #047857;">已查看</span></div>
+        <div class="row"><span>看房反馈 · 1207 King West</span><span class="mono muted" style="font-size: 11px;">已送达</span></div>
+        <div class="row" style="border-style: dashed;"><span class="muted">带看日程 · 佣金结算</span><span class="chip chip-soon">即将</span></div>
+      </div>
+      <a href="#" class="btn btn-ghost" style="align-self: flex-start;">替客户下单筛查</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#00ACE4","options":["#00ACE4","#1B1B3C","#2563EB"],"section":"Brand"}}'>
+class Component extends DCLogic {
+  renderVals() { return { accent: this.props.accent ?? '#00ACE4' }; }
+}
+</script>
+</body>
+</html>
