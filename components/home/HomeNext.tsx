@@ -194,7 +194,7 @@ export default function HomeNext() {
           </div>
 
           {/* role switch + live assistant */}
-          <div ref={heroRef} id="assistant" className="mx-auto mt-8 max-w-[920px] scroll-mt-24">
+          <div ref={heroRef} id="assistant" className="mx-auto mt-8 min-w-0 max-w-[920px] scroll-mt-24">
             <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
               {(['tenant', 'landlord', 'agent'] as AgentRole[]).map((r) => (
                 <button
@@ -349,8 +349,8 @@ function RoleTabs({ lang, names, onAsk }: { lang: Lang; names: Record<AgentRole,
           </button>
         ))}
       </div>
-      <div className="mt-6 grid gap-8 rounded-2xl border border-line-divider bg-white p-6 sm:p-8 lg:grid-cols-[5fr_6fr] lg:gap-12">
-        <div>
+      <div className="mt-6 grid min-w-0 gap-8 rounded-2xl border border-line-divider bg-white p-6 sm:p-8 lg:grid-cols-[5fr_6fr] lg:gap-12">
+        <div className="min-w-0">
           <h3 className="text-[24px] font-extrabold leading-tight tracking-tight sm:text-[28px]">{withName(r.h2, lang, nm)}</h3>
           <p className="mt-3 text-[15px] leading-relaxed text-body-2">{withName(r.lead, lang, nm)}</p>
           <ul className="mt-6 space-y-4">
@@ -369,12 +369,12 @@ function RoleTabs({ lang, names, onAsk }: { lang: Lang; names: Record<AgentRole,
           </ul>
           <Link href={r.href} className="sl-btn-secondary mt-7 inline-flex">{withName(r.cta, lang, nm)}</Link>
         </div>
-        <div className="rounded-xl p-5" style={{ background: '#F3F8FC' }}>
+        <div className="min-w-0 rounded-xl p-5" style={{ background: '#F3F8FC' }}>
           <div className="font-mono text-[10.5px] font-bold uppercase tracking-[0.14em] text-body-3">{zh ? '对它说 · 点一下就发到上面的对话里' : 'Say it · one tap sends it to the conversation above'}</div>
           <div className="mt-3 grid gap-2">
             {r.chips.map((c) => (
               <button key={c.label.en} type="button" onClick={() => onAsk(r.key, pick(c.prompt, lang))}
-                className="group flex items-center justify-between gap-3 rounded-xl border border-line-divider bg-white px-4 py-3 text-left transition hover:border-[#00ACE4]">
+                className="group flex min-w-0 items-center justify-between gap-3 overflow-hidden rounded-xl border border-line-divider bg-white px-4 py-3 text-left transition hover:border-[#00ACE4]">
                 <span className="min-w-0">
                   <span className="block text-[13.5px] font-bold">{pick(c.label, lang)}</span>
                   <span className="block truncate text-[12px] text-body-3">{pick(c.prompt, lang)}</span>
