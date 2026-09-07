@@ -8,6 +8,7 @@ import AgentInputBar from './AgentInputBar'
 import DraftListingChatCard from './DraftListingChatCard'
 import ListingChatCard from './ListingChatCard'
 import TrrebTrendChart from './TrrebTrendChart'
+import Link from 'next/link'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage } from '@/lib/agent/types'
 
@@ -32,6 +33,7 @@ const SUGGESTIONS: Record<AgentRole, { icon: string; label: { zh: string; en: st
     { icon: '⭐', label: { zh: '盖下一枚章', en: 'Earn my next stamp' }, prompt: { zh: '我现在盖了几枚章?下一枚怎么盖,能解锁什么?', en: 'How many stamps do I have? How do I earn the next one, and what does it unlock?' } },
   ],
   landlord: [
+    { icon: '🔎', label: { zh: '租客筛查', en: 'Tenant screening' }, prompt: { zh: '我要筛查一位申请人：告诉我报告会查什么、需要准备哪些材料，然后带我开始。', en: 'I want to screen an applicant: tell me what the report checks, what documents I need, then take me to start.' } },
     { icon: '🏠', label: { zh: '发布房源', en: 'List a property' }, prompt: { zh: '我要发布一个新房源,你来帮我整理信息。', en: 'I want to list a new property — help me put it together.' } },
     { icon: '📥', label: { zh: '看看新申请', en: 'Review applications' }, prompt: { zh: '帮我看看最新的申请,按质量排序并说明理由。', en: 'Review my latest applications, rank them and explain why.' } },
     { icon: '📝', label: { zh: '续约方案', en: 'Renewal options' }, prompt: { zh: '帮我看看哪些租约快到期了,给我续约方案和合规涨幅。', en: 'Which leases are coming up? Give me renewal options with the legal increase.' } },
@@ -100,7 +102,7 @@ export default function AgentChat({
                 }
                 style={m.role === 'user' ? { background: accent } : undefined}
               >
-                {m.text}
+                {linkifyPaths(m.text)}
               </div>
               {m.role === 'user' && m.attachments && m.attachments.length > 0 && (
                 <div className="flex flex-wrap justify-end gap-2">
@@ -355,5 +357,18 @@ function ThinkingIndicator({ status, lang }: { status: AgentStatus; lang: 'zh' |
         }
       `}</style>
     </div>
+  )
+}
+
+// Internal paths the assistant is told to mention (e.g. /screening/app) render
+// as links; everything else stays plain text.
+const PATH_RE = /(\/screening\/app|\/screening|\/verify\/[A-Za-z0-9-]+|\/leases\/import|\/landlord\/applicants)(?![\w/-])/g
+function linkifyPaths(text: string) {
+  const parts = text.split(PATH_RE)
+  if (parts.length === 1) return text
+  return parts.map((part, i) =>
+    i % 2 === 1
+      ? <Link key={i} href={part} className="font-semibold underline underline-offset-2" style={{ color: '#00ACE4' }}>{part}</Link>
+      : part,
   )
 }
