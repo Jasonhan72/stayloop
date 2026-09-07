@@ -690,8 +690,8 @@ export default function ListingDetailPage() {
                 className="mt-2 w-full rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
               >
                 {listing.source === 'realtor'
-                  ? (zh ? '派持牌经纪带看 · 免费' : 'Licensed agent showing · free')
-                  : (zh ? '持牌经纪陪同看房 · 可选' : 'Optional: licensed agent to accompany')}
+                  ? (zh ? '找经纪带我看房 · 免费' : 'Find an agent to show me · free')
+                  : (zh ? '找经纪带我看房 · 可选' : 'Find an agent to show me · optional')}
               </button>
               <div className="mt-2 text-center text-[11px] leading-relaxed text-body-3">
                 {listing.source === 'realtor'
