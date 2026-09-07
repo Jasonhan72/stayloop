@@ -297,6 +297,17 @@ In `supabase/migrations/`:
 
 Public surfaces show a listing only when `is_active AND (verification_status='verified' OR source='realtor')`. This is enforced at the DB (RLS policy "Public can read verified listings"), not just app filters. Landlord-published listings start `pending` and go public only after `/admin/verify` approval; Realtor.ca-imported rows (`source='realtor'`) show immediately with a source badge. A trigger (`guard_listing_trust_fields`) reverts any non-admin write to `verification_status`/`source`/`verified_at`, so landlords can't self-approve. App-layer queries use `LISTING_VISIBILITY_OR` from `lib/listingVisibility.ts` — don't re-inline the filter string.
 
+## Realtor.ca 导入房源的时效（2026-09-06）
+
+5 月导入的 3 套 Realtor 房源里有 2 套（89 Estelle Ave、1201-155 Cumberland St）全部图片在
+`cdn.realtor.ca` 上已 404——Realtor 撤图 = 房源已下架，卡片只剩底色渐变。处理：`is_active=false`
+（未删）。**Realtor 导入的房源没有自动下架机制**，等 TRREB 数据库接入前，发现空白卡先按这条查。
+同日按用户要求补导了 6 套多大周边公寓（College / Huron / McCaul / Simcoe / Bay St，MLS C137xxx–C1374xxxx），
+方法：Jina reader 读 `realtor.ca/on/toronto/<社区 slug>/apartments-for-rent` 列表页取行 → 读详情页取
+图片（只留 `/highres/`）、描述、面积区间、设施、经纪公司 → Nominatim 取坐标（Google Geocoding 对本
+key 返回 REQUEST_DENIED）→ 按 `8 COLVESTONE ROAD` 那行的字段形状经 REST 写入（service key 只走 header
+文件）。`/listings` 顶部的「示范阶段 · TRREB 未接入」横幅（`SampleBanner text=`）接入后去掉。
+
 ## 手机端（2026-08-24 全站复核）
 
 全部路由在 **375px 与 320px** 两个宽度上逐条量过（文档级横向溢出 + 被
