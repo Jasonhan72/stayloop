@@ -1121,6 +1121,12 @@ function FieldAgentModal({
           </label>
         </div>
 
+        <p className="mt-4 text-[11px] leading-relaxed text-body-3">
+          {zh
+            ? '* 对你不收费。依 RECO / TRESA 规定，接单经纪在代表你之前可能会请你签一份租客代理服务协议，签前会向你说明内容。'
+            : '* No charge to you. Under RECO / TRESA rules the agent may ask you to sign a tenant representation agreement before acting for you; they will explain it first.'}
+        </p>
+
         <div className="mt-5 flex gap-2">
           <button
             onClick={onClose}
