@@ -25,6 +25,52 @@ interface Props {
   listings: MapListing[]
   active: string | null
   onPick: (id: string) => void
+  /** 'split' = the sticky desktop half (default); 'full' = fills its parent
+   *  (the phone map mode overlay). */
+  mode?: 'split' | 'full'
+  /** Pixels reserved at the bottom (the phone peek card) when fitting bounds. */
+  bottomInset?: number
+}
+
+// RealMaster-style price tag: the number only, in thousands.
+// 3000 → 3K · 3200 → 3.2K · 13800 → 13.8K · 45000 → 45K · 950 → $950
+export function priceTag(rent: number): string {
+  if (rent < 1000) return `$${rent}`
+  const k = rent / 1000
+  const txt = Number.isInteger(k) ? String(k) : k.toFixed(1).replace(/\.0$/, '')
+  return `${txt}K`
+}
+
+// Red pill with a small tail, sized to the label. Coordinates are px around
+// the anchor (the tail tip sits on the listing's position).
+function pillPath(label: string): string {
+  const w = Math.max(38, 12 + label.length * 8)
+  const h = 24
+  const r = 6
+  const x0 = -w / 2, x1 = w / 2, y0 = -h - 7, y1 = -7
+  return [
+    `M ${x0 + r} ${y0}`, `L ${x1 - r} ${y0}`, `Q ${x1} ${y0} ${x1} ${y0 + r}`,
+    `L ${x1} ${y1 - r}`, `Q ${x1} ${y1} ${x1 - r} ${y1}`,
+    `L 5 ${y1}`, `L 0 0`, `L -5 ${y1}`,
+    `L ${x0 + r} ${y1}`, `Q ${x0} ${y1} ${x0} ${y1 - r}`,
+    `L ${x0} ${y0 + r}`, `Q ${x0} ${y0} ${x0 + r} ${y0}`, 'Z',
+  ].join(' ')
+}
+
+const TAG_RED = '#E53935'
+const TAG_RED_ACTIVE = '#B71C1C'
+
+function tagIcon(google: any, label: string, isActive: boolean) {
+  return {
+    path: pillPath(label),
+    fillColor: isActive ? TAG_RED_ACTIVE : TAG_RED,
+    fillOpacity: 1,
+    strokeColor: '#fff',
+    strokeWeight: isActive ? 2.5 : 1.5,
+    scale: isActive ? 1.12 : 1,
+    labelOrigin: new google.maps.Point(0, -19),
+    anchor: new google.maps.Point(0, 0),
+  }
 }
 
 // Module-level loader state — only inject the script once.
@@ -74,7 +120,7 @@ declare global {
   }
 }
 
-export default function ListingsMap({ listings, active, onPick }: Props) {
+export default function ListingsMap({ listings, active, onPick, mode = 'split', bottomInset = 0 }: Props) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''
@@ -130,41 +176,31 @@ export default function ListingsMap({ listings, active, onPick }: Props) {
       const pos = { lat: Number(l.lat), lng: Number(l.lng) }
       bounds.extend(pos)
       placed += 1
-      const isLuna = l.match_score && l.match_score >= 85
+      const label = priceTag(l.monthly_rent)
       const marker = new google.maps.Marker({
         position: pos,
         map: mapRef.current,
         title: `$${l.monthly_rent.toLocaleString()}`,
-        label: {
-          text: `$${(l.monthly_rent / 1000).toFixed(l.monthly_rent < 10000 ? 1 : 0)}k`,
-          color: '#fff',
-          fontSize: '11px',
-          fontWeight: '700',
-        },
-        icon: {
-          path: 'M -22 -14 L 22 -14 L 22 14 L 4 14 L 0 20 L -4 14 L -22 14 Z',
-          fillColor: isLuna ? '#00ACE4' : '#171717',
-          fillOpacity: 1,
-          strokeColor: '#fff',
-          strokeWeight: 2,
-          scale: 1,
-          labelOrigin: new google.maps.Point(0, 0),
-        },
+        label: { text: label, color: '#fff', fontSize: '12px', fontWeight: '800', fontFamily: 'Inter Tight, system-ui, sans-serif' },
+        icon: tagIcon(google, label, l.id === active),
+        zIndex: l.id === active ? 10 : 1,
       })
       marker.addListener('click', () => onPick(l.id))
-      marker.addListener('mouseover', () => onPick(l.id))
+      if (mode === 'split') marker.addListener('mouseover', () => onPick(l.id))
       markersRef.current.set(l.id, marker)
     })
+    if (ref.current) ref.current.dataset.markers = String(placed)
 
     if (placed > 0) {
       if (placed === 1) {
         mapRef.current.setCenter(bounds.getCenter())
         mapRef.current.setZoom(14)
       } else {
-        mapRef.current.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 })
+        mapRef.current.fitBounds(bounds, { top: 60, right: 40, bottom: 40 + bottomInset, left: 40 })
       }
     }
-  }, [ready, listings, onPick])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, listings, onPick, mode, bottomInset])
 
   // When active changes, re-color the markers
   useEffect(() => {
@@ -174,31 +210,19 @@ export default function ListingsMap({ listings, active, onPick }: Props) {
       const l = listings.find((x) => x.id === id)
       if (!l) return
       const isActive = id === active
-      const isLuna = l.match_score && l.match_score >= 85
-      marker.setIcon({
-        path: 'M -22 -14 L 22 -14 L 22 14 L 4 14 L 0 20 L -4 14 L -22 14 Z',
-        fillColor: isActive ? '#047857' : isLuna ? '#00ACE4' : '#171717',
-        fillOpacity: 1,
-        strokeColor: '#fff',
-        strokeWeight: isActive ? 3 : 2,
-        scale: isActive ? 1.15 : 1,
-        labelOrigin: new google.maps.Point(0, 0),
-      })
+      marker.setIcon(tagIcon(google, priceTag(l.monthly_rent), isActive))
       marker.setZIndex(isActive ? 10 : 1)
     })
   }, [active, listings, ready])
 
   return (
     <div
-      className="hidden lg:block"
-      style={{
-        position: 'sticky',
-        top: 0,
-        height: 'calc(100vh - 0px)',
-        borderLeft: '1px solid #E4EEF6',
-        overflow: 'hidden',
-        background: '#E5E3DC',
-      }}
+      className={mode === 'split' ? 'hidden lg:block' : 'block'}
+      style={
+        mode === 'split'
+          ? { position: 'sticky', top: 0, height: 'calc(100vh - 0px)', borderLeft: '1px solid #E4EEF6', overflow: 'hidden', background: '#E5E3DC' }
+          : { position: 'absolute', inset: 0, overflow: 'hidden', background: '#E5E3DC' }
+      }
     >
       <div ref={ref} style={{ position: 'absolute', inset: 0 }} />
 
@@ -211,25 +235,6 @@ export default function ListingsMap({ listings, active, onPick }: Props) {
           {zh ? '地图加载失败 — ' : 'Map failed to load — '}{error}
         </div>
       )}
-
-      {/* Top-left "draw region" widget (kept for parity with spec) */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 18,
-          left: 18,
-          background: '#fff',
-          border: '1px solid #E4EEF6',
-          borderRadius: 8,
-          padding: '8px 12px',
-          fontSize: 12,
-          fontWeight: 600,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.10)',
-          pointerEvents: 'none',
-        }}
-      >
-        {zh ? '◯ 在地图上画区域' : '◯ Draw an area on the map'}
-      </div>
 
     </div>
   )

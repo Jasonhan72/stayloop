@@ -91,6 +91,15 @@ export default function ListingsPage() {
 
   const [all, setAll] = useState<DBListing[]>([])
   const [active, setActive] = useState<string | null>(null)
+  // Phone map mode (RealMaster-style): full-screen map with red price tags;
+  // tapping a tag shows that listing's card at the bottom.
+  const [mapOpen, setMapOpen] = useState(false)
+  useEffect(() => {
+    if (!mapOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [mapOpen])
   const [loading, setLoading] = useState(true)
 
   // ── Filter state (all functional) ─────────────────────────────────────────
@@ -529,6 +538,88 @@ export default function ListingsPage() {
           />
         </div>
       </section>
+
+      {/* Phone: floating "map" button → full-screen map mode */}
+      {!mapOpen && items.some((l) => l.lat != null && l.lng != null) && (
+        <button
+          type="button"
+          onClick={() => setMapOpen(true)}
+          className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full px-5 py-3 text-[14px] font-bold text-white shadow-lg lg:hidden"
+          style={{ background: '#1B1B3C' }}
+          aria-label={zh ? '打开地图' : 'Open map'}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><path d="M8 2v16M16 6v16"/></svg>
+          {zh ? '地图' : 'Map'}
+        </button>
+      )}
+      {mapOpen && (
+        <div className="fixed inset-0 z-[60] lg:hidden" style={{ background: '#E5E3DC' }}>
+          <ListingsMap
+            mode="full"
+            bottomInset={active ? 180 : 0}
+            listings={items.map((l) => ({ id: l.id, slug: l.slug, lat: l.lat, lng: l.lng, monthly_rent: l.monthly_rent, match_score: l.match_score }))}
+            active={active}
+            onPick={setActive}
+          />
+          {/* top bar */}
+          <div className="absolute left-3 right-3 top-3 z-10 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setMapOpen(false)}
+              className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-[13.5px] font-bold shadow-md"
+              style={{ color: '#1B1B3C' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+              {zh ? '列表' : 'List'}
+            </button>
+            <span className="rounded-full bg-white px-3 py-2 font-mono text-[11px] font-bold shadow-md" style={{ color: '#1B1B3C' }}>
+              {count} {zh ? '套' : 'listings'}
+            </span>
+          </div>
+          {/* peek card for the tapped tag */}
+          {active && items.find((l) => l.id === active) && (
+            <MapPeekCard l={items.find((l) => l.id === active)!} zh={zh} onClose={() => setActive(null)} />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Compact card shown over the phone map for the tapped price tag. */
+function MapPeekCard({ l, zh, onClose }: { l: DBListing; zh: boolean; onClose: () => void }) {
+  const img = l.images && l.images.length > 0 ? l.images[0] : null
+  const a = l.thumb_a || '#D4C4A8'
+  const b = l.thumb_b || '#94815C'
+  return (
+    <div className="absolute inset-x-3 bottom-4 z-10">
+      <div className="relative overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_rgba(0,0,0,0.22)]">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={zh ? '关闭' : 'Close'}
+          className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+        <Link href={`/listings/${l.slug}`} className="flex gap-3 p-3">
+          <div
+            className="h-[104px] w-[124px] flex-none rounded-xl"
+            style={{ background: img ? `url(${img}) center/cover no-repeat, linear-gradient(135deg,${a},${b})` : `linear-gradient(135deg,${a},${b})` }}
+          />
+          <div className="min-w-0 flex-1 py-0.5">
+            <div className="text-[20px] font-extrabold leading-none tracking-tight" style={{ color: '#1B1B3C' }}>
+              ${l.monthly_rent.toLocaleString()}<span className="ml-1 text-[12px] font-medium text-body-3">{zh ? '/月' : '/mo'}</span>
+            </div>
+            <div className="mt-1.5 text-[12.5px] font-semibold text-body-2">
+              {l.bedrooms}B{l.has_den ? '+1' : ''} · {l.bathrooms ?? '–'} {zh ? '浴' : 'ba'}{l.sqft ? ` · ${l.sqft} sqft` : ''}
+            </div>
+            <div className="mt-1.5 truncate text-[13.5px] font-bold" style={{ color: '#1B1B3C' }}>{l.address}{l.unit && !l.address.includes(l.unit) ? ` · ${l.unit}` : ''}</div>
+            <div className="truncate text-[12px] text-body-3">{[l.neighborhood, l.city].filter(Boolean).join(' · ')}</div>
+            <div className="mt-1.5 text-[12px] font-bold" style={{ color: '#00ACE4' }}>{zh ? '查看详情 →' : 'View details →'}</div>
+          </div>
+        </Link>
+      </div>
     </div>
   )
 }
