@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { ScreeningVerification } from '@/lib/verify/types'
 import { repairUnescapedQuotes } from '@/lib/screening/jsonRepair'
+import { stripNul } from '@/lib/screening/jsonSafe'
 import { llmChat, llmChatStream } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
@@ -1031,13 +1032,18 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
       }
     } catch { /* never fatal */ }
 
-    await supabase.from('screenings').update({
+    // stripNul: PDF-extracted text can carry U+0000, which PostgreSQL rejects
+    // for the whole row (22P05). This write used to fail silently and the
+    // same payload then failed the final update 30s later as a bare
+    // "unsupported Unicode escape sequence" in the landlord's face.
+    const { error: stageErr } = await supabase.from('screenings').update(stripNul({
       court_records_detail: courtDetail,
       forensics_detail: forensicsReport,
       tier: (plan === 'pro' || plan === 'team') ? 'pro' : 'free',
       status: 'scoring',
       progress: { stage: 'ai_scoring', pct: 38, at: new Date().toISOString(), detail_zh: '文件 + 取证结果已送入 AI · 等待首个输出', detail_en: 'Documents + forensics sent to AI · awaiting first output' },
-    }).eq('id', screening_id)
+    })).eq('id', screening_id)
+    if (stageErr) captureException(new Error(`screen-score stage write failed: ${stageErr.message}`), { route: 'screen-score', extra: { screening_id } })
 
     // ---- Stage 3: Build v3 Claude prompt ----
     const formText = `LANDLORD-PROVIDED CONTEXT:
@@ -2587,9 +2593,9 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       }
 
       // Update court_records_detail in DB with merged results
-      await supabase.from('screenings').update({
+      await supabase.from('screenings').update(stripNul({
         court_records_detail: courtDetail,
-      }).eq('id', screening_id)
+      })).eq('id', screening_id)
 
       // LTB Order Catalogue for each additional validated name. This is the
       // screening's strongest LTB source and previously ran only for the
@@ -2786,7 +2792,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       _court_summary_zh: parsed.court_summary_zh,
     }
 
-    const { error: updateError } = await supabase.from('screenings').update({
+    const { error: updateError } = await supabase.from('screenings').update(stripNul({
       ai_score: overall,
       ai_summary: parsed.summary_en || '',
       ai_extracted_name: finalExtractedName,
@@ -2820,7 +2826,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       status: 'scored',
       scored_at: new Date().toISOString(),
       progress: { stage: 'done', pct: 100, at: new Date().toISOString() },
-    }).eq('id', screening_id)
+    })).eq('id', screening_id)
 
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 

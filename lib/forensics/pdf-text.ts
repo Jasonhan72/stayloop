@@ -47,6 +47,7 @@
 // -----------------------------------------------------------------------------
 
 import type { ForensicFlag, TextDensityResult } from './types'
+import { stripNul } from '@/lib/screening/jsonSafe'
 
 const STRICT_KINDS = new Set([
   'bank_statement',
@@ -209,7 +210,9 @@ export async function readPdfTextDensity(
     const result = await extractText(pdf, { mergePages: true })
 
     // unpdf returns { totalPages, text } where text can be string or string[]
-    const text = Array.isArray(result.text) ? result.text.join('\n') : (result.text || '')
+    // pdf.js emits U+0000 for unmapped glyphs; PostgreSQL cannot store it in
+    // jsonb/text, and this sample is persisted in forensics_detail.
+    const text = stripNul(Array.isArray(result.text) ? result.text.join('\n') : (result.text || ''))
     const pageCount = result.totalPages || 1
     const totalChars = text.length
     const charsPerPage = pageCount > 0 ? totalChars / pageCount : 0
