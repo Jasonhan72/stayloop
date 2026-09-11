@@ -163,7 +163,15 @@ export function runCrossDocChecks(
     }
   }
 
-  // ---- Rule 2: bank deposit exactly matches paystub period_net for both periods ----
+  // ---- Rule 2: bank deposits equal paystub net pay across periods ----
+  // 2026-09-11: this used to fire "deposits_too_clean" (medium) on the
+  // premise that real direct deposits drift $0.50-$2 between periods. They
+  // do not: the employer deposits exactly the net figure printed on the
+  // stub, and a salaried employee's net is identical every period. A
+  // penny-perfect match is the stub and the statement CORROBORATING each
+  // other (the model was told the opposite and wrote "流水疑似篡改" on a
+  // genuine Scotiabank file). Kept as an info-level corroboration so the
+  // report still shows the reconciliation happened.
   const paystubNets = input.files
     .filter(f => f.paystub?.period_net)
     .map(f => f.paystub!.period_net!)
@@ -172,16 +180,15 @@ export function runCrossDocChecks(
   if (paystubNets.length >= 1 && deposits.length > 0) {
     let exactMatches = 0
     for (const net of paystubNets) {
-      // Penny-perfect match (real deposits sometimes have $0.01-$1 variation)
       if (deposits.some(d => Math.abs(d - net) < 0.01)) exactMatches++
     }
     if (paystubNets.length >= 2 && exactMatches === paystubNets.length) {
       depositPaystubPerfect = true
       flags.push({
-        code: 'deposits_too_clean',
-        severity: 'medium',
-        evidence_en: `Bank deposits match paystub net pay penny-perfectly across ${paystubNets.length} periods ($${paystubNets.map(n => n.toFixed(2)).join(', $')}). Real direct deposits typically vary $0.50-$2 between periods due to tax/CPP recalibration. Suggests bank statement was constructed to match the paystub.`,
-        evidence_zh: `银行存款金额与工资单净收入在 ${paystubNets.length} 期完全分毫不差地匹配（$${paystubNets.map(n => n.toFixed(2)).join('、$')}）。真实的直存因税/CPP 微调通常会有 $0.50-$2 的浮动。看起来银行对账单是按工资单数字反向构造的。`,
+        code: 'deposits_match_paystub_net',
+        severity: 'info',
+        evidence_en: `Bank deposits equal the paystub net pay to the cent across ${paystubNets.length} periods ($${paystubNets.map(n => n.toFixed(2)).join(', $')}). This is how direct deposit works — the statement and the stubs corroborate each other. Verify the PAYER name against the employer separately.`,
+        evidence_zh: `银行入账与工资单净收入在 ${paystubNets.length} 期分毫不差（$${paystubNets.map(n => n.toFixed(2)).join('、$')}）。直存本就等于工资单净额——对账单与工资单互相佐证。入账方名称是否为该雇主需另行核实。`,
       })
     }
   }
@@ -263,9 +270,11 @@ export interface TimestampClusterInput {
   file_name: string
   file_kind: string
   creation_date: string | null
-  /** Enterprise payroll/HR system detected in the file (structure pass).
-   *  Portal-rendered documents get their CreationDate at download time, so
-   *  same-sitting downloads cluster legitimately — exempt from batching. */
+  /** Enterprise payroll/HR system detected in the file (structure pass),
+   *  or the bank's statement-composition engine (source-specific pass,
+   *  e.g. "CrawfordTech PRO (Scotiabank)"). Portal-rendered documents get
+   *  their CreationDate at download time, so same-sitting downloads
+   *  cluster legitimately — exempt from batching. */
   enterprise_system?: string | null
 }
 

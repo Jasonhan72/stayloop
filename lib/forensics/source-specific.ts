@@ -72,7 +72,11 @@ const BANK_MARKERS: Record<string, { producer: RegExp[]; text: RegExp[] }> = {
     text: [/Bank\s+of\s+Montreal/i, /BMO\s+(Performance|Practical|Plus)/i],
   },
   Scotiabank: {
-    producer: [/iText\s*[\d.]/i],
+    // Scotiabank's online-banking statement archive is rendered by
+    // Crawford Technologies PRO (Scotiabank is a listed CrawfordTech
+    // customer). 2026-09-11: three genuine Scotiabank statements were
+    // hard-gated as forged because only iText was whitelisted here.
+    producer: [/iText\s*[\d.]/i, /CrawfordTech/i],
     text: [/Bank\s+of\s+Nova\s+Scotia/i, /Scotiabank/i, /Scotia\s+(One|Plus|Powerchequing)/i],
   },
   Tangerine: {
@@ -87,6 +91,31 @@ const BANK_MARKERS: Record<string, { producer: RegExp[]; text: RegExp[] }> = {
     producer: [/PDF/i],
     text: [/Desjardins/i, /Caisse\s+Populaire/i],
   },
+}
+
+// ---- Bank statement composition engines (2026-09-11) ----
+// Customer-communication-management systems that Canadian banks use to
+// compose and archive account statements, rendered to PDF on demand when
+// the customer downloads them. They are licensed enterprise software a
+// forger cannot run, so a Producer/Creator that names one is accepted for
+// ANY identified bank — the per-bank lists above stay as the narrower
+// first check. Fingerprints seen on genuine files in production:
+//   CrawfordTech PDF Driver + Creator "PRO HLCAPI" + Author "Pro API" +
+//   Title "PRO Document" — Scotiabank chequing statements and CIBC
+//   investment statements alike.
+const STATEMENT_ENGINES: Array<{ name: string; patterns: RegExp[] }> = [
+  { name: 'CrawfordTech PRO', patterns: [/CrawfordTech/i, /PRO\s+HLCAPI/i] },
+  { name: 'OpenText Exstream', patterns: [/Exstream/i] },
+  { name: 'Quadient Inspire', patterns: [/Quadient/i, /GMC\s*Inspire/i] },
+  { name: 'Precisely EngageOne', patterns: [/EngageOne/i] },
+  { name: 'ISIS Papyrus', patterns: [/ISIS\s*Papyrus/i] },
+]
+
+export function detectStatementEngine(producerAndCreator: string): string | null {
+  for (const eng of STATEMENT_ENGINES) {
+    if (eng.patterns.some(re => re.test(producerAndCreator))) return eng.name
+  }
+  return null
 }
 
 // ---- Payroll system markers ----
@@ -131,6 +160,7 @@ export function checkSourceSpecific(
     bank_producer_whitelisted: null,
     matched_bank: null,
     matched_payroll: null,
+    statement_engine: null,
   }
 
   const sample = text?.text_sample || ''
@@ -228,7 +258,9 @@ export function checkSourceSpecific(
     result.matched_bank = matched
     if (matched) {
       const expected = BANK_MARKERS[matched]
-      const producerOk = expected.producer.some(re => re.test(producer))
+      const engine = detectStatementEngine(producer)
+      result.statement_engine = engine
+      const producerOk = expected.producer.some(re => re.test(producer)) || engine !== null
       result.bank_producer_whitelisted = producerOk
       // Skip the producer comparison for image-only PDFs: the bank was
       // identified from OCR text (the orchestrator feeds OCR back in for

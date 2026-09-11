@@ -133,6 +133,11 @@ export interface SourceSpecificResult {
   matched_bank: string | null
   /** payroll provider recognised from text/producer (ADP, Humi, …) */
   matched_payroll?: string | null
+  /** Enterprise statement-composition engine that produced the PDF
+   *  (CrawfordTech PRO, OpenText Exstream, Quadient Inspire …). Banks render
+   *  archived statements through these on demand; forgers have no access to
+   *  them. Set only for bank_statement files (2026-09-11). */
+  statement_engine?: string | null
 }
 
 /**

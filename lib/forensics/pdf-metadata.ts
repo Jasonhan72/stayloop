@@ -245,6 +245,11 @@ const TRUSTED_PRODUCER_PATTERNS: RegExp[] = [
   /Apache\s*FOP/i,            // RBC, TD, payroll systems
   /Crystal\s*Reports/i,       // ADP, Ceridian, enterprise reports
   /Xenos/i,                   // ADP AutoPay statement pipeline ("PDFOUT vX.X by Xenos, inc." — AFP/Metacode→PDF conversion)
+  /CrawfordTech/i,            // Crawford Technologies PRO — Scotiabank / CIBC statement archives ("CrawfordTech PDF Driver", Creator "PRO HLCAPI")
+  /PRO\s+HLCAPI/i,
+  /Exstream/i,                // OpenText Exstream — bank/insurer statement composition
+  /Quadient|GMC\s*Inspire/i,  // Quadient Inspire (ex-GMC) — statement composition
+  /EngageOne/i,               // Precisely EngageOne — statement composition
   /Adobe\s*PDF\s*Library/i,   // Adobe enterprise tooling
   /Prince\s*[\d.]/i,          // Prince XML — common for fintech
   /wkhtmltopdf/i,             // server-side rendering (less trusted but common)
@@ -607,10 +612,16 @@ export function checkPdfMetadata(
   // means a person's desktop application wrote the file. Case 24: three
   // "ADP" pay stubs, Author "Johnson Osei.".
   // ---------------------------------------------------------------------------
+  // 2026-09-11: "Pro API" (CrawfordTech PRO's own stamp on every Scotiabank
+  // statement) matched the name regex. A product/system string is not a
+  // person: any all-caps token of 2+ letters (API, PDF, HLCAPI, SAP) or a
+  // software vocabulary word rules the value out before the name test.
   const author = (meta.author || '').trim()
   if (FINANCIAL && author) {
-    const looksPersonal = /^[A-Za-z][A-Za-z'’.-]+(?:\s+[A-Za-z][A-Za-z'’.-]+){1,2}\.?$/.test(author)
-      && !/\b(inc|ltd|corp|bank|payroll|systems?|services?|adp|ceridian|workday|equifax|transunion|server|generator)\b/i.test(author)
+    const hasAcronymToken = author.split(/\s+/).some(tok => /^[A-Z]{2,}[.]?$/.test(tok))
+    const looksPersonal = !hasAcronymToken
+      && /^[A-Za-z][A-Za-z'’.-]+(?:\s+[A-Za-z][A-Za-z'’.-]+){1,2}\.?$/.test(author)
+      && !/\b(inc|ltd|corp|bank|payroll|systems?|services?|adp|ceridian|workday|equifax|transunion|server|generator|api|pro|pdf|driver|engine|library|document|statement|print|software|tool|output|batch|portal|online|banking|report|crawford|exstream|quadient|inspire)\b/i.test(author)
     if (looksPersonal) {
       flags.push({
         code: 'pdf_author_personal',

@@ -411,6 +411,23 @@ status=scoring）**不检查错误**、静默失败，30 秒后最终写入再�
 报 Sentry。**任何新增的、把外部文本（PDF 抽取、OCR、模型输出）写进 jsonb 的路径都要过
 `stripNul`。** 守卫 `tests/jsonSafe.spec.ts`。
 
+## 取证误判：银行对账单排版引擎（2026-09-11 · Scotiabank 真件被判伪造）
+
+Carlos 案 14 个文件：三份 Scotiabank 网银下载的对账单被三条规则同时打成伪造，叠成 `doc_tampering`
+硬门槛、分数封顶 55、结论「建议拒绝」。三条规则的前提都错了：
+① Scotiabank 白名单只写了 iText，而它的对账单归档由 **Crawford Technologies PRO** 渲染
+（Producer `CrawfordTech PDF Driver`、Creator `PRO HLCAPI`、Author `Pro API`、Title `PRO Document`；
+Scotiabank 是 CrawfordTech 官网列出的客户，库里 8 月的 CIBC 投资对账单同一指纹零告警）；
+② `Pro API` 被人名正则当成个人署名；③ 三份对账单创建时间相隔 2 分钟被当成批量伪造——按需渲染
+的引擎在点下载那一刻才盖 CreationDate，一次下载三个月本来就是这样。另外 `deposits_too_clean`
+（入账与工资单净额分毫不差 = 可疑）逻辑不成立：直存就是净额。
+修法：`source-specific.ts` 新增 `STATEMENT_ENGINES`（CrawfordTech / Exstream / Quadient / EngageOne /
+Papyrus，任一识别出的银行都接受，并写入 `statement_engine`）；`pdf-metadata.ts` 作者规则先排除
+含全大写缩写 token 或软件词汇的值，信任列表加这些引擎；`index.ts` 把 `statement_engine` 当作
+portal 来源喂给时间戳聚类（与 Workday/ADP 同一豁免）；`cross-doc.ts` 入账精确匹配改为 info 级
+`deposits_match_paystub_net` 佐证。守卫 `tests/forensicsStatementEngine.spec.ts`。**本机核对办法**：
+`.forensics-tmp/scotia-check.mts`（gitignored）对真实文件跑 metadata + source-specific + 聚类。
+
 ## 信用分析层（2026-08-26 · 对标 SingleKey 二轮）
 
 用户拿 SingleKey 30 页双局报告逐页对比后的结论：我们的**转录**早就齐了

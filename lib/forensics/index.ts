@@ -153,7 +153,14 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
       file_name: pf.file_name,
       file_kind: pf.file_kind,
       creation_date: pf.pdf_metadata!.creation_date,
-      enterprise_system: pf.pdf_structure?.enterprise_system ?? null,
+      // A bank's own statement engine (CrawfordTech PRO …) renders each
+      // statement when the customer clicks download, so three months
+      // grabbed in one sitting are minutes apart — same exemption as the
+      // payroll portals (2026-09-11, three genuine Scotiabank statements).
+      enterprise_system: pf.pdf_structure?.enterprise_system
+        ?? (pf.source_specific?.statement_engine
+          ? `${pf.source_specific.statement_engine} (${pf.source_specific.matched_bank || 'bank'} statement engine)`
+          : null),
     }))
   const timestampFlags = checkTimestampClustering(timestampFiles)
   crossDocFlags.push(...timestampFlags)
