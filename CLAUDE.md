@@ -399,6 +399,18 @@ key 返回 REQUEST_DENIED）→ 按 `8 COLVESTONE ROAD` 那行的字段形状经
 提供「打印 / 保存为 PDF」按钮（打印对话框被关掉后仍可再触发）；`@media print` 去掉这层框，
 PDF 输出不变。本地核对办法：scratchpad 里用 tsx 桩掉 Blob/window.open 把 HTML 落盘再开浏览器看。
 
+## 筛查写库的空字符（2026-09-11 · 一次真实事故）
+
+房东 14 个文件跑筛查，页面只弹一句 `unsupported Unicode escape sequence`。这是 PostgreSQL
+的 22P05：jsonb/text 不能存 U+0000。来源是 pdf.js 对无法映射的字形吐出的 U+0000——
+2026-08-21 修好真全局 polyfill 之后文本抽取才真的在生产上工作，`text_sample` 一份最长
+5 万字，里面一个空字符就让整行写入失败。更糟的是 38% 处那次 stage 写入（取证结果 +
+status=scoring）**不检查错误**、静默失败，30 秒后最终写入再失败才把 Postgres 原话甩给用户；
+行停在 `status='uploading'`。修法：`lib/screening/jsonSafe.ts stripNul()` 深度去空字符，
+`pdf-text.ts` 在源头清一次，`screen-score` 三处 jsonb 写入全部套一层并把 stage 写入的错误
+报 Sentry。**任何新增的、把外部文本（PDF 抽取、OCR、模型输出）写进 jsonb 的路径都要过
+`stripNul`。** 守卫 `tests/jsonSafe.spec.ts`。
+
 ## 信用分析层（2026-08-26 · 对标 SingleKey 二轮）
 
 用户拿 SingleKey 30 页双局报告逐页对比后的结论：我们的**转录**早就齐了
