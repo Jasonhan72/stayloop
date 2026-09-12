@@ -43,6 +43,7 @@ export async function ocrImagePdf(
   mime: string,
   apiKey: string,
   usageMeta?: LlmUsageMeta,
+  opts: { timeoutMs?: number } = {},
 ): Promise<OcrResult | null> {
   if (!apiKey) return null
   const startedAt = Date.now()
@@ -75,7 +76,10 @@ export async function ocrImagePdf(
         // and causing parseOcrOutput to silently return null.
         maxTokens: 4000,
         prefillJson: true,
-        signal: AbortSignal.timeout(30_000),
+        // 30s was a hard cap for every file: a 6-page 14 MB scanned credit
+        // report and a 5-page NOA both timed out (a 4-page NOA took 29.3s),
+        // so the two documents that mattered most had no OCR at all.
+        signal: AbortSignal.timeout(opts.timeoutMs ?? 30_000),
         meta: { ...(usageMeta || {}), slot: 'forensics' },
       })
       raw = out.text

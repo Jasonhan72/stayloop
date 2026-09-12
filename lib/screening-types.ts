@@ -15,6 +15,8 @@ export interface OntarioPortalMatch {
   nameSwapped?: boolean
   caseInstanceUUID?: string
   courtID?: string
+  /** strong = 3+ name tokens line up (middle name / both surnames); name_only = first + surname */
+  matchConfidence?: 'strong' | 'name_only'
 }
 
 export interface CanLIIMatch {

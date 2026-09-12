@@ -53,8 +53,12 @@ export function selectCoApplicantNames(extracted: string[], primary: string, ctx
     const name = (raw || '').trim()
     if (normalizeName(name).length < 2) { dropped.push({ name, reason: 'invalid' }); continue }
     if (sameName(name, primary) || nameCovers(name, primary)) { dropped.push({ name, reason: 'primary' }); continue }
-    if (ctx.thirdPartyNames.some(t => sameName(t, name) || nameCovers(t, name))) { dropped.push({ name, reason: 'third_party' }); continue }
-    if (ctx.idDocNames.length > 0 && !ctx.idDocNames.some(t => sameName(t, name) || nameCovers(t, name))) { dropped.push({ name, reason: 'not_on_id' }); continue }
+    // An identity document in the file settles it: whoever is on an ID is an
+    // applicant, whatever other documents (a co-applicant's own NOA, a
+    // lease they signed) also carry the name.
+    const onId = ctx.idDocNames.some(t => sameName(t, name) || nameCovers(t, name))
+    if (!onId && ctx.thirdPartyNames.some(t => sameName(t, name) || nameCovers(t, name))) { dropped.push({ name, reason: 'third_party' }); continue }
+    if (ctx.idDocNames.length > 0 && !onId) { dropped.push({ name, reason: 'not_on_id' }); continue }
     if (searched.some(s => sameName(s, name))) continue
     searched.push(name)
   }

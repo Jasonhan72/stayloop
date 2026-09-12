@@ -42,6 +42,8 @@ import { applyTextPayFrequency, checkPaystubMath, extractPaystubFields, applyStu
 import { checkStatutoryDeductions } from './statutory-deductions'
 import { checkSourceSpecific } from './source-specific'
 import { reconcilePayrollDeposits } from './payroll-deposits'
+import { reconcileScanFlags } from './scan-flags'
+import { ocrAvailable, ocrPdfScan } from '../ocr/qwenOcr'
 import { runCrossDocChecks, checkTimestampClustering, reconcileIncomeAcrossDocs } from './cross-doc'
 import type { TimestampClusterInput } from './cross-doc'
 import { checkArmLength, canonicalizeEmployerName } from './arm-length'
@@ -378,8 +380,34 @@ async function analyzeFile(
         // Trigger threshold: text_density flagged is_likely_image_pdf, which
         // means < ~50 chars/page average.
         if (text?.is_likely_image_pdf && apiKey) {
-          const ocrResult = await ocrImagePdf(f.signed_url, f.mime, apiKey, usageMeta)
+          // Budget scales with the scan: ~8s per page on top of 30s, capped
+          // at 120s; one retry; then the page-image OCR path (DashScope) that
+          // the text-strategy models already use — a scanned credit report
+          // must never end up with no content at all.
+          const pages = Math.max(1, meta?.page_count || 1)
+          const budget = Math.min(120_000, 30_000 + 8_000 * pages)
+          let ocrResult = await ocrImagePdf(f.signed_url, f.mime, apiKey, usageMeta, { timeoutMs: budget })
+          if (!ocrResult) ocrResult = await ocrImagePdf(f.signed_url, f.mime, apiKey, usageMeta, { timeoutMs: budget + 30_000 })
+          if (!ocrResult && f.mime === 'application/pdf' && ocrAvailable()) {
+            try {
+              const t0 = Date.now()
+              const scan = await ocrPdfScan(bytes, { meta: usageMeta, signal: AbortSignal.timeout(120_000) })
+              if (scan && scan.text.trim().length > 0) {
+                ocrResult = { text: scan.text.slice(0, 5000), apparent_doc_type: 'unknown', apparent_name: null, visible_issuer: null, has_watermark: false, visible_dates: [], elapsed_ms: Date.now() - t0 }
+              }
+            } catch { /* fallback is best-effort */ }
+          }
           if (ocrResult) out.ocr = ocrResult
+        }
+        // Recovered text feeds EVERY downstream reader — cross-doc entities,
+        // payroll deposits, liquidity, income reconciliation — not only the
+        // fingerprint check. is_likely_image_pdf stays true so scan-aware
+        // rules still know what they are looking at.
+        if (out.ocr?.text && text) {
+          out.text_density = {
+            ...text,
+            text_sample: [text.text_sample || '', out.ocr.text].filter(Boolean).join('\n').slice(0, 50_000),
+          }
         }
 
         // Source-specific markers. If we have OCR text (because the PDF was
@@ -404,6 +432,8 @@ async function analyzeFile(
         const { result: src, flags: srcFlags } = checkSourceSpecific(meta, textForFingerprint, f.name, canonicalKind)
         out.source_specific = src
         out.flags.push(...srcFlags)
+        // OCR content decides what a scan is; scanner metadata does not.
+        out.flags = reconcileScanFlags(out.flags, f.name, canonicalKind, out.ocr, src)
         // A recognised payroll provider (Humi → Prawn, etc.) explains the PDF
         // producer — drop the generic "producer not in whitelist" note for it.
         if (src.matched_payroll) out.flags = out.flags.filter(fl => fl.code !== 'pdf_producer_unknown')

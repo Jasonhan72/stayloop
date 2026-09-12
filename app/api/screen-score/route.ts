@@ -15,6 +15,7 @@ import type { ScreeningVerification } from '@/lib/verify/types'
 import { repairUnescapedQuotes } from '@/lib/screening/jsonRepair'
 import { stripNul } from '@/lib/screening/jsonSafe'
 import { selectCoApplicantNames } from '@/lib/screening/coApplicants'
+import { matchPortalParty, isRespondentSide, planPortalQueries, portalMatchKey, corroborateByCoParties } from '@/lib/screening/portalMatch'
 import { nameCovers, sameName } from '@/lib/screening/coApplicants'
 import { countMaterialBlanks } from '@/lib/screening/rubric'
 import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
@@ -104,7 +105,9 @@ const CANLII_DB_LIST_TIMEOUT_MS = 5000
 const CANLII_PER_REQ_TIMEOUT_MS = 6000
 const CANLII_DECISION_TIMEOUT_MS = 4000
 const CANLII_AGGREGATE_BUDGET_MS = 12_000
-const ONTARIO_PORTAL_TIMEOUT_MS = 8000
+// 15s, and portalQuery retries once: at 8s with no retry the portal timed out
+// on both runs of one applicant and the app then showed the source as clean.
+const ONTARIO_PORTAL_TIMEOUT_MS = 15_000
 const CLAUDE_MAX_TOKENS = 6000
 const CLAUDE_TEMPERATURE = 0
 
@@ -260,7 +263,14 @@ async function portalQuery(
       'size': '50',
     })
     const url = `https://api1.courts.ontario.ca/courts/cms/parties?${params.toString()}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(ONTARIO_PORTAL_TIMEOUT_MS) })
+    let res: Response
+    try {
+      res = await fetch(url, { signal: AbortSignal.timeout(ONTARIO_PORTAL_TIMEOUT_MS) })
+    } catch (first) {
+      // One retry — the portal's first response to a name is often the slow one.
+      res = await fetch(url, { signal: AbortSignal.timeout(ONTARIO_PORTAL_TIMEOUT_MS) })
+      void first
+    }
     if (!res.ok) return { results: [], totalElements: 0, error: `HTTP ${res.status}` }
     const data = await res.json() as any
     return {
@@ -272,7 +282,7 @@ async function portalQuery(
   }
 }
 
-function shapePortalMatch(r: any, nameSwapped: boolean): OntarioPortalMatch {
+function shapePortalMatch(r: any, nameSwapped: boolean, matchConfidence?: 'strong' | 'name_only'): OntarioPortalMatch {
   // The portal API returns caseInstanceUUID directly on caseHeader. This is
   // the primary key used by the portal's frontend SPA to route to the
   // per-case detail page.
@@ -298,6 +308,7 @@ function shapePortalMatch(r: any, nameSwapped: boolean): OntarioPortalMatch {
     nameSwapped: nameSwapped || undefined,
     caseInstanceUUID,
     courtID,
+    matchConfidence,
   }
 }
 
@@ -340,62 +351,43 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
   }
 
   const applyFilter = (results: any[], queryName: string, nameSwapped: boolean): OntarioPortalMatch[] => {
-    const queryTokens = queryName
-      .toLowerCase()
-      .replace(/[^a-z\s]/g, '')
-      .split(/\s+/)
-      .filter(t => t.length >= 2)
-
+    // lib/screening/portalMatch: first name + surname must line up (the
+    // record surname is read from the portal's "LAST, FIRST" sortName so a
+    // surname buried in someone's given name never matches); one missing
+    // middle name or second surname and one clerical spelling slip are
+    // tolerated. Three or more tokens lining up = strong.
     return results
-      .filter(r => {
-        const dn = (r.partyHeader?.partyActorInstance?.displayName || '').toLowerCase()
-        const sn = (r.partyHeader?.partyActorInstance?.sortName || '').toLowerCase()
-        const combined = dn + ' ' + sn
-        // Rule 1: every query token must appear somewhere in combined
-        if (!nameMatchesTitle(queryName, combined)) return false
-        // Rule 2 (new): at least one query token must EXACTLY equal the
-        // record's surname. This stops false positives where the query's
-        // surname appears in the middle of the record's given name.
-        const surname = recordSurname(dn, sn)
-        if (surname && queryTokens.length > 0) {
-          const surnameMatched = queryTokens.some(t => t === surname)
-          if (!surnameMatched) return false
-        }
-        return true
-      })
-      .map(r => shapePortalMatch(r, nameSwapped))
+      .map(r => ({ r, m: matchPortalParty(queryName, r.partyHeader?.partyActorInstance?.displayName || '', r.partyHeader?.partyActorInstance?.sortName || '') }))
+      .filter(x => x.m.match)
+      .map(x => shapePortalMatch(x.r, nameSwapped, x.m.confidence))
   }
 
-  // Tier 1: exact match on each name ordering
+  // Every planned query runs and the matches are merged (deduplicated by
+  // case + party). Stopping at the first tier that hit used to hide the
+  // five cases filed without the middle name behind the one filed with it.
   let lastError: string | undefined
   let totalSeen = 0
-  for (let i = 0; i < tryOrders.length; i++) {
-    const order = tryOrders[i]
-    const isSwap = i > 0
-    const q = await portalQuery(order, '10462')
+  const merged = new Map<string, OntarioPortalMatch>()
+  for (const step of planPortalQueries(normalized)) {
+    const q = await portalQuery(step.name, step.type)
     if (q.error) lastError = q.error
-    totalSeen += q.totalElements
-    const matches = applyFilter(q.results, order, isSwap)
-    if (matches.length > 0) {
-      return { matches, totalElements: q.totalElements }
+    totalSeen = Math.max(totalSeen, q.totalElements)
+    for (const m of applyFilter(q.results, normalized, step.swapped)) {
+      const k = portalMatchKey(m.caseNumber, m.partyDisplayName)
+      const prev = merged.get(k)
+      // keep the stronger reading of the same record
+      if (!prev || (prev.matchConfidence !== 'strong' && m.matchConfidence === 'strong')) merged.set(k, m)
     }
   }
-
-  // Tier 2: fuzzy fallback on the canonical order — the local filter will
-  // reject the noise (BO OUYANG, BO XIANG, etc.), but this rescues cases
-  // where the portal stored the party name with extra tokens or ordering
-  // that our exact queries didn't cover.
-  const fuzzy = await portalQuery(normalized, '300054')
-  if (fuzzy.error && !lastError) lastError = fuzzy.error
-  const fuzzyMatches = applyFilter(fuzzy.results, normalized, false)
-  if (fuzzyMatches.length > 0) {
-    return { matches: fuzzyMatches, totalElements: fuzzy.totalElements }
-  }
-
+  const matches = Array.from(merged.values())
+  // A name-only record sharing a co-party with a strong record of the same
+  // person is that person (the five "QUIROGA, LEONARDO" cases beside
+  // "QUIROGA, LEONARDO ALFREDO" all name CZUPAJLO).
+  corroborateByCoParties(matches)
   return {
-    matches: [],
-    totalElements: Math.max(totalSeen, fuzzy.totalElements),
-    error: lastError,
+    matches,
+    totalElements: totalSeen,
+    error: matches.length === 0 ? lastError : undefined,
   }
 }
 
@@ -2153,6 +2145,27 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         if (!redFlags.includes('forensics_' + f.code)) redFlags.push('forensics_' + f.code)
       }
     }
+    // ── Ontario Courts Portal: strong full-name matches gate ──
+    // The portal carries no DOB or address, so a first-name + surname match
+    // stays a namesake (displayed, red-flagged, never scored). A match where
+    // three or more name tokens line up — middle name, both surnames — on the
+    // respondent / defendant / debtor side is this person until shown
+    // otherwise (2026-09-12: six defendant-side cases under "QUIROGA,
+    // LEONARDO ALFREDO" and an open debtor record under a co-applicant's
+    // full name had produced a clean court section).
+    const applyPortalGates = () => {
+      const strong = (courtDetail.portal_records || []).filter(r => r.matchConfidence === 'strong' && isRespondentSide(r.partyRole))
+      if (strong.length === 0) return
+      if (strong.length >= 2) {
+        if (!hardGates.includes('court_record_defendant_multi')) hardGates.push('court_record_defendant_multi')
+      } else if (!hardGates.includes('court_record_defendant') && !hardGates.includes('court_record_defendant_multi')) {
+        hardGates.push('court_record_defendant')
+      }
+      if (strong.some(r => r.closedFlag === false) && !hardGates.includes('court_record_active')) hardGates.push('court_record_active')
+      if (!redFlags.includes('court_record_strong_match')) redFlags.push('court_record_strong_match')
+    }
+    applyPortalGates()
+
     // ── Backend enforcement: court record penalties ──
     // The AI sometimes ignores portal/CanLII records when scoring rental_history.
     // We enforce minimum penalties here based on objective court data.
@@ -2658,7 +2671,9 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     const thirdPartyNames = [
       crossDocVerification?.employment_letter_signatory?.name,
       ...((crossDocVerification?.application_summary?.prev_residences ?? []).map((r) => r.landlord_name)),
-      ...((coherence.documents || []).filter((d) => /lease|reference|other/i.test(d.kind)).flatMap((d) => d.key_facts?.names || [])),
+      // Only documents a third party authors: a co-applicant's own NOA or T4
+      // is kind 'other' and must not turn them into a landlord.
+      ...((coherence.documents || []).filter((d) => /lease|reference|agreement/i.test(d.kind)).flatMap((d) => d.key_facts?.names || [])),
     ].filter((n): n is string => typeof n === 'string' && n.trim().length > 1)
     const coApplicants = selectCoApplicantNames(extractedNames.filter(isValidFullName), nameForLookup, { idDocNames, thirdPartyNames })
     const newNames = coApplicants.searched
@@ -2774,17 +2789,15 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         }
       }
 
-      // Supplemental portal matches follow the same namesake rule as the
-      // primary pass: name-only, so they surface (rows + details text + red
-      // flag) but never cap or gate.
-      const allPortalDefendant = (courtDetail.portal_records || []).filter(r => {
-        const role = (r.partyRole || '').toLowerCase()
-        return role.includes('defendant') || role.includes('debtor') || role.includes('respondent')
-      })
+      // Supplemental portal matches: strong full-name matches gate exactly as
+      // the primary pass (applyPortalGates reads the merged records); name-
+      // only matches surface (rows + details text + red flag) but never cap.
+      const allPortalDefendant = (courtDetail.portal_records || []).filter(r => isRespondentSide(r.partyRole))
       if (allPortalDefendant.length > 0) {
-        if (!redFlags.includes('portal_name_match_unverified')) redFlags.push('portal_name_match_unverified')
+        if (allPortalDefendant.some(r => r.matchConfidence !== 'strong') && !redFlags.includes('portal_name_match_unverified')) redFlags.push('portal_name_match_unverified')
         patchRentalHistoryDetailsForCourt(parsed, courtDetail.records, courtDetail.portal_records || [])
       }
+      applyPortalGates()
       // Re-score after the supplemental court pass.
       //
       // This block used to recompute baseScore from the OLD five-dimension

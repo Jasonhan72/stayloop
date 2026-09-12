@@ -530,6 +530,32 @@ conditional；收入未佐证 + 催收 → 30 decline；无信用报告的新移
   为 0 时明说「评分基于文件互证，尚无第三方核验」
 Carlos 类夹具现为 94（A100 / C92 / R88 / V90），仍是优质档，但读者能看出这是纸面分。
 
+## 法庭记录漏检 + 扫描件 OCR（2026-09-12 · Cipriani / Quiroga 案）
+
+一份两位申请人的档案在模块里显示「未发现不良记录」，而安省法院门户实际有：共同申请人
+**QUIROGA, LEONARDO (ALFREDO)** 六件被告方案件（2018–2024，两件未结，含 CIBC、Capital One、Home Trust
+起诉）；主申请人 **NATHALI, CRISTINE CIPRIANI CAMPINS** 一件 2026 年未结的小额法庭债务人记录
+（Lu v. LEONARDO et al，两人同案）。四个原因叠加：
+1. 门户查询 8 秒超时、无重试，两次运行都超时；前端把 `unavailable` 渲染成「✓ 无记录」，汇总写「未找到法院记录」。
+2. 共同申请人被 9 月 11 日新加的第三方过滤误判：他的 NOA 是 kind `other`，名字进了第三方名单。
+3. 姓名匹配要求每个词逐字出现且姓氏等于 sortName 的姓——法院省略中间名（QUIROGA, LEONARDO）、
+   书记员少打一个字母（NATHALI）、把名当姓归档，都会被过滤掉。
+4. 第一层命中即返回：找到 1 条带中间名的记录后不再查「LEONARDO QUIROGA」，其余五条永远看不到。
+修法：`lib/screening/portalMatch.ts`（纯函数）——`matchPortalParty`：名必须在、姓氏取 sortName 逗号前、
+允许缺一个中间名/第二姓氏、≥5 字母的词容忍 1 个编辑距离；三个词全部对上即 `strong`，否则 `name_only`；
+`planPortalQueries` 列出全部查询（各字序精确、名+每个姓精确、全名模糊、双姓模糊）**全部执行后合并去重**；
+`corroborateByCoParties` 让与 strong 记录共享对方当事人的 name_only 记录升级为 strong。路由：门户超时 15s
++ 重试一次；**strong 且被告/债务人/被申请人方的记录进硬门槛**（1 条 defendant / ≥2 multi / 有未结案
+active），name_only 仍只展示 + 红旗；第三方名单不再取 `other` 类文件，且证件上出现的名字永不算第三方。
+前端 `CourtRecordDetail`：unavailable/timeout/skipped 显示琥珀色「未能检索」，任一数据源未完成时不再显示
+绿色「未发现不良记录」，并列出未完成的数据源；LTB 目录行常显。
+**扫描件 OCR**：Haiku 文档 OCR 预算从固定 30s 改为 30s + 8s/页（上限 120s），失败重试一次，再失败走
+`ocrPdfScan`（DashScope 抽页图）；OCR 文本合并进 `text_density.text_sample` 供所有确定性检查使用
+（此前只用于来源指纹）；`lib/forensics/scan-flags.ts`：OCR 内容识别出发行方（银行/征信局/文件类型）
+时撤销只适用于文字型 PDF 的 `pdf_oversized_for_text / pdf_unusually_short / pdf_producer_unknown`，
+换成 info `scan_content_recognized`；编辑证据（consumer tool 等）不动。
+守卫 `tests/portalMatch.spec.ts`。本机复现 `.forensics-tmp/portal-probe4.mts`（直接打门户 API）。
+
 ## 信用分析层（2026-08-26 · 对标 SingleKey 二轮）
 
 用户拿 SingleKey 30 页双局报告逐页对比后的结论：我们的**转录**早就齐了

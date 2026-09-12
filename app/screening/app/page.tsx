@@ -758,7 +758,11 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
   const rollupQuery = queries[0]
   // Show all database rows that have hits, plus LTB and Small Claims even
   // at 0 hits so the user always sees these two priority DBs were queried.
-  const ALWAYS_SHOW_DBS = ['Landlord and Tenant Board', 'Small Claims Court', 'Ontario Courts Portal']
+  const ALWAYS_SHOW_DBS = ['Landlord and Tenant Board', 'Small Claims Court', 'Ontario Courts Portal', 'LTB Order Catalogue']
+  // A source that timed out or was unavailable is NOT a clean source. It
+  // used to render "✓ 无记录" and the rollup said no records were found.
+  const notSearched = queries.filter(q => q.tier === 'free' && !q.source.startsWith('──') && (q.status === 'unavailable' || q.status === 'timeout' || q.status === 'skipped'))
+  const isNotSearched = (q: CourtQuery) => q.status === 'unavailable' || q.status === 'timeout' || q.status === 'skipped'
   const dbQueries = queries.slice(1).filter(q =>
     // Name separator rows (e.g. "── JOHN SMITH ──") always pass through
     q.source.startsWith('──') ||
@@ -820,17 +824,19 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
       {rollupQuery && (
         <div style={{
           marginBottom: 12, padding: '12px 14px', borderRadius: 8, fontSize: 12,
-          background: totalHits > 0 ? '#FEF2F210' : '#F0FDF410',
-          border: `1px solid ${totalHits > 0 ? '#FECACA60' : '#86EFAC40'}`,
-          color: totalHits > 0 ? '#991B1B' : '#15803D',
+          background: totalHits > 0 ? '#FEF2F210' : notSearched.length > 0 ? '#FFFBEB' : '#F0FDF410',
+          border: `1px solid ${totalHits > 0 ? '#FECACA60' : notSearched.length > 0 ? '#FCD34D80' : '#86EFAC40'}`,
+          color: totalHits > 0 ? '#991B1B' : notSearched.length > 0 ? '#92400E' : '#15803D',
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          <span style={{ fontSize: 16 }}>{totalHits > 0 ? '⚠️' : '✅'}</span>
+          <span style={{ fontSize: 16 }}>{totalHits > 0 ? '⚠️' : notSearched.length > 0 ? '⏳' : '✅'}</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 600 }}>
               {totalHits > 0
                 ? (lang === 'zh' ? `找到 ${totalHits} 条法院记录` : `${totalHits} court record(s) found`)
-                : (lang === 'zh' ? '未找到法院记录' : 'No court records found')
+                : notSearched.length > 0
+                  ? (lang === 'zh' ? `${notSearched.length} 个数据源未能完成检索 — 不等于无记录` : `${notSearched.length} source(s) could not be searched — not a clean result`)
+                  : (lang === 'zh' ? '未找到法院记录' : 'No court records found')
               }
             </div>
             <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>
@@ -876,9 +882,12 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
 
               const isExpanded = expandedRows[i]
               const hasHits = (q.hits ?? 0) > 0
+              const unsearched = !hasHits && isNotSearched(q)
               const sevColor = hasHits
                 ? getSeverityColor(q.severity)
-                : { bg: '#15803D', light: 'rgba(22, 163, 74, 0.06)', border: 'rgba(22, 163, 74, 0.25)' }
+                : unsearched
+                  ? { bg: '#D97706', light: 'rgba(217, 119, 6, 0.06)', border: 'rgba(217, 119, 6, 0.35)' }
+                  : { bg: '#15803D', light: 'rgba(22, 163, 74, 0.06)', border: 'rgba(22, 163, 74, 0.25)' }
 
               return (
                 <div key={i}>
@@ -919,6 +928,10 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
                             {isExpanded ? '▼' : '▶'}
                           </span>
                         </>
+                      ) : unsearched ? (
+                        <span style={{ fontSize: 10, fontWeight: 600, color: '#B45309' }} title={q.note || ''}>
+                          ⏳ {q.status === 'skipped' ? t('screen.result.court.skipped') : (lang === 'zh' ? '未能检索（超时 / 不可用）' : 'Not searched (timeout / unavailable)')}
+                        </span>
                       ) : (
                         <span style={{ fontSize: 10, fontWeight: 600, color: '#15803D' }}>
                           ✓ {t('screen.result.court.clean')}
@@ -950,12 +963,19 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
         </div>
       )}
 
-      {/* No hits message */}
-      {totalHits === 0 && (
+      {/* No hits message — only when every free source actually answered */}
+      {totalHits === 0 && notSearched.length === 0 && (
         <div style={{ padding: '16px', textAlign: 'center', background: '#16A34A10', borderRadius: 8, border: '1px solid #1D7C4A40', marginBottom: 12 }}>
           <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
           <div style={{ fontSize: 13, color: '#15803D', fontWeight: 600 }}>{t('screen.result.court.clean.title')}</div>
           <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>{t('screen.result.court.clean.sub', { n: queries.filter(q => q.status === 'ok' && !q.source.startsWith('──')).length })}</div>
+        </div>
+      )}
+      {totalHits === 0 && notSearched.length > 0 && (
+        <div style={{ padding: '14px 16px', background: '#FFFBEB', borderRadius: 8, border: '1px solid #FCD34D80', marginBottom: 12, fontSize: 12, color: '#92400E' }}>
+          {lang === 'zh'
+            ? `以下数据源未能完成检索：${notSearched.map(q => q.source).join('、')}。请稍后重新运行筛查，或用「一键人工检索」链接自行核对。`
+            : `These sources could not be searched: ${notSearched.map(q => q.source).join(', ')}. Re-run the screening later, or use the manual-search links.`}
         </div>
       )}
 
