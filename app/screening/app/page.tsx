@@ -3063,8 +3063,12 @@ export default function ScreenPage() {
         {analyzing && (() => {
           const curIdx = Math.max(0, stageIndex(progressStage))
           const isCourtStep = progressStage === 'court_and_forensics' || progressStage === 'supplemental_courts'
-          const accentColor = isCourtStep ? '#2A2A5A' : '#10B981'
-          const accentBg = isCourtStep ? 'rgba(139, 92, 246, 0.06)' : 'rgba(13, 148, 136, 0.04)'
+          // One accent for the whole run (2026-09-12): the bar used to turn navy
+          // during the court / forensics stage and back to green after, which
+          // read as a state change rather than progress.
+          void isCourtStep
+          const accentColor = '#10B981'
+          const accentBg = 'rgba(13, 148, 136, 0.04)'
           // supplemental_courts only runs when the AI extracted extra names —
           // hidden until the backend reports it, then kept (no pop-out).
           const visibleStages = PIPELINE_STAGES.filter(s =>
