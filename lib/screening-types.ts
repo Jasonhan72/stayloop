@@ -273,6 +273,11 @@ export interface ForensicsDetail {
       apparent_name?: string | null
       visible_issuer?: string | null
     } | null
+    /** what this document tells a landlord (lib/forensics/landlord-reading.ts) */
+    landlord_reading?: {
+      bullets: Array<{ zh: string; en: string; tone: 'good' | 'neutral' | 'warn' | 'bad'; source: 'measured' | 'model' }>
+      asks: Array<{ zh: string; en: string }>
+    } | null
     paystub_math?: {
       extraction?: {
         annual_salary?: number | null

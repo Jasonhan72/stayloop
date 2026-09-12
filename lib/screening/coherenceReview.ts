@@ -68,6 +68,12 @@ export interface CoherenceDocSummary {
     /** every employer the document lists for the applicant (e.g. a credit report's Employment section) */
     employers_listed?: string[]
   }
+  /** What this document tells a landlord, 2–5 bullets, each anchored on a figure or fact printed in it (2026-09-12) */
+  landlord_read_zh?: string[]
+  landlord_read_en?: string[]
+  /** the one question this document leaves open */
+  ask_zh?: string | null
+  ask_en?: string | null
 }
 
 export interface CoherenceReview {
@@ -150,12 +156,18 @@ HARD RULES:
         "employer": "<employer name as printed or null>",
         "employment_start": "<YYYY-MM-DD start date if the document states one, else null>",
         "employers_listed": ["<every employer the document lists for the applicant, e.g. a credit report's Employment section (max 5)>"]
-      }
+      },
+      "landlord_read_zh": ["<2–5 bullets, ≤ 45 Chinese chars each: what THIS document tells a landlord deciding whether to rent — the figure or fact as printed, then what it means for paying rent on time. Write like a bank credit officer or a SingleKey report: e.g. 「到手 $6,954.83/半月，折合每月 $13,900，租金 $2,400 占到手 17%」「每月 1 日支票 $4,000 连续 3 个月——现租按时付」「信用卡欠 $9,247/额度 $20,000，每月全额还清」「工作 4 年，正式员工，有福利扣款」「NSF 2 次，账户月底见底」. No PDF metadata, no font talk.>"],
+      "landlord_read_en": ["<same bullets in English, ≤ 25 words each>"],
+      "ask_zh": "<the ONE question this document leaves open for the landlord to ask, ≤ 40 chars, or null>",
+      "ask_en": "<same in English, or null>"
     }
   ]
 }
 
-OUTPUT SIZE: compact JSON on a single line, no indentation, no trailing prose. Anomalies first. Keep the whole answer under ~2500 tokens — brevity over completeness in "documents"; never cut an anomaly short.
+LANDLORD READING — what goes in landlord_read: for a BANK STATEMENT — who pays into it and how often, whether the current rent is visibly being paid and how much, month-end balance and its trend, NSF / overdraft, payday lenders, casinos, collection agencies, unexplained lump sums; for a PAY STUB — employer, frequency, take-home per period and per month, YTD vs run-rate, benefit deductions (real payroll) or garnishments; for a CREDIT REPORT — anything past due now, monthly debt service, utilisation, collections, file depth, employer on file; for an EMPLOYMENT / OFFER LETTER — title, start date, permanent or contract, salary, whether the contact path is a company domain; for an ID — type, expiry, address vs application; for a TAX SLIP / NOA — year and total income vs what is claimed now; for the APPLICATION — declared landlords with phones, reason for leaving, blanks. Every bullet must carry a number or a fact printed on the page. Say nothing about PDF producers, fonts, file sizes or scans — that is covered elsewhere.
+
+OUTPUT SIZE: compact JSON on a single line, no indentation, no trailing prose. Anomalies first. Keep the whole answer under ~4000 tokens — the landlord_read bullets are required for every document; trim key_facts before trimming them; never cut an anomaly short.
 
 Severity guide: critical = cannot be genuine as presented (e.g. accounts opened in childhood, a date that predates the document); high = strong contradiction needing explanation; medium = notable inconsistency; low = minor/likely clerical. Report at most 12 anomalies, most severe first. If you find none, return an empty "anomalies" array — do not invent.`
 
@@ -184,6 +196,10 @@ export function sanitizeCoherenceOutput(raw: unknown, model: string | null, elap
       employment_start: clampStr(d?.key_facts?.employment_start, 20) || null,
       employers_listed: strArr(d?.key_facts?.employers_listed, 5, 120),
     },
+    landlord_read_zh: strArr(d?.landlord_read_zh, 6, 160),
+    landlord_read_en: strArr(d?.landlord_read_en, 6, 240),
+    ask_zh: clampStr(d?.ask_zh, 120) || null,
+    ask_en: clampStr(d?.ask_en, 200) || null,
   })).filter(d => d.file)
   const anomalies: CoherenceAnomaly[] = (Array.isArray(o.anomalies) ? o.anomalies : []).slice(0, 20).map((a: any, i: number) => {
     const sev = typeof a?.severity === 'string' && SEVS.has(a.severity) ? a.severity : 'medium'

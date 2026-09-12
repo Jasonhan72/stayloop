@@ -201,6 +201,16 @@ export interface PerFileForensics {
   flags: ForensicFlag[]
   /** ms spent on this file */
   elapsed_ms: number
+  /** What this document tells a landlord — lib/forensics/landlord-reading.ts (2026-09-12) */
+  landlord_reading?: LandlordReading
+}
+
+export type ReadingTone = 'good' | 'neutral' | 'warn' | 'bad'
+export interface ReadingBullet { zh: string; en: string; tone: ReadingTone; /** 'measured' = deterministic from the file; 'model' = written by the coherence pass */ source: 'measured' | 'model' }
+export interface LandlordReading {
+  bullets: ReadingBullet[]
+  /** one or two concrete questions worth asking the applicant / a third party */
+  asks: Array<{ zh: string; en: string }>
 }
 
 export type ForensicsSeverity = 'clean' | 'suspicious' | 'likely_fraud' | 'fraud'

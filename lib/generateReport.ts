@@ -988,6 +988,16 @@ export async function generateScreeningReport(
             <span style="font-size:10px;font-weight:700;color:${vColor};white-space:nowrap">${vText}</span>
           </div>`
         if (facts.length) html += `<table style="margin:4px 0"><tbody>${facts.map(([k, v]) => `<tr><td style="width:42%;color:#64748B;font-size:9.5px">${esc(k)}</td><td style="font-size:9.5px;font-family:monospace">${esc(v)}</td></tr>`).join('')}</tbody></table>`
+        const lr = pf.landlord_reading
+        if (lr && lr.bullets.length) {
+          const toneColor: Record<string, string> = { bad: '#DC2626', warn: '#D97706', good: '#16A34A', neutral: '#64748B' }
+          const toneMark: Record<string, string> = { bad: '✗', warn: '⚠', good: '✓', neutral: '·' }
+          html += `<div style="margin:6px 0 4px;padding:7px 10px;border:1px solid #E4EEF6;border-radius:6px;background:#FFFFFF">
+            <div style="font-size:8.5px;font-weight:700;letter-spacing:0.06em;color:#6E6E8A;text-transform:uppercase;margin-bottom:4px">${zh ? '房东解读 · 这份文件说明了什么' : 'Landlord reading · what this document says'}</div>
+            ${lr.bullets.map(bl => `<div style="display:flex;gap:6px;font-size:10px;line-height:1.55;margin:2px 0"><span style="color:${toneColor[bl.tone] || '#64748B'};font-weight:700;flex:none">${toneMark[bl.tone] || '·'}</span><span>${esc(zh ? bl.zh : bl.en)}${bl.source === 'model' ? ' <span style="font-family:monospace;font-size:8px;color:#9FBBD0">AI</span>' : ''}</span></div>`).join('')}
+            ${lr.asks.length ? `<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #E4EEF6;font-size:9.5px;color:#4A4A6A"><b>${zh ? '建议追问：' : 'Ask: '}</b>${lr.asks.slice(0, 2).map(a => esc(zh ? a.zh : a.en)).join(zh ? '；' : '; ')}</div>` : ''}
+          </div>`
+        }
         for (const f of pf.flags) {
           const dispSev = isPositiveForensicFlag(f) ? 'info' : f.severity
           html += `<div style="margin-top:4px;font-size:10px;line-height:1.5"><span class="flag-badge" style="background:${sevColor(dispSev)}">${zh ? ({ critical: '严重', high: '高', medium: '中', low: '低', info: '佐证' }[dispSev] || dispSev) : dispSev.toUpperCase()}</span>${esc(zh ? f.evidence_zh : f.evidence_en)}</div>`

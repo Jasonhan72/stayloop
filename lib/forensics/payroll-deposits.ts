@@ -64,6 +64,8 @@ export interface StatementTxn {
   desc: string
   amount: number | null
   balance: number | null
+  /** known when the layout has separate withdrawal / deposit columns */
+  direction?: 'in' | 'out' | null
   /** text after the last money figure — the payer / counterparty on Scotiabank's two-line layout */
   trailing: string
   raw: string
@@ -77,6 +79,10 @@ export interface StatementTxn {
  *  transaction row. */
 export function splitStatementTransactions(text: string): StatementTxn[] {
   if (!text) return []
+  // TD-style rows carry the date at the END as "SEP03" and the balance after
+  // it; OCR keeps them one per line ("E-TRANSFER 3,547.21 SEP03 26,683.44").
+  const tdRows = parseTdStyleRows(text)
+  if (tdRows.length >= 3) return tdRows
   const flat = text.replace(/\s+/g, ' ')
   const cut = new RegExp(String.raw`(?=\b${DATE_TOKEN}\b)`, 'g')
   const out: StatementTxn[] = []
@@ -93,6 +99,77 @@ export function splitStatementTransactions(text: string): StatementTxn[] {
     out.push({ month: m[1].replace('.', ''), day: Number(m[2]), desc, amount, balance, trailing: trailing.slice(0, 80), raw: chunk.trim().slice(0, 160) })
   }
   return out
+}
+
+const TD_ROW = /^(.*?)\s+(\d{1,3}(?:,\d{3})*\.\d{2})\s+([A-Z]{3})\s?(\d{2})(?:\s+(\d{1,3}(?:,\d{3})*\.\d{2}))?\s*$/
+const MON = /^([A-Z]{3})\s?(\d{2})$/
+const AMT = /^\d{1,3}(?:,\d{3})*\.\d{2}$/
+const monthName = (m: string) => m[0] + m.slice(1).toLowerCase()
+
+/** TD-style statements come out of OCR in three shapes:
+ *   inline   "E-TRANSFER 3,547.21 SEP03 26,683.44"
+ *   piped    "SEND E-TFR ***hjp | | 3,547.21 | AUG01 | 23,867.76"
+ *   vertical "CHEQUE 00008-…" / "3,547.21" / "SEP30" / "25,919.86" (one field per line)
+ *  The piped shape carries withdrawal / deposit columns, so direction is
+ *  known; the others infer it from the running balance. */
+function parseTdStyleRows(text: string): StatementTxn[] {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+  const out: StatementTxn[] = []
+  // piped
+  const piped = lines.filter(l => (l.match(/\|/g) || []).length >= 3)
+  if (piped.length >= 3) {
+    for (const l of piped) {
+      const cells = l.split('|').map(c => c.trim())
+      if (cells.length < 4) continue
+      const [desc, w, d, date, bal] = cells
+      if (/^description$/i.test(desc)) continue
+      const dm = (date || '').match(MON)
+      if (/starting|opening/i.test(desc)) { out.push({ month: dm ? monthName(dm[1]) : '', day: dm ? Number(dm[2]) : 0, desc: 'Opening Balance', amount: bal && AMT.test(bal) ? money(bal) : null, balance: null, trailing: '', raw: l, direction: null }); continue }
+      const amt = w && AMT.test(w) ? money(w) : d && AMT.test(d) ? money(d) : null
+      if (amt === null) continue
+      out.push({ month: dm ? monthName(dm[1]) : '', day: dm ? Number(dm[2]) : 0, desc, amount: amt, balance: bal && AMT.test(bal) ? money(bal) : null, trailing: '', raw: l.slice(0, 160), direction: w && AMT.test(w) ? 'out' : 'in' })
+    }
+    if (out.length >= 3) return out
+    out.length = 0
+  }
+  // inline
+  for (const line of lines) {
+    const m = line.match(TD_ROW)
+    if (!m) {
+      const start = line.match(/^(STARTING|OPENING)\s+BALANCE\s+(\d{1,3}(?:,\d{3})*\.\d{2})$/i)
+      if (start) out.push({ month: '', day: 0, desc: 'Opening Balance', amount: money(start[2]), balance: null, trailing: '', raw: line, direction: null })
+      continue
+    }
+    out.push({ month: monthName(m[3]), day: Number(m[4]), desc: m[1].trim(), amount: money(m[2]), balance: m[5] ? money(m[5]) : null, trailing: '', raw: line.slice(0, 160), direction: null })
+  }
+  if (out.length >= 3) return out
+  out.length = 0
+  // vertical: description, amount, date, [balance]
+  let desc: string | null = null
+  let amt: number | null = null
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i]
+    if (/^(STARTING|OPENING)\s+BALANCE$/i.test(l)) { desc = 'Opening Balance'; continue }
+    if (AMT.test(l)) {
+      if (desc && amt === null) { amt = money(l); continue }
+      // an amount right after a completed row is that row's balance
+      const last = out[out.length - 1]
+      if (last && last.balance === null && desc === null) { last.balance = money(l); continue }
+      amt = money(l); continue
+    }
+    const dm = l.match(MON)
+    if (dm) {
+      if (desc) {
+        if (desc === 'Opening Balance') out.push({ month: monthName(dm[1]), day: Number(dm[2]), desc, amount: amt, balance: null, trailing: '', raw: l, direction: null })
+        else if (amt !== null) out.push({ month: monthName(dm[1]), day: Number(dm[2]), desc, amount: amt, balance: null, trailing: '', raw: `${desc} ${amt} ${l}`, direction: null })
+      }
+      desc = null; amt = null; continue
+    }
+    if (/^(description|withdrawals|deposits|date|balance)$/i.test(l)) continue
+    // a description line (letters present)
+    if (/[A-Za-z]{2,}/.test(l)) { desc = l; amt = null }
+  }
+  return out.length >= 3 ? out : []
 }
 
 const PAYROLL_LABEL = /\b(payroll|pay\s*dep|direct\s+dep(?:osit)?|salary|paie|dep[oô]t\s+(?:de\s+)?(?:paie|salaire))\b/i
@@ -158,9 +235,12 @@ export function findRecurringMonthlyPayment(bankTexts: string[]): { amount: numb
     if (open) prevBalance = money(open[1])
     for (const t of splitStatementTransactions(text)) {
       if (/opening\s+balance/i.test(t.desc)) { if (t.amount !== null) prevBalance = t.amount; continue }
-      if (t.amount === null || t.balance === null) continue
-      const isOut = prevBalance !== null && t.balance < prevBalance
-      prevBalance = t.balance
+      if (t.amount === null) continue
+      let isOut: boolean
+      if (t.direction) isOut = t.direction === 'out'
+      else if (t.balance !== null) { isOut = prevBalance !== null && t.balance < prevBalance }
+      else continue
+      if (t.balance !== null) prevBalance = t.balance
       if (!isOut || t.day > 5 || t.amount < 800 || t.amount > 20_000) continue
       if (!/cheque|check|transfer|withdrawal|rent|pre-?auth|payment/i.test(t.desc)) continue
       const key = Math.round(t.amount * 100)
@@ -200,8 +280,8 @@ export function analyzeStatementLiquidity(bankTexts: string[]): StatementLiquidi
     if (open) { const v = money(open[1]); min = min === null ? v : Math.min(min, v) }
     for (const t of splitStatementTransactions(text)) {
       if (/\b(NSF|non[- ]sufficient|returned\s+(?:item|cheque|payment)|overdraft\s+(?:fee|interest|charge)|chargeback)\b/i.test(t.desc)) nsf++
+      if (/opening\s+balance/i.test(t.desc)) { if (t.amount !== null) min = min === null ? t.amount : Math.min(min, t.amount); continue }
       if (t.balance === null) continue
-      if (/opening\s+balance/i.test(t.desc)) continue
       rows++
       min = min === null ? t.balance : Math.min(min, t.balance)
       last = t.balance

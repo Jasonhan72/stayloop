@@ -21,6 +21,7 @@ import { countMaterialBlanks } from '@/lib/screening/rubric'
 import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
 import { analyzeStatementLiquidity, findRecurringMonthlyPayment } from '@/lib/forensics/payroll-deposits'
 import { monthsSince, parsePeriodMonths, parseDateLoose, datesAgree } from '@/lib/screening/periods'
+import { buildLandlordReadings, mergeModelReadings } from '@/lib/forensics/landlord-reading'
 import { llmChat, llmChatStream } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
@@ -2417,6 +2418,26 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     forensicsReport.all_flags.push(...coherenceToFlags(coherence))
     if (coherence.status === 'ok' && coherence.anomalies.some(a => a.severity === 'critical' || a.severity === 'high')) {
       if (!redFlags.includes('coherence_anomaly')) redFlags.push('coherence_anomaly')
+    }
+
+    // ── Landlord reading per document (2026-09-12) ──────────────────────
+    // Measured readings first (statement deposits / rent / balances / NSF /
+    // payday / gambling / collections; stub take-home and deductions; bureau
+    // past-due and debt service; ID expiry and name; letter type; tax slip
+    // income), then the coherence pass's own per-document bullets.
+    try {
+      buildLandlordReadings(forensicsReport.per_file, {
+        monthlyRent: monthlyRent || crossDocVerification?.application_summary?.applying_rent || null,
+        claimedMonthlyIncome: detectedIncomeForGate,
+        applicantName: nameForLookup,
+        creditReport: creditReport && !creditReport.unreliable ? creditReport : null,
+        applicationSummary: crossDocVerification?.application_summary ?? null,
+        monthlyIncomeForCredit: detectedIncomeForGate,
+        coApplicants: (Array.isArray(parsed.extracted_names) ? parsed.extracted_names : []).filter((n: unknown): n is string => typeof n === 'string'),
+      })
+      if (coherence.status === 'ok') mergeModelReadings(forensicsReport.per_file, coherence.documents)
+    } catch (err) {
+      console.warn('[screen-score] landlord reading failed', (err as Error)?.message)
     }
 
     // ── Deterministic rubric ────────────────────────────────────────────

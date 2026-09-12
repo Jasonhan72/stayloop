@@ -1316,6 +1316,25 @@ export default function ReportPage() {
                               ))}
                             </div>
                           )}
+                          {pf.landlord_reading && pf.landlord_reading.bullets.length > 0 && (
+                            <div className="mt-3 rounded-lg border border-line-divider bg-white px-3.5 py-3">
+                              <div className="mb-1.5 font-mono text-[10px] font-bold uppercase tracking-wide text-body-3">{zh ? '房东解读 · 这份文件说明了什么' : 'Landlord reading · what this document says'}</div>
+                              <ul className="space-y-1">
+                                {pf.landlord_reading.bullets.map((bl, j) => (
+                                  <li key={j} className="flex items-start gap-2 text-[12.5px] leading-relaxed">
+                                    <span className="mt-0.5 shrink-0 font-bold" style={{ color: bl.tone === 'bad' ? '#DC2626' : bl.tone === 'warn' ? '#D97706' : bl.tone === 'good' ? '#16A34A' : '#64748B' }}>{bl.tone === 'bad' ? '✗' : bl.tone === 'warn' ? '⚠' : bl.tone === 'good' ? '✓' : '·'}</span>
+                                    <span className="text-body-1">{zh ? bl.zh : bl.en}{bl.source === 'model' && <span className="ml-1 font-mono text-[9.5px] text-body-3">AI</span>}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                              {pf.landlord_reading.asks.length > 0 && (
+                                <div className="mt-2 border-t border-dashed border-line-divider pt-2 text-[12px] text-body-2">
+                                  <span className="font-semibold">{zh ? '建议追问：' : 'Ask: '}</span>
+                                  {pf.landlord_reading.asks.slice(0, 2).map((a, j) => <span key={j}>{j > 0 ? (zh ? '；' : '; ') : ''}{zh ? a.zh : a.en}</span>)}
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {pf.flags.length > 0 && (
                             <div className="mt-2.5 space-y-1.5">
                               {pf.flags.map((f, j) => {
