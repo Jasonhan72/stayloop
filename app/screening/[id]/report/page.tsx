@@ -1664,21 +1664,21 @@ export default function ReportPage() {
                 : `Corporate-registry cross-check · ${new Date(dc.checked_at).toLocaleString()}`}
             >
               <KV k={zh ? '总体结论' : 'Overall'}>
-                <strong style={{ color: dc.overall_risk === 'high' ? '#DC2626' : dc.overall_risk === 'medium' ? '#D97706' : '#16A34A' }}>
+                <strong style={{ color: dc.overall_risk === 'high' ? '#DC2626' : dc.overall_risk === 'medium' ? '#D97706' : dc.overall_risk === 'unverified' ? '#B45309' : '#16A34A' }}>
                   {zh
-                    ? ({ high: '高风险 — 非独立雇佣关系', medium: '中等风险', low: '低风险', clean: '正常 — 独立雇佣关系' } as Record<string, string>)[dc.overall_risk]
-                    : ({ high: "High risk — not arm's length", medium: 'Medium risk', low: 'Low risk', clean: "Clean — arm's length" } as Record<string, string>)[dc.overall_risk]}
+                    ? ({ high: '高风险 — 非独立雇佣关系', medium: '中等风险', low: '低风险', clean: '正常 — 独立雇佣关系', unverified: '未核验 — 注册库不公开董事，无法确认独立性' } as Record<string, string>)[dc.overall_risk]
+                    : ({ high: "High risk — not arm's length", medium: 'Medium risk', low: 'Low risk', clean: "Clean — arm's length", unverified: 'Unverified — the registry publishes no directors' } as Record<string, string>)[dc.overall_risk]}
                 </strong>
               </KV>
               <div className="mt-3 space-y-3">
                 {dc.checks.map((check, i) => {
-                  const col = check.arm_length_risk === 'high' ? '#DC2626' : check.arm_length_risk === 'medium' ? '#D97706' : '#16A34A'
+                  const col = check.arm_length_risk === 'high' ? '#DC2626' : check.arm_length_risk === 'medium' ? '#D97706' : check.arm_length_risk === 'unverified' ? '#B45309' : '#16A34A'
                   const ci = check.company_info
                   return (
                     <div key={i} className="rounded-xl border border-line-divider p-4" style={{ borderLeft: `3px solid ${col}`, background: '#FAFAF8' }}>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-[13px] font-bold">{check.employer_name}</span>
-                        <Badge label={check.arm_length_risk.toUpperCase()} color={col} />
+                        <Badge label={check.arm_length_risk === 'unverified' ? (zh ? '未核验' : 'UNVERIFIED') : check.arm_length_risk === 'clean' ? (zh ? '独立' : 'CLEAN') : check.arm_length_risk.toUpperCase()} color={col} />
                       </div>
                       {ci ? (
                         <div className="mt-2 space-y-0.5">

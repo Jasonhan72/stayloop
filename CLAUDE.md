@@ -588,6 +588,24 @@ active），name_only 仍只展示 + 红旗；第三方名单不再取 `other` �
 守卫 `tests/landlordReading.spec.ts`（含 Scotiabank 扁平文本、TD 三种 OCR 排版、压力档案）。
 本机预览 `.forensics-tmp/reading-preview.mts <screening_id>` 对库里真实档案输出解读。
 
+## 雇主独立性：申请方成员与公司网页（2026-09-12 · Green Life 案）
+
+用户指出：申请人的雇主 Green Life Group Inc. 是共同申请人（丈夫）的公司，模块却写「正常 — 独立雇佣关系」。
+原因：安省注册库（cbr_on）不公开董事，旧逻辑只比申请人本人的姓与签署人/董事，配偶不同姓 → 什么都看不到，
+且「没查到」被显示成「正常」。改法（`lib/forensics/arm-length.ts`）：
+- `related_names`（共同申请人 / 申请表上的配偶与同住人 / 证件上的名字，deep-check 路由从
+  `_v3.extracted_names` + coherence 的 application_form/id_document 姓名汇集）：董事或签署人与其中任何人
+  全名匹配 → `arm_length_related_party_officer`（critical，high）。
+- 注册库无董事时走网络：`webSearch`（s.jina.ai）查 `"<注册名去句点>" <注册城市> owner OR president OR
+  director OR founder OR CEO`（**必须带公司后缀与城市**：只搜「Green Life Group」会返回全世界的同名实体；
+  搜带句点的 `GREEN LIFE GROUP INC.` 返回空），再用 `webRead`（r.jina.ai）读公司自己的网站与社媒页
+  （social 优先、最多 5 页、并行），找申请方全名、姓+首字母、或**不常见姓氏**（≥5 字母且不在常见姓名单）：
+  命中 → `arm_length_web_index_party_named`（high）。本案：Facebook 页出现「Felix Ricky Cipriani」。
+- 注册库无董事、签署人无关、网络也没见到 → 结论 **`unverified`**（琥珀色「未核验 — 注册库不公开董事」），
+  不再是绿色「正常」；路由 `overall_risk` 也支持 `unverified`，三处 UI 都改了。
+守卫 `tests/armLength.spec.ts`（related party / 网页姓氏命中 / unverified）。本机联网复现
+`.forensics-tmp/arm-live.mts`。
+
 ## 信用分析层（2026-08-26 · 对标 SingleKey 二轮）
 
 用户拿 SingleKey 30 页双局报告逐页对比后的结论：我们的**转录**早就齐了

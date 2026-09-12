@@ -236,7 +236,14 @@ export interface ArmLengthCheckResult {
   applicant_is_officer: boolean
   applicant_lastname_match: boolean
   company_address_matches_applicant: boolean
-  arm_length_risk: 'high' | 'medium' | 'low' | 'clean'
+  /** 'unverified': the registry publishes no directors and nothing else pointed either way — NOT a clean result (2026-09-12) */
+  arm_length_risk: 'high' | 'medium' | 'low' | 'clean' | 'unverified'
+  /** a director / officer list was actually compared */
+  officers_verified?: boolean
+  /** a web-index search for the company's owner / president ran */
+  web_checked?: boolean
+  /** a co-applicant / spouse / occupant matched an officer, the signatory, or a web-index result */
+  related_party_match?: string | null
   flags: ForensicFlag[]
 }
 

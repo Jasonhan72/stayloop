@@ -1169,6 +1169,7 @@ export async function generateScreeningReport(
       medium: { text: zh ? '中等风险' : 'Medium Risk', color: '#D97706' },
       low: { text: zh ? '低风险' : 'Low Risk', color: '#65A30D' },
       clean: { text: zh ? '正常 — 独立雇佣关系' : 'Clean — Arm\'s Length', color: '#16A34A' },
+      unverified: { text: zh ? '未核验 — 注册库不公开董事，无法确认独立性' : 'Unverified — the registry publishes no directors', color: '#B45309' },
     }
     const ov = orMap[dc.overall_risk] || orMap.clean
     html += `<h2>${zh ? '雇主深度核查 (Arm\'s Length)' : 'Employer Deep Check (Arm\'s Length)'}</h2>

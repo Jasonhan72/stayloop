@@ -3554,7 +3554,7 @@ export default function ScreenPage() {
                   // something was actually verified: at least one company was
                   // found in a registry. Otherwise render a neutral "需省级核验".
                   const anyFound = (deepCheckResult.checks || []).some((c: { company_info?: unknown }) => !!c.company_info)
-                  const unverified = deepCheckResult.overall_risk === 'low' && !anyFound
+                  const unverified = deepCheckResult.overall_risk === 'unverified' || (deepCheckResult.overall_risk === 'low' && !anyFound)
                   const tone = deepCheckResult.overall_risk === 'high'
                     ? { bg: '#FEE2E2', fg: '#991B1B' }
                     : deepCheckResult.overall_risk === 'medium'
@@ -3569,7 +3569,7 @@ export default function ScreenPage() {
                         : deepCheckResult.overall_risk === 'medium'
                           ? (lang === 'zh' ? '⚡ 中等风险' : '⚡ Medium Risk')
                           : unverified
-                            ? (lang === 'zh' ? '○ 需省级核验' : '○ Unverified — check provincial')
+                            ? (lang === 'zh' ? '○ 未核验 — 注册库不公开董事' : '○ Unverified — no director list')
                             : (lang === 'zh' ? '✓ 正常' : '✓ Clean')}
                     </span>
                   )

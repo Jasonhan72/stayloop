@@ -146,12 +146,16 @@ describe("arm's-length: the case-21 letter, replayed", () => {
     expect(r.flags.some((f) => f.code === 'arm_length_officers_unavailable')).toBe(true)
   })
 
-  it('an unrelated signatory without an ownership title stays clean', async () => {
+  it('an unrelated signatory without an ownership title is UNVERIFIED when the registry lists no directors', async () => {
+    // 2026-09-12: "clean" used to be the verdict here — an applicant employed
+    // by her husband's Ontario corporation read 正常 — 独立雇佣关系 because the
+    // registry publishes no directors and nothing else was compared.
     const r = await checkArmLength(
       'Northline Motors Inc.', 'Alaleh Allasvandi Toghian', undefined, 'Marta Kowalski',
       { signatory_title: 'HR Manager', companyLookup: cbrNorthline },
     )
-    expect(r.arm_length_risk).toBe('clean')
+    expect(r.arm_length_risk).toBe('unverified')
+    expect(r.officers_verified).toBe(false)
     expect(r.flags.some((f) => f.code === 'arm_length_signatory_owner_family')).toBe(false)
   })
 
@@ -161,5 +165,30 @@ describe("arm's-length: the case-21 letter, replayed", () => {
       { signatory_title: 'Director/Owner', companyLookup: cbrNorthline },
     )
     expect(r.flags.some((f) => f.code === 'arm_length_signatory_owner_family')).toBe(false)
+  })
+})
+
+describe("arm's-length: the applicant's own party (2026-09-12)", () => {
+  const ontarioCorp = async (): Promise<any> => ({ name: 'GREEN LIFE GROUP INC.', jurisdiction: 'ca_on', incorporation_date: '2019-05-14', status: 'Active', registered_address: 'TORONTO, Ontario', officers: [], source: 'cbr_on', registry_url: null })
+  it('a co-applicant who signed the letter makes the employer a related party', async () => {
+    const r = await checkArmLength('Green Life Group Inc.', 'Nathalie Cipriani Campins', undefined, 'Leonardo Alfredo Quiroga',
+      { signatory_title: 'President', companyLookup: ontarioCorp, related_names: ['LEONARDO ALFREDO QUIROGA'] })
+    expect(r.arm_length_risk).toBe('high')
+    expect(r.flags.some(f => f.code === 'arm_length_related_party_officer')).toBe(true)
+  })
+  it('reads the company web page for the party when the registry has no directors', async () => {
+    const r = await checkArmLength('Green Life Group Inc.', 'Nathalie Cipriani Campins', undefined, 'Patricio Roman',
+      { signatory_title: 'Hiring coordinator', companyLookup: ontarioCorp, related_names: ['LEONARDO ALFREDO QUIROGA'],
+        webSearch: async () => [{ title: 'GreenLife GroupInc - Facebook', snippet: 'roofing services in the GTA', link: 'https://www.facebook.com/greenlife.groupinc/' }],
+        webRead: async () => 'GreenLife GroupInc. 12 likes. General Construction Company. Contact Felix Ricky Cipriani for a quote.' })
+    expect(r.web_checked).toBe(true)
+    expect(r.arm_length_risk).toBe('high')
+    expect(r.flags.find(f => f.code === 'arm_length_web_index_party_named')?.evidence_zh).toMatch(/Cipriani/)
+  })
+  it('stays unverified when the web says nothing about the party', async () => {
+    const r = await checkArmLength('Green Life Group Inc.', 'Nathalie Cipriani Campins', undefined, 'Patricio Roman',
+      { signatory_title: 'HR', companyLookup: ontarioCorp, related_names: ['LEONARDO ALFREDO QUIROGA'], webSearch: async () => [], webRead: async () => '' })
+    expect(r.arm_length_risk).toBe('unverified')
+    expect(r.web_checked).toBe(true)
   })
 })

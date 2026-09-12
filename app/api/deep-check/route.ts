@@ -217,6 +217,7 @@ function makeCachedCompanyLookup(supabase: SupabaseClient) {
 interface DeepCheckPayload {
   employer_names: string[]
   applicant_name: string
+  related_names?: string[]
   applicant_address?: string
   applicant_phone?: string
   applicant_email?: string
@@ -305,14 +306,60 @@ async function payloadFromScreening(screening_id: string, authHeader: string): P
     }
   }
 
+  // The applicant's own party: co-applicants from the ID documents, the
+  // spouse / occupants from the application, anyone the letter signatory
+  // could be. A husband's company employing the applicant is the case the
+  // surname rules cannot see.
+  const primary = screening.ai_extracted_name || screening.tenant_name || ''
+  const relatedNames: string[] = dedupeStrings([
+    ...(Array.isArray(v3.extracted_names) ? v3.extracted_names : []),
+    ...((v3.coherence_review?.documents || []).filter((d: any) => /application_form|id_document/i.test(d?.kind || '')).flatMap((d: any) => d?.key_facts?.names || [])),
+    ...((v3.cross_doc_verification?.application_summary?.occupants || []).map((o: any) => o?.name)),
+  ].filter((n: unknown): n is string => typeof n === 'string' && n.trim().length > 3 && n.trim().toLowerCase() !== primary.trim().toLowerCase()))
+
   return {
     employer_names: employerNames,
-    applicant_name: screening.ai_extracted_name || screening.tenant_name || '',
+    applicant_name: primary,
+    related_names: relatedNames,
     applicant_address: firstOr(cross.addresses),
     applicant_phone: firstOr(cross.phones),
     applicant_email: firstOr(cross.emails),
     hr_phone_collision: forensics?.cross_doc?.hr_phone_collision === true,
     employer_doc_text: employerDocText.join('\n\n---\n\n'),
+  }
+}
+
+/** Jina web index (s.jina.ai) — the same provider the CanLII index check
+ *  uses. Returns [] without a key or on any failure; the arm's-length check
+ *  then reports "unverified" rather than "clean". */
+function makeWebIndexSearch(): ((query: string) => Promise<Array<{ title: string; snippet: string; link: string }>>) | undefined {
+  const key = process.env.JINA_API_KEY
+  if (!key) return undefined
+  return async (query: string) => {
+    const res = await fetch(`https://s.jina.ai/?q=${encodeURIComponent(query)}`, {
+      headers: { Authorization: `Bearer ${key}`, Accept: 'application/json', 'X-Respond-With': 'no-content' },
+      signal: AbortSignal.timeout(12_000),
+    })
+    if (!res.ok) return []
+    const body = (await res.json()) as { data?: Array<{ title?: unknown; url?: unknown; description?: unknown }> }
+    return (Array.isArray(body.data) ? body.data : []).slice(0, 10).map((d) => ({
+      title: typeof d.title === 'string' ? d.title : '',
+      snippet: typeof d.description === 'string' ? d.description : '',
+      link: typeof d.url === 'string' ? d.url : '',
+    }))
+  }
+}
+
+function makeWebRead(): ((url: string) => Promise<string>) | undefined {
+  const key = process.env.JINA_API_KEY
+  if (!key) return undefined
+  return async (url: string) => {
+    const res = await fetch(`https://r.jina.ai/${url}`, {
+      headers: { Authorization: `Bearer ${key}`, Accept: 'text/plain', 'X-Return-Format': 'text' },
+      signal: AbortSignal.timeout(20_000),
+    })
+    if (!res.ok) return ''
+    return (await res.text()).slice(0, 40_000)
   }
 }
 
@@ -472,6 +519,9 @@ export async function POST(req: Request) {
       signatory_title: payload.signatory_title,
       signatory_phone: payload.signatory_phone,
       hr_phone_collision: payload.hr_phone_collision,
+      related_names: payload.related_names,
+      webSearch: makeWebIndexSearch(),
+      webRead: makeWebRead(),
       companyLookup: makeCachedCompanyLookup(cacheClient),
     })
 
@@ -508,7 +558,9 @@ export async function POST(req: Request) {
     const hasHighRisk = results.some(r => r.arm_length_risk === 'high') || hasBNMismatch
     const hasMediumRisk = results.some(r => r.arm_length_risk === 'medium')
     const allFlags = [...results.flatMap(r => r.flags), ...bnFlags]
-    const overallRisk = hasHighRisk ? 'high' : hasMediumRisk ? 'medium' : 'clean'
+    const hasLowRisk = results.some(r => r.arm_length_risk === 'low')
+    const allUnverified = results.length > 0 && results.every(r => r.arm_length_risk === 'unverified')
+    const overallRisk = hasHighRisk ? 'high' : hasMediumRisk ? 'medium' : hasLowRisk ? 'low' : allUnverified ? 'unverified' : 'clean'
 
     return Response.json({
       success: true,

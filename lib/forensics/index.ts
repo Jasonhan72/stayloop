@@ -866,6 +866,11 @@ export async function runDeepCheck(input: {
   signatory_phone?: string
   /** true if cross_doc flagged HR-phone == applicant-phone collision */
   hr_phone_collision?: boolean
+  /** co-applicants / spouse / occupants — a related party running the employer */
+  related_names?: string[]
+  /** web-index search used when the registry has no officers */
+  webSearch?: (query: string) => Promise<Array<{ title: string; snippet: string; link: string }>>
+  webRead?: (url: string) => Promise<string>
   /** optional cache-aware company lookup (Phase 3). */
   companyLookup?: (name: string) => Promise<CompanyRegistryInfo | null>
 }): Promise<ArmLengthCheckResult[]> {
@@ -897,6 +902,9 @@ export async function runDeepCheck(input: {
         applicant_phone: input.applicant_phone,
         applicant_email: input.applicant_email,
         hr_phone_collision: input.hr_phone_collision,
+        related_names: input.related_names,
+        webSearch: input.webSearch,
+        webRead: input.webRead,
         companyLookup: input.companyLookup,
       },
     ))

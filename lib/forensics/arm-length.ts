@@ -42,7 +42,10 @@ export interface ArmLengthResult {
   /** the employer's NAME itself carries the applicant's surname ("Natha Holdings" ↔ Tahir Natha) */
   employer_name_surname_match?: boolean
   company_address_matches_applicant: boolean
-  arm_length_risk: 'high' | 'medium' | 'low' | 'clean'
+  arm_length_risk: 'high' | 'medium' | 'low' | 'clean' | 'unverified'
+  officers_verified?: boolean
+  web_checked?: boolean
+  related_party_match?: string | null
   flags: ForensicFlag[]
 }
 
@@ -392,6 +395,18 @@ export interface CheckArmLengthOptions {
   applicant_email?: string
   /** true if cross_doc.hr_phone_collision fired — applicant phone appears in employer letter HR contact */
   hr_phone_collision?: boolean
+  /** Co-applicants, spouse, other occupants named in the file. A director,
+   *  signatory or web-index result matching ANY of them makes the employer a
+   *  related party (2026-09-12: the applicant's employer was her husband's
+   *  company — different surname, so the surname rules saw nothing). */
+  related_names?: string[]
+  /** Web-index search (Jina / CSE) used when the registry publishes no
+   *  officers: "<employer>" owner OR president OR director. Injected by the
+   *  route so this module stays pure. */
+  webSearch?: (query: string) => Promise<Array<{ title: string; snippet: string; link: string }>>
+  /** Page reader (r.jina.ai) for the company's own site / social page: the
+   *  owner's name is usually on the page, not in the search snippet. */
+  webRead?: (url: string) => Promise<string>
   /**
    * Dependency injection for the company registry lookup. Defaults to direct
    * OpenCorporates fetch. The route layer can inject a caching wrapper so
@@ -461,6 +476,93 @@ export async function checkArmLength(
     }
   }
 
+  // 3b. Related parties: co-applicant / spouse / occupant as officer or
+  //     signatory. Full-name match, either order.
+  const relatedNames = (options.related_names || []).filter(n => typeof n === 'string' && n.trim().length > 3 && !fullNameMatch(n, applicantName))
+  let relatedPartyMatch: string | null = null
+  if (companyInfo && companyInfo.officers.length > 0) {
+    for (const officer of companyInfo.officers) {
+      const hit = relatedNames.find(n => fullNameMatch(officer.name, n))
+      if (hit) { relatedPartyMatch = `${hit} — ${officer.position || 'officer'} of record`; break }
+    }
+  }
+  if (!relatedPartyMatch && signatory) {
+    const hit = relatedNames.find(n => fullNameMatch(signatory, n))
+    if (hit) relatedPartyMatch = `${hit} — signed the employment letter${options.signatory_title ? ` as ${options.signatory_title}` : ''}`
+  }
+
+  // 3c. No director list in the registry (Ontario corporations on
+  //     OpenCorporates carry none): ask the open web who runs the company
+  //     and look for anyone in the applicant's party.
+  const officersVerified = !!(companyInfo && companyInfo.officers.length > 0)
+  let webChecked = false
+  let webHit: { who: string; title: string; snippet: string; link: string } | null = null
+  if (!officersVerified && options.webSearch && companyInfo) {
+    try {
+      // The registry spelling ("GREEN LIFE GROUP INC.") quoted verbatim returns
+      // nothing from the index; search the name without the corporate suffix,
+      // then the bare name.
+      // Keep the corporate suffix (it separates this company from every other
+      // "Green Life Group" on earth) but drop its period, and anchor on the
+      // registered city — "Green Life Group Inc" Toronto — which is what the
+      // index actually answers.
+      const base = (companyInfo.name || employerName).replace(/[.,\s]+$/, '').replace(/\.(?=\s|$)/g, '').replace(/\s+/g, ' ').trim()
+      const city = (companyInfo.registered_address || '').split(',')[0].trim()
+      const locale = city && /^[A-Za-z .'-]{3,30}$/.test(city) ? ` ${city.replace(/\b\w+/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase())}` : ''
+      let items = await options.webSearch(`"${base}"${locale} owner OR president OR director OR founder OR CEO`)
+      if (items.length === 0) items = await options.webSearch(`"${base}"${locale}`)
+      webChecked = true
+      const party = [applicantName, ...relatedNames]
+      const findParty = (hay: string): string | null => {
+        for (const n of party) {
+          if (fullNameMatch(hay, n) || surnameAndInitialIn(hay, n)) return n
+        }
+        // An uncommon surname of the party on the company's own page is a
+        // family signal even without the first name ("Felix Ricky Cipriani"
+        // on the roofing company's Facebook page, applicant Nathalie Cipriani).
+        for (const n of party) {
+          const sur = partySurnames(n).find(x => x.length >= 5 && !isCommonSurname(x))
+          if (sur && new RegExp(`\\b${sur}\\b`, 'i').test(hay)) {
+            const m = hay.match(new RegExp(`([A-Z][a-z]+\\s+(?:[A-Z][a-z]+\\s+)?${sur})`, 'i'))
+            return `${n} (surname ${sur}${m ? `: "${m[1]}"` : ''})`
+          }
+        }
+        return null
+      }
+      for (const it of items) {
+        const who = findParty(`${it.title} ${it.snippet}`)
+        if (who) { webHit = { who, title: it.title, snippet: it.snippet.slice(0, 200), link: it.link }; break }
+      }
+      // Read the company's own site and social pages — up to three.
+      if (!webHit && options.webRead) {
+        const tokens = (companyInfo.name || employerName).toLowerCase().replace(/\b(inc|ltd|limited|corp|corporation|co|the|group|of)\b\.?/g, ' ').split(/[^a-z0-9]+/).filter(t => t.length >= 4)
+        // Social and directory pages name the owner far more often than the
+        // company's own home page ("Contact Felix … for a quote"); read them
+        // first, up to five pages, in parallel.
+        const isOwn = (it: { link: string }) => {
+          const host = (it.link.match(/^https?:\/\/([^/]+)/i)?.[1] || '').toLowerCase()
+          const slug = it.link.toLowerCase()
+          return tokens.every(t => host.includes(t)) || (/facebook|instagram|linkedin|yelp|yellowpages|bbb\.org/.test(host) && tokens.every(t => slug.includes(t.slice(0, 5))))
+        }
+        const social = (it: { link: string }) => /facebook|linkedin|instagram|yellowpages|bbb\.org|yelp/.test(it.link) ? 0 : 1
+        const own = items.filter(isOwn).sort((a, b) => social(a) - social(b)).slice(0, 5)
+        const pages = await Promise.all(own.map(async it => {
+          try { return { it, text: (await options.webRead!(it.link)).slice(0, 20_000) } } catch { return { it, text: '' } }
+        }))
+        for (const { it, text } of pages) {
+          if (!text) continue
+          const who = findParty(text)
+          if (who) {
+            const last = who.split(' (')[0].split(' ').pop() || ''
+            const surname = who.match(/surname (\w+)/)?.[1] || last
+            webHit = { who, title: it.title, snippet: (text.match(new RegExp(`[^.\\n]{0,80}${surname}[^.\\n]{0,80}`, 'i'))?.[0] || '').replace(/\s+/g, ' ').slice(0, 200), link: it.link }
+            break
+          }
+        }
+      }
+    } catch { /* web index is best-effort */ }
+  }
+
   // 4. Address match
   let addressMatch = false
   if (applicantAddress && companyInfo?.registered_address) {
@@ -476,8 +578,10 @@ export async function checkArmLength(
   const corroboratingSignal = numbered || recentlyIncorporated || addressMatch || hrPhoneCollision
   const effectiveLastnameMatch = (applicantLastnameMatch || employerNameSurname) && (!commonSurname || corroboratingSignal)
 
-  let risk: 'high' | 'medium' | 'low' | 'clean' = 'clean'
+  let risk: 'high' | 'medium' | 'low' | 'clean' | 'unverified' = 'clean'
   if (applicantIsOfficer) {
+    risk = 'high'
+  } else if (relatedPartyMatch || webHit) {
     risk = 'high'
   } else if (signatoryOwnerFamily) {
     risk = 'high'
@@ -497,8 +601,32 @@ export async function checkArmLength(
     // Common surname alone → informational only
     risk = 'low'
   }
+  // A registry that publishes no directors, a letter whose signer matches
+  // nobody, and no web-index hit is not "clean" — it is unchecked. Say so.
+  if (risk === 'clean' && companyInfo && !officersVerified) risk = 'unverified'
 
   // 6. Generate flags
+  if (relatedPartyMatch) {
+    flags.push({
+      code: 'arm_length_related_party_officer',
+      severity: 'critical',
+      evidence_en: `A member of the applicant's own party runs the employer: ${relatedPartyMatch} for "${employerName}". The employment letter and pay stubs come from a household company — not an arm's-length employer. Require CRA Notice of Assessment / T4 or personal-account payroll deposits.`,
+      evidence_zh: `雇主由申请方自己人掌控：${relatedPartyMatch}（"${employerName}"）。雇佣信与工资单出自家庭公司——不是独立第三方雇主。需要 CRA 评估通知 / T4 或个人账户工资入账作为独立证据。`,
+    })
+  }
+  if (webHit) {
+    // "Nathalie Cipriani Campins (surname Cipriani: "Felix Ricky Cipriani")"
+    // → person on the page + which applicant shares the name
+    const m = webHit.who.match(/^(.*?) \(surname (\w+): "(.*?)"\)$/)
+    const whoEn = m ? `${m[3]} — who shares the surname ${m[2]} with ${m[1]}` : webHit.who
+    const whoZh = m ? `${m[3]}——与申请方的 ${m[1]} 同姓（${m[2]}）` : webHit.who
+    flags.push({
+      code: 'arm_length_web_index_party_named',
+      severity: 'high',
+      evidence_en: `The registry publishes no directors for "${employerName}", but the company's public web presence ("${webHit.title}", ${webHit.link}) names ${whoEn}${webHit.snippet && !m ? ` — "${webHit.snippet}"` : ''}. A household or family company is not an arm's-length employer; require CRA NOA / T4 or bank payroll deposits, and ask who owns the company.`,
+      evidence_zh: `注册库不公开 "${employerName}" 的董事，但该公司的公开网页（「${webHit.title}」，${webHit.link}）出现了 ${whoZh}${webHit.snippet && !m ? `——「${webHit.snippet}」` : ''}。家庭或家族公司不是独立第三方雇主；请改用 CRA 评估通知 / T4 或银行工资入账作收入证明，并问清公司归谁所有。`,
+    })
+  }
   if (applicantIsOfficer) {
     const officerMatch = companyInfo?.officers.find(o => fullNameMatch(o.name, applicantName))
     flags.push({
@@ -636,6 +764,25 @@ export async function checkArmLength(
     employer_name_surname_match: employerNameSurname,
     company_address_matches_applicant: addressMatch,
     arm_length_risk: risk,
+    officers_verified: officersVerified,
+    web_checked: webChecked,
+    related_party_match: relatedPartyMatch || (webHit ? webHit.who : null),
     flags,
   }
+}
+
+function partySurnames(fullName: string): string[] {
+  const parts = fullName.trim().split(/\s+/).filter(p => p.length >= 2)
+  return parts.length >= 2 ? parts.slice(-2) : []
+}
+
+/** "L. Quiroga" / "Quiroga, L." style mentions: surname plus first initial. */
+function surnameAndInitialIn(hay: string, fullName: string): boolean {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length < 2) return false
+  const first = parts[0], last = parts[parts.length - 1]
+  if (last.length < 4) return false
+  const h = hay.toLowerCase()
+  if (!h.includes(last.toLowerCase())) return false
+  return new RegExp(`\\b${first[0].toLowerCase()}\\.?\\s*${last.toLowerCase()}\\b|\\b${last.toLowerCase()},?\\s*${first[0].toLowerCase()}\\b`, 'i').test(h)
 }

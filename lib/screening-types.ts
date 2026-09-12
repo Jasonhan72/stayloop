@@ -238,7 +238,10 @@ export interface ArmLengthCheck {
   applicant_is_officer: boolean
   applicant_lastname_match: boolean
   company_address_matches_applicant: boolean
-  arm_length_risk: 'high' | 'medium' | 'low' | 'clean'
+  arm_length_risk: 'high' | 'medium' | 'low' | 'clean' | 'unverified'
+  officers_verified?: boolean
+  web_checked?: boolean
+  related_party_match?: string | null
   flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string }>
 }
 
@@ -381,7 +384,7 @@ export interface ScoreResult {
   file_count?: number
   deep_check_result?: {
     checks: ArmLengthCheck[]
-    overall_risk: 'high' | 'medium' | 'low' | 'clean'
+    overall_risk: 'high' | 'medium' | 'low' | 'clean' | 'unverified'
     total_flags: number
     checked_at: string
   } | null
