@@ -2465,6 +2465,11 @@ If the uploaded evidence does not support the dimension, score it per the rubric
           .filter(fl => fl.severity === 'info')
           .map(fl => fl.code),
         identityConsistent: identityConsistentMeasured,
+        externalVerifications: {
+          identity: verifiedFacts?.id?.status === 'verified',
+          bank: verifiedFacts?.bank?.status === 'verified',
+          references: false,
+        },
         ...(() => {
           const bankTexts = forensicsReport.per_file
             .filter(pf => (pf.file_kind || '').split(',').map(k => k.trim()).includes('bank_statement'))

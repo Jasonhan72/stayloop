@@ -373,6 +373,13 @@ export async function generateScreeningReport(
     const covColor = cov >= 0.75 ? '#16A34A' : cov >= 0.6 ? '#A16207' : '#C2410C'
     html += `<div style="margin-top:6px;font-size:10px;color:#64748B">${zh ? '证据充足度' : 'Evidence Coverage'}: <span style="color:${covColor};font-weight:700">${(cov * 100).toFixed(0)}%</span></div>`
   }
+  {
+    const v = result.verification
+    const idOk = v?.id?.status === 'verified'
+    const bankOk = v?.bank?.status === 'verified'
+    const n = (idOk ? 1 : 0) + (bankOk ? 1 : 0)
+    html += `<div style="margin-top:4px;font-size:10px;color:#64748B">${zh ? '外部核验' : 'Third-party checks'}: <strong style="color:${n > 0 ? '#16A34A' : '#A16207'}">${n}/3</strong> · ${zh ? '身份' : 'identity'} ${idOk ? '✓' : '✗'} · ${zh ? '银行' : 'bank'} ${bankOk ? '✓' : '✗'} · ${zh ? '推荐人 待致电' : 'references pending call'}${n === 0 ? (zh ? ' — 评分基于文件互证，尚无第三方核验' : ' — score rests on documents corroborating each other; nothing verified externally yet') : ''}</div>`
+  }
 
   // Stats
   const rentNum = result.monthly_rent ?? 0

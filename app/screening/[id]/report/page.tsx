@@ -1725,6 +1725,19 @@ export default function ReportPage() {
                     <span className="font-mono text-[11px] font-bold uppercase text-body-3">{zh ? '证据充足度' : 'Evidence coverage'}</span>
                     <span className="font-mono text-[16px] font-extrabold" style={{ color: coverage >= 75 ? '#16A34A' : coverage >= 60 ? '#A16207' : '#C2410C' }}>{coverage}%</span>
                   </div>
+                  {(() => {
+                    const v = r.verification
+                    const idOk = v?.id?.status === 'verified'
+                    const bankOk = v?.bank?.status === 'verified'
+                    const n = (idOk ? 1 : 0) + (bankOk ? 1 : 0)
+                    return (
+                      <div className="mt-1 text-[11px] text-body-3">
+                        {zh ? '外部核验' : 'Third-party checks'} <strong style={{ color: n > 0 ? '#16A34A' : '#A16207' }}>{n}/3</strong>
+                        {' · '}{zh ? '身份' : 'identity'} {idOk ? '✓' : '✗'}{' · '}{zh ? '银行' : 'bank'} {bankOk ? '✓' : '✗'}{' · '}{zh ? '推荐人 待致电' : 'references pending call'}
+                        {n === 0 && <span className="ml-1">{zh ? '— 评分基于文件互证，尚无第三方核验' : '— score rests on documents corroborating each other; nothing verified externally yet'}</span>}
+                      </div>
+                    )
+                  })()}
                   <div className="mt-1.5 h-2 overflow-hidden rounded-full" style={{ background: '#F0EDE4' }}>
                     <div className="h-full rounded-full" style={{ width: `${coverage}%`, background: coverage >= 75 ? '#16A34A' : coverage >= 60 ? '#A16207' : '#C2410C' }} />
                   </div>

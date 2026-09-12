@@ -232,7 +232,7 @@ describe('document kinds the rubric asks for are kinds the extractor emits', () 
     const docs = complete.hits.find((h) => h.code === 'documents_present')
     expect(docs, 'documents_present did not fire').toBeTruthy()
     expect(docs!.observed).toContain('4/4')
-    expect(docs!.delta).toBe(70) // 2026-09-12: presence is a base (70); the remaining 30 is earned by measured corroboration
+    expect(docs!.delta).toBe(60) // 2026-09-12: presence is a base (60); corroboration (+25), identity (+5) and third-party checks (+15) earn the rest
   })
 
   it('counts income proof from any of the kinds that actually carry it', () => {

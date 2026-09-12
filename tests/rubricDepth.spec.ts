@@ -84,14 +84,26 @@ describe('rental history reads observed rent and declared tenure', () => {
 })
 
 describe('verification is earned by corroboration, cut only by measured contradictions', () => {
-  it('starts a complete set at 70 and adds corroborations up to +25', () => {
+  it('starts a complete set at 60 and adds corroborations up to +25', () => {
     const r = scoreRubric(CARLOS)
-    expect(r.hits.find(h => h.code === 'documents_present')?.delta).toBe(70)
+    expect(r.hits.find(h => h.code === 'documents_present')?.delta).toBe(60)
     expect(r.hits.find(h => h.code === 'corroborations')?.delta).toBe(25)
     expect(r.hits.find(h => h.code === 'identity_consistent')?.delta).toBe(5)
     // the model's free-hand red flag does not cut when deterministic details are supplied
     expect(r.hits.some(h => h.code === 'cross_doc_contradiction')).toBe(false)
-    expect(r.dimensions.verification).toBe(100)
+    // consistent on paper, nothing verified externally → 90, not 100
+    expect(r.dimensions.verification).toBe(90)
+    // and it cannot pass 90 without a third-party check, however many corroborations
+    const over = scoreRubric({ ...CARLOS, contradictionDetails: [], corroborations: [...CARLOS.corroborations!, 'cross_doc_income_corroborated'] })
+    expect(over.dimensions.verification).toBeLessThanOrEqual(90)
+    const verified = scoreRubric({ ...CARLOS, externalVerifications: { identity: true, bank: true, references: false } })
+    expect(verified.dimensions.verification).toBe(100)
+    expect(verified.hits.find(h => h.code === 'external_verification')?.delta).toBe(10)
+  })
+  it('caps rental history while references are uncalled and holds a past-due file at review', () => {
+    expect(scoreRubric(CARLOS).dimensions.rental_history).toBe(88)
+    expect(scoreRubric({ ...CARLOS, externalVerifications: { references: true } }).dimensions.rental_history).toBeGreaterThan(88)
+    expect(scoreRubric({ ...CARLOS, creditPastDue: 1500, creditLateAccounts: 1 }).band).toBe('review')
   })
   it('prices deterministic contradictions by severity, capped', () => {
     const r = scoreRubric({ ...CARLOS, contradictionDetails: [{ code: 'cross_doc_income_mismatch', severity: 'medium' }, { code: 'cross_doc_phone_collision', severity: 'critical' }, { code: 'bank_producer_mismatch', severity: 'high' }, { code: 'x_mismatch', severity: 'high' }] })
@@ -108,7 +120,7 @@ describe('verification is earned by corroboration, cut only by measured contradi
   it('scores the whole Carlos file in the proceed band, well above the old 88', () => {
     const r = scoreRubric(CARLOS)
     expect(r.band).toBe('proceed')
-    expect(r.overall).toBeGreaterThanOrEqual(95)
+    expect(r.overall).toBeGreaterThanOrEqual(93)
   })
 })
 

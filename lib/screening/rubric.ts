@@ -132,6 +132,12 @@ export interface RubricFacts {
   hardInquiries12mo?: number | null
   tradelineCount?: number | null
   creditHistoryMonths?: number | null
+  /** Third-party verification actually performed — not corroboration among the
+   *  applicant's own uploads. Identity = Veriff decision, bank = Flinks
+   *  connection, references = a landlord reference confirmed. Without any of
+   *  these the file is "consistent on paper": verification caps at 90 and
+   *  rental history at 88 (references uncalled). */
+  externalVerifications?: { identity?: boolean; bank?: boolean; references?: boolean } | null
 }
 
 /** Corroboration codes that may lift the verification dimension. Every one is
@@ -444,7 +450,7 @@ export function scoreRubric(f: RubricFacts): RubricResult {
   // earns the rest through measured corroboration below (it used to start at
   // 90 with nothing left to gain, so a fully reconciled payroll trail scored
   // the same as an unchecked one and every "contradiction" only cut).
-  let verification = Math.round((present / REQUIRED.length) * 48) + 22
+  let verification = Math.round((present / REQUIRED.length) * 38) + 22
   add('verification', 'documents_present', verification,
     `${present}/${REQUIRED.length} required kinds (${f.documentKinds.join(', ') || 'none detected'})`)
 
@@ -456,6 +462,14 @@ export function scoreRubric(f: RubricFacts): RubricResult {
     verification += add('verification', 'identity_consistent', 5, 'ID-document name matches the applicant name')
   } else if (f.identityConsistent === false) {
     verification += add('verification', 'identity_inconsistent', -20, 'ID-document name does not match the applicant name')
+  }
+  // Third-party verification is the only thing that turns "consistent on
+  // paper" into "verified": +5 each, and without any the dimension stops at
+  // 90 (2026-09-12: a file with zero external checks read 100/100).
+  const ext = f.externalVerifications ?? null
+  const extDone = [ext?.identity && 'identity', ext?.bank && 'bank', ext?.references && 'references'].filter((x): x is string => !!x)
+  if (extDone.length) {
+    verification += add('verification', 'external_verification', extDone.length * 5, extDone.join(', '))
   }
 
   if (f.contradictionDetails) {
@@ -485,6 +499,13 @@ export function scoreRubric(f: RubricFacts): RubricResult {
       (f.crossDoc.related_party.signals ?? []).slice(0, 2).join('; ') || 'income source not arm’s length')
   }
 
+  if (extDone.length === 0 && verification > 90) {
+    verification += add('verification', 'no_external_verification', 90 - verification, 'documents are consistent with each other; no third-party check yet')
+  }
+  if (f.landlordRefs > 0 && !ext?.references && rental > 88) {
+    rental += add('rental_history', 'references_uncalled', 88 - rental, `${f.landlordRefs} reference(s) supplied, none confirmed yet`)
+  }
+
   const dimensions: Record<DimKey, number> = {
     ability_to_pay: clamp(ability),
     credit_health: clamp(creditScore),
@@ -498,10 +519,12 @@ export function scoreRubric(f: RubricFacts): RubricResult {
 
   // Bands, not a false-precision integer. "24/100" implies a resolution this
   // does not have; what a landlord can act on is which side of a line it lands.
+  // A current past-due balance is a condition to resolve before approval,
+  // whatever the income (an 8x earner with $1,500 in arrears read "proceed").
   const band: RubricResult['band'] =
     overall < 40 || f.forgedDocuments > 0 || f.ltbCorroborated >= 2 ? 'decline' :
     overall < 55 ? 'conditional' :
-    overall < 70 ? 'review' : 'proceed'
+    overall < 70 || (f.creditPastDue ?? 0) > 0 ? 'review' : 'proceed'
 
   return {
     dimensions,
