@@ -109,8 +109,11 @@ export const DICT = {
     en: 'If blank, we extract the name from ID / Employment Letter / Pay Stub for the court records lookup.',
     zh: '未填写时，系统将从 ID / Employment Letter / Pay Stub 中自动提取姓名用于法庭记录查询',
   },
-  'screen.form.rent.label': { en: 'Target Monthly Rent (CAD)', zh: '目标月租金 (CAD)' },
-  'screen.form.rent.placeholder': { en: 'e.g. 2500', zh: '例如 2500' },
+  'screen.form.rent.label': { en: 'Target Monthly Rent (CAD, optional)', zh: '目标月租金 (CAD · 可选)' },
+  // The backend falls back to application_summary.applying_rent when this
+  // is blank (screen-score: monthlyRent || applying_rent), so the promise
+  // in the placeholder is real.
+  'screen.form.rent.placeholder': { en: 'Leave blank to auto-extract from the application form', zh: '留空则从申请表中自动提取' },
   'screen.upload.filesUploaded': { en: 'files uploaded', zh: '个文件已上传' },
   'screen.tier.pro': { en: 'Pro', zh: '专业' },
   'screen.tier.free': { en: 'FREE', zh: '免费版' },

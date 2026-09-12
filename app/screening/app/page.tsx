@@ -1559,6 +1559,10 @@ export default function ScreenPage() {
   const [dragOver, setDragOver] = useState(false)
   const [applicantName, setApplicantName] = useState('')
   const [targetRent, setTargetRent] = useState('')
+  // Phone only: the eight file-type chips fold into one line so the form
+  // (drop zone → name → rent → 开始筛查) fits a 375×812 screen without
+  // scrolling. Desktop ignores this and always shows the grid.
+  const [ftOpen, setFtOpen] = useState(false)
 
   const [analyzing, setAnalyzing] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -2634,9 +2638,12 @@ export default function ScreenPage() {
            Desktop keeps the button in view, so the bar is phone/tablet only. */
         .screen-cta-bar {
           position: fixed;
-          left: 0; right: 0; bottom: 0;
+          left: 0; right: 0;
+          /* Above the workspace rail (WorkspaceShell: fixed h-16 bottom bar on
+             phones) instead of covering it. */
+          bottom: calc(64px + env(safe-area-inset-bottom));
           z-index: 60;
-          padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+          padding: 10px 16px;
           background: rgba(255, 255, 255, 0.96);
           -webkit-backdrop-filter: blur(10px);
           backdrop-filter: blur(10px);
@@ -2645,7 +2652,8 @@ export default function ScreenPage() {
         }
         @media (min-width: 768px) { .screen-cta-bar { display: none; } }
         /* Room for the bar so it never covers the last row of the form. */
-        @media (max-width: 767px) { .screen-app { padding-bottom: 88px; } }
+        @media (max-width: 767px) { .screen-app { padding-bottom: 72px; } }
+        .sl-ft-toggle { display: none; }
         .sl-header { padding: 20px 24px; }
         .sl-brand-sub { display: block; }
         .sl-container { max-width: 800px; margin: 0 auto; padding: 24px 16px; }
@@ -2682,6 +2690,24 @@ export default function ScreenPage() {
           .sl-scanner-panel { border-radius: 14px !important; }
           .sl-summary-text { font-size: 13px !important; line-height: 1.7 !important; }
           .sl-section-title { font-size: 12px !important; }
+          /* Upload form above the fold on a phone (2026-09-12): tighter
+             panel head, smaller drop zone without the file-type sentence,
+             file-type chips folded into one line, no name hint, no
+             pipeline row. The 开始筛查 button lands inside 375×812. */
+          .sl-panel-head { padding: 12px 14px !important; }
+          .sl-panel-sub { display: none !important; }
+          .sl-drop { margin: 12px 12px 0 !important; padding: 16px 12px !important; }
+          .sl-drop-icon { font-size: 26px !important; margin-bottom: 4px !important; }
+          .sl-drop-title { font-size: 14px !important; margin-bottom: 0 !important; }
+          .sl-drop-sub { display: none !important; }
+          .sl-drop-pick { margin-top: 10px !important; padding: 8px 16px !important; }
+          .sl-ft-toggle { display: flex !important; }
+          .sl-ft-grid { padding: 8px 12px 0 !important; grid-template-columns: repeat(2, 1fr) !important; }
+          .sl-ft-grid.sl-ft-collapsed { display: none !important; }
+          .sl-form { padding: 12px 12px 14px !important; }
+          .sl-form-fields { gap: 10px !important; margin-bottom: 12px !important; }
+          .sl-name-hint { display: none !important; }
+          .sl-pipeline { display: none !important; }
         }
         /* Visible field chrome — the bare inputs were indistinguishable from
            the panel background. Warm border + inset shadow at rest, brand
@@ -2725,7 +2751,7 @@ export default function ScreenPage() {
               overflow: 'clip',
             }}>
               {/* Panel Header */}
-              <div style={{
+              <div className="sl-panel-head" style={{
                 padding: '18px 20px',
                 borderBottom: '1px solid #E4EEF6',
                 borderRadius: '20px 20px 0 0',
@@ -2750,7 +2776,7 @@ export default function ScreenPage() {
                     <div style={{ fontSize: 16, fontWeight: 700, color: '#0B1736', letterSpacing: '-0.01em' }}>
                       {lang === 'zh' ? '租客筛查' : 'Tenant Screening'}
                     </div>
-                    <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                    <div className="sl-panel-sub" style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
                       {lang === 'zh' ? '上传文件 → AI 分析 → 风险报告' : 'Upload docs → AI analysis → Risk report'}
                     </div>
                   </div>
@@ -2770,6 +2796,7 @@ export default function ScreenPage() {
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
+                className="sl-drop"
                 style={{
                   margin: '16px 18px 0',
                   border: `2px dashed ${dragOver ? '#00ACE4' : '#9FBBD0'}`,
@@ -2793,9 +2820,9 @@ export default function ScreenPage() {
                 />
                 {files.length === 0 ? (
                   <>
-                    <div style={{ fontSize: 34, marginBottom: 10, opacity: 0.9 }}>📁</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: '#0B1736' }}>{t('screen.drop.title')}</div>
-                    <div style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>{t('screen.drop.sub')}</div>
+                    <div className="sl-drop-icon" style={{ fontSize: 34, marginBottom: 10, opacity: 0.9 }}>📁</div>
+                    <div className="sl-drop-title" style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: '#0B1736' }}>{t('screen.drop.title')}</div>
+                    <div className="sl-drop-sub" style={{ fontSize: 13, color: '#64748B', lineHeight: 1.5 }}>{t('screen.drop.sub')}</div>
                     {/* Soft-mint button — same color recipe as the bottom 开始筛查
                         button below so both primary actions on the page read as
                         the same chip. Pale-mint #6EE7B7→#34D399 matches the
@@ -2804,6 +2831,7 @@ export default function ScreenPage() {
                         replace it with the SVG paperclip so we don't render
                         two icons. */}
                     <div
+                      className="sl-drop-pick"
                       style={{
                         marginTop: 16,
                         display: 'inline-flex',
@@ -2832,8 +2860,42 @@ export default function ScreenPage() {
                 )}
               </div>
 
-              {/* File Type Badges — compact horizontal strip */}
-              <div style={{ padding: '12px 18px 0', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 6 }}>
+              {/* File Type Badges — compact horizontal strip. On phones it is
+                  folded behind a one-line toggle (CSS .sl-ft-toggle / .sl-ft-grid)
+                  so the form fits the first screen. */}
+              {(() => {
+                const counts: Record<string, number> = {}
+                for (const f of files) {
+                  const aiKinds = fileKinds[fileKey(f)]
+                  if (Array.isArray(aiKinds) && aiKinds.length > 0) {
+                    for (const k of aiKinds) counts[k] = (counts[k] || 0) + 1
+                  } else {
+                    const k = guessKind(f.name)
+                    counts[k] = (counts[k] || 0) + 1
+                  }
+                }
+                for (const k of lastDetectedKinds) {
+                  if (!counts[k]) counts[k] = 1
+                }
+                const seen = FILE_TYPES.filter(ft => (counts[ft.key] || 0) > 0)
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setFtOpen(o => !o)}
+                    aria-expanded={ftOpen}
+                    className="sl-ft-toggle"
+                    style={{ margin: '10px 12px 0', padding: '7px 10px', width: 'calc(100% - 24px)', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, border: '1px solid #D3E3EF', background: '#F3F8FC', fontSize: 11.5, color: '#52525B', cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {seen.length > 0
+                        ? <>{seen.map(ft => <span key={ft.key} style={{ marginRight: 3 }}>{ft.icon}</span>)}<span style={{ color: '#047857', fontWeight: 600 }}>{lang === 'zh' ? `已识别 ${seen.length} 类` : `${seen.length} type(s) detected`}</span></>
+                        : (lang === 'zh' ? '支持 8 类文件：雇主信 · 工资单 · 流水 · 证件 · 征信…' : '8 document types: letter · pay stubs · statements · ID · credit…')}
+                    </span>
+                    <span style={{ flexShrink: 0, fontSize: 10, color: '#9FBBD0' }}>{ftOpen ? '▲' : '▼'}</span>
+                  </button>
+                )
+              })()}
+              <div className={`sl-ft-grid${ftOpen ? '' : ' sl-ft-collapsed'}`} style={{ padding: '12px 18px 0', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 6 }}>
                 {(() => {
                   const counts: Record<string, number> = {}
                   for (const f of files) {
@@ -2942,10 +3004,10 @@ export default function ScreenPage() {
               )}
 
               {/* Input fields + Submit — inside the panel */}
-              <div style={{ padding: '18px 20px 22px' }}>
+              <div className="sl-form" style={{ padding: '18px 20px 22px' }}>
                 {/* Mobile: stack the two fields (side-by-side clipped the rent input
                     at 375px). Tailwind cols use minmax(0,1fr) so inputs can shrink. */}
-                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14, marginBottom: 16 }}>
+                <div className="sl-form-fields grid grid-cols-1 sm:grid-cols-2" style={{ gap: 14, marginBottom: 16 }}>
                   <div>
                     <label style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', letterSpacing: '0.02em', marginBottom: 6, display: 'block' }}>{t('screen.form.name.label')}</label>
                     <input
@@ -2964,7 +3026,7 @@ export default function ScreenPage() {
                         background: '#FFFFFF', caretColor: '#0B1736',
                       }}
                     />
-                    <div style={{ fontSize: 10.5, color: '#9FBBD0', marginTop: 5 }}>{t('screen.form.name.hint')}</div>
+                    <div className="sl-name-hint" style={{ fontSize: 10.5, color: '#9FBBD0', marginTop: 5 }}>{t('screen.form.name.hint')}</div>
                   </div>
                   <div>
                     <label style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', letterSpacing: '0.02em', marginBottom: 6, display: 'block' }}>{t('screen.form.rent.label')}</label>
@@ -3065,7 +3127,7 @@ export default function ScreenPage() {
                 })()}
 
                 {/* What happens next — compact pipeline */}
-                <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 11.5, color: '#9FBBD0', flexWrap: 'wrap' }}>
+                <div className="sl-pipeline" style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 11.5, color: '#9FBBD0', flexWrap: 'wrap' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>📋 {lang === 'zh' ? 'AI 分析' : 'AI Analysis'}</span>
                   <span style={{ color: '#D3E3EF', fontSize: 10 }}>→</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>⚖️ {lang === 'zh' ? '法院记录' : 'Court Records'}</span>
