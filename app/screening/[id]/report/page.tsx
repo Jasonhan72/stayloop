@@ -1071,7 +1071,7 @@ export default function ReportPage() {
                     <CreditKpi label={zh ? '每月还款 / 收入' : 'Debt-to-income'} value={crA.dti != null ? `${Math.round(crA.dti * 100)}%` : '—'} warn={crA.dti != null && crA.dti > 0.4} sub={zh ? '按申报收入' : 'of stated income'} />
                     <CreditKpi label={zh ? '循环信贷利用率' : 'Revolving utilisation'} value={crA.revolvingUtilization != null ? `${Math.round(crA.revolvingUtilization * 100)}%` : '—'} warn={crA.revolvingUtilization != null && crA.revolvingUtilization > 0.8} sub={zh ? '余额 ÷ 额度' : 'balance ÷ limit'} />
                     <CreditKpi label={zh ? '当前逾期总额' : 'Total past due'} value={money(crA.totalPastDue)} warn={crA.totalPastDue > 0} sub={crA.delinquent.length > 0 ? (zh ? `${crA.delinquent.length} 个账户` : `${crA.delinquent.length} account(s)`) : (zh ? '无逾期' : 'none past due')} />
-                    <CreditKpi label={zh ? '近 12 月查询' : 'Inquiries (12 mo)'} value={String(crA.inquiries12mo)} warn={crA.inquiries12mo >= 5} sub={zh ? '硬查询次数' : 'hard pulls'} />
+                    <CreditKpi label={zh ? '近 12 月查询' : 'Inquiries (12 mo)'} value={crA.hardInquiries12mo != null ? `${crA.hardInquiries12mo} / ${crA.inquiries12mo}` : String(crA.inquiries12mo)} warn={(crA.hardInquiries12mo ?? crA.inquiries12mo) >= 5} sub={crA.hardInquiries12mo != null ? (zh ? '硬查询 / 全部' : 'hard / all') : (zh ? '查询次数（未分硬软）' : 'inquiries (hard/soft not shown)')} />
                   </div>
 
                   {/* Derived risk flags */}
@@ -1217,7 +1217,7 @@ export default function ReportPage() {
                   <div className="flex flex-wrap gap-2">
                     {(cr.inquiries || []).map((q, i) => (
                       <span key={i} className="rounded-lg border border-line-divider px-3 py-1.5 text-[12px] text-body-2">
-                        <span className="font-mono text-[11px] text-body-3">{q.date}</span> · {q.creditor}
+                        <span className="font-mono text-[11px] text-body-3">{q.date}</span> · {q.creditor}{q.hard === true ? <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-800">{zh ? '硬' : 'hard'}</span> : q.hard === false ? <span className="ml-1 rounded bg-slate-100 px-1 text-[10px] text-body-3">{zh ? '软' : 'soft'}</span> : null}
                       </span>
                     ))}
                   </div>

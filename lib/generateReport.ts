@@ -818,7 +818,7 @@ export async function generateScreeningReport(
         ${kpi(zh ? '每月还款/收入' : 'Debt-to-income', pctTxt(crA.dti), crA.dti != null && crA.dti > 0.4)}
         ${kpi(zh ? '循环利用率' : 'Revolving util.', pctTxt(crA.revolvingUtilization), crA.revolvingUtilization != null && crA.revolvingUtilization > 0.8)}
         ${kpi(zh ? '当前逾期总额' : 'Total past due', money(crA.totalPastDue), crA.totalPastDue > 0)}
-        ${kpi(zh ? '近12月查询' : 'Inquiries 12mo', String(crA.inquiries12mo), crA.inquiries12mo >= 5)}
+        ${kpi(zh ? (crA.hardInquiries12mo != null ? '近12月硬查询/全部' : '近12月查询') : (crA.hardInquiries12mo != null ? 'Hard / all inquiries 12mo' : 'Inquiries 12mo'), crA.hardInquiries12mo != null ? `${crA.hardInquiries12mo} / ${crA.inquiries12mo}` : String(crA.inquiries12mo), (crA.hardInquiries12mo ?? crA.inquiries12mo) >= 5)}
       </div>`
       if (crA.flags.length > 0) {
         html += `<div style="margin-bottom:8px">`
@@ -883,8 +883,8 @@ export async function generateScreeningReport(
     const iq = cr.inquiries || []
     if (iq.length > 0) {
       html += `<div style="font-size:11px;font-weight:700;color:#0B1736;margin:10px 0 5px">${zh ? '近期信用查询' : 'Recent Credit Inquiries'} · ${iq.length}</div>
-      <table><tr><th style="width:100px">${zh ? '日期' : 'Date'}</th><th>${zh ? '查询机构' : 'Inquirer'}</th></tr>`
-      for (const i of iq) html += `<tr><td style="font-size:9px">${esc(i.date)}</td><td>${esc(i.creditor)}</td></tr>`
+      <table><tr><th style="width:100px">${zh ? '日期' : 'Date'}</th><th>${zh ? '查询机构' : 'Inquirer'}</th><th style="width:70px">${zh ? '类型' : 'Type'}</th></tr>`
+      for (const i of iq) html += `<tr><td style="font-size:9px">${esc(i.date)}</td><td>${esc(i.creditor)}</td><td style="font-size:9px">${i.hard === true ? (zh ? '硬查询' : 'hard') : i.hard === false ? (zh ? '软查询' : 'soft') : '—'}</td></tr>`
       html += `</table>`
     }
     html += `<div style="font-size:9px;color:#9FBBD0;margin-top:4px;font-style:italic">${zh ? '以上数据由 AI 从申请人上传的信用报告转录,请与原件核对。Stayloop 不直接对接信用局。' : 'Transcribed by AI from the uploaded credit report — verify against the original. Stayloop does not pull bureau data directly.'}</div>`

@@ -65,6 +65,11 @@ export interface CreditAnalysis {
   totalPastDue: number
   /** Inquiries dated within 12 months of report_date (or of the newest inquiry when report_date is missing). */
   inquiries12mo: number
+  /** Of those, the HARD ones (Equifax "May affect scores: Yes"); null when the report
+   *  did not print the column. Soft pulls — ID verification (Trulioo/PayPal), telecom
+   *  account checks, the applicant's own bank — are not credit seeking (2026-09-11:
+   *  6 inquiries, 1 hard, were reported as "actively seeking credit"). */
+  hardInquiries12mo: number | null
   categories: CreditCategory[]
   delinquent: DelinquentAccount[]
   flags: DerivedCreditFlag[]
@@ -163,9 +168,13 @@ export function analyzeCreditReport(
   // its whole history as "recent".
   const anchor = parseYmd(cr.report_date) ?? Math.max(0, ...((cr.inquiries ?? []).map(q => parseYmd(q.date) ?? 0)))
   const yearMs = 365 * 24 * 3600 * 1000
-  const inquiries12mo = anchor
-    ? (cr.inquiries ?? []).filter(q => { const d = parseYmd(q.date); return d != null && anchor - d <= yearMs && anchor - d >= 0 }).length
-    : (cr.inquiries ?? []).length
+  const recent = anchor
+    ? (cr.inquiries ?? []).filter(q => { const d = parseYmd(q.date); return d != null && anchor - d <= yearMs && anchor - d >= 0 })
+    : (cr.inquiries ?? [])
+  const inquiries12mo = recent.length
+  const hardKnown = recent.some(q => typeof q.hard === 'boolean')
+  const hardInquiries12mo = hardKnown ? recent.filter(q => q.hard === true).length : null
+  const seekingCount = hardInquiries12mo ?? inquiries12mo
 
   // Derived flags — each one is arithmetic the landlord could re-check by hand.
   const flags: DerivedCreditFlag[] = []
@@ -197,8 +206,10 @@ export function analyzeCreditReport(
   if (dti != null && dti > 0.4) {
     flags.push({ severity: 'high', en: `Debt payments consume ${pct(dti)} of stated monthly income`, zh: `每月还款占申报月收入的 ${pct(dti)}` })
   }
-  if (inquiries12mo >= 5) {
-    flags.push({ severity: 'medium', en: `${inquiries12mo} credit inquiries in the last 12 months — active credit seeking`, zh: `近 12 个月 ${inquiries12mo} 次信用查询，正在密集申请信贷` })
+  if (seekingCount >= 5) {
+    flags.push({ severity: 'medium', en: `${seekingCount} ${hardKnown ? 'hard ' : ''}credit inquiries in the last 12 months — active credit seeking`, zh: `近 12 个月 ${seekingCount} 次${hardKnown ? '硬' : ''}信用查询，正在密集申请信贷` })
+  } else if (hardKnown && inquiries12mo >= 5) {
+    flags.push({ severity: 'info', en: `${inquiries12mo} inquiries in 12 months but only ${hardInquiries12mo} hard — the rest are soft (identity checks, telecom, own bank) and do not indicate credit seeking`, zh: `近 12 个月 ${inquiries12mo} 次查询，其中硬查询仅 ${hardInquiries12mo} 次——其余为软查询（身份核验、电信、本人银行），不代表在申请信贷` })
   }
   if (flags.length === 0 && score != null) {
     flags.push({ severity: 'info', en: 'No derived risk signals — no past-due balances, no collections, utilisation in range', zh: '未发现衍生风险信号——无逾期、无催收、利用率正常' })
@@ -207,5 +218,5 @@ export function analyzeCreditReport(
   // Stable order: biggest balance first reads naturally.
   const categories = [...byCat.values()].sort((a, b) => b.balance - a.balance)
 
-  return { score, band: band ?? null, dti, revolvingUtilization, totalBalance, totalPastDue, inquiries12mo, categories, delinquent, flags }
+  return { score, band: band ?? null, dti, revolvingUtilization, totalBalance, totalPastDue, inquiries12mo, hardInquiries12mo, categories, delinquent, flags }
 }

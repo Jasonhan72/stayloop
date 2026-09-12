@@ -428,6 +428,29 @@ portal 来源喂给时间戳聚类（与 Workday/ADP 同一豁免）；`cross-do
 `deposits_match_paystub_net` 佐证。守卫 `tests/forensicsStatementEngine.spec.ts`。**本机核对办法**：
 `.forensics-tmp/scotia-check.mts`（gitignored）对真实文件跑 metadata + source-specific + 聚类。
 
+## 工资流水深读层（2026-09-11 · 与人工核对对齐）
+
+同一 Carlos 案，取证误判修完后重跑，报告仍把「付款方 Osv ≠ 雇主 Acciona」当成工资来源不符
+（付款能力 35、附条件通过），把 4 月一笔 $21,035 入账当成异常，把 6 次查询当成密集申贷。人工
+逐份读文件的结论相反：OSV = OneSource Virtual，Workday 工资外包商，工资单 Producer 里就写着
+Workday；4 月大额 = 常规净薪 + 雇佣函所述奖金 $30,418.41 的税后 46%；Acciona 本身在流水上付报销款；
+每月 1 号 $4,000 支票 = 现租；Equifax 6 次查询只有 1 次硬查询。落成规则：
+- `lib/forensics/payroll-deposits.ts`（确定性，只产 info 佐证，从不产怀疑）：`PAYROLL_PROCESSORS`
+  付款方→代发商→平台映射（OSV/ADP/Ceridian/Payworks/Wagepoint/Rise/Humi/Nethris/Paychex…），
+  `payroll_processor_recognized`（付款方是代发商，且工资单 Producer 与其平台一致时说明同一流水线）、
+  `employer_counterparty_on_statement`、`cross_doc_bonus_corroborated`（函件奖金 = 工资单 YTD Bonus 行，
+  支持 30.418,41 欧式格式）、`bonus_deposit_reconciled`（大额工资入账 = 常规净薪 + 奖金×42–78%）、
+  `recurring_rent_like_payment`（连续 ≥2 个月月初同额支出，须有余额列判断方向）。在 `runForensics`
+  的 `reconcileIncomeAcrossDocs` 之后调用，进 `cross_doc_flags` → 提示词「TRUST THESE」块
+- `screen-score` 确定性覆盖：`payroll_processor_recognized` + （`deposits_match_paystub_net` 或
+  `bonus_deposit_reconciled`）→ `income_corroboration.verdict='corroborated'`，模型的「付款方不符」不再
+  压 ability_to_pay；提示词加外包发薪与姓氏在前（PR 卡 / T4 / 护照）的规则
+- 征信查询分硬软：`CreditReport.inquiries[].hard`（Equifax「May affect scores」列），
+  `creditAnalysis.hardInquiries12mo`，只有硬查询 ≥5 才算密集申贷；报告页与打印版显示「硬/全部」
+- `coherenceReview` 提示词加「EXPECTED PATTERNS」清单（外包发薪、奖金入账、CPP/EI 封顶后净薪上升、
+  雇主报销、姓氏在前、T4 事后打印与平台更换、Equifax 无雇佣记录、局方地址日期≠搬入日期、软查询、联名户）
+守卫 `tests/forensicsPayrollDeposits.spec.ts`；本机核对 `.forensics-tmp/payroll-check.mts` 对真实文本跑。
+
 ## 信用分析层（2026-08-26 · 对标 SingleKey 二轮）
 
 用户拿 SingleKey 30 页双局报告逐页对比后的结论：我们的**转录**早就齐了

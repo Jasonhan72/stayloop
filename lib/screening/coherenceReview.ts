@@ -96,6 +96,18 @@ Look for (non-exhaustive — use judgement):
 - Employment start date vs the employer's incorporation/registration date when either document states one — employment cannot predate the employer.
 - Full-time enrolment letters alongside a "permanent, full-time" job: not a finding by itself, but report it as a plausibility question the landlord should ask (hours per week vs study load).
 
+EXPECTED PATTERNS — these are how genuine Canadian documents behave. Do NOT report them as anomalies (mention them, if at all, only inside a document summary):
+- Outsourced payroll: the payer on a bank statement is a payroll processor (OneSource Virtual/OSV for Workday, ADP, Ceridian/Dayforce, Payworks, Wagepoint, Rise, Humi, Nethris, Paychex, Payment Evolution, Deluxe), not the employer. Payer ≠ employer is not a contradiction.
+- One larger payroll deposit in a period that equals a regular net pay plus the after-tax value of a bonus the letter or stub mentions; "Bonus", "Higher Duties", "Vacation" YTD lines that make YTD exceed regular-pay × periods.
+- Net pay rising in spring: CPP/CPP2/EI stop being deducted once the annual maximum is reached, so identical gross pays produce lower nets in Jan–Apr and higher nets afterwards.
+- Expense reimbursements paid directly by the employer appearing on the bank statement.
+- Surname-first name order on PR cards, T4 slips, passports and IDs ("REGUEIRO RODRIGUEZ CARLOS" = Carlos Regueiro Rodriguez); Hispanic/Portuguese double surnames; accents dropped or kept.
+- A T4 slip printed or downloaded months after the tax year (they are issued in February and stay downloadable); a print header naming the payroll portal (Dayforce, Workday, ADP); a different payroll platform on last year's T4 than on this year's stubs (employers change providers) — at most a low "confirm with employer".
+- Equifax Canada consumer files that say "no employment records" or "no bank information reported" — most Canadian files carry none.
+- A credit bureau address "last reported" date is when a creditor last reported it, not a move-in date; payroll or bureau addresses lagging behind the address on the application by months or years.
+- Soft inquiries (identity verification such as Trulioo/PayPal, telecom account checks, the applicant's own bank) — not credit seeking.
+- A bank statement showing the applicant AND a joint holder (spouse/partner) — a joint personal account is still the applicant's personal account.
+
 HARD RULES:
 1. Every anomaly MUST include at least one VERBATIM quote from the document(s) in "evidence" (copy the exact characters; do not paraphrase). If you cannot quote it, do not report it.
 2. Never report, infer, or mention protected grounds (race, ethnicity, national origin, religion, disability, family status, marital status, sexual orientation, gender identity, age as a characteristic, receipt of public assistance). Age only matters arithmetically (e.g. a minor opening an account).

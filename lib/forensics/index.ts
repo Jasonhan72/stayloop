@@ -41,6 +41,7 @@ import { checkBenford } from './benford'
 import { applyTextPayFrequency, checkPaystubMath, extractPaystubFields } from './paystub-math'
 import { checkStatutoryDeductions } from './statutory-deductions'
 import { checkSourceSpecific } from './source-specific'
+import { reconcilePayrollDeposits } from './payroll-deposits'
 import { runCrossDocChecks, checkTimestampClustering, reconcileIncomeAcrossDocs } from './cross-doc'
 import type { TimestampClusterInput } from './cross-doc'
 import { checkArmLength, canonicalizeEmployerName } from './arm-length'
@@ -171,6 +172,9 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
   // anomaly that the employment letter independently corroborates is demoted
   // from fraud-gate to verify-first BEFORE hard gates are computed below.
   reconcileIncomeAcrossDocs(perFile, crossDocFlags)
+  // Payer ≠ employer under outsourced payroll, bonus payouts, employer
+  // reimbursements, rent-shaped payments (2026-09-11, Acciona / OSV case).
+  reconcilePayrollDeposits(perFile, crossDocFlags)
 
   // Cross-doc step 4: employer registry existence (cheap, name-only).
   // The deep arm's-length check (officers, BN) stays behind the Pro button,
