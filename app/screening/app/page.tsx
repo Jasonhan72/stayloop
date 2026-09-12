@@ -4118,6 +4118,10 @@ function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onU
   // (Resend accepted the message) — without this line the click looked
   // like nothing happened.
   const [mail, setMail] = useState<{ ok: boolean; to: string; at: Date } | null>(null)
+  // Native share sheet (WhatsApp / SMS / WeChat) exists on phones; decided
+  // after mount so SSR and the first client render agree.
+  const [canShare, setCanShare] = useState(false)
+  useEffect(() => { setCanShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function') }, [])
 
   async function load() {
     const { data } = await supabase
@@ -4189,7 +4193,7 @@ function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onU
 
       {row && url && (
         <div style={{ marginTop: 12 }}>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
             {['id', 'bank', 'credit'].map(k => {
               const st = row.steps?.[k]?.status
               return (
@@ -4201,18 +4205,37 @@ function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onU
             {row.status === 'complete' && <span style={{ fontSize: 11, fontWeight: 700, color: '#065F46' }}>{zh ? '✓ 申请人已完成' : '✓ Applicant finished'}</span>}
           </div>
           <div style={{ padding: '8px 10px', borderRadius: 8, background: '#F3F8FC', fontFamily: 'ui-monospace, monospace', fontSize: 11.5, wordBreak: 'break-all', color: '#3F3F46' }}>{url}</div>
-          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+          {/* Phone: copy / share side by side, then a full-width email
+              field and a full-width send button — no 160px input squeezed
+              between three buttons. ≥640px: one row, input flexes. */}
+          <div className="mt-2 grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
             <button onClick={async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1600) } catch {} }}
-              style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: '#00ACE4', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+              className="sm:order-1"
+              style={{ padding: '9px 12px', borderRadius: 8, border: 'none', background: '#00ACE4', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
               {copied ? (zh ? '已复制 ✓' : 'Copied ✓') : (zh ? '复制链接' : 'Copy link')}
             </button>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={zh ? '申请人邮箱' : 'Applicant email'}
-              style={{ flex: 1, minWidth: 160, padding: '7px 10px', borderRadius: 8, border: '1px solid #E4EEF6', fontSize: 12.5 }} />
+            {canShare ? (
+              <button onClick={() => { navigator.share({ title: 'Stayloop', text: zh ? '请打开这条链接完成租房申请核验' : 'Please open this link to complete your rental application verification', url }).catch(() => {}) }}
+                className="sm:order-2"
+                style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                {zh ? '分享…' : 'Share…'}
+              </button>
+            ) : (
+              <button onClick={load} className="sm:order-5"
+                style={{ padding: '9px 10px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontSize: 12, cursor: 'pointer', color: '#71717A' }}>{zh ? '刷新状态' : 'Refresh'}</button>
+            )}
+            <input type="email" inputMode="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={zh ? '申请人邮箱' : 'Applicant email'}
+              className="col-span-2 sm:order-3 sm:flex-1 sm:min-w-[160px]"
+              style={{ padding: '9px 10px', borderRadius: 8, border: '1px solid #E4EEF6', fontSize: 12.5, minWidth: 0 }} />
             <button onClick={() => create(true)} disabled={busy || !email}
-              style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', opacity: (busy || !email) ? 0.5 : 1 }}>
+              className="col-span-2 sm:order-4 sm:w-auto"
+              style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', opacity: (busy || !email) ? 0.5 : 1 }}>
               {busy ? (zh ? '发送中…' : 'Sending…') : mail?.ok && mail.to === email ? (zh ? '再发一次' : 'Send again') : (zh ? '邮件发送' : 'Send by email')}
             </button>
-            <button onClick={load} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontSize: 12, cursor: 'pointer', color: '#71717A' }}>{zh ? '刷新状态' : 'Refresh'}</button>
+            {canShare && (
+              <button onClick={load} className="col-span-2 sm:order-5"
+                style={{ padding: '9px 10px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontSize: 12, cursor: 'pointer', color: '#71717A' }}>{zh ? '刷新状态' : 'Refresh'}</button>
+            )}
           </div>
           <div style={{ fontSize: 11, color: '#9FBBD0', marginTop: 6 }}>
             {zh ? `链接 7 天内有效（至 ${new Date(row.expires_at).toLocaleDateString('zh-CN')}）。` : `Link valid for 7 days (until ${new Date(row.expires_at).toLocaleDateString('en-CA')}).`}
