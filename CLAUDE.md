@@ -476,6 +476,28 @@ Workday；4 月大额 = 常规净薪 + 雇佣函所述奖金 $30,418.41 的税�
 - Equifax 标记核实的信用报告不再报 `pdf_producer_unknown`（Skia/PDF 是浏览器打印）；Aspose.Words 进
   「已识别」生成器名单。守卫 `tests/coApplicants.spec.ts` + `forensicsPayrollDeposits.spec.ts` 扁平文本组。
 
+## 评分表深化（2026-09-12 · 用上已经测到的事实）
+
+`lib/screening/rubric.ts` 原来只用了流水线测出的一小部分事实（收入倍数、信用分档、推荐人电话个数、
+文件齐全度），审视 Carlos 案后按五条改：
+- **付款能力**：倍数档位不变，新增总负担比（租金 + 债务）÷ 已佐证收入（≥50% −20 / ≥40% −12 /
+  ≥32% −5，取代原 DSR）、流动储备（`analyzeStatementLiquidity` 从带余额列的对账单读最低余额，
+  折成目标租金月数：≥6 +6 / ≥3 +3 / <1 −6；NSF/退票/透支行 −6/−12）、当前实付房租 ≥ 目标租金 +4
+  （`findRecurringMonthlyPayment`）、任职 <3 月 −8 / ≥24 月 +3（`coherence.documents.key_facts.employment_start`）
+- **信用**：当前逾期 −18（≥2 户 −25）、仅有迟付史 −8、硬查询 ≥5 −6、薄档案（<2 户或历史 <12 月）封顶 62。
+  事实来自 `creditAnalysis`（`creditPastDue / creditLateAccounts / hardInquiries12mo / tradelineCount /
+  creditHistoryMonths`）
+- **租务**：流水里连续 ≥2/≥3 个月的规律付租 +5/+8，申报住址总年限 ≥24 月 +4；推荐人覆盖度一律
+  `action_pending`（电话没打过不算实测）
+- **核验**：文件齐全只给底分 70（原 90），佐证码每个 +5、最多 +25（`CORROBORATION_CODES` 白名单：
+  代发商识别、入账等于净薪、雇主注册在册、扣缴封顶、奖金三方对账、雇主报销、YTD 一次性项对账）；
+  证件姓名覆盖申请人姓名 +5，不一致 −20；矛盾只认取证引擎的确定性代码（`contradictionDetails`，
+  critical −20 / high −12 / medium −6，合计封顶 −36），模型自报的 `cross_doc_contradictions` 红旗不再动分；
+  空栏计数排除第二申请人/配偶/担保人类栏目（`countMaterialBlanks`）
+- **收入优先取工资单算术**：`stubMonthlyIncome` = 各工资单年化（单期毛收入 × 期数）中位数 ÷ 12，
+  模型的 `detected_monthly_income` 只做回退
+新字段全部可选，老夹具照常评分。守卫 `tests/rubricDepth.spec.ts`（Carlos 夹具 ≥95、各规则逐条）。
+
 ## 信用分析层（2026-08-26 · 对标 SingleKey 二轮）
 
 用户拿 SingleKey 30 页双局报告逐页对比后的结论：我们的**转录**早就齐了

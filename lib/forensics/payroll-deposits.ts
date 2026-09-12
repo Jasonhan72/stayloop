@@ -176,6 +176,40 @@ export function findRecurringMonthlyPayment(bankTexts: string[]): { amount: numb
   return best
 }
 
+export interface StatementLiquidity {
+  /** lowest running balance seen across all statements */
+  min_balance: number | null
+  /** closing balance of the latest statement in the set (by order given) */
+  last_balance: number | null
+  /** NSF / returned-item / overdraft-fee rows */
+  nsf_count: number
+  /** transaction rows with a running balance — 0 means the layout was not readable */
+  rows: number
+}
+
+/** Liquidity read straight off running-balance statements: the lowest balance
+ *  the account touched, and NSF / overdraft events. Deterministic, no model.
+ *  Statements without a balance column yield rows=0 and nulls. */
+export function analyzeStatementLiquidity(bankTexts: string[]): StatementLiquidity {
+  let min: number | null = null
+  let last: number | null = null
+  let nsf = 0
+  let rows = 0
+  for (const text of bankTexts) {
+    const open = (text || '').replace(/\s+/g, ' ').match(/Opening\s+Balance(?:\s+on\s+[A-Za-z]+\s+\d{1,2},?\s+\d{4})?\s+\$?(\d{1,3}(?:,\d{3})*\.\d{2})/i)
+    if (open) { const v = money(open[1]); min = min === null ? v : Math.min(min, v) }
+    for (const t of splitStatementTransactions(text)) {
+      if (/\b(NSF|non[- ]sufficient|returned\s+(?:item|cheque|payment)|overdraft\s+(?:fee|interest|charge)|chargeback)\b/i.test(t.desc)) nsf++
+      if (t.balance === null) continue
+      if (/opening\s+balance/i.test(t.desc)) continue
+      rows++
+      min = min === null ? t.balance : Math.min(min, t.balance)
+      last = t.balance
+    }
+  }
+  return { min_balance: min, last_balance: last, nsf_count: nsf, rows }
+}
+
 export interface PayrollReconcileFile {
   file_name: string
   file_kind: string

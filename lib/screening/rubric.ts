@@ -104,6 +104,53 @@ export interface RubricFacts {
    * deterministically, not left to the model to notice.
    */
   creditReportAgeDays: number | null
+
+  // ── Measured facts added 2026-09-12 (deterministic; all optional so older
+  //    callers and fixtures keep scoring) ──────────────────────────────────
+  /** Backend-verified corroboration codes (payroll processor recognised,
+   *  deposits equal stub net, employer registry active, statutory deductions
+   *  at cap, bonus reconciled …). Only codes in CORROBORATION_CODES count. */
+  corroborations?: string[]
+  /** Deterministic cross-document contradictions with their severity — from
+   *  lib/forensics, never from the model's free-hand red flags. When present
+   *  this replaces `contradictions` for scoring. */
+  contradictionDetails?: Array<{ code: string; severity: 'critical' | 'high' | 'medium' | 'low' }>
+  /** ID-document name covers the applicant name (token match). Null = no ID. */
+  identityConsistent?: boolean | null
+  /** Liquidity read off running-balance statements. */
+  liquidity?: { minBalance: number | null; nsfCount: number } | null
+  /** A rent-shaped recurring payment observed on the statements. */
+  currentRentPaid?: number | null
+  rentPaymentMonths?: number | null
+  /** Months since the employment start date a letter / form states. */
+  employmentMonths?: number | null
+  /** Sum of months across the declared residence periods. */
+  declaredTenureMonths?: number | null
+  /** Credit-file depth and payment behaviour (from lib/screening/creditAnalysis). */
+  creditPastDue?: number | null
+  creditLateAccounts?: number | null
+  hardInquiries12mo?: number | null
+  tradelineCount?: number | null
+  creditHistoryMonths?: number | null
+}
+
+/** Corroboration codes that may lift the verification dimension. Every one is
+ *  emitted by deterministic code on measured document facts. */
+export const CORROBORATION_CODES = new Set([
+  'payroll_processor_recognized',
+  'deposits_match_paystub_net',
+  'employer_registry_active',
+  'paystub_deductions_at_legal_max',
+  'cross_doc_bonus_corroborated',
+  'bonus_deposit_reconciled',
+  'cross_doc_income_corroborated',
+  'employer_counterparty_on_statement',
+  'paystub_ytd_one_off_reconciled',
+])
+
+/** Application blanks that a single applicant is not expected to fill. */
+export function countMaterialBlanks(blankSections: string[]): number {
+  return blankSections.filter(b => !/(second|2nd|co-?applicant|spouse|partner|guarantor|additional|other\s+occupant|emergency\s+contact)/i.test(b)).length
 }
 
 export interface RuleHit {
@@ -228,13 +275,36 @@ export function scoreRubric(f: RubricFacts): RubricResult {
     add('ability_to_pay', 'income_unknown', 30, 'no income figure established')
   }
 
-  // Existing debt service eats into the same income.
-  const dsr = f.credit?.monthly_debt_payments && income.monthly
-    ? f.credit.monthly_debt_payments / income.monthly
+  // Total burden: the rent being applied for PLUS existing debt service, over
+  // verified income (a GDS/TDS-style read). Rent alone is priced by the ratio
+  // band above; this catches the applicant whose ratio clears 3x but whose
+  // car lease and cards leave nothing after rent.
+  const burden = income.monthly && f.monthly_rent && f.monthly_rent > 0
+    ? (f.monthly_rent + (f.credit?.monthly_debt_payments || 0)) / income.monthly
     : null
-  if (dsr != null) {
-    const d = dsr >= 0.4 ? -18 : dsr >= 0.25 ? -10 : dsr >= 0.15 ? -4 : 0
-    if (d) ability += add('ability_to_pay', 'debt_service_ratio', d, `${(dsr * 100).toFixed(0)}% of income to existing debt`)
+  if (burden != null) {
+    const d = burden >= 0.5 ? -20 : burden >= 0.4 ? -12 : burden >= 0.32 ? -5 : 0
+    if (d) ability += add('ability_to_pay', 'total_debt_service', d, `rent + debt = ${(burden * 100).toFixed(0)}% of verified income`)
+  }
+
+  // Liquid reserves: the lowest balance the statements touched, in months of
+  // the rent applied for. Read deterministically off running-balance rows.
+  if (f.liquidity && f.liquidity.minBalance != null && f.monthly_rent && f.monthly_rent > 0) {
+    const months = f.liquidity.minBalance / f.monthly_rent
+    const d = months >= 6 ? 6 : months >= 3 ? 3 : months < 1 ? -6 : 0
+    if (d) ability += add('ability_to_pay', 'liquid_reserves', d, `lowest balance $${Math.round(f.liquidity.minBalance).toLocaleString()} = ${months.toFixed(1)} months of rent`)
+  }
+  if (f.liquidity && f.liquidity.nsfCount > 0) {
+    ability += add('ability_to_pay', 'nsf_events', f.liquidity.nsfCount >= 2 ? -12 : -6, `${f.liquidity.nsfCount} NSF / returned-item / overdraft row(s)`)
+  }
+  // Already paying this much: a recurring rent-shaped payment at or above the
+  // target rent is the strongest affordability evidence a file can carry.
+  if (f.currentRentPaid && f.monthly_rent && f.currentRentPaid >= f.monthly_rent * 0.95) {
+    ability += add('ability_to_pay', 'current_rent_at_or_above_target', 4, `$${f.currentRentPaid.toLocaleString()} recurring vs $${f.monthly_rent.toLocaleString()} applied for`)
+  }
+  if (f.employmentMonths != null) {
+    if (f.employmentMonths < 3) ability += add('ability_to_pay', 'employment_probation', -8, `${f.employmentMonths} month(s) in role`)
+    else if (f.employmentMonths >= 24) ability += add('ability_to_pay', 'employment_tenure', 3, `${f.employmentMonths} months in role`)
   }
 
   // ── Credit health ───────────────────────────────────────────────────────
@@ -297,6 +367,25 @@ export function scoreRubric(f: RubricFacts): RubricResult {
   if (!f.creditReportUnreliable && (f.credit?.bankruptcies ?? []).length) {
     creditScore += add('credit_health', 'bankruptcy', -35, `${f.credit!.bankruptcies!.length} on file`)
   }
+  // Payment behaviour — the bureau score already prices it, but a current
+  // past-due balance is the single best predictor of a missed rent payment
+  // and used to move nothing here (a 700 with $2,000 past due scored 82).
+  if (!stale && !f.creditReportUnreliable && sc != null) {
+    if ((f.creditPastDue ?? 0) > 0) {
+      creditScore += add('credit_health', 'past_due_balance', (f.creditLateAccounts ?? 1) >= 2 ? -25 : -18, `$${Math.round(f.creditPastDue!).toLocaleString()} currently past due`)
+    } else if ((f.creditLateAccounts ?? 0) > 0) {
+      creditScore += add('credit_health', 'late_payment_history', -8, `${f.creditLateAccounts} account(s) with late payments`)
+    }
+    if ((f.hardInquiries12mo ?? 0) >= 5) {
+      creditScore += add('credit_health', 'hard_inquiries', -6, `${f.hardInquiries12mo} hard inquiries in 12 months`)
+    }
+    // A thin file cannot support a high score: two accounts or under a year
+    // of history is not a track record, whatever number sits on top of it.
+    const thin = (f.tradelineCount != null && f.tradelineCount < 2) || (f.creditHistoryMonths != null && f.creditHistoryMonths < 12)
+    if (thin && creditScore > 62) {
+      creditScore += add('credit_health', 'thin_file', 62 - creditScore, `${f.tradelineCount ?? '?'} tradeline(s), ${f.creditHistoryMonths ?? '?'} months of history`)
+    }
+  }
 
   // ── Rental history ──────────────────────────────────────────────────────
   // The dimension the old model got backwards: with no references and no
@@ -313,6 +402,15 @@ export function scoreRubric(f: RubricFacts): RubricResult {
       f.declaredAddresses > 0
         ? `${f.declaredAddresses} prior address(es) declared, none with a contactable landlord`
         : 'no prior address or landlord given')
+  }
+  // Measured rent behaviour beats a phone number nobody has called yet: a
+  // rent-shaped payment recurring on the statements, and the length of the
+  // declared tenancies.
+  if (f.currentRentPaid && (f.rentPaymentMonths ?? 0) >= 2) {
+    rental += add('rental_history', 'rent_payments_observed', f.rentPaymentMonths! >= 3 ? 8 : 5, `$${f.currentRentPaid.toLocaleString()} recurring in ${f.rentPaymentMonths} statement month(s)`)
+  }
+  if ((f.declaredTenureMonths ?? 0) >= 24) {
+    rental += add('rental_history', 'declared_tenure', 4, `${f.declaredTenureMonths} months of declared tenancy`)
   }
   if (f.ltbCorroborated > 0) {
     rental += add('rental_history', 'ltb_order_corroborated', f.ltbCorroborated >= 2 ? -45 : -30,
@@ -339,11 +437,32 @@ export function scoreRubric(f: RubricFacts): RubricResult {
     { label: 'credit_report', kinds: ['credit_report'] },
   ]
   const present = REQUIRED.filter((r) => f.documentKinds.some((d) => r.kinds.includes(d))).length
-  let verification = Math.round((present / REQUIRED.length) * 70) + 20
+  // Presence is a base, not verification: a complete set starts at 70 and
+  // earns the rest through measured corroboration below (it used to start at
+  // 90 with nothing left to gain, so a fully reconciled payroll trail scored
+  // the same as an unchecked one and every "contradiction" only cut).
+  let verification = Math.round((present / REQUIRED.length) * 48) + 22
   add('verification', 'documents_present', verification,
     `${present}/${REQUIRED.length} required kinds (${f.documentKinds.join(', ') || 'none detected'})`)
 
-  if (f.contradictions.length) {
+  const corroborated = Array.from(new Set((f.corroborations ?? []).filter((c) => CORROBORATION_CODES.has(c))))
+  if (corroborated.length) {
+    verification += add('verification', 'corroborations', Math.min(25, corroborated.length * 5), corroborated.join(', '))
+  }
+  if (f.identityConsistent === true) {
+    verification += add('verification', 'identity_consistent', 5, 'ID-document name matches the applicant name')
+  } else if (f.identityConsistent === false) {
+    verification += add('verification', 'identity_inconsistent', -20, 'ID-document name does not match the applicant name')
+  }
+
+  if (f.contradictionDetails) {
+    // Deterministic contradictions only, priced by severity; capped so three
+    // medium notes cannot outweigh a forged document.
+    const W: Record<string, number> = { critical: -20, high: -12, medium: -6, low: 0 }
+    const total = Math.max(-36, f.contradictionDetails.reduce((sum, c) => sum + (W[c.severity] ?? 0), 0))
+    if (total) verification += add('verification', 'cross_doc_contradiction', total,
+      f.contradictionDetails.slice(0, 4).map((c) => `${c.code} (${c.severity})`).join(', '))
+  } else if (f.contradictions.length) {
     verification += add('verification', 'cross_doc_contradiction', -12 * Math.min(f.contradictions.length, 3),
       f.contradictions.slice(0, 3).join(', '))
   }

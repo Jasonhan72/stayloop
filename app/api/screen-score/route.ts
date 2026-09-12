@@ -15,6 +15,11 @@ import type { ScreeningVerification } from '@/lib/verify/types'
 import { repairUnescapedQuotes } from '@/lib/screening/jsonRepair'
 import { stripNul } from '@/lib/screening/jsonSafe'
 import { selectCoApplicantNames } from '@/lib/screening/coApplicants'
+import { nameCovers, sameName } from '@/lib/screening/coApplicants'
+import { countMaterialBlanks } from '@/lib/screening/rubric'
+import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
+import { analyzeStatementLiquidity, findRecurringMonthlyPayment } from '@/lib/forensics/payroll-deposits'
+import { monthsSince, parsePeriodMonths } from '@/lib/screening/periods'
 import { llmChat, llmChatStream } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
@@ -2075,10 +2080,22 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // null when neither is available (in which case the gates DO NOT fire —
     // there's no evidence to fire on, the missing income gets reflected in
     // evidence_coverage instead).
+    // Pay-stub arithmetic first (period gross × periods ÷ 12, median across
+    // stubs — lib/forensics/paystub-math), the model's reading only when no
+    // stub yielded a figure. Same documents, same number.
+    const stubMonthlyIncome: number | null = (() => {
+      const annuals = forensicsReport.per_file
+        .map(pf => pf.paystub_math?.extraction.annual_salary)
+        .filter((a): a is number => typeof a === 'number' && a > 12_000 && a < 3_000_000)
+        .sort((a, b) => a - b)
+      if (annuals.length === 0) return null
+      return Math.round(annuals[Math.floor(annuals.length / 2)] / 12 * 100) / 100
+    })()
     const detectedIncomeForGate: number | null =
-      typeof parsed.detected_monthly_income === 'number' && parsed.detected_monthly_income > 0
-        ? parsed.detected_monthly_income
-        : null
+      stubMonthlyIncome
+        ?? (typeof parsed.detected_monthly_income === 'number' && parsed.detected_monthly_income > 0
+          ? parsed.detected_monthly_income
+          : null)
     const effectiveIncomeForGate: number | null =
       detectedIncomeForGate ?? (monthlyIncome > 0 ? monthlyIncome : null)
     const verifiedRatio: number | null =
@@ -2425,8 +2442,62 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         declaredAddresses: prev.length,
         documentKinds: Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds : [],
         contradictions: redFlags.filter((r: string) => /contradict|mismatch|collision/i.test(r)),
+        // Deterministic contradictions only (lib/forensics cross-doc codes),
+        // priced by severity. The model's free-hand "cross_doc_contradictions"
+        // red flag stays in the verification checklist, not in the score.
+        contradictionDetails: [...forensicsReport.cross_doc_flags, ...forensicsReport.all_flags]
+          .filter(fl => fl.severity !== 'info' && fl.severity !== 'low' && /^cross_doc_|_mismatch$|_collision$|_contradiction/.test(fl.code) && !/^coherence_/.test(fl.code))
+          .filter((fl, i, arr) => arr.findIndex(x => x.code === fl.code) === i)
+          .map(fl => ({ code: fl.code, severity: fl.severity as 'critical' | 'high' | 'medium' | 'low' })),
+        corroborations: [...forensicsReport.cross_doc_flags, ...forensicsReport.all_flags]
+          .filter(fl => fl.severity === 'info')
+          .map(fl => fl.code),
+        identityConsistent: (() => {
+          const idNames = (coherence.documents || []).filter(d => /id_document/i.test(d.kind)).flatMap(d => d.key_facts?.names || [])
+          if (idNames.length === 0) return null
+          return idNames.some(n => sameName(n, nameForLookup) || nameCovers(n, nameForLookup))
+        })(),
+        ...(() => {
+          const bankTexts = forensicsReport.per_file
+            .filter(pf => (pf.file_kind || '').split(',').map(k => k.trim()).includes('bank_statement'))
+            .map(pf => pf.text_density?.text_sample || '')
+            .filter(Boolean)
+          const liq = bankTexts.length ? analyzeStatementLiquidity(bankTexts) : null
+          const rent = bankTexts.length ? findRecurringMonthlyPayment(bankTexts) : null
+          return {
+            liquidity: liq && liq.rows > 0 ? { minBalance: liq.min_balance, nsfCount: liq.nsf_count } : null,
+            currentRentPaid: rent?.amount ?? null,
+            rentPaymentMonths: rent?.months ?? null,
+          }
+        })(),
+        employmentMonths: (() => {
+          const start = (coherence.documents || [])
+            .filter(d => /employment_letter|offer_letter|application_form|pay_stub/i.test(d.kind))
+            .map(d => d.key_facts?.employment_start)
+            .find((v): v is string => typeof v === 'string' && v.length >= 7)
+          return monthsSince(start)
+        })(),
+        declaredTenureMonths: (() => {
+          const months = prev.map(p => parsePeriodMonths(p.period)).filter((m): m is number => m != null)
+          return months.length ? months.reduce((a, b) => a + b, 0) : null
+        })(),
+        ...(() => {
+          const cr = creditReport && !creditReport.unreliable ? creditReport : null
+          const ca = cr ? analyzeCreditReport(cr as never, { monthlyIncome: detectedIncomeForGate ?? undefined }) : null
+          const opened = (cr?.tradelines ?? []).map(t => monthsSince(String(t.date_opened || '').replace(/\//g, '-'))).filter((m): m is number => m != null)
+          const reportAge = monthsSince(String(cr?.report_date || '').replace(/\//g, '-')) ?? 0
+          return {
+            creditPastDue: ca ? ca.totalPastDue : null,
+            creditLateAccounts: ca ? ca.delinquent.length : null,
+            hardInquiries12mo: ca ? ca.hardInquiries12mo : null,
+            tradelineCount: cr ? (cr.tradelines ?? []).length : null,
+            creditHistoryMonths: opened.length ? Math.max(...opened) - reportAge : null,
+          }
+        })(),
         forgedDocuments: forgedDocCount,
-        blankApplicationFields: crossDocVerification?.application_summary?.blank_sections?.length ?? 0,
+        // Blanks a single applicant is not expected to fill (second applicant,
+        // spouse, guarantor …) are not incompleteness.
+        blankApplicationFields: countMaterialBlanks(crossDocVerification?.application_summary?.blank_sections ?? []),
         applicationSigned: null,
         // Deterministic staleness: days from the report's own date to now,
         // parsed as UTC (lib/dates.ts discipline — a local-getter read here
@@ -2492,6 +2563,9 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     subCov.ltb_check = (ltbCheck && (ltbCheck.status === 'ok' || ltbCheck.status === 'no_results'))
       ? 'measured'
       : 'action_pending'
+    // A landlord reference is a phone number until someone dials it. The
+    // report printed "已从文件实测" beside references nobody had called.
+    if (subCov.prior_landlord_refs === 'measured') subCov.prior_landlord_refs = 'action_pending'
     const evidenceCoverage = ALL_SUB_COMPONENTS.reduce(
       (sum, k) => sum + (coverageWeights[subCov[k]] ?? 1.0), 0
     ) / ALL_SUB_COMPONENTS.length
