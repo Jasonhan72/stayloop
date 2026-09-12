@@ -151,8 +151,13 @@ export interface CreditReport {
   }>
   collections?: Array<{ creditor: string; date_assigned: string; original_amount: number | null; balance: number | null }>
   bankruptcies?: Array<{ date_filed: string; type: string; amount: number | null; disposition: string }>
-  /** hard: Equifax "May affect scores: Yes" / TransUnion hard; false = soft; null = column not printed */
-  inquiries?: Array<{ date: string; creditor: string; hard?: boolean | null }>
+  /** hard: Equifax "May affect scores: Yes" / TransUnion hard; false = soft; null = column not printed.
+   *  kind: credit (an application for credit) · account_review · non_credit (identity, tenancy, collection, employment) */
+  inquiries?: Array<{ date: string; creditor: string; hard?: boolean | null; kind?: 'credit' | 'account_review' | 'non_credit' | null }>
+  /** the name printed on the report header — with several applicants the transcription must say whose file this is (2026-09-12) */
+  subject_name?: string | null
+  /** the uploaded file the transcription came from */
+  source_file?: string | null
   total_debt?: number | null
   monthly_debt_payments?: number | null
   /**

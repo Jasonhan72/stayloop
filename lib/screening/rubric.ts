@@ -138,6 +138,8 @@ export interface RubricFacts {
    *  these the file is "consistent on paper": verification caps at 90 and
    *  rental history at 88 (references uncalled). */
   externalVerifications?: { identity?: boolean; bank?: boolean; references?: boolean } | null
+  /** median age in days of the income documents (stubs / statements / letter) at screening time */
+  incomeDocsAgeDays?: number | null
 }
 
 /** Corroboration codes that may lift the verification dimension. Every one is
@@ -311,6 +313,10 @@ export function scoreRubric(f: RubricFacts): RubricResult {
   if (f.employmentMonths != null) {
     if (f.employmentMonths < 3) ability += add('ability_to_pay', 'employment_probation', -8, `${f.employmentMonths} month(s) in role`)
     else if (f.employmentMonths >= 24) ability += add('ability_to_pay', 'employment_tenure', 3, `${f.employmentMonths} months in role`)
+  }
+  // Evidence that speaks for a year ago does not prove today's income.
+  if (f.incomeDocsAgeDays != null && f.incomeDocsAgeDays > 120) {
+    ability += add('ability_to_pay', 'income_documents_stale', f.incomeDocsAgeDays > 365 ? -20 : -8, `income documents are ${Math.round(f.incomeDocsAgeDays / 30)} months old`)
   }
 
   // ── Credit health ───────────────────────────────────────────────────────

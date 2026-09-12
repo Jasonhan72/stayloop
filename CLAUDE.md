@@ -606,6 +606,30 @@ active），name_only 仍只展示 + 红旗；第三方名单不再取 `other` �
 守卫 `tests/armLength.spec.ts`（related party / 网页姓氏命中 / unverified）。本机联网复现
 `.forensics-tmp/arm-live.mts`。
 
+## 人工通读 vs 模块（2026-09-12 · Cipriani / Quiroga 全套原件）
+
+用户要求：Claude 自己读一遍全部原件，与模块结果逐项对比，模块少发现的都要变成系统化方法。人工读出而
+模块没有的（已全部落地）：
+1. **整套材料两年前的**（2024-10 在职信、2024-08~10 工资单与对账单、2024-10 征信，筛查在 2026-09）——
+   `lib/forensics/recency.ts`：每份文件按自身文字定「as-of」日期（工资单发薪日 / 对账单期末「AUG 30/24 -
+   SEP 27/24」/ 信头日期 / 征信 as of / NOA Date issued / 证件 EXP），收入与征信类 >90 天 `document_stale`
+   （>365 天 high），收入包中位 >180 天 `income_package_stale`；`rubric.incomeDocsAgeDays` >120 −8、>365 −20；
+   红旗 `stale_documents` 并把 income_stability / income_rent_ratio / employer_verify 降为 action_pending。
+2. **证件过期**（Leo 的照片卡 2026-06-11 到期，Nathalie 驾照 4 天后到期）——`id_expired`（medium；
+   全部过期 `all_ids_expired` high）、`id_expiring_soon`（info）。
+3. **在职信自己的电话两种写法**（416 4278441 / 416 427 4881）、**拼写错误**（Human resourses、
+   Comunications Manager）——`lib/forensics/letter-quality.ts`：同交换局不同尾号 `letter_phone_inconsistent`，
+   常见伪造拼错词典 `document_spelling_errors`。
+4. **工资单按支票版式、银行却是电子转账与支票轮着到账**——`payroll-deposits.ts pay_method_mismatch`。
+5. **征信 Non-Credit Related 查询里有催收机构（MJR Capital Services ×3）而催收栏为空**——
+   `lib/screening/collectionAgencies.ts` + 路由 `collection_agency_on_file`（high）；转录 schema
+   `inquiries[].kind`（credit / account_review / non_credit）要求三张表全部转录。
+6. **两份征信混淆**：模型把共同申请人的 793/23 户当成主申请人的；主申请人自己的消费者披露没有分数、只有
+   4 个小额账户——schema 加 `subject_name` / `source_file`，路由比对不是主申请人即 `unreliable` +
+   `credit_report_subject_mismatch`。
+7. **贷款机构起诉（CIBC、Capital One、Home Trust）而征信干净**——`court_vs_bureau_contradiction`。
+守卫 `tests/recencyAndLetterQuality.spec.ts`。
+
 ## 信用分析层（2026-08-26 · 对标 SingleKey 二轮）
 
 用户拿 SingleKey 30 页双局报告逐页对比后的结论：我们的**转录**早就齐了

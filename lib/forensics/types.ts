@@ -259,6 +259,8 @@ export interface ForensicsReport {
   severity: ForensicsSeverity
   /** total ms across all files */
   elapsed_ms: number
+  /** document recency (lib/forensics/recency.ts, 2026-09-12) */
+  recency?: { income_docs_median_age_days: number | null; per_file: Array<{ file: string; kind: string; as_of: string | null; expiry: string | null; age_days: number | null }> }
   /** schema version for migration tracking */
   schema_version: 1
   /** arm's-length employment check results (populated by deep check) */

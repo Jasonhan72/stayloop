@@ -43,6 +43,8 @@ import { checkStatutoryDeductions } from './statutory-deductions'
 import { checkSourceSpecific } from './source-specific'
 import { reconcilePayrollDeposits } from './payroll-deposits'
 import { reconcileScanFlags } from './scan-flags'
+import { checkRecency } from './recency'
+import { checkLetterQuality } from './letter-quality'
 import { ocrAvailable, ocrPdfScan } from '../ocr/qwenOcr'
 import { runCrossDocChecks, checkTimestampClustering, reconcileIncomeAcrossDocs } from './cross-doc'
 import type { TimestampClusterInput } from './cross-doc'
@@ -177,6 +179,9 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
   // Payer ≠ employer under outsourced payroll, bonus payouts, employer
   // reimbursements, rent-shaped payments (2026-09-11, Acciona / OSV case).
   reconcilePayrollDeposits(perFile, crossDocFlags)
+  // How old is the evidence, and are the IDs valid today?
+  const recency = checkRecency(perFile)
+  crossDocFlags.push(...recency.crossFlags)
 
   // Cross-doc step 4: employer registry existence (cheap, name-only).
   // The deep arm's-length check (officers, BN) stays behind the Pro button,
@@ -257,6 +262,7 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
     employer_registry: employerRegistry,
     hard_gates: hardGates,
     severity,
+    recency: recency.result,
     elapsed_ms: Date.now() - startedAt,
     schema_version: 1,
   }
@@ -434,6 +440,11 @@ async function analyzeFile(
         out.flags.push(...srcFlags)
         // OCR content decides what a scan is; scanner metadata does not.
         out.flags = reconcileScanFlags(out.flags, f.name, canonicalKind, out.ocr, src)
+        // Letter / stub quality: a phone number printed two ways, misspelled
+        // field labels — the tells a human reads first.
+        if (canonicalKind === 'employment_letter' || canonicalKind === 'offer_letter' || canonicalKind === 'pay_stub') {
+          out.flags.push(...checkLetterQuality(out.text_density?.text_sample || out.ocr?.text || '', f.name, canonicalKind))
+        }
         // A recognised payroll provider (Humi → Prawn, etc.) explains the PDF
         // producer — drop the generic "producer not in whitelist" note for it.
         if (src.matched_payroll) out.flags = out.flags.filter(fl => fl.code !== 'pdf_producer_unknown')

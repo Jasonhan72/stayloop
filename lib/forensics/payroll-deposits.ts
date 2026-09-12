@@ -384,6 +384,38 @@ export function reconcilePayrollDeposits(perFile: PayrollReconcileFile[], flags:
     }
   }
 
+  // 3b) The stub says cheque, the bank shows e-Transfers of the same net —
+  //     or the pay arrives by e-Transfer at all. Payroll systems pay by
+  //     direct deposit under the employer's name; a personal e-Transfer of
+  //     exactly the net figure is what accompanies a home-made stub.
+  if (regularNet && stubs.length) {
+    const stubText = stubs.map(s => s.text_density?.text_sample || '').join(' ')
+    const stubSaysCheque = /\bcheque\s*(?:date|no|number|#)|\bpay\s*cheque\b|\bcheck\s*(?:date|no)/i.test(stubText)
+    const inbound: Array<{ amount: number; method: string; where: string }> = []
+    for (const b of banks) {
+      let prev: number | null = null
+      for (const t of splitStatementTransactions(b.text_density!.text_sample)) {
+        if (/opening\s+balance/i.test(t.desc)) { if (t.amount !== null) prev = t.amount; continue }
+        const isIn = t.direction ? t.direction === 'in' : (t.balance !== null && prev !== null && t.balance > prev)
+        if (t.balance !== null) prev = t.balance
+        if (!isIn || t.amount === null) continue
+        if (Math.abs(t.amount - regularNet) > Math.max(1, regularNet * 0.01)) continue
+        const method = /e-?transfer|e-?tfr|interac/i.test(t.desc) ? 'e-Transfer' : /cheque|chq/i.test(t.desc) ? 'cheque' : /payroll|pay\s*dep/i.test(t.desc) ? 'payroll' : 'deposit'
+        inbound.push({ amount: t.amount, method, where: `${b.file_name}: ${t.month} ${t.day}` })
+      }
+    }
+    const methods = Array.from(new Set(inbound.map(i => i.method)))
+    const nonPayroll = inbound.filter(i => i.method !== 'payroll')
+    if (nonPayroll.length && (methods.length > 1 || methods[0] === 'e-Transfer' || (stubSaysCheque && methods.includes('e-Transfer')))) {
+      flags.push({
+        code: 'pay_method_mismatch',
+        severity: 'medium',
+        evidence_en: `The net pay on the stubs ($${regularNet.toLocaleString()}) reaches the account as ${methods.join(' and ')} (${nonPayroll.slice(0, 3).map(i => `${i.where} ${i.method}`).join('; ')})${stubSaysCheque ? ' while the stub itself is laid out as a cheque' : ''}. Payroll systems pay by direct deposit under the employer's name; personal e-Transfers or cheques carrying exactly the net figure leave no payroll trail and are what accompanies a home-made stub. Ask who sends the money and for a payroll register or T4 from the employer.`,
+        evidence_zh: `工资单上的净薪（$${regularNet.toLocaleString()}）以 ${methods.join(' 与 ')} 的方式到账（${nonPayroll.slice(0, 3).map(i => `${i.where} ${i.method}`).join('；')}）${stubSaysCheque ? '，而工资单本身按支票版式排印' : ''}。工资系统用雇主名义直存发薪；金额恰等于净薪的个人电子转账或支票没有工资系统痕迹，正是自制工资单配套的到账方式。请问清是谁付款，并向雇主索要工资登记册或 T4。`,
+      })
+    }
+  }
+
   // 4) Rent-shaped recurring payment.
   const rent = findRecurringMonthlyPayment(bankTexts)
   if (rent) {

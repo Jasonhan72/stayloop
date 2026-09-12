@@ -22,6 +22,7 @@ import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
 import { analyzeStatementLiquidity, findRecurringMonthlyPayment } from '@/lib/forensics/payroll-deposits'
 import { monthsSince, parsePeriodMonths, parseDateLoose, datesAgree } from '@/lib/screening/periods'
 import { buildLandlordReadings, mergeModelReadings } from '@/lib/forensics/landlord-reading'
+import { isCollectionAgency } from '@/lib/screening/collectionAgencies'
 import { llmChat, llmChatStream } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
@@ -1170,7 +1171,7 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble.
  "detected_document_kinds":["..."],
  "bank_min_balance":<number or null>,
  "identity_match_score":<0-100 or null>,
- "credit_report":{"present":<true ONLY if a GENUINE consumer credit report (Equifax/TransUnion/SingleKey/FrontLobby/Borrowell) was uploaded; else false>,"bureau":"Equifax|TransUnion|Dual|other|null","credit_score":<300-900 integer or null>,"score_band":"Poor|Fair|Good|Very Good|Excellent|null","report_date":"YYYY-MM-DD or as shown or null","employment":{"current":"employer name as printed in the report's Employment section or null","previous":"or null"},"tradelines":[{"creditor":"","type":"Revolving|Installment|Open|Mortgage|Lease|other","date_opened":"","responsibility":"Individual|Joint|Authorized|null (the account responsibility/association column as printed)","balance":<number or null>,"credit_limit":<the ASSIGNED limit as printed, or null — distinct from high_credit>,"high_credit":<highest balance carried, or null>,"past_due":<number or null>,"payment_status":"","late_30_60_90":"0/0/0"}],"collections":[{"creditor":"","date_assigned":"","original_amount":<number or null>,"balance":<number or null>}],"bankruptcies":[{"date_filed":"","type":"","amount":<number or null>,"disposition":""}],"inquiries":[{"date":"","creditor":"","hard":<true if the report marks it as a hard inquiry (Equifax column \"May affect scores\" = Yes; TransUnion \"hard\"), false if marked soft/No, null if the report does not say>}],"total_debt":<number or null>,"monthly_debt_payments":<number or null>,"analysis_en":"REQUIRED when present=true, else null. 3-5 sentences, <=90 words, citing SPECIFIC accounts by creditor name: worst payment statuses, past-due amounts, utilisation on named cards, collections/bankruptcy context, inquiry velocity, and the trajectory (improving/stable/deteriorating from the late-payment history). Plain factual reading, no advice.","analysis_zh":"present=true 时必填，否则 null。3-5 句、<=160 字，点名具体账户：最差状态、逾期金额、哪张卡利用率多少、催收/破产背景、查询频率、趋势（好转/稳定/恶化）。只陈述事实，不给建议。"},
+ "credit_report":{"present":<true ONLY if a GENUINE consumer credit report (Equifax/TransUnion/SingleKey/FrontLobby/Borrowell) was uploaded; else false>,"subject_name":"<the person's name printed on the report header — with several applicants transcribe the PRIMARY applicant's report and say whose it is>","source_file":"<file name of the report transcribed>","bureau":"Equifax|TransUnion|Dual|other|null","credit_score":<300-900 integer or null>,"score_band":"Poor|Fair|Good|Very Good|Excellent|null","report_date":"YYYY-MM-DD or as shown or null","employment":{"current":"employer name as printed in the report's Employment section or null","previous":"or null"},"tradelines":[{"creditor":"","type":"Revolving|Installment|Open|Mortgage|Lease|other","date_opened":"","responsibility":"Individual|Joint|Authorized|null (the account responsibility/association column as printed)","balance":<number or null>,"credit_limit":<the ASSIGNED limit as printed, or null — distinct from high_credit>,"high_credit":<highest balance carried, or null>,"past_due":<number or null>,"payment_status":"","late_30_60_90":"0/0/0"}],"collections":[{"creditor":"","date_assigned":"","original_amount":<number or null>,"balance":<number or null>}],"bankruptcies":[{"date_filed":"","type":"","amount":<number or null>,"disposition":""}],"inquiries":[{"date":"","creditor":"","hard":<true if the report marks it as a hard inquiry (Equifax column \"May affect scores\" = Yes; TransUnion \"hard\"), false if marked soft/No, null if the report does not say>,"kind":"credit|account_review|non_credit|null — TransUnion lists Credit Related, Account Review and Non-Credit Related inquiries in separate tables: transcribe ALL of them (a collection agency under Non-Credit Related is the only place a debt in collection may show)"}],"total_debt":<number or null>,"monthly_debt_payments":<number or null>,"analysis_en":"REQUIRED when present=true, else null. 3-5 sentences, <=90 words, citing SPECIFIC accounts by creditor name: worst payment statuses, past-due amounts, utilisation on named cards, collections/bankruptcy context, inquiry velocity, and the trajectory (improving/stable/deteriorating from the late-payment history). Plain factual reading, no advice.","analysis_zh":"present=true 时必填，否则 null。3-5 句、<=160 字，点名具体账户：最差状态、逾期金额、哪张卡利用率多少、催收/破产背景、查询频率、趋势（好转/稳定/恶化）。只陈述事实，不给建议。"},
  "cross_doc_verification":{"bank_accounts":[{"holder_name":"","entity_type":"personal|business","is_applicant":<bool — true ONLY if holder name matches applicant>,"statement_period":"as shown or null"}],"income_corroboration":{"claimed_monthly":<number or null>,"personal_payroll_seen":<bool>,"observed_pattern":"≤25 words — what deposits ACTUALLY recur","verdict":"corroborated|partial|uncorroborated","detail":"≤35 words, plain truth"},"related_party":{"suspected":<bool>,"signals":["one signal per entry, name the people"]},"employment_letter_signatory":{"name":"the person who SIGNED the employment/offer letter, exactly as signed, or null","title":"their printed title beside the signature (e.g. Director/Owner, HR Manager) or null"},"application_summary":{"applying_rent":<number or null>,"prev_residences":[{"address":"","period":"","landlord_name":"","landlord_phone":""}],"vacating_reason":"as stated or null","vehicles":["..."],"blank_sections":["form sections left empty"]},"suspicious_transfers":["amount + counterparty + which application name it matches"],"verification_checklist":["3-6 executable steps, include phone numbers found in docs"]},
  "scores":{"ability_to_pay":<0-100>,"credit_health":<0-100>,"rental_history":<0-100>,"verification":<0-100>,"communication":<0-100>},
  "sub_coverage":{"only_non_measured_keys":"action_pending|missing"},
@@ -2166,7 +2167,6 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       if (!redFlags.includes('court_record_strong_match')) redFlags.push('court_record_strong_match')
     }
     applyPortalGates()
-
     // ── Backend enforcement: court record penalties ──
     // The AI sometimes ignores portal/CanLII records when scoring rental_history.
     // We enforce minimum penalties here based on objective court data.
@@ -2348,11 +2348,46 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         bankruptcies: arr(cr.bankruptcies).slice(0, 10).map((b: any) => ({
           date_filed: str(b?.date_filed), type: str(b?.type), amount: num(b?.amount), disposition: str(b?.disposition),
         })),
-        inquiries: arr(cr.inquiries).slice(0, 15).map((i: any) => ({ date: str(i?.date), creditor: str(i?.creditor), hard: typeof i?.hard === 'boolean' ? i.hard : null })),
+        inquiries: arr(cr.inquiries).slice(0, 40).map((i: any) => ({ date: str(i?.date), creditor: str(i?.creditor), hard: typeof i?.hard === 'boolean' ? i.hard : null, kind: ['credit', 'account_review', 'non_credit'].includes(i?.kind) ? i.kind : null })),
         total_debt: num(cr.total_debt),
         monthly_debt_payments: num(cr.monthly_debt_payments),
+        subject_name: str(cr.subject_name) || null,
+        source_file: str(cr.source_file) || null,
       }
     })()
+
+    // Whose report is it? With two applicants the model has transcribed the
+    // co-applicant's file as the applicant's (2026-09-12: a 793 with 23
+    // accounts credited to an applicant whose own consumer disclosure has no
+    // score and four accounts). A report for someone else scores nothing for
+    // the primary applicant and says so.
+    if (creditReport && creditReport.subject_name && nameForLookup) {
+      const subj = creditReport.subject_name
+      const isPrimary = sameName(subj, nameForLookup) || nameCovers(subj, nameForLookup) || nameCovers(nameForLookup, subj)
+      if (!isPrimary) {
+        const co = (Array.isArray(parsed.extracted_names) ? parsed.extracted_names : []).find((n: unknown) => typeof n === 'string' && (sameName(n, subj) || nameCovers(n, subj)))
+        creditReport.unreliable = true
+        creditReport.unreliable_reason_en = `The transcribed bureau report belongs to "${subj}"${co ? ` (co-applicant)` : ''}, not to the applicant "${nameForLookup}". It cannot stand in for the applicant's own credit history.`
+        creditReport.unreliable_reason_zh = `转录的信用报告属于「${subj}」${co ? '（共同申请人）' : ''}，不是申请人「${nameForLookup}」本人的，不能替代申请人自己的信用记录。`
+        forensicsReport.all_flags.push({ code: 'credit_report_subject_mismatch', severity: 'medium', file: creditReport.source_file || undefined, evidence_en: creditReport.unreliable_reason_en, evidence_zh: creditReport.unreliable_reason_zh })
+      }
+    }
+
+    // A collection agency on the bureau file — as an inquiry (TransUnion
+    // "Non-Credit Related") or a tradeline — is a debt in collection even
+    // when the collections section is empty.
+    if (creditReport && !creditReport.unreliable) {
+      const hits = [
+        ...(creditReport.inquiries || []).filter(q => isCollectionAgency(q.creditor)).map(q => `${q.creditor} (${q.date || 'inquiry'})`),
+        ...(creditReport.tradelines || []).filter(t => isCollectionAgency(t.creditor)).map(t => `${t.creditor} (tradeline)`),
+      ]
+      if (hits.length && !(creditReport.collections || []).length) {
+        forensicsReport.all_flags.push({ code: 'collection_agency_on_file', severity: 'high', file: creditReport.source_file || undefined,
+          evidence_en: `A collection agency accessed or reports on the bureau file — ${Array.from(new Set(hits)).slice(0, 4).join('; ')} — while the collections section lists nothing. Agencies pull a file only to chase a debt they have been assigned. Ask which account and whether it is settled.`,
+          evidence_zh: `有催收机构查询或报送了这份征信档案——${Array.from(new Set(hits)).slice(0, 4).join('；')}——而催收栏目为空。催收机构只会为追讨已转给它们的欠款而调档。请问清是哪笔账、是否已结清。` })
+        if (!redFlags.includes('collection_agency_on_file')) redFlags.push('collection_agency_on_file')
+      }
+    }
 
     // ── Credit-report tradeline ages vs applicant DOB ─────────────────
     // A minor cannot open an individual credit account, so a tradeline
@@ -2418,6 +2453,29 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     forensicsReport.all_flags.push(...coherenceToFlags(coherence))
     if (coherence.status === 'ok' && coherence.anomalies.some(a => a.severity === 'critical' || a.severity === 'high')) {
       if (!redFlags.includes('coherence_anomaly')) redFlags.push('coherence_anomaly')
+    }
+
+    // Lenders suing while the bureau shows nothing derogatory: the bureau
+    // file is incomplete, the debts were sold, or the report is old — the
+    // contradiction itself is a finding.
+    {
+      const lenderCases = (courtDetail.portal_records || []).filter(r => r.matchConfidence === 'strong' && isRespondentSide(r.partyRole) && /\b(bank|trust|financial|finance|capital|credit\s+union|mortgage|leasing|lending|acceptance)\b/i.test(r.caseTitle))
+      const bureauClean = creditReport && !creditReport.unreliable && !(creditReport.collections || []).length && !(creditReport.tradelines || []).some(t => (t.past_due || 0) > 0)
+      if (lenderCases.length && bureauClean) {
+        forensicsReport.all_flags.push({ code: 'court_vs_bureau_contradiction', severity: 'medium',
+          evidence_en: `${lenderCases.length} court case(s) brought by lenders against this person (${lenderCases.slice(0, 3).map(c => `${c.caseTitle} · ${c.filedDate?.slice(0, 10) || ''}`).join('; ')}) while the bureau report shows no collections or past-due balances. A lender does not sue over an account that is paid as agreed: the bureau file is incomplete, the debt was sold, or the report predates the trouble. Ask the applicant to explain each case.`,
+          evidence_zh: `${lenderCases.length} 件由贷款机构提起的诉讼（${lenderCases.slice(0, 3).map(c => `${c.caseTitle} · ${c.filedDate?.slice(0, 10) || ''}`).join('；')}），而征信报告没有催收、没有逾期。银行不会为按时还款的账户起诉：要么征信档案不完整，要么债权已转卖，要么报告早于问题发生。请申请人逐件解释。` })
+        if (!redFlags.includes('court_vs_bureau_contradiction')) redFlags.push('court_vs_bureau_contradiction')
+      }
+    }
+
+    // Stale evidence → red flag and coverage downgrade (income proven for a
+    // different point in time is "action pending", not measured).
+    if ((forensicsReport.recency?.income_docs_median_age_days ?? 0) > 180) {
+      if (!redFlags.includes('stale_documents')) redFlags.push('stale_documents')
+      const sc: Record<string, string> = (parsed.sub_coverage && typeof parsed.sub_coverage === 'object') ? parsed.sub_coverage : {}
+      for (const k of ['income_stability', 'income_rent_ratio', 'employer_verify']) if (sc[k] !== 'missing') sc[k] = 'action_pending'
+      parsed.sub_coverage = sc
     }
 
     // ── Landlord reading per document (2026-09-12) ──────────────────────
@@ -2499,6 +2557,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
           .filter(fl => fl.severity === 'info')
           .map(fl => fl.code),
         identityConsistent: identityConsistentMeasured,
+        incomeDocsAgeDays: forensicsReport.recency?.income_docs_median_age_days ?? null,
         externalVerifications: {
           identity: verifiedFacts?.id?.status === 'verified',
           bank: verifiedFacts?.bank?.status === 'verified',
