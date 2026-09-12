@@ -4,14 +4,37 @@
     {
       "name": "stayloop-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "bytebot-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "/Users/neos/Documents/Claude/Projects/bytebot", "run", "dev", "--", "-p", "3111"],
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/neos/Documents/Claude/Projects/bytebot",
+        "run",
+        "dev",
+        "--",
+        "-p",
+        "3111"
+      ],
       "port": 3111
+    },
+    {
+      "name": "stayloop-dev-3210",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "-p",
+        "3210"
+      ],
+      "port": 3210
     }
   ]
 }

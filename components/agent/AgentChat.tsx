@@ -53,12 +53,16 @@ export default function AgentChat({
   status,
   messages,
   onSend,
+  fill = false,
 }: {
   role: AgentRole
   agentName: string
   status: AgentStatus
   messages: ChatMessage[]
   onSend: (message: string, attachments?: ChatAttachment[]) => void | Promise<void>
+  // `fill`: the parent sets the height (homepage hero sizes the chat to the
+  // phone viewport). Default keeps the 70vh phone height the workspaces use.
+  fill?: boolean
 }) {
   const { lang } = useT()
   const accent = ACCENT[role]
@@ -70,7 +74,7 @@ export default function AgentChat({
   }, [messages.length, thinking])
 
   return (
-    <div className="flex h-[70vh] flex-col overflow-hidden rounded-2xl border border-line-divider bg-white shadow-sm lg:h-full">
+    <div className={`flex flex-col overflow-hidden rounded-2xl border border-line-divider bg-white shadow-sm ${fill ? 'h-full' : 'h-[70vh] lg:h-full'}`}>
       {/* header */}
       <div className="flex items-center gap-3 border-b border-line-divider px-5 py-3.5">
         <span className="h-9 w-9 flex-none rounded-full" style={{ background: ORB[role] }} />

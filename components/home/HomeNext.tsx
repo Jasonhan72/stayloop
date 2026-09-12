@@ -178,42 +178,52 @@ export default function HomeNext() {
 
       {/* ================= HERO = the assistant ================= */}
       <section style={{ background: 'linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)' }}>
-        <div className="mx-auto max-w-[1100px] px-5 pb-10 pt-12 sm:px-7 lg:pt-16">
+        {/* Phone: everything above the chat is trimmed (smaller h1, one-line
+            lead, tighter gaps) and the chat is sized to the viewport so the
+            whole box — header, messages, input — is on screen without
+            scrolling (2026-09-12). ≥640px keeps the original hero. */}
+        <div className="mx-auto max-w-[1100px] px-5 pb-10 pt-5 sm:px-7 sm:pt-12 lg:pt-16">
           <div className="mx-auto max-w-[760px] text-center">
             <div className="font-mono text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: '#00ACE4' }}>
               AI-Native Rental OS · Toronto
             </div>
-            <h1 className="mt-4 text-[34px] font-extrabold leading-[1.08] tracking-tight sm:text-[52px]">
+            <h1 className="mt-2 text-[26px] font-extrabold leading-[1.1] tracking-tight sm:mt-4 sm:text-[52px]">
               {zh ? <>租房路上的难题，<br />交给<em className="not-italic" style={{ color: '#00ACE4' }}>各自的 AI</em>。</> : <>The hard parts of renting,<br />handled by <em className="not-italic" style={{ color: '#00ACE4' }}>your own AI</em>.</>}
             </h1>
-            <p className="mx-auto mt-4 max-w-[560px] text-[16px] leading-relaxed text-body-2 sm:text-[17px]">
+            <p className="mx-auto mt-4 hidden max-w-[560px] text-[16px] leading-relaxed text-body-2 sm:block sm:text-[17px]">
               {zh
                 ? <>Stayloop 为租客、房东、经纪各提供一个<b className="text-body">独立的 AI Agent</b>：你说一句，它去办，关键决定由你确认。下面这个就是——不用注册，直接说。</>
                 : <>Stayloop gives tenants, landlords and agents each a <b className="text-body">dedicated AI agent</b>: say it, it gets done, you confirm the key decisions. This is it — no signup, just talk.</>}
             </p>
+            <p className="mt-2 text-[13.5px] leading-snug text-body-2 sm:hidden">
+              {zh ? <>租客、房东、经纪各有一个<b className="text-body">独立的 AI Agent</b>。不用注册，直接说。</> : <>A <b className="text-body">dedicated AI agent</b> for tenants, landlords and agents. No signup — just talk.</>}
+            </p>
           </div>
 
           {/* role switch + live assistant */}
-          <div ref={heroRef} id="assistant" className="mx-auto mt-8 min-w-0 max-w-[920px] scroll-mt-24">
-            <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+          <div ref={heroRef} id="assistant" className="mx-auto mt-4 min-w-0 max-w-[920px] scroll-mt-24 sm:mt-8">
+            <div className="mb-2 flex flex-wrap items-center justify-center gap-2 sm:mb-3">
               {(['tenant', 'landlord', 'agent'] as AgentRole[]).map((r) => (
                 <button
                   key={r}
                   type="button"
                   onClick={() => setRole(r)}
-                  className="rounded-full px-4 py-2 text-[13.5px] font-bold transition"
+                  className="rounded-full px-3.5 py-1.5 text-[13px] font-bold transition sm:px-4 sm:py-2 sm:text-[13.5px]"
                   style={role === r ? { background: '#1B1B3C', color: '#fff' } : { background: '#fff', color: '#1B1B3C', border: '1px solid #D3E3EF' }}
                 >
                   {pick(ROLE_LABEL[r], lang)}{names[r] ? ` · ${names[r]}` : ''}
                 </button>
               ))}
             </div>
-            <div className="h-[560px] sm:h-[600px]">
+            {/* Phone height = viewport − (header 67 + hero top block ≈ 215 +
+                bottom tab bar 64 + breathing room); floor 340px so the
+                messages area never collapses on short screens. */}
+            <div className="h-[max(340px,calc(100dvh-360px))] sm:h-[600px]">
               <AssistantPanel key={role} role={role} name={names[role]} queued={queued} onQueuedSent={() => setQueued(null)} />
             </div>
             <div className="mt-3 flex flex-col items-center justify-between gap-2 text-[12px] text-body-3 sm:flex-row">
               <span>{zh ? '免注册体验 · 每小时有次数上限 · 登录后它才会记住你' : 'Try without signing up · hourly limit · it only remembers you after you sign in'}</span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-line-divider bg-white px-3 py-1">
+              <span className="hidden items-center gap-2 rounded-full border border-line-divider bg-white px-3 py-1 sm:inline-flex">
                 <span className="h-2 w-2 rounded-full" style={{ background: '#00ACE4' }} />
                 <b className="text-body">{zh ? 'AI 提议，你决定' : 'AI proposes, you decide'}</b>
                 <span>{zh ? '对外动作先经你批准 · 全程留痕' : 'outbound actions wait for your approval · fully logged'}</span>
@@ -312,7 +322,7 @@ function AssistantPanel({ role, name, queued, onQueuedSent }: { role: AgentRole;
   if (loading || !data) {
     return <div className="h-full animate-pulse rounded-2xl border border-line-divider bg-white" />
   }
-  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} status={status} messages={messages} onSend={sendMessage} />
+  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} status={status} messages={messages} onSend={sendMessage} fill />
 }
 
 function Pain({ who, text, onTry, tryLabel }: { who: string; text: string; onTry: () => void; tryLabel: string }) {
