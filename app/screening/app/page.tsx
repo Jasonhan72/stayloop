@@ -4114,6 +4114,10 @@ function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onU
   const [email, setEmail] = useState('')
   const [copied, setCopied] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // Feedback after "Send by email": the create route reports `emailed`
+  // (Resend accepted the message) — without this line the click looked
+  // like nothing happened.
+  const [mail, setMail] = useState<{ ok: boolean; to: string; at: Date } | null>(null)
 
   async function load() {
     const { data } = await supabase
@@ -4144,6 +4148,7 @@ function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onU
       if (res.status === 403 && data.code === 'locked') { onLocked(); return }
       if (!res.ok) throw new Error(data.error || 'failed')
       if (data.via === 'credit') onUnlockedByCredit()
+      if (sendEmail) setMail({ ok: data.emailed === true, to: email, at: new Date() })
       await load()
     } catch (e: any) {
       setErr(String(e?.message || 'unknown'))
@@ -4205,13 +4210,20 @@ function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onU
               style={{ flex: 1, minWidth: 160, padding: '7px 10px', borderRadius: 8, border: '1px solid #E4EEF6', fontSize: 12.5 }} />
             <button onClick={() => create(true)} disabled={busy || !email}
               style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', opacity: (busy || !email) ? 0.5 : 1 }}>
-              {zh ? '邮件发送' : 'Send by email'}
+              {busy ? (zh ? '发送中…' : 'Sending…') : mail?.ok && mail.to === email ? (zh ? '再发一次' : 'Send again') : (zh ? '邮件发送' : 'Send by email')}
             </button>
             <button onClick={load} style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontSize: 12, cursor: 'pointer', color: '#71717A' }}>{zh ? '刷新状态' : 'Refresh'}</button>
           </div>
           <div style={{ fontSize: 11, color: '#9FBBD0', marginTop: 6 }}>
             {zh ? `链接 7 天内有效（至 ${new Date(row.expires_at).toLocaleDateString('zh-CN')}）。` : `Link valid for 7 days (until ${new Date(row.expires_at).toLocaleDateString('en-CA')}).`}
           </div>
+        </div>
+      )}
+      {mail && (
+        <div role="status" style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: mail.ok ? '#065F46' : '#B45309' }}>
+          {mail.ok
+            ? (zh ? `✓ 已发送至 ${mail.to}（${mail.at.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}）。请提醒申请人查看收件箱与垃圾邮件。` : `✓ Sent to ${mail.to} at ${mail.at.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })}. Ask the applicant to check their inbox and spam folder.`)
+            : (zh ? `⚠ 邮件未能发出。链接仍然有效，请复制后手动发给申请人。` : `⚠ The email could not be sent. The link is still valid — copy it and send it yourself.`)}
         </div>
       )}
       {err && <div style={{ marginTop: 8, fontSize: 12, color: '#DC2626', fontWeight: 600 }}>⚠ {err}</div>}
