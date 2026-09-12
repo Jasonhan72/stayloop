@@ -137,3 +137,28 @@ describe('credit inquiries: hard vs soft', () => {
     expect(a.flags.some(f => f.severity === 'medium' && /5 credit inquiries/.test(f.en))).toBe(true)
   })
 })
+
+// Production text has NO newlines (pdf.js via unpdf joins a page into one
+// line) — the first version of this parser split on newlines and, on the
+// live run, printed an entire statement as the "payer". Every parser here
+// must read the flattened form too.
+describe('flattened (production-shaped) statement text', () => {
+  const flat = (s: string) => s.replace(/\s+/g, ' ')
+  it('recovers transactions by cutting at date tokens', () => {
+    const d = extractPayrollDeposits(flat(MAY))
+    expect(d.map(x => x.amount)).toEqual([6954.83, 6954.83])
+    expect(d[0].payer).toBe('Osv-Payroll')
+    expect(d[1].payer).toBe('Osv Solutions Canada Inc')
+    expect(d[1].payer.length).toBeLessThan(61)
+  })
+  it('still finds the rent-shaped payment without newlines', () => {
+    const r = findRecurringMonthlyPayment([flat(MARCH), flat(APRIL), flat(MAY)])
+    expect(r?.amount).toBe(4000)
+    expect(r?.months).toBe(3)
+  })
+  it('does not treat "May 1, 2026" in prose as a transaction', () => {
+    const d = extractPayrollDeposits('Opening Balance on May 1, 2026 $67,610.38 Payroll dep. Jun 2 Payroll dep. 3,000.00 9,000.00 ADP Canada')
+    expect(d).toHaveLength(1)
+    expect(d[0].payer).toBe('ADP Canada')
+  })
+})

@@ -451,6 +451,31 @@ Workday；4 月大额 = 常规净薪 + 雇佣函所述奖金 $30,418.41 的税�
   雇主报销、姓氏在前、T4 事后打印与平台更换、Equifax 无雇佣记录、局方地址日期≠搬入日期、软查询、联名户）
 守卫 `tests/forensicsPayrollDeposits.spec.ts`；本机核对 `.forensics-tmp/payroll-check.mts` 对真实文本跑。
 
+## 法庭检索只查申请人 + 报告细读修正（2026-09-11 第三轮）
+
+第三次重跑（88 分、建议通过）读出的问题与修法：
+- **法庭/LTB 只查申请人与共同申请人。** 模型的 `extracted_names` 把 HR 签署人、两任前房东、经纪都
+  列进来，每人跑一遍法院门户 + LTB，一位房东 2017 年作为**原告**的小额诉讼就以「1 条记录命中」红字
+  出现在申请人总览上。`lib/screening/coApplicants.ts selectCoApplicantNames`：主申请人的任何字序/重音
+  变体不重查；署名人、申报房东、租约/推荐/其他类文件里的人名一律排除；有身份证件名单时只查证件上的
+  名字。补充检索的每一行 source 都带上姓名。总览行「法院 / LTB 记录」只在 `court_record_*` / `ltb_*`
+  硬门槛存在时红；同名但非被告方/未佐证的命中写成说明。**房东和经纪不是筛查对象。**
+- **生产文本没有换行。** pdf.js/unpdf 把整页拼成一行，第一版工资流水解析按行切，线上把整份对账单当成
+  「付款方」打进报告。现在 `splitStatementTransactions` 按「Mon D」日期标记切交易（`May 1, 2026` 这类
+  散文日期排除），付款方取余额之后的尾串，上限 60 字。**任何新写的对账单文本解析都不能依赖换行**，
+  测试要同时覆盖扁平文本。
+- **工资单没印年薪就别信模型的年薪。** `applyStubAnnualFromPeriod`：文本无 per year/annual 字样时
+  年薪 = 单期毛收入 × 期数（两次运行分别给出 287,932 / 286,052，真值 263,679.84）。
+  `extractOneOffYtd` 汇总 Bonus / Higher Duties / Retro / Commission 等一次性行的 YTD，
+  `checkPaystubMath` 第三参数扣除后 0.8–1.2× 即发 info `paystub_ytd_one_off_reconciled`。
+- **电话必须可拨。** `isDialableNanp`：区号与局号首位 2–9，排除 800/888 等免费号；对账单参考号
+  （0438022026）与 1-800-4-SCOTIA 不再当申请人电话。
+- **一致性审查两道确定性后闸**（`sanitizeCoherenceOutput`）：薪资「不符」若两数是同一薪资的
+  月/半月/双周/周换算（±3%）即丢弃；姓名「不符」若引文人名去重音、排序后同一 token 集即丢弃。
+  提示词再加：申请表住址历史先旧后新、电信账户不属于财务负债、OREA 双页码、先做换算与月数算术。
+- Equifax 标记核实的信用报告不再报 `pdf_producer_unknown`（Skia/PDF 是浏览器打印）；Aspose.Words 进
+  「已识别」生成器名单。守卫 `tests/coApplicants.spec.ts` + `forensicsPayrollDeposits.spec.ts` 扁平文本组。
+
 ## 信用分析层（2026-08-26 · 对标 SingleKey 二轮）
 
 用户拿 SingleKey 30 页双局报告逐页对比后的结论：我们的**转录**早就齐了

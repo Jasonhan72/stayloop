@@ -42,19 +42,31 @@ interface CrossDocInput {
 const PHONE_RE = /(?:\+?1[\s.-]?)?\(?(\d{3})\)?[\s.-]?(\d{3})[\s.-]?(\d{4})/g
 const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi
 
+/** A dialable North American number: area code and exchange both start with
+ *  2-9 (NANP). Bank statement reference numbers ("0438022026", "SBSAV16000_
+ *  3981686_019") matched the 10-digit shape and were printed on the report
+ *  as the applicant's phones (2026-09-11). Toll-free numbers are
+ *  institutions (1 800 4-SCOTIA), never a person's contact. */
+const TOLL_FREE = new Set(['800', '833', '844', '855', '866', '877', '888', '900'])
+export function isDialableNanp(digits: string): boolean {
+  return /^[2-9]\d{2}[2-9]\d{6}$/.test(digits) && !TOLL_FREE.has(digits.slice(0, 3))
+}
+
 /** Normalize a phone number to 10-digit canonical form for comparison. */
 function normalizePhone(s: string): string | null {
   const m = s.match(/(\d{3})\D*(\d{3})\D*(\d{4})/)
-  return m ? `${m[1]}${m[2]}${m[3]}` : null
+  if (!m) return null
+  const n = `${m[1]}${m[2]}${m[3]}`
+  return isDialableNanp(n) ? n : null
 }
 
 /** Extract all phone-number-shaped substrings from a text blob. */
-function extractPhones(text: string): string[] {
+export function extractPhones(text: string): string[] {
   if (!text) return []
   const matches: string[] = []
   for (const m of text.matchAll(PHONE_RE)) {
     const n = `${m[1]}${m[2]}${m[3]}`
-    matches.push(n)
+    if (isDialableNanp(n)) matches.push(n)
   }
   return Array.from(new Set(matches))
 }

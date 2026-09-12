@@ -38,7 +38,7 @@ import { checkPdfMetadata, readPdfMetadata } from './pdf-metadata'
 import { checkTextDensity, readPdfTextDensity } from './pdf-text'
 import { checkPdfStructure } from './pdf-structure'
 import { checkBenford } from './benford'
-import { applyTextPayFrequency, checkPaystubMath, extractPaystubFields } from './paystub-math'
+import { applyTextPayFrequency, checkPaystubMath, extractPaystubFields, applyStubAnnualFromPeriod, extractOneOffYtd } from './paystub-math'
 import { checkStatutoryDeductions } from './statutory-deductions'
 import { checkSourceSpecific } from './source-specific'
 import { reconcilePayrollDeposits } from './payroll-deposits'
@@ -407,6 +407,9 @@ async function analyzeFile(
         // A recognised payroll provider (Humi → Prawn, etc.) explains the PDF
         // producer — drop the generic "producer not in whitelist" note for it.
         if (src.matched_payroll) out.flags = out.flags.filter(fl => fl.code !== 'pdf_producer_unknown')
+        // Likewise a credit report whose bureau markers verified: the consumer
+        // portal's print engine (Skia/PDF = Chrome) is not an unknown source.
+        if (src.equifax_authentic_markers === true) out.flags = out.flags.filter(fl => fl.code !== 'pdf_producer_unknown')
 
         // 2026-06-02 — Credit-report AI authenticity overrule.
         // The regex-based source-specific check was tuned on the B2B
@@ -542,7 +545,10 @@ async function analyzeFile(
       if (ext) {
         // The stub's own "Pay Period N of 24" beats the model's frequency guess.
         applyTextPayFrequency(ext, out.text_density?.text_sample)
-        const { result: math, flags: mathFlags } = checkPaystubMath(ext, f.name)
+        // No printed annual rate → annual = period gross × periods (the model
+        // otherwise invents one); itemised one-offs explain YTD above pro-rata.
+        applyStubAnnualFromPeriod(ext, out.text_density?.text_sample)
+        const { result: math, flags: mathFlags } = checkPaystubMath(ext, f.name, extractOneOffYtd(out.text_density?.text_sample))
         out.paystub_math = math
         out.flags.push(...mathFlags)
 

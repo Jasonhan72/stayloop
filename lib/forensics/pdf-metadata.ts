@@ -268,6 +268,7 @@ const RECOGNIZED_PRODUCER_PATTERNS: RegExp[] = [
   /pdf-lib/i,                 // Workday, Gusto, BambooHR payroll AND forgers
   /jsPDF/i,                   // some enterprise + many forgers
   /pdfmake/i,                 // some enterprise + forgers
+  /Aspose/i,                  // Aspose.Words — HR/ERP letter generation (SAP SuccessFactors, Workday docs) and desktop automation alike
 ]
 
 /** Title patterns that indicate the source file was an image (PNG/JPEG/screenshot)

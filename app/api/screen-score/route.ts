@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { ScreeningVerification } from '@/lib/verify/types'
 import { repairUnescapedQuotes } from '@/lib/screening/jsonRepair'
 import { stripNul } from '@/lib/screening/jsonSafe'
+import { selectCoApplicantNames } from '@/lib/screening/coApplicants'
 import { llmChat, llmChatStream } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
@@ -2555,9 +2556,23 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       : (parsed.extracted_name ? [parsed.extracted_name.trim()] : [])
     const finalExtractedName = extractedNames[0] || parsed.extracted_name || null
 
-    // Find names that weren't already searched (case-insensitive comparison)
-    const alreadySearched = new Set([nameForLookup.toLowerCase()])
-    const newNames = extractedNames.filter(n => !alreadySearched.has(n.toLowerCase()) && isValidFullName(n))
+    // Only the applicant and co-applicants get court / LTB searches. The
+    // model's extracted_names routinely carries the HR signatory, declared
+    // landlords and brokerage contacts (2026-09-11: a landlord's 2017 small-
+    // claims case as PLAINTIFF showed on the applicant's summary in red).
+    const idDocNames = (coherence.documents || [])
+      .filter((d) => /id_document|application_form/i.test(d.kind))
+      .flatMap((d) => d.key_facts?.names || [])
+    const thirdPartyNames = [
+      crossDocVerification?.employment_letter_signatory?.name,
+      ...((crossDocVerification?.application_summary?.prev_residences ?? []).map((r) => r.landlord_name)),
+      ...((coherence.documents || []).filter((d) => /lease|reference|other/i.test(d.kind)).flatMap((d) => d.key_facts?.names || [])),
+    ].filter((n): n is string => typeof n === 'string' && n.trim().length > 1)
+    const coApplicants = selectCoApplicantNames(extractedNames.filter(isValidFullName), nameForLookup, { idDocNames, thirdPartyNames })
+    const newNames = coApplicants.searched
+    if (coApplicants.dropped.length > 0) {
+      console.log(`[screen-score] supplemental court search skipped for: ${coApplicants.dropped.map((d) => `${d.name} (${d.reason})`).join('; ')}`)
+    }
 
     if (newNames.length > 0) {
       writeProgress('supplemental_courts', 86)
@@ -2596,7 +2611,9 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         // Skip the rollup row (index 0) and pro-tier rows to avoid duplicates
         for (const q of extraCourt.queries.slice(1)) {
           if (q.tier === 'pro') continue  // pro sources already shown once
-          courtDetail.queries.push(q)
+          // Name the person on every row: eight identical "Ontario Courts
+          // Portal" rows with no name are unreadable on the report.
+          courtDetail.queries.push(q.source.includes(extraName) ? q : { ...q, source: `${q.source} (${extraName})` })
         }
 
         // Merge records

@@ -1405,7 +1405,7 @@ export default function ReportPage() {
               )}
               <div className="space-y-0.5">
                 <KV k={zh ? '检索姓名' : 'Queried name'}><strong>{queriedName}</strong></KV>
-                <KV k={zh ? '法院门户命中' : 'Portal hits'}><strong style={{ color: totalHits > 0 ? '#DC2626' : '#16A34A' }}>{totalHits}</strong></KV>
+                <KV k={zh ? '法院门户命中' : 'Portal hits'}><strong style={{ color: hardGates.some(g => g.startsWith('court_record') || g.startsWith('ltb_')) ? '#DC2626' : '#16A34A' }}>{totalHits}</strong>{totalHits > 0 && !hardGates.some(g => g.startsWith('court_record') || g.startsWith('ltb_')) && <span className="ml-2 text-[11px] text-body-3">{zh ? '同名记录，非被告方或未佐证 — 不计风险' : 'name match(es) on the non-respondent side or uncorroborated — not a risk signal'}</span>}</KV>
                 {courtDetail?.partial && (
                   <KV k={zh ? '完整性' : 'Completeness'}><span style={{ color: '#D97706' }}>{zh ? '部分数据源在 12 秒预算内未响应，见下表标注' : 'Some sources did not respond within the 12s budget — see rows below'}</span></KV>
                 )}

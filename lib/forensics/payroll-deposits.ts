@@ -55,27 +55,60 @@ export function detectPayrollProcessor(text: string): PayrollProcessor | null {
 }
 
 const money = (s: string): number => Number(s.replace(/,/g, ''))
+const MONEY = /\d{1,3}(?:,\d{3})*\.\d{2}/g
+const DATE_TOKEN = String.raw`(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+\d{1,2}(?![,\d])`
+
+export interface StatementTxn {
+  month: string
+  day: number
+  desc: string
+  amount: number | null
+  balance: number | null
+  /** text after the last money figure — the payer / counterparty on Scotiabank's two-line layout */
+  trailing: string
+  raw: string
+}
+
+/** Production text extraction (pdf.js via unpdf, mergePages) joins a page
+ *  into ONE line — there are no newlines to split on. Transactions are
+ *  recovered by cutting at "Mon D" tokens instead ("May 15 Payroll dep.
+ *  6,954.83 69,363.62 Osv-Payroll May 15 Misc. payment …"). A date followed
+ *  by a comma or more digits ("May 1, 2026", "Mar 2026") is prose, not a
+ *  transaction row. */
+export function splitStatementTransactions(text: string): StatementTxn[] {
+  if (!text) return []
+  const flat = text.replace(/\s+/g, ' ')
+  const cut = new RegExp(String.raw`(?=\b${DATE_TOKEN}\b)`, 'g')
+  const out: StatementTxn[] = []
+  for (const chunk of flat.split(cut)) {
+    const m = chunk.match(new RegExp(String.raw`^(${DATE_TOKEN.replace(String.raw`\s+\d{1,2}(?![,\d])`, '')})\.?\s+(\d{1,2})(?![,\d])\s*(.*)$`))
+    if (!m) continue
+    const rest = m[3]
+    const monies = Array.from(rest.matchAll(MONEY))
+    const amount = monies.length ? money(monies[0][0]) : null
+    const balance = monies.length >= 2 ? money(monies[monies.length - 1][0]) : null
+    const lastEnd = monies.length ? (monies[monies.length - 1].index! + monies[monies.length - 1][0].length) : 0
+    const desc = monies.length ? rest.slice(0, monies[0].index!).trim() : rest.trim()
+    const trailing = monies.length ? rest.slice(lastEnd).trim() : ''
+    out.push({ month: m[1].replace('.', ''), day: Number(m[2]), desc, amount, balance, trailing: trailing.slice(0, 80), raw: chunk.trim().slice(0, 160) })
+  }
+  return out
+}
+
+const PAYROLL_LABEL = /\b(payroll|pay\s*dep|direct\s+dep(?:osit)?|salary|paie|dep[oô]t\s+(?:de\s+)?(?:paie|salaire))\b/i
 
 /** Payroll-labelled deposits on a statement: amount + the payer text printed
- *  with the line (Scotiabank prints the payer on the following line;
- *  other banks inline it). */
+ *  with the row (Scotiabank prints the payer after the balance; other banks
+ *  inline it in the description). */
 export function extractPayrollDeposits(bankText: string): Array<{ amount: number; payer: string; line: string }> {
-  if (!bankText) return []
-  const lines = bankText.split(/\r?\n/)
   const out: Array<{ amount: number; payer: string; line: string }> = []
-  const LABEL = /\b(payroll|pay\s*dep|direct\s+dep(?:osit)?|salary|paie|dep[oô]t\s+(?:de\s+)?(?:paie|salaire))\b/i
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    if (!LABEL.test(line)) continue
-    const nums = line.match(/\d{1,3}(?:,\d{3})*\.\d{2}/g)
-    if (!nums) continue
-    // Running-balance layouts print "amount balance": the first figure is the transaction.
-    const amount = money(nums[0])
-    if (!(amount >= 200 && amount < 200_000)) continue
-    const next = (lines[i + 1] || '').trim()
-    const inlinePayer = line.replace(/\d{1,3}(?:,\d{3})*\.\d{2}/g, '').replace(LABEL, '').replace(/^[A-Za-z]{3}\s+\d{1,2}\s*/, '').trim()
-    const payer = /^[A-Za-z][A-Za-z0-9 .&'-]{2,60}$/.test(next) && !/\d{1,3}(?:,\d{3})*\.\d{2}/.test(next) ? next : inlinePayer
-    out.push({ amount, payer, line: line.trim() })
+  for (const t of splitStatementTransactions(bankText)) {
+    if (!PAYROLL_LABEL.test(t.desc) || t.amount === null) continue
+    if (!(t.amount >= 200 && t.amount < 200_000)) continue
+    const inlinePayer = t.desc.replace(PAYROLL_LABEL, '').replace(/\bdep\.?\b/i, '').replace(/[^A-Za-z0-9 .&'-]/g, ' ').replace(/\s+/g, ' ').trim()
+    const trailingPayer = t.trailing.replace(/\s+\d[\d ,.-]*$/, '').trim()
+    const payer = (trailingPayer.length >= 3 ? trailingPayer : inlinePayer).slice(0, 60)
+    out.push({ amount: t.amount, payer, line: `${t.month} ${t.day} ${t.desc} ${t.amount.toLocaleString('en-CA', { minimumFractionDigits: 2 })}`.slice(0, 120) })
   }
   return out
 }
@@ -116,27 +149,23 @@ export function extractStubBonusYtd(stubText: string): number | null {
 
 /** Recurring identical outgoing payment early in the month across statements —
  *  the shape of a rent payment. Needs a running-balance layout (the balance
- *  after the line is lower than before) so deposits are never mistaken. */
+ *  after the row is lower than before) so deposits are never mistaken. */
 export function findRecurringMonthlyPayment(bankTexts: string[]): { amount: number; months: number; label: string } | null {
   const seen = new Map<number, { months: Set<string>; label: string }>()
   for (const text of bankTexts) {
-    const lines = (text || '').split(/\r?\n/)
     let prevBalance: number | null = null
-    for (const line of lines) {
-      // "May 1 Opening Balance 67,610.38" carries one figure — the balance to
-      // measure the first transaction against.
-      const open = line.match(/^[A-Za-z]{3}\s+\d{1,2}\s+Opening\s+Balance\s+\$?(\d{1,3}(?:,\d{3})*\.\d{2})\s*$/i)
-      if (open) { prevBalance = money(open[1]); continue }
-      const m = line.match(/^([A-Za-z]{3})\s+(\d{1,2})\s+(.+?)\s+(\d{1,3}(?:,\d{3})*\.\d{2})\s+(\d{1,3}(?:,\d{3})*\.\d{2})\s*$/)
-      if (!m) continue
-      const day = Number(m[2]); const amount = money(m[4]); const balance = money(m[5])
-      const isOut = prevBalance !== null && balance < prevBalance
-      prevBalance = balance
-      if (!isOut || day > 5 || amount < 800 || amount > 20_000) continue
-      if (!/cheque|check|transfer|withdrawal|rent|pre-?auth|payment/i.test(m[3])) continue
-      const key = Math.round(amount * 100)
-      const e = seen.get(key) || { months: new Set<string>(), label: m[3].replace(/\s+\d[\d ]*$/, '').trim() }
-      e.months.add(`${m[1]}`)
+    const open = (text || '').replace(/\s+/g, ' ').match(/Opening\s+Balance(?:\s+on\s+[A-Za-z]+\s+\d{1,2},?\s+\d{4})?\s+\$?(\d{1,3}(?:,\d{3})*\.\d{2})/i)
+    if (open) prevBalance = money(open[1])
+    for (const t of splitStatementTransactions(text)) {
+      if (/opening\s+balance/i.test(t.desc)) { if (t.amount !== null) prevBalance = t.amount; continue }
+      if (t.amount === null || t.balance === null) continue
+      const isOut = prevBalance !== null && t.balance < prevBalance
+      prevBalance = t.balance
+      if (!isOut || t.day > 5 || t.amount < 800 || t.amount > 20_000) continue
+      if (!/cheque|check|transfer|withdrawal|rent|pre-?auth|payment/i.test(t.desc)) continue
+      const key = Math.round(t.amount * 100)
+      const e = seen.get(key) || { months: new Set<string>(), label: t.desc.replace(/\s+\d[\d ]*$/, '').trim() }
+      e.months.add(t.month)
       seen.set(key, e)
     }
   }

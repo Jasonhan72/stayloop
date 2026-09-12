@@ -392,6 +392,7 @@ export async function generateScreeningReport(
   const fdSev = result.forensics_detail?.severity
   const fdFlagCount = result.forensics_detail?.all_flags?.length ?? 0
   const gates = result.hard_gates_triggered || []
+  const courtRiskGate = gates.some(g => g.startsWith('court_record') || g.startsWith('ltb_'))
   const redFlagsArr = result.red_flags || []
   const idScore = typeof result.identity_match_score === 'number' ? result.identity_match_score : null
   const checks: Check[] = [
@@ -406,12 +407,17 @@ export async function generateScreeningReport(
     },
     {
       label: zh ? '法院 / LTB 记录' : 'Court / LTB records',
-      status: dbCount === 0 ? 'na' : totalHits === 0 ? 'pass' : 'fail',
+      // Red only for a corroborated record with the applicant on the
+      // respondent / defendant side. A name match on the plaintiff side, or a
+      // namesake, is disclosed in the court section but is not a risk row.
+      status: dbCount === 0 ? 'na' : courtRiskGate ? 'fail' : 'pass',
       detail: dbCount === 0
         ? (zh ? '未查询' : 'Not searched')
-        : totalHits === 0
-          ? (zh ? `已查 ${dbCount} 个数据源,无记录` : `${dbCount} sources searched, clear`)
-          : (zh ? `${totalHits} 条记录命中` : `${totalHits} record(s) found`),
+        : courtRiskGate
+          ? (zh ? `${totalHits} 条记录命中（被告/被申请人方）` : `${totalHits} record(s) — applicant on the respondent side`)
+          : totalHits === 0
+            ? (zh ? `已查 ${dbCount} 个数据源,无记录` : `${dbCount} sources searched, clear`)
+            : (zh ? `已查 ${dbCount} 个数据源，${totalHits} 条同名记录均非被告方或未佐证` : `${dbCount} sources searched; ${totalHits} name match(es), none on the respondent side or corroborated`),
     },
     {
       label: zh ? '收入负担能力' : 'Income affordability',

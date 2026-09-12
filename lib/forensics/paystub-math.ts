@@ -266,6 +266,40 @@ export function applyTextPayFrequency(ext: PaystubExtraction, text: string | nul
   return ext
 }
 
+/** A stub that prints no annual rate ("/year", "per annum", "Annual Salary")
+ *  gives the model nothing to read an annual salary FROM — whatever it wrote
+ *  is a guess (2026-09-11: $287,932 and $286,052 on two runs of the same
+ *  Workday stub whose regular pay is $10,986.66 semi-monthly = $263,679.84).
+ *  With period gross and frequency both known, the arithmetic is the fact. */
+export function applyStubAnnualFromPeriod(ext: PaystubExtraction, text: string | null | undefined): PaystubExtraction {
+  const t = (text || '').replace(/\s+/g, ' ')
+  const printsAnnual = /(per\s+year|\/\s*(?:year|yr)\b|per\s+annum|annual(?:ized)?\s+(?:base\s+)?(?:salary|rate|pay|compensation)|yearly|annually)/i.test(t)
+  if (printsAnnual || !ext.period_gross || !ext.pay_frequency) return ext
+  const derived = Math.round(ext.period_gross * PERIODS_PER_YEAR[ext.pay_frequency] * 100) / 100
+  if (!ext.annual_salary || Math.abs(ext.annual_salary / derived - 1) > 0.005) ext.annual_salary = derived
+  return ext
+}
+
+/** YTD dollars on one-off earnings lines (bonus, commission, retro pay,
+ *  acting/higher-duties premiums) — money that legitimately puts YTD above
+ *  regular-pay × periods. On a Workday stub the line reads "Bonus 30,418.41"
+ *  (YTD only) or "Holiday … 1,014.08 4,056.32" (current then YTD): the last
+ *  figure after the label is the YTD. */
+const ONE_OFF_LABELS = /\b(Bonus|Commission|Retro(?:active)?(?:\s+Pay)?|Higher\s+Duties|Acting\s+(?:Pay|Premium)|Lump\s*Sum|Incentive|Award|Signing|Referral\s+Bonus)\b/gi
+export function extractOneOffYtd(text: string | null | undefined): number {
+  const t = (text || '').replace(/\s+/g, ' ')
+  let sum = 0
+  for (const m of t.matchAll(ONE_OFF_LABELS)) {
+    const after = t.slice(m.index! + m[0].length, m.index! + m[0].length + 60)
+    const figs = after.match(/^(?:\s+(?:\d{4}-\d{2}-\d{2}(?:\s*-\s*\d{4}-\d{2}-\d{2})?))?(?:\s+\d{1,3}(?:,\d{3})*\.\d{2}){1,4}/)
+    if (!figs) continue
+    const nums = figs[0].match(/\d{1,3}(?:,\d{3})*\.\d{2}/g)!
+    const ytd = Number(nums[nums.length - 1].replace(/,/g, ''))
+    if (ytd > 0 && ytd < 1_000_000) sum += ytd
+  }
+  return Math.round(sum * 100) / 100
+}
+
 function normalizeExtraction(ext: PaystubExtraction): PaystubExtraction {
   if (ext.hourly_rate && ext.hourly_rate > 200) {
     if (ext.hourly_rate >= 10_000) {
@@ -289,12 +323,15 @@ function normalizeExtraction(ext: PaystubExtraction): PaystubExtraction {
 
 export function checkPaystubMath(
   extInput: PaystubExtraction,
-  file: string
+  file: string,
+  /** YTD on one-off lines (extractOneOffYtd) — subtracted before judging YTD vs pro-rata */
+  oneOffYtd: number = 0
 ): { result: PaystubMathResult; flags: ForensicFlag[] } {
   const ext = normalizeExtraction(extInput)
   const flags: ForensicFlag[] = []
   let expectedYtdGross: number | null = null
   let ytdRatio: number | null = null
+  let ytdRatioExOneOff: number | null = null
   let derivedPeriodGross: number | null = null
   let periodMathErrorPct: number | null = null
 
@@ -355,7 +392,21 @@ export function checkPaystubMath(
           }
         }
 
-        if (ytdRatio > 2.5) {
+        if (oneOffYtd > 0 && expectedYtdGross) {
+          ytdRatioExOneOff = (ext.ytd_gross - oneOffYtd) / expectedYtdGross
+        }
+        if (ytdRatio > 1.2 && ytdRatio <= 2.5 && ytdRatioExOneOff !== null && ytdRatioExOneOff >= 0.8 && ytdRatioExOneOff <= 1.2) {
+          // The excess over pro-rata is itemised on the stub itself (bonus,
+          // retro, acting premiums). YTD reconciles once those lines are set
+          // aside — corroboration, not a question.
+          flags.push({
+            code: 'paystub_ytd_one_off_reconciled',
+            severity: 'info',
+            file,
+            evidence_en: `YTD gross $${ext.ytd_gross.toLocaleString()} is ${ytdRatio.toFixed(2)}x the pro-rata of $${ext.annual_salary.toLocaleString()}/yr, but the stub itemises $${oneOffYtd.toLocaleString()} of one-off earnings (bonus / retro / acting pay). Regular pay alone is ${ytdRatioExOneOff.toFixed(2)}x pro-rata — the YTD reconciles.`,
+            evidence_zh: `YTD 毛收入 $${ext.ytd_gross.toLocaleString()} 为年薪 $${ext.annual_salary.toLocaleString()} 按比例的 ${ytdRatio.toFixed(2)} 倍，但工资单本身列明了 $${oneOffYtd.toLocaleString()} 的一次性收入（奖金 / 追溯 / 代理津贴）。扣除后常规工资为按比例的 ${ytdRatioExOneOff.toFixed(2)} 倍——YTD 对得上。`,
+          })
+        } else if (ytdRatio > 2.5) {
           // Truly impossible — even with massive overtime / bonuses, exceeding
           // 2.5× the linear pro-rata is hard to explain. Critical.
           flags.push({
@@ -499,6 +550,8 @@ export function checkPaystubMath(
       extraction: ext,
       expected_ytd_gross: expectedYtdGross,
       ytd_ratio: ytdRatio,
+      one_off_ytd: oneOffYtd > 0 ? oneOffYtd : null,
+      ytd_ratio_ex_one_off: ytdRatioExOneOff,
       derived_period_gross: derivedPeriodGross,
       period_math_error_pct: periodMathErrorPct,
     },

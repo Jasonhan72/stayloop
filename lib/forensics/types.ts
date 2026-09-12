@@ -99,6 +99,10 @@ export interface PaystubMathResult {
   expected_ytd_gross: number | null
   /** ratio of actual_ytd / expected_ytd; >1.5 or <0.5 is suspicious */
   ytd_ratio: number | null
+  /** YTD on itemised one-off lines (bonus / retro / acting) the stub prints */
+  one_off_ytd?: number | null
+  /** (ytd − one-offs) / expected — the ratio for regular pay alone */
+  ytd_ratio_ex_one_off?: number | null
   /** period_gross derived from hourly × hours; should ≈ stated period_gross */
   derived_period_gross: number | null
   /** percentage difference between derived and stated period_gross */

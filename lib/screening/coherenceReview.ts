@@ -107,6 +107,10 @@ EXPECTED PATTERNS — these are how genuine Canadian documents behave. Do NOT re
 - A credit bureau address "last reported" date is when a creditor last reported it, not a move-in date; payroll or bureau addresses lagging behind the address on the application by months or years.
 - Soft inquiries (identity verification such as Trulioo/PayPal, telecom account checks, the applicant's own bank) — not credit seeking.
 - A bank statement showing the applicant AND a joint holder (spouse/partner) — a joint personal account is still the applicant's personal account.
+- The application's residence history lists PREVIOUS and CURRENT addresses in order; the first address listed is usually the older one. Read the periods before calling an address "current".
+- Telecom and utility accounts on a credit file (Rogers, Virgin, Bell, Freedom, hydro) are not debts the "financial obligations" section of an application asks for.
+- OREA forms carry two page counters: the form's own ("Page 1 of 4", Form 400) and the brokerage e-sign packet's ("Page 1 of 6") — not a contradiction.
+- ARITHMETIC BEFORE ANY "MISMATCH": convert to the same period and compute the duration before reporting. $22,000/month = $264,000/year, which MATCHES a $263,679.63 annual salary (0.1%); "51 months" of employment from an April 2022 start IS correct on a July 2026 form; a stub's semi-monthly $10,986.66 × 24 = $263,679.84. Report a pay or duration mismatch only when the converted figures differ by more than 10%.
 
 HARD RULES:
 1. Every anomaly MUST include at least one VERBATIM quote from the document(s) in "evidence" (copy the exact characters; do not paraphrase). If you cannot quote it, do not report it.
@@ -199,7 +203,55 @@ export function sanitizeCoherenceOutput(raw: unknown, model: string | null, elap
   })
   // Rule 1 enforced mechanically: no verbatim evidence, no anomaly.
   .filter(a => a.evidence.length > 0 && (a.claim_zh || a.claim_en))
+  // Deterministic backstops for two mistakes the model kept making even when
+  // told not to (2026-09-11): a pay "mismatch" whose figures are the same
+  // salary in different periods, and a name "mismatch" that is the same
+  // tokens reordered or with accents dropped.
+  .filter(a => !isPeriodReconciledPayClaim(a) && !isSameNameClaim(a))
   return { status: 'ok', model, anomalies, documents, elapsed_ms: elapsed }
+}
+
+const PAY_CLAIM = /薪|工资|收入|salary|pay\b|income|wage/i
+const NAME_CLAIM = /姓名|名字|name\b|spelling|拼写|重音|accent|顺序|order/i
+
+function moneyFigures(texts: string[]): number[] {
+  const out: number[] = []
+  for (const t of texts) for (const m of t.matchAll(/\$?\s*(\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d{4,7}(?:\.\d{2})?)/g)) {
+    const v = Number(m[1].replace(/,/g, ''))
+    if (isFinite(v) && v >= 500 && v <= 5_000_000) out.push(v)
+  }
+  return out
+}
+
+/** "Monthly $22,000" vs "263,679.63 per year": the two figures are one salary
+ *  expressed per month / semi-month / two weeks / week. */
+export function isPeriodReconciledPayClaim(a: { claim_zh: string; claim_en: string; evidence: string[] }): boolean {
+  if (!PAY_CLAIM.test(`${a.claim_zh} ${a.claim_en}`)) return false
+  const figs = moneyFigures(a.evidence)
+  if (figs.length < 2) return false
+  const MULT = [12, 24, 26, 52, 2, 2.1667]
+  for (let i = 0; i < figs.length; i++) for (let j = 0; j < figs.length; j++) {
+    if (i === j || figs[i] >= figs[j]) continue
+    if (MULT.some(k => Math.abs(figs[i] * k / figs[j] - 1) <= 0.03)) return true
+  }
+  return false
+}
+
+function nameKey(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(t => t.length >= 2).sort().join(' ')
+}
+
+/** Every person-name quote in the evidence reduces to one token set. */
+export function isSameNameClaim(a: { claim_zh: string; claim_en: string; evidence: string[] }): boolean {
+  if (!NAME_CLAIM.test(`${a.claim_zh} ${a.claim_en}`)) return false
+  const keys = new Set<string>()
+  for (const e of a.evidence) {
+    // strip field labels ("Current Name", "Name..") and keep the alphabetic tail
+    const cleaned = e.replace(/\b(current\s+name|name\s*reported|name|nom|姓名)\b[.:\s]*/gi, ' ')
+    const k = nameKey(cleaned)
+    if (k.split(' ').length >= 2) keys.add(k)
+  }
+  return keys.size === 1 && a.evidence.length >= 2
 }
 
 function extractJson(text: string): unknown {
