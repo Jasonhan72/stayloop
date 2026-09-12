@@ -498,6 +498,23 @@ Workday；4 月大额 = 常规净薪 + 雇佣函所述奖金 $30,418.41 的税�
   模型的 `detected_monthly_income` 只做回退
 新字段全部可选，老夹具照常评分。守卫 `tests/rubricDepth.spec.ts`（Carlos 夹具 ≥95、各规则逐条）。
 
+## 人工 vs 模块对照校准（2026-09-12 · 受薪专业人士类）
+
+把 Carlos 全套原件逐份人工读一遍（PR 卡、申请表、Offer、薪酬函、工资单、T4、三月流水、Equifax）与
+模块 96 分报告逐维对照。分数接近（人工 94–96），差在**定性**：一致性审查仍产出四条假矛盾——
+申请表旧址当现址（high）、三种生日打印格式当冲突（high）、已结清的 Kia 车贷当未披露负债、局方多一个
+电话当漏报——由此生出「生日住址矛盾」警告、身份一致性 72/100 和一条让房东去核对不存在矛盾的清单项。
+修法（全部确定性，`lib/screening/coherenceReview.ts` 后闸 + `lib/screening/periods.ts`）：
+`isSameDobClaim`（`parseDateLoose` 解析 MAY-14-1979 / 14 MAY / MAI 79 / 1979-xx-14，掩码部分不算冲突）、
+`isAgreedAddressClaim`（同一街道在 ≥2 条引文出现 = 各文件一致）、`isClosedAccountOmission`
+（引文含 Date Closed / Account paid 即无需申报）、`isExtraPhoneClaim`（申请表电话在局方名单内）。
+`screen-score` 新增测得的身份一致性：证件姓名覆盖申请人 + 各文件生日一致 → `identity_match_score`
+下限 90（不一致则上限 40）。Workday 工资单按 Producer 识别（不再报「不属于常见工资系统」）。
+信用报告龄扣分改分级：>90 天 −2、>180 天 −6（原 91 天即 −6 的悬崖）。
+**类校准夹具** `tests/calibrationSalariedProfessional.spec.ts`：该类应 proceed、总分 ≥93、各维度下限，
+并含七个单变量扰动的单调性断言（逾期 / NSF / 付款方未知 / 收入未佐证 / 伪造 / 薄档案 / 租金 45%）——
+以后改评分规则先跑它。
+
 ## 信用分析层（2026-08-26 · 对标 SingleKey 二轮）
 
 用户拿 SingleKey 30 页双局报告逐页对比后的结论：我们的**转录**早就齐了

@@ -342,9 +342,12 @@ export function scoreRubric(f: RubricFacts): RubricResult {
     add('credit_health', 'bureau_score', creditScore, `${sc} (${f.credit?.bureau ?? 'bureau'})`)
     if (f.creditReportAgeDays != null && f.creditReportAgeDays > 90) {
       // Aging but not expired: scored, with the age on the record so the
-      // landlord knows what vintage of person the number describes.
-      creditScore += add('credit_health', 'credit_report_aging', -6,
-        `report is ${Math.round(f.creditReportAgeDays / 30)} months old — request a current pull`)
+      // landlord knows what vintage of person the number describes. Graded —
+      // a three-month-old pull is what most applicants arrive with (a cliff
+      // of −6 at day 91 cost a fully consistent file its band); six months
+      // is when a fresh pull is genuinely due.
+      creditScore += add('credit_health', 'credit_report_aging', f.creditReportAgeDays > 180 ? -6 : -2,
+        `report is ${Math.round(f.creditReportAgeDays / 30)} months old — ${f.creditReportAgeDays > 180 ? 'request a current pull' : 'acceptable, a current pull is optional'}`)
     }
   }
 

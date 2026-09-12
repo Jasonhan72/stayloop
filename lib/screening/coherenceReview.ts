@@ -22,6 +22,7 @@
 // -----------------------------------------------------------------------------
 
 import type { ForensicFlag } from '@/lib/forensics/types'
+import { parseDateLoose, datesAgree } from './periods'
 import { parseModelJson, repairUnescapedQuotes } from './jsonRepair'
 import { llmChat, LlmKeyMissingError, type ChatContentBlock } from '../llmChat'
 import type { ModelDef } from '../modelConfig'
@@ -207,7 +208,7 @@ export function sanitizeCoherenceOutput(raw: unknown, model: string | null, elap
   // told not to (2026-09-11): a pay "mismatch" whose figures are the same
   // salary in different periods, and a name "mismatch" that is the same
   // tokens reordered or with accents dropped.
-  .filter(a => !isPeriodReconciledPayClaim(a) && !isSameNameClaim(a))
+  .filter(a => !isPeriodReconciledPayClaim(a) && !isSameNameClaim(a) && !isSameDobClaim(a) && !isAgreedAddressClaim(a) && !isClosedAccountOmission(a) && !isExtraPhoneClaim(a))
   return { status: 'ok', model, anomalies, documents, elapsed_ms: elapsed }
 }
 
@@ -353,4 +354,54 @@ export function coherenceToFlags(r: CoherenceReview): ForensicFlag[] {
     evidence_en: `[AI coherence review · ${a.severity}] ${a.claim_en} Evidence: ${a.evidence.map(e => `"${e}"`).join(' | ')}. Resolve: ${a.check_en}`,
     evidence_zh: `[AI 整体一致性审查 · ${a.severity}] ${a.claim_zh} 依据：${a.evidence.map(e => `“${e}”`).join('｜')}。核实方式：${a.check_zh}`,
   }))
+}
+
+const DOB_CLAIM = /生日|出生|birth|dob/i
+const ADDRESS_CLAIM = /住址|地址|address|residence/i
+const OMISSION_CLAIM = /少报|漏报|未披露|未申报|omit|undisclosed|not\s+disclosed|missing/i
+
+/** "MAY-14-1979" vs "14 MAY / MAI 79" vs "1979-xx-14": one birthday in three
+ *  print formats. Drop when every date in the evidence agrees on the parts it
+ *  carries. */
+export function isSameDobClaim(a: { claim_zh: string; claim_en: string; evidence: string[] }): boolean {
+  if (!DOB_CLAIM.test(`${a.claim_zh} ${a.claim_en}`)) return false
+  const dates = a.evidence.map(e => parseDateLoose(e)).filter((d): d is NonNullable<typeof d> => !!d)
+  return dates.length >= 2 && datesAgree(dates)
+}
+
+const STREET_RE = /\b(\d{1,6})\s+([A-Z][A-Z'.-]*(?:\s+[A-Z][A-Z'.-]*){0,3}?)\s+(RD|ROAD|ST|STREET|AVE|AVENUE|GATEWAY|BLVD|BOULEVARD|DR|DRIVE|CRES|CRESCENT|WAY|CT|COURT|LANE|LN|PL|PLACE|TRAIL|TRL|CIRCLE|CIR|SQ|SQUARE|TERR|TERRACE|PKWY|PARKWAY|HWY|HIGHWAY)\b/gi
+function streetKeys(text: string): Set<string> {
+  const out = new Set<string>()
+  for (const m of text.toUpperCase().matchAll(STREET_RE)) out.add(`${m[1]} ${m[2].replace(/\s+/g, ' ')}`)
+  return out
+}
+
+/** An application lists previous AND current addresses; the model kept
+ *  reading the older one as "current" and reporting a mismatch against the
+ *  bank / bureau address. When one street appears in evidence from two or
+ *  more documents, the documents agree on that address — no contradiction. */
+export function isAgreedAddressClaim(a: { claim_zh: string; claim_en: string; evidence: string[]; files?: string[] }): boolean {
+  if (!ADDRESS_CLAIM.test(`${a.claim_zh} ${a.claim_en}`)) return false
+  const counts = new Map<string, number>()
+  for (const e of a.evidence) for (const k of streetKeys(e)) counts.set(k, (counts.get(k) || 0) + 1)
+  return Array.from(counts.values()).some(n => n >= 2)
+}
+
+/** "The application omits a loan the bureau shows" — when the evidence itself
+ *  says that account is closed or paid, there is nothing to disclose. */
+export function isClosedAccountOmission(a: { claim_zh: string; claim_en: string; category?: string; evidence: string[] }): boolean {
+  if (!(a.category === 'omission' || OMISSION_CLAIM.test(`${a.claim_zh} ${a.claim_en}`))) return false
+  if (!/贷|loan|lease|obligation|account|账户|负债|义务/i.test(`${a.claim_zh} ${a.claim_en}`)) return false
+  return a.evidence.some(e => /date\s+closed\s*\d|\bclosed\b.*\d{4}|account\s+paid|paid\s+in\s+full|balance\s*\$?0\b/i.test(e))
+}
+
+/** A bureau file lists every phone a creditor ever reported; the application
+ *  asks for one. An extra bureau number is not an omission. */
+export function isExtraPhoneClaim(a: { claim_zh: string; claim_en: string; evidence: string[] }): boolean {
+  if (!/电话|phone|telephone/i.test(`${a.claim_zh} ${a.claim_en}`)) return false
+  if (!OMISSION_CLAIM.test(`${a.claim_zh} ${a.claim_en}`) && !/少|fewer|only\s+one|another/i.test(`${a.claim_zh} ${a.claim_en}`)) return false
+  const phones = a.evidence.flatMap(e => Array.from(e.matchAll(/(\d{3})[\s.-]?(\d{3})[\s.-]?(\d{4})/g)).map(m => `${m[1]}${m[2]}${m[3]}`))
+  const distinct = new Set(phones)
+  // at least one number is shared across evidence strings → the application phone IS on the bureau file
+  return distinct.size < phones.length
 }

@@ -145,7 +145,9 @@ const PAYROLL_MARKERS: Record<string, { producer: RegExp[]; text: RegExp[] }> = 
   Knit: { producer: [], text: [/Knit\s+People/i, /knitpeople\.com/i] },
   Wave: { producer: [], text: [/Wave\s+Payroll/i, /waveapps\.com/i] },
   Nethris: { producer: [], text: [/Nethris/i] },
-  Workday: { producer: [], text: [/Workday/i] },
+  // Workday stubs say "Payslip" in the text and name Workday only in the PDF
+  // producer ("iText … Apryse Group NV, Workday, Inc.") — match there too.
+  Workday: { producer: [/Workday/i], text: [/Workday/i, /^Payslip:/im] },
 }
 
 export function checkSourceSpecific(

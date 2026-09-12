@@ -19,7 +19,7 @@ import { nameCovers, sameName } from '@/lib/screening/coApplicants'
 import { countMaterialBlanks } from '@/lib/screening/rubric'
 import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
 import { analyzeStatementLiquidity, findRecurringMonthlyPayment } from '@/lib/forensics/payroll-deposits'
-import { monthsSince, parsePeriodMonths } from '@/lib/screening/periods'
+import { monthsSince, parsePeriodMonths, parseDateLoose, datesAgree } from '@/lib/screening/periods'
 import { llmChat, llmChatStream } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
 import { createClient } from '@supabase/supabase-js'
@@ -2414,6 +2414,18 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // EXTRACTION was identical on all six, so the facts score deterministically.
     // See lib/screening/rubric.ts. The model's own numbers stay in scores_v3 for
     // comparison but drive nothing.
+    // Identity, measured: the ID-document name covers the applicant name and
+    // every date of birth the documents print is the same day (formats vary:
+    // "MAY-14-1979", "14 MAY / MAI 79", "1979-xx-14"). Both feed the rubric and
+    // floor the model's identity_match_score, which kept reading print-format
+    // differences as conflicts (72/100 on a fully consistent file).
+    const idDocNamesForIdentity = (coherence.documents || []).filter(d => /id_document/i.test(d.kind)).flatMap(d => d.key_facts?.names || [])
+    const nameConsistent: boolean | null = idDocNamesForIdentity.length === 0 ? null
+      : idDocNamesForIdentity.some(n => sameName(n, nameForLookup) || nameCovers(n, nameForLookup))
+    const dobsPrinted = (coherence.documents || []).map(d => d.key_facts?.dob).filter((v): v is string => typeof v === 'string' && v.length >= 5).map(parseDateLoose).filter((d): d is NonNullable<typeof d> => !!d)
+    const dobConsistent: boolean | null = dobsPrinted.length >= 2 ? datesAgree(dobsPrinted) : null
+    const identityConsistentMeasured: boolean | null = nameConsistent === null ? null : (nameConsistent && dobConsistent !== false)
+
     let rubric: RubricResult | null = null
     let rubricFacts: RubricFacts | null = null
     try {
@@ -2452,11 +2464,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         corroborations: [...forensicsReport.cross_doc_flags, ...forensicsReport.all_flags]
           .filter(fl => fl.severity === 'info')
           .map(fl => fl.code),
-        identityConsistent: (() => {
-          const idNames = (coherence.documents || []).filter(d => /id_document/i.test(d.kind)).flatMap(d => d.key_facts?.names || [])
-          if (idNames.length === 0) return null
-          return idNames.some(n => sameName(n, nameForLookup) || nameCovers(n, nameForLookup))
-        })(),
+        identityConsistent: identityConsistentMeasured,
         ...(() => {
           const bankTexts = forensicsReport.per_file
             .filter(pf => (pf.file_kind || '').split(',').map(k => k.trim()).includes('bank_statement'))
@@ -2609,9 +2617,14 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     }
 
     // ---- Stage 5: Map to legacy columns for backward compat ----
-    const identityMatch = (typeof parsed.identity_match_score === 'number' && Number.isFinite(parsed.identity_match_score))
+    const identityMatchModel = (typeof parsed.identity_match_score === 'number' && Number.isFinite(parsed.identity_match_score))
       ? Math.max(0, Math.min(100, parsed.identity_match_score))
       : 70
+    // Measured consistency outranks the model's impression: ID name covers the
+    // applicant and every printed DOB agrees → at least 90.
+    const identityMatch = identityConsistentMeasured === true && dobConsistent === true
+      ? Math.max(identityMatchModel, 90)
+      : identityConsistentMeasured === false ? Math.min(identityMatchModel, 40) : identityMatchModel
     // Behavioral red flags only — forensics_* entries are already counted
     // upstream via hardGates + forensicsPenalty; don't double-count them here.
     const behavioralRedFlagCount = redFlags.filter(f => !f.startsWith('forensics_')).length
