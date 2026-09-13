@@ -182,12 +182,12 @@ export default function HomeNext() {
             lead, tighter gaps) and the chat is sized to the viewport so the
             whole box — header, messages, input — is on screen without
             scrolling (2026-09-12). ≥640px keeps the original hero. */}
-        <div className="mx-auto max-w-[1100px] px-5 pb-10 pt-5 sm:px-7 sm:pt-12 lg:pt-16">
+        <div className="mx-auto max-w-[1100px] px-4 pb-10 pt-3 sm:px-7 sm:pt-12 lg:pt-16">
           <div className="mx-auto max-w-[760px] text-center">
-            <div className="font-mono text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: '#00ACE4' }}>
+            <div className="hidden font-mono text-[11px] font-bold uppercase tracking-[0.16em] sm:block" style={{ color: '#00ACE4' }}>
               AI-Native Rental OS · Toronto
             </div>
-            <h1 className="mt-2 text-[26px] font-extrabold leading-[1.1] tracking-tight sm:mt-4 sm:text-[52px]">
+            <h1 className="text-[22px] font-extrabold leading-[1.15] tracking-tight sm:mt-4 sm:text-[52px]">
               {zh ? <>租房路上的难题，<br />交给<em className="not-italic" style={{ color: '#00ACE4' }}>各自的 AI</em>。</> : <>The hard parts of renting,<br />handled by <em className="not-italic" style={{ color: '#00ACE4' }}>your own AI</em>.</>}
             </h1>
             <p className="mx-auto mt-4 hidden max-w-[560px] text-[16px] leading-relaxed text-body-2 sm:block sm:text-[17px]">
@@ -195,30 +195,30 @@ export default function HomeNext() {
                 ? <>Stayloop 为租客、房东、经纪各提供一个<b className="text-body">独立的 AI Agent</b>：你说一句，它去办，关键决定由你确认。下面这个就是——不用注册，直接说。</>
                 : <>Stayloop gives tenants, landlords and agents each a <b className="text-body">dedicated AI agent</b>: say it, it gets done, you confirm the key decisions. This is it — no signup, just talk.</>}
             </p>
-            <p className="mt-2 text-[13.5px] leading-snug text-body-2 sm:hidden">
-              {zh ? <>租客、房东、经纪各有一个<b className="text-body">独立的 AI Agent</b>。不用注册，直接说。</> : <>A <b className="text-body">dedicated AI agent</b> for tenants, landlords and agents. No signup — just talk.</>}
+            <p className="mt-1 text-[12.5px] leading-snug text-body-3 sm:hidden">
+              {zh ? '不用注册，直接对它说。' : 'No signup — just talk to it.'}
             </p>
           </div>
 
           {/* role switch + live assistant */}
-          <div ref={heroRef} id="assistant" className="mx-auto mt-4 min-w-0 max-w-[920px] scroll-mt-24 sm:mt-8">
-            <div className="mb-2 flex flex-wrap items-center justify-center gap-2 sm:mb-3">
+          <div ref={heroRef} id="assistant" className="mx-auto mt-2.5 min-w-0 max-w-[920px] scroll-mt-24 sm:mt-8">
+            <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5 sm:mb-3 sm:gap-2">
               {(['tenant', 'landlord', 'agent'] as AgentRole[]).map((r) => (
                 <button
                   key={r}
                   type="button"
                   onClick={() => setRole(r)}
-                  className="rounded-full px-3.5 py-1.5 text-[13px] font-bold transition sm:px-4 sm:py-2 sm:text-[13.5px]"
+                  className="rounded-full px-3 py-1 text-[12.5px] font-bold transition sm:px-4 sm:py-2 sm:text-[13.5px]"
                   style={role === r ? { background: '#1B1B3C', color: '#fff' } : { background: '#fff', color: '#1B1B3C', border: '1px solid #D3E3EF' }}
                 >
                   {pick(ROLE_LABEL[r], lang)}{names[r] ? ` · ${names[r]}` : ''}
                 </button>
               ))}
             </div>
-            {/* Phone height = viewport − (header 67 + hero top block ≈ 215 +
-                bottom tab bar 64 + breathing room); floor 340px so the
-                messages area never collapses on short screens. */}
-            <div className="h-[max(340px,calc(100dvh-360px))] sm:h-[600px]">
+            {/* Phone height = viewport − (header 67 + title/lead/pills ≈ 120 +
+                bottom tab bar 64 + a little air); floor 360px so the messages
+                area never collapses on short screens. */}
+            <div className="h-[max(360px,calc(100dvh-270px))] sm:h-[600px]">
               <AssistantPanel key={role} role={role} name={names[role]} queued={queued} onQueuedSent={() => setQueued(null)} />
             </div>
             <div className="mt-3 flex flex-col items-center justify-between gap-2 text-[12px] text-body-3 sm:flex-row">
