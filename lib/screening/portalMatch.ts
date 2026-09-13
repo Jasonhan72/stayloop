@@ -78,13 +78,14 @@ export function matchPortalParty(queryName: string, displayName: string, sortNam
 
   let matched = 0
   let fuzzy = false
+  let fuzzyCount = 0
   let substituted = false
   const missing: number[] = []
   q.forEach((qt, i) => {
     let hit = false
     for (const rt of r) {
       const m = tokensMatch(qt, rt)
-      if (m.match) { hit = true; if (!m.exact) fuzzy = true; if (m.substituted) substituted = true; break }
+      if (m.match) { hit = true; if (!m.exact) { fuzzy = true; fuzzyCount++ } if (m.substituted) substituted = true; break }
     }
     if (hit) matched++
     else missing.push(i)
@@ -113,7 +114,7 @@ export function matchPortalParty(queryName: string, displayName: string, sortNam
   // strong is an auto-decline. A substituted letter is strong only with
   // four tokens; a dropped letter (NATHALI CIPRIANI CAMPINS) still is —
   // otherwise the record is shown and flagged, never gated.
-  const confidence: PortalPartyMatch['confidence'] = q.length >= 3 && matched >= 3 && (!substituted || matched >= 4) ? 'strong' : 'name_only'
+  const confidence: PortalPartyMatch['confidence'] = q.length >= 3 && matched >= 3 && fuzzyCount <= 1 && (!substituted || matched >= 4) ? 'strong' : 'name_only'
   return { match: true, confidence, matched, fuzzy, reason: `${matched}/${q.length} tokens${fuzzy ? ' (one clerical variant)' : ''}` }
 }
 

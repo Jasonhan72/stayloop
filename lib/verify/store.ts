@@ -94,26 +94,42 @@ export async function writeStep(
   key: VerifyStepKey,
   step: Partial<VerifyStep> & { status: VerifyStep['status'] },
 ): Promise<VerifySteps> {
-  const prev = row.steps?.[key] ?? { status: 'pending', provider: null, updated_at: new Date().toISOString() }
+  // Re-read before merging: the caller's `row` was loaded at request start,
+  // and a Veriff webhook landing during a 25s Flinks pull was overwritten
+  // back to 'started' by the whole-jsonb write (review 2026-09-13).
+  const fresh = (await loadRequest(admin, row.token)) || row
+  const prev = fresh.steps?.[key] ?? { status: 'pending', provider: null, updated_at: new Date().toISOString() }
   const next: VerifySteps = {
-    ...(row.steps || {}),
+    ...(fresh.steps || {}),
     [key]: { ...prev, ...step, updated_at: new Date().toISOString() },
   }
   const terminal = (s?: VerifyStep) => !s || ['verified', 'failed', 'skipped', 'not_configured'].includes(s.status)
   const avail = providerAvailability()
   const allDone = (['id', 'bank', 'credit'] as VerifyStepKey[]).every((k) => !avail[k].available || terminal(next[k]))
-  const status = allDone && row.consent ? 'complete' : row.status
+  const status = allDone && fresh.consent ? 'complete' : fresh.status
   await admin
     .from('verification_requests')
     .update({ steps: next, status, updated_at: new Date().toISOString() })
     .eq('id', row.id)
-  await snapshotToScreening(admin, { ...row, steps: next, status })
+  await snapshotToScreening(admin, { ...fresh, steps: next, status })
   return next
 }
 
 // Denormalise onto the screening so scoring and the report read one column.
 export async function snapshotToScreening(admin: SupabaseClient, row: VerificationRequestRow): Promise<void> {
   if (!row.consent) return
+  // Only the newest live request for a screening may write the snapshot:
+  // Veriff retries a decision for a week, so a superseded request's
+  // webhook must not replace the current one (review 2026-09-13).
+  const { data: latest } = await admin
+    .from('verification_requests')
+    .select('id')
+    .eq('screening_id', row.screening_id)
+    .neq('status', 'declined')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (latest && latest.id !== row.id) return
   const pick = <T,>(s?: VerifyStep<T>) => (s && s.result ? { ...(s.result as object), status: s.status } as T & { status: VerifyStep['status'] } : null)
   const snap: ScreeningVerification = {
     request_id: row.id,

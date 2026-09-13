@@ -41,6 +41,7 @@ import { extractBNs, verifyBN, bnCheckFlags } from '@/lib/forensics/bn-check'
 import type { BNLookupResult } from '@/lib/forensics/bn-check'
 import { captureException } from '@/lib/observability/sentry'
 import { selectCoApplicantNames } from '@/lib/screening/coApplicants'
+import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 
 function makeServiceClient() {
   return createClient(
@@ -438,20 +439,22 @@ async function enforceProGate(req: Request, screeningId: string | null): Promise
   // as "订阅验证失败 / Failed to verify subscription" even for legitimate
   // Pro users. Filtering by auth_id makes the query single-row regardless
   // of which policies are in effect.
-  const { data: landlord, error: landlordErr } = await rlsClient
+  const { data: landlordRows, error: landlordErr } = await rlsClient
     .from('landlords')
-    .select('plan')
+    .select('id, auth_id, plan')
     // Dual-ID invariant (CLAUDE.md): legacy landlord rows are keyed by
-    // profileId with no auth_id backfill — match either column.
+    // profileId with no auth_id backfill — match either column, and when
+    // both rows exist prefer the auth_id one (the webhook writes it), same
+    // rule as lib/billing (review 2026-09-13: `.limit(1)` could pick the
+    // stale free row and spend a prepaid credit on a Pro landlord).
     .or(`id.eq.${userData.user.id},auth_id.eq.${userData.user.id}`)
-    .limit(1)
-    .maybeSingle()
 
   if (landlordErr) {
     console.error('[deep-check] landlord lookup error:', landlordErr)
     return bad('Failed to verify subscription', '订阅验证失败', 500)
   }
 
+  const landlord = pickLandlordRow(landlordRows, userData.user.id)
   const plan = (landlord?.plan as string | undefined) || 'free'
   if (plan === 'pro' || plan === 'team') return null  // authorized by subscription
 

@@ -117,3 +117,21 @@ describe('recency and letter quality — false positives closed', () => {
     expect(extractDates('Pay Date 25/08/2026')).toEqual(['2026-08-25'])
   })
 })
+
+// Review 2026-09-13 second pass.
+describe('second-pass regressions', () => {
+  it('"Start Date:" is not the letter date; an unlabelled letterhead date wins', () => {
+    expect(documentAsOf(pf('l.pdf', 'employment_letter', 'ACME Inc. September 3, 2026 To whom it may concern: Carlos joined us. Start Date: January 6, 2025 Signed HR')).as_of).toBe('2026-09-03')
+  })
+  it('a drifted number introduced by bare "direct" is still caught; a labelled fax is not', () => {
+    expect(checkLetterQuality('Green Life Group Inc. 416 4278441 … you can reach me direct 416 427 4881', 'l.pdf', 'employment_letter').some(f => f.code === 'letter_phone_inconsistent')).toBe(true)
+    expect(checkLetterQuality('Tel 416 427 8441 Fax: 416 427 8442', 'l.pdf', 'employment_letter').some(f => f.code === 'letter_phone_inconsistent')).toBe(false)
+  })
+  it('a fee notice "apply to <date>" does not become the statement period end', () => {
+    expect(documentAsOf(pf('s.pdf', 'bank_statement', 'Statement period May 1, 2026 to May 31, 2026 Closing Balance May 31, 2026 $5.00 Important: new fees apply to September 1, 2026')).as_of).toBe('2026-05-31')
+  })
+  it('one document prints one slash format: an unambiguous field decides the ambiguous ones', () => {
+    expect(extractDates('Pay period 01/25/2026 - 02/07/2026 Pay Date 02/08/2026')).toEqual(['2026-01-25', '2026-02-07', '2026-02-08'])
+    expect(extractDates('Période 25/01/2026 au 07/02/2026 Date de paie 08/02/2026')).toEqual(['2026-01-25', '2026-02-07', '2026-02-08'])
+  })
+})

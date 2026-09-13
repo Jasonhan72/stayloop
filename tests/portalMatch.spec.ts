@@ -116,3 +116,9 @@ describe('strong is never handed to a different person', () => {
     expect(ms[1].matchConfidence).toBe('name_only')
   })
 })
+
+describe('second pass: two clerical variants are not one', () => {
+  it('two fuzzy tokens on a four-token name stay name_only', () => {
+    expect(matchPortalParty('MARIA JOSE GARCIA LOPEZ', 'MARIO JOSE GARCIA LOPES', 'GARCIA LOPES, MARIO JOSE').confidence).toBe('name_only')
+  })
+})

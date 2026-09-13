@@ -428,8 +428,12 @@ export function isClosedAccountOmission(a: { claim_zh: string; claim_en: string;
  *  word, so the obligation was declared (review 2026-09-13). */
 export function isDeclaredObligationClaim(a: { claim_zh: string; claim_en: string; category?: string; evidence: string[] }): boolean {
   if (!(a.category === 'omission' || OMISSION_CLAIM.test(`${a.claim_zh} ${a.claim_en}`))) return false
-  const words = (s: string) => new Set(s.toUpperCase().replace(/[^A-Z\s]/g, ' ').split(/\s+/).filter(w => w.length >= 5 && !/^(BALANCE|ACCOUNTS?|INSTALLMENT|FINANCIAL|OBLIGATIONS?|CANADIAN|MOTOR|FINANCE|CREDIT|CLOSED)$/.test(w)))
-  const declared = a.evidence.filter(e => /financial\s+obligations?|obligations?\s*:|liabilit|application/i.test(e))
+  // Institution names and generic account words are not evidence that the
+  // SAME obligation was declared (review 2026-09-13 second pass: a
+  // declared Scotiabank Visa excused an undeclared Scotiabank loan).
+  const STOP = /^(BALANCE|ACCOUNTS?|INSTALLMENT|REVOLVING|MORTGAGE|FINANCIAL|OBLIGATIONS?|CANADIAN|CANADA|MOTOR|FINANCE|CREDIT|CLOSED|OPENED|LIMIT|MONTHLY|PAYMENT|SCOTIABANK|SCOTIA|TORONTO|DOMINION|ROYAL|MONTREAL|IMPERIAL|COMMERCE|NATIONAL|TANGERINE|SIMPLII|DESJARDINS|CAPITAL|EQUIFAX|TRANSUNION|BANK|TRUST|CARD|VISA|MASTERCARD|AMEX|LOAN|LOANS|LINE|SERVICES?|INQUIRY|INQUIRIES|APPLICATION)$/
+  const words = (s: string) => new Set(s.toUpperCase().replace(/[^A-Z\s]/g, ' ').split(/\s+/).filter(w => w.length >= 5 && !STOP.test(w)))
+  const declared = a.evidence.filter(e => /financial\s+obligations?|obligations?\s*:|liabilit|application\s*(?:form|:)|申请表/i.test(e) && !/inquir|enquir/i.test(e))
   const accounts = a.evidence.filter(e => !declared.includes(e) && /\$\s?\d|balance|account|loan|lease/i.test(e))
   if (!declared.length || !accounts.length) return false
   return declared.some(d => { const dw = words(d); return accounts.some(acc => Array.from(words(acc)).some(w => dw.has(w))) })

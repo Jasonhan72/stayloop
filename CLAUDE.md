@@ -324,6 +324,39 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
   申请表抽取的 `applying_rent`（此前只有评分表和报告回退）。
 - 法庭门户逐个查询加 60s 总预算；OCR 只对「快速失败」重试一次；DashScope 回退文本保留 5 万字。
 
+## 第二轮审查：修复回归 + 模块级 + 手机可操作性（2026-09-13）
+
+三个代理：① 对上一轮 33 条修复做二次审查（13 条，修 11）；② 筛查与核验两个模块的流程/状态/权限/PII/
+注入面审查（8 个领域）；③ 登录后页面的手机可操作性代码审计（17 条）+ 用用户 Chrome 已登录会话开
+375px 弹窗实测（`window.open(…, 'popup=yes,width=375')` 后经 opener 读 `document`，因为 Chrome
+主窗口拒绝缩到 500px 以下）。本轮落地：
+- **打印报告的同源 HTML 注入**：`generateReport.ts` 一致性审查节把模型的 category/files/claim/
+  evidence（文件原文引用）/check 与 `unreliable_reason` 直接拼进 HTML，而报告用 blob URL 在同源打开
+  ——申请人在 PDF 里放一段脚本 → 模型「逐字引用」→ 以房东身份执行。全部 `esc()`。
+- **筛查行不再卡死**：外层 catch 现在把仍处于 uploading/scoring 的行标 `error`；同一 row 在 10 分钟
+  内已在 `scoring`（按 `progress.at`）时第二次调用返回 409；免费配额只数 `scored/scoring`；评分流与
+  补评调用加 240s/90s 超时。
+- **核验写入竞争**：`writeStep` 合并前重读该行（Flinks 拉取 25s 期间到达的 Veriff webhook 曾被整块
+  jsonb 覆盖回 started）；快照只允许该 screening 最新一条请求写入（Veriff 重试一周）；`/verify/*`
+  加 `Referrer-Policy: no-referrer`（token 就是凭证，整页跳转到 Veriff 时不能带在 Referer 里），其余
+  路径 strict-origin-when-cross-origin；deep-check 的计划查询改用 `pickLandlordRow`。
+- **二次审查修的回归**：流动性改为按对账单上的账号分组（同一账户三个月取最低，不同账户取最好；
+  此前 max-of-statements 把同一账户跌到 $300 的那个月丢掉了）；在职信 `Date:` 排除 Start/Hire/
+  Effective Date 且不取未来日期；电话只剥离带标签的传真/直线/分机（裸「direct」是伪造信最自然的写法）；
+  已申报义务的共享词排除银行名与通用账户词、征信查询行不算申报；跨年对账单月数；期末日期锚定
+  「Statement period A to B」再取 Closing Balance；斜杠日期按**整份文件**定 MDY/DMY；强匹配最多一个
+  模糊词；两位申请人的工资单按「同一职位 ±15%」聚类后求和；与申请人无任何同名词的征信主体即 unreliable。
+- **手机端**：工作台底栏 8 项改为等分单元 + 9.5px 文字标签（此前 396px 溢出 375 屏、筛查与审计同图标）；
+  Header 汉堡菜单限高可滚；Flinks/征信弹窗 `dvh` + 可滚 + 44px 关闭；报告信用分档刻度改 5 列网格
+  并在手机隐藏区间数字；已核验事实三格缩字号；移除文件 × 放大到 36px；法庭查询姓名分隔行可换行；
+  CTA 观察器减去底栏 64px；租金输入 `inputMode=numeric`；来源链接 / 未检索状态 ≥11.5px。
+**记录未做**（模块审查提出、需要产品决定或更大改动）：历史记录重建缺 court_summary/verification/
+rubric（应与报告页共用一个 `reconstructResult`）；结果页与报告页展示的事实集合不同；share 页生成的
+`app.stayloop.ai/s/…` 链接不存在（TODO 已在）；筛查记录无删除/重试 UI 且 DELETE 策略只匹配 profileId；
+PII 四处存放无清理、通知信承诺的查阅/更正/删除无端点、征信直拉上线后「未向消费者报告机构购买报告」
+一句要改；deep_check_result 由浏览器回写、关页即丢；model 输出 flags/action_items 原样落库；Sentry 只
+看到两类失败；forensics 无文件数 × 页数上限。
+
 ## Jina 是预付费余额，用完全站六处静默降级（2026-09-12 · 一次真实事故）
 
 租客管家被问「多大附近找 5 套两居室」只回 2 套并说「该区域预算内的新房源有限」。那 2 套是库里

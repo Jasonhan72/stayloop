@@ -135,7 +135,7 @@ export default function VerifyPage() {
     })
     if (!res.ok) {
       setErr(data?.error === 'fields_required'
-        ? (zh ? '请填写全部字段（出生日期格式 YYYY-MM-DD）。' : 'Please fill in every field (date of birth as YYYY-MM-DD).')
+        ? (zh ? '请填写全部字段，并选择出生日期。' : 'Please fill in every field and pick your date of birth.')
         : (zh ? `征信拉取失败：${data?.detail || data?.error || res.status}` : `Credit pull failed: ${data?.detail || data?.error || res.status}`))
     } else { setCreditForm(false) }
     if (data?.ok) setView(data as View)
@@ -247,20 +247,22 @@ export default function VerifyPage() {
         )}
 
         {creditForm && (
-          <div role="dialog" aria-modal="true" className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-3" onClick={() => setCreditForm(false)}>
-            <div className="w-full max-w-[440px] rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-black/50 p-3" onClick={() => setCreditForm(false)}>
+            <div className="max-h-full w-full max-w-[440px] overflow-y-auto rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
               <div className="text-[16px] font-bold">{zh ? '拉取你自己的信用报告' : 'Pull your own credit report'}</div>
               <p className="mt-1 text-[12.5px] leading-relaxed text-body-3">
                 {zh ? 'Equifax 按姓名、出生日期和现住址匹配你的档案；我们不收集社会保险号。这是一次本人授权的查询，不会作为贷款申请出现在你的报告上。' : 'Equifax matches your file by name, date of birth and current address; we do not collect your SIN. This is a consumer-authorised enquiry and does not appear as a credit application.'}
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <input className="sl-input" placeholder={zh ? '名' : 'First name'} value={cf.first_name} onChange={(e) => setCf({ ...cf, first_name: e.target.value })} />
-                <input className="sl-input" placeholder={zh ? '姓' : 'Last name'} value={cf.last_name} onChange={(e) => setCf({ ...cf, last_name: e.target.value })} />
-                <input className="sl-input col-span-2" type="date" placeholder="YYYY-MM-DD" value={cf.date_of_birth} onChange={(e) => setCf({ ...cf, date_of_birth: e.target.value })} />
-                <input className="sl-input col-span-2" placeholder={zh ? '街道地址' : 'Street address'} value={cf.line1} onChange={(e) => setCf({ ...cf, line1: e.target.value })} />
-                <input className="sl-input" placeholder={zh ? '城市' : 'City'} value={cf.city} onChange={(e) => setCf({ ...cf, city: e.target.value })} />
-                <input className="sl-input" placeholder={zh ? '省（如 ON）' : 'Province (e.g. ON)'} value={cf.province} maxLength={2} onChange={(e) => setCf({ ...cf, province: e.target.value.toUpperCase() })} />
-                <input className="sl-input col-span-2" placeholder={zh ? '邮编' : 'Postal code'} value={cf.postal_code} onChange={(e) => setCf({ ...cf, postal_code: e.target.value.toUpperCase() })} />
+                <input className="sl-input" autoComplete="given-name" autoCapitalize="words" placeholder={zh ? '名' : 'First name'} value={cf.first_name} onChange={(e) => setCf({ ...cf, first_name: e.target.value })} />
+                <input className="sl-input" autoComplete="family-name" autoCapitalize="words" placeholder={zh ? '姓' : 'Last name'} value={cf.last_name} onChange={(e) => setCf({ ...cf, last_name: e.target.value })} />
+                <label className="col-span-2 text-[12px] text-body-3">{zh ? '出生日期' : 'Date of birth'}
+                  <input className="sl-input mt-1 w-full" type="date" autoComplete="bday" value={cf.date_of_birth} onChange={(e) => setCf({ ...cf, date_of_birth: e.target.value })} />
+                </label>
+                <input className="sl-input col-span-2" autoComplete="address-line1" placeholder={zh ? '街道地址' : 'Street address'} value={cf.line1} onChange={(e) => setCf({ ...cf, line1: e.target.value })} />
+                <input className="sl-input" autoComplete="address-level2" placeholder={zh ? '城市' : 'City'} value={cf.city} onChange={(e) => setCf({ ...cf, city: e.target.value })} />
+                <input className="sl-input" autoComplete="address-level1" autoCapitalize="characters" placeholder={zh ? '省（如 ON）' : 'Province (e.g. ON)'} value={cf.province} maxLength={2} onChange={(e) => setCf({ ...cf, province: e.target.value.toUpperCase() })} />
+                <input className="sl-input col-span-2" autoComplete="postal-code" autoCapitalize="characters" placeholder={zh ? '邮编' : 'Postal code'} value={cf.postal_code} onChange={(e) => setCf({ ...cf, postal_code: e.target.value.toUpperCase() })} />
               </div>
               <div className="mt-4 flex gap-2">
                 <button onClick={submitCredit} disabled={busy === 'credit'} className="sl-btn-primary flex-1 !py-[10px] disabled:opacity-50">{busy === 'credit' ? '…' : (zh ? '授权并拉取' : 'Authorise and pull')}</button>
@@ -272,10 +274,10 @@ export default function VerifyPage() {
 
         {bankFrame && (
           <div role="dialog" aria-modal="true" className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-3">
-            <div className="flex h-[min(720px,92vh)] w-full max-w-[420px] flex-col overflow-hidden rounded-2xl bg-white">
+            <div className="flex h-[min(720px,92vh)] max-h-full w-full max-w-[420px] flex-col overflow-hidden rounded-2xl bg-white supports-[height:100dvh]:h-[min(720px,92dvh)]">
               <div className="flex items-center justify-between border-b border-line-divider px-3 py-2 text-[12.5px] font-semibold">
                 <span>{zh ? '连接你的银行' : 'Connect your bank'}</span>
-                <button onClick={() => setBankFrame(null)} className="text-body-3">{zh ? '关闭' : 'Close'}</button>
+                <button onClick={() => setBankFrame(null)} className="-mr-2 min-h-[44px] px-3 text-body-3">{zh ? '关闭' : 'Close'}</button>
               </div>
               <iframe title="Flinks Connect" src={bankFrame} className="h-full w-full flex-1" allow="clipboard-write" />
             </div>

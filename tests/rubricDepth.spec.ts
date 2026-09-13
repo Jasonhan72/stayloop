@@ -166,3 +166,14 @@ describe('review follow-ups', () => {
     expect(parsePeriodMonths('2019-2022')).toBe(36)
   })
 })
+
+describe('second-pass regressions (2026-09-13)', () => {
+  it('three statements of ONE account keep the month it dipped; a second empty account is ignored', () => {
+    const apr = 'Account Number 1234 5678 901 Opening Balance on Apr 1, 2026 $12,000.00 Apr 1 Opening Balance 12,000.00 Apr 3 Cheque 100 500.00 11,500.00'
+    const may = 'Account Number 1234 5678 901 Opening Balance on May 1, 2026 $11,500.00 May 1 Opening Balance 11,500.00 May 3 Cheque 101 11,200.00 300.00'
+    const jun = 'Account Number 1234 5678 901 Opening Balance on Jun 1, 2026 $3,900.00 Jun 1 Opening Balance 3,900.00 Jun 3 Cheque 102 100.00 3,800.00'
+    const savings = 'Account Number 9999 0000 111 Opening Balance on Jun 1, 2026 $0.00 Jun 1 Opening Balance 0.00 Jun 30 Interest 0.01 0.01'
+    expect(analyzeStatementLiquidity([apr, may, jun]).min_balance).toBe(300)
+    expect(analyzeStatementLiquidity([apr, may, jun, savings]).min_balance).toBe(300)
+  })
+})

@@ -721,7 +721,7 @@ function PortalRecordCard({ record, lang, sevColor }: { record: OntarioPortalMat
       </div>
       {/* Row 4: Source link — direct to case detail when we have a UUID,
           else fall back to the generic portal search page. */}
-      <div style={{ fontSize: 9, color: '#9FBBD0', marginTop: 6 }}>
+      <div style={{ fontSize: 11.5, color: '#9FBBD0', marginTop: 6, lineHeight: 2 }}>
         {lang === 'zh' ? '数据来源：' : 'Source: '}
         <a
           href={(() => {
@@ -865,7 +865,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
                     borderTop: '1px solid var(--border-subtle)',
                   }}>
                     <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#0B1736', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#0B1736', minWidth: 0, textAlign: 'center', overflowWrap: 'anywhere' }}>
                       🔍 {lang === 'zh' ? '查询姓名' : 'Searching'}: {nameLabel}
                     </span>
                     <span style={{
@@ -933,7 +933,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
                           </span>
                         </>
                       ) : unsearched ? (
-                        <span style={{ fontSize: 10, fontWeight: 600, color: '#B45309' }} title={q.note || ''}>
+                        <span style={{ fontSize: 11.5, fontWeight: 600, color: '#B45309' }} title={q.note || ''}>
                           ⏳ {q.status === 'skipped' ? t('screen.result.court.skipped') : (lang === 'zh' ? '未能检索（超时 / 不可用）' : 'Not searched (timeout / unavailable)')}
                         </span>
                       ) : (
@@ -2038,8 +2038,10 @@ export default function ScreenPage() {
     }
     const io = new IntersectionObserver(
       ([entry]) => setCtaOnScreen(entry.isIntersecting),
-      // A button peeking 1px above the fold is not "found" — require most of it.
-      { threshold: 0.6 }
+      // A button peeking 1px above the fold is not "found" — require most of
+      // it, and discount the 64px workspace rail that covers the bottom of
+      // the viewport (review 2026-09-13).
+      { threshold: 0.6, rootMargin: '0px 0px -64px 0px' }
     )
     io.observe(el)
     return () => io.disconnect()
@@ -2888,7 +2890,7 @@ export default function ScreenPage() {
                     onClick={() => setFtOpen(o => !o)}
                     aria-expanded={ftOpen}
                     className="sl-ft-toggle"
-                    style={{ margin: '10px 12px 0', padding: '7px 10px', width: 'calc(100% - 24px)', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, border: '1px solid #D3E3EF', background: '#F3F8FC', fontSize: 11.5, color: '#52525B', cursor: 'pointer', textAlign: 'left' }}
+                    style={{ margin: '10px 12px 0', padding: '9px 10px', minHeight: 40, width: 'calc(100% - 24px)', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderRadius: 8, border: '1px solid #D3E3EF', background: '#F3F8FC', fontSize: 11.5, color: '#52525B', cursor: 'pointer', textAlign: 'left' }}
                   >
                     <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {seen.length > 0
@@ -2999,7 +3001,7 @@ export default function ScreenPage() {
                           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0B1736', fontWeight: 500 }}>{f.name}</span>
                           {kindLabel && <span style={{ fontSize: 11, flexShrink: 0 }}>{kindLabel}</span>}
                           <span style={{ fontSize: 10, color: '#9FBBD0', flexShrink: 0 }}>{(f.size / 1024).toFixed(0)}KB</span>
-                          <button onClick={(e) => { e.stopPropagation(); removeFile(i) }} style={{ background: 'none', border: 'none', color: '#9FBBD0', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>×</button>
+                          <button onClick={(e) => { e.stopPropagation(); removeFile(i) }} aria-label={lang === 'zh' ? `移除 ${f.name}` : `Remove ${f.name}`} style={{ background: 'none', border: 'none', color: '#9FBBD0', cursor: 'pointer', fontSize: 18, minWidth: 36, minHeight: 36, margin: '-8px -8px -8px 0', lineHeight: 1, flexShrink: 0 }}>×</button>
                         </div>
                       )
                     })}
@@ -3035,11 +3037,14 @@ export default function ScreenPage() {
                   <div>
                     <label style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', letterSpacing: '0.02em', marginBottom: 6, display: 'block' }}>{t('screen.form.rent.label')}</label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete="off"
                       className="input sl-field"
                       placeholder={t('screen.form.rent.placeholder')}
                       value={targetRent}
-                      onChange={e => setTargetRent(e.target.value)}
+                      onChange={e => setTargetRent(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
                       style={{
                         padding: '11px 14px', fontSize: 14, borderRadius: 10, height: 44,
                         color: '#0B1736', WebkitTextFillColor: '#0B1736',
@@ -4309,7 +4314,7 @@ function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onU
         </div>
       )}
       {mail && (
-        <div role="status" style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: mail.ok ? '#065F46' : '#B45309' }}>
+        <div role="status" style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: mail.ok ? '#065F46' : '#B45309', overflowWrap: 'anywhere' }}>
           {mail.ok
             ? (zh ? `✓ 已发送至 ${mail.to}（${mail.at.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}）。请提醒申请人查看收件箱与垃圾邮件。` : `✓ Sent to ${mail.to} at ${mail.at.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })}. Ask the applicant to check their inbox and spam folder.`)
             : (zh ? `⚠ 邮件未能发出。链接仍然有效，请复制后手动发给申请人。` : `⚠ The email could not be sent. The link is still valid — copy it and send it yourself.`)}

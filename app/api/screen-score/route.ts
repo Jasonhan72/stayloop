@@ -700,6 +700,11 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleScreenScore(req: NextRequest): Promise<Response> {
+  // Set once the row is loaded so the outer catch can mark it. Review
+  // 2026-09-13: a throw outside the model block (portal, RPC, DB) used to
+  // leave the row at uploading/scoring forever — unopenable, undeletable
+  // and counted against the free quota.
+  let loadedScreeningId: string | null = null
   try {
     const body = await readJsonBody<{ screening_id?: string }>(req)
     if (!body) return NextResponse.json(INVALID_BODY, { status: 400 })
@@ -748,6 +753,17 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     if (error || !screening) {
       return NextResponse.json({ error: error?.message || 'Not found' }, { status: 404 })
     }
+    loadedScreeningId = screening.id
+    // In-flight guard: a second call for the same row (double click, retry
+    // after a 524) used to run a second full pipeline whose writes
+    // interleaved with the first. A row that reported progress in the last
+    // 10 minutes is running; answer 409 and let the client keep polling.
+    {
+      const at = Date.parse((screening.progress as { at?: string } | null)?.at || '')
+      if (screening.status === 'scoring' && Number.isFinite(at) && Date.now() - at < 10 * 60_000) {
+        return NextResponse.json({ error: 'This screening is already being scored. Please wait for it to finish.', code: 'in_progress' }, { status: 409 })
+      }
+    }
 
     // Fetch landlord plan separately (landlord_id may be authId or profileId)
     let plan = 'free'
@@ -782,8 +798,9 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
         .select('id', { count: 'exact', head: true })
         .in('landlord_id', landlordIds)
         .gte('created_at', monthStart)
-        .neq('status', 'pending')
-        .neq('status', 'error') // failed runs don't consume the allowance — retries were locking users out
+        // Only runs that produced (or are producing) a report count; a row
+        // stranded at uploading/error never did (review 2026-09-13).
+        .in('status', ['scored', 'scoring'])
       if (count !== null && count >= 5) {
         return NextResponse.json(
           { error: 'Monthly screening limit reached (5/5). Upgrade to Pro for unlimited screenings.' },
@@ -1297,6 +1314,8 @@ JSON DISCIPLINE (avoid parse errors):
         // report (tradelines + collections + inquiries) can add several k,
         // so give generous headroom to avoid mid-report truncation.
         maxTokens: CLAUDE_MAX_TOKENS,
+        // A hung provider must not hang the run (review 2026-09-13).
+        signal: AbortSignal.timeout(240_000),
         jsonMode: true,
         meta: { ...usageMeta, slot: 'screening' },
         onText: (acc) => {
@@ -1549,6 +1568,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
             ],
             temperature: CLAUDE_TEMPERATURE,
             maxTokens: 900,
+            signal: AbortSignal.timeout(90_000),
             jsonMode: true,
             meta: { ...usageMeta, slot: 'screening_repair' },
           })
@@ -2096,9 +2116,21 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       // plainly describe more than one job (spread > 30%) and the file has
       // more than one applicant, leave the model's household reading alone.
       const applicants = Array.isArray(parsed.extracted_names) ? parsed.extracted_names.filter((n: unknown) => typeof n === 'string').length : 1
-      const spread = annuals[annuals.length - 1] / annuals[0]
-      if (applicants >= 2 && annuals.length >= 2 && spread > 1.3) return null
-      return Math.round(annuals[Math.floor(annuals.length / 2)] / 12 * 100) / 100
+      const median = (xs: number[]) => xs[Math.floor(xs.length / 2)]
+      // Stubs cluster by job (annualised figures within ±15% of a
+      // neighbour are the same job). One applicant: the median. Two or
+      // more applicants and two or more clusters: the household is the
+      // SUM of one median per job (review 2026-09-13 second pass — a
+      // single median halved a couple's income even with similar pay).
+      const clusters: number[][] = []
+      for (const a of annuals) {
+        const last = clusters[clusters.length - 1]
+        if (last && a / last[last.length - 1] <= 1.15) last.push(a)
+        else clusters.push([a])
+      }
+      const perJob = clusters.map(median).sort((a, b) => b - a)
+      const annual = applicants >= 2 && perJob.length >= 2 ? perJob.slice(0, Math.min(applicants, perJob.length)).reduce((x, y) => x + y, 0) : median(annuals)
+      return Math.round(annual / 12 * 100) / 100
     })()
     // Review 2026-09-13: the rubric and the report already fell back to the
     // application form's rent, but the affordability gates, the stored ratio
@@ -2399,7 +2431,13 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       const co = !isPrimary && subj.trim().split(/\s+/).length >= 2
         ? (Array.isArray(parsed.extracted_names) ? parsed.extracted_names : []).find((n: unknown): n is string => typeof n === 'string' && !(sameName(n, primaryLoose) || nameCovers(n, primaryLoose) || nameCovers(primaryLoose, n)) && (sameName(n, subj) || nameCovers(n, subj) || nameCovers(subj, n)))
         : undefined
-      if (!isPrimary && co) {
+      // A subject that shares NO name token with the applicant is someone
+      // else's report even when that person is not in the file (a friend's
+      // report uploaded as one's own); only reordered / hyphenated
+      // spellings of the applicant get the benefit of the doubt.
+      const tok = (x: string) => new Set(x.toLowerCase().replace(/[^a-z\u00c0-\u024f\s]/g, ' ').split(/\s+/).filter(t => t.length > 1))
+      const sharesNothing = subj.trim().split(/\s+/).length >= 2 && Array.from(tok(subj)).every(t => !tok(primaryLoose).has(t))
+      if (!isPrimary && (co || sharesNothing)) {
         creditReport.unreliable = true
         creditReport.unreliable_reason_en = `The transcribed bureau report belongs to "${subj}"${co ? ` (co-applicant)` : ''}, not to the applicant "${nameForLookup}". It cannot stand in for the applicant's own credit history.`
         creditReport.unreliable_reason_zh = `转录的信用报告属于「${subj}」${co ? '（共同申请人）' : ''}，不是申请人「${nameForLookup}」本人的，不能替代申请人自己的信用记录。`
@@ -3146,7 +3184,13 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // an upstream error message can't leak the api_key into CF Pages logs.
     const errMsg = sanitizeUrlForLog(e?.message ? String(e.message) : String(e))
     console.error('[screen-score] uncaught:', errMsg, e?.name)
-    captureException(e, { route: 'screen-score', level: 'error' })
+    captureException(e, { route: 'screen-score', level: 'error', extra: { screening_id: loadedScreeningId } })
+    if (loadedScreeningId) {
+      try {
+        const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+        await admin.from('screenings').update({ status: 'error', error: `uncaught: ${(errMsg || 'unknown').slice(0, 480)}` }).eq('id', loadedScreeningId).in('status', ['uploading', 'scoring'])
+      } catch { /* best effort */ }
+    }
     return NextResponse.json(
       {
         error: 'Screening failed: ' + (errMsg || 'unknown error').slice(0, 300),

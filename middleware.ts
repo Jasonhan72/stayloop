@@ -11,6 +11,14 @@ function withSecurityHeaders(res: NextResponse): NextResponse {
   return res
 }
 
+// /verify/<token>: the token IS the credential and the page hands the
+// person to Veriff / Flinks by full navigation — never send it as Referer
+// (review 2026-09-13). Everything else: origin only across sites.
+function withReferrerPolicy(res: NextResponse, pathname: string): NextResponse {
+  res.headers.set('Referrer-Policy', pathname.startsWith('/verify/') ? 'no-referrer' : 'strict-origin-when-cross-origin')
+  return res
+}
+
 // Apex (stayloop.ai) → www.stayloop.ai
 // screening.stayloop.ai → www.stayloop.ai/screening — a vanity door, not a
 // second site. The session (implicit flow, localStorage) is origin-scoped, so
@@ -32,7 +40,7 @@ export function middleware(request: NextRequest) {
     url.search = ''
     return withSecurityHeaders(NextResponse.redirect(url, 308))
   }
-  return withSecurityHeaders(NextResponse.next())
+  return withReferrerPolicy(withSecurityHeaders(NextResponse.next()), new URL(request.url).pathname)
 }
 
 export const config = {

@@ -45,7 +45,14 @@ export function checkLetterQuality(text: string, file: string, kind: string): Fo
   // drifts. One digit apart is near-certain; otherwise say which to verify.
   // A number labelled fax / télécopieur / direct / ext / cell is a second
   // line by design, not the main line printed two ways (review 2026-09-13).
-  const unlabelled = t.replace(/\b(?:fax|t[ée]l[ée]copieur|direct(?:\s*line)?|ext\.?|extension|cell(?:ular)?|mobile)\b\s*[:.#-]?\s*(?:\+?1[\s.-]?)?\(?[2-9]\d{2}\)?[\s.-]?\d{3}[\s.-]?\d{4}/gi, ' ')
+  // Only a LABEL strips a number: "Fax:", "Direct line", "Ext.", "Cell:".
+  // Bare "direct" / "cell" in prose ("reach me direct 416 427 4881") is
+  // exactly the drifted number the rule exists for (review 2026-09-13
+  // second pass).
+  const PHONE = '(?:\\+?1[\\s.-]?)?\\(?[2-9]\\d{2}\\)?[\\s.-]?\\d{3}[\\s.-]?\\d{4}'
+  const unlabelled = t
+    .replace(new RegExp(`\\b(?:fax|t[ée]l[ée]copieur|direct\\s*line|ext\\.?|extension)\\b\\s*[:.#-]?\\s*${PHONE}`, 'gi'), ' ')
+    .replace(new RegExp(`\\b(?:direct|cell(?:ular)?|mobile)\\s*[:#]\\s*${PHONE}`, 'gi'), ' ')
   const ph = phones(unlabelled)
   outer: for (let i = 0; i < ph.length; i++) for (let j = i + 1; j < ph.length; j++) {
     if (ph[i].slice(0, 6) === ph[j].slice(0, 6) && ph[i] !== ph[j]) {

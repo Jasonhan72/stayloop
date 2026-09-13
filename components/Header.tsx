@@ -190,7 +190,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
 
             {menuOpen && (
               <div
-                className="absolute right-0 mt-2 w-[300px] overflow-hidden rounded-xl border border-[#DDDDDD] bg-white py-2 shadow-[0_2px_16px_rgba(0,0,0,0.12)]"
+                className="absolute right-0 mt-2 max-h-[calc(100vh-90px)] w-[min(300px,calc(100vw-24px))] overflow-y-auto rounded-xl border border-[#DDDDDD] bg-white py-2 shadow-[0_2px_16px_rgba(0,0,0,0.12)] supports-[height:100dvh]:max-h-[calc(100dvh-90px)]"
                 role="menu"
               >
                 {/* Mobile-only: nav links */}

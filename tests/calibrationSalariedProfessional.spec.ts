@@ -111,3 +111,9 @@ describe('Workday stubs are a known payroll system', () => {
     expect(flags.some(f => f.code === 'paystub_unknown_payroll_system')).toBe(false)
   })
 })
+
+describe('second pass: a shared bank name is not a declaration', () => {
+  it('an undeclared Scotiabank loan is not excused by a declared Scotiabank Visa', () => {
+    expect(isDeclaredObligationClaim({ claim_zh: '申请表少报一项贷款', claim_en: 'application omits a loan', category: 'omission', evidence: ["'Application form FINANCIAL OBLIGATIONS: Scotiabank Visa $200/mo'", "'SCOTIABANK PERSONAL LOAN balance $30,000'"] })).toBe(false)
+  })
+})

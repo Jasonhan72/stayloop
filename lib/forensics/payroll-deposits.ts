@@ -273,14 +273,32 @@ export interface StatementLiquidity {
 /** Liquidity read straight off running-balance statements: the lowest balance
  *  the account touched, and NSF / overdraft events. Deterministic, no model.
  *  Statements without a balance column yield rows=0 and nulls. */
+/** A key that tells one account's statements from another's: the account
+ *  number fragment (masked or not) printed on the statement, else the
+ *  account title. Statements with no key at all share one group — the
+ *  conservative reading (overall minimum). */
+function statementAccountKey(text: string): string {
+  const flat = (text || '').replace(/\s+/g, ' ')
+  const num = flat.match(/(?:account|acct|compte)\s*(?:number|no\.?|#|n[°o])?\s*[:#]?\s*((?:[x*•·]{2,}\s*)?[\d][\d\s-]{3,}\d)/i)
+  if (num) return 'n:' + num[1].replace(/\D/g, '').slice(-6)
+  const masked = flat.match(/[x*•·]{4,}\s*(\d{3,4})\b/i)
+  if (masked) return 'm:' + masked[1]
+  const title = flat.match(/\b([A-Z][A-Za-z ]{3,30}(?:chequing|checking|savings|account))\b/i)
+  return title ? 't:' + title[1].toLowerCase().replace(/\s+/g, ' ') : ''
+}
+
 export function analyzeStatementLiquidity(bankTexts: string[]): StatementLiquidity {
-  // Per statement first: an empty savings account or a co-applicant's
-  // account must not drag the floor to $0 (review 2026-09-13). The reserve
-  // is the best account's lowest balance; NSF events and rows are summed.
-  let best: { min: number; last: number | null; rows: number } | null = null
+  // Per ACCOUNT: an empty savings account or a co-applicant's account must
+  // not drag the floor to $0, but three months of the same chequing
+  // account are one account and the month it dipped counts (review
+  // 2026-09-13 second pass). Statements are grouped by the account number
+  // they print; the reserve is the best account's lowest balance across
+  // its statements; NSF events and rows are summed.
+  const groups = new Map<string, { min: number; last: number | null; rows: number }>()
   let nsf = 0
   let rows = 0
   for (const text of bankTexts) {
+    const key = statementAccountKey(text)
     let min: number | null = null
     let last: number | null = null
     let myRows = 0
@@ -295,8 +313,13 @@ export function analyzeStatementLiquidity(bankTexts: string[]): StatementLiquidi
       last = t.balance
     }
     rows += myRows
-    if (min !== null && (best === null || min > best.min)) best = { min, last, rows: myRows }
+    if (min === null || myRows === 0) continue
+    const g = groups.get(key)
+    if (!g) groups.set(key, { min, last, rows: myRows })
+    else { g.min = Math.min(g.min, min); g.last = last; g.rows += myRows }
   }
+  let best: { min: number; last: number | null; rows: number } | null = null
+  for (const g of groups.values()) if (best === null || g.min > best.min) best = g
   return { min_balance: best?.min ?? null, last_balance: best?.last ?? null, nsf_count: nsf, rows }
 }
 

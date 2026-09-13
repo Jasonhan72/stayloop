@@ -802,7 +802,7 @@ export async function generateScreeningReport(
       html += `<div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #FCA5A5;border-left:5px solid #B91C1C;border-radius:8px;background:#FEF2F2;padding:10px 14px;margin-bottom:10px">
         <span style="font-size:16px;color:#B91C1C;font-weight:800">✕</span>
         <div><div style="font-size:11px;font-weight:800;color:#B91C1C">${zh ? '此报告不可采信——不能作为该申请人的信用历史' : 'This report is NOT credible as the applicant\'s credit history'}</div>
-        <div style="font-size:10px;color:#475569;margin-top:3px;line-height:1.6">${zh ? (cr.unreliable_reason_zh || '') : (cr.unreliable_reason_en || '')}</div>
+        <div style="font-size:10px;color:#475569;margin-top:3px;line-height:1.6">${esc(zh ? (cr.unreliable_reason_zh || '') : (cr.unreliable_reason_en || ''))}</div>
         <div style="font-size:9px;color:#64748B;margin-top:3px">${zh ? '下方转录仅供核对原件；分数、账户与查询均未计入评分。' : 'The transcription below is for checking against the original only; score, tradelines and inquiries were not credited.'}</div></div>
       </div>`
     }
@@ -1036,10 +1036,10 @@ export async function generateScreeningReport(
       const sevZh: Record<string, string> = { critical: '严重', high: '高', medium: '中', low: '低' }
       for (const a of coh.anomalies) {
         html += `<div class="card" style="border-left:3px solid ${sevColor[a.severity] || '#64748B'};padding:8px 12px;margin-bottom:6px">
-          <div><span class="flag-badge" style="background:${sevColor[a.severity] || '#64748B'}">${zh ? sevZh[a.severity] || a.severity : a.severity}</span><span style="font-family:monospace;font-size:9px;color:#64748B">${a.category}</span>${a.files.length ? `<span style="font-size:9px;color:#9FBBD0;margin-left:6px">${a.files.join(' · ')}</span>` : ''}</div>
-          <div style="font-size:10.5px;font-weight:600;margin-top:3px">${zh ? a.claim_zh || a.claim_en : a.claim_en || a.claim_zh}</div>
-          <div style="font-size:9.5px;color:#475569;margin-top:3px">${zh ? '依据：' : 'Evidence: '}${a.evidence.map(e => `“${e}”`).join(zh ? '｜' : ' | ')}</div>
-          <div style="font-size:9.5px;color:#0F766E;margin-top:3px">${zh ? '核实：' : 'Resolve: '}${zh ? a.check_zh || a.check_en : a.check_en || a.check_zh}</div>
+          <div><span class="flag-badge" style="background:${sevColor[a.severity] || '#64748B'}">${esc(zh ? sevZh[a.severity] || a.severity : a.severity)}</span><span style="font-family:monospace;font-size:9px;color:#64748B">${esc(a.category)}</span>${a.files.length ? `<span style="font-size:9px;color:#9FBBD0;margin-left:6px">${esc(a.files.join(' · '))}</span>` : ''}</div>
+          <div style="font-size:10.5px;font-weight:600;margin-top:3px">${esc(zh ? a.claim_zh || a.claim_en : a.claim_en || a.claim_zh)}</div>
+          <div style="font-size:9.5px;color:#475569;margin-top:3px">${zh ? '依据：' : 'Evidence: '}${a.evidence.map(e => `“${esc(e)}”`).join(zh ? '｜' : ' | ')}</div>
+          <div style="font-size:9.5px;color:#0F766E;margin-top:3px">${zh ? '核实：' : 'Resolve: '}${esc(zh ? a.check_zh || a.check_en : a.check_en || a.check_zh)}</div>
         </div>`
       }
     }

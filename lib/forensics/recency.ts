@@ -32,11 +32,18 @@ export function extractDates(text: string, fallbackYear?: number): string[] {
   // first field (>12) decides; otherwise take the reading that is not in
   // the future and closest to today (review 2026-09-13).
   const today = new Date().toISOString().slice(0, 10)
-  for (const m of t.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(20\d{2})\b/g)) {
+  // One document prints one format: any unambiguous token (a field > 12)
+  // decides MDY vs DMY for every slash date on it; only a document with
+  // no such token falls back to "the reading that is not in the future
+  // and closest to today" (review 2026-09-13 second pass — per-token
+  // guessing read every MM/DD stub as younger than it was).
+  const slash = Array.from(t.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(20\d{2})\b/g))
+  const docFormat: 'mdy' | 'dmy' | null = slash.some(m => +m[1] > 12) ? 'dmy' : slash.some(m => +m[2] > 12) ? 'mdy' : null
+  for (const m of slash) {
     const a = +m[1], b = +m[2], y = +m[3]
     const mdy = toISO(y, a, b), dmy = toISO(y, b, a)
-    if (a > 12) { if (dmy) out.push(dmy); continue }
-    if (b > 12) { if (mdy) out.push(mdy); continue }
+    if (docFormat === 'dmy') { if (dmy) out.push(dmy); continue }
+    if (docFormat === 'mdy') { if (mdy) out.push(mdy); continue }
     const past = [mdy, dmy].filter((v): v is string => !!v && v <= today).sort()
     const v = past.length ? past[past.length - 1] : (mdy || dmy)
     if (v) out.push(v)
@@ -82,9 +89,15 @@ export function documentAsOf(pf: PerFileForensics): DocDate {
     // The period END: "… to July 2, 2026" first, then a closing-balance
     // date. The old alternation matched "Statement period June 3" — the
     // START — 30 days early (review 2026-09-13).
-    const close = flat.match(/\bto\s+(?:on\s+)?([A-Za-z]{3,9}\.?\s+\d{1,2},?\s+20\d{2})/i)
-      || flat.match(/Closing\s+Balance\s+(?:on\s+)?([A-Za-z]{3,9}\.?\s+\d{1,2},?\s+20\d{2})/i)
-    if (close) { const ds = extractDates(close[1]); if (ds[0]) return { as_of: ds[0], expiry: null, basis: 'statement period end' } }
+    // Anchored on the period phrase ("Statement period June 3, 2026 to
+    // July 2, 2026", "From May 1 … to May 31"), then the closing-balance
+    // date. A bare "to <date>" matched fee notices ("new fees apply to
+    // September 1, 2026") (review 2026-09-13 second pass).
+    const DATE = '([A-Za-z]{3,9}\\.?\\s+\\d{1,2},?\\s+20\\d{2})'
+    const close = flat.match(new RegExp(`(?:statement\\s+period|period|from)\\s*:?\\s*${DATE}\\s*(?:to|-|–|through)\\s*${DATE}`, 'i'))?.slice(2, 3)
+      || flat.match(new RegExp(`Closing\\s+Balance\\s+(?:on\\s+)?${DATE}`, 'i'))?.slice(1, 2)
+      || flat.match(new RegExp(`(?:period|statement)\\s+(?:ending|end(?:ed)?|to)\\s*:?\\s*${DATE}`, 'i'))?.slice(1, 2)
+    if (close && close[0]) { const ds = extractDates(close[0]); if (ds[0]) return { as_of: ds[0], expiry: null, basis: 'statement period end' } }
     const ds = extractDates(flat)
     return { as_of: latest(ds), expiry: null, basis: ds.length ? 'latest date on statement' : 'none' }
   }
@@ -93,8 +106,11 @@ export function documentAsOf(pf: PerFileForensics): DocDate {
     // future. The first date in the header used to win — often the hire
     // date ("employed since March 15, 2019") (review 2026-09-13).
     const today = new Date().toISOString().slice(0, 10)
-    const labelled = flat.match(/\b(?:date|dated)\s*:?\s*([A-Za-z]{3,9}\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+20\d{2}|\d{1,2}\s+[A-Za-z]{3,9}\.?,?\s+20\d{2}|20\d{2}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}\/\d{1,2}\/20\d{2})/i)
-    if (labelled) { const ds = extractDates(labelled[1]); if (ds[0]) return { as_of: ds[0], expiry: null, basis: 'letter date' } }
+    // "Date:" / "Dated" — but not "Start Date:", "Hire Date:", "Effective
+    // Date:", "End Date:", "Date of birth" (review 2026-09-13 second pass),
+    // and never a date in the future.
+    const labelled = flat.match(/(?<!\b(?:start|hire|hired|effective|end|termination|birth|expiry|due|issue|pay)\s)\b(?:date|dated)\b(?!\s+of\s+(?:birth|hire|issue))\s*:?\s*([A-Za-z]{3,9}\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+20\d{2}|\d{1,2}\s+[A-Za-z]{3,9}\.?,?\s+20\d{2}|20\d{2}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}\/\d{1,2}\/20\d{2})/i)
+    if (labelled) { const ds = extractDates(labelled[1]).filter(d => d <= today); if (ds[0]) return { as_of: ds[0], expiry: null, basis: 'letter date' } }
     const all = extractDates(flat).filter(d => d <= today)
     return { as_of: latest(all), expiry: null, basis: all.length ? 'latest date in letter' : 'none' }
   }

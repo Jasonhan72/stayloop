@@ -31,7 +31,7 @@ const RAIL_BY_ROLE: Record<WorkspaceRole, RailItem[]> = {
   landlord: [
     { key: 'home',      href: '/landlord/agent',   icon: <ChatIcon />,    label: { zh: '主页', en: 'Home' } , desc: { zh: '和 Logic 对话——管房的入口', en: 'Chat with Logic — manage your rentals' } },
     { key: 'apps',      href: '/landlord/applicants', icon: <FileIcon />, label: { zh: '申请', en: 'Apps' } , desc: { zh: '申请人审查与评分', en: 'Review and score applicants' } },
-    { key: 'screen',    href: '/screening/app',    icon: <AuditIcon />,   label: { zh: '筛查', en: 'Screen' } , desc: { zh: '租客筛查报告', en: 'Tenant screening reports' } },
+    { key: 'screen',    href: '/screening/app',    icon: <ScreenIcon />,  label: { zh: '筛查', en: 'Screen' } , desc: { zh: '租客筛查报告', en: 'Tenant screening reports' } },
     { key: 'lease',     href: '/landlord/leases',  icon: <LeaseIcon />,   label: { zh: '租约', en: 'Lease' } , desc: { zh: '租约管理与续约', en: 'Leases and renewals' } },
     { key: 'maint',     href: '/landlord/maintenance', icon: <ToolIcon />,label: { zh: '维修', en: 'Maint.' } , desc: { zh: '维修工单处理', en: 'Handle maintenance tickets' } },
     { key: 'fin',       href: '/landlord/finance', icon: <CashIcon />,    label: { zh: '财务', en: 'Finance' } , desc: { zh: '收租与财务面板', en: 'Rent collection and finances' } },
@@ -251,7 +251,11 @@ function Rail({ role }: { role: WorkspaceRole }) {
   const onSettings = path.startsWith('/settings')
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-around gap-1 overflow-x-auto px-2 md:static md:h-auto md:w-[220px] md:flex-none md:flex-col md:items-stretch md:justify-start md:gap-1 md:overflow-visible md:px-[14px] md:py-[18px]"
+      // Phone: eight equal-width cells (8 × 44px + gaps was 396px — the last
+      // icon fell off a 375px screen, review 2026-09-13); each cell shows a
+      // 10px label under its icon so the shield (筛查) and the check-shield
+      // (审计) are told apart without hover.
+      className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-between gap-0 px-1 md:static md:h-auto md:w-[220px] md:flex-none md:flex-col md:items-stretch md:justify-start md:gap-1 md:overflow-visible md:px-[14px] md:py-[18px]"
       style={{ background: '#1B1B3C' }}
     >
       {/* role card (md+) */}
@@ -276,13 +280,13 @@ function Rail({ role }: { role: WorkspaceRole }) {
             href={it.href}
             title={en ? it.desc.en : it.desc.zh}
             className={
-              'flex h-11 w-11 flex-none flex-col items-center justify-center gap-0.5 rounded-lg text-[16px] transition md:h-[42px] md:w-auto md:flex-row md:justify-start md:gap-3 md:px-[14px] md:text-[13.5px] md:font-semibold ' +
+              'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg text-[16px] transition md:h-[42px] md:w-auto md:flex-none md:flex-row md:justify-start md:gap-3 md:px-[14px] md:text-[13.5px] md:font-semibold ' +
               (on ? 'text-white' : 'hover:text-white')
             }
             style={on ? { background: 'rgba(255,255,255,0.10)', color: '#ffffff' } : { color: '#c7d2e3' }}
           >
             {it.icon}
-            <span className="hidden md:inline">{en ? it.label.en : it.label.zh}</span>
+            <span className="max-w-full truncate text-[9.5px] font-medium leading-none md:text-[13.5px] md:font-semibold md:leading-normal">{en ? it.label.en : it.label.zh}</span>
           </Link>
         )
       })}
@@ -291,11 +295,11 @@ function Rail({ role }: { role: WorkspaceRole }) {
       <Link
         href="/settings"
         title={en ? 'Settings and subscription' : '设置与订阅'}
-        className="flex h-11 w-11 flex-none flex-col items-center justify-center rounded-lg text-[16px] transition md:h-[42px] md:w-auto md:flex-row md:justify-start md:gap-3 md:px-[14px] md:text-[13.5px] md:font-semibold"
+        className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg text-[16px] transition md:h-[42px] md:w-auto md:flex-none md:flex-row md:justify-start md:gap-3 md:px-[14px] md:text-[13.5px] md:font-semibold"
         style={onSettings ? { background: 'rgba(255,255,255,0.10)', color: '#ffffff' } : { color: '#c7d2e3' }}
       >
         <GearIcon />
-        <span className="hidden md:inline">{en ? 'Settings' : '设置'}</span>
+        <span className="max-w-full truncate text-[9.5px] font-medium leading-none md:text-[13.5px] md:font-semibold md:leading-normal">{en ? 'Settings' : '设置'}</span>
       </Link>
     </nav>
   )
@@ -317,5 +321,6 @@ function PassIcon()  { return I('M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0
 function LeaseIcon() { return I('M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6l2 2h6a2 2 0 0 1 2 2v3|M14 14l3 3 6-6') }
 function ToolIcon()  { return I('M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z') }
 function CashIcon()  { return I('M12 1v22|M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6') }
+function ScreenIcon() { return I('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z|M14 2v6h6|M9 15l2 2 4-4') }
 function AuditIcon() { return I('M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z|M9 12l2 2 4-4') }
 function GearIcon()  { return I('M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z') }

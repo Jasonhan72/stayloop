@@ -30,10 +30,14 @@ const MONTH_ORDER: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, ma
 function statementMonths(txns: Array<{ month: string; day: number }>): number {
   const pts = txns.map(t => ({ m: MONTH_ORDER[(t.month || '').slice(0, 4).toLowerCase()] ?? MONTH_ORDER[(t.month || '').slice(0, 3).toLowerCase()], d: t.day })).filter(p => p.m != null && p.d > 0)
   if (pts.length < 2) return 1
+  // A Dec → Jan statement wraps the year: months far apart (> 6) mean the
+  // early months belong to the NEXT year (review 2026-09-13 second pass).
+  const ms = pts.map(p => p.m)
+  const wraps = Math.max(...ms) - Math.min(...ms) > 6
+  const ord = (p: { m: number; d: number }) => ((wraps && p.m < 6) ? p.m + 12 : p.m) * 31 + p.d
   let first = pts[0], last = pts[0]
-  for (const p of pts) { if (p.m * 31 + p.d < first.m * 31 + first.d) first = p; if (p.m * 31 + p.d > last.m * 31 + last.d) last = p }
-  let span = (last.m - first.m) * 30 + (last.d - first.d)
-  if (span < 0) span += 365
+  for (const p of pts) { if (ord(p) < ord(first)) first = p; if (ord(p) > ord(last)) last = p }
+  const span = ((ord(last) - ord(first)) / 31) * 30
   return Math.max(1, Math.round(span / 30))
 }
 const b = (zh: string, en: string, tone: ReadingBullet['tone'] = 'neutral'): ReadingBullet => ({ zh, en, tone, source: 'measured' })

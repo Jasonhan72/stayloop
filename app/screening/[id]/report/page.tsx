@@ -1056,10 +1056,13 @@ export default function ReportPage() {
                           <div key={b.key} style={{ background: b.color, opacity: crA.band?.key === b.key ? 1 : 0.25, width: `${((b.max - b.min) / 600) * 100}%` }} />
                         ))}
                       </div>
-                      <div className="mt-1 flex justify-between font-mono text-[9.5px] text-body-3">
+                      {/* Five cells on a grid: the flex row of non-wrapping
+                          labels pushed a 320px report into horizontal scroll
+                          (review 2026-09-13). The numeric range hides on phones. */}
+                      <div className="mt-1 grid grid-cols-5 gap-1 text-center font-mono text-[9.5px] text-body-3 [overflow-wrap:anywhere]">
                         {SCORE_BANDS.map(b => (
                           <span key={b.key} style={{ color: crA.band?.key === b.key ? b.color : undefined, fontWeight: crA.band?.key === b.key ? 800 : 400 }}>
-                            {zh ? b.zh : b.en} {b.min}–{b.max === 900 ? '900' : b.max}
+                            {zh ? b.zh : b.en}<span className="hidden sm:inline"> {b.min}–{b.max === 900 ? '900' : b.max}</span>
                           </span>
                         ))}
                       </div>
@@ -1960,9 +1963,9 @@ function VerifiedFactsSection({ v, zh }: { v: NonNullable<ScoreResult['verificat
           {bank && (
             <>
               <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-surface-chip p-2"><div className="font-mono text-[15px] font-extrabold">{money(bank.payroll_monthly_estimate)}</div><div className="text-[10.5px] text-body-3">{zh ? '循环入账 / 月' : 'Recurring / mo'}</div></div>
-                <div className="rounded-lg bg-surface-chip p-2"><div className="font-mono text-[15px] font-extrabold">{money(bank.closing_balance_total)}</div><div className="text-[10.5px] text-body-3">{zh ? '期末余额' : 'Closing balance'}</div></div>
-                <div className="rounded-lg bg-surface-chip p-2"><div className="font-mono text-[15px] font-extrabold" style={{ color: bank.nsf_count > 0 ? '#B91C1C' : undefined }}>{bank.nsf_count}</div><div className="text-[10.5px] text-body-3">NSF</div></div>
+                <div className="min-w-0 rounded-lg bg-surface-chip p-2"><div className="break-all font-mono text-[13px] font-extrabold sm:text-[15px]">{money(bank.payroll_monthly_estimate)}</div><div className="text-[10.5px] text-body-3">{zh ? '循环入账 / 月' : 'Recurring / mo'}</div></div>
+                <div className="min-w-0 rounded-lg bg-surface-chip p-2"><div className="break-all font-mono text-[13px] font-extrabold sm:text-[15px]">{money(bank.closing_balance_total)}</div><div className="text-[10.5px] text-body-3">{zh ? '期末余额' : 'Closing balance'}</div></div>
+                <div className="min-w-0 rounded-lg bg-surface-chip p-2"><div className="break-all font-mono text-[13px] font-extrabold sm:text-[15px]" style={{ color: bank.nsf_count > 0 ? '#B91C1C' : undefined }}>{bank.nsf_count}</div><div className="text-[10.5px] text-body-3">NSF</div></div>
               </div>
               <div className="mt-2 text-[12px] text-body-2">
                 {bank.institution || '—'} · {bank.accounts.length} {zh ? '个账户' : 'account(s)'} · {zh ? '持有人' : 'Holder'}: {bank.holder_names.join(', ') || '—'}
