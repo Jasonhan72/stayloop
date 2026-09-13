@@ -297,6 +297,21 @@ In `supabase/migrations/`:
 
 Public surfaces show a listing only when `is_active AND (verification_status='verified' OR source='realtor')`. This is enforced at the DB (RLS policy "Public can read verified listings"), not just app filters. Landlord-published listings start `pending` and go public only after `/admin/verify` approval; Realtor.ca-imported rows (`source='realtor'`) show immediately with a source badge. A trigger (`guard_listing_trust_fields`) reverts any non-admin write to `verification_status`/`source`/`verified_at`, so landlords can't self-approve. App-layer queries use `LISTING_VISIBILITY_OR` from `lib/listingVisibility.ts` — don't re-inline the filter string.
 
+## Jina 是预付费余额，用完全站六处静默降级（2026-09-12 · 一次真实事故）
+
+租客管家被问「多大附近找 5 套两居室」只回 2 套并说「该区域预算内的新房源有限」。那 2 套是库里
+9 月 6 日导入的 Realtor 行；实时抓取其实一条都没回来——`r.jina.ai` / `s.jina.ai` 全部返回
+**402 InsufficientBalanceError**（Jina 账户 uid `29c78376…`，余额用光），代码 `catch → []`，
+市场卡 `sample:0`，回复把供应商故障说成了库存稀少。**Jina 消费方共六处**，余额一空全部同时失效：
+`lib/agent/listingSearch.ts`（Realtor.ca 实时房源 + 行情样本）、`lib/screening/canliiIndex.ts`
+（CanLII 索引检索）、`lib/forensics/arm-length.ts` + `app/api/deep-check`（雇主网页核验）、
+`app/api/agent/trreb-refresh`（TRREB 季报，fail-closed 保留缓存）、`scripts` 里的 Realtor 导入。
+当天上午的 arm's-length 联网测试与门户探针把余额耗尽的。修法：`readRealtorPage` 回传 HTTP 状态，
+`externalFromStatuses` 把 401/402/403/429 归为 `external.status='unavailable'`（并 captureException
+warning），turn 路由据此改口「Realtor.ca 实时抓取暂时不可用，以上只来自 Stayloop 库」，不再说
+库存稀少。守卫 `tests/listingSearch.spec.ts`。**症状速查：市场卡 sample=0 且只回库里那几套 = 先查
+Jina 余额**（`.forensics-tmp/jina-balance.mts` 两条请求即可复现）。充值在 jina.ai 控制台，只能由用户操作。
+
 ## Realtor.ca 导入房源的时效（2026-09-06）
 
 5 月导入的 3 套 Realtor 房源里有 2 套（89 Estelle Ave、1201-155 Cumberland St）全部图片在

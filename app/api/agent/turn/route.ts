@@ -755,18 +755,29 @@ export async function POST(req: Request) {
         const wanted = typeof search.count === 'number' ? Math.min(Math.max(search.count, 1), 6) : null
         if (wanted && result.listings.length < wanted) {
           const zhMsg = /[一-鿿]/.test(message)
-          out.reply += zhMsg
-            ? `\n\n（符合条件且没给你看过的这次只找到 ${result.listings.length} 套 —— 该区域预算内的新房源有限。想看更多可以放宽预算/扩大区域，或过两天再来，我会盯着新上的。）`
-            : `\n\n(Only ${result.listings.length} new matches this time — inventory in this area within budget is thin. Widen the budget/area for more, or check back soon; I'll keep watching new listings.)`
+          // A dead live source is not thin inventory — say which it was.
+          if (result.external.status !== 'ok') {
+            out.reply += zhMsg
+              ? `\n\n（这次只有 ${result.listings.length} 套，全部来自 Stayloop 库；Realtor.ca 实时抓取暂时不可用，所以不是该区域真的只有这些。稍后再问我一次即可。）`
+              : `\n\n(Only ${result.listings.length} here, all from Stayloop's own inventory — the live Realtor.ca source is temporarily unavailable, so this is not the area's full picture. Ask again a little later.)`
+          } else {
+            out.reply += zhMsg
+              ? `\n\n（符合条件且没给你看过的这次只找到 ${result.listings.length} 套 —— 该区域预算内的新房源有限。想看更多可以放宽预算/扩大区域，或过两天再来，我会盯着新上的。）`
+              : `\n\n(Only ${result.listings.length} new matches this time — inventory in this area within budget is thin. Widen the budget/area for more, or check back soon; I'll keep watching new listings.)`
+          }
         }
       } else {
         // Zero real matches (Stayloop empty + Realtor.ca scrape missed).
         // The model's reply usually promises cards — correct it honestly
         // instead of fabricating inventory.
         const zhMsg = /[一-鿿]/.test(message)
-        out.reply += zhMsg
-          ? '\n\n这次没能拿到符合条件的实时房源（Stayloop 库里没有匹配，Realtor.ca 抓取也没返回结果）。你可以换个说法再让我搜一次，或放宽预算/区域试试 —— 我不会拿编造的房源充数。'
-          : "\n\nI couldn't pull any real listings matching this just now (no Stayloop match, and the Realtor.ca fetch returned nothing). Try rephrasing or widening the budget/area — I won't pad the results with made-up listings."
+        out.reply += result.external.status !== 'ok'
+          ? (zhMsg
+            ? '\n\n这次没能拿到房源：Stayloop 库里没有匹配，而 Realtor.ca 实时抓取暂时不可用。请稍后再问我一次 —— 我不会拿编造的房源充数。'
+            : "\n\nNo listings this time: nothing matched in Stayloop's inventory and the live Realtor.ca source is temporarily unavailable. Ask again a little later — I won't pad the results with made-up listings.")
+          : (zhMsg
+            ? '\n\n这次没能拿到符合条件的实时房源（Stayloop 库里没有匹配，Realtor.ca 抓取也没返回结果）。你可以换个说法再让我搜一次，或放宽预算/区域试试 —— 我不会拿编造的房源充数。'
+            : "\n\nI couldn't pull any real listings matching this just now (no Stayloop match, and the Realtor.ca fetch returned nothing). Try rephrasing or widening the budget/area — I won't pad the results with made-up listings.")
       }
       // Proactive market context — real prices from the area sample, computed
       // server-side (never by the model).

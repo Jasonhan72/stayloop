@@ -92,3 +92,23 @@ describe('filterByStreetToken — rank exact-street hits or attach honest notice
     expect(filterByStreetToken([], ref, 'Harbourfront')).toEqual({ listings: [] })
   })
 })
+
+// 2026-09-12: the Jina prepaid balance ran out (402) and every search
+// silently degraded to the DB's two rows while the reply blamed "thin
+// inventory". A provider failure must be reported as one.
+import { externalFromStatuses } from '@/lib/agent/listingSearch'
+describe('externalFromStatuses — provider outage vs empty page', () => {
+  it('any 200 means the source answered', () => {
+    expect(externalFromStatuses([402, 200, 0]).status).toBe('ok')
+  })
+  it('402 balance exhausted is unavailable with a named reason', () => {
+    const r = externalFromStatuses([402, 402, 402])
+    expect(r.status).toBe('unavailable')
+    expect(r.reason).toMatch(/402/)
+  })
+  it('timeouts only are unavailable too, without a provider code', () => {
+    const r = externalFromStatuses([0, 0])
+    expect(r.status).toBe('unavailable')
+    expect(r.reason).not.toMatch(/402/)
+  })
+})

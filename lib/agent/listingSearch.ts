@@ -4,6 +4,14 @@
 import type { ListingCard } from './types'
 import { LISTING_VISIBILITY_OR, LISTING_VISIBILITY_OR_GROUP } from '../listingVisibility'
 import { readTrrebBenchmark, type TrrebBenchmark } from './trrebRent'
+import { captureException } from '../observability/sentry'
+
+// Whether the live Realtor.ca source actually answered. 'unavailable' is a
+// provider failure (Jina 402 balance exhausted, 401/403 key, 429 quota, or
+// every read failing) — NOT thin inventory. The reply must say which, or a
+// dead key reads as "该区域房源有限" for weeks (2026-09-12: the Jina prepaid
+// balance ran out and every search silently fell back to the DB's 2 rows).
+export type ExternalStatus = { status: 'ok' | 'unavailable' | 'no_key'; reason?: string }
 
 export type SearchCriteria = {
   area?: string | null
@@ -189,7 +197,7 @@ function buildMarket(c: SearchCriteria, rows: StatRow[]): MarketStats | undefine
 export async function searchListings(
   c: SearchCriteria,
   exclude: string[] = []
-): Promise<{ listings: ListingCard[]; market?: MarketStats; notice?: string }> {
+): Promise<{ listings: ListingCard[]; market?: MarketStats; notice?: string; external: ExternalStatus }> {
   c = { ...c, area: normalizeArea(c.area) }
   // Street/building reference in the keywords ("55 Cooper St", "Sugar
   // Wharf") — used AFTER assembly to rank exact-street cards first, or to
@@ -208,7 +216,7 @@ export async function searchListings(
   // the primary area's full visible sample, pre-budget — never from our own
   // inventory and never from the LLM.
   const extPromise = jinaRealtor({ ...c, count: fetchCount }).catch(
-    () => ({ cards: [] as ListingCard[], statRows: [] as StatRow[] }),
+    (e: unknown) => ({ cards: [] as ListingCard[], statRows: [] as StatRow[], external: { status: 'unavailable', reason: String((e as Error)?.message || e).slice(0, 120) } as ExternalStatus }),
   )
   // Official TRREB benchmark (cached quarterly report, fast DB read) —
   // resolved to the user's area (district/municipality) when the map covers
@@ -224,6 +232,7 @@ export async function searchListings(
   // ones to meet what the user asked for, top up with external Realtor.ca.
   const stay = (await searchStayloop({ ...c, count: fetchCount })).filter(fresh)
   const extRes = await extPromise
+  const external = extRes.external
   let market = buildMarket(c, extRes.statRows)
   const trreb = await trrebPromise
   if (market && trreb) market.trreb = trreb
@@ -245,7 +254,7 @@ export async function searchListings(
   }
   if (stay.length >= target) {
     const f = filterByStreetToken(stay, streetRef, areaLabel())
-    return { listings: f.listings.slice(0, target), market, notice: f.notice }
+    return { listings: f.listings.slice(0, target), market, notice: f.notice, external }
   }
 
   // No synthetic fallback: when neither Stayloop nor Realtor.ca has a real
@@ -256,7 +265,7 @@ export async function searchListings(
   const seen = new Set(stay.map((l) => l.address.toLowerCase()))
   const filled = [...stay, ...ext.filter((l) => !seen.has(l.address.toLowerCase()))]
   const f = filterByStreetToken(filled, streetRef, areaLabel())
-  return { listings: f.listings.slice(0, target), market, notice: f.notice }
+  return { listings: f.listings.slice(0, target), market, notice: f.notice, external }
 }
 
 // ---------- Stayloop's own listings ----------
@@ -361,21 +370,37 @@ function slugifyArea(name: string): string | null {
   return /^[a-z0-9-]{3,60}$/.test(slug) ? slug : null
 }
 
+// `status` is the Jina HTTP status (0 = network/timeout) so the caller can
+// tell a provider outage from an empty page.
 async function readRealtorPage(
   key: string,
   pageUrl: string,
   c: SearchCriteria,
-): Promise<{ cards: ListingCard[]; rows: StatRow[] } | null> {
+): Promise<{ cards: ListingCard[]; rows: StatRow[]; status: number }> {
   try {
     const rres = await fetch(`https://r.jina.ai/${encodeURI(pageUrl)}`, {
       headers: { Authorization: `Bearer ${key}` },
       signal: AbortSignal.timeout(22000),
     })
-    if (!rres.ok) return null
-    return parseRealtor(await rres.text(), c)
+    if (!rres.ok) return { cards: [], rows: [], status: rres.status }
+    return { ...parseRealtor(await rres.text(), c), status: 200 }
   } catch {
-    return null
+    return { cards: [], rows: [], status: 0 }
   }
+}
+
+// Provider-level failure codes: key rejected, prepaid balance exhausted,
+// quota. Anything else (404 slug, 5xx) is a page problem, not the account.
+const PROVIDER_DOWN = new Set([401, 402, 403, 429])
+export function externalFromStatuses(statuses: number[]): ExternalStatus {
+  if (statuses.some((st) => st === 200)) return { status: 'ok' }
+  const down = statuses.find((st) => PROVIDER_DOWN.has(st))
+  if (down) {
+    const reason = down === 402 ? 'jina 402 · balance exhausted' : `jina ${down}`
+    captureException(new Error(`Realtor.ca live source unavailable: ${reason}`), { route: 'listingSearch', level: 'warning', extra: { statuses } })
+    return { status: 'unavailable', reason }
+  }
+  return statuses.length ? { status: 'unavailable', reason: `jina ${statuses.join('/')}` } : { status: 'unavailable', reason: 'no reads' }
 }
 
 // Jina renders only the first ~11 rows of any Realtor.ca list page (JS
@@ -392,10 +417,11 @@ function statPageUrls(areaBase: string, beds: number | null | undefined, house: 
   return urls
 }
 
-async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; statRows: StatRow[] }> {
-  const EMPTY = { cards: [] as ListingCard[], statRows: [] as StatRow[] }
+async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; statRows: StatRow[]; external: ExternalStatus }> {
   const key = process.env.JINA_API_KEY
-  if (!key) return EMPTY
+  if (!key) return { cards: [], statRows: [], external: { status: 'no_key' } }
+  const EMPTY = (reason: string) => ({ cards: [] as ListingCard[], statRows: [] as StatRow[], external: { status: 'unavailable', reason } as ExternalStatus })
+  const statuses: number[] = []
   const area = c.area || 'Toronto'
   const house = isHouseQuery(c.keywords, normalizeType(c))
   // A house search implies ≥3 beds unless the user said otherwise.
@@ -406,8 +432,9 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
   // neighbourhoods would misstate "该片区" on the card.
   const statRows: StatRow[] = []
   const seen = new Set<string>()
-  const merge = (r: { cards: ListingCard[]; rows: StatRow[] } | null, primary: boolean) => {
+  const merge = (r: { cards: ListingCard[]; rows: StatRow[]; status: number } | null, primary: boolean) => {
     if (!r) return
+    statuses.push(r.status)
     if (primary) statRows.push(...r.rows)
     for (const card of r.cards) {
       const k = card.address.toLowerCase()
@@ -444,8 +471,12 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
   // area's inventory; don't dilute it with the generic search fallback.
   if (statRows.length || cards.length) {
     cards.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
-    return { cards: cards.slice(0, Math.min(c.count ?? 4, 12)), statRows }
+    return { cards: cards.slice(0, Math.min(c.count ?? 4, 12)), statRows, external: externalFromStatuses(statuses) }
   }
+  // Direct pages answered but were empty for these criteria — the provider
+  // is fine; the generic search hop below is a second chance, not a retry.
+  const directOk = statuses.some((st) => st === 200)
+  if (statuses.length && !directOk && statuses.some((st) => PROVIDER_DOWN.has(st))) return EMPTY(externalFromStatuses(statuses).reason || 'provider')
 
   // 1. Find the Realtor.ca rentals page for this area.
   let pageUrl: string | null = null
@@ -455,6 +486,7 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
       headers: { Authorization: `Bearer ${key}`, Accept: 'application/json', 'X-Respond-With': 'no-content' },
       signal: AbortSignal.timeout(18000),
     })
+    if (!sres.ok) statuses.push(sres.status)
     if (sres.ok) {
       const d = (await sres.json()) as { data?: { url?: string }[] }
       const arr = Array.isArray(d?.data) ? d.data : []
@@ -490,19 +522,20 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
   }
   // Only ever hand the reader a genuine realtor.ca URL — never an arbitrary
   // host that slipped through the search results (SSRF hardening).
-  if (!pageUrl || !/^https:\/\/(www\.)?realtor\.ca\//i.test(pageUrl)) return EMPTY
+  if (!pageUrl || !/^https:\/\/(www\.)?realtor\.ca\//i.test(pageUrl)) {
+    return directOk ? { cards: [], statRows: [], external: { status: 'ok' } } : EMPTY(externalFromStatuses(statuses).reason || 'no page')
+  }
 
   // 2. Read the page — plus every sibling variant of the same area base, in
   //    parallel — parse all rows, then filter + rank for relevance.
   const baseM = pageUrl.match(/^(https:\/\/www\.realtor\.ca\/on\/[a-z0-9-]+(?:\/[a-z0-9-]+)?)\/[a-z0-9-]+$/i)
   const urls = baseM ? Array.from(new Set([pageUrl, ...statPageUrls(baseM[1], crit.min_beds, house)])) : [pageUrl]
   const reads = await Promise.all(urls.map((u) => readRealtorPage(key, u, crit)))
-  if (reads.every((r) => !r)) return EMPTY
   for (const r of reads) merge(r, true)
   // Rank by budget relevance: houses → priciest-within-budget first
   // (closest to a high target like $6000); apartments → cheapest first.
   cards.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
-  return { cards: cards.slice(0, Math.min(c.count ?? 4, 12)), statRows }
+  return { cards: cards.slice(0, Math.min(c.count ?? 4, 12)), statRows, external: externalFromStatuses(statuses) }
 }
 
 function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; rows: StatRow[] } {
