@@ -39,7 +39,7 @@ export default function NoticePage() {
   const [property, setProperty] = useState('')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [reasons, setReasons] = useState<Record<string, boolean>>({})
-  const [sources, setSources] = useState<{ credit: boolean; court: boolean; verified: boolean }>({ credit: false, court: true, verified: false })
+  const [sources, setSources] = useState<{ credit: boolean; court: boolean; verified: boolean; bureauPull: boolean }>({ credit: false, court: true, verified: false, bureauPull: false })
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -48,7 +48,12 @@ export default function NoticePage() {
       if (data) {
         setTenant((data.tenant_name || data.ai_extracted_name || '') as string)
         const v3 = (data.ai_dimension_notes as { _v3?: { credit_report?: { present?: boolean } } } | null)?._v3
-        setSources({ credit: !!v3?.credit_report?.present, court: true, verified: !!data.verification })
+        // Only steps that actually verified count as "considered" (review
+        // 2026-09-13: a snapshot whose steps all failed still made the
+        // letter say a verification was considered).
+        const ver = data.verification as { id?: { status?: string } | null; bank?: { status?: string } | null; credit?: { status?: string } | null; sandbox?: boolean } | null
+        const okStep = (s?: { status?: string } | null) => s?.status === 'verified'
+        setSources({ credit: !!v3?.credit_report?.present, court: true, verified: !ver?.sandbox && (okStep(ver?.id) || okStep(ver?.bank)), bureauPull: !ver?.sandbox && okStep(ver?.credit) })
       }
       setLandlord((user?.user_metadata?.full_name as string | undefined) || user?.email || '')
       setReady(true)
@@ -98,8 +103,8 @@ export default function NoticePage() {
           <div className="mt-4 text-[13px] font-bold">{zh ? '我们参考了什么' : 'What was considered'}</div>
           <p className="mt-1 text-[13.5px] leading-relaxed">
             {zh
-              ? '本决定基于你自愿提交的申请文件与公开记录，由 Stayloop 平台协助整理。Stayloop 不是安省《消费者报告法》意义上的消费者报告机构，本次没有向消费者报告机构购买关于你的报告'
-              : 'The decision was based on the documents you voluntarily submitted and on public records, organised with the help of the Stayloop platform. Stayloop is not a consumer reporting agency under the Consumer Reporting Act (Ontario), and no report about you was purchased from a consumer reporting agency'}
+              ? `本决定基于你自愿提交的申请文件与公开记录，由 Stayloop 平台协助整理。Stayloop 不是安省《消费者报告法》意义上的消费者报告机构${sources.bureauPull ? '；经你本人在核验页授权，我们向征信机构获取了你的信用报告摘要' : '，本次没有向消费者报告机构购买关于你的报告'}`
+              : `The decision was based on the documents you voluntarily submitted and on public records, organised with the help of the Stayloop platform. Stayloop is not a consumer reporting agency under the Consumer Reporting Act (Ontario)${sources.bureauPull ? '; with the authorisation you gave on the verification page, a summary of your credit report was obtained from the bureau' : ', and no report about you was purchased from a consumer reporting agency'}`}
             {sources.credit ? (zh ? '；我们阅读的是你本人提供的信用报告' : '; the credit report read was the one you supplied yourself') : ''}
             {sources.verified ? (zh ? '；经你本人授权的身份 / 银行核验结果也在考虑之列' : '; the identity / bank verification you authorised yourself was also considered') : ''}
             {zh ? '。公开记录来源：安省开放数据 LTB 判令目录、安省法院公开门户。' : '. Public-record sources: the Ontario Open Data LTB Order Catalogue and the Ontario Courts public portal.'}

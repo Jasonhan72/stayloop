@@ -400,7 +400,12 @@ export default function ShareConfigPage() {
               </div>
             </div>
 
-            {/* CTA */}
+            {/* Honest state (review 2026-09-13): the link is not built yet;
+                the PDF is the way to share a report today. */}
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
+              分享链接尚未上线——这一页是即将推出的功能预览，按钮不会生成可用链接。要把报告交给合伙人或经纪，请在报告页使用「下载评估报告 (PDF)」。
+              <span className="block text-amber-800/80">Share links are not live yet — this page previews the upcoming feature. To hand a report to a partner or agent, use “Download Report (PDF)” on the report page.</span>
+            </div>
             <div className="flex items-center gap-4">
               <button
                 onClick={handleGenerateLink}

@@ -1339,6 +1339,7 @@ JSON DISCIPLINE (avoid parse errors):
     } catch (e) {
       const errText = e instanceof Error ? e.message : String(e)
       await supabase.from('screenings').update({ status: 'error', error: errText.slice(0, 500) }).eq('id', screening_id)
+      captureException(e, { route: 'screen-score', level: 'warning', tags: { failure: 'model_api' }, extra: { screening_id, model: scoringDef.id } })
       return NextResponse.json({ error: `Model API error (${scoringDef.id}): ${errText.slice(0, 300)}` }, { status: 500 })
     }
     // A mid-stream error means the output is incomplete — fail the screening
@@ -1347,6 +1348,7 @@ JSON DISCIPLINE (avoid parse errors):
     if (streamError && !sawMessageStop) {
       const errMsg = `Model stream error after ${rawText.length} chars: ${streamError}`
       await supabase.from('screenings').update({ status: 'error', error: errMsg }).eq('id', screening_id)
+      captureException(new Error(errMsg), { route: 'screen-score', level: 'warning', tags: { failure: 'model_stream' }, extra: { screening_id } })
       return NextResponse.json({ error: errMsg }, { status: 500 })
     }
     if (!rawText) rawText = '{}'
@@ -1471,6 +1473,7 @@ JSON DISCIPLINE (avoid parse errors):
         status: 'error',
         error: (truncated ? 'AI output truncated: ' : 'AI parse error: ') + (e?.message || 'unknown').slice(0, 200),
       }).eq('id', screening_id)
+      captureException(e, { route: 'screen-score', level: 'warning', tags: { failure: truncated ? 'model_truncated' : 'model_parse' }, extra: { screening_id, stopReason, chars: rawText.length } })
       return NextResponse.json({
         error: truncated
           ? 'AI output was truncated — please retry (the model produced too much text).'
@@ -1503,6 +1506,7 @@ JSON DISCIPLINE (avoid parse errors):
           status: 'error',
           error: `AI output truncated — missing: ${missing.join(', ')}`.slice(0, 200),
         }).eq('id', screening_id)
+        captureException(new Error(`AI output truncated — missing ${missing.join(', ')}`), { route: 'screen-score', level: 'warning', tags: { failure: 'model_truncated' }, extra: { screening_id } })
         return NextResponse.json({
           error: 'AI output was truncated — please retry (the model produced too much text).',
           stop_reason: stopReason,
@@ -1604,6 +1608,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
           status: 'error',
           error: `Missing or invalid v3 score: ${k}`,
         }).eq('id', screening_id)
+        captureException(new Error(`Missing or invalid v3 score: ${k}`), { route: 'screen-score', level: 'warning', tags: { failure: 'model_missing_dim' }, extra: { screening_id } })
         return NextResponse.json({ error: `Missing or invalid v3 score: ${k}`, raw: text }, { status: 500 })
       }
       // Clamp to the legal 0-100 range. Sonnet occasionally emits values

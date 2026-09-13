@@ -126,15 +126,29 @@ const SEVERITY_WEIGHT: Record<string, number> = {
   info: 0,   // authenticity-positive corroboration — never adds suspicion
 }
 
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length)
+  let next = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++
+      out[i] = await fn(items[i])
+    }
+  })
+  await Promise.all(workers)
+  return out
+}
+
 /**
  * Main entry point. Always returns a report — never throws on individual file
  * failures (they're logged into per_file with empty results).
  */
 export async function runForensics(input: ForensicsInput): Promise<ForensicsReport> {
   const startedAt = Date.now()
-  const perFile: PerFileForensics[] = await Promise.all(
-    input.files.map(f => analyzeFile(f, input.anthropic_api_key, input.applicant_name, input.usage_meta))
-  )
+  // Bounded concurrency (review 2026-09-13): every file used to run at
+  // once, so a 14-file packet meant fourteen simultaneous vision / OCR
+  // calls against one edge isolate's memory and the provider's rate limit.
+  const perFile: PerFileForensics[] = await mapLimit(input.files, 4, f => analyzeFile(f, input.anthropic_api_key, input.applicant_name, input.usage_meta))
 
   // Cross-doc step: collect text samples + paystub extractions
   const crossDocFiles = perFile.map(pf => ({

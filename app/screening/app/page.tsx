@@ -1856,6 +1856,27 @@ export default function ScreenPage() {
     }
   }
 
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  async function deleteScreening(id: string, name: string) {
+    const ok = window.confirm(lang === 'zh'
+      ? `删除「${name || '这条筛查'}」？将同时删除上传的文件、申请人核验结果与报告，不可恢复。`
+      : `Delete "${name || 'this screening'}"? The uploaded files, the applicant's verification results and the report are removed permanently.`)
+    if (!ok) return
+    setDeletingId(id)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`/api/screening/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${session?.access_token || ''}` } })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.code === 'in_progress' ? (lang === 'zh' ? '这条筛查还在运行，请稍后再删。' : 'This screening is still running; try again in a few minutes.') : (data?.error || `HTTP ${res.status}`))
+      setHistory(prev => prev.filter(h => h.id !== id))
+      if (viewingHistoryId === id || result?.screening_id === id) reset()
+    } catch (e: any) {
+      setError(String(e?.message || 'delete failed'))
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   async function loadHistory() {
     const { data } = await supabase
       .from('screenings')
@@ -1946,6 +1967,14 @@ export default function ScreenPage() {
         forensics_zeroed_dims: v3.forensics_zeroed_dims ?? data.forensics_zeroed_dims ?? [],
         // Restore deep check result so the arm's-length card shows previous runs
         deep_check_result: data.deep_check_result ?? null,
+        // Review 2026-09-13: these were only rebuilt by the report page, so a
+        // history reload silently lost the court narrative, the applicant
+        // verification snapshot and the LTB coverage the live run had shown.
+        court_summary_en: v3.court_summary_en ?? undefined,
+        court_summary_zh: v3.court_summary_zh ?? undefined,
+        verification: v3.verification ?? (data as { verification?: ScoreResult['verification'] }).verification ?? null,
+        ltb_check: v3.ltb_check ?? null,
+        rubric: v3.rubric ?? undefined,
       }
 
       setFreshResult(false) // history loads render instantly, no typewriter
@@ -3354,6 +3383,30 @@ export default function ScreenPage() {
                   {result.model_version && ` · ${result.model_version}`}
                 </div>
               )}
+              {/* External verification — the same "N/3" the report prints.
+                  The live view and the history view now say it too (review
+                  2026-09-13: only the report page showed it). */}
+              {(() => {
+                const v = result.verification
+                const idOk = v?.id?.status === 'verified'
+                const bankOk = v?.bank?.status === 'verified'
+                const crOk = v?.credit?.status === 'verified'
+                const n = (idOk ? 1 : 0) + (bankOk ? 1 : 0) + (crOk ? 1 : 0)
+                const cell = (ok: boolean, label: string) => (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: ok ? '#E4EEE3' : '#F3F8FC', color: ok ? '#065F46' : '#71717A' }}>{ok ? '✓' : '·'} {label}</span>
+                )
+                return (
+                  <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <span className="mono" style={{ fontSize: 10.5, color: n > 0 ? '#047857' : '#A16207', fontWeight: 700, letterSpacing: '0.04em' }}>
+                      {lang === 'zh' ? `外部核验 ${n}/3` : `Third-party checks ${n}/3`}
+                    </span>
+                    {cell(idOk, lang === 'zh' ? '身份' : 'identity')}
+                    {cell(bankOk, lang === 'zh' ? '银行' : 'bank')}
+                    {cell(crOk, lang === 'zh' ? '征信' : 'credit')}
+                    {n === 0 && <span style={{ fontSize: 10.5, color: '#A16207' }}>{lang === 'zh' ? '评分基于文件互证' : 'score rests on the documents alone'}</span>}
+                  </div>
+                )
+              })()}
               {/* v3 tier badge + evidence coverage bar */}
               {result.v3_tier && (() => {
                 const tierColors: Record<string, { bg: string; fg: string; label: string }> = {
@@ -4006,6 +4059,19 @@ export default function ScreenPage() {
                       <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                         {s.ai_extracted_name || s.tenant_name || t('history.autoExtracted')}
                       </div>
+                      {/* Delete — the only way to remove an applicant's data
+                          (files, verification, transcriptions) from the
+                          account; also the way out of a row stuck in
+                          uploading/error (review 2026-09-13). */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteScreening(s.id, s.ai_extracted_name || s.tenant_name || '') }}
+                        disabled={deletingId === s.id}
+                        aria-label={lang === 'zh' ? '删除此筛查记录' : 'Delete this screening'}
+                        title={lang === 'zh' ? '删除此筛查记录及其全部文件' : 'Delete this screening and all its files'}
+                        style={{ background: 'none', border: 'none', color: '#9FBBD0', cursor: 'pointer', fontSize: 15, minWidth: 36, minHeight: 36, margin: '-8px -4px -8px 0', flexShrink: 0, opacity: deletingId === s.id ? 0.5 : 1 }}
+                      >
+                        {deletingId === s.id ? '…' : '🗑'}
+                      </button>
                       {s.ai_score != null && lvl ? (
                         <span className="mono" style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6, background: `${lvl.color}18`, color: lvl.color, border: `1px solid ${lvl.color}30` }}>{s.ai_score}</span>
                       ) : (

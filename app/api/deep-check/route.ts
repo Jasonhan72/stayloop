@@ -599,7 +599,7 @@ export async function POST(req: Request) {
     const allUnverified = results.length > 0 && results.every(r => r.arm_length_risk === 'unverified')
     const overallRisk = hasHighRisk ? 'high' : hasMediumRisk ? 'medium' : hasLowRisk ? 'low' : allUnverified ? 'unverified' : 'clean'
 
-    return Response.json({
+    const out = {
       success: true,
       checks: results,
       bn_checks: bnResults,
@@ -608,7 +608,19 @@ export async function POST(req: Request) {
       total_flags: allFlags.length,
       checked_at: new Date().toISOString(),
       elapsed_ms: Date.now() - t0,
-    })
+    }
+    // Persist here, not only from the browser (review 2026-09-13: closing
+    // the tab lost a result the credit had already paid for). Ownership was
+    // proven by the gate's RLS reads above.
+    if (gateScreeningId) {
+      try {
+        const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
+        await admin.from('screenings').update({ deep_check_result: out }).eq('id', gateScreeningId)
+      } catch (e) {
+        captureException(e, { route: 'deep-check', level: 'warning', extra: { screening_id: gateScreeningId, what: 'persist deep_check_result' } })
+      }
+    }
+    return Response.json(out)
   } catch (e: any) {
     console.error('[deep-check] Error:', e)
     captureException(e, { route: 'deep-check', level: 'error' })

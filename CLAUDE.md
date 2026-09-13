@@ -350,12 +350,21 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
   Header 汉堡菜单限高可滚；Flinks/征信弹窗 `dvh` + 可滚 + 44px 关闭；报告信用分档刻度改 5 列网格
   并在手机隐藏区间数字；已核验事实三格缩字号；移除文件 × 放大到 36px；法庭查询姓名分隔行可换行；
   CTA 观察器减去底栏 64px；租金输入 `inputMode=numeric`；来源链接 / 未检索状态 ≥11.5px。
-**记录未做**（模块审查提出、需要产品决定或更大改动）：历史记录重建缺 court_summary/verification/
-rubric（应与报告页共用一个 `reconstructResult`）；结果页与报告页展示的事实集合不同；share 页生成的
-`app.stayloop.ai/s/…` 链接不存在（TODO 已在）；筛查记录无删除/重试 UI 且 DELETE 策略只匹配 profileId；
-PII 四处存放无清理、通知信承诺的查阅/更正/删除无端点、征信直拉上线后「未向消费者报告机构购买报告」
-一句要改；deep_check_result 由浏览器回写、关页即丢；model 输出 flags/action_items 原样落库；Sentry 只
-看到两类失败；forensics 无文件数 × 页数上限。
+**用户把后续取舍交给我决定（2026-09-13），落地如下**：
+- **删除筛查记录**：新路由 `DELETE /api/screening/<id>`（RLS 读行证明归属 → service role 删 tenant-files
+  对象、`verification_requests`、行本身；运行中 10 分钟内返回 409）+ 历史列表每行 🗑（36px、二次确认）。
+  迁移 `20260913_screenings_delete_policy.sql` 把 DELETE 策略补上 `landlord_id = auth.uid()`（已应用 prod）。
+  这同时是申请人数据删除请求的执行路径，也是卡死 / 出错行的出口。**不加「重新评估」按钮**（用户已否决）。
+- **历史记录重建补齐** court_summary / verification / ltb_check / rubric；结果页总分卡加「外部核验 N/3 ·
+  身份 / 银行 / 征信」条，与报告页、打印版一致。硬门槛芯片总分卡本来就有（3372 行），不动。
+- **deep_check_result 由路由服务端落库**（浏览器回写保留作兜底）。
+- **五处模型失败出口都上报 Sentry**（tags.failure = model_api / model_stream / model_truncated /
+  model_parse / model_missing_dim）。
+- **取证并发上限 4 个文件**（`mapLimit`），不再 14 个文件同时 OCR。
+- **通知信**：只有真正 verified 的步骤才写「已考虑」；征信直拉成功时改写「经你授权向征信机构获取摘要」，
+  不再无条件说「未购买报告」。**share 页**加琥珀色说明「分享链接尚未上线，请用 PDF」；不做真分享（无需求量）。
+- **不做**：PII 定期清理 job（存储对象无法从 pg_cron 删除；删除按钮已给房东工具，等有真实量再定保留期）；
+  模型输出 flags/action_items 的形状校验（React 侧已转义）。
 
 ## Jina 是预付费余额，用完全站六处静默降级（2026-09-12 · 一次真实事故）
 
