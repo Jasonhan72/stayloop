@@ -2218,7 +2218,12 @@ export default function ScreenPage() {
     setVerifiedCount(0)
   }
 
-  async function runAnalysis() {
+  // `rescoreId`: re-run the whole pipeline on an EXISTING screening (same
+  // stored files) — the way to pick up facts that landed after the first
+  // run: an applicant's Veriff / Flinks results, a fixed rule, a newer LTB
+  // catalogue. Until 2026-09-13 there was no such button; the only way to
+  // re-score was to upload everything again as a new record.
+  async function runAnalysis(rescoreId?: string) {
     // A double-click that beats the re-render would insert two screening rows
     // and upload everything twice.
     if (analyzing) return
@@ -2229,10 +2234,13 @@ export default function ScreenPage() {
     // Registered accounts only - the register gate page covers the UI, this is
     // the in-function backstop.
     if (landlord.isAnonymous) return
-    if (files.length === 0 && !applicantName.trim()) {
+    if (files.length === 0 && !applicantName.trim() && !rescoreId) {
       setError(t('screen.err.min'))
       return
     }
+    // The record being re-scored: restored if the run fails.
+    const previous = rescoreId ? result : null
+    const queuedCount = rescoreId ? (previous?.file_count ?? 0) : files.length
     setAnalyzing(true)
     setResult(null)
     setUnlocked(false)
@@ -2249,7 +2257,7 @@ export default function ScreenPage() {
     // run's total and the pill showed an inflated number.
     verifiedCountRef.current = 0
     setVerifiedCount(0)
-    setScanLog([{ at: Date.now(), zh: `开始筛查 · ${files.length} 个文件已加入扫描队列`, en: `Scan started · ${files.length} file(s) queued` }])
+    setScanLog([{ at: Date.now(), zh: rescoreId ? `重新评估 · 使用已上传的 ${queuedCount} 个文件` : `开始筛查 · ${files.length} 个文件已加入扫描队列`, en: rescoreId ? `Re-run · ${queuedCount} stored file(s)` : `Scan started · ${files.length} file(s) queued` }])
     const startedAt = Date.now()
     setElapsedSec(0)
 
@@ -2409,6 +2417,13 @@ export default function ScreenPage() {
     }
 
     try {
+      let screeningId: string
+      const uploaded: UploadedFile[] = []
+      const failedFiles: string[] = []
+      if (rescoreId) {
+        screeningId = rescoreId
+        setProgress(2)
+      } else {
       // 1. Create screening row
       const { data: row, error: insertErr } = await supabase
         .from('screenings')
@@ -2437,7 +2452,7 @@ export default function ScreenPage() {
         .select('id')
         .single()
       if (insertErr || !row) throw new Error(insertErr?.message || 'Failed to create screening record')
-      const screeningId = row.id
+      screeningId = row.id
       setProgress(2)
 
       // 2. Upload files to storage — one-at-a-time with retry.
@@ -2447,8 +2462,6 @@ export default function ScreenPage() {
       // the screening still runs on whatever files made it through.
       const stamp = Date.now()
       const MAX_RETRIES = 2
-      const uploaded: UploadedFile[] = []
-      const failedFiles: string[] = []
 
       // Refresh auth session before upload to prevent token expiry mid-upload
       await supabase.auth.refreshSession()
@@ -2501,6 +2514,7 @@ export default function ScreenPage() {
       if (uploaded.length > 0) {
         await supabase.from('screenings').update({ files: uploaded }).eq('id', screeningId)
       }
+      }
 
       // Warn about skipped files (non-fatal)
       if (failedFiles.length > 0) {
@@ -2545,12 +2559,13 @@ export default function ScreenPage() {
       await new Promise(r => setTimeout(r, 450))
 
       setFreshResult(true)
-      setResult({ ...(data as ScoreResult), screening_id: (data as ScoreResult).screening_id || screeningId, file_count: files.length })
+      setResult({ ...(data as ScoreResult), screening_id: (data as ScoreResult).screening_id || screeningId, file_count: rescoreId ? queuedCount : files.length })
       setUnlocked(false)
       setLastDetectedKinds(Array.isArray((data as ScoreResult).detected_document_kinds) ? (data as ScoreResult).detected_document_kinds! : [])
       loadHistory()
     } catch (e: any) {
       setError(friendlyError(e?.message || '', lang) || t('screen.err.unknown'))
+      if (previous) setResult(previous)
     } finally {
       stopProgressTracking()
       setAnalyzing(false)
@@ -3100,7 +3115,7 @@ export default function ScreenPage() {
                     <div>
                     <button
                       ref={ctaRef}
-                      onClick={runAnalysis}
+                      onClick={() => runAnalysis()}
                       disabled={isDisabled}
                       style={{
                         width: '100%', padding: '14px 28px', fontSize: 15, borderRadius: 12, fontWeight: 650,
@@ -3471,6 +3486,27 @@ export default function ScreenPage() {
                 </svg>
                 {lang === 'zh' ? '再筛查一位申请人' : 'Screen another applicant'}
               </button>
+              {(result.screening_id || viewingHistoryId) && (
+                <button
+                  onClick={() => runAnalysis(result.screening_id || viewingHistoryId || undefined)}
+                  title={lang === 'zh' ? '用同一批已上传文件重新跑一遍：带上申请人本人核验结果、最新的规则与法庭目录（计一次筛查）' : 'Re-run on the same stored files: picks up applicant verification results, current rules and court data (counts as one screening)'}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '10px 24px', borderRadius: 10,
+                    background: '#FFFFFF', color: '#0B1736',
+                    fontSize: 13, fontWeight: 600, letterSpacing: '0.02em',
+                    border: '1px solid #E4E8F0', cursor: 'pointer',
+                    transition: 'background .15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#F3F8FC' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF' }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                  </svg>
+                  {lang === 'zh' ? '重新评估' : 'Re-run screening'}
+                </button>
+              )}
             </div>
 
             {/* Summary */}
@@ -4048,7 +4084,7 @@ export default function ScreenPage() {
               const isDisabled = (files.length === 0 && !applicantName.trim()) || classifying || preparing
               return (
                 <button
-                  onClick={runAnalysis}
+                  onClick={() => runAnalysis()}
                   disabled={isDisabled}
                   style={{
                     flex: '0 0 auto', padding: '13px 22px', fontSize: 14.5, borderRadius: 12, fontWeight: 650,
