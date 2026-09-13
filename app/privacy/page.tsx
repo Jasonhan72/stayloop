@@ -21,8 +21,8 @@ export default function PrivacyPage() {
 
           <Section title={zh ? '1 · 我们收集什么' : '1 · What we collect'}>
             <p>{zh
-              ? '身份信息 (姓名 / 邮箱 / 电话 / 证件 hash)、收入凭证、银行连接 token (Plaid)、信用 / 法庭记录 (你授权的)、设备 + 使用日志。'
-              : 'Identity information (name / email / phone / document hash), proof of income, bank-connection tokens (Plaid), credit and court records (where you authorize them), and device and usage logs.'}</p>
+              ? '身份信息 (姓名 / 邮箱 / 电话 / 证件 hash)、收入凭证、银行直连摘要 (Flinks，只存摘要不存原始流水或网银凭证)、信用 / 法庭记录 (你授权的)、设备 + 使用日志。'
+              : 'Identity information (name / email / phone / document hash), proof of income, bank-connection summaries (Flinks — summaries only, never raw transactions or banking credentials), credit and court records (where you authorize them), and device and usage logs.'}</p>
           </Section>
           <Section title={zh ? '2 · 我们怎么用' : '2 · How we use it'}>
             <p>{zh ? (

@@ -263,14 +263,15 @@ export function scoreRubric(f: RubricFacts): RubricResult {
   let ability: number
   if (income.monthly && f.monthly_rent && f.monthly_rent > 0) {
     const ratio = income.monthly / f.monthly_rent
-    // Bands follow the Canadian 3x convention; 2.5x is the last defensible
-    // point before rent alone consumes 40% of gross.
+    // Decision 2026-09-13 (OHRC policy on rental housing; O. Reg. 290/98):
+    // a rent-to-income cut-off is not a lawful ground of refusal, so the
+    // ratio no longer sinks a verified earner. Verified income scores from a
+    // solid floor; comfortable multiples still read higher; the ratio itself
+    // is displayed as information for the landlord's own judgement.
     ability =
       ratio >= 4 ? 92 :
-      ratio >= 3 ? 80 :
-      ratio >= 2.5 ? 62 :
-      ratio >= 2 ? 45 : 22
-    add('ability_to_pay', 'income_rent_ratio', ability, `${ratio.toFixed(2)}x verified`)
+      ratio >= 3 ? 80 : 70
+    add('ability_to_pay', 'income_rent_ratio', ability, `${ratio.toFixed(2)}x verified — information only, not a refusal ground`)
   } else if (f.claimed_monthly_income && f.monthly_rent) {
     // A claim with no corroboration. Capped well below any verified band so it
     // can never outrank a documented lower earner.
@@ -291,8 +292,10 @@ export function scoreRubric(f: RubricFacts): RubricResult {
     ? (f.monthly_rent + (f.credit?.monthly_debt_payments || 0)) / income.monthly
     : null
   if (burden != null) {
-    const d = burden >= 0.5 ? -20 : burden >= 0.4 ? -12 : burden >= 0.32 ? -5 : 0
-    if (d) ability += add('ability_to_pay', 'total_debt_service', d, `rent + debt = ${(burden * 100).toFixed(0)}% of verified income`)
+    // Recorded for the landlord to read; carries no score delta for the
+    // same reason as the ratio band above (2026-09-13). Existing debt is
+    // still priced through the credit dimension (past due, utilisation).
+    add('ability_to_pay', 'total_debt_service', 0, `rent + debt = ${(burden * 100).toFixed(0)}% of verified income — information only`)
   }
 
   // Liquid reserves: the lowest balance the statements touched, in months of
@@ -396,12 +399,11 @@ export function scoreRubric(f: RubricFacts): RubricResult {
     }
     // A thin file cannot support a high score: two accounts or under a year
     // of history is not a track record, whatever number sits on top of it.
-    // tradelineCount 0 means the model transcribed none — unmeasured, not
-    // thin (review 2026-09-13); exactly one account is thin.
+    // A short or thin credit history is NOT a negative (OHRC: "a lack of
+    // rental or credit history should not be viewed negatively"; decision
+    // 2026-09-13). It is recorded as information with no score delta.
     const thin = (f.tradelineCount != null && f.tradelineCount === 1) || (f.creditHistoryMonths != null && f.creditHistoryMonths < 12)
-    if (thin && creditScore > 62) {
-      creditScore += add('credit_health', 'thin_file', 62 - creditScore, `${f.tradelineCount ?? '?'} tradeline(s), ${f.creditHistoryMonths ?? '?'} months of history`)
-    }
+    if (thin) add('credit_health', 'thin_file', 0, `${f.tradelineCount ?? '?'} tradeline(s), ${f.creditHistoryMonths ?? '?'} months of history — short history is information, not a negative`)
   }
 
   // ── Rental history ──────────────────────────────────────────────────────

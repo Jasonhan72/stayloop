@@ -767,8 +767,8 @@ export default function ReportPage() {
                 )}
                 {rent != null && rent > 0 && <KV k={zh ? '目标月租金' : 'Target rent'}>{money(rent)}/{zh ? '月' : 'mo'}</KV>}
                 {ratio != null && (
-                  <KV k={zh ? '收入/租金比' : 'Income-to-rent'}>
-                    <strong style={{ color: ratio >= 3 ? '#16A34A' : ratio >= 2 ? '#D97706' : '#DC2626' }}>{ratio.toFixed(1)}x</strong>
+                  <KV k={zh ? '收入/租金比 · 仅供参考' : 'Income-to-rent · information only'}>
+                    <strong>{ratio.toFixed(1)}x</strong>
                     {r.effective_monthly_income != null && rent != null && rent > 0 && (
                       <span className="ml-2 font-mono text-[11px] text-body-3">= {money(r.effective_monthly_income)} ÷ {money(rent)}</span>
                     )}

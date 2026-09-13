@@ -1129,7 +1129,6 @@ SUB-COMPONENT COVERAGE TAGS (mandatory):
 - "missing" — no evidence and no realistic action item
 
 HARD GATES (if any condition is met, set gate in hard_gates_triggered[]):
-- "income_severe" — income/rent < 2.0x → caps overall at 65
 - "ltb_eviction" — confirmed LTB eviction in past 3yrs → caps overall at 40
 - "doc_tampering" — visible PS/overwrite/font anomalies → caps overall at 55
 - "identity_mismatch" — same name, different DOB/addresses/IDs → caps overall at 50
@@ -2160,21 +2159,15 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         ? effectiveIncomeForGate / effectiveRent
         : null
 
-    if (effectiveRent > 0 && verifiedRatio !== null && verifiedRatio < 2.0 && !hardGates.includes('income_severe')) {
-      hardGates.push('income_severe')
-    }
-    // Affordability gate: rent > 40% of verified gross income. Fires even
-    // when income_severe is also set — the tighter cap (55) wins over (65).
-    if (effectiveRent > 0 && verifiedRatio !== null && verifiedRatio < 2.5 && !hardGates.includes('affordability_severe')) {
-      hardGates.push('affordability_severe')
-    }
-    // Red flag: rent 35-40% of gross income — borderline. Skip if
-    // affordability_severe already fires (double-counting would be unfair).
-    // Uses the verified ratio (detected income / rent), same precedence
-    // as the affordability gate above.
-    if (effectiveRent > 0 && verifiedRatio !== null && verifiedRatio >= 2.5 && verifiedRatio < 2.857 && !redFlags.includes('rent_ratio_high')) {
-      redFlags.push('rent_ratio_high')
-    }
+    // No rent-to-income gates or flags (decision 2026-09-13). OHRC: "It is
+    // illegal for housing providers to apply a rent-to-income ratio such as
+    // a 30% cut-off rule"; O. Reg. 290/98 lets income be considered only
+    // together with rental history / credit. The ratio is still computed
+    // and SHOWN (verifiedRatio → income_rent_ratio) as information; any
+    // model-emitted affordability gate is dropped below.
+    void verifiedRatio
+    for (const g of ['income_severe', 'affordability_severe']) { const i = hardGates.indexOf(g); if (i >= 0) hardGates.splice(i, 1) }
+    { const i = redFlags.indexOf('rent_ratio_high'); if (i >= 0) redFlags.splice(i, 1) }
     // Lift any ID-validation failures from the forensics layer into the red-flag
     // system so they contribute to the penalty score.
     const idFailureCodes = new Set([

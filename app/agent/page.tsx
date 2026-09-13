@@ -36,18 +36,18 @@ const CFG: RoleLandingConfig = {
     note: { zh: '带看结束,记录自动归档留痕。', en: 'After each showing, notes are filed and audited automatically.' },
   },
   journey: [
-    { h: { zh: '接收合格转介', en: 'Qualified referrals in' }, b: { zh: '客户来时已验证、已画像,不用从零聊。', en: 'Clients arrive verified and profiled — no starting from zero.' } },
+    { h: { zh: '租客主动找你', en: 'Tenants come to you' }, b: { zh: '认证后进入房源页的经纪目录，租客自选联系；来时已验证、已画像。', en: 'Once verified you appear in the listing-page directory; tenants pick and contact you, already verified and profiled.' } },
     { h: { zh: '杂活进收件箱', en: 'Busywork hits the inbox' }, b: { zh: 'AI 按你的日历接单、排程、备材料。', en: 'AI takes the tasks, schedules them around your calendar and preps the materials.' } },
     { h: { zh: '你只管带看', en: 'You just show up' }, b: { zh: '现场记录、授权清晰,专业的部分归你。', en: 'On-site notes, clear authorization — the professional part stays yours.' } },
     { h: { zh: '跟进它来盯', en: 'It runs the follow-ups' }, b: { zh: '客户记忆复用,进展自动提醒,不再跟丢。', en: 'Client memory is reused and progress auto-flagged — no one slips away.' } },
-    { h: { zh: '当晚结算', en: 'Settled the same night' }, b: { zh: 'Stripe 自动收款、RECO 合规、审计留痕。', en: 'Stripe auto-collection, RECO compliance, audit trail.' } },
+    { h: { zh: '当晚归档', en: 'Filed the same night' }, b: { zh: '带看记录自动归档、RECO 合规提醒、审计留痕。佣金与你的经纪公司之间结算，Stayloop 不经手。', en: 'Showing notes filed, RECO reminders, audit trail. Commission settles between you and your brokerage — Stayloop never touches it.' } },
   ],
   story: [
     {
       file: 'david-01-task.jpg',
       fallback: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=700&q=80&fit=crop&auto=format',
       label: { zh: '接到任务', en: 'Task lands' },
-      text: { zh: 'RECO 验证 30 秒通过。新任务推送:时间、地点、租客画像与授权问答清单,AI Agent 备好材料包。', en: 'RECO verified in 30 seconds. A task arrives: time, place, tenant profile and the authorized Q&A list — the AI agent preps the full pack.' },
+      text: { zh: '提交 RECO 注册信息，人工核验后获得「RECO 注册已核」标记，进入租客可选的经纪目录。租客找上门：时间、地点、租客画像与授权问答清单，AI Agent 备好材料包。', en: 'Submit your RECO registration; once checked by hand you carry the “RECO verified” mark and appear in the tenant-facing directory. A tenant reaches out: time, place, profile and the authorized Q&A list — the AI agent preps the pack.' },
     },
     {
       file: 'david-02-showing.jpg',

@@ -7,6 +7,8 @@ import Header from './Header'
 import { useI18n } from '@/lib/i18n'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import { SampleBanner } from './SampleNotice'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/useAuth'
 
 export type WorkspaceRole = 'tenant' | 'landlord' | 'agent'
 
@@ -205,8 +207,43 @@ function DemoGate({ children, gate, showDemo, setShowDemo }: {
   )
 }
 
+// Agents must be RECO-verified before the agent-only surfaces mean anything
+// (decision 2026-09-13). The shell shows the state on every agent page; the
+// public directory (AgentPicker) only lists status = verified.
+function useAgentVerification(role: WorkspaceRole) {
+  const auth = useAuth()
+  const [status, setStatus] = useState<'loading' | 'none' | 'pending' | 'verified' | 'rejected' | 'renewal_due' | 'expired'>('loading')
+  useEffect(() => {
+    if (role !== 'agent') return
+    if (auth.loading) return
+    if (!auth.user) { setStatus('none'); return }
+    supabase.from('agent_profiles').select('status').eq('auth_id', auth.user.id).maybeSingle()
+      .then(({ data }) => setStatus((data?.status as typeof status) || 'none'))
+  }, [role, auth.loading, auth.user])
+  return status
+}
+
+function AgentVerificationBanner({ status, zh }: { status: ReturnType<typeof useAgentVerification>; zh: boolean }) {
+  const path = usePathname() || ''
+  if (status === 'loading' || status === 'verified' || path.startsWith('/agent/verify')) return null
+  const text = status === 'pending'
+    ? (zh ? '你的 RECO 注册信息已提交，等待人工核验。核验通过后进入租客可选的经纪目录。' : 'Your RECO registration is submitted and awaiting manual verification. Once verified you appear in the tenant-facing agent directory.')
+    : status === 'rejected'
+      ? (zh ? '认证未通过。请检查提交的注册信息并重新提交。' : 'Verification was not approved. Check the submitted registration and resubmit.')
+      : status === 'renewal_due' || status === 'expired'
+        ? (zh ? '你的 RECO 注册已到期或即将到期，请更新到期日以重新核验。' : 'Your RECO registration has expired or is about to; update the expiry date to be re-verified.')
+        : (zh ? '经纪身份尚未认证：提交 RECO 注册信息，人工核验后获得「RECO 注册已核」标记并进入租客可选目录。Stayloop 不是经纪公司，不收取佣金或转介费。' : 'Not yet verified as an agent: submit your RECO registration; once checked by hand you get the “RECO verified” mark and appear in the tenant-facing directory. Stayloop is not a brokerage and takes no commission or referral fee.')
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
+      <span>{text}</span>
+      <Link href="/agent/verify" className="rounded-lg px-3 py-1.5 text-[12.5px] font-bold text-white" style={{ background: '#1B1B3C' }}>{zh ? (status === 'none' ? '去认证' : '查看 / 更新') : (status === 'none' ? 'Get verified' : 'View / update')}</Link>
+    </div>
+  )
+}
+
 export default function WorkspaceShell({ role, aside, children, hideAside }: Props) {
   const { gate, sampleNote, showDemo, setShowDemo } = useDemoGate()
+  const agentStatus = useAgentVerification(role)
   const { lang } = useI18n()
   // On a gated route the aside is demo narrative too (Unit 1207 stories) —
   // an honest empty state beside a fixture-driven aside defeats the point.
@@ -222,6 +259,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside }: Pro
           <Rail role={role} />
           <div className="min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12">
             {sampleNote && <SampleBanner zh={lang === 'zh'} note={sampleNote} />}
+            {role === 'agent' && <AgentVerificationBanner status={agentStatus} zh={lang === 'zh'} />}
             <DemoGate gate={gate} showDemo={showDemo} setShowDemo={setShowDemo}>{children}</DemoGate>
           </div>
           {!asideHidden && (

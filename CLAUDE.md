@@ -324,6 +324,37 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
   申请表抽取的 `applying_rent`（此前只有评分表和报告回退）。
 - 法庭门户逐个查询加 60s 总预算；OCR 只对「快速失败」重试一次；DashScope 回退文本保留 5 万字。
 
+## 三角色与经纪认证（2026-09-13 · 法规研究后落地）
+
+研究与方案：`design/roles-and-agent-verification-2026-09.md`（一手来源逐条引文在 `design/research/`）。
+用户拍板：① 经纪认证人工核验、② 转介佣金引擎冻结（生产 0 行，待律师意见）、③ 是否注册消费者报告
+机构另行研究、④ 收入倍数硬门槛改信息性、⑤ 下线租客付款链接、⑥ 经纪流程 = 租客在房源页自选认证
+经纪并直接联系，**Stayloop 不做经纪业务、不收费**。已落地：
+- **`agent_profiles` + `agent_verification_events`**（迁移 `20260913_agent_profiles.sql`，已应用 prod）：
+  经纪在 `/agent/verify` 填注册姓名 / RECO 注册号（7 位）/ 类别 / 经纪公司注册名 / 到期日 / 业务联系方式 /
+  CREA 会员 / 承诺；**不传证件、不收 SIN**。触发器 `guard_agent_profile_fields`：自助改动永不触碰
+  status / verified_*，改了注册事实即回 pending；`agent_profile_insert_defaults` 保证新行 pending。RLS：本人读写、
+  `status='verified'` 对 anon/authenticated 公开可读（目录用）、管理员全权。
+- **`/admin/agents`**：管理员**手动**打开 registrantsearch.reco.on.ca（需加拿大 IP——开 VPN 时 403；页面
+  声明禁止商业使用，无 API，**永远不要抓取或自动查询**），按 RECO ID 对照后核验 / 拒绝 / 标过期。
+- **徽章 `components/AgentBadge.tsx`**：「RECO 注册已核 · #号 · 经纪公司 · 核于 日期」，只表示核验日在
+  RECO 公开注册库上处于注册状态，链到注册库与 RECO 投诉入口；REALTOR® 只在自述 CREA 会员时显示；
+  展示一律「注册名 · 允许的头衔 · 经纪公司名」（O. Reg. 567/05 s.12.1）。
+- **房源页「找经纪帮我完成」→ `components/AgentPicker.tsx`**：列出 verified 经纪，租客自己发邮件 / 打电话；
+  原「Stayloop 从会员经纪池派单（RECO 已验证）」与 $80 Field Agent 弹窗不再使用；联系人卡片的虚构
+  「★ 4.8 · 27 transactions」已删。经纪工作台 `WorkspaceShell` 对 role=agent 显示认证状态横幅；
+  onboarding 选经纪后先到 `/agent/verify`。
+- **评分口径**（OHRC《租房人权政策》：租金收入比截止线违法；缺信用史不得视为负面；O. Reg. 290/98）：
+  `screen-score` 删除 `income_severe` / `affordability_severe` 硬门槛与 `rent_ratio_high` 红旗（模型若仍输出，
+  一律剔除）；`rubric` 的 `income_rent_ratio` 只在 ≥3× / ≥4× 上加分，其余已核实收入统一 70 分、
+  `total_debt_service` 与 `thin_file` 记录但 **delta 为 0**；报告页 / 打印版 / 结果页都标「仅供参考 · 非拒绝
+  依据」。校准夹具的「45% 租金」「薄档案」扰动改为「不得降分」断言。
+- **租客付费解锁**：`UnlockModal` 删掉「让申请人付」，`/api/stripe/unlock` 对 `payer=tenant` 返回 400
+  （RTA s.134(1)–(2)）；定价页、房源页、经纪页、隐私页（Plaid→Flinks）文案同步改为事实。
+- **申请人通知信**补《消费者报告法》s.10(7) 通知（60 天内可索取信息性质与来源）与 AI 辅助 / 房东本人决定声明。
+**仍未做 / 待外部**：消费者报告机构注册（研究进行中）；转介佣金引擎冻结；Realtor.ca 数据来源换 DDF Partner；
+到期前 30 天自动转 `renewal_due` 的定时任务（目前由管理员手动标过期）。
+
 ## 第二轮审查：修复回归 + 模块级 + 手机可操作性（2026-09-13）
 
 三个代理：① 对上一轮 33 条修复做二次审查（13 条，修 11）；② 筛查与核验两个模块的流程/状态/权限/PII/

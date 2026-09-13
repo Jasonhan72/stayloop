@@ -52,7 +52,7 @@ const PLANS: RolePlan[] = [
           { zh: '个人 AI Agent 全功能', en: 'Full personal AI agent' },
           { zh: '四枚章,全部免费盖', en: 'All four stamps free to earn' },
           { zh: '申请 · 签约 · 维修全流程', en: 'Apply, sign and maintenance end to end' },
-          { zh: '持牌经纪免费带看', en: 'Free showings with licensed agents' },
+          { zh: '可直接联系平台认证的持牌经纪（Stayloop 不收费）', en: 'Contact Stayloop-verified licensed agents directly (no fee from Stayloop)' },
           { zh: '租房记录可携带', en: 'Portable rental record' },
           { zh: '数据可导出、可删除', en: 'Full data export / deletion rights' },
         ],
@@ -76,7 +76,7 @@ const PLANS: RolePlan[] = [
         features: [
           { zh: '1 套房源', en: '1 listing' },
           { zh: '每月 5 次租客筛查（含取证与信用分析）', en: '5 tenant screenings a month (forensics + credit analysis included)' },
-          { zh: '深度核查按次解锁 $14.99，可让申请人付', en: 'Deep checks unlock per applicant at $14.99 — the applicant can pay' },
+          { zh: '深度核查按次解锁 $14.99', en: 'Deep checks unlock per applicant at $14.99' },
           { zh: '接收申请 + 看房意向', en: 'Applications + showing intents' },
           { zh: '在线收租，不抽流水', en: 'Online rent collection, no cut' },
         ],

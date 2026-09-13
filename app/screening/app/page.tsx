@@ -3453,6 +3453,7 @@ export default function ScreenPage() {
                         {realRatio != null ? `${realRatio.toFixed(1)}x` : 'N/A'}
                       </div>
                       {t('screen.result.stat.ratio')}
+                      <div style={{ fontSize: 9.5, color: '#9FBBD0', marginTop: 2 }}>{lang === 'zh' ? '仅供参考 · 非拒绝依据' : 'information only'}</div>
                     </div>
                     <div><div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>{result.file_count ?? files.length}</div>{t('screen.result.stat.files')}</div>
                     <div><div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>{result.court_records_detail?.queries.filter(q => q.status === 'ok' && !q.source.startsWith('──')).length || 0}</div>{t('screen.result.stat.courts')}</div>
@@ -4185,20 +4186,12 @@ function UnlockModal({ lang, busy, tenantLink, tenantEmail, onTenantEmail, onClo
               style={{ padding: '11px 14px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#00ACE4,#0094C6)', color: '#fff', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>
               {busy === 'landlord' ? (zh ? '跳转 Stripe…' : 'Redirecting…') : (zh ? '我来付 · $14.99' : 'I’ll pay · $14.99')}
             </button>
-            <div style={{ border: '1px solid #E4EEF6', borderRadius: 10, padding: '10px 12px' }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700 }}>{zh ? '让申请人付' : 'Ask the applicant to pay'}</div>
-              <div style={{ fontSize: 11.5, color: '#71717A', margin: '2px 0 8px' }}>
-                {zh ? '生成一条 24 小时有效的付款链接，发给申请人；付完解锁自动落到本次筛查。' : 'Generates a 24-hour Stripe link to forward; once paid, the unlock lands on this screening automatically.'}
-              </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input type="email" value={tenantEmail} onChange={e => onTenantEmail(e.target.value)}
-                  placeholder={zh ? '申请人邮箱（可选，预填收据）' : 'Applicant email (optional, prefills receipt)'}
-                  style={{ flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: 8, border: '1px solid #E4EEF6', fontSize: 13 }} />
-                <button onClick={() => onUnlock('tenant')} disabled={busy !== null}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}>
-                  {busy === 'tenant' ? (zh ? '生成中…' : 'Creating…') : (zh ? '生成链接' : 'Create link')}
-                </button>
-              </div>
+            {/* No "ask the applicant to pay" (removed 2026-09-13): RTA s.134
+                forbids a landlord or anyone acting for one from collecting
+                any fee from a prospective tenant; a forwarded payment link is
+                exactly that. The landlord pays, or upgrades. */}
+            <div style={{ fontSize: 11.5, color: '#71717A', lineHeight: 1.5 }}>
+              {zh ? '费用由房东承担。安省《住宅租赁法》第 134 条禁止向准租客收取申请或核查费用。' : 'The landlord bears the cost. Ontario’s Residential Tenancies Act s.134 forbids charging a prospective tenant any application or screening fee.'}
             </div>
             <button onClick={onPro}
               style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #E4EEF6', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', color: '#3F3F46' }}>

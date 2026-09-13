@@ -378,7 +378,8 @@ export async function generateScreeningReport(
     const idOk = v?.id?.status === 'verified'
     const bankOk = v?.bank?.status === 'verified'
     const n = (idOk ? 1 : 0) + (bankOk ? 1 : 0)
-    html += `<div style="margin-top:4px;font-size:10px;color:#64748B">${zh ? '外部核验' : 'Third-party checks'}: <strong style="color:${n > 0 ? '#16A34A' : '#A16207'}">${n}/3</strong> · ${zh ? '身份' : 'identity'} ${idOk ? '✓' : '✗'} · ${zh ? '银行' : 'bank'} ${bankOk ? '✓' : '✗'} · ${zh ? '推荐人 待致电' : 'references pending call'}${n === 0 ? (zh ? ' — 评分基于文件互证，尚无第三方核验' : ' — score rests on documents corroborating each other; nothing verified externally yet') : ''}</div>`
+    html += `<div style="margin-top:4px;font-size:10px;color:#64748B">${zh ? '收入与租金的比值、信用记录的长短仅供参考，按安省人权委员会政策与 O. Reg. 290/98，不是拒绝的依据；房东须整体判断。' : 'The income-to-rent ratio and the length of credit history are reference points only — under OHRC policy and O. Reg. 290/98 they are not grounds for refusal; the landlord must judge the whole file.'}</div>`
+  html += `<div style="margin-top:4px;font-size:10px;color:#64748B">${zh ? '外部核验' : 'Third-party checks'}: <strong style="color:${n > 0 ? '#16A34A' : '#A16207'}">${n}/3</strong> · ${zh ? '身份' : 'identity'} ${idOk ? '✓' : '✗'} · ${zh ? '银行' : 'bank'} ${bankOk ? '✓' : '✗'} · ${zh ? '推荐人 待致电' : 'references pending call'}${n === 0 ? (zh ? ' — 评分基于文件互证，尚无第三方核验' : ' — score rests on documents corroborating each other; nothing verified externally yet') : ''}</div>`
   }
 
   // Stats
@@ -386,7 +387,7 @@ export async function generateScreeningReport(
   const ratio = result.income_rent_ratio
   html += `<div class="stats">
     <div><div class="val">$${rentNum ? rentNum.toLocaleString() : '—'}</div>${zh ? '目标月租金' : 'Monthly Rent'}</div>
-    <div><div class="val">${ratio != null ? ratio.toFixed(1) + 'x' : 'N/A'}</div>${zh ? '收入/租金比' : 'Income Ratio'}</div>
+    <div><div class="val">${ratio != null ? ratio.toFixed(1) + 'x' : 'N/A'}</div>${zh ? '收入/租金比（仅供参考）' : 'Income ratio (information only)'}</div>
     <div><div class="val">${filesCount}</div>${zh ? '文件已分析' : 'Files Analyzed'}</div>
     <div><div class="val">${dbCount}</div>${zh ? '法庭数据源已查' : 'Court sources'}</div>
   </div>`

@@ -65,6 +65,14 @@ export default function AdminHomePage() {
       hot: (pending ?? 0) > 0,
     },
     {
+      href: '/admin/agents',
+      icon: '🪪',
+      title: zh ? '经纪认证' : 'Agent verification',
+      desc: zh ? '对照 RECO 公开注册库人工核验经纪的注册信息；通过后获得「RECO 注册已核」标记并进入租客可选目录。' : 'Check submitted RECO registrations against the public register by hand; verified agents get the badge and enter the tenant-facing directory.',
+      stat: zh ? '人工核验' : 'manual check',
+      hot: false,
+    },
+    {
       href: '/admin/users',
       icon: '👥',
       title: zh ? '用户与权限' : 'Users & permissions',

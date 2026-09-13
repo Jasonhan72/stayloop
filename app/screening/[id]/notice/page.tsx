@@ -108,6 +108,15 @@ export default function NoticePage() {
             {sources.credit ? (zh ? '；我们阅读的是你本人提供的信用报告' : '; the credit report read was the one you supplied yourself') : ''}
             {sources.verified ? (zh ? '；经你本人授权的身份 / 银行核验结果也在考虑之列' : '; the identity / bank verification you authorised yourself was also considered') : ''}
             {zh ? '。公开记录来源：安省开放数据 LTB 判令目录、安省法院公开门户。' : '. Public-record sources: the Ontario Open Data LTB Order Catalogue and the Ontario Courts public portal.'}
+            {' '}
+            {zh
+              ? '整理过程使用了 AI 辅助分析，但决定由房东本人作出；收入与租金的比值、信用记录的长短仅作参考，不是拒绝的依据。'
+              : 'AI-assisted analysis helped organise the material, but the decision was made by the landlord personally; the income-to-rent ratio and the length of credit history were reference points, not grounds for refusal.'}
+          </p>
+          <p className="mt-2 rounded-lg border border-line-divider bg-surface-chip px-3 py-2 text-[13px] font-semibold leading-relaxed">
+            {zh
+              ? '依据安省《消费者报告法》第 10(7) 条：本决定参考了来自你本人以外来源的信息。你有权在收到本通知后 60 天内，要求我们告知该信息的性质与来源（如来自消费者报告机构，则告知其名称与地址）。'
+              : 'Notice under s.10(7) of the Consumer Reporting Act (Ontario): this decision relied on information received from sources other than you. Within 60 days of this notice you may ask us for the nature and source of that information (and, where it came from a consumer reporting agency, that agency’s name and address).'}
           </p>
 
           <div className="mt-4 text-[13px] font-bold">{zh ? '你的权利' : 'Your rights'}</div>

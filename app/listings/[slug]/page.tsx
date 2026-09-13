@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { PromoBadge, VerificationBadge } from '@/components/ListingBadges'
+import { AgentPicker } from '@/components/AgentPicker'
 import { supabase } from '@/lib/supabase'
 import { useT, type Lang } from '@/lib/i18n'
 import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
@@ -680,27 +681,20 @@ export default function ListingDetailPage() {
               >
                 {zh ? '让 AI Agent 替我问' : 'Have AI Agent ask for you'}
               </Link>
-              {/* Showing logistics differ by listing type (Ontario TRESA):
-                  MLS/realtor listings must be shown through a licensed agent —
-                  Stayloop dispatches a RECO-verified member agent. Landlord-
-                  direct listings can be shown by the owner, so booking with
-                  the landlord is free and the licensed agent is an upgrade. */}
+              {/* The tenant chooses a RECO-verified agent from Stayloop's
+                  directory and contacts them directly. Stayloop does not
+                  dispatch, is not a brokerage and charges nothing (decision
+                  2026-09-13; design/roles-and-agent-verification-2026-09.md). */}
               <button
                 onClick={() => setFieldAgentOpen(true)}
                 className="mt-2 w-full rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
               >
-                {listing.source === 'realtor'
-                  ? (zh ? '找经纪带我看房' : 'Find an agent to show me')
-                  : (zh ? '找经纪带我看房 · 可选' : 'Find an agent to show me · optional')}
+                {zh ? '找经纪帮我完成' : 'Find an agent to help me'}
               </button>
               <div className="mt-2 text-center text-[11px] leading-relaxed text-body-3">
-                {listing.source === 'realtor'
-                  ? (zh
-                      ? 'MLS 挂牌房源须由持牌经纪带看 · Stayloop 从会员经纪池派单（RECO 已验证）'
-                      : 'MLS listings require a licensed agent showing · dispatched from Stayloop’s RECO-verified member agents')
-                  : (zh
-                      ? '房东直租房源:提交意向后可直接与房东约看,免费'
-                      : 'Landlord-direct listing: after submitting intent you can book a viewing with the landlord directly, free')}
+                {zh
+                  ? '从 Stayloop 认证（RECO 注册已核）的经纪中自选并直接联系；Stayloop 不参与交易、不收费。房东直租房源也可直接与房东约看。'
+                  : 'Pick a Stayloop-verified (RECO-checked) agent and contact them directly; Stayloop takes no part in the trade and charges nothing. Landlord-direct listings can also be viewed with the landlord.'}
               </div>
               <div className="mt-3 text-center font-mono text-[10px] uppercase tracking-eyebrowLg text-body-3">
                 {zh ? '通常 4 小时内回复' : 'Usually replies within 4 hours'}
@@ -729,7 +723,7 @@ export default function ListingDetailPage() {
                   <div className="font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
                     {listing.brokerage ? (zh ? `${listing.brokerage} · 经纪` : `${listing.brokerage} · Agent`) : (zh ? '房东直租' : 'Direct from landlord')}
                   </div>
-                  <div className="mt-1 text-[12px] text-body-2">★ 4.8 · 27 transactions</div>
+
                 </div>
               </div>
               <Link
@@ -817,7 +811,7 @@ export default function ListingDetailPage() {
           <IntentModal listing={listing} zh={zh} onClose={() => setIntentOpen(false)} />
         )}
         {fieldAgentOpen && (
-          <FieldAgentModal listing={listing} zh={zh} onClose={() => setFieldAgentOpen(false)} />
+          <AgentPicker zh={zh} listingAddress={`${listing.address}${listing.unit ? ` #${listing.unit}` : ''}`} onClose={() => setFieldAgentOpen(false)} />
         )}
       </main>
       <Footer />

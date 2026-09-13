@@ -44,7 +44,13 @@ export async function POST(req: NextRequest) {
     const body = (await req.json().catch(() => ({}))) as {
       screening_id?: string; payer?: string; tenant_email?: string
     }
-    const payer: 'landlord' | 'tenant' = body.payer === 'tenant' ? 'tenant' : 'landlord'
+    // Tenant-paid unlocks were removed 2026-09-13: RTA s.134(1)–(2) bars a
+    // landlord, or anyone acting for one, from collecting any fee from a
+    // prospective tenant. Only the landlord pays.
+    if (body.payer === 'tenant') {
+      return NextResponse.json({ error: 'Applicant-paid unlocks are not offered: Ontario’s Residential Tenancies Act s.134 forbids charging a prospective tenant.', code: 'tenant_pay_disabled' }, { status: 400 })
+    }
+    const payer = 'landlord' as 'landlord' | 'tenant'
     const screeningId = typeof body.screening_id === 'string' && /^[0-9a-f-]{36}$/i.test(body.screening_id)
       ? body.screening_id : null
     const tenantEmail = typeof body.tenant_email === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.tenant_email)

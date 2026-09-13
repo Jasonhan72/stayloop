@@ -68,8 +68,10 @@ describe('credit health reads payment behaviour and file depth', () => {
     expect(pastDue).toBeLessThanOrEqual(clean - 18)
     expect(scoreRubric({ ...CARLOS, creditLateAccounts: 1 }).hits.some(h => h.code === 'late_payment_history')).toBe(true)
   })
-  it('caps a thin file and prices hard-inquiry velocity', () => {
-    expect(scoreRubric({ ...CARLOS, tradelineCount: 1, creditHistoryMonths: 8 }).dimensions.credit_health).toBeLessThanOrEqual(62)
+  it('a thin file is noted, never capped (OHRC; decision 2026-09-13), and hard-inquiry velocity is priced', () => {
+    const thin = scoreRubric({ ...CARLOS, tradelineCount: 1, creditHistoryMonths: 8 })
+    expect(thin.hits.some(h => h.code === 'thin_file' && h.delta === 0)).toBe(true)
+    expect(thin.dimensions.credit_health).toBe(scoreRubric(CARLOS).dimensions.credit_health)
     expect(scoreRubric({ ...CARLOS, hardInquiries12mo: 6 }).hits.some(h => h.code === 'hard_inquiries')).toBe(true)
   })
 })
@@ -155,7 +157,11 @@ describe('review follow-ups', () => {
     const base: RubricFacts = { ...CARLOS, tradelineCount: 0, creditHistoryMonths: null }
     const r = scoreRubric(base)
     expect(r.hits.some(t => t.code === 'thin_file')).toBe(false)
-    expect(scoreRubric({ ...base, tradelineCount: 1 }).hits.some(t => t.code === 'thin_file')).toBe(true)
+    const thin = scoreRubric({ ...base, tradelineCount: 1 })
+    expect(thin.hits.some(t => t.code === 'thin_file')).toBe(true)
+    // …and it is information only: no score delta (decision 2026-09-13)
+    expect(thin.hits.find(t => t.code === 'thin_file')?.delta).toBe(0)
+    expect(thin.dimensions.credit_health).toBe(r.dimensions.credit_health)
   })
   it('liquidity is the best account\'s floor, not the emptiest statement', () => {
     const chequing = 'Opening Balance on Jun 1, 2026 $7,500.00 Jun 1 Opening Balance 7,500.00 Jun 2 Cheque 100 2,400.00 5,100.00 Jun 30 Closing Balance $5,100.00'

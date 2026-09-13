@@ -109,7 +109,9 @@ const ROLE_CONFIG: Record<AgentRole, {
 const AGENT_HOME: Record<AgentRole, string> = {
   tenant: '/tenant/agent',
   landlord: '/landlord/agent',
-  agent: '/agent/agent',
+  // A new agent lands on the RECO-verification form first (decision
+  // 2026-09-13); the workspace itself stays reachable from there.
+  agent: '/agent/verify',
 }
 
 function NamePageInner() {

@@ -59,8 +59,10 @@ describe('class: salaried professional, outsourced payroll, joint account', () =
       ['payer unknown, nothing corroborated', { corroborations: [], crossDoc: { income_corroboration: { verdict: 'partial', personal_payroll_seen: true } } as never }, -3],
       ['income uncorroborated', { verified_monthly_income: null, crossDoc: { income_corroboration: { verdict: 'uncorroborated', personal_payroll_seen: false } } as never }, -20],
       ['a forged document', { forgedDocuments: 1 }, -5],
-      ['thin file', { tradelineCount: 1, creditHistoryMonths: 6 }, -5],
-      ['rent at 45% of income', { monthly_rent: 9800 }, -20],
+      // Decision 2026-09-13: neither a thin file nor a rent-to-income ratio
+      // may lower the score (OHRC). They must not RAISE it either.
+      ['thin file', { tradelineCount: 1, creditHistoryMonths: 6 }, 0],
+      ['rent at 45% of income', { monthly_rent: 9800 }, 0],
     ]
     for (const [label, patch, atLeast] of variants) {
       const v = scoreRubric({ ...CLASS_FIXTURE, ...patch }).overall
