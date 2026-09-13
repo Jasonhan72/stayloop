@@ -306,7 +306,7 @@ function shapePortalMatch(r: any, nameSwapped: boolean, matchConfidence?: 'stron
     partyRole: r.partyHeader?.partySubType || '',
     partyDisplayName: r.partyHeader?.partyActorInstance?.sortName || r.partyHeader?.partyActorInstance?.displayName || '',
     courtAbbreviation: r.caseHeader?.courtAbbreviation || 'Civil and Small Claims Court',
-    closedFlag: r.caseHeader?.closedFlag ?? false,
+    closedFlag: typeof r.caseHeader?.closedFlag === 'boolean' ? r.caseHeader.closedFlag : null,
     nameSwapped: nameSwapped || undefined,
     caseInstanceUUID,
     courtID,
@@ -370,7 +370,12 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
   let lastError: string | undefined
   let totalSeen = 0
   const merged = new Map<string, OntarioPortalMatch>()
+  // Up to seven sequential queries at 15s + one retry each could run past
+  // three minutes per name (review 2026-09-13); stop issuing new ones after
+  // 60s and report the rest as not searched.
+  const planStart = Date.now()
   for (const step of planPortalQueries(normalized)) {
+    if (Date.now() - planStart > 60_000) { lastError = lastError || 'portal search budget exhausted (60s); remaining name variants not queried'; break }
     const q = await portalQuery(step.name, step.type)
     if (q.error) lastError = q.error
     totalSeen = Math.max(totalSeen, q.totalElements)
@@ -385,7 +390,7 @@ async function searchOntarioCourtsPortal(fullName: string): Promise<{ matches: O
   // A name-only record sharing a co-party with a strong record of the same
   // person is that person (the five "QUIROGA, LEONARDO" cases beside
   // "QUIROGA, LEONARDO ALFREDO" all name CZUPAJLO).
-  corroborateByCoParties(matches)
+  corroborateByCoParties(matches, normalized)
   return {
     matches,
     totalElements: totalSeen,
@@ -799,6 +804,9 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     }
     writeProgress('signing_files', 6)
 
+    // The form value. When the landlord leaves it blank the application
+    // form's own "applying rent" (extracted by the model, sanitized below)
+    // stands in — resolved once as `effectiveRent` after the model turn.
     const monthlyRent = Number(screening.monthly_rent) || 0
     const monthlyIncome = Number(screening.monthly_income) || 0
 
@@ -2083,8 +2091,26 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         .filter((a): a is number => typeof a === 'number' && a > 12_000 && a < 3_000_000)
         .sort((a, b) => a - b)
       if (annuals.length === 0) return null
+      // Two applicants' stubs in one file: a median halves the household
+      // income and fires income_severe (review 2026-09-13). When the stubs
+      // plainly describe more than one job (spread > 30%) and the file has
+      // more than one applicant, leave the model's household reading alone.
+      const applicants = Array.isArray(parsed.extracted_names) ? parsed.extracted_names.filter((n: unknown) => typeof n === 'string').length : 1
+      const spread = annuals[annuals.length - 1] / annuals[0]
+      if (applicants >= 2 && annuals.length >= 2 && spread > 1.3) return null
       return Math.round(annuals[Math.floor(annuals.length / 2)] / 12 * 100) / 100
     })()
+    // Review 2026-09-13: the rubric and the report already fell back to the
+    // application form's rent, but the affordability gates, the stored ratio
+    // and the stored monthly_rent still used the (blank) form value — a
+    // landlord who took the "留空则从申请表中自动提取" placeholder at its word
+    // got no income-to-rent gate at all.
+    const effectiveRent: number =
+      monthlyRent > 0
+        ? monthlyRent
+        : (typeof crossDocVerification?.application_summary?.applying_rent === 'number' && crossDocVerification.application_summary.applying_rent > 0)
+          ? crossDocVerification.application_summary.applying_rent
+          : 0
     const detectedIncomeForGate: number | null =
       stubMonthlyIncome
         ?? (typeof parsed.detected_monthly_income === 'number' && parsed.detected_monthly_income > 0
@@ -2093,23 +2119,23 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     const effectiveIncomeForGate: number | null =
       detectedIncomeForGate ?? (monthlyIncome > 0 ? monthlyIncome : null)
     const verifiedRatio: number | null =
-      (effectiveIncomeForGate !== null && monthlyRent > 0)
-        ? effectiveIncomeForGate / monthlyRent
+      (effectiveIncomeForGate !== null && effectiveRent > 0)
+        ? effectiveIncomeForGate / effectiveRent
         : null
 
-    if (monthlyRent > 0 && verifiedRatio !== null && verifiedRatio < 2.0 && !hardGates.includes('income_severe')) {
+    if (effectiveRent > 0 && verifiedRatio !== null && verifiedRatio < 2.0 && !hardGates.includes('income_severe')) {
       hardGates.push('income_severe')
     }
     // Affordability gate: rent > 40% of verified gross income. Fires even
     // when income_severe is also set — the tighter cap (55) wins over (65).
-    if (monthlyRent > 0 && verifiedRatio !== null && verifiedRatio < 2.5 && !hardGates.includes('affordability_severe')) {
+    if (effectiveRent > 0 && verifiedRatio !== null && verifiedRatio < 2.5 && !hardGates.includes('affordability_severe')) {
       hardGates.push('affordability_severe')
     }
     // Red flag: rent 35-40% of gross income — borderline. Skip if
     // affordability_severe already fires (double-counting would be unfair).
     // Uses the verified ratio (detected income / rent), same precedence
     // as the affordability gate above.
-    if (monthlyRent > 0 && verifiedRatio !== null && verifiedRatio >= 2.5 && verifiedRatio < 2.857 && !redFlags.includes('rent_ratio_high')) {
+    if (effectiveRent > 0 && verifiedRatio !== null && verifiedRatio >= 2.5 && verifiedRatio < 2.857 && !redFlags.includes('rent_ratio_high')) {
       redFlags.push('rent_ratio_high')
     }
     // Lift any ID-validation failures from the forensics layer into the red-flag
@@ -2362,10 +2388,18 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // score and four accounts). A report for someone else scores nothing for
     // the primary applicant and says so.
     if (creditReport && creditReport.subject_name && nameForLookup) {
-      const subj = creditReport.subject_name
-      const isPrimary = sameName(subj, nameForLookup) || nameCovers(subj, nameForLookup) || nameCovers(nameForLookup, subj)
-      if (!isPrimary) {
-        const co = (Array.isArray(parsed.extracted_names) ? parsed.extracted_names : []).find((n: unknown) => typeof n === 'string' && (sameName(n, subj) || nameCovers(n, subj)))
+      const subj = creditReport.subject_name.replace(/-/g, ' ')
+      const primaryLoose = nameForLookup.replace(/-/g, ' ')
+      const isPrimary = sameName(subj, primaryLoose) || nameCovers(subj, primaryLoose) || nameCovers(primaryLoose, subj)
+      // Only a plausible full name that matches ANOTHER person in the file
+      // marks the report unreliable. A hyphenated or reordered spelling of
+      // the applicant, a one-token form name, or a model-invented string
+      // ("Consumer Disclosure") is not evidence the report is someone
+      // else's (review 2026-09-13).
+      const co = !isPrimary && subj.trim().split(/\s+/).length >= 2
+        ? (Array.isArray(parsed.extracted_names) ? parsed.extracted_names : []).find((n: unknown): n is string => typeof n === 'string' && !(sameName(n, primaryLoose) || nameCovers(n, primaryLoose) || nameCovers(primaryLoose, n)) && (sameName(n, subj) || nameCovers(n, subj) || nameCovers(subj, n)))
+        : undefined
+      if (!isPrimary && co) {
         creditReport.unreliable = true
         creditReport.unreliable_reason_en = `The transcribed bureau report belongs to "${subj}"${co ? ` (co-applicant)` : ''}, not to the applicant "${nameForLookup}". It cannot stand in for the applicant's own credit history.`
         creditReport.unreliable_reason_zh = `转录的信用报告属于「${subj}」${co ? '（共同申请人）' : ''}，不是申请人「${nameForLookup}」本人的，不能替代申请人自己的信用记录。`
@@ -2485,7 +2519,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // income), then the coherence pass's own per-document bullets.
     try {
       buildLandlordReadings(forensicsReport.per_file, {
-        monthlyRent: monthlyRent || crossDocVerification?.application_summary?.applying_rent || null,
+        monthlyRent: effectiveRent || null,
         claimedMonthlyIncome: detectedIncomeForGate,
         applicantName: nameForLookup,
         creditReport: creditReport && !creditReport.unreliable ? creditReport : null,
@@ -2514,7 +2548,15 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     const idDocNamesForIdentity = (coherence.documents || []).filter(d => /id_document/i.test(d.kind)).flatMap(d => d.key_facts?.names || [])
     const nameConsistent: boolean | null = idDocNamesForIdentity.length === 0 ? null
       : idDocNamesForIdentity.some(n => sameName(n, nameForLookup) || nameCovers(n, nameForLookup))
-    const dobsPrinted = (coherence.documents || []).map(d => d.key_facts?.dob).filter((v): v is string => typeof v === 'string' && v.length >= 5).map(parseDateLoose).filter((d): d is NonNullable<typeof d> => !!d)
+    // Only documents that name the applicant contribute a DOB — a
+    // co-applicant's ID in the same file is not an inconsistency (review
+    // 2026-09-13).
+    const dobsPrinted = (coherence.documents || [])
+      .filter(d => {
+        const names = Array.isArray(d.key_facts?.names) ? d.key_facts.names.filter((n): n is string => typeof n === 'string') : []
+        return names.length === 0 || names.some(n => sameName(n, nameForLookup) || nameCovers(n, nameForLookup) || nameCovers(nameForLookup, n))
+      })
+      .map(d => d.key_facts?.dob).filter((v): v is string => typeof v === 'string' && v.length >= 5).map(parseDateLoose).filter((d): d is NonNullable<typeof d> => !!d)
     const dobConsistent: boolean | null = dobsPrinted.length >= 2 ? datesAgree(dobsPrinted) : null
     const identityConsistentMeasured: boolean | null = nameConsistent === null ? null : (nameConsistent && dobConsistent !== false)
 
@@ -2523,7 +2565,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     try {
       const prev = crossDocVerification?.application_summary?.prev_residences ?? []
       rubricFacts = {
-        monthly_rent: monthlyRent || crossDocVerification?.application_summary?.applying_rent || null,
+        monthly_rent: effectiveRent || null,
         claimed_monthly_income: detectedIncomeForGate,
         // Only a corroborated figure counts. An employment letter the applicant
         // supplied about themselves is a claim, not a measurement.
@@ -2948,7 +2990,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     const detectedIncome = typeof parsed.detected_monthly_income === 'number' && parsed.detected_monthly_income > 0
       ? parsed.detected_monthly_income : null
     const effectiveIncome = detectedIncome ?? (monthlyIncome > 0 ? monthlyIncome : null)
-    const computedRatio = (effectiveIncome && monthlyRent > 0) ? effectiveIncome / monthlyRent : null
+    const computedRatio = (effectiveIncome && effectiveRent > 0) ? effectiveIncome / effectiveRent : null
 
     // Structured credit-report data the AI transcribed from an uploaded
     // credit report. Retained ONLY when present===true AND a credit_report
@@ -2985,7 +3027,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         detected_monthly_income: detectedIncome,
         effective_monthly_income: effectiveIncome,
         income_evidence: parsed.income_evidence || null,
-        monthly_rent: monthlyRent || null,
+        monthly_rent: effectiveRent || null,
         income_rent_ratio: computedRatio,
         court_records_detail: courtDetail,
         forensics_detail: forensicsReport,
@@ -3084,7 +3126,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       cross_doc_verification: crossDocVerification,
       verification: verifiedFacts,
       coherence_review: coherence,
-      monthly_rent: monthlyRent || null,
+      monthly_rent: effectiveRent || null,
       income_rent_ratio: computedRatio,
       extracted_name: finalExtractedName,
       extracted_names: extractedNames,

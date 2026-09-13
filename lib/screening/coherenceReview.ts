@@ -224,7 +224,7 @@ export function sanitizeCoherenceOutput(raw: unknown, model: string | null, elap
   // told not to (2026-09-11): a pay "mismatch" whose figures are the same
   // salary in different periods, and a name "mismatch" that is the same
   // tokens reordered or with accents dropped.
-  .filter(a => !isPeriodReconciledPayClaim(a) && !isSameNameClaim(a) && !isSameDobClaim(a) && !isAgreedAddressClaim(a) && !isClosedAccountOmission(a) && !isExtraPhoneClaim(a))
+  .filter(a => !isPeriodReconciledPayClaim(a) && !isSameNameClaim(a) && !isSameDobClaim(a) && !isAgreedAddressClaim(a) && !isClosedAccountOmission(a) && !isDeclaredObligationClaim(a) && !isExtraPhoneClaim(a))
   return { status: 'ok', model, anomalies, documents, elapsed_ms: elapsed }
 }
 
@@ -408,11 +408,33 @@ export function isAgreedAddressClaim(a: { claim_zh: string; claim_en: string; ev
 export function isClosedAccountOmission(a: { claim_zh: string; claim_en: string; category?: string; evidence: string[] }): boolean {
   if (!(a.category === 'omission' || OMISSION_CLAIM.test(`${a.claim_zh} ${a.claim_en}`))) return false
   if (!/贷|loan|lease|obligation|account|账户|负债|义务/i.test(`${a.claim_zh} ${a.claim_en}`)) return false
-  return a.evidence.some(e => /date\s+closed\s*\d|\bclosed\b.*\d{4}|account\s+paid|paid\s+in\s+full|balance\s*\$?0\b/i.test(e))
+  const CLOSED = /date\s+closed\s*\d|\bclosed\b.*\d{4}|account\s+paid|paid\s+in\s+full|balance\s*\$?0\b/i
+  // Every evidence line that reads like an account (a dollar figure, a
+  // balance, an account word) must carry the closed marker — one closed
+  // TD Visa quoted beside an open $30k loan does not excuse the loan
+  // (review 2026-09-13).
+  // An account line carries a figure or a date; "Accounts - Installment"
+  // is a section header, not an account.
+  const accountLines = a.evidence.filter(e => /\$\s?\d|balance|\d{4}[/-]\d{2}/i.test(e))
+  if (accountLines.length === 0) return a.evidence.some(e => CLOSED.test(e))
+  return accountLines.every(e => CLOSED.test(e))
 }
 
 /** A bureau file lists every phone a creditor ever reported; the application
  *  asks for one. An extra bureau number is not an omission. */
+/** "The application omits the Kia lease" — while the application's own
+ *  FINANCIAL OBLIGATIONS line names the dealer lease. The quoted
+ *  application line and the quoted bureau account share a distinctive
+ *  word, so the obligation was declared (review 2026-09-13). */
+export function isDeclaredObligationClaim(a: { claim_zh: string; claim_en: string; category?: string; evidence: string[] }): boolean {
+  if (!(a.category === 'omission' || OMISSION_CLAIM.test(`${a.claim_zh} ${a.claim_en}`))) return false
+  const words = (s: string) => new Set(s.toUpperCase().replace(/[^A-Z\s]/g, ' ').split(/\s+/).filter(w => w.length >= 5 && !/^(BALANCE|ACCOUNTS?|INSTALLMENT|FINANCIAL|OBLIGATIONS?|CANADIAN|MOTOR|FINANCE|CREDIT|CLOSED)$/.test(w)))
+  const declared = a.evidence.filter(e => /financial\s+obligations?|obligations?\s*:|liabilit|application/i.test(e))
+  const accounts = a.evidence.filter(e => !declared.includes(e) && /\$\s?\d|balance|account|loan|lease/i.test(e))
+  if (!declared.length || !accounts.length) return false
+  return declared.some(d => { const dw = words(d); return accounts.some(acc => Array.from(words(acc)).some(w => dw.has(w))) })
+}
+
 export function isExtraPhoneClaim(a: { claim_zh: string; claim_en: string; evidence: string[] }): boolean {
   if (!/电话|phone|telephone/i.test(`${a.claim_zh} ${a.claim_en}`)) return false
   if (!OMISSION_CLAIM.test(`${a.claim_zh} ${a.claim_en}`) && !/少|fewer|only\s+one|another/i.test(`${a.claim_zh} ${a.claim_en}`)) return false

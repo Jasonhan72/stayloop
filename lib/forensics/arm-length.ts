@@ -515,16 +515,20 @@ export async function checkArmLength(
       const party = [applicantName, ...relatedNames]
       const findParty = (hay: string): string | null => {
         for (const n of party) {
-          if (fullNameMatch(hay, n) || surnameAndInitialIn(hay, n)) return n
+          // Adjacent phrase, not bag-of-words: "carlos" and "rodriguez" a
+          // thousand words apart on a directory page named nobody
+          // (review 2026-09-13).
+          if (nameInText(hay, n) || surnameAndInitialIn(hay, n)) return n
         }
         // An uncommon surname of the party on the company's own page is a
         // family signal even without the first name ("Felix Ricky Cipriani"
         // on the roofing company's Facebook page, applicant Nathalie Cipriani).
         for (const n of party) {
-          const sur = partySurnames(n).find(x => x.length >= 5 && !isCommonSurname(x))
-          if (sur && new RegExp(`\\b${sur}\\b`, 'i').test(hay)) {
-            const m = hay.match(new RegExp(`([A-Z][a-z]+\\s+(?:[A-Z][a-z]+\\s+)?${sur})`, 'i'))
-            return `${n} (surname ${sur}${m ? `: "${m[1]}"` : ''})`
+          for (const sur of partySurnames(n).filter(x => x.length >= 5 && !isCommonSurname(x))) {
+            if (new RegExp(`\\b${sur}\\b`, 'i').test(hay)) {
+              const m = hay.match(new RegExp(`([A-Z][a-z]+\\s+(?:[A-Z][a-z]+\\s+)?${sur})`, 'i'))
+              return `${n} (surname ${sur}${m ? `: "${m[1]}"` : ''})`
+            }
           }
         }
         return null
@@ -542,6 +546,7 @@ export async function checkArmLength(
         const isOwn = (it: { link: string }) => {
           const host = (it.link.match(/^https?:\/\/([^/]+)/i)?.[1] || '').toLowerCase()
           const slug = it.link.toLowerCase()
+          if (tokens.length === 0) return false
           return tokens.every(t => host.includes(t)) || (/facebook|instagram|linkedin|yelp|yellowpages|bbb\.org/.test(host) && tokens.every(t => slug.includes(t.slice(0, 5))))
         }
         const social = (it: { link: string }) => /facebook|linkedin|instagram|yellowpages|bbb\.org|yelp/.test(it.link) ? 0 : 1
@@ -771,9 +776,24 @@ export async function checkArmLength(
   }
 }
 
+/** Surname candidates, most likely first: the last token, and the one
+ *  before it only when the name has three or more tokens (double
+ *  surnames). "Nathalie Cipriani" → ["Cipriani"], never "Nathalie". */
 function partySurnames(fullName: string): string[] {
   const parts = fullName.trim().split(/\s+/).filter(p => p.length >= 2)
-  return parts.length >= 2 ? parts.slice(-2) : []
+  if (parts.length < 2) return []
+  return parts.length >= 3 ? [parts[parts.length - 1], parts[parts.length - 2]] : [parts[parts.length - 1]]
+}
+
+/** The person's first and last token within a few words of each other, in
+ *  either order ("Felix Ricky Cipriani", "CIPRIANI, Felix"). */
+function nameInText(hay: string, fullName: string): boolean {
+  const parts = fullName.toLowerCase().replace(/[^a-z\s'-]/g, ' ').trim().split(/\s+/).filter(p => p.length >= 2)
+  if (parts.length < 2) return false
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const first = esc(parts[0]), last = esc(parts[parts.length - 1])
+  const h = hay.toLowerCase()
+  return new RegExp(`\\b${first}\\b(?:\\W+\\w+){0,2}?\\W+${last}\\b`).test(h) || new RegExp(`\\b${last}\\b,?\\s+${first}\\b`).test(h)
 }
 
 /** "L. Quiroga" / "Quiroga, L." style mentions: surname plus first initial. */

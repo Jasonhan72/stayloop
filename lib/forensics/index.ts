@@ -392,14 +392,18 @@ async function analyzeFile(
           // must never end up with no content at all.
           const pages = Math.max(1, meta?.page_count || 1)
           const budget = Math.min(120_000, 30_000 + 8_000 * pages)
+          const t0ocr = Date.now()
           let ocrResult = await ocrImagePdf(f.signed_url, f.mime, apiKey, usageMeta, { timeoutMs: budget })
-          if (!ocrResult) ocrResult = await ocrImagePdf(f.signed_url, f.mime, apiKey, usageMeta, { timeoutMs: budget + 30_000 })
+          // Retry only a FAST failure (parse / 5xx). A timeout already spent
+          // the budget; a second, longer attempt pushed one file past 390s
+          // of wall time (review 2026-09-13).
+          if (!ocrResult && Date.now() - t0ocr < budget * 0.8) ocrResult = await ocrImagePdf(f.signed_url, f.mime, apiKey, usageMeta, { timeoutMs: budget })
           if (!ocrResult && f.mime === 'application/pdf' && ocrAvailable()) {
             try {
               const t0 = Date.now()
-              const scan = await ocrPdfScan(bytes, { meta: usageMeta, signal: AbortSignal.timeout(120_000) })
+              const scan = await ocrPdfScan(bytes, { meta: usageMeta, signal: AbortSignal.timeout(90_000) })
               if (scan && scan.text.trim().length > 0) {
-                ocrResult = { text: scan.text.slice(0, 5000), apparent_doc_type: 'unknown', apparent_name: null, visible_issuer: null, has_watermark: false, visible_dates: [], elapsed_ms: Date.now() - t0 }
+                ocrResult = { text: scan.text.slice(0, 50_000), apparent_doc_type: 'unknown', apparent_name: null, visible_issuer: null, has_watermark: false, visible_dates: [], elapsed_ms: Date.now() - t0 }
               }
             } catch { /* fallback is best-effort */ }
           }

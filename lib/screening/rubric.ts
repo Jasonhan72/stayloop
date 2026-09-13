@@ -396,7 +396,9 @@ export function scoreRubric(f: RubricFacts): RubricResult {
     }
     // A thin file cannot support a high score: two accounts or under a year
     // of history is not a track record, whatever number sits on top of it.
-    const thin = (f.tradelineCount != null && f.tradelineCount < 2) || (f.creditHistoryMonths != null && f.creditHistoryMonths < 12)
+    // tradelineCount 0 means the model transcribed none — unmeasured, not
+    // thin (review 2026-09-13); exactly one account is thin.
+    const thin = (f.tradelineCount != null && f.tradelineCount === 1) || (f.creditHistoryMonths != null && f.creditHistoryMonths < 12)
     if (thin && creditScore > 62) {
       creditScore += add('credit_health', 'thin_file', 62 - creditScore, `${f.tradelineCount ?? '?'} tradeline(s), ${f.creditHistoryMonths ?? '?'} months of history`)
     }

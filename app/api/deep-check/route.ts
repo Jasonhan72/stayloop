@@ -40,6 +40,7 @@ import type { CompanyRegistryInfo } from '@/lib/forensics/arm-length'
 import { extractBNs, verifyBN, bnCheckFlags } from '@/lib/forensics/bn-check'
 import type { BNLookupResult } from '@/lib/forensics/bn-check'
 import { captureException } from '@/lib/observability/sentry'
+import { selectCoApplicantNames } from '@/lib/screening/coApplicants'
 
 function makeServiceClient() {
   return createClient(
@@ -306,16 +307,8 @@ async function payloadFromScreening(screening_id: string, authHeader: string): P
     }
   }
 
-  // The applicant's own party: co-applicants from the ID documents, the
-  // spouse / occupants from the application, anyone the letter signatory
-  // could be. A husband's company employing the applicant is the case the
-  // surname rules cannot see.
   const primary = screening.ai_extracted_name || screening.tenant_name || ''
-  const relatedNames: string[] = dedupeStrings([
-    ...(Array.isArray(v3.extracted_names) ? v3.extracted_names : []),
-    ...((v3.coherence_review?.documents || []).filter((d: any) => /application_form|id_document/i.test(d?.kind || '')).flatMap((d: any) => d?.key_facts?.names || [])),
-    ...((v3.cross_doc_verification?.application_summary?.occupants || []).map((o: any) => o?.name)),
-  ].filter((n: unknown): n is string => typeof n === 'string' && n.trim().length > 3 && n.trim().toLowerCase() !== primary.trim().toLowerCase()))
+  const relatedNames = relatedPartyNames(v3, primary)
 
   return {
     employer_names: employerNames,
@@ -361,6 +354,35 @@ function makeWebRead(): ((url: string) => Promise<string>) | undefined {
     if (!res.ok) return ''
     return (await res.text()).slice(0, 40_000)
   }
+}
+
+/**
+ * The applicant's own party: co-applicants from the ID documents, the
+ * spouse / occupants from the application. A husband's company employing
+ * the applicant is the case the surname rules cannot see.
+ *
+ * Review 2026-09-13: `extracted_names` also carries the HR signatory and the
+ * previous landlords; copying it verbatim made the letter's own signatory a
+ * "member of the applicant's party" (critical flag). Same selection as the
+ * court search: ID names never third party; lease / reference / agreement
+ * names always third party.
+ */
+function relatedPartyNames(v3: any, primary: string): string[] {
+  const docs: any[] = v3?.coherence_review?.documents || []
+  const namesOf = (re: RegExp) => docs.filter((d) => re.test(d?.kind || '')).flatMap((d) => d?.key_facts?.names || []).filter((n: unknown): n is string => typeof n === 'string' && n.trim().length > 3)
+  const idDocNames = namesOf(/id_document/i)
+  const thirdPartyNames = dedupeStrings([
+    ...namesOf(/lease|reference|agreement/i),
+    ...(typeof v3?.cross_doc_verification?.employment_letter_signatory?.name === 'string' ? [v3.cross_doc_verification.employment_letter_signatory.name] : []),
+    ...((v3?.cross_doc_verification?.application_summary?.prev_residences || []).map((r: any) => r?.landlord_name)),
+  ].filter((n: unknown): n is string => typeof n === 'string'))
+  const candidates = dedupeStrings([
+    ...(Array.isArray(v3?.extracted_names) ? v3.extracted_names : []),
+    ...namesOf(/application_form|id_document/i),
+    ...((v3?.cross_doc_verification?.application_summary?.occupants || []).map((o: any) => o?.name)),
+  ].filter((n: unknown): n is string => typeof n === 'string'))
+  if (!primary) return candidates.filter((n) => !thirdPartyNames.some((t) => t.toLowerCase() === n.toLowerCase()))
+  return selectCoApplicantNames(candidates, primary, { idDocNames, thirdPartyNames }).searched
 }
 
 function dedupeStrings(list: string[]): string[] {
@@ -482,6 +504,18 @@ export async function POST(req: Request) {
         hr_phone_collision: body.hr_phone_collision,
         employer_doc_text: body.employer_doc_text,
         business_numbers: Array.isArray(body.business_numbers) ? body.business_numbers : undefined,
+      }
+      // The UI sends the structured body and never `related_names`; the
+      // applicant's party still has to come from the screening row, or the
+      // spouse's-company check is dead on the production path (review
+      // 2026-09-13).
+      if (gateScreeningId && !Array.isArray(body.related_names)) {
+        const authHeader = (req.headers.get('authorization') || '').replace(/[^\x20-\x7E]/g, '').trim()
+        const rls = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { global: { headers: { Authorization: authHeader } } })
+        const { data: row } = await rls.from('screenings').select('ai_extracted_name, tenant_name, ai_dimension_notes').eq('id', gateScreeningId).maybeSingle()
+        if (row) payload.related_names = relatedPartyNames((row.ai_dimension_notes as any)?._v3 || {}, body.applicant_name || row.ai_extracted_name || row.tenant_name || '')
+      } else if (Array.isArray(body.related_names)) {
+        payload.related_names = dedupeStrings(body.related_names)
       }
     } else if (body.screening_id) {
       const authHeader = (req.headers.get('authorization') || '').replace(/[^\x20-\x7E]/g, '').trim()

@@ -758,7 +758,11 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
   const rollupQuery = queries[0]
   // Show all database rows that have hits, plus LTB and Small Claims even
   // at 0 hits so the user always sees these two priority DBs were queried.
-  const ALWAYS_SHOW_DBS = ['Landlord and Tenant Board', 'Small Claims Court', 'Ontario Courts Portal', 'LTB Order Catalogue']
+  // 'CanLII' covers both the index row ("CanLII (via public web index)")
+  // and the manual-link row that replaces it when the index is down — the
+  // amber "N sources not searched" count below includes it, so the table
+  // must show it too (review 2026-09-13: it was counted but hidden).
+  const ALWAYS_SHOW_DBS = ['Landlord and Tenant Board', 'Small Claims Court', 'Ontario Courts Portal', 'LTB Order Catalogue', 'CanLII']
   // A source that timed out or was unavailable is NOT a clean source. It
   // used to render "✓ 无记录" and the rollup said no records were found.
   const notSearched = queries.filter(q => q.tier === 'free' && !q.source.startsWith('──') && (q.status === 'unavailable' || q.status === 'timeout' || q.status === 'skipped'))
@@ -766,7 +770,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
   const dbQueries = queries.slice(1).filter(q =>
     // Name separator rows (e.g. "── JOHN SMITH ──") always pass through
     q.source.startsWith('──') ||
-    (q.tier === 'free' && (q.status === 'ok' || q.status === 'unavailable' || q.status === 'timeout') && ((q.hits ?? 0) > 0 || q.status === 'timeout' || ALWAYS_SHOW_DBS.some(name => q.source.includes(name))))
+    (q.tier === 'free' && (q.status === 'ok' || q.status === 'unavailable' || q.status === 'timeout' || q.status === 'skipped') && ((q.hits ?? 0) > 0 || q.status === 'timeout' || q.status === 'skipped' || ALWAYS_SHOW_DBS.some(name => q.source.includes(name))))
   )
   const proQueries = queries.filter(q => q.tier === 'pro')
 
@@ -2641,7 +2645,7 @@ export default function ScreenPage() {
           left: 0; right: 0;
           /* Above the workspace rail (WorkspaceShell: fixed h-16 bottom bar on
              phones) instead of covering it. */
-          bottom: calc(64px + env(safe-area-inset-bottom));
+          bottom: 64px;
           z-index: 60;
           padding: 10px 16px;
           background: rgba(255, 255, 255, 0.96);
@@ -4287,8 +4291,8 @@ function VerificationCard({ lang, screeningId, tenantName, canRun, onLocked, onU
                 style={{ padding: '9px 10px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontSize: 12, cursor: 'pointer', color: '#71717A' }}>{zh ? '刷新状态' : 'Refresh'}</button>
             )}
             <input type="email" inputMode="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={zh ? '申请人邮箱' : 'Applicant email'}
-              className="col-span-2 sm:order-3 sm:flex-1 sm:min-w-[160px]"
-              style={{ padding: '9px 10px', borderRadius: 8, border: '1px solid #E4EEF6', fontSize: 12.5, minWidth: 0 }} />
+              className="col-span-2 min-w-0 sm:order-3 sm:flex-1 sm:min-w-[160px]"
+              style={{ padding: '9px 10px', borderRadius: 8, border: '1px solid #E4EEF6', fontSize: 12.5 }} />
             <button onClick={() => create(true)} disabled={busy || !email}
               className="col-span-2 sm:order-4 sm:w-auto"
               style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid #E4EEF6', background: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', opacity: (busy || !email) ? 0.5 : 1 }}>

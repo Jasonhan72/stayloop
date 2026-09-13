@@ -756,7 +756,7 @@ export async function POST(req: Request) {
         if (wanted && result.listings.length < wanted) {
           const zhMsg = /[一-鿿]/.test(message)
           // A dead live source is not thin inventory — say which it was.
-          if (result.external.status !== 'ok') {
+          if (result.external.status === 'unavailable') {
             out.reply += zhMsg
               ? `\n\n（这次只有 ${result.listings.length} 套，全部来自 Stayloop 库；Realtor.ca 实时抓取暂时不可用，所以不是该区域真的只有这些。稍后再问我一次即可。）`
               : `\n\n(Only ${result.listings.length} here, all from Stayloop's own inventory — the live Realtor.ca source is temporarily unavailable, so this is not the area's full picture. Ask again a little later.)`
@@ -771,7 +771,7 @@ export async function POST(req: Request) {
         // The model's reply usually promises cards — correct it honestly
         // instead of fabricating inventory.
         const zhMsg = /[一-鿿]/.test(message)
-        out.reply += result.external.status !== 'ok'
+        out.reply += result.external.status === 'unavailable'
           ? (zhMsg
             ? '\n\n这次没能拿到房源：Stayloop 库里没有匹配，而 Realtor.ca 实时抓取暂时不可用。请稍后再问我一次 —— 我不会拿编造的房源充数。'
             : "\n\nNo listings this time: nothing matched in Stayloop's inventory and the live Realtor.ca source is temporarily unavailable. Ask again a little later — I won't pad the results with made-up listings.")

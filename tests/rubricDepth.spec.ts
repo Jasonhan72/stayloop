@@ -148,3 +148,21 @@ describe('statement liquidity', () => {
     expect(l.rows).toBe(3)
   })
 })
+
+// Review 2026-09-13.
+describe('review follow-ups', () => {
+  it('zero transcribed tradelines is unmeasured, not a thin file', () => {
+    const base: RubricFacts = { ...CARLOS, tradelineCount: 0, creditHistoryMonths: null }
+    const r = scoreRubric(base)
+    expect(r.hits.some(t => t.code === 'thin_file')).toBe(false)
+    expect(scoreRubric({ ...base, tradelineCount: 1 }).hits.some(t => t.code === 'thin_file')).toBe(true)
+  })
+  it('liquidity is the best account\'s floor, not the emptiest statement', () => {
+    const chequing = 'Opening Balance on Jun 1, 2026 $7,500.00 Jun 1 Opening Balance 7,500.00 Jun 2 Cheque 100 2,400.00 5,100.00 Jun 30 Closing Balance $5,100.00'
+    const savings = 'Opening Balance on Jun 1, 2026 $0.00 Jun 1 Opening Balance 0.00 Jun 30 Closing Balance $0.00'
+    expect(analyzeStatementLiquidity([chequing, savings]).min_balance).toBe(5100)
+  })
+  it('"2019-2022" is thirty-six months', () => {
+    expect(parsePeriodMonths('2019-2022')).toBe(36)
+  })
+})

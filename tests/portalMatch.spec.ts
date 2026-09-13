@@ -95,3 +95,24 @@ describe('query plan and co-party corroboration', () => {
     expect(m[2].matchConfidence).toBe('name_only')
   })
 })
+
+// Review 2026-09-13 — a strong match is an auto-decline, so the fuzz must
+// never promote a different person.
+describe('strong is never handed to a different person', () => {
+  it('a swapped letter on a three-token name stays name_only (MARIA ≠ MARIO)', () => {
+    const m = matchPortalParty('MARIA JOSE GARCIA', 'MARIO JOSE GARCIA', 'GARCIA, MARIO JOSE')
+    expect(m.match).toBe(true)
+    expect(m.confidence).toBe('name_only')
+  })
+  it('a dropped letter on a three-token name is still the same person', () => {
+    expect(matchPortalParty('NATHALIE CIPRIANI CAMPINS', 'NATHALI CIPRIANI CAMPINS', 'NATHALI, CIPRIANI CAMPINS').confidence).toBe('strong')
+  })
+  it('the applicant\'s own surname is not a shared co-party', () => {
+    const ms = [
+      { caseTitle: 'HOME TRUST COMPANY v. QUIROGA', matchConfidence: 'strong' as const },
+      { caseTitle: 'PATEL v. QUIROGA', matchConfidence: 'name_only' as const },
+    ]
+    expect(corroborateByCoParties(ms, 'LEONARDO QUIROGA')).toBe(0)
+    expect(ms[1].matchConfidence).toBe('name_only')
+  })
+})

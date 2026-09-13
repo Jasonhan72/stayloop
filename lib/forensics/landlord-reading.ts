@@ -21,22 +21,36 @@
 
 import type { LandlordReading, ReadingBullet, PerFileForensics, PaystubExtraction, OcrResult } from './types'
 import type { CreditReport } from '../screening-types'
-import { splitStatementTransactions, extractPayrollDeposits, detectPayrollProcessor, findRecurringMonthlyPayment, analyzeStatementLiquidity } from './payroll-deposits'
+import { splitStatementTransactions, extractPayrollDeposits, detectPayrollProcessor, findRecurringMonthlyPayment, analyzeStatementLiquidity, PAYROLL_LABEL } from './payroll-deposits'
 import { analyzeCreditReport } from '../screening/creditAnalysis'
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('en-CA')
+const MONTH_ORDER: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 }
+/** Months a statement's rows span (≥1): first row to last row in days ÷ 30. */
+function statementMonths(txns: Array<{ month: string; day: number }>): number {
+  const pts = txns.map(t => ({ m: MONTH_ORDER[(t.month || '').slice(0, 4).toLowerCase()] ?? MONTH_ORDER[(t.month || '').slice(0, 3).toLowerCase()], d: t.day })).filter(p => p.m != null && p.d > 0)
+  if (pts.length < 2) return 1
+  let first = pts[0], last = pts[0]
+  for (const p of pts) { if (p.m * 31 + p.d < first.m * 31 + first.d) first = p; if (p.m * 31 + p.d > last.m * 31 + last.d) last = p }
+  let span = (last.m - first.m) * 30 + (last.d - first.d)
+  if (span < 0) span += 365
+  return Math.max(1, Math.round(span / 30))
+}
 const b = (zh: string, en: string, tone: ReadingBullet['tone'] = 'neutral'): ReadingBullet => ({ zh, en, tone, source: 'measured' })
 
 // Merchants and counterparties that change how a landlord reads a statement.
-const PAYDAY_RE = /\b(money\s*mart|cash\s*money|easy\s*financial|easyfinancial|fairstone|goeasy|lendcare|cash\s*4\s*you|cashmax|speedy\s*cash|icash|nyble|bree\b|lendified|mogo|spring\s*financial|payday|cash\s*advance|loan\s*express|focus\s*cash)/i
+// Review 2026-09-13: every merchant regex is anchored on the merchant, not
+// on a word an ordinary line can carry ("E-TRANSFER BREE SMITH", "WASTE
+// COLLECTION", "VISA DEBIT RETAIL PURCHASE", "AUTODEPOSIT", "JOHN NEWTON").
+const PAYDAY_RE = /\b(money\s*mart|cash\s*money|easy\s*financial|easyfinancial|fairstone|goeasy|lendcare|cash\s*4\s*you|cashmax|speedy\s*cash|icash|nyble|lendified|mogo|spring\s*financial|payday|cash\s*advance(?!\s*fee)|loan\s*express|focus\s*cash)/i
 const GAMBLING_RE = /\b(olg\b|proline|casino|bet365|betmgm|draftkings|fanduel|thescore\s*bet|pokerstars|sports\s*interaction|betway|bet99|888\s*poker|playnow|lottery|lotto|slots?\b|bingo)/i
-const CRYPTO_RE = /\b(shakepay|newton\b|coinbase|binance|kraken|bitbuy|ndax|crypto|bitcoin|wealthsimple\s*crypto|coinsquare)/i
-const COLLECTION_RE = /\b(collection|cbv\b|global\s*credit|metcredit|financial\s*debt\s*recovery|fdr\b|d\s*&\s*a\s*collection|credit\s*bureau\s*services|allied\s*international|garnish)/i
+const CRYPTO_RE = /\b(shakepay|newton\s*(?:crypto|inc|ltd)|coinbase|binance|kraken|bitbuy|ndax|crypto|bitcoin|wealthsimple\s*crypto|coinsquare)/i
+const COLLECTION_RE = /\b((?<!waste\s)(?<!pre-?authori[sz]ed\s)collections?(?!\s*(?:fee|day|of))|cbv\b|global\s*credit|metcredit|financial\s*debt\s*recovery|fdr\b|d\s*&\s*a\s*collection|credit\s*bureau\s*services|allied\s*international|garnish)/i
 const GOVT_INCOME_RE = /\b(canada\s*(child\s*benefit|ccb|fed|federal)|ei\s*(benefit|canada)|employment\s*insurance|odsp|ontario\s*works|cpp\b|oas\b|gst\/?hst|trillium|cra\b|service\s*canada|government\s*of\s*canada|gouvernement)/i
 const ETRANSFER_RE = /\b(e-?transfer|interac|e-?tfr|etransfer)\b/i
-const CARD_PAYMENT_RE = /\b(credit\s*card|visa|mastercard|amex|pc\s*transfer\s*to\s*credit|payment\s*to\s*(td\s*)?visa)/i
+const CARD_PAYMENT_RE = /\b(credit\s*card|visa(?!\s*debit)|mastercard|amex|pc\s*transfer\s*to\s*credit|payment\s*to\s*(td\s*)?visa)/i
 const MORTGAGE_RE = /\b(mortgage|mtg\b|hypoth)/i
-const AUTO_RE = /\b(lease|auto|toyota|honda|kia|hyundai|ford|gm\s*financial|nissan|vw\s*credit|bmw|mercedes|cdlsi|dealer)/i
+const AUTO_RE = /\b(lease|auto\s*(?:loan|finance|fin|lease|credit)|toyota|honda|kia|hyundai|ford\s*credit|gm\s*financial|nissan|vw\s*credit|bmw|mercedes|cdlsi|dealer)/i
 
 export interface ReadingContext {
   monthlyRent: number | null
@@ -91,7 +105,9 @@ export function readBankStatement(text: string, ctx: ReadingContext, ocrOnly: bo
       `${payroll.length} payroll deposit(s) totalling ${money(total)} from "${payers.slice(0, 2).join(' / ') || 'unnamed'}"${proc ? ` (${proc.name.split(' — ')[0]}, a payroll processor)` : ''}.`,
       'good'))
     if (ctx.claimedMonthlyIncome && withBalance.length) {
-      const months = Math.max(1, new Set(txns.map(t => t.month)).size)
+      // Months = the span the statement covers, not the calendar months it
+      // touches: Apr 28 – May 27 is one month, not two (review 2026-09-13).
+      const months = statementMonths(txns)
       const perMonth = total / months
       const ratio = perMonth / ctx.claimedMonthlyIncome
       if (ratio < 0.45) bullets.push(b(`按月折算的工资入账约 ${money(perMonth)}，只有申报月收入 ${money(ctx.claimedMonthlyIncome)} 的 ${Math.round(ratio * 100)}%——差额去了哪个账户？`, `Payroll works out to ~${money(perMonth)}/month, only ${Math.round(ratio * 100)}% of the ${money(ctx.claimedMonthlyIncome)} claimed — where does the rest land?`, 'warn'))
@@ -135,7 +151,7 @@ export function readBankStatement(text: string, ctx: ReadingContext, ocrOnly: bo
       if (/opening\s+balance/i.test(t.desc)) { if (t.amount !== null) prev = t.amount; continue }
       const isIn = inferDirection(t, prev) === 'in'
       if (t.balance !== null) prev = t.balance
-      const isPay = /payroll|pay\s*dep|salary/i.test(t.desc) || (t.amount !== null && nets.some(n => Math.abs(t.amount! - n) <= Math.max(1, n * 0.01)))
+      const isPay = PAYROLL_LABEL.test(t.desc) || !!detectPayrollProcessor(`${t.desc} ${t.trailing}`) || (t.amount !== null && nets.some(n => Math.abs(t.amount! - n) <= Math.max(1, n * 0.01)))
       if (isIn && t.amount && t.amount > ctx.claimedMonthlyIncome * 0.5 && !isPay) large.push(`${t.month} ${t.day} ${money(t.amount)}（${(t.desc + ' ' + t.trailing).trim().slice(0, 40)}）`)
     }
     if (large.length) {
@@ -162,7 +178,8 @@ export function readBankStatement(text: string, ctx: ReadingContext, ocrOnly: bo
       if (t.balance !== null) prev = t.balance
       if (dir === null) continue
       const isOut = dir === 'out'
-      if (isOut && t.day <= 5 && t.amount && t.amount >= 800 && t.amount <= 20_000 && /cheque|check|transfer|withdrawal|rent|pre-?auth|payment/i.test(t.desc)) { candidate = { amount: t.amount, label: t.desc.replace(/\s+\d[\d ]*$/, '').trim(), day: t.day }; break }
+      if (isOut && t.day <= 5 && t.amount && t.amount >= 800 && t.amount <= 20_000 && /cheque|check|transfer|withdrawal|rent|pre-?auth|payment/i.test(t.desc)
+        && !/mortgage|\bmtg\b|visa|mastercard|amex|credit\s*card|\bloan\b|insurance|savings|investment|rrsp|tfsa|line\s*of\s*credit|\bloc\b/i.test(t.desc)) { candidate = { amount: t.amount, label: t.desc.replace(/\s+\d[\d ]*$/, '').trim(), day: t.day }; break }
     }
     if (candidate) {
       bullets.push(b(`${candidate.day} 日有一笔 ${money(candidate.amount)} 支出（${candidate.label}）——像是当月房租${ctx.monthlyRent ? (candidate.amount >= ctx.monthlyRent * 0.95 ? `，不低于申请的 ${money(ctx.monthlyRent)}` : `，低于申请的 ${money(ctx.monthlyRent)}`) : ''}；只有一个月，请对照上月对账单确认。`, `A ${money(candidate.amount)} "${candidate.label}" on day ${candidate.day} looks like this month's rent${ctx.monthlyRent ? (candidate.amount >= ctx.monthlyRent * 0.95 ? `, at or above the ${money(ctx.monthlyRent)} applied for` : `, below the ${money(ctx.monthlyRent)} applied for`) : ''}; one month only — confirm with the previous statement.`, 'neutral'))
@@ -230,7 +247,7 @@ export function readPayStub(ext: PaystubExtraction | null | undefined, text: str
     else if (ytdRatio < 0.5) { bullets.push(b('年初至今累计明显低于年薪进度——可能是今年新入职、休假或收入不稳定。', 'YTD is well below the salary run-rate — a new hire this year, leave, or unstable earnings.', 'warn')); asks.push({ zh: '入职日期是什么时候？', en: 'What was the start date?' }) }
   }
   if (/garnish|saisie|family\s*responsibility|FRO\b|child\s*support|maintenance\s*enforcement/i.test(text)) { bullets.push(b('⚠ 工资单上有工资扣押 / 家庭责任办公室扣款——有法院或政府强制执行的债务。', 'Wage garnishment / Family Responsibility Office deduction on the stub — a court- or government-enforced obligation.', 'bad')) }
-  if (/RRSP|pension|group\s*(health|benefit|insurance)|dental|LTD|life\s*insurance|union\s*dues/i.test(text)) bullets.push(b('有福利 / 退休金 / 工会扣款——正式受雇员工的特征，不是合同工或自开的单子。', 'Benefits / pension / union deductions present — the profile of a regular employee, not a contractor or a home-made stub.', 'good'))
+  if (/RRSP|pension|group\s*(health|benefit|insurance)|employer\s*paid\s*(health|dental|benefit)|dental|\bLTD\s*(?:taxable\s*)?(?:benefit|premium|deduction|ins|plan)|long[- ]term\s+disability|life\s*insurance|union\s*dues/i.test(text)) bullets.push(b('有福利 / 退休金 / 工会扣款——正式受雇员工的特征，不是合同工或自开的单子。', 'Benefits / pension / union deductions present — the profile of a regular employee, not a contractor or a home-made stub.', 'good'))
   if (ext.hours_worked && ext.pay_frequency) {
     const weeks = ({ weekly: 1, biweekly: 2, semimonthly: 2.17, monthly: 4.33 } as Record<string, number>)[ext.pay_frequency] || 2
     const perWeek = ext.hours_worked / weeks

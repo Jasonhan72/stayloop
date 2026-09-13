@@ -113,7 +113,7 @@ export const DICT = {
   // The backend falls back to application_summary.applying_rent when this
   // is blank (screen-score: monthlyRent || applying_rent), so the promise
   // in the placeholder is real.
-  'screen.form.rent.placeholder': { en: 'Leave blank to auto-extract from the application form', zh: '留空则从申请表中自动提取' },
+  'screen.form.rent.placeholder': { en: 'Optional · read from the application form', zh: '留空则从申请表中自动提取' },
   'screen.upload.filesUploaded': { en: 'files uploaded', zh: '个文件已上传' },
   'screen.tier.pro': { en: 'Pro', zh: '专业' },
   'screen.tier.free': { en: 'FREE', zh: '免费版' },

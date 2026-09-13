@@ -218,7 +218,7 @@ export default function HomeNext() {
             {/* Phone height = viewport − (header 67 + title/lead/pills ≈ 120 +
                 bottom tab bar 64 + a little air); floor 360px so the messages
                 area never collapses on short screens. */}
-            <div className="h-[max(360px,calc(100dvh-270px))] sm:h-[600px]">
+            <div className="h-[max(360px,calc(100vh-270px))] supports-[height:100dvh]:h-[max(360px,calc(100dvh-270px))] sm:h-[600px]">
               <AssistantPanel key={role} role={role} name={names[role]} queued={queued} onQueuedSent={() => setQueued(null)} />
             </div>
             <div className="mt-3 flex flex-col items-center justify-between gap-2 text-[12px] text-body-3 sm:flex-row">

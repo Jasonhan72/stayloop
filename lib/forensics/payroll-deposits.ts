@@ -172,7 +172,7 @@ function parseTdStyleRows(text: string): StatementTxn[] {
   return out.length >= 3 ? out : []
 }
 
-const PAYROLL_LABEL = /\b(payroll|pay\s*dep|direct\s+dep(?:osit)?|salary|paie|dep[oô]t\s+(?:de\s+)?(?:paie|salaire))\b/i
+export const PAYROLL_LABEL = /\b(payroll|pay\s*dep|direct\s+dep(?:osit)?|salary|paie|dep[oô]t\s+(?:de\s+)?(?:paie|salaire))\b/i
 
 /** Payroll-labelled deposits on a statement: amount + the payer text printed
  *  with the row (Scotiabank prints the payer after the balance; other banks
@@ -243,6 +243,9 @@ export function findRecurringMonthlyPayment(bankTexts: string[]): { amount: numb
       if (t.balance !== null) prevBalance = t.balance
       if (!isOut || t.day > 5 || t.amount < 800 || t.amount > 20_000) continue
       if (!/cheque|check|transfer|withdrawal|rent|pre-?auth|payment/i.test(t.desc)) continue
+      // A mortgage, car-loan, card or savings autopay on the 1st has the
+      // same shape; none of them is rent (review 2026-09-13).
+      if (/mortgage|\bmtg\b|visa|mastercard|amex|credit\s*card|\bloan\b|insurance|savings|investment|rrsp|tfsa|line\s*of\s*credit|\bloc\b/i.test(t.desc)) continue
       const key = Math.round(t.amount * 100)
       const e = seen.get(key) || { months: new Set<string>(), label: t.desc.replace(/\s+\d[\d ]*$/, '').trim() }
       e.months.add(t.month)
@@ -271,23 +274,30 @@ export interface StatementLiquidity {
  *  the account touched, and NSF / overdraft events. Deterministic, no model.
  *  Statements without a balance column yield rows=0 and nulls. */
 export function analyzeStatementLiquidity(bankTexts: string[]): StatementLiquidity {
-  let min: number | null = null
-  let last: number | null = null
+  // Per statement first: an empty savings account or a co-applicant's
+  // account must not drag the floor to $0 (review 2026-09-13). The reserve
+  // is the best account's lowest balance; NSF events and rows are summed.
+  let best: { min: number; last: number | null; rows: number } | null = null
   let nsf = 0
   let rows = 0
   for (const text of bankTexts) {
+    let min: number | null = null
+    let last: number | null = null
+    let myRows = 0
     const open = (text || '').replace(/\s+/g, ' ').match(/Opening\s+Balance(?:\s+on\s+[A-Za-z]+\s+\d{1,2},?\s+\d{4})?\s+\$?(\d{1,3}(?:,\d{3})*\.\d{2})/i)
     if (open) { const v = money(open[1]); min = min === null ? v : Math.min(min, v) }
     for (const t of splitStatementTransactions(text)) {
       if (/\b(NSF|non[- ]sufficient|returned\s+(?:item|cheque|payment)|overdraft\s+(?:fee|interest|charge)|chargeback)\b/i.test(t.desc)) nsf++
       if (/opening\s+balance/i.test(t.desc)) { if (t.amount !== null) min = min === null ? t.amount : Math.min(min, t.amount); continue }
       if (t.balance === null) continue
-      rows++
+      myRows++
       min = min === null ? t.balance : Math.min(min, t.balance)
       last = t.balance
     }
+    rows += myRows
+    if (min !== null && (best === null || min > best.min)) best = { min, last, rows: myRows }
   }
-  return { min_balance: min, last_balance: last, nsf_count: nsf, rows }
+  return { min_balance: best?.min ?? null, last_balance: best?.last ?? null, nsf_count: nsf, rows }
 }
 
 export interface PayrollReconcileFile {

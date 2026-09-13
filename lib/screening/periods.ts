@@ -23,6 +23,8 @@ export function parseMonthToken(s: string): number | null {
  *  "AUGUST 2021 to JUNE 2023", "Jun 2023 – present", "2019-2022". */
 export function parsePeriodMonths(period: string | null | undefined, now: Date = new Date()): number | null {
   if (!period) return null
+  const yy = period.trim().match(/^(\d{4})\s*[-–—]\s*(\d{4})$/)
+  if (yy) { const n = (Number(yy[2]) - Number(yy[1])) * 12; return n >= 0 ? n : null }
   const parts = period.split(/\s*(?:\bto\b|–|—|-(?!\d)|until|through|~)\s*/i).map(p => p.trim()).filter(Boolean)
   if (parts.length < 1) return null
   const a = parseMonthToken(parts[0])
@@ -59,7 +61,12 @@ export function parseDateLoose(s: string): { y?: number; m?: number; d?: number 
   m = t.match(/(\d{1,2})[-\s.]+([A-Z]{3})[A-Z]*[-,\s.]+(\d{2,4})/)
   if (m && MON3[m[2].toLowerCase()] != null) return { y: yr(m[3]), m: MON3[m[2].toLowerCase()], d: Number(m[1]) }
   m = t.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/)
-  if (m) return { y: yr(m[3]), m: Number(m[1]), d: Number(m[2]) }
+  if (m) {
+    // 14/05/1979 is DD/MM — a month never exceeds 12 (review 2026-09-13).
+    let mo = Number(m[1]), d = Number(m[2])
+    if (mo > 12 && d <= 12) [mo, d] = [d, mo]
+    return { y: yr(m[3]), m: mo, d }
+  }
   return null
 }
 function yr(s: string): number { const n = Number(s); return s.length === 2 ? (n > 30 ? 1900 + n : 2000 + n) : n }

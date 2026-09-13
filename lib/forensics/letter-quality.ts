@@ -43,7 +43,10 @@ export function checkLetterQuality(text: string, file: string, kind: string): Fo
   // and nothing else — "416 4278441" in the header, "416 427 4881" in the
   // body. A main line and a fax would be labelled; a letter typed by hand
   // drifts. One digit apart is near-certain; otherwise say which to verify.
-  const ph = phones(t)
+  // A number labelled fax / télécopieur / direct / ext / cell is a second
+  // line by design, not the main line printed two ways (review 2026-09-13).
+  const unlabelled = t.replace(/\b(?:fax|t[ée]l[ée]copieur|direct(?:\s*line)?|ext\.?|extension|cell(?:ular)?|mobile)\b\s*[:.#-]?\s*(?:\+?1[\s.-]?)?\(?[2-9]\d{2}\)?[\s.-]?\d{3}[\s.-]?\d{4}/gi, ' ')
+  const ph = phones(unlabelled)
   outer: for (let i = 0; i < ph.length; i++) for (let j = i + 1; j < ph.length; j++) {
     if (ph[i].slice(0, 6) === ph[j].slice(0, 6) && ph[i] !== ph[j]) {
       const close = editDistance1(ph[i], ph[j])

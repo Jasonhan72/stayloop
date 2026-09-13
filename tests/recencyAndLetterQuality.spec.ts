@@ -91,3 +91,29 @@ describe('rubric: stale income documents', () => {
     expect(stale).toBeLessThanOrEqual(fresh - 20)
   })
 })
+
+// Review 2026-09-13 — the false positives a careful reader found.
+describe('recency and letter quality — false positives closed', () => {
+  it('a Tel / Fax pair is not the same number printed two ways', () => {
+    expect(checkLetterQuality('ACME Inc. Tel: 416-427-8400 Fax: 416-427-8401 To whom it may concern', 'l.pdf', 'employment_letter').some(f => f.code === 'letter_phone_inconsistent')).toBe(false)
+    expect(checkLetterQuality('Contact 416 4278441 or 416 427 4881 for details', 'l.pdf', 'employment_letter').some(f => f.code === 'letter_phone_inconsistent')).toBe(true)
+  })
+  it('a letter dates from its "Date:" line, not from the hire date it mentions', () => {
+    expect(documentAsOf(pf('l.pdf', 'employment_letter', 'Carlos has been employed with ACME since March 15, 2019 as an engineer. Date: September 1, 2026 Signed HR')).as_of).toBe('2026-09-01')
+  })
+  it('a statement period reads its END date', () => {
+    expect(documentAsOf(pf('s.pdf', 'bank_statement', 'Statement period June 3, 2026 to July 2, 2026 Opening balance 1,000.00')).as_of).toBe('2026-07-02')
+  })
+  it('a prior-year NOA is what a lender asks for — never stale', () => {
+    const noa = pf('noa.pdf', 'other', 'Notice of Assessment Tax year: 2024 Date issued Apr 9, 2025 Total income 84,000')
+    checkRecency([noa], new Date('2026-09-13T12:00:00Z'))
+    expect(noa.flags.some(f => f.code === 'document_stale')).toBe(false)
+  })
+  it('an ambiguous slash date takes the reading closest to today, never a future one', () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const ds = extractDates('Pay Date 03/09/2026')
+    expect(ds.length).toBe(1)
+    expect(ds[0] <= today).toBe(true)
+    expect(extractDates('Pay Date 25/08/2026')).toEqual(['2026-08-25'])
+  })
+})

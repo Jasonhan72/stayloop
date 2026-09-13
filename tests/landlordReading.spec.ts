@@ -114,3 +114,17 @@ describe('TD vertical and piped OCR layouts', () => {
     expect(zh).toMatch(/最低余额/)
   })
 })
+
+// Review 2026-09-13 — ordinary statement lines must not read as lenders,
+// collections, car loans or rent.
+describe('bank statement reading — ordinary lines stay ordinary', () => {
+  const ORDINARY = 'Opening Balance on Jun 1, 2026 $5,200.00 Jun 1 Opening Balance 5,200.00 Jun 1 Mortgage payment 1,900.00 3,300.00 Jun 2 INTERAC E-TRANSFER AUTODEPOSIT 300.00 3,600.00 Jun 3 VISA DEBIT RETAIL PURCHASE 42.10 3,557.90 Jun 4 WASTE COLLECTION CITY 60.00 3,497.90 Jun 5 E-TRANSFER BREE SMITH 80.00 3,417.90 Jun 6 E-TRANSFER JOHN NEWTON 50.00 3,367.90 Jun 15 Direct deposit 3,200.00 6,567.90 ACME CORP Jul 1 Mortgage payment 1,900.00 4,667.90 Jul 3 Direct deposit 3,200.00 7,867.90 ACME CORP'
+  it('does not read a mortgage as rent, autodeposit as a car loan, or a person named Bree / Newton as a lender / exchange', () => {
+    const r = readBankStatement(ORDINARY, { monthlyRent: 2000, claimedMonthlyIncome: 4500 }, false)
+    const zh = r.bullets.map(b => b.zh).join('\n')
+    expect(zh).not.toMatch(/形态像现租|像是当月房租/)
+    expect(zh).not.toMatch(/发薪日|催收|加密|车贷/)
+    expect(zh).not.toMatch(/大额非工资入账/)
+    expect(r.bullets.some(b => b.tone === 'bad')).toBe(false)
+  })
+})

@@ -37,12 +37,14 @@ export function levenshtein(a: string, b: string): number {
 
 /** Exact, or one clerical slip on a token of five letters or more (one
  *  edit, or one of them missing the other's last letter). */
-export function tokensMatch(a: string, b: string): { match: boolean; exact: boolean } {
-  if (a === b) return { match: true, exact: true }
+export function tokensMatch(a: string, b: string): { match: boolean; exact: boolean; substituted: boolean } {
+  if (a === b) return { match: true, exact: true, substituted: false }
   if (a.length >= 5 && b.length >= 5) {
-    if (levenshtein(a, b) <= 1) return { match: true, exact: false }
+    // A dropped / extra letter (NATHALI ~ NATHALIE) is a clerk's slip; a
+    // swapped letter (MARIA ~ MARIO) is usually another person.
+    if (levenshtein(a, b) <= 1) return { match: true, exact: false, substituted: a.length === b.length }
   }
-  return { match: false, exact: false }
+  return { match: false, exact: false, substituted: false }
 }
 
 export interface PortalPartyMatch {
@@ -76,12 +78,13 @@ export function matchPortalParty(queryName: string, displayName: string, sortNam
 
   let matched = 0
   let fuzzy = false
+  let substituted = false
   const missing: number[] = []
   q.forEach((qt, i) => {
     let hit = false
     for (const rt of r) {
       const m = tokensMatch(qt, rt)
-      if (m.match) { hit = true; if (!m.exact) fuzzy = true; break }
+      if (m.match) { hit = true; if (!m.exact) fuzzy = true; if (m.substituted) substituted = true; break }
     }
     if (hit) matched++
     else missing.push(i)
@@ -105,7 +108,12 @@ export function matchPortalParty(queryName: string, displayName: string, sortNam
   const allTokensLineUp = q.length >= 3 && missing.length === 0
   if (!surnameOk && !allTokensLineUp) return no(`record surname "${recSur.join(' ')}" is not the query surname`)
 
-  const confidence: PortalPartyMatch['confidence'] = q.length >= 3 && matched >= 3 ? 'strong' : 'name_only'
+  // Review 2026-09-13: with one clerical edit allowed, MARIO JOSE GARCIA
+  // lined up with MARIA JOSE GARCIA as strong (three tokens, one edit) and
+  // strong is an auto-decline. A substituted letter is strong only with
+  // four tokens; a dropped letter (NATHALI CIPRIANI CAMPINS) still is —
+  // otherwise the record is shown and flagged, never gated.
+  const confidence: PortalPartyMatch['confidence'] = q.length >= 3 && matched >= 3 && (!substituted || matched >= 4) ? 'strong' : 'name_only'
   return { match: true, confidence, matched, fuzzy, reason: `${matched}/${q.length} tokens${fuzzy ? ' (one clerical variant)' : ''}` }
 }
 
@@ -157,14 +165,19 @@ export function caseTitleParties(title: string): Set<string> {
  *  person is the same litigant: "QUIROGA, LEONARDO" in "CANADIAN IMPERIAL
  *  BANK OF COMMERCE v. CZUPAJLO et al" next to "QUIROGA, LEONARDO ALFREDO" in
  *  "UMANA v. CZUPAJLO et al". Upgraded in place; returns the count. */
-export function corroborateByCoParties<T extends { caseTitle: string; matchConfidence?: 'strong' | 'name_only' }>(matches: T[]): number {
+export function corroborateByCoParties<T extends { caseTitle: string; matchConfidence?: 'strong' | 'name_only' }>(matches: T[], queryName = ''): number {
+  // The applicant's own tokens are not a "shared co-party": "PATEL v.
+  // QUIROGA" and "HOME TRUST v. QUIROGA" share only the surname being
+  // searched (review 2026-09-13).
+  const own = new Set(nameTokens(queryName))
+  const parties = (title: string) => Array.from(caseTitleParties(title)).filter(p => !own.has(p) && !Array.from(own).some(o => tokensMatch(o, p).match))
   const strongParties = new Set<string>()
-  for (const m of matches) if (m.matchConfidence === 'strong') for (const p of caseTitleParties(m.caseTitle)) strongParties.add(p)
+  for (const m of matches) if (m.matchConfidence === 'strong') for (const p of parties(m.caseTitle)) strongParties.add(p)
   if (strongParties.size === 0) return 0
   let upgraded = 0
   for (const m of matches) {
     if (m.matchConfidence === 'strong') continue
-    const shared = Array.from(caseTitleParties(m.caseTitle)).filter(p => strongParties.has(p))
+    const shared = parties(m.caseTitle).filter(p => strongParties.has(p))
     if (shared.length > 0) { m.matchConfidence = 'strong'; upgraded++ }
   }
   return upgraded

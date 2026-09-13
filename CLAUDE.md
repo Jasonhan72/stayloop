@@ -297,6 +297,33 @@ In `supabase/migrations/`:
 
 Public surfaces show a listing only when `is_active AND (verification_status='verified' OR source='realtor')`. This is enforced at the DB (RLS policy "Public can read verified listings"), not just app filters. Landlord-published listings start `pending` and go public only after `/admin/verify` approval; Realtor.ca-imported rows (`source='realtor'`) show immediately with a source badge. A trigger (`guard_listing_trust_fields`) reverts any non-admin write to `verification_status`/`source`/`verified_at`, so landlords can't self-approve. App-layer queries use `LISTING_VISIBILITY_OR` from `lib/listingVisibility.ts` — don't re-inline the filter string.
 
+## 2026-09-12 当日改动的全量代码审查（2026-09-13）
+
+用户要求对当天 14 个提交（38 个文件、+3,330 行）做完整审查。三个审查代理按评分规则 / 取证 /
+界面与管家分片，每条发现都要求引用代码行并用反例实跑验证；共 36 条，全部核实后修复 33 条、
+3 条记录不改（`total_debt_service` 在 3.0× 恰好 −5 属文档化行为；`isAgreedAddressClaim` 按引文
+而非按文件计数；`no_key` 文案）。守卫补在各自 spec 的「Review 2026-09-13」段。值得记住的模式：
+- **一次编辑距离不能给出「强」匹配**：MARIA JOSE GARCIA 与 MARIO JOSE GARCIA 三个词一次替换就成
+  strong → 硬门槛 → 拒绝。现在只有「掉一个字母」（NATHALI）算书记员笔误，替换字母要四个词才 strong。
+  共同当事人佐证也不能把申请人自己的姓当成「共享当事人」。
+- **两位申请人一份档案**：DOB 一致性只看署名含申请人的文件；工资单中位数在两个雇员、差距 >30% 时
+  不覆盖模型的家庭收入；征信 `subject_name` 只有是文件里另一个人的完整姓名才标 unreliable。
+- **流动性取「最好的账户」的最低余额**，不是把空储蓄户的 0 当储备；月初 ≥$800 的按揭 / 车贷 /
+  信用卡 / 储蓄转账不是房租。
+- **时效层的四个假阳性**：上一年度 NOA/T4 永不「过期」；在职信日期取「Date:」标注或最晚的非未来
+  日期（此前取信头第一个日期，常是入职日）；对账单取「to <日期>」的期末；`03/09/2026` 这类
+  歧义斜杠日期取离今天最近且不在未来的读法。
+- **商户正则要锚在商户上**：AUTODEPOSIT ≠ auto loan，VISA DEBIT ≠ 信用卡还款，WASTE COLLECTION ≠
+  催收，E-TRANSFER BREE SMITH ≠ 发薪日贷款，JOHN NEWTON ≠ 交易所。
+- **deep-check 的关联人名单**在 UI 走的结构化分支上原本永远为空（功能死在生产路径上），且旧分支
+  直接抄 `extracted_names`——把 HR 签署人当成申请方成员（critical）。现在两条路径都经
+  `relatedPartyNames` → `selectCoApplicantNames`，签署人 / 前房东 / 租约推荐人永远是第三方。
+- **网页找人要相邻**：`fullNameMatch` 是姓名对姓名的比较器，拿到 20k 字的黄页页面上会把相隔千字的
+  「carlos」「rodriguez」当成本人；改为首尾名相邻的短语匹配；姓氏候选先取最后一个词。
+- **租金留空的承诺要兑现到门槛**：表单租金为空时，付款能力门槛、存储的比值、`monthly_rent` 都改用
+  申请表抽取的 `applying_rent`（此前只有评分表和报告回退）。
+- 法庭门户逐个查询加 60s 总预算；OCR 只对「快速失败」重试一次；DashScope 回退文本保留 5 万字。
+
 ## Jina 是预付费余额，用完全站六处静默降级（2026-09-12 · 一次真实事故）
 
 租客管家被问「多大附近找 5 套两居室」只回 2 套并说「该区域预算内的新房源有限」。那 2 套是库里

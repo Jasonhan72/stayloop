@@ -18,7 +18,7 @@
 // the DOB mismatch".
 import { describe, expect, it } from 'vitest'
 import { scoreRubric, type RubricFacts } from '../lib/screening/rubric'
-import { sanitizeCoherenceOutput, isSameDobClaim, isAgreedAddressClaim, isClosedAccountOmission, isExtraPhoneClaim } from '../lib/screening/coherenceReview'
+import { sanitizeCoherenceOutput, isSameDobClaim, isAgreedAddressClaim, isClosedAccountOmission, isDeclaredObligationClaim, isExtraPhoneClaim } from '../lib/screening/coherenceReview'
 import { parseDateLoose, datesAgree } from '../lib/screening/periods'
 import { checkSourceSpecific } from '../lib/forensics/source-specific'
 
@@ -84,8 +84,14 @@ describe('the false contradictions this class produced are filtered deterministi
     expect(isAgreedAddressClaim(addr)).toBe(true)
     expect(isAgreedAddressClaim({ ...addr, evidence: ["'51 YORK MILLS RD UNIT 308'", "'Current 2025/07/01 12 KING ST W'"] })).toBe(false)
   })
-  it('a closed loan is nothing to disclose; an extra bureau phone is not an omission', () => {
-    expect(isClosedAccountOmission(kia)).toBe(true)
+  it('a lease the application already lists is not an omission; an extra bureau phone is not either', () => {
+    // The dealer lease is still open ($11,261) — only the closed Kia line
+    // carries a closed marker — so the "closed account" rule must NOT fire;
+    // the claim falls because FINANCIAL OBLIGATIONS on the application
+    // names the same dealer lease (review 2026-09-13).
+    expect(isClosedAccountOmission(kia)).toBe(false)
+    expect(isDeclaredObligationClaim(kia)).toBe(true)
+    expect(isClosedAccountOmission({ ...kia, evidence: ["'Accounts - Installment'", "'KIA MOTOR FINANCE ... Date Closed 2025/07/04'"] })).toBe(true)
     expect(isExtraPhoneClaim(phone)).toBe(true)
   })
   it('all four vanish from the sanitised review', () => {

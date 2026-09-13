@@ -28,7 +28,19 @@ export function extractDates(text: string, fallbackYear?: number): string[] {
   const t = (text || '').replace(/\s+/g, ' ')
   const out: string[] = []
   for (const m of t.matchAll(/\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/g)) { const v = toISO(+m[1], +m[2], +m[3]); if (v) out.push(v) }
-  for (const m of t.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(20\d{2})\b/g)) { const v = toISO(+m[3], +m[1], +m[2]); if (v) out.push(v) }
+  // 03/09/2026: Canadian exports print both MM/DD and DD/MM. An unambiguous
+  // first field (>12) decides; otherwise take the reading that is not in
+  // the future and closest to today (review 2026-09-13).
+  const today = new Date().toISOString().slice(0, 10)
+  for (const m of t.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(20\d{2})\b/g)) {
+    const a = +m[1], b = +m[2], y = +m[3]
+    const mdy = toISO(y, a, b), dmy = toISO(y, b, a)
+    if (a > 12) { if (dmy) out.push(dmy); continue }
+    if (b > 12) { if (mdy) out.push(mdy); continue }
+    const past = [mdy, dmy].filter((v): v is string => !!v && v <= today).sort()
+    const v = past.length ? past[past.length - 1] : (mdy || dmy)
+    if (v) out.push(v)
+  }
   for (const m of t.matchAll(/\b([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(20\d{2})\b/g)) { const mo = MONTHS[m[1].slice(0, 3).toLowerCase()]; if (mo) { const v = toISO(+m[3], mo, +m[2]); if (v) out.push(v) } }
   for (const m of t.matchAll(/\b(\d{1,2})\s+([A-Za-z]{3,9})\.?,?\s+(20\d{2})\b/g)) { const mo = MONTHS[m[2].slice(0, 3).toLowerCase()]; if (mo) { const v = toISO(+m[3], mo, +m[1]); if (v) out.push(v) } }
   for (const m of t.matchAll(/\b([A-Z]{3})\s+(\d{1,2})\/(\d{2})\b/g)) { const mo = MONTHS[m[1].toLowerCase()]; if (mo) { const v = toISO(yr2(m[3]), mo, +m[2]); if (v) out.push(v) } }
@@ -67,16 +79,23 @@ export function documentAsOf(pf: PerFileForensics): DocDate {
   if (kindHas(kind, 'bank_statement')) {
     const td = flat.match(/\b([A-Z]{3})\s+(\d{1,2})\/(\d{2})\s*-\s*([A-Z]{3})\s+(\d{1,2})\/(\d{2})\b/)
     if (td) { const mo = MONTHS[td[4].toLowerCase()]; const v = mo ? toISO(yr2(td[6]), mo, +td[5]) : null; if (v) return { as_of: v, expiry: null, basis: 'statement period end' } }
-    const close = flat.match(/(?:Closing\s+Balance|Statement\s+period|to)\s+(?:on\s+)?([A-Za-z]{3,9}\.?\s+\d{1,2},?\s+20\d{2})/i)
+    // The period END: "… to July 2, 2026" first, then a closing-balance
+    // date. The old alternation matched "Statement period June 3" — the
+    // START — 30 days early (review 2026-09-13).
+    const close = flat.match(/\bto\s+(?:on\s+)?([A-Za-z]{3,9}\.?\s+\d{1,2},?\s+20\d{2})/i)
+      || flat.match(/Closing\s+Balance\s+(?:on\s+)?([A-Za-z]{3,9}\.?\s+\d{1,2},?\s+20\d{2})/i)
     if (close) { const ds = extractDates(close[1]); if (ds[0]) return { as_of: ds[0], expiry: null, basis: 'statement period end' } }
     const ds = extractDates(flat)
     return { as_of: latest(ds), expiry: null, basis: ds.length ? 'latest date on statement' : 'none' }
   }
   if (kindHas(kind, 'employment_letter') || kindHas(kind, 'offer_letter')) {
-    const head = flat.slice(0, 600)
-    const ds = extractDates(head)
-    if (ds.length) return { as_of: ds[0], expiry: null, basis: 'letter date' }
-    const all = extractDates(flat)
+    // A labelled "Date:" wins; otherwise the latest date that is not in the
+    // future. The first date in the header used to win — often the hire
+    // date ("employed since March 15, 2019") (review 2026-09-13).
+    const today = new Date().toISOString().slice(0, 10)
+    const labelled = flat.match(/\b(?:date|dated)\s*:?\s*([A-Za-z]{3,9}\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+20\d{2}|\d{1,2}\s+[A-Za-z]{3,9}\.?,?\s+20\d{2}|20\d{2}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}\/\d{1,2}\/20\d{2})/i)
+    if (labelled) { const ds = extractDates(labelled[1]); if (ds[0]) return { as_of: ds[0], expiry: null, basis: 'letter date' } }
+    const all = extractDates(flat).filter(d => d <= today)
     return { as_of: latest(all), expiry: null, basis: all.length ? 'latest date in letter' : 'none' }
   }
   if (kindHas(kind, 'credit_report')) {
@@ -132,6 +151,10 @@ export function checkRecency(perFile: PerFileForensics[], now: Date = new Date()
     const income = kindHas(kind, 'pay_stub') || kindHas(kind, 'bank_statement') || kindHas(kind, 'employment_letter')
     const bureau = kindHas(kind, 'credit_report')
     if (age === null || age < 0) continue
+    // A prior-year NOA or T4 is what a lender asks for; its age is the tax
+    // year, not staleness. Only income and bureau documents go stale
+    // (review 2026-09-13).
+    if (!income && !bureau) continue
     if (income) incomeAges.push(age)
     const limit = income ? 90 : bureau ? 90 : 400
     if (age > limit) {
