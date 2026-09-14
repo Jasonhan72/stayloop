@@ -4,12 +4,14 @@
 // credit the consume_unlock_credit RPC spends atomically.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { pickLandlordRow } from './subscriptionState'
+import { inInternalTestWindow } from './freeWindow'
 
 export async function hasProAccess(
   rls: SupabaseClient,
   userId: string,
   screeningId: string | null,
-): Promise<{ ok: boolean; via: 'plan' | 'unlocked' | 'credit' | null }> {
+): Promise<{ ok: boolean; via: 'plan' | 'unlocked' | 'credit' | 'test_window' | null }> {
+  if (inInternalTestWindow()) return { ok: true, via: 'test_window' }
   const { data: rows } = await rls
     .from('landlords')
     .select('id, auth_id, plan')

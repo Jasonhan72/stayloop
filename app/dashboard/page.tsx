@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { INTERNAL_TEST_FREE_UNTIL_LABEL, inInternalTestWindow } from '@/lib/billing/freeWindow'
 import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import { VerificationBadge } from '@/components/ListingBadges'
@@ -41,7 +42,7 @@ export default function Dashboard() {
     if (typeof window !== 'undefined') {
       setOrigin(window.location.origin)
       const qp = new URL(window.location.href).searchParams
-      if (qp.get('upgrade') === '1') setShowUpgrade(true)
+      if (qp.get('upgrade') === '1' && !inInternalTestWindow()) setShowUpgrade(true)
       const checkout = qp.get('checkout')
       if (checkout === 'success') setCheckoutBanner('pending')
       if (checkout === 'cancel') setCheckoutBanner('cancel')
@@ -232,7 +233,10 @@ export default function Dashboard() {
               >
                 {plan}
               </span>
-              {plan === 'free' && (
+              {plan === 'free' && inInternalTestWindow() && (
+                <span className="rounded-full bg-amber-50 px-3 py-[6px] text-[12px] font-semibold text-amber-800">{lang === 'zh' ? `测试期免费 · 至 ${INTERNAL_TEST_FREE_UNTIL_LABEL.zh}` : `Free test period · until ${INTERNAL_TEST_FREE_UNTIL_LABEL.en}`}</span>
+              )}
+              {plan === 'free' && !inInternalTestWindow() && (
                 <button onClick={() => setShowUpgrade(true)} className="sl-btn-primary !py-[10px] !px-4 !text-[13.5px]">
                   {lang === 'zh' ? '升级到 Pro' : 'Upgrade to Pro'}
                 </button>
@@ -655,7 +659,7 @@ export default function Dashboard() {
                   Pro
                 </div>
                 <div className="mt-1 text-[32px] font-bold tracking-tight">
-                  $29<span className="text-[14px] font-medium text-body-3">/mo</span>
+                  $19<span className="text-[14px] font-medium text-body-3">/mo</span>
                 </div>
                 <ul className="mt-4 space-y-1.5 text-[12.5px] text-body">
                   <li>{lang === 'zh' ? '✓ Free 全部功能' : '✓ Everything in Free'}</li>

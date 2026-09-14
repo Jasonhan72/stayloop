@@ -19,6 +19,7 @@ import { matchPortalParty, isRespondentSide, planPortalQueries, portalMatchKey, 
 import { nameCovers, sameName } from '@/lib/screening/coApplicants'
 import { countMaterialBlanks } from '@/lib/screening/rubric'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
+import { inInternalTestWindow } from '@/lib/billing/freeWindow'
 import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
 import { analyzeStatementLiquidity, findRecurringMonthlyPayment } from '@/lib/forensics/payroll-deposits'
 import { monthsSince, parsePeriodMonths, parseDateLoose, datesAgree } from '@/lib/screening/periods'
@@ -792,6 +793,8 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     // Pro-level treatment — it neither counts against the free monthly
     // allowance nor stays on the free court tier.
     if (plan === 'free' && screening.unlocked_at) plan = 'pro'
+    // Internal test month: no quota, Pro court tier for everyone.
+    if (inInternalTestWindow()) plan = 'pro'
 
     // ---- Quota enforcement for free plan ----
     if (plan === 'free') {

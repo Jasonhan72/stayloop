@@ -42,6 +42,7 @@ import type { BNLookupResult } from '@/lib/forensics/bn-check'
 import { captureException } from '@/lib/observability/sentry'
 import { selectCoApplicantNames } from '@/lib/screening/coApplicants'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
+import { inInternalTestWindow } from '@/lib/billing/freeWindow'
 
 function makeServiceClient() {
   return createClient(
@@ -411,6 +412,8 @@ function dedupeStrings(list: string[]): string[] {
  * Returns null when the caller is authorized; otherwise a Response to return.
  */
 async function enforceProGate(req: Request, screeningId: string | null): Promise<Response | null> {
+  // Internal test month: every gate open (lib/billing/freeWindow.ts).
+  if (inInternalTestWindow()) return null
   const rawAuth = req.headers.get('authorization') || ''
   const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
   if (!authHeader) {

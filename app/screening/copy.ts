@@ -141,5 +141,5 @@ export const COMPARISON = [
   { zh: '申请人本人授权的身份与银行直连', en: 'Applicant-authorised identity and bank connection', us: true, typical: true, typicalNoteZh: '', typicalNoteEn: '' },
   { zh: '征信局直连', en: 'Direct bureau pull', us: false, typical: true, typicalNoteZh: '我们转录申请人自行上传的报告;本人授权直拉筹备中', typicalNoteEn: 'we transcribe the applicant’s own report; own-authorised pull in preparation' },
   { zh: '中英双语报告与界面', en: 'Bilingual (zh/en) report and interface', us: true, typical: false, typicalNoteZh: '', typicalNoteEn: '' },
-  { zh: '基础筛查免费(每月 5 次);深度核查按申请人 $14.99 或 Pro $29/月', en: 'Basic screening free (5/month); deep checks $14.99 per applicant or Pro $29/mo', us: true, typical: false, typicalNoteZh: '按份 $17–$45', typicalNoteEn: '$17–$45 per report' },
+  { zh: '基础筛查免费(每月 5 次);深度核查按申请人 $14.99 或 Pro $19/月', en: 'Basic screening free (5/month); deep checks $14.99 per applicant or Pro $19/mo', us: true, typical: false, typicalNoteZh: '按份 $17–$45', typicalNoteEn: '$17–$45 per report' },
 ]

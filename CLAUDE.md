@@ -355,6 +355,17 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 **仍未做 / 待外部**：消费者报告机构注册（研究进行中）；转介佣金引擎冻结；Realtor.ca 数据来源换 DDF Partner；
 到期前 30 天自动转 `renewal_due` 的定时任务（目前由管理员手动标过期）。
 
+## 定价 $19 与内部测试月（2026-09-14 · 用户决定）
+
+- **Pro 改为 $19 CAD/月**：Stripe live 新价 `price_1UFZYoPEHyIrPd1Qswl971AJ`（产品 `prod_UIB2uLu9PHRVeR` 的默认价），
+  原 $29 价 `price_1TJagqPEHyIrPd1QtIWw0NSH` 已归档（当时 0 个活跃订阅，无需迁移）。`.env.local` 的
+  `NEXT_PUBLIC_STRIPE_PRICE_ID` 已换（构建内联，CF 后台那份不生效）。文案 $29 → $19：定价页、工作台升级弹窗、
+  订阅卡、筛查页、筛查营销对照表、管家提示词。守卫 `tests/freeWindow.spec.ts`。经纪档 $29/$59 仍标「即将推出」，未动。
+- **内部测试月：到 2026-10-14 全部免费**。唯一开关 `lib/billing/freeWindow.ts`（`INTERNAL_TEST_FREE_UNTIL`），
+  服务端四道门都读它：`hasProAccess`（核验链接）、deep-check 的 `enforceProGate`、screen-score 的配额与法庭档位、
+  Stripe checkout（窗口内返回 400 `free_window`）；界面上定价页顶部横幅、工作台「升级」按钮换成「测试期免费」、
+  订阅卡横幅、筛查页按 pro 渲染。**到期自动关闭，不需要再部署**；要延长或提前结束只改那个日期常量。
+
 ## 全站深度审查（2026-09-14 · 六个切片，约 85 条发现）
 
 用户要求「全站搜代码深度检测」。六个审查代理按切片（安全与平台 / 管家 / 筛查与报告 / 取证与核验与 LTB /

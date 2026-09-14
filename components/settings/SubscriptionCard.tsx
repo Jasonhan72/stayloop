@@ -15,6 +15,7 @@
 // written by the Stripe webhook). State resolution lives in
 // lib/billing/subscriptionState.ts (tested) — never re-derive it here.
 import { useCallback, useEffect, useState } from 'react'
+import { INTERNAL_TEST_FREE_UNTIL_LABEL, inInternalTestWindow } from '@/lib/billing/freeWindow'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import {
   BILLING_SELECT,
@@ -121,8 +122,8 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
     switch (state) {
       case 'free':
         return zh
-          ? <>升级到 <b className="font-semibold text-body-2">Pro · $29/月（CAD）</b>，随时可取消</>
-          : <>Upgrade to <b className="font-semibold text-body-2">Pro · $29/mo (CAD)</b>, cancel any time</>
+          ? <>升级到 <b className="font-semibold text-body-2">Pro · $19/月（CAD）</b>，随时可取消</>
+          : <>Upgrade to <b className="font-semibold text-body-2">Pro · $19/mo (CAD)</b>, cancel any time</>
       case 'active':
         return zh
           ? <>{periodEnd ? <>下次续费：<b className="font-semibold text-body-2">{periodEnd}</b></> : '按月自动续费'}{card ? <> · {card}</> : null}</>
@@ -147,12 +148,17 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
 
   return (
     <div className="overflow-hidden rounded-2xl border border-line-divider bg-white shadow-card">
+      {inInternalTestWindow() && (
+        <div className="border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-[12.5px] text-amber-900">
+          {zh ? `内部测试期：到 ${INTERNAL_TEST_FREE_UNTIL_LABEL.zh} 为止，所有功能对所有账号免费，无需订阅。` : `Internal test period: every feature is free for every account until ${INTERNAL_TEST_FREE_UNTIL_LABEL.en} — no subscription needed.`}
+        </div>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-4 px-5 pb-4 pt-5">
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-2.5">
             <span className="text-[24px] font-extrabold tracking-tight">{planName}</span>
             {state !== 'free' && (
-              <span className="text-[14px] font-semibold text-body-3">{plan === 'team' ? '' : '$29/mo'}</span>
+              <span className="text-[14px] font-semibold text-body-3">{plan === 'team' ? '' : '$19/mo'}</span>
             )}
             <span
               className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-[11.5px] font-bold"

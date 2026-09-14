@@ -8,6 +8,7 @@
 // The privacy of a tenant is never a product — paid value never changes an
 // applicant's eligibility or ranking. Trust API is the 4th business line.
 import Link from 'next/link'
+import { INTERNAL_TEST_FREE_UNTIL_LABEL, inInternalTestWindow } from '@/lib/billing/freeWindow'
 import { useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -83,11 +84,11 @@ const PLANS: RolePlan[] = [
       },
       {
         name: { zh: '专业', en: 'Pro' },
-        price: { zh: '$29', en: '$29' },
+        price: { zh: '$19', en: '$19' },
         priceUnit: { zh: '/ 月', en: '/ month' },
         tagline: { zh: '全部功能，无限房源。', en: 'Everything, unlimited listings.' },
-        cta: { zh: '升级到专业版', en: 'Upgrade to Pro' },
-        href: '/dashboard?upgrade=1',
+        cta: inInternalTestWindow() ? { zh: '测试期免费使用', en: 'Free during the test period' } : { zh: '升级到专业版', en: 'Upgrade to Pro' },
+        href: inInternalTestWindow() ? '/dashboard' : '/dashboard?upgrade=1',
         includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Go, plus:' },
         features: [
           { zh: '无限发布房源', en: 'Unlimited listings' },
@@ -256,6 +257,11 @@ export default function PricingPage() {
     <>
       <Header variant="transparent" />
       <main>
+        {inInternalTestWindow() && (
+          <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-[13px] font-semibold text-amber-900">
+            {lang === 'zh' ? `内部测试期：到 ${INTERNAL_TEST_FREE_UNTIL_LABEL.zh} 为止，下面的全部功能对所有账号免费，无需订阅或解锁。` : `Internal test period: until ${INTERNAL_TEST_FREE_UNTIL_LABEL.en} everything below is free for every account — no subscription or unlock needed.`}
+          </div>
+        )}
         <section
           className="relative overflow-hidden"
           style={{ background: '#F3F8FC', borderBottom: '1px solid #E4EEF6', marginTop: -72, paddingTop: 72 }}

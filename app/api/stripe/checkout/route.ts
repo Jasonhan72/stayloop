@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe'
 import { pickLandlordRow, resolveSubscriptionState } from '@/lib/billing/subscriptionState'
+import { inInternalTestWindow } from '@/lib/billing/freeWindow'
 
 type BillingRow = { id: string; auth_id?: string | null; email?: string | null; plan: string | null; plan_status: string | null; plan_current_period_end: string | null; stripe_customer_id: string | null; stripe_subscription_id?: string | null; plan_cancel_at_period_end?: boolean | null }
 
@@ -72,6 +73,9 @@ export async function POST(req: NextRequest) {
     // fails, so gating on `plan` alone sold a dunning landlord a SECOND
     // subscription on the same customer. Only a genuinely free account
     // may start Checkout; everyone else goes to the portal.
+    if (inInternalTestWindow()) {
+      return NextResponse.json({ error: 'free_window', message: 'All features are free during the internal test month.' }, { status: 400 })
+    }
     const state = resolveSubscriptionState(landlord)
     if (state !== 'free') {
       return NextResponse.json({ error: state === 'past_due' ? 'past_due' : 'already subscribed', state, portal: true }, { status: 400 })

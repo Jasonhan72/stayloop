@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, type ReactNode, type CSSProperties } from 'react'
+import { inInternalTestWindow } from '@/lib/billing/freeWindow'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { prepareUploads } from '@/lib/screening/prepareUpload'
@@ -1675,7 +1676,7 @@ export default function ScreenPage() {
       .or(conditions)
       .limit(1)
     if (data?.[0]?.plan) {
-      setPlan(data[0].plan as 'free' | 'pro' | 'team')
+      setPlan(inInternalTestWindow() ? 'pro' : (data[0].plan as 'free' | 'pro' | 'team'))
     }
     if (typeof data?.[0]?.unlock_credits === 'number') {
       setUnlockCredits(data[0].unlock_credits as number)
@@ -4205,7 +4206,7 @@ function UnlockModal({ lang, busy, tenantLink, tenantEmail, onTenantEmail, onClo
             </div>
             <button onClick={onPro}
               style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #E4EEF6', background: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', color: '#3F3F46' }}>
-              {zh ? '多套房？升级 Pro $29/月，不限次数' : 'More than one property? Pro $29/mo, unlimited'}
+              {zh ? '多套房？升级 Pro $19/月，不限次数' : 'More than one property? Pro $19/mo, unlimited'}
             </button>
           </div>
         ) : (
