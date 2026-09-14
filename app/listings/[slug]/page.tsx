@@ -5,6 +5,7 @@ export const runtime = 'edge'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useAuth } from '@/lib/useAuth'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { PromoBadge, VerificationBadge } from '@/components/ListingBadges'
@@ -37,6 +38,8 @@ import { favKey, useFavorites, type FavListing } from '@/lib/favorites'
 
 interface DBListing {
   id: string
+  /** landlords.id or (all current rows) the landlord's auth id — see lib/listingPublish.ts */
+  landlord_id: string | null
   slug: string
   address: string
   unit: string | null
@@ -164,6 +167,25 @@ export default function ListingDetailPage() {
   const [galleryIdx, setGalleryIdx] = useState(0)
   const { isFav, toggle } = useFavorites()
   const [copied, setCopied] = useState(false)
+  // Cross-hat rules (design/multi-role-accounts-2026-09.md §3): the viewer
+  // cannot apply to, request a showing of, or pick an agent for their own
+  // listing; a listing whose landlord is a verified RECO registrant is
+  // labelled as such (TRESA s.32 — the landlord discloses, we label).
+  const auth = useAuth()
+  const [ownIds, setOwnIds] = useState<string[]>([])
+  const [landlordIsRegistrant, setLandlordIsRegistrant] = useState(false)
+  useEffect(() => {
+    if (auth.loading || !auth.user) { setOwnIds([]); return }
+    const uid = auth.user.id
+    supabase.from('landlords').select('id').or(`id.eq.${uid},auth_id.eq.${uid}`)
+      .then(({ data }) => setOwnIds([uid, ...((data || []) as { id: string }[]).map(r => r.id)]))
+  }, [auth.loading, auth.user])
+  useEffect(() => {
+    if (!listing?.landlord_id) { setLandlordIsRegistrant(false); return }
+    supabase.from('agent_profiles').select('auth_id').eq('auth_id', listing.landlord_id).eq('status', 'verified').maybeSingle()
+      .then(({ data }) => setLandlordIsRegistrant(!!data))
+  }, [listing?.landlord_id])
+  const isOwnListing = !!listing?.landlord_id && ownIds.includes(listing.landlord_id)
 
   const onShare = useCallback(async () => {
     const url = window.location.href
@@ -663,6 +685,12 @@ export default function ListingDetailPage() {
                   ? 'Stayloop 不要你立刻申请。先告诉房东 / 经纪你的匿名 盖章进度 + 入住时间，对方决定是否邀请你看房。'
                   : 'Stayloop doesn’t make you apply right away. First share your anonymous stamp progress and move-in date with the landlord / agent — they decide whether to invite you for a showing.'}
               </p>
+              {isOwnListing ? (
+                <div className="mt-4 rounded-[10px] border border-line-divider bg-surface-chip px-4 py-3 text-[12.5px] leading-relaxed text-body-2">
+                  {zh ? '这是你自己发布的房源：不能向自己的房源提交看房意向或申请。' : 'This is your own listing: you cannot request a showing of or apply to your own unit.'}{' '}
+                  <Link href="/dashboard" className="font-semibold underline">{zh ? '去房东工作台' : 'Open the landlord workspace'}</Link>
+                </div>
+              ) : (<>
               <button
                 onClick={() => setIntentOpen(true)}
                 className="sl-btn-primary mt-4 w-full !py-[12px]"
@@ -696,6 +724,7 @@ export default function ListingDetailPage() {
                   ? '从 Stayloop 认证（RECO 注册已核）的经纪中自选并直接联系；Stayloop 不参与交易、不收费。房东直租房源也可直接与房东约看。'
                   : 'Pick a Stayloop-verified (RECO-checked) agent and contact them directly; Stayloop takes no part in the trade and charges nothing. Landlord-direct listings can also be viewed with the landlord.'}
               </div>
+              </>)}
               <div className="mt-3 text-center font-mono text-[10px] uppercase tracking-eyebrowLg text-body-3">
                 {zh ? '通常 4 小时内回复' : 'Usually replies within 4 hours'}
               </div>
@@ -721,7 +750,11 @@ export default function ListingDetailPage() {
                     {listing.broker_name || 'AI Agent'}
                   </div>
                   <div className="font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
-                    {listing.brokerage ? (zh ? `${listing.brokerage} · 经纪` : `${listing.brokerage} · Agent`) : (zh ? '房东直租' : 'Direct from landlord')}
+                    {listing.brokerage
+                      ? (zh ? `${listing.brokerage} · 经纪` : `${listing.brokerage} · Agent`)
+                      : landlordIsRegistrant
+                        ? (zh ? '房东直租 · 房东为持牌经纪' : 'Direct from landlord · landlord is a registered agent')
+                        : (zh ? '房东直租' : 'Direct from landlord')}
                   </div>
 
                 </div>
@@ -811,7 +844,7 @@ export default function ListingDetailPage() {
           <IntentModal listing={listing} zh={zh} onClose={() => setIntentOpen(false)} />
         )}
         {fieldAgentOpen && (
-          <AgentPicker zh={zh} listingAddress={`${listing.address}${listing.unit ? ` #${listing.unit}` : ''}`} onClose={() => setFieldAgentOpen(false)} />
+          <AgentPicker zh={zh} listingAddress={`${listing.address}${listing.unit ? ` #${listing.unit}` : ''}`} onClose={() => setFieldAgentOpen(false)} excludeAuthIds={[auth.user?.id, listing.landlord_id]} />
         )}
       </main>
       <Footer />

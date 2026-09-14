@@ -355,6 +355,29 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 **仍未做 / 待外部**：消费者报告机构注册（研究进行中）；转介佣金引擎冻结；Realtor.ca 数据来源换 DDF Partner；
 到期前 30 天自动转 `renewal_due` 的定时任务（目前由管理员手动标过期）。
 
+## 一个账号三顶帽子（2026-09-13 · 多角色模型落地）
+
+研究稿 `design/multi-role-accounts-2026-09.md`，用户批准按建议实施。**帽子（资格，服务端可查）与活动帽子（界面
+上下文）分开；权限永远只看帽子与数据归属。**
+- **`my_hats()` RPC**（迁移 `20260913_registrant_disclosures.sql`，已应用 prod）返回 `{tenant, landlord, agent: status|null,
+  admin}`；`lib/useHats.ts` 读它（模块级缓存，获得新帽子后 `invalidateHats()`）。**活动帽子由路由前缀决定**
+  （`lib/activeRole.ts roleFromPath`：`/tenant/*`、`/landlord/*` + `/screening/app` + `/dashboard`、`/agent/*`），
+  `useAuth().role` 先取路由、再回退 localStorage；`setRole` 只是「记住上次」。守卫 `tests/activeRole.spec.ts`。
+- **Header 三帽菜单**：只列账号拥有的帽子（租客恒有；房东 = landlords 行；经纪 = agent_profiles 行，未认证带「待认证」
+  小标），没有的给「成为房东」（→ onboarding）/「成为经纪 · 需 RECO 注册核验」（→ `/agent/verify`）入口。
+- **跨帽子守卫**：① 不能向自己的房源提交申请 / 看房意向——房源页与申请页前端隐藏 + DB 触发器
+  `guard_not_own_listing()`（applications / showing_intents 插入时比对 `listings.landlord_id` 与 uid 及其 landlords.id，
+  抛 `own_listing`，申请页把它映射成中文提示；匿名不受影响）；② `AgentPicker` 排除浏览者本人与房源房东
+  （`excludeAuthIds`）；③ 经纪未认证时 `/agent/*` 的经纪专属页（客户 / 任务 / 日历 / 收益 / 带看）渲染只读空态 +
+  认证入口，`/agent/agent` 与 `/agent/verify` 照常。
+- **TRESA s.32 注册人披露**：账号有 agent_profiles 行（任何状态——注册人身份不取决于我们的核验）时，房东帽子发布
+  房源前、租客帽子提交申请前弹 `components/RegistrantDisclosure.tsx`：预填注册名 / RECO 号 / 经纪公司的通知文本、
+  复制按钮、勾选「已送达并保留书面确认」→ 写 `registrant_disclosures`（context: listing_publish / application /
+  showing_intent / lease）。**Stayloop 只记录披露，不代送达。** 房源页对房东 auth_id 有 verified agent_profiles 的
+  房源标「房东直租 · 房东为持牌经纪」（只覆盖 landlord_id 存 authId 的行——现有全部行都是）。
+- **不做（用户已定）**：经纪代客筛查（`on_behalf_of`）等有代表协议记录后再开；首页三枚角色按钮只切 AI 演示，登录后
+  以头像菜单为准；看房意向弹窗仍是演示（无 DB 写入），披露不接。
+
 ## 第二轮审查：修复回归 + 模块级 + 手机可操作性（2026-09-13）
 
 三个代理：① 对上一轮 33 条修复做二次审查（13 条，修 11）；② 筛查与核验两个模块的流程/状态/权限/PII/

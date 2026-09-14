@@ -241,9 +241,33 @@ function AgentVerificationBanner({ status, zh }: { status: ReturnType<typeof use
   )
 }
 
+// Agent-only surfaces (clients, tasks, calendar, earnings, showings) stay an
+// empty state until the RECO check passes; the assistant home and the
+// verification page remain usable (decision 2026-09-13).
+function isAgentOnlyRoute(path: string): boolean {
+  return path.startsWith('/agent/') && !path.startsWith('/agent/agent') && !path.startsWith('/agent/verify')
+}
+function usePathnameSafe(): string { return usePathname() || '' }
+function AgentLockedState({ status, zh }: { status: string; zh: boolean }) {
+  return (
+    <div className="rounded-2xl border border-line-divider bg-white px-6 py-16 text-center">
+      <p className="mx-auto max-w-[460px] text-[14px] leading-relaxed text-body-2">
+        {status === 'pending'
+          ? (zh ? '这一页在 RECO 注册核验通过后开放。你的资料已提交，等待人工核验。' : 'This page opens once your RECO registration is verified. Your submission is awaiting a manual check.')
+          : (zh ? '这一页只对已认证的经纪开放：提交 RECO 注册信息，人工核验后即可使用客户、带看与目录功能。' : 'This page is for verified agents: submit your RECO registration and, once checked, clients, showings and the directory open up.')}
+      </p>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+        <Link href="/agent/verify" className="rounded-xl px-6 py-3 text-[14px] font-bold text-white" style={{ background: '#00ACE4' }}>{zh ? (status === 'pending' ? '查看认证状态' : '去认证') : (status === 'pending' ? 'View status' : 'Get verified')}</Link>
+        <Link href="/agent/agent" className="rounded-xl border border-line-divider px-5 py-3 text-[13px] font-semibold text-body-2">{zh ? '先和 Brief 聊聊' : 'Talk to Brief meanwhile'}</Link>
+      </div>
+    </div>
+  )
+}
+
 export default function WorkspaceShell({ role, aside, children, hideAside }: Props) {
   const { gate, sampleNote, showDemo, setShowDemo } = useDemoGate()
   const agentStatus = useAgentVerification(role)
+  const shellPath = usePathnameSafe()
   const { lang } = useI18n()
   // On a gated route the aside is demo narrative too (Unit 1207 stories) —
   // an honest empty state beside a fixture-driven aside defeats the point.
@@ -260,7 +284,9 @@ export default function WorkspaceShell({ role, aside, children, hideAside }: Pro
           <div className="min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12">
             {sampleNote && <SampleBanner zh={lang === 'zh'} note={sampleNote} />}
             {role === 'agent' && <AgentVerificationBanner status={agentStatus} zh={lang === 'zh'} />}
-            <DemoGate gate={gate} showDemo={showDemo} setShowDemo={setShowDemo}>{children}</DemoGate>
+            {role === 'agent' && agentStatus !== 'loading' && agentStatus !== 'verified' && isAgentOnlyRoute(shellPath)
+              ? <AgentLockedState status={agentStatus} zh={lang === 'zh'} />
+              : <DemoGate gate={gate} showDemo={showDemo} setShowDemo={setShowDemo}>{children}</DemoGate>}
           </div>
           {!asideHidden && (
             <aside className="border-t border-line-divider bg-white px-5 py-6 md:w-[320px] md:flex-none md:overflow-y-auto md:border-l md:border-t-0 md:p-6">

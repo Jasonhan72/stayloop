@@ -14,7 +14,7 @@ import { RECO_REGISTER_URL, categoryLabel, type AgentProfile } from '@/lib/agent
 
 type Row = Pick<AgentProfile, 'auth_id' | 'legal_name' | 'reco_number' | 'category' | 'brokerage_name' | 'business_email' | 'business_phone' | 'crea_member' | 'verified_at' | 'status'>
 
-export function AgentPicker({ zh, listingAddress, onClose }: { zh: boolean; listingAddress: string; onClose: () => void }) {
+export function AgentPicker({ zh, listingAddress, onClose, excludeAuthIds = [] }: { zh: boolean; listingAddress: string; onClose: () => void; excludeAuthIds?: Array<string | null | undefined> }) {
   const lang: 'zh' | 'en' = zh ? 'zh' : 'en'
   const [rows, setRows] = useState<Row[] | null>(null)
   useEffect(() => {
@@ -23,8 +23,13 @@ export function AgentPicker({ zh, listingAddress, onClose }: { zh: boolean; list
       .eq('status', 'verified')
       .order('verified_at', { ascending: false })
       .limit(50)
-      .then(({ data }) => setRows((data || []) as Row[]))
-  }, [])
+      .then(({ data }) => {
+        // Cross-hat rule: the listing's own landlord (who may also be an
+        // agent) and the viewer never appear as a pick for this listing.
+        const ex = new Set(excludeAuthIds.filter((x): x is string => !!x))
+        setRows(((data || []) as Row[]).filter(r => !ex.has(r.auth_id)))
+      })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const subject = encodeURIComponent(zh ? `Stayloop 房源咨询：${listingAddress}` : `Stayloop listing enquiry: ${listingAddress}`)
   const body = encodeURIComponent(zh ? `你好，我在 Stayloop 上看到 ${listingAddress}，想请你协助看房 / 申请。` : `Hello, I found ${listingAddress} on Stayloop and would like your help with a showing / application.`)
 

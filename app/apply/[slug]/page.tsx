@@ -10,6 +10,8 @@ import Footer from '@/components/Footer'
 import { supabase } from '@/lib/supabase'
 import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 import { useT } from '@/lib/i18n'
+import { useAuth } from '@/lib/useAuth'
+import { RegistrantDisclosureModal, useRegistrantProfile } from '@/components/RegistrantDisclosure'
 import type { ApplicationFile, FileKind } from '@/types'
 
 const FILE_KINDS: { kind: FileKind; label: { zh: string; en: string }; hint: { zh: string; en: string } }[] = [
@@ -28,6 +30,15 @@ export default function ApplyPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<string | null>(null)
+  // Cross-hat rules: a signed-in viewer cannot apply to their own listing
+  // (the DB trigger guard_not_own_listing enforces it too); an account that
+  // carries an agent profile must disclose its registrant status first
+  // (TRESA s.32) — the modal records the disclosure, then the submit continues.
+  const auth = useAuth()
+  const registrant = useRegistrantProfile()
+  const [ownListing, setOwnListing] = useState(false)
+  const [disclosure, setDisclosure] = useState<{ listingId: string } | null>(null)
+  const disclosedRef = useRef(false)
   // Application row created by a previous (partially failed) attempt — reused on retry.
   const createdAppIdRef = useRef<string | null>(null)
   const [files, setFiles] = useState<Record<FileKind, File[]>>({
@@ -63,17 +74,26 @@ export default function ApplyPage() {
     ;(async () => {
       const { data: listing, error: qErr } = await supabase
         .from('listings')
-        .select('id')
+        .select('id, landlord_id')
         .eq('slug', params.slug)
         .eq('is_active', true)
         .or(LISTING_VISIBILITY_OR)
         .maybeSingle()
+      if (!cancelled && listing && (listing as { landlord_id?: string | null }).landlord_id && !auth.loading && auth.user) {
+        const uid = auth.user.id
+        const lid = (listing as { landlord_id: string }).landlord_id
+        if (lid === uid) setOwnListing(true)
+        else {
+          const { data: mine } = await supabase.from('landlords').select('id').or(`id.eq.${uid},auth_id.eq.${uid}`)
+          if (!cancelled && (mine || []).some((r: { id: string }) => r.id === lid)) setOwnListing(true)
+        }
+      }
       if (cancelled) return
       // On a query error, fail open ('ok') — the submit-time check still guards.
       setListingCheck(!qErr && !listing ? 'notfound' : 'ok')
     })()
     return () => { cancelled = true }
-  }, [params?.slug])
+  }, [params?.slug, auth.loading, auth.user])
 
   function addFiles(kind: FileKind, fileList: FileList | null) {
     if (!fileList) return
@@ -99,6 +119,10 @@ export default function ApplyPage() {
       return
     }
     setError(null)
+    if (ownListing) {
+      setError(zh ? '不能向自己发布的房源提交申请。' : 'You cannot apply to your own listing.')
+      return
+    }
     setLoading(true)
 
     const { data: listing } = await supabase
@@ -112,6 +136,13 @@ export default function ApplyPage() {
     if (!listing) {
       setError(zh ? '找不到对应房源。' : 'Listing not found.')
       setLoading(false)
+      return
+    }
+
+    // TRESA s.32: a registrant leasing in their own interest discloses first.
+    if (registrant.profile && !disclosedRef.current && !createdAppIdRef.current) {
+      setLoading(false)
+      setDisclosure({ listingId: listing.id })
       return
     }
 
@@ -138,7 +169,9 @@ export default function ApplyPage() {
         .single()
       if (insertError || !created) {
         setLoading(false)
-        setError(zh ? '提交失败,请稍后再试。' : 'Submission failed, please try again.')
+        setError(insertError?.message?.includes('own_listing')
+          ? (zh ? '不能向自己发布的房源提交申请。' : 'You cannot apply to your own listing.')
+          : (zh ? '提交失败,请稍后再试。' : 'Submission failed, please try again.'))
         return
       }
       inserted = created
@@ -256,8 +289,28 @@ export default function ApplyPage() {
   return (
     <>
       <Header />
+      {disclosure && registrant.profile && (
+        <RegistrantDisclosureModal
+          profile={registrant.profile}
+          context="application"
+          listingId={disclosure.listingId}
+          zh={zh}
+          onDone={() => {
+            disclosedRef.current = true
+            setDisclosure(null)
+            void handleSubmit({ preventDefault() {} } as unknown as React.FormEvent)
+          }}
+          onCancel={() => setDisclosure(null)}
+        />
+      )}
       <main className="bg-surface">
         <div className="mx-auto max-w-3xl px-5 py-12 sm:px-7">
+          {ownListing && (
+            <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] leading-relaxed text-amber-900">
+              {zh ? '这是你自己发布的房源，不能向它提交申请。' : 'This is your own listing — you cannot apply to it.'}{' '}
+              <Link href="/dashboard" className="font-semibold underline">{zh ? '去房东工作台' : 'Open the landlord workspace'}</Link>
+            </div>
+          )}
           <div className="text-center">
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
               RENTAL APPLICATION · ENCRYPTED · PIPEDA

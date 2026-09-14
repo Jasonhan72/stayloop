@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { clearCachedAiNames } from '@/lib/aiName'
+import { roleFromPath } from '@/lib/activeRole'
+export { roleFromPath }
 import { getSupabaseBrowser } from './supabase'
 import type { Session, User } from '@supabase/supabase-js'
 
@@ -28,6 +31,7 @@ const ROLE_KEY = 'sl-active-role'
  * server-side via Supabase RLS.
  */
 export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: () => Promise<void> } {
+  const pathname = usePathname()
   const [state, setState] = useState<AuthState>({
     loading: true,
     user: null,
@@ -104,5 +108,8 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
     if (typeof window !== 'undefined') window.location.assign('/')
   }
 
-  return { ...state, setRole, signOut }
+  // Active hat = route prefix first (design/multi-role-accounts-2026-09.md
+  // §3: the URL is the truth), remembered role as the fallback on neutral
+  // pages such as /settings or the home page.
+  return { ...state, role: roleFromPath(pathname) ?? state.role, setRole, signOut }
 }

@@ -9,6 +9,7 @@ import LanguageCurrencyModal from './LanguageCurrencyModal'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
+import { useHats } from '@/lib/useHats'
 import { ROLE_THEME, type RoleKey } from '@/lib/roleTheme'
 
 const ROLE_META: Record<string, { label: string; labelEn: string; color: string; home: string; icon: string }> = {
@@ -37,9 +38,15 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
   const { role: adminRole } = useAdmin()
   const isAdmin = !!adminRole
 
-  const switchableRoles = ['tenant', 'landlord'] as const
+  // Hats come from the server (my_hats RPC); the switcher shows the ones the
+  // account holds and a door to each it does not. localStorage only remembers
+  // the last one used (design/multi-role-accounts-2026-09.md §3).
+  const hats = useHats()
   const currentRole = auth.role || 'tenant'
-  const otherRoles = switchableRoles.filter((r) => r !== currentRole)
+  const heldRoles = (['tenant', 'landlord', 'agent'] as const).filter((r) =>
+    r === 'tenant' ? true : r === 'landlord' ? hats.landlord : hats.agent !== null)
+  const otherRoles = heldRoles.filter((r) => r !== currentRole)
+  const missingRoles = (['landlord', 'agent'] as const).filter((r) => !heldRoles.includes(r))
 
   const handleRoleSwitch = (newRole: string) => {
     auth.setRole(newRole as 'tenant' | 'landlord' | 'agent')
@@ -299,17 +306,38 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                                 {lang === 'zh'
                                   ? `切换到${ROLE_META[r].label}`
                                   : `Switch to ${ROLE_META[r].labelEn}`}
+                                {r === 'agent' && hats.agent && hats.agent !== 'verified' && (
+                                  <span className="ml-2 rounded-full bg-amber-50 px-2 py-[1px] text-[11px] font-bold text-amber-800">{lang === 'zh' ? '待认证' : 'pending'}</span>
+                                )}
                               </div>
                               <div className="text-[12px] text-[#717171]">
                                 {r === 'tenant'
                                   ? (lang === 'zh' ? '找房 · 申请 · 签约' : 'Search · Apply · Lease')
-                                  : (lang === 'zh' ? '管房 · 筛查 · 收租' : 'Manage · Screen · Collect')}
+                                  : r === 'landlord'
+                                    ? (lang === 'zh' ? '管房 · 筛查 · 收租' : 'Manage · Screen · Collect')
+                                    : (lang === 'zh' ? '客户 · 带看 · 经纪目录' : 'Clients · Showings · Directory')}
                               </div>
                             </div>
                           </button>
                         ))}
                       </>
                     )}
+                    {/* Doors to the hats this account does not hold yet */}
+                    {missingRoles.map((r) => (
+                      <Link
+                        key={`become-${r}`}
+                        href={r === 'landlord' ? '/onboarding/name?role=landlord' : '/agent/verify'}
+                        onClick={() => setMenuOpen(false)}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[#F7F7F7]"
+                        role="menuitem"
+                      >
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full text-[15px]" style={{ background: ROLE_META[r].color + '14' }}>{ROLE_META[r].icon}</span>
+                        <div className="flex-1">
+                          <div className="text-[14px] font-semibold text-[#222]">{r === 'landlord' ? (lang === 'zh' ? '成为房东' : 'Become a landlord') : (lang === 'zh' ? '成为经纪' : 'Become an agent')}</div>
+                          <div className="text-[12px] text-[#717171]">{r === 'landlord' ? (lang === 'zh' ? '发布房源 · 筛查租客' : 'List a unit · screen tenants') : (lang === 'zh' ? '需 RECO 注册核验' : 'Requires RECO registration check')}</div>
+                        </div>
+                      </Link>
+                    ))}
 
                     <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
 

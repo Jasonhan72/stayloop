@@ -7,6 +7,8 @@ import WorkspaceShell from '@/components/WorkspaceShell'
 import { supabase } from '@/lib/supabase'
 import { buildListingRow, publishListing } from '@/lib/listingPublish'
 import { useLandlord } from '@/lib/useLandlord'
+import { invalidateHats } from '@/lib/useHats'
+import { RegistrantDisclosureModal, useRegistrantProfile } from '@/components/RegistrantDisclosure'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
 import { stampForTier } from '@/lib/passportStamps'
@@ -75,6 +77,12 @@ export default function NewListingPage() {
         : [...f.amenities, a],
     }))
 
+  // TRESA s.32: an account with an agent profile leasing out its own unit
+  // discloses its registrant status before the listing goes live.
+  const registrant = useRegistrantProfile()
+  const [disclosureOpen, setDisclosureOpen] = useState(false)
+  const [disclosed, setDisclosed] = useState(false)
+
   async function submit() {
     if (!landlord) return
     if (!form.address.trim() || !form.monthly_rent.trim()) {
@@ -82,6 +90,7 @@ export default function NewListingPage() {
       return
     }
     setError(null)
+    if (registrant.profile && !disclosed) { setDisclosureOpen(true); return }
     setSubmitting(true)
     const slug =
       form.address
@@ -113,6 +122,7 @@ export default function NewListingPage() {
       setError(e)
       return
     }
+    invalidateHats()
     router.replace('/dashboard?new=' + newSlug)
   }
 
@@ -131,6 +141,15 @@ export default function NewListingPage() {
 
   return (
     <WorkspaceShell role="landlord" hideAside>
+      {disclosureOpen && registrant.profile && (
+        <RegistrantDisclosureModal
+          profile={registrant.profile}
+          context="listing_publish"
+          zh={lang === 'zh'}
+          onDone={() => { setDisclosureOpen(false); setDisclosed(true); setTimeout(() => { void submit() }, 0) }}
+          onCancel={() => setDisclosureOpen(false)}
+        />
+      )}
       <div className="mx-auto max-w-[760px]">
           <Link
             href="/dashboard"
