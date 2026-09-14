@@ -371,9 +371,16 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
   公开目录一律走 view（`agent_directory`），不给 anon 表级 select（`agent_profiles.review_note` 曾对匿名可读）。
 - **房源可见性不变量在 INSERT 上失守**：`guard_listing_trust_fields` 只在 UPDATE 触发，管家草稿卡带 MLS 号
   就以 `source='realtor'` 直接上线；现在 insert 也强制 `stayloop / pending`。
-- **申请表自 2026-05 起一直是坏的**：insert 带不存在的 `full_name` 列（报「提交失败」），匿名申请人又没有
-  UPDATE 策略，`files` 永远附不上。生产 0 条申请。现在去掉该列，文件经 `attach_application_files()` RPC
-  附加（只允许 1 小时内、files 为空的行、路径以该申请 id 开头）。
+- **申请表自 2026-05 起一直是坏的，四个原因叠加**（生产 0 条申请）：① insert 带不存在的 `full_name` 列；
+  ② 匿名 INSERT 策略在自己的 WITH CHECK 里 count applications 做限流——Postgres 直接报「infinite recursion
+  detected in policy」（42P17），改用 SECURITY DEFINER 的 `recent_application_count()`；③ 匿名没有 SELECT 策略，
+  而 **Postgres 对 `INSERT … RETURNING` 也套 SELECT 策略**，所以 `.insert().select('id')` 永远报 RLS 违规——
+  现在客户端自己生成 uuid、insert 不带 returning；④ `tenant-files` 桶只有 `screenings/<uid>/` 前缀的策略，
+  匿名传不上申请材料、房东也签不了 URL——新增 `application_upload_allowed()` / `application_file_readable()`
+  两个 definer 助手与对应策略（并给 anon 授 `is_household_member` 执行权，否则 OR 起来的另一条策略先报
+  「permission denied for function」）。文件清单经 `attach_application_files()` RPC 附加（1 小时内、files 为空、
+  路径以该申请 id 开头）。全部在生产上用回滚事务以 anon / 房东两种身份验证过。**新写 RLS 时：策略里不能
+  查自己的表；匿名 insert 不要 `.select()`；bucket 策略按前缀逐条列出。**
 - **`/api/agent/execute` 是开放邮件中继**：`send_renewal_letter` / `rent_reminder` 直接给 `metadata.tenant_email`
   发信，而 pending action 是客户端按 RLS 自己写的。现在按 `lease_id` 加载租约、验证房东归属，收件人与事实
   一律取自租约行。

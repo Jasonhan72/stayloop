@@ -157,13 +157,19 @@ export default function ApplyPage() {
     // and can trigger another landlord notification email.
     let inserted: { id: string } | null = createdAppIdRef.current ? { id: createdAppIdRef.current } : null
     if (!inserted) {
-      const { data: created, error: insertError } = await supabase
+      // Review 2026-09-14: anonymous applicants have no SELECT policy on
+      // applications and Postgres applies SELECT policies to
+      // INSERT … RETURNING, so `.insert().select('id')` was refused as an
+      // RLS violation on every submission since 2026-05 (the phantom
+      // `full_name` column would have failed it too). Generate the id here
+      // and insert without RETURNING.
+      const newId = crypto.randomUUID()
+      const { error: insertError } = await supabase
         .from('applications')
         .insert({
+          id: newId,
           listing_id: listing.id,
           ...form,
-          // (no `full_name` — the column does not exist; review 2026-09-14:
-          // every submission since 2026-05 failed with a bare "提交失败")
           monthly_income: parseInt(form.monthly_income) || null,
           prev_rent: parseInt(form.prev_rent) || null,
           num_occupants: parseInt(form.num_occupants) || 1,
@@ -171,8 +177,7 @@ export default function ApplyPage() {
           is_smoker: form.is_smoker === 'true',
           files: [],
         })
-        .select('id')
-        .single()
+      const created = insertError ? null : { id: newId }
       if (insertError || !created) {
         setLoading(false)
         setError(insertError?.message?.includes('own_listing')
