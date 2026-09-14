@@ -27,7 +27,8 @@ export function useHats(): Hats & { refresh: () => Promise<void> } {
   const [hats, setHats] = useState<Hats>(cache && cache.uid === auth.user?.id ? cache.hats : EMPTY)
 
   async function load(uid: string) {
-    const { data } = await supabase.rpc('my_hats')
+    const { data, error } = await supabase.rpc('my_hats')
+    if (error) { setHats((h) => ({ ...h, loading: true })); return }
     const d = (data || {}) as { tenant?: boolean; landlord?: boolean; agent?: AgentStatus | null; admin?: boolean }
     const next: Hats = { loading: false, tenant: true, landlord: !!d.landlord, agent: (d.agent as AgentStatus | null) ?? null, admin: !!d.admin }
     cache = { uid, hats: next }

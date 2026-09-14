@@ -273,7 +273,11 @@ const RECOGNIZED_PRODUCER_PATTERNS: RegExp[] = [
 
 /** Title patterns that indicate the source file was an image (PNG/JPEG/screenshot)
  *  before being converted to PDF — strong fraud signal. */
-const IMAGE_TITLE_PATTERN = /\b(PNG|JPEG|JPG|screenshot|screen[\s-]?shot|image|scan|untitled|export)\b/i
+// "scan" / "image" / "untitled" / "export" are what scanner apps (Adobe
+// Scan, Genius Scan, Notes) write into Title on genuine paper documents —
+// only a raster-file extension or the word screenshot is evidence
+// (review 2026-09-14).
+const IMAGE_TITLE_PATTERN = /\b(PNG|JPEG|JPG|screenshot|screen[\s-]?shot)\b|\.(png|jpe?g|webp|heic)\b/i
 
 /**
  * Read PDF metadata. Returns null if the buffer isn't a parseable PDF.
@@ -622,7 +626,8 @@ export function checkPdfMetadata(
     const hasAcronymToken = author.split(/\s+/).some(tok => /^[A-Z]{2,}[.]?$/.test(tok))
     const looksPersonal = !hasAcronymToken
       && /^[A-Za-z][A-Za-z'’.-]+(?:\s+[A-Za-z][A-Za-z'’.-]+){1,2}\.?$/.test(author)
-      && !/\b(inc|ltd|corp|bank|payroll|systems?|services?|adp|ceridian|workday|equifax|transunion|server|generator|api|pro|pdf|driver|engine|library|document|statement|print|software|tool|output|batch|portal|online|banking|report|crawford|exstream|quadient|inspire)\b/i.test(author)
+      && !/\b(inc|ltd|corp|bank|payroll|systems?|services?|adp|ceridian|workday|equifax|transunion|server|generator|api|pro|pdf|driver|engine|library|document|statement|print|software|tool|output|batch|portal|online|banking|report|crawford|exstream|quadient|inspire|people|digital|canada|rise|knit|intuit|quickbooks|wagepoint|payworks|humi|nethris|paychex|dayforce|sage|xero|desjardins|scotia|scotiabank|cibc|rbc|tangerine|simplii|bmo|td)\b/i.test(author)
+      && !/bank|scotia|payroll/i.test(author)
     if (looksPersonal) {
       flags.push({
         code: 'pdf_author_personal',

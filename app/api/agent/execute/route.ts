@@ -108,6 +108,30 @@ async function finalizeExecution(
 
 const ALREADY = () => NextResponse.json({ executed: true, already: true, result: null })
 
+/**
+ * Review 2026-09-14: pending actions are written client-side under RLS, so
+ * every field in `metadata` is caller-controlled. The two lease-derived
+ * executors used to email `metadata.tenant_email` verbatim — an open mail
+ * relay on the Stayloop domain. Resolve the lease by id, prove the caller
+ * is its landlord, and take recipient + facts from the lease row itself.
+ */
+async function loadOwnedLease(admin: Admin, userId: string, leaseId: unknown): Promise<{
+  id: string; tenant_email: string | null; tenant_name: string | null; unit_label: string | null
+  monthly_rent: number | null; end_date: string | null
+} | null> {
+  if (typeof leaseId !== 'string' || !/^[0-9a-f-]{36}$/i.test(leaseId)) return null
+  const { data: landlordRows } = await admin.from('landlords').select('id').or(`auth_id.eq.${userId},id.eq.${userId}`)
+  const landlordIds = (landlordRows ?? []).map((r: { id: string }) => r.id)
+  if (!landlordIds.length) return null
+  const { data: lease } = await admin
+    .from('lease_documents')
+    .select('id, tenant_email, tenant_name, unit_label, monthly_rent, end_date, landlord_id')
+    .eq('id', leaseId)
+    .in('landlord_id', landlordIds)
+    .maybeSingle()
+  return (lease as { id: string; tenant_email: string | null; tenant_name: string | null; unit_label: string | null; monthly_rent: number | null; end_date: string | null } | null) ?? null
+}
+
 // ---------------------------------------------------------------------------
 // Executor: send_renewal_letter
 // metadata: { lease_id, tenant_name, tenant_email, unit_label, current_rent,
@@ -119,9 +143,25 @@ async function executeSendRenewalLetter(
   action: ActionRow,
   option: 'A' | 'B' | undefined,
 ): Promise<NextResponse> {
-  const m = action.metadata || {}
-  if (!m.tenant_email) {
+  const m0 = action.metadata || {}
+  const lease = await loadOwnedLease(admin, userId, m0.lease_id)
+  if (!lease) {
+    return NextResponse.json({ executed: false, reason: 'lease not found or not yours' }, { status: 403 })
+  }
+  if (!lease.tenant_email) {
     return NextResponse.json({ executed: false, reason: 'lease has no tenant email on file' }, { status: 422 })
+  }
+  // Facts come from the lease row; only the option/guideline maths may come
+  // from the proposal, and the guideline is re-derived from the lease rent.
+  const m = {
+    ...m0,
+    tenant_email: lease.tenant_email,
+    tenant_name: lease.tenant_name,
+    unit_label: lease.unit_label,
+    current_rent: lease.monthly_rent,
+    guideline_rent: lease.monthly_rent != null ? Math.round(lease.monthly_rent * 1.025 * 100) / 100 : undefined,
+    guideline_pct: 2.5,
+    end_date: lease.end_date,
   }
 
   if (!(await claimExecution(admin, action.id))) return ALREADY()
@@ -293,11 +333,16 @@ async function executeRentReminder(
   userId: string,
   action: ActionRow,
 ): Promise<NextResponse> {
-  const m = action.metadata || {}
-  if (!m.tenant_email) {
+  const m0 = action.metadata || {}
+  const lease = await loadOwnedLease(admin, userId, m0.lease_id)
+  if (!lease) {
+    return NextResponse.json({ executed: false, reason: 'lease not found or not yours' }, { status: 403 })
+  }
+  if (!lease.tenant_email) {
     return NextResponse.json({ executed: false, reason: 'lease has no tenant email on file' }, { status: 422 })
   }
-  if (!m.due_date) {
+  const m = { ...m0, tenant_email: lease.tenant_email, tenant_name: lease.tenant_name, unit_label: lease.unit_label, monthly_rent: lease.monthly_rent }
+  if (!m.due_date || !/^\d{4}-\d{2}-\d{2}$/.test(String(m.due_date))) {
     return NextResponse.json({ executed: false, reason: 'reminder has no due date' }, { status: 422 })
   }
 

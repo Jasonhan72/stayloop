@@ -125,8 +125,8 @@ const PLANS: RolePlan[] = [
         price: { zh: '$0', en: '$0' },
         priceUnit: { zh: '永久免费', en: 'free forever' },
         tagline: { zh: '每月 5 个客户，免费试用。需 RECO 注册核验。', en: '5 clients a month, free. Requires a RECO registration check.' },
-        cta: { zh: '免费开始', en: 'Start free' },
-        href: '/agent/onboarding',
+        cta: { zh: '去认证', en: 'Get verified' },
+        href: '/agent/verify',
         includesLabel: { zh: '包含:', en: 'Included:' },
         features: [
           { zh: '5 个客户 / 月', en: '5 clients / month' },
@@ -139,9 +139,9 @@ const PLANS: RolePlan[] = [
         name: { zh: '专业', en: 'Pro' },
         price: { zh: '$29', en: '$29' },
         priceUnit: { zh: '/ 月', en: '/ month' },
-        tagline: { zh: '无限客户，全部功能。需 RECO 注册核验。', en: 'Unlimited clients, everything included. Requires a RECO registration check.' },
-        cta: { zh: '升级到专业版', en: 'Upgrade to Pro' },
-        href: '/agent/onboarding',
+        tagline: { zh: '无限客户，全部功能。需 RECO 注册核验。尚未开售。', en: 'Unlimited clients, everything included. Requires a RECO registration check. Not yet on sale.' },
+        cta: { zh: '即将推出', en: 'Coming soon' },
+        href: '/contact',
         includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Go, plus:' },
         features: [
           { zh: '无限客户', en: 'Unlimited clients' },
@@ -155,9 +155,9 @@ const PLANS: RolePlan[] = [
         name: { zh: '团队', en: 'Business' },
         price: { zh: '$59', en: '$59' },
         priceUnit: { zh: '/ 月', en: '/ month' },
-        tagline: { zh: '团队协作后台。', en: 'A shared team back office.' },
-        cta: { zh: '升级到团队版', en: 'Upgrade to Business' },
-        href: '/agent/onboarding',
+        tagline: { zh: '团队协作后台。尚未开售。', en: 'A shared team back office. Not yet on sale.' },
+        cta: { zh: '即将推出', en: 'Coming soon' },
+        href: '/contact',
         includesLabel: { zh: '专业的全部,另加:', en: 'Everything in Pro, plus:' },
         features: [
           { zh: '多经纪协作 + 团队任务池', en: 'Multi-agent collaboration + shared task pool' },
@@ -325,7 +325,7 @@ export default function PricingPage() {
               { q: { zh: '经纪订阅包含什么?', en: 'What does the agent subscription include?' }, a: { zh: '日程编排、客户管理、RECO 合规提醒等全套工具。免费档 5 个客户/月，Pro 无限客户。不抽任何佣金。', en: 'The full toolset: scheduling, client management, RECO compliance reminders. Free tier is 5 clients/month; Pro is unlimited. No commission cut.' } },
               { q: { zh: '为什么不收带看费、不抽租金?', en: 'Why no showing fees and no rent skim?' }, a: { zh: '我们只收订阅费。租金流水一分不抽，租客也零负担。', en: 'We only charge subscriptions. Nothing is taken from the rent, and tenants pay nothing.' } },
               { q: { zh: '房东免费档够用吗?', en: 'Is the landlord free tier enough?' }, a: { zh: '一套房够用：发布房源、收申请、AI 评分、在线收租都在免费档。多套房或要完整 AI Agent 再升级。', en: 'For one property, yes: listing, applications, AI scoring and rent collection are all in the free tier. Upgrade when you have more properties or want the full AI agent.' } },
-              { q: { zh: '只筛一两个人，非要订阅吗?', en: 'Screening one or two applicants — do I need a subscription?' }, a: { zh: '不用。免费档每月 5 次筛查；只有深度核查（公司注册交叉核查、董事比对、关联关系识别，以及陆续上线的身份 / 银行 / 征信直连）需要解锁——单个申请人 $14.99 一次性，付款链接可以直接发给申请人由他付。多套房再考虑 Pro。', en: 'No. The free tier includes 5 screenings a month. Only deep checks (company-registry cross-check, director matching, related-party detection, and the ID / bank / credit direct verification as it launches) need an unlock — $14.99 one-time per applicant, and you can send the payment link to the applicant. Pro is for landlords with several properties.' } },
+              { q: { zh: '只筛一两个人，非要订阅吗?', en: 'Screening one or two applicants — do I need a subscription?' }, a: { zh: '不用。免费档每月 5 次筛查；只有深度核查（公司注册交叉核查、董事比对、关联关系识别，以及陆续上线的身份 / 银行 / 征信直连）需要解锁——单个申请人 $14.99 一次性，由房东支付（安省 RTA s.134 禁止向申请人收取任何费用）。多套房再考虑 Pro。', en: 'No. The free tier includes 5 screenings a month. Only deep checks (company-registry cross-check, director matching, related-party detection, and the ID / bank / credit direct verification as it launches) need an unlock — $14.99 one-time per applicant, paid by the landlord (Ontario\'s RTA s.134 prohibits charging applicants). Pro is for landlords with several properties.' } },
             ].map((f) => (
               <div key={f.q.zh} className="sl-card p-5">
                 <h4 className="text-[15px] font-bold">{f.q[lang]}</h4>

@@ -330,7 +330,14 @@ export function scoreRubric(f: RubricFacts): RubricResult {
   // Between 91 and 365 days it still scores but records a staleness hit for
   // the report to cite; over 365 the dimension is unknown.
   const stale = f.creditReportAgeDays != null && f.creditReportAgeDays > 365
-  if (f.creditReportUnreliable) {
+  if (f.creditReportUnreliable && f.credit?.unreliable_kind === 'subject_mismatch') {
+    // Another person's report (a co-applicant's file) was transcribed
+    // instead of the applicant's own. That is a transcription gap, not the
+    // applicant's negative: score as "no usable report" (review 2026-09-14).
+    creditScore = 45
+    add('credit_health', 'credit_report_other_subject', 45,
+      'the transcribed bureau report belongs to another person in the file — the applicant\'s own report is not usable here; re-check the upload')
+  } else if (f.creditReportUnreliable) {
     // The report was submitted as the applicant's own and a deterministic
     // check proved it cannot be (e.g. accounts opened when they were a
     // child). Nothing on it — score, utilisation, collections — can be

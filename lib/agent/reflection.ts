@@ -145,7 +145,16 @@ export async function reflectUser(admin: SupabaseClient, userId: string, role: A
     meta: { userId, slot: 'turn', source: 'agent/reflection' },
   })
   const model = sanitizeUserModel(parseModelJson(text), turns.length)
-  if (!model) return false
+  if (!model) {
+    // Review 2026-09-14: returning without a row left needsReflection()
+    // true forever, so every later turn re-ran this 12k-char call. Stamp an
+    // empty profile (renders to nothing) so the staleness window applies.
+    await admin.from('user_memories').upsert(
+      { user_id: userId, role, memory_type: 'system', key: USER_MODEL_KEY, label: '用户画像', value: { updated_at: new Date().toISOString().slice(0, 10), turns_analyzed: turns.length }, source: 'reflection', updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,role,memory_type,key' },
+    )
+    return false
+  }
   const { error } = await admin.from('user_memories').upsert(
     {
       user_id: userId,

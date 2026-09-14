@@ -99,22 +99,30 @@ export async function POST(req: NextRequest) {
             if ((ledgerErr as { code?: string }).code === '23505') break // already processed
             throw ledgerErr
           }
-          if (screeningId) {
-            await admin
-              .from('screenings')
-              .update({ unlocked_at: new Date().toISOString(), unlock_paid_by: payer })
-              .eq('id', screeningId)
-              .is('unlocked_at', null)
-          } else {
-            const { data: row } = await admin
-              .from('landlords')
-              .select('unlock_credits')
-              .eq('id', landlordId)
-              .maybeSingle()
-            await admin
-              .from('landlords')
-              .update({ unlock_credits: ((row?.unlock_credits as number | null) ?? 0) + 1 })
-              .eq('id', landlordId)
+          // Review 2026-09-14: fulfilment errors were swallowed (payment
+          // captured, nothing granted, and the ledger row blocked Stripe's
+          // retry). Any failure below removes the ledger row and throws so
+          // Stripe retries; a screening that no longer exists / is already
+          // unlocked converts the payment into a prepaid credit instead.
+          try {
+            let granted = false
+            if (screeningId) {
+              const { data: upd, error: updErr } = await admin
+                .from('screenings')
+                .update({ unlocked_at: new Date().toISOString(), unlock_paid_by: payer })
+                .eq('id', screeningId)
+                .is('unlocked_at', null)
+                .select('id')
+              if (updErr) throw updErr
+              granted = (upd ?? []).length > 0
+            }
+            if (!granted) {
+              const { error: creditErr } = await admin.rpc('grant_unlock_credit', { p_landlord_id: landlordId })
+              if (creditErr) throw creditErr
+            }
+          } catch (fulfilErr) {
+            await admin.from('stripe_events').delete().eq('id', event.id)
+            throw fulfilErr
           }
           break
         }
@@ -222,6 +230,11 @@ export async function POST(req: NextRequest) {
             ...(card ? { plan_card_brand: card.brand, plan_card_last4: card.last4 } : {}),
           })
           .eq('stripe_customer_id', customerId)
+          // Review 2026-09-14: events about an OLD subscription on the same
+          // customer must not overwrite the row that now points at a newer
+          // one. Match the subscription id when the row already has one
+          // (null covers the documented created-before-completed race).
+          .or(`stripe_subscription_id.is.null,stripe_subscription_id.eq.${sub.id}`)
         break
       }
 
@@ -242,6 +255,7 @@ export async function POST(req: NextRequest) {
             plan_card_last4: null,
           })
           .eq('stripe_customer_id', customerId)
+          .or(`stripe_subscription_id.is.null,stripe_subscription_id.eq.${sub.id}`)
         break
       }
 

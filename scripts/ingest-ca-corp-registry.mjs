@@ -51,7 +51,10 @@ const RETRY_ATTEMPTS = 4
 function canonicalizeName(name) {
   if (!name) return ''
   let s = name.toLowerCase().trim()
-  const suffixRe = /\s*[,.]?\s*(incorporated|incorporée|corporation|corp|company|co|limited|limitée|ltée|ltd|inc|llc|llp|lp|pc|plc|gmbh|ag|sa)\s*\.?$/i
+  // Separator prefix REQUIRED — mirrors lib/forensics/arm-length.ts
+  // canonicalizeEmployerName; without it "Cameco" → "came", "Visa Inc" → "vi"
+  // and the trigram match against the app's canonical fails (review 2026-09-14).
+  const suffixRe = /(?:^|[\s,.])(incorporated|incorporée|corporation|corp|company|co|limited|limitée|ltée|ltd|inc|llc|llp|lp|pc|plc|gmbh|ag|sa)[\s.,]*$/i
   for (let i = 0; i < 3; i++) {
     const prev = s
     s = s.replace(suffixRe, '').trim()

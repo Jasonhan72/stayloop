@@ -18,9 +18,16 @@ export function AgentPicker({ zh, listingAddress, onClose, excludeAuthIds = [] }
   const lang: 'zh' | 'en' = zh ? 'zh' : 'en'
   const [rows, setRows] = useState<Row[] | null>(null)
   useEffect(() => {
-    supabase.from('agent_profiles')
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  useEffect(() => {
+    // agent_directory = the public columns of verified profiles only; the
+    // base table stays self/admin (review 2026-09-14: the table-wide grant
+    // exposed admin review notes and trade names to anon).
+    supabase.from('agent_directory')
       .select('auth_id, legal_name, reco_number, category, brokerage_name, business_email, business_phone, crea_member, verified_at, status')
-      .eq('status', 'verified')
       .order('verified_at', { ascending: false })
       .limit(50)
       .then(({ data }) => {
@@ -64,7 +71,7 @@ export function AgentPicker({ zh, listingAddress, onClose, excludeAuthIds = [] }
               </div>
               <div className="mt-0.5 text-[12.5px] text-body-2">{categoryLabel(a.category, lang)}{a.crea_member ? ' · REALTOR®' : ''} · <b>{a.brokerage_name}</b>{zh ? '（经纪公司）' : ' (brokerage)'}</div>
               <div className="mt-2 flex flex-wrap gap-2">
-                {a.business_email && <a href={`mailto:${a.business_email}?subject=${subject}&body=${body}`} className="sl-btn-primary !px-4 !py-2 text-[13px]">{zh ? '发邮件' : 'Email'}</a>}
+                {a.business_email && /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/.test(a.business_email) && <a href={`mailto:${encodeURIComponent(a.business_email)}?subject=${subject}&body=${body}`} className="sl-btn-primary !px-4 !py-2 text-[13px]">{zh ? '发邮件' : 'Email'}</a>}
                 {a.business_phone && <a href={`tel:${a.business_phone.replace(/[^\d+]/g, '')}`} className="rounded-full border border-line-strong px-4 py-2 text-[13px] font-semibold">{zh ? '打电话' : 'Call'}</a>}
                 {!a.business_email && !a.business_phone && <span className="text-[12px] text-body-3">{zh ? '未留联系方式' : 'No contact details given'}</span>}
               </div>

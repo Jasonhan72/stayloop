@@ -18,6 +18,7 @@ import { selectCoApplicantNames } from '@/lib/screening/coApplicants'
 import { matchPortalParty, isRespondentSide, planPortalQueries, portalMatchKey, corroborateByCoParties } from '@/lib/screening/portalMatch'
 import { nameCovers, sameName } from '@/lib/screening/coApplicants'
 import { countMaterialBlanks } from '@/lib/screening/rubric'
+import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
 import { analyzeStatementLiquidity, findRecurringMonthlyPayment } from '@/lib/forensics/payroll-deposits'
 import { monthsSince, parsePeriodMonths, parseDateLoose, datesAgree } from '@/lib/screening/periods'
@@ -45,7 +46,7 @@ export const runtime = 'edge'
 function buildVerifiedBlock(v: ScreeningVerification): string {
   const lines: string[] = []
   lines.push(`\nAPPLICANT-AUTHORISED VERIFICATION (third-party facts; consent ${v.consent_version} at ${v.consented_at}):`)
-  if (v.id) {
+  if (v.id && (v.id.status === 'verified' || v.id.status === 'failed')) {
     const d = v.id
     lines.push(`- Identity (Veriff liveness + document): ${d.decision.toUpperCase()}${d.first_name || d.last_name ? ` — ${[d.first_name, d.last_name].filter(Boolean).join(' ')}` : ''}${d.date_of_birth ? `, DOB ${d.date_of_birth}` : ''}${d.document_type ? `, ${d.document_type}${d.document_country ? ` (${d.document_country})` : ''}` : ''}${d.document_last4 ? ` ending ${d.document_last4}` : ''}${d.reason ? ` — ${d.reason}` : ''}`)
   } else lines.push('- Identity: not performed')
@@ -771,11 +772,14 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     // store landlords.id (profileId), newer rows store auth.users.id (authId).
     let landlordIds: string[] = screening.landlord_id ? [screening.landlord_id] : []
     if (screening.landlord_id) {
-      const { data: ll } = await supabase
+      // Review 2026-09-14: .maybeSingle() returned null (and the free plan)
+      // for the documented legacy+current double row; use the same picker
+      // as billing and deep-check.
+      const { data: llRows } = await supabase
         .from('landlords')
         .select('id, auth_id, plan')
         .or(`id.eq.${screening.landlord_id},auth_id.eq.${screening.landlord_id}`)
-        .maybeSingle()
+      const ll = pickLandlordRow((llRows ?? []) as { id: string; auth_id: string | null; plan?: string | null }[], screening.landlord_id)
       if (ll?.plan) plan = ll.plan
       if (ll) {
         landlordIds = Array.from(new Set(
@@ -820,6 +824,10 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
         .then(() => {}, () => {})
     }
     writeProgress('signing_files', 6)
+    // Mark the row as in flight from the first stage so the 409 guard above
+    // (which keys on status='scoring') protects the whole run, not only the
+    // part after forensics (review 2026-09-14).
+    supabase.from('screenings').update({ status: 'scoring' }).eq('id', screening_id).then(() => {}, () => {})
 
     // The form value. When the landlord leaves it blank the application
     // form's own "applying rent" (extracted by the model, sanitized below)
@@ -833,9 +841,13 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     // usable step is treated as absent.
     const verifiedFacts: ScreeningVerification | null = (() => {
       const v = (screening as { verification?: ScreeningVerification | null }).verification
-      if (!v || typeof v !== 'object' || v.sandbox) return null
-      if (!v.id && !v.bank && !v.credit) return null
-      return v
+      if (!v || typeof v !== 'object') return null
+      // Drop sandbox steps individually (review 2026-09-14); a snapshot
+      // written before per-step flags existed carries only the OR'd flag.
+      const keep = <T extends { sandbox?: boolean } | null>(s: T): T | null => (s && !s.sandbox && !(v.sandbox && s.sandbox === undefined) ? s : null)
+      const id = keep(v.id), bank = keep(v.bank), credit = keep(v.credit)
+      if (!id && !bank && !credit) return null
+      return { ...v, id, bank, credit, sandbox: false }
     })()
     const verifiedBlock = verifiedFacts ? buildVerifiedBlock(verifiedFacts) : ''
     const incomeRatio = monthlyRent > 0 ? monthlyIncome / monthlyRent : 0
@@ -1695,8 +1707,11 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     let forgedDocCount = 0
 
     for (const pf of forensicsReport.per_file) {
+      // Review 2026-09-14: "any critical flag" counted a SIN checksum typo on
+      // a typed application as a forged document (−50, forced decline).
+      // Only codes that actually indicate fabrication or tampering count.
       const isForged = pf.flags.some(f =>
-        f.severity === 'critical' || (f.severity === 'high' && FORGERY_INDICATING_CODES.has(f.code))
+        (f.severity === 'critical' || f.severity === 'high') && FORGERY_INDICATING_CODES.has(f.code)
       )
       if (!isForged) continue
       forgedDocCount++
@@ -1914,12 +1929,17 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // connected account belonging to someone else proves nothing about the
     // applicant's income).
     const bankFacts = verifiedFacts?.bank
+    // Bank-verified recurring income (Flinks, holder = applicant). Feeds the
+    // rubric as the verified figure — the prompt promised this override and
+    // the backend never did it (review 2026-09-14).
+    let bankVerifiedMonthly: number | null = null
     if (bankFacts && bankFacts.status === 'verified') {
       const applicantNames = [nameForLookup, ...(Array.isArray((parsed as any).extracted_names) ? (parsed as any).extracted_names : []), (parsed as any).extracted_name]
         .filter((x): x is string => typeof x === 'string' && x.trim().length > 1)
       const holderIsApplicant = bankFacts.holder_names.some((h) => applicantNames.some((n) => namesMatch(h, n)))
       if (holderIsApplicant && typeof bankFacts.payroll_monthly_estimate === 'number') {
         const est = bankFacts.payroll_monthly_estimate
+        bankVerifiedMonthly = est
         const claimed = monthlyIncome || null
         const ratio = claimed ? est / claimed : null
         const verdict: 'corroborated' | 'partial' | 'uncorroborated' =
@@ -2016,7 +2036,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // namesake mention into an auto-decline.
     const MODEL_BANNED_GATES = new Set(['ltb_eviction', 'court_record_defendant', 'court_record_defendant_multi', 'court_record_active'])
     const hardGates: string[] = (Array.isArray(parsed.hard_gates_triggered) ? parsed.hard_gates_triggered : [])
-      .filter((g: unknown): g is string => typeof g === 'string' && g in HARD_GATE_CAPS && !MODEL_BANNED_GATES.has(g))
+      .filter((g: unknown): g is string => typeof g === 'string' && Object.prototype.hasOwnProperty.call(HARD_GATE_CAPS, g) && !MODEL_BANNED_GATES.has(g))
     const redFlags: string[] = Array.isArray(parsed.red_flags) ? parsed.red_flags : []
     for (const f of earlyRedFlags) if (!redFlags.includes(f)) redFlags.push(f)
 
@@ -2132,7 +2152,11 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         if (last && a / last[last.length - 1] <= 1.15) last.push(a)
         else clusters.push([a])
       }
-      const perJob = clusters.map(median).sort((a, b) => b - a)
+      // A cluster is a job only when at least two stubs support it — one
+      // hourly worker's overtime period is not a second earner (review
+      // 2026-09-14: two stubs 30% apart + a spouse's ID doubled the income).
+      const jobClusters = clusters.filter(c => c.length >= 2)
+      const perJob = jobClusters.map(median).sort((a, b) => b - a)
       const annual = applicants >= 2 && perJob.length >= 2 ? perJob.slice(0, Math.min(applicants, perJob.length)).reduce((x, y) => x + y, 0) : median(annuals)
       return Math.round(annual / 12 * 100) / 100
     })()
@@ -2437,6 +2461,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       const sharesNothing = subj.trim().split(/\s+/).length >= 2 && Array.from(tok(subj)).every(t => !tok(primaryLoose).has(t))
       if (!isPrimary && (co || sharesNothing)) {
         creditReport.unreliable = true
+        creditReport.unreliable_kind = 'subject_mismatch'
         creditReport.unreliable_reason_en = `The transcribed bureau report belongs to "${subj}"${co ? ` (co-applicant)` : ''}, not to the applicant "${nameForLookup}". It cannot stand in for the applicant's own credit history.`
         creditReport.unreliable_reason_zh = `转录的信用报告属于「${subj}」${co ? '（共同申请人）' : ''}，不是申请人「${nameForLookup}」本人的，不能替代申请人自己的信用记录。`
         forensicsReport.all_flags.push({ code: 'credit_report_subject_mismatch', severity: 'medium', file: creditReport.source_file || undefined, evidence_en: creditReport.unreliable_reason_en, evidence_zh: creditReport.unreliable_reason_zh })
@@ -2602,13 +2627,15 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       const prev = crossDocVerification?.application_summary?.prev_residences ?? []
       rubricFacts = {
         monthly_rent: effectiveRent || null,
-        claimed_monthly_income: detectedIncomeForGate,
+        claimed_monthly_income: detectedIncomeForGate ?? bankVerifiedMonthly,
         // Only a corroborated figure counts. An employment letter the applicant
-        // supplied about themselves is a claim, not a measurement.
+        // supplied about themselves is a claim, not a measurement. A bank
+        // connection the applicant authorised IS a measurement.
         verified_monthly_income:
-          crossDocVerification?.income_corroboration?.verdict === 'corroborated'
-            ? detectedIncomeForGate
-            : null,
+          bankVerifiedMonthly
+            ?? (crossDocVerification?.income_corroboration?.verdict === 'corroborated'
+              ? detectedIncomeForGate
+              : null),
         credit: creditReport ?? null,
         creditReportUnreliable: creditReport?.unreliable === true,
         crossDoc: crossDocVerification,
@@ -3054,7 +3081,9 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         identity_match_score: identityMatch,
         // Snapshot of everything else needed to reconstruct the full report
         // view when the user re-opens a saved screening from history.
-        flags: Array.isArray(parsed.flags) ? parsed.flags : [],
+        flags: Array.isArray(parsed.flags)
+          ? parsed.flags.map((f: { type?: unknown }) => ({ ...f, type: ['danger', 'warning', 'info', 'success'].includes(String(f?.type)) ? f.type : 'info' }))
+          : [],
         summary_en: parsed.summary_en || '',
         summary_zh: parsed.summary_zh || '',
         court_summary_en: parsed.court_summary_en || '',
@@ -3126,7 +3155,12 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       progress: { stage: 'done', pct: 100, at: new Date().toISOString() },
     })).eq('id', screening_id)
 
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+    if (updateError) {
+      // Review 2026-09-14: the row stayed at status='scoring' (undeletable
+      // for 10 min, counted against quota) with no error recorded.
+      await supabase.from('screenings').update({ status: 'error', error: updateError.message.slice(0, 480) }).eq('id', screening_id).then(() => {}, () => {})
+      return NextResponse.json({ error: updateError.message }, { status: 500 })
+    }
 
     return NextResponse.json({
       success: true,

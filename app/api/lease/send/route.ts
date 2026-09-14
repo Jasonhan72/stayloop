@@ -4,7 +4,7 @@
 // signing — no account required), emails the invitation, audits the send.
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendEmail } from '@/lib/email'
+import { escapeHtml, sendEmail } from '@/lib/email'
 
 export const runtime = 'edge'
 
@@ -51,8 +51,10 @@ export async function POST(req: Request) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai'
   const link = `${siteUrl}/lease/sign/${token}`
-  const tenant = lease.tenant_name || 'there'
-  const unit = lease.unit_label || 'your new home'
+  // Landlord-typed fields go into a DKIM-signed Stayloop email — escape
+  // them in the HTML body (review 2026-09-14).
+  const tenant = escapeHtml(lease.tenant_name || 'there')
+  const unit = escapeHtml(lease.unit_label || 'your new home')
   const isTrreb = lease.form_type === 'trreb'
   const formLabel = isTrreb ? 'TRREB Agreement to Lease (Form 400)' : 'Ontario Standard Lease'
   const docName = isTrreb

@@ -139,7 +139,9 @@ function extractMonetaryAmounts(text: string): number[] {
   if (!text) return []
   const amounts: number[] = []
   // Match $1,234.56 or 1234.56 patterns (with optional $ and commas)
-  for (const m of text.matchAll(/\$?\s*(\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})\b/g)) {
+  // No `\s*` after the optional `$`: on a 50k-char whitespace run that
+  // pattern re-scanned the run from every position (~4 s CPU per file).
+  for (const m of text.replace(/\s+/g, ' ').matchAll(/\$?(\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})\b/g)) {
     const n = Number(m[1].replace(/,/g, ''))
     // Filter to plausible transaction range: $1 to $999,999
     if (isFinite(n) && n >= 1 && n < 1_000_000) amounts.push(n)

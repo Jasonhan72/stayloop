@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
         firstName: first || null,
         lastName: rest.length ? rest.join(' ') : null,
       })
-      await writeStep(admin, row, 'id', { status: 'started', provider: 'veriff', session_id: session.id, sandbox: false })
+      await writeStep(admin, row, 'id', { status: 'started', provider: 'veriff', session_id: session.id, sandbox: false, result: null, error: null })
       return NextResponse.json({ ok: true, url: session.url })
     }
     if (step === 'bank') {
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
         redirectUrl: `${siteUrl}/verify/${token}?step=bank&returned=1`,
         lang,
       })
-      await writeStep(admin, row, 'bank', { status: 'started', provider: 'flinks', sandbox: cfg.sandbox })
+      await writeStep(admin, row, 'bank', { status: 'started', provider: 'flinks', sandbox: cfg.sandbox, result: null, error: null })
       return NextResponse.json({ ok: true, iframe_url: iframeUrl, sandbox: cfg.sandbox })
     }
     // credit: the applicant fills the identity form on the page and the page

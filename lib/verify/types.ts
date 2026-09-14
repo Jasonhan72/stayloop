@@ -137,8 +137,9 @@ export type ScreeningVerification = {
   consent_version: string
   consented_at: string
   updated_at: string
+  /** true only when EVERY present step ran on a sandbox instance */
   sandbox: boolean
-  id: (IdResult & { status: VerifyStepStatus }) | null
-  bank: (BankResult & { status: VerifyStepStatus }) | null
-  credit: (CreditResult & { status: VerifyStepStatus }) | null
+  id: (IdResult & { status: VerifyStepStatus; sandbox?: boolean }) | null
+  bank: (BankResult & { status: VerifyStepStatus; sandbox?: boolean }) | null
+  credit: (CreditResult & { status: VerifyStepStatus; sandbox?: boolean }) | null
 }

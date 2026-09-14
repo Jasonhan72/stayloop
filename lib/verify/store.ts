@@ -130,13 +130,17 @@ export async function snapshotToScreening(admin: SupabaseClient, row: Verificati
     .limit(1)
     .maybeSingle()
   if (latest && latest.id !== row.id) return
-  const pick = <T,>(s?: VerifyStep<T>) => (s && s.result ? { ...(s.result as object), status: s.status } as T & { status: VerifyStep['status'] } : null)
+  const pick = <T,>(s?: VerifyStep<T>) => (s && s.result ? { ...(s.result as object), status: s.status, sandbox: !!s.sandbox } as T & { status: VerifyStep['status']; sandbox: boolean } : null)
+  // Review 2026-09-14: OR-ing the flag discarded a real Veriff decision
+  // whenever Flinks ran on the toolbox instance. The top-level flag now
+  // means "all present steps are sandbox"; consumers filter per step.
+  const present = [row.steps?.id, row.steps?.bank, row.steps?.credit].filter((s) => s && s.result)
   const snap: ScreeningVerification = {
     request_id: row.id,
     consent_version: row.consent.version,
     consented_at: row.consent.accepted_at,
     updated_at: new Date().toISOString(),
-    sandbox: !!(row.steps?.id?.sandbox || row.steps?.bank?.sandbox || row.steps?.credit?.sandbox),
+    sandbox: present.length > 0 && present.every((s) => !!s!.sandbox),
     id: pick(row.steps?.id) as ScreeningVerification['id'],
     bank: pick(row.steps?.bank) as ScreeningVerification['bank'],
     credit: pick(row.steps?.credit) as ScreeningVerification['credit'],

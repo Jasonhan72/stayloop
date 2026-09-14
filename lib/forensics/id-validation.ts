@@ -346,8 +346,10 @@ export function checkIdValidation(
         })
       } else {
         flags.push({
-          code: 'id_dl_surname_mismatch',
-          severity: 'high',
+          code: isOcrText ? 'id_dl_surname_unverified' : 'id_dl_surname_mismatch',
+          // OCR misreads one letter as easily as the SIN path's one digit —
+          // downgrade to verify-first on OCR text (review 2026-09-14).
+          severity: isOcrText ? 'medium' : 'high',
           file,
           evidence_en: `Ontario DL "${dl.normalized}" starts with "${initial}", which matches NO name on the document (${names.slice(0, 4).join(', ') || 'none legible'})${surname ? ` nor the applicant "${surname}"` : ''}. Ontario DL numbers always begin with the first letter of the holder's surname.`,
           evidence_zh: `安省驾照号 "${dl.normalized}" 首字母 "${initial}" 与证件上的任何姓名（${names.slice(0, 4).join('、') || '无可读姓名'}）${surname ? `及申请人 "${surname}" ` : ''}均不符。安省驾照号首字母必定为持照人姓氏首字母。`,
@@ -421,9 +423,12 @@ export function checkIdValidation(
         // Only an explicitly-labeled DOB is authoritative enough to call a
         // mismatch — an unmatched pool of generic old dates proves nothing
         // (the real DOB may be printed in a format the regex doesn't read).
+        // On OCR text a one-digit disagreement is a misread, not a mismatch.
+        const oneDigitOff = labeledDob.some(d => d.length === decoded.length && Array.from(d).filter((c, i) => c !== decoded[i]).length <= 1)
+        if (isOcrText && oneDigitOff) continue
         flags.push({
-          code: 'id_dl_dob_mismatch',
-          severity: 'high',
+          code: isOcrText ? 'id_dl_dob_unverified' : 'id_dl_dob_mismatch',
+          severity: isOcrText ? 'medium' : 'high',
           file,
           evidence_en: `Ontario DL "${dl.normalized}" last-6-digit birth-date encoding (${decoded}, after female +50 adjustment if any) contradicts the labeled DOB printed on the document (${labeledDob.join(', ')}). Genuine Ontario licences always encode the holder's DOB in the number.`,
           evidence_zh: `安省驾照号 "${dl.normalized}" 末 6 位的出生日期编码（${decoded}，已考虑女性 +50）与证件上标注的出生日期（${labeledDob.join('、')}）矛盾。真实安省驾照号必定编码持照人出生日期。`,

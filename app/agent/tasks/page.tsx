@@ -465,8 +465,8 @@ function Aside({ lang }: { lang: Lang }) {
           </p>
           <p>
             {zh
-              ? '🔑 带看费按场结算（$80/场），完成反馈表后进入结算队列。'
-              : '🔑 Showing fees are per visit ($80); submitting the feedback form moves one into the settlement queue.'}
+              ? '🔑 带看安排与反馈由你与客户自行约定；Stayloop 不派单、不收带看费。'
+              : '🔑 Showings and feedback are arranged between you and your client; Stayloop does not dispatch and charges no showing fee.'}
           </p>
         </div>
       </AsideBlock>

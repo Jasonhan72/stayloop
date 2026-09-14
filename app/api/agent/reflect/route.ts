@@ -51,6 +51,12 @@ export async function POST(req: Request) {
   const role = typeof body.role === 'string' && ['tenant', 'landlord', 'agent'].includes(body.role) ? (body.role as AgentRole) : null
   if (!role) return NextResponse.json({ error: 'role required (tenant|landlord|agent)' }, { status: 400 })
 
+  // Self mode is user-triggered and bypasses the staleness window, so it
+  // gets its own durable per-hour budget (review 2026-09-14).
+  const { data: underLimit, error: rlErr } = await sb.rpc('bump_agent_rate_limit', { p_limit: 5 })
+  if (rlErr || underLimit === false) {
+    return NextResponse.json({ error: 'Rate limit exceeded — retry later' }, { status: 429, headers: { 'Retry-After': '600' } })
+  }
   try {
     const reflected = await reflectUser(sb, ud.user.id, role)
     return NextResponse.json({ mode: 'self', role, reflected })

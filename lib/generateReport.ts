@@ -377,9 +377,10 @@ export async function generateScreeningReport(
     const v = result.verification
     const idOk = v?.id?.status === 'verified'
     const bankOk = v?.bank?.status === 'verified'
-    const n = (idOk ? 1 : 0) + (bankOk ? 1 : 0)
+    const crOk = v?.credit?.status === 'verified'
+    const n = (idOk ? 1 : 0) + (bankOk ? 1 : 0) + (crOk ? 1 : 0)
     html += `<div style="margin-top:4px;font-size:10px;color:#64748B">${zh ? '收入与租金的比值、信用记录的长短仅供参考，按安省人权委员会政策与 O. Reg. 290/98，不是拒绝的依据；房东须整体判断。' : 'The income-to-rent ratio and the length of credit history are reference points only — under OHRC policy and O. Reg. 290/98 they are not grounds for refusal; the landlord must judge the whole file.'}</div>`
-  html += `<div style="margin-top:4px;font-size:10px;color:#64748B">${zh ? '外部核验' : 'Third-party checks'}: <strong style="color:${n > 0 ? '#16A34A' : '#A16207'}">${n}/3</strong> · ${zh ? '身份' : 'identity'} ${idOk ? '✓' : '✗'} · ${zh ? '银行' : 'bank'} ${bankOk ? '✓' : '✗'} · ${zh ? '推荐人 待致电' : 'references pending call'}${n === 0 ? (zh ? ' — 评分基于文件互证，尚无第三方核验' : ' — score rests on documents corroborating each other; nothing verified externally yet') : ''}</div>`
+  html += `<div style="margin-top:4px;font-size:10px;color:#64748B">${zh ? '外部核验' : 'Third-party checks'}: <strong style="color:${n > 0 ? '#16A34A' : '#A16207'}">${n}/3</strong> · ${zh ? '身份' : 'identity'} ${idOk ? '✓' : '✗'} · ${zh ? '银行' : 'bank'} ${bankOk ? '✓' : '✗'} · ${zh ? '征信' : 'credit'} ${crOk ? '✓' : '✗'}${n === 0 ? (zh ? ' — 评分基于文件互证，尚无第三方核验' : ' — score rests on documents corroborating each other; nothing verified externally yet') : ''}</div>`
   }
 
   // Stats
@@ -428,8 +429,10 @@ export async function generateScreeningReport(
             : (zh ? `已查 ${dbCount} 个数据源，${totalHits} 条同名记录均非被告方或未佐证` : `${dbCount} sources searched; ${totalHits} name match(es), none on the respondent side or corroborated`),
     },
     {
-      label: zh ? '收入负担能力' : 'Income affordability',
-      status: ratio == null ? 'na' : ratio >= 3 ? 'pass' : ratio >= 2 ? 'warn' : 'fail',
+      label: zh ? '收入负担能力（仅供参考）' : 'Income affordability (reference only)',
+      // OHRC / O. Reg. 290/98: the ratio is information, never a pass/fail
+      // (review 2026-09-14 — a ✗ row contradicted the policy sentence above).
+      status: 'na',
       detail: ratio == null
         ? (zh ? '收入证据不足' : 'Insufficient income evidence')
         : `${ratio.toFixed(1)}x ${zh ? '租金' : 'rent'}${result.effective_monthly_income ? ` ($${result.effective_monthly_income.toLocaleString()}/${zh ? '月' : 'mo'})` : ''}`,
@@ -639,8 +642,7 @@ export async function generateScreeningReport(
       html += `<tr><td style="font-weight:600">${zh ? '目标月租金' : 'Target monthly rent'}</td><td style="text-align:right">$${rentNum.toLocaleString()}</td><td></td></tr>`
     }
     if (ratio != null) {
-      const rColor = ratio >= 3 ? '#16A34A' : ratio >= 2 ? '#D97706' : '#DC2626'
-      html += `<tr><td style="font-weight:600">${zh ? '收入/租金比' : 'Income-to-rent ratio'}</td><td style="text-align:right;font-weight:700;color:${rColor}">${ratio.toFixed(1)}x</td><td>${zh ? '行业惯例:≥3x 充足,2–3x 偏紧,<2x 风险高' : 'Industry guideline: ≥3x comfortable, 2–3x tight, <2x high risk'}</td></tr>`
+      html += `<tr><td style="font-weight:600">${zh ? '收入/租金比' : 'Income-to-rent ratio'}</td><td style="text-align:right;font-weight:700">${ratio.toFixed(1)}x</td><td>${zh ? '仅供参考 · 非拒绝依据(OHRC 租房政策 / O. Reg. 290/98)' : 'Reference only — not grounds for refusal (OHRC rental policy / O. Reg. 290/98)'}</td></tr>`
     }
     if (result.bank_min_balance != null) {
       html += `<tr><td style="font-weight:600">${zh ? '银行流水最低余额' : 'Minimum bank balance observed'}</td><td style="text-align:right">$${result.bank_min_balance.toLocaleString()}</td><td>${zh ? '来自银行对账单分析' : 'From bank statement analysis'}</td></tr>`
@@ -798,7 +800,8 @@ export async function generateScreeningReport(
     // Credit score band → color (Canadian 300-900 scale)
     const sc = cr.credit_score
     const scColor = sc == null ? '#64748B' : sc >= 760 ? '#16A34A' : sc >= 725 ? '#65A30D' : sc >= 660 ? '#A16207' : sc >= 560 ? '#C2410C' : '#DC2626'
-    html += `<h2>${zh ? '信用报告（来自上传文件）' : 'Credit Report (from uploaded document)'}</h2>`
+    const pulled = (cr as { source?: string }).source === 'bureau_pull'
+    html += `<h2>${pulled ? (zh ? '信用报告（申请人授权 · 征信机构直拉）' : 'Credit Report (applicant-authorised bureau pull)') : (zh ? '信用报告（来自上传文件）' : 'Credit Report (from uploaded document)')}</h2>`
     if (cr.unreliable) {
       html += `<div style="display:flex;gap:10px;align-items:flex-start;border:1px solid #FCA5A5;border-left:5px solid #B91C1C;border-radius:8px;background:#FEF2F2;padding:10px 14px;margin-bottom:10px">
         <span style="font-size:16px;color:#B91C1C;font-weight:800">✕</span>
@@ -901,7 +904,7 @@ export async function generateScreeningReport(
       for (const i of iq) html += `<tr><td style="font-size:9px">${esc(i.date)}</td><td>${esc(i.creditor)}</td><td style="font-size:9px">${i.hard === true ? (zh ? '硬查询' : 'hard') : i.hard === false ? (zh ? '软查询' : 'soft') : '—'}</td></tr>`
       html += `</table>`
     }
-    html += `<div style="font-size:9px;color:#9FBBD0;margin-top:4px;font-style:italic">${zh ? '以上数据由 AI 从申请人上传的信用报告转录,请与原件核对。Stayloop 不直接对接信用局。' : 'Transcribed by AI from the uploaded credit report — verify against the original. Stayloop does not pull bureau data directly.'}</div>`
+    html += `<div style="font-size:9px;color:#9FBBD0;margin-top:4px;font-style:italic">${pulled ? (zh ? '以上数据经申请人本人授权,由征信机构直接返回;数字未经模型转录。' : 'Returned directly by the credit bureau under the applicant\'s own authorisation; figures are not model-transcribed.') : (zh ? '以上数据由 AI 从申请人上传的信用报告转录,请与原件核对。Stayloop 不直接对接信用局。' : 'Transcribed by AI from the uploaded credit report — verify against the original. Stayloop does not pull bureau data directly.')}</div>`
   }
 
   // ── 4. Document Forensics ──
@@ -1226,7 +1229,7 @@ export async function generateScreeningReport(
         ? { danger: '危险', warning: '警告', info: '提示', success: '正常' }
         : { danger: 'DANGER', warning: 'WARNING', info: 'INFO', success: 'OK' }
       html += `<div class="card" style="border-left:3px solid ${typeColor[f.type] || '#64748B'}">
-        <span class="flag-badge" style="background:${typeColor[f.type] || '#64748B'}">${typeLabel[f.type] || f.type}</span>
+        <span class="flag-badge" style="background:${typeColor[f.type] || '#64748B'}">${esc(typeLabel[f.type] || String(f.type))}</span>
         <span style="font-size:11px">${esc(zh ? f.text_zh : f.text_en)}</span>
       </div>`
     }

@@ -51,6 +51,7 @@ export default function HouseholdHub() {
   const [ticketForm, setTicketForm] = useState({ title: '', description: '', priority: 'medium' })
   const [showTicketForm, setShowTicketForm] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [writeError, setWriteError] = useState<string | null>(null)
   const msgEndRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
@@ -59,7 +60,7 @@ export default function HouseholdHub() {
     setHousehold(h as Household)
     const [{ data: m }, { data: inv }, { data: t }] = await Promise.all([
       supabase.from('household_members').select('*').eq('household_id', id).eq('status', 'active'),
-      supabase.from('household_invites').select('*').eq('household_id', id).order('created_at', { ascending: false }),
+      supabase.from('household_invites').select('id, household_id, invited_email, invited_role, invited_by, expires_at, accepted_by, accepted_at, declined_at, revoked_at, created_at').eq('household_id', id).order('created_at', { ascending: false }),
       supabase.from('maintenance_tickets').select('*').eq('household_id', id).order('created_at', { ascending: false }),
     ])
     setMembers((m as Member[]) ?? [])
@@ -93,8 +94,12 @@ export default function HouseholdHub() {
   async function send() {
     const body = draft.trim()
     if (!body || !user) return
+    // Review 2026-09-14: the draft was cleared BEFORE the insert and the
+    // error discarded — a denied write (household not active) vanished.
+    const { error } = await supabase.from('household_messages').insert({ household_id: id, sender_id: user.id, body })
+    if (error) { setWriteError(error.message); return }
+    setWriteError(null)
     setDraft('')
-    await supabase.from('household_messages').insert({ household_id: id, sender_id: user.id, body })
     void loadMsgs()
   }
 
@@ -102,7 +107,7 @@ export default function HouseholdHub() {
     if (!household?.current_lease_id || !user) return
     setBusy(true)
     const paidAt = new Date().toISOString()
-    await supabase.from('rent_payments').insert({
+    const { error } = await supabase.from('rent_payments').insert({
       lease_id: household.current_lease_id,
       tenant_id: user.id,
       due_date: due,
@@ -110,6 +115,7 @@ export default function HouseholdHub() {
       paid_at: paidAt,
       status: paidAt.slice(0, 10) <= due ? 'paid' : 'late',
     })
+    setWriteError(error ? error.message : null)
     await load()
     setBusy(false)
   }
@@ -117,7 +123,7 @@ export default function HouseholdHub() {
   async function createTicket() {
     if (!ticketForm.title.trim() || !user) return
     setBusy(true)
-    await supabase.from('maintenance_tickets').insert({
+    const { error } = await supabase.from('maintenance_tickets').insert({
       household_id: id,
       opened_by: user.id,
       title: ticketForm.title.trim().slice(0, 200),
@@ -125,6 +131,8 @@ export default function HouseholdHub() {
       priority: ticketForm.priority,
       status: 'new',
     })
+    if (error) { setWriteError(error.message); setBusy(false); return }
+    setWriteError(null)
     setTicketForm({ title: '', description: '', priority: 'medium' })
     setShowTicketForm(false)
     await load()

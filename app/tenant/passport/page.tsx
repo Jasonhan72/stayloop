@@ -35,7 +35,7 @@ const TIERS: TierInfo[] = [
   {
     level: 1,
     title: { zh: '身份章', en: 'Identity stamp' },
-    desc: { zh: '扫证件 + 自拍，90 秒 · Persona 验证', en: 'Scan ID + selfie, 90 seconds · Persona verification' },
+    desc: { zh: '扫证件 + 自拍，90 秒 · Veriff 验证', en: 'Scan ID + selfie, 90 seconds · Veriff verification' },
     status: 'done',
     fields: [
       { zh: '法定姓名', en: 'Legal name' },

@@ -44,7 +44,7 @@ export default function RootLayout({
               "(function(){try{var l=localStorage.getItem('stayloop_lang');if(l!=='en'&&l!=='zh'){l=((navigator.language||'').toLowerCase().indexOf('zh')===0)?'zh':'en'}var d=document.documentElement;d.lang=l==='zh'?'zh-CN':'en';d.dataset.lang=l}catch(e){}})()",
           }}
         />
-        <meta name="theme-color" content="#FBFBF9" />
+        <meta name="theme-color" content="#F3F8FC" />
         <noscript>
           <style>{`.v7-page .rv{opacity:1;transform:none}`}</style>
         </noscript>

@@ -25,8 +25,16 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-    // path format is `${application_id}/${kind}/${filename}` — verify caller can read the application
-    const application_id = path.split('/')[0]
+    // path format is `${application_id}/${kind}/${filename}` — verify caller can read the application.
+    // Review 2026-09-14: storage-js does not encode the path and fetch()
+    // normalises `..`, so `A1/../screenings/<other>/…` was checked as A1 but
+    // signed as another landlord's object. Reject anything but the exact shape.
+    const segs = path.split('/')
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (segs.length !== 3 || !uuidRe.test(segs[0]) || segs.some(s => !s || s === '.' || s === '..' || /[\\?#%]/.test(s))) {
+      return NextResponse.json({ error: 'invalid path' }, { status: 400 })
+    }
+    const application_id = segs[0]
     const { data: app, error } = await supabase
       .from('applications')
       .select('id')

@@ -74,22 +74,47 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invite limit reached for this household' }, { status: 429 })
   }
 
-  const inviterName =
+  // Per-inviter daily budget across all households (review 2026-09-14: the
+  // caps were per request / per household only, and households are
+  // unlimited — one account could send hundreds of Stayloop-branded mails).
+  const { count: sentToday } = await supabase
+    .from('household_invites')
+    .select('id', { count: 'exact', head: true })
+    .eq('invited_by', user.id)
+    .gte('created_at', new Date(Date.now() - 86_400_000).toISOString())
+  if ((sentToday ?? 0) + wanted.length > 30) {
+    return NextResponse.json({ error: 'daily invite limit reached' }, { status: 429 })
+  }
+
+  const rawName =
     (user.user_metadata as Record<string, unknown> | null)?.full_name as string
     || user.email?.split('@')[0]
     || 'A Stayloop user'
+  const inviterName = String(rawName).replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'A Stayloop user'
   const address = [household.address, household.unit ? `#${household.unit}` : null, household.city]
     .filter(Boolean).join(', ')
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai'
 
   const results: Array<{ email: string; ok: boolean }> = []
   for (const w of wanted) {
+    // Insert under the caller's RLS (membership + invited_by enforced by the
+    // policy); the token column is no longer readable by `authenticated`
+    // (review 2026-09-14 — it is a bearer credential other members could
+    // read and decline/accept on the invitee's behalf), so read it back with
+    // the service role by the row id we just created.
     const { data: inv, error: insErr } = await supabase
       .from('household_invites')
       .insert({ household_id: householdId, invited_email: w.email, invited_role: w.role, invited_by: user.id })
-      .select('token')
+      .select('id')
       .single()
     if (insErr || !inv) {
+      results.push({ email: w.email, ok: false })
+      continue
+    }
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const admin = serviceKey ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, { auth: { persistSession: false } }) : null
+    const { data: tokRow } = admin ? await admin.from('household_invites').select('token').eq('id', inv.id).single() : { data: null }
+    if (!tokRow?.token) {
       results.push({ email: w.email, ok: false })
       continue
     }
@@ -98,7 +123,7 @@ export async function POST(req: NextRequest) {
       address,
       roleZh: ROLE_ZH[w.role],
       roleEn: w.role.replace('_', ' '),
-      joinUrl: `${siteUrl}/join/${inv.token}`,
+      joinUrl: `${siteUrl}/join/${tokRow.token}`,
     })
     const sent = await sendEmail({ to: w.email, subject, html, text })
     results.push({ email: w.email, ok: sent.ok })

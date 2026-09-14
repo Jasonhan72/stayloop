@@ -104,12 +104,12 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
     ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
   },
   '/agent/tasks': {
-    zh: '还没有客户任务。替客户下单一次租客筛查,任务与进度在这里跟踪。', en: 'No client tasks yet. Order a screening for a client and track it here.',
-    ctaZh: '发起筛查 →', ctaEn: 'Start a screening →', href: '/screening/app',
+    zh: '还没有客户任务。客户与任务功能将在代表协议记录上线后开放;现在可以先让 Brief 准备带看包或定价。', en: 'No client tasks yet. Clients and tasks open once representation records ship; meanwhile Brief can prep a showing pack or price a unit.',
+    ctaZh: '和 Brief 开工 →', ctaEn: 'Start with Brief →', href: '/agent/agent',
   },
   '/agent/clients': {
-    zh: '还没有客户档案。从替第一位客户下单筛查开始。', en: 'No clients yet. Start by ordering a screening for your first one.',
-    ctaZh: '发起筛查 →', ctaEn: 'Start a screening →', href: '/screening/app',
+    zh: '还没有客户档案。客户功能将在代表协议记录上线后开放。', en: 'No clients yet. Client files open once representation records ship.',
+    ctaZh: '和 Brief 开工 →', ctaEn: 'Start with Brief →', href: '/agent/agent',
   },
   '/agent/calendar': {
     zh: '还没有带看日程。让 Brief 帮你安排第一场。', en: 'No showings yet. Let Brief schedule your first.',

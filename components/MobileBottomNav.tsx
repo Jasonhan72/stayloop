@@ -9,6 +9,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
+import { useHats } from '@/lib/useHats'
 import { useT } from '@/lib/i18n'
 import { shouldShowMobileNav } from '@/lib/mobileNavRoutes'
 
@@ -18,6 +19,7 @@ export default function MobileBottomNav() {
   const path = usePathname() || '/'
   const { lang } = useT()
   const auth = useAuth()
+  const hats = useHats()
   const zh = lang === 'zh'
   const show = shouldShowMobileNav(path)
 
@@ -29,7 +31,11 @@ export default function MobileBottomNav() {
 
   if (!show) return null
   const signedIn = !auth.loading && !!auth.user
-  const mine = signedIn ? HOME[auth.role || ''] || '/dashboard' : '/login'
+  // Review 2026-09-14: a role-less session used to land on /dashboard,
+  // whose useLandlord() claims a landlords row — one tap gave a tenant the
+  // landlord hat. Fall back to a hat the account actually holds.
+  const fallbackHome = hats.loading ? '/tenant/agent' : hats.agent ? '/agent/agent' : hats.landlord ? '/landlord/agent' : '/tenant/agent'
+  const mine = signedIn ? HOME[auth.role || ''] || fallbackHome : '/login'
   const items = [
     { key: 'home', href: '/', label: zh ? '助手' : 'Assistant', active: path === '/', icon: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /> },
     { key: 'listings', href: '/listings', label: zh ? '房源' : 'Listings', active: path.startsWith('/listings'), icon: <><path d="M3 11l9-7 9 7" /><path d="M5 10v9h14v-9" /></> },

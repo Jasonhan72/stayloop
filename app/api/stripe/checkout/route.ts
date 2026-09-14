@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe'
+import { pickLandlordRow, resolveSubscriptionState } from '@/lib/billing/subscriptionState'
+
+type BillingRow = { id: string; auth_id?: string | null; email?: string | null; plan: string | null; plan_status: string | null; plan_current_period_end: string | null; stripe_customer_id: string | null; stripe_subscription_id?: string | null; plan_cancel_at_period_end?: boolean | null }
 
 export const runtime = 'edge'
 
@@ -32,16 +35,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch the landlord row for this auth user (RLS: "own profile")
-    const { data: found, error: landlordErr } = await supabase
+    const { data: foundRows, error: landlordErr } = await supabase
       .from('landlords')
-      .select('id, email, plan, stripe_customer_id')
+      .select('id, auth_id, email, plan, plan_status, plan_current_period_end, stripe_customer_id, stripe_subscription_id, plan_cancel_at_period_end')
       // Dual-ID invariant (CLAUDE.md): legacy landlord rows are keyed by
-      // profileId with no auth_id backfill — match either column.
+      // profileId with no auth_id backfill — match either column. Prefer
+      // the auth_id row like every other billing reader (review 2026-09-14).
       .or(`id.eq.${user.id},auth_id.eq.${user.id}`)
-      .limit(1)
-      .maybeSingle()
+    const found = pickLandlordRow((foundRows ?? []) as BillingRow[], user.id) ?? null
 
-    let landlord = found
+    let landlord: BillingRow | null = found
 
     // Self-heal a missing profile instead of dead-ending the purchase.
     //
@@ -57,7 +60,7 @@ export async function POST(req: NextRequest) {
       const { data: claimed } = await supabase.rpc('claim_landlord')
       const row = Array.isArray(claimed) ? claimed[0] : claimed
       if (row && typeof row === 'object' && 'id' in row) {
-        landlord = row as typeof found
+        landlord = row as BillingRow
       }
     }
 
@@ -65,8 +68,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'landlord not found' }, { status: 404 })
     }
 
-    if (landlord.plan === 'pro' || landlord.plan === 'team') {
-      return NextResponse.json({ error: 'already subscribed' }, { status: 400 })
+    // Review 2026-09-14: the webhook writes plan='free' the moment a renewal
+    // fails, so gating on `plan` alone sold a dunning landlord a SECOND
+    // subscription on the same customer. Only a genuinely free account
+    // may start Checkout; everyone else goes to the portal.
+    const state = resolveSubscriptionState(landlord)
+    if (state !== 'free') {
+      return NextResponse.json({ error: state === 'past_due' ? 'past_due' : 'already subscribed', state, portal: true }, { status: 400 })
     }
 
     const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID
@@ -88,7 +96,7 @@ export async function POST(req: NextRequest) {
       // otherwise prefill the email and let Stripe create one.
       ...(landlord.stripe_customer_id
         ? { customer: landlord.stripe_customer_id }
-        : { customer_email: landlord.email }),
+        : { customer_email: landlord.email ?? undefined }),
       // Primary correlation id. The webhook reads this back from
       // session.metadata to find the right landlord row.
       client_reference_id: landlord.id,

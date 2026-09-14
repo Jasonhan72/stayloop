@@ -13,7 +13,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getModel } from '@/lib/modelConfig'
+import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '@/lib/modelConfig'
+import { llmChat, type ChatContentBlock } from '@/lib/llmChat'
 import { LEASE_IMPORT_PROMPT, sanitizeLeaseImportExtraction } from '@/lib/household/importExtract'
 import { safeParseJson } from '@/lib/agent/turnHelpers'
 
@@ -37,9 +38,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return NextResponse.json({ error: 'not configured' }, { status: 500 })
-
   let form: FormData
   try {
     form = await req.formData()
@@ -49,7 +47,7 @@ export async function POST(req: NextRequest) {
   const files = form.getAll('files').filter((f): f is File => f instanceof File).slice(0, MAX_FILES)
   if (!files.length) return NextResponse.json({ error: 'no files' }, { status: 400 })
 
-  const content: unknown[] = [{ type: 'text', text: LEASE_IMPORT_PROMPT }]
+  const content: ChatContentBlock[] = [{ type: 'text', text: LEASE_IMPORT_PROMPT }]
   let total = 0
   for (const f of files) {
     const buf = await f.arrayBuffer()
@@ -71,17 +69,27 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const model = await getModel('classify')
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model, max_tokens: 1000, messages: [{ role: 'user', content }] }),
-  })
-  if (!res.ok) {
+  // Review 2026-09-14: this posted the classify slot's model id straight to
+  // api.anthropic.com — a non-Anthropic slot model 404'd and nothing was
+  // metered. All model calls go through llmChat (CLAUDE.md).
+  const modelId = await getModel('classify')
+  const def = (await getModelDefAsync(modelId)) ?? getModelDef(DEFAULT_MODELS.classify)
+  if (!def) return NextResponse.json({ error: 'not configured' }, { status: 500 })
+  let text = ''
+  try {
+    const r = await llmChat({
+      model: def,
+      system: 'You extract lease facts as JSON. Output only the JSON object.',
+      messages: [{ role: 'user', content }],
+      maxTokens: 1000,
+      signal: AbortSignal.timeout(60_000),
+      meta: { userId: userData.user.id, slot: 'classify', source: 'household/extract' },
+    })
+    text = r.text
+  } catch (e) {
+    console.error('[household/extract] model call failed', (e as Error).message)
     return NextResponse.json({ error: 'extraction unavailable' }, { status: 502 })
   }
-  const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> }
-  const text = (data.content ?? []).filter((b) => b.type === 'text').map((b) => b.text ?? '').join('')
   const parsed = safeParseJson(text)
 
   // A failed parse degrades to an empty form, never to a failed import.

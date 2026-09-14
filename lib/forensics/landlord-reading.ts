@@ -93,8 +93,11 @@ export function readBankStatement(text: string, ctx: ReadingContext, ocrOnly: bo
   const holder = flat.match(/\b(?:MR|MRS|MS|MISS|DR)\.?\s+([A-Z][A-Z' -]{3,80}?)\s+\d/)
   let joint = /\b(?:and|&)\s+[A-Z][A-Z' -]{3,}\s+\d/.test(flat)
   if (!joint && holder) {
-    const toks = holder[1].split(/\s+/).filter(t => t.length >= 2 && !/^(MR|MRS|MS|MISS|DR)$/.test(t))
-    joint = toks.length >= 5 && new Set(toks).size === toks.length
+    // A second courtesy title inside the holder block ("MR A B MRS C D") is
+    // the only single-line evidence of two holders; a long Hispanic /
+    // Portuguese / Arabic name is one person (review 2026-09-14: five
+    // tokens used to be read as a joint account).
+    joint = /\b(?:MR|MRS|MS|MISS|DR)\.?\s+[A-Z][A-Z' -]{3,60}?\s+(?:MR|MRS|MS|MISS|DR)\.?\s+[A-Z]/.test(flat)
   }
   if (joint) bullets.push(b('联名账户：户名下有两个人，入账和支出都是两个人共用的，不能全算申请人本人的。', 'Joint account: two holders are named, so deposits and spending belong to both — not all of it is the applicant\'s.', 'neutral'))
 

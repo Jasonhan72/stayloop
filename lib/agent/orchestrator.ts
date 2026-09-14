@@ -106,21 +106,21 @@ export function buildRecommendations(
   switch (role) {
     case 'tenant':
       return [
-        { id: 'passport', title: { zh: '盖上收入章解锁更多房源', en: 'Earn your income stamp to unlock more homes' }, description: { zh: '上传一张工资单或连接 Plaid,约 5 分钟。', en: 'Upload a pay stub or connect Plaid — about 5 minutes.' }, href: '/tenant/passport', badge: 'NUDGE' },
+        { id: 'passport', title: { zh: '盖上收入章解锁更多房源', en: 'Earn your income stamp to unlock more homes' }, description: { zh: '上传一张工资单或连接 Flinks 银行直连,约 5 分钟。', en: 'Upload a pay stub or connect your bank via Flinks — about 5 minutes.' }, href: '/tenant/passport', badge: 'NUDGE' },
         { id: 'browse', title: { zh: '看 AI 今天筛的房源', en: "See today's AI-screened listings" }, description: { zh: '已按预算、区域、盖章门槛过滤。', en: 'Filtered by budget, area and stamp requirements.' }, href: '/listings', badge: 'SHORTLIST' },
         { id: 'apps', title: { zh: '查看申请进度', en: 'Track application progress' }, description: { zh: '跟踪每份意向与房东回应。', en: 'Follow each application and landlord response.' }, href: '/tenant/applications', badge: 'STATUS' },
       ]
     case 'landlord':
       return [
-        { id: 'applicants', title: { zh: '审阅 7 份意向', en: 'Review 7 applications' }, description: { zh: 'AI 已按你的政策排序与解释。', en: 'AI has ranked and explained them by your policies.' }, href: '/landlord/applicants', badge: 'INBOX' },
+        { id: 'applicants', title: { zh: '审阅新申请', en: 'Review new applications' }, description: { zh: '按质量排序并逐条解释。', en: 'Ranked by quality, each one explained.' }, href: '/landlord/applicants', badge: 'INBOX' },
         { id: 'screening', title: { zh: '多维核查报告', en: 'Multi-dimension screening report' }, description: { zh: '身份 / 收入 / 历史 / 行为,逐项可解释。', en: 'Identity / income / history / behaviour — each explainable.' }, href: '/screening', badge: 'SCREENING' },
-        { id: 'finance', title: { zh: '收租与财务', en: 'Rent collection & finance' }, description: { zh: '平台不抽租金流水,手续费透明。', en: 'No cut of your rent flow — transparent fees.' }, href: '/landlord/finance', badge: 'FINANCE' },
+        { id: 'finance', title: { zh: '租约与续约', en: 'Leases & renewals' }, description: { zh: '到期前 120 天给出合规续约方案。', en: 'Compliant renewal options 120 days before expiry.' }, href: '/landlord/leases', badge: 'LEASES' },
       ]
     case 'agent':
       return [
         { id: 'tasks', title: { zh: '今日任务', en: "Today's tasks" }, description: { zh: '带看 / 拍照 / Listing prep,授权范围已标注。', en: 'Showings / photos / listing prep, authorization scope marked.' }, href: '/agent/tasks', badge: 'TASKS' },
-        { id: 'clients', title: { zh: '客户与回复', en: 'Clients & replies' }, description: { zh: '2 位客户在等你回复。', en: '2 clients are waiting on your reply.' }, href: '/agent/clients', badge: 'CLIENTS' },
-        { id: 'earnings', title: { zh: '本周收益', en: "This week's earnings" }, description: { zh: '成交后 25% 分成,Stripe 自动结算。', en: '25% split on close, auto-settled via Stripe.' }, href: '/agent/earnings', badge: 'EARNINGS' },
+        { id: 'clients', title: { zh: '客户与回复', en: 'Clients & replies' }, description: { zh: '客户档案与跟进记录。', en: 'Client files and follow-ups.' }, href: '/agent/clients', badge: 'CLIENTS' },
+        { id: 'verify', title: { zh: 'RECO 注册核验', en: 'RECO registration check' }, description: { zh: '认证后进入租客可选的经纪目录。', en: 'Once verified you appear in the tenant-facing directory.' }, href: '/agent/verify', badge: 'VERIFY' },
       ]
     default:
       return []

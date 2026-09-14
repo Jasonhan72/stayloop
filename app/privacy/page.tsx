@@ -38,8 +38,8 @@ export default function PrivacyPage() {
           </Section>
           <Section title={zh ? '4 · 数据存储' : '4 · Data storage'}>
             <p>{zh
-              ? '所有数据存储在 Toronto / Montreal AWS region。Persona / Plaid / Equifax 调用通过加密 TLS 1.3 + token 隔离。'
-              : 'All data is stored in the Toronto / Montreal AWS regions. Calls to Persona / Plaid / Equifax run over encrypted TLS 1.3 with token isolation.'}</p>
+              ? '所有数据存储在 Toronto / Montreal AWS region。Veriff / Flinks / Equifax（申请人授权时）调用通过加密 TLS 1.3 + token 隔离。'
+              : 'All data is stored in the Toronto / Montreal AWS regions. Calls to Veriff / Flinks / Equifax (with the applicant\'s authorisation) run over encrypted TLS 1.3 with token isolation.'}</p>
           </Section>
           <Section title={zh ? '5 · 联系' : '5 · Contact'}>
             <p>{zh ? (

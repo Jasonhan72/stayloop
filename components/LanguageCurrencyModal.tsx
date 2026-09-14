@@ -56,12 +56,12 @@ export default function LanguageCurrencyModal({ open, onClose, initialTab = 'lan
       {/* Centering wrapper */}
       <div className="flex min-h-full items-center justify-center px-4 py-6">
       {/* Modal */}
-      <div className="relative w-full max-w-[568px] max-h-[85vh] overflow-hidden rounded-2xl bg-white shadow-[0_8px_28px_rgba(0,0,0,0.28)] flex flex-col">
+      <div role="dialog" aria-modal="true" aria-labelledby="lang-currency-title" className="relative w-full max-w-[568px] max-h-[85vh] overflow-hidden rounded-2xl bg-white shadow-[0_8px_28px_rgba(0,0,0,0.28)] flex flex-col">
         {/* Header — fixed */}
         <div className="flex items-center justify-between border-b border-[#EBEBEB] px-6 py-4 flex-shrink-0">
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-[#F7F7F7]"
+            className="flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-[#F7F7F7]"
             aria-label="Close"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#222" strokeWidth="2.5" strokeLinecap="round">
@@ -69,7 +69,7 @@ export default function LanguageCurrencyModal({ open, onClose, initialTab = 'lan
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
-          <h2 className="text-[16px] font-semibold text-[#222]">
+          <h2 id="lang-currency-title" className="text-[16px] font-semibold text-[#222]">
             {zh ? '语言和货币' : 'Language and currency'}
           </h2>
           <div className="w-8" />

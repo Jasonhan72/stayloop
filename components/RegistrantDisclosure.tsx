@@ -56,13 +56,15 @@ export function RegistrantDisclosureModal({ profile, context, listingId, counter
   async function confirm() {
     if (!auth.user) return
     setBusy(true)
-    await supabase.from('registrant_disclosures').insert({
+    const { error } = await supabase.from('registrant_disclosures').insert({
       auth_id: auth.user.id, context, listing_id: listingId || null, counterparty: counterparty || null,
       legal_name: profile.legal_name, reco_number: profile.reco_number, brokerage_name: profile.brokerage_name, acknowledged: ack,
     })
     setBusy(false)
+    if (error) { setErr(error.message); return }
     onDone()
   }
+  const [err, setErr] = useState<string | null>(null)
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-[95] flex items-center justify-center overflow-y-auto bg-black/50 p-3" onClick={onCancel}>
@@ -79,6 +81,7 @@ export function RegistrantDisclosureModal({ profile, context, listingId, counter
           <button onClick={async () => { try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1600) } catch {} }} className="rounded-full border border-line-strong px-4 py-2 text-[13px] font-semibold">{copied ? (zh ? '已复制 ✓' : 'Copied ✓') : (zh ? '复制通知' : 'Copy notice')}</button>
         </div>
         <label className="mt-4 flex items-start gap-2 text-[13px]"><input type="checkbox" className="mt-[3px]" checked={ack} onChange={e => setAck(e.target.checked)} /><span>{zh ? '我已（或将在签约前）把此通知送达对方，并会保留对方的书面确认。' : 'I have delivered (or will deliver before signing) this notice to the other party and will keep their written acknowledgement.'}</span></label>
+        {err && <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-800">{zh ? '记录披露失败：' : 'Could not record the disclosure: '}{err}</div>}
         <div className="mt-4 flex flex-wrap gap-2">
           <button onClick={confirm} disabled={busy || !ack} className="sl-btn-primary !py-[10px] disabled:opacity-50">{busy ? '…' : (zh ? '已披露，继续' : 'Disclosed — continue')}</button>
           <button onClick={onCancel} className="rounded-xl border border-line-divider px-4 py-[10px] text-[13px] text-body-3">{zh ? '取消' : 'Cancel'}</button>

@@ -18,6 +18,13 @@ export const runtime = 'edge'
  * the caller's RLS (brokerages_owner is a FOR ALL self policy).
  */
 export async function POST(req: NextRequest) {
+  // Referral / commission engine is FROZEN (decision 2026-09-13, awaiting
+  // legal advice). Until then nothing may create Express accounts or move
+  // money: review 2026-09-14 found any signed-in account could spawn a
+  // live Connect account here.
+  if (process.env.STAYLOOP_COMMISSION_ENGINE !== 'enabled') {
+    return NextResponse.json({ error: 'commission engine disabled' }, { status: 501 })
+  }
   try {
     const authHeader = req.headers.get('authorization') || ''
     if (!authHeader.toLowerCase().startsWith('bearer ')) {

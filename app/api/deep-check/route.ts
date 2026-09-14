@@ -614,6 +614,14 @@ export async function POST(req: Request) {
     // proven by the gate's RLS reads above.
     if (gateScreeningId) {
       try {
+        // Review 2026-09-14: a Pro caller passes the gate on plan alone, so
+        // ownership was NOT proven for them — read the row under the
+        // caller's RLS first, or a Pro landlord could overwrite anyone's
+        // deep_check_result by id.
+        const authHeader = req.headers.get('authorization') || ''
+        const rls = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false, autoRefreshToken: false } })
+        const { data: own } = await rls.from('screenings').select('id').eq('id', gateScreeningId).maybeSingle()
+        if (!own) throw new Error('screening not owned by caller')
         const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
         await admin.from('screenings').update({ deep_check_result: out }).eq('id', gateScreeningId)
       } catch (e) {

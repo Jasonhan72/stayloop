@@ -6,12 +6,15 @@ import Footer from '@/components/Footer'
 import { useT, type Lang } from '@/lib/i18n'
 
 const PARTNERS: { name: string; cat: Record<Lang, string>; use: Record<Lang, string> }[] = [
-  { name: 'RBC', cat: { zh: '银行 · 按揭', en: 'Bank · mortgage' }, use: { zh: '租客按揭预审 · DTI / 收入即时验证', en: 'Tenant mortgage pre-qualification · instant DTI / income verification' } },
-  { name: 'Aviva', cat: { zh: '保险', en: 'Insurance' }, use: { zh: '租客保险定价 · 按盖章进度自动定档', en: 'Tenant insurance pricing · auto-priced by stamp progress' } },
-  { name: 'Equifax', cat: { zh: '信用', en: 'Credit' }, use: { zh: '一键信用查询 · 信用 + 法庭章 入口', en: 'One-click credit check · credit + court stamp gateway' } },
-  { name: 'Plaid / Flinks', cat: { zh: '银行连接', en: 'Bank connectivity' }, use: { zh: '工资 / 现金流 · 实时 收入章 / 银行章 验证', en: 'Payroll / cash flow · real-time income & bank stamp verification' } },
-  { name: 'Persona', cat: { zh: '身份', en: 'Identity' }, use: { zh: '身份章 ID 验证 · 90 秒', en: 'Identity stamp ID verification · 90 seconds' } },
-  { name: 'CanLII', cat: { zh: 'LTB / 法庭', en: 'LTB / courts' }, use: { zh: '租赁纠纷判例查询', en: 'Rental dispute case-law search' } },
+  // Integrations in use or in preparation — not signed partnerships
+  // (review 2026-09-14: banks / insurers / former vendor names were listed
+  // with no relationship; identity is Veriff, bank is Flinks).
+  { name: 'Veriff', cat: { zh: '身份核验 · 已接入', en: 'Identity · live' }, use: { zh: '申请人本人授权的证件 + 活体核验', en: 'Applicant-authorised document + liveness check' } },
+  { name: 'Flinks', cat: { zh: '银行直连 · 已接入', en: 'Bank connectivity · live' }, use: { zh: '申请人授权的 90 天入账摘要，原始流水不落库', en: 'Applicant-authorised 90-day deposit summary; raw transactions are never stored' } },
+  { name: 'Equifax', cat: { zh: '信用 · 筹备中', en: 'Credit · in preparation' }, use: { zh: '申请人本人授权的征信直拉', en: 'Applicant-authorised bureau pull' } },
+  { name: 'Ontario LTB open data', cat: { zh: 'LTB 判令目录 · 已接入', en: 'LTB order catalogue · live' }, use: { zh: '安省开放数据判令目录，按姓名与地址佐证实查', en: 'Ontario open-data order catalogue, searched by name with address corroboration' } },
+  { name: 'Ontario Courts portal', cat: { zh: '法庭记录 · 已接入', en: 'Court records · live' }, use: { zh: '民事与小额法庭当事人检索', en: 'Civil and Small Claims party search' } },
+  { name: 'TRREB', cat: { zh: '行情基准 · 已接入', en: 'Market benchmark · live' }, use: { zh: '季度租赁市场报告的官方成交基准', en: 'Official leased-rent benchmarks from the quarterly rental market report' } },
 ]
 
 export default function PartnersPage() {

@@ -51,8 +51,8 @@ const STATS: Array<{ value: string; label_zh: string; label_en: string }> = [
 
 const FEATURES: Array<{ title_zh: string; title_en: string; body_zh: string; body_en: string }> = [
   {
-    title_zh: 'Identity · Persona + GovID',
-    title_en: 'Identity · Persona + GovID',
+    title_zh: 'Identity · Veriff + GovID',
+    title_en: 'Identity · Veriff + GovID',
     body_zh: '政府 ID + 活体 selfie。返回欺诈分、文件元数据、12 个月可用 JWT proof。',
     body_en: 'Government ID + biometric liveness. Returns a fraud score, document metadata, and a 12-month JWT proof.',
   },

@@ -355,6 +355,46 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 **仍未做 / 待外部**：消费者报告机构注册（研究进行中）；转介佣金引擎冻结；Realtor.ca 数据来源换 DDF Partner；
 到期前 30 天自动转 `renewal_due` 的定时任务（目前由管理员手动标过期）。
 
+## 全站深度审查（2026-09-14 · 六个切片，约 85 条发现）
+
+用户要求「全站搜代码深度检测」。六个审查代理按切片（安全与平台 / 管家 / 筛查与报告 / 取证与核验与 LTB /
+支付与租约与房源 / 工作台与文案）各自引用代码行并用反例实跑验证；全部核实后修复，两份迁移已应用生产。
+值得记住的模式（守卫 `tests/reviewGuards.spec.ts`）：
+- **行级策略 ≠ 列级保护。** `landlords` / `screenings` / `households` / `lease_documents` 的本人策略是 `FOR ALL`，
+  又没有像 listings 那样的守卫触发器，于是本人可用 anon key 把 `plan` 改成 pro、把 `unlocked_at` 盖上、把
+  household 自标 `verified`、替租客签租约。现在四张表都有 `BEFORE INSERT/UPDATE` 守卫（迁移
+  `20260914_paid_and_trust_field_guards.sql` / `20260914_review_e_guards.sql`）。**守卫触发器必须是
+  SECURITY INVOKER 且用 `current_user`（`is_direct_client_write()`）判断调用方**：PostgREST 直写时是
+  `authenticated`，SECURITY DEFINER 的 RPC（`consume_unlock_credit`、`claim_landlord`…）以 owner 身份跑；
+  若写成 definer 触发器，`current_user` 永远是 owner，判断失效。已在生产上用回滚事务验证。
+- **表级 grant 会让列级 revoke 变成空操作**，要先 revoke 表再 grant 列（`household_invites.token`）；
+  公开目录一律走 view（`agent_directory`），不给 anon 表级 select（`agent_profiles.review_note` 曾对匿名可读）。
+- **房源可见性不变量在 INSERT 上失守**：`guard_listing_trust_fields` 只在 UPDATE 触发，管家草稿卡带 MLS 号
+  就以 `source='realtor'` 直接上线；现在 insert 也强制 `stayloop / pending`。
+- **申请表自 2026-05 起一直是坏的**：insert 带不存在的 `full_name` 列（报「提交失败」），匿名申请人又没有
+  UPDATE 策略，`files` 永远附不上。生产 0 条申请。现在去掉该列，文件经 `attach_application_files()` RPC
+  附加（只允许 1 小时内、files 为空的行、路径以该申请 id 开头）。
+- **`/api/agent/execute` 是开放邮件中继**：`send_renewal_letter` / `rent_reminder` 直接给 `metadata.tenant_email`
+  发信，而 pending action 是客户端按 RLS 自己写的。现在按 `lease_id` 加载租约、验证房东归属，收件人与事实
+  一律取自租约行。
+- **Stripe**：webhook 的订阅事件按 customer 匹配，会让旧订阅的 `deleted` 覆盖新订阅；checkout 只看 `plan`，
+  催款中的房东会买到第二份订阅；解锁履约错误被吞（钱收了没解锁）。现在按 subscription id 匹配、checkout
+  用 `resolveSubscriptionState`、履约失败删账本行让 Stripe 重试、筛查不存在时转为预付额度（`grant_unlock_credit`）。
+- **取证的假阳性**：`03/12/2026` 里的 `/12` 被当成「12 期」；标题含 Scan/image 被当截图（Adobe Scan 写的）；
+  Price/Banks/Power 这类词典姓氏匹配到网页正文；`12500.00` 没有千分位被读成 500；雇主首词 Canadian/Toronto
+  撞上银行信头；在职信取第一个长日期（常是未来的入职日）；五个词的西语姓名当联名账户；`Rise People` 当个人
+  作者；按需渲染的对账单报「刚创建」；OCR 读的驾照号一字之差报 high；benford 正则在 5 万空格上花 4 秒。
+- **筛查评分**：Flinks 核实的收入从未进评分表；两张相差 30% 的工资单 + 配偶证件被算成两份收入；SIN 打错
+  一位被当成伪造文件（−50 强制拒绝）；`toString` 通过 `in` 检查成为硬门槛得出 NaN 总分；共同申请人的征信
+  被当成主申请人「生日矛盾」给 20 分；Pro 房东可按 id 覆盖任何人的 `deep_check_result`；通知信里仍有
+  「收入租金比未达标」这一 OHRC 违规理由；打印报告仍给比值打 ✗。全部改正。
+- **申请人核验的信任边界**：token 由房东持有，`/credit` 原来接受任意姓名生日就拉征信；现在必须与 Veriff
+  已核实身份匹配，没有 Veriff 时须与同意签名和房东填写的申请人姓名匹配。`sandbox` 标志改为逐步骤（此前
+  Flinks 沙箱一步让真实的 Veriff 结果整体作废）。
+- **文案**：Persona / Plaid 全站改 Veriff / Flinks；`/partners` 不再列 RBC / Aviva 等不存在的合作；经纪工作台
+  的 25% 转介费 / $80 带看费文案删除；`/agent/onboarding` 整页改为跳转 `/agent/verify`；定价页经纪付费档
+  标「即将推出」；管家提示词与定价 FAQ 里的「可让申请人付」删除。
+
 ## 一个账号三顶帽子（2026-09-13 · 多角色模型落地）
 
 研究稿 `design/multi-role-accounts-2026-09.md`，用户批准按建议实施。**帽子（资格，服务端可查）与活动帽子（界面

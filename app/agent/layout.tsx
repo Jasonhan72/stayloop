@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: '给经纪的 AI 助理 Brief · Stayloop',
-  description: '客户管理、带看安排、替客户下单租客筛查、转介费结算——RECO 合规边界内的经纪 AI 工作台。',
+  description: '替房东客户筛查租客、给房源定价、准备带看、把握 TRESA 与人权法边界——RECO 注册核验后进入租客可选的经纪目录。Stayloop 不做经纪业务、不收费。',
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {

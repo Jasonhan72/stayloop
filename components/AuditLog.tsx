@@ -87,7 +87,7 @@ const DAYS = (aiName: string): AuditDay[] => [
       },
       {
         ts: '10:24',
-        body: { zh: 'Persona 完成身份核验（只读）· 已盖 2/4 → 3/4 枚章', en: 'Persona completed identity verification (read-only) · 2/4 → 3/4 stamps' },
+        body: { zh: 'Veriff 完成身份核验（只读）· 已盖 2/4 → 3/4 枚章', en: 'Veriff completed identity verification (read-only) · 2/4 → 3/4 stamps' },
         who: 'PERSONA API',
         cat: 'access',
         hash: '0xc1…44af',
@@ -289,7 +289,7 @@ function Aside() {
           🏦 <b>Flinks</b> · {lang === 'zh' ? '90 天银行流水（只读）· 已授权' : '90 days of bank transactions (read-only) · authorized'}
         </p>
         <p>
-          🪪 <b>Persona</b> · {lang === 'zh' ? '身份核验（只读）· 已完成' : 'Identity verification (read-only) · completed'}
+          🪪 <b>Veriff</b> · {lang === 'zh' ? '身份核验（只读）· 已完成' : 'Identity verification (read-only) · completed'}
         </p>
         <p>
           🔑 <b>David Park</b> · {lang === 'zh' ? '看房授权 · ' : 'Showing authorization · '}<span className="text-danger">{lang === 'zh' ? '已撤销' : 'revoked'}</span>

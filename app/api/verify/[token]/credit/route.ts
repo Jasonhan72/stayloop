@@ -28,6 +28,27 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
   if (!input.first_name || !input.last_name || !/^\d{4}-\d{2}-\d{2}$/.test(input.date_of_birth) || !input.address.line1 || !input.address.city || !input.address.province || !input.address.postal_code) {
     return NextResponse.json({ ok: false, error: 'fields_required' }, { status: 400 })
   }
+  // Review 2026-09-14: the token is held by the landlord too, so the pull
+  // must be tied to the person who verified / consented, not to whatever
+  // name and DOB were typed. With a Veriff-approved identity on this
+  // request the typed name must match it; without one it must match the
+  // consent signature and the applicant the landlord named.
+  const norm = (x: string | null | undefined) => (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z\s]/g, ' ').split(/\s+/).filter((t) => t.length > 1)
+  const inputToks = norm(`${input.first_name} ${input.last_name}`)
+  const overlaps = (name: string | null | undefined) => { const t = norm(name); return t.length > 0 && inputToks.length > 0 && t.some((x) => inputToks.includes(x)) && inputToks.some((x) => t.includes(x)) }
+  const idStep = row.steps?.id
+  const idRes = idStep && idStep.status === 'verified' ? (idStep.result as { first_name?: string | null; last_name?: string | null; decision?: string } | null) : null
+  if (idRes) {
+    if (!overlaps(`${idRes.first_name || ''} ${idRes.last_name || ''}`)) {
+      return NextResponse.json({ ok: false, error: 'identity_mismatch', detail: 'The name entered does not match the identity verified on this request.' }, { status: 403 })
+    }
+  } else {
+    const signed = row.consent?.typed_name
+    const named = (row as { tenant_name?: string | null }).tenant_name
+    if (!overlaps(signed) || (named && !overlaps(named))) {
+      return NextResponse.json({ ok: false, error: 'identity_mismatch', detail: 'The name entered must match the consent signature and the applicant this request was created for.' }, { status: 403 })
+    }
+  }
   const provider = creditProvider() || 'unknown'
   const sandbox = creditProviderIsSandbox()
   try {

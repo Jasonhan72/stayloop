@@ -19,7 +19,6 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 
 const REASONS = [
-  { k: 'income', zh: '收入与租金比未达到本房源的标准', en: 'Income-to-rent ratio below the requirement for this unit' },
   { k: 'income_unverified', zh: '收入无法独立核实(未提供可核实的收入证明或银行流水)', en: 'Income could not be independently verified (no verifiable proof of income or bank statements)' },
   { k: 'credit', zh: '信用报告中的逾期、催收或利用率情况', en: 'Delinquency, collections or utilisation shown in the credit report' },
   { k: 'history', zh: '前租史或前房东参考未能核实', en: 'Rental history or prior-landlord references could not be verified' },
@@ -47,13 +46,14 @@ export default function NoticePage() {
     supabase.from('screenings').select('tenant_name, ai_extracted_name, ai_dimension_notes, verification').eq('id', id).maybeSingle().then(({ data }) => {
       if (data) {
         setTenant((data.tenant_name || data.ai_extracted_name || '') as string)
-        const v3 = (data.ai_dimension_notes as { _v3?: { credit_report?: { present?: boolean } } } | null)?._v3
+        const v3 = (data.ai_dimension_notes as { _v3?: { credit_report?: { credit_score?: number | null; tradelines?: unknown[] } | null } } | null)?._v3
         // Only steps that actually verified count as "considered" (review
         // 2026-09-13: a snapshot whose steps all failed still made the
         // letter say a verification was considered).
         const ver = data.verification as { id?: { status?: string } | null; bank?: { status?: string } | null; credit?: { status?: string } | null; sandbox?: boolean } | null
         const okStep = (s?: { status?: string } | null) => s?.status === 'verified'
-        setSources({ credit: !!v3?.credit_report?.present, court: true, verified: !ver?.sandbox && (okStep(ver?.id) || okStep(ver?.bank)), bureauPull: !ver?.sandbox && okStep(ver?.credit) })
+        const crPresent = !!v3?.credit_report && (v3.credit_report.credit_score != null || (Array.isArray(v3.credit_report.tradelines) && v3.credit_report.tradelines.length > 0))
+        setSources({ credit: crPresent, court: true, verified: !ver?.sandbox && (okStep(ver?.id) || okStep(ver?.bank)), bureauPull: !ver?.sandbox && okStep(ver?.credit) })
       }
       setLandlord((user?.user_metadata?.full_name as string | undefined) || user?.email || '')
       setReady(true)

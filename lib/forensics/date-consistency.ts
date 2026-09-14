@@ -60,6 +60,16 @@ export function extractDocumentDate(kind: string, text: string | null | undefine
     if (m && MONTHS[m[2].toLowerCase()]) return iso(+m[3], MONTHS[m[2].toLowerCase()], +m[1])
     return null
   }
+  const allLongForm = (s: string): string[] => {
+    const out: string[] = []
+    for (const m of s.matchAll(/\b([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+((?:19|20)\d{2})\b/g)) {
+      if (MONTHS[m[1].toLowerCase()]) { const d = iso(+m[3], MONTHS[m[1].toLowerCase()], +m[2]); if (d) out.push(d) }
+    }
+    for (const m of s.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([A-Za-z]{3,9})\.?,?\s+((?:19|20)\d{2})\b/g)) {
+      if (MONTHS[m[2].toLowerCase()]) { const d = iso(+m[3], MONTHS[m[2].toLowerCase()], +m[1]); if (d) out.push(d) }
+    }
+    return out
+  }
   const labelled = (labels: RegExp): string | null => {
     const m = t.match(labels)
     if (!m) return null
@@ -84,8 +94,17 @@ export function extractDocumentDate(kind: string, text: string | null | undefine
       return labelled(/Statement\s+(?:Date|Period|Ending|End)\s*:?(?:[^0-9]{0,25}\bto\b)?/i)
     case 'employment_letter':
     case 'offer_letter':
-    case 'reference':
-      return longForm(t) || ymdSlash(t)
+    case 'reference': {
+      // A "Date:" label wins; otherwise the LATEST long-form date that is not
+      // in the future (a start date months ahead used to be read as the
+      // letter's own date and flagged "created before document date" —
+      // review 2026-09-14).
+      const lab = t.match(/(?<!start\s|hire\s|effective\s|commencement\s)\bdate\s*:\s*([A-Za-z]+\.?\s+\d{1,2},?\s+(?:19|20)\d{2}|\d{1,2}\s+[A-Za-z]+\.?,?\s+(?:19|20)\d{2}|(?:19|20)\d{2}-\d{2}-\d{2})/i)
+      if (lab) { const d = longForm(lab[1]) || ymdSlash(lab[1]); if (d) return d }
+      const today = new Date().toISOString().slice(0, 10)
+      const all = allLongForm(t).filter(d => d <= today).sort()
+      return all.length ? all[all.length - 1] : (longForm(t) && longForm(t)! <= today ? longForm(t) : null)
+    }
     default:
       return null
   }

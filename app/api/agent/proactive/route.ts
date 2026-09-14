@@ -289,13 +289,19 @@ export async function POST(req: Request) {
   if (ue || !ud?.user) return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
   const userId = ud.user.id
 
-  // Leases ending inside the renewal window. RLS (leases_parties) scopes
-  // this to the caller's own rows — no explicit landlord filter needed.
+  // Leases ending inside the renewal window. RLS (leases_parties) returns
+  // rows where the caller is EITHER party; a multi-hat account would have
+  // been offered a renewal letter for its own tenancy (review 2026-09-14),
+  // so filter to the caller's landlord ids explicitly.
+  const { data: llRows } = await sb.from('landlords').select('id').or(`auth_id.eq.${userId},id.eq.${userId}`)
+  const landlordIds = (llRows ?? []).map((r: { id: string }) => r.id)
+  if (!landlordIds.length) return NextResponse.json({ created: 0, skipped: 'not_a_landlord' })
   const today = new Date()
   const horizon = new Date(today.getTime() + WINDOW_DAYS * 86_400_000)
   const { data: leases, error: leaseErr } = await sb
     .from('lease_documents')
     .select('id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status')
+    .in('landlord_id', landlordIds)
     .in('status', ['active', 'signed_both'])
     .gte('end_date', iso(todayUtc(today)))
     .lte('end_date', iso(horizon))

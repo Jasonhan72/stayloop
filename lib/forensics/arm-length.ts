@@ -523,12 +523,17 @@ export async function checkArmLength(
         // An uncommon surname of the party on the company's own page is a
         // family signal even without the first name ("Felix Ricky Cipriani"
         // on the roofing company's Facebook page, applicant Nathalie Cipriani).
+        // Review 2026-09-14: "Price" / "Banks" / "Power" / "Black" matched
+        // ordinary page text ("our price list"). A surname counts only in
+        // name position — capitalised, preceded by a capitalised given
+        // name — and never when it is an everyday English word.
+        const DICTIONARY_SURNAMES = new Set(['price', 'banks', 'power', 'black', 'white', 'green', 'brown', 'stone', 'fields', 'woods', 'chase', 'cross', 'sharp', 'strong', 'bright', 'royal', 'noble', 'forest', 'hunter', 'marsh', 'grant', 'storm', 'house', 'north', 'south', 'water', 'field', 'young', 'small', 'little', 'church', 'temple', 'castle', 'garden', 'summer', 'winter', 'spring', 'silver', 'golden', 'street', 'bridge', 'river', 'brook', 'lake', 'hill', 'wood', 'rose', 'bell', 'bond', 'ford', 'fox', 'wolf', 'bird', 'fish', 'cook', 'baker', 'smith', 'mason', 'carter', 'miller', 'taylor', 'walker', 'porter', 'hunter', 'fisher', 'sales', 'rental', 'homes', 'realty', 'trust', 'credit', 'capital', 'income', 'family', 'office', 'service', 'quality', 'general', 'major', 'senior', 'junior', 'master', 'chief', 'ready', 'fresh', 'clean', 'super', 'total', 'prime', 'first', 'united', 'central', 'metro', 'urban', 'global', 'national', 'canada', 'ontario', 'toronto'])
         for (const n of party) {
-          for (const sur of partySurnames(n).filter(x => x.length >= 5 && !isCommonSurname(x))) {
-            if (new RegExp(`\\b${sur}\\b`, 'i').test(hay)) {
-              const m = hay.match(new RegExp(`([A-Z][a-z]+\\s+(?:[A-Z][a-z]+\\s+)?${sur})`, 'i'))
-              return `${n} (surname ${sur}${m ? `: "${m[1]}"` : ''})`
-            }
+          for (const sur of partySurnames(n).filter(x => x.length >= 5 && !isCommonSurname(x) && !DICTIONARY_SURNAMES.has(x.toLowerCase()))) {
+            const cap = sur[0].toUpperCase() + sur.slice(1).toLowerCase()
+            const m = hay.match(new RegExp(`\\b([A-Z][a-z]{1,20}\\s+(?:[A-Z]\\.?\\s+|[A-Z][a-z]{1,20}\\s+)?${cap})\\b`))
+              ?? hay.match(new RegExp(`\\b(${sur.toUpperCase()},?\\s+[A-Z][A-Za-z]{1,20})\\b`))
+            if (m) return `${n} (surname ${sur}: "${m[1]}")`
           }
         }
         return null

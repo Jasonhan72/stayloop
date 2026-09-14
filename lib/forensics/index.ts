@@ -466,6 +466,11 @@ async function analyzeFile(
         // A recognised payroll provider (Humi → Prawn, etc.) explains the PDF
         // producer — drop the generic "producer not in whitelist" note for it.
         if (src.matched_payroll) out.flags = out.flags.filter(fl => fl.code !== 'pdf_producer_unknown')
+        // A bank's on-demand statement engine renders the PDF when the
+        // customer clicks download, so "created within a week with
+        // CreationDate==ModDate" is the normal case (review 2026-09-14:
+        // three genuine statements added 3×medium and tipped the tier).
+        if (src.statement_engine || out.pdf_structure?.enterprise_system) out.flags = out.flags.filter(fl => fl.code !== 'pdf_freshly_created')
         // Likewise a credit report whose bureau markers verified: the consumer
         // portal's print engine (Skia/PDF = Chrome) is not an unknown source.
         if (src.equifax_authentic_markers === true) out.flags = out.flags.filter(fl => fl.code !== 'pdf_producer_unknown')

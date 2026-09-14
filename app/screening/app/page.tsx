@@ -755,7 +755,11 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
   const { t, lang } = useT()
 
   // Separate rollup query from database-specific queries
-  const rollupQuery = queries[0]
+  // The "── name ──" rollup row only exists when supplemental names were
+  // searched; a one-name screening has no such row and queries[0] is the
+  // CanLII row, which used to be swallowed as the rollup (review 2026-09-14).
+  const hasRollup = !!queries[0] && queries[0].source.startsWith('──')
+  const rollupQuery = hasRollup ? queries[0] : null
   // Show all database rows that have hits, plus LTB and Small Claims even
   // at 0 hits so the user always sees these two priority DBs were queried.
   // 'CanLII' covers both the index row ("CanLII (via public web index)")
@@ -767,7 +771,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
   // used to render "✓ 无记录" and the rollup said no records were found.
   const notSearched = queries.filter(q => q.tier === 'free' && !q.source.startsWith('──') && (q.status === 'unavailable' || q.status === 'timeout' || q.status === 'skipped'))
   const isNotSearched = (q: CourtQuery) => q.status === 'unavailable' || q.status === 'timeout' || q.status === 'skipped'
-  const dbQueries = queries.slice(1).filter(q =>
+  const dbQueries = queries.slice(hasRollup ? 1 : 0).filter(q =>
     // Name separator rows (e.g. "── JOHN SMITH ──") always pass through
     q.source.startsWith('──') ||
     (q.tier === 'free' && (q.status === 'ok' || q.status === 'unavailable' || q.status === 'timeout' || q.status === 'skipped') && ((q.hits ?? 0) > 0 || q.status === 'timeout' || q.status === 'skipped' || ALWAYS_SHOW_DBS.some(name => q.source.includes(name))))
@@ -843,9 +847,11 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
                   : (lang === 'zh' ? '未找到法院记录' : 'No court records found')
               }
             </div>
-            <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>
-              {rollupQuery.source}
-            </div>
+            {rollupQuery && (
+              <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>
+                {rollupQuery.source}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1972,6 +1978,10 @@ export default function ScreenPage() {
         // verification snapshot and the LTB coverage the live run had shown.
         court_summary_en: v3.court_summary_en ?? undefined,
         court_summary_zh: v3.court_summary_zh ?? undefined,
+        // Deep check reads signatory/related-party inputs from these; a
+        // history reload without them ran a weaker check (review 2026-09-14).
+        cross_doc_verification: v3.cross_doc_verification ?? null,
+        coherence_review: v3.coherence_review ?? null,
         verification: v3.verification ?? (data as { verification?: ScoreResult['verification'] }).verification ?? null,
         ltb_check: v3.ltb_check ?? null,
         rubric: v3.rubric ?? undefined,

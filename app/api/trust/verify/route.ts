@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { captureException } from '@/lib/observability/sentry'
 
 export const runtime = 'edge'
 
@@ -91,12 +92,18 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const { data: passport } = await admin
+  const { data: passport, error: passportErr } = await admin
     .from('rental_passports')
     .select('id, tier, id_verified, income_verified, bank_verified, credit_score')
     .eq('portable_token', token)
     .maybeSingle()
 
+  if (passportErr) {
+    // Review 2026-09-14: this used to collapse into 404 "token not found",
+    // which told partners their token was revoked while the store was down.
+    captureException(passportErr, { route: 'trust/verify', level: 'error' })
+    return NextResponse.json({ verified: false, error: 'verification store unavailable' }, { status: 503 })
+  }
   if (!passport) {
     return NextResponse.json({ verified: false, error: 'token not found or revoked' }, { status: 404 })
   }

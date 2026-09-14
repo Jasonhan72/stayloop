@@ -46,7 +46,9 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
   const heldRoles = (['tenant', 'landlord', 'agent'] as const).filter((r) =>
     r === 'tenant' ? true : r === 'landlord' ? hats.landlord : hats.agent !== null)
   const otherRoles = heldRoles.filter((r) => r !== currentRole)
-  const missingRoles = (['landlord', 'agent'] as const).filter((r) => !heldRoles.includes(r))
+  // Until the RPC answers (or if it failed) offer no "become" doors — a
+  // landlord used to see "成为房东" for a moment on every load.
+  const missingRoles = hats.loading ? [] : (['landlord', 'agent'] as const).filter((r) => !heldRoles.includes(r))
 
   const handleRoleSwitch = (newRole: string) => {
     auth.setRole(newRole as 'tenant' | 'landlord' | 'agent')

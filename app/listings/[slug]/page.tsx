@@ -174,6 +174,7 @@ export default function ListingDetailPage() {
   const auth = useAuth()
   const [ownIds, setOwnIds] = useState<string[]>([])
   const [landlordIsRegistrant, setLandlordIsRegistrant] = useState(false)
+  const [landlordAuthId, setLandlordAuthId] = useState<string | null>(null)
   useEffect(() => {
     if (auth.loading || !auth.user) { setOwnIds([]); return }
     const uid = auth.user.id
@@ -181,9 +182,15 @@ export default function ListingDetailPage() {
       .then(({ data }) => setOwnIds([uid, ...((data || []) as { id: string }[]).map(r => r.id)]))
   }, [auth.loading, auth.user])
   useEffect(() => {
-    if (!listing?.landlord_id) { setLandlordIsRegistrant(false); return }
-    supabase.from('agent_profiles').select('auth_id').eq('auth_id', listing.landlord_id).eq('status', 'verified').maybeSingle()
-      .then(({ data }) => setLandlordIsRegistrant(!!data))
+    if (!listing?.landlord_id) { setLandlordIsRegistrant(false); setLandlordAuthId(null); return }
+    // listings.landlord_id is landlords.id for every row published through
+    // claim_landlord (review 2026-09-14) — resolve the auth id through the
+    // public directory view, which carries both.
+    ;(async () => {
+      const { data } = await supabase.from('agent_directory').select('auth_id').or(`auth_id.eq.${listing.landlord_id},landlord_id.eq.${listing.landlord_id}`).maybeSingle()
+      setLandlordIsRegistrant(!!data)
+      setLandlordAuthId((data as { auth_id?: string } | null)?.auth_id ?? null)
+    })()
   }, [listing?.landlord_id])
   const isOwnListing = !!listing?.landlord_id && ownIds.includes(listing.landlord_id)
 
@@ -844,7 +851,7 @@ export default function ListingDetailPage() {
           <IntentModal listing={listing} zh={zh} onClose={() => setIntentOpen(false)} />
         )}
         {fieldAgentOpen && (
-          <AgentPicker zh={zh} listingAddress={`${listing.address}${listing.unit ? ` #${listing.unit}` : ''}`} onClose={() => setFieldAgentOpen(false)} excludeAuthIds={[auth.user?.id, listing.landlord_id]} />
+          <AgentPicker zh={zh} listingAddress={`${listing.address}${listing.unit ? ` #${listing.unit}` : ''}`} onClose={() => setFieldAgentOpen(false)} excludeAuthIds={[auth.user?.id, listing.landlord_id, landlordAuthId]} />
         )}
       </main>
       <Footer />

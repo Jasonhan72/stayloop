@@ -772,7 +772,7 @@ export default function ReportPage() {
                     {r.effective_monthly_income != null && rent != null && rent > 0 && (
                       <span className="ml-2 font-mono text-[11px] text-body-3">= {money(r.effective_monthly_income)} ÷ {money(rent)}</span>
                     )}
-                    <span className="ml-2 text-[12px] text-body-3">{zh ? '（行业惯例：≥3x 充足，2–3x 偏紧，<2x 风险高）' : '(guideline: ≥3x comfortable, 2–3x tight, <2x high risk)'}</span>
+                    <span className="ml-2 text-[12px] text-body-3">{zh ? '（仅供参考 · 非拒绝依据）' : '(reference only — not grounds for refusal)'}</span>
                   </KV>
                 )}
                 {r.bank_min_balance != null && (
@@ -1018,8 +1018,8 @@ export default function ReportPage() {
           {hasCreditReport && cr && (
             <SectionShell
               id="credit"
-              title={zh ? '信用报告（来自上传文件）' : 'CREDIT REPORT (FROM UPLOADED DOCUMENT)'}
-              subtitle={zh ? 'AI 转录 · 已做真伪取证' : 'AI-transcribed · authenticity-checked'}
+              title={(cr as { source?: string }).source === 'bureau_pull' ? (zh ? '信用报告（申请人授权 · 征信机构直拉）' : 'CREDIT REPORT (APPLICANT-AUTHORISED BUREAU PULL)') : (zh ? '信用报告（来自上传文件）' : 'CREDIT REPORT (FROM UPLOADED DOCUMENT)')}
+              subtitle={(cr as { source?: string }).source === 'bureau_pull' ? (zh ? '征信机构直接返回 · 非模型转录' : 'Returned by the bureau · not model-transcribed') : (zh ? 'AI 转录 · 已做真伪取证' : 'AI-transcribed · authenticity-checked')}
             >
               {cr.unreliable && (
                 <div className="mb-4 rounded-xl border px-4 py-3" style={{ borderColor: '#FCA5A5', borderLeft: '5px solid #B91C1C', background: '#FEF2F2' }}>
@@ -1228,9 +1228,11 @@ export default function ReportPage() {
               )}
 
               <p className="mt-4 text-[11px] italic leading-relaxed text-body-3">
-                {zh
-                  ? '以上数据由 AI 从申请人上传的信用报告转录，请与原件核对。Stayloop 不直接对接信用局。'
-                  : 'Transcribed by AI from the uploaded credit report — verify against the original. Stayloop does not pull bureau data directly.'}
+                {(cr as { source?: string }).source === 'bureau_pull'
+                  ? (zh ? '以上数据经申请人本人授权由征信机构直接返回，数字未经模型转录。' : 'Returned directly by the credit bureau under the applicant\'s own authorisation; figures are not model-transcribed.')
+                  : zh
+                    ? '以上数据由 AI 从申请人上传的信用报告转录，请与原件核对。Stayloop 不直接对接信用局。'
+                    : 'Transcribed by AI from the uploaded credit report — verify against the original. Stayloop does not pull bureau data directly.'}
               </p>
             </SectionShell>
           )}
@@ -1751,11 +1753,12 @@ export default function ReportPage() {
                     const v = r.verification
                     const idOk = v?.id?.status === 'verified'
                     const bankOk = v?.bank?.status === 'verified'
-                    const n = (idOk ? 1 : 0) + (bankOk ? 1 : 0)
+                    const crOk = v?.credit?.status === 'verified'
+                    const n = (idOk ? 1 : 0) + (bankOk ? 1 : 0) + (crOk ? 1 : 0)
                     return (
                       <div className="mt-1 text-[11px] text-body-3">
                         {zh ? '外部核验' : 'Third-party checks'} <strong style={{ color: n > 0 ? '#16A34A' : '#A16207' }}>{n}/3</strong>
-                        {' · '}{zh ? '身份' : 'identity'} {idOk ? '✓' : '✗'}{' · '}{zh ? '银行' : 'bank'} {bankOk ? '✓' : '✗'}{' · '}{zh ? '推荐人 待致电' : 'references pending call'}
+                        {' · '}{zh ? '身份' : 'identity'} {idOk ? '✓' : '✗'}{' · '}{zh ? '银行' : 'bank'} {bankOk ? '✓' : '✗'}{' · '}{zh ? '征信' : 'credit'} {crOk ? '✓' : '✗'}
                         {n === 0 && <span className="ml-1">{zh ? '— 评分基于文件互证，尚无第三方核验' : '— score rests on documents corroborating each other; nothing verified externally yet'}</span>}
                       </div>
                     )

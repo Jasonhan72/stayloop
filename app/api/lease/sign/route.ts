@@ -8,7 +8,7 @@
 // both parties emailed their permanent view/download links, audit written.
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendEmail } from '@/lib/email'
+import { escapeHtml, sendEmail } from '@/lib/email'
 
 export const runtime = 'edge'
 
@@ -157,7 +157,7 @@ export async function POST(req: Request) {
         to: lease.tenant_email,
         subject: `Fully signed — your lease for ${unit}`,
         text: `Your Residential Tenancy Agreement for ${unit} is now fully signed by both parties.\n\nView and download your permanent copy anytime:\n${tenantLink}\n\n租约已由双方签署完成。上方链接长期有效，可随时查看和下载 PDF 备份。\n\n— Stayloop`,
-        html: `<p>Your Residential Tenancy Agreement for <b>${unit}</b> is now <b>fully signed</b> by both parties.</p><p><a href="${tenantLink}">View &amp; download your permanent copy →</a></p><p style="color:#64748b;font-size:13px">该链接长期有效，可随时查看和下载 PDF 备份。</p>`,
+        html: `<p>Your Residential Tenancy Agreement for <b>${escapeHtml(unit)}</b> is now <b>fully signed</b> by both parties.</p><p><a href="${tenantLink}">View &amp; download your permanent copy →</a></p><p style="color:#64748b;font-size:13px">该链接长期有效，可随时查看和下载 PDF 备份。</p>`,
       })
     }
   } else if (signer === 'tenant') {
@@ -169,7 +169,7 @@ export async function POST(req: Request) {
           to: ll.email,
           subject: `${lease.tenant_name || 'Your tenant'} signed the lease for ${unit} — countersign to complete`,
           text: `${lease.tenant_name || 'Your tenant'} has signed the Residential Tenancy Agreement for ${unit}.\n\nCountersign in your Stayloop workspace:\n${siteUrl}/landlord/leases\n\n租客已签署租约，请在工作台回签完成签约。\n\n— Stayloop`,
-          html: `<p><b>${lease.tenant_name || 'Your tenant'}</b> has signed the lease for <b>${unit}</b>.</p><p><a href="${siteUrl}/landlord/leases">Countersign in your workspace →</a></p>`,
+          html: `<p><b>${escapeHtml(lease.tenant_name || 'Your tenant')}</b> has signed the lease for <b>${escapeHtml(unit)}</b>.</p><p><a href="${siteUrl}/landlord/leases">Countersign in your workspace →</a></p>`,
         })
       }
     }

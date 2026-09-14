@@ -6,6 +6,7 @@ import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import LandlordThreeSteps from '@/components/landlord/LandlordThreeSteps'
 import StampBadge from '@/components/StampBadge'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import { SampleBanner } from '@/components/SampleNotice'
 import {
   AsideBlock,
   PageHeader,
@@ -317,6 +318,9 @@ export default function LandlordApplicantsPage() {
       role="landlord"
       aside={<RailAside lang={lang} insights={insights} showFunnel={!liveMode} />}
     >
+      {!liveMode && rows !== null && (
+        <SampleBanner zh={lang === 'zh'} note={{ zh: '你还没有收到申请：下面的申请人、指标与 AI 解读全部是设计样例，收到真实申请后自动替换。', en: 'No applications yet: the applicants, metrics and AI insights below are design samples and are replaced once real applications arrive.' }} />
+      )}
       <PageHeader
         title={lang === 'zh' ? `${apps.length} 份申请 · ${aiName} 已分组` : `${apps.length} applications · grouped by ${aiName}`}
         sub={

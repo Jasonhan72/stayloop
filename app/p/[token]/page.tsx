@@ -101,12 +101,25 @@ async function loadSnapshot(token: string): Promise<PassportSnapshot | null> {
   let rentRecord: PassportSnapshot['rentRecord'] = null
   if (email) {
     try {
+      // Review 2026-09-14: any account could import a household naming
+      // any tenant_email and self-insert payments, so a public card must
+      // only count leases behind a household BOTH parties confirmed
+      // (households.verified) or a lease signed through the e-sign flow.
+      const { data: confirmed } = await sb
+        .from('households')
+        .select('current_lease_id')
+        .eq('verified', true)
+        .not('current_lease_id', 'is', null)
+        .limit(200)
+      const confirmedIds = new Set((confirmed ?? []).map((h) => h.current_lease_id as string))
       const { data: leases } = await sb
         .from('lease_documents')
-        .select('id')
+        .select('id, status')
         .eq('tenant_email', email)
         .limit(20)
-      const leaseIds = (leases ?? []).map((l) => l.id)
+      const leaseIds = (leases ?? [])
+        .filter((l) => confirmedIds.has(l.id as string) || l.status === 'signed_both' || l.status === 'active')
+        .map((l) => l.id)
       if (leaseIds.length) {
         const { data: pays } = await sb
           .from('rent_payments')

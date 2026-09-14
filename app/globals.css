@@ -57,7 +57,7 @@
   --sl-brand-wash: #E3F2FC;
 
   /* Roles */
-  --sl-tenant: #00ACE4;
+  --sl-tenant: #7C3AED;
   --sl-landlord: #047857;
   --sl-agent: #2563EB;
 
@@ -181,8 +181,8 @@ html, body {
     @apply relative flex-shrink-0 rounded-full;
   }
   .orb.tenant {
-    background: radial-gradient(circle at 35% 35%, #C4B5FD 0%, #00ACE4 60%, #5B21B6 100%);
-    box-shadow: 0 0 24px rgba(0, 172, 228, 0.4);
+    background: radial-gradient(circle at 35% 35%, #C4B5FD 0%, #7C3AED 60%, #5B21B6 100%);
+    box-shadow: 0 0 24px rgba(124, 58, 237, 0.4);
   }
   .orb.landlord {
     background: radial-gradient(circle at 35% 35%, #6EE7B7 0%, #047857 60%, #064E3B 100%);

@@ -105,7 +105,7 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
           <div className="text-[12px] text-body-3">{form.address}</div>
           <div className="mt-1 text-[11.5px] text-body-3">
             {computeListingSource(form) === 'realtor'
-              ? (zh ? 'Realtor.ca 来源 · 已直接上线并标注来源' : 'Realtor.ca-sourced · live now with a source badge')
+              ? (zh ? '已提交审核 · 通过后上线并标注 Realtor.ca 来源' : 'Submitted for review · goes live with a Realtor.ca source badge once approved')
               : (zh ? '待 Stayloop 验证,通过后公开展示并打上 VERIFIED 标' : 'Pending Stayloop verification — goes public with a VERIFIED badge once approved')}
           </div>
         </div>

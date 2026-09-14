@@ -129,6 +129,8 @@ export interface CreditReport {
    *  applicant's (e.g. accounts opened before they were 16). The report is
    *  still transcribed for the landlord to see, but it is not evidence. */
   unreliable?: boolean
+  /** why: the report is provably not this person's (dob) vs. it is another person's file in the same upload (subject) */
+  unreliable_kind?: 'dob_contradiction' | 'subject_mismatch'
   unreliable_reason_zh?: string
   unreliable_reason_en?: string
   bureau?: string | null

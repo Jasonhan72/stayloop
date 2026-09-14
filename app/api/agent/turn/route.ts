@@ -300,7 +300,13 @@ export async function POST(req: Request) {
     if (ue || !ud?.user) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
     }
-    turnUserId = ud.user.is_anonymous ? null : ud.user.id
+    if (ud.user.is_anonymous) {
+      // A minted anonymous JWT is not a member: it must not get its own
+      // 60/h bucket nor persisted memories (review 2026-09-14). Treat it
+      // exactly like the unauthenticated preview path.
+      return NextResponse.json({ error: 'anonymous sessions use the preview path (no Authorization header)' }, { status: 401 })
+    }
+    turnUserId = ud.user.id
     // Durable per-user hourly limit (edge module state is per-isolate and
     // resets on recycle, so it can't gate spend). Fail-closed on error: if the
     // limiter can't be reached we'd rather 429 than allow unbounded paid calls.
@@ -550,7 +556,11 @@ export async function POST(req: Request) {
   }
 
   // Build the user turn — text (+ attachment note) and any image blocks for Vision.
-  const note = attachmentNames.length ? `\n\n[用户上传了文件：${attachmentNames.join('、')}]` : ''
+  const nonImage = attachmentNames.filter((n) => !/\.(png|jpe?g|webp|gif|heic|heif)$/i.test(n))
+  const note = attachmentNames.length
+    ? `\n\n[用户上传了文件：${attachmentNames.join('、')}]` +
+      (nonImage.length ? `\n[注意：${nonImage.join('、')} 不是图片,系统没有提取其内容,你看不到正文——请如实说明并请用户截图或粘贴文字,不要凭想象回答其中的条款。]` : '')
+    : ''
   const hist = (Array.isArray(body.history) ? body.history : []).slice(-6)
   const histText = hist.length
     ? '[最近对话,供理解上下文]\n' +
@@ -757,7 +767,7 @@ export async function POST(req: Request) {
         // the reply's "马上给你 N 套" stand uncorrected.
         const wanted = typeof search.count === 'number' ? Math.min(Math.max(search.count, 1), 6) : null
         if (wanted && result.listings.length < wanted) {
-          const zhMsg = /[一-鿿]/.test(message)
+          const zhMsg = uiLang !== 'en'
           // A dead live source is not thin inventory — say which it was.
           if (result.external.status === 'unavailable') {
             out.reply += zhMsg
@@ -773,7 +783,7 @@ export async function POST(req: Request) {
         // Zero real matches (Stayloop empty + Realtor.ca scrape missed).
         // The model's reply usually promises cards — correct it honestly
         // instead of fabricating inventory.
-        const zhMsg = /[一-鿿]/.test(message)
+        const zhMsg = uiLang !== 'en'
         out.reply += result.external.status === 'unavailable'
           ? (zhMsg
             ? '\n\n这次没能拿到房源：Stayloop 库里没有匹配，而 Realtor.ca 实时抓取暂时不可用。请稍后再问我一次 —— 我不会拿编造的房源充数。'
@@ -788,7 +798,7 @@ export async function POST(req: Request) {
 
       // Proactive clarifying questions with tap-to-answer chips, derived from
       // whichever key criteria the user hasn't given yet (max 2 per turn).
-      const cjk = /[一-鿿]/.test(message)
+      const cjk = uiLang !== 'en'
       const fq: { question: string; options: string[] }[] = []
       if (search.max_price == null)
         fq.push(

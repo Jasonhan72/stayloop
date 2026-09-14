@@ -140,6 +140,11 @@ export default function ApplyPage() {
     }
 
     // TRESA s.32: a registrant leasing in their own interest discloses first.
+    if (registrant.loading) {
+      setLoading(false)
+      setError(zh ? '正在核对你的账号信息，请稍后再提交。' : 'Still checking your account — please submit again in a moment.')
+      return
+    }
     if (registrant.profile && !disclosedRef.current && !createdAppIdRef.current) {
       setLoading(false)
       setDisclosure({ listingId: listing.id })
@@ -157,7 +162,8 @@ export default function ApplyPage() {
         .insert({
           listing_id: listing.id,
           ...form,
-          full_name: `${form.first_name} ${form.last_name}`.trim(),
+          // (no `full_name` — the column does not exist; review 2026-09-14:
+          // every submission since 2026-05 failed with a bare "提交失败")
           monthly_income: parseInt(form.monthly_income) || null,
           prev_rent: parseInt(form.prev_rent) || null,
           num_occupants: parseInt(form.num_occupants) || 1,
@@ -211,7 +217,16 @@ export default function ApplyPage() {
     }
 
     if (uploaded.length > 0) {
-      await supabase.from('applications').update({ files: uploaded }).eq('id', inserted.id)
+      // Anonymous applicants have no UPDATE policy on applications (the
+      // direct update matched zero rows and the documents were orphaned —
+      // review 2026-09-14). A SECURITY DEFINER RPC attaches the manifest
+      // to a fresh, still-empty row only.
+      const { error: attachErr } = await supabase.rpc('attach_application_files', { p_application_id: inserted.id, p_files: uploaded })
+      if (attachErr) {
+        setLoading(false)
+        setError(zh ? '文件已上传，但未能附加到申请，请重试提交。' : 'Files uploaded but could not be attached to the application — please submit again.')
+        return
+      }
     }
 
     // Notify landlord (fire-and-forget)

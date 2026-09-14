@@ -229,7 +229,9 @@ export function inferPayFrequencyFromText(text: string | null | undefined): Pays
   // pdf.js emits table labels before values ("Pay Period Period Range Pay
   // Date 14 of 24 …"), so require the "pay period" label anywhere and the
   // "N of 24" pair anywhere — not adjacent.
-  const m = /pay\s*period/i.test(t) ? /\b\d{1,2}\s*(?:of|\/)\s*(12|24|26|52)\b/i.exec(t) : null
+  // "14 of 24" / "14/24" — but never the middle of a slash date
+  // ("Pay Date: 03/12/2026" used to force 'monthly'; review 2026-09-14).
+  const m = /pay\s*period/i.test(t) ? /(?<![\d/])\b\d{1,2}\s*(?:of|\/)\s*(12|24|26|52)\b(?!\s*\/\s*\d)/i.exec(t) : null
   if (m) return m[1] === '52' ? 'weekly' : m[1] === '26' ? 'biweekly' : m[1] === '24' ? 'semimonthly' : 'monthly'
   if (/semi[\s-]?monthly|twice\s+a\s+month|bimonthly/i.test(t)) return 'semimonthly'
   if (/bi[\s-]?weekly|every\s+(two|2)\s+weeks|fortnightly/i.test(t)) return 'biweekly'

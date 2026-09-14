@@ -38,6 +38,12 @@ const EXECUTED_CLAIM = new RegExp(
     `已(经)?[^。！!？?\n]{0,12}(${EXEC_VERBS_ZH})`,
     // "…已发出去了" / "…已提交成功" — verb reached from the other side
     `(${EXEC_VERBS_ZH})(好了|完成|成功|出去了|过了)`,
+    // "我给房东发送了消息" / "把申请交上去了" / "邮件已经发给房东了" —
+    // perfective 了 right after the verb, or 给…了 (review 2026-09-14)
+    `(我|已经|邮件|消息|申请)[^。！!？?\n]{0,10}(发给|发送|发出|提交|递交|交|递|发)[^。！!？?\n]{0,8}(了|上去了|过去了)`,
+    // English past-tense verbs of outbound action: "Done — I emailed the landlord."
+    String.raw`\b(i|we)\s+(emailed|messaged|texted|notified|forwarded)\b`,
+    String.raw`\b(emailed|messaged|texted|notified)\s+(the|your)\s+(landlord|tenant|agent|applicant)\b`,
     // English: the control was previously inert for lang='en'
     String.raw`\b(already|just)\s+(${EXEC_VERBS_EN})\b`,
     String.raw`\bhas\s+been\s+(${EXEC_VERBS_EN})\b`,
@@ -76,8 +82,14 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput, lang: 'zh' | 'e
         : "\n\n⚠️ That reason involves a protected ground (race / national origin / family status / sexual orientation, etc.), which under the Ontario Human Rights Code (OHRC) cannot be a basis for rejection. I won't generate that card for you. To reject, give a specific, lawful reason tied to ability to rent (e.g. insufficient income, incomplete documents)."
     }
   }
-  if (role === 'landlord' && PROTECTED_GROUNDS.test(reply) && /(拒绝|不合适|不租|reject|decline)/i.test(reply)) {
+  if ((role === 'landlord' || role === 'agent') && PROTECTED_GROUNDS.test(reply) && /(拒绝|不合适|不租|reject|decline)/i.test(reply)) {
+    // The reply itself is the deliverable (a drafted refusal); flagging
+    // alone let the letter through unchanged. Append the same OHRC
+    // correction the card path uses (review 2026-09-14).
     flags.push('discriminatory_language_in_reply')
+    reply += zh
+      ? '\n\n⚠️ 上面的措辞涉及受保护特征（家庭状况 / 国籍 / 宗教 / 残障等）。按安省人权法（OHRC），这不能作为拒绝或区别对待的理由——请只使用与租住能力相关的具体、合法理由（如收入未能核实、材料不全），不要把这段话发给申请人。'
+      : "\n\n⚠️ The wording above touches a protected ground (family status / national origin / creed / disability, etc.). Under the Ontario Human Rights Code that cannot be a reason to refuse or treat an applicant differently — use only specific, lawful reasons tied to ability to rent (e.g. income could not be verified, incomplete documents), and do not send this passage to the applicant."
   }
 
   // 2) Illegal lease terms — never draft a void clause.
@@ -109,18 +121,30 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput, lang: 'zh' | 'e
   //     page). Drop instruction-shaped writes, cap lengths, clamp count.
   const INJECTION_SHAPE =
     /(ignore|disregard|forget|忽略|无视|忘记|忘掉).{0,20}(instruction|rule|prompt|previous|above|规则|指令|提示|设定|之前|以上)|system\s*prompt|new\s+instructions?|act\s+as\b|你(现在)?是(?!.{0,6}(租客|房东|经纪))|jailbreak|override.{0,12}(guard|compliance|rule)/i
+  // Values are tested and capped in their SERIALISED form: an object value
+  // used to stringify to "[object Object]", which hid injected text from
+  // the filter and escaped the length cap (review 2026-09-14).
+  const serial = (v: unknown) => { try { return typeof v === 'string' ? v : JSON.stringify(v ?? '') } catch { return '' } }
   const cleanedMemories = (out.memoryWrites || [])
     .filter((m) => {
-      const blob = `${m.key ?? ''} ${String(m.value ?? '')}`
+      const blob = `${m.key ?? ''} ${m.label ?? ''} ${serial(m.value)}`
       if (INJECTION_SHAPE.test(blob)) { flags.push('memory_write_dropped_injection'); return false }
+      if (serial(m.value).length > 600) { flags.push('memory_write_dropped_oversize'); return false }
       return true
     })
     .slice(0, 5)
-    .map((m) => ({ ...m, value: typeof m.value === 'string' ? m.value.slice(0, 300) : m.value }))
+    .map((m) => ({
+      ...m,
+      key: typeof m.key === 'string' ? m.key.slice(0, 64) : m.key,
+      label: typeof m.label === 'string' ? m.label.slice(0, 40) : m.label,
+      value: typeof m.value === 'string' ? m.value.slice(0, 300) : m.value,
+    }))
 
   // 4) Over-reach — sensitive raw fields can never be in an outbound data_scope.
   if (action) {
-    const SENSITIVE = /(原始证件|完整(银行|流水)|full bank|raw (id|document)|SIN|社会保险号|social insurance)/i
+    // "SIN" must be the acronym, not the substring of buSINess / SINgle /
+    // houSINg (review 2026-09-14: "Business income letter" was demoted).
+    const SENSITIVE = /(原始证件|完整(银行|流水)|[Ff]ull [Bb]ank|[Rr]aw ([Ii][Dd]|[Dd]ocument)|(?<![A-Za-z])SIN(?![A-Za-z])|社会保险号|[Ss]ocial [Ii]nsurance)/
     const leaked = action.data_scope.filter((s) => SENSITIVE.test(s))
     if (leaked.length) {
       flags.push('overreach_scope_demoted')

@@ -269,8 +269,8 @@ export default function AgentEarningsPage() {
             <span className="font-mono text-[11px] uppercase tracking-eyebrow text-agent">AGENT · EARNINGS</span>
             <span className="mx-1.5 text-body-3">·</span>
             {zh
-              ? `总佣金 → 平台转介费 ${Math.round(PLATFORM_FEE_RATE * 100)}% → 你的实收，逐单可查`
-              : `Gross commission → ${Math.round(PLATFORM_FEE_RATE * 100)}% platform referral fee → what you keep, deal by deal`}
+              ? '佣金由你与所属经纪公司结算；Stayloop 不参与交易、不收转介费。此页为账本示例。'
+              : 'Commission is settled between you and your brokerage; Stayloop takes no part in the trade and no referral fee. This page is a ledger sample.'}
           </>
         }
         actions={
@@ -301,7 +301,7 @@ export default function AgentEarningsPage() {
           {
             label: zh ? 'YTD 平台转介费' : 'YTD platform fee',
             value: money(ytdFee),
-            sub: zh ? `${Math.round(PLATFORM_FEE_RATE * 100)}% · 按单计费` : `${Math.round(PLATFORM_FEE_RATE * 100)}% · billed per deal`,
+            sub: zh ? '示例 · Stayloop 不收费' : 'sample · Stayloop charges nothing',
             tone: 'warn',
           },
           {

@@ -55,7 +55,9 @@ export function detectPayrollProcessor(text: string): PayrollProcessor | null {
 }
 
 const money = (s: string): number => Number(s.replace(/,/g, ''))
-const MONEY = /\d{1,3}(?:,\d{3})*\.\d{2}/g
+// Either fully comma-grouped or fully unseparated — "12500.00" is twelve
+// thousand five hundred, not 500 (review 2026-09-14: OCR drops commas).
+const MONEY = /(?<![\d.])(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}(?![\d])/g
 const DATE_TOKEN = String.raw`(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+\d{1,2}(?![,\d])`
 
 export interface StatementTxn {
@@ -101,9 +103,9 @@ export function splitStatementTransactions(text: string): StatementTxn[] {
   return out
 }
 
-const TD_ROW = /^(.*?)\s+(\d{1,3}(?:,\d{3})*\.\d{2})\s+([A-Z]{3})\s?(\d{2})(?:\s+(\d{1,3}(?:,\d{3})*\.\d{2}))?\s*$/
+const TD_ROW = /^(.*?)\s+((?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})\s+([A-Z]{3})\s?(\d{2})(?:\s+((?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}))?\s*$/
 const MON = /^([A-Z]{3})\s?(\d{2})$/
-const AMT = /^\d{1,3}(?:,\d{3})*\.\d{2}$/
+const AMT = /^(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}$/
 const monthName = (m: string) => m[0] + m.slice(1).toLowerCase()
 
 /** TD-style statements come out of OCR in three shapes:
@@ -335,7 +337,9 @@ const kindHas = (kind: string, target: string) => kind.split(',').map(k => k.tri
 
 function employerToken(name: string | null): string | null {
   if (!name) return null
-  const skip = new Set(['THE', 'INC', 'LTD', 'LLC', 'CORP', 'CO', 'LIMITED', 'INCORPORATED', 'CORPORATION', 'GROUP', 'CANADA'])
+  // Geographic / generic words hit the bank's own header ("Canadian
+  // Imperial Bank", "Toronto") — review 2026-09-14.
+  const skip = new Set(['THE', 'INC', 'LTD', 'LLC', 'CORP', 'CO', 'LIMITED', 'INCORPORATED', 'CORPORATION', 'GROUP', 'CANADA', 'CANADIAN', 'ONTARIO', 'TORONTO', 'ROYAL', 'NATIONAL', 'BANK', 'SCOTIA', 'MONTREAL', 'QUEBEC', 'OTTAWA', 'VANCOUVER', 'CALGARY', 'NORTH', 'SOUTH', 'EAST', 'WEST', 'GREATER', 'CENTRAL', 'GENERAL', 'INTERNATIONAL', 'GLOBAL', 'SERVICES', 'SERVICE', 'SOLUTIONS', 'HOLDINGS', 'ENTERPRISES', 'COMPANY', 'PARTNERS', 'ASSOCIATES', 'CONSULTING', 'MANAGEMENT', 'TECHNOLOGIES', 'TECHNOLOGY', 'SYSTEMS', 'INDUSTRIES', 'HEALTH', 'MEDICAL', 'UNIVERSITY', 'COLLEGE', 'SCHOOL', 'CITY', 'PUBLIC', 'FIRST'])
   const words = name.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').split(/\s+/).filter(Boolean)
   return words.find(x => x.length >= 4 && !skip.has(x)) || words.find(x => !skip.has(x)) || null
 }
@@ -371,8 +375,20 @@ export function reconcilePayrollDeposits(perFile: PayrollReconcileFile[], flags:
 
   // 2) The employer itself appears as a counterparty (reimbursements etc.).
   const token = employerToken(employerName)
-  if (token && token.length >= 4) {
-    const hits = banks.filter(b => new RegExp(`\\b${token.slice(0, 8)}`, 'i').test(b.text_density!.text_sample))
+  if (token && token.length >= 5) {
+    // Only a transaction row counts (not the bank's letterhead / address
+    // block): the token must sit on a line that also carries an amount.
+    // Production text is flat (no newlines), so "on a transaction row" means
+    // an amount within ~120 characters of the token, not on the same line.
+    const tokenRe = new RegExp(`\\b${token.slice(0, 8)}`, 'gi')
+    const nearAmount = (text: string) => {
+      for (const m of text.matchAll(tokenRe)) {
+        const around = text.slice(Math.max(0, m.index! - 120), m.index! + 120)
+        if (/\d[\d,]*\.\d{2}/.test(around)) return true
+      }
+      return false
+    }
+    const hits = banks.filter(b => nearAmount(b.text_density!.text_sample || ''))
     if (hits.length > 0) {
       flags.push({
         code: 'employer_counterparty_on_statement',

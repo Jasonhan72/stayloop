@@ -59,8 +59,8 @@ export const DICT = {
   'onb.hi': { en: "Hi, I'm your AI agent.", zh: '嗨，我是你的 AI Agent。' },
   'onb.line2': { en: "First, let's verify your identity — 90 seconds.", zh: '先花 90 秒，验明你的身份。' },
   'onb.body': {
-    en: 'This is your identity stamp — the first of four. Just your passport or licence plus a quick selfie — Persona handles it securely. A soft check that never touches your credit.',
-    zh: '这是 身份章 —— 四枚章的第一枚。只需护照 / 驾照 + 一张自拍，Persona 帮你安全完成。软查不影响信用。',
+    en: 'This is your identity stamp — the first of four. Just your passport or licence plus a quick selfie — Veriff handles it securely. A soft check that never touches your credit.',
+    zh: '这是 身份章 —— 四枚章的第一枚。只需护照 / 驾照 + 一张自拍，Veriff 帮你安全完成。软查不影响信用。',
   },
   'onb.f1': { en: 'Passport, driver’s licence, or PR card', zh: '护照 / 驾照 / PR 卡，三选一' },
   'onb.f2': { en: 'A quick liveness selfie to confirm it’s you', zh: '活体自拍，确认是你本人' },

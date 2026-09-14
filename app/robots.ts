@@ -26,6 +26,7 @@ export default function robots(): MetadataRoute.Robots {
         // invite or a signature link to anyone searching.
         '/join/',
         '/lease/',
+        '/verify/',
         '/h/',
         '/leases/',
         '/notifications',
