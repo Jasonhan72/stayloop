@@ -726,7 +726,10 @@ export async function POST(req: Request) {
     } catch (e) {
       console.warn('[agent] renewal market lookup failed', (e as Error).message)
     }
-  } else if (role === 'tenant' && search && typeof search === 'object') {
+  } else if ((role === 'tenant' || role === 'agent') && search && typeof search === 'object') {
+    // Agent: "挂牌定价" — comparables for a landlord client's unit. Same
+    // real-data pipeline (Stayloop → Realtor.ca → TRREB benchmark); the
+    // model is told to write no prices itself (lib/agent/prompts.ts).
     try {
       const result = await searchListings({
         area: typeof search.area === 'string' ? search.area : null,
@@ -811,7 +814,9 @@ export async function POST(req: Request) {
             ? { question: '公寓还是整套房子?', options: ['要公寓', '要整套 House', '都可以'] }
             : { question: 'Condo or a whole house?', options: ['Condo/apartment', 'Whole house', 'Either'] }
         )
-      if (fq.length) followups = fq.slice(0, 2)
+      // Agent pricing turns get no "what's your budget" chips — the agent is
+      // pricing a client's unit, not shopping for one.
+      if (fq.length && role !== 'agent') followups = fq.slice(0, 2)
     } catch (e) {
       console.warn('[agent] listing search failed', (e as Error).message)
     }

@@ -378,6 +378,23 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 - **不做（用户已定）**：经纪代客筛查（`on_behalf_of`）等有代表协议记录后再开；首页三枚角色按钮只切 AI 演示，登录后
   以头像菜单为准；看房意向弹窗仍是演示（无 DB 写入），披露不接。
 
+## 经纪管家 Brief 的快捷卡与能力（2026-09-13）
+
+用户指出首页经纪 tab 下的四张快捷卡（今天的带看 / 客户跟进 / 排路线 / RECO 边界）不够「经纪专用」，并要求租客筛查
+必须在里面。按安省租赁经纪的真实工作流研究后（RECO/TRESA 租赁义务：先给 Information Guide、书面代表协议、多重代表
+披露；RTA s.106 押金只能一个月且只抵最后一月租、s.134 禁向租客收任何费用、s.12 21 天内交副本、O. Reg. 9/18 标准租约
+强制而 OREA Form 400 只是要约；OHRC 申请表不得问的问题）改为五张卡（`components/agent/AgentChat.tsx SUGGESTIONS.agent`，
+首页 `HomeNext` 经纪 chips 同步）：**租客筛查 / 挂牌定价 / 带看准备包 / 租约与押金 / 合规边界**。每张卡背后都有真实能力：
+- **租客筛查**：`lib/agent/prompts.ts SCREENING_RULES_AGENT`——与房东版同一交接（说清查什么、要什么材料、给 /screening/app
+  链接、对话里绝不评分），外加经纪三前提：与房东有书面代表协议、申请人书面同意核查（OREA Form 410）、录取/拒绝由
+  房东本人决定并发通知；费用由经纪或房东承担、绝不转嫁申请人。
+- **挂牌定价**：turn 路由的房源检索分支对 `role === 'agent'` 也开放（同一条 Stayloop → Realtor.ca → TRREB 管线），
+  提示词让模型只填 search、不手写价格；市场卡的结语按角色改为「同区域同户型挂牌中位数 …按房源条件调整」，预算类
+  追问芯片只给租客。
+- **租约与押金 / 合规边界**：`AGENT_LEASING_FACTS` 事实包只注入经纪角色，模型被要求只引用其中内容、不扩写。
+守卫 `tests/prompts.spec.ts`「agent (Brief) system prompt」段。**注意**：`ship2-v53.command` 的构建会清掉正在跑的
+`next dev` 的 `.next`，部署后本地预览会变成无样式 + 404 chunk，重启 dev server 即可。
+
 ## 第二轮审查：修复回归 + 模块级 + 手机可操作性（2026-09-13）
 
 三个代理：① 对上一轮 33 条修复做二次审查（13 条，修 11）；② 筛查与核验两个模块的流程/状态/权限/PII/

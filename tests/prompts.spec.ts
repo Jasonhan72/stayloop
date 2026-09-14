@@ -2,7 +2,7 @@
 // A hit suppresses listing cards (the tenant is negotiating, not moving),
 // so both false negatives AND false positives are product bugs.
 import { describe, expect, it } from 'vitest'
-import { RENEWAL_INTENT_RE } from '@/lib/agent/prompts'
+import { AGENT_LEASING_FACTS, RENEWAL_INTENT_RE, buildSystemPrompt } from '@/lib/agent/prompts'
 
 describe('RENEWAL_INTENT_RE — renewal/negotiation intent detection', () => {
   const HITS = [
@@ -41,5 +41,34 @@ describe('RENEWAL_INTENT_RE — renewal/negotiation intent detection', () => {
     expect(RENEWAL_INTENT_RE.global).toBe(false)
     expect(RENEWAL_INTENT_RE.test('续约')).toBe(true)
     expect(RENEWAL_INTENT_RE.test('续约')).toBe(true)
+  })
+})
+
+// 2026-09-13: the agent quick cards (租客筛查 / 挂牌定价 / 租约与押金 /
+// 合规边界) rely on Brief actually having these rule blocks. If someone
+// trims the prompt, the cards would promise what the model cannot do.
+describe('agent (Brief) system prompt', () => {
+  const wf = { workflow_type: 'general', workflow_id: null, current_stage: 'idle', completed_steps: [], status: 'active' as const }
+  const p = buildSystemPrompt('agent', 'Brief', [], wf)
+  it('carries the screening hand-off to /screening/app with the landlord-decides rule', () => {
+    expect(p).toContain('/screening/app')
+    expect(p).toContain('由房东本人决定')
+    expect(p).toContain('RTA s.134')
+  })
+  it('carries the pricing rule (search → real listings + TRREB, no hand-written prices)', () => {
+    expect(p).toContain('挂牌定价')
+    expect(p).toContain('TRREB')
+    expect(p).toContain('绝不要自己手写任何具体价格数字')
+  })
+  it('carries the Ontario leasing fact pack and nothing beyond it', () => {
+    expect(p).toContain(AGENT_LEASING_FACTS)
+    expect(AGENT_LEASING_FACTS).toContain('RTA s.106')
+    expect(AGENT_LEASING_FACTS).toContain('Information Guide')
+    expect(AGENT_LEASING_FACTS).toContain('TRESA s.32')
+  })
+  it('does not leak the agent blocks into the tenant prompt', () => {
+    const t = buildSystemPrompt('tenant', 'Nova', [], wf)
+    expect(t).not.toContain('挂牌定价')
+    expect(t).not.toContain(AGENT_LEASING_FACTS)
   })
 })

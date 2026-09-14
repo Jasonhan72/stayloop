@@ -120,9 +120,9 @@ const ROLES: {
       { b: { zh: '带看日程、反馈归档、佣金结算', en: 'Showing schedules, feedback filing, commission settlement' }, s: { zh: '上线前不进首页数字。', en: 'Not counted on this page until it ships.' }, soon: true },
     ],
     chips: [
-      { label: { zh: '客户跟进', en: 'Client follow-ups' }, prompt: { zh: '哪些客户需要跟进？帮我列出来并起草跟进消息。', en: 'Which clients need follow-ups? List them and draft the messages.' } },
-      { label: { zh: 'RECO 边界', en: 'RECO boundaries' }, prompt: { zh: '下一场带看，哪些问题我被授权回答、哪些不能答？', en: 'For my next showing, what am I authorized to answer — and what not?' } },
-      { label: { zh: '替客户筛查', en: 'Screen for a client' }, prompt: { zh: '我有一位客户要申请房源，帮我准备一次租客筛查需要哪些材料。', en: 'A client is applying for a unit — what do I need to run a tenant screening for them?' } },
+      { label: { zh: '租客筛查', en: 'Tenant screening' }, prompt: { zh: '我替房东客户收到一份租房申请。帮我筛查这位申请人：告诉我报告会查什么、要申请人提交哪些材料，然后带我开始。', en: 'I have a rental application for my landlord client. Screen the applicant: tell me what the report checks, what the applicant must submit, then take me to start.' } },
+      { label: { zh: '挂牌定价', en: 'Price the listing' }, prompt: { zh: '帮客户的房源定租金：拉这个区域同户型的实时挂牌和 TRREB 官方成交数据做比价。', en: "Price my client's unit: pull live listings for the same area and unit type plus the TRREB benchmark for comparison." } },
+      { label: { zh: '合规边界', en: 'Compliance boundaries' }, prompt: { zh: '带看和收申请时：哪些问题不能问（人权法）、哪些话不能替房东答、TRESA 要我先给客户什么文件？', en: 'At showings and intake: which questions are off-limits (Human Rights Code), what must I not answer for the landlord, and what does TRESA require me to give a client first?' } },
     ],
     cta: { zh: '让 {ai} 安排工作 →', en: 'Let {ai} run your day →' },
     href: '/agent',

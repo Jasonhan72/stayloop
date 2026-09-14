@@ -39,11 +39,18 @@ const SUGGESTIONS: Record<AgentRole, { icon: string; label: { zh: string; en: st
     { icon: '📝', label: { zh: '续约方案', en: 'Renewal options' }, prompt: { zh: '帮我看看哪些租约快到期了,给我续约方案和合规涨幅。', en: 'Which leases are coming up? Give me renewal options with the legal increase.' } },
     { icon: '⚖️', label: { zh: '合规检查', en: 'Compliance check' }, prompt: { zh: '帮我检查我的房源和租约有没有 RTA 合规风险。', en: 'Check my listings and leases for RTA compliance risks.' } },
   ],
+  // Agent cards follow the Ontario leasing-agent workflow (research
+  // 2026-09-13: RECO/TRESA leasing obligations, RTA s.106/s.134, OHRC
+  // rental policy): screen the landlord client's applicants, price the
+  // unit against real listings + TRREB, prep the showing, paper the lease,
+  // stay inside the rules. Each card is backed by a real capability of
+  // /api/agent/turn — no card promises what Brief cannot do.
   agent: [
-    { icon: '📅', label: { zh: '今天的带看', en: "Today's showings" }, prompt: { zh: '今天有哪些带看任务?帮我把材料包备好。', en: 'What showings do I have today? Prep the packs for me.' } },
-    { icon: '👥', label: { zh: '客户跟进', en: 'Client follow-ups' }, prompt: { zh: '哪些客户需要跟进?帮我列出来并起草跟进消息。', en: 'Which clients need follow-ups? List them and draft the messages.' } },
-    { icon: '🗺️', label: { zh: '排看房路线', en: 'Plan my route' }, prompt: { zh: '帮我把明天的带看按位置排一条最优路线。', en: 'Plan the best route for tomorrow’s showings by location.' } },
-    { icon: '🛡️', label: { zh: 'RECO 边界', en: 'RECO boundaries' }, prompt: { zh: '下一场带看,哪些问题我被授权回答、哪些不能答?', en: 'For my next showing, what am I authorized to answer — and what not?' } },
+    { icon: '🔎', label: { zh: '租客筛查', en: 'Tenant screening' }, prompt: { zh: '我替房东客户收到一份租房申请。帮我筛查这位申请人：告诉我报告会查什么、要申请人提交哪些材料，然后带我开始。', en: 'I have a rental application for my landlord client. Screen the applicant: tell me what the report checks, what the applicant must submit, then take me to start.' } },
+    { icon: '📊', label: { zh: '挂牌定价', en: 'Price the listing' }, prompt: { zh: '帮客户的房源定租金：拉这个区域同户型的实时挂牌和 TRREB 官方成交数据做比价。', en: "Price my client's unit: pull live listings for the same area and unit type plus the TRREB benchmark for comparison." } },
+    { icon: '📋', label: { zh: '带看准备包', en: 'Showing prep pack' }, prompt: { zh: '帮我为下一场带看准备材料包：房东授权回答与不授权回答的清单、现场 checklist、要向申请人收的材料。', en: 'Prep my next showing: what the landlord authorised me to answer and what not, an on-site checklist, and the documents to collect from applicants.' } },
+    { icon: '📝', label: { zh: '租约与押金', en: 'Lease & deposit' }, prompt: { zh: '客户要签约了：安省标准租约和 OREA Form 400 各管什么、押金最多收多少、哪些费用不能收、签后几天内要给租客副本？', en: 'My client is ready to sign: what do the Ontario Standard Lease and OREA Form 400 each cover, how much deposit is allowed, which charges are prohibited, and when must the tenant get a copy?' } },
+    { icon: '🛡️', label: { zh: '合规边界', en: 'Compliance boundaries' }, prompt: { zh: '带看和收申请时：哪些问题不能问（人权法）、哪些话不能替房东答、TRESA 要我先给客户什么文件？', en: 'At showings and intake: which questions are off-limits (Human Rights Code), what must I not answer for the landlord, and what does TRESA require me to give a client first?' } },
   ],
 }
 
@@ -177,7 +184,7 @@ export default function AgentChat({
                         )}
                       </div>
                       <p className="mt-2 text-[12px] leading-relaxed text-body-2">
-                        {marketVerdict(m.market, lang)}
+                        {marketVerdict(m.market, lang, role)}
                       </p>
                     </>
                   )}
@@ -275,7 +282,14 @@ export default function AgentChat({
   )
 }
 
-function marketVerdict(m: NonNullable<ChatMessage['market']>, lang: 'zh' | 'en'): string {
+function marketVerdict(m: NonNullable<ChatMessage['market']>, lang: 'zh' | 'en', role: AgentRole = 'tenant'): string {
+  // Agent pricing turns: the sample is comparables for a client's unit, so
+  // the verdict reads as a pricing anchor rather than a tenant's budget.
+  if (role === 'agent') {
+    return lang === 'zh'
+      ? `同区域同户型当前挂牌中位数 $${m.median.toLocaleString()}；按房源自身条件（楼层、朝向、家具、车位、入住时间）在区间内上下调整。`
+      : `Current asking median for this area and unit type is $${m.median.toLocaleString()}; adjust within the range for the unit's own attributes (floor, exposure, furnishing, parking, move-in date).`
+  }
   if (m.budget == null) {
     return lang === 'zh'
       ? '还没有预算 — 参考这个区间设一个,我按它帮你筛。'
