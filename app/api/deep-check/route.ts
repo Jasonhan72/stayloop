@@ -34,6 +34,8 @@ export const runtime = 'edge'
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { runDeepCheck } from '@/lib/forensics'
+import { employerExtraChecks, extractEmployerDomains, rdapLookup, type RdapResult } from '@/lib/forensics/employer-checks'
+import { portalPartySearch, partyNamesCompany } from '@/lib/screening/portalClient'
 import { canonicalizeEmployerName, searchOpenCorporates, RegistryAuthError } from '@/lib/forensics/arm-length'
 import { searchCbrRegistry } from '@/lib/forensics/cbr-registry'
 import type { CompanyRegistryInfo } from '@/lib/forensics/arm-length'
@@ -564,6 +566,68 @@ export async function POST(req: Request) {
       webRead: makeWebRead(),
       companyLookup: makeCachedCompanyLookup(cacheClient),
     })
+
+    // ── Employer additions (2026-09-16): registry status, domain age (RDAP),
+    //    contact path, address / phone region, litigation on the courts
+    //    portal. Each read is best-effort with its own timeout; a failure
+    //    leaves that line blank rather than failing the check.
+    try {
+      const { domains } = extractEmployerDomains(payload.employer_doc_text)
+      const rdapResults = (await Promise.all(domains.slice(0, 2).map(d => rdapLookup(d)))).filter((r): r is RdapResult => !!r)
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      const relay = serviceKey ? async (url: string) => {
+        try {
+          const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+          const { data } = await admin.rpc('portal_relay_get', { p_url: url })
+          const d = data as { status?: number; body?: string | null } | null
+          if (!d?.status) return null
+          let body: unknown = null
+          try { body = d.body ? JSON.parse(d.body) : null } catch { body = null }
+          return { status: d.status, body }
+        } catch { return null }
+      } : undefined
+      await Promise.all(results.map(async (check) => {
+        const names = Array.from(new Set([check.employer_name, check.company_info?.name].filter((n): n is string => !!n && n.trim().length > 2)))
+        let litigation: { total: number; cases: Array<{ title: string; role: string; filed: string; closed: boolean | null }> } | null = null
+        try {
+          const searches = await Promise.all(names.slice(0, 2).map(n => portalPartySearch(n, '10462', { relay, timeoutMs: 12_000 })))
+          const seen = new Set<string>()
+          const cases: Array<{ title: string; role: string; filed: string; closed: boolean | null }> = []
+          for (let i = 0; i < searches.length; i++) {
+            for (const c of searches[i].results) {
+              if (!partyNamesCompany(c.party, names[i])) continue
+              const key = `${c.title}|${c.filed}`
+              if (seen.has(key)) continue
+              seen.add(key)
+              cases.push({ title: c.title, role: c.role, filed: c.filed, closed: c.closed })
+            }
+          }
+          if (searches.every(s => !s.error) || cases.length) litigation = { total: cases.length, cases: cases.slice(0, 10) }
+        } catch { /* best effort */ }
+        const extra = employerExtraChecks({
+          employer_name: check.employer_name,
+          company_status: check.company_info?.status ?? null,
+          company_registered_address: check.company_info?.registered_address ?? null,
+          incorporation_date: check.company_info?.incorporation_date ?? null,
+          doc_text: payload.employer_doc_text ?? null,
+          business_phone: payload.signatory_phone ?? null,
+          rdap: rdapResults,
+          litigation,
+        })
+        Object.assign(check, {
+          registry_status_kind: extra.registry_status_kind,
+          employment_start: extra.employment_start,
+          stated_city: extra.stated_city,
+          domain_check: extra.domain_check,
+          personal_emails: extra.personal_emails,
+          litigation: extra.litigation,
+          flags: [...check.flags, ...extra.flags],
+        })
+        if (extra.registry_status_kind === 'inactive') check.arm_length_risk = 'high'
+      }))
+    } catch (e) {
+      console.warn('[deep-check] employer extra checks failed:', (e as Error).message)
+    }
 
     // BN cross-verification against the federal registry. Uses the same
     // service-role client used for caching; never needs external APIs.

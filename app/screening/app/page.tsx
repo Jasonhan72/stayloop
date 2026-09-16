@@ -3713,7 +3713,9 @@ export default function ScreenPage() {
                         : { bg: '#DCFCE7', fg: '#166534' }
                   return (
                     <span style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 6, background: tone.bg, color: tone.fg }}>
-                      {deepCheckResult.overall_risk === 'high'
+                      {(deepCheckResult.checks || []).some((c: { registry_status_kind?: string }) => c.registry_status_kind === 'inactive')
+                        ? (lang === 'zh' ? '⚠ 雇主注册状态异常（已注销 / 非活跃）' : '⚠ Employer registry status abnormal (inactive / dissolved)')
+                        : deepCheckResult.overall_risk === 'high'
                         ? (lang === 'zh' ? '⚠ 高风险 — 非独立关系' : '⚠ High Risk — Not Arm\'s Length')
                         : deepCheckResult.overall_risk === 'medium'
                           ? (lang === 'zh' ? '⚡ 中等风险' : '⚡ Medium Risk')
@@ -3810,10 +3812,10 @@ export default function ScreenPage() {
                         </div>
                         <span style={{
                           fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
-                          background: check.arm_length_risk === 'high' ? '#DC2626' : check.arm_length_risk === 'medium' ? '#D97706' : '#16A34A',
+                          background: check.registry_status_kind === 'inactive' || check.arm_length_risk === 'high' ? '#DC2626' : check.arm_length_risk === 'medium' ? '#D97706' : check.arm_length_risk === 'unverified' ? '#B45309' : '#16A34A',
                           color: '#fff',
                         }}>
-                          {check.arm_length_risk === 'high' ? (lang === 'zh' ? '高风险' : 'HIGH') : check.arm_length_risk === 'medium' ? (lang === 'zh' ? '中风险' : 'MEDIUM') : check.arm_length_risk === 'low' ? (lang === 'zh' ? '低风险' : 'LOW') : (lang === 'zh' ? '正常' : 'CLEAN')}
+                          {check.registry_status_kind === 'inactive' ? (lang === 'zh' ? '注册状态异常' : 'REGISTRY INACTIVE') : check.arm_length_risk === 'high' ? (lang === 'zh' ? '高风险' : 'HIGH') : check.arm_length_risk === 'medium' ? (lang === 'zh' ? '中风险' : 'MEDIUM') : check.arm_length_risk === 'low' ? (lang === 'zh' ? '低风险' : 'LOW') : check.arm_length_risk === 'unverified' ? (lang === 'zh' ? '未核验' : 'UNVERIFIED') : (lang === 'zh' ? '正常' : 'CLEAN')}
                         </span>
                       </div>
 
@@ -3828,7 +3830,27 @@ export default function ScreenPage() {
                           </>}
                           {check.company_info.status && <>
                             <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '状态' : 'Status'}:</span>
-                            <span>{check.company_info.status}</span>
+                            <span style={check.registry_status_kind === 'inactive' ? { color: '#B91C1C', fontWeight: 800, background: '#FEE2E2', padding: '1px 8px', borderRadius: 4, display: 'inline-block' } : check.registry_status_kind === 'active' ? { color: '#166534', fontWeight: 600 } : undefined}>
+                              {check.company_info.status}{check.registry_status_kind === 'inactive' ? (lang === 'zh' ? ' ⚠ 已注销 / 非活跃 — 不可能在发工资' : ' ⚠ inactive / dissolved — cannot be running payroll') : ''}
+                            </span>
+                          </>}
+                          {check.employment_start && <>
+                            <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '信称入职' : 'Employed since'}:</span>
+                            <span>{check.employment_start}</span>
+                          </>}
+                          {(check.domain_check || []).map((d, di) => (
+                            <span key={`dom-${di}`} style={{ display: 'contents' }}>
+                              <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '雇主域名' : 'Domain'}:</span>
+                              <span style={!d.registered ? { color: '#B91C1C', fontWeight: 700 } : undefined}>{d.domain}{d.registered ? (lang === 'zh' ? ` · 注册于 ${d.registration_date || '?'}` : ` · registered ${d.registration_date || '?'}`) : (lang === 'zh' ? ' ⚠ 未注册的域名' : ' ⚠ not a registered domain')}</span>
+                            </span>
+                          ))}
+                          {check.litigation && <>
+                            <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '法庭记录' : 'Court cases'}:</span>
+                            <span style={check.litigation.total > 0 ? { color: '#B91C1C', fontWeight: 800, background: '#FEE2E2', padding: '1px 8px', borderRadius: 4, display: 'inline-block' } : { color: '#166534' }}>
+                              {check.litigation.total > 0
+                                ? (lang === 'zh' ? `⚠ 安省民事 / 小额法庭 ${check.litigation.total} 件案件为当事人` : `⚠ party to ${check.litigation.total} Ontario civil / small-claims case(s)`)
+                                : (lang === 'zh' ? '✓ 安省民事 / 小额法庭无以该公司为当事人的记录' : '✓ no Ontario civil / small-claims case names this company')}
+                            </span>
                           </>}
                           {check.company_info.company_type && <>
                             <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '类型' : 'Type'}:</span>

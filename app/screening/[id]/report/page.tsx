@@ -1677,13 +1677,13 @@ export default function ReportPage() {
               </KV>
               <div className="mt-3 space-y-3">
                 {dc.checks.map((check, i) => {
-                  const col = check.arm_length_risk === 'high' ? '#DC2626' : check.arm_length_risk === 'medium' ? '#D97706' : check.arm_length_risk === 'unverified' ? '#B45309' : '#16A34A'
+                  const col = check.registry_status_kind === 'inactive' || check.arm_length_risk === 'high' ? '#DC2626' : check.arm_length_risk === 'medium' ? '#D97706' : check.arm_length_risk === 'unverified' ? '#B45309' : '#16A34A'
                   const ci = check.company_info
                   return (
                     <div key={i} className="rounded-xl border border-line-divider p-4" style={{ borderLeft: `3px solid ${col}`, background: '#FAFAF8' }}>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-[13px] font-bold">{check.employer_name}</span>
-                        <Badge label={check.arm_length_risk === 'unverified' ? (zh ? '未核验' : 'UNVERIFIED') : check.arm_length_risk === 'clean' ? (zh ? '独立' : 'CLEAN') : check.arm_length_risk.toUpperCase()} color={col} />
+                        <Badge label={check.registry_status_kind === 'inactive' ? (zh ? '注册状态异常' : 'REGISTRY INACTIVE') : check.arm_length_risk === 'unverified' ? (zh ? '未核验' : 'UNVERIFIED') : check.arm_length_risk === 'clean' ? (zh ? '独立' : 'CLEAN') : check.arm_length_risk.toUpperCase()} color={col} />
                       </div>
                       {ci ? (
                         <div className="mt-2 space-y-0.5">
@@ -1695,7 +1695,28 @@ export default function ReportPage() {
                               </span>
                             </KV>
                           )}
-                          {ci.status && <KV k={zh ? '注册状态' : 'Status'}>{ci.status}</KV>}
+                          {ci.status && (
+                            <KV k={zh ? '注册状态' : 'Status'}>
+                              <span style={check.registry_status_kind === 'inactive' ? { color: '#B91C1C', fontWeight: 800, background: '#FEE2E2', padding: '1px 8px', borderRadius: 4 } : undefined}>
+                                {ci.status}{check.registry_status_kind === 'inactive' && (zh ? ' ⚠ 已注销 / 非活跃 — 不可能在发工资' : ' ⚠ inactive / dissolved — cannot be running payroll')}
+                              </span>
+                            </KV>
+                          )}
+                          {check.employment_start && <KV k={zh ? '信称入职' : 'Employed since'}>{check.employment_start}</KV>}
+                          {(check.domain_check || []).map((d, di) => (
+                            <KV key={di} k={zh ? '雇主域名' : 'Domain'}>
+                              <span style={!d.registered ? { color: '#B91C1C', fontWeight: 700 } : undefined}>{d.domain}{d.registered ? (zh ? ` · 注册于 ${d.registration_date || '?'}` : ` · registered ${d.registration_date || '?'}`) : (zh ? ' ⚠ 未注册的域名' : ' ⚠ not a registered domain')}</span>
+                            </KV>
+                          ))}
+                          {check.litigation && (
+                            <KV k={zh ? '法庭记录' : 'Court cases'}>
+                              <span style={check.litigation.total > 0 ? { color: '#B91C1C', fontWeight: 800, background: '#FEE2E2', padding: '1px 8px', borderRadius: 4 } : { color: '#166534' }}>
+                                {check.litigation.total > 0
+                                  ? (zh ? `⚠ 安省民事 / 小额法庭 ${check.litigation.total} 件案件为当事人` : `⚠ party to ${check.litigation.total} Ontario civil / small-claims case(s)`)
+                                  : (zh ? '✓ 无以该公司为当事人的记录' : '✓ no case names this company')}
+                              </span>
+                            </KV>
+                          )}
                           {ci.officers?.length > 0 && (
                             <KV k={zh ? '董事/高管' : 'Officers'}>
                               <span style={check.applicant_is_officer ? { color: '#DC2626', fontWeight: 700 } : undefined}>

@@ -251,6 +251,13 @@ export interface ArmLengthCheck {
   officers_verified?: boolean
   web_checked?: boolean
   related_party_match?: string | null
+  /** 2026-09-16 additions (lib/forensics/employer-checks.ts) */
+  registry_status_kind?: 'active' | 'inactive' | 'unknown'
+  employment_start?: string | null
+  stated_city?: string | null
+  domain_check?: Array<{ domain: string; registered: boolean; registration_date: string | null; expiration_date: string | null }>
+  personal_emails?: string[]
+  litigation?: { total: number; cases: Array<{ title: string; role: string; filed: string; closed: boolean | null }> } | null
   flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string }>
 }
 

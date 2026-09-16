@@ -1180,7 +1180,7 @@ export async function generateScreeningReport(
     <div class="kv"><span class="k">${zh ? '总体结论' : 'Overall'}:</span><span class="v" style="font-weight:700;color:${ov.color}">${ov.text}</span></div>
     <div class="kv"><span class="k">${zh ? '核查时间' : 'Checked'}:</span><span class="v">${new Date(dc.checked_at).toLocaleString('en-CA')} · ${zh ? '数据源' : 'Source'}: OpenCorporates / ${zh ? '加拿大公司注册' : 'Canadian Corporate Registry'}</span></div>`
     for (const check of dc.checks) {
-      const cr = orMap[check.arm_length_risk] || orMap.clean
+      const cr = check.registry_status_kind === 'inactive' ? { text: zh ? '注册状态异常 — 已注销 / 非活跃' : 'Registry inactive / dissolved', color: '#DC2626' } : (orMap[check.arm_length_risk] || orMap.clean)
       html += `<div class="card" style="border-left:3px solid ${cr.color}">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px">
           <span style="font-weight:700;font-size:11px">${esc(check.employer_name)}</span>
@@ -1190,7 +1190,11 @@ export async function generateScreeningReport(
         const ci = check.company_info
         html += `<div class="kv"><span class="k">${zh ? '注册名称' : 'Registered name'}:</span><span class="v">${esc(ci.name)}</span></div>`
         if (ci.incorporation_date) html += `<div class="kv"><span class="k">${zh ? '成立日期' : 'Incorporated'}:</span><span class="v"${check.is_recently_incorporated ? ' style="color:#DC2626;font-weight:700"' : ''}>${esc(ci.incorporation_date)}${check.is_recently_incorporated ? (zh ? ' ⚠ 不到 2 年' : ' ⚠ under 2 years') : ''}</span></div>`
-        if (ci.status) html += `<div class="kv"><span class="k">${zh ? '注册状态' : 'Status'}:</span><span class="v">${esc(ci.status)}</span></div>`
+        const inactive = check.registry_status_kind === 'inactive'
+        if (ci.status) html += `<div class="kv"><span class="k">${zh ? '注册状态' : 'Status'}:</span><span class="v"${inactive ? ' style="color:#B91C1C;font-weight:800;background:#FEE2E2;padding:1px 8px;border-radius:4px"' : ''}>${esc(ci.status)}${inactive ? (zh ? ' ⚠ 已注销 / 非活跃 — 不可能在发工资' : ' ⚠ inactive / dissolved — cannot be running payroll') : ''}</span></div>`
+        if (check.employment_start) html += `<div class="kv"><span class="k">${zh ? '信称入职' : 'Employed since'}:</span><span class="v">${esc(check.employment_start)}</span></div>`
+        for (const d of check.domain_check || []) html += `<div class="kv"><span class="k">${zh ? '雇主域名' : 'Domain'}:</span><span class="v"${d.registered ? '' : ' style="color:#B91C1C;font-weight:700"'}>${esc(d.domain)}${d.registered ? esc(zh ? ` · 注册于 ${d.registration_date || '?'}` : ` · registered ${d.registration_date || '?'}`) : (zh ? ' ⚠ 未注册的域名' : ' ⚠ not a registered domain')}</span></div>`
+        if (check.litigation) html += `<div class="kv"><span class="k">${zh ? '法庭记录' : 'Court cases'}:</span><span class="v"${check.litigation.total > 0 ? ' style="color:#B91C1C;font-weight:800;background:#FEE2E2;padding:1px 8px;border-radius:4px"' : ' style="color:#166534"'}>${check.litigation.total > 0 ? (zh ? `⚠ 安省民事 / 小额法庭 ${check.litigation.total} 件案件为当事人` : `⚠ party to ${check.litigation.total} Ontario civil / small-claims case(s)`) : (zh ? '✓ 无以该公司为当事人的记录' : '✓ no case names this company')}</span></div>`
         if (ci.officers.length > 0) html += `<div class="kv"><span class="k">${zh ? '董事/高管' : 'Officers'}:</span><span class="v"${check.applicant_is_officer ? ' style="color:#DC2626;font-weight:700"' : ''}>${esc(ci.officers.map(o => o.name + (o.position ? ` (${o.position})` : '')).join(', '))}${check.applicant_is_officer ? (zh ? ' ⚠ 申请人是公司高管' : ' ⚠ applicant is an officer') : ''}</span></div>`
         if (ci.registered_address) html += `<div class="kv"><span class="k">${zh ? '注册地址' : 'Address'}:</span><span class="v"${check.company_address_matches_applicant ? ' style="color:#DC2626;font-weight:700"' : ''}>${esc(ci.registered_address)}${check.company_address_matches_applicant ? (zh ? ' ⚠ 与申请人地址重叠' : ' ⚠ overlaps applicant address') : ''}</span></div>`
       } else {

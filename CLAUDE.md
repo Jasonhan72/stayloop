@@ -382,6 +382,23 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 另外核实：雇主网站 globenetint.com 存在但只有联系表单（无地址电话），域名 2020-11 注册而信称 2015 入职；法院门户
 与 LTB 均无 MARUANIY 记录；驾照号编码（M + 780617）与生日自洽。
 
+## 深度核查加项与红色标记（2026-09-16）
+
+用户看到注册库「Inactive」旁边挂着绿色「正常」徽章，要求：注册状态异常、法庭记录这类结果必须醒目标红，并且深度核查
+要多做几项相关检测。`lib/forensics/employer-checks.ts`（纯函数）+ `lib/screening/portalClient.ts`（法院门户当事人检索，
+含 403 中转）接进 `app/api/deep-check`，每家雇主多出六项：
+- **注册状态**：`registryStatusKind` 把 Inactive / Dissolved / Cancelled / Struck… 归为 inactive → `employer_registry_inactive`
+  （critical），该雇主 `arm_length_risk` 强制 high；三处渲染（结果页 / 报告页 / 打印）状态行红底加粗「⚠ 已注销 / 非活跃 —
+  不可能在发工资」，徽章改为「注册状态异常」，总体横幅「雇主注册状态异常」。
+- **入职日期 vs 成立日期**：信称入职早于公司成立 → high。`extractEmploymentStart` 容忍伪造信常见的 since 拼错（scince）。
+- **雇主域名（RDAP，免费无 key）**：从信上邮箱 / 网址取域名，`rdap.org` 查注册日期；域名不存在 → high；注册日期晚于
+  信称入职一年以上 → medium（本案 globenetint.com 2020-11 注册，信称 2015 入职）。
+- **联系路径**：唯一联系方式是 gmail / hotmail 等个人邮箱 → medium。
+- **地址与电话**：信头城市 ≠ 注册库城市 → low；公司电话区号所属地区 ≠ 信头城市 → low（安省区号表）。
+- **雇主诉讼**：法院门户按公司名精确检索，当事人字段按规范化词包含匹配到该公司才算；有案件即红底显示「N 件案件为
+  当事人」，被告 / 未结 → medium；无记录显示绿色「无记录」。立案≠结果，文案照旧不下结论。
+守卫 `tests/employerChecks.spec.ts`。
+
 ## 法庭数据源「未能检索」（2026-09-15 · 两个真实原因）
 
 用户截图：CanLII 与安省法院门户两行都显示「未能检索（超时 / 不可用）」。
