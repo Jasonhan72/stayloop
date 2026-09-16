@@ -2,6 +2,7 @@
 // LIVE external fallback (Realtor.ca via the Jina reader/search API) when
 // Stayloop has no match. Runs server-side (edge). Requires JINA_API_KEY.
 import type { ListingCard } from './types'
+import { LISTINGS_PAGE } from '@/lib/agent/listingPaging'
 import { LISTING_VISIBILITY_OR, LISTING_VISIBILITY_OR_GROUP } from '../listingVisibility'
 import { readTrrebBenchmark, type TrrebBenchmark } from './trrebRent'
 import { captureException } from '../observability/sentry'
@@ -204,12 +205,16 @@ export async function searchListings(
   // attach the honest same-area notice when none match.
   const streetRef = extractStreetRef(c.keywords)
   const areaLabel = () => c.area || c.area_candidates?.[0] || 'Toronto'
-  const target = Math.min(Math.max(c.count ?? 4, 1), 6)
+  // One page is 6 cards (two rows of three on the desktop chat). The reply
+  // carries a second page on top of that so the 「换一批」 button under the
+  // grid can reveal the next 6 without another model turn (2026-09-16).
+  const target = Math.min(Math.max(c.count ?? LISTINGS_PAGE, 1), LISTINGS_PAGE)
+  const pool = target + LISTINGS_PAGE
   // Already-shown addresses (this conversation) are skipped so "再找几个 /
   // 换一批" returns NEW results. Over-fetch a bit to leave room after filtering.
   const ex = new Set(exclude.map((s) => s.toLowerCase()))
   const fresh = (l: ListingCard) => !ex.has(l.address.toLowerCase())
-  const fetchCount = Math.min(target + exclude.length, 12)
+  const fetchCount = Math.min(pool + exclude.length, 24)
 
   // Realtor.ca runs UNCONDITIONALLY (in parallel with the Stayloop query):
   // the market card is computed exclusively from Realtor.ca asking prices —
@@ -252,9 +257,9 @@ export async function searchListings(
       trreb,
     }
   }
-  if (stay.length >= target) {
+  if (stay.length >= pool) {
     const f = filterByStreetToken(stay, streetRef, areaLabel())
-    return { listings: f.listings.slice(0, target), market, notice: f.notice, external }
+    return { listings: f.listings.slice(0, pool), market, notice: f.notice, external }
   }
 
   // No synthetic fallback: when neither Stayloop nor Realtor.ca has a real
@@ -265,7 +270,7 @@ export async function searchListings(
   const seen = new Set(stay.map((l) => l.address.toLowerCase()))
   const filled = [...stay, ...ext.filter((l) => !seen.has(l.address.toLowerCase()))]
   const f = filterByStreetToken(filled, streetRef, areaLabel())
-  return { listings: f.listings.slice(0, target), market, notice: f.notice, external }
+  return { listings: f.listings.slice(0, pool), market, notice: f.notice, external }
 }
 
 // ---------- Stayloop's own listings ----------
@@ -311,7 +316,7 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
   if (c.max_price) p.set('monthly_rent', `lte.${Math.round(c.max_price)}`)
   if (c.min_beds) p.set('bedrooms', `gte.${Math.round(c.min_beds)}`)
   p.set('order', 'monthly_rent.asc')
-  p.set('limit', String(Math.min(c.count ?? 4, 12)))
+  p.set('limit', String(Math.min(c.count ?? LISTINGS_PAGE, 24)))
   try {
     const res = await fetch(`${url}/rest/v1/listings?${p.toString()}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
@@ -463,7 +468,7 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
     // Adjacent candidate pages top up CARDS only (consecutive searches
     // exclude already-shown addresses and drain thin pages fast).
     for (const slug of slugs.slice(1)) {
-      if (cards.length >= (c.count ?? 4)) break
+      if (cards.length >= (c.count ?? LISTINGS_PAGE)) break
       merge(await readRealtorPage(key, `https://www.realtor.ca/on/toronto/${slug}/${typePath}`, crit), false)
     }
   }
@@ -471,7 +476,7 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
   // area's inventory; don't dilute it with the generic search fallback.
   if (statRows.length || cards.length) {
     cards.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
-    return { cards: cards.slice(0, Math.min(c.count ?? 4, 12)), statRows, external: externalFromStatuses(statuses) }
+    return { cards: cards.slice(0, Math.min(c.count ?? LISTINGS_PAGE, 24)), statRows, external: externalFromStatuses(statuses) }
   }
   // Direct pages answered but were empty for these criteria — the provider
   // is fine; the generic search hop below is a second chance, not a retry.
@@ -535,7 +540,7 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
   // Rank by budget relevance: houses → priciest-within-budget first
   // (closest to a high target like $6000); apartments → cheapest first.
   cards.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
-  return { cards: cards.slice(0, Math.min(c.count ?? 4, 12)), statRows, external: externalFromStatuses(statuses) }
+  return { cards: cards.slice(0, Math.min(c.count ?? LISTINGS_PAGE, 24)), statRows, external: externalFromStatuses(statuses) }
 }
 
 function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; rows: StatRow[] } {

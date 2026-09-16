@@ -463,6 +463,15 @@ client）经 Management API 整块复制（hook_* 与 oauth_server_* 两组键�
 - **用户需手动**：Google Cloud Console 的 OAuth client 授权回调里加 `https://uotcczsfeiptnabamzcd.supabase.co/auth/v1/callback`
   （否则 Google 登录失败，魔法链接不受影响）；7 天后删除 PAT。
 
+## 找房卡片一页 6 套 + 「换一批」（2026-09-16 · 用户要求）
+
+租客管家的房源卡默认一次 6 套（桌面端正好两排），下面一个「换一批」按钮显示排在后面的 6 套。落地：
+`lib/agent/listingPaging.ts`（`LISTINGS_PAGE=6`、`pageListings`、`nextBatchPrompt`，纯函数，守卫 `tests/listingPaging.spec.ts`）；
+`searchListings` 的目标数改为 `min(count ?? 6, 6)`，但**返回 target + 6 的池子**（最多 12 套，Stayloop 自有优先、Realtor.ca 补足，
+抓取上限 24），`AgentChat` 按 message id 记 offset：第一次点「换一批 · 还有 N 套」只翻到池子里的下一页、不走模型；池子空了
+按钮变成「换一批 · 再找 6 套」，发一句「换一批，条件不变。」走正常搜索（服务端按已展示地址排除）。提示词里的默认数量
+4 → 6。已在本地用首页匿名对话实测（Bay Street Corridor 1 房：7 套 → 显示 1–6，点一下显示第 7 套，按钮转为再找 6 套）。
+
 ## 定价 $19 与内部测试月（2026-09-14 · 用户决定）
 
 - **Pro 改为 $19 CAD/月**：Stripe live 新价 `price_1UFZYoPEHyIrPd1Qswl971AJ`（产品 `prod_UIB2uLu9PHRVeR` 的默认价），

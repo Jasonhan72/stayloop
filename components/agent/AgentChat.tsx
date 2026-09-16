@@ -11,6 +11,7 @@ import TrrebTrendChart from './TrrebTrendChart'
 import Link from 'next/link'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage } from '@/lib/agent/types'
+import { LISTINGS_PAGE, nextBatchPrompt, pageListings } from '@/lib/agent/listingPaging'
 
 const ACCENT: Record<AgentRole, string> = {
   tenant: ROLE_THEME.tenant.accent,
@@ -75,6 +76,9 @@ export default function AgentChat({
   const accent = ACCENT[role]
   const endRef = useRef<HTMLDivElement>(null)
   const thinking = status === 'understanding' || status === 'working'
+  // Listing cards come in pages of six; the server sends up to two pages per
+  // turn. offset per message id: 0 = first page, 6 = the six ranked after.
+  const [listingOffset, setListingOffset] = useState<Record<string, number>>({})
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -145,13 +149,42 @@ export default function AgentChat({
                   )}
                   {/* Responsive wrap grid — cards flow onto extra rows instead of
                       widening/clipping the chat container; tracks container width. */}
-                  <div className="grid gap-3 pb-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
-                    {m.listings.map((l) => (
-                      <div key={l.id} className="min-w-0">
-                        <ListingChatCard l={l} />
-                      </div>
-                    ))}
-                  </div>
+                  {(() => {
+                    const page = pageListings(m.listings, listingOffset[m.id] ?? 0)
+                    const shownTo = Math.min((listingOffset[m.id] ?? 0) + LISTINGS_PAGE, m.listings.length)
+                    return (
+                      <>
+                        <div className="grid gap-3 pb-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
+                          {page.visible.map((l) => (
+                            <div key={l.id} className="min-w-0">
+                              <ListingChatCard l={l} />
+                            </div>
+                          ))}
+                        </div>
+                        {/* 「换一批」: first click reveals the six ranked after (no
+                            model turn); once nothing is held back it becomes a
+                            real search — the server excludes every shown address. */}
+                        <div className="flex items-center justify-between gap-3 pb-1">
+                          <span className="font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
+                            {lang === 'zh' ? `第 ${(listingOffset[m.id] ?? 0) + 1}–${shownTo} 套` : `${(listingOffset[m.id] ?? 0) + 1}–${shownTo} of ${m.listings.length}`}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={thinking}
+                            onClick={() => {
+                              if (page.next === 'reveal') setListingOffset((cur) => ({ ...cur, [m.id]: (cur[m.id] ?? 0) + LISTINGS_PAGE }))
+                              else void onSend(nextBatchPrompt(lang === 'zh'))
+                            }}
+                            className="rounded-full border border-line-strong bg-white px-4 py-1.5 text-[13px] font-semibold text-body transition hover:bg-surface-chip disabled:opacity-50"
+                          >
+                            {page.next === 'reveal'
+                              ? (lang === 'zh' ? `换一批 · 还有 ${page.remaining} 套` : `Next batch · ${page.remaining} more`)
+                              : (lang === 'zh' ? '换一批 · 再找 6 套' : 'Next batch · find 6 more')}
+                          </button>
+                        </div>
+                      </>
+                    )
+                  })()}
                 </div>
               )}
               {/* Proactive market context — real prices computed server-side */}
