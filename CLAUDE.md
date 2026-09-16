@@ -375,7 +375,10 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
   工资单是纯图片 / 无生成软件 / 带生成器签名时，`paystub_deductions_at_legal_max` 不再计入佐证分。
 - **生成器指纹**：标题「paystub_4_20260817160120」= 模板编号 + 时间戳且无 Producer，是在线工资单生成器的导出特征
   → `paystub_generator_signature`（high，进 FORGERY_INDICATING_CODES）。
-- **ModDate 取最后一次修订**：在职信 3 月创建、5-29 与 9-06 两次 Preview 编辑，浅层解析取到的是 5-29。
+- **ModDate 取最后一次修订**：增量更新会追加同一编号的 Info 对象，浅层解析原来取第一份（在职信读成「修改于 5-29」，
+  实际 9-06）；现在取最后一份。图片式 / 无 Producer 的工资单上，`paystub_deductions_at_legal_max` 降为 low 并改写为
+  中性措辞。**已用同一份原件在生产重跑验证**（screening `b7036935`）：新增的时间线矛盾、自任房东、征信逾期日期、
+  三张工资单的生成器签名全部命中，收入 8% 差距标为 near_match 不计佐证，法院门户与 CanLII 两行均正常检索。
 另外核实：雇主网站 globenetint.com 存在但只有联系表单（无地址电话），域名 2020-11 注册而信称 2015 入职；法院门户
 与 LTB 均无 MARUANIY 记录；驾照号编码（M + 780617）与生日自洽。
 

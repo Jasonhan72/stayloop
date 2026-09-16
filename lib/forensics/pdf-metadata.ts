@@ -65,7 +65,12 @@ function parseRawPdfMetadata(bytes: Uint8Array): Partial<PdfMetadataResult> | nu
     let infoBlock: string | null = null
     if (infoObjNum) {
       const objPattern = new RegExp(`${infoObjNum}\\s+0\\s+obj\\s*`, 'g')
-      const m = objPattern.exec(text)
+      // Incremental updates (Preview, Acrobat) append a NEW copy of the same
+      // Info object number; the last copy is the current revision. Taking
+      // the first read a letter edited on 05-29 and 09-06 as "modified
+      // 05-29" (2026-09-16).
+      let m: RegExpExecArray | null = null
+      for (let mm = objPattern.exec(text); mm; mm = objPattern.exec(text)) m = mm
       if (m) {
         const start = m.index + m[0].length
         const endObj = text.indexOf('endobj', start)

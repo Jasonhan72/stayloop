@@ -90,3 +90,22 @@ describe('pay-stub generator signature and income corroboration threshold', () =
     expect(mk(120000)).toContain('cross_doc_income_mismatch')
   })
 })
+
+import { readPdfMetadata } from '@/lib/forensics/pdf-metadata'
+
+describe('PDF metadata follows the latest incremental revision', () => {
+  it('reads the ModDate of the last copy of the Info object, not the first', async () => {
+    const pdf = [
+      '%PDF-1.4',
+      '5 0 obj << /Producer (macOS Quartz PDFContext) /Creator (Preview) /CreationDate (D:20260320182216Z) /ModDate (D:20260529051729-04\'00\') >> endobj',
+      'trailer << /Info 5 0 R >>',
+      '%%EOF',
+      '5 0 obj << /Producer (macOS Quartz PDFContext) /Creator (Preview) /CreationDate (D:20260320182216Z) /ModDate (D:20260906205913-04\'00\') >> endobj',
+      'trailer << /Info 5 0 R >>',
+      '%%EOF',
+    ].join('\n')
+    const meta = await readPdfMetadata(new TextEncoder().encode(pdf))
+    expect(meta?.modification_date?.slice(0, 10)).toBe('2026-09-06')
+    expect(meta?.creation_date?.slice(0, 10)).toBe('2026-03-20')
+  })
+})
