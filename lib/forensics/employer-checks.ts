@@ -40,7 +40,10 @@ export function extractEmploymentStart(text: string | null | undefined): string 
   // "sinse", "sicne") — accept those, and "from <date>" after "employed".
   const win = t.match(/(?:\bs[ci]{1,2}n[cs]e\b|\bsince\b|\bscince\b|start(?:ed|ing)? (?:date|on)?|commenc\w+|joined(?: us)?(?: on)?|effective|employed[^.;]{0,40}?\bfrom)\s*:?\s*([^.;]{0,40})/i)
   if (!win) return null
-  const s = win[1]
+  // Text layers of edited letters print years like "20 I 5" (a retyped
+  // digit in a different font maps to a letter glyph) — repair before
+  // parsing (2026-09-16: "scince 23 June 20 I 5").
+  const s = win[1].replace(/(\d)\s*[Il|]\s*(\d)/g, '$11$2').replace(/\b(19|20)\s+(\d)\s*(\d)\b/g, '$1$2$3')
   let m = s.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+((?:19|20)\d{2})/)
   if (m && MONTHS[m[2].slice(0, 3).toLowerCase()]) return `${m[3]}-${String(MONTHS[m[2].slice(0, 3).toLowerCase()]).padStart(2, '0')}-${m[1].padStart(2, '0')}`
   m = s.match(/([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+((?:19|20)\d{2})/)
@@ -120,6 +123,17 @@ export function employerExtraChecks(inp: EmployerExtraInput): EmployerExtraResul
   const city = extractStatedCity(inp.doc_text)
   const { personal_emails } = extractEmployerDomains(inp.doc_text)
   const emp = inp.employer_name
+
+  // A year printed as "20 I 5" in the text layer: a digit was retyped in a
+  // font whose glyph maps to a letter — the trace of editing a PDF's text.
+  if (/\b(?:19|20)\s*[Il|]\s*\d\b|\b(?:19|20)\d\s*[Il|]\b/.test((inp.doc_text || '').replace(/\s+/g, ' '))) {
+    flags.push({
+      code: 'employer_letter_digit_glyph_artifact',
+      severity: 'low',
+      evidence_en: `A year in the employer's letter is encoded with a letter glyph in place of a digit (e.g. "20 I 5") in the PDF's text layer. That is what a date retyped over an existing PDF in a mismatched font looks like — consistent with the letter's dates having been edited.`,
+      evidence_zh: `在职信的 PDF 文本层里，年份用字母字形代替了数字（如「20 I 5」）。这是在已有 PDF 上用不匹配字体重打日期留下的痕迹——与信件日期被改过的判断一致。`,
+    })
+  }
 
   if (kind === 'inactive') {
     flags.push({

@@ -15,6 +15,13 @@ describe('registry status', () => {
     expect(registryStatusKind('In Existence')).toBe('active')
     expect(registryStatusKind(null)).toBe('unknown')
   })
+  it('repairs a retyped year glyph ("20 I 5") and flags the artifact', () => {
+    const t = 'has been employed as a Web Developer at Globe Net International scince 23 June 20 I 5. The position'
+    expect(extractEmploymentStart(t)).toBe('2015-06-23')
+    const r = employerExtraChecks({ employer_name: 'Globe Net International', doc_text: t, rdap: [{ domain: 'globenetint.com', registered: true, registration_date: '2020-11-09', expiration_date: null }] })
+    expect(r.flags.map(f => f.code)).toContain('employer_letter_digit_glyph_artifact')
+    expect(r.flags.map(f => f.code)).toContain('employer_domain_younger_than_employment')
+  })
   it('an inactive employer is a critical flag and the employment start is read from the letter', () => {
     const r = employerExtraChecks({ employer_name: 'Globe Net International', company_status: 'Inactive', incorporation_date: '2005-05-11', company_registered_address: 'RICHMOND HILL, Ontario', doc_text: LETTER })
     expect(r.registry_status_kind).toBe('inactive')
