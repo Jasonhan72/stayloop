@@ -17,30 +17,51 @@ const CA_PROVINCE = /\b(ON|QC|BC|AB|MB|SK|NS|NB|NL|PE|YT|NT|NU|Ontario|Quebec|Qu
 const CA_CITY = /\b(Toronto|Ottawa|Mississauga|Brampton|Hamilton|London|Markham|Vaughan|Kitchener|Windsor|Richmond Hill|Oakville|Burlington|Oshawa|Barrie|St\.? Catharines|Cambridge|Kingston|Guelph|Whitby|Ajax|Pickering|Milton|Niagara Falls|Waterloo|Thunder Bay|Sudbury|Newmarket|Aurora|Scarborough|Etobicoke|North York|Montreal|Montréal|Laval|Vancouver|Surrey|Burnaby|Calgary|Edmonton|Winnipeg|Halifax|Regina|Saskatoon|Victoria)\b/i
 export const RENTAL_SCREENING_CREDITORS = /\b(yardi|certn|singlekey|single key|naborly|rentcheck|rent check|openroom|frontlobby|front lobby|landlord credit bureau|lcb|rent ?panda|liv\.?rent|rentify|tenantverification|rentprep)\b/i
 
+const CA_PROVINCE_FULL = /\b(Ontario|Quebec|Québec|British Columbia|Alberta|Manitoba|Saskatchewan|Nova Scotia|New Brunswick|Newfoundland|Prince Edward Island|Yukon|Nunavut|Canada)\b/i
+const CA_PROVINCE_ABBR = /,\s*(ON|QC|BC|AB|MB|SK|NS|NB|NL|PE|YT|NT|NU)\b/
+const FOREIGN_COUNTRY = /\b(USA|U\.S\.A?\.?|United States|United Kingdom|UK|England|Scotland|Wales|Ireland|France|Germany|Italy|Spain|Portugal|Netherlands|Belgium|Switzerland|Austria|Poland|Ukraine|Russia|Greece|Turkey|Israel|Iran|Iraq|Lebanon|Egypt|Nigeria|Ghana|Kenya|South Africa|India|Pakistan|Bangladesh|Sri Lanka|Nepal|China|Hong Kong|Taiwan|Japan|Korea|Philippines|Vietnam|Thailand|Malaysia|Singapore|Indonesia|Australia|New Zealand|Mexico|Brazil|Colombia|Peru|Chile|Argentina|Venezuela|Jamaica|Trinidad|Dubai|UAE|United Arab Emirates|Saudi Arabia|Qatar|Kuwait)\b/i
+const US_STATE_ZIP = /\b[A-Z]{2}\s+\d{5}(?:-\d{4})?\b/
+const UK_POSTCODE = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/
+/** A Canadian address needs a positive marker: postal code, "Canada" / full
+ *  province name, or a known city with a province abbreviation. A bare street
+ *  ("6269 Ash St") is neither Canadian nor foreign (review 2026-09-16). */
 export function looksCanadian(address: string): boolean {
   const a = address || ''
-  return CA_POSTAL.test(a) || CA_PROVINCE.test(a) || CA_CITY.test(a)
+  if (FOREIGN_COUNTRY.test(a) && !/\bCanada\b/i.test(a)) return false
+  return CA_POSTAL.test(a) || CA_PROVINCE_FULL.test(a) || (CA_CITY.test(a) && CA_PROVINCE_ABBR.test(a))
+}
+/** Positive evidence the address is outside Canada. */
+export function looksForeign(address: string): boolean {
+  const a = address || ''
+  if (/\bCanada\b/i.test(a) || CA_POSTAL.test(a)) return false
+  return FOREIGN_COUNTRY.test(a) || (US_STATE_ZIP.test(a) && !CA_PROVINCE_ABBR.test(a)) || UK_POSTCODE.test(a)
 }
 
 /** "2016 to 2026" / "2016-2026" / "Jan 2016 – present" / "2016" → [start, end] ISO dates */
 export function parsePeriod(period: string | null | undefined, today = new Date()): { start: string; end: string } | null {
-  const p = (period || '').trim()
+  // "Unit 2010, since 2016": unit / apt / suite numbers are not years.
+  const p = (period || '').replace(/\b(?:unit|apt\.?|apartment|suite|ste\.?|#)\s*\d+\b/gi, ' ').trim()
   if (!p) return null
-  const years = p.match(/(?:19|20)\d{2}/g)
-  if (!years || years.length === 0) return null
-  const start = `${years[0]}-01-01`
+  const MON: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 }
+  const hits = [...p.matchAll(/(?:\b([A-Za-z]{3,9})\.?\s+)?\b((?:19|20)\d{2})\b/g)].map(m => ({ y: +m[2], mo: m[1] && MON[m[1].slice(0, 3).toLowerCase()] ? MON[m[1].slice(0, 3).toLowerCase()] : null }))
+  if (hits.length === 0) return null
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const start = `${hits[0].y}-${pad(hits[0].mo ?? 1)}-01`
   const nowY = today.getUTCFullYear()
-  const endY = years.length >= 2 ? +years[1] : (/present|current|now|to date|至今/i.test(p) ? nowY : +years[0])
-  const end = endY >= nowY ? today.toISOString().slice(0, 10) : `${endY}-12-31`
+  const endHit = hits.length >= 2 ? hits[1] : null
+  const endY = endHit ? endHit.y : (/present|current|now|to date|至今/i.test(p) ? nowY : hits[0].y)
+  const end = endY >= nowY ? today.toISOString().slice(0, 10) : (endHit?.mo ? `${endY}-${pad(endHit.mo)}-28` : `${endY}-12-31`)
   return { start, end }
 }
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(t => t.length > 1)
+/** Default self-name matcher: the shorter name's tokens are all in the longer
+ *  one (Maria Garcia Lopez ≠ Jose Garcia Lopez). The route injects its own. */
 function sameishName(a: string | null | undefined, b: string): boolean {
   const ta = norm(a || ''), tb = norm(b)
   if (ta.length < 2 || tb.length < 2) return false
-  const overlap = ta.filter(t => tb.includes(t)).length
-  return overlap >= 2 || (overlap >= 1 && ta.length === tb.length && ta.every(t => tb.includes(t)))
+  const [short, long] = ta.length <= tb.length ? [ta, tb] : [tb, ta]
+  return short.every(t => long.includes(t))
 }
 
 export function checkResidenceTimeline(args: {
@@ -49,14 +70,17 @@ export function checkResidenceTimeline(args: {
   applicantNames: string[]
   footprint: FootprintEvent[]
   today?: Date
+  /** the pipeline's own name matcher, so "self" means the same thing everywhere */
+  isSelf?: (a: string, b: string) => boolean
 }): TimelineFlag[] {
   const flags: TimelineFlag[] = []
   const today = args.today ?? new Date()
+  const self = args.isSelf ?? ((a: string, b: string) => sameishName(a, b))
 
   // 1) The applicant names themselves as their own landlord: the reference
   //    cannot be called and the residence is self-attested.
   for (const r of args.residences) {
-    if (r.landlord_name && args.applicantNames.some(n => sameishName(r.landlord_name, n))) {
+    if (r.landlord_name && args.applicantNames.some(n => self(r.landlord_name!, n))) {
       flags.push({
         code: 'cross_doc_landlord_is_applicant',
         severity: 'medium',
@@ -68,15 +92,23 @@ export function checkResidenceTimeline(args: {
 
   // 2) A long residence with no Canadian marker, while the bureau file /
   //    licence show the person active in Canada inside that same period.
-  const abroad = args.residences.filter(r => r.address && !looksCanadian(r.address) && parsePeriod(r.period, today))
+  //    "Abroad" needs positive evidence (a foreign country / postcode) or the
+  //    applicant's own words ("moving back to Canada") — a street-only
+  //    transcription of a Canadian address is neither (review 2026-09-16).
+  const moving = /moving back|return(?:ing)? to canada|relocat|immigrat|回加拿大|回国/i.test(args.vacating_reason || '')
+  const abroad = args.residences.filter(r => r.address && !looksCanadian(r.address) && (looksForeign(r.address) || moving) && parsePeriod(r.period, today))
+  const recentCutoff = new Date(today.getTime() - 60 * 86_400_000).toISOString().slice(0, 10)
   for (const r of abroad) {
     const p = parsePeriod(r.period, today)!
     const months = (Date.parse(p.end) - Date.parse(p.start)) / (30.44 * 86_400_000)
     if (months < 24) continue
-    const inside = args.footprint.filter(e => e.date >= p.start && e.date <= p.end)
+    // One event per date (a tradeline's open month and the same month on
+    // the coherence list are one fact), nothing from the last 60 days (that
+    // is the report date), and at least two different kinds of evidence.
+    const seenDates = new Set<string>()
+    const inside = args.footprint.filter(e => e.date >= p.start && e.date <= p.end && e.date < recentCutoff && !seenDates.has(e.date) && seenDates.add(e.date))
     const kinds = new Set(inside.map(e => e.kind))
-    if (inside.length >= 2 && kinds.size >= 1) {
-      const moving = /moving back|return(?:ing)? to canada|relocat|immigrat|回加拿大|回国/i.test(args.vacating_reason || '')
+    if (inside.length >= 2 && kinds.size >= 2) {
       const list = inside.slice(0, 8).map(e => `${e.date} ${e.label}`).join('; ')
       flags.push({
         code: 'cross_doc_residence_timeline_contradiction',

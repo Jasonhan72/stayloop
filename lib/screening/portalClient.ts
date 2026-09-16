@@ -51,5 +51,11 @@ export function partyNamesCompany(party: string, company: string): boolean {
   const norm = (s: string) => s.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').replace(/\b(INC|LTD|LIMITED|CORP|CORPORATION|CO|COMPANY|INCORPORATED|LLC|LLP|THE)\b/g, ' ').split(/\s+/).filter(t => t.length > 1)
   const a = norm(party), b = norm(company)
   if (!a.length || !b.length) return false
-  return b.every(t => a.includes(t))
+  if (!b.every(t => a.includes(t))) return false
+  // "ABC CONSTRUCTION MANAGEMENT INC." is not "ABC Construction": extra
+  // tokens on the party side must be fillers, not a longer legal name
+  // (review 2026-09-16).
+  const FILLER = new Set(['OF', 'AND', 'CANADA', 'ONTARIO', 'GROUP', 'HOLDINGS', 'INTERNATIONAL', 'ENTERPRISES', 'SERVICES'])
+  const extra = a.filter(t => !b.includes(t))
+  return extra.length === 0 || (extra.length <= 1 && extra.every(t => FILLER.has(t)))
 }

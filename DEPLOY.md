@@ -26,7 +26,7 @@ and Resend landlord email notifications. It applies cleanly on top of
 
 - [x] `npm run build` — clean, all 9 edge routes compile
 - [x] `npm run pages:build` (`@cloudflare/next-on-pages`) — clean
-- [x] Supabase columns already exist on `upbkcbicjjpznojkpqtg`:
+- [x] Supabase columns already exist on `uotcczsfeiptnabamzcd`（原 `upbkcbicjjpznojkpqtg`，2026-09-16 迁移）:
       `applications.notified_at`, `landlords.stripe_customer_id`,
       `stripe_subscription_id`, `plan_status`, `plan_current_period_end`
 

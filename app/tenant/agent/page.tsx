@@ -16,7 +16,7 @@ import { usePromptDeepLink } from '@/lib/agent/usePromptDeepLink'
 import { useT } from '@/lib/i18n'
 
 export default function TenantAgentPage() {
-  const { loading, live, data, status, messages, decide, sendMessage } = useAgentSession('tenant')
+  const { loading, live, data, status, messages, decide, sendMessage, markListingsShown } = useAgentSession('tenant')
   usePromptDeepLink(loading, sendMessage)
 
 
@@ -43,6 +43,7 @@ export default function TenantAgentPage() {
             status={status}
             messages={messages}
             onSend={sendMessage}
+            onListingsShown={markListingsShown}
           />
         </div>
 

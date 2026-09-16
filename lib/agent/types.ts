@@ -194,6 +194,8 @@ export type ChatMessage = {
   // Honest street/building-level caveat ("「Sugar Wharf」暂无直接挂牌，以下
   // 是同片区…") rendered under the listings header.
   listingsNotice?: string
+  // Page size for the listing cards (the count the user asked for, ≤ 6; default 6).
+  listingsPage?: number
   market?: MarketInsight
   followups?: FollowUp[]
   draftListing?: DraftListing

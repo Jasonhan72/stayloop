@@ -483,6 +483,10 @@ export function reconcileIncomeAcrossDocs(perFile: IncomeReconcileFile[], crossD
       name: pf.file_name,
       text: pf.text_density?.text_sample || '',
       salary: extractStatedAnnualSalary(pf.text_density?.text_sample || ''),
+      // "$30.00 per hour" letters: the annual figure assumes 2,080 h; a
+      // 35 h / 37.5 h week or overtime on the stub would read as a mismatch.
+      // Compare the rate itself when the stub prints one (review 2026-09-16).
+      hourly: (() => { const m = (pf.text_density?.text_sample || '').match(/\$\s*([\d,]+(?:\.\d+)?)\s*(?:CAD\s*)?(?:per\s+hour|\/\s*(?:hour|hr)\b|hourly)/i); const v = m ? Number(m[1].replace(/,/g, '')) : NaN; return isFinite(v) && v >= 15 && v <= 500 ? v : null })(),
     }))
     .filter(l => l.salary !== null)
   const stubs = perFile.filter(pf => pf.paystub_math)
@@ -534,13 +538,38 @@ export function reconcileIncomeAcrossDocs(perFile: IncomeReconcileFile[], crossD
     // 2) Corroboration / mismatch between the two independent annual figures.
     //    Skipped when a demotion just happened — the mismatch there is the
     //    same extraction artifact, already reported above.
+    // Hourly letter vs a stub that prints its rate: the rate is the fact to
+    // compare; annualised hours are the stub's business, not the letter's.
+    if (!demoted && letter.hourly && ext.hourly_rate && !flaggedLetters.has(letter.name)) {
+      flaggedLetters.add(letter.name)
+      const rdiff = Math.abs(ext.hourly_rate - letter.hourly) / letter.hourly
+      if (rdiff <= 0.03) {
+        crossDocFlags.push({ code: 'cross_doc_income_corroborated', severity: 'info',
+          evidence_en: `Pay stub hourly rate $${ext.hourly_rate.toFixed(2)} matches the $${letter.hourly.toFixed(2)}/h stated in "${letter.name}". Two independent documents agree — authenticity corroboration.`,
+          evidence_zh: `工资单时薪 $${ext.hourly_rate.toFixed(2)} 与雇佣信《${letter.name}》写的 $${letter.hourly.toFixed(2)}/小时 吻合。两份独立文件互证——真实性佐证。` })
+      } else if (rdiff >= 0.15) {
+        crossDocFlags.push({ code: 'cross_doc_income_mismatch', severity: 'medium',
+          evidence_en: `Pay stub hourly rate $${ext.hourly_rate.toFixed(2)} differs from the $${letter.hourly.toFixed(2)}/h stated in "${letter.name}" by ${(rdiff * 100).toFixed(0)}%. The two documents contradict each other — verify with the employer.`,
+          evidence_zh: `工资单时薪 $${ext.hourly_rate.toFixed(2)} 与雇佣信《${letter.name}》写的 $${letter.hourly.toFixed(2)}/小时 相差 ${(rdiff * 100).toFixed(0)}%。两份文件互相矛盾——需向雇主核实。` })
+      } else {
+        crossDocFlags.push({ code: 'cross_doc_income_near_match', severity: 'low',
+          evidence_en: `Pay stub hourly rate $${ext.hourly_rate.toFixed(2)} and the $${letter.hourly.toFixed(2)}/h in "${letter.name}" differ by ${(rdiff * 100).toFixed(1)}% — ask which is current.`,
+          evidence_zh: `工资单时薪 $${ext.hourly_rate.toFixed(2)} 与雇佣信《${letter.name}》的 $${letter.hourly.toFixed(2)}/小时 相差 ${(rdiff * 100).toFixed(1)}%——请问清哪个是现行数。` })
+      }
+      continue
+    }
+    // An hourly letter with no rate on the stub: annualised hours are unknown
+    // (35 / 37.5 / 40 h weeks all exist) — no verdict either way.
+    if (!demoted && letter.hourly && !ext.hourly_rate) continue
     if (!demoted && ext.annual_salary && !flaggedLetters.has(letter.name)) {
       flaggedLetters.add(letter.name)
       const diff = Math.abs(ext.annual_salary - stated) / stated
       // 2026-09-16 (6269 Ash St): a $96,000 letter and $104,000 of stubs
       // (8%) were "corroborated" and earned +5. Two documents from the same
       // payroll agree to the dollar; a gap is a question, not a match.
-      if (diff > 0.03 && diff < 0.10) {
+      // 3–15 % is a question (overtime in the period, a raise, a 37.5 h week);
+      // only ≥ 15 % is a contradiction (review 2026-09-16).
+      if (diff > 0.03 && diff < 0.15) {
         crossDocFlags.push({
           code: 'cross_doc_income_near_match',
           severity: 'low',
@@ -554,7 +583,7 @@ export function reconcileIncomeAcrossDocs(perFile: IncomeReconcileFile[], crossD
           evidence_en: `Pay stub annualized salary $${ext.annual_salary.toLocaleString()} matches the $${stated.toLocaleString()}/yr stated in "${letter.name}" (within ${(diff * 100).toFixed(1)}%). Two independent documents agree — authenticity corroboration.`,
           evidence_zh: `工资单年化薪资 $${ext.annual_salary.toLocaleString()} 与雇佣信《${letter.name}》声明的 $${stated.toLocaleString()}/年 吻合（偏差 ${(diff * 100).toFixed(1)}%）。两份独立文件互证——真实性佐证。`,
         })
-      } else if (diff >= 0.10) {
+      } else if (diff >= 0.15) {
         crossDocFlags.push({
           code: 'cross_doc_income_mismatch',
           severity: 'medium',

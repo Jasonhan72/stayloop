@@ -6,6 +6,7 @@
 // local demo session so the page ALWAYS renders. Guaranteed to leave the
 // loading state within a few seconds — it can never hang on a skeleton.
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { LISTINGS_PAGE } from '@/lib/agent/listingPaging'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT, type Lang } from '@/lib/i18n'
@@ -96,6 +97,8 @@ export type UseAgentSession = {
   messages: ChatMessage[]
   decide: (actionId: string, decision: 'approved' | 'rejected', option?: 'A' | 'B', note?: string) => Promise<void>
   sendMessage: (message: string, attachments?: ChatAttachment[]) => Promise<void>
+  /** The chat reveals a further page of listing cards: exclude those addresses from later searches too. */
+  markListingsShown: (addresses: string[]) => void
 }
 
 const RENDER_DEADLINE_MS = 10000
@@ -168,6 +171,9 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
         const saved = restoreMessages(role, nextScope)
         if (saved && saved.length > 0) {
           msgSeq.current = saved.length
+          // Rebuild the exclusion set from what the restored thread shows
+          // (first page of each card set; deeper pages reset on reload).
+          for (const m of saved) for (const l of (m.listings ?? []).slice(0, m.listingsPage ?? LISTINGS_PAGE)) shownListings.current.add(l.address.toLowerCase())
           return saved
         }
         return [{ id: nextId(), role: 'agent', text: greeting(role, d.agent.agent_name, langRef.current) }]
@@ -399,6 +405,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       let listings: ChatMessage['listings']
       let listingsSource: ChatMessage['listingsSource']
       let listingsNotice: ChatMessage['listingsNotice']
+      let listingsPage: ChatMessage['listingsPage']
       let market: ChatMessage['market']
       let followups: ChatMessage['followups']
       let draftListing: ChatMessage['draftListing']
@@ -432,6 +439,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           listings = turn.listings
           listingsSource = turn.listingsSource
           listingsNotice = turn.listingsNotice
+          listingsPage = turn.listingsPage
           market = turn.market
           followups = turn.followups
           draftListing = turn.draftListing
@@ -442,7 +450,9 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
             draftListing = { ...draftListing, images: urlImagesRef.current }
           }
           // Remember what we showed so the next search returns fresh results.
-          turn.listings?.forEach((l) => shownListings.current.add(l.address.toLowerCase()))
+          // Only the page the user can see counts as shown; the held-back page is
+          // added when 「换一批」 reveals it (markListingsShown).
+          turn.listings?.slice(0, turn.listingsPage ?? LISTINGS_PAGE).forEach((l) => shownListings.current.add(l.address.toLowerCase()))
         } catch (e) {
           console.warn('[agent] turn failed —', (e as Error).message)
           // HONEST failure message — the old canned "我记下了…" made a failed
@@ -514,11 +524,14 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           listings = turn.listings
           listingsSource = turn.listingsSource
           listingsNotice = turn.listingsNotice
+          listingsPage = turn.listingsPage
           market = turn.market
           followups = turn.followups
           draftListing = turn.draftListing
           if (turn.urlImages?.length) urlImagesRef.current = turn.urlImages
-          turn.listings?.forEach((l) => shownListings.current.add(l.address.toLowerCase()))
+          // Only the page the user can see counts as shown; the held-back page is
+          // added when 「换一批」 reveals it (markListingsShown).
+          turn.listings?.slice(0, turn.listingsPage ?? LISTINGS_PAGE).forEach((l) => shownListings.current.add(l.address.toLowerCase()))
         } catch (e) {
           console.warn('[agent] anonymous turn failed —', (e as Error).message)
           const msg = (e as Error).message || ''
@@ -581,11 +594,15 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       // Append the agent's reply (with any listing/draft cards) to the thread.
       setMessages((m) => [
         ...m,
-        { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, market, followups, draftListing },
+        { id: nextId(), role: 'agent', text: result.body, listings, listingsSource, listingsNotice, listingsPage, market, followups, draftListing },
       ])
     },
     [live, user, role, data]
   )
 
-  return { loading, live, data, status, error, messages, decide, sendMessage }
+  const markListingsShown = useCallback((addresses: string[]) => {
+    for (const a of addresses) shownListings.current.add(a.toLowerCase())
+  }, [])
+
+  return { loading, live, data, status, error, messages, decide, sendMessage, markListingsShown }
 }

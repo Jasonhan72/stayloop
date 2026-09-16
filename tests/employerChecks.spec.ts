@@ -148,3 +148,73 @@ describe('Ontario Gazette dissolution reason', () => {
     expect(noticeOnly.flags.find(x => x.code === 'employer_tax_default_notice')?.severity).toBe('high')
   })
 })
+
+// Review 2026-09-16 (slice B): false positives on legitimate employers.
+import { dateBefore, extractEmploymentStartDetailed, phoneOutsideCity, rdapLookup, registrableDomain } from '@/lib/forensics/employer-checks'
+describe('review 2026-09-16 — employer checks', () => {
+  it('an amalgamated / continued corporation that is Active is not dead', () => {
+    expect(registryStatusKind('Active (New Amalgamated)')).toBe('active')
+    expect(registryStatusKind('Active - Amalgamated')).toBe('active')
+    expect(registryStatusKind('Discontinued')).toBe('unknown')
+    expect(registryStatusKind('Inactive - Amalgamated')).toBe('inactive')
+    expect(registryStatusKind('Not in good standing')).toBe('inactive')
+  })
+  it('"since 2015" is a year, not January 1: it cannot predate a 2015-03-10 incorporation', () => {
+    const d = extractEmploymentStartDetailed('has been employed since 2015 as a clerk.')!
+    expect(d).toEqual({ date: '2015-01-01', precision: 'year' })
+    expect(dateBefore(d.date, d.precision, '2015-03-10')).toBe(false)
+    const m = extractEmploymentStartDetailed('employed since June 2015.')!
+    expect(m.precision).toBe('month'); expect(dateBefore(m.date, m.precision, '2015-06-15')).toBe(false)
+    expect(extractEmploymentStartDetailed('Start date: 23/06/2015')).toEqual({ date: '2015-06-23', precision: 'day' })
+    expect(extractEmploymentStartDetailed('Start date: 06/23/2015')).toEqual({ date: '2015-06-23', precision: 'day' })
+    expect(extractEmploymentStartDetailed('Start date: 06/03/2015')!.precision).toBe('year')
+    const r = employerExtraChecks({ employer_name: 'Acme', doc_text: 'employed since 2015', incorporation_date: '2015-03-10' })
+    expect(r.flags.map(f => f.code)).not.toContain('employer_employment_predates_incorporation')
+  })
+  it('"effective" (a salary change) does not beat "since" (the start)', () => {
+    expect(extractEmploymentStart('His salary, effective January 1, 2026, is $80,000. He has been employed since March 2, 2015.')).toBe('2015-03-02')
+  })
+  it('a personal mailbox beside a company domain is not "the only contact"; letterhead city is read in context', () => {
+    const r = employerExtraChecks({ employer_name: 'Acme', doc_text: 'Contact hr@acme.com or john.hr@gmail.com', rdap: [] })
+    expect(r.flags.map(f => f.code)).not.toContain('employer_contact_personal_email')
+    expect(extractStatedCity('Acme Ltd, 100 Main St, Mississauga, ON L5B 1A1. Employee: Sam Lee, 5 King St, Toronto ON M5H 1A1')).toBe('Mississauga')
+    expect(extractStatedCity('123 Hamilton Rd, London, ON N6A 1A1')).toBe('London')
+    expect(extractStatedCity('Signed, Regina Smith, HR')).toBeNull()
+  })
+  it('phone region: 905 in Mississauga and 416 in North York are local', () => {
+    expect(phoneOutsideCity('905-555-0100', 'Mississauga')).toBe(false)
+    expect(phoneOutsideCity('416-555-0100', 'North York')).toBe(false)
+    expect(phoneOutsideCity('613-555-0100', 'Toronto')).toBe(true)
+    expect(phoneOutsideCity('1-800-555-0100', 'Toronto')).toBe(false)
+    const r = employerExtraChecks({ employer_name: 'Acme', doc_text: 'Acme Inc, 1 Bay St, Mississauga, ON L5B 1A1. To whom it may concern: employed since 2015', business_phone: '905-555-0100' })
+    expect(r.flags.map(f => f.code)).not.toContain('employer_phone_region_differs')
+  })
+  it('RDAP: subdomains reduce to the registrable name; 403 / bare 404 are unknown, an RDAP error document is unregistered', async () => {
+    expect(registrableDomain('wd5.myworkday.com')).toBe('myworkday.com')
+    expect(registrableDomain('cra-arc.gc.ca')).toBe('cra-arc.gc.ca')
+    const mk = (status: number, body?: unknown) => (async () => ({ status, ok: status >= 200 && status < 300, json: async () => { if (body === undefined) throw new Error('no json'); return body } })) as unknown as typeof fetch
+    expect(await rdapLookup('acme.com', mk(403))).toBeNull()
+    expect(await rdapLookup('yahoo.co.jp', mk(404))).toBeNull()
+    expect((await rdapLookup('nosuchdomain-xyz.com', mk(404, { errorCode: 404, title: 'Not Found' })))?.registered).toBe(false)
+    expect((await rdapLookup('mail.acme.com', mk(200, { events: [{ eventAction: 'registration', eventDate: '2010-01-02T00:00:00Z' }] })))).toMatchObject({ domain: 'acme.com', registered: true, registration_date: '2010-01-02' })
+  })
+  it('portal party must be the same legal name, not a superset', () => {
+    expect(partyNamesCompany('ABC CONSTRUCTION MANAGEMENT INC.', 'ABC Construction')).toBe(false)
+    expect(partyNamesCompany('RBC DOMINION SECURITIES INC.', 'RBC')).toBe(false)
+    expect(partyNamesCompany('GLOBE NET INTERNATIONAL INC.', 'Globe Net International')).toBe(true)
+    expect(partyNamesCompany('ACME GROUP INC.', 'Acme Inc')).toBe(true)
+  })
+  it('a revival only cancels a dissolution it postdates; the glyph artifact needs a date context', () => {
+    const cancel = { kind: 'tax_default_cancellation' as const, date: '2020-01-26', heading: 'Cancellation of Certificate of Incorporation (Corporations Tax Act Defaulters)', issue: 'Volume 153 Issue 05', url: 'https://www.ontario.ca/document/x' }
+    const oldRevival = { kind: 'revival' as const, date: '2016-03-01', heading: 'Order for Revival', issue: 'Volume 149 Issue 10', url: 'https://www.ontario.ca/document/y' }
+    expect(employerExtraChecks({ employer_name: 'Acme', company_status: 'Inactive', gazette: [oldRevival, cancel] }).flags.map(f => f.code)).toContain('employer_dissolved_tax_default')
+    expect(employerExtraChecks({ employer_name: 'Acme', company_status: 'Active', gazette: [cancel, { ...oldRevival, date: '2021-01-01' }] }).flags.map(f => f.code)).not.toContain('employer_dissolved_tax_default')
+    expect(employerExtraChecks({ employer_name: 'Acme', doc_text: 'Unit 205 l 10 King St, Rate 20 l 5 per hour' }).flags.map(f => f.code)).not.toContain('employer_letter_digit_glyph_artifact')
+    expect(employerExtraChecks({ employer_name: 'Acme', doc_text: 'employed since 23 June 20 I 5.' }).flags.map(f => f.code)).toContain('employer_letter_digit_glyph_artifact')
+  })
+  it('gazette hits are read only from ontario.ca', async () => {
+    const reads: string[] = []
+    const notices = await gazetteLookup('ACME INC.', '1234567', async () => [{ title: 'x', snippet: 'Acme Inc. 001234567', link: 'http://evil.example/p?ref=ontario.ca/document/ontario-gazette-volume-1' }], async (u) => { reads.push(u); return '' })
+    expect(reads).toEqual([]); expect(notices).toEqual([])
+  })
+})

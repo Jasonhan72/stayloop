@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { scanBureauDelinquencies } from '@/lib/screening/bureauTextScan'
-import { checkResidenceTimeline, footprintFromFacts, looksCanadian, parsePeriod } from '@/lib/screening/residenceTimeline'
+import { checkResidenceTimeline, footprintFromFacts, looksCanadian, looksForeign, parsePeriod } from '@/lib/screening/residenceTimeline'
 
 // 2026-09-16 — one real file read by hand against the module (6269 Ash St).
 // Every assertion here is a fact the human reader found and the pipeline
@@ -21,8 +21,44 @@ describe('bureau text scan — delinquency dates the transcription dropped', () 
 describe('residence timeline vs Canadian footprint', () => {
   it('recognises Canadian addresses by postal code, province or city', () => {
     expect(looksCanadian('118-9325 Yonge St, Richmond Hill, ON L4C 0A8')).toBe(true)
-    expect(looksCanadian('5639 Montrose Rd Niagara Falls')).toBe(true)
+    expect(looksCanadian('5639 Montrose Rd, Niagara Falls, ON')).toBe(true)
     expect(looksCanadian('11a Akhsarova st , apt 73')).toBe(false)
+    // Review 2026-09-16: a bare street is not "abroad" (the schema only asks
+    // for `address`); a foreign namesake city is not Canadian.
+    expect(looksCanadian('6269 Ash St')).toBe(false)
+    expect(looksForeign('6269 Ash St')).toBe(false)
+    expect(looksCanadian('Kingston 6, Jamaica')).toBe(false)
+    expect(looksCanadian('London NW1 6XE, UK')).toBe(false)
+    expect(looksForeign('London NW1 6XE, UK')).toBe(true)
+    expect(looksForeign('120 Main St, Buffalo, NY 14201')).toBe(true)
+  })
+  it('review 2026-09-16: a street-only Canadian address with a full Canadian footprint is not a contradiction', () => {
+    const footprint = footprintFromFacts({ tradelines: [{ creditor: 'TD VISA', date_opened: '2019/04/01' }, { creditor: 'ROGERS', date_opened: '2021/02/01' }], inquiries: [{ date: '2025/03/01', creditor: 'CERTN', hard: false }] })
+    expect(checkResidenceTimeline({ residences: [{ address: '6269 Ash St', period: '2016 to 2026', landlord_name: 'Jane Owner' }], applicantNames: ['Sam Lee'], footprint })).toEqual([])
+    // with the applicant's own "moving back to Canada" it is
+    expect(checkResidenceTimeline({ residences: [{ address: '6269 Ash St', period: '2016 to 2026', landlord_name: 'Jane Owner' }], vacating_reason: 'moving back to Canada', applicantNames: ['Sam Lee'], footprint }).map(f => f.code)).toContain('cross_doc_residence_timeline_contradiction')
+  })
+  it('review 2026-09-16: one fact is one event; two kinds of evidence are required', () => {
+    // a tradeline open month duplicated on the coherence list = 1 event
+    const fp = footprintFromFacts({ tradelines: [{ creditor: 'TD', date_opened: '2022-03' }], bureauAddressDates: [{ date: '2022-03-01', label: 'address reported' }] })
+    expect(checkResidenceTimeline({ residences: [{ address: 'Tel Aviv, Israel', period: '2016 to 2026' }], applicantNames: ['Sam Lee'], footprint: fp })).toEqual([])
+    // two accounts, one kind → still no contradiction; account + inquiry → yes
+    const twoAccounts = footprintFromFacts({ tradelines: [{ creditor: 'TD', date_opened: '2022-03-01' }, { creditor: 'RBC', date_opened: '2023-05-01' }] })
+    expect(checkResidenceTimeline({ residences: [{ address: 'Tel Aviv, Israel', period: '2016 to 2026' }], applicantNames: ['Sam Lee'], footprint: twoAccounts })).toEqual([])
+    const mixed = footprintFromFacts({ tradelines: [{ creditor: 'TD', date_opened: '2022-03-01' }], inquiries: [{ date: '2023-05-01', creditor: 'YARDI', hard: false }] })
+    expect(checkResidenceTimeline({ residences: [{ address: 'Tel Aviv, Israel', period: '2016 to 2026' }], applicantNames: ['Sam Lee'], footprint: mixed }).map(f => f.code)).toContain('cross_doc_residence_timeline_contradiction')
+  })
+  it('review 2026-09-16: self-landlord needs name containment, and the route can inject its own matcher', () => {
+    const fp = footprintFromFacts({})
+    expect(checkResidenceTimeline({ residences: [{ address: '1 A St, Toronto, ON', period: '2020 to 2024', landlord_name: 'Jose Garcia Lopez' }], applicantNames: ['Maria Garcia Lopez'], footprint: fp })).toEqual([])
+    expect(checkResidenceTimeline({ residences: [{ address: '1 A St, Toronto, ON', period: '2020 to 2024', landlord_name: 'Garcia Lopez' }], applicantNames: ['Maria Garcia Lopez'], footprint: fp }).map(f => f.code)).toContain('cross_doc_landlord_is_applicant')
+    expect(checkResidenceTimeline({ residences: [{ address: '1 A St, Toronto, ON', period: '2020 to 2024', landlord_name: 'Anyone' }], applicantNames: ['Sam Lee'], footprint: fp, isSelf: () => true }).map(f => f.code)).toContain('cross_doc_landlord_is_applicant')
+  })
+  it('review 2026-09-16: unit numbers are not years; months are read', () => {
+    const p = parsePeriod('Unit 2010, since 2016', new Date('2026-09-16T00:00:00Z'))!
+    expect(p.start).toBe('2016-01-01')
+    const q = parsePeriod('Sept 2024 - Mar 2025', new Date('2026-09-16T00:00:00Z'))!
+    expect(q.start).toBe('2024-09-01'); expect(q.end).toBe('2025-03-28')
   })
   it('parses "2016 to 2026" as a period ending today', () => {
     const p = parsePeriod('2016 to 2026', new Date('2026-09-16T00:00:00Z'))!
@@ -107,5 +143,39 @@ describe('PDF metadata follows the latest incremental revision', () => {
     const meta = await readPdfMetadata(new TextEncoder().encode(pdf))
     expect(meta?.modification_date?.slice(0, 10)).toBe('2026-09-06')
     expect(meta?.creation_date?.slice(0, 10)).toBe('2026-03-20')
+  })
+})
+
+// Review 2026-09-16 (slice A): thresholds, ordering, bureau layouts.
+describe('review 2026-09-16 — screening pipeline', () => {
+  it('TransUnion "Delinquency Date MM/DD/YYYY" is read; Equifax YMD still is', () => {
+    expect(scanBureauDelinquencies('Delinquency Date 05/16/2023').delinquency_dates).toEqual(['2023-05-16'])
+    expect(scanBureauDelinquencies('Delinquencies 2023/05/16').delinquency_dates).toEqual(['2023-05-16'])
+  })
+  it('an hourly letter is compared by rate, not by 2,080-hour annualisation', () => {
+    const flags: { code: string }[] = []
+    const stub = (hourly: number | null, annual: number) => ({ file_name: 'stub.pdf', file_kind: 'pay_stub', text_density: { text_sample: 'ACME INC' }, paystub_math: { extraction: { employer_name: 'Acme Inc', annual_salary: annual, hourly_rate: hourly } }, flags: [] })
+    const letter = { file_name: 'letter.pdf', file_kind: 'employment_letter', text_density: { text_sample: 'Acme Inc confirms Sam Lee earns $30.00 per hour.' }, flags: [] }
+    reconcileIncomeAcrossDocs([letter, stub(30, 54_600)] as never, flags as never)
+    expect(flags.map(f => f.code)).toContain('cross_doc_income_corroborated')
+    flags.length = 0
+    reconcileIncomeAcrossDocs([letter, stub(null, 54_600)] as never, flags as never)
+    expect(flags.map(f => f.code)).not.toContain('cross_doc_income_mismatch')
+  })
+  it('salaried: 3–15% is a question, ≥15% a contradiction', () => {
+    const flags: { code: string }[] = []
+    const stub = (annual: number) => ({ file_name: 'stub.pdf', file_kind: 'pay_stub', text_density: { text_sample: 'ACME INC' }, paystub_math: { extraction: { employer_name: 'Acme Inc', annual_salary: annual, hourly_rate: null } }, flags: [] })
+    const letter = { file_name: 'letter.pdf', file_kind: 'employment_letter', text_density: { text_sample: 'Acme Inc: annual salary of $80,000.' }, flags: [] }
+    reconcileIncomeAcrossDocs([letter, stub(90_000)] as never, flags as never)
+    expect(flags.map(f => f.code)).toContain('cross_doc_income_near_match')
+    flags.length = 0
+    reconcileIncomeAcrossDocs([letter, stub(100_000)] as never, flags as never)
+    expect(flags.map(f => f.code)).toContain('cross_doc_income_mismatch')
+  })
+  it('a generator-titled stub does not also get "metadata stripped"', () => {
+    const flags = checkPdfMetadata({ title: 'paystub_4_20260817160120', producer: null, creator: null, author: null, subject: null, creation_date: null, modification_date: null } as never, 'stub.pdf', 'pay_stub')
+    const codes = flags.map(f => f.code)
+    expect(codes).toContain('paystub_generator_signature')
+    expect(codes).not.toContain('pdf_metadata_stripped')
   })
 })

@@ -214,7 +214,7 @@ export async function searchListings(
   // 换一批" returns NEW results. Over-fetch a bit to leave room after filtering.
   const ex = new Set(exclude.map((s) => s.toLowerCase()))
   const fresh = (l: ListingCard) => !ex.has(l.address.toLowerCase())
-  const fetchCount = Math.min(pool + exclude.length, 24)
+  const fetchCount = Math.min(pool + exclude.length, 60)
 
   // Realtor.ca runs UNCONDITIONALLY (in parallel with the Stayloop query):
   // the market card is computed exclusively from Realtor.ca asking prices —
@@ -316,7 +316,7 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
   if (c.max_price) p.set('monthly_rent', `lte.${Math.round(c.max_price)}`)
   if (c.min_beds) p.set('bedrooms', `gte.${Math.round(c.min_beds)}`)
   p.set('order', 'monthly_rent.asc')
-  p.set('limit', String(Math.min(c.count ?? LISTINGS_PAGE, 24)))
+  p.set('limit', String(Math.min(c.count ?? LISTINGS_PAGE, 60)))
   try {
     const res = await fetch(`${url}/rest/v1/listings?${p.toString()}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
@@ -476,7 +476,7 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
   // area's inventory; don't dilute it with the generic search fallback.
   if (statRows.length || cards.length) {
     cards.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
-    return { cards: cards.slice(0, Math.min(c.count ?? LISTINGS_PAGE, 24)), statRows, external: externalFromStatuses(statuses) }
+    return { cards: cards.slice(0, Math.min(c.count ?? LISTINGS_PAGE, 60)), statRows, external: externalFromStatuses(statuses) }
   }
   // Direct pages answered but were empty for these criteria — the provider
   // is fine; the generic search hop below is a second chance, not a retry.
@@ -540,7 +540,7 @@ async function jinaRealtor(c: SearchCriteria): Promise<{ cards: ListingCard[]; s
   // Rank by budget relevance: houses → priciest-within-budget first
   // (closest to a high target like $6000); apartments → cheapest first.
   cards.sort((a, b) => (house ? b.price - a.price : a.price - b.price))
-  return { cards: cards.slice(0, Math.min(c.count ?? LISTINGS_PAGE, 24)), statRows, external: externalFromStatuses(statuses) }
+  return { cards: cards.slice(0, Math.min(c.count ?? LISTINGS_PAGE, 60)), statRows, external: externalFromStatuses(statuses) }
 }
 
 function parseRealtor(md: string, c: SearchCriteria): { cards: ListingCard[]; rows: StatRow[] } {

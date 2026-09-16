@@ -17,7 +17,7 @@ export default function PrivacyPage() {
           <h1 className="mt-3 text-[36px] font-extrabold leading-tight tracking-tight sm:text-[44px]">
             {zh ? '我们怎么处理你的数据' : 'How we handle your data'}
           </h1>
-          <p className="mt-2 font-mono text-[12px] text-body-3">{zh ? '最后更新 · 2026-05-09' : 'Last updated · 2026-05-09'}</p>
+          <p className="mt-2 font-mono text-[12px] text-body-3">{zh ? '最后更新 · 2026-09-16' : 'Last updated · 2026-09-16'}</p>
 
           <Section title={zh ? '1 · 我们收集什么' : '1 · What we collect'}>
             <p>{zh
@@ -26,9 +26,9 @@ export default function PrivacyPage() {
           </Section>
           <Section title={zh ? '2 · 我们怎么用' : '2 · How we use it'}>
             <p>{zh ? (
-              <>仅用于 Stayloop 服务交付：护照盖章评分、与房东 / 经纪 / 合作伙伴授权分享、AI 助手记忆。我们 <b>不</b> 把数据卖给任何第三方。</>
+              <>仅用于 Stayloop 服务交付：护照盖章评分、与房东 / 经纪 / 合作伙伴授权分享、AI 助手记忆。筛查材料与对话内容会发送到 AI 模型服务商（Anthropic 等，服务器位于美国）的接口做分析；按其商业条款，这些数据不用于训练模型。我们 <b>不</b> 把数据卖给任何第三方。</>
             ) : (
-              <>Only to deliver the Stayloop service: passport-stamp scoring, authorized sharing with landlords / agents / partners, and AI-assistant memory. We do <b>not</b> sell your data to any third party.</>
+              <>Only to deliver the Stayloop service: passport-stamp scoring, authorized sharing with landlords / agents / partners, and AI-assistant memory. Screening documents and conversations are sent to AI model providers (Anthropic and others, servers in the USA) for analysis; under their commercial terms that data is not used to train models. We do <b>not</b> sell your data to any third party.</>
             )}</p>
           </Section>
           <Section title={zh ? '3 · 你的控制权' : '3 · Your control'}>

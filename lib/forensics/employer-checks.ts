@@ -11,7 +11,12 @@ export type RegistryStatusKind = 'active' | 'inactive' | 'unknown'
 export function registryStatusKind(status: string | null | undefined): RegistryStatusKind {
   const s = (status || '').toLowerCase()
   if (!s) return 'unknown'
-  if (/inactive|dissol|cancel|revok|struck|discontinu|amalgamat|not active|expired|terminated|wound|liquidat/.test(s)) return 'inactive'
+  // The federal CBR prints "Active (New Amalgamated)" for a live successor and
+  // "Discontinued" for a corporation continued into a province that still
+  // trades — an explicit Active wins over any qualifier (review 2026-09-16).
+  if (/^\s*(?:active|in existence|good standing|registered|subsisting|current)\b/.test(s) && !/\b(?:not|in)active\b|\bnot in good standing\b/.test(s)) return 'active'
+  if (/inactive|not active|dissol|cancel|revok|struck|expired|terminated|wound|liquidat|not in good standing/.test(s)) return 'inactive'
+  if (/discontinu|amalgamat/.test(s)) return /\bactive\b/.test(s) ? 'active' : 'unknown'
   if (/active|good standing|in existence|registered|subsisting|current/.test(s)) return 'active'
   return 'unknown'
 }
@@ -40,34 +45,70 @@ export function extractEmployerDomains(text: string | null | undefined): { domai
 const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 }
 /** "employed … since 23 June 2015" / "start date: June 23, 2015" / "since 2015-06-23" → ISO date */
 export function extractEmploymentStart(text: string | null | undefined): string | null {
+  return extractEmploymentStartDetailed(text)?.date ?? null
+}
+
+export type DatePrecision = 'day' | 'month' | 'year'
+/** Same, with how precise the letter was: "since 2015" is a year, not January 1 (review 2026-09-16). */
+export function extractEmploymentStartDetailed(text: string | null | undefined): { date: string; precision: DatePrecision } | null {
   const t = (text || '').replace(/\s+/g, ' ')
   // "since" is the word forged letters most often misspell ("scince",
   // "sinse", "sicne") — accept those, and "from <date>" after "employed".
-  const win = t.match(/(?:\bs[ci]{1,2}n[cs]e\b|\bsince\b|\bscince\b|start(?:ed|ing)? (?:date|on)?|commenc\w+|joined(?: us)?(?: on)?|effective|employed[^.;]{0,40}?\bfrom)\s*:?\s*([^.;]{0,40})/i)
+  // Start-of-employment wording is tried first; "effective / commencing"
+  // (which also introduce salary changes) only when nothing else matched.
+  const primary = t.match(/(?:\bs[ci]{1,2}n[cs]e\b|\bsince\b|\bscince\b|start(?:ed|ing)? (?:date|on)?|joined(?: us)?(?: on)?|employed[^.;]{0,40}?\bfrom|date of hire|hire date)\s*:?\s*([^.;]{0,40})/i)
+  const win = primary ?? t.match(/(?:commenc\w+|effective)\s*:?\s*([^.;]{0,40})/i)
   if (!win) return null
   // Text layers of edited letters print years like "20 I 5" (a retyped
   // digit in a different font maps to a letter glyph) — repair before
   // parsing (2026-09-16: "scince 23 June 20 I 5").
   const s = win[1].replace(/(\d)\s*[Il|]\s*(\d)/g, '$11$2').replace(/\b(19|20)\s+(\d)\s*(\d)\b/g, '$1$2$3')
+  const pad = (v: string) => v.padStart(2, '0')
   let m = s.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+((?:19|20)\d{2})/)
-  if (m && MONTHS[m[2].slice(0, 3).toLowerCase()]) return `${m[3]}-${String(MONTHS[m[2].slice(0, 3).toLowerCase()]).padStart(2, '0')}-${m[1].padStart(2, '0')}`
+  if (m && MONTHS[m[2].slice(0, 3).toLowerCase()]) return { date: `${m[3]}-${pad(String(MONTHS[m[2].slice(0, 3).toLowerCase()]))}-${pad(m[1])}`, precision: 'day' }
   m = s.match(/([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+((?:19|20)\d{2})/)
-  if (m && MONTHS[m[1].slice(0, 3).toLowerCase()]) return `${m[3]}-${String(MONTHS[m[1].slice(0, 3).toLowerCase()]).padStart(2, '0')}-${m[2].padStart(2, '0')}`
+  if (m && MONTHS[m[1].slice(0, 3).toLowerCase()]) return { date: `${m[3]}-${pad(String(MONTHS[m[1].slice(0, 3).toLowerCase()]))}-${pad(m[2])}`, precision: 'day' }
   m = s.match(/((?:19|20)\d{2})-(\d{2})-(\d{2})/)
-  if (m) return `${m[1]}-${m[2]}-${m[3]}`
+  if (m) return { date: `${m[1]}-${m[2]}-${m[3]}`, precision: 'day' }
+  // Numeric slash dates: 23/06/2015 (DMY) / 06/23/2015 (MDY); ambiguous
+  // ones (both parts ≤ 12) are only trusted to the year.
+  m = s.match(/\b(\d{1,2})[\/.](\d{1,2})[\/.]((?:19|20)\d{2})\b/)
+  if (m) {
+    const a = +m[1], b = +m[2]
+    if (a > 12 && b <= 12) return { date: `${m[3]}-${pad(String(b))}-${pad(String(a))}`, precision: 'day' }
+    if (b > 12 && a <= 12) return { date: `${m[3]}-${pad(String(a))}-${pad(String(b))}`, precision: 'day' }
+    return { date: `${m[3]}-01-01`, precision: 'year' }
+  }
   m = s.match(/([A-Za-z]{3,9})\.?\s+((?:19|20)\d{2})/)
-  if (m && MONTHS[m[1].slice(0, 3).toLowerCase()]) return `${m[2]}-${String(MONTHS[m[1].slice(0, 3).toLowerCase()]).padStart(2, '0')}-01`
+  if (m && MONTHS[m[1].slice(0, 3).toLowerCase()]) return { date: `${m[2]}-${pad(String(MONTHS[m[1].slice(0, 3).toLowerCase()]))}-01`, precision: 'month' }
   m = s.match(/\b((?:19|20)\d{2})\b/)
-  if (m) return `${m[1]}-01-01`
+  if (m) return { date: `${m[1]}-01-01`, precision: 'year' }
   return null
 }
 
+/** a < b at the coarser of the two precisions ("since 2015" never predates 2015-03-10). */
+export function dateBefore(a: string, ap: DatePrecision, b: string, bp: DatePrecision = 'day'): boolean {
+  const n = ap === 'year' || bp === 'year' ? 4 : ap === 'month' || bp === 'month' ? 7 : 10
+  return a.slice(0, n) < b.slice(0, n)
+}
+
 /** The city the employer's own letterhead / stub prints (best effort). */
+const CITY_LIST = ['Toronto', 'Ottawa', 'Mississauga', 'Brampton', 'Hamilton', 'London', 'Markham', 'Vaughan', 'Kitchener', 'Windsor', 'Richmond Hill', 'Oakville', 'Burlington', 'Oshawa', 'Barrie', 'St. Catharines', 'Cambridge', 'Kingston', 'Guelph', 'Whitby', 'Ajax', 'Pickering', 'Milton', 'Niagara Falls', 'Waterloo', 'Thunder Bay', 'Sudbury', 'Newmarket', 'Aurora', 'Scarborough', 'Etobicoke', 'North York', 'Montreal', 'Montréal', 'Laval', 'Vancouver', 'Surrey', 'Burnaby', 'Calgary', 'Edmonton', 'Winnipeg', 'Halifax', 'Regina', 'Saskatoon', 'Victoria', 'Concord', 'Woodbridge', 'Thornhill']
+const CITY_RE = new RegExp(`\\b(${CITY_LIST.map(c => c.replace('.', '\\.')).join('|')})\\b[ ,]*(?:,?\\s*(?:ON|Ont\\.?|Ontario|QC|Quebec|Québec|BC|AB|MB|SK|NS|NB|Canada)\\b|[A-CEGHJ-NPR-TVXY]\\d[A-CEGHJ-NPR-TV-Z]\\s?\\d[A-CEGHJ-NPR-TV-Z]\\d)`, 'i')
+/** The city the employer's own letterhead prints (best effort): the FIRST
+ *  "<city>, ON / postal code" in the letterhead region of the letter (the
+ *  employee's address on a stub / T4 and street names like "Hamilton Rd"
+ *  do not count — review 2026-09-16). */
 export function extractStatedCity(text: string | null | undefined): string | null {
   const t = (text || '').replace(/\s+/g, ' ')
-  const cities = ['Toronto', 'Ottawa', 'Mississauga', 'Brampton', 'Hamilton', 'London', 'Markham', 'Vaughan', 'Kitchener', 'Windsor', 'Richmond Hill', 'Oakville', 'Burlington', 'Oshawa', 'Barrie', 'St. Catharines', 'Cambridge', 'Kingston', 'Guelph', 'Whitby', 'Ajax', 'Pickering', 'Milton', 'Niagara Falls', 'Waterloo', 'Thunder Bay', 'Sudbury', 'Newmarket', 'Aurora', 'Scarborough', 'Etobicoke', 'North York', 'Montreal', 'Montréal', 'Laval', 'Vancouver', 'Surrey', 'Burnaby', 'Calgary', 'Edmonton', 'Winnipeg', 'Halifax', 'Regina', 'Saskatoon', 'Victoria', 'Concord', 'Woodbridge', 'Thornhill', 'Scarborough']
-  for (const c of cities) if (new RegExp(`\\b${c.replace('.', '\\.')}\\b`, 'i').test(t)) return c
-  return null
+  // Letterhead = first 600 chars of the letter segment (segments are joined
+  // with "---"); fall back to the whole text when there is no letter.
+  const segs = t.split(/\s---\s/)
+  const letter = segs.find(x => /employ|verif|confirm|to whom it may concern|human resources/i.test(x)) ?? segs[0] ?? ''
+  const m = letter.slice(0, 600).match(CITY_RE) ?? letter.match(CITY_RE)
+  if (!m) return null
+  const c = m[1]
+  return CITY_LIST.find(x => x.toLowerCase() === c.toLowerCase()) ?? c
 }
 
 const ONTARIO_AREA: Record<string, string> = {
@@ -81,17 +122,53 @@ export function phoneRegion(phone: string | null | undefined): string | null {
   if (d.length !== 10) return null
   return ONTARIO_AREA[d.slice(0, 3)] ?? null
 }
+const TORONTO = ['416', '647', '437', '387']
+const GTA_905 = ['905', '289', '365', '742']
+const AREA_BY_CITY: Record<string, string[]> = {
+  toronto: TORONTO, scarborough: TORONTO, etobicoke: TORONTO, 'north york': TORONTO,
+  mississauga: GTA_905, brampton: GTA_905, markham: GTA_905, vaughan: GTA_905, 'richmond hill': GTA_905, oakville: GTA_905, burlington: GTA_905,
+  oshawa: GTA_905, whitby: GTA_905, ajax: GTA_905, pickering: GTA_905, milton: GTA_905, newmarket: GTA_905, aurora: GTA_905, hamilton: GTA_905,
+  'niagara falls': GTA_905, 'st. catharines': GTA_905, concord: GTA_905, woodbridge: GTA_905, thornhill: GTA_905,
+  ottawa: ['613', '343'], kingston: ['613', '343'],
+  london: ['519', '226', '548'], kitchener: ['519', '226', '548'], waterloo: ['519', '226', '548'], cambridge: ['519', '226', '548'], guelph: ['519', '226', '548'], windsor: ['519', '226', '548'],
+  barrie: ['705', '249'], sudbury: ['705', '249'], 'thunder bay': ['807'],
+}
+/** True only when the area code is an Ontario code that does NOT serve the stated city (unknown cities / non-Ontario codes never flag). */
+export function phoneOutsideCity(phone: string | null | undefined, city: string | null | undefined): boolean {
+  const d = (phone || '').replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '')
+  if (d.length !== 10 || !city) return false
+  const code = d.slice(0, 3)
+  if (!ONTARIO_AREA[code]) return false
+  const codes = AREA_BY_CITY[city.toLowerCase()]
+  return !!codes && !codes.includes(code)
+}
 
 export interface RdapResult { domain: string; registered: boolean; registration_date: string | null; expiration_date: string | null }
 /** rdap.org redirects to the registry's RDAP server; a 404 means the domain does not exist. */
+const SECOND_LEVEL = new Set(['co', 'com', 'net', 'org', 'gov', 'gc', 'ac', 'edu', 'on', 'qc', 'bc', 'ab', 'mb', 'sk', 'ns', 'nb'])
+/** wd5.myworkday.com → myworkday.com; cra-arc.gc.ca → cra-arc.gc.ca (registries answer for the registrable name only). */
+export function registrableDomain(domain: string): string {
+  const parts = domain.toLowerCase().split('.').filter(Boolean)
+  if (parts.length <= 2) return parts.join('.')
+  return (SECOND_LEVEL.has(parts[parts.length - 2]) ? parts.slice(-3) : parts.slice(-2)).join('.')
+}
 export async function rdapLookup(domain: string, fetchImpl: typeof fetch = fetch): Promise<RdapResult | null> {
   try {
-    const res = await fetchImpl(`https://rdap.org/domain/${encodeURIComponent(domain)}`, { headers: { accept: 'application/rdap+json, application/json' }, signal: AbortSignal.timeout(8000), redirect: 'follow' })
-    if (res.status === 404) return { domain, registered: false, registration_date: null, expiration_date: null }
+    const name = registrableDomain(domain)
+    // rdap.org fronts with Cloudflare and answers 403 to an empty / node UA
+    // (review 2026-09-16: every production lookup silently returned null).
+    const res = await fetchImpl(`https://rdap.org/domain/${encodeURIComponent(name)}`, { headers: { accept: 'application/rdap+json, application/json', 'user-agent': 'Stayloop/1.0 (+https://www.stayloop.ai)' }, signal: AbortSignal.timeout(8000), redirect: 'follow' })
+    if (res.status === 404) {
+      // Only an RDAP error document from the registry means "no such domain";
+      // a bare 404 (TLD without RDAP, gateway) is unknown, not unregistered.
+      let body: { errorCode?: number; title?: string } | null = null
+      try { body = (await res.json()) as { errorCode?: number; title?: string } } catch { body = null }
+      return body && (body.errorCode === 404 || /not found/i.test(body.title || '')) ? { domain: name, registered: false, registration_date: null, expiration_date: null } : null
+    }
     if (!res.ok) return null
     const j = (await res.json()) as { events?: Array<{ eventAction?: string; eventDate?: string }> }
     const ev = (a: string) => (j.events || []).find(e => (e.eventAction || '').toLowerCase() === a)?.eventDate?.slice(0, 10) ?? null
-    return { domain, registered: true, registration_date: ev('registration'), expiration_date: ev('expiration') }
+    return { domain: registrableDomain(domain), registered: true, registration_date: ev('registration'), expiration_date: ev('expiration') }
   } catch {
     return null
   }
@@ -177,7 +254,7 @@ export async function gazetteLookup(
   try { hits = await webSearch(`"${bare}" Ontario Gazette corporations`) } catch { hits = [] }
   const num = padOntarioNumber(companyNumber)
   const urls = Array.from(new Set(hits
-    .filter(h => /ontario\.ca\/document\/ontario-gazette/i.test(h.link))
+    .filter(h => /^https?:\/\/(?:www\.)?ontario\.ca\/document\/ontario-gazette-/i.test(h.link))
     .filter(h => !num || (h.snippet + h.title).includes(num) || new RegExp(bare.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(h.snippet + h.title))
     .map(h => h.link.replace(/^http:/, 'https:')))).slice(0, 4)
   const pages = await Promise.all(urls.map(async (u) => {
@@ -244,14 +321,15 @@ export interface EmployerExtraResult {
 export function employerExtraChecks(inp: EmployerExtraInput): EmployerExtraResult {
   const flags: ForensicFlag[] = []
   const kind = registryStatusKind(inp.company_status)
-  const start = extractEmploymentStart(inp.doc_text)
+  const startD = extractEmploymentStartDetailed(inp.doc_text)
+  const start = startD?.date ?? null
   const city = extractStatedCity(inp.doc_text)
-  const { personal_emails } = extractEmployerDomains(inp.doc_text)
+  const { domains: docDomains, personal_emails } = extractEmployerDomains(inp.doc_text)
   const emp = inp.employer_name
 
   // A year printed as "20 I 5" in the text layer: a digit was retyped in a
   // font whose glyph maps to a letter — the trace of editing a PDF's text.
-  if (/\b(?:19|20)\s*[Il|]\s*\d\b|\b(?:19|20)\d\s*[Il|]\b/.test((inp.doc_text || '').replace(/\s+/g, ' '))) {
+  if (/(?:\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{0,2},?\s*|\b(?:since|scince|dated|on|from)\s+(?:\d{1,2}\s+)?(?:[a-z]{3,9}\s+)?)(?:\b(?:19|20)\s*[Il|]\s*\d\b|\b(?:19|20)\d\s*[Il|]\b)/i.test((inp.doc_text || '').replace(/\s+/g, ' '))) {
     flags.push({
       code: 'employer_letter_digit_glyph_artifact',
       severity: 'low',
@@ -272,7 +350,7 @@ export function employerExtraChecks(inp: EmployerExtraInput): EmployerExtraResul
   const gazette = inp.gazette || []
   const cancel = gazette.find(g => g.kind === 'tax_default_cancellation') || gazette.find(g => g.kind === 'cia_cancellation') || gazette.find(g => g.kind === 'voluntary_dissolution')
   const taxNotice = gazette.find(g => g.kind === 'tax_default_notice')
-  const revived = gazette.find(g => g.kind === 'revival')
+  const revived = gazette.find(g => g.kind === 'revival' && (!cancel?.date || (g.date || '') > cancel.date))
   if (cancel && !revived) {
     const after = start && cancel.date && start > cancel.date
     const isTax = cancel.kind === 'tax_default_cancellation'
@@ -299,7 +377,7 @@ export function employerExtraChecks(inp: EmployerExtraInput): EmployerExtraResul
     })
   }
 
-  if (start && inp.incorporation_date && start < inp.incorporation_date) {
+  if (start && startD && inp.incorporation_date && dateBefore(start, startD.precision, inp.incorporation_date)) {
     flags.push({
       code: 'employer_employment_predates_incorporation',
       severity: 'high',
@@ -338,7 +416,7 @@ export function employerExtraChecks(inp: EmployerExtraInput): EmployerExtraResul
     }
   }
 
-  if (personal_emails.length && !(inp.rdap || []).length) {
+  if (personal_emails.length && docDomains.length === 0) {
     flags.push({
       code: 'employer_contact_personal_email',
       severity: 'medium',
@@ -348,7 +426,7 @@ export function employerExtraChecks(inp: EmployerExtraInput): EmployerExtraResul
   }
 
   const region = phoneRegion(inp.business_phone)
-  if (region && city && !region.toLowerCase().includes(city.toLowerCase()) && !(city === 'Toronto' && /Toronto/.test(region))) {
+  if (region && city && phoneOutsideCity(inp.business_phone, city)) {
     flags.push({
       code: 'employer_phone_region_differs',
       severity: 'low',

@@ -239,7 +239,7 @@ export default function HomeNext() {
           <div>{zh ? '技术' : 'Model'} <b className="text-body">Anthropic Claude</b></div>
           <div>{zh ? '行情' : 'Market'} <b className="text-body">TRREB · Realtor.ca</b></div>
           <div>{zh ? '合规' : 'Compliance'} <b className="text-body">RTA · OHRC · PIPEDA</b></div>
-          <div><b className="text-body">Proudly Canadian</b> · {zh ? '数据驻加' : 'data stays in Canada'}</div>
+          <div><b className="text-body">Proudly Canadian</b> · {zh ? '数据库驻加' : 'database hosted in Canada'}</div>
         </div>
       </section>
 
@@ -309,7 +309,7 @@ export default function HomeNext() {
 
 // One live session per role; remounted (key=role) when the role switches.
 function AssistantPanel({ role, name, queued, onQueuedSent }: { role: AgentRole; name: string | null; queued: { role: AgentRole; prompt: string } | null; onQueuedSent: () => void }) {
-  const { loading, data, status, messages, sendMessage } = useAgentSession(role)
+  const { loading, data, status, messages, sendMessage, markListingsShown } = useAgentSession(role)
   const sentRef = useRef<string | null>(null)
   useEffect(() => {
     if (loading || !queued || queued.role !== role) return
@@ -322,7 +322,7 @@ function AssistantPanel({ role, name, queued, onQueuedSent }: { role: AgentRole;
   if (loading || !data) {
     return <div className="h-full animate-pulse rounded-2xl border border-line-divider bg-white" />
   }
-  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} status={status} messages={messages} onSend={sendMessage} fill />
+  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} status={status} messages={messages} onSend={sendMessage} onListingsShown={markListingsShown} fill />
 }
 
 function Pain({ who, text, onTry, tryLabel }: { who: string; text: string; onTry: () => void; tryLabel: string }) {

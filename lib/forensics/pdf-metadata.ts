@@ -64,7 +64,7 @@ function parseRawPdfMetadata(bytes: Uint8Array): Partial<PdfMetadataResult> | nu
     // Find the Info object: "N 0 obj << ... >> endobj"
     let infoBlock: string | null = null
     if (infoObjNum) {
-      const objPattern = new RegExp(`${infoObjNum}\\s+0\\s+obj\\s*`, 'g')
+      const objPattern = new RegExp(`(?:^|[^0-9])${infoObjNum}\\s+0\\s+obj\\s*`, 'g')
       // Incremental updates (Preview, Acrobat) append a NEW copy of the same
       // Info object number; the last copy is the current revision. Taking
       // the first read a letter edited on 05-29 and 09-06 as "modified
@@ -809,7 +809,7 @@ export function checkPdfMetadata(
   // Rule 4: Metadata stripped (no Producer at all). Common in re-saved PDFs.
   // Real server-generated PDFs always set Producer.
   // ---------------------------------------------------------------------------
-  if (!meta.encrypted && !producer && !creator && isStrict) {
+  if (!meta.encrypted && !producer && !creator && isStrict && !flags.some(f => f.code === 'paystub_generator_signature')) {
     flags.push({
       code: 'pdf_metadata_stripped',
       severity: 'medium',

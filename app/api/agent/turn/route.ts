@@ -935,6 +935,7 @@ export async function POST(req: Request) {
     listings,
     listings_source: listingsSource,
     listings_notice: listingsNotice,
+    listings_page: listings ? (typeof searchObj.count === 'number' ? Math.min(Math.max(Math.round(searchObj.count), 1), 6) : 6) : undefined,
     market,
     followups,
     draft_listing: draftListing,

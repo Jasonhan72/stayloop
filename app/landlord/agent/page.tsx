@@ -16,7 +16,7 @@ import { useT } from '@/lib/i18n'
 
 export default function LandlordAgentPage() {
   const { lang } = useT()
-  const { loading, live, data, status, messages, decide, sendMessage } = useAgentSession('landlord')
+  const { loading, live, data, status, messages, decide, sendMessage, markListingsShown } = useAgentSession('landlord')
   usePromptDeepLink(loading, sendMessage)
 
   if (loading || !data) {
@@ -52,6 +52,7 @@ export default function LandlordAgentPage() {
             status={status}
             messages={messages}
             onSend={sendMessage}
+            onListingsShown={markListingsShown}
           />
         </div>
 

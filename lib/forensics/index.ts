@@ -471,17 +471,6 @@ async function analyzeFile(
         // CreationDate==ModDate" is the normal case (review 2026-09-14:
         // three genuine statements added 3×medium and tipped the tier).
         if (src.statement_engine || out.pdf_structure?.enterprise_system) out.flags = out.flags.filter(fl => fl.code !== 'pdf_freshly_created')
-        // A stub with no payroll producer (image-only / generator-titled)
-        // cannot vouch for its own statutory arithmetic: online generators
-        // compute the same caps to the cent (2026-09-16, 6269 Ash St).
-        if (out.flags.some(fl => fl.code === 'paystub_generator_signature' || fl.code === 'pdf_pure_image' || fl.code === 'pdf_metadata_stripped')) {
-          out.flags = out.flags.map(fl => fl.code === 'paystub_deductions_at_legal_max' ? {
-            ...fl,
-            severity: 'low' as const,
-            evidence_en: `YTD statutory deductions sit exactly at the year's CRA maximum — but this file names no payroll software (image-only / generator-style export), and online stub generators compute the same caps to the cent. Neutral: not evidence of authenticity.`,
-            evidence_zh: `YTD 法定扣缴恰好等于当年 CRA 上限——但这份文件没有任何工资软件信息（纯图片 / 生成器式导出），在线生成器同样能把上限算到分。中性事实，不能作为真实性证据。`,
-          } : fl)
-        }
         // Likewise a credit report whose bureau markers verified: the consumer
         // portal's print engine (Skia/PDF = Chrome) is not an unknown source.
         if (src.equifax_authentic_markers === true) out.flags = out.flags.filter(fl => fl.code !== 'pdf_producer_unknown')
@@ -631,6 +620,20 @@ async function analyzeFile(
         // Exceeding a legal max = impossible on a real stub (high); landing
         // exactly on the max = strong authenticity positive (info).
         out.flags.push(...checkStatutoryDeductions(math.extraction, f.name))
+
+        // A stub with no payroll producer (image-only / generator-titled)
+        // cannot vouch for its own statutory arithmetic: online generators
+        // compute the same caps to the cent (2026-09-16, 6269 Ash St). Must run AFTER the
+        // statutory check pushes the flag (review 2026-09-16: it ran before
+        // and never matched anything).
+        if (out.flags.some(fl => fl.code === 'paystub_generator_signature' || fl.code === 'pdf_pure_image' || fl.code === 'pdf_metadata_stripped')) {
+          out.flags = out.flags.map(fl => fl.code === 'paystub_deductions_at_legal_max' ? {
+            ...fl,
+            severity: 'low' as const,
+            evidence_en: `YTD statutory deductions sit exactly at the year's CRA maximum — but this file names no payroll software (image-only / generator-style export), and online stub generators compute the same caps to the cent. Neutral: not evidence of authenticity.`,
+            evidence_zh: `YTD 法定扣缴恰好等于当年 CRA 上限——但这份文件没有任何工资软件信息（纯图片 / 生成器式导出），在线生成器同样能把上限算到分。中性事实，不能作为真实性证据。`,
+          } : fl)
+        }
 
         // Payroll pre-generation rhythm: real payroll systems batch-generate
         // statements a few days BEFORE the pay date (ADP: ~3 business days).

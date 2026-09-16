@@ -572,8 +572,22 @@ export async function POST(req: Request) {
     //    portal. Each read is best-effort with its own timeout; a failure
     //    leaves that line blank rather than failing the check.
     try {
-      const { domains } = extractEmployerDomains(payload.employer_doc_text)
-      const rdapResults = (await Promise.all(domains.slice(0, 2).map(d => rdapLookup(d)))).filter((r): r is RdapResult => !!r)
+      // Document facts belong to ONE employer: a file usually carries the
+      // current employer's letter and a previous employer's stubs. Give each
+      // check only the segments that name it (review 2026-09-16 — Acme's
+      // unregistered domain and 2015 start were stamped on Beta's card).
+      const segments = (payload.employer_doc_text || '').split(/\n\n---\n\n/).filter(x => x.trim())
+      const textFor = (check: { employer_name: string; company_info?: { name?: string | null } | null }): string => {
+        const names = [check.employer_name, check.company_info?.name].filter((n): n is string => !!n)
+        const mine = segments.filter(seg => names.some(n => new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'), 'i').test(seg)))
+        if (mine.length) return mine.join('\n\n---\n\n')
+        return results.length === 1 ? segments.join('\n\n---\n\n') : ''
+      }
+      const rdapCache = new Map<string, Promise<RdapResult | null>>()
+      const rdapFor = (text: string) => Promise.all(extractEmployerDomains(text).domains.slice(0, 2).map(d => {
+        if (!rdapCache.has(d)) rdapCache.set(d, rdapLookup(d))
+        return rdapCache.get(d)!
+      }))
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
       const relay = serviceKey ? async (url: string) => {
         try {
@@ -587,6 +601,8 @@ export async function POST(req: Request) {
         } catch { return null }
       } : undefined
       await Promise.all(results.map(async (check) => {
+        const docText = textFor(check)
+        const rdapResults = (await rdapFor(docText)).filter((r): r is RdapResult => !!r)
         const names = Array.from(new Set([check.employer_name, check.company_info?.name].filter((n): n is string => !!n && n.trim().length > 2)))
         let litigation: { total: number; cases: Array<{ title: string; role: string; filed: string; closed: boolean | null }> } | null = null
         try {
@@ -621,7 +637,7 @@ export async function POST(req: Request) {
           company_status: check.company_info?.status ?? null,
           company_registered_address: check.company_info?.registered_address ?? null,
           incorporation_date: check.company_info?.incorporation_date ?? null,
-          doc_text: payload.employer_doc_text ?? null,
+          doc_text: docText || null,
           business_phone: payload.signatory_phone ?? null,
           rdap: rdapResults,
           litigation,

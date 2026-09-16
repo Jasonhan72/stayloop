@@ -15,7 +15,7 @@ import { useT } from '@/lib/i18n'
 
 export default function FieldAgentPage() {
   const { lang } = useT()
-  const { loading, live, data, status, messages, decide, sendMessage } = useAgentSession('agent')
+  const { loading, live, data, status, messages, decide, sendMessage, markListingsShown } = useAgentSession('agent')
   usePromptDeepLink(loading, sendMessage)
 
 
@@ -52,6 +52,7 @@ export default function FieldAgentPage() {
             status={status}
             messages={messages}
             onSend={sendMessage}
+            onListingsShown={markListingsShown}
           />
         </div>
 

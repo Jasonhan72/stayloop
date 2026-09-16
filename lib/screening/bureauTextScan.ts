@@ -16,9 +16,15 @@ export function scanBureauDelinquencies(text: string | null | undefined): Bureau
   // "Delinquencies 2023/05/16" / "Delinquencies 2023-05-16 2024-01-02"; the
   // "You currently have no delinquencies" sentence is skipped by the
   // negative look-ahead on "You".
-  const re = /Delinquenc(?:y|ies)\s+(?!You\b)((?:(?:19|20)\d{2}[\/-]\d{2}[\/-]\d{2}\s*){1,6})/gi
+  // Equifax prints YYYY/MM/DD; TransUnion prints "Delinquency Date MM/DD/YYYY".
+  const re = /Delinquenc(?:y|ies)(?:\s+dates?)?\s*:?\s+(?!You\b)((?:(?:(?:19|20)\d{2}[\/-]\d{2}[\/-]\d{2}|\d{2}[\/-]\d{2}[\/-](?:19|20)\d{2})\s*){1,6})/gi
   for (const m of t.matchAll(re)) {
-    for (const d of m[1].match(/(?:19|20)\d{2}[\/-]\d{2}[\/-]\d{2}/g) || []) dates.add(d.replace(/\//g, '-'))
+    for (const d of m[1].match(/(?:19|20)\d{2}[\/-]\d{2}[\/-]\d{2}|\d{2}[\/-]\d{2}[\/-](?:19|20)\d{2}/g) || []) {
+      const ymd = d.match(/^((?:19|20)\d{2})[\/-](\d{2})[\/-](\d{2})$/)
+      const mdy = d.match(/^(\d{2})[\/-](\d{2})[\/-]((?:19|20)\d{2})$/)
+      if (ymd) dates.add(`${ymd[1]}-${ymd[2]}-${ymd[3]}`)
+      else if (mdy) dates.add(+mdy[1] <= 12 ? `${mdy[3]}-${mdy[1]}-${mdy[2]}` : `${mdy[3]}-${mdy[2]}-${mdy[1]}`)
+    }
   }
   return {
     delinquency_dates: Array.from(dates).sort(),

@@ -2523,9 +2523,12 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // The bureau PDF prints "Delinquencies <date>" under an account when a
     // payment was ever late; the model's late_30_60_90 was 0/0/0 for a Fido
     // line with a $125 past-due month. Read the dates from the text itself.
-    if (creditReport) {
+    if (creditReport && !creditReport.unreliable) {
       const bureauText = forensicsReport.per_file
         .filter(pf => (pf.file_kind || '').split(',').map(k => k.trim()).includes('credit_report'))
+        // Only the applicant's own report: a co-applicant's file in the same
+        // bundle must not donate its late payments (review 2026-09-16).
+        .filter(pf => !creditReport.source_file || pf.file_name === creditReport.source_file)
         .map(pf => pf.text_density?.text_sample || pf.ocr?.text || '')
         .join('\n')
       const scan = scanBureauDelinquencies(bureauText)
@@ -2682,20 +2685,30 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     //    landlord (2026-09-16, 6269 Ash St) ─────────────────────────────
     try {
       const prevRes = crossDocVerification?.application_summary?.prev_residences ?? []
-      const applicantNames = [nameForLookup, ...(Array.isArray(parsed.extracted_names) ? parsed.extracted_names : [])].filter((x): x is string => typeof x === 'string' && x.trim().length > 1)
-      const idDocs = ((coherence?.documents ?? []) || []).filter((d: { kind?: string }) => d.kind === 'id_document')
-      const licenceIssued = idDocs.flatMap((d: { key_facts?: { dates?: string[] } }) => d.key_facts?.dates || [])
-        .filter(d => /^(?:20)\d{2}-\d{2}-\d{2}$/.test(d) && d <= new Date().toISOString().slice(0, 10))
-        .sort().pop() ?? null
+      // The applicant's party = the applicant + whoever the ID documents name.
+      // extracted_names also carries declared landlords and HR signatories,
+      // which made a landlord "the applicant" (review 2026-09-16).
+      const idDocsAll = ((coherence?.documents ?? []) || []).filter((d: { kind?: string }) => d.kind === 'id_document')
+      const applicantNames = [nameForLookup, ...idDocsAll.flatMap((d: { key_facts?: { names?: string[] } }) => d.key_facts?.names || [])]
+        .filter((x): x is string => typeof x === 'string' && x.trim().length > 1)
+      const isSelfName = (a: string, b: string) => sameName(a, b) || nameCovers(a, b) || nameCovers(b, a)
+      // Only the applicant's own ID: an expired licence's latest date is the
+      // expiry, so the issue date is the latest PAST date when a future
+      // (expiry) date exists, else the second-latest past date.
+      const today = new Date().toISOString().slice(0, 10)
+      const idDocs = idDocsAll.filter((d: { key_facts?: { names?: string[] } }) => (d.key_facts?.names || []).some((n: string) => isSelfName(n, nameForLookup)))
+      const idDates = idDocs.flatMap((d: { key_facts?: { dates?: string[] } }) => d.key_facts?.dates || []).filter(d => /^(?:19|20)\d{2}-\d{2}-\d{2}$/.test(d)).sort()
+      const pastDates = idDates.filter(d => d <= today)
+      const licenceIssued = idDates.some(d => d > today) ? (pastDates[pastDates.length - 1] ?? null) : (pastDates.length >= 2 ? pastDates[pastDates.length - 2] : null)
       const bureauDocs = ((coherence?.documents ?? []) || []).filter((d: { kind?: string }) => d.kind === 'credit_report')
-      const bureauAddressDates = bureauDocs.flatMap((d: { key_facts?: { dates?: string[]; addresses?: string[] } }) => (d.key_facts?.dates || []).filter(x => /^20\d{2}-\d{2}-01$/.test(x)).map(x => ({ date: x, label: 'address reported on the credit file' })))
+      const bureauAddressDates = creditReport?.unreliable ? [] : bureauDocs.flatMap((d: { key_facts?: { dates?: string[]; addresses?: string[] } }) => (d.key_facts?.dates || []).filter(x => /^20\d{2}-\d{2}-01$/.test(x)).map(x => ({ date: x, label: 'address reported on the credit file' })))
       const footprint = footprintFromFacts({
-        tradelines: creditReport?.tradelines ?? null,
-        inquiries: creditReport?.inquiries ?? null,
+        tradelines: creditReport?.unreliable ? null : creditReport?.tradelines ?? null,
+        inquiries: creditReport?.unreliable ? null : creditReport?.inquiries ?? null,
         bureauAddressDates,
         licenceIssued,
       })
-      const tl = checkResidenceTimeline({ residences: prevRes, vacating_reason: crossDocVerification?.application_summary?.vacating_reason ?? null, applicantNames, footprint })
+      const tl = checkResidenceTimeline({ residences: prevRes, vacating_reason: crossDocVerification?.application_summary?.vacating_reason ?? null, applicantNames, footprint, isSelf: isSelfName })
       for (const fl of tl) {
         forensicsReport.cross_doc_flags.push({ code: fl.code, severity: fl.severity, evidence_en: fl.evidence_en, evidence_zh: fl.evidence_zh })
         if (fl.code === 'cross_doc_residence_timeline_contradiction' && !redFlags.includes('residence_timeline_contradiction')) redFlags.push('residence_timeline_contradiction')
@@ -2708,7 +2721,8 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     try {
       const prev = crossDocVerification?.application_summary?.prev_residences ?? []
       // A "landlord" who is the applicant is not a reference (2026-09-16).
-      const selfNames = [nameForLookup, ...(Array.isArray(parsed.extracted_names) ? parsed.extracted_names : [])].filter((x): x is string => typeof x === 'string' && x.trim().length > 1)
+      const selfNames = [nameForLookup, ...((coherence?.documents ?? []) || []).filter((d: { kind?: string }) => d.kind === 'id_document').flatMap((d: { key_facts?: { names?: string[] } }) => d.key_facts?.names || [])]
+        .filter((x): x is string => typeof x === 'string' && x.trim().length > 1)
       const isSelf = (n: string) => selfNames.some(a => sameName(a, n) || nameCovers(a, n) || nameCovers(n, a))
       // Stubs that are images with no producer (or carry a generator
       // signature) cannot vouch for their own arithmetic: statutory caps

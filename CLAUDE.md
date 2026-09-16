@@ -456,6 +456,13 @@ client）经 Management API 整块复制（hook_* 与 oauth_server_* 两组键�
   （不是文档说的 8 GB）：1.2 GB 数据单事务导入时 WAL 涨到 1.3 GB，Postgres PANIC「No space left on device」，项目进入只读。
   `POST /v1/projects/<ref>/config/disk` 扩到 16 GB（gp3，超出 8 GB 的部分 $0.125/GB/月），约 1 分钟后自动恢复读写，
   之后 2 分钟导完。**以后往新项目灌大数据先看 `GET …/config/disk`。**
+- **第三个坑（2026-09-16 复审时发现，已修）：ACL 漂移。** 新项目带 `ALTER DEFAULT PRIVILEGES … GRANT ALL … TO anon /
+  authenticated / service_role`，转储里的对象一建出来三个角色就自动拿到全部权限，而 pg_dump 的 `REVOKE ALL … FROM PUBLIC` +
+  `GRANT … TO authenticated` 只做加法——结果 anon 能执行 `portal_relay_get`（应只给 service_role）、household 的
+  SECURITY DEFINER RPC、`search_ltb_orders`，anon / authenticated 能读 `household_invites.token`，anon 能读 `agent_profiles`
+  整表（RLS 仍在，但列级和函数级防线全丢）。修法：`revoke all on all tables / sequences / functions in schema public from
+  anon, authenticated, service_role` 后再重放转储里全部 GRANT/REVOKE 行（scratchpad `acl_fix.sql`），逐项与转储比对一致。
+  **凡是用 pg_dump 迁到带默认权限的新项目，restore 后必须做这一步。**
 - **切换**：`.env.local` 三个值（NEXT_PUBLIC_* 构建内联）+ CF Pages secrets（`wrangler pages secret put`，同名覆盖）+
   GitHub Actions secret `SUPABASE_SERVICE_ROLE_KEY` + 两个 workflow 里内联的 URL + `scripts/ingest-ca-corp-registry.mjs`
   注释；隐私页与首页「数据驻加」文案恢复。切换前跑 `07_delta.sh`（除三张刷新表外全部 public 表 + auth 用户
@@ -471,6 +478,34 @@ client）经 Management API 整块复制（hook_* 与 oauth_server_* 两组键�
 抓取上限 24），`AgentChat` 按 message id 记 offset：第一次点「换一批 · 还有 N 套」只翻到池子里的下一页、不走模型；池子空了
 按钮变成「换一批 · 再找 6 套」，发一句「换一批，条件不变。」走正常搜索（服务端按已展示地址排除）。提示词里的默认数量
 4 → 6。已在本地用首页匿名对话实测（Bay Street Corridor 1 房：7 套 → 显示 1–6，点一下显示第 7 套，按钮转为再找 6 套）。
+
+## 复审 2026-09-16（迁移后 · 三个切片 33 条，全部核实后修复）
+
+用户要求「再做一次模块和代码 review，有错误就马上改正」。范围 = 2026-09-14 全站审查之后的全部改动（28 个文件）。三个审查代理
+（筛查管线 / 深度核查雇主项 / 找房分页与基础设施）每条都用反例实跑确认；另加一条我自己查出的迁移缺陷。守卫补在
+`tests/case6269Ash.spec.ts`「review 2026-09-16」段、`tests/employerChecks.spec.ts`「review 2026-09-16」段。值得记住的：
+- **迁移 ACL 漂移**（见「Supabase 迁到加拿大区」第三个坑）：anon 曾能执行法院中转与 household RPC、读邀请 token。已修。
+- **筛查管线**：① 「本人」名单不能用 `extracted_names`（含申报房东、HR 签署人）——一位房东与共同申请人同名就被当成
+  「自任房东」；改为申请人 + 证件上的名字，并把同一个匹配器注入 `checkResidenceTimeline`。② 「住在国外」需要正面证据
+  （外国国名 / 美国州+ZIP / 英国邮编）或申请人自述「moving back」，只写街道的加拿大地址不算国外；加拿大判定要邮编 / 全省名 /
+  「城市 + 省缩写」，Kingston, Jamaica 与 London, UK 不再算加拿大。③ 足迹去重（同一开户月不算两件事）、排除最近 60 天
+  （报告日期）、要求 ≥2 种证据。④ 时薪信按时薪比（工资单无时薪则不下结论），年薪 3–15% 是疑问、≥15% 才是矛盾——
+  35/37.5 小时周与当期加班不再被判「矛盾」。⑤ `paystub_deductions_at_legal_max` 的中性化原来跑在该标记生成之前（死代码），
+  已移到 `checkStatutoryDeductions` 之后。⑥ 逾期日期只从主申请人自己的征信文件读、不可靠报告跳过；足迹不取不可靠报告；
+  证件签发日取「有未来到期日时的最晚过去日」，过期证件取倒数第二个日期。⑦ Info 对象正则加左边界（`1 0 obj` 不再撞
+  `11 0 obj`）；生成器签名与「无元数据」不再双计；TransUnion 的 `Delinquency Date MM/DD/YYYY` 也读；`Unit 2010` 不是年份。
+- **深度核查**：① 注册状态先看开头的 Active——联邦库的「Active (New Amalgamated)」和 Discontinued（延续到省）不是注销。
+  ② 入职日期带精度：「since 2015」是年不是 1 月 1 日，比较按较粗精度；`since / joined / start date` 优先于 `effective`
+  （常是调薪日）；数字日期 DMY/MDY 歧义只信到年。③ 信头城市只在信件段前 600 字里找「城市 + 省 / 邮编」，不再把工资单上
+  雇员地址的 Toronto、`Hamilton Rd`、签名人 Regina 当城市。④ 电话按城市 → 区号表判断（Mississauga 905、North York 416
+  都是本地）。⑤ RDAP：rdap.org 对无 UA 的请求回 403（生产上一直是 null），现带 UA；子域名先归约到可注册域名
+  （`wd5.myworkday.com` → `myworkday.com`）；只有 RDAP 错误文档的 404 才算「未注册」。⑥ 个人邮箱只在文件里没有任何公司
+  域名时才标。⑦ **每家雇主只看自己的文件段**（按公司名匹配段落），前雇主的域名 / 入职日不再盖到现雇主卡上。⑧ 法院当事人
+  须是同一法律名称（多出的词只能是 of / and / Canada / Group 之类），`ABC CONSTRUCTION MANAGEMENT INC.` ≠ ABC Construction。
+  ⑨ 复活通知只在晚于注销时才生效；Gazette 命中只读 ontario.ca；字形伪迹须有日期语境（`Unit 205 l 10` 不算）。
+- **找房分页**：`listings_page` 随响应返回（用户说「找 3 套」就按 3 翻页）；只把看得见的一页记入排除集，「换一批」揭示时再补；
+  刷新后从历史消息重建排除集；头部计数按可见页；Stayloop 查询上限 24 → 60（排除集是查后过滤，24 会在两轮后把库搜空）；
+  首页「数据驻加」改为「数据库驻加」，隐私页第 2 节补 AI 服务商（Anthropic，美国）披露、日期更新。
 
 ## 定价 $19 与内部测试月（2026-09-14 · 用户决定）
 

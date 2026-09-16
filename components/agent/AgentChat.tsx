@@ -61,6 +61,7 @@ export default function AgentChat({
   status,
   messages,
   onSend,
+  onListingsShown,
   fill = false,
 }: {
   role: AgentRole
@@ -68,6 +69,8 @@ export default function AgentChat({
   status: AgentStatus
   messages: ChatMessage[]
   onSend: (message: string, attachments?: ChatAttachment[]) => void | Promise<void>
+  /** Called with the addresses a 「换一批」 click reveals, so later searches exclude them. */
+  onListingsShown?: (addresses: string[]) => void
   // `fill`: the parent sets the height (homepage hero sizes the chat to the
   // phone viewport). Default keeps the 70vh phone height the workspaces use.
   fill?: boolean
@@ -136,9 +139,6 @@ export default function AgentChat({
               )}
               {m.role === 'agent' && m.listings && m.listings.length > 0 && (
                 <div className="w-full">
-                  <div className="mb-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
-                    {listingsHeader(m.listings, lang)}
-                  </div>
                   {/* Street/building query with no exact-address hit — the
                       honest "same area, not that building" caveat. Matches
                       the external note bar's amber. */}
@@ -150,10 +150,15 @@ export default function AgentChat({
                   {/* Responsive wrap grid — cards flow onto extra rows instead of
                       widening/clipping the chat container; tracks container width. */}
                   {(() => {
-                    const page = pageListings(m.listings, listingOffset[m.id] ?? 0)
-                    const shownTo = Math.min((listingOffset[m.id] ?? 0) + LISTINGS_PAGE, m.listings.length)
+                    const size = m.listingsPage ?? LISTINGS_PAGE
+                    const offset = listingOffset[m.id] ?? 0
+                    const page = pageListings(m.listings, offset, size)
+                    const shownTo = Math.min(offset + size, m.listings.length)
                     return (
                       <>
+                        <div className="mb-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
+                          {listingsHeader(page.visible, lang)}
+                        </div>
                         <div className="grid gap-3 pb-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
                           {page.visible.map((l) => (
                             <div key={l.id} className="min-w-0">
@@ -166,20 +171,23 @@ export default function AgentChat({
                             real search — the server excludes every shown address. */}
                         <div className="flex items-center justify-between gap-3 pb-1">
                           <span className="font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
-                            {lang === 'zh' ? `第 ${(listingOffset[m.id] ?? 0) + 1}–${shownTo} 套` : `${(listingOffset[m.id] ?? 0) + 1}–${shownTo} of ${m.listings.length}`}
+                            {lang === 'zh' ? `第 ${offset + 1}–${shownTo} 套` : `${offset + 1}–${shownTo} of ${m.listings.length}`}
                           </span>
                           <button
                             type="button"
                             disabled={thinking}
                             onClick={() => {
-                              if (page.next === 'reveal') setListingOffset((cur) => ({ ...cur, [m.id]: (cur[m.id] ?? 0) + LISTINGS_PAGE }))
-                              else void onSend(nextBatchPrompt(lang === 'zh'))
+                              if (page.next === 'reveal') {
+                                const next = pageListings(m.listings!, offset + size, size)
+                                onListingsShown?.(next.visible.map((l) => l.address))
+                                setListingOffset((cur) => ({ ...cur, [m.id]: offset + size }))
+                              } else void onSend(nextBatchPrompt(lang === 'zh'))
                             }}
                             className="rounded-full border border-line-strong bg-white px-4 py-1.5 text-[13px] font-semibold text-body transition hover:bg-surface-chip disabled:opacity-50"
                           >
                             {page.next === 'reveal'
                               ? (lang === 'zh' ? `换一批 · 还有 ${page.remaining} 套` : `Next batch · ${page.remaining} more`)
-                              : (lang === 'zh' ? '换一批 · 再找 6 套' : 'Next batch · find 6 more')}
+                              : (lang === 'zh' ? `换一批 · 再找 ${size} 套` : `Next batch · find ${size} more`)}
                           </button>
                         </div>
                       </>
