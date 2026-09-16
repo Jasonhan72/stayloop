@@ -34,7 +34,7 @@ export const runtime = 'edge'
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { runDeepCheck } from '@/lib/forensics'
-import { employerExtraChecks, extractEmployerDomains, rdapLookup, type RdapResult } from '@/lib/forensics/employer-checks'
+import { employerExtraChecks, extractEmployerDomains, gazetteLookup, rdapLookup, registryStatusKind, type RdapResult } from '@/lib/forensics/employer-checks'
 import { portalPartySearch, partyNamesCompany } from '@/lib/screening/portalClient'
 import { canonicalizeEmployerName, searchOpenCorporates, RegistryAuthError } from '@/lib/forensics/arm-length'
 import { searchCbrRegistry } from '@/lib/forensics/cbr-registry'
@@ -604,8 +604,20 @@ export async function POST(req: Request) {
           }
           if (searches.every(s => !s.error) || cases.length) litigation = { total: cases.length, cases: cases.slice(0, 10) }
         } catch { /* best effort */ }
+        // Why inactive? Only the Gazette says (tax default / returns not
+        // filed / voluntary). Read only when the registry row is inactive.
+        let gazette: Awaited<ReturnType<typeof gazetteLookup>> = []
+        if (registryStatusKind(check.company_info?.status) === 'inactive' && check.company_info?.name) {
+          try {
+            gazette = await Promise.race([
+              gazetteLookup(check.company_info.name, check.company_info.company_number, makeWebIndexSearch(), makeWebRead()),
+              new Promise<never[]>(res => setTimeout(() => res([]), 40_000)),
+            ])
+          } catch { gazette = [] }
+        }
         const extra = employerExtraChecks({
           employer_name: check.employer_name,
+          gazette,
           company_status: check.company_info?.status ?? null,
           company_registered_address: check.company_info?.registered_address ?? null,
           incorporation_date: check.company_info?.incorporation_date ?? null,
@@ -621,6 +633,7 @@ export async function POST(req: Request) {
           domain_check: extra.domain_check,
           personal_emails: extra.personal_emails,
           litigation: extra.litigation,
+          gazette: extra.gazette,
           flags: [...check.flags, ...extra.flags],
         })
         if (extra.registry_status_kind === 'inactive') check.arm_length_risk = 'high'

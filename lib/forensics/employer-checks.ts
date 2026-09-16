@@ -16,6 +16,11 @@ export function registryStatusKind(status: string | null | undefined): RegistryS
   return 'unknown'
 }
 
+function monthsBetween(a: string, b: string): number {
+  const [ay, am] = a.split('-').map(Number); const [by, bm] = b.split('-').map(Number)
+  return Math.max(0, (by - ay) * 12 + (bm - am))
+}
+
 const PERSONAL_MAIL = /^(gmail|googlemail|hotmail|outlook|live|yahoo|ymail|icloud|me|aol|proton|protonmail|qq|163|126|sina|foxmail|mail|gmx|yandex|rogers|bell|sympatico|shaw|telus)\.(com|ca|net|org|me|ch|cn)$/i
 
 /** Domains the employer's own documents name (email domains + URLs), minus personal providers. */
@@ -92,6 +97,123 @@ export async function rdapLookup(domain: string, fetchImpl: typeof fetch = fetch
   }
 }
 
+
+// ── Ontario Gazette: why a corporation is "Inactive" ────────────────────
+// The registry says Inactive and nothing more. The Ontario Gazette's
+// "Government Notices Respecting Corporations" says why: a notice of
+// default under the Corporations Tax Act (Minister of Finance), the
+// cancellation that follows it, cancellation under the Corporations
+// Information Act (annual returns not filed), a voluntary dissolution
+// under OBCA s.237/238, or a revival. 6269 Ash St: GLOBE NET INTERNATIONAL
+// INC. 002072032 — default notice 2014-10-18 (Vol 147 Iss 45), certificate
+// cancelled 2015-01-26 (Vol 148 Iss 08) — while the letter claims
+// employment since 2015-06-23.
+export type GazetteNoticeKind = 'tax_default_notice' | 'tax_default_cancellation' | 'cia_default_notice' | 'cia_cancellation' | 'voluntary_dissolution' | 'revival' | 'other'
+export interface GazetteNotice { kind: GazetteNoticeKind; date: string | null; heading: string; issue: string; url: string }
+
+export function classifyGazetteSection(heading: string): GazetteNoticeKind {
+  const h = heading.toLowerCase()
+  const tax = /corporations tax act/.test(h)
+  const cia = /corporations information act/.test(h)
+  if (/reviv/.test(h)) return 'revival'
+  if (/cancellation|cancelled|dissolved by order|dissolution by/.test(h) && tax) return 'tax_default_cancellation'
+  if (/notice of default|in default/.test(h) && tax) return 'tax_default_notice'
+  if (/cancellation|cancelled/.test(h) && cia) return 'cia_cancellation'
+  if (/notice of default|in default/.test(h) && cia) return 'cia_default_notice'
+  if (/certificate of dissolution|voluntar|section 23[78]|s\. ?23[78]/.test(h)) return 'voluntary_dissolution'
+  return 'other'
+}
+
+const GAZETTE_HEADING = /^(notice of default[^\n]*|cancellation[^\n]*|certificate of dissolution[^\n]*|order for revival[^\n]*|revival[^\n]*|errors in notices[^\n]*|notice of dissolution[^\n]*|corporations tax act[^\n]*|corporations information act[^\n]*)$/i
+
+/** Ontario corporation numbers are printed zero-padded to 9 digits ("002072032"). */
+export function padOntarioNumber(n: string | null | undefined): string | null {
+  const d = (n || '').replace(/\D/g, '')
+  return d ? d.padStart(9, '0') : null
+}
+
+function gazetteIssueFromUrl(url: string): string {
+  const m = url.match(/ontario-gazette-volume-(\d+)-issue-(\d+)(?:-([a-z]+)-(\d+)-(\d{4}))?/i)
+  if (!m) return 'Ontario Gazette'
+  const month = m[3] ? m[3][0].toUpperCase() + m[3].slice(1) : ''
+  return `Volume ${m[1]} Issue ${m[2]}${m[3] ? ` (${month} ${m[4]}, ${m[5]})` : ''}`
+}
+
+/** Find the company in one Gazette page (Jina text) and say which section it sits in. Pure. */
+export function parseGazettePage(text: string, url: string, companyName: string, companyNumber: string | null | undefined): GazetteNotice[] {
+  const out: GazetteNotice[] = []
+  const lines = text.split(/\r?\n/)
+  const num = padOntarioNumber(companyNumber)
+  const name = companyName.toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/\s+/g, ' ').trim()
+  let heading = ''
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i].replace(/﻿/g, '').trim()
+    if (!raw) continue
+    if (raw.length < 160 && GAZETTE_HEADING.test(raw)) { heading = raw; continue }
+    const norm = raw.toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/\s+/g, ' ').trim()
+    const nameHit = name.length >= 6 && norm === name
+    if (!nameHit) continue
+    // The number and the date sit in the next few cells.
+    const window = lines.slice(i + 1, i + 12).map(l => l.replace(/﻿/g, '').trim()).filter(Boolean)
+    const numCell = window.find(c => /^\d{9}$/.test(c)) || null
+    if (num && numCell && numCell !== num) continue
+    const dateCell = window.find(c => /^\d{4}-\d{2}-\d{2}$/.test(c)) || null
+    if (!heading) continue
+    out.push({ kind: classifyGazetteSection(heading), date: dateCell, heading, issue: gazetteIssueFromUrl(url), url })
+  }
+  return out
+}
+
+/** Search the Gazette for the company (only called for an inactive registry row). Best-effort. */
+export async function gazetteLookup(
+  companyName: string,
+  companyNumber: string | null | undefined,
+  webSearch: ((q: string) => Promise<Array<{ title: string; snippet: string; link: string }>>) | undefined,
+  webRead: ((url: string) => Promise<string>) | undefined,
+): Promise<GazetteNotice[]> {
+  if (!webSearch || !webRead) return []
+  const bare = companyName.replace(/\.+$/, '').trim()
+  let hits: Array<{ title: string; snippet: string; link: string }> = []
+  try { hits = await webSearch(`"${bare}" Ontario Gazette corporations`) } catch { hits = [] }
+  const num = padOntarioNumber(companyNumber)
+  const urls = Array.from(new Set(hits
+    .filter(h => /ontario\.ca\/document\/ontario-gazette/i.test(h.link))
+    .filter(h => !num || (h.snippet + h.title).includes(num) || new RegExp(bare.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(h.snippet + h.title))
+    .map(h => h.link.replace(/^http:/, 'https:')))).slice(0, 4)
+  const pages = await Promise.all(urls.map(async (u) => {
+    // The issue's landing page lists the sections; the corporations section
+    // is its own document. Read that one when the URL is the issue root.
+    const target = /government-notices-respecting-corporations/i.test(u) ? u : `${u.replace(/\/$/, '')}/government-notices-respecting-corporations`
+    try { return { url: target, text: await webRead(target) } } catch { return { url: target, text: '' } }
+  }))
+  const notices: GazetteNotice[] = []
+  const seen = new Set<string>()
+  for (const p of pages) {
+    for (const n of parseGazettePage(p.text, p.url, companyName, companyNumber)) {
+      const k = `${n.kind}|${n.date}`
+      if (seen.has(k)) continue
+      seen.add(k); notices.push(n)
+    }
+  }
+  return notices.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+}
+
+/** One line for the registry card: the last thing the Gazette says about the company. */
+export function dissolutionReason(notices: Array<Pick<GazetteNotice, 'date' | 'url'> & { kind: string }> | null | undefined, zh: boolean): string | null {
+  if (!notices?.length) return null
+  const last = [...notices].reverse().find(n => n.kind !== 'other') || notices[notices.length - 1]
+  const when = last.date ? `${last.date} ` : ''
+  switch (last.kind) {
+    case 'tax_default_cancellation': return zh ? `${when}因《公司税法》违约被注销（安省财政部通知、注册处注销公司证书）` : `${when}certificate cancelled — Corporations Tax Act defaulter (Minister of Finance notice, then cancellation by the Director)`
+    case 'tax_default_notice': return zh ? `${when}安省财政部通知：未遵守《公司税法》（违约通知）` : `${when}Minister of Finance notice of default under the Corporations Tax Act`
+    case 'cia_cancellation': return zh ? `${when}因未按《公司信息法》申报被注销` : `${when}certificate cancelled for non-compliance with the Corporations Information Act (returns not filed)`
+    case 'cia_default_notice': return zh ? `${when}《公司信息法》违约通知（未申报）` : `${when}notice of default under the Corporations Information Act`
+    case 'voluntary_dissolution': return zh ? `${when}自愿解散（解散证书）` : `${when}voluntary dissolution (certificate of dissolution)`
+    case 'revival': return zh ? `${when}已复活（Gazette 复活通知）` : `${when}revived (Gazette revival notice)`
+    default: return zh ? `${when}见 Ontario Gazette 公司通知` : `${when}see the Ontario Gazette corporate notices`
+  }
+}
+
 export interface EmployerLitigation { total: number; cases: Array<{ title: string; role: string; filed: string; closed: boolean | null }> }
 
 export interface EmployerExtraInput {
@@ -103,6 +225,7 @@ export interface EmployerExtraInput {
   business_phone?: string | null
   rdap?: RdapResult[] | null
   litigation?: EmployerLitigation | null
+  gazette?: GazetteNotice[] | null
   today?: Date
 }
 
@@ -113,6 +236,8 @@ export interface EmployerExtraResult {
   domain_check: RdapResult[]
   personal_emails: string[]
   litigation: EmployerLitigation | null
+  gazette: GazetteNotice[]
+  dissolution_reason: string | null
   flags: ForensicFlag[]
 }
 
@@ -141,6 +266,36 @@ export function employerExtraChecks(inp: EmployerExtraInput): EmployerExtraResul
       severity: 'critical',
       evidence_en: `The registry lists ${emp} as "${inp.company_status}"${inp.incorporation_date ? ` (incorporated ${inp.incorporation_date})` : ''}. An inactive or dissolved corporation cannot be issuing current pay stubs or an employment letter${start ? ` claiming employment since ${start}` : ''}. Either the documents are not genuine or the employer trades under another entity — ask for the CRA payroll account number (BN + RP) and a T4.`,
       evidence_zh: `注册库显示 ${emp} 状态为「${inp.company_status}」${inp.incorporation_date ? `（成立于 ${inp.incorporation_date}）` : ''}。已注销 / 非活跃的公司不可能出具当前的工资单和在职信${start ? `（信称自 ${start} 起受雇）` : ''}。要么文件不真实，要么雇主以另一实体经营——请索取 CRA 工资账户号（BN + RP）与 T4。`,
+    })
+  }
+
+  const gazette = inp.gazette || []
+  const cancel = gazette.find(g => g.kind === 'tax_default_cancellation') || gazette.find(g => g.kind === 'cia_cancellation') || gazette.find(g => g.kind === 'voluntary_dissolution')
+  const taxNotice = gazette.find(g => g.kind === 'tax_default_notice')
+  const revived = gazette.find(g => g.kind === 'revival')
+  if (cancel && !revived) {
+    const after = start && cancel.date && start > cancel.date
+    const isTax = cancel.kind === 'tax_default_cancellation'
+    flags.push({
+      code: isTax ? 'employer_dissolved_tax_default' : cancel.kind === 'cia_cancellation' ? 'employer_dissolved_returns_not_filed' : 'employer_voluntarily_dissolved',
+      severity: 'critical',
+      evidence_en: isTax
+        ? `The Ontario Gazette (${cancel.issue}) lists ${emp} under "${cancel.heading}"${cancel.date ? ` effective ${cancel.date}` : ''}${taxNotice?.date ? `, after a Minister of Finance notice of default dated ${taxNotice.date}` : ''}. The corporation was dissolved by the province for not complying with the Corporations Tax Act — a compliance default (returns / tax not filed or paid), not a conviction.${after ? ` The letter claims employment from ${start}, ${monthsBetween(cancel.date!, start)} months after the corporation ceased to exist.` : ''} No revival notice found.`
+        : cancel.kind === 'cia_cancellation'
+          ? `The Ontario Gazette (${cancel.issue}) lists ${emp} under "${cancel.heading}"${cancel.date ? ` effective ${cancel.date}` : ''}: the corporation was cancelled for not filing its Corporations Information Act returns.${after ? ` The letter claims employment from ${start}, after the cancellation.` : ''} No revival notice found.`
+          : `The Ontario Gazette (${cancel.issue}) records a certificate of dissolution for ${emp}${cancel.date ? ` dated ${cancel.date}` : ''}: the owners wound the corporation up voluntarily.${after ? ` The letter claims employment from ${start}, after the dissolution.` : ''} No revival notice found.`,
+      evidence_zh: isTax
+        ? `Ontario Gazette（${cancel.issue}）把 ${emp} 列在「${cancel.heading}」之下${cancel.date ? `，生效日 ${cancel.date}` : ''}${taxNotice?.date ? `；此前 ${taxNotice.date} 安省财政部已发出《公司税法》违约通知` : ''}。即该公司因未遵守《公司税法》被省政府注销——这是税务合规违约（未申报 / 未缴），不是刑事定罪。${after ? `在职信却称 ${start} 起受雇，比公司注销晚 ${monthsBetween(cancel.date!, start)} 个月。` : ''}未见复活通知。`
+        : cancel.kind === 'cia_cancellation'
+          ? `Ontario Gazette（${cancel.issue}）把 ${emp} 列在「${cancel.heading}」之下${cancel.date ? `，生效日 ${cancel.date}` : ''}：因未按《公司信息法》申报被注销。${after ? `在职信却称 ${start} 起受雇，晚于注销日。` : ''}未见复活通知。`
+          : `Ontario Gazette（${cancel.issue}）记录了 ${emp} 的解散证书${cancel.date ? `（${cancel.date}）` : ''}：股东自愿解散公司。${after ? `在职信却称 ${start} 起受雇，晚于解散日。` : ''}未见复活通知。`,
+    })
+  } else if (taxNotice && !revived) {
+    flags.push({
+      code: 'employer_tax_default_notice',
+      severity: 'high',
+      evidence_en: `The Ontario Gazette (${taxNotice.issue}) lists ${emp} under a Minister of Finance "notice of default in complying with the Corporations Tax Act"${taxNotice.date ? ` dated ${taxNotice.date}` : ''}. The cancellation that normally follows was not found — check the registry for the current status.`,
+      evidence_zh: `Ontario Gazette（${taxNotice.issue}）把 ${emp} 列在安省财政部「未遵守《公司税法》违约通知」之下${taxNotice.date ? `（${taxNotice.date}）` : ''}。通常随后会有注销通知，本次未找到——请在注册库核对当前状态。`,
     })
   }
 
@@ -214,5 +369,5 @@ export function employerExtraChecks(inp: EmployerExtraInput): EmployerExtraResul
     })
   }
 
-  return { registry_status_kind: kind, employment_start: start, stated_city: city, domain_check: inp.rdap || [], personal_emails, litigation: lit, flags }
+  return { registry_status_kind: kind, employment_start: start, stated_city: city, domain_check: inp.rdap || [], personal_emails, litigation: lit, gazette, dissolution_reason: dissolutionReason(gazette, false), flags }
 }

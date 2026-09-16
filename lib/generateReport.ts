@@ -7,6 +7,7 @@
  */
 
 import type { OntarioPortalMatch, CanLIIMatch, CourtQuery, AiFlag, ScoreResult } from './screening-types'
+import { dissolutionReason } from '@/lib/forensics/employer-checks'
 import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
 import { scoreColor, sevColor, SCORE_BANDS } from './screening-types'
 import { RUBRIC_WEIGHTS, type RubricResult } from './screening/rubric'
@@ -1192,6 +1193,7 @@ export async function generateScreeningReport(
         if (ci.incorporation_date) html += `<div class="kv"><span class="k">${zh ? '成立日期' : 'Incorporated'}:</span><span class="v"${check.is_recently_incorporated ? ' style="color:#DC2626;font-weight:700"' : ''}>${esc(ci.incorporation_date)}${check.is_recently_incorporated ? (zh ? ' ⚠ 不到 2 年' : ' ⚠ under 2 years') : ''}</span></div>`
         const inactive = check.registry_status_kind === 'inactive'
         if (ci.status) html += `<div class="kv"><span class="k">${zh ? '注册状态' : 'Status'}:</span><span class="v"${inactive ? ' style="color:#B91C1C;font-weight:800;background:#FEE2E2;padding:1px 8px;border-radius:4px"' : ''}>${esc(ci.status)}${inactive ? (zh ? ' ⚠ 已注销 / 非活跃 — 不可能在发工资' : ' ⚠ inactive / dissolved — cannot be running payroll') : ''}</span></div>`
+        if (check.gazette && check.gazette.length) html += `<div class="kv"><span class="k">${zh ? '注销原因' : 'Why inactive'}:</span><span class="v" style="color:#B91C1C;font-weight:800;background:#FEE2E2;padding:1px 8px;border-radius:4px">${esc(dissolutionReason(check.gazette, zh) || '')} <a href="${esc(check.gazette[check.gazette.length - 1].url)}" style="color:#B91C1C">Ontario Gazette</a></span></div>`
         if (check.employment_start) html += `<div class="kv"><span class="k">${zh ? '信称入职' : 'Employed since'}:</span><span class="v">${esc(check.employment_start)}</span></div>`
         for (const d of check.domain_check || []) html += `<div class="kv"><span class="k">${zh ? '雇主域名' : 'Domain'}:</span><span class="v"${d.registered ? '' : ' style="color:#B91C1C;font-weight:700"'}>${esc(d.domain)}${d.registered ? esc(zh ? ` · 注册于 ${d.registration_date || '?'}` : ` · registered ${d.registration_date || '?'}`) : (zh ? ' ⚠ 未注册的域名' : ' ⚠ not a registered domain')}</span></div>`
         if (check.litigation) html += `<div class="kv"><span class="k">${zh ? '法庭记录' : 'Court cases'}:</span><span class="v"${check.litigation.total > 0 ? ' style="color:#B91C1C;font-weight:800;background:#FEE2E2;padding:1px 8px;border-radius:4px"' : ' style="color:#166534"'}>${check.litigation.total > 0 ? (zh ? `⚠ 安省民事 / 小额法庭 ${check.litigation.total} 件案件为当事人` : `⚠ party to ${check.litigation.total} Ontario civil / small-claims case(s)`) : (zh ? '✓ 无以该公司为当事人的记录' : '✓ no case names this company')}</span></div>`

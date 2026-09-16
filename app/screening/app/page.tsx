@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback, type ReactNode, type CSSProperties } from 'react'
+import { dissolutionReason } from '@/lib/forensics/employer-checks'
 import { inInternalTestWindow } from '@/lib/billing/freeWindow'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -3832,6 +3833,13 @@ export default function ScreenPage() {
                             <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '状态' : 'Status'}:</span>
                             <span style={check.registry_status_kind === 'inactive' ? { color: '#B91C1C', fontWeight: 800, background: '#FEE2E2', padding: '1px 8px', borderRadius: 4, display: 'inline-block' } : check.registry_status_kind === 'active' ? { color: '#166534', fontWeight: 600 } : undefined}>
                               {check.company_info.status}{check.registry_status_kind === 'inactive' ? (lang === 'zh' ? ' ⚠ 已注销 / 非活跃 — 不可能在发工资' : ' ⚠ inactive / dissolved — cannot be running payroll') : ''}
+                            </span>
+                          </>}
+                          {(check.gazette || []).length > 0 && <>
+                            <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '注销原因' : 'Why inactive'}:</span>
+                            <span style={{ color: '#B91C1C', fontWeight: 800, background: '#FEE2E2', padding: '1px 8px', borderRadius: 4, display: 'inline-block' }}>
+                              {dissolutionReason(check.gazette, lang === 'zh')}
+                              {' '}<a href={check.gazette![check.gazette!.length - 1].url} target="_blank" rel="noopener noreferrer" style={{ color: '#B91C1C', textDecoration: 'underline', fontWeight: 600 }}>Ontario Gazette ↗</a>
                             </span>
                           </>}
                           {check.employment_start && <>

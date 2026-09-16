@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { employerExtraChecks, extractEmployerDomains, extractEmploymentStart, extractStatedCity, phoneRegion, registryStatusKind } from '@/lib/forensics/employer-checks'
+import { classifyGazetteSection, dissolutionReason, employerExtraChecks, extractEmployerDomains, extractEmploymentStart, extractStatedCity, gazetteLookup, padOntarioNumber, parseGazettePage, phoneRegion, registryStatusKind } from '@/lib/forensics/employer-checks'
 import { partyNamesCompany } from '@/lib/screening/portalClient'
 
 // 2026-09-16 — deep-check additions after the 6269 Ash St file: an
@@ -73,5 +73,78 @@ describe('employer litigation', () => {
     const clean = employerExtraChecks({ employer_name: 'Acme', litigation: { total: 0, cases: [] } })
     expect(clean.flags.map(x => x.code)).not.toContain('employer_court_cases')
     expect(clean.litigation?.total).toBe(0)
+  })
+})
+
+// 2026-09-16 — why is the employer "Inactive"? The registry does not say;
+// the Ontario Gazette does. Fixture = the shape r.jina.ai returns for
+// ontario.ca/document/ontario-gazette-volume-148-issue-08-february-21-2015/government-notices-respecting-corporations
+describe('Ontario Gazette dissolution reason', () => {
+  const ISSUE_NOV = 'https://www.ontario.ca/document/ontario-gazette-volume-147-issue-45-november-8-2014/government-notices-respecting-corporations-0'
+  const ISSUE_FEB = 'https://www.ontario.ca/document/ontario-gazette-volume-148-issue-08-february-21-2015/government-notices-respecting-corporations'
+  const NOV = [
+    'Government Notices Respecting Corporations', '',
+    'Notice of Default in Complying with the Corporations Tax Act', '',
+    'The Director has been notified by the Minister of Finance that the following corporations are in default in complying with the Corporations Tax Act.', '',
+    'FORECAST BUSINESS SERVICES INC.', '', '\t', '', '002130434', '', '', '', '2014-10-18', '', '\t', '',
+    'GLOBE NET INTERNATIONAL INC.', '', '\t', '', '002072032', '', '', '', '2014-10-18', '', '\t', '',
+    'INDOOR COMFORT CONTRACTORS LIMITED', '', '\t', '', '000710329', '', '', '', '2014-10-18',
+  ].join('\n')
+  const FEB = [
+    'Government Notices Respecting Corporations', '',
+    'Notice of Default in Complying with the Corporations Tax Act', '',
+    'SOME OTHER CORP.', '', '002999999', '', '﻿2015-01-26', '',
+    'Cancellation of Certificate of Incorporation (Corporations Tax Act Defaulters)', '',
+    'NOTICE IS HEREBY GIVEN that by orders under subsection 241(4) of the Business Corporations Act, the certificates of incorporation of the corporations named hereunder have been cancelled...', '',
+    'GLOBE NET INTERNATIONAL INC.', '', '\t', '', '002072032', '', '', '', '﻿2015-01-26', '', '\t', '',
+    'GLOBE NET INTERNATIONAL INC.', '', '\t', '', '009999999', '', '', '', '﻿2015-01-26', // same name, other number: ignored
+  ].join('\n')
+
+  it('classifies the Gazette section headings', () => {
+    expect(classifyGazetteSection('Notice of Default in Complying with the Corporations Tax Act')).toBe('tax_default_notice')
+    expect(classifyGazetteSection('Cancellation of Certificate of Incorporation (Corporations Tax Act Defaulters)')).toBe('tax_default_cancellation')
+    expect(classifyGazetteSection('Cancellation of Certificate of Incorporation (Corporations Information Act Defaulters)')).toBe('cia_cancellation')
+    expect(classifyGazetteSection('Certificate of Dissolution')).toBe('voluntary_dissolution')
+    expect(classifyGazetteSection('Order for Revival')).toBe('revival')
+  })
+  it('finds the company under its section, by name + zero-padded number, with the date cell', () => {
+    const nov = parseGazettePage(NOV, ISSUE_NOV, 'GLOBE NET INTERNATIONAL INC.', '2072032')
+    expect(nov).toHaveLength(1)
+    expect(nov[0]).toMatchObject({ kind: 'tax_default_notice', date: '2014-10-18' })
+    const feb = parseGazettePage(FEB, ISSUE_FEB, 'Globe Net International Inc', '002072032')
+    expect(feb).toHaveLength(1)
+    expect(feb[0]).toMatchObject({ kind: 'tax_default_cancellation', date: '2015-01-26' })
+    expect(feb[0].issue).toMatch(/Volume 148 Issue 08/)
+    expect(padOntarioNumber('2072032')).toBe('002072032')
+  })
+  it('gazetteLookup reads only ontario.ca Gazette hits and merges the notices in date order', async () => {
+    const webSearch = async () => [
+      { title: 'Ontario Gazette Volume 148 Issue 08', snippet: 'Globe Net International Inc. 002072032. 2015-01-26', link: ISSUE_FEB.replace('https:', 'http:') },
+      { title: 'Government Notices Respecting Corporations', snippet: 'Globe Net International Inc. 002072032. 2014-10-18', link: ISSUE_NOV },
+      { title: 'About Us - Globe Net International', snippet: 'in business for 26 years', link: 'http://globenetint.com/AboutUs.html' },
+    ]
+    const reads: string[] = []
+    const webRead = async (u: string) => { reads.push(u); return u === ISSUE_FEB ? FEB : u === ISSUE_NOV ? NOV : '' }
+    const notices = await gazetteLookup('GLOBE NET INTERNATIONAL INC.', '2072032', webSearch, webRead)
+    expect(reads.every(u => u.startsWith('https://www.ontario.ca/'))).toBe(true)
+    expect(notices.map(n => `${n.kind}@${n.date}`)).toEqual(['tax_default_notice@2014-10-18', 'tax_default_cancellation@2015-01-26'])
+  })
+  it('a tax-default cancellation is critical; employment claimed after the cancellation is spelled out; a revival cancels the flag', () => {
+    const gazette = [
+      { kind: 'tax_default_notice' as const, date: '2014-10-18', heading: 'Notice of Default in Complying with the Corporations Tax Act', issue: 'Volume 147 Issue 45', url: ISSUE_NOV },
+      { kind: 'tax_default_cancellation' as const, date: '2015-01-26', heading: 'Cancellation of Certificate of Incorporation (Corporations Tax Act Defaulters)', issue: 'Volume 148 Issue 08', url: ISSUE_FEB },
+    ]
+    const r = employerExtraChecks({ employer_name: 'Globe Net International', company_status: 'Inactive', incorporation_date: '2005-05-11', doc_text: LETTER, gazette })
+    const f = r.flags.find(x => x.code === 'employer_dissolved_tax_default')!
+    expect(f.severity).toBe('critical')
+    expect(f.evidence_en).toMatch(/employment from 2015-06-23, 5 months after/)
+    expect(f.evidence_en).toMatch(/notice of default dated 2014-10-18/)
+    expect(f.evidence_en).toMatch(/not a conviction/)
+    expect(r.dissolution_reason).toMatch(/^2015-01-26 certificate cancelled — Corporations Tax Act defaulter/)
+    expect(dissolutionReason(gazette, true)).toMatch(/2015-01-26 因《公司税法》违约被注销/)
+    const revived = employerExtraChecks({ employer_name: 'Globe Net International', company_status: 'Active', gazette: [...gazette, { kind: 'revival', date: '2016-03-01', heading: 'Order for Revival', issue: 'Volume 149 Issue 10', url: ISSUE_FEB }] })
+    expect(revived.flags.map(x => x.code)).not.toContain('employer_dissolved_tax_default')
+    const noticeOnly = employerExtraChecks({ employer_name: 'Acme', company_status: 'Inactive', gazette: [gazette[0]] })
+    expect(noticeOnly.flags.find(x => x.code === 'employer_tax_default_notice')?.severity).toBe('high')
   })
 })

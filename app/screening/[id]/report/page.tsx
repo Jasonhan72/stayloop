@@ -21,6 +21,7 @@ export const runtime = 'edge'
 // screening history view uses. Presentation layer only; no scoring logic here.
 
 import { useState, useEffect } from 'react'
+import { dissolutionReason } from '@/lib/forensics/employer-checks'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import Header from '@/components/Header'
@@ -1699,6 +1700,14 @@ export default function ReportPage() {
                             <KV k={zh ? '注册状态' : 'Status'}>
                               <span style={check.registry_status_kind === 'inactive' ? { color: '#B91C1C', fontWeight: 800, background: '#FEE2E2', padding: '1px 8px', borderRadius: 4 } : undefined}>
                                 {ci.status}{check.registry_status_kind === 'inactive' && (zh ? ' ⚠ 已注销 / 非活跃 — 不可能在发工资' : ' ⚠ inactive / dissolved — cannot be running payroll')}
+                              </span>
+                            </KV>
+                          )}
+                          {(check.gazette || []).length > 0 && (
+                            <KV k={zh ? '注销原因' : 'Why inactive'}>
+                              <span style={{ color: '#B91C1C', fontWeight: 800, background: '#FEE2E2', padding: '1px 8px', borderRadius: 4 }}>
+                                {dissolutionReason(check.gazette, zh)}
+                                {' '}<a href={check.gazette![check.gazette!.length - 1].url} target="_blank" rel="noopener noreferrer" style={{ color: '#B91C1C', textDecoration: 'underline', fontWeight: 600 }}>Ontario Gazette ↗</a>
                               </span>
                             </KV>
                           )}

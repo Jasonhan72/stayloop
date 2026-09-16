@@ -414,6 +414,26 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 - 顺带发现：**Supabase 项目在 us-east-1（美国弗吉尼亚），不是隐私页写的 Toronto / Montreal**。隐私页第 4 节与首页
   「数据驻加」已改为如实披露（PIPEDA 允许跨境存储但须告知）。要真正数据驻加需迁移项目到 ca-central-1，由用户决定。
 
+## 雇主「Inactive」的原因：Ontario Gazette（2026-09-16 · Globe Net International 案）
+
+用户问「为什么会 inactive？有没有税务相关的违法？」。注册库（OpenCorporates cbr_on）只写 Inactive；**原因只有
+Ontario Gazette 的 Government Notices Respecting Corporations 会写**，分几节：《公司税法》违约通知（Notice of Default
+in Complying with the Corporations Tax Act，安省财政部通知注册处）→ 随后一期「Cancellation of Certificate of
+Incorporation (Corporations Tax Act Defaulters)」（OBCA s.241(4) 注销）；《公司信息法》未申报的违约与注销；自愿解散
+（Certificate of Dissolution）；复活（Order for Revival）。本案：GLOBE NET INTERNATIONAL INC. 002072032 在
+Vol 147 Iss 45（2014-11-08）列在违约通知（2014-10-18），在 Vol 148 Iss 08（2015-02-21）列在税法违约注销（生效
+2015-01-26）；在职信却称 2015-06-23 起受雇——比公司注销晚 5 个月。**这是税务合规违约（未申报 / 未缴），不是定罪**：
+CRA 只公布定罪（enforcement notifications），本案无；CanLII / 法院门户无该公司案件。同名实体今天仍在营业
+（globenetint.com 2020 年注册、Richmond Hill 9325 Yonge St 目录条目），要么以另一实体经营、要么无实体。
+落地（`lib/forensics/employer-checks.ts`）：`gazetteLookup`（s.jina.ai 搜 `"<注册名>" Ontario Gazette corporations`，
+只读 ontario.ca 的 gazette 页，最多 4 页，issue 根 URL 自动补 `/government-notices-respecting-corporations`）→
+`parseGazettePage`（按节标题定性、按名称 + 9 位零填充公司号定位、取日期格；BOM 剥掉）→ `employerExtraChecks`
+新入参 `gazette`：税法注销 `employer_dissolved_tax_default`（critical，写明通知日 / 注销日 / 受雇日在注销之后几个月、
+「不是定罪」）、信息法注销 `employer_dissolved_returns_not_filed`、自愿解散 `employer_voluntarily_dissolved`、只有
+违约通知 `employer_tax_default_notice`（high）；有复活通知则不标。deep-check 路由只在注册状态为 inactive 时查
+（40s 上限）；三处界面在状态行下加红色「注销原因」行 + Gazette 链接（`dissolutionReason`）。守卫
+`tests/employerChecks.spec.ts`「Ontario Gazette dissolution reason」段。本机联网复现 scratchpad `gazette-live.mts`。
+
 ## 定价 $19 与内部测试月（2026-09-14 · 用户决定）
 
 - **Pro 改为 $19 CAD/月**：Stripe live 新价 `price_1UFZYoPEHyIrPd1Qswl971AJ`（产品 `prod_UIB2uLu9PHRVeR` 的默认价），
