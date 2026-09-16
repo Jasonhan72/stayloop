@@ -108,6 +108,15 @@ async function searchViaJina(
       },
       signal: ctl.signal,
     })
+    // Jina answers a query with ZERO results as HTTP 422
+    // AssertionFailureError "No search results available" — that is a clean
+    // empty result, not an outage (2026-09-15: every uncommon name fell to
+    // the "unavailable" manual row and was listed as "未能检索").
+    if (res.status === 422) {
+      const t = await res.text().catch(() => '')
+      if (/no search results/i.test(t)) return { status: 'ok', matches: [], provider: 'jina' }
+      return { status: 'error', reason: 'jina http 422' }
+    }
     if (!res.ok) return { status: 'error', reason: `jina http ${res.status}` }
     const body = (await res.json()) as { data?: Array<{ title?: unknown; url?: unknown; description?: unknown }> }
     const items = (Array.isArray(body.data) ? body.data : []).map((d) => ({

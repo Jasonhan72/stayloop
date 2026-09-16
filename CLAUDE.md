@@ -355,6 +355,21 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 **仍未做 / 待外部**：消费者报告机构注册（研究进行中）；转介佣金引擎冻结；Realtor.ca 数据来源换 DDF Partner；
 到期前 30 天自动转 `renewal_due` 的定时任务（目前由管理员手动标过期）。
 
+## 法庭数据源「未能检索」（2026-09-15 · 两个真实原因）
+
+用户截图：CanLII 与安省法院门户两行都显示「未能检索（超时 / 不可用）」。
+- **CanLII**：Jina 对零结果的检索返回 **HTTP 422 `AssertionFailureError: No search results available`**，
+  `canliiIndex.ts` 把非 200 一律当故障 → 落到「人工检索」行并被计入「未能完成检索」。现在 422 + 该消息 = 正常的
+  0 条；人工检索行在结果页显示为「需人工检索 · 打开预填搜索 ↗」的链接，不再计入未完成数据源。
+- **安省法院门户**：`api1.courts.ontario.ca` 前面是 Azure Application Gateway，对部分出口地区直接 **403**（本机开
+  VPN 从迪拜出口可复现；生产 Cloudflare Worker 的出口 00:17 UTC 被拒、23:43 UTC 正常）。Supabase 数据库
+  （AWS us-east-1）访问它返回 200，所以加了 `portal_relay_get(url)`（迁移 `20260915_portal_relay.sql`，仅 service_role、
+  host 白名单）作为直连 403 时的中转。**pg_net 不能在函数里同步用**——请求行在事务提交前对 worker 不可见，
+  函数内轮询必然超时；改用同步的 `http` 扩展（6s curl 超时，在 PostgREST 8s 语句超时以内）。结果页对 403 显示
+  「门户拒绝了服务器访问（HTTP 403）」并给人工核对链接。
+- 顺带发现：**Supabase 项目在 us-east-1（美国弗吉尼亚），不是隐私页写的 Toronto / Montreal**。隐私页第 4 节与首页
+  「数据驻加」已改为如实披露（PIPEDA 允许跨境存储但须告知）。要真正数据驻加需迁移项目到 ca-central-1，由用户决定。
+
 ## 定价 $19 与内部测试月（2026-09-14 · 用户决定）
 
 - **Pro 改为 $19 CAD/月**：Stripe live 新价 `price_1UFZYoPEHyIrPd1Qswl971AJ`（产品 `prod_UIB2uLu9PHRVeR` 的默认价），

@@ -251,6 +251,23 @@ const ONTARIO_PORTAL_CIVIL_COURT_ID = '68f021c4-6a44-4735-9a76-5360b2e8af13'
 // Each later tier only runs if the earlier tier returned zero hits AFTER
 // the local party-name verification, so we don't flood the user with
 // false positives when exact match already worked.
+async function portalRelay(url: string): Promise<{ status: number; body: any } | null> {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!key) return null
+  try {
+    const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key, { auth: { persistSession: false, autoRefreshToken: false } })
+    const { data, error } = await admin.rpc('portal_relay_get', { p_url: url })
+    if (error || !data || typeof data !== 'object') return null
+    const d = data as { status?: number; body?: string | null; error?: string | null }
+    if (!d.status) return null
+    let body: any = null
+    try { body = d.body ? JSON.parse(d.body) : null } catch { body = null }
+    return { status: d.status, body }
+  } catch {
+    return null
+  }
+}
+
 async function portalQuery(
   displayName: string,
   searchType: '10462' | '300054',
@@ -275,8 +292,20 @@ async function portalQuery(
       res = await fetch(url, { signal: AbortSignal.timeout(ONTARIO_PORTAL_TIMEOUT_MS) })
       void first
     }
-    if (!res.ok) return { results: [], totalElements: 0, error: `HTTP ${res.status}` }
-    const data = await res.json() as any
+    let data: any
+    if (res.status === 403) {
+      // The portal's Azure gateway refuses some egress regions (2026-09-15:
+      // a Worker request got 403 while the same query from the Supabase
+      // database passed). Relay once through pg_net (service role only,
+      // host allow-listed in portal_relay_get) before giving up.
+      const relay = await portalRelay(url)
+      if (!relay) return { results: [], totalElements: 0, error: 'HTTP 403 (portal refused this server; relay unavailable)' }
+      if (relay.status !== 200) return { results: [], totalElements: 0, error: `HTTP ${relay.status} (via relay)` }
+      data = relay.body
+    } else {
+      if (!res.ok) return { results: [], totalElements: 0, error: `HTTP ${res.status}` }
+      data = await res.json()
+    }
     return {
       results: data?._embedded?.results || [],
       totalElements: data?.page?.totalElements || 0,

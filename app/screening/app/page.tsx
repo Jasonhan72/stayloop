@@ -770,7 +770,11 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
   const ALWAYS_SHOW_DBS = ['Landlord and Tenant Board', 'Small Claims Court', 'Ontario Courts Portal', 'LTB Order Catalogue', 'CanLII']
   // A source that timed out or was unavailable is NOT a clean source. It
   // used to render "✓ 无记录" and the rollup said no records were found.
-  const notSearched = queries.filter(q => q.tier === 'free' && !q.source.startsWith('──') && (q.status === 'unavailable' || q.status === 'timeout' || q.status === 'skipped'))
+  // CanLII has no name search by design: its row carries a pre-filled
+  // manual link and is a "search it yourself" item, not a failed source
+  // (2026-09-15: it was counted and worded as an outage).
+  const isManualOnly = (q: CourtQuery) => q.source === 'CanLII' && q.status === 'unavailable' && !!q.url
+  const notSearched = queries.filter(q => q.tier === 'free' && !q.source.startsWith('──') && !isManualOnly(q) && (q.status === 'unavailable' || q.status === 'timeout' || q.status === 'skipped'))
   const isNotSearched = (q: CourtQuery) => q.status === 'unavailable' || q.status === 'timeout' || q.status === 'skipped'
   const dbQueries = queries.slice(hasRollup ? 1 : 0).filter(q =>
     // Name separator rows (e.g. "── JOHN SMITH ──") always pass through
@@ -939,9 +943,18 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
                             {isExpanded ? '▼' : '▶'}
                           </span>
                         </>
+                      ) : isManualOnly(q) ? (
+                        <a href={q.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ fontSize: 11.5, fontWeight: 600, color: '#0094C6', textDecoration: 'underline' }} title={q.note || ''}>
+                          {lang === 'zh' ? '需人工检索 · 打开预填搜索 ↗' : 'Manual search · open pre-filled query ↗'}
+                        </a>
                       ) : unsearched ? (
                         <span style={{ fontSize: 11.5, fontWeight: 600, color: '#B45309' }} title={q.note || ''}>
-                          ⏳ {q.status === 'skipped' ? t('screen.result.court.skipped') : (lang === 'zh' ? '未能检索（超时 / 不可用）' : 'Not searched (timeout / unavailable)')}
+                          ⏳ {q.status === 'skipped'
+                            ? t('screen.result.court.skipped')
+                            : /403/.test(q.note || '')
+                              ? (lang === 'zh' ? '门户拒绝了服务器访问（HTTP 403）' : 'Portal refused the server (HTTP 403)')
+                              : (lang === 'zh' ? '未能检索（超时 / 不可用）' : 'Not searched (timeout / unavailable)')}
+                          {q.url && <a href={q.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ marginLeft: 8, color: '#0094C6', textDecoration: 'underline' }}>{lang === 'zh' ? '人工核对 ↗' : 'check manually ↗'}</a>}
                         </span>
                       ) : (
                         <span style={{ fontSize: 10, fontWeight: 600, color: '#15803D' }}>

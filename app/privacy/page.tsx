@@ -38,8 +38,8 @@ export default function PrivacyPage() {
           </Section>
           <Section title={zh ? '4 · 数据存储' : '4 · Data storage'}>
             <p>{zh
-              ? '所有数据存储在 Toronto / Montreal AWS region。Veriff / Flinks / Equifax（申请人授权时）调用通过加密 TLS 1.3 + token 隔离。'
-              : 'All data is stored in the Toronto / Montreal AWS regions. Calls to Veriff / Flinks / Equifax (with the applicant\'s authorisation) run over encrypted TLS 1.3 with token isolation.'}</p>
+              ? '数据库与文件存储在 Supabase 托管的 AWS us-east-1（美国弗吉尼亚）区域，边缘计算在 Cloudflare 全球网络；跨境存储依 PIPEDA 在此披露。Veriff / Flinks / Equifax（申请人授权时）调用通过加密 TLS 1.3 + token 隔离。'
+              : 'The database and file storage run on Supabase in AWS us-east-1 (Virginia, USA); edge compute runs on Cloudflare\'s global network. This cross-border storage is disclosed here as PIPEDA requires. Calls to Veriff / Flinks / Equifax (with the applicant\'s authorisation) run over encrypted TLS 1.3 with token isolation.'}</p>
           </Section>
           <Section title={zh ? '5 · 联系' : '5 · Contact'}>
             <p>{zh ? (

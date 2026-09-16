@@ -122,6 +122,24 @@ describe('CanLII web-index search — degradation', () => {
   })
 })
 
+describe('CanLII web-index search — Jina zero-result (2026-09-15)', () => {
+  it('treats HTTP 422 "No search results available" as a clean empty result, not an outage', async () => {
+    delete process.env.GOOGLE_CSE_KEY
+    delete process.env.GOOGLE_CSE_CX
+    process.env.JINA_API_KEY = 'j'
+    try {
+      const r = await searchCanliiViaIndex('Leonardo Quiroga', (async () =>
+        new Response(JSON.stringify({ data: null, code: 422, name: 'AssertionFailureError', status: 42206, message: 'No search results available for query "Leonardo Quiroga" site:canlii.org' }), { status: 422 })) as unknown as typeof fetch)
+      expect(r).toEqual({ status: 'ok', matches: [], provider: 'jina' })
+      const other = await searchCanliiViaIndex('Leonardo Quiroga', (async () =>
+        new Response(JSON.stringify({ code: 422, message: 'invalid query' }), { status: 422 })) as unknown as typeof fetch)
+      expect(other.status).toBe('error')
+    } finally {
+      delete process.env.JINA_API_KEY
+    }
+  })
+})
+
 describe('CanLII web-index search — provider chain', () => {
   const jinaBody = JSON.stringify({
     data: [
