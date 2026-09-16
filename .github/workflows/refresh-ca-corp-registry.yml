@@ -55,7 +55,7 @@ jobs:
           # a job that needs two is twice as likely to sit half-configured — as
           # this one did, for three months. The script reads SUPABASE_URL or
           # NEXT_PUBLIC_SUPABASE_URL.
-          SUPABASE_URL: https://upbkcbicjjpznojkpqtg.supabase.co
+          SUPABASE_URL: https://uotcczsfeiptnabamzcd.supabase.co
           # This one IS a secret — it bypasses RLS entirely.
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |

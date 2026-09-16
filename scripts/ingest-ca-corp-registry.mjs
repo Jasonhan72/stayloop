@@ -11,7 +11,7 @@
 // Source:  https://ised-isde.canada.ca/cc/lgcy/download/OPEN_DATA_SPLIT.zip
 //
 // Env required:
-//   SUPABASE_URL                - e.g. https://upbkcbicjjpznojkpqtg.supabase.co
+//   SUPABASE_URL                - e.g. https://uotcczsfeiptnabamzcd.supabase.co
 //   SUPABASE_SERVICE_ROLE_KEY   - service-role key (bypasses RLS)
 //
 // Runtime:

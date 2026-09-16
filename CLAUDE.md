@@ -11,7 +11,7 @@ AI-powered tenant screening SaaS for Ontario landlords. Live at **www.stayloop.a
 - **Email:** Resend SMTP via Supabase Auth (magic links)
 - **Payments:** Stripe **LIVE mode**（2026-08-26 切换，见下「支付模块」节的切换记录）
 - **Maps:** Google Maps API
-- **DB:** Supabase (project `upbkcbicjjpznojkpqtg`)
+- **DB:** Supabase (project `uotcczsfeiptnabamzcd`, **AWS ca-central-1 蒙特利尔**；2026-09-16 从 us-east-1 的 `upbkcbicjjpznojkpqtg` 迁入，旧项目已暂停未删)
 
 ## Repo & Branches
 
@@ -433,6 +433,33 @@ CRA 只公布定罪（enforcement notifications），本案无；CanLII / 法院
 违约通知 `employer_tax_default_notice`（high）；有复活通知则不标。deep-check 路由只在注册状态为 inactive 时查
 （40s 上限）；三处界面在状态行下加红色「注销原因」行 + Gazette 链接（`dissolutionReason`）。守卫
 `tests/employerChecks.spec.ts`「Ontario Gazette dissolution reason」段。本机联网复现 scratchpad `gazette-live.mts`。
+
+## Supabase 迁到加拿大区（2026-09-16 · us-east-1 → ca-central-1）
+
+用户拍板后由 Claude 全程执行。新项目 **`uotcczsfeiptnabamzcd`（stayloop-ca，AWS ca-central-1 蒙特利尔，Micro，$10/月）**，
+旧项目 `upbkcbicjjpznojkpqtg`（us-east-1）验证无误后**暂停未删**（留作回滚，可在后台 Restore）。数据面：66 张 public 表
+1,708,326 行逐表精确计数一致；92 函数 / 116 策略 / 23 触发器 / 162 索引 / 4 序列 / 66 张表 RLS 全部一致；13 个 auth 用户 +
+12 个身份（密码哈希随行，但**会话不迁移**——JWT 密钥不同，所有人重新登录一次）；2 个存储桶 1,827 个对象 1.6 GB 按大小校验；
+3 个 pg_cron 任务 + Vault `cron_secret`；Auth 配置（站点地址、跳转白名单、Resend SMTP 含密码、全部邮件模板、Google OAuth
+client）经 Management API 整块复制（hook_* 与 oauth_server_* 两组键新项目计划不允许，已剔除）。
+- **做法**（无 Docker，`supabase db dump` 不可用）：本机 libpq 18 的 `pg_dump --schema=public --schema=supabase_migrations`
+  结构 + 数据、`--table=auth.users --table=auth.identities`，存储策略从 `pg_policies` 重新生成，cron 从 `cron.job` 重新生成；
+  走 **session pooler 5432**（`postgres.<ref>@aws-1-us-east-1 / aws-0-ca-central-1.pooler.supabase.com`，主机名从
+  `GET /v1/projects/<ref>/config/database/pooler` 取，猜错就是「tenant/user not found」；直连 `db.<ref>.supabase.co`
+  本机解析不到）。数据库密码两边都用 `PATCH /v1/projects/<ref>/database/password` 重置为脚本生成值（应用不用它）。
+  脚本在会话 scratchpad `migrate/`（01_dump / 02_restore / 02b_vault / 02c_data / 03_storage.mjs / 04_config / 06_switch /
+  07_delta / 08_drift），PAT 存 `.env.local` 的 `SUPABASE_ACCESS_TOKEN`（7 天有效，Organization 级）。
+- **两个坑**：① `pg_dump --schema=public` 会带出 `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin …`，postgres 不是
+  supabase_admin 会报错，整段删掉；`CREATE SCHEMA supabase_migrations` 被我误删后要补回。② **新项目磁盘只有 2 GB**
+  （不是文档说的 8 GB）：1.2 GB 数据单事务导入时 WAL 涨到 1.3 GB，Postgres PANIC「No space left on device」，项目进入只读。
+  `POST /v1/projects/<ref>/config/disk` 扩到 16 GB（gp3，超出 8 GB 的部分 $0.125/GB/月），约 1 分钟后自动恢复读写，
+  之后 2 分钟导完。**以后往新项目灌大数据先看 `GET …/config/disk`。**
+- **切换**：`.env.local` 三个值（NEXT_PUBLIC_* 构建内联）+ CF Pages secrets（`wrangler pages secret put`，同名覆盖）+
+  GitHub Actions secret `SUPABASE_SERVICE_ROLE_KEY` + 两个 workflow 里内联的 URL + `scripts/ingest-ca-corp-registry.mjs`
+  注释；隐私页与首页「数据驻加」文案恢复。切换前跑 `07_delta.sh`（除三张刷新表外全部 public 表 + auth 用户
+  truncate 重灌），部署后跑 `08_drift.sh` 看旧库在切换窗口内有没有新写入。
+- **用户需手动**：Google Cloud Console 的 OAuth client 授权回调里加 `https://uotcczsfeiptnabamzcd.supabase.co/auth/v1/callback`
+  （否则 Google 登录失败，魔法链接不受影响）；7 天后删除 PAT。
 
 ## 定价 $19 与内部测试月（2026-09-14 · 用户决定）
 

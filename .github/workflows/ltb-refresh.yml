@@ -60,7 +60,7 @@ jobs:
           # DEPLOY.md in this repo. Storing it as a secret would add a setup step
           # that protects nothing; keeping it inline means the only credential
           # this workflow needs is the one that genuinely is one.
-          NEXT_PUBLIC_SUPABASE_URL: https://upbkcbicjjpznojkpqtg.supabase.co
+          NEXT_PUBLIC_SUPABASE_URL: https://uotcczsfeiptnabamzcd.supabase.co
           # This one IS a secret: it bypasses RLS entirely.
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |

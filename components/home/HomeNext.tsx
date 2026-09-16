@@ -239,7 +239,7 @@ export default function HomeNext() {
           <div>{zh ? '技术' : 'Model'} <b className="text-body">Anthropic Claude</b></div>
           <div>{zh ? '行情' : 'Market'} <b className="text-body">TRREB · Realtor.ca</b></div>
           <div>{zh ? '合规' : 'Compliance'} <b className="text-body">RTA · OHRC · PIPEDA</b></div>
-          <div><b className="text-body">Proudly Canadian</b> · {zh ? '安省合规' : 'built for Ontario'}</div>
+          <div><b className="text-body">Proudly Canadian</b> · {zh ? '数据驻加' : 'data stays in Canada'}</div>
         </div>
       </section>
 
