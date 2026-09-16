@@ -98,6 +98,9 @@ Look for (non-exhaustive — use judgement):
 - Text that looks overlaid, re-typed or misaligned relative to the rest of the page.
 - Ages at claimed dates (arithmetic from the date of birth on the ID): a senior title (COO, director, manager) or an employment start that falls before age 16–18; an account opened before adulthood.
 - Employers the CREDIT REPORT lists (its "Employment" section) vs employers declared on the application / letter — an undisclosed current employer is an omission to resolve.
+- RESIDENCE TIMELINE vs the applicant's own Canadian footprint: an application that says the applicant lived OUTSIDE Canada for years (a foreign address, "moving back to Canada") while the credit file shows a Canadian current address, cards opened, rental-screening inquiries (Yardi, Certn, SingleKey…) or an Ontario licence issued inside that same period. Quote the address line and the dated bureau entries; this is a cross_document contradiction, not an address mismatch.
+- The LETTER'S salary vs the STUBS' arithmetic: period gross × periods per year. Same employer, same year — a gap above 3% is a question ("which figure is current?"), above 10% a contradiction. Never call a 5–10% gap a match.
+- A prior-landlord reference whose name is the applicant (or a co-applicant): say so — there is no callable reference for that residence.
 - Residence history vs the credit file's address history — a residence claimed for more than a year that never appears on the credit report, or a licence/credit address in another province while the applicant claims to have lived locally for years.
 - Pay changes right before the application: a base salary that steps up within ~60 days of the newest document (quote the two period amounts and the dates).
 - Employment start date vs the employer's incorporation/registration date when either document states one — employment cannot predate the employer.

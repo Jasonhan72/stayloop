@@ -18,6 +18,8 @@ import { selectCoApplicantNames } from '@/lib/screening/coApplicants'
 import { matchPortalParty, isRespondentSide, planPortalQueries, portalMatchKey, corroborateByCoParties } from '@/lib/screening/portalMatch'
 import { nameCovers, sameName } from '@/lib/screening/coApplicants'
 import { countMaterialBlanks } from '@/lib/screening/rubric'
+import { scanBureauDelinquencies } from '@/lib/screening/bureauTextScan'
+import { checkResidenceTimeline, footprintFromFacts } from '@/lib/screening/residenceTimeline'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 import { inInternalTestWindow } from '@/lib/billing/freeWindow'
 import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
@@ -1680,6 +1682,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // tool metadata (pdf_producer_consumer_tool) does it become conclusive.
     const FORGERY_INDICATING_CODES = new Set([
       'pdf_title_indicates_image',         // title literally says PNG/screenshot
+      'paystub_generator_signature',       // online stub-generator export name + no producer (2026-09-16)
       'pdf_producer_consumer_tool',        // Photoshop / Word / Canva / Image2PDF
       'paystub_ytd_inflated',              // YTD math truly impossible (>2.5x)
       'paystub_period_math_error',         // hourly × hours ≠ stated gross
@@ -2516,6 +2519,27 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       }
     }
 
+    // ── Delinquency dates the transcription dropped (2026-09-16) ──────
+    // The bureau PDF prints "Delinquencies <date>" under an account when a
+    // payment was ever late; the model's late_30_60_90 was 0/0/0 for a Fido
+    // line with a $125 past-due month. Read the dates from the text itself.
+    if (creditReport) {
+      const bureauText = forensicsReport.per_file
+        .filter(pf => (pf.file_kind || '').split(',').map(k => k.trim()).includes('credit_report'))
+        .map(pf => pf.text_density?.text_sample || pf.ocr?.text || '')
+        .join('\n')
+      const scan = scanBureauDelinquencies(bureauText)
+      if (scan.delinquency_dates.length) {
+        creditReport.historical_delinquency_dates = scan.delinquency_dates
+        const transcribedLate = (creditReport.tradelines || []).some(t => /[1-9]/.test(String(t.late_30_60_90 || '')) || (t.past_due ?? 0) > 0)
+        if (!transcribedLate) {
+          forensicsReport.all_flags.push({ code: 'bureau_delinquency_history', severity: 'medium', file: creditReport.source_file || undefined,
+            evidence_en: `The bureau file prints a Delinquencies entry dated ${scan.delinquency_dates.join(', ')} (a past-due month on one account) that the transcription recorded as 0/0/0. No current delinquency, but the payment history is not spotless — read the account's month table.`,
+            evidence_zh: `征信档案在某账户下印有 Delinquencies ${scan.delinquency_dates.join('、')}（有一个月逾期），而转录记成了 0/0/0。目前无逾期，但还款史并非全无瑕疵——请看该账户的逐月表。` })
+        }
+      }
+    }
+
     // ── Credit-report tradeline ages vs applicant DOB ─────────────────
     // A minor cannot open an individual credit account, so a tradeline
     // opened before the applicant was 16 means the report is not theirs,
@@ -2654,9 +2678,43 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     const identityConsistentMeasured: boolean | null = nameConsistent === null ? null : (nameConsistent && dobConsistent !== false)
 
     let rubric: RubricResult | null = null
+    // ── Residence timeline vs the applicant's Canadian footprint; self-named
+    //    landlord (2026-09-16, 6269 Ash St) ─────────────────────────────
+    try {
+      const prevRes = crossDocVerification?.application_summary?.prev_residences ?? []
+      const applicantNames = [nameForLookup, ...(Array.isArray(parsed.extracted_names) ? parsed.extracted_names : [])].filter((x): x is string => typeof x === 'string' && x.trim().length > 1)
+      const idDocs = ((coherence?.documents ?? []) || []).filter((d: { kind?: string }) => d.kind === 'id_document')
+      const licenceIssued = idDocs.flatMap((d: { key_facts?: { dates?: string[] } }) => d.key_facts?.dates || [])
+        .filter(d => /^(?:20)\d{2}-\d{2}-\d{2}$/.test(d) && d <= new Date().toISOString().slice(0, 10))
+        .sort().pop() ?? null
+      const bureauDocs = ((coherence?.documents ?? []) || []).filter((d: { kind?: string }) => d.kind === 'credit_report')
+      const bureauAddressDates = bureauDocs.flatMap((d: { key_facts?: { dates?: string[]; addresses?: string[] } }) => (d.key_facts?.dates || []).filter(x => /^20\d{2}-\d{2}-01$/.test(x)).map(x => ({ date: x, label: 'address reported on the credit file' })))
+      const footprint = footprintFromFacts({
+        tradelines: creditReport?.tradelines ?? null,
+        inquiries: creditReport?.inquiries ?? null,
+        bureauAddressDates,
+        licenceIssued,
+      })
+      const tl = checkResidenceTimeline({ residences: prevRes, vacating_reason: crossDocVerification?.application_summary?.vacating_reason ?? null, applicantNames, footprint })
+      for (const fl of tl) {
+        forensicsReport.cross_doc_flags.push({ code: fl.code, severity: fl.severity, evidence_en: fl.evidence_en, evidence_zh: fl.evidence_zh })
+        if (fl.code === 'cross_doc_residence_timeline_contradiction' && !redFlags.includes('residence_timeline_contradiction')) redFlags.push('residence_timeline_contradiction')
+      }
+    } catch (e) {
+      console.warn('[screen-score] residence timeline check failed', (e as Error).message)
+    }
+
     let rubricFacts: RubricFacts | null = null
     try {
       const prev = crossDocVerification?.application_summary?.prev_residences ?? []
+      // A "landlord" who is the applicant is not a reference (2026-09-16).
+      const selfNames = [nameForLookup, ...(Array.isArray(parsed.extracted_names) ? parsed.extracted_names : [])].filter((x): x is string => typeof x === 'string' && x.trim().length > 1)
+      const isSelf = (n: string) => selfNames.some(a => sameName(a, n) || nameCovers(a, n) || nameCovers(n, a))
+      // Stubs that are images with no producer (or carry a generator
+      // signature) cannot vouch for their own arithmetic: statutory caps
+      // computed to the cent are also what generators do (2026-09-16).
+      const stubsUntrusted = forensicsReport.per_file.some(pf =>
+        (pf.file_kind || '').includes('pay_stub') && pf.flags.some(f => f.code === 'pdf_pure_image' || f.code === 'pdf_metadata_stripped' || f.code === 'paystub_generator_signature'))
       rubricFacts = {
         monthly_rent: effectiveRent || null,
         claimed_monthly_income: detectedIncomeForGate ?? bankVerifiedMonthly,
@@ -2679,7 +2737,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         // Portal name-only matches are namesakes until corroborated and are
         // never scored (see the portal block).
         courtDefendantHits: 0,
-        landlordRefs: prev.filter((p) => p.landlord_name && p.landlord_phone).length,
+        landlordRefs: prev.filter((p) => p.landlord_name && p.landlord_phone && !isSelf(p.landlord_name)).length,
         declaredAddresses: prev.length,
         documentKinds: Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds : [],
         contradictions: redFlags.filter((r: string) => /contradict|mismatch|collision/i.test(r)),
@@ -2692,7 +2750,8 @@ If the uploaded evidence does not support the dimension, score it per the rubric
           .map(fl => ({ code: fl.code, severity: fl.severity as 'critical' | 'high' | 'medium' | 'low' })),
         corroborations: [...forensicsReport.cross_doc_flags, ...forensicsReport.all_flags]
           .filter(fl => fl.severity === 'info')
-          .map(fl => fl.code),
+          .map(fl => fl.code)
+          .filter(code => !(stubsUntrusted && (code === 'paystub_deductions_at_legal_max' || code === 'paystub_period_deductions_verified'))),
         identityConsistent: identityConsistentMeasured,
         incomeDocsAgeDays: forensicsReport.recency?.income_docs_median_age_days ?? null,
         externalVerifications: {

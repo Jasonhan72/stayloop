@@ -156,6 +156,8 @@ export interface CreditReport {
   /** hard: Equifax "May affect scores: Yes" / TransUnion hard; false = soft; null = column not printed.
    *  kind: credit (an application for credit) · account_review · non_credit (identity, tenancy, collection, employment) */
   inquiries?: Array<{ date: string; creditor: string; hard?: boolean | null; kind?: 'credit' | 'account_review' | 'non_credit' | null }>
+  /** dates printed under a "Delinquencies" heading, read deterministically from the PDF text (2026-09-16) — the transcription may have dropped them */
+  historical_delinquency_dates?: string[]
   /** the name printed on the report header — with several applicants the transcription must say whose file this is (2026-09-12) */
   subject_name?: string | null
   /** the uploaded file the transcription came from */

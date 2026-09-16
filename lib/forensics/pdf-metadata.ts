@@ -85,7 +85,10 @@ function parseRawPdfMetadata(bytes: Uint8Array): Partial<PdfMetadataResult> | nu
     if (!infoBlock) return null
 
     const extractValue = (key: string): string | null => {
-      const keyIdx = infoBlock!.indexOf(`/${key}`)
+      // ModDate: an incrementally updated file carries one Info dict per
+      // revision; the LAST is the current one (2026-09-16: a letter edited
+      // in Preview on 05-29 and again on 09-06 read as "modified 05-29").
+      const keyIdx = key === 'ModDate' ? infoBlock!.lastIndexOf(`/${key}`) : infoBlock!.indexOf(`/${key}`)
       if (keyIdx < 0) return null
       const afterKey = infoBlock!.substring(keyIdx + key.length + 1).trimStart()
 
@@ -752,6 +755,21 @@ export function checkPdfMetadata(
   // field in a real bank PDF is either empty or the account/statement number.
   // It would NEVER contain "PNG" or "screenshot".
   // ---------------------------------------------------------------------------
+  // Rule 2a: online pay-stub generators export files titled like
+  // "paystub_4_20260817160120" (template index + timestamp) with no
+  // Producer at all; a payroll system (ADP, Ceridian, Workday, Rise…) always
+  // stamps its producer and titles the file by employee/period, if at all.
+  // (2026-09-16, 6269 Ash St — three such stubs, two generated a minute apart.)
+  const GENERATOR_TITLE = /^(?:pay[_ -]?stubs?|paystub|stub|earnings?[_ -]?statement|check[_ -]?stub|cheque[_ -]?stub)[_ -]?\d{0,3}[_ -]?\d{12,14}$/i
+  if (kind === 'pay_stub' && GENERATOR_TITLE.test(title) && !meta.producer && !meta.creator) {
+    flags.push({
+      code: 'paystub_generator_signature',
+      severity: 'high',
+      file,
+      evidence_en: `PDF title "${title}" is a template-plus-timestamp name and the file names no producing software — the export signature of online pay-stub generators, not of a payroll system. Ask the employer for stubs from their payroll provider, or a T4 / ROE / CRA proof of income.`,
+      evidence_zh: `PDF 标题「${title}」是「模板编号 + 时间戳」式命名，且文件没有任何生成软件信息——这是在线工资单生成器的导出特征，不是工资系统的。请向雇主索取工资系统出具的工资单，或 T4 / ROE / CRA 收入证明。`,
+    })
+  }
   if (IMAGE_TITLE_PATTERN.test(title) || IMAGE_TITLE_PATTERN.test(meta.subject || '')) {
     flags.push({
       code: 'pdf_title_indicates_image',

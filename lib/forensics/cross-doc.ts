@@ -537,14 +537,24 @@ export function reconcileIncomeAcrossDocs(perFile: IncomeReconcileFile[], crossD
     if (!demoted && ext.annual_salary && !flaggedLetters.has(letter.name)) {
       flaggedLetters.add(letter.name)
       const diff = Math.abs(ext.annual_salary - stated) / stated
-      if (diff <= 0.10) {
+      // 2026-09-16 (6269 Ash St): a $96,000 letter and $104,000 of stubs
+      // (8%) were "corroborated" and earned +5. Two documents from the same
+      // payroll agree to the dollar; a gap is a question, not a match.
+      if (diff > 0.03 && diff < 0.10) {
+        crossDocFlags.push({
+          code: 'cross_doc_income_near_match',
+          severity: 'low',
+          evidence_en: `Pay stub annualized salary $${ext.annual_salary.toLocaleString()} and the $${stated.toLocaleString()}/yr stated in "${letter.name}" differ by ${(diff * 100).toFixed(1)}%. Same employer, same year — the two figures should agree; ask which one is current (raise, hours change, or a letter written from memory).`,
+          evidence_zh: `工资单年化薪资 $${ext.annual_salary.toLocaleString()} 与雇佣信《${letter.name}》写的 $${stated.toLocaleString()}/年 相差 ${(diff * 100).toFixed(1)}%。同一雇主同一年，两个数字本应一致——请问清哪个是现行数（加薪、工时变化，还是信件凭记忆写的）。`,
+        })
+      } else if (diff <= 0.03) {
         crossDocFlags.push({
           code: 'cross_doc_income_corroborated',
           severity: 'info',
           evidence_en: `Pay stub annualized salary $${ext.annual_salary.toLocaleString()} matches the $${stated.toLocaleString()}/yr stated in "${letter.name}" (within ${(diff * 100).toFixed(1)}%). Two independent documents agree — authenticity corroboration.`,
           evidence_zh: `工资单年化薪资 $${ext.annual_salary.toLocaleString()} 与雇佣信《${letter.name}》声明的 $${stated.toLocaleString()}/年 吻合（偏差 ${(diff * 100).toFixed(1)}%）。两份独立文件互证——真实性佐证。`,
         })
-      } else if (diff >= 0.25) {
+      } else if (diff >= 0.10) {
         crossDocFlags.push({
           code: 'cross_doc_income_mismatch',
           severity: 'medium',

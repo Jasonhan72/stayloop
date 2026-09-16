@@ -355,6 +355,30 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 **仍未做 / 待外部**：消费者报告机构注册（研究进行中）；转介佣金引擎冻结；Realtor.ca 数据来源换 DDF Partner；
 到期前 30 天自动转 `renewal_due` 的定时任务（目前由管理员手动标过期）。
 
+## 人工通读 vs 模块（2026-09-16 · 6269 Ash St 案）
+
+用户要求：先由 Claude 逐份读原件，再与 Stayloop 报告对照，**模块必须做到比人工更完善**。两边结论一致（decline，
+在职信是 3 月的旧文件改日期、雇主注册库 Inactive），但模块漏了四处，全部系统化并有守卫 `tests/case6269Ash.spec.ts`：
+- **收入「互证」门槛**：在职信 $96,000 vs 工资单 $50×80h×26 = $104,000（8%）被当成「吻合」并给 +5。`cross-doc.ts`
+  现在 ≤3% 才是 `cross_doc_income_corroborated`，3–10% 是 `cross_doc_income_near_match`（低级、不计佐证分），
+  ≥10% 即 `cross_doc_income_mismatch`（原来 25% 才算）。
+- **居住时间线 vs 加拿大足迹**：申请表写 2016–2026 住在国外、「moving back to Canada」，而征信显示 2022 年起加拿大
+  现住址、2021/2022/2026 开卡、2025–2026 三次 Yardi 租房筛查查询、安省驾照 2022 年签发。`lib/screening/
+  residenceTimeline.ts`：地址无加拿大省 / 市 / 邮编标记且住满 ≥24 个月、期间内 ≥2 条足迹事件（开户、租房筛查
+  查询、硬查询、局方地址、驾照签发）→ `cross_doc_residence_timeline_contradiction`（high，进矛盾扣分）；
+  房东姓名 = 申请人 → `cross_doc_landlord_is_applicant`（medium），且该参考人不再计入 `landlordRefs`。
+  一致性审查提示词同步加了这三条规则。
+- **征信逾期漏转录**：Fido 账户下印着「Delinquencies 2023/05/16」和 2023-05 逾期 $125，转录成 0/0/0。
+  `lib/screening/bureauTextScan.ts` 直接从 PDF 文本读 Delinquencies 日期（跳过「no delinquencies」句），写入
+  `credit_report.historical_delinquency_dates`，转录为 0 时补 `bureau_delinquency_history`（medium）。
+- **EI 封顶不是真实性证据**：2026 年 MIE $68,900 × 1.63% = $1,123.07 分毫不差，在线生成器同样内置当年上限。
+  工资单是纯图片 / 无生成软件 / 带生成器签名时，`paystub_deductions_at_legal_max` 不再计入佐证分。
+- **生成器指纹**：标题「paystub_4_20260817160120」= 模板编号 + 时间戳且无 Producer，是在线工资单生成器的导出特征
+  → `paystub_generator_signature`（high，进 FORGERY_INDICATING_CODES）。
+- **ModDate 取最后一次修订**：在职信 3 月创建、5-29 与 9-06 两次 Preview 编辑，浅层解析取到的是 5-29。
+另外核实：雇主网站 globenetint.com 存在但只有联系表单（无地址电话），域名 2020-11 注册而信称 2015 入职；法院门户
+与 LTB 均无 MARUANIY 记录；驾照号编码（M + 780617）与生日自洽。
+
 ## 法庭数据源「未能检索」（2026-09-15 · 两个真实原因）
 
 用户截图：CanLII 与安省法院门户两行都显示「未能检索（超时 / 不可用）」。
