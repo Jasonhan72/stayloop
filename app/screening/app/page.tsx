@@ -3919,7 +3919,7 @@ export default function ScreenPage() {
                                 background: flag.severity === 'critical' ? '#B91C1C' : flag.severity === 'high' ? '#D97706' : '#64748B',
                                 color: '#fff',
                               }}>
-                                {flag.severity === 'critical' ? (lang === 'zh' ? '严重' : 'CRIT') : flag.severity === 'high' ? (lang === 'zh' ? '高' : 'HIGH') : (lang === 'zh' ? '中' : 'MED')}
+                                {flag.severity === 'critical' ? (lang === 'zh' ? '严重' : 'CRIT') : flag.severity === 'high' ? (lang === 'zh' ? '高' : 'HIGH') : flag.severity === 'medium' ? (lang === 'zh' ? '中' : 'MED') : flag.severity === 'info' ? (lang === 'zh' ? '佐证' : 'INFO') : (lang === 'zh' ? '低' : 'LOW')}
                               </span>
                               <span style={{ color: '#0B1736' }}>{lang === 'zh' ? flag.evidence_zh : flag.evidence_en}</span>
                             </div>
