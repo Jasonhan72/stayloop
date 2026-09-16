@@ -443,7 +443,7 @@ CRA 只公布定罪（enforcement notifications），本案无；CanLII / 法院
 3 个 pg_cron 任务 + Vault `cron_secret`；Auth 配置（站点地址、跳转白名单、Resend SMTP、全部邮件模板、Google OAuth
 client）经 Management API 整块复制（hook_* 与 oauth_server_* 两组键新项目计划不允许，已剔除）。**GET 回来的 `smtp_pass`
 是 64 位掩码不是真密码**，照抄会让魔法链接报 500「Error sending magic link email」——要用 `.env.local` 的 `RESEND_API_KEY`
-单独 PATCH 一次。
+单独 PATCH 一次。**`external_google_secret` 同样是掩码**（Google 回调后 Auth 日志报 `invalid_client: The provided client secret is invalid`，前端显示「登录链接已失效」），要从 Google Cloud Console 的 OAuth client 取真实的 `GOCSPX-…` 密钥再 PATCH。
 - **做法**（无 Docker，`supabase db dump` 不可用）：本机 libpq 18 的 `pg_dump --schema=public --schema=supabase_migrations`
   结构 + 数据、`--table=auth.users --table=auth.identities`，存储策略从 `pg_policies` 重新生成，cron 从 `cron.job` 重新生成；
   走 **session pooler 5432**（`postgres.<ref>@aws-1-us-east-1 / aws-0-ca-central-1.pooler.supabase.com`，主机名从
