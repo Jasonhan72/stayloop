@@ -219,6 +219,12 @@ describe('rankCommercial — min_sqft / max_price', () => {
     )
     expect(out.map((l) => l.address)).toEqual(['big', 'near', 'unknown'])
   })
+  it('never returns empty while sized pages were parsed — shows the closest, flagged', () => {
+    const out = rankCommercial([mk('tiny', 3000, 5000), mk('smallish', 12000, 15000)], { min_sqft: 30000, max_price: null })
+    expect(out.map((l) => l.address)).toEqual(['smallish', 'tiny'])
+    expect(out[0].specs_warn).toEqual(['面积偏小 12,000'])
+    expect(out[0].fit_tier).toBe(2)
+  })
   it('applies max_price to the monthly figure only when we have one', () => {
     const out = rankCommercial(
       [mk('cheap', 1000, 1500), mk('pricey', 1000, 9000), mk('unknown', 1000, 0, 'unknown')],

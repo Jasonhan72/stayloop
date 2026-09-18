@@ -523,7 +523,7 @@ export function assessFit(l: ListingCard, need: CommercialNeed): { tier: number;
       // size — nothing leases that cheaply, so it is far smaller than asked.
       if (l.price_basis === 'monthly' && (l.price * 12) / minSq < 5) drop = true
       else tier = Math.max(tier, 3)
-    } else if (area < minSq * 0.7) {
+    } else if (area < minSq * 0.5) {
       drop = true
     } else if (area < minSq * 0.9) {
       warn.push(`面积偏小 ${area.toLocaleString()}`)
@@ -571,12 +571,25 @@ export function rankCommercial(cards: ListingCard[], need: CommercialNeed): List
   const key = (x: { l: ListingCard }) => {
     const area = x.l.sqft_max ?? x.l.sqft ?? x.l.sqft_min
     if (minSq) return area == null ? Number.MAX_SAFE_INTEGER / 2 : Math.abs(area - minSq)
-    return x.l.price_basis === 'unknown' ? Number.MAX_SAFE_INTEGER / 2 : x.l.monthly_all_in ?? x.l.price
+    // No size asked: detail pages (area + specs known) before bare list rows,
+    // then by monthly cost.
+    const base = area == null ? Number.MAX_SAFE_INTEGER / 4 : 0
+    return base + (x.l.price_basis === 'unknown' ? Number.MAX_SAFE_INTEGER / 8 : x.l.monthly_all_in ?? x.l.price)
   }
   const ranked = scored.sort((a, b) => a.fit.tier - b.fit.tier || key(a) - key(b)).map((x) => x.l)
   // On a sized search, rows with no printed area (generic list-page rows)
   // are noise once there are enough sized candidates to compare.
   if (minSq && ranked.filter((l) => (l.fit_tier ?? 0) <= 2).length >= 3) return ranked.filter((l) => l.fit_tier !== 3)
+  // Never hand back an empty screen while real pages were parsed: show the
+  // closest sizes, flagged, so the tenant sees what the market has.
+  if (!ranked.length && cards.length && minSq) {
+    const byArea = (l: ListingCard) => l.sqft_max ?? l.sqft ?? l.sqft_min
+    return cards
+      .filter((l) => byArea(l) != null)
+      .sort((a, b) => Math.abs((byArea(a) as number) - minSq) - Math.abs((byArea(b) as number) - minSq))
+      .slice(0, 6)
+      .map((l) => ({ ...l, fit_tier: 2, specs_warn: [(byArea(l) as number) < minSq ? `面积偏小 ${(byArea(l) as number).toLocaleString()}` : '面积远超需求'] }))
+  }
   return ranked
 }
 
@@ -790,7 +803,15 @@ export async function searchCommercial(
             return (Array.isArray(d?.data) ? d.data : []).filter(isLeaseCandidate).map((r) => ({ url: r.url as string, score: scoreSnippet(r, c) }))
           }
           const queries = buildDetailQueries(c, kind)
-          const found = await Promise.all(queries.map((q) => searchOne(q).catch(() => [] as Hit[])))
+          let found = await Promise.all(queries.map((q) => searchOne(q).catch(() => [] as Hit[])))
+          // The search backend answers 422 / empty to some queries under
+          // parallel load and 10 hits to the same query a second later —
+          // retry the empty ones once (measured 2026-09-18: Richmond Hill 7
+          // sequential vs 422 in a batch of 9).
+          if (found.some((f) => !f.length)) {
+            await new Promise((r) => setTimeout(r, 800))
+            found = await Promise.all(found.map((f, i) => (f.length ? Promise.resolve(f) : searchOne(queries[i]).catch(() => [] as Hit[]))))
+          }
           if (process.env.COMMERCIAL_DEBUG) console.warn('[commercial] queries', queries.map((q, i) => `${found[i].length} ← ${q}`))
           // Dedupe (best score wins), then interleave the per-query lists by
           // score band so every area gets read within the DETAIL_READS budget
