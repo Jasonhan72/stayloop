@@ -12,6 +12,7 @@ import {
   extractFacts,
   extractSpecs,
   searchAreas,
+  splitAreas,
   summarizeCommercial,
   useProhibited,
   isLeaseCandidate,
@@ -261,6 +262,16 @@ describe('detail search plumbing', () => {
     expect(isLeaseCandidate({ url: 'https://www.realtor.ca/real-estate/29692091/1805-80-absolute', title: '1805 - 80 ABSOLUTE AVENUE S', description: '1 bedrooms, 2 bathrooms, for sale $399000.' })).toBe(false)
     expect(isLeaseCandidate({ url: 'https://www.realtor.ca/on/toronto/commercial-space-for-lease', title: 'Commercial Spaces For Lease in Toronto', description: 'lease' })).toBe(false)
     expect(isLeaseCandidate({ url: 'https://evil.example/real-estate/1/x', title: 'for lease', description: '' })).toBe(false)
+  })
+})
+
+describe('splitAreas — one string naming several cities', () => {
+  it('splits slash / comma / 、 / and lists into cities', () => {
+    expect(splitAreas(['Markham/ Richmond Hill /Toronto'])).toEqual(['Markham', 'Richmond Hill', 'Toronto'])
+    expect(splitAreas(['Vaughan and Mississauga', 'Ajax、Pickering'])).toEqual(['Vaughan', 'Mississauga', 'Ajax', 'Pickering'])
+    expect(searchAreas({ area: 'Markham/ Richmond Hill /Toronto', area_candidates: null })).toEqual(['Markham', 'Richmond Hill', 'Toronto'])
+    expect(cityAllowed('Mississauga', { area: 'Markham/ Richmond Hill /Toronto', area_candidates: null })).toBe(false)
+    expect(cityAllowed('Richmond Hill', { area: 'Markham/ Richmond Hill /Toronto', area_candidates: null })).toBe(true)
   })
 })
 

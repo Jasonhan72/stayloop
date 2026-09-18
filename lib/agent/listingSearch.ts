@@ -106,7 +106,7 @@ export function normalizeArea(area?: string | null): string | null {
   // Model sometimes emits compound areas ("University of Toronto, Downtown
   // Toronto"). Keep the most specific segment — the compound string matches
   // nothing in the DB ilike pattern and dilutes the Realtor.ca query.
-  return t.split(',')[0].trim() || null
+  return t.split(/[,\/、]/)[0].trim() || null
 }
 
 // ---------- Street / building-level matching ----------

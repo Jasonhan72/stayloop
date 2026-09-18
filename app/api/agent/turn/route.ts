@@ -976,6 +976,10 @@ export async function POST(req: Request) {
     listings_source: listingsSource,
     listings_notice: listingsNotice,
     listings_page: listings ? (typeof searchObj.count === 'number' ? Math.min(Math.max(Math.round(searchObj.count), 1), 6) : 6) : undefined,
+    // The criteria the listing search ran with — the only way to tell, from
+    // outside, whether an empty result came from the model's fields or the
+    // retrieval (2026-09-18: a zero-result pickleball query was undiagnosable).
+    search_used: search && typeof search === 'object' ? searchObj : undefined,
     market,
     followups,
     draft_listing: draftListing,

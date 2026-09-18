@@ -104,10 +104,19 @@ export function listPageUrls(base: string, kind: CommercialKind): string[] {
   return urls
 }
 
+// "Markham/ Richmond Hill /Toronto" arrives as ONE area string when the
+// model copies the user's phrasing — split it into the cities it names.
+export function splitAreas(raw: (string | null | undefined)[]): string[] {
+  return raw
+    .flatMap((s) => (s || '').split(/\s*[\/、&;，,]\s*|\s+(?:and|or|和|或)\s+/i))
+    .map((s) => s.trim().replace(/^(?:in|near)\s+/i, ''))
+    .filter(Boolean)
+}
+
 // The areas the detail search fans out over: the user's own areas (deduped,
-// ≤6), or the default GTA set when the ask is GTA-wide / unlocated.
+// ≤8), or the default GTA set when the ask is GTA-wide / unlocated.
 export function searchAreas(c: Pick<SearchCriteria, 'area' | 'area_candidates'>): string[] {
-  const raw = [c.area, ...(c.area_candidates ?? [])].map((s) => (s || '').trim()).filter(Boolean)
+  const raw = splitAreas([c.area, ...(c.area_candidates ?? [])])
   const named = raw.filter((a) => !isGtaWide(a))
   const seen = new Set<string>()
   const out: string[] = []
@@ -660,7 +669,7 @@ const GTA_CITIES = new Set([
 export function cityAllowed(city: string | undefined, c: Pick<SearchCriteria, 'area' | 'area_candidates'>): boolean {
   if (!city) return true
   const l = city.toLowerCase().trim()
-  const raw = [c.area, ...(c.area_candidates ?? [])].map((s) => (s || '').trim()).filter(Boolean)
+  const raw = splitAreas([c.area, ...(c.area_candidates ?? [])])
   const wide = !raw.length || raw.some(isGtaWide)
   if (wide) return GTA_CITIES.has(l)
   const named = raw.filter((a) => !isGtaWide(a)).map((a) => a.toLowerCase())
