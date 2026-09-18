@@ -26,6 +26,7 @@ import type { ListingCard } from './types'
 import type { ExternalStatus, SearchCriteria } from './listingSearch'
 
 export type CommercialKind = 'commercial' | 'office' | 'retail' | 'industrial' | 'land'
+const MAX_QUERIES = 16
 
 const KIND_SET = new Set<string>(['commercial', 'office', 'retail', 'industrial', 'land'])
 
@@ -575,7 +576,7 @@ export function rankCommercial(cards: ListingCard[], need: CommercialNeed): List
   const ranked = scored.sort((a, b) => a.fit.tier - b.fit.tier || key(a) - key(b)).map((x) => x.l)
   // On a sized search, rows with no printed area (generic list-page rows)
   // are noise once there are enough sized candidates to compare.
-  if (minSq && ranked.filter((l) => (l.fit_tier ?? 0) <= 2).length >= 6) return ranked.filter((l) => l.fit_tier !== 3)
+  if (minSq && ranked.filter((l) => (l.fit_tier ?? 0) <= 2).length >= 3) return ranked.filter((l) => l.fit_tier !== 3)
   return ranked
 }
 
@@ -583,7 +584,7 @@ export function rankCommercial(cards: ListingCard[], need: CommercialNeed): List
 // answered before the search ran, so this is the only place the numbers
 // the tenant asked about (size band, clear heights, all-in cost, exclusions)
 // can be stated truthfully.
-export function summarizeCommercial(cards: ListingCard[], need: CommercialNeed, zh: boolean): string {
+export function summarizeCommercial(cards: ListingCard[], need: CommercialNeed, zh: boolean, checked = 0): string {
   if (!cards.length) return ''
   const cities = Array.from(new Set(cards.map((l) => l.city).filter((c): c is string => !!c)))
   const areas = cards.map((l) => l.sqft).filter((n): n is number => !!n)
@@ -598,21 +599,21 @@ export function summarizeCommercial(cards: ListingCard[], need: CommercialNeed, 
   const range = (arr: number[]) => (arr.length ? `${Math.min(...arr).toLocaleString()}–${Math.max(...arr).toLocaleString()}` : '')
   if (zh) {
     const parts: string[] = []
-    parts.push(`实时共找到 ${cards.length} 套（${cities.join(' / ') || 'GTA'}）`)
+    parts.push(`本轮核对了 ${Math.max(checked, cards.length)} 套 Realtor.ca 挂牌，${cards.length} 套接近你的条件（${cities.join(' / ') || 'GTA'}）`)
     if (areas.length) parts.push(`面积 ${range(areas)} sqft`)
     if (minClear) parts.push(clears.length ? `净高已标注 ${clears.length} 套，其中 ${clearOk} 套 ≥ ${minClear}'，其余需现场确认` : `净高均未标注，需现场确认`)
     else if (clears.length) parts.push(`净高已标注 ${clears.length} 套`)
     if (costs.length) parts.push(`年成本（净租 + 挂牌自报 TMI）${fmt(Math.min(...costs))}–${fmt(Math.max(...costs))}`)
     if (prohibited) parts.push(`${prohibited} 套房东明写禁止你的用途，已标红排在最后`)
-    return `\n\n${parts.join('；')}。按匹配度排序，下方表格可横向对比；zoning 是否允许你的用途需向市府申请书面确认（zoning confirmation letter）。`
+    return `\n\n${parts.join('；')}。按匹配度排序，下方表格可横向对比；每轮检索结果有波动，点「换一批」会带着已看过的地址再挖一轮；zoning 是否允许你的用途需向市府申请书面确认（zoning confirmation letter）。`
   }
   const parts: string[] = []
-  parts.push(`${cards.length} live listings found (${cities.join(' / ') || 'GTA'})`)
+  parts.push(`${Math.max(checked, cards.length)} Realtor.ca listings checked this round, ${cards.length} close to your criteria (${cities.join(' / ') || 'GTA'})`)
   if (areas.length) parts.push(`${range(areas)} sqft`)
   if (minClear) parts.push(clears.length ? `clear height stated on ${clears.length}, ${clearOk} at ≥ ${minClear}'` : 'no clear heights stated — verify on site')
   if (costs.length) parts.push(`annual cost (net + listed TMI) ${fmt(Math.min(...costs))}–${fmt(Math.max(...costs))}`)
   if (prohibited) parts.push(`${prohibited} exclude your use per the listing (flagged red, ranked last)`)
-  return `\n\n${parts.join('; ')}. Ranked by fit; compare in the table below. Confirm zoning for your use with the municipality (zoning confirmation letter).`
+  return `\n\n${parts.join('; ')}. Ranked by fit; compare in the table below. Results vary run to run — "Next batch" digs again excluding what you've seen. Confirm zoning for your use with the municipality (zoning confirmation letter).`
 }
 
 // Search-result snippets from `site:realtor.ca/real-estate …` include
@@ -625,29 +626,74 @@ export function isLeaseCandidate(r: { url?: string; title?: string; description?
   return /for lease|lease|\/square feet|\/sqft|industrial|warehouse|retail|office|commercial/i.test(text)
 }
 
-// Jina search answers 422 ("no results") to over-specific queries — the
-// full spec list ("clear height 24 ft, clear span, pickleball courts,
-// parking") got zero hits where the same need phrased short got ten. So
-// every query is SHORT: kind + area + size, and for the primary area one
-// extra variant with the first spec phrase. Fanned out over the areas
-// (≤8 queries total), unioned and deduped.
+// The web index behind Jina search matches terms literally and ranks
+// short queries best: "industrial for lease Markham" returns 10 detail
+// pages, the same query with "30,000 sq ft" appended returns 0–1 (2026-09-18
+// probes, sequential and parallel). So queries carry NO size and NO numbers
+// — kind + city in three phrasings, plus the spec WORD ("clear height") —
+// and the size requirement is applied afterwards, first on the search
+// snippets (scoreSnippet) to choose which detail pages to read, then on the
+// parsed page. ≤10 queries total; 422 is Jina's "no results", not an outage.
 export function buildDetailQueries(c: SearchCriteria, kind: CommercialKind): string[] {
   const kindWord = { commercial: 'commercial space', office: 'office space', retail: 'retail space', industrial: 'industrial warehouse', land: 'land' }[kind]
+  const kindNoun = { commercial: 'commercial', office: 'office', retail: 'retail', industrial: 'industrial', land: 'land' }[kind]
   const firstSpec = (c.keywords || '')
     .split(/[,;，；\n]/)[0]
     .replace(/[^\p{L}\p{N}\s'’.-]/gu, ' ')
     .trim()
     .slice(0, 40)
-  const sq = c.min_sqft ? `${Math.round(c.min_sqft).toLocaleString('en-CA')} sq ft` : ''
+  const specWord = firstSpec.replace(/\d+(?:\.\d+)?\s*(?:'|ft\.?|feet|foot|sq\.? ?ft|sqft|sf)?/gi, ' ').replace(/\s+/g, ' ').trim()
   const areas = searchAreas(c)
+  const P = 'site:realtor.ca/real-estate'
+  // Large-space vocabulary ("truck level", "freestanding", "sublease") pulls
+  // whole buildings; the index otherwise favours small units and suites.
+  const bigWords: Record<CommercialKind, string[]> = {
+    industrial: ['"truck level"', 'freestanding warehouse', 'warehouse sublease'],
+    commercial: ['freestanding building', '"entire building"', 'sublease'],
+    office: ['"full floor"', '"entire floor"', 'sublease'],
+    retail: ['"end cap"', 'freestanding retail', 'plaza'],
+    land: ['acres', 'outside storage', 'yard'],
+  }
+  // Order = value per query when the budget cuts the list short.
+  const variants = (a: string): string[] => {
+    const big = bigWords[kind]
+    const v = [`${P} ${kindWord} for lease ${a}`]
+    if (specWord) v.push(`${P} "${a}" ${kindNoun} "${specWord}"`)
+    v.push(`${P} "${a}" ${kindNoun} ${big[0]}`, `${P} ${a} Ontario ${kindNoun} lease`, `${P} "${a}" ${kindNoun} ${big[1]}`, `${P} "For lease" "${a} (" ${kindNoun}`, `${P} "${a}" ${kindNoun} ${big[2]}`)
+    return v
+  }
+  const perArea = Math.max(1, Math.min(6, Math.floor(MAX_QUERIES / Math.max(areas.length, 1))))
   const qs: string[] = []
-  const q = (area: string, extra = '') => `site:realtor.ca/real-estate ${kindWord} for lease ${area} ${extra} ${sq}`.replace(/\s+/g, ' ').trim()
-  // Every area gets the spec-bearing form (it pulls the right kind of unit —
-  // "clear height" queries return warehouses, size-only ones return whatever
-  // mentions the number); the primary area also gets the plain size form.
-  for (const a of areas) qs.push(q(a, firstSpec))
-  if (firstSpec) qs.push(q(areas[0]))
-  return Array.from(new Set(qs)).slice(0, 10)
+  for (let i = 0; i < perArea; i++) for (const a of areas) {
+    const v = variants(a)
+    if (v[i]) qs.push(v[i])
+  }
+  return Array.from(new Set(qs)).slice(0, MAX_QUERIES)
+}
+
+// Triage a search hit by its snippet before spending a detail read: a
+// printed area inside the band is the strongest signal, a printed area far
+// below it the strongest negative; the spec word is a mild plus.
+export function scoreSnippet(r: { title?: string; description?: string }, need: Pick<SearchCriteria, 'min_sqft' | 'max_sqft' | 'keywords'>): number {
+  const text = `${r.title || ''} ${r.description || ''}`
+  let score = 0
+  const minSq = need.min_sqft && need.min_sqft > 0 ? need.min_sqft : null
+  if (minSq) {
+    const maxSq = need.max_sqft && need.max_sqft > 0 ? need.max_sqft : minSq * 2
+    const nums = Array.from(text.matchAll(/([\d,]{4,9})\s*(?:\+\/-\s*)?(?:sq\.?\s*ft\.?|sqft|square\s*feet|sf)\b/gi))
+      .map((m) => parseInt(m[1].replace(/,/g, ''), 10))
+      .filter((n) => Number.isFinite(n) && n >= 500)
+    if (nums.length) {
+      if (nums.some((n) => n >= minSq * 0.7 && n <= maxSq * 2)) score += 3
+      else if (nums.every((n) => n < minSq * 0.7)) score -= 3
+    }
+  }
+  const spec = (need.keywords || '').split(/[,;，；\n]/)[0].replace(/\d+(?:\.\d+)?\s*(?:'|ft\.?|feet|foot)?/gi, ' ').trim().toLowerCase()
+  if (spec && spec.length > 3 && text.toLowerCase().includes(spec)) score += 1
+  // Whole-building vocabulary vs. small-unit vocabulary.
+  if (/truck[- ]level|freestanding|free-standing|entire building|full building|trailer|dock/i.test(text)) score += 1
+  if (/\b(?:suite|office unit|small unit|mezzanine unit|studio|kiosk)\b/i.test(text) && !/warehouse|industrial/i.test(text)) score -= 1
+  return score
 }
 
 // Primary query only (tests / callers that want one string).
@@ -679,10 +725,13 @@ export function cityAllowed(city: string | undefined, c: Pick<SearchCriteria, 'a
 const TORONTO_DISTRICTS = new Set(['scarborough', 'etobicoke', 'north york', 'east york', 'york', 'downtown', 'old toronto'])
 
 // ---------- Network orchestration ----------
-// Subrequest budget: ≤10 searches + ≤22 detail reads + ≤2 list pages keeps
-// the whole turn under Cloudflare's per-request cap with room for the
-// model / DB calls.
-const DETAIL_READS = 24
+// Budget: ≤12 searches + ≤40 detail reads + ≤2 list pages, all parallel
+// (wall-clock ≈ one read). Search snippets rarely print the area, so the
+// only way to find the ~30% of hits that are in the size band is to read
+// them; 40 reads ≈ 0.5¢ of Jina credit. Assumes the Workers Paid
+// subrequest cap (1,000) — screen-score already makes far more than the
+// Free plan's 50 per request.
+const DETAIL_READS = 48
 const PROVIDER_DOWN = new Set([401, 402, 403, 429])
 
 async function jinaRead(key: string, url: string, timeoutMs: number): Promise<{ md: string; status: number }> {
@@ -702,9 +751,10 @@ export async function searchCommercial(
   c: SearchCriteria,
   kind: CommercialKind,
   onStatus: (statuses: number[]) => ExternalStatus,
-): Promise<{ cards: ListingCard[]; external: ExternalStatus }> {
+): Promise<{ cards: ListingCard[]; external: ExternalStatus; checked: number }> {
+  let checked = 0
   const key = process.env.JINA_API_KEY
-  if (!key) return { cards: [], external: { status: 'no_key' } }
+  if (!key) return { cards: [], external: { status: 'no_key' }, checked: 0 }
   const statuses: number[] = []
   const seen = new Set<string>()
   const cards: ListingCard[] = []
@@ -725,7 +775,8 @@ export async function searchCommercial(
   const detailPromise: Promise<ListingCard[]> = specialised
     ? (async () => {
         try {
-          const searchOne = async (q: string): Promise<string[]> => {
+          type Hit = { url: string; score: number }
+          const searchOne = async (q: string): Promise<Hit[]> => {
             const sres = await fetch(`https://s.jina.ai/?q=${encodeURIComponent(q)}`, {
               headers: { Authorization: `Bearer ${key}`, Accept: 'application/json', 'X-Respond-With': 'no-content' },
               signal: AbortSignal.timeout(18000),
@@ -736,24 +787,40 @@ export async function searchCommercial(
               return []
             }
             const d = (await sres.json()) as { data?: { url?: string; title?: string; description?: string }[] }
-            return (Array.isArray(d?.data) ? d.data : []).filter(isLeaseCandidate).map((r) => r.url as string)
+            return (Array.isArray(d?.data) ? d.data : []).filter(isLeaseCandidate).map((r) => ({ url: r.url as string, score: scoreSnippet(r, c) }))
           }
           const queries = buildDetailQueries(c, kind)
-          const found = await Promise.all(queries.map((q) => searchOne(q).catch(() => [] as string[])))
+          const found = await Promise.all(queries.map((q) => searchOne(q).catch(() => [] as Hit[])))
           if (process.env.COMMERCIAL_DEBUG) console.warn('[commercial] queries', queries.map((q, i) => `${found[i].length} ← ${q}`))
-          // Interleave the per-query lists so every area gets read within the
-          // DETAIL_READS budget instead of the first query hogging it.
-          const urls: string[] = []
-          for (let i = 0; i < Math.max(...found.map((f) => f.length), 0); i++) for (const f of found) if (f[i]) urls.push(f[i])
-          const picked = Array.from(new Set(urls)).slice(0, DETAIL_READS)
+          // Dedupe (best score wins), then interleave the per-query lists by
+          // score band so every area gets read within the DETAIL_READS budget
+          // and snippet-confirmed sizes go first.
+          const best = new Map<string, number>()
+          for (const f of found) for (const h of f) best.set(h.url, Math.max(best.get(h.url) ?? -99, h.score))
+          const byQuery = found.map((f) => Array.from(new Set(f.map((h) => h.url))))
+          const ordered: string[] = []
+          for (const band of [3, 4, 1, 0, -3]) {
+            const rounds = Math.max(...byQuery.map((f) => f.length), 0)
+            for (let i = 0; i < rounds; i++)
+              for (const f of byQuery) {
+                const u = f[i]
+                if (!u || ordered.includes(u)) continue
+                const sc = best.get(u) ?? 0
+                if ((band === 4 && sc >= 4) || (band === 3 && sc === 3) || (band === 1 && (sc === 1 || sc === 2)) || (band === 0 && (sc === 0 || sc === -2)) || (band === -3 && sc <= -3)) ordered.push(u)
+              }
+          }
+          const picked = ordered.slice(0, DETAIL_READS)
+          if (process.env.COMMERCIAL_DEBUG) console.warn('[commercial] candidates', ordered.length, 'scores', picked.map((u) => best.get(u)).join(','))
           const reads = await Promise.all(picked.map((u) => jinaRead(key, u, 22000)))
           const out: ListingCard[] = []
           reads.forEach((r, i) => {
             statuses.push(r.status)
             if (r.status !== 200) return
             const card = parseCommercialDetail(r.md, picked[i], kind)
-            if (card) out.push(card)
-            else if (process.env.COMMERCIAL_DEBUG) console.warn('[commercial] unparsed', picked[i], r.md.match(/^#.*$/m)?.[0])
+            if (card) {
+              out.push(card)
+              checked++
+            } else if (process.env.COMMERCIAL_DEBUG) console.warn('[commercial] unparsed', picked[i], r.md.match(/^#.*$/m)?.[0])
           })
           if (process.env.COMMERCIAL_DEBUG) console.warn('[commercial] picked', picked.length, 'statuses', reads.map((r) => r.status).join(','), 'parsed', out.length)
           return out
@@ -778,7 +845,7 @@ export async function searchCommercial(
   // Only provider failures count as "unavailable"; a 404'd slug with a
   // successful sibling is just an empty page.
   if (external.status === 'unavailable' && !statuses.some((s) => PROVIDER_DOWN.has(s)) && ranked.length) {
-    return { cards: ranked, external: { status: 'ok' } }
+    return { cards: ranked, external: { status: 'ok' }, checked }
   }
-  return { cards: ranked, external }
+  return { cards: ranked, external, checked }
 }

@@ -783,7 +783,7 @@ export async function POST(req: Request) {
             max_price: typeof search.max_price === 'number' ? search.max_price : null,
             use: typeof search.use === 'string' ? search.use : null,
             keywords: typeof search.keywords === 'string' ? search.keywords : null,
-          }, false)
+          }, false, result.checked)
         }
         const wanted = typeof search.count === 'number' ? Math.min(Math.max(search.count, 1), 6) : null
         if (wanted && !result.summary && result.listings.length < wanted) {

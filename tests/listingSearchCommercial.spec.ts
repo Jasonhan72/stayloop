@@ -11,6 +11,7 @@ import {
   commercialKind,
   extractFacts,
   extractSpecs,
+  scoreSnippet,
   searchAreas,
   splitAreas,
   summarizeCommercial,
@@ -234,23 +235,36 @@ describe('rankCommercial — min_sqft / max_price', () => {
 })
 
 describe('detail search plumbing', () => {
-  it('builds two SHORT site-scoped queries: first spec phrase + size, and size only', () => {
+  it('builds SHORT number-free queries: kind + city phrasings, spec word, never the size', () => {
     const qs = buildDetailQueries({ area: 'Mississauga', keywords: 'clear height 24 ft, clear span, pickleball courts, parking', min_sqft: 30000 }, 'industrial')
-    expect(qs).toEqual([
-      'site:realtor.ca/real-estate industrial warehouse for lease Mississauga clear height 24 ft 30,000 sq ft',
-      'site:realtor.ca/real-estate industrial warehouse for lease Mississauga 30,000 sq ft',
+    expect(qs.slice(0, 3)).toEqual([
+      'site:realtor.ca/real-estate industrial warehouse for lease Mississauga',
+      'site:realtor.ca/real-estate "Mississauga" industrial "clear height"',
+      'site:realtor.ca/real-estate "Mississauga" industrial "truck level"',
     ])
-    // Unlocated / GTA-wide asks fan out over the default municipality set (≤8 queries).
+    expect(qs).toContain('site:realtor.ca/real-estate "For lease" "Mississauga (" industrial')
+    expect(qs).toContain('site:realtor.ca/real-estate "Mississauga" industrial "truck level"')
+    expect(qs.length).toBeLessThanOrEqual(16)
+    expect(qs.join(' ')).not.toMatch(/30,000|24 ft/)
+    // GTA-wide: 8 areas → two queries each (16 cap).
     const wide = buildDetailQueries({ area: 'Greater Toronto Area', keywords: null, min_sqft: 30000 }, 'industrial')
-    expect(wide.length).toBe(8)
-    expect(wide[0]).toBe('site:realtor.ca/real-estate industrial warehouse for lease Toronto 30,000 sq ft')
-    expect(wide.some((q) => q.includes('for lease Vaughan '))).toBe(true)
-    // With a spec phrase every area carries it; the primary area adds the plain form.
-    const spec = buildDetailQueries({ area: 'GTA', keywords: 'clear height 24 ft', min_sqft: 30000 }, 'industrial')
-    expect(spec.length).toBe(9)
-    expect(spec[1]).toBe('site:realtor.ca/real-estate industrial warehouse for lease Vaughan clear height 24 ft 30,000 sq ft')
-    expect(spec[8]).toBe('site:realtor.ca/real-estate industrial warehouse for lease Toronto 30,000 sq ft')
+    expect(wide.length).toBe(16)
+    expect(wide[0]).toBe('site:realtor.ca/real-estate industrial warehouse for lease Toronto')
+    // Three named cities → five phrasings each (capped at 16 total).
+    const three = buildDetailQueries({ area: null, area_candidates: ['Markham', 'Richmond Hill', 'Toronto'], keywords: 'clear height 24 ft, pickleball', min_sqft: 30000 }, 'industrial')
+    expect(three.length).toBe(15)
+    expect(three).toContain('site:realtor.ca/real-estate "Markham" industrial "truck level"')
+    expect(three).toContain('site:realtor.ca/real-estate "Richmond Hill" industrial "clear height"')
     expect(buildDetailQuery({ area: null, keywords: null, min_sqft: null }, 'retail')).toBe('site:realtor.ca/real-estate retail space for lease Toronto')
+  })
+  it('scoreSnippet: printed area in band +3, far below −3, spec word +1', () => {
+    const need = { min_sqft: 30000, max_sqft: null, keywords: 'clear height 24 ft' }
+    expect(scoreSnippet({ description: 'Industrial (Warehouse). Square Footage. 30000 sqft. Lease Type. Net.' }, need)).toBe(3)
+    expect(scoreSnippet({ description: '25,135 sq. ft. with 18 ft clear height' }, need)).toBe(4)
+    expect(scoreSnippet({ description: 'Bright 2,424 sq ft office unit' }, need)).toBe(-4)
+    expect(scoreSnippet({ description: 'Rare freestanding industrial building' }, need)).toBe(1)
+    expect(scoreSnippet({ description: 'Bright suite on the 3rd floor' }, need)).toBe(-1)
+    expect(scoreSnippet({ description: '2,424 sq ft office' }, { min_sqft: null, max_sqft: null, keywords: null })).toBe(0)
   })
   it('drops an unknown-area unit whose monthly rent implies far less than the asked size', () => {
     const cheap: ListingCard = { id: 'x', source: 'realtor', kind: 'commercial', title: 'x', address: 'x', price: 2000, beds: 0, price_basis: 'monthly' }
@@ -342,8 +356,8 @@ describe('assessFit + rankCommercial — requirement tiers', () => {
     expect(out.find((l) => l.address === 'banned')?.fit_tier).toBe(5)
     expect(out.find((l) => l.address === 'fits')?.specs_warn).toBeUndefined()
   })
-  it('drops no-area rows once six sized candidates exist, keeps them when thin', () => {
-    const sized = Array.from({ length: 6 }, (_, i) => mk(`s${i}`, { clear_ft: 26, sqft: 30000 + i, sqft_min: 30000 + i, sqft_max: 30000 + i }))
+  it('drops no-area rows once three sized candidates exist, keeps them when thin', () => {
+    const sized = Array.from({ length: 3 }, (_, i) => mk(`s${i}`, { clear_ft: 26, sqft: 30000 + i, sqft_min: 30000 + i, sqft_max: 30000 + i }))
     const noArea = mk('noarea', { sqft: undefined, sqft_min: undefined, sqft_max: undefined, price_basis: 'unknown', price: 0 })
     expect(rankCommercial([...sized, noArea], need).map((l) => l.address)).not.toContain('noarea')
     expect(rankCommercial([sized[0], noArea], need).map((l) => l.address)).toContain('noarea')
@@ -413,7 +427,8 @@ describe('summarizeCommercial — the digest appended to the reply', () => {
     const c: ListingCard = { id: 'c', source: 'realtor', kind: 'commercial', title: 'c', address: 'C', city: 'Markham', price: 0, beds: 0, sqft: 25135, clear_ft: 18, fit_tier: 4 }
     const d: ListingCard = { id: 'd', source: 'realtor', kind: 'commercial', title: 'd', address: 'D', city: 'Toronto', price: 0, beds: 0, sqft: 166378, clear_ft: 11, annual_cost: 3008114, tmi_psf: 3.13, fit_tier: 4 }
     const s = summarizeCommercial([a, b, c, d], { min_sqft: 30000, min_clear_ft: 24, use: 'pickleball' }, true)
-    expect(s).toContain('共找到 4 套（Vaughan / Richmond Hill / Markham / Toronto）')
+    expect(s).toContain('本轮核对了 4 套 Realtor.ca 挂牌，4 套接近你的条件（Vaughan / Richmond Hill / Markham / Toronto）')
+    expect(summarizeCommercial([a, b, c, d], { min_sqft: 30000 }, true, 35)).toContain('本轮核对了 35 套')
     expect(s).toContain('面积 22,035–166,378 sqft')
     expect(s).toContain("净高已标注 3 套，其中 1 套 ≥ 24'")
     // Cost range covers viable rows only — the flagged ones are excluded.

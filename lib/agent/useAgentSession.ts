@@ -45,7 +45,23 @@ function restoreMessages(role: AgentRole, scope: string): ChatMessage[] | null {
     const raw = localStorage.getItem(chatKey(role, scope))
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed as ChatMessage[]
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      // Histories saved before 2026-09-18 can carry duplicate ids (the seq
+      // restarted at `saved.length`); re-key repeats so React keys stay unique.
+      const seen = new Set<string>()
+      let max = 0
+      for (const m of parsed as ChatMessage[]) max = Math.max(max, parseInt(String(m.id).replace(/^m/, ''), 10) || 0)
+      return (parsed as ChatMessage[]).map((m) => {
+        const id = String(m.id)
+        if (!seen.has(id)) {
+          seen.add(id)
+          return m
+        }
+        const fresh = `m${++max}`
+        seen.add(fresh)
+        return { ...m, id: fresh }
+      })
+    }
   } catch {}
   return null
 }

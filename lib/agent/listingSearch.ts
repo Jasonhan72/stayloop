@@ -206,7 +206,7 @@ function buildMarket(c: SearchCriteria, rows: StatRow[]): MarketStats | undefine
 export async function searchListings(
   c: SearchCriteria,
   exclude: string[] = []
-): Promise<{ listings: ListingCard[]; market?: MarketStats; notice?: string; external: ExternalStatus; summary?: string }> {
+): Promise<{ listings: ListingCard[]; market?: MarketStats; notice?: string; external: ExternalStatus; summary?: string; checked?: number }> {
   c = { ...c, area: normalizeArea(c.area) }
   // Street/building reference in the keywords ("55 Cooper St", "Sugar
   // Wharf") — used AFTER assembly to rank exact-street cards first, or to
@@ -224,6 +224,7 @@ export async function searchListings(
     const res = await searchCommercial(c, ckind, externalFromStatuses).catch((e: unknown) => ({
       cards: [] as ListingCard[],
       external: { status: 'unavailable', reason: String((e as Error)?.message || e).slice(0, 120) } as ExternalStatus,
+      checked: 0,
     }))
     // Three pages' worth: a commercial shortlist is compared as a set (the
     // table under the cards), not browsed six at a time.
@@ -234,7 +235,8 @@ export async function searchListings(
       notice: listings.length
         ? '商业房源来自 Realtor.ca 实时抓取：$/sqft 报价是按年净租金，TMI 取挂牌自报值，年成本与月租均为估算；净高、装卸门、交付等规格引自房源文字，请以详情页与实地为准。'
         : undefined,
-      summary: summarizeCommercial(listings, c, true),
+      summary: summarizeCommercial(listings, c, true, res.checked),
+      checked: res.checked,
     }
   }
   // One page is 6 cards (two rows of three on the desktop chat). The reply

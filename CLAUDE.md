@@ -487,12 +487,20 @@ Realtor.ca 上的所有租赁类型，作为不在界面上宣传的隐藏技能
   （净高，英尺）、`use`（用途英文短语，如 "pickleball courts / indoor sports"）、keywords 放技术规格。
 - **两条检索路**（都经 Jina）：① 列表页 `/on/<city>/commercial-space-for-lease`（office 另加 `office-space-for-lease`），
   只有这三个 slug 存在——`industrial-for-lease` / `retail-space-for-lease` / `warehouses-for-lease` 都是 404 页（HTTP 仍 200）；
-  每页 11 行，**从不带楼宇类型**，列表行一律标「商业空间」。② 详情页搜索 `site:realtor.ca/real-estate <kind> for lease <area>
-  <首个规格短语> <N sq ft>`，**按区域扇出**：用户给的区域（≤8 个）或 GTA 宽泛需求时的默认集（Toronto / Vaughan / Mississauga /
-  Markham / Richmond Hill / Brampton / Scarborough / Pickering），每个区域一条带规格的查询 + 主区域一条只带面积的，≤10 条并行；
-  合并去重后最多读 24 个详情页（并行）。**查询必须短**：整串规格塞进去 Jina 直接 422「无结果」；422 是零结果不是故障。
-  子请求预算 ≤10 搜索 + ≤24 详情 + ≤2 列表页，给模型 / DB 调用留余量（CF 每请求上限）。实测 GTA 宽泛需求 12–19 秒、
-  每轮 8–13 套在 GTA 内的候选（搜索引擎每条只回 10 个，结果每轮有波动，「换一批」会带排除集重搜）。
+  每页 11 行，**从不带楼宇类型**，列表行一律标「商业空间」；分页参数（`?page=2` / `?CurrentPage=2` / `/page-2`）和 `/map#…`
+  哈希检索在 Jina 里都渲染不出第二页。② 详情页搜索 `site:realtor.ca/real-estate …`，**按区域扇出**：用户给的区域（一串
+  「Markham/ Richmond Hill /Toronto」会被 `splitAreas` 拆开，≤8 个）或 GTA 宽泛需求时的默认集（Toronto / Vaughan / Mississauga /
+  Markham / Richmond Hill / Brampton / Scarborough / Pickering）。**查询里绝不能带面积数字或任何数字**（2026-09-18 实测：
+  「industrial for lease Markham」回 10 条，后面加「30,000 sq ft」就只剩 0–1 条；整串规格塞进去直接 422「无结果」）。
+  每个区域最多 6 种短措辞，按价值排序：`<kind> for lease <city>` → `"<city>" industrial "clear height"`（规格词去掉数字）→
+  `"<city>" industrial "truck level"` → `<city> Ontario industrial lease` → `freestanding warehouse` → `"For lease" "<city> ("`
+  → `warehouse sublease`（大空间词是关键：索引默认偏向小单元和 suite）；总数 ≤16 条并行。搜索摘要里几乎不印面积，
+  `scoreSnippet` 只能做粗筛（摘要有面积且在带内 +3、明显偏小 −3、规格词 +1、truck-level / freestanding +1、suite / office unit −1），
+  所以按分数带交错后**最多并行读 48 个详情页**（≈0.5¢ Jina 额度，耗时 ≈ 单页），面积筛选在解析后做。**假定 Workers Paid
+  的子请求上限（1,000）**——screen-score 本来就远超 Free 的 50。实测 3 城市 / 30,000 尺 / 净高 24：17 秒，核对 44 套，
+  11 套接近条件（含对方报告里的 2-500 Edward、2-20 East Pearce、56 Leek），另有 110 Clegg Rd 46,566 尺 24' 全达标；
+  搜索引擎每条只回 10 个、结果每轮有波动，汇总里写明「本轮核对了 N 套」，「换一批」带排除集重搜。422 是零结果不是故障。
+  `search_used` 随 turn 响应返回（模型实际填的检索字段），空结果时先看它。
 - **详情页解析**（`parseCommercialDetail` / `extractFacts`）：地址接受 H1 **或 H2**（老版式用二级标题，此前漏掉 1/3 候选）；
   非安省（"Coldstream, British Columbia"）直接丢；「The listing you are looking for no longer exists」丢；`$1/sqft`、`$1/Monthly`
   是经纪的「面议」占位（`isPlaceholderPrice`），不当费率乘。**租赁挂牌把 TMI（$/sqft/年）填在 "Annual Property Taxes" 字段**
