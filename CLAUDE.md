@@ -11,7 +11,7 @@ AI-powered tenant screening SaaS for Ontario landlords. Live at **www.stayloop.a
 - **Email:** Resend SMTP via Supabase Auth (magic links)
 - **Payments:** Stripe **LIVE mode**（2026-08-26 切换，见下「支付模块」节的切换记录）
 - **Maps:** Google Maps API
-- **DB:** Supabase (project `uotcczsfeiptnabamzcd`, **AWS ca-central-1 蒙特利尔**；2026-09-16 从 us-east-1 的 `upbkcbicjjpznojkpqtg` 迁入，旧项目已冻结写入、待用户决定删除)
+- **DB:** Supabase (project `uotcczsfeiptnabamzcd`, **AWS ca-central-1 蒙特利尔**；2026-09-16 从 us-east-1 的 `upbkcbicjjpznojkpqtg` 迁入；旧项目 2026-09-17 由用户拍板删除，SQL 转储留在 `~/stayloop-backup-2026-09-16/`)
 
 ## Repo & Branches
 
@@ -437,7 +437,7 @@ CRA 只公布定罪（enforcement notifications），本案无；CanLII / 法院
 ## Supabase 迁到加拿大区（2026-09-16 · us-east-1 → ca-central-1）
 
 用户拍板后由 Claude 全程执行。新项目 **`uotcczsfeiptnabamzcd`（stayloop-ca，AWS ca-central-1 蒙特利尔，Micro，$10/月）**，
-旧项目 `upbkcbicjjpznojkpqtg`（us-east-1）**付费项目不能 pause**（API 报 not free-tier），改为撤销 anon / authenticated / service_role 在 public 上的写、序列与函数执行权（读仍可）作冻结，留作回滚；它每月仍计 $10 算力，**何时删除由用户决定**（删除前 SQL 转储已复制到 `~/stayloop-backup-2026-09-16/`，存储对象只在两个项目里）。数据面：66 张 public 表
+旧项目 `upbkcbicjjpznojkpqtg`（us-east-1）**付费项目不能 pause**（API 报 not free-tier），改为撤销 anon / authenticated / service_role 在 public 上的写、序列与函数执行权（读仍可）作冻结，留作回滚；**2026-09-17 用户拍板后经 Management API `DELETE /v1/projects/<ref>` 删除**（SQL 转储留在 `~/stayloop-backup-2026-09-16/`；存储对象只剩新项目那份）。数据面：66 张 public 表
 1,708,326 行逐表精确计数一致；92 函数 / 116 策略 / 23 触发器 / 162 索引 / 4 序列 / 66 张表 RLS 全部一致；13 个 auth 用户 +
 12 个身份（密码哈希随行，但**会话不迁移**——JWT 密钥不同，所有人重新登录一次）；2 个存储桶 1,827 个对象 1.6 GB 按大小校验；
 3 个 pg_cron 任务 + Vault `cron_secret`；Auth 配置（站点地址、跳转白名单、Resend SMTP、全部邮件模板、Google OAuth
