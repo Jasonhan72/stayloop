@@ -331,6 +331,12 @@ describe('assessFit + rankCommercial — requirement tiers', () => {
     expect(out.find((l) => l.address === 'banned')?.fit_tier).toBe(5)
     expect(out.find((l) => l.address === 'fits')?.specs_warn).toBeUndefined()
   })
+  it('drops no-area rows once six sized candidates exist, keeps them when thin', () => {
+    const sized = Array.from({ length: 6 }, (_, i) => mk(`s${i}`, { clear_ft: 26, sqft: 30000 + i, sqft_min: 30000 + i, sqft_max: 30000 + i }))
+    const noArea = mk('noarea', { sqft: undefined, sqft_min: undefined, sqft_max: undefined, price_basis: 'unknown', price: 0 })
+    expect(rankCommercial([...sized, noArea], need).map((l) => l.address)).not.toContain('noarea')
+    expect(rankCommercial([sized[0], noArea], need).map((l) => l.address)).toContain('noarea')
+  })
   it('a huge building survives when the listing says it can be demised', () => {
     const huge = mk('huge', { sqft: 166378, sqft_max: 166378, description: 'Full building or can be demised into smaller units' })
     expect(assessFit(huge, need).drop).toBe(false)

@@ -563,7 +563,11 @@ export function rankCommercial(cards: ListingCard[], need: CommercialNeed): List
     if (minSq) return area == null ? Number.MAX_SAFE_INTEGER / 2 : Math.abs(area - minSq)
     return x.l.price_basis === 'unknown' ? Number.MAX_SAFE_INTEGER / 2 : x.l.monthly_all_in ?? x.l.price
   }
-  return scored.sort((a, b) => a.fit.tier - b.fit.tier || key(a) - key(b)).map((x) => x.l)
+  const ranked = scored.sort((a, b) => a.fit.tier - b.fit.tier || key(a) - key(b)).map((x) => x.l)
+  // On a sized search, rows with no printed area (generic list-page rows)
+  // are noise once there are enough sized candidates to compare.
+  if (minSq && ranked.filter((l) => (l.fit_tier ?? 0) <= 2).length >= 6) return ranked.filter((l) => l.fit_tier !== 3)
+  return ranked
 }
 
 // Deterministic one-paragraph digest appended to the reply — the model
