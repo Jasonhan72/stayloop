@@ -170,7 +170,11 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
         // Fresh render for this scope: restore its history, or greet.
         const saved = restoreMessages(role, nextScope)
         if (saved && saved.length > 0) {
-          msgSeq.current = saved.length
+          // Continue from the highest restored id, not the count — a trimmed
+          // or rolled-back history has gaps, and reusing "m6" for a new
+          // message made React drop/duplicate children (dev console: two
+          // children with the same key).
+          msgSeq.current = Math.max(saved.length, ...saved.map((m) => parseInt(String(m.id).replace(/^m/, ''), 10) || 0))
           // Rebuild the exclusion set from what the restored thread shows
           // (first page of each card set; deeper pages reset on reload).
           for (const m of saved) for (const l of (m.listings ?? []).slice(0, m.listingsPage ?? LISTINGS_PAGE)) shownListings.current.add(l.address.toLowerCase())

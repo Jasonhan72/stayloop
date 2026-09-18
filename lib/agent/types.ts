@@ -106,9 +106,26 @@ export type ListingCard = {
   property_type?: string
   price_basis?: 'monthly' | 'psf_estimate' | 'unknown'
   rate_psf?: number
+  // TMI (additional rent) $/sqft/yr as the listing states it; 0 = gross lease.
+  tmi_psf?: number
+  lease_type?: string
+  // (net rate + TMI) × sqft, or 12 × monthly asking rent.
+  annual_cost?: number
+  monthly_all_in?: number
   sqft_min?: number
   sqft_max?: number
+  clear_ft?: number
+  zoning?: string
+  possession?: string
+  sublease?: boolean
+  excluded_uses?: string[]
   specs?: string[]
+  // Red pills: requirement shortfalls found by assessFit (面积偏小 / 净高不足 / 房东明写禁止…).
+  specs_warn?: string[]
+  // 0 = fits every stated requirement … 4 = use excluded by the listing.
+  fit_tier?: number
+  mls?: string
+  brokerage?: string
   description?: string
 }
 

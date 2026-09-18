@@ -3,10 +3,17 @@
 // Jina renders of Realtor.ca list and detail pages (2026-09-18).
 import { describe, expect, it } from 'vitest'
 import {
+  assessFit,
   buildDetailQueries,
+  cityAllowed,
+  isPlaceholderPrice,
   buildDetailQuery,
   commercialKind,
+  extractFacts,
   extractSpecs,
+  searchAreas,
+  summarizeCommercial,
+  useProhibited,
   isLeaseCandidate,
   listPageUrls,
   monthlyFromRate,
@@ -130,6 +137,14 @@ describe('extractSpecs — only what the listing states', () => {
     expect(extractSpecs('clear height of 18 feet')).toContain("净高 18'")
     expect(extractSpecs('sunny retail unit on Queen')).toEqual([])
   })
+  it('reads feet-inches and never borrows digits from the next number', () => {
+    expect(extractFacts(`Features include 17'8" clear height, 800 amps/600 volts power, two truck-level doors`).clearFt).toBe(17.7)
+    expect(extractFacts('clear height, 800 amps service').clearFt).toBeUndefined()
+    expect(extractFacts('Clear height: 22 ft. Zoning E1.').clearFt).toBe(22)
+  })
+  it('drops listings outside Ontario', () => {
+    expect(parseCommercialDetail('## 9622 Hill Drive\nColdstream, British Columbia V1B0B1\n $12/square feet\n## Listing Description\n 30,000 sqft.\n', 'https://www.realtor.ca/real-estate/1/x', 'industrial')).toBeNull()
+  })
 })
 
 describe('parseCommercialList — Realtor.ca list rows', () => {
@@ -207,10 +222,12 @@ describe('rankCommercial — min_sqft / max_price', () => {
       [mk('cheap', 1000, 1500), mk('pricey', 1000, 9000), mk('unknown', 1000, 0, 'unknown')],
       { min_sqft: null, max_price: 2000 },
     )
-    expect(out.map((l) => l.address)).toEqual(['cheap', 'unknown'])
+    // Over budget is a red flag and a demotion, not a silent drop.
+    expect(out.map((l) => l.address)).toEqual(['cheap', 'unknown', 'pricey'])
+    expect(out[2].specs_warn).toEqual(['超预算'])
   })
   it('a "700+" range never gets dropped by min_sqft', () => {
-    const out = rankCommercial([{ ...mk('open', 700, 2000), sqft_max: undefined }], { min_sqft: 5000, max_price: null })
+    const out = rankCommercial([{ ...mk('open', 700, 5000), sqft_max: undefined }], { min_sqft: 5000, max_price: null })
     expect(out).toHaveLength(1)
   })
 })
@@ -222,6 +239,16 @@ describe('detail search plumbing', () => {
       'site:realtor.ca/real-estate industrial warehouse for lease Mississauga clear height 24 ft 30,000 sq ft',
       'site:realtor.ca/real-estate industrial warehouse for lease Mississauga 30,000 sq ft',
     ])
+    // Unlocated / GTA-wide asks fan out over the default municipality set (≤8 queries).
+    const wide = buildDetailQueries({ area: 'Greater Toronto Area', keywords: null, min_sqft: 30000 }, 'industrial')
+    expect(wide.length).toBe(8)
+    expect(wide[0]).toBe('site:realtor.ca/real-estate industrial warehouse for lease Toronto 30,000 sq ft')
+    expect(wide.some((q) => q.includes('for lease Vaughan '))).toBe(true)
+    // With a spec phrase every area carries it; the primary area adds the plain form.
+    const spec = buildDetailQueries({ area: 'GTA', keywords: 'clear height 24 ft', min_sqft: 30000 }, 'industrial')
+    expect(spec.length).toBe(9)
+    expect(spec[1]).toBe('site:realtor.ca/real-estate industrial warehouse for lease Vaughan clear height 24 ft 30,000 sq ft')
+    expect(spec[8]).toBe('site:realtor.ca/real-estate industrial warehouse for lease Toronto 30,000 sq ft')
     expect(buildDetailQuery({ area: null, keywords: null, min_sqft: null }, 'retail')).toBe('site:realtor.ca/real-estate retail space for lease Toronto')
   })
   it('drops an unknown-area unit whose monthly rent implies far less than the asked size', () => {
@@ -234,5 +261,182 @@ describe('detail search plumbing', () => {
     expect(isLeaseCandidate({ url: 'https://www.realtor.ca/real-estate/29692091/1805-80-absolute', title: '1805 - 80 ABSOLUTE AVENUE S', description: '1 bedrooms, 2 bathrooms, for sale $399000.' })).toBe(false)
     expect(isLeaseCandidate({ url: 'https://www.realtor.ca/on/toronto/commercial-space-for-lease', title: 'Commercial Spaces For Lease in Toronto', description: 'lease' })).toBe(false)
     expect(isLeaseCandidate({ url: 'https://evil.example/real-estate/1/x', title: 'for lease', description: '' })).toBe(false)
+  })
+})
+
+describe('searchAreas — fan-out set', () => {
+  it('uses the tenant\'s own areas, deduped, GTA-wide → default set', () => {
+    expect(searchAreas({ area: 'Markham', area_candidates: ['Richmond Hill', 'markham'] })).toEqual(['Markham', 'Richmond Hill'])
+    expect(searchAreas({ area: null, area_candidates: null })[0]).toBe('Toronto')
+    expect(searchAreas({ area: 'GTA 都行', area_candidates: null }).length).toBe(8)
+    expect(searchAreas({ area: 'Greater Toronto Area', area_candidates: ['Ajax'] })[0]).toBe('Ajax')
+  })
+})
+
+describe('extractFacts — everything a broker\'s shortlist column needs', () => {
+  it('reads possession, sublease term, parking, sprinklers, office %, freestanding, TMI in text', () => {
+    const f = extractFacts('SUBLEASE opportunity for approximately 21,898 sq. ft. The space features an 18 ft clear height, with 1 drive-in shipping doors. 100% industrial area with sprinklers. Outside/surface parking available. Immediate possession. E1 zoning. Sublease term currently indicated through January 31, 2029.')
+    expect(f.clearFt).toBe(18)
+    expect(f.driveInDoors).toBe(1)
+    expect(f.possession).toBe('immediate')
+    expect(f.sublease).toBe(true)
+    expect(f.subleaseUntil).toBe('January 31, 2029')
+    expect(f.sprinklers).toBe(true)
+    const g = extractFacts('Freestanding facility, 35 marked parking spaces, 33% office, ESFR sprinklers, TMI $4.50 psf. Possession Q4 2026. No Recreational Uses.')
+    expect(g.parking).toBe(35)
+    expect(g.officePct).toBe(33)
+    expect(g.esfr).toBe(true)
+    expect(g.freestanding).toBe(true)
+    expect(g.tmiPsfFromText).toBe(4.5)
+    expect(g.possession).toBe('Q4 2026')
+    expect(g.excludedUses).toEqual(['Recreational'])
+  })
+  it('reads "Zoned E 0.8" style zoning from prose', () => {
+    expect(extractFacts('Zoned E 0.8 (Employment Industrial), allowing for a broad range of uses').zoning).toBe('E 0.8')
+  })
+})
+
+describe('useProhibited — tenant use vs listing exclusions', () => {
+  it('kills a pickleball venue on "No Recreational Uses" but not a warehouse tenant', () => {
+    expect(useProhibited(['Recreational'], 'pickleball courts / indoor sports')).toBe('娱乐 / 体育用途')
+    expect(useProhibited(['Recreational'], 'warehouse distribution')).toBeNull()
+    expect(useProhibited(['food'], 'restaurant')).toBe('餐饮用途')
+    expect(useProhibited([], 'pickleball')).toBeNull()
+    expect(useProhibited(['Recreational'], null)).toBeNull()
+  })
+})
+
+describe('assessFit + rankCommercial — requirement tiers', () => {
+  const mk = (address: string, over: Partial<ListingCard>): ListingCard => ({
+    id: address, source: 'realtor', kind: 'commercial', title: address, address, price: 40000, beds: 0, price_basis: 'psf_estimate',
+    rate_psf: 16, sqft: 30000, sqft_min: 30000, sqft_max: 30000, ...over,
+  })
+  const need = { min_sqft: 30000, max_sqft: null, max_price: null, min_clear_ft: 24, use: 'pickleball courts', keywords: null }
+  it('tiers: fits < unstated < size off < clear short < use excluded; oversize ×4 dropped', () => {
+    const fits = mk('fits', { clear_ft: 26 })
+    const unstated = mk('unstated', {})
+    const short = mk('short', { clear_ft: 14 })
+    const big = mk('big', { sqft: 100000, sqft_min: 100000, sqft_max: 100000, clear_ft: 30 })
+    const huge = mk('huge', { sqft: 166378, sqft_min: 166378, sqft_max: 166378, clear_ft: 30 })
+    const banned = mk('banned', { clear_ft: 30, excluded_uses: ['Recreational'] })
+    const out = rankCommercial([banned, huge, big, short, unstated, fits], need)
+    expect(out.map((l) => l.address)).toEqual(['fits', 'unstated', 'big', 'short', 'banned'])
+    const smallish = mk('smallish', { sqft: 25129, sqft_min: 25129, sqft_max: 25129, clear_ft: 26 })
+    const noArea = mk('noarea', { sqft: undefined, sqft_min: undefined, sqft_max: undefined, price_basis: 'unknown', price: 0 })
+    // 84% of the ask with the clear height met beats a listing with no area at all.
+    expect(rankCommercial([noArea, smallish], need).map((l) => l.address)).toEqual(['smallish', 'noarea'])
+    expect(assessFit(short, need).warn).toEqual(["净高 14' 不足"])
+    expect(assessFit(big, need).warn).toEqual(['面积远超需求'])
+    expect(assessFit(banned, need).warn).toEqual(['房东明写禁止娱乐 / 体育用途'])
+    expect(out.find((l) => l.address === 'banned')?.fit_tier).toBe(5)
+    expect(out.find((l) => l.address === 'fits')?.specs_warn).toBeUndefined()
+  })
+  it('a huge building survives when the listing says it can be demised', () => {
+    const huge = mk('huge', { sqft: 166378, sqft_max: 166378, description: 'Full building or can be demised into smaller units' })
+    expect(assessFit(huge, need).drop).toBe(false)
+  })
+  it('respects an explicit max_sqft and a monthly budget against the all-in figure', () => {
+    const l = mk('l', { sqft: 45000, sqft_max: 45000, monthly_all_in: 90000 })
+    expect(assessFit(l, { ...need, max_sqft: 40000 }).warn).toContain('面积远超需求')
+    expect(assessFit(l, { ...need, max_price: 60000 }).warn).toContain('超预算')
+  })
+})
+
+describe('parseCommercialDetail — TMI from the taxes field, all-in cost, MLS, brokerage', () => {
+  const md = `# 1615 WARDEN AVENUE  
+Toronto (Wexford-Maryvale), Ontario M1R1B2
+MLS® Number: E13752790
+ $16.50/square feet
+## Listing Description
+ Rare opportunity to lease a freestanding industrial facility with two drive-in shipping doors. Zoned E 0.8 (Employment Industrial). Immediate possession.
+## Property Summary
+Property Type
+ Industrial 
+Annual Property Taxes
+ $4.90 (CAD)
+## Parking
+Total Parking Spaces
+ 30 
+## Measurements
+Square Footage
+30400 sqft
+Lease Type
+ Net 
+[REAL ONE REALTY INC. Brokerage 15 WERTHEIM COURT UNIT 302 RICHMOND HILL, Ontario L4B3H7](https://www.realtor.ca/office/firm/103644/x)
+`
+  const card = parseCommercialDetail(md, 'https://www.realtor.ca/real-estate/30244060/1615-warden-avenue-toronto-wexford-maryvale', 'industrial')!
+  it('matches the broker report line for line', () => {
+    expect(card.rate_psf).toBe(16.5)
+    expect(card.tmi_psf).toBe(4.9)
+    expect(card.sqft).toBe(30400)
+    expect(card.annual_cost).toBe(Math.round((16.5 + 4.9) * 30400)) // $650,560
+    expect(card.annual_cost).toBe(650560)
+    expect(card.monthly_all_in).toBe(Math.round(650560 / 12))
+    expect(card.mls).toBe('E13752790')
+    expect(card.brokerage).toBe('REAL ONE REALTY INC.')
+    expect(card.zoning).toBe('E 0.8')
+    expect(card.possession).toBe('immediate')
+    expect(card.specs).toEqual(expect.arrayContaining(['2 drive-in', 'Zoning E 0.8', '30 车位', '独立物业', '即可入驻', 'Net lease']))
+    expect(card.note).toMatch(/TMI \$4.9/)
+  })
+  it('treats a gross lease as all-in and a real tax bill as not-TMI', () => {
+    const gross = parseCommercialDetail(md.replace('Net', 'Gross').replace('$4.90', '$0'), 'https://www.realtor.ca/real-estate/1/x', 'industrial')!
+    expect(gross.tmi_psf).toBe(0)
+    expect(gross.annual_cost).toBe(Math.round(16.5 * 30400))
+    const taxBill = parseCommercialDetail(md.replace('$4.90', '$48,200'), 'https://www.realtor.ca/real-estate/2/x', 'industrial')!
+    expect(taxBill.tmi_psf).toBeUndefined()
+    expect(taxBill.monthly_all_in).toBeUndefined()
+  })
+})
+
+describe('summarizeCommercial — the digest appended to the reply', () => {
+  it('states cities, size band, clear-height coverage, all-in cost range and exclusions', () => {
+    const a: ListingCard = { id: 'a', source: 'realtor', kind: 'commercial', title: 'a', address: 'A', city: 'Vaughan', price: 0, beds: 0, sqft: 22035, clear_ft: 32, annual_cost: 447311, tmi_psf: 3.8, fit_tier: 0 }
+    const b: ListingCard = { id: 'b', source: 'realtor', kind: 'commercial', title: 'b', address: 'B', city: 'Richmond Hill', price: 0, beds: 0, sqft: 23513, annual_cost: 531797, tmi_psf: 5.56, fit_tier: 5 }
+    const c: ListingCard = { id: 'c', source: 'realtor', kind: 'commercial', title: 'c', address: 'C', city: 'Markham', price: 0, beds: 0, sqft: 25135, clear_ft: 18, fit_tier: 4 }
+    const d: ListingCard = { id: 'd', source: 'realtor', kind: 'commercial', title: 'd', address: 'D', city: 'Toronto', price: 0, beds: 0, sqft: 166378, clear_ft: 11, annual_cost: 3008114, tmi_psf: 3.13, fit_tier: 4 }
+    const s = summarizeCommercial([a, b, c, d], { min_sqft: 30000, min_clear_ft: 24, use: 'pickleball' }, true)
+    expect(s).toContain('共找到 4 套（Vaughan / Richmond Hill / Markham / Toronto）')
+    expect(s).toContain('面积 22,035–166,378 sqft')
+    expect(s).toContain("净高已标注 3 套，其中 1 套 ≥ 24'")
+    // Cost range covers viable rows only — the flagged ones are excluded.
+    expect(s).toContain('年成本（净租 + 挂牌自报 TMI）$447,311–$447,311')
+    expect(s).toContain('1 套房东明写禁止你的用途')
+    expect(summarizeCommercial([], { min_sqft: 30000 }, true)).toBe('')
+  })
+})
+
+describe('geography gate + placeholder prices + dead pages', () => {
+  it('keeps GTA cities on a GTA-wide ask and only the named cities otherwise', () => {
+    expect(cityAllowed('Brantford', { area: 'Greater Toronto Area', area_candidates: null })).toBe(false)
+    expect(cityAllowed('Milton', { area: 'Greater Toronto Area', area_candidates: null })).toBe(true)
+    expect(cityAllowed('East Gwillimbury', { area: null, area_candidates: null })).toBe(true)
+    expect(cityAllowed('Vaughan', { area: 'Markham', area_candidates: ['Richmond Hill'] })).toBe(false)
+    expect(cityAllowed('Richmond Hill', { area: 'Markham', area_candidates: ['Richmond Hill'] })).toBe(true)
+    expect(cityAllowed('Toronto', { area: 'Scarborough', area_candidates: null })).toBe(true)
+    expect(cityAllowed(undefined, { area: 'Markham', area_candidates: null })).toBe(true)
+  })
+  it('treats $1/sqft and $1/Monthly as "call for pricing"', () => {
+    expect(isPlaceholderPrice(1, true)).toBe(true)
+    expect(isPlaceholderPrice(1, false)).toBe(true)
+    expect(isPlaceholderPrice(16.5, true)).toBe(false)
+    expect(isPlaceholderPrice(2000, false)).toBe(false)
+    const card = parseCommercialDetail('# 6750 FIFTH LINE\nMilton (Derry Green), Ontario L9T2X8\n $1/Monthly\n## Listing Description\n 30,000 sqft warehouse, 36 ft clear height.\n## Property Summary\nProperty Type\n Industrial\nSquare Footage\n30000 sqft\n', 'https://www.realtor.ca/real-estate/1/x', 'industrial')!
+    expect(card.price_basis).toBe('unknown')
+    expect(card.annual_cost).toBeUndefined()
+    expect(card.note).toMatch(/面议/)
+  })
+  it('accepts an H2 address (older Realtor.ca layouts)', () => {
+    const card = parseCommercialDetail('## 15 - 260 REGINA ROAD W\nVaughan (West Woodbridge Industrial Area), Ontario L4L8L6\n $14/square feet\n## Listing Description\n 31,000 sq ft, 24 ft clear.\n## Property Summary\nProperty Type\n Industrial\nSquare Footage\n31000 sqft\n', 'https://www.realtor.ca/real-estate/30188569/x', 'industrial')!
+    expect(card.address).toBe('15 - 260 REGINA ROAD W')
+    expect(card.city).toBe('Vaughan')
+    expect(card.clear_ft).toBe(24)
+  })
+  it('returns null for an expired-listing page', () => {
+    expect(parseCommercialDetail('# The listing you are looking for no longer exists.\nsome text', 'https://www.realtor.ca/real-estate/1/x', 'industrial')).toBeNull()
+  })
+  it('reads word-number shipping doors ("two drive-in")', () => {
+    expect(extractFacts('with two drive-in shipping doors and one truck-level door').driveInDoors).toBe(2)
+    expect(extractFacts('with two drive-in shipping doors and one truck-level door').truckDoors).toBe(1)
   })
 })

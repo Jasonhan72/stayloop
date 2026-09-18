@@ -475,30 +475,50 @@ sender / admin_email 全部清空、`rate_limit_email_sent` 回落到 2/小时**
 ## 商业 / 工业场地检索（2026-09-18 · 租客管家的隐藏技能）
 
 用户以租客身份找「3 万尺工业厂房、净高 24 尺、开匹克球馆」，管家只会住宅检索，同一需求被记了五条记忆。用户要求放开
-Realtor.ca 上的所有租赁类型，作为不在界面上宣传的隐藏技能。落地 `lib/agent/commercialSearch.ts`（守卫 `tests/listingSearchCommercial.spec.ts`）：
+Realtor.ca 上的所有租赁类型，作为不在界面上宣传的隐藏技能；随后拿另一系统生成的 15 套候选对比报告
+（`~/Downloads/Pickleball_Venue_Lease_Analysis.pdf`：面积 / 净高 / 报价 / TMI / 年成本 / zoning / 交付 / 转租、逐套优劣、
+明写「No Recreational Uses」的排除）要求 Stayloop 补齐差距。落地 `lib/agent/commercialSearch.ts` +
+`components/agent/CommercialCompareTable.tsx`（守卫 `tests/listingSearchCommercial.spec.ts`，41 条）：
 - **触发**：`search.property_type ∈ {industrial, retail, office, land, commercial}`，或 property_type 为空且 keywords 含明确商业词
   （厂房 / 仓库 / 店面 / 写字楼 / warehouse / storefront…；「健身房」「studio」单独出现不算）。`commercialKind()` 一旦命中，
-  `searchListings` 直接走商业路径：不查 Stayloop 库（全是住宅）、不出行情卡（$/sqft/年 与住宅月租不可比）、不做街道排名。
+  `searchListings` 直接走商业路径：不查 Stayloop 库（全是住宅）、不出行情卡（$/sqft/年 与住宅月租不可比）、不做街道排名，
+  返回最多 18 套（三页）供整体对比。
+- **需求字段**（提示词让模型填）：`min_sqft / max_sqft`（"3 万尺以上"→30000，不填上限则默认按 2 倍收口）、`min_clear_ft`
+  （净高，英尺）、`use`（用途英文短语，如 "pickleball courts / indoor sports"）、keywords 放技术规格。
 - **两条检索路**（都经 Jina）：① 列表页 `/on/<city>/commercial-space-for-lease`（office 另加 `office-space-for-lease`），
   只有这三个 slug 存在——`industrial-for-lease` / `retail-space-for-lease` / `warehouses-for-lease` 都是 404 页（HTTP 仍 200）；
-  每页 11 行，行里有 `$X/Monthly` 或 `$X/sqft`、地址、有时有面积，**从不带楼宇类型**，所以列表行一律标「商业空间」。
-  ② 详情页搜索 `site:realtor.ca/real-estate <kind> for lease <area> [首个规格短语] [N sq ft]`——专项需求（工业、≥30,000 sqft、
-  净高）只有这条路能命中；详情页有 Property Type / Square Footage / Lease Type / 描述。**查询必须短**：把整串规格
-  （"clear height 24 ft, clear span, pickleball courts, parking"）塞进去 Jina 直接 422「无结果」，同一需求拆成
-  「首个规格 + 面积」与「只有面积」两条并行查询各回 10 条。422 是零结果不是故障，不计入 statuses。最多读 8 个详情页。
-- **区域**：`resolveRealtorBase` 认 GTA 各市（`/on/mississauga`）、多伦多的区与社区（`/on/toronto/scarborough`）、
-  「GTA 都行」→ `/on/greater-toronto-area`；slug 只允许 `[a-z0-9-]`，host 写死。
-- **诚实规则**：`$/sqft` 是按年净租金，卡片月租 = 费率 × 面积 ÷ 12 的**估算**、不含 TMI，`price_basis` 标 `psf_estimate`；
-  无面积的按 sqft 报价行标 `unknown`（卡片显示「价格面议」）；净高 / 装卸门 / 分区 / 电力只从房源文字里引（`extractSpecs`），
-  不推断。`rankCommercial`：有 min_sqft 时面积 <90% 的剔除，面积未知但月租折算 <$5/sqft/年 的也剔除（不可能是那个尺寸），
-  其余按 |面积 − 需求| 排；否则按月租。
-- **界面**：`ListingCard` 新增 `kind / property_type / price_basis / rate_psf / sqft_min / sqft_max / specs`；
-  `ListingChatCard` 商业卡显示「$18/sqft/年 净租 ≈ $45,000/月」+ 类型·面积 + 规格 pill。turn 路由的追问芯片对商业改为
-  面积档位 / 空间类型，不问卧室、宠物、公寓还是 house。提示词：`min_sqft` 字段（"3 万尺"→30000）、keywords 用英文技术
-  规格、area 可为任一 GTA 城市、reply 必须说明净租金 / TMI / 规格以详情页为准 / 商业租约无 RTA 保护。
+  每页 11 行，**从不带楼宇类型**，列表行一律标「商业空间」。② 详情页搜索 `site:realtor.ca/real-estate <kind> for lease <area>
+  <首个规格短语> <N sq ft>`，**按区域扇出**：用户给的区域（≤8 个）或 GTA 宽泛需求时的默认集（Toronto / Vaughan / Mississauga /
+  Markham / Richmond Hill / Brampton / Scarborough / Pickering），每个区域一条带规格的查询 + 主区域一条只带面积的，≤10 条并行；
+  合并去重后最多读 24 个详情页（并行）。**查询必须短**：整串规格塞进去 Jina 直接 422「无结果」；422 是零结果不是故障。
+  子请求预算 ≤10 搜索 + ≤24 详情 + ≤2 列表页，给模型 / DB 调用留余量（CF 每请求上限）。实测 GTA 宽泛需求 12–19 秒、
+  每轮 8–13 套在 GTA 内的候选（搜索引擎每条只回 10 个，结果每轮有波动，「换一批」会带排除集重搜）。
+- **详情页解析**（`parseCommercialDetail` / `extractFacts`）：地址接受 H1 **或 H2**（老版式用二级标题，此前漏掉 1/3 候选）；
+  非安省（"Coldstream, British Columbia"）直接丢；「The listing you are looking for no longer exists」丢；`$1/sqft`、`$1/Monthly`
+  是经纪的「面议」占位（`isPlaceholderPrice`），不当费率乘。**租赁挂牌把 TMI（$/sqft/年）填在 "Annual Property Taxes" 字段**
+  （≤ $60 才当 TMI，几万的是真税单），gross 报价视为全包；年成本 = (净租 + TMI) × 面积，与对方报告逐套核对一致
+  （1615 Warden：(16.50 + 4.90) × 30,400 = $650,560）。规格只引房源文字：净高（支持 17'8" → 17.7，数字后必须带英尺记号，
+  否则 "clear height, 800 amps" 会读成 80'）、truck-level / drive-in 门（含 "two drive-in" 英文数词）、zoning（"Zoned E 0.8"）、
+  电力 A、车位（Total Parking Spaces 或 "35 marked parking spaces"）、ESFR / 喷淋、办公占比、独立物业、交付
+  （immediate / Q4 2026 / April 1, 2027）、转租及到期、**禁止用途**（"No Recreational Uses" / "not suitable for …"）、
+  MLS 号、经纪公司。
+- **匹配分层 `assessFit`**（tier 0–5，卡片与表格红色 pill）：0 全部达标；1 软缺（净高未标 / 面积 70–90%）；2 面积远超需求
+  （> max_sqft，默认 2×min）或超预算；3 有面积要求但房源没印面积；4 净高不足；5 **房东明写禁止该用途**（`useProhibited`：
+  用户用途词 → 类别 → 对照排除语句，匹克球 ↔ Recreational）。面积 <70% 或 >4× 上限且没提可分割（demise / divisible）直接丢；
+  非 GTA 城市在 GTA 宽泛需求下丢（`cityAllowed`，Brantford / Woodstock 曾混入），点名城市时只留那些城市（多伦多的区 → Toronto）。
+  同层内按 |面积 − 需求| 排，无面积要求时按月租。
+- **界面**：卡片显示「$18/sqft/年 净租 ≈ $X/月 含 TMI」（无 TMI 时标「净」，面议标「价格面议」）、类型·面积、MLS·经纪、
+  规格 pill + 红色不达标 pill；卡片网格下方 `CommercialCompareTable`：# / 物业·城市·类型·MLS / 面积 / 净高 / 报价 / TMI /
+  年成本(估) / Zoning / 交付(转租) / 标记（红 pill、琥珀「净高待确认 / 面积待确认」、绿「匹配」），表内链接到 Realtor.ca；
+  手机端外层 `overflow-x-auto` + `min-w-0`、表 `min-w-[860px]`（375px 实测页面零溢出）。
+- **回复里的数字由系统写**：模型在检索前作答，所以 `summarizeCommercial` 把「共 N 套（城市）· 面积区间 · 净高已标注 M 套其中 K 套
+  ≥ 要求 · 年成本区间（只算 tier ≤1 且有 TMI 的）· J 套房东明写禁止用途」拼在 reply 末尾，语言跟随用户消息（中文提问在英文界面
+  也给中文）。提示词要求模型只说两三句（卡片 + 表格在下方、商业租约无 RTA 保护、zoning 要市府书面确认、找律师），不写数字。
+- **仍不如对方报告的地方（有意不做）**：各市 zoning 条文对「室内体育馆」的允许性分析（需逐市法规核对，不能硬编码猜）、
+  可布球场数 / 收入模型（用途专属）、逐套「优势 / 风险」叙述（要二次模型调用）。表格给出 zoning 代码与「需市府书面确认」。
 - **记忆重复**：提示词的记忆列表现在带 `[key]`，并要求更新同一事实时沿用已有 key——那五条重复就是模型每轮另起 key 造成的。
-本地实测（首页匿名对话）：「帮我在 GTA 找 3 万尺以上的工业厂房，净高 24 尺以上，准备开匹克球馆」→ 11 秒返回 6 张卡，
-含 20 Towns Rd 30,000 sqft 净高 22'、550 Industrial Dr Milton 135,044 sqft 净高 24' 14 truck-level 等真实房源。
+- 顺手修的旧 bug：`useAgentSession` 恢复历史后 `msgSeq = saved.length`，历史有缺口时新消息 id 与旧的撞车（React「two children
+  with the same key」），改为取最大 id。调试：`COMMERCIAL_DEBUG=1` 打印每条查询命中数 / 详情页解析失败 / 城市与匹配过滤掉的行。
 
 ## 找房卡片一页 6 套 + 「换一批」（2026-09-16 · 用户要求）
 

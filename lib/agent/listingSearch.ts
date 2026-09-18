@@ -6,7 +6,7 @@ import { LISTINGS_PAGE } from '@/lib/agent/listingPaging'
 import { LISTING_VISIBILITY_OR, LISTING_VISIBILITY_OR_GROUP } from '../listingVisibility'
 import { readTrrebBenchmark, type TrrebBenchmark } from './trrebRent'
 import { captureException } from '../observability/sentry'
-import { commercialKind, searchCommercial } from './commercialSearch'
+import { commercialKind, searchCommercial, summarizeCommercial } from './commercialSearch'
 
 // Whether the live Realtor.ca source actually answered. 'unavailable' is a
 // provider failure (Jina 402 balance exhausted, 401/403 key, 429 quota, or
@@ -26,8 +26,13 @@ export type SearchCriteria = {
   keywords?: string | null
   property_type?: string | null
   count?: number | null
-  // Commercial lease: minimum floor area in sqft (hidden skill, 2026-09-18).
+  // Commercial lease (hidden skill, 2026-09-18): floor-area band in sqft,
+  // minimum clear height in feet, and the intended use in the tenant's words
+  // ("pickleball courts") — checked against the listing's stated exclusions.
   min_sqft?: number | null
+  max_sqft?: number | null
+  min_clear_ft?: number | null
+  use?: string | null
 }
 
 // What DB property_type values satisfy each requested type. 公寓 covers both
@@ -201,7 +206,7 @@ function buildMarket(c: SearchCriteria, rows: StatRow[]): MarketStats | undefine
 export async function searchListings(
   c: SearchCriteria,
   exclude: string[] = []
-): Promise<{ listings: ListingCard[]; market?: MarketStats; notice?: string; external: ExternalStatus }> {
+): Promise<{ listings: ListingCard[]; market?: MarketStats; notice?: string; external: ExternalStatus; summary?: string }> {
   c = { ...c, area: normalizeArea(c.area) }
   // Street/building reference in the keywords ("55 Cooper St", "Sugar
   // Wharf") — used AFTER assembly to rank exact-street cards first, or to
@@ -220,13 +225,16 @@ export async function searchListings(
       cards: [] as ListingCard[],
       external: { status: 'unavailable', reason: String((e as Error)?.message || e).slice(0, 120) } as ExternalStatus,
     }))
-    const listings = res.cards.filter((l) => !ex0.has(l.address.toLowerCase())).slice(0, target0 + LISTINGS_PAGE)
+    // Three pages' worth: a commercial shortlist is compared as a set (the
+    // table under the cards), not browsed six at a time.
+    const listings = res.cards.filter((l) => !ex0.has(l.address.toLowerCase())).slice(0, target0 + 2 * LISTINGS_PAGE)
     return {
       listings,
       external: res.external,
       notice: listings.length
-        ? '商业房源来自 Realtor.ca 实时抓取：$/sqft 报价是按年净租金，月租为估算、不含 TMI；净高、装卸门等规格引自房源文字，请以详情页与实地为准。'
+        ? '商业房源来自 Realtor.ca 实时抓取：$/sqft 报价是按年净租金，TMI 取挂牌自报值，年成本与月租均为估算；净高、装卸门、交付等规格引自房源文字，请以详情页与实地为准。'
         : undefined,
+      summary: summarizeCommercial(listings, c, true),
     }
   }
   // One page is 6 cards (two rows of three on the desktop chat). The reply

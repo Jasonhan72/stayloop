@@ -55,7 +55,8 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
         l.baths ? `${l.baths} ${zh ? '浴' : 'bath'}` : null,
         l.sqft ? `${l.sqft} sqft` : null,
       ].filter(Boolean) as string[])
-  const amenities = commercial ? (l.specs || []).slice(0, 4) : (l.tags || []).filter((t) => t !== 'den').slice(0, 3)
+  const amenities = commercial ? (l.specs || []).slice(0, 5) : (l.tags || []).filter((t) => t !== 'den').slice(0, 3)
+  const warns = commercial ? l.specs_warn || [] : []
 
   const inner = (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-line-divider bg-white transition hover:shadow-md">
@@ -90,11 +91,15 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
           <div className="text-[20px] font-bold tracking-tight">
             ${l.rate_psf.toLocaleString()}
             <span className="ml-1 text-[12px] font-medium text-body-3">{zh ? '/sqft/年 净租' : '/sqft/yr net'}</span>
-            {l.price > 0 && (
+            {l.monthly_all_in ? (
               <span className="ml-2 text-[12px] font-medium text-body-3">
-                ≈ ${l.price.toLocaleString()}{zh ? '/月' : '/mo'}
+                ≈ ${l.monthly_all_in.toLocaleString()}{zh ? '/月 含 TMI' : '/mo all-in'}
               </span>
-            )}
+            ) : l.price > 0 ? (
+              <span className="ml-2 text-[12px] font-medium text-body-3">
+                ≈ ${l.price.toLocaleString()}{zh ? '/月 净' : '/mo net'}
+              </span>
+            ) : null}
           </div>
         ) : commercial && l.price_basis === 'unknown' ? (
           <div className="text-[20px] font-bold tracking-tight">{zh ? '价格面议' : 'Price on request'}</div>
@@ -116,8 +121,16 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
         {(l.neighborhood || l.city) && (
           <div className="text-[12.5px] text-body-3">{[l.neighborhood, l.city].filter(Boolean).join(' · ')}</div>
         )}
-        {(amenities.length > 0 || (!external && l.tier)) && (
+        {commercial && (l.mls || l.brokerage) && (
+          <div className="mt-1 text-[11px] text-body-3">{[l.mls ? `MLS ${l.mls}` : null, l.brokerage].filter(Boolean).join(' · ')}</div>
+        )}
+        {(amenities.length > 0 || warns.length > 0 || (!external && l.tier)) && (
           <div className="mt-3 flex flex-wrap gap-1.5">
+            {warns.map((w) => (
+              <span key={w} className="rounded-md px-2 py-1 font-mono text-[10.5px]" style={{ background: 'rgba(220,38,38,0.08)', color: '#B91C1C' }}>
+                ✗ {w}
+              </span>
+            ))}
             {amenities.map((t) => (
               <span key={t} className="rounded-md px-2 py-1 font-mono text-[10.5px] text-success" style={{ background: 'rgba(4,120,87,0.08)' }}>
                 {t}

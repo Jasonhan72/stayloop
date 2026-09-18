@@ -7,6 +7,7 @@ import { useT } from '@/lib/i18n'
 import AgentInputBar from './AgentInputBar'
 import DraftListingChatCard from './DraftListingChatCard'
 import ListingChatCard from './ListingChatCard'
+import CommercialCompareTable from './CommercialCompareTable'
 import TrrebTrendChart from './TrrebTrendChart'
 import Link from 'next/link'
 import { ROLE_THEME } from '@/lib/roleTheme'
@@ -166,6 +167,9 @@ export default function AgentChat({
                             </div>
                           ))}
                         </div>
+                        {/* Commercial shortlist: the whole set side by side —
+                            area / clear / ask / TMI / annual / zoning / flags. */}
+                        {m.listings.some((l) => l.kind === 'commercial') && <CommercialCompareTable listings={m.listings} />}
                         {/* 「换一批」: first click reveals the six ranked after (no
                             model turn); once nothing is held back it becomes a
                             real search — the server excludes every shown address. */}

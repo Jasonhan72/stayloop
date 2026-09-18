@@ -12,7 +12,7 @@ import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFall
 import { applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
-import { commercialKind } from '@/lib/agent/commercialSearch'
+import { commercialKind, summarizeCommercial } from '@/lib/agent/commercialSearch'
 import { buildUserContext, parseLookup, runLookup } from '@/lib/agent/userContext'
 import { needsReflection, reflectUser, USER_MODEL_KEY, userModelToPromptBlock } from '@/lib/agent/reflection'
 import { getRequestContext } from '@cloudflare/next-on-pages'
@@ -754,6 +754,9 @@ export async function POST(req: Request) {
         keywords: typeof search.keywords === 'string' ? search.keywords : null,
         count: typeof search.count === 'number' ? search.count : null,
         min_sqft: typeof search.min_sqft === 'number' && search.min_sqft > 0 ? search.min_sqft : null,
+        max_sqft: typeof search.max_sqft === 'number' && search.max_sqft > 0 ? search.max_sqft : null,
+        min_clear_ft: typeof search.min_clear_ft === 'number' && search.min_clear_ft > 0 ? search.min_clear_ft : null,
+        use: typeof search.use === 'string' && search.use.trim() ? search.use.trim().slice(0, 120) : null,
       }, Array.isArray(body.exclude) ? body.exclude.map(String) : [])
       if (result.listings.length) {
         listings = result.listings
@@ -767,8 +770,23 @@ export async function POST(req: Request) {
         listingsSource = hasStay && !hasRealtor ? 'stayloop' : !hasStay && hasRealtor ? 'realtor' : undefined
         // The user asked for N and we found fewer — say so instead of letting
         // the reply's "马上给你 N 套" stand uncorrected.
+        // Commercial shortlist: deterministic digest of what the search
+        // actually found (size band / clear heights / all-in cost / exclusions)
+        // — the model wrote its reply before the search ran.
+        // Digest language follows the conversation, not the UI chrome: a
+        // Chinese question on the English UI still gets the Chinese digest.
+        if (result.summary) {
+          out.reply += uiLang !== 'en' || /[\u4e00-\u9fff]/.test(message) ? result.summary : summarizeCommercial(result.listings, {
+            min_sqft: typeof search.min_sqft === 'number' ? search.min_sqft : null,
+            max_sqft: typeof search.max_sqft === 'number' ? search.max_sqft : null,
+            min_clear_ft: typeof search.min_clear_ft === 'number' ? search.min_clear_ft : null,
+            max_price: typeof search.max_price === 'number' ? search.max_price : null,
+            use: typeof search.use === 'string' ? search.use : null,
+            keywords: typeof search.keywords === 'string' ? search.keywords : null,
+          }, false)
+        }
         const wanted = typeof search.count === 'number' ? Math.min(Math.max(search.count, 1), 6) : null
-        if (wanted && result.listings.length < wanted) {
+        if (wanted && !result.summary && result.listings.length < wanted) {
           const zhMsg = uiLang !== 'en'
           // A dead live source is not thin inventory — say which it was.
           if (result.external.status === 'unavailable') {
