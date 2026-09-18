@@ -99,6 +99,17 @@ export type ListingCard = {
   tags?: string[]
   url?: string
   note?: string
+  // Commercial-lease cards (lib/agent/commercialSearch.ts). `price` is the
+  // monthly figure when known; `price_basis` says whether it is the asking
+  // monthly rent, an estimate from a $/sqft/year net rate, or unknown.
+  kind?: 'residential' | 'commercial'
+  property_type?: string
+  price_basis?: 'monthly' | 'psf_estimate' | 'unknown'
+  rate_psf?: number
+  sqft_min?: number
+  sqft_max?: number
+  specs?: string[]
+  description?: string
 }
 
 export type DraftListing = {

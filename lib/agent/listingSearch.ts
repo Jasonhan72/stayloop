@@ -6,6 +6,7 @@ import { LISTINGS_PAGE } from '@/lib/agent/listingPaging'
 import { LISTING_VISIBILITY_OR, LISTING_VISIBILITY_OR_GROUP } from '../listingVisibility'
 import { readTrrebBenchmark, type TrrebBenchmark } from './trrebRent'
 import { captureException } from '../observability/sentry'
+import { commercialKind, searchCommercial } from './commercialSearch'
 
 // Whether the live Realtor.ca source actually answered. 'unavailable' is a
 // provider failure (Jina 402 balance exhausted, 401/403 key, 429 quota, or
@@ -25,6 +26,8 @@ export type SearchCriteria = {
   keywords?: string | null
   property_type?: string | null
   count?: number | null
+  // Commercial lease: minimum floor area in sqft (hidden skill, 2026-09-18).
+  min_sqft?: number | null
 }
 
 // What DB property_type values satisfy each requested type. 公寓 covers both
@@ -205,6 +208,27 @@ export async function searchListings(
   // attach the honest same-area notice when none match.
   const streetRef = extractStreetRef(c.keywords)
   const areaLabel = () => c.area || c.area_candidates?.[0] || 'Toronto'
+  // Commercial / industrial / office / retail / land for lease — Realtor.ca
+  // only (Stayloop inventory is residential), no market card (asking rates
+  // are $/sqft/year net and not comparable to the residential sample), no
+  // street ranking. See lib/agent/commercialSearch.ts.
+  const ckind = commercialKind(c)
+  if (ckind) {
+    const ex0 = new Set(exclude.map((s) => s.toLowerCase()))
+    const target0 = Math.min(Math.max(c.count ?? LISTINGS_PAGE, 1), LISTINGS_PAGE)
+    const res = await searchCommercial(c, ckind, externalFromStatuses).catch((e: unknown) => ({
+      cards: [] as ListingCard[],
+      external: { status: 'unavailable', reason: String((e as Error)?.message || e).slice(0, 120) } as ExternalStatus,
+    }))
+    const listings = res.cards.filter((l) => !ex0.has(l.address.toLowerCase())).slice(0, target0 + LISTINGS_PAGE)
+    return {
+      listings,
+      external: res.external,
+      notice: listings.length
+        ? '商业房源来自 Realtor.ca 实时抓取：$/sqft 报价是按年净租金，月租为估算、不含 TMI；净高、装卸门等规格引自房源文字，请以详情页与实地为准。'
+        : undefined,
+    }
+  }
   // One page is 6 cards (two rows of three on the desktop chat). The reply
   // carries a second page on top of that so the 「换一批」 button under the
   // grid can reveal the next 6 without another model turn (2026-09-16).

@@ -472,6 +472,34 @@ sender / admin_email 全部清空、`rate_limit_email_sent` 回落到 2/小时**
 - **用户需手动**：Google Cloud Console 的 OAuth client 授权回调里加 `https://uotcczsfeiptnabamzcd.supabase.co/auth/v1/callback`
   （否则 Google 登录失败，魔法链接不受影响）；7 天后删除 PAT。
 
+## 商业 / 工业场地检索（2026-09-18 · 租客管家的隐藏技能）
+
+用户以租客身份找「3 万尺工业厂房、净高 24 尺、开匹克球馆」，管家只会住宅检索，同一需求被记了五条记忆。用户要求放开
+Realtor.ca 上的所有租赁类型，作为不在界面上宣传的隐藏技能。落地 `lib/agent/commercialSearch.ts`（守卫 `tests/listingSearchCommercial.spec.ts`）：
+- **触发**：`search.property_type ∈ {industrial, retail, office, land, commercial}`，或 property_type 为空且 keywords 含明确商业词
+  （厂房 / 仓库 / 店面 / 写字楼 / warehouse / storefront…；「健身房」「studio」单独出现不算）。`commercialKind()` 一旦命中，
+  `searchListings` 直接走商业路径：不查 Stayloop 库（全是住宅）、不出行情卡（$/sqft/年 与住宅月租不可比）、不做街道排名。
+- **两条检索路**（都经 Jina）：① 列表页 `/on/<city>/commercial-space-for-lease`（office 另加 `office-space-for-lease`），
+  只有这三个 slug 存在——`industrial-for-lease` / `retail-space-for-lease` / `warehouses-for-lease` 都是 404 页（HTTP 仍 200）；
+  每页 11 行，行里有 `$X/Monthly` 或 `$X/sqft`、地址、有时有面积，**从不带楼宇类型**，所以列表行一律标「商业空间」。
+  ② 详情页搜索 `site:realtor.ca/real-estate <kind> for lease <area> [首个规格短语] [N sq ft]`——专项需求（工业、≥30,000 sqft、
+  净高）只有这条路能命中；详情页有 Property Type / Square Footage / Lease Type / 描述。**查询必须短**：把整串规格
+  （"clear height 24 ft, clear span, pickleball courts, parking"）塞进去 Jina 直接 422「无结果」，同一需求拆成
+  「首个规格 + 面积」与「只有面积」两条并行查询各回 10 条。422 是零结果不是故障，不计入 statuses。最多读 8 个详情页。
+- **区域**：`resolveRealtorBase` 认 GTA 各市（`/on/mississauga`）、多伦多的区与社区（`/on/toronto/scarborough`）、
+  「GTA 都行」→ `/on/greater-toronto-area`；slug 只允许 `[a-z0-9-]`，host 写死。
+- **诚实规则**：`$/sqft` 是按年净租金，卡片月租 = 费率 × 面积 ÷ 12 的**估算**、不含 TMI，`price_basis` 标 `psf_estimate`；
+  无面积的按 sqft 报价行标 `unknown`（卡片显示「价格面议」）；净高 / 装卸门 / 分区 / 电力只从房源文字里引（`extractSpecs`），
+  不推断。`rankCommercial`：有 min_sqft 时面积 <90% 的剔除，面积未知但月租折算 <$5/sqft/年 的也剔除（不可能是那个尺寸），
+  其余按 |面积 − 需求| 排；否则按月租。
+- **界面**：`ListingCard` 新增 `kind / property_type / price_basis / rate_psf / sqft_min / sqft_max / specs`；
+  `ListingChatCard` 商业卡显示「$18/sqft/年 净租 ≈ $45,000/月」+ 类型·面积 + 规格 pill。turn 路由的追问芯片对商业改为
+  面积档位 / 空间类型，不问卧室、宠物、公寓还是 house。提示词：`min_sqft` 字段（"3 万尺"→30000）、keywords 用英文技术
+  规格、area 可为任一 GTA 城市、reply 必须说明净租金 / TMI / 规格以详情页为准 / 商业租约无 RTA 保护。
+- **记忆重复**：提示词的记忆列表现在带 `[key]`，并要求更新同一事实时沿用已有 key——那五条重复就是模型每轮另起 key 造成的。
+本地实测（首页匿名对话）：「帮我在 GTA 找 3 万尺以上的工业厂房，净高 24 尺以上，准备开匹克球馆」→ 11 秒返回 6 张卡，
+含 20 Towns Rd 30,000 sqft 净高 22'、550 Industrial Dr Milton 135,044 sqft 净高 24' 14 truck-level 等真实房源。
+
 ## 找房卡片一页 6 套 + 「换一批」（2026-09-16 · 用户要求）
 
 租客管家的房源卡默认一次 6 套（桌面端正好两排），下面一个「换一批」按钮显示排在后面的 6 套。落地：

@@ -36,12 +36,26 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
       href: l.url || '/listings',
     })
   const den = !!l.tags?.includes('den')
-  const specs = [
-    `${l.beds}B${den ? ' + den' : ''}`,
-    l.baths ? `${l.baths} ${zh ? '浴' : 'bath'}` : null,
-    l.sqft ? `${l.sqft} sqft` : null,
-  ].filter(Boolean) as string[]
-  const amenities = (l.tags || []).filter((t) => t !== 'den').slice(0, 3)
+  const commercial = l.kind === 'commercial'
+  // Commercial cards: type + area instead of beds/baths; specs quoted from
+  // the listing (clear height, doors, lease type) take the amenity slot.
+  const sqftLabel = commercial
+    ? l.sqft_min != null && l.sqft_max != null && l.sqft_min !== l.sqft_max
+      ? `${l.sqft_min.toLocaleString()}–${l.sqft_max.toLocaleString()} sqft`
+      : l.sqft_min != null && l.sqft_max == null
+        ? `${l.sqft_min.toLocaleString()}+ sqft`
+        : l.sqft
+          ? `${l.sqft.toLocaleString()} sqft`
+          : null
+    : null
+  const specs = commercial
+    ? ([l.property_type || (zh ? '商业空间' : 'Commercial'), sqftLabel].filter(Boolean) as string[])
+    : ([
+        `${l.beds}B${den ? ' + den' : ''}`,
+        l.baths ? `${l.baths} ${zh ? '浴' : 'bath'}` : null,
+        l.sqft ? `${l.sqft} sqft` : null,
+      ].filter(Boolean) as string[])
+  const amenities = commercial ? (l.specs || []).slice(0, 4) : (l.tags || []).filter((t) => t !== 'den').slice(0, 3)
 
   const inner = (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-line-divider bg-white transition hover:shadow-md">
@@ -72,10 +86,24 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
 
       {/* body */}
       <div className="flex flex-1 flex-col p-4">
-        <div className="text-[20px] font-bold tracking-tight">
-          ${l.price.toLocaleString()}
-          <span className="ml-1 text-[12px] font-medium text-body-3">{zh ? '/月' : '/mo'}</span>
-        </div>
+        {commercial && l.rate_psf ? (
+          <div className="text-[20px] font-bold tracking-tight">
+            ${l.rate_psf.toLocaleString()}
+            <span className="ml-1 text-[12px] font-medium text-body-3">{zh ? '/sqft/年 净租' : '/sqft/yr net'}</span>
+            {l.price > 0 && (
+              <span className="ml-2 text-[12px] font-medium text-body-3">
+                ≈ ${l.price.toLocaleString()}{zh ? '/月' : '/mo'}
+              </span>
+            )}
+          </div>
+        ) : commercial && l.price_basis === 'unknown' ? (
+          <div className="text-[20px] font-bold tracking-tight">{zh ? '价格面议' : 'Price on request'}</div>
+        ) : (
+          <div className="text-[20px] font-bold tracking-tight">
+            ${l.price.toLocaleString()}
+            <span className="ml-1 text-[12px] font-medium text-body-3">{zh ? '/月' : '/mo'}</span>
+          </div>
+        )}
         <div className="mt-1 flex items-center gap-2 text-[13px] font-bold text-body">
           {specs.map((s, i) => (
             <span key={s} className="flex items-center gap-2">

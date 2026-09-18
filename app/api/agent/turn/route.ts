@@ -12,6 +12,7 @@ import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFall
 import { applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
+import { commercialKind } from '@/lib/agent/commercialSearch'
 import { buildUserContext, parseLookup, runLookup } from '@/lib/agent/userContext'
 import { needsReflection, reflectUser, USER_MODEL_KEY, userModelToPromptBlock } from '@/lib/agent/reflection'
 import { getRequestContext } from '@cloudflare/next-on-pages'
@@ -752,6 +753,7 @@ export async function POST(req: Request) {
         property_type: typeof search.property_type === 'string' ? search.property_type : null,
         keywords: typeof search.keywords === 'string' ? search.keywords : null,
         count: typeof search.count === 'number' ? search.count : null,
+        min_sqft: typeof search.min_sqft === 'number' && search.min_sqft > 0 ? search.min_sqft : null,
       }, Array.isArray(body.exclude) ? body.exclude.map(String) : [])
       if (result.listings.length) {
         listings = result.listings
@@ -800,25 +802,45 @@ export async function POST(req: Request) {
       // whichever key criteria the user hasn't given yet (max 2 per turn).
       const cjk = uiLang !== 'en'
       const fq: { question: string; options: string[] }[] = []
-      if (search.max_price == null)
+      // Commercial lease (hidden skill): ask about area and use, never about
+      // bedrooms / pets / condo-vs-house.
+      const isCommercial = !!commercialKind({
+        property_type: typeof search.property_type === 'string' ? search.property_type : null,
+        keywords: typeof search.keywords === 'string' ? search.keywords : null,
+      })
+      if (isCommercial) {
+        if (search.min_sqft == null)
+          fq.push(
+            cjk
+              ? { question: '需要多大面积?', options: ['5,000 sqft 以内', '5,000–15,000 sqft', '15,000–30,000 sqft', '30,000 sqft 以上'] }
+              : { question: 'How much space?', options: ['Under 5,000 sqft', '5,000–15,000 sqft', '15,000–30,000 sqft', '30,000+ sqft'] }
+          )
+        if (search.property_type == null || search.property_type === 'commercial')
+          fq.push(
+            cjk
+              ? { question: '哪类空间?', options: ['仓库 / 厂房', '零售店面', '办公室', '都可以'] }
+              : { question: 'What kind of space?', options: ['Warehouse / industrial', 'Retail storefront', 'Office', 'Any'] }
+          )
+      }
+      if (!isCommercial && search.max_price == null)
         fq.push(
           cjk
             ? { question: '预算大概多少?', options: ['预算 $2,000 以内', '预算 $2,500 以内', '预算 $3,000 以内', '预算不限'] }
             : { question: "What's your budget?", options: ['Under $2,000', 'Under $2,500', 'Under $3,000', 'No limit'] }
         )
-      if (search.min_beds == null)
+      if (!isCommercial && search.min_beds == null)
         fq.push(
           cjk
             ? { question: '想要几居室?', options: ['Studio 就行', '一居室', '两居室', '三居以上'] }
             : { question: 'How many bedrooms?', options: ['Studio is fine', '1 bedroom', '2 bedrooms', '3+'] }
         )
-      if (search.pets == null)
+      if (!isCommercial && search.pets == null)
         fq.push(
           cjk
             ? { question: '有宠物吗?', options: ['要养宠物', '不养宠物'] }
             : { question: 'Any pets?', options: ['I have a pet', 'No pets'] }
         )
-      if (search.property_type == null)
+      if (!isCommercial && search.property_type == null)
         fq.push(
           cjk
             ? { question: '公寓还是整套房子?', options: ['要公寓', '要整套 House', '都可以'] }
