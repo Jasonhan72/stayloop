@@ -31,7 +31,12 @@ export function clampMemories(raw: unknown): MemoryItem[] {
     .map((m) => ({
       ...m,
       key: typeof m?.key === 'string' ? m.key.slice(0, 500) : m?.key,
-      value: typeof m?.value === 'string' ? m.value.slice(0, 500) : m?.value,
+      label: typeof m?.label === 'string' ? m.label.slice(0, 80) : m?.label,
+      // Object values are serialised into the prompt too — clamp them by
+      // their JSON length, not just strings (review 2026-09-17).
+      value: typeof m?.value === 'string'
+        ? m.value.slice(0, 500)
+        : (m?.value !== undefined && JSON.stringify(m.value ?? null).length > 500 ? JSON.stringify(m.value).slice(0, 500) : m?.value),
     }))
 }
 

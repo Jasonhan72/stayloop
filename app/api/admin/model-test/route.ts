@@ -22,8 +22,8 @@ export async function POST(req: Request) {
   )
   const { data: ud, error: ue } = await sb.auth.getUser()
   if (ue || !ud?.user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  const { data: adminRow } = await sb.from('admin_users').select('role').eq('user_id', ud.user.id).maybeSingle()
-  if (!adminRow) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+  const { data: isAdmin } = await sb.rpc('is_stayloop_admin')
+  if (!isAdmin) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
 
   let body: { model_id?: unknown } = {}
   try { body = await req.json() } catch { /* empty */ }

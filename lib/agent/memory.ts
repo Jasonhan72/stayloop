@@ -1,5 +1,6 @@
 // Agent spine — private memory reads + display formatting.
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { stripNul } from '@/lib/screening/jsonSafe'
 import type { AgentRole, MemoryItem } from './types'
 
 export async function getUserMemories(
@@ -56,9 +57,9 @@ export async function upsertMemories(
   const rows = items.map((m) => ({
     user_id: userId,
     role,
-    key: m.key,
-    label: m.label,
-    value: m.value,
+    key: stripNul(m.key),
+    label: stripNul(m.label),
+    value: stripNul(m.value),
     confidence: Math.max(0, Math.min(1, m.confidence ?? 0.8)),
     memory_type: clampType(m.memory_type),
     source: 'agent_turn',

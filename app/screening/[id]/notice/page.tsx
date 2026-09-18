@@ -43,17 +43,22 @@ export default function NoticePage() {
 
   useEffect(() => {
     if (!id || loading) return
-    supabase.from('screenings').select('tenant_name, ai_extracted_name, ai_dimension_notes, verification').eq('id', id).maybeSingle().then(({ data }) => {
+    supabase.from('screenings').select('tenant_name, ai_extracted_name, ai_dimension_notes, verification, court_records_detail').eq('id', id).maybeSingle().then(({ data }) => {
       if (data) {
         setTenant((data.tenant_name || data.ai_extracted_name || '') as string)
-        const v3 = (data.ai_dimension_notes as { _v3?: { credit_report?: { credit_score?: number | null; tradelines?: unknown[] } | null } } | null)?._v3
+        const v3 = (data.ai_dimension_notes as { _v3?: { credit_report?: { credit_score?: number | null; tradelines?: unknown[]; source?: string } | null } } | null)?._v3
         // Only steps that actually verified count as "considered" (review
         // 2026-09-13: a snapshot whose steps all failed still made the
         // letter say a verification was considered).
         const ver = data.verification as { id?: { status?: string } | null; bank?: { status?: string } | null; credit?: { status?: string } | null; sandbox?: boolean } | null
         const okStep = (s?: { status?: string } | null) => s?.status === 'verified'
         const crPresent = !!v3?.credit_report && (v3.credit_report.credit_score != null || (Array.isArray(v3.credit_report.tradelines) && v3.credit_report.tradelines.length > 0))
-        setSources({ credit: crPresent, court: true, verified: !ver?.sandbox && (okStep(ver?.id) || okStep(ver?.bank)), bureauPull: !ver?.sandbox && okStep(ver?.credit) })
+        const bureauPull = !ver?.sandbox && okStep(ver?.credit)
+        // A bureau pull populates _v3.credit_report too — do not also claim the applicant supplied it (review 2026-09-17).
+        const suppliedReport = crPresent && !bureauPull && v3?.credit_report?.source !== 'bureau_pull'
+        const queries = ((data.court_records_detail as { queries?: Array<{ status?: string }> } | null)?.queries) || []
+        const courtSearched = queries.length === 0 ? true : queries.some(q => q.status === 'ok')
+        setSources({ credit: suppliedReport, court: courtSearched, verified: !ver?.sandbox && (okStep(ver?.id) || okStep(ver?.bank)), bureauPull })
       }
       setLandlord((user?.user_metadata?.full_name as string | undefined) || user?.email || '')
       setReady(true)
@@ -107,7 +112,7 @@ export default function NoticePage() {
               : `The decision was based on the documents you voluntarily submitted and on public records, organised with the help of the Stayloop platform. Stayloop is not a consumer reporting agency under the Consumer Reporting Act (Ontario)${sources.bureauPull ? '; with the authorisation you gave on the verification page, a summary of your credit report was obtained from the bureau' : ', and no report about you was purchased from a consumer reporting agency'}`}
             {sources.credit ? (zh ? '；我们阅读的是你本人提供的信用报告' : '; the credit report read was the one you supplied yourself') : ''}
             {sources.verified ? (zh ? '；经你本人授权的身份 / 银行核验结果也在考虑之列' : '; the identity / bank verification you authorised yourself was also considered') : ''}
-            {zh ? '。公开记录来源：安省开放数据 LTB 判令目录、安省法院公开门户。' : '. Public-record sources: the Ontario Open Data LTB Order Catalogue and the Ontario Courts public portal.'}
+            {sources.court ? (zh ? '。公开记录来源：安省开放数据 LTB 判令目录、安省法院公开门户。' : '. Public-record sources: the Ontario Open Data LTB Order Catalogue and the Ontario Courts public portal.') : (zh ? '。公开记录来源：安省开放数据 LTB 判令目录（安省法院门户本次未能检索）。' : '. Public-record source: the Ontario Open Data LTB Order Catalogue (the Ontario Courts portal could not be searched this time).')}
             {' '}
             {zh
               ? '整理过程使用了 AI 辅助分析，但决定由房东本人作出；收入与租金的比值、信用记录的长短仅作参考，不是拒绝的依据。'

@@ -1,6 +1,7 @@
 // Server-side persistence for verification requests. Service role only —
 // these helpers are called from /api/verify/* routes, never from the browser.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { stripNul } from '@/lib/screening/jsonSafe'
 import type {
   ScreeningVerification, VerificationRequestRow, VerifyPublicView, VerifyStep, VerifyStepKey, VerifySteps,
 } from './types'
@@ -99,10 +100,10 @@ export async function writeStep(
   // back to 'started' by the whole-jsonb write (review 2026-09-13).
   const fresh = (await loadRequest(admin, row.token)) || row
   const prev = fresh.steps?.[key] ?? { status: 'pending', provider: null, updated_at: new Date().toISOString() }
-  const next: VerifySteps = {
+  const next: VerifySteps = stripNul({
     ...(fresh.steps || {}),
     [key]: { ...prev, ...step, updated_at: new Date().toISOString() },
-  }
+  }) as VerifySteps
   const terminal = (s?: VerifyStep) => !s || ['verified', 'failed', 'skipped', 'not_configured'].includes(s.status)
   const avail = providerAvailability()
   const allDone = (['id', 'bank', 'credit'] as VerifyStepKey[]).every((k) => !avail[k].available || terminal(next[k]))

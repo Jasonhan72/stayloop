@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { veriffParseDecision, veriffVerifySignature } from '@/lib/verify/providers/veriff'
-import { adminClient, loadRequest, writeStep } from '@/lib/verify/store'
+import { adminClient, isExpired, loadRequest, writeStep } from '@/lib/verify/store'
 import { isVerifyToken } from '@/lib/verify/token'
 
 export const runtime = 'edge'
@@ -22,6 +22,12 @@ export async function POST(req: NextRequest) {
     const admin = adminClient()
     const row = await loadRequest(admin, parsed.vendorData)
     if (!row) return NextResponse.json({ received: true })
+    // /start creates a new Veriff session on every call and Veriff retries
+    // decisions for a week: a late decision for an abandoned earlier session
+    // must not overwrite the current one (review 2026-09-17).
+    const currentSession = row.steps?.id?.session_id
+    if (currentSession && parsed.sessionId && currentSession !== parsed.sessionId) return NextResponse.json({ received: true, ignored: 'stale_session' })
+    if (isExpired(row)) return NextResponse.json({ received: true, ignored: 'expired' })
     const d = parsed.result.decision
     const status = d === 'approved' ? 'verified' : d === 'declined' || d === 'expired' || d === 'abandoned' ? 'failed' : 'submitted'
     await writeStep(admin, row, 'id', { status, provider: 'veriff', session_id: parsed.sessionId, sandbox: false, result: parsed.result })

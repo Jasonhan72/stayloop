@@ -1032,7 +1032,7 @@ export async function generateScreeningReport(
   if (coh) {
     html += `<h2>${zh ? 'AI 整体一致性审查' : 'AI Document Coherence Review'}</h2>`
     if (coh.status !== 'ok') {
-      html += `<p style="font-size:10px;color:#64748B">${zh ? `本次未能执行（${coh.status}${coh.error ? '：' + coh.error : ''}）。` : `Not run this time (${coh.status}${coh.error ? ': ' + coh.error : ''}).`}</p>`
+      html += `<p style="font-size:10px;color:#64748B">${zh ? `本次未能执行（${coh.status}${coh.error ? '：' + esc(coh.error) : ''}）。` : `Not run this time (${coh.status}${coh.error ? ': ' + esc(coh.error) : ''}).`}</p>`
     } else if (!coh.anomalies.length) {
       html += `<p style="font-size:10px;color:#16A34A">${zh ? '模型通读全部文件后未发现内部或跨文件矛盾。' : 'Reading every document side by side, the reviewer found no internal or cross-document contradictions.'}</p>`
     } else {

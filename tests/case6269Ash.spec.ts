@@ -179,3 +179,13 @@ describe('review 2026-09-16 — screening pipeline', () => {
     expect(codes).not.toContain('pdf_metadata_stripped')
   })
 })
+
+// Review 2026-09-17 — module replay findings.
+import { clampMemories } from '@/lib/agent/turnHelpers'
+describe('review 2026-09-17 — agent input clamps and guardrail', () => {
+  it('memory label and object values are clamped', () => {
+    const [m] = clampMemories([{ key: 'k', label: 'x'.repeat(5000), value: { big: 'y'.repeat(5000) } }])
+    expect((m.label as string).length).toBe(80)
+    expect(typeof m.value === "string" ? m.value.length : JSON.stringify(m.value).length).toBeLessThanOrEqual(500)
+  })
+})

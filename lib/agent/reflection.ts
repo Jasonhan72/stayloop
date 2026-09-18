@@ -21,6 +21,7 @@
 // active user per day.
 // -----------------------------------------------------------------------------
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { stripNul } from '@/lib/screening/jsonSafe'
 import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '@/lib/modelConfig'
 import { llmChat } from '@/lib/llmChat'
 import { parseModelJson } from '@/lib/screening/jsonRepair'
@@ -162,7 +163,7 @@ export async function reflectUser(admin: SupabaseClient, userId: string, role: A
       memory_type: 'system',
       key: USER_MODEL_KEY,
       label: '用户画像（自动学习）',
-      value: model as unknown as Record<string, unknown>,
+      value: stripNul(model) as unknown as Record<string, unknown>,
       confidence: 0.9,
       source: 'reflection',
       updated_at: new Date().toISOString(),

@@ -226,8 +226,10 @@ export default function ApplyPage() {
       // direct update matched zero rows and the documents were orphaned —
       // review 2026-09-14). A SECURITY DEFINER RPC attaches the manifest
       // to a fresh, still-empty row only.
-      const { error: attachErr } = await supabase.rpc('attach_application_files', { p_application_id: inserted.id, p_files: uploaded })
-      if (attachErr) {
+      const { data: attached, error: attachErr } = await supabase.rpc('attach_application_files', { p_application_id: inserted.id, p_files: uploaded })
+      // The RPC returns false (no error) when the row is older than an hour,
+      // already has files, or the manifest is too long (review 2026-09-17).
+      if (attachErr || attached !== true) {
         setLoading(false)
         setError(zh ? '文件已上传，但未能附加到申请，请重试提交。' : 'Files uploaded but could not be attached to the application — please submit again.')
         return

@@ -443,7 +443,9 @@ CRA 只公布定罪（enforcement notifications），本案无；CanLII / 法院
 3 个 pg_cron 任务 + Vault `cron_secret`；Auth 配置（站点地址、跳转白名单、Resend SMTP、全部邮件模板、Google OAuth
 client）经 Management API 整块复制（hook_* 与 oauth_server_* 两组键新项目计划不允许，已剔除）。**GET 回来的 `smtp_pass`
 是 64 位掩码不是真密码**，照抄会让魔法链接报 500「Error sending magic link email」——要用 `.env.local` 的 `RESEND_API_KEY`
-单独 PATCH 一次。**`external_google_secret` 同样是掩码**（Google 回调后 Auth 日志报 `invalid_client: The provided client secret is invalid`，前端显示「登录链接已失效」），要从 Google Cloud Console 的 OAuth client 取真实的 `GOCSPX-…` 密钥再 PATCH。
+单独 PATCH 一次。**`external_google_secret` 同样是掩码**（Google 回调后 Auth 日志报 `invalid_client: The provided client secret is invalid`，前端显示「登录链接已失效」），要从 Google Cloud Console 的 OAuth client 取真实的 `GOCSPX-…` 密钥再 PATCH。**只 PATCH `smtp_pass` 一个键会把 smtp_host / port / user /
+sender / admin_email 全部清空、`rate_limit_email_sent` 回落到 2/小时**（项目悄悄退回 Supabase 自带邮件服务，magic link 仍返回 200 所以
+当时没察觉；2026-09-17 复审的配置漂移比对才发现）——SMTP 相关键必须整块一起 PATCH。
 - **做法**（无 Docker，`supabase db dump` 不可用）：本机 libpq 18 的 `pg_dump --schema=public --schema=supabase_migrations`
   结构 + 数据、`--table=auth.users --table=auth.identities`，存储策略从 `pg_policies` 重新生成，cron 从 `cron.job` 重新生成；
   走 **session pooler 5432**（`postgres.<ref>@aws-1-us-east-1 / aws-0-ca-central-1.pooler.supabase.com`，主机名从
@@ -506,6 +508,42 @@ client）经 Management API 整块复制（hook_* 与 oauth_server_* 两组键�
 - **找房分页**：`listings_page` 随响应返回（用户说「找 3 套」就按 3 翻页）；只把看得见的一页记入排除集，「换一批」揭示时再补；
   刷新后从历史消息重建排除集；头部计数按可见页；Stayloop 查询上限 24 → 60（排除集是查后过滤，24 会在两轮后把库搜空）；
   首页「数据驻加」改为「数据库驻加」，隐私页第 2 节补 AI 服务商（Anthropic，美国）披露、日期更新。
+
+## 复审 2026-09-17（迁移后第二轮 · 四个切片 32 条，全部核实后修复）
+
+用户要求「数据库迁移了之后，再重新做一次代码 review 和模块的 review」。四个审查代理：① 新库上策略 / 权限 / 触发器 / 存储 /
+cron 的实机探测（全部在 begin…rollback 里以 anon / authenticated 身份跑）；② 依赖 Supabase 项目身份与配置的代码路径；③ 筛查与
+深度核查模块级（用库里最近 15 条真实筛查重放纯函数）；④ 管家 / 房源 / 申请 / 计费 / 核验 / 在管租约 / 后台。守卫在
+`tests/reviewGuards.spec.ts`「review 2026-09-17」段与 `tests/case6269Ash.spec.ts`。迁移遗留（都已修）：
+- **Auth 配置被局部 PATCH 清空**：只改 `smtp_pass` 一个键让 smtp_host / port / user / sender 全部变 null、`rate_limit_email_sent`
+  回落到 2/小时——项目退回 Supabase 自带邮件服务而不报错。整块重放旧配置后逐键比对一致（14 个邮件模板在）。**改 Auth 配置
+  一律整块 PATCH，改完 GET 回来逐键 diff。**
+- **`ensure_rls` 事件触发器没迁**（全局对象，`pg_dump --schema` 不导出）：新库有默认权限「新表自动给三个角色 ALL」，
+  没有这个触发器的话以后任何忘了 `enable row level security` 的新表就是公开可读。已重建并用回滚事务验证会自动开 RLS。
+- **旧项目的 3 个 pg_cron 任务还在跑**，同一个 `cron_secret` 打生产：每天 13:00 UTC 两次主动扫描、周一两次 TRREB 抓取（双倍
+  Jina 花费）。已在旧项目 `cron.unschedule`。
+- 匿名登录（`external_anonymous_users_enabled`）从旧项目复制过来但全站没用，却能铸出 `authenticated` JWT 去跑 LTB 姓名检索；
+  已关。`tenancy-files` 桶没有大小 / 类型限制，已与 `tenant-files` 对齐（25 MB + 白名单）。
+代码与数据层（迁移 `20260917_review_g_fixes.sql`，已应用）：
+- **租约发送是坏的**：`/api/lease/send` 用房东的 RLS 客户端写 `sign_token`，20260914 的守卫触发器把它静默还原成 null，邮件里的
+  签署链接永远 404（生产尚无发出的租约）。改为 RLS 读证明归属、service role 写。
+- **`households.verified` 永远为 true 不了**（守卫冻结了列、又没有任何 RPC 设置它）：`accept_household_invite` 在双方都成为
+  活跃成员时置 true。**已核验的房源改地址 / 租金后徽章不掉**：守卫在 address / unit / city / postal / rent / bedrooms / 类型变化
+  时打回 pending（回滚事务验证：非管理员改租金 → pending，管理员不受影响）。`household_invites` 的 authenticated UPDATE 收窄到
+  `revoked_at` 一列；`rent_parties` 策略改指 `lease_documents`。
+- **测试月里按次解锁仍会创建真实 Stripe Checkout**（unlock 路由没有 free-window 门，前端 landlords 行未到时也会弹付费）；
+  Stripe unlock 只在 `payment_status='paid'` 时履约并处理 `async_payment_succeeded`；Veriff 决策只接受当前 session 且请求未过期。
+- 管家：记忆 `label` 与对象型 `value` 也截断；守卫正则补 `not suitable for children`、英文人格注入（`you are now…`）、
+  `went out / has been sent`；`user_memories` / 反思画像 / 核验步骤 / deep_check_result 四处 jsonb 写入过 `stripNul`；
+  后台模型路由改用 `is_stayloop_admin()`（要求已换密码）；申请页把 `attach_application_files()` 返回 false 当失败。
+- 筛查模块：征信 `report_date` 是 `2026/08/22` 或 `08/22/2026` 时时效扣分从不触发（14/66 份报告如此）→ 容错解析 + 回退到
+  recency 的确定性日期；报告头部的月收入改用工资单算术（与评分表一致，此前显示模型数字）；家庭收入的申请人数按证件上的人
+  数、偶数中位取下中位；`employer_doc_text` 漏掉 bundle 类文件与 offer letter（深度核查的域名 / 城市 / 入职检查在空字符串上
+  跑）；雇主电话从在职信上的电话取（此前 `employer_phone_region_differs` 永远不触发）；`credit_report_subject_mismatch` 不再
+  按矛盾扣核验分；通知信不再同时写「向征信机构获取」和「你自己提供的报告」，法院门户未检索时如实说明；打印报告
+  `coh.error` 补 `esc()`；房东解读在档案有催收机构查询时不再写「无催收」。
+- 联邦注册库 ingest：截断下载被当成功（2026-09-05 那次 168 MB / 0 个 XML / 「Done」，库停在 08-02）——现在 Content-Length
+  不符、unzip 非零、0 个 XML 都直接失败，并且每行写 `last_seen_at`。登录回调页显示 GoTrue 的真实错误（此前一律「登录链接已失效」）。
 
 ## 定价 $19 与内部测试月（2026-09-14 · 用户决定）
 

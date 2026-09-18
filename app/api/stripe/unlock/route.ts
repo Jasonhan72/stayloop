@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getStripe } from '@/lib/stripe'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
+import { inInternalTestWindow } from '@/lib/billing/freeWindow'
 
 export const runtime = 'edge'
 
@@ -39,6 +40,11 @@ export async function POST(req: NextRequest) {
     const { data: { user }, error: userErr } = await supabase.auth.getUser()
     if (userErr || !user) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+    }
+    // Internal test month: every paid gate is open, so never create a live
+    // Checkout for an unlock (checkout/route.ts has the same guard).
+    if (inInternalTestWindow()) {
+      return NextResponse.json({ error: 'free_window', message: 'Deep checks are free until the internal test month ends.' }, { status: 400 })
     }
 
     const body = (await req.json().catch(() => ({}))) as {

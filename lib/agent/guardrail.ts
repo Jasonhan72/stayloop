@@ -31,7 +31,7 @@ const PROTECTED_GROUNDS =
 // proposed as approval cards, never reported as done by the agent itself.
 const EXEC_VERBS_ZH = '发送|发出|提交|递交|分享|签署|签好|签了|扣款|付款|支付|批准|拒绝|婉拒|预约|安排|下单|升级|申请'
 const EXEC_VERBS_EN =
-  'sent|submitted|shared|signed|scheduled|booked|paid|approved|rejected|declined|applied|cancelled|canceled|upgraded'
+  'sent|submitted|shared|signed|scheduled|booked|paid|approved|rejected|declined|applied|cancelled|canceled|upgraded|went\\s+out|has\\s+been\\s+sent|was\\s+sent'
 const EXECUTED_CLAIM = new RegExp(
   [
     // 已 / 已经 (+ optional 帮你 / 替你 / 为你 / short object) + verb
@@ -120,7 +120,7 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput, lang: 'zh' | 'e
   //     injection channel (e.g. instructions smuggled in via a fetched web
   //     page). Drop instruction-shaped writes, cap lengths, clamp count.
   const INJECTION_SHAPE =
-    /(ignore|disregard|forget|忽略|无视|忘记|忘掉).{0,20}(instruction|rule|prompt|previous|above|规则|指令|提示|设定|之前|以上)|system\s*prompt|new\s+instructions?|act\s+as\b|你(现在)?是(?!.{0,6}(租客|房东|经纪))|jailbreak|override.{0,12}(guard|compliance|rule)/i
+    /(ignore|disregard|forget|忽略|无视|忘记|忘掉).{0,20}(instruction|rule|prompt|previous|above|规则|指令|提示|设定|之前|以上)|system\s*prompt|new\s+instructions?|act\s+as\b|你(现在)?是(?!.{0,6}(租客|房东|经纪))|\byou\s+are\s+(now\s+)?(?!(a|an|the|my)?\s*(tenant|landlord|agent|assistant)\b)[a-z]|from\s+now\s+on\s+you|jailbreak|override.{0,12}(guard|compliance|rule)/i
   // Values are tested and capped in their SERIALISED form: an object value
   // used to stringify to "[object Object]", which hid injected text from
   // the filter and escaped the length cap (review 2026-09-14).
@@ -178,7 +178,7 @@ export function sanitizeDraftListing<T extends { title?: string; description?: s
   const flags: string[] = []
   const out = { ...draft }
   const NO_PETS = /(禁止养宠|不(允许|得|可)养宠|no[\s-]?pets?\b|pets?\s+not\s+allowed)/i
-  const NO_KIDS = /(不(允许|接受|租)(有)?(小孩|孩子|儿童|家庭)|no\s+(children|kids|families))/i
+  const NO_KIDS = /(不(允许|接受|租)(有)?(小孩|孩子|儿童|家庭)|no\s+(children|kids|families)|not\s+suitable\s+for\s+(children|kids|families))/i
   // Excluding people on a protected ground is unlawful; MENTIONING one is not.
   // "适合有孩子的家庭" and "wheelchair accessible" are lawful — and useful — so
   // only exclusion-shaped phrasing is stripped.

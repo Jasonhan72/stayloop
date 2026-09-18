@@ -1726,7 +1726,7 @@ export default function ScreenPage() {
   async function runDeepCheck(manualEmployer?: string) {
     // Gate: Pro plan, an unlocked screening, or a prepaid credit (which the
     // server spends atomically). Otherwise offer the one-time unlock.
-    const proNow = plan === 'pro' || plan === 'team' || unlocked
+    const proNow = inInternalTestWindow() || plan === 'pro' || plan === 'team' || unlocked
     if (!proNow && unlockCredits <= 0) {
       setUnlockOpen(true)
       return
@@ -1816,12 +1816,19 @@ export default function ScreenPage() {
           // scan for Business Numbers and cross-check against the federal
           // registry (catches the classic forgery of copying a real BN onto
           // a fake employment letter).
+          // The employer's own phone: one printed on the employment / offer letter.
+          signatory_phone: (() => {
+            const letterFiles = new Set((forensics?.per_file || []).filter((pf: { file_kind?: string }) => /employment_letter|offer_letter/.test(pf?.file_kind || '')).map((pf: { file_name: string }) => pf.file_name))
+            const ph = ((cross.phones || []) as Array<string | { value?: string; from?: string }>).find((x) => typeof x === 'object' && !!x?.from && letterFiles.has(x.from))
+            return typeof ph === 'object' && ph?.value ? ph.value : undefined
+          })(),
           employer_doc_text: (() => {
             const bits: string[] = []
             if (Array.isArray(forensics?.per_file)) {
               for (const pf of forensics.per_file) {
-                const kind = pf?.file_kind
-                if (kind !== 'employment_letter' && kind !== 'pay_stub' && kind !== 't4') continue
+                // bundle kinds are comma-joined; offer letters are employer documents too
+                const kinds = String(pf?.file_kind || '').split(',').map((k: string) => k.trim())
+                if (!kinds.some((k: string) => k === 'employment_letter' || k === 'offer_letter' || k === 'pay_stub' || k === 't4')) continue
                 const txt = pf?.ocr?.text || pf?.text_density?.text_sample
                 if (typeof txt === 'string' && txt.length > 0) bits.push(txt)
               }
@@ -2874,7 +2881,7 @@ export default function ScreenPage() {
                   ref={fileInputRef}
                   type="file"
                   multiple
-                  accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.doc,.docx"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif"
                   onChange={e => handleFiles(e.target.files)}
                   style={{ display: 'none' }}
                 />

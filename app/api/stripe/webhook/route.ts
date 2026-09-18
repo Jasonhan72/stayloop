@@ -79,11 +79,16 @@ export async function POST(req: NextRequest) {
   // that ledger the same way.
   try {
     switch (event.type) {
+      case 'checkout.session.async_payment_succeeded':
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
 
         // Per-applicant unlock (one-time payment, /api/stripe/unlock).
         if (session.metadata?.kind === 'unlock') {
+          // Delayed payment methods complete the session 'unpaid' and settle
+          // later via checkout.session.async_payment_succeeded — grant only
+          // once the money is in (review 2026-09-17).
+          if (session.payment_status !== 'paid') break
           const landlordId = session.metadata.landlord_id as string | undefined
           const screeningId = (session.metadata.screening_id as string | undefined) || null
           const payer = session.metadata.payer === 'tenant' ? 'tenant' : 'landlord'

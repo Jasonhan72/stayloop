@@ -23,6 +23,7 @@ import type { LandlordReading, ReadingBullet, PerFileForensics, PaystubExtractio
 import type { CreditReport } from '../screening-types'
 import { splitStatementTransactions, extractPayrollDeposits, detectPayrollProcessor, findRecurringMonthlyPayment, analyzeStatementLiquidity, PAYROLL_LABEL } from './payroll-deposits'
 import { analyzeCreditReport } from '../screening/creditAnalysis'
+import { isCollectionAgency } from '../screening/collectionAgencies'
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('en-CA')
 const MONTH_ORDER: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 }
@@ -275,6 +276,7 @@ export function readCreditReportFile(cr: CreditReport | null | undefined, monthl
   if (a) {
     if (a.totalPastDue > 0) { bullets.push(b(`当前逾期 ${money(a.totalPastDue)}，涉及 ${a.delinquent.length} 个账户——现在就有账没按时付。`, `${money(a.totalPastDue)} currently past due across ${a.delinquent.length} account(s) — bills are going unpaid right now.`, 'bad')); asks.push({ zh: `${a.delinquent[0]?.creditor || '逾期账户'} 的逾期是什么情况？`, en: `What is the story on the ${a.delinquent[0]?.creditor || 'past-due account'}?` }) }
     else if (a.delinquent.length) bullets.push(b(`有 ${a.delinquent.length} 个账户有迟付记录，目前无逾期。`, `${a.delinquent.length} account(s) show late payments; nothing past due now.`, 'warn'))
+    else if ([...(cr.inquiries || []), ...(cr.tradelines || [])].some(x => isCollectionAgency((x as { creditor?: string }).creditor))) bullets.push(b('账户按时付款，但档案上有催收机构查询 / 报送——请问清是哪笔账。', 'Accounts paid as agreed, but a collection agency has accessed or reports on the file — ask which debt.', 'warn'))
     else bullets.push(b('所有账户按时付款，无逾期、无催收。', 'Every account paid as agreed — no past-due, no collections.', 'good'))
     const rev = a.categories.find(c => c.key === 'revolving')
     if (a.revolvingUtilization != null) bullets.push(b(`信用卡使用率 ${Math.round(a.revolvingUtilization * 100)}%${rev ? `（欠 ${money(rev.balance ?? 0)} / 额度 ${money(rev.limit ?? 0)}）` : ''}${a.revolvingUtilization > 1 ? '——已超出额度，卡刷爆了' : a.revolvingUtilization >= 0.75 ? '——接近刷满，现金紧' : a.revolvingUtilization <= 0.3 ? '——健康' : ''}。`, `Revolving utilisation ${Math.round(a.revolvingUtilization * 100)}%${rev ? ` (${money(rev.balance ?? 0)} of ${money(rev.limit ?? 0)})` : ''}${a.revolvingUtilization > 1 ? ' — over the limit' : a.revolvingUtilization >= 0.75 ? ' — near the limit, cash is tight' : a.revolvingUtilization <= 0.3 ? ' — healthy' : ''}.`, a.revolvingUtilization > 1 ? 'bad' : a.revolvingUtilization >= 0.75 ? 'warn' : 'neutral'))

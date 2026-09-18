@@ -78,7 +78,10 @@ async function run(cmd, args, opts = {}) {
  * List entries inside a ZIP using `unzip -l`. Returns array of file names.
  */
 function listZipEntries(zipPath) {
-  const { stdout } = spawnSync('unzip', ['-Z', '-1', zipPath], { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 })
+  const { stdout, status, stderr } = spawnSync('unzip', ['-Z', '-1', zipPath], { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 })
+  // A truncated ZIP makes unzip exit non-zero with an empty listing; treating
+  // that as "0 entries, done" left the registry stale for a month (2026-09-05 run).
+  if (status !== 0) throw new Error(`unzip -Z exited ${status}: ${String(stderr || '').slice(0, 200)}`)
   return stdout.split('\n').map(s => s.trim()).filter(Boolean)
 }
 
@@ -262,6 +265,9 @@ function parseCorporation(block) {
   return {
     corp_number: corpId,
     jurisdiction: 'ca_federal',
+    // merge-duplicates only rewrites the columns we send, so the freshness
+    // stamp must be part of every row or it never moves (stuck at 2026-08-02).
+    last_seen_at: new Date().toISOString(),
     canonical_name: canonicalizeName(display),
     display_name: display,
     alt_names: altNames.filter(Boolean),
@@ -357,6 +363,8 @@ async function main() {
   await pipeline(dlRes.body, createWriteStream(zipPath))
   const zipStat = await stat(zipPath)
   console.log(`[ingest] Downloaded ${(zipStat.size / 1024 / 1024).toFixed(1)}MB in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
+  const expected = Number(dlRes.headers.get('content-length') || 0)
+  if (expected && zipStat.size !== expected) throw new Error(`Download truncated: ${zipStat.size} of ${expected} bytes`)
 
   // 2. List entries inside the ZIP (no bulk extraction — stream per-file next)
   const entries = listZipEntries(zipPath)
@@ -367,6 +375,7 @@ async function main() {
       return na - nb
     })
   console.log(`[ingest] Found ${xmlFiles.length} XML entries inside ZIP`)
+  if (xmlFiles.length === 0) throw new Error('No OPEN_DATA_*.xml entries inside the ZIP — refusing to report success')
 
   // Optional resume: skip the first N files if RESUME_FROM=N is set. Useful
   // if a previous run crashed mid-flight and we want to continue.

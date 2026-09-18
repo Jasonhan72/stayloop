@@ -19,6 +19,12 @@ export default function AuthCallback() {
         if (typeof window === 'undefined') return
         const hash = window.location.hash.replace(/^#/, '')
         const params = new URLSearchParams(hash)
+        // GoTrue reports provider / OTP failures in the fragment (or query):
+        // error=access_denied&error_code=otp_expired&error_description=…
+        // Show that instead of the generic "link expired" (review 2026-09-17).
+        const q = new URLSearchParams(window.location.search)
+        const providerErr = params.get('error_description') || q.get('error_description') || params.get('error_code') || q.get('error_code') || params.get('error') || q.get('error')
+        if (providerErr) throw new Error(providerErr.replace(/\+/g, ' '))
         const access_token = params.get('access_token')
         const refresh_token = params.get('refresh_token')
         const supabase = getSupabaseBrowser()

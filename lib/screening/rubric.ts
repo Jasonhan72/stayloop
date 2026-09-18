@@ -281,7 +281,7 @@ export function scoreRubric(f: RubricFacts): RubricResult {
   } else {
     ability = 30
     unknown.push('ability_to_pay')
-    add('ability_to_pay', 'income_unknown', 30, 'no income figure established')
+    add('ability_to_pay', 'income_unknown', 30, !f.monthly_rent && (f.verified_monthly_income || f.claimed_monthly_income) ? 'no target rent to compare against' : 'no income figure established')
   }
 
   // Total burden: the rent being applied for PLUS existing debt service, over

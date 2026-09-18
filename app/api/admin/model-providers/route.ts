@@ -31,12 +31,10 @@ export async function GET(req: Request) {
   }
   // Admin gate: RLS on admin_users lets a member read their own row; a
   // non-admin gets null here and is refused.
-  const { data: adminRow, error: ae } = await sb
-    .from('admin_users')
-    .select('role')
-    .eq('user_id', ud.user.id)
-    .maybeSingle()
-  if (ae || !adminRow) {
+  // Same gate as the DB helper: membership AND a rotated password
+  // (review 2026-09-17: an un-rotated admin could still configure models).
+  const { data: isAdmin, error: ae } = await sb.rpc('is_stayloop_admin')
+  if (ae || !isAdmin) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 

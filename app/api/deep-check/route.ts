@@ -33,6 +33,8 @@
 export const runtime = 'edge'
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { stripNul } from '@/lib/screening/jsonSafe'
+const EMPLOYER_KINDS = new Set(['employment_letter', 'offer_letter', 'pay_stub', 't4'])
 import { runDeepCheck } from '@/lib/forensics'
 import { employerExtraChecks, extractEmployerDomains, gazetteLookup, rdapLookup, registryStatusKind, type RdapResult } from '@/lib/forensics/employer-checks'
 import { portalPartySearch, partyNamesCompany } from '@/lib/screening/portalClient'
@@ -302,14 +304,23 @@ async function payloadFromScreening(screening_id: string, authHeader: string): P
 
   // Aggregate text from employment-related docs for BN scanning
   const employerDocText: string[] = []
+  // Bundle files carry comma-joined kinds ("id_document,offer_letter,pay_stub")
+  // and offer letters are employer documents too (review 2026-09-17: the
+  // strict equality left employer_doc_text empty for both).
+  const isEmployerKind = (kind: unknown) => typeof kind === 'string' && kind.split(',').map(k => k.trim()).some(k => EMPLOYER_KINDS.has(k))
+  const letterFiles = new Set<string>()
   if (forensics?.per_file) {
     for (const pf of forensics.per_file) {
-      const kind = pf?.file_kind
-      if (kind !== 'employment_letter' && kind !== 'pay_stub' && kind !== 't4') continue
+      if (!isEmployerKind(pf?.file_kind)) continue
+      if (String(pf?.file_kind || '').includes('employment_letter') || String(pf?.file_kind || '').includes('offer_letter')) letterFiles.add(pf.file_name)
       const txt = pf?.ocr?.text || pf?.text_density?.text_sample
       if (typeof txt === 'string' && txt.length > 0) employerDocText.push(txt)
     }
   }
+  // The employer's own phone = a phone printed on the employment / offer letter.
+  const letterPhone = Array.isArray(cross.phones)
+    ? (cross.phones as Array<{ value?: string; from?: string }>).find(ph => ph?.from && letterFiles.has(ph.from))?.value
+    : undefined
 
   const primary = screening.ai_extracted_name || screening.tenant_name || ''
   const relatedNames = relatedPartyNames(v3, primary)
@@ -322,6 +333,7 @@ async function payloadFromScreening(screening_id: string, authHeader: string): P
     applicant_phone: firstOr(cross.phones),
     applicant_email: firstOr(cross.emails),
     hr_phone_collision: forensics?.cross_doc?.hr_phone_collision === true,
+    signatory_phone: letterPhone,
     employer_doc_text: employerDocText.join('\n\n---\n\n'),
   }
 }
@@ -719,7 +731,8 @@ export async function POST(req: Request) {
         const { data: own } = await rls.from('screenings').select('id').eq('id', gateScreeningId).maybeSingle()
         if (!own) throw new Error('screening not owned by caller')
         const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
-        await admin.from('screenings').update({ deep_check_result: out }).eq('id', gateScreeningId)
+        // Web-read text (Jina pages, Gazette, registry JSON) can carry U+0000 — jsonb refuses it (2026-09-11 incident).
+        await admin.from('screenings').update({ deep_check_result: stripNul(out), deep_check_at: new Date().toISOString(), deep_check_status: 'done' }).eq('id', gateScreeningId)
       } catch (e) {
         captureException(e, { route: 'deep-check', level: 'warning', extra: { screening_id: gateScreeningId, what: 'persist deep_check_result' } })
       }

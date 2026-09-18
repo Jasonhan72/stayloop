@@ -40,7 +40,14 @@ export async function POST(req: Request) {
   }
 
   const token = lease.sign_token || (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '')
-  const { error: upErr } = await sb
+  // guard_lease_document_fields reverts sign_token on any direct client
+  // write (20260914 guards), so the RLS read above proves ownership and the
+  // service role performs the write (review 2026-09-17: every invitation
+  // emailed a token that was never persisted).
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceKey) return NextResponse.json({ error: 'server misconfigured' }, { status: 500 })
+  const adminSb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  const { error: upErr } = await adminSb
     .from('lease_documents')
     .update({ sign_token: token, sent_at: new Date().toISOString(), status: lease.status === 'draft' ? 'sent' : lease.status })
     .eq('id', lease.id)

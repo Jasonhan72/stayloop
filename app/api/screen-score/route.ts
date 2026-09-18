@@ -2174,8 +2174,13 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       // income and fires income_severe (review 2026-09-13). When the stubs
       // plainly describe more than one job (spread > 30%) and the file has
       // more than one applicant, leave the model's household reading alone.
-      const applicants = Array.isArray(parsed.extracted_names) ? parsed.extracted_names.filter((n: unknown) => typeof n === 'string').length : 1
-      const median = (xs: number[]) => xs[Math.floor(xs.length / 2)]
+      // Applicants = the people on ID documents (extracted_names also lists
+      // HR signatories and landlords — review 2026-09-17); even counts take
+      // the lower middle so a second job's stub cannot lift the figure.
+      const idNames: string[] = ((coherence?.documents ?? []) || []).filter((d: { kind?: string }) => d.kind === 'id_document').flatMap((d: { key_facts?: { names?: string[] } }) => d.key_facts?.names || [])
+      const distinctIdPeople = idNames.filter((n, i) => idNames.findIndex(o => sameName(o, n) || nameCovers(o, n) || nameCovers(n, o)) === i).length
+      const applicants = Math.max(1, distinctIdPeople)
+      const median = (xs: number[]) => xs[Math.floor((xs.length - 1) / 2)]
       // Stubs cluster by job (annualised figures within ±15% of a
       // neighbour are the same job). One applicant: the median. Two or
       // more applicants and two or more clusters: the household is the
@@ -2761,6 +2766,8 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         contradictionDetails: [...forensicsReport.cross_doc_flags, ...forensicsReport.all_flags]
           .filter(fl => fl.severity !== 'info' && fl.severity !== 'low' && /^cross_doc_|_mismatch$|_collision$|_contradiction/.test(fl.code) && !/^coherence_/.test(fl.code))
           .filter((fl, i, arr) => arr.findIndex(x => x.code === fl.code) === i)
+                    // credit_report_subject_mismatch is priced by the credit dimension as a transcription gap, not as a contradiction (review 2026-09-17)
+          .filter(fl => fl.code !== 'credit_report_subject_mismatch')
           .map(fl => ({ code: fl.code, severity: fl.severity as 'critical' | 'high' | 'medium' | 'low' })),
         corroborations: [...forensicsReport.cross_doc_flags, ...forensicsReport.all_flags]
           .filter(fl => fl.severity === 'info')
@@ -2820,8 +2827,14 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         // would drift the age by a day across midnight). Unparseable → null,
         // which the rubric treats as "age unknown", never as fresh.
         creditReportAgeDays: (() => {
-          const d = creditReport?.report_date
-          if (!d || !/^\d{4}-\d{2}-\d{2}/.test(d)) return null
+          // The transcription prints the date as 2026-08-22, 2026/08/22 or
+          // 08/22/2026; the deterministic recency read of the same PDF is the
+          // fallback (review 2026-09-17: slash dates made staleness dead).
+          const raw = (creditReport?.report_date || '').trim().replace(/\//g, '-')
+          let d: string | null = /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : null
+          if (!d) { const mdy = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/); if (mdy) { const a = +mdy[1], b = +mdy[2]; const [mo, day] = a > 12 ? [b, a] : [a, b]; d = `${mdy[3]}-${String(mo).padStart(2, '0')}-${String(day).padStart(2, '0')}` } }
+          if (!d) d = forensicsReport.recency?.per_file.find(r => /credit_report/.test(r.kind) && (!creditReport?.source_file || r.file === creditReport.source_file) && r.as_of)?.as_of ?? null
+          if (!d) return null
           const t = Date.parse(`${d.slice(0, 10)}T00:00:00Z`)
           if (!Number.isFinite(t)) return null
           const days = Math.floor((Date.now() - t) / 86_400_000)
@@ -3155,8 +3168,10 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       legacy = mapV3ToLegacy(s, behavioralRedFlagCount, identityMatch, 0)
     }
 
-    const detectedIncome = typeof parsed.detected_monthly_income === 'number' && parsed.detected_monthly_income > 0
-      ? parsed.detected_monthly_income : null
+    // The report headline and the rubric must agree: pay-stub arithmetic
+    // first, the model's reading only as a fallback (review 2026-09-17).
+    const detectedIncome = (typeof detectedIncomeForGate === 'number' && detectedIncomeForGate > 0 ? detectedIncomeForGate : null)
+      ?? (typeof parsed.detected_monthly_income === 'number' && parsed.detected_monthly_income > 0 ? parsed.detected_monthly_income : null)
     const effectiveIncome = detectedIncome ?? (monthlyIncome > 0 ? monthlyIncome : null)
     const computedRatio = (effectiveIncome && effectiveRent > 0) ? effectiveIncome / effectiveRent : null
 

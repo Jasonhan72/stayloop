@@ -97,3 +97,57 @@ describe('copy decisions (slices B/E/F)', () => {
     expect(read('app/agent/onboarding/page.tsx')).toMatch(/router\.replace\('\/agent\/verify'\)/)
   })
 })
+
+// Review 2026-09-17 (post-migration round) — source guards for the fixes that
+// have no pure function to unit-test.
+import { readFileSync as rfs } from 'node:fs'
+describe('review 2026-09-17', () => {
+  const src = (p: string) => rfs(p, 'utf8')
+  it('lease send writes sign_token with the service role (the guard trigger reverts client writes)', () => {
+    const s = src('app/api/lease/send/route.ts')
+    expect(s).toMatch(/adminSb\s*=\s*createClient\(process\.env\.NEXT_PUBLIC_SUPABASE_URL!,\s*serviceKey/)
+    expect(s).toMatch(/await adminSb\s*\.from\('lease_documents'\)\s*\.update\(\{ sign_token/)
+  })
+  it('per-applicant unlock is refused inside the internal free window; the modal never opens then', () => {
+    expect(src('app/api/stripe/unlock/route.ts')).toMatch(/inInternalTestWindow\(\)/)
+    expect(src('app/screening/app/page.tsx')).toMatch(/const proNow = inInternalTestWindow\(\) \|\|/)
+  })
+  it('stripe unlock fulfilment requires a paid session and also handles async_payment_succeeded', () => {
+    const s = src('app/api/stripe/webhook/route.ts')
+    expect(s).toMatch(/session\.payment_status !== 'paid'/)
+    expect(s).toMatch(/case 'checkout\.session\.async_payment_succeeded':/)
+  })
+  it('veriff decisions for a stale session or an expired request are ignored', () => {
+    const s = src('app/api/verify/webhook/veriff/route.ts')
+    expect(s).toMatch(/currentSession !== parsed\.sessionId/)
+    expect(s).toMatch(/isExpired\(row\)/)
+  })
+  it('the apply page treats attach_application_files() === false as a failure', () => {
+    expect(src('app/apply/[slug]/page.tsx')).toMatch(/attached !== true/)
+  })
+  it('admin model routes gate on is_stayloop_admin (rotated password), not on row presence', () => {
+    for (const f of ['app/api/admin/model-providers/route.ts', 'app/api/admin/model-test/route.ts']) expect(src(f)).toMatch(/rpc\('is_stayloop_admin'\)/)
+  })
+  it('model / provider text written to jsonb outside screening is NUL-stripped', () => {
+    for (const f of ['lib/agent/memory.ts', 'lib/agent/reflection.ts', 'lib/verify/store.ts', 'app/api/deep-check/route.ts']) expect(src(f)).toMatch(/stripNul\(/)
+  })
+  it('employer document text includes bundle kinds and offer letters on both paths', () => {
+    expect(src('app/api/deep-check/route.ts')).toMatch(/EMPLOYER_KINDS = new Set\(\['employment_letter', 'offer_letter', 'pay_stub', 't4'\]\)/)
+    expect(src('app/screening/app/page.tsx')).toMatch(/k === 'employment_letter' \|\| k === 'offer_letter' \|\| k === 'pay_stub' \|\| k === 't4'/)
+  })
+  it('the auth callback surfaces provider errors from the URL', () => {
+    expect(src('app/auth/callback/page.tsx')).toMatch(/error_description/)
+  })
+  it('the registry ingest fails on a truncated download or an empty zip and stamps last_seen_at', () => {
+    const s = src('scripts/ingest-ca-corp-registry.mjs')
+    expect(s).toMatch(/Download truncated/)
+    expect(s).toMatch(/No OPEN_DATA_\*\.xml entries/)
+    expect(s).toMatch(/last_seen_at: new Date\(\)\.toISOString\(\)/)
+  })
+  it('household confirmation and listing re-verification live in the migration', () => {
+    const m = src('supabase/migrations/20260917_review_g_fixes.sql')
+    expect(m).toMatch(/update public\.households set verified = true/)
+    expect(m).toMatch(/new\.verification_status := 'pending'/)
+    expect(m).toMatch(/grant update \(revoked_at\) on table public\.household_invites to authenticated/)
+  })
+})
