@@ -30,8 +30,7 @@ import { favKey, useFavorites, type FavListing } from '@/lib/favorites'
  *   - Right aside (sticky):
  *       1. Submit-intent CTA card
  *       2. Landlord / agent contact card
- *       3. Heat card (views / intents / similar rented in last 30d)
- *       4. Similar listings (3 mini cards)
+ *       3. Similar listings (3 mini cards)
  *
  * Data: Supabase `listings` (V5 schema).
  */
@@ -111,14 +110,12 @@ const tierLabel: Record<number, { name: { zh: string; en: string }; reqs: { zh: 
     name: { zh: '需 收入章', en: 'Income stamp required' },
     reqs: [
       { zh: 'ID 验证', en: 'ID verification' },
-      { zh: '收入 ≥ 房租 × 2.5', en: 'Income ≥ rent × 2.5' },
     ],
   },
   3: {
     name: { zh: '需 银行章', en: 'Bank stamp required' },
     reqs: [
       { zh: 'ID 验证', en: 'ID verification' },
-      { zh: '收入 ≥ 房租 × 3', en: 'Income ≥ rent × 3' },
       { zh: '银行透明度 90 天', en: '90-day bank transparency' },
       { zh: '现住址确认', en: 'Current address confirmed' },
     ],
@@ -127,10 +124,7 @@ const tierLabel: Record<number, { name: { zh: string; en: string }; reqs: { zh: 
     name: { zh: '需 信用 + 法庭章', en: 'Credit + court stamp required' },
     reqs: [
       { zh: 'ID 验证', en: 'ID verification' },
-      { zh: '收入 ≥ 房租 × 3', en: 'Income ≥ rent × 3' },
       { zh: '银行透明度 90 天', en: '90-day bank transparency' },
-      { zh: '信用报告 ≥ 700', en: 'Credit report ≥ 700' },
-      { zh: 'LTB 法庭记录清白', en: 'Clean LTB court record' },
     ],
   },
 }
@@ -161,7 +155,6 @@ export default function ListingDetailPage() {
   const [listing, setListing] = useState<DBListing | null>(null)
   const [similar, setSimilar] = useState<DBListing[]>([])
   const [loading, setLoading] = useState(true)
-  const [intentOpen, setIntentOpen] = useState(false)
   const [fieldAgentOpen, setFieldAgentOpen] = useState(false)
   const [galleryOpen, setGalleryOpen] = useState(false)
   const [galleryIdx, setGalleryIdx] = useState(0)
@@ -284,8 +277,10 @@ export default function ListingDetailPage() {
 
   const a = listing.thumb_a || '#D4C4A8'
   const b = listing.thumb_b || '#94815C'
-  const tier = (listing.trust_tier ?? 2) as 1 | 2 | 3 | 4
-  const tierInfo = tierLabel[tier]
+  // Nothing writes listings.trust_tier today, so the stamp badge and the
+  // "criteria" section render only when a row actually carries a value.
+  const tier = listing.trust_tier != null && tierLabel[listing.trust_tier] ? (listing.trust_tier as 1 | 2 | 3 | 4) : null
+  const tierInfo = tier != null ? tierLabel[tier] : null
   const snap = favSnapshot(listing)
   const fav = isFav(snap.key)
 
@@ -414,7 +409,7 @@ export default function ListingDetailPage() {
             {/* Title block */}
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`tier-badge t${tier}`}>{tierInfo.name[lang]}</span>
+                {tier != null && tierInfo && <span className={`tier-badge t${tier}`}>{tierInfo.name[lang]}</span>}
                 {listing.match_score && listing.match_score >= 85 && (
                   <span
                     className="font-mono"
@@ -627,6 +622,7 @@ export default function ListingDetailPage() {
             {/* Section 4 — Walk Score — only show when real data exists */}
 
             {/* Section 5 — 房客信用门槛 · 房东设置 */}
+            {tier != null && tierInfo && (
             <Section title={zh ? '房客信用门槛 · 房东设置' : 'Tenant criteria · set by landlord'} eyebrow="LANDLORD CRITERIA">
               <div className="rounded-[12px] border border-line-divider bg-white p-5">
                 <div className="text-[14px] font-semibold">
@@ -637,13 +633,11 @@ export default function ListingDetailPage() {
                 <p className="mt-1 text-[12.5px] text-body-2">
                   {zh ? (
                     <>
-                      房东设定:此房源 <b className="text-body">需 {stampForTier(tier).zh}</b> · 月收入 ≥ 房租 × 2.5。
-                      你需要完成以下验证才能提交看房意向：
+                      房东设定:此房源 <b className="text-body">需 {stampForTier(tier).zh}</b>。以下是这枚章对应的核验项，是否录取由房东本人决定：
                     </>
                   ) : (
                     <>
-                      Set by landlord: this listing requires the <b className="text-body">{stampForTier(tier).en.toLowerCase()}</b> · monthly income ≥ rent × 2.5.
-                      Complete the verifications below to submit a showing request:
+                      Set by landlord: this listing asks for the <b className="text-body">{stampForTier(tier).en.toLowerCase()}</b>. These are the checks behind that stamp; the landlord makes the decision:
                     </>
                   )}
                 </p>
@@ -679,6 +673,7 @@ export default function ListingDetailPage() {
                 </div>
               </div>
             </Section>
+            )}
           </div>
 
           {/* Right aside */}
@@ -686,11 +681,11 @@ export default function ListingDetailPage() {
             {/* Submit intent */}
             <div className="sl-card p-6">
               <span className="sl-eyebrow">SUBMIT INTENT</span>
-              <h3 className="mt-2 text-[20px] font-bold tracking-tight">{zh ? '想看这套？提交看房意向' : 'Want to see it? Submit a showing request'}</h3>
+              <h3 className="mt-2 text-[20px] font-bold tracking-tight">{zh ? '想看这套？' : 'Want to see it?'}</h3>
               <p className="mt-2 text-[13px] leading-relaxed text-body-2">
                 {zh
-                  ? 'Stayloop 不要你立刻申请。先告诉房东 / 经纪你的匿名 盖章进度 + 入住时间，对方决定是否邀请你看房。'
-                  : 'Stayloop doesn’t make you apply right away. First share your anonymous stamp progress and move-in date with the landlord / agent — they decide whether to invite you for a showing.'}
+                  ? '从 Stayloop 认证（RECO 注册已核）的经纪中自选一位帮你约看，或直接提交完整申请。Stayloop 不派单、不参与交易、不收费。'
+                  : 'Pick a Stayloop-verified (RECO-checked) agent to arrange a viewing, or submit a full application directly. Stayloop does not dispatch agents, takes no part in the trade and charges nothing.'}
               </p>
               {isOwnListing ? (
                 <div className="mt-4 rounded-[10px] border border-line-divider bg-surface-chip px-4 py-3 text-[12.5px] leading-relaxed text-body-2">
@@ -698,11 +693,15 @@ export default function ListingDetailPage() {
                   <Link href="/dashboard" className="font-semibold underline">{zh ? '去房东工作台' : 'Open the landlord workspace'}</Link>
                 </div>
               ) : (<>
+              {/* The tenant chooses a RECO-verified agent from Stayloop's
+                  directory and contacts them directly. Stayloop does not
+                  dispatch, is not a brokerage and charges nothing (decision
+                  2026-09-13; design/roles-and-agent-verification-2026-09.md). */}
               <button
-                onClick={() => setIntentOpen(true)}
+                onClick={() => setFieldAgentOpen(true)}
                 className="sl-btn-primary mt-4 w-full !py-[12px]"
               >
-                {zh ? '提交看房意向' : 'Submit showing request'}
+                {zh ? '找认证经纪约看房' : 'Find a verified agent for a viewing'}
               </button>
               <Link
                 href={`/apply/${listing.slug}`}
@@ -716,25 +715,12 @@ export default function ListingDetailPage() {
               >
                 {zh ? '让 AI Agent 替我问' : 'Have AI Agent ask for you'}
               </Link>
-              {/* The tenant chooses a RECO-verified agent from Stayloop's
-                  directory and contacts them directly. Stayloop does not
-                  dispatch, is not a brokerage and charges nothing (decision
-                  2026-09-13; design/roles-and-agent-verification-2026-09.md). */}
-              <button
-                onClick={() => setFieldAgentOpen(true)}
-                className="mt-2 w-full rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
-              >
-                {zh ? '找经纪帮我完成' : 'Find an agent to help me'}
-              </button>
               <div className="mt-2 text-center text-[11px] leading-relaxed text-body-3">
                 {zh
                   ? '从 Stayloop 认证（RECO 注册已核）的经纪中自选并直接联系；Stayloop 不参与交易、不收费。房东直租房源也可直接与房东约看。'
                   : 'Pick a Stayloop-verified (RECO-checked) agent and contact them directly; Stayloop takes no part in the trade and charges nothing. Landlord-direct listings can also be viewed with the landlord.'}
               </div>
               </>)}
-              <div className="mt-3 text-center font-mono text-[10px] uppercase tracking-eyebrowLg text-body-3">
-                {zh ? '通常 4 小时内回复' : 'Usually replies within 4 hours'}
-              </div>
             </div>
 
             {/* Landlord / agent card */}
@@ -774,32 +760,6 @@ export default function ListingDetailPage() {
               </Link>
             </div>
 
-            {/* Heat card */}
-            <div
-              className="sl-card p-5"
-              style={{
-                background:
-                  'linear-gradient(180deg,rgba(217,119,6,0.06),rgba(255,255,255,1))',
-                borderColor: 'rgba(217,119,6,0.25)',
-              }}
-            >
-              <span className="sl-eyebrow" style={{ color: '#B45309' }}>
-                LIVE HEAT
-              </span>
-              <div className="mt-3 grid grid-cols-3 gap-3">
-                <Heat n="142" label={zh ? '近 7 天浏览' : 'Views · 7 days'} />
-                <Heat n="9" label={zh ? '意向已提' : 'Intents submitted'} />
-                <Heat n="2.6×" label={zh ? '同类型紧俏' : 'Demand vs. type'} />
-              </div>
-              <p className="mt-3 text-[12px] leading-relaxed text-body-2">
-                {zh ? (
-                  <>同门槛同片区的房源平均 <b>4.2 天</b> 收第一份意向，这套已挂 <b>1 天</b>。</>
-                ) : (
-                  <>Comparable listings with this threshold and area get their first intent in <b>4.2 days</b> on average; this one has been live for <b>1 day</b>.</>
-                )}
-              </p>
-            </div>
-
             {/* Similar listings */}
             {similar.length > 0 && (
               <div className="sl-card p-5">
@@ -835,9 +795,11 @@ export default function ListingDetailPage() {
                         <div className="truncate text-[11.5px] text-body-2">
                           {s.bedrooms === 0 ? 'Studio' : `${s.bedrooms}B`} · {s.neighborhood}
                         </div>
-                        <div className="font-mono text-[9.5px] uppercase tracking-eyebrowLg text-body-3">
-                          {zh ? `需 ${stampForTier(s.trust_tier ?? 2).zh}` : `${stampForTier(s.trust_tier ?? 2).en} required`}
-                        </div>
+                        {s.trust_tier != null && (
+                          <div className="font-mono text-[9.5px] uppercase tracking-eyebrowLg text-body-3">
+                            {zh ? `需 ${stampForTier(s.trust_tier).zh}` : `${stampForTier(s.trust_tier).en} required`}
+                          </div>
+                        )}
                       </div>
                     </Link>
                   ))}
@@ -847,9 +809,6 @@ export default function ListingDetailPage() {
           </aside>
         </section>
 
-        {intentOpen && (
-          <IntentModal listing={listing} zh={zh} onClose={() => setIntentOpen(false)} />
-        )}
         {fieldAgentOpen && (
           <AgentPicker zh={zh} listingAddress={`${listing.address}${listing.unit ? ` #${listing.unit}` : ''}`} onClose={() => setFieldAgentOpen(false)} excludeAuthIds={[auth.user?.id, listing.landlord_id, landlordAuthId]} />
         )}
@@ -998,181 +957,6 @@ function ScoreCard({
         {value}
       </div>
       <div className="mt-1 text-[11.5px] text-body-2">{note}</div>
-    </div>
-  )
-}
-
-function Heat({ n, label }: { n: string; label: string }) {
-  return (
-    <div className="text-center">
-      <div className="text-[20px] font-extrabold tracking-tight" style={{ color: '#B45309' }}>
-        {n}
-      </div>
-      <div className="font-mono text-[9.5px] uppercase tracking-eyebrowLg text-body-3">
-        {label}
-      </div>
-    </div>
-  )
-}
-
-function IntentModal({
-  listing,
-  zh,
-  onClose,
-}: {
-  listing: DBListing
-  zh: boolean
-  onClose: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur sm:items-center">
-      <div className="sl-card w-full max-w-md p-7">
-        <h3 className="text-[20px] font-bold tracking-tight">{zh ? '提交看房意向' : 'Submit showing request'}</h3>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
-          {zh
-            ? '房东只看到匿名信息：盖章进度、收入区间、入住意向时间。你的姓名 / 联系方式只在对方邀请你看房后才解锁。'
-            : 'The landlord only sees anonymous info: your stamp progress, income band, and desired move-in date. Your name and contact details unlock only after they invite you for a showing.'}
-        </p>
-        <div className="mt-5 space-y-3">
-          <label className="block">
-            <span className="sl-eyebrow">{zh ? '入住时间' : 'Move-in date'}</span>
-            <input className="sl-input mt-1" type="date" />
-          </label>
-          <label className="block">
-            <span className="sl-eyebrow">{zh ? '租期' : 'Lease term'}</span>
-            <select className="sl-input mt-1" defaultValue="12">
-              <option value="12">{zh ? '12 个月' : '12 months'}</option>
-              <option value="6">{zh ? '6 个月' : '6 months'}</option>
-              <option value="month">{zh ? '月租' : 'Month-to-month'}</option>
-            </select>
-          </label>
-          <label className="block">
-            <span className="sl-eyebrow">{zh ? '给房东的一句话（可选）' : 'A note to the landlord (optional)'}</span>
-            <textarea
-              className="sl-input mt-1 h-20 py-2"
-              placeholder={
-                zh
-                  ? `一直在 ${listing.neighborhood ?? listing.city} 工作 · 工作两年 · 安静`
-                  : `I work in ${listing.neighborhood ?? listing.city} · two years employed · quiet`
-              }
-            />
-          </label>
-        </div>
-        <div className="mt-6 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-[10px] border border-line-strong bg-white py-[12px] text-[14px] font-semibold text-body transition hover:border-brand hover:text-brand"
-          >
-            {zh ? '取消' : 'Cancel'}
-          </button>
-          <button onClick={onClose} className="sl-btn-primary flex-1 !py-[12px]" disabled>
-            {zh ? '即将上线' : 'Coming soon'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function FieldAgentModal({
-  listing,
-  zh,
-  onClose,
-}: {
-  listing: DBListing
-  zh: boolean
-  onClose: () => void
-}) {
-  const [step, setStep] = useState<'form' | 'submitted'>('form')
-  const addr = [listing.address, listing.unit].filter(Boolean).join(' ')
-
-  if (step === 'submitted') {
-    return (
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur sm:items-center">
-        <div className="sl-card w-full max-w-md p-7 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-[28px]">
-            ✓
-          </div>
-          <h3 className="text-[20px] font-bold tracking-tight">
-            {zh ? '看房请求已提交' : 'Viewing request submitted'}
-          </h3>
-          <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
-            {zh
-              ? `接单的持牌经纪将在 4 小时内联系你确认 ${addr} 的看房时间,全程免费。`
-              : `The licensed agent taking your request will contact you within 4 hours to confirm the viewing at ${addr} — free of charge.`}
-          </p>
-          <button onClick={onClose} className="sl-btn-primary mt-6 w-full !py-[12px]">
-            {zh ? '好的' : 'Got it'}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur sm:items-center">
-      <div className="sl-card w-full max-w-md p-7">
-        <h3 className="text-[20px] font-bold tracking-tight">
-          {zh ? '持牌经纪带看' : 'Licensed agent showing'}
-        </h3>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
-          {zh
-            ? '由 Stayloop 会员经纪池中一位 RECO 已验证的持牌经纪接单:负责预约、陪同或代看,拍照 + 录像 + 出具现场报告,通常 24 小时内完成。安省法规要求带看服务须由持牌经纪执行。'
-            : 'A RECO-verified licensed agent from Stayloop’s member network takes the task — books the showing, accompanies you or views on your behalf, with photos, video and a condition report within 24 hours. Ontario law requires showings-as-a-service to be performed by a licensed agent.'}
-        </p>
-
-        <div className="mt-5 rounded-[10px] border border-line bg-surface-2 p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] text-body-2">{zh ? '房源' : 'Property'}</span>
-            <span className="text-[13px] font-semibold">{addr}</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between">
-            <span className="text-[13px] text-body-2">{zh ? '月租' : 'Rent'}</span>
-            <span className="text-[13px] font-semibold">${listing.monthly_rent?.toLocaleString()}/mo</span>
-          </div>
-        </div>
-
-        <div className="mt-5 space-y-3">
-          <label className="block">
-            <span className="sl-eyebrow">{zh ? '首选看房日期' : 'Preferred date'}</span>
-            <input className="sl-input mt-1" type="date" />
-          </label>
-          <label className="block">
-            <span className="sl-eyebrow">{zh ? '时间段' : 'Time preference'}</span>
-            <select className="sl-input mt-1" defaultValue="any">
-              <option value="any">{zh ? '任意时间' : 'Any time'}</option>
-              <option value="morning">{zh ? '上午 (9-12)' : 'Morning (9-12)'}</option>
-              <option value="afternoon">{zh ? '下午 (12-17)' : 'Afternoon (12-5)'}</option>
-              <option value="evening">{zh ? '傍晚 (17-20)' : 'Evening (5-8)'}</option>
-            </select>
-          </label>
-          <label className="block">
-            <span className="sl-eyebrow">{zh ? '特别关注（可选）' : 'Focus areas (optional)'}</span>
-            <textarea
-              className="sl-input mt-1 h-20 py-2"
-              placeholder={zh ? '地下室状况 · 水压 · 噪音 · 停车位实际位置' : 'Basement condition · water pressure · noise · parking spot location'}
-            />
-          </label>
-        </div>
-
-        <p className="mt-4 text-[11px] leading-relaxed text-body-3">
-          {zh
-            ? '* 对你不收费。依 RECO / TRESA 规定，经纪在提供任何服务前须先向你提供并说明 RECO《信息指南》；带看即代表你，会与你建立租客代理关系并签代理协议（TRESA 要求最晚在你提交要约前落成书面）。'
-            : '* No charge to you. Under RECO / TRESA rules the agent must give you and explain the RECO Information Guide before any service, and acts as your representative under a tenant representation agreement (TRESA requires it in writing no later than before you make an offer).'}
-        </p>
-
-        <div className="mt-5 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-[10px] border border-line-strong bg-white py-[12px] text-[14px] font-semibold text-body transition hover:border-brand hover:text-brand"
-          >
-            {zh ? '取消' : 'Cancel'}
-          </button>
-          <button onClick={onClose} className="sl-btn-primary flex-1 !py-[12px]" disabled>
-            {zh ? '即将上线' : 'Coming soon'}
-          </button>
-        </div>
-      </div>
     </div>
   )
 }

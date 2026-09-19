@@ -48,16 +48,21 @@ function dimScoreColor(score: number): string {
 // rows. Mirrors reconstructResult in ../report.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function dimsOf(row: any): Record<string, number> {
+  // `communication` is not a scored dimension: the rubric excludes it
+  // (lib/screening/rubric.ts RUBRIC_WEIGHTS) — nothing in a pile of PDFs
+  // measures it. Older rows and some models still store the key; showing it
+  // as a fifth dimension implied it moved the score (review 2026-09-19).
+  const scored = (o: Record<string, number>): Record<string, number> =>
+    Object.fromEntries(Object.entries(o).filter(([k]) => k !== 'communication'))
   const v3 = (row?.ai_dimension_notes && row.ai_dimension_notes._v3) || {}
-  if (v3.scores && typeof v3.scores === 'object') return v3.scores
-  if (row?.scores_v3 && typeof row.scores_v3 === 'object') return row.scores_v3
+  if (v3.scores && typeof v3.scores === 'object') return scored(v3.scores)
+  if (row?.scores_v3 && typeof row.scores_v3 === 'object') return scored(row.scores_v3)
   if (row?.ability_to_pay_score != null) {
     return {
       ability_to_pay: row.ability_to_pay_score ?? 0,
       credit_health: row.credit_health_score ?? 0,
       rental_history: row.rental_history_score ?? 0,
       verification: row.verification_score ?? 0,
-      communication: row.communication_score ?? 0,
     }
   }
   return {}
@@ -76,7 +81,6 @@ const DIMENSION_META: Record<string, { icon: string; name: string; label: string
   credit_health:  { icon: 'X', name: 'Credit', label: 'Credit Health' },
   rental_history: { icon: 'H', name: 'History', label: 'Rental History' },
   verification:   { icon: 'ID', name: 'Identity', label: 'Verification' },
-  communication:  { icon: 'B', name: 'Behavior', label: 'Communication' },
 }
 
 /* ---------- loading / error shells ---------- */

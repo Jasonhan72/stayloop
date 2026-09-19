@@ -35,7 +35,7 @@ import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '../mode
 import { llmChat, type ChatContentBlock } from '../llmChat'
 import type { LlmUsageMeta } from '../llmUsage'
 import { checkPdfMetadata, readPdfMetadata } from './pdf-metadata'
-import { checkTextDensity, readPdfTextDensity } from './pdf-text'
+import { checkTextDensity, collapseRuns, readPdfTextDensity } from './pdf-text'
 import { checkPdfStructure } from './pdf-structure'
 import { checkBenford } from './benford'
 import { applyTextPayFrequency, checkPaystubMath, extractPaystubFields, applyStubAnnualFromPeriod, extractOneOffYtd } from './paystub-math'
@@ -53,6 +53,7 @@ import type { CompanyRegistryInfo } from './arm-length'
 import { checkIdValidation } from './id-validation'
 import { checkDocumentDateConsistency, checkDocumentDateConflicts, extractDocumentDate } from './date-consistency'
 import { searchCbrRegistry } from './cbr-registry'
+import { registryStatusKind } from './employer-checks'
 import { ocrImagePdf } from './image-ocr'
 import type {
   ForensicFlag,
@@ -222,8 +223,11 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
         continue
       }
       const status = (info.status || '').toLowerCase()
-      const dead = /dissolv|inactive|cancel|revok|struck|terminat|discontinu|amalgamat|not in good standing/.test(status)
-      const alive = /active|incorporated|in good standing|registered|continued/.test(status) && !dead
+      // One classifier for both passes (review 2026-09-19): the local regex
+      // here still treated "Active (New Amalgamated)" / "Discontinued" as dead.
+      const kind = registryStatusKind(status)
+      const dead = kind === 'inactive'
+      const alive = kind === 'active' || (kind === 'unknown' && /\bincorporated\b/.test(status))
       if (dead) {
         crossDocFlags.push({
           code: 'employer_registry_dissolved',
@@ -421,7 +425,8 @@ async function analyzeFile(
               }
             } catch { /* fallback is best-effort */ }
           }
-          if (ocrResult) out.ocr = ocrResult
+          // OCR text does not flow through pdf-text.ts — same ReDoS guard here.
+          if (ocrResult) out.ocr = { ...ocrResult, text: collapseRuns(ocrResult.text) }
         }
         // Recovered text feeds EVERY downstream reader — cross-doc entities,
         // payroll deposits, liquidity, income reconciliation — not only the
@@ -549,7 +554,8 @@ async function analyzeFile(
 
     // Image files (jpeg / png / heic — non-PDF) also need OCR for IDs.
     if (f.mime?.startsWith('image/') && apiKey) {
-      const ocrResult = await ocrImagePdf(f.signed_url, f.mime, apiKey)
+      const ocrRaw = await ocrImagePdf(f.signed_url, f.mime, apiKey)
+      const ocrResult = ocrRaw ? { ...ocrRaw, text: collapseRuns(ocrRaw.text) } : null
       if (ocrResult) {
         out.ocr = ocrResult
         const surname = applicantName

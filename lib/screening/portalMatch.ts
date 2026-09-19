@@ -73,23 +73,37 @@ export function matchPortalParty(queryName: string, displayName: string, sortNam
   const q = nameTokens(queryName)
   const no = (reason: string): PortalPartyMatch => ({ match: false, confidence: 'name_only', matched: 0, fuzzy: false, reason })
   if (q.length < 2) return no('query needs a first name and a surname')
-  const r = Array.from(new Set([...nameTokens(displayName), ...nameTokens(sortName)]))
-  if (r.length === 0) return no('record has no name')
+  // Review 2026-09-19: the record's tokens are a MULTISET and each one can be
+  // consumed once. With a plain set, "Lin Lin Zhang" against "ZHANG, LIN"
+  // counted the single LIN twice → 3/3 → strong → hard gate. displayName and
+  // sortName are two spellings of the same party, so a token's multiplicity is
+  // the larger of the two, not the sum.
+  const countOf = (toks: string[]) => toks.reduce((m, t) => m.set(t, (m.get(t) || 0) + 1), new Map<string, number>())
+  const dc = countOf(nameTokens(displayName))
+  const sc = countOf(nameTokens(sortName))
+  const pool = new Map<string, number>()
+  for (const [t, n] of dc) pool.set(t, Math.max(n, sc.get(t) || 0))
+  for (const [t, n] of sc) if (!pool.has(t)) pool.set(t, n)
+  if (pool.size === 0) return no('record has no name')
+  const take = (t: string) => { const n = pool.get(t) || 0; if (n <= 1) pool.delete(t); else pool.set(t, n - 1) }
 
   let matched = 0
   let fuzzy = false
   let fuzzyCount = 0
   let substituted = false
-  const missing: number[] = []
+  const hit: boolean[] = q.map(() => false)
+  // Exact matches first, so a clerical variant never uses up the token
+  // another query token matches exactly.
+  q.forEach((qt, i) => { if (pool.has(qt)) { take(qt); hit[i] = true; matched++ } })
   q.forEach((qt, i) => {
-    let hit = false
-    for (const rt of r) {
+    if (hit[i]) return
+    for (const rt of Array.from(pool.keys())) {
       const m = tokensMatch(qt, rt)
-      if (m.match) { hit = true; if (!m.exact) { fuzzy = true; fuzzyCount++ } if (m.substituted) substituted = true; break }
+      if (m.match) { take(rt); hit[i] = true; matched++; fuzzy = true; fuzzyCount++; if (m.substituted) substituted = true; break }
     }
-    if (hit) matched++
-    else missing.push(i)
   })
+  const missing: number[] = []
+  hit.forEach((h, i) => { if (!h) missing.push(i) })
 
   // The first name must be there.
   if (missing.includes(0)) return no('first name not on record')
@@ -121,6 +135,20 @@ export function matchPortalParty(queryName: string, displayName: string, sortNam
 export function isRespondentSide(role: string | undefined): boolean {
   const r = (role || '').toLowerCase()
   return r.includes('defendant') || r.includes('debtor') || r.includes('respondent')
+}
+
+/** The records that may gate and score: full-name (strong) matches with the
+ *  person on the defendant / debtor / respondent side. Name-only matches are
+ *  namesakes until corroborated — displayed and flagged, never counted. */
+export function strongRespondentRecords<T extends { partyRole?: string; matchConfidence?: 'strong' | 'name_only' }>(records: T[] | null | undefined): T[] {
+  return (records || []).filter(r => r.matchConfidence === 'strong' && isRespondentSide(r.partyRole))
+}
+
+/** RubricFacts.courtDefendantHits from portal records: 0 / 1 / 2 (= two or
+ *  more), mirroring court_record_defendant / _multi. LTB orders are NOT in
+ *  here — the rubric prices those through ltbCorroborated. */
+export function portalCourtDefendantHits(records: Array<{ partyRole?: string; matchConfidence?: 'strong' | 'name_only' }> | null | undefined): number {
+  return Math.min(2, strongRespondentRecords(records).length)
 }
 
 /** The portal queries worth running for a name, in order. Every one runs and

@@ -48,11 +48,14 @@ export function clampMemories(raw: unknown): MemoryItem[] {
 export function normalizeWorkflow(raw: unknown): WorkflowState {
   const w = (raw ?? {}) as Partial<WorkflowState>
   return {
-    workflow_type: typeof w.workflow_type === 'string' ? w.workflow_type : '',
-    workflow_id: w.workflow_id ?? null,
-    current_stage: typeof w.current_stage === 'string' ? w.current_stage : '',
-    completed_steps: Array.isArray(w.completed_steps) ? w.completed_steps.slice(0, 20) : [],
-    status: typeof w.status === 'string' ? w.status : 'active',
+    // Every string here lands in the system prompt — clamp lengths, not
+    // just counts (review 2026-09-19: an anonymous payload inflated the
+    // prompt to 12 MB through completed_steps / current_stage).
+    workflow_type: typeof w.workflow_type === 'string' ? w.workflow_type.slice(0, 80) : '',
+    workflow_id: typeof w.workflow_id === 'string' ? w.workflow_id.slice(0, 80) : null,
+    current_stage: typeof w.current_stage === 'string' ? w.current_stage.slice(0, 80) : '',
+    completed_steps: Array.isArray(w.completed_steps) ? w.completed_steps.slice(0, 20).map((s) => String(s).slice(0, 80)) : [],
+    status: w.status === 'paused' || w.status === 'completed' || w.status === 'archived' ? w.status : 'active',
   }
 }
 

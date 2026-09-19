@@ -28,8 +28,9 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
       address: l.address,
       neighborhood: l.neighborhood,
       city: l.city,
-      price: l.price,
-      beds: l.beds,
+      // Commercial: all-in monthly when known; never "Studio" for a warehouse.
+      price: l.kind === 'commercial' ? l.monthly_all_in ?? l.price : l.price,
+      beds: l.kind === 'commercial' ? (null as unknown as number) : l.beds,
       baths: l.baths ?? null,
       sqft: l.sqft ?? null,
       image: l.image || null,
@@ -49,14 +50,15 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
           : null
     : null
   const specs = commercial
-    ? ([l.property_type || (zh ? '商业空间' : 'Commercial'), sqftLabel].filter(Boolean) as string[])
+    ? ([(zh ? l.property_type : l.property_type_en || l.property_type) || (zh ? '商业空间' : 'Commercial'), sqftLabel].filter(Boolean) as string[])
     : ([
         `${l.beds}B${den ? ' + den' : ''}`,
         l.baths ? `${l.baths} ${zh ? '浴' : 'bath'}` : null,
         l.sqft ? `${l.sqft} sqft` : null,
       ].filter(Boolean) as string[])
-  const amenities = commercial ? (l.specs || []).slice(0, 5) : (l.tags || []).filter((t) => t !== 'den').slice(0, 3)
-  const warns = commercial ? l.specs_warn || [] : []
+  const amenities = commercial ? ((zh ? l.specs : l.specs_en || l.specs) || []).slice(0, 5) : (l.tags || []).filter((t) => t !== 'den').slice(0, 3)
+  const warns = commercial ? (zh ? l.specs_warn : l.specs_warn_en || l.specs_warn) || [] : []
+  const noteText = zh ? l.note : l.note_en || l.note
 
   const inner = (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-line-divider bg-white transition hover:shadow-md">
@@ -146,7 +148,7 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
       </div>
 
       {/* note bar */}
-      {l.note && (
+      {noteText && (
         <div
           className="border-t border-line-divider px-4 py-2.5 text-[11.5px] leading-snug"
           style={{
@@ -155,7 +157,7 @@ export default function ListingChatCard({ l }: { l: ListingCard }) {
           }}
         >
           {external ? '◧ ' : '◑ '}
-          {l.note}
+          {noteText}
         </div>
       )}
     </div>

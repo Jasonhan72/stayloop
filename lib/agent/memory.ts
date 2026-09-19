@@ -54,6 +54,16 @@ export async function upsertMemories(
   items: MemoryItem[]
 ): Promise<void> {
   if (!items.length) return
+  // The model is told to REUSE an existing key when a fact changes, but it
+  // only sees the key — the unique index also includes memory_type, so a
+  // reused key under a different type inserted a second row (review
+  // 2026-09-19). Pin the type to the row that already owns the key.
+  const keys = Array.from(new Set(items.map((m) => String(m.key))))
+  const existingType = new Map<string, string>()
+  try {
+    const { data } = await client.from('user_memories').select('key,memory_type').eq('user_id', userId).eq('role', role).in('key', keys)
+    for (const r of (data ?? []) as { key: string; memory_type: string }[]) if (!existingType.has(r.key)) existingType.set(r.key, r.memory_type)
+  } catch { /* fall back to the model's type */ }
   const rows = items.map((m) => ({
     user_id: userId,
     role,
@@ -61,7 +71,7 @@ export async function upsertMemories(
     label: stripNul(m.label),
     value: stripNul(m.value),
     confidence: Math.max(0, Math.min(1, m.confidence ?? 0.8)),
-    memory_type: clampType(m.memory_type),
+    memory_type: existingType.get(String(m.key)) ?? clampType(m.memory_type),
     source: 'agent_turn',
     updated_at: new Date().toISOString(),
   }))

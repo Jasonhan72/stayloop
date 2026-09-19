@@ -17,7 +17,7 @@ const sections: { id: Section; label_en: string; label_zh: string }[] = [
   { id: 'compliance', label_en: 'GET /v1/listings/{id}/compliance', label_zh: 'GET /v1/listings/{id}/compliance' },
   { id: 'mediate', label_en: 'POST /v1/disputes/mediate', label_zh: 'POST /v1/disputes/mediate' },
   { id: 'webhooks', label_en: 'Webhooks', label_zh: 'Webhooks' },
-  { id: 'sdks', label_en: 'SDKs', label_zh: 'SDKs' },
+  { id: 'sdks', label_en: 'Calling it today', label_zh: '当前可用的调用方式' },
   { id: 'rate-limits', label_en: 'Rate limits', label_zh: '速率限制' },
   { id: 'errors', label_en: 'Errors', label_zh: '错误处理' },
 ]
@@ -42,6 +42,29 @@ export default function TrustApiDocsPage() {
   return (
     <div style={{ minHeight: '100vh', background: v3.surface }}>
       <Header variant="transparent" />
+      {/* Design preview: everything under /v1 below is a specification, not a
+          running service. The only implemented endpoint is POST /api/trust/verify. */}
+      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 24px 0' }}>
+        <div
+          role="note"
+          className="flex flex-col gap-2 rounded-xl px-4 py-3 sm:flex-row sm:items-start sm:gap-3"
+          style={{ background: '#FEF3C7', border: '1px solid rgba(180,83,9,0.35)' }}
+        >
+          <span
+            className="w-fit flex-shrink-0 rounded-md px-2 py-[3px] font-mono text-[10px] font-bold uppercase tracking-wider text-white"
+            style={{ background: '#B45309' }}
+          >
+            {label('Design preview', '设计预览')}
+          </span>
+          <p className="min-w-0 flex-1 text-[13px] font-semibold leading-relaxed" style={{ color: '#78350F', overflowWrap: 'anywhere' }}>
+            {label(
+              'Design preview — this API is not live. The /v1 endpoints, webhooks, sample responses and rate limits on this page describe the planned interface; none of them can be called today. The only implemented endpoint is POST /api/trust/verify, authenticated with an X-API-Key header that Stayloop issues manually. There is no published SDK.',
+              '设计预览 · 该 API 尚未开放。本页的 /v1 端点、Webhook、示例响应与速率限制描述的是规划中的接口，目前都无法调用。今天唯一已实现的端点是 POST /api/trust/verify，用 Stayloop 人工签发的 X-API-Key 请求头鉴权。没有已发布的 SDK。'
+            )}{' '}
+            <Link href="/contact" className="underline underline-offset-2">{label('Contact us', '联系我们')}</Link>
+          </p>
+        </div>
+      </div>
       <div
         className="tapi-docs-grid"
         style={{
@@ -587,21 +610,19 @@ export default function TrustApiDocsPage() {
                 marginBottom: 16,
               }}
             >
-              {label('SDKs', 'SDKs')}
+              {label('Calling it today', '当前可用的调用方式')}
             </h2>
             <p style={{ fontSize: 14, lineHeight: 1.6, color: v3.textSecondary, marginBottom: 16 }}>
               {label(
-                'Official Stayloop SDKs are available for JavaScript, Python, and Go.',
-                '官方 Stayloop SDK 可用于 JavaScript、Python 和 Go。'
+                'No SDK is published. The only endpoint implemented today is POST /api/trust/verify — a plain HTTPS call with an X-API-Key header. Keys are issued manually by Stayloop; there is no self-serve key console yet.',
+                '目前没有已发布的 SDK。今天唯一已实现的端点是 POST /api/trust/verify——普通的 HTTPS 请求，带 X-API-Key 请求头。Key 由 Stayloop 人工签发，暂无自助控制台。'
               )}
             </p>
 
-            <CodeBlock code={`npm install @stayloop/trust-api
-
-import { TrustAPI } from '@stayloop/trust-api'
-
-const client = new TrustAPI({ apiKey: 'sk_test_...' })
-const result = await client.screen({...})`}
+            <CodeBlock code={`curl -X POST https://www.stayloop.ai/api/trust/verify \\
+  -H "X-API-Key: <issued by Stayloop>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"token":"<passport share token>","scopes":["identity","bank"]}'`}
             />
           </section>
 

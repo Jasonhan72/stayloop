@@ -13,6 +13,7 @@ import { applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/age
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
 import { commercialKind, summarizeCommercial } from '@/lib/agent/commercialSearch'
+import { underHourlyLimit } from '@/lib/rateLimit'
 import { buildUserContext, parseLookup, runLookup } from '@/lib/agent/userContext'
 import { needsReflection, reflectUser, USER_MODEL_KEY, userModelToPromptBlock } from '@/lib/agent/reflection'
 import { getRequestContext } from '@cloudflare/next-on-pages'
@@ -32,6 +33,7 @@ export const runtime = 'edge'
 //   (memory_writes/proposed_action forced empty server-side).
 const RATE_LIMIT_PER_HOUR = 60
 const ANON_RATE_LIMIT_PER_HOUR = 8
+const ANON_GLOBAL_PER_HOUR = 400
 
 // Appended to the system prompt for anonymous preview turns. The server also
 // hard-strips memory_writes/proposed_action from the output — this is the
@@ -285,6 +287,16 @@ export async function POST(req: Request) {
         underAnonLimit = false
       }
     }
+    // Site-wide ceiling on anonymous turns: the per-IP limit alone lets a
+    // few hundred rotating addresses burn model + Jina credit without bound
+    // (review 2026-09-19). Fail-open — a limiter outage must not close the
+    // homepage demo.
+    if (underAnonLimit && !(await underHourlyLimit('global-anon-agent-turns', ANON_GLOBAL_PER_HOUR, true))) {
+      return NextResponse.json(
+        { error: '匿名体验当前访问量过大，请稍后再试或登录后使用。/ The anonymous preview is busy — try again shortly or sign in.' },
+        { status: 429, headers: { 'Retry-After': '600' } },
+      )
+    }
     if (!underAnonLimit) {
       return NextResponse.json(
         { error: `匿名体验每小时限 ${ANON_RATE_LIMIT_PER_HOUR} 条 —— 登录后不受此额度限制。` },
@@ -337,7 +349,7 @@ export async function POST(req: Request) {
   const imgs = (Array.isArray(body.images) ? body.images : [])
     .filter((im) => im && typeof im.data === 'string' && /^image\//.test(im.media_type || ''))
     .slice(0, 3)
-  const attachmentNames = Array.isArray(body.attachment_names) ? body.attachment_names.map(String) : []
+  const attachmentNames = Array.isArray(body.attachment_names) ? body.attachment_names.slice(0, 10).map((n) => String(n).slice(0, 120)) : []
   if (!VALID_ROLES.has(role) || typeof message !== 'string' || (!message.trim() && imgs.length === 0)) {
     return NextResponse.json({ error: 'role and message (or an image) are required' }, { status: 400 })
   }
@@ -519,7 +531,7 @@ export async function POST(req: Request) {
   }
 
   const system =
-    buildSystemPrompt(role, agentName, memories, workflow, body.stageLabel, uiLang) +
+    buildSystemPrompt(role, agentName, memories, workflow, typeof body.stageLabel === 'string' ? body.stageLabel.slice(0, 80) : undefined, uiLang) +
     renewalAddendum +
     landlordAddendum +
     userContextAddendum +
@@ -742,10 +754,16 @@ export async function POST(req: Request) {
     // real-data pipeline (Stayloop → Realtor.ca → TRREB benchmark); the
     // model is told to write no prices itself (lib/agent/prompts.ts).
     try {
+      // Commercial asks fan out over up to 8 named cities; residential keeps 3.
+      const commercialAsk = !!commercialKind({
+        property_type: typeof search.property_type === 'string' ? search.property_type : null,
+        keywords: typeof search.keywords === 'string' ? search.keywords : null,
+        min_beds: typeof search.min_beds === 'number' ? search.min_beds : null,
+      })
       const result = await searchListings({
-        area: typeof search.area === 'string' ? search.area : null,
+        area: typeof search.area === 'string' ? search.area.slice(0, 200) : null,
         area_candidates: Array.isArray(search.area_candidates)
-          ? (search.area_candidates as unknown[]).filter((s): s is string => typeof s === 'string' && !!s.trim()).slice(0, 3)
+          ? (search.area_candidates as unknown[]).filter((s): s is string => typeof s === 'string' && !!s.trim()).map((s) => s.slice(0, 80)).slice(0, commercialAsk ? 8 : 3)
           : null,
         max_price: typeof search.max_price === 'number' ? search.max_price : null,
         min_beds: typeof search.min_beds === 'number' ? search.min_beds : null,
@@ -757,12 +775,12 @@ export async function POST(req: Request) {
         max_sqft: typeof search.max_sqft === 'number' && search.max_sqft > 0 ? search.max_sqft : null,
         min_clear_ft: typeof search.min_clear_ft === 'number' && search.min_clear_ft > 0 ? search.min_clear_ft : null,
         use: typeof search.use === 'string' && search.use.trim() ? search.use.trim().slice(0, 120) : null,
-      }, Array.isArray(body.exclude) ? body.exclude.map(String) : [])
+      }, Array.isArray(body.exclude) ? body.exclude.slice(0, 200).map((x) => String(x).slice(0, 160)) : [], { anonymous })
       if (result.listings.length) {
         listings = result.listings
         // Street/building queries with no exact-address hit carry an honest
         // "same area, not that building" notice — surface it with the cards.
-        listingsNotice = result.notice
+        listingsNotice = (uiLang === 'en' && !/[\u4e00-\u9fff]/.test(message) && result.noticeEn) || result.notice
         // Stayloop-first results may be topped up with external — derive the
         // banner from what actually came back.
         const hasStay = result.listings.some((l) => l.source === 'stayloop')
@@ -822,10 +840,7 @@ export async function POST(req: Request) {
       const fq: { question: string; options: string[] }[] = []
       // Commercial lease (hidden skill): ask about area and use, never about
       // bedrooms / pets / condo-vs-house.
-      const isCommercial = !!commercialKind({
-        property_type: typeof search.property_type === 'string' ? search.property_type : null,
-        keywords: typeof search.keywords === 'string' ? search.keywords : null,
-      })
+      const isCommercial = commercialAsk
       if (isCommercial) {
         if (search.min_sqft == null)
           fq.push(

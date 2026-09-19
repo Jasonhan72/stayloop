@@ -14,14 +14,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { ScreeningVerification } from '@/lib/verify/types'
 import { repairUnescapedQuotes } from '@/lib/screening/jsonRepair'
 import { stripNul } from '@/lib/screening/jsonSafe'
-import { selectCoApplicantNames } from '@/lib/screening/coApplicants'
-import { matchPortalParty, isRespondentSide, planPortalQueries, portalMatchKey, corroborateByCoParties } from '@/lib/screening/portalMatch'
+import { selectCoApplicantNames, applicantDocNames } from '@/lib/screening/coApplicants'
+import { matchPortalParty, isRespondentSide, planPortalQueries, portalMatchKey, corroborateByCoParties, strongRespondentRecords, portalCourtDefendantHits } from '@/lib/screening/portalMatch'
 import { nameCovers, sameName } from '@/lib/screening/coApplicants'
 import { countMaterialBlanks } from '@/lib/screening/rubric'
 import { scanBureauDelinquencies } from '@/lib/screening/bureauTextScan'
 import { checkResidenceTimeline, footprintFromFacts } from '@/lib/screening/residenceTimeline'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
-import { inInternalTestWindow } from '@/lib/billing/freeWindow'
+import { INTERNAL_TEST_FREE_UNTIL, inInternalTestWindow } from '@/lib/billing/freeWindow'
 import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
 import { analyzeStatementLiquidity, findRecurringMonthlyPayment } from '@/lib/forensics/payroll-deposits'
 import { monthsSince, parsePeriodMonths, parseDateLoose, datesAgree } from '@/lib/screening/periods'
@@ -39,6 +39,7 @@ import { describeCodes, searchLtbOrders, summarizeLtb } from '@/lib/ltb/search'
 import { checkTradelineAges } from '@/lib/screening/creditAge'
 import { runCoherenceReview, coherenceToPromptBlock, coherenceToFlags, type CoherenceReview } from '@/lib/screening/coherenceReview'
 import { courtDefendantHitsFromGates, scoreRubric, type RubricFacts, type RubricResult } from '@/lib/screening/rubric'
+import { courtHistoryQualifier, gateCapFor, identityNameVerdict, missingRequiredSections, stringFlags } from '@/lib/screening/scoreGuards'
 import { searchCanliiViaIndex } from '@/lib/screening/canliiIndex'
 import { V3_WEIGHTS } from '@/lib/screening-types'
 
@@ -830,7 +831,11 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     // ---- Quota enforcement for free plan ----
     if (plan === 'free') {
       const now = new Date()
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+      // Screenings run for free during the internal test window do not count
+      // against the first paid-month quota (review 2026-09-19: heavy testers
+      // would have hit 5/5 on 2026-10-15).
+      const monthStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+      const monthStart = new Date(Math.max(monthStartMs, Date.parse(INTERNAL_TEST_FREE_UNTIL))).toISOString()
       const { count } = await supabase
         .from('screenings')
         .select('id', { count: 'exact', head: true })
@@ -1540,12 +1545,12 @@ JSON DISCIPLINE (avoid parse errors):
     // salvage produced a report that reads CLEAN because the model ran out of
     // room, and persisted it as a completed screening. Truncation is now
     // fatal unless every integrity-bearing section survived.
-    if (stopReason === 'max_tokens') {
-      const REQUIRED_ON_TRUNCATION = [
-        'scores', 'flags', 'hard_gates_triggered', 'compliance_audit',
-        'sub_coverage', 'action_items', 'summary_zh', 'summary_en',
-      ] as const
-      const missing = REQUIRED_ON_TRUNCATION.filter((k) => parsed[k] === undefined)
+    // Review 2026-09-19: the same holds for a stream that closed WITHOUT its
+    // stop event (dropped connection, both attempts) — no max_tokens, no
+    // stream error, and extractJson salvages a report with hard gates, red
+    // flags, action items and summary missing. Same check, same failure.
+    {
+      const missing = missingRequiredSections(parsed, { stopReason, sawMessageStop })
       if (missing.length > 0) {
         await supabase.from('screenings').update({
           status: 'error',
@@ -1553,7 +1558,9 @@ JSON DISCIPLINE (avoid parse errors):
         }).eq('id', screening_id)
         captureException(new Error(`AI output truncated — missing ${missing.join(', ')}`), { route: 'screen-score', level: 'warning', tags: { failure: 'model_truncated' }, extra: { screening_id } })
         return NextResponse.json({
-          error: 'AI output was truncated — please retry (the model produced too much text).',
+          error: stopReason === 'max_tokens'
+            ? 'AI output was truncated — please retry (the model produced too much text).'
+            : 'AI output was cut off before it finished (connection dropped) — please retry.',
           stop_reason: stopReason,
           missing_sections: missing,
         }, { status: 500 })
@@ -2072,7 +2079,9 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     const MODEL_BANNED_GATES = new Set(['ltb_eviction', 'court_record_defendant', 'court_record_defendant_multi', 'court_record_active'])
     const hardGates: string[] = (Array.isArray(parsed.hard_gates_triggered) ? parsed.hard_gates_triggered : [])
       .filter((g: unknown): g is string => typeof g === 'string' && Object.prototype.hasOwnProperty.call(HARD_GATE_CAPS, g) && !MODEL_BANNED_GATES.has(g))
-    const redFlags: string[] = Array.isArray(parsed.red_flags) ? parsed.red_flags : []
+    // Strings only: a non-Anthropic model returned objects here and
+    // `flag.startsWith` threw the whole run (review 2026-09-19).
+    const redFlags: string[] = stringFlags(parsed.red_flags)
     for (const f of earlyRedFlags) if (!redFlags.includes(f)) redFlags.push(f)
 
     // ---- Stage 3.7: LTB Order Catalogue -------------------------------
@@ -2276,7 +2285,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // LEONARDO ALFREDO" and an open debtor record under a co-applicant's
     // full name had produced a clean court section).
     const applyPortalGates = () => {
-      const strong = (courtDetail.portal_records || []).filter(r => r.matchConfidence === 'strong' && isRespondentSide(r.partyRole))
+      const strong = strongRespondentRecords(courtDetail.portal_records || [])
       if (strong.length === 0) return
       if (strong.length >= 2) {
         if (!hardGates.includes('court_record_defendant_multi')) hardGates.push('court_record_defendant_multi')
@@ -2312,7 +2321,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     function patchRentalHistoryDetailsForCourt(
       parsedObj: any,
       canliiRecs: Array<{ databaseId?: string; nameInTitle?: boolean }>,
-      portalRecs: Array<{ partyRole?: string; closedFlag?: boolean }>,
+      portalRecs: Array<{ partyRole?: string; closedFlag?: boolean; matchConfidence?: 'strong' | 'name_only' }>,
     ) {
       if (!parsedObj || typeof parsedObj !== 'object') return
       const dbCounts: Record<string, number> = {}
@@ -2367,11 +2376,17 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         || ZERO_COURT_REGEX_EN.test(existingEn)
         || !/\d/.test(existingEn)
 
-      if (shouldRewriteZh) {
-        detailsZh.rental_history = `发现 ${partsZh.join('，')}${activeSuffixZh}（仅姓名匹配——门户不含生日/地址，须先核实是否同一人，未计入评分）`
+      // Review 2026-09-19: strong respondent-side records trigger a hard gate
+      // (applyPortalGates) — the text must not say "name-only … not scored"
+      // beside a capped score. When strong records exist the deterministic
+      // sentence always replaces the model's.
+      const strongCount = strongRespondentRecords(portalRecs).length
+      const qual = courtHistoryQualifier(strongCount, Math.max(0, portalDefCount - strongCount))
+      if (shouldRewriteZh || strongCount > 0) {
+        detailsZh.rental_history = `发现 ${partsZh.join('，')}${activeSuffixZh}（${qual.zh}）`
       }
-      if (shouldRewriteEn) {
-        detailsEn.rental_history = `Found: ${partsEn.join(', ')}${activeSuffixEn} (name-only matches — the portal carries no DOB/address; verify identity before drawing conclusions. Not scored.)`
+      if (shouldRewriteEn || strongCount > 0) {
+        detailsEn.rental_history = `Found: ${partsEn.join(', ')}${activeSuffixEn} (${qual.en})`
       }
       parsedObj.details_zh = detailsZh
       parsedObj.details_en = detailsEn
@@ -2671,8 +2686,16 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // floor the model's identity_match_score, which kept reading print-format
     // differences as conflicts (72/100 on a fully consistent file).
     const idDocNamesForIdentity = (coherence.documents || []).filter(d => /id_document/i.test(d.kind)).flatMap(d => d.key_facts?.names || [])
-    const nameConsistent: boolean | null = idDocNamesForIdentity.length === 0 ? null
-      : idDocNamesForIdentity.some(n => sameName(n, nameForLookup) || nameCovers(n, nameForLookup))
+    // Review 2026-09-19: a blank, single-token or CJK typed name ('' /
+    // 'Xiaoming' / '王小明' vs ID 'WANG XIAOMING') cannot be compared token for
+    // token — the model-extracted name stands in, else there is NO verdict.
+    // "Cannot compare" must never read as identity_inconsistent (−20, cap 40).
+    const nameConsistent: boolean | null = identityNameVerdict({
+      idDocNames: idDocNamesForIdentity,
+      applicantName: nameForLookup,
+      extractedName: typeof parsed.extracted_name === 'string' ? parsed.extracted_name : null,
+      matches: (n, ref) => sameName(n, ref) || nameCovers(n, ref),
+    })
     // Only documents that name the applicant contribute a DOB — a
     // co-applicant's ID in the same file is not an inconsistency (review
     // 2026-09-13).
@@ -2755,7 +2778,13 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         // one order twice (−30 ltb_order_corroborated PLUS −22 court_defendant).
         // Portal name-only matches are namesakes until corroborated and are
         // never scored (see the portal block).
-        courtDefendantHits: 0,
+        // Review 2026-09-19: STRONG respondent-side portal records (the ones
+        // applyPortalGates gates on) are a different fact from an LTB order —
+        // civil / small-claims filings, never in ltbCorroborated — so they
+        // price into rental_history here without charging anything twice.
+        // Leaving this 0 printed rental_history 88–94 beside six defendant
+        // cases and a court gate.
+        courtDefendantHits: portalCourtDefendantHits(courtDetail.portal_records || []),
         landlordRefs: prev.filter((p) => p.landlord_name && p.landlord_phone && !isSelf(p.landlord_name)).length,
         declaredAddresses: prev.length,
         documentKinds: Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds : [],
@@ -2858,6 +2887,11 @@ If the uploaded evidence does not support the dimension, score it per the rubric
 
     // The rubric prices every negative signal through its own rule hits, so the
     // model's separate penalty would charge the same facts twice.
+    // Review 2026-09-19: gates are pushed AFTER the first gateCap was taken
+    // (the DOB / tradeline check adds doc_tampering further down) and the cap
+    // was only recomputed in the supplemental-names branch — a single-
+    // applicant file kept the stale cap. Recompute at the point of use.
+    gateCap = gateCapFor(hardGates, HARD_GATE_CAPS)
     let overall = Math.round(Math.max(0, Math.min(100, Math.min((rubric ? baseScore : baseScore - penalty), gateCap))))
 
     // Evidence coverage — weight each sub-coverage tag. The v3 prompt
@@ -2968,9 +3002,6 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // model's extracted_names routinely carries the HR signatory, declared
     // landlords and brokerage contacts (2026-09-11: a landlord's 2017 small-
     // claims case as PLAINTIFF showed on the applicant's summary in red).
-    const idDocNames = (coherence.documents || [])
-      .filter((d) => /id_document|application_form/i.test(d.kind))
-      .flatMap((d) => d.key_facts?.names || [])
     const thirdPartyNames = [
       crossDocVerification?.employment_letter_signatory?.name,
       ...((crossDocVerification?.application_summary?.prev_residences ?? []).map((r) => r.landlord_name)),
@@ -2978,6 +3009,10 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       // is kind 'other' and must not turn them into a landlord.
       ...((coherence.documents || []).filter((d) => /lease|reference|agreement/i.test(d.kind)).flatMap((d) => d.key_facts?.names || [])),
     ].filter((n): n is string => typeof n === 'string' && n.trim().length > 1)
+    // Identity documents only — the application form also prints landlords
+    // and references, and "on an ID" outranks the third-party filter
+    // (review 2026-09-19).
+    const idDocNames = applicantDocNames(coherence.documents || [], thirdPartyNames)
     const coApplicants = selectCoApplicantNames(extractedNames.filter(isValidFullName), nameForLookup, { idDocNames, thirdPartyNames })
     const newNames = coApplicants.searched
     if (coApplicants.dropped.length > 0) {
@@ -3114,10 +3149,15 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       // Only one rubric input can change here: the supplemental pass may add
       // court gates. Re-score from the same facts with those gates applied.
       if (rubric && rubricFacts) {
-        // courtDefendantHits stays 0 — same double-count reasoning as the
-        // primary rubric feed. Corroborated LTB orders found for supplemental
-        // names DO price in, through the same ltbCorroborated input.
-        rubricFacts = { ...rubricFacts, ltbCorroborated: (rubricFacts.ltbCorroborated ?? 0) + supplementalLtbCorroborated }
+        // courtDefendantHits comes from STRONG portal records only (merged
+        // list, co-applicants included) — never from the LTB-derived gates,
+        // which ltbCorroborated already prices. Corroborated LTB orders found
+        // for supplemental names price in through ltbCorroborated.
+        rubricFacts = {
+          ...rubricFacts,
+          ltbCorroborated: (rubricFacts.ltbCorroborated ?? 0) + supplementalLtbCorroborated,
+          courtDefendantHits: portalCourtDefendantHits(courtDetail.portal_records || []),
+        }
         rubric = scoreRubric(rubricFacts)
         s.ability_to_pay = rubric.dimensions.ability_to_pay
         s.credit_health = rubric.dimensions.credit_health

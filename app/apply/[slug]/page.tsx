@@ -164,12 +164,19 @@ export default function ApplyPage() {
       // `full_name` column would have failed it too). Generate the id here
       // and insert without RETURNING.
       const newId = crypto.randomUUID()
+      // Blank optional inputs arrive as '' — and '' is not a date. Every
+      // submission failed with 22007 "invalid input syntax for type date"
+      // because prev_move_in / prev_move_out have no input at all and the
+      // other three date fields are optional (review 2026-09-19; the last
+      // blocker behind production's 0 applications).
+      const cleaned: Record<string, unknown> = { ...form }
+      for (const k of Object.keys(cleaned)) if (cleaned[k] === '') cleaned[k] = null
       const { error: insertError } = await supabase
         .from('applications')
         .insert({
           id: newId,
           listing_id: listing.id,
-          ...form,
+          ...cleaned,
           monthly_income: parseInt(form.monthly_income) || null,
           prev_rent: parseInt(form.prev_rent) || null,
           num_occupants: parseInt(form.num_occupants) || 1,

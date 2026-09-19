@@ -69,10 +69,18 @@ export default function AdminVerifyPage() {
 
   const decide = async (id: string, status: 'verified' | 'rejected') => {
     setBusy(id)
-    const { error } = await supabase
+    // Approve what was reviewed: pin the facts shown in this row, so an edit
+    // made after the queue loaded is not verified unseen (review 2026-09-19).
+    const row = rows.find((r) => r.id === id)
+    let q = supabase
       .from('listings')
       .update({ verification_status: status, verified_at: status === 'verified' ? new Date().toISOString() : null })
       .eq('id', id)
+    if (row && status === 'verified') {
+      q = q.eq('address', row.address).eq('monthly_rent', row.monthly_rent)
+    }
+    const { data: hit, error } = await q.select('id')
+    if (!error && !(hit ?? []).length) alert('该房源在你打开页面后被修改过，已重新加载。/ This listing changed after you loaded it — reloaded.')
     if (!error) await load()
     setBusy(null)
   }

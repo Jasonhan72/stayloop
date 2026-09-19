@@ -15,10 +15,44 @@ export function registryStatusKind(status: string | null | undefined): RegistryS
   // "Discontinued" for a corporation continued into a province that still
   // trades — an explicit Active wins over any qualifier (review 2026-09-16).
   if (/^\s*(?:active|in existence|good standing|registered|subsisting|current)\b/.test(s) && !/\b(?:not|in)active\b|\bnot in good standing\b/.test(s)) return 'active'
+  // Amalgamated / continued / discontinued = the business carries on under a
+  // successor or in another jurisdiction. "Inactive (Amalgamated)" must not
+  // produce the critical "cannot be issuing pay stubs" flag (review
+  // 2026-09-19) — it is unknown until the successor is looked up.
+  if (/amalgamat|discontinu|continu(?:ed|ance)/.test(s)) return 'unknown'
   if (/inactive|not active|dissol|cancel|revok|struck|expired|terminated|wound|liquidat|not in good standing/.test(s)) return 'inactive'
-  if (/discontinu|amalgamat/.test(s)) return /\bactive\b/.test(s) ? 'active' : 'unknown'
   if (/active|good standing|in existence|registered|subsisting|current/.test(s)) return 'active'
   return 'unknown'
+}
+
+// ca_corp_registry.status holds Corporations Canada's numeric status CODES
+// ('1' active, '9' liquidating, '10' revoked, '11' dissolved — 763,961
+// dissolved rows), and registryStatusKind("11") is 'unknown': a dissolved
+// FEDERAL employer rendered as clean with "11" printed beside it (review
+// 2026-09-19). Codes become text here, before anything classifies them.
+const FEDERAL_STATUS_CODES: Record<string, string> = {
+  '1': 'Active',
+  '9': 'Inactive — Liquidating',
+  '10': 'Inactive — Revoked',
+  '11': 'Dissolved',
+}
+export function federalStatusText(status: string | null | undefined, isActive: boolean | null | undefined): string | null {
+  const raw = (status || '').trim()
+  if (raw && !/^\d+$/.test(raw)) {
+    // Text status: keep it, but a short code the classifier cannot read
+    // ("AC") is spelled out from the row's is_active.
+    if (registryStatusKind(raw) !== 'unknown' || typeof isActive !== 'boolean' || /amalgamat|continu/i.test(raw)) return raw
+    return `${isActive ? 'Active' : 'Inactive'} (${raw})`
+  }
+  const mapped = raw ? FEDERAL_STATUS_CODES[String(Number(raw))] : undefined
+  if (mapped) {
+    // The row's own is_active wins when it contradicts the code map.
+    if (mapped === 'Active' && isActive === false) return 'Inactive'
+    return mapped
+  }
+  if (isActive === true) return 'Active'
+  if (isActive === false) return raw ? `Inactive (status code ${raw})` : 'Inactive'
+  return raw ? `Unknown (status code ${raw})` : null
 }
 
 function monthsBetween(a: string, b: string): number {
@@ -33,7 +67,7 @@ export function extractEmployerDomains(text: string | null | undefined): { domai
   const t = text || ''
   const domains = new Set<string>()
   const personal = new Set<string>()
-  for (const m of t.matchAll(/[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g)) {
+  for (const m of t.matchAll(/[A-Za-z0-9._%+-]{1,64}@([A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,})/g)) {
     const d = m[1].toLowerCase()
     if (PERSONAL_MAIL.test(d)) personal.add(m[0].toLowerCase())
     else domains.add(d)
@@ -56,13 +90,38 @@ export function extractEmploymentStartDetailed(text: string | null | undefined):
   // "sinse", "sicne") — accept those, and "from <date>" after "employed".
   // Start-of-employment wording is tried first; "effective / commencing"
   // (which also introduce salary changes) only when nothing else matched.
-  const primary = t.match(/(?:\bs[ci]{1,2}n[cs]e\b|\bsince\b|\bscince\b|start(?:ed|ing)? (?:date|on)?|joined(?: us)?(?: on)?|employed[^.;]{0,40}?\bfrom|date of hire|hire date)\s*:?\s*([^.;]{0,40})/i)
-  const win = primary ?? t.match(/(?:commenc\w+|effective)\s*:?\s*([^.;]{0,40})/i)
-  if (!win) return null
+  //
+  // Review 2026-09-19: every occurrence is tried, not just the first —
+  // "Proudly serving the GTA since 1985 … joined us on March 3, 2021" read as
+  // a 1985 start (then "predates incorporation" HIGH + "domain younger"
+  // MEDIUM), and "started as a junior analyst; with us since March 2019"
+  // stopped at the unparseable first window. A "since" that follows company
+  // marketing wording (and no employment wording) is the company's age.
+  const EMPLOYMENT = /\bemploy|\bwork(?:ed|ing)?\b|\bjoin|\bhired?\b|with us|\bposition\b|\brole\b|\bteam member/i
+  const MARKETING = /serving|served|establish|founded|in business|proudly|operating|trusted|family[- ]owned|tradition|customers|clients/i
+  const tryAll = (kw: RegExp): { date: string; precision: DatePrecision } | null => {
+    for (const m of t.matchAll(kw)) {
+      const end = m.index! + m[0].length
+      if (/^s/i.test(m[0]) && /n[cs]e$/i.test(m[0].trim())) {
+        const pre = t.slice(Math.max(0, m.index! - 60), m.index!)
+        if (MARKETING.test(pre) && !EMPLOYMENT.test(pre)) continue
+      }
+      const win = (t.slice(end, end + 42).replace(/^\s*:?\s*/, '').match(/^[^.;]{0,40}/) ?? [''])[0]
+      const got = parseStartWindow(win)
+      if (got) return got
+    }
+    return null
+  }
+  return tryAll(/\bs[ci]{1,2}n[cs]e\b|\bsince\b|\bscince\b|\bstart(?:ed|ing)?\b(?: (?:date|on)\b)?|\bjoined(?: us)?(?: on)?\b|\bdate of hire\b|\bhire date\b/gi)
+    ?? tryAll(/\bemployed\b[^.;]{0,40}?\bfrom\b/gi)
+    ?? tryAll(/\bcommenc\w+|\beffective\b/gi)
+}
+
+function parseStartWindow(raw: string): { date: string; precision: DatePrecision } | null {
   // Text layers of edited letters print years like "20 I 5" (a retyped
   // digit in a different font maps to a letter glyph) — repair before
   // parsing (2026-09-16: "scince 23 June 20 I 5").
-  const s = win[1].replace(/(\d)\s*[Il|]\s*(\d)/g, '$11$2').replace(/\b(19|20)\s+(\d)\s*(\d)\b/g, '$1$2$3')
+  const s = raw.replace(/(\d)\s*[Il|]\s*(\d)/g, '$11$2').replace(/\b(19|20)\s+(\d)\s*(\d)\b/g, '$1$2$3')
   const pad = (v: string) => v.padStart(2, '0')
   let m = s.match(/(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\.?,?\s+((?:19|20)\d{2})/)
   if (m && MONTHS[m[2].slice(0, 3).toLowerCase()]) return { date: `${m[3]}-${pad(String(MONTHS[m[2].slice(0, 3).toLowerCase()]))}-${pad(m[1])}`, precision: 'day' }

@@ -57,17 +57,17 @@ export const DICT = {
 
   // Onboarding · Tier 1 (身份章 · 90 秒身份验证)
   'onb.hi': { en: "Hi, I'm your AI agent.", zh: '嗨，我是你的 AI Agent。' },
-  'onb.line2': { en: "First, let's verify your identity — 90 seconds.", zh: '先花 90 秒，验明你的身份。' },
+  'onb.line2': { en: "Here is how identity verification will work — a preview.", zh: '先看看身份核验是怎么回事 —— 这是一个预览。' },
   'onb.body': {
-    en: 'This is your identity stamp — the first of four. Just your passport or licence plus a quick selfie — Veriff handles it securely. A soft check that never touches your credit.',
-    zh: '这是 身份章 —— 四枚章的第一枚。只需护照 / 驾照 + 一张自拍，Veriff 帮你安全完成。软查不影响信用。',
+    en: 'The identity stamp is the first of four. Real verification runs through Veriff (passport or licence plus a selfie) when a landlord sends you a secure verification link with a screening. This page only previews the steps — nothing is uploaded.',
+    zh: '身份章是四枚章的第一枚。真正的核验由 Veriff 完成（护照 / 驾照 + 自拍），在房东随筛查发给你安全核验链接时进行。本页只是流程预览，不会上传任何东西。',
   },
   'onb.f1': { en: 'Passport, driver’s licence, or PR card', zh: '护照 / 驾照 / PR 卡，三选一' },
   'onb.f2': { en: 'A quick liveness selfie to confirm it’s you', zh: '活体自拍，确认是你本人' },
-  'onb.f3': { en: 'Encrypted end-to-end · your data stays yours · delete anytime', zh: '全程加密 · 资料只属于你 · 随时可删' },
-  'onb.cta1': { en: '✓ Start · identity stamp · ~90 seconds', zh: '✓ 开始 · 盖身份章 · 约 90 秒' },
+  'onb.f3': { en: 'You authorise each step yourself and can skip any of them', zh: '每一步都由你本人授权，可以跳过任何一步' },
+  'onb.cta1': { en: 'Preview the identity step', zh: '预览身份核验流程' },
   'onb.cta2': { en: 'Just browse listings first', zh: '先随便逛逛房源' },
-  'onb.foot': { en: 'Stronger than 90% of Kijiji inquiries — landlords notice.', zh: '比 90% 的 Kijiji 询盘更让房东放心。' },
+  'onb.foot': { en: 'A verified identity tells a landlord the application is really yours.', zh: '核验过的身份能让房东确信申请确实出自你本人。' },
 
   // Listing card + footer
   'common.bd': { en: 'bd', zh: '卧' },

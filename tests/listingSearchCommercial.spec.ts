@@ -16,6 +16,8 @@ import {
   splitAreas,
   summarizeCommercial,
   useProhibited,
+  addressSlug,
+  BUDGET_ANON,
   isLeaseCandidate,
   listPageUrls,
   monthlyFromRate,
@@ -428,10 +430,10 @@ Lease Type
 
 describe('summarizeCommercial — the digest appended to the reply', () => {
   it('states cities, size band, clear-height coverage, all-in cost range and exclusions', () => {
-    const a: ListingCard = { id: 'a', source: 'realtor', kind: 'commercial', title: 'a', address: 'A', city: 'Vaughan', price: 0, beds: 0, sqft: 22035, clear_ft: 32, annual_cost: 447311, tmi_psf: 3.8, fit_tier: 0 }
-    const b: ListingCard = { id: 'b', source: 'realtor', kind: 'commercial', title: 'b', address: 'B', city: 'Richmond Hill', price: 0, beds: 0, sqft: 23513, annual_cost: 531797, tmi_psf: 5.56, fit_tier: 5 }
+    const a: ListingCard = { id: 'a', source: 'realtor', kind: 'commercial', title: 'a', address: 'A', city: 'Vaughan', price: 0, beds: 0, sqft: 22035, clear_ft: 32, annual_cost: 447311, tmi_psf: 3.8, annual_all_in: true, fit_tier: 0 }
+    const b: ListingCard = { id: 'b', source: 'realtor', kind: 'commercial', title: 'b', address: 'B', city: 'Richmond Hill', price: 0, beds: 0, sqft: 23513, annual_cost: 531797, tmi_psf: 5.56, annual_all_in: true, fit_tier: 5 }
     const c: ListingCard = { id: 'c', source: 'realtor', kind: 'commercial', title: 'c', address: 'C', city: 'Markham', price: 0, beds: 0, sqft: 25135, clear_ft: 18, fit_tier: 4 }
-    const d: ListingCard = { id: 'd', source: 'realtor', kind: 'commercial', title: 'd', address: 'D', city: 'Toronto', price: 0, beds: 0, sqft: 166378, clear_ft: 11, annual_cost: 3008114, tmi_psf: 3.13, fit_tier: 4 }
+    const d: ListingCard = { id: 'd', source: 'realtor', kind: 'commercial', title: 'd', address: 'D', city: 'Toronto', price: 0, beds: 0, sqft: 166378, clear_ft: 11, annual_cost: 3008114, tmi_psf: 3.13, annual_all_in: true, fit_tier: 4 }
     const s = summarizeCommercial([a, b, c, d], { min_sqft: 30000, min_clear_ft: 24, use: 'pickleball' }, true)
     expect(s).toContain('本轮核对了 4 套 Realtor.ca 挂牌，4 套接近你的条件（Vaughan / Richmond Hill / Markham / Toronto）')
     expect(summarizeCommercial([a, b, c, d], { min_sqft: 30000 }, true, 35)).toContain('本轮核对了 35 套')
@@ -476,5 +478,90 @@ describe('geography gate + placeholder prices + dead pages', () => {
   it('reads word-number shipping doors ("two drive-in")', () => {
     expect(extractFacts('with two drive-in shipping doors and one truck-level door').driveInDoors).toBe(2)
     expect(extractFacts('with two drive-in shipping doors and one truck-level door').truckDoors).toBe(1)
+  })
+})
+
+describe('review 2026-09-19 — verified defects in the commercial path', () => {
+  it('a home search that mentions a commercial word stays residential', () => {
+    for (const kw of ['house, big lot', 'parking lot, subway', 'hard loft, industrial style', 'warehouse district loft', '工业风装修', '办公室附近的公寓', 'home office space', '店面楼上 apartment', 'near Commercial Drive'])
+      expect(commercialKind({ property_type: null, keywords: kw }), kw).toBeNull()
+    expect(commercialKind({ property_type: null, keywords: 'warehouse', min_beds: 2 })).toBeNull()
+    // …while real commercial asks still switch on.
+    expect(commercialKind({ property_type: null, keywords: '找个仓库 30000 sqft' })).toBe('industrial')
+    expect(commercialKind({ property_type: null, keywords: '写字楼 5000 尺' })).toBe('office')
+    expect(commercialKind({ property_type: null, keywords: 'retail space on Queen' })).toBe('retail')
+  })
+  it('rejects for-sale pages and residential rentals', () => {
+    const sale = '# 100 INDUSTRIAL ROAD\nToronto (Rexdale), Ontario M9W1A1\n $12,500,000\n## Listing Description\n 40,000 sqft industrial building for sale.\n## Property Summary\nProperty Type\n Industrial\nSquare Footage\n40000 sqft\n'
+    expect(parseCommercialDetail(sale, 'https://www.realtor.ca/real-estate/1/x', 'industrial')).toBeNull()
+    const home = '# 12 MAPLE STREET\nToronto (Annex), Ontario M5R1A1\n $2,500/Monthly\n## Listing Description\n Bright unit near retail and office.\n## Property Summary\nProperty Type\n Single Family\n'
+    expect(parseCommercialDetail(home, 'https://www.realtor.ca/real-estate/2/x', 'commercial')).toBeNull()
+  })
+  it('clear height: the warehouse figure wins over the office ceiling; no borrowed digits', () => {
+    expect(extractFacts("Office area with 9' ceilings. Warehouse offers 28' clear height.").clearFt).toBe(28)
+    expect(extractFacts("10' ceiling in showroom; 26' clear").clearFt).toBe(26)
+    expect(extractFacts('14 ft ceilings throughout office. 30 ft clear.').clearFt).toBe(30)
+    expect(extractFacts('5,000 ft clear span yard').clearFt).toBeUndefined()
+    expect(extractFacts("2100' clear of obstruction").clearFt).toBeUndefined()
+    expect(extractFacts("12' ceilings throughout").clearFt).toBe(12)
+  })
+  it('excluded uses: lists and passive forms caught, prose ignored', () => {
+    expect(extractFacts('There is no better location for recreational uses.').excludedUses).toEqual([])
+    expect(useProhibited(extractFacts('No automotive, recreational or food uses.').excludedUses, 'pickleball courts')).toBe('娱乐 / 体育用途')
+    expect(useProhibited(extractFacts('Recreational uses not permitted.').excludedUses, 'indoor sports')).toBe('娱乐 / 体育用途')
+    expect(useProhibited(extractFacts('Landlord will not permit sports uses.').excludedUses, 'pickleball')).toBe('娱乐 / 体育用途')
+  })
+  it('tenant words match whole words only', () => {
+    const noAuto = ['automotive']
+    expect(useProhibited(noAuto, 'daycare centre')).toBeNull()
+    expect(useProhibited(noAuto, 'skincare clinic')).toBeNull()
+    expect(useProhibited(noAuto, 'automation lab')).toBeNull()
+    expect(useProhibited(noAuto, 'auto repair')).toBe('汽车用途')
+    expect(useProhibited(['recreational'], 'food court kiosk')).toBeNull()
+  })
+  it('TMI in prose: a $/sqft rate, never a dollar total', () => {
+    expect(extractFacts('TMI: $12,000 per year').tmiPsfFromText).toBeUndefined()
+    expect(extractFacts('TMI $4.50 psf').tmiPsfFromText).toBe(4.5)
+  })
+  it('a monthly net ask adds the listed TMI; all-in only when TMI is inside', () => {
+    const md = '# 5 UNIT ROAD\nToronto (Rexdale), Ontario M9W1A1\n $10,000/Monthly\n## Listing Description\n Warehouse.\n## Property Summary\nProperty Type\n Industrial\nAnnual Property Taxes\n $5.00 (CAD)\nSquare Footage\n10000 sqft\nLease Type\n Net \n'
+    const card = parseCommercialDetail(md, 'https://www.realtor.ca/real-estate/3/x', 'industrial')!
+    expect(card.annual_cost).toBe(170000)
+    expect(card.annual_all_in).toBe(true)
+    const noTmi = parseCommercialDetail(md.replace('Annual Property Taxes\n $5.00 (CAD)\n', ''), 'https://www.realtor.ca/real-estate/4/x', 'industrial')!
+    expect(noTmi.annual_cost).toBe(120000)
+    expect(noTmi.annual_all_in).toBe(false)
+    expect(noTmi.monthly_all_in).toBeUndefined()
+  })
+  it('geography: sub-municipal areas, no substring leaks, no province crumbs', () => {
+    expect(cityAllowed('Vaughan', { area: 'Concord', area_candidates: null }, 'Concord')).toBe(true)
+    expect(cityAllowed('Vaughan', { area: 'Concord', area_candidates: null })).toBe(true)
+    expect(resolveRealtorBase('Concord', null)).toBe('https://www.realtor.ca/on/vaughan')
+    expect(splitAreas(['Toronto, ON'])).toEqual(['Toronto'])
+    expect(cityAllowed('London', { area: 'Toronto, ON', area_candidates: null })).toBe(false)
+    expect(cityAllowed('Kingston', { area: 'King', area_candidates: null })).toBe(false)
+    expect(cityAllowed('Toronto', { area: 'Ottawa', area_candidates: null })).toBe(false)
+    expect(cityAllowed('Toronto', { area: 'Leslieville', area_candidates: null })).toBe(true)
+  })
+  it('English renderings ride along and styling keys on codes', () => {
+    const l: ListingCard = { id: 'x', source: 'realtor', kind: 'commercial', title: 'x', address: 'x', price: 0, beds: 0, sqft: 25000, sqft_min: 25000, sqft_max: 25000, clear_ft: 18, excluded_uses: ['recreational'] }
+    const fit = assessFit(l, { min_sqft: 30000, min_clear_ft: 24, use: 'pickleball' })
+    expect(fit.codes).toEqual(['area_small', 'clear_short', 'use_excluded'])
+    expect(fit.warnEn[1]).toBe("18' clear — below 24'")
+    expect(fit.warnEn[2]).toBe('Listing excludes recreation / sports uses')
+    const card = parseCommercialDetail(DETAIL_MD, 'https://www.realtor.ca/real-estate/29048297/x', 'commercial')!
+    expect(card.specs_en).toEqual(expect.arrayContaining(["22' clear", 'Net lease']))
+    expect(card.note_en).toContain('net $/sqft/yr ask')
+  })
+  it('exclusion works on URL slugs and the anonymous budget is a fraction', () => {
+    expect(addressSlug('301 - 20 TOWNS ROAD')).toBe('301-20-towns-road')
+    expect('301-20-towns-road-toronto-mimico'.startsWith(addressSlug('301 - 20 TOWNS ROAD'))).toBe(true)
+    expect(BUDGET_ANON.maxQueries).toBeLessThanOrEqual(6)
+    expect(BUDGET_ANON.maxReads).toBeLessThanOrEqual(12)
+    expect(BUDGET_ANON.retry).toBe(false)
+  })
+  it('$2.50/sqft land is a real rate; $1 is a placeholder', () => {
+    expect(isPlaceholderPrice(2.5, true)).toBe(false)
+    expect(isPlaceholderPrice(1, true)).toBe(true)
   })
 })

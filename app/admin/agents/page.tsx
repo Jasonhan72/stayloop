@@ -42,11 +42,20 @@ export default function AdminAgentsPage() {
     if (!auth.user) return
     setBusy(a.auth_id)
     const note = (notes[a.auth_id] || '').trim() || null
-    const { error } = await supabase.from('agent_profiles').update({
+    // Decide on the row the admin actually LOOKED at: if the agent edited
+    // their name / number / brokerage after this queue loaded, updated_at
+    // moved and the update matches nothing (review 2026-09-19).
+    const { data: hit, error } = await supabase.from('agent_profiles').update({
       status, review_note: note,
       verified_at: status === 'verified' ? new Date().toISOString() : null,
       verified_by: status === 'verified' ? auth.user.id : null,
-    }).eq('auth_id', a.auth_id)
+    }).eq('auth_id', a.auth_id).eq('updated_at', a.updated_at).select('auth_id')
+    if (!error && !(hit ?? []).length) {
+      alert('该资料在你打开页面后被修改过，已重新加载，请核对后再决定。/ This profile changed after you loaded it — reloaded; review again.')
+      await load()
+      setBusy(null)
+      return
+    }
     if (!error) {
       await supabase.from('agent_verification_events').insert({ agent_auth_id: a.auth_id, action: status, actor: auth.user.id, note })
       await load()
@@ -92,6 +101,16 @@ export default function AdminAgentsPage() {
               <div className="min-w-0">
                 <div className="text-[15px] font-bold">{a.legal_name} <span className="font-mono text-[12px] text-body-3">#{a.reco_number}</span></div>
                 <div className="text-[12.5px] text-body-2">{categoryLabel(a.category, lang as 'zh' | 'en')} · {a.brokerage_name}{a.crea_member ? ' · CREA' : ''}{a.expires_at ? ` · ${zh ? '到期' : 'expires'} ${a.expires_at}` : ''}</div>
+                {/* The RECO register is public data: a matching name / number /
+                    brokerage proves the registrant exists, not that THIS account
+                    is theirs. A free-mail contact address is the cheap tell —
+                    confirm through the brokerage's own listed phone or email
+                    before verifying (review 2026-09-19). */}
+                {/@(gmail|hotmail|outlook|yahoo|icloud|live|qq|163|126|proton|protonmail)\./i.test(a.business_email || '') && (
+                  <div className="mb-1 rounded-md px-2 py-1 text-[11.5px] font-semibold" style={{ background: 'rgba(180,83,9,0.10)', color: '#92400E' }}>
+                    {zh ? '⚠ 联系邮箱是个人邮箱 —— 注册库信息全是公开的，请用经纪公司在注册库上登记的电话或邮箱向本人确认后再核验。' : '⚠ Free-mail contact address — the register is public data; confirm with the registrant via the brokerage\'s listed phone or email before verifying.'}
+                  </div>
+                )}
                 <div className="text-[11.5px] text-body-3">{a.business_email || '—'} · {a.business_phone || '—'} · {zh ? '提交于' : 'submitted'} {new Date(a.created_at).toLocaleDateString('en-CA')}{a.trade_name ? ` · ${zh ? '常用名' : 'trade name'} ${a.trade_name}` : ''}</div>
               </div>
               <span className="rounded-full px-2 py-[2px] text-[11px] font-bold" style={a.status === 'verified' ? { background: '#E4EEE3', color: '#065F46' } : a.status === 'rejected' || a.status === 'expired' ? { background: '#FEF2F2', color: '#B91C1C' } : { background: '#FEF3E2', color: '#B45309' }}>

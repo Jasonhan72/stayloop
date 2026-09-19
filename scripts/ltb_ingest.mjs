@@ -175,17 +175,23 @@ async function main() {
     auth: { persistSession: false },
   })
 
-  const meta = await (await fetch(`${CKAN}/package_show?id=${DATASET}`)).json()
+  const metaRes = await fetch(`${CKAN}/package_show?id=${DATASET}`)
+  if (!metaRes.ok) throw new Error(`CKAN package_show failed: HTTP ${metaRes.status}`)
+  const meta = await metaRes.json()
   const resources = (meta.result?.resources || []).filter((r) => (r.format || '').toUpperCase() === 'CSV')
   if (!resources.length) throw new Error('no CSV resources on the dataset — did CKAN change?')
   console.log(`dataset has ${resources.length} CSV resource(s)`)
 
   let runId = null
   if (!DRY) {
-    const { data } = await db.from('ltb_ingest_runs')
+    const { data, error: runErr } = await db.from('ltb_ingest_runs')
       .insert({ resource_id: resources.map((r) => r.id).join(','), status: 'running' })
       .select('id').single()
     runId = data?.id ?? null
+    // Without a run id no row is stamped and pruning is silently skipped — the
+    // catalogue would keep showing orders Ontario has withdrawn while the job
+    // reports success (review 2026-09-19).
+    if (runId == null) throw new Error(`could not open an ltb_ingest_runs row${runErr ? `: ${runErr.message}` : ''} — refusing to ingest without withdrawal tracking`)
   }
 
   let ingested = 0
@@ -197,7 +203,20 @@ async function main() {
   try {
     for (const res of resources) {
       console.log(`\n→ ${res.name} (${(res.size / 1e6).toFixed(1)} MB)`)
-      const csv = await (await fetch(res.url)).text()
+      // Review 2026-09-19: an error page or a truncated body used to be parsed
+      // as the catalogue. The prune guard only refuses below 50%, so a 60%
+      // download would have deleted 40% of the rows for this resource.
+      const dl = await fetch(res.url)
+      if (!dl.ok) throw new Error(`download failed for ${res.name || res.id}: HTTP ${dl.status}`)
+      const bytes = new Uint8Array(await dl.arrayBuffer())
+      const declared = [Number(res.size), Number(dl.headers.get('content-encoding') ? 0 : dl.headers.get('content-length'))]
+        .filter((n) => Number.isFinite(n) && n > 0)
+      for (const want of declared) {
+        if (bytes.byteLength < want * 0.95) {
+          throw new Error(`download truncated for ${res.name || res.id}: got ${bytes.byteLength} of ${want} bytes — refusing to ingest or prune`)
+        }
+      }
+      const csv = new TextDecoder('utf-8').decode(bytes)
       const rows = parseCsv(csv)
       const header = rows[0].map((h) => h.replace(/^﻿/, ''))
       const body = rows.slice(1).filter((r) => r.length >= header.length - 2)

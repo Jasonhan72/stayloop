@@ -4,12 +4,13 @@
 // Static three-role layout: tenants are free forever; landlords subscribe
 // (免费 / $19 / $39 三档); agents subscribe too (免费 / $29 / $59 三档 —
 // pure SaaS tooling, NO commission cut; Stayloop is not RECO-registered so
-// referral fees are off the table). No showing fees, no rent skimming.
+// referral fees are off the table). No showing fees; online rent collection
+// is NOT live, so nothing here may promise it.
 // The privacy of a tenant is never a product — paid value never changes an
 // applicant's eligibility or ranking. Trust API is the 4th business line.
 import Link from 'next/link'
 import { INTERNAL_TEST_FREE_UNTIL_LABEL, inInternalTestWindow } from '@/lib/billing/freeWindow'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useT, type Lang } from '@/lib/i18n'
@@ -23,6 +24,9 @@ type Tier = {
   tagline: LS
   cta: LS
   href: string
+  /** Shown instead of cta / href while the internal test window is open. */
+  ctaInWindow?: LS
+  hrefInWindow?: string
   includesLabel: LS
   features: LS[]
   highlight?: boolean
@@ -70,16 +74,15 @@ const PLANS: RolePlan[] = [
         name: { zh: '起步', en: 'Go' },
         price: { zh: '$0', en: '$0' },
         priceUnit: { zh: '永久免费', en: 'free forever' },
-        tagline: { zh: '一套房，免费开始。', en: 'One property, free to start.' },
+        tagline: { zh: '免费开始发布房源。', en: 'Free to start listing.' },
         cta: { zh: '免费发布房源', en: 'List a property free' },
         href: '/dashboard/listings/new',
         includesLabel: { zh: '包含:', en: 'Included:' },
         features: [
-          { zh: '1 套房源', en: '1 listing' },
+          { zh: '房源发布', en: 'Publish listings' },
           { zh: '每月 5 次租客筛查（含取证与信用分析）', en: '5 tenant screenings a month (forensics + credit analysis included)' },
           { zh: '深度核查按次解锁 $14.99', en: 'Deep checks unlock per applicant at $14.99' },
-          { zh: '接收申请 + 看房意向', en: 'Applications + showing intents' },
-          { zh: '在线收租，不抽流水', en: 'Online rent collection, no cut' },
+          { zh: '接收在线申请', en: 'Receive online applications' },
         ],
       },
       {
@@ -87,15 +90,17 @@ const PLANS: RolePlan[] = [
         price: { zh: '$19', en: '$19' },
         priceUnit: { zh: '/ 月', en: '/ month' },
         tagline: { zh: '全部功能，无限房源。', en: 'Everything, unlimited listings.' },
-        cta: inInternalTestWindow() ? { zh: '测试期免费使用', en: 'Free during the test period' } : { zh: '升级到专业版', en: 'Upgrade to Pro' },
-        href: inInternalTestWindow() ? '/dashboard' : '/dashboard?upgrade=1',
+        cta: { zh: '升级到专业版', en: 'Upgrade to Pro' },
+        href: '/dashboard?upgrade=1',
+        ctaInWindow: { zh: '测试期免费使用', en: 'Free during the test period' },
+        hrefInWindow: '/dashboard',
         includesLabel: { zh: '起步的全部,另加:', en: 'Everything in Go, plus:' },
         features: [
           { zh: '无限发布房源', en: 'Unlimited listings' },
           { zh: 'AI Agent 全功能', en: 'Full AI agent' },
           { zh: '验证 / 筛查全含', en: 'Verification / screening included' },
           { zh: '租约起草 + 一键续约', en: 'Lease drafting + 1-click renewals' },
-          { zh: '财务面板 + 税务表(T776)', en: 'Finance dashboard + tax forms (T776)' },
+          { zh: '财务面板（即将推出）', en: 'Finance dashboard (coming soon)' },
         ],
         highlight: true,
       },
@@ -125,14 +130,14 @@ const PLANS: RolePlan[] = [
         name: { zh: '起步', en: 'Go' },
         price: { zh: '$0', en: '$0' },
         priceUnit: { zh: '永久免费', en: 'free forever' },
-        tagline: { zh: '每月 5 个客户，免费试用。需 RECO 注册核验。', en: '5 clients a month, free. Requires a RECO registration check.' },
+        tagline: { zh: '免费开始。需 RECO 注册核验。', en: 'Free to start. Requires a RECO registration check.' },
         cta: { zh: '去认证', en: 'Get verified' },
         href: '/agent/verify',
         includesLabel: { zh: '包含:', en: 'Included:' },
         features: [
-          { zh: '5 个客户 / 月', en: '5 clients / month' },
+          { zh: 'RECO 注册核验徽章 + 认证经纪目录', en: 'RECO-checked badge + verified agent directory' },
           { zh: 'AI Agent 基础功能', en: 'AI agent basics' },
-          { zh: '看房排程 + 现场记录', en: 'Showing scheduler + on-site notes' },
+          { zh: '看房排程 + 现场记录（即将推出）', en: 'Showing scheduler + on-site notes (coming soon)' },
           { zh: '不抽佣金', en: 'No commission cut' },
         ],
       },
@@ -148,7 +153,7 @@ const PLANS: RolePlan[] = [
           { zh: '无限客户', en: 'Unlimited clients' },
           { zh: 'AI Agent 全功能', en: 'Full AI agent' },
           { zh: 'RECO 合规工具 + 审计提醒', en: 'RECO compliance tools + audit reminders' },
-          { zh: '自动跟进与催款', en: 'Automated follow-ups and collections' },
+          { zh: '自动跟进提醒', en: 'Automated follow-up reminders' },
         ],
         highlight: true,
       },
@@ -171,7 +176,7 @@ const PLANS: RolePlan[] = [
   },
 ]
 
-function RolePlansSection({ lang, zh }: { lang: Lang; zh: boolean }) {
+function RolePlansSection({ lang, zh, inWindow }: { lang: Lang; zh: boolean; inWindow: boolean }) {
   const [active, setActive] = useState(1) // landlord opens by default (paying role)
   const plan = PLANS[active]
   return (
@@ -223,14 +228,14 @@ function RolePlansSection({ lang, zh }: { lang: Lang; zh: boolean }) {
             </div>
             <p className="mt-3 min-h-[40px] text-[13.5px] leading-relaxed text-body-2">{t.tagline[lang]}</p>
             <Link
-              href={t.href}
+              href={inWindow && t.hrefInWindow ? t.hrefInWindow : t.href}
               className={
                 'mt-4 inline-flex w-full items-center justify-center rounded-[10px] px-4 py-[12px] text-[14px] font-semibold transition active:translate-y-px ' +
                 (t.highlight ? 'text-white' : 'border border-line-strong bg-white text-body hover:border-brand hover:text-brand')
               }
               style={t.highlight ? { background: plan.accent, boxShadow: `0 6px 18px -8px ${plan.accent}88` } : undefined}
             >
-              {t.cta[lang]}
+              {(inWindow && t.ctaInWindow ? t.ctaInWindow : t.cta)[lang]}
             </Link>
             <div className="mt-6 border-t border-line-divider pt-5">
               <div className="text-[12.5px] font-bold text-body">{t.includesLabel[lang]}</div>
@@ -253,11 +258,16 @@ function RolePlansSection({ lang, zh }: { lang: Lang; zh: boolean }) {
 export default function PricingPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
+  // This page is prerendered: evaluating the window during render would bake
+  // the build-time answer into the HTML and mismatch the client after the end
+  // date (React #418). Render closed first, then open it on the client.
+  const [inWindow, setInWindow] = useState(false)
+  useEffect(() => setInWindow(inInternalTestWindow()), [])
   return (
     <>
       <Header variant="transparent" />
       <main>
-        {inInternalTestWindow() && (
+        {inWindow && (
           <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-[13px] font-semibold text-amber-900">
             {lang === 'zh' ? `内部测试期：到 ${INTERNAL_TEST_FREE_UNTIL_LABEL.zh} 为止，下面的全部功能对所有账号免费，无需订阅或解锁。` : `Internal test period: until ${INTERNAL_TEST_FREE_UNTIL_LABEL.en} everything below is free for every account — no subscription or unlock needed.`}
           </div>
@@ -274,13 +284,13 @@ export default function PricingPage() {
               {zh ? <>简单透明的订阅定价</> : <>Simple, transparent subscription pricing</>}
             </h1>
             <p className="mx-auto mt-4 max-w-[680px] text-[15.5px] leading-relaxed text-body-2">
-              {zh ? '只收订阅费，不抽佣金、不抽租金。' : 'Subscription only — no commission, no cut of the rent.'}
+              {zh ? '只收订阅费，不抽佣金、不经手租金。' : 'Subscription only — no commission, and we never handle the rent.'}
             </p>
           </div>
         </section>
 
         {/* Role switcher + named tiers per role */}
-        <RolePlansSection lang={lang} zh={zh} />
+        <RolePlansSection lang={lang} zh={zh} inWindow={inWindow} />
 
         {/* Trust API — 4th business line */}
         <section className="mx-auto max-w-[1100px] px-5 pb-12 sm:px-7 lg:px-12">
@@ -314,9 +324,9 @@ export default function PricingPage() {
             <h2 className="mt-2 text-[22px] font-bold tracking-tight">{zh ? '付费不改变任何评分或排名。' : 'Paying never changes a score or a ranking.'}</h2>
             <p className="mt-3 max-w-[820px] text-[14px] leading-relaxed text-body-2">
               {zh ? (
-                <>验证、筛查、收租、租约起草都含在订阅里。带看由<b>持牌经纪</b>完成。我们不抽佣金、不抽租金流水——付费只解锁你自己的工具，不影响任何人的资格。</>
+                <>验证、筛查、租约起草都含在订阅里。带看由<b>持牌经纪</b>完成。我们不抽佣金，也不经手租金（在线收租尚未上线）——付费只解锁你自己的工具，不影响任何人的资格。</>
               ) : (
-                <>Verification, screening, rent collection and lease drafting are all part of the subscription. Showings are done by <b>licensed agents</b>. We take no commission and no cut of the rent — paying unlocks your own tools, and never affects anyone’s eligibility.</>
+                <>Verification, screening and lease drafting are all part of the subscription. Showings are done by <b>licensed agents</b>. We take no commission and do not handle rent (online rent collection is not live) — paying unlocks your own tools, and never affects anyone’s eligibility.</>
               )}
             </p>
           </div>
@@ -328,9 +338,9 @@ export default function PricingPage() {
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {[
               { q: { zh: '租客真的永远免费吗?', en: 'Are tenants really free forever?' }, a: { zh: '是。验证、护照、申请、签约、维修全部免费，四枚章也免费盖。', en: 'Yes. Verification, Passport, applications, signing and maintenance are all free — including all four stamps.' } },
-              { q: { zh: '经纪订阅包含什么?', en: 'What does the agent subscription include?' }, a: { zh: '日程编排、客户管理、RECO 合规提醒等全套工具。免费档 5 个客户/月，Pro 无限客户。不抽任何佣金。', en: 'The full toolset: scheduling, client management, RECO compliance reminders. Free tier is 5 clients/month; Pro is unlimited. No commission cut.' } },
-              { q: { zh: '为什么不收带看费、不抽租金?', en: 'Why no showing fees and no rent skim?' }, a: { zh: '我们只收订阅费。租金流水一分不抽，租客也零负担。', en: 'We only charge subscriptions. Nothing is taken from the rent, and tenants pay nothing.' } },
-              { q: { zh: '房东免费档够用吗?', en: 'Is the landlord free tier enough?' }, a: { zh: '一套房够用：发布房源、收申请、AI 评分、在线收租都在免费档。多套房或要完整 AI Agent 再升级。', en: 'For one property, yes: listing, applications, AI scoring and rent collection are all in the free tier. Upgrade when you have more properties or want the full AI agent.' } },
+              { q: { zh: '经纪订阅包含什么?', en: 'What does the agent subscription include?' }, a: { zh: '现在可用的是免费档：RECO 注册核验徽章、认证经纪目录与 AI 助手。日程编排、客户管理等付费工具即将推出、尚未开售。不抽任何佣金。', en: 'Available today is the free tier: the RECO-checked badge, the verified agent directory and the AI assistant. Paid tools such as scheduling and client management are coming soon and not yet on sale. No commission cut.' } },
+              { q: { zh: '为什么不收带看费、不抽租金?', en: 'Why no showing fees and no rent skim?' }, a: { zh: '我们只收订阅费。Stayloop 目前不经手租金（在线收租尚未上线），租客也零负担。', en: 'We only charge subscriptions. Stayloop does not handle rent today (online rent collection is not live), and tenants pay nothing.' } },
+              { q: { zh: '房东免费档够用吗?', en: 'Is the landlord free tier enough?' }, a: { zh: '多数个人房东够用：发布房源、收申请、每月 5 次 AI 筛查都在免费档。需要更多筛查、深度核查或完整 AI Agent 再升级。', en: 'For most individual landlords, yes: listing, applications and 5 AI screenings a month are all in the free tier. Upgrade when you need more screenings, deep checks or the full AI agent.' } },
               { q: { zh: '只筛一两个人，非要订阅吗?', en: 'Screening one or two applicants — do I need a subscription?' }, a: { zh: '不用。免费档每月 5 次筛查；只有深度核查（公司注册交叉核查、董事比对、关联关系识别，以及陆续上线的身份 / 银行 / 征信直连）需要解锁——单个申请人 $14.99 一次性，由房东支付（安省 RTA s.134 禁止向申请人收取任何费用）。多套房再考虑 Pro。', en: 'No. The free tier includes 5 screenings a month. Only deep checks (company-registry cross-check, director matching, related-party detection, and the ID / bank / credit direct verification as it launches) need an unlock — $14.99 one-time per applicant, paid by the landlord (Ontario\'s RTA s.134 prohibits charging applicants). Pro is for landlords with several properties.' } },
             ].map((f) => (
               <div key={f.q.zh} className="sl-card p-5">

@@ -6,6 +6,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useI18n } from '@/lib/i18n'
 import { useAIName } from '@/lib/aiName'
+import { SampleBanner } from '@/components/SampleNotice'
 
 type Step = 'intro' | 'capture-id' | 'selfie' | 'review'
 
@@ -19,6 +20,16 @@ export default function Tier1OnboardingPage() {
       <Header />
       <main className="bg-surface">
         <div className="mx-auto max-w-[760px] px-5 py-12 sm:px-7 lg:py-20">
+          {/* This flow is a product preview: the photo never leaves the browser
+              and nothing is verified. Real identity verification runs through
+              the Veriff link a landlord sends with a screening (/verify/<token>). */}
+          <SampleBanner
+            zh={zh}
+            text={{
+              zh: '产品预览：本页不会上传、保存或核验任何证件——你选择的照片只留在这台设备的浏览器里，也不会因此获得身份章。真实的身份核验通过房东随筛查发给你的 Veriff 安全链接完成。',
+              en: 'Product preview: this page does not upload, store or verify any document — the photo you pick stays in this browser, and no identity stamp is issued. Real identity verification happens through the secure Veriff link a landlord sends you with a screening.',
+            }}
+          />
           <ProgressBar step={step} />
           {step === 'intro' && <IntroCard onStart={() => setStep('capture-id')} />}
           {step === 'capture-id' && (
@@ -40,8 +51,8 @@ export default function Tier1OnboardingPage() {
               title={zh ? '第 2 步 / 3 · 拍摄自拍' : 'Step 2 / 3 · Take a selfie'}
               hint={
                 zh
-                  ? '对着摄像头眨眨眼，Persona 会做活体检测确认是你本人。'
-                  : 'Blink at the camera — Persona runs a liveness check to confirm it’s really you.'
+                  ? '预览步骤：真实核验时，Veriff 会在这一步做活体检测确认是你本人。这里不会检测任何内容。'
+                  : 'Preview step: in the real flow Veriff runs a liveness check here to confirm it’s really you. Nothing is checked on this page.'
               }
               ctaLabel={zh ? '✓ 已确认 · 继续' : '✓ Confirmed · Continue'}
               onNext={() => setStep('review')}
@@ -214,7 +225,7 @@ function CaptureCard({
             </span>
             <span className="text-[13px]">{zh ? '点击此处启动相机 / 上传图片' : 'Tap here to open the camera / upload an image'}</span>
             <span className="text-[12px] text-body-4">{zh ? '或把图片拖到这里' : 'or drag an image here'}</span>
-            <span className="font-mono text-[11px] text-body-4">ENCRYPTED · PERSONA SDK</span>
+            <span className="font-mono text-[11px] text-body-4">{zh ? '预览 · 不上传' : 'PREVIEW · NOT UPLOADED'}</span>
           </div>
         )}
       </div>
@@ -254,11 +265,11 @@ function ReviewCard({ onBack }: { onBack: () => void }) {
       <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brand/10 text-brand">
         <CheckIcon />
       </span>
-      <h2 className="mt-5 text-[26px] font-bold tracking-tight">{zh ? '身份章 已盖 ✓' : 'Identity stamp earned ✓'}</h2>
+      <h2 className="mt-5 text-[26px] font-bold tracking-tight">{zh ? '预览结束' : 'End of preview'}</h2>
       <p className="mt-3 text-[14px] leading-relaxed text-body-2">
         {zh
-          ? <>身份已验证。{name} 已经在你的 Workspace 等你 — 现在就能浏览房源、提交看房意向。</>
-          : <>Your identity is verified. {name} is already waiting in your Workspace — you can browse listings and submit viewing requests right now.</>}
+          ? <>这只是流程预览：没有上传任何证件，你的身份也没有被核验。真实的身份核验通过房东随筛查发给你的 Veriff 安全链接完成。{name} 已经在你的 Workspace 等你 — 现在就能浏览房源。</>
+          : <>This was a preview of the flow: no document was uploaded and your identity has not been verified. Real identity verification happens through the secure Veriff link a landlord sends you with a screening. {name} is already waiting in your Workspace — you can browse listings right now.</>}
       </p>
 
       <div className="mt-8 flex flex-col gap-3">

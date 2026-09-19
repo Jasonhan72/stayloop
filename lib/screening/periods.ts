@@ -52,7 +52,7 @@ const MON3: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, j
 /** Dates as documents print them — "1979-05-14", "MAY-14-1979", "14 MAY / MAI 79",
  *  "1979-xx-14", "05/14/1979" — reduced to {y?, m?, d} for equality tests.
  *  Masked or missing parts stay undefined and never count as a conflict. */
-export function parseDateLoose(s: string): { y?: number; m?: number; d?: number } | null {
+export function parseDateLoose(s: string): { y?: number; m?: number; d?: number; ambiguousDM?: boolean } | null {
   const t = s.trim().toUpperCase().replace(/\s*\/\s*[A-Z]{3,}\b/g, '')   // "MAY / MAI" → "MAY"
   let m = t.match(/(\d{4})[-/.](\d{2}|XX)[-/.](\d{2}|XX)/)
   if (m) return { y: Number(m[1]), m: m[2] === 'XX' ? undefined : Number(m[2]), d: m[3] === 'XX' ? undefined : Number(m[3]) }
@@ -65,19 +65,25 @@ export function parseDateLoose(s: string): { y?: number; m?: number; d?: number 
     // 14/05/1979 is DD/MM — a month never exceeds 12 (review 2026-09-13).
     let mo = Number(m[1]), d = Number(m[2])
     if (mo > 12 && d <= 12) [mo, d] = [d, mo]
-    return { y: yr(m[3]), m: mo, d }
+    // 03/09/1985 is 9 March or 3 September — the print does not say which
+    // (review 2026-09-19). datesAgree accepts either reading.
+    return { y: yr(m[3]), m: mo, d, ...(mo <= 12 && d <= 12 && mo !== d ? { ambiguousDM: true } : {}) }
   }
   return null
 }
 function yr(s: string): number { const n = Number(s); return s.length === 2 ? (n > 30 ? 1900 + n : 2000 + n) : n }
 
 /** True when every parsed date agrees on the parts they both carry. */
-export function datesAgree(dates: Array<{ y?: number; m?: number; d?: number }>): boolean {
+export function datesAgree(dates: Array<{ y?: number; m?: number; d?: number; ambiguousDM?: boolean }>): boolean {
+  const same = (a: { y?: number; m?: number; d?: number }, b: { y?: number; m?: number; d?: number }) =>
+    !(a.d != null && b.d != null && a.d !== b.d) && !(a.m != null && b.m != null && a.m !== b.m) && !(a.y != null && b.y != null && a.y !== b.y)
   for (let i = 0; i < dates.length; i++) for (let j = i + 1; j < dates.length; j++) {
     const a = dates[i], b = dates[j]
-    if (a.d != null && b.d != null && a.d !== b.d) return false
-    if (a.m != null && b.m != null && a.m !== b.m) return false
-    if (a.y != null && b.y != null && a.y !== b.y) return false
+    if (same(a, b)) continue
+    // A slash date whose two parts are both ≤ 12 may be read either way.
+    if (a.ambiguousDM && same({ y: a.y, m: a.d, d: a.m }, b)) continue
+    if (b.ambiguousDM && same(a, { y: b.y, m: b.d, d: b.m })) continue
+    return false
   }
   return dates.length >= 2
 }

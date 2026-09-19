@@ -156,7 +156,8 @@ describe('review 2026-09-16 — employer checks', () => {
     expect(registryStatusKind('Active (New Amalgamated)')).toBe('active')
     expect(registryStatusKind('Active - Amalgamated')).toBe('active')
     expect(registryStatusKind('Discontinued')).toBe('unknown')
-    expect(registryStatusKind('Inactive - Amalgamated')).toBe('inactive')
+    // review 2026-09-19: an amalgamated corporation continues under its successor — not "cannot be issuing pay"
+    expect(registryStatusKind('Inactive - Amalgamated')).toBe('unknown')
     expect(registryStatusKind('Not in good standing')).toBe('inactive')
   })
   it('"since 2015" is a year, not January 1: it cannot predate a 2015-03-10 incorporation', () => {

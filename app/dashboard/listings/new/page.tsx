@@ -11,13 +11,12 @@ import { invalidateHats } from '@/lib/useHats'
 import { RegistrantDisclosureModal, useRegistrantProfile } from '@/components/RegistrantDisclosure'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
-import { stampForTier } from '@/lib/passportStamps'
 
 const STEPS = (aiName: string) => [
   { n: 1, nm: { zh: '基本信息', en: 'Basics' }, desc: { zh: '地址 + 户型 + 面积', en: 'Address + layout + size' } },
   { n: 2, nm: { zh: '照片 + 视频', en: 'Photos + video' }, desc: { zh: `至少 8 张 · ${aiName} 自动排序`, en: `8+ photos · ${aiName} auto-orders` } },
   { n: 3, nm: { zh: '价格 + 押金', en: 'Price + deposit' }, desc: { zh: `${aiName} 给市场区间`, en: `${aiName} gives the market range` } },
-  { n: 4, nm: { zh: '盖章门槛', en: 'Stamp threshold' }, desc: { zh: '要求申请人盖到哪枚章', en: 'Which stamps applicants need' } },
+  { n: 4, nm: { zh: '护照章', en: 'Passport stamps' }, desc: { zh: '申请人可分享哪些核验', en: 'What applicants can share' } },
   { n: 5, nm: { zh: '最后审 + 发布', en: 'Review + publish' }, desc: { zh: `${aiName} 起草 EN+ZH 文案`, en: `${aiName} drafts EN+ZH copy` } },
 ]
 
@@ -63,7 +62,6 @@ export default function NewListingPage() {
     facing: '',
     floor: '',
     age: '',
-    tier: 2,
     property_type: 'condo',
     amenities: [] as string[],
   })
@@ -406,62 +404,42 @@ export default function NewListingPage() {
                 </div>
                 <div className="flex gap-3">
                   <button onClick={() => setStep(2)} className="sl-btn-secondary">{lang === 'zh' ? '← 上一步' : '← Back'}</button>
-                  <button onClick={() => setStep(4)} className="sl-btn-primary flex-1 !py-[12px]">{lang === 'zh' ? '下一步 · 盖章门槛' : 'Next · Stamp threshold'}</button>
+                  <button onClick={() => setStep(4)} className="sl-btn-primary flex-1 !py-[12px]">{lang === 'zh' ? '下一步 · 护照章' : 'Next · Passport stamps'}</button>
                 </div>
               </div>
             )}
 
             {step === 4 && (
               <div>
-                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '4 · 盖章门槛' : '4 · Stamp threshold'}</h2>
+                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '4 · 申请人护照章' : '4 · Applicant passport stamps'}</h2>
                 <p className="mt-2 text-[13px] text-body-2">
                   {lang === 'zh'
-                    ? '这决定哪些租客可以申请。要求的章越多越严格。系统会按你设定自动筛查。'
-                    : 'This decides which tenants can apply. More required stamps means stricter. The system auto-filters based on your setting.'}
+                    ? '仅供了解，这一步不需要设置任何内容。申请人可以把自己的 Stayloop 护照分享给你，上面带有身份章（Veriff）和银行章（Flinks）等已完成的核验。是否录取由你本人决定——系统不会替你自动过滤或拒绝任何申请人。'
+                    : 'For your information — there is nothing to set on this step. Applicants can share their Stayloop passport with you, carrying the checks they have completed, such as the identity stamp (Veriff) and the bank stamp (Flinks). You make the decision — the system never filters out or rejects an applicant for you.'}
                 </p>
                 <div className="mt-5 space-y-3">
                   {(lang === 'zh'
                     ? [
-                        { n: 1, name: '需 身份章 🪪 · 仅 ID 验证', desc: '租客只需护照 + 自拍。最快但筛查最弱。', stats: '~80% 通过率' },
-                        { n: 2, name: '需 收入章 💼 · ID + 收入',   desc: '工资单或 Plaid 月收入验证。',         stats: '~50% 通过率' },
-                        { n: 3, name: '需 银行章 🏦 · ID + 收入 + 银行', desc: 'Plaid 直连 · 现金流可见。',          stats: '~30% 通过率' },
-                        { n: 4, name: '需 信用 + 法庭章 ⚖️ · 全部 + 信用 + 法庭', desc: 'Equifax + CanLII LTB · 最严。',      stats: '~15% 通过率' },
+                        { n: 1, name: '身份章 🪪', desc: '申请人通过 Veriff 完成证件 + 活体核验。' },
+                        { n: 2, name: '收入章 💼', desc: '工资单等收入文件，或银行直连识别出的工资入账。' },
+                        { n: 3, name: '银行章 🏦', desc: '申请人本人授权 Flinks 银行直连，只分享摘要，不分享原始流水。' },
+                        { n: 4, name: '信用 + 法庭章 ⚖️', desc: '申请人提供或授权的信用报告，加安省公开记录检索。' },
                       ]
                     : [
-                        { n: 1, name: 'Identity stamp 🪪 · ID only', desc: 'Tenant just needs passport + selfie. Fastest, but the weakest filter.', stats: '~80% pass rate' },
-                        { n: 2, name: 'Income stamp 💼 · ID + income', desc: 'Pay stub or Plaid monthly-income verification.', stats: '~50% pass rate' },
-                        { n: 3, name: 'Bank stamp 🏦 · ID + income + bank', desc: 'Direct Plaid connection · cash flow visible.', stats: '~30% pass rate' },
-                        { n: 4, name: 'Credit + court stamp ⚖️ · everything + credit + court', desc: 'Equifax + CanLII LTB · the strictest.', stats: '~15% pass rate' },
+                        { n: 1, name: 'Identity stamp 🪪', desc: 'The applicant completes an ID + liveness check through Veriff.' },
+                        { n: 2, name: 'Income stamp 💼', desc: 'Income documents such as pay stubs, or payroll deposits identified through a bank connection.' },
+                        { n: 3, name: 'Bank stamp 🏦', desc: 'The applicant authorises a Flinks bank connection; only a summary is shared, never raw transactions.' },
+                        { n: 4, name: 'Credit + court stamp ⚖️', desc: 'A credit report the applicant provides or authorises, plus a search of Ontario public records.' },
                       ]
-                  ).map((t) => {
-                    const sel = form.tier === t.n
-                    return (
-                      <button
-                        key={t.n}
-                        type="button"
-                        onClick={() => set('tier', t.n)}
-                        className={
-                          'grid w-full grid-cols-[24px_1fr_110px] items-center gap-4 rounded-xl border px-4 py-4 text-left transition ' +
-                          (sel
-                            ? 'border-brand bg-brand/5 shadow-[0_0_0_1px_rgba(4,120,87,0.22)]'
-                            : 'border-line-divider bg-white hover:border-line-strong')
-                        }
-                      >
-                        <span
-                          className={
-                            'h-[18px] w-[18px] rounded-full border-2 ' +
-                            (sel ? 'border-brand' : 'border-line-strong')
-                          }
-                          style={sel ? { background: 'radial-gradient(circle at center,#047857 0 50%,transparent 50%)' } : undefined}
-                        />
-                        <div>
-                          <div className="text-[14px] font-bold">{t.name}</div>
-                          <div className="text-[12.5px] text-body-2">{t.desc}</div>
-                        </div>
-                        <span className="font-mono text-[11px] text-body-3">{t.stats}</span>
-                      </button>
-                    )
-                  })}
+                  ).map((t) => (
+                    <div
+                      key={t.n}
+                      className="w-full rounded-xl border border-line-divider bg-white px-4 py-4 text-left"
+                    >
+                      <div className="text-[14px] font-bold">{t.name}</div>
+                      <div className="text-[12.5px] text-body-2">{t.desc}</div>
+                    </div>
+                  ))}
                 </div>
                 <div className="mt-6 flex gap-3">
                   <button onClick={() => setStep(3)} className="sl-btn-secondary">{lang === 'zh' ? '← 上一步' : '← Back'}</button>
@@ -494,7 +472,6 @@ export default function NewListingPage() {
                     <Row k={lang === 'zh' ? '地址' : 'Address'} v={form.address} />
                     <Row k={lang === 'zh' ? '户型' : 'Layout'} v={lang === 'zh' ? `${form.bedrooms} 卧 · ${form.bathrooms} 卫 · ${form.sqft} sqft` : `${form.bedrooms} bd · ${form.bathrooms} ba · ${form.sqft} sqft`} />
                     <Row k={lang === 'zh' ? '月租 / 押金' : 'Rent / deposit'} v={`$${form.monthly_rent} / $${form.deposit}`} />
-                    <Row k={lang === 'zh' ? '盖章门槛' : 'Stamp threshold'} v={lang === 'zh' ? `需 ${stampForTier(form.tier).zh}` : `${stampForTier(form.tier).en} required`} />
                     <Row k={lang === 'zh' ? '配套' : 'Amenities'} v={form.amenities.map((id) => AMENITIES.find((a) => a.id === id)?.[lang] ?? id).join(' · ') || '—'} />
                   </dl>
                 </div>

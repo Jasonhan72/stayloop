@@ -9,7 +9,7 @@ const PRINCIPLES: { h: Record<Lang, string>; b: Record<Lang, string> }[] = [
   { h: { zh: '关键决定永远是你的', en: 'Key decisions are always yours' }, b: { zh: 'AI 替你跑流程、压结论,但分享 Passport、提交申请、签约、付款 —— 全部经你确认才执行。', en: 'AI runs the process and distills conclusions, but sharing your Passport, submitting an application, signing and paying — none of it happens without your confirmation.' } },
   { h: { zh: '信任可以复用', en: 'Trust can be reused' }, b: { zh: '验证一次,跨房东、平台、机构出示摘要。把一叠 PDF 变成一个可携带的协议。', en: 'Verify once, then present a summary across landlords, platforms and institutions. Turn a stack of PDFs into one portable proof.' } },
   { h: { zh: '看得见来源', en: 'Sources you can see' }, b: { zh: '每一分都能点开看到它从哪来。不是黑箱风险分,而是加权的证据。', en: 'Open any point and see where it came from. Not a black-box risk number, but weighted evidence.' } },
-  { h: { zh: '合规是底线', en: 'Compliance is the floor' }, b: { zh: '符合本地法律 · 软查不影响信用 · 每一步链上留痕、可回溯。', en: 'Compliant with local law · soft checks never touch your credit · every step logged on-chain and traceable.' } },
+  { h: { zh: '合规是底线', en: 'Compliance is the floor' }, b: { zh: '符合本地法律 · 征信查询须经你本人授权 · 每一步写入只追加的审计日志、可回溯。', en: 'Compliant with local law · credit checks only with your authorisation · every step written to an append-only audit log and traceable.' } },
 ]
 
 export default function AboutPage() {

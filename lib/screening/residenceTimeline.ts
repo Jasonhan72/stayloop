@@ -20,6 +20,7 @@ export const RENTAL_SCREENING_CREDITORS = /\b(yardi|certn|singlekey|single key|n
 const CA_PROVINCE_FULL = /\b(Ontario|Quebec|Québec|British Columbia|Alberta|Manitoba|Saskatchewan|Nova Scotia|New Brunswick|Newfoundland|Prince Edward Island|Yukon|Nunavut|Canada)\b/i
 const CA_PROVINCE_ABBR = /,\s*(ON|QC|BC|AB|MB|SK|NS|NB|NL|PE|YT|NT|NU)\b/
 const FOREIGN_COUNTRY = /\b(USA|U\.S\.A?\.?|United States|United Kingdom|UK|England|Scotland|Wales|Ireland|France|Germany|Italy|Spain|Portugal|Netherlands|Belgium|Switzerland|Austria|Poland|Ukraine|Russia|Greece|Turkey|Israel|Iran|Iraq|Lebanon|Egypt|Nigeria|Ghana|Kenya|South Africa|India|Pakistan|Bangladesh|Sri Lanka|Nepal|China|Hong Kong|Taiwan|Japan|Korea|Philippines|Vietnam|Thailand|Malaysia|Singapore|Indonesia|Australia|New Zealand|Mexico|Brazil|Colombia|Peru|Chile|Argentina|Venezuela|Jamaica|Trinidad|Dubai|UAE|United Arab Emirates|Saudi Arabia|Qatar|Kuwait)\b/i
+const AMBIGUOUS_CITY = /^(London|Kingston|Cambridge|Windsor|Hamilton|Victoria|Waterloo|Halifax|Surrey|Aurora|Milton|Burlington|Newmarket)$/i
 const US_STATE_ZIP = /\b[A-Z]{2}\s+\d{5}(?:-\d{4})?\b/
 const UK_POSTCODE = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/
 /** A Canadian address needs a positive marker: postal code, "Canada" / full
@@ -28,7 +29,14 @@ const UK_POSTCODE = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/
 export function looksCanadian(address: string): boolean {
   const a = address || ''
   if (FOREIGN_COUNTRY.test(a) && !/\bCanada\b/i.test(a)) return false
-  return CA_POSTAL.test(a) || CA_PROVINCE_FULL.test(a) || (CA_CITY.test(a) && CA_PROVINCE_ABBR.test(a))
+  if (CA_POSTAL.test(a) || CA_PROVINCE_FULL.test(a) || (CA_CITY.test(a) && CA_PROVINCE_ABBR.test(a))) return true
+  // Review 2026-09-19: "55 Bloor St W, Toronto" is how most forms write a
+  // Canadian address. A known Canadian city with no foreign marker of any
+  // kind is Canadian — except the names that are better known abroad
+  // (London, Kingston, Cambridge …), which still need a province / postcode.
+  if (US_STATE_ZIP.test(a) || UK_POSTCODE.test(a)) return false
+  const city = a.match(CA_CITY)
+  return !!city && !AMBIGUOUS_CITY.test(city[0])
 }
 /** Positive evidence the address is outside Canada. */
 export function looksForeign(address: string): boolean {
@@ -95,7 +103,9 @@ export function checkResidenceTimeline(args: {
   //    "Abroad" needs positive evidence (a foreign country / postcode) or the
   //    applicant's own words ("moving back to Canada") — a street-only
   //    transcription of a Canadian address is neither (review 2026-09-16).
-  const moving = /moving back|return(?:ing)? to canada|relocat|immigrat|回加拿大|回国/i.test(args.vacating_reason || '')
+  //    Review 2026-09-19: "relocating for work" / "immigrating" are what
+  //    domestic movers and newcomers write — only an explicit return counts.
+  const moving = /moving back|return(?:ing)? to canada|回加拿大|回国/i.test(args.vacating_reason || '')
   const abroad = args.residences.filter(r => r.address && !looksCanadian(r.address) && (looksForeign(r.address) || moving) && parsePeriod(r.period, today))
   const recentCutoff = new Date(today.getTime() - 60 * 86_400_000).toISOString().slice(0, 10)
   for (const r of abroad) {

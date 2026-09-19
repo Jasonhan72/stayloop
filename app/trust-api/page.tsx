@@ -38,16 +38,9 @@ const COPY = {
     'One unified interface for identity, income, credit, rental history and compliance — trust infrastructure for rental platforms, insurers, and financial services.',
   primaryCta: { label_zh: '获取 API Key', label_en: 'Get an API key', href: '/contact' },
   secondaryCta: { label_zh: '查看示例响应', label_en: 'See sample response', href: '/trust-api/docs' },
-  closing_zh: '一份 Passport，整个北美都能读。',
-  closing_en: 'One Passport. Read by every business in North America.',
+  closing_zh: '租客授权一次，合作方只拿到「已验证」的结论，拿不到原始文件。',
+  closing_en: 'The tenant authorises once; a partner receives a verified / not-verified answer, never the raw documents.',
 }
-
-const STATS: Array<{ value: string; label_zh: string; label_en: string }> = [
-  { value: '$6', label_zh: 'Identity verify · 单次价格', label_en: 'per identity verification' },
-  { value: '~400ms', label_zh: '中位响应时间', label_en: 'median response time' },
-  { value: '99.95%', label_zh: 'API 可用率（最近 90 天）', label_en: 'API uptime (trailing 90 days)' },
-  { value: '20k+', label_zh: 'Verified Passport 总量', label_en: 'verified passports issued' },
-]
 
 const FEATURES: Array<{ title_zh: string; title_en: string; body_zh: string; body_en: string }> = [
   {
@@ -59,20 +52,20 @@ const FEATURES: Array<{ title_zh: string; title_en: string; body_zh: string; bod
   {
     title_zh: 'Income (VOIE)',
     title_en: 'Income (VOIE)',
-    body_zh: 'Flinks bank API + Argyle payroll。读取 90 天存款，AI 检测稳定性，输出 sealed average。',
-    body_en: 'Flinks bank API + Argyle payroll. Reads 90 days of deposits, runs AI stability checks, returns a sealed average.',
+    body_zh: 'Flinks 银行直连（申请人本人授权）。读取 90 天入账，由确定性规则识别循环工资入账，只输出摘要、不保存原始流水。',
+    body_en: 'Flinks bank connection, authorised by the applicant. Reads 90 days of deposits, identifies recurring payroll with deterministic rules, and returns a summary only — raw transactions are not stored.',
   },
   {
-    title_zh: 'Credit · Equifax Rental Connect',
-    title_en: 'Credit · Equifax Rental Connect',
-    body_zh: '原生 Equifax 加拿大对接。返回 score、tradelines、AI 解读。',
-    body_en: 'Native Equifax Canada integration. Returns score, tradelines, and an AI-written interpretation.',
+    title_zh: 'Credit · 申请人授权征信（对接中）',
+    title_en: 'Credit · applicant-authorised bureau pull (in progress)',
+    body_zh: '申请人本人授权后向 Equifax 加拿大拉取摘要；生产凭证仍在申请中，目前仅沙箱。分数档位、利用率等算术由确定性代码完成。',
+    body_en: 'A summary pulled from Equifax Canada with the applicant\'s own authorisation; production credentials are pending, sandbox only today. Score bands and utilisation are computed by deterministic code.',
   },
   {
-    title_zh: 'Eviction · Openroom + CanLII',
-    title_en: 'Eviction · Openroom + CanLII',
-    body_zh: 'Openroom LTB 数据 + CanLII 全省判例。同名消歧由 Verify agent 完成。',
-    body_en: 'Openroom LTB data plus full-province CanLII rulings. Name disambiguation handled by the Verify agent.',
+    title_zh: 'Records · 安省 LTB 判令目录 + 法院门户',
+    title_en: 'Records · Ontario LTB order catalogue + courts portal',
+    body_zh: '安省开放数据的 LTB 终局判令目录（当前收录窗口会随结果一并说明）与安省法院门户的当事人检索。同名在地址佐证前一律按同名处理，只说「已出判令」，不下结论。',
+    body_en: 'Ontario\'s open-data catalogue of final LTB orders (the covered window is stated with every result) and party search on the Ontario courts portal. A name hit is a namesake until an address corroborates it; we report that an order exists, never an outcome.',
   },
   {
     title_zh: 'Webhook 事件',
@@ -83,8 +76,8 @@ const FEATURES: Array<{ title_zh: string; title_en: string; body_zh: string; bod
   {
     title_zh: '合规 · PIPEDA + GDPR',
     title_en: 'Compliance · PIPEDA + GDPR',
-    body_zh: 'Append-only 审计日志、租客可导出全部数据、可一键撤销。SOC2 进行中。',
-    body_en: 'Append-only audit log, full data export for the tenant, one-click revocation. SOC2 in progress.',
+    body_zh: 'Append-only 审计日志、租客可导出全部数据、可一键撤销。',
+    body_en: 'Append-only audit log, full data export for the tenant, one-click revocation.',
   },
 ]
 
@@ -285,40 +278,6 @@ export default function TrustApiPage() {
               {isZh ? COPY.secondaryCta.label_zh : COPY.secondaryCta.label_en}
             </Link>
           </div>
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section style={{ padding: '48px 24px', borderBottom: `1px solid ${v3.divider}` }}>
-        <div
-          style={{
-            maxWidth: size.content.wide,
-            margin: '0 auto',
-            display: 'grid',
-            gridTemplateColumns: `repeat(${STATS.length}, 1fr)`,
-            gap: 24,
-          }}
-          className="mk-stats-grid"
-        >
-          {STATS.map((s, i) => (
-            <div key={i} style={{ borderLeft: `2px solid ${accent.fg}`, paddingLeft: 16 }}>
-              <div
-                style={{
-                  fontSize: 36,
-                  fontWeight: 800,
-                  color: v3.textPrimary,
-                  letterSpacing: '-0.025em',
-                  lineHeight: 1.05,
-                  marginBottom: 6,
-                }}
-              >
-                {s.value}
-              </div>
-              <div style={{ color: v3.textMuted, fontSize: 13, lineHeight: 1.5 }}>
-                {isZh ? s.label_zh : s.label_en}
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 

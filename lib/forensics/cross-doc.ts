@@ -411,36 +411,47 @@ function levenshtein(a: string, b: string): number {
  *  annualized at 2080 full-time hours. */
 export function extractStatedAnnualSalary(text: string): number | null {
   if (!text) return null
-  // Explicit-period patterns FIRST — "salary of $25,000 per month" must be
-  // annualized (×12), never mistaken for a $25k annual salary.
-  const monthly = text.match(/\$\s*([\d,]+(?:\.\d{2})?)\s*(?:CAD\s*)?(?:per\s+month|\/\s*mo(?:nth)?\b|monthly)/i)
-  if (monthly) {
-    const v = Number(monthly[1].replace(/,/g, ''))
-    if (isFinite(v) && v >= 1_500 && v <= 170_000) return Math.round(v * 12)
-  }
-  const biweekly = text.match(/\$\s*([\d,]+(?:\.\d{2})?)\s*(?:CAD\s*)?(?:bi-?weekly|every\s+two\s+weeks)/i)
-  if (biweekly) {
-    const v = Number(biweekly[1].replace(/,/g, ''))
-    if (isFinite(v) && v >= 700 && v <= 80_000) return Math.round(v * 26)
-  }
-  const hourly = text.match(/\$\s*([\d,]+(?:\.\d+)?)\s*(?:CAD\s*)?(?:per\s+hour|\/\s*(?:hour|hr)\b|hourly)/i)
-  if (hourly) {
-    const hr = Number(hourly[1].replace(/,/g, ''))
-    if (isFinite(hr) && hr >= 15 && hr <= 500) return Math.round(hr * 2080)
-  }
-  const annualPatterns = [
-    /annual(?:ized)?\s+(?:base\s+)?(?:salary|compensation)\s*(?:of|is|:)?\s*(?:CAD|C\$)?\s*\$?\s*([\d,]+(?:\.\d{2})?)/i,
+  const SHORTER = String.raw`(?!,?\d)(?!\s*(?:CAD\s*)?(?:per\s+month|\/\s*mo|monthly|bi-?weekly|per\s+week|weekly|per\s+hour|\/\s*h|hourly))`
+  const num = (raw: string) => Number(raw.replace(/,/g, ''))
+  // Review 2026-09-19: an EXPLICIT annual figure wins. The period patterns
+  // used to run first, so "annual base salary will be $92,000 … car allowance
+  // of $1,600 per month" read as $19,200 and a 379% mismatch with the stubs.
+  const explicitAnnual = [
+    new RegExp(String.raw`annual(?:ized)?\s+(?:base\s+)?(?:salary|compensation)\s*(?:of|is|will\s+be|:)?\s*(?:CAD|C\$)?\s*\$?\s*([\d,]+(?:\.\d{2})?)` + SHORTER, 'i'),
     /\$\s*([\d,]+(?:\.\d{2})?)\s*(?:CAD\s*)?(?:per\s+annum|annually|per\s+year|\/\s*(?:year|yr)|a\s+year)/i,
-    // Bare "salary of $X" LAST and only when NOT followed by a shorter-period
-    // qualifier (explicit periods were consumed above; lookahead is defense).
-    /(?:base\s+)?salary\s+of\s+(?:CAD|C\$)?\s*\$?\s*([\d,]+(?:\.\d{2})?)(?!\s*(?:CAD\s*)?(?:per\s+month|\/\s*mo|monthly|bi-?weekly|per\s+week|weekly|per\s+hour|\/\s*h|hourly))/i,
   ]
-  for (const p of annualPatterns) {
+  for (const p of explicitAnnual) {
     const m = text.match(p)
     if (m) {
-      const v = Number(m[1].replace(/,/g, ''))
+      const v = num(m[1])
       if (isFinite(v) && v >= 20_000 && v <= 2_000_000) return v
     }
+  }
+  // Explicit shorter periods next — "salary of $25,000 per month" must be
+  // annualized (×12), never mistaken for a $25k annual salary. A figure
+  // introduced as an allowance / overtime / bonus / stipend / per diem /
+  // commission is not the salary and is skipped.
+  const SIDE_PAY = /allowance|overtime|bonus|stipend|per\s+diem|commission|reimburs/i
+  const firstBasePay = (re: RegExp, lo: number, hi: number): number | null => {
+    for (const m of text.matchAll(re)) {
+      if (SIDE_PAY.test(text.slice(Math.max(0, m.index! - 40), m.index!))) continue
+      const v = num(m[1])
+      if (isFinite(v) && v >= lo && v <= hi) return v
+    }
+    return null
+  }
+  const monthly = firstBasePay(/\$\s*([\d,]{1,12}(?:\.\d{2})?)\s*(?:CAD\s*)?(?:per\s+month|\/\s*mo(?:nth)?\b|monthly)/gi, 1_500, 170_000)
+  if (monthly != null) return Math.round(monthly * 12)
+  const biweekly = firstBasePay(/\$\s*([\d,]{1,12}(?:\.\d{2})?)\s*(?:CAD\s*)?(?:bi-?weekly|every\s+two\s+weeks)/gi, 700, 80_000)
+  if (biweekly != null) return Math.round(biweekly * 26)
+  const hourly = firstBasePay(/\$\s*([\d,]{1,12}(?:\.\d+)?)\s*(?:CAD\s*)?(?:per\s+hour|\/\s*(?:hour|hr)\b|hourly)/gi, 15, 500)
+  if (hourly != null) return Math.round(hourly * 2080)
+  // Bare "salary of $X" LAST and only when NOT followed by a shorter-period
+  // qualifier (explicit periods were consumed above; lookahead is defense).
+  const bare = text.match(new RegExp(String.raw`(?:base\s+)?salary\s+of\s+(?:CAD|C\$)?\s*\$?\s*([\d,]+(?:\.\d{2})?)` + SHORTER, 'i'))
+  if (bare) {
+    const v = num(bare[1])
+    if (isFinite(v) && v >= 20_000 && v <= 2_000_000) return v
   }
   return null
 }

@@ -272,16 +272,25 @@ export function scoreRubric(f: RubricFacts): RubricResult {
       ratio >= 4 ? 92 :
       ratio >= 3 ? 80 : 70
     add('ability_to_pay', 'income_rent_ratio', ability, `${ratio.toFixed(2)}x verified — information only, not a refusal ground`)
-  } else if (f.claimed_monthly_income && f.monthly_rent) {
+  } else if (income.monthly) {
+    // Review 2026-09-19: the rent field may be left blank (the UI says so).
+    // The ratio is information only since 2026-09-13 — a verified earner at
+    // 1.0x scores 70 — so a verified earner with NO rent to compare against
+    // gets the same floor, not `income_unknown` 30 and an "unknown" dimension.
+    ability = 70
+    add('ability_to_pay', 'income_verified_no_rent', 70,
+      `verified $${Math.round(income.monthly).toLocaleString()}/mo · no target rent — ratio not computed / 未填目标租金 — 未计算收入租金比`)
+  } else if (f.claimed_monthly_income) {
     // A claim with no corroboration. Capped well below any verified band so it
-    // can never outrank a documented lower earner.
+    // can never outrank a documented lower earner. Holds with or without a
+    // target rent: the figure is a claim either way.
     ability = 35
     add('ability_to_pay', 'income_unverified', 35,
-      `claimed $${f.claimed_monthly_income.toLocaleString()}/mo, no personal-account trail`)
+      `claimed $${f.claimed_monthly_income.toLocaleString()}/mo, no personal-account trail${f.monthly_rent ? '' : ' · no target rent — ratio not computed'}`)
   } else {
     ability = 30
     unknown.push('ability_to_pay')
-    add('ability_to_pay', 'income_unknown', 30, !f.monthly_rent && (f.verified_monthly_income || f.claimed_monthly_income) ? 'no target rent to compare against' : 'no income figure established')
+    add('ability_to_pay', 'income_unknown', 30, 'no income figure established')
   }
 
   // Total burden: the rent being applied for PLUS existing debt service, over

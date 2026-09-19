@@ -18,7 +18,17 @@ export type AccountIn = {
 }
 
 const NOISE = /\b(e-?transfer|etransfer|interac|transfer|tfr|deposit|dep|credit|cr|payment|pmt|pay|from|to|ref|#|no\.?|inc\.?|ltd\.?|corp\.?)\b/gi
-const PAYROLL_HINT = /payroll|pay\b|salary|wages|direct dep|dd\b|adp|ceridian|dayforce|paie|remun|payroll|employment|canada life|service canada|cra\b|gov|benefit|pension|cpp|oas|ei\b/i
+// Word-bounded on BOTH sides (review 2026-09-19): the old hint had bare
+// `ei\b`, `dd\b`, `oas`, `gov`, `cra\b`, `pay\b`, so "E-TRANSFER FROM WEI",
+// "E-TRANSFER TODD" and "TRANSFER FROM SAVINGS" counted as payroll and fed
+// payroll_monthly_estimate — a FACT the score trusts over the model.
+const PAYROLL_HINT = /\b(?:payroll\w*|pay|salary|salaire|wages|direct dep(?:osit)?|dd|adp|ceridian|dayforce|paie|remun\w*|employment|canada life|service canada|cra|gov\w*|benefits?|pension|cpp|oas|ei)\b/i
+// The applicant moving their own money is never income.
+const OWN_MONEY = /\b(?:savings?|chequing|checking|own account|tfr|visa|mastercard|line of credit)\b/i
+const E_TRANSFER = /\be-?transfer\b|\betransfer\b|\binterac\b/i
+// Raw descriptions behind each recurring group — the normalised label has
+// already lost "e-transfer" / "tfr" / "dep", which is what these rules need.
+const RAW_DESCRIPTIONS = new WeakMap<RecurringDeposit, string[]>()
 // Word-bounded: 'traNSFer' must not count as an NSF.
 const NSF = /\bnsf\b|non.?sufficient|returned item|insufficient funds|overdraft fee|\brtn\b/i
 
@@ -61,14 +71,16 @@ export function findRecurringDeposits(txns: Txn[]): RecurringDeposit[] {
     const spread = Math.max(...amounts) - Math.min(...amounts)
     if (spread > avg * 0.75) continue
     const monthly = avg * (30.4375 / avgGap)
-    out.push({
+    const dep: RecurringDeposit = {
       label,
       occurrences: list.length,
       avg_amount: round2(avg),
       avg_interval_days: round1(avgGap),
       monthly_equivalent: round2(monthly),
       last_date: list[list.length - 1].date,
-    })
+    }
+    RAW_DESCRIPTIONS.set(dep, list.map((t) => t.description || ''))
+    out.push(dep)
   }
   return out.sort((a, b) => b.monthly_equivalent - a.monthly_equivalent)
 }
@@ -77,7 +89,13 @@ export function isPayrollLike(d: RecurringDeposit): boolean {
   // Cadence alone is a weak signal (a friend's monthly e-transfer also
   // recurs); the label has to look like an employer / government source,
   // OR the deposit is large enough and regular enough to be a salary.
-  if (PAYROLL_HINT.test(d.label)) return true
+  const raw = RAW_DESCRIPTIONS.get(d) ?? []
+  const texts = [d.label, ...raw]
+  if (texts.some((x) => OWN_MONEY.test(x))) return false
+  if (texts.some((x) => PAYROLL_HINT.test(x))) return true
+  // Cadence-only path: ≥3 occurrences, salary-sized, and not a bare personal
+  // e-transfer (a roommate's or parent's monthly transfer recurs too).
+  if (raw.length > 0 && raw.every((x) => E_TRANSFER.test(x))) return false
   return d.occurrences >= 3 && d.avg_amount >= 800
 }
 

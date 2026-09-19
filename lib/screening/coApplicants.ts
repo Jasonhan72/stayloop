@@ -39,6 +39,29 @@ export function nameCovers(a: string, b: string): boolean {
   return small.every(t => big.has(t))
 }
 
+/**
+ * The names that make someone "on an ID" for selectCoApplicantNames.
+ *
+ * Review 2026-09-19: this list used to include every name on the application
+ * form — which also prints the declared landlords, references and the listing
+ * agent. Being "on an ID" outranks the third-party filter, so a landlord
+ * named on the form got their own court / LTB pass. Identity documents only;
+ * when the file has no ID at all, the application form still narrows the
+ * search, but only with names that are not known third parties.
+ */
+export function applicantDocNames(
+  documents: Array<{ kind?: string | null; key_facts?: { names?: unknown } | null }> | null | undefined,
+  thirdPartyNames: string[],
+): string[] {
+  const namesOf = (re: RegExp) => (documents || [])
+    .filter(d => re.test(d.kind || ''))
+    .flatMap(d => (Array.isArray(d.key_facts?.names) ? d.key_facts!.names as unknown[] : []))
+    .filter((n): n is string => typeof n === 'string' && n.trim().length > 1)
+  const onIds = namesOf(/id_document/i)
+  if (onIds.length > 0) return onIds
+  return namesOf(/application_form/i).filter(n => !thirdPartyNames.some(t => sameName(t, n) || nameCovers(t, n)))
+}
+
 export interface CoApplicantContext {
   /** names printed on identity documents / the applicant section of the form */
   idDocNames: string[]

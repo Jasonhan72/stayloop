@@ -15,6 +15,7 @@
 // bottom of POST. Each executor validates its metadata contract BEFORE
 // claiming, then claim → effect → stamp execution_result → audit, using the
 // shared claim/release/finalize plumbing below.
+import { underHourlyLimit } from '@/lib/rateLimit'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -417,6 +418,16 @@ export async function POST(req: Request) {
   }
   if (action.executed_at) {
     return ALREADY()
+  }
+
+  // Every executor below sends mail from the Stayloop domain to an address
+  // that ultimately traces back to rows the caller can write (their own
+  // lease's tenant_email, an application on their own listing). The
+  // counterparty checks narrow WHO; this caps HOW MANY (review 2026-09-19).
+  if (['send_renewal_letter', 'send_message', 'rent_reminder'].includes(action.action_type)) {
+    if (!(await underHourlyLimit(`mail:agent-execute:${userId}`, 20, false))) {
+      return NextResponse.json({ executed: false, reason: 'hourly send limit reached' }, { status: 429, headers: { 'Retry-After': '3600' } })
+    }
   }
 
   // Per-type dispatch. Only action types with a real executor get claimed;

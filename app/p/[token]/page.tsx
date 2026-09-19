@@ -114,11 +114,16 @@ async function loadSnapshot(token: string): Promise<PassportSnapshot | null> {
       const confirmedIds = new Set((confirmed ?? []).map((h) => h.current_lease_id as string))
       const { data: leases } = await sb
         .from('lease_documents')
-        .select('id, status')
+        .select('id, status, signed_at, landlord_signature, tenant_signature')
         .eq('tenant_email', email)
         .limit(20)
+      // Only counterparty-confirmed tenancies count on a PUBLIC card: a
+      // verified household, or a lease both sides signed through the e-sign
+      // flow. `status='active'` is something a landlord types about their
+      // own record — one account could mint an on-time rent history with it
+      // (review 2026-09-19).
       const leaseIds = (leases ?? [])
-        .filter((l) => confirmedIds.has(l.id as string) || l.status === 'signed_both' || l.status === 'active')
+        .filter((l) => confirmedIds.has(l.id as string) || (l.status === 'signed_both' && !!l.signed_at && !!l.landlord_signature && !!l.tenant_signature))
         .map((l) => l.id)
       if (leaseIds.length) {
         const { data: pays } = await sb

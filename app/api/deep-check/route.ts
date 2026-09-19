@@ -36,7 +36,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { stripNul } from '@/lib/screening/jsonSafe'
 const EMPLOYER_KINDS = new Set(['employment_letter', 'offer_letter', 'pay_stub', 't4'])
 import { runDeepCheck } from '@/lib/forensics'
-import { employerExtraChecks, extractEmployerDomains, gazetteLookup, rdapLookup, registryStatusKind, type RdapResult } from '@/lib/forensics/employer-checks'
+import { employerExtraChecks, extractEmployerDomains, federalStatusText, gazetteLookup, rdapLookup, registryStatusKind, type RdapResult } from '@/lib/forensics/employer-checks'
 import { portalPartySearch, partyNamesCompany } from '@/lib/screening/portalClient'
 import { canonicalizeEmployerName, searchOpenCorporates, RegistryAuthError } from '@/lib/forensics/arm-length'
 import { searchCbrRegistry } from '@/lib/forensics/cbr-registry'
@@ -47,6 +47,7 @@ import { captureException } from '@/lib/observability/sentry'
 import { selectCoApplicantNames } from '@/lib/screening/coApplicants'
 import { pickLandlordRow } from '@/lib/billing/subscriptionState'
 import { inInternalTestWindow } from '@/lib/billing/freeWindow'
+import { underHourlyLimit } from '@/lib/rateLimit'
 
 function makeServiceClient() {
   return createClient(
@@ -98,6 +99,8 @@ interface CorpRegistryRow {
   similarity: number | null
 }
 
+// Numeric Corporations Canada status codes become text before anything
+// classifies them (review 2026-09-19 — see federalStatusText).
 function rowToCompanyInfo(r: CorpRegistryRow): CompanyRegistryInfo {
   const addr = [r.address_line1, r.address_line2, r.city, r.province, r.postal_code]
     .filter(Boolean)
@@ -107,7 +110,7 @@ function rowToCompanyInfo(r: CorpRegistryRow): CompanyRegistryInfo {
     company_number: r.corp_number || null,
     jurisdiction: r.jurisdiction || null,
     incorporation_date: r.incorporation_date || null,
-    status: r.status || (r.is_active ? 'Active' : (r.is_active === false ? 'Inactive' : null)),
+    status: federalStatusText(r.status, r.is_active),
     registered_address: addr || null,
     company_type: r.entity_type || null,
     // Federal open data does NOT include director names. We pass empty —
@@ -426,8 +429,11 @@ function dedupeStrings(list: string[]): string[] {
  * Returns null when the caller is authorized; otherwise a Response to return.
  */
 async function enforceProGate(req: Request, screeningId: string | null): Promise<Response | null> {
-  // Internal test month: every gate open (lib/billing/freeWindow.ts).
-  if (inInternalTestWindow()) return null
+  // Review 2026-09-19: the session check comes FIRST. The internal test
+  // month (lib/billing/freeWindow.ts) waives only the PLAN check below — it
+  // used to return before the Authorization header was even read, so an
+  // unauthenticated POST could run the whole check (Jina, Gazette, RDAP, the
+  // service-role courts relay) with no limit at all.
   const rawAuth = req.headers.get('authorization') || ''
   const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
   if (!authHeader) {
@@ -447,6 +453,15 @@ async function enforceProGate(req: Request, screeningId: string | null): Promise
   if (userErr || !userData?.user) {
     return bad('Invalid or expired session', '会话已过期，请重新登录', 401)
   }
+
+  // Durable per-user cost cap (fails open: a limiter outage must not take
+  // the product down). Applies inside and outside the free window.
+  if (!(await underHourlyLimit(`deep-check:${userData.user.id}`, 20, true))) {
+    return bad('Too many deep checks this hour — please try again later', '本小时深度核查次数已达上限，请稍后再试', 429)
+  }
+
+  // Internal test month: the plan gate is open for every signed-in user.
+  if (inInternalTestWindow()) return null
 
   // Look up the landlord record. We filter explicitly by auth_id rather
   // than relying on RLS alone — the landlords table has a "Public can

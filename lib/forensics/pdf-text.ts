@@ -190,6 +190,34 @@ function loadUnpdf(): Promise<typeof import('unpdf')> {
 }
 
 /**
+ * ReDoS guard (review 2026-09-19). Several deterministic readers use
+ * patterns that go quadratic on a long run of ONE character class — 50k
+ * digits took runCrossDocChecks 7.6 s, 50k letters / dots 4 s, 50k spaces
+ * several seconds in the bonus / liquidity readers — and an applicant
+ * controls the text layer of what they upload. No real document carries
+ * more than a couple of hundred identical-class characters in a row (dot
+ * leaders, rules of underscores, padded columns), so any run longer than
+ * 200 of: spaces/tabs, digits, the e-mail punctuation set [._%+-], one
+ * repeated letter, or one unbroken e-mail-class token, is cut to 200. Newlines are untouched (line-based
+ * parsers rely on them). Applied where text is produced — here for the PDF
+ * text layer, and in lib/forensics/index.ts for OCR text.
+ */
+export function collapseRuns(text: string | null | undefined, max = 200): string {
+  const t = text || ''
+  if (t.length <= max) return t
+  const keep = (m: string) => m.slice(0, max)
+  const n = max + 1
+  return t
+    .replace(new RegExp(`[ \\t\\u00a0]{${n},}`, 'g'), keep)
+    .replace(new RegExp(`\\d{${n},}`, 'g'), keep)
+    .replace(new RegExp(`[._%+\\-]{${n},}`, 'g'), keep)
+    .replace(new RegExp(`([A-Za-z])\\1{${max},}`, 'g'), keep)
+    // A single unbroken e-mail-class token (mixed letters / digits / dots):
+    // the e-mail and domain readers backtrack across the whole of it.
+    .replace(new RegExp(`[A-Za-z0-9._%+\\-]{${n},}`, 'g'), keep)
+}
+
+/**
  * Extract text from a PDF and compute density metrics. Returns null on
  * unparseable input.
  */
@@ -212,7 +240,7 @@ export async function readPdfTextDensity(
     // unpdf returns { totalPages, text } where text can be string or string[]
     // pdf.js emits U+0000 for unmapped glyphs; PostgreSQL cannot store it in
     // jsonb/text, and this sample is persisted in forensics_detail.
-    const text = stripNul(Array.isArray(result.text) ? result.text.join('\n') : (result.text || ''))
+    const text = collapseRuns(stripNul(Array.isArray(result.text) ? result.text.join('\n') : (result.text || '')))
     const pageCount = result.totalPages || 1
     const totalChars = text.length
     const charsPerPage = pageCount > 0 ? totalChars / pageCount : 0

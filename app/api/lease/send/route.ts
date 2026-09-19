@@ -2,6 +2,7 @@
 // online signing. Generates the tenant's capability token (the signing link
 // doubles as the tenant's PERMANENT read-only access to the document after
 // signing — no account required), emails the invitation, audits the send.
+import { underHourlyLimit } from '@/lib/rateLimit'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { escapeHtml, sendEmail } from '@/lib/email'
@@ -24,13 +25,22 @@ export async function POST(req: Request) {
   try { body = await req.json() } catch { return NextResponse.json({ error: 'invalid JSON' }, { status: 400 }) }
   if (!body.lease_id) return NextResponse.json({ error: 'lease_id required' }, { status: 400 })
 
-  // RLS scopes this to the caller's own leases — ownership check for free.
+  // RLS proves the caller can READ the lease — but tenants and household
+  // members can read too, so sending additionally requires the caller to be
+  // the lease's landlord (review 2026-09-19).
   const { data: lease, error: le } = await sb
     .from('lease_documents')
-    .select('id, form_type, status, terms, tenant_name, tenant_email, unit_label, sign_token, landlord_signature, tenant_signature')
+    .select('id, landlord_id, form_type, status, terms, tenant_name, tenant_email, unit_label, sign_token, landlord_signature, tenant_signature')
     .eq('id', body.lease_id)
     .maybeSingle()
   if (le || !lease) return NextResponse.json({ error: 'lease not found' }, { status: 404 })
+  const { data: mine } = await sb.from('landlords').select('id').eq('auth_id', ud.user.id)
+  if (!(mine ?? []).some((l: { id: string }) => l.id === lease.landlord_id)) {
+    return NextResponse.json({ error: 'only the landlord can send this lease' }, { status: 403 })
+  }
+  if (!(await underHourlyLimit(`mail:lease-send:${ud.user.id}`, 10, false))) {
+    return NextResponse.json({ error: 'hourly send limit reached' }, { status: 429, headers: { 'Retry-After': '3600' } })
+  }
   if (!lease.tenant_email) return NextResponse.json({ error: 'lease has no tenant email' }, { status: 422 })
   if (lease.tenant_signature) return NextResponse.json({ error: 'tenant has already signed' }, { status: 409 })
   // Both terms schemas (ontario_standard and trreb) carry these paths.

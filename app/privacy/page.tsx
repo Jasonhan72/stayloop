@@ -17,7 +17,7 @@ export default function PrivacyPage() {
           <h1 className="mt-3 text-[36px] font-extrabold leading-tight tracking-tight sm:text-[44px]">
             {zh ? '我们怎么处理你的数据' : 'How we handle your data'}
           </h1>
-          <p className="mt-2 font-mono text-[12px] text-body-3">{zh ? '最后更新 · 2026-09-16' : 'Last updated · 2026-09-16'}</p>
+          <p className="mt-2 font-mono text-[12px] text-body-3">{zh ? '最后更新 · 2026-09-19' : 'Last updated · 2026-09-19'}</p>
 
           <Section title={zh ? '1 · 我们收集什么' : '1 · What we collect'}>
             <p>{zh
@@ -26,9 +26,9 @@ export default function PrivacyPage() {
           </Section>
           <Section title={zh ? '2 · 我们怎么用' : '2 · How we use it'}>
             <p>{zh ? (
-              <>仅用于 Stayloop 服务交付：护照盖章评分、与房东 / 经纪 / 合作伙伴授权分享、AI 助手记忆。筛查材料与对话内容会发送到 AI 模型服务商（Anthropic 等，服务器位于美国）的接口做分析；按其商业条款，这些数据不用于训练模型。我们 <b>不</b> 把数据卖给任何第三方。</>
+              <>仅用于 Stayloop 服务交付：护照盖章评分、与房东 / 经纪 / 合作伙伴授权分享、AI 助手记忆。筛查材料与对话内容会发送到 AI 模型服务商的接口做分析：默认使用 Anthropic、OpenAI 与 Google（服务器位于美国）；扫描件在常规文字识别失败时，页面图像会发送到阿里云 DashScope 的文字识别接口（服务器位于中国大陆）；你在「模型设置」里自选的模型由对应服务商处理（其中 DeepSeek、Moonshot、智谱、通义千问位于中国大陆）。公开信息检索（Realtor.ca 房源、法律索引、雇主公开网页）经 Jina AI（德国 / 美国）中转，检索词可能包含申请人或雇主的名称。按各服务商的商业条款，这些数据不用于训练模型。我们 <b>不</b> 把数据卖给任何第三方。</>
             ) : (
-              <>Only to deliver the Stayloop service: passport-stamp scoring, authorized sharing with landlords / agents / partners, and AI-assistant memory. Screening documents and conversations are sent to AI model providers (Anthropic and others, servers in the USA) for analysis; under their commercial terms that data is not used to train models. We do <b>not</b> sell your data to any third party.</>
+              <>Only to deliver the Stayloop service: passport-stamp scoring, authorized sharing with landlords / agents / partners, and AI-assistant memory. Screening documents and conversations are sent to AI model providers for analysis: by default Anthropic, OpenAI and Google (servers in the USA); when ordinary text recognition fails on a scanned document, page images are sent to Alibaba Cloud DashScope's OCR service (servers in mainland China); a model you pick yourself under Model settings is handled by that provider (DeepSeek, Moonshot, Zhipu and Qwen are in mainland China). Public-record lookups (Realtor.ca listings, legal index, an employer's public web pages) are relayed through Jina AI (Germany / USA), and the search terms may include an applicant's or employer's name. Under each provider's commercial terms that data is not used to train models. We do <b>not</b> sell your data to any third party.</>
             )}</p>
           </Section>
           <Section title={zh ? '3 · 你的控制权' : '3 · Your control'}>

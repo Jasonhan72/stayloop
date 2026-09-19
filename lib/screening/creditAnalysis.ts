@@ -14,6 +14,7 @@
 // The model's contribution to this section is a cited narrative
 // (credit_report.analysis_en/zh, prompted separately), never the arithmetic.
 import type { CreditReport } from '@/lib/screening-types'
+import { parseDateLoose, parseMonthToken } from './periods'
 
 export type ScoreBand = 'low' | 'fair' | 'good' | 'great' | 'excellent'
 
@@ -65,6 +66,10 @@ export interface CreditAnalysis {
   totalPastDue: number
   /** Inquiries dated within 12 months of report_date (or of the newest inquiry when report_date is missing). */
   inquiries12mo: number
+  /** True when some inquiry dates could not be read (those are counted in) or
+   *  there was no date to anchor the 12-month window on — the count is an
+   *  upper bound, not a measurement. */
+  inquiriesApprox?: boolean
   /** Of those, the HARD ones (Equifax "May affect scores: Yes"); null when the report
    *  did not print the column. Soft pulls — ID verification (Trulioo/PayPal), telecom
    *  account checks, the applicant's own bank — are not credit seeking (2026-09-11:
@@ -104,11 +109,19 @@ function isDelinquent(t: { past_due?: number | null; payment_status: string; lat
   return /bad debt|collection|write.?off|written off|late|delinquen|past due|[rimo]-?[3-9]\b/i.test(t.payment_status || '')
 }
 
-function parseYmd(s: string | null | undefined): number | null {
+/** Review 2026-09-19: bureaus print inquiry dates as "Oct 02, 2024",
+ *  "09/01/2024" or "Aug 2024" as often as ISO. Those were dropped, so a busy
+ *  file read "0 inquiries in 12 months" and earned a clean-signal line. */
+export function parseYmd(s: string | null | undefined): number | null {
   if (!s) return null
   const m = s.match(/(\d{4})[/-](\d{1,2})(?:[/-](\d{1,2}))?/)
-  if (!m) return null
-  return Date.UTC(+m[1], +m[2] - 1, +(m[3] || 1))
+  if (m) return Date.UTC(+m[1], +m[2] - 1, +(m[3] || 1))
+  const loose = parseDateLoose(s)
+  if (loose && loose.y != null && loose.m != null && loose.m >= 1 && loose.m <= 12) return Date.UTC(loose.y, loose.m - 1, loose.d ?? 1)
+  // "Aug 2024" / "August 2024" / "08/2024"
+  const mm = parseMonthToken(s.replace(/[.,]/g, ' ').replace(/\s+/g, ' '))
+  if (mm != null && mm > 1900 * 12) return Date.UTC(Math.floor(mm / 12), mm % 12, 1)
+  return null
 }
 
 // ---------------------------------------------------------------- analyze --
@@ -168,9 +181,13 @@ export function analyzeCreditReport(
   // its whole history as "recent".
   const anchor = parseYmd(cr.report_date) ?? Math.max(0, ...((cr.inquiries ?? []).map(q => parseYmd(q.date) ?? 0)))
   const yearMs = 365 * 24 * 3600 * 1000
+  // An inquiry whose date cannot be read is COUNTED (it is on the file) and
+  // the count is marked approximate — never silently dropped.
+  const undated = (cr.inquiries ?? []).filter(q => parseYmd(q.date) == null)
   const recent = anchor
-    ? (cr.inquiries ?? []).filter(q => { const d = parseYmd(q.date); return d != null && anchor - d <= yearMs && anchor - d >= 0 })
+    ? (cr.inquiries ?? []).filter(q => { const d = parseYmd(q.date); return d == null || (anchor - d <= yearMs && anchor - d >= 0) })
     : (cr.inquiries ?? [])
+  const inquiriesApprox = undated.length > 0 || (!anchor && (cr.inquiries ?? []).length > 0)
   const inquiries12mo = recent.length
   const hardKnown = recent.some(q => typeof q.hard === 'boolean')
   const hardInquiries12mo = hardKnown ? recent.filter(q => q.hard === true).length : null
@@ -211,6 +228,9 @@ export function analyzeCreditReport(
   } else if (hardKnown && inquiries12mo >= 5) {
     flags.push({ severity: 'info', en: `${inquiries12mo} inquiries in 12 months but only ${hardInquiries12mo} hard — the rest are soft (identity checks, telecom, own bank) and do not indicate credit seeking`, zh: `近 12 个月 ${inquiries12mo} 次查询，其中硬查询仅 ${hardInquiries12mo} 次——其余为软查询（身份核验、电信、本人银行），不代表在申请信贷` })
   }
+  if (inquiriesApprox && seekingCount < 5 && (cr.inquiries ?? []).length > 0) {
+    flags.push({ severity: 'info', en: `${(cr.inquiries ?? []).length} inquiries on file; ${undated.length || 'all'} without a readable date — the 12-month count (${inquiries12mo}) is approximate`, zh: `档案共 ${(cr.inquiries ?? []).length} 次查询，${undated.length ? `${undated.length} 次` : '全部'}日期无法读取——近 12 个月的次数（${inquiries12mo}）为近似值` })
+  }
   if (flags.length === 0 && score != null) {
     flags.push({ severity: 'info', en: 'No derived risk signals — no past-due balances, no collections, utilisation in range', zh: '未发现衍生风险信号——无逾期、无催收、利用率正常' })
   }
@@ -218,5 +238,5 @@ export function analyzeCreditReport(
   // Stable order: biggest balance first reads naturally.
   const categories = [...byCat.values()].sort((a, b) => b.balance - a.balance)
 
-  return { score, band: band ?? null, dti, revolvingUtilization, totalBalance, totalPastDue, inquiries12mo, hardInquiries12mo, categories, delinquent, flags }
+  return { score, band: band ?? null, dti, revolvingUtilization, totalBalance, totalPastDue, inquiries12mo, inquiriesApprox, hardInquiries12mo, categories, delinquent, flags }
 }

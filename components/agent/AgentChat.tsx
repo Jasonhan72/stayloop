@@ -160,7 +160,7 @@ export default function AgentChat({
                         <div className="mb-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
                           {listingsHeader(page.visible, lang)}
                         </div>
-                        <div className="grid gap-3 pb-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
+                        <div className="grid gap-3 pb-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))' }}>
                           {page.visible.map((l) => (
                             <div key={l.id} className="min-w-0">
                               <ListingChatCard l={l} />

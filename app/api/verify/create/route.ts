@@ -1,9 +1,10 @@
+import { underHourlyLimit } from '@/lib/rateLimit'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { hasProAccess } from '@/lib/billing/access'
 import { newVerifyToken } from '@/lib/verify/token'
 import { adminClient } from '@/lib/verify/store'
-import { sendEmail } from '@/lib/email'
+import { escapeHtml, sendEmail } from '@/lib/email'
 
 export const runtime = 'edge'
 
@@ -70,11 +71,18 @@ export async function POST(req: NextRequest) {
 
     const url = `${siteUrl}/verify/${token}`
     let emailed = false
+    // The name is caller-supplied and lands in HTML mail sent from our
+    // domain to a caller-supplied address — escape it and cap sends per
+    // account (review 2026-09-19: this was an unthrottled phishing relay).
+    const safeName = tenantName ? escapeHtml(tenantName) : null
+    if (body.send_email && tenantEmail && !(await underHourlyLimit(`mail:verify-create:${user.id}`, 10, false))) {
+      return NextResponse.json({ token, url, status, emailed: false, error: 'email rate limit reached — share the link yourself', via: access.via }, { status: 429 })
+    }
     if (body.send_email && tenantEmail) {
       const r = await sendEmail({
         to: tenantEmail,
         subject: 'Stayloop · 租房申请核验 / Rental application verification',
-        html: `<p>你好${tenantName ? ' ' + tenantName : ''}，</p><p>你正在申请的房东通过 Stayloop 邀请你完成身份、银行流水（与征信）核验。整个过程由你本人授权，每一项都可以选择跳过。</p><p><a href="${url}">${url}</a></p><p>链接 7 天内有效。</p><hr><p>Hello${tenantName ? ' ' + tenantName : ''},</p><p>The landlord you are applying to has invited you, through Stayloop, to verify your identity and bank statements (and credit, once available). You authorise each step yourself and may skip any of them.</p><p><a href="${url}">${url}</a></p><p>The link is valid for 7 days.</p>`,
+        html: `<p>你好${safeName ? ' ' + safeName : ''}，</p><p>你正在申请的房东通过 Stayloop 邀请你完成身份、银行流水（与征信）核验。整个过程由你本人授权，每一项都可以选择跳过。</p><p><a href="${url}">${url}</a></p><p>链接 7 天内有效。</p><hr><p>Hello${safeName ? ' ' + safeName : ''},</p><p>The landlord you are applying to has invited you, through Stayloop, to verify your identity and bank statements (and credit, once available). You authorise each step yourself and may skip any of them.</p><p><a href="${url}">${url}</a></p><p>The link is valid for 7 days.</p>`,
         text: `Stayloop verification link (valid 7 days): ${url}`,
       })
       emailed = r.ok

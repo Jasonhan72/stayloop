@@ -17,7 +17,7 @@ const CFG: RoleLandingConfig = {
   },
   primaryCta: { label: { zh: '唤醒你的 AI 租房助手 →', en: 'Wake up your rental AI →' }, href: '/onboarding/name', authedHref: '/tenant/agent' },
   secondaryCta: { label: { zh: '先浏览房源', en: 'Browse listings first' }, href: '/listings' },
-  ctaNote: { zh: '租客永远免费 · 不影响信用分', en: 'Always free for tenants · never touches your credit' },
+  ctaNote: { zh: '租客永远免费 · 是否授权查询征信由你决定', en: 'Always free for tenants · you decide whether to authorise a credit check' },
   agentPoints: [
     { zh: '对话找房,不填表', en: 'Chat to search, no forms' },
     { zh: '资料验一次,处处通行', en: 'Verify once, go anywhere' },
@@ -31,11 +31,11 @@ const CFG: RoleLandingConfig = {
       en: 'Found 3 matches, sorted by the good natural light you mentioned before. The first one shows Saturday 2pm — shall I book it?',
     },
     task: { zh: '约看 · 比价 · 跟进房东 · 准备申请材料', en: 'Book viewings · compare · follow up · prep application' },
-    note: { zh: '有进展用邮件/短信告诉你 —— 你不用守着。', en: "I'll ping you by email/SMS on progress — no need to watch." },
+    note: { zh: '有进展用邮件告诉你 —— 你不用守着。', en: "I'll email you on progress — no need to watch." },
   },
   journey: [
     { h: { zh: '为 AI 起名', en: 'Name your AI' }, b: { zh: '任何你喜欢的名字。从此 TA 只为你一个人。', en: 'Any name you like. From now on it works only for you.' } },
-    { h: { zh: '验证一次,处处通行', en: 'Verify once, go anywhere' }, b: { zh: '一次搞定,从此不再交一叠 PDF · 不影响信用分。', en: 'Done once — never hand over a stack of PDFs again · never touches your credit.' } },
+    { h: { zh: '验证一次,处处通行', en: 'Verify once, go anywhere' }, b: { zh: '一次搞定,从此不再交一叠 PDF · 你自己决定是否授权查询征信。', en: 'Done once — never hand over a stack of PDFs again · you decide whether to authorise a credit check.' } },
     { h: { zh: '说需求,收房源', en: 'Say it, get matches' }, b: { zh: '一句话,AI 替你翻遍全城,按你的偏好主动筛过。', en: 'One sentence and AI combs the city, pre-filtered to your taste.' } },
     { h: { zh: '一键申请', en: 'Apply in one tap' }, b: { zh: 'Passport 直接复用,即出 Stayloop Score。', en: 'Reuse your Passport directly and get a Stayloop Score instantly.' } },
     { h: { zh: '入住,安心长住', en: 'Move in, settle in' }, b: { zh: '缴租维修续约退租,AI 全程替你照看。', en: 'Rent, repairs, renewals and move-out — AI looks after it all.' } },
@@ -98,10 +98,10 @@ const CFG: RoleLandingConfig = {
       },
       {
         icon: '🔐',
-        h: { zh: '隐私和信用都无损', en: 'No cost to privacy or credit' },
+        h: { zh: '隐私和征信,都由你决定', en: 'Privacy and credit checks: your call' },
         b: {
-          zh: '共享哪几项,你逐项说了算,随时撤销;重复申请也不会反复硬查你的信用。',
-          en: 'You decide field by field what to share, revocable any time — and applying again never means another hard credit pull.',
+          zh: '共享哪几项,你逐项说了算,随时撤销;是否授权查询征信,也由你自己决定。',
+          en: 'You decide field by field what to share, revocable any time — and you decide whether to authorise a credit check.',
         },
       },
     ],

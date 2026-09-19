@@ -33,20 +33,26 @@ const KIND_SET = new Set<string>(['commercial', 'office', 'retail', 'industrial'
 // Keyword fallback only fires on unmistakably commercial words — "健身房"
 // alone is a condo amenity, "studio" alone is a bachelor apartment.
 const KIND_KEYWORDS: [RegExp, CommercialKind][] = [
-  [/厂房|仓库|工业|物流|warehouse|industrial|logistics|manufactur/i, 'industrial'],
-  [/商铺|店面|店铺|零售|餐厅|餐馆|retail|storefront|restaurant space|shop space/i, 'retail'],
-  [/写字楼|办公室|办公空间|office space|office unit|coworking/i, 'office'],
-  [/土地|地块|\bland\b|\blot\b/i, 'land'],
-  [/商业地产|商用|商业场地|商业空间|commercial/i, 'commercial'],
+  [/厂房|仓库|工业(?:厂房|用地|单位|场地|物业|园)|物流(?:仓|园|中心)|\bwarehouse\b|industrial (?:space|unit|building|property|warehouse|condo|for lease)|logistics (?:space|facility)|manufacturing (?:space|facility)/i, 'industrial'],
+  [/商铺|店面|店铺|零售(?:店|铺|空间|场地)|餐厅(?:位|铺|场地)|retail (?:space|unit|store|for lease)|storefront|restaurant space|shop space/i, 'retail'],
+  [/写字楼|办公室(?:出租|租赁|场地|空间|单位)|办公空间|office (?:space|unit|suite|for lease)|coworking/i, 'office'],
+  [/(?:商业|工业)?(?:土地|地块)(?:出租|租赁)?|\bland (?:for lease|lease|parcel)\b|vacant land|outside storage/i, 'land'],
+  [/商业地产|商用|商业场地|商业空间|commercial (?:space|property|unit|lease|real estate|building)/i, 'commercial'],
 ]
+// A home search that merely MENTIONS a commercial word ("hard loft,
+// industrial style", "办公室附近的公寓", "house, big lot", "near Commercial
+// Drive") must stay residential (review 2026-09-19).
+const RESIDENTIAL_WORDS = /\b(?:house|home|condo|apartment|apt|loft|bedroom|bed|bdrm|basement|townhouse|studio|roommate)\b|公寓|住宅|卧室|居室|[一二两三四五1-5]\s*[居房室]|合租|地下室|独立屋|联排/i
 
 // Which Realtor.ca lease family the criteria belong to, or null for the
 // normal residential path. property_type wins; keywords are the fallback.
-export function commercialKind(c: Pick<SearchCriteria, 'property_type' | 'keywords'>): CommercialKind | null {
+export function commercialKind(c: Pick<SearchCriteria, 'property_type' | 'keywords'> & { min_beds?: number | null }): CommercialKind | null {
   const t = (c.property_type || '').trim().toLowerCase()
   if (KIND_SET.has(t)) return t as CommercialKind
   if (t) return null // an explicit residential type never flips to commercial
   const kw = c.keywords || ''
+  if (c.min_beds != null && c.min_beds > 0) return null
+  if (RESIDENTIAL_WORDS.test(kw)) return null
   for (const [re, kind] of KIND_KEYWORDS) if (re.test(kw)) return kind
   return null
 }
@@ -92,6 +98,8 @@ export function resolveRealtorBase(area?: string | null, candidates?: string[] |
       if (lower.includes(alias.toLowerCase())) return slug === 'greater-toronto-area' ? `https://www.realtor.ca/on/${slug}` : CITY_SLUGS.has(slug) ? `https://www.realtor.ca/on/${slug}` : `https://www.realtor.ca/on/toronto/${slug}`
     const slug = slugify(raw.split(',')[0])
     if (!slug) continue
+    const parent = SUBAREA_CITY[raw.split(',')[0].trim().toLowerCase()]
+    if (parent) return `https://www.realtor.ca/on/${parent}`
     if (slug === 'greater-toronto-area') return 'https://www.realtor.ca/on/greater-toronto-area'
     if (CITY_SLUGS.has(slug)) return `https://www.realtor.ca/on/${slug}`
     return `https://www.realtor.ca/on/toronto/${slug}`
@@ -111,7 +119,9 @@ export function splitAreas(raw: (string | null | undefined)[]): string[] {
   return raw
     .flatMap((s) => (s || '').split(/\s*[\/、&;，,]\s*|\s+(?:and|or|和|或)\s+/i))
     .map((s) => s.trim().replace(/^(?:in|near)\s+/i, ''))
-    .filter(Boolean)
+    // "Toronto, ON" must not leave "ON" behind — as an area it substring-
+    // matched London, Brampton and Milton.
+    .filter((s) => s.length > 2 && !/^(?:ont(?:ario)?|canada|安省|安大略省?|加拿大)$/i.test(s))
 }
 
 // The areas the detail search fans out over: the user's own areas (deduped,
@@ -147,7 +157,7 @@ export function monthlyFromRate(ratePsf: number, sqft: number | undefined): numb
 
 // "0-699" → {min 0, max 699}; "700+" → {min 700}; "1750" → {min 1750, max 1750}
 export function parseSqftRange(text: string): { min: number; max?: number } | undefined {
-  const m = text.match(/([\d,]+)\s*(?:-\s*([\d,]+)|(\+))?\s*(?:square\s*feet|sq\.?\s*ft\.?|sqft|sf)\b/i)
+  const m = text.slice(0, 600).match(/([\d,]+)\s*(?:-\s*([\d,]+)|(\+))?\s*(?:square\s*feet|sq\.?\s*ft\.?|sqft|sf)\b/i)
   if (!m) return undefined
   const min = parseInt(m[1].replace(/,/g, ''), 10)
   if (!Number.isFinite(min)) return undefined
@@ -187,13 +197,27 @@ export function extractFacts(text: string): CommercialFacts {
   // 17'8" clear → 17.7; "24 ft clear" / "clear height of 22'" → 24 / 22.
   // The number must carry a foot mark or unit so "clear height, 800 amps"
   // never reads as 80'.
-  const ftIn = t.match(/(\d{1,2})\s*(?:'|’|′)\s*(\d{1,2})\s*(?:"|”|″)?\s*(?:clear|ceiling)/i)
-  const clear =
-    ftIn ||
-    t.match(/(\d{1,2}(?:\.\d)?)\s*(?:'|’|′|ft\.?|feet|foot|-foot)\s*(?:clear|ceiling)/i) ||
-    t.match(/(?:clear|ceiling)\s*height\s*(?:of|is|at|to|up to|:|-|–|approx\.?|approximately|ranging from)?\s*(\d{1,2}(?:\.\d)?)(?!\d)\s*(?:'|’|′|ft\.?|feet|foot)/i) ||
-    t.match(/(?:clear|ceiling)\s*height\s*(?:of|is|:|-|–)?\s*(\d{1,2})\s*(?:'|’|′)\s*(\d{1,2})/i)
-  if (clear) f.clearFt = clear[2] ? Math.round((parseInt(clear[1], 10) + parseInt(clear[2], 10) / 12) * 10) / 10 : parseFloat(clear[1])
+  // A listing often states two heights — "office area with 9' ceilings …
+  // warehouse offers 28' clear" — and the first one is the office. Collect
+  // every figure, prefer the ones tied to the word CLEAR over CEILING, take
+  // the largest; a left boundary keeps "5,000 ft clear span" from reading 0.
+  const heights = (word: string): number[] => {
+    const out: number[] = []
+    const toFt = (ft: string, inch?: string) => Math.round((parseInt(ft, 10) + (inch ? parseInt(inch, 10) / 12 : 0)) * 10) / 10
+    const pats = [
+      new RegExp(`(?<![\\d,.])(\\d{1,2})\\s*(?:'|’|′)\\s*(\\d{1,2})\\s*(?:"|”|″)?\\s*${word}`, 'gi'),
+      new RegExp(`(?<![\\d,.])(\\d{1,2}(?:\\.\\d)?)\\s*(?:'|’|′|ft\\.?|feet|foot|-foot)\\s*${word}`, 'gi'),
+      new RegExp(`${word}\\s*(?:height|heights)?\\s*(?:of|is|at|to|up to|:|-|–|approx\\.?|approximately|ranging from)?\\s*(\\d{1,2})\\s*(?:'|’|′)\\s*(\\d{1,2})(?!\\d)`, 'gi'),
+      new RegExp(`${word}\\s*(?:height|heights)\\s*(?:of|is|at|to|up to|:|-|–|approx\\.?|approximately|ranging from)?\\s*(\\d{1,2}(?:\\.\\d)?)(?!\\d)\\s*(?:'|’|′|ft\\.?|feet|foot)`, 'gi'),
+    ]
+    pats.forEach((re, i) => {
+      for (const m of t.matchAll(re)) out.push(i === 0 || i === 2 ? toFt(m[1], m[2]) : parseFloat(m[1]))
+    })
+    return out.filter((n) => n >= 6 && n <= 80)
+  }
+  const clearHs = heights('clear')
+  const anyHs = clearHs.length ? clearHs : heights('ceilings?')
+  if (anyHs.length) f.clearFt = Math.max(...anyHs)
   const truck = t.match(/(\d+|one|two|three|four|five|six|seven|eight|nine|ten|twelve)\s*(?:truck[- ]level|tl)\s*(?:shipping\s*)?doors?/i)
   if (truck) f.truckDoors = wordNum(truck[1])
   const drive = t.match(/(\d+|one|two|three|four|five|six|seven|eight|nine|ten|twelve)\s*(?:drive[- ]in)\s*(?:shipping\s*)?doors?/i)
@@ -221,32 +245,45 @@ export function extractFacts(text: string): CommercialFacts {
   const office = t.match(/(\d{1,2})\s*%\s*(?:office|showroom)/i)
   if (office) f.officePct = parseInt(office[1], 10)
   if (/free-?standing|stand-?alone building/i.test(t)) f.freestanding = true
-  const tmi = t.match(/\bTMI\b[^0-9$]{0,20}\$?\s*(\d{1,2}(?:\.\d{1,2})?)\b/i) || t.match(/additional rent[^0-9$]{0,20}\$?\s*(\d{1,2}(?:\.\d{1,2})?)\b/i)
-  if (tmi) f.tmiPsfFromText = parseFloat(tmi[1])
+  // "TMI $4.50 psf" yes; "TMI: $12,000 per year" is a dollar total, not a rate.
+  const tmi =
+    t.match(/\bTMI\b[^0-9$]{0,20}\$?\s*(\d{1,2}(?:\.\d{1,2})?)(?![\d,])/i) ||
+    t.match(/additional rent[^0-9$]{0,20}\$?\s*(\d{1,2}(?:\.\d{1,2})?)(?![\d,])/i)
+  if (tmi && parseFloat(tmi[1]) <= 40 && !/per (?:year|month|annum)|\/\s*(?:yr|year|month|mo)\b/i.test(t.slice(tmi.index ?? 0, (tmi.index ?? 0) + tmi[0].length + 20).replace(/psf|per sq|\/ ?sq/gi, ''))) {
+    f.tmiPsfFromText = parseFloat(tmi[1])
+  }
   // "No Recreational Uses." / "No food uses" / "not suitable for automotive"
-  const ex = t.matchAll(/\bno\s+([a-z /&-]{3,40}?)\s+uses?\b|\bnot\s+(?:suitable|permitted)\s+for\s+([a-z /&-]{3,40}?)(?:[.,;]|$)/gi)
+  // Lists ("No automotive, recreational or food uses"), passive forms
+  // ("Recreational uses not permitted", "will not permit sports uses") — and
+  // never prose like "no better location for recreational uses".
+  const ex = t.matchAll(
+    /\bno\s+([a-z ,/&-]{3,60}?)\s+uses?\b|\bnot\s+(?:suitable|permitted|allowed)\s+for\s+([a-z ,/&-]{3,60}?)(?:[.;]|$)|([a-z ,/&-]{3,60}?)\s+uses?\s+(?:are\s+|is\s+)?not\s+(?:permitted|allowed)|will\s+not\s+permit\s+([a-z ,/&-]{3,60}?)\s+uses?\b/gi,
+  )
   for (const m of ex) {
-    const phrase = (m[1] || m[2] || '').trim()
-    if (phrase && !/^(?:other|additional|further)$/i.test(phrase)) f.excludedUses.push(phrase)
+    const phrase = (m[1] || m[2] || m[3] || m[4] || '').trim().replace(/^(?:and|the|any)\s+/i, '')
+    if (!phrase) continue
+    if (/^(?:other|additional|further)$/i.test(phrase)) continue
+    if (/\b(?:better|matter|location|shortage|limit|end|doubt|need)\b/i.test(phrase)) continue
+    f.excludedUses.push(phrase)
   }
   return f
 }
 
 // Spec pills (Chinese labels where the concept has one; English terms stay).
-export function factsToSpecs(f: CommercialFacts, leaseType?: string): string[] {
+export function factsToSpecs(f: CommercialFacts, leaseType?: string, en = false): string[] {
   const out: string[] = []
-  if (f.clearFt != null) out.push(`净高 ${f.clearFt}'`)
+  if (f.clearFt != null) out.push(en ? `${f.clearFt}' clear` : `净高 ${f.clearFt}'`)
   if (f.truckDoors) out.push(`${f.truckDoors} truck-level`)
   if (f.driveInDoors) out.push(`${f.driveInDoors} drive-in`)
   if (f.zoning) out.push(`Zoning ${f.zoning}`)
   if (f.amps) out.push(`${f.amps}A`)
-  if (f.parking) out.push(`${f.parking} 车位`)
+  if (f.parking) out.push(en ? `${f.parking} parking` : `${f.parking} 车位`)
   if (f.esfr) out.push('ESFR')
-  else if (f.sprinklers) out.push('喷淋')
-  if (f.officePct) out.push(`${f.officePct}% 办公`)
-  if (f.freestanding) out.push('独立物业')
-  if (f.possession) out.push(f.possession === 'immediate' ? '即可入驻' : `交付 ${f.possession}`)
-  if (f.sublease) out.push(f.subleaseUntil ? `转租至 ${f.subleaseUntil}` : '转租')
+  else if (f.sprinklers) out.push(en ? 'Sprinklered' : '喷淋')
+  if (f.officePct) out.push(en ? `${f.officePct}% office` : `${f.officePct}% 办公`)
+  if (f.freestanding) out.push(en ? 'Freestanding' : '独立物业')
+  if (f.possession) out.push(f.possession === 'immediate' ? (en ? 'Immediate' : '即可入驻') : en ? `Possession ${f.possession}` : `交付 ${f.possession}`)
+  if (f.sublease) out.push(f.subleaseUntil ? (en ? `Sublease to ${f.subleaseUntil}` : `转租至 ${f.subleaseUntil}`) : en ? 'Sublease' : '转租')
   if (leaseType) out.push(`${leaseType} lease`)
   return out
 }
@@ -259,22 +296,27 @@ export function extractSpecs(text: string): string[] {
 // ---------- Intended use vs. stated exclusions ----------
 // The tenant's use (from `use` / keywords) mapped to the categories brokers
 // exclude in listing text. "No Recreational Uses" kills a pickleball venue.
-const USE_CATEGORIES: [RegExp, RegExp, string][] = [
+const USE_CATEGORIES: [RegExp, RegExp, string, string][] = [
   // [what the tenant said, what the listing excludes, label]
-  [/pickleball|badminton|basketball|volleyball|tennis|sport|gym|fitness|recreation|court|arena|trampoline|climbing|yoga|dance|martial|boxing|athletic|球馆|体育|运动|健身|球场/i, /recreation|sport|fitness|gym|athletic|entertainment|amusement/i, '娱乐 / 体育用途'],
-  [/restaurant|cafe|café|food|kitchen|bakery|catering|餐厅|餐饮|食品|厨房/i, /food|restaurant|cooking|kitchen/i, '餐饮用途'],
-  [/auto|car|mechanic|body shop|vehicle|汽车|修车/i, /automotive|auto|vehicle|mechanic/i, '汽车用途'],
-  [/church|worship|temple|mosque|教会|宗教/i, /worship|church|religious/i, '宗教用途'],
-  [/school|daycare|tutoring|学校|托儿|教育/i, /school|daycare|educational|children/i, '教育 / 托儿用途'],
-  [/cannabis|dispensary|大麻/i, /cannabis|marijuana/i, '大麻'],
-  [/retail|store|shop|零售|店/i, /retail/i, '零售用途'],
+  // English tenant words carry \b — "daycare" must not hit /car/, "automation
+  // lab" must not hit /auto/, "food court kiosk" must not hit /court/.
+  [/\b(?:pickleball|badminton|basketball|volleyball|tennis|sports?|gym|fitness|recreation(?:al)?|arena|trampoline|climbing|yoga|dance|martial|boxing|athletic)\b|球馆|体育|运动|健身|球场/i, /recreation|sport|fitness|gym|athletic|entertainment|amusement/i, '娱乐 / 体育用途', 'recreation / sports'],
+  [/\b(?:restaurant|cafe|café|food|kitchen|bakery|catering)\b|餐厅|餐饮|食品|厨房/i, /food|restaurant|cooking|kitchen/i, '餐饮用途', 'food'],
+  [/\b(?:auto(?:motive)?|cars?|mechanic|body shop|vehicles?)\b|汽车|修车/i, /automotive|\bauto\b|vehicle|mechanic/i, '汽车用途', 'automotive'],
+  [/\b(?:church|worship|temple|mosque)\b|教会|宗教/i, /worship|church|religious/i, '宗教用途', 'place of worship'],
+  [/\b(?:school|daycare|tutoring)\b|学校|托儿|教育/i, /school|daycare|educational|children/i, '教育 / 托儿用途', 'school / daycare'],
+  [/\b(?:cannabis|dispensary)\b|大麻/i, /cannabis|marijuana/i, '大麻', 'cannabis'],
+  [/\b(?:retail|store|shop)\b|零售|店/i, /retail/i, '零售用途', 'retail'],
 ]
 
 export function useProhibited(excluded: string[], use?: string | null): string | null {
+  return useProhibitedBoth(excluded, use)?.zh ?? null
+}
+export function useProhibitedBoth(excluded: string[], use?: string | null): { zh: string; en: string } | null {
   if (!excluded.length || !use) return null
-  for (const [tenantRe, listingRe, label] of USE_CATEGORIES) {
+  for (const [tenantRe, listingRe, zh, en] of USE_CATEGORIES) {
     if (!tenantRe.test(use)) continue
-    if (excluded.some((e) => listingRe.test(e))) return label
+    if (excluded.some((e) => listingRe.test(e))) return { zh, en }
   }
   return null
 }
@@ -331,19 +373,32 @@ export function parseCommercialDetail(md: string, url: string, kindHint: Commerc
   const priceM = md.match(/\$([\d,]+(?:\.\d+)?)\s*\/\s*(square\s*feet|sqft|Monthly|Month)\b/i)
   // Realtor.ca renders the address as H1 on most pages and as H2 on some
   // (older DDF layouts) — accept both.
-  const h1 = md.match(/^#{1,2}\s+([^\n]+?)\s*$/m)?.[1]?.trim()
-  if (!h1) return null
+  const h1M = md.match(/^#{1,2}\s+([^\n]+?)\s*$/m)
+  const h1 = h1M?.[1]?.trim()
+  if (!h1 || !h1M) return null
   // Expired listings render an H1 apology instead of an address.
   if (/no longer exists|not found|can't find|cannot find|sorry/i.test(h1) || !/\d/.test(h1)) return null
   // The line after the H1 is "Toronto (West Humber-Clairville), Ontario M9W5N4".
   // Realtor.ca is national — a Coldstream, British Columbia hit for a
   // "Toronto" query is dropped here rather than shown with no city.
-  const tail = md.slice(md.indexOf(h1) + h1.length)
+  // Only the few lines after the address matter — and a bounded slice keeps
+  // the [^\n]* scan linear on pages with long blank runs.
+  // (Anchored on the heading itself — the address also appears in the page
+  // title and the map-pin line above it.)
+  const h1End = (h1M.index ?? 0) + h1M[0].length
+  const tail = md.slice(h1End, h1End + 400)
   const prov = tail.match(/\n\s*[^\n]*,\s*(Ontario|British Columbia|Alberta|Quebec|Québec|Manitoba|Saskatchewan|Nova Scotia|New Brunswick|Newfoundland and Labrador|Prince Edward Island|Yukon|Northwest Territories|Nunavut)\b/)?.[1]
   if (prov && prov !== 'Ontario') return null
   const after = tail.match(/\n\s*([^\n]+?,\s*Ontario[^\n]*)/)?.[1] || ''
   const loc = splitAddress(`${h1}, ${after}`)
   const propertyType = md.match(/Property Type\s*\n\s*([A-Za-z][A-Za-z /-]{2,40})/)?.[1]?.trim()
+  // A FOR-SALE page prints "$12,500,000" with no /sqft or /Monthly unit, and
+  // a residential rental prints "Single Family" — neither is a commercial
+  // lease, and both used to come back as perfect "price on request" matches
+  // (review 2026-09-19). Placeholder asks still print "$1/sqft", so a lease
+  // listing always has a unit-bearing price.
+  if (!priceM) return null
+  if (propertyType && /single family|multi-?family|residential|vacant land residential/i.test(propertyType)) return null
   const subtype = md.match(/^\s*(?:Industrial|Retail|Office|Commercial|Land)\s*\(([^)]+)\)\s*$/m)?.[1]?.trim()
   const sqM = md.match(/Square Footage[^\n]*\n\s*([\d,]+)\s*(?:sqft|sq\.? ?ft|square feet)/i)
   const sqft = sqM ? parseInt(sqM[1].replace(/,/g, ''), 10) : undefined
@@ -389,8 +444,10 @@ export function parseCommercialDetail(md: string, url: string, kindHint: Commerc
   })
 }
 
+// "$1/sqft" / "$1/Monthly" = call for pricing. Genuine land and outside-
+// storage leases do run $1.50–$3/sqft, so only ≤ $1 counts as a placeholder.
 export function isPlaceholderPrice(amount: number, perSqft: boolean): boolean {
-  return !amount || (perSqft ? amount < 3 : amount < 100)
+  return !amount || (perSqft ? amount <= 1 : amount < 100)
 }
 
 function kindFromType(t?: string): CommercialKind | null {
@@ -439,10 +496,21 @@ function buildCard(x: {
   const gross = /gross/i.test(x.leaseType || '')
   // All-in = (net rate + TMI) × sqft; gross leases already include TMI.
   const tmi = gross ? 0 : x.tmiPsf
+  // A MONTHLY net ask with a listed TMI: the TMI is still $/sqft/yr on top
+  // ($10,000/mo + $5 × 10,000 sqft = $170,000, not $120,000).
   const annual =
-    x.perSqft && x.amount && x.sqft ? Math.round((x.amount + (tmi ?? 0)) * x.sqft) : !x.perSqft && x.amount ? Math.round(x.amount * 12) : undefined
+    x.perSqft && x.amount && x.sqft
+      ? Math.round((x.amount + (tmi ?? 0)) * x.sqft)
+      : !x.perSqft && x.amount
+        ? Math.round(x.amount * 12 + (tmi && x.sqft ? tmi * x.sqft : 0))
+        : undefined
+  // The annual figure is ALL-IN only when TMI is actually inside it.
+  const allIn = annual != null && (gross || (tmi != null && tmi > 0 && !!x.sqft) || (tmi === 0))
   const typeZh: Record<CommercialKind, string> = {
     commercial: '商业空间', office: '办公', retail: '零售 / 店面', industrial: '工业 / 仓库', land: '土地',
+  }
+  const typeEn: Record<CommercialKind, string> = {
+    commercial: 'Commercial space', office: 'Office', retail: 'Retail', industrial: 'Industrial', land: 'Land',
   }
   const sqftLabel = x.sqftMin != null && x.sqftMax != null && x.sqftMin !== x.sqftMax
     ? `${x.sqftMin.toLocaleString()}–${x.sqftMax.toLocaleString()} sqft`
@@ -456,6 +524,7 @@ function buildCard(x: {
     source: 'realtor',
     kind: 'commercial',
     property_type: x.propertyType || typeZh[x.kind],
+    property_type_en: x.propertyType || typeEn[x.kind],
     title: [x.propertyType || typeZh[x.kind], sqftLabel].filter(Boolean).join(' · '),
     address: x.address,
     neighborhood: x.neighborhood,
@@ -466,7 +535,8 @@ function buildCard(x: {
     tmi_psf: tmi != null && tmi > 0 ? tmi : gross ? 0 : undefined,
     lease_type: x.leaseType,
     annual_cost: annual,
-    monthly_all_in: annual != null && (tmi != null || gross || !x.perSqft) ? Math.round(annual / 12) : undefined,
+    annual_all_in: allIn,
+    monthly_all_in: allIn && annual != null ? Math.round(annual / 12) : undefined,
     beds: 0,
     sqft: x.sqft,
     sqft_min: x.sqftMin,
@@ -480,6 +550,19 @@ function buildCard(x: {
       const s = factsToSpecs(x.facts, x.leaseType)
       return s.length ? s : undefined
     })(),
+    specs_en: (() => {
+      const s = factsToSpecs(x.facts, x.leaseType, true)
+      return s.length ? s : undefined
+    })(),
+    note_en: !x.amount
+      ? 'External listing · Realtor.ca live · asking rate not published'
+      : x.perSqft
+        ? tmi != null && tmi > 0
+          ? `External listing · Realtor.ca live · net $${x.amount}/sqft/yr + TMI $${tmi}/sqft/yr (as listed); all-in monthly is an estimate`
+          : gross
+            ? 'External listing · Realtor.ca live · gross (all-in) ask; monthly is an estimate'
+            : 'External listing · Realtor.ca live · net $/sqft/yr ask; monthly is an estimate excluding TMI'
+        : 'External listing · Realtor.ca live · not verified by Stayloop',
     mls: x.mls,
     brokerage: x.brokerage,
     description: x.description,
@@ -506,7 +589,7 @@ export type CommercialNeed = Pick<SearchCriteria, 'min_sqft' | 'max_sqft' | 'max
 //   on a sized search; 4 = clear height short; 5 = the tenant's use is
 //   excluded by the listing. Units far outside the size band (>4× the ask
 //   with no mention of demising, or <70%) are dropped.
-export function assessFit(l: ListingCard, need: CommercialNeed): { tier: number; warn: string[]; drop: boolean } {
+export function assessFit(l: ListingCard, need: CommercialNeed): { tier: number; warn: string[]; warnEn: string[]; codes: string[]; drop: boolean } {
   const minSq = need.min_sqft && need.min_sqft > 0 ? need.min_sqft : null
   const maxSq = need.max_sqft && need.max_sqft > 0 ? need.max_sqft : minSq ? minSq * 2 : null
   const minClear = need.min_clear_ft && need.min_clear_ft > 0 ? need.min_clear_ft : null
@@ -515,6 +598,13 @@ export function assessFit(l: ListingCard, need: CommercialNeed): { tier: number;
   const openRange = l.sqft_max == null && l.sqft_min != null
   const area = openRange ? undefined : l.sqft_max ?? l.sqft ?? l.sqft_min
   const warn: string[] = []
+  const warnEn: string[] = []
+  const codes: string[] = []
+  const flag = (code: string, zh: string, en: string) => {
+    codes.push(code)
+    warn.push(zh)
+    warnEn.push(en)
+  }
   let tier = 0
   let drop = false
   if (minSq) {
@@ -526,38 +616,38 @@ export function assessFit(l: ListingCard, need: CommercialNeed): { tier: number;
     } else if (area < minSq * 0.5) {
       drop = true
     } else if (area < minSq * 0.9) {
-      warn.push(`面积偏小 ${area.toLocaleString()}`)
+      flag('area_small', `面积偏小 ${area.toLocaleString()}`, `Smaller than asked · ${area.toLocaleString()}`)
       tier = Math.max(tier, 1)
     } else if (maxSq && area > maxSq * 2 && !/demis|divisible|can be divided|split|partial/i.test(l.description || '')) {
       drop = true
     } else if (maxSq && area > maxSq) {
-      warn.push('面积远超需求')
+      flag('area_large', '面积远超需求', 'Far larger than asked')
       tier = Math.max(tier, 2)
     }
   } else if (maxSq && area != null && area > maxSq) {
-    warn.push('面积超出上限')
+    flag('area_large', '面积超出上限', 'Over the size limit')
     tier = Math.max(tier, 2)
   }
   if (minClear) {
     if (l.clear_ft == null) tier = Math.max(tier, 1)
     else if (l.clear_ft < minClear) {
-      warn.push(`净高 ${l.clear_ft}' 不足`)
+      flag('clear_short', `净高 ${l.clear_ft}' 不足`, `${l.clear_ft}' clear — below ${minClear}'`)
       tier = Math.max(tier, 4)
     }
   }
-  const prohibited = useProhibited(l.excluded_uses || [], use)
+  const prohibited = useProhibitedBoth(l.excluded_uses || [], use)
   if (prohibited) {
-    warn.push(`房东明写禁止${prohibited}`)
+    flag('use_excluded', `房东明写禁止${prohibited.zh}`, `Listing excludes ${prohibited.en} uses`)
     tier = 5
   }
   if (need.max_price && need.max_price > 0) {
     const m = l.monthly_all_in ?? (l.price_basis !== 'unknown' ? l.price : undefined)
     if (m != null && m > need.max_price) {
-      warn.push('超预算')
+      flag('over_budget', '超预算', 'Over budget')
       tier = Math.max(tier, 2)
     }
   }
-  return { tier, warn, drop }
+  return { tier, warn, warnEn, codes, drop }
 }
 
 export function rankCommercial(cards: ListingCard[], need: CommercialNeed): ListingCard[] {
@@ -565,7 +655,7 @@ export function rankCommercial(cards: ListingCard[], need: CommercialNeed): List
   const scored = cards
     .map((l) => {
       const fit = assessFit(l, need)
-      return { l: { ...l, specs_warn: fit.warn.length ? fit.warn : undefined, fit_tier: fit.tier }, fit }
+      return { l: { ...l, specs_warn: fit.warn.length ? fit.warn : undefined, specs_warn_en: fit.warnEn.length ? fit.warnEn : undefined, warn_codes: fit.codes.length ? fit.codes : undefined, fit_tier: fit.tier }, fit }
     })
     .filter((x) => !x.fit.drop)
   const key = (x: { l: ListingCard }) => {
@@ -588,7 +678,17 @@ export function rankCommercial(cards: ListingCard[], need: CommercialNeed): List
       .filter((l) => byArea(l) != null)
       .sort((a, b) => Math.abs((byArea(a) as number) - minSq) - Math.abs((byArea(b) as number) - minSq))
       .slice(0, 6)
-      .map((l) => ({ ...l, fit_tier: 2, specs_warn: [(byArea(l) as number) < minSq ? `面积偏小 ${(byArea(l) as number).toLocaleString()}` : '面积远超需求'] }))
+      .map((l) => {
+        const a = byArea(l) as number
+        const small = a < minSq
+        return {
+          ...l,
+          fit_tier: 2,
+          specs_warn: [small ? `面积偏小 ${a.toLocaleString()}` : '面积远超需求'],
+          specs_warn_en: [small ? `Smaller than asked · ${a.toLocaleString()}` : 'Far larger than asked'],
+          warn_codes: [small ? 'area_small' : 'area_large'],
+        }
+      })
   }
   return ranked
 }
@@ -606,7 +706,7 @@ export function summarizeCommercial(cards: ListingCard[], need: CommercialNeed, 
   const clearOk = minClear ? clears.filter((c) => c >= minClear).length : 0
   // Cost range over the viable rows only (not the 166k-sqft full building
   // ranked at the bottom) and only where the listing printed a TMI.
-  const costs = cards.filter((l) => (l.fit_tier ?? 0) <= 1 && l.tmi_psf != null && (l.annual_cost ?? 0) > 1000).map((l) => l.annual_cost as number)
+  const costs = cards.filter((l) => (l.fit_tier ?? 0) <= 1 && l.annual_all_in && (l.annual_cost ?? 0) > 1000).map((l) => l.annual_cost as number)
   const prohibited = cards.filter((l) => l.fit_tier === 5).length
   const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`
   const range = (arr: number[]) => (arr.length ? `${Math.min(...arr).toLocaleString()}–${Math.max(...arr).toLocaleString()}` : '')
@@ -725,15 +825,32 @@ const GTA_CITIES = new Set([
   'halton hills', 'whitchurch-stouffville', 'stouffville', 'east gwillimbury', 'georgina', 'clarington',
   'scarborough', 'etobicoke', 'north york', 'east york', 'york', 'bolton', 'concord', 'woodbridge', 'thornhill', 'unionville',
 ])
-export function cityAllowed(city: string | undefined, c: Pick<SearchCriteria, 'area' | 'area_candidates'>): boolean {
+// Districts Realtor.ca files under a parent municipality: "Vaughan (Concord)".
+export const SUBAREA_CITY: Record<string, string> = {
+  concord: 'vaughan', woodbridge: 'vaughan', maple: 'vaughan', kleinburg: 'vaughan', thornhill: 'vaughan',
+  unionville: 'markham', milliken: 'markham', bolton: 'caledon', stouffville: 'whitchurch-stouffville',
+  'king city': 'king', streetsville: 'mississauga', 'port credit': 'mississauga', malton: 'mississauga',
+  bramalea: 'brampton', 'oak ridges': 'richmond hill',
+}
+const ONTARIO_CITIES = new Set([...GTA_CITIES, 'hamilton', 'guelph', 'kitchener', 'waterloo', 'cambridge', 'barrie', 'london', 'ottawa', 'windsor', 'kingston', 'st. catharines', 'niagara falls', 'brantford', 'peterborough'])
+export function cityAllowed(city: string | undefined, c: Pick<SearchCriteria, 'area' | 'area_candidates'>, neighborhood?: string): boolean {
   if (!city) return true
   const l = city.toLowerCase().trim()
+  const hood = (neighborhood || '').toLowerCase().trim()
   const raw = splitAreas([c.area, ...(c.area_candidates ?? [])])
   const wide = !raw.length || raw.some(isGtaWide)
   if (wide) return GTA_CITIES.has(l)
   const named = raw.filter((a) => !isGtaWide(a)).map((a) => a.toLowerCase())
-  // Toronto districts / neighbourhoods resolve to city "Toronto".
-  return named.some((a) => l === a || l.includes(a) || a.includes(l) || (l === 'toronto' && (TORONTO_DISTRICTS.has(a) || !GTA_CITIES.has(a))))
+  return named.some((a) => {
+    if (l === a) return true
+    // "Concord" → cards read "Vaughan (Concord)".
+    if (hood && (hood === a || (a.length >= 4 && hood.includes(a)))) return true
+    if (SUBAREA_CITY[a] && SUBAREA_CITY[a].replace(/-/g, ' ') === l) return true
+    // Toronto districts / neighbourhoods resolve to city "Toronto" — but a
+    // request for Ottawa or Hamilton must not admit Toronto cards.
+    if (l === 'toronto') return TORONTO_DISTRICTS.has(a) || !ONTARIO_CITIES.has(a)
+    return false
+  })
 }
 const TORONTO_DISTRICTS = new Set(['scarborough', 'etobicoke', 'north york', 'east york', 'york', 'downtown', 'old toronto'])
 
@@ -760,12 +877,28 @@ async function jinaRead(key: string, url: string, timeoutMs: number): Promise<{ 
   }
 }
 
+export type CommercialBudget = { maxQueries: number; maxReads: number; retry: boolean }
+// Signed-in members get the full sweep; the anonymous homepage preview gets
+// a quarter of it (no retry) so rotating IPs cannot drain the prepaid Jina
+// balance that five other features share (review 2026-09-19).
+export const BUDGET_MEMBER: CommercialBudget = { maxQueries: MAX_QUERIES, maxReads: 48, retry: true }
+export const BUDGET_ANON: CommercialBudget = { maxQueries: 6, maxReads: 12, retry: false }
+
+// "301 - 20 TOWNS ROAD" → "301-20-towns-road": the prefix of the listing's
+// URL slug, so already-shown addresses can be skipped BEFORE spending a read.
+export function addressSlug(address: string): string {
+  return address.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+}
+
 export async function searchCommercial(
   c: SearchCriteria,
   kind: CommercialKind,
   onStatus: (statuses: number[]) => ExternalStatus,
+  opts: { exclude?: string[]; budget?: CommercialBudget } = {},
 ): Promise<{ cards: ListingCard[]; external: ExternalStatus; checked: number }> {
   let checked = 0
+  const budget = opts.budget ?? BUDGET_MEMBER
+  const excludedSlugs = (opts.exclude ?? []).map(addressSlug).filter((x) => x.length >= 6)
   const key = process.env.JINA_API_KEY
   if (!key) return { cards: [], external: { status: 'no_key' }, checked: 0 }
   const statuses: number[] = []
@@ -802,13 +935,13 @@ export async function searchCommercial(
             const d = (await sres.json()) as { data?: { url?: string; title?: string; description?: string }[] }
             return (Array.isArray(d?.data) ? d.data : []).filter(isLeaseCandidate).map((r) => ({ url: r.url as string, score: scoreSnippet(r, c) }))
           }
-          const queries = buildDetailQueries(c, kind)
+          const queries = buildDetailQueries(c, kind).slice(0, budget.maxQueries)
           let found = await Promise.all(queries.map((q) => searchOne(q).catch(() => [] as Hit[])))
           // The search backend answers 422 / empty to some queries under
           // parallel load and 10 hits to the same query a second later —
           // retry the empty ones once (measured 2026-09-18: Richmond Hill 7
           // sequential vs 422 in a batch of 9).
-          if (found.some((f) => !f.length)) {
+          if (budget.retry && found.some((f) => !f.length)) {
             await new Promise((r) => setTimeout(r, 800))
             found = await Promise.all(found.map((f, i) => (f.length ? Promise.resolve(f) : searchOne(queries[i]).catch(() => [] as Hit[]))))
           }
@@ -819,18 +952,21 @@ export async function searchCommercial(
           const best = new Map<string, number>()
           for (const f of found) for (const h of f) best.set(h.url, Math.max(best.get(h.url) ?? -99, h.score))
           const byQuery = found.map((f) => Array.from(new Set(f.map((h) => h.url))))
-          const ordered: string[] = []
-          for (const band of [3, 4, 1, 0, -3]) {
-            const rounds = Math.max(...byQuery.map((f) => f.length), 0)
-            for (let i = 0; i < rounds; i++)
-              for (const f of byQuery) {
-                const u = f[i]
-                if (!u || ordered.includes(u)) continue
-                const sc = best.get(u) ?? 0
-                if ((band === 4 && sc >= 4) || (band === 3 && sc === 3) || (band === 1 && (sc === 1 || sc === 2)) || (band === 0 && (sc === 0 || sc === -2)) || (band === -3 && sc <= -3)) ordered.push(u)
-              }
-          }
-          const picked = ordered.slice(0, DETAIL_READS)
+          // Round-robin across queries (every area gets a turn), then a STABLE
+          // sort by snippet score — every hit lands somewhere (the old band
+          // table had no slot for −1, so most office/retail hits were never
+          // read). Addresses already shown this conversation are skipped
+          // here, before a read is spent, so 「换一批」 reaches new pages.
+          const interleaved: string[] = []
+          const rounds = Math.max(...byQuery.map((f) => f.length), 0)
+          for (let i = 0; i < rounds; i++) for (const f of byQuery) if (f[i] && !interleaved.includes(f[i])) interleaved.push(f[i])
+          const slugOf = (u: string) => u.split('/').slice(-1)[0] || ''
+          const ordered = interleaved
+            .filter((u) => !excludedSlugs.some((x) => slugOf(u).startsWith(x)))
+            .map((u, i) => ({ u, i, sc: best.get(u) ?? 0 }))
+            .sort((a, b) => b.sc - a.sc || a.i - b.i)
+            .map((x) => x.u)
+          const picked = ordered.slice(0, Math.min(DETAIL_READS, budget.maxReads))
           if (process.env.COMMERCIAL_DEBUG) console.warn('[commercial] candidates', ordered.length, 'scores', picked.map((u) => best.get(u)).join(','))
           const reads = await Promise.all(picked.map((u) => jinaRead(key, u, 22000)))
           const out: ListingCard[] = []
@@ -858,8 +994,8 @@ export async function searchCommercial(
     statuses.push(r.status)
     if (r.status === 200) merge(parseCommercialList(r.md, kind))
   }
-  const inArea = cards.filter((l) => cityAllowed(l.city, c))
-  if (process.env.COMMERCIAL_DEBUG) console.warn('[commercial] merged', cards.length, 'in-area', inArea.length, 'dropped-city', cards.filter((l) => !cityAllowed(l.city, c)).map((l) => `${l.address} (${l.city})`))
+  const inArea = cards.filter((l) => cityAllowed(l.city, c, l.neighborhood))
+  if (process.env.COMMERCIAL_DEBUG) console.warn('[commercial] merged', cards.length, 'in-area', inArea.length, 'dropped-city', cards.filter((l) => !cityAllowed(l.city, c, l.neighborhood)).map((l) => `${l.address} (${l.city})`))
   const ranked = rankCommercial(inArea, c)
   if (process.env.COMMERCIAL_DEBUG) console.warn('[commercial] ranked', ranked.length, 'dropped-fit', inArea.filter((l) => !ranked.find((r) => r.id === l.id)).map((l) => `${l.address} ${l.sqft ?? '?'}sqft`))
   const external = onStatus(statuses)

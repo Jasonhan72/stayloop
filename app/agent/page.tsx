@@ -12,8 +12,8 @@ const CFG: RoleLandingConfig = {
     en: <>Hand the busywork to AI —<br />keep the commission and the relationships.</>,
   },
   sub: {
-    zh: '你的时间应该花在带看、谈判和赢得信任上。剩下的 —— 整理客户、准备材料、排程、跟进、催款 —— 交给一个不睡觉的后台。纯 SaaS 工具,不抽你一分佣金。',
-    en: "Your hours belong to showings, negotiation and earning trust. Everything else — organizing clients, prepping materials, scheduling, follow-ups, chasing payments — goes to a back office that never sleeps. Pure SaaS: we never touch your commission.",
+    zh: '你的时间应该花在带看、谈判和赢得信任上。剩下的 —— 整理客户、准备材料、排程、跟进 —— 交给一个不睡觉的后台。纯 SaaS 工具,不抽你一分佣金。',
+    en: "Your hours belong to showings, negotiation and earning trust. Everything else — organizing clients, prepping materials, scheduling, follow-ups — goes to a back office that never sleeps. Pure SaaS: we never touch your commission.",
   },
   primaryCta: { label: { zh: '把杂活交给 AI →', en: 'Hand the busywork to AI →' }, href: '/onboarding/name?role=agent', authedHref: '/agent/agent' },
   secondaryCta: { label: { zh: '看看定价', en: 'See pricing' }, href: '/pricing' },
@@ -21,7 +21,7 @@ const CFG: RoleLandingConfig = {
   agentPoints: [
     { zh: '客户与材料,一键就绪', en: 'Clients & materials, one click' },
     { zh: '日历排程 · 路线规划', en: 'Calendar & route planning' },
-    { zh: '跟进催款,全自动', en: 'Follow-ups & collections, automated' },
+    { zh: '跟进清单,AI 帮你整理', en: 'Follow-up lists, organised by AI' },
     { zh: 'RECO 合规提醒 · 留痕', en: 'RECO reminders · audit trail' },
     { zh: '替客户下单租客筛查,几分钟出报告', en: 'Order tenant screening for clients — report in minutes' },
     { zh: '筛查报告 · 认证护照,一键转发房东', en: 'Screening report & verified passport, one click to the landlord' },
@@ -29,10 +29,10 @@ const CFG: RoleLandingConfig = {
   demo: {
     ask: { zh: '明天 3 个带看,资料帮我备好。', en: 'Three showings tomorrow — prep everything for me.' },
     reply: {
-      zh: '3 份带看包已生成:业主披露、社区数据、比价表。路线已按日历排好,客户提醒短信今晚 8 点自动发。',
-      en: 'Three showing packs ready: owner disclosures, neighbourhood data, comps. Route is on your calendar; client reminder texts go out at 8pm tonight.',
+      zh: '3 份带看包已生成:业主披露、社区数据、比价表。路线已按日历排好,跟进清单也列好了。',
+      en: 'Three showing packs ready: owner disclosures, neighbourhood data, comps. Route is on your calendar, and the follow-up list is drafted.',
     },
-    task: { zh: '材料包 · 路线 · 客户提醒 · 看房记录', en: 'Packs · route · reminders · showing notes' },
+    task: { zh: '材料包 · 路线 · 跟进清单 · 看房记录', en: 'Packs · route · follow-up list · showing notes' },
     note: { zh: '带看结束,记录自动归档留痕。', en: 'After each showing, notes are filed and audited automatically.' },
   },
   journey: [
@@ -58,7 +58,7 @@ const CFG: RoleLandingConfig = {
     {
       file: 'david-03-payout.jpg',
       fallback: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=700&q=80&fit=crop&auto=format',
-      label: { zh: '当晚结算', en: 'Settled that night' },
+      label: { zh: '当晚归档', en: 'Filed that night' },
       text: { zh: '带看记录当晚自动归档留痕。月度回顾:带看 32 次、保留率 94%、Toronto West 区域 Top 8%。', en: 'Showing notes filed and audited the same night. Monthly review: 32 showings, 94% retention, top 8% in Toronto West.' },
     },
   ],
@@ -67,12 +67,12 @@ const CFG: RoleLandingConfig = {
     meta: { zh: '35 · 持牌经纪 · RECO 6 年', en: '35 · Licensed agent · 6 years with RECO' },
     quote: { zh: '不是没机会,是时间被行政碎片化了。', en: "It's not that there's no opportunity — my time is fragmented by admin." },
     before: { zh: '70% 的时间耗在整理材料、排时间、催跟进上;收入不稳,客户一忙就跟丢。', en: '70% of his time went to prepping materials, juggling schedules and chasing follow-ups; income swung, and busy weeks meant lost clients.' },
-    after: { zh: 'AI 编排一切、当晚结算,他只做带看与专业判断 —— 同样的一周,接得下两倍的客户。', en: 'AI orchestrates everything and settles the same night; he only does showings and judgment — the same week now fits twice the clients.' },
+    after: { zh: 'AI 编排杂活、记录当晚归档,他只做带看与专业判断 —— 同样的一周,接得下两倍的客户。', en: 'AI orchestrates the busywork and files the notes the same night; he only does showings and judgment — the same week now fits twice the clients.' },
     delta: { zh: '时薪 $25 → $43', en: 'Hourly $25 → $43' },
   },
   stats: [
-    { k: { zh: '行政时间还给你', en: 'admin hours handed back' }, v: { zh: '↓ 70%', en: '↓ 70%' } },
-    { k: { zh: '专注带看与谈判', en: 'focus on showings & deals' }, v: { zh: '时薪 ×1.7', en: 'Hourly ×1.7' } },
+    { k: { zh: '注册核验徽章,租客看得见', en: 'a checked badge tenants can see' }, v: { zh: 'RECO 已核', en: 'RECO-checked' } },
+    { k: { zh: '材料与跟进清单由 AI 整理', en: 'packs & follow-ups organised by AI' }, v: { zh: 'AI 备料', en: 'AI prep' } },
     { k: { zh: '纯工具,不碰你的佣金', en: 'pure SaaS, zero commission cut' }, v: { zh: '0 抽佣', en: '0% cut' } },
   ],
 }

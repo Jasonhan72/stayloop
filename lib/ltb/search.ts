@@ -93,6 +93,68 @@ export function describeCodes(codes: string[], lang: 'en' | 'zh'): string {
   return codes.join('/') || (lang === 'zh' ? '未标注申请类型' : 'application type not stated')
 }
 
+const addrTokens = (raw: string): string[] =>
+  raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[.'’`]/g, '')
+    .replace(/\bSAINTE?\b/g, 'ST')
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+
+/**
+ * The order's city as whole tokens — the first comma segment after the street
+ * that is purely alphabetic once province / postal are removed ("UNIT 4, 25
+ * KING ST, KITCHENER, ON" → KITCHENER, never "25 KING ST"). A city only counts
+ * when it is ≥2 words or ≥4 letters: "ST", "YORK"-sized fragments prove nothing.
+ */
+export function orderCityTokens(unitAddress: string): string[] | null {
+  const segs = unitAddress.split(',').slice(1)
+  for (const seg of segs) {
+    const toks = addrTokens(seg.replace(/[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d/g, ' ')).filter((t) => !/^(ON|ONT|ONTARIO|CANADA|CA)$/.test(t))
+    if (toks.length === 0) continue
+    if (toks.some((t) => /\d/.test(t))) continue
+    if (toks.length >= 2 || toks[0].length >= 4) return toks
+    return null
+  }
+  return null
+}
+
+/** Tokens of a declared address AFTER its street part (after the first comma that follows the street key, or after the street word when there is no comma). */
+export function declaredLocalityTokens(declared: string, key: string | null): string[] {
+  const segs = declared.split(',')
+  if (segs.length > 1) {
+    // Skip leading segments up to and including the one holding the street.
+    const streetWord = key ? key.split(' ')[1] : null
+    let i = 0
+    if (streetWord) {
+      const at = segs.findIndex((x) => addrTokens(x).includes(streetWord))
+      if (at >= 0) i = at
+    }
+    return addrTokens(segs.slice(i + 1).join(' '))
+  }
+  const toks = addrTokens(declared)
+  const streetWord = key ? key.split(' ')[1] : null
+  const at = streetWord ? toks.indexOf(streetWord) : -1
+  return at >= 0 ? toks.slice(at + 1) : []
+}
+
+/**
+ * The city must be the LAST place-name in the declared locality — province,
+ * country and postal tokens aside — so YORK does not match "New York Mills"
+ * and PORT does not match "Port Colborne".
+ */
+function localityEndsWith(locality: string[], city: string[]): boolean {
+  if (city.length === 0) return false
+  const place = locality.filter((t) => !/\d/.test(t) && !/^(ON|ONT|ONTARIO|CANADA|CA)$/.test(t))
+  if (place.length < city.length) return false
+  const tail = place.slice(place.length - city.length)
+  return city.every((t, j) => tail[j] === t)
+}
+
 type Rpc = (
   fn: string,
   args: Record<string, unknown>,
@@ -171,10 +233,20 @@ export async function searchLtbOrders(
   // MICHAEL" — surname Michael, a different person). A subset match must
   // still carry the query's surname token; the other direction (record has
   // MORE tokens) contains it by construction and passes unchanged.
-  const querySurname = norm.split(' ').filter(Boolean).pop() || ''
+  //
+  // Review 2026-09-19: the surname alone is not enough — record "MICHAEL PARK"
+  // ⊆ query "DAVID MICHAEL PARK" kept the surname yet is a different person
+  // (first name Michael). When the record has FEWER tokens than the query it
+  // must also carry the query's first given name.
+  const queryTokens = norm.split(' ').filter(Boolean)
+  const querySurname = queryTokens[queryTokens.length - 1] || ''
+  const queryGiven = queryTokens[0] || ''
   const rows = rawRows.filter((r) => {
     if (r.match_kind !== 'subset') return true
-    return normalizeName(r.person_name).split(' ').includes(querySurname)
+    const recTokens = normalizeName(r.person_name).split(' ').filter(Boolean)
+    if (!recTokens.includes(querySurname)) return false
+    if (recTokens.length < queryTokens.length && !recTokens.includes(queryGiven)) return false
+    return true
   })
 
   // Rule 2½ — corroboration binding. The RPC's address_match accepts a bare
@@ -183,14 +255,21 @@ export async function searchLtbOrders(
   // "25 KING STREET W, KITCHENER". Recompute: a postal match corroborates on
   // its own (postals are city-unique, present on 98.6% of orders); a street
   // key only corroborates when the declared text also names the order's city.
+  //
+  // Review 2026-09-19: the city test used to be "first WORD of the order's
+  // city is a substring of the declared text" — "ST" (ST CATHARINES) is inside
+  // "25 King St W, Toronto", NORTH (NORTH YORK) inside "King St North,
+  // Waterloo", likewise EAST / YORK / PORT. A corroborated hit is −30 /
+  // decline, so the FULL city must appear as whole tokens in the part of the
+  // declared address that follows the street.
   const strongAddressMatch = (unitAddress: string | null): boolean => {
     if (!unitAddress) return false
     const rp = addressParts(unitAddress)
-    const rowCity = ((unitAddress.toUpperCase().split(',')[1] || '').trim().split(/\s+/)[0]) || null
+    const rowCity = orderCityTokens(unitAddress)
     for (const d of declaredAddresses) {
       const dp = addressParts(d)
       if (rp.postal && dp.postal && rp.postal === dp.postal) return true
-      if (rp.key && dp.key && rp.key === dp.key && rowCity && d.toUpperCase().includes(rowCity)) return true
+      if (rp.key && dp.key && rp.key === dp.key && rowCity && localityEndsWith(declaredLocalityTokens(d, dp.key), rowCity)) return true
     }
     return false
   }

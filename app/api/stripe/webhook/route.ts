@@ -101,8 +101,12 @@ export async function POST(req: NextRequest) {
             .from('stripe_events')
             .insert({ id: event.id, type: event.type })
           if (ledgerErr) {
-            if ((ledgerErr as { code?: string }).code === '23505') break // already processed
-            throw ledgerErr
+            if ((ledgerErr as { code?: string }).code !== '23505') throw ledgerErr
+            // Seen before. "Seen" is not "fulfilled": if the worker died
+            // between the ledger insert and the grant, the retry used to get
+            // a 200 here and the payment bought nothing (review 2026-09-19).
+            const { data: seen } = await admin.from('stripe_events').select('fulfilled_at').eq('id', event.id).maybeSingle()
+            if (seen?.fulfilled_at) break
           }
           // Review 2026-09-14: fulfilment errors were swallowed (payment
           // captured, nothing granted, and the ledger row blocked Stripe's
@@ -125,6 +129,8 @@ export async function POST(req: NextRequest) {
               const { error: creditErr } = await admin.rpc('grant_unlock_credit', { p_landlord_id: landlordId })
               if (creditErr) throw creditErr
             }
+            const { error: doneErr } = await admin.from('stripe_events').update({ fulfilled_at: new Date().toISOString() }).eq('id', event.id)
+            if (doneErr) console.warn('stripe_events fulfilled_at write failed', doneErr.message)
           } catch (fulfilErr) {
             await admin.from('stripe_events').delete().eq('id', event.id)
             throw fulfilErr
@@ -182,8 +188,12 @@ export async function POST(req: NextRequest) {
           break
         }
 
-        // Persist the customer id so future sessions reuse it.
-        await admin
+        // Persist the customer id so future sessions reuse it. A failed
+        // write must surface as a 500 so Stripe retries — supabase-js returns
+        // the error instead of throwing, and ignoring it left paid landlords
+        // on `free` with no customer id for later events to match (review
+        // 2026-09-19).
+        const { error: planErr } = await admin
           .from('landlords')
           .update({
             stripe_customer_id: customerId,
@@ -193,12 +203,18 @@ export async function POST(req: NextRequest) {
             plan_cancel_at_period_end: false,
           })
           .eq('id', landlordId)
+        if (planErr) throw planErr
         break
       }
 
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
-        const sub = event.data.object as Stripe.Subscription
+        // Write the subscription's CURRENT state, not the event's snapshot:
+        // a late retry of an old `updated` (status active) arriving after
+        // `deleted` nulled the id used to match the row again and revive Pro
+        // with nothing left to cancel it (review 2026-09-19).
+        const evSub = event.data.object as Stripe.Subscription
+        const sub = await stripe.subscriptions.retrieve(evSub.id).catch(() => evSub)
         const customerId =
           typeof sub.customer === 'string' ? sub.customer : sub.customer.id
 
@@ -219,11 +235,12 @@ export async function POST(req: NextRequest) {
         // already succeeded). Existing brand/last4 is left untouched when
         // nothing is found.
         const card = await describeCard(stripe, sub).catch(() => null)
+        const ended = sub.status === 'canceled' || sub.status === 'incomplete_expired'
 
-        await admin
+        const { error: subErr } = await admin
           .from('landlords')
           .update({
-            stripe_subscription_id: sub.id,
+            stripe_subscription_id: ended ? null : sub.id,
             plan: unlocked ? 'pro' : 'free',
             plan_status: sub.status,
             plan_current_period_end: periodEnd
@@ -240,6 +257,7 @@ export async function POST(req: NextRequest) {
           // one. Match the subscription id when the row already has one
           // (null covers the documented created-before-completed race).
           .or(`stripe_subscription_id.is.null,stripe_subscription_id.eq.${sub.id}`)
+        if (subErr) throw subErr
         break
       }
 
@@ -248,7 +266,7 @@ export async function POST(req: NextRequest) {
         const customerId =
           typeof sub.customer === 'string' ? sub.customer : sub.customer.id
 
-        await admin
+        const { error: delErr } = await admin
           .from('landlords')
           .update({
             plan: 'free',
@@ -261,6 +279,7 @@ export async function POST(req: NextRequest) {
           })
           .eq('stripe_customer_id', customerId)
           .or(`stripe_subscription_id.is.null,stripe_subscription_id.eq.${sub.id}`)
+        if (delErr) throw delErr
         break
       }
 

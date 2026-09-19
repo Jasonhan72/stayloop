@@ -7,7 +7,7 @@ import { useT } from '@/lib/i18n'
 
 /**
  * V5.3 ART 30 · Audit Log · SHARED (tenant + landlord)
- * 每一次访问 / 数据流转 都有记录 — 完整事件流 · 不可篡改 · 区块链时间戳。
+ * 每一次访问 / 数据流转 都有记录 — 完整事件流 · 只追加的审计日志（没有区块链实现，文案不得这样宣称）。
  * Shared component: each role route renders <AuditLog role="tenant" | "landlord" />.
  */
 
@@ -37,7 +37,7 @@ const DAYS = (aiName: string): AuditDay[] => [
       {
         ts: '18:42',
         lead: { zh: '你签署了租约', en: 'You signed the lease' },
-        body: { zh: 'Unit 1207 · King West · Lse-king1207-mia · 区块链时间戳', en: 'Unit 1207 · King West · Lse-king1207-mia · blockchain timestamp' },
+        body: { zh: 'Unit 1207 · King West · Lse-king1207-mia · 已记入审计日志', en: 'Unit 1207 · King West · Lse-king1207-mia · recorded in the audit log' },
         who: 'SELF',
         cat: 'lease',
         hash: '0x4f…e9c2',
@@ -88,7 +88,7 @@ const DAYS = (aiName: string): AuditDay[] => [
       {
         ts: '10:24',
         body: { zh: 'Veriff 完成身份核验（只读）· 已盖 2/4 → 3/4 枚章', en: 'Veriff completed identity verification (read-only) · 2/4 → 3/4 stamps' },
-        who: 'PERSONA API',
+        who: 'VERIFF API',
         cat: 'access',
         hash: '0xc1…44af',
       },
@@ -167,7 +167,7 @@ export default function AuditLog({ role }: { role: WorkspaceRole }) {
       {/* Heading */}
       <div className="mb-7 max-w-[760px]">
         <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">
-          {lang === 'zh' ? '完整事件流 · 不可篡改 · 区块链时间戳' : 'Complete event stream · immutable · blockchain timestamps'}
+          {lang === 'zh' ? '完整事件流 · 只追加的审计日志' : 'Complete event stream · append-only audit log'}
         </div>
         <h1 className="mt-2 text-[26px] sm:text-[34px] font-bold leading-tight tracking-tight">
           {lang === 'zh' ? '每一次访问 / 数据流转 都有记录' : 'Every access and data flow is recorded'}
@@ -267,11 +267,11 @@ function Aside() {
         {lang === 'zh' ? '留痕保障' : 'Trace guarantee'}
       </div>
       <div className="mt-3 sl-card p-4">
-        <div className="text-[14px] font-bold">{lang === 'zh' ? '不可篡改 · 区块链时间戳' : 'Immutable · blockchain timestamps'}</div>
+        <div className="text-[14px] font-bold">{lang === 'zh' ? '只追加的审计日志' : 'Append-only audit log'}</div>
         <div className="mt-1 text-[12.5px] leading-relaxed text-body-2">
           {lang === 'zh'
-            ? '每条事件都写入链上哈希，任何人无法事后修改或删除。争议进入 LTB 时，这份记录即为最终证据。'
-            : 'Every event is written to an on-chain hash that no one can later alter or delete. If a dispute reaches the LTB, this record is the final evidence.'}
+            ? '每条事件都追加写入审计日志，带时间戳；已写入的记录不提供修改或删除入口。'
+            : 'Every event is appended to the audit log with a timestamp; there is no way to edit or delete an entry once it is written.'}
         </div>
         <button onClick={() => window.print()} className="mt-3 w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-[12.5px] font-semibold transition hover:border-brand hover:text-brand">
           {lang === 'zh' ? '下载完整 PDF 报告' : 'Download full PDF report'}

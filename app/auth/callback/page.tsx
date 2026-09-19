@@ -10,7 +10,21 @@ export default function AuthCallback() {
   const { lang } = useT()
   const zh = lang === 'zh'
   const [status, setStatus] = useState<'pending' | 'ok' | 'err'>('pending')
-  const [msg, setMsg] = useState(zh ? '正在登录…' : 'Signing in…')
+  // State holds a KEY (plus the provider's own error text, if any); the words
+  // are derived at render time. Seeding state with a translated string froze
+  // the SSR language, and reading `zh` inside the effect put it in the deps —
+  // the language flip after hydration then ran the whole sign-in twice.
+  const [errKey, setErrKey] = useState<'expired' | 'failed'>('failed')
+  const [errDetail, setErrDetail] = useState<string | null>(null)
+  const msg =
+    status === 'pending'
+      ? (zh ? '正在登录…' : 'Signing in…')
+      : status === 'ok'
+        ? (zh ? '登录成功 · 跳转中…' : 'Signed in · redirecting…')
+        : errDetail ||
+          (errKey === 'expired'
+            ? (zh ? '登录链接已失效,请重新发送' : 'Sign-in link expired, please request a new one')
+            : (zh ? '登录失败' : 'Sign-in failed'))
 
   useEffect(() => {
     const run = async () => {
@@ -35,11 +49,14 @@ export default function AuthCallback() {
         } else {
           // Maybe already logged in
           const { data } = await supabase.auth.getSession()
-          if (!data.session) throw new Error(zh ? '登录链接已失效,请重新发送' : 'Sign-in link expired, please request a new one')
+          if (!data.session) {
+            setErrKey('expired')
+            setStatus('err')
+            return
+          }
         }
 
         setStatus('ok')
-        setMsg(zh ? '登录成功 · 跳转中…' : 'Signed in · redirecting…')
 
         // AI-native entry: land the user IN their Personal Agent, not a
         // dashboard (architecture §13). Resolve role from the onboarding
@@ -95,12 +112,13 @@ export default function AuthCallback() {
         }
         setTimeout(() => router.replace(dest), 600)
       } catch (e: any) {
+        setErrKey('failed')
+        setErrDetail(typeof e?.message === 'string' && e.message ? e.message : null)
         setStatus('err')
-        setMsg(e?.message || (zh ? '登录失败' : 'Sign-in failed'))
       }
     }
     run()
-  }, [router, zh])
+  }, [router])
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface">

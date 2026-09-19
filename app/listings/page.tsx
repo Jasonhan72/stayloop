@@ -816,7 +816,8 @@ function ListingCard({
 }) {
   const a = l.thumb_a || '#D4C4A8'
   const b = l.thumb_b || '#94815C'
-  const tierClass = (l.trust_tier || 2) >= 3 ? 't3' : 't2'
+  // Nothing writes trust_tier today — the stamp pill shows only when a row carries one.
+  const tierClass = (l.trust_tier ?? 0) >= 3 ? 't3' : 't2'
   const heroImage = l.images && l.images.length > 0 ? l.images[0] : null
   return (
     <Link
@@ -934,21 +935,23 @@ function ListingCard({
                 {a}
               </span>
             ))}
-            <span
-              style={{
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 9.5,
-                fontWeight: 700,
-                padding: '2px 6px',
-                borderRadius: 3,
-                letterSpacing: '0.06em',
-                background:
-                  tierClass === 't3' ? 'rgba(217,119,6,0.10)' : 'rgba(4,120,87,0.10)',
-                color: tierClass === 't3' ? '#B45309' : '#047857',
-              }}
-            >
-              {zh ? `需 ${stampForTier(l.trust_tier || 2).zh}` : `${stampForTier(l.trust_tier || 2).en} required`}
-            </span>
+            {l.trust_tier != null && (
+              <span
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 9.5,
+                  fontWeight: 700,
+                  padding: '2px 6px',
+                  borderRadius: 3,
+                  letterSpacing: '0.06em',
+                  background:
+                    tierClass === 't3' ? 'rgba(217,119,6,0.10)' : 'rgba(4,120,87,0.10)',
+                  color: tierClass === 't3' ? '#B45309' : '#047857',
+                }}
+              >
+                {zh ? `需 ${stampForTier(l.trust_tier).zh}` : `${stampForTier(l.trust_tier).en} required`}
+              </span>
+            )}
           </div>
         )}
       </div>

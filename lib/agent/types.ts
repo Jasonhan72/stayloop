@@ -120,6 +120,17 @@ export type ListingCard = {
   sublease?: boolean
   excluded_uses?: string[]
   specs?: string[]
+  // English renderings of the same pills / note / type label — the search
+  // runs server-side without knowing the viewer's UI language.
+  specs_en?: string[]
+  specs_warn_en?: string[]
+  note_en?: string
+  property_type_en?: string
+  // Stable codes for the red pills (area_small / area_large / clear_short /
+  // use_excluded / over_budget) — components key styling on these, not text.
+  warn_codes?: string[]
+  // True when annual_cost really contains TMI (or the ask is gross).
+  annual_all_in?: boolean
   // Red pills: requirement shortfalls found by assessFit (面积偏小 / 净高不足 / 房东明写禁止…).
   specs_warn?: string[]
   // 0 = fits every stated requirement … 4 = use excluded by the listing.

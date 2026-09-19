@@ -533,6 +533,81 @@ Realtor.ca 上的所有租赁类型，作为不在界面上宣传的隐藏技能
 - 顺手修的旧 bug：`useAgentSession` 恢复历史后 `msgSeq = saved.length`，历史有缺口时新消息 id 与旧的撞车（React「two children
   with the same key」），改为取最大 id。调试：`COMMERCIAL_DEBUG=1` 打印每条查询命中数 / 详情页解析失败 / 城市与匹配过滤掉的行。
 
+## 全站复审 2026-09-19（六个切片 85 条 · 全部核实后修复）
+
+用户要求「再做全站模块分析和 review，以及代码 review」。六个只读审查代理（安全与平台 / 管家与找房 / 筛查管线与报告 /
+取证·深度核查·核验·LTB / 支付·租约·房源·在管租约·经纪认证 / 工作台·文案·双语·手机端），每条带代码行 + 反例实跑或
+生产库回滚事务探针；修复由我 + 三个修复代理（文件集互不重叠）完成。两份迁移已应用生产并用回滚事务验证：
+`20260919_lease_insert_guard.sql`、`20260919_review_h_fixes.sql`。守卫：`tests/review20260919Screening.spec.ts`（34）、
+`tests/review20260919Forensics.spec.ts`、`tests/listingSearchCommercial.spec.ts`「review 2026-09-19」段、`tests/contactRoute.spec.ts`。
+全套 697 个测试。值得记住的模式：
+- **守卫触发器只挂 UPDATE = INSERT 是敞开的。** `lease_documents` 的守卫只在 UPDATE 触发、策略 `FOR ALL` 无 WITH CHECK：
+  房东可直接 INSERT 一条 `signed_both` + 伪造 tenant_signature + 自选 sign_token 的租约；任何有 tenants 行的账号还能带着
+  别人的 landlord_id（房源页公开）插进对方工作台。现在守卫 `BEFORE INSERT OR UPDATE`（客户端插入一律清签名 / token /
+  sent_at，status 只许 draft|active；更新时 status 只能在 draft/active/ended 间走、landlord_id 冻结、**发送后条款即冻结**
+  而不是签了才冻结），策略拆成 双方 SELECT / 房东 INSERT·UPDATE / 未签才可 DELETE。**探针别选管理员账号**——
+  `is_direct_client_write()` 对管理员放行，第一次探针因此看起来「没修好」。
+- **「纸面状态」不是对方确认。** 公开 Passport 卡曾把 `status='active'`（房东自己手填的在管记录）当租史证据，一个账号就能
+  造出按时付租记录；现在只认 verified household 或双方签名 + signed_at。`accept_household_invite` 置 verified 还要求
+  接受者 ≠ 邀请者且登录邮箱 = 受邀邮箱（成员资格不受影响）。经纪认证：RECO 注册库全是公开信息，对得上只能证明
+  「这位注册人存在」——`reco_number` 加了在途唯一索引，后台队列对个人邮箱标琥珀警告，审计事件策略限制本人只能写
+  submitted/edited；**核验按钮带 `updated_at`（经纪）/ 地址+租金（房源）条件**，对方在管理员打开页面后改了资料则 0 行并重载。
+- **发邮件的路由都是潜在中继。** `/api/verify/create` 的 tenant_name 未转义直接进 HTML、收件人任填、测试月内人人可用、
+  无限流 → 已转义 + 每账号每小时 10 封；`/api/agent/execute` 三个执行器共用每小时 20 封；`/api/lease/send` 补了
+  「必须是该租约的房东」检查（RLS 可读 ≠ 房东，租客与 household 成员也可读）+ 每小时 10 封。统一走
+  `lib/rateLimit.ts underHourlyLimit(key, limit, failOpen)`（复用 `bump_anon_rate_limit`，service role；**发信类 fail-closed，
+  成本类 fail-open**）。reflect 路由改用自己的桶（原来与 turn 共用计数，聊 5 句就把反思锁死）。
+- **匿名面的成本上限要有全局的。** 匿名 turn 的 stageLabel / workflow.* / attachment_names 无长度上限，系统提示可被撑到
+  12 MB；一次匿名商业检索最多 81 个 Jina 请求。现在字段全部截断，匿名检索预算 6 查询 / 12 读页 / 不重试
+  （`BUDGET_ANON`），另加全站匿名 turn 每小时 400 的总闸。`/api/deep-check` 在测试月内**完全不需要登录**
+  （`inInternalTestWindow()` 在读 Authorization 之前就 return）→ 先 getUser，窗口只跳过计划检查，每用户每小时 20 次。
+- **Stripe webhook**：supabase-js 写失败不抛异常，三个订阅处理器从不读 error → 钱收了 plan 还是 free 且 customer id 没落库；
+  现在 throw 让 Stripe 重试。`subscription.updated` 改为 `subscriptions.retrieve` 取**当前**状态（迟到的旧事件曾能在
+  deleted 之后把 Pro 复活）。解锁账本加 `fulfilled_at`：「见过」≠「已履约」。测试月结束后的首月配额从 10-14 之后算起。
+- **申请表第五个阻断原因**：`...form` 里五个 date 列是 `''`（两个根本没有输入框）→ 22007。空串统一转 null。至此匿名探针
+  `insert ok, attach=t`。
+- **商业检索（昨天新写，首次独立审查 15 条）**：分数 −1 的搜索命中落不进任何分数带 → 永不被读（多数办公 / 零售命中）；
+  `commercialKind` 关键词回退把「house, big lot」「工业风装修」「办公室附近」「near Commercial Drive」劫持到商业路径
+  （现在有 min_beds 或住宅词即返回 null，关键词要带「space / 出租 / 厂房」等限定）；出售页与「Single Family」住宅页被当成
+  「价格面议」的完美匹配（无单位价格 / 住宅类型即丢）；净高取到办公区的 9' ceiling（现在收集全部、clear 优先于 ceiling、
+  取最大、左边界防 "5,000 ft clear span"）；禁止用途漏「No automotive, recreational or food uses」「…uses not permitted」、
+  误判「no better location for recreational uses」；`/auto|car/` 命中 daycare / skincare / automation；「TMI: $12,000 per year」
+  读成 $12/sqft；月租报价 + TMI 的年成本漏加 TMI（`annual_all_in` 标记，汇总只算真正含 TMI 的）；`normalizeArea` 在商业分支
+  之前把「Markham/ Richmond Hill /Vaughan」砍成 Markham；`cityAllowed` 子串匹配让 "Toronto, ON" 的 "on" 放行 London /
+  Brampton、"Concord" 查不到「Vaughan (Concord)」（`SUBAREA_CITY` 映射 + 社区匹配）；「换一批」不传排除集、每轮重读同样
+  48 页（现在按 URL slug 前缀在读页前排除）；英文界面看到中文 pill（新增 `specs_en / specs_warn_en / note_en /
+  property_type_en / warn_codes`，表格红色样式按 code 而不是 `startsWith('净高')`）；收藏商业卡显示成「$0/月 · Studio」；
+  记忆 key 复用但 memory_type 不同仍插新行（upsert 前按已有行钉住类型）。
+- **筛查管线**：租金留空时已核实收入只得 30（现在 70 + 「未填目标租金」）；`matchPortalParty('Lin Lin Zhang', …, 'ZHANG, LIN')`
+  一个记录词满足两个查询词 → strong → 硬门槛（记录词按多重集消费）；打印报告在法院门户超时时仍印绿色「已查无记录」；
+  强匹配已触发硬门槛而租务卡还写「仅姓名匹配未计分」；「Relocating for work」+ 不带省份的 Toronto 地址被判「归国侨民」；
+  空名 / 单词名 / 中文名被判身份不一致 −20；连接中断的流被抢救成缺 gates / flags 的「scored」；单申请人档案的 gateCap 在
+  doc_tampering 推入前就算好了；征信查询日期 "Oct 02, 2024" / "09/01/2024" 全被丢 → 0 次查询；done / graph 页把
+  Communication 当第五维度。新助手 `lib/screening/scoreGuards.ts`。
+- **取证 / 深度核查 / LTB**：Offer 信里「start date will be September 1」在 9-1 之后让真信被判「PDF 早于文件日期」（伪造码）；
+  **LTB 街道佐证只比城市首词的子串**——ST CATHARINES 的 "ST" 命中「25 King St W, Toronto」、NORTH YORK 命中
+  「King St North, Waterloo」（佐证命中 −30 / 两条即 decline；现在整城市词组、街道之后、≥2 词或 ≥4 字母；子集匹配还要求
+  名）；联邦注册库 status 是数字码（'11' 已解散 76 万行）→ `registryStatusKind` 回 unknown → 绿色 CLEAN 旁边印个「11」
+  （`federalStatusText`）；信头「since 1985」被当入职年；「car allowance $1,600 per month」被当年薪；amalgamated / continued
+  不是注销；征信拉取前的身份匹配只要一个共同词（Maria Garcia ≈ Maria Lopez）且不比生日（`lib/verify/identityMatch.ts`，
+  非 mock 供应商必须有已核验身份）；「T: … F: …」被判电话不一致、法英双语标签被判拼写错误；`ei\b|dd\b|pay\b` 无左边界
+  让「E-TRANSFER FROM WEI / TODD」算工资；七个正则在 5 万字单类字符上 3–7 秒（`collapseRuns` 在 pdf-text 源头与两个 OCR
+  汇入点截到 200）。两个 ingest 脚本「什么都没做也 exit 0」已改为失败。
+- **文案与事实**：`/contact` 表单不发任何东西却提示「已收到」（定价 Business、合作、隐私请求的唯一去向）→ 真路由
+  `/api/contact`（Resend → privacy@stayloop.ai）；房源页写死的「142 views · 9 intents」热度卡、无人设置却署名「房东设置」的
+  收入 ×2.5 / 信用 ≥700 门槛（trust_tier 从未被写入）、假的 tier1「身份已核验」页（挂 SampleBanner、去 Persona）、定价页的
+  在线收租 / T776 / 5 clients、Trust API 的「20k+ passports · 99.95% uptime」与不存在的 npm SDK、三处「链上」、发布向导
+  step 4 的「系统自动筛选 + Plaid + 通过率」、退役的派单弹窗 IntentModal，全部删改为事实。
+- **隐私披露与实际出境不符（已改披露，是否继续使用由用户定）**：生产近 30 天有 24 次扫描件 OCR 走阿里云 DashScope
+  **中国大陆端点**（取证 OCR 回退），turn 槽位有 19 次 DeepSeek；隐私页原写「Anthropic 等，服务器位于美国」。现在第 2 节
+  如实列出：默认 Anthropic / OpenAI / Google（美国）、扫描件 OCR 回退 DashScope（中国大陆）、用户自选模型的服务商所在地、
+  Jina（德国 / 美国）检索中转。要停掉大陆出境只需在 CF 后台移除 `DASHSCOPE_API_KEY`（OCR 回退会如实标「不可读」）。
+- **定时任务**：`ltb-refresh.yml` 的两次定时运行都死在 `npm ci`（lockfile），LTB 目录自 2026-08-22 起没刷新；
+  `ca_corp_registry` 停在 08-02（09-05 那次截断下载「成功」）。本轮部署后手动 dispatch 两个 workflow。
+**记录不改**：`/api/trust/verify` 查询不存在的 `rental_passports` 表（`trust_api_keys` 0 行，不可达）；screen-score 的
+HR 电话撞号规则从未触发（applicant_phone 只取自 notes）；`app/screening/app/page.tsx` 里不可达的「申请人付款」残留 UI 与
+补充检索行 `CanLII (<name>)` 仍被结果页计为失败数据源；household/extract、classify-files 仍无持久限流。
+
 ## 找房卡片一页 6 套 + 「换一批」（2026-09-16 · 用户要求）
 
 租客管家的房源卡默认一次 6 套（桌面端正好两排），下面一个「换一批」按钮显示排在后面的 6 套。落地：

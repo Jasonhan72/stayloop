@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isVerifyToken } from '@/lib/verify/token'
 import { adminClient, isExpired, loadRequest, providerAvailability, toPublicView, writeStep } from '@/lib/verify/store'
 import { creditProvider, creditProviderIsSandbox, pullCredit } from '@/lib/verify/providers/equifax'
+import { checkCreditPullIdentity, type VerifiedIdentity } from '@/lib/verify/identityMatch'
 
 export const runtime = 'edge'
 
@@ -33,22 +34,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
   // name and DOB were typed. With a Veriff-approved identity on this
   // request the typed name must match it; without one it must match the
   // consent signature and the applicant the landlord named.
-  const norm = (x: string | null | undefined) => (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z\s]/g, ' ').split(/\s+/).filter((t) => t.length > 1)
-  const inputToks = norm(`${input.first_name} ${input.last_name}`)
-  const overlaps = (name: string | null | undefined) => { const t = norm(name); return t.length > 0 && inputToks.length > 0 && t.some((x) => inputToks.includes(x)) && inputToks.some((x) => t.includes(x)) }
+  //
+  // Review 2026-09-19: one shared token used to pass (verified "Maria Garcia"
+  // vs typed "Maria Lopez") and the typed DOB was never compared with the
+  // identity provider's. Every typed name token must now be in the verified
+  // name, the DOB must equal the verified one, and a real bureau provider
+  // requires a verified identity step (lib/verify/identityMatch.ts).
   const idStep = row.steps?.id
-  const idRes = idStep && idStep.status === 'verified' ? (idStep.result as { first_name?: string | null; last_name?: string | null; decision?: string } | null) : null
-  if (idRes) {
-    if (!overlaps(`${idRes.first_name || ''} ${idRes.last_name || ''}`)) {
-      return NextResponse.json({ ok: false, error: 'identity_mismatch', detail: 'The name entered does not match the identity verified on this request.' }, { status: 403 })
-    }
-  } else {
-    const signed = row.consent?.typed_name
-    const named = (row as { tenant_name?: string | null }).tenant_name
-    if (!overlaps(signed) || (named && !overlaps(named))) {
-      return NextResponse.json({ ok: false, error: 'identity_mismatch', detail: 'The name entered must match the consent signature and the applicant this request was created for.' }, { status: 403 })
-    }
-  }
+  const idRes = idStep && idStep.status === 'verified' ? (idStep.result as VerifiedIdentity) : null
+  const verdict = checkCreditPullIdentity({
+    provider: creditProvider(),
+    typed: input,
+    verifiedId: idRes,
+    consentName: row.consent?.typed_name,
+    landlordNamedApplicant: (row as { tenant_name?: string | null }).tenant_name,
+  })
+  if (!verdict.ok) return NextResponse.json({ ok: false, error: verdict.error, detail: verdict.detail }, { status: 403 })
   const provider = creditProvider() || 'unknown'
   const sandbox = creditProviderIsSandbox()
   try {

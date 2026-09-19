@@ -389,6 +389,7 @@ async function main() {
   //    uncompressed XML file (~20-30MB) + one batch (~500 rows).
   let totalRows = 0
   let batch = []
+  const failedExtracts = []
   const t1 = Date.now()
 
   for (let i = resumeFrom; i < xmlFiles.length; i++) {
@@ -397,7 +398,11 @@ async function main() {
     try {
       text = extractOneToString(zipPath, fname)
     } catch (e) {
-      console.warn(`[ingest] Failed to extract ${fname}: ${e.message} — skipping`)
+      // Keep going so the readable files still land, but the run FAILS at the
+      // end (review 2026-09-19): a "skipped" extract used to finish "Done",
+      // exit 0, with part — or none — of the registry refreshed.
+      console.error(`[ingest] Failed to extract ${fname}: ${e.message}`)
+      failedExtracts.push(fname)
       continue
     }
     const blocks = extractCorporations(text)
@@ -423,6 +428,12 @@ async function main() {
   }
 
   const elapsedMin = ((Date.now() - t0) / 1000 / 60).toFixed(1)
+  if (failedExtracts.length > 0) {
+    throw new Error(`${failedExtracts.length} of ${xmlFiles.length} XML entries could not be extracted (${failedExtracts.slice(0, 5).join(', ')}) — ${totalRows} rows upserted, registry only PARTIALLY refreshed`)
+  }
+  if (totalRows === 0) {
+    throw new Error('0 rows upserted — refusing to report success')
+  }
   console.log(`[ingest] Done. Total rows upserted: ${totalRows} in ${elapsedMin} min`)
 
   // 5. Cleanup working dir (be kind to CI disk)

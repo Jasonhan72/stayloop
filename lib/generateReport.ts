@@ -27,8 +27,46 @@ const DIMS = [
   { id: 'communication', zhLabel: '申请完整度与沟通', enLabel: 'Application Quality', weight: null as number | null },
 ]
 
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+function esc(s: unknown): string {
+  // Model output is not guaranteed to be a string (review 2026-09-19).
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+// ─── Court sources that did NOT answer (shared with /screening/[id]/report) ───
+// Mirrors the result page: a free-tier source that was unavailable, timed out
+// or was skipped is not a clean source. The manual CanLII row (no name search
+// by design; it carries a pre-filled link) is a "search it yourself" item,
+// not a failed source. Review 2026-09-19: the print summary said "✓ N sources
+// searched, clear" when the courts portal had 403'd and only LTB answered.
+export function courtSourcesNotSearched(queries: CourtQuery[] | null | undefined): CourtQuery[] {
+  return (queries || []).filter(q =>
+    q.tier === 'free' && !q.source.startsWith('──') && q.source !== 'rollup'
+    // "CanLII" for the primary name, "CanLII (<name>)" for supplemental ones
+    && !(/^CanLII(?:\s*\(|$)/.test(q.source) && !/web index/i.test(q.source) && q.status === 'unavailable' && !!q.url)
+    && (q.status === 'unavailable' || q.status === 'timeout' || q.status === 'skipped'))
+}
+
+/** The "Court / LTB records" row of the summary checks. */
+export function courtSummaryCheck(args: { queries: CourtQuery[] | null | undefined; totalHits: number; courtRiskGate: boolean; zh: boolean }): { status: 'pass' | 'warn' | 'fail' | 'na'; detail: string } {
+  const { zh, totalHits, courtRiskGate } = args
+  const queries = args.queries || []
+  const dbCount = queries.filter(q => q.status === 'ok' && !q.source.startsWith('──')).length
+  const missed = courtSourcesNotSearched(queries).length
+  // Red only for a corroborated record with the applicant on the
+  // respondent / defendant side. A name match on the plaintiff side, or a
+  // namesake, is disclosed in the court section but is not a risk row.
+  if (courtRiskGate) return { status: 'fail', detail: zh ? `${totalHits} 条记录命中（被告/被申请人方）` : `${totalHits} record(s) — applicant on the respondent side` }
+  if (missed > 0) {
+    const tail = dbCount > 0 ? (zh ? `（已查 ${dbCount} 个${totalHits > 0 ? `，${totalHits} 条同名记录` : ''}）` : ` (${dbCount} searched${totalHits > 0 ? `, ${totalHits} name match(es)` : ''})`) : ''
+    return { status: 'warn', detail: zh ? `${missed} 个数据源未能检索 — 不代表无记录${tail}` : `${missed} source(s) could not be searched — not a clean result${tail}` }
+  }
+  if (dbCount === 0) return { status: 'na', detail: zh ? '未查询' : 'Not searched' }
+  return {
+    status: 'pass',
+    detail: totalHits === 0
+      ? (zh ? `已查 ${dbCount} 个数据源,无记录` : `${dbCount} sources searched, clear`)
+      : (zh ? `已查 ${dbCount} 个数据源，${totalHits} 条同名记录均非被告方或未佐证` : `${dbCount} sources searched; ${totalHits} name match(es), none on the respondent side or corroborated`),
+  }
 }
 
 // ─── Forensic check matrix (shared with /screening/[id]/report) ───
@@ -417,17 +455,7 @@ export async function generateScreeningReport(
     },
     {
       label: zh ? '法院 / LTB 记录' : 'Court / LTB records',
-      // Red only for a corroborated record with the applicant on the
-      // respondent / defendant side. A name match on the plaintiff side, or a
-      // namesake, is disclosed in the court section but is not a risk row.
-      status: dbCount === 0 ? 'na' : courtRiskGate ? 'fail' : 'pass',
-      detail: dbCount === 0
-        ? (zh ? '未查询' : 'Not searched')
-        : courtRiskGate
-          ? (zh ? `${totalHits} 条记录命中（被告/被申请人方）` : `${totalHits} record(s) — applicant on the respondent side`)
-          : totalHits === 0
-            ? (zh ? `已查 ${dbCount} 个数据源,无记录` : `${dbCount} sources searched, clear`)
-            : (zh ? `已查 ${dbCount} 个数据源，${totalHits} 条同名记录均非被告方或未佐证` : `${dbCount} sources searched; ${totalHits} name match(es), none on the respondent side or corroborated`),
+      ...courtSummaryCheck({ queries: courtQueries, totalHits, courtRiskGate, zh }),
     },
     {
       label: zh ? '收入负担能力（仅供参考）' : 'Income affordability (reference only)',

@@ -6,6 +6,7 @@
 //   • Authorization: Bearer <user JWT> + body {role} → reflect ONLY the
 //     caller, on their own RLS-scoped data (used by verification and by a
 //     future "刷新我的画像" button). Forced — ignores the staleness window.
+import { underHourlyLimit } from '@/lib/rateLimit'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { reflectUser, runReflectionSweep } from '@/lib/agent/reflection'
@@ -53,8 +54,10 @@ export async function POST(req: Request) {
 
   // Self mode is user-triggered and bypasses the staleness window, so it
   // gets its own durable per-hour budget (review 2026-09-14).
-  const { data: underLimit, error: rlErr } = await sb.rpc('bump_agent_rate_limit', { p_limit: 5 })
-  if (rlErr || underLimit === false) {
+  // Its OWN bucket: sharing the turn counter meant five chat turns in an
+  // hour locked reflection out, and each reflect ate a turn (review 2026-09-19).
+  const underLimit = await underHourlyLimit(`agent-reflect:${ud.user.id}`, 5, true)
+  if (underLimit === false) {
     return NextResponse.json({ error: 'Rate limit exceeded — retry later' }, { status: 429, headers: { 'Retry-After': '600' } })
   }
   try {

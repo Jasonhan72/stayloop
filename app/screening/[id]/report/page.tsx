@@ -33,7 +33,7 @@ import type { ScoreResult, CourtQuery, OntarioPortalMatch, LtbCheck } from '@/li
 import { sevColor } from '@/lib/screening-types'
 import { describeCodes } from '@/lib/ltb/search'
 import { RUBRIC_WEIGHTS, type RubricResult } from '@/lib/screening/rubric'
-import { buildForensicCheckMatrix, generateScreeningReport, isPositiveForensicFlag } from '@/lib/generateReport'
+import { buildForensicCheckMatrix, courtSourcesNotSearched, generateScreeningReport, isPositiveForensicFlag } from '@/lib/generateReport'
 import { registryLinks, inferProvince } from '@/lib/forensics/registry-links'
 import { analyzeCreditReport, SCORE_BANDS } from '@/lib/screening/creditAnalysis'
 
@@ -336,6 +336,11 @@ export default function ReportPage() {
   // holds the CanLII fan-out count (~78), and those "searches" hit an endpoint
   // that ignores the name — the count measured requests, not diligence.
   const okDbCount = courtRows.filter(q => q.status === 'ok').length
+  // Sources that did not answer (portal 403 / timeout / skipped). The manual
+  // CanLII row is a link, not a failed source. Review 2026-09-19: the section
+  // read "N sources searched · 0 hits" in green while the courts portal had
+  // not been searched at all.
+  const courtNotSearched = courtSourcesNotSearched(courtQueries).length
 
   // Income: per-paystub verification rows from forensics
   const paystubFiles = (forensics?.per_file || []).filter(pf =>
@@ -1420,8 +1425,8 @@ export default function ReportPage() {
               id="court"
               title={zh ? '法庭 / LTB 记录检索披露' : 'COURT / LTB SEARCH DISCLOSURE'}
               subtitle={zh
-                ? `${okDbCount} 个数据源已检索 · 门户命中 ${totalHits} 条`
-                : `${okDbCount} sources searched · ${totalHits} portal hit(s)`}
+                ? `${okDbCount} 个数据源已检索${courtNotSearched > 0 ? ` · ${courtNotSearched} 个未能检索` : ''} · 门户命中 ${totalHits} 条`
+                : `${okDbCount} sources searched${courtNotSearched > 0 ? ` · ${courtNotSearched} could not be searched` : ''} · ${totalHits} portal hit(s)`}
             >
               {(r.court_summary_en || r.court_summary_zh) && (
                 <p className="mb-4 text-[13px] text-body-2">
@@ -1430,7 +1435,10 @@ export default function ReportPage() {
               )}
               <div className="space-y-0.5">
                 <KV k={zh ? '检索姓名' : 'Queried name'}><strong>{queriedName}</strong></KV>
-                <KV k={zh ? '法院门户命中' : 'Portal hits'}><strong style={{ color: hardGates.some(g => g.startsWith('court_record') || g.startsWith('ltb_')) ? '#DC2626' : '#16A34A' }}>{totalHits}</strong>{totalHits > 0 && !hardGates.some(g => g.startsWith('court_record') || g.startsWith('ltb_')) && <span className="ml-2 text-[11px] text-body-3">{zh ? '同名记录，非被告方或未佐证 — 不计风险' : 'name match(es) on the non-respondent side or uncorroborated — not a risk signal'}</span>}</KV>
+                {courtNotSearched > 0 && (
+                  <KV k={zh ? '未能检索' : 'Not searched'}><strong style={{ color: '#D97706' }}>{zh ? `⚠ ${courtNotSearched} 个数据源未能检索 — 不代表无记录` : `⚠ ${courtNotSearched} source(s) could not be searched — not a clean result`}</strong></KV>
+                )}
+                <KV k={zh ? '法院门户命中' : 'Portal hits'}><strong style={{ color: hardGates.some(g => g.startsWith('court_record') || g.startsWith('ltb_')) ? '#DC2626' : courtNotSearched > 0 && totalHits === 0 ? '#D97706' : '#16A34A' }}>{totalHits}</strong>{totalHits > 0 && !hardGates.some(g => g.startsWith('court_record') || g.startsWith('ltb_')) && <span className="ml-2 text-[11px] text-body-3">{zh ? '同名记录，非被告方或未佐证 — 不计风险' : 'name match(es) on the non-respondent side or uncorroborated — not a risk signal'}</span>}</KV>
                 {courtDetail?.partial && (
                   <KV k={zh ? '完整性' : 'Completeness'}><span style={{ color: '#D97706' }}>{zh ? '部分数据源在 12 秒预算内未响应，见下表标注' : 'Some sources did not respond within the 12s budget — see rows below'}</span></KV>
                 )}

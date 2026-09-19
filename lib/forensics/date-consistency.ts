@@ -60,15 +60,26 @@ export function extractDocumentDate(kind: string, text: string | null | undefine
     if (m && MONTHS[m[2].toLowerCase()]) return iso(+m[3], MONTHS[m[2].toLowerCase()], +m[1])
     return null
   }
-  const allLongForm = (s: string): string[] => {
-    const out: string[] = []
+  const allLongForm = (s: string): { d: string; at: number }[] => {
+    const out: { d: string; at: number }[] = []
     for (const m of s.matchAll(/\b([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+((?:19|20)\d{2})\b/g)) {
-      if (MONTHS[m[1].toLowerCase()]) { const d = iso(+m[3], MONTHS[m[1].toLowerCase()], +m[2]); if (d) out.push(d) }
+      if (MONTHS[m[1].toLowerCase()]) { const d = iso(+m[3], MONTHS[m[1].toLowerCase()], +m[2]); if (d) out.push({ d, at: m.index! }) }
     }
     for (const m of s.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([A-Za-z]{3,9})\.?,?\s+((?:19|20)\d{2})\b/g)) {
-      if (MONTHS[m[2].toLowerCase()]) { const d = iso(+m[3], MONTHS[m[2].toLowerCase()], +m[1]); if (d) out.push(d) }
+      if (MONTHS[m[2].toLowerCase()]) { const d = iso(+m[3], MONTHS[m[2].toLowerCase()], +m[1]); if (d) out.push({ d, at: m.index! }) }
     }
-    return out
+    return out.sort((a, b) => a.at - b.at)
+  }
+  // A date the letter INTRODUCES as something else is not the letter's own
+  // date (review 2026-09-19): "your start date will be September 1, 2026" /
+  // "salary increased to $90,000 effective September 1" in a letter written
+  // (and its PDF created) in June read as "created before document date" —
+  // a forgery-indicating HIGH — as soon as September 1 had passed.
+  const EVENT_WORDING = /\b(?:start(?:s|ed|ing)?|effective|commenc\w*|review\w*|expir\w*|since|s[ci]{1,2}n[cs]e|joined|join(?:s|ing)?|hired?|first day|begin(?:s|ning)?|began|birth|born|dob|deadline|probation\w*|anniversary|renew\w*)\b[^.;!?]{0,40}$/i
+  const ADJACENT_WORDING = /\b(?:by|until|till|before|from|no later than|on or before|through|to)\s+(?:[A-Za-z]+,\s+)?$/i
+  const isEventDate = (at: number): boolean => {
+    const pre = t.slice(Math.max(0, at - 40), at)
+    return EVENT_WORDING.test(pre) || ADJACENT_WORDING.test(pre)
   }
   const labelled = (labels: RegExp): string | null => {
     const m = t.match(labels)
@@ -95,15 +106,21 @@ export function extractDocumentDate(kind: string, text: string | null | undefine
     case 'employment_letter':
     case 'offer_letter':
     case 'reference': {
-      // A "Date:" label wins; otherwise the LATEST long-form date that is not
-      // in the future (a start date months ahead used to be read as the
-      // letter's own date and flagged "created before document date" —
+      // A "Date:" label wins (a start date months ahead used to be read as
+      // the letter's own date and flagged "created before document date" —
       // review 2026-09-14).
       const lab = t.match(/(?<!start\s|hire\s|effective\s|commencement\s)\bdate\s*:\s*([A-Za-z]+\.?\s+\d{1,2},?\s+(?:19|20)\d{2}|\d{1,2}\s+[A-Za-z]+\.?,?\s+(?:19|20)\d{2}|(?:19|20)\d{2}-\d{2}-\d{2})/i)
       if (lab) { const d = longForm(lab[1]) || ymdSlash(lab[1]); if (d) return d }
       const today = new Date().toISOString().slice(0, 10)
-      const all = allLongForm(t).filter(d => d <= today).sort()
-      return all.length ? all[all.length - 1] : (longForm(t) && longForm(t)! <= today ? longForm(t) : null)
+      // Letters lead with their own date: the first plain date in the
+      // letterhead region wins; otherwise the latest plain non-future date.
+      // Dates introduced as a start / effective / review / deadline date are
+      // never the letter's date.
+      const plain = allLongForm(t).filter(x => x.d <= today && !isEventDate(x.at))
+      const head = plain.find(x => x.at < 400)
+      if (head) return head.d
+      const rest = plain.map(x => x.d).sort()
+      return rest.length ? rest[rest.length - 1] : null
     }
     default:
       return null

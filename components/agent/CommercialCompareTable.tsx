@@ -38,7 +38,7 @@ export default function CommercialCompareTable({ listings }: { listings: Listing
         <tbody>
           {rows.map((l, i) => {
             const ask = l.rate_psf != null ? `$${l.rate_psf}/sqft` : l.price_basis === 'monthly' ? `${money(l.price)}/${zh ? '月' : 'mo'}` : '—'
-            const annualLabel = l.annual_cost != null ? money(l.annual_cost) + (l.tmi_psf == null && l.rate_psf != null ? (zh ? ' 净' : ' net') : '') : '—'
+            const annualLabel = l.annual_cost != null ? money(l.annual_cost) + (!l.annual_all_in ? (zh ? ' 净' : ' net') : '') : '—'
             const bad = (l.fit_tier ?? 0) >= 3
             return (
               <tr key={l.id} className="border-t border-line-divider align-top" style={bad ? { background: 'rgba(220,38,38,0.04)' } : undefined}>
@@ -48,11 +48,11 @@ export default function CommercialCompareTable({ listings }: { listings: Listing
                     {l.address}
                   </a>
                   <div className="text-[11px] text-body-3">
-                    {[l.city, l.property_type, l.mls ? `MLS ${l.mls}` : null].filter(Boolean).join(' · ')}
+                    {[l.city, zh ? l.property_type : l.property_type_en || l.property_type, l.mls ? `MLS ${l.mls}` : null].filter(Boolean).join(' · ')}
                   </div>
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">{l.sqft ? l.sqft.toLocaleString() : l.sqft_min != null ? `${l.sqft_min.toLocaleString()}+` : '—'}</td>
-                <td className="px-3 py-2 text-right tabular-nums" style={l.specs_warn?.some((w) => w.startsWith('净高')) ? { color: '#B91C1C', fontWeight: 600 } : undefined}>
+                <td className="px-3 py-2 text-right tabular-nums" style={l.warn_codes?.includes('clear_short') ? { color: '#B91C1C', fontWeight: 600 } : undefined}>
                   {l.clear_ft != null ? `${l.clear_ft}'` : h('需确认', 'TBC')}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">
@@ -69,7 +69,7 @@ export default function CommercialCompareTable({ listings }: { listings: Listing
                 <td className="px-3 py-2">
                   {l.specs_warn?.length ? (
                     <div className="flex flex-wrap gap-1">
-                      {l.specs_warn.map((w) => (
+                      {((zh ? l.specs_warn : l.specs_warn_en || l.specs_warn) || []).map((w) => (
                         <span key={w} className="rounded-md px-1.5 py-0.5 font-mono text-[10px]" style={{ background: 'rgba(220,38,38,0.08)', color: '#B91C1C' }}>
                           {w}
                         </span>
