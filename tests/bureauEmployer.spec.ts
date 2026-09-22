@@ -57,6 +57,7 @@ describe('banks are Bank Act schedule listings, not registry filings', () => {
     expect(r.company_info?.status).toMatch(/^Active/)
     expect(r.flags.map(f => f.code)).toContain('employer_bank_act_listed')
     expect(r.flags.map(f => f.code)).not.toContain('arm_length_company_not_found')
+    expect(r.flags.map(f => f.code)).not.toContain('arm_length_officers_unavailable')
     expect(r.arm_length_risk).toBe('clean')
   })
   it('a lender in court is routine business, not an employer-stability warning', () => {

@@ -767,7 +767,9 @@ export async function checkArmLength(
     })
   }
 
-  if (companyInfo && companyInfo.officers.length === 0 && !applicantIsOfficer && !signatoryOwnerFamily) {
+  // A bank's board is not the question — an applicant is not running the
+  // bank they work at — so the caveat is only for registry companies.
+  if (companyInfo && !bank && companyInfo.officers.length === 0 && !applicantIsOfficer && !signatoryOwnerFamily) {
     // CBR/MRAS carries no director data, and OpenCorporates runs only with a
     // paid token. Without this line a "clean" verdict reads as "directors
     // checked, no relationship found" when the truth is "directors could not
