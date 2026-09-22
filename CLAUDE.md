@@ -454,6 +454,22 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
   「房源 10 套里 8 套 Realtor」——`/listings` 已挂「示范阶段 · TRREB 未接入」横幅；「ABOUT 关于这套房源」——v9 设计的
   英文 mono 眉标 + 中文标题是全站体例；「定价页测试期免费 vs 财务面板即将推出」——财务面板确实还是样例页，标注属实。
 
+## EliseAI 对照研究（2026-09-22 · 用户要求「研究 eliseai.com，找到我们可以用的方法，包含 UI/UX」）
+
+研究稿 `design/eliseai-benchmark-2026-09.md`（产品结构 / 页面模板 / 视觉系统计算值 / 与 Stayloop 逐项对照 / 采用清单 A–L /
+不抄清单），蓝本 `design/eliseai-role-template-2026-09.html`（/landlord 按「六段模板」重排：hero + 事实 chip 行 → 三张收益卡各带
+一句「试一试」→ journey → 一个真数 → FAQ → CTA；另含房源页费用卡、手机深底 hero、字号对照表）。EliseAI 面向美国机构级多户运营商，
+核心可借的是**方法**：一条对话贯穿租客生命周期、页页专属 FAQ、每页只放一个可核实的数字、「试一试」入口、费用集中披露、续约
+30/60/90 三阶触点。**不抄**：logo 墙 / 评分 / SOC 2 徽章 / 百分比收益（我们没有可审计的对照组）、催收谈判、智能锁自助看房、
+Lease Audits、VoiceAI。已直接落地的两项（纯加法、不动已定稿结构，守卫在 `tests/walkthrough20260922.spec.ts` 末段）：
+- **房源页「入住前费用一览」**（`MoveInCosts`，`app/listings/[slug]/page.tsx`）：首月租金 + 租金押金（未设则「房东未设置」）+
+  钥匙押金「以租约为准」+ 合计；押金 > 一个月租金红条引 RTA s.106；划掉安省不允许的申请费 / 信用检查费 / 宠物押金 / 清洁押金 /
+  预付租金。无新列。
+- **首页 `?role=<r>&ask=<问题>` 深链**（`HomeNext`，mount 后读、发一次、`replaceState` 清参数）：角色页 / 筛查页的例句可以
+  把访客送回 Hero 对话。仅 effect 内读 URL，遵守「首屏不按客户端状态分支」规则。
+其余（角色页 FAQ / 真数 / chip 行 / 字号「大而轻」/ 手机深底 hero / 数据来源页 / 续约三阶 / 看房意向进对话）等用户看蓝本定稿后再动
+`components/RoleLanding.tsx`。
+
 ## 房东端 UX 修复清单（2026-09-22 · `bug 修复/stayloop-fix-list.pdf`，14 条，研究后取舍）
 
 外部评审（匿名 + 测试账号登录）给的 SL-LL-001～014。先对照代码复现再决定，守卫 `tests/fixList20260922.spec.ts`（11 条）：

@@ -158,6 +158,22 @@ export default function HomeNext() {
     agent: customName(agentName),
   }
 
+  // Deep link from role / screening pages: `/?role=landlord&ask=<question>` opens
+  // the hero conversation on that role and sends the question once (2026-09-22,
+  // EliseAI benchmark item C). Read after mount only — never during hydration.
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search)
+      const q = (sp.get('ask') || '').trim().slice(0, 300)
+      if (!q) return
+      const r = sp.get('role')
+      const rr: AgentRole = r === 'landlord' || r === 'agent' || r === 'tenant' ? r : 'tenant'
+      setRole(rr)
+      setQueued({ role: rr, prompt: q })
+      window.history.replaceState(null, '', window.location.pathname)
+    } catch { /* no-op */ }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     fetch('/api/public/stats').then((r) => r.json()).then((j) => { if (!cancelled && j?.ok) setStats(j) }).catch(() => {})

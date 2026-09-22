@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stayloop · 角色页新模板蓝本（EliseAI 对照，2026-09-22）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand:#00ACE4; --brand-strong:#0094C6; --ink:#1B1B3C; --body:#1B1B3C; --body-2:#4A4A6A; --body-3:#6E6E8A;
+    --surface:#F3F8FC; --surface-2:#E3F2FC; --line:#D3E3EF; --line-2:#E4EEF6; --ok:#6AB344; --amber:#B45309; --amber-bg:#FFFBEB;
+    --w:1160px; --w-text:680px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,"PingFang SC","Noto Sans SC",sans-serif;color:var(--body);background:#fff;font-size:17px;line-height:1.6}
+  a{color:var(--brand-strong);text-decoration:none}
+  .wrap{max-width:var(--w);margin:0 auto;padding:0 24px}
+  .eyebrow{font:500 13px/1 "JetBrains Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-strong)}
+  h1,h2,h3{font-family:"Inter Tight",Inter,sans-serif;margin:0;color:var(--ink)}
+  h1{font-size:60px;font-weight:600;line-height:1.05;letter-spacing:-.03em}
+  h2{font-size:38px;font-weight:500;line-height:1.15;letter-spacing:-.02em;margin-top:10px}
+  h3{font-size:20px;font-weight:600;line-height:1.3}
+  p{margin:.5em 0 0}
+  .lead{font-size:19px;color:var(--body-2);max-width:var(--w-text)}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:14px 24px;border-radius:999px;font-weight:600;font-size:16px;border:1px solid transparent}
+  .btn-primary{background:var(--brand);color:#fff}.btn-primary:hover{background:var(--brand-strong)}
+  .btn-secondary{background:#fff;color:var(--ink);border-color:var(--line)}
+  section{padding:88px 0;border-top:1px solid var(--line-2)}
+  section:first-of-type{border-top:0}
+  /* annotations for reviewer */
+  .note{position:relative}
+  .note::before{content:attr(data-n);position:absolute;left:-52px;top:0;width:36px;height:36px;border-radius:50%;background:var(--amber-bg);color:var(--amber);border:1px solid #FCD34D;font:700 13px/34px "JetBrains Mono",monospace;text-align:center}
+  .legend{background:var(--amber-bg);border:1px solid #FCD34D;border-radius:12px;padding:16px 20px;font-size:14px;color:#7C2D12;margin:24px auto;max-width:var(--w)}
+  .legend b{font-family:"JetBrains Mono",monospace}
+
+  /* hero */
+  .hero{background:linear-gradient(180deg,#E9F5FD 0%,#fff 100%);padding:96px 0 72px}
+  .hero-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:56px;align-items:center}
+  .hero .cta{display:flex;gap:12px;margin-top:28px;flex-wrap:wrap}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:13px;color:var(--body-2)}
+  .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+  .mock{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 20px 60px rgba(27,27,60,.08);padding:20px}
+  .mock .bar{display:flex;gap:6px;margin-bottom:14px}.mock .bar i{width:10px;height:10px;border-radius:50%;background:var(--line)}
+  .bubble{border-radius:14px;padding:12px 14px;font-size:15px;max-width:88%;margin-top:10px;line-height:1.5}
+  .bubble.u{background:var(--brand);color:#fff;margin-left:auto}
+  .bubble.a{background:var(--surface);color:var(--ink)}
+  .card-task{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14px;background:#fff}
+  .card-task b{display:block;font-size:12px;color:var(--brand-strong);letter-spacing:.08em;font-family:"JetBrains Mono",monospace}
+
+  /* benefit cards */
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:40px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px}
+  .card .shot{background:var(--surface);border:1px dashed var(--line);border-radius:10px;height:150px;display:grid;place-items:center;color:var(--body-3);font-size:13px;font-family:"JetBrains Mono",monospace}
+  .card p{font-size:15px;color:var(--body-2)}
+  .try{margin-top:auto;display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:var(--surface-2);color:var(--ink);font-size:14px;border:1px solid var(--line)}
+  .try::before{content:"›";font-weight:700;color:var(--brand-strong)}
+
+  /* one number */
+  .band{background:var(--ink);color:#fff;border-radius:24px;padding:56px;display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+  .band .num{font:600 84px/1 "Inter Tight",sans-serif;letter-spacing:-.04em;background:linear-gradient(90deg,#fff,var(--brand));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .band small{display:block;margin-top:12px;font-size:13px;color:#A9B7C9;font-family:"JetBrains Mono",monospace}
+  .band p{color:#D6E2EE;font-size:17px}
+
+  /* faq */
+  .faq{max-width:800px;margin:36px auto 0}
+  details{border-top:1px solid var(--line-2);padding:18px 0}
+  details:last-child{border-bottom:1px solid var(--line-2)}
+  summary{cursor:pointer;font-weight:600;font-size:18px;color:var(--ink);list-style:none;display:flex;justify-content:space-between;gap:16px}
+  summary::after{content:"+";color:var(--brand-strong);font-weight:500}
+  details[open] summary::after{content:"–"}
+  details p{font-size:16px;color:var(--body-2);max-width:var(--w-text)}
+
+  /* fee card (listing page) */
+  .fee{max-width:560px;border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-top:24px}
+  .fee .head{background:var(--surface);padding:14px 18px;font-weight:600;display:flex;justify-content:space-between}
+  .fee .row{display:flex;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--line-2);font-size:15px}
+  .fee .row .k{color:var(--body-2)}
+  .fee .row.tot{font-weight:700;background:#fff}
+  .fee .no{padding:12px 18px;border-top:1px solid var(--line-2);font-size:13px;color:var(--body-3);background:#FCFDFE}
+  .fee .no s{color:#9F1239;text-decoration-color:#9F1239}
+
+  /* closing */
+  .closing{text-align:center}
+  .closing h2{font-size:44px}
+
+  /* mobile preview frame */
+  .phone{width:375px;margin:32px auto 0;border:10px solid #1B1B3C;border-radius:36px;overflow:hidden;background:#fff}
+  .phone .mh{background:linear-gradient(180deg,#1B1B3C 0%,#0f1b33 100%);color:#fff;padding:28px 20px 24px}
+  .phone .mh .eyebrow{color:#7DD3F5}
+  .phone .mh h1{color:#fff;font-size:34px;letter-spacing:-.02em}
+  .phone .mh p{color:#C9D6E5;font-size:15px}
+  .phone .mh .btn{width:100%;justify-content:center;margin-top:10px}
+  .phone .mh .btn-secondary{background:transparent;color:#fff;border-color:#3B4A63}
+  .phone .mb{padding:18px 20px;font-size:13px;color:var(--body-3)}
+
+  @media (max-width:900px){
+    h1{font-size:40px}h2{font-size:30px}.hero-grid,.grid3,.band{grid-template-columns:1fr}.note::before{display:none}.band{padding:32px}.band .num{font-size:60px}
+  }
+</style>
+</head>
+<body>
+
+<div class="legend">
+  <b>审阅说明</b> · 这是 <b>/landlord</b> 页按「EliseAI 六段模板」重排的蓝本，配色 / 字体族沿用 v9（Flinks 蓝系），只改结构、字号与新增段落。
+  琥珀圆圈编号对应 <b>design/eliseai-benchmark-2026-09.md</b> 第 3 节的 A–L。租客页 / 经纪页同模板换文案。
+  定稿后才动 <b>components/RoleLanding.tsx</b>；「入住前费用一览」（E）是纯事实卡，可先做。
+</div>
+
+<!-- ① HERO + CHIP ROW -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="note" data-n="D">
+      <div class="eyebrow">Landlord · Logic</div>
+      <h1 style="margin-top:14px">把筛查、租约、续约<br>交给一个会追问的助手</h1>
+      <p class="lead">上传申请人材料，Logic 逐份读、互相对、查公开记录，给出依据而不是形容词。录取与否始终由你决定。</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="#">开始筛查 · 测试期免费</a>
+        <a class="btn btn-secondary" href="#">看一份示例报告</a>
+      </div>
+      <div class="chips">
+        <span class="chip"><i class="dot"></i>数据库驻加拿大</span>
+        <span class="chip"><i class="dot"></i>不收 SIN</span>
+        <span class="chip"><i class="dot"></i>OHRC 租房政策口径</span>
+        <span class="chip"><i class="dot"></i>不是消费者报告机构</span>
+        <span class="chip"><i class="dot"></i>免费至 2026-10-14</span>
+      </div>
+    </div>
+    <div class="mock note" data-n="C">
+      <div class="bar"><i></i><i></i><i></i></div>
+      <div class="bubble u">这位申请人的在职信和工资单收入差 8%，算吻合吗？</div>
+      <div class="bubble a">不算「互证」。≤3% 才算吻合，3–10% 记为「接近」、不计佐证分，≥10% 才是矛盾。我把两份文件的数字并排列在报告「收入」节，你可以直接致电在职信上的 HR 电话核实。</div>
+      <div class="card-task"><b>PROPOSED · 待你确认</b>给 HR 发一封核实邮件（草稿已生成）<br><span style="color:var(--body-3);font-size:13px">你确认后才会发送</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ② THREE BENEFIT CARDS + TRY-IT -->
+<section>
+  <div class="wrap note" data-n="J">
+    <div class="eyebrow">What Logic does</div>
+    <h2>三件事，每件都能在对话里试</h2>
+    <p class="lead">每张卡下面那句就是一条真的问题，点了会回到首页的对话框、由 Logic 直接回答。</p>
+    <div class="grid3">
+      <div class="card">
+        <div class="shot">报告「收入」节截图（真实界面）</div>
+        <h3>筛查：逐份读、互相对、查记录</h3>
+        <p>工资单算术、征信转录、LTB 判令目录与法院门户、雇主注册状态。每条结论都标出来自哪份文件的哪一行。</p>
+        <a class="try" href="/?role=landlord&ask=筛查会看哪些文件、不看什么">筛查会看哪些文件、不看什么？</a>
+      </div>
+      <div class="card">
+        <div class="shot">租约草稿卡截图</div>
+        <h3>租约：安省标准租约 + 电子签</h3>
+        <p>按 O. Reg. 9/18 生成，押金不超过一个月租金，附表 B 只允许合法条款；双方签完自动归档到在管租约。</p>
+        <a class="try" href="/?role=landlord&ask=帮我起草一份标准租约，租金 2450，11 月 1 日起">帮我起草一份标准租约</a>
+      </div>
+      <div class="card">
+        <div class="shot">续约待办卡截图</div>
+        <h3>续约：到期前 90 / 60 / 30 天提醒你</h3>
+        <p>先给同区行情与 A/B 两个方案，再替你起草续约信；30 天仍无回复就提醒你打电话。所有发送都要你点确认。</p>
+        <a class="try" href="/?role=landlord&ask=我的租约明年 3 月到期，现在该做什么">租约明年 3 月到期，现在该做什么？</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ③ JOURNEY (existing) placeholder -->
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Journey</div>
+    <h2>五步（沿用现有 journey 段，结构不变）</h2>
+    <p class="lead" style="color:var(--body-3)">此处保留线上 /landlord 的幽灵编号五步与 before / after 场景段，不在本蓝本重复绘制。</p>
+  </div>
+</section>
+
+<!-- ④ ONE NUMBER -->
+<section>
+  <div class="wrap note" data-n="B">
+    <div class="band">
+      <div>
+        <div class="num">1,284</div>
+        <small>screenings · 来自 /api/public/stats · 每小时更新 · 2026-09-22</small>
+      </div>
+      <p>这是 Stayloop 上已完成的筛查数。我们只展示能从数据库直接数出来的数字，不展示百分比收益、客户数或评分——那些我们没有可审计的对照组。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ⑤ FAQ -->
+<section>
+  <div class="wrap note" data-n="A">
+    <div class="eyebrow">FAQ · Landlord</div>
+    <h2>房东最常问的</h2>
+    <div class="faq">
+      <details open><summary>免费能筛几次？</summary><p>测试期（至 2026-10-14）不限次。之后免费档每月 5 次，含取证与信用分析；Pro $19/月不限次并开放深度核查。</p></details>
+      <details><summary>筛查看什么、不看什么？</summary><p>看：收入文件算术与互证、征信转录与分析、证件有效性、LTB 判令目录、安省法院门户、雇主注册状态。不看、也不让模型推断：OHRC 受保护特征（国籍、家庭状况、收入来源类型等）。收入租金比只作信息，不设截止线。</p></details>
+      <details><summary>申请人怎么授权？</summary><p>你在筛查记录上生成一条链接，申请人本人签版本化同意后逐步授权身份（Veriff）、银行（Flinks）、征信（Equifax）。我们不收 SIN。</p></details>
+      <details><summary>我能让申请人付筛查费吗？</summary><p>不能。RTA s.134 禁止向租客收取申请或筛查费用。定价页与解锁流程都没有「让申请人付」的选项。</p></details>
+      <details><summary>报告能给申请人看吗？</summary><p>可以，也应该。报告页有可打印的申请人通知信，说明参考了哪些材料、如何索取与更正（《消费者报告法》s.10(7)）。</p></details>
+      <details><summary>数据存在哪？谁能看？</summary><p>数据库在 AWS 蒙特利尔（ca-central-1）。文件只有你本人与你授权的申请人链接可读；AI 服务商所在地在隐私页第 2 节如实列出。</p></details>
+      <details><summary>Stayloop 是消费者报告机构吗？</summary><p>不是。我们整理你收到的材料与公开记录，不向第三方出售报告。是否注册为报告机构正在研究，进展会写在隐私页。</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ⑥ CLOSING -->
+<section class="closing">
+  <div class="wrap">
+    <h2>先试一次，再决定要不要注册</h2>
+    <p class="lead" style="margin:12px auto 0">首页的对话框不用登录。把你手上的问题直接问 Logic。</p>
+    <div style="margin-top:24px"><a class="btn btn-primary" href="/?role=landlord">去首页问 Logic</a></div>
+  </div>
+</section>
+
+<!-- E · FEE CARD for listing page -->
+<section>
+  <div class="wrap note" data-n="E">
+    <div class="eyebrow">Listing page · 新卡片</div>
+    <h2>入住前费用一览（房源详情页「建筑信息」旁）</h2>
+    <p class="lead">安省法律把可收的款项定死了，所以这张卡比 EliseAI 的 Fee Transparency 简单得多，且不需要新数据列。</p>
+    <div class="fee">
+      <div class="head"><span>入住前你要付什么</span><span style="color:var(--body-3);font-weight:400;font-size:13px">RTA s.105–106</span></div>
+      <div class="row"><span class="k">首月租金</span><span>$2,450</span></div>
+      <div class="row"><span class="k">租金押金（≤ 一个月，只抵最后一月租金）</span><span>$2,450</span></div>
+      <div class="row"><span class="k">钥匙押金（≤ 更换成本，退租时退还）</span><span>房东未设置</span></div>
+      <div class="row tot"><span>第一笔款合计</span><span>$4,900</span></div>
+      <div class="no">安省不允许收取：<s>申请费</s> · <s>信用检查费</s> · <s>宠物押金</s> · <s>清洁押金</s> · <s>最后一月以外的预付租金</s>。押金每年按指导比例付息。</div>
+    </div>
+  </div>
+</section>
+
+<!-- K · MOBILE HERO -->
+<section>
+  <div class="wrap note" data-n="K">
+    <div class="eyebrow">Mobile · 375px</div>
+    <h2>手机端 hero 换深底、CTA 堆叠</h2>
+    <p class="lead">只用于三角色页与筛查页；首页 Hero 是对话框，不适用。</p>
+    <div class="phone">
+      <div class="mh">
+        <div class="eyebrow">Landlord · Logic</div>
+        <h1 style="margin-top:10px">把筛查、租约、续约交给一个会追问的助手</h1>
+        <p>上传申请人材料，Logic 逐份读、互相对、查公开记录。录取与否由你决定。</p>
+        <a class="btn btn-primary" href="#">开始筛查 · 测试期免费</a>
+        <a class="btn btn-secondary" href="#">看一份示例报告</a>
+      </div>
+      <div class="mb">数据库驻加 · 不收 SIN · OHRC 口径 · 免费至 10-14</div>
+    </div>
+  </div>
+</section>
+
+<!-- I · TYPE SCALE -->
+<section>
+  <div class="wrap note" data-n="I">
+    <div class="eyebrow">Type scale · 营销页</div>
+    <h2>字号对照</h2>
+    <table style="border-collapse:collapse;margin-top:24px;font-size:15px">
+      <tr style="text-align:left;color:var(--body-3)"><th style="padding:8px 16px 8px 0">元素</th><th style="padding:8px 16px">线上</th><th style="padding:8px 16px">蓝本</th><th style="padding:8px 16px">EliseAI</th></tr>
+      <tr><td style="padding:8px 16px 8px 0">H1</td><td style="padding:8px 16px">52 / 800</td><td style="padding:8px 16px"><b>60 / 600 · ls −.03em</b></td><td style="padding:8px 16px">72 / 450</td></tr>
+      <tr><td style="padding:8px 16px 8px 0">H2</td><td style="padding:8px 16px">30–36 / 700</td><td style="padding:8px 16px"><b>38 / 500</b></td><td style="padding:8px 16px">60 / 450</td></tr>
+      <tr><td style="padding:8px 16px 8px 0">正文</td><td style="padding:8px 16px">14–15</td><td style="padding:8px 16px"><b>17 / 1.6；lead 19</b></td><td style="padding:8px 16px">20 / 30</td></tr>
+      <tr><td style="padding:8px 16px 8px 0">眉标</td><td style="padding:8px 16px">mono 11–12</td><td style="padding:8px 16px"><b>mono 13 / .12em</b></td><td style="padding:8px 16px">Inter 16 大写</td></tr>
+      <tr><td style="padding:8px 16px 8px 0">强调色</td><td style="padding:8px 16px">#00ACE4</td><td style="padding:8px 16px"><b>不变</b></td><td style="padding:8px 16px">#7638FA</td></tr>
+    </table>
+    <p class="lead" style="margin-top:20px">字重从 800 降到 600、字号加大，是「大而轻」的关键；工作台（登录后）不动。</p>
+  </div>
+</section>
+
+</body>
+</html>

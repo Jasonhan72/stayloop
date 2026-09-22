@@ -567,6 +567,11 @@ export default function ListingDetailPage() {
               ) : null
             })()}
 
+            {/* 入住前费用一览 — Ontario fixes the legal move-in charges (RTA s.105–106),
+                so this is a deterministic card from rent + deposit, no new columns
+                (2026-09-22, EliseAI benchmark item E). */}
+            <MoveInCosts zh={zh} rent={listing.monthly_rent} deposit={listing.deposit} />
+
             {/* Section 3 — 建筑信息 */}
             <Section title={zh ? '建筑信息' : 'Building'} eyebrow="BUILDING">
               <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-[13.5px] sm:grid-cols-4">
@@ -935,6 +940,59 @@ function Li({ ok, children }: { ok?: boolean; children: React.ReactNode }) {
       </span>
       {children}
     </li>
+  )
+}
+
+function MoveInCosts({ zh, rent, deposit }: { zh: boolean; rent: number; deposit: number | null }) {
+  if (!rent || rent <= 0) return null
+  const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`
+  const dep = deposit != null && deposit > 0 ? deposit : null
+  const overCap = dep != null && dep > rent + 0.5
+  const total = rent + (dep ?? 0)
+  const banned = zh
+    ? ['申请费', '信用检查费', '宠物押金', '清洁押金', '最后一月以外的预付租金']
+    : ['application fee', 'credit-check fee', 'pet deposit', 'cleaning deposit', 'prepaid rent beyond the last month']
+  return (
+    <Section title={zh ? '入住前费用一览' : 'Move-in costs'} eyebrow="MOVE-IN COSTS">
+      <div className="overflow-hidden rounded-xl border border-line-divider">
+        <dl className="text-[13.5px]">
+          <Row k={zh ? '首月租金' : 'First month’s rent'} v={fmt(rent)} />
+          <Row
+            k={zh ? '租金押金（不超过一个月，只抵最后一月租金）' : 'Rent deposit (max one month, applied to the last month only)'}
+            v={dep != null ? fmt(dep) : (zh ? '房东未设置' : 'Not set by landlord')}
+            warn={overCap}
+          />
+          <Row k={zh ? '钥匙押金（不超过更换成本，退租时退还）' : 'Key deposit (no more than replacement cost, refundable)'} v={zh ? '以租约为准' : 'Per lease'} muted />
+          <Row k={zh ? '第一笔款合计' : 'First payment total'} v={fmt(total)} strong />
+        </dl>
+        {overCap && (
+          <div className="border-t border-line-divider bg-red-50 px-4 py-2.5 text-[12.5px] text-red-800">
+            {zh
+              ? '此房源标注的押金高于一个月租金。安省 RTA s.106 规定租金押金不得超过一个月租金，请与房东确认。'
+              : 'The listed deposit exceeds one month’s rent. Under RTA s.106 a rent deposit cannot exceed one month’s rent — confirm with the landlord.'}
+          </div>
+        )}
+        <div className="border-t border-line-divider bg-surface-chip px-4 py-2.5 text-[12px] leading-relaxed text-body-3">
+          {zh ? '安省不允许收取：' : 'Not permitted in Ontario: '}
+          {banned.map((b, i) => (
+            <span key={b}>
+              <s className="decoration-red-700/70">{b}</s>
+              {i < banned.length - 1 ? ' · ' : ''}
+            </span>
+          ))}
+          {zh ? '。押金每年按指导比例付息（RTA s.105–106）。' : '. Deposits earn annual interest at the guideline rate (RTA s.105–106).'}
+        </div>
+      </div>
+    </Section>
+  )
+}
+
+function Row({ k, v, strong, muted, warn }: { k: string; v: string; strong?: boolean; muted?: boolean; warn?: boolean }) {
+  return (
+    <div className={'flex items-baseline justify-between gap-4 px-4 py-2.5 [&+&]:border-t [&+&]:border-line-divider ' + (strong ? 'bg-surface font-bold text-body' : '')}>
+      <dt className={'min-w-0 ' + (strong ? '' : 'text-body-2')}>{k}</dt>
+      <dd className={'flex-none ' + (warn ? 'font-semibold text-red-700' : muted ? 'text-body-3' : strong ? '' : 'font-semibold text-body')}>{v}</dd>
+    </div>
   )
 }
 

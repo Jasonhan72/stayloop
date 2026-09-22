@@ -42,3 +42,29 @@ describe('chat replies are plain text', () => {
     expect(flattenMarkdown('')).toBe('')
   })
 })
+
+// EliseAI benchmark 2026-09-22 — the two additive items shipped without a redesign:
+// the homepage deep link that feeds a role page's example question into the hero
+// conversation, and the deterministic move-in cost card on listing pages.
+describe('EliseAI benchmark 2026-09-22 (additive items)', () => {
+  const home = readFileSync('components/home/HomeNext.tsx', 'utf8')
+  const listing = readFileSync('app/listings/[slug]/page.tsx', 'utf8')
+
+  it('homepage reads ?ask= and ?role= after mount only (no hydration-time branching)', () => {
+    expect(home).toMatch(/sp\.get\('ask'\)/)
+    expect(home).toMatch(/sp\.get\('role'\)/)
+    // must live inside an effect, never in a useState initialiser
+    const idx = home.indexOf("sp.get('ask')")
+    const before = home.slice(Math.max(0, idx - 600), idx)
+    expect(before).toMatch(/useEffect\(\(\) => \{/)
+    expect(before).not.toMatch(/useState\([^)]*window/)
+  })
+
+  it('listing page shows the RTA move-in cost card with the banned-fee list and a deposit-over-cap warning', () => {
+    expect(listing).toMatch(/function MoveInCosts/)
+    expect(listing).toMatch(/<MoveInCosts zh=\{zh\} rent=\{listing\.monthly_rent\} deposit=\{listing\.deposit\} \/>/)
+    expect(listing).toMatch(/dep > rent \+ 0\.5/)
+    for (const w of ['申请费', '信用检查费', '宠物押金', '清洁押金']) expect(listing).toContain(w)
+    expect(listing).toMatch(/RTA s\.106/)
+  })
+})
