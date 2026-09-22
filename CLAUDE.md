@@ -467,8 +467,27 @@ Lease Audits、VoiceAI。已直接落地的两项（纯加法、不动已定稿�
   预付租金。无新列。
 - **首页 `?role=<r>&ask=<问题>` 深链**（`HomeNext`，mount 后读、发一次、`replaceState` 清参数）：角色页 / 筛查页的例句可以
   把访客送回 Hero 对话。仅 effect 内读 URL，遵守「首屏不按客户端状态分支」规则。
-其余（角色页 FAQ / 真数 / chip 行 / 字号「大而轻」/ 手机深底 hero / 数据来源页 / 续约三阶 / 看房意向进对话）等用户看蓝本定稿后再动
-`components/RoleLanding.tsx`。
+**用户 2026-09-22 拍板：除 K（手机深底 hero）外全部采用**，同日落地（守卫 `tests/eliseai20260922.spec.ts`，15 条）：
+- **角色页模板 `components/RoleLanding.tsx`（A/B/C/D/I/J）**：hero（h1 60/600、lead 19px、眉标 mono 13）→ **事实 chip 行**（只写能指向
+  页面 / 法条 / 日期的事实，每条可点）→ **三张收益卡**，每张末尾一句真问题链到 `/?role=<r>&ask=…` → journey → valueBand → scenario →
+  **一个真数**（`/api/public/stats`：房东 screenings / 租客 listings / 经纪 ltbOrders，标来源与日期，加载前显示「—」）→ **角色专属 FAQ**
+  （6–7 问，答案全是已兑现的事实，同时输出 FAQPage JSON-LD）→ CTA。原三格定性口号条已删；`RoleLandingConfig` 的 `stats` 换成
+  `chips / benefits / proof / faq`。筛查页与定价页 h1 同步改为 36–60 / 600。**不许在 chips / proof 里出现百分比、评分、SOC 2、客户数**。
+- **续约 90 / 60 / 30 三阶（F）**：`lib/agent/renewalStages.ts planRenewalActions`（纯函数，两条 proactive 路径共用）。90d（≤120 天）=
+  原 `send_renewal_letter`（A/B 方案 + TRREB 最新季度均租一行，`metadata.stage='90d'`；旧行无 stage 视为 90d）；60d = 续约函未批准时
+  `renewal_checkpoint`（N1 截止日、到期自动转月租 s.38，批准 = 知悉，执行器只盖章）；30d = 续约函已批准且有租客邮箱时 `send_message`
+  向租客确认意向（含 N9 提示），否则 30d checkpoint「请直接联系」。幂等键 (lease_id, stage)；一次只给同一租约一张卡。房东工作台
+  `StatusOverview` 加「续约窗口」瓦片（90/60/30 各几份）。生产此刻窗口内 0 份租约，pg_cron 每日扫描自然接管。
+- **看房意向 / 提问进对话（G/H）**：房源页「预约看房」「向房东提问」→ `components/ShowingRequestModal.tsx` →
+  `POST /api/showing-intent`（需登录；`claim_tenant` 拿 tenants 行；意向行走调用者 RLS 客户端写，自家房源被触发器 `own_listing`
+  拒绝；每账号每小时 10 次）→ service role 在房东 agent 上放**一张** `showing_request` / `listing_inquiry` 待办卡（同一租客同一房源
+  再发就 `merged` 进同一张卡的 `metadata.messages`）。房东批准 → execute 路由的 `executeShowingRequest`：收件人取自 `tenants.email`
+  （不信 metadata）、房源必须归调用者、邮件带房东登录邮箱、意向行置 `accepted`；拒绝不发信。Realtor.ca 导入的房源没有 Stayloop
+  房东，按钮仍是「找认证经纪」。迁移 `20260922_showing_intents_kind.sql`（`kind` 列）已应用 prod。已用 tester 账号对生产实测
+  （delivered → merged），探针行已删。
+- **`/partners` 改为「数据来源目录」（L）**：16 个外部系统按类别筛选（筛查与公开记录 / 房源与行情 / 本人授权核验 / AI 服务商），
+  每条写用途 + 真实状态（已接入 / 沙箱 / 筹备中 / 示范阶段）+ 说明，无合作伙伴 logo、无「成为合作伙伴」。
+- **K（手机深底 hero）用户明确不做。**
 
 ## 房东端 UX 修复清单（2026-09-22 · `bug 修复/stayloop-fix-list.pdf`，14 条，研究后取舍）
 

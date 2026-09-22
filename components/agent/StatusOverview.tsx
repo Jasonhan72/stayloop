@@ -29,6 +29,7 @@ type Stats = {
   pendingApps?: number | null
   activeLeases?: number | null
   expiringLeases?: number | null
+  renewal?: { d90: number; d60: number; d30: number } | null
   rentMonth?: { collected: number; expected: number } | null
   // agent
   showingsToday?: number | null
@@ -53,6 +54,7 @@ function demoStats(role: AgentRole): Stats {
       pendingApps: 6,
       activeLeases: 2,
       expiringLeases: 1,
+      renewal: { d90: 1, d60: 0, d30: 0 },
       openTickets: 3,
       rentMonth: { collected: 10590, expected: 10590 },
     }
@@ -167,11 +169,22 @@ async function loadLandlordStats(sb: Sb, uid: string): Promise<Stats> {
   const leaseRows = (leases.data ?? []) as { id: string; status: string | null; end_date: string | null }[]
   const active = leaseRows.filter((l) => l.status === 'active' || l.status === 'signed_both')
   const now = Date.now()
-  const expiring = active.filter((l) => {
-    if (!l.end_date) return false
+  // Renewal window with the 90 / 60 / 30-day touchpoints of
+  // lib/agent/renewalStages.ts (2026-09-22): the tile says how many leases
+  // are in each stage so the landlord sees what is due, not just a count.
+  const stageOf = (l: { end_date: string | null }) => {
+    if (!l.end_date) return null
     const days = (new Date(l.end_date).getTime() - now) / 86_400_000
-    return days >= 0 && days <= 120 // matches the renewal-window convention
-  }).length
+    if (days < 0 || days > 120) return null
+    return days <= 30 ? '30d' : days <= 60 ? '60d' : '90d'
+  }
+  const stages = active.map(stageOf)
+  const expiring = stages.filter(Boolean).length
+  const renewal = {
+    d90: stages.filter((s) => s === '90d').length,
+    d60: stages.filter((s) => s === '60d').length,
+    d30: stages.filter((s) => s === '30d').length,
+  }
 
   const listingIds = ((listings.data ?? []) as { id: string }[]).map((r) => r.id)
   let openTickets = 0
@@ -207,6 +220,7 @@ async function loadLandlordStats(sb: Sb, uid: string): Promise<Stats> {
     pendingApps: apps.count ?? 0,
     activeLeases: active.length,
     expiringLeases: expiring,
+    renewal,
     openTickets,
     rentMonth,
   }
@@ -421,6 +435,26 @@ function buildTiles(role: AgentRole, s: Stats, lang: Lang, pendingCount: number)
                 : 'No active leases yet'
               : undefined,
         tone: zeroTone(s.activeLeases),
+        href: '/landlord/leases',
+      },
+      {
+        key: 'renewal',
+        icon: IC.home,
+        label: zh ? '续约窗口' : 'Renewal window',
+        value: n(s.expiringLeases),
+        full: s.renewal
+          ? zh
+            ? `90 天触点 ${s.renewal.d90} · 60 天 ${s.renewal.d60} · 30 天 ${s.renewal.d30}`
+            : `90-day ${s.renewal.d90} · 60-day ${s.renewal.d60} · 30-day ${s.renewal.d30}`
+          : undefined,
+        sub: s.renewal && (s.renewal.d30 > 0 || s.renewal.d60 > 0)
+          ? zh
+            ? `${s.renewal.d30 > 0 ? `${s.renewal.d30} 份 ≤30 天` : `${s.renewal.d60} 份 ≤60 天`}`
+            : `${s.renewal.d30 > 0 ? `${s.renewal.d30} within 30 days` : `${s.renewal.d60} within 60 days`}`
+          : (s.expiringLeases ?? 0) === 0
+            ? zh ? '120 天内没有到期的租约' : 'Nothing ending within 120 days'
+            : undefined,
+        tone: (s.renewal?.d30 ?? 0) > 0 ? 'warn' : zeroTone(s.expiringLeases ?? 0),
         href: '/landlord/leases',
       },
       {

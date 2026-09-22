@@ -70,10 +70,42 @@ const CFG: RoleLandingConfig = {
     after: { zh: 'AI 编排杂活、记录当晚归档,他只做带看与专业判断 —— 同样的一周,接得下两倍的客户。', en: 'AI orchestrates the busywork and files the notes the same night; he only does showings and judgment — the same week now fits twice the clients.' },
     delta: { zh: '时薪 $25 → $43', en: 'Hourly $25 → $43' },
   },
-  stats: [
-    { k: { zh: '注册核验徽章,租客看得见', en: 'a checked badge tenants can see' }, v: { zh: 'RECO 已核', en: 'RECO-checked' } },
-    { k: { zh: '材料与跟进清单由 AI 整理', en: 'packs & follow-ups organised by AI' }, v: { zh: 'AI 备料', en: 'AI prep' } },
-    { k: { zh: '纯工具,不碰你的佣金', en: 'pure SaaS, zero commission cut' }, v: { zh: '0 抽佣', en: '0% cut' } },
+  chips: [
+    { label: { zh: 'RECO 注册人工核验 · 不传证件', en: 'RECO registration checked by hand · no ID upload' }, href: '/agent/verify' },
+    { label: { zh: 'Stayloop 不收费、不抽佣', en: 'Stayloop charges nothing, takes no commission' }, href: '/pricing' },
+    { label: { zh: '筛查费不得转嫁申请人 · RTA s.134', en: 'Screening cost never passed to applicants · RTA s.134' }, href: '/screening' },
+    { label: { zh: 'TRESA s.32 披露有记录', en: 'TRESA s.32 disclosure recorded' }, href: '/agent/verify' },
+    { label: { zh: '数据库驻加拿大', en: 'Database in Canada' }, href: '/privacy' },
+  ],
+  benefits: [
+    {
+      h: { zh: '租客筛查：替房东客户下单，几分钟出报告', en: 'Tenant screening: order for your landlord client, report in minutes' },
+      b: { zh: '与房东有书面代表协议、申请人书面同意（OREA Form 410）后上传材料；报告逐条引用文件行，录取与否由房东本人决定并发通知。', en: 'With a written representation agreement and the applicant\'s written consent (OREA Form 410), upload the file; the report cites every line, and the landlord makes and communicates the decision.' },
+      ask: { zh: '替房东做租客筛查前，我需要哪三样东西？', en: 'What three things do I need before screening a tenant for a landlord?' },
+    },
+    {
+      h: { zh: '挂牌定价：同区同户型的挂牌中位数', en: 'Pricing a listing: same-area, same-layout median' },
+      b: { zh: '同一条 Stayloop → Realtor.ca → TRREB 管线，给你挂牌中位数与官方季度基准，按房源条件调整。', en: 'The same Stayloop → Realtor.ca → TRREB pipeline gives the asking-rent median and the official quarterly benchmark, adjusted for the unit.' },
+      ask: { zh: 'Liberty Village 一居带车位，现在挂多少合适？', en: 'A one-bed with parking in Liberty Village — what should it list at now?' },
+    },
+    {
+      h: { zh: '租约与押金：只引用事实，不扩写', en: 'Leases & deposits: facts only, no embellishment' },
+      b: { zh: 'O. Reg. 9/18 标准租约强制而 OREA Form 400 只是要约；押金一个月只抵最后一月（RTA s.106）；21 天内交副本（s.12）；Information Guide 与多重代表披露先行。', en: 'O. Reg. 9/18 standard lease is mandatory while OREA Form 400 is only an offer; deposit one month applied to the last month (RTA s.106); copy within 21 days (s.12); Information Guide and multiple-representation disclosure first.' },
+      ask: { zh: '房东要求押金两个月、附表 B 写禁宠，我该怎么跟房东说？', en: 'The landlord wants two months\' deposit and a no-pets clause in Schedule B — what do I tell them?' },
+    },
+  ],
+  proof: {
+    key: 'ltbOrders',
+    label: { zh: '份 LTB 判令已入库可查（安省开放数据）', en: 'LTB orders indexed and searchable (Ontario open data)' },
+    note: { zh: '筛查报告的 LTB 一行查的就是这个目录：按姓名与地址佐证实查，目录只覆盖安省已发布的窗口，「未查到」不等于「从未涉诉」。', en: 'The LTB line in every screening report searches this catalogue: matched by name with address corroboration. It covers only the window Ontario has published — "not found" is not "never involved".' },
+  },
+  faq: [
+    { q: { zh: '认证要什么？', en: 'What does verification need?' }, a: { zh: '注册姓名、7 位 RECO 注册号、类别、经纪公司注册名、到期日与业务联系方式。不传证件、不收 SIN。管理员手动对照 RECO 公开注册库后标记「RECO 注册已核」。', en: 'Registered name, 7-digit RECO number, category, brokerage registered name, expiry and business contact. No ID upload, no SIN. An administrator checks the public RECO register by hand and marks you "RECO verified".' } },
+    { q: { zh: 'Stayloop 收不收费？', en: 'Does Stayloop charge agents?' }, a: { zh: '不收。经纪档的付费功能标「即将推出」；筛查在测试期内免费，之后由经纪或房东承担，永远不得向申请人收取（RTA s.134）。', en: 'No. Paid agent tiers are marked "coming soon"; screening is free during the test period and afterwards paid by the agent or landlord — never the applicant (RTA s.134).' } },
+    { q: { zh: '转介佣金怎么算？', en: 'How are referral commissions handled?' }, a: { zh: '不经手。转介佣金引擎已冻结、等待律师意见；佣金在你与经纪公司之间结算，Stayloop 不参与交易。', en: 'Not through us. The referral-commission engine is frozen pending legal advice; commission settles between you and your brokerage, and Stayloop takes no part in the trade.' } },
+    { q: { zh: '租客怎么找到我？', en: 'How do tenants find me?' }, a: { zh: '认证后你出现在房源页的「找认证经纪」目录里，租客自选并直接联系你（邮件 / 电话）。Stayloop 不派单。', en: 'Once verified you appear in the "find a verified agent" directory on listing pages; tenants pick and contact you directly by email or phone. Stayloop does not dispatch.' } },
+    { q: { zh: 'TRESA s.32 披露怎么做？', en: 'How is the TRESA s.32 disclosure done?' }, a: { zh: '你以房东身份发布房源或以租客身份申请时，系统弹出预填注册名 / RECO 号 / 经纪公司的通知文本，你送达并勾选「已保留书面确认」，Stayloop 只记录、不代送达。', en: 'When you publish as a landlord or apply as a tenant, a notice pre-filled with your registered name, RECO number and brokerage appears; you deliver it and tick "written confirmation kept". Stayloop records it and does not deliver on your behalf.' } },
+    { q: { zh: '能替客户跑筛查吗？', en: 'Can I run screening on a client\'s behalf?' }, a: { zh: '可以下单，前提是与房东有书面代表协议、申请人书面同意核查，且录取 / 拒绝由房东本人决定并发出通知。报告不能作为拒绝的唯一依据。', en: 'You can order it, provided there is a written representation agreement with the landlord, the applicant\'s written consent, and the landlord personally makes and sends the decision. The report is never the sole ground to decline.' } },
   ],
 }
 

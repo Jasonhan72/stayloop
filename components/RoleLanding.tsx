@@ -10,7 +10,7 @@
 // brand purple as the only large accent (role colors stay button/badge-level),
 // 16px cards + full-radius pills, purple-tinted shadows rgba(76,29,149,.2x),
 // editorial ghost numerals, 96–112px section rhythm, .rv/.on scroll reveal.
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -18,6 +18,8 @@ import { useT } from '@/lib/i18n'
 import { useOnboarded } from '@/lib/useOnboarding'
 
 type Bi = { zh: string; en: string }
+type StatKey = 'screenings' | 'ltbOrders' | 'listings' | 'trrebQuarters'
+type Stats = Partial<Record<StatKey, number>> & { ok?: boolean; at?: string }
 
 export type RoleLandingConfig = {
   role: 'tenant' | 'landlord' | 'agent'
@@ -41,7 +43,14 @@ export type RoleLandingConfig = {
   // persona still under /public/personas/ — until it exists the <img>
   // onError-falls back to `fallback` stock. See design/persona-images.md.
   story?: { file: string; fallback: string; label: Bi; text: Bi }[]
-  stats: { k: Bi; v: Bi }[]
+  // 2026-09-22 (EliseAI benchmark, user-approved): fact chips under the hero
+  // CTA, three benefit cards each with a real question that opens the
+  // homepage conversation, one verifiable number from /api/public/stats, and
+  // a role-specific FAQ (also emitted as FAQPage JSON-LD).
+  chips: { label: Bi; href?: string }[]
+  benefits: { h: Bi; b: Bi; ask: Bi; shot?: Bi }[]
+  proof: { key: StatKey; label: Bi; note: Bi }
+  faq: { q: Bi; a: Bi }[]
   ctaNote?: Bi
   // Optional value band ("what your passport does" etc.) — restrained
   // self-referential list rendered between JOURNEY and SCENARIO.
@@ -64,7 +73,7 @@ const V8_CSS = `
 
   .v8r .v8-card { background: #fff; border: 1px solid #E5E1D4; border-radius: 16px;
     box-shadow: 0 1px 2px rgba(24,24,27,.04), 0 16px 40px -24px rgba(76,29,149,.12); }
-  .v8r .v8-eyebrow { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; font-weight: 700; }
+  .v8r .v8-eyebrow { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; }
   .v8r .v8-tag { display: inline-flex; align-items: center; gap: 9px; font-size: 12px;
     letter-spacing: .15em; text-transform: uppercase; font-weight: 700; }
   .v8r .v8-tag::before { content: ""; width: 24px; height: 1.5px; background: currentColor; }
@@ -99,6 +108,20 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
   const zh = lang === 'zh'
   const c = cfg.color
   const { onboarded } = useOnboarded(cfg.role)
+  // One verifiable number per page — counted from the database, never a
+  // percentage or a claim. Same endpoint as the homepage's dark band.
+  const [stats, setStats] = useState<Stats | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/public/stats').then((r) => r.json()).then((j) => { if (!cancelled && j?.ok) setStats(j) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+  const proofValue = stats?.[cfg.proof.key]
+  const faqLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: cfg.faq.map((f) => ({ '@type': 'Question', name: f.q[lang], acceptedAnswer: { '@type': 'Answer', text: f.a[lang] } })),
+  }
   const primaryHref = onboarded && cfg.primaryCta.authedHref ? cfg.primaryCta.authedHref : cfg.primaryCta.href
 
   // Scroll reveal — v8 blueprint behavior: IO adds .on at threshold .12;
@@ -148,8 +171,8 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
             <div className="v8-tag" style={{ color: c }}>
               {cfg.eyebrow}
             </div>
-            <h1 className="mt-[18px] text-[clamp(32px,4.5vw,50px)] font-extrabold leading-[1.14] tracking-[-0.024em]">{cfg.h1[lang]}</h1>
-            <p className="mt-[18px] max-w-[540px] text-[16.5px] leading-relaxed text-body-2">{cfg.sub[lang]}</p>
+            <h1 className="mt-[18px] text-[clamp(36px,5vw,60px)] font-semibold leading-[1.06] tracking-[-0.03em]">{cfg.h1[lang]}</h1>
+            <p className="mt-[20px] max-w-[560px] text-[19px] leading-[1.6] text-body-2">{cfg.sub[lang]}</p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href={primaryHref}
@@ -166,6 +189,23 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
               </Link>
             </div>
             {cfg.ctaNote && <p className="mt-4 text-[13px] text-body-3">{cfg.ctaNote[lang]}</p>}
+            {/* Fact chips — only things we can point at (a page, a law, a date). */}
+            <ul className="mt-5 flex flex-wrap gap-2" aria-label={zh ? '事实' : 'Facts'}>
+              {cfg.chips.map((ch) => {
+                const inner = (
+                  <>
+                    <span className="h-[7px] w-[7px] flex-none rounded-full" style={{ background: '#6AB344' }} aria-hidden />
+                    {ch.label[lang]}
+                  </>
+                )
+                const cls = 'inline-flex items-center gap-1.5 rounded-full border border-line-divider bg-white px-3 py-1.5 text-[12.5px] text-body-2'
+                return (
+                  <li key={ch.label.en}>
+                    {ch.href ? <Link href={ch.href} className={`${cls} transition hover:border-brand hover:text-body`}>{inner}</Link> : <span className={cls}>{inner}</span>}
+                  </li>
+                )
+              })}
+            </ul>
           </div>
 
           {/* Agent chat — mirrors the live thread (components/agent/AgentChat.tsx):
@@ -241,20 +281,38 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
         </div>
       </section>
 
-      {/* PROMISES — v8 trust-strip treatment */}
-      <section style={{ background: '#F3F8FC', borderTop: '1px solid #EEEAE0', borderBottom: '1px solid #EEEAE0' }}>
-        {/* [&>*]:min-w-0 is required, not cosmetic: grid items default to
-            min-width:auto, so at 320px these three cells refused to go below
-            their min-content and pushed the whole page 9px past the viewport. */}
-        <div className="mx-auto grid max-w-[1180px] grid-cols-3 divide-x divide-[#EEEAE0] px-5 [&>*]:min-w-0 sm:px-8">
-          {cfg.stats.map((s) => (
-            <div key={s.k.en} className="px-2 py-6 text-center sm:px-4">
-              <div className="text-[19px] font-extrabold tracking-[-0.02em] [font-variant-numeric:tabular-nums] sm:text-[26px]" style={{ color: c }}>
-                {s.v[lang]}
+      {/* BENEFITS — three cards, each ending in a real question that opens the
+          homepage conversation on this role (HomeNext reads ?role=&ask=). */}
+      <section style={{ background: '#F3F8FC', borderTop: '1px solid #E4EEF6', borderBottom: '1px solid #E4EEF6' }}>
+        <div className="mx-auto max-w-[1180px] px-5 py-20 sm:px-8 lg:py-24">
+          <div className="v8-eyebrow" style={{ color: c }}>
+            {zh ? `${cfg.agentName} 做什么` : `What ${cfg.agentName} does`}
+          </div>
+          <h2 className="mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
+            {zh ? '三件事，每件都能先在对话里试。' : 'Three things — each one you can try in the conversation first.'}
+          </h2>
+          <p className="mt-3 max-w-[640px] text-[17px] leading-[1.6] text-body-2">
+            {zh ? '每张卡末尾那句是一条真的问题：点它会回到首页的对话框，由助手直接回答，不用注册。' : 'The last line of each card is a real question: it opens the homepage conversation and the assistant answers it — no signup.'}
+          </p>
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {cfg.benefits.map((b, i) => (
+              <div key={b.h.en} className={`v8-card rv flex flex-col p-6 ${i > 0 ? `d${i}` : ''}`}>
+                {b.shot && (
+                  <div className="mb-4 rounded-xl border border-dashed border-line-divider bg-surface px-3 py-6 text-center font-mono text-[11.5px] text-body-3">{b.shot[lang]}</div>
+                )}
+                <h3 className="text-[19px] font-bold leading-snug tracking-[-0.01em]">{b.h[lang]}</h3>
+                <p className="mt-2 text-[15px] leading-relaxed text-body-2">{b.b[lang]}</p>
+                <Link
+                  href={`/?role=${cfg.role}&ask=${encodeURIComponent(b.ask[lang])}`}
+                  className="mt-auto inline-flex items-start gap-2 rounded-xl border border-line-divider bg-surface-chip px-3.5 py-2.5 pt-5 text-[14px] font-medium leading-snug text-body transition hover:border-brand"
+                  style={{ marginTop: 'auto' }}
+                >
+                  <span className="font-bold" style={{ color: c }}>›</span>
+                  <span>{b.ask[lang]}</span>
+                </Link>
               </div>
-              <div className="mt-1 text-[11.5px] font-semibold uppercase tracking-[.1em] text-body-3">{s.k[lang]}</div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
@@ -264,7 +322,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
           <div className="v8-eyebrow" style={{ color: c }}>
             {lang === 'zh' ? '怎么用 · 从头到尾' : 'HOW IT WORKS · END TO END'}
           </div>
-          <h2 className="mt-3 text-[clamp(28px,3.4vw,42px)] font-extrabold leading-tight tracking-[-0.022em]">
+          <h2 className="mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
             {lang === 'zh'
               ? <>{cfg.agentName} 陪你走完每一步。</>
               : <>{cfg.agentName} walks you through every step.</>}
@@ -281,8 +339,8 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
                 >
                   {i + 1}
                 </div>
-                <h4 className="mt-4 text-[14.5px] font-extrabold leading-snug">{j.h[lang]}</h4>
-                <p className="mt-1.5 text-[12.5px] leading-relaxed text-body-3">{j.b[lang]}</p>
+                <h4 className="mt-4 text-[16px] font-bold leading-snug">{j.h[lang]}</h4>
+                <p className="mt-2 text-[14.5px] leading-relaxed text-body-2">{j.b[lang]}</p>
               </div>
             ))}
           </div>
@@ -296,15 +354,15 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
             <div className="v8-eyebrow" style={{ color: c }}>
               {cfg.valueBand.eyebrow[lang]}
             </div>
-            <h2 className="mt-3 text-[clamp(28px,3.4vw,42px)] font-extrabold leading-tight tracking-[-0.022em]">
+            <h2 className="mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
               {cfg.valueBand.h2[lang]}
             </h2>
             <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {cfg.valueBand.items.map((it, i) => (
                 <div key={it.h.en} className={`v8-card rv p-5 ${i > 0 ? `d${Math.min(i, 4)}` : ''}`} style={{ background: '#FFFFFF' }}>
                   <span className="text-[22px]">{it.icon}</span>
-                  <h4 className="mt-3 text-[14.5px] font-extrabold leading-snug">{it.h[lang]}</h4>
-                  <p className="mt-1.5 text-[12.5px] leading-relaxed text-body-3">{it.b[lang]}</p>
+                  <h4 className="mt-3 text-[16px] font-bold leading-snug">{it.h[lang]}</h4>
+                  <p className="mt-2 text-[14.5px] leading-relaxed text-body-2">{it.b[lang]}</p>
                 </div>
               ))}
             </div>
@@ -329,7 +387,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
           <div className="v8-eyebrow" style={{ color: c }}>
             {lang === 'zh' ? '真实场景' : 'REAL SCENARIO'}
           </div>
-          <h2 className="mt-3 text-[clamp(28px,3.4vw,42px)] font-extrabold leading-tight tracking-[-0.022em]">
+          <h2 className="mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
             {lang === 'zh' ? '一段被 AI 改写的租住。' : 'A tenancy rewritten by AI.'}
           </h2>
           {/* Storyboard strip — three beats straight from the shot scripts */}
@@ -406,10 +464,52 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
         </div>
       </section>
 
+      {/* PROOF — one number, counted from the database, with its source. */}
+      <section>
+        <div className="mx-auto max-w-[1180px] px-5 py-20 sm:px-8 lg:py-24">
+          <div className="rv grid items-center gap-8 rounded-3xl px-7 py-12 text-white sm:px-12 lg:grid-cols-2" style={{ background: '#1B1B3C' }}>
+            <div>
+              <div className="text-[clamp(56px,8vw,84px)] font-semibold leading-none tracking-[-0.04em] [font-variant-numeric:tabular-nums]"
+                   style={{ background: 'linear-gradient(90deg,#FFFFFF,#00ACE4)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
+                {typeof proofValue === 'number' ? proofValue.toLocaleString() : '—'}
+              </div>
+              <div className="mt-3 text-[15px] font-medium text-white/85">{cfg.proof.label[lang]}</div>
+              <div className="mt-1 font-mono text-[12px] text-white/50">
+                {zh ? '来源 /api/public/stats · 每小时更新' : 'source /api/public/stats · refreshed hourly'}{stats?.at ? ` · ${stats.at.slice(0, 10)}` : ''}
+              </div>
+            </div>
+            <p className="text-[17px] leading-[1.6] text-white/80">{cfg.proof.note[lang]}</p>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ — role-specific, answers are things we actually do. */}
+      <section style={{ background: '#F3F8FC', borderTop: '1px solid #E4EEF6', borderBottom: '1px solid #E4EEF6' }}>
+        <div className="mx-auto max-w-[1180px] px-5 py-20 sm:px-8 lg:py-24">
+          <div className="v8-eyebrow" style={{ color: c }}>FAQ</div>
+          <h2 className="mt-3 text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em]">
+            {zh ? (cfg.role === 'tenant' ? '租客最常问的' : cfg.role === 'landlord' ? '房东最常问的' : '经纪最常问的') : 'Frequently asked'}
+          </h2>
+          <div className="mt-8 max-w-[800px]">
+            {cfg.faq.map((f, i) => (
+              <details key={f.q.en} className="group border-t border-line-divider py-4 last:border-b" open={i === 0}>
+                <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-[17px] font-semibold leading-snug text-body [&::-webkit-details-marker]:hidden">
+                  <span>{f.q[lang]}</span>
+                  <span className="flex-none text-[18px] font-medium leading-none group-open:hidden" style={{ color: c }}>+</span>
+                  <span className="hidden flex-none text-[18px] font-medium leading-none group-open:inline" style={{ color: c }}>–</span>
+                </summary>
+                <p className="mt-3 max-w-[680px] text-[15.5px] leading-[1.65] text-body-2">{f.a[lang]}</p>
+              </details>
+            ))}
+          </div>
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
+        </div>
+      </section>
+
       {/* CTA — v8 dark band with brand glow */}
       <section className="v8-dark">
         <div className="relative mx-auto max-w-[1180px] px-5 py-24 text-center sm:px-8 lg:py-28">
-          <h2 className="rv mx-auto max-w-[640px] text-[clamp(28px,3.4vw,42px)] font-extrabold leading-tight tracking-[-0.022em] text-white">
+          <h2 className="rv mx-auto max-w-[640px] text-[clamp(28px,3.4vw,38px)] font-medium leading-[1.15] tracking-[-0.02em] text-white">
             {lang === 'zh'
               ? <>现在就让 {cfg.agentName} 替你开始。</>
               : <>Let {cfg.agentName} start for you now.</>}

@@ -10,6 +10,7 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { PromoBadge, VerificationBadge } from '@/components/ListingBadges'
 import { AgentPicker } from '@/components/AgentPicker'
+import { ShowingRequestModal, type ShowingKind } from '@/components/ShowingRequestModal'
 import { supabase } from '@/lib/supabase'
 import { useT, type Lang } from '@/lib/i18n'
 import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
@@ -159,6 +160,10 @@ export default function ListingDetailPage() {
   const [similar, setSimilar] = useState<DBListing[]>([])
   const [loading, setLoading] = useState(true)
   const [fieldAgentOpen, setFieldAgentOpen] = useState(false)
+  // Showing request / question to the landlord → /api/showing-intent →
+  // one card on the landlord's agent (2026-09-22). Realtor.ca imports have
+  // no Stayloop landlord, so those keep the brokerage contact only.
+  const [intentKind, setIntentKind] = useState<ShowingKind | null>(null)
   const [galleryOpen, setGalleryOpen] = useState(false)
   const [galleryIdx, setGalleryIdx] = useState(0)
   const { isFav, toggle } = useFavorites()
@@ -716,28 +721,50 @@ export default function ListingDetailPage() {
                   directory and contacts them directly. Stayloop does not
                   dispatch, is not a brokerage and charges nothing (decision
                   2026-09-13; design/roles-and-agent-verification-2026-09.md). */}
-              <button
-                onClick={() => setFieldAgentOpen(true)}
-                className="sl-btn-primary mt-4 w-full !py-[12px]"
-              >
-                {zh ? '找认证经纪约看房' : 'Find a verified agent for a viewing'}
-              </button>
+              {listing.source !== 'realtor' ? (
+                <button
+                  onClick={() => setIntentKind('showing')}
+                  className="sl-btn-primary mt-4 w-full !py-[12px]"
+                >
+                  {zh ? '预约看房' : 'Request a viewing'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => setFieldAgentOpen(true)}
+                  className="sl-btn-primary mt-4 w-full !py-[12px]"
+                >
+                  {zh ? '找认证经纪约看房' : 'Find a verified agent for a viewing'}
+                </button>
+              )}
               <Link
                 href={`/apply/${listing.slug}`}
                 className="mt-3 block rounded-[10px] border border-line-strong bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-body transition hover:border-brand hover:text-brand"
               >
                 {zh ? '直接提交完整申请 →' : 'Submit a full application →'}
               </Link>
-              <Link
-                href="/tenant/agent"
-                className="mt-2 block rounded-[10px] border border-tenant/30 bg-tenant/5 px-4 py-[10px] text-center text-[13.5px] font-semibold text-tenant transition hover:bg-tenant/10"
-              >
-                {zh ? '让 AI Agent 替我问' : 'Have AI Agent ask for you'}
-              </Link>
+              {listing.source !== 'realtor' ? (
+                <button
+                  onClick={() => setIntentKind('question')}
+                  className="mt-2 block w-full rounded-[10px] border border-tenant/30 bg-tenant/5 px-4 py-[10px] text-center text-[13.5px] font-semibold text-tenant transition hover:bg-tenant/10"
+                >
+                  {zh ? '向房东提问' : 'Ask the landlord'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => setFieldAgentOpen(true)}
+                  className="mt-2 block w-full rounded-[10px] border border-tenant/30 bg-tenant/5 px-4 py-[10px] text-center text-[13.5px] font-semibold text-tenant transition hover:bg-tenant/10"
+                >
+                  {zh ? '找认证经纪帮我问' : 'Ask through a verified agent'}
+                </button>
+              )}
               <div className="mt-2 text-center text-[11px] leading-relaxed text-body-3">
-                {zh
-                  ? '从 Stayloop 认证（RECO 注册已核）的经纪中自选并直接联系；Stayloop 不参与交易、不收费。房东直租房源也可直接与房东约看。'
-                  : 'Pick a Stayloop-verified (RECO-checked) agent and contact them directly; Stayloop takes no part in the trade and charges nothing. Landlord-direct listings can also be viewed with the landlord.'}
+                {listing.source !== 'realtor'
+                  ? (zh
+                      ? <>请求会进入房东助手的待办；房东批准后你会收到带联系方式的邮件。也可以<button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">找认证经纪</button>陪同看房。Stayloop 不参与交易、不收费。</>
+                      : <>Your request lands in the landlord&apos;s agent inbox; once approved you get an email with their contact. You can also <button type="button" onClick={() => setFieldAgentOpen(true)} className="underline">bring a verified agent</button>. Stayloop takes no part in the trade and charges nothing.</>)
+                  : (zh
+                      ? '从 Stayloop 认证（RECO 注册已核）的经纪中自选并直接联系；Stayloop 不参与交易、不收费。'
+                      : 'Pick a Stayloop-verified (RECO-checked) agent and contact them directly; Stayloop takes no part in the trade and charges nothing.')}
               </div>
               </>)}
             </div>
@@ -828,6 +855,16 @@ export default function ListingDetailPage() {
           </aside>
         </section>
 
+        {intentKind && (
+          <ShowingRequestModal
+            zh={zh}
+            kind={intentKind}
+            listingId={listing.id}
+            listingAddress={`${listing.address}${listing.unit ? ` #${listing.unit}` : ''}`}
+            signedIn={!auth.loading && !!auth.user}
+            onClose={() => setIntentKind(null)}
+          />
+        )}
         {fieldAgentOpen && (
           <AgentPicker zh={zh} listingAddress={`${listing.address}${listing.unit ? ` #${listing.unit}` : ''}`} onClose={() => setFieldAgentOpen(false)} excludeAuthIds={[auth.user?.id, listing.landlord_id, landlordAuthId]} />
         )}

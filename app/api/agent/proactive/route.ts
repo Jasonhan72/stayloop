@@ -22,15 +22,15 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { daysBetween, isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
+import { isoDate, todayUtc } from '@/lib/dates'
+import { WINDOW_DAYS, marketFromRows, planRenewalActions, type ExistingRenewalAction, type MarketLine } from '@/lib/agent/renewalStages'
 
 export const runtime = 'edge'
 
-// Ontario rent increase guideline for 2026 (post-Nov-2018 first-occupancy
-// units are exempt — the proposal says so instead of pretending to know).
-const GUIDELINE_PCT = 2.5
-const WINDOW_DAYS = 120
-const NOTICE_DAYS = 90
+// Renewal touchpoints (90 / 60 / 30 days) are planned by
+// lib/agent/renewalStages.ts — see its header. The route only loads leases,
+// existing actions and the TRREB market line, then inserts what is missing.
+const RENEWAL_TYPES = ['send_renewal_letter', 'renewal_checkpoint', 'send_message']
 const CRON_SCAN_LIMIT = 200
 // Rent reminders are proposed only in the last N days of a month, for the 1st
 // of the next month.
@@ -48,47 +48,9 @@ type LeaseRow = {
   end_date: string
 }
 
-// Shared proposal shape — used verbatim by both the user-JWT path and cron.
-function buildRenewalProposal(userId: string, l: LeaseRow, today: Date) {
-  const rent = Number(l.monthly_rent) || 0
-  const raised = Math.round(rent * (1 + GUIDELINE_PCT / 100) * 100) / 100
-  // end_date is a date-only column: parsed as UTC midnight, so `today` has to
-  // be UTC midnight too. Subtracting a wall-clock instant from it drifted the
-  // countdown by a day — and this deadline is the RTA s.116 90-day N1 service
-  // date, which is not a number to be off by one on.
-  const end = parseDateOnly(l.end_date) ?? todayUtc()
-  const noticeDeadline = new Date(end.getTime() - NOTICE_DAYS * 86_400_000)
-  const daysToEnd = daysBetween(todayUtc(today), end)
-  const tenant = l.tenant_name || '租客'
-  return {
-    user_id: userId,
-    role: 'landlord',
-    action_type: 'send_renewal_letter',
-    title: `续约窗口：${tenant} · ${l.end_date} 到期（还有 ${daysToEnd} 天）`,
-    summary:
-      `${l.unit_label || '你的单元'} 月租 $${rent.toLocaleString()}。` +
-      `方案 A 不涨续约；方案 B 按 2026 指导上限 +${GUIDELINE_PCT}% → $${raised.toLocaleString()}` +
-      `（2018-11-15 后首次入住的单位不受上限约束）。` +
-      `N1/N2 需提前 ${NOTICE_DAYS} 天送达 — 最晚 ${iso(noticeDeadline)}。批准后我会把续约函真实发送给 ${l.tenant_email || tenant}。`,
-    recipient_label: l.tenant_email || tenant,
-    data_scope: ['租约条款摘要', '续约方案'],
-    excluded_data: ['筛查报告', '收入证明原件'],
-    risk_level: 'medium',
-    status: 'pending',
-    requires_approval: true,
-    metadata: {
-      lease_id: l.id,
-      tenant_name: l.tenant_name,
-      tenant_email: l.tenant_email,
-      unit_label: l.unit_label,
-      current_rent: rent,
-      guideline_rent: raised,
-      guideline_pct: GUIDELINE_PCT,
-      end_date: l.end_date,
-      notice_deadline: iso(noticeDeadline),
-      source: 'proactive_sweep',
-    },
-  }
+async function loadMarket(sb: SupabaseClient): Promise<MarketLine | null> {
+  const { data } = await sb.from('trreb_rent_stats').select('period, bed_type, avg_rent').limit(64)
+  return marketFromRows((data ?? []) as { period: string; bed_type: number; avg_rent: number }[])
 }
 
 function buildRentReminderProposal(userId: string, l: LeaseRow, dueDate: string) {
@@ -213,27 +175,35 @@ async function runCronSweep(): Promise<NextResponse> {
   // renewals are one-per-lease ever; reminders are one per lease per due_date.
   const { data: existing, error: existErr } = await admin
     .from('agent_pending_actions')
-    .select('action_type, metadata')
-    .in('action_type', ['send_renewal_letter', 'rent_reminder'])
+    .select('user_id, action_type, status, metadata')
+    .in('action_type', [...RENEWAL_TYPES, 'rent_reminder'])
     .in('user_id', affectedUserIds)
   if (existErr) {
     console.error('proactive idempotency scan failed:', existErr.message)
     return NextResponse.json({ error: 'idempotency scan failed' }, { status: 500 })
   }
-  const renewalProposed = new Set<string>()
   const reminderProposed = new Set<string>()
+  const renewalExisting: (ExistingRenewalAction & { user_id: string })[] = []
   for (const r of existing ?? []) {
-    const m = r.metadata as { lease_id?: string; due_date?: string } | null
+    const m = r.metadata as { lease_id?: string; due_date?: string; stage?: string } | null
     if (!m?.lease_id) continue
-    if (r.action_type === 'send_renewal_letter') renewalProposed.add(m.lease_id)
-    else if (m.due_date) reminderProposed.add(`${m.lease_id}:${m.due_date}`)
+    if (r.action_type === 'rent_reminder') { if (m.due_date) reminderProposed.add(`${m.lease_id}:${m.due_date}`) }
+    else renewalExisting.push({ user_id: r.user_id as string, action_type: r.action_type as string, status: r.status as string, metadata: m })
   }
 
+  const market = await loadMarket(admin)
   const inserts: Record<string, unknown>[] = []
+  // Plan per landlord so the (lease, stage) idempotency is scoped to the
+  // user who will see the card.
+  const byUser = new Map<string, LeaseRow[]>()
   for (const l of (renewalLeases ?? []) as LeaseRow[]) {
     const userId = resolve(l)
-    if (!userId || renewalProposed.has(l.id)) continue
-    inserts.push(buildRenewalProposal(userId, l, today))
+    if (!userId) continue
+    byUser.set(userId, [...(byUser.get(userId) ?? []), l])
+  }
+  for (const [userId, leases] of byUser) {
+    const ex = renewalExisting.filter((a) => a.user_id === userId)
+    inserts.push(...planRenewalActions(userId, leases, ex, today, market))
   }
   for (const l of reminderLeases) {
     const userId = resolve(l)
@@ -315,20 +285,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ created: 0, actions: [] })
   }
 
-  // Idempotency: one renewal proposal per lease, ever (approved, rejected or
-  // still pending — never re-nag a decided lease).
-  const { data: existing } = await sb
-    .from('agent_pending_actions')
-    .select('metadata')
-    .eq('user_id', userId)
-    .eq('action_type', 'send_renewal_letter')
-  const proposedLeaseIds = new Set(
-    (existing ?? []).map((r) => (r.metadata as { lease_id?: string } | null)?.lease_id).filter(Boolean)
+  // Idempotency: one proposal per lease per stage, ever (approved, rejected
+  // or still pending — never re-nag a decided touchpoint).
+  const [{ data: existing }, market] = await Promise.all([
+    sb
+      .from('agent_pending_actions')
+      .select('action_type, status, metadata')
+      .eq('user_id', userId)
+      .in('action_type', RENEWAL_TYPES),
+    loadMarket(sb),
+  ])
+  const inserts = planRenewalActions(
+    userId,
+    leases as LeaseRow[],
+    ((existing ?? []) as ExistingRenewalAction[]),
+    today,
+    market,
   )
-
-  const inserts = (leases as LeaseRow[])
-    .filter((l) => !proposedLeaseIds.has(l.id))
-    .map((l) => buildRenewalProposal(userId, l, today))
 
   if (inserts.length === 0) {
     return NextResponse.json({ created: 0, actions: [] })

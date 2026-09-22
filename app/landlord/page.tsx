@@ -68,10 +68,43 @@ const CFG: RoleLandingConfig = {
     after: { zh: 'AI 重做房源、读完全部申请并排好序,她在午休时按了一次「同意」。维修和续约,现在也归 AI 盯。', en: 'AI rebuilt the listing, read and ranked every application — she pressed "Approve" once, during lunch. Maintenance and renewals are now on AI\'s watch too.' },
     delta: { zh: '30 分钟 → 30 秒', en: '30 min → 30 sec' },
   },
-  stats: [
-    { k: { zh: '每份申请,读懂再排序', en: 'every application read & ranked' }, v: { zh: '它替你把关', en: 'It screens for you' } },
-    { k: { zh: 'RTA / OHRC 自动合规', en: 'RTA / OHRC on autopilot' }, v: { zh: '零踩雷', en: 'Zero missteps' } },
-    { k: { zh: '租金一分不抽', en: 'no cut of your rent' }, v: { zh: '0% 抽成', en: '0% commission' } },
+  chips: [
+    { label: { zh: '数据库驻加拿大', en: 'Database in Canada' }, href: '/privacy' },
+    { label: { zh: '不收 SIN', en: 'No SIN collected' }, href: '/privacy' },
+    { label: { zh: 'OHRC 租房政策口径', en: 'OHRC housing-policy scoring' }, href: '/screening' },
+    { label: { zh: '不是消费者报告机构', en: 'Not a consumer reporting agency' }, href: '/screening' },
+    { label: { zh: '测试期免费至 2026-10-14', en: 'Free until 2026-10-14' }, href: '/pricing' },
+  ],
+  benefits: [
+    {
+      h: { zh: '筛查：逐份读、互相对、查记录', en: 'Screening: read, cross-check, look up' },
+      b: { zh: '工资单算术、征信转录、证件有效期、LTB 判令目录、安省法院门户、雇主注册状态。每条结论都标出来自哪份文件的哪一行；收入倍数只作信息，不是拒绝依据。', en: 'Paystub arithmetic, bureau transcription, ID validity, the LTB order catalogue, the Ontario courts portal, employer registry status. Every conclusion cites the file and line it came from; income ratios are information, never grounds to decline.' },
+      ask: { zh: '租客筛查会看哪些文件、不看什么？', en: 'What does tenant screening look at, and what does it never look at?' },
+    },
+    {
+      h: { zh: '租约：安省标准租约 + 电子签', en: 'Lease: Ontario standard lease + e-sign' },
+      b: { zh: '按 O. Reg. 9/18 生成，押金不超过一个月租金，附表 B 只允许合法条款；双方签完自动归档到在管租约。', en: 'Generated per O. Reg. 9/18, deposit capped at one month, Schedule B limited to lawful terms; filed to your managed tenancies once both sides sign.' },
+      ask: { zh: '帮我起草一份标准租约，租金 2450，11 月 1 日起。', en: 'Draft a standard lease for me: rent 2,450, starting November 1.' },
+    },
+    {
+      h: { zh: '续约：到期前 90 / 60 / 30 天提醒你', en: 'Renewals: 90 / 60 / 30 days out' },
+      b: { zh: '先给同区 TRREB 行情与 A / B 两个方案，再替你起草续约信；30 天仍无回复就提醒你直接联系。所有发送都要你点确认。', en: 'First the TRREB benchmark and an A / B rent option, then the renewal letter; at 30 days with no reply it tells you to call. Nothing is sent until you approve.' },
+      ask: { zh: '我的租约明年 3 月到期，现在该做什么？', en: 'My lease ends next March — what should I be doing now?' },
+    },
+  ],
+  proof: {
+    key: 'screenings',
+    label: { zh: '份筛查在 Stayloop 上完成', en: 'screenings completed on Stayloop' },
+    note: { zh: '这是数据库里能直接数出来的数字。我们不展示百分比收益、客户数或评分——那些我们没有可审计的对照组。', en: 'A number counted straight from the database. We show no percentage gains, customer counts or ratings — we have no auditable control group for those.' },
+  },
+  faq: [
+    { q: { zh: '免费能筛几次？', en: 'How many screenings are free?' }, a: { zh: '测试期（至 2026-10-14）不限次。之后免费档每月 5 次，含取证与信用分析；Pro $19/月不限次并开放深度核查。', en: 'Unlimited during the test period (until 2026-10-14). After that the free tier includes 5 a month with forensics and credit analysis; Pro at $19/month is unlimited and unlocks deep checks.' } },
+    { q: { zh: '筛查看什么、不看什么？', en: 'What is checked — and what is not?' }, a: { zh: '看：收入文件算术与互证、征信转录与分析、证件有效性、LTB 判令目录、安省法院门户、雇主注册状态。不看、也不让模型推断 OHRC 受保护特征（国籍、家庭状况、收入来源类型等）。收入租金比只作信息，不设截止线。', en: 'Checked: income-document arithmetic and cross-checks, bureau transcription and analysis, ID validity, the LTB order catalogue, the Ontario courts portal, employer registry status. Never checked or inferred: OHRC protected grounds (nationality, family status, source of income and the rest). Income-to-rent is information only, with no cut-off.' } },
+    { q: { zh: '申请人怎么授权？', en: 'How does the applicant authorise checks?' }, a: { zh: '你在筛查记录上生成一条链接，申请人本人签版本化同意后逐步授权身份（Veriff）、银行（Flinks）、征信（Equifax）。我们不收 SIN。', en: 'You generate a link on the screening record; the applicant signs a versioned consent and then authorises identity (Veriff), bank (Flinks) and credit (Equifax) step by step. We never collect a SIN.' } },
+    { q: { zh: '我能让申请人付筛查费吗？', en: 'Can I charge the applicant for screening?' }, a: { zh: '不能。RTA s.134 禁止向租客收取申请或筛查费用。定价页与解锁流程都没有「让申请人付」的选项。', en: 'No. RTA s.134 prohibits charging tenants application or screening fees. Neither pricing nor the unlock flow has an "applicant pays" option.' } },
+    { q: { zh: '报告能给申请人看吗？', en: 'Can the applicant see the report?' }, a: { zh: '可以，也应该。报告页有可打印的申请人通知信，说明参考了哪些材料、如何索取与更正（《消费者报告法》s.10(7)）。', en: 'Yes, and they should. The report page has a printable applicant notice explaining what was considered and how to request and correct it (Consumer Reporting Act s.10(7)).' } },
+    { q: { zh: '数据存在哪？谁能看？', en: 'Where is the data stored and who can see it?' }, a: { zh: '数据库在 AWS 蒙特利尔（ca-central-1）。文件只有你本人与你授权的申请人链接可读；AI 服务商所在地在隐私页第 2 节如实列出。', en: 'The database is in AWS Montréal (ca-central-1). Files are readable only by you and the applicant link you authorise; AI providers and their locations are listed in section 2 of the privacy page.' } },
+    { q: { zh: 'Stayloop 是消费者报告机构吗？', en: 'Is Stayloop a consumer reporting agency?' }, a: { zh: '不是。我们整理你收到的材料与公开记录，不向第三方出售报告。是否注册为报告机构正在研究，进展会写在隐私页。', en: 'No. We organise the material you received plus public records and sell no reports to third parties. Whether to register as an agency is under review; progress is posted on the privacy page.' } },
   ],
 }
 

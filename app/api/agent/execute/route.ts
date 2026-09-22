@@ -50,6 +50,11 @@ type ActionRow = {
     to_email?: string
     subject?: string
     body?: string
+    // renewal_checkpoint
+    stage?: string
+    // showing_request / listing_inquiry
+    intent_id?: string
+    listing_id?: string
   } | null
 }
 
@@ -376,6 +381,107 @@ async function executeRentReminder(
 // Route
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Executor: renewal_checkpoint (60d / 30d touchpoints, lib/agent/renewalStages)
+// Approval = "acknowledged". No side effect beyond the stamp + audit.
+// ---------------------------------------------------------------------------
+async function executeRenewalCheckpoint(admin: Admin, userId: string, action: ActionRow): Promise<NextResponse> {
+  if (!(await claimExecution(admin, action.id))) return ALREADY()
+  const m = action.metadata || {}
+  const executionResult = { ok: true, kind: 'acknowledged', stage: m.stage ?? null, lease_id: m.lease_id ?? null }
+  return finalizeExecution(admin, userId, action.id, 'executed_renewal_checkpoint', executionResult, {
+    stage: m.stage ?? null,
+    lease_id: m.lease_id ?? null,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Executor: showing_request / listing_inquiry
+// metadata: { intent_id, listing_id }. The tenant's request is loaded from
+// showing_intents (server-written by /api/showing-intent), the recipient is
+// the tenant's login email, and the listing must belong to the caller.
+// Approval = the landlord accepts: the tenant gets an email with the
+// landlord's contact so the two continue directly; the intent row flips to
+// `accepted`.
+// ---------------------------------------------------------------------------
+async function executeShowingRequest(admin: Admin, userId: string, action: ActionRow, callerEmail: string | null): Promise<NextResponse> {
+  const m = action.metadata || {}
+  const intentId = typeof m.intent_id === 'string' ? m.intent_id : ''
+  if (!/^[0-9a-f-]{36}$/i.test(intentId)) {
+    return NextResponse.json({ executed: false, reason: 'intent_id missing' }, { status: 422 })
+  }
+  const { data: intent } = await admin
+    .from('showing_intents')
+    .select('id, tenant_id, listing_id, move_in_date, message, status')
+    .eq('id', intentId)
+    .maybeSingle()
+  if (!intent) return NextResponse.json({ executed: false, reason: 'intent not found' }, { status: 404 })
+  const { data: landlordRows } = await admin.from('landlords').select('id').or(`auth_id.eq.${userId},id.eq.${userId}`)
+  const landlordIds = (landlordRows ?? []).map((r: { id: string }) => r.id)
+  const { data: listing } = await admin
+    .from('listings')
+    .select('id, address, unit, landlord_id')
+    .eq('id', intent.listing_id)
+    .maybeSingle()
+  if (!listing || !landlordIds.includes(listing.landlord_id as string)) {
+    return NextResponse.json({ executed: false, reason: 'listing is not yours' }, { status: 403 })
+  }
+  const { data: tenant } = await admin.from('tenants').select('email, full_name').eq('id', intent.tenant_id).maybeSingle()
+  const to = (tenant?.email || '').trim()
+  if (!EMAIL_RE.test(to)) return NextResponse.json({ executed: false, reason: 'tenant has no email' }, { status: 422 })
+
+  if (!(await claimExecution(admin, action.id))) return ALREADY()
+
+  const addr = [listing.address, listing.unit ? `#${listing.unit}` : ''].filter(Boolean).join(' ')
+  const isShowing = action.action_type === 'showing_request'
+  const contact = callerEmail ? `房东联系邮箱：${callerEmail}` : '房东会通过 Stayloop 继续联系你。'
+  const contactEn = callerEmail ? `Landlord contact: ${callerEmail}` : 'The landlord will follow up through Stayloop.'
+  const body = isShowing
+    ? `${tenant?.full_name || ''} 你好，
+
+你对 ${addr} 的看房请求房东已经收到并同意安排。` +
+      (intent.move_in_date ? `你填写的期望入住日期：${intent.move_in_date}。` : '') +
+      `
+请直接与房东约定时间。${contact}
+
+` +
+      `Hi ${tenant?.full_name || ''},
+
+The landlord has received your showing request for ${addr} and agreed to arrange a viewing.` +
+      (intent.move_in_date ? ` Your preferred move-in date: ${intent.move_in_date}.` : '') +
+      `
+Please arrange the time directly with the landlord. ${contactEn}`
+    : `${tenant?.full_name || ''} 你好，
+
+你关于 ${addr} 的提问房东已经收到。${contact}
+
+你的问题：
+${String(intent.message || '').slice(0, 2000)}
+
+` +
+      `Hi ${tenant?.full_name || ''},
+
+The landlord has received your question about ${addr}. ${contactEn}`
+  const subject = isShowing
+    ? `看房请求已确认 · ${addr} / Showing request accepted`
+    : `房东已收到你的提问 · ${addr} / Your question was received`
+  const { html, text } = renderAgentMessageEmail({ subject, body })
+  const result = await sendEmail({ to, subject, html, text })
+  if (!result.ok) {
+    await releaseClaim(admin, action.id, result.error)
+    return NextResponse.json({ executed: false, reason: result.error || 'send failed' }, { status: 502 })
+  }
+  await admin.from('showing_intents').update({ status: 'accepted' }).eq('id', intent.id)
+  const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: to, intent_id: intent.id }
+  return finalizeExecution(admin, userId, action.id, isShowing ? 'executed_showing_request' : 'executed_listing_inquiry', executionResult, {
+    sent_to: to,
+    subject,
+    email_id: result.id,
+    intent_id: intent.id,
+    listing_id: listing.id,
+  })
+}
+
 export async function POST(req: Request) {
   const rawAuth = req.headers.get('authorization') || ''
   const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
@@ -424,7 +530,7 @@ export async function POST(req: Request) {
   // that ultimately traces back to rows the caller can write (their own
   // lease's tenant_email, an application on their own listing). The
   // counterparty checks narrow WHO; this caps HOW MANY (review 2026-09-19).
-  if (['send_renewal_letter', 'send_message', 'rent_reminder'].includes(action.action_type)) {
+  if (['send_renewal_letter', 'send_message', 'rent_reminder', 'showing_request', 'listing_inquiry'].includes(action.action_type)) {
     if (!(await underHourlyLimit(`mail:agent-execute:${userId}`, 20, false))) {
       return NextResponse.json({ executed: false, reason: 'hourly send limit reached' }, { status: 429, headers: { 'Retry-After': '3600' } })
     }
@@ -440,6 +546,11 @@ export async function POST(req: Request) {
       return executeSendMessage(admin, userId, action)
     case 'rent_reminder':
       return executeRentReminder(admin, userId, action)
+    case 'renewal_checkpoint':
+      return executeRenewalCheckpoint(admin, userId, action)
+    case 'showing_request':
+    case 'listing_inquiry':
+      return executeShowingRequest(admin, userId, action, ud.user.email ?? null)
     default:
       return NextResponse.json({ executed: false, reason: 'no_executor_for_type' })
   }
