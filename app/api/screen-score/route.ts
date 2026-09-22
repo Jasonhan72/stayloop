@@ -549,7 +549,7 @@ async function runCourtRecordCheck(name: string, plan: string): Promise<{ querie
   }
 
   const allRecords: CanLIIMatch[] = []
-  let totalHits = 0
+  const totalHits = 0
   const totalDbsSearched = 0
   const aggregatePartial = false
 

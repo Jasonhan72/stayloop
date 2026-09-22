@@ -124,7 +124,7 @@ export async function ocrImageBase64(
  *   • collapses >2 identical consecutive lines to 2.
  */
 export function cleanOcrText(raw: string): string {
-  let t = raw.replace(/```[a-z]*\n?/gi, '').trim()
+  const t = raw.replace(/```[a-z]*\n?/gi, '').trim()
   if (!t) return ''
   if (/^[\[\]{}\s,:"]*$/.test(t)) return ''
   const lines = t.split('\n').map((l) => l.replace(/\s+$/, ''))
@@ -324,7 +324,7 @@ export async function parseInlineImages(content: Uint8Array): Promise<InlineImag
       const csName = INLINE_CS[cs] || cs
       const dataStart = idPos + 3 // "ID" + one whitespace
       let dataEnd = -1
-      let explicitLen = dict.Length ? parseInt(dict.Length, 10) : NaN
+      const explicitLen = dict.Length ? parseInt(dict.Length, 10) : NaN
       if (Number.isFinite(explicitLen) && explicitLen > 0 && dataStart + explicitLen <= n) dataEnd = dataStart + explicitLen
       if (dataEnd < 0 && filtRaw[0] === 'DCTDecode') {
         // JPEG: ends at FFD9 (EOI)

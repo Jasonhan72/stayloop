@@ -310,9 +310,9 @@ const USE_CATEGORIES: [RegExp, RegExp, string, string][] = [
 ]
 
 export function useProhibited(excluded: string[], use?: string | null): string | null {
-  return useProhibitedBoth(excluded, use)?.zh ?? null
+  return prohibitedUseBoth(excluded, use)?.zh ?? null
 }
-export function useProhibitedBoth(excluded: string[], use?: string | null): { zh: string; en: string } | null {
+export function prohibitedUseBoth(excluded: string[], use?: string | null): { zh: string; en: string } | null {
   if (!excluded.length || !use) return null
   for (const [tenantRe, listingRe, zh, en] of USE_CATEGORIES) {
     if (!tenantRe.test(use)) continue
@@ -635,7 +635,7 @@ export function assessFit(l: ListingCard, need: CommercialNeed): { tier: number;
       tier = Math.max(tier, 4)
     }
   }
-  const prohibited = useProhibitedBoth(l.excluded_uses || [], use)
+  const prohibited = prohibitedUseBoth(l.excluded_uses || [], use)
   if (prohibited) {
     flag('use_excluded', `房东明写禁止${prohibited.zh}`, `Listing excludes ${prohibited.en} uses`)
     tier = 5

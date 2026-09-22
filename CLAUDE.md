@@ -474,6 +474,20 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
   是命名与设计体例（「筛查」页同时含发起与历史、Header「工作台」与侧栏同一目的地、英文眉标 + 中文标题、房源来源徽章已有）；
   **009**「登录后仍显示登录/注册」无法复现——Header 按 `auth.loading / auth.user` 切换，评审没给路径。
 
+## 全站测试规范与首轮执行（2026-09-22）
+
+用户要求「先制定测试规范再做全站测试」。规范 `design/test-plan-2026-09-22.md`（八层：L0 静态 / L1 单元 / L2 构建 / L3 冒烟
+四层在 ship 门禁；L4 路由与接口契约 / L5 数据边界与健康 / L6 系统适配 / L7 业务流按规范手动或脚本执行），首轮报告
+`design/test-report-2026-09-22.md`。新增工具：`scripts/route-audit.mjs`（65 条匿名探针：公开页 200 + 安全头、受保护接口
+401/400、重定向、输入校验，已接进 ship 脚本冒烟之后作信息性输出）、`.eslintrc.json`（此前项目从未配置 lint；现 0 error，
+lint 一次 5–8 分钟，不进门禁）。首轮发现并修的：`/apply/[slug]` 眉标渲染出 `// ` 文本；两个 `use*` 前缀的纯函数被当 Hook；
+生产库 13 个 SECURITY DEFINER RPC 撤销 anon 执行 + 10 个触发器函数撤销 API 角色执行（`20260922_anon_rpc_revokes.sql`，
+匿名客户端在任何 RPC 之前就退回 demo 模式，`/join` `/apply` 的匿名 RPC 保留）；15 条 4–8 月卡死的筛查行标 error。
+记录不改：`agent_directory` 的 SECURITY DEFINER 视图（改 invoker 要给 anon 开 landlords 列权限）；Safari / Firefox 无自动化；
+浏览器端登录流程按约定不由 Claude 输密码，用 tester@stayloop.ai 手动走。**数据边界探针的做法**：`execute_sql` 里
+`begin; set local role authenticated; set local request.jwt.claims = '{"sub":…}'; … rollback;`，listings 的 landlord_id 是
+landlords.id 不是 auth uid。
+
 ## 深度核查复核：银行、商号、征信档雇主（2026-09-22 · Kim-Yi 案 · 用户要求「通盘考虑再修」）
 
 用户看深度核查截图后指出三处：韩资银行「均未收录」不对；征信档雇主与在职信不一致「不能简单判定为假，也许是征信更新不及时」；

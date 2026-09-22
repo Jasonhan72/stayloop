@@ -519,7 +519,7 @@ function Section({ tag, title, children }: { tag: string; title: string; childre
     <section className="sl-card p-5 sm:p-7">
       <div className="mb-5 flex items-center gap-3">
         <span className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
-          // {tag}
+          {tag}
         </span>
         <h2 className="text-[18px] font-bold tracking-tight">{title}</h2>
       </div>

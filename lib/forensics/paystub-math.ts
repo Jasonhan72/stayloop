@@ -135,7 +135,7 @@ export async function extractPaystubFields(
 function parseExtraction(raw: string): PaystubExtraction | null {
   try {
     // Strip code fences, trailing commas, then parse
-    let t = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
+    const t = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '')
     // Find balanced top-level object
     const start = t.indexOf('{')
     if (start < 0) return null

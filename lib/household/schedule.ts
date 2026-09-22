@@ -47,7 +47,7 @@ export function rentSchedule(
   const horizon = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + monthsAhead, today.getUTCDate()))
 
   const out: RentPeriod[] = []
-  let y = start.getUTCFullYear()
+  const y = start.getUTCFullYear()
   let m = start.getUTCMonth()
   // First due date on/after the lease start.
   let due = dueDateInMonth(y, m, dueDay)
