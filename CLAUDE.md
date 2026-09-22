@@ -11,7 +11,7 @@ AI-powered tenant screening SaaS for Ontario landlords. Live at **www.stayloop.a
 - **Email:** Resend SMTP via Supabase Auth (magic links)
 - **Payments:** Stripe **LIVE mode**（2026-08-26 切换，见下「支付模块」节的切换记录）
 - **Maps:** Google Maps API
-- **DB:** Supabase (project `uotcczsfeiptnabamzcd`, **AWS ca-central-1 蒙特利尔**；2026-09-16 从 us-east-1 的 `upbkcbicjjpznojkpqtg` 迁入；旧项目 2026-09-17 由用户拍板删除，SQL 转储留在 `~/stayloop-backup-2026-09-16/`)
+- **DB:** Supabase (project `uotcczsfeiptnabamzcd`, **AWS ca-central-1 蒙特利尔**；**2026-09-22 起对外地址是自定义域名 `https://auth.stayloop.ai`**（Custom Domain 附加功能 $10/月，`NEXT_PUBLIC_SUPABASE_URL` 本地与 CF 都已换；原因：Google 登录页显示「继续前往 uotcc….supabase.co」太丑。DNS 在 Cloudflare：`auth` CNAME → 项目 + `_acme-challenge.auth` / `_cf-custom-hostname.auth` 两条 TXT，全部 DNS only；Google OAuth client 已由用户加回调 `https://auth.stayloop.ai/auth/v1/callback`。REST / Storage / Auth 全走该域名，原 `*.supabase.co` 仍可用——GitHub Actions 与 ingest 脚本没改。切换后所有人重新登录一次（supabase-js 的存储键由主机名首段推导）。要让 Google 显示「继续前往 Stayloop」而非域名，还需用户在 Google Console 完成 OAuth 品牌验证）；2026-09-16 从 us-east-1 的 `upbkcbicjjpznojkpqtg` 迁入；旧项目 2026-09-17 由用户拍板删除，SQL 转储留在 `~/stayloop-backup-2026-09-16/`)
 
 ## Repo & Branches
 
