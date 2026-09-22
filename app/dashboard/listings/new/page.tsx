@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import WorkspaceShell from '@/components/WorkspaceShell'
@@ -14,10 +14,10 @@ import { useT, type Lang } from '@/lib/i18n'
 
 const STEPS = (aiName: string) => [
   { n: 1, nm: { zh: '基本信息', en: 'Basics' }, desc: { zh: '地址 + 户型 + 面积', en: 'Address + layout + size' } },
-  { n: 2, nm: { zh: '照片 + 视频', en: 'Photos + video' }, desc: { zh: `至少 8 张 · ${aiName} 自动排序`, en: `8+ photos · ${aiName} auto-orders` } },
-  { n: 3, nm: { zh: '价格 + 押金', en: 'Price + deposit' }, desc: { zh: `${aiName} 给市场区间`, en: `${aiName} gives the market range` } },
+  { n: 2, nm: { zh: '照片', en: 'Photos' }, desc: { zh: '第一张是封面', en: 'First photo is the cover' } },
+  { n: 3, nm: { zh: '价格 + 条件', en: 'Price + terms' }, desc: { zh: '租金 · 押金 · 租期 · 宠物 · 水电', en: 'Rent · deposit · term · pets · utilities' } },
   { n: 4, nm: { zh: '护照章', en: 'Passport stamps' }, desc: { zh: '申请人可分享哪些核验', en: 'What applicants can share' } },
-  { n: 5, nm: { zh: '最后审 + 发布', en: 'Review + publish' }, desc: { zh: `${aiName} 起草 EN+ZH 文案`, en: `${aiName} drafts EN+ZH copy` } },
+  { n: 5, nm: { zh: '核对 + 发布', en: 'Review + publish' }, desc: { zh: '只发布你填过的事实', en: 'Only the facts you entered' } },
 ]
 
 const AMENITIES: { id: string; zh: string; en: string }[] = [
@@ -33,7 +33,13 @@ const AMENITIES: { id: string; zh: string; en: string }[] = [
   { id: 'storage', zh: '储物间', en: 'Storage locker' },
 ]
 
-const IMPORT_SOURCES = ['Realtor.ca', 'Kijiji', 'Zumper', 'Zillow', 'MLS#']
+const IMPORT_SOURCES = ['Realtor.ca', 'MLS#', 'Kijiji', 'Zumper']
+const UTILITY_OPTIONS: { id: string; zh: string; en: string }[] = [
+  { id: 'hydro', zh: '电', en: 'Hydro' }, { id: 'water', zh: '水', en: 'Water' }, { id: 'heat', zh: '暖气', en: 'Heat' },
+  { id: 'gas', zh: '燃气', en: 'Gas' }, { id: 'internet', zh: '网络', en: 'Internet' }, { id: 'cable', zh: '有线电视', en: 'Cable' },
+]
+const MAX_PHOTOS = 12
+const NOT_PROVIDED = { zh: '未提供', en: 'not provided' }
 
 export default function NewListingPage() {
   const router = useRouter()
@@ -63,8 +69,29 @@ export default function NewListingPage() {
     floor: '',
     age: '',
     property_type: 'condo',
+    // Every optional fact starts EMPTY / unconfirmed (fix list 2026-09-22,
+    // SL-LL-002): nothing is pre-selected, and nothing the landlord did not
+    // enter reaches the listing. "Not stated" is a valid published value.
     amenities: [] as string[],
+    lease_term: '',
+    pets_allowed: '' as '' | 'yes' | 'restricted',
+    smoking_policy: '' as '' | 'no' | 'outdoor_only' | 'yes',
+    furnished: '' as '' | 'yes' | 'no',
+    utilities_included: [] as string[],
   })
+  const [photos, setPhotos] = useState<string[]>([])
+  const photoRef = useRef<HTMLInputElement>(null)
+  const handlePhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+    Array.from(files).slice(0, MAX_PHOTOS).forEach((f) => {
+      const reader = new FileReader()
+      reader.onload = () => { if (typeof reader.result === 'string') setPhotos((prev) => (prev.length >= MAX_PHOTOS ? prev : [...prev, reader.result as string])) }
+      reader.readAsDataURL(f)
+    })
+    e.target.value = ''
+  }
+  const toggleUtility = (id: string) => setForm((f) => ({ ...f, utilities_included: f.utilities_included.includes(id) ? f.utilities_included.filter((x) => x !== id) : [...f.utilities_included, id] }))
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }))
   const toggleAmenity = (a: string) =>
@@ -111,8 +138,13 @@ export default function NewListingPage() {
         deposit: parseInt(form.deposit) || null,
         year_built: parseInt(form.age) ? new Date().getFullYear() - parseInt(form.age) : null,
         amenities: form.amenities,
+        lease_term: form.lease_term.trim() || undefined,
+        pets_allowed: form.pets_allowed || undefined,
+        smoking_policy: form.smoking_policy || undefined,
+        furnished: form.furnished === '' ? undefined : form.furnished === 'yes',
+        utilities_included: form.utilities_included,
       },
-      { landlordId: landlord.landlordId, slug, slim: true },
+      { landlordId: landlord.landlordId, slug, slim: true, photos },
     )
     const { slug: newSlug, error: e } = await publishListing(supabase, row, { zh: lang === 'zh', selectSlug: true })
     setSubmitting(false)
@@ -208,14 +240,10 @@ export default function NewListingPage() {
               </button>
             </div>
 
-            <div className="mt-3 flex items-center justify-center rounded-xl border border-dashed border-line-strong bg-surface px-4 py-5 text-[12.5px] text-body-3">
-              {lang === 'zh' ? `📄 拖一份 PDF / 截图到这里 · ${aiName} 自动 OCR + 视觉解析` : `📄 Drop a PDF / screenshot here · ${aiName} auto OCR + visual parsing`}
-            </div>
-
-            <p className="mt-3 text-[11.5px] text-body-3">
+            <p className="mt-3 text-[11.5px] leading-relaxed text-body-3">
               {lang === 'zh'
-                ? `💡 ${aiName} 会自动改写为 Stayloop 风格 · EN + 中文双语，去除 MLS 套话并做 RTA / RECO 合规检查。`
-                : `💡 ${aiName} rewrites it in Stayloop style · EN + Chinese, strips MLS boilerplate, and runs RTA / RECO compliance checks.`}
+                ? <>支持：Realtor.ca 房源链接、MLS® 编号、其他公开房源页链接（需登录才能看的页面读不到）。PDF / 截图请到 <Link href="/landlord/agent" className="text-brand underline underline-offset-2">{aiName} 对话</Link>里用「+」附件上传。解析结果先生成草稿卡片，你逐项确认后才发布——{aiName} 不会补写你没提供的事实。暂不支持 CSV / Excel 批量导入。</>
+                : <>Supported: Realtor.ca listing links, MLS® numbers and other public listing pages (login-walled pages cannot be read). For a PDF or screenshot, use the "+" attachment in <Link href="/landlord/agent" className="text-brand underline underline-offset-2">the {aiName} chat</Link>. Parsing produces a draft card you confirm field by field before publishing — {aiName} never fills in facts you did not provide. CSV / Excel bulk import is not available yet.</>}
             </p>
           </div>
 
@@ -339,69 +367,107 @@ export default function NewListingPage() {
                   </div>
                 </Field>
 
-                <div className="rounded-xl border border-brand/20 bg-brand/[0.04] p-4 text-[13px] leading-relaxed text-body">
-                  {lang === 'zh' ? (
-                    <><b className="text-brand">💡 {aiName}：</b>你这套户型 + 配套，King West 区域过去 30 天 7 套同类已出租。市场租金中位数 <b>$2,820</b>。我建议挂 $2,850（轻微上浮可谈空间）。</>
-                  ) : (
-                    <><b className="text-brand">💡 {aiName}: </b>With this layout and amenities, 7 comparable King West units rented in the past 30 days. The market median is <b>$2,820</b>. I'd list at $2,850 (slight upside, with room to negotiate).</>
-                  )}
-                </div>
+                <p className="text-[12px] text-body-3">
+                  {lang === 'zh'
+                    ? '配套只有你点选的才会发布；没点的不会被当成「没有」，详情页只是不显示。'
+                    : 'Only the amenities you tap are published; untapped ones are not shown as absent — they simply do not appear.'}
+                </p>
 
-                <button onClick={() => setStep(2)} className="sl-btn-primary w-full !py-[12px]">{lang === 'zh' ? '下一步 · 照片 + 视频' : 'Next · Photos + video'}</button>
+                <button onClick={() => setStep(2)} className="sl-btn-primary w-full !py-[12px]">{lang === 'zh' ? '下一步 · 照片' : 'Next · Photos'}</button>
               </div>
             )}
 
             {step === 2 && (
               <div className="space-y-4">
-                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '2 · 照片 + 视频' : '2 · Photos + video'}</h2>
+                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '2 · 照片' : '2 · Photos'}</h2>
                 <p className="text-[13px] text-body-2">
                   {lang === 'zh'
-                    ? `至少上传 8 张照片，${aiName} 会自动排序、挑封面，并补一段房源短视频脚本。`
-                    : `Upload at least 8 photos. ${aiName} auto-orders them, picks the cover, and drafts a short listing-video script.`}
+                    ? `最多 ${MAX_PHOTOS} 张，第一张是封面。至少 1 张才能发布。`
+                    : `Up to ${MAX_PHOTOS} photos; the first one is the cover. At least 1 is required to publish.`}
                 </p>
+                <input ref={photoRef} type="file" accept="image/*" multiple onChange={handlePhotos} className="hidden" />
                 <div className="grid grid-cols-4 gap-3">
-                  {Array.from({ length: 7 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="aspect-square rounded-lg bg-[#94815C]"
-                      style={{ backgroundImage: 'linear-gradient(135deg,#a8966f,#7a6a4c)' }}
-                    />
+                  {photos.map((p, i) => (
+                    <div key={i} className="group relative aspect-square overflow-hidden rounded-lg bg-surface-chip">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={p} alt="" className="h-full w-full object-cover" />
+                      {i === 0 && <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[9px] text-white">{lang === 'zh' ? '封面' : 'COVER'}</span>}
+                      <button type="button" onClick={() => setPhotos((prev) => prev.filter((_, k) => k !== i))} className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-[14px] text-white" aria-label={lang === 'zh' ? '移除' : 'Remove'}>×</button>
+                    </div>
                   ))}
-                  <div
-                    aria-hidden="true"
-                    className="flex aspect-square items-center justify-center rounded-lg border-2 border-dashed border-line-strong text-[28px] text-body-3"
-                  >
-                    +
-                  </div>
-                </div>
-                <div className="rounded-xl border border-brand/20 bg-brand/[0.04] p-4 text-[13px] leading-relaxed text-body">
-                  {lang === 'zh' ? (
-                    <><b className="text-brand">💡 {aiName}：</b>已上传 8 张 · 我把客厅南向采光那张设为封面，King West 这类房源封面采光好可提升 30% 询盘。</>
-                  ) : (
-                    <><b className="text-brand">💡 {aiName}: </b>8 photos uploaded · I set the south-facing living-room shot as the cover. For King West listings, a bright cover photo can lift inquiries by 30%.</>
+                  {photos.length < MAX_PHOTOS && (
+                    <button type="button" onClick={() => photoRef.current?.click()} className="flex aspect-square items-center justify-center rounded-lg border-2 border-dashed border-line-strong text-[28px] text-body-3 hover:border-brand hover:text-brand">
+                      +
+                    </button>
                   )}
                 </div>
+                <p className="text-[12px] text-body-3">
+                  {lang === 'zh' ? `已选 ${photos.length} 张。照片随房源一起保存；发布后可在房源管理里增删。` : `${photos.length} selected. Photos are saved with the listing; add or remove them later under Manage listings.`}
+                </p>
                 <div className="flex gap-3">
                   <button onClick={() => setStep(1)} className="sl-btn-secondary">{lang === 'zh' ? '← 上一步' : '← Back'}</button>
-                  <button onClick={() => setStep(3)} className="sl-btn-primary flex-1 !py-[12px]">{lang === 'zh' ? '下一步 · 价格 + 押金' : 'Next · Price + deposit'}</button>
+                  <button onClick={() => setStep(3)} className="sl-btn-primary flex-1 !py-[12px]">{lang === 'zh' ? '下一步 · 价格 + 条件' : 'Next · Price + terms'}</button>
                 </div>
               </div>
             )}
 
             {step === 3 && (
               <div className="space-y-4">
-                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '3 · 价格 + 押金' : '3 · Price + deposit'}</h2>
-                <div className="rounded-xl border border-brand/20 bg-brand/[0.04] p-4 text-[13px] leading-relaxed text-body">
-                  {lang === 'zh' ? (
-                    <><b className="text-brand">💡 {aiName}：</b>市场租金中位数 <b>$2,820</b> · 建议挂 <b>$2,850</b>（King West 1B+den · 轻微上浮可谈空间）。押金按 RTA 标准 = 一个月租金。</>
-                  ) : (
-                    <><b className="text-brand">💡 {aiName}: </b>Market median rent is <b>$2,820</b> · I'd list at <b>$2,850</b> (King West 1B+den · slight upside, room to negotiate). Deposit per RTA standard = one month's rent.</>
-                  )}
-                </div>
+                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '3 · 价格 + 条件' : '3 · Price + terms'}</h2>
+                <p className="text-[13px] text-body-2">
+                  {lang === 'zh'
+                    ? <>不确定该挂多少？发布后在 <Link href="/landlord/agent" className="text-brand underline underline-offset-2">{aiName} 对话</Link>里问「这套该挂多少」，会拉同区域真实挂牌与 TRREB 官方数据——这里不预填任何价格。</>
+                    : <>Not sure about the price? After publishing, ask {aiName} in <Link href="/landlord/agent" className="text-brand underline underline-offset-2">the chat</Link> — it pulls live comparables and TRREB data. Nothing is pre-filled here.</>}
+                </p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label={lang === 'zh' ? '月租 (CAD) *' : 'Monthly rent (CAD) *'}><input className="sl-input" type="number" required value={form.monthly_rent} onChange={(e) => set('monthly_rent', e.target.value)} /></Field>
                   <Field label={lang === 'zh' ? '押金 (CAD)' : 'Deposit (CAD)'}><input className="sl-input" type="number" value={form.deposit} onChange={(e) => set('deposit', e.target.value)} /></Field>
                 </div>
+                {parseInt(form.deposit) > parseInt(form.monthly_rent) && parseInt(form.monthly_rent) > 0 && (
+                  <div className="rounded-md bg-danger/10 px-3 py-2 text-[12.5px] text-danger">
+                    {lang === 'zh' ? '押金超过一个月租金。安省 RTA s.106 只允许收最多一个月租金作为末月租押金（钥匙押金除外，且只能是可退还的成本价）。' : "The deposit exceeds one month's rent. Ontario RTA s.106 allows at most one month's rent as a last-month deposit (plus a refundable key deposit at cost)."}
+                  </div>
+                )}
+                <div className="grid gap-4 sm:grid-cols-4">
+                  <Field label={lang === 'zh' ? '租期' : 'Lease term'}><input className="sl-input" value={form.lease_term} onChange={(e) => set('lease_term', e.target.value)} placeholder={lang === 'zh' ? '如：12 个月 / 可短租' : 'e.g. 12 months / short-term OK'} /></Field>
+                  <Field label={lang === 'zh' ? '宠物' : 'Pets'}>
+                    <select className="sl-input" value={form.pets_allowed} onChange={(e) => set('pets_allowed', e.target.value)}>
+                      <option value="">{lang === 'zh' ? '未说明' : 'Not stated'}</option>
+                      <option value="yes">{lang === 'zh' ? '允许' : 'Allowed'}</option>
+                      <option value="restricted">{lang === 'zh' ? '有限制' : 'With restrictions'}</option>
+                    </select>
+                  </Field>
+                  <Field label={lang === 'zh' ? '吸烟' : 'Smoking'}>
+                    <select className="sl-input" value={form.smoking_policy} onChange={(e) => set('smoking_policy', e.target.value)}>
+                      <option value="">{lang === 'zh' ? '未说明' : 'Not stated'}</option>
+                      <option value="no">{lang === 'zh' ? '禁止' : 'No smoking'}</option>
+                      <option value="outdoor_only">{lang === 'zh' ? '仅室外' : 'Outdoors only'}</option>
+                      <option value="yes">{lang === 'zh' ? '允许' : 'Allowed'}</option>
+                    </select>
+                  </Field>
+                  <Field label={lang === 'zh' ? '家具' : 'Furnished'}>
+                    <select className="sl-input" value={form.furnished} onChange={(e) => set('furnished', e.target.value)}>
+                      <option value="">{lang === 'zh' ? '未说明' : 'Not stated'}</option>
+                      <option value="yes">{lang === 'zh' ? '带家具' : 'Furnished'}</option>
+                      <option value="no">{lang === 'zh' ? '不带家具' : 'Unfurnished'}</option>
+                    </select>
+                  </Field>
+                </div>
+                <Field label={lang === 'zh' ? '租金包含（点选）' : 'Included in rent (tap)'}>
+                  <div className="flex flex-wrap gap-2">
+                    {UTILITY_OPTIONS.map((u) => {
+                      const on = form.utilities_included.includes(u.id)
+                      return (
+                        <button key={u.id} type="button" onClick={() => toggleUtility(u.id)} className={'rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition ' + (on ? 'border-brand bg-brand/10 text-brand' : 'border-line-strong bg-white text-body hover:border-brand')}>
+                          {on ? '✓ ' : ''}{u[lang]}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </Field>
+                <p className="text-[12px] text-body-3">
+                  {lang === 'zh' ? '安省 RTA 下「禁止养宠」条款无效，所以宠物只能写「允许 / 有限制」；吸烟政策可由房东设定。' : '"No pets" clauses are void under the Ontario RTA, so pets can only be "allowed / with restrictions"; a smoking policy is yours to set.'}
+                </p>
                 <div className="flex gap-3">
                   <button onClick={() => setStep(2)} className="sl-btn-secondary">{lang === 'zh' ? '← 上一步' : '← Back'}</button>
                   <button onClick={() => setStep(4)} className="sl-btn-primary flex-1 !py-[12px]">{lang === 'zh' ? '下一步 · 护照章' : 'Next · Passport stamps'}</button>
@@ -450,19 +516,12 @@ export default function NewListingPage() {
 
             {step === 5 && (
               <div className="space-y-4">
-                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '5 · 最后审 + 发布' : '5 · Review + publish'}</h2>
-                <div className="rounded-xl border border-[#00ACE4]/20 bg-[#00ACE4]/[0.04] p-4 text-[13px] leading-relaxed text-body">
-                  <div className="font-mono text-[11.5px] font-bold tracking-eyebrow text-[#00ACE4]">
-                    {lang === 'zh' ? '📝 已改写为 Stayloop 风格 · EN + 中文双语' : '📝 Rewritten in Stayloop style · EN + Chinese'}
-                  </div>
-                  <p className="mt-2">
-                    {lang === 'zh' ? (
-                      <><b className="text-brand">{aiName} 改写：</b>去 MLS 套话 · 加入 King West 步行细节（步行 4 分到 TTC，6 分到 Stackt Market）· 突出租客最关心的「包暖 + 水」与「允许猫」· 中文版同步生成。</>
-                    ) : (
-                      <><b className="text-brand">{aiName} rewrite: </b>Stripped MLS boilerplate · added King West walk details (4 min walk to TTC, 6 min to Stackt Market) · highlighted what tenants care about most — "heat + water included" and "cats allowed" · Chinese version generated in parallel.</>
-                    )}
-                  </p>
-                </div>
+                <h2 className="text-[18px] font-bold">{lang === 'zh' ? '5 · 核对 + 发布' : '5 · Review + publish'}</h2>
+                <p className="text-[13px] text-body-2">
+                  {lang === 'zh'
+                    ? '下面就是会发布的全部内容——只有你填过的字段。标「未提供」的项不会出现在房源页上，也不会被写成任何说法。'
+                    : 'This is everything that will be published — only the fields you entered. Items marked "not provided" do not appear on the listing and are never turned into a claim.'}
+                </p>
 
                 <div className="rounded-xl border border-line-divider bg-white p-4">
                   <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrow text-body-3">
@@ -470,22 +529,28 @@ export default function NewListingPage() {
                   </div>
                   <dl className="mt-3 space-y-2 text-[13px]">
                     <Row k={lang === 'zh' ? '地址' : 'Address'} v={form.address} />
-                    <Row k={lang === 'zh' ? '户型' : 'Layout'} v={lang === 'zh' ? `${form.bedrooms} 卧 · ${form.bathrooms} 卫 · ${form.sqft} sqft` : `${form.bedrooms} bd · ${form.bathrooms} ba · ${form.sqft} sqft`} />
-                    <Row k={lang === 'zh' ? '月租 / 押金' : 'Rent / deposit'} v={`$${form.monthly_rent} / $${form.deposit}`} />
-                    <Row k={lang === 'zh' ? '配套' : 'Amenities'} v={form.amenities.map((id) => AMENITIES.find((a) => a.id === id)?.[lang] ?? id).join(' · ') || '—'} />
+                    <Row k={lang === 'zh' ? '户型' : 'Layout'} v={lang === 'zh' ? `${form.bedrooms} 卧 · ${form.bathrooms} 卫 · ${form.sqft.trim() ? `${form.sqft} sqft` : `面积${NOT_PROVIDED.zh}`}` : `${form.bedrooms} bd · ${form.bathrooms} ba · ${form.sqft.trim() ? `${form.sqft} sqft` : `area ${NOT_PROVIDED.en}`}`} />
+                    <Row k={lang === 'zh' ? '月租 / 押金' : 'Rent / deposit'} v={`$${form.monthly_rent} / ${form.deposit.trim() ? `$${form.deposit}` : NOT_PROVIDED[lang]}`} />
+                    <Row k={lang === 'zh' ? '配套' : 'Amenities'} v={form.amenities.map((id) => AMENITIES.find((a) => a.id === id)?.[lang] ?? id).join(' · ') || NOT_PROVIDED[lang]} />
+                    <Row k={lang === 'zh' ? '照片' : 'Photos'} v={photos.length ? (lang === 'zh' ? `${photos.length} 张` : `${photos.length}`) : NOT_PROVIDED[lang]} />
+                    <Row k={lang === 'zh' ? '租期' : 'Lease term'} v={form.lease_term.trim() || NOT_PROVIDED[lang]} />
+                    <Row k={lang === 'zh' ? '宠物' : 'Pets'} v={form.pets_allowed === 'yes' ? (lang === 'zh' ? '允许' : 'Allowed') : form.pets_allowed === 'restricted' ? (lang === 'zh' ? '有限制' : 'With restrictions') : NOT_PROVIDED[lang]} />
+                    <Row k={lang === 'zh' ? '吸烟' : 'Smoking'} v={form.smoking_policy === 'no' ? (lang === 'zh' ? '禁止' : 'No smoking') : form.smoking_policy === 'outdoor_only' ? (lang === 'zh' ? '仅室外' : 'Outdoors only') : form.smoking_policy === 'yes' ? (lang === 'zh' ? '允许' : 'Allowed') : NOT_PROVIDED[lang]} />
+                    <Row k={lang === 'zh' ? '家具' : 'Furnished'} v={form.furnished === 'yes' ? (lang === 'zh' ? '带家具' : 'Furnished') : form.furnished === 'no' ? (lang === 'zh' ? '不带家具' : 'Unfurnished') : NOT_PROVIDED[lang]} />
+                    <Row k={lang === 'zh' ? '租金包含' : 'Included'} v={form.utilities_included.map((id) => UTILITY_OPTIONS.find((u) => u.id === id)?.[lang] ?? id).join(' · ') || NOT_PROVIDED[lang]} />
                   </dl>
                 </div>
 
                 <div className="rounded-xl border border-line-divider bg-white p-4 text-[13px]">
                   <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrow text-body-3">
-                    {lang === 'zh' ? '合规检查' : 'Compliance check'}
+                    {lang === 'zh' ? '发布前检查' : 'Pre-publish checks'}
                   </div>
-                  <div className="mt-2 font-semibold text-brand">{lang === 'zh' ? '✓ RTA / RECO 通过' : '✓ RTA / RECO passed'}</div>
-                  <div className="mt-1 text-[12px] text-body-3">
-                    {lang === 'zh'
-                      ? '已自动加入 RTA 标准条款 · 删除 MLS 中「先到先得」等违规话术。'
-                      : 'RTA standard clauses added automatically · removed non-compliant MLS phrasing like "first come, first served".'}
-                  </div>
+                  <ul className="mt-2 space-y-1 text-[12.5px] text-body-2">
+                    <li>{parseInt(form.deposit) > parseInt(form.monthly_rent) && parseInt(form.monthly_rent) > 0 ? '✗ ' : '✓ '}{lang === 'zh' ? '押金不超过一个月租金（RTA s.106）' : "Deposit within one month's rent (RTA s.106)"}</li>
+                    <li>✓ {lang === 'zh' ? '没有「禁止养宠」类无效条款（表单不提供该选项）' : 'No void "no pets" clause (the form does not offer one)'}</li>
+                    <li>✓ {lang === 'zh' ? '没有 AI 补写的事实：文案只在房源管理里由你编辑' : 'No AI-filled facts: the description is written only by you, under Manage listings'}</li>
+                    <li>{photos.length ? '✓ ' : '· '}{lang === 'zh' ? (photos.length ? '有照片' : '没有照片——可以发布，但询盘会少很多') : (photos.length ? 'Photos attached' : 'No photos — you can publish, but expect far fewer inquiries')}</li>
+                  </ul>
                 </div>
 
                 {error && <div className="rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</div>}

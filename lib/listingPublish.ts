@@ -82,6 +82,13 @@ export function buildListingRow(form: ListingFormInput, opts: BuildListingRowOpt
       deposit: form.deposit ?? null,
       year_built: form.year_built ?? null,
       amenities: form.amenities,
+      // Lease terms the wizard now collects (fix list 2026-09-22, SL-LL-004)
+      lease_term: form.lease_term ?? null,
+      pets_allowed: form.pets_allowed ?? null,
+      smoking_policy: form.smoking_policy ?? null,
+      furnished: form.furnished ?? null,
+      utilities_included: form.utilities_included ?? [],
+      images: opts.photos ?? [],
       slug: opts.slug,
       is_active: true,
     }

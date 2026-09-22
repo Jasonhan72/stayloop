@@ -170,13 +170,35 @@ export function applyGuardrail(role: AgentRole, out: TurnOutput, lang: 'zh' | 'e
  *  (void under RTA), no child/family-status exclusions, no protected-ground
  *  screening criteria. Offending fields are stripped, not silently rewritten,
  *  and a note explains why. */
-export function sanitizeDraftListing<T extends { title?: string; description?: string; pet_policy?: string }>(
+export function sanitizeDraftListing<T extends { title?: string; description?: string; pet_policy?: string; pets_allowed?: string; smoking_policy?: string; utilities_included?: string[]; furnished?: boolean }>(
   draft: T,
   lang: 'zh' | 'en' = 'zh',
 ): { draft: T; flags: string[]; note: string | null } {
   const zh = lang === 'zh'
   const flags: string[] = []
   const out = { ...draft }
+  // Unconfirmed facts never reach the copy (external fix list 2026-09-22,
+  // SL-LL-001: "cats allowed" appeared in generated copy the landlord had
+  // never given a pet policy for). When the structured field is empty, any
+  // sentence in the title / description that asserts it is cut out.
+  const UNCONFIRMED: Array<{ field: string; empty: boolean; re: RegExp }> = [
+    { field: 'pets', empty: !out.pets_allowed && !out.pet_policy, re: /(允许|欢迎|可以?)(养?)(猫|狗|宠物)|宠物友好|(cats?|dogs?|pets?)\s+(are\s+)?(welcome|allowed|ok|friendly|permitted)|pet[\s-]?friendly/i },
+    { field: 'smoking', empty: !out.smoking_policy, re: /(禁止|允许|不可|可以)吸烟|无烟|non[\s-]?smoking|smoke[\s-]?free|smoking\s+(is\s+)?(allowed|permitted|prohibited|not\s+allowed)/i },
+    { field: 'utilities', empty: !out.utilities_included?.length, re: /(包|含)(水|电|暖|气|网|水电)|(all[\s-]?inclusive|utilities?|hydro|heat|water|internet)\s+(is\s+|are\s+)?included|included\s+utilities|all\s+utilities/i },
+    { field: 'furnished', empty: out.furnished == null, re: /(全|带|配)家具|fully\s+furnished|\bfurnished\b(?!\s*:)/i },
+  ]
+  const SENTENCE = /[^.!?。！？\n]+[.!?。！？]?/g
+  for (const field of ['title', 'description'] as const) {
+    const v = out[field]
+    if (typeof v !== 'string' || !v) continue
+    let text = v
+    for (const u of UNCONFIRMED) {
+      if (!u.empty || !u.re.test(text)) continue
+      flags.push(`draft_listing_unconfirmed_${u.field}_${field}`)
+      text = field === 'title' ? '' : (text.match(SENTENCE) || []).filter(sen => !u.re.test(sen)).join('').replace(/\s{2,}/g, ' ').trim()
+    }
+    if (text !== v) { if (text) (out as Record<string, unknown>)[field] = text; else delete (out as Record<string, unknown>)[field] }
+  }
   const NO_PETS = /(禁止养宠|不(允许|得|可)养宠|no[\s-]?pets?\b|pets?\s+not\s+allowed)/i
   const NO_KIDS = /(不(允许|接受|租)(有)?(小孩|孩子|儿童|家庭)|no\s+(children|kids|families)|not\s+suitable\s+for\s+(children|kids|families))/i
   // Excluding people on a protected ground is unlawful; MENTIONING one is not.
@@ -206,10 +228,17 @@ export function sanitizeDraftListing<T extends { title?: string; description?: s
       else delete out[field]
     }
   }
+  const unconfirmed = flags.filter(f => f.startsWith('draft_listing_unconfirmed_'))
+  const legal = flags.length - unconfirmed.length
   const note = flags.length
-    ? (zh
-        ? '注：草稿中涉及 OHRC 受保护特征或 RTA 无效条款（如"禁止养宠"/排除家庭）的内容已被移除——这些不能出现在房源信息里。'
-        : 'Note: content in the draft touching OHRC protected grounds or RTA-void clauses (e.g. "no pets" / excluding families) has been removed — these cannot appear in listing information.')
+    ? [
+        legal ? (zh
+          ? '注：草稿中涉及 OHRC 受保护特征或 RTA 无效条款（如"禁止养宠"/排除家庭）的内容已被移除——这些不能出现在房源信息里。'
+          : 'Note: content in the draft touching OHRC protected grounds or RTA-void clauses (e.g. "no pets" / excluding families) has been removed — these cannot appear in listing information.') : '',
+        unconfirmed.length ? (zh
+          ? `注：文案里关于${Array.from(new Set(unconfirmed.map(f => ({ pets: '宠物', smoking: '吸烟', utilities: '水电网', furnished: '家具' } as Record<string, string>)[f.split('_')[3]] || f))).join('、')}的说法已删除——你还没提供这项信息，我不能替你写。告诉我实际情况，我再补进去。`
+          : `Note: statements about ${Array.from(new Set(unconfirmed.map(f => f.split('_')[3]))).join(', ')} were removed from the copy — you have not provided that information, so I cannot write it for you. Tell me the facts and I will add them.`) : '',
+      ].filter(Boolean).join(' ')
     : null
   return { draft: out, flags, note }
 }

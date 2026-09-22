@@ -473,7 +473,7 @@ export default function ListingDetailPage() {
                       ? listing.sqft_max
                         ? `${listing.sqft}–${listing.sqft_max} ft²`
                         : `${listing.sqft} ft²`
-                      : '—'
+                      : (zh ? '未提供' : 'Not provided')
                   }
                 />
                 <Stat
