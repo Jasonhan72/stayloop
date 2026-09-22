@@ -102,3 +102,53 @@ export async function discoverProvider(env: string, key: string, catalog: Catalo
     return { env, label, ok: false, error: String((e as Error)?.message || e).slice(0, 120), listed: 0, fresh: [], retired: [] }
   }
 }
+
+// ---------- One-click add: sensible defaults from provider + id ----------
+// Capability cannot be discovered, but the family name says a lot. These
+// defaults get the row into the catalogue ENABLED (so the connectivity test
+// can run) but NOT user-selectable — the admin flips that after seeing the
+// test pass. Pure; the page turns the result into a model_catalog row.
+export type InferredDefaults = {
+  label: string
+  note: string
+  vision: boolean
+  costTier: '低' | '中' | '高'
+  allowedSlots: string[]
+  omitTemperature: boolean
+  maxTokensParam: 'max_tokens' | 'max_completion_tokens'
+  pdfInput: 'text' | 'file' | 'image_url'
+}
+
+export function inferDefaults(apiKeyEnv: string, id: string, providerLabel?: string | null): InferredDefaults {
+  const info = PROVIDER_KEYS[apiKeyEnv]
+  const provider = info?.provider || 'openai-compat'
+  const l = id.toLowerCase()
+  const isAnthropic = provider === 'anthropic'
+  const isOpenAI = apiKeyEnv === 'OPENAI_API_KEY'
+  const isGemini = apiKeyEnv === 'GEMINI_API_KEY'
+  const isDashscope = apiKeyEnv === 'DASHSCOPE_API_KEY'
+  const isMoonshot = apiKeyEnv === 'MOONSHOT_API_KEY'
+  // Text-only families: DeepSeek and Zhipu chat models; Qwen text lines.
+  const textOnly = apiKeyEnv === 'DEEPSEEK_API_KEY' || apiKeyEnv === 'ZHIPU_API_KEY' || /^(glm|deepseek)/.test(l) || /-text\b|qwen-mt/.test(l)
+  const vision = !textOnly && (isAnthropic || isOpenAI || isGemini || isMoonshot || (isDashscope && /qwen|omni|vl/.test(l)))
+  const costTier: InferredDefaults['costTier'] =
+    /nano|lite|mini|flash|haiku|turbo|fast|air/.test(l) ? '低' : /pro|opus|max|ultra|astra/.test(l) ? '高' : '中'
+  const reasoningParams = isOpenAI && /^(gpt-5|gpt-6|o\d)/.test(l)
+  const pdfInput: InferredDefaults['pdfInput'] = !vision ? 'text' : isGemini ? 'image_url' : isOpenAI || (isDashscope && /qwen3\.[8-9]|qwen[4-9]/.test(l)) ? 'file' : 'text'
+  const pretty = id
+    .replace(/^models\//, '')
+    .split(/[-_]/)
+    .map((w) => (/^\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(' ')
+    .replace(/\bGpt\b/g, 'GPT').replace(/\bGlm\b/g, 'GLM').replace(/\bQwen\b/g, 'Qwen')
+  return {
+    label: pretty,
+    note: `${providerLabel || info?.label || apiKeyEnv} · 由「发现新模型」加入，默认配置为推断值 — 请核对 vision / 槽位并补单价`,
+    vision,
+    costTier,
+    allowedSlots: vision ? ['turn', 'screening', 'classify', 'forensics'] : ['turn'],
+    omitTemperature: reasoningParams || isMoonshot,
+    maxTokensParam: reasoningParams ? 'max_completion_tokens' : 'max_tokens',
+    pdfInput,
+  }
+}

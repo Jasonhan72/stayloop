@@ -1,7 +1,7 @@
 // /admin/models 「发现新模型」 (lib/modelDiscovery.ts, 2026-09-21): provider
 // listing → catalogue diff. Pure helpers only; the network call is not tested.
 import { describe, expect, it } from 'vitest'
-import { diffProvider, isChatCandidate, parseModelList, providerModelsUrl } from '@/lib/modelDiscovery'
+import { diffProvider, inferDefaults, isChatCandidate, parseModelList, providerModelsUrl } from '@/lib/modelDiscovery'
 import { BUILTIN_CATALOG } from '@/lib/modelConfig'
 
 describe('providerModelsUrl', () => {
@@ -56,5 +56,22 @@ describe('diffProvider', () => {
     const d = diffProvider('DEEPSEEK_API_KEY', parseModelList({ data: [{ id: 'deepseek-v4-pro' }, { id: 'deepseek-v4-flash' }, { id: 'deepseek-v5' }] }), cat)
     expect(d.fresh.map((m) => m.id)).toEqual(['deepseek-v5'])
     expect(d.retired).toEqual([])
+  })
+})
+
+describe('inferDefaults — one-click add defaults', () => {
+  it('vision + all slots for multimodal families, text-only for DeepSeek / GLM', () => {
+    const a = inferDefaults('ANTHROPIC_API_KEY', 'claude-fable-5-1')
+    expect(a.vision).toBe(true); expect(a.allowedSlots).toHaveLength(4); expect(a.pdfInput).toBe('text'); expect(a.omitTemperature).toBe(false)
+    const g = inferDefaults('OPENAI_API_KEY', 'gpt-5.6-luna')
+    expect(g.maxTokensParam).toBe('max_completion_tokens'); expect(g.omitTemperature).toBe(true); expect(g.pdfInput).toBe('file'); expect(g.label).toBe('GPT 5.6 Luna')
+    const ge = inferDefaults('GEMINI_API_KEY', 'gemini-3.8-flash')
+    expect(ge.pdfInput).toBe('image_url'); expect(ge.costTier).toBe('低')
+    const d = inferDefaults('DEEPSEEK_API_KEY', 'deepseek-flash')
+    expect(d.vision).toBe(false); expect(d.allowedSlots).toEqual(['turn'])
+    const z = inferDefaults('ZHIPU_API_KEY', 'glm-5.3-flash')
+    expect(z.vision).toBe(false)
+    expect(inferDefaults('OPENAI_API_KEY', 'gpt-5.5-pro').costTier).toBe('高')
+    expect(inferDefaults('MOONSHOT_API_KEY', 'kimi-k2.7').omitTemperature).toBe(true)
   })
 })

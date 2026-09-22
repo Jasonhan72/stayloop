@@ -23,7 +23,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
 import { useT } from '@/lib/i18n'
-import type { ProviderDiff } from '@/lib/modelDiscovery'
+import { inferDefaults, type ProviderDiff } from '@/lib/modelDiscovery'
 import {
   DEFAULT_MODELS,
   MODEL_SLOTS,
@@ -103,6 +103,8 @@ export default function AdminModelsPage() {
   const [availability, setAvailability] = useState<Record<string, boolean> | null>(null)
   const [discovery, setDiscovery] = useState<{ at: string; providers: ProviderDiff[] } | null>(null)
   const [discovering, setDiscovering] = useState(false)
+  const [added, setAdded] = useState<Record<string, { busy: boolean; ok?: boolean; text?: string }>>({})
+  const [showAll, setShowAll] = useState<Record<string, boolean>>({})
 
   // ── catalogue
   const [catalog, setCatalog] = useState<CatalogModel[]>(() => mergeCatalog(null))
@@ -177,25 +179,45 @@ export default function AdminModelsPage() {
       setDiscovering(false)
     }
   }
-  // Prefill the add form from a discovered id: key env + base URL are known;
-  // vision / slots / pricing are the admin's call, so start conservative.
-  const prefillFromDiscovery = (env: string, id: string, label?: string | null) => {
-    const info = PROVIDER_KEYS[env]
-    setForm({
-      ...EMPTY_FORM,
-      id,
-      label: label || id,
-      api_key_env: env,
-      base_url: info?.provider === 'anthropic' ? '' : (info?.defaultBaseUrl || ''),
-      vision: info?.provider === 'anthropic',
-      allowed_slots: ['turn'],
-      omit_temperature: /^(gpt-5|o\d)/.test(id),
-      max_tokens_param: /^(gpt-5|o\d)/.test(id) ? 'max_completion_tokens' : 'max_tokens',
-      user_selectable: false,
-    })
-    setFormBuiltin(false)
-    setCatMsg({ ok: true, text: zh ? `已从厂商列表预填 ${id}：请补齐 vision / 槽位 / 单价后保存，再点「测试」确认连通。` : `Prefilled ${id} from the provider listing — set vision / slots / pricing, save, then run the connectivity test.` })
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  // One click: infer defaults from provider + id, write the catalogue row
+  // (enabled, NOT user-selectable), then run the same connectivity test the
+  // table uses. Nothing to fill in first; the admin edits pricing / flips
+  // "user-selectable" afterwards on the row that appears in the table.
+  const addDiscovered = async (env: string, id: string, label?: string | null) => {
+    setAdded((a) => ({ ...a, [id]: { busy: true } }))
+    try {
+      const info = PROVIDER_KEYS[env]
+      const d = inferDefaults(env, id, info?.label)
+      const row: CatalogRow & { pdf_input: string; builtin: boolean; updated_at: string; updated_by: string | null } = {
+        id, label: label || d.label, note: d.note, provider: info?.provider || 'openai-compat',
+        base_url: info?.provider === 'anthropic' ? null : (info?.defaultBaseUrl || null),
+        api_key_env: env, vision: d.vision, cost_tier: d.costTier, allowed_slots: d.allowedSlots as ModelSlot[],
+        omit_temperature: d.omitTemperature, max_tokens_param: d.maxTokensParam, pdf_input: d.pdfInput,
+        user_selectable: false, enabled: true, sort_order: 500,
+        price_input_per_m: null, price_output_per_m: null, price_cache_read_per_m: null, price_cache_write_per_m: null,
+        builtin: false, updated_at: new Date().toISOString(), updated_by: auth.user?.id ?? null,
+      }
+      const { error } = await supabase.from('model_catalog').upsert(row, { onConflict: 'id' })
+      if (error) throw new Error(error.message)
+      const tk = await token()
+      const res = await fetch('/api/admin/model-test', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` }, body: JSON.stringify({ model_id: id }) })
+      const json = (await res.json()) as { ok?: boolean; latency_ms?: number; text?: string; error?: string }
+      setAdded((a) => ({ ...a, [id]: { busy: false, ok: !!json.ok, text: json.ok ? `${json.latency_ms} ms` : (json.error || 'failed') } }))
+      setTesting((t) => ({ ...t, [id]: { busy: false, ok: !!json.ok, text: json.ok ? `${json.latency_ms} ms · “${json.text}”` : (json.error || 'failed') } }))
+      await loadCatalog()
+    } catch (e) {
+      setAdded((a) => ({ ...a, [id]: { busy: false, ok: false, text: e instanceof Error ? e.message : 'failed' } }))
+    }
+  }
+  // A catalogue model the provider no longer lists: disable it in place.
+  const disableRetired = async (id: string) => {
+    const m = catalog.find((x) => x.id === id)
+    if (!m) return
+    setAdded((a) => ({ ...a, [id]: { busy: true } }))
+    const row = formToRow({ ...modelToForm(m), enabled: false }, auth.user?.id ?? null, m.builtin)
+    const { error } = await supabase.from('model_catalog').upsert(row, { onConflict: 'id' })
+    setAdded((a) => ({ ...a, [id]: { busy: false, ok: !error, text: error ? error.message : (zh ? '已停用' : 'disabled') } }))
+    if (!error) await loadCatalog()
   }
 
   const saveSlots = async () => {
@@ -385,8 +407,8 @@ export default function AdminModelsPage() {
             </div>
             <p className="mt-1 text-[12.5px] text-body-3">
               {zh
-                ? '每个已配置 key 的厂商各问一次「列出模型」接口，与目录做差集。新模型只是预填，不会自动开放给用户——能力与单价接口查不到，要你补齐并测试后再启用；厂商已不再列出的目录模型标红，请停用。'
-                : 'Each provider with a configured key is asked to list its models; the result is diffed against the catalogue. New ids only prefill the form — they are never auto-enabled for users, because capability and pricing cannot be discovered; catalogue models a provider no longer lists are marked red so you can disable them.'}
+                ? '每个已配置 key 的厂商各问一次「列出模型」接口，与目录做差集。点「＋ 加入」= 按厂商与型号推断默认配置 → 写入目录 → 立刻做连通测试，通过就出现在下方目录表里（默认不对用户开放，单价空着）；到表里打开「用户可选」、点「编辑」补单价即可。厂商已不再列出的目录模型标红，可一键停用。'
+                : 'Each provider with a configured key is asked to list its models; the result is diffed against the catalogue. "＋ Add" infers defaults from the provider and model name, writes the row, and runs the connectivity test at once — a passing model appears in the table below (not user-selectable yet, pricing blank); flip "user-selectable" and add pricing from the table. Catalogue models a provider no longer lists are red and can be disabled in one click.'}
             </p>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               {discovery.providers.map((p) => (
@@ -402,12 +424,29 @@ export default function AdminModelsPage() {
                     <div className="mt-2">
                       <div className="font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">{zh ? '目录里没有' : 'Not in catalogue'}</div>
                       <div className="mt-1 flex flex-wrap gap-1.5">
-                        {p.fresh.slice(0, 24).map((m) => (
-                          <button key={m.id} type="button" title={m.created ? new Date(m.created * 1000).toLocaleDateString('en-CA') : undefined} onClick={() => prefillFromDiscovery(p.env, m.id, m.label)} className="rounded-md border border-line-strong bg-white px-2 py-1 font-mono text-[11px] hover:bg-surface-chip">
-                            ＋ {m.id}
+                        {(showAll[p.env] ? p.fresh : p.fresh.slice(0, 8)).map((m) => {
+                          const st = added[m.id]
+                          return (
+                            <span key={m.id} className="inline-flex items-center gap-1">
+                              <button
+                                type="button"
+                                disabled={!!st?.busy || st?.ok === true}
+                                title={m.created ? new Date(m.created * 1000).toLocaleDateString('en-CA') : undefined}
+                                onClick={() => addDiscovered(p.env, m.id, m.label)}
+                                className="rounded-md border border-line-strong bg-white px-2 py-1 font-mono text-[11px] hover:bg-surface-chip disabled:opacity-60"
+                                style={st?.ok === true ? { borderColor: '#047857', color: '#047857' } : st?.ok === false ? { borderColor: '#B91C1C', color: '#B91C1C' } : undefined}
+                              >
+                                {st?.busy ? '…' : st?.ok === true ? '✓' : st?.ok === false ? '✗' : '＋'} {m.id}
+                              </button>
+                              {st && !st.busy && <span className="text-[10.5px] text-body-3">{st.text}</span>}
+                            </span>
+                          )
+                        })}
+                        {p.fresh.length > 8 && (
+                          <button type="button" className="text-[11px] text-brand hover:underline" onClick={() => setShowAll((x) => ({ ...x, [p.env]: !x[p.env] }))}>
+                            {showAll[p.env] ? (zh ? '收起' : 'Show fewer') : (zh ? `还有 ${p.fresh.length - 8} 个（较旧）` : `${p.fresh.length - 8} more (older)`)}
                           </button>
-                        ))}
-                        {p.fresh.length > 24 && <span className="text-[11px] text-body-3">+{p.fresh.length - 24}</span>}
+                        )}
                       </div>
                     </div>
                   )}
@@ -416,7 +455,12 @@ export default function AdminModelsPage() {
                       <div className="font-mono text-[10.5px] uppercase tracking-eyebrow" style={{ color: '#B91C1C' }}>{zh ? '厂商列表里已没有 —— 点该行的「测试」确认，失败就停用' : 'No longer in the provider listing — run that row\'s test; disable if it fails'}</div>
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         {p.retired.map((id) => (
-                          <span key={id} className="rounded-md px-2 py-1 font-mono text-[11px]" style={{ background: 'rgba(220,38,38,0.08)', color: '#B91C1C' }}>{id}</span>
+                          <span key={id} className="inline-flex items-center gap-1">
+                            <span className="rounded-md px-2 py-1 font-mono text-[11px]" style={{ background: 'rgba(220,38,38,0.08)', color: '#B91C1C' }}>{id}</span>
+                            <button type="button" className="text-[11px] text-brand hover:underline disabled:opacity-40" disabled={!!added[id]?.busy} onClick={() => testModel(id)}>{zh ? '测试' : 'Test'}</button>
+                            <button type="button" className="text-[11px] hover:underline disabled:opacity-40" style={{ color: '#B91C1C' }} disabled={!!added[id]?.busy} onClick={() => disableRetired(id)}>{added[id]?.ok ? (zh ? '已停用' : 'Disabled') : (zh ? '停用' : 'Disable')}</button>
+                            {testing[id] && !testing[id].busy && <span className="text-[10.5px] text-body-3">{testing[id].text}</span>}
+                          </span>
                         ))}
                       </div>
                     </div>

@@ -539,10 +539,14 @@ Realtor.ca 上的所有租赁类型，作为不在界面上宣传的隐藏技能
 自动发现，新模型发布后只能改代码或手填。现在 `/admin/models` 顶部有「⟳ 发现新模型」：`GET /api/admin/model-discover`
 （管理员 JWT）对每个已配置 key 的厂商各调一次「列出模型」接口（Anthropic `GET /v1/models`；OpenAI 兼容厂商一律
 `GET {defaultBaseUrl}/models`，Gemini 的 `models/` 前缀剥掉），`lib/modelDiscovery.ts` 与目录做差集：
-- **目录里没有**：过滤掉 embedding / tts / whisper / image / realtime / moderation / OCR / 带日期的快照 id，按发布时间倒序，
-  点一下预填添加表单（key、base URL 自动带上；vision / 槽位 / 单价接口查不到，默认只开 turn、不对用户可选，管理员补齐后
-  保存并点「测试」）。**不会自动启用**——能力与价格无法自动得知。
-- **厂商列表里已没有**：目录里启用中、而厂商非空列表里找不到的 id 标红，提示点「测试」，失败即停用。别名算存在
+- **目录里没有**：过滤掉 embedding / tts / whisper / image / realtime / live / codex / moderation / OCR / 带日期的快照 id，按发布
+  时间倒序，默认只显示最新 8 个（其余折叠）。**用户 2026-09-21 要求「再容易操作一点」→ 一键加入**：点「＋ id」=
+  `inferDefaults(env, id)` 按厂商与型号名推断 vision / 槽位 / PDF 方式 / 温度参数 / 费用档（DeepSeek、GLM 纯文本；GPT-5/6、
+  o 系列用 max_completion_tokens 且不传 temperature；Gemini PDF 走 image_url；nano/mini/flash/haiku 低价，pro/opus/max 高价）
+  → 直接 upsert 进 `model_catalog`（enabled、**user_selectable=false**、单价空）→ 立刻调 `/api/admin/model-test` → 芯片变
+  ✓/✗ 并显示延迟，目录表同步刷新。管理员只剩两件事：在表里打开「用户可选」、点「编辑」补单价。
+- **厂商列表里已没有**：目录里启用中、而厂商非空列表里找不到的 id 标红，旁边直接给「测试」「停用」两个按钮（停用 =
+  以 builtin 覆盖行写 enabled=false）。别名算存在
   （目录 `claude-haiku-4-5` ↔ 厂商列出 `claude-haiku-4-5-20251001`）。
 - 2026-09-21 实测七家全部能列：Anthropic 11（新 `claude-fable-5-1` 等）、OpenAI 130、Gemini 59、DeepSeek 2
   （`deepseek-v4-flash` 已不在列，厂商现在叫 `deepseek-flash`——要点测试确认）、Moonshot 4、DashScope 261（含第三方托管的
