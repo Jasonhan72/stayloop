@@ -147,7 +147,7 @@ describe('role landing template (items A B C D I J)', () => {
     expect(tpl).toMatch(/'@type': 'FAQPage'/)
     expect(tpl).not.toMatch(/cfg\.stats/)
     // type scale: large, light headline
-    expect(tpl).toMatch(/text-\[clamp\(36px,5vw,60px\)\] font-semibold/)
+    expect(tpl).toMatch(/text-\[clamp\(30px,4vw,48px\)\] font-semibold/)
   })
   it('each role page: 5 chips, 3 benefits, 6–8 FAQs, and a stats key that exists', () => {
     for (const [p, s] of pages) {

@@ -171,7 +171,7 @@ export default function RoleLanding({ cfg }: { cfg: RoleLandingConfig }) {
             <div className="v8-tag" style={{ color: c }}>
               {cfg.eyebrow}
             </div>
-            <h1 className="mt-[18px] text-[clamp(36px,5vw,60px)] font-semibold leading-[1.06] tracking-[-0.03em]">{cfg.h1[lang]}</h1>
+            <h1 className="mt-[18px] text-[clamp(30px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.03em]">{cfg.h1[lang]}</h1>
             <p className="mt-[20px] max-w-[560px] text-[19px] leading-[1.6] text-body-2">{cfg.sub[lang]}</p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link

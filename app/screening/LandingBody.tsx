@@ -26,7 +26,7 @@ export default function LandingBody() {
           <div className="font-mono text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: '#00ACE4' }}>
             STAYLOOP · TENANT SCREENING
           </div>
-          <h1 className="mx-auto mt-4 max-w-[720px] text-[36px] font-semibold leading-[1.08] tracking-[-0.03em] sm:text-[52px]">
+          <h1 className="mx-auto mt-4 max-w-[720px] text-[32px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[44px]">
             {zh ? (
               <>租客筛查,几分钟出一份<br />经得起追问的报告</>
             ) : (

@@ -81,7 +81,7 @@ export default function PartnersPage() {
       <section style={{ background: 'linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)' }}>
         <div className="mx-auto max-w-[1100px] px-5 py-20 sm:px-7 lg:px-12 lg:py-24">
           <div className="font-mono text-[13px] font-semibold uppercase tracking-[.12em] text-brand">{zh ? 'DATA SOURCES · 我们的数据从哪来' : 'DATA SOURCES · Where our data comes from'}</div>
-          <h1 className="mt-4 max-w-[820px] text-[clamp(36px,5vw,60px)] font-semibold leading-[1.06] tracking-[-0.03em]">
+          <h1 className="mt-4 max-w-[820px] text-[clamp(30px,4vw,48px)] font-semibold leading-[1.1] tracking-[-0.03em]">
             {zh ? <>每一条结论，<br />都能指回它的来源。</> : <>Every conclusion<br />points back to its source.</>}
           </h1>
           <p className="mt-5 max-w-[680px] text-[19px] leading-[1.6] text-body-2">
