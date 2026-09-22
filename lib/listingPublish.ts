@@ -128,6 +128,8 @@ export function buildListingRow(form: ListingFormInput, opts: BuildListingRowOpt
     cross_streets: form.cross_streets ?? null,
     deposit: form.deposit ?? null,
     lease_term: form.lease_term ?? null,
+    smoking_policy: form.smoking_policy ?? null,
+    utilities_included: form.utilities_included ?? [],
     virtual_tour_url: form.virtual_tour_url ?? null,
     mls_number: form.mls_number ?? null,
     source_url: form.source_url ?? null,

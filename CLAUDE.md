@@ -433,6 +433,27 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
   自动重试一次。
 **有意不做**：`SU A KIM` 与 Sunkyoung 不是已知的罗马字变体，保留为唯一 high 待核实项；无银行流水仍不算佐证。
 
+## 外部匿名走查（2026-09-22 · `租客背调/28/Blank 25.pdf`，先复现再改）
+
+另一系统以匿名访客身份走完公开页面给了 6 条。用户要求先测试再决定改不改。逐条复现结果与处置（守卫 `tests/walkthrough20260922.spec.ts`）：
+- **房东 onboarding 跳错页（属实，已改）**：`/landlord` →「让 AI 接管出租」→ 起名 →「进入 Logic 工作台」→ 匿名访客落到
+  `/screening/app` 的「筛查需要注册」墙。根因是 2026-08-12 的激活决策把**所有**首次房东送去筛查页（那时只考虑了已登录用户）。
+  现在只有**已登录**的首次房东去 `/screening/app`（筛查页在工作台侧栏内，仍是激活路径）；匿名访客去 `/landlord/agent`
+  （预览模式可用，自带「登录」横幅）。
+- **发房源对话字段太少（属实，已改）**：实测 `帮我发一个房源：28 Avondale 1203，1+1，$2450，11 月 1 日` 一句就生成草稿，
+  从不追问；库里 stayloop 自发的四套房源 sqft 全空（详情页「面积 —」），pets / lease_term / utilities 也全空。改法：
+  提示词要求生成草稿的同时用「发布前再补几项」一次问完缺的项（面积 / 宠物 / 吸烟 / 租期 / 水电暖网 / 车位储物 / 家具 / 洗衣阳台，
+  最多 6 项、只问缺的）；schema 与 `DraftListing` 加 `smoking_policy`（no|yes|outdoor_only）与 `utilities_included`
+  （hydro|water|heat|gas|internet|cable），`buildListingRow` 落库（`utilities_included` 列本来就在但从未写过；`smoking_policy`
+  新列，迁移 `20260922_listing_smoking_policy.sql` 已应用 prod）；`/dashboard/listings/edit` 加「租赁条件」段（租期 / 宠物 /
+  吸烟 / 家具下拉 + 租金包含 chips）；房源详情页「生活配套」显示吸烟与租期，水电 chip 中文化，产权「Condominium/Strata」
+  中文界面改「共管产权 (Condominium)」。宠物按 RTA s.14 只能「允许 / 有限制」，吸烟可由房东设定。
+- **聊天气泡显示原始 Markdown（走查没提，复现时看到）**：匿名房东预览里模型回了 `### 1.` / `**…**`。turn 路由现在在
+  guardrail 之后 `flattenMarkdown`（去标题井号 / 粗斜体 / 反引号，`* ` 列表变「· 」，链接保留文字 + URL）。
+- **不改**：「数据导入公开页找不到」——导入在登录后（`/leases/import`、发布向导一键导入），走查自己也说这样没问题；
+  「房源 10 套里 8 套 Realtor」——`/listings` 已挂「示范阶段 · TRREB 未接入」横幅；「ABOUT 关于这套房源」——v9 设计的
+  英文 mono 眉标 + 中文标题是全站体例；「定价页测试期免费 vs 财务面板即将推出」——财务面板确实还是样例页，标注属实。
+
 ## 深度核查加项与红色标记（2026-09-16）
 
 用户看到注册库「Inactive」旁边挂着绿色「正常」徽章，要求：注册状态异常、法庭记录这类结果必须醒目标红，并且深度核查

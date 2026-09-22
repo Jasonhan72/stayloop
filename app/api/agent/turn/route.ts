@@ -10,6 +10,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
 import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback } from '@/lib/agent/prompts'
 import { applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
+import { flattenMarkdown } from '@/lib/agent/turnHelpers'
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
 import { commercialKind, summarizeCommercial } from '@/lib/agent/commercialSearch'
@@ -942,6 +943,8 @@ export async function POST(req: Request) {
       cross_streets: str(dl.cross_streets),
       deposit: num(dl.deposit),
       lease_term: str(dl.lease_term),
+      smoking_policy: ['no', 'yes', 'outdoor_only'].includes(String(dl.smoking_policy)) ? String(dl.smoking_policy) : undefined,
+      utilities_included: strArr(dl.utilities_included)?.map(u => u.toLowerCase().trim()).filter(u => ['hydro', 'water', 'heat', 'gas', 'internet', 'cable'].includes(u)),
       virtual_tour_url: str(dl.virtual_tour_url)?.startsWith('http') ? str(dl.virtual_tour_url) : undefined,
       mls_number: str(dl.mls_number),
       source_url: urls[0] || undefined,
@@ -980,7 +983,10 @@ export async function POST(req: Request) {
   }
 
   return {
-    reply: out.reply,
+    // The chat renders plain text; the prompt says so, and the model still
+    // writes "### 1. What the report checks" / "**Document forensics**" on
+    // some turns (seen on the anonymous landlord preview, 2026-09-22).
+    reply: flattenMarkdown(out.reply),
     // Anonymous preview is ZERO-persistence by contract — the model is told
     // not to emit these, but the server strip (post-guardrail) is the
     // guarantee, not the instruction.

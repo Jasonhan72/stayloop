@@ -181,6 +181,11 @@ export type DraftListing = {
   furnished?: boolean
   deposit?: number
   lease_term?: string
+  /** 'no' | 'yes' | 'outdoor_only' — tenants filter on it; the RTA lets a
+   *  landlord set it (unlike pets). */
+  smoking_policy?: string
+  /** Which utilities the rent covers: hydro / water / heat / gas / internet / cable. */
+  utilities_included?: string[]
   virtual_tour_url?: string
   year_built?: number
   mls_number?: string

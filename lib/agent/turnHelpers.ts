@@ -100,3 +100,18 @@ export function salvageReply(raw: string): string {
   }
   return salvage
 }
+
+/** Markdown the chat bubble would show verbatim → plain text. Headings lose
+ *  their hashes, bold/italic markers go, "* " / "- " bullets become "· ",
+ *  inline code loses its backticks. Links keep their visible text and URL. */
+export function flattenMarkdown(text: string): string {
+  if (!text || !/[#*_`[]/.test(text)) return text
+  return text
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/(^|[^*\w])\*(?!\s)([^*\n]+?)\*(?!\w)/g, '$1$2')
+    .replace(/^\s*[*-]\s+/gm, '· ')
+    .replace(/`([^`\n]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1 $2')
+}

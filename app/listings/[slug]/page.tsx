@@ -95,6 +95,7 @@ interface DBListing {
   furnished: boolean | null
   deposit: number | null
   lease_term: string | null
+  smoking_policy: string | null
   virtual_tour_url: string | null
   mls_number: string | null
   source: string | null
@@ -146,6 +147,8 @@ const favSnapshot = (l: DBListing): Omit<FavListing, 'savedAt'> => ({
   image: l.images && l.images.length > 0 ? l.images[0] : null,
   href: `/listings/${l.slug}`,
 })
+
+const UTILITY_ZH: Record<string, string> = { hydro: '电', water: '水', heat: '暖气', gas: '燃气', internet: '网络', cable: '有线电视' }
 
 export default function ListingDetailPage() {
   const { lang } = useT()
@@ -506,7 +509,7 @@ export default function ListingDetailPage() {
                 <div className="mt-4 inline-flex flex-wrap gap-2">
                   {listing.utilities_included.map((u) => (
                     <span key={u} className="sl-chip fit">
-                      {zh ? `${u} 包租金` : `${u} included`}
+                      {zh ? `${UTILITY_ZH[u.toLowerCase()] ?? u} 包在租金内` : `${u} included`}
                     </span>
                   ))}
                 </div>
@@ -532,6 +535,17 @@ export default function ListingDetailPage() {
                   : []),
                 ...(listing.parking
                   ? [{ label: zh ? `停车: ${listing.parking}` : `Parking: ${listing.parking}`, ok: true }]
+                  : []),
+                ...(listing.smoking_policy
+                  ? [{
+                      label: listing.smoking_policy === 'no' ? (zh ? '禁止吸烟' : 'No smoking')
+                        : listing.smoking_policy === 'outdoor_only' ? (zh ? '仅限室外吸烟' : 'Smoking outdoors only')
+                        : (zh ? '允许吸烟' : 'Smoking allowed'),
+                      ok: true,
+                    }]
+                  : []),
+                ...(listing.lease_term
+                  ? [{ label: zh ? `租期: ${listing.lease_term}` : `Lease term: ${listing.lease_term}`, ok: true }]
                   : []),
                 ...(petLabel
                   ? [{ label: petLabel, ok: listing.pets_allowed !== 'no' }]
@@ -565,7 +579,7 @@ export default function ListingDetailPage() {
                   />
                 )}
                 {listing.ownership_title && (
-                  <BuildingFact label={zh ? '产权' : 'Title'} value={listing.ownership_title === 'condominium' ? 'Condominium/Strata' : 'Freehold'} />
+                  <BuildingFact label={zh ? '产权' : 'Title'} value={listing.ownership_title === 'condominium' ? (zh ? '共管产权 (Condominium)' : 'Condominium/Strata') : (zh ? '永久产权 (Freehold)' : 'Freehold')} />
                 )}
                 {listing.year_built && (
                   <BuildingFact label={zh ? '建造年份' : 'Year built'} value={listing.year_built} />

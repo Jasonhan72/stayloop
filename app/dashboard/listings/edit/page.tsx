@@ -28,6 +28,15 @@ const AMENITY_OPTIONS: { id: string; zh: string; en: string }[] = [
   { id: 'rooftop', zh: '天台', en: 'Rooftop' },
 ]
 
+const UTILITY_OPTIONS: { id: string; zh: string; en: string }[] = [
+  { id: 'hydro', zh: '电', en: 'Hydro' },
+  { id: 'water', zh: '水', en: 'Water' },
+  { id: 'heat', zh: '暖气', en: 'Heat' },
+  { id: 'gas', zh: '燃气', en: 'Gas' },
+  { id: 'internet', zh: '网络', en: 'Internet' },
+  { id: 'cable', zh: '有线电视', en: 'Cable' },
+]
+
 export default function EditDraftListingPage() {
   const router = useRouter()
   const { lang } = useT()
@@ -65,6 +74,13 @@ export default function EditDraftListingPage() {
   const set = <K extends keyof DraftListing>(k: K, v: DraftListing[K]) =>
     setForm((f) => (f ? { ...f, [k]: v } : f))
 
+  const toggleUtility = (id: string) => {
+    setForm((f) => {
+      if (!f) return f
+      const cur = f.utilities_included || []
+      return { ...f, utilities_included: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] }
+    })
+  }
   const toggleAmenity = (id: string) => {
     const cur = form.amenities || []
     const next = cur.includes(id) ? cur.filter((a) => a !== id) : [...cur, id]
@@ -237,6 +253,53 @@ export default function EditDraftListingPage() {
               <input type="checkbox" checked={!!form.has_den} onChange={(e) => set('has_den', e.target.checked)} className="h-4 w-4 rounded border-line-strong accent-brand" />
               {zh ? '有 Den' : 'Has den'}
             </label>
+          </div>
+        </section>
+
+        {/* Lease terms — what tenants filter on (external walkthrough 2026-09-22: none of these were asked) */}
+        <section className="mt-8">
+          <h2 className="text-[18px] font-bold">{zh ? '租赁条件' : 'Lease terms'}</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-4">
+            <LabelField label={zh ? '租期' : 'Lease term'}>
+              <input className="sl-input" value={form.lease_term || ''} onChange={(e) => set('lease_term', e.target.value)} placeholder={zh ? '如：12 个月 / 可短租' : 'e.g. 12 months / short-term OK'} />
+            </LabelField>
+            <LabelField label={zh ? '宠物' : 'Pets'}>
+              <select className="sl-input" value={form.pets_allowed || ''} onChange={(e) => set('pets_allowed', e.target.value || undefined)}>
+                <option value="">{zh ? '未说明' : 'Not stated'}</option>
+                <option value="yes">{zh ? '允许' : 'Allowed'}</option>
+                <option value="restricted">{zh ? '有限制' : 'With restrictions'}</option>
+              </select>
+            </LabelField>
+            <LabelField label={zh ? '吸烟' : 'Smoking'}>
+              <select className="sl-input" value={form.smoking_policy || ''} onChange={(e) => set('smoking_policy', e.target.value || undefined)}>
+                <option value="">{zh ? '未说明' : 'Not stated'}</option>
+                <option value="no">{zh ? '禁止' : 'No smoking'}</option>
+                <option value="outdoor_only">{zh ? '仅室外' : 'Outdoors only'}</option>
+                <option value="yes">{zh ? '允许' : 'Allowed'}</option>
+              </select>
+            </LabelField>
+            <LabelField label={zh ? '家具' : 'Furnished'}>
+              <select className="sl-input" value={form.furnished == null ? '' : form.furnished ? 'yes' : 'no'} onChange={(e) => set('furnished', e.target.value === '' ? undefined : e.target.value === 'yes')}>
+                <option value="">{zh ? '未说明' : 'Not stated'}</option>
+                <option value="yes">{zh ? '带家具' : 'Furnished'}</option>
+                <option value="no">{zh ? '不带家具' : 'Unfurnished'}</option>
+              </select>
+            </LabelField>
+          </div>
+          <div className="mt-4">
+            <div className="text-[12.5px] font-medium text-body-2">{zh ? '租金包含' : 'Included in rent'}</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {UTILITY_OPTIONS.map((u) => {
+                const on = (form.utilities_included || []).includes(u.id)
+                return (
+                  <button key={u.id} type="button" onClick={() => toggleUtility(u.id)}
+                    className={'rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium transition ' + (on ? 'border-brand bg-brand/10 text-brand' : 'border-line-strong bg-white text-body hover:border-brand')}>
+                    {on ? '✓ ' : ''}{u[zh ? 'zh' : 'en']}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-[12px] text-body-3">{zh ? '安省 RTA 下「禁止养宠」条款无效，所以宠物只能写「允许 / 有限制」；吸烟政策可以由房东设定。' : '"No pets" clauses are void under the Ontario RTA, so pets can only be "allowed / with restrictions"; a smoking policy is the landlord\'s to set.'}</p>
           </div>
         </section>
 

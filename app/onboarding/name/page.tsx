@@ -117,7 +117,7 @@ const AGENT_HOME: Record<AgentRole, string> = {
 function NamePageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { setRole } = useAuth()
+  const { setRole, user, loading: authLoading } = useAuth()
   const { lang } = useT()
   const zh = lang === 'zh'
 
@@ -157,11 +157,17 @@ function NamePageInner() {
     setSubmitting(true)
     setAIName(name ?? final, role)
     setRole(role)
-    // First-time landlords land on the aha moment, not a chat shell.
-    // Production data (2026-08-12): 33 signups/30d but 3 active screeners —
-    // the activation gap lives in this exact hop. Returning users are
-    // unaffected (the onboarded-check above skips this page entirely).
-    router.push(role === 'landlord' ? '/screening/app' : AGENT_HOME[role])
+    // First-time SIGNED-IN landlords land on the aha moment, not a chat
+    // shell. Production data (2026-08-12): 33 signups/30d but 3 active
+    // screeners — the activation gap lives in this exact hop. Returning
+    // users are unaffected (the onboarded-check above skips this page).
+    // An ANONYMOUS visitor who just clicked "进入 Logic 工作台" used to be
+    // dropped on the screening page's "requires an account" wall — a
+    // dead end on an unrelated-looking page (external walkthrough
+    // 2026-09-22). They get the workspace they were promised: it runs in
+    // preview mode without an account and carries its own sign-in banner.
+    const signedIn = !!user && !authLoading
+    router.push(role === 'landlord' && signedIn ? '/screening/app' : AGENT_HOME[role])
   }
 
   return (
