@@ -3832,6 +3832,14 @@ export default function ScreenPage() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '3px 12px', fontSize: 11, color: '#475569', marginBottom: check.flags.length > 0 ? 10 : 0 }}>
                           <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '注册名' : 'Registered'}:</span>
                           <span style={{ fontWeight: 600 }}>{check.company_info.name}</span>
+                          {check.trade_names && check.trade_names.length > 0 && <>
+                            <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '经营名' : 'Trading as'}:</span>
+                            <span>{check.trade_names.join(' · ')}{lang === 'zh' ? '（同一雇主，信上 c/o · 工资单 o/a）' : ' (same employer — c/o on the letter, o/a on the stub)'}</span>
+                          </>}
+                          {check.regulated_bank && <>
+                            <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '监管' : 'Regulated'}:</span>
+                            <span style={{ color: '#166534', fontWeight: 600 }}>{lang === 'zh' ? `《银行法》附表 ${check.regulated_bank.schedule} 银行 · OSFI 监管 · 不属于公司注册库` : `Bank Act Schedule ${check.regulated_bank.schedule} bank · OSFI-supervised · not a corporate-registry filing`}</span>
+                          </>}
                           {check.company_info.incorporation_date && <>
                             <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '成立日期' : 'Incorporated'}:</span>
                             <span style={{ fontWeight: check.is_recently_incorporated ? 700 : 400, color: check.is_recently_incorporated ? '#B91C1C' : undefined }}>{check.company_info.incorporation_date}{check.is_recently_incorporated ? (lang === 'zh' ? ' ⚠ 不到2年' : ' ⚠ <2yr') : ''}</span>
@@ -3861,8 +3869,10 @@ export default function ScreenPage() {
                           ))}
                           {check.litigation && <>
                             <span style={{ color: '#9FBBD0' }}>{lang === 'zh' ? '法庭记录' : 'Court cases'}:</span>
-                            <span style={check.litigation.total > 0 ? { color: '#B91C1C', fontWeight: 800, background: '#FEE2E2', padding: '1px 8px', borderRadius: 4, display: 'inline-block' } : { color: '#166534' }}>
-                              {check.litigation.total > 0
+                            <span style={check.litigation.total > 0 && !check.regulated_bank ? { color: '#B91C1C', fontWeight: 800, background: '#FEE2E2', padding: '1px 8px', borderRadius: 4, display: 'inline-block' } : { color: '#166534' }}>
+                              {check.litigation.total > 0 && check.regulated_bank
+                                ? (lang === 'zh' ? `${check.litigation.total} 件案件为当事人 · 银行追讨 / 被列为扣押第三方属正常经营` : `party to ${check.litigation.total} case(s) · routine for a lender (collections, garnishee)`)
+                                : check.litigation.total > 0
                                 ? (lang === 'zh' ? `⚠ 安省民事 / 小额法庭 ${check.litigation.total} 件案件为当事人` : `⚠ party to ${check.litigation.total} Ontario civil / small-claims case(s)`)
                                 : (lang === 'zh' ? '✓ 安省民事 / 小额法庭无以该公司为当事人的记录' : '✓ no Ontario civil / small-claims case names this company')}
                             </span>

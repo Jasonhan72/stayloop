@@ -361,6 +361,8 @@ export interface EmployerExtraInput {
   business_phone?: string | null
   rdap?: RdapResult[] | null
   litigation?: EmployerLitigation | null
+  /** the employer is a bank / lender: appearing in civil court is its business model, not a stability signal */
+  regulated_lender?: boolean
   gazette?: GazetteNotice[] | null
   today?: Date
 }
@@ -495,7 +497,17 @@ export function employerExtraChecks(inp: EmployerExtraInput): EmployerExtraResul
   }
 
   const lit = inp.litigation ?? null
-  if (lit && lit.total > 0) {
+  if (lit && lit.total > 0 && inp.regulated_lender) {
+    // A bank sues debtors and gets named as garnishee / lienholder as a
+    // matter of course (case 28: 12 cases, "read the case before judging
+    // employer stability" printed under a Schedule II bank).
+    flags.push({
+      code: 'employer_court_cases_lender_routine',
+      severity: 'info',
+      evidence_en: `${emp} appears as a party in ${lit.total} Ontario civil / small-claims case(s). For a regulated bank that is ordinary business — collecting debts, being named as garnishee or lienholder — and says nothing about its stability as an employer.`,
+      evidence_zh: `${emp} 在安省民事 / 小额法庭有 ${lit.total} 件案件为当事人。对一家受监管的银行来说这是正常经营的一部分（追讨欠款、作为扣押第三方或留置权人被列名），与它作为雇主的稳定性无关。`,
+    })
+  } else if (lit && lit.total > 0) {
     const asDefendant = lit.cases.filter(c => /defendant|respondent|debtor|garnishee/i.test(c.role))
     const open = lit.cases.filter(c => c.closed === false)
     flags.push({
@@ -507,4 +519,34 @@ export function employerExtraChecks(inp: EmployerExtraInput): EmployerExtraResul
   }
 
   return { registry_status_kind: kind, employment_start: start, stated_city: city, domain_check: inp.rdap || [], personal_emails, litigation: lit, gazette, dissolution_reason: dissolutionReason(gazette, false), flags }
+}
+
+
+// ─── Trade names (2026-09-22) ─────────────────────────────────────────────
+// "David Health International (c/o 2201371 Ontario Inc.)" on the letter and
+// "2201371 Ontario Inc. (o/a David Health International)" on the stub are
+// one employer. Treated as two, the trade name came back "not in any
+// registry" with its own court line. Fold each operating name into the
+// registered entity the documents tie it to.
+const LINK_RE = String.raw`\s*[(\[]?\s*(?:o\/a|c\/o|dba|d\/b\/a|operating\s+as|carrying\s+on\s+business\s+as|trading\s+as|a\s+division\s+of)\s*[:\-]?\s*`
+const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
+const looksRegistered = (n: string) => /\b(inc|ltd|limited|corp|corporation|incorporated|llp|s\.?e\.?n\.?c|ltee|ltée)\b\.?$/i.test(n.trim()) || /^\d{5,10}\s+(ontario|canada)/i.test(n.trim())
+
+export function mergeTradeNames(names: string[], docText: string): { names: string[]; trade_names: Record<string, string[]> } {
+  const text = (docText || '').replace(/\s+/g, ' ')
+  const out = names.slice()
+  const trade: Record<string, string[]> = {}
+  for (const a of names) for (const b of names) {
+    if (a === b) continue
+    const ab = new RegExp(esc(a) + LINK_RE + esc(b), 'i')
+    const ba = new RegExp(esc(b) + LINK_RE + esc(a), 'i')
+    if (!ab.test(text) && !ba.test(text)) continue
+    // the registered-looking one is the entity; the other is the sign on the door
+    const [entity, alias] = looksRegistered(a) && !looksRegistered(b) ? [a, b] : looksRegistered(b) && !looksRegistered(a) ? [b, a] : ab.test(text) ? [b, a] : [a, b]
+    if (!trade[entity]) trade[entity] = []
+    if (!trade[entity].includes(alias)) trade[entity].push(alias)
+    const i = out.indexOf(alias)
+    if (i >= 0) out.splice(i, 1)
+  }
+  return { names: out, trade_names: trade }
 }

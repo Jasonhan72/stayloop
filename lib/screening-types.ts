@@ -260,6 +260,10 @@ export interface ArmLengthCheck {
   litigation?: { total: number; cases: Array<{ title: string; role: string; filed: string; closed: boolean | null }> } | null
   /** Ontario Gazette corporate notices explaining an inactive status (2026-09-16) */
   gazette?: Array<{ kind: string; date: string | null; heading: string; issue: string; url: string }>
+  /** Bank Act schedule listing (OSFI-supervised) — replaces the registry lookup for banks (2026-09-22) */
+  regulated_bank?: { schedule: 'I' | 'II' | 'III'; statutory_name: string; head_office: string | null; as_at: string } | null
+  /** operating names folded into this entity's card (o/a, c/o, dba) */
+  trade_names?: string[]
   flags: Array<{ code: string; severity: string; evidence_en: string; evidence_zh: string }>
 }
 

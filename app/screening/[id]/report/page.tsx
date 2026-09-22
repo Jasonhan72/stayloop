@@ -1697,6 +1697,8 @@ export default function ReportPage() {
                       {ci ? (
                         <div className="mt-2 space-y-0.5">
                           <KV k={zh ? '注册名称' : 'Registered'}>{ci.name}</KV>
+                          {check.trade_names && check.trade_names.length > 0 && <KV k={zh ? '经营名' : 'Trading as'}>{check.trade_names.join(' · ')}{zh ? '（同一雇主）' : ' (same employer)'}</KV>}
+                          {check.regulated_bank && <KV k={zh ? '监管' : 'Regulated'}><span style={{ color: '#166534', fontWeight: 600 }}>{zh ? `《银行法》附表 ${check.regulated_bank.schedule} 银行 · OSFI 监管` : `Bank Act Schedule ${check.regulated_bank.schedule} bank · OSFI-supervised`}</span></KV>}
                           {ci.incorporation_date && (
                             <KV k={zh ? '成立日期' : 'Incorporated'}>
                               <span style={check.is_recently_incorporated ? { color: '#DC2626', fontWeight: 700 } : undefined}>

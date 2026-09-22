@@ -970,6 +970,8 @@ export async function runDeepCheck(input: {
   webRead?: (url: string) => Promise<string>
   /** optional cache-aware company lookup (Phase 3). */
   companyLookup?: (name: string) => Promise<CompanyRegistryInfo | null>
+  /** operating names per registered employer (employer-checks mergeTradeNames) */
+  trade_names?: Record<string, string[]>
 }): Promise<ArmLengthCheckResult[]> {
   if (!input.employer_names.length) return []
 
@@ -1003,6 +1005,7 @@ export async function runDeepCheck(input: {
         webSearch: input.webSearch,
         webRead: input.webRead,
         companyLookup: input.companyLookup,
+        trade_names: input.trade_names?.[emp],
       },
     ))
   )

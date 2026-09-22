@@ -36,7 +36,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { stripNul } from '@/lib/screening/jsonSafe'
 const EMPLOYER_KINDS = new Set(['employment_letter', 'offer_letter', 'pay_stub', 't4'])
 import { runDeepCheck } from '@/lib/forensics'
-import { employerExtraChecks, extractEmployerDomains, federalStatusText, gazetteLookup, rdapLookup, registryStatusKind, type RdapResult } from '@/lib/forensics/employer-checks'
+import { employerExtraChecks, extractEmployerDomains, federalStatusText, gazetteLookup, rdapLookup, registryStatusKind, type RdapResult, mergeTradeNames } from '@/lib/forensics/employer-checks'
 import { portalPartySearch, partyNamesCompany } from '@/lib/screening/portalClient'
 import { canonicalizeEmployerName, searchOpenCorporates, RegistryAuthError } from '@/lib/forensics/arm-length'
 import { searchCbrRegistry } from '@/lib/forensics/cbr-registry'
@@ -576,10 +576,15 @@ export async function POST(req: Request) {
       return bad('No applicant name provided', '未提供申请人姓名')
     }
 
+    // "David Health International (c/o 2201371 Ontario Inc.)" is one
+    // employer: fold operating names into the registered entity the
+    // documents tie them to (2026-09-22).
+    const merged = mergeTradeNames(employers, payload.employer_doc_text || '')
     // Run deep check (with caching wrapper around company registry lookups)
     const cacheClient = makeServiceClient()
     const results = await runDeepCheck({
-      employer_names: employers,
+      employer_names: merged.names,
+      trade_names: merged.trade_names,
       applicant_name: payload.applicant_name.trim(),
       applicant_address: payload.applicant_address,
       applicant_phone: payload.applicant_phone,
@@ -604,8 +609,8 @@ export async function POST(req: Request) {
       // check only the segments that name it (review 2026-09-16 — Acme's
       // unregistered domain and 2015 start were stamped on Beta's card).
       const segments = (payload.employer_doc_text || '').split(/\n\n---\n\n/).filter(x => x.trim())
-      const textFor = (check: { employer_name: string; company_info?: { name?: string | null } | null }): string => {
-        const names = [check.employer_name, check.company_info?.name].filter((n): n is string => !!n)
+      const textFor = (check: { employer_name: string; company_info?: { name?: string | null } | null; trade_names?: string[] }): string => {
+        const names = [check.employer_name, check.company_info?.name, ...(check.trade_names || [])].filter((n): n is string => !!n)
         const mine = segments.filter(seg => names.some(n => new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'), 'i').test(seg)))
         if (mine.length) return mine.join('\n\n---\n\n')
         return results.length === 1 ? segments.join('\n\n---\n\n') : ''
@@ -630,10 +635,10 @@ export async function POST(req: Request) {
       await Promise.all(results.map(async (check) => {
         const docText = textFor(check)
         const rdapResults = (await rdapFor(docText)).filter((r): r is RdapResult => !!r)
-        const names = Array.from(new Set([check.employer_name, check.company_info?.name].filter((n): n is string => !!n && n.trim().length > 2)))
+        const names = Array.from(new Set([check.employer_name, check.company_info?.name, ...(check.trade_names || [])].filter((n): n is string => !!n && n.trim().length > 2)))
         let litigation: { total: number; cases: Array<{ title: string; role: string; filed: string; closed: boolean | null }> } | null = null
         try {
-          const searches = await Promise.all(names.slice(0, 2).map(n => portalPartySearch(n, '10462', { relay, timeoutMs: 12_000 })))
+          const searches = await Promise.all(names.slice(0, 3).map(n => portalPartySearch(n, '10462', { relay, timeoutMs: 12_000 })))
           const seen = new Set<string>()
           const cases: Array<{ title: string; role: string; filed: string; closed: boolean | null }> = []
           for (let i = 0; i < searches.length; i++) {
@@ -668,6 +673,7 @@ export async function POST(req: Request) {
           business_phone: payload.signatory_phone ?? null,
           rdap: rdapResults,
           litigation,
+          regulated_lender: !!check.regulated_bank,
         })
         Object.assign(check, {
           registry_status_kind: extra.registry_status_kind,

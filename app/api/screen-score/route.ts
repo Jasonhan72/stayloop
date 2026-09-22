@@ -26,6 +26,7 @@ import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
 import { analyzeStatementLiquidity, findRecurringMonthlyPayment } from '@/lib/forensics/payroll-deposits'
 import { monthsSince, parsePeriodMonths, parseDateLoose, datesAgree } from '@/lib/screening/periods'
 import { buildLandlordReadings, mergeModelReadings, editDistance1 } from '@/lib/forensics/landlord-reading'
+import { bureauCreditEventDates, bureauEmployerFromText, explainBureauEmployer } from '@/lib/screening/bureauEmployer'
 import { isCollectionAgency } from '@/lib/screening/collectionAgencies'
 import { llmChat, llmChatStream } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
@@ -2744,6 +2745,46 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         coApplicants: (Array.isArray(parsed.extracted_names) ? parsed.extracted_names : []).filter((n: unknown): n is string => typeof n === 'string'),
       })
       if (coherence.status === 'ok') mergeModelReadings(forensicsReport.per_file, coherence.documents)
+      // The bureau's employer line vs the letter's employer: find the reason
+      // before anyone calls it a contradiction (2026-09-22). Per bureau file,
+      // matched to the letter of the same person by name.
+      try {
+        const docs = coherence.status === 'ok' ? coherence.documents : []
+        const letters = docs.filter(d => /employment_letter|offer_letter/i.test(d.kind) && d.key_facts?.employer)
+        const appEmployers = docs.filter(d => /application/i.test(d.kind)).flatMap(d => d.key_facts?.employers_listed || [])
+        const tok = (n: string) => n.toLowerCase().split(/[^a-z]+/).filter(x => x.length >= 3)
+        for (const pf of forensicsReport.per_file) {
+          if (!(pf.file_kind || '').includes('credit_report')) continue
+          const text = pf.text_density?.text_sample || pf.ocr?.text || ''
+          const doc = docs.find(d => d.file === pf.file_name)
+          const bureauEmployer = doc?.key_facts?.employer || bureauEmployerFromText(text)
+          if (!bureauEmployer) continue
+          const who = [...(doc?.key_facts?.names || []), pf.ocr?.apparent_name || ''].flatMap(tok)
+          const letter = letters.find(l => (l.key_facts?.names || []).some(n => tok(n).some(t => who.includes(t)))) || (letters.length === 1 ? letters[0] : undefined)
+          if (!letter) continue
+          const ev = bureauCreditEventDates(text)
+          const verdict = explainBureauEmployer({
+            bureau_employer: bureauEmployer, current_employer: letter.key_facts?.employer, employment_start: letter.key_facts?.employment_start,
+            hard_inquiry_dates: ev.hard_inquiries, account_open_dates: ev.opened, application_employers: appEmployers,
+          })
+          if (verdict.kind === 'same' || verdict.kind === 'insufficient') continue
+          const explained = verdict.kind === 'stale_by_construction' || verdict.kind === 'previous_on_application'
+          forensicsReport.cross_doc_flags.push({ code: explained ? 'bureau_employer_lag_explained' : 'bureau_employer_differs', severity: explained ? 'info' : 'low', file: pf.file_name, evidence_en: verdict.explanation_en, evidence_zh: verdict.explanation_zh })
+          if (!pf.landlord_reading) pf.landlord_reading = { bullets: [], asks: [] }
+          pf.landlord_reading.bullets.push({ zh: verdict.explanation_zh, en: verdict.explanation_en, tone: explained ? 'neutral' : 'warn', source: 'measured' })
+          if (explained) {
+            const be = bureauEmployer.toLowerCase()
+            if (coherence.status === 'ok') coherence.anomalies = coherence.anomalies.filter(a => !(/雇主|employer/i.test(`${a.claim_zh} ${a.claim_en}`) && a.evidence.some(e => e.toLowerCase().includes(be))))
+            const rp = crossDocVerification?.related_party
+            if (rp && Array.isArray(rp.signals)) rp.signals = rp.signals.filter((sig: string) => !(sig.toLowerCase().includes(be) && /credit|bureau|征信|信用/i.test(sig)))
+            // the checklist item "resolve GTS vs David Health" is answered
+            if (Array.isArray(parsed.action_items)) parsed.action_items = parsed.action_items.filter((a: { details_en?: string; details_zh?: string; title_en?: string }) => !`${a?.title_en || ''} ${a?.details_en || ''} ${a?.details_zh || ''}`.toLowerCase().includes(be))
+          }
+        }
+        forensicsReport.all_flags = [...forensicsReport.per_file.flatMap(pf => pf.flags), ...forensicsReport.cross_doc_flags]
+      } catch (err) {
+        console.warn('[screen-score] bureau employer explanation failed', (err as Error)?.message)
+      }
     } catch (err) {
       console.warn('[screen-score] landlord reading failed', (err as Error)?.message)
     }

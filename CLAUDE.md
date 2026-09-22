@@ -454,6 +454,32 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
   「房源 10 套里 8 套 Realtor」——`/listings` 已挂「示范阶段 · TRREB 未接入」横幅；「ABOUT 关于这套房源」——v9 设计的
   英文 mono 眉标 + 中文标题是全站体例；「定价页测试期免费 vs 财务面板即将推出」——财务面板确实还是样例页，标注属实。
 
+## 深度核查复核：银行、商号、征信档雇主（2026-09-22 · Kim-Yi 案 · 用户要求「通盘考虑再修」）
+
+用户看深度核查截图后指出三处：韩资银行「均未收录」不对；征信档雇主与在职信不一致「不能简单判定为假，也许是征信更新不及时」；
+类似问题要通盘考虑。逐条核实后落地（守卫 `tests/bureauEmployer.spec.ts`，11 条）：
+- **银行不是公司注册库的登记对象。** KEB Hana Bank Canada 列于《银行法》附表 II（外资银行在加子公司，OSFI 监管，CDIC 会员；
+  laws-lois.justice.gc.ca b-1.01 附表页），任何公司注册库都查不到它。新模块 `lib/forensics/bank-act.ts`：附表 I / II / III 快照
+  （截至 2025-12-31，共 35 + 15 + 28 家）+ 通过 webRead 读法条页的实时解析（读不全就回退快照），`matchBankAct` 接受法定名、
+  「(The)」形式与含「Bank」的商号（Hana Bank Canada → KEB Hana Bank Canada）。`checkArmLength` 命中即合成 `company_info`
+  （source `bank_act`、状态 `Active — Bank Act Schedule II (OSFI)`、链接到法条页），不报「未收录」、不跑找董事的网页检索、
+  风险 clean 而非 unverified；三处界面加「监管：《银行法》附表 II 银行 · OSFI 监管」行。
+- **放款机构上法庭是正常经营。** 银行的 12 件案件（追讨欠款、被列为扣押第三方 / 留置权人）原来是 medium「判断雇主经营稳定性前
+  请先读案件」。`employerExtraChecks` 新入参 `regulated_lender`：改为 info `employer_court_cases_lender_routine`，法庭记录行不再红底。
+- **商号与注册实体是同一家雇主。** 在职信写「David Health International (c/o 2201371 Ontario Inc.)」、工资单写「2201371 Ontario
+  Inc. (o/a David Health International)」，原来当成三家雇主查，商号那张卡「未收录」+ 自己的法庭行。`mergeTradeNames`（employer-checks）
+  按文件文字里的 o/a · c/o · dba · operating as · trading as 把商号折进注册实体（注册样名 = 有 Inc/Ltd 或编号公司），
+  `runDeepCheck` 传 `trade_names`，卡片显示「经营名」，法庭检索同时查商号（LEE v. DAVID HEALTH INTERNATIONAL 归到 2201371 那张卡）。
+- **注册库显示活跃 ≥5 年的编号公司**：`arm_length_numbered_company` 降 low 并写明「自 2009 年活跃、以 David Health International
+  名义经营」，不再说「常被用作空壳」。
+- **征信档雇主 ≠ 在职信雇主：先找原因。** 征信局不知道谁在哪里工作，雇主字段只在申请人申请信贷时由贷款方报送。
+  `lib/screening/bureauEmployer.ts`：从征信文字读雇主行（Equifax 扁平化为「Employment Type Employer Name Current GTS SERVICES」）
+  与信贷事件日期（只算「May affect scores = Yes」的硬查询 + 账户 Opened 日期），对同一人的在职信（按姓名匹配）比较：
+  最后一次信贷事件早于入职日 → `stale_by_construction`（info，解释文字写明两个日期，「不是矛盾」）；雇主在申请表前雇主里 →
+  `previous_on_application`（info）；入职后仍有信贷活动且申请表没提 → `unexplained`（low，保留追问）。前两种会同时删掉
+  coherence 里对应的「雇主不一致」条目、模型的 related-party 信号与「核实 GTS vs David」待办，并把解释写进该征信文件的房东解读。
+  本案：Yi 最后一次硬查询 2025-04-12（Bell），入职 2025-09-29，档案上仍是 GTS Services 是必然的。
+
 ## 深度核查加项与红色标记（2026-09-16）
 
 用户看到注册库「Inactive」旁边挂着绿色「正常」徽章，要求：注册状态异常、法庭记录这类结果必须醒目标红，并且深度核查

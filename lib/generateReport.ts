@@ -1218,6 +1218,8 @@ export async function generateScreeningReport(
       if (check.company_info) {
         const ci = check.company_info
         html += `<div class="kv"><span class="k">${zh ? '注册名称' : 'Registered name'}:</span><span class="v">${esc(ci.name)}</span></div>`
+        if (check.trade_names && check.trade_names.length) html += `<div class="kv"><span class="k">${zh ? '经营名' : 'Trading as'}:</span><span class="v">${esc(check.trade_names.join(' · '))}${zh ? '（同一雇主）' : ' (same employer)'}</span></div>`
+        if (check.regulated_bank) html += `<div class="kv"><span class="k">${zh ? '监管' : 'Regulated'}:</span><span class="v" style="color:#166534;font-weight:600">${zh ? `《银行法》附表 ${esc(check.regulated_bank.schedule)} 银行 · OSFI 监管` : `Bank Act Schedule ${esc(check.regulated_bank.schedule)} bank · OSFI-supervised`}</span></div>`
         if (ci.incorporation_date) html += `<div class="kv"><span class="k">${zh ? '成立日期' : 'Incorporated'}:</span><span class="v"${check.is_recently_incorporated ? ' style="color:#DC2626;font-weight:700"' : ''}>${esc(ci.incorporation_date)}${check.is_recently_incorporated ? (zh ? ' ⚠ 不到 2 年' : ' ⚠ under 2 years') : ''}</span></div>`
         const inactive = check.registry_status_kind === 'inactive'
         if (ci.status) html += `<div class="kv"><span class="k">${zh ? '注册状态' : 'Status'}:</span><span class="v"${inactive ? ' style="color:#B91C1C;font-weight:800;background:#FEE2E2;padding:1px 8px;border-radius:4px"' : ''}>${esc(ci.status)}${inactive ? (zh ? ' ⚠ 已注销 / 非活跃 — 不可能在发工资' : ' ⚠ inactive / dissolved — cannot be running payroll') : ''}</span></div>`

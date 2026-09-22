@@ -244,6 +244,10 @@ export interface ArmLengthCheckResult {
   web_checked?: boolean
   /** a co-applicant / spouse / occupant matched an officer, the signatory, or a web-index result */
   related_party_match?: string | null
+  /** the employer is a bank listed in the Bank Act schedules (OSFI-supervised) — not a registry filing, and litigation as a lender is routine (2026-09-22) */
+  regulated_bank?: { schedule: 'I' | 'II' | 'III'; statutory_name: string; head_office: string | null; as_at: string } | null
+  /** operating / trade names the documents tie to this entity ("o/a", "c/o", "dba") — folded into this card instead of a card of their own (2026-09-22) */
+  trade_names?: string[]
   flags: ForensicFlag[]
 }
 

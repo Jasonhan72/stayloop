@@ -18,6 +18,7 @@
 // -----------------------------------------------------------------------------
 
 import type { ForensicFlag } from './types'
+import { bankScheduleLabel, BANK_ACT_SCHEDULE_URLS, BANK_ACT_SNAPSHOT_AS_AT, loadBankActSchedules, matchBankAct } from './bank-act'
 
 export interface CompanyRegistryInfo {
   name: string
@@ -46,6 +47,8 @@ export interface ArmLengthResult {
   officers_verified?: boolean
   web_checked?: boolean
   related_party_match?: string | null
+  regulated_bank?: { schedule: 'I' | 'II' | 'III'; statutory_name: string; head_office: string | null; as_at: string } | null
+  trade_names?: string[]
   flags: ForensicFlag[]
 }
 
@@ -413,6 +416,8 @@ export interface CheckArmLengthOptions {
    * repeat lookups within 7 days don't hit the 500/month free quota.
    */
   companyLookup?: (name: string) => Promise<CompanyRegistryInfo | null>
+  /** operating names the documents tie to this employer (o/a, c/o, dba) */
+  trade_names?: string[]
 }
 
 export async function checkArmLength(
@@ -430,9 +435,44 @@ export async function checkArmLength(
   // signatory were compared. The company NAME is the loudest signal.
   const employerNameSurname = employerNameCarriesSurname(employerName, applicantName)
 
+  // 0. A bank is not a corporate-registry filing: it is listed by name in
+  // the Bank Act schedules and supervised by OSFI. Case 28: KEB Hana Bank
+  // Canada (Schedule II, CDIC member) was "not found in any registry".
+  const bank = matchBankAct(employerName, await loadBankActSchedules(options.webRead))
+  const regulatedBank = bank ? { schedule: bank.schedule, statutory_name: bank.name, head_office: bank.head_office, as_at: BANK_ACT_SNAPSHOT_AS_AT } : null
+
   // 1. Registry lookup (cache-aware if caller injected companyLookup)
   const lookup = options.companyLookup || searchOpenCorporates
-  const companyInfo = await lookup(employerName)
+  const companyInfo: CompanyRegistryInfo | null = bank
+    ? {
+        name: bank.name,
+        company_number: null,
+        jurisdiction: 'Federal — Bank Act',
+        incorporation_date: null,
+        status: `Active — Bank Act Schedule ${bank.schedule} (OSFI)`,
+        registered_address: bank.head_office ? `Head office: ${bank.head_office}` : null,
+        company_type: bankScheduleLabel(bank, false),
+        officers: [],
+        registry_url: BANK_ACT_SCHEDULE_URLS[bank.schedule],
+        source: 'bank_act',
+      }
+    : await lookup(employerName)
+  if (bank) {
+    flags.push({
+      code: 'employer_bank_act_listed',
+      severity: 'info',
+      evidence_en: `"${employerName}" is ${bank.name}, listed in Schedule ${bank.schedule} of the Bank Act (as at ${BANK_ACT_SNAPSHOT_AS_AT}) and supervised by OSFI. Banks are not corporate-registry filings, so a registry miss says nothing about them; employment is verified through the bank's HR, not a business number.`,
+      evidence_zh: `"${employerName}" 即 ${bank.name}，列于《银行法》附表 ${bank.schedule}（截至 ${BANK_ACT_SNAPSHOT_AS_AT}），受 OSFI 监管。银行不是公司注册库的登记对象，注册库查不到不说明任何问题；雇佣关系应通过银行 HR 核实，而不是商业编号。`,
+    })
+  }
+  if (options.trade_names?.length) {
+    flags.push({
+      code: 'employer_trade_name',
+      severity: 'info',
+      evidence_en: `The documents tie the operating name${options.trade_names.length > 1 ? 's' : ''} "${options.trade_names.join('", "')}" to ${employerName} ("o/a" / "c/o" on the letter and stubs). One employer, two names — the registry entry is the numbered company, the sign on the door is the trade name.`,
+      evidence_zh: `文件把经营名「${options.trade_names.join('」「')}」与 ${employerName} 绑在一起（信上的 c/o、工资单上的 o/a）。同一家雇主两个名字——注册库里是编号公司，招牌上是商号。`,
+    })
+  }
 
   // 2. Check if recently incorporated (< 2 years)
   let recentlyIncorporated = false
@@ -497,7 +537,7 @@ export async function checkArmLength(
   const officersVerified = !!(companyInfo && companyInfo.officers.length > 0)
   let webChecked = false
   let webHit: { who: string; title: string; snippet: string; link: string } | null = null
-  if (!officersVerified && options.webSearch && companyInfo) {
+  if (!officersVerified && options.webSearch && companyInfo && !bank) {
     try {
       // The registry spelling ("GREEN LIFE GROUP INC.") quoted verbatim returns
       // nothing from the index; search the name without the corporate suffix,
@@ -614,6 +654,10 @@ export async function checkArmLength(
   // A registry that publishes no directors, a letter whose signer matches
   // nobody, and no web-index hit is not "clean" — it is unchecked. Say so.
   if (risk === 'clean' && companyInfo && !officersVerified) risk = 'unverified'
+  // A bank's directors are public (OSFI / annual report) but irrelevant: an
+  // applicant employed by a Schedule I/II/III bank is at arm's length by
+  // construction unless a related party turned up above.
+  if (bank && risk === 'unverified') risk = 'clean'
 
   // 6. Generate flags
   if (relatedPartyMatch) {
@@ -695,11 +739,21 @@ export async function checkArmLength(
   }
 
   if (numbered) {
+    // A numbered company the registry shows active for years, trading under
+    // a name on the documents, is an ordinary operating company (case 28:
+    // 2201371 Ontario Inc., active since 2009, o/a a food distributor).
+    const incYear = Number((companyInfo?.incorporation_date || '').slice(0, 4))
+    const established = !!incYear && new Date().getFullYear() - incYear >= 5 && /active|in existence|good standing/i.test(companyInfo?.status || '')
+    const tradeName = !!options.trade_names?.length
     flags.push({
       code: 'arm_length_numbered_company',
-      severity: 'medium',
-      evidence_en: `Employer "${employerName}" is a numbered company. Numbered corporations are easy to register and commonly used for shell companies. Combined with other signals, this lowers income credibility.`,
-      evidence_zh: `雇主"${employerName}"是编号公司。编号公司注册门槛低，常被用作空壳公司。结合其他信号，降低收入可信度。`,
+      severity: established ? 'low' : 'medium',
+      evidence_en: established
+        ? `Employer "${employerName}" is a numbered company, but the registry shows it active since ${companyInfo!.incorporation_date}${tradeName ? ` and it trades as "${options.trade_names![0]}"` : ''} — an established operating business, not a fresh shell. Verify employment through its HR / a business banking reference as with any small employer.`
+        : `Employer "${employerName}" is a numbered company. Numbered corporations are easy to register and commonly used for shell companies. Combined with other signals, this lowers income credibility.`,
+      evidence_zh: established
+        ? `雇主"${employerName}"是编号公司，但注册库显示自 ${companyInfo!.incorporation_date} 起活跃${tradeName ? `，并以「${options.trade_names![0]}」名义经营` : ''}——是经营多年的公司，不是新设空壳。与其他小雇主一样，通过其 HR / 商业银行 reference 核实雇佣即可。`
+        : `雇主"${employerName}"是编号公司。编号公司注册门槛低，常被用作空壳公司。结合其他信号，降低收入可信度。`,
     })
   }
 
@@ -767,6 +821,8 @@ export async function checkArmLength(
   return {
     employer_name: employerName,
     company_info: companyInfo,
+    regulated_bank: regulatedBank,
+    trade_names: options.trade_names?.length ? options.trade_names : undefined,
     is_numbered_company: numbered,
     is_recently_incorporated: recentlyIncorporated,
     applicant_is_officer: applicantIsOfficer,
