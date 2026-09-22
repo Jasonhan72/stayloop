@@ -10,6 +10,7 @@ import {
 } from '../lib/screening/coherenceReview'
 import type { ForensicFlag, PerFileForensics, PdfMetadataResult } from '../lib/forensics/types'
 import { scoreRubric, type RubricFacts } from '../lib/screening/rubric'
+import { applyTextPayFrequency, frequencyFromPeriod } from '../lib/forensics/paystub-math'
 
 // 2026-09-22 — case 28 (5168 Yonge St): a two-earner household with 723 /
 // 767 credit, no delinquencies, renewed licences and a bank employer was
@@ -208,5 +209,20 @@ describe('rubric — documented income without a bank trail', () => {
     // a corroborated figure still outranks it
     const verified = scoreRubric({ ...base, verified_monthly_income: 7579, payrollStubsConsistent: 3 })
     expect(verified.dimensions.ability_to_pay).toBeGreaterThanOrEqual(70)
+  })
+})
+
+describe('pay frequency from the period dates', () => {
+  it('a 1st-to-31st period is monthly whatever the model guessed; 14 days stays with the model', () => {
+    expect(frequencyFromPeriod('2026-08-01', '2026-08-31')).toBe('monthly')
+    expect(frequencyFromPeriod('2026-02-01', '2026-02-28')).toBe('monthly')
+    expect(frequencyFromPeriod('2026-08-03', '2026-08-09')).toBe('weekly')
+    expect(frequencyFromPeriod('2026-08-01', '2026-08-15')).toBeNull()
+    expect(frequencyFromPeriod('2026-08-03', '2026-08-16')).toBeNull()
+    // case 28 re-run: two monthly stubs in one photo → "semimonthly" → $83,904 annualised
+    const ext = { pay_period_start: '2026-08-01', pay_period_end: '2026-08-31', pay_frequency: 'semimonthly', period_gross: 3496, annual_salary: 83904, hourly_rate: 23, hours_worked: 152 } as never
+    const out = applyTextPayFrequency(ext, 'Pay Period 08/01/2026 - 08/31/2026 Hours 152:00 Rate 23.00')
+    expect(out.pay_frequency).toBe('monthly')
+    expect(out.annual_salary).toBe(41952)
   })
 })

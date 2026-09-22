@@ -416,6 +416,9 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
   就把 723/$276 挂到了 767 那份），认不出来就两份都标「请单独核对」；受薪工资单的 `OT HRS 6` 不再读成「每周 3 小时兼职」。
 - **评分表新增中间档**：≥2 张「可识别工资系统 + YTD 0.8–1.2 + CRA 扣缴复算通过」的工资单，付款能力 50
   （`income_documented_no_bank_trail`），介于裸申报 35 与银行佐证 70+ 之间——纸面文件仍不等于到账。
+- **生产重跑（screening `4f1433bf`）暴露的第九处**：一张照片里两张月薪工资单，模型把频率填成 semimonthly → 年化 $83,904、
+  YTD 0.51 → `paystub_ytd_net_mismatch`，家庭收入被抬到 $11,075。`frequencyFromPeriod`：工资单自己印的期间 27–31 天即
+  monthly、5–8 天即 weekly，优先于模型猜测与「Period N of 24」文字（14 天 vs 15 天的 biweekly/semimonthly 仍信模型）。
 **有意不做**：`SU A KIM` 与 Sunkyoung 不是已知的罗马字变体，保留为唯一 high 待核实项；无银行流水仍不算佐证。
 
 ## 深度核查加项与红色标记（2026-09-16）

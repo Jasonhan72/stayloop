@@ -247,7 +247,9 @@ export function inferPayFrequencyFromText(text: string | null | undefined): Pays
  * with the wrong frequency — recompute. Mutates and returns ext.
  */
 export function applyTextPayFrequency(ext: PaystubExtraction, text: string | null | undefined): PaystubExtraction {
-  const freq = inferPayFrequencyFromText(text)
+  // The printed period dates outrank both the model's guess and a "Pay
+  // Period N of 24" label (a 31-day period is monthly whatever else says).
+  const freq = frequencyFromPeriod(ext.pay_period_start, ext.pay_period_end) || inferPayFrequencyFromText(text)
   if (!freq) return ext
   const ppy = PERIODS_PER_YEAR[freq]
   const wasFreq = ext.pay_frequency
@@ -302,7 +304,28 @@ export function extractOneOffYtd(text: string | null | undefined): number {
   return Math.round(sum * 100) / 100
 }
 
+/** The pay period's own dates decide the frequency when they are
+ *  unambiguous: 27–31 days is monthly, 5–8 days weekly. The model called a
+ *  "08/01/2026 – 08/31/2026" stub semi-monthly because the photo held two
+ *  months of stubs (case 28) — the annualised figure doubled and YTD read
+ *  as half the run-rate. Biweekly (14 d) vs semi-monthly (13–16 d) stays
+ *  with the model. Exported for tests. */
+export function frequencyFromPeriod(start?: string | null, end?: string | null): PaystubExtraction['pay_frequency'] | null {
+  if (!start || !end || !/^\d{4}-\d{2}-\d{2}/.test(start) || !/^\d{4}-\d{2}-\d{2}/.test(end)) return null
+  const days = Math.round((Date.parse(end.slice(0, 10)) - Date.parse(start.slice(0, 10))) / 86_400_000) + 1
+  if (!Number.isFinite(days)) return null
+  if (days >= 27 && days <= 31) return 'monthly'
+  if (days >= 5 && days <= 8) return 'weekly'
+  return null
+}
+
 function normalizeExtraction(ext: PaystubExtraction): PaystubExtraction {
+  const byPeriod = frequencyFromPeriod(ext.pay_period_start, ext.pay_period_end)
+  if (byPeriod && ext.pay_frequency !== byPeriod) {
+    const wasAnnualFromFreq = !!(ext.annual_salary && ext.period_gross && ext.pay_frequency && Math.abs(ext.annual_salary / (ext.period_gross * PERIODS_PER_YEAR[ext.pay_frequency]) - 1) < 0.01)
+    ext.pay_frequency = byPeriod
+    if (wasAnnualFromFreq && ext.period_gross) ext.annual_salary = Math.round(ext.period_gross * PERIODS_PER_YEAR[byPeriod] * 100) / 100
+  }
   if (ext.hourly_rate && ext.hourly_rate > 200) {
     if (ext.hourly_rate >= 10_000) {
       if (!ext.annual_salary) ext.annual_salary = ext.hourly_rate
