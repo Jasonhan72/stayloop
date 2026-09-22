@@ -65,7 +65,7 @@ describe('SL-LL-004 · lease terms flow from the wizard to the row', () => {
 
 describe('SL-LL-008 / 014 · settings redirect and pricing wording', () => {
   it('/landlord/settings redirects to /settings', () => {
-    expect(readFileSync('app/landlord/settings/page.tsx', 'utf8')).toContain("redirect('/settings')")
+    expect(readFileSync('middleware.ts', 'utf8')).toMatch(/\(landlord\|tenant\|agent\)\\\/settings/)
   })
   it('the test-period banner says what "coming soon" means', () => {
     expect(readFileSync('app/pricing/page.tsx', 'utf8')).toContain('标「即将推出」的模块尚未上线，不在免费范围内')

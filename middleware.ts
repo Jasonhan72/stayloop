@@ -40,6 +40,17 @@ export function middleware(request: NextRequest) {
     url.search = ''
     return withSecurityHeaders(NextResponse.redirect(url, 308))
   }
+  {
+    // /landlord/settings is the address people guess for the landlord
+    // workspace's settings and it 404'd (external fix list 2026-09-22,
+    // SL-LL-008). A server redirect — the page-level redirect() on a
+    // static route only runs after hydration.
+    const url = new URL(request.url)
+    if (/^\/(landlord|tenant|agent)\/settings\/?$/.test(url.pathname)) {
+      url.pathname = '/settings'
+      return withSecurityHeaders(NextResponse.redirect(url, 308))
+    }
+  }
   return withReferrerPolicy(withSecurityHeaders(NextResponse.next()), new URL(request.url).pathname)
 }
 
