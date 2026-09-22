@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stayloop 手机端工作台蓝本（Muse 对照，2026-09-22）</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#00ACE4;--brand-strong:#0094C6;--ink:#1B1B3C;--body-2:#4A4A6A;--body-3:#6E6E8A;--surface:#F3F8FC;--chip:#EEF5FA;--line:#D3E3EF;--line-2:#E4EEF6;--ok:#6AB344;--amber:#B45309;--amber-bg:#FFFBEB;--tenant:#7C3AED;--landlord:#047857}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,"PingFang SC","Noto Sans SC",sans-serif;background:#E9EEF3;color:var(--ink);font-size:15px;line-height:1.5;padding:32px 20px 60px}
+  h1{font-family:"Inter Tight",Inter;font-size:30px;font-weight:600;letter-spacing:-.02em;margin:0 0 6px}
+  h2{font-family:"Inter Tight",Inter;font-size:20px;font-weight:600;margin:40px 0 12px}
+  .legend{background:var(--amber-bg);border:1px solid #FCD34D;border-radius:12px;padding:14px 18px;font-size:13.5px;color:#7C2D12;max-width:1100px}
+  .legend b{font-family:"JetBrains Mono",monospace}
+  .row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .frame{width:375px;height:812px;border-radius:44px;background:#fff;border:10px solid #1B1B3C;overflow:hidden;position:relative;display:flex;flex-direction:column;flex:none}
+  .cap{width:375px;font-size:13px;color:var(--body-2);margin-top:10px}
+  .cap b{display:block;color:var(--ink);font-size:14px}
+  .cap .n{display:inline-block;width:22px;height:22px;border-radius:50%;background:var(--amber-bg);border:1px solid #FCD34D;color:var(--amber);font:700 11px/20px "JetBrains Mono",monospace;text-align:center;margin-right:6px}
+  .status{height:34px;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:12px;font-weight:600}
+  .top{display:flex;align-items:center;justify-content:space-between;padding:6px 16px 10px}
+  .top .ic{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--body-3);font-size:18px}
+  .who{display:flex;flex-direction:column;align-items:center;gap:2px}
+  .orb{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#C4B5FD,#7C3AED 70%);box-shadow:0 6px 18px rgba(124,58,237,.35)}
+  .orb.ll{background:radial-gradient(circle at 30% 30%,#6EE7B7,#047857 70%);box-shadow:0 6px 18px rgba(4,120,87,.35)}
+  .who .nm{font-weight:700;font-size:14px;margin-top:4px}
+  .who .st{font-size:11.5px;color:var(--body-3);display:flex;align-items:center;gap:5px}
+  .who .st i{width:6px;height:6px;border-radius:50%;background:var(--ok);display:inline-block}
+  .scroll{flex:1;overflow:hidden;padding:4px 14px 0;background:#fff}
+  .b{max-width:82%;border-radius:16px;padding:9px 12px;font-size:13.5px;line-height:1.45;margin:8px 0}
+  .b.u{margin-left:auto;background:var(--brand);color:#fff;border-top-right-radius:4px}
+  .b.a{background:var(--surface);border-top-left-radius:4px}
+  .card{border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0;background:#fff;font-size:13px}
+  .card .k{font:600 10.5px "JetBrains Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--brand-strong);display:flex;justify-content:space-between}
+  .card .t{font-weight:700;font-size:14px;margin-top:4px}
+  .card .d{color:var(--body-2);margin-top:4px;font-size:12.5px}
+  .scope{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .scope span{font-size:11px;padding:3px 8px;border-radius:999px;background:var(--chip);color:var(--body-2)}
+  .scope span.no{background:#FEF2F2;color:#9F1239;text-decoration:line-through}
+  .btns{display:flex;gap:8px;margin-top:10px}
+  .btns button{flex:1;border-radius:999px;padding:9px 0;font-weight:700;font-size:13px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+  .btns button.ok{background:var(--brand);border-color:var(--brand);color:#fff}
+  .art{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px;margin:8px 0;background:#fff}
+  .art .th{width:58px;height:58px;border-radius:10px;background:linear-gradient(135deg,#1B1B3C,#0F4C81);flex:none;display:grid;place-items:center;color:#7DD3F5;font:600 10px "JetBrains Mono",monospace}
+  .art .t{font-weight:700;font-size:13.5px}.art .d{font-size:11.5px;color:var(--body-3)}
+  .input{margin:8px 14px 10px;border:1px solid var(--line);border-radius:22px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--body-3);background:#fff}
+  .input .send{margin-left:auto;width:30px;height:30px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700}
+  .bar{height:64px;background:#1B1B3C;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;padding:0 6px;flex:none}
+  .bar div{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:#94A3B8;position:relative}
+  .bar div.on{color:#fff}
+  .bar svg{width:22px;height:22px}
+  .bar .dot{position:absolute;top:-4px;right:18px;min-width:16px;height:16px;border-radius:8px;background:#EF4444;color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 4px}
+  .sec{font:600 10.5px "JetBrains Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--body-3);margin:14px 0 8px}
+  .li{display:flex;gap:10px;padding:11px 0;border-top:1px solid var(--line-2);font-size:13.5px;align-items:flex-start}
+  .li .ck{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--line);flex:none;margin-top:2px}
+  .li .ck.done{background:var(--ok);border-color:var(--ok)}
+  .li .why{font-size:11.5px;color:var(--body-3);margin-top:2px}
+  .li .go{margin-left:auto;color:var(--brand-strong);font-weight:700}
+  .stage{display:flex;gap:4px;margin:8px 0 4px}
+  .stage span{flex:1;height:6px;border-radius:3px;background:var(--line-2)}
+  .stage span.on{background:var(--brand)}
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+  .tile{border:1px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center}
+  .tile .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}.tile .l{font-size:10.5px;color:var(--body-3)}
+  .more{font-size:12.5px;color:var(--body-3);padding:8px 0}
+  .sheet{position:absolute;left:0;right:0;bottom:64px;background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -12px 40px rgba(27,27,60,.18);padding:14px 16px;font-size:13px}
+  .sheet .h{width:36px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 10px}
+  .log{display:flex;gap:8px;padding:7px 0;border-top:1px solid var(--line-2)}
+  .log time{font:500 10.5px "JetBrains Mono",monospace;color:var(--body-3);flex:none;width:44px}
+  .spec{max-width:1100px;font-size:14px;color:var(--body-2)}
+  .spec table{border-collapse:collapse;width:100%;font-size:13.5px;margin-top:10px}
+  .spec th,.spec td{text-align:left;padding:8px 10px;border-bottom:1px solid #d6dee6;vertical-align:top}
+  .spec th{color:var(--body-3);font-weight:600}
+</style>
+</head>
+<body>
+
+<h1>Stayloop 手机端工作台蓝本 · Muse 对照</h1>
+<div class="legend"><b>审阅说明</b> · 只改 <b>md 以下</b>（手机）的信息架构与视觉，桌面工作台的侧栏与右栏不动。三个屏对应 <b>design/muse-mobile-benchmark-2026-09.md</b> 第 3 节的 A–E、H、I。租客色 / 房东色 orb 是身份色不变，强调色仍是 #00ACE4，底栏仍是墨蓝 #1B1B3C。</div>
+
+<h2>屏 1 · 助手（主屏）—— 一条对话，审批卡在流里，头像下是真实状态</h2>
+<div class="row">
+  <div>
+    <div class="frame">
+      <div class="status"><span>9:41</span><span>●●● ᯤ ▮</span></div>
+      <div class="top">
+        <div class="ic">≡</div>
+        <div class="who"><div class="orb"></div><div class="nm">Luna</div><div class="st"><i></i>正在：核对 28 Avondale 的申请材料</div></div>
+        <div class="ic">🔔</div>
+      </div>
+      <div class="scroll">
+        <div class="card">
+          <div class="k"><span>待你确认 · 低风险</span><span>1 / 2</span></div>
+          <div class="t">给房东发看房请求 · 605-28 Avondale</div>
+          <div class="d">周六下午都可以；两人一只猫。房东批准后你会收到带联系方式的邮件。</div>
+          <div class="scope"><span>会用：你的姓名</span><span>登录邮箱</span><span class="no">不会用：筛查报告</span><span class="no">收入文件</span></div>
+          <div class="btns"><button>不发</button><button class="ok">发送</button></div>
+        </div>
+        <div class="b u">预算 2800，能养猫，离 King 站 15 分钟。</div>
+        <div class="b a">找到 6 套，按你说的「采光要好」排了序。第一套周六下午能看，要我替你约吗？</div>
+        <div class="art"><div class="th">TRREB</div><div><div class="t">King West · 1 房行情</div><div class="d">中位 $2,650 · 2026 Q2 均租 $2,431 · 样本 6</div></div></div>
+        <div class="art"><div class="th" style="background:linear-gradient(135deg,#7C3AED,#00ACE4)">6 套</div><div><div class="t">房源卡片 · 第 1–6 套</div><div class="d">点开看图 · 「换一批」还有 4 套</div></div></div>
+        <div class="b u">好，帮我约周六。</div>
+      </div>
+      <div class="input"><span>＋</span><span>写点什么…</span><span>🎙</span><div class="send">↑</div></div>
+      <div class="bar">
+        <div class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v11H8l-4 4z"/></svg>助手</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/></svg>待办<span class="dot">2</span></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.6 1 1.3 1 2.5h6c0-1.2.3-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>想法</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V9l8-6 8 6v10"/><path d="M9 19v-6h6v6"/></svg>进度</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>更多</div>
+      </div>
+    </div>
+    <div class="cap"><b><span class="n">B</span>审批卡置顶在对话流里</b>手机上不再排在对话下方。保留「会用 / 不会用什么数据」两行（Muse 没有）。批准后折叠成一行「已发送 · 14:02」。<br><b><span class="n">C</span>头像下一行是真实状态</b>有 workflow 阶段就写「正在：…」，空闲写「空闲 · 上次 08:00 续约扫描」。<br><b><span class="n">I</span>对话通栏</b>375px 下去掉外框与阴影，气泡直接落在白底上。<br><b><span class="n">A</span>底栏 5 项</b>助手 · 待办（红点 = 待批数）· 想法 · 进度 · 更多。</div>
+  </div>
+
+  <div>
+    <div class="frame">
+      <div class="status"><span>9:41</span><span>●●● ᯤ ▮</span></div>
+      <div class="top">
+        <div class="ic">≡</div>
+        <div class="who"><div class="orb ll"></div><div class="nm">Logic</div><div class="st"><i></i>空闲 · 上次 08:00 续约窗口扫描</div></div>
+        <div class="ic">🔔</div>
+      </div>
+      <div class="scroll" style="background:var(--surface)">
+        <div class="sec">正在跟的</div>
+        <div class="card" style="margin-top:0">
+          <div class="t">28 Avondale #605 · 出租中</div>
+          <div class="stage"><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></div>
+          <div class="d">挂牌 → 收申请（3）→ <b style="color:var(--ink)">筛查中</b> → 签约 → 入住</div>
+        </div>
+        <div class="card">
+          <div class="t">1207 King West · 续约窗口 · 90 天触点</div>
+          <div class="stage"><span class="on"></span><span></span><span></span></div>
+          <div class="d">A/B 方案已备好等你批 · N1 最晚 12-31 送达</div>
+        </div>
+        <div class="sec">你的事</div>
+        <div class="tiles">
+          <div class="tile"><div class="v">3</div><div class="l">待审申请</div></div>
+          <div class="tile"><div class="v">2</div><div class="l">活跃租约</div></div>
+          <div class="tile"><div class="v">1</div><div class="l">续约窗口</div></div>
+          <div class="tile"><div class="v">0</div><div class="l">开放工单</div></div>
+          <div class="tile"><div class="v">$5.6k</div><div class="l">本月收租</div></div>
+          <div class="tile"><div class="v">2</div><div class="l">待批动作</div></div>
+        </div>
+        <div class="more">显示更多 ▾</div>
+      </div>
+      <div class="bar">
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v11H8l-4 4z"/></svg>助手</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/></svg>待办<span class="dot">2</span></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.6 1 1.3 1 2.5h6c0-1.2.3-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>想法</div>
+        <div class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V9l8-6 8 6v10"/><path d="M9 19v-6h6v6"/></svg>进度</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>更多</div>
+      </div>
+    </div>
+    <div class="cap"><b><span class="n">E</span>进度 = Muse 的 Goals</b>上半「正在跟的」= `WorkflowStatusPanel` 的阶段条（每个房源 / 租约一条），下半「你的事」= `StatusOverview` 瓦片，「显示更多」折叠。房东示例。</div>
+  </div>
+
+  <div>
+    <div class="frame">
+      <div class="status"><span>9:41</span><span>●●● ᯤ ▮</span></div>
+      <div class="top">
+        <div class="ic">≡</div>
+        <div class="who"><div class="orb"></div><div class="nm">Luna</div><div class="st"><i></i>空闲</div></div>
+        <div class="ic">🔔</div>
+      </div>
+      <div class="scroll">
+        <div class="sec" style="margin-top:6px">我可以替你做</div>
+        <div class="li"><div class="ck"></div><div><div>把 605-28 Avondale 的申请材料清单列出来</div><div class="why">因为你昨天问过它、还没申请</div></div><div class="go">›</div></div>
+        <div class="li"><div class="ck"></div><div><div>查一下 King West 一房这个季度的 TRREB 均租</div><div class="why">你的预算 2800 在中位以上，值得再看看</div></div><div class="go">›</div></div>
+        <div class="li"><div class="ck"></div><div><div>提醒你：驾照 10 月 8 日到期</div><div class="why">申请时房东会要有效证件</div></div><div class="go">›</div></div>
+        <div class="li"><div class="ck"></div><div><div>把你的现租约导入，我替你记到期日</div><div class="why">你说过明年 3 月要搬</div></div><div class="go">›</div></div>
+        <div class="sec">最近做过</div>
+        <div class="li"><div class="ck done"></div><div><div>看房请求已送到房东 · 605-28 Avondale</div><div class="why">今天 14:02</div></div></div>
+        <div class="li"><div class="ck done"></div><div><div>找了 6 套 King West 一房</div><div class="why">今天 13:58</div></div></div>
+      </div>
+      <div class="sheet">
+        <div class="h"></div>
+        <div style="font-weight:700;font-size:14px">Luna 的活动日志</div>
+        <div class="log"><time>14:02</time><span>发出看房请求 · 605-28 Avondale（你已批准）</span></div>
+        <div class="log"><time>13:58</time><span>检索 Realtor.ca · King West 1 房 · 读了 12 页</span></div>
+        <div class="log"><time>08:00</time><span>记忆更新：预算 2800 · 养猫 · King 站</span></div>
+        <div class="log"><time>昨天</time><span>没有后台动作</span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:10px;font-weight:600;color:var(--brand-strong)"><span>完整审计 ›</span><span>它记住了什么 ›</span></div>
+      </div>
+      <div class="bar">
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v11H8l-4 4z"/></svg>助手</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/></svg>待办</div>
+        <div class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.6 1 1.3 1 2.5h6c0-1.2.3-1.9 1-2.5A6 6 0 0 0 12 3z"/></svg>想法</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V9l8-6 8 6v10"/><path d="M9 19v-6h6v6"/></svg>进度</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>更多</div>
+      </div>
+    </div>
+    <div class="cap"><b><span class="n">D</span>想法 = Muse 的 Ideas</b>每条一句「为什么」，来源是反思画像（current_focus / goals）、系统事实（证件到期、续约窗口、未完成申请）、现有 RecommendationDeck；点一条 = 把那句送进对话。不新增模型调用。<br><b><span class="n">C</span>点头像弹出活动日志</b>读 `agent_audit_events` 最近 20 条，两个出口：完整审计（`/x/audit`）、它记住了什么（记忆页，可编辑 / 忘掉）。</div>
+  </div>
+</div>
+
+<h2>规格</h2>
+<div class="spec">
+<table>
+  <tr><th>项</th><th>现状（375px）</th><th>蓝本</th><th>实现位置</th></tr>
+  <tr><td>底栏</td><td>8 项 · 9.5px 标签</td><td>5 项 · 11px 标签 · 待办红点计数；「更多」= 抽屉列出其余页面</td><td>`WorkspaceShell.Rail` 的 md 以下分支；桌面 8 项不变</td></tr>
+  <tr><td>对话头部</td><td>「在线 · 读取你的记忆」固定文案</td><td>头像 44px 居中 · 名字 · 真实状态一行 · 可点 → 活动日志底部弹层</td><td>`AgentChat` 头部（手机布局）+ 新 `ActivitySheet`</td></tr>
+  <tr><td>审批</td><td>`PendingActionsPanel` 在对话之后</td><td>置顶在对话流内；批准后折叠一行</td><td>三个 `/x/agent` 页手机布局；`ApprovalActionCard` 加 collapsed 态</td></tr>
+  <tr><td>对话外框</td><td>圆角卡 + 边框 + 阴影 + 70vh</td><td>通栏、无框、高度 = 视口 − 顶部 − 底栏；输入条 sticky 在底栏上</td><td>`AgentChat` `sm:` 以下</td></tr>
+  <tr><td>进度页</td><td>右栏组件堆在对话下</td><td>「正在跟的」阶段条 + 「你的事」瓦片 + 折叠</td><td>新路由 `/x/progress`（复用 `WorkflowStatusPanel` + `StatusOverview`）</td></tr>
+  <tr><td>想法页</td><td>空态 5 张静态卡 + RecommendationDeck</td><td>「我可以替你做」列表（带理由）+「最近做过」</td><td>新路由 `/x/ideas` + `lib/agent/ideas.ts` 纯函数</td></tr>
+  <tr><td>待办页</td><td>无</td><td>待批动作 + 等你动作的申请 / 租约 / 看房请求</td><td>新路由 `/x/todo`（读 `agent_pending_actions` + 现有查询）</td></tr>
+  <tr><td>推送（P1）</td><td>无</td><td>PWA manifest + 添加到主屏引导；Web Push 只推「需要你决定」与「真正新的」，设置三档</td><td>`public/manifest.json` · `app/sw.js` · `push_subscriptions` · `proactive` 路由</td></tr>
+  <tr><td>不做</td><td colspan="3">Secure VM / 替你操作第三方网站 · 购物与一次性卡 · 头像画像商店 · 纯图标无标签底栏 · 年龄门 / 每周额度</td></tr>
+</table>
+</div>
+
+</body>
+</html>

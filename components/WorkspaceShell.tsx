@@ -245,7 +245,10 @@ function AgentVerificationBanner({ status, zh }: { status: ReturnType<typeof use
 // empty state until the RECO check passes; the assistant home and the
 // verification page remain usable (decision 2026-09-13).
 function isAgentOnlyRoute(path: string): boolean {
-  return path.startsWith('/agent/') && !path.startsWith('/agent/agent') && !path.startsWith('/agent/verify')
+  if (!path.startsWith('/agent/')) return false
+  // The assistant home, verification, and the phone tabs around the
+  // assistant (todo / ideas / progress) stay open before RECO verification.
+  return !/^\/agent\/(agent|verify|todo|ideas|progress)(\/|$)/.test(path)
 }
 function usePathnameSafe(): string { return usePathname() || '' }
 function AgentLockedState({ status, zh }: { status: string; zh: boolean }) {
@@ -314,12 +317,12 @@ function Rail({ role }: { role: WorkspaceRole }) {
   }
   const onSettings = path.startsWith('/settings')
   return (
+    <>
+    <PhoneTabs role={role} items={items} />
     <nav
-      // Phone: eight equal-width cells (8 × 44px + gaps was 396px — the last
-      // icon fell off a 375px screen, review 2026-09-13); each cell shows a
-      // 10px label under its icon so the shield (筛查) and the check-shield
-      // (审计) are told apart without hover.
-      className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-between gap-0 px-1 md:static md:h-auto md:w-[220px] md:flex-none md:flex-col md:items-stretch md:justify-start md:gap-1 md:overflow-visible md:px-[14px] md:py-[18px]"
+      // md+: the navy sidebar. Phones get the five-tab bar above (Muse
+      // benchmark 2026-09-22) — the old eight-cell bar is gone.
+      className="hidden md:static md:flex md:h-auto md:w-[220px] md:flex-none md:flex-col md:items-stretch md:justify-start md:gap-1 md:overflow-visible md:px-[14px] md:py-[18px]"
       style={{ background: '#1B1B3C' }}
     >
       {/* role card (md+) */}
@@ -366,8 +369,128 @@ function Rail({ role }: { role: WorkspaceRole }) {
         <span className="max-w-full truncate text-[9.5px] font-medium leading-none md:text-[13.5px] md:font-semibold md:leading-normal">{en ? 'Settings' : '设置'}</span>
       </Link>
     </nav>
+    </>
   )
 }
+
+/* ============= PHONE TABS (md and below) =============
+   助手 · 待办 (badge = pending approvals) · 想法 · 进度 · 更多 (sheet with the
+   rest of the role's pages, settings, notifications). */
+function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailItem[] }) {
+  const path = usePathname() || ''
+  const { lang } = useI18n()
+  const zh = lang === 'zh'
+  const auth = useAuth()
+  const [more, setMore] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
+  useEffect(() => {
+    if (auth.loading || !auth.user) { setPendingCount(0); return }
+    let cancelled = false
+    supabase
+      .from('agent_pending_actions')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .eq('role', role)
+      .then(({ count }) => { if (!cancelled) setPendingCount(count ?? 0) })
+    return () => { cancelled = true }
+  }, [auth.loading, auth.user, role, path])
+  useEffect(() => { setMore(false) }, [path])
+  // Install hint + service-worker registration live here because every
+  // signed-in phone visit passes through the shell (PWA, benchmark item F).
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {})
+    }
+  }, [])
+  const tabs: { key: string; href: string; label: string; icon: ReactNode; badge?: number }[] = [
+    { key: 'agent', href: `/${role}/agent`, label: zh ? '助手' : 'Assistant', icon: <ChatIcon /> },
+    { key: 'todo', href: `/${role}/todo`, label: zh ? '待办' : 'To-do', icon: <TodoIcon />, badge: pendingCount },
+    { key: 'ideas', href: `/${role}/ideas`, label: zh ? '想法' : 'Ideas', icon: <BulbIcon /> },
+    { key: 'progress', href: `/${role}/progress`, label: zh ? '进度' : 'Progress', icon: <HomeIcon /> },
+  ]
+  const cell = 'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg text-[16px] transition'
+  const moreOn = more || (!tabs.some((t) => path === t.href || path.startsWith(t.href + '/')) && path !== `/${role}/agent`)
+  return (
+    <>
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch justify-between px-1 pb-[env(safe-area-inset-bottom)] md:hidden" style={{ background: '#1B1B3C' }} aria-label={zh ? '工作台' : 'Workspace'}>
+        {tabs.map((t) => {
+          const on = path === t.href || path.startsWith(t.href + '/')
+          return (
+            <Link key={t.key} href={t.href} className={cell} style={{ color: on ? '#ffffff' : '#c7d2e3', background: on ? 'rgba(255,255,255,0.10)' : undefined }}>
+              <span className="relative">
+                {t.icon}
+                {!!t.badge && <span className="absolute -right-2.5 -top-1.5 min-w-[16px] rounded-full bg-red-500 px-1 text-center text-[10px] font-bold leading-4 text-white">{t.badge > 9 ? '9+' : t.badge}</span>}
+              </span>
+              <span className="max-w-full truncate text-[11px] font-medium leading-none">{t.label}</span>
+            </Link>
+          )
+        })}
+        <button type="button" onClick={() => setMore((v) => !v)} className={cell} style={{ color: moreOn ? '#ffffff' : '#c7d2e3', background: moreOn ? 'rgba(255,255,255,0.10)' : undefined }} aria-expanded={more}>
+          <MoreIcon />
+          <span className="text-[11px] font-medium leading-none">{zh ? '更多' : 'More'}</span>
+        </button>
+      </nav>
+      {more && (
+        <div className="fixed inset-0 z-[45] bg-black/35 md:hidden" onClick={() => setMore(false)}>
+          <div className="absolute inset-x-0 bottom-16 rounded-t-2xl bg-white px-4 pb-4 pt-3" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={zh ? '更多页面' : 'More pages'}>
+            <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-line-strong" />
+            <div className="grid grid-cols-4 gap-2">
+              {items.filter((it) => it.key !== 'home').map((it) => {
+                const on = path === it.href || path.startsWith(it.href + '/')
+                return (
+                  <Link key={it.key} href={it.href} className={'flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-[11.5px] font-medium ' + (on ? 'bg-brand/10 text-brand' : 'bg-surface text-body-2')}>
+                    {it.icon}
+                    <span className="max-w-full truncate">{zh ? it.label.zh : it.label.en}</span>
+                  </Link>
+                )
+              })}
+              <Link href="/notifications" className="flex flex-col items-center gap-1.5 rounded-xl bg-surface px-2 py-3 text-[11.5px] font-medium text-body-2"><BellSmall /><span>{zh ? '通知' : 'Alerts'}</span></Link>
+              <Link href="/settings" className="flex flex-col items-center gap-1.5 rounded-xl bg-surface px-2 py-3 text-[11.5px] font-medium text-body-2"><GearIcon /><span>{zh ? '设置' : 'Settings'}</span></Link>
+            </div>
+          </div>
+        </div>
+      )}
+      <InstallHint zh={zh} />
+    </>
+  )
+}
+
+// "Add to Home Screen" nudge — once, only on phones, only in a browser tab
+// (not when already running standalone). Dismissal is remembered locally.
+function InstallHint({ zh }: { zh: boolean }) {
+  const [show, setShow] = useState(false)
+  const [ios, setIos] = useState(false)
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('sl-install-hint') === '1') return
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true
+      if (standalone || window.innerWidth >= 768) return
+      setIos(/iphone|ipad|ipod/i.test(navigator.userAgent))
+      const t = setTimeout(() => setShow(true), 4000)
+      return () => clearTimeout(t)
+    } catch { /* no-op */ }
+  }, [])
+  if (!show) return null
+  const dismiss = () => { try { localStorage.setItem('sl-install-hint', '1') } catch {}; setShow(false) }
+  return (
+    <div className="fixed inset-x-3 bottom-[76px] z-[44] flex items-start gap-3 rounded-xl border border-line-divider bg-white p-3 text-[12.5px] leading-snug text-body-2 shadow-[0_10px_30px_rgba(27,27,60,.18)] md:hidden">
+      <img src="/icons/icon-192.png" alt="" className="h-9 w-9 flex-none rounded-lg" />
+      <div className="min-w-0 flex-1">
+        <b className="text-body">{zh ? '把 Stayloop 放到主屏' : 'Add Stayloop to your Home Screen'}</b>
+        <div className="mt-0.5">
+          {ios
+            ? (zh ? '在 Safari 里点「分享」→「添加到主屏幕」，像 App 一样打开。' : 'In Safari tap Share → “Add to Home Screen” to open it like an app.')
+            : (zh ? '浏览器菜单里选「安装应用」或「添加到主屏幕」。' : 'Choose “Install app” or “Add to Home screen” in the browser menu.')}
+        </div>
+      </div>
+      <button type="button" onClick={dismiss} aria-label={zh ? '关闭' : 'Close'} className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-[16px] text-body-3">×</button>
+    </div>
+  )
+}
+function TodoIcon() { return I('M4 4h16v16H4z|M8 12l3 3 5-6') }
+function BulbIcon() { return I('M9 18h6|M10 21h4|M12 3a6 6 0 0 0-4 10.5c.7.6 1 1.3 1 2.5h6c0-1.2.3-1.9 1-2.5A6 6 0 0 0 12 3z') }
+function MoreIcon() { return I('M5 12h.01|M12 12h.01|M19 12h.01') }
+function BellSmall() { return I('M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9|M13.7 21a2 2 0 0 1-3.4 0') }
 
 /* ============= ICON SET (compact, monoline) ============= */
 

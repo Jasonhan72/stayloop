@@ -489,6 +489,24 @@ Lease Audits、VoiceAI。已直接落地的两项（纯加法、不动已定稿�
   每条写用途 + 真实状态（已接入 / 沙箱 / 筹备中 / 示范阶段）+ 说明，无合作伙伴 logo、无「成为合作伙伴」。
 - **K（手机深底 hero）用户明确不做。**
 
+## Muse 手机端对照研究（2026-09-22 · 用户要求「研究 muse App 的 UI/UX，手机端能否借鉴」）
+
+Muse = Meta 2026-09-08 发布的个人 AI 助手（muse.ai，iPhone / Mac / WhatsApp；Web 版要登录，**没有用用户账号登录**，材料只用 App Store
+六张截图 + Meta 设计文 introducing.muse.ai + 安全文）。研究稿 `design/muse-mobile-benchmark-2026-09.md`，蓝本
+`design/muse-mobile-blueprint-2026-09.html`（三个 375px 手机屏：助手主屏 / 进度 / 想法 + 活动日志弹层 + 规格表）。**用户 2026-09-22 拍板「按蓝本改」，当日落地**（守卫 `tests/museMobile20260922.spec.ts`，10 条）：
+- **底栏 5 项（只改 md 以下）**：`WorkspaceShell.PhoneTabs` = 助手 · 待办（红点 = `agent_pending_actions` pending 计数）· 想法 · 进度 · 更多（底部抽屉列出角色原有页面 + 通知 + 设置）；桌面侧栏原样。新路由 `/{tenant,landlord,agent}/{todo,ideas,progress}`，共用 `components/mobile/RolePages.tsx`（各自 `useAgentSession(role)`，匿名走 demo）；经纪未认证也可用这三页（`isAgentOnlyRoute` 例外）。
+- **审批进对话流**：`AgentChat` 新增 `pendingActions / onDecide / live / memoryCount / workflow` 五个可选 prop；<lg 时审批卡以 `compact` 形态排在线程**末尾**（自动滚动落点，蓝本写「置顶」但置顶会被滚出视野），决定后折叠成一行；三个 `/x/agent` 页右栏的 `PendingActionsPanel` 改为 `hidden lg:block`，整个右栏在手机隐藏（`hidden md:block`，md 仍堆叠）。首页 hero 不传这些 prop，表现不变。
+- **头像真实状态 + 活动日志**：状态行按 `status` / 阶段 / 待办数生成（「正在：…」「等你点头：N 件」「空闲 · 当前阶段 … · 记得 N 条」），点头像或状态行打开 `components/mobile/ActivitySheet.tsx`（读本人 `agent_audit_events` 最近 20 条，`auditActionLabel` 转人话；出口：完整审计、`/x/progress#memory`）。手机上对话通栏无框、高 `calc(100dvh-150px)`。
+- **想法页** = `lib/agent/ideas.ts buildIdeas`（纯函数、无模型调用）：待办 → 反思画像 `user_model` 的 current_focus / goals → 当前阶段的下一步（键必须是 `WORKFLOW_STAGES` 的真实 key）→ 预算 / 区域 / 搬家日期 / 房源记忆 → RecommendationDeck 链接；每条带「为什么」，≤8 条去重；点一条走 `?prompt=` 深链。
+- **进度页** = `WorkflowStatusPanel` + `StatusOverview` + 可编辑的 `PrivateMemorySnapshot`（`editable` 时每条「改 / 忘掉」，直接写本人 `user_memories`，写 `memory_edited / memory_forgotten` 审计事件）+ `RelatedPagesCard`。
+- **PWA**：`public/manifest.json`（standalone，`/icons/` 192 / 512 / maskable / apple-touch，图标按 v9 配色从 `icon.svg` 用 `qlmanage` 栅格化——`magick` 读不了含 `<text>` 的 SVG）、`app/layout.tsx` 的 manifest / apple meta、`public/sw.js`（**没有 fetch handler、不缓存**——部署必须次日可见，只为可安装与将来推送保留 push / notificationclick）、`PhoneTabs` 里注册 SW 并在手机浏览器标签页显示一次「添加到主屏」提示（`localStorage sl-install-hint`）。**Web Push 未做**（需 VAPID 密钥与 `push_subscriptions` 表，由用户决定）。
+可借的是「会自己干活的助手在手机上怎么摆」：一条长对话为主屏、头像下一行真实的「正在做什么」并可点开活动日志、审批卡在对话流里
+（Allow / Deny）、Ideas 页列出「我可以替你…」带理由、Goals 页放长期任务、底栏 5 个图标、主动消息门槛高且可调。对照 Stayloop 375px：
+审批面板排在对话下方首屏看不见、底栏 8 项 9.5px、头像状态是装饰文案、无推送 / 无 PWA；而对话内产物卡（房源 / 行情 / 对比表 / 草稿）
+和审批卡的 data_scope / excluded_data 比 Muse 强，保留。建议 P0 = 底栏 5 项（助手 · 待办 · 想法 · 进度 · 更多，只改 md 以下）、审批进对话流、
+头像真实状态 + 活动日志弹层、进度页、想法页（纯函数拼句，不加模型调用）、对话通栏；P1 = PWA + Web Push（只推需要决定的与真正新的）、记忆可编辑。
+**不抄**：Secure VM / 代操作第三方网站、购物与一次性卡、头像画像、纯图标底栏、年龄门与周额度。
+
 ## 房东端 UX 修复清单（2026-09-22 · `bug 修复/stayloop-fix-list.pdf`，14 条，研究后取舍）
 
 外部评审（匿名 + 测试账号登录）给的 SL-LL-001～014。先对照代码复现再决定，守卫 `tests/fixList20260922.spec.ts`（11 条）：

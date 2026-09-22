@@ -45,6 +45,13 @@ export default function RootLayout({
           }}
         />
         <meta name="theme-color" content="#F3F8FC" />
+        {/* PWA (2026-09-22, Muse benchmark item F): installable, standalone on phones. */}
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Stayloop" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <noscript>
           <style>{`.v7-page .rv{opacity:1;transform:none}`}</style>
         </noscript>

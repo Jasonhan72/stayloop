@@ -11,7 +11,10 @@ import CommercialCompareTable from './CommercialCompareTable'
 import TrrebTrendChart from './TrrebTrendChart'
 import Link from 'next/link'
 import { ROLE_THEME } from '@/lib/roleTheme'
-import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage } from '@/lib/agent/types'
+import type { AgentRole, AgentStatus, ChatAttachment, ChatMessage, PendingAction, WorkflowState } from '@/lib/agent/types'
+import ApprovalActionCard from './ApprovalActionCard'
+import { ActivitySheet } from '@/components/mobile/ActivitySheet'
+import { WORKFLOW_STAGES, stageIndex } from '@/lib/agent/orchestrator'
 import { LISTINGS_PAGE, nextBatchPrompt, pageListings } from '@/lib/agent/listingPaging'
 
 const ACCENT: Record<AgentRole, string> = {
@@ -64,6 +67,11 @@ export default function AgentChat({
   onSend,
   onListingsShown,
   fill = false,
+  pendingActions,
+  onDecide,
+  live = false,
+  memoryCount = 0,
+  workflow = null,
 }: {
   role: AgentRole
   agentName: string
@@ -75,9 +83,39 @@ export default function AgentChat({
   // `fill`: the parent sets the height (homepage hero sizes the chat to the
   // phone viewport). Default keeps the 70vh phone height the workspaces use.
   fill?: boolean
+  // Muse benchmark 2026-09-22 (items B/C). Below lg the approval cards live
+  // at the top of the thread; the avatar line shows what the assistant is
+  // doing and opens the activity sheet. Omit all four and the chat renders
+  // exactly as before (homepage hero).
+  pendingActions?: PendingAction[]
+  onDecide?: (id: string, decision: 'approved' | 'rejected', option?: 'A' | 'B') => void | Promise<void>
+  live?: boolean
+  memoryCount?: number
+  workflow?: WorkflowState | null
 }) {
   const { lang } = useT()
+  const zh = lang === 'zh'
   const accent = ACCENT[role]
+  const [sheet, setSheet] = useState(false)
+  // Cards the user decided in this session collapse to one line instead of
+  // vanishing (the session hook drops them from pendingActions).
+  const [decided, setDecided] = useState<{ id: string; title: string; decision: 'approved' | 'rejected' }[]>([])
+  const pending = (pendingActions ?? []).filter((a) => a.status === 'pending')
+  const stageLabel = (() => {
+    if (!workflow) return ''
+    const st = WORKFLOW_STAGES[role][stageIndex(role, workflow.current_stage)]
+    return st ? st.label[lang] : ''
+  })()
+  const statusLine = (() => {
+    if (status === 'understanding') return zh ? '正在读你的消息…' : 'Reading your message…'
+    if (status === 'working') return zh ? `正在：${stageLabel || '处理你的请求'}` : `Working on: ${stageLabel || 'your request'}`
+    if (pending.length) return zh ? `等你点头：${pending.length} 件` : `Waiting on you: ${pending.length}`
+    if (!pendingActions) return zh ? '在线 · 读取你的记忆' : 'ONLINE · READING YOUR MEMORY'
+    return zh
+      ? `空闲${stageLabel ? ` · 当前阶段 ${stageLabel}` : ''}${memoryCount ? ` · 记得 ${memoryCount} 条` : ''}`
+      : `Idle${stageLabel ? ` · stage: ${stageLabel}` : ''}${memoryCount ? ` · ${memoryCount} memories` : ''}`
+  })()
+  const canOpenSheet = !!pendingActions
   const endRef = useRef<HTMLDivElement>(null)
   const thinking = status === 'understanding' || status === 'working'
   // Listing cards come in pages of six; the server sends up to two pages per
@@ -89,17 +127,25 @@ export default function AgentChat({
   }, [messages.length, thinking])
 
   return (
-    <div className={`flex flex-col overflow-hidden rounded-2xl border border-line-divider bg-white shadow-sm ${fill ? 'h-full' : 'h-[70vh] lg:h-full'}`}>
-      {/* header */}
-      <div className="flex items-center gap-3 border-b border-line-divider px-5 py-3.5">
-        <span className="h-9 w-9 flex-none rounded-full" style={{ background: ORB[role] }} />
-        <div>
+    <div className={`flex flex-col overflow-hidden bg-white ${fill ? 'h-full rounded-2xl border border-line-divider shadow-sm' : canOpenSheet ? 'h-[calc(100dvh-150px)] sm:h-[70vh] sm:rounded-2xl sm:border sm:border-line-divider sm:shadow-sm lg:h-full' : 'h-[70vh] rounded-2xl border border-line-divider shadow-sm lg:h-full'}`}>
+      {/* header — phone: avatar centred, tap for the activity log */}
+      <div className={`flex items-center gap-3 border-b border-line-divider px-5 py-3.5 ${canOpenSheet ? 'flex-col text-center sm:flex-row sm:text-left' : ''}`}>
+        <button
+          type="button"
+          onClick={() => canOpenSheet && setSheet(true)}
+          disabled={!canOpenSheet}
+          aria-label={canOpenSheet ? (zh ? `${agentName} 的活动日志` : `${agentName}'s activity log`) : undefined}
+          className={`flex-none rounded-full ${canOpenSheet ? 'h-11 w-11 shadow-[0_6px_18px_rgba(27,27,60,.18)] sm:h-9 sm:w-9 sm:shadow-none' : 'h-9 w-9 cursor-default'}`}
+          style={{ background: ORB[role] }}
+        />
+        <div className="min-w-0">
           <div className="text-[15px] font-bold tracking-tight">{agentName}</div>
-          <div className="flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#34D399' }} /> {lang === 'zh' ? '在线 · 读取你的记忆' : 'ONLINE · READING YOUR MEMORY'}
-          </div>
+          <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`flex items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
+            <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>
+          </button>
         </div>
       </div>
+      {sheet && <ActivitySheet role={role} agentName={agentName} live={live} memoryCount={memoryCount} onClose={() => setSheet(false)} />}
 
       {/* thread */}
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
@@ -283,6 +329,30 @@ export default function AgentChat({
           </div>
         ))}
         {/* Empty-state quick starts — one tap sends the prompt */}
+        {/* Approvals at the END of the thread, where the auto-scroll lands
+            (phone + tablet; the lg controls column shows the same cards).
+            Decided ones collapse to one line. */}
+        {onDecide && (decided.length > 0 || pending.length > 0) && (
+          <div className="space-y-3 lg:hidden">
+            {decided.map((d) => (
+              <div key={d.id} className="flex items-center gap-2 rounded-xl border border-line-divider bg-surface-chip px-3.5 py-2 text-[12.5px] text-body-2">
+                <span className={d.decision === 'approved' ? 'text-success' : 'text-body-3'}>{d.decision === 'approved' ? '✓' : '✕'}</span>
+                <span className="min-w-0 truncate">{d.decision === 'approved' ? (zh ? '已批准 · 已交给助手执行' : 'Approved · handed to the assistant') : (zh ? '已拒绝' : 'Rejected')} · {d.title}</span>
+              </div>
+            ))}
+            {pending.map((a) => (
+              <ApprovalActionCard
+                key={a.id}
+                action={a}
+                compact
+                onDecide={async (id, decision, option) => {
+                  await onDecide(id, decision, option)
+                  setDecided((prev) => [...prev, { id, title: a.title, decision }].slice(-5))
+                }}
+              />
+            ))}
+          </div>
+        )}
         {messages.length <= 1 && !thinking && (
           <div className="pl-9 pt-1">
             <div className="mb-2.5 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">

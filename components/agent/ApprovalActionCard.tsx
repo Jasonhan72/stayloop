@@ -16,9 +16,12 @@ const RISK: Record<PendingAction['risk_level'], { label: { zh: string; en: strin
 export default function ApprovalActionCard({
   action,
   onDecide,
+  compact = false,
 }: {
   action: PendingAction
   onDecide: (id: string, decision: 'approved' | 'rejected', option?: 'A' | 'B') => void | Promise<void>
+  /** Inside the phone conversation (Muse benchmark item B): tighter padding, smaller title. */
+  compact?: boolean
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -40,7 +43,7 @@ export default function ApprovalActionCard({
   }
 
   return (
-    <div className="rounded-2xl border border-brand bg-white p-6 shadow-[0_0_0_1px_rgba(4,120,87,0.22),0_6px_18px_rgba(4,120,87,0.06)]">
+    <div className={`rounded-2xl border border-brand bg-white shadow-[0_0_0_1px_rgba(4,120,87,0.22),0_6px_18px_rgba(4,120,87,0.06)] ${compact ? 'p-4' : 'p-6'}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrowLg text-brand">
           {zh ? 'PENDING APPROVAL · 等你确认' : 'PENDING APPROVAL · AWAITING YOU'}
@@ -50,7 +53,7 @@ export default function ApprovalActionCard({
         </span>
       </div>
 
-      <h3 className="mt-2 text-[18px] font-bold tracking-tight">{action.title}</h3>
+      <h3 className={`mt-2 font-bold tracking-tight ${compact ? 'text-[15.5px] leading-snug' : 'text-[18px]'}`}>{action.title}</h3>
       {action.summary && (
         <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">{action.summary}</p>
       )}

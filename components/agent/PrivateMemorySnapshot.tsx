@@ -4,10 +4,12 @@
 // typed, colored rows; machine-state memories (workflow flags, raw URLs,
 // pending_* markers) are folded away behind a count so the rail never reads
 // like a database dump.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useT } from '@/lib/i18n'
-import type { MemoryItem } from '@/lib/agent/types'
+import type { AgentRole, MemoryItem } from '@/lib/agent/types'
 import { formatMemoryValue } from '@/lib/agent/memory'
+import { supabase } from '@/lib/supabase'
+import { writeAuditEvent } from '@/lib/agent/audit'
 
 const TYPE_META: Record<string, { zh: string; en: string; color: string }> = {
   preference: { zh: '偏好', en: 'PREF', color: '#00ACE4' },
@@ -39,14 +41,59 @@ const VISIBLE_CAP = 6
 
 export default function PrivateMemorySnapshot({
   agentName,
-  memories,
+  memories: memoriesProp,
+  role,
+  editable = false,
 }: {
   agentName: string
   memories: MemoryItem[]
+  // Muse benchmark item G (2026-09-22): memories are the user's own rows
+  // (user_memories RLS = self), so they can edit a value or tell the
+  // assistant to forget it. Both leave an audit event. Only for live
+  // sessions with a role (the demo fallback has nothing to write to).
+  role?: AgentRole
+  editable?: boolean
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const [expanded, setExpanded] = useState(false)
+  const [memories, setMemories] = useState(memoriesProp)
+  useEffect(() => { setMemories(memoriesProp) }, [memoriesProp])
+  const [editing, setEditing] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+  const [busy, setBusy] = useState<string | null>(null)
+  const canEdit = editable && !!role
+
+  async function forget(m: MemoryItem) {
+    if (!role) return
+    if (!confirm(zh ? `让 ${agentName} 忘掉「${m.label}」？` : `Tell ${agentName} to forget "${m.label}"?`)) return
+    setBusy(m.key)
+    try {
+      const { data: u } = await supabase.auth.getUser()
+      const uid = u.user?.id
+      if (!uid) return
+      const { error } = await supabase.from('user_memories').delete().eq('user_id', uid).eq('role', role).eq('memory_type', m.memory_type).eq('key', m.key)
+      if (error) { alert(error.message); return }
+      setMemories((prev) => prev.filter((x) => !(x.key === m.key && x.memory_type === m.memory_type)))
+      void writeAuditEvent(supabase, { actorId: uid, action: 'memory_forgotten', targetType: 'user_memory', metadata: { key: m.key, memory_type: m.memory_type, role } })
+    } finally { setBusy(null) }
+  }
+  async function saveEdit(m: MemoryItem) {
+    if (!role) return
+    const v = draft.trim().slice(0, 500)
+    if (!v) return
+    setBusy(m.key)
+    try {
+      const { data: u } = await supabase.auth.getUser()
+      const uid = u.user?.id
+      if (!uid) return
+      const { error } = await supabase.from('user_memories').update({ value: v, source: 'user_edit', updated_at: new Date().toISOString() }).eq('user_id', uid).eq('role', role).eq('memory_type', m.memory_type).eq('key', m.key)
+      if (error) { alert(error.message); return }
+      setMemories((prev) => prev.map((x) => (x.key === m.key && x.memory_type === m.memory_type ? { ...x, value: v } : x)))
+      setEditing(null)
+      void writeAuditEvent(supabase, { actorId: uid, action: 'memory_edited', targetType: 'user_memory', metadata: { key: m.key, memory_type: m.memory_type, role } })
+    } finally { setBusy(null) }
+  }
 
   const human = memories.filter((m) => !isMachine(m))
   const machine = memories.length - human.length
@@ -84,10 +131,24 @@ export default function PrivateMemorySnapshot({
               >
                 {zh ? meta.zh : meta.en}
               </span>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <span className="text-[12.5px] font-bold leading-snug">{m.label}</span>
-                <span className="ml-1.5 text-[12.5px] leading-snug text-body-2">{humanize(formatMemoryValue(m, lang))}</span>
+                {editing === m.key ? (
+                  <div className="mt-1 flex gap-1.5">
+                    <input value={draft} onChange={(e) => setDraft(e.target.value)} className="sl-input !py-1 !text-[13px] min-w-0 flex-1" autoFocus />
+                    <button type="button" disabled={busy === m.key} onClick={() => saveEdit(m)} className="rounded-md px-2 text-[12px] font-bold text-white" style={{ background: '#00ACE4' }}>{zh ? '存' : 'Save'}</button>
+                    <button type="button" onClick={() => setEditing(null)} className="rounded-md border border-line-divider px-2 text-[12px] text-body-2">{zh ? '取消' : 'Cancel'}</button>
+                  </div>
+                ) : (
+                  <span className="ml-1.5 text-[12.5px] leading-snug text-body-2">{humanize(formatMemoryValue(m, lang))}</span>
+                )}
               </div>
+              {canEdit && editing !== m.key && (
+                <span className="flex flex-none gap-1 text-[11px]">
+                  <button type="button" onClick={() => { setEditing(m.key); setDraft(formatMemoryValue(m, lang)) }} className="rounded px-1.5 py-[2px] text-body-3 hover:bg-surface-chip hover:text-body">{zh ? '改' : 'Edit'}</button>
+                  <button type="button" disabled={busy === m.key} onClick={() => forget(m)} className="rounded px-1.5 py-[2px] text-body-3 hover:bg-danger/10 hover:text-danger">{zh ? '忘掉' : 'Forget'}</button>
+                </span>
+              )}
             </div>
           )
         })}
@@ -105,6 +166,7 @@ export default function PrivateMemorySnapshot({
       <p className="mt-3 border-t border-dashed border-line-divider pt-3 font-mono text-[10px] leading-relaxed text-body-4">
         {machine > 0 && (zh ? `另有 ${machine} 条工作状态记忆(系统用) · ` : `${machine} working-state memories (system) · `)}
         {zh ? '仅你可见 · 锁定到你的账户' : 'Visible only to you · locked to your account'}
+        {canEdit && (zh ? ' · 可以改、可以让它忘掉' : ' · you can edit or make it forget')}
       </p>
     </div>
   )

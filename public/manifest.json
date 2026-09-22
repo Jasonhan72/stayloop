@@ -1,0 +1,16 @@
+{
+  "name": "Stayloop",
+  "short_name": "Stayloop",
+  "description": "租房的 AI 助手：租客、房东、经纪各一个。",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F3F8FC",
+  "theme_color": "#1B1B3C",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

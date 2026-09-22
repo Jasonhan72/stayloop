@@ -36,7 +36,10 @@ export default function TenantAgentPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
         {/* Conversation */}
-        <div className="min-w-0 lg:h-[calc(100vh-150px)]">
+        {/* Phone (Muse benchmark 2026-09-22): the chat bleeds edge to edge,
+            approvals sit at the top of the thread, and the controls column
+            below is replaced by the 待办 / 想法 / 进度 tabs. lg+ unchanged. */}
+        <div className="-mx-5 min-w-0 sm:mx-0 lg:h-[calc(100vh-150px)]">
           <AgentChat
             role="tenant"
             agentName={agent.agent_name}
@@ -44,13 +47,18 @@ export default function TenantAgentPage() {
             messages={messages}
             onSend={sendMessage}
             onListingsShown={markListingsShown}
+            pendingActions={pendingActions}
+            onDecide={decide}
+            live={live}
+            memoryCount={memories.length}
+            workflow={workflow}
           />
         </div>
 
         {/* Controls — approvals · progress · memory · related */}
-        <div className="min-w-0 space-y-6 lg:h-[calc(100vh-150px)] lg:overflow-y-auto lg:pr-1">
+        <div className="hidden min-w-0 space-y-6 md:block lg:h-[calc(100vh-150px)] lg:overflow-y-auto lg:pr-1">
           {pendingActions.length > 0 && (
-            <PendingActionsPanel actions={pendingActions} onDecide={decide} />
+            <div className="hidden lg:block"><PendingActionsPanel actions={pendingActions} onDecide={decide} /></div>
           )}
           <StatusOverview role="tenant" live={live} pendingCount={pendingActions.length} />
           <WorkflowStatusPanel role="tenant" workflow={workflow} />
