@@ -23,6 +23,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
 import { useT } from '@/lib/i18n'
+import type { ProviderDiff } from '@/lib/modelDiscovery'
 import {
   DEFAULT_MODELS,
   MODEL_SLOTS,
@@ -100,6 +101,8 @@ export default function AdminModelsPage() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   // apiKeyEnv → key configured?（只有布尔，key 值绝不下发）。null = 未取到。
   const [availability, setAvailability] = useState<Record<string, boolean> | null>(null)
+  const [discovery, setDiscovery] = useState<{ at: string; providers: ProviderDiff[] } | null>(null)
+  const [discovering, setDiscovering] = useState(false)
 
   // ── catalogue
   const [catalog, setCatalog] = useState<CatalogModel[]>(() => mergeCatalog(null))
@@ -157,6 +160,43 @@ export default function AdminModelsPage() {
   }, [token])
 
   useEffect(() => { if (role) { load(); loadAvailability() } }, [role, load, loadAvailability])
+
+  // Ask each configured provider what it serves today (lib/modelDiscovery.ts).
+  const discover = async () => {
+    setDiscovering(true)
+    try {
+      const t = await token()
+      if (!t) return
+      const res = await fetch('/api/admin/model-discover', { headers: { Authorization: `Bearer ${t}` } })
+      if (!res.ok) { setCatMsg({ ok: false, text: `discover failed: HTTP ${res.status}` }); return }
+      const json = (await res.json()) as { checked_at: string; providers: ProviderDiff[] }
+      setDiscovery({ at: json.checked_at, providers: json.providers })
+    } catch (e) {
+      setCatMsg({ ok: false, text: String((e as Error)?.message || e) })
+    } finally {
+      setDiscovering(false)
+    }
+  }
+  // Prefill the add form from a discovered id: key env + base URL are known;
+  // vision / slots / pricing are the admin's call, so start conservative.
+  const prefillFromDiscovery = (env: string, id: string, label?: string | null) => {
+    const info = PROVIDER_KEYS[env]
+    setForm({
+      ...EMPTY_FORM,
+      id,
+      label: label || id,
+      api_key_env: env,
+      base_url: info?.provider === 'anthropic' ? '' : (info?.defaultBaseUrl || ''),
+      vision: info?.provider === 'anthropic',
+      allowed_slots: ['turn'],
+      omit_temperature: /^(gpt-5|o\d)/.test(id),
+      max_tokens_param: /^(gpt-5|o\d)/.test(id) ? 'max_completion_tokens' : 'max_tokens',
+      user_selectable: false,
+    })
+    setFormBuiltin(false)
+    setCatMsg({ ok: true, text: zh ? `已从厂商列表预填 ${id}：请补齐 vision / 槽位 / 单价后保存，再点「测试」确认连通。` : `Prefilled ${id} from the provider listing — set vision / slots / pricing, save, then run the connectivity test.` })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const saveSlots = async () => {
     for (const slot of MODEL_SLOTS) {
@@ -330,9 +370,62 @@ export default function AdminModelsPage() {
                 : `${catalog.length} models · ${catalog.filter((m) => m.enabled).length} enabled · builtins can be overridden/disabled, not deleted. API keys come only from registered env vars (values never leave the server); base URL hosts must be on that key's allow-list.`}
             </p>
           </div>
-          <button className="sl-btn-primary" onClick={() => { setForm({ ...EMPTY_FORM }); setFormBuiltin(false); setCatMsg(null) }}>{zh ? '＋ 添加模型' : '+ Add model'}</button>
+          <div className="flex gap-2">
+            <button className="sl-btn-secondary" disabled={discovering} onClick={discover}>{discovering ? (zh ? '正在询问各厂商…' : 'Asking providers…') : (zh ? '⟳ 发现新模型' : '⟳ Discover new models')}</button>
+            <button className="sl-btn-primary" onClick={() => { setForm({ ...EMPTY_FORM }); setFormBuiltin(false); setCatMsg(null) }}>{zh ? '＋ 添加模型' : '+ Add model'}</button>
+          </div>
         </div>
         {catMsg && <Banner ok={catMsg.ok} text={catMsg.text} />}
+
+        {discovery && (
+          <div className="sl-card mt-4 p-5">
+            <div className="flex items-center justify-between">
+              <div className="text-[15px] font-bold">{zh ? '厂商现在提供什么' : 'What providers serve today'}</div>
+              <div className="font-mono text-[11px] text-body-3">{new Date(discovery.at).toLocaleString()}</div>
+            </div>
+            <p className="mt-1 text-[12.5px] text-body-3">
+              {zh
+                ? '每个已配置 key 的厂商各问一次「列出模型」接口，与目录做差集。新模型只是预填，不会自动开放给用户——能力与单价接口查不到，要你补齐并测试后再启用；厂商已不再列出的目录模型标红，请停用。'
+                : 'Each provider with a configured key is asked to list its models; the result is diffed against the catalogue. New ids only prefill the form — they are never auto-enabled for users, because capability and pricing cannot be discovered; catalogue models a provider no longer lists are marked red so you can disable them.'}
+            </p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              {discovery.providers.map((p) => (
+                <div key={p.env} className="rounded-xl border border-line-divider p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[13px] font-bold">{p.label}</div>
+                    <div className="font-mono text-[11px] text-body-3">{p.ok ? `${p.listed} ${zh ? '个在列' : 'listed'}` : (zh ? '失败 · ' : 'failed · ') + (p.error || '')}</div>
+                  </div>
+                  {p.ok && p.fresh.length === 0 && p.retired.length === 0 && (
+                    <div className="mt-2 text-[12px] text-success">{zh ? '✓ 目录与厂商列表一致' : '✓ Catalogue matches the listing'}</div>
+                  )}
+                  {p.fresh.length > 0 && (
+                    <div className="mt-2">
+                      <div className="font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">{zh ? '目录里没有' : 'Not in catalogue'}</div>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {p.fresh.slice(0, 24).map((m) => (
+                          <button key={m.id} type="button" title={m.created ? new Date(m.created * 1000).toLocaleDateString('en-CA') : undefined} onClick={() => prefillFromDiscovery(p.env, m.id, m.label)} className="rounded-md border border-line-strong bg-white px-2 py-1 font-mono text-[11px] hover:bg-surface-chip">
+                            ＋ {m.id}
+                          </button>
+                        ))}
+                        {p.fresh.length > 24 && <span className="text-[11px] text-body-3">+{p.fresh.length - 24}</span>}
+                      </div>
+                    </div>
+                  )}
+                  {p.retired.length > 0 && (
+                    <div className="mt-2">
+                      <div className="font-mono text-[10.5px] uppercase tracking-eyebrow" style={{ color: '#B91C1C' }}>{zh ? '厂商列表里已没有 —— 点该行的「测试」确认，失败就停用' : 'No longer in the provider listing — run that row\'s test; disable if it fails'}</div>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {p.retired.map((id) => (
+                          <span key={id} className="rounded-md px-2 py-1 font-mono text-[11px]" style={{ background: 'rgba(220,38,38,0.08)', color: '#B91C1C' }}>{id}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {form && (
           <div className="sl-card mt-4 p-5">

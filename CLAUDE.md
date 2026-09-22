@@ -533,6 +533,22 @@ Realtor.ca 上的所有租赁类型，作为不在界面上宣传的隐藏技能
 - 顺手修的旧 bug：`useAgentSession` 恢复历史后 `msgSeq = saved.length`，历史有缺口时新消息 id 与旧的撞车（React「two children
   with the same key」），改为取最大 id。调试：`COMMERCIAL_DEBUG=1` 打印每条查询命中数 / 详情页解析失败 / 城市与匹配过滤掉的行。
 
+## 模型目录怎么保持最新（2026-09-21 · 用户问「模型怎么样保持有最新的选项」）
+
+目录 = 代码里的 `BUILTIN_MODELS`（`lib/modelConfig.ts`）+ 管理员在 `/admin/models` 加的 `model_catalog` 行，此前没有任何
+自动发现，新模型发布后只能改代码或手填。现在 `/admin/models` 顶部有「⟳ 发现新模型」：`GET /api/admin/model-discover`
+（管理员 JWT）对每个已配置 key 的厂商各调一次「列出模型」接口（Anthropic `GET /v1/models`；OpenAI 兼容厂商一律
+`GET {defaultBaseUrl}/models`，Gemini 的 `models/` 前缀剥掉），`lib/modelDiscovery.ts` 与目录做差集：
+- **目录里没有**：过滤掉 embedding / tts / whisper / image / realtime / moderation / OCR / 带日期的快照 id，按发布时间倒序，
+  点一下预填添加表单（key、base URL 自动带上；vision / 槽位 / 单价接口查不到，默认只开 turn、不对用户可选，管理员补齐后
+  保存并点「测试」）。**不会自动启用**——能力与价格无法自动得知。
+- **厂商列表里已没有**：目录里启用中、而厂商非空列表里找不到的 id 标红，提示点「测试」，失败即停用。别名算存在
+  （目录 `claude-haiku-4-5` ↔ 厂商列出 `claude-haiku-4-5-20251001`）。
+- 2026-09-21 实测七家全部能列：Anthropic 11（新 `claude-fable-5-1` 等）、OpenAI 130、Gemini 59、DeepSeek 2
+  （`deepseek-v4-flash` 已不在列，厂商现在叫 `deepseek-flash`——要点测试确认）、Moonshot 4、DashScope 261（含第三方托管的
+  glm / kimi）、智谱 11。自定义网关（CUSTOM_LLM_API_KEY_*）没有固定 host，不查。守卫 `tests/modelDiscovery.spec.ts`。
+- 单价目前还是手填（`BUILTIN_PRICING` / 目录行），厂商接口不返回价格；`/admin/usage` 的成本统计依赖这个。
+
 ## 全站复审 2026-09-19（六个切片 85 条 · 全部核实后修复）
 
 用户要求「再做全站模块分析和 review，以及代码 review」。六个只读审查代理（安全与平台 / 管家与找房 / 筛查管线与报告 /
@@ -602,6 +618,7 @@ Realtor.ca 上的所有租赁类型，作为不在界面上宣传的隐藏技能
   **中国大陆端点**（取证 OCR 回退），turn 槽位有 19 次 DeepSeek；隐私页原写「Anthropic 等，服务器位于美国」。现在第 2 节
   如实列出：默认 Anthropic / OpenAI / Google（美国）、扫描件 OCR 回退 DashScope（中国大陆）、用户自选模型的服务商所在地、
   Jina（德国 / 美国）检索中转。要停掉大陆出境只需在 CF 后台移除 `DASHSCOPE_API_KEY`（OCR 回退会如实标「不可读」）。
+  **用户 2026-09-21 拍板：Qwen 是开源模型，DashScope OCR 回退先这么用**——保留 key，隐私页照实披露即可，不要再提议移除。
 - **定时任务**：`ltb-refresh.yml` 的两次定时运行都死在 `npm ci`（lockfile），LTB 目录自 2026-08-22 起没刷新；
   `ca_corp_registry` 停在 08-02（09-05 那次截断下载「成功」）。本轮部署后手动 dispatch 两个 workflow。
 **记录不改**：`/api/trust/verify` 查询不存在的 `rental_passports` 表（`trust_api_keys` 0 行，不可达）；screen-score 的
