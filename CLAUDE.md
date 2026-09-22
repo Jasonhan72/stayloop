@@ -499,7 +499,7 @@ Muse = Meta 2026-09-08 发布的个人 AI 助手（muse.ai，iPhone / Mac / What
 - **头像真实状态 + 活动日志**：状态行按 `status` / 阶段 / 待办数生成（「正在：…」「等你点头：N 件」「空闲 · 当前阶段 … · 记得 N 条」），点头像或状态行打开 `components/mobile/ActivitySheet.tsx`（读本人 `agent_audit_events` 最近 20 条，`auditActionLabel` 转人话；出口：完整审计、`/x/progress#memory`）。手机上对话通栏无框、高 `calc(100dvh-150px)`。
 - **想法页** = `lib/agent/ideas.ts buildIdeas`（纯函数、无模型调用）：待办 → 反思画像 `user_model` 的 current_focus / goals → 当前阶段的下一步（键必须是 `WORKFLOW_STAGES` 的真实 key）→ 预算 / 区域 / 搬家日期 / 房源记忆 → RecommendationDeck 链接；每条带「为什么」，≤8 条去重；点一条走 `?prompt=` 深链。
 - **进度页** = `WorkflowStatusPanel` + `StatusOverview` + 可编辑的 `PrivateMemorySnapshot`（`editable` 时每条「改 / 忘掉」，直接写本人 `user_memories`，写 `memory_edited / memory_forgotten` 审计事件）+ `RelatedPagesCard`。
-- **PWA**：`public/manifest.json`（standalone，`/icons/` 192 / 512 / maskable / apple-touch，图标按 v9 配色从 `icon.svg` 用 `qlmanage` 栅格化——`magick` 读不了含 `<text>` 的 SVG）、`app/layout.tsx` 的 manifest / apple meta、`public/sw.js`（**没有 fetch handler、不缓存**——部署必须次日可见，只为可安装与将来推送保留 push / notificationclick）、`PhoneTabs` 里注册 SW 并在手机浏览器标签页显示一次「添加到主屏」提示（`localStorage sl-install-hint`）。**Web Push 已做（用户同日拍板「vapid 你自己搞定」）**：`lib/push/webpush.ts` 在边缘运行时**无库**实现 VAPID（RFC 8292，ES256 JWT，
+- **PWA**：`public/manifest.json`（standalone，`/icons/` 192 / 512 / maskable / apple-touch，图标 = **wordmark 本身**（用户 2026-09-22 要求主屏图标是 stayloop.AI 的 logo）：白底、两行「stay」墨蓝 + 「loop.AI」墨蓝→#00ACE4 渐变、Inter Tight 800、字距 −0.04em，与 `components/Logo.tsx` / `.sl-wordmark` 同一套；用 fontTools 把 `public/fonts/inter-tight-latin.woff2` 转 TTF 后由 Pillow 离线渲染（`magick` 读不了含 `<text>` 的 SVG）。留白 ≈12%，已在 maskable 安全区内，所以 maskable 与普通图标同图。favicon `public/icon.svg` 仍是旧的紫色「S」，未动、`app/layout.tsx` 的 manifest / apple meta、`public/sw.js`（**没有 fetch handler、不缓存**——部署必须次日可见，只为可安装与将来推送保留 push / notificationclick）、`PhoneTabs` 里注册 SW 并在手机浏览器标签页显示一次「添加到主屏」提示（`localStorage sl-install-hint`）。**Web Push 已做（用户同日拍板「vapid 你自己搞定」）**：`lib/push/webpush.ts` 在边缘运行时**无库**实现 VAPID（RFC 8292，ES256 JWT，
 WebCrypto ECDSA 原始 r‖s 即 JWS 形式）与 aes128gcm 载荷加密（RFC 8188/8291：ECDH P-256 + HKDF-SHA256 + AES-128-GCM 单记录），
 `tests/webPush.spec.ts` 用参考实现 `http_ece`（devDependency，随 `web-push` 装入）**解密我们的密文**作为合规证明，并验 JWT 签名。
 密钥：`.env.local` 的 `NEXT_PUBLIC_VAPID_PUBLIC_KEY`（构建内联）/ `VAPID_PRIVATE_KEY`，CF Pages 同名 secrets（`wrangler pages secret put`，
@@ -509,7 +509,7 @@ WebCrypto ECDSA 原始 r‖s 即 JWS 形式）与 aes128gcm 载荷加密（RFC 8
 三档「关 / 少（只推等你批准的）/ 默认（加新申请、看房请求）」+「发一条测试通知」（`POST /api/push/test`，每小时 5 次）。
 发送方 `lib/push/notify.ts notifyUser`：`kind='approval'` 两档都推、`kind='event'` 只推 default，**做完的事永不推**。挂钩三处：
 `proactive` cron（每用户每轮一条「N 件事等你点头」）、`/api/showing-intent`（房东收到看房请求 / 提问）、`/api/notify-landlord`（新申请，event）。
-iOS 只对已添加到主屏的 PWA 投递（16.4+），卡片会提示。SW 的 `push` / `notificationclick` 处理器早已就位。
+iOS 只对已添加到主屏的 PWA 投递（16.4+），卡片会提示。SW 的 `push` / `notificationclick` 处理器早已就位。**用户 2026-09-22 在自己手机上收到测试通知，端到端已验证。**
 可借的是「会自己干活的助手在手机上怎么摆」：一条长对话为主屏、头像下一行真实的「正在做什么」并可点开活动日志、审批卡在对话流里
 （Allow / Deny）、Ideas 页列出「我可以替你…」带理由、Goals 页放长期任务、底栏 5 个图标、主动消息门槛高且可调。对照 Stayloop 375px：
 审批面板排在对话下方首屏看不见、底栏 8 项 9.5px、头像状态是装饰文案、无推送 / 无 PWA；而对话内产物卡（房源 / 行情 / 对比表 / 草稿）
