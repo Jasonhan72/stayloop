@@ -280,7 +280,7 @@ export default function PricingPage() {
             <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-brand">
               {zh ? 'PRICING · 透明 · 无隐藏' : 'PRICING · Transparent · No hidden fees'}
             </div>
-            <h1 className="mx-auto mt-3 max-w-[820px] text-[32px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[42px] lg:text-[48px]">
+            <h1 className="mx-auto mt-3 max-w-[820px] text-[30px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[38px] lg:text-[42px]">
               {zh ? <>简单透明的订阅定价</> : <>Simple, transparent subscription pricing</>}
             </h1>
             <p className="mx-auto mt-4 max-w-[680px] text-[15.5px] leading-relaxed text-body-2">

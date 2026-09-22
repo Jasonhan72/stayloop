@@ -468,11 +468,11 @@ Lease Audits、VoiceAI。已直接落地的两项（纯加法、不动已定稿�
 - **首页 `?role=<r>&ask=<问题>` 深链**（`HomeNext`，mount 后读、发一次、`replaceState` 清参数）：角色页 / 筛查页的例句可以
   把访客送回 Hero 对话。仅 effect 内读 URL，遵守「首屏不按客户端状态分支」规则。
 **用户 2026-09-22 拍板：除 K（手机深底 hero）外全部采用**，同日落地（守卫 `tests/eliseai20260922.spec.ts`，15 条）：
-- **角色页模板 `components/RoleLanding.tsx`（A/B/C/D/I/J）**：hero（h1 48/600——用户看了 60 说中文太大，2026-09-22 收到 48；lead 19px、眉标 mono 13）→ **事实 chip 行**（只写能指向
+- **角色页模板 `components/RoleLanding.tsx`（A/B/C/D/I/J）**：hero（h1 42/600——用户看了 60 说中文太大，2026-09-22 先收到 48、再收到 42；lead 19px、眉标 mono 13）→ **事实 chip 行**（只写能指向
   页面 / 法条 / 日期的事实，每条可点）→ **三张收益卡**，每张末尾一句真问题链到 `/?role=<r>&ask=…` → journey → valueBand → scenario →
   **一个真数**（`/api/public/stats`：房东 screenings / 租客 listings / 经纪 ltbOrders，标来源与日期，加载前显示「—」）→ **角色专属 FAQ**
   （6–7 问，答案全是已兑现的事实，同时输出 FAQPage JSON-LD）→ CTA。原三格定性口号条已删；`RoleLandingConfig` 的 `stats` 换成
-  `chips / benefits / proof / faq`。筛查页与定价页 h1 同步改为 32–48 / 600。**不许在 chips / proof 里出现百分比、评分、SOC 2、客户数**。
+  `chips / benefits / proof / faq`。筛查页与定价页 h1 同步改为 30–42 / 600。**不许在 chips / proof 里出现百分比、评分、SOC 2、客户数**。
 - **续约 90 / 60 / 30 三阶（F）**：`lib/agent/renewalStages.ts planRenewalActions`（纯函数，两条 proactive 路径共用）。90d（≤120 天）=
   原 `send_renewal_letter`（A/B 方案 + TRREB 最新季度均租一行，`metadata.stage='90d'`；旧行无 stage 视为 90d）；60d = 续约函未批准时
   `renewal_checkpoint`（N1 截止日、到期自动转月租 s.38，批准 = 知悉，执行器只盖章）；30d = 续约函已批准且有租客邮箱时 `send_message`
