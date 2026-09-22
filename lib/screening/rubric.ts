@@ -140,6 +140,14 @@ export interface RubricFacts {
   externalVerifications?: { identity?: boolean; bank?: boolean; references?: boolean } | null
   /** median age in days of the income documents (stubs / statements / letter) at screening time */
   incomeDocsAgeDays?: number | null
+  /** Pay stubs from a RECOGNISED payroll system (Dayforce, ADP, Workday…)
+   *  whose YTD reconciles with the run-rate and whose statutory deductions
+   *  recompute, and which are not image / generator stubs. Two or more of
+   *  them document the income even with no bank trail (case 28: three
+   *  Dayforce stubs from a Schedule II bank scored the same 35 as a bare
+   *  claim). Still below a corroborated figure — the trail is what proves
+   *  the money arrived. */
+  payrollStubsConsistent?: number
 }
 
 /** Corroboration codes that may lift the verification dimension. Every one is
@@ -280,6 +288,13 @@ export function scoreRubric(f: RubricFacts): RubricResult {
     ability = 70
     add('ability_to_pay', 'income_verified_no_rent', 70,
       `verified $${Math.round(income.monthly).toLocaleString()}/mo · no target rent — ratio not computed / 未填目标租金 — 未计算收入租金比`)
+  } else if (f.claimed_monthly_income && (f.payrollStubsConsistent ?? 0) >= 2) {
+    // Documented, not corroborated: stubs a payroll platform printed and
+    // whose arithmetic reconciles. Above a bare claim, below any verified
+    // band — the bank trail is still owed.
+    ability = 50
+    add('ability_to_pay', 'income_documented_no_bank_trail', 50,
+      `$${f.claimed_monthly_income.toLocaleString()}/mo on ${f.payrollStubsConsistent} reconciling payroll-system stubs · no personal-account trail yet${f.monthly_rent ? '' : ' · no target rent — ratio not computed'}`)
   } else if (f.claimed_monthly_income) {
     // A claim with no corroboration. Capped well below any verified band so it
     // can never outrank a documented lower earner. Holds with or without a

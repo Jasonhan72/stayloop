@@ -228,7 +228,7 @@ export function sanitizeCoherenceOutput(raw: unknown, model: string | null, elap
   // salary in different periods, and a name "mismatch" that is the same
   // tokens reordered or with accents dropped.
   .filter(a => !isPeriodReconciledPayClaim(a) && !isSameNameClaim(a) && !isSameDobClaim(a) && !isAgreedAddressClaim(a) && !isClosedAccountOmission(a) && !isDeclaredObligationClaim(a) && !isExtraPhoneClaim(a))
-  return { status: 'ok', model, anomalies, documents, elapsed_ms: elapsed }
+  return { status: 'ok', model, anomalies: applyBenignBackstops(anomalies, documents), documents, elapsed_ms: elapsed }
 }
 
 const PAY_CLAIM = /薪|工资|收入|salary|pay\b|income|wage/i
@@ -449,4 +449,115 @@ export function isExtraPhoneClaim(a: { claim_zh: string; claim_en: string; evide
   const distinct = new Set(phones)
   // at least one number is shared across evidence strings → the application phone IS on the bureau file
   return distinct.size < phones.length
+}
+
+// ─── Benign-explanation backstops (case 28, 2026-09-22) ─────────────────────
+// A two-earner Korean household with clean credit was "建议拒绝" because the
+// coherence pass rated wording differences as HIGH contradictions and the
+// forensics score summed them. Each rule below names a mistake the model
+// made on real documents and turns it into what it is: a question (low) or
+// nothing at all. Exported for tests.
+
+type Anom = { claim_zh: string; claim_en: string; evidence: string[]; category?: string; severity: 'critical' | 'high' | 'medium' | 'low'; files?: string[] }
+
+const wordSet = (s: string) => new Set(s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(t => t.length >= 2))
+
+/** "Logistics Associate" vs "Warehouse Associate": the letter is written by
+ *  HR, the stub by payroll — a job title is not a fact that can be
+ *  contradicted. Never above low. */
+export function isJobTitleWordingClaim(a: Anom): boolean {
+  if (!/职称|职位|职务|title|position|occupation|role\b/i.test(`${a.claim_zh} ${a.claim_en}`)) return false
+  // a claim about the pay itself, the hours or a date is not a title claim
+  // ("pay stub" as the document name does not count)
+  return !/收入|薪资|salary|wage|income|工时|hours|日期|\bdates?\b|金额|amount/i.test(`${a.claim_zh} ${a.claim_en}`.replace(/pay\s*stubs?|工资单/gi, ' '))
+}
+
+/** "David Health International (c/o 2201371 Ontario Inc.)" vs "2201371
+ *  ONTARIO INC." vs "2201371 Ontario Inc. (o/a David Health …)": one legal
+ *  entity and its trade name. Same numbered-company core, or one quote
+ *  containing the other's name, or an explicit o/a-c/o-dba link. */
+export function isSameEntityNamingClaim(a: Anom): boolean {
+  if (!/雇主|employer|公司|company|名称|entity|legal\s+name/i.test(`${a.claim_zh} ${a.claim_en}`)) return false
+  const ev = a.evidence.map(e => e.toLowerCase())
+  if (ev.some(e => /\b(o\/a|c\/o|dba|d\/b\/a|operating\s+as|carrying\s+on\s+business\s+as)\b/.test(e))) return true
+  const nums = ev.map(e => e.match(/\b\d{6,8}\b/)?.[0]).filter(Boolean)
+  if (nums.length >= 2 && new Set(nums).size === 1) return true
+  const cores = ev.map(e => e.replace(/[^a-z0-9\s]/g, ' ').replace(/\b(inc|ltd|limited|corp|corporation|co|company|international|canada|the)\b/g, ' ').replace(/\s+/g, ' ').trim())
+  for (let i = 0; i < cores.length; i++) for (let j = 0; j < cores.length; j++) if (i !== j && cores[i].length >= 6 && cores[j].includes(cores[i])) return true
+  return false
+}
+
+/** "4950 Yonge St" vs "4590 Yonge St": same street, the numbers are one
+ *  transposition apart — a typo on the application, not a different
+ *  employer. */
+export function isTransposedAddressClaim(a: Anom): boolean {
+  if (!/地址|楼号|address|street|suite/i.test(`${a.claim_zh} ${a.claim_en}`)) return false
+  const rows = a.evidence.map(e => e.match(/(\d{2,6})\s+([A-Za-z][A-Za-z.'-]+)/)).filter((m): m is RegExpMatchArray => !!m)
+  if (rows.length < 2) return false
+  const streets = new Set(rows.map(m => m[2].toLowerCase().replace(/\.$/, '')))
+  if (streets.size !== 1) return false
+  const nums = Array.from(new Set(rows.map(m => m[1])))
+  if (nums.length < 2) return false
+  const sortedDigits = (n: string) => n.split('').sort().join('')
+  return nums.every(n => sortedDigits(n) === sortedDigits(nums[0]))
+}
+
+/** Hourly stub hours against "40 hours a week" in the letter: 152–184 hours
+ *  a month is 19–23 working days — the calendar, not reduced hours. Anything
+ *  at or above 75% of the letter's weekly hours × 4.33 is normal. */
+export function isHoursWithinNormalVariance(a: Anom): boolean {
+  if (!/工时|hours|hrs|跑速|run[- ]rate/i.test(`${a.claim_zh} ${a.claim_en}`)) return false
+  const weekly = a.evidence.map(e => e.match(/(\d{2})\s*(?:hours?|hrs?)\s*(?:a|per|\/)\s*week/i)?.[1]).map(Number).find(n => n >= 20 && n <= 60)
+  const periodHours = a.evidence.flatMap(e => Array.from(e.matchAll(/\bhours?\s*:?\s*(\d{2,3})(?::00)?\b/gi)).map(m => Number(m[1]))).filter(n => n >= 20 && n <= 400)
+  if (!weekly || !periodHours.length) return false
+  const monthly = weekly * 4.33, biweekly = weekly * 2, semi = weekly * 2.17
+  return periodHours.every(h => [monthly, biweekly, semi, weekly].some(ref => h >= ref * 0.75 && h <= ref * 1.35))
+}
+
+/** PR-card expiry, citizenship, visa: protected grounds. Not an anomaly. */
+export function isProtectedStatusClaim(a: Anom): boolean {
+  return /\bPR\s*卡|永久居民|移民身份|公民|签证|permanent\s+resident|\bPR\s+card|immigration|citizenship|\bvisa\b|work\s+permit/i.test(`${a.claim_zh} ${a.claim_en}`)
+}
+
+/** OREA schedule text written for a sale ("Buyer", "Seller", "sale of the
+ *  property") on a lease: the brokerage's template, not the applicant's
+ *  document. Provenance of an agent form says nothing about the tenant. */
+export function isBrokerageTemplateClaim(a: Anom): boolean {
+  const files = (a.files || []).join(' ').toLowerCase()
+  const onAgentForm = /sch|schedule|form\s*4\d\d|\b4\d\d_|agreement_to_lease|confirmation_of|orea|proptx|lease/.test(files)
+  const sale = a.evidence.some(e => /\b(buyer|seller|purchaser|vendor|sale\s+of\s+the\s+property)\b/i.test(e))
+  return onAgentForm && sale && (a.category === 'format_provenance' || /模板|措辞|template|wording|boilerplate/i.test(`${a.claim_zh} ${a.claim_en}`))
+}
+
+/** A child written as 4 whose card says born mid-2023 (3 years 3 months):
+ *  Korean age counting, rounding, or a birthday since the form — a
+ *  one-year gap is not a contradiction. */
+export function isChildAgeRoundingClaim(a: Anom): boolean {
+  if (!/年龄|岁|\bage\b|years?\s+old/i.test(`${a.claim_zh} ${a.claim_en}`)) return false
+  const ages = a.evidence.flatMap(e => Array.from(e.matchAll(/\b(\d{1,2})\s*(?:岁|years?\s+old|yrs?)\b/gi)).map(m => Number(m[1])))
+  const dobYears = a.evidence.flatMap(e => Array.from(e.matchAll(/\b(?:19|20)(\d{2})\b/g)).map(m => 1900 + Number(m[1]) + ((Number(m[1]) < 50) ? 100 : 0)))
+  if (!ages.length || !dobYears.length) return false
+  const now = new Date().getFullYear()
+  return ages.every(age => dobYears.some(y => Math.abs(now - y - age) <= 1))
+}
+
+/** "Credit file says GTS SERVICES, application says David Health": the
+ *  bureau's employer line is what it was told years ago. When that employer
+ *  is on the application as a previous job the file is consistent. */
+export function isPriorEmployerOnBureauClaim(a: Anom, docs: Array<{ kind?: string; key_facts?: { employer?: string | null; employers_listed?: string[] } }>): boolean {
+  if (!/雇主|employer/i.test(`${a.claim_zh} ${a.claim_en}`)) return false
+  if (!/信用|征信|credit|bureau|equifax|transunion/i.test(`${a.claim_zh} ${a.claim_en} ${a.evidence.join(' ')}`)) return false
+  const bureauEmployers = docs.filter(d => /credit_report/i.test(d.kind || '')).flatMap(d => [d.key_facts?.employer, ...(d.key_facts?.employers_listed || [])]).filter((x): x is string => !!x)
+  const appEmployers = docs.filter(d => /application|other/i.test(d.kind || '')).flatMap(d => d.key_facts?.employers_listed || [])
+  if (!bureauEmployers.length || !appEmployers.length) return false
+  const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const onApp = new Set(appEmployers.map(key))
+  return bureauEmployers.some(e => onApp.has(key(e)) || appEmployers.some(x => x.length >= 5 && key(e).includes(key(x)))) && a.evidence.some(e => bureauEmployers.some(b => e.toLowerCase().includes(b.toLowerCase())))
+}
+
+/** Apply the backstops: drop what is explained, cap the rest at low. */
+export function applyBenignBackstops(anomalies: CoherenceAnomaly[], docs: CoherenceDocSummary[]): CoherenceAnomaly[] {
+  return anomalies
+    .filter(a => !isTransposedAddressClaim(a) && !isHoursWithinNormalVariance(a) && !isProtectedStatusClaim(a) && !isChildAgeRoundingClaim(a) && !isPriorEmployerOnBureauClaim(a, docs))
+    .map(a => (isJobTitleWordingClaim(a) || isSameEntityNamingClaim(a) || isBrokerageTemplateClaim(a)) && a.severity !== 'low' ? { ...a, severity: 'low' as const } : a)
 }

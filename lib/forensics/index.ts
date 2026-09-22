@@ -212,6 +212,13 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
       .filter(n => n.length >= 3)))
       .slice(0, 3)
     for (const name of names) {
+      // Banks are Bank Act entities (OSFI), not corporate-registry filings:
+      // "KEB Hana Bank Canada" is a Schedule II bank and never matches the
+      // CBR (case 28). Say so instead of "unmatched".
+      if (isBankEntityName(name)) {
+        employerRegistry.push({ employer: name, matched_name: null, status: 'bank_act_entity', incorporation_date: null, jurisdiction: 'federal (OSFI)' })
+        continue
+      }
       const info = await searchCbrRegistry(name)
       if (!info) {
         crossDocFlags.push({
@@ -236,6 +243,20 @@ export async function runForensics(input: ForensicsInput): Promise<ForensicsRepo
           evidence_zh: `雇主 "${name}" 匹配到企业登记记录 ${info.name}${info.jurisdiction ? `（${info.jurisdiction}）` : ''}${info.company_number ? ` #${info.company_number}` : ''}，登记状态为 "${info.status}"${info.incorporation_date ? `（成立于 ${info.incorporation_date}）` : ''}。已解散/非活跃的公司不可能在开出当前的工资单和雇佣信——除非存在另一家同名且活跃的实体，否则该雇主并不如其声称那样存在。`,
         })
       } else if (alive) {
+        // A numbered company that the registry shows active for years is an
+        // ordinary operating company (case 28: 2201371 Ontario Inc., active
+        // since 2009, o/a a food distributor). The per-stub "numbered
+        // company" medium becomes a low note once the registry has spoken.
+        const incYear = Number((info.incorporation_date || '').slice(0, 4))
+        if (incYear && new Date().getFullYear() - incYear >= 5) {
+          for (const pf of perFile) for (const fl of pf.flags) {
+            if (fl.code === 'arm_length_numbered_company' && fl.severity === 'medium' && fl.evidence_en.includes(name)) {
+              fl.severity = 'low'
+              fl.evidence_en += ` Registry: active since ${info.incorporation_date} — an established operating company, not a fresh shell.`
+              fl.evidence_zh += ` 注册库：自 ${info.incorporation_date} 起活跃——是经营多年的公司，不是新设空壳。`
+            }
+          }
+        }
         crossDocFlags.push({
           code: 'employer_registry_active',
           severity: 'info',
@@ -735,11 +756,29 @@ async function fetchBytes(url: string): Promise<Uint8Array | null> {
  * test fixtures — changes here must keep all severity.test.ts cases
  * passing or be paired with explicit fixture updates.
  */
+/** Chartered / Schedule II banks and credit unions are not corporate-registry
+ *  filings; their names carry the regulated word. */
+export function isBankEntityName(name: string): boolean {
+  return /\b(bank|banque|credit\s+union|caisse|trust\s+company)\b/i.test(name) && !/\b(food|foods|bakery|blood|seed|sperm|river|west\s*bank)\b/i.test(name)
+}
+
 export function computeSeverity(flags: ForensicFlag[], hardGates: string[]): ForensicsSeverity {
   if (hardGates.length >= 2) return 'fraud'
   if (hardGates.length === 1) return 'likely_fraud'
-  const score = flags.reduce((sum, f) => sum + (SEVERITY_WEIGHT[f.severity] || 0), 0)
-  if (score >= 12) return 'likely_fraud'
+  // Low flags are disclosures — "producer not on the whitelist", "encrypted
+  // by Docusign", "small employer's payroll system unknown" — and a genuine
+  // 18-file package collects a dozen of them. Case 28 (2026-09-22): 21 lows
+  // + 3 mediums with zero hard gates summed to 27 ≥ 12 → "likely_fraud" →
+  // doc_tampering → "建议拒绝" for a clean two-earner household. Lows now
+  // count at most 3 in total, the model's coherence items never count
+  // (they are questions, not forgery evidence), and the cumulative route to
+  // likely_fraud needs at least one high/critical finding.
+  const counted = flags.filter(f => !/^coherence_/.test(f.code))
+  const strong = counted.filter(f => f.severity === 'critical' || f.severity === 'high')
+  const mediums = counted.filter(f => f.severity === 'medium').length
+  const lows = counted.filter(f => f.severity === 'low').length
+  const score = strong.reduce((sum, f) => sum + (SEVERITY_WEIGHT[f.severity] || 0), 0) + mediums * SEVERITY_WEIGHT.medium + Math.min(lows, 3) * SEVERITY_WEIGHT.low
+  if (score >= 12 && strong.length > 0) return 'likely_fraud'
   if (score >= 4) return 'suspicious'
   return 'clean'
 }

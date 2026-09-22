@@ -57,6 +57,39 @@ export function extractDates(text: string, fallbackYear?: number): string[] {
 
 export interface DocDate { as_of: string | null; expiry: string | null; basis: string }
 
+// Bilingual cards print "24 AUG / AOÛT 26" — the French month carries an
+// accent, so the letter class must include À-ÿ.
+const ID_DATE = '(20\\d{2}[-/]\\d{2}[-/]\\d{2}|\\d{1,2}\\s+[A-Z]{3}\\s*\\/?\\s*[A-ZÀ-ÿ]{0,5}\\s*\\d{2,4}|[A-Z]{3}\\s+\\d{1,2},?\\s+20\\d{2})'
+const parseIdDate = (raw: string): string | null => {
+  const ds = extractDates(raw.replace(/\s*\/\s*[A-ZÀ-ÿ]{3,5}/, ''))
+  if (ds[0]) return ds[0]
+  const m = raw.match(/(\d{1,2})\s+([A-Z]{3})\D+(\d{2})$/i)
+  if (m) { const mo = MONTHS[m[2].toLowerCase()]; if (mo) return toISO(yr2(m[3]), mo, +m[1]) }
+  return null
+}
+
+/** The date an identity document is valid until, read from its own text.
+ *  Every EXP-labelled date counts and the LATEST wins — a temporary licence
+ *  photographed next to the card extends validity, and OCR of a card's date
+ *  column swaps the ISS/EXP labels ("Expiry: 2024/12/18 Issue: 2026/10/08",
+ *  case 28 → "expired 643 days ago" on a licence valid to 2026-10-08). An
+ *  issue date can never be later than the expiry on a genuine card, so an
+ *  ISS-labelled date later than the EXP reading is the expiry. */
+export function idExpiryFromText(text: string): string | null {
+  const flat = (text || '').replace(/\s+/g, ' ')
+  const exps: string[] = []
+  for (const m of flat.matchAll(new RegExp(`(?:EXP(?:IRY|IRES|IRATION)?|Expiry|Expiration|Date of expiry|Date d'expiration)[^0-9A-Za-z]{0,12}${ID_DATE}`, 'gi'))) { const d = parseIdDate(m[1]); if (d) exps.push(d) }
+  if (!exps.length) return null
+  const isss: string[] = []
+  for (const m of flat.matchAll(new RegExp(`(?:\\bISS(?:UE|UED)?\\b|Issue Date|Date of issue|DÉL|Date de délivrance)[^0-9A-Za-z]{0,12}${ID_DATE}`, 'gi'))) { const d = parseIdDate(m[1]); if (d) isss.push(d) }
+  return [...exps, ...isss].sort().reverse()[0]
+}
+
+/** Permanent-resident cards: the card expires, the status does not, and
+ *  citizenship / immigration status is a protected ground (OHRC) — an
+ *  expired PR card is not an identity failure and not a landlord question. */
+export const isPrCardText = (text: string) => /permanent\s+resident|r[ée]sident\s+permanent|\bPR\s+card\b/i.test(text || '')
+
 const kindHas = (kind: string, k: string) => (kind || '').split(',').map(x => x.trim()).includes(k)
 
 /** The date a document speaks for. */
@@ -68,13 +101,7 @@ export function documentAsOf(pf: PerFileForensics): DocDate {
   const latest = (ds: string[]) => ds.length ? ds.slice().sort().reverse()[0] : null
 
   if (kindHas(kind, 'id_document')) {
-    const exp = flat.match(/(?:EXP(?:IRY|IRES|IRATION)?|Expiry|Date of expiry)[^0-9A-Za-z]{0,12}(20\d{2}[-/]\d{2}[-/]\d{2}|\d{1,2}\s+[A-Z]{3}\s*\/?\s*[A-Z]{0,4}\s*\d{2,4}|[A-Z]{3}\s+\d{1,2},?\s+20\d{2})/i)
-    let expiry: string | null = null
-    if (exp) {
-      const ds = extractDates(exp[1].replace(/\s*\/\s*[A-Z]{3,4}/, ''))
-      expiry = ds[0] || null
-      if (!expiry) { const m = exp[1].match(/(\d{1,2})\s+([A-Z]{3})\D+(\d{2})$/i); if (m) { const mo = MONTHS[m[2].toLowerCase()]; if (mo) expiry = toISO(yr2(m[3]), mo, +m[1]) } }
-    }
+    const expiry = idExpiryFromText(flat)
     return { as_of: null, expiry, basis: expiry ? 'printed expiry' : 'none' }
   }
   if (kindHas(kind, 'pay_stub')) {
@@ -148,8 +175,16 @@ export function checkRecency(perFile: PerFileForensics[], now: Date = new Date()
     const age = d.as_of ? daysBetween(d.as_of, now) : null
     rows.push({ file: pf.file_name, kind, as_of: d.as_of, expiry: d.expiry, age_days: age })
     if (kindHas(kind, 'id_document')) {
-      idCount++
-      if (d.expiry) {
+      const prCard = isPrCardText(`${pf.text_density?.text_sample || ''} ${pf.ocr?.text || ''} ${pf.ocr?.apparent_doc_type || ''}`)
+      // PR cards do not count toward "every ID expired" — they are status
+      // cards, not the identity document a lease relies on.
+      if (!prCard) idCount++
+      if (d.expiry && prCard) {
+        const left = -daysBetween(d.expiry, now)
+        if (left < 0) pf.flags.push({ code: 'pr_card_expired', severity: 'info', file: pf.file_name,
+          evidence_en: `The permanent resident card expired on ${d.expiry}. PR status does not lapse with the card, identity is established by the other ID, and immigration status is a protected ground under the Human Rights Code — not a screening factor and not something to ask for.`,
+          evidence_zh: `永久居民卡已于 ${d.expiry} 到期。PR 身份不随卡片过期而失效，身份由其他证件确认；移民身份是《人权法典》受保护特征——不是筛查因素，也不应向申请人索要。` })
+      } else if (d.expiry) {
         const left = -daysBetween(d.expiry, now)
         if (left < 0) {
           idExpired++

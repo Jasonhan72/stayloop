@@ -382,6 +382,42 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 另外核实：雇主网站 globenetint.com 存在但只有联系表单（无地址电话），域名 2020-11 注册而信称 2015 入职；法院门户
 与 LTB 均无 MARUANIY 记录；驾照号编码（M + 780617）与生日自洽。
 
+## 人工通读 vs 模块（2026-09-22 · 5168 Yonge St 案 / Kim-Yi 双申请人）
+
+用户先让 Claude 逐份读原件（两位申请人 + 一名幼儿：Form 410 / 324 / 400 / 标准租约 / 附表 B、两封在职信、四张工资单、
+两份 Equifax、驾照 + 临牌 + PR 卡），再与 Stayloop 报告（55 分 · 建议拒绝 · doc_tampering）和另一系统 muse 的批评对照。
+人工结论与 muse 一致：**应通过**（家庭收入 ≈ 3× 租金、723/767 无逾期无催收、两任房东可致电、雇主一家是 Schedule II
+银行、一家注册库活跃 17 年）。模块错在「法官」层，八处全部系统化，守卫 `tests/case28KimYi.spec.ts`（24 条）：
+- **取证严重度把「披露」当「证据」累加**（根因）：21 条 low + 3 条 medium、零硬门槛，`computeSeverity` 求和 27 ≥ 12 →
+  `likely_fraud` → 强制 `doc_tampering` → 建议拒绝。现在 low 合计最多记 3 分、`coherence_*` 永不计入、累加路径到
+  likely_fraud 必须有 ≥1 条 high/critical。**同一份 flags 重算为 suspicious。**
+- **doc_tampering 无确定性依据时不再是拒绝**：没有取证硬门槛、没有 FORGERY_INDICATING 伪造文件、没有 critical 时，
+  55 封顶保留但 tier = conditional（`tier_reason: forensics_review`）——分数盘写 CAUTION、文字写「建议拒绝」的打架到此为止。
+- **两位申请人的收入被算成一位**：`stubMonthlyIncome` 按「年化 ±15%」聚类且单张工资单不算一份工作，Yi 的 $41,952 单张
+  被丢掉，家庭收入显示 $4,083（1.5×）。现在**先按雇主分组再按金额聚类**，不同雇主的单张工资单是一份独立工作 → $7,579/月（2.8×）。
+  房东解读里的债务负担改按家庭收入，并删除「银行口径 44% 为上限」（那是房贷 GDS/TDS，租房筛查不适用）。
+- **三条低噪音各 ×3–4 张**：Dayforce 自助门户经 Chrome 打印，Producer 是 Skia/PDF、系统名只在 PDF **Title**（`Earnings - Dayforce`）
+  和 logo 图里——`checkSourceSpecific` 的 payroll 指纹现在也看 title；Docusign 信封一律加密——非财务类文件不再报
+  `pdf_encrypted`；银行是《银行法》实体不在公司注册库——`isBankEntityName` 直接标 `bank_act_entity`，不报「未匹配」；
+  注册库显示活跃 ≥5 年的数字公司，`arm_length_numbered_company` 降为 low。
+- **证件日期**：OCR 把驾照日期列的 ISS/EXP 标签互换（`Expiry: 2024/12/18 Issue: 2026/10/08`）→ 报「过期 643 天」。
+  `idExpiryFromText` 取所有 EXP 与 ISS 标签日期中**最晚的**（临牌延长有效期；真卡的签发日不可能晚于到期日），双语月份
+  `AOÛT` 的重音字母也要进字符类。**PR 卡到期只是 info**（`pr_card_expired`），不进 `all_ids_expired`，房东解读明写
+  「PR 身份不随卡过期而失效；移民身份是受保护特征」，模型写的「是否有更新后的 PR 证明」这类追问一律剥掉（`isProtectedStatusAsk`）。
+- **驾照姓氏首字母**：OCR 把 `YI` 读成 `YL`，`Y4001…` 与 [HUJJUN, KIM] 都不符 → medium。路由在 coherence 回来后用视觉层
+  对同一文件读到的姓名（`YI, HUIJUN`）复核，命中即换成 `id_dl_surname_match` 佐证。共同申请人证件名一字之差（HUJJUN/HUIJUN）
+  用 `editDistance1`（≥5 字母容忍 1 处）匹配，不再写「与申请人 Sunkyoung Kim 不一致」。
+- **一致性审查的「措辞 ≠ 矛盾」后闸**（`applyBenignBackstops`）：职称同义词（Logistics/Warehouse Associate）与 o/a · c/o
+  法律实体-商号（同一 7 位公司号）降为 low；同街道门牌数字换位（4950/4590）、时薪工资单月工时 152–184 对「每周 40 小时」
+  （日历工作日数）、PR/公民/签证类、子女年龄相差 ≤1 年（韩国虚岁）、征信档雇主 = 申请表上的前雇主（GTS Services）——
+  直接丢弃；OREA 附表沿用买卖措辞是经纪模板，降 low。本案 9 条 → 剩 1 条 high（征信名 SU A KIM）+ 1 medium + 3 low。
+- **报告自相矛盾**：文件完整度表读模型的 `detected_document_kinds`（它列了不存在的 bank_statement），现在只保留分类文件
+  真有的 kind；两份征信报告时，转录数据只挂到 `credit_report.source_file` 那份（此前按表单姓名 token 找不到 `SU A KIM`
+  就把 723/$276 挂到了 767 那份），认不出来就两份都标「请单独核对」；受薪工资单的 `OT HRS 6` 不再读成「每周 3 小时兼职」。
+- **评分表新增中间档**：≥2 张「可识别工资系统 + YTD 0.8–1.2 + CRA 扣缴复算通过」的工资单，付款能力 50
+  （`income_documented_no_bank_trail`），介于裸申报 35 与银行佐证 70+ 之间——纸面文件仍不等于到账。
+**有意不做**：`SU A KIM` 与 Sunkyoung 不是已知的罗马字变体，保留为唯一 high 待核实项；无银行流水仍不算佐证。
+
 ## 深度核查加项与红色标记（2026-09-16）
 
 用户看到注册库「Inactive」旁边挂着绿色「正常」徽章，要求：注册状态异常、法庭记录这类结果必须醒目标红，并且深度核查

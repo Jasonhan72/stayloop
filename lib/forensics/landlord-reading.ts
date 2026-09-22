@@ -24,6 +24,7 @@ import type { CreditReport } from '../screening-types'
 import { splitStatementTransactions, extractPayrollDeposits, detectPayrollProcessor, findRecurringMonthlyPayment, analyzeStatementLiquidity, PAYROLL_LABEL } from './payroll-deposits'
 import { analyzeCreditReport } from '../screening/creditAnalysis'
 import { isCollectionAgency } from '../screening/collectionAgencies'
+import { idExpiryFromText, isPrCardText } from './recency'
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('en-CA')
 const MONTH_ORDER: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 }
@@ -256,7 +257,12 @@ export function readPayStub(ext: PaystubExtraction | null | undefined, text: str
   }
   if (/garnish|saisie|family\s*responsibility|FRO\b|child\s*support|maintenance\s*enforcement/i.test(text)) { bullets.push(b('⚠ 工资单上有工资扣押 / 家庭责任办公室扣款——有法院或政府强制执行的债务。', 'Wage garnishment / Family Responsibility Office deduction on the stub — a court- or government-enforced obligation.', 'bad')) }
   if (/RRSP|pension|group\s*(health|benefit|insurance)|employer\s*paid\s*(health|dental|benefit)|dental|\bLTD\s*(?:taxable\s*)?(?:benefit|premium|deduction|ins|plan)|long[- ]term\s+disability|life\s*insurance|union\s*dues/i.test(text)) bullets.push(b('有福利 / 退休金 / 工会扣款——正式受雇员工的特征，不是合同工或自开的单子。', 'Benefits / pension / union deductions present — the profile of a regular employee, not a contractor or a home-made stub.', 'good'))
-  if (ext.hours_worked && ext.pay_frequency) {
+  // Hours mean "part-time" only on an hourly stub where rate × hours is the
+  // period gross. A salaried stub's hours column carries overtime or sick
+  // hours only (case 28: "OT HRS 6.00" on a $49k bank employee → "3 h/week,
+  // part-time").
+  const hourlyStub = !!(ext.hourly_rate && ext.hours_worked && ext.period_gross && Math.abs(ext.hourly_rate * ext.hours_worked / ext.period_gross - 1) <= 0.3)
+  if (hourlyStub && ext.hours_worked && ext.pay_frequency) {
     const weeks = ({ weekly: 1, biweekly: 2, semimonthly: 2.17, monthly: 4.33 } as Record<string, number>)[ext.pay_frequency] || 2
     const perWeek = ext.hours_worked / weeks
     if (perWeek < 25) bullets.push(b(`本期工时折合每周约 ${perWeek.toFixed(0)} 小时——兼职，收入随排班浮动。`, `Hours work out to ~${perWeek.toFixed(0)}/week — part-time; income moves with the schedule.`, 'warn'))
@@ -264,7 +270,7 @@ export function readPayStub(ext: PaystubExtraction | null | undefined, text: str
   return { bullets, asks }
 }
 
-export function readCreditReportFile(cr: CreditReport | null | undefined, monthlyIncome: number | null, monthlyRent: number | null): LandlordReading {
+export function readCreditReportFile(cr: CreditReport | null | undefined, monthlyIncome: number | null, monthlyRent: number | null, householdMonthlyIncome: number | null = null): LandlordReading {
   const bullets: ReadingBullet[] = []
   const asks: LandlordReading['asks'] = []
   if (!cr) return { bullets, asks }
@@ -281,9 +287,16 @@ export function readCreditReportFile(cr: CreditReport | null | undefined, monthl
     const rev = a.categories.find(c => c.key === 'revolving')
     if (a.revolvingUtilization != null) bullets.push(b(`信用卡使用率 ${Math.round(a.revolvingUtilization * 100)}%${rev ? `（欠 ${money(rev.balance ?? 0)} / 额度 ${money(rev.limit ?? 0)}）` : ''}${a.revolvingUtilization > 1 ? '——已超出额度，卡刷爆了' : a.revolvingUtilization >= 0.75 ? '——接近刷满，现金紧' : a.revolvingUtilization <= 0.3 ? '——健康' : ''}。`, `Revolving utilisation ${Math.round(a.revolvingUtilization * 100)}%${rev ? ` (${money(rev.balance ?? 0)} of ${money(rev.limit ?? 0)})` : ''}${a.revolvingUtilization > 1 ? ' — over the limit' : a.revolvingUtilization >= 0.75 ? ' — near the limit, cash is tight' : a.revolvingUtilization <= 0.3 ? ' — healthy' : ''}.`, a.revolvingUtilization > 1 ? 'bad' : a.revolvingUtilization >= 0.75 ? 'warn' : 'neutral'))
     if (cr.monthly_debt_payments) {
+      // Rent + this person's debt payments against the HOUSEHOLD income when
+      // the lease has two earners; the lender's 44% GDS/TDS line is a
+      // mortgage-underwriting rule and does not belong in tenant screening
+      // (OHRC: income ratios are information, never a cut-off) — case 28
+      // printed "68% of gross, banks cap at 44%" against one of two salaries.
       const total = cr.monthly_debt_payments + (monthlyRent || 0)
-      const share = monthlyIncome ? total / monthlyIncome : null
-      bullets.push(b(`每月固定债务还款 ${money(cr.monthly_debt_payments)}${monthlyRent ? `，加上申请租金 ${money(monthlyRent)} 共 ${money(total)}` : ''}${share != null ? `，占毛收入 ${Math.round(share * 100)}%（银行口径 44% 为上限）` : ''}。`, `Monthly debt service ${money(cr.monthly_debt_payments)}${monthlyRent ? ` + rent ${money(monthlyRent)} = ${money(total)}` : ''}${share != null ? `, ${Math.round(share * 100)}% of gross income (lenders cap total debt service near 44%)` : ''}.`, share != null && share > 0.44 ? 'bad' : share != null && share > 0.35 ? 'warn' : 'good'))
+      const base = householdMonthlyIncome && householdMonthlyIncome > (monthlyIncome || 0) ? householdMonthlyIncome : monthlyIncome
+      const share = base ? total / base : null
+      const hh = base != null && base === householdMonthlyIncome && householdMonthlyIncome !== monthlyIncome
+      bullets.push(b(`每月固定债务还款 ${money(cr.monthly_debt_payments)}${monthlyRent ? `，加上申请租金 ${money(monthlyRent)} 共 ${money(total)}` : ''}${share != null ? `，占${hh ? '家庭' : ''}毛收入 ${Math.round(share * 100)}%（仅供参考，收入比不是拒绝依据）` : ''}。`, `Monthly debt service ${money(cr.monthly_debt_payments)}${monthlyRent ? ` + rent ${money(monthlyRent)} = ${money(total)}` : ''}${share != null ? `, ${Math.round(share * 100)}% of ${hh ? 'household ' : ''}gross income (for information only — a ratio is not grounds to refuse)` : ''}.`, share != null && share > 0.5 ? 'warn' : 'neutral'))
     }
     if (a.hardInquiries12mo != null) bullets.push(b(`近 12 个月硬查询 ${a.hardInquiries12mo} 次${a.hardInquiries12mo >= 5 ? '——在密集申请信贷' : ''}。`, `${a.hardInquiries12mo} hard inquiries in 12 months${a.hardInquiries12mo >= 5 ? ' — actively seeking credit' : ''}.`, a.hardInquiries12mo >= 5 ? 'warn' : 'neutral'))
   }
@@ -304,16 +317,26 @@ export function readIdDocument(ocr: OcrResult | null | undefined, applicantName:
   if (!ocr) return { bullets, asks }
   const t = ocr.text || ''
   if (ocr.apparent_doc_type && ocr.apparent_doc_type !== 'unknown') bullets.push(b(`证件类型：${ocr.apparent_doc_type}${ocr.visible_issuer ? `（${ocr.visible_issuer}）` : ''}。`, `Document: ${ocr.apparent_doc_type}${ocr.visible_issuer ? ` (${ocr.visible_issuer})` : ''}.`, 'neutral'))
-  const exp = t.match(/(?:EXP|EXPIRY|EXPIRES|Expiration)[^\d]{0,12}(\d{4}[-/]\d{2}[-/]\d{2}|\d{2}\s+[A-Z]{3}\s*\/?\s*[A-Z]{0,4}\s*\d{2,4})/i)
-  if (exp) {
-    const d = exp[1]
-    const iso = d.match(/^(\d{4})[-/](\d{2})[-/](\d{2})$/)
-    const expired = iso ? new Date(`${iso[1]}-${iso[2]}-${iso[3]}T00:00:00Z`).getTime() < Date.now() : false
-    bullets.push(b(`有效期至 ${d}${expired ? '——已过期' : ''}。`, `Expires ${d}${expired ? ' — EXPIRED' : ''}.`, expired ? 'warn' : 'neutral'))
+  const prCard = isPrCardText(`${t} ${ocr.apparent_doc_type || ''}`)
+  const d = idExpiryFromText(t)
+  if (d) {
+    const expired = new Date(`${d}T00:00:00Z`).getTime() < Date.now()
+    if (prCard) bullets.push(b(`卡片有效期至 ${d}${expired ? '——卡已到期，但 PR 身份不随卡过期而失效；移民身份不是筛查依据，无需索要续卡证明' : ''}。`, `Card valid to ${d}${expired ? ' — the card has expired; PR status does not lapse with it, and immigration status is not a screening factor (no need to ask for a renewal)' : ''}.`, 'neutral'))
+    else bullets.push(b(`有效期至 ${d}${expired ? '——已过期' : ''}。`, `Expires ${d}${expired ? ' — EXPIRED' : ''}.`, expired ? 'warn' : 'neutral'))
   }
   if (ocr.apparent_name && applicantName) {
     const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/[^a-z]+/).filter(x => x.length >= 2).sort().join(' ')
-    const matches = (n: string) => norm(ocr.apparent_name!) === norm(n) || norm(n).split(' ').every(tok => norm(ocr.apparent_name!).includes(tok))
+    // OCR of a licence drops or doubles a letter ("HUJJUN" for HUIJUN);
+    // tokens of five letters or more tolerate one edit, and a name whose
+    // long tokens all match is the same person even when a two-letter
+    // surname ("YI") did not survive the photo.
+    const fuzzyTok = (a: string, c: string) => a === c || (a.length >= 5 && c.length >= 5 && editDistance1(a, c))
+    const matches = (n: string) => {
+      const ap = norm(ocr.apparent_name!).split(' ').filter(Boolean), cand = norm(n).split(' ').filter(Boolean)
+      if (norm(ocr.apparent_name!) === norm(n) || cand.every(tok => ap.includes(tok))) return true
+      const long = cand.filter(tok => tok.length >= 4)
+      return long.length > 0 && long.every(tok => ap.some(a => fuzzyTok(a, tok)))
+    }
     if (matches(applicantName)) bullets.push(b(`证件姓名「${ocr.apparent_name}」与申请人一致。`, `Name on ID "${ocr.apparent_name}" matches the applicant.`, 'good'))
     else {
       const co = coApplicants.find(matches)
@@ -399,18 +422,49 @@ export function readApplicationForm(app: { applying_rent?: number | null; prev_r
 
 const kindHas = (kind: string, k: string) => (kind || '').split(',').map(x => x.trim()).includes(k)
 
+/** True when b is a with one letter substituted, dropped or added. */
+export function editDistance1(a: string, b: string): boolean {
+  if (a === b) return true
+  if (Math.abs(a.length - b.length) > 1) return false
+  let i = 0, j = 0, edits = 0
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue }
+    if (++edits > 1) return false
+    if (a.length > b.length) i++
+    else if (a.length < b.length) j++
+    else { i++; j++ }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1
+}
+
+/** Questions a landlord must not ask: immigration / citizenship / PR status
+ *  (OHRC protected grounds). Stripped from every model-written ask. */
+export const isProtectedStatusAsk = (s: string) => /\bPR\b|永久居民|移民|公民|签证|居留|permanent\s+resident|immigration|citizenship|\bvisa\b|residency\s+status|status\s+in\s+canada/i.test(s || '')
+
 /** Attach a landlord reading to every per-file entry. */
-export function buildLandlordReadings(perFile: PerFileForensics[], ctx: ReadingContext & { creditReport?: CreditReport | null; applicationSummary?: Parameters<typeof readApplicationForm>[0]; monthlyIncomeForCredit?: number | null; coApplicants?: string[] }): void {
+export function buildLandlordReadings(perFile: PerFileForensics[], ctx: ReadingContext & { creditReport?: CreditReport | null; applicationSummary?: Parameters<typeof readApplicationForm>[0]; monthlyIncomeForCredit?: number | null; householdMonthlyIncome?: number | null; coApplicants?: string[] }): void {
   const nameTok = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/[^a-z]+/).filter(x => x.length >= 3)
   const applicantTokens = nameTok(ctx.applicantName || '')
   const creditFiles = perFile.filter(pf => kindHas(pf.file_kind || '', 'credit_report'))
   // With several bureau reports in the file (co-applicants), the transcribed
   // one is the primary applicant's: attach its reading to the file that
   // carries their name and label the others.
-  const primaryCredit = creditFiles.length <= 1 ? creditFiles[0] : creditFiles.find(pf => {
-    const t = `${pf.text_density?.text_sample || ''} ${pf.ocr?.text || ''} ${pf.ocr?.apparent_name || ''}`.toLowerCase()
-    return applicantTokens.length >= 2 && applicantTokens.filter(tok => t.includes(tok)).length >= 2
-  })
+  // The transcription names its own source file / subject; that beats
+  // token-matching the form name against the page text (case 28: the
+  // primary's report read "SU A KIM", no file matched, and the fallback
+  // pinned her 723 / $276 card to the co-applicant's 767 report as well).
+  const srcFile = (ctx.creditReport?.source_file || '').toLowerCase()
+  const subjTok = nameTok(ctx.creditReport?.subject_name || '')
+  const primaryCredit = creditFiles.length <= 1 ? creditFiles[0]
+    : (srcFile ? creditFiles.find(pf => (pf.file_name || '').toLowerCase() === srcFile) : undefined)
+    ?? creditFiles.find(pf => {
+      const t = `${pf.text_density?.text_sample || ''} ${pf.ocr?.text || ''} ${pf.ocr?.apparent_name || ''}`.toLowerCase()
+      const hits = (toks: string[]) => toks.filter(tok => t.includes(tok)).length
+      return (applicantTokens.length >= 2 && hits(applicantTokens) >= 2) || (subjTok.length >= 2 && hits(subjTok) >= 2)
+    })
+  // Several reports and no way to tell whose is transcribed: label every
+  // one "check separately" rather than pin one person's numbers on all.
+  const creditAmbiguous = creditFiles.length > 1 && !primaryCredit
   const stubNetPays = perFile.map(pf => pf.paystub_math?.extraction.period_net).filter((n): n is number => typeof n === 'number' && n > 0)
   const ctxWithNets = { ...ctx, stubNetPays }
   for (const pf of perFile) {
@@ -422,7 +476,7 @@ export function buildLandlordReadings(perFile: PerFileForensics[], ctx: ReadingC
     if (kindHas(kind, 'bank_statement')) r = readBankStatement(text, ctxWithNets, ocrOnly)
     else if (kindHas(kind, 'pay_stub')) r = readPayStub(pf.paystub_math?.extraction, text, pf.paystub_math?.ytd_ratio, pf.paystub_math?.one_off_ytd)
     else if (kindHas(kind, 'credit_report')) {
-      if (!primaryCredit || pf === primaryCredit) r = readCreditReportFile(ctx.creditReport, ctx.monthlyIncomeForCredit ?? ctx.claimedMonthlyIncome, ctx.monthlyRent)
+      if (!creditAmbiguous && (!primaryCredit || pf === primaryCredit)) r = readCreditReportFile(ctx.creditReport, ctx.monthlyIncomeForCredit ?? ctx.claimedMonthlyIncome, ctx.monthlyRent, ctx.householdMonthlyIncome ?? null)
       else {
         const who = (pf.ocr?.apparent_name || '').trim()
         r = { bullets: [b(`${who ? `「${who}」` : '共同申请人'}的信用报告——本报告只转录主申请人的报告，这一份请单独核对分数、逾期与催收。`, `${who ? `"${who}"` : "A co-applicant"}'s bureau report — only the primary applicant's report is transcribed here; check this one's score, past-due and collections separately.`, 'neutral')], asks: [] }
@@ -452,6 +506,8 @@ export function mergeModelReadings(perFile: PerFileForensics[], docs: Array<{ fi
       if (pf.landlord_reading.bullets.some(x => x.zh.replace(/[\d$,.%\s]/g, '').slice(0, 24) === key)) continue
       pf.landlord_reading.bullets.push({ zh: z, en: e, tone: /⚠|不一致|异常|风险|逾期|欠|催收|no\b.*match|mismatch|overdue|collection|risk/i.test(z + ' ' + e) ? 'warn' : 'neutral', source: 'model' })
     }
-    if (d.ask_zh || d.ask_en) pf.landlord_reading.asks.push({ zh: d.ask_zh || d.ask_en || '', en: d.ask_en || d.ask_zh || '' })
+    // "Do you have a renewed PR card?" is a question about immigration
+    // status — a protected ground. Never surfaced as a landlord ask.
+    if ((d.ask_zh || d.ask_en) && !isProtectedStatusAsk(`${d.ask_zh || ''} ${d.ask_en || ''}`)) pf.landlord_reading.asks.push({ zh: d.ask_zh || d.ask_en || '', en: d.ask_en || d.ask_zh || '' })
   }
 }

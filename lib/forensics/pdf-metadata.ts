@@ -580,7 +580,15 @@ export function checkPdfMetadata(
   // Case 24: all five edited documents were AES-256 with an empty user
   // password, the four financial ones re-encrypted after the edit.
   // ---------------------------------------------------------------------------
-  if (meta.encrypted) {
+  // E-signature platforms encrypt every completed envelope (Docusign,
+  // Adobe Sign, Dropbox Sign, PandaDoc, OneSpan): a signed lease, OREA form
+  // or application from one of them is encrypted by design, not by the
+  // applicant (case 28: four Docusign files → four "encrypted" notes).
+  // Financial kinds keep the rule — a bureau report does not come through
+  // Docusign.
+  const ESIGN_PLATFORM = /docusign|adobe\s*sign|echosign|dropbox\s*sign|hellosign|pandadoc|onespan|signnow|signeasy|dotloop|authentisign/i
+  const esigned = ESIGN_PLATFORM.test(combined)
+  if (meta.encrypted && !(esigned && !FINANCIAL)) {
     const re = (meta.encrypt_dict_count ?? 1) > 1
     if (re && FINANCIAL) {
       flags.push({

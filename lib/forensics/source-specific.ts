@@ -167,6 +167,12 @@ export function checkSourceSpecific(
 
   const sample = text?.text_sample || ''
   const producer = `${meta?.producer || ''} ${meta?.creator || ''}`
+  // Self-service portals print through the browser: the stub's Producer is
+  // "Skia/PDF" and the payroll system is named only in the PDF Title
+  // ("Earnings - Dayforce") and in a logo image the text layer never sees
+  // (case 28: three genuine Dayforce stubs → "unknown payroll system" +
+  // "producer unknown" × 3). The title is part of the fingerprint.
+  const producerAndTitle = `${producer} ${meta?.title || ''}`
 
   // ---- Credit report check (Equifax OR TransUnion) ----
   // Real Canadian credit reports come from one of two bureaus. Earlier rule
@@ -295,7 +301,7 @@ export function checkSourceSpecific(
   if (kind === 'pay_stub') {
     let matched: string | null = null
     for (const [system, markers] of Object.entries(PAYROLL_MARKERS)) {
-      if (markers.text.some(re => re.test(sample)) || markers.producer.some(re => re.test(producer))) {
+      if (markers.text.some(re => re.test(sample)) || markers.producer.some(re => re.test(producerAndTitle))) {
         matched = system
         break
       }

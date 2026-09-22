@@ -2173,11 +2173,25 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // Pay-stub arithmetic first (period gross × periods ÷ 12, median across
     // stubs — lib/forensics/paystub-math), the model's reading only when no
     // stub yielded a figure. Same documents, same number.
+    // The completeness table and the rubric's documents_present read the
+    // model's detected_document_kinds; the model listed bank_statement for a
+    // package with no statement (case 28: "银行流水 ✓ 已提供" two lines above
+    // "未见银行流水"). A kind is present only when a classified file carries
+    // it.
+    {
+      const fileKinds = new Set(forensicsReport.per_file.flatMap(pf => (pf.file_kind || '').split(',').map(k => k.trim()).filter(Boolean)))
+      if (fileKinds.size > 0) {
+        const modelKinds: string[] = Array.isArray(parsed.detected_document_kinds) ? parsed.detected_document_kinds.filter((k: unknown): k is string => typeof k === 'string') : []
+        const kept = modelKinds.filter(k => fileKinds.has(k))
+        for (const k of fileKinds) if (!kept.includes(k)) kept.push(k)
+        parsed.detected_document_kinds = kept
+      }
+    }
     const stubMonthlyIncome: number | null = (() => {
-      const annuals = forensicsReport.per_file
-        .map(pf => pf.paystub_math?.extraction.annual_salary)
-        .filter((a): a is number => typeof a === 'number' && a > 12_000 && a < 3_000_000)
-        .sort((a, b) => a - b)
+      const stubRows = forensicsReport.per_file
+        .map(pf => ({ annual: pf.paystub_math?.extraction.annual_salary, employer: (pf.paystub_math?.extraction.employer_name || '').toLowerCase().replace(/[^a-z0-9]/g, '') }))
+        .filter((r): r is { annual: number; employer: string } => typeof r.annual === 'number' && r.annual > 12_000 && r.annual < 3_000_000)
+      const annuals = stubRows.map(r => r.annual).sort((a, b) => a - b)
       if (annuals.length === 0) return null
       // Two applicants' stubs in one file: a median halves the household
       // income and fires income_severe (review 2026-09-13). When the stubs
@@ -2195,17 +2209,28 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       // more applicants and two or more clusters: the household is the
       // SUM of one median per job (review 2026-09-13 second pass — a
       // single median halved a couple's income even with similar pay).
-      const clusters: number[][] = []
-      for (const a of annuals) {
-        const last = clusters[clusters.length - 1]
-        if (last && a / last[last.length - 1] <= 1.15) last.push(a)
-        else clusters.push([a])
+      // Employer first: stubs from different employers are different jobs
+      // however close the pay (case 28: the co-applicant's single $41,952
+      // stub sat 14% under the primary's $49,000 stubs, was a one-stub
+      // cluster, and was dropped — the household was scored on one salary).
+      const byEmployer = new Map<string, number[]>()
+      for (const r of stubRows) { const k = r.employer || `_${byEmployer.size}`; byEmployer.set(k, [...(byEmployer.get(k) || []), r.annual]) }
+      const clusters: Array<{ employer: string; amounts: number[] }> = []
+      for (const [employer, amounts] of byEmployer) {
+        let cur: number[] | null = null
+        for (const a of amounts.slice().sort((x, y) => x - y)) {
+          if (cur && a / cur[cur.length - 1] <= 1.15) cur.push(a)
+          else { cur = [a]; clusters.push({ employer: employer.startsWith('_') ? '' : employer, amounts: cur }) }
+        }
       }
-      // A cluster is a job only when at least two stubs support it — one
-      // hourly worker's overtime period is not a second earner (review
-      // 2026-09-14: two stubs 30% apart + a spouse's ID doubled the income).
-      const jobClusters = clusters.filter(c => c.length >= 2)
-      const perJob = jobClusters.map(median).sort((a, b) => b - a)
+      const namedEmployers = new Set(clusters.map(c => c.employer).filter(Boolean))
+      // A cluster is a job when at least two stubs support it — one hourly
+      // worker's overtime period is not a second earner (review 2026-09-14:
+      // two stubs 30% apart + a spouse's ID doubled the income) — OR when
+      // it is the only cluster naming its employer and another employer
+      // exists in the file.
+      const jobClusters = clusters.filter(c => c.amounts.length >= 2 || (c.employer && namedEmployers.size >= 2 && clusters.filter(o => o.employer === c.employer).length === 1))
+      const perJob = jobClusters.map(c => median(c.amounts)).sort((a, b) => b - a)
       const annual = applicants >= 2 && perJob.length >= 2 ? perJob.slice(0, Math.min(applicants, perJob.length)).reduce((x, y) => x + y, 0) : median(annuals)
       return Math.round(annual / 12 * 100) / 100
     })()
@@ -2257,6 +2282,29 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       redFlags.push('id_format_invalid')
     }
 
+    // ── OCR-name reconciliation for the Ontario DL surname check ──────────
+    // The licence-number initial is checked against names OCR'd off the
+    // card; the vision pass reads the same card with the surname intact
+    // ("YL / HUJJUN" in OCR, "YI, HUIJUN" from the model — case 28). When
+    // the model's reading of THAT file has a surname initial equal to the
+    // DL initial, the "unverified" medium is the OCR's mistake, not the
+    // card's: replace it with the corroboration the check would have made.
+    if (coherence.status === 'ok') {
+      for (const pf of forensicsReport.per_file) {
+        const idx = pf.flags.findIndex(fl => fl.code === 'id_dl_surname_unverified')
+        if (idx < 0) continue
+        const initial = pf.flags[idx].evidence_en.match(/starts with "([A-Z])"/)?.[1]
+        const doc = coherence.documents.find(d => d.file === pf.file_name || d.file.toLowerCase() === pf.file_name.toLowerCase())
+        const names = doc?.key_facts?.names || []
+        const surnames = names.flatMap(n => { const t = n.trim(); const comma = t.split(','); return comma.length > 1 ? [comma[0].trim()] : [t.split(/\s+/)[0], t.split(/\s+/).slice(-1)[0]] }).filter(Boolean)
+        const hit = initial ? surnames.find(sn => sn.toUpperCase().startsWith(initial)) : undefined
+        if (!hit) continue
+        pf.flags.splice(idx, 1, { code: 'id_dl_surname_match', severity: 'info', file: pf.file_name,
+          evidence_en: `Ontario DL initial "${initial}" matches the surname "${hit}" the vision pass read on this card (the text OCR had garbled the surname line) — consistent with the province's licence-number encoding.`,
+          evidence_zh: `安省驾照号首字母 "${initial}" 与视觉识别在这张卡上读到的姓氏 "${hit}" 吻合（文字 OCR 把姓氏行认错了）——符合安省驾照号编码规则。` })
+      }
+      forensicsReport.all_flags = [...forensicsReport.per_file.flatMap(pf => pf.flags), ...forensicsReport.cross_doc_flags]
+    }
     // Merge forensics-derived hard gates (deterministic, computed by lib/forensics).
     // These take precedence over Claude's judgment because they're proof-based:
     // PDF metadata strings + math impossibility don't lie. We override even if
@@ -2665,6 +2713,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         creditReport: creditReport && !creditReport.unreliable ? creditReport : null,
         applicationSummary: crossDocVerification?.application_summary ?? null,
         monthlyIncomeForCredit: detectedIncomeForGate,
+        householdMonthlyIncome: (typeof crossDocVerification?.income_corroboration?.claimed_monthly === 'number' && crossDocVerification.income_corroboration.claimed_monthly > 0) ? crossDocVerification.income_corroboration.claimed_monthly : detectedIncomeForGate,
         coApplicants: (Array.isArray(parsed.extracted_names) ? parsed.extracted_names : []).filter((n: unknown): n is string => typeof n === 'string'),
       })
       if (coherence.status === 'ok') mergeModelReadings(forensicsReport.per_file, coherence.documents)
@@ -2804,6 +2853,11 @@ If the uploaded evidence does not support the dimension, score it per the rubric
           .filter(code => !(stubsUntrusted && (code === 'paystub_deductions_at_legal_max' || code === 'paystub_period_deductions_verified'))),
         identityConsistent: identityConsistentMeasured,
         incomeDocsAgeDays: forensicsReport.recency?.income_docs_median_age_days ?? null,
+        payrollStubsConsistent: stubsUntrusted ? 0 : forensicsReport.per_file.filter(pf =>
+          (pf.file_kind || '').includes('pay_stub')
+          && !!pf.source_specific?.matched_payroll
+          && typeof pf.paystub_math?.ytd_ratio === 'number' && pf.paystub_math.ytd_ratio >= 0.8 && pf.paystub_math.ytd_ratio <= 1.2
+          && pf.flags.some(f => f.code === 'paystub_period_deductions_verified')).length,
         externalVerifications: {
           identity: verifiedFacts?.id?.status === 'verified',
           bank: verifiedFacts?.bank?.status === 'verified',
@@ -2942,10 +2996,25 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // sole ground for refusing a tenancy, and the ratio can rest on
     // self-typed form income. They resolve to 'conditional' with the cap.
     const AFFORDABILITY_ONLY_GATES = new Set(['income_severe', 'affordability_severe'])
-    const nonAffordabilityGates = hardGates.filter(g => !AFFORDABILITY_ONLY_GATES.has(g))
+    // A doc_tampering gate is a refusal only when something deterministic
+    // backs it: a forensics hard gate, a forged document (FORGERY_INDICATING
+    // code), or a critical finding. The model adds the gate on its own
+    // reading, and the cumulative "likely_fraud" verdict used to add it on a
+    // pile of low notes (case 28: 55 / CAUTION on the dial, "建议拒绝" in the
+    // text). Without deterministic backing the cap (55) stays and the tier
+    // is conditional — "有条件通过，完成清单后再定" — never decline.
+    const tamperingUnbacked = hardGates.includes('doc_tampering')
+      && forensicsReport.hard_gates.length === 0
+      && forgedDocCount === 0
+      && !forensicsReport.all_flags.some(f => f.severity === 'critical')
+    const softGate = (g: string) => AFFORDABILITY_ONLY_GATES.has(g) || (g === 'doc_tampering' && tamperingUnbacked)
+    const nonAffordabilityGates = hardGates.filter(g => !softGate(g))
     if (nonAffordabilityGates.length > 0) {
       tier = 'decline'
       tierReason = 'hard_gate_triggered'
+    } else if (hardGates.includes('doc_tampering') && tamperingUnbacked) {
+      tier = 'conditional'
+      tierReason = 'forensics_review'
     } else if (hardGates.length > 0) {
       tier = 'conditional'
       tierReason = 'affordability_gate'
@@ -3180,9 +3249,12 @@ If the uploaded evidence does not support the dimension, score it per the rubric
 
       // Re-derive the verdict from the post-merge state. Without this the
       // persisted tier/legacy still reflect the pre-supplemental scores.
-      if (hardGates.some(g => !AFFORDABILITY_ONLY_GATES.has(g))) {
+      if (hardGates.some(g => !softGate(g))) {
         tier = 'decline'
         tierReason = 'hard_gate_triggered'
+      } else if (hardGates.includes('doc_tampering') && tamperingUnbacked) {
+        tier = 'conditional'
+        tierReason = 'forensics_review'
       } else if (hardGates.length > 0) {
         tier = 'conditional'
         tierReason = 'affordability_gate'
