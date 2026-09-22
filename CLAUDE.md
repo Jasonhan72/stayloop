@@ -419,6 +419,12 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 - **生产重跑（screening `4f1433bf`）暴露的第九处**：一张照片里两张月薪工资单，模型把频率填成 semimonthly → 年化 $83,904、
   YTD 0.51 → `paystub_ytd_net_mismatch`，家庭收入被抬到 $11,075。`frequencyFromPeriod`：工资单自己印的期间 27–31 天即
   monthly、5–8 天即 weekly，优先于模型猜测与「Period N of 24」文字（14 天 vs 15 天的 biweekly/semimonthly 仍信模型）。
+- **第二次重跑（`46c26983`）又暴露两处模型抽取抖动**，都已确定性兜底：① 受薪工资单的 `OT HRS 6.00` 被配上加班时薪
+  → 6h × $37.69 = $226 vs 毛收入 $2,268 → `paystub_period_math_error`（high）→ `paystub_math_impossible` 硬门槛 → 35 分拒绝。
+  现在工时 < 该频率全职工时 30% 且 时薪×工时 < 毛收入一半 = 「零头行」，跳过时薪复算（`paystub_hours_partial_line` info）。
+  ② coherence 那一轮完全没列证件文件 → 申请人数回到 1 → 家庭收入又变中位数；申请人数现在同时取 forensics OCR 的证件
+  `apparent_name`，驾照姓氏复核也用 `extracted_names` 里与 OCR 名一字之差的那个人。**同一份原件三次重跑分别 55 / 66 / 35，
+  说明模型抽取每轮都会换一种错法——评分层的每一条硬规则都必须能承受抽取抖动，这是本案最重要的教训。**
 **有意不做**：`SU A KIM` 与 Sunkyoung 不是已知的罗马字变体，保留为唯一 high 待核实项；无银行流水仍不算佐证。
 
 ## 深度核查加项与红色标记（2026-09-16）

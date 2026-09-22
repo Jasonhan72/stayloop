@@ -25,7 +25,7 @@ import { INTERNAL_TEST_FREE_UNTIL, inInternalTestWindow } from '@/lib/billing/fr
 import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
 import { analyzeStatementLiquidity, findRecurringMonthlyPayment } from '@/lib/forensics/payroll-deposits'
 import { monthsSince, parsePeriodMonths, parseDateLoose, datesAgree } from '@/lib/screening/periods'
-import { buildLandlordReadings, mergeModelReadings } from '@/lib/forensics/landlord-reading'
+import { buildLandlordReadings, mergeModelReadings, editDistance1 } from '@/lib/forensics/landlord-reading'
 import { isCollectionAgency } from '@/lib/screening/collectionAgencies'
 import { llmChat, llmChatStream } from '@/lib/llmChat'
 import { readJsonBody, INVALID_BODY } from '@/lib/api/body'
@@ -2200,7 +2200,14 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       // Applicants = the people on ID documents (extracted_names also lists
       // HR signatories and landlords — review 2026-09-17); even counts take
       // the lower middle so a second job's stub cannot lift the figure.
-      const idNames: string[] = ((coherence?.documents ?? []) || []).filter((d: { kind?: string }) => d.kind === 'id_document').flatMap((d: { key_facts?: { names?: string[] } }) => d.key_facts?.names || [])
+      // Names from the coherence pass AND from the forensics OCR of the ID
+      // files: the coherence pass omitted every ID document on one run of
+      // case 28, the count fell to 1, and the two-earner sum collapsed to a
+      // median again.
+      const idNames: string[] = [
+        ...((coherence?.documents ?? []) || []).filter((d: { kind?: string }) => d.kind === 'id_document').flatMap((d: { key_facts?: { names?: string[] } }) => d.key_facts?.names || []),
+        ...forensicsReport.per_file.filter(pf => (pf.file_kind || '').includes('id_document')).map(pf => (pf.ocr?.apparent_name || '').trim()).filter(n => n.length >= 3),
+      ]
       const distinctIdPeople = idNames.filter((n, i) => idNames.findIndex(o => sameName(o, n) || nameCovers(o, n) || nameCovers(n, o)) === i).length
       const applicants = Math.max(1, distinctIdPeople)
       const median = (xs: number[]) => xs[Math.floor((xs.length - 1) / 2)]
@@ -2295,7 +2302,13 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         if (idx < 0) continue
         const initial = pf.flags[idx].evidence_en.match(/starts with "([A-Z])"/)?.[1]
         const doc = coherence.documents.find(d => d.file === pf.file_name || d.file.toLowerCase() === pf.file_name.toLowerCase())
-        const names = doc?.key_facts?.names || []
+        // Also the applicant names the scoring pass extracted, when one of
+        // them is the OCR'd card name give or take a letter (HUJJUN ~ Huijun)
+        // — the coherence pass skipped every ID file on one run of case 28.
+        const ocrToks = (pf.ocr?.apparent_name || '').toLowerCase().split(/[^a-z]+/).filter(t => t.length >= 5)
+        const fromExtracted = (Array.isArray(parsed.extracted_names) ? parsed.extracted_names : []).filter((n: unknown): n is string => typeof n === 'string')
+          .filter((n: string) => n.toLowerCase().split(/[^a-z]+/).some(t => t.length >= 5 && ocrToks.some(o => editDistance1(o, t))))
+        const names = [...(doc?.key_facts?.names || []), ...fromExtracted]
         const surnames = names.flatMap(n => { const t = n.trim(); const comma = t.split(','); return comma.length > 1 ? [comma[0].trim()] : [t.split(/\s+/)[0], t.split(/\s+/).slice(-1)[0]] }).filter(Boolean)
         const hit = initial ? surnames.find(sn => sn.toUpperCase().startsWith(initial)) : undefined
         if (!hit) continue

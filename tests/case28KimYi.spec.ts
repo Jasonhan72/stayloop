@@ -10,7 +10,7 @@ import {
 } from '../lib/screening/coherenceReview'
 import type { ForensicFlag, PerFileForensics, PdfMetadataResult } from '../lib/forensics/types'
 import { scoreRubric, type RubricFacts } from '../lib/screening/rubric'
-import { applyTextPayFrequency, frequencyFromPeriod } from '../lib/forensics/paystub-math'
+import { applyTextPayFrequency, checkPaystubMath, frequencyFromPeriod } from '../lib/forensics/paystub-math'
 
 // 2026-09-22 — case 28 (5168 Yonge St): a two-earner household with 723 /
 // 767 credit, no delinquencies, renewed licences and a bank employer was
@@ -224,5 +224,17 @@ describe('pay frequency from the period dates', () => {
     const out = applyTextPayFrequency(ext, 'Pay Period 08/01/2026 - 08/31/2026 Hours 152:00 Rate 23.00')
     expect(out.pay_frequency).toBe('monthly')
     expect(out.annual_salary).toBe(41952)
+  })
+})
+
+describe('period math on a salaried stub with an overtime line', () => {
+  it('6 OT hours × the OT rate on a $2,268 semi-monthly stub is not "impossible math"', () => {
+    const ext = { employer_name: 'KEB Hana Bank Canada', pay_frequency: 'semimonthly', period_gross: 2267.82, period_net: 1810.69, hours_worked: 6, hourly_rate: 37.6923, annual_salary: 54427.68, ytd_gross: 35034.11, pay_date: '2026-08-14', pay_period_start: '2026-08-01', pay_period_end: '2026-08-15', cpp_period: 126.26, ei_period: 36.97 } as never
+    const { flags } = checkPaystubMath(ext, 'paystubs3.pdf')
+    expect(flags.map(f => f.code)).not.toContain('paystub_period_math_error')
+    expect(flags.map(f => f.code)).toContain('paystub_hours_partial_line')
+    // an hourly stub whose arithmetic really is off still fails
+    const bad = { employer_name: 'Shop', pay_frequency: 'biweekly', period_gross: 5000, period_net: 4000, hours_worked: 60, hourly_rate: 20, pay_period_start: '2026-08-03', pay_period_end: '2026-08-16' } as never
+    expect(checkPaystubMath(bad, 'x.pdf').flags.map(f => f.code)).toContain('paystub_period_math_error')
   })
 })

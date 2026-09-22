@@ -487,7 +487,25 @@ export function checkPaystubMath(
     })
     ext.hours_worked = null
   }
-  if (ext.hourly_rate && ext.hours_worked && ext.period_gross) {
+  // A salaried stub prints hours only on its overtime / sick / vacation
+  // lines. When the hours column is a small fraction of the period's
+  // full-time hours (6 OT hours on a semi-monthly $2,268 stub — case 28,
+  // where the model paired them with the OT rate and the "impossible math"
+  // gate fired), rate × hours describes one line, not the period, and the
+  // reconciliation is skipped rather than declared a forgery.
+  const fullTimeHours = ext.pay_frequency ? ({ weekly: 40, biweekly: 80, semimonthly: 86.67, monthly: 173.33 } as Record<string, number>)[ext.pay_frequency] : null
+  const hoursArePartialLine = !!(ext.hours_worked && fullTimeHours && ext.hours_worked < fullTimeHours * 0.3
+    && ext.hourly_rate && ext.period_gross && ext.hourly_rate * ext.hours_worked < ext.period_gross * 0.5)
+  if (hoursArePartialLine) {
+    flags.push({
+      code: 'paystub_hours_partial_line',
+      severity: 'info',
+      file,
+      evidence_en: `The hours figure (${ext.hours_worked}h) is a fraction of a ${ext.pay_frequency} period and rate × hours covers under half the gross — an overtime / sick / vacation line on a salaried stub, not the period's hours. Hourly × hours reconciliation not applicable; YTD and statutory-deduction checks still apply.`,
+      evidence_zh: `工时（${ext.hours_worked} 小时）只是${ext.pay_frequency === 'semimonthly' ? '半月' : ext.pay_frequency === 'monthly' ? '一个月' : '一个周期'}的零头，且时薪 × 工时不到毛收入的一半——这是受薪工资单上的加班 / 病假 / 假期行，不是本期工时。「时薪×工时」复算不适用；YTD 与法定扣缴复算照常。`,
+    })
+  }
+  if (ext.hourly_rate && ext.hours_worked && ext.period_gross && !hoursArePartialLine) {
     derivedPeriodGross = ext.hourly_rate * ext.hours_worked
     const diff = Math.abs(derivedPeriodGross - ext.period_gross)
     periodMathErrorPct = (diff / ext.period_gross) * 100
