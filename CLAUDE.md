@@ -425,6 +425,9 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
   ② coherence 那一轮完全没列证件文件 → 申请人数回到 1 → 家庭收入又变中位数；申请人数现在同时取 forensics OCR 的证件
   `apparent_name`，驾照姓氏复核也用 `extracted_names` 里与 OCR 名一字之差的那个人。**同一份原件三次重跑分别 55 / 66 / 35，
   说明模型抽取每轮都会换一种错法——评分层的每一条硬规则都必须能承受抽取抖动，这是本案最重要的教训。**
+- **第三次重跑（`175bf827`，66 分 review）剩两处**：照片工资单没有文本层，模型把 pay_period 留空，频率兜底读不到——现在
+  `periodSpanFromText` 直接从 OCR 文字读「Pay Period: 07/01/26 - 07/31/26」，且 `index.ts` 的工资单三步（频率 / 年化 / 一次性
+  项）都用 `text_sample || ocr.text`；驾照号在卡与临牌上印两次 → 两条 `unverified`，复核只换掉了一条，现在同首字母的全部一起换。
 **有意不做**：`SU A KIM` 与 Sunkyoung 不是已知的罗马字变体，保留为唯一 high 待核实项；无银行流水仍不算佐证。
 
 ## 深度核查加项与红色标记（2026-09-16）

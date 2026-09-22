@@ -634,12 +634,16 @@ async function analyzeFile(
     if (kindIncludes(f.kind, 'pay_stub') && apiKey) {
       const ext = await extractPaystubFields(f.signed_url, f.mime, apiKey, usageMeta)
       if (ext) {
-        // The stub's own "Pay Period N of 24" beats the model's frequency guess.
-        applyTextPayFrequency(ext, out.text_density?.text_sample)
+        // A photographed stub has no text layer: its printed words live in
+        // the OCR text (case 28: "Pay Period: 07/01/26 - 07/31/26" on a JPG
+        // the model called semi-monthly).
+        const stubText = out.text_density?.text_sample || out.ocr?.text || ''
+        // The stub's own period dates / "Pay Period N of 24" beat the model's frequency guess.
+        applyTextPayFrequency(ext, stubText)
         // No printed annual rate → annual = period gross × periods (the model
         // otherwise invents one); itemised one-offs explain YTD above pro-rata.
-        applyStubAnnualFromPeriod(ext, out.text_density?.text_sample)
-        const { result: math, flags: mathFlags } = checkPaystubMath(ext, f.name, extractOneOffYtd(out.text_density?.text_sample))
+        applyStubAnnualFromPeriod(ext, stubText)
+        const { result: math, flags: mathFlags } = checkPaystubMath(ext, f.name, extractOneOffYtd(stubText))
         out.paystub_math = math
         out.flags.push(...mathFlags)
 

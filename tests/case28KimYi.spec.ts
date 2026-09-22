@@ -10,7 +10,7 @@ import {
 } from '../lib/screening/coherenceReview'
 import type { ForensicFlag, PerFileForensics, PdfMetadataResult } from '../lib/forensics/types'
 import { scoreRubric, type RubricFacts } from '../lib/screening/rubric'
-import { applyTextPayFrequency, checkPaystubMath, frequencyFromPeriod } from '../lib/forensics/paystub-math'
+import { applyTextPayFrequency, checkPaystubMath, frequencyFromPeriod, inferPayFrequencyFromText, periodSpanFromText } from '../lib/forensics/paystub-math'
 
 // 2026-09-22 — case 28 (5168 Yonge St): a two-earner household with 723 /
 // 767 credit, no delinquencies, renewed licences and a bank employer was
@@ -236,5 +236,15 @@ describe('period math on a salaried stub with an overtime line', () => {
     // an hourly stub whose arithmetic really is off still fails
     const bad = { employer_name: 'Shop', pay_frequency: 'biweekly', period_gross: 5000, period_net: 4000, hours_worked: 60, hourly_rate: 20, pay_period_start: '2026-08-03', pay_period_end: '2026-08-16' } as never
     expect(checkPaystubMath(bad, 'x.pdf').flags.map(f => f.code)).toContain('paystub_period_math_error')
+  })
+})
+
+describe('pay period printed on a photographed stub', () => {
+  it('reads "Pay Period: 07/01/26 - 07/31/26" and calls it monthly even when the model left the dates null', () => {
+    expect(periodSpanFromText('Occupation Warehouse Associate Pay Period: 07/01/26 - 07/31/26 Cheque Date: 07/31/26')).toEqual({ start: '2026-07-01', end: '2026-07-31' })
+    expect(inferPayFrequencyFromText('Pay Period: 07/01/26 - 07/31/26 Cheque Date: 07/31/26')).toBe('monthly')
+    expect(inferPayFrequencyFromText('Pay Period: 08/01/2026 - 08/15/2026')).toBeNull()
+    const ext = { pay_period_start: null, pay_period_end: null, pay_frequency: 'semimonthly', period_gross: 3496, annual_salary: 83904, hourly_rate: null, hours_worked: 152 } as never
+    expect(applyTextPayFrequency(ext, 'Pay Period: 08/01/26 - 08/31/26 Wages 152.00 23.00 3,496.00').annual_salary).toBe(41952)
   })
 })

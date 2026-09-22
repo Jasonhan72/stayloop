@@ -2301,6 +2301,9 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         const idx = pf.flags.findIndex(fl => fl.code === 'id_dl_surname_unverified')
         if (idx < 0) continue
         const initial = pf.flags[idx].evidence_en.match(/starts with "([A-Z])"/)?.[1]
+        // the number is printed twice on a card + temporary licence: one
+        // flag per occurrence, all of them resolved together
+        const dupIdx = pf.flags.map((fl, i) => (i !== idx && fl.code === 'id_dl_surname_unverified' && fl.evidence_en.includes(`starts with "${initial}"`)) ? i : -1).filter(i => i >= 0)
         const doc = coherence.documents.find(d => d.file === pf.file_name || d.file.toLowerCase() === pf.file_name.toLowerCase())
         // Also the applicant names the scoring pass extracted, when one of
         // them is the OCR'd card name give or take a letter (HUJJUN ~ Huijun)
@@ -2312,7 +2315,8 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         const surnames = names.flatMap(n => { const t = n.trim(); const comma = t.split(','); return comma.length > 1 ? [comma[0].trim()] : [t.split(/\s+/)[0], t.split(/\s+/).slice(-1)[0]] }).filter(Boolean)
         const hit = initial ? surnames.find(sn => sn.toUpperCase().startsWith(initial)) : undefined
         if (!hit) continue
-        pf.flags.splice(idx, 1, { code: 'id_dl_surname_match', severity: 'info', file: pf.file_name,
+        for (const i of dupIdx.slice().sort((a, b) => b - a)) pf.flags.splice(i, 1)
+        pf.flags.splice(pf.flags.findIndex(fl => fl.code === 'id_dl_surname_unverified'), 1, { code: 'id_dl_surname_match', severity: 'info', file: pf.file_name,
           evidence_en: `Ontario DL initial "${initial}" matches the surname "${hit}" the vision pass read on this card (the text OCR had garbled the surname line) — consistent with the province's licence-number encoding.`,
           evidence_zh: `安省驾照号首字母 "${initial}" 与视觉识别在这张卡上读到的姓氏 "${hit}" 吻合（文字 OCR 把姓氏行认错了）——符合安省驾照号编码规则。` })
       }

@@ -223,8 +223,35 @@ const PERIODS_PER_YEAR: Record<string, number> = {
  * letter against $81,250 with an 8.3 % deviation that did not exist.
  * Exported for tests.
  */
+/** "Pay Period: 07/01/26 - 07/31/26" / "Pay Period 2026-08-01 to 2026-08-31":
+ *  the printed span in days, when the stub prints one. */
+export function periodSpanFromText(text: string | null | undefined): { start: string; end: string } | null {
+  if (!text) return null
+  const t = text.replace(/\s+/g, ' ')
+  const D = '(\\d{1,2}\\/\\d{1,2}\\/(?:\\d{4}|\\d{2})|\\d{4}-\\d{2}-\\d{2})'
+  const m = new RegExp(`pay\\s*period[^0-9]{0,20}${D}\\s*(?:-|–|to|through)\\s*${D}`, 'i').exec(t)
+  if (!m) return null
+  const iso = (raw: string): string | null => {
+    let mm = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (mm) return raw
+    mm = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})$/)
+    if (!mm) return null
+    const y = mm[3].length === 2 ? 2000 + Number(mm[3]) : Number(mm[3])
+    // MM/DD unless the first field cannot be a month
+    const a = Number(mm[1]), b = Number(mm[2])
+    const [mo, d] = a > 12 ? [b, a] : [a, b]
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return null
+    return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  }
+  const start = iso(m[1]), end = iso(m[2])
+  return start && end ? { start, end } : null
+}
+
 export function inferPayFrequencyFromText(text: string | null | undefined): PaystubExtraction['pay_frequency'] | null {
   if (!text) return null
+  const span = periodSpanFromText(text)
+  const byPeriod = span ? frequencyFromPeriod(span.start, span.end) : null
+  if (byPeriod) return byPeriod
   const t = text.replace(/\s+/g, ' ')
   // pdf.js emits table labels before values ("Pay Period Period Range Pay
   // Date 14 of 24 …"), so require the "pay period" label anywhere and the
