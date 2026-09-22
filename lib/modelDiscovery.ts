@@ -46,7 +46,7 @@ export function parseModelList(json: unknown): ListedModel[] {
 // Chat-capable candidates only. Providers list embeddings, TTS, speech,
 // image, moderation, realtime and fine-tune snapshots under the same
 // endpoint; none of those can take a Stayloop slot.
-const NOT_CHAT = /embed|embedding|tts|whisper|speech|audio|transcri|realtime|moderation|image|imagen|dall-e|veo|sora|video|vision-only|rerank|ocr|search-preview|computer-use|batch|-instruct-?\d{4}|davinci|babbage|curie|ada\b/i
+const NOT_CHAT = /embed|embedding|tts|whisper|speech|audio|transcri|realtime|moderation|image|imagen|dall-e|veo|sora|video|vision-only|rerank|ocr|search-preview|search-api|computer-use|batch|-instruct-?\d{4}|davinci|babbage|curie|ada\b|\blive\b|-live|lyria|banana|robotics|translate|codex|guard|asr|\bmt-|-mt\b/i
 const DATED_SNAPSHOT = /(?:-|_)(?:20\d{2}-\d{2}-\d{2}|\d{8}|\d{4}(?:-\d{2})?)$/
 export function isChatCandidate(id: string): boolean {
   if (!id || id.length > 96) return false

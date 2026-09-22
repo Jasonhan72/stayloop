@@ -30,7 +30,7 @@ describe('parseModelList', () => {
 describe('isChatCandidate', () => {
   it('keeps chat models and drops embeddings / audio / image / dated snapshots', () => {
     for (const ok of ['gpt-5.5', 'claude-sonnet-5', 'gemini-3.7-flash', 'deepseek-v4-pro', 'kimi-k3', 'qwen3.8-max', 'glm-5.3', 'o5-mini']) expect(isChatCandidate(ok), ok).toBe(true)
-    for (const no of ['text-embedding-4', 'gpt-5-tts', 'whisper-2', 'gpt-image-2', 'dall-e-4', 'gpt-5.4-realtime', 'omni-moderation', 'gpt-5.4-2026-03-14', 'qwen3.5-ocr', 'veo-4', 'gpt-4o-audio-preview']) expect(isChatCandidate(no), no).toBe(false)
+    for (const no of ['text-embedding-4', 'gpt-5-tts', 'whisper-2', 'gpt-image-2', 'dall-e-4', 'gpt-5.4-realtime', 'omni-moderation', 'gpt-5.4-2026-03-14', 'qwen3.5-ocr', 'veo-4', 'gpt-4o-audio-preview', 'lyria-3-pro-preview', 'nano-banana-pro-preview', 'gemini-robotics-er-2-preview', 'gemini-3.8-live', 'gpt-5.1-codex', 'gpt-5-search-api', 'qwen-mt-uni']) expect(isChatCandidate(no), no).toBe(false)
   })
 })
 
