@@ -18,6 +18,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { stripNul } from '@/lib/screening/jsonSafe'
+import { notifyUser } from '@/lib/push/notify'
 
 export const runtime = 'edge'
 
@@ -125,6 +126,7 @@ export async function POST(req: Request) {
         metadata: { ...meta, messages: [...messages, { kind, message, move_in_date: moveIn, intent_id: intentId, at: new Date().toISOString() }].slice(-20) },
       })
       .eq('id', open.id)
+    await notifyUser(admin, landlordAuthId, { kind: 'approval', title: kind === 'showing' ? `看房请求 · ${addr}` : `房源提问 · ${addr}`, body: `${who}：${line.slice(0, 120)}`, url: '/landlord/todo' })
     return NextResponse.json({ ok: true, intent_id: intentId, delivered: true, merged: true })
   }
 
@@ -160,5 +162,6 @@ export async function POST(req: Request) {
     console.error('[showing-intent] pending action insert failed:', aErr.message)
     return NextResponse.json({ ok: true, intent_id: intentId, delivered: false, reason: 'action_insert_failed' })
   }
+  await notifyUser(admin, landlordAuthId, { kind: 'approval', title: kind === 'showing' ? `看房请求 · ${addr}` : `房源提问 · ${addr}`, body: `${who}：${line.slice(0, 120)}`, url: '/landlord/todo' })
   return NextResponse.json({ ok: true, intent_id: intentId, delivered: true })
 }

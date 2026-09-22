@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail, renderNewApplicationEmail } from '@/lib/email'
+import { notifyUser } from '@/lib/push/notify'
 
 export const runtime = 'edge'
 
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
       id, first_name, last_name, email, monthly_income, files, notified_at,
       listing:listings (
         id, address, unit, city, monthly_rent,
-        landlord:landlords ( id, email, full_name )
+        landlord:landlords ( id, auth_id, email, full_name )
       )
     `)
     .eq('id', applicationId)
@@ -148,5 +149,9 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  if (landlord.auth_id) {
+    const addr = listing?.address ? String(listing.address) : ''
+    await notifyUser(admin, String(landlord.auth_id), { kind: 'event', title: `新申请 · ${addr}`.slice(0, 80), body: '有一份新的租房申请到达 / A new rental application arrived', url: '/landlord/applicants' })
+  }
   return NextResponse.json({ ok: true, id: result.id })
 }

@@ -24,6 +24,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isoDate, todayUtc } from '@/lib/dates'
 import { WINDOW_DAYS, marketFromRows, planRenewalActions, type ExistingRenewalAction, type MarketLine } from '@/lib/agent/renewalStages'
+import { notifyUser } from '@/lib/push/notify'
 
 export const runtime = 'edge'
 
@@ -219,7 +220,24 @@ async function runCronSweep(): Promise<NextResponse> {
     console.error('proactive proposal insert failed:', insErr.message)
     return NextResponse.json({ error: 'proposal insert failed' }, { status: 500 })
   }
-  return NextResponse.json({ created: inserts.length, mode: 'cron' })
+  // Push (Muse benchmark item F): one message per user for this sweep —
+  // "N cards waiting" — never one per card.
+  const perUser = new Map<string, { n: number; first: string }>()
+  for (const i of inserts) {
+    const uid = String(i.user_id)
+    const cur = perUser.get(uid)
+    perUser.set(uid, { n: (cur?.n ?? 0) + 1, first: cur?.first ?? String(i.title) })
+  }
+  let pushed = 0
+  await Promise.all(Array.from(perUser).map(async ([uid, v]) => {
+    pushed += await notifyUser(admin, uid, {
+      kind: 'approval',
+      title: v.n === 1 ? v.first.slice(0, 80) : `${v.n} 件事等你点头 / ${v.n} waiting on you`,
+      body: v.n === 1 ? '批准后才会执行 / Runs only after you approve' : v.first.slice(0, 80),
+      url: '/landlord/todo',
+    })
+  }))
+  return NextResponse.json({ created: inserts.length, pushed, mode: 'cron' })
 }
 
 // ---------------------------------------------------------------------------

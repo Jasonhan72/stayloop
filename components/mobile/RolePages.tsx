@@ -13,6 +13,7 @@ import StatusOverview from '@/components/agent/StatusOverview'
 import WorkflowStatusPanel from '@/components/agent/WorkflowStatusPanel'
 import PrivateMemorySnapshot from '@/components/agent/PrivateMemorySnapshot'
 import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
+import PushSettingsCard from '@/components/mobile/PushSettingsCard'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
 import { buildIdeas } from '@/lib/agent/ideas'
 import { useT } from '@/lib/i18n'
@@ -130,6 +131,7 @@ export function ProgressPage({ role }: { role: AgentRole }) {
         <div id="memory" className="scroll-mt-20">
           <PrivateMemorySnapshot agentName={data.agent.agent_name} memories={data.memories} role={role} editable={live} />
         </div>
+        <PushSettingsCard live={live} />
         <RelatedPagesCard role={role} />
       </div>
     </WorkspaceShell>

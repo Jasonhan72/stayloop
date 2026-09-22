@@ -9,6 +9,7 @@ import { getAIName, setAIName, getDefaultName } from '@/lib/aiName'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import SubscriptionCard from '@/components/settings/SubscriptionCard'
+import PushSettingsCard from '@/components/mobile/PushSettingsCard'
 
 const ROLE_COLORS: Record<string, string> = {
   tenant: ROLE_THEME.tenant.accent,
@@ -130,6 +131,8 @@ export default function SettingsPage() {
             {shellRole === 'landlord' && auth.user && (
               <SubscriptionCard userId={auth.user.id} zh={zh} />
             )}
+            {/* Push notifications — per device, all roles (2026-09-22). */}
+            {auth.user && <PushSettingsCard live />}
 
             {/* Quick actions */}
             <div className="space-y-2">
