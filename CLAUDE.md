@@ -428,6 +428,9 @@ Public surfaces show a listing only when `is_active AND (verification_status='ve
 - **第三次重跑（`175bf827`，66 分 review）剩两处**：照片工资单没有文本层，模型把 pay_period 留空，频率兜底读不到——现在
   `periodSpanFromText` 直接从 OCR 文字读「Pay Period: 07/01/26 - 07/31/26」，且 `index.ts` 的工资单三步（频率 / 年化 / 一次性
   项）都用 `text_sample || ocr.text`；驾照号在卡与临牌上印两次 → 两条 `unverified`，复核只换掉了一条，现在同首字母的全部一起换。
+- **第四次重跑（`65287de9`，66 分 review，家庭收入 $7,579 · 2.83×，取证只剩 1 条 medium）**：coherence 那轮遇上 OpenAI 500
+  整体 `failed`，驾照复核块原来整个包在 `status === 'ok'` 里也跟着跳过。复核现在不依赖 coherence；coherence 对 5xx / 网络错误
+  自动重试一次。
 **有意不做**：`SU A KIM` 与 Sunkyoung 不是已知的罗马字变体，保留为唯一 high 待核实项；无银行流水仍不算佐证。
 
 ## 深度核查加项与红色标记（2026-09-16）

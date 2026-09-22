@@ -1037,7 +1037,7 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     // adds no latency; its findings feed the scoring prompt below.
     const coherenceModel = await getModelForUser('screening', userData.user.id)
     const coherenceDef = (await getModelDefAsync(coherenceModel)) ?? getModelDef(DEFAULT_MODELS.screening)!
-    const coherencePromise: Promise<CoherenceReview> = runCoherenceReview({
+    const coherenceArgs = {
       contentBlocks,
       model: coherenceDef,
       meta: usageMeta,
@@ -1046,7 +1046,14 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
         phone: phoneMatch ? `${phoneMatch[1]}${phoneMatch[2]}${phoneMatch[3]}` : null,
         email: emailMatch ? emailMatch[0].toLowerCase() : null,
       },
-    }).catch((e): CoherenceReview => ({ status: 'failed', model: coherenceModel, anomalies: [], documents: [], error: String(e?.message || e).slice(0, 200), elapsed_ms: 0 }))
+    }
+    // runCoherenceReview never throws — it returns status 'failed'. One
+    // retry on a provider-side 5xx / network failure (case 28: a transient
+    // OpenAI 500 cost the whole pass, and with it the ID-name reconciliation
+    // and the per-document readings).
+    const coherencePromise: Promise<CoherenceReview> = runCoherenceReview(coherenceArgs)
+      .then(async (r) => (r.status === 'failed' && /http 5\d\d|fetch failed|timeout|ECONNRESET|overloaded/i.test(r.error || '')) ? runCoherenceReview(coherenceArgs) : r)
+      .catch((e): CoherenceReview => ({ status: 'failed', model: coherenceModel, anomalies: [], documents: [], error: String(e?.message || e).slice(0, 200), elapsed_ms: 0 }))
 
     const [courtDetail, forensicsReport, coherence] = await Promise.all([
       runCourtRecordCheck(nameForLookup, plan).then(async r => {
@@ -2296,7 +2303,10 @@ If the uploaded evidence does not support the dimension, score it per the rubric
     // the model's reading of THAT file has a surname initial equal to the
     // DL initial, the "unverified" medium is the OCR's mistake, not the
     // card's: replace it with the corroboration the check would have made.
-    if (coherence.status === 'ok') {
+    {
+      // runs with or without the coherence pass (it failed outright on one
+      // run of case 28; extracted_names still carried the co-applicant)
+      const coherenceDocs = coherence.status === 'ok' ? coherence.documents : []
       for (const pf of forensicsReport.per_file) {
         const idx = pf.flags.findIndex(fl => fl.code === 'id_dl_surname_unverified')
         if (idx < 0) continue
@@ -2304,7 +2314,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         // the number is printed twice on a card + temporary licence: one
         // flag per occurrence, all of them resolved together
         const dupIdx = pf.flags.map((fl, i) => (i !== idx && fl.code === 'id_dl_surname_unverified' && fl.evidence_en.includes(`starts with "${initial}"`)) ? i : -1).filter(i => i >= 0)
-        const doc = coherence.documents.find(d => d.file === pf.file_name || d.file.toLowerCase() === pf.file_name.toLowerCase())
+        const doc = coherenceDocs.find(d => d.file === pf.file_name || d.file.toLowerCase() === pf.file_name.toLowerCase())
         // Also the applicant names the scoring pass extracted, when one of
         // them is the OCR'd card name give or take a letter (HUJJUN ~ Huijun)
         // — the coherence pass skipped every ID file on one run of case 28.
