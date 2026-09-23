@@ -24,8 +24,8 @@ const CLAUSES = [
     num: 4,
     title: { zh: '租金', en: 'Rent' },
     body: {
-      zh: '月租 CAD $2,800,每月 1 号前付清。延期 5 天以上,房东有权按 LTB N4 流程发出通知。',
-      en: 'Rent is CAD $2,800/month, due by the 1st of each month. After 5 days late, the landlord may issue notice via the LTB N4 process.',
+      zh: '月租 CAD $2,800,每月 1 号前付清。逾期次日房东即可发 N4 通知,终止日至少在送达后 7 天(2026-09-21 起)。',
+      en: 'Rent is CAD $2,800/month, due by the 1st of each month. From the day after it is late the landlord may serve an N4, ending no earlier than 7 days after service (since 2026-09-21).',
     },
     explain: {
       zh: '解释: 这是 Ontario 标准 RTA 第 109 条要求,延期 5 天是法律允许的 grace period。',
@@ -94,8 +94,8 @@ const RIGHTS: Array<{ zh: string; en: string }> = [
     en: 'A rent increase needs 90 days written notice (Form N1), and only once every 12 months',
   },
   {
-    zh: '2026 指导上限 2.5%（2018/11 后首次入住单位豁免）',
-    en: '2026 guideline cap is 2.5% (units first occupied after Nov 2018 are exempt)',
+    zh: '指导上限按涨租生效年份计：2026 年 2.1%、2027 年 1.9%（2018/11 后首次入住单位豁免）',
+    en: 'Guideline by the year the increase takes effect: 2.1% for 2026, 1.9% for 2027 (units first occupied after Nov 2018 are exempt)',
   },
   {
     zh: '房东进入须提前 24 小时书面通知',

@@ -16,8 +16,11 @@
 // Idempotency is by (lease_id, stage): each stage is proposed at most once
 // per lease, ever — decided or not, we never re-nag.
 import { daysBetween, isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
+import { guidelineFor } from '@/lib/ontario/rules'
 
-export const GUIDELINE_PCT = 2.5
+// The guideline is per calendar year of the increase's effective date (RTA
+// s.120; 2026 = 2.1%, 2027 = 1.9%) — see lib/ontario/rules.ts RENT_GUIDELINE.
+// A renewal increase takes effect when the current term ends.
 export const WINDOW_DAYS = 120
 export const NOTICE_DAYS = 90
 
@@ -78,7 +81,8 @@ function fmt(n: number): string {
 
 export function buildRenewalProposal(userId: string, l: RenewalLease, today: Date, market?: MarketLine | null): RenewalProposal {
   const rent = Number(l.monthly_rent) || 0
-  const raised = Math.round(rent * (1 + GUIDELINE_PCT / 100) * 100) / 100
+  const g = guidelineFor(l.end_date)
+  const raised = Math.round(rent * (1 + g.pct / 100) * 100) / 100
   const end = parseDateOnly(l.end_date) ?? todayUtc(today)
   const noticeDeadline = new Date(end.getTime() - NOTICE_DAYS * 86_400_000)
   const daysToEnd = daysBetween(todayUtc(today), end)
@@ -91,7 +95,8 @@ export function buildRenewalProposal(userId: string, l: RenewalLease, today: Dat
     title: `续约窗口 · 90 天触点：${tenant} · ${l.end_date} 到期（还有 ${daysToEnd} 天）`,
     summary:
       `${l.unit_label || '你的单元'} 月租 $${fmt(rent)}。` +
-      `方案 A 不涨续约；方案 B 按 2026 指导上限 +${GUIDELINE_PCT}% → $${fmt(raised)}` +
+      `方案 A 不涨续约；方案 B 按 ${g.year} 年指导上限 +${g.pct}% → $${fmt(raised)}` +
+      (g.published ? '' : `（${g.year} 年指导比例尚未公布，暂按最新已公布值）`) +
       `（2018-11-15 后首次入住的单位不受上限约束）。` +
       (mkt ? `${mkt}` : '') +
       `N1/N2 需提前 ${NOTICE_DAYS} 天送达 — 最晚 ${isoDate(noticeDeadline)}。批准后我会把续约函真实发送给 ${l.tenant_email || tenant}。`,
@@ -109,7 +114,8 @@ export function buildRenewalProposal(userId: string, l: RenewalLease, today: Dat
       unit_label: l.unit_label,
       current_rent: rent,
       guideline_rent: raised,
-      guideline_pct: GUIDELINE_PCT,
+      guideline_pct: g.pct,
+      guideline_year: g.year,
       end_date: l.end_date,
       notice_deadline: isoDate(noticeDeadline),
       market: market ? { period: market.period, avg_by_bed: market.avg_by_bed } : null,

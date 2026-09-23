@@ -91,8 +91,8 @@ export default function LandlordFinancePage() {
   const insights: AIInsight[] = [
     {
       text: {
-        zh: 'Unit 1207 当前租金低于同区中位数约 6%。Month 11 续约时可建议 +2.5%（2026 合规上限）。',
-        en: 'Unit 1207 rents about 6% under the area median. At Month 11 you can propose +2.5% (the 2026 legal cap).',
+        zh: 'Unit 1207 当前租金低于同区中位数约 6%。Month 11 续约时可建议按生效年份的指导上限涨租（2026 年 2.1%、2027 年 1.9%）。',
+        en: 'Unit 1207 rents about 6% under the area median. At Month 11 you can propose the guideline for the effective year (2.1% for 2026, 1.9% for 2027).',
       },
       action: {
         label: { zh: '生成续约方案', en: 'Draft renewal options' },
@@ -484,8 +484,8 @@ function MarketBenchmark({ lang }: { lang: Lang }) {
       )}
       <p className="mt-2.5 border-t border-line-divider pt-2 text-[11px] leading-relaxed text-body-3">
         {zh
-          ? '涨租仍受 2026 指导上限 2.5% 约束；2018 年 11 月后首次入住的单位豁免。'
-          : 'Rent increases remain bound by the 2026 guideline cap of 2.5%; units first occupied after November 2018 are exempt.'}
+          ? '涨租仍受指导上限约束（2026 年 2.1%、2027 年 1.9%，按生效年份）；2018 年 11 月后首次入住的单位豁免。'
+          : 'Rent increases remain bound by the guideline (2.1% for 2026, 1.9% for 2027, by effective year); units first occupied after November 2018 are exempt.'}
       </p>
     </div>
   )

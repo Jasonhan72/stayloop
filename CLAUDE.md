@@ -932,6 +932,29 @@ cron 的实机探测（全部在 begin…rollback 里以 anon / authenticated �
 - 联邦注册库 ingest：截断下载被当成功（2026-09-05 那次 168 MB / 0 个 XML / 「Done」，库停在 08-02）——现在 Content-Length
   不符、unzip 非零、0 个 XML 都直接失败，并且每行写 `last_seen_at`。登录回调页显示 GoTrue 的真实错误（此前一律「登录链接已失效」）。
 
+## 安省 2026 年租房新规落地（2026-09-23 · 用户要求「查最近生效的新规并落实到 Stayloop」）
+
+官方来源：ontario.ca 租金指导页、Tribunals Ontario LTB 运营更新（2026-06-30、2026-09-21）、Bill 60（S.O. 2025 c.14）法案页、
+多伦多市 Rental Renovation Licence 页。**最大的错误是全站把 2026 年指导上限写成 2.5%——实际 2026 年 2.1%、2027 年 1.9%**
+（2.5% 是法定封顶，2024/2025 才是 2.5%）：续约卡方案 B、续约函执行器（写死 `1.025`）、租客/房东/经纪三个事实包、房东租约页 N 表工具箱
+与 LTB 提醒、租客租约/付款页、财务页、争议样例页全部在算错的数字上。单一来源 `lib/ontario/rules.ts`：
+- `RENT_GUIDELINE` 表（按涨租**生效年份**：2024 2.5 / 2025 2.5 / 2026 2.1 / 2027 1.9）+ `guidelineFor(date)`（未知年份回退最新已公布值并标
+  `published:false`，续约卡会注明「尚未公布」）+ `n1DeadlineFor`（2027-01-01 生效 → N1 最晚 2026-10-03）+ `GUIDELINE_TEXT`（拼进规则文本与
+  提示词）。**明年 6 月省里公布 2028 年数字时只改这张表。** `renewalStages.buildRenewalProposal` 与 `execute` 的续约函按租约到期日所在年取值。
+- 新增 area `tenancy`（/rules 页「租期中 · 2026 年新规」）共 11 条：`RTA-59-n4-7-days`（N4 终止日 ≥ 送达后 7 天、邮寄 +5、2026/09 版、旧版
+  2026-11-30 后拒收）、`RTA-58-persistent-late`（6 个月内 3 次 >7 天迟付；`persistentLatePayment()` 纯函数，`/h/[id]` 租金记录按此显示提示——
+  只记录不发通知）、`RTA-82-half-arrears`（欠租听证提问题先付一半欠款）、`RTA-48-1-n12-120-days`（≥120 天免一个月补偿、买家自用除外、60 天内入住）、
+  `RTA-53-n13-first-refusal`（回迁权义务、T5 期限）、`TOR-53-2025-renovation-licence`（多伦多 N13 后 7 天内申请、2026 年 $728/单元、搬家补贴
+  $1,500/$2,500、3 个月租金差价）、`RTA-209-review-15-days`（复审 15 天、AGI 送达 7 天）、`RTA-206-payment-agreement-form`、`RTA-36-1-tenant-ac`
+  （租客可自装空调；`checkLeaseTerms` 对附表 B 的禁装空调条款 block）、`RTA-238-fines-doubled`、`LTB-forms-2026-09`。
+  `N4_TERMINATION_DAYS` / `n4EarliestTermination()` / `TORONTO_RENOVATION_LICENCE` 常量给工具箱与文案用。
+- **没有变、要守住的**：固定租约到期仍自动转月租（RTA s.38）——Bill 60 曾提议取消，未通过，`RTA-38-month-to-month` 规则文本已注明；
+  标准租约 2229E 仍是 2020-12 版；N9 60 天不变。
+- 提示词：`lib/agent/prompts.ts` 新增 `BILL60_FACTS`（口语版，注入租客续约专线 `RTA_RENEWAL_FACTS` 与经纪 `AGENT_LEASING_FACTS`），指导上限
+  一律从 `GUIDELINE_TEXT` 读；房东租约页 N 表工具箱 N1/N4/N12 改写并新增 N13 卡（多伦多许可证）。
+守卫 `tests/ontarioRules2026.spec.ts`（10 条：年份表、N1 截止日、续约卡按年取值、N4 7/12 天、持续迟付三例、空调条款、11 条规则的生效日、
+事实包内容、**八个文件里不得再出现「2026 … 2.5%」或 `1.025`**）。
+
 ## 三角色端到端模拟（2026-09-23 · 生产 · 测试数据带 `[TEST]` 前缀，正式发布前不删）
 
 用户要求「开三个角色的测试账号，把方案全部实现，然后分别模拟三个角色跑通所有环节」。账号（密码都是 `Test1234`，

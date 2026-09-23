@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { rentSchedule } from '@/lib/household/schedule'
+import { persistentLatePayment } from '@/lib/ontario/rules'
 
 interface Household {
   id: string; address: string; unit: string | null; city: string | null
@@ -181,6 +182,8 @@ export default function HouseholdHub() {
   const address = [household.address, household.unit ? `#${household.unit}` : null, household.city].filter(Boolean).join(', ')
   const schedule = rentSchedule(household.start_date, household.rent_due_day)
   const paidByDue = new Map(payments.map((p) => [p.due_date, p]))
+  // RTA s.58(1.1) (in force 2026-09-21): >7 days late, 3 times in 6 months.
+  const lateness = persistentLatePayment(payments)
   const TABS: Array<{ id: Tab; zh: string; en: string }> = [
     { id: 'overview', zh: '概览', en: 'Overview' },
     { id: 'messages', zh: '对话', en: 'Messages' },
@@ -293,6 +296,17 @@ export default function HouseholdHub() {
           <p className="mt-1 text-[11.5px] text-body-3">
             {zh ? '只做记录与提醒,不经手资金。标记后各方可见。' : 'Records and reminders only — no money moves through Stayloop.'}
           </p>
+          {lateness.late.length > 0 && (
+            <div className={'mt-3 rounded-lg px-3 py-2 text-[12px] ' + (lateness.persistent ? 'bg-danger/10 text-danger' : 'bg-amber-50 text-amber-800')}>
+              {lateness.persistent
+                ? (zh
+                  ? `已构成 RTA s.58 定义的「持续迟付」：${lateness.window![0]} 至 ${lateness.window![1]} 期间 3 次在到期日 7 天后才付（2026-09-21 起的法定定义，N8 终止理由）。这里只做记录，Stayloop 不会代发任何通知。`
+                  : `Meets the RTA s.58 definition of persistent late payment: three payments more than 7 days late between ${lateness.window![0]} and ${lateness.window![1]} (statutory definition since 2026-09-21; an N8 ground). Record only — Stayloop sends no notice.`)
+                : (zh
+                  ? `迟付（到期日 7 天后）${lateness.late.length} 次：${lateness.late.join('、')}。6 个月内满 3 次即为 RTA s.58 的「持续迟付」。`
+                  : `${lateness.late.length} payment(s) more than 7 days late: ${lateness.late.join(', ')}. Three within 6 months meets the RTA s.58 definition of persistent late payment.`)}
+            </div>
+          )}
           {schedule.length === 0 ? (
             <p className="mt-5 text-[13px] text-body-3">{zh ? '缺少起租日或交租日,无法生成账期。' : 'Needs a start date and due day to build the schedule.'}</p>
           ) : (

@@ -37,8 +37,8 @@ const DEPOSITS = [
     item: { zh: '最后一月租金押金', en: "Last month's rent deposit" },
     amount: 2800,
     note: {
-      zh: '按 RTA s.106 计息（2026 指导利率 2.5%）· 抵扣租期最后一个月（2027 年 5 月）',
-      en: 'Interest per RTA s.106 (2026 guideline rate 2.5%) · applied to the final month (May 2027)',
+      zh: '按 RTA s.106 计息（利率 = 当年指导比例，2026 年 2.1%）· 抵扣租期最后一个月（2027 年 5 月）',
+      en: 'Interest per RTA s.106 (rate = that year’s guideline, 2.1% for 2026) · applied to the final month (May 2027)',
     },
     status: { zh: '2025-08-01 收讫', en: 'Received 2025-08-01' },
     tone: 'ok' as const,

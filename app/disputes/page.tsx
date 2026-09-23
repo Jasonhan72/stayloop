@@ -36,7 +36,7 @@ const CASES: { id: string; title: LS; parties: LS; statusLabel: LS; color: strin
   {
     id: 'DSP-7K2L',
     title: { zh: '租金涨幅争议 · DSP-7K2L', en: 'Rent increase dispute · DSP-7K2L' },
-    parties: { zh: 'D. Tay (租客) ⇄ 房东 · 涨幅 4.8% 超过 2026 安省指引 2.5% · 等仲裁员合议', en: 'D. Tay (tenant) ⇄ landlord · 4.8% increase exceeds the 2026 Ontario guideline of 2.5% · awaiting arbitrator deliberation' },
+    parties: { zh: 'D. Tay (租客) ⇄ 房东 · 涨幅 4.8% 超过 2026 安省指引 2.1% · 等仲裁员合议', en: 'D. Tay (tenant) ⇄ landlord · 4.8% increase exceeds the 2026 Ontario guideline of 2.1% · awaiting arbitrator deliberation' },
     statusLabel: { zh: '合议中', en: 'In deliberation' },
     color: '#00ACE4',
     day: 'DAY 4 / 14',
@@ -54,7 +54,7 @@ const CASES: { id: string; title: LS; parties: LS; statusLabel: LS; color: strin
 const CLOSED: { id: string; kind: LS; outcome: LS; how: LS; days: LS }[] = [
   { id: 'DSP-9X1A', kind: { zh: '退租 / 押金', en: 'Move-out / deposit' }, outcome: { zh: '押金原额返还 + $120 利息', en: 'Full deposit returned + $120 interest' }, how: { zh: '和解', en: 'Settled' }, days: { zh: '5.2 天', en: '5.2 days' } },
   { id: 'DSP-7P3K', kind: { zh: '装修工损坏', en: 'Contractor damage' }, outcome: { zh: 'Stripe 自动扣 $340', en: '$340 auto-debited via Stripe' }, how: { zh: '和解', en: 'Settled' }, days: { zh: '2.1 天', en: '2.1 days' } },
-  { id: 'DSP-5M8B', kind: { zh: '违法涨租', en: 'Illegal rent increase' }, outcome: { zh: '退还 $186 + 未来 12 月按 2.5%', en: '$186 refunded + capped at 2.5% for next 12 months' }, how: { zh: '仲裁裁定', en: 'Arbitration ruling' }, days: { zh: '8.7 天', en: '8.7 days' } },
+  { id: 'DSP-5M8B', kind: { zh: '违法涨租', en: 'Illegal rent increase' }, outcome: { zh: '退还 $186 + 未来 12 月按 2.1%', en: '$186 refunded + capped at 2.1% for next 12 months' }, how: { zh: '仲裁裁定', en: 'Arbitration ruling' }, days: { zh: '8.7 天', en: '8.7 days' } },
   { id: 'DSP-3R6Q', kind: { zh: '提前驱逐', en: 'Early eviction' }, outcome: { zh: '房东撤销 + 赔 1 月房租', en: 'Landlord withdrew + 1 month rent compensation' }, how: { zh: '升级 LTB', en: 'Escalated to LTB' }, days: { zh: '14 天', en: '14 days' } },
   { id: 'DSP-1V4W', kind: { zh: '水患损失', en: 'Flood damage' }, outcome: { zh: '保险走 + 临时安置', en: 'Insurance covered + temporary housing' }, how: { zh: '和解', en: 'Settled' }, days: { zh: '3.4 天', en: '3.4 days' } },
 ]

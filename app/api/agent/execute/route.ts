@@ -21,7 +21,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, renderAgentMessageEmail, renderRentReminderEmail } from '@/lib/email'
 import { sendLeaseInvitation, leaseSendPreflight, buildLeaseInvite, type LeaseForSend } from '@/lib/lease/sendLease'
-import { decisionNoticeFooter } from '@/lib/ontario/rules'
+import { decisionNoticeFooter, guidelineFor } from '@/lib/ontario/rules'
 
 export const runtime = 'edge'
 
@@ -171,14 +171,18 @@ async function executeSendRenewalLetter(
   }
   // Facts come from the lease row; only the option/guideline maths may come
   // from the proposal, and the guideline is re-derived from the lease rent.
+  // Guideline for the year the increase takes effect (RTA s.120): 2026 is
+  // 2.1%, 2027 is 1.9% — never a hard-coded 2.5%.
+  const g = guidelineFor(lease.end_date)
   const m = {
     ...m0,
     tenant_email: lease.tenant_email,
     tenant_name: lease.tenant_name,
     unit_label: lease.unit_label,
     current_rent: lease.monthly_rent,
-    guideline_rent: lease.monthly_rent != null ? Math.round(lease.monthly_rent * 1.025 * 100) / 100 : undefined,
-    guideline_pct: 2.5,
+    guideline_rent: lease.monthly_rent != null ? Math.round(lease.monthly_rent * (1 + g.pct / 100) * 100) / 100 : undefined,
+    guideline_pct: g.pct,
+    guideline_year: g.year,
     end_date: lease.end_date,
   }
 
@@ -200,7 +204,7 @@ async function executeSendRenewalLetter(
 
 Your current lease for ${unit} ends on ${m.end_date}. Your landlord would like to offer a renewal:
 
-  • Proposed monthly rent: $${(rent ?? 0).toLocaleString()}${option === 'B' ? ` (current $${(m.current_rent ?? 0).toLocaleString()} + ${m.guideline_pct ?? 2.5}% — within Ontario's 2026 rent increase guideline)` : ' (unchanged)'}
+  • Proposed monthly rent: $${(rent ?? 0).toLocaleString()}${option === 'B' ? ` (current $${(m.current_rent ?? 0).toLocaleString()} + ${m.guideline_pct}% — within Ontario's ${m.guideline_year} rent increase guideline)` : ' (unchanged)'}
   • New term: 12 months from ${m.end_date}
 
 Reply to this email to accept, discuss, or ask questions. Under Ontario's Residential Tenancies Act you may also choose to continue month-to-month on your existing terms.

@@ -13,7 +13,106 @@
 // relies on, not a legal history.
 
 export type RuleSeverity = 'block' | 'warn' | 'info'
-export type RuleArea = 'listing' | 'lease' | 'screening' | 'notice' | 'agent' | 'renewal'
+export type RuleArea = 'listing' | 'lease' | 'screening' | 'notice' | 'agent' | 'renewal' | 'tenancy'
+
+// ── Rent increase guideline (RTA s.120) ─────────────────────────────────────
+// Published each year by the province (ontario.ca/page/residential-rent-increases),
+// capped at 2.5% by statute. Keyed by the calendar year the increase TAKES
+// EFFECT — an increase effective 2027-01-01 uses the 2027 figure even when
+// the N1 is served in 2026. Add the next year here when the province
+// announces it (usually late June) and nothing else needs to change.
+export const RENT_GUIDELINE: Record<number, number> = {
+  2024: 2.5,
+  2025: 2.5,
+  2026: 2.1,
+  2027: 1.9,
+}
+export const RENT_GUIDELINE_CAP = 2.5
+export const N1_NOTICE_DAYS = 90
+
+export type GuidelineLookup = { year: number; pct: number; published: boolean }
+
+/** Guideline for the year an increase takes effect. Unknown future years
+ *  fall back to the latest published figure and say so (`published:false`)
+ *  so callers can hedge instead of inventing a number. */
+export function guidelineFor(effective: string | Date | null | undefined): GuidelineLookup {
+  const d = effective instanceof Date ? effective : effective ? new Date(effective) : new Date()
+  const year = Number.isFinite(d.getTime()) ? d.getUTCFullYear() : new Date().getUTCFullYear()
+  const years = Object.keys(RENT_GUIDELINE).map(Number).sort((a, b) => a - b)
+  if (RENT_GUIDELINE[year] != null) return { year, pct: RENT_GUIDELINE[year], published: true }
+  const latest = years[years.length - 1]
+  const earliest = years[0]
+  if (year < earliest) return { year, pct: RENT_GUIDELINE[earliest], published: false }
+  return { year, pct: RENT_GUIDELINE[latest], published: false }
+}
+
+/** Latest date an N1 may be served for an increase effective on `effective`
+ *  (RTA s.116: at least 90 days before). ISO date, UTC. */
+export function n1DeadlineFor(effective: string): string {
+  const d = new Date(`${effective.slice(0, 10)}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - N1_NOTICE_DAYS)
+  return d.toISOString().slice(0, 10)
+}
+
+// ── N4 (RTA s.59, as amended by Bill 60 · in force 2026-09-21) ──────────────
+export const N4_TERMINATION_DAYS = 7
+export const N4_MAIL_DEEMED_SERVICE_DAYS = 5
+export const N4_OLD_FORMS_REJECTED_AFTER = '2026-11-30'
+
+/** Earliest termination date an N4 may state for a notice served on
+ *  `served` by the given method (mail adds five deemed-service days). */
+export function n4EarliestTermination(served: string, method: 'hand' | 'mail' | 'email' = 'hand'): string {
+  const d = new Date(`${served.slice(0, 10)}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + N4_TERMINATION_DAYS + (method === 'mail' ? N4_MAIL_DEEMED_SERVICE_DAYS : 0))
+  return d.toISOString().slice(0, 10)
+}
+
+// ── Persistent late payment (RTA s.58(1.1) + regulation · 2026-09-21) ───────
+// "Rent received more than seven days after the due date, at least three
+// times within any six-month period" (payments applied to other amounts owed
+// do not count). Deterministic over the ledger rows we hold.
+export const PERSISTENT_LATE_GRACE_DAYS = 7
+export const PERSISTENT_LATE_COUNT = 3
+export const PERSISTENT_LATE_WINDOW_MONTHS = 6
+
+export type LedgerRow = { due_date: string; paid_at: string | null; status?: string | null }
+
+export function persistentLatePayment(rows: LedgerRow[], asOf: string | Date = new Date()): { late: string[]; persistent: boolean; window?: [string, string] } {
+  const now = asOf instanceof Date ? asOf : new Date(asOf)
+  const lateDues: string[] = []
+  for (const r of rows) {
+    if (!r.due_date) continue
+    const due = new Date(`${r.due_date.slice(0, 10)}T00:00:00Z`)
+    if (!Number.isFinite(due.getTime())) continue
+    const grace = new Date(due.getTime() + PERSISTENT_LATE_GRACE_DAYS * 86_400_000)
+    if (r.paid_at) {
+      const paid = new Date(r.paid_at)
+      if (Number.isFinite(paid.getTime()) && paid.getTime() > grace.getTime()) lateDues.push(r.due_date.slice(0, 10))
+    } else if (r.status === 'late' || (now.getTime() > grace.getTime() && r.status !== 'paid')) {
+      // Unpaid past the grace period counts once it is more than 7 days late.
+      if (now.getTime() > grace.getTime()) lateDues.push(r.due_date.slice(0, 10))
+    }
+  }
+  lateDues.sort()
+  for (let i = 0; i + PERSISTENT_LATE_COUNT - 1 < lateDues.length; i++) {
+    const first = new Date(`${lateDues[i]}T00:00:00Z`)
+    const last = new Date(`${lateDues[i + PERSISTENT_LATE_COUNT - 1]}T00:00:00Z`)
+    const limit = new Date(first)
+    limit.setUTCMonth(limit.getUTCMonth() + PERSISTENT_LATE_WINDOW_MONTHS)
+    if (last.getTime() < limit.getTime()) return { late: lateDues, persistent: true, window: [lateDues[i], lateDues[i + PERSISTENT_LATE_COUNT - 1]] }
+  }
+  return { late: lateDues, persistent: false }
+}
+
+// ── Toronto Rental Renovation Licence (By-law 53-2025 · 2025-07-31) ─────────
+export const TORONTO_RENOVATION_LICENCE = {
+  applyWithinDays: 7,
+  feePerUnit: 728, // 2026 fee; $700 in 2025
+  movingAllowance: { studioOrOneBed: 1500, twoPlusBed: 2500 },
+  severanceMonthsOfRentGap: 3,
+  since: '2025-07-31',
+  url: 'https://www.toronto.ca/services-payments/permits-licences-bylaws/renovictions-bylaw-development/',
+} as const
 
 export type Rule = {
   id: string
@@ -26,6 +125,15 @@ export type Rule = {
   severity: RuleSeverity
   since: string
 }
+
+/** One line stating every published guideline year, for rule text and prompts. */
+export const GUIDELINE_TEXT = (() => {
+  const years = Object.keys(RENT_GUIDELINE).map(Number).sort((a, b) => a - b).filter((y) => y >= 2026)
+  return {
+    zh: years.map((y) => `${y} 年 ${RENT_GUIDELINE[y]}%`).join('、'),
+    en: years.map((y) => `${y}: ${RENT_GUIDELINE[y]}%`).join(', '),
+  }
+})()
 
 export const ONTARIO_RULES: Rule[] = [
   {
@@ -77,15 +185,15 @@ export const ONTARIO_RULES: Rule[] = [
     enforcement: { zh: '续约 90 天触点写明 N1 截止日；60 天触点在截止已过时只允许不涨或月租。', en: '90-day renewal touchpoint states the N1 deadline; the 60-day checkpoint drops the increase once it passes.' },
   },
   {
-    id: 'RTA-120-guideline', area: 'renewal', statute: 'RTA s.120 · 2026 guideline 2.5%', severity: 'block', since: '2026-01-01',
+    id: 'RTA-120-guideline', area: 'renewal', statute: `RTA s.120 · ${GUIDELINE_TEXT.en}`, severity: 'block', since: '2026-01-01',
     title: { zh: '涨幅不超过年度指导比例', en: 'Increase within the annual guideline' },
-    summary: { zh: '2026 年指导比例 2.5%；2018-11-15 后首次入住的单位不受此限（s.6.1）。', en: '2026 guideline is 2.5%; units first occupied after 2018-11-15 are exempt (s.6.1).' },
-    enforcement: { zh: '续约方案 B 按 2.5% 计算并注明豁免。', en: 'Renewal option B computes 2.5% and states the exemption.' },
+    summary: { zh: `${GUIDELINE_TEXT.zh}（法定封顶 2.5%）；2018-11-15 后首次入住的单位不受此限（s.6.1）。超过指导线须先向 LTB 申请 AGI（s.126）。`, en: `${GUIDELINE_TEXT.en} (statutory cap 2.5%); units first occupied after 2018-11-15 are exempt (s.6.1). Above-guideline increases need LTB approval (s.126).` },
+    enforcement: { zh: '续约方案 B 按涨租生效年份的指导比例计算并注明豁免；N1 截止日按 90 天倒推。', en: 'Renewal option B uses the guideline for the year the increase takes effect and states the exemption; the N1 deadline is 90 days back.' },
   },
   {
     id: 'RTA-38-month-to-month', area: 'renewal', statute: 'RTA s.38(1)', severity: 'info', since: '2007-01-31',
     title: { zh: '到期不续签自动转为月租', en: 'Unrenewed leases continue month-to-month' },
-    summary: { zh: '定期租约到期后按原条款自动转为月租，租客无需搬离。', en: 'A fixed-term lease continues monthly on the same terms; the tenant need not leave.' },
+    summary: { zh: '定期租约到期后按原条款自动转为月租，租客无需搬离。2025 年 Bill 60 曾提议取消此规则，未获通过——仍然有效。', en: 'A fixed-term lease continues monthly on the same terms; the tenant need not leave. Bill 60 (2025) proposed removing this and it was dropped — still in force.' },
     enforcement: { zh: '续约触点与租客提示词均说明。', en: 'Stated in renewal touchpoints and tenant prompts.' },
   },
   {
@@ -93,6 +201,73 @@ export const ONTARIO_RULES: Rule[] = [
     title: { zh: '租客搬离须提前 60 天书面通知', en: 'Tenant move-out needs 60 days’ written notice' },
     summary: { zh: '租客终止租约须以 N9 表格提前 60 天通知，终止日须为租期末日。', en: 'Tenants end a tenancy with Form N9 at least 60 days ahead, ending on the last day of a rental period.' },
     enforcement: { zh: '30 天续约意向邮件中说明。', en: 'Stated in the 30-day intent email.' },
+  },
+  // ── Tenancy in progress · Bill 60 (S.O. 2025 c.14) / Bill 97 (2023), in force 2026-07-01 and 2026-09-21 ──
+  {
+    id: 'RTA-59-n4-7-days', area: 'tenancy', statute: 'RTA s.59(1) · Bill 60 · N4 (2026/09)', severity: 'warn', since: '2026-09-21',
+    title: { zh: '欠租通知 N4 的终止日至少 7 天后', en: 'N4 termination date at least 7 days out' },
+    summary: { zh: '2026-09-21 起，N4 的终止日不得早于送达后 7 天（此前 14 天）；邮寄送达另加 5 天视为送达期。租金逾期次日即可送达。必须用 2026/09 版表格，旧版 2026-11-30 后不再受理。', en: 'From 2026-09-21 an N4 may end the tenancy no earlier than 7 days after service (was 14); mail adds 5 deemed-service days. Serve any day after the due date. Use the 2026/09 form; older versions are rejected after 2026-11-30.' },
+    enforcement: { zh: '房东租约页 N 表工具箱与租金提醒执行器按 7 天计算最早终止日；助手事实包同步。', en: 'The N-form toolbox and rent-reminder executor compute the earliest termination date at 7 days; assistant fact packs match.' },
+  },
+  {
+    id: 'RTA-58-persistent-late', area: 'tenancy', statute: 'RTA s.58(1.1) + O. Reg. · Bill 60', severity: 'info', since: '2026-09-21',
+    title: { zh: '「持续迟付」有了法定定义', en: '“Persistent late payment” is now defined' },
+    summary: { zh: '6 个月内 3 次以上在到期日 7 天后才付租即构成持续迟付（N8 终止理由）；被冲抵其他欠款的付款不算。', en: 'Rent received more than 7 days late at least 3 times within any 6-month period is persistent late payment (an N8 ground); payments applied to other amounts owed do not count.' },
+    enforcement: { zh: '在管租约的租金记录按此定义计算并向房东显示提示（只做记录，不发通知）。', en: 'The managed-tenancy rent ledger computes it and shows the landlord a note (record only, no notice is sent).' },
+  },
+  {
+    id: 'RTA-82-half-arrears', area: 'tenancy', statute: 'RTA s.82(2) · Bill 60', severity: 'info', since: '2026-09-21',
+    title: { zh: '欠租听证上提维修等问题须先付一半欠款', en: 'Raising issues at an arrears hearing needs half the arrears paid' },
+    summary: { zh: '2026-09-21 起提交的 L1 申请，租客要在欠租听证上提出维修或权利问题，须在听证前至少 7 天把申请书上欠款的一半直接付给房东，并仍须提前 7 天书面列出问题。', en: 'For L1 applications filed from 2026-09-21, a tenant who wants to raise maintenance or rights issues at the arrears hearing must pay the landlord half the claimed arrears at least 7 days before the hearing, and still give written notice of the issues 7 days ahead.' },
+    enforcement: { zh: '租客与房东助手事实包说明；Stayloop 不代提交 LTB 申请。', en: 'Stated in tenant and landlord fact packs; Stayloop files nothing with the LTB.' },
+  },
+  {
+    id: 'RTA-48-1-n12-120-days', area: 'tenancy', statute: 'RTA s.48.1(2) · Bill 60 · N12 (2026/09)', severity: 'warn', since: '2026-09-21',
+    title: { zh: '房东自用 N12：提前 120 天可免一个月补偿', en: 'Landlord’s own use (N12): 120 days’ notice waives the compensation' },
+    summary: { zh: '房东本人或家属自用，若提前至少 120 天送达 N12 且终止日为租期末日，不再需要支付一个月补偿或提供替代单位（60–119 天仍需）。买家自用不适用此豁免。房东或指定人须在 N12 终止日后 60 天内入住，否则租客提 T5 时推定恶意。', en: 'For landlord/family own use, an N12 served at least 120 days ahead ending on the last day of a rental period no longer requires one month’s compensation or an alternative unit (60–119 days still does). Purchaser’s own use is not covered. The named person must occupy within 60 days of the termination date or bad faith is presumed on a T5.' },
+    enforcement: { zh: 'N 表工具箱 N12 卡按 120 天规则提示；助手事实包同步。', en: 'The N12 toolbox card states the 120-day rule; assistant fact packs match.' },
+  },
+  {
+    id: 'RTA-53-n13-first-refusal', area: 'tenancy', statute: 'RTA s.53 · Bill 97/60 · N13 (2026/09)', severity: 'warn', since: '2026-09-21',
+    title: { zh: '装修驱逐 N13：优先回迁义务', en: 'Renovation eviction (N13): right-of-first-refusal duties' },
+    summary: { zh: '租客书面表示要回迁的，房东须及时告知预计完工日、时间变动随时更新，并在完工后提前 60 天通知回迁。租客提 T5 的期限改为搬出后 2 年或完工后 6 个月（取较晚者）。', en: 'When the tenant gives written notice they want to return, the landlord must promptly state the expected completion date, update it as it changes, and give 60 days’ notice to reoccupy after the work is done. The T5 deadline is now 2 years after moving out or 6 months after completion, whichever is later.' },
+    enforcement: { zh: 'N 表工具箱 N13 卡说明；多伦多另需装修许可证（见下条）。', en: 'Stated on the N13 toolbox card; Toronto additionally requires a licence (next rule).' },
+  },
+  {
+    id: 'TOR-53-2025-renovation-licence', area: 'tenancy', statute: 'City of Toronto By-law 53-2025 · Chapter 354', severity: 'block', since: '2025-07-31',
+    title: { zh: '多伦多：发 N13 后 7 天内须申请装修许可证', en: 'Toronto: apply for a Rental Renovation Licence within 7 days of an N13' },
+    summary: { zh: '2025-07-31 起，多伦多市内以装修为由发 N13 的房东，须在 7 天内向市府申请 Rental Renovation Licence（2026 年 $728/单元），附建筑许可与 PEO/OAA 持牌人出具的「必须腾空」报告；租客回迁的须提供临时住所或补租金差价，搬家补贴 $1,500（一居及以下）/ $2,500（两居及以上）；不回迁的另付 3 个月租金差价。未申请可罚 $1,000 起、持续违规每日最高 $10,000。', en: 'From 2025-07-31 a Toronto landlord serving an N13 for renovations must apply to the City within 7 days for a Rental Renovation Licence ($728 per unit in 2026) with the building permit and a PEO/OAA report that vacancy is required; returning tenants get temporary housing or rent-gap payments plus a $1,500 (studio/1-bed) or $2,500 (2+ bed) moving allowance; non-returning tenants get three months of rent-gap severance. Fines start at $1,000 and reach $10,000 per day for continuing offences.' },
+    enforcement: { zh: 'N13 工具箱卡对多伦多房源标红并链接市府页面；助手事实包同步。', en: 'The N13 toolbox card flags Toronto units and links the City page; assistant fact packs match.' },
+  },
+  {
+    id: 'RTA-209-review-15-days', area: 'tenancy', statute: 'RTA s.209 · Bill 60', severity: 'info', since: '2026-07-01',
+    title: { zh: 'LTB 裁决复审申请期限 15 天', en: 'LTB order review requests within 15 days' },
+    summary: { zh: '2026-07-01 起，请求 LTB 复审裁决的期限由 30 天缩短为 15 天；AGI 申请的送达指令由 14 天缩为 7 天、送达证明 5 天内提交。', en: 'From 2026-07-01 the window to request review of an LTB order is 15 days (was 30); AGI direction-to-serve is 7 days (was 14) with the certificate of service within 5 days.' },
+    enforcement: { zh: '助手事实包说明。', en: 'Stated in assistant fact packs.' },
+  },
+  {
+    id: 'RTA-206-payment-agreement-form', area: 'tenancy', statute: 'RTA s.206 · Bill 60', severity: 'info', since: '2026-07-01',
+    title: { zh: '欠租还款计划须用 LTB 付款协议表', en: 'Repayment plans must use the LTB Payment Agreement Form' },
+    summary: { zh: '2026-07-01 起，按 s.206 提交的还款计划必须使用 LTB 的 Payment Agreement Form，邮件或信件约定不再受理。', en: 'From 2026-07-01 a s.206 repayment plan must be on the LTB Payment Agreement Form; letters or emails are no longer accepted.' },
+    enforcement: { zh: '租金提醒邮件与助手事实包指向该表格。', en: 'Rent-reminder emails and fact packs point to the form.' },
+  },
+  {
+    id: 'RTA-36-1-tenant-ac', area: 'tenancy', statute: 'RTA s.36.1 · Bill 97', severity: 'info', since: '2026-07-01',
+    title: { zh: '租客可自装窗式 / 移动空调', en: 'Tenants may install a window or portable air conditioner' },
+    summary: { zh: '2026-07-01 起，房东未提供空调的单位，租客书面通知后可自装窗式或移动空调（须安全、合规、不损坏）；租金含电费的，房东可按规定收取季节性电费。租约不得禁止。', en: 'From 2026-07-01 a tenant in a unit without landlord-supplied A/C may install a window or portable unit after written notice (safely and to code); where hydro is included the landlord may charge a prescribed seasonal amount. A lease may not forbid it.' },
+    enforcement: { zh: '租约附加条款检查：禁止空调的条款视为无效并阻止。', en: 'Lease additional-terms check: a clause banning air conditioners is void and blocked.' },
+  },
+  {
+    id: 'RTA-238-fines-doubled', area: 'tenancy', statute: 'RTA s.238 · Bill 97', severity: 'info', since: '2026-07-01',
+    title: { zh: '违反 RTA 的最高罚款翻倍', en: 'Maximum RTA fines doubled' },
+    summary: { zh: '2026-07-01 起，省级检控的最高罚款：个人 $100,000、公司 $500,000（原 $50,000 / $250,000）。', en: 'From 2026-07-01 the maximum fines on provincial prosecution are $100,000 for individuals and $500,000 for corporations (were $50,000 / $250,000).' },
+    enforcement: { zh: '规则页披露。', en: 'Disclosed on the rules page.' },
+  },
+  {
+    id: 'LTB-forms-2026-09', area: 'tenancy', statute: 'LTB operational update 2026-09-21', severity: 'warn', since: '2026-09-21',
+    title: { zh: '新版 LTB 表格，旧版 2026-11-30 后不再受理', en: 'New LTB forms; old versions rejected after 2026-11-30' },
+    summary: { zh: 'N4、N5、N6、N8、N12、N13、L1、L2、L9、L10、T5 已换 2026/09 版；旧版 2026-11-30 前仍受理，之后拒收。', en: 'N4, N5, N6, N8, N12, N13, L1, L2, L9, L10 and T5 have 2026/09 versions; older versions are accepted until 2026-11-30 and rejected after.' },
+    enforcement: { zh: 'N 表工具箱每张卡链接 LTB 表格页并注明版本。', en: 'Every toolbox card links the LTB forms page and names the version.' },
   },
   {
     id: 'OHRC-no-income-cutoff', area: 'screening', statute: 'OHRC Policy on human rights and rental housing · O. Reg. 290/98', severity: 'block', since: '2009-07-01',
@@ -141,6 +316,7 @@ export type ListingInput = {
   schedule_b?: string | null
 }
 
+const AC_BAN_RE = /\b(no|zero)\s+(window\s+|portable\s+)?(air[\s-]?conditioners?|a\/?c\s+units?|ac\s+units?)\b|(air[\s-]?conditioners?|a\/?c\s+units?)\s+(are\s+)?(not\s+(allowed|permitted)|prohibited)|不(许|得|允许|可以?)?(安装|装)?(空调|冷气)|禁止?(安装|装)?(空调|冷气)/i
 const PET_BAN_RE = /\b(no|zero)\s+(pets?|animals?|dogs?|cats?)\b|不(许|得|允许|可以?)?养?(宠物|狗|猫)|禁止?(宠物|养宠|养狗|养猫)|pets?\s+(are\s+)?not\s+(allowed|permitted)/i
 const FEE_RE = /\b(application|screening|credit[- ]check|processing|admin(istration)?)\s+fee\b|申请费|筛查费|信用(检查|查询)费|手续费|管理费(?=[^一-龥]|$)/i
 const PET_DEPOSIT_RE = /\bpet\s+(deposit|fee)\b|宠物(押金|费)|clean(ing)?\s+(deposit|fee)|清洁(押金|费)|damage\s+deposit|损坏押金/i
@@ -190,6 +366,9 @@ export function checkLeaseTerms(input: LeaseTermsInput): { passed: boolean; find
   const sb = input.schedule_b || ''
   if (PET_BAN_RE.test(sb)) {
     f.push({ rule: 'RTA-14-no-pet-clause', statute: 'RTA s.14', severity: 'block', message: { zh: '附表 B 含禁宠条款，该条款无效。', en: 'Schedule B contains a pet ban, which is void.' } })
+  }
+  if (AC_BAN_RE.test(sb)) {
+    f.push({ rule: 'RTA-36-1-tenant-ac', statute: 'RTA s.36.1', severity: 'block', message: { zh: '附表 B 禁止租客安装空调，该条款自 2026-07-01 起无效。', en: 'Schedule B bans air conditioners; such a clause is void since 2026-07-01.' } })
   }
   if (FEE_RE.test(sb) || PET_DEPOSIT_RE.test(sb)) {
     f.push({ rule: 'RTA-134-no-fees', statute: 'RTA s.134', severity: 'block', message: { zh: '附表 B 含额外费用或押金条款。', en: 'Schedule B adds a fee or deposit that is not permitted.' } })

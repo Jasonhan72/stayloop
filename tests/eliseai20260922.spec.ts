@@ -43,7 +43,7 @@ describe('renewal touchpoints 90 / 60 / 30 (item F)', () => {
     expect(out[0].action_type).toBe('send_renewal_letter')
     expect(out[0].metadata.stage).toBe('90d')
     expect(out[0].summary).toContain('TRREB 2026 Q2')
-    expect(out[0].summary).toContain('$2,870')
+    expect(out[0].summary).toContain('$2,859') // 2026 guideline 2.1% (was 2.5% before the 2026 figure was published)
   })
 
   it('a lease entering the window late still gets the letter first, and only one card per run', () => {

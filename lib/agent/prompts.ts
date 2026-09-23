@@ -1,6 +1,7 @@
 // Agent spine — role-aware system prompts for the Personal Agent reasoning
 // loop (architecture §03 personas + §01 principles + §07/§08 approval rules).
 // The model PROPOSES; it never decides or executes. Output is strict JSON.
+import { GUIDELINE_TEXT } from '@/lib/ontario/rules'
 import type { AgentRole, MemoryItem, WorkflowState } from './types'
 
 const PERSONA: Record<AgentRole, { name: string; persona: string; caps: string }> = {
@@ -31,7 +32,20 @@ const PERSONA: Record<AgentRole, { name: string; persona: string; caps: string }
 // 来源:RTA s.105–106(押金)、s.134(禁收费用)、s.12(1)(21 天内交副本)、
 // O. Reg. 9/18(标准租约,2018-04-30 起强制);TRESA 2002 + O. Reg. 567/05
 // (Information Guide、书面代表协议、s.32 自身利益披露);OHRC《租房人权政策》。
+// 2026 年生效的 RTA 修订(Bill 60《Fighting Delays, Building Faster Act, 2025》与 Bill 97,
+// 2026-07-01 与 2026-09-21 两批生效;来源 tribunalsontario.ca LTB 运营更新)。
+// 单一来源在 lib/ontario/rules.ts;这里只是给模型的口语版。
+export const BILL60_FACTS = `- 【2026-09-21 起】欠租通知 N4 的终止日至少在送达后 7 天(此前 14 天;邮寄送达再加 5 天)。租金逾期次日即可送达。必须用 2026/09 新版表格,旧版 2026-11-30 后 LTB 不再受理(N4、N5、N6、N8、N12、N13、L1、L2、L9、L10、T5 都换了版本)。
+- 【2026-09-21 起】「持续迟付」有法定定义:6 个月内 3 次以上在到期日 7 天后才付租(N8 终止理由);被冲抵其他欠款的付款不算。
+- 【2026-09-21 起】租客要在欠租(L1)听证上提维修或权利问题,须在听证前至少 7 天把房东申请书上欠款的一半直接付给房东,并仍须提前 7 天书面列出问题(只适用于 2026-09-21 之后提交的申请)。
+- 【2026-09-21 起】房东本人或家属自用的 N12:提前至少 120 天送达且终止日为租期末日的,不再需要付一个月补偿或提供替代单位(60–119 天仍需);买家自用不适用。房东或指定人须在终止日后 60 天内入住,否则租客提 T5 时推定恶意。
+- 【2026-09-21 起】装修驱逐 N13:租客书面表示要回迁的,房东须及时告知预计完工日、时间变动随时更新、完工后提前 60 天通知回迁;租客提 T5 的期限为搬出后 2 年或完工后 6 个月(取较晚者)。多伦多市内另须在发 N13 后 7 天内向市府申请 Rental Renovation Licence(2026 年 $728/单元,附建筑许可与 PEO/OAA 报告),回迁租客要提供临时住所或补租金差价,搬家补贴 $1,500(一居及以下)/ $2,500(两居及以上)。
+- 【2026-07-01 起】请求 LTB 复审裁决的期限 15 天(此前 30 天);AGI 送达指令 7 天、送达证明 5 天内提交;欠租还款计划必须用 LTB 的 Payment Agreement Form;租客书面通知后可自装窗式或移动空调(租金含电费的房东可收季节性电费),租约不得禁止;最高罚款个人 $100,000、公司 $500,000。
+- 【没有变】固定租约到期仍自动转为月租(RTA s.38)——Bill 60 曾提议取消,未获通过;租客搬离仍需提前 60 天 N9;安省标准租约(2229E,2020-12 版)没有换版。`
+
 export const AGENT_LEASING_FACTS = `## 安省租赁事实包(经纪专线 —— 只可引用下面这些,不得自行补充细节或编造条号)
+- 租金指导上涨上限按涨租生效年份计:${GUIDELINE_TEXT.zh}(法定封顶 2.5%);涨租须提前 90 天 N1、12 个月一次;2018-11-15 后首次入住的单位豁免上限。
+${BILL60_FACTS}
 - 2018 年 4 月 30 日起,安省住宅租约必须使用政府《标准租约》(Ontario Standard Lease);OREA Form 400「Agreement to Lease」只是要约/协议文件,不能代替标准租约,签约时两者一起用,以标准租约为准。
 - 租客签约后 21 天内必须拿到已签署的租约副本(RTA s.12);拿不到副本,租客可以暂缓付租直到拿到。
 - 押金:只能收「租金押金」,最多一个月租金(周租按一周),只能用于抵扣最后一个月租金,不能用于清洁、维修或损坏(RTA s.106);房东每年要按租金指导线利率付押金利息。安省【没有】损坏押金、宠物押金。
@@ -58,8 +72,8 @@ export const RENEWAL_INTENT_RE =
   /续约|續約|续租|續租|涨租|漲租|加租|涨房租|漲房租|租金上涨|租金上漲|租金要涨|涨租金|漲租金|renew(?:al|ing)?\s+(?:my\s+|the\s+)?lease|lease\s+renew|rent\s+increase|(?:raise|raising|increas\w*)\s+(?:my\s+|the\s+)?rent|negotiat|跟房东谈|和房东谈|与房东谈|谈判|談判|N1\s*表|above.guideline|AGI\s*申请|month.to.month|逐月续/i
 
 // RTA 事实包 —— 全部为可公开验证的安省规则(维护者注,来源):
-// - 2026 年租金指导上涨上限 2.5% — Ontario rent increase guideline,安省政府
-//   年度公告(依据 RTA s.120 的计算公式,上限封顶 2.5%)。
+// - 年度租金指导上涨上限来自 lib/ontario/rules.ts RENT_GUIDELINE(2026 年 2.1%、
+//   2027 年 1.9%;RTA s.120,法定封顶 2.5%)——不要在这里写死数字。
 // - 涨租须提前至少 90 天书面通知(N1 表)— RTA s.116。
 // - 12 个月内只能涨一次租 — RTA s.119。
 // - 2018-11-15 之后首次入住的单位不受指导上限约束 — RTA s.6.1(2018 年安省
@@ -68,12 +82,13 @@ export const RENEWAL_INTENT_RE =
 //   不签而驱逐 — RTA s.38(续期)+ s.37(终止只能按法定理由)。
 // - 超过指导线的涨幅须 LTB 批准(above-guideline increase, AGI)— RTA s.126。
 const RTA_RENEWAL_FACTS = `## 安省法规事实包(RTA —— 只可引用下面这些,不得自行补充细节或编造法条编号)
-- 2026 年租金指导上涨上限(rent increase guideline)为 2.5%:受指导约束的单位,房东一年内涨租不得超过这个比例。
+- 租金指导上涨上限(rent increase guideline)按涨租【生效年份】计:${GUIDELINE_TEXT.zh}(法定封顶 2.5%)。受指导约束的单位,房东一年内涨租不得超过生效当年的比例;2027 年 1 月 1 日生效的涨租,N1 最晚要在 2026 年 10 月 3 日送达。
 - 任何涨租都必须提前至少 90 天用书面通知(N1 表)送达;通知不合规,涨租无效。
 - 同一租客 12 个月内最多只能涨一次租。
 - 【重要例外】2018 年 11 月 15 日之后才首次有人入住的单位,不受指导上限约束——这类单位房东可提任意涨幅(但仍须 90 天 N1 书面通知,且 12 个月一次)。
 - 固定租约到期后自动转为 month-to-month(逐月续租),原条款继续有效;租客【没有义务】签新的固定租约,房东也不能因为租客不签新约而驱逐。
-- 受指导约束的单位,房东想超过指导线涨租,必须先向 LTB 申请 above-guideline increase(AGI)获批。`
+- 受指导约束的单位,房东想超过指导线涨租,必须先向 LTB 申请 above-guideline increase(AGI)获批。
+${BILL60_FACTS}`
 
 /** 续约/谈判专线的 system prompt 附加块 —— 仅租客 role、检测到续约意图时注入。
  *  leaseBlock 由服务端从 lease_documents 查出的真实租约渲染(或如实说明没有)。 */
@@ -96,7 +111,7 @@ ${RTA_RENEWAL_FACTS}
 ① 你的租约现状 —— 引用下方真实条款(月租、到期日、租期类型、地址);没有租约记录就如实说明,并请用户提供当前月租和到期日,不要假装知道。
 ② 法规要点 —— 从事实包里挑与这个场景最相关的 3-4 条。
 ③ 市场证据 —— 一句话引导看下方行情卡(如"给你拉了 XX 区的实时行情和 TRREB 官方基准,见下方 👇"),不手写任何价格数字。
-④ 谈判建议与话术要点 —— 基于①②③给出具体策略,例如:核对涨幅是否超 2.5% 指导线(注意单位是否属 2018-11-15 后豁免)、核对 N1 通知是否满 90 天、"到期不签新约自动转 month-to-month"是租客的合法退路、用行情中位价与官方基准还价。
+④ 谈判建议与话术要点 —— 基于①②③给出具体策略,例如:核对涨幅是否超过生效年份的指导线(${GUIDELINE_TEXT.zh};注意单位是否属 2018-11-15 后豁免)、核对 N1 通知是否满 90 天、"到期不签新约自动转 month-to-month"是租客的合法退路、用行情中位价与官方基准还价。
 ⑤ 下一步 —— 可以提议替用户起草一封给房东的回信(proposed_action: send_message,summary 写清信件要点),等用户确认后才会发出。
 
 ${leaseBlock}`

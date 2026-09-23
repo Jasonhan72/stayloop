@@ -14,6 +14,7 @@ const AREAS: { key: RuleArea; zh: string; en: string }[] = [
   { key: 'notice', zh: '决定与通知', en: 'Decisions & notices' },
   { key: 'lease', zh: '租约', en: 'Leases' },
   { key: 'renewal', zh: '续约与退租', en: 'Renewals & move-out' },
+  { key: 'tenancy', zh: '租期中 · 2026 年新规', en: 'During the tenancy · 2026 changes' },
   { key: 'agent', zh: '经纪', en: 'Agents' },
 ]
 
