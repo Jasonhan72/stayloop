@@ -20,7 +20,7 @@ const TABLE: Record<WoAction, { from: WorkOrderStatus[]; by: ActorKind[]; to: Wo
   reject_quote: { from: ['quoted'], by: OWNER, to: 'cancelled' },
   arrive: { from: ['scheduled', 'rework'], by: CONTRACTOR, to: 'in_progress' },
   complete: { from: ['scheduled', 'in_progress', 'rework'], by: CONTRACTOR, to: 'completed' },
-  tenant_confirm: { from: ['completed', 'accepted'], by: ['tenant'], to: (s) => s },
+  tenant_confirm: { from: ['completed', 'accepted', 'paid', 'closed'], by: ['tenant'], to: (s) => s },
   accept_completion: { from: ['completed'], by: OWNER, to: 'accepted' },
   request_rework: { from: ['completed'], by: OWNER, to: 'rework' },
   dispute: { from: ['completed', 'accepted', 'in_progress'], by: [...OWNER, ...CONTRACTOR], to: 'disputed' },

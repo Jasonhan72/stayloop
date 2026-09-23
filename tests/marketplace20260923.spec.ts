@@ -17,6 +17,8 @@ describe('work-order state machine', () => {
     expect(canAct('tenant_confirm', 'completed', 'tenant')).toMatchObject({ ok: true, to: 'completed' })
     expect(canAct('accept_completion', 'completed', 'landlord')).toMatchObject({ ok: true, to: 'accepted' })
     expect(canAct('mark_paid', 'accepted', 'landlord')).toMatchObject({ ok: true, to: 'paid' })
+    // The tenant may still confirm after the landlord paid (first production run 2026-09-23).
+    expect(canAct('tenant_confirm', 'paid', 'tenant').ok).toBe(true)
   })
   it('refuses the wrong actor or the wrong state', () => {
     expect(canAct('approve_quote', 'quoted', 'provider').ok).toBe(false)
