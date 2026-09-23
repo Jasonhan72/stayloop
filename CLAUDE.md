@@ -1759,3 +1759,19 @@ state 直接按浏览器语言渲染，英文访客每个页面都报 React #418
 - **生命周期**：房东 rail 曾在任一租约到期后永远停在租后（现在只看 30 天内到期、无同单元新租约、无仍 verified 的 household）；续约函只在批准后算「已发」；指导比例与 N1 时钟按**涨租生效日**（到期日 + 1）取年份（12-31 到期的租约用下一年的比例）；`signed_tenant` 显示「等房东回签」；受邀未加入的租客通过 `my_pending_invites()` 看到「接受邀请」步骤；还款计划的分期日按月末钳制；`tenancyClock` 按日历月；今日卡只列 ≤14 天的时钟和以数字开头的步骤明细；追踪条不再把「已决定」推断成「筛查已发起」；批量批准并行跑（此前串行等每张 60 秒）；申请队列真实模式删掉 3× 收入行、最高分提示与阈值分组的 CSV；`useAgentSession` 的「+2.5%」文案改掉并进守卫。
 - **界面**：四个页面的 `Shell` 定义在 render 内部导致每次输入都重挂载（输入框失焦）——提到模块级；管理员审计写 `actor_type='admin'` 违反 CHECK 从未落库；清单备注编辑不再覆盖勾选人与时间；派单弹窗 Esc 关闭、目录加载后才回退到「自己的联系人」；时间线 / 状态 / 资质键名双语化；日期按界面语言本地化；争议裁定时管理员身份优先判定。
 - **有意不改**：`providerMetrics` 的返工率按当前状态统计（事件表统计留到 P2）；邀请提醒卡只给 landlord 帽子；`leases_tenant_email_read` 依赖 JWT email（邮箱确认已开）。
+
+## 租客报修弹窗的照片上传（2026-09-23 · 用户截图「点击照片不能上传」）
+
+`/tenant/maintenance` 的 `NewTicketModal` 原是设计样例：五个 📷/+ 方格没有任何 input，「提交」只是 `onClose`，眉标写死「UNIT 1207 · 发给 SARAH」。
+现在是真功能，抽成 `components/tenant/NewTicketModal.tsx`（守卫 `tests/ticketPhotos20260923.spec.ts`）：
+- **照片**：隐藏 `<input type="file" accept="image/*,.heic,.heif" multiple>`，方格即按钮；对象 URL 预览、× 移除、最多 5 张
+  （`lib/household/ticketPhotos.ts acceptTicketPhotos`，iOS 的 HEIC 空 type 按扩展名认）；上传前走 `prepareUploads`（与筛查同一套降采样）。
+- **落库**：先插 `maintenance_tickets`（客户端生成 id、`photos: []`）再传照片、最后 `update photos`——工单必须先到房东手上，照片失败只是「N 张未能上传」。
+  路径 `<household_id>/tickets/<ticket_id>/<n>.<ext>`：**首段必须是 household id**，`tenancy_files_member_write` 按 `foldername[1]` 判成员（生产实测：
+  外人文件夹 400/AccessDenied、非成员签不了 URL）。四个方格类别映射到 triage 类别（hvac→heating_cooling、lock→locks_safety），
+  `isEmergencyMaintenance` 命中即强制 high 并提示 RTA s.20；标题 = 描述首行（≤60 字）。
+- **没有在管租约**：琥珀提示「没有可发送的房东」+ `/leases/import` 链接，提交禁用（不再假装成功）；眉标显示真实地址。
+- **在管租约页与房东看板都能看到照片**：`MaintenancePanel` 选 `photos` 列，`createSignedUrls(…, 600)` 出缩略图（`data-testid="ticket-photos"`）。
+- **诚实态也能到达**：页面 `liveSlot={<LiveTenantTickets>}` 对每份在管租约渲染 `MaintenancePanel`（`onNewTicket` 让「+ 提交报修（可附照片）」
+  打开弹窗），弹窗渲染在 `WorkspaceShell` **之外**——DemoGate 的诚实态不渲染 children，放在里面点了没反应。演示态的页头按钮仍是同一弹窗。
+- 未做：直接从这个弹窗给房东发邮件 / 推送（`maintenance_request` 执行器那条路径才有）；房东在看板上看到即可，等有量再加。
