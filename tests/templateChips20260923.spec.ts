@@ -45,3 +45,15 @@ describe('quick-action templates are edited by the user, not sent as facts', () 
     expect(readFileSync('lib/agent/useAgentSession.ts', 'utf8')).toMatch(/no_landlord_on_file/)
   })
 })
+
+describe('turn model capacity fallback (Gemini 503 outage, 2026-09-23)', () => {
+  it('retries once on the built-in default model for 5xx / 429 / overloaded, never for timeouts', async () => {
+    const { isProviderCapacityError } = await import('../lib/agent/turnHelpers')
+    expect(isProviderCapacityError(new Error('llm http 503: {"error":{"code":503,"message":"This model is currently experiencing high demand."}}'))).toBe(true)
+    expect(isProviderCapacityError(new Error('llm http 429: rate limit'))).toBe(true)
+    expect(isProviderCapacityError(new Error('llm http 400: invalid request'))).toBe(false)
+    expect(isProviderCapacityError(new Error('The operation was aborted due to timeout'))).toBe(false)
+    const src = readFileSync('app/api/agent/turn/route.ts', 'utf8')
+    expect(src).toMatch(/if \(!isProviderCapacityError\(e\) \|\| def\.id === defaultDef\.id \|\| !defaultDef\) throw e/)
+  })
+})

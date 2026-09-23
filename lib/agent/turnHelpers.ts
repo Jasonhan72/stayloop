@@ -115,3 +115,11 @@ export function flattenMarkdown(text: string): string {
     .replace(/`([^`\n]+)`/g, '$1')
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1 $2')
 }
+
+/** 5xx / 429 / "overloaded" / "high demand" from the model provider — the
+ *  kind of failure another provider is immune to. Timeouts are excluded. */
+export function isProviderCapacityError(e: unknown): boolean {
+  const msg = String((e as Error)?.message || e || '')
+  if (/timeout|abort/i.test(msg)) return false
+  return /llm http (5\d\d|429)\b/.test(msg) || /overloaded|high demand|capacity|rate.?limit|resource.?exhausted|unavailable/i.test(msg)
+}

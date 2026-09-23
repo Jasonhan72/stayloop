@@ -58,7 +58,7 @@ export default function AgentInputBar({
   useEffect(() => {
     if (!draft) return
     setValue(draft.text)
-    requestAnimationFrame(() => {
+    const place = () => {
       const ta = taRef.current
       if (!ta) return
       ta.focus()
@@ -67,7 +67,12 @@ export default function AgentInputBar({
       else ta.setSelectionRange(draft.text.length, draft.text.length)
       ta.style.height = 'auto'
       ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`
-    })
+    }
+    // Twice: once after the value commits, once after focus handlers (which
+    // move the caret to the end on some browsers) have run.
+    requestAnimationFrame(place)
+    const t = setTimeout(place, 60)
+    return () => clearTimeout(t)
   }, [draft])
 
   useEffect(() => {

@@ -10,7 +10,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
 import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback } from '@/lib/agent/prompts'
 import { hasUnfilledTemplate, applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
-import { flattenMarkdown } from '@/lib/agent/turnHelpers'
+import { flattenMarkdown, isProviderCapacityError } from '@/lib/agent/turnHelpers'
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
 import { commercialKind, summarizeCommercial } from '@/lib/agent/commercialSearch'
@@ -627,24 +627,41 @@ export async function POST(req: Request) {
     }
     modelUsed = def.id
     turnDef = def
-    const { text } = await llmChat({
-      model: def,
+    const callTurn = (m: CatalogModel) => llmChat({
+      model: m,
       system,
       messages: [{ role: 'user', content: userContent }],
       // openai-compat reasoning models (Kimi 思考型 etc.) spend part of the
       // budget on hidden reasoning_content before visible output — give them
       // headroom so the JSON answer isn't cut. Anthropic keeps 2500.
-      maxTokens: def.provider === 'openai-compat' ? 4000 : 2500,
+      maxTokens: m.provider === 'openai-compat' ? 4000 : 2500,
       temperature: 0.4,
       // 国产 openai-compat 路径强制 json_object，配合下方既有的 JSON 解析
       // + prose 抢救逻辑；Anthropic 路径行为不变（prompt 契约）。
-      jsonMode: def.provider === 'openai-compat',
+      jsonMode: m.provider === 'openai-compat',
       // 75 s: landlord listing-diagnostic answers measured at ~44 s on the
       // turn model — 45 s produced spurious 'turn failed: timeout'. The route
       // heartbeats every 3 s, so the gateway is not a constraint.
       signal: AbortSignal.timeout(75000),
       meta: { userId: anonymous ? null : turnUserId, slot: 'turn', source: 'agent/turn' },
     })
+    let text: string
+    try {
+      ;({ text } = await callTurn(def))
+    } catch (e) {
+      // Provider outage on the configured model (Gemini 3.7 Flash answered
+      // 503 "high demand" for minutes on 2026-09-23 and every turn died with
+      // "agent reasoning unavailable"): retry ONCE on the built-in default.
+      // Only for capacity-type failures (5xx / 429 / overloaded), only when
+      // the configured model is not already the default, and never on
+      // timeouts (the default would just eat the remaining budget too).
+      if (!isProviderCapacityError(e) || def.id === defaultDef.id || !defaultDef) throw e
+      console.warn(`[agent/turn] ${def.id} capacity failure → falling back to ${defaultDef.id}: ${String((e as Error)?.message || '').slice(0, 160)}`)
+      def = defaultDef
+      modelUsed = def.id
+      turnDef = def
+      ;({ text } = await callTurn(def))
+    }
     raw = text
   } catch (e) {
     // Classify LLM failures HERE, once: full detail goes to the server log,
