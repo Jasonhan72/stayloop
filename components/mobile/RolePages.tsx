@@ -12,6 +12,8 @@ import WorkspaceShell from '@/components/WorkspaceShell'
 import PendingActionsPanel from '@/components/agent/PendingActionsPanel'
 import StatusOverview from '@/components/agent/StatusOverview'
 import WorkflowStatusPanel from '@/components/agent/WorkflowStatusPanel'
+import LifecycleRail from '@/components/lifecycle/LifecycleRail'
+import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
 import PrivateMemorySnapshot from '@/components/agent/PrivateMemorySnapshot'
 import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
 import PushSettingsCard from '@/components/mobile/PushSettingsCard'
@@ -139,13 +141,21 @@ export function ProgressPage({ role }: { role: AgentRole }) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const { loading, live, data } = useAgentSession(role)
+  const { lifecycle } = useLifecycle(role)
   if (loading || !data) return <Skeleton role={role} />
   const pending = data.pendingActions.filter((a) => a.status === 'pending').length
   return (
     <WorkspaceShell role={role} hideAside>
       <PageHead eyebrow="PROGRESS" title={zh ? '正在跟的' : 'Tracking'} sub={zh ? '流程走到哪、你手上有什么、它记住了什么。' : 'Where the flow stands, what you have on hand, what it remembers.'} />
       <div className="space-y-5">
-        <WorkflowStatusPanel role={role} workflow={data.workflow} />
+        {live && lifecycle ? (
+          <div>
+            <div className="mb-2 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '租前 · 租中 · 租后' : 'BEFORE · DURING · AFTER'}</div>
+            <LifecycleRail lifecycle={lifecycle} lang={lang} full />
+          </div>
+        ) : (
+          <WorkflowStatusPanel role={role} workflow={data.workflow} />
+        )}
         <div>
           <div className="mb-2 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '你的事' : 'YOUR NUMBERS'}</div>
           <StatusOverview role={role} live={live} pendingCount={pending} />

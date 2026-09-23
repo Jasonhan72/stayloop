@@ -6,6 +6,8 @@ import { useCallback, useState } from 'react'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import AgentChat from '@/components/agent/AgentChat'
 import type { ComposerDraft } from '@/components/agent/AgentInputBar'
+import LifecycleRail from '@/components/lifecycle/LifecycleRail'
+import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
 import WorkflowStatusPanel from '@/components/agent/WorkflowStatusPanel'
 import RecommendationDeck from '@/components/agent/RecommendationDeck'
 import PendingActionsPanel from '@/components/agent/PendingActionsPanel'
@@ -22,6 +24,7 @@ export default function FieldAgentPage() {
   const [draft, setDraft] = useState<ComposerDraft | null>(null)
   const prefill = useCallback((t: string) => setDraft({ text: t, nonce: Date.now() }), [])
   usePromptDeepLink(loading, sendMessage, prefill)
+  const { lifecycle } = useLifecycle('agent')
 
 
   if (loading || !data) {
@@ -49,6 +52,12 @@ export default function FieldAgentPage() {
         </div>
       )}
 
+      {live && lifecycle && (
+        <>
+          <div className="mb-5 hidden md:block"><LifecycleRail lifecycle={lifecycle} lang={lang} onPrompt={prefill} /></div>
+          <div className="mb-3 md:hidden"><LifecycleRail lifecycle={lifecycle} lang={lang} compact onPrompt={prefill} /></div>
+        </>
+      )}
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
         {/* Phone (Muse benchmark 2026-09-22): the chat bleeds edge to edge,
             approvals sit at the top of the thread, and the controls column
@@ -56,6 +65,7 @@ export default function FieldAgentPage() {
         <div className="-mx-5 min-w-0 sm:mx-0 lg:h-[calc(100vh-150px)]">
           <AgentChat
             draft={draft}
+            phaseLabel={lifecycle ? (lang === 'zh' ? lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.zh ?? null : lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.en ?? null) : null}
             role="agent"
             agentName={agent.agent_name}
             status={status}

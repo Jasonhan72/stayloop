@@ -80,6 +80,7 @@ export default function AgentChat({
   scheduled,
   onUndo,
   draft,
+  phaseLabel,
 }: {
   role: AgentRole
   agentName: string
@@ -105,6 +106,8 @@ export default function AgentChat({
   onUndo?: (id: string) => void | Promise<void>
   /** Composer prefill from the page (workspace deep links). */
   draft?: ComposerDraft | null
+  /** Lifecycle phase for the status line (replaces the V4 workflow stage). */
+  phaseLabel?: string | null
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -118,6 +121,7 @@ export default function AgentChat({
   const [decided, setDecided] = useState<{ id: string; title: string; decision: 'approved' | 'rejected' }[]>([])
   const pending = (pendingActions ?? []).filter((a) => a.status === 'pending')
   const stageLabel = (() => {
+    if (phaseLabel) return phaseLabel
     if (!workflow) return ''
     const st = WORKFLOW_STAGES[role][stageIndex(role, workflow.current_stage)]
     return st ? st.label[lang] : ''
