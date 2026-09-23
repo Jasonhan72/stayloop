@@ -143,3 +143,57 @@ describe('dispatch modal (first production run)', () => {
     expect(src).toMatch(/if \(loaded && !candidates\.some/)
   })
 })
+
+describe('E2E review 2026-09-23', () => {
+  it('the server refuses a provider that is not eligible for the trade / city, not just the UI', () => {
+    const src = readFileSync('lib/marketplace/server.ts', 'utf8')
+    expect(src).toContain('providerEligible(')
+    expect(src).toContain("error: `provider_not_eligible:${e.reason}`")
+  })
+})
+
+describe('code review 2026-09-23 (marketplace)', () => {
+  it('entry window: 24 h ahead and inside 8:00–20:00 Toronto, emergencies exempt', async () => {
+    const { entryWindowProblem } = await import('@/lib/marketplace/workOrders')
+    const now = new Date('2026-09-23T12:00:00Z')
+    expect(entryWindowProblem({ emergency: false, scheduleStart: null }, now)).toBe('no_window')
+    expect(entryWindowProblem({ emergency: false, scheduleStart: '2026-09-23T20:00:00Z' }, now)).toBe('less_than_24h')
+    expect(entryWindowProblem({ emergency: false, scheduleStart: '2026-09-25T07:00:00Z' }, now)).toBe('outside_8_20') // 03:00 Toronto
+    expect(entryWindowProblem({ emergency: false, scheduleStart: '2026-09-25T14:00:00Z', scheduleEnd: '2026-09-25T16:00:00Z' }, now)).toBeNull() // 10:00–12:00 Toronto
+    expect(entryWindowProblem({ emergency: false, scheduleStart: '2026-09-25T14:00:00Z', scheduleEnd: '2026-09-26T01:00:00Z' }, now)).toBe('outside_8_20') // ends 21:00
+    expect(entryWindowProblem({ emergency: true, scheduleStart: null }, now)).toBeNull()
+  })
+  it('quotes cannot sit in the past and valid_until must be a date', () => {
+    const now = new Date('2026-09-23T12:00:00Z')
+    expect(validateQuote({ amount: 10, type: 'fixed', schedule_start: '2026-09-20T10:00:00Z' }, now).reason).toBe('schedule_past')
+    expect(validateQuote({ amount: 10, type: 'fixed', valid_until: 'not-a-date' }, now).reason).toBe('valid_until')
+    expect(TICKET_STATUS_FOR.disputed).toBe('review')
+  })
+  it('city match is whole-word', () => {
+    expect(cityMatch('Oshawa', 'a')).toBe(false)
+    expect(cityMatch('York', 'New York')).toBe(false)
+    expect(cityMatch('Toronto', 'Toronto, ON')).toBe(true)
+    expect(cityMatch('Richmond Hill', 'Richmond Hill')).toBe(true)
+  })
+  it('server binds landlord actions to the row, mints tokens only for external contacts, expires cards it supersedes', () => {
+    const src = readFileSync('lib/marketplace/server.ts', 'utf8')
+    expect(src).toContain("i.by === 'landlord' && i.actorId !== wo.landlord_auth_id")
+    expect(src).toContain('const token = provider ? null : mintToken()')
+    expect(src).toContain("error: 'quote_changed'")
+    expect(src).toContain('entry_window_')
+    expect(src).toContain("error: 'no_tenant_email'")
+    expect(src).toMatch(/replyTo/)
+    const mig = readFileSync('supabase/migrations/20260923_marketplace_review_fixes.sql', 'utf8')
+    expect(mig).toContain('revoke select on public.work_orders from authenticated')
+    expect(mig).not.toMatch(/grant select \([^)]*\btoken\b/)
+    expect(mig).toContain('on delete restrict')
+    expect(mig).toContain('provider_id is not distinct from w.provider_id')
+    const exec = readFileSync('app/api/agent/execute/route.ts', 'utf8')
+    expect(exec).toMatch(/'dispatch_work_order', 'approve_quote', 'accept_completion'[^\]]*\]\.includes\(action\.action_type\)/)
+  })
+  it('the applicant queue no longer prints an income cut-off or ranks by score in live mode', () => {
+    const src = readFileSync('app/landlord/applicants/page.tsx', 'utf8')
+    expect(src).not.toMatch(/monthly_income >= rent \* 3/)
+    expect(src).toContain('const topScored = null as Applicant | null')
+  })
+})

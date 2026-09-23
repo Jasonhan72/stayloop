@@ -42,7 +42,6 @@ interface Member { user_id: string; role: string; status: string; joined_at: str
 interface Invite { id: string; invited_email: string; invited_role: string; accepted_at: string | null; declined_at: string | null; revoked_at: string | null; expires_at: string }
 interface Msg { id: number; sender_id: string; body: string; created_at: string }
 interface Payment { id: string; due_date: string; paid_at: string | null; amount: number | null; status: string }
-interface Ticket { id: string; title: string; description: string | null; category: string | null; priority: string; status: string; created_at: string }
 
 const ROLE_ZH: Record<string, string> = { landlord: '房东', tenant: '租客', agent: '经纪', property_manager: '物业' }
 type Tab = 'overview' | 'messages' | 'rent' | 'maintenance'
@@ -60,14 +59,11 @@ export default function HouseholdHub() {
   const [invites, setInvites] = useState<Invite[]>([])
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
-  const [tickets, setTickets] = useState<Ticket[]>([])
   const [intents, setIntents] = useState<Intent[]>([])
   const [intentPick, setIntentPick] = useState<string | null>(null)
   const [intentNote, setIntentNote] = useState('')
   const [notFound, setNotFound] = useState(false)
   const [draft, setDraft] = useState('')
-  const [ticketForm, setTicketForm] = useState({ title: '', description: '', priority: 'medium' })
-  const [showTicketForm, setShowTicketForm] = useState(false)
   const [busy, setBusy] = useState(false)
   const [writeError, setWriteError] = useState<string | null>(null)
   const msgEndRef = useRef<HTMLDivElement>(null)
@@ -76,15 +72,13 @@ export default function HouseholdHub() {
     const { data: h } = await supabase.from('households').select('*').eq('id', id).maybeSingle()
     if (!h) { setNotFound(true); return }
     setHousehold(h as Household)
-    const [{ data: m }, { data: inv }, { data: t }, { data: ri }] = await Promise.all([
+    const [{ data: m }, { data: inv }, { data: ri }] = await Promise.all([
       supabase.from('household_members').select('*').eq('household_id', id).eq('status', 'active'),
       supabase.from('household_invites').select('id, household_id, invited_email, invited_role, invited_by, expires_at, accepted_by, accepted_at, declined_at, revoked_at, created_at').eq('household_id', id).order('created_at', { ascending: false }),
-      supabase.from('maintenance_tickets').select('*').eq('household_id', id).order('created_at', { ascending: false }),
       supabase.from('renewal_intents').select('id, intent, note, tenant_user_id, created_at').eq('household_id', id).order('created_at', { ascending: false }).limit(10),
     ])
     setMembers((m as Member[]) ?? [])
     setInvites((inv as Invite[]) ?? [])
-    setTickets((t as Ticket[]) ?? [])
     setIntents((ri as Intent[]) ?? [])
     if ((h as Household).current_lease_id) {
       const { data: p } = await supabase.from('rent_payments')
@@ -105,7 +99,7 @@ export default function HouseholdHub() {
     void loadMsgs()
     const iv = setInterval(() => { void loadMsgs() }, 8000)
     return () => clearInterval(iv)
-  }, [user, id, load, loadMsgs])
+  }, [user?.id, id, load, loadMsgs]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (tab === 'messages') msgEndRef.current?.scrollIntoView({ block: 'end' })
@@ -128,7 +122,7 @@ export default function HouseholdHub() {
     setBusy(true)
     const { error } = await supabase.from('renewal_intents').insert({ household_id: id, lease_id: household.current_lease_id, tenant_user_id: user.id, intent, note: intentNote.trim().slice(0, 1000) || null })
     setWriteError(error ? error.message : null)
-    if (!error) { setIntentPick(null); setIntentNote(''); try { window.history.replaceState(null, '', window.location.pathname) } catch { /* noop */ } }
+    if (!error) { setIntentPick(null); setIntentNote(''); try { const q = new URLSearchParams(window.location.search); q.delete('intent'); window.history.replaceState(null, '', window.location.pathname + (q.toString() ? `?${q}` : '')) } catch { /* noop */ } }
     await load()
     setBusy(false)
   }
@@ -161,26 +155,6 @@ export default function HouseholdHub() {
     await load()
     setBusy(false)
   }
-
-  async function createTicket() {
-    if (!ticketForm.title.trim() || !user) return
-    setBusy(true)
-    const { error } = await supabase.from('maintenance_tickets').insert({
-      household_id: id,
-      opened_by: user.id,
-      title: ticketForm.title.trim().slice(0, 200),
-      description: ticketForm.description.trim().slice(0, 2000) || null,
-      priority: ticketForm.priority,
-      status: 'new',
-    })
-    if (error) { setWriteError(error.message); setBusy(false); return }
-    setWriteError(null)
-    setTicketForm({ title: '', description: '', priority: 'medium' })
-    setShowTicketForm(false)
-    await load()
-    setBusy(false)
-  }
-
 
   async function openLeaseFile() {
     const { data: list } = await supabase.storage.from('tenancy-files').list(id)
@@ -265,7 +239,7 @@ export default function HouseholdHub() {
         {household.start_date ? ` · ${household.start_date} → ${household.end_date || (zh ? '月租续' : 'month-to-month')}` : ''}
       </div>
 
-      <div className="mt-6 flex gap-1 border-b border-line-divider">
+      <div className="mt-6 flex gap-1 overflow-x-auto whitespace-nowrap border-b border-line-divider">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`px-4 py-2.5 text-[13px] font-semibold ${tab === t.id ? 'border-b-2 border-[#00ACE4] text-[#00ACE4]' : 'text-body-3'}`}>
@@ -361,7 +335,7 @@ export default function HouseholdHub() {
               const role = members.find((x) => x.user_id === m.sender_id)?.role
               return (
                 <div key={m.id} className={`mb-3 flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] rounded-xl px-4 py-2.5 text-[13.5px] leading-relaxed ${mine ? 'text-white' : 'bg-[#F4F1E8] text-body'}`}
+                  <div className={`max-w-[75%] rounded-xl px-4 py-2.5 text-[13.5px] leading-relaxed ${mine ? 'text-white' : 'bg-surface-chip text-body'}`}
                     style={mine ? { background: '#00ACE4' } : undefined}>
                     {!mine && <div className="mb-0.5 font-mono text-[10px] font-bold opacity-70">{zh ? ROLE_ZH[role ?? ''] ?? '成员' : role ?? 'member'}</div>}
                     <div className="whitespace-pre-wrap break-words">{m.body}</div>
@@ -401,7 +375,7 @@ export default function HouseholdHub() {
             </div>
           )}
           {myRole === 'landlord' && missedDue.length > 0 && (
-            <PaymentPlanDraft householdId={id} leaseId={household.current_lease_id} unit={address} monthlyRent={Number(household.monthly_rent) || 0} missed={missedDue} zh={zh} />
+            <PaymentPlanDraft householdId={id} leaseId={household.current_lease_id} unit={address} monthlyRent={Number(household.monthly_rent) || 0} missed={missedDue} recorded={recorded} zh={zh} />
           )}
           {schedule.length === 0 ? (
             <p className="mt-5 text-[13px] text-body-3">{zh ? '缺少起租日或交租日,无法生成账期。' : 'Needs a start date and due day to build the schedule.'}</p>

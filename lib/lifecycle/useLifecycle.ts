@@ -53,14 +53,21 @@ async function loadLandlord(uid: string): Promise<Lifecycle> {
 }
 
 async function loadTenant(uid: string, email: string | null): Promise<Lifecycle> {
-  const [{ data: showings }, { data: apps }, { data: leases }, { data: members }, { data: hhRaw }, { data: tokens }] = await Promise.all([
-    supabase.from('showing_intents').select('kind, status').limit(50),
-    supabase.from('applications').select('id, status, decision_notified_at, viewed_at, screened_at').limit(50),
+  // Multi-hat accounts: the landlord policies would also return applications
+  // and intents RECEIVED on their listings — read the applicant view (email
+  // filtered) and intents by the caller's own tenants row (review 2026-09-23).
+  const { data: tenantRow } = await supabase.from('tenants').select('id').eq('auth_id', uid).maybeSingle()
+  const tenantId = (tenantRow as { id: string } | null)?.id ?? null
+  const [{ data: showings }, { data: apps }, { data: leases }, { data: members }, { data: hhRaw }, { count: shareCount }, { data: invites }] = await Promise.all([
+    tenantId ? supabase.from('showing_intents').select('kind, status').eq('tenant_id', tenantId).limit(50) : Promise.resolve({ data: [] as never[] }),
+    supabase.from('applicant_applications').select('id, status, decision_notified_at, viewed_at, screened_at').limit(50),
     email ? supabase.from('lease_documents').select(LEASE_COLS).ilike('tenant_email', email).limit(50) : Promise.resolve({ data: [] as never[] }),
     supabase.from('household_members').select('household_id').eq('user_id', uid).limit(50),
     supabase.from('households').select(HH_COLS).limit(50),
     supabase.from('passport_share_tokens').select('token', { count: 'exact', head: true }).eq('tenant_user_id', uid).is('revoked_at', null),
+    supabase.rpc('my_pending_invites'),
   ])
+  const pendingInvites = ((invites ?? []) as { household_id: string; address: string | null; unit: string | null; current_lease_id: string | null; start_date: string | null; end_date: string | null }[]).map((i) => ({ id: i.household_id, current_lease_id: i.current_lease_id, verified: false, status: 'pending', end_date: i.end_date, address: i.address, unit: i.unit }))
   const leaseRows = (leases ?? []) as LeaseFact[]
   const memberOf = (members ?? []).map((m: { household_id: string }) => m.household_id)
   const households = (hhRaw ?? []) as HouseholdFact[]
@@ -78,9 +85,10 @@ async function loadTenant(uid: string, email: string | null): Promise<Lifecycle>
     leases: leaseRows,
     households,
     memberOf,
+    pendingInvites,
     rent: (rent ?? []) as RentFact[],
     tickets: (tickets ?? []) as TicketFact[],
-    passportShares: (tokens as unknown as { count?: number } | null)?.count ?? 0,
+    passportShares: shareCount ?? 0,
   })
 }
 

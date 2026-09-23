@@ -285,8 +285,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
                 id: nextId(),
                 role: 'agent',
                 text: langRef.current === 'zh'
-                  ? `我在你离开的时候检查了你的租约：有 ${j.created} 份租约进入了续约窗口。我已经算好方案（不涨 / 按 2026 指导上限 +2.5%），放在右侧待你批准 —— 批准后我会把续约函真实发送给租客。`
-                  : `While you were away I checked your leases: ${j.created} lease(s) entered the renewal window. I've worked out the options (no increase / +2.5% per the 2026 guideline cap) — they're on the right awaiting your approval. Once you approve, I'll actually send the renewal letter to your tenant.`,
+                  ? `我在你离开的时候检查了你的租约：有 ${j.created} 份租约进入了续约窗口。我已经算好方案（不涨 / 按涨租生效年度的省指导上限），放在右侧待你批准 —— 批准后我会把续约函真实发送给租客。`
+                  : `While you were away I checked your leases: ${j.created} lease(s) entered the renewal window. I've worked out the options (no increase / the provincial guideline for the year the increase takes effect) — they're on the right awaiting your approval. Once you approve, I'll actually send the renewal letter to your tenant.`,
               }])
             } catch { /* sweep is best-effort */ }
           })()

@@ -31,14 +31,16 @@ export default function MoveInChecklist({ householdId, zh, compact = false }: { 
   const byKey = new Map(rows.map((r) => [r.item_key, r]))
   const progress = moveInProgress(rows)
 
-  async function toggle(key: string, nextDone: boolean) {
+  async function toggle(key: string, nextDone: boolean, noteOnly = false) {
     if (!user) return
     setBusy(key)
-    const note = (noteDraft[key] ?? byKey.get(key)?.note ?? '').trim().slice(0, 500) || null
-    const { error } = await supabase.from('move_in_checklist').upsert(
-      { household_id: householdId, item_key: key, done: nextDone, done_by: nextDone ? user.id : null, done_at: nextDone ? new Date().toISOString() : null, note },
-      { onConflict: 'household_id,item_key' },
-    )
+    const prev = byKey.get(key)
+    const note = (noteDraft[key] ?? prev?.note ?? '').trim().slice(0, 500) || null
+    // A note edit must not re-stamp who ticked and when (review 2026-09-23).
+    const row = noteOnly && prev
+      ? { household_id: householdId, item_key: key, done: prev.done, done_by: prev.done_by, done_at: prev.done_at, note }
+      : { household_id: householdId, item_key: key, done: nextDone, done_by: nextDone ? user.id : null, done_at: nextDone ? new Date().toISOString() : null, note }
+    const { error } = await supabase.from('move_in_checklist').upsert(row, { onConflict: 'household_id,item_key' })
     setErr(error ? error.message : null)
     await load()
     setBusy(null)
@@ -64,9 +66,9 @@ export default function MoveInChecklist({ householdId, zh, compact = false }: { 
                 return (
                   <div key={it.key} className="px-3 py-2.5">
                     <div className="flex items-start gap-3">
-                      <button type="button" disabled={busy === it.key} onClick={() => void toggle(it.key, !done)} aria-pressed={done}
-                        className={'mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full text-[12px] font-bold ' + (done ? 'bg-success text-white' : 'border border-line-strong text-body-3')}>
-                        {done ? '✓' : ''}
+                      <button type="button" role="checkbox" aria-checked={done} aria-label={zh ? it.label.zh : it.label.en} disabled={busy === it.key} onClick={() => void toggle(it.key, !done)}
+                        className="-m-1.5 flex h-9 w-9 flex-none items-center justify-center p-1.5">
+                        <span className={'flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold ' + (done ? 'bg-success text-white' : 'border border-line-strong text-body-3')}>{done ? '✓' : ''}</span>
                       </button>
                       <div className="min-w-0 flex-1">
                         <div className={done ? 'text-body' : 'text-body-2'}>{zh ? it.label.zh : it.label.en}
@@ -77,7 +79,7 @@ export default function MoveInChecklist({ householdId, zh, compact = false }: { 
                           <input
                             value={noteDraft[it.key] ?? r?.note ?? ''}
                             onChange={(e) => setNoteDraft((d) => ({ ...d, [it.key]: e.target.value }))}
-                            onBlur={() => { if ((noteDraft[it.key] ?? '') !== (r?.note ?? '') && noteDraft[it.key] !== undefined) void toggle(it.key, done) }}
+                            onBlur={() => { if ((noteDraft[it.key] ?? '') !== (r?.note ?? '') && noteDraft[it.key] !== undefined) void toggle(it.key, done, true) }}
                             placeholder={zh ? it.needsNote.zh : it.needsNote.en}
                             className="mt-1 w-full max-w-[360px] rounded-md border border-line-divider px-2 py-1 text-[12px]"
                           />

@@ -6,7 +6,7 @@
 // /api/work-orders/dispatch which proves the landlord relation server-side.
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { coverageFor, providerEligible, tradeForCategory, TRADES, type Trade } from '@/lib/marketplace/trades'
+import { CREDENTIAL_LABEL, coverageFor, providerEligible, tradeForCategory, TRADES, type CredentialKind, type Trade } from '@/lib/marketplace/trades'
 
 type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; pricing_mode: string; call_out_fee: number | null; hourly_rate: number | null; status: string; verified_at: string | null }
 type Cred = { provider_id: string; kind: string; expires_at: string | null; verified_at: string | null }
@@ -34,10 +34,10 @@ export default function DispatchModal({ ticketId, category, priority, city, zh, 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const { data: p } = await supabase.from('service_providers').select('id, legal_name, trade_name, trades, service_cities, pricing_mode, call_out_fee, hourly_rate, status, verified_at').eq('status', 'verified').limit(100)
+      const { data: p } = await supabase.from('provider_directory').select('id, legal_name, trade_name, trades, service_cities, pricing_mode, call_out_fee, hourly_rate, status, verified_at').limit(100)
       const list = (p ?? []) as Provider[]
       const ids = list.map((x) => x.id)
-      const { data: c } = ids.length ? await supabase.from('provider_credentials').select('provider_id, kind, expires_at, verified_at').in('provider_id', ids) : { data: [] }
+      const { data: c } = ids.length ? await supabase.from('provider_credentials_public').select('provider_id, kind, expires_at, verified_at').in('provider_id', ids) : { data: [] }
       if (!cancelled) { setProviders(list); setCreds((c ?? []) as Cred[]); setLoaded(true) }
     })()
     return () => { cancelled = true }
@@ -52,7 +52,9 @@ export default function DispatchModal({ ticketId, category, priority, city, zh, 
   // Only fall back to "own contact" once the directory has actually loaded —
   // on first paint there are no candidates yet (first production run 2026-09-23
   // opened the modal on the wrong tab).
-  useEffect(() => { if (loaded && !candidates.some((c) => c.ok)) setMode('own') }, [loaded, candidates])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (loaded && !candidates.some((c) => c.ok)) setMode('own') }, [loaded])
+  useEffect(() => { const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey) }, [onClose])
 
   async function submit() {
     setBusy(true); setErr(null)
@@ -66,14 +68,14 @@ export default function DispatchModal({ ticketId, category, priority, city, zh, 
   }
   const input = 'rounded-md border border-line-divider bg-white px-2.5 py-1.5 text-[13px]'
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 sm:items-center" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="dispatch-title">
       <div className="max-h-[90dvh] w-full max-w-[560px] overflow-y-auto rounded-2xl bg-white p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '派单' : 'DISPATCH'}</div>
-            <h3 className="text-[16px] font-extrabold">{zh ? '把这张工单派给谁？' : 'Who takes this job?'}</h3>
+            <h3 id="dispatch-title" className="text-[16px] font-extrabold">{zh ? '把这张工单派给谁？' : 'Who takes this job?'}</h3>
           </div>
-          <button onClick={onClose} className="h-9 w-9 rounded-full border border-line-divider text-[16px]" aria-label="close">×</button>
+          <button onClick={onClose} autoFocus className="h-9 w-9 rounded-full border border-line-divider text-[16px]" aria-label={zh ? '关闭' : 'Close'}>×</button>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           <label className="text-[11.5px] text-body-3">{zh ? '工种' : 'Trade'}<select className={input + ' mt-1 w-full'} value={trade} onChange={(e) => { setTrade(e.target.value as Trade); setPick(null) }}>{TRADES.map((t) => <option key={t.key} value={t.key}>{zh ? t.zh : t.en}</option>)}</select></label>
@@ -93,7 +95,7 @@ export default function DispatchModal({ ticketId, category, priority, city, zh, 
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold">{p.trade_name || p.legal_name} <span className="font-mono text-[10px] text-success">{zh ? '资质已核' : 'verified'}</span></div>
                   <div className="text-[11.5px] text-body-3">{p.service_cities.join(' · ') || '—'} · {p.pricing_mode === 'fixed' ? (zh ? '固定报价' : 'fixed quotes') : `${p.hourly_rate != null ? `$${p.hourly_rate}/h` : (zh ? '按工时' : 'hourly')}${p.call_out_fee != null ? ` · ${zh ? '上门费' : 'call-out'} $${p.call_out_fee}` : ''}`}</div>
-                  {!ok && <div className="text-[11.5px] text-danger">{reason === 'city' ? (zh ? '不服务该城市' : 'does not serve this city') : reason === 'trade_not_listed' ? (zh ? '未登记该工种' : 'trade not listed') : reason === 'credentials' ? (zh ? `资质缺 / 过期：${[...cov.missing, ...cov.expired, ...cov.unverified].join(', ')}` : `credentials missing / expired: ${[...cov.missing, ...cov.expired, ...cov.unverified].join(', ')}`) : reason}</div>}
+                  {!ok && <div className="text-[11.5px] text-danger">{reason === 'city' ? (zh ? '不服务该城市' : 'does not serve this city') : reason === 'trade_not_listed' ? (zh ? '未登记该工种' : 'trade not listed') : reason === 'credentials' ? (zh ? `资质缺 / 过期：${[...cov.missing, ...cov.expired, ...cov.unverified].map((k) => CREDENTIAL_LABEL[k as CredentialKind]?.zh ?? k).join('、')}` : `credentials missing / expired: ${[...cov.missing, ...cov.expired, ...cov.unverified].map((k) => CREDENTIAL_LABEL[k as CredentialKind]?.en ?? k).join(', ')}`) : reason}</div>}
                 </div>
               </label>
             ))}

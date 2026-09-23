@@ -34,7 +34,7 @@ describe('rent increase guideline is per effective year (RTA s.120)', () => {
     expect(q.metadata.guideline_rent).toBe(2038)
   })
   it('no source still states a 2026 cap of 2.5%', () => {
-    for (const f of ['app/landlord/leases/page.tsx', 'app/tenant/lease/page.tsx', 'app/tenant/payments/page.tsx', 'app/landlord/finance/page.tsx', 'lib/agent/prompts.ts', 'lib/agent/renewalStages.ts', 'app/api/agent/execute/route.ts', 'lib/ontario/rules.ts']) {
+    for (const f of ['app/landlord/leases/page.tsx', 'app/tenant/lease/page.tsx', 'app/tenant/payments/page.tsx', 'app/landlord/finance/page.tsx', 'lib/agent/prompts.ts', 'lib/agent/renewalStages.ts', 'app/api/agent/execute/route.ts', 'lib/ontario/rules.ts', 'lib/agent/useAgentSession.ts']) {
       const src = readFileSync(f, 'utf8')
       expect(src, f).not.toMatch(/2026[^\n]{0,20}2\.5\s*%/)
       expect(src, f).not.toMatch(/1\.025/)

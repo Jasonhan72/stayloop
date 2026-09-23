@@ -11,13 +11,15 @@ import { useAuth } from '@/lib/useAuth'
 import { isoDate, todayUtc } from '@/lib/dates'
 import { buildPaymentPlan, MAX_INSTALLMENTS, paymentPlanText } from '@/lib/ontario/paymentPlan'
 
-export default function PaymentPlanDraft({ householdId, leaseId, unit, monthlyRent, missed, zh }: {
+export default function PaymentPlanDraft({ householdId, leaseId, unit, monthlyRent, missed, recorded, zh }: {
   householdId: string
   leaseId: string | null
   unit: string
   monthlyRent: number
   /** Past-due dates with no payment recorded. */
   missed: string[]
+  /** Payments recorded so far — the draft is offered only when the ledger is actually in use (review 2026-09-23). */
+  recorded: number
   zh: boolean
 }) {
   const { user } = useAuth()
@@ -34,7 +36,7 @@ export default function PaymentPlanDraft({ householdId, leaseId, unit, monthlyRe
     return () => { cancelled = true }
   }, [leaseId])
   const arrears = missed.length * monthlyRent
-  if (!missed.length || !monthlyRent) return null
+  if (!missed.length || !monthlyRent || recorded === 0) return null
   const input = { arrears, monthlyRent, installments, firstDue, unit, tenantName: lease?.tenant_name || (zh ? '租客' : 'Tenant'), missed }
   const plan = buildPaymentPlan(input)
 
@@ -47,8 +49,8 @@ export default function PaymentPlanDraft({ householdId, leaseId, unit, monthlyRe
       user_id: user.id,
       role: 'landlord',
       action_type: 'send_message',
-      title: `还款计划提议 · ${unit} · ${missed.length} 期欠款 / Repayment plan`,
-      summary: `按 ${installments} 期补齐 $${arrears.toLocaleString()}，每期随当月租金一起付，无利息与手续费。批准后发给 ${lease.tenant_email}；LTB 效力须另用 Payment Agreement Form（s.206）。`,
+      title: zh ? `还款计划提议 · ${unit} · ${missed.length} 期欠款` : `Repayment plan proposal · ${unit} · ${missed.length} period(s)`,
+      summary: zh ? `按 ${installments} 期补齐 $${arrears.toLocaleString()}，每期随当月租金一起付，无利息与手续费。批准后发给 ${lease.tenant_email}；LTB 效力须另用 Payment Agreement Form（s.206）。` : `Clear $${arrears.toLocaleString()} in ${installments} instalment(s), each with that month's rent, no interest or fees. Sent to ${lease.tenant_email} after approval; LTB effect needs the Payment Agreement Form (s.206).`,
       recipient_label: lease.tenant_email,
       data_scope: ['租金记录', '还款计划'],
       excluded_data: ['筛查报告'],
@@ -66,7 +68,7 @@ export default function PaymentPlanDraft({ householdId, leaseId, unit, monthlyRe
     <div className="mt-4 rounded-xl border border-line-divider bg-surface-chip p-4" data-testid="payment-plan-draft">
       <div className="text-[13px] font-extrabold">{zh ? '起草还款计划' : 'Draft a repayment plan'}</div>
       <p className="mt-1 text-[11.5px] text-body-3">
-        {zh ? `未记录付款 ${missed.length} 期，合计 $${arrears.toLocaleString()}。计划里不含利息或手续费（RTA s.134）；要有 LTB 效力须用 Payment Agreement Form（s.206，2026-07-01 起强制）。这不是 N4。` : `${missed.length} period(s) unpaid, $${arrears.toLocaleString()} in total. No interest or fees (RTA s.134); for LTB effect use the Payment Agreement Form (s.206, mandatory since 2026-07-01). This is not an N4.`}
+        {zh ? `未记录付款 ${missed.length} 期，合计 $${arrears.toLocaleString()}——如果其实已收到，请先在下方「标记已付」。计划里不含利息或手续费（RTA s.134）；要有 LTB 效力须用 Payment Agreement Form（s.206，2026-07-01 起强制）。这不是 N4。` : `${missed.length} period(s) with no payment recorded, $${arrears.toLocaleString()} in total — if you did receive them, mark them paid below first. No interest or fees (RTA s.134); for LTB effect use the Payment Agreement Form (s.206, mandatory since 2026-07-01). This is not an N4.`}
       </p>
       {done ? (
         <div className="mt-3 text-[13px]">

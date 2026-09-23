@@ -23,7 +23,8 @@ describe('lifecycle stages are derived from rows, not from the model', () => {
     expect(mid.state).toBe('active')
     expect(mid.steps.find((s) => s.key === 'repairs')?.state).toBe('current')
     expect(post.clock?.date).toBe('2026-12-19')
-    expect(post.headline.zh).toContain('N1 最晚 2026-09-20')
+    // The increase takes effect the day after the term ends → N1 90 days before that (review 2026-09-23).
+    expect(post.headline.zh).toContain('N1 最晚 2026-09-21')
     expect(post.steps.find((s) => s.key === 'letter')?.state).toBe('done')
   })
   it('landlord with nothing is idle in 租前 with "publish" as the next step', () => {
@@ -48,7 +49,8 @@ describe('lifecycle stages are derived from rows, not from the model', () => {
       rent: [], tickets: [], passportShares: 0,
     }, today)
     expect(lc.current).toBe('mid')
-    expect(lc.phases[1].next?.href).toBe('/h/H1')
+    // An invitee cannot open /h/<id> before joining; the emailed link is the door.
+    expect(lc.phases[1].next?.href).toBe('/tenant/lease')
     expect(lc.phases[1].clock?.label.zh).toBe('入住日')
     expect(lc.phases[0].state).toBe('done')
   })

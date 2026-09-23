@@ -19,7 +19,11 @@ import { CITIES, CREDENTIAL_LABEL, TRADES, coverageFor, type CredentialKind, typ
 type Provider = { id: string; legal_name: string; trade_name: string | null; business_number: string | null; service_cities: string[]; trades: string[]; pricing_mode: string; call_out_fee: number | null; hourly_rate: number | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; website: string | null; status: string; review_note: string | null; verified_at: string | null; attested_at: string | null }
 type Cred = { id: string; kind: CredentialKind; number: string | null; holder_name: string | null; expires_at: string | null; verified_at: string | null }
 
-const STATUS_ZH: Record<string, string> = { pending: '待核验', verified: '已核验', rejected: '未通过', suspended: '已暂停', expired: '已过期' }
+const STATUS_LABEL: Record<string, { zh: string; en: string }> = { pending: { zh: '待核验', en: 'pending verification' }, verified: { zh: '已核验', en: 'verified' }, rejected: { zh: '未通过', en: 'rejected' }, suspended: { zh: '已暂停', en: 'suspended' }, expired: { zh: '已过期', en: 'expired' } }
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return <div className="flex min-h-screen flex-col bg-surface"><Header /><main className="mx-auto w-full max-w-[760px] flex-1 px-5 py-8">{children}</main><Footer /></div>
+}
 
 export default function ProviderOnboardPage() {
   const auth = useAuth()
@@ -67,12 +71,11 @@ export default function ProviderOnboardPage() {
     if (error) setErr(error.message); else { setCf({ kind: 'business_registration', number: '', holder_name: '', expires_at: '' }); await load() }
     setBusy(false)
   }
-  async function delCred(id: string) { await supabase.from('provider_credentials').delete().eq('id', id); await load() }
+  async function delCred(id: string) { if (!window.confirm(zh ? '删除这条资质？已核验的记录也会一起删除。' : 'Remove this credential? Its verification goes with it.')) return; await supabase.from('provider_credentials').delete().eq('id', id); await load() }
 
   const input = 'w-full rounded-lg border border-line-divider bg-white px-3 py-2 text-[14px]'
   const label = 'block text-[12.5px] font-semibold text-body-2'
   const toggle = (arr: string[], v: string) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v])
-  const Shell = ({ children }: { children: React.ReactNode }) => (<div className="flex min-h-screen flex-col bg-surface"><Header /><main className="mx-auto w-full max-w-[760px] flex-1 px-5 py-8">{children}</main><Footer /></div>)
 
   if (auth.loading || row === 'loading') return <Shell><div className="text-body-3">…</div></Shell>
   if (!auth.user) return <Shell><div className="rounded-2xl border border-line-divider bg-white p-6 text-[14px]">{zh ? '请先登录再入驻。' : 'Sign in to onboard.'} <Link href="/login?next=/provider/onboard" className="underline">{zh ? '登录' : 'Sign in'}</Link></div></Shell>
@@ -85,7 +88,7 @@ export default function ProviderOnboardPage() {
 
       {row && (
         <div className="mt-5 rounded-2xl border border-line-divider bg-white p-4 text-[13px]">
-          <b>{zh ? '当前状态' : 'Status'}:</b> {zh ? STATUS_ZH[row.status] ?? row.status : row.status}{row.verified_at ? ` · ${zh ? '核于' : 'verified'} ${row.verified_at.slice(0, 10)}` : ''}
+          <b>{zh ? '当前状态' : 'Status'}:</b> {zh ? STATUS_LABEL[row.status]?.zh ?? row.status : STATUS_LABEL[row.status]?.en ?? row.status}{row.verified_at ? ` · ${zh ? '核于' : 'verified'} ${row.verified_at.slice(0, 10)}` : ''}
           {row.review_note && row.status !== 'verified' && <div className="mt-1 text-danger">{row.review_note}</div>}
           {row.status === 'verified' && <div className="mt-1"><Link href="/provider/jobs" className="font-bold text-brand underline underline-offset-2">{zh ? '去看工单 →' : 'Go to jobs →'}</Link></div>}
         </div>
@@ -115,7 +118,7 @@ export default function ProviderOnboardPage() {
       {row && (
         <div className="mt-5 rounded-2xl border border-line-divider bg-white p-5">
           <h2 className="text-[15px] font-extrabold">{zh ? '资质' : 'Credentials'}</h2>
-          <p className="mt-1 text-[12px] text-body-3">{zh ? '每个工种要求的资质：' : 'Required per trade: '}{f.trades.map((t) => { const d = TRADES.find((x) => x.key === t); const cov = coverageFor(t as Trade, creds); return d ? `${zh ? d.zh : d.en}（${cov.ok ? '✓' : [...cov.missing, ...cov.expired, ...cov.unverified].map((k) => CREDENTIAL_LABEL[k].en).join(', ')}）` : '' }).join(' · ')}</p>
+          <p className="mt-1 text-[12px] text-body-3">{zh ? '每个工种要求的资质：' : 'Required per trade: '}{f.trades.map((t) => { const d = TRADES.find((x) => x.key === t); const cov = coverageFor(t as Trade, creds); return d ? `${zh ? d.zh : d.en}（${cov.ok ? '✓' : [...cov.missing, ...cov.expired, ...cov.unverified].map((k) => (zh ? CREDENTIAL_LABEL[k].zh : CREDENTIAL_LABEL[k].en)).join(zh ? '、' : ', ')}）` : '' }).join(' · ')}</p>
           <div className="mt-3 divide-y divide-line-divider">
             {creds.map((c) => (
               <div key={c.id} className="flex flex-wrap items-center gap-2 py-2 text-[12.5px]">
@@ -124,7 +127,7 @@ export default function ProviderOnboardPage() {
                 {c.holder_name && <span className="text-body-3">{c.holder_name}</span>}
                 <span className="text-body-3">{c.expires_at ? `${zh ? '到期' : 'exp'} ${c.expires_at}` : (zh ? '无到期' : 'no expiry')}</span>
                 <span className={'ml-auto rounded-full px-2 py-[2px] font-mono text-[10.5px] font-bold ' + (c.verified_at ? 'bg-success/10 text-success' : 'bg-amber-50 text-amber-800')}>{c.verified_at ? (zh ? '已核' : 'verified') : (zh ? '待核' : 'pending')}</span>
-                <button onClick={() => void delCred(c.id)} className="text-[11px] text-body-3 underline">{zh ? '删除' : 'remove'}</button>
+                <button onClick={() => void delCred(c.id)} className="min-h-[36px] px-2 text-[11px] text-body-3 underline">{zh ? '删除' : 'remove'}</button>
               </div>
             ))}
           </div>

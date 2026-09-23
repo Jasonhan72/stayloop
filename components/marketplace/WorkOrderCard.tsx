@@ -22,8 +22,19 @@ export type WorkOrderLite = {
 type Ev = { id: number; actor_kind: string; event: string; payload: Record<string, unknown>; created_at: string }
 
 const money = (n: number | string | null | undefined) => (n == null || n === '' ? '—' : `$${Number(n).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
-const when = (s: string | null | undefined) => (s ? new Date(s).toLocaleString('en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' }) : '—')
-const EVENT_ZH: Record<string, string> = { offered: '已派单', accept: '接单并报价', quote: '更新报价', decline: '婉拒', approve_quote: '房东批准报价', reject_quote: '房东拒绝报价', arrive: '已到场', complete: '已完工', tenant_confirm: '租客确认已解决', accept_completion: '房东验收', request_rework: '要求返工', dispute: '提出争议', resolve_dispute: '争议已裁定', mark_paid: '已标记付款', close: '归档', cancel: '取消' }
+const whenIn = (s: string | null | undefined, zh: boolean) => (s ? new Date(s).toLocaleString(zh ? 'zh-CN' : 'en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' }) : '—')
+const EVENT_LABEL: Record<string, { zh: string; en: string }> = { offered: { zh: '已派单', en: 'Offered' }, accept: { zh: '接单并报价', en: 'Accepted with a quote' }, quote: { zh: '更新报价', en: 'Quote revised' }, decline: { zh: '婉拒', en: 'Declined' }, approve_quote: { zh: '房东批准报价', en: 'Quote approved' }, reject_quote: { zh: '房东拒绝报价', en: 'Quote rejected' }, arrive: { zh: '已到场', en: 'Arrived' }, complete: { zh: '已完工', en: 'Completed' }, tenant_confirm: { zh: '租客确认已解决', en: 'Tenant confirmed' }, accept_completion: { zh: '房东验收', en: 'Accepted by landlord' }, request_rework: { zh: '要求返工', en: 'Rework requested' }, dispute: { zh: '提出争议', en: 'Disputed' }, resolve_dispute: { zh: '争议已裁定', en: 'Dispute resolved' }, mark_paid: { zh: '已标记付款', en: 'Marked paid' }, close: { zh: '归档', en: 'Closed' }, cancel: { zh: '取消', en: 'Cancelled' } }
+const ACTOR_LABEL: Record<string, { zh: string; en: string }> = { landlord: { zh: '房东', en: 'landlord' }, tenant: { zh: '租客', en: 'tenant' }, provider: { zh: '服务商', en: 'provider' }, external: { zh: '服务商', en: 'contractor' }, system: { zh: '系统', en: 'system' }, admin: { zh: 'Stayloop', en: 'Stayloop' } }
+
+const REASON: Record<string, { zh: string; en: string }> = {
+  quote_changed: { zh: '报价刚被服务商改过，请刷新后再看一遍。', en: 'The quote changed since you opened this — reload and review it again.' },
+  quote_expired: { zh: '报价已过有效期，请服务商重新报价。', en: 'The quote has expired; ask the contractor to re-quote.' },
+  entry_window_no_window: { zh: '报价没有到场时间，非紧急维修无法发出进入通知（RTA s.27）。请服务商补上时间段。', en: 'No visit window on the quote; a non-emergency entry notice needs one (RTA s.27). Ask the contractor to add it.' },
+  entry_window_less_than_24h: { zh: '到场时间不足 24 小时，无法满足 RTA s.27 的书面通知期。请改时间或标为紧急件（s.26）。', en: 'The window is less than 24 hours away — RTA s.27 requires 24 hours\' notice. Change the time or mark the job an emergency (s.26).' },
+  entry_window_outside_8_20: { zh: '到场时间不在 8:00–20:00 之间（RTA s.27）。', en: 'The window is outside 8:00–20:00 (RTA s.27).' },
+  no_tenant_email: { zh: '这份在管租约还没有已加入的租客，发不出进入通知。请先让租客接受邀请，或标为紧急件。', en: 'No tenant has joined this tenancy yet, so no entry notice can go out. Have the tenant accept the invitation first, or mark it an emergency.' },
+}
+export function explain(code: string, zh: boolean): string { const r = REASON[code]; return r ? (zh ? r.zh : r.en) : code }
 
 export async function actOn(id: string, action: WoAction, payload: Record<string, unknown> = {}): Promise<{ ok: boolean; error?: string; status?: string }> {
   const { data: s } = await supabase.auth.getSession()
@@ -36,6 +47,7 @@ export async function actOn(id: string, action: WoAction, payload: Record<string
 
 export default function WorkOrderCard({ wo, viewer, zh, providerName, onChange, compact = false }: {
   wo: WorkOrderLite
+  /** 'system' = read-only viewer (agent / property-manager members without landlord rights). */
   viewer: ActorKind
   zh: boolean
   providerName?: string | null
@@ -53,6 +65,7 @@ export default function WorkOrderCard({ wo, viewer, zh, providerName, onChange, 
     supabase.from('work_order_events').select('id, actor_kind, event, payload, created_at').eq('work_order_id', wo.id).order('id', { ascending: true }).then(({ data }) => setEvents((data ?? []) as Ev[]))
   }, [showEvents, wo.id, wo.updated_at])
 
+  const when = (s: string | null | undefined) => whenIn(s, zh)
   const st = WO_STATUS_LABEL[wo.status]
   const tone = st.tone === 'ok' ? 'bg-success/10 text-success' : st.tone === 'danger' ? 'bg-danger/10 text-danger' : st.tone === 'warn' ? 'bg-amber-50 text-amber-800' : st.tone === 'info' ? 'bg-brand/10 text-brand' : 'bg-surface-chip text-body-3'
   const who = providerName || wo.external_name || wo.external_email || (zh ? '服务商' : 'Contractor')
@@ -63,7 +76,7 @@ export default function WorkOrderCard({ wo, viewer, zh, providerName, onChange, 
   async function run(action: WoAction, payload: Record<string, unknown> = {}) {
     setBusy(action); setErr(null)
     const r = await actOn(wo.id, action, payload)
-    if (!r.ok) setErr(r.error || 'failed')
+    if (!r.ok) setErr(explain(r.error || 'failed', zh))
     else { setOpen(null); await onChange?.() }
     setBusy(null)
   }
@@ -108,7 +121,7 @@ export default function WorkOrderCard({ wo, viewer, zh, providerName, onChange, 
           {can('cancel') && wo.status !== 'offered' && <button className={secondary} disabled={!!busy} onClick={() => setOpen(open === 'cancel' ? null : 'cancel')}>{zh ? '取消' : 'Cancel'}</button>}
         </>)}
         {viewer === 'landlord' && (<>
-          {can('approve_quote') && <button className={primary} disabled={!!busy} onClick={() => void run('approve_quote')}>{zh ? '批准报价（会发进入通知）' : 'Approve quote (sends entry notice)'}</button>}
+          {can('approve_quote') && <button className={primary} disabled={!!busy} onClick={() => void run('approve_quote', { expected_amount: wo.quote_amount })}>{zh ? '批准报价（会发进入通知）' : 'Approve quote (sends entry notice)'}</button>}
           {can('reject_quote') && <button className={danger} disabled={!!busy} onClick={() => void run('reject_quote')}>{zh ? '拒绝报价' : 'Reject quote'}</button>}
           {can('accept_completion') && <button className={primary} disabled={!!busy} onClick={() => void run('accept_completion')}>{zh ? '验收' : 'Accept work'}</button>}
           {can('request_rework') && <button className={secondary} disabled={!!busy} onClick={() => setOpen(open === 'rework' ? null : 'rework')}>{zh ? '要求返工' : 'Request rework'}</button>}
@@ -120,7 +133,7 @@ export default function WorkOrderCard({ wo, viewer, zh, providerName, onChange, 
         {viewer === 'tenant' && can('tenant_confirm') && !wo.tenant_confirmed_at && (
           <button className={primary} disabled={!!busy} onClick={() => void run('tenant_confirm')}>{zh ? '确认问题已解决' : 'Confirm it is fixed'}</button>
         )}
-        <button className="ml-auto text-[11.5px] text-body-3 underline underline-offset-2" onClick={() => setShowEvents((v) => !v)}>{showEvents ? (zh ? '收起记录' : 'Hide log') : (zh ? '时间线' : 'Timeline')}</button>
+        <button className="ml-auto min-h-[36px] px-2 text-[11.5px] text-body-3 underline underline-offset-2" onClick={() => setShowEvents((v) => !v)}>{showEvents ? (zh ? '收起记录' : 'Hide log') : (zh ? '时间线' : 'Timeline')}</button>
       </div>
 
       {open === 'quote' && (
@@ -150,7 +163,7 @@ export default function WorkOrderCard({ wo, viewer, zh, providerName, onChange, 
       {err && <p className="mt-2 text-[12px] text-danger">{err}</p>}
       {showEvents && (
         <ul className="mt-3 space-y-1 border-t border-line-divider pt-2 font-mono text-[11px] text-body-3">
-          {(events ?? []).map((e) => <li key={e.id}>{when(e.created_at)} · {e.actor_kind} · {zh ? EVENT_ZH[e.event] ?? e.event : e.event}{e.payload && typeof e.payload.amount === 'number' ? ` · ${money(e.payload.amount as number)}` : ''}{typeof e.payload?.reason === 'string' && e.payload.reason ? ` · ${e.payload.reason}` : ''}</li>)}
+          {(events ?? []).map((e) => <li key={e.id}>{when(e.created_at)} · {zh ? ACTOR_LABEL[e.actor_kind]?.zh ?? e.actor_kind : ACTOR_LABEL[e.actor_kind]?.en ?? e.actor_kind} · {zh ? EVENT_LABEL[e.event]?.zh ?? e.event : EVENT_LABEL[e.event]?.en ?? e.event}{e.payload && typeof e.payload.amount === 'number' ? ` · ${money(e.payload.amount as number)}` : ''}{typeof e.payload?.reason === 'string' && e.payload.reason ? ` · ${e.payload.reason}` : ''}</li>)}
           {events && events.length === 0 && <li>—</li>}
         </ul>
       )}

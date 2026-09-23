@@ -37,7 +37,8 @@ describe('applicant tracker (tenant side)', () => {
   })
   it('a decided row from before the tracker columns reads left to right', () => {
     const legacy = applicationTrack({ status: 'approved', created_at: '2026-09-20T10:00:00Z', decision_notified_at: '2026-09-22T00:00:00Z', lease: { status: 'signed_both' }, household: { id: 'h', joined: true } })
-    expect(legacy.map((s) => s.state)).toEqual(['done', 'done', 'done', 'done', 'done', 'done'])
+    // A decision implies the landlord looked; it does not imply a screening ran (review 2026-09-23).
+    expect(legacy.map((s) => s.state)).toEqual(['done', 'done', 'todo', 'done', 'done', 'done'])
     expect(trackSummary(legacy, true).text).toBe('在管租约')
   })
   it('never exposes a score', () => {

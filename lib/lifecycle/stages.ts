@@ -10,6 +10,7 @@
 //   • each phase states what the AI does and what the person decides.
 import { daysBetween, isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
 import { n1DeadlineFor } from '@/lib/ontario/rules'
+import { RELIST_LOOKBACK_DAYS } from '@/lib/agent/proactiveExtras'
 import type { AgentRole } from '@/lib/agent/types'
 
 export type Bi = { zh: string; en: string }
@@ -62,6 +63,8 @@ export type TenantFacts = {
   leases: LeaseFact[]
   households: HouseholdFact[]
   memberOf: string[] // household ids the tenant already joined
+  /** Households the tenant is invited to but has not joined (my_pending_invites RPC). */
+  pendingInvites?: HouseholdFact[]
   rent: RentFact[]
   tickets: TicketFact[]
   passportShares: number
@@ -130,8 +133,24 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
   const rentDue = f.rent.filter((r) => r.status === 'due' || r.status === 'late')
   const openTickets = f.tickets.filter((t) => t.status && !['done', 'cancelled'].includes(t.status))
   const inWindow = signedLeases.filter((l) => l.end_date && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) <= RENEWAL_WINDOW_DAYS && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) >= 0)
-  const ended = f.leases.filter((l) => l.status === 'ended' || (l.end_date && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) < 0 && SIGNED.has(l.status ?? '')))
-  const renewalSent = new Set(f.renewalCards.filter((c) => c.action_type === 'send_renewal_letter' && c.status !== 'rejected').map((c) => c.lease_id))
+  // "退租 → 重新挂牌" only for a term that ended within the lookback window,
+  // with no newer signed lease on the same unit and no verified household
+  // still attached (a continued tenancy is month-to-month under RTA s.38, not a
+  // move-out). Review 2026-09-23: the rail used to stay in 租后 forever.
+  const unitKey = (l: LeaseFact) => (l.unit_label || '').trim().toLowerCase()
+  const hhByLeaseId = new Map(f.households.filter((h) => h.current_lease_id).map((h) => [h.current_lease_id as string, h]))
+  const ended = f.leases.filter((l) => {
+    const end = parseDateOnly(l.end_date)
+    if (!end || !SIGNED.has(l.status ?? '') && l.status !== 'ended') return false
+    const since = daysBetween(end, todayUtc(today))
+    if (since < 0 || since > RELIST_LOOKBACK_DAYS) return false
+    const hh = hhByLeaseId.get(l.id)
+    if (hh?.verified && hh.status !== 'ended') return false
+    return !f.leases.some((o) => o.id !== l.id && SIGNED.has(o.status ?? '') && unitKey(o) === unitKey(l) && (o.start_date || '') > (l.end_date || ''))
+  })
+  // A letter counts as sent only once approved (pending is still waiting on the landlord).
+  const renewalSent = new Set(f.renewalCards.filter((c) => c.action_type === 'send_renewal_letter' && c.status === 'approved').map((c) => c.lease_id))
+  const renewalPending = new Set(f.renewalCards.filter((c) => c.action_type === 'send_renewal_letter' && c.status === 'pending').map((c) => c.lease_id))
   // Newest intent per household → counted against the leases in the window.
   const intentByHh = new Map<string, string>()
   for (const i of f.renewalIntents ?? []) if (!intentByHh.has(i.household_id)) intentByHh.set(i.household_id, i.intent)
@@ -186,7 +205,7 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
   // ── 租后
   post.steps = [
     { key: 'window', label: { zh: '续约窗口', en: 'Renewal window' }, state: inWindow.length ? 'current' : signedLeases.length ? 'todo' : 'todo', detail: inWindow.length ? { zh: `${inWindow.length} 份 120 天内到期`, en: `${inWindow.length} ending within 120 days` } : undefined, href: '/landlord/leases' },
-    { key: 'letter', label: { zh: '续约函 A/B', en: 'Renewal letter A/B' }, state: inWindow.some((l) => renewalSent.has(l.id)) ? 'done' : inWindow.length ? 'current' : 'todo', href: '/landlord/todo' },
+    { key: 'letter', label: { zh: '续约函 A/B', en: 'Renewal letter A/B' }, state: inWindow.length && inWindow.every((l) => renewalSent.has(l.id)) ? 'done' : inWindow.length ? 'current' : 'todo', detail: inWindow.some((l) => renewalPending.has(l.id)) ? { zh: '有续约函等你批准', en: 'A letter is waiting for your approval' } : undefined, href: '/landlord/todo' },
     { key: 'intent', label: { zh: '租客意向', en: 'Tenant intent' }, state: intentCounts.total ? 'done' : inWindow.length ? 'current' : 'todo', detail: intentCounts.total ? { zh: `续 ${intentCounts.renew} · 走 ${intentCounts.leave} · 谈 ${intentCounts.negotiate}`, en: `renew ${intentCounts.renew} · leave ${intentCounts.leave} · negotiate ${intentCounts.negotiate}` } : { zh: '租客在 30 天触点邮件里一键回复', en: 'The tenant answers from the 30-day email' }, href: '/landlord/leases' },
     { key: 'turnover', label: { zh: '退租 → 重新挂牌', en: 'Move-out → re-list' }, state: ended.length ? 'current' : 'todo', detail: ended.length ? { zh: `${ended.length} 份已到期`, en: `${ended.length} ended` } : undefined, href: '/dashboard/listings/new' },
   ]
@@ -194,7 +213,9 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
   const soonest = inWindow.map((l) => l.end_date!).sort()[0]
   if (soonest) {
     post.clock = clockFor(soonest, today, { zh: '最近到期', en: 'Next lease end' }, 60)
-    const n1 = n1DeadlineFor(soonest)
+    // The increase takes effect the day after the term ends — the N1 clock and
+    // the guideline year key on that date, not on the end date.
+    const n1 = n1DeadlineFor(isoDate(new Date((parseDateOnly(soonest) ?? today).getTime() + 86_400_000)))
     const n1days = daysBetween(todayUtc(today), parseDateOnly(n1) ?? today)
     post.headline = { zh: `${inWindow.length} 份进入续约窗口 · 涨租 N1 最晚 ${n1}${n1days < 0 ? '（已过，本期不涨）' : `（还有 ${n1days} 天）`}`, en: `${inWindow.length} in the renewal window · N1 for an increase by ${n1}${n1days < 0 ? ' (passed — no increase this term)' : ` (${n1days} days)`}` }
   } else {
@@ -228,7 +249,9 @@ export function tenantLifecycle(f: TenantFacts, today = new Date()): Lifecycle {
   const lease = [...f.leases].sort((a, b) => (b.start_date || '').localeCompare(a.start_date || ''))[0]
   const leaseSigned = !!lease && SIGNED.has(lease.status ?? '')
   const leaseToSign = !!lease && lease.status === 'sent'
-  const hh = f.households.find((h) => h.current_lease_id === lease?.id) ?? f.households[0]
+  const awaitingLandlord = !!lease && lease.status === 'signed_tenant'
+  const allHh = [...f.households, ...(f.pendingInvites ?? [])]
+  const hh = allHh.find((h) => h.current_lease_id === lease?.id) ?? allHh[0]
   const joined = !!hh && f.memberOf.includes(hh.id)
   const rentDue = f.rent.filter((r) => r.status === 'due' || r.status === 'late')
   const openTickets = f.tickets.filter((t) => t.status && !['done', 'cancelled'].includes(t.status))
@@ -253,12 +276,12 @@ export function tenantLifecycle(f: TenantFacts, today = new Date()): Lifecycle {
     : undefined
 
   mid.steps = [
-    { key: 'sign', label: { zh: '签署租约', en: 'Sign the lease' }, state: leaseSigned ? 'done' : leaseToSign ? 'current' : 'todo', detail: leaseToSign ? { zh: '等你签署（查收邮件里的链接）', en: 'Awaiting your signature (link in your email)' } : undefined, href: '/tenant/lease' },
-    { key: 'join', label: { zh: '确认在管租约', en: 'Confirm the tenancy' }, state: joined ? 'done' : hh ? 'current' : 'todo', detail: hh && !joined ? { zh: '接受房东的邀请后可见租金记录与报修', en: 'Accept the invitation to see the ledger and repairs' } : undefined, href: hh ? `/h/${hh.id}` : '/tenant/lease' },
+    { key: 'sign', label: { zh: '签署租约', en: 'Sign the lease' }, state: leaseSigned ? 'done' : leaseToSign || awaitingLandlord ? 'current' : 'todo', detail: leaseToSign ? { zh: '等你签署（查收邮件里的链接）', en: 'Awaiting your signature (link in your email)' } : awaitingLandlord ? { zh: '你已签署 · 等房东回签', en: 'You signed · awaiting the landlord' } : undefined, href: '/tenant/lease' },
+    { key: 'join', label: { zh: '确认在管租约', en: 'Confirm the tenancy' }, state: joined ? 'done' : hh ? 'current' : 'todo', detail: hh && !joined ? { zh: '接受邮件里的邀请后可见租金记录与报修', en: 'Accept the emailed invitation to see the ledger and repairs' } : undefined, href: joined ? `/h/${hh!.id}` : '/tenant/lease' },
     { key: 'rent', label: { zh: '租金记录', en: 'Rent ledger' }, state: rentDue.length ? 'current' : joined ? 'done' : 'todo', detail: rentDue.length ? { zh: `${rentDue.length} 期待付`, en: `${rentDue.length} due` } : undefined, href: hh ? `/h/${hh.id}` : '/tenant/lease' },
     { key: 'repairs', label: { zh: '报修', en: 'Repairs' }, state: openTickets.length ? 'current' : joined ? 'done' : 'todo', detail: openTickets.length ? { zh: `${openTickets.length} 张工单进行中`, en: `${openTickets.length} tickets open` } : undefined, href: hh ? `/h/${hh.id}` : '/tenant/maintenance', prompt: { zh: '我要报修：【哪里】【什么问题】，【从什么时候开始】，【是否紧急】。', en: 'Repair request: 【where】【what】, 【since when】, 【urgent?】.' } },
   ]
-  mid.state = leaseSigned || joined ? (leaseToSign || (hh && !joined) || rentDue.length || openTickets.length ? 'active' : 'done') : leaseToSign ? 'active' : 'idle'
+  mid.state = leaseSigned || joined ? (leaseToSign || (hh && !joined) || rentDue.length || openTickets.length ? 'active' : 'done') : leaseToSign || awaitingLandlord ? 'active' : 'idle'
   mid.headline = mid.state === 'idle'
     ? { zh: '录取后房东会发来安省标准租约，凭链接在线签署。', en: 'After approval the landlord sends the Ontario standard lease; sign it online by link.' }
     : { zh: `${lease?.unit_label || hh?.address || '你的租约'} · ${lease?.start_date || ''}${endIso ? ` → ${endIso}` : ''}`, en: `${lease?.unit_label || hh?.address || 'Your lease'} · ${lease?.start_date || ''}${endIso ? ` → ${endIso}` : ''}` }
@@ -266,7 +289,7 @@ export function tenantLifecycle(f: TenantFacts, today = new Date()): Lifecycle {
   if (nextRent) mid.clock = clockFor(nextRent, today, { zh: '下期租金', en: 'Next rent' }, 5)
   else if (lease?.start_date && leaseSigned && daysBetween(todayUtc(today), parseDateOnly(lease.start_date) ?? today) > 0) mid.clock = clockFor(lease.start_date, today, { zh: '入住日', en: 'Move-in' }, 14)
   mid.next = leaseToSign ? { label: { zh: '去签署', en: 'Sign now' }, href: '/tenant/lease' }
-    : hh && !joined ? { label: { zh: '接受在管租约邀请', en: 'Accept the tenancy invitation' }, href: `/h/${hh.id}` }
+    : hh && !joined ? { label: { zh: '接受在管租约邀请（邮件里的链接）', en: 'Accept the tenancy invitation (emailed link)' }, href: '/tenant/lease' }
     : openTickets.length ? { label: { zh: '查看工单', en: 'See tickets' }, href: `/h/${hh!.id}` }
     : undefined
 

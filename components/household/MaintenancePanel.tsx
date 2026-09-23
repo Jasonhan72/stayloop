@@ -53,7 +53,7 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
     setOrders(wos)
     const pids = Array.from(new Set(wos.map((x) => x.provider_id).filter(Boolean))) as string[]
     if (pids.length) {
-      const { data: p } = await supabase.from('service_providers').select('id, legal_name, trade_name').in('id', pids)
+      const { data: p } = await supabase.from('provider_directory').select('id, legal_name, trade_name').in('id', pids)
       const m: Record<string, string> = {}
       for (const x of (p ?? []) as { id: string; legal_name: string; trade_name: string | null }[]) m[x.id] = x.trade_name || x.legal_name
       setNames((n) => ({ ...n, ...m }))
@@ -123,7 +123,7 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
             </div>
             {wos.length > 0 && (
               <div className="mt-3 space-y-2">
-                {wos.map((w) => <WorkOrderCard key={w.id} wo={w} viewer={isLandlord ? 'landlord' : myRole === 'tenant' ? 'tenant' : 'tenant'} zh={zh} providerName={w.provider_id ? names[w.provider_id] : null} onChange={load} compact />)}
+                {wos.map((w) => <WorkOrderCard key={w.id} wo={w} viewer={isLandlord ? 'landlord' : myRole === 'tenant' ? 'tenant' : 'system'} zh={zh} providerName={w.provider_id ? names[w.provider_id] : null} onChange={load} compact />)}
               </div>
             )}
           </div>

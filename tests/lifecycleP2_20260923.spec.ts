@@ -116,3 +116,35 @@ describe('agent client table', () => {
     expect(src).toContain('<ClientBook')
   })
 })
+
+describe('code review 2026-09-23 (lifecycle)', () => {
+  it('instalment dates clamp to month ends', () => {
+    const p = buildPaymentPlan({ arrears: 300, monthlyRent: 1000, installments: 3, firstDue: '2027-01-31', unit: 'U', tenantName: 'T', missed: ['2026-12-01'] })
+    expect(p.schedule.map((s) => s.due)).toEqual(['2027-01-31', '2027-02-28', '2027-03-31'])
+  })
+  it('the tenancy clock counts calendar months', async () => {
+    const { tenancyClock } = await import('@/lib/household/clock')
+    expect(tenancyClock('2026-01-01', null, new Date('2026-03-01T12:00:00Z')).month).toBe(3)
+    expect(tenancyClock('2026-01-01', null, new Date('2026-01-31T12:00:00Z')).month).toBe(1)
+  })
+  it('今日 lists only near clocks and counted steps', () => {
+    const lc = landlordLifecycle({ ...base, leases: [{ id: 'L1', status: 'signed_both', start_date: '2025-11-01', end_date: '2026-11-15', unit_label: 'Unit 7' }], households: [{ id: 'H1', current_lease_id: 'L1', verified: true, status: 'active', end_date: '2026-11-15' }] }, TODAY)
+    const items = buildToday(lc, [], '/landlord/todo')
+    expect(items.some((i) => i.kind === 'clock')).toBe(false) // 53 days out is not "today"
+    expect(items.some((i) => i.text.zh.includes('租客意向：租客在 30 天'))).toBe(false)
+  })
+  it('a term that ended but continues month-to-month with a verified household is not a move-out; a superseded lease is not either', () => {
+    const cont = landlordLifecycle({ ...base, leases: [{ id: 'L1', status: 'signed_both', start_date: '2025-09-01', end_date: '2026-09-10', unit_label: 'U1' }], households: [{ id: 'H1', current_lease_id: 'L1', verified: true, status: 'active', end_date: '2026-09-10' }] }, TODAY)
+    expect(cont.phases[2].steps.find((s) => s.key === 'turnover')?.state).toBe('todo')
+    const sup = landlordLifecycle({ ...base, leases: [{ id: 'L1', status: 'signed_both', start_date: '2025-09-01', end_date: '2026-09-10', unit_label: 'U1' }, { id: 'L2', status: 'signed_both', start_date: '2026-09-15', end_date: '2027-09-14', unit_label: 'U1' }], households: [] }, TODAY)
+    expect(sup.phases[2].steps.find((s) => s.key === 'turnover')?.state).toBe('todo')
+    const old = landlordLifecycle({ ...base, leases: [{ id: 'L1', status: 'ended', start_date: '2023-01-01', end_date: '2024-01-01', unit_label: 'U1' }], households: [] }, TODAY)
+    expect(old.current).not.toBe('post')
+  })
+  it('a pending renewal letter is not "sent"', () => {
+    const lc = landlordLifecycle({ ...base, leases: [{ id: 'L1', status: 'signed_both', start_date: '2025-11-01', end_date: '2026-11-15', unit_label: 'U' }], households: [], renewalCards: [{ action_type: 'send_renewal_letter', status: 'pending', lease_id: 'L1', stage: '90d' }] }, TODAY)
+    const step = lc.phases[2].steps.find((s) => s.key === 'letter')!
+    expect(step.state).toBe('current')
+    expect(lc.phases[2].next?.label.zh).toBe('批准续约函')
+  })
+})

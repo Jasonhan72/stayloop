@@ -43,7 +43,8 @@ describe('renewal touchpoints 90 / 60 / 30 (item F)', () => {
     expect(out[0].action_type).toBe('send_renewal_letter')
     expect(out[0].metadata.stage).toBe('90d')
     expect(out[0].summary).toContain('TRREB 2026 Q2')
-    expect(out[0].summary).toContain('$2,859') // 2026 guideline 2.1% (was 2.5% before the 2026 figure was published)
+    // The lease ends ~100 days out (late 2026) → the increase takes effect in 2027 → 1.9% (review 2026-09-23: keyed on the effective date, not the end date).
+    expect(out[0].summary).toContain('$2,853')
   })
 
   it('a lease entering the window late still gets the letter first, and only one card per run', () => {
@@ -106,7 +107,7 @@ describe('proactive + execute wiring', () => {
     expect(execute).toMatch(/case 'renewal_checkpoint':/)
     expect(execute).toMatch(/case 'showing_request':/)
     expect(execute).toMatch(/case 'listing_inquiry':/)
-    expect(execute).toMatch(/!preview && \['send_renewal_letter', 'send_message', 'rent_reminder', 'showing_request', 'listing_inquiry', 'send_lease', 'send_decision', 'maintenance_request'\]/)
+    expect(execute).toMatch(/!preview && \['send_renewal_letter', 'dispatch_work_order', 'approve_quote', 'accept_completion', 'send_message', 'rent_reminder', 'showing_request', 'listing_inquiry', 'send_lease', 'send_decision', 'maintenance_request'\]/)
     // recipient comes from the tenants row, never from caller-written metadata
     expect(execute).toMatch(/from\('tenants'\)\.select\('email, full_name'\)/)
     expect(execute).not.toMatch(/m\.tenant_email\s*\)\s*\)\s*\n\s*const \{ html, text \} = renderAgentMessageEmail\(\{ subject, body \}\)/)

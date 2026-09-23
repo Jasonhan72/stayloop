@@ -72,7 +72,7 @@ export default function MyApplications({ zh }: { zh: boolean }) {
     const email = auth.user.email ?? ''
     ;(async () => {
       const [{ data: apps }, { data: ls }, { data: hh }, { data: mem }] = await Promise.all([
-        supabase.from('applications').select('id, status, created_at, move_in_date, viewed_at, screened_at, decision_notified_at, listing_id, listing:listings(slug, address, unit)').order('created_at', { ascending: false }).limit(20),
+        supabase.from('applicant_applications').select('id, status, created_at, move_in_date, viewed_at, screened_at, decision_notified_at, listing_id, listing:listings(slug, address, unit)').order('created_at', { ascending: false }).limit(20),
         email ? supabase.from('lease_documents').select('id, status, unit_label, sent_at, signed_at, created_at').ilike('tenant_email', email).order('created_at', { ascending: false }).limit(20) : Promise.resolve({ data: [] as LeaseRow[] }),
         supabase.from('households').select('id, current_lease_id, address').limit(20),
         supabase.from('household_members').select('household_id').eq('user_id', uid).limit(20),
@@ -93,7 +93,8 @@ export default function MyApplications({ zh }: { zh: boolean }) {
   const leaseFor = (r: Row, l: { address: string; unit: string | null } | null): LeaseRow | null => {
     if (r.status !== 'approved') return null
     const key = l ? `${l.address} ${l.unit ?? ''}`.toLowerCase() : ''
-    return leases.find((x) => x.unit_label && key && (key.includes(x.unit_label.toLowerCase()) || x.unit_label.toLowerCase().includes(l!.address.toLowerCase()))) ?? leases[0] ?? null
+    // No fallback to "the newest lease": two approved applications would otherwise both claim it (review 2026-09-23).
+    return leases.find((x) => x.unit_label && key && (key.includes(x.unit_label.toLowerCase()) || x.unit_label.toLowerCase().includes(l!.address.toLowerCase()))) ?? null
   }
   return (
     <div className="mb-6 rounded-2xl border border-line-divider bg-white p-5">

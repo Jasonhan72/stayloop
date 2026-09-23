@@ -83,7 +83,9 @@ function fmt(n: number): string {
 
 export function buildRenewalProposal(userId: string, l: RenewalLease, today: Date, market?: MarketLine | null): RenewalProposal {
   const rent = Number(l.monthly_rent) || 0
-  const g = guidelineFor(l.end_date)
+  // The increase takes effect the day after the term ends (a lease ending
+  // Dec 31 gets next year's guideline). Review 2026-09-23.
+  const g = guidelineFor(isoDate(new Date((parseDateOnly(l.end_date) ?? todayUtc(today)).getTime() + 86_400_000)))
   const raised = Math.round(rent * (1 + g.pct / 100) * 100) / 100
   const end = parseDateOnly(l.end_date) ?? todayUtc(today)
   const noticeDeadline = new Date(end.getTime() - NOTICE_DAYS * 86_400_000)
@@ -138,7 +140,7 @@ export function buildCheckpointProposal(userId: string, l: RenewalLease, today: 
       ? `${unit} 的租约 ${l.end_date} 到期，续约函还没有发出。` +
         (daysToNotice >= 0
           ? `涨租的 N1 通知最晚 ${isoDate(noticeDeadline)} 送达（还有 ${daysToNotice} 天）。`
-          : `涨租的 N1 通知 90 天期限（${isoDate(noticeDeadline)}）已过，本期只能按原租金续约或转为月租。`) +
+          : `涨租的 N1 通知 90 天期限（${isoDate(noticeDeadline)}）已过：到期日起先按原租金续约或转为月租，要涨租需另定更晚的生效日并重新送达 N1（距上次涨租满 12 个月）。`) +
         `到期不续签会自动转为月租（RTA s.38）。点「批准」表示你已知悉；上方 90 天那张卡仍可批准发送续约函。`
       : `${unit} 的租约 ${l.end_date} 到期（还有 ${daysToEnd} 天），续约函没有发出、也没有收到 ${tenant} 的意向。` +
         `建议直接致电或短信确认去留，好安排空置期。点「批准」表示你已知悉。`

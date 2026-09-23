@@ -14,6 +14,11 @@ import { useT } from '@/lib/i18n'
 
 type Row = WorkOrderLite & { ticket_id: string; household_id: string }
 type Ctx = { title: string; city: string | null; address: string | null; unit: string | null }
+const PROVIDER_STATUS: Record<string, { zh: string; en: string }> = { pending: { zh: '待核验', en: 'pending verification' }, verified: { zh: '已核验', en: 'verified' }, rejected: { zh: '未通过', en: 'rejected' }, suspended: { zh: '已暂停', en: 'suspended' }, expired: { zh: '已过期', en: 'expired' } }
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return <div className="flex min-h-screen flex-col bg-surface"><Header /><main className="mx-auto w-full max-w-[860px] flex-1 px-5 py-8">{children}</main><Footer /></div>
+}
 
 export default function ProviderJobsPage() {
   const auth = useAuth()
@@ -30,20 +35,15 @@ export default function ProviderJobsPage() {
     const { data } = await supabase.from('work_orders').select('*').eq('provider_id', (p as { id: string }).id).order('updated_at', { ascending: false }).limit(100)
     const list = (data ?? []) as Row[]
     setRows(list)
-    const tIds = Array.from(new Set(list.map((r) => r.ticket_id)))
-    if (tIds.length) {
-      const { data: t } = await supabase.from('maintenance_tickets').select('id, title, household_id').in('id', tIds)
-      const hhIds = Array.from(new Set(list.map((r) => r.household_id)))
-      const { data: h } = await supabase.from('households').select('id, address, unit, city').in('id', hhIds)
-      const hh = new Map(((h ?? []) as { id: string; address: string; unit: string | null; city: string | null }[]).map((x) => [x.id, x]))
-      const m: Record<string, Ctx> = {}
-      for (const x of (t ?? []) as { id: string; title: string; household_id: string }[]) { const hv = hh.get(x.household_id); m[x.id] = { title: x.title, city: hv?.city ?? null, address: hv?.address ?? null, unit: hv?.unit ?? null } }
-      setCtx(m)
-    }
+    // Address / title come from a definer RPC scoped to this provider's live
+    // work orders (no table access to households or tickets; review 2026-09-23).
+    const { data: c } = await supabase.rpc('provider_job_context')
+    const m: Record<string, Ctx> = {}
+    for (const x of (c ?? []) as { work_order_id: string; ticket_title: string; address: string | null; unit: string | null; city: string | null }[]) m[x.work_order_id] = { title: x.ticket_title, city: x.city, address: x.address, unit: x.unit }
+    setCtx(m)
   }, [auth.user])
   useEffect(() => { if (!auth.loading) void load() }, [auth.loading, load])
 
-  const Shell = ({ children }: { children: React.ReactNode }) => (<div className="flex min-h-screen flex-col bg-surface"><Header /><main className="mx-auto w-full max-w-[860px] flex-1 px-5 py-8">{children}</main><Footer /></div>)
   if (auth.loading || prov === 'loading') return <Shell><div className="text-body-3">…</div></Shell>
   if (!auth.user) return <Shell><div className="rounded-2xl border border-line-divider bg-white p-6 text-[14px]">{zh ? '请先登录。' : 'Sign in first.'} <Link href="/login?next=/provider/jobs" className="underline">{zh ? '登录' : 'Sign in'}</Link></div></Shell>
   if (!prov) return <Shell><div className="rounded-2xl border border-line-divider bg-white p-6 text-[14px]">{zh ? '你还没有服务商档案。' : 'No provider profile yet.'} <Link href="/provider/onboard" className="font-bold text-brand underline">{zh ? '入驻 →' : 'Onboard →'}</Link></div></Shell>
@@ -60,7 +60,7 @@ export default function ProviderJobsPage() {
         <div>
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '服务商 · 工单' : 'PROVIDER · JOBS'}</div>
           <h1 className="mt-1 text-[24px] font-extrabold tracking-tight">{prov.trade_name || prov.legal_name}</h1>
-          <p className="mt-1 text-[12.5px] text-body-3">{prov.status === 'verified' ? (zh ? '资质已核 · 可接收派单' : 'Verified · eligible for dispatch') : (zh ? `状态：${prov.status} · 核验通过前不会收到派单` : `Status: ${prov.status} · no dispatch until verified`)} · <Link href="/provider/onboard" className="underline">{zh ? '资料与资质' : 'Profile & credentials'}</Link></p>
+          <p className="mt-1 text-[12.5px] text-body-3">{prov.status === 'verified' ? (zh ? '资质已核 · 可接收派单' : 'Verified · eligible for dispatch') : (zh ? `状态：${PROVIDER_STATUS[prov.status]?.zh ?? prov.status} · 核验通过前不会收到派单` : `Status: ${PROVIDER_STATUS[prov.status]?.en ?? prov.status} · no dispatch until verified`)} · <Link href="/provider/onboard" className="underline">{zh ? '资料与资质' : 'Profile & credentials'}</Link></p>
         </div>
       </div>
       {groups.map((g) => {
@@ -72,7 +72,7 @@ export default function ProviderJobsPage() {
               <div className="mt-2 space-y-3">
                 {list.map((r) => (
                   <div key={r.id}>
-                    <div className="mb-1 text-[12.5px] text-body-2"><b>{ctx[r.ticket_id]?.title || r.scope}</b> · {hidden(r) ? (ctx[r.ticket_id]?.city || '') : [ctx[r.ticket_id]?.address, ctx[r.ticket_id]?.unit ? `#${ctx[r.ticket_id]?.unit}` : null, ctx[r.ticket_id]?.city].filter(Boolean).join(', ')}</div>
+                    <div className="mb-1 text-[12.5px] text-body-2"><b>{ctx[r.id]?.title || r.scope}</b> · {hidden(r) ? (ctx[r.id]?.city || '') : [ctx[r.id]?.address, ctx[r.id]?.unit ? `#${ctx[r.id]?.unit}` : null, ctx[r.id]?.city].filter(Boolean).join(', ')}</div>
                     <WorkOrderCard wo={r} viewer="provider" zh={zh} providerName={prov.trade_name || prov.legal_name} onChange={load} />
                   </div>
                 ))}
@@ -81,7 +81,7 @@ export default function ProviderJobsPage() {
           </section>
         )
       })}
-      <p className="mt-8 text-[11px] text-body-3">{zh ? '完整地址在接单后显示；租客联系方式只在工单进行期间可见。' : 'The full address shows after you accept; tenant contact details only while the job is open.'}</p>
+      <p className="mt-8 text-[11px] text-body-3">{zh ? '完整地址在接单后显示、归档后隐藏；进入方式以房东发出的通知为准。' : 'The full address shows after you accept and is hidden once the job is closed; entry follows the landlord’s notice.'}</p>
     </Shell>
   )
 }

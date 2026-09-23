@@ -33,13 +33,13 @@ export default function LandlordProvidersPage() {
     let cancelled = false
     ;(async () => {
       const [{ data: p }, { data: w }] = await Promise.all([
-        supabase.from('service_providers').select('id, legal_name, trade_name, trades, service_cities, pricing_mode, call_out_fee, hourly_rate, contact_email, contact_phone, website, verified_at').eq('status', 'verified').limit(200),
+        supabase.from('provider_directory').select('id, legal_name, trade_name, trades, service_cities, pricing_mode, call_out_fee, hourly_rate, contact_email, contact_phone, website, verified_at').limit(200),
         supabase.from('work_orders').select('external_email, external_name, provider_id, status, created_at, quoted_at, approved_amount, invoice_amount, schedule_start, arrived_at, accepted_at, emergency').eq('landlord_auth_id', auth.user!.id).order('created_at', { ascending: false }).limit(200),
       ])
       const list = (p ?? []) as Provider[]
       const ids = list.map((x) => x.id)
       const [{ data: c }, { data: r }] = await Promise.all([
-        ids.length ? supabase.from('provider_credentials').select('provider_id, kind, expires_at, verified_at').in('provider_id', ids) : Promise.resolve({ data: [] }),
+        ids.length ? supabase.from('provider_credentials_public').select('provider_id, kind, expires_at, verified_at').in('provider_id', ids) : Promise.resolve({ data: [] }),
         ids.length ? supabase.from('provider_reviews').select('provider_id, overall').in('provider_id', ids) : Promise.resolve({ data: [] }),
       ])
       if (cancelled) return
@@ -94,7 +94,7 @@ export default function LandlordProvidersPage() {
           </div>
         )}
       </SectionCard>
-      <p className="mt-4 text-[11.5px] text-body-3">{zh ? '派单入口在每份在管租约的「报修」标签，或' : 'Dispatch from the Maintenance tab of a managed tenancy, or '}<Link href="/landlord/maintenance" className="underline">{zh ? '维修工单看板' : 'the maintenance board'}</Link>。{zh ? ' Stayloop 不经手资金：付款由你与服务商直接完成，账单不得超出批准报价 10%。' : ' Stayloop moves no money: you pay the provider directly; invoices stay within 10% of the approved quote.'}</p>
+      <p className="mt-4 text-[11.5px] text-body-3">{zh ? '派单入口在每份在管租约的「报修」标签，或' : 'Dispatch from the Maintenance tab of a managed tenancy, or '}<Link href="/landlord/maintenance" className="underline">{zh ? '维修工单看板' : 'the maintenance board'}</Link>{zh ? '。Stayloop 不经手资金：付款由你与服务商直接完成，账单不得超出批准报价 10%。' : '. Stayloop moves no money: you pay the provider directly; invoices stay within 10% of the approved quote.'}</p>
     </WorkspaceShell>
   )
 }

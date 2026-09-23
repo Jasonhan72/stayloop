@@ -31,7 +31,8 @@ export default function BulkApproveBar({ actions, onDecide, zh }: {
   const run = async (key: string, list: PendingAction[], option?: 'A' | 'B') => {
     setBusy(key)
     try {
-      for (const a of list) await onDecide(a.id, 'approved', option)
+      // Each decide waits out its own 60-second undo window; run them together.
+      await Promise.all(list.map((a) => onDecide(a.id, 'approved', option)))
     } finally { setBusy(null) }
   }
   return (

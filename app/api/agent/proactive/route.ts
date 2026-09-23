@@ -187,10 +187,11 @@ async function runCronSweep(): Promise<NextResponse> {
   let newerOnUnit = new Set<string>()
   if (endedLeases.length) {
     const llIds = Array.from(new Set(endedLeases.map((l) => l.landlord_id).filter(Boolean))) as string[]
-    const { data: newer } = await admin.from('lease_documents').select('id, landlord_id, unit_label, start_date').in('landlord_id', llIds).gte('start_date', iso(todayUtc(lookback))).limit(CRON_SCAN_LIMIT)
-    newerOnUnit = new Set(((newer ?? []) as { id: string; landlord_id: string | null; unit_label: string | null }[]).map((n) => `${n.landlord_id}:${(n.unit_label || '').toLowerCase()}`))
+    const { data: newer } = await admin.from('lease_documents').select('id, landlord_id, unit_label, start_date, status').in('landlord_id', llIds).in('status', ['sent', 'signed_tenant', 'signed_both', 'active']).gte('start_date', iso(todayUtc(lookback))).limit(CRON_SCAN_LIMIT)
+    newerOnUnit = new Set(((newer ?? []) as { id: string; landlord_id: string | null; unit_label: string | null }[]).filter((n) => n.unit_label).map((n) => `${n.landlord_id}:${n.unit_label!.trim().toLowerCase()}`))
   }
-  const relistLeases = endedLeases.filter((l) => leaseNeedsRelist(l, today, newerOnUnit.has(`${l.landlord_id}:${(l.unit_label || '').toLowerCase()}`)))
+  // No unit label → we cannot tell units apart → no re-list card (review 2026-09-23).
+  const relistLeases = endedLeases.filter((l) => !!l.unit_label && leaseNeedsRelist(l, today, newerOnUnit.has(`${l.landlord_id}:${l.unit_label!.trim().toLowerCase()}`)))
 
   const allLeases = [...((renewalLeases ?? []) as LeaseRow[]), ...reminderLeases, ...relistLeases.map((l) => ({ ...l, tenant_email: null, monthly_rent: null, end_date: l.end_date || '' }) as LeaseRow)]
   if (allLeases.length === 0 && invites.length === 0) {

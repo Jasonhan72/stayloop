@@ -34,7 +34,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!wo) return NextResponse.json({ error: 'not found' }, { status: 404 })
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
   let by: ActorKind | null = null
-  if (wo.landlord_auth_id === userId) by = 'landlord'
+  if (action === 'resolve_dispute') {
+    const { data: adm } = await admin.from('admin_users').select('role').eq('user_id', userId).maybeSingle()
+    if (adm) by = 'admin'
+  }
+  if (!by && wo.landlord_auth_id === userId) by = 'landlord'
   else {
     const { data: prov } = wo.provider_id ? await admin.from('service_providers').select('auth_id').eq('id', wo.provider_id).maybeSingle() : { data: null }
     if (prov && (prov as { auth_id: string }).auth_id === userId) by = 'provider'

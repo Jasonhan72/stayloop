@@ -17,6 +17,10 @@ type Provider = { id: string; auth_id: string; legal_name: string; trade_name: s
 type Cred = { id: string; provider_id: string; kind: CredentialKind; number: string | null; holder_name: string | null; expires_at: string | null; verified_at: string | null; note: string | null }
 type Dispute = { id: string; ticket_id: string; dispute_reason: string | null; disputed_at: string | null; landlord_auth_id: string; provider_id: string | null; external_email: string | null; invoice_amount: number | null; approved_amount: number | null }
 
+function Shell({ children }: { children: React.ReactNode }) {
+  return <div className="min-h-screen bg-surface"><Header /><main className="mx-auto max-w-[1100px] px-5 py-8">{children}</main></div>
+}
+
 export default function AdminProvidersPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -32,7 +36,9 @@ export default function AdminProvidersPage() {
   useEffect(() => {
     if (auth.loading) return
     if (!auth.user) { setAdminRole(null); return }
-    supabase.from('admin_users').select('role').eq('user_id', auth.user.id).maybeSingle().then(({ data }) => setAdminRole(data?.role ?? null))
+    let cancelled = false
+    supabase.from('admin_users').select('role').eq('user_id', auth.user.id).maybeSingle().then(({ data }) => { if (!cancelled) setAdminRole(data?.role ?? null) })
+    return () => { cancelled = true }
   }, [auth.loading, auth.user])
   const load = useCallback(async () => {
     let q = supabase.from('service_providers').select('*').order('created_at', { ascending: false }).limit(200)
@@ -54,7 +60,7 @@ export default function AdminProvidersPage() {
     const note = (notes[p.id] || '').trim() || null
     const { data: hit, error } = await supabase.from('service_providers').update({ status, review_note: note, verified_at: status === 'verified' ? new Date().toISOString() : null, verified_by: status === 'verified' ? auth.user.id : null }).eq('id', p.id).eq('updated_at', p.updated_at).select('id')
     if (!error && !(hit ?? []).length) { alert(zh ? '该资料在你打开页面后被修改过，已重新加载。' : 'Changed since you loaded it — reloaded.'); await load(); setBusy(null); return }
-    if (!error) await supabase.from('agent_audit_events').insert({ actor_id: auth.user.id, actor_type: 'admin', action: `provider_${status}`, target_type: 'service_provider', target_id: p.id, metadata: { note } })
+    if (!error) await supabase.from('agent_audit_events').insert({ actor_id: auth.user.id, actor_type: 'user', action: `provider_${status}`, target_type: 'service_provider', target_id: p.id, metadata: { note, role: 'admin' } })
     await load(); setBusy(null)
   }
   async function stampCred(c: Cred, ok: boolean) {
@@ -72,7 +78,6 @@ export default function AdminProvidersPage() {
     await load(); setBusy(null)
   }
 
-  const Shell = ({ children }: { children: React.ReactNode }) => (<div className="min-h-screen bg-surface"><Header /><main className="mx-auto max-w-[1100px] px-5 py-8">{children}</main></div>)
   if (auth.loading || adminRole === 'loading') return <Shell><div className="text-body-3">…</div></Shell>
   if (!auth.user || !adminRole) return <Shell><div className="rounded-xl border border-line-divider bg-white p-6 text-[14px]">{zh ? '仅限后台管理员。' : 'Admins only.'} <Link href="/admin" className="underline">{zh ? '返回后台' : 'Back'}</Link></div></Shell>
 
@@ -120,7 +125,7 @@ export default function AdminProvidersPage() {
                   <div className="min-w-0">
                     <div className="text-[15px] font-bold">{p.trade_name || p.legal_name} {p.trade_name && <span className="text-[12px] font-normal text-body-3">({p.legal_name})</span>}{p.business_number && <span className="ml-2 font-mono text-[12px] text-body-3">#{p.business_number}</span>}</div>
                     <div className="text-[12.5px] text-body-2">{p.trades.map((t) => { const d = TRADES.find((x) => x.key === t); const cov = coverageFor(t as Trade, pc); return `${d ? (zh ? d.zh : d.en) : t}${cov.ok ? ' ✓' : ' ✗'}` }).join(' · ')} · {p.service_cities.join(', ')}</div>
-                    <div className="text-[11.5px] text-body-3">{p.contact_email || '—'} · {p.contact_phone || '—'}{p.website ? ` · ${p.website}` : ''} · {zh ? '提交于' : 'submitted'} {p.created_at.slice(0, 10)}{exp ? ` · ${zh ? '最早到期' : 'earliest expiry'} ${exp.kind} ${exp.days}d` : ''}</div>
+                    <div className="text-[11.5px] text-body-3">{p.contact_email || '—'} · {p.contact_phone || '—'}{p.website ? ` · ${p.website}` : ''} · {zh ? '提交于' : 'submitted'} {p.created_at.slice(0, 10)}{exp ? ` · ${zh ? '最早到期' : 'earliest expiry'} ${(zh ? CREDENTIAL_LABEL[exp.kind as CredentialKind]?.zh : CREDENTIAL_LABEL[exp.kind as CredentialKind]?.en) ?? exp.kind} ${exp.days}d` : ''}</div>
                   </div>
                   <span className="rounded-full px-2 py-[2px] text-[11px] font-bold" style={p.status === 'verified' ? { background: '#E4EEE3', color: '#065F46' } : p.status === 'pending' ? { background: '#FEF3E2', color: '#B45309' } : { background: '#FEF2F2', color: '#B91C1C' }}>{p.status}</span>
                 </div>

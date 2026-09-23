@@ -166,14 +166,10 @@ function qualLine(row: AppRow): { zh: string; en: string } {
       ? { zh: `材料 ${n} 份 · AI 评分中`, en: `${n} documents · AI scoring in progress` }
       : { zh: '仅表单 · 未上传材料', en: 'Form only · no documents uploaded' }
   }
-  const rent = row.listing?.monthly_rent
-  const incomeOk = row.monthly_income != null && rent ? row.monthly_income >= rent * 3 : null
+  // No income-to-rent verdict here: a 3× line is the cut-off the OHRC rental
+  // policy forbids (review 2026-09-23). The stated income is shown as a fact.
   const parts_zh: string[] = []
   const parts_en: string[] = []
-  if (incomeOk != null) {
-    parts_zh.push(incomeOk ? '收入 ✓' : '收入 ⚠︎')
-    parts_en.push(incomeOk ? 'Income ✓' : 'Income ⚠︎')
-  }
   const ltb = row.ltb_records_found ?? 0
   parts_zh.push(ltb === 0 ? '法庭 ✓' : `LTB ${ltb} 起`)
   parts_en.push(ltb === 0 ? 'Court ✓' : `${ltb} LTB record${ltb > 1 ? 's' : ''}`)
@@ -205,11 +201,11 @@ function toApplicant(row: AppRow, idx: number): Applicant {
 
 function exportCsv(apps: Applicant[], zh: boolean) {
   const header = zh
-    ? ['姓名', '匹配分', '已盖章数', '月收入', '分组', '房源']
-    : ['Name', 'Match', 'Stamps', 'Monthly income', 'Group', 'Listing']
+    ? ['姓名', '评分（参考）', '已盖章数', '申报月收入', '阶段', '房源']
+    : ['Name', 'Score (info)', 'Stamps', 'Stated monthly income', 'Stage', 'Listing']
   const csv = toCsv(
     header,
-    apps.map((a) => [a.name, a.match ?? '', a.tier, a.income ?? '', a.decision, a.unitLabel ?? '']),
+    apps.map((a) => [a.name, a.match ?? '', a.tier, a.income ?? '', a.stage ?? a.decision, a.unitLabel ?? '']),
   )
   downloadCsv('stayloop-applicants.csv', csv)
 }
@@ -284,7 +280,9 @@ export default function LandlordApplicantsPage() {
         )
     : 26
 
-  const topScored = liveMode ? apps.filter((a) => a.match != null).sort((a, b) => (b.match ?? 0) - (a.match ?? 0))[0] : null
+  // Live insights never rank applicants by score (OHRC); the only live nudge
+  // is the neutral "screen what is unscreened" one.
+  const topScored = null as Applicant | null
   const insights: AIInsight[] = liveMode
     ? [
         topScored

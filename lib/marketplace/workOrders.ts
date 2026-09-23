@@ -7,7 +7,7 @@ export type WoAction = 'accept' | 'decline' | 'quote' | 'approve_quote' | 'rejec
 
 export const TICKET_STATUS_FOR: Partial<Record<WorkOrderStatus, string>> = {
   offered: 'assigned', quoted: 'assigned', scheduled: 'assigned', in_progress: 'in_progress', rework: 'in_progress',
-  completed: 'review', accepted: 'done', paid: 'done', closed: 'done', cancelled: 'new', declined: 'new', expired: 'new',
+  completed: 'review', accepted: 'done', paid: 'done', closed: 'done', cancelled: 'new', declined: 'new', expired: 'new', disputed: 'review',
 }
 
 const CONTRACTOR: ActorKind[] = ['provider', 'external']
@@ -40,7 +40,7 @@ export function canAct(action: WoAction, status: WorkOrderStatus, by: ActorKind)
 
 export type QuoteInput = { amount: number; type: 'fixed' | 'hourly_estimate'; note?: string; valid_until?: string; schedule_start?: string; schedule_end?: string }
 
-export function validateQuote(q: Partial<QuoteInput>): { ok: boolean; reason?: string; value?: QuoteInput } {
+export function validateQuote(q: Partial<QuoteInput>, now = new Date()): { ok: boolean; reason?: string; value?: QuoteInput } {
   const amount = Number(q.amount)
   if (!Number.isFinite(amount) || amount < 0 || amount > 100_000) return { ok: false, reason: 'amount' }
   const type = q.type === 'fixed' || q.type === 'hourly_estimate' ? q.type : null
@@ -49,6 +49,9 @@ export function validateQuote(q: Partial<QuoteInput>): { ok: boolean; reason?: s
   const end = q.schedule_end ? new Date(q.schedule_end) : null
   if ((start && isNaN(start.getTime())) || (end && isNaN(end.getTime()))) return { ok: false, reason: 'schedule' }
   if (start && end && end.getTime() < start.getTime()) return { ok: false, reason: 'schedule' }
+  // A window in the past cannot be an entry notice (review 2026-09-23).
+  if (start && start.getTime() < now.getTime() - 5 * 60_000) return { ok: false, reason: 'schedule_past' }
+  if (q.valid_until && !/^\d{4}-\d{2}-\d{2}$/.test(q.valid_until)) return { ok: false, reason: 'valid_until' }
   return { ok: true, value: { amount: Math.round(amount * 100) / 100, type, note: (q.note || '').trim().slice(0, 2000) || undefined, valid_until: q.valid_until || undefined, schedule_start: start ? start.toISOString() : undefined, schedule_end: end ? end.toISOString() : undefined } }
 }
 
@@ -59,10 +62,22 @@ export function invoiceWithinEstimate(approved: number | null | undefined, invoi
   return over > 0.10 ? { ok: false, overBy: Math.round(over * 1000) / 10 } : { ok: true }
 }
 
-/** RTA s.27(1): non-emergency entry needs 24 hours' written notice, 8:00–20:00; s.26 waives it in an emergency. */
-export function entryNoticeRequired(emergency: boolean, entryPermission: string | null | undefined): boolean {
-  if (emergency) return false
-  return entryPermission !== 'tenant_present' ? true : true // a notice still goes out; tenant_present only changes the wording
+/**
+ * RTA s.27(1): non-emergency entry needs written notice ≥24 h ahead naming a
+ * time between 8:00 and 20:00. Returns the reason the window cannot be
+ * noticed, or null when it can (emergencies pass: s.26).
+ */
+export function entryWindowProblem(i: { emergency: boolean; scheduleStart: string | null | undefined; scheduleEnd?: string | null }, now = new Date()): 'no_window' | 'less_than_24h' | 'outside_8_20' | null {
+  if (i.emergency) return null
+  if (!i.scheduleStart) return 'no_window'
+  const start = new Date(i.scheduleStart)
+  if (isNaN(start.getTime())) return 'no_window'
+  if (start.getTime() < now.getTime() + 24 * 3_600_000) return 'less_than_24h'
+  const hour = (d: Date) => Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', hour: '2-digit', hour12: false }).format(d))
+  const h1 = hour(start)
+  if (h1 < 8 || h1 >= 20) return 'outside_8_20'
+  if (i.scheduleEnd) { const end = new Date(i.scheduleEnd); if (!isNaN(end.getTime())) { const h2 = hour(end); const m2 = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', minute: '2-digit' }).format(end)); if (h2 < 8 || h2 > 20 || (h2 === 20 && m2 > 0)) return 'outside_8_20' } }
+  return null
 }
 
 export function entryNoticeText(i: { unit: string; scheduleStart?: string | null; scheduleEnd?: string | null; provider: string; scope: string; entryPermission: string | null | undefined; emergency: boolean }): { subject: string; body: string } {

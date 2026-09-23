@@ -79,6 +79,7 @@ type ActionRow = {
     ticket_id?: string
     household_id?: string
     candidates?: { provider_id: string; name: string }[]
+    expected_amount?: number | string | null
     provider_id?: string
     external_email?: string
     external_name?: string
@@ -194,7 +195,7 @@ async function executeSendRenewalLetter(
   // from the proposal, and the guideline is re-derived from the lease rent.
   // Guideline for the year the increase takes effect (RTA s.120): 2026 is
   // 2.1%, 2027 is 1.9% — never a hard-coded 2.5%.
-  const g = guidelineFor(lease.end_date)
+  const g = guidelineFor(new Date(new Date(lease.end_date + 'T00:00:00Z').getTime() + 86_400_000).toISOString().slice(0, 10))
   const m = {
     ...m0,
     tenant_email: lease.tenant_email,
@@ -469,7 +470,7 @@ async function executeWorkOrderDecision(admin: Admin, userId: string, action: Ac
   if (!/^[0-9a-f-]{36}$/i.test(woId)) return NextResponse.json({ executed: false, reason: 'work_order_id missing' }, { status: 422 })
   if (preview) return PREVIEW({ subject: action.title, body: action.summary || '', to: action.recipient_label || null })
   if (!(await claimExecution(admin, action.id))) return ALREADY()
-  const r = await actOnWorkOrder(admin, { woId, action: kind, by: 'landlord', actorId: userId, payload: {} })
+  const r = await actOnWorkOrder(admin, { woId, action: kind, by: 'landlord', actorId: userId, payload: kind === 'approve_quote' && m.expected_amount != null ? { expected_amount: m.expected_amount } : {} })
   if (!r.ok) { await releaseClaim(admin, action.id, r.error); return NextResponse.json({ executed: false, reason: r.error }, { status: r.status }) }
   return finalizeExecution(admin, userId, action.id, `executed_${kind}`, { ok: true, kind, work_order_id: woId, status: r.wo.status }, { work_order_id: woId, status: r.wo.status })
 }
@@ -828,7 +829,7 @@ export async function POST(req: Request) {
   // that ultimately traces back to rows the caller can write (their own
   // lease's tenant_email, an application on their own listing). The
   // counterparty checks narrow WHO; this caps HOW MANY (review 2026-09-19).
-  if (!preview && ['send_renewal_letter', 'send_message', 'rent_reminder', 'showing_request', 'listing_inquiry', 'send_lease', 'send_decision', 'maintenance_request'].includes(action.action_type)) {
+  if (!preview && ['send_renewal_letter', 'dispatch_work_order', 'approve_quote', 'accept_completion', 'send_message', 'rent_reminder', 'showing_request', 'listing_inquiry', 'send_lease', 'send_decision', 'maintenance_request'].includes(action.action_type)) {
     if (!(await underHourlyLimit(`mail:agent-execute:${userId}`, 20, false))) {
       return NextResponse.json({ executed: false, reason: 'hourly send limit reached' }, { status: 429, headers: { 'Retry-After': '3600' } })
     }

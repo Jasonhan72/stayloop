@@ -39,7 +39,10 @@ export function buildPaymentPlan(i: PaymentPlanInput): PaymentPlan {
   const schedule: PaymentPlan['schedule'] = []
   let remaining = Math.round(i.arrears * 100) / 100
   for (let k = 0; k < i.installments; k++) {
-    const d = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + k, first.getUTCDate()))
+    // Clamp to the month's last day (Jan 31 + 1 month = Feb 28/29, not Mar 3).
+    const y = first.getUTCFullYear(); const m = first.getUTCMonth() + k
+    const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+    const d = new Date(Date.UTC(y, m, Math.min(first.getUTCDate(), last)))
     const part = k === i.installments - 1 ? remaining : per
     remaining = Math.round((remaining - part) * 100) / 100
     schedule.push({ due: isoDate(d), arrearsPart: part, rentIncluded: i.monthlyRent, amount: Math.round((part + i.monthlyRent) * 100) / 100 })

@@ -68,10 +68,13 @@ export function providerEligible(p: { status: string; trades: string[]; service_
 }
 
 const TORONTO_AREAS = ['toronto', 'scarborough', 'north york', 'etobicoke', 'east york', 'york']
+// Normalise "Toronto, ON" / "Toronto Ontario" to the bare city, then compare
+// whole names ("Oshawa" must not match "a"; "York" must not match "New York").
+const bare = (s: string) => s.toLowerCase().replace(/,.*$/, '').replace(/\b(ontario|on|canada)\b/g, '').replace(/[^a-z]+/g, ' ').trim()
 export function cityMatch(served: string, city: string): boolean {
-  const a = served.trim().toLowerCase(); const b = city.trim().toLowerCase()
+  const a = bare(served); const b = bare(city)
   if (!a || !b) return false
-  if (a === b || b.includes(a) || a.includes(b)) return true
+  if (a === b) return true
   return a === 'toronto' && TORONTO_AREAS.includes(b)
 }
 

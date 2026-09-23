@@ -20,7 +20,8 @@ export const MAX_ITEMS = 6
 function clockItem(p: Phase): TodayItem | null {
   if (!p.clock) return null
   const c = p.clock
-  if (c.tone === 'ok' && c.days > 14) return null
+  // "Today" means within two weeks or overdue, whatever the rail's colour says.
+  if (c.days > 14) return null
   const zh = c.days < 0 ? `${c.label.zh} ${c.date}（已过 ${-c.days} 天）` : c.days === 0 ? `${c.label.zh} 今天` : `${c.label.zh} ${c.date}（还有 ${c.days} 天）`
   const en = c.days < 0 ? `${c.label.en} ${c.date} (${-c.days} days ago)` : c.days === 0 ? `${c.label.en} today` : `${c.label.en} ${c.date} (${c.days} days)`
   return { id: `clock:${p.key}`, kind: 'clock', tone: c.tone === 'ok' ? 'info' : c.tone, text: { zh, en }, href: p.next?.href ?? p.steps.find((s) => s.state === 'current')?.href, prompt: p.next?.prompt }
@@ -48,7 +49,8 @@ export function buildToday(lifecycle: Lifecycle | null, pending: TodayPending[],
   // 3) Current steps with a detail line (e.g. "2 份未筛查", "1 期待付").
   for (const p of lifecycle.phases) {
     for (const s of p.steps) {
-      if (s.state !== 'current' || !s.detail) continue
+      // Only steps whose detail carries a count ("2 份未筛查"); static hints are not to-dos.
+      if (s.state !== 'current' || !s.detail || !/^\d/.test(s.detail.zh)) continue
       out.push({ id: `step:${p.key}:${s.key}`, kind: 'step', tone: 'info', text: { zh: `${s.label.zh}：${s.detail.zh}`, en: `${s.label.en}: ${s.detail.en}` }, href: s.href, prompt: s.prompt })
     }
   }

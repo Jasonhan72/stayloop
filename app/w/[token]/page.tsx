@@ -19,6 +19,10 @@ type View = {
   landlord_email: string | null
 }
 
+function Shell({ children }: { children: React.ReactNode }) {
+  return <div className="flex min-h-screen flex-col bg-white"><Header variant="transparent" /><div className="mx-auto w-full max-w-[640px] flex-1 px-5 py-8">{children}</div><Footer /></div>
+}
+
 export default function ExternalJobPage() {
   const params = useParams()
   const token = String(params?.token || '')
@@ -44,15 +48,12 @@ export default function ExternalJobPage() {
     else { setOpen(null); await load() }
     setBusy(false)
   }
-  const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div className="flex min-h-screen flex-col bg-white"><Header variant="transparent" /><div className="mx-auto w-full max-w-[640px] flex-1 px-5 py-8">{children}</div><Footer /></div>
-  )
   if (v === 'loading') return <Shell><div className="py-20 text-center"><div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent" /></div></Shell>
   if (v === 'missing' || !v) return <Shell><div className="py-16 text-center"><h1 className="text-[20px] font-extrabold">{zh ? '链接无效或已过期' : 'This link is invalid or expired'}</h1><p className="mt-2 text-[13px] text-body-3">{zh ? '请联系派单的房东重新发送。' : 'Ask the landlord who sent it to resend.'}</p></div></Shell>
   const w = v.work_order
   const st = WO_STATUS_LABEL[w.status]
   const money = (n: number | null) => (n == null ? '—' : `$${Number(n).toLocaleString('en-CA', { minimumFractionDigits: 2 })}`)
-  const when = (s: string | null) => (s ? new Date(s).toLocaleString('en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' }) : '—')
+  const when = (s: string | null) => (s ? new Date(s).toLocaleString(zh ? 'zh-CN' : 'en-CA', { timeZone: 'America/Toronto', dateStyle: 'medium', timeStyle: 'short' }) : '—')
   const input = 'w-full rounded-lg border border-line-divider bg-white px-3 py-2.5 text-[15px]'
   const big = 'w-full rounded-xl px-4 py-3.5 text-[15px] font-bold disabled:opacity-50'
   return (
