@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import Header from './Header'
 import { useI18n } from '@/lib/i18n'
 import { ROLE_THEME } from '@/lib/roleTheme'
+import { LiveRowsProvider, useLiveRowsTotal } from '@/lib/liveRows'
 import { SampleBanner } from './SampleNotice'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -195,10 +196,22 @@ function DemoGate({ children, gate, showDemo, setShowDemo, liveSlot }: {
     )
   }
   return (
-    <>
-    {liveSlot}
+    <LiveRowsProvider>
+      {liveSlot}
+      <GateEmptyState gate={gate} zh={zh} setShowDemo={setShowDemo} hasLive={!!liveSlot} />
+    </LiveRowsProvider>
+  )
+}
+
+function GateEmptyState({ gate, zh, setShowDemo, hasLive }: { gate: NonNullable<(typeof DEMO_GATE)[string]>; zh: boolean; setShowDemo: (v: boolean) => void; hasLive: boolean }) {
+  const live = useLiveRowsTotal()
+  // Real rows are on screen: the "nothing yet" copy would contradict them.
+  const copy = hasLive && live > 0
+    ? (zh ? '以上是你的真实记录。这一页的其余部分仍是产品演示。' : 'Those are your real records. The rest of this page is still a product demo.')
+    : (zh ? gate.zh : gate.en)
+  return (
     <div className="rounded-2xl border border-line-divider bg-white px-6 py-16 text-center">
-      <p className="mx-auto max-w-[420px] text-[14px] leading-relaxed text-body-2">{zh ? gate.zh : gate.en}</p>
+      <p className="mx-auto max-w-[420px] text-[14px] leading-relaxed text-body-2">{copy}</p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <Link href={gate.href} className="rounded-xl px-6 py-3 text-[14px] font-bold text-white" style={{ background: '#00ACE4' }}>
           {zh ? gate.ctaZh : gate.ctaEn}
@@ -211,7 +224,6 @@ function DemoGate({ children, gate, showDemo, setShowDemo, liveSlot }: {
         </button>
       </div>
     </div>
-    </>
   )
 }
 

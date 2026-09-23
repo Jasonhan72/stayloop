@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
+import { useReportLiveRows } from '@/lib/liveRows'
 
 type Row = {
   id: string
@@ -32,6 +33,7 @@ export function applicationStatusLabel(status: string | null, zh: boolean): { te
 export default function MyApplications({ zh }: { zh: boolean }) {
   const auth = useAuth()
   const [rows, setRows] = useState<Row[] | null>(null)
+  useReportLiveRows('applications', rows ? rows.length : null)
   useEffect(() => {
     if (auth.loading || !auth.user) { setRows([]); return }
     let cancelled = false

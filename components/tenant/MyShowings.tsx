@@ -7,12 +7,14 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
+import { useReportLiveRows } from '@/lib/liveRows'
 
 type Row = { id: string; kind: string; status: string; move_in_date: string | null; message: string | null; created_at: string; listing: { slug: string; address: string; unit: string | null } | { slug: string; address: string; unit: string | null }[] | null }
 
 export default function MyShowings({ zh }: { zh: boolean }) {
   const auth = useAuth()
   const [rows, setRows] = useState<Row[] | null>(null)
+  useReportLiveRows('showings', rows ? rows.length : null)
   useEffect(() => {
     if (auth.loading || !auth.user) { setRows([]); return }
     let cancelled = false
