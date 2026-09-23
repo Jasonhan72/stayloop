@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
+import ClientBook from '@/components/agent/ClientBook'
+import { SampleBanner } from '@/components/SampleNotice'
 import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import StampBadge from '@/components/StampBadge'
@@ -60,6 +62,11 @@ export default function AgentClientsPage() {
   const zh = lang === 'zh'
   const aiName = useAIName('agent')
   const [sortByStamps, setSortByStamps] = useState(false)
+  // Real rows (agent_clients) render first; the design-canon roster below is
+  // shown only while the agent has none, and is labelled as a sample.
+  const [liveCount, setLiveCount] = useState<number | null>(null)
+  const onRows = useCallback((n: number) => setLiveCount(n), [])
+  const liveMode = (liveCount ?? 0) > 0
   const all = CLIENTS(aiName)
   const clients = sortByStamps ? [...all].sort((a, b) => b.tier - a.tier) : all
 
@@ -70,6 +77,9 @@ export default function AgentClientsPage() {
 
   return (
     <WorkspaceShell role="agent" aside={<Aside lang={lang} quietest={quietest} />}>
+      {liveCount === 0 && (
+        <SampleBanner zh={zh} note={{ zh: '你还没有客户记录：下面的客户、佣金与跟进全部是设计样例。加第一位客户后自动替换。', en: 'No client records yet: the clients, commissions and follow-ups below are design samples, replaced once you add your first client.' }} />
+      )}
       <PageHeader
         title={zh ? '客户管理' : 'Client management'}
         sub={
@@ -81,15 +91,11 @@ export default function AgentClientsPage() {
               : `${aiName} auto-CRM · sorted by stage / stamps / days quiet`}
           </>
         }
-        actions={
-          <Link
-            href={`/agent/agent?prompt=${encodeURIComponent(zh ? '帮我添加一位新客户，记录姓名、预算、目标区域和盖章进度' : 'Add a new client for me — name, budget, target area and stamp progress')}`}
-            className="sl-btn-primary !px-4 !py-2 !text-[12.5px]"
-          >
-            {zh ? '+ 加客户' : '+ Add client'}
-          </Link>
-        }
       />
+
+      <ClientBook zh={zh} onRows={onRows} />
+
+      {liveMode ? null : (<>
 
       <StatStrip
         stats={[
@@ -279,6 +285,7 @@ export default function AgentClientsPage() {
           ))}
         </Table>
       </SectionCard>
+      </>)}
     </WorkspaceShell>
   )
 }
@@ -311,23 +318,8 @@ function Aside({ lang, quietest }: { lang: Lang; quietest: { name: string; silen
       </AsideBlock>
 
       <AsideBlock title={zh ? 'RECO 与执业信息' : 'RECO & licence'}>
-        <div className="space-y-2 rounded-xl border border-line-divider bg-white p-3.5 text-[12.5px] text-body-2">
-          <div>
-            <span className="font-mono text-[11px] uppercase tracking-eyebrow text-body-3">RECO</span>
-            <div className="font-semibold text-body">#7892341 · Toronto West</div>
-          </div>
-          <div>
-            <span className="font-mono text-[11px] uppercase tracking-eyebrow text-body-3">
-              {zh ? '评价' : 'Rating'}
-            </span>
-            <div className="font-semibold text-body">4.9★ · {zh ? '47 条评价' : '47 reviews'}</div>
-          </div>
-          <div>
-            <span className="font-mono text-[11px] uppercase tracking-eyebrow text-body-3">
-              {zh ? '主攻区域' : 'Focus areas'}
-            </span>
-            <div className="font-semibold text-body">Liberty · King West · Annex</div>
-          </div>
+        <div className="rounded-xl border border-line-divider bg-white p-3.5 text-[12.5px] text-body-2">
+          {zh ? '认证状态与注册信息在' : 'Your verification status and registration live on'} <Link href="/agent/verify" className="font-semibold text-agent underline underline-offset-2">/agent/verify</Link>{zh ? '；Stayloop 不展示评分或评价。' : '; Stayloop shows no ratings or reviews.'}
         </div>
       </AsideBlock>
 

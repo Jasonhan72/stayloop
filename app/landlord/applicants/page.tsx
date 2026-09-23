@@ -25,6 +25,7 @@ import { useT, type Lang } from '@/lib/i18n'
 import type { ApplicationFile } from '@/types'
 import { downloadCsv, toCsv } from '@/lib/csv'
 import { applicantStage, STAGE_SECTIONS, type ApplicantStage } from '@/lib/landlord/applicantStages'
+import ApplicantCompare from '@/components/landlord/ApplicantCompare'
 
 type Decision = 'approve' | 'review' | 'decline'
 
@@ -124,6 +125,8 @@ type AppRow = {
   created_at: string
   decision_notified_at?: string | null
   screened_at?: string | null
+  move_in_date?: string | null
+  employer_name?: string | null
   files: ApplicationFile[] | null
   ltb_records_found: number | null
   listing: { address: string | null; unit: string | null; monthly_rent: number | null } | null
@@ -229,7 +232,7 @@ export default function LandlordApplicantsPage() {
       // hard filter by user id here (dual-ID invariant).
       const { data, error } = await supabase
         .from('applications')
-        .select('id, first_name, last_name, ai_extracted_name, monthly_income, ai_score, status, created_at, decision_notified_at, screened_at, files, ltb_records_found, listing:listings(address, unit, monthly_rent)')
+        .select('id, first_name, last_name, ai_extracted_name, monthly_income, ai_score, status, created_at, decision_notified_at, screened_at, move_in_date, employer_name, files, ltb_records_found, listing:listings(address, unit, monthly_rent)')
         .order('created_at', { ascending: false })
         .limit(100)
       let list = error ? [] : ((data ?? []) as unknown as AppRow[])
@@ -413,6 +416,24 @@ export default function LandlordApplicantsPage() {
       {!liveMode && <LandlordThreeSteps lang={lang} />}
 
       {!liveMode && <PolicyCard lang={lang} showHits />}
+
+      {liveMode && rows!.length >= 2 && (
+        <ApplicantCompare zh={lang === 'zh'} rows={rows!.map((r) => ({
+          id: r.id,
+          name: (r.ai_extracted_name || `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim()) || '—',
+          unitLabel: r.listing ? [r.listing.unit ? `Unit ${r.listing.unit}` : null, r.listing.address].filter(Boolean).join(' · ') || null : null,
+          created_at: r.created_at,
+          move_in_date: r.move_in_date ?? null,
+          monthly_income: r.monthly_income,
+          employer_name: r.employer_name ?? null,
+          files: r.files?.length ?? 0,
+          verified_tier: r.verified_tier ?? 0,
+          ai_score: r.ai_score,
+          screening_status: r.screened_at ? 'started' : null,
+          ltb_records_found: r.ltb_records_found,
+          status: r.status,
+        }))} />
+      )}
 
       {(liveMode
         ? STAGE_SECTIONS.map((s) => ({ key: s.stage, tone: s.tone as PillTone, label: s.label, hint: s.hint, list: apps.filter((a) => a.stage === s.stage) }))

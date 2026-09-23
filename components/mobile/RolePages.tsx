@@ -13,6 +13,8 @@ import PendingActionsPanel from '@/components/agent/PendingActionsPanel'
 import StatusOverview from '@/components/agent/StatusOverview'
 import WorkflowStatusPanel from '@/components/agent/WorkflowStatusPanel'
 import LifecycleRail from '@/components/lifecycle/LifecycleRail'
+import TodayCard from '@/components/lifecycle/TodayCard'
+import BulkApproveBar from '@/components/agent/BulkApproveBar'
 import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
 import PrivateMemorySnapshot from '@/components/agent/PrivateMemorySnapshot'
 import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
@@ -61,6 +63,7 @@ export function TodoPage({ role }: { role: AgentRole }) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const { loading, live, data, decide, scheduled, undo } = useAgentSession(role)
+  const { lifecycle } = useLifecycle(role)
   if (loading || !data) return <Skeleton role={role} />
   const pending = data.pendingActions.filter((a) => a.status === 'pending')
   const waiting = Object.entries(scheduled)
@@ -72,6 +75,7 @@ export function TodoPage({ role }: { role: AgentRole }) {
           {zh ? '预览模式：登录后这里是你真实的待办。' : 'Preview mode: sign in to see your real to-dos.'} <Link href="/login" className="font-bold text-brand">{zh ? '登录 →' : 'Sign in →'}</Link>
         </div>
       )}
+      {live && <div className="mb-4"><TodayCard lifecycle={lifecycle} pending={pending.map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref={`/${role}/todo`} lang={lang} /></div>}
       {waiting.length > 0 && (
         <div className="mb-4 space-y-2">
           {waiting.map(([id, w]) => (
@@ -79,6 +83,7 @@ export function TodoPage({ role }: { role: AgentRole }) {
           ))}
         </div>
       )}
+      {live && role === 'landlord' && <BulkApproveBar actions={pending} onDecide={decide} zh={zh} />}
       {pending.length === 0 ? (
         <div className="rounded-2xl border border-line-divider bg-white px-6 py-14 text-center">
           <div className="text-[28px]">✓</div>

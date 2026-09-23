@@ -67,7 +67,7 @@ export type TenantFacts = {
   passportShares: number
   moveInDate?: string | null
 }
-export type AgentFacts = { profileStatus: string | null; pendingCards: number }
+export type AgentFacts = { profileStatus: string | null; pendingCards: number; clients?: { stage: string; representation_agreement_at: string | null; info_guide_given_at: string | null }[] }
 
 const RENEWAL_WINDOW_DAYS = 120
 const SIGNED = new Set(['signed_both', 'active'])
@@ -299,9 +299,11 @@ export function agentLifecycle(f: AgentFacts): Lifecycle {
   const mid = phaseShell('mid', 'agent')
   const post = phaseShell('post', 'agent')
   const verified = f.profileStatus === 'verified'
+  const clients = (f.clients ?? []).filter((c) => c.stage !== 'closed')
+  const missingPaper = clients.filter((c) => !c.representation_agreement_at || !c.info_guide_given_at).length
   pre.steps = [
     { key: 'reco', label: { zh: 'RECO 认证', en: 'RECO verification' }, state: verified ? 'done' : f.profileStatus ? 'current' : 'todo', detail: { zh: verified ? '已核验 · 出现在经纪目录' : f.profileStatus ? '待 Stayloop 人工核验' : '提交注册信息', en: verified ? 'Verified · listed in the directory' : f.profileStatus ? 'Awaiting manual check' : 'Submit your registration' }, href: '/agent/verify' },
-    { key: 'client', label: { zh: '客户接入（代表协议）', en: 'Client intake (representation agreement)' }, state: 'todo', detail: { zh: '记录代表协议与 Information Guide · 即将', en: 'Record the agreement and Information Guide · soon' } },
+    { key: 'client', label: { zh: '客户接入（代表协议）', en: 'Client intake (representation agreement)' }, state: clients.length ? (missingPaper ? 'current' : 'done') : verified ? 'current' : 'todo', detail: clients.length ? { zh: `${clients.length} 位客户${missingPaper ? ` · ${missingPaper} 位缺代表协议或 Information Guide` : ' · 文件齐'}`, en: `${clients.length} clients${missingPaper ? ` · ${missingPaper} missing the agreement or Information Guide` : ' · paperwork complete'}` } : { zh: '记录代表协议与 Information Guide', en: 'Record the agreement and Information Guide' }, href: '/agent/clients' },
     { key: 'pricing', label: { zh: '挂牌定价 / 找房', en: 'Pricing / search' }, state: verified ? 'current' : 'todo', prompt: { zh: '帮客户的房源定租金：拉【区域】同户型的实时挂牌和 TRREB 数据。', en: 'Price my client’s unit: pull live listings for 【area】 and the TRREB benchmark.' } },
     { key: 'screen', label: { zh: '申请与筛查交接', en: 'Application & screening hand-off' }, state: 'todo', href: '/screening/app' },
   ]
@@ -310,7 +312,7 @@ export function agentLifecycle(f: AgentFacts): Lifecycle {
   pre.next = verified ? undefined : { label: { zh: '提交认证', en: 'Submit verification' }, href: '/agent/verify' }
   mid.steps = [{ key: 'lease', label: { zh: '标准租约与押金规则', en: 'Standard lease & deposit rules' }, state: 'todo', prompt: { zh: '客户要签约了：安省标准租约和 OREA Form 400 各管什么、押金最多收多少？', en: 'My client is signing: what do the standard lease and Form 400 each cover, and how much deposit is allowed?' } }]
   mid.headline = { zh: '签约时只引用标准租约与 RTA 事实。', en: 'At signing, only the standard lease and RTA facts.' }
-  post.steps = [{ key: 'file', label: { zh: '客户记录归档', en: 'File the client record' }, state: 'todo', detail: { zh: '即将 · 无佣金结算', en: 'Soon · no commission settlement' } }]
+  post.steps = [{ key: 'file', label: { zh: '客户记录归档', en: 'File the client record' }, state: (f.clients ?? []).some((c) => c.stage === 'closed') ? 'done' : 'todo', detail: { zh: '客户表里标「已归档」 · 无佣金结算', en: 'Mark the client closed in the client table · no commission settlement' }, href: '/agent/clients' }]
   post.headline = { zh: 'Stayloop 不做经纪业务、不收佣金。', en: 'Stayloop is not a brokerage and takes no commission.' }
   return { role: 'agent', current: 'pre', phases: [pre, mid, post], empty: false }
 }

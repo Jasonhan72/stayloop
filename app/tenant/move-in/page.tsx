@@ -6,6 +6,41 @@ import InsuranceReferralCard from '@/components/tenant/InsuranceReferralCard'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { useAIName } from '@/lib/aiName'
 import { useT } from '@/lib/i18n'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/useAuth'
+import MoveInChecklist from '@/components/household/MoveInChecklist'
+import { useReportLiveRows } from '@/lib/liveRows'
+
+// The tenant's own tenancies (household membership) → the shared checklist
+// (P2 2026-09-23). Rendered above the demo page through liveSlot.
+function LiveMoveIn({ zh }: { zh: boolean }) {
+  const auth = useAuth()
+  const [hh, setHh] = useState<{ id: string; address: string; unit: string | null; start_date: string | null }[] | null>(null)
+  useReportLiveRows('households', hh ? hh.length : null)
+  useEffect(() => {
+    if (auth.loading || !auth.user) { setHh([]); return }
+    let cancelled = false
+    ;(async () => {
+      const { data: mem } = await supabase.from('household_members').select('household_id').eq('user_id', auth.user!.id).eq('role', 'tenant').eq('status', 'active').limit(10)
+      const ids = ((mem ?? []) as { household_id: string }[]).map((m) => m.household_id)
+      const { data } = ids.length ? await supabase.from('households').select('id, address, unit, start_date').in('id', ids).order('start_date', { ascending: false }).limit(3) : { data: [] }
+      if (!cancelled) setHh((data ?? []) as typeof hh)
+    })()
+    return () => { cancelled = true }
+  }, [auth.loading, auth.user])
+  if (!hh || hh.length === 0) return null
+  return (
+    <div className="mb-6 space-y-4">
+      {hh.map((h) => (
+        <div key={h.id}>
+          <div className="mb-2 font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '我的在管租约 · 真实记录' : 'MY TENANCY · LIVE'} · {h.address}{h.unit ? ` #${h.unit}` : ''}{h.start_date ? ` · ${h.start_date}` : ''}</div>
+          <MoveInChecklist householdId={h.id} zh={zh} />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 type Bi = { zh: string; en: string }
 
@@ -42,8 +77,9 @@ export default function TenantMoveInPage() {
   const name = useAIName()
   const { lang } = useT()
   return (
-    <WorkspaceShell role="tenant" hideAside>
+    <WorkspaceShell role="tenant" hideAside liveSlot={<LiveMoveIn zh={lang === 'zh'} />}>
       <div className="mx-auto max-w-[760px]">
+        <LiveMoveIn zh={lang === 'zh'} />
         <div className="mb-7">
           <div className="font-mono text-[11px] font-bold uppercase tracking-eyebrowLg text-body-3">
             {lang === 'zh' ? '入住 · DAY 1 · 2026/06/01' : 'MOVE-IN · DAY 1 · 2026/06/01'}

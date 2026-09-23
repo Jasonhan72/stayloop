@@ -18,6 +18,8 @@ import { useT } from '@/lib/i18n'
 import { rentSchedule } from '@/lib/household/schedule'
 import { persistentLatePayment } from '@/lib/ontario/rules'
 import { tenancyClock } from '@/lib/household/clock'
+import MoveInChecklist from '@/components/household/MoveInChecklist'
+import PaymentPlanDraft from '@/components/household/PaymentPlanDraft'
 
 // Tenant's answer to the 30-day touchpoint (renewal_intents, P1 2026-09-23).
 type Intent = { id: string; intent: string; note: string | null; tenant_user_id: string; created_at: string }
@@ -225,6 +227,8 @@ export default function HouseholdHub() {
   const dueSoFar = schedule.filter((d) => !d.upcoming).length
   const recorded = payments.filter((p) => p.status === 'paid' || p.status === 'late').length
   const latestIntent = intents[0] ?? null
+  // Past-due periods with nothing recorded → the landlord may draft a repayment plan.
+  const missedDue = schedule.filter((d) => !d.upcoming && !paidByDue.get(d.due)).map((d) => d.due)
   const TABS: Array<{ id: Tab; zh: string; en: string }> = [
     { id: 'overview', zh: '概览', en: 'Overview' },
     { id: 'messages', zh: '对话', en: 'Messages' },
@@ -313,6 +317,7 @@ export default function HouseholdHub() {
               )}
             </section>
           )}
+          <MoveInChecklist householdId={id} zh={zh} compact />
           <section className="rounded-xl border border-line-divider bg-white p-5">
             <h2 className="text-[14px] font-extrabold">{zh ? '租约文件' : 'Lease document'}</h2>
             <button onClick={() => void openLeaseFile()} className="mt-3 rounded-lg border border-line-divider px-4 py-2 text-[13px] font-semibold hover:border-[#00ACE4]">
@@ -398,6 +403,9 @@ export default function HouseholdHub() {
                   ? `迟付（到期日 7 天后）${lateness.late.length} 次：${lateness.late.join('、')}。6 个月内满 3 次即为 RTA s.58 的「持续迟付」。`
                   : `${lateness.late.length} payment(s) more than 7 days late: ${lateness.late.join(', ')}. Three within 6 months meets the RTA s.58 definition of persistent late payment.`)}
             </div>
+          )}
+          {myRole === 'landlord' && missedDue.length > 0 && (
+            <PaymentPlanDraft householdId={id} leaseId={household.current_lease_id} unit={address} monthlyRent={Number(household.monthly_rent) || 0} missed={missedDue} zh={zh} />
           )}
           {schedule.length === 0 ? (
             <p className="mt-5 text-[13px] text-body-3">{zh ? '缺少起租日或交租日,无法生成账期。' : 'Needs a start date and due day to build the schedule.'}</p>

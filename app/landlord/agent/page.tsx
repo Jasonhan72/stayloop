@@ -5,6 +5,7 @@ import WorkspaceShell from '@/components/WorkspaceShell'
 import AgentChat from '@/components/agent/AgentChat'
 import type { ComposerDraft } from '@/components/agent/AgentInputBar'
 import LifecycleRail from '@/components/lifecycle/LifecycleRail'
+import TodayCard from '@/components/lifecycle/TodayCard'
 import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
 import WorkflowStatusPanel from '@/components/agent/WorkflowStatusPanel'
 import RecommendationDeck from '@/components/agent/RecommendationDeck'
@@ -50,6 +51,9 @@ export default function LandlordAgentPage() {
         </div>
       )}
 
+      {live && (
+        <div className="mb-4"><TodayCard lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/landlord/todo" lang={lang} onPrompt={prefill} /></div>
+      )}
       {live && lifecycle && (
         <>
           <div className="mb-5 hidden md:block"><LifecycleRail lifecycle={lifecycle} lang={lang} onPrompt={prefill} /></div>

@@ -85,11 +85,12 @@ async function loadTenant(uid: string, email: string | null): Promise<Lifecycle>
 }
 
 async function loadAgent(uid: string): Promise<Lifecycle> {
-  const [{ data: prof }, { count }] = await Promise.all([
+  const [{ data: prof }, { count }, { data: clients }] = await Promise.all([
     supabase.from('agent_profiles').select('status').eq('auth_id', uid).maybeSingle(),
     supabase.from('agent_pending_actions').select('id', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'pending'),
+    supabase.from('agent_clients').select('stage, representation_agreement_at, info_guide_given_at').eq('agent_auth_id', uid).limit(200),
   ])
-  return agentLifecycle({ profileStatus: (prof as { status?: string } | null)?.status ?? null, pendingCards: count ?? 0 })
+  return agentLifecycle({ profileStatus: (prof as { status?: string } | null)?.status ?? null, pendingCards: count ?? 0, clients: (clients ?? []) as { stage: string; representation_agreement_at: string | null; info_guide_given_at: string | null }[] })
 }
 
 export function useLifecycle(role: AgentRole): { lifecycle: Lifecycle | null; loading: boolean; reload: () => void } {
