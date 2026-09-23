@@ -1715,3 +1715,14 @@ state 直接按浏览器语言渲染，英文访客每个页面都报 React #418
 - No comments inside copyable command blocks — put explanations outside the code block
 - Design is authoritative — production should match the design HTML volumes exactly
 - Chinese (zh) is the primary UI language
+
+## 生命周期方案落地 P0 / P1（2026-09-23 · 依据 `design/lifecycle-visibility-and-role-flows-2026-09.pdf` 与 `design/eliseai-product-atlas-mapping-2026-09.pdf`，用户「你自己确定怎么做」）
+
+- **P0 租前·租中·租后 rail**：`lib/lifecycle/stages.ts`（纯函数 `landlordLifecycle / tenantLifecycle / agentLifecycle`，阶段只由库里的行推导、不看模型的 `next_stage`；每个「下一步」链到真实页面或预填对话框；rail 里不出现分数 / 百分比）+ `lib/lifecycle/useLifecycle.ts`（RLS 读取）+ `components/lifecycle/LifecycleRail.tsx`（桌面三列、手机 `compact` chips、进度页 `full` 带 AI/你 两行）。挂在三个 `/x/agent` 顶部与 `/x/progress`；`AgentChat` 状态行的阶段改为 `phaseLabel`。守卫 `tests/lifecycleRail20260923.spec.ts`。
+- **P1（守卫 `tests/lifecycleP1_20260923.spec.ts`，迁移 `20260923_application_tracker.sql` 已应用 prod）**：
+  - **申请人追踪条**：`applications.viewed_at`（房东第一次打开申请人页时由 RLS 客户端写）/ `screened_at`（`/api/screening/from-application` 写）；`lib/lifecycle/applicationTrack.ts` 纯函数 → `components/tenant/MyApplications.tsx` 每行「已提交 → 房东已查看 → 筛查已发起 → 决定 → 租约待签 → 在管租约」，**租客永远看不到分数**（守卫 grep `ai_score`）。租客能读发到自己邮箱的租约：策略 `leases_tenant_email_read`（按 JWT email）。
+  - **房东申请队列按阶段分组**（`lib/landlord/applicantStages.ts`：待筛查 / 已评分待决定 / 已决定），live 模式不再渲染「信用 ≥720 / DTI ≤35%」政策卡与门槛文案，分数标「评分·参考」。设计样例模式保留原三桶。
+  - **租客意向回流**：表 `renewal_intents`（household 成员读、租客本人插入、anon 无权）；30 天触点邮件带三条一键链接 `/h/<id>?intent=renew|leave|negotiate`（`renewalStages.intentLinks`，proactive 两种模式都把 household_id 挂到租约上）；`/h/[id]` 概览页「续约意向」面板（租客三个按钮 + 备注，双方都看得到记录，明写「只是意向不是 N9」），头部新增「租中 · 第 N 个月 · 到期 X 天 · 租金记录 n/m 期 · 租客意向」（`lib/household/clock.ts`）；rail 的「租客意向」步骤与 `/landlord/leases` 的下一步列都显示意向。
+  - **主动卡两张（cron 模式）**：`lib/agent/proactiveExtras.ts` —— 在管租约邀请 3 天未接受 → `send_message` 提醒卡（metadata.invite_id 幂等，`isKnownCounterparty` 认房东自己发出的邀请邮箱）；租约到期 ≤30 天且同单元无新租约 → `relist_prompt`（批准 = 知悉，执行器复用 checkpoint 盖章，`executed_relist_prompt`）。
+  - **报修分诊**：`lib/agent/maintenanceTriage.ts`（`sanitizeActionMetadata` 从 turn 路由搬来；新字段 category / location / entry_permission / pets；`isEmergencyMaintenance` 命中无暖气 / 停水 / 燃气 / 淹水 / 门锁失效 / CO 一律 priority high 且邮件主题加【紧急】、正文引 RTA s.20）；租客提示词 `MAINTENANCE_TRIAGE_RULES`（四件事一句话问完、紧急件先说现在该做什么、RTA s.27 进入 24 小时通知）。
+- **未做（P2）**：今日视图、房东组合批量提案、LTB 付款协议起草、入住清单 + 保险核验、申请人并排事实、经纪客户表。

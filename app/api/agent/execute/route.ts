@@ -16,6 +16,7 @@
 // claiming, then claim → effect → stamp execution_result → audit, using the
 // shared claim/release/finalize plumbing below.
 import { underHourlyLimit } from '@/lib/rateLimit'
+import { isEmergencyMaintenance, MAINTENANCE_CATEGORIES, triageLines } from '@/lib/agent/maintenanceTriage'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -67,6 +68,10 @@ type ActionRow = {
     title?: string
     description?: string
     priority?: string
+    category?: string
+    location?: string
+    entry_permission?: string
+    pets?: string
   } | null
 }
 
@@ -267,6 +272,11 @@ async function isKnownCounterparty(admin: Admin, userId: string, email: string):
   const { data: tenantRows } = await admin.from('tenants').select('id').eq('auth_id', userId)
   const tenantIds = (tenantRows ?? []).map((r: { id: string }) => r.id)
 
+  // Tenants the caller invited to a managed tenancy (invite reminders, P1 2026-09-23).
+  {
+    const { data } = await admin.from('household_invites').select('invited_email').eq('invited_by', userId).limit(200)
+    if ((data ?? []).some((i: { invited_email: string | null }) => i.invited_email?.trim().toLowerCase() === target)) return true
+  }
   // Counterparties on the caller's leases.
   if (landlordIds.length > 0) {
     const { data } = await admin
@@ -354,20 +364,26 @@ async function executeMaintenanceRequest(admin: Admin, userId: string, action: A
   const m = action.metadata || {}
   const title = String(m.title || action.title || '').replace(/<[^>]*>/g, '').trim().slice(0, 140)
   const description = String(m.description || action.summary || '').replace(/<[^>]*>/g, '').trim().slice(0, 2000)
-  const priority = ['low', 'medium', 'high'].includes(String(m.priority)) ? String(m.priority) : 'medium'
+  // Triage (P1 2026-09-23): habitability emergencies are always high and
+  // carry a "call now" line; category / entry permission / pets ride along.
+  const emergency = isEmergencyMaintenance(m)
+  const priority = emergency ? 'high' : ['low', 'medium', 'high'].includes(String(m.priority)) ? String(m.priority) : 'medium'
   if (!title) return NextResponse.json({ executed: false, reason: 'ticket title missing' }, { status: 422 })
   const ll = await resolveTenantLandlord(admin, userId, callerEmail)
   if (!ll || !ll.household_id) return NextResponse.json({ executed: false, reason: 'no_household_on_file' }, { status: 422 })
-  const subject = `报修工单 · ${ll.unit || ''} · ${title} — Repair request`
+  const category = typeof m.category === 'string' && (MAINTENANCE_CATEGORIES as readonly string[]).includes(m.category) ? m.category : 'repair'
+  const zhLines = triageLines(m, true).map((l) => `  • ${l}`).join('\n')
+  const enLines = triageLines(m, false).map((l) => `  • ${l}`).join('\n')
+  const subject = `${emergency ? '【紧急】' : ''}报修工单 · ${ll.unit || ''} · ${title} — ${emergency ? 'URGENT ' : ''}Repair request`
   const body = `你好，
 
 租客通过 Stayloop 提交了一张报修工单：
 
   • 位置 / 问题：${title}
   • 说明：${description || '（无）'}
-  • 紧急程度：${priority}
-
-工单已记录在你们的在管租约共享中心，处理进度双方可见。
+  • 紧急程度：${priority}${emergency ? '（影响居住安全或基本服务，请今天联系租客）' : ''}
+${zhLines ? zhLines + '\n' : ''}
+工单已记录在你们的在管租约共享中心，处理进度双方可见。${emergency ? '\n按 RTA s.20 房东须保持单位适合居住；供暖、供水、燃气、门锁这类问题不能等。' : ''}
 
 Hi,
 
@@ -375,12 +391,12 @@ Your tenant filed a repair ticket on Stayloop:
 
   • Issue: ${title}
   • Details: ${description || '(none)'}
-  • Priority: ${priority}
-
-The ticket is on your shared tenancy hub; both sides see its progress.`
+  • Priority: ${priority}${emergency ? ' (habitability — please contact your tenant today)' : ''}
+${enLines ? enLines + '\n' : ''}
+The ticket is on your shared tenancy hub; both sides see its progress.${emergency ? '\nUnder RTA s.20 the landlord must keep the unit fit for habitation; heat, water, gas and locks cannot wait.' : ''}`
   if (preview) return PREVIEW({ subject, body, to: ll.email })
   if (!(await claimExecution(admin, action.id))) return ALREADY()
-  const { data: ticket, error: tErr } = await admin.from('maintenance_tickets').insert({ household_id: ll.household_id, opened_by: userId, title, description: description || null, priority, status: 'new', category: 'repair' }).select('id').single()
+  const { data: ticket, error: tErr } = await admin.from('maintenance_tickets').insert({ household_id: ll.household_id, opened_by: userId, title, description: [description, ...triageLines(m, true)].filter(Boolean).join('\n') || null, priority, status: 'new', category }).select('id').single()
   if (tErr || !ticket) {
     await releaseClaim(admin, action.id, tErr?.message || 'ticket insert failed')
     return NextResponse.json({ executed: false, reason: tErr?.message || 'ticket insert failed' }, { status: 500 })
@@ -503,11 +519,11 @@ async function executeRentReminder(
 // Executor: renewal_checkpoint (60d / 30d touchpoints, lib/agent/renewalStages)
 // Approval = "acknowledged". No side effect beyond the stamp + audit.
 // ---------------------------------------------------------------------------
-async function executeRenewalCheckpoint(admin: Admin, userId: string, action: ActionRow): Promise<NextResponse> {
+async function executeRenewalCheckpoint(admin: Admin, userId: string, action: ActionRow, auditAction = 'executed_renewal_checkpoint'): Promise<NextResponse> {
   if (!(await claimExecution(admin, action.id))) return ALREADY()
   const m = action.metadata || {}
   const executionResult = { ok: true, kind: 'acknowledged', stage: m.stage ?? null, lease_id: m.lease_id ?? null }
-  return finalizeExecution(admin, userId, action.id, 'executed_renewal_checkpoint', executionResult, {
+  return finalizeExecution(admin, userId, action.id, auditAction, executionResult, {
     stage: m.stage ?? null,
     lease_id: m.lease_id ?? null,
   })
@@ -767,6 +783,10 @@ export async function POST(req: Request) {
     case 'renewal_checkpoint':
       if (preview) return PREVIEW({ subject: action.title, body: action.summary || '', to: null })
       return executeRenewalCheckpoint(admin, userId, action)
+    case 'relist_prompt':
+      // Approval = acknowledged (P1 2026-09-23); nothing is sent.
+      if (preview) return PREVIEW({ subject: action.title, body: action.summary || '', to: null })
+      return executeRenewalCheckpoint(admin, userId, action, 'executed_relist_prompt')
     case 'showing_request':
     case 'listing_inquiry':
       return executeShowingRequest(admin, userId, action, ud.user.email ?? null, preview)

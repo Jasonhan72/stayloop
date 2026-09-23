@@ -29,10 +29,11 @@ async function loadLandlord(uid: string): Promise<Lifecycle> {
   const leaseIds = new Set(leaseRows.map((l) => l.id))
   const households = ((hhRaw ?? []) as (HouseholdFact & { created_by?: string | null })[]).filter((h) => h.created_by === uid || (h.current_lease_id && leaseIds.has(h.current_lease_id)))
   const hhIds = households.map((h) => h.id)
-  const [{ data: apps }, { data: rent }, { data: tickets }] = await Promise.all([
+  const [{ data: apps }, { data: rent }, { data: tickets }, { data: intents }] = await Promise.all([
     listingIds.length ? supabase.from('applications').select('id, listing_id, status, decision_notified_at').in('listing_id', listingIds).limit(300) : Promise.resolve({ data: [] as never[] }),
     leaseIds.size ? supabase.from('rent_payments').select('lease_id, due_date, status, amount').in('lease_id', Array.from(leaseIds)).in('status', ['due', 'late']).limit(100) : Promise.resolve({ data: [] as never[] }),
     hhIds.length ? supabase.from('maintenance_tickets').select('household_id, status').in('household_id', hhIds).limit(100) : Promise.resolve({ data: [] as never[] }),
+    hhIds.length ? supabase.from('renewal_intents').select('household_id, lease_id, intent').in('household_id', hhIds).order('created_at', { ascending: false }).limit(100) : Promise.resolve({ data: [] as never[] }),
   ])
   const appIds = (apps ?? []).map((a: { id: string }) => a.id)
   const { data: screenings } = appIds.length ? await supabase.from('screenings').select('application_id, status').in('application_id', appIds).limit(300) : { data: [] as never[] }
@@ -46,6 +47,7 @@ async function loadLandlord(uid: string): Promise<Lifecycle> {
     households,
     rent: (rent ?? []) as RentFact[],
     tickets: (tickets ?? []) as TicketFact[],
+    renewalIntents: (intents ?? []) as { household_id: string; lease_id: string | null; intent: string }[],
     renewalCards: cardRows.filter((c) => ['send_renewal_letter', 'renewal_checkpoint'].includes(c.action_type)).map((c) => ({ action_type: c.action_type, status: c.status, lease_id: c.metadata?.lease_id, stage: c.metadata?.stage })),
   })
 }
@@ -53,7 +55,7 @@ async function loadLandlord(uid: string): Promise<Lifecycle> {
 async function loadTenant(uid: string, email: string | null): Promise<Lifecycle> {
   const [{ data: showings }, { data: apps }, { data: leases }, { data: members }, { data: hhRaw }, { data: tokens }] = await Promise.all([
     supabase.from('showing_intents').select('kind, status').limit(50),
-    supabase.from('applications').select('id, status, decision_notified_at').limit(50),
+    supabase.from('applications').select('id, status, decision_notified_at, viewed_at, screened_at').limit(50),
     email ? supabase.from('lease_documents').select(LEASE_COLS).ilike('tenant_email', email).limit(50) : Promise.resolve({ data: [] as never[] }),
     supabase.from('household_members').select('household_id').eq('user_id', uid).limit(50),
     supabase.from('households').select(HH_COLS).limit(50),
@@ -64,13 +66,15 @@ async function loadTenant(uid: string, email: string | null): Promise<Lifecycle>
   const households = (hhRaw ?? []) as HouseholdFact[]
   const leaseIds = Array.from(new Set([...leaseRows.map((l) => l.id), ...households.map((h) => h.current_lease_id).filter(Boolean) as string[]]))
   const hhIds = households.map((h) => h.id)
-  const [{ data: rent }, { data: tickets }] = await Promise.all([
+  const [{ data: rent }, { data: tickets }, { data: intents }] = await Promise.all([
     leaseIds.length ? supabase.from('rent_payments').select('lease_id, due_date, status, amount').in('lease_id', leaseIds).in('status', ['due', 'late']).limit(100) : Promise.resolve({ data: [] as never[] }),
     hhIds.length ? supabase.from('maintenance_tickets').select('household_id, status').in('household_id', hhIds).limit(100) : Promise.resolve({ data: [] as never[] }),
+    hhIds.length ? supabase.from('renewal_intents').select('intent, created_at').eq('tenant_user_id', uid).in('household_id', hhIds).order('created_at', { ascending: false }).limit(1) : Promise.resolve({ data: [] as never[] }),
   ])
   return tenantLifecycle({
     showings: (showings ?? []) as { kind: string | null; status: string | null }[],
-    applications: (apps ?? []) as { id: string; status: string | null; decision_notified_at: string | null }[],
+    applications: (apps ?? []) as { id: string; status: string | null; decision_notified_at: string | null; viewed_at?: string | null; screened_at?: string | null }[],
+    renewalIntent: ((intents ?? []) as { intent: string; created_at: string }[])[0] ?? null,
     leases: leaseRows,
     households,
     memberOf,

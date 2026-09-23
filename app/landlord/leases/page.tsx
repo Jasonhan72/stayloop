@@ -25,6 +25,13 @@ import { useT, type Lang } from '@/lib/i18n'
 import { downloadCsv, toCsv } from '@/lib/csv'
 import { daysBetween, monthsBetween, parseDateOnly, todayUtc } from '@/lib/dates'
 
+// Tenant's answer to the 30-day touchpoint (renewal_intents, P1 2026-09-23).
+const INTENT_LABEL: Record<string, { zh: string; en: string }> = {
+  renew: { zh: '续约', en: 'renew' },
+  leave: { zh: '计划搬离', en: 'plans to move out' },
+  negotiate: { zh: '想谈谈条件', en: 'wants to discuss terms' },
+}
+
 // A real lease row from lease_documents, mapped to the display shape.
 type LeaseItem = {
   id: string
@@ -43,7 +50,7 @@ function mapDbLease(row: {
   id: string; tenant_name: string | null; tenant_email: string | null
   unit_label: string | null; monthly_rent: number | null
   start_date: string | null; end_date: string | null; status: string | null
-}, aiName: string): LeaseItem {
+}, aiName: string, intent?: { intent: string; created_at: string } | null): LeaseItem {
   const status: LeaseItem['status'] =
     row.status === 'active' || row.status === 'signed_both' ? 'active'
     : row.status === 'ended' ? 'expired'
@@ -63,7 +70,9 @@ function mapDbLease(row: {
     status,
     onTime: '—',
     monthsLeft,
-    nextRenewal: inWindow
+    nextRenewal: intent
+      ? { zh: `租客意向：${INTENT_LABEL[intent.intent]?.zh ?? intent.intent}（${intent.created_at.slice(0, 10)}）`, en: `Tenant intent: ${INTENT_LABEL[intent.intent]?.en ?? intent.intent} (${intent.created_at.slice(0, 10)})` }
+      : inWindow
       ? { zh: `续约窗口已开 · ${aiName} 已在工作台准备方案`, en: `Renewal window open · ${aiName} prepared options in your workspace` }
       : { zh: '—', en: '—' },
   }
@@ -226,7 +235,14 @@ export default function LandlordLeasesPage() {
       .from('lease_documents')
       .select('id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, status')
       .order('end_date', { ascending: true })
-    if (!error && data) setRealLeases(data.map((row) => mapDbLease(row, aiName)))
+    if (!error && data) {
+      // Newest tenant intent per lease (RLS: household members read).
+      const ids = data.map((r) => r.id)
+      const { data: intents } = ids.length ? await supabase.from('renewal_intents').select('lease_id, intent, created_at').in('lease_id', ids).order('created_at', { ascending: false }).limit(200) : { data: [] as { lease_id: string | null; intent: string; created_at: string }[] }
+      const byLease = new Map<string, { intent: string; created_at: string }>()
+      for (const i of (intents ?? []) as { lease_id: string | null; intent: string; created_at: string }[]) if (i.lease_id && !byLease.has(i.lease_id)) byLease.set(i.lease_id, i)
+      setRealLeases(data.map((row) => mapDbLease(row, aiName, byLease.get(row.id) ?? null)))
+    }
   }, [landlord, aiName])
   useEffect(() => { void loadLeases() }, [loadLeases])
 
@@ -256,7 +272,7 @@ export default function LandlordLeasesPage() {
           <span className="mt-0.5 h-5 w-5 flex-none rounded-full" style={{ background: 'radial-gradient(circle at 35% 35%, #6EE7B7, #047857 70%)' }} />
           <div className="text-[12.5px] leading-relaxed text-body-2">
             {lang === 'zh'
-              ? <>有租约进入续约窗口。{aiName} 已在<Link href="/landlord/agent" className="mx-1 font-semibold text-landlord underline underline-offset-2">你的工作台</Link>准备好方案（不涨 / 指导上限 +2.5%）—— 批准后续约函会真实发送给租客。</>
+              ? <>有租约进入续约窗口。{aiName} 已在<Link href="/landlord/agent" className="mx-1 font-semibold text-landlord underline underline-offset-2">你的工作台</Link>准备好方案（不涨 / 按当年指导上限）—— 批准后续约函会真实发送给租客。</>
               : <>A lease entered its renewal window. {aiName} prepared options in <Link href="/landlord/agent" className="mx-1 font-semibold text-landlord underline underline-offset-2">your workspace</Link> — approve and the renewal letter is actually sent to your tenant.</>}
           </div>
         </div>

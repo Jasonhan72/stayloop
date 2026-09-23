@@ -45,7 +45,10 @@ export async function POST(req: Request) {
     { auth: { persistSession: false, autoRefreshToken: false } },
   )
   const { data: existing } = await admin.from('screenings').select('id, status').eq('application_id', appId).order('created_at', { ascending: false }).limit(1).maybeSingle()
-  if (existing) return NextResponse.json({ ok: true, screening_id: existing.id, existing: true, status: existing.status })
+  if (existing) {
+    await admin.from('applications').update({ screened_at: new Date().toISOString() }).eq('id', appId).is('screened_at', null)
+    return NextResponse.json({ ok: true, screening_id: existing.id, existing: true, status: existing.status })
+  }
 
   const listing = Array.isArray(app.listing) ? app.listing[0] : app.listing
   const files = (Array.isArray(app.files) ? (app.files as AppFile[]) : [])
@@ -80,6 +83,8 @@ export async function POST(req: Request) {
     .single()
   if (sErr || !row) return NextResponse.json({ error: sErr?.message || 'could not create screening' }, { status: 500 })
 
+  // Applicant tracker (P1 2026-09-23): the tenant sees "筛查已发起", never the result.
+  await admin.from('applications').update({ screened_at: new Date().toISOString() }).eq('id', appId).is('screened_at', null)
   await admin.from('agent_audit_events').insert({
     actor_id: userId,
     actor_type: 'user',

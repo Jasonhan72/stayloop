@@ -125,10 +125,18 @@ export function renewalLeaseFallback(kind: 'none' | 'anonymous'): string {
 }
 
 const KEY_ACTIONS: Record<AgentRole, string> = {
-  tenant: 'share_passport_summary（分享资料给房东）, submit_application（提交申请）, send_message（替你发消息给对方）, maintenance_request（提交报修工单给房东：metadata 填 title / description / priority=low|medium|high）, sign_lease（签租约）, payment_authorization（付款/押金）, tier_upgrade（盖下一枚章）',
+  tenant: 'share_passport_summary（分享资料给房东）, submit_application（提交申请）, send_message（替你发消息给对方）, maintenance_request（提交报修工单给房东：metadata 填 title / description / priority=low|medium|high / category=plumbing|electrical|heating_cooling|appliance|pest|structural|locks_safety|other / location / entry_permission=anytime|call_first|tenant_present / pets）, sign_lease（签租约）, payment_authorization（付款/押金）, tier_upgrade（盖下一枚章）',
   landlord: 'send_message（发消息给申请人/经纪）, approve_applicant（批准看房/申请）, reject_applicant（拒绝,必须合法理由）, send_lease（发送租约）, dispatch_agent（派经纪带看,Stripe 预授权）',
   agent: 'accept_showing（接受带看任务）, schedule_viewing（约看房）, send_feedback（提交看房反馈给房东）, request_payout（结算分成）',
 }
+
+// 报修分诊(P1 2026-09-23 · ResidentAI 对照):把一句话整理成工单前先补齐四件事;
+// 影响居住安全或基本服务的问题是紧急件,先给"现在该做什么",再出卡片。
+const MAINTENANCE_TRIAGE_RULES = `
+# 报修整理(只对 maintenance_request 生效)
+- 出卡片前确认四件事,缺的用一句话一起问完:①在哪里、什么问题、从什么时候开始;②类别(水管/电路/供暖空调/电器/虫害/门窗结构/门锁安全/其他);③房东或师傅能否进入(可随时进入 / 先电话 / 须本人在场——按 RTA s.27 房东进入须提前 24 小时书面通知,紧急情况除外);④家里有没有宠物需要注意。
+- 紧急件:没有暖气(尤其冬天)、停水、燃气味、漏电、大面积漏水或淹水、门锁失效无法锁门、一氧化碳或烟雾报警。遇到这些 priority 一律 high,reply 里先写"现在该做什么"(燃气味 → 开窗离开、打燃气公司紧急电话;漏水 → 关总阀;没暖气 → 先电话房东,不接就发短信留证据),再出卡片;不要为了补齐四件事拖延紧急件。
+- 不替用户编造时间、位置或宠物情况;用户没说的字段留空。`
 
 export function buildSystemPrompt(
   role: AgentRole,
@@ -163,6 +171,7 @@ ${p.caps}
 3. AI 给"建议 + 解读",不给"决定"。给上下文化的判断(如"在你过去 11 位租客里匹配度第 3"),不给黑盒分数。
 4. 跨角色沟通必须经过系统中枢,你看不到对方 Agent 的内部状态。需要联系对方时,产出一张 send_message / share 的待审批卡片。
 5. 合规底线(OHRC/RTA):任何决定都不得基于受保护特征(种族/国籍/宗教/家庭状况/有无孩子/性取向/残疾/年龄/婚姻)。${role === 'landlord' ? '拒绝申请人必须给具体、与租住能力相关的合法理由(收入、材料、历史),否则不要生成拒绝卡片。' : ''}不起草安省无效条款(如"禁止养宠")。
+${role === 'tenant' ? MAINTENANCE_TRIAGE_RULES : ''}
 ${role === 'tenant' ? '6. 护照盖章:任何盖章邀请都要同时给等大的"暂不盖"选项;银行章永远有 PDF 替代银行连接且完全等价;盖章压力必须市场化("Sarah 想多了解你"),不是 paywall("解锁更多功能")。话术示例:"盖上银行章（5 分钟），解锁多 42% 房源"。\n' : ''}
 # 术语:护照盖章(Passport Stamps)
 用户的信任验证体系叫「护照盖章」——四枚章:身份章🪪 / 收入章💼 / 银行章🏦 / 信用+法庭章⚖️(内部字段 trust_tier 1-4 = 已盖前 N 枚)。对用户只说"章"(如"已盖 2/4 枚章""需 收入章""盖上银行章"),绝不说"认证 N 级"或"Tier N"。

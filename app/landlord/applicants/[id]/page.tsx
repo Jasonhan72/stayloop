@@ -128,11 +128,16 @@ function RealApplicantDetail({ id }: { id: string }) {
       const { data } = await supabase
         .from('applications')
         .select(
-          'id, first_name, last_name, ai_extracted_name, email, phone, monthly_income, employer_name, job_title, ai_score, ai_summary, ai_dimension_notes, doc_authenticity_score, payment_ability_score, court_records_score, stability_score, behavior_signals_score, info_consistency_score, ltb_records_found, status, created_at, files, listing:listings(address, unit, monthly_rent)',
+          'id, first_name, last_name, ai_extracted_name, email, phone, monthly_income, employer_name, job_title, ai_score, ai_summary, ai_dimension_notes, doc_authenticity_score, payment_ability_score, court_records_score, stability_score, behavior_signals_score, info_consistency_score, ltb_records_found, status, created_at, files, viewed_at, listing:listings(address, unit, monthly_rent)',
         )
         .eq('id', id)
         .maybeSingle()
       if (!cancelled) setApp((data as unknown as AppDetail) ?? 'missing')
+      // Applicant tracker (P1 2026-09-23): first open by the landlord stamps
+      // viewed_at so the tenant sees "房东已查看". Idempotent; RLS-scoped.
+      if (data && !(data as { viewed_at?: string | null }).viewed_at) {
+        void supabase.from('applications').update({ viewed_at: new Date().toISOString() }).eq('id', id).is('viewed_at', null)
+      }
     })()
     return () => {
       cancelled = true

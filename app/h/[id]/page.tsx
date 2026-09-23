@@ -17,6 +17,17 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { rentSchedule } from '@/lib/household/schedule'
 import { persistentLatePayment } from '@/lib/ontario/rules'
+import { tenancyClock } from '@/lib/household/clock'
+
+// Tenant's answer to the 30-day touchpoint (renewal_intents, P1 2026-09-23).
+type Intent = { id: string; intent: string; note: string | null; tenant_user_id: string; created_at: string }
+const INTENT_LABEL: Record<string, { zh: string; en: string }> = {
+  renew: { zh: '续约', en: 'Renew' },
+  leave: { zh: '计划搬离', en: 'Plan to move out' },
+  negotiate: { zh: '想谈谈条件', en: 'Discuss terms' },
+}
+
+
 
 interface Household {
   id: string; address: string; unit: string | null; city: string | null
@@ -47,6 +58,9 @@ export default function HouseholdHub() {
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [tickets, setTickets] = useState<Ticket[]>([])
+  const [intents, setIntents] = useState<Intent[]>([])
+  const [intentPick, setIntentPick] = useState<string | null>(null)
+  const [intentNote, setIntentNote] = useState('')
   const [notFound, setNotFound] = useState(false)
   const [draft, setDraft] = useState('')
   const [ticketForm, setTicketForm] = useState({ title: '', description: '', priority: 'medium' })
@@ -59,14 +73,16 @@ export default function HouseholdHub() {
     const { data: h } = await supabase.from('households').select('*').eq('id', id).maybeSingle()
     if (!h) { setNotFound(true); return }
     setHousehold(h as Household)
-    const [{ data: m }, { data: inv }, { data: t }] = await Promise.all([
+    const [{ data: m }, { data: inv }, { data: t }, { data: ri }] = await Promise.all([
       supabase.from('household_members').select('*').eq('household_id', id).eq('status', 'active'),
       supabase.from('household_invites').select('id, household_id, invited_email, invited_role, invited_by, expires_at, accepted_by, accepted_at, declined_at, revoked_at, created_at').eq('household_id', id).order('created_at', { ascending: false }),
       supabase.from('maintenance_tickets').select('*').eq('household_id', id).order('created_at', { ascending: false }),
+      supabase.from('renewal_intents').select('id, intent, note, tenant_user_id, created_at').eq('household_id', id).order('created_at', { ascending: false }).limit(10),
     ])
     setMembers((m as Member[]) ?? [])
     setInvites((inv as Invite[]) ?? [])
     setTickets((t as Ticket[]) ?? [])
+    setIntents((ri as Intent[]) ?? [])
     if ((h as Household).current_lease_id) {
       const { data: p } = await supabase.from('rent_payments')
         .select('*').eq('lease_id', (h as Household).current_lease_id).order('due_date', { ascending: false })
@@ -91,6 +107,25 @@ export default function HouseholdHub() {
   useEffect(() => {
     if (tab === 'messages') msgEndRef.current?.scrollIntoView({ block: 'end' })
   }, [msgs.length, tab])
+
+  // ?intent=renew|leave|negotiate from the 30-day email: preselect, the
+  // tenant confirms with one click (read in an effect — never on first paint).
+  useEffect(() => {
+    try {
+      const v = new URLSearchParams(window.location.search).get('intent')
+      if (v && INTENT_LABEL[v]) setIntentPick(v)
+    } catch { /* no window */ }
+  }, [])
+
+  async function submitIntent(intent: string) {
+    if (!user || !household) return
+    setBusy(true)
+    const { error } = await supabase.from('renewal_intents').insert({ household_id: id, lease_id: household.current_lease_id, tenant_user_id: user.id, intent, note: intentNote.trim().slice(0, 1000) || null })
+    setWriteError(error ? error.message : null)
+    if (!error) { setIntentPick(null); setIntentNote(''); try { window.history.replaceState(null, '', window.location.pathname) } catch { /* noop */ } }
+    await load()
+    setBusy(false)
+  }
 
   async function send() {
     const body = draft.trim()
@@ -184,6 +219,12 @@ export default function HouseholdHub() {
   const paidByDue = new Map(payments.map((p) => [p.due_date, p]))
   // RTA s.58(1.1) (in force 2026-09-21): >7 days late, 3 times in 6 months.
   const lateness = persistentLatePayment(payments)
+  const clock = tenancyClock(household.start_date, household.end_date)
+  const myRole = members.find((m) => m.user_id === user?.id)?.role ?? null
+  // Ledger vs lease: rows recorded so far against the schedule to date.
+  const dueSoFar = schedule.filter((d) => !d.upcoming).length
+  const recorded = payments.filter((p) => p.status === 'paid' || p.status === 'late').length
+  const latestIntent = intents[0] ?? null
   const TABS: Array<{ id: Tab; zh: string; en: string }> = [
     { id: 'overview', zh: '概览', en: 'Overview' },
     { id: 'messages', zh: '对话', en: 'Messages' },
@@ -204,6 +245,20 @@ export default function HouseholdHub() {
           {household.verified ? (zh ? '双方已确认' : 'CONFIRMED') : (zh ? '单方上传 · 未经对方确认' : 'SELF-REPORTED')}
         </span>
       </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5" data-testid="tenancy-clock">
+        <span className="rounded-full bg-brand/10 px-2.5 py-[3px] font-mono text-[11px] font-bold text-brand">{zh ? '租中' : 'IN TENANCY'}{clock.month ? (zh ? ` · 第 ${clock.month} 个月` : ` · month ${clock.month}`) : ''}</span>
+        {clock.daysToEnd != null && (
+          <span className={'rounded-full px-2.5 py-[3px] font-mono text-[11px] font-bold ' + (clock.daysToEnd < 0 ? 'bg-surface-chip text-body-2' : clock.daysToEnd <= 120 ? 'bg-amber-50 text-amber-800' : 'bg-surface-chip text-body-2')}>
+            {clock.daysToEnd < 0 ? (zh ? `已到期 ${-clock.daysToEnd} 天 · 已转月租（RTA s.38）` : `Ended ${-clock.daysToEnd} days ago · month-to-month (RTA s.38)`) : zh ? `到期 ${clock.daysToEnd} 天（${household.end_date}）` : `${clock.daysToEnd} days to ${household.end_date}`}
+          </span>
+        )}
+        {dueSoFar > 0 && (
+          <span className="rounded-full bg-surface-chip px-2.5 py-[3px] font-mono text-[11px] text-body-2">{zh ? `租金记录 ${recorded}/${dueSoFar} 期` : `Ledger ${recorded}/${dueSoFar} periods`}</span>
+        )}
+        {latestIntent && (
+          <span className="rounded-full bg-success/10 px-2.5 py-[3px] font-mono text-[11px] font-bold text-success">{zh ? `租客意向：${INTENT_LABEL[latestIntent.intent]?.zh ?? latestIntent.intent}` : `Tenant intent: ${INTENT_LABEL[latestIntent.intent]?.en ?? latestIntent.intent}`}</span>
+        )}
+      </div>
       <div className="mt-1 text-[12.5px] text-body-3">
         {household.monthly_rent ? `$${household.monthly_rent.toLocaleString()}/${zh ? '月' : 'mo'}` : ''}
         {household.rent_due_day ? ` · ${zh ? `每月 ${household.rent_due_day} 号` : `due day ${household.rent_due_day}`}` : ''}
@@ -221,6 +276,43 @@ export default function HouseholdHub() {
 
       {tab === 'overview' && (
         <div className="mt-6 space-y-5">
+          {(myRole === 'tenant' || intents.length > 0 || intentPick) && (
+            <section className="rounded-xl border border-line-divider bg-white p-5" data-testid="renewal-intent">
+              <h2 className="text-[14px] font-extrabold">{zh ? '续约意向' : 'Renewal intent'}</h2>
+              <p className="mt-1 text-[12px] text-body-3">{zh ? '只是意向，不是通知：搬离仍需按 RTA 提前 60 天送达 N9；不续签会自动转为月租（s.38），你的权利不变。' : 'An intention, not a notice: moving out still needs a Form N9 served 60 days ahead; an unrenewed lease continues month-to-month (s.38) with your rights unchanged.'}</p>
+              {intents.length > 0 && (
+                <div className="mt-3 space-y-1 text-[13px]">
+                  {intents.slice(0, 3).map((i) => (
+                    <div key={i.id} className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-md bg-success/10 px-2 py-0.5 font-mono text-[10.5px] font-bold text-success">{zh ? INTENT_LABEL[i.intent]?.zh ?? i.intent : INTENT_LABEL[i.intent]?.en ?? i.intent}</span>
+                      <span className="text-[11.5px] text-body-3">{i.created_at.slice(0, 10)}{i.tenant_user_id === user?.id ? (zh ? ' · 我' : ' · me') : ''}</span>
+                      {i.note && <span className="text-body-2">{i.note}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {myRole === 'tenant' && (
+                <div className="mt-3">
+                  <div className="flex flex-wrap gap-2">
+                    {(['renew', 'leave', 'negotiate'] as const).map((k) => (
+                      <button key={k} type="button" onClick={() => setIntentPick(k)} aria-pressed={intentPick === k}
+                        className={`rounded-full px-3.5 py-1.5 text-[12.5px] font-bold ${intentPick === k ? 'bg-[#00ACE4] text-white' : 'border border-line-divider text-body-2 hover:border-[#00ACE4]'}`}>
+                        {zh ? INTENT_LABEL[k].zh : INTENT_LABEL[k].en}
+                      </button>
+                    ))}
+                  </div>
+                  {intentPick && (
+                    <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
+                      <input value={intentNote} onChange={(e) => setIntentNote(e.target.value)} placeholder={zh ? '补一句（可选）：比如希望的租金或搬离日期' : 'Optional: e.g. the rent you have in mind or a move-out date'} className={input} />
+                      <button type="button" disabled={busy} onClick={() => void submitIntent(intentPick)} className="rounded-lg px-4 py-2.5 text-[13px] font-bold text-white disabled:opacity-50" style={{ background: '#00ACE4' }}>
+                        {zh ? `确认：${INTENT_LABEL[intentPick].zh}` : `Confirm: ${INTENT_LABEL[intentPick].en}`}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
           <section className="rounded-xl border border-line-divider bg-white p-5">
             <h2 className="text-[14px] font-extrabold">{zh ? '租约文件' : 'Lease document'}</h2>
             <button onClick={() => void openLeaseFile()} className="mt-3 rounded-lg border border-line-divider px-4 py-2 text-[13px] font-semibold hover:border-[#00ACE4]">

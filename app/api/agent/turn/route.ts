@@ -5,6 +5,7 @@
 // proposed_action, next_stage }. The client persists results via its own
 // RLS-scoped Supabase client (same pattern as memory.ts / approval-engine.ts).
 // The Anthropic key stays server-side only.
+import { sanitizeActionMetadata } from '@/lib/agent/maintenanceTriage'
 import { NextResponse } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
@@ -196,18 +197,6 @@ async function fetchUrlContent(url: string): Promise<FetchResult> {
   } catch (e) {
     return { content: null, images: [], reason: `${failReason}; ${(e as Error)?.name === 'TimeoutError' ? 'fetch timeout' : (e as Error)?.message?.slice(0, 60) || 'fetch failed'}`.replace(/^; /, '') }
   }
-}
-
-const META_KEYS = ['title', 'description', 'priority', 'location', 'subject', 'body'] as const
-function sanitizeActionMetadata(raw: unknown): Record<string, string> {
-  const out: Record<string, string> = {}
-  if (!raw || typeof raw !== 'object') return out
-  for (const k of META_KEYS) {
-    const v = (raw as Record<string, unknown>)[k]
-    if (typeof v === 'string' && v.trim()) out[k] = v.trim().slice(0, k === 'body' || k === 'description' ? 2000 : 200)
-  }
-  if (out.priority && !['low', 'medium', 'high'].includes(out.priority)) delete out.priority
-  return out
 }
 
 function normalizeOutput(parsed: Record<string, unknown> | null, fallbackReply: string, lang: 'zh' | 'en' = 'zh'): TurnOutput {

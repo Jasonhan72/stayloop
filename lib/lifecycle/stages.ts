@@ -45,6 +45,8 @@ export type LandlordFacts = {
   listings: { id: string; verification_status: string | null; is_active: boolean | null; address?: string | null; unit?: string | null; images?: unknown }[]
   showingsPending: number
   applications: { id: string; listing_id: string | null; status: string | null; decision_notified_at: string | null }[]
+  /** Latest renewal intent per household (renewal_intents, newest first). */
+  renewalIntents?: { household_id: string; lease_id: string | null; intent: string }[]
   screenings: { application_id: string | null; status: string | null }[]
   leases: LeaseFact[]
   households: HouseholdFact[]
@@ -54,7 +56,9 @@ export type LandlordFacts = {
 }
 export type TenantFacts = {
   showings: { kind: string | null; status: string | null }[]
-  applications: { id: string; status: string | null; decision_notified_at: string | null }[]
+  applications: { id: string; status: string | null; decision_notified_at: string | null; viewed_at?: string | null; screened_at?: string | null }[]
+  /** The tenant's newest renewal intent on the current household, if any. */
+  renewalIntent?: { intent: string; created_at: string } | null
   leases: LeaseFact[]
   households: HouseholdFact[]
   memberOf: string[] // household ids the tenant already joined
@@ -128,6 +132,16 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
   const inWindow = signedLeases.filter((l) => l.end_date && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) <= RENEWAL_WINDOW_DAYS && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) >= 0)
   const ended = f.leases.filter((l) => l.status === 'ended' || (l.end_date && daysBetween(todayUtc(today), parseDateOnly(l.end_date) ?? today) < 0 && SIGNED.has(l.status ?? '')))
   const renewalSent = new Set(f.renewalCards.filter((c) => c.action_type === 'send_renewal_letter' && c.status !== 'rejected').map((c) => c.lease_id))
+  // Newest intent per household → counted against the leases in the window.
+  const intentByHh = new Map<string, string>()
+  for (const i of f.renewalIntents ?? []) if (!intentByHh.has(i.household_id)) intentByHh.set(i.household_id, i.intent)
+  const hhByLease = new Map(f.households.filter((h) => h.current_lease_id).map((h) => [h.current_lease_id as string, h.id]))
+  const intentCounts = { renew: 0, leave: 0, negotiate: 0, total: 0 }
+  for (const l of inWindow) {
+    const hid = hhByLease.get(l.id)
+    const it = hid ? intentByHh.get(hid) : undefined
+    if (it === 'renew' || it === 'leave' || it === 'negotiate') { intentCounts[it] += 1; intentCounts.total += 1 }
+  }
 
   // ── 租前
   pre.steps = [
@@ -173,7 +187,7 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
   post.steps = [
     { key: 'window', label: { zh: '续约窗口', en: 'Renewal window' }, state: inWindow.length ? 'current' : signedLeases.length ? 'todo' : 'todo', detail: inWindow.length ? { zh: `${inWindow.length} 份 120 天内到期`, en: `${inWindow.length} ending within 120 days` } : undefined, href: '/landlord/leases' },
     { key: 'letter', label: { zh: '续约函 A/B', en: 'Renewal letter A/B' }, state: inWindow.some((l) => renewalSent.has(l.id)) ? 'done' : inWindow.length ? 'current' : 'todo', href: '/landlord/todo' },
-    { key: 'intent', label: { zh: '租客意向', en: 'Tenant intent' }, state: 'todo', detail: { zh: '租客回复后显示', en: 'Shows once the tenant replies' } },
+    { key: 'intent', label: { zh: '租客意向', en: 'Tenant intent' }, state: intentCounts.total ? 'done' : inWindow.length ? 'current' : 'todo', detail: intentCounts.total ? { zh: `续 ${intentCounts.renew} · 走 ${intentCounts.leave} · 谈 ${intentCounts.negotiate}`, en: `renew ${intentCounts.renew} · leave ${intentCounts.leave} · negotiate ${intentCounts.negotiate}` } : { zh: '租客在 30 天触点邮件里一键回复', en: 'The tenant answers from the 30-day email' }, href: '/landlord/leases' },
     { key: 'turnover', label: { zh: '退租 → 重新挂牌', en: 'Move-out → re-list' }, state: ended.length ? 'current' : 'todo', detail: ended.length ? { zh: `${ended.length} 份已到期`, en: `${ended.length} ended` } : undefined, href: '/dashboard/listings/new' },
   ]
   post.state = inWindow.length || ended.length ? 'active' : signedLeases.length ? 'idle' : 'idle'
@@ -199,6 +213,8 @@ export function landlordLifecycle(f: LandlordFacts, today = new Date()): Lifecyc
 // ---------------------------------------------------------------------------
 // Tenant — one tenancy at a time (the latest lease / household wins).
 // ---------------------------------------------------------------------------
+const INTENT_ZH: Record<string, string> = { renew: '续约', leave: '搬离', negotiate: '想谈谈' }
+
 export function tenantLifecycle(f: TenantFacts, today = new Date()): Lifecycle {
   const pre = phaseShell('pre', 'tenant')
   const mid = phaseShell('mid', 'tenant')
@@ -223,7 +239,7 @@ export function tenantLifecycle(f: TenantFacts, today = new Date()): Lifecycle {
   pre.steps = [
     { key: 'search', label: { zh: '对话找房', en: 'Search by chat' }, state: apps.length || showings.length ? 'done' : 'current', href: '/tenant/agent', prompt: { zh: '帮我找【区域】、预算【$金额】以内的【户型】。', en: 'Find me a 【unit type】 in 【area】 under 【$budget】.' } },
     { key: 'showing', label: { zh: '看房请求', en: 'Showing request' }, state: pendingShowings.length ? 'current' : showings.length ? 'done' : 'todo', detail: pendingShowings.length ? { zh: `${pendingShowings.length} 条等房东回应`, en: `${pendingShowings.length} waiting for the landlord` } : undefined, href: '/tenant/applications' },
-    { key: 'apply', label: { zh: '提交申请', en: 'Apply' }, state: openApps.length ? 'current' : apps.length ? 'done' : 'todo', detail: openApps.length ? { zh: `${openApps.length} 份等房东决定`, en: `${openApps.length} awaiting a decision` } : undefined, href: '/tenant/applications' },
+    { key: 'apply', label: { zh: '提交申请', en: 'Apply' }, state: openApps.length ? 'current' : apps.length ? 'done' : 'todo', detail: openApps.length ? (openApps.some((a) => a.screened_at) ? { zh: `${openApps.length} 份 · 筛查已发起`, en: `${openApps.length} · screening started` } : openApps.some((a) => a.viewed_at) ? { zh: `${openApps.length} 份 · 房东已查看`, en: `${openApps.length} · landlord opened it` } : { zh: `${openApps.length} 份等房东查看`, en: `${openApps.length} awaiting the landlord` }) : undefined, href: '/tenant/applications' },
     { key: 'decision', label: { zh: '房东决定', en: 'Landlord decision' }, state: approved.length ? 'done' : openApps.length ? 'current' : 'todo', detail: approved.length ? { zh: '已录取', en: 'Approved' } : undefined, href: '/tenant/applications' },
   ]
   pre.state = leaseSigned ? 'done' : apps.length || showings.length ? 'active' : 'idle'
@@ -256,7 +272,7 @@ export function tenantLifecycle(f: TenantFacts, today = new Date()): Lifecycle {
 
   post.steps = [
     { key: 'window', label: { zh: '续约窗口', en: 'Renewal window' }, state: inWindow ? 'current' : 'todo', detail: inWindow ? { zh: `${daysToEnd} 天后到期`, en: `ends in ${daysToEnd} days` } : undefined },
-    { key: 'intent', label: { zh: '续 / 不续 / 谈', en: 'Renew / leave / negotiate' }, state: 'todo', href: '/tenant/agent', prompt: { zh: '我的租约快到期了，帮我看看房东的续约方案是否合规，我该怎么谈。', en: 'My lease is ending — check whether the renewal offer is lawful and how I should negotiate.' } },
+    { key: 'intent', label: { zh: '续 / 不续 / 谈', en: 'Renew / leave / negotiate' }, state: f.renewalIntent ? 'done' : inWindow ? 'current' : 'todo', detail: f.renewalIntent ? { zh: `已回复：${INTENT_ZH[f.renewalIntent.intent] ?? f.renewalIntent.intent}（${f.renewalIntent.created_at.slice(0, 10)}）`, en: `Answered: ${f.renewalIntent.intent} (${f.renewalIntent.created_at.slice(0, 10)})` } : undefined, href: hh ? `/h/${hh.id}` : '/tenant/agent', prompt: { zh: '我的租约快到期了，帮我看看房东的续约方案是否合规，我该怎么谈。', en: 'My lease is ending — check whether the renewal offer is lawful and how I should negotiate.' } },
     { key: 'n9', label: { zh: '退租 N9（60 天）', en: 'Move-out N9 (60 days)' }, state: 'todo', href: '/rules' },
     { key: 'passport', label: { zh: '租史进护照', en: 'Tenancy into passport' }, state: f.passportShares ? 'done' : joined ? 'current' : 'todo', href: '/tenant/passport' },
   ]

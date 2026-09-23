@@ -24,6 +24,7 @@ import { supabase } from '@/lib/supabase'
 import { useT, type Lang } from '@/lib/i18n'
 import type { ApplicationFile } from '@/types'
 import { downloadCsv, toCsv } from '@/lib/csv'
+import { applicantStage, STAGE_SECTIONS, type ApplicantStage } from '@/lib/landlord/applicantStages'
 
 type Decision = 'approve' | 'review' | 'decline'
 
@@ -38,6 +39,8 @@ interface Applicant {
   qual: { zh: string; en: string }
   decision: Decision
   unitLabel: string | null
+  /** Flow stage (live rows only) — the grouping key since P1 2026-09-23. */
+  stage?: ApplicantStage
 }
 
 // Design-canon sample rows — shown only when the landlord has zero real
@@ -119,6 +122,8 @@ type AppRow = {
   ai_score: number | null
   status: string | null
   created_at: string
+  decision_notified_at?: string | null
+  screened_at?: string | null
   files: ApplicationFile[] | null
   ltb_records_found: number | null
   listing: { address: string | null; unit: string | null; monthly_rent: number | null } | null
@@ -191,6 +196,7 @@ function toApplicant(row: AppRow, idx: number): Applicant {
     qual: qualLine(row),
     decision: deriveDecision(row),
     unitLabel,
+    stage: applicantStage(row),
   }
 }
 
@@ -223,7 +229,7 @@ export default function LandlordApplicantsPage() {
       // hard filter by user id here (dual-ID invariant).
       const { data, error } = await supabase
         .from('applications')
-        .select('id, first_name, last_name, ai_extracted_name, monthly_income, ai_score, status, created_at, files, ltb_records_found, listing:listings(address, unit, monthly_rent)')
+        .select('id, first_name, last_name, ai_extracted_name, monthly_income, ai_score, status, created_at, decision_notified_at, screened_at, files, ltb_records_found, listing:listings(address, unit, monthly_rent)')
         .order('created_at', { ascending: false })
         .limit(100)
       let list = error ? [] : ((data ?? []) as unknown as AppRow[])
@@ -351,8 +357,8 @@ export default function LandlordApplicantsPage() {
             <span className="mx-1.5 text-body-3">·</span>
             {liveMode
               ? lang === 'zh'
-                ? '按默认门槛（需银行章 / 信用 ≥ 720 / DTI ≤ 35%）分组 —— 这是推荐模板，不是你设定的政策。点开任一申请查看完整六维评分 + 文件。'
-                : 'Grouped by the default thresholds (bank stamp / credit ≥ 720 / DTI ≤ 35%) — a suggested template, not a policy you set. Open any application for the full six-dimension score and documents.'
+                ? '按流程阶段分组：待筛查 → 已评分待决定 → 已决定。评分只是参考信息，录取与婉拒由你决定。点开任一申请查看材料与完整报告。'
+                : 'Grouped by stage: to screen → scored, your decision → decided. The score is information only; you decide. Open any application for the documents and the full report.'
               : lang === 'zh'
                 ? '按你的 需银行章 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整六维评分 + 文件。'
                 : 'Sorted into 3 groups by your policy (bank stamp required / credit ≥ 720 / DTI ≤ 35%). Open any application to see the full six-dimension score and documents.'}
@@ -375,12 +381,12 @@ export default function LandlordApplicantsPage() {
           {
             label: lang === 'zh' ? '新申请' : 'New applications',
             value: String(apps.length),
-            sub: lang === 'zh' ? `${aiName} 已按你的政策分组` : `Grouped by ${aiName} against your policy`,
+            sub: liveMode ? (lang === 'zh' ? '按流程阶段分组' : 'Grouped by stage') : lang === 'zh' ? `${aiName} 已按你的政策分组` : `Grouped by ${aiName} against your policy`,
           },
           {
             label: lang === 'zh' ? '待你决定' : 'Awaiting your decision',
             value: String(pendingCount),
-            sub: lang === 'zh' ? '推荐审批 + 需面谈' : 'Recommended + needs interview',
+            sub: liveMode ? (lang === 'zh' ? '待筛查 + 已评分' : 'To screen + scored') : lang === 'zh' ? '推荐审批 + 需面谈' : 'Recommended + needs interview',
             tone: 'warn',
           },
           {
@@ -406,17 +412,20 @@ export default function LandlordApplicantsPage() {
 
       {!liveMode && <LandlordThreeSteps lang={lang} />}
 
-      <PolicyCard lang={lang} showHits={!liveMode} />
+      {!liveMode && <PolicyCard lang={lang} showHits />}
 
-      {SECTIONS.map((s) => {
-        const list = apps.filter((a) => a.decision === s.decision)
+      {(liveMode
+        ? STAGE_SECTIONS.map((s) => ({ key: s.stage, tone: s.tone as PillTone, label: s.label, hint: s.hint, list: apps.filter((a) => a.stage === s.stage) }))
+        : SECTIONS.map((s) => ({ key: s.decision, tone: s.tone, label: s.label, hint: null, list: apps.filter((a) => a.decision === s.decision) }))
+      ).map((s) => {
+        const list = s.list
         if (liveMode && list.length === 0) return null
         return (
           <SectionCard
-            key={s.decision}
+            key={s.key}
             className="mb-3"
             padded={false}
-            title={<StatusPill tone={s.tone}>{s.label[lang]}</StatusPill>}
+            title={<span className="flex flex-wrap items-center gap-2"><StatusPill tone={s.tone}>{s.label[lang]}</StatusPill>{s.hint && <span className="text-[11.5px] font-normal text-body-3">{s.hint[lang]}</span>}</span>}
             meta={<span className="font-mono">{list.length}</span>}
           >
             {list.map((a) => (
@@ -452,7 +461,7 @@ export default function LandlordApplicantsPage() {
                   <StampBadge tier={a.tier} />
                   <div className="text-right">
                     <div className="font-mono text-[17px] font-bold leading-none [font-variant-numeric:tabular-nums]">{a.match ?? '—'}</div>
-                    <div className="font-mono text-[9.5px] uppercase text-body-3">MATCH</div>
+                    <div className="font-mono text-[9.5px] uppercase text-body-3">{liveMode ? (lang === 'zh' ? '评分·参考' : 'SCORE·INFO') : 'MATCH'}</div>
                   </div>
                   <span className="text-right text-body-3">›</span>
                 </div>

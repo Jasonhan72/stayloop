@@ -24,6 +24,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isoDate, todayUtc } from '@/lib/dates'
 import { WINDOW_DAYS, marketFromRows, planRenewalActions, type ExistingRenewalAction, type MarketLine } from '@/lib/agent/renewalStages'
+import { buildInviteReminderProposal, buildRelistProposal, inviteNeedsReminder, leaseNeedsRelist, RELIST_LOOKBACK_DAYS, type EndedLeaseRow, type InviteRow } from '@/lib/agent/proactiveExtras'
 import { notifyUser } from '@/lib/push/notify'
 
 export const runtime = 'edge'
@@ -32,6 +33,9 @@ export const runtime = 'edge'
 // lib/agent/renewalStages.ts — see its header. The route only loads leases,
 // existing actions and the TRREB market line, then inserts what is missing.
 const RENEWAL_TYPES = ['send_renewal_letter', 'renewal_checkpoint', 'send_message']
+// P1 2026-09-23: invite reminders ride on send_message (metadata.invite_id);
+// re-list prompts are their own approval-only type.
+const EXTRA_TYPES = ['relist_prompt']
 const CRON_SCAN_LIMIT = 200
 // Rent reminders are proposed only in the last N days of a month, for the 1st
 // of the next month.
@@ -41,6 +45,7 @@ const iso = isoDate
 
 type LeaseRow = {
   id: string
+  household_id?: string | null
   landlord_id?: string | null
   tenant_name: string | null
   tenant_email: string | null
@@ -144,8 +149,51 @@ async function runCronSweep(): Promise<NextResponse> {
     reminderLeases = (data ?? []) as LeaseRow[]
   }
 
-  const allLeases = [...((renewalLeases ?? []) as LeaseRow[]), ...reminderLeases]
-  if (allLeases.length === 0) {
+  // The 30-day email links the tenant to /h/<household>?intent=… — attach the
+  // managed tenancy created from each lease (P1 2026-09-23).
+  const renewalIds = ((renewalLeases ?? []) as LeaseRow[]).map((l) => l.id)
+  if (renewalIds.length) {
+    const { data: hhs } = await admin.from('households').select('id, current_lease_id').in('current_lease_id', renewalIds)
+    const byLease = new Map(((hhs ?? []) as { id: string; current_lease_id: string | null }[]).map((h) => [h.current_lease_id as string, h.id]))
+    for (const l of renewalLeases as LeaseRow[]) l.household_id = byLease.get(l.id) ?? null
+  }
+
+  // 3) Unaccepted tenancy invitations older than a few days (P1 2026-09-23).
+  const { data: inviteRows } = await admin
+    .from('household_invites')
+    .select('id, household_id, invited_email, invited_role, invited_by, created_at, expires_at, accepted_at, declined_at, revoked_at')
+    .is('accepted_at', null).is('declined_at', null).is('revoked_at', null)
+    .eq('invited_role', 'tenant')
+    .gt('expires_at', today.toISOString())
+    .limit(CRON_SCAN_LIMIT)
+  const invites = ((inviteRows ?? []) as InviteRow[]).filter((i) => inviteNeedsReminder(i, today))
+  if (invites.length) {
+    const { data: hhs } = await admin.from('households').select('id, address, unit').in('id', Array.from(new Set(invites.map((i) => i.household_id))))
+    const byId = new Map(((hhs ?? []) as { id: string; address: string | null; unit: string | null }[]).map((h) => [h.id, h]))
+    for (const i of invites) { const h = byId.get(i.household_id); i.address = h?.address ?? null; i.unit = h?.unit ?? null }
+  }
+
+  // 4) Leases that ended in the last RELIST_LOOKBACK_DAYS with no newer lease
+  //    on the same unit → re-list prompt (approval-only).
+  const lookback = new Date(today.getTime() - RELIST_LOOKBACK_DAYS * 86_400_000)
+  const { data: endedRows } = await admin
+    .from('lease_documents')
+    .select('id, landlord_id, tenant_name, unit_label, end_date, status')
+    .in('status', ['active', 'signed_both', 'ended', 'imported'])
+    .gte('end_date', iso(todayUtc(lookback)))
+    .lt('end_date', iso(todayUtc(today)))
+    .limit(CRON_SCAN_LIMIT)
+  const endedLeases = (endedRows ?? []) as (EndedLeaseRow & { landlord_id: string | null })[]
+  let newerOnUnit = new Set<string>()
+  if (endedLeases.length) {
+    const llIds = Array.from(new Set(endedLeases.map((l) => l.landlord_id).filter(Boolean))) as string[]
+    const { data: newer } = await admin.from('lease_documents').select('id, landlord_id, unit_label, start_date').in('landlord_id', llIds).gte('start_date', iso(todayUtc(lookback))).limit(CRON_SCAN_LIMIT)
+    newerOnUnit = new Set(((newer ?? []) as { id: string; landlord_id: string | null; unit_label: string | null }[]).map((n) => `${n.landlord_id}:${(n.unit_label || '').toLowerCase()}`))
+  }
+  const relistLeases = endedLeases.filter((l) => leaseNeedsRelist(l, today, newerOnUnit.has(`${l.landlord_id}:${(l.unit_label || '').toLowerCase()}`)))
+
+  const allLeases = [...((renewalLeases ?? []) as LeaseRow[]), ...reminderLeases, ...relistLeases.map((l) => ({ ...l, tenant_email: null, monthly_rent: null, end_date: l.end_date || '' }) as LeaseRow)]
+  if (allLeases.length === 0 && invites.length === 0) {
     return NextResponse.json({ created: 0, mode: 'cron' })
   }
 
@@ -177,7 +225,7 @@ async function runCronSweep(): Promise<NextResponse> {
   const resolve = (l: LeaseRow) => (l.landlord_id ? toAuthId.get(l.landlord_id) ?? null : null)
 
   const affectedUserIds = Array.from(
-    new Set(allLeases.map(resolve).filter(Boolean))
+    new Set([...allLeases.map(resolve), ...invites.map((i) => i.invited_by)].filter(Boolean))
   ) as string[]
   if (affectedUserIds.length === 0) {
     return NextResponse.json({ created: 0, mode: 'cron' })
@@ -188,16 +236,20 @@ async function runCronSweep(): Promise<NextResponse> {
   const { data: existing, error: existErr } = await admin
     .from('agent_pending_actions')
     .select('user_id, action_type, status, metadata')
-    .in('action_type', [...RENEWAL_TYPES, 'rent_reminder'])
+    .in('action_type', [...RENEWAL_TYPES, ...EXTRA_TYPES, 'rent_reminder'])
     .in('user_id', affectedUserIds)
   if (existErr) {
     console.error('proactive idempotency scan failed:', existErr.message)
     return NextResponse.json({ error: 'idempotency scan failed' }, { status: 500 })
   }
   const reminderProposed = new Set<string>()
+  const inviteReminded = new Set<string>()
+  const relistProposed = new Set<string>()
   const renewalExisting: (ExistingRenewalAction & { user_id: string })[] = []
   for (const r of existing ?? []) {
-    const m = r.metadata as { lease_id?: string; due_date?: string; stage?: string } | null
+    const m = r.metadata as { lease_id?: string; due_date?: string; stage?: string; invite_id?: string } | null
+    if (m?.invite_id) { inviteReminded.add(m.invite_id); continue }
+    if (r.action_type === 'relist_prompt') { if (m?.lease_id) relistProposed.add(m.lease_id); continue }
     if (!m?.lease_id) continue
     if (r.action_type === 'rent_reminder') { if (m.due_date) reminderProposed.add(`${m.lease_id}:${m.due_date}`) }
     else renewalExisting.push({ user_id: r.user_id as string, action_type: r.action_type as string, status: r.status as string, metadata: m })
@@ -221,6 +273,15 @@ async function runCronSweep(): Promise<NextResponse> {
     const userId = resolve(l)
     if (!userId || !l.tenant_email || reminderProposed.has(`${l.id}:${dueDate}`)) continue
     inserts.push(buildRentReminderProposal(userId, l, dueDate))
+  }
+  for (const i of invites) {
+    if (!i.invited_by || inviteReminded.has(i.id)) continue
+    inserts.push(buildInviteReminderProposal(i.invited_by, i, today))
+  }
+  for (const l of relistLeases) {
+    const userId = l.landlord_id ? toAuthId.get(l.landlord_id) ?? null : null
+    if (!userId || relistProposed.has(l.id)) continue
+    inserts.push(buildRelistProposal(userId, l, today))
   }
 
   if (inserts.length === 0) {
@@ -312,6 +373,11 @@ export async function POST(req: Request) {
   }
   if (!leases || leases.length === 0) {
     return NextResponse.json({ created: 0, actions: [] })
+  }
+  {
+    const { data: hhs } = await sb.from('households').select('id, current_lease_id').in('current_lease_id', leases.map((l) => l.id))
+    const byLease = new Map(((hhs ?? []) as { id: string; current_lease_id: string | null }[]).map((h) => [h.current_lease_id as string, h.id]))
+    for (const l of leases as LeaseRow[]) l.household_id = byLease.get(l.id) ?? null
   }
 
   // Idempotency: one proposal per lease per stage, ever (approved, rejected

@@ -28,6 +28,8 @@ export type RenewalStage = '90d' | '60d' | '30d'
 
 export type RenewalLease = {
   id: string
+  /** The managed tenancy created from this lease, when one exists — the 30-day email links the tenant to /h/<id>?intent=… */
+  household_id?: string | null
   tenant_name: string | null
   tenant_email: string | null
   unit_label: string | null
@@ -167,6 +169,15 @@ export function buildCheckpointProposal(userId: string, l: RenewalLease, today: 
   }
 }
 
+/** One-click intent links (P1 2026-09-23): the tenant answers on their own hub; both sides then see the row. */
+export function intentLinks(householdId: string | null | undefined, lang: 'zh' | 'en'): string {
+  if (!householdId) return ''
+  const base = `${(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')}/h/${householdId}?intent=`
+  return lang === 'zh'
+    ? `一键回复（登录后记录，房东同步可见）：\n  续约 → ${base}renew\n  计划搬离 → ${base}leave\n  想谈谈条件 → ${base}negotiate\n\n`
+    : `Reply with one click (recorded on sign-in, visible to your landlord):\n  Renew → ${base}renew\n  Plan to move out → ${base}leave\n  Discuss terms → ${base}negotiate\n\n`
+}
+
 export function buildIntentAskProposal(userId: string, l: RenewalLease, today: Date): RenewalProposal {
   const end = parseDateOnly(l.end_date) ?? todayUtc(today)
   const daysToEnd = daysBetween(todayUtc(today), end)
@@ -175,10 +186,14 @@ export function buildIntentAskProposal(userId: string, l: RenewalLease, today: D
   const body =
     `${tenant} 您好，\n\n${unit} 的租约将于 ${l.end_date} 到期（还有 ${daysToEnd} 天）。此前已把续约方案发给您，` +
     `为了安排接下来的事项，想请您在方便时回复一下：是否续约、或计划搬离的日期。\n\n` +
-    `按安省《住宅租赁法》，租约到期不续签会自动转为月租，您的权利不受影响；搬离需提前 60 天以 N9 表格书面通知。\n\n谢谢！\n\n` +
+    `按安省《住宅租赁法》，租约到期不续签会自动转为月租，您的权利不受影响；搬离需提前 60 天以 N9 表格书面通知。\n\n` +
+    intentLinks(l.household_id, 'zh') +
+    `谢谢！\n\n` +
     `Hi ${tenant},\n\nThe lease for ${unit} ends on ${l.end_date} (${daysToEnd} days from now). We sent the renewal options earlier — ` +
     `when convenient, could you let us know whether you plan to renew or your intended move-out date?\n\n` +
-    `Under Ontario's RTA a lease that is not renewed continues month-to-month with your rights unchanged; moving out needs 60 days' written notice (Form N9).\n\nThank you!`
+    `Under Ontario's RTA a lease that is not renewed continues month-to-month with your rights unchanged; moving out needs 60 days' written notice (Form N9).\n\n` +
+    intentLinks(l.household_id, 'en') +
+    `Thank you!`
   return {
     user_id: userId,
     role: 'landlord',
