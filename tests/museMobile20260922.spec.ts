@@ -113,8 +113,9 @@ describe('signed-in homepage + identity menu', () => {
     expect(home).toMatch(/const r = auth\.role \|\| 'tenant'/)
     expect(home).toMatch(/换身份在右上角菜单/)
   })
-  it('menu: identity row, assistant-named workspace, three hats with 当前 / 待认证 / 开通, red dot only when something waits', () => {
+  it('menu: identity row, assistant-named workspace (no quick chips — user 2026-09-22), three hats with 当前 / 待认证 / 开通, red dot only when something waits', () => {
     expect(header).toMatch(/当前：\$\{ROLE_META\[currentRole\]\.label\} · \$\{aiNames\[currentRole\]\}/)
+    expect(header).not.toMatch(/\/\$\{currentRole\}\/\$\{k\}/)
     expect(header).toMatch(/\$\{aiNames\[currentRole\]\} 的工作台/)
     expect(header).toMatch(/\(\['tenant', 'landlord', 'agent'\] as const\)\.map\(\(r\) => \{\s*const held = heldRoles\.includes\(r\)/)
     expect(header).toMatch(/auth\.user && pendingCount > 0 && \(/)

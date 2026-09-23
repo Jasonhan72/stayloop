@@ -262,11 +262,6 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       <span className="flex-1">{lang === 'zh' ? `${aiNames[currentRole]} 的工作台` : `${aiNames[currentRole]}'s workspace`}</span>
                       {pendingCount > 0 && <span className="rounded-full bg-[#FF385C] px-2 py-[1px] text-[11px] font-bold text-white">{pendingCount}</span>}
                     </Link>
-                    <div className="flex gap-1.5 px-4 pb-2 pl-[46px]">
-                      {([['todo', lang === 'zh' ? '待办' : 'To-do'], ['ideas', lang === 'zh' ? '想法' : 'Ideas'], ['progress', lang === 'zh' ? '进度' : 'Progress']] as const).map(([k, label]) => (
-                        <Link key={k} href={`/${currentRole}/${k}`} onClick={() => setMenuOpen(false)} className="rounded-full border border-[#E5E5E5] px-2.5 py-[3px] text-[12px] font-semibold text-[#444] transition hover:border-[#222]">{label}</Link>
-                      ))}
-                    </div>
                     {currentRole === 'landlord' && (
                       <Link
                         href="/dashboard"
