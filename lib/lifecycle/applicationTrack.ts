@@ -29,15 +29,20 @@ export function applicationTrack(a: TrackInput): TrackStep[] {
   const leaseSigned = !!a.lease && SIGNED.has(a.lease.status ?? '')
   const leaseSent = !!a.lease && (a.lease.status === 'sent' || a.lease.status === 'signed_tenant')
   const joined = !!a.household?.joined
+  // Downstream facts imply upstream ones: a decision means the landlord
+  // looked and (if a screening ran) screened — rows from before the
+  // tracker columns existed carry no timestamps for those steps.
+  const screenedDone = !!a.screened_at || decided
+  const viewedDone = !!a.viewed_at || screenedDone
 
   const steps: TrackStep[] = [
     { key: 'submitted', label: { zh: '已提交', en: 'Submitted' }, state: 'done', when: day(a.created_at) },
-    { key: 'viewed', label: { zh: '房东已查看', en: 'Landlord opened it' }, state: a.viewed_at ? 'done' : 'current', when: day(a.viewed_at) },
-    { key: 'screened', label: { zh: '筛查已发起', en: 'Screening started' }, state: a.screened_at ? 'done' : a.viewed_at ? 'current' : 'todo', when: day(a.screened_at) },
+    { key: 'viewed', label: { zh: '房东已查看', en: 'Landlord opened it' }, state: viewedDone ? 'done' : 'current', when: day(a.viewed_at) },
+    { key: 'screened', label: { zh: '筛查已发起', en: 'Screening started' }, state: screenedDone ? 'done' : viewedDone ? 'current' : 'todo', when: day(a.screened_at) },
     {
       key: 'decision',
       label: declined ? { zh: '未被选中', en: 'Not selected' } : approved ? { zh: '已录取', en: 'Approved' } : { zh: '房东决定', en: 'Landlord decision' },
-      state: declined ? 'bad' : decided ? 'done' : a.screened_at ? 'current' : 'todo',
+      state: declined ? 'bad' : decided ? 'done' : screenedDone ? 'current' : 'todo',
       when: day(a.decision_notified_at),
     },
   ]
