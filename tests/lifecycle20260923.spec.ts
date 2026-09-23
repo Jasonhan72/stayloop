@@ -142,3 +142,18 @@ describe('proactive market line reads the latest TRREB quarter (e2e 2026-09-23)'
     expect(fn).not.toMatch(/\.limit\(64\)/)
   })
 })
+
+describe('tenant sees own live rows even behind the demo gate (e2e 2026-09-23)', () => {
+  it('applicant self-read policy migration exists and is SELECT-only for authenticated', () => {
+    const sql = readFileSync('supabase/migrations/20260923_applications_applicant_select.sql', 'utf8')
+    expect(sql).toMatch(/create policy "Applicants see own applications" on public\.applications\s+for select to authenticated/)
+    expect(sql).toMatch(/lower\(email\) = lower\(coalesce\(auth\.jwt\(\) ->> 'email', ''\)\)/)
+  })
+  it('/tenant/applications passes MyApplications + MyShowings as the shell liveSlot', () => {
+    const page = readFileSync('app/tenant/applications/page.tsx', 'utf8')
+    expect(page).toMatch(/liveSlot=\{<><MyApplications zh=\{zh\} \/><MyShowings zh=\{zh\} \/><\/>\}/)
+    const shell = readFileSync('components/WorkspaceShell.tsx', 'utf8')
+    expect(shell).toMatch(/liveSlot\?: ReactNode/)
+    expect(shell).toMatch(/<DemoGate[^>]*liveSlot=\{liveSlot\}/)
+  })
+})

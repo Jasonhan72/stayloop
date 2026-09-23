@@ -54,6 +54,10 @@ interface Props {
   children: ReactNode
   // hide aside (e.g. on small surfaces)
   hideAside?: boolean
+  // Real rows that must stay visible even when the route's fixture body is
+  // gated behind the honest empty state (e2e 2026-09-23: a tenant with live
+  // showing requests and an application saw only "还没有租房申请").
+  liveSlot?: ReactNode
 }
 
 // Workspace routes whose page body is still design-canon fixture content
@@ -168,11 +172,12 @@ function useDemoGate() {
   return { gate, sampleNote, showDemo, setShowDemo }
 }
 
-function DemoGate({ children, gate, showDemo, setShowDemo }: {
+function DemoGate({ children, gate, showDemo, setShowDemo, liveSlot }: {
   children: React.ReactNode
   gate: (typeof DEMO_GATE)[string] | null
   showDemo: boolean
   setShowDemo: (v: boolean) => void
+  liveSlot?: ReactNode
 }) {
   const { lang } = useI18n()
   const zh = lang === 'zh'
@@ -190,6 +195,8 @@ function DemoGate({ children, gate, showDemo, setShowDemo }: {
     )
   }
   return (
+    <>
+    {liveSlot}
     <div className="rounded-2xl border border-line-divider bg-white px-6 py-16 text-center">
       <p className="mx-auto max-w-[420px] text-[14px] leading-relaxed text-body-2">{zh ? gate.zh : gate.en}</p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -204,6 +211,7 @@ function DemoGate({ children, gate, showDemo, setShowDemo }: {
         </button>
       </div>
     </div>
+    </>
   )
 }
 
@@ -267,7 +275,7 @@ function AgentLockedState({ status, zh }: { status: string; zh: boolean }) {
   )
 }
 
-export default function WorkspaceShell({ role, aside, children, hideAside }: Props) {
+export default function WorkspaceShell({ role, aside, children, hideAside, liveSlot }: Props) {
   const { gate, sampleNote, showDemo, setShowDemo } = useDemoGate()
   const agentStatus = useAgentVerification(role)
   const shellPath = usePathnameSafe()
@@ -289,7 +297,7 @@ export default function WorkspaceShell({ role, aside, children, hideAside }: Pro
             {role === 'agent' && <AgentVerificationBanner status={agentStatus} zh={lang === 'zh'} />}
             {role === 'agent' && agentStatus !== 'loading' && agentStatus !== 'verified' && isAgentOnlyRoute(shellPath)
               ? <AgentLockedState status={agentStatus} zh={lang === 'zh'} />
-              : <DemoGate gate={gate} showDemo={showDemo} setShowDemo={setShowDemo}>{children}</DemoGate>}
+              : <DemoGate gate={gate} showDemo={showDemo} setShowDemo={setShowDemo} liveSlot={liveSlot}>{children}</DemoGate>}
           </div>
           {!asideHidden && (
             <aside className="border-t border-line-divider bg-white px-5 py-6 md:w-[320px] md:flex-none md:overflow-y-auto md:border-l md:border-t-0 md:p-6">

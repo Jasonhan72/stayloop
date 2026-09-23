@@ -17,6 +17,7 @@ import {
 } from '@/components/workspace'
 import { useAIName } from '@/lib/aiName'
 import MyShowings from '@/components/tenant/MyShowings'
+import MyApplications from '@/components/tenant/MyApplications'
 import { useT, type Lang } from '@/lib/i18n'
 
 const TIMELINE = {
@@ -114,7 +115,7 @@ export default function TenantApplications() {
   ]
 
   return (
-    <WorkspaceShell role="tenant" aside={<Aside lang={lang} insights={insights} />}>
+    <WorkspaceShell role="tenant" aside={<Aside lang={lang} insights={insights} />} liveSlot={<><MyApplications zh={zh} /><MyShowings zh={zh} /></>}>
       <PageHeader
         title={zh ? `我的申请 (${apps.length})` : `My Applications (${apps.length})`}
         sub={<span className="font-mono text-[11px] uppercase tracking-eyebrow text-tenant">MY APPLICATIONS</span>}
@@ -125,6 +126,7 @@ export default function TenantApplications() {
         }
       />
 
+      <MyApplications zh={zh} />
       <MyShowings zh={zh} />
 
       <StatStrip

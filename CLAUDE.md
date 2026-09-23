@@ -932,6 +932,37 @@ cron 的实机探测（全部在 begin…rollback 里以 anon / authenticated �
 - 联邦注册库 ingest：截断下载被当成功（2026-09-05 那次 168 MB / 0 个 XML / 「Done」，库停在 08-02）——现在 Content-Length
   不符、unzip 非零、0 个 XML 都直接失败，并且每行写 `last_seen_at`。登录回调页显示 GoTrue 的真实错误（此前一律「登录链接已失效」）。
 
+## 三角色端到端模拟（2026-09-23 · 生产 · 测试数据带 `[TEST]` 前缀，正式发布前不删）
+
+用户要求「开三个角色的测试账号，把方案全部实现，然后分别模拟三个角色跑通所有环节」。账号（密码都是 `Test1234`，
+`user_metadata.test_account=true`）：`tenant-test@stayloop.ai`（auth `dc734f3e…`）、`landlord-test@stayloop.ai`（auth `30d0c280…`，
+landlords 行 `80646b6a…`）、`agent-test@stayloop.ai`（auth `4388a326…`）。驱动脚本在会话 scratchpad `e2e.sh`（REST + 路由，全部走
+各角色自己的 JWT；只有「管理员核验」「时间穿越改 end_date」「合作方密钥」三处用 service role 模拟后台）。跑通的链路（全部在生产上真实执行、
+真实发邮件到测试邮箱）：房东发布房源 `[TEST] 100 Test Ave #1`（pending → 管理员核验 → 公开页 200）→ 租客看房请求 + 提问（合并成一张
+`showing_request` 卡）→ 租客匿名提交申请 + 5 份合成文件（`Prefer: return=minimal`，见下）→ 房东「一键筛查」（`/api/screening/from-application`
+→ 真实 screen-score，43 分 conditional）→ 看房卡「预览正文 → 批准 → 执行」（预览不改状态）→ 录取通知卡（`send_decision`：applications.status
+= approved、compliance_events `CRA-10-7-notice`）→ 起草安省标准租约 → `send_lease` 卡（预览带占位链接，执行后 service role 铸 token、状态
+sent）→ 租客凭 token 签、房东回签 → **household 自动生成**（verified、source esign、房东成员 + 租客邀请 + 首月 rent_payments）→ 租客
+`accept_household_invite` → `/h/<id>` 双方可见 → 时间穿越到期前 88 天 → `/api/agent/proactive` 生成 90 天续约卡（幂等，第二次 0 张）→
+预览 A/B → 执行 A → 租客护照分享链接 + 勾选 API 范围 → Trust API 三个端点（compliance 匿名命中三条规则 / passport verify 按范围过滤、
+未共享范围 403、假 token 404、审计 + 推送 / screen 202 → 真实评分 → 记在绑定房东名下）→ 经纪提交 RECO 资料 → 管理员核验 → `my_hats`
+verified、目录可见、`/agent/verify` 显示「RECO 注册已核」。手机端 UI 用注入会话（`localStorage['sb-auth-auth-token']`，密码走 fetch 不进
+表单）走查：待办卡「预览正文 / 确认 / 撤销」60 秒撤销回到 pending；护照页四个 API 勾选与库一致。**发现并修的四处真问题**：
+- **续约卡引用「TRREB 2019 Q1」均租**：proactive 的 `loadMarket` 对 `trreb_rent_stats`（1,000+ 行，每季 × 每区域 × 公寓/联排）无序
+  `limit(64)` → 拿到最旧的 64 行。现在钉 `area='All TRREB Areas'`、`property_type='apartment'`、`order period desc`。
+- **申请人页永远「AI 评分尚未完成」**：页面读 `applications.ai_score`（旧 ai-score 路由的列），而闭环的评分写在 `screenings`（by
+  `application_id`）。详情页现在读关联 screening 的 `ai_score / v3_tier / ai_summary / hard_gates_triggered` 渲染评分卡 + 「打开完整报告」；
+  列表页用关联 screening 回填 `ai_score`。同页「身份已验 / 收入已验」章原来只要有文件就点亮——现在只按关联 screening 的
+  `verification`（Veriff / Flinks / Equifax 已 verified 且非沙箱）点亮；`status=approved` 徽章由「已批准看房」改为「已录取」；
+  设计残留的「★★★ 请 TA 盖银行章」「经 TA 的 AI Agent 中介」两颗按钮改为「请 TA 本人核验」（→ 筛查记录的核验卡）与「让 Logic 起草邮件」。
+- **租客看不到自己的申请**：applications 只有房东策略 + 匿名 INSERT 策略，申请人登录后读不到自己的行；`/tenant/applications` 又是
+  DEMO_GATE 的诚实空态，连真实的看房记录（MyShowings）都被空态盖住。迁移 `20260923_applications_applicant_select.sql`（已应用 prod：
+  authenticated 按登录邮箱 SELECT 自己的申请）+ `components/tenant/MyApplications.tsx` + `WorkspaceShell` 新 prop `liveSlot`（被 gate 的
+  路由在空态之上仍渲染真实行）。
+- 驱动脚本的两个坑：zsh 不对未加引号的变量分词（`${=VAR}`）；applications 匿名插入必须 `Prefer: return=minimal`。
+守卫补在 `tests/lifecycle20260923.spec.ts`。**未覆盖**：`/api/v1/screen` 的 webhook 回调（没有可用的 https 接收端，只验证了 202 + 评分落库）；
+真实 Veriff / Flinks / Equifax 步骤（无生产凭证，护照 verify 对身份/银行返回 `verified:false` 是正确的）。
+
 ## 定价 $19 与内部测试月（2026-09-14 · 用户决定）
 
 - **Pro 改为 $19 CAD/月**：Stripe live 新价 `price_1UFZYoPEHyIrPd1Qswl971AJ`（产品 `prod_UIB2uLu9PHRVeR` 的默认价），
