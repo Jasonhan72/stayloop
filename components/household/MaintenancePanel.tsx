@@ -12,7 +12,7 @@ import WorkOrderCard, { type WorkOrderLite } from '@/components/marketplace/Work
 import DispatchModal from '@/components/marketplace/DispatchModal'
 import { CATEGORY_LABEL, MAINTENANCE_CATEGORIES } from '@/lib/agent/maintenanceTriage'
 
-export type Ticket = { id: string; title: string; description: string | null; category: string | null; priority: string; status: string; created_at: string; resolved_at: string | null; opened_by: string | null }
+export type Ticket = { id: string; title: string; description: string | null; category: string | null; priority: string; status: string; created_at: string; resolved_at: string | null; opened_by: string | null; photos: string[] | null }
 type Wo = WorkOrderLite & { ticket_id: string }
 
 export const TICKET_STATUS: Record<string, { zh: string; en: string; cls: string }> = {
@@ -41,14 +41,25 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
   const [dispatchFor, setDispatchFor] = useState<Ticket | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // Ticket photos live in the private tenancy-files bucket; members get
+  // short-lived signed URLs (the bucket read policy is the gate).
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
   const isLandlord = myRole === 'landlord' || myRole === 'property_manager'
 
   const load = useCallback(async () => {
     const [{ data: t }, { data: w }] = await Promise.all([
-      supabase.from('maintenance_tickets').select('id, title, description, category, priority, status, created_at, resolved_at, opened_by').eq('household_id', householdId).order('created_at', { ascending: false }),
+      supabase.from('maintenance_tickets').select('id, title, description, category, priority, status, created_at, resolved_at, opened_by, photos').eq('household_id', householdId).order('created_at', { ascending: false }),
       supabase.from('work_orders').select('*').eq('household_id', householdId).order('created_at', { ascending: false }),
     ])
-    setTickets((t ?? []) as Ticket[])
+    const ticketRows = (t ?? []) as Ticket[]
+    setTickets(ticketRows)
+    const paths = ticketRows.flatMap((x) => x.photos ?? [])
+    if (paths.length) {
+      const { data: signed } = await supabase.storage.from('tenancy-files').createSignedUrls(paths, 600)
+      const m: Record<string, string> = {}
+      for (const x of signed ?? []) if (x.path && x.signedUrl) m[x.path] = x.signedUrl
+      setPhotoUrls(m)
+    }
     const wos = (w ?? []) as Wo[]
     setOrders(wos)
     const pids = Array.from(new Set(wos.map((x) => x.provider_id).filter(Boolean))) as string[]
@@ -113,6 +124,16 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
               <span className="ml-auto text-[11px] text-body-3">{new Date(t.created_at).toLocaleDateString('en-CA')}</span>
             </div>
             {t.description && <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-body-2">{t.description}</p>}
+            {(t.photos?.length ?? 0) > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5" data-testid="ticket-photos">
+                {(t.photos ?? []).map((p) => photoUrls[p] ? (
+                  <a key={p} href={photoUrls[p]} target="_blank" rel="noopener noreferrer" className="block h-16 w-16 overflow-hidden rounded-lg border border-line-divider bg-surface-chip">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photoUrls[p]} alt="" className="h-full w-full object-cover" />
+                  </a>
+                ) : <span key={p} className="flex h-16 w-16 items-center justify-center rounded-lg border border-line-divider bg-surface-chip text-[11px] text-body-3">📷</span>)}
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap gap-2">
               {isLandlord && !open && !['done', 'cancelled'].includes(t.status) && (
                 <button onClick={() => setDispatchFor(t)} className="rounded-full bg-brand px-3.5 py-1.5 text-[12px] font-bold text-white">{zh ? '指派 →' : 'Dispatch →'}</button>
