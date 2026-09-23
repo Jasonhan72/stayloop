@@ -29,3 +29,12 @@ describe('product structure: lifecycle + Stayloop API', () => {
     expect(i18n).toMatch(/'foot\.stayloopApi': \{ en: 'Stayloop API', zh: 'Stayloop API' \}/)
   })
 })
+
+describe('phone menu folds the public pages once signed in (2026-09-23)', () => {
+  const src = readFileSync('components/Header.tsx', 'utf8')
+  it('marketing links at the top render only for visitors; signed-in users get a single「浏览 Stayloop」row', () => {
+    expect(src).toMatch(/\{!auth\.user && \(\s*<div className="lg:hidden">/)
+    expect(src).toMatch(/浏览 Stayloop/)
+    expect(src).toMatch(/aria-expanded=\{browseOpen\}/)
+  })
+})

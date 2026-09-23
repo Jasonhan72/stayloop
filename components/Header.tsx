@@ -73,6 +73,10 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
   const [productOpen, setProductOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [langModalOpen, setLangModalOpen] = useState(false)
+  // Phone menu: marketing links fold into one row once you are signed in
+  // (the identity section already covers the three roles; the bottom tabs
+  // cover the workspace). Anonymous visitors still see them expanded.
+  const [browseOpen, setBrowseOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const productRef = useRef<HTMLDivElement>(null)
 
@@ -216,7 +220,8 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                 className="absolute right-0 mt-2 max-h-[calc(100vh-90px)] w-[min(300px,calc(100vw-24px))] overflow-y-auto rounded-xl border border-[#DDDDDD] bg-white py-2 shadow-[0_2px_16px_rgba(0,0,0,0.12)] supports-[height:100dvh]:max-h-[calc(100dvh-90px)]"
                 role="menu"
               >
-                {/* Mobile-only: nav links */}
+                {/* Mobile-only: nav links — expanded for visitors; signed-in users get them folded under「浏览 Stayloop」below */}
+                {!auth.user && (
                 <div className="lg:hidden">
                   {PRODUCT_ITEMS.map((item) => (
                     <Link
@@ -235,6 +240,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                   <Link href="/screening" onClick={() => setMenuOpen(false)} className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]">{t('nav.screening')}</Link>
                   <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
                 </div>
+                )}
 
                 {auth.loading ? null : auth.user ? (
                   <>
@@ -349,6 +355,33 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       <GlobeIcon />
                       {lang === 'zh' ? '语言和货币' : 'Language and currency'}
                     </button>
+
+                    {/* Phone only: the public pages, folded into one row */}
+                    <div className="lg:hidden">
+                      <button
+                        onClick={() => setBrowseOpen((v) => !v)}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-[14px] text-[#222] transition hover:bg-[#F7F7F7]"
+                        aria-expanded={browseOpen}
+                        role="menuitem"
+                      >
+                        <CompassIcon />
+                        <span className="flex-1">{lang === 'zh' ? '浏览 Stayloop' : 'Browse Stayloop'}</span>
+                        <span className={'text-[#717171] transition-transform ' + (browseOpen ? 'rotate-90' : '')}>›</span>
+                      </button>
+                      {browseOpen && (
+                        <div className="pb-1">
+                          {[
+                            { href: '/platform', label: t('nav.platform') },
+                            { href: '/listings', label: t('nav.listings') },
+                            { href: '/pricing', label: t('nav.pricing') },
+                            { href: '/screening', label: t('nav.screening') },
+                            ...PRODUCT_ITEMS.map((item) => ({ href: item.href, label: `${t(item.key)} · ${item.tag[lang]}` })),
+                          ].map((l) => (
+                            <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)} className="block py-2 pl-[46px] pr-4 text-[13.5px] text-[#444] transition hover:bg-[#F7F7F7]">{l.label}</Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
                     <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
 
@@ -497,6 +530,15 @@ function GlobeIcon() {
       <circle cx="8" cy="8" r="6.5" />
       <path d="M1.5 8h13" />
       <path d="M8 1.5c1.66 1.63 2.6 3.56 2.6 6.5s-.94 4.87-2.6 6.5c-1.66-1.63-2.6-3.56-2.6-6.5s.94-4.87 2.6-6.5z" />
+    </svg>
+  )
+}
+
+function CompassIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m15.5 8.5-2.2 5-5 2.2 2.2-5z" />
     </svg>
   )
 }
