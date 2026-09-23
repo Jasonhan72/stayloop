@@ -160,7 +160,7 @@ export default function TenantPaymentsPage() {
           </div>
           <div className="mt-1 text-[12.5px] text-body-2">{zh ? '5月22日 · 自动扣款 · RBC ****8721' : 'May 22 · auto-debit · RBC ****8721'}</div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '帮我提前支付这个月的房租 $2,800' : 'Help me pay this month’s $2,800 rent early')}`} className="sl-btn-secondary !px-4 !py-2 !text-[12.5px]">{zh ? '立即支付（提前付）' : 'Pay now (early)'}</Link>
+            <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '帮我提前支付这个月的房租【金额】' : 'Help me pay this month’s rent of 【amount】 early')}`} className="sl-btn-secondary !px-4 !py-2 !text-[12.5px]">{zh ? '立即支付（提前付）' : 'Pay now (early)'}</Link>
             <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '我想申请暂停 1 个月房租扣款，帮我向房东发起申请' : 'I’d like to pause rent auto-debit for 1 month — help me request landlord consent')}`} className="sl-btn-ghost !px-4 !py-2 !text-[12.5px]">{zh ? '暂停 1 个月（需房东同意）' : 'Pause 1 month (needs landlord consent)'}</Link>
           </div>
 
@@ -204,7 +204,7 @@ export default function TenantPaymentsPage() {
               )}
             </p>
             <p className="mt-2.5 text-[12.5px] text-body-2">{zh ? '我帮你准备续约谈判材料？' : 'Want me to prepare your renewal negotiation materials?'}</p>
-            <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '租约还有 10 个月到期，帮我准备续约谈判材料' : 'My lease ends in 10 months — help me prepare renewal negotiation materials')}`} className="sl-btn-secondary mt-3 block w-full text-center !py-2 !text-[12.5px]">{zh ? '→ 准备材料' : '→ Prepare materials'}</Link>
+            <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '我的租约【到期日】到期，帮我准备续约谈判材料' : 'My lease ends on 【date】 — help me prepare renewal negotiation materials')}`} className="sl-btn-secondary mt-3 block w-full text-center !py-2 !text-[12.5px]">{zh ? '→ 准备材料' : '→ Prepare materials'}</Link>
           </div>
         </div>
       </div>

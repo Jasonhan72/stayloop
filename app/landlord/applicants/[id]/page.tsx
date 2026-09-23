@@ -447,7 +447,7 @@ function RealApplicantDetail({ id }: { id: string }) {
                 </Link>
               )}
               <Link
-                href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `帮我给申请人 ${name}（${app.email}）写一封邮件，问入住时间和还缺的材料。` : `Draft an email to applicant ${name} (${app.email}) about move-in timing and any missing documents.`)}`}
+                href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `帮我给申请人 ${name}（${app.email}）写一封邮件，问入住时间和还缺的材料。` : `Draft an email to applicant ${name} (${app.email}) about move-in timing and any missing documents.`)}&send=1`}
                 className="sl-btn-secondary text-center"
               >
                 {zh ? `💬 让 ${aiName} 起草一封给 TA 的邮件` : `💬 Have ${aiName} draft an email to them`}
@@ -608,7 +608,7 @@ function DemoApplicantDetail({ id }: { id: string }) {
             </p>
             <div className="mt-4 flex flex-col gap-2">
               <Link
-                href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '批准 Mia Chen 的看房，并派 David Park 带看 Unit 1207 King West' : 'Approve Mia Chen’s showing and assign David Park to show Unit 1207 King West')}`}
+                href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '批准【申请人】的看房请求，安排【时间】' : 'Approve 【applicant】’s showing request for 【time】')}`}
                 className="sl-btn-primary !py-[12px] text-center"
               >
                 {lang === 'zh' ? '✓ 批准看房 · 派 David' : '✓ Approve showing · assign David'}
@@ -617,15 +617,15 @@ function DemoApplicantDetail({ id }: { id: string }) {
                 {lang === 'zh' ? '📄 起草租约' : '📄 Draft lease'}
               </Link>
               <Link
-                href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '请 Mia Chen 补充银行流水并盖上银行章，给我完整收入证据' : 'Ask Mia Chen to connect her bank and earn the bank stamp for full income evidence')}`}
+                href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '请【申请人】补充【材料，如银行流水 / 在职信】' : 'Ask 【applicant】 to provide 【documents — bank statements / employment letter】')}`}
                 className="sl-btn-secondary text-center"
               >{lang === 'zh' ? '★★★ 请她盖银行章' : '★★★ Ask her to earn the bank stamp'}</Link>
               <Link
-                href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我通过 Mia Chen 的 AI Agent 先跟她聊一下入住时间和养猫的情况' : 'Chat with Mia Chen via her AI agent about move-in timing and her cat')}`}
+                href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我给【申请人】写一封邮件，问【入住时间 / 材料】' : 'Draft an email to 【applicant】 about 【move-in timing / documents】')}`}
                 className="sl-btn-secondary text-center"
               >{lang === 'zh' ? '💬 先跟她聊一下（经她的 AI Agent 中介）' : '💬 Chat with her first (via her AI agent)'}</Link>
               <Link
-                href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '我想婉拒 Mia Chen 的申请，帮我走合规流程（需要具体、非歧视性的理由，写入 audit log）' : 'I want to decline Mia Chen’s application — walk me through the compliant process (specific, non-discriminatory reason, logged to audit)')}`}
+                href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '我想婉拒【申请人】的申请，理由是【具体、与租住能力相关的理由】，帮我走合规流程' : 'I want to decline 【applicant】’s application because 【specific, tenancy-related reason】 — walk me through the compliant process (specific, non-discriminatory reason, logged to audit)')}`}
                 className="rounded-lg border border-danger/40 bg-white px-4 py-[10px] text-center text-[13.5px] font-semibold text-danger"
               >
                 {lang === 'zh' ? '✗ 不合适（需选理由）' : '✗ Not a fit (reason required)'}

@@ -4,7 +4,7 @@
 // message thread (user ↔ agent bubbles) with the input pinned at the bottom.
 import {useEffect, useRef, useState} from 'react'
 import { useT } from '@/lib/i18n'
-import AgentInputBar from './AgentInputBar'
+import AgentInputBar, { type ComposerDraft } from './AgentInputBar'
 import DraftListingChatCard from './DraftListingChatCard'
 import ListingChatCard from './ListingChatCard'
 import CommercialCompareTable from './CommercialCompareTable'
@@ -30,11 +30,16 @@ const ORB: Record<AgentRole, string> = {
 
 // Quick-start prompts shown while the thread is empty — one tap sends the
 // prompt, so the blank console teaches what the agent can do.
-const SUGGESTIONS: Record<AgentRole, { icon: string; label: { zh: string; en: string }; prompt: { zh: string; en: string } }[]> = {
+// `prompt` is the demo sentence (sent as-is on the anonymous homepage hero).
+// `template` is what a SIGNED-IN user gets: it is put into the composer with
+// 【…】 placeholders selected, never sent by itself — the specifics are theirs
+// to type (user report 2026-09-23: the「发起报修」example was sent verbatim and
+// the assistant treated "厨房水槽漏水" as the real problem).
+const SUGGESTIONS: Record<AgentRole, { icon: string; label: { zh: string; en: string }; prompt: { zh: string; en: string }; template?: { zh: string; en: string } }[]> = {
   tenant: [
-    { icon: '🔍', label: { zh: '帮我找房', en: 'Find me a home' }, prompt: { zh: '帮我找市中心 $2,500 以内的一居室,最好离地铁近。', en: 'Find me a downtown 1-bed under $2,500, close to the subway.' } },
+    { icon: '🔍', label: { zh: '帮我找房', en: 'Find me a home' }, prompt: { zh: '帮我找市中心 $2,500 以内的一居室,最好离地铁近。', en: 'Find me a downtown 1-bed under $2,500, close to the subway.' }, template: { zh: '帮我找【区域】、预算【$金额】以内的【户型】，【其他要求，如离地铁近 / 可养猫 / 入住日期】。', en: 'Find me a 【unit type】 in 【area】 under 【$budget】, 【other needs — near transit / cat OK / move-in date】.' } },
     { icon: '📄', label: { zh: '解读租约', en: 'Explain my lease' }, prompt: { zh: '帮我逐条解释租约里最需要注意的条款。', en: 'Walk me through the lease clauses I should watch out for.' } },
-    { icon: '🔧', label: { zh: '发起报修', en: 'Report a repair' }, prompt: { zh: '厨房水槽漏水,帮我整理成报修工单发给房东。', en: 'The kitchen sink is leaking — turn this into a repair ticket for my landlord.' } },
+    { icon: '🔧', label: { zh: '发起报修', en: 'Report a repair' }, prompt: { zh: '厨房水槽漏水,帮我整理成报修工单发给房东。', en: 'The kitchen sink is leaking — turn this into a repair ticket for my landlord.' }, template: { zh: '我要报修：【哪里，如厨房 / 卫生间】【什么问题】，【从什么时候开始】，【是否紧急】。请整理成报修工单发给房东。', en: 'Repair request: 【where — kitchen / bathroom】【what is wrong】, 【since when】, 【urgent or not】. Turn it into a ticket for my landlord.' } },
     { icon: '⭐', label: { zh: '盖下一枚章', en: 'Earn my next stamp' }, prompt: { zh: '我现在盖了几枚章?下一枚怎么盖,能解锁什么?', en: 'How many stamps do I have? How do I earn the next one, and what does it unlock?' } },
   ],
   landlord: [
@@ -74,6 +79,7 @@ export default function AgentChat({
   workflow = null,
   scheduled,
   onUndo,
+  draft,
 }: {
   role: AgentRole
   agentName: string
@@ -97,10 +103,15 @@ export default function AgentChat({
   /** Approved actions waiting out their undo window (lifecycle plan §2.5). */
   scheduled?: Record<string, { title: string; executeAt: number }>
   onUndo?: (id: string) => void | Promise<void>
+  /** Composer prefill from the page (workspace deep links). */
+  draft?: ComposerDraft | null
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
   const accent = ACCENT[role]
+  // Quick-action templates land here; the page's deep-link draft wins when newer.
+  const [chipDraft, setChipDraft] = useState<ComposerDraft | null>(null)
+  const composerDraft = draft && (!chipDraft || draft.nonce > chipDraft.nonce) ? draft : chipDraft
   const [sheet, setSheet] = useState(false)
   // Cards the user decided in this session collapse to one line instead of
   // vanishing (the session hook drops them from pendingActions).
@@ -364,7 +375,7 @@ export default function AgentChat({
               {SUGGESTIONS[role].map((s) => (
                 <button
                   key={s.label.en}
-                  onClick={() => onSend(s.prompt[lang])}
+                  onClick={() => { if (live && s.template) setChipDraft({ text: s.template[lang], nonce: Date.now() }); else void onSend(s.prompt[lang]) }}
                   className="group flex items-center gap-3 rounded-xl border border-line-divider bg-white px-3.5 py-3 text-left transition hover:shadow-sm"
                   style={{ borderColor: undefined }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = accent }}
@@ -375,7 +386,7 @@ export default function AgentChat({
                   </span>
                   <span className="min-w-0">
                     <span className="block text-[13px] font-bold">{s.label[lang]}</span>
-                    <span className="block truncate text-[11.5px] text-body-3">{s.prompt[lang]}</span>
+                    <span className="block truncate text-[11.5px] text-body-3">{live && s.template ? s.template[lang] : s.prompt[lang]}</span>
                   </span>
                 </button>
               ))}
@@ -393,7 +404,7 @@ export default function AgentChat({
 
       {/* input */}
       <div className="border-t border-line-divider p-3">
-        <AgentInputBar agentName={agentName} role={role} onSend={onSend} disabled={thinking} />
+        <AgentInputBar agentName={agentName} role={role} onSend={onSend} disabled={thinking} draft={composerDraft} />
       </div>
     </div>
   )

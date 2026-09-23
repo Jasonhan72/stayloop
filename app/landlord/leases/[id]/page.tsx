@@ -407,7 +407,7 @@ export default function LeaseDetailPage() {
             </button>
             {lease.status === 'active' && (
               <Link
-                href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `帮我起草 ${lease.tenant} 的续约函，当前月租 $${lease.rent}` : `Help me draft a renewal letter for ${lease.tenant}, current rent $${lease.rent}`)}`}
+                href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `帮我起草 ${lease.tenant} 的续约函，当前月租 $${lease.rent}` : `Help me draft a renewal letter for ${lease.tenant}, current rent $${lease.rent}`)}&send=1`}
                 className="sl-btn-primary !px-4 !py-[8px] !text-[12.5px]"
               >
                 {zh ? '起草续约 →' : 'Draft renewal →'}
@@ -515,7 +515,7 @@ function DetailAside({ lease, lang }: { lease: typeof LEASES[string]; lang: Lang
           </div>
         </div>
         <Link
-          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `查看 ${lease.tenant} 的完整租客档案` : `Show ${lease.tenant}'s full tenant profile`)}`}
+          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `查看 ${lease.tenant} 的完整租客档案` : `Show ${lease.tenant}'s full tenant profile`)}&send=1`}
           className="mt-3 block w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-center text-[12.5px] font-semibold transition hover:border-brand hover:text-brand"
         >
           {zh ? '查看完整档案 →' : 'View full profile →'}
@@ -527,13 +527,13 @@ function DetailAside({ lease, lang }: { lease: typeof LEASES[string]; lang: Lang
       </div>
       <div className="mt-3 space-y-2">
         <Link
-          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `给 ${lease.tenant} 发送催租提醒` : `Send a rent reminder to ${lease.tenant}`)}`}
+          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `给 ${lease.tenant} 发送催租提醒` : `Send a rent reminder to ${lease.tenant}`)}&send=1`}
           className="block w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-center text-[12.5px] font-semibold transition hover:border-brand hover:text-brand"
         >
           {zh ? '发送催租提醒' : 'Send rent reminder'}
         </Link>
         <Link
-          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `起草 ${lease.tenant} 的 N1 涨租通知` : `Draft an N1 rent increase notice for ${lease.tenant}`)}`}
+          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `起草 ${lease.tenant} 的 N1 涨租通知` : `Draft an N1 rent increase notice for ${lease.tenant}`)}&send=1`}
           className="block w-full rounded-[8px] border border-line-strong bg-white py-[8px] text-center text-[12.5px] font-semibold transition hover:border-brand hover:text-brand"
         >
           {zh ? '起草 N1 涨租通知' : 'Draft N1 rent increase'}

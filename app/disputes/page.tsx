@@ -353,8 +353,8 @@ export default function DisputesPage() {
                 )}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '给我看 DSP-2K8X 押金争议的协商函草稿' : 'Show me the negotiation letter draft for deposit dispute DSP-2K8X')}`} className="rounded-lg px-4 py-[9px] text-[13px] font-semibold text-white" style={{ background: '#00ACE4' }}>{zh ? '查看协商函草稿' : 'View negotiation letter draft'}</Link>
-                <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '调解没有进展，帮我把 DSP-2K8X 押金争议升级到 LTB，准备 T1 表格' : 'Mediation stalled — escalate deposit dispute DSP-2K8X to the LTB and prepare the T1 form')}`} className="rounded-lg border border-line-strong bg-white px-4 py-[8px] text-[13px] font-semibold text-body hover:border-[#00ACE4]" style={{ ['--tw-text-opacity' as string]: 1 }}>{zh ? '📋 帮我升级 LTB' : '📋 Help me escalate to LTB'}</Link>
+                <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '帮我起草一封关于押金争议的协商函：【争议内容与金额】' : 'Draft a negotiation letter about my deposit dispute: 【what is disputed and the amount】')}`} className="rounded-lg px-4 py-[9px] text-[13px] font-semibold text-white" style={{ background: '#00ACE4' }}>{zh ? '查看协商函草稿' : 'View negotiation letter draft'}</Link>
+                <Link href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '协商没有进展，帮我把押金争议提交 LTB 需要准备什么（T1 表格）：【争议内容与金额】' : 'Negotiation stalled — what do I need to take my deposit dispute to the LTB (Form T1): 【what is disputed and the amount】')}`} className="rounded-lg border border-line-strong bg-white px-4 py-[8px] text-[13px] font-semibold text-body hover:border-[#00ACE4]" style={{ ['--tw-text-opacity' as string]: 1 }}>{zh ? '📋 帮我升级 LTB' : '📋 Help me escalate to LTB'}</Link>
               </div>
             </div>
           </div>

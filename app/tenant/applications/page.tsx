@@ -257,7 +257,7 @@ export default function TenantApplications() {
                     {declined && (
                       <>
                         <Link
-                          href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '帮我在 The Annex 找 $4,300 以内的相似房源' : 'Find me similar listings in The Annex under $4,300')}`}
+                          href={`/tenant/agent?prompt=${encodeURIComponent(zh ? '帮我在【区域】找【$预算】以内的相似房源' : 'Find me similar listings in 【area】 under 【$budget】')}`}
                           className="sl-btn-primary !py-[8px] !px-4 !text-[12.5px]"
                         >
                           {zh ? `让 ${aiName} 找相似房源` : `${aiName}, find similar`}

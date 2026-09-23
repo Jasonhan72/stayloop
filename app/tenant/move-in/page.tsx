@@ -222,7 +222,7 @@ export default function TenantMoveInPage() {
 
         {/* ── Actions ── */}
         <div className="mt-7 flex flex-wrap justify-center gap-3">
-          <Link href={`/tenant/agent?prompt=${encodeURIComponent(lang === 'zh' ? '入住检查完成，帮我把检查结果提交给房东 Sarah' : 'Move-in check complete — submit the results to landlord Sarah for me')}`} className="sl-btn-primary px-7 py-3.5">{lang === 'zh' ? '完成入住检查 · 提交给 Sarah' : 'Finish move-in check · submit to Sarah'}</Link>
+          <Link href={`/tenant/agent?prompt=${encodeURIComponent(lang === 'zh' ? '入住检查完成，帮我把检查结果提交给房东' : 'Move-in check complete — submit the results to my landlord')}`} className="sl-btn-primary px-7 py-3.5">{lang === 'zh' ? '完成入住检查 · 提交给 Sarah' : 'Finish move-in check · submit to Sarah'}</Link>
           <Link href={`/tenant/agent?prompt=${encodeURIComponent(lang === 'zh' ? '入住检查发现问题，先暂停提交，帮我记录问题清单' : 'Found issues during move-in check — pause the submission and help me log them')}`} className="sl-btn-ghost px-6 py-3.5">{lang === 'zh' ? '有问题，先暂停' : 'Something’s wrong, pause'}</Link>
         </div>
       </div>

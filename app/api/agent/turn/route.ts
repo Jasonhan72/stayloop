@@ -9,7 +9,7 @@ import { NextResponse } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AgentRole, DraftListing, ListingCard, MemoryItem, WorkflowState } from '@/lib/agent/types'
 import { buildSystemPrompt, RENEWAL_INTENT_RE, renewalPlaybook, renewalLeaseFallback } from '@/lib/agent/prompts'
-import { applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
+import { hasUnfilledTemplate, applyGuardrail, sanitizeDraftListing, type TurnOutput } from '@/lib/agent/guardrail'
 import { flattenMarkdown } from '@/lib/agent/turnHelpers'
 import { bucketAnonIp, clampMemories, normalizeWorkflow, safeParseJson, salvageReply } from '@/lib/agent/turnHelpers'
 import { searchListings } from '@/lib/agent/listingSearch'
@@ -198,6 +198,18 @@ async function fetchUrlContent(url: string): Promise<FetchResult> {
   }
 }
 
+const META_KEYS = ['title', 'description', 'priority', 'location', 'subject', 'body'] as const
+function sanitizeActionMetadata(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const k of META_KEYS) {
+    const v = (raw as Record<string, unknown>)[k]
+    if (typeof v === 'string' && v.trim()) out[k] = v.trim().slice(0, k === 'body' || k === 'description' ? 2000 : 200)
+  }
+  if (out.priority && !['low', 'medium', 'high'].includes(out.priority)) delete out.priority
+  return out
+}
+
 function normalizeOutput(parsed: Record<string, unknown> | null, fallbackReply: string, lang: 'zh' | 'en' = 'zh'): TurnOutput {
   if (!parsed) return { reply: fallbackReply, memoryWrites: [], proposedAction: null, nextStage: null }
 
@@ -232,6 +244,11 @@ function normalizeOutput(parsed: Record<string, unknown> | null, fallbackReply: 
           risk_level: (['low', 'medium', 'high'].includes(String(pa.risk_level))
             ? String(pa.risk_level)
             : 'medium') as 'low' | 'medium' | 'high',
+          // Executor inputs the model may fill (maintenance_request needs
+          // title/description/priority). Strings only, clamped; nothing
+          // here is trusted as a recipient — executors resolve those from
+          // the caller's own rows.
+          metadata: sanitizeActionMetadata(pa.metadata),
         }
       : null
 
@@ -697,6 +714,12 @@ export async function POST(req: Request) {
 
   // Compliance Guardrail — the deterministic backstop on every AI output.
   const { out, flags } = applyGuardrail(role, normalized, uiLang)
+  // Unfilled quick-action template: the assistant may only ask for the
+  // missing details — never propose an action from example wording.
+  if (hasUnfilledTemplate(message) && out.proposedAction) {
+    out.proposedAction = null
+    flags.push('template_unfilled')
+  }
   // ROI metric "合规拦截" (lifecycle plan §2.6): every guardrail hit is a
   // compliance event. Service role, fire-and-forget; anonymous turns count
   // without a user id.

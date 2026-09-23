@@ -106,7 +106,7 @@ describe('proactive + execute wiring', () => {
     expect(execute).toMatch(/case 'renewal_checkpoint':/)
     expect(execute).toMatch(/case 'showing_request':/)
     expect(execute).toMatch(/case 'listing_inquiry':/)
-    expect(execute).toMatch(/!preview && \['send_renewal_letter', 'send_message', 'rent_reminder', 'showing_request', 'listing_inquiry', 'send_lease'\]/)
+    expect(execute).toMatch(/!preview && \['send_renewal_letter', 'send_message', 'rent_reminder', 'showing_request', 'listing_inquiry', 'send_lease', 'send_decision', 'maintenance_request'\]/)
     // recipient comes from the tenants row, never from caller-written metadata
     expect(execute).toMatch(/from\('tenants'\)\.select\('email, full_name'\)/)
     expect(execute).not.toMatch(/m\.tenant_email\s*\)\s*\)\s*\n\s*const \{ html, text \} = renderAgentMessageEmail\(\{ subject, body \}\)/)

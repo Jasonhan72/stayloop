@@ -1,8 +1,11 @@
 'use client'
 
+import { useCallback, useState } from 'react'
+
 // /agent/agent — Brief's workspace. Claude-style chat + controls rail.
 import WorkspaceShell from '@/components/WorkspaceShell'
 import AgentChat from '@/components/agent/AgentChat'
+import type { ComposerDraft } from '@/components/agent/AgentInputBar'
 import WorkflowStatusPanel from '@/components/agent/WorkflowStatusPanel'
 import RecommendationDeck from '@/components/agent/RecommendationDeck'
 import PendingActionsPanel from '@/components/agent/PendingActionsPanel'
@@ -16,7 +19,9 @@ import { useT } from '@/lib/i18n'
 export default function FieldAgentPage() {
   const { lang } = useT()
   const { loading, live, data, status, messages, decide, sendMessage, markListingsShown, scheduled, undo } = useAgentSession('agent')
-  usePromptDeepLink(loading, sendMessage)
+  const [draft, setDraft] = useState<ComposerDraft | null>(null)
+  const prefill = useCallback((t: string) => setDraft({ text: t, nonce: Date.now() }), [])
+  usePromptDeepLink(loading, sendMessage, prefill)
 
 
   if (loading || !data) {
@@ -50,6 +55,7 @@ export default function FieldAgentPage() {
             below is replaced by the 待办 / 想法 / 进度 tabs. lg+ unchanged. */}
         <div className="-mx-5 min-w-0 sm:mx-0 lg:h-[calc(100vh-150px)]">
           <AgentChat
+            draft={draft}
             role="agent"
             agentName={agent.agent_name}
             status={status}

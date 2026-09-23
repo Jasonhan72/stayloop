@@ -22,16 +22,22 @@ type TurnModelState = {
   defaultLabel: string
 }
 
+export type ComposerDraft = { text: string; nonce: number }
+
 export default function AgentInputBar({
   agentName,
   role,
   disabled,
   onSend,
+  draft,
 }: {
   agentName: string
   role?: AgentRole
   disabled?: boolean
   onSend: (message: string, attachments?: ChatAttachment[]) => void | Promise<void>
+  /** Prefill the composer (quick-action templates, workspace deep links) — the
+   *  user edits and sends; nothing goes out on its own. `nonce` retriggers. */
+  draft?: ComposerDraft | null
 }) {
   const { lang } = useI18n()
   const auth = useAuth()
@@ -46,6 +52,23 @@ export default function AgentInputBar({
   const taRef = useRef<HTMLTextAreaElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recRef = useRef<any>(null)
+
+  // Draft → composer: put the text in, focus, and select the first 【…】
+  // placeholder so typing replaces it.
+  useEffect(() => {
+    if (!draft) return
+    setValue(draft.text)
+    requestAnimationFrame(() => {
+      const ta = taRef.current
+      if (!ta) return
+      ta.focus()
+      const m = /【[^】]*】/.exec(draft.text)
+      if (m) ta.setSelectionRange(m.index, m.index + m[0].length)
+      else ta.setSelectionRange(draft.text.length, draft.text.length)
+      ta.style.height = 'auto'
+      ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`
+    })
+  }, [draft])
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

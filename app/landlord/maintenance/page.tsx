@@ -145,7 +145,7 @@ export default function LandlordMaintenancePage() {
         }
         actions={
           <Link
-            href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我创建一个新的维修工单' : 'Help me create a new maintenance ticket')}`}
+            href={`/landlord/agent?prompt=${encodeURIComponent(lang === 'zh' ? '帮我创建一个新的维修工单' : 'Help me create a new maintenance ticket')}&send=1`}
             className="sl-btn-primary !px-4 !py-2 !text-[12.5px]"
           >
             {lang === 'zh' ? '+ 创建工单' : '+ Create ticket'}

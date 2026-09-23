@@ -498,7 +498,7 @@ function PolicyCard({
       }
       action={
         <Link
-          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我复核 Unit 1207 的筛查门槛（收入 / 信用 / DTI / 租期），并指出哪些条件把合格申请人挡在门外' : 'Review my screening thresholds for Unit 1207 (income / credit / DTI / term) and flag any that are screening out qualified applicants')}`}
+          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我复核【房源】的筛查做法（收入 / 信用 / 租期），并指出哪些条件违反 OHRC 租房政策' : 'Review my screening thresholds for Unit 1207 (income / credit / DTI / term) and flag any that are screening out qualified applicants')}`}
           className="text-[12px] font-semibold text-brand hover:underline"
         >
           {zh ? '复核门槛 →' : 'Review thresholds →'}

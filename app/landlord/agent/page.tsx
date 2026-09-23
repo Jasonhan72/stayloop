@@ -3,13 +3,14 @@
 // /landlord/agent — Logic's workspace. Claude-style chat + controls rail.
 import WorkspaceShell from '@/components/WorkspaceShell'
 import AgentChat from '@/components/agent/AgentChat'
+import type { ComposerDraft } from '@/components/agent/AgentInputBar'
 import WorkflowStatusPanel from '@/components/agent/WorkflowStatusPanel'
 import RecommendationDeck from '@/components/agent/RecommendationDeck'
 import PendingActionsPanel from '@/components/agent/PendingActionsPanel'
 import StatusOverview from '@/components/agent/StatusOverview'
 import PrivateMemorySnapshot from '@/components/agent/PrivateMemorySnapshot'
 import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
 import { usePromptDeepLink } from '@/lib/agent/usePromptDeepLink'
 import { useT } from '@/lib/i18n'
@@ -17,7 +18,9 @@ import { useT } from '@/lib/i18n'
 export default function LandlordAgentPage() {
   const { lang } = useT()
   const { loading, live, data, status, messages, decide, sendMessage, markListingsShown, scheduled, undo } = useAgentSession('landlord')
-  usePromptDeepLink(loading, sendMessage)
+  const [draft, setDraft] = useState<ComposerDraft | null>(null)
+  const prefill = useCallback((t: string) => setDraft({ text: t, nonce: Date.now() }), [])
+  usePromptDeepLink(loading, sendMessage, prefill)
 
   if (loading || !data) {
     return (
@@ -50,6 +53,7 @@ export default function LandlordAgentPage() {
             below is replaced by the 待办 / 想法 / 进度 tabs. lg+ unchanged. */}
         <div className="-mx-5 min-w-0 sm:mx-0 lg:h-[calc(100vh-150px)]">
           <AgentChat
+            draft={draft}
             role="landlord"
             agentName={agent.agent_name}
             status={status}

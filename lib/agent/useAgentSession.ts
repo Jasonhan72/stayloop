@@ -374,7 +374,9 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
                   ? '续约函'
                   : removed?.action_type === 'rent_reminder'
                     ? '租金提醒'
-                    : '邮件')
+                    : removed?.action_type === 'maintenance_request'
+                      ? '报修工单'
+                      : '邮件')
               : (removed?.action_type === 'send_renewal_letter'
                   ? 'renewal letter'
                   : removed?.action_type === 'rent_reminder'
@@ -391,6 +393,16 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
             // already executed earlier — nothing new to report
           } else if (j.reason === 'no_executor_for_type') {
             // Approval-only action type — the approval itself was the effect.
+          } else if (j.reason === 'no_landlord_on_file' || j.reason === 'no_household_on_file') {
+            // Tenant-side send / repair with nobody to send to: no confirmed
+            // tenancy on this account (user report 2026-09-23).
+            setMessages((msgs) => [...msgs, {
+              id: nextId(),
+              role: 'agent',
+              text: zh
+                ? '⚠️ 批准已记录，但我不知道该发给哪位房东：你的账号上还没有已确认的在管租约或已签租约。先在「租约」里接受房东的邀请或导入已签租约（/leases/import），之后这类事就能真实送达。'
+                : "⚠️ Your approval was recorded, but there is no landlord on file: this account has no confirmed managed tenancy or signed lease yet. Accept your landlord's invitation or import a signed lease (/leases/import) first, and requests like this will really go through.",
+            }])
           } else {
             setMessages((msgs) => [...msgs, {
               id: nextId(),

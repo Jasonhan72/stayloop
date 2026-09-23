@@ -932,6 +932,26 @@ cron 的实机探测（全部在 begin…rollback 里以 anon / authenticated �
 - 联邦注册库 ingest：截断下载被当成功（2026-09-05 那次 168 MB / 0 个 XML / 「Done」，库停在 08-02）——现在 Content-Length
   不符、unzip 非零、0 个 XML 都直接失败，并且每行写 `last_seen_at`。登录回调页显示 GoTrue 的真实错误（此前一律「登录链接已失效」）。
 
+## 快捷按钮把示例句当成事实（2026-09-23 · 用户截图：「发起报修」把「厨房水槽漏水」当成真问题）
+
+一类问题：助手页的快捷卡片、工作台各页的「交给助手」按钮（`/x/agent?prompt=…`）都把**示例句原样发出**，模型把示例里的具体内容
+（厨房漏水、$2,800、Mia Chen、Thompson、DSP-2K8X…）当成用户的真实情况；随后提议的 `send_message` 卡没有收件人，执行报
+「no valid recipient email」。四处一并修（守卫 `tests/templateChips20260923.spec.ts`）：
+- **模板而不是示例**：`AgentChat` 的 SUGGESTIONS 可带 `template`（含 `【…】` 占位符）。登录后的实时会话点卡片 = 把模板填进输入框并
+  选中第一个占位符（`AgentInputBar` 新 prop `draft {text, nonce}`），用户改完自己发；匿名首页仍发示例句（那是演示）。租客的「帮我找房」
+  「发起报修」已改模板，其余卡片是泛化指令不含事实，照旧。
+- **深链默认预填**：`usePromptDeepLink(loading, send, prefill)` 现在默认把 prompt 放进输入框，不自动发；只有文字来自真实数据行的链接
+  （申请人页写邮件、租约页续约函 / 催租 / N1、租约列表重发 / 撤回、N 表工具箱、房东新建工单、房源页咨询）带 `&send=1` 才自动发；
+  含 `【` 的永不自动发。示范页（租客付款 / 入住 / 申请、房东申请人样例 / 续约样例 / 争议）里的虚构姓名与金额全部换成 `【…】` 占位符。
+- **服务端后闸**：`hasUnfilledTemplate()`（guardrail）——消息含未填占位符时 turn 路由强制 `proposed_action = null` 并记 flag
+  `template_unfilled`；提示词第 0 条原则要求只追问、不把示例当事实。模型现在可在 `proposed_action.metadata` 里填
+  title / description / priority / location / subject / body（字符串、限长；收件人永不取自 metadata），orchestrator 把它并入卡片 metadata。
+- **收件人从数据推导 + 报修真执行器**：`resolveTenantLandlord()` 从租客已确认的在管租约成员（房东成员 → 登录邮箱）或按登录邮箱找到的
+  租约（房东行）取房东邮箱；`send_message` 没有收件人时对租客自动解析，解析不到返回 `no_landlord_on_file`，客户端明说「还没有已确认的
+  在管租约或已签租约」。新执行器 `maintenance_request`：在租客的在管租约上建 `maintenance_tickets` 行（与 `/h/[id]` 同一张表）+ 邮件
+  + 推送房东，无在管租约返回 `no_household_on_file`。租客 KEY_ACTIONS 加入 `maintenance_request`。发信限流列表补了 send_decision 与
+  maintenance_request。
+
 ## 产品结构显性化：Stayloop 全流程 + Stayloop API（2026-09-23 · 对照 EliseAI 三条产品线）
 
 用户要求：EliseAI 的 LeasingAI（潜客 / 看房）、ResidentAI（入住 / 报修 / 续约 / 催收）、EliseCRM（统一数据与集成）对应我们的模块，功能都有了，

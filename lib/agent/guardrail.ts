@@ -61,6 +61,19 @@ const ILLEGAL_LEASE =
 const KEY_ACTION =
   /(share|submit|sign|payment|pay|tier_upgrade|reject|decline|approve|send_message|schedule)/i
 
+/**
+ * Quick-action chips and workspace deep links hand the assistant a
+ * TEMPLATE with 【…】 placeholders (e.g. 「我要报修：【哪里】【什么问题】」).
+ * If the user sends it unfilled, the assistant must ask for the details and
+ * must never treat the placeholder or the example wording as a fact, and no
+ * action may be proposed from it (user report 2026-09-23: the「发起报修」
+ * example "厨房水槽漏水" was sent verbatim and became the ticket).
+ */
+export const TEMPLATE_PLACEHOLDER_RE = /【[^】]{0,60}】/
+export function hasUnfilledTemplate(message: string): boolean {
+  return TEMPLATE_PLACEHOLDER_RE.test(message)
+}
+
 export type GuardrailResult = { out: TurnOutput; flags: string[] }
 
 export function applyGuardrail(role: AgentRole, out: TurnOutput, lang: 'zh' | 'en' = 'zh'): GuardrailResult {

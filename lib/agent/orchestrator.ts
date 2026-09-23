@@ -226,6 +226,7 @@ export async function runAgentTurn(args: {
       data_scope: string[]
       excluded_data: string[]
       risk_level: 'low' | 'medium' | 'high'
+      metadata?: Record<string, string>
     }
     next_stage: string | null
     listings?: ListingCard[]
@@ -270,7 +271,7 @@ export async function runAgentTurn(args: {
       status: 'pending' as const,
       requires_approval: true,
       expires_at: null,
-      metadata: { origin: 'agent_turn' },
+      metadata: { origin: 'agent_turn', ...(pa.metadata ?? {}) },
     }
     let id = (globalThis.crypto?.randomUUID?.() as string) || `act-${Date.now()}`
     let created_at = new Date().toISOString()

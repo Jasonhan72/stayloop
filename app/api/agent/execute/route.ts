@@ -22,12 +22,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, renderAgentMessageEmail, renderRentReminderEmail } from '@/lib/email'
 import { sendLeaseInvitation, leaseSendPreflight, buildLeaseInvite, type LeaseForSend } from '@/lib/lease/sendLease'
 import { decisionNoticeFooter, guidelineFor } from '@/lib/ontario/rules'
+import { notifyUser } from '@/lib/push/notify'
 
 export const runtime = 'edge'
 
 type ActionRow = {
   id: string
   user_id: string
+  role?: string | null
   action_type: string
   title: string
   summary: string | null
@@ -61,6 +63,10 @@ type ActionRow = {
     application_id?: string
     decision?: 'approved' | 'declined' | 'needs_more'
     reason?: string
+    // maintenance_request (turn-proposed; strings only, clamped by the turn route)
+    title?: string
+    description?: string
+    priority?: string
   } | null
 }
 
@@ -300,20 +306,114 @@ async function isKnownCounterparty(admin: Admin, userId: string, email: string):
   return false
 }
 
+// ---------------------------------------------------------------------------
+// The tenant's landlord, from rows the tenant cannot forge: a verified managed
+// tenancy they are a member of (landlord member → auth email), else a lease
+// addressed to their login email (landlord row → email). Turn-proposed cards
+// carry no recipient (user report 2026-09-23: 「no valid recipient email」 on
+// a repair request), so executors derive it here instead of trusting metadata.
+// ---------------------------------------------------------------------------
+async function resolveTenantLandlord(admin: Admin, userId: string, callerEmail: string | null): Promise<{ email: string; auth_id: string | null; household_id: string | null; unit: string | null } | null> {
+  const { data: mem } = await admin.from('household_members').select('household_id, role').eq('user_id', userId).eq('role', 'tenant')
+  const hhIds = (mem ?? []).map((r: { household_id: string }) => r.household_id)
+  if (hhIds.length) {
+    const { data: hhs } = await admin.from('households').select('id, verified, status, address, unit').in('id', hhIds).eq('verified', true).order('created_at', { ascending: false })
+    for (const hh of (hhs ?? []) as { id: string; status: string | null; address: string | null; unit: string | null }[]) {
+      if (hh.status && !['active', 'pending'].includes(hh.status)) continue
+      const { data: ll } = await admin.from('household_members').select('user_id').eq('household_id', hh.id).eq('role', 'landlord').limit(1)
+      const landlordAuth = (ll?.[0] as { user_id: string } | undefined)?.user_id ?? null
+      if (!landlordAuth) continue
+      const { data: u } = await admin.auth.admin.getUserById(landlordAuth)
+      const email = u?.user?.email ?? null
+      if (email && EMAIL_RE.test(email)) return { email, auth_id: landlordAuth, household_id: hh.id, unit: [hh.address, hh.unit ? `#${hh.unit}` : ''].filter(Boolean).join(' ') || null }
+    }
+  }
+  if (callerEmail) {
+    const { data: leases } = await admin.from('lease_documents').select('landlord_id, unit_label, status').ilike('tenant_email', callerEmail).in('status', ['signed_both', 'active', 'sent', 'signed_tenant']).order('created_at', { ascending: false }).limit(3)
+    for (const l of (leases ?? []) as { landlord_id: string | null; unit_label: string | null }[]) {
+      if (!l.landlord_id) continue
+      const { data: row } = await admin.from('landlords').select('email, auth_id').eq('id', l.landlord_id).maybeSingle()
+      let email = (row?.email as string | null) ?? null
+      if ((!email || !EMAIL_RE.test(email)) && row?.auth_id) {
+        const { data: u } = await admin.auth.admin.getUserById(row.auth_id as string)
+        email = u?.user?.email ?? null
+      }
+      if (email && EMAIL_RE.test(email)) return { email, auth_id: (row?.auth_id as string | null) ?? null, household_id: null, unit: l.unit_label }
+    }
+  }
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// Executor: maintenance_request (tenant). metadata: { title, description,
+// priority }. Creates the ticket on the tenant's verified managed tenancy
+// (the same table /h/[id] uses) and tells the landlord by email + push. No
+// tenancy on file → 422 no_household_on_file (the assistant explains).
+// ---------------------------------------------------------------------------
+async function executeMaintenanceRequest(admin: Admin, userId: string, action: ActionRow, callerEmail: string | null, preview = false): Promise<NextResponse> {
+  const m = action.metadata || {}
+  const title = String(m.title || action.title || '').replace(/<[^>]*>/g, '').trim().slice(0, 140)
+  const description = String(m.description || action.summary || '').replace(/<[^>]*>/g, '').trim().slice(0, 2000)
+  const priority = ['low', 'medium', 'high'].includes(String(m.priority)) ? String(m.priority) : 'medium'
+  if (!title) return NextResponse.json({ executed: false, reason: 'ticket title missing' }, { status: 422 })
+  const ll = await resolveTenantLandlord(admin, userId, callerEmail)
+  if (!ll || !ll.household_id) return NextResponse.json({ executed: false, reason: 'no_household_on_file' }, { status: 422 })
+  const subject = `报修工单 · ${ll.unit || ''} · ${title} — Repair request`
+  const body = `你好，
+
+租客通过 Stayloop 提交了一张报修工单：
+
+  • 位置 / 问题：${title}
+  • 说明：${description || '（无）'}
+  • 紧急程度：${priority}
+
+工单已记录在你们的在管租约共享中心，处理进度双方可见。
+
+Hi,
+
+Your tenant filed a repair ticket on Stayloop:
+
+  • Issue: ${title}
+  • Details: ${description || '(none)'}
+  • Priority: ${priority}
+
+The ticket is on your shared tenancy hub; both sides see its progress.`
+  if (preview) return PREVIEW({ subject, body, to: ll.email })
+  if (!(await claimExecution(admin, action.id))) return ALREADY()
+  const { data: ticket, error: tErr } = await admin.from('maintenance_tickets').insert({ household_id: ll.household_id, opened_by: userId, title, description: description || null, priority, status: 'new', category: 'repair' }).select('id').single()
+  if (tErr || !ticket) {
+    await releaseClaim(admin, action.id, tErr?.message || 'ticket insert failed')
+    return NextResponse.json({ executed: false, reason: tErr?.message || 'ticket insert failed' }, { status: 500 })
+  }
+  const { html, text } = renderAgentMessageEmail({ subject, body })
+  const result = await sendEmail({ to: ll.email, subject, html, text })
+  if (ll.auth_id) void notifyUser(admin, ll.auth_id, { kind: 'event', title: '新的报修工单 / New repair ticket', body: title, url: `/h/${ll.household_id}` })
+  const executionResult = { ok: true, kind: 'ticket', ticket_id: ticket.id, household_id: ll.household_id, email_id: result.ok ? result.id : null, sent_to: ll.email, email_error: result.ok ? null : result.error }
+  return finalizeExecution(admin, userId, action.id, 'executed_maintenance_request', executionResult, { ticket_id: ticket.id, household_id: ll.household_id, sent_to: ll.email })
+}
+
 async function executeSendMessage(
   admin: Admin,
   userId: string,
   action: ActionRow,
+  callerEmail: string | null,
   preview = false,
 ): Promise<NextResponse> {
   const m = action.metadata || {}
   const candidate = (typeof m.to_email === 'string' ? m.to_email : '').trim()
   const fallback = (action.recipient_label || '').trim()
-  const to = EMAIL_RE.test(candidate) ? candidate : (EMAIL_RE.test(fallback) ? fallback : null)
-  if (!to) {
-    return NextResponse.json({ executed: false, reason: 'no valid recipient email' }, { status: 422 })
+  let to = EMAIL_RE.test(candidate) ? candidate : (EMAIL_RE.test(fallback) ? fallback : null)
+  let derived = false
+  if (!to && action.role === 'tenant') {
+    // Turn-proposed cards carry no address; the landlord comes from the
+    // tenant's own tenancy rows (see resolveTenantLandlord).
+    const ll = await resolveTenantLandlord(admin, userId, callerEmail)
+    if (ll) { to = ll.email; derived = true }
   }
-  if (!(await isKnownCounterparty(admin, userId, to))) {
+  if (!to) {
+    return NextResponse.json({ executed: false, reason: action.role === 'tenant' ? 'no_landlord_on_file' : 'no valid recipient email' }, { status: 422 })
+  }
+  if (!derived && !(await isKnownCounterparty(admin, userId, to))) {
     return NextResponse.json(
       { executed: false, reason: 'recipient is not a counterparty on any of your leases or applications' },
       { status: 403 },
@@ -627,7 +727,7 @@ export async function POST(req: Request) {
 
   const { data: action } = await admin
     .from('agent_pending_actions')
-    .select('id, user_id, action_type, title, summary, recipient_label, status, executed_at, metadata')
+    .select('id, user_id, role, action_type, title, summary, recipient_label, status, executed_at, metadata')
     .eq('id', body.action_id)
     .maybeSingle<ActionRow>()
   if (!action) return NextResponse.json({ error: 'action not found' }, { status: 404 })
@@ -646,7 +746,7 @@ export async function POST(req: Request) {
   // that ultimately traces back to rows the caller can write (their own
   // lease's tenant_email, an application on their own listing). The
   // counterparty checks narrow WHO; this caps HOW MANY (review 2026-09-19).
-  if (!preview && ['send_renewal_letter', 'send_message', 'rent_reminder', 'showing_request', 'listing_inquiry', 'send_lease'].includes(action.action_type)) {
+  if (!preview && ['send_renewal_letter', 'send_message', 'rent_reminder', 'showing_request', 'listing_inquiry', 'send_lease', 'send_decision', 'maintenance_request'].includes(action.action_type)) {
     if (!(await underHourlyLimit(`mail:agent-execute:${userId}`, 20, false))) {
       return NextResponse.json({ executed: false, reason: 'hourly send limit reached' }, { status: 429, headers: { 'Retry-After': '3600' } })
     }
@@ -659,7 +759,9 @@ export async function POST(req: Request) {
     case 'send_renewal_letter':
       return executeSendRenewalLetter(admin, userId, action, body.option, preview)
     case 'send_message':
-      return executeSendMessage(admin, userId, action, preview)
+      return executeSendMessage(admin, userId, action, ud.user.email ?? null, preview)
+    case 'maintenance_request':
+      return executeMaintenanceRequest(admin, userId, action, ud.user.email ?? null, preview)
     case 'rent_reminder':
       return executeRentReminder(admin, userId, action, preview)
     case 'renewal_checkpoint':

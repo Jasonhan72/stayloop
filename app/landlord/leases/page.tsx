@@ -422,7 +422,7 @@ function RenewalPack({ lang }: { lang: Lang }) {
         </div>
         <div className="mt-4 flex gap-2">
           <Link
-            href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `用方案 ${opt.tag[lang]} ($${opt.rent}) 为 Thompson 起草 Liberty Village 2B 的续约函` : `Draft a renewal letter for Thompson at Liberty Village 2B using ${opt.tag[lang]} ($${opt.rent})`)}`}
+            href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `用方案 ${opt.tag[lang]} 为【租客】起草【单元】的续约函` : `Draft a renewal letter for 【tenant】 at 【unit】 using ${opt.tag[lang]}`)}`}
             className="sl-btn-primary !px-4 !py-[10px] !text-[13px]"
           >
             {zh ? '去工作台查看续约函 →' : 'View renewal letter in your workspace →'}
@@ -823,13 +823,13 @@ function LeaseSection({
                         </div>
                         <div className="mt-1 flex justify-end gap-1.5">
                           <Link
-                            href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `帮我重新给 ${l.tenant} 发送租约 ${l.id} 的签署链接` : `Resend the e-sign link for lease ${l.id} to ${l.tenant}`)}`}
+                            href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `帮我重新给 ${l.tenant} 发送租约 ${l.id} 的签署链接` : `Resend the e-sign link for lease ${l.id} to ${l.tenant}`)}&send=1`}
                             className="whitespace-nowrap rounded-[6px] border border-line-strong bg-white px-2 py-[3px] text-[11px] font-semibold text-body transition hover:border-brand hover:text-brand"
                           >
                             {zh ? '重发链接' : 'Resend link'}
                           </Link>
                           <Link
-                            href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `我想撤回租约 ${l.id} 的签署请求，帮我走流程并通知 ${l.tenant}` : `I want to withdraw the signature request for lease ${l.id} — walk me through it and notify ${l.tenant}`)}`}
+                            href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `我想撤回租约 ${l.id} 的签署请求，帮我走流程并通知 ${l.tenant}` : `I want to withdraw the signature request for lease ${l.id} — walk me through it and notify ${l.tenant}`)}&send=1`}
                             className="whitespace-nowrap rounded-[6px] border border-line-strong bg-white px-2 py-[3px] text-[11px] font-semibold text-body-3 transition hover:border-red-400 hover:text-red-600"
                           >
                             {zh ? '撤回' : 'Withdraw'}
@@ -887,7 +887,7 @@ function RailAside({ lang, aiNotice }: { lang: Lang; aiNotice?: ReactNode }) {
           {N_FORMS.map((f) => (
             <Link
               key={f.code}
-              href={`/landlord/agent?prompt=${encodeURIComponent(f.prompt[lang])}`}
+              href={`/landlord/agent?prompt=${encodeURIComponent(f.prompt[lang])}&send=1`}
               className="block rounded-[8px] border border-line-divider bg-white px-3 py-2 transition hover:border-landlord/50"
             >
               <div className="flex items-baseline gap-2">
@@ -913,7 +913,7 @@ function RailAside({ lang, aiNotice }: { lang: Lang; aiNotice?: ReactNode }) {
           )}
         </p>
         <Link
-          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我查看 Ontario N1 和 N2 涨租通知模板，以及使用时机和注意事项' : 'Show me the Ontario N1 and N2 rent increase notice templates, with timing rules and key considerations')}`}
+          href={`/landlord/agent?prompt=${encodeURIComponent(zh ? '帮我查看 Ontario N1 和 N2 涨租通知模板，以及使用时机和注意事项' : 'Show me the Ontario N1 and N2 rent increase notice templates, with timing rules and key considerations')}&send=1`}
           className="mt-3 inline-block text-[12px] font-semibold text-brand hover:underline"
         >
           {zh ? '查看 N1 / N2 通知模板 →' : 'View N1 / N2 notice templates →'}

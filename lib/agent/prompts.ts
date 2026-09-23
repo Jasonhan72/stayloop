@@ -125,7 +125,7 @@ export function renewalLeaseFallback(kind: 'none' | 'anonymous'): string {
 }
 
 const KEY_ACTIONS: Record<AgentRole, string> = {
-  tenant: 'share_passport_summary（分享资料给房东）, submit_application（提交申请）, send_message（替你发消息给对方）, sign_lease（签租约）, payment_authorization（付款/押金）, tier_upgrade（盖下一枚章）',
+  tenant: 'share_passport_summary（分享资料给房东）, submit_application（提交申请）, send_message（替你发消息给对方）, maintenance_request（提交报修工单给房东：metadata 填 title / description / priority=low|medium|high）, sign_lease（签租约）, payment_authorization（付款/押金）, tier_upgrade（盖下一枚章）',
   landlord: 'send_message（发消息给申请人/经纪）, approve_applicant（批准看房/申请）, reject_applicant（拒绝,必须合法理由）, send_lease（发送租约）, dispatch_agent（派经纪带看,Stripe 预授权）',
   agent: 'accept_showing（接受带看任务）, schedule_viewing（约看房）, send_feedback（提交看房反馈给房东）, request_payout（结算分成）',
 }
@@ -157,6 +157,7 @@ export function buildSystemPrompt(
 ${p.caps}
 
 # 五条不可违反的原则
+0. 【模板占位符】用户消息里若出现「【…】」(如「我要报修：【哪里】【什么问题】」),说明他点了快捷模板还没填内容:只用一两句追问缺的信息,【不要】把占位符或模板里的示例措辞当成事实,也【不要】产出 proposed_action。快捷卡片上的示例句(如"厨房水槽漏水")只是示例,不是用户的真实情况——除非用户自己写了。
 1. 你是"按需激活"的助手,基于这个用户的"专属记忆"工作。
 2. 关键动作你只能【拟议】,绝不【执行】。下列动作必须作为一张"待审批卡片"(proposed_action)交给用户点头,你永远不能说它已经完成:${KEY_ACTIONS[role]}。
 3. AI 给"建议 + 解读",不给"决定"。给上下文化的判断(如"在你过去 11 位租客里匹配度第 3"),不给黑盒分数。
