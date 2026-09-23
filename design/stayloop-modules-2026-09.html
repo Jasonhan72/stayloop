@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Stayloop 模块与功能说明 · 2026-09</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Inter Tight", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, sans-serif; color: #1B1B3C; font-size: 10.5pt; line-height: 1.55; margin: 0; }
+  h1 { font-size: 24pt; letter-spacing: -0.02em; margin: 0 0 4pt; }
+  h2 { font-size: 15pt; margin: 22pt 0 8pt; padding-bottom: 4pt; border-bottom: 2px solid #00ACE4; page-break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 14pt 0 5pt; color: #0f1b33; page-break-after: avoid; }
+  p { margin: 0 0 7pt; }
+  .eyebrow { font-family: "JetBrains Mono", Menlo, monospace; font-size: 8.5pt; letter-spacing: .12em; text-transform: uppercase; color: #00ACE4; font-weight: 700; }
+  .sub { color: #4A4A6A; font-size: 10.5pt; margin-bottom: 14pt; }
+  .meta { display: flex; gap: 14pt; flex-wrap: wrap; font-size: 9pt; color: #6E6E8A; border-top: 1px solid #D3E3EF; border-bottom: 1px solid #D3E3EF; padding: 6pt 0; margin-bottom: 14pt; }
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt; font-size: 9.5pt; page-break-inside: auto; }
+  th, td { border: 1px solid #D3E3EF; padding: 4pt 6pt; vertical-align: top; text-align: left; }
+  th { background: #F3F8FC; font-weight: 700; }
+  tr { page-break-inside: avoid; }
+  code { font-family: "JetBrains Mono", Menlo, monospace; font-size: 8.8pt; background: #F3F8FC; padding: 0 3pt; border-radius: 3px; }
+  ul { margin: 0 0 8pt 0; padding-left: 16pt; }
+  li { margin-bottom: 2.5pt; }
+  .note { background: #FFF8E6; border-left: 3px solid #D97706; padding: 6pt 9pt; margin: 8pt 0; font-size: 9.5pt; }
+  .fact { background: #F3F8FC; border-left: 3px solid #00ACE4; padding: 6pt 9pt; margin: 8pt 0; font-size: 9.5pt; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8pt; margin: 8pt 0 10pt; }
+  .card { border: 1px solid #D3E3EF; border-radius: 6pt; padding: 8pt 10pt; page-break-inside: avoid; }
+  .card b { display: block; margin-bottom: 3pt; }
+  .card .who { font-family: "JetBrains Mono", Menlo, monospace; font-size: 8pt; color: #6E6E8A; letter-spacing: .08em; }
+  .toc { columns: 2; column-gap: 20pt; font-size: 9.5pt; margin-bottom: 6pt; }
+  .toc div { break-inside: avoid; padding: 1.5pt 0; }
+  .toc span { color: #6E6E8A; font-family: "JetBrains Mono", Menlo, monospace; font-size: 8.5pt; margin-right: 6pt; }
+  .pb { page-break-before: always; }
+  .footer { margin-top: 26pt; padding-top: 8pt; border-top: 1px solid #D3E3EF; font-size: 8.5pt; color: #6E6E8A; }
+  .tag { display: inline-block; font-family: "JetBrains Mono", Menlo, monospace; font-size: 8pt; padding: 0 5pt; border-radius: 9pt; border: 1px solid #D3E3EF; margin-right: 3pt; }
+  .tag.ok { color: #047857; border-color: #047857; }
+  .tag.demo { color: #A16207; border-color: #A16207; }
+  .tag.soon { color: #6E6E8A; }
+</style>
+</head>
+<body>
+
+<div class="eyebrow">STAYLOOP · PRODUCT MODULES</div>
+<h1>Stayloop 模块与功能说明</h1>
+<div class="sub">面向安省租房全流程的 AI 平台：租客筛查、房源与申请、租约与在管租约、三角色 AI 助手、合规规则与核验 API。本文按模块说明「现在能做什么、怎么做、边界在哪」，供团队、合作方与审阅者使用。</div>
+<div class="meta">
+  <span>版本：2026-09-23（v5.3 生产线）</span>
+  <span>站点：www.stayloop.ai</span>
+  <span>规模：91 个页面 · 48 个 API 路由 · 56 份数据库迁移 · 826 项自动化测试</span>
+  <span>数据库：Supabase（AWS ca-central-1 蒙特利尔，加拿大境内）</span>
+</div>
+
+<h2>目录</h2>
+<div class="toc">
+  <div><span>01</span>产品定位与技术架构</div>
+  <div><span>02</span>三种身份与工作台</div>
+  <div><span>03</span>AI 助手（Luna / Logic / Brief）</div>
+  <div><span>04</span>租客筛查（核心模块）</div>
+  <div><span>05</span>房源：发布、浏览、看房与申请</div>
+  <div><span>06</span>租房全流程闭环</div>
+  <div><span>07</span>租约、电子签与在管租约</div>
+  <div><span>08</span>续约、涨租与 N 表工具箱</div>
+  <div><span>09</span>租客护照与本人授权核验</div>
+  <div><span>10</span>经纪认证（RECO）</div>
+  <div><span>11</span>安省规则引擎与 2026 年新规</div>
+  <div><span>12</span>Trust API（核验 API）</div>
+  <div><span>13</span>通知：邮件、Web Push 与 PWA</div>
+  <div><span>14</span>计划、支付与内部测试期</div>
+  <div><span>15</span>AI 模型配置与用量</div>
+  <div><span>16</span>后台管理</div>
+  <div><span>17</span>数据、安全与隐私</div>
+  <div><span>18</span>示范数据与尚未上线的部分</div>
+  <div><span>附录</span>路由总表 · 测试账号</div>
+</div>
+
+<h2>01 · 产品定位与技术架构</h2>
+<p>Stayloop 是面向安省（Ontario）租房市场的 AI 平台。它不是「按份出售筛查报告」的工具，而是把租客、房东、经纪三方的整个租房过程放进同一条对话里：找房、看房、申请、筛查、录取、签约、在管、续约。每一个会对外产生影响的动作（发邮件、发租约、发续约函）都由 AI 提议、由人批准、批准后才执行，并且全部留痕。</p>
+<div class="fact"><b>三条原则贯穿全站：</b>① 提议而不决定（propose, don't decide）；② 数字来自确定性代码而不是模型（评分、信用分析、规则检查全部可复算）；③ 合规写在代码里（安省 RTA、OHRC 租房政策、《消费者报告法》的规则是单一来源，页面、助手、API 引用同一份）。</div>
+<table>
+  <tr><th style="width:22%">层</th><th>技术</th><th style="width:34%">说明</th></tr>
+  <tr><td>前端 / 服务端</td><td>Next.js 15 App Router · TypeScript · Tailwind</td><td>全部 API 在 Cloudflare Workers 边缘运行时执行</td></tr>
+  <tr><td>托管</td><td>Cloudflare Pages（next-on-pages）</td><td>部署脚本内置门禁：类型检查 → 单元测试 → 构建 → 部署 → 线上冒烟 → 65 条路由契约审计</td></tr>
+  <tr><td>数据 / 认证 / 存储</td><td>Supabase（Postgres + Auth + Storage）</td><td>项目在 AWS 加拿大区；对外地址 auth.stayloop.ai；行级安全（RLS）+ 列级权限 + 守卫触发器</td></tr>
+  <tr><td>AI</td><td>Anthropic Claude 为默认；OpenAI / Google Gemini / DeepSeek / Moonshot / 阿里 Qwen / 智谱可配</td><td>四个槽位（对话 / 筛查 / 分类 / 取证）后台可换模型，用户可自选对话与筛查模型</td></tr>
+  <tr><td>外部数据</td><td>安省法院门户、LTB 判令开放数据目录、联邦公司注册库、Ontario Gazette、RDAP、Realtor.ca（经 Jina 读取）、TRREB 季度租金报告</td><td>公开记录逐项实查；「未查到」只说未查到，从不写「干净」</td></tr>
+  <tr><td>邮件 / 支付 / 地图</td><td>Resend · Stripe（live）· Google Maps</td><td>—</td></tr>
+  <tr><td>核验供应商</td><td>Veriff（身份）· Flinks（银行）· Equifax（征信）</td><td>接口已接，生产凭证待开通（见第 18 节）</td></tr>
+</table>
+
+<h2>02 · 三种身份与工作台</h2>
+<p>一个账号可以同时拥有三顶「帽子」：租客（所有人都有）、房东（有房东档案即得）、经纪（提交 RECO 注册资料并经人工核验）。当前身份由路由前缀决定，右上角头像菜单可切换；权限永远只看帽子与数据归属，不看界面状态。</p>
+<div class="grid">
+  <div class="card"><span class="who">TENANT · LUNA</span><b>租客工作台</b>找房对话、我的申请与看房、租客护照（分享链接 + API 授权）、租约与在管租约、报修、审计记录。</div>
+  <div class="card"><span class="who">LANDLORD · LOGIC</span><b>房东工作台</b>房源发布与管理、申请人审查、租客筛查、租约起草与电子签、在管租约与租金记录、续约触点、财务（样例）、审计记录。</div>
+  <div class="card"><span class="who">AGENT · BRIEF</span><b>经纪工作台</b>RECO 认证、替房东客户筛查的交接、挂牌定价（实时挂牌 + TRREB 基准）、带看准备包、租约与押金事实、合规边界。</div>
+</div>
+<p><b>手机端</b>（&lt;768px）采用五栏底部导航：助手 · 待办 · 想法 · 进度 · 更多。待办页列出所有等你批准的卡片（红点计数）；想法页由纯函数从待办、画像与当前阶段拼出「我可以替你做的事」；进度页显示流程阶段、活数据瓦片与可编辑的记忆。桌面端保留深色侧栏。跨身份守卫：不能向自己的房源提交申请或看房意向（数据库触发器拦截）；经纪未认证时经纪专属页只显示认证入口。</p>
+
+<h2>03 · AI 助手（Luna / Logic / Brief）</h2>
+<p>首页本身就是助手：匿名访客可直接对话（真实房源、真实行情，按 IP 限次、不落库）。登录后进入角色工作台，助手具备：</p>
+<ul>
+  <li><b>推理与记忆</b>：每轮由服务端模型推理，客户端按 RLS 写入记忆（偏好 / 画像 / 约束）与审计事件；每用户每角色约 20 小时一次「反思」，把最近对话与批准 / 拒绝记录整合成结构化画像，下一轮注入（禁止推断任何受保护特征）。</li>
+  <li><b>合规守卫</b>：每轮输出经确定性过滤——拦截基于 OHRC 受保护特征的拒绝、标记违法租约条款、剥掉「已经办好」的虚假声明、降级越权范围；命中写入 <code>compliance_events</code>。</li>
+  <li><b>找房</b>：先查 Stayloop 自有房源，再用 Realtor.ca 实时补足到 6 套一页，附实时行情样本与 TRREB 官方季度基准；「换一批」翻页或带排除集重搜。隐藏技能：商业 / 工业场地检索（厂房、仓库、店面、写字楼），按面积 / 净高 / 用途 / 禁止用途分层匹配并出横向对比表。</li>
+  <li><b>发房源</b>：一句话生成房源草稿卡，同时一次问完缺项（面积 / 宠物 / 吸烟 / 租期 / 水电网 / 车位 / 家具）；文案只写用户给过的事实，未确认的说法会被删掉。</li>
+  <li><b>续约 / 涨租谈判专线</b>（租客）：引用真实租约条款 + 安省法规事实包 + 行情卡，按五段结构回答，可起草给房东的回信（作为待批卡）。</li>
+  <li><b>审批脊柱</b>：助手提出的每个动作都是一张待批卡（收件人、数据范围、排除数据、风险等级）。房东可先「预览正文」看到将要发送的标题与正文；批准后有 60 秒撤销窗口，撤销即回到待批并写审计；执行器只信数据库里的事实（租约行、申请行），不信卡片元数据里的收件人。</li>
+</ul>
+<table>
+  <tr><th style="width:26%">已有执行器</th><th>做什么</th></tr>
+  <tr><td>send_renewal_letter</td><td>续约函（方案 A 不涨 / 方案 B 按生效年份指导比例），收件人取自租约行</td></tr>
+  <tr><td>rent_reminder · send_message</td><td>月末租金提醒；给租客的确认意向信</td></tr>
+  <tr><td>showing_request · listing_inquiry</td><td>确认看房请求 / 回复房源提问（同一租客同一房源合并进一张卡）</td></tr>
+  <tr><td>send_decision</td><td>录取 / 补材料 / 婉拒通知，固定附《消费者报告法》s.10(7) 与 OHRC 声明，更新申请状态</td></tr>
+  <tr><td>send_lease</td><td>把租约草稿发给租客电子签署（服务端铸造签署链接）</td></tr>
+  <tr><td>renewal_checkpoint</td><td>60 / 30 天触点的「已知悉」盖章</td></tr>
+</table>
+
+<h2 class="pb">04 · 租客筛查（核心模块）</h2>
+<p>房东把申请人自愿提交的材料上传（证件、工资单 / 在职信、征信报告、银行流水、申请表、推荐信；单文件 ≤ 25 MB，大图自动压缩，超大 PDF 在浏览器内转页图），几分钟出报告。管线分层，数字一律来自确定性代码：</p>
+<table>
+  <tr><th style="width:20%">层</th><th>内容</th></tr>
+  <tr><td>抽取</td><td>模型按文件类型抽取事实（收入、雇主、征信 tradeline、证件、申请表）；扫描件走 OCR（预算按页数，失败回退第二路 OCR）</td></tr>
+  <tr><td>文件取证</td><td>PDF 元数据与生成器指纹、增量修改痕迹、银行 / 工资系统排版引擎识别、统计法扣缴复算、生成器签名、时效（每份文件自己的 as-of 日期）、证件有效期、信件质量（拼写、电话不一致）、跨文档一致性（收入互证 ≤3% 才算吻合、居住时间线 vs 加拿大足迹、自任房东）</td></tr>
+  <tr><td>工资流水深读</td><td>识别代发商（ADP / Ceridian / OSV 等）、入账 = 净薪、奖金三方对账、月初房租形态支出、NSF、发薪日贷款、博彩、催收、国际汇款、最低余额折算租金月数</td></tr>
+  <tr><td>信用分析</td><td>五档分数、DTI、循环利用率（分期与按揭不计）、逾期三信号、硬 / 软查询按 12 个月、催收机构查询、直接读征信文本补漏转录的逾期日期；征信档雇主 ≠ 在职信雇主时先找原因（信贷事件早于入职 = 必然过时，不是矛盾）</td></tr>
+  <tr><td>公开记录</td><td>安省法院门户按申请人与共同申请人实查（各字序 + 模糊，全部执行后合并，强匹配且为被告方才进硬门槛；403 时经加拿大数据库中转）；LTB 判令开放数据目录自建索引（只有房东发起且对方是租客才算风险；同名须地址佐证；目录无结果字段，只写「已出判令」）；CanLII 只作披露。房东、经纪、HR 签署人永远不是筛查对象。</td></tr>
+  <tr><td>一致性审查</td><td>模型逐文件交叉核对 + 确定性后闸（生日格式、旧址 vs 现址、已结清账户、职称同义词、o/a 商号、韩国虚岁等「措辞 ≠ 矛盾」全部丢弃或降级）</td></tr>
+  <tr><td>评分表</td><td>五个维度（付款能力 / 信用 / 租务 / 核验 / 沟通）+ 硬门槛 + 档位（通过 / 复核 / 附条件 / 拒绝）。收入租金比只加分不扣分、薄档案不扣分（OHRC）；纸面互证与第三方核验分开计价（无任何外部核验时核验维度封顶）；取证严重度不再把「披露」当证据累加，累加到疑似伪造必须有 high 级以上项。</td></tr>
+  <tr><td>报告</td><td>结果页、完整报告页（已核验事实 / 推断分栏、逐文件「房东解读」与建议追问、信用分析看板、法庭与 LTB 收录范围条）、可打印 PDF、雷达图、申请人通知信（s.10(7) + AI 辅助 / 房东本人决定声明）。报告到处标「仅供参考 · 非拒绝依据」。</td></tr>
+  <tr><td>深度核查</td><td>每家雇主：注册库状态（注销即红色「不可能在发工资」并去 Ontario Gazette 找注销原因）、入职日期 vs 成立日期、域名注册日期（RDAP）、联系邮箱是否个人邮箱、地址 / 区号、雇主诉讼、董事 / 签署人与申请方成员是否同一人（注册库不公开董事时读公司网页）、《银行法》附表银行直接识别、商号折进注册实体</td></tr>
+  <tr><td>管理</td><td>免费档每月 5 次；筛查记录可删除（连同文件与核验请求，也是申请人数据删除请求的执行路径）；卡死行自动标错误</td></tr>
+</table>
+<div class="note"><b>校准方法：</b>每个真实案例都由人工逐份读原件与模块报告对照，模块漏掉的一律系统化成确定性规则并加守卫测试（2026-09 已做 5 个案例：受薪专业人士、双申请人、伪造在职信、注册库非活跃雇主、装修工程等）。同一份原件多次重跑的抽取抖动是最重要的教训——评分层每条硬规则都必须能承受抽取抖动。</div>
+
+<h2>05 · 房源：发布、浏览、看房与申请</h2>
+<ul>
+  <li><b>发布</b>：五步向导（基本信息 → 真实照片，至少 1 张 → 价格 + 条件：租期 / 宠物 / 吸烟 / 家具 / 租金包含 → 配套 → 发布前检查）；或在对话里一句话生成草稿卡。发布前检查只列确定性项：押金 ≤ 一个月、无禁宠条款、无申请费 / 宠物押金、无 AI 补写、有照片。<b>没有照片的房源不会被创建，也不会出现在任何公开页面。</b></li>
+  <li><b>可见性（数据库强制）</b>：房东自发房源先 pending，管理员核验后公开；Realtor.ca 导入的行带来源徽章直接可见；房源核验后改地址 / 租金会自动打回待核验。</li>
+  <li><b>房源页</b>：画廊、生活配套（吸烟 / 租期 / 水电 chip）、「入住前费用一览」（首月 + 租金押金 + 钥匙押金，押金超一个月标红并引 RTA s.106，划掉安省不允许的申请费 / 宠物押金 / 清洁押金）、认证经纪目录（租客自选、直接联系，Stayloop 不派单不收费）、房东为持牌经纪时的 TRESA 披露标记。</li>
+  <li><b>看房与提问</b>：登录租客提交看房意向或提问 → 房东助手上出现一张待批卡 → 批准后发信确认；租客在「我的申请」页看到真实记录。</li>
+  <li><b>申请</b>：公开申请表（匿名可提交，每房源限流，材料传入受保护桶）；申请人登录后可看到自己的申请与房东的决定。</li>
+</ul>
+
+<h2>06 · 租房全流程闭环</h2>
+<p>从房源到续约的每一步都有真实后端并可在生产上跑通（2026-09-23 三角色端到端模拟已验证）：</p>
+<table>
+  <tr><th style="width:5%">#</th><th style="width:22%">环节</th><th>实现</th></tr>
+  <tr><td>1</td><td>房源发布 → 核验</td><td>向导 / 对话草稿 → 管理员队列 → 公开页</td></tr>
+  <tr><td>2</td><td>看房 / 提问</td><td>意向行 + 房东待批卡 → 预览 → 批准 → 邮件</td></tr>
+  <tr><td>3</td><td>申请</td><td>申请表 + 文件 → 房东通知邮件（含推送）</td></tr>
+  <tr><td>4</td><td>一键筛查</td><td>申请文件直接生成筛查记录并跑完整管线；申请人页显示分数、档位、摘要与硬门槛，链接完整报告</td></tr>
+  <tr><td>5</td><td>决定通知</td><td>录取 / 补材料 / 婉拒 → 待批卡 → 邮件固定带 s.10(7) 与 OHRC 声明 → 申请状态与合规事件落库</td></tr>
+  <tr><td>6</td><td>租约</td><td>从申请一键起草安省标准租约（保存前规则检查）→ 发送签署卡 → 租客凭链接签 → 房东回签</td></tr>
+  <tr><td>7</td><td>在管租约</td><td>双签自动生成已确认的在管租约：房东成员、租客邀请、首月租金行</td></tr>
+  <tr><td>8</td><td>续约</td><td>到期前 120 天起 90 / 60 / 30 三阶触点（幂等），方案 B 按生效年份指导比例，N1 截止日自动倒推</td></tr>
+</table>
+<p>后台「全流程指标」从真实行计数：空置天数、申请周转、筛查用时、合规拦截、续约提前触达、提议 / 批准 / 执行数、推送设备数。</p>
+
+<h2 class="pb">07 · 租约、电子签与在管租约</h2>
+<ul>
+  <li><b>租约草稿</b>：安省标准租约（2229E，2020-12 版）为默认；TRREB Form 400 只作要约。附加条款保存前检查：禁宠条款、额外费用 / 押金、押金超一个月、禁装空调条款（2026-07 起无效）一律阻止。</li>
+  <li><b>电子签</b>：租客凭签署链接无需账号签署；房东回签后租约「已双签」，链接长期有效可查看下载。守卫触发器：发送后条款冻结、客户端不能伪造签名或状态。</li>
+  <li><b>在管租约（households）</b>：任意角色可导入已签租约（AI 抽取 → 人工确认），邀请对方加入；对方接受后才算「已确认」，未确认的记录不进任何公开面。共享中心 <code>/h/&lt;id&gt;</code>：概览 / 对话 / 租金记录 / 报修。</li>
+  <li><b>租金记录</b>：只记录与提醒，不经手资金；按 2026-09-21 起的法定定义自动标注「持续迟付」（6 个月内 3 次在到期日 7 天后才付），只提示不代发通知。</li>
+</ul>
+
+<h2>08 · 续约、涨租与 N 表工具箱</h2>
+<p>涨租指导比例是单一数据表，按<b>涨租生效年份</b>取值：2024 · 2025 年 2.5%，<b>2026 年 2.1%，2027 年 1.9%</b>（法定封顶 2.5%）；未公布年份回退最新值并注明。续约卡、续约函、三个助手事实包、房东租约页、租客租约页读同一处。房东租约页的 N 表工具箱每张卡写明自己的时限规则并可一键交给助手准备：</p>
+<table>
+  <tr><th style="width:10%">表格</th><th>规则（现行）</th></tr>
+  <tr><td>N1</td><td>提前 90 天 · 12 个月一次 · 指导上限按生效年份（2027-01-01 生效的涨租，N1 最晚 2026-10-03 送达）</td></tr>
+  <tr><td>N2</td><td>2018-11-15 后首次入住的单位不受指导上限约束（看首次住人日期，不看建成年份）</td></tr>
+  <tr><td>N4</td><td>逾期次日即可送达 · 终止日至少送达后 7 天（邮寄 +5）· 2026/09 版，旧版 2026-11-30 后不受理</td></tr>
+  <tr><td>N12</td><td>至少提前 60 天且终止日为租期末日 · 提前 ≥120 天可免一个月补偿（买家自用除外）· 终止日后 60 天内须入住</td></tr>
+  <tr><td>N13</td><td>提前 120 天 · 租客回迁权（更新完工日、完工后 60 天通知）· 多伦多须 7 天内申请装修许可证（$728/单元，搬家补贴 $1,500 / $2,500）</td></tr>
+</table>
+
+<h2>09 · 租客护照与本人授权核验</h2>
+<ul>
+  <li><b>护照分享链接</b>：租客生成只读链接给站外房东，可撤销，每次访问留痕；可勾选允许第三方通过 API 读取的范围（身份 / 银行 / 征信 / 租史），每次读取通知租客。租史只认对方确认的在管租约或双签租约。</li>
+  <li><b>本人授权核验</b>：房东在筛查记录上生成核验链接；申请人先签版本化同意（目的 / 内容 / 谁看 / 保留 / 撤回），再逐步授权：身份（Veriff 托管）、银行（Flinks Connect，只存确定性摘要：掩码账号、持有人、循环入账、月薪估计、NSF 次数）、征信（Equifax，不收 SIN）。核验结果确定性覆盖评分表的收入佐证与身份维度，报告单列「已核验事实 · 非模型推断」。沙箱结果不进评分。</li>
+</ul>
+
+<h2>10 · 经纪认证（RECO）</h2>
+<p>经纪在 <code>/agent/verify</code> 填注册姓名、RECO 注册号、类别、经纪公司、到期日与业务联系方式（不传证件、不收 SIN）。Stayloop 工作人员在后台手动对照 RECO 公开注册库核验（注册库禁止抓取，永不自动查询）。徽章只表示「核验日在 RECO 注册库上处于注册状态」，链到注册库与投诉入口；展示一律用注册名与经纪公司名。持牌经纪以房东或租客身份交易前弹 TRESA s.32 注册人披露并记录。Stayloop 不做经纪业务、不收佣金或转介费（转介佣金引擎冻结待律师意见）。</p>
+
+<h2>11 · 安省规则引擎与 2026 年新规</h2>
+<p><code>lib/ontario/rules.ts</code> 是全部法规文本的单一来源（26 条规则，每条带编号、法条、中英文、落点、严重度、生效日），公开页 <code>/rules</code> 逐条展示；发布向导、租约草稿、通知信、助手守卫、合规 API 引用同一份。2026 年生效并已落实的变更（来源：ontario.ca、Tribunals Ontario 运营更新、Bill 60 / Bill 97、多伦多市 By-law 53-2025）：</p>
+<table>
+  <tr><th style="width:18%">生效</th><th>规则</th><th style="width:30%">Stayloop 落点</th></tr>
+  <tr><td>2026-01-01</td><td>租金指导上限 2026 年 2.1%、2027 年 1.9%</td><td>续约引擎、续约函、事实包、所有页面文案</td></tr>
+  <tr><td>2026-07-01</td><td>LTB 复审 30→15 天；AGI 送达 7 天；还款计划须用 LTB 付款协议表；租客可自装窗式 / 移动空调；最高罚款翻倍</td><td>规则页、事实包、租约条款检查（禁装空调阻止）</td></tr>
+  <tr><td>2026-09-21</td><td>N4 终止日 14→7 天；「持续迟付」法定定义；欠租听证提问题先付一半欠款；N12 提前 120 天免补偿 + 60 天内入住；N13 回迁权义务；11 种表格换版</td><td>N 表工具箱、租金记录持续迟付提示、事实包、规则页</td></tr>
+  <tr><td>2025-07-31</td><td>多伦多装修许可证（N13 后 7 天内申请）</td><td>N13 工具箱卡、事实包</td></tr>
+  <tr><td>未变</td><td>定期租约到期仍自动转月租（Bill 60 的取消提案未通过）；标准租约 2229E 未换版；N9 60 天</td><td>规则文本已注明</td></tr>
+</table>
+
+<h2 class="pb">12 · Trust API（核验 API）</h2>
+<p>定位是「安省租房核验 API」，只有真实后端的三个端点，Base URL 与本站同源（<code>www.stayloop.ai/api/v1</code>），密钥由 Stayloop 发放（只存哈希，后台可停用、可绑定房东账号）：</p>
+<table>
+  <tr><th style="width:28%">端点</th><th>说明</th></tr>
+  <tr><td><code>POST /listings/compliance</code></td><td>免费、无需密钥；对房源字段跑确定性规则（押金上限、钥匙押金、禁宠条款、禁止费用），返回规则编号与法条；不接受、不存储个人信息</td></tr>
+  <tr><td><code>POST /passport/verify</code></td><td>申请人主动出示：合作方传申请人分享链接里的 token，只返回申请人勾选范围内的结论（身份 / 银行 / 征信档位 / 已确认租史），不返回文件；每次调用审计并推送通知申请人</td></tr>
+  <tr><td><code>POST /screen</code></td><td>密钥绑定的房东账号名下发起筛查：必须附申请人对同意文本的接受记录，文件从合作方 https 地址抓入受保护桶，立即返回 202，完成后 POST 到 webhook；同一条管线、同样的配额与合规规则</td></tr>
+</table>
+<div class="note">边界写在响应里：Stayloop 不是《消费者报告法》意义上的报告机构；分数与档位是房东自行决定的参考信息，不是拒绝依据；面向金融机构的用途待法律意见。</div>
+
+<h2>13 · 通知：邮件、Web Push 与 PWA</h2>
+<ul>
+  <li><b>邮件</b>（Resend）：新申请通知、看房确认、决定通知、租约签署链接、续约函、租金提醒；发信路由均有每小时限流，收件人只取自数据库事实。</li>
+  <li><b>Web Push</b>：边缘运行时零依赖实现 VAPID 与 aes128gcm；三档「关 / 少（只推等你批准的）/ 默认（加新申请、看房请求）」；做完的事永不推；iOS 只对添加到主屏的 PWA 投递。</li>
+  <li><b>PWA</b>：可安装到主屏（图标为 Stayloop.AI 字标），Service Worker 不缓存页面（部署即生效），只承担推送。</li>
+</ul>
+
+<h2>14 · 计划、支付与内部测试期</h2>
+<table>
+  <tr><th style="width:22%">项</th><th>现状</th></tr>
+  <tr><td>免费档</td><td>每月 5 次筛查（含取证与信用分析）</td></tr>
+  <tr><td>Pro</td><td>$19 CAD / 月（Stripe live）：不限次数 + 深度核查 + 本人核验链接；订阅卡四态（正常 / 催款 / 取消中 / 赠送）由纯函数判定，操作在 Stripe Portal</td></tr>
+  <tr><td>按次解锁</td><td>$14.99 解锁单次深度核查（房东付；安省 RTA s.134 禁止让申请人付，租客付款路径已下线）</td></tr>
+  <tr><td>内部测试期</td><td>到 2026-10-14 全部免费，唯一开关是一个日期常量，到期自动关闭</td></tr>
+  <tr><td>经纪付费档</td><td>标「即将推出」</td></tr>
+</table>
+
+<h2>15 · AI 模型配置与用量</h2>
+<p>后台 <code>/admin/models</code>：模型目录（内置 + 自定义）、四个槽位默认模型、连通测试、「发现新模型」（对每个已配置密钥的厂商列模型、一键加入并测试、标出厂商已下架的模型）。用户在 <code>/settings/models</code> 可自选对话与筛查模型。<code>/admin/usage</code>：每次模型调用一行（用户 / 筛查 / 槽位 / token / 成本 / 延迟），按天 / 模型 / 槽位 / 用户汇总，单次筛查均价，以及全流程指标。</p>
+
+<h2>16 · 后台管理</h2>
+<table>
+  <tr><th style="width:24%">页面</th><th>用途</th></tr>
+  <tr><td><code>/admin</code></td><td>控制台入口</td></tr>
+  <tr><td><code>/admin/verify</code></td><td>房源核验队列（无照片的房源不可通过；核验后关键字段变更自动打回）</td></tr>
+  <tr><td><code>/admin/agents</code></td><td>经纪 RECO 核验队列（手动对照注册库）</td></tr>
+  <tr><td><code>/admin/users</code></td><td>成员管理</td></tr>
+  <tr><td><code>/admin/models</code> · <code>/admin/usage</code></td><td>模型目录与用量成本</td></tr>
+  <tr><td><code>/admin/partners</code></td><td>Trust API 合作方密钥</td></tr>
+</table>
+
+<h2>17 · 数据、安全与隐私</h2>
+<ul>
+  <li><b>数据驻加</b>：数据库与存储在 AWS 加拿大区；AI 服务商所在地（美国；扫描件 OCR 回退在中国大陆）与检索中转在隐私页如实披露。</li>
+  <li><b>访问控制</b>：全部表启用 RLS（事件触发器保证新表自动开启）；付费 / 信任字段、租约签名、在管租约确认等由守卫触发器保护，客户端直写无法绕过；SECURITY DEFINER 函数对匿名撤销执行权；匿名面有全局成本闸。</li>
+  <li><b>审计</b>：每次提议、批准、拒绝、撤销、执行、护照访问、Trust API 调用、记忆编辑都写审计事件，租客与房东各有审计页。</li>
+  <li><b>申请人权利</b>：通知信写明 60 天内可索取信息性质与来源；筛查记录删除即删除文件与核验请求；护照 token 可随时撤销。</li>
+  <li><b>发布门禁</b>：类型检查、826 项测试、构建、线上冒烟、65 条路由与接口契约审计全部内置在部署脚本。</li>
+</ul>
+
+<h2>18 · 示范数据与尚未上线的部分</h2>
+<p>凡页面主体仍是设计样例或按钮做不到它所写的事，一律挂琥珀色「示范数据」横幅，默认显示诚实空态（真实记录会显示在空态之上）。</p>
+<table>
+  <tr><th style="width:36%">项</th><th>状态</th></tr>
+  <tr><td>租客付款页「立即支付」、财务面板、争议仲裁台、部分经纪页（客户 / 任务 / 日历 / 佣金）</td><td><span class="tag demo">示范</span> 无收付款通道、无争议表、无代表协议记录</td></tr>
+  <tr><td>Veriff / Flinks / Equifax 本人核验</td><td><span class="tag soon">待凭证</span> 接口与评分接入已完成，生产凭证与商业协议待开通</td></tr>
+  <tr><td>Realtor.ca 数据源</td><td><span class="tag demo">示范阶段</span> 少量导入房源；正式接入需 TRREB / DDF 合作</td></tr>
+  <tr><td>转介佣金引擎、Stripe Connect 出账</td><td><span class="tag soon">冻结</span> 待律师意见；平台上尚无真实经纪交易</td></tr>
+  <tr><td>消费者报告机构注册</td><td><span class="tag soon">研究中</span></td></tr>
+  <tr><td>Trust API webhook 回调</td><td><span class="tag ok">已实现</span> 端到端测试缺可用接收端，只验证到 202 + 评分落库</td></tr>
+</table>
+
+<h2 class="pb">附录 A · 路由总表</h2>
+<table>
+  <tr><th style="width:18%">分组</th><th>路由</th></tr>
+  <tr><td>公开</td><td>/ · /listings · /listings/[slug] · /apply/[slug] · /screening · /pricing · /tenant · /landlord · /agent · /rules · /trust-api · /trust-api/docs · /partners · /about · /contact · /disputes · /privacy · /terms · /p/[token]（护照只读页）· /join/[token]（在管租约邀请）· /lease/sign/[token]（租客签署）· /verify/[token]（本人核验）</td></tr>
+  <tr><td>认证与引导</td><td>/login · /register · /auth/callback · /auth/reset-password · /onboarding/name · /onboarding/tier1（示范）</td></tr>
+  <tr><td>租客</td><td>/tenant/agent · /tenant/todo · /tenant/ideas · /tenant/progress · /tenant/applications · /tenant/passport · /tenant/passport/sharing · /tenant/lease · /tenant/maintenance · /tenant/payments（示范）· /tenant/move-in · /tenant/audit</td></tr>
+  <tr><td>房东</td><td>/landlord/agent · /landlord/todo · /landlord/ideas · /landlord/progress · /landlord/applicants · /landlord/applicants/[id] · /screening/app · /screening/[id]/{report,done,graph,ltb,notice,share} · /landlord/leases · /landlord/leases/new · /landlord/leases/[id] · /landlord/maintenance · /landlord/finance（示范）· /landlord/audit · /dashboard · /dashboard/listings/new · /dashboard/listings/edit · /dashboard/applications/[id]</td></tr>
+  <tr><td>经纪</td><td>/agent/agent · /agent/todo · /agent/ideas · /agent/progress · /agent/verify · /agent/tasks · /agent/clients · /agent/calendar · /agent/earnings · /agent/showings/[id]</td></tr>
+  <tr><td>共享</td><td>/h/[id]（在管租约共享中心）· /leases/import · /settings · /settings/models · /notifications</td></tr>
+  <tr><td>后台</td><td>/admin · /admin/verify · /admin/agents · /admin/users · /admin/models · /admin/usage · /admin/partners</td></tr>
+  <tr><td>API（48 条）</td><td>筛查（screen-score、deep-check、classify-files、screening/from-application、screening/[id]）· 助手（agent/turn、execute、proactive、reflect、trreb-refresh）· 租约（lease/send、sign、view）· 看房（showing-intent）· 核验（verify/*）· 支付（stripe/checkout、portal、unlock、resume、webhook）· 推送（push/test）· 公开统计（public/stats）· Trust API（v1/listings/compliance、v1/passport/verify、v1/screen）· 后台（admin/*）</td></tr>
+</table>
+
+<h3>附录 B · 测试账号（内部，正式发布前保留测试数据）</h3>
+<table>
+  <tr><th>身份</th><th>账号</th><th>数据</th></tr>
+  <tr><td>租客</td><td>tenant-test@stayloop.ai</td><td>一份已录取的申请、看房与提问记录、已确认的在管租约、护照分享链接（已开放 API 范围）</td></tr>
+  <tr><td>房东</td><td>landlord-test@stayloop.ai</td><td>房源「[TEST] 100 Test Ave #1」、筛查记录、双签租约、续约卡、Trust API 合作方密钥绑定</td></tr>
+  <tr><td>经纪</td><td>agent-test@stayloop.ai</td><td>RECO 资料已核验（注册号为测试值）</td></tr>
+</table>
+
+<div class="footer">Stayloop · 模块与功能说明 · 2026-09-23 · 本文描述的是生产环境的现状；示范数据与未上线部分已在第 18 节逐项列出。法规内容以安省政府、Tribunals Ontario 与多伦多市官方发布为准。</div>
+</body>
+</html>
