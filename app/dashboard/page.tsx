@@ -138,7 +138,7 @@ export default function Dashboard() {
     setLoading(true)
     const [appsRes, listingsRes, planRes] = await Promise.all([
       supabase.from('applications').select('*, listing:listings(*)').order('created_at', { ascending: false }),
-      supabase.from('listings').select('*').eq('landlord_id', landlord!.landlordId).order('created_at', { ascending: false }),
+      supabase.from('listings').select('*').eq('landlord_id', landlord!.landlordId).neq('status', 'archived').order('created_at', { ascending: false }),
       supabase.from('landlords').select('plan').or(`id.eq.${landlord!.landlordId},auth_id.eq.${landlord!.landlordId}`).maybeSingle(),
     ])
     if (appsRes.data) setApplications(appsRes.data as Application[])
@@ -164,7 +164,11 @@ export default function Dashboard() {
     try {
       const { error } = await supabase
         .from('listings')
-        .update({ is_active: false, status: 'deleted' })
+        // Soft delete. listings.status is CHECKed to draft|active|closed|archived —
+        // 'deleted' violated it and the dialog showed the raw Postgres error
+        // (user report 2026-09-22). Archived rows stay for audit/history and
+        // are excluded from the dashboard query below.
+        .update({ is_active: false, status: 'archived' })
         .eq('id', deletingListing.id)
       if (error) throw error
       setListings((prev) => prev.filter((l) => l.id !== deletingListing.id))

@@ -71,3 +71,14 @@ describe('SL-LL-008 / 014 · settings redirect and pricing wording', () => {
     expect(readFileSync('app/pricing/page.tsx', 'utf8')).toContain('标「即将推出」的模块尚未上线，不在免费范围内')
   })
 })
+
+// 2026-09-22 (user report): deleting a listing from /dashboard wrote
+// status='deleted', which the DB CHECK (draft|active|closed|archived) rejects.
+describe('listing soft delete uses a status the DB accepts', () => {
+  const dash = readFileSync('app/dashboard/page.tsx', 'utf8')
+  it("writes 'archived' and hides archived rows from the dashboard", () => {
+    expect(dash).toMatch(/update\(\{ is_active: false, status: 'archived' \}\)/)
+    expect(dash).not.toMatch(/status: 'deleted'/)
+    expect(dash).toMatch(/\.neq\('status', 'archived'\)/)
+  })
+})
