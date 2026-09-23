@@ -27,7 +27,7 @@ const WIDTHS = [320, 390]
 const LANGS = ['zh', 'en']
 
 const PUBLIC_ROUTES = [
-  '/', '/pricing', '/tenant', '/landlord', '/agent', '/trust-api', '/about',
+  '/', '/pricing', '/tenant', '/landlord', '/agent', '/platform', '/stayloop-api', '/about',
   '/partners', '/contact', '/disputes', '/listings', '/privacy', '/terms',
   '/login', '/register', '/screening',
 ]

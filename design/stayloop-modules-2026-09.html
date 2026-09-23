@@ -42,7 +42,7 @@
 
 <div class="eyebrow">STAYLOOP · PRODUCT MODULES</div>
 <h1>Stayloop 模块与功能说明</h1>
-<div class="sub">面向安省租房全流程的 AI 平台：租客筛查、房源与申请、租约与在管租约、三角色 AI 助手、合规规则与核验 API。本文按模块说明「现在能做什么、怎么做、边界在哪」，供团队、合作方与审阅者使用。</div>
+<div class="sub">面向安省租房全流程的 AI 平台：租客筛查、房源与申请、租约与在管租约、三角色 AI 助手、合规规则与 Stayloop API。产品结构分两块：<b>Stayloop 全流程</b>（租前 · 租中 · 租后，公开页 /platform）与 <b>Stayloop API</b>（原 Trust API，公开页 /stayloop-api）。本文按模块说明「现在能做什么、怎么做、边界在哪」，供团队、合作方与审阅者使用。</div>
 <div class="meta">
   <span>版本：2026-09-23（v5.3 生产线）</span>
   <span>站点：www.stayloop.ai</span>
@@ -63,7 +63,7 @@
   <div><span>09</span>租客护照与本人授权核验</div>
   <div><span>10</span>经纪认证（RECO）</div>
   <div><span>11</span>安省规则引擎与 2026 年新规</div>
-  <div><span>12</span>Trust API（核验 API）</div>
+  <div><span>12</span>Stayloop API（原 Trust API）</div>
   <div><span>13</span>通知：邮件、Web Push 与 PWA</div>
   <div><span>14</span>计划、支付与内部测试期</div>
   <div><span>15</span>AI 模型配置与用量</div>
@@ -197,7 +197,7 @@
 </table>
 
 <h2 class="pb">12 · Trust API（核验 API）</h2>
-<p>定位是「安省租房核验 API」，只有真实后端的三个端点，Base URL 与本站同源（<code>www.stayloop.ai/api/v1</code>），密钥由 Stayloop 发放（只存哈希，后台可停用、可绑定房东账号）：</p>
+<p>2026-09-23 起由「Trust API」改名为 <b>Stayloop API</b>，定位是「安省租房核验 API」，只有真实后端的三个端点，Base URL 与本站同源（<code>www.stayloop.ai/api/v1</code>），密钥由 Stayloop 发放（只存哈希，后台可停用、可绑定房东账号）：</p>
 <table>
   <tr><th style="width:28%">端点</th><th>说明</th></tr>
   <tr><td><code>POST /listings/compliance</code></td><td>免费、无需密钥；对房源字段跑确定性规则（押金上限、钥匙押金、禁宠条款、禁止费用），返回规则编号与法条；不接受、不存储个人信息</td></tr>
@@ -234,14 +234,14 @@
   <tr><td><code>/admin/agents</code></td><td>经纪 RECO 核验队列（手动对照注册库）</td></tr>
   <tr><td><code>/admin/users</code></td><td>成员管理</td></tr>
   <tr><td><code>/admin/models</code> · <code>/admin/usage</code></td><td>模型目录与用量成本</td></tr>
-  <tr><td><code>/admin/partners</code></td><td>Trust API 合作方密钥</td></tr>
+  <tr><td><code>/admin/partners</code></td><td>Stayloop API 合作方密钥</td></tr>
 </table>
 
 <h2>17 · 数据、安全与隐私</h2>
 <ul>
   <li><b>数据驻加</b>：数据库与存储在 AWS 加拿大区；AI 服务商所在地（美国；扫描件 OCR 回退在中国大陆）与检索中转在隐私页如实披露。</li>
   <li><b>访问控制</b>：全部表启用 RLS（事件触发器保证新表自动开启）；付费 / 信任字段、租约签名、在管租约确认等由守卫触发器保护，客户端直写无法绕过；SECURITY DEFINER 函数对匿名撤销执行权；匿名面有全局成本闸。</li>
-  <li><b>审计</b>：每次提议、批准、拒绝、撤销、执行、护照访问、Trust API 调用、记忆编辑都写审计事件，租客与房东各有审计页。</li>
+  <li><b>审计</b>：每次提议、批准、拒绝、撤销、执行、护照访问、Stayloop API 调用、记忆编辑都写审计事件，租客与房东各有审计页。</li>
   <li><b>申请人权利</b>：通知信写明 60 天内可索取信息性质与来源；筛查记录删除即删除文件与核验请求；护照 token 可随时撤销。</li>
   <li><b>发布门禁</b>：类型检查、826 项测试、构建、线上冒烟、65 条路由与接口契约审计全部内置在部署脚本。</li>
 </ul>
@@ -255,13 +255,13 @@
   <tr><td>Realtor.ca 数据源</td><td><span class="tag demo">示范阶段</span> 少量导入房源；正式接入需 TRREB / DDF 合作</td></tr>
   <tr><td>转介佣金引擎、Stripe Connect 出账</td><td><span class="tag soon">冻结</span> 待律师意见；平台上尚无真实经纪交易</td></tr>
   <tr><td>消费者报告机构注册</td><td><span class="tag soon">研究中</span></td></tr>
-  <tr><td>Trust API webhook 回调</td><td><span class="tag ok">已实现</span> 端到端测试缺可用接收端，只验证到 202 + 评分落库</td></tr>
+  <tr><td>Stayloop API webhook 回调</td><td><span class="tag ok">已实现</span> 端到端测试缺可用接收端，只验证到 202 + 评分落库</td></tr>
 </table>
 
 <h2 class="pb">附录 A · 路由总表</h2>
 <table>
   <tr><th style="width:18%">分组</th><th>路由</th></tr>
-  <tr><td>公开</td><td>/ · /listings · /listings/[slug] · /apply/[slug] · /screening · /pricing · /tenant · /landlord · /agent · /rules · /trust-api · /trust-api/docs · /partners · /about · /contact · /disputes · /privacy · /terms · /p/[token]（护照只读页）· /join/[token]（在管租约邀请）· /lease/sign/[token]（租客签署）· /verify/[token]（本人核验）</td></tr>
+  <tr><td>公开</td><td>/ · /platform · /stayloop-api · /stayloop-api/docs · /listings · /listings/[slug] · /apply/[slug] · /screening · /pricing · /tenant · /landlord · /agent · /rules · /partners · /about · /contact · /disputes · /privacy · /terms · /p/[token]（护照只读页）· /join/[token]（在管租约邀请）· /lease/sign/[token]（租客签署）· /verify/[token]（本人核验）</td></tr>
   <tr><td>认证与引导</td><td>/login · /register · /auth/callback · /auth/reset-password · /onboarding/name · /onboarding/tier1（示范）</td></tr>
   <tr><td>租客</td><td>/tenant/agent · /tenant/todo · /tenant/ideas · /tenant/progress · /tenant/applications · /tenant/passport · /tenant/passport/sharing · /tenant/lease · /tenant/maintenance · /tenant/payments（示范）· /tenant/move-in · /tenant/audit</td></tr>
   <tr><td>房东</td><td>/landlord/agent · /landlord/todo · /landlord/ideas · /landlord/progress · /landlord/applicants · /landlord/applicants/[id] · /screening/app · /screening/[id]/{report,done,graph,ltb,notice,share} · /landlord/leases · /landlord/leases/new · /landlord/leases/[id] · /landlord/maintenance · /landlord/finance（示范）· /landlord/audit · /dashboard · /dashboard/listings/new · /dashboard/listings/edit · /dashboard/applications/[id]</td></tr>
@@ -275,7 +275,7 @@
 <table>
   <tr><th>身份</th><th>账号</th><th>数据</th></tr>
   <tr><td>租客</td><td>tenant-test@stayloop.ai</td><td>一份已录取的申请、看房与提问记录、已确认的在管租约、护照分享链接（已开放 API 范围）</td></tr>
-  <tr><td>房东</td><td>landlord-test@stayloop.ai</td><td>房源「[TEST] 100 Test Ave #1」、筛查记录、双签租约、续约卡、Trust API 合作方密钥绑定</td></tr>
+  <tr><td>房东</td><td>landlord-test@stayloop.ai</td><td>房源「[TEST] 100 Test Ave #1」、筛查记录、双签租约、续约卡、Stayloop API 合作方密钥绑定</td></tr>
   <tr><td>经纪</td><td>agent-test@stayloop.ai</td><td>RECO 资料已核验（注册号为测试值）</td></tr>
 </table>
 

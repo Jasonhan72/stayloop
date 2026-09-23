@@ -90,7 +90,7 @@ export default function AdminHomePage() {
     {
       href: '/admin/partners',
       icon: '🔑',
-      title: zh ? 'Trust API 合作方' : 'Trust API partners',
+      title: zh ? 'Stayloop API 合作方' : 'Stayloop API partners',
       desc: zh ? '发放 / 停用合作方密钥，绑定运行筛查的房东账号，看 30 天调用量。' : 'Issue / disable partner keys, bind the landlord account partner screenings run under, see 30-day usage.',
     },
     {

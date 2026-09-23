@@ -86,7 +86,7 @@ describe('copy decisions (slices B/E/F)', () => {
     }
   })
   it('names the vendors actually integrated', () => {
-    for (const p of ['app/privacy/page.tsx', 'app/partners/page.tsx', 'app/trust-api/page.tsx', 'lib/i18n.tsx', 'components/AuditLog.tsx', 'app/tenant/passport/page.tsx', 'lib/agent/orchestrator.ts']) {
+    for (const p of ['app/privacy/page.tsx', 'app/partners/page.tsx', 'app/stayloop-api/page.tsx', 'lib/i18n.tsx', 'components/AuditLog.tsx', 'app/tenant/passport/page.tsx', 'lib/agent/orchestrator.ts']) {
       expect(read(p), p).not.toMatch(/\bPersona\b|\bPlaid\b/)
     }
   })

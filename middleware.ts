@@ -50,6 +50,11 @@ export function middleware(request: NextRequest) {
       url.pathname = '/settings'
       return withSecurityHeaders(NextResponse.redirect(url, 308))
     }
+    // Trust API was renamed Stayloop API (2026-09-23); old links keep working.
+    if (/^\/trust-api(\/docs)?\/?$/.test(url.pathname)) {
+      url.pathname = url.pathname.replace('/trust-api', '/stayloop-api')
+      return withSecurityHeaders(NextResponse.redirect(url, 308))
+    }
   }
   return withReferrerPolicy(withSecurityHeaders(NextResponse.next()), new URL(request.url).pathname)
 }

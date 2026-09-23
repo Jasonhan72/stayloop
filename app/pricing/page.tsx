@@ -292,25 +292,25 @@ export default function PricingPage() {
         {/* Role switcher + named tiers per role */}
         <RolePlansSection lang={lang} zh={zh} inWindow={inWindow} />
 
-        {/* Trust API — 4th business line */}
+        {/* Stayloop API — 4th business line */}
         <section className="mx-auto max-w-[1100px] px-5 pb-12 sm:px-7 lg:px-12">
           <div className="sl-card overflow-hidden p-8" style={{ background: 'linear-gradient(135deg, #0B0B0E 0%, #1E293B 100%)' }}>
             <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg" style={{ color: '#93C5FD' }}>
-              {zh ? 'TRUST API · 企业服务' : 'TRUST API · Enterprise'}
+              {zh ? 'STAYLOOP API · 给合作方的接口' : 'STAYLOOP API · For partners'}
             </div>
             <h2 className="mt-2 text-[26px] font-bold tracking-tight text-white">
-              {zh ? '给银行和保险机构的验证接口' : 'A verification API for banks and insurers'}
+              {zh ? '把房源合规检查、申请人出示的核验结论和筛查接进你的系统' : 'Listing compliance checks, applicant-presented verification and screening, inside your own system'}
             </h2>
             <p className="mt-3 max-w-[760px] text-[14px] leading-relaxed" style={{ color: '#D3E3EF' }}>
               {zh
-                ? '机构通过 API 验证租客的租房资质，只得到「已验证」的结果，拿不到任何原始文件。'
-                : 'Institutions verify a tenant’s rental standing via API — they get a “verified” result, never the raw documents.'}
+                ? '三个端点，每个都有真实后端：房源合规检查免费无需密钥；申请人主动出示核验结论，合作方只拿到结论、拿不到文件；发起筛查走与产品同一条管线。面向金融机构的用途待法律意见。'
+                : 'Three endpoints, each with a real backend: listing compliance is free and keyless; applicants present verification conclusions and partners never see documents; screening runs on the same pipeline as the product. Use by financial institutions is pending legal advice.'}
             </p>
             <Link
-              href="/contact"
+              href="/stayloop-api"
               className="mt-5 inline-flex items-center justify-center rounded-[10px] bg-white px-5 py-[12px] text-[14px] font-semibold text-ink transition hover:opacity-90"
             >
-              {zh ? '联系企业销售 →' : 'Contact enterprise sales →'}
+              {zh ? '了解 Stayloop API →' : 'About Stayloop API →'}
             </Link>
           </div>
         </section>

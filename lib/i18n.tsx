@@ -31,6 +31,7 @@ export const DICT = {
   'nav.register': { en: 'Register', zh: '注册' },
   'nav.profile': { en: 'Account settings', zh: '账户设置' },
   'nav.settings': { en: 'Settings', zh: '设置' },
+  'nav.platform': { en: 'Product', zh: '产品' },
   'nav.listings': { en: 'Listings', zh: '房源' },
   'nav.tenants': { en: 'Tenant', zh: '租客' },
   'nav.landlords': { en: 'Landlord', zh: '房东' },
@@ -81,7 +82,8 @@ export const DICT = {
   'foot.company': { en: 'Company', zh: '公司' },
   // Footer · product links
   'foot.pricing': { en: 'Pricing', zh: '定价' },
-  'foot.trustApi': { en: 'Trust API', zh: 'Trust API' },
+  'foot.platform': { en: 'Rental lifecycle', zh: '租房全流程' },
+  'foot.stayloopApi': { en: 'Stayloop API', zh: 'Stayloop API' },
   'foot.screening': { en: 'Screening', zh: '租客筛查' },
   'foot.passport': { en: 'Tenant Passport', zh: '租客护照' },
   'foot.disputes': { en: 'Disputes', zh: '争议解决' },

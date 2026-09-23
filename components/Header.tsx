@@ -173,6 +173,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
             )}
           </div>
 
+          <NavLink i18nKey="nav.platform" href="/platform" active={isActive('/platform') || isActive('/stayloop-api')} />
           <NavLink i18nKey="nav.listings" href="/listings" active={isActive('/listings')} />
           <NavLink i18nKey="nav.pricing" href="/pricing" active={isActive('/pricing')} />
           <NavLink i18nKey="nav.screening" href="/screening" active={isActive('/screening')} />
@@ -228,6 +229,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       {t(item.key)}
                     </Link>
                   ))}
+                  <Link href="/platform" onClick={() => setMenuOpen(false)} className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]">{t('nav.platform')}</Link>
                   <Link href="/listings" onClick={() => setMenuOpen(false)} className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]">{t('nav.listings')}</Link>
                   <Link href="/pricing" onClick={() => setMenuOpen(false)} className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]">{t('nav.pricing')}</Link>
                   <Link href="/screening" onClick={() => setMenuOpen(false)} className="block px-4 py-3 text-[14px] text-[#222] transition hover:bg-[#F7F7F7]">{t('nav.screening')}</Link>

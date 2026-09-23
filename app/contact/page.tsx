@@ -24,7 +24,7 @@ export default function ContactPage() {
 
   // The value sent to the inbox is always the English label, whatever the UI language.
   const TOPICS: Array<{ key: string; zh: string; en: string }> = [
-    { key: 'trust_api', zh: 'Trust API · 商务合作', en: 'Trust API · business partnership' },
+    { key: 'stayloop_api', zh: 'Stayloop API · 合作接入', en: 'Stayloop API · partner integration' },
     { key: 'investor', zh: '投资人', en: 'Investor' },
     { key: 'press', zh: '媒体 / PR', en: 'Press / PR' },
     { key: 'enterprise', zh: '大客户 (Property Mgmt 100+ 套)', en: 'Enterprise (property mgmt, 100+ units)' },

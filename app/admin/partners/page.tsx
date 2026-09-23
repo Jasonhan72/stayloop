@@ -1,6 +1,6 @@
 'use client'
 
-// /admin/partners — Trust API partner keys (plan §3.4). Create shows the key
+// /admin/partners — Stayloop API partner keys (plan §3.4). Create shows the key
 // once; only its hash is stored. A key may be bound to a landlord account so
 // POST /api/v1/screen runs partner screenings under that account.
 import { useCallback, useEffect, useState } from 'react'
@@ -42,7 +42,7 @@ export default function AdminPartnersPage() {
       <Header variant="solid" />
       <div className="mx-auto max-w-[1000px] px-5 py-10 sm:px-7">
         <Link href="/admin" className="font-mono text-[11px] font-bold uppercase tracking-eyebrow text-body-3 hover:text-brand">← STAYLOOP ADMIN</Link>
-        <h1 className="mt-2 text-[28px] font-extrabold tracking-tight">{zh ? 'Trust API 合作方密钥' : 'Trust API partner keys'}</h1>
+        <h1 className="mt-2 text-[28px] font-extrabold tracking-tight">{zh ? 'Stayloop API 合作方密钥' : 'Stayloop API partner keys'}</h1>
         <p className="mt-2 max-w-[720px] text-[13.5px] text-body-2">{zh ? '密钥只显示一次，库里只存哈希。绑定一个房东账号后，合作方通过 POST /api/v1/screen 发起的筛查会记在该账号名下并计入其配额。' : 'Keys are shown once; only the hash is stored. Bind a landlord account and screenings the partner starts via POST /api/v1/screen run under it.'}</p>
         {err && <div className="mt-4 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-[13px] text-danger">{err}</div>}
 
@@ -78,7 +78,7 @@ export default function AdminPartnersPage() {
             </tbody>
           </table>
         </div>
-        <p className="mt-6 text-[12.5px] text-body-3">{zh ? '端点：POST /api/v1/passport/verify · POST /api/v1/screen · POST /api/v1/listings/compliance（免费、无需密钥）。文档：' : 'Endpoints: POST /api/v1/passport/verify · POST /api/v1/screen · POST /api/v1/listings/compliance (free, no key). Docs: '}<Link href="/trust-api/docs" className="underline">/trust-api/docs</Link></p>
+        <p className="mt-6 text-[12.5px] text-body-3">{zh ? '端点：POST /api/v1/passport/verify · POST /api/v1/screen · POST /api/v1/listings/compliance（免费、无需密钥）。文档：' : 'Endpoints: POST /api/v1/passport/verify · POST /api/v1/screen · POST /api/v1/listings/compliance (free, no key). Docs: '}<Link href="/stayloop-api/docs" className="underline">/stayloop-api/docs</Link></p>
       </div>
     </div>
   )

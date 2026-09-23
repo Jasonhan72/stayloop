@@ -120,7 +120,7 @@ describe('Trust API v1', () => {
     expect(ss).toMatch(/partnerLandlordId && screening\.landlord_id !== partnerLandlordId/)
   })
   it('docs page lists exactly the three live endpoints and no fake base URL', () => {
-    const d = readFileSync('app/trust-api/docs/page.tsx', 'utf8')
+    const d = readFileSync('app/stayloop-api/docs/page.tsx', 'utf8')
     expect(d).not.toMatch(/api\.stayloop\.ai|disputes\/mediate|npm/)
     for (const e of ['/listings/compliance', '/passport/verify', '/screen']) expect(d).toContain(`POST ${e}`)
   })

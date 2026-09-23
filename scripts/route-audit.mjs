@@ -26,7 +26,7 @@ async function probe(name, url, opts = {}, expect = {}) {
   results.push({ name, ok, ms, status: res.status, note: checks.filter(c => !c[1]).map(c => `${c[0]} (${c[2]})`).join('; ') })
 }
 const HDR = { 'strict-transport-security': /max-age=\d+/, 'x-frame-options': /DENY/i, 'referrer-policy': /strict-origin-when-cross-origin/ }
-const PUBLIC = ['/', '/pricing', '/tenant', '/landlord', '/agent', '/trust-api', '/trust-api/docs', '/screening', '/about', '/partners', '/contact', '/disputes', '/listings', '/privacy', '/terms', '/login', '/register', '/onboarding/name?role=landlord', '/onboarding/tier1', '/leases/import', '/screening/app', '/dashboard', '/settings', '/landlord/agent', '/tenant/agent', '/agent/agent', '/agent/verify', '/notifications']
+const PUBLIC = ['/', '/pricing', '/tenant', '/landlord', '/agent', '/platform', '/stayloop-api', '/stayloop-api/docs', '/screening', '/about', '/partners', '/contact', '/disputes', '/listings', '/privacy', '/terms', '/login', '/register', '/onboarding/name?role=landlord', '/onboarding/tier1', '/leases/import', '/screening/app', '/dashboard', '/settings', '/landlord/agent', '/tenant/agent', '/agent/agent', '/agent/verify', '/notifications']
 for (const p of PUBLIC) await probe(`GET ${p}`, `${BASE}${p}${p.includes('?') ? '&' : '?'}${bust()}`, {}, { status: 200, headers: HDR })
 await probe('404 unknown path', `${BASE}/no-such-page-${Date.now()}`, {}, { status: 404 })
 await probe('308 apex → www', `https://stayloop.ai/pricing`, {}, { status: 308, location: 'www.stayloop.ai/pricing' })

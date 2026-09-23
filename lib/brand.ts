@@ -65,7 +65,7 @@ export const v3 = {
   dangerSoft: '#FEE2E2',
   info: '#2563EB',
   infoSoft: '#DBEAFE',
-  trust: '#00ACE4', // violet — used for Trust API + verified passport accents
+  trust: '#00ACE4', // used for Stayloop API + verified passport accents
   trustSoft: '#F3E8FF',
 } as const
 

@@ -131,8 +131,8 @@ export default function PartnersPage() {
           </div>
           <p className="mt-10 max-w-[760px] text-[13.5px] leading-relaxed text-body-3">
             {zh
-              ? 'Trust API（把核验结论嵌入第三方流程）仍是设计中的接口，目前没有外部调用方；有需要请通过'
-              : 'The Trust API (embedding verification conclusions in third-party flows) remains a designed interface with no external callers yet; reach us via '}
+              ? 'Stayloop API（房源合规检查、申请人出示的核验结论、发起筛查）三个端点已上线，目前没有外部调用方；有需要请通过'
+              : 'The Stayloop API (listing compliance, applicant-presented verification, screening) is live with three endpoints and no external callers yet; reach us via '}
             <Link href="/contact" className="underline">{zh ? '联系页' : 'the contact page'}</Link>
             {zh ? '联系。' : '.'}
           </p>

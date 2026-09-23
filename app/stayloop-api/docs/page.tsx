@@ -1,6 +1,6 @@
 'use client'
 
-// /trust-api/docs — the three endpoints that exist (Trust API plan §3.3,
+// /stayloop-api/docs — the three endpoints that exist (Stayloop API, formerly Trust API; plan §3.3,
 // 2026-09-23). Everything on this page is callable at www.stayloop.ai; the
 // old four-endpoint design preview with its fake base URL is gone.
 import Link from 'next/link'
@@ -22,7 +22,7 @@ export default function TrustApiDocsPage() {
       <Header variant="transparent" />
       <section style={{ background: 'linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)' }}>
         <div className="mx-auto max-w-[960px] px-5 py-14 sm:px-7 lg:py-18">
-          <div className="font-mono text-[13px] font-semibold uppercase tracking-[.12em] text-brand">{zh ? 'VERIFICATION API · 安省租房核验 API' : 'VERIFICATION API · Ontario rental verification'}</div>
+          <div className="font-mono text-[13px] font-semibold uppercase tracking-[.12em] text-brand">{zh ? 'STAYLOOP API · 安省租房核验 API' : 'STAYLOOP API · Ontario rental verification'}</div>
           <h1 className="mt-4 text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.1] tracking-[-0.03em]">{zh ? '三个端点，每个都有真实后端。' : 'Three endpoints, each with a real backend.'}</h1>
           <p className="mt-4 max-w-[680px] text-[16px] leading-[1.6] text-body-2">
             {zh

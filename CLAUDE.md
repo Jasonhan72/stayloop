@@ -932,6 +932,22 @@ cron 的实机探测（全部在 begin…rollback 里以 anon / authenticated �
 - 联邦注册库 ingest：截断下载被当成功（2026-09-05 那次 168 MB / 0 个 XML / 「Done」，库停在 08-02）——现在 Content-Length
   不符、unzip 非零、0 个 XML 都直接失败，并且每行写 `last_seen_at`。登录回调页显示 GoTrue 的真实错误（此前一律「登录链接已失效」）。
 
+## 产品结构显性化：Stayloop 全流程 + Stayloop API（2026-09-23 · 对照 EliseAI 三条产品线）
+
+用户要求：EliseAI 的 LeasingAI（潜客 / 看房）、ResidentAI（入住 / 报修 / 续约 / 催收）、EliseCRM（统一数据与集成）对应我们的模块，功能都有了，
+要「明显组合到一起、让人直接感受到」——租前 / 租中 / 租后归为一个模块（= Leasing + Resident），Trust API 改名 **Stayloop API**（= EliseCRM 的
+对外数据层）。EliseAI 官网（eliseai.com/platform-overview）的分组：LeasingAI = Prospect Management + AI-Guided Tours；ResidentAI = Move-In /
+Maintenance / Renewals / Delinquency；EliseCRM = 「统一租客数据库」+ 集成；没有正式的生命周期图，只有「every stage of the resident journey」。
+落地（守卫 `tests/platform20260923.spec.ts`）：
+- **`/platform`（Header「产品」，首项）**：产品一「Stayloop 全流程」= 租前（对话找房 / 发布 / 看房提问 / 申请 / 筛查 / 本人核验[即将] / 决定通知）·
+  租中（标准租约 / 电子签 / 在管租约 / 租金记录 / 报修 / 租金提醒 / 在线收租[示范]）· 租后（续约 90/60/30 / 指导比例 / N 表 / 退租 / 租客护照 /
+  信用局上报[即将]），每项链到真实页面、状态如实标；三张深色卡「一条对话 · 一条审批链 · 一套规则」；产品二「Stayloop API」三端点。
+- **Trust API → Stayloop API**：目录 `app/trust-api` → `app/stayloop-api`，`middleware.ts` 对 `/trust-api(/docs)` 308；营销页整页重写为三个真实端点
+  （旧的 emerald「Verify agent」页删除）；定价页深色带、联系页主题、合作方页、护照分享页、后台两页、页脚、sitemap、route/mobile audit 脚本、
+  测试全部改名。**数据库表名 `trust_api_keys` 与 API 头 `X-API-Key` 不变。**
+- **首页**新增一节「租前 · 租中 · 租后，一条流程」（四张卡：三阶段 + Stayloop API，全部链到 /platform 或 /stayloop-api），放在「三种角色」之后、
+  「三步」之前；页脚「产品」列新增「租房全流程」「Stayloop API」。模块说明 PDF（`design/stayloop-modules-2026-09.pdf`）同步改名。
+
 ## 没有照片的房源不上线（2026-09-23 · 用户看到测试房源空白卡后要求）
 
 测试房源 `[TEST] 100 Test Ave #1` 已挂上库里 Realtor.ca 导入行「1105 - 203 College St」的 12 张 CDN 照片（同一做法：cdn.realtor.ca 直链）。

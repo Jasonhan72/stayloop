@@ -309,6 +309,31 @@ export default function HomeNext() {
         </div>
       </section>
 
+      {/* ================= PRODUCTS: one flow + API (2026-09-23) ================= */}
+      <section className="mx-auto max-w-[1100px] px-5 py-16 sm:px-7">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-[640px]">
+            <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? '租前 · 租中 · 租后，一条流程' : 'Before, during and after the lease — one flow'}</h2>
+            <p className="mt-2 text-[16px] text-body-2">{zh ? '找房到续约，同一个房源、同一位申请人、同一份租约在每个阶段接力；会对外产生影响的事先变成等你批准的卡片。' : 'From search to renewal the same listing, applicant and lease hand off at every stage; anything that reaches another person becomes a card awaiting your approval.'}</p>
+          </div>
+          <Link href="/platform" className="text-[14px] font-semibold text-brand hover:underline">{zh ? '看产品结构 →' : 'See the product structure →'}</Link>
+        </div>
+        <div className="mt-8 grid gap-4 md:grid-cols-4">
+          {[
+            { k: '01', h: { zh: '租前', en: 'Before' }, p: { zh: '对话找房 · 房源发布 · 看房与提问 · 申请 · 租客筛查 · 决定通知', en: 'Search · publish · showings · applications · screening · decision notice' }, href: '/platform#lifecycle' },
+            { k: '02', h: { zh: '租中', en: 'During' }, p: { zh: '安省标准租约 · 电子签 · 在管租约 · 租金记录 · 报修', en: 'Ontario standard lease · e-sign · managed tenancy · rent ledger · maintenance' }, href: '/platform#lifecycle' },
+            { k: '03', h: { zh: '租后', en: 'After' }, p: { zh: '续约 90/60/30 天触点 · 指导比例 · N 表 · 退租 · 租客护照', en: 'Renewal touchpoints · guideline · N-forms · move-out · tenant passport' }, href: '/platform#lifecycle' },
+            { k: 'API', h: { zh: 'Stayloop API', en: 'Stayloop API' }, p: { zh: '合规检查 · 申请人出示的核验结论 · 发起筛查——三个端点给合作方', en: 'Compliance · applicant-presented verification · screening — three endpoints for partners' }, href: '/stayloop-api' },
+          ].map((c) => (
+            <Link key={c.k} href={c.href} className={'rounded-2xl border p-5 transition hover:border-brand ' + (c.k === 'API' ? 'border-transparent text-white' : 'border-line-divider bg-white')} style={c.k === 'API' ? { background: '#1B1B3C' } : undefined}>
+              <div className={'font-mono text-[11px] font-bold tracking-eyebrowLg ' + (c.k === 'API' ? 'text-[#7DD3FC]' : 'text-brand')}>{c.k}</div>
+              <div className="mt-2 text-[18px] font-bold">{pick(c.h, lang)}</div>
+              <p className={'mt-1.5 text-[13.5px] leading-relaxed ' + (c.k === 'API' ? '' : 'text-body-2')} style={c.k === 'API' ? { color: '#B7C2D6' } : undefined}>{pick(c.p, lang)}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* ================= STEPS ================= */}
       <section className="mx-auto max-w-[1100px] px-5 py-16 sm:px-7">
         <h2 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">{zh ? '把难题交出去，只要三步' : 'Handing it over takes three steps'}</h2>

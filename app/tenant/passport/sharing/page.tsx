@@ -199,8 +199,8 @@ export default function PassportSharing() {
           <p className="text-[12.5px] leading-relaxed text-body-2">
             🔐{' '}
             {zh
-              ? '每次数据访问都记录在审计日志中。撤销后对方无法再调用 Trust API 获取你的验证状态。'
-              : 'Every data access is recorded in the audit log. After revocation, the party can no longer query your verification status via Trust API.'}
+              ? '每次数据访问都记录在审计日志中。撤销后对方无法再通过 Stayloop API 获取你的验证状态。'
+              : 'Every data access is recorded in the audit log. After revocation, the party can no longer query your verification status via the Stayloop API.'}
           </p>
           <Link href="/tenant/audit" className="mt-2 inline-block text-[12.5px] font-semibold text-tenant hover:underline">
             {zh ? '查看审计日志 →' : 'View audit log →'}

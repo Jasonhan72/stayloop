@@ -186,7 +186,7 @@ export default function TenantPassport() {
 
   // ── Off-platform share token (real rows for logged-in tenants; demo otherwise) ──
   const [shareToken, setShareToken] = useState<{ token: string; expires_at: string; api_scopes?: string[] | null } | null>(null)
-  // Trust API (plan §3.2): the applicant decides, scope by scope, whether a
+  // Stayloop API (plan §3.2): the applicant decides, scope by scope, whether a
   // third party holding this token may read conclusions through the API.
   const API_SCOPES: { key: string; zh: string; en: string }[] = [
     { key: 'identity', zh: '身份已核验（Veriff）', en: 'Identity verified (Veriff)' },
