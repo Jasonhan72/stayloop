@@ -94,7 +94,7 @@ function downloadSlaCSV(lang: Lang, ticketId: string) {
 // The tenant's real tickets (2026-09-23): one MaintenancePanel per active
 // tenancy, rendered above the demo page through liveSlot. The "+ 提交新请求"
 // modal writes to the same table, so a new ticket shows up here at once.
-function LiveTenantTickets({ zh, refreshKey }: { zh: boolean; refreshKey: number }) {
+function LiveTenantTickets({ zh, refreshKey, onNew }: { zh: boolean; refreshKey: number; onNew: () => void }) {
   const auth = useAuth()
   const [hh, setHh] = useState<{ id: string; address: string; unit: string | null; city: string | null }[] | null>(null)
   useReportLiveRows('households', hh ? hh.length : null)
@@ -115,7 +115,7 @@ function LiveTenantTickets({ zh, refreshKey }: { zh: boolean; refreshKey: number
     <div className="mb-6 space-y-4" data-testid="live-tickets">
       {hh.map((h) => (
         <SectionCard key={`${h.id}-${refreshKey}`} title={`${h.address}${h.unit ? ` #${h.unit}` : ''}`} meta={zh ? '在管租约 · 真实工单' : 'Managed tenancy · live tickets'}>
-          <MaintenancePanel householdId={h.id} city={h.city} myRole="tenant" zh={zh} />
+          <MaintenancePanel householdId={h.id} city={h.city} myRole="tenant" zh={zh} onNewTicket={onNew} />
         </SectionCard>
       ))}
     </div>
@@ -151,7 +151,8 @@ export default function TenantMaintenancePage() {
   ]
 
   return (
-    <WorkspaceShell role="tenant" aside={<Aside lang={lang} insights={insights} />} liveSlot={<LiveTenantTickets zh={zh} refreshKey={refreshKey} />}>
+    <>
+    <WorkspaceShell role="tenant" aside={<Aside lang={lang} insights={insights} />} liveSlot={<LiveTenantTickets zh={zh} refreshKey={refreshKey} onNew={() => setOpen(true)} />}>
       <PageHeader
         title={zh ? '维修请求' : 'Maintenance Requests'}
         sub={<span className="font-mono text-[11px] uppercase tracking-eyebrow text-tenant">MAINTENANCE</span>}
@@ -323,8 +324,11 @@ export default function TenantMaintenancePage() {
         </SectionCard>
       </div>
 
-      {open && <NewTicketModal onClose={() => setOpen(false)} onCreated={() => setRefreshKey((k) => k + 1)} />}
     </WorkspaceShell>
+    {/* Outside the shell: the honest (non-demo) state does not render children,
+        and the live panel's button must still be able to open this modal. */}
+    {open && <NewTicketModal onClose={() => setOpen(false)} onCreated={() => setRefreshKey((k) => k + 1)} />}
+    </>
   )
 }
 

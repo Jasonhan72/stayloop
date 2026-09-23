@@ -25,12 +25,14 @@ export const TICKET_STATUS: Record<string, { zh: string; en: string; cls: string
 }
 const OPEN = new Set(['offered', 'quoted', 'scheduled', 'in_progress', 'completed', 'rework', 'disputed'])
 
-export default function MaintenancePanel({ householdId, city, myRole, zh, providerNames }: {
+export default function MaintenancePanel({ householdId, city, myRole, zh, providerNames, onNewTicket }: {
   householdId: string
   city: string | null
   myRole: 'landlord' | 'tenant' | 'property_manager' | 'agent' | null
   zh: boolean
   providerNames?: Record<string, string>
+  /** When set, "+ 提交报修" opens the caller's modal (with photos) instead of the inline text form. */
+  onNewTicket?: () => void
 }) {
   const { user } = useAuth()
   const [tickets, setTickets] = useState<Ticket[]>([])
@@ -90,7 +92,7 @@ export default function MaintenancePanel({ householdId, city, myRole, zh, provid
   return (
     <div className="space-y-4" data-testid="maintenance-panel">
       {!showForm ? (
-        <button onClick={() => setShowForm(true)} className="rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#00ACE4' }}>+ {zh ? '提交报修' : 'New request'}</button>
+        <button onClick={() => (onNewTicket ? onNewTicket() : setShowForm(true))} className="rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#00ACE4' }}>+ {zh ? (onNewTicket ? '提交报修（可附照片）' : '提交报修') : (onNewTicket ? 'New request (with photos)' : 'New request')}</button>
       ) : (
         <div className="rounded-xl border border-line-divider bg-white p-5">
           <input className={input} placeholder={zh ? '标题(如:厨房水龙头漏水)' : 'Title (e.g. kitchen tap leaking)'} value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />

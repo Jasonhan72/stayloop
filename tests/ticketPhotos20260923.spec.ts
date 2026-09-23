@@ -57,6 +57,11 @@ describe('modal + page source guards', () => {
     expect(page).not.toContain("{[0, 1, 2, 3, 4].map((i) =>")
     expect(page).toContain("import NewTicketModal from '@/components/tenant/NewTicketModal'")
     expect(page).toContain('liveSlot={<LiveTenantTickets')
+    // The honest (non-demo) view must reach the photo modal too: the panel's
+    // button is wired to open it, not only the demo page header.
+    expect(page).toContain('onNewTicket={onNew}')
+    expect(page.indexOf('{open && <NewTicketModal')).toBeGreaterThan(page.indexOf('</WorkspaceShell>'))
+    expect(panel).toContain('onNewTicket ? onNewTicket() : setShowForm(true)')
   })
   it('MaintenancePanel reads photos and signs them from the private bucket', () => {
     expect(panel).toMatch(/select\('id, title, description, category, priority, status, created_at, resolved_at, opened_by, photos'\)/)
