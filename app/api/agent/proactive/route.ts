@@ -50,7 +50,18 @@ type LeaseRow = {
 }
 
 async function loadMarket(sb: SupabaseClient): Promise<MarketLine | null> {
-  const { data } = await sb.from('trreb_rent_stats').select('period, bed_type, avg_rent').limit(64)
+  // The cache holds every quarter since 2019 × every TRREB area × apartment /
+  // townhouse (1,000+ rows). An unordered 64-row read returned the oldest 64
+  // rows (all 2019 Q1) and the renewal card quoted seven-year-old rents
+  // (found by the 2026-09-23 end-to-end run). Pin the board-wide apartment
+  // series, newest first: marketFromRows then picks the latest quarter.
+  const { data } = await sb
+    .from('trreb_rent_stats')
+    .select('period, bed_type, avg_rent')
+    .eq('area', 'All TRREB Areas')
+    .eq('property_type', 'apartment')
+    .order('period', { ascending: false })
+    .limit(8)
   return marketFromRows((data ?? []) as { period: string; bed_type: number; avg_rent: number }[])
 }
 

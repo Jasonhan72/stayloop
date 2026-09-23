@@ -57,6 +57,16 @@ function daysAgo(iso: string, zh: boolean): string {
   return zh ? `${d} 天前提交` : `submitted ${d} day${d > 1 ? 's' : ''} ago`
 }
 
+type LinkedScreening = {
+  id: string
+  status: string | null
+  ai_score: number | null
+  ai_summary: string | null
+  v3_tier: string | null
+  hard_gates_triggered: string[] | null
+  verification: unknown
+}
+
 type AppDetail = {
   id: string
   first_name: string | null
@@ -98,6 +108,10 @@ function RealApplicantDetail({ id }: { id: string }) {
   // approves (send_decision executor).
   const [screenBusy, setScreenBusy] = useState(false)
   const [screeningId, setScreeningId] = useState<string | null>(null)
+  // The screening this application was screened through (screenings.application_id).
+  // The real pipeline writes its result on the screening row, not on
+  // applications.ai_score (legacy column) — read it from here (e2e 2026-09-23).
+  const [linked, setLinked] = useState<LinkedScreening | null>(null)
   const [noticeCard, setNoticeCard] = useState<PendingAction | null>(null)
   const [noticeDone, setNoticeDone] = useState<string | null>(null)
   const [needsMoreOpen, setNeedsMoreOpen] = useState(false)
@@ -144,11 +158,11 @@ function RealApplicantDetail({ id }: { id: string }) {
     let cancelled = false
     ;(async () => {
       const [{ data: sc }, { data: pa }] = await Promise.all([
-        supabase.from('screenings').select('id, status').eq('application_id', app.id).order('created_at', { ascending: false }).limit(1),
+        supabase.from('screenings').select('id, status, ai_score, ai_summary, v3_tier, hard_gates_triggered, verification').eq('application_id', app.id).order('created_at', { ascending: false }).limit(1),
         supabase.from('agent_pending_actions').select('*').eq('action_type', 'send_decision').eq('status', 'pending').contains('metadata', { application_id: app.id }).order('created_at', { ascending: false }).limit(1),
       ])
       if (cancelled) return
-      if (sc && sc.length) setScreeningId(sc[0].id as string)
+      if (sc && sc.length) { setScreeningId(sc[0].id as string); setLinked(sc[0] as unknown as LinkedScreening) }
       if (pa && pa.length) setNoticeCard(pa[0] as PendingAction)
     })()
     return () => { cancelled = true }
@@ -260,10 +274,22 @@ function RealApplicantDetail({ id }: { id: string }) {
   const unitLabel = app.listing
     ? [app.listing.unit ? `Unit ${app.listing.unit}` : null, app.listing.address].filter(Boolean).join(' · ')
     : zh ? '房源未关联' : 'No listing linked'
-  const scored = app.ai_score != null
+  const linkedScored = !!linked && linked.status === 'scored' && typeof linked.ai_score === 'number'
+  const scored = app.ai_score != null || linkedScored
+  const overall = app.ai_score ?? (linkedScored ? linked!.ai_score : null)
   const notes = (app.ai_dimension_notes ?? {}) as Record<string, unknown>
-  const recommended = app.status === 'approved' || (scored && (app.ai_score ?? 0) >= 75 && app.status !== 'declined')
-  const tier = app.files?.length ? (scored ? 3 : 2) : 1
+  const recommended = app.status === 'approved' || (overall != null && overall >= 75 && app.status !== 'declined')
+  // Stamps mean applicant-authorised third-party verification (Veriff /
+  // Flinks / Equifax on the linked screening) — never "files were uploaded".
+  const vsteps = (() => {
+    const v = (linked?.verification ?? null) as { steps?: Record<string, { status?: string; sandbox?: boolean }> } | Record<string, { status?: string; sandbox?: boolean }> | null
+    const st = (v && 'steps' in v && v.steps ? v.steps : v) as Record<string, { status?: string; sandbox?: boolean }> | null
+    const ok = (k: string) => !!st && st[k]?.status === 'verified' && !st[k]?.sandbox
+    return { id: ok('id'), bank: ok('bank'), credit: ok('credit') }
+  })()
+  const tier = vsteps.id ? (vsteps.bank ? (vsteps.credit ? 4 : 3) : 1) : 0
+  const tierLabel = (t: string | null | undefined) =>
+    t === 'proceed' ? (zh ? '建议通过' : 'Proceed') : t === 'review' ? (zh ? '建议复核' : 'Review') : t === 'conditional' ? (zh ? '附条件' : 'Conditional') : t === 'decline' ? (zh ? '建议拒绝' : 'Decline') : zh ? '需面谈' : 'Needs interview'
   const files = app.files ?? []
 
   return (
@@ -294,7 +320,7 @@ function RealApplicantDetail({ id }: { id: string }) {
             </span>
           ) : app.status === 'approved' ? (
             <span className="rounded-md bg-success/10 px-2 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-success">
-              {zh ? '已批准看房' : 'Showing approved'}
+              {zh ? '已录取' : 'Approved'}
             </span>
           ) : recommended ? (
             <span className="rounded-md bg-success/10 px-2 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-success">
@@ -302,14 +328,14 @@ function RealApplicantDetail({ id }: { id: string }) {
             </span>
           ) : (
             <span className="rounded-md bg-warning/10 px-2 py-[4px] font-mono text-[10.5px] font-bold uppercase tracking-wider text-warning">
-              {scored ? (zh ? '需面谈' : 'Needs interview') : zh ? '评分中' : 'Scoring'}
+              {scored ? tierLabel(linked?.v3_tier) : zh ? '评分中' : 'Scoring'}
             </span>
           )}
         </div>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-        {scored ? (
+        {app.ai_score != null ? (
           <div className="self-start">
             <ApplicantReport
               lang={lang}
@@ -333,6 +359,26 @@ function RealApplicantDetail({ id }: { id: string }) {
               }
             />
           </div>
+        ) : linkedScored && linked ? (
+          <div className="sl-card self-start p-7">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-[18px] font-bold tracking-tight">{zh ? '筛查评分' : 'Screening score'}</h2>
+              <div className="text-right">
+                <div className="font-mono text-[40px] font-extrabold leading-none text-brand">{linked.ai_score}</div>
+                <div className="font-mono text-[10.5px] uppercase text-body-3">/100 · {tierLabel(linked.v3_tier)}</div>
+              </div>
+            </div>
+            {linked.ai_summary && <p className="mt-4 text-[13.5px] leading-relaxed text-body-2">{linked.ai_summary}</p>}
+            {Array.isArray(linked.hard_gates_triggered) && linked.hard_gates_triggered.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {linked.hard_gates_triggered.map((g) => (
+                  <span key={g} className="max-w-full break-words rounded-full bg-danger/10 px-2 py-0.5 font-mono text-[11px] font-bold text-danger">{g}</span>
+                ))}
+              </div>
+            )}
+            <p className="mt-4 text-[11.5px] text-body-3">{zh ? '评分与档位仅供参考 · 非拒绝依据（OHRC 租房政策）。完整报告含五个维度、取证、法庭与 LTB 检索。' : 'Score and tier are information only — never grounds to decline (OHRC). The full report has the five dimensions, forensics, court and LTB checks.'}</p>
+            <Link href={`/screening/${linked.id}/report`} className="sl-btn-primary mt-4 inline-block !py-[10px] text-center">{zh ? '打开完整报告 →' : 'Open the full report →'}</Link>
+          </div>
         ) : (
           <div className="sl-card p-7">
             <div className="flex items-baseline justify-between">
@@ -354,7 +400,7 @@ function RealApplicantDetail({ id }: { id: string }) {
           <div className="sl-card p-6">
             <h3 className="text-[15px] font-bold tracking-tight">{zh ? `${aiName} 建议` : `${aiName} recommends`}</h3>
             <p className="mt-2 text-[13.5px] leading-relaxed text-body-2">
-              {app.ai_summary ||
+              {app.ai_summary || linked?.ai_summary ||
                 (zh
                   ? `${name} 的申请已收到。收入 ${app.monthly_income ? `$${app.monthly_income.toLocaleString()}/mo` : '未填'}${app.employer_name ? ` · ${app.employer_name}` : ''}。评分完成后这里会给出完整建议。`
                   : `${name}'s application is in. Income ${app.monthly_income ? `$${app.monthly_income.toLocaleString()}/mo` : 'not given'}${app.employer_name ? ` · ${app.employer_name}` : ''}. A full recommendation appears here once scoring completes.`)}
@@ -395,17 +441,16 @@ function RealApplicantDetail({ id }: { id: string }) {
               <Link href={`/landlord/leases/new?application_id=${app.id}`} className="sl-btn-secondary text-center">
                 {zh ? '📄 起草租约' : '📄 Draft lease'}
               </Link>
+              {screeningId && (
+                <Link href={`/screening/app?screening=${screeningId}`} className="sl-btn-secondary text-center">
+                  {zh ? '🪪 请 TA 本人核验（身份 / 银行 / 征信）' : '🪪 Ask them to verify (identity / bank / credit)'}
+                </Link>
+              )}
               <Link
-                href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `请 ${name} 补充材料并盖上银行章。` : `Ask ${name} to submit full evidence and earn the bank stamp.`)}`}
+                href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `帮我给申请人 ${name}（${app.email}）写一封邮件，问入住时间和还缺的材料。` : `Draft an email to applicant ${name} (${app.email}) about move-in timing and any missing documents.`)}`}
                 className="sl-btn-secondary text-center"
               >
-                {zh ? '★★★ 请 TA 盖银行章' : '★★★ Ask to earn the bank stamp'}
-              </Link>
-              <Link
-                href={`/landlord/agent?prompt=${encodeURIComponent(zh ? `帮我联系申请人 ${name}（${app.email}），先聊聊入住时间和材料。` : `Contact applicant ${name} (${app.email}) about move-in timing and documents.`)}`}
-                className="sl-btn-secondary text-center"
-              >
-                {zh ? '💬 先跟 TA 聊一下（经 TA 的 AI Agent 中介）' : '💬 Chat first (via their AI agent)'}
+                {zh ? `💬 让 ${aiName} 起草一封给 TA 的邮件` : `💬 Have ${aiName} draft an email to them`}
               </Link>
               {declineOpen ? (
                 <div className="rounded-lg border border-danger/40 p-3">

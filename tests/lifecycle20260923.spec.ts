@@ -125,3 +125,20 @@ describe('Trust API v1', () => {
     for (const e of ['/listings/compliance', '/passport/verify', '/screen']) expect(d).toContain(`POST ${e}`)
   })
 })
+
+// ---------------------------------------------------------------------------
+// End-to-end run 2026-09-23: the renewal card quoted "TRREB 2019 Q1" because
+// the proactive scanner read the cache unordered (1,000+ rows across every
+// area/quarter; limit 64 → the oldest 64). The reader must pin the board-wide
+// apartment series and order newest first.
+// ---------------------------------------------------------------------------
+describe('proactive market line reads the latest TRREB quarter (e2e 2026-09-23)', () => {
+  const src = readFileSync('app/api/agent/proactive/route.ts', 'utf8')
+  it('filters to All TRREB Areas / apartment and orders period desc', () => {
+    const fn = src.slice(src.indexOf('async function loadMarket'), src.indexOf('marketFromRows((data'))
+    expect(fn).toMatch(/\.eq\('area', 'All TRREB Areas'\)/)
+    expect(fn).toMatch(/\.eq\('property_type', 'apartment'\)/)
+    expect(fn).toMatch(/\.order\('period', \{ ascending: false \}\)/)
+    expect(fn).not.toMatch(/\.limit\(64\)/)
+  })
+})

@@ -218,7 +218,17 @@ export default function LandlordApplicantsPage() {
         .select('id, first_name, last_name, ai_extracted_name, monthly_income, ai_score, status, created_at, files, ltb_records_found, listing:listings(address, unit, monthly_rent)')
         .order('created_at', { ascending: false })
         .limit(100)
-      if (!cancelled) setRows(error ? [] : ((data ?? []) as unknown as AppRow[]))
+      let list = error ? [] : ((data ?? []) as unknown as AppRow[])
+      // The closed loop scores on the linked screening row, not on the legacy
+      // applications.ai_score column — fill it from there (e2e 2026-09-23).
+      const need = list.filter((r) => r.ai_score == null).map((r) => r.id)
+      if (need.length) {
+        const { data: sc } = await supabase.from('screenings').select('application_id, ai_score, status').in('application_id', need).eq('status', 'scored')
+        const byApp = new Map<string, number>()
+        for (const r of (sc ?? []) as { application_id: string; ai_score: number | null }[]) if (typeof r.ai_score === 'number' && !byApp.has(r.application_id)) byApp.set(r.application_id, r.ai_score)
+        if (byApp.size) list = list.map((r) => (r.ai_score == null && byApp.has(r.id) ? { ...r, ai_score: byApp.get(r.id)! } : r))
+      }
+      if (!cancelled) setRows(list)
     })()
     return () => {
       cancelled = true
