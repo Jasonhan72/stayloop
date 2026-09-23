@@ -33,7 +33,7 @@ interface Applicant {
   initial: string
   avc: 'tenant' | 'agent' | 'landlord' | 'orange'
   match: number | null
-  tier: 1 | 2 | 3 | 4
+  tier: 0 | 1 | 2 | 3 | 4
   income: number | null
   qual: { zh: string; en: string }
   decision: Decision
@@ -122,6 +122,9 @@ type AppRow = {
   files: ApplicationFile[] | null
   ltb_records_found: number | null
   listing: { address: string | null; unit: string | null; monthly_rent: number | null } | null
+  // Applicant-authorised third-party verification on the linked screening
+  // (Veriff / Flinks / Equifax), filled in from screenings.verification.
+  verified_tier?: number
 }
 
 // Decision grouping mirrors the design's three buckets. Explicit landlord
@@ -135,12 +138,17 @@ function deriveDecision(row: AppRow): Decision {
   return 'decline'
 }
 
-// Evidence-based tier: 1 = form only, 2 = documents uploaded, 3 = documents
-// + completed AI screening. (Passport tiers live tenant-side; applications
-// only carry the evidence actually submitted.)
-function deriveTier(row: AppRow): 1 | 2 | 3 {
-  if (!row.files?.length) return 1
-  return row.ai_score != null ? 3 : 2
+// Stamps mean applicant-authorised third-party verification on the linked
+// screening — never "files were uploaded" or "AI ran" (e2e 2026-09-23: a
+// nothing-verified applicant showed 3/4 stamps). Same rule as the detail page.
+function deriveTier(row: AppRow): 0 | 1 | 2 | 3 | 4 {
+  const t = row.verified_tier ?? 0
+  return (t >= 4 ? 4 : t >= 3 ? 3 : t >= 1 ? 1 : 0) as 0 | 1 | 2 | 3 | 4
+}
+export function verifiedTierFromSnapshot(v: unknown): number {
+  const st = (v && typeof v === 'object' && 'steps' in (v as Record<string, unknown>) ? (v as { steps: unknown }).steps : v) as Record<string, { status?: string; sandbox?: boolean }> | null
+  const ok = (k: string) => !!st && st[k]?.status === 'verified' && !st[k]?.sandbox
+  return ok('id') ? (ok('bank') ? (ok('credit') ? 4 : 3) : 1) : 0
 }
 
 function qualLine(row: AppRow): { zh: string; en: string } {
@@ -221,12 +229,16 @@ export default function LandlordApplicantsPage() {
       let list = error ? [] : ((data ?? []) as unknown as AppRow[])
       // The closed loop scores on the linked screening row, not on the legacy
       // applications.ai_score column — fill it from there (e2e 2026-09-23).
-      const need = list.filter((r) => r.ai_score == null).map((r) => r.id)
-      if (need.length) {
-        const { data: sc } = await supabase.from('screenings').select('application_id, ai_score, status').in('application_id', need).eq('status', 'scored')
+      const ids = list.map((r) => r.id)
+      if (ids.length) {
+        const { data: sc } = await supabase.from('screenings').select('application_id, ai_score, status, verification').in('application_id', ids).order('created_at', { ascending: false })
         const byApp = new Map<string, number>()
-        for (const r of (sc ?? []) as { application_id: string; ai_score: number | null }[]) if (typeof r.ai_score === 'number' && !byApp.has(r.application_id)) byApp.set(r.application_id, r.ai_score)
-        if (byApp.size) list = list.map((r) => (r.ai_score == null && byApp.has(r.id) ? { ...r, ai_score: byApp.get(r.id)! } : r))
+        const vt = new Map<string, number>()
+        for (const r of (sc ?? []) as { application_id: string; ai_score: number | null; status: string | null; verification: unknown }[]) {
+          if (r.status === 'scored' && typeof r.ai_score === 'number' && !byApp.has(r.application_id)) byApp.set(r.application_id, r.ai_score)
+          vt.set(r.application_id, Math.max(vt.get(r.application_id) ?? 0, verifiedTierFromSnapshot(r.verification)))
+        }
+        list = list.map((r) => ({ ...r, ai_score: r.ai_score ?? byApp.get(r.id) ?? null, verified_tier: vt.get(r.id) ?? 0 }))
       }
       if (!cancelled) setRows(list)
     })()
