@@ -15,7 +15,7 @@ import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { useAIName } from '@/lib/aiName'
 import { stampForTier } from '@/lib/passportStamps'
-import { LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
+import { hasUsablePhotos, LISTING_VISIBILITY_OR } from '@/lib/listingVisibility'
 
 /**
  * V5 ART · Listings Browse (StreetEasy/Airbnb-inspired split view)
@@ -144,9 +144,11 @@ export default function ListingsPage() {
       .or(LISTING_VISIBILITY_OR)
       .order('created_at', { ascending: false })
       .limit(300)
-      .then(({ data }) => {
-        setAll((data || []) as DBListing[])
-        if (data && data.length > 0) setActive((data[1] || data[0]).id)
+      .then(({ data: raw }) => {
+        // No photo, no card (lib/listingVisibility hasUsablePhotos).
+        const data = ((raw || []) as DBListing[]).filter((l) => hasUsablePhotos(l.images))
+        setAll(data)
+        if (data.length > 0) setActive((data[1] || data[0]).id)
         setLoading(false)
       })
   }, [])

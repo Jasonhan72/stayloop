@@ -1,3 +1,4 @@
+import { hasUsablePhotos } from './listingVisibility'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { DraftListing } from '@/lib/agent/types'
 
@@ -13,6 +14,7 @@ export type ListingFormInput = Omit<DraftListing, 'monthly_rent' | 'sqft' | 'dep
 export const LISTING_PUBLISH_MSG = {
   landlordNotFound: { zh: '未找到房东档案，请先完成注册', en: 'Landlord profile not found' },
   duplicate: { zh: '该地址已有相同房源，请勿重复发布', en: 'A listing at this address already exists' },
+  noPhotos: { zh: '至少需要 1 张照片才能发布：没有照片的房源不会出现在任何公开页面。', en: 'At least one photo is required — listings without photos are never shown publicly.' },
 }
 
 // Realtor.ca-sourced listings display immediately with a source badge;
@@ -167,6 +169,9 @@ export async function publishListing(
   row: ListingRow,
   opts: { zh: boolean; selectSlug?: boolean },
 ): Promise<PublishListingResult> {
+  if (!hasUsablePhotos((row as { images?: unknown }).images)) {
+    return { slug: null, error: opts.zh ? LISTING_PUBLISH_MSG.noPhotos.zh : LISTING_PUBLISH_MSG.noPhotos.en }
+  }
   let dupQ = client.from('listings').select('id', { count: 'exact', head: true }).eq('landlord_id', row.landlord_id).ilike('address', row.address)
   if (row.unit) dupQ = dupQ.eq('unit', row.unit)
   else dupQ = dupQ.is('unit', null)

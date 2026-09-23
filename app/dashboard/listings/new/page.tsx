@@ -561,14 +561,14 @@ export default function NewListingPage() {
                       )
                     })()}
                     <li>✓ {lang === 'zh' ? '没有 AI 补写的事实：文案只在房源管理里由你编辑' : 'No AI-filled facts: the description is written only by you, under Manage listings'}</li>
-                    <li>{photos.length ? '✓ ' : '· '}{lang === 'zh' ? (photos.length ? '有照片' : '没有照片——可以发布，但询盘会少很多') : (photos.length ? 'Photos attached' : 'No photos — you can publish, but expect far fewer inquiries')}</li>
+                    <li>{photos.length ? '✓ ' : '✗ '}{lang === 'zh' ? (photos.length ? '有照片' : '没有照片——至少 1 张才能发布（没有照片的房源不会出现在任何公开页面）') : (photos.length ? 'Photos attached' : 'No photos — at least one is required to publish (listings without photos are never shown publicly)')}</li>
                   </ul>
                 </div>
 
                 {error && <div className="rounded-md bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</div>}
                 <div className="flex gap-3">
                   <button onClick={() => setStep(4)} className="sl-btn-secondary">{lang === 'zh' ? '← 上一步' : '← Back'}</button>
-                  <button onClick={submit} disabled={submitting} className="sl-btn-primary flex-1 !py-[12px]">
+                  <button onClick={submit} disabled={submitting || photos.length === 0} title={photos.length === 0 ? (lang === 'zh' ? '请先在第 2 步添加照片' : 'Add a photo in step 2 first') : undefined} className="sl-btn-primary flex-1 !py-[12px] disabled:opacity-50">
                     {submitting ? (lang === 'zh' ? '发布中…' : 'Publishing…') : (lang === 'zh' ? '✓ 用这版发布' : '✓ Publish this version')}
                   </button>
                 </div>

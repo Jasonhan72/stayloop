@@ -3,7 +3,7 @@
 // Stayloop has no match. Runs server-side (edge). Requires JINA_API_KEY.
 import type { ListingCard } from './types'
 import { LISTINGS_PAGE } from '@/lib/agent/listingPaging'
-import { LISTING_VISIBILITY_OR, LISTING_VISIBILITY_OR_GROUP } from '../listingVisibility'
+import { hasUsablePhotos, LISTING_VISIBILITY_OR, LISTING_VISIBILITY_OR_GROUP } from '../listingVisibility'
 import { readTrrebBenchmark, type TrrebBenchmark } from './trrebRent'
 import { captureException } from '../observability/sentry'
 import { BUDGET_ANON, BUDGET_MEMBER, commercialKind, searchCommercial, summarizeCommercial } from './commercialSearch'
@@ -367,7 +367,7 @@ async function searchStayloop(c: SearchCriteria): Promise<ListingCard[]> {
       signal: AbortSignal.timeout(6000),
     })
     if (!res.ok) return []
-    const rows = (await res.json()) as Record<string, unknown>[]
+    const rows = ((await res.json()) as Record<string, unknown>[]).filter((r) => hasUsablePhotos(r.images))
     return rows.map((r) => {
       const imgs = r.images as unknown[] | null
       const amen = r.amenities as unknown[] | null

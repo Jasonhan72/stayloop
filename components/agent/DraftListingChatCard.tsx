@@ -212,8 +212,7 @@ export default function DraftListingChatCard({ draft, onPublished }: Props) {
           {zh ? '编辑' : 'Edit'}
         </button>
         <button
-          onClick={handlePublish}
-          disabled={publishing || !form.address || !form.monthly_rent}
+          onClick={handlePublish} disabled={publishing || photos.length === 0 || !form.address || !form.monthly_rent} title={photos.length === 0 ? (zh ? '请先添加至少 1 张照片' : 'Add at least one photo first') : undefined}
           className="flex flex-1 items-center justify-center gap-1.5 py-3 text-[12.5px] font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
           style={{ background: '#047857' }}
         >

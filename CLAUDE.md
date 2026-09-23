@@ -932,6 +932,14 @@ cron 的实机探测（全部在 begin…rollback 里以 anon / authenticated �
 - 联邦注册库 ingest：截断下载被当成功（2026-09-05 那次 168 MB / 0 个 XML / 「Done」，库停在 08-02）——现在 Content-Length
   不符、unzip 非零、0 个 XML 都直接失败，并且每行写 `last_seen_at`。登录回调页显示 GoTrue 的真实错误（此前一律「登录链接已失效」）。
 
+## 没有照片的房源不上线（2026-09-23 · 用户看到测试房源空白卡后要求）
+
+测试房源 `[TEST] 100 Test Ave #1` 已挂上库里 Realtor.ca 导入行「1105 - 203 College St」的 12 张 CDN 照片（同一做法：cdn.realtor.ca 直链）。
+规则：`lib/listingVisibility.ts hasUsablePhotos(images)`（http/data 图片 URL 至少一条）是单一谓词——`publishListing` 在查库前就拒绝无照片的行
+（`LISTING_PUBLISH_MSG.noPhotos`，向导 / 编辑页 / 对话草稿卡三条发布路径都经它）；`/listings` 浏览页与管家找房查询在取回后过滤；
+`/admin/verify` 对无照片行显示红标「无照片 · 不可通过」并禁用通过按钮；发布向导与对话草稿卡在没有照片时禁用发布按钮。
+守卫在 `tests/lifecycle20260923.spec.ts` 末段。
+
 ## 安省 2026 年租房新规落地（2026-09-23 · 用户要求「查最近生效的新规并落实到 Stayloop」）
 
 官方来源：ontario.ca 租金指导页、Tribunals Ontario LTB 运营更新（2026-06-30、2026-09-21）、Bill 60（S.O. 2025 c.14）法案页、

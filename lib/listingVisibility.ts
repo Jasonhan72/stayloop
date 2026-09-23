@@ -12,3 +12,12 @@ export const LISTING_VISIBILITY_OR = 'verification_status.eq.verified,source.eq.
 // Raw query-param form wrapped as an `or(...)` group, for hand-built
 // URLSearchParams (lib/agent/listingSearch.ts combines it inside `and=`).
 export const LISTING_VISIBILITY_OR_GROUP = `or(${LISTING_VISIBILITY_OR})`
+
+// No photo, no listing (user decision 2026-09-23: a card with a blank hero is
+// not acceptable on any public surface). `publishListing` refuses to create
+// such a row; the browse page, the assistant search and the admin queue all
+// apply the same predicate so a row that slips through (imports, legacy) is
+// still never shown.
+export function hasUsablePhotos(images: unknown): boolean {
+  return Array.isArray(images) && images.some((u) => typeof u === 'string' && /^(https?:\/\/|data:image\/)/i.test(u))
+}

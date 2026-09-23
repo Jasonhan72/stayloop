@@ -157,3 +157,30 @@ describe('tenant sees own live rows even behind the demo gate (e2e 2026-09-23)',
     expect(shell).toMatch(/<DemoGate[^>]*liveSlot=\{liveSlot\}/)
   })
 })
+
+// ---------------------------------------------------------------------------
+// No photo, no listing (user decision 2026-09-23 after seeing a blank card).
+// ---------------------------------------------------------------------------
+describe('listings without photos are never published or shown', () => {
+  it('hasUsablePhotos accepts http/data image urls only', async () => {
+    const { hasUsablePhotos } = await import('../lib/listingVisibility')
+    expect(hasUsablePhotos(['https://cdn.realtor.ca/x.jpg'])).toBe(true)
+    expect(hasUsablePhotos(['data:image/jpeg;base64,abc'])).toBe(true)
+    expect(hasUsablePhotos([])).toBe(false)
+    expect(hasUsablePhotos(null)).toBe(false)
+    expect(hasUsablePhotos(['', 'not-a-url'])).toBe(false)
+  })
+  it('publishListing refuses a row without photos before touching the database', async () => {
+    const { publishListing, LISTING_PUBLISH_MSG } = await import('../lib/listingPublish')
+    const client = { from: () => { throw new Error('must not query') } } as never
+    const r = await publishListing(client, { landlord_id: 'x', address: '1 A St', slug: 's', images: [] } as never, { zh: true })
+    expect(r.error).toBe(LISTING_PUBLISH_MSG.noPhotos.zh)
+  })
+  it('browse page, assistant search, admin queue and wizard apply the same predicate', () => {
+    expect(readFileSync('app/listings/page.tsx', 'utf8')).toMatch(/filter\(\(l\) => hasUsablePhotos\(l\.images\)\)/)
+    expect(readFileSync('lib/agent/listingSearch.ts', 'utf8')).toMatch(/\.filter\(\(r\) => hasUsablePhotos\(r\.images\)\)/)
+    expect(readFileSync('app/admin/verify/page.tsx', 'utf8')).toMatch(/disabled=\{busy === r\.id \|\| !hasUsablePhotos\(r\.images\)\}/)
+    expect(readFileSync('app/dashboard/listings/new/page.tsx', 'utf8')).toMatch(/disabled=\{submitting \|\| photos\.length === 0\}/)
+    expect(readFileSync('components/agent/DraftListingChatCard.tsx', 'utf8')).toMatch(/disabled=\{publishing \|\| photos\.length === 0/)
+  })
+})
