@@ -6,6 +6,7 @@ export const runtime = 'edge'
 // Standard Lease here — no account needed. After signing, the SAME link
 // becomes their permanent read-only access: view anytime, download a PDF
 // backup anytime (browser print → save as PDF).
+import InsuranceReferralCard from '@/components/tenant/InsuranceReferralCard'
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import OntarioLeaseDoc from '@/components/lease/OntarioLeaseDoc'
@@ -124,6 +125,8 @@ export default function LeaseSignPage() {
               : (zh ? '请仔细阅读整份租约后在页面底部签署。' : 'Please read the full agreement, then sign at the bottom.')}
         </div>
       </div>
+
+      {fullySigned && <div className="mx-auto mt-4 max-w-[820px] px-5"><InsuranceReferralCard /></div>}
 
       {/* The document */}
       <div className="mx-auto mt-6 max-w-[860px] px-5 print:mt-0 print:max-w-none print:px-0">

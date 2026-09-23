@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>方案：第三方服务市场（维修派单 · 保险入口）如何接入 Stayloop · 2026-09-23</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 16mm 15mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Inter Tight", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, sans-serif; color: #1B1B3C; font-size: 10.3pt; line-height: 1.55; margin: 0; }
+  h1 { font-size: 22pt; letter-spacing: -0.02em; margin: 0 0 4pt; line-height: 1.15; }
+  h2 { font-size: 14.5pt; margin: 20pt 0 8pt; padding-bottom: 4pt; border-bottom: 2px solid #00ACE4; page-break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 13pt 0 5pt; color: #0f1b33; page-break-after: avoid; }
+  p { margin: 0 0 6pt; }
+  .eyebrow { font-family: "JetBrains Mono", Menlo, monospace; font-size: 8.5pt; letter-spacing: .12em; text-transform: uppercase; color: #00ACE4; font-weight: 700; }
+  .sub { color: #4A4A6A; margin-bottom: 12pt; }
+  .meta { font-size: 9pt; color: #6E6E8A; border-top: 1px solid #D3E3EF; border-bottom: 1px solid #D3E3EF; padding: 5pt 0; margin-bottom: 12pt; }
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt; font-size: 9.3pt; }
+  th, td { border: 1px solid #D3E3EF; padding: 4pt 6pt; vertical-align: top; text-align: left; }
+  th { background: #F3F8FC; font-weight: 700; }
+  tr { page-break-inside: avoid; }
+  code { font-family: "JetBrains Mono", Menlo, monospace; font-size: 8.6pt; background: #F3F8FC; padding: 0 3pt; border-radius: 3px; }
+  ul, ol { margin: 0 0 8pt 0; padding-left: 16pt; }
+  li { margin-bottom: 2.5pt; }
+  .decide { background: #FFF8E6; border-left: 3px solid #D97706; padding: 7pt 10pt; margin: 8pt 0; font-size: 9.6pt; }
+  .fact { background: #F3F8FC; border-left: 3px solid #00ACE4; padding: 6pt 9pt; margin: 8pt 0; font-size: 9.6pt; }
+  .rec { background: #ECFDF5; border-left: 3px solid #047857; padding: 6pt 9pt; margin: 8pt 0; font-size: 9.6pt; }
+  .warn { background: #FDECEC; border-left: 3px solid #B91C1C; padding: 6pt 9pt; margin: 8pt 0; font-size: 9.6pt; }
+  .pb { page-break-before: always; }
+  .footer { margin-top: 24pt; padding-top: 8pt; border-top: 1px solid #D3E3EF; font-size: 8.5pt; color: #6E6E8A; }
+  .tag { display: inline-block; font-family: "JetBrains Mono", Menlo, monospace; font-size: 7.8pt; padding: 0 5pt; border-radius: 9pt; border: 1px solid #D3E3EF; margin-right: 3pt; color: #4A4A6A; }
+  .tag.p0 { color: #047857; border-color: #047857; } .tag.p1 { color: #0369A1; border-color: #0369A1; } .tag.p2 { color: #6E6E8A; }
+  .flow { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4pt; margin: 8pt 0 12pt; }
+  .st { border: 1px solid #D3E3EF; border-radius: 6pt; padding: 5pt 6pt; font-size: 8.4pt; background: #fff; page-break-inside: avoid; }
+  .st b { display: block; font-size: 9pt; color: #0f1b33; }
+  .st .who { font-family: "JetBrains Mono", Menlo, monospace; font-size: 7.4pt; color: #00ACE4; letter-spacing: .06em; text-transform: uppercase; }
+  .st.gate { border-color: #D97706; background: #FFF8E6; }
+  .small { font-size: 9pt; color: #4A4A6A; }
+</style>
+</head>
+<body>
+
+<div class="eyebrow">STAYLOOP · PROPOSAL · 2026-09-23</div>
+<h1>第三方服务市场：怎么接进 Stayloop，服务流程怎么走</h1>
+<p class="sub">对用户稿《第三方服务市场：以 GTA 精选维修网络切入，以嵌入式保险扩大单户收入》（investor one-pager）的落地方案。先给结论与流程，再决定做不做。</p>
+<div class="meta">依据：用户稿 · 现有代码与生产库（2026-09-23 实数）· 安省法规一手来源（文末）· 三家可比公司公开材料。本文不含任何已实施的改动。</div>
+
+<h2>0. 结论先行</h2>
+<div class="rec">
+<b>建议做，但把顺序反过来：先做「派单与履约记录」，再做「收款与抽成」，保险只做「入口」不做「转介计酬」。</b><br>
+原因有三：① 我们的护城河是「工单从租赁流程里长出来」，这一段（AI 分诊 → 待批卡 → 执行器 → 在管租约共享中心 → 审计）已经全部存在，把它延长到服务商那一端是加法，不是新系统；② 一旦平台经手资金，就同时承担《消费者保护法》的估价规则、HST、退款与争议——这要等有真实工单量再背；③ 安省对无牌方的保险推介计酬有硬限制，现有的「租客保险转介卡」已经是合规形态（只放链接、不按成交收费），律师意见拿到前不要往前走。
+</div>
+<div class="warn"><b>先看清需求密度。</b>生产库此刻：报修工单 1 张、在管租约 1 份（都是 <code>[TEST]</code> 数据）、房东 7 位、经纪公司 0 家。市场的第一阶段必须与「在管租约」的增长绑在一起——没有在管租约就没有工单，没有工单就没有派单。所以本方案的 Phase 0 是把已有的报修闭环补齐、让每一份在管租约都能产生工单，而不是先去招 30 家服务商。</div>
+
+<h2>1. 我们已经有什么（可直接复用）</h2>
+<table>
+<tr><th style="width:26%">能力</th><th>现状（代码 / 表）</th><th style="width:30%">对市场的意义</th></tr>
+<tr><td>报修入口 + AI 分诊</td><td>租客助手 <code>maintenance_request</code> 执行器：类别（8 类）/ 位置 / 紧急度 / 进入许可（随时 · 先电话 · 须在场）/ 宠物；紧急件（无暖气、停水、燃气、淹水、门锁失效、CO）强制高优先级并引 RTA s.20；提示词 <code>MAINTENANCE_TRIAGE_RULES</code></td><td>用户稿的「02 AI 决策层」已落地，派单所需的结构化字段已在工单上</td></tr>
+<tr><td>工单表</td><td><code>maintenance_tickets</code>：household_id / opened_by / category / priority / title / description / photos / status（CHECK：new · assigned · in_progress · review · done · cancelled）/ resolved_at</td><td>状态机里 <b>assigned 与 review 两个状态已预留但从未被界面使用</b>——派单与验收正好落在这两格</td></tr>
+<tr><td>在管租约共享中心</td><td><code>/h/[id]</code>：概览 / 对话 / 租金 / 报修四个标签，成员制 RLS，房东与租客看同一份</td><td>服务商的到场、增项、完工证据在同一条时间线上对双方可见——这是「租赁内闭环」的载体</td></tr>
+<tr><td>提议 → 批准 → 执行 → 审计</td><td><code>agent_pending_actions</code> + <code>/api/agent/execute</code>（预览、60 秒撤销、claim/release、`agent_audit_events`）；批量批准条</td><td>「房东一键指派」「批准报价」「验收完工」都是一张待批卡，不需要新的授权模型</td></tr>
+<tr><td>入驻与人工核验模式</td><td>经纪认证：<code>agent_profiles</code>（自助填写 → pending → 管理员在 <code>/admin/agents</code> 对照公开注册库人工核验 → verified / rejected / expired；触发器保证自助改动不能碰 status）</td><td>服务商入驻可原样照搬：把 RECO 注册库换成 Skilled Trades Ontario 公共注册 + ESA/TSSA + WSIB 清关 + 保险证明</td></tr>
+<tr><td>四顶帽子的账号模型</td><td><code>my_hats()</code> 返回 tenant / landlord / agent / admin；活动帽子由路由前缀决定；Header 帽子菜单</td><td>服务商是第五顶帽子 <code>provider</code>，同一账号可以既是房东又是服务商（自管房东常见）</td></tr>
+<tr><td>收款基础设施</td><td>Stripe <b>live</b>；订阅 + 按次解锁的 webhook 账本；Connect Express 入驻代码已写（<code>brokerages.stripe_connect_id</code>，为经纪转介费而建，生产 0 行）</td><td>Phase 2 的服务商分账可以复用 Connect Express 入驻与 <code>stripe_events</code> 幂等账本</td></tr>
+<tr><td>租客保险入口</td><td><code>app_config.tenant_insurance_referral</code>（partner_name + url，管理员开关）→ 入住页 <code>InsuranceReferralCard</code>；新入住清单里「租客保险」一项（自述保险公司 + 到期日）</td><td>用户稿的「保险转介」入口已存在且是合规形态；缺的是签约 / 续约节点也放同一张卡</td></tr>
+<tr><td>规则单一来源</td><td><code>lib/ontario/rules.ts</code>（26 条 RTA / Bill 60 规则）+ <code>compliance_events</code></td><td>派单相关的 s.20 / s.26 / s.27 / s.134 规则加进同一张表，卡片与邮件引用它</td></tr>
+<tr><td>通知</td><td>邮件（Resend，发信类每小时限流）+ Web Push（VAPID 自实现，iOS 需加主屏）</td><td>服务商侧首期用邮件 + 推送；短信是新依赖（Phase 1 末评估）</td></tr>
+<tr><td>对外接口</td><td>Stayloop API：合作方密钥（<code>trust_api_keys</code>，只存哈希）+ webhook 回调</td><td>Phase 3 给服务商自有系统（或 Jobber 类工具）回传工单状态时复用</td></tr>
+</table>
+<div class="fact"><b>顺带发现的一处现有缺陷：</b><code>/h/[id]</code> 报修标签的「推进」按钮把状态写成 <code>resolved</code>，而表的 CHECK 只允许 <code>done</code>——这一步在生产上一直是静默失败（错误未检查）。Phase 0 第一件事就是把状态机接正。</div>
+
+<h2>2. 对用户稿的逐项评价</h2>
+<table>
+<tr><th style="width:24%">用户稿要点</th><th style="width:10%">判断</th><th>说明与修正</th></tr>
+<tr><td>先精选网络（curated），再开放入驻 + 评分 + Vendor SaaS</td><td>同意</td><td>顺序对。补一条：<b>精选网络之前还有一步「房东自己的联系人」</b>——很多小房东已有固定师傅，先让他们把工单派给自己的人（只要一个邮箱），我们就有了履约数据与评分样本，再去招募陌生服务商。</td></tr>
+<tr><td>三层收入：维修抽成 → 保险 referral → Vendor SaaS</td><td>同意，改顺序</td><td>按「风险从低到高」排，实际是 Vendor SaaS（订阅，不经手交易）风险最低，维修抽成（经手资金）次之，保险 referral（受牌照法约束）最高。首期收入只做 Pro 订阅里的「派单功能」（不另收），抽成留到 Phase 2。</td></tr>
+<tr><td>保险：持牌方承保与销售，Stayloop 嵌入入口；referral 结构待律师</td><td>同意，加硬约束</td><td>安省《保险法》与 FSRA 对无牌方的推介计酬有限制（不得因保单成交而分佣，FSRA 的许可适格指引把「对无牌销售控制不足」列为重点）。<b>现有转介卡（固定链接、无计酬）就是可以立刻扩到签约 / 续约节点的形态；任何按成交计费的结构在律师书面意见前不上线。</b></td></tr>
+<tr><td>自动派单：房东预设预算、品类与紧急规则</td><td>同意，加两条法规闸</td><td>① RTA s.27：非紧急进入须提前 24 小时书面通知（8:00–20:00）；s.26：紧急情况可不通知。所以派单卡必须携带「进入方式」并在非紧急件上自动生成通知文本、由房东批准后发给租客；② 自动派单只在房东预设策略内触发，且仍生成待批卡（紧急件允许「自动批准 + 15 分钟撤销」而不是跳过卡片）——保持「AI 提议、人决定」的产品原则。</td></tr>
+<tr><td>供给端资格：公司注册、持证工种、商业责任险、WSIB</td><td>同意，具体化</td><td>见第 5 节资质矩阵：Skilled Trades Ontario 有 23 个强制工种（含水管工 306A、电工 309A、制冷与空调技工 313A），公共注册库可查；电气承包须 ESA 持牌承包商；燃气设备须 TSSA 认证技师；WSIB 清关号——出租物业的维修不是「屋主自住的家装」，豁免不适用，须查清关。</td></tr>
+<tr><td>责任链：标准范围、变更授权、前后照片、验收、争议</td><td>同意，落到法规</td><td>《消费者保护法》估价规则：最终价不得超出估价 10%，除非消费者同意新范围——这条要做进产品（报价 → 增项须房东再批准 → 发票对照报价）。新《消费者保护法（2023）》已通过但配套条例未生效，现行仍是 2002 版。</td></tr>
+<tr><td>目标：租赁内的闭环履约，而非「找师傅」</td><td>同意</td><td>Jiffy（多伦多，2024-11 被 Intact 收购）与 HomeStars（Angi）都是消费者发单的通用平台；Lessen 是美国机构级端到端。我们的错位是「工单从租约里长出来、验收由租客确认、记录留在物业时间线」——这三点他们都没有。</td></tr>
+<tr><td>试点 6 个指标</td><td>同意</td><td>全部能从 <code>work_orders</code> 的事件表算出来，见第 7 节。</td></tr>
+<tr><td>未写但必须补的</td><td>—</td><td><b>RTA s.134：不得向租客收取任何费用</b>——工单的付款方永远是房东（或房东的物业公司），产品里不能出现「租客付」的入口；<b>PIPEDA</b>：服务商只看到完成工单所需的信息（地址、联系方式、照片、进入许可），看不到租约、筛查、租金记录；<b>平台身份</b>：合同上 Stayloop 是撮合与记录方，不是承包商，服务合同在房东与服务商之间——这一点要写进服务商入驻协议与房东端条款，律师确认。</td></tr>
+</table>
+
+<h2 class="pb">3. 端到端服务流程</h2>
+<p class="small">四个角色：租客（发起、确认到场与完工）· 房东（决定与付款）· 服务商（报价、到场、完工证据）· Stayloop（分诊、匹配、记录、通知；管理员做入驻核验与争议升级）。每一格写明谁做、AI 做什么、写哪张表、发什么通知。</p>
+
+<div class="flow">
+<div class="st"><span class="who">租客 / 房东</span><b>① 发起</b>对话、照片或在 /h 报修表；AI 补齐四件事（哪里 / 类别 / 进入许可 / 宠物）；紧急件先给「现在该做什么」<br><code>maintenance_tickets: new</code></div>
+<div class="st"><span class="who">Stayloop AI</span><b>② 分诊</b>类别、紧急度、是否需持证工种、预算档位、是否在房东自动派单策略内<br><code>tickets.triage(jsonb)</code> · 推送房东</div>
+<div class="st gate"><span class="who">房东 · 待批卡</span><b>③ 指派</b>三选一：自己的联系人 / 精选网络候选（资质、距离、评分、可用性）/ 稍后处理。批准 = 发出派单邀请<br><code>work_orders: offered</code></div>
+<div class="st"><span class="who">服务商</span><b>④ 接单 + 报价</b>邮件 / 推送里接受或拒绝；给出范围、报价（固定或工时 + 材料）、可到场时间窗<br><code>work_orders: quoted</code></div>
+<div class="st gate"><span class="who">房东 · 待批卡</span><b>⑤ 批准报价</b>预览报价与进入方式；非紧急件同时生成 RTA s.27 的 24 小时进入通知给租客<br><code>work_orders: scheduled</code> · 写 compliance_events</div>
+<div class="st"><span class="who">服务商 / 租客</span><b>⑥ 到场</b>服务商点「已到场」；租客可确认；增项须回到 ⑤ 再批（CPA 10% 规则）<br><code>work_orders: in_progress</code></div>
+<div class="st"><span class="who">服务商</span><b>⑦ 完工</b>完工照片、用料、实际工时、发票（PDF）<br><code>work_orders: completed</code> · <code>tickets: review</code></div>
+<div class="st gate"><span class="who">房东 + 租客</span><b>⑧ 验收</b>租客确认「问题已解决」，房东验收并评分；不满意 → 返工或争议<br><code>work_orders: accepted</code> · <code>tickets: done</code></div>
+<div class="st"><span class="who">房东</span><b>⑨ 付款</b>Phase 1：线下付款、平台记录「已付」；Phase 2：Stripe Connect 代收 → 扣抽成 → 转服务商<br><code>work_orders: paid</code></div>
+<div class="st"><span class="who">Stayloop</span><b>⑩ 归档</b>工单、证据、发票、评分进物业时间线；服务商指标更新；争议 14 天窗口<br><code>work_orders: closed</code></div>
+<div class="st"><span class="who">分支</span><b>返工 / 争议</b>rework 回到 ⑥；dispute 冻结付款并由管理员介入，双方证据在同一页<br><code>disputed → resolved</code></div>
+<div class="st"><span class="who">分支</span><b>取消</b>任一方取消带原因；服务商已到场则记「空跑」并可计费（规则由入驻协议定）<br><code>cancelled</code></div>
+</div>
+
+<h3>3.1 紧急件专线（无暖气、停水、燃气、淹水、门锁、CO）</h3>
+<ul>
+<li>租客助手先给「现在该做什么」（燃气 → 离开并打燃气公司；漏水 → 关总阀；没暖气 → 电话房东留证据），再出工单；工单 priority 强制 high，标 <code>emergency=true</code>。</li>
+<li>房东若预设了「紧急自动派单策略」（品类 + 上限金额 + 候选名单），③ 与 ⑤ 合并成一张<b>自动批准、15 分钟可撤销</b>的卡，推送 + 邮件同时发；未预设则照常人工批准，但推送级别为 approval（两档都推）。</li>
+<li>RTA s.26 允许紧急进入不提前通知——卡片与租客通知写明依据；非紧急件一律走 24 小时书面通知。</li>
+</ul>
+
+<h3>3.2 谁能看到什么（PIPEDA 最小必要）</h3>
+<table>
+<tr><th>信息</th><th>租客</th><th>房东</th><th>服务商</th><th>Stayloop 管理员</th></tr>
+<tr><td>工单内容、照片、进入许可、宠物</td><td>本人</td><td>是</td><td>接单后</td><td>争议时</td></tr>
+<tr><td>租客姓名 + 联系电话</td><td>—</td><td>是</td><td>接单后，且只在工单期间</td><td>争议时</td></tr>
+<tr><td>租约、租金记录、筛查报告</td><td>本人</td><td>是</td><td><b>永不</b></td><td>否</td></tr>
+<tr><td>报价、发票、付款状态</td><td>只看「已解决 / 处理中」</td><td>是</td><td>本单</td><td>争议时</td></tr>
+<tr><td>服务商资质与到期日</td><td>只看「已核验」徽章</td><td>是</td><td>本人</td><td>是</td></tr>
+</table>
+
+<h2 class="pb">4. 产品与数据设计</h2>
+<h3>4.1 新表（全部 authId 键、RLS、anon 无权）</h3>
+<table>
+<tr><th style="width:22%">表</th><th>字段要点</th><th style="width:30%">读写边界</th></tr>
+<tr><td><code>service_providers</code></td><td>auth_id · 法定名 · 商号 · 公司注册号 · 服务区域（城市 / 邮编前缀）· 工种数组 · 定价方式（fixed / hourly + call-out）· 联系人 · 状态 pending / verified / suspended / expired · verified_at / by · review_note · 指标缓存（接单率、到场时长中位数、一次修复率、返工率、评分）</td><td>本人读写自述字段；status / verified_* 由触发器冻结（复制 <code>guard_agent_profile_fields</code>）；verified 行对 landlord 帽子可读（目录）；管理员全权</td></tr>
+<tr><td><code>provider_credentials</code></td><td>provider_id · kind（sto_coq · esa_contractor · tssa_gas · wsib_clearance · liability_insurance · business_registration）· 编号 · 到期日 · 文件路径（私有桶）· 核验记录（谁、何时、对照了哪个公开库）</td><td>本人上传；管理员核验；<b>到期前 30 天自动置 provider 为 expired 并停派单</b>（pg_cron）</td></tr>
+<tr><td><code>work_orders</code></td><td>ticket_id · household_id · landlord_auth_id · provider_id（或 external_email：房东自己的联系人）· scope · entry_permission · emergency · quote（金额、类型、有效期）· approved_quote · schedule_window · arrived_at · completed_at · accepted_at · accepted_by_tenant · paid_at · payment_mode（offline / connect）· platform_fee · status（offered / declined / quoted / scheduled / in_progress / completed / accepted / rework / disputed / paid / closed / cancelled）</td><td>房东与服务商各自按行读写自己的字段；租客成员只读状态与完工确认；状态迁移只经执行器（service role）</td></tr>
+<tr><td><code>work_order_events</code></td><td>work_order_id · actor · event · payload（照片路径、金额、备注）· created_at</td><td>只增不改；三方都可读本单事件；是 6 个指标的唯一来源</td></tr>
+<tr><td><code>provider_reviews</code></td><td>work_order_id · by（landlord / tenant）· 准时 · 沟通 · 质量 · 总评 · 文字</td><td>验收后 14 天内可写一次；服务商可读不可改</td></tr>
+<tr><td><code>dispatch_policies</code></td><td>landlord_auth_id · 品类 · 自动派单开关 · 金额上限 · 候选优先级 · 紧急件自动批准</td><td>房东本人</td></tr>
+</table>
+
+<h3>4.2 新执行器（<code>/api/agent/execute</code>）与卡片</h3>
+<table>
+<tr><th>action_type</th><th>触发</th><th>批准后做什么</th></tr>
+<tr><td><code>dispatch_work_order</code></td><td>步骤 ③（AI 分诊后自动生成；房东也可在 /h 报修标签手动发起）</td><td>建 work_order（offered）、给候选服务商发邀请邮件 + 推送、写事件；48 小时无人接单 → 回到房东并建议下一位</td></tr>
+<tr><td><code>approve_quote</code></td><td>步骤 ⑤（服务商报价后自动生成）</td><td>置 scheduled，非紧急件同时给租客发 s.27 进入通知（预览可见全文），写 compliance_events</td></tr>
+<tr><td><code>accept_completion</code></td><td>步骤 ⑧（服务商完工后生成；租客已确认时卡片标「租客已确认」）</td><td>置 accepted / tickets.done，开放评分；Phase 2 触发收款</td></tr>
+<tr><td><code>enter_notice</code>（可选）</td><td>房东自己要进屋时</td><td>只发 s.27 通知，不派单</td></tr>
+</table>
+<p class="small">全部沿用现有的预览、60 秒撤销、发信限流（每账号每小时 20 封）与审计。紧急件的「自动批准」是 <code>dispatch_policies</code> 命中时由 proactive 路由直接以 approved 状态插卡并调度执行，撤销窗口 15 分钟。</p>
+
+<h3>4.3 界面</h3>
+<ul>
+<li><b>房东</b>：<code>/landlord/maintenance</code> 从设计样例改为真实看板（按 tickets.status 分列：新 / 已派单 / 处理中 / 待验收 / 已完成），每张工单展开 work_order 时间线；<code>/h/[id]</code> 报修标签加「指派」按钮与派单卡；<code>/landlord/providers</code>：我的联系人 + 精选网络目录（按工种 / 区域 / 评分筛选，徽章「资质已核 · 到期 YYYY-MM」）；<code>/settings</code> 加「自动派单策略」。</li>
+<li><b>租客</b>：<code>/h/[id]</code> 报修标签看到派单进度（已派 → 到场时间窗 → 已完工 → 请确认）与「确认已解决 / 还没好」两个按钮；进入通知作为一条系统消息出现在对话标签。</li>
+<li><b>服务商</b>（新帽子 <code>provider</code>）：<code>/provider/onboard</code>（入驻表 + 资质上传）· <code>/provider/jobs</code>（邀请 / 进行中 / 已完成三列，手机优先：接单、报价、到场、上传完工照片、开发票四个大按钮）· <code>/provider/profile</code>（区域、工种、定价、可用性）。不做排班 / 路线（Vendor SaaS 留到 Phase 3）。</li>
+<li><b>管理员</b>：<code>/admin/providers</code>（照 <code>/admin/agents</code>：队列、对照公开注册库的链接、核验 / 拒绝 / 标过期、资质到期看板）· <code>/admin/disputes</code>（争议单：双方证据、冻结付款、裁定记录）。</li>
+<li><b>Rail 与今日卡</b>：房东租中阶段「报修」步骤细分为「待派 / 进行中 / 待验收」；今日卡列「N 张工单等你指派 / 验收」。</li>
+</ul>
+
+<h2 class="pb">5. 资质与合规矩阵（入驻核验清单）</h2>
+<table>
+<tr><th style="width:18%">品类</th><th>必须核验</th><th>公开可查的库</th><th style="width:26%">备注</th></tr>
+<tr><td>水管</td><td>Skilled Trades Ontario 资格证（Plumber 306A，强制工种）· WSIB 清关 · 商业责任险</td><td>STO Public Register · WSIB 清关查询</td><td>加压 / 燃气热水器另需 TSSA</td></tr>
+<tr><td>电气</td><td>ESA 持牌电气承包商（Licensed Electrical Contractor）· 电工 309A · WSIB · 责任险</td><td>ESA 承包商查询 · STO</td><td>安省电气工作只能由 ESA 持牌承包商承接并申报（O. Reg. 570/05）</td></tr>
+<tr><td>供暖 / 空调 / 制冷</td><td>制冷与空调技工 313A（强制工种）· 燃气设备须 TSSA 燃气技师（G1/G2/G3）· WSIB · 责任险</td><td>STO · TSSA 认证查询</td><td>「无暖气」是最常见紧急件，这一类要最先招募</td></tr>
+<tr><td>电器维修</td><td>公司注册 · 责任险；涉及燃气灶 / 干衣机则 TSSA</td><td>安省企业注册（ONBIS）</td><td>非强制工种</td></tr>
+<tr><td>门锁 / 安全</td><td>公司注册 · 责任险；开锁行业无省级牌照</td><td>ONBIS</td><td>租客换锁须房东同意（RTA s.35），工单上注明由谁授权</td></tr>
+<tr><td>虫害</td><td>安省环境部除虫许可（Exterminator Licence，害虫防治操作员）· 责任险</td><td>MECP 许可查询</td><td>多伦多多户楼受 RentSafeTO 约束</td></tr>
+<tr><td>杂工 / 清洁 / 搬运</td><td>公司注册 · 责任险 · WSIB（如有雇员）</td><td>ONBIS</td><td>非持证类，靠评分与履约数据</td></tr>
+</table>
+<div class="fact"><b>三条产品硬规则：</b>① 需持证工种的工单，候选列表只出现资质在有效期内的服务商，其余灰掉并写明原因；② 每次派单在 <code>work_order_events</code> 里记录「派单时对照的资质编号与到期日」（用户稿的「派单前后保存核验记录」）；③ 资质到期 → 自动停派单 → 服务商与管理员各收一封提醒（到期前 30 天）。</div>
+
+<h3>5.1 与用户稿一致的合规红线</h3>
+<ul>
+<li><b>平台不替代持牌主体</b>：Stayloop 撮合、记录、通知；服务合同在房东与服务商之间；争议裁定不是法律裁决，双方仍可走 LTB / 小额法庭。</li>
+<li><b>保险</b>：承保、建议、报价解释与销售由持牌保险公司 / 代理 / 经纪完成；Stayloop 只放入口，不按成交计酬；具体结构由安省保险律师与合作方确认后再动。</li>
+<li><b>租客不付费</b>（RTA s.134）；<b>估价 10% 规则</b>（CPA）；<b>进入通知</b>（RTA s.26 / s.27）；<b>维修义务在房东</b>（RTA s.20）——四条全部进 <code>lib/ontario/rules.ts</code> 并在卡片与邮件里引用编号。</li>
+</ul>
+
+<h2 class="pb">6. 分阶段路线（与用户稿的 0–3 / 3–9 / 9–18 月对齐）</h2>
+<table>
+<tr><th style="width:14%">阶段</th><th style="width:30%">范围</th><th>做完的标志</th><th style="width:22%">不做</th></tr>
+<tr><td><span class="tag p0">Phase 0</span><br>2 周</td><td>① 修 <code>/h/[id]</code> 状态机（assigned / review / done）；② 房东可把工单「指派给自己的联系人」（一个邮箱，不需入驻）：邀请邮件、接受链接、到场 / 完工 / 验收三步；③ <code>/landlord/maintenance</code> 改真实看板；④ 四条规则进规则库；⑤ 租客保险入口扩到签约与续约节点</td><td>一份真实在管租约上，从租客报修到房东验收全程有记录、有审计；至少 3 位真实房东用过「派给自己的人」</td><td>服务商入驻、目录、报价、付款</td></tr>
+<tr><td><span class="tag p1">Phase 1</span><br>6–8 周</td><td>精选网络（GTA，先 3 个品类：水管 / 电气 / 供暖空调，各 3–5 家，手工招募）：入驻表 + 资质上传 + 管理员核验 + 到期停派；派单卡（候选按资质 · 距离 · 评分 · 可用性）；报价 → 批准 → s.27 通知；到场 / 完工证据 / 租客确认 / 房东验收 / 评分；线下付款只记录；服务商手机页；争议单（人工）</td><td>30 张真实工单走完全流程；接受派单率、到场时长、一次修复率、报价偏差、返工 / 投诉率、房东 NPS 六个指标有数</td><td>抽成、自动派单、短信、Vendor SaaS</td></tr>
+<tr><td><span class="tag p2">Phase 2</span><br>3–9 月</td><td>Stripe Connect Express 入驻服务商 → 平台代收 → 扣抽成 → 转账；发票与 HST 处理；争议冻结付款；自动派单策略与紧急件自动批准；服务商短信；房东「服务商网络」进 Pro 定价</td><td>抽成率与单位经济在真实数据上定下来；争议率与退款率可控</td><td>开放入驻</td></tr>
+<tr><td><span class="tag p2">Phase 3</span><br>9–18 月</td><td>开放入驻 + 等级（按履约数据）+ 流量分配；Vendor SaaS（排班、路线、开票、回款、复购）；Stayloop API 回传工单状态给服务商自有系统；复制到下一个城市；保险节点按律师意见扩展</td><td>用户稿的「平台基础设施」状态</td><td>—</td></tr>
+</table>
+
+<h2>7. 指标与商业</h2>
+<table>
+<tr><th>指标（用户稿 6 项）</th><th>从哪算</th></tr>
+<tr><td>接受派单率</td><td><code>offered → quoted</code> 的比例（按服务商、按品类）</td></tr>
+<tr><td>到场时长</td><td><code>scheduled.start</code> 到 <code>arrived_at</code>；紧急件另计从 <code>new</code> 到 <code>arrived_at</code></td></tr>
+<tr><td>一次修复率</td><td><code>accepted</code> 且 30 天内同 household 同类别无新工单</td></tr>
+<tr><td>报价偏差</td><td>发票金额 / 批准报价；>1.10 且无增项批准即违反 CPA 规则，标红</td></tr>
+<tr><td>复工 / 投诉率</td><td><code>rework</code> 与 <code>disputed</code> 占已验收单比例</td></tr>
+<tr><td>房东 NPS</td><td>验收时一题（0–10）</td></tr>
+</table>
+<p>收入路径：Phase 0–1 不新增收费（派单是 Pro 的一部分，测试月内全免）；Phase 2 抽成率按品类在试点后定（用户稿口径）；Vendor SaaS 订阅在 Phase 3；保险只做入口，无计酬。成本：人工核验（每家 20–30 分钟）、Stripe Connect 费率、短信（Phase 2）、争议处理的人力。</p>
+
+<h2>8. 风险与对策</h2>
+<table>
+<tr><th style="width:26%">风险</th><th>对策</th></tr>
+<tr><td>需求密度不够（今天 1 张工单）</td><td>Phase 0 绑定「导入在管租约」增长；派给自己的联系人不需要供给侧；不到 30 张 / 月真实工单不启动 Phase 1 招募</td></tr>
+<tr><td>供给冷启动（服务商为什么来）</td><td>首批 10 家手工招募，承诺「零费用 + 已分诊的高意图工单 + 一页式接单」；不做竞价、不做抢单，按资质与评分排序</td></tr>
+<tr><td>平台被当成承包商 / 责任外溢</td><td>入驻协议与房东条款明确 Stayloop 是撮合与记录方；争议裁定只影响平台内付款与等级；由律师定稿</td></tr>
+<tr><td>资质造假或过期</td><td>只认公开库可查的编号；到期自动停派；派单时快照资质；抽查</td></tr>
+<tr><td>保险 referral 合规</td><td>律师意见前只放入口；任何计酬结构需书面确认</td></tr>
+<tr><td>租客隐私与安全</td><td>服务商只在工单期间看到必要信息；进入通知与进入许可强制；租客可标「须本人在场」</td></tr>
+<tr><td>人工核验负担落在 Stayloop</td><td>Phase 1 供给 ≤15 家可承受；Phase 3 开放入驻前必须有到期自动化与抽查流程</td></tr>
+</table>
+
+<h2>9. 需要你决定的五件事</h2>
+<div class="decide">
+<ol>
+<li><b>做不做 Phase 0</b>（2 周，不涉及服务商与资金，纯粹把报修闭环补齐并让房东能派给自己的人）。我的建议：做，它本身就是「租中」模块该有的功能。</li>
+<li><b>Phase 1 的启动条件</b>：我建议「连续一个月 ≥30 张真实工单」再招募服务商；或者你决定用你自己的房源与熟悉的服务商先跑 5–10 单做样板。</li>
+<li><b>首批品类</b>：建议水管 / 电气 / 供暖空调（紧急件最多、持证要求最清楚）；用户稿写 3–5 个，第四、五个建议电器与门锁。</li>
+<li><b>资金是否经手</b>：Phase 1 线下付款只记录，Phase 2 再上 Connect。如果你想第一天就抽成，需要先把 CPA / HST / 争议退款的责任一起背上。</li>
+<li><b>保险</b>：现在只把现有转介卡扩到签约与续约节点（零风险）；计酬结构等律师意见。是否现在就去找安省保险律师与一家持牌合作方谈？</li>
+</ol>
+</div>
+
+<div class="footer">
+一手来源：Skilled Trades Ontario（强制工种与公共注册：skilledtradesontario.ca/about-trades/work-in-the-compulsory-trades，/public-register）· Ontario.ca「Compulsory trades and enforcement」· ESA 电气承包商许可（O. Reg. 570/05）· TSSA 燃气技师认证 · WSIB「Clearances」与 Bill 119 强制覆盖（2013-01-01 起建筑类独立经营者）· Ontario.ca「Your rights when starting home renovations or repairs」（估价 10% 规则，CPA 2002）· Bill 142《Consumer Protection Act, 2023》（已通过，条例待生效）· FSRA 许可适格指引（对无牌销售控制不足为重点）· RTA s.20 / s.26 / s.27 / s.35 / s.134 · 可比公司：Jiffy（2015 年多伦多创立，2024-11 被 Intact 收购）、HomeStars（Angi）、Lessen。生产实数：maintenance_tickets 1 · households 1 · landlords 7 · brokerages 0（2026-09-23）。
+</div>
+</body>
+</html>

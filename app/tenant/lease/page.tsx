@@ -2,6 +2,7 @@
 
 // V5 VOL2 · Tenant · 租约审阅 + 第 6 页 · 签名 (Ontario Standard Lease / LTB).
 // Layout follows design/v9-workspace-finance.html.
+import InsuranceReferralCard from '@/components/tenant/InsuranceReferralCard'
 import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
@@ -130,6 +131,7 @@ export default function TenantLeasePage() {
 
   return (
     <WorkspaceShell role="tenant" aside={<SigningAside lang={lang} insights={insights} />}>
+      <InsuranceReferralCard />
       <HouseholdList />
       <PageHeader
         title={zh ? 'Unit 1207 · King West 租约' : 'Unit 1207 · King West Lease'}

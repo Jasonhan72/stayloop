@@ -24,6 +24,8 @@ import { sendEmail, renderAgentMessageEmail, renderRentReminderEmail } from '@/l
 import { sendLeaseInvitation, leaseSendPreflight, buildLeaseInvite, type LeaseForSend } from '@/lib/lease/sendLease'
 import { decisionNoticeFooter, guidelineFor } from '@/lib/ontario/rules'
 import { notifyUser } from '@/lib/push/notify'
+import { actOnWorkOrder, createWorkOrder, ticketContext } from '@/lib/marketplace/server'
+import { providerEligible, tradeForCategory, TRADES } from '@/lib/marketplace/trades'
 
 export const runtime = 'edge'
 
@@ -72,6 +74,14 @@ type ActionRow = {
     location?: string
     entry_permission?: string
     pets?: string
+    // work orders (services marketplace)
+    work_order_id?: string
+    ticket_id?: string
+    household_id?: string
+    candidates?: { provider_id: string; name: string }[]
+    provider_id?: string
+    external_email?: string
+    external_name?: string
   } | null
 }
 
@@ -404,8 +414,64 @@ The ticket is on your shared tenancy hub; both sides see its progress.${emergenc
   const { html, text } = renderAgentMessageEmail({ subject, body })
   const result = await sendEmail({ to: ll.email, subject, html, text })
   if (ll.auth_id) void notifyUser(admin, ll.auth_id, { kind: 'event', title: '新的报修工单 / New repair ticket', body: title, url: `/h/${ll.household_id}` })
+  // Services marketplace step ③: suggest the dispatch to the landlord as a card
+  // (candidates = verified providers covering the trade and city; own contact
+  // always possible). Never auto-dispatches.
+  if (ll.auth_id) void suggestDispatch(admin, ll.auth_id, ticket.id)
   const executionResult = { ok: true, kind: 'ticket', ticket_id: ticket.id, household_id: ll.household_id, email_id: result.ok ? result.id : null, sent_to: ll.email, email_error: result.ok ? null : result.error }
   return finalizeExecution(admin, userId, action.id, 'executed_maintenance_request', executionResult, { ticket_id: ticket.id, household_id: ll.household_id, sent_to: ll.email })
+}
+
+// ---------------------------------------------------------------------------
+// Services marketplace executors (design/services-marketplace-plan-2026-09 §3)
+// ---------------------------------------------------------------------------
+async function suggestDispatch(admin: Admin, landlordAuthId: string, ticketId: string): Promise<void> {
+  try {
+    const ctx = await ticketContext(admin, ticketId)
+    if (!ctx) return
+    const trade = tradeForCategory(ctx.ticket.category)
+    const { data: provs } = await admin.from('service_providers').select('id, legal_name, trade_name, status, trades, service_cities').eq('status', 'verified').contains('trades', [trade]).limit(20)
+    const candidates: { provider_id: string; name: string }[] = []
+    for (const p of (provs ?? []) as { id: string; legal_name: string; trade_name: string | null; status: string; trades: string[]; service_cities: string[] }[]) {
+      const { data: creds } = await admin.from('provider_credentials').select('kind, expires_at, verified_at').eq('provider_id', p.id)
+      if (providerEligible(p, (creds ?? []) as { kind: string; expires_at: string | null; verified_at: string | null }[], trade, ctx.household.city).ok) candidates.push({ provider_id: p.id, name: p.trade_name || p.legal_name })
+      if (candidates.length >= 5) break
+    }
+    const tradeLabel = TRADES.find((t) => t.key === trade)
+    const unit = [ctx.household.address, ctx.household.unit ? `#${ctx.household.unit}` : null].filter(Boolean).join(' ')
+    await admin.from('agent_pending_actions').insert({
+      user_id: landlordAuthId, role: 'landlord', action_type: 'dispatch_work_order',
+      title: `派单：${ctx.ticket.title} · ${unit}`,
+      summary: `租客的报修「${ctx.ticket.title}」需要${tradeLabel?.zh ?? '维修'}。` + (candidates.length ? `精选网络里有 ${candidates.length} 家资质在有效期内的服务商可派：${candidates.map((c) => c.name).join('、')}。批准 = 向第一位发出派单邀请（可在工单页改派或派给自己的联系人）。` : '精选网络里暂时没有覆盖这个工种与区域的已核验服务商——请在工单页把它派给你自己的联系人（只需一个邮箱）。') + (ctx.ticket.priority === 'high' ? ' 紧急件：进入按 RTA s.26 可不提前通知。' : ' 非紧急：批准报价时我会给租客发 24 小时进入通知（RTA s.27）。'),
+      recipient_label: candidates[0]?.name ?? null, data_scope: ['工单内容', '地址（接单后）'], excluded_data: ['租约', '筛查报告', '租金记录'], risk_level: 'low', status: 'pending', requires_approval: true,
+      metadata: { ticket_id: ticketId, household_id: ctx.household.id, candidates, provider_id: candidates[0]?.provider_id ?? null, source: 'work_order' },
+    })
+  } catch (e) { console.warn('[execute] suggestDispatch failed:', (e as Error).message) }
+}
+
+async function executeDispatchWorkOrder(admin: Admin, userId: string, action: ActionRow, preview = false): Promise<NextResponse> {
+  const m = action.metadata || {}
+  const ticketId = typeof m.ticket_id === 'string' ? m.ticket_id : ''
+  if (!/^[0-9a-f-]{36}$/i.test(ticketId)) return NextResponse.json({ executed: false, reason: 'ticket_id missing' }, { status: 422 })
+  const providerId = typeof m.provider_id === 'string' && m.provider_id ? m.provider_id : null
+  const external = typeof m.external_email === 'string' && m.external_email ? m.external_email : null
+  if (!providerId && !external) return NextResponse.json({ executed: false, reason: 'no_candidate_choose_on_ticket' }, { status: 422 })
+  if (preview) return PREVIEW({ subject: action.title, body: action.summary || '', to: external ?? (action.recipient_label || null) })
+  if (!(await claimExecution(admin, action.id))) return ALREADY()
+  const r = await createWorkOrder(admin, { ticketId, landlordAuthId: userId, providerId, externalEmail: external, externalName: typeof m.external_name === 'string' ? m.external_name : null, entryPermission: (['anytime', 'call_first', 'tenant_present'] as const).find((x) => x === m.entry_permission) ?? null, actor: 'landlord' })
+  if (!r.ok) { await releaseClaim(admin, action.id, r.error); return NextResponse.json({ executed: false, reason: r.error }, { status: r.status }) }
+  return finalizeExecution(admin, userId, action.id, 'executed_dispatch_work_order', { ok: true, kind: 'work_order', work_order_id: r.wo.id, status: r.wo.status }, { work_order_id: r.wo.id, ticket_id: ticketId, provider_id: r.wo.provider_id })
+}
+
+async function executeWorkOrderDecision(admin: Admin, userId: string, action: ActionRow, kind: 'approve_quote' | 'accept_completion', preview = false): Promise<NextResponse> {
+  const m = action.metadata || {}
+  const woId = typeof m.work_order_id === 'string' ? m.work_order_id : ''
+  if (!/^[0-9a-f-]{36}$/i.test(woId)) return NextResponse.json({ executed: false, reason: 'work_order_id missing' }, { status: 422 })
+  if (preview) return PREVIEW({ subject: action.title, body: action.summary || '', to: action.recipient_label || null })
+  if (!(await claimExecution(admin, action.id))) return ALREADY()
+  const r = await actOnWorkOrder(admin, { woId, action: kind, by: 'landlord', actorId: userId, payload: {} })
+  if (!r.ok) { await releaseClaim(admin, action.id, r.error); return NextResponse.json({ executed: false, reason: r.error }, { status: r.status }) }
+  return finalizeExecution(admin, userId, action.id, `executed_${kind}`, { ok: true, kind, work_order_id: woId, status: r.wo.status }, { work_order_id: woId, status: r.wo.status })
 }
 
 async function executeSendMessage(
@@ -787,6 +853,12 @@ export async function POST(req: Request) {
       // Approval = acknowledged (P1 2026-09-23); nothing is sent.
       if (preview) return PREVIEW({ subject: action.title, body: action.summary || '', to: null })
       return executeRenewalCheckpoint(admin, userId, action, 'executed_relist_prompt')
+    case 'dispatch_work_order':
+      return executeDispatchWorkOrder(admin, userId, action, preview)
+    case 'approve_quote':
+      return executeWorkOrderDecision(admin, userId, action, 'approve_quote', preview)
+    case 'accept_completion':
+      return executeWorkOrderDecision(admin, userId, action, 'accept_completion', preview)
     case 'showing_request':
     case 'listing_inquiry':
       return executeShowingRequest(admin, userId, action, ud.user.email ?? null, preview)

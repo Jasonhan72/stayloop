@@ -73,6 +73,14 @@ export default function AdminHomePage() {
       hot: false,
     },
     {
+      href: '/admin/providers',
+      icon: '🔧',
+      title: zh ? '服务商核验' : 'Provider verification',
+      desc: zh ? '对照 Skilled Trades Ontario / ESA / TSSA / WSIB 公开注册库核验维修服务商的资质；争议工单也在这里裁定。' : 'Check repair providers against the STO / ESA / TSSA / WSIB public registers; disputed work orders are resolved here.',
+      stat: zh ? '人工核验' : 'manual check',
+      hot: false,
+    },
+    {
       href: '/admin/users',
       icon: '👥',
       title: zh ? '用户与权限' : 'Users & permissions',

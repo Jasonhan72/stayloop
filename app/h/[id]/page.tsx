@@ -19,6 +19,7 @@ import { rentSchedule } from '@/lib/household/schedule'
 import { persistentLatePayment } from '@/lib/ontario/rules'
 import { tenancyClock } from '@/lib/household/clock'
 import MoveInChecklist from '@/components/household/MoveInChecklist'
+import MaintenancePanel from '@/components/household/MaintenancePanel'
 import PaymentPlanDraft from '@/components/household/PaymentPlanDraft'
 
 // Tenant's answer to the 30-day touchpoint (renewal_intents, P1 2026-09-23).
@@ -114,8 +115,11 @@ export default function HouseholdHub() {
   // tenant confirms with one click (read in an effect — never on first paint).
   useEffect(() => {
     try {
-      const v = new URLSearchParams(window.location.search).get('intent')
+      const q = new URLSearchParams(window.location.search)
+      const v = q.get('intent')
       if (v && INTENT_LABEL[v]) setIntentPick(v)
+      const t = q.get('tab')
+      if (t === 'maintenance' || t === 'rent' || t === 'messages') setTab(t)
     } catch { /* no window */ }
   }, [])
 
@@ -177,14 +181,6 @@ export default function HouseholdHub() {
     setBusy(false)
   }
 
-  async function advanceTicket(t: Ticket) {
-    const next = t.status === 'new' ? 'in_progress' : t.status === 'in_progress' ? 'resolved' : null
-    if (!next) return
-    await supabase.from('maintenance_tickets')
-      .update({ status: next, resolved_at: next === 'resolved' ? new Date().toISOString() : null })
-      .eq('id', t.id)
-    await load()
-  }
 
   async function openLeaseFile() {
     const { data: list } = await supabase.storage.from('tenancy-files').list(id)
@@ -441,54 +437,8 @@ export default function HouseholdHub() {
       )}
 
       {tab === 'maintenance' && (
-        <div className="mt-6 space-y-4">
-          {!showTicketForm ? (
-            <button onClick={() => setShowTicketForm(true)} className="rounded-lg px-5 py-2.5 text-[13px] font-bold text-white" style={{ background: '#00ACE4' }}>
-              + {zh ? '提交报修' : 'New request'}
-            </button>
-          ) : (
-            <div className="rounded-xl border border-line-divider bg-white p-5">
-              <input className={input} placeholder={zh ? '标题(如:厨房水龙头漏水)' : 'Title (e.g. kitchen tap leaking)'}
-                value={ticketForm.title} onChange={(e) => setTicketForm((f) => ({ ...f, title: e.target.value }))} />
-              <textarea className={`${input} mt-2 min-h-[80px]`} placeholder={zh ? '描述(可选)' : 'Details (optional)'}
-                value={ticketForm.description} onChange={(e) => setTicketForm((f) => ({ ...f, description: e.target.value }))} />
-              <div className="mt-3 flex items-center gap-3">
-                <select className="rounded-lg border border-line-divider bg-white px-2 py-2 text-[13px]"
-                  value={ticketForm.priority} onChange={(e) => setTicketForm((f) => ({ ...f, priority: e.target.value }))}>
-                  <option value="low">{zh ? '低' : 'Low'}</option>
-                  <option value="medium">{zh ? '中' : 'Medium'}</option>
-                  <option value="high">{zh ? '高 · 紧急' : 'High / urgent'}</option>
-                </select>
-                <button onClick={() => void createTicket()} disabled={busy || !ticketForm.title.trim()}
-                  className="rounded-lg px-5 py-2 text-[13px] font-bold text-white disabled:opacity-50" style={{ background: '#00ACE4' }}>
-                  {zh ? '提交' : 'Submit'}
-                </button>
-                <button onClick={() => setShowTicketForm(false)} className="text-[12.5px] text-body-3 underline">{zh ? '取消' : 'Cancel'}</button>
-              </div>
-            </div>
-          )}
-          {tickets.length === 0 && <p className="py-6 text-center text-[13px] text-body-3">{zh ? '暂无报修记录。' : 'No maintenance requests yet.'}</p>}
-          {tickets.map((t) => (
-            <div key={t.id} className="rounded-xl border border-line-divider bg-white p-5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[14px] font-bold">{t.title}</span>
-                <span className="rounded-md px-2 py-0.5 font-mono text-[10px] font-bold"
-                  style={t.status === 'resolved' ? { color: '#047857', background: '#04785714' }
-                    : t.status === 'in_progress' ? { color: '#1D4ED8', background: '#1D4ED814' }
-                    : { color: '#A16207', background: '#A1620714' }}>
-                  {t.status === 'resolved' ? (zh ? '已解决' : 'RESOLVED') : t.status === 'in_progress' ? (zh ? '处理中' : 'IN PROGRESS') : (zh ? '新工单' : 'NEW')}
-                </span>
-                {t.priority === 'high' && <span className="rounded-md bg-red-50 px-2 py-0.5 font-mono text-[10px] font-bold text-red-600">{zh ? '紧急' : 'URGENT'}</span>}
-                <span className="ml-auto text-[11px] text-body-3">{new Date(t.created_at).toLocaleDateString()}</span>
-              </div>
-              {t.description && <p className="mt-2 text-[13px] leading-relaxed text-body-2">{t.description}</p>}
-              {t.status !== 'resolved' && (
-                <button onClick={() => void advanceTicket(t)} className="mt-3 rounded-md border border-line-divider px-3 py-1 text-[11px] font-bold hover:border-[#00ACE4]">
-                  {t.status === 'new' ? (zh ? '开始处理' : 'Start') : (zh ? '标记已解决' : 'Mark resolved')}
-                </button>
-              )}
-            </div>
-          ))}
+        <div className="mt-6">
+          <MaintenancePanel householdId={id} city={household.city} myRole={(myRole as 'landlord' | 'tenant' | 'property_manager' | 'agent' | null)} zh={zh} />
         </div>
       )}
     </Shell>

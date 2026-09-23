@@ -16,10 +16,12 @@ export type Hats = {
   landlord: boolean
   /** null = no agent profile; otherwise the verification status */
   agent: AgentStatus | null
+  /** null = no service_providers row; otherwise pending / verified / rejected / suspended / expired */
+  provider: string | null
   admin: boolean
 }
 
-const EMPTY: Hats = { loading: true, tenant: false, landlord: false, agent: null, admin: false }
+const EMPTY: Hats = { loading: true, tenant: false, landlord: false, agent: null, provider: null, admin: false }
 let cache: { uid: string; hats: Hats } | null = null
 
 export function useHats(): Hats & { refresh: () => Promise<void> } {
@@ -29,8 +31,8 @@ export function useHats(): Hats & { refresh: () => Promise<void> } {
   async function load(uid: string) {
     const { data, error } = await supabase.rpc('my_hats')
     if (error) { setHats((h) => ({ ...h, loading: true })); return }
-    const d = (data || {}) as { tenant?: boolean; landlord?: boolean; agent?: AgentStatus | null; admin?: boolean }
-    const next: Hats = { loading: false, tenant: true, landlord: !!d.landlord, agent: (d.agent as AgentStatus | null) ?? null, admin: !!d.admin }
+    const d = (data || {}) as { tenant?: boolean; landlord?: boolean; agent?: AgentStatus | null; provider?: string | null; admin?: boolean }
+    const next: Hats = { loading: false, tenant: true, landlord: !!d.landlord, agent: (d.agent as AgentStatus | null) ?? null, provider: typeof d.provider === 'string' ? d.provider : null, admin: !!d.admin }
     cache = { uid, hats: next }
     setHats(next)
   }

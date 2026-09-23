@@ -1,5 +1,6 @@
 'use client'
 
+import LiveMaintenanceBoard from '@/components/landlord/LiveMaintenanceBoard'
 import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
@@ -131,7 +132,8 @@ export default function LandlordMaintenancePage() {
   ]
 
   return (
-    <WorkspaceShell role="landlord" aside={<Aside lang={lang} insights={insights} />}>
+    <WorkspaceShell role="landlord" aside={<Aside lang={lang} insights={insights} />} liveSlot={<LiveMaintenanceBoard zh={lang === 'zh'} />}>
+      <LiveMaintenanceBoard zh={lang === 'zh'} />
       <PageHeader
         title={lang === 'zh' ? '维修工单' : 'Maintenance tickets'}
         sub={

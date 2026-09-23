@@ -13,7 +13,7 @@
 // relies on, not a legal history.
 
 export type RuleSeverity = 'block' | 'warn' | 'info'
-export type RuleArea = 'listing' | 'lease' | 'screening' | 'notice' | 'agent' | 'renewal' | 'tenancy'
+export type RuleArea = 'listing' | 'lease' | 'screening' | 'notice' | 'agent' | 'renewal' | 'tenancy' | 'maintenance'
 
 // ── Rent increase guideline (RTA s.120) ─────────────────────────────────────
 // Published each year by the province (ontario.ca/page/residential-rent-increases),
@@ -268,6 +268,31 @@ export const ONTARIO_RULES: Rule[] = [
     title: { zh: '新版 LTB 表格，旧版 2026-11-30 后不再受理', en: 'New LTB forms; old versions rejected after 2026-11-30' },
     summary: { zh: 'N4、N5、N6、N8、N12、N13、L1、L2、L9、L10、T5 已换 2026/09 版；旧版 2026-11-30 前仍受理，之后拒收。', en: 'N4, N5, N6, N8, N12, N13, L1, L2, L9, L10 and T5 have 2026/09 versions; older versions are accepted until 2026-11-30 and rejected after.' },
     enforcement: { zh: 'N 表工具箱每张卡链接 LTB 表格页并注明版本。', en: 'Every toolbox card links the LTB forms page and names the version.' },
+  },
+  // ── Maintenance & entry (services marketplace, 2026-09-23) ──────────────
+  {
+    id: 'RTA-20-landlord-repairs', area: 'maintenance', statute: 'RTA s.20(1)', severity: 'warn', since: '2007-01-31',
+    title: { zh: '维修义务在房东', en: 'The landlord must maintain the unit' },
+    summary: { zh: '房东须保持出租单位与楼宇处于良好维修状态、适合居住并符合健康、安全、住房与维修标准——即使租客在签约时知道该缺陷。报修工单的付款方永远是房东。', en: 'The landlord must keep the rental unit and complex in a good state of repair, fit for habitation and compliant with health, safety, housing and maintenance standards — even where the tenant knew of a defect when signing. Work orders are always paid by the landlord.' },
+    enforcement: { zh: '工单与派单卡只向房东收费；报修分诊把供暖 / 供水 / 燃气 / 门锁列为紧急件。', en: 'Work orders bill the landlord only; triage marks heat / water / gas / locks as emergencies.' },
+  },
+  {
+    id: 'RTA-27-entry-notice', area: 'maintenance', statute: 'RTA s.27(1)', severity: 'block', since: '2007-01-31',
+    title: { zh: '非紧急进入须提前 24 小时书面通知', en: 'Non-emergency entry needs 24 hours\' written notice' },
+    summary: { zh: '房东（或其派出的服务商）为维修进入单位，须提前至少 24 小时书面通知租客，写明原因、日期与 8:00–20:00 之间的时段。', en: 'To enter for repairs the landlord (or a contractor they send) must give the tenant written notice at least 24 hours ahead stating the reason, the date and a time between 8:00 and 20:00.' },
+    enforcement: { zh: '批准报价的执行器自动向租客发送进入通知并记录 compliance_events。', en: 'The approve-quote executor emails the entry notice to the tenant and records a compliance event.' },
+  },
+  {
+    id: 'RTA-26-emergency-entry', area: 'maintenance', statute: 'RTA s.26(1)', severity: 'info', since: '2007-01-31',
+    title: { zh: '紧急情况可不提前通知进入', en: 'Emergency entry needs no notice' },
+    summary: { zh: '紧急情况下（如漏水、无暖气、燃气味）房东可不提前通知进入单位；Stayloop 仍会通知租客并注明依据。', en: 'In an emergency (a leak, no heat, a gas smell) the landlord may enter without notice; Stayloop still informs the tenant and cites this section.' },
+    enforcement: { zh: '紧急工单的进入通知写明 s.26；非紧急一律走 s.27。', en: 'Emergency work orders cite s.26; everything else goes through s.27.' },
+  },
+  {
+    id: 'CPA-10-estimate', area: 'maintenance', statute: 'Consumer Protection Act, 2002 s.10', severity: 'warn', since: '2005-07-30',
+    title: { zh: '账单不得超出估价 10%', en: 'The invoice may not exceed the estimate by more than 10%' },
+    summary: { zh: '合同含估价时，最终价格不得超出估价 10%，除非消费者同意了新的范围或价格。增项须回到房东再批准。《消费者保护法（2023）》已通过但条例未生效，现行仍是 2002 版。', en: 'Where a contract includes an estimate the final price may not exceed it by more than 10% unless the consumer agreed to new work or a new price. Extras go back to the landlord for approval. The 2023 Act is passed but its regulations are not yet in force.' },
+    enforcement: { zh: '完工验收卡对超出 10% 的账单标红；服务商邀请邮件写明规则。', en: 'The acceptance card flags invoices over 10%; the contractor invitation states the rule.' },
   },
   {
     id: 'OHRC-no-income-cutoff', area: 'screening', statute: 'OHRC Policy on human rights and rental housing · O. Reg. 290/98', severity: 'block', since: '2009-07-01',

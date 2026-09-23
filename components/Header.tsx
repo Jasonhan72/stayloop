@@ -334,6 +334,17 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       if (held) return <button key={r} onClick={() => handleRoleSwitch(r)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">{inner}</button>
                       return <Link key={r} href={r === 'landlord' ? '/onboarding/name?role=landlord' : '/agent/verify'} onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">{inner}</Link>
                     })}
+                    {/* Fifth hat (services marketplace 2026-09-23): shown only once a provider row exists */}
+                    {hats.provider && (
+                      <Link href="/provider/jobs" onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00ACE414] text-[15px]">🔧</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 text-[14px] font-semibold text-[#222]"><span>{lang === 'zh' ? '服务商 · 工单' : 'Provider · Jobs'}</span>{hats.provider !== 'verified' && <span className="rounded-full bg-amber-50 px-2 py-[1px] text-[11px] font-bold text-amber-800">{lang === 'zh' ? '待核验' : hats.provider}</span>}</div>
+                          <div className="text-[12px] text-[#717171]">{lang === 'zh' ? '接单 · 报价 · 完工' : 'Accept · Quote · Complete'}</div>
+                        </div>
+                        <span className="text-[#717171]">›</span>
+                      </Link>
+                    )}
 
                     <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
 
