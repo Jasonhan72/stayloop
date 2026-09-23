@@ -24,6 +24,8 @@ import AgentChat from '@/components/agent/AgentChat'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
 import { useT, type Lang } from '@/lib/i18n'
 import { GENERIC_AI_NAME, useAIName } from '@/lib/aiName'
+import { useAuth } from '@/lib/useAuth'
+import { useHats } from '@/lib/useHats'
 import type { AgentRole } from '@/lib/agent/types'
 
 type Bi = { zh: string; en: string }
@@ -149,6 +151,24 @@ export default function HomeNext() {
   const [queued, setQueued] = useState<{ role: AgentRole; prompt: string } | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
   const heroRef = useRef<HTMLDivElement>(null)
+  // Signed in: the hero talks to the hat you are wearing (header menu switches
+  // it); the three pills are for visitors trying the assistant (2026-09-22,
+  // user: the pills duplicate the menu once you are logged in).
+  const auth = useAuth()
+  const hats = useHats()
+  const signedIn = !auth.loading && !!auth.user
+  const pinnedRole = useRef(false)
+  useEffect(() => {
+    if (!signedIn || hats.loading || pinnedRole.current) return
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('ask')) { pinnedRole.current = true; return }
+    // Mirror the header exactly (auth.role, tenant when nothing is remembered)
+    // so the hero and the menu never disagree; fall back to tenant only when
+    // the remembered hat is one the account no longer holds.
+    const r = auth.role || 'tenant'
+    const held = r === 'landlord' ? hats.landlord : r === 'agent' ? hats.agent !== null : true
+    setRole(held ? r : 'tenant')
+    pinnedRole.current = true
+  }, [signedIn, hats.loading, hats.landlord, hats.agent, auth.role])
   const tenantName = useAIName('tenant')
   const landlordName = useAIName('landlord')
   const agentName = useAIName('agent')
@@ -218,6 +238,15 @@ export default function HomeNext() {
 
           {/* role switch + live assistant */}
           <div ref={heroRef} id="assistant" className="mx-auto mt-2.5 min-w-0 max-w-[920px] scroll-mt-24 sm:mt-8">
+            {signedIn ? (
+              <div className="mb-2 flex flex-wrap items-center justify-center gap-2 text-[12.5px] text-body-3 sm:mb-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 font-semibold text-body" style={{ border: '1px solid #D3E3EF' }}>
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#00ACE4' }} />
+                  {pick(ROLE_LABEL[role], lang)}{names[role] ? ` · ${names[role]}` : ''}
+                </span>
+                <span>{zh ? '换身份在右上角菜单' : 'Switch hats in the top-right menu'}</span>
+              </div>
+            ) : (
             <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5 sm:mb-3 sm:gap-2">
               {(['tenant', 'landlord', 'agent'] as AgentRole[]).map((r) => (
                 <button
@@ -231,6 +260,7 @@ export default function HomeNext() {
                 </button>
               ))}
             </div>
+            )}
             {/* Phone height = viewport − (header 67 + title/lead/pills ≈ 120 +
                 bottom tab bar 64 + a little air); floor 360px so the messages
                 area never collapses on short screens. */}

@@ -10,6 +10,8 @@ import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
 import { useHats } from '@/lib/useHats'
+import { useAIName } from '@/lib/aiName'
+import { supabase } from '@/lib/supabase'
 import { ROLE_THEME, type RoleKey } from '@/lib/roleTheme'
 
 const ROLE_META: Record<string, { label: string; labelEn: string; color: string; home: string; icon: string }> = {
@@ -45,10 +47,21 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
   const currentRole = auth.role || 'tenant'
   const heldRoles = (['tenant', 'landlord', 'agent'] as const).filter((r) =>
     r === 'tenant' ? true : r === 'landlord' ? hats.landlord : hats.agent !== null)
-  const otherRoles = heldRoles.filter((r) => r !== currentRole)
-  // Until the RPC answers (or if it failed) offer no "become" doors — a
-  // landlord used to see "成为房东" for a moment on every load.
-  const missingRoles = hats.loading ? [] : (['landlord', 'agent'] as const).filter((r) => !heldRoles.includes(r))
+
+  // Assistant names per hat — the menu names the workspace after the assistant
+  // (「Atlas 的工作台」) and lists every hat with its assistant (2026-09-22,
+  // user asked for a clearer switcher after the phone-tab redesign).
+  const aiNames: Record<string, string> = { tenant: useAIName('tenant'), landlord: useAIName('landlord'), agent: useAIName('agent') }
+  // The hamburger's red dot used to be decorative (always on when signed in);
+  // now it means "cards waiting for you" on the current hat.
+  const [pendingCount, setPendingCount] = useState(0)
+  useEffect(() => {
+    if (auth.loading || !auth.user) { setPendingCount(0); return }
+    let cancelled = false
+    supabase.from('agent_pending_actions').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('role', currentRole)
+      .then(({ count }) => { if (!cancelled) setPendingCount(count ?? 0) })
+    return () => { cancelled = true }
+  }, [auth.loading, auth.user, currentRole, pathname])
 
   const handleRoleSwitch = (newRole: string) => {
     auth.setRole(newRole as 'tenant' | 'landlord' | 'agent')
@@ -192,8 +205,8 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
               aria-label="Menu"
             >
               <HamburgerIcon />
-              {auth.user && (
-                <span className="absolute right-[3px] top-[3px] h-[8px] w-[8px] rounded-full bg-[#FF385C] ring-[1.5px] ring-white" />
+              {auth.user && pendingCount > 0 && (
+                <span className="absolute right-[3px] top-[3px] h-[8px] w-[8px] rounded-full bg-[#FF385C] ring-[1.5px] ring-white" aria-label={lang === 'zh' ? `${pendingCount} 件等你点头` : `${pendingCount} waiting on you`} />
               )}
             </button>
 
@@ -223,7 +236,22 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
 
                 {auth.loading ? null : auth.user ? (
                   <>
-                    {/* Primary actions — bold like Airbnb's first section */}
+                    {/* Identity row — who you are and which hat is active */}
+                    <div className="flex items-center gap-3 px-4 pb-3 pt-1">
+                      <span className="flex h-9 w-9 flex-none items-center justify-center overflow-hidden rounded-full text-[14px] font-bold text-white" style={{ background: avatarUrl ? undefined : avatarBg }}>
+                        {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : initial}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="truncate text-[14px] font-semibold text-[#222]">{auth.fullName || auth.email}</div>
+                        <div className="mt-0.5 inline-flex items-center gap-1.5 rounded-full px-2 py-[2px] text-[11px] font-bold" style={{ background: ROLE_META[currentRole].color + '14', color: ROLE_META[currentRole].color }}>
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: ROLE_META[currentRole].color }} />
+                          {lang === 'zh' ? `当前：${ROLE_META[currentRole].label} · ${aiNames[currentRole]}` : `Now: ${ROLE_META[currentRole].labelEn} · ${aiNames[currentRole]}`}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
+
+                    {/* Primary — the current hat's workspace, named after its assistant */}
                     <Link
                       href={ROLE_META[currentRole]?.home || '/tenant/agent'}
                       onClick={() => setMenuOpen(false)}
@@ -231,7 +259,33 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       role="menuitem"
                     >
                       <WorkspaceIcon />
-                      {t('nav.dashboard')}
+                      <span className="flex-1">{lang === 'zh' ? `${aiNames[currentRole]} 的工作台` : `${aiNames[currentRole]}'s workspace`}</span>
+                      {pendingCount > 0 && <span className="rounded-full bg-[#FF385C] px-2 py-[1px] text-[11px] font-bold text-white">{pendingCount}</span>}
+                    </Link>
+                    <div className="flex gap-1.5 px-4 pb-2 pl-[46px]">
+                      {([['todo', lang === 'zh' ? '待办' : 'To-do'], ['ideas', lang === 'zh' ? '想法' : 'Ideas'], ['progress', lang === 'zh' ? '进度' : 'Progress']] as const).map(([k, label]) => (
+                        <Link key={k} href={`/${currentRole}/${k}`} onClick={() => setMenuOpen(false)} className="rounded-full border border-[#E5E5E5] px-2.5 py-[3px] text-[12px] font-semibold text-[#444] transition hover:border-[#222]">{label}</Link>
+                      ))}
+                    </div>
+                    {currentRole === 'landlord' && (
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 text-[14px] font-semibold text-[#222] transition hover:bg-[#F7F7F7]"
+                        role="menuitem"
+                      >
+                        <ListingMgmtIcon />
+                        {lang === 'zh' ? '房源管理' : 'Manage listings'}
+                      </Link>
+                    )}
+                    <Link
+                      href="/notifications"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 text-[14px] font-semibold text-[#222] transition hover:bg-[#F7F7F7]"
+                      role="menuitem"
+                    >
+                      <BellIcon />
+                      {lang === 'zh' ? '通知' : 'Notifications'}
                     </Link>
                     {isAdmin && (
                       <Link
@@ -244,30 +298,43 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                         {lang === 'zh' ? '后台管理' : 'Back office'}
                       </Link>
                     )}
-                    <Link
-                      href="/notifications"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 text-[14px] font-semibold text-[#222] transition hover:bg-[#F7F7F7]"
-                      role="menuitem"
-                    >
-                      <BellIcon />
-                      {lang === 'zh' ? '通知' : 'Notifications'}
-                    </Link>
-                    {currentRole === 'landlord' && (
-                      <Link
-                        href="/dashboard"
-                        onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 text-[14px] font-semibold text-[#222] transition hover:bg-[#F7F7F7]"
-                        role="menuitem"
-                      >
-                        <ListingMgmtIcon />
-                        {lang === 'zh' ? '房源管理' : 'Manage listings'}
-                      </Link>
-                    )}
 
                     <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
 
-                    {/* Secondary actions — normal weight */}
+                    {/* Hats — every identity this account has or can get, current one marked */}
+                    <div className="px-4 pb-1 pt-2 font-mono text-[10.5px] font-bold uppercase tracking-[.12em] text-[#717171]">{lang === 'zh' ? '身份' : 'Identity'}</div>
+                    {(['tenant', 'landlord', 'agent'] as const).map((r) => {
+                      const held = heldRoles.includes(r)
+                      const isCurrent = r === currentRole
+                      const pendingAgent = r === 'agent' && hats.agent && hats.agent !== 'verified'
+                      const sub = r === 'tenant'
+                        ? (lang === 'zh' ? '找房 · 申请 · 签约' : 'Search · Apply · Lease')
+                        : r === 'landlord'
+                          ? (held ? (lang === 'zh' ? '管房 · 筛查 · 续约' : 'Manage · Screen · Renew') : (lang === 'zh' ? '发布房源 · 筛查租客' : 'List a unit · screen tenants'))
+                          : (held ? (lang === 'zh' ? '客户 · 带看 · 经纪目录' : 'Clients · Showings · Directory') : (lang === 'zh' ? '需 RECO 注册核验' : 'Requires RECO registration check'))
+                      const inner = (
+                        <>
+                          <span className="flex h-8 w-8 items-center justify-center rounded-full text-[15px]" style={{ background: ROLE_META[r].color + '14' }}>{ROLE_META[r].icon}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 text-[14px] font-semibold text-[#222]">
+                              <span>{lang === 'zh' ? `${ROLE_META[r].label} · ${aiNames[r]}` : `${ROLE_META[r].labelEn} · ${aiNames[r]}`}</span>
+                              {isCurrent && <span className="rounded-full px-2 py-[1px] text-[11px] font-bold" style={{ background: ROLE_META[r].color + '14', color: ROLE_META[r].color }}>{lang === 'zh' ? '当前' : 'current'}</span>}
+                              {!isCurrent && pendingAgent && <span className="rounded-full bg-amber-50 px-2 py-[1px] text-[11px] font-bold text-amber-800">{lang === 'zh' ? '待认证' : 'pending'}</span>}
+                              {!isCurrent && !held && <span className="rounded-full border border-[#E5E5E5] px-2 py-[1px] text-[11px] font-semibold text-[#717171]">{lang === 'zh' ? '开通' : 'add'}</span>}
+                            </div>
+                            <div className="text-[12px] text-[#717171]">{sub}</div>
+                          </div>
+                          {!isCurrent && <span className="text-[#717171]">›</span>}
+                        </>
+                      )
+                      if (isCurrent) return <div key={r} className="flex w-full items-center gap-3 px-4 py-2.5 text-left" aria-current="true">{inner}</div>
+                      if (held) return <button key={r} onClick={() => handleRoleSwitch(r)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">{inner}</button>
+                      return <Link key={r} href={r === 'landlord' ? '/onboarding/name?role=landlord' : '/agent/verify'} onClick={() => setMenuOpen(false)} className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-[#F7F7F7]" role="menuitem">{inner}</Link>
+                    })}
+
+                    <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
+
+                    {/* Account */}
                     <Link
                       href="/settings"
                       onClick={() => setMenuOpen(false)}
@@ -285,61 +352,6 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
                       <GlobeIcon />
                       {lang === 'zh' ? '语言和货币' : 'Language and currency'}
                     </button>
-
-                    {/* Role switch section — Airbnb "Become a host" style */}
-                    {otherRoles.length > 0 && (
-                      <>
-                        <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
-                        {otherRoles.map((r) => (
-                          <button
-                            key={r}
-                            onClick={() => handleRoleSwitch(r)}
-                            className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[#F7F7F7]"
-                            role="menuitem"
-                          >
-                            <span
-                              className="flex h-8 w-8 items-center justify-center rounded-full text-[15px]"
-                              style={{ background: ROLE_META[r].color + '14' }}
-                            >
-                              {ROLE_META[r].icon}
-                            </span>
-                            <div className="flex-1">
-                              <div className="text-[14px] font-semibold text-[#222]">
-                                {lang === 'zh'
-                                  ? `切换到${ROLE_META[r].label}`
-                                  : `Switch to ${ROLE_META[r].labelEn}`}
-                                {r === 'agent' && hats.agent && hats.agent !== 'verified' && (
-                                  <span className="ml-2 rounded-full bg-amber-50 px-2 py-[1px] text-[11px] font-bold text-amber-800">{lang === 'zh' ? '待认证' : 'pending'}</span>
-                                )}
-                              </div>
-                              <div className="text-[12px] text-[#717171]">
-                                {r === 'tenant'
-                                  ? (lang === 'zh' ? '找房 · 申请 · 签约' : 'Search · Apply · Lease')
-                                  : r === 'landlord'
-                                    ? (lang === 'zh' ? '管房 · 筛查 · 收租' : 'Manage · Screen · Collect')
-                                    : (lang === 'zh' ? '客户 · 带看 · 经纪目录' : 'Clients · Showings · Directory')}
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </>
-                    )}
-                    {/* Doors to the hats this account does not hold yet */}
-                    {missingRoles.map((r) => (
-                      <Link
-                        key={`become-${r}`}
-                        href={r === 'landlord' ? '/onboarding/name?role=landlord' : '/agent/verify'}
-                        onClick={() => setMenuOpen(false)}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[#F7F7F7]"
-                        role="menuitem"
-                      >
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full text-[15px]" style={{ background: ROLE_META[r].color + '14' }}>{ROLE_META[r].icon}</span>
-                        <div className="flex-1">
-                          <div className="text-[14px] font-semibold text-[#222]">{r === 'landlord' ? (lang === 'zh' ? '成为房东' : 'Become a landlord') : (lang === 'zh' ? '成为经纪' : 'Become an agent')}</div>
-                          <div className="text-[12px] text-[#717171]">{r === 'landlord' ? (lang === 'zh' ? '发布房源 · 筛查租客' : 'List a unit · screen tenants') : (lang === 'zh' ? '需 RECO 注册核验' : 'Requires RECO registration check')}</div>
-                        </div>
-                      </Link>
-                    ))}
 
                     <div className="mx-4 my-1 h-px bg-[#EBEBEB]" />
 

@@ -100,3 +100,24 @@ describe('PWA (item F)', () => {
     expect(layout).toMatch(/apple-touch-icon/)
   })
 })
+
+// 2026-09-22 (user): once signed in the homepage's three role pills duplicate
+// the header menu — hide them and pin the hero to the active hat; the menu
+// shows the current hat, names workspaces after the assistant, and lists
+// every hat with its state.
+describe('signed-in homepage + identity menu', () => {
+  const home = readFileSync('components/home/HomeNext.tsx', 'utf8')
+  const header = readFileSync('components/Header.tsx', 'utf8')
+  it('homepage hides the pills for signed-in users and mirrors auth.role', () => {
+    expect(home).toMatch(/\{signedIn \? \(/)
+    expect(home).toMatch(/const r = auth\.role \|\| 'tenant'/)
+    expect(home).toMatch(/换身份在右上角菜单/)
+  })
+  it('menu: identity row, assistant-named workspace, three hats with 当前 / 待认证 / 开通, red dot only when something waits', () => {
+    expect(header).toMatch(/当前：\$\{ROLE_META\[currentRole\]\.label\} · \$\{aiNames\[currentRole\]\}/)
+    expect(header).toMatch(/\$\{aiNames\[currentRole\]\} 的工作台/)
+    expect(header).toMatch(/\(\['tenant', 'landlord', 'agent'\] as const\)\.map\(\(r\) => \{\s*const held = heldRoles\.includes\(r\)/)
+    expect(header).toMatch(/auth\.user && pendingCount > 0 && \(/)
+    expect(header).not.toMatch(/otherRoles|missingRoles/)
+  })
+})

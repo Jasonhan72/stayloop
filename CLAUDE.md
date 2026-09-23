@@ -975,8 +975,11 @@ cron 的实机探测（全部在 begin…rollback 里以 anon / authenticated �
   复制按钮、勾选「已送达并保留书面确认」→ 写 `registrant_disclosures`（context: listing_publish / application /
   showing_intent / lease）。**Stayloop 只记录披露，不代送达。** 房源页对房东 auth_id 有 verified agent_profiles 的
   房源标「房东直租 · 房东为持牌经纪」（只覆盖 landlord_id 存 authId 的行——现有全部行都是）。
-- **不做（用户已定）**：经纪代客筛查（`on_behalf_of`）等有代表协议记录后再开；首页三枚角色按钮只切 AI 演示，登录后
-  以头像菜单为准；看房意向弹窗仍是演示（无 DB 写入），披露不接。
+- **不做（用户已定）**：经纪代客筛查（`on_behalf_of`）等有代表协议记录后再开；首页三枚角色按钮只给匿名访客切 AI 演示——
+  **2026-09-22 起登录后不再显示**，Hero 直接用当前帽子（`auth.role || 'tenant'`，与 Header 同一来源，帽子不再持有时回租客）并写
+  「换身份在右上角菜单」；头像菜单同日重排（用户要求）：身份行（头像 + 邮箱 + 「当前：房东 · Logic」chip）→ 「<助手名> 的工作台」
+  + 待办 / 想法 / 进度 三枚快捷 chip（+ 房东的房源管理、通知、管理员的后台）→ 「身份」段列出三顶帽子（当前 / 切换 / 待认证 / 开通）→
+  账号设置、语言 → 退出。汉堡上的红点从「登录即常亮」改为「当前帽子有待批卡片」，并显示数量。守卫 `tests/museMobile20260922.spec.ts`；看房意向弹窗仍是演示（无 DB 写入），披露不接。
 
 ## 经纪管家 Brief 的快捷卡与能力（2026-09-13）
 
