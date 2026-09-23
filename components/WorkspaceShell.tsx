@@ -113,7 +113,7 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
     ctaZh: '和 Brief 开工 →', ctaEn: 'Start with Brief →', href: '/agent/agent',
   },
   '/agent/clients': {
-    zh: '还没有客户档案。客户功能将在代表协议记录上线后开放。', en: 'No clients yet. Client files open once representation records ship.',
+    zh: '上面是你的真实客户表：加第一位客户，并记录代表协议与 Information Guide 的日期。下面的样例只是演示。', en: 'Your real client table is above: add the first client and record the agreement and Information Guide dates. The samples below are a demo.',
     ctaZh: '和 Brief 开工 →', ctaEn: 'Start with Brief →', href: '/agent/agent',
   },
   '/agent/calendar': {

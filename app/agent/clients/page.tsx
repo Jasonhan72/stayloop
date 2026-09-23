@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from 'react'
 import ClientBook from '@/components/agent/ClientBook'
-import { SampleBanner } from '@/components/SampleNotice'
 import Link from 'next/link'
 import AIProactive from '@/components/AIProactive'
 import StampBadge from '@/components/StampBadge'
@@ -76,10 +75,7 @@ export default function AgentClientsPage() {
   const quietest = [...all].sort((a, b) => b.silent - a.silent)[0]
 
   return (
-    <WorkspaceShell role="agent" aside={<Aside lang={lang} quietest={quietest} />}>
-      {liveCount === 0 && (
-        <SampleBanner zh={zh} note={{ zh: '你还没有客户记录：下面的客户、佣金与跟进全部是设计样例。加第一位客户后自动替换。', en: 'No client records yet: the clients, commissions and follow-ups below are design samples, replaced once you add your first client.' }} />
-      )}
+    <WorkspaceShell role="agent" aside={<Aside lang={lang} quietest={quietest} />} liveSlot={<ClientBook zh={zh} onRows={onRows} />}>
       <PageHeader
         title={zh ? '客户管理' : 'Client management'}
         sub={
