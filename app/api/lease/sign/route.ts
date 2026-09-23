@@ -151,6 +151,45 @@ export async function POST(req: Request) {
   const tenantLink = lease.sign_token ? `${siteUrl}/lease/sign/${lease.sign_token}` : null
 
   if (otherSigned) {
+    // Lifecycle plan 2026-09-22 §2.1: a fully signed lease IS the tenancy.
+    // Create the managed household (verified — both signatures are the
+    // counterparty confirmation), the first rent row, and an invite for the
+    // tenant's email so they can join with any account. Best-effort, audited.
+    try {
+      const { data: full } = await admin
+        .from('lease_documents')
+        .select('id, landlord_id, tenant_name, tenant_email, unit_label, monthly_rent, start_date, end_date, terms, listing_id')
+        .eq('id', lease.id)
+        .maybeSingle()
+      if (full) {
+        const terms = (full.terms || {}) as { premises?: { street?: string; unit?: string; city?: string }; unit?: { street?: string; unit?: string; city?: string }; rent?: { due_day?: number } }
+        const prem = terms.premises || terms.unit || {}
+        const address = prem.street || full.unit_label || 'Rental unit'
+        const { data: ll } = await admin.from('landlords').select('auth_id').eq('id', full.landlord_id).maybeSingle()
+        const landlordAuth = (ll?.auth_id as string | null) ?? null
+        const { data: existing } = await admin.from('households').select('id').eq('current_lease_id', full.id).maybeSingle()
+        if (!existing && landlordAuth) {
+          const { data: hh } = await admin.from('households').insert({
+            address, unit: prem.unit || null, city: prem.city || null,
+            monthly_rent: full.monthly_rent, rent_due_day: Number(terms.rent?.due_day) || 1,
+            start_date: full.start_date, end_date: full.end_date, current_lease_id: full.id,
+            status: 'active', source: 'esign', verified: true, created_by: landlordAuth,
+          }).select('id').single()
+          if (hh) {
+            await admin.from('household_members').insert({ household_id: hh.id, user_id: landlordAuth, role: 'landlord' })
+            if (full.tenant_email) {
+              await admin.from('household_invites').insert({ household_id: hh.id, invited_email: String(full.tenant_email).toLowerCase(), invited_role: 'tenant', invited_by: landlordAuth })
+            }
+            if (full.start_date && full.monthly_rent) {
+              await admin.from('rent_payments').insert({ lease_id: full.id, due_date: full.start_date, amount: full.monthly_rent, status: 'due' })
+            }
+            await admin.from('agent_audit_events').insert({ actor_id: landlordAuth, actor_type: 'system', action: 'household_created_from_esign', target_type: 'household', target_id: hh.id, metadata: { lease_id: full.id } })
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[lease/sign] household auto-create failed:', (e as Error).message)
+    }
     // Fully executed — both parties get their permanent copies.
     if (lease.tenant_email && tenantLink) {
       await sendEmail({

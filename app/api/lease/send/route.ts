@@ -5,7 +5,7 @@
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { escapeHtml, sendEmail } from '@/lib/email'
+import { sendLeaseInvitation, type LeaseForSend } from '@/lib/lease/sendLease'
 
 export const runtime = 'edge'
 
@@ -41,71 +41,9 @@ export async function POST(req: Request) {
   if (!(await underHourlyLimit(`mail:lease-send:${ud.user.id}`, 10, false))) {
     return NextResponse.json({ error: 'hourly send limit reached' }, { status: 429, headers: { 'Retry-After': '3600' } })
   }
-  if (!lease.tenant_email) return NextResponse.json({ error: 'lease has no tenant email' }, { status: 422 })
-  if (lease.tenant_signature) return NextResponse.json({ error: 'tenant has already signed' }, { status: 409 })
-  // Both terms schemas (ontario_standard and trreb) carry these paths.
-  const terms = lease.terms as { landlord_legal_name?: string; rent?: { amount?: number } } | null
-  if (!terms?.landlord_legal_name || !terms?.rent?.amount) {
-    return NextResponse.json({ error: 'lease terms incomplete — fill the form first' }, { status: 422 })
-  }
 
-  const token = lease.sign_token || (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '')
-  // guard_lease_document_fields reverts sign_token on any direct client
-  // write (20260914 guards), so the RLS read above proves ownership and the
-  // service role performs the write (review 2026-09-17: every invitation
-  // emailed a token that was never persisted).
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceKey) return NextResponse.json({ error: 'server misconfigured' }, { status: 500 })
-  const adminSb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
-  const { error: upErr } = await adminSb
-    .from('lease_documents')
-    .update({ sign_token: token, sent_at: new Date().toISOString(), status: lease.status === 'draft' ? 'sent' : lease.status })
-    .eq('id', lease.id)
-  if (upErr) {
-    console.error('lease send update failed:', upErr.message)
-    return NextResponse.json({ error: 'send failed' }, { status: 500 })
-  }
-
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai'
-  const link = `${siteUrl}/lease/sign/${token}`
-  // Landlord-typed fields go into a DKIM-signed Stayloop email — escape
-  // them in the HTML body (review 2026-09-14).
-  const tenant = escapeHtml(lease.tenant_name || 'there')
-  const unit = escapeHtml(lease.unit_label || 'your new home')
-  const isTrreb = lease.form_type === 'trreb'
-  const formLabel = isTrreb ? 'TRREB Agreement to Lease (Form 400)' : 'Ontario Standard Lease'
-  const docName = isTrreb
-    ? 'Agreement to Lease — Residential (TRREB Form 400 style)'
-    : 'Residential Tenancy Agreement (Ontario Standard Form of Lease)'
-  const result = await sendEmail({
-    to: lease.tenant_email,
-    subject: `Your lease for ${unit} is ready to sign — ${formLabel}`,
-    text: `Hi ${tenant},
-
-Your landlord has prepared your ${docName} for ${unit}.
-
-Review and sign it online here:
-${link}
-
-This link is yours to keep — after signing it remains your permanent access to view and download the agreement anytime.
-
-你的租约（${isTrreb ? 'TRREB Form 400 租赁协议' : '安省标准租约'}）已备好，点击上方链接在线查看并签署。签署完成后该链接长期有效，可随时查看和下载备份。
-
-— Stayloop`,
-    html: `<p>Hi ${tenant},</p><p>Your landlord has prepared your <b>${docName}</b> for <b>${unit}</b>.</p><p><a href="${link}" style="display:inline-block;background:#0f172a;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">Review &amp; sign online →</a></p><p style="color:#64748b;font-size:13px">This link is yours to keep — after signing it remains your permanent access to view and download the agreement anytime.<br/>你的租约已备好，签署完成后该链接长期有效，可随时查看和下载备份。</p><p>— Stayloop</p>`,
-  })
-  if (!result.ok) return NextResponse.json({ error: result.error || 'email failed' }, { status: 502 })
-
-  // Unskippable audit — service role.
-  const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
-  await admin.from('agent_audit_events').insert({
-    actor_id: ud.user.id,
-    actor_type: 'user',
-    action: 'lease_sent_for_signature',
-    target_type: 'lease_document',
-    target_id: lease.id,
-    metadata: { sent_to: lease.tenant_email, email_id: result.id, form_type: lease.form_type || 'ontario_standard' },
-  })
-
+  const adminSb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
+  const sent = await sendLeaseInvitation(adminSb, lease as LeaseForSend, ud.user.id)
+  if (!sent.ok) return NextResponse.json({ error: sent.error }, { status: sent.status })
   return NextResponse.json({ ok: true, sent_to: lease.tenant_email })
 }

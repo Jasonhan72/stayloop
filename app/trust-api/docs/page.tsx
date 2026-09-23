@@ -1,969 +1,120 @@
 'use client'
 
-import { useState } from 'react'
+// /trust-api/docs — the three endpoints that exist (Trust API plan §3.3,
+// 2026-09-23). Everything on this page is callable at www.stayloop.ai; the
+// old four-endpoint design preview with its fake base URL is gone.
 import Link from 'next/link'
-import { v3, size } from '@/lib/brand'
-import { useT } from '@/lib/i18n'
 import Header from '@/components/Header'
-import SecHead from '@/components/v4/SecHead'
+import Footer from '@/components/Footer'
+import { useT } from '@/lib/i18n'
 
-type Section = 'overview' | 'auth' | 'screen' | 'passport' | 'compliance' | 'mediate' | 'webhooks' | 'sdks' | 'rate-limits' | 'errors'
+const BASE = 'https://www.stayloop.ai/api/v1'
 
-const sections: { id: Section; label_en: string; label_zh: string }[] = [
-  { id: 'overview', label_en: 'Overview', label_zh: '概览' },
-  { id: 'auth', label_en: 'Authentication', label_zh: '身份认证' },
-  { id: 'screen', label_en: 'POST /v1/screen', label_zh: 'POST /v1/screen' },
-  { id: 'passport', label_en: 'POST /v1/passport/verify', label_zh: 'POST /v1/passport/verify' },
-  { id: 'compliance', label_en: 'GET /v1/listings/{id}/compliance', label_zh: 'GET /v1/listings/{id}/compliance' },
-  { id: 'mediate', label_en: 'POST /v1/disputes/mediate', label_zh: 'POST /v1/disputes/mediate' },
-  { id: 'webhooks', label_en: 'Webhooks', label_zh: 'Webhooks' },
-  { id: 'sdks', label_en: 'Calling it today', label_zh: '当前可用的调用方式' },
-  { id: 'rate-limits', label_en: 'Rate limits', label_zh: '速率限制' },
-  { id: 'errors', label_en: 'Errors', label_zh: '错误处理' },
-]
+function Code({ children }: { children: string }) {
+  return <pre className="mt-3 overflow-x-auto rounded-xl border border-line-divider bg-[#0f1b33] p-4 font-mono text-[12.5px] leading-relaxed text-[#D6E2EE]"><code>{children}</code></pre>
+}
 
 export default function TrustApiDocsPage() {
   const { lang } = useT()
-  const isZh = lang === 'zh'
-  const [activeSection, setActiveSection] = useState<Section>('overview')
-  const [authToken, setAuthToken] = useState('')
-  const [selectedEndpoint, setSelectedEndpoint] = useState<string>('POST /v1/screen')
-
-  const handleSectionClick = (id: Section) => {
-    setActiveSection(id)
-    const elem = document.getElementById(`section-${id}`)
-    if (elem) {
-      setTimeout(() => elem.scrollIntoView({ behavior: 'smooth' }), 50)
-    }
-  }
-
-  const label = (en: string, zh: string) => (isZh ? zh : en)
-
+  const zh = lang === 'zh'
   return (
-    <div style={{ minHeight: '100vh', background: v3.surface }}>
+    <div style={{ background: '#FFFFFF' }} className="text-body">
       <Header variant="transparent" />
-      {/* Design preview: everything under /v1 below is a specification, not a
-          running service. The only implemented endpoint is POST /api/trust/verify. */}
-      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 24px 0' }}>
-        <div
-          role="note"
-          className="flex flex-col gap-2 rounded-xl px-4 py-3 sm:flex-row sm:items-start sm:gap-3"
-          style={{ background: '#FEF3C7', border: '1px solid rgba(180,83,9,0.35)' }}
-        >
-          <span
-            className="w-fit flex-shrink-0 rounded-md px-2 py-[3px] font-mono text-[10px] font-bold uppercase tracking-wider text-white"
-            style={{ background: '#B45309' }}
-          >
-            {label('Design preview', '设计预览')}
-          </span>
-          <p className="min-w-0 flex-1 text-[13px] font-semibold leading-relaxed" style={{ color: '#78350F', overflowWrap: 'anywhere' }}>
-            {label(
-              'Design preview — this API is not live. The /v1 endpoints, webhooks, sample responses and rate limits on this page describe the planned interface; none of them can be called today. The only implemented endpoint is POST /api/trust/verify, authenticated with an X-API-Key header that Stayloop issues manually. There is no published SDK.',
-              '设计预览 · 该 API 尚未开放。本页的 /v1 端点、Webhook、示例响应与速率限制描述的是规划中的接口，目前都无法调用。今天唯一已实现的端点是 POST /api/trust/verify，用 Stayloop 人工签发的 X-API-Key 请求头鉴权。没有已发布的 SDK。'
-            )}{' '}
-            <Link href="/contact" className="underline underline-offset-2">{label('Contact us', '联系我们')}</Link>
+      <section style={{ background: 'linear-gradient(180deg,#E9F5FD 0%,#FFFFFF 100%)' }}>
+        <div className="mx-auto max-w-[960px] px-5 py-14 sm:px-7 lg:py-18">
+          <div className="font-mono text-[13px] font-semibold uppercase tracking-[.12em] text-brand">{zh ? 'VERIFICATION API · 安省租房核验 API' : 'VERIFICATION API · Ontario rental verification'}</div>
+          <h1 className="mt-4 text-[clamp(28px,3.4vw,42px)] font-semibold leading-[1.1] tracking-[-0.03em]">{zh ? '三个端点，每个都有真实后端。' : 'Three endpoints, each with a real backend.'}</h1>
+          <p className="mt-4 max-w-[680px] text-[16px] leading-[1.6] text-body-2">
+            {zh
+              ? '申请人主动出示、只返回结论不返回文件、每次调用留痕、法规边界写在响应里。Base URL 与本站同源；没有 SDK，用任何 HTTP 客户端即可。'
+              : 'Applicant-presented, conclusions only (never documents), every call audited, the legal boundary stated in the response. Same origin as this site; no SDK — any HTTP client works.'}
           </p>
+          <div className="mt-5 flex flex-wrap gap-2 text-[12.5px]">
+            <span className="rounded-full border border-line-divider bg-white px-3 py-1">Base <code className="font-mono">{BASE}</code></span>
+            <span className="rounded-full border border-line-divider bg-white px-3 py-1">{zh ? '密钥：' : 'Key: '}<code className="font-mono">X-API-Key</code>{zh ? '（compliance 端点不需要）' : ' (not needed for compliance)'}</span>
+            <span className="rounded-full border border-line-divider bg-white px-3 py-1">{zh ? '数据库驻加拿大' : 'Database in Canada'}</span>
+          </div>
         </div>
-      </div>
-      <div
-        className="tapi-docs-grid"
-        style={{
-          maxWidth: 1400,
-          margin: '0 auto',
-          display: 'grid',
-          gridTemplateColumns: '220px 1fr 260px',
-          gap: 24,
-          padding: '32px 24px',
-          minHeight: 'calc(100vh - 60px)',
-        }}
-      >
-        {/* LEFT SIDEBAR — Navigation */}
-        <nav
-          className="tapi-docs-nav"
-          style={{
-            position: 'sticky',
-            top: 80,
-            height: 'fit-content',
-            overflowY: 'auto',
-            maxHeight: 'calc(100vh - 100px)',
-          }}
-        >
-          {sections.map((sec) => (
-            <button
-              key={sec.id}
-              onClick={() => handleSectionClick(sec.id)}
-              style={{
-                display: 'block',
-                width: '100%',
-                padding: '10px 12px',
-                marginBottom: 4,
-                background: activeSection === sec.id ? v3.brandSoft : 'transparent',
-                border: 'none',
-                borderLeft: activeSection === sec.id ? `3px solid ${v3.brand}` : '3px solid transparent',
-                color: activeSection === sec.id ? v3.brand : v3.textSecondary,
-                fontSize: 13,
-                fontWeight: 500,
-                textAlign: 'left',
-                cursor: 'pointer',
-                borderRadius: 4,
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                if (activeSection !== sec.id) {
-                  e.currentTarget.style.background = `rgba(4, 120, 87, 0.05)`
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeSection !== sec.id) {
-                  e.currentTarget.style.background = 'transparent'
-                }
-              }}
-            >
-              {isZh ? sec.label_zh : sec.label_en}
-            </button>
-          ))}
-        </nav>
+      </section>
 
-        {/* CENTER — Documentation Content */}
-        <main
-          className="tapi-docs-main"
-          style={{
-            maxWidth: 720,
-            minWidth: 0,
-            background: v3.surfaceCard,
-            borderRadius: 12,
-            padding: '48px',
-            boxShadow: size.shadow.sm,
-          }}
-        >
-          {/* Hero */}
-          <SecHead
-            eyebrow="TRUST API"
-            title={label('Stayloop Trust API', 'Stayloop Trust API')}
-            sub="v1 · build-2026-04-28"
-          />
-          <div style={{ marginBottom: 56 }}>
-            {/* Moved hero details below header */}
-            <div
-              style={{
-                display: 'inline-block',
-                background: v3.ink,
-                color: v3.textOnBrand,
-                padding: '4px 8px',
-                borderRadius: 4,
-                fontSize: 11,
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 600,
-                marginBottom: 24,
-              }}
-            >
-            </div>
-            <p
-              style={{
-                fontSize: 16,
-                lineHeight: 1.6,
-                color: v3.textSecondary,
-              }}
-            >
-              {label(
-                'Developer documentation for the Stayloop Trust API. Verify tenant identity, income, credit, and eviction history in a single API call.',
-                '开发者文档。在一次 API 调用中验证租客身份、收入、信用和驱逐历史。'
-              )}
-            </p>
-          </div>
+      <section className="mx-auto max-w-[960px] px-5 py-10 sm:px-7">
+        <h2 className="text-[20px] font-semibold">{zh ? '边界（先读这段）' : 'Boundary (read this first)'}</h2>
+        <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[14.5px] leading-relaxed text-body-2">
+          <li>{zh ? 'Stayloop 不是《消费者报告法》意义上的报告机构。核验结论只在申请人签发的 token 有效期内、按申请人勾选的范围返回。' : 'Stayloop is not a consumer reporting agency under the Consumer Reporting Act. Conclusions are returned only within an applicant-issued token’s validity and only for the scopes the applicant ticked.'}</li>
+          <li>{zh ? '筛查分数与档位是房东自行决定的参考信息，不是拒绝依据（OHRC 租房政策）；不得设收入比截止线。' : 'Screening score and tier are information for the landlord’s own decision, never grounds to decline (OHRC housing policy); no income-ratio cut-offs.'}</li>
+          <li>{zh ? '面向金融机构的用途尚未开放，待法律意见。' : 'Use by financial institutions is not yet open, pending legal advice.'}</li>
+          <li>{zh ? '密钥由 Stayloop 发放（联系 privacy@stayloop.ai），限流：verify 120/分钟，screen 20/分钟，compliance 每 IP 120/小时。' : 'Keys are issued by Stayloop (privacy@stayloop.ai). Limits: verify 120/min, screen 20/min, compliance 120/h per IP.'}</li>
+        </ul>
+      </section>
 
-          {/* OVERVIEW */}
-          <section id="section-overview" style={{ marginBottom: 56 }}>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: v3.textPrimary,
-                marginBottom: 16,
-              }}
-            >
-              {label('Overview', '概览')}
-            </h2>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: v3.textSecondary, marginBottom: 16 }}>
-              {label(
-                'The Stayloop Trust API provides a unified interface to verify tenant credentials across multiple data sources. All requests require authentication via an API key.',
-                'Stayloop Trust API 提供统一接口来验证租客凭证。所有请求需使用 API 密钥进行身份认证。'
-              )}
-            </p>
-            <div
-              style={{
-                background: v3.surfaceMuted,
-                border: `1px solid ${v3.border}`,
-                borderRadius: 8,
-                padding: '16px',
-                fontSize: 13,
-                color: v3.textSecondary,
-                fontFamily: 'var(--font-mono)',
-              }}
-            >
-              {label(
-                'Base URL: https://api.stayloop.ai/v1',
-                '基础 URL: https://api.stayloop.ai/v1'
-              )}
-            </div>
-          </section>
-
-          {/* AUTHENTICATION */}
-          <section id="section-auth" style={{ marginBottom: 56 }}>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: v3.textPrimary,
-                marginBottom: 16,
-              }}
-            >
-              {label('Authentication', '身份认证')}
-            </h2>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: v3.textSecondary, marginBottom: 16 }}>
-              {label(
-                'All API requests require a Bearer token in the Authorization header. You can generate API keys from your Stayloop dashboard.',
-                '所有 API 请求都需在 Authorization 标头中使用 Bearer 令牌。你可从 Stayloop 仪表盘生成 API 密钥。'
-              )}
-            </p>
-            <CodeBlock
-              code={`curl -X POST https://api.stayloop.ai/v1/screen \\
-  -H "Authorization: Bearer sk_test_abcd1234..." \\
+      <section className="mx-auto max-w-[960px] px-5 py-6 sm:px-7">
+        <h2 className="text-[20px] font-semibold"><code className="font-mono text-brand">POST /listings/compliance</code> · {zh ? '房源合规检查（免费，无需密钥）' : 'Listing compliance (free, no key)'}</h2>
+        <p className="mt-2 text-[14.5px] text-body-2">{zh ? '确定性规则：押金 ≤ 一个月（RTA s.106）、钥匙押金（O. Reg. 516/06 s.17）、禁宠条款无效（s.14）、申请费 / 宠物押金 / 清洁押金禁止（s.134）。不接受、不存储任何个人信息。规则见 ' : 'Deterministic rules: deposit ≤ one month (RTA s.106), key deposit (O. Reg. 516/06 s.17), void pet bans (s.14), no application / pet / cleaning fees (s.134). No personal data is accepted or stored. Rules: '}<Link href="/rules" className="underline">/rules</Link>.</p>
+        <Code>{`curl -X POST ${BASE}/listings/compliance \\
   -H "Content-Type: application/json" \\
-  -d '{...}'`}
-            />
-            <p style={{ fontSize: 13, color: v3.textMuted, marginTop: 12 }}>
-              {label(
-                'Test keys start with sk_test_; production keys start with sk_live_.',
-                '测试密钥以 sk_test_ 开头；生产密钥以 sk_live_ 开头。'
-              )}
-            </p>
-          </section>
+  -d '{"monthly_rent": 2450, "deposit": 4900, "pets_allowed": "no",
+       "description": "Bright 1+1, no pets, $50 application fee"}'
 
-          {/* POST /v1/screen */}
-          <section id="section-screen" style={{ marginBottom: 56 }}>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: v3.textPrimary,
-                marginBottom: 12,
-              }}
-            >
-              POST /v1/screen
-            </h2>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: v3.textSecondary, marginBottom: 16 }}>
-              {label(
-                'Screen a tenant applicant by submitting applicant details, listing info, and supporting documents. Returns a composite risk score (0–100) with forensics, court records, and AI assessment.',
-                '通过提交申请人详情、房源信息和支持文件来筛查租户申请人。返回综合风险评分（0–100）、取证、法院记录和 AI 评估。'
-              )}
-            </p>
+{ "passed": false,
+  "findings": [
+    { "rule": "RTA-106-deposit-cap", "statute": "RTA s.106(2)", "severity": "block",
+      "message": { "zh": "押金 $4,900 超过一个月租金 $2,450。", "en": "Deposit $4,900 exceeds one month's rent $2,450." },
+      "url": "https://www.stayloop.ai/rules#RTA-106-deposit-cap" },
+    { "rule": "RTA-14-no-pet-clause", ... }, { "rule": "RTA-134-no-fees", ... } ],
+  "checked": ["RTA-106-deposit-cap", "OREG516-17-key-deposit", "RTA-14-no-pet-clause", "RTA-134-no-fees"] }`}</Code>
+      </section>
 
-            <div style={{ marginBottom: 20 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: v3.textMuted,
-                  marginBottom: 8,
-                }}
-              >
-                {label('Request', '请求')}
-              </div>
-              <CodeBlock code={JSON.stringify({
-                applicant: {
-                  name: 'John Smith',
-                  email: 'john@example.com',
-                  monthly_income: 4500
-                },
-                listing: {
-                  rent: 1800,
-                  address: '123 King St W, Toronto, ON M5H 2R2'
-                },
-                documents: [
-                  { path: 'path/to/id.pdf', type: 'government_id' },
-                  { path: 'path/to/paystub.pdf', type: 'pay_stub' }
-                ]
-              }, null, 2)} isJson />
-            </div>
+      <section className="mx-auto max-w-[960px] px-5 py-6 sm:px-7">
+        <h2 className="text-[20px] font-semibold"><code className="font-mono text-brand">POST /passport/verify</code> · {zh ? '申请人出示的核验结论' : 'Applicant-presented verification'}</h2>
+        <p className="mt-2 text-[14.5px] text-body-2">{zh ? '申请人在 Stayloop 的租客护照页生成分享链接，并勾选允许 API 读取的范围（身份 / 银行 / 征信 / 租史）。链接末尾的 token 就是你要传的值。响应只有结论；每次调用写审计并推送通知申请人。' : 'The applicant generates a share link on their Stayloop passport page and ticks the scopes the API may read (identity / bank / credit / tenancy). The token at the end of that link is what you send. The response holds conclusions only; every call is audited and the applicant is notified.'}</p>
+        <Code>{`curl -X POST ${BASE}/passport/verify \\
+  -H "X-API-Key: sk_trust_..." -H "Content-Type: application/json" \\
+  -d '{"token": "<from the applicant's share link>", "scopes": ["identity","bank","tenancy"]}'
 
-            <div style={{ marginBottom: 20 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: v3.textMuted,
-                  marginBottom: 8,
-                }}
-              >
-                {label('Response', '响应')}
-              </div>
-              <CodeBlock code={JSON.stringify({
-                score: 87,
-                tier: 'approve',
-                reason: 'Strong income-to-rent ratio (2.5×), clear rental history, no court records.',
-                forensics: {
-                  document_authenticity: 0.98,
-                  payment_ability: 0.95,
-                  court_records: 0,
-                  stability: 0.92,
-                  behavior_signals: 0.88,
-                  info_consistency: 0.91
-                },
-                court_records: []
-              }, null, 2)} isJson />
-            </div>
+{ "verified": true, "scopes": ["identity","bank","tenancy"],
+  "identity": { "verified": true, "provider": "veriff", "verified_at": "2026-09-20T14:02:11Z" },
+  "bank":     { "verified": true, "provider": "flinks", "payroll_monthly_estimate": 5480, "nsf_count_90d": 0 },
+  "tenancy":  { "confirmed_tenancies": 1, "rent_records": { "paid": 11, "late": 0 } },
+  "issued_by": "applicant", "boundary": { "zh": "...", "en": "..." }, "audited": true }
 
-            <StatusCodesTable
-              codes={[
-                { code: '200', desc: isZh ? '成功' : 'Success' },
-                { code: '400', desc: isZh ? '缺少必需字段' : 'Missing required fields' },
-                { code: '401', desc: isZh ? '无效 API 密钥' : 'Invalid API key' },
-                { code: '429', desc: isZh ? '超过速率限制' : 'Rate limit exceeded' },
-                { code: '500', desc: isZh ? '服务器错误' : 'Server error' },
-              ]}
-            />
-          </section>
+// 403 when the applicant has not enabled API reads, or none of the requested scopes are shared
+// 404 when the token is unknown, expired or revoked`}</Code>
+      </section>
 
-          {/* POST /v1/passport/verify */}
-          <section id="section-passport" style={{ marginBottom: 56 }}>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: v3.textPrimary,
-                marginBottom: 12,
-              }}
-            >
-              POST /v1/passport/verify
-            </h2>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: v3.textSecondary, marginBottom: 16 }}>
-              {label(
-                'Verify a Verified Passport token. Passports are issued once a tenant completes screening and remain valid for 12 months across all landlords in the network.',
-                '验证已验证的 Passport 令牌。护照在租客完成筛查后签发，在网络中所有房东间有效期为 12 个月。'
-              )}
-            </p>
+      <section className="mx-auto max-w-[960px] px-5 py-6 sm:px-7">
+        <h2 className="text-[20px] font-semibold"><code className="font-mono text-brand">POST /screen</code> · {zh ? '发起一次筛查（同一条管线）' : 'Start a screening (same pipeline)'}</h2>
+        <p className="mt-2 text-[14.5px] text-body-2">{zh ? '密钥须绑定一个 Stayloop 房东账号（筛查记在该账号名下、计入其配额）。必须附申请人对 Stayloop 筛查同意文本的接受记录；文件从你的 https 地址抓取（每个 ≤25 MB，最多 14 个）。立即返回 202 与 screening_id，完成后 POST 到你的 webhook。' : 'The key must be bound to a Stayloop landlord account (the screening runs under it and counts toward its quota). The applicant’s acceptance of Stayloop’s screening consent text is mandatory; files are fetched from your https URLs (≤25 MB each, up to 14). Returns 202 with a screening_id immediately and POSTs the result to your webhook when done.'}</p>
+        <Code>{`curl -X POST ${BASE}/screen \\
+  -H "X-API-Key: sk_trust_..." -H "Content-Type: application/json" \\
+  -d '{
+    "applicant_name": "Jane Doe", "monthly_rent": 2450, "external_ref": "APP-1042",
+    "consent": { "version": "v1-2026-09", "accepted_at": "2026-09-23T10:00:00Z", "typed_name": "Jane Doe" },
+    "files": [ { "url": "https://files.example.com/paystub-1.pdf", "kind": "pay_stub" },
+               { "url": "https://files.example.com/id.jpg", "kind": "government_id" } ],
+    "webhook_url": "https://api.example.com/stayloop/webhook"
+  }'
 
-            <div style={{ marginBottom: 20 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: v3.textMuted,
-                  marginBottom: 8,
-                }}
-              >
-                {label('Request', '请求')}
-              </div>
-              <CodeBlock code={JSON.stringify({
-                passport_id: 'SL-2026-XXXXX-XXX'
-              }, null, 2)} isJson />
-            </div>
+202 { "ok": true, "screening_id": "…", "status": "queued", "files": 2, "webhook": true,
+      "report_url": "https://www.stayloop.ai/screening/<id>/report" }
 
-            <div style={{ marginBottom: 20 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: v3.textMuted,
-                  marginBottom: 8,
-                }}
-              >
-                {label('Response', '响应')}
-              </div>
-              <CodeBlock code={JSON.stringify({
-                verified: true,
-                tenant_id: 'tnr_abc123',
-                claims: {
-                  income_3x: true,
-                  no_evictions: true,
-                  credit_approved: true,
-                  identity_verified: true
-                },
-                expires_at: '2027-04-28T00:00:00Z',
-                issued_at: '2026-04-28T00:00:00Z'
-              }, null, 2)} isJson />
-            </div>
+// webhook (X-Stayloop-Event: screening.completed)
+{ "screening_id": "…", "external_ref": "APP-1042", "status": "scored", "overall": 74, "tier": "review",
+  "hard_gates": [], "report_url": "…/report", "notice_letter_url": "…/notice",
+  "boundary": "Score and tier are information for the landlord's own decision — never grounds to decline (OHRC). Not a consumer report." }`}</Code>
+      </section>
 
-            <StatusCodesTable
-              codes={[
-                { code: '200', desc: isZh ? '护照有效' : 'Passport valid' },
-                { code: '401', desc: isZh ? '护照已过期或无效' : 'Passport expired or invalid' },
-                { code: '429', desc: isZh ? '超过速率限制' : 'Rate limit exceeded' },
-              ]}
-            />
-          </section>
-
-          {/* GET /v1/listings/{id}/compliance */}
-          <section id="section-compliance" style={{ marginBottom: 56 }}>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: v3.textPrimary,
-                marginBottom: 12,
-              }}
-            >
-              GET /v1/listings/{'{id}'}/compliance
-            </h2>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: v3.textSecondary, marginBottom: 16 }}>
-              {label(
-                'Check a listing for OHRC (Ontario Human Rights Code) compliance. Returns pass/fail plus warnings for protected grounds (family status, religion, source of income, etc.).',
-                '检查房源是否符合 OHRC（安省人权法）。返回通过/失败状态，以及对保护基础（家庭状况、宗教、收入来源等）的警告。'
-              )}
-            </p>
-
-            <div style={{ marginBottom: 20 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: v3.textMuted,
-                  marginBottom: 8,
-                }}
-              >
-                {label('Request', '请求')}
-              </div>
-              <CodeBlock code={`curl -X GET https://api.stayloop.ai/v1/listings/lst_abc123/compliance \\
-  -H "Authorization: Bearer sk_test_abcd1234..."`}
-              />
-            </div>
-
-            <div style={{ marginBottom: 20 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: v3.textMuted,
-                  marginBottom: 8,
-                }}
-              >
-                {label('Response', '响应')}
-              </div>
-              <CodeBlock code={JSON.stringify({
-                passes: true,
-                warnings: [
-                  {
-                    code: 'pet_policy_note',
-                    severity: 'low',
-                    field: 'description',
-                    matched_text: 'no pets',
-                    rationale_en: 'Pet restrictions may conflict with assistance animal rights',
-                    rationale_zh: '宠物限制可能与辅助动物权利冲突'
-                  }
-                ]
-              }, null, 2)} isJson />
-            </div>
-
-            <StatusCodesTable
-              codes={[
-                { code: '200', desc: isZh ? '检查完成' : 'Check completed' },
-                { code: '404', desc: isZh ? '房源未找到' : 'Listing not found' },
-                { code: '401', desc: isZh ? '无效 API 密钥' : 'Invalid API key' },
-              ]}
-            />
-          </section>
-
-          {/* POST /v1/disputes/mediate */}
-          <section id="section-mediate" style={{ marginBottom: 56 }}>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: v3.textPrimary,
-                marginBottom: 12,
-              }}
-            >
-              POST /v1/disputes/mediate
-            </h2>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: v3.textSecondary, marginBottom: 16 }}>
-              {label(
-                'Submit a dispute for AI-powered mediation. Mediator agent provides neutral proposals grounded in Ontario RTA (Residential Tenancies Act). 14-day resolution window.',
-                '提交纠纷以进行 AI 驱动的调解。调解员代理提供基于安省《住宅租赁法》的中立建议。14 天解决期限。'
-              )}
-            </p>
-
-            <div style={{ marginBottom: 20 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: v3.textMuted,
-                  marginBottom: 8,
-                }}
-              >
-                {label('Request', '请求')}
-              </div>
-              <CodeBlock code={JSON.stringify({
-                dispute_id: 'dsp_abc123',
-                party: 'tenant',
-                message: 'Landlord has not returned my damage deposit after 30 days.'
-              }, null, 2)} isJson />
-            </div>
-
-            <div style={{ marginBottom: 20 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  color: v3.textMuted,
-                  marginBottom: 8,
-                }}
-              >
-                {label('Response', '响应')}
-              </div>
-              <CodeBlock code={JSON.stringify({
-                mediator_response: 'Under RTA §106, landlord must return deposit within 30 days + interest, or provide written itemization.',
-                suggested_settlement: 'Landlord returns deposit + interest within 5 business days.',
-                days_remaining: 10,
-                rta_citations: ['§106', '§104']
-              }, null, 2)} isJson />
-            </div>
-
-            <StatusCodesTable
-              codes={[
-                { code: '200', desc: isZh ? '调解已开始' : 'Mediation started' },
-                { code: '400', desc: isZh ? '纠纷 ID 无效' : 'Invalid dispute ID' },
-                { code: '429', desc: isZh ? '超过速率限制' : 'Rate limit exceeded' },
-              ]}
-            />
-          </section>
-
-          {/* WEBHOOKS */}
-          <section id="section-webhooks" style={{ marginBottom: 56 }}>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: v3.textPrimary,
-                marginBottom: 16,
-              }}
-            >
-              {label('Webhooks', 'Webhooks')}
-            </h2>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: v3.textSecondary, marginBottom: 16 }}>
-              {label(
-                'Stayloop sends webhook events for key lifecycle events. All webhooks are signed with HMAC-SHA256.',
-                'Stayloop 会针对关键生命周期事件发送 webhook 事件。所有 webhook 使用 HMAC-SHA256 签名。'
-              )}
-            </p>
-
-            <div
-              style={{
-                background: v3.surfaceMuted,
-                border: `1px solid ${v3.border}`,
-                padding: '16px',
-                borderRadius: 8,
-                fontSize: 13,
-                marginBottom: 16,
-                color: v3.textSecondary,
-              }}
-            >
-              <strong style={{ color: v3.textPrimary }}>Webhook events:</strong>
-              <ul style={{ marginTop: 8, paddingLeft: 20 }}>
-                <li>application.scored</li>
-                <li>passport.verified</li>
-                <li>compliance.warning</li>
-                <li>dispute.settled</li>
-              </ul>
-            </div>
-
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: v3.textSecondary }}>
-              {label(
-                'Configure your webhook endpoint in the API dashboard. Stayloop retries failed deliveries up to 5 times with exponential backoff.',
-                '在 API 仪表盘中配置 webhook 端点。Stayloop 会使用指数退避重试失败的交付，最多重试 5 次。'
-              )}
-            </p>
-          </section>
-
-          {/* SDKS */}
-          <section id="section-sdks" style={{ marginBottom: 56 }}>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: v3.textPrimary,
-                marginBottom: 16,
-              }}
-            >
-              {label('Calling it today', '当前可用的调用方式')}
-            </h2>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: v3.textSecondary, marginBottom: 16 }}>
-              {label(
-                'No SDK is published. The only endpoint implemented today is POST /api/trust/verify — a plain HTTPS call with an X-API-Key header. Keys are issued manually by Stayloop; there is no self-serve key console yet.',
-                '目前没有已发布的 SDK。今天唯一已实现的端点是 POST /api/trust/verify——普通的 HTTPS 请求，带 X-API-Key 请求头。Key 由 Stayloop 人工签发，暂无自助控制台。'
-              )}
-            </p>
-
-            <CodeBlock code={`curl -X POST https://www.stayloop.ai/api/trust/verify \\
-  -H "X-API-Key: <issued by Stayloop>" \\
-  -H "Content-Type: application/json" \\
-  -d '{"token":"<passport share token>","scopes":["identity","bank"]}'`}
-            />
-          </section>
-
-          {/* RATE LIMITS */}
-          <section id="section-rate-limits" style={{ marginBottom: 56 }}>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: v3.textPrimary,
-                marginBottom: 16,
-              }}
-            >
-              {label('Rate limits', '速率限制')}
-            </h2>
-            <div
-              style={{
-                overflowX: 'auto',
-                marginBottom: 16,
-              }}
-            >
-              <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: 13,
-                }}
-              >
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${v3.border}` }}>
-                    <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: 600, color: v3.textPrimary }}>
-                      {label('Tier', '等级')}
-                    </th>
-                    <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: 600, color: v3.textPrimary }}>
-                      {label('Requests/min', '请求/分钟')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr style={{ borderBottom: `1px solid ${v3.divider}` }}>
-                    <td style={{ padding: '8px 0', color: v3.textSecondary }}>Free</td>
-                    <td style={{ padding: '8px 0', color: v3.textSecondary }}>60</td>
-                  </tr>
-                  <tr style={{ borderBottom: `1px solid ${v3.divider}` }}>
-                    <td style={{ padding: '8px 0', color: v3.textSecondary }}>Pro</td>
-                    <td style={{ padding: '8px 0', color: v3.textSecondary }}>600</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 0', color: v3.textSecondary }}>Enterprise</td>
-                    <td style={{ padding: '8px 0', color: v3.textSecondary }}>{label('Custom', '自定义')}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p style={{ fontSize: 13, color: v3.textMuted }}>
-              {label(
-                'Rate limit headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset (Unix timestamp).',
-                '速率限制标头：X-RateLimit-Limit、X-RateLimit-Remaining、X-RateLimit-Reset（Unix 时间戳）。'
-              )}
-            </p>
-          </section>
-
-          {/* ERRORS */}
-          <section id="section-errors" style={{ marginBottom: 0 }}>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-                color: v3.textPrimary,
-                marginBottom: 16,
-              }}
-            >
-              {label('Error handling', '错误处理')}
-            </h2>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: v3.textSecondary, marginBottom: 16 }}>
-              {label(
-                'All API errors return a consistent JSON structure with an error code and message.',
-                '所有 API 错误都返回一致的 JSON 结构，包含错误代码和消息。'
-              )}
-            </p>
-
-            <CodeBlock code={JSON.stringify({
-              error: {
-                code: 'invalid_api_key',
-                message: 'The provided API key is invalid or expired.',
-                type: 'authentication_error'
-              }
-            }, null, 2)} isJson />
-          </section>
-        </main>
-
-        {/* RIGHT RAIL — Try-it panel */}
-        <aside
-          className="tapi-docs-aside"
-          style={{
-            position: 'sticky',
-            top: 80,
-            height: 'fit-content',
-            background: v3.surfaceCard,
-            border: `1px solid ${v3.border}`,
-            borderRadius: 12,
-            padding: '24px',
-            boxShadow: size.shadow.sm,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              color: v3.textMuted,
-              marginBottom: 12,
-            }}
-          >
-            {label('Try it', '试试看')}
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <label
-              style={{
-                display: 'block',
-                fontSize: 12,
-                fontWeight: 600,
-                color: v3.textPrimary,
-                marginBottom: 6,
-              }}
-            >
-              {label('API Key', 'API 密钥')}
-            </label>
-            <input
-              type="password"
-              placeholder={label('sk_test_...', 'sk_test_...')}
-              value={authToken}
-              onChange={(e) => setAuthToken(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                border: `1px solid ${v3.border}`,
-                borderRadius: 6,
-                fontSize: 12,
-                fontFamily: 'var(--font-mono)',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <label
-              style={{
-                display: 'block',
-                fontSize: 12,
-                fontWeight: 600,
-                color: v3.textPrimary,
-                marginBottom: 6,
-              }}
-            >
-              {label('Endpoint', '端点')}
-            </label>
-            <select
-              value={selectedEndpoint}
-              onChange={(e) => setSelectedEndpoint(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 10px',
-                border: `1px solid ${v3.border}`,
-                borderRadius: 6,
-                fontSize: 12,
-                fontFamily: 'var(--font-mono)',
-                boxSizing: 'border-box',
-              }}
-            >
-              <option>POST /v1/screen</option>
-              <option>POST /v1/passport/verify</option>
-              <option>GET /v1/listings/{'{id}'}/compliance</option>
-              <option>POST /v1/disputes/mediate</option>
-            </select>
-          </div>
-
-          <button
-            disabled={!authToken}
-            style={{
-              width: '100%',
-              padding: '10px',
-              background: authToken
-                ? `linear-gradient(135deg, #6EE7B7 0%, #34D399 100%)`
-                : v3.borderStrong,
-              color: authToken ? '#fff' : v3.textMuted,
-              border: 'none',
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: authToken ? 'pointer' : 'not-allowed',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              if (authToken) {
-                e.currentTarget.style.filter = 'brightness(1.05)'
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (authToken) {
-                e.currentTarget.style.filter = 'brightness(1)'
-              }
-            }}
-          >
-            {label('Send request', '发送请求')}
-          </button>
-
-          <p
-            style={{
-              fontSize: 11,
-              color: v3.textMuted,
-              marginTop: 12,
-              textAlign: 'center',
-            }}
-          >
-            {label(
-              '(Prototype — requests disabled)',
-              '（原型 — 请求已禁用）'
-            )}
-          </p>
-        </aside>
-      </div>
-      <style jsx global>{`
-        @media (max-width: 1024px) {
-          .tapi-docs-grid {
-            grid-template-columns: 1fr !important;
-          }
-          .tapi-docs-nav,
-          .tapi-docs-aside {
-            position: static !important;
-            max-height: none !important;
-          }
-        }
-        @media (max-width: 640px) {
-          .tapi-docs-main {
-            padding: 24px !important;
-          }
-        }
-        /* 端点标题是不可断的等宽串（GET /v1/listings/{id}/compliance 在 224px
-           的正文列里要 278px），窄屏上它是本页唯一撑破文档宽度的东西。左侧导航
-           里的同一串也一样。代码块自己有 overflow:auto，不受这条影响。 */
-        .tapi-docs-main h1,
-        .tapi-docs-main h2,
-        .tapi-docs-main h3,
-        .tapi-docs-nav a {
-          overflow-wrap: anywhere;
-        }
-        @media (max-width: 400px) {
-          .tapi-docs-main {
-            padding: 16px !important;
-          }
-        }
-      `}</style>
-    </div>
-  )
-}
-
-// ─── Components ───────────────────────────────────────────────
-
-function CodeBlock({ code, isJson }: { code: string; isJson?: boolean }) {
-  return (
-    <div
-      style={{
-        background: v3.ink,
-        color: '#fff',
-        borderRadius: 8,
-        padding: '16px',
-        overflow: 'auto',
-        marginBottom: 16,
-      }}
-    >
-      <pre
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 12,
-          lineHeight: 1.5,
-          margin: 0,
-          color: '#fff',
-        }}
-      >
-        {isJson ? (
-          <code>{highlightJson(code)}</code>
-        ) : (
-          <code>{code}</code>
-        )}
-      </pre>
-    </div>
-  )
-}
-
-function highlightJson(json: string): string {
-  return json
-}
-
-function StatusCodesTable({
-  codes,
-}: {
-  codes: Array<{ code: string; desc: string }>
-}) {
-  return (
-    <div style={{ overflowX: 'auto' }}>
-      <table
-        style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          fontSize: 13,
-          marginBottom: 16,
-        }}
-      >
-        <thead>
-          <tr style={{ borderBottom: `1px solid ${v3.border}` }}>
-            <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: 600, color: v3.textPrimary }}>
-              Code
-            </th>
-            <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: 600, color: v3.textPrimary }}>
-              Description
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {codes.map((row) => (
-            <tr key={row.code} style={{ borderBottom: `1px solid ${v3.divider}` }}>
-              <td
-                style={{
-                  padding: '8px 0',
-                  color: v3.textSecondary,
-                  fontFamily: 'var(--font-mono)',
-                  fontWeight: 500,
-                }}
-              >
-                {row.code}
-              </td>
-              <td style={{ padding: '8px 0', color: v3.textSecondary }}>{row.desc}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <section className="mx-auto max-w-[960px] px-5 py-10 sm:px-7">
+        <h2 className="text-[20px] font-semibold">{zh ? '错误' : 'Errors'}</h2>
+        <table className="mt-3 w-full text-[13.5px]">
+          <tbody>
+            {[['401', zh ? '缺少 X-API-Key' : 'X-API-Key missing'], ['403', zh ? '密钥无效 / 停用；或申请人未开放该范围' : 'Key invalid / disabled; or the applicant has not shared that scope'], ['404', zh ? 'token 不存在、过期或已撤销' : 'Token unknown, expired or revoked'], ['422', zh ? '缺少同意记录或文件不可抓取' : 'Consent missing or files unfetchable'], ['429', zh ? '超过限流（看 Retry-After）' : 'Rate limit (see Retry-After)']].map(([c, t]) => (
+              <tr key={c} className="border-t border-line-divider"><td className="w-16 py-2 font-mono font-bold">{c}</td><td className="py-2 text-body-2">{t}</td></tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="mt-8 text-[13px] text-body-3">{zh ? '申请密钥或试点：privacy@stayloop.ai。数据来源目录见 ' : 'Keys and pilots: privacy@stayloop.ai. Data sources: '}<Link href="/partners" className="underline">/partners</Link>.</p>
+      </section>
+      <Footer />
     </div>
   )
 }

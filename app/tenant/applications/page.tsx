@@ -16,6 +16,7 @@ import {
   Tr,
 } from '@/components/workspace'
 import { useAIName } from '@/lib/aiName'
+import MyShowings from '@/components/tenant/MyShowings'
 import { useT, type Lang } from '@/lib/i18n'
 
 const TIMELINE = {
@@ -123,6 +124,8 @@ export default function TenantApplications() {
           </Link>
         }
       />
+
+      <MyShowings zh={zh} />
 
       <StatStrip
         stats={[

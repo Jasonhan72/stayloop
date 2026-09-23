@@ -19,6 +19,7 @@ import { emptyTrrebTerms, type TrrebLeaseTerms } from '@/lib/lease/trreb'
 import { supabase } from '@/lib/supabase'
 import { useLandlord } from '@/lib/useLandlord'
 import { useT } from '@/lib/i18n'
+import { checkLeaseTerms } from '@/lib/ontario/rules'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -183,6 +184,23 @@ function NewLeasePageInner() {
     // RTA/OHRC guardrail on the free-text terms — void terms don't get drafted.
     // The same check covers Ontario §15 additional terms and TRREB Schedule A.
     const check = checkAdditionalTerms((isTrreb ? tt.schedule_a : t.additional_terms) || '')
+    // Ontario rules single source (lib/ontario/rules.ts): deposit cap, void
+    // pet bans, extra fees in Schedule B, date order — blocks before saving.
+    const rules = checkLeaseTerms({
+      rent_amount: isTrreb ? tt.rent.amount : t.rent.amount,
+      deposit_amount: isTrreb ? (tt.deposit?.amount ?? null) : (t.rent_deposit ?? null),
+      form_type: formType,
+      schedule_b: (isTrreb ? tt.schedule_a : t.additional_terms) || '',
+      start_date: isTrreb ? tt.term.start_date : t.term.start_date,
+      end_date: isTrreb ? tt.term.end_date : t.term.end_date,
+    })
+    if (rules.findings.length && landlord) {
+      void supabase.from('compliance_events').insert(rules.findings.map((f) => ({ user_id: landlord.authId, role: 'landlord', source: 'lease_terms', rule_id: f.rule, severity: f.severity, metadata: { message: f.message.zh } })))
+    }
+    if (!rules.passed) {
+      setErr(rules.findings.filter((f) => f.severity === 'block').map((f) => `${f.statute}：${zh ? f.message.zh : f.message.en}`).join('；'))
+      return
+    }
     if (!check.ok) {
       setTermIssues(check.issues)
       setErr(zh ? '附加条款包含无效/违法内容，请修改后再保存（见下方说明）' : 'Additional terms contain void/illegal content — fix them first (see below)')

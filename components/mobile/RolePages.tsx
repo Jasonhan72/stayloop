@@ -7,6 +7,7 @@
 // uses, so they work on desktop too — there they simply sit inside the
 // workspace shell.
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import PendingActionsPanel from '@/components/agent/PendingActionsPanel'
 import StatusOverview from '@/components/agent/StatusOverview'
@@ -18,6 +19,19 @@ import { useAgentSession } from '@/lib/agent/useAgentSession'
 import { buildIdeas } from '@/lib/agent/ideas'
 import { useT } from '@/lib/i18n'
 import type { AgentRole } from '@/lib/agent/types'
+
+function ScheduledLine({ id, title, executeAt, onUndo, zh }: { id: string; title: string; executeAt: number; onUndo: (id: string) => void | Promise<void>; zh: boolean }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
+  const left = Math.max(0, Math.ceil((executeAt - now) / 1000))
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-brand/40 bg-white px-3.5 py-2.5 text-[13px] text-body-2">
+      <span className="text-success">✓</span>
+      <span className="min-w-0 flex-1 truncate">{zh ? `已批准 · ${left} 秒后执行` : `Approved · runs in ${left}s`} · {title}</span>
+      <button type="button" onClick={() => onUndo(id)} className="flex-none rounded-full border border-line-strong bg-white px-3 py-1 text-[12px] font-semibold hover:border-danger hover:text-danger">{zh ? '撤销' : 'Undo'}</button>
+    </div>
+  )
+}
 
 function Skeleton({ role }: { role: AgentRole }) {
   return (
@@ -44,15 +58,23 @@ function PageHead({ eyebrow, title, sub }: { eyebrow: string; title: string; sub
 export function TodoPage({ role }: { role: AgentRole }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const { loading, live, data, decide } = useAgentSession(role)
+  const { loading, live, data, decide, scheduled, undo } = useAgentSession(role)
   if (loading || !data) return <Skeleton role={role} />
   const pending = data.pendingActions.filter((a) => a.status === 'pending')
+  const waiting = Object.entries(scheduled)
   return (
     <WorkspaceShell role={role} hideAside>
       <PageHead eyebrow="TO-DO" title={zh ? '等你点头的' : 'Waiting on you'} sub={zh ? `${data.agent.agent_name} 不会替你决定；这里的每一件都要你批准才执行。` : `${data.agent.agent_name} never decides for you; nothing here runs until you approve.`} />
       {!live && (
         <div className="mb-4 rounded-xl border border-line-strong bg-surface-chip px-4 py-3 text-[12.5px] text-body-3">
           {zh ? '预览模式：登录后这里是你真实的待办。' : 'Preview mode: sign in to see your real to-dos.'} <Link href="/login" className="font-bold text-brand">{zh ? '登录 →' : 'Sign in →'}</Link>
+        </div>
+      )}
+      {waiting.length > 0 && (
+        <div className="mb-4 space-y-2">
+          {waiting.map(([id, w]) => (
+            <ScheduledLine key={id} id={id} title={w.title} executeAt={w.executeAt} onUndo={undo} zh={zh} />
+          ))}
         </div>
       )}
       {pending.length === 0 ? (

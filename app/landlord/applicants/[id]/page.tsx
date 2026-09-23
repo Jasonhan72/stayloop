@@ -14,6 +14,9 @@ import { useAuth } from '@/lib/useAuth'
 import { supabase, getSupabaseBrowser } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import type { ApplicationFile } from '@/types'
+import ApprovalActionCard from '@/components/agent/ApprovalActionCard'
+import { decidePendingAction } from '@/lib/agent/approval-engine'
+import type { PendingAction } from '@/lib/agent/types'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -90,6 +93,15 @@ function RealApplicantDetail({ id }: { id: string }) {
   const [declineOpen, setDeclineOpen] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
   const [err, setErr] = useState<string | null>(null)
+  // Lifecycle plan 2026-09-22 §2.1: one-click screening from the application,
+  // and the decision notice as an assistant card the landlord previews and
+  // approves (send_decision executor).
+  const [screenBusy, setScreenBusy] = useState(false)
+  const [screeningId, setScreeningId] = useState<string | null>(null)
+  const [noticeCard, setNoticeCard] = useState<PendingAction | null>(null)
+  const [noticeDone, setNoticeDone] = useState<string | null>(null)
+  const [needsMoreOpen, setNeedsMoreOpen] = useState(false)
+  const [needsMoreText, setNeedsMoreText] = useState('')
 
   useEffect(() => {
     if (authLoading) return
@@ -112,6 +124,69 @@ function RealApplicantDetail({ id }: { id: string }) {
       cancelled = true
     }
   }, [id, user, authLoading])
+
+  async function startScreening() {
+    if (!app || app === 'missing' || !user || screenBusy) return
+    setScreenBusy(true); setErr(null)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const res = await fetch('/api/screening/from-application', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sess.session?.access_token ?? ''}` }, body: JSON.stringify({ application_id: app.id }) })
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; screening_id?: string; existing?: boolean; status?: string; error?: string }
+      if (!res.ok || !j.screening_id) { setErr(j.error || `HTTP ${res.status}`); return }
+      setScreeningId(j.screening_id)
+      window.location.href = `/screening/app?screening=${j.screening_id}${j.existing && j.status === 'scored' ? '' : '&run=1'}`
+    } finally { setScreenBusy(false) }
+  }
+
+  // Load an existing screening link + any pending decision card for this application.
+  useEffect(() => {
+    if (!app || app === 'missing' || !user) return
+    let cancelled = false
+    ;(async () => {
+      const [{ data: sc }, { data: pa }] = await Promise.all([
+        supabase.from('screenings').select('id, status').eq('application_id', app.id).order('created_at', { ascending: false }).limit(1),
+        supabase.from('agent_pending_actions').select('*').eq('action_type', 'send_decision').eq('status', 'pending').contains('metadata', { application_id: app.id }).order('created_at', { ascending: false }).limit(1),
+      ])
+      if (cancelled) return
+      if (sc && sc.length) setScreeningId(sc[0].id as string)
+      if (pa && pa.length) setNoticeCard(pa[0] as PendingAction)
+    })()
+    return () => { cancelled = true }
+  }, [app, user])
+
+  async function proposeNotice(decision: 'approved' | 'declined' | 'needs_more', reason?: string) {
+    if (!app || app === 'missing' || !user) return
+    const listingAddr = app.listing ? `${(app.listing as { address?: string }).address ?? ''}` : ''
+    const title = decision === 'approved' ? `录取通知：${name} · ${listingAddr}` : decision === 'declined' ? `婉拒通知：${name} · ${listingAddr}` : `补材料通知：${name} · ${listingAddr}`
+    const summary = decision === 'approved'
+      ? `批准后我会给 ${app.email} 发录取通知，并说明租约随后送达。信里固定带《消费者报告法》s.10(7) 与 OHRC 声明。`
+      : decision === 'declined'
+        ? `批准后我会给 ${app.email} 发婉拒通知${reason ? `，理由：「${reason}」` : ''}。信里固定带 s.10(7) 索取权与 OHRC 声明；理由已写入审计。`
+        : `批准后我会给 ${app.email} 发补材料通知：${reason || '（未填）'}`
+    const { data: row, error } = await supabase.from('agent_pending_actions').insert({
+      user_id: user.id, role: 'landlord', action_type: 'send_decision', title, summary,
+      recipient_label: app.email, data_scope: ['申请结果', decision === 'declined' && reason ? '房东填写的理由' : '房东联系邮箱'], excluded_data: ['筛查报告', '评分', '其他申请人信息'],
+      risk_level: decision === 'declined' ? 'medium' : 'low', status: 'pending', requires_approval: true,
+      metadata: { application_id: app.id, decision, reason: reason || null, source: 'applicant_page' },
+    }).select('*').single()
+    if (error || !row) { setErr(error?.message || 'could not create card'); return }
+    setNoticeCard(row as PendingAction)
+    setNoticeDone(null)
+  }
+
+  async function decideNotice(id: string, d: 'approved' | 'rejected') {
+    if (!user) return
+    await decidePendingAction(getSupabaseBrowser(), id, d)
+    if (d === 'rejected') { setNoticeCard(null); return }
+    const { data: sess } = await supabase.auth.getSession()
+    const res = await fetch('/api/agent/execute', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sess.session?.access_token ?? ''}` }, body: JSON.stringify({ action_id: id }) })
+    const j = (await res.json().catch(() => ({}))) as { executed?: boolean; reason?: string; result?: { sent_to?: string; decision?: string } }
+    setNoticeCard(null)
+    if (j.executed) {
+      setNoticeDone(zh ? `通知已发送至 ${j.result?.sent_to}` : `Notice sent to ${j.result?.sent_to}`)
+      if (app && app !== 'missing' && j.result?.decision) setApp({ ...app, status: j.result.decision === 'needs_more' ? 'reviewing' : j.result.decision })
+    } else setErr(j.reason || 'send failed')
+  }
 
   const decide = useCallback(
     async (status: 'approved' | 'declined', reason?: string) => {
@@ -136,7 +211,11 @@ function RealApplicantDetail({ id }: { id: string }) {
       setApp({ ...app, status })
       setDeclineOpen(false)
       setBusy(false)
+      // The decision is recorded; the notice goes out only after the landlord
+      // previews and approves the card below.
+      void proposeNotice(status, reason)
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [app, user],
   )
 
@@ -281,14 +360,38 @@ function RealApplicantDetail({ id }: { id: string }) {
                   : `${name}'s application is in. Income ${app.monthly_income ? `$${app.monthly_income.toLocaleString()}/mo` : 'not given'}${app.employer_name ? ` · ${app.employer_name}` : ''}. A full recommendation appears here once scoring completes.`)}
             </p>
             {err && <p className="mt-2 text-[12.5px] font-semibold text-danger">{err}</p>}
+            {noticeDone && <p className="mt-2 rounded-lg bg-success/10 px-3 py-2 text-[12.5px] font-semibold text-success">✓ {noticeDone}</p>}
+            {noticeCard && (
+              <div className="mt-4">
+                <ApprovalActionCard action={noticeCard} compact onDecide={(id, d) => decideNotice(id, d)} />
+              </div>
+            )}
             <div className="mt-4 flex flex-col gap-2">
               <button
                 className="sl-btn-primary !py-[12px] disabled:opacity-50"
+                disabled={screenBusy}
+                onClick={startScreening}
+              >
+                {screenBusy ? (zh ? '准备筛查…' : 'Preparing…') : screeningId ? (zh ? '🔍 查看筛查报告' : '🔍 Open screening report') : (zh ? '🔍 一键筛查（复用申请材料）' : '🔍 Screen with the submitted documents')}
+              </button>
+              <button
+                className="rounded-lg border border-success/50 bg-white px-4 py-[10px] text-[13.5px] font-semibold text-success disabled:opacity-50"
                 disabled={busy || app.status === 'approved'}
                 onClick={() => decide('approved')}
               >
-                {app.status === 'approved' ? (zh ? '✓ 已批准看房' : '✓ Showing approved') : zh ? '✓ 批准看房' : '✓ Approve showing'}
+                {app.status === 'approved' ? (zh ? '✓ 已录取' : '✓ Approved') : zh ? '✓ 录取 · 起草通知' : '✓ Approve · draft the notice'}
               </button>
+              {needsMoreOpen ? (
+                <div className="rounded-lg border border-line-divider p-3">
+                  <input value={needsMoreText} onChange={(e) => setNeedsMoreText(e.target.value)} placeholder={zh ? '需要补充什么（如：最近两张工资单）' : 'What is missing (e.g. two recent pay stubs)'} className="w-full rounded-md border border-line-divider px-3 py-2 text-[13px]" />
+                  <div className="mt-2 flex gap-2">
+                    <button className="sl-btn-primary flex-1 !py-2 !text-[13px]" disabled={!needsMoreText.trim()} onClick={() => { void proposeNotice('needs_more', needsMoreText.trim()); setNeedsMoreOpen(false) }}>{zh ? '起草补材料通知' : 'Draft the request'}</button>
+                    <button className="sl-btn-secondary flex-1" onClick={() => setNeedsMoreOpen(false)}>{zh ? '取消' : 'Cancel'}</button>
+                  </div>
+                </div>
+              ) : (
+                <button className="sl-btn-secondary" onClick={() => setNeedsMoreOpen(true)}>{zh ? '✉ 请 TA 补充材料' : '✉ Ask for more documents'}</button>
+              )}
               <Link href={`/landlord/leases/new?application_id=${app.id}`} className="sl-btn-secondary text-center">
                 {zh ? '📄 起草租约' : '📄 Draft lease'}
               </Link>

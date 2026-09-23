@@ -72,6 +72,8 @@ export default function AgentChat({
   live = false,
   memoryCount = 0,
   workflow = null,
+  scheduled,
+  onUndo,
 }: {
   role: AgentRole
   agentName: string
@@ -92,6 +94,9 @@ export default function AgentChat({
   live?: boolean
   memoryCount?: number
   workflow?: WorkflowState | null
+  /** Approved actions waiting out their undo window (lifecycle plan §2.5). */
+  scheduled?: Record<string, { title: string; executeAt: number }>
+  onUndo?: (id: string) => void | Promise<void>
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -335,10 +340,7 @@ export default function AgentChat({
         {onDecide && (decided.length > 0 || pending.length > 0) && (
           <div className="space-y-3 lg:hidden">
             {decided.map((d) => (
-              <div key={d.id} className="flex items-center gap-2 rounded-xl border border-line-divider bg-surface-chip px-3.5 py-2 text-[12.5px] text-body-2">
-                <span className={d.decision === 'approved' ? 'text-success' : 'text-body-3'}>{d.decision === 'approved' ? '✓' : '✕'}</span>
-                <span className="min-w-0 truncate">{d.decision === 'approved' ? (zh ? '已批准 · 已交给助手执行' : 'Approved · handed to the assistant') : (zh ? '已拒绝' : 'Rejected')} · {d.title}</span>
-              </div>
+              <ScheduledRow key={d.id} id={d.id} title={d.title} decision={d.decision} scheduled={scheduled?.[d.id]} onUndo={onUndo} zh={zh} />
             ))}
             {pending.map((a) => (
               <ApprovalActionCard
@@ -489,6 +491,35 @@ function ThinkingIndicator({ status, lang }: { status: AgentStatus; lang: 'zh' |
           100% { background-position: -20% 0; }
         }
       `}</style>
+    </div>
+  )
+}
+
+// A decided card collapsed to one line. While the approval is inside its
+// undo window it shows a live countdown and an 撤销 button (Muse/EliseAI
+// plans 2026-09-22: sends can't be recalled, so the recall lives before the
+// send).
+function ScheduledRow({ id, title, decision, scheduled, onUndo, zh }: { id: string; title: string; decision: 'approved' | 'rejected'; scheduled?: { title: string; executeAt: number }; onUndo?: (id: string) => void | Promise<void>; zh: boolean }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    if (!scheduled) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [scheduled])
+  const left = scheduled ? Math.max(0, Math.ceil((scheduled.executeAt - now) / 1000)) : 0
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-line-divider bg-surface-chip px-3.5 py-2 text-[12.5px] text-body-2">
+      <span className={decision === 'approved' ? 'text-success' : 'text-body-3'}>{decision === 'approved' ? '✓' : '✕'}</span>
+      <span className="min-w-0 flex-1 truncate">
+        {decision === 'rejected'
+          ? (zh ? '已拒绝' : 'Rejected')
+          : scheduled
+            ? (zh ? `已批准 · ${left} 秒后执行` : `Approved · runs in ${left}s`)
+            : (zh ? '已批准 · 已交给助手执行' : 'Approved · handed to the assistant')} · {title}
+      </span>
+      {scheduled && onUndo && (
+        <button type="button" onClick={() => onUndo(id)} className="flex-none rounded-full border border-line-strong bg-white px-2.5 py-[3px] text-[11.5px] font-semibold text-body hover:border-danger hover:text-danger">{zh ? '撤销' : 'Undo'}</button>
+      )}
     </div>
   )
 }

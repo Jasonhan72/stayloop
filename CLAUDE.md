@@ -517,6 +517,41 @@ iOS 只对已添加到主屏的 PWA 投递（16.4+），卡片会提示。SW 的
 头像真实状态 + 活动日志弹层、进度页、想法页（纯函数拼句，不加模型调用）、对话通栏；P1 = PWA + Web Push（只推需要决定的与真正新的）、记忆可编辑。
 **不抄**：Secure VM / 代操作第三方网站、购物与一次性卡、头像画像、纯图标底栏、年龄门与周额度。
 
+## 租房全流程 AI 与 Trust API 优化方案（2026-09-22 · 依据 `~/Downloads/eliseai-story-and-site-analysis.pdf`）
+
+方案 `design/lifecycle-and-trust-api-plan-2026-09.md`。生产实数：全流程里只有筛查有量（227 份），applications / showing_intents /
+households / rent_payments 都是 0，待办 18 条 0 条执行过；Trust API 文档的 4 个端点与 `api.stayloop.ai` 全不可用（`trust_api_keys` 0 行，
+路由查的 `rental_passports` 表不存在）。方案：① 加固护城河（规则编号公开、`lib/ontario/rules.ts` 法条单一来源、三角色隔离承诺、
+执行预览 + 60 秒撤销）；② 90 天闭环只做"接头"：申请 → 一键筛查、`send_decision` 决定通知执行器、申请 → 租约草稿、`send_lease` 执行器、
+双签自动建 household；③ 五个 ROI 指标全部从现有表算；④ Trust API 重定位为"安省租房核验 API"，只保留三个有真实后端的端点
+（passport/verify 读核验快照、screen 包装现有管线 + 同意校验、listings/compliance 确定性规则免费），**申请人主动出示模式**，对金融机构
+开放需律师意见。**用户 2026-09-23 拍板「全部开始改」并要求三角色测试账号 + 全流程模拟测试。** 落地（守卫 `tests/lifecycle20260923.spec.ts`）：
+- **测试账号（密码都是 `Test1234`，`user_metadata.test_account=true`，测试数据标 `[TEST]`，正式发布前不删）**：`tenant-test@stayloop.ai`（tenants 行）、
+  `landlord-test@stayloop.ai`（landlords 行）、`agent-test@stayloop.ai`（agent_profiles 由测试阶段建）；早先的 `tester@stayloop.ai`（房东）仍在。
+- **`lib/ontario/rules.ts`**：15 条规则的单一来源（编号 / 法条 / 中英 / 落点 / 严重度）+ `checkListingCompliance` / `checkLeaseTerms` /
+  `decisionNoticeFooter`；公开页 `/rules`；发布向导第 5 步与 `/landlord/leases/new` 保存前都用它，命中写 `compliance_events`；turn 路由的
+  guardrail 命中也写。表 + `admin_lifecycle_stats(p_days)` RPC 在迁移 `20260923_lifecycle_closed_loop.sql`（已应用 prod）。
+- **申请 → 一键筛查**：`POST /api/screening/from-application`（RLS 证明房东拥有该申请 → 用申请文件清单直接建 `screenings` 行，
+  `screenings.application_id` 新列）→ `/screening/app?screening=<id>&run=1`；`runAnalysis(existing?)` 有已有行时跳过建行与上传只评分。
+  申请人页 `/landlord/applicants/[id]` 按钮改为「一键筛查 / 录取 · 起草通知 / 请 TA 补充材料 / 婉拒（需理由）」。
+- **决定通知 `send_decision` 执行器**：申请人页把决定写成待批卡（`metadata {application_id, decision, reason}`），卡片内联可预览、批准即发；
+  执行器服务端重读申请与房源归属，收件人取 `applications.email`，正文固定带 s.10(7) + OHRC 声明（`decisionNoticeFooter`），
+  写 `applications.decision_notified_at / decision_reason`、`compliance_events(decision_notice)`。
+- **`send_lease` 执行器** + `lib/lease/sendLease.ts`（`/api/lease/send` 与执行器共用：token 铸造、状态、邮件、审计）。
+- **双签 → 在管租约**：`/api/lease/sign` 在 fully executed 时建 `households(source=esign, verified=true)` + 房东成员 + 租客邮箱邀请
+  （`household_invites`）+ 首月 `rent_payments(due)`，审计 `household_created_from_esign`。
+- **预览 + 60 秒撤销**：`POST /api/agent/execute {preview:true}` 让每个发信执行器返回将要发送的 subject/body（在 claim 之前返回，pending 也可预览）；
+  `ApprovalActionCard` 有「预览正文」；`useAgentSession.decide` 批准后等 `UNDO_MS=60s` 再执行，`undo(id)` 取消并把行改回 pending +
+  审计 `approval_undone`；对话里与 `/x/todo` 显示倒计时行。
+- **五个指标**：`components/admin/LifecycleStats.tsx` 在 `/admin/usage`（空置天数 / 申请周转 / 筛查用时 / 合规拦截 / 续约提前率 + 提议·批准·执行计数）。
+- **Trust API 重建**：`/api/v1/listings/compliance`（匿名、每 IP 120/h、只记规则命中不存文本）；`/api/v1/passport/verify`（合作方密钥 +
+  申请人 token 的 `passport_share_tokens.api_scopes`，从 `verification_requests.steps`（按登录邮箱、非沙箱、verified）与已确认租史推结论，
+  审计 + 推送通知申请人）；`/api/v1/screen`（密钥须绑 `trust_api_keys.landlord_auth_id`，同意记录 `v1-2026-09` 必填，https 文件抓进桶，
+  202 + webhook；`screen-score` 接受 `x-partner-key` 以绑定房东身份运行，服务端强制 `screening.landlord_id` 归属）；`/admin/partners` +
+  `/api/admin/partners` 发放 / 停用密钥（`create_trust_api_key` RPC，只存哈希）；租客护照页可勾选 API 可读范围；
+  `/trust-api/docs` 重写为三个端点，旧的 `api.stayloop.ai` / disputes / SDK 全删。旧 `/api/trust/verify` 仍查不存在的表——待删。
+- **租客「我的看房与提问」**：`components/tenant/MyShowings.tsx` 在 `/tenant/applications` 顶部读真实 `showing_intents`。
+
 ## 房东端 UX 修复清单（2026-09-22 · `bug 修复/stayloop-fix-list.pdf`，14 条，研究后取舍）
 
 外部评审（匿名 + 测试账号登录）给的 SL-LL-001～014。先对照代码复现再决定，守卫 `tests/fixList20260922.spec.ts`（11 条）：

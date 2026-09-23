@@ -11,6 +11,7 @@ import { invalidateHats } from '@/lib/useHats'
 import { RegistrantDisclosureModal, useRegistrantProfile } from '@/components/RegistrantDisclosure'
 import { useAIName } from '@/lib/aiName'
 import { useT, type Lang } from '@/lib/i18n'
+import { checkListingCompliance } from '@/lib/ontario/rules'
 
 const STEPS = (aiName: string) => [
   { n: 1, nm: { zh: '基本信息', en: 'Basics' }, desc: { zh: '地址 + 户型 + 面积', en: 'Address + layout + size' } },
@@ -546,8 +547,19 @@ export default function NewListingPage() {
                     {lang === 'zh' ? '发布前检查' : 'Pre-publish checks'}
                   </div>
                   <ul className="mt-2 space-y-1 text-[12.5px] text-body-2">
-                    <li>{parseInt(form.deposit) > parseInt(form.monthly_rent) && parseInt(form.monthly_rent) > 0 ? '✗ ' : '✓ '}{lang === 'zh' ? '押金不超过一个月租金（RTA s.106）' : "Deposit within one month's rent (RTA s.106)"}</li>
-                    <li>✓ {lang === 'zh' ? '没有「禁止养宠」类无效条款（表单不提供该选项）' : 'No void "no pets" clause (the form does not offer one)'}</li>
+                    {(() => {
+                      // Single source of Ontario rules (lib/ontario/rules.ts); the
+                      // same checks back /api/v1/listings/compliance.
+                      const { findings } = checkListingCompliance({ monthly_rent: parseInt(form.monthly_rent) || null, deposit: parseInt(form.deposit) || null, pets_allowed: form.pets_allowed || null })
+                      const hit = (id: string) => findings.find((f) => f.rule === id)
+                      return (
+                        <>
+                          <li>{hit('RTA-106-deposit-cap') ? '✗ ' : '✓ '}{lang === 'zh' ? '押金不超过一个月租金（RTA s.106）' : "Deposit within one month's rent (RTA s.106)"}</li>
+                          <li>{hit('RTA-14-no-pet-clause') ? '✗ ' : '✓ '}{lang === 'zh' ? '没有「禁止养宠」类无效条款（RTA s.14）' : 'No void "no pets" clause (RTA s.14)'}</li>
+                          <li>{hit('RTA-134-no-fees') ? '✗ ' : '✓ '}{lang === 'zh' ? '文案里没有申请费 / 宠物押金 / 清洁押金（RTA s.134）' : 'No application fee / pet or cleaning deposit in the copy (RTA s.134)'}</li>
+                        </>
+                      )
+                    })()}
                     <li>✓ {lang === 'zh' ? '没有 AI 补写的事实：文案只在房源管理里由你编辑' : 'No AI-filled facts: the description is written only by you, under Manage listings'}</li>
                     <li>{photos.length ? '✓ ' : '· '}{lang === 'zh' ? (photos.length ? '有照片' : '没有照片——可以发布，但询盘会少很多') : (photos.length ? 'Photos attached' : 'No photos — you can publish, but expect far fewer inquiries')}</li>
                   </ul>

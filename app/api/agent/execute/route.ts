@@ -20,6 +20,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, renderAgentMessageEmail, renderRentReminderEmail } from '@/lib/email'
+import { sendLeaseInvitation, leaseSendPreflight, buildLeaseInvite, type LeaseForSend } from '@/lib/lease/sendLease'
+import { decisionNoticeFooter } from '@/lib/ontario/rules'
 
 export const runtime = 'edge'
 
@@ -55,8 +57,17 @@ type ActionRow = {
     // showing_request / listing_inquiry
     intent_id?: string
     listing_id?: string
+    // send_decision
+    application_id?: string
+    decision?: 'approved' | 'declined' | 'needs_more'
+    reason?: string
   } | null
 }
+
+// Preview mode (lifecycle plan §2.5): the same executor code builds the exact
+// subject/body it would send, but returns it instead of claiming/sending.
+type Preview = { subject: string; body: string; to: string | null }
+const PREVIEW = (p: Preview) => NextResponse.json({ preview: p })
 
 type Admin = SupabaseClient
 
@@ -148,6 +159,7 @@ async function executeSendRenewalLetter(
   userId: string,
   action: ActionRow,
   option: 'A' | 'B' | undefined,
+  preview = false,
 ): Promise<NextResponse> {
   const m0 = action.metadata || {}
   const lease = await loadOwnedLease(admin, userId, m0.lease_id)
@@ -170,18 +182,16 @@ async function executeSendRenewalLetter(
     end_date: lease.end_date,
   }
 
-  if (!(await claimExecution(admin, action.id))) return ALREADY()
-
   // A rent increase must be an explicit landlord choice — never a silent
-  // default. If the approval didn't carry a valid option, release the claim
-  // and refuse rather than emailing the tenant an unauthorized increase.
+  // default. Without a valid option, refuse before touching the claim rather
+  // than emailing the tenant an unauthorized increase.
   if (option !== 'A' && option !== 'B') {
-    await releaseClaim(admin, action.id)
     return NextResponse.json(
       { executed: false, reason: 'no_renewal_option_chosen' },
       { status: 422 },
     )
   }
+  if (!preview && !(await claimExecution(admin, action.id))) return ALREADY()
   const rent = option === 'A' ? m.current_rent : (m.guideline_rent ?? m.current_rent)
   const tenant = m.tenant_name || 'Tenant'
   const unit = m.unit_label || 'your unit'
@@ -198,6 +208,7 @@ Reply to this email to accept, discuss, or ask questions. Under Ontario's Reside
 — Sent by the landlord's AI assistant on Stayloop, after landlord approval.
 此邮件由房东在 Stayloop 上批准后由其 AI 助手发送：${unit} 的租约将于 ${m.end_date} 到期，房东提议以月租 $${(rent ?? 0).toLocaleString()} 续约 12 个月。你也可以依据安省 RTA 按原条款转为月租。直接回复本邮件即可沟通。`
 
+  if (preview) return PREVIEW({ subject, body: text, to: m.tenant_email ?? null })
   const result = await sendEmail({
     to: m.tenant_email,
     subject,
@@ -289,6 +300,7 @@ async function executeSendMessage(
   admin: Admin,
   userId: string,
   action: ActionRow,
+  preview = false,
 ): Promise<NextResponse> {
   const m = action.metadata || {}
   const candidate = (typeof m.to_email === 'string' ? m.to_email : '').trim()
@@ -310,6 +322,7 @@ async function executeSendMessage(
   const subject =
     (typeof m.subject === 'string' && m.subject.trim()) ||
     '来自您的 Stayloop 代理的消息 / Message from your Stayloop agent'
+  if (preview) return PREVIEW({ subject, body: bodyText, to })
 
   if (!(await claimExecution(admin, action.id))) return ALREADY()
 
@@ -338,6 +351,7 @@ async function executeRentReminder(
   admin: Admin,
   userId: string,
   action: ActionRow,
+  preview = false,
 ): Promise<NextResponse> {
   const m0 = action.metadata || {}
   const lease = await loadOwnedLease(admin, userId, m0.lease_id)
@@ -352,14 +366,14 @@ async function executeRentReminder(
     return NextResponse.json({ executed: false, reason: 'reminder has no due date' }, { status: 422 })
   }
 
-  if (!(await claimExecution(admin, action.id))) return ALREADY()
-
   const { subject, html, text } = renderRentReminderEmail({
     tenantName: m.tenant_name,
     unitLabel: m.unit_label,
     monthlyRent: Number(m.monthly_rent) || 0,
     dueDate: m.due_date,
   })
+  if (preview) return PREVIEW({ subject, body: text, to: m.tenant_email })
+  if (!(await claimExecution(admin, action.id))) return ALREADY()
   const result = await sendEmail({ to: m.tenant_email, subject, html, text })
 
   if (!result.ok) {
@@ -404,7 +418,7 @@ async function executeRenewalCheckpoint(admin: Admin, userId: string, action: Ac
 // landlord's contact so the two continue directly; the intent row flips to
 // `accepted`.
 // ---------------------------------------------------------------------------
-async function executeShowingRequest(admin: Admin, userId: string, action: ActionRow, callerEmail: string | null): Promise<NextResponse> {
+async function executeShowingRequest(admin: Admin, userId: string, action: ActionRow, callerEmail: string | null, preview = false): Promise<NextResponse> {
   const m = action.metadata || {}
   const intentId = typeof m.intent_id === 'string' ? m.intent_id : ''
   if (!/^[0-9a-f-]{36}$/i.test(intentId)) {
@@ -429,8 +443,6 @@ async function executeShowingRequest(admin: Admin, userId: string, action: Actio
   const { data: tenant } = await admin.from('tenants').select('email, full_name').eq('id', intent.tenant_id).maybeSingle()
   const to = (tenant?.email || '').trim()
   if (!EMAIL_RE.test(to)) return NextResponse.json({ executed: false, reason: 'tenant has no email' }, { status: 422 })
-
-  if (!(await claimExecution(admin, action.id))) return ALREADY()
 
   const addr = [listing.address, listing.unit ? `#${listing.unit}` : ''].filter(Boolean).join(' ')
   const isShowing = action.action_type === 'showing_request'
@@ -465,6 +477,8 @@ The landlord has received your question about ${addr}. ${contactEn}`
   const subject = isShowing
     ? `看房请求已确认 · ${addr} / Showing request accepted`
     : `房东已收到你的提问 · ${addr} / Your question was received`
+  if (preview) return PREVIEW({ subject, body, to })
+  if (!(await claimExecution(admin, action.id))) return ALREADY()
   const { html, text } = renderAgentMessageEmail({ subject, body })
   const result = await sendEmail({ to, subject, html, text })
   if (!result.ok) {
@@ -480,6 +494,101 @@ The landlord has received your question about ${addr}. ${contactEn}`
     intent_id: intent.id,
     listing_id: listing.id,
   })
+}
+
+// ---------------------------------------------------------------------------
+// Executor: send_decision (lifecycle plan §2.1)
+// metadata: { application_id, decision: approved|declined|needs_more, reason? }
+// The landlord decided on the applicant page; approving this card sends the
+// notice. The application row is loaded server-side and must belong to a
+// listing the caller owns; the recipient is the application's email.
+// ---------------------------------------------------------------------------
+async function executeSendDecision(admin: Admin, userId: string, action: ActionRow, callerEmail: string | null, preview = false): Promise<NextResponse> {
+  const m = action.metadata || {}
+  const appId = typeof m.application_id === 'string' ? m.application_id : ''
+  if (!/^[0-9a-f-]{36}$/i.test(appId)) return NextResponse.json({ executed: false, reason: 'application_id missing' }, { status: 422 })
+  const decision = m.decision === 'approved' || m.decision === 'declined' || m.decision === 'needs_more' ? m.decision : null
+  if (!decision) return NextResponse.json({ executed: false, reason: 'decision missing' }, { status: 422 })
+  const { data: app } = await admin
+    .from('applications')
+    .select('id, first_name, last_name, email, status, listing:listings(id, address, unit, landlord_id)')
+    .eq('id', appId)
+    .maybeSingle()
+  if (!app) return NextResponse.json({ executed: false, reason: 'application not found' }, { status: 404 })
+  const listing = (Array.isArray(app.listing) ? app.listing[0] : app.listing) as { id: string; address: string; unit: string | null; landlord_id: string } | null
+  const { data: landlordRows } = await admin.from('landlords').select('id').or(`auth_id.eq.${userId},id.eq.${userId}`)
+  const landlordIds = (landlordRows ?? []).map((r: { id: string }) => r.id)
+  if (!listing || !landlordIds.includes(listing.landlord_id)) return NextResponse.json({ executed: false, reason: 'application is not on your listing' }, { status: 403 })
+  const to = String(app.email || '').trim()
+  if (!EMAIL_RE.test(to)) return NextResponse.json({ executed: false, reason: 'applicant has no email' }, { status: 422 })
+
+  const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || 'there'
+  const addr = [listing.address, listing.unit ? `#${listing.unit}` : ''].filter(Boolean).join(' ')
+  const reason = typeof m.reason === 'string' ? m.reason.replace(/<[^>]*>/g, '').trim().slice(0, 600) : ''
+  const contact = callerEmail ? `房东联系邮箱 / Landlord contact: ${callerEmail}` : ''
+  const footer = `${decisionNoticeFooter('zh')}\n\n${decisionNoticeFooter('en')}`
+  let subject: string
+  let body: string
+  if (decision === 'approved') {
+    subject = `申请已录取 · ${addr} / Your application was approved`
+    body = `${name} 你好，\n\n关于 ${addr} 的租房申请，房东已决定录取你。接下来房东会通过 Stayloop 把安省标准租约发到这个邮箱，请留意签署链接。\n${contact}\n\nHi ${name},\n\nGood news — the landlord has approved your application for ${addr}. The Ontario standard lease will follow to this address through Stayloop; watch for the signing link.\n\n${footer}`
+  } else if (decision === 'needs_more') {
+    subject = `申请需要补充材料 · ${addr} / Your application needs more information`
+    body = `${name} 你好，\n\n关于 ${addr} 的租房申请，房东需要你补充以下材料后才能继续：\n${reason || '（房东未填写具体项目，请直接回复询问）'}\n${contact}\n\nHi ${name},\n\nBefore the landlord can continue with your application for ${addr}, they need the following:\n${reason || '(not specified — reply to ask)'}\n\n${footer}`
+  } else {
+    subject = `申请结果 · ${addr} / Your application decision`
+    body = `${name} 你好，\n\n很遗憾，关于 ${addr} 的租房申请，房东这次没有选择你。${reason ? `房东给出的理由：${reason}` : ''}\n${contact}\n\nHi ${name},\n\nWe are sorry — the landlord did not select your application for ${addr} this time.${reason ? ` The landlord's stated reason: ${reason}` : ''}\n\n${footer}`
+  }
+  if (preview) return PREVIEW({ subject, body, to })
+  if (!(await underHourlyLimit(`mail:agent-execute:${userId}`, 20, false))) {
+    return NextResponse.json({ executed: false, reason: 'hourly send limit reached' }, { status: 429, headers: { 'Retry-After': '3600' } })
+  }
+  if (!(await claimExecution(admin, action.id))) return ALREADY()
+  const { html, text } = renderAgentMessageEmail({ subject, body })
+  const result = await sendEmail({ to, subject, html, text })
+  if (!result.ok) {
+    await releaseClaim(admin, action.id, result.error)
+    return NextResponse.json({ executed: false, reason: result.error || 'send failed' }, { status: 502 })
+  }
+  const newStatus = decision === 'approved' ? 'approved' : decision === 'declined' ? 'declined' : 'reviewing'
+  await admin.from('applications').update({ status: newStatus, decision_notified_at: new Date().toISOString(), decision_reason: reason || null }).eq('id', app.id)
+  await admin.from('compliance_events').insert({ user_id: userId, role: 'landlord', source: 'decision_notice', rule_id: 'CRA-10-7-notice', severity: 'info', target_type: 'application', target_id: app.id, metadata: { decision } })
+  const executionResult = { ok: true, kind: 'email', email_id: result.id, sent_to: to, decision }
+  return finalizeExecution(admin, userId, action.id, 'executed_send_decision', executionResult, { application_id: app.id, decision, sent_to: to, email_id: result.id, reason_given: !!reason })
+}
+
+// ---------------------------------------------------------------------------
+// Executor: send_lease (lifecycle plan §2.1)
+// metadata: { lease_id }. Same path as /api/lease/send, with the assistant's
+// proposal + the landlord's approval in front of it.
+// ---------------------------------------------------------------------------
+async function executeSendLease(admin: Admin, userId: string, action: ActionRow, preview = false): Promise<NextResponse> {
+  const m = action.metadata || {}
+  const leaseId = typeof m.lease_id === 'string' ? m.lease_id : ''
+  if (!/^[0-9a-f-]{36}$/i.test(leaseId)) return NextResponse.json({ executed: false, reason: 'lease_id missing' }, { status: 422 })
+  const { data: landlordRows } = await admin.from('landlords').select('id').or(`auth_id.eq.${userId},id.eq.${userId}`)
+  const landlordIds = (landlordRows ?? []).map((r: { id: string }) => r.id)
+  const { data: lease } = await admin
+    .from('lease_documents')
+    .select('id, landlord_id, form_type, status, terms, tenant_name, tenant_email, unit_label, sign_token, landlord_signature, tenant_signature')
+    .eq('id', leaseId)
+    .maybeSingle<LeaseForSend>()
+  if (!lease || !lease.landlord_id || !landlordIds.includes(lease.landlord_id)) return NextResponse.json({ executed: false, reason: 'lease not found or not yours' }, { status: 403 })
+  const pre = leaseSendPreflight(lease)
+  if (!pre.ok) return NextResponse.json({ executed: false, reason: pre.error }, { status: pre.status })
+  if (preview) {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai'
+    const mail = buildLeaseInvite(lease, `${siteUrl}/lease/sign/<签署链接 · 批准后生成>`)
+    return PREVIEW({ subject: mail.subject, body: mail.text, to: lease.tenant_email })
+  }
+  if (!(await claimExecution(admin, action.id))) return ALREADY()
+  const sent = await sendLeaseInvitation(admin, lease, userId)
+  if (!sent.ok) {
+    await releaseClaim(admin, action.id, sent.error)
+    return NextResponse.json({ executed: false, reason: sent.error }, { status: sent.status })
+  }
+  const executionResult = { ok: true, kind: 'email', email_id: sent.email_id, sent_to: sent.sent_to, lease_id: lease.id }
+  return finalizeExecution(admin, userId, action.id, 'executed_send_lease', executionResult, { lease_id: lease.id, sent_to: sent.sent_to, email_id: sent.email_id })
 }
 
 export async function POST(req: Request) {
@@ -498,7 +607,7 @@ export async function POST(req: Request) {
   }
   const userId = ud.user.id
 
-  let body: { action_id?: string; option?: 'A' | 'B' }
+  let body: { action_id?: string; option?: 'A' | 'B'; preview?: boolean }
   try {
     body = (await req.json()) as typeof body
   } catch {
@@ -519,10 +628,13 @@ export async function POST(req: Request) {
     .maybeSingle<ActionRow>()
   if (!action) return NextResponse.json({ error: 'action not found' }, { status: 404 })
   if (action.user_id !== userId) return NextResponse.json({ error: 'not your action' }, { status: 403 })
-  if (action.status !== 'approved') {
+  const preview = body.preview === true
+  // Preview is allowed while the card is still pending (that is the point);
+  // execution needs the approval.
+  if (preview ? !['pending', 'approved'].includes(action.status) : action.status !== 'approved') {
     return NextResponse.json({ executed: false, reason: `action is ${action.status}, not approved` }, { status: 409 })
   }
-  if (action.executed_at) {
+  if (!preview && action.executed_at) {
     return ALREADY()
   }
 
@@ -530,7 +642,7 @@ export async function POST(req: Request) {
   // that ultimately traces back to rows the caller can write (their own
   // lease's tenant_email, an application on their own listing). The
   // counterparty checks narrow WHO; this caps HOW MANY (review 2026-09-19).
-  if (['send_renewal_letter', 'send_message', 'rent_reminder', 'showing_request', 'listing_inquiry'].includes(action.action_type)) {
+  if (!preview && ['send_renewal_letter', 'send_message', 'rent_reminder', 'showing_request', 'listing_inquiry', 'send_lease'].includes(action.action_type)) {
     if (!(await underHourlyLimit(`mail:agent-execute:${userId}`, 20, false))) {
       return NextResponse.json({ executed: false, reason: 'hourly send limit reached' }, { status: 429, headers: { 'Retry-After': '3600' } })
     }
@@ -541,17 +653,23 @@ export async function POST(req: Request) {
   // already recorded).
   switch (action.action_type) {
     case 'send_renewal_letter':
-      return executeSendRenewalLetter(admin, userId, action, body.option)
+      return executeSendRenewalLetter(admin, userId, action, body.option, preview)
     case 'send_message':
-      return executeSendMessage(admin, userId, action)
+      return executeSendMessage(admin, userId, action, preview)
     case 'rent_reminder':
-      return executeRentReminder(admin, userId, action)
+      return executeRentReminder(admin, userId, action, preview)
     case 'renewal_checkpoint':
+      if (preview) return PREVIEW({ subject: action.title, body: action.summary || '', to: null })
       return executeRenewalCheckpoint(admin, userId, action)
     case 'showing_request':
     case 'listing_inquiry':
-      return executeShowingRequest(admin, userId, action, ud.user.email ?? null)
+      return executeShowingRequest(admin, userId, action, ud.user.email ?? null, preview)
+    case 'send_decision':
+      return executeSendDecision(admin, userId, action, ud.user.email ?? null, preview)
+    case 'send_lease':
+      return executeSendLease(admin, userId, action, preview)
     default:
+      if (preview) return NextResponse.json({ preview: null, reason: 'no_executor_for_type' })
       return NextResponse.json({ executed: false, reason: 'no_executor_for_type' })
   }
 }

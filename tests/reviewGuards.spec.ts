@@ -104,9 +104,13 @@ import { readFileSync as rfs } from 'node:fs'
 describe('review 2026-09-17', () => {
   const src = (p: string) => rfs(p, 'utf8')
   it('lease send writes sign_token with the service role (the guard trigger reverts client writes)', () => {
+    // 2026-09-23: the send moved into lib/lease/sendLease.ts (shared with the
+    // send_lease executor); the route hands it the service-role client.
     const s = src('app/api/lease/send/route.ts')
-    expect(s).toMatch(/adminSb\s*=\s*createClient\(process\.env\.NEXT_PUBLIC_SUPABASE_URL!,\s*serviceKey/)
-    expect(s).toMatch(/await adminSb\s*\.from\('lease_documents'\)\s*\.update\(\{ sign_token/)
+    expect(s).toMatch(/adminSb\s*=\s*createClient\(process\.env\.NEXT_PUBLIC_SUPABASE_URL!,\s*process\.env\.SUPABASE_SERVICE_ROLE_KEY!/)
+    expect(s).toMatch(/sendLeaseInvitation\(adminSb, lease as LeaseForSend, ud\.user\.id\)/)
+    const lib = src('lib/lease/sendLease.ts')
+    expect(lib).toMatch(/\.from\('lease_documents'\)\s*\.update\(\{ sign_token: token/)
   })
   it('per-applicant unlock is refused inside the internal free window; the modal never opens then', () => {
     expect(src('app/api/stripe/unlock/route.ts')).toMatch(/inInternalTestWindow\(\)/)

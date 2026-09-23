@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { useT } from '@/lib/i18n'
 import type { PendingAction } from '@/lib/agent/types'
+import { supabase } from '@/lib/supabase'
 
 const RISK: Record<PendingAction['risk_level'], { label: { zh: string; en: string }; cls: string }> = {
   low: { label: { zh: '低风险', en: 'LOW RISK' }, cls: 'text-success bg-success/10' },
@@ -27,6 +28,21 @@ export default function ApprovalActionCard({
   const zh = lang === 'zh'
   const [busy, setBusy] = useState<null | string>(null)
   const risk = RISK[action.risk_level]
+  // Execution preview (lifecycle plan §2.5): the executor renders the exact
+  // subject/body it would send, without claiming or sending.
+  const [preview, setPreview] = useState<null | { subject: string; body: string; to: string | null } | 'none'>(null)
+  const [previewBusy, setPreviewBusy] = useState(false)
+  const loadPreview = async (option?: 'A' | 'B') => {
+    setPreviewBusy(true)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token
+      if (!token) { setPreview('none'); return }
+      const res = await fetch('/api/agent/execute', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action_id: action.id, preview: true, option }) })
+      const j = (await res.json().catch(() => ({}))) as { preview?: { subject: string; body: string; to: string | null } | null }
+      setPreview(j.preview ?? 'none')
+    } finally { setPreviewBusy(false) }
+  }
 
   // Renewal letters carry a rent choice — the landlord must pick explicitly
   // (no silent default to a rent increase). Other actions have one approve.
@@ -72,7 +88,23 @@ export default function ApprovalActionCard({
         <ScopeList tone="hold" title={zh ? '不会分享' : 'WILL NOT SHARE'} items={action.excluded_data} />
       </div>
 
+      {preview && preview !== 'none' && (
+        <div className="mt-4 rounded-xl border border-line-divider bg-white p-3 text-[12.5px]">
+          <div className="font-mono text-[10px] font-bold uppercase tracking-eyebrow text-body-3">{zh ? '将要发送的正文' : 'EXACT MESSAGE'}{preview.to ? ` · → ${preview.to}` : ''}</div>
+          <div className="mt-1 font-semibold text-body">{preview.subject}</div>
+          <pre className="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap font-sans leading-relaxed text-body-2">{preview.body}</pre>
+        </div>
+      )}
+      {preview === 'none' && <p className="mt-3 text-[12px] text-body-3">{zh ? '这类动作没有可预览的正文（批准即记录）。' : 'Nothing to preview for this action (approval is the effect).'}</p>}
       <div className="mt-5 flex flex-wrap gap-2">
+        {!preview && (isRenewal ? (
+          <>
+            <button type="button" disabled={previewBusy} onClick={() => loadPreview('A')} className="rounded-lg border border-line-divider bg-white px-3 py-[9px] text-[12.5px] font-semibold text-body-2 disabled:opacity-60">{previewBusy ? '…' : (zh ? '预览正文（不涨）' : 'Preview (no increase)')}</button>
+            <button type="button" disabled={previewBusy} onClick={() => loadPreview('B')} className="rounded-lg border border-line-divider bg-white px-3 py-[9px] text-[12.5px] font-semibold text-body-2 disabled:opacity-60">{previewBusy ? '…' : (zh ? '预览正文（+2.5%）' : 'Preview (+2.5%)')}</button>
+          </>
+        ) : (
+          <button type="button" disabled={previewBusy} onClick={() => loadPreview()} className="rounded-lg border border-line-divider bg-white px-3 py-[9px] text-[12.5px] font-semibold text-body-2 disabled:opacity-60">{previewBusy ? '…' : (zh ? '预览正文' : 'Preview message')}</button>
+        ))}
         {isRenewal ? (
           <>
             <button

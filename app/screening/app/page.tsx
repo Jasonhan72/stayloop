@@ -1661,7 +1661,18 @@ export default function ScreenPage() {
         const qs = new URLSearchParams(window.location.search)
         const sid = qs.get('screening')
         if (sid && /^[0-9a-f-]{36}$/i.test(sid)) {
-          loadPastScreening(sid).then(() => { if (qs.get('unlocked') === '1') setUnlocked(true) })
+          // ?run=1 (from-application flow, 2026-09-22): the row exists with
+          // its file manifest but was never scored — score it now.
+          const wantRun = qs.get('run') === '1'
+          loadPastScreening(sid).then(async () => {
+            if (qs.get('unlocked') === '1') setUnlocked(true)
+            if (wantRun) {
+              const { data: row } = await supabase.from('screenings').select('status, files').eq('id', sid).maybeSingle()
+              if (row && row.status !== 'scored' && row.status !== 'scoring') {
+                void runAnalysis({ id: sid, fileCount: Array.isArray(row.files) ? row.files.length : 0 })
+              }
+            }
+          })
         } else if (qs.get('unlocked') === '1') {
           loadPlan()
         }
@@ -2281,7 +2292,9 @@ export default function ScreenPage() {
     setVerifiedCount(0)
   }
 
-  async function runAnalysis() {
+  // `existing` (from-application flow, 2026-09-22): the screening row already
+  // carries its file manifest — skip row creation and uploads, just score.
+  async function runAnalysis(existing?: { id: string; fileCount: number }) {
     // A double-click that beats the re-render would insert two screening rows
     // and upload everything twice.
     if (analyzing) return
@@ -2292,7 +2305,7 @@ export default function ScreenPage() {
     // Registered accounts only - the register gate page covers the UI, this is
     // the in-function backstop.
     if (landlord.isAnonymous) return
-    if (files.length === 0 && !applicantName.trim()) {
+    if (!existing && files.length === 0 && !applicantName.trim()) {
       setError(t('screen.err.min'))
       return
     }
@@ -2473,6 +2486,11 @@ export default function ScreenPage() {
 
     try {
       // 1. Create screening row
+      let screeningId: string
+      if (existing) {
+        screeningId = existing.id
+        setProgress(2)
+      } else {
       const { data: row, error: insertErr } = await supabase
         .from('screenings')
         .insert({
@@ -2500,7 +2518,7 @@ export default function ScreenPage() {
         .select('id')
         .single()
       if (insertErr || !row) throw new Error(insertErr?.message || 'Failed to create screening record')
-      const screeningId = row.id
+      screeningId = row.id
       setProgress(2)
 
       // 2. Upload files to storage — one-at-a-time with retry.
@@ -2569,6 +2587,7 @@ export default function ScreenPage() {
       if (failedFiles.length > 0) {
         console.warn(`[upload] ${failedFiles.length} file(s) skipped: ${failedFiles.join(', ')}`)
       }
+      } // end of create-and-upload branch
 
       // 3. Call scoring API. Wire an AbortController so component-unmount
       // (navigation away, page close) cancels the in-flight request and
@@ -2608,7 +2627,7 @@ export default function ScreenPage() {
       await new Promise(r => setTimeout(r, 450))
 
       setFreshResult(true)
-      setResult({ ...(data as ScoreResult), screening_id: (data as ScoreResult).screening_id || screeningId, file_count: files.length })
+      setResult({ ...(data as ScoreResult), screening_id: (data as ScoreResult).screening_id || screeningId, file_count: existing ? existing.fileCount : files.length })
       setUnlocked(false)
       setLastDetectedKinds(Array.isArray((data as ScoreResult).detected_document_kinds) ? (data as ScoreResult).detected_document_kinds! : [])
       loadHistory()
@@ -3166,7 +3185,7 @@ export default function ScreenPage() {
                     <div>
                     <button
                       ref={ctaRef}
-                      onClick={runAnalysis}
+                      onClick={() => runAnalysis()}
                       disabled={isDisabled}
                       style={{
                         width: '100%', padding: '14px 28px', fontSize: 15, borderRadius: 12, fontWeight: 650,
@@ -4191,7 +4210,7 @@ export default function ScreenPage() {
               const isDisabled = (files.length === 0 && !applicantName.trim()) || classifying || preparing
               return (
                 <button
-                  onClick={runAnalysis}
+                  onClick={() => runAnalysis()}
                   disabled={isDisabled}
                   style={{
                     flex: '0 0 auto', padding: '13px 22px', fontSize: 14.5, borderRadius: 12, fontWeight: 650,

@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
 import { useT } from '@/lib/i18n'
+import LifecycleStats from '@/components/admin/LifecycleStats'
 
 type Stats = {
   since: string
@@ -85,6 +86,8 @@ export default function AdminUsagePage() {
               <Kpi label={zh ? '单次筛查均价' : 'Avg per screening'} value={usd(stats.per_screening.avg_cost_usd)} sub={zh ? `中位 ${usd(stats.per_screening.p50_cost_usd)} · 最高 ${usd(stats.per_screening.max_cost_usd)} · ${fmt(stats.per_screening.screenings)} 次` : `p50 ${usd(stats.per_screening.p50_cost_usd)} · max ${usd(stats.per_screening.max_cost_usd)} · ${fmt(stats.per_screening.screenings)} screenings`} />
               <Kpi label={zh ? 'Token（入 / 出）' : 'Tokens (in / out)'} value={`${(Number(stats.totals.input_tokens) / 1e6).toFixed(2)}M / ${(Number(stats.totals.output_tokens) / 1e6).toFixed(2)}M`} sub={(stats.totals.unpriced_calls > 0 ? (zh ? `${fmt(stats.totals.unpriced_calls)} 次未定价 · ` : `${fmt(stats.totals.unpriced_calls)} unpriced · `) : '') + (zh ? `${fmt(stats.totals.errors)} 次失败` : `${fmt(stats.totals.errors)} errors`)} warn={stats.totals.unpriced_calls > 0} />
             </div>
+
+            <LifecycleStats days={days} zh={zh} />
 
             <h2 className="mt-8 text-[16px] font-extrabold tracking-tight">{zh ? '每日成本' : 'Daily cost'}</h2>
             <div className="mt-3 flex h-[140px] items-end gap-[3px] rounded-xl border border-line-divider bg-white p-3">

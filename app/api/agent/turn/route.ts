@@ -697,6 +697,15 @@ export async function POST(req: Request) {
 
   // Compliance Guardrail — the deterministic backstop on every AI output.
   const { out, flags } = applyGuardrail(role, normalized, uiLang)
+  // ROI metric "合规拦截" (lifecycle plan §2.6): every guardrail hit is a
+  // compliance event. Service role, fire-and-forget; anonymous turns count
+  // without a user id.
+  if (flags.length && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const svcC = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+      void svcC.from('compliance_events').insert(flags.slice(0, 10).map((f) => ({ user_id: anonymous ? null : turnUserId, role, source: 'guardrail', rule_id: /ohrc|protected|discrimin/i.test(f) ? 'OHRC-protected-grounds' : /pet/i.test(f) ? 'RTA-14-no-pet-clause' : /fee|deposit/i.test(f) ? 'RTA-134-no-fees' : `guardrail:${f}`.slice(0, 80), severity: 'block', metadata: { flag: f } })))
+    } catch { /* telemetry only */ }
+  }
 
   // Listing search (tenant): when the model flags intent, search Stayloop's
   // own listings first, then fall back to external (Realtor.ca).

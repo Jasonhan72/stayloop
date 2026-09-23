@@ -112,12 +112,17 @@ export type UseAgentSession = {
   error: string | null
   messages: ChatMessage[]
   decide: (actionId: string, decision: 'approved' | 'rejected', option?: 'A' | 'B', note?: string) => Promise<void>
+  /** Approved actions execute after a short delay; until then they can be undone (lifecycle plan §2.5). */
+  scheduled: Record<string, { title: string; executeAt: number }>
+  undo: (actionId: string) => Promise<void>
   sendMessage: (message: string, attachments?: ChatAttachment[]) => Promise<void>
   /** The chat reveals a further page of listing cards: exclude those addresses from later searches too. */
   markListingsShown: (addresses: string[]) => void
 }
 
 const RENDER_DEADLINE_MS = 10000
+// Approve → execute delay during which the approval can be undone (Muse/EliseAI plans, 2026-09-22).
+const UNDO_MS = 60_000
 
 export function useAgentSession(role: AgentRole): UseAgentSession {
   const { loading: authLoading, user } = useAuth()
@@ -132,6 +137,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
   const [status, setStatus] = useState<AgentStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [scheduled, setScheduled] = useState<Record<string, { title: string; executeAt: number }>>({})
+  const undoCtrls = useRef<Map<string, AbortController>>(new Map())
   const messagesRef = useRef<ChatMessage[]>([])
   messagesRef.current = messages
   const settled = useRef(false)
@@ -325,9 +332,22 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
         if (prevStatus) setStatus(prevStatus)
         return
       }
-      // Approved → EXECUTE. The decision only changed a status row; this is
-      // where the action actually happens (server-side, idempotent, audited).
+      // Approved → EXECUTE after an undo window. The decision only changed a
+      // status row; this is where the action actually happens (server-side,
+      // idempotent, audited). Sends cannot be recalled, so the recall lives
+      // here: 60 seconds in which the landlord can take the approval back.
       if (decision === 'approved') {
+        const executeAt = Date.now() + UNDO_MS
+        const ctrl = new AbortController()
+        undoCtrls.current.set(actionId, ctrl)
+        setScheduled((prev) => ({ ...prev, [actionId]: { title: removed?.title ?? '', executeAt } }))
+        const cancelled = await new Promise<boolean>((resolve) => {
+          const t = setTimeout(() => resolve(false), UNDO_MS)
+          ctrl.signal.addEventListener('abort', () => { clearTimeout(t); resolve(true) })
+        })
+        undoCtrls.current.delete(actionId)
+        setScheduled((prev) => { const n = { ...prev }; delete n[actionId]; return n })
+        if (cancelled) return
         try {
           const { data: sess } = await getSupabaseBrowser().auth.getSession()
           const token = sess?.session?.access_token
@@ -624,5 +644,25 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     for (const a of addresses) shownListings.current.add(a.toLowerCase())
   }, [])
 
-  return { loading, live, data, status, error, messages, decide, sendMessage, markListingsShown }
+  // Undo within the window: cancel the timer, put the row back to pending
+  // (own row under RLS), restore the card, audit the reversal.
+  const undo = useCallback(async (actionId: string) => {
+    const ctrl = undoCtrls.current.get(actionId)
+    if (!ctrl) return
+    ctrl.abort()
+    if (!live) return
+    try {
+      const sb = getSupabaseBrowser()
+      const { data: row } = await sb.from('agent_pending_actions').update({ status: 'pending' }).eq('id', actionId).eq('status', 'approved').is('executed_at', null).select('*').maybeSingle()
+      if (row) {
+        setData((prev) => (prev ? { ...prev, pendingActions: [row as AgentSessionResponse['pendingActions'][number], ...prev.pendingActions.filter((a) => a.id !== actionId)] } : prev))
+        setStatus('approval')
+        await sb.from('agent_audit_events').insert({ actor_id: user?.id ?? null, actor_type: 'user', action: 'approval_undone', target_type: 'agent_pending_action', target_id: actionId, metadata: {} })
+      }
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }, [live, user])
+
+  return { loading, live, data, status, error, messages, decide, sendMessage, markListingsShown, scheduled, undo }
 }

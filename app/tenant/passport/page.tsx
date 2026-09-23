@@ -185,7 +185,23 @@ export default function TenantPassport() {
   const [copied, setCopied] = useState(false)
 
   // ── Off-platform share token (real rows for logged-in tenants; demo otherwise) ──
-  const [shareToken, setShareToken] = useState<{ token: string; expires_at: string } | null>(null)
+  const [shareToken, setShareToken] = useState<{ token: string; expires_at: string; api_scopes?: string[] | null } | null>(null)
+  // Trust API (plan §3.2): the applicant decides, scope by scope, whether a
+  // third party holding this token may read conclusions through the API.
+  const API_SCOPES: { key: string; zh: string; en: string }[] = [
+    { key: 'identity', zh: '身份已核验（Veriff）', en: 'Identity verified (Veriff)' },
+    { key: 'bank', zh: '银行入账摘要（Flinks）', en: 'Bank deposit summary (Flinks)' },
+    { key: 'credit', zh: '信用分档（Equifax）', en: 'Credit score band (Equifax)' },
+    { key: 'tenancy', zh: '已确认的租史与付租记录', en: 'Confirmed tenancies & rent record' },
+  ]
+  const toggleScope = async (key: string) => {
+    if (!user || !shareToken) return
+    const cur = new Set(shareToken.api_scopes ?? [])
+    if (cur.has(key)) cur.delete(key); else cur.add(key)
+    const next = Array.from(cur)
+    const { error } = await supabase.from('passport_share_tokens').update({ api_scopes: next.length ? next : null }).eq('token', shareToken.token)
+    if (!error) setShareToken({ ...shareToken, api_scopes: next.length ? next : null })
+  }
   const [shareBusy, setShareBusy] = useState(false)
   const [shareErr, setShareErr] = useState(false)
 
@@ -203,7 +219,7 @@ export default function TenantPassport() {
     // Active token, if any (RLS scopes to the tenant's own rows).
     supabase
       .from('passport_share_tokens')
-      .select('token,expires_at')
+      .select('token,expires_at,api_scopes')
       .is('revoked_at', null)
       .gt('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false })
@@ -234,7 +250,7 @@ export default function TenantPassport() {
     const { data, error } = await supabase
       .from('passport_share_tokens')
       .insert({ token, tenant_user_id: user.id })
-      .select('token,expires_at')
+      .select('token,expires_at,api_scopes')
       .single()
     if (!error && data) setShareToken(data)
     else setShareErr(true)
@@ -593,6 +609,22 @@ export default function TenantPassport() {
                     ? `有效至 ${new Date(shareToken!.expires_at).toLocaleDateString('zh-CN')} · 撤销后立即失效`
                     : `Valid until ${new Date(shareToken!.expires_at).toLocaleDateString('en-CA')} · revoking takes effect immediately`}
                 </p>
+              )}
+              {isRealShare && (
+                <div className="mt-4 rounded-xl border border-line-divider bg-white p-4">
+                  <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '允许第三方通过 API 读取' : 'ALLOW THIRD-PARTY API READS'}</div>
+                  <p className="mt-1 text-[12.5px] leading-relaxed text-body-2">
+                    {zh ? '默认关闭。勾选后，拿到这个链接的机构可以通过 Stayloop 核验 API 读到勾选项的结论（只有结论，没有文件）；每次读取都会通知你并留痕，撤销链接即失效。' : 'Off by default. When ticked, an organisation holding this link can read the ticked conclusions through the Stayloop verification API (conclusions only, no documents); every read notifies you and is logged, and revoking the link ends it.'}
+                  </p>
+                  <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                    {API_SCOPES.map((sc) => (
+                      <label key={sc.key} className="flex items-center gap-2 text-[13px]">
+                        <input type="checkbox" checked={(shareToken?.api_scopes ?? []).includes(sc.key)} onChange={() => toggleScope(sc.key)} className="h-4 w-4 accent-brand" />
+                        {zh ? sc.zh : sc.en}
+                      </label>
+                    ))}
+                  </div>
+                </div>
               )}
 
               <ul className="mt-4 space-y-1.5 text-[12.5px] leading-relaxed text-body-2">

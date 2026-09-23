@@ -88,6 +88,12 @@ export default function AdminHomePage() {
       hot: members === 'error',
     },
     {
+      href: '/admin/partners',
+      icon: '🔑',
+      title: zh ? 'Trust API 合作方' : 'Trust API partners',
+      desc: zh ? '发放 / 停用合作方密钥，绑定运行筛查的房东账号，看 30 天调用量。' : 'Issue / disable partner keys, bind the landlord account partner screenings run under, see 30-day usage.',
+    },
+    {
       href: '/admin/usage',
       icon: '💸',
       title: zh ? 'AI 用量与成本' : 'AI usage & cost',

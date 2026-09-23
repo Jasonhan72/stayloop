@@ -752,20 +752,46 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
     // "The string did not match the expected pattern." on non-ASCII / CRLF.
     const rawAuth = req.headers.get('authorization') || ''
     const authHeader = rawAuth.replace(/[^\x20-\x7E]/g, '').trim()
-    if (!authHeader) {
+    // Trust API partner mode (plan §3.3, 2026-09-23): POST /api/v1/screen
+    // calls this route with the partner's key instead of a user JWT. The key
+    // must be active and bound to a landlord account; the run then behaves
+    // exactly as that landlord (same RLS-equivalent ownership check below,
+    // same plan/quota), using the service role for the row writes.
+    const partnerKey = (req.headers.get('x-partner-key') || '').trim()
+    let partnerLandlordId: string | null = null
+    if (partnerKey && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const adminK = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+      const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(partnerKey))
+      const hash = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, '0')).join('')
+      const { data: pk } = await adminK.from('trust_api_keys').select('id, landlord_auth_id, active').eq('api_key_hash', hash).eq('active', true).maybeSingle()
+      if (!pk?.landlord_auth_id) return NextResponse.json({ error: 'invalid partner key or key not bound to a landlord account' }, { status: 403 })
+      partnerLandlordId = pk.landlord_auth_id as string
+    }
+    if (!authHeader && !partnerLandlordId) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { global: { headers: { Authorization: authHeader } } },
-    )
+    const supabase = partnerLandlordId
+      ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } })
+      : createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          { global: { headers: { Authorization: authHeader } } },
+        )
 
     // Defense in depth: verify the token actually resolves to a user. RLS
     // also guards the query below, but an explicit check catches forged/
     // expired tokens earlier and returns a 401 instead of a 404.
-    const { data: userData, error: userErr } = await supabase.auth.getUser()
-    if (userErr || !userData?.user) {
+    let userData: { user: { id: string; is_anonymous?: boolean } } | null = null
+    if (partnerLandlordId) {
+      userData = { user: { id: partnerLandlordId, is_anonymous: false } }
+    } else {
+      const { data: ud, error: userErr } = await supabase.auth.getUser()
+      if (userErr || !ud?.user) {
+        return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
+      }
+      userData = ud as { user: { id: string; is_anonymous?: boolean } }
+    }
+    if (!userData?.user) {
       return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 })
     }
     // Screening requires a REGISTERED account (product decision 2026-08-21:
@@ -787,6 +813,9 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
 
     if (error || !screening) {
       return NextResponse.json({ error: error?.message || 'Not found' }, { status: 404 })
+    }
+    if (partnerLandlordId && screening.landlord_id !== partnerLandlordId) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
     loadedScreeningId = screening.id
     // In-flight guard: a second call for the same row (double click, retry

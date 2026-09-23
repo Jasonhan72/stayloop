@@ -15,7 +15,7 @@ import { useT } from '@/lib/i18n'
 
 export default function FieldAgentPage() {
   const { lang } = useT()
-  const { loading, live, data, status, messages, decide, sendMessage, markListingsShown } = useAgentSession('agent')
+  const { loading, live, data, status, messages, decide, sendMessage, markListingsShown, scheduled, undo } = useAgentSession('agent')
   usePromptDeepLink(loading, sendMessage)
 
 
@@ -61,6 +61,8 @@ export default function FieldAgentPage() {
             live={live}
             memoryCount={memories.length}
             workflow={workflow}
+            scheduled={scheduled}
+            onUndo={undo}
           />
         </div>
 
