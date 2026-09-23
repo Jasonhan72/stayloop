@@ -136,3 +136,10 @@ describe('review after the first production run (2026-09-23)', () => {
     expect(readFileSync('components/marketplace/DispatchModal.tsx', 'utf8')).toMatch(/emergency, trade \}/)
   })
 })
+
+describe('dispatch modal (first production run)', () => {
+  it('falls back to "own contact" only after the directory loaded', () => {
+    const src = readFileSync('components/marketplace/DispatchModal.tsx', 'utf8')
+    expect(src).toMatch(/if \(loaded && !candidates\.some/)
+  })
+})

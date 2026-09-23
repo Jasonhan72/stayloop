@@ -30,6 +30,7 @@ export default function DispatchModal({ ticketId, category, priority, city, zh, 
   const [emergency, setEmergency] = useState(priority === 'high')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -37,7 +38,7 @@ export default function DispatchModal({ ticketId, category, priority, city, zh, 
       const list = (p ?? []) as Provider[]
       const ids = list.map((x) => x.id)
       const { data: c } = ids.length ? await supabase.from('provider_credentials').select('provider_id, kind, expires_at, verified_at').in('provider_id', ids) : { data: [] }
-      if (!cancelled) { setProviders(list); setCreds((c ?? []) as Cred[]) }
+      if (!cancelled) { setProviders(list); setCreds((c ?? []) as Cred[]); setLoaded(true) }
     })()
     return () => { cancelled = true }
   }, [])
@@ -48,7 +49,10 @@ export default function DispatchModal({ ticketId, category, priority, city, zh, 
     return { p, ok: e.ok, reason: e.reason, cov }
   }).sort((a, b) => Number(b.ok) - Number(a.ok)), [providers, creds, trade, city])
   useEffect(() => { if (!pick && candidates.some((c) => c.ok)) setPick(candidates.find((c) => c.ok)!.p.id) }, [candidates, pick])
-  useEffect(() => { if (!candidates.some((c) => c.ok)) setMode('own') }, [candidates])
+  // Only fall back to "own contact" once the directory has actually loaded —
+  // on first paint there are no candidates yet (first production run 2026-09-23
+  // opened the modal on the wrong tab).
+  useEffect(() => { if (loaded && !candidates.some((c) => c.ok)) setMode('own') }, [loaded, candidates])
 
   async function submit() {
     setBusy(true); setErr(null)
