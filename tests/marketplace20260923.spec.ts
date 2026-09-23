@@ -124,3 +124,13 @@ describe('rules and wiring', () => {
     expect(mig).not.toMatch(/grant (insert|update).*public\.work_orders to authenticated/)
   })
 })
+
+describe('review after the first production run (2026-09-23)', () => {
+  it('the dispatch modal trade choice reaches the server, and hub decisions expire the matching card', () => {
+    const server = readFileSync('lib/marketplace/server.ts', 'utf8')
+    expect(server).toMatch(/i\.trade && TRADES\.some/)
+    expect(server).toContain("eq('action_type', 'dispatch_work_order').contains('metadata', { ticket_id: i.ticketId })")
+    expect(server).toContain("contains('metadata', { work_order_id: wo.id })")
+    expect(readFileSync('components/marketplace/DispatchModal.tsx', 'utf8')).toMatch(/emergency, trade \}/)
+  })
+})

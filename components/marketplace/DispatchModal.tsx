@@ -54,7 +54,7 @@ export default function DispatchModal({ ticketId, category, priority, city, zh, 
     setBusy(true); setErr(null)
     const { data: s } = await supabase.auth.getSession()
     const token = s.session?.access_token
-    const body = mode === 'network' ? { ticket_id: ticketId, provider_id: pick, entry_permission: entry, emergency } : { ticket_id: ticketId, external_email: own.email.trim(), external_name: own.name.trim(), entry_permission: entry, emergency }
+    const body = mode === 'network' ? { ticket_id: ticketId, provider_id: pick, entry_permission: entry, emergency, trade } : { ticket_id: ticketId, external_email: own.email.trim(), external_name: own.name.trim(), entry_permission: entry, emergency, trade }
     const res = await fetch('/api/work-orders/dispatch', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
     const j = (await res.json().catch(() => ({}))) as { error?: string }
     if (!res.ok) { setErr(j.error || `HTTP ${res.status}`); setBusy(false); return }

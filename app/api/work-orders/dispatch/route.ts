@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   if (ue || !ud?.user || ud.user.is_anonymous) return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
   const userId = ud.user.id
 
-  let body: { ticket_id?: string; provider_id?: string | null; external_email?: string | null; external_name?: string | null; scope?: string | null; entry_permission?: string | null; emergency?: boolean }
+  let body: { ticket_id?: string; provider_id?: string | null; external_email?: string | null; external_name?: string | null; scope?: string | null; entry_permission?: string | null; emergency?: boolean; trade?: string | null }
   try { body = (await req.json()) as typeof body } catch { return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 }) }
   if (!body.ticket_id || !/^[0-9a-f-]{36}$/i.test(body.ticket_id)) return NextResponse.json({ error: 'ticket_id required' }, { status: 400 })
   if (body.provider_id && !/^[0-9a-f-]{36}$/i.test(body.provider_id)) return NextResponse.json({ error: 'provider_id invalid' }, { status: 400 })
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   const r = await createWorkOrder(admin, {
     ticketId: body.ticket_id, landlordAuthId: userId, providerId: body.provider_id || null,
     externalEmail: body.external_email || null, externalName: body.external_name || null,
-    scope: body.scope || null, entryPermission: entry, emergency: typeof body.emergency === 'boolean' ? body.emergency : undefined,
+    scope: body.scope || null, entryPermission: entry, emergency: typeof body.emergency === 'boolean' ? body.emergency : undefined, trade: typeof body.trade === 'string' ? body.trade : null,
   })
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status })
   await admin.from('agent_audit_events').insert({ actor_id: userId, actor_type: 'user', action: 'work_order_dispatched', target_type: 'work_order', target_id: r.wo.id, metadata: { ticket_id: body.ticket_id, provider_id: r.wo.provider_id, external: !!r.wo.external_email } })

@@ -6,7 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
 import { canAct, entryNoticeText, invoiceWithinEstimate, TICKET_STATUS_FOR, validateQuote, type ActorKind, type WoAction, type WorkOrderStatus } from './workOrders'
-import { tradeForCategory, type Trade } from './trades'
+import { tradeForCategory, TRADES, type Trade } from './trades'
 
 export type Admin = SupabaseClient
 export const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')
@@ -61,6 +61,8 @@ export type CreateInput = {
   scope?: string | null
   entryPermission?: 'anytime' | 'call_first' | 'tenant_present' | null
   emergency?: boolean
+  /** The landlord may override the trade inferred from the ticket category (the modal lets them). */
+  trade?: string | null
   actor?: ActorKind
 }
 
@@ -81,7 +83,7 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
   } else if (!i.externalEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(i.externalEmail)) {
     return { ok: false, error: 'provider_id or a valid external_email required', status: 400 }
   }
-  const trade: Trade = tradeForCategory(ctx.ticket.category)
+  const trade: Trade = i.trade && TRADES.some((t) => t.key === i.trade) ? (i.trade as Trade) : tradeForCategory(ctx.ticket.category)
   const emergency = i.emergency ?? ctx.ticket.priority === 'high'
   const token = mintToken()
   const { data: wo, error } = await admin.from('work_orders').insert({
@@ -92,6 +94,8 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
   if (error || !wo) return { ok: false, error: error?.message || 'insert failed', status: 500 }
   await event(admin, wo.id, i.actor ?? 'landlord', i.landlordAuthId, 'offered', { provider_id: provider?.id ?? null, external_email: wo.external_email, trade, emergency })
   await setTicketStatus(admin, i.ticketId, 'offered')
+  // A suggestion card for this ticket is now moot (the landlord dispatched by hand or via another card).
+  await admin.from('agent_pending_actions').update({ status: 'expired' }).eq('status', 'pending').eq('action_type', 'dispatch_work_order').contains('metadata', { ticket_id: i.ticketId })
 
   const unit = [ctx.household.address, ctx.household.unit ? `#${ctx.household.unit}` : null].filter(Boolean).join(' ')
   const link = provider ? `${SITE()}/provider/jobs` : `${SITE()}/w/${token}`
@@ -186,6 +190,11 @@ export async function actOnWorkOrder(admin: Admin, i: ActInput): Promise<{ ok: t
   if (error || !updated) return { ok: false, error: error?.message || 'state changed, retry', status: 409 }
   await event(admin, wo.id, i.by, i.actorId, i.action, evPayload)
   if (gate.to !== wo.status) await setTicketStatus(admin, wo.ticket_id, gate.to!)
+  // A decision taken directly on the hub supersedes the matching pending card
+  // (otherwise approving it later would fail with not_from_<status>).
+  const cardType = i.action === 'approve_quote' || i.action === 'reject_quote' ? 'approve_quote' : i.action === 'accept_completion' || i.action === 'request_rework' || i.action === 'dispute' ? 'accept_completion' : i.action === 'cancel' ? null : null
+  if (cardType) await admin.from('agent_pending_actions').update({ status: 'expired' }).eq('status', 'pending').eq('action_type', cardType).contains('metadata', { work_order_id: wo.id })
+  if (i.action === 'cancel' || i.action === 'decline') await admin.from('agent_pending_actions').update({ status: 'expired' }).eq('status', 'pending').in('action_type', ['approve_quote', 'accept_completion']).contains('metadata', { work_order_id: wo.id })
   await sideEffects(admin, updated, i)
   return { ok: true, wo: updated }
 }
