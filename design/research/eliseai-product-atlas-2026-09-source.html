@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:," />
+  <title>EliseAI 产品线功能拆解</title>
+  <style>
+    :root{
+      color-scheme:light dark;
+      --bg:#f4f1ea;--paper:#fffdfa;--ink:#171716;--muted:#5d5a54;--line:#cbc5b9;
+      --strong:#242321;--orange:#ee5a29;--orange-soft:#f9d9ca;--teal:#0b8078;--teal-soft:#cfe8e4;
+      --blue:#2467a6;--blue-soft:#d7e5f1;--lime:#c5df53;--shadow:0 18px 50px rgba(34,30,24,.08);
+    }
+    @media(prefers-color-scheme:dark){:root{
+      --bg:#111311;--paper:#1a1d1a;--ink:#f3f0e8;--muted:#b8b5ad;--line:#41443e;
+      --strong:#f3f0e8;--orange:#ff7a4d;--orange-soft:#4b2b20;--teal:#4bc2b6;--teal-soft:#173d39;
+      --blue:#76a9dd;--blue-soft:#20384e;--lime:#d0e66a;--shadow:0 18px 50px rgba(0,0,0,.24);
+    }}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth;scroll-padding-top:92px}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:"Avenir Next","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.65}
+    a{color:inherit}
+    button,input{font:inherit}
+    .topline{height:6px;background:linear-gradient(90deg,var(--orange) 0 32%,var(--teal) 32% 66%,var(--lime) 66%)}
+    .mast{max-width:1400px;margin:auto;padding:clamp(40px,7vw,92px) clamp(20px,5vw,72px) 36px;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,.7fr);gap:clamp(28px,7vw,100px);align-items:end}
+    .eyebrow{font-size:12px;letter-spacing:.13em;text-transform:uppercase;font-weight:800;color:var(--orange);margin-bottom:14px}
+    h1{font-family:Georgia,"Songti SC",serif;font-size:clamp(42px,7vw,88px);line-height:.98;letter-spacing:-.055em;margin:0;max-width:940px;font-weight:700}
+    .dek{font-size:clamp(17px,2vw,23px);line-height:1.55;color:var(--muted);margin:24px 0 0;max-width:800px}
+    .stamp{border-top:2px solid var(--ink);padding-top:14px;color:var(--muted);font-size:13px}
+    .stamp b{display:block;color:var(--ink);font-size:15px;margin-bottom:7px}
+    .metrics{max-width:1400px;margin:0 auto;padding:0 clamp(20px,5vw,72px) clamp(34px,5vw,64px);display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .metric{background:var(--paper);padding:20px 22px;min-height:118px}
+    .metric strong{font-family:Georgia,serif;font-size:34px;line-height:1;display:block;margin-bottom:9px}
+    .metric span{font-size:13px;color:var(--muted)}
+    .controls{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(14px);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .controls-inner{max-width:1400px;margin:auto;padding:11px clamp(20px,5vw,72px);display:flex;gap:10px;align-items:center}
+    .filterset{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+    .filter{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:700;cursor:pointer}
+    .filter.active{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+    .search{position:relative;min-width:260px}
+    .search input{width:100%;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:6px;padding:9px 38px 9px 12px;outline:none}
+    .search input:focus{border-color:var(--orange);box-shadow:0 0 0 3px color-mix(in srgb,var(--orange) 18%,transparent)}
+    .search svg{position:absolute;right:12px;top:11px;width:18px;height:18px;color:var(--muted)}
+    .layout{max-width:1400px;margin:0 auto;padding:52px clamp(20px,5vw,72px) 96px;display:grid;grid-template-columns:220px minmax(0,1fr);gap:clamp(34px,5vw,78px)}
+    .side{position:sticky;top:88px;height:max-content}
+    .side-label{font-size:11px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);margin-bottom:12px;font-weight:800}
+    .side a{display:flex;gap:10px;text-decoration:none;padding:8px 0;color:var(--muted);font-size:13px;border-bottom:1px solid var(--line)}
+    .side a:hover,.side a.on{color:var(--orange)}
+    .side .num{width:23px;font-variant-numeric:tabular-nums;color:var(--orange)}
+    .content{min-width:0}
+    .section{border-top:3px solid var(--ink);padding-top:22px;margin-bottom:74px}
+    .section.hidden{display:none}
+    .section-head{display:grid;grid-template-columns:88px minmax(0,1fr) auto;gap:18px;align-items:start;margin-bottom:24px}
+    .section-index{font:700 48px/1 Georgia,serif;color:var(--orange)}
+    .section h2{margin:0;font:700 clamp(29px,4vw,46px)/1.05 Georgia,"Songti SC",serif;letter-spacing:-.035em}
+    .section-title small{display:block;font:700 12px/1.2 "Avenir Next",sans-serif;color:var(--muted);letter-spacing:.09em;text-transform:uppercase;margin-top:10px}
+    .tag{background:var(--orange-soft);color:var(--ink);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;white-space:nowrap}
+    .position{font-size:18px;line-height:1.65;color:var(--muted);margin:0 0 28px;max-width:900px}
+    .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin:28px 0;border:1px solid var(--line)}
+    .flow div{padding:15px 14px;background:var(--paper);border-right:1px solid var(--line);font-size:13px;min-height:78px}
+    .flow div:last-child{border-right:0}
+    .flow b{display:block;color:var(--orange);font-size:11px;letter-spacing:.08em;margin-bottom:5px}
+    .feature-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .feature{background:var(--paper);border:1px solid var(--line);padding:18px 19px 19px;min-height:136px}
+    .feature:nth-child(3n){border-top-color:var(--teal)}
+    .feature h3{font-size:15px;line-height:1.35;margin:0 0 8px}
+    .feature p{font-size:14px;line-height:1.58;color:var(--muted);margin:0}
+    .proof{margin-top:18px;background:var(--ink);color:var(--bg);padding:22px;display:grid;grid-template-columns:auto 1fr;gap:18px}
+    .proof-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--lime);font-weight:800;padding-top:3px}
+    .proof-items{display:flex;gap:10px 24px;flex-wrap:wrap}
+    .proof-item{max-width:260px;font-size:14px}
+    .proof-item strong{color:var(--lime);font-size:22px;display:block;line-height:1.1;margin-bottom:5px}
+    .sourcebar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px dashed var(--line);padding-top:14px;margin-top:18px;color:var(--muted);font-size:12px}
+    .sourcebar a{color:var(--blue);text-underline-offset:3px;overflow-wrap:anywhere}
+    details.module{background:var(--paper);border-top:1px solid var(--line)}
+    details.module:last-of-type{border-bottom:1px solid var(--line)}
+    details.module summary{list-style:none;display:grid;grid-template-columns:52px 1fr auto;gap:14px;align-items:center;padding:18px 8px;cursor:pointer}
+    details.module summary::-webkit-details-marker{display:none}
+    .module-no{font:700 24px Georgia,serif;color:var(--orange)}
+    .module-name{font-weight:800;font-size:17px}
+    .module-name small{display:block;font-weight:500;color:var(--muted);margin-top:2px}
+    .chev{width:25px;height:25px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;transition:.2s}
+    details[open] .chev{transform:rotate(45deg);background:var(--orange-soft)}
+    .module-body{padding:0 8px 24px 74px}
+    .module-body ul{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 24px}
+    .module-body li{position:relative;padding-left:16px;color:var(--muted);font-size:14px}
+    .module-body li::before{content:"";position:absolute;left:0;top:.65em;width:6px;height:6px;background:var(--orange)}
+    .module-body li b{color:var(--ink)}
+    .handoff{display:grid;grid-template-columns:1fr 1fr;margin-top:18px;border:1px solid var(--line)}
+    .handoff>div{padding:16px;background:var(--teal-soft)}
+    .handoff>div+div{background:var(--orange-soft);border-left:1px solid var(--line)}
+    .handoff b{font-size:12px;letter-spacing:.08em;display:block;margin-bottom:5px}
+    .handoff p{font-size:13px;margin:0;color:var(--muted)}
+    .spotlight{background:var(--strong);color:var(--bg);padding:clamp(24px,4vw,44px);margin:8px 0 24px;position:relative;overflow:hidden}
+    .spotlight::after{content:"A";position:absolute;right:-22px;bottom:-95px;font:700 280px/1 Georgia,serif;color:color-mix(in srgb,var(--orange) 35%,transparent);pointer-events:none}
+    .spotlight>*{position:relative;z-index:1}
+    .spotlight blockquote{font:700 clamp(25px,4vw,42px)/1.18 Georgia,serif;margin:0 0 14px;max-width:780px;letter-spacing:-.025em}
+    .spotlight p{margin:0;max-width:760px;color:color-mix(in srgb,var(--bg) 78%,transparent)}
+    .commands{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:20px}
+    .command{background:color-mix(in srgb,var(--bg) 8%,transparent);border:1px solid color-mix(in srgb,var(--bg) 23%,transparent);padding:12px 14px;font-size:13px}
+    .stack{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:20px}
+    .stack-card{background:var(--paper);border-top:4px solid var(--orange);padding:18px;min-height:150px}
+    .stack-card:nth-child(2){border-color:var(--teal)}.stack-card:nth-child(3){border-color:var(--blue)}.stack-card:nth-child(4){border-color:var(--lime)}
+    .stack-card h3{margin:0 0 8px;font-size:15px}.stack-card p{margin:0;color:var(--muted);font-size:13px}
+    .matrix-wrap{margin-top:24px}
+    .matrix-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+    .matrix-tab{border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:7px 11px;cursor:pointer;font-size:12px;font-weight:700}
+    .matrix-tab.active{background:var(--teal);color:white;border-color:var(--teal)}
+    .matrix{width:100%;border-collapse:collapse;background:var(--paper);font-size:13px}
+    .matrix th,.matrix td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line)}
+    .matrix th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+    .yes{color:var(--teal);font-weight:900}.no{color:var(--muted)}
+    .service-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .service{border:1px solid var(--line);background:var(--paper);padding:20px}
+    .service h3{margin:0 0 7px;font-size:18px}.service p{margin:0;color:var(--muted);font-size:14px}
+    .service ul{padding-left:18px;color:var(--muted);font-size:13px}
+    .openq{margin-top:14px;border:1px solid var(--orange);padding:14px 16px;font-size:13px;background:var(--orange-soft)}
+    .method{background:var(--paper);border:1px solid var(--line);padding:22px;margin-top:28px}
+    .method h3{margin:0 0 8px}.method p{font-size:13px;color:var(--muted);margin:0 0 7px}.method p:last-child{margin:0}
+    .empty{display:none;padding:50px 0;border-top:3px solid var(--ink);font:700 24px Georgia,serif}
+    .footer{border-top:1px solid var(--line);max-width:1400px;margin:auto;padding:25px clamp(20px,5vw,72px) 56px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:20px}
+    mark{background:var(--lime);color:#151515;padding:0 2px}
+    @media(max-width:900px){
+      .mast{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}
+      .controls-inner{align-items:stretch;flex-direction:column}.search{min-width:0}.layout{grid-template-columns:1fr;padding-top:34px}.side{display:none}
+      .section-head{grid-template-columns:62px 1fr}.section-head .tag{grid-column:2;justify-self:start}.section-index{font-size:36px}
+      .flow{grid-template-columns:1fr}.flow div{min-height:0;border-right:0;border-bottom:1px solid var(--line)}.flow div:last-child{border-bottom:0}
+      .stack{grid-template-columns:repeat(2,1fr)}
+    }
+    @media(max-width:600px){
+      .mast{padding-top:38px}.metrics{grid-template-columns:1fr}.metric{min-height:auto}
+      .feature-grid,.commands,.service-list{grid-template-columns:1fr}.section{margin-bottom:58px}
+      details.module summary{grid-template-columns:42px 1fr auto}.module-body{padding-left:8px}.module-body ul{grid-template-columns:1fr}
+      .handoff{grid-template-columns:1fr}.handoff>div+div{border-left:0;border-top:1px solid var(--line)}
+      .stack{grid-template-columns:1fr}.proof{grid-template-columns:1fr}.footer{flex-direction:column}
+      .matrix,.matrix tbody,.matrix tr,.matrix td{display:block}.matrix thead{display:none}.matrix tr{padding:9px 0;border-bottom:1px solid var(--line)}.matrix td{display:flex;justify-content:space-between;gap:18px;border:0;padding:4px 12px}.matrix td::before{content:attr(data-label);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em}.matrix td:first-child{font-weight:800}
+    }
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.chev{transition:none}}
+  </style>
+</head>
+<body>
+<div class="topline"></div>
+<header class="mast">
+  <div>
+    <div class="eyebrow">Competitive product atlas · 2026.09</div>
+    <h1>从一条咨询，<br>到整套运营系统</h1>
+    <p class="dek">EliseAI 已不是单点聊天机器人：LeasingAI、ResidentAI 与 VoiceAI 围绕 EliseCRM 串起物业工作流，Apollo 再把自然语言变成跨平台操作界面；HealthAI 则独立服务医疗机构，并与 EHR 集成。</p>
+  </div>
+  <div class="stamp"><b>阅读方式</b>按产品查看功能、AI／人工边界、公开效果与集成范围。页面中的量化结果均保留官网或公开材料的原始口径；未验证项单独标注。</div>
+</header>
+<section class="metrics" aria-label="公司公开规模">
+  <div class="metric"><strong>$200M</strong><span>公司公告 ARR；2026 年 6 月口径</span></div>
+  <div class="metric"><strong>1 / 6</strong><span>公司称覆盖美国公寓比例</span></div>
+  <div class="metric"><strong>600+</strong><span>官网称业主与运营商客户</span></div>
+  <div class="metric"><strong>5M+</strong><span>官网称覆盖单元数</span></div>
+</section>
+<nav class="controls" aria-label="内容筛选">
+  <div class="controls-inner">
+    <div class="filterset">
+      <button class="filter active" data-filter="all">全部</button>
+      <button class="filter" data-filter="housing">物业</button>
+      <button class="filter" data-filter="health">医疗</button>
+      <button class="filter" data-filter="service">服务</button>
+      <button class="filter" data-filter="platform">平台</button>
+    </div>
+    <label class="search"><input id="search" type="search" placeholder="搜索：续约、工单、语言……" aria-label="搜索功能"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></label>
+  </div>
+</nav>
+<div class="layout">
+  <aside class="side" aria-label="章节导航">
+    <div class="side-label">产品索引</div>
+    <a href="#leasing"><span class="num">01</span>LeasingAI</a>
+    <a href="#resident"><span class="num">02</span>ResidentAI</a>
+    <a href="#crm"><span class="num">03</span>EliseCRM</a>
+    <a href="#voice"><span class="num">04</span>VoiceAI</a>
+    <a href="#apollo"><span class="num">05</span>Apollo</a>
+    <a href="#health"><span class="num">06</span>HealthAI</a>
+    <a href="#services"><span class="num">07</span>服务与增值</a>
+    <a href="#platform"><span class="num">08</span>平台与集成</a>
+  </aside>
+  <main class="content">
+    <section class="section" id="leasing" data-category="housing" data-search="leasing prospect lead 获客 租赁 看房 tour 申请 推荐 筛选">
+      <div class="section-head"><div class="section-index">01</div><div class="section-title"><h2>LeasingAI</h2><small>Inquiry → occupancy</small></div><span class="tag">面向潜客</span></div>
+      <p class="position">覆盖从询盘到入住的整段租赁漏斗。AI 先回答、匹配、筛选、约看并持续跟进；员工把时间留给真正需要判断与现场体验的环节。</p>
+      <div class="flow"><div><b>01 CAPTURE</b>Webchat／Email／Text／Voice 全天接待</div><div><b>02 QUALIFY</b>发现问题、筛选标准与社区卖点</div><div><b>03 MATCH</b>按偏好与可租情况推荐单元</div><div><b>04 TOUR</b>现场／虚拟／自助看房排期</div><div><b>05 CONVERT</b>跟进、身份验证并推动申请</div></div>
+      <div class="feature-grid">
+        <article class="feature"><h3>统一对话线程</h3><p>一个 prospect 在 webchat、邮件、短信和电话中的互动合并为一条线程；跨多个社区浏览时仍保留上下文。</p></article>
+        <article class="feature"><h3>可配置租赁模式</h3><p>每个社区可设置 discovery questions、screening criteria 和 key selling points，并按“更多看房／更严筛选／更多申请”调整目标。</p></article>
+        <article class="feature"><h3>转化控制</h3><p>运营方可决定 AI 何时预约看房、何时推动申请，不把转化节奏完全交给黑盒。</p></article>
+        <article class="feature"><h3>AI-Guided Tours</h3><p>夜晚、周末、节假日均可自助看房；AI 边走边答疑，衔接门禁 codes／keys，并在看房后自动跟进。</p></article>
+        <article class="feature"><h3>交互地图与可租单元</h3><p>Engrain Maps 显示访客当前位置、高亮可租单元，并随移动推送照片与详情。</p></article>
+        <article class="feature"><h3>申请链路</h3><p>自助看房后衔接 ID verification、申请与 CRM；Tour24 支持实时排期，Zillow 房源页可内嵌 AI Assist。</p></article>
+      </div>
+      <div class="proof"><div class="proof-label">公开结果</div><div class="proof-items"><div class="proof-item"><strong>90%+</strong>官网称自动化对话与看房预约</div><div class="proof-item"><strong>−65%</strong>Kittle：lead-to-lease 周期</div><div class="proof-item"><strong>37%</strong>Summit：AI 带看发生在非工作时间</div><div class="proof-item"><strong>+43%</strong>Zillow AI Assist 用户申请率；另有看房预约 +19%、签约 +24%</div></div></div>
+      <div class="sourcebar">来源：<a href="https://eliseai.com/prospect-management" target="_blank" rel="noopener">Prospect Management</a> · <a href="https://eliseai.com/aigt" target="_blank" rel="noopener">AI-Guided Tours</a> · <a href="https://www.businesswire.com/news/home/20260611736825/en/EliseAI-and-Zillow-Rentals-Find-Renters-Who-Use-AI-Assist-Are-43-More-Likely-to-Apply" target="_blank" rel="noopener">Zillow × EliseAI 数据</a></div>
+    </section>
+
+    <section class="section" id="resident" data-category="housing" data-search="resident move-in maintenance repair work order renewals delinquency resident 住户 搬入 维修 工单 续约 欠款 催收">
+      <div class="section-head"><div class="section-index">02</div><div class="section-title"><h2>ResidentAI</h2><small>五个住户生命周期模块</small></div><span class="tag">面向住户</span></div>
+      <p class="position">ResidentAI 不是一个泛化客服，而是五条明确工作流：搬入准备、维修分诊、技师执行、续约留存、欠款回收。下方模块可展开查看。</p>
+      <details class="module" open><summary><span class="module-no">2.1</span><span class="module-name">Move-In<small>把搬入前的材料、检查与问答集中起来</small></span><span class="chev">+</span></summary><div class="module-body"><ul>
+        <li><b>个性化清单：</b>从上传文件到预约电梯，住户在一处完成分步任务。</li><li><b>AI 文件验证：</b>自动验证保险与 COI，及早发现错误与合规风险。</li><li><b>实时答疑：</b>自动回复搬入相关问题。</li><li><b>集中看板：</b>团队在一个视图跟踪所有住户的搬入进度并自动共享信息。</li>
+      </ul><div class="proof"><div class="proof-label">公开结果</div><div class="proof-items"><div class="proof-item"><strong>最多 −60%</strong>官网称搬入相关耗时</div></div></div><div class="sourcebar">来源：<a href="https://eliseai.com/move-in" target="_blank" rel="noopener">Move-In</a>。页面引用的 Kittle 65% 指标实际来自 LeasingAI 案例，不作为本模块效果。</div></div></details>
+      <details class="module" open><summary><span class="module-no">2.2</span><span class="module-name">Maintenance<small>AI 分诊与工单入口</small></span><span class="chev">+</span></summary><div class="module-body"><ul>
+        <li><b>请求收集：</b>理解文本、语音与电话中的报修内容，提取类别、紧急度、单元、入户许可、宠物等关键信息。</li><li><b>建单与分类：</b>自动创建标准化工单并分类。</li><li><b>紧急路由：</b>按预设 emergency call routing 处理夜间和非工作时间的紧急情况。</li><li><b>非紧急降级：</b>引导住户自助排查，减少不必要的工单与技师派遣。</li><li><b>状态更新：</b>实时通知维修进展，减少追问电话。</li><li><b>跨资产跟踪：</b>按优先级、紧急度、时间线和完成情况查看工单。</li>
+      </ul><div class="handoff"><div><b>AI 负责</b><p>信息收集、分类、建单、分诊、自助排查、状态通知。</p></div><div><b>人工负责</b><p>紧急事件按预设路由接手；技师执行，主管监督。</p></div></div><div class="proof"><div class="proof-label">Student Quarters</div><div class="proof-items"><div class="proof-item"><strong>−26%</strong>紧急维修电话量</div><div class="proof-item"><strong>533 小时</strong>2025 年 Q1 节省维修工时</div></div></div><div class="sourcebar">来源：<a href="https://eliseai.com/maintenance" target="_blank" rel="noopener">Maintenance</a></div></div></details>
+      <details class="module" open><summary><span class="module-no">2.3</span><span class="module-name">Maintenance App<small>技师移动端与主管调度台</small></span><span class="chev">+</span></summary><div class="module-body"><ul>
+        <li><b>智能自动排期：</b>依据技师技能、可用性和工单类型自动分配。</li><li><b>地理围栏打卡：</b>工时与具体工单、技师位置关联。</li><li><b>现场协作：</b>附加照片、查看完整维修历史与时间线、与住户和团队内置聊天。</li><li><b>双语：</b>技师端支持英文和西班牙文。</li><li><b>Make Ready Board：</b>可定制翻新模板、自动排期供应商、验房触发工单。</li><li><b>主管视角：</b>改派与改期、查看技师日程和可用性、监控绩效与完成率、生成运营报表。</li><li><b>内嵌 CRM：</b>移动端或 EliseCRM 内使用，无额外登录、官网称无额外费用。</li><li><b>登录：</b>技师用手机号与短信一次性验证码进入，无需记密码。</li>
+      </ul><div class="proof"><div class="proof-label">PRG Real Estate</div><div class="proof-items"><div class="proof-item"><strong>+25%</strong>整体工单完成率</div></div></div><div class="sourcebar">来源：<a href="https://eliseai.com/maintenance-app" target="_blank" rel="noopener">Maintenance App</a>。离线能力仅见 FAQ 问题，答案未核实。</div></div></details>
+      <details class="module" open><summary><span class="module-no">2.4</span><span class="module-name">Renewals<small>自动触达、意向预测与复杂谈判交接</small></span><span class="chev">+</span></summary><div class="module-body"><ul>
+        <li><b>90／60／30 天触点：</b>自动触达、提醒与电子签名，减少员工追踪。</li><li><b>个性化 offer：</b>在合适时机发放激励，官网示例为 $200 续约奖金。</li><li><b>实时意向：</b>仪表盘显示每位住户的续约可能性，用于决定激励与下一步。</li><li><b>上下文升级：</b>遇到涨价异议等复杂谈判，把完整历史交给员工。</li><li><b>空置预测：</b>提前判断潜在空置，辅助营销投放和补位。</li><li><b>主动外呼：</b>VoiceAI 可打电话问答并推进 lease extension。</li>
+      </ul><div class="handoff"><div><b>AI 负责</b><p>例行触达、offer、意向预测、问答、电子签名流程。</p></div><div><b>人工负责</b><p>价格异议等复杂谈判；AI 附带完整对话上下文。</p></div></div><div class="proof"><div class="proof-label">Worchester Communities</div><div class="proof-items"><div class="proof-item"><strong>+9%</strong>续约留存率</div></div></div><div class="sourcebar">来源：<a href="https://eliseai.com/renewals" target="_blank" rel="noopener">Renewals</a></div></div></details>
+      <details class="module" open><summary><span class="module-no">2.5</span><span class="module-name">Delinquency<small>欠款通知、问答与分期计划</small></span><span class="chev">+</span></summary><div class="module-body"><ul>
+        <li><b>租金问答：</b>处理催款提醒、滞纳金、付款方式和费用解释。</li><li><b>付款计划：</b>创建并管理分期计划，自动提醒后续付款。</li><li><b>责任方同步：</b>把担保人和共同签署人纳入沟通。</li><li><b>连续线程：</b>在已有维修或住户对话中回复付款问题，不另开线程。</li><li><b>个性化节奏：</b>按定制计划每月触达欠款住户。</li><li><b>回款视图：</b>EliseCRM 追踪逾期租金、付款历史和生效中的计划。</li>
+      </ul><div class="handoff"><div><b>AI 负责</b><p>欠款通知、费用问答、分期计划、提醒和担保人同步。</p></div><div><b>人工负责</b><p>页面未写明接管点；“升级前介入”暗示严重升级／法务仍需人工。</p></div></div><div class="proof"><div class="proof-label">Busboom</div><div class="proof-items"><div class="proof-item"><strong>99%</strong>30 天回款率</div><div class="proof-item"><strong>−85%</strong>欠款管理耗时</div></div></div><div class="sourcebar">来源：<a href="https://eliseai.com/delinquency" target="_blank" rel="noopener">Delinquency</a></div></div></details>
+    </section>
+
+    <section class="section" id="crm" data-category="housing platform" data-search="crm guest card calendar task routing persona quote campaign mass messaging report knowledge sentiment inbox 日历 任务 报价 群发 知识库 情绪">
+      <div class="section-head"><div class="section-index">03</div><div class="section-title"><h2>EliseCRM</h2><small>AI-first operating system</small></div><span class="tag">系统中枢</span></div>
+      <p class="position">不是“传统 CRM 外挂一个机器人”，而是让 AI 直接在 prospect、resident、任务和知识所在的系统里工作。</p>
+      <div class="feature-grid">
+        <article class="feature"><h3>Centralized Guest Card</h3><p>聚合每个 renter 的所有触点；自动匹配单元、跨社区交叉销售看房，agent 全程可见。</p></article>
+        <article class="feature"><h3>Calendar + Task Routing</h3><p>统一预约、跟进和任务；把 LeasingAI／ResidentAI 生成的任务按主题路由到可定制团队。</p></article>
+        <article class="feature"><h3>AI Personalization</h3><p>内置 Professional、Cheerful、Enthusiastic 三种 persona，让话术贴合社区调性。</p></article>
+        <article class="feature"><h3>Quote Generation</h3><p>生成按日期的精确报价，纳入全部费用、照片、优惠和自定义免责声明。</p></article>
+        <article class="feature"><h3>Campaigns + Mass Messaging</h3><p>定向 Email／SMS 活动并追踪效果；高级筛选住户，可附图片／视频，发送自动写入 Activity。</p></article>
+        <article class="feature"><h3>Reporting + Sentiment</h3><p>覆盖租赁与住户管理的 AI 报表、自动对话跟踪与情绪分析。</p></article>
+        <article class="feature"><h3>Enhanced Knowledge</h3><p>自动导入 PMS 和聊天数据，自学习以减少交接；即时调取单元专属户型图和文档。</p></article>
+        <article class="feature"><h3>Unified Inbox</h3><p>Email、Text、Voice、Chat 全部进入同一平台，支持现场与集中化团队跨物业协作。</p></article>
+      </div>
+      <div class="openq"><b>效果口径：</b>CRM 产品页没有单独量化结果；效果数字主要出现在各业务模块案例中。白皮书需填写表单，本次未获取。</div>
+      <div class="sourcebar">来源：<a href="https://eliseai.com/elisecrm" target="_blank" rel="noopener">EliseCRM</a></div>
+    </section>
+
+    <section class="section" id="voice" data-category="housing platform" data-search="voice phone call inbound outbound transcription languages 电话 呼入 外呼 转录 多语言 33">
+      <div class="section-head"><div class="section-index">04</div><div class="section-title"><h2>VoiceAI</h2><small>Inbound + outbound phone agent</small></div><span class="tag">电话层</span></div>
+      <p class="position">7×24 类人电话坐席，覆盖租赁与住户来电，也能主动外呼；通话转录、意图和结果进入 EliseCRM。</p>
+      <div class="feature-grid">
+        <article class="feature"><h3>呼入接待</h3><p>回答问题，把现场、虚拟或自助看房直接写入日历；Resident Concierge 处理缴费、续约、维修与礼宾。</p></article>
+        <article class="feature"><h3>夜间与溢出</h3><p>接听夜间、周末和高峰来电；复杂对话智能升级给现场员工。</p></article>
+        <article class="feature"><h3>主动外呼</h3><p>提醒 prospect 看房、跟进住户请求；续约场景主动问答并锁定续约。</p></article>
+        <article class="feature"><h3>实时转录与 CRM 同步</h3><p>创建 guest card、保存逐字稿、标注意图；未解决事项可自动跟进。</p></article>
+        <article class="feature"><h3>33 种语言</h3><p>住房侧 VoiceAI 官网口径；处理看房、维修、续约、租金支付和一般咨询。</p></article>
+        <article class="feature"><h3>Performance Analytics</h3><p>仪表盘展示通话量、转化率与节省时间；可一次理解多个问题并给出完整答复。</p></article>
+      </div>
+      <div class="proof"><div class="proof-label">公开结果</div><div class="proof-items"><div class="proof-item"><strong>108,000+</strong>Landmark Properties：处理通话</div><div class="proof-item"><strong>+12 个百分点</strong>VoiceAI + LeasingAI 相比仅用 LeasingAI 的 prospect 转化率</div></div></div>
+      <div class="sourcebar">来源：<a href="https://eliseai.com/voiceai" target="_blank" rel="noopener">VoiceAI</a> · <a href="https://eliseai.com/resources/1-1-3-the-one-ai-operating-model-and-the-future-of-multifamily-tech-stacks" target="_blank" rel="noopener">“1+1=3” 组合数据</a></div>
+    </section>
+
+    <section class="section" id="apollo" data-category="housing platform" data-search="apollo agent agentic prompt natural language bulk permission employee internal 批量 权限 自然语言 内部员工">
+      <div class="section-head"><div class="section-index">05</div><div class="section-title"><h2>Apollo</h2><small>Cross-platform agentic layer</small></div><span class="tag">2026.09.03 发布</span></div>
+      <div class="spotlight"><blockquote>“Apollo tells you what to do next, and then does it.”</blockquote><p>它是面向内部员工的跨平台 agent 层，不是另一个面向租客的对话入口。员工用文本或语音给任务；Apollo 读取实时数据、继承用户权限并执行批量操作。</p><div class="commands"><div class="command">“给昨天所有看房的人发更新消息”</div><div class="command">“把请病假同事全天的看房改期”</div><div class="command">“哪些单元有反复出现的问题？”</div><div class="command">“批量更新知识库并标记过时内容”</div></div></div>
+      <div class="feature-grid">
+        <article class="feature"><h3>Knows your setup</h3><p>原生于 Elise 平台，理解物业设置、权限和数据定义，无需额外配置。</p></article>
+        <article class="feature"><h3>Acts at scale</h3><p>可访问完整 settings surface 并跨平台采取行动，不止回答问题。</p></article>
+        <article class="feature"><h3>权限继承</h3><p>只能看到和执行当前用户已获授权的内容与操作。</p></article>
+        <article class="feature"><h3>分析到执行</h3><p>标记风险续约、量化相关租金、诊断子市场入住率、生成组合 leaderboard 并解释落后原因。</p></article>
+        <article class="feature"><h3>维修根因分析</h3><p>关联相关工单、识别可能根因并采取下一步。</p></article>
+        <article class="feature"><h3>可靠性边界</h3><p>官方称发布前经过数千个日常场景测试；不知道时会承认，而非猜测。</p></article>
+      </div>
+      <div class="openq"><b>尚无客户效果数据。</b>研究时产品发布约 20 天；官方仅披露“数千个场景测试”。</div>
+      <div class="sourcebar">来源：<a href="https://rss.globenewswire.com/news-release/2026/09/03/3355976/0/en/eliseai-unveils-apollo-one-ai-teammate-built-to-work-across-every-multifamily-role.html" target="_blank" rel="noopener">发布新闻稿</a> · <a href="https://commercialobserver.com/2026/09/eliseai-ai-agent-apollo/" target="_blank" rel="noopener">Commercial Observer</a></div>
+    </section>
+
+    <section class="section" id="health" data-category="health" data-search="health patient appointment billing payment ehr fhir women dermatology ophthalmology orthopedic healthcare 医疗 患者 预约 保险 账单 处方">
+      <div class="section-head"><div class="section-index">06</div><div class="section-title"><h2>HealthAI</h2><small>Healthcare front-office automation</small></div><span class="tag">医疗垂直</span></div>
+      <p class="position">把住房场景验证过的对话自动化迁移到诊所前台，聚焦非临床行政：患者沟通、预约、intake、保险、账单与处方跟进。</p>
+      <div class="feature-grid">
+        <article class="feature"><h3>Patient Conversations</h3><p>Voice、Email、Text、Chat 四渠道自动化患者对话，24/7 接待。</p></article>
+        <article class="feature"><h3>智能排期与候补</h3><p>同步医生日历防止 overbooking，避免重复预约、填补临时取消、主动提醒减少爽约。</p></article>
+        <article class="feature"><h3>Billing & Payment</h3><p>发送费用提醒与通知，附费用解释和到期日。</p></article>
+        <article class="feature"><h3>AI Administration</h3><p>自动化保险 intake、处方检查与审批；Health Form 还提到保险验证、复杂排期及创建 patient cases／tasks。</p></article>
+        <article class="feature"><h3>EHR 数据同步</h3><p>通过 FHIR 与 EHR 集成，自动排期与病历更新。</p></article>
+        <article class="feature"><h3>专科工作流</h3><p>Women's Health、Dermatology、Ophthalmology、Primary Care、Orthopedics；眼科细分 retina／cataract／glaucoma 路由。</p></article>
+        <article class="feature"><h3>语言</h3><p>第三方报道引 CEO：语音 7 种、文字 51 种；与住房 VoiceAI 的“33 种语言”是不同口径。</p></article>
+        <article class="feature"><h3>合规与语音</h3><p>官网声明 HIPAA 与 SOC 2 Type II 合规；博客称与 ElevenLabs 合作自然语音。</p></article>
+      </div>
+      <div class="proof"><div class="proof-label">官网口径</div><div class="proof-items"><div class="proof-item"><strong>95%</strong>患者咨询由 AI 处理；有 disclaimer</div><div class="proof-item"><strong>0 秒</strong>平均等待；有 disclaimer</div><div class="proof-item"><strong>−66%</strong>单通电话成本；有 disclaimer</div><div class="proof-item"><strong>3–5×</strong>公司称降低呼叫中心成本</div></div></div>
+      <div class="sourcebar">来源：<a href="http://eliseai.com/healthai" target="_blank" rel="noopener">HealthAI</a> · <a href="https://eliseai.com/health-form" target="_blank" rel="noopener">Health Form</a> · <a href="https://eliseai.com/blog/how-ophthalmology-practices-manage-patient-phone-calls-with-ai" target="_blank" rel="noopener">眼科路由</a> · <a href="https://eliseai.com/blog/how-eliseai-improves-healthcare-accessbility-around-the-u-s" target="_blank" rel="noopener">语音合作</a></div>
+    </section>
+
+    <section class="section" id="services" data-category="service" data-search="service lease audit fee transparency mystery shopping centralization voice demo 服务 租约 审计 费用透明 神秘顾客 集中化">
+      <div class="section-head"><div class="section-index">07</div><div class="section-title"><h2>服务与增值</h2><small>Revenue protection + enablement</small></div><span class="tag">辅助产品</span></div>
+      <div class="service-list">
+        <article class="service"><h3>Lease Audits</h3><p>AI 扫描租约并与住户台账比对，标记缺失签名、计费错误和少收费用。</p><ul><li>覆盖费用、押金、优惠</li><li>捕捉宠物费、健身房费、停车费遗漏</li><li>减少多收／错收和合规风险</li><li>官网称 1–2 天审完台账，而非数周人工</li></ul><div class="sourcebar">来源：<a href="https://eliseai.com/lease-audits" target="_blank" rel="noopener">Lease Audits</a></div></article>
+        <article class="service"><h3>Fee Transparency Suite</h3><p>在 EliseCRM 建立唯一费用源，并把州别披露逻辑带入 renter journey。</p><ul><li>集中维护周期性与一次性费用</li><li>同步到对话、报价、申请、网页 widget</li><li>州别逻辑与免责声明</li><li>动态费用 widget、Fee Guide 网页、按需 PDF</li></ul><div class="sourcebar">来源：<a href="https://eliseai.com/fee-transparency" target="_blank" rel="noopener">Fee Transparency</a></div></article>
+        <article class="service"><h3>Mystery Shopping / Call Scoring</h3><p>公开材料称 AI 可按预设 rubric 实时给每通电话评分，替代传统神秘顾客抽检；另有报告称平均近 30% 的租赁办公室来电无人接听。</p><div class="sourcebar">来源：<a href="https://eliseai.com/blog/goodbye-chatbots---intro-to-ai-for-multifamily-marketing-leaders-webinar-takeaways" target="_blank" rel="noopener">电话评分说明</a></div></article>
+        <article class="service"><h3>Centralization / Try VoiceAI</h3><p>官网导航出现 Centralization 咨询与 Try Elise VoiceAI 体验入口；本次研究没有获得可核实的具体交付范围或体验流程，因此不扩写。</p><div class="openq"><b>开放问题：</b>服务边界、报价、实施周期与 SLA 未公开。</div></article>
+      </div>
+    </section>
+
+    <section class="section" id="platform" data-category="platform" data-search="platform integrations pms crm ehr channels languages compliance pricing demo 集成 渠道 语言 合规 定价">
+      <div class="section-head"><div class="section-index">08</div><div class="section-title"><h2>平台与集成</h2><small>The connective tissue</small></div><span class="tag">能力底座</span></div>
+      <div class="stack">
+        <div class="stack-card"><h3>四渠道</h3><p>Email、Text、Voice、Chat。Prospect 侧统一为一条连续对话。</p></div>
+        <div class="stack-card"><h3>多层语言口径</h3><p>住房 VoiceAI 33 种；医疗语音 7 种／文字 51 种；维修 App 英语＋西班牙语。</p></div>
+        <div class="stack-card"><h3>合规</h3><p>HealthAI 官网声明 HIPAA 与 SOC 2 Type II。Trust Center 的完整认证清单本次未核实。</p></div>
+        <div class="stack-card"><h3>商务模式</h3><p>官网无公开定价页，CTA 统一导向 Request Demo／Get Demo：销售主导、demo-only。</p></div>
+      </div>
+      <div class="matrix-wrap">
+        <div class="matrix-tabs" role="tablist" aria-label="集成类型">
+          <button class="matrix-tab active" data-matrix="crm">CRM</button><button class="matrix-tab" data-matrix="pms">PMS</button><button class="matrix-tab" data-matrix="both">PMS + CRM</button><button class="matrix-tab" data-matrix="other">其他生态</button>
+        </div>
+        <table class="matrix" id="matrixTable"><thead><tr><th>系统</th><th>Leasing Core</th><th>Leasing Voice</th><th>Delinquency</th><th>Maintenance</th><th>Renewals</th><th>Resident Voice</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="openq"><b>读表提醒：</b>支持矩阵来自官方支持文档，页面约在研究日前 195 天更新；产品和版本变化可能造成差异。对勾仅代表文档列示支持，不代表每个功能深度相同。</div>
+      <div class="sourcebar">来源：<a href="https://support.meetelise.com/hc/en-us/articles/39523666991501-EliseAI-Supported-Integrations-Per-Product" target="_blank" rel="noopener">官方产品集成矩阵</a></div>
+      <div class="method"><h3>口径与边界</h3><p><b>研究日期：</b>2026-09-23。官网产品页来自网页文本索引；本次没有登录、填写表单或申请演示。</p><p><b>可验证性：</b>效果数字是 EliseAI 官网、客户案例或公开新闻稿口径，不等同于独立审计。HealthAI 的 95%、0 秒与 −66% 页面带 disclaimer；Apollo 尚无客户效果数据。</p><p><b>仍未知：</b>完整价格、实施周期、SLA、Centralization 咨询交付、部分 FAQ 展开答案与完整 Trust Center 认证清单。</p></div>
+    </section>
+    <div class="empty" id="empty">没有匹配的章节。试试更短的关键词。</div>
+  </main>
+</div>
+<footer class="footer"><span>EliseAI 产品功能研究快照 · 2026-09-23</span><span>仅呈现研究材料已确认的功能与公开口径</span></footer>
+<script>
+(function(){
+  var sections=[].slice.call(document.querySelectorAll('.section'));
+  var filters=[].slice.call(document.querySelectorAll('.filter'));
+  var search=document.getElementById('search');
+  var active='all';
+  function apply(){
+    var q=search.value.trim().toLowerCase();var shown=0;
+    sections.forEach(function(s){var category=s.getAttribute('data-category')||'';var text=(s.getAttribute('data-search')+' '+s.textContent).toLowerCase();var ok=(active==='all'||category.indexOf(active)>-1)&&(!q||text.indexOf(q)>-1);s.classList.toggle('hidden',!ok);if(ok)shown++;});
+    document.getElementById('empty').style.display=shown?'none':'block';
+  }
+  filters.forEach(function(b){b.addEventListener('click',function(){filters.forEach(function(x){x.classList.remove('active')});b.classList.add('active');active=b.getAttribute('data-filter');apply();});});
+  search.addEventListener('input',apply);
+
+  var data={
+    crm:[['Anyone Home','✓','✓','✓','✓','✓','✓'],['Funnel','✓','✓','✓','✓','✓','✓'],['Knock','✓','✓','—','—','—','—'],['Yardi RentCafe','✓','✓','✓','✓','✓','✓'],['ILM / Lead2Lease','—','—','—','—','—','—']],
+    pms:[['AppFolio Plus','✓','✓','✓','✓','—','✓'],['RealPage OneSite','✓','✓','✓','✓','—','✓'],['Rent Manager','✓','✓','✓','—','—','—'],['Yardi Voyager','✓','✓','✓','✓','✓','✓'],['Yardi Breeze','—','—','—','—','—','—'],['MRI','—','—','—','—','—','—']],
+    both:[['AppFolio Max','✓','✓','✓','✓','—','✓'],['Entrata','✓','✓','✓','✓','✓','✓'],['ResMan','✓','✓','✓','✓','—','✓'],['Salesforce','—','—','—','—','—','—']],
+    other:[['Touring / 门禁','Brivo','ButterflyMX','Engrain','Igloohome','Peek','Tour24'],['Leasing','Bluemoon','Dwellsy','PERQ','Zillow Rentals','Zumper','—'],['Survey','Grace Hill','—','—','—','—','—'],['医疗 EHR','athenahealth','ModMed','Nextech','eClinicalWorks','AdvancedMD','NextGen']]
+  };
+  var headers=['系统','Leasing Core','Leasing Voice','Delinquency','Maintenance','Renewals','Resident Voice'];
+  function renderMatrix(key){var table=document.getElementById('matrixTable');var body=table.querySelector('tbody');body.innerHTML='';data[key].forEach(function(row){var tr=document.createElement('tr');row.forEach(function(v,i){var td=document.createElement('td');td.textContent=v;td.setAttribute('data-label',headers[i]);if(v==='✓')td.className='yes';if(v==='—')td.className='no';tr.appendChild(td);});body.appendChild(tr);});}
+  document.querySelectorAll('.matrix-tab').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.matrix-tab').forEach(function(x){x.classList.remove('active')});b.classList.add('active');renderMatrix(b.getAttribute('data-matrix'));});});renderMatrix('crm');
+
+  var sideLinks=[].slice.call(document.querySelectorAll('.side a'));
+  if('IntersectionObserver' in window){var observer=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){sideLinks.forEach(function(a){a.classList.toggle('on',a.getAttribute('href')==='#'+e.target.id);});}});},{rootMargin:'-20% 0px -70% 0px'});sections.forEach(function(s){observer.observe(s);});}
+})();
+</script>
+</body>
+</html>

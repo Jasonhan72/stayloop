@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>EliseAI 产品线拆解 → Stayloop 对照与方案增补 · 2026-09-23</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm; }
+  body { font-family: "Inter Tight", "PingFang SC", "Hiragino Sans GB", sans-serif; color: #1B1B3C; font-size: 10.3pt; line-height: 1.55; margin: 0; }
+  h1 { font-size: 21pt; letter-spacing: -0.02em; margin: 0 0 4pt; line-height: 1.15; }
+  h2 { font-size: 14pt; margin: 18pt 0 8pt; padding-bottom: 4pt; border-bottom: 2px solid #00ACE4; page-break-after: avoid; }
+  h3 { font-size: 11.3pt; margin: 12pt 0 5pt; color: #0f1b33; page-break-after: avoid; }
+  p { margin: 0 0 6pt; }
+  .eyebrow { font-family: Menlo, monospace; font-size: 8.5pt; letter-spacing: .12em; text-transform: uppercase; color: #00ACE4; font-weight: 700; }
+  .sub { color: #4A4A6A; margin-bottom: 10pt; }
+  .meta { font-size: 9pt; color: #6E6E8A; border-top: 1px solid #D3E3EF; border-bottom: 1px solid #D3E3EF; padding: 5pt 0; margin-bottom: 12pt; }
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt; font-size: 9.2pt; }
+  th, td { border: 1px solid #D3E3EF; padding: 4pt 6pt; vertical-align: top; text-align: left; }
+  th { background: #F3F8FC; font-weight: 700; }
+  tr { page-break-inside: avoid; }
+  code { font-family: Menlo, monospace; font-size: 8.6pt; background: #F3F8FC; padding: 0 3pt; border-radius: 3px; }
+  ul, ol { margin: 0 0 8pt 0; padding-left: 16pt; } li { margin-bottom: 2.5pt; }
+  .decide { background: #FFF8E6; border-left: 3px solid #D97706; padding: 7pt 10pt; margin: 8pt 0; font-size: 9.6pt; }
+  .fact { background: #F3F8FC; border-left: 3px solid #00ACE4; padding: 6pt 9pt; margin: 8pt 0; font-size: 9.6pt; }
+  .rec { background: #ECFDF5; border-left: 3px solid #047857; padding: 6pt 9pt; margin: 8pt 0; font-size: 9.6pt; }
+  .pb { page-break-before: always; }
+  .s-have { color: #047857; font-weight: 700; } .s-part { color: #B45309; font-weight: 700; } .s-none { color: #6E6E8A; font-weight: 700; } .s-no { color: #DC2626; font-weight: 700; }
+  .footer { margin-top: 20pt; padding-top: 8pt; border-top: 1px solid #D3E3EF; font-size: 8.5pt; color: #6E6E8A; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; margin: 6pt 0 10pt; }
+  .split div { border: 1px solid #D3E3EF; border-radius: 6pt; padding: 7pt 9pt; font-size: 9.3pt; }
+  .split b { display: block; font-family: Menlo, monospace; font-size: 8pt; letter-spacing: .08em; color: #6E6E8A; margin-bottom: 3pt; }
+</style>
+</head>
+<body>
+<div class="eyebrow">ADDENDUM · 对《三阶段可见化与三角色流程细化方案》的增补</div>
+<h1>EliseAI 产品线拆解 → Stayloop 对照与方案增补</h1>
+<div class="sub">依据用户提供的《EliseAI 产品线功能拆解》（2026-09-23 快照：LeasingAI、ResidentAI 五模块、EliseCRM、VoiceAI、Apollo、HealthAI、服务与增值、平台与集成）逐模块对照 Stayloop 现状，并把值得采用的做法并入待决定的方案。仍是方案，不含实现。</div>
+<div class="meta">EliseAI 规模口径：$200M ARR（2026-06）、覆盖美国 1/6 公寓、600+ 业主运营商、5M+ 单元；销售主导、无公开定价、demo-only。Stayloop 面向安省小房东 / 租客 / 持牌经纪——对照的是<b>方法</b>，不是规模。</div>
+
+<h2>0 · 这份拆解改变了什么</h2>
+<ul>
+  <li><b>ResidentAI 不是一个泛化「租中」，而是五条明确工作流</b>（搬入 / 维修分诊 / 技师执行 / 续约 / 欠款）。我们的「租中 · 租后」两段应按同样粒度拆成可见的子工作流，每条写清「AI 负责 / 人工负责」。</li>
+  <li><b>每个模块都带「AI 负责 / 人工负责」交接框</b>——这正是我们「提议而不决定」的产品语言，但我们从未在页面上这样写。建议成为 /platform 与每个工作流卡片的固定栏目。</li>
+  <li><b>EliseCRM 的核心是「一张卡聚合所有触点」（Guest Card）+「任务按主题路由」</b>：与方案里的「对象追踪器」和「待办」一一对应，可以直接借它的信息架构。</li>
+  <li><b>Apollo（内部员工的跨平台 agent，继承权限、批量执行）</b>是我们尚未有的一层：房东对 Logic 说「给所有 60 天内到期的租客发续约函」应该能批量生成待批卡。这是 P2 的新增项。</li>
+  <li><b>Fee Transparency / Lease Audits / Move-In 文件验证</b>三项我们其实有对应能力（费用一览 + 规则页、取证引擎、租约条款检查），只是散落在筛查里，没有以租中工具的身份出现。</li>
+  <li><b>不抄的部分更清楚了</b>：VoiceAI、HealthAI、Maintenance App（技师端）、催收付款计划的资金侧、神秘顾客评分、集成矩阵（我们没有 PMS 生态）。</li>
+</ul>
+
+<h2>1 · 逐模块对照</h2>
+<p>状态：<span class="s-have">已有</span> = 生产可用；<span class="s-part">部分</span> = 有底层能力但未成为可见工作流；<span class="s-none">没有</span>；<span class="s-no">不做</span>。</p>
+<table>
+  <tr><th style="width:17%">EliseAI 模块</th><th style="width:27%">它做什么（拆解口径）</th><th style="width:9%">Stayloop</th><th>我们对应的东西 / 差距</th><th style="width:14%">处置</th></tr>
+  <tr><td>LeasingAI · 统一对话线程</td><td>一个潜客在四渠道的互动合并为一条线程，跨社区保留上下文</td><td class="s-have">已有</td><td>每角色一条对话 + 记忆 + 反思画像；渠道只有站内 + 邮件（无短信 / 电话）</td><td>保留；渠道不扩</td></tr>
+  <tr><td>LeasingAI · 可配置租赁模式 / 转化控制</td><td>每社区设 discovery questions、筛选标准、卖点；运营方决定 AI 何时约看、何时推申请</td><td class="s-part">部分</td><td>房东可设宠物 / 吸烟 / 租期等事实；<b>不做筛选截止线</b>（OHRC）；「AI 何时推申请」= 我们的看房 / 提问卡</td><td>只采用「房东设置卖点与常见问答」→ 房源级问答（P2）</td></tr>
+  <tr><td>LeasingAI · AI-Guided Tours</td><td>夜间自助看房 + 门禁 + 看后跟进</td><td class="s-no">不做</td><td>需要智能锁与安保责任；小房东场景不成立</td><td>不做（已定）</td></tr>
+  <tr><td>LeasingAI · 申请链路 / Zillow 内嵌</td><td>看房 → 身份核验 → 申请 → CRM；在 Zillow 房源页内嵌 AI</td><td class="s-part">部分</td><td>看房卡 → 申请 → 一键筛查 → 决定已闭环；「内嵌到别人的房源页」= Stayloop API 的合规检查 / 申请入口</td><td>API 已有；申请入口 widget 可列 P2 备选</td></tr>
+  <tr><td>ResidentAI 2.1 · Move-In</td><td>个性化搬入清单、AI 文件验证（保险 / COI）、答疑、团队看板</td><td class="s-part">部分</td><td>入住清单页是示范；文件验证能力（取证引擎）只用于筛查；租客保险未涉及</td><td><b>采用</b>：真实入住清单 + 租客保险单验证（P2，已在方案 4.1-7，补「保险单验证」）</td></tr>
+  <tr><td>ResidentAI 2.2 · Maintenance</td><td>从文本 / 语音提取类别 / 紧急度 / 入户许可 / 宠物，建单分类；紧急路由；非紧急自助排查；状态通知</td><td class="s-part">部分</td><td>今天刚上线 `maintenance_request` 执行器（建单 + 邮件 + 推送）；无紧急度分诊、无自助排查、无状态通知给租客</td><td><b>采用</b>：分诊字段（类别 / 紧急度 / 入户许可 / 宠物）+ 紧急事项直接给房东电话与安省 24h 规则 + 自助排查话术 + 状态变更通知（P1/P2）</td></tr>
+  <tr><td>ResidentAI 2.3 · Maintenance App</td><td>技师端：自动排期、地理打卡、Make Ready Board、主管调度</td><td class="s-no">不做</td><td>小房东自己找师傅；无技师群体</td><td>不做；工单里留「师傅联系方式 / 报价」两个字段即可（P2）</td></tr>
+  <tr><td>ResidentAI 2.4 · Renewals</td><td>90/60/30 触点、电子签、个性化 offer、实时意向仪表盘、复杂谈判带上下文升级、空置预测、外呼</td><td class="s-part">部分</td><td>90/60/30 触点 + 方案 A/B 已有；<b>缺</b>租客意向回流、意向看板、带上下文的「升级给房东」</td><td><b>采用</b>：租客一键意向（续 / 不续 / 谈）+ 房东端意向状态列 + 「谈」时把对话上下文打包成待批卡（方案 4.1-10 / 4.2-11，升级为 P1）</td></tr>
+  <tr><td>ResidentAI 2.5 · Delinquency</td><td>租金问答、分期付款计划、担保人同步、连续线程、个性化催收节奏、回款视图</td><td class="s-part">部分</td><td>月末提醒 + 持续迟付法定提示已有；不经手资金；<b>安省有现成载体</b>：2026-07-01 起还款计划必须用 LTB Payment Agreement Form</td><td><b>改造采用</b>：「还款计划」= 帮房东 / 租客按 LTB 付款协议表的字段拟稿 + 提醒（不收款、不催收话术）（P2）；担保人同步不做</td></tr>
+  <tr><td>EliseCRM · Guest Card</td><td>聚合每个 renter 的所有触点，自动匹配单元</td><td class="s-part">部分</td><td>申请人页有文件 / 评分 / 决定；看房、提问、邮件分散</td><td><b>采用</b>：= 方案里的对象追踪器（申请 / 房源 / 客户），追踪器下挂「全部触点」时间线（P1）</td></tr>
+  <tr><td>EliseCRM · Calendar + Task Routing</td><td>统一预约与任务，按主题路由到团队</td><td class="s-have">已有</td><td>待办页 + 待批卡；单人房东无需路由</td><td>保留</td></tr>
+  <tr><td>EliseCRM · AI Personalization（三种 persona）</td><td>Professional / Cheerful / Enthusiastic 话术</td><td class="s-part">部分</td><td>助手可改名；语气不可选</td><td>低成本：设置页加「语气」三档进提示词（P2 可选）</td></tr>
+  <tr><td>EliseCRM · Quote Generation</td><td>按日期精确报价，含全部费用、优惠、免责声明</td><td class="s-have">已有</td><td>房源页「入住前费用一览」（安省费用极简：一个月押金 + 钥匙押金 + 押金利息）</td><td>保留；加「按入住日期计算首月按天折算」小项（P2）</td></tr>
+  <tr><td>EliseCRM · Campaigns / Mass Messaging</td><td>定向邮件 / 短信活动</td><td class="s-no">不做</td><td>小房东无群发需求；反垃圾风险</td><td>不做</td></tr>
+  <tr><td>EliseCRM · Reporting + Sentiment</td><td>AI 报表、情绪分析</td><td class="s-part">部分</td><td>后台有全流程 ROI 指标；无情绪分析</td><td>情绪不做；房东端「我的组合」小报表（空置 / 到期 / 待办）并入阶段轨（P0）</td></tr>
+  <tr><td>EliseCRM · Enhanced Knowledge</td><td>从 PMS 与聊天自学习，调取单元专属文档</td><td class="s-have">已有</td><td>记忆 + 反思画像 + 规则单一来源；房源级问答（水电 / 车位 / 宠物）来自房源字段</td><td>保留；补「房源专属 FAQ」由房东填一次（P2，与 LeasingAI 卖点项合并）</td></tr>
+  <tr><td>EliseCRM · Unified Inbox</td><td>邮件 / 短信 / 语音 / 聊天进同一平台</td><td class="s-part">部分</td><td>站内对话 + 在管租约共享中心；邮件回复不回流</td><td>P2 备选：邮件回复回流到共享中心（需收件域名）</td></tr>
+  <tr><td>VoiceAI</td><td>7×24 电话坐席、外呼、转录、33 种语言</td><td class="s-no">不做</td><td>—</td><td>不做（已定）</td></tr>
+  <tr><td>Apollo</td><td>内部员工的跨平台 agent：自然语言 → 读实时数据 → 继承权限 → 批量执行；分析到执行；根因分析</td><td class="s-part">部分</td><td>Logic 已能「提议 → 批准 → 执行」，但一次一张卡；无批量、无组合级分析</td><td><b>采用（新增）</b>：房东组合级批量提议（「给 60 天内到期的都发续约函」→ N 张卡一次审）+ 组合问答（「哪套空置最久」）只读数据（P2）</td></tr>
+  <tr><td>HealthAI</td><td>医疗前台自动化</td><td class="s-no">不做</td><td>—</td><td>无关</td></tr>
+  <tr><td>服务 · Lease Audits</td><td>租约 vs 台账比对，找漏收 / 多收</td><td class="s-part">部分</td><td>租约条款规则检查已有；租约 vs 租金记录对账没有</td><td>小项：在管租约「租约金额 vs 记录金额」不一致提示（P1，纯函数）</td></tr>
+  <tr><td>服务 · Fee Transparency</td><td>唯一费用源 + 州别披露 + widget / PDF</td><td class="s-have">已有</td><td>费用一览 + /rules 单一来源 + 合规 API</td><td>保留；可加「费用一览 PDF」（P2 可选）</td></tr>
+  <tr><td>服务 · Mystery Shopping / 电话评分</td><td>按 rubric 给每通电话评分</td><td class="s-no">不做</td><td>无电话</td><td>不做</td></tr>
+  <tr><td>平台 · 集成矩阵</td><td>PMS / CRM / 门禁 / 房源平台</td><td class="s-part">部分</td><td>Realtor.ca 读取、Stayloop API 对外；无 PMS</td><td>不做矩阵；API 文档保持三端点</td></tr>
+</table>
+
+<h2 class="pb">2 · 并入方案的增补（按期）</h2>
+<div class="rec"><b>不改方案骨架</b>（阶段轨 P0 → 对象追踪器 P1 → 今日视图与流程能力 P2），只做四处增补：</div>
+<table>
+  <tr><th style="width:8%">期</th><th style="width:30%">增补项</th><th>说明</th></tr>
+  <tr><td>P0</td><td>阶段轨每段加「AI 负责 / 你负责」两行</td><td>EliseAI 每个模块的交接框。租前：AI 找房 / 筛查 / 拟通知，你决定录取；租中：AI 建单 / 提醒 / 拟稿，你批准发送；租后：AI 算方案 / 时钟，你选 A/B。/platform 同步。</td></tr>
+  <tr><td>P1</td><td>租中拆成可见子工作流：搬入 · 报修 · 租金 · 续约</td><td>对应 ResidentAI 五模块（去掉技师端）。每条一张卡，卡上有状态 + 下一步 + 交接框。</td></tr>
+  <tr><td>P1</td><td>报修分诊字段 + 状态通知</td><td>提交时 AI 抽取类别 / 紧急度 / 入户许可 / 是否有宠物（模型抽取，确定性字段）；紧急（漏水、无暖、无电、锁）标红并提示房东电话与安省维修义务；工单状态变更推送租客。</td></tr>
+  <tr><td>P1</td><td>续约意向回流</td><td>租客在 30 天触点邮件 / 共享中心一键「续 / 不续 / 谈」；房东申请人 / 租约列表显示意向；「谈」= 把对话打包成待批卡给房东（带上下文升级）。</td></tr>
+  <tr><td>P1</td><td>租约 vs 租金记录对账</td><td>Lease Audits 的小房东版：租约月租 ≠ 记录金额、押金利息未付、到期未续签仍按旧租金——纯函数提示。</td></tr>
+  <tr><td>P2</td><td>组合级批量提议（Apollo 的房东版）</td><td>「给 60 天内到期的租客都发续约函」→ 一次生成 N 张卡；「哪套空置最久 / 本月谁没交」只读回答。权限 = 只在自己的行上。</td></tr>
+  <tr><td>P2</td><td>还款计划（安省载体）</td><td>迟付后 AI 按 LTB Payment Agreement Form 的字段拟稿，双方确认后各自去 LTB 提交；Stayloop 不收款、不催收。</td></tr>
+  <tr><td>P2</td><td>入住清单 + 租客保险单验证</td><td>Move-In 的小房东版：清单（钥匙 / 水电过户 / 交接照片 / 保险）+ 保险单 PDF 走现有取证引擎验真。</td></tr>
+  <tr><td>P2 可选</td><td>房源专属 FAQ · 语气三档 · 费用一览 PDF · 邮件回流</td><td>低成本项，按需要。</td></tr>
+</table>
+
+<h2>3 · 明确不做（写进方案的「不抄清单」）</h2>
+<ul>
+  <li>VoiceAI / 电话坐席、外呼；HealthAI；技师 App 与调度台；群发活动；情绪分析；神秘顾客评分；智能锁自助看房；PMS 集成矩阵；催收话术与资金侧（Stayloop 不经手租金，也不做催收）。</li>
+  <li>任何「筛选标准 / 转化目标」的可配置截止线（OHRC 租房政策）。</li>
+  <li>百分比效果数字（EliseAI 的 −65% / +9% / 99% 都是客户案例口径，我们没有可审计对照组）。</li>
+</ul>
+
+<h2>4 · 对待决定事项的影响</h2>
+<div class="decide">原方案第 6 节的 6 个决策点不变，新增 2 个：⑦ 租中是否按「搬入 · 报修 · 租金 · 续约」四条子工作流拆开显示（P1）；⑧ 是否做房东组合级批量提议（P2，Apollo 的房东版）。建议：⑦ 做，⑧ 等 P0/P1 上线后看房东是否有多套房源再做。</div>
+
+<div class="footer">依据：用户提供的《EliseAI 产品线功能拆解》（2026-09-23 快照，来源 eliseai.com 各产品页、支持文档与新闻稿）；Stayloop 现状来自代码库与 2026-09-23 生产环境。本文为《三阶段可见化与三角色流程细化方案》的增补，不含实现。</div>
+</body>
+</html>
