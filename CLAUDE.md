@@ -958,7 +958,9 @@ verified、目录可见、`/agent/verify` 显示「RECO 注册已核」。手机
 - **租客看不到自己的申请**：applications 只有房东策略 + 匿名 INSERT 策略，申请人登录后读不到自己的行；`/tenant/applications` 又是
   DEMO_GATE 的诚实空态，连真实的看房记录（MyShowings）都被空态盖住。迁移 `20260923_applications_applicant_select.sql`（已应用 prod：
   authenticated 按登录邮箱 SELECT 自己的申请）+ `components/tenant/MyApplications.tsx` + `WorkspaceShell` 新 prop `liveSlot`（被 gate 的
-  路由在空态之上仍渲染真实行）。
+  路由在空态之上仍渲染真实行；`lib/liveRows.tsx` 的 context 让真实块上报行数，有行时空态文案改为「以上是你的真实记录，其余是产品演示」）。
+  申请列表页 `/landlord/applicants` 的「N/4 章」原来按「有文件 / 已评分」点亮（无核验的申请人显示 3/4 章），现在与详情页同一规则读关联
+  screening 的 `verification`，无第三方核验即 0/4。
 - 驱动脚本的两个坑：zsh 不对未加引号的变量分词（`${=VAR}`）；applications 匿名插入必须 `Prefer: return=minimal`。
 守卫补在 `tests/lifecycle20260923.spec.ts`。**未覆盖**：`/api/v1/screen` 的 webhook 回调（没有可用的 https 接收端，只验证了 202 + 评分落库）；
 真实 Veriff / Flinks / Equifax 步骤（无生产凭证，护照 verify 对身份/银行返回 `verified:false` 是正确的）。
