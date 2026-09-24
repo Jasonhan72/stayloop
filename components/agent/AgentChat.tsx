@@ -81,6 +81,7 @@ export default function AgentChat({
   onUndo,
   draft,
   phaseLabel,
+  phoneFill = false,
 }: {
   role: AgentRole
   agentName: string
@@ -108,6 +109,8 @@ export default function AgentChat({
   draft?: ComposerDraft | null
   /** Lifecycle phase for the status line (replaces the V4 workflow stage). */
   phaseLabel?: string | null
+  /** Phone (below md): the parent column sets the height and the chat bleeds edge to edge; md+ keeps the card. */
+  phoneFill?: boolean
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -147,19 +150,20 @@ export default function AgentChat({
   }, [messages.length, thinking])
 
   return (
-    <div className={`flex flex-col overflow-hidden bg-white ${fill ? 'h-full rounded-2xl border border-line-divider shadow-sm' : canOpenSheet ? 'h-[calc(100dvh-150px)] sm:h-[70vh] sm:rounded-2xl sm:border sm:border-line-divider sm:shadow-sm lg:h-full' : 'h-[70vh] rounded-2xl border border-line-divider shadow-sm lg:h-full'}`}>
-      {/* header — phone: avatar centred, tap for the activity log */}
-      <div className={`flex items-center gap-3 border-b border-line-divider px-5 py-3.5 ${canOpenSheet ? 'flex-col text-center sm:flex-row sm:text-left' : ''}`}>
+    <div className={`flex flex-col overflow-hidden bg-white ${fill ? 'h-full rounded-2xl border border-line-divider shadow-sm' : phoneFill ? 'h-full md:h-[70vh] md:rounded-2xl md:border md:border-line-divider md:shadow-sm lg:h-full' : canOpenSheet ? 'h-[calc(100dvh-150px)] sm:h-[70vh] sm:rounded-2xl sm:border sm:border-line-divider sm:shadow-sm lg:h-full' : 'h-[70vh] rounded-2xl border border-line-divider shadow-sm lg:h-full'}`}>
+      {/* header — one row everywhere (phone 2026-09-24: the centred hero cost
+          123px of a 812px screen); the avatar / status line open the activity log */}
+      <div className="flex items-center gap-3 border-b border-line-divider px-4 py-2.5 md:px-5 md:py-3.5">
         <button
           type="button"
           onClick={() => canOpenSheet && setSheet(true)}
           disabled={!canOpenSheet}
           aria-label={canOpenSheet ? (zh ? `${agentName} 的活动日志` : `${agentName}'s activity log`) : undefined}
-          className={`flex-none rounded-full ${canOpenSheet ? 'h-11 w-11 shadow-[0_6px_18px_rgba(27,27,60,.18)] sm:h-9 sm:w-9 sm:shadow-none' : 'h-9 w-9 cursor-default'}`}
+          className={`flex-none rounded-full ${canOpenSheet ? 'h-9 w-9 shadow-[0_4px_14px_rgba(27,27,60,.16)] md:shadow-none' : 'h-9 w-9 cursor-default'}`}
           style={{ background: ORB[role] }}
         />
         <div className="min-w-0">
-          <div className="text-[15px] font-bold tracking-tight">{agentName}</div>
+          <div className="text-[15px] font-bold leading-tight tracking-tight">{agentName}</div>
           <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`flex items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
             <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>
           </button>
@@ -168,7 +172,7 @@ export default function AgentChat({
       {sheet && <ActivitySheet role={role} agentName={agentName} live={live} memoryCount={memoryCount} onClose={() => setSheet(false)} />}
 
       {/* thread */}
-      <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 md:px-5 md:py-5">
         {messages.map((m) => (
           <div key={m.id} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
             {m.role === 'agent' && (
@@ -407,7 +411,7 @@ export default function AgentChat({
       </div>
 
       {/* input */}
-      <div className="border-t border-line-divider p-3">
+      <div className="border-t border-line-divider p-2 md:p-3">
         <AgentInputBar agentName={agentName} role={role} onSend={onSend} disabled={thinking} draft={composerDraft} />
       </div>
     </div>

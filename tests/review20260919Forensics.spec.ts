@@ -28,7 +28,7 @@ describe('1 · deep-check requires a session even inside the free window', () =>
       body: JSON.stringify({ employer_names: ['Acme Inc'], applicant_name: 'Sam Lee' }),
     }))
     expect(res.status).toBe(401)
-  })
+  }, 120_000) // the route import is heavy; on a swapping 8 GB machine it took 33 s (2026-09-24)
   it('the gate authenticates before it consults the free window, and caps per user', () => {
     const s = src('app/api/deep-check/route.ts')
     const gate = s.slice(s.indexOf('async function enforceProGate'))

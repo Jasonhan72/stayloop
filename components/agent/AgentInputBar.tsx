@@ -245,6 +245,9 @@ export default function AgentInputBar({
         </div>
       )}
 
+      {/* Phone (2026-09-24): one row — [+] [textarea] [mic] [send]; the model
+          picker lives in Settings. md+: textarea on its own row, controls below. */}
+      <div className="flex flex-wrap items-end gap-1 px-2 py-1.5 md:gap-0 md:px-0 md:py-0">
       <textarea
         ref={taRef}
         rows={1}
@@ -260,7 +263,7 @@ export default function AgentInputBar({
         }}
         aria-label={`Message ${agentName}`}
         placeholder={lang === 'zh' ? '写点什么…' : 'Write a message…'}
-        className="block max-h-60 min-h-[52px] w-full resize-none bg-transparent px-4 pt-4 text-[15px] leading-relaxed text-body outline-none placeholder:text-body-4"
+        className="order-2 block max-h-60 min-h-[40px] min-w-0 flex-1 basis-0 resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed text-body outline-none placeholder:text-body-4 md:order-1 md:min-h-[52px] md:basis-full md:px-4 md:pb-0 md:pt-4"
       />
 
       <input
@@ -275,8 +278,8 @@ export default function AgentInputBar({
         }}
       />
 
-      <div className="flex items-center justify-between gap-2 px-2.5 pb-2.5 pt-1">
-        <div className="flex items-center gap-1">
+      <div className="order-1 contents md:order-2 md:flex md:w-full md:items-center md:justify-between md:gap-2 md:px-2.5 md:pb-2.5 md:pt-1">
+        <div className="order-1 flex items-center gap-1 md:order-none">
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
@@ -294,9 +297,9 @@ export default function AgentInputBar({
           )}
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="order-3 flex items-center gap-1.5 md:order-none">
           {models && (
-            <label className="relative flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[12.5px] text-body-2 transition hover:bg-surface-chip" title={lang === 'zh' ? '本对话使用的 AI 模型（与设置 → AI 模型同步）' : 'Model for your conversations (synced with Settings → AI models)'}>
+            <label className="relative hidden cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[12.5px] text-body-2 transition hover:bg-surface-chip md:flex" title={lang === 'zh' ? '本对话使用的 AI 模型（与设置 → AI 模型同步）' : 'Model for your conversations (synced with Settings → AI models)'}>
               <span className="max-w-[140px] truncate font-medium">
                 {models.selected
                   ? models.options.find((o) => o.id === models.selected)?.label || models.selected
@@ -343,6 +346,7 @@ export default function AgentInputBar({
             {sending ? <span className="text-[13px]">…</span> : <ArrowUpIcon />}
           </button>
         </div>
+      </div>
       </div>
     </div>
   )

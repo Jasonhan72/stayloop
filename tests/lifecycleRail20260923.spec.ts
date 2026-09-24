@@ -73,9 +73,11 @@ describe('lifecycle stages are derived from rows, not from the model', () => {
     for (const f of ['app/tenant/agent/page.tsx', 'app/landlord/agent/page.tsx', 'app/agent/agent/page.tsx']) {
       const src = readFileSync(f, 'utf8')
       expect(src, f).toMatch(/<LifecycleRail lifecycle=\{lifecycle\} lang=\{lang\} onPrompt=\{prefill\} \/>/)
-      expect(src, f).toMatch(/<LifecycleRail lifecycle=\{lifecycle\} lang=\{lang\} compact onPrompt=\{prefill\} \/>/)
+      // Phones (2026-09-24): the compact rail lives inside the context strip.
+      expect(src, f).toMatch(/<ContextStrip lifecycle=\{lifecycle\}/)
       expect(src, f).toMatch(/phaseLabel=\{/)
     }
+    expect(readFileSync('components/mobile/ContextStrip.tsx', 'utf8')).toMatch(/<LifecycleRail lifecycle=\{lifecycle\} lang=\{lang\} compact/)
     expect(readFileSync('components/mobile/RolePages.tsx', 'utf8')).toMatch(/<LifecycleRail lifecycle=\{lifecycle\} lang=\{lang\} full \/>/)
   })
 })

@@ -10,6 +10,7 @@ import AgentChat from '@/components/agent/AgentChat'
 import type { ComposerDraft } from '@/components/agent/AgentInputBar'
 import LifecycleRail from '@/components/lifecycle/LifecycleRail'
 import TodayCard from '@/components/lifecycle/TodayCard'
+import ContextStrip from '@/components/mobile/ContextStrip'
 import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
 import WorkflowStatusPanel from '@/components/agent/WorkflowStatusPanel'
 import RecommendationDeck from '@/components/agent/RecommendationDeck'
@@ -41,25 +42,30 @@ export default function TenantAgentPage() {
   const { agent, workflow, memories, pendingActions, recommendations } = data
 
   return (
-    <WorkspaceShell role="tenant" hideAside>
-      {!live && <DemoBanner />}
+    <WorkspaceShell role="tenant" hideAside phoneApp>
+      {!live && <div className="px-5 pt-4 md:px-0 md:pt-0"><DemoBanner /></div>}
 
       {live && (
-        <div className="mb-4"><TodayCard lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/tenant/todo" lang={lang} onPrompt={prefill} /></div>
+        <div className="mb-4 hidden md:block"><TodayCard lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/tenant/todo" lang={lang} onPrompt={prefill} /></div>
       )}
       {live && lifecycle && (
         <>
           <div className="mb-5 hidden md:block"><LifecycleRail lifecycle={lifecycle} lang={lang} onPrompt={prefill} /></div>
-          <div className="mb-3 md:hidden"><LifecycleRail lifecycle={lifecycle} lang={lang} compact onPrompt={prefill} /></div>
         </>
       )}
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      {/* Phone (2026-09-24): the assistant IS the screen — a fixed column of
+          [context strip] + [chat] filling the viewport between header (56px)
+          and the tab bar (64px); 今日 and the rail collapse into the strip.
+          md+: the previous grid. */}
+      <div className="flex h-[calc(100dvh-120px)] flex-col md:grid md:h-auto md:gap-6 lg:grid-cols-[1fr_380px]">
+        {live && <div className="md:hidden"><ContextStrip lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/tenant/todo" lang={lang} onPrompt={prefill} /></div>}
         {/* Conversation */}
         {/* Phone (Muse benchmark 2026-09-22): the chat bleeds edge to edge,
             approvals sit at the top of the thread, and the controls column
             below is replaced by the 待办 / 想法 / 进度 tabs. lg+ unchanged. */}
-        <div className="-mx-5 min-w-0 sm:mx-0 lg:h-[calc(100vh-150px)]">
+        <div className="min-h-0 min-w-0 flex-1 lg:h-[calc(100vh-150px)]">
           <AgentChat
+            phoneFill
             draft={draft}
             phaseLabel={lifecycle ? (lang === 'zh' ? lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.zh ?? null : lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.en ?? null) : null}
             role="tenant"

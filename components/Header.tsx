@@ -136,7 +136,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
           : 'border-b border-line-divider bg-surface-nav/95 backdrop-blur')
       }
     >
-      <div className="mx-auto flex h-[66px] max-w-[1240px] items-center justify-between px-6 sm:px-8 lg:px-12">
+      <div className="mx-auto flex h-14 max-w-[1240px] items-center justify-between px-5 sm:px-8 md:h-[66px] lg:px-12">
         <Logo size="md" />
 
         {/* Desktop nav */}

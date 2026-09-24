@@ -8,6 +8,7 @@ import AgentChat from '@/components/agent/AgentChat'
 import type { ComposerDraft } from '@/components/agent/AgentInputBar'
 import LifecycleRail from '@/components/lifecycle/LifecycleRail'
 import TodayCard from '@/components/lifecycle/TodayCard'
+import ContextStrip from '@/components/mobile/ContextStrip'
 import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
 import WorkflowStatusPanel from '@/components/agent/WorkflowStatusPanel'
 import RecommendationDeck from '@/components/agent/RecommendationDeck'
@@ -43,9 +44,9 @@ export default function FieldAgentPage() {
   const { agent, workflow, memories, pendingActions, recommendations } = data
 
   return (
-    <WorkspaceShell role="agent" hideAside>
+    <WorkspaceShell role="agent" hideAside phoneApp>
       {!live && (
-        <div className="mb-5 rounded-xl border border-line-strong bg-surface-chip px-4 py-3 font-mono text-[11px] leading-relaxed text-body-3">
+        <div className="mx-5 mb-4 mt-4 rounded-xl border border-line-strong bg-surface-chip px-4 py-3 font-mono text-[11px] leading-relaxed text-body-3 md:mx-0 md:mb-5 md:mt-0">
           {lang === 'zh'
             ? '预览模式 · 登录后助手会读取你真实的任务与客户,审批将写入审计 · '
             : 'Preview mode · Once you log in, the assistant reads your real tasks and clients, and approvals are written to the audit log · '}
@@ -54,20 +55,25 @@ export default function FieldAgentPage() {
       )}
 
       {live && (
-        <div className="mb-4"><TodayCard lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/agent/todo" lang={lang} onPrompt={prefill} /></div>
+        <div className="mb-4 hidden md:block"><TodayCard lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/agent/todo" lang={lang} onPrompt={prefill} /></div>
       )}
       {live && lifecycle && (
         <>
           <div className="mb-5 hidden md:block"><LifecycleRail lifecycle={lifecycle} lang={lang} onPrompt={prefill} /></div>
-          <div className="mb-3 md:hidden"><LifecycleRail lifecycle={lifecycle} lang={lang} compact onPrompt={prefill} /></div>
         </>
       )}
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      {/* Phone (2026-09-24): the assistant IS the screen — a fixed column of
+          [context strip] + [chat] filling the viewport between header (56px)
+          and the tab bar (64px); 今日 and the rail collapse into the strip.
+          md+: the previous grid. */}
+      <div className="flex h-[calc(100dvh-120px)] flex-col md:grid md:h-auto md:gap-6 lg:grid-cols-[1fr_380px]">
+        {live && <div className="md:hidden"><ContextStrip lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/agent/todo" lang={lang} onPrompt={prefill} /></div>}
         {/* Phone (Muse benchmark 2026-09-22): the chat bleeds edge to edge,
             approvals sit at the top of the thread, and the controls column
             below is replaced by the 待办 / 想法 / 进度 tabs. lg+ unchanged. */}
-        <div className="-mx-5 min-w-0 sm:mx-0 lg:h-[calc(100vh-150px)]">
+        <div className="min-h-0 min-w-0 flex-1 lg:h-[calc(100vh-150px)]">
           <AgentChat
+            phoneFill
             draft={draft}
             phaseLabel={lifecycle ? (lang === 'zh' ? lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.zh ?? null : lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.en ?? null) : null}
             role="agent"

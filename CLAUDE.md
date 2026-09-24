@@ -40,6 +40,11 @@ node 26.0.0 keg，同一份代码、同一份缓存下所有 JS 进程慢 10-100
 还把 `/opt/homebrew/opt/node@22/bin` 钉在 PATH 最前，防止将来 `brew upgrade` 把
 `node` 重新 link 回去。node 26 keg 保留（`/opt/homebrew/opt/node/bin/node`，用户的
 openclaw 网关按绝对路径用它），**不要卸载**。构建/测试再变慢时第一件事查 `node --version`。
+**2026-09-24 又发生一次，且多了一层**：`brew upgrade` 把 `node` 重新 link 回 26，同时升级了 `simdutf`，而 node@22 的旧 bottle
+链接的是 `libsimdutf.35.dylib`——`brew link node@22` 之后 `node` 直接 `dyld: Library not loaded`。修法：`brew reinstall node@22`
+（拿链接新 simdutf 的 bottle）→ `brew unlink node && brew link --overwrite node@22`。另一个独立的慢因：**这台机只有 8 GB 内存**，
+openclaw 网关（node 26，`--max-old-space-size=4096`）常驻 2.7 GB，swap 用到 2.2 GB 时文件系统读取会慢到「900 个源文件读 62 秒」，
+tsc / vitest 看起来像卡死（CPU 0%）。这不是代码问题；`top -o mem` 一眼可见。
 
 **Gate：已内置在 `ship2-v53.command` 里，不再依赖人记得。** 脚本按顺序执行并在任一步失败时中止且**不部署**：
 1. `npx tsc --noEmit` + `npm test`（此前只写在本文件里，那天 `app/icon.svg` 把整站 API 打挂时它没有运行）
@@ -1790,3 +1795,15 @@ state 直接按浏览器语言渲染，英文访客每个页面都报 React #418
 - 结果：50 → 24 个请求、0 重复。**用户的网络本身慢**：本机出口在美国（GTT）、Cloudflare 落在 ZRH、到 1.1.1.1 RTT 250ms，TLS 握手 450–650ms，
   HTML TTFB ≈1 s——每一波串行请求都要付这个 RTT，代码只能减少波数与请求数。页面是预渲染静态（`x-nextjs-prerender: 1`），JS 共 23 个文件 967 KB。
 - 未做：把生命周期 / 状态瓦片的多跳合成一个 `security invoker` RPC（一趟返回全部事实）——需要迁移，等有量再做。
+
+## 手机端助手页：对话就是屏幕（2026-09-24 · 用户「中间对话框不够大，上部被菜单和说明占了太多空间，参考 Muse」）
+
+375×812 实测（租客测试账号）：页头 67 + 今日卡 179 + 生命周期 rail 161 + 居中头像块 123 = **530px 才到第一条气泡**，对话框从 459px
+开始、页面还要整体滚动，输入条 129px。按 Muse「一条长对话为主屏」改（守卫 `tests/phoneChat20260924.spec.ts`，md 以上不变）：
+- **三个 `/x/agent` 页在手机上是一根固定高度的列**：`h-[calc(100dvh-120px)]`（页头 56 + 底栏 64），`WorkspaceShell` 新 prop
+  `phoneApp` 去掉内容区内边距（`p-0 pb-16`，md 起恢复）；`AgentChat` 新 prop `phoneFill`（`h-full`，md 起才有卡片边框）。
+- **今日 + rail 折成一条 44px 的 `components/mobile/ContextStrip.tsx`**：「今日 N 件 · 第一条 · 〈当前阶段〉 ▶」，点开在原位展开同一个
+  `TodayCard` + `LifecycleRail compact`（最高 55vh 可滚），点里面的「交给助手」自动收起。桌面端两块照旧。
+- **对话头部改为单行**（头像 36 + 名字 + 状态行，仍可点开活动日志；此前手机上是居中大头像 123px）；线程内边距 16px；
+  **输入条在手机上是一行** `[+] [输入框] [🎙] [发送]`（`flex-wrap` + `order`，md 起恢复「输入框一行 + 控件一行」），模型选择器 md 以下隐藏（在设置里）。
+- **页头 56px**（`h-14 md:h-[66px]`）。匿名预览横幅与经纪认证横幅在 phoneApp 列里自带左右 20px 边距。

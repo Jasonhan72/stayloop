@@ -60,6 +60,8 @@ interface Props {
   // gated behind the honest empty state (e2e 2026-09-23: a tenant with live
   // showing requests and an application saw only "还没有租房申请").
   liveSlot?: ReactNode
+  /** Phone: no content padding — the page owns the whole viewport (assistant screens). md+ unchanged. */
+  phoneApp?: boolean
 }
 
 // Workspace routes whose page body is still design-canon fixture content
@@ -288,7 +290,7 @@ function AgentLockedState({ status, zh }: { status: string; zh: boolean }) {
   )
 }
 
-export default function WorkspaceShell({ role, aside, children, hideAside, liveSlot }: Props) {
+export default function WorkspaceShell({ role, aside, children, hideAside, liveSlot, phoneApp = false }: Props) {
   const { gate, sampleNote, showDemo, setShowDemo } = useDemoGate()
   const agentStatus = useAgentVerification(role)
   const shellPath = usePathnameSafe()
@@ -305,9 +307,13 @@ export default function WorkspaceShell({ role, aside, children, hideAside, liveS
             design/redesign-2026-09/Console.dc.html) */}
         <div className="md:flex md:min-h-[calc(100vh-66px)]">
           <Rail role={role} />
-          <div className="min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12">
-            {sampleNote && <SampleBanner zh={lang === 'zh'} note={sampleNote} />}
-            {role === 'agent' && <AgentVerificationBanner status={agentStatus} zh={lang === 'zh'} />}
+          <div className={phoneApp ? 'min-w-0 flex-1 p-0 pb-16 md:px-7 md:py-9 md:pb-9 lg:px-12' : 'min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12'}>
+            {(sampleNote || role === 'agent') && (
+              <div className={phoneApp ? 'px-5 pt-4 md:px-0 md:pt-0' : ''}>
+                {sampleNote && <SampleBanner zh={lang === 'zh'} note={sampleNote} />}
+                {role === 'agent' && <AgentVerificationBanner status={agentStatus} zh={lang === 'zh'} />}
+              </div>
+            )}
             {role === 'agent' && agentStatus !== 'loading' && agentStatus !== 'verified' && isAgentOnlyRoute(shellPath)
               ? <AgentLockedState status={agentStatus} zh={lang === 'zh'} />
               : <DemoGate gate={gate} showDemo={showDemo} setShowDemo={setShowDemo} liveSlot={liveSlot}>{children}</DemoGate>}
