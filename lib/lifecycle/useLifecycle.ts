@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
+import { getTenantRow } from '@/lib/tenantRow'
 import type { AgentRole } from '@/lib/agent/types'
 import {
   agentLifecycle, landlordLifecycle, tenantLifecycle,
@@ -58,8 +59,8 @@ async function loadTenant(uid: string, email: string | null): Promise<Lifecycle>
   // filtered) and intents by the caller's own tenants row (review 2026-09-23).
   // Two round trips, not three: the tenants-row lookup rides in the first
   // batch and showing_intents (which needs it) in the second (perf 2026-09-23).
-  const [{ data: tenantRow }, { data: apps }, { data: leases }, { data: members }, { data: hhRaw }, { count: shareCount }, { data: invites }] = await Promise.all([
-    supabase.from('tenants').select('id').eq('auth_id', uid).maybeSingle(),
+  const [tenantRow, { data: apps }, { data: leases }, { data: members }, { data: hhRaw }, { count: shareCount }, { data: invites }] = await Promise.all([
+    getTenantRow(uid),
     supabase.from('applicant_applications').select('id, status, decision_notified_at, viewed_at, screened_at').limit(50),
     email ? supabase.from('lease_documents').select(LEASE_COLS).ilike('tenant_email', email).limit(50) : Promise.resolve({ data: [] as never[] }),
     supabase.from('household_members').select('household_id').eq('user_id', uid).limit(50),
@@ -73,7 +74,7 @@ async function loadTenant(uid: string, email: string | null): Promise<Lifecycle>
   const households = (hhRaw ?? []) as HouseholdFact[]
   const leaseIds = Array.from(new Set([...leaseRows.map((l) => l.id), ...households.map((h) => h.current_lease_id).filter(Boolean) as string[]]))
   const hhIds = households.map((h) => h.id)
-  const tenantId = (tenantRow as { id: string } | null)?.id ?? null
+  const tenantId = tenantRow?.id ?? null
   const [{ data: showings }, { data: rent }, { data: tickets }, { data: intents }] = await Promise.all([
     tenantId ? supabase.from('showing_intents').select('kind, status').eq('tenant_id', tenantId).limit(50) : Promise.resolve({ data: [] as never[] }),
     leaseIds.length ? supabase.from('rent_payments').select('lease_id, due_date, status, amount').in('lease_id', leaseIds).in('status', ['due', 'late']).limit(100) : Promise.resolve({ data: [] as never[] }),

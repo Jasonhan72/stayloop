@@ -37,6 +37,18 @@ describe('page-load round trips', () => {
     expect((body.match(/await Promise\.all\(/g) || []).length).toBe(2)
     expect(body).not.toMatch(/const \{ data: tenantRow \} = await supabase/)
   })
+  it('agent session reads run alongside the bootstrap RPC', () => {
+    const s = read('lib/agent/session-loader.ts')
+    expect(s).toContain("const [{ data: sessRow, error: bootErr }, { data: cfgByRole }, { data: task }, memories, pendingActions] =")
+    expect(s).toContain('(cfgByRole as { id: string }).id === session.agent_config_id')
+  })
+  it('tenants row lookup is shared and the status tiles start on user, not on live', () => {
+    expect(read('lib/lifecycle/useLifecycle.ts')).toContain('getTenantRow(uid)')
+    const so = read('components/agent/StatusOverview.tsx')
+    expect(so).toContain('const t = await getTenantRow(uid)')
+    expect(so).toContain('}, [user, role])')
+    expect(so).not.toContain('}, [live, user, role])')
+  })
   it('model catalogue is cached per user for the session', () => {
     const s = read('components/agent/AgentInputBar.tsx')
     expect(s).toContain("const CATALOG_CACHE_KEY = 'sl-model-catalog'")

@@ -37,27 +37,24 @@ export async function loadAgentSession(
   // 1. Atomic bootstrap (config + active task_memory + session + audit).
   //    Time-bounded so a stalled request fails fast to the demo fallback
   //    rather than hanging the workspace on its loading skeleton.
-  const { data: sessRow, error: bootErr } = await withTimeout(
+  //    The RLS-scoped reads that do not depend on its result (own config by
+  //    role, active task, memories, pending cards) run alongside it — one
+  //    round trip instead of two (perf review 2026-09-23).
+  const bootP = withTimeout(
     client.rpc('bootstrap_agent_session', { p_role: role }),
     8000,
     'bootstrap_agent_session'
   )
-  if (bootErr) throw new Error(`bootstrap failed: ${bootErr.message}`)
-  const session = sessRow as AgentSession
-
-  // 2. Optional demo seed (idempotent, server-side guard).
-  if (opts.seedDemo) {
-    await client.rpc('seed_demo_agent_data', { p_role: role })
-  }
-
-  // 3. Read the RLS-scoped state in parallel.
-  const [{ data: cfg }, { data: task }, memories, pendingActions] =
+  const [{ data: sessRow, error: bootErr }, { data: cfgByRole }, { data: task }, memories, pendingActions] =
     await Promise.all([
+      bootP,
       client
         .from('agent_configs')
         .select('*')
-        .eq('id', session.agent_config_id)
-        .single(),
+        .eq('role', role)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
       client
         .from('task_memories')
         .select('*')
@@ -69,6 +66,21 @@ export async function loadAgentSession(
       getUserMemories(client, role),
       getPendingActions(client, role, 'pending'),
     ])
+  if (bootErr) throw new Error(`bootstrap failed: ${bootErr.message}`)
+  const session = sessRow as AgentSession
+
+  // 2. Optional demo seed (idempotent, server-side guard).
+  if (opts.seedDemo) {
+    await client.rpc('seed_demo_agent_data', { p_role: role })
+  }
+
+  // 3. The config row the bootstrap actually bound (first visit creates it
+  //    inside the RPC, so the parallel read can miss or pick another row).
+  let cfg = cfgByRole && (cfgByRole as { id: string }).id === session.agent_config_id ? cfgByRole : null
+  if (!cfg) {
+    const { data } = await client.from('agent_configs').select('*').eq('id', session.agent_config_id).single()
+    cfg = data
+  }
 
   const agent: AgentConfig = (cfg as AgentConfig) ?? {
     id: session.agent_config_id,

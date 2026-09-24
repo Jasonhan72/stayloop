@@ -10,6 +10,7 @@
 // state on failure/timeout — never blocks the page); demo sessions show the
 // design-canon sample numbers with the usual 示范数据 tag.
 import { useEffect, useState } from 'react'
+import { getTenantRow } from '@/lib/tenantRow'
 import Link from 'next/link'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
@@ -78,9 +79,9 @@ async function loadTenantStats(sb: Sb, uid: string): Promise<Stats> {
   // nothing rather than invent a tier), but it means the queries below are
   // currently unreachable; they stay because they are right for when the tenant
   // profile is actually created.
-  const { data: t } = await sb.from('tenants').select('id, tier').eq('auth_id', uid).maybeSingle()
+  const t = await getTenantRow(uid)
   if (!t) return { apps: 0, leaseStatus: null, openTickets: 0, nextRent: null, passportTier: null }
-  const tid = t.id as string
+  const tid = t.id
 
   const [intents, leases, maint, passport] = await Promise.all([
     sb.from('showing_intents').select('id', { count: 'exact', head: true }).eq('tenant_id', tid).eq('status', 'pending'),
@@ -586,23 +587,23 @@ export default function StatusOverview({
   const { lang } = useT()
   const { user } = useAuth()
   const zh = lang === 'zh'
-  const [stats, setStats] = useState<Stats | null>(live ? null : demoStats(role))
-
+  // Real tiles load as soon as the user is known — not after the agent
+  // session has settled (that made them the last two round trips on the page;
+  // perf review 2026-09-23). `live` only decides what is shown.
+  const [loaded, setLoaded] = useState<Stats | null>(null)
   useEffect(() => {
-    if (!live || !user) {
-      setStats(demoStats(role))
-      return
-    }
+    if (!user) { setLoaded(null); return }
     let cancelled = false
     ;(async () => {
       const s = await withTimeout(loadStats(role, user.id))
       // Silent empty state on failure — rows render with '—', never an error.
-      if (!cancelled) setStats(s ?? {})
+      if (!cancelled) setLoaded(s ?? {})
     })()
     return () => {
       cancelled = true
     }
-  }, [live, user, role])
+  }, [user, role])
+  const stats: Stats | null = live && user ? loaded : demoStats(role)
 
   return (
     <div className="sl-card p-6">

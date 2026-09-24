@@ -1775,3 +1775,18 @@ state 直接按浏览器语言渲染，英文访客每个页面都报 React #418
 - **诚实态也能到达**：页面 `liveSlot={<LiveTenantTickets>}` 对每份在管租约渲染 `MaintenancePanel`（`onNewTicket` 让「+ 提交报修（可附照片）」
   打开弹窗），弹窗渲染在 `WorkspaceShell` **之外**——DemoGate 的诚实态不渲染 children，放在里面点了没反应。演示态的页头按钮仍是同一弹窗。
 - 未做：直接从这个弹窗给房东发邮件 / 推送（`maintenance_request` 执行器那条路径才有）；房东在看板上看到即可，等有量再加。
+
+## 页面加载复审（2026-09-23 · 用户「刷新后加载很慢」）
+
+用租客测试会话在生产上量 `/tenant/agent`：**一次刷新 50 个 Supabase 请求，每一条都恰好发两次**，REST 请求分五波串行。先量后改，守卫 `tests/perfLoad20260923.spec.ts`：
+- **根因是 `useAuth`**：`getSession()` 与 `INITIAL_SESSION` 事件各给一份新解析的 session 对象，`setState` 每次都换 `user` 引用，全站 24 处
+  `useEffect(…, [auth.loading, auth.user])` 于是全部跑两遍（my_hats / bootstrap / lifecycle / 状态瓦片……）。现在同一登录（同 id、同 access_token）
+  保留原来的 `user` / `session` 引用，没变化时直接 `return prev` 不重渲染；`USER_UPDATED` 才换对象。**以后 effect 依赖 `auth.user` 是安全的，不要再改成 `auth.user?.id` 之类的绕法。**
+- **去重**：`useHats` 共享在途 `my_hats`；`lib/aiName.ts` 一次查全部角色的 `agent_configs`（Header 三顶帽子原来三条）；Header 与手机底栏的待批红点
+  走 `lib/agent/pendingCount.ts`（2 秒内共享）；`lib/tenantRow.ts` 共享 `tenants` 行查找（生命周期 rail、状态瓦片各查一次）。
+- **少一跳**：`loadAgentSession` 把 config / task / memories / pending 与 bootstrap RPC 并行（config 按 role 读，id 对不上再按 id 补读）；
+  `useLifecycle.loadTenant` 三跳改两跳；`StatusOverview` 在拿到 user 就开始读，不再等 `live`（它原来是页面最后两波）；
+  `AgentInputBar` 的 `/api/models/catalog`（1 秒）按用户缓存在 sessionStorage 10 分钟，选模型即清。
+- 结果：50 → 24 个请求、0 重复。**用户的网络本身慢**：本机出口在美国（GTT）、Cloudflare 落在 ZRH、到 1.1.1.1 RTT 250ms，TLS 握手 450–650ms，
+  HTML TTFB ≈1 s——每一波串行请求都要付这个 RTT，代码只能减少波数与请求数。页面是预渲染静态（`x-nextjs-prerender: 1`），JS 共 23 个文件 967 KB。
+- 未做：把生命周期 / 状态瓦片的多跳合成一个 `security invoker` RPC（一趟返回全部事实）——需要迁移，等有量再做。
