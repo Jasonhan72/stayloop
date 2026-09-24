@@ -1,6 +1,7 @@
 'use client'
 
 import { ReactNode, useEffect, useState } from 'react'
+import { fetchPendingCount } from '@/lib/agent/pendingCount'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Header from './Header'
@@ -406,12 +407,7 @@ function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailItem[] }) 
   useEffect(() => {
     if (auth.loading || !auth.user) { setPendingCount(0); return }
     let cancelled = false
-    supabase
-      .from('agent_pending_actions')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending')
-      .eq('role', role)
-      .then(({ count }) => { if (!cancelled) setPendingCount(count ?? 0) })
+    fetchPendingCount(role).then((n) => { if (!cancelled) setPendingCount(n) })
     return () => { cancelled = true }
   }, [auth.loading, auth.user, role, path])
   useEffect(() => { setMore(false) }, [path])

@@ -23,17 +23,31 @@ export type Hats = {
 
 const EMPTY: Hats = { loading: true, tenant: false, landlord: false, agent: null, provider: null, admin: false }
 let cache: { uid: string; hats: Hats } | null = null
+// Header, WorkspaceShell and pages all mount useHats in the same tick; before
+// the cache is filled each instance issued its own my_hats RPC. One in-flight
+// promise per user (perf review 2026-09-23).
+let inflight: { uid: string; p: Promise<Hats | null> } | null = null
+
+function fetchHats(uid: string): Promise<Hats | null> {
+  if (inflight && inflight.uid === uid) return inflight.p
+  const p = Promise.resolve(supabase.rpc('my_hats')).then(({ data, error }) => {
+    if (error) return null
+    const d = (data || {}) as { tenant?: boolean; landlord?: boolean; agent?: AgentStatus | null; provider?: string | null; admin?: boolean }
+    const next: Hats = { loading: false, tenant: true, landlord: !!d.landlord, agent: (d.agent as AgentStatus | null) ?? null, provider: typeof d.provider === 'string' ? d.provider : null, admin: !!d.admin }
+    cache = { uid, hats: next }
+    return next
+  }).finally(() => { if (inflight?.p === p) inflight = null })
+  inflight = { uid, p }
+  return p
+}
 
 export function useHats(): Hats & { refresh: () => Promise<void> } {
   const auth = useAuth()
   const [hats, setHats] = useState<Hats>(cache && cache.uid === auth.user?.id ? cache.hats : EMPTY)
 
   async function load(uid: string) {
-    const { data, error } = await supabase.rpc('my_hats')
-    if (error) { setHats((h) => ({ ...h, loading: true })); return }
-    const d = (data || {}) as { tenant?: boolean; landlord?: boolean; agent?: AgentStatus | null; provider?: string | null; admin?: boolean }
-    const next: Hats = { loading: false, tenant: true, landlord: !!d.landlord, agent: (d.agent as AgentStatus | null) ?? null, provider: typeof d.provider === 'string' ? d.provider : null, admin: !!d.admin }
-    cache = { uid, hats: next }
+    const next = await fetchHats(uid)
+    if (!next) { setHats((h) => ({ ...h, loading: true })); return }
     setHats(next)
   }
 
@@ -48,4 +62,4 @@ export function useHats(): Hats & { refresh: () => Promise<void> } {
 }
 
 /** Invalidate after the user gains a hat (published a listing, submitted an agent profile). */
-export function invalidateHats() { cache = null }
+export function invalidateHats() { cache = null; inflight = null }

@@ -62,25 +62,41 @@ const nameResolve = new Map<string, Promise<string | null>>()
  *  into B's own agent_configs row. */
 export function clearCachedAiNames() {
   nameResolve.clear()
+  allNames = null
   if (typeof window === 'undefined') return
   for (const role of ['tenant', 'landlord', 'agent']) {
     try { window.localStorage.removeItem(`sl-${role}-ai-name`) } catch { /* ignore */ }
   }
 }
 
+// One agent_configs SELECT for ALL roles per page load (the Header names
+// three hats at once; three per-role queries were three round trips — perf
+// review 2026-09-23). Per-role promises derive from it.
+let allNames: Promise<Map<string, string>> | null = null
+
+function resolveAllDbNames(): Promise<Map<string, string>> {
+  if (allNames) return allNames
+  const p = supabase.auth.getSession().then(async ({ data: { session } }) => {
+    const m = new Map<string, string>()
+    if (!session?.user) return m
+    const { data } = await supabase
+      .from('agent_configs')
+      .select('role, agent_name')
+      .eq('user_id', session.user.id)
+    for (const r of (data ?? []) as { role: string; agent_name: string | null }[]) {
+      const n = (r.agent_name || '').trim()
+      if (n) m.set(r.role, n)
+    }
+    return m
+  }).catch(() => new Map<string, string>())
+  allNames = p
+  return p
+}
+
 function resolveDbName(role: string): Promise<string | null> {
   const cached = nameResolve.get(role)
   if (cached) return cached
-  const p = supabase.auth.getSession().then(async ({ data: { session } }) => {
-    if (!session?.user) return null
-    const { data } = await supabase
-      .from('agent_configs')
-      .select('agent_name')
-      .eq('user_id', session.user.id)
-      .eq('role', role)
-      .maybeSingle()
-    return (data?.agent_name || '').trim() || null
-  }).catch(() => null)
+  const p = resolveAllDbNames().then((m) => m.get(role) ?? null)
   nameResolve.set(role, p)
   return p
 }

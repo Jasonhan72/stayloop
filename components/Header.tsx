@@ -10,6 +10,7 @@ import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
 import { useHats } from '@/lib/useHats'
+import { fetchPendingCount } from '@/lib/agent/pendingCount'
 import { useAIName } from '@/lib/aiName'
 import { supabase } from '@/lib/supabase'
 import { ROLE_THEME, type RoleKey } from '@/lib/roleTheme'
@@ -58,8 +59,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
   useEffect(() => {
     if (auth.loading || !auth.user) { setPendingCount(0); return }
     let cancelled = false
-    supabase.from('agent_pending_actions').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('role', currentRole)
-      .then(({ count }) => { if (!cancelled) setPendingCount(count ?? 0) })
+    fetchPendingCount(currentRole).then((n) => { if (!cancelled) setPendingCount(n) })
     return () => { cancelled = true }
   }, [auth.loading, auth.user, currentRole, pathname])
 

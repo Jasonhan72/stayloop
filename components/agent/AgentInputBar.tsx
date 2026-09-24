@@ -12,6 +12,9 @@ import { getSupabaseBrowser } from '@/lib/supabase'
 import type { AgentRole, ChatAttachment } from '@/lib/agent/types'
 import { ROLE_THEME } from '@/lib/roleTheme'
 
+const CATALOG_CACHE_KEY = 'sl-model-catalog'
+const CATALOG_CACHE_MS = 10 * 60 * 1000
+
 const MAX_FILES = 3
 const MAX_BYTES = 4 * 1024 * 1024 // 4MB
 
@@ -86,6 +89,26 @@ export default function AgentInputBar({
   useEffect(() => {
     if (!auth.user || auth.user.is_anonymous) return
     let dead = false
+    type Catalog = { defaults: Record<string, string>; models: { id: string; label: string; slots: string[] }[]; prefs: Record<string, string> }
+    const applyCatalog = (j: Catalog) => {
+      const options = j.models.filter((m) => m.slots.includes('turn')).map((m) => ({ id: m.id, label: m.label }))
+      const def = options.find((o) => o.id === j.defaults.turn)
+      if (!dead && options.length) {
+        setModels({ options, selected: j.prefs.turn || '', defaultLabel: def?.label || j.defaults.turn || 'Auto' })
+      }
+    }
+    // The catalogue is the slowest call on the agent page (~1 s on a far
+    // network) and changes rarely: reuse a per-user copy for a while instead
+    // of refetching on every refresh (perf review 2026-09-23). Choosing a
+    // model clears it (see chooseModel).
+    const cacheKey = `${CATALOG_CACHE_KEY}:${auth.user.id}`
+    try {
+      const raw = sessionStorage.getItem(cacheKey)
+      if (raw) {
+        const c = JSON.parse(raw) as { at: number; j: Catalog }
+        if (Date.now() - c.at < CATALOG_CACHE_MS) { applyCatalog(c.j); return () => { dead = true } }
+      }
+    } catch { /* storage unavailable → just fetch */ }
     ;(async () => {
       try {
         const sb = getSupabaseBrowser()
@@ -94,16 +117,9 @@ export default function AgentInputBar({
         if (!token) return
         const res = await fetch('/api/models/catalog', { headers: { Authorization: `Bearer ${token}` } })
         if (!res.ok) return
-        const j = (await res.json()) as {
-          defaults: Record<string, string>
-          models: { id: string; label: string; slots: string[] }[]
-          prefs: Record<string, string>
-        }
-        const options = j.models.filter((m) => m.slots.includes('turn')).map((m) => ({ id: m.id, label: m.label }))
-        const def = options.find((o) => o.id === j.defaults.turn)
-        if (!dead && options.length) {
-          setModels({ options, selected: j.prefs.turn || '', defaultLabel: def?.label || j.defaults.turn || 'Auto' })
-        }
+        const j = (await res.json()) as Catalog
+        try { sessionStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), j })) } catch { /* ignore */ }
+        applyCatalog(j)
       } catch { /* selector is optional chrome — never break the input bar */ }
     })()
     return () => { dead = true }
@@ -112,6 +128,7 @@ export default function AgentInputBar({
   const chooseModel = async (id: string) => {
     if (!models || !auth.user) return
     setModels({ ...models, selected: id })
+    try { sessionStorage.removeItem(`${CATALOG_CACHE_KEY}:${auth.user.id}`) } catch { /* ignore */ }
     try {
       const sb = getSupabaseBrowser()
       if (id) {

@@ -56,10 +56,10 @@ async function loadTenant(uid: string, email: string | null): Promise<Lifecycle>
   // Multi-hat accounts: the landlord policies would also return applications
   // and intents RECEIVED on their listings — read the applicant view (email
   // filtered) and intents by the caller's own tenants row (review 2026-09-23).
-  const { data: tenantRow } = await supabase.from('tenants').select('id').eq('auth_id', uid).maybeSingle()
-  const tenantId = (tenantRow as { id: string } | null)?.id ?? null
-  const [{ data: showings }, { data: apps }, { data: leases }, { data: members }, { data: hhRaw }, { count: shareCount }, { data: invites }] = await Promise.all([
-    tenantId ? supabase.from('showing_intents').select('kind, status').eq('tenant_id', tenantId).limit(50) : Promise.resolve({ data: [] as never[] }),
+  // Two round trips, not three: the tenants-row lookup rides in the first
+  // batch and showing_intents (which needs it) in the second (perf 2026-09-23).
+  const [{ data: tenantRow }, { data: apps }, { data: leases }, { data: members }, { data: hhRaw }, { count: shareCount }, { data: invites }] = await Promise.all([
+    supabase.from('tenants').select('id').eq('auth_id', uid).maybeSingle(),
     supabase.from('applicant_applications').select('id, status, decision_notified_at, viewed_at, screened_at').limit(50),
     email ? supabase.from('lease_documents').select(LEASE_COLS).ilike('tenant_email', email).limit(50) : Promise.resolve({ data: [] as never[] }),
     supabase.from('household_members').select('household_id').eq('user_id', uid).limit(50),
@@ -73,7 +73,9 @@ async function loadTenant(uid: string, email: string | null): Promise<Lifecycle>
   const households = (hhRaw ?? []) as HouseholdFact[]
   const leaseIds = Array.from(new Set([...leaseRows.map((l) => l.id), ...households.map((h) => h.current_lease_id).filter(Boolean) as string[]]))
   const hhIds = households.map((h) => h.id)
-  const [{ data: rent }, { data: tickets }, { data: intents }] = await Promise.all([
+  const tenantId = (tenantRow as { id: string } | null)?.id ?? null
+  const [{ data: showings }, { data: rent }, { data: tickets }, { data: intents }] = await Promise.all([
+    tenantId ? supabase.from('showing_intents').select('kind, status').eq('tenant_id', tenantId).limit(50) : Promise.resolve({ data: [] as never[] }),
     leaseIds.length ? supabase.from('rent_payments').select('lease_id, due_date, status, amount').in('lease_id', leaseIds).in('status', ['due', 'late']).limit(100) : Promise.resolve({ data: [] as never[] }),
     hhIds.length ? supabase.from('maintenance_tickets').select('household_id, status').in('household_id', hhIds).limit(100) : Promise.resolve({ data: [] as never[] }),
     hhIds.length ? supabase.from('renewal_intents').select('intent, created_at').eq('tenant_user_id', uid).in('household_id', hhIds).order('created_at', { ascending: false }).limit(1) : Promise.resolve({ data: [] as never[] }),

@@ -51,17 +51,35 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
       return v === 'tenant' || v === 'landlord' || v === 'agent' ? v : null
     }
 
+    // Both getSession() and the INITIAL_SESSION / SIGNED_IN events hand back a
+    // freshly parsed session object for the SAME login. Every effect in the app
+    // keyed on `auth.user` re-ran once per object — every REST query on a page
+    // load fired twice (perf review 2026-09-23). Keep the previous references
+    // when nothing about the login changed, and skip the state update entirely
+    // when there is nothing new to render.
+    const apply = (s: Session | null, event?: string) => {
+      setState((prev) => {
+        const sameUser = !!prev.user && !!s?.user && prev.user.id === s.user.id
+        const sameToken = prev.session?.access_token === s?.access_token
+        const role = readRole()
+        if (!prev.loading && sameUser && sameToken && event !== 'USER_UPDATED' && prev.role === role) return prev
+        if (!prev.loading && !prev.user && !s && prev.role === role) return prev
+        const user = sameUser && event !== 'USER_UPDATED' ? prev.user : (s?.user ?? null)
+        const session = sameUser && sameToken && event !== 'USER_UPDATED' ? prev.session : (s ?? null)
+        return {
+          loading: false,
+          user,
+          session,
+          role,
+          email: user?.email ?? null,
+          fullName: (user?.user_metadata as any)?.full_name ?? (sameUser ? prev.fullName : null),
+        }
+      })
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return
-      const s = data.session
-      setState({
-        loading: false,
-        user: s?.user ?? null,
-        session: s ?? null,
-        role: readRole(),
-        email: s?.user?.email ?? null,
-        fullName: (s?.user?.user_metadata as any)?.full_name ?? null,
-      })
+      apply(data.session ?? null)
     })
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
@@ -71,15 +89,7 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
       if (event === 'SIGNED_OUT' && typeof window !== 'undefined') {
         window.localStorage.removeItem(ROLE_KEY)
       }
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        user: s?.user ?? null,
-        session: s ?? null,
-        email: s?.user?.email ?? null,
-        fullName: (s?.user?.user_metadata as any)?.full_name ?? prev.fullName,
-        role: readRole(),
-      }))
+      apply(s ?? null, event)
     })
 
     return () => {
