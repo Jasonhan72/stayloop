@@ -1978,7 +1978,9 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
 
 守卫在 `tests/museWeb20260925.spec.ts`「follow-ups」段；迁移 `20260925_agent_threads.sql` 已应用 prod。
 - **窄栏顶部的头像去掉**，换成「+ 新会话」（学 claude.ai）：在助手页上点 = 派发 `sl-new-thread` 事件就地开新会话；在别的页点 = 跳
-  `/x/agent?new=1`。角色小标签保留。
+  `/x/agent?new=1`。**「+」下面的角色文字也去掉（用户 2026-09-25 第二轮）**：角色改成设置齿轮上方的一枚圆形角色芯片
+  （`RoleBadge`：角色渐变底 + Header 身份菜单同一套 emoji，悬停显示「身份：租客」，点击弹出迷你身份切换——持有的帽子就地切换
+  `auth.setRole` + 跳 `/x/agent`，没有的链到开通入口，规则与 Header 一致；外点 / Esc 关闭）。
 - **对话回滚到上面时底部出现「↓」**（`AgentChat`：滚动位置离底 >160px 时显示，点击回到最新消息；新消息到达自动隐藏）。
 - **3D 头像预设**：`lib/agent/avatars.tsx` 11 个用 SVG 画的带光影的形状（球 ×5、方块、圆环、宝石、胶囊、水滴、星星），`AssistantAvatar`
   组件统一渲染（面板 72px、手机头部 44/56px、消息小圆球 28px、重新打开面板的小胶囊 24px）；面板点头像弹出选择格；选择写

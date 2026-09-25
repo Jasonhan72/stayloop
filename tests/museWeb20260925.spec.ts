@@ -132,6 +132,18 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
     expect(shell).toContain("window.dispatchEvent(new Event('sl-new-thread'))")
     expect(read('lib/agent/useAgentSession.ts')).toContain("window.addEventListener('sl-new-thread', h)")
   })
+  it('the role sits above 设置 as a chip that opens the hat switcher, not as a text label under "+" (user 2026-09-25)', () => {
+    const shell = read('components/WorkspaceShell.tsx')
+    // no text label between "+" and the assistant icons
+    const rail = shell.slice(shell.indexOf('aria-label={en ? \'New conversation\' : \'新会话\'}'), shell.indexOf('{assistant.map((it) => link(it'))
+    expect(rail).not.toContain('ROLE_LABEL[role]')
+    // the chip is the last thing before settings
+    expect(shell).toContain('<div className="mt-auto" />\n      <RoleBadge role={role} />\n      {link(settingsItem)}')
+    // same rules as the header: held hats switch in place, missing ones link to their door
+    expect(shell).toContain("const held = (r: WorkspaceRole) => (r === 'tenant' ? true : r === 'landlord' ? hats.landlord : hats.agent !== null)")
+    expect(shell).toContain("href={r === 'landlord' ? '/onboarding/name?role=landlord' : '/agent/verify'}")
+    expect(shell).toContain('aria-haspopup="menu"')
+  })
   it('a ↓ button appears once the thread is scrolled up and jumps to the newest message', () => {
     const chat = read('components/agent/AgentChat.tsx')
     expect(chat).toContain('el.scrollHeight - el.scrollTop - el.clientHeight > 160')
