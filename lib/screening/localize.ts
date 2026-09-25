@@ -22,6 +22,8 @@ const n = (s: string | undefined) => (s ?? '').trim()
 const KIND_ZH: Record<string, string> = {
   application_form: '申请表', id_document: '证件', pay_stub: '工资单', bank_statement: '银行流水', employment_letter: '在职信',
   offer_letter: '录用信', credit_report: '征信报告', tax_document: '税单', lease: '租约', reference: '推荐信', other: '其他',
+  government_id: '证件', drivers_licence: '驾照', drivers_license: '驾照', passport: '护照', pr_card: 'PR 卡', noa: '评税通知书', t4: 'T4',
+  bank_letter: '银行信', rental_application: '申请表', landlord_reference: '房东推荐信',
 }
 const SEVERITY_ZH: Record<string, string> = { critical: '严重', high: '高', medium: '中', low: '低' }
 const EXT_ZH: Record<string, string> = { identity: '身份', bank: '银行', references: '推荐人' }

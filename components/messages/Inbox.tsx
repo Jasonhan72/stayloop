@@ -56,7 +56,9 @@ export default function Inbox({ role }: { role: 'tenant' | 'landlord' }) {
 
   return (
     <WorkspaceShell role={role} hideAside>
-      <PageHeader title={zh ? '消息' : 'Messages'} sub={zh ? '在管租约里的对话、你发出的看房请求与提问都在这里。回复会同时发到对方邮箱。' : 'Conversations on your managed tenancies and the showing requests / questions you sent. Replies also reach the other side by email.'} />
+      <PageHeader title={zh ? '消息' : 'Messages'} sub={role === 'landlord'
+        ? (zh ? '在管租约里和租客的对话都在这里；租客发来的看房请求与提问在待办里回复（回复会发到对方邮箱）。对话里发的消息会推送给对方（按对方的通知设置）。' : 'Conversations with your tenants on managed tenancies. Showing requests and questions are answered from your to-do list (the reply is emailed). Hub messages are pushed to the other side, per their notification settings.')
+        : (zh ? '在管租约里和房东的对话、你发出的看房请求与提问都在这里。对话里发的消息会推送给对方（按对方的通知设置）；看房请求的回复会发到你的邮箱。' : 'Conversations with your landlord on managed tenancies, and the showing requests / questions you sent. Hub messages are pushed to the other side, per their notification settings; replies to showing requests arrive by email.')} />
       {role === 'landlord' && waiting > 0 && (
         <Link href="/landlord/todo" className="mb-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
           <span>{zh ? `${waiting} 条看房请求 / 提问等你回复` : `${waiting} showing requests / questions waiting for you`}</span><span className="font-bold">{zh ? '去回复 →' : 'Reply →'}</span>

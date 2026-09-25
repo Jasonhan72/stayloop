@@ -257,3 +257,34 @@ describe('SL-L-06 · report text in Chinese (rubric, court sources, model free t
     expect(read('app/screening/[id]/report/page.tsx')).not.toContain('altSummary')
   })
 })
+
+describe('found while walking the landlord test account (2026-09-24)', () => {
+  it('renewal card labels read the guideline from the card, never a hard-coded 2.5%', () => {
+    const s = read('components/agent/ApprovalActionCard.tsx')
+    expect(s).not.toMatch(/2\.5%|\?\? 2\.5/)
+    expect(s).toContain('m.guideline_pct != null')
+  })
+  it('applicant list: no credit/income "policy" pre-screen copy, no "offer" mix, compare excludes archived', () => {
+    const s = read('app/landlord/applicants/page.tsx')
+    expect(s).not.toContain('按 信用/收入/法庭记录 政策预筛')
+    expect(s).not.toContain('接受其他 offer')
+    expect(s).toContain('rows={activeRows.map(')
+  })
+  it('hub messages push the other side, and the inbox says what actually happens', () => {
+    expect(read('app/h/[id]/page.tsx')).toContain("fetch('/api/household/notify-message'")
+    const route = read('app/api/household/notify-message/route.ts')
+    expect(route).toContain(".eq('sender_id', ud.user.id)")
+    expect(route).not.toMatch(/sendEmail/)
+    expect(read('components/messages/Inbox.tsx')).not.toContain('回复会同时发到对方邮箱')
+  })
+  it('forensics verdict and document kinds are shown in Chinese', async () => {
+    expect(read('app/screening/[id]/report/page.tsx')).toContain("clean: '未见异常'")
+    const { rubricObservedZh } = await import('@/lib/screening/localize')
+    expect(rubricObservedZh('documents_present', '2/4 required kinds (pay_stub, government_id)')).toBe('必需的 4 类材料有 2 类（工资单、证件）')
+  })
+  it('listing draft title spacing and the empty-rent summary', async () => {
+    const { draftListingCopy } = await import('@/lib/listingCopy')
+    expect(draftListingCopy({ address: '88 Harbour St', bedrooms: 1, bathrooms: 1, property_type: 'condo' }).title).toMatch(/^1 卧 1 卫 公寓 · 88 Harbour St/)
+    expect(read('app/dashboard/listings/new/page.tsx')).toContain("form.monthly_rent.trim() ? `$${form.monthly_rent}` : NOT_PROVIDED[lang]")
+  })
+})

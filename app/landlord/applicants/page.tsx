@@ -303,7 +303,7 @@ export default function LandlordApplicantsPage() {
         topScored
           ? {
               text: {
-                zh: `${topScored.name} 目前评分最高（${topScored.match}/100）。优质申请人平均 48 小时内会接受其他 offer — 建议尽快决定。`,
+                zh: `${topScored.name} 目前评分最高（${topScored.match}/100）。好的申请人常在 48 小时内接受别处的房源——建议尽快决定。`,
                 en: `${topScored.name} currently scores highest (${topScored.match}/100). Strong applicants typically accept another offer within 48 hours — decide soon.`,
               },
               action: {
@@ -316,14 +316,14 @@ export default function LandlordApplicantsPage() {
             }
           : {
               text: {
-                zh: '新申请已收到，AI 评分完成后会自动分组。{ai} 可以先帮你按政策预筛一遍。',
-                en: 'New applications received — they will be grouped automatically once AI scoring completes. {ai} can pre-screen them against your policy now.',
+                zh: '新申请已收到，筛查完成后会自动分组。{ai} 可以先帮你看看每份申请缺哪些材料、哪几份可以先一键筛查。',
+                en: 'New applications received — they are grouped automatically once screened. {ai} can check which documents each one is missing and which are ready to screen.',
               },
               action: {
-                label: { zh: '让 {ai} 预筛', en: 'Pre-screen now' },
+                label: { zh: '让 {ai} 看看', en: 'Check the applications' },
                 prompt: {
-                  zh: '帮我按 信用/收入/法庭记录 政策预筛一遍现有申请。',
-                  en: 'Pre-screen my current applications against my credit / income / court-record policy.',
+                  zh: '帮我看看现有申请：每份缺哪些材料、哪几份可以先一键筛查。',
+                  en: 'Look at my current applications: which documents is each one missing, and which are ready to screen?',
                 },
               },
             },
@@ -331,7 +331,7 @@ export default function LandlordApplicantsPage() {
     : [
         {
           text: {
-            zh: 'Mia Chen 收入 4.2× 租金、8 维尽调无红旗，已等待 26 小时 — 优质申请人平均 48 小时内会接受其他 offer。',
+            zh: 'Mia Chen 收入 4.2× 租金、8 维尽调无红旗，已等待 26 小时——好的申请人常在 48 小时内接受别处的房源。',
             en: 'Mia Chen earns 4.2× rent with zero red flags across 8 axes, waiting 26 hours — strong applicants typically accept another offer within 48.',
           },
           action: {
@@ -410,7 +410,7 @@ export default function LandlordApplicantsPage() {
             value: lang === 'zh' ? `${avgWaitHours} 小时` : `${avgWaitHours} h`,
             sub:
               lang === 'zh'
-                ? '优质申请人常在 48 小时内接受其他 offer'
+                ? '好的申请人常在 48 小时内接受别处的房源'
                 : 'Strong applicants often accept elsewhere within 48h',
             tone: 'down',
           },
@@ -430,8 +430,8 @@ export default function LandlordApplicantsPage() {
 
       {!liveMode && <PolicyCard lang={lang} showHits />}
 
-      {liveMode && rows!.length >= 2 && (
-        <ApplicantCompare zh={lang === 'zh'} rows={rows!.map((r) => ({
+      {liveMode && activeRows.length >= 2 && (
+        <ApplicantCompare zh={lang === 'zh'} rows={activeRows.map((r) => ({
           id: r.id,
           name: (r.ai_extracted_name || `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim()) || '—',
           unitLabel: r.listing ? [r.listing.unit ? `Unit ${r.listing.unit}` : null, r.listing.address].filter(Boolean).join(' · ') || null : null,

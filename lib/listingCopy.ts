@@ -29,7 +29,7 @@ export function draftListingCopy(f: CopyFacts): { title: string; description: st
   const bd = f.bedrooms != null ? f.bedrooms : null
   const ba = f.bathrooms != null ? f.bathrooms : null
   const place = [f.address, f.unit ? `#${f.unit}` : '', f.city ? `, ${f.city}` : ''].join(' ').replace(/\s+,/g, ',').trim()
-  const titleZh = `${bd != null ? `${bd} 卧` : ''}${ba != null ? `${ba} 卫` : ''}${t.zh} · ${f.address}`
+  const titleZh = `${[bd != null ? `${bd} 卧` : '', ba != null ? `${ba} 卫` : '', t.zh].filter(Boolean).join(' ')} · ${f.address}`
   const titleEn = `${bd != null ? `${bd}-bed ` : ''}${t.en} at ${f.address}`
   const zh: string[] = []
   const en: string[] = []

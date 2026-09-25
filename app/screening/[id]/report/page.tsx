@@ -1247,7 +1247,7 @@ export default function ReportPage() {
               id="forensics"
               title={zh ? '文件取证：已执行的检查' : 'DOCUMENT FORENSICS — CHECKS EXECUTED'}
               subtitle={zh
-                ? `${checksRan} / ${checkMatrix.length} 类检查已执行 · ${forensics.all_flags?.length || 0} 项发现 · 结论 ${String(forensics.severity || '').toUpperCase()}`
+                ? `${checksRan} / ${checkMatrix.length} 类检查已执行 · ${forensics.all_flags?.length || 0} 项发现 · 结论 ${({ clean: '未见异常', suspicious: '有可疑之处', likely_fraud: '很可能造假', fraud: '造假' } as Record<string, string>)[String(forensics.severity || '')] ?? String(forensics.severity || '').toUpperCase()}`
                 : `${checksRan} of ${checkMatrix.length} check categories run · ${forensics.all_flags?.length || 0} finding(s) · verdict ${String(forensics.severity || '').toUpperCase()}`}
             >
               {/* Check category matrix — passed checks are listed too */}

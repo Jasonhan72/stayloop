@@ -538,7 +538,7 @@ export default function NewListingPage() {
                   <dl className="mt-3 space-y-2 text-[13px]">
                     <Row k={lang === 'zh' ? '地址' : 'Address'} v={form.address} />
                     <Row k={lang === 'zh' ? '户型' : 'Layout'} v={lang === 'zh' ? `${form.bedrooms} 卧 · ${form.bathrooms} 卫 · ${form.sqft.trim() ? `${form.sqft} sqft` : `面积${NOT_PROVIDED.zh}`}` : `${form.bedrooms} bd · ${form.bathrooms} ba · ${form.sqft.trim() ? `${form.sqft} sqft` : `area ${NOT_PROVIDED.en}`}`} />
-                    <Row k={lang === 'zh' ? '月租 / 押金' : 'Rent / deposit'} v={`$${form.monthly_rent} / ${form.deposit.trim() ? `$${form.deposit}` : NOT_PROVIDED[lang]}`} />
+                    <Row k={lang === 'zh' ? '月租 / 押金' : 'Rent / deposit'} v={`${form.monthly_rent.trim() ? `$${form.monthly_rent}` : NOT_PROVIDED[lang]} / ${form.deposit.trim() ? `$${form.deposit}` : NOT_PROVIDED[lang]}`} />
                     <Row k={lang === 'zh' ? '配套' : 'Amenities'} v={form.amenities.map((id) => AMENITIES.find((a) => a.id === id)?.[lang] ?? id).join(' · ') || NOT_PROVIDED[lang]} />
                     <Row k={lang === 'zh' ? '照片' : 'Photos'} v={photos.length ? (lang === 'zh' ? `${photos.length} 张` : `${photos.length}`) : NOT_PROVIDED[lang]} />
                     <Row k={lang === 'zh' ? '租期' : 'Lease term'} v={form.lease_term.trim() || NOT_PROVIDED[lang]} />

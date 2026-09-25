@@ -140,6 +140,11 @@ export default function HouseholdHub() {
     setWriteError(null)
     setDraft('')
     void loadMsgs()
+    // Tell the other side (push only; /api/household/notify-message).
+    void supabase.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token
+      if (token) void fetch('/api/household/notify-message', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ household_id: id }) }).catch(() => undefined)
+    })
   }
 
   async function markPaid(due: string) {

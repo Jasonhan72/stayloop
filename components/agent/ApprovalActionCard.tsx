@@ -48,6 +48,10 @@ export default function ApprovalActionCard({
   // (no silent default to a rent increase). Other actions have one approve.
   const isRenewal = action.action_type === 'send_renewal_letter'
   const m = (action.metadata || {}) as { current_rent?: number; guideline_rent?: number; guideline_pct?: number }
+  // The guideline differs by year (2026: 2.1%, 2027: 1.9%; lib/ontario/rules.ts) — read it
+  // from the card, never hard-code it (the preview button once showed the statutory cap, not the year's guideline).
+  const pctLabel = m.guideline_pct != null ? `+${m.guideline_pct}%` : '按指导上限'
+  const pctLabelEn = m.guideline_pct != null ? `+${m.guideline_pct}%` : 'guideline'
 
   const decide = async (d: 'approved' | 'rejected', option?: 'A' | 'B') => {
     setBusy(option ? `approved:${option}` : d)
@@ -100,7 +104,7 @@ export default function ApprovalActionCard({
         {!preview && (isRenewal ? (
           <>
             <button type="button" disabled={previewBusy} onClick={() => loadPreview('A')} className="rounded-lg border border-line-divider bg-white px-3 py-[9px] text-[12.5px] font-semibold text-body-2 disabled:opacity-60">{previewBusy ? '…' : (zh ? '预览正文（不涨）' : 'Preview (no increase)')}</button>
-            <button type="button" disabled={previewBusy} onClick={() => loadPreview('B')} className="rounded-lg border border-line-divider bg-white px-3 py-[9px] text-[12.5px] font-semibold text-body-2 disabled:opacity-60">{previewBusy ? '…' : (zh ? '预览正文（+2.5%）' : 'Preview (+2.5%)')}</button>
+            <button type="button" disabled={previewBusy} onClick={() => loadPreview('B')} className="rounded-lg border border-line-divider bg-white px-3 py-[9px] text-[12.5px] font-semibold text-body-2 disabled:opacity-60">{previewBusy ? '…' : (zh ? `预览正文（${pctLabel}）` : `Preview (${pctLabelEn})`)}</button>
           </>
         ) : (
           <button type="button" disabled={previewBusy} onClick={() => loadPreview()} className="rounded-lg border border-line-divider bg-white px-3 py-[9px] text-[12.5px] font-semibold text-body-2 disabled:opacity-60">{previewBusy ? '…' : (zh ? '预览正文' : 'Preview message')}</button>
@@ -128,8 +132,8 @@ export default function ApprovalActionCard({
               {busy === 'approved:B'
                 ? (zh ? '发送中…' : 'Sending…')
                 : zh
-                  ? `✓ +${m.guideline_pct ?? 2.5}% 续约${m.guideline_rent ? ` · $${m.guideline_rent.toLocaleString()}` : ''}`
-                  : `✓ +${m.guideline_pct ?? 2.5}% renewal${m.guideline_rent ? ` · $${m.guideline_rent.toLocaleString()}` : ''}`}
+                  ? `✓ ${pctLabel} 续约${m.guideline_rent ? ` · $${m.guideline_rent.toLocaleString()}` : ''}`
+                  : `✓ ${pctLabelEn} renewal${m.guideline_rent ? ` · $${m.guideline_rent.toLocaleString()}` : ''}`}
             </button>
           </>
         ) : (
