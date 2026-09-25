@@ -2,7 +2,7 @@
 
 // Claude-style conversation panel for a Personal Agent workspace: a scrolling
 // message thread (user ↔ agent bubbles) with the input pinned at the bottom.
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useT } from '@/lib/i18n'
 import AgentInputBar, { type ComposerDraft } from './AgentInputBar'
 import DraftListingChatCard from './DraftListingChatCard'
@@ -85,7 +85,6 @@ export default function AgentChat({
   currentThreadId = null,
   onOpenThread,
   compactHeader = false,
-  headerNote,
 }: {
   role: AgentRole
   agentName: string
@@ -127,11 +126,11 @@ export default function AgentChat({
   /** The open conversation + how to reopen another one — the phone activity sheet's rows are conversations (2026-09-25). */
   currentThreadId?: string | null
   onOpenThread?: (id: string) => void | Promise<void>
-  /** Homepage hero (user 2026-09-25: the centred avatar + name + status block pushed the
-   *  conversation below the fold): one 48px row — avatar · name · status — with an
-   *  optional note on the right (the signed-in hat and how to switch it). */
+  /** Homepage hero (user 2026-09-25): the same centred avatar · name · status
+   *  block, only tighter — 44px avatar and smaller gaps (≈105px instead of ≈130px)
+   *  so the conversation gets more of the first screen. (A one-row header was
+   *  tried and rejected the same day: "还是原来的布置比较好".) */
   compactHeader?: boolean
-  headerNote?: ReactNode
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -185,37 +184,25 @@ export default function AgentChat({
       {/* header — centred avatar, name below it, then the status line, on every
           breakpoint (user 2026-09-24: "avatar 放中间，下面放名字", phone and web
           alike). Compact (~80px on phones, ~110px on desktop). Avatar / status
-          open the activity log. The homepage hero uses the one-row variant
-          instead (compactHeader) so the conversation gets the space. */}
-      {compactHeader ? (
-        <div className="flex h-12 flex-none items-center gap-2.5 border-b border-line-divider px-4 md:px-5" data-testid="chat-header-compact">
-          <AssistantAvatar avatar={avatar} role={role} className="h-8 w-8 flex-none" />
-          <span className="flex-none text-[14px] font-bold tracking-tight">{agentName}</span>
-          <span className="flex min-w-0 items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
-            <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} />
-            <span className="truncate">{statusLine}</span>
-          </span>
-          {headerNote && <span className="ml-auto hidden min-w-0 truncate text-[12px] text-body-3 sm:block">{headerNote}</span>}
-        </div>
-      ) : (
-      <div className={`flex flex-none flex-col items-center px-4 pb-2 pt-3 md:border-b md:border-line-divider md:px-5 md:pb-3 md:pt-5 ${hero ? 'lg:hidden' : ''}`}>
+          open the activity log. The homepage passes compactHeader: same
+          arrangement, tighter (44px avatar, smaller gaps). */}
+      <div className={compactHeader ? 'flex flex-none flex-col items-center px-4 pb-1.5 pt-2.5 md:border-b md:border-line-divider md:px-5 md:pb-2 md:pt-3' : `flex flex-none flex-col items-center px-4 pb-2 pt-3 md:border-b md:border-line-divider md:px-5 md:pb-3 md:pt-5 ${hero ? 'lg:hidden' : ''}`} data-testid={compactHeader ? 'chat-header-compact' : undefined}>
         <button
           type="button"
           onClick={() => canOpenSheet && setSheet(true)}
           disabled={!canOpenSheet}
           aria-label={canOpenSheet ? (zh ? `${agentName} 的活动日志` : `${agentName}'s activity log`) : undefined}
-          className={`flex-none rounded-full h-11 w-11 md:h-14 md:w-14 ${canOpenSheet ? 'shadow-[0_4px_14px_rgba(27,27,60,.16)]' : 'cursor-default'}`}
+          className={`flex-none rounded-full ${compactHeader ? 'h-10 w-10 md:h-11 md:w-11' : 'h-11 w-11 md:h-14 md:w-14'} ${canOpenSheet ? 'shadow-[0_4px_14px_rgba(27,27,60,.16)]' : 'cursor-default'}`}
         >
           <AssistantAvatar avatar={avatar} role={role} className="h-full w-full" />
         </button>
         <div className="flex min-w-0 max-w-full flex-col items-center">
-          <div className="mt-1.5 rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:mt-2 md:text-[14px]">{agentName}</div>
-          <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`mt-1 flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
+          <div className={`rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:text-[14px] ${compactHeader ? 'mt-1' : 'mt-1.5 md:mt-2'}`}>{agentName}</div>
+          <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`${compactHeader ? 'mt-0.5' : 'mt-1'} flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
             <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>
           </button>
         </div>
       </div>
-      )}
       {sheet && <ActivitySheet role={role} agentName={agentName} live={live} memoryCount={memoryCount} currentThreadId={currentThreadId} onOpenThread={onOpenThread} onClose={() => setSheet(false)} />}
 
       {/* thread */}

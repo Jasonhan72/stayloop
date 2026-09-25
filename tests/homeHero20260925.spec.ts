@@ -1,38 +1,39 @@
-// Homepage hero after the user's 2026-09-25 note: "avatar 这里的头像和名字以及上面的
-// 文字占用了太多空间，挤压了下面的对话框" — the conversation is the hero, so the
-// text block above it is tighter, the chat's identity is one 48px row, and the
-// chat runs to the fold on ≥640px screens.
+// Homepage hero after the user's 2026-09-25 notes: "头像和名字以及上面的文字占用了
+// 太多空间，挤压了下面的对话框" → then "还是原来的布置比较好，空间稍微压缩一点就可以".
+// So: the same arrangement (eyebrow · h1 · lead · hat line · card with the centred
+// avatar / name / status), every gap a notch tighter, and the chat box runs to
+// the fold instead of a fixed 600px.
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 
 const read = (p: string) => readFileSync(p, 'utf8')
 
-describe('homepage hero: the conversation gets the first screen', () => {
+describe('homepage hero: same layout, tighter, the chat runs to the fold', () => {
   const home = read('components/home/HomeNext.tsx')
   const chat = read('components/agent/AgentChat.tsx')
-  it('the text block above the chat is tighter (40px h1, 16px lead, less top padding)', () => {
-    expect(home).toContain('sm:mt-3 sm:text-[40px]')
+  it('the text block is a notch tighter (44px h1, 16px lead, less top padding) — not restructured', () => {
+    expect(home).toContain('sm:mt-3 sm:text-[44px]')
     expect(home).not.toContain('sm:text-[52px]')
-    expect(home).toContain('sm:px-7 sm:pt-8 lg:pt-10')
+    expect(home).toContain('sm:px-7 sm:pt-9 lg:pt-11')
     expect(home).toContain('mt-3 hidden max-w-[640px] text-[16px] leading-relaxed text-body-2 sm:block')
-  })
-  it('signed in, the hat line moves into the chat header; visitors keep the three role pills', () => {
-    expect(home).not.toContain("{signedIn ? (\n              <div className=\"mb-2 flex flex-wrap")
-    expect(home).toContain('{!signedIn && (')
-    expect(home).toContain("headerNote={signedIn ? `${pick(ROLE_LABEL[role], lang)} · ${zh ? '换身份在右上角菜单' : 'Switch hats in the top-right menu'}` : null}")
-    expect(home).toContain('fill compactHeader headerNote={headerNote}')
+    // the hat line stays above the card for signed-in users; visitors keep the three pills
+    expect(home).toMatch(/\{signedIn \? \(\s*<div className="mb-2 flex flex-wrap items-center justify-center gap-2 text-\[12\.5px\] text-body-3 sm:mb-2\.5">/)
+    expect(home).toContain("{zh ? '换身份在右上角菜单' : 'Switch hats in the top-right menu'}")
+    expect(home).not.toContain('headerNote')
   })
   it('the chat card runs to the fold on ≥640px screens and keeps its phone sizing', () => {
-    expect(home).toContain("${signedIn ? 'sm:h-[max(420px,calc(100vh-330px))]' : 'sm:h-[max(420px,calc(100vh-378px))]'}")
+    expect(home).toContain('sm:h-[max(400px,calc(100vh-390px))]')
     expect(home).not.toContain('sm:h-[600px]')
     expect(home).toContain('h-[max(360px,calc(100vh-270px))]')
+    expect(home).toContain('onListingsShown={markListingsShown} fill compactHeader />')
   })
-  it('AgentChat has a one-row compact header; the centred variant is untouched for the assistant pages', () => {
+  it('compactHeader keeps the centred avatar · name · status block, only smaller; the assistant pages keep the original metrics', () => {
     expect(chat).toContain('compactHeader?: boolean')
-    expect(chat).toContain('data-testid="chat-header-compact"')
-    expect(chat).toContain('<div className="flex h-12 flex-none items-center gap-2.5 border-b border-line-divider px-4 md:px-5"')
-    expect(chat).toContain('<AssistantAvatar avatar={avatar} role={role} className="h-8 w-8 flex-none" />')
+    expect(chat).not.toContain('headerNote')
+    expect(chat).toContain("compactHeader ? 'flex flex-none flex-col items-center px-4 pb-1.5 pt-2.5 md:border-b md:border-line-divider md:px-5 md:pb-2 md:pt-3'")
+    expect(chat).toContain("${compactHeader ? 'h-10 w-10 md:h-11 md:w-11' : 'h-11 w-11 md:h-14 md:w-14'}")
     expect(chat).toContain('flex flex-none flex-col items-center px-4 pb-2 pt-3 md:border-b') // the /x/agent header (2026-09-24)
+    expect(chat).not.toMatch(/flex h-12 flex-none items-center gap-2\.5 border-b/) // the one-row variant was rejected
     expect(read('components/agent/AgentWorkspacePage.tsx')).not.toContain('compactHeader') // only the homepage uses it
   })
 })

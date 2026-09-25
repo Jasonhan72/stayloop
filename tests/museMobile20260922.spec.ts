@@ -119,7 +119,7 @@ describe('signed-in homepage + identity menu', () => {
   const home = readFileSync('components/home/HomeNext.tsx', 'utf8')
   const header = readFileSync('components/Header.tsx', 'utf8')
   it('homepage hides the pills for signed-in users and mirrors auth.role', () => {
-    expect(home).toMatch(/\{!signedIn && \(/) // pills for visitors only; signed in, the hat sits in the chat header row (2026-09-25)
+    expect(home).toMatch(/\{signedIn \? \(/)
     expect(home).toMatch(/setRole\(activeHat\(hats, auth\.role\)\)/) // review 2026-09-25: the same predicate as the header
     expect(home).toMatch(/换身份在右上角菜单/)
   })

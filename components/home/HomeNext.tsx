@@ -215,12 +215,12 @@ export default function HomeNext() {
             lead, tighter gaps) and the chat is sized to the viewport so the
             whole box — header, messages, input — is on screen without
             scrolling (2026-09-12). ≥640px keeps the original hero. */}
-        <div className="mx-auto max-w-[1100px] px-4 pb-10 pt-3 sm:px-7 sm:pt-8 lg:pt-10">
+        <div className="mx-auto max-w-[1100px] px-4 pb-10 pt-3 sm:px-7 sm:pt-9 lg:pt-11">
           <div className="mx-auto max-w-[760px] text-center">
             <div className="hidden font-mono text-[11px] font-bold uppercase tracking-[0.16em] sm:block" style={{ color: '#00ACE4' }}>
               AI-Native Rental OS · Toronto
             </div>
-            <h1 className="text-[22px] font-extrabold leading-[1.15] tracking-tight sm:mt-3 sm:text-[40px]">
+            <h1 className="text-[22px] font-extrabold leading-[1.15] tracking-tight sm:mt-3 sm:text-[44px]">
               {zh ? <>租房路上的难题，<br />交给<em className="not-italic" style={{ color: '#00ACE4' }}>各自的 AI</em>。</> : <>The hard parts of renting,<br />handled by <em className="not-italic" style={{ color: '#00ACE4' }}>your own AI</em>.</>}
             </h1>
             <p className="mx-auto mt-3 hidden max-w-[640px] text-[16px] leading-relaxed text-body-2 sm:block">
@@ -234,12 +234,17 @@ export default function HomeNext() {
           </div>
 
           {/* role switch + live assistant */}
-          <div ref={heroRef} id="assistant" className="mx-auto mt-2.5 min-w-0 max-w-[920px] scroll-mt-24 sm:mt-5">
-            {/* Signed in, the hat + "switch in the menu" line lives in the chat's compact
-                header row (user 2026-09-25: the hero was pushing the conversation down);
-                visitors keep the three pills — they switch the demo assistant. */}
-            {!signedIn && (
-            <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5 sm:mb-3 sm:gap-2">
+          <div ref={heroRef} id="assistant" className="mx-auto mt-2.5 min-w-0 max-w-[920px] scroll-mt-24 sm:mt-6">
+            {signedIn ? (
+              <div className="mb-2 flex flex-wrap items-center justify-center gap-2 text-[12.5px] text-body-3 sm:mb-2.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 font-semibold text-body" style={{ border: '1px solid #D3E3EF' }}>
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#00ACE4' }} />
+                  {pick(ROLE_LABEL[role], lang)}{names[role] ? ` · ${names[role]}` : ''}
+                </span>
+                <span>{zh ? '换身份在右上角菜单' : 'Switch hats in the top-right menu'}</span>
+              </div>
+            ) : (
+            <div className="mb-2 flex flex-wrap items-center justify-center gap-1.5 sm:mb-2.5 sm:gap-2">
               {(['tenant', 'landlord', 'agent'] as AgentRole[]).map((r) => (
                 <button
                   key={r}
@@ -255,20 +260,13 @@ export default function HomeNext() {
             )}
             {/* Phone height = viewport − (header 67 + title/lead/pills ≈ 120 +
                 bottom tab bar 64 + a little air); floor 360px so the messages
-                area never collapses on short screens. ≥640px: the chat box ends
-                at the fold — its bottom edge (the composer) stays on the first
-                screen: viewport − (header 66 + title + lead ≈ 330px; visitors'
-                role pills add 48) — floor 420px (user 2026-09-25: the hero was
-                squeezing the conversation). */}
-            <div className={`h-[max(360px,calc(100vh-270px))] supports-[height:100dvh]:h-[max(360px,calc(100dvh-270px))] ${signedIn ? 'sm:h-[max(420px,calc(100vh-330px))]' : 'sm:h-[max(420px,calc(100vh-378px))]'}`}>
-              <AssistantPanel
-                key={role}
-                role={role}
-                name={names[role]}
-                queued={queued}
-                onQueuedSent={() => setQueued(null)}
-                headerNote={signedIn ? `${pick(ROLE_LABEL[role], lang)} · ${zh ? '换身份在右上角菜单' : 'Switch hats in the top-right menu'}` : null}
-              />
+                area never collapses on short screens. ≥640px: the chat box runs
+                to the fold instead of a fixed 600px — viewport − (header 66 +
+                eyebrow / title / lead / hat line ≈ 320px) — floor 400px (user
+                2026-09-25: the hero was squeezing the conversation; the layout
+                itself stays as it was, only the spacing is tighter). */}
+            <div className="h-[max(360px,calc(100vh-270px))] supports-[height:100dvh]:h-[max(360px,calc(100dvh-270px))] sm:h-[max(400px,calc(100vh-390px))]">
+              <AssistantPanel key={role} role={role} name={names[role]} queued={queued} onQueuedSent={() => setQueued(null)} />
             </div>
             <div className="mt-3 flex flex-col items-center justify-between gap-2 text-[12px] text-body-3 sm:flex-row">
               <span>{zh ? '免注册体验 · 每小时有次数上限 · 登录后它才会记住你' : 'Try without signing up · hourly limit · it only remembers you after you sign in'}</span>
@@ -382,7 +380,7 @@ export default function HomeNext() {
 }
 
 // One live session per role; remounted (key=role) when the role switches.
-function AssistantPanel({ role, name, queued, onQueuedSent, headerNote }: { role: AgentRole; name: string | null; queued: { role: AgentRole; prompt: string } | null; onQueuedSent: () => void; headerNote?: string | null }) {
+function AssistantPanel({ role, name, queued, onQueuedSent }: { role: AgentRole; name: string | null; queued: { role: AgentRole; prompt: string } | null; onQueuedSent: () => void }) {
   const { loading, data, status, messages, sendMessage, markListingsShown } = useAgentSession(role)
   const sentRef = useRef<string | null>(null)
   useEffect(() => {
@@ -396,7 +394,7 @@ function AssistantPanel({ role, name, queued, onQueuedSent, headerNote }: { role
   if (loading || !data) {
     return <div className="h-full animate-pulse rounded-2xl border border-line-divider bg-white" />
   }
-  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} status={status} messages={messages} onSend={sendMessage} onListingsShown={markListingsShown} fill compactHeader headerNote={headerNote} />
+  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} status={status} messages={messages} onSend={sendMessage} onListingsShown={markListingsShown} fill compactHeader />
 }
 
 function Pain({ who, text, onTry, tryLabel }: { who: string; text: string; onTry: () => void; tryLabel: string }) {
