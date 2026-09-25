@@ -164,7 +164,7 @@ export default function AgentChat({
           style={{ background: ORB[role] }}
         />
         <div className="flex min-w-0 max-w-full flex-col items-center md:items-start">
-          <div className="-mt-2 rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:mt-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:text-[15px] md:shadow-none">{agentName}</div>
+          <div className="mt-1.5 rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:mt-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:text-[15px] md:shadow-none">{agentName}</div>
           <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`mt-1 flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 md:mt-0 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
             <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>
           </button>

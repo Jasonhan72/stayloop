@@ -40,6 +40,7 @@ describe('phone assistant screen', () => {
     expect(s).not.toContain("'flex-col text-center sm:flex-row sm:text-left'")
     expect(s).toContain('flex flex-none flex-col items-center px-4 pb-2 pt-3 md:flex-row')
     expect(s).toContain('h-11 w-11 md:h-9 md:w-9')
+    expect(s).not.toContain('-mt-2 rounded-full border border-line-divider bg-white') // 名字不得压住头像（用户 2026-09-24）
     expect(s).toContain("phoneFill ? 'h-full md:h-[70vh] md:rounded-2xl md:border md:border-line-divider md:shadow-sm lg:h-full'")
     expect(s).toContain('border-t border-line-divider p-2 md:p-3')
   })
