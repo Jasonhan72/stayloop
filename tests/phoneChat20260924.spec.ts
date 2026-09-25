@@ -14,7 +14,7 @@ describe('phone assistant screen', () => {
     for (const p of pages) {
       const s = read(p)
       expect(s).toContain('hideAside phoneApp>')
-      expect(s).toContain('flex h-[calc(100dvh-121px)] flex-col md:grid md:h-auto')
+      expect(s).toContain('flex h-[calc(100dvh-121px)] flex-col md:h-[calc(100vh-66px)] md:flex-row')
       expect(s).toContain('<div className="md:hidden"><ContextStrip')
       expect(s).toContain('phoneFill')
       // 今日 and the rail are carried by the strip on phones and by /x/todo and
@@ -33,7 +33,7 @@ describe('phone assistant screen', () => {
   })
   it('shell drops the content padding for phoneApp pages and the header is 56px on phones', () => {
     const shell = read('components/WorkspaceShell.tsx')
-    expect(shell).toContain("phoneApp ? 'min-w-0 flex-1 p-0 pb-16 md:px-7 md:py-9 md:pb-9 lg:px-12'")
+    expect(shell).toContain("phoneApp ? 'min-w-0 flex-1 p-0 pb-16 md:p-0'")
     expect(read('components/Header.tsx')).toContain('flex h-14 max-w-[1240px] items-center justify-between px-5 sm:px-8 md:h-[66px]')
   })
   it('chat header: centred avatar with the name below on every breakpoint (user 2026-09-24, phone and web); phoneFill fills the parent', () => {
@@ -50,6 +50,6 @@ describe('phone assistant screen', () => {
     const s = read('components/agent/AgentInputBar.tsx')
     expect(s).toContain('flex flex-wrap items-end gap-1 px-2 py-1.5 md:gap-0 md:px-0 md:py-0')
     expect(s).toContain('order-2 block max-h-60 min-h-[40px] min-w-0 flex-1 basis-0')
-    expect(s).toContain('relative hidden cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[12.5px] text-body-2 transition hover:bg-surface-chip md:flex')
+    expect(s).toContain("relative cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[12.5px] text-body-2 transition hover:bg-surface-chip ${pill ? 'hidden' : 'hidden md:flex'}")
   })
 })

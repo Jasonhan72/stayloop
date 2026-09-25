@@ -10,13 +10,11 @@ import AgentChat from '@/components/agent/AgentChat'
 import type { ComposerDraft } from '@/components/agent/AgentInputBar'
 import ContextStrip from '@/components/mobile/ContextStrip'
 import { useLifecycle } from '@/lib/lifecycle/useLifecycle'
-import WorkflowStatusPanel from '@/components/agent/WorkflowStatusPanel'
-import RecommendationDeck from '@/components/agent/RecommendationDeck'
-import PendingActionsPanel from '@/components/agent/PendingActionsPanel'
-import StatusOverview from '@/components/agent/StatusOverview'
-import PrivateMemorySnapshot from '@/components/agent/PrivateMemorySnapshot'
-import RelatedPagesCard from '@/components/agent/RelatedPagesCard'
 import { useAgentSession } from '@/lib/agent/useAgentSession'
+import AssistantPanel from '@/components/agent/AssistantPanel'
+import { assistantStatusLine } from '@/lib/agent/statusLine'
+import { useAssistantPanel } from '@/lib/agent/useAssistantPanel'
+import { ROLE_THEME } from '@/lib/roleTheme'
 import { usePromptDeepLink } from '@/lib/agent/usePromptDeepLink'
 import { useT } from '@/lib/i18n'
 
@@ -27,6 +25,7 @@ export default function TenantAgentPage() {
   const prefill = useCallback((t: string) => setDraft({ text: t, nonce: Date.now() }), [])
   usePromptDeepLink(loading, sendMessage, prefill)
   const { lifecycle } = useLifecycle('tenant')
+  const [panelOpen, setPanelOpen] = useAssistantPanel()
 
 
   if (loading || !data) {
@@ -37,56 +36,59 @@ export default function TenantAgentPage() {
     )
   }
 
-  const { agent, workflow, memories, pendingActions, recommendations } = data
+  const { agent, workflow, memories, pendingActions } = data
+  const zh = lang === 'zh'
+  const stageLabel = lifecycle ? (zh ? lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.zh ?? '' : lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.en ?? '') : ''
+  const pendingCount = pendingActions.filter((a) => a.status === 'pending').length
+  const statusLine = assistantStatusLine({ status, pendingCount, hasApprovals: true, stageLabel, memoryCount: memories.length, zh })
 
   return (
     <WorkspaceShell role="tenant" hideAside phoneApp>
-      {!live && <div className="px-5 pt-4 md:px-0 md:pt-0"><DemoBanner /></div>}
 
-      {/* The assistant IS the screen (user 2026-09-24, both phone and web):
-          phone — a fixed column of [context strip] + [chat] between the 56px
-          header and the 64px tab bar, 今日 and the rail folded into the strip;
-          md+ — the chat as the hero with the controls column beside it. 今日
-          lives on /x/todo and the 租前·租中·租后 rail on /x/progress; neither
-          sits above the conversation here. */}
-      <div className="flex h-[calc(100dvh-121px)] flex-col md:grid md:h-auto md:gap-6 lg:grid-cols-[1fr_380px]">
-        {live && <div className="md:hidden"><ContextStrip lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/tenant/todo" lang={lang} onPrompt={prefill} /></div>}
-        {/* Conversation */}
-        {/* Phone (Muse benchmark 2026-09-22): the chat bleeds edge to edge,
-            approvals sit at the top of the thread, and the controls column
-            below is replaced by the 待办 / 想法 / 进度 tabs. lg+ unchanged. */}
-        <div className="min-h-0 min-w-0 flex-1 lg:h-[calc(100vh-150px)]">
-          <AgentChat
-            phoneFill
-            draft={draft}
-            phaseLabel={lifecycle ? (lang === 'zh' ? lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.zh ?? null : lifecycle.phases.find((p) => p.key === lifecycle.current)?.title.en ?? null) : null}
-            role="tenant"
-            agentName={agent.agent_name}
-            status={status}
-            messages={messages}
-            onSend={sendMessage}
-            onListingsShown={markListingsShown}
-            pendingActions={pendingActions}
-            onDecide={decide}
-            live={live}
-            memoryCount={memories.length}
-            workflow={workflow}
-            scheduled={scheduled}
-            onUndo={undo}
-          />
-        </div>
-
-        {/* Controls — approvals · progress · memory · related */}
-        <div className="hidden min-w-0 space-y-6 md:block lg:h-[calc(100vh-150px)] lg:overflow-y-auto lg:pr-1">
-          {pendingActions.length > 0 && (
-            <div className="hidden lg:block"><PendingActionsPanel actions={pendingActions} onDecide={decide} /></div>
+      {/* The assistant IS the screen (user 2026-09-24/25, phone and web):
+          phone — [context strip] + [chat] between the 56px header and the 64px
+          tab bar; lg+ — the Muse web layout: the conversation is the page and
+          the assistant's own panel (avatar · name · status · 活动/待办/记忆)
+          sits beside it, closable. 今日 lives on /x/todo, the 租前·租中·租后
+          rail on /x/progress, recommendations on /x/ideas — nothing sits
+          above the conversation. */}
+      <div className="flex h-[calc(100dvh-121px)] flex-col md:h-[calc(100vh-66px)] md:flex-row">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+          {!live && <div className="flex-none px-5 pt-4 md:px-8 md:pt-4"><DemoBanner /></div>}
+          {live && <div className="md:hidden"><ContextStrip lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/tenant/todo" lang={lang} onPrompt={prefill} /></div>}
+          {!panelOpen && (
+            <button type="button" onClick={() => setPanelOpen(true)} aria-label={zh ? '打开助手面板' : 'Open the assistant panel'} className="absolute right-4 top-3 z-10 hidden items-center gap-2 rounded-full border border-line-divider bg-white py-1 pl-1 pr-3 text-[12.5px] font-bold text-body-2 shadow-sm transition hover:border-line-strong lg:flex">
+              <span className="h-6 w-6 rounded-full" style={{ background: ROLE_THEME.tenant.avatarGradient }} />
+              {agent.agent_name}{pendingCount > 0 ? (zh ? ` · 等你点头 ${pendingCount} 件` : ` · ${pendingCount} waiting`) : ''}
+            </button>
           )}
-          <StatusOverview role="tenant" live={live} pendingCount={pendingActions.length} />
-          <WorkflowStatusPanel role="tenant" workflow={workflow} />
-          <RecommendationDeck items={recommendations} />
-          <PrivateMemorySnapshot agentName={agent.agent_name} memories={memories} />
-          <RelatedPagesCard role="tenant" />
+          <div className="min-h-0 flex-1">
+            <AgentChat
+              hero
+              phoneFill
+              draft={draft}
+              phaseLabel={stageLabel || null}
+              role="tenant"
+              agentName={agent.agent_name}
+              status={status}
+              messages={messages}
+              onSend={sendMessage}
+              onListingsShown={markListingsShown}
+              pendingActions={pendingActions}
+              onDecide={decide}
+              live={live}
+              memoryCount={memories.length}
+              workflow={workflow}
+              scheduled={scheduled}
+              onUndo={undo}
+            />
+          </div>
         </div>
+        {panelOpen && (
+          <aside className="hidden lg:flex lg:w-[360px] lg:flex-none lg:flex-col lg:border-l lg:border-line-divider">
+            <AssistantPanel role="tenant" agentName={agent.agent_name} status={status} statusLine={statusLine} pendingActions={pendingActions} memories={memories} live={live} onClose={() => setPanelOpen(false)} />
+          </aside>
+        )}
       </div>
     </WorkspaceShell>
   )

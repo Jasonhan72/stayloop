@@ -56,7 +56,7 @@ describe('phone workspace wiring', () => {
     expect(shell).toMatch(/function PhoneTabs/)
     for (const k of ["key: 'agent'", "key: 'todo'", "key: 'ideas'", "key: 'progress'"]) expect(shell).toContain(k)
     expect(shell).toMatch(/badge: pendingCount/)
-    expect(shell).toMatch(/className="hidden md:static md:flex/)
+    expect(shell).toMatch(/hidden md:flex md:w-16/)
     // agent tabs stay open before RECO verification
     expect(shell).toMatch(/\(agent\|verify\|todo\|ideas\|progress\)/)
   })
@@ -65,17 +65,17 @@ describe('phone workspace wiring', () => {
   })
   it('approvals render inside the thread below lg and the status line is real', () => {
     expect(chat).toMatch(/pendingActions\?: PendingAction\[\]/)
-    expect(chat).toMatch(/<div className="space-y-3 lg:hidden">/)
+    expect(chat).toContain("space-y-3 ${hero ? '' : 'lg:hidden'}")
     expect(chat).toMatch(/ActivitySheet/)
-    expect(chat).toMatch(/Waiting on you/)
+    expect(readFileSync('lib/agent/statusLine.ts', 'utf8')).toMatch(/Waiting on you/) // status line shared with the web panel (2026-09-25)
     // legacy decorative line only when the chat is used without a session (homepage)
-    expect(chat).toMatch(/if \(!pendingActions\) return zh \? '在线 · 读取你的记忆'/)
+    expect(readFileSync('lib/agent/statusLine.ts', 'utf8')).toMatch(/if \(!hasApprovals\) return zh \? '在线 · 读取你的记忆'/) // status line shared with the web panel (2026-09-25)
   })
-  it('agent pages hide the controls column on phones and the duplicate approvals below lg', () => {
+  it('agent pages: approvals live in the thread; the web panel beside the chat is lg+ only (Muse web layout 2026-09-25)', () => {
     for (const r of ['tenant', 'landlord', 'agent']) {
       const s = readFileSync(`app/${r}/agent/page.tsx`, 'utf8')
-      expect(s, r).toMatch(/hidden min-w-0 space-y-6 md:block/)
-      expect(s, r).toMatch(/hidden (scroll-mt-24 )?lg:block/)
+      expect(s, r).not.toMatch(/PendingActionsPanel/)
+      expect(s, r).toMatch(/hidden lg:flex lg:w-\[360px\]/)
       expect(s, r).toMatch(/pendingActions=\{pendingActions\}/)
     }
   })

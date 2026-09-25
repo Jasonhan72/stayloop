@@ -33,6 +33,7 @@ export default function AgentInputBar({
   disabled,
   onSend,
   draft,
+  pill = false,
 }: {
   agentName: string
   role?: AgentRole
@@ -41,6 +42,9 @@ export default function AgentInputBar({
   /** Prefill the composer (quick-action templates, workspace deep links) — the
    *  user edits and sends; nothing goes out on its own. `nonce` retriggers. */
   draft?: ComposerDraft | null
+  /** Web assistant page (2026-09-25): one row [+] [text] [mic] [send] in a 28px
+   *  pill at every width; the model picker moves to a small line under the bar. */
+  pill?: boolean
 }) {
   const { lang } = useI18n()
   const auth = useAuth()
@@ -220,7 +224,8 @@ export default function AgentInputBar({
   const canSend = !disabled && !sending && (!!value.trim() || atts.length > 0)
 
   return (
-    <div className="rounded-2xl border border-line-strong bg-white shadow-sm transition focus-within:border-brand focus-within:shadow-md">
+    <>
+    <div className={`border border-line-strong bg-white shadow-sm transition focus-within:border-brand focus-within:shadow-md ${pill ? 'rounded-[28px]' : 'rounded-2xl'}`}>
       {atts.length > 0 && (
         <div className="flex flex-wrap gap-2 px-3 pt-3">
           {atts.map((a, i) => (
@@ -247,7 +252,7 @@ export default function AgentInputBar({
 
       {/* Phone (2026-09-24): one row — [+] [textarea] [mic] [send]; the model
           picker lives in Settings. md+: textarea on its own row, controls below. */}
-      <div className="flex flex-wrap items-end gap-1 px-2 py-1.5 md:gap-0 md:px-0 md:py-0">
+      <div className={pill ? 'flex flex-wrap items-end gap-1 px-2 py-1.5' : 'flex flex-wrap items-end gap-1 px-2 py-1.5 md:gap-0 md:px-0 md:py-0'}>
       <textarea
         ref={taRef}
         rows={1}
@@ -263,7 +268,7 @@ export default function AgentInputBar({
         }}
         aria-label={`Message ${agentName}`}
         placeholder={lang === 'zh' ? '写点什么…' : 'Write a message…'}
-        className="order-2 block max-h-60 min-h-[40px] min-w-0 flex-1 basis-0 resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed text-body outline-none placeholder:text-body-4 md:order-1 md:min-h-[52px] md:basis-full md:px-4 md:pb-0 md:pt-4"
+        className={pill ? 'order-2 block max-h-60 min-h-[40px] min-w-0 flex-1 basis-0 resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed text-body outline-none placeholder:text-body-4' : 'order-2 block max-h-60 min-h-[40px] min-w-0 flex-1 basis-0 resize-none bg-transparent px-2 py-2 text-[15px] leading-relaxed text-body outline-none placeholder:text-body-4 md:order-1 md:min-h-[52px] md:basis-full md:px-4 md:pb-0 md:pt-4'}
       />
 
       <input
@@ -278,7 +283,7 @@ export default function AgentInputBar({
         }}
       />
 
-      <div className="order-1 contents md:order-2 md:flex md:w-full md:items-center md:justify-between md:gap-2 md:px-2.5 md:pb-2.5 md:pt-1">
+      <div className={pill ? 'order-1 contents' : 'order-1 contents md:order-2 md:flex md:w-full md:items-center md:justify-between md:gap-2 md:px-2.5 md:pb-2.5 md:pt-1'}>
         <div className="order-1 flex items-center gap-1 md:order-none">
           <button
             type="button"
@@ -299,7 +304,7 @@ export default function AgentInputBar({
 
         <div className="order-3 flex items-center gap-1.5 md:order-none">
           {models && (
-            <label className="relative hidden cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[12.5px] text-body-2 transition hover:bg-surface-chip md:flex" title={lang === 'zh' ? '本对话使用的 AI 模型（与设置 → AI 模型同步）' : 'Model for your conversations (synced with Settings → AI models)'}>
+            <label className={`relative cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[12.5px] text-body-2 transition hover:bg-surface-chip ${pill ? 'hidden' : 'hidden md:flex'}`} title={lang === 'zh' ? '本对话使用的 AI 模型（与设置 → AI 模型同步）' : 'Model for your conversations (synced with Settings → AI models)'}>
               <span className="max-w-[140px] truncate font-medium">
                 {models.selected
                   ? models.options.find((o) => o.id === models.selected)?.label || models.selected
@@ -349,6 +354,19 @@ export default function AgentInputBar({
       </div>
       </div>
     </div>
+    {pill && models && (
+      <div className="mt-1.5 hidden justify-end md:flex">
+        <label className="relative flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10.5px] text-body-3 transition hover:bg-surface-chip" title={lang === 'zh' ? '本对话使用的 AI 模型（与设置 → AI 模型同步）' : 'Model for your conversations (synced with Settings → AI models)'}>
+          <span className="max-w-[160px] truncate">{lang === 'zh' ? '模型' : 'Model'} · {models.selected ? models.options.find((o) => o.id === models.selected)?.label || models.selected : models.defaultLabel}</span>
+          <ChevronIcon />
+          <select aria-label={lang === 'zh' ? '选择 AI 模型' : 'Choose AI model'} value={models.selected} onChange={(e) => chooseModel(e.target.value)} className="absolute inset-0 cursor-pointer opacity-0">
+            <option value="">{lang === 'zh' ? `默认 · ${models.defaultLabel}` : `Default · ${models.defaultLabel}`}</option>
+            {models.options.map((o) => (<option key={o.id} value={o.id}>{o.label}</option>))}
+          </select>
+        </label>
+      </div>
+    )}
+    </>
   )
 }
 

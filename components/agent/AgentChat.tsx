@@ -16,13 +16,14 @@ import ApprovalActionCard from './ApprovalActionCard'
 import { ActivitySheet } from '@/components/mobile/ActivitySheet'
 import { WORKFLOW_STAGES, stageIndex } from '@/lib/agent/orchestrator'
 import { LISTINGS_PAGE, nextBatchPrompt, pageListings } from '@/lib/agent/listingPaging'
+import { assistantStatusLine } from '@/lib/agent/statusLine'
 
-const ACCENT: Record<AgentRole, string> = {
+export const ACCENT: Record<AgentRole, string> = {
   tenant: ROLE_THEME.tenant.accent,
   landlord: ROLE_THEME.landlord.accent,
   agent: ROLE_THEME.agent.accent,
 }
-const ORB: Record<AgentRole, string> = {
+export const ORB: Record<AgentRole, string> = {
   tenant: ROLE_THEME.tenant.avatarGradient,
   landlord: ROLE_THEME.landlord.avatarGradient,
   agent: ROLE_THEME.agent.avatarGradient,
@@ -82,6 +83,7 @@ export default function AgentChat({
   draft,
   phaseLabel,
   phoneFill = false,
+  hero = false,
 }: {
   role: AgentRole
   agentName: string
@@ -111,6 +113,11 @@ export default function AgentChat({
   phaseLabel?: string | null
   /** Phone (below md): the parent column sets the height and the chat bleeds edge to edge; md+ keeps the card. */
   phoneFill?: boolean
+  /** Web assistant page (Muse web reference, 2026-09-25): the conversation IS the
+   *  page — no card chrome, a 760px message column, no per-message orb, approvals
+   *  in the thread at every width, a pill composer; the identity header hides from
+   *  lg where the AssistantPanel shows it. Phones render exactly as phoneFill. */
+  hero?: boolean
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -129,15 +136,7 @@ export default function AgentChat({
     const st = WORKFLOW_STAGES[role][stageIndex(role, workflow.current_stage)]
     return st ? st.label[lang] : ''
   })()
-  const statusLine = (() => {
-    if (status === 'understanding') return zh ? '正在读你的消息…' : 'Reading your message…'
-    if (status === 'working') return zh ? `正在：${stageLabel || '处理你的请求'}` : `Working on: ${stageLabel || 'your request'}`
-    if (pending.length) return zh ? `等你点头：${pending.length} 件` : `Waiting on you: ${pending.length}`
-    if (!pendingActions) return zh ? '在线 · 读取你的记忆' : 'ONLINE · READING YOUR MEMORY'
-    return zh
-      ? `空闲${stageLabel ? ` · 当前阶段 ${stageLabel}` : ''}${memoryCount ? ` · 记得 ${memoryCount} 条` : ''}`
-      : `Idle${stageLabel ? ` · stage: ${stageLabel}` : ''}${memoryCount ? ` · ${memoryCount} memories` : ''}`
-  })()
+  const statusLine = assistantStatusLine({ status, pendingCount: pending.length, hasApprovals: !!pendingActions, stageLabel, memoryCount, zh })
   const canOpenSheet = !!pendingActions
   const endRef = useRef<HTMLDivElement>(null)
   const thinking = status === 'understanding' || status === 'working'
@@ -150,12 +149,12 @@ export default function AgentChat({
   }, [messages.length, thinking])
 
   return (
-    <div className={`flex flex-col overflow-hidden bg-white ${fill ? 'h-full rounded-2xl border border-line-divider shadow-sm' : phoneFill ? 'h-full md:h-[70vh] md:rounded-2xl md:border md:border-line-divider md:shadow-sm lg:h-full' : canOpenSheet ? 'h-[calc(100dvh-150px)] sm:h-[70vh] sm:rounded-2xl sm:border sm:border-line-divider sm:shadow-sm lg:h-full' : 'h-[70vh] rounded-2xl border border-line-divider shadow-sm lg:h-full'}`}>
+    <div className={`flex flex-col overflow-hidden bg-white ${hero ? 'h-full' : fill ? 'h-full rounded-2xl border border-line-divider shadow-sm' : phoneFill ? 'h-full md:h-[70vh] md:rounded-2xl md:border md:border-line-divider md:shadow-sm lg:h-full' : canOpenSheet ? 'h-[calc(100dvh-150px)] sm:h-[70vh] sm:rounded-2xl sm:border sm:border-line-divider sm:shadow-sm lg:h-full' : 'h-[70vh] rounded-2xl border border-line-divider shadow-sm lg:h-full'}`}>
       {/* header — centred avatar, name below it, then the status line, on every
           breakpoint (user 2026-09-24: "avatar 放中间，下面放名字", phone and web
           alike). Compact (~80px on phones, ~110px on desktop). Avatar / status
           open the activity log. */}
-      <div className="flex flex-none flex-col items-center px-4 pb-2 pt-3 md:border-b md:border-line-divider md:px-5 md:pb-3 md:pt-5">
+      <div className={`flex flex-none flex-col items-center px-4 pb-2 pt-3 md:border-b md:border-line-divider md:px-5 md:pb-3 md:pt-5 ${hero ? 'lg:hidden' : ''}`}>
         <button
           type="button"
           onClick={() => canOpenSheet && setSheet(true)}
@@ -174,11 +173,12 @@ export default function AgentChat({
       {sheet && <ActivitySheet role={role} agentName={agentName} live={live} memoryCount={memoryCount} onClose={() => setSheet(false)} />}
 
       {/* thread */}
-      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4 md:px-5 md:py-5">
+      <div className={`flex-1 overflow-y-auto px-4 py-4 ${hero ? 'md:px-10 md:py-6' : 'md:px-5 md:py-5'}`}>
+      <div className={hero ? 'mx-auto w-full max-w-[760px] space-y-4' : 'space-y-4'}>
         {messages.map((m) => (
           <div key={m.id} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
             {m.role === 'agent' && (
-              <span className="mr-2 mt-0.5 h-7 w-7 flex-none rounded-full" style={{ background: ORB[role] }} />
+              <span className={`mr-2 mt-0.5 h-7 w-7 flex-none rounded-full ${hero ? 'md:hidden' : ''}`} style={{ background: ORB[role] }} />
             )}
             <div
               className={
@@ -359,7 +359,7 @@ export default function AgentChat({
             (phone + tablet; the lg controls column shows the same cards).
             Decided ones collapse to one line. */}
         {onDecide && (decided.length > 0 || pending.length > 0) && (
-          <div className="space-y-3 lg:hidden">
+          <div className={`space-y-3 ${hero ? '' : 'lg:hidden'}`}>
             {decided.map((d) => (
               <ScheduledRow key={d.id} id={d.id} title={d.title} decision={d.decision} scheduled={scheduled?.[d.id]} onUndo={onUndo} zh={zh} />
             ))}
@@ -377,7 +377,7 @@ export default function AgentChat({
           </div>
         )}
         {messages.length <= 1 && !thinking && (
-          <div className="pl-9 pt-1">
+          <div className={`pl-9 pt-1 ${hero ? 'md:pl-0' : ''}`}>
             <div className="mb-2.5 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">
               {lang === 'zh' ? '试试这些 · 一句话开工' : 'Try one — a single sentence starts the work'}
             </div>
@@ -405,16 +405,19 @@ export default function AgentChat({
         )}
         {thinking && (
           <div className="flex justify-start">
-            <span className="mr-2 mt-0.5 h-7 w-7 flex-none rounded-full" style={{ background: ORB[role] }} />
+            <span className={`mr-2 mt-0.5 h-7 w-7 flex-none rounded-full ${hero ? 'md:hidden' : ''}`} style={{ background: ORB[role] }} />
             <ThinkingIndicator status={status} lang={lang} />
           </div>
         )}
         <div ref={endRef} />
       </div>
+      </div>
 
       {/* input */}
-      <div className="border-t border-line-divider p-2 md:p-3">
-        <AgentInputBar agentName={agentName} role={role} onSend={onSend} disabled={thinking} draft={composerDraft} />
+      <div className={hero ? 'border-t border-line-divider p-2 md:border-t-0 md:px-10 md:pb-5 md:pt-1' : 'border-t border-line-divider p-2 md:p-3'}>
+        <div className={hero ? 'mx-auto max-w-[760px]' : ''}>
+          <AgentInputBar agentName={agentName} role={role} onSend={onSend} disabled={thinking} draft={composerDraft} pill={hero} />
+        </div>
       </div>
     </div>
   )

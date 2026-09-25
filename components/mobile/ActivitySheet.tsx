@@ -4,41 +4,16 @@
 // benchmark item C: "you can't trust what you can't see"). Reads the last
 // 20 agent_audit_events under the user's own RLS; two exits — the full audit
 // page and the memory card on the progress page.
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { auditActionLabel } from '@/lib/agent/ideas'
+import { fmtActivityTime, useActivityLog } from '@/lib/agent/useActivityLog'
 import type { AgentRole } from '@/lib/agent/types'
-
-type Row = { id: string; action: string; actor_type: string; created_at: string; metadata: Record<string, unknown> | null }
-
-function fmtTime(iso: string, lang: 'zh' | 'en'): string {
-  const d = new Date(iso)
-  const now = new Date()
-  const sameDay = d.toDateString() === now.toDateString()
-  const hm = d.toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-CA', { hour: '2-digit', minute: '2-digit', hour12: false })
-  if (sameDay) return hm
-  const yest = new Date(now.getTime() - 86_400_000)
-  if (d.toDateString() === yest.toDateString()) return lang === 'zh' ? `昨天 ${hm}` : `Yesterday ${hm}`
-  return d.toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-CA', { month: 'short', day: 'numeric' })
-}
 
 export function ActivitySheet({ role, agentName, live, memoryCount, onClose }: { role: AgentRole; agentName: string; live: boolean; memoryCount: number; onClose: () => void }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const [rows, setRows] = useState<Row[] | null>(null)
-  useEffect(() => {
-    if (!live) { setRows([]); return }
-    let cancelled = false
-    supabase
-      .from('agent_audit_events')
-      .select('id, action, actor_type, created_at, metadata')
-      .order('created_at', { ascending: false })
-      .limit(20)
-      .then(({ data }) => { if (!cancelled) setRows((data ?? []) as Row[]) })
-    return () => { cancelled = true }
-  }, [live])
+  const rows = useActivityLog(live, 20)
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/35 sm:items-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={zh ? `${agentName} 的活动日志` : `${agentName}'s activity log`}>
@@ -61,7 +36,7 @@ export function ActivitySheet({ role, agentName, live, memoryCount, onClose }: {
           )}
           {rows?.map((r) => (
             <div key={r.id} className="flex gap-3 py-2.5 text-[13px]">
-              <span className="w-[62px] flex-none font-mono text-[11px] text-body-3">{fmtTime(r.created_at, lang)}</span>
+              <span className="w-[62px] flex-none font-mono text-[11px] text-body-3">{fmtActivityTime(r.created_at, lang)}</span>
               <span className="min-w-0 text-body-2">
                 {auditActionLabel(r.action, lang, r.metadata || undefined)}
                 {r.actor_type === 'user' && <span className="ml-1 text-[11px] text-body-3">{zh ? '· 你' : '· you'}</span>}

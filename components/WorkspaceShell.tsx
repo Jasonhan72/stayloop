@@ -334,9 +334,9 @@ export default function WorkspaceShell({ role, aside, children, hideAside, liveS
             design/redesign-2026-09/Console.dc.html) */}
         <div className="md:flex md:min-h-[calc(100vh-66px)]">
           <Rail role={role} />
-          <div className={phoneApp ? 'min-w-0 flex-1 p-0 pb-16 md:px-7 md:py-9 md:pb-9 lg:px-12' : 'min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12'}>
+          <div className={phoneApp ? 'min-w-0 flex-1 p-0 pb-16 md:p-0' : 'min-w-0 flex-1 px-5 py-6 pb-24 sm:px-7 md:py-9 md:pb-9 lg:px-12'}>
             {(sampleNote || role === 'agent') && (
-              <div className={phoneApp ? 'px-5 pt-4 md:px-0 md:pt-0' : ''}>
+              <div className={phoneApp ? 'px-5 pt-4 md:px-8 md:pt-4' : ''}>
                 {sampleNote && <SampleBanner zh={lang === 'zh'} note={sampleNote} />}
                 {role === 'agent' && <AgentVerificationBanner status={agentStatus} zh={lang === 'zh'} />}
               </div>
@@ -363,67 +363,79 @@ function Rail({ role }: { role: WorkspaceRole }) {
   const { lang } = useI18n()
   const en = lang === 'en'
   const items = RAIL_BY_ROLE[role]
+  const auth = useAuth()
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   useEffect(() => {
     const cached = typeof window !== 'undefined' ? localStorage.getItem('stayloop-avatar') : null
     if (cached) setAvatarUrl(cached)
   }, [])
+  // 待办 badge = cards waiting on this hat (same shared fetch as the phone tabs).
+  const [pendingCount, setPendingCount] = useState(0)
+  useEffect(() => {
+    if (auth.loading || !auth.user) { setPendingCount(0); return }
+    let cancelled = false
+    const load = () => fetchPendingCount(role).then((n) => { if (!cancelled) setPendingCount(n) })
+    void load()
+    window.addEventListener(PENDING_CHANGED_EVENT, load)
+    return () => { cancelled = true; window.removeEventListener(PENDING_CHANGED_EVENT, load) }
+  }, [auth.loading, auth.user, role, path])
   const ROLE_LABEL: Record<WorkspaceRole, { zh: string; en: string }> = {
     tenant: { zh: '租客', en: 'Tenant' }, landlord: { zh: '房东', en: 'Landlord' }, agent: { zh: '经纪', en: 'Agent' },
   }
-  const onSettings = path.startsWith('/settings')
+  // md+ (Muse web reference, design/muse-web-blueprint-2026-09.html, user
+  // 2026-09-25 "按蓝本改"): a 64px icon column — no text labels, the name
+  // appears on hover; the assistant's four pages first (the same four as the
+  // phone tabs, which had no desktop entry before), then the role's pages,
+  // settings at the bottom. The labelled 220px sidebar (09-05) is retired.
+  const assistant: RailItem[] = [
+    { key: 'assistant', href: `/${role}/agent`, icon: <ChatIcon />, label: { zh: '助手', en: 'Assistant' }, desc: { zh: '和助手对话', en: 'Talk to your assistant' } },
+    { key: 'todo', href: `/${role}/todo`, icon: <TodoIcon />, label: { zh: '待办', en: 'To-do' }, desc: { zh: '等你点头的', en: 'Waiting on you' } },
+    { key: 'ideas', href: `/${role}/ideas`, icon: <BulbIcon />, label: { zh: '想法', en: 'Ideas' }, desc: { zh: '它可以替你做', en: 'What it can do for you' } },
+    { key: 'progress', href: `/${role}/progress`, icon: <ProgressIcon />, label: { zh: '进度', en: 'Progress' }, desc: { zh: '租前 · 租中 · 租后', en: 'Leasing · Living · Renewal' } },
+  ]
+  const pages = items.filter((it) => it.key !== 'home')
+  const settingsItem: RailItem = { key: 'settings', href: '/settings', icon: <GearIcon />, label: { zh: '设置', en: 'Settings' }, desc: { zh: '账号与设置', en: 'Account and settings' } }
+  const link = (it: RailItem, badge = 0) => {
+    const on = path === it.href || path.startsWith(it.href + '/')
+    return (
+      <Link
+        key={it.key}
+        href={it.href}
+        aria-label={en ? it.label.en : it.label.zh}
+        aria-current={on ? 'page' : undefined}
+        className="group relative flex h-11 w-11 flex-none items-center justify-center rounded-[10px] transition"
+        style={on ? { background: 'rgba(255,255,255,0.12)', color: '#ffffff' } : { color: '#c7d2e3' }}
+      >
+        {it.icon}
+        {badge > 0 && (
+          <span className="absolute right-1 top-1 min-w-[16px] rounded-full px-1 text-center text-[10px] font-extrabold leading-4 text-white" style={{ background: '#EF4444' }}>{badge > 99 ? '99+' : badge}</span>
+        )}
+        <span className="pointer-events-none absolute left-[52px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-[7px] px-2.5 py-1.5 text-[12px] font-semibold text-white shadow-lg group-hover:block group-focus-visible:block" style={{ background: '#1B1B3C' }}>{en ? it.label.en : it.label.zh}</span>
+      </Link>
+    )
+  }
   return (
     <>
     <PhoneTabs role={role} items={items} />
     <nav
-      // md+: the navy sidebar. Phones get the five-tab bar above (Muse
-      // benchmark 2026-09-22) — the old eight-cell bar is gone.
-      className="hidden md:static md:flex md:h-auto md:w-[220px] md:flex-none md:flex-col md:items-stretch md:justify-start md:gap-1 md:overflow-visible md:px-[14px] md:py-[18px]"
+      className="hidden md:flex md:w-16 md:flex-none md:flex-col md:items-center md:gap-1 md:px-2 md:py-3"
       style={{ background: '#1B1B3C' }}
+      aria-label={en ? 'Workspace' : '工作台'}
     >
-      {/* role card (md+) */}
-      <div className="mb-3 hidden items-center gap-3 rounded-[10px] px-3 py-[10px] md:flex" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <Link href="/settings" aria-label={en ? `${ROLE_LABEL[role].en} · settings` : `${ROLE_LABEL[role].zh} · 设置`} className="flex h-10 w-10 flex-none items-center justify-center overflow-hidden rounded-xl">
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="" className="h-8 w-8 flex-none rounded-full object-cover" />
+          <img src={avatarUrl} alt="" className="h-10 w-10 object-cover" />
         ) : (
-          <div className="h-8 w-8 flex-none rounded-full" style={{ background: ROLE_THEME[role].avatarGradient }} />
+          <span className="block h-10 w-10" style={{ background: ROLE_THEME[role].avatarGradient }} />
         )}
-        <div className="min-w-0">
-          <div className="truncate text-[13px] font-bold text-white">{en ? ROLE_LABEL[role].en : ROLE_LABEL[role].zh}</div>
-          <div className="text-[11px]" style={{ color: '#94a3b8' }}>{en ? 'Workspace' : '工作台'}</div>
-        </div>
-      </div>
-
-      {items.map((it) => {
-        const on = path === it.href || path.startsWith(it.href + '/')
-        return (
-          <Link
-            key={it.key}
-            href={it.href}
-            title={en ? it.desc.en : it.desc.zh}
-            className={
-              'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg text-[16px] transition md:h-[42px] md:w-auto md:flex-none md:flex-row md:justify-start md:gap-3 md:px-[14px] md:text-[13.5px] md:font-semibold ' +
-              (on ? 'text-white' : 'hover:text-white')
-            }
-            style={on ? { background: 'rgba(255,255,255,0.10)', color: '#ffffff' } : { color: '#c7d2e3' }}
-          >
-            {it.icon}
-            <span className="max-w-full truncate text-[9.5px] font-medium leading-none md:text-[13.5px] md:font-semibold md:leading-normal">{en ? it.label.en : it.label.zh}</span>
-          </Link>
-        )
-      })}
-
-      <div className="hidden md:mt-auto md:block" />
-      <Link
-        href="/settings"
-        title={en ? 'Settings' : '设置'}
-        className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg text-[16px] transition md:h-[42px] md:w-auto md:flex-none md:flex-row md:justify-start md:gap-3 md:px-[14px] md:text-[13.5px] md:font-semibold"
-        style={onSettings ? { background: 'rgba(255,255,255,0.10)', color: '#ffffff' } : { color: '#c7d2e3' }}
-      >
-        <GearIcon />
-        <span className="max-w-full truncate text-[9.5px] font-medium leading-none md:text-[13.5px] md:font-semibold md:leading-normal">{en ? 'Settings' : '设置'}</span>
       </Link>
+      <div className="mb-2 mt-1 text-[9.5px] font-semibold tracking-[.06em]" style={{ color: '#9fb3cf' }}>{en ? ROLE_LABEL[role].en : ROLE_LABEL[role].zh}</div>
+      {assistant.map((it) => link(it, it.key === 'todo' ? pendingCount : 0))}
+      <div className="my-1.5 h-px w-7 flex-none" style={{ background: 'rgba(255,255,255,0.14)' }} />
+      {pages.map((it) => link(it))}
+      <div className="mt-auto" />
+      {link(settingsItem)}
     </nav>
     </>
   )
@@ -459,7 +471,7 @@ function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailItem[] }) 
     { key: 'agent', href: `/${role}/agent`, label: zh ? '助手' : 'Assistant', icon: <ChatIcon /> },
     { key: 'todo', href: `/${role}/todo`, label: zh ? '待办' : 'To-do', icon: <TodoIcon />, badge: pendingCount },
     { key: 'ideas', href: `/${role}/ideas`, label: zh ? '想法' : 'Ideas', icon: <BulbIcon /> },
-    { key: 'progress', href: `/${role}/progress`, label: zh ? '进度' : 'Progress', icon: <HomeIcon /> },
+    { key: 'progress', href: `/${role}/progress`, label: zh ? '进度' : 'Progress', icon: <ProgressIcon /> },
   ]
   const cell = 'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg text-[16px] transition'
   const moreOn = more || (!tabs.some((t) => path === t.href || path.startsWith(t.href + '/')) && path !== `/${role}/agent`)
@@ -541,6 +553,7 @@ function InstallHint({ zh }: { zh: boolean }) {
   )
 }
 function TodoIcon() { return I('M4 4h16v16H4z|M8 12l3 3 5-6') }
+function ProgressIcon() { return I('M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z|M12 7v5l3 2') }
 function BulbIcon() { return I('M9 18h6|M10 21h4|M12 3a6 6 0 0 0-4 10.5c.7.6 1 1.3 1 2.5h6c0-1.2.3-1.9 1-2.5A6 6 0 0 0 12 3z') }
 function MoreIcon() { return I('M5 12h.01|M12 12h.01|M19 12h.01') }
 function BellSmall() { return I('M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9|M13.7 21a2 2 0 0 1-3.4 0') }

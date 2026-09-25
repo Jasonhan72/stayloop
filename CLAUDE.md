@@ -1953,3 +1953,23 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
   「租前·租中·租后进度」链接到达）。手机端（<md）保持 09-24 定稿：上下文条 + 通栏对话。
 - `AgentChat` 头部在**所有断点**都是头像居中、名字胶囊在下、状态行再下（手机 44px 头像，桌面 56px），不再有「md 起一行」的变体。
 - **以后往 `/x/agent` 加任何面板都放右栏或别的页面，不放对话框上方。**
+
+## 网页端按 Muse 网页版重摆（2026-09-25 · 用户「按蓝本改，三点都按你建议的来」）
+
+研究稿 `design/muse-web-benchmark-2026-09.md`，蓝本 `design/muse-web-blueprint-2026-09.html`（来源：用户提供的 muse.ai 登录后桌面截图）。
+守卫 `tests/museWeb20260925.spec.ts`（含「三页版式块归一化后逐字节相同」的断言）。落地：
+- **图标窄栏（md+ 全部工作台页）**：`WorkspaceShell.Rail` 改为 64px 墨蓝图标列，无文字，悬停出名字（`group-hover:block`）；顶部角色头像 →
+  `/settings`；先列助手四页 **助手 · 待办（红点 = 待批数）· 想法 · 进度**（与手机底栏同一组，桌面端此前没有入口），分隔线，再列角色页，
+  底部设置。**09-05「带文字标签的 Flinks 式 220px 侧栏」在桌面端退役**（用户 09-25 拍板）。`ProgressIcon`（时钟）取代进度页的房子图标。
+- **对话即页面**：三个 `/x/agent` 在 md+ 不再有内容边距（`phoneApp → md:p-0`），页面是一行 `[对话 flex-1] + [助手面板 360px]`，高
+  `calc(100vh-66px)`。`AgentChat hero`：无卡片边框、消息列限宽 760px 居中、助手消息 md+ 不带小圆球、审批卡在线程末尾（所有宽度，
+  与手机一致）、身份头部 lg+ 隐藏（面板承担）；`AgentInputBar pill`：所有宽度一行 `[+][输入][🎙][↑]`、28px 圆角、模型选择器缩成
+  输入条下一行小字。匿名预览横幅放在对话列顶部。
+- **助手面板** `components/agent/AssistantPanel.tsx`（lg+，默认打开，× 关闭后 `localStorage sl-assistant-panel`，对话铺满，右上角
+  小头像 + 名字 + 待批数可重新打开；md 平板只显示对话）：72px 头像 + 铅笔（就地改名 → `agent_configs.agent_name` 本人 RLS +
+  `setAIName` 本地缓存）+ 名字 + 状态行 + 三段 **活动 · 待办 · 记忆**。活动 = `lib/agent/useActivityLog.ts`（hook）+ `lib/agent/activityLog.ts`
+  （纯函数：按 今天 / 昨天 / 更早 分组、按动作族取图标、时间格式），手机的 `ActivitySheet` 也改用同一 hook；待办 = 待批一行摘要 +
+  去待办页（批准仍在对话卡片上）；记忆 = `PrivateMemorySnapshot`（可编辑）。状态行统一在 `lib/agent/statusLine.ts`。
+- **原右栏六张卡归位**：状态总览 + 当前进度 → `/x/progress`；推荐 `RecommendationDeck` → `/x/ideas` 末尾；记忆 → 面板；相关页面 →
+  窄栏；待批 → 对话流。`PendingActionsPanel` 不再挂在任何 `/x/agent`。
+- 手机端（<md）保持 09-24 定稿。**规矩不变：`/x/agent` 的对话上方不放任何面板。**
