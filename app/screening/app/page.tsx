@@ -1,4 +1,6 @@
 'use client'
+import { useHats } from '@/lib/useHats'
+import { isRegistrationLive } from '@/lib/agentProfile'
 import { courtNoteZh, courtSourceZh } from '@/lib/screening/localize'
 import { summaryFor } from '@/lib/screening/summaryText'
 import { useState, useEffect, useRef, useCallback, type ReactNode, type CSSProperties } from 'react'
@@ -1533,7 +1535,20 @@ export default function ScreenPage() {
   // 2026-09 redesign: the screening app lives inside the workspace shell
   // (navy sidebar). The rail follows the signed-in role; landlord by default.
   const { role: authRole } = useAuth()
-  const shellRole: WorkspaceRole = authRole === 'tenant' || authRole === 'agent' ? authRole : 'landlord'
+  // Which rail wraps the screening app (three-role walk-through 2026-09-24):
+  // landlords get the landlord workspace; an agent whose RECO registration is
+  // live screens for clients inside the AGENT workspace (no landlord hat
+  // needed — the client table gates it on the representation agreement and
+  // Information Guide dates); anyone else is sent to /landlord/become by the
+  // shell. `?as=agent` (from the client table) picks the agent rail for an
+  // account that holds both hats.
+  const hats = useHats()
+  const [asAgent, setAsAgent] = useState(false)
+  useEffect(() => { try { setAsAgent(new URLSearchParams(window.location.search).get('as') === 'agent') } catch { /* no window */ } }, [])
+  const agentLive = isRegistrationLive(hats.agent)
+  const shellRole: WorkspaceRole = authRole === 'tenant'
+    ? 'tenant'
+    : agentLive && (!hats.landlord || asAgent) ? 'agent' : 'landlord'
   const { user: landlord, loading: authLoading, signOut } = useUser({
     redirectIfMissing: false,
   })

@@ -60,7 +60,7 @@ function Become() {
               </p>
               <ul className="mt-4 space-y-2 text-[13.5px] leading-relaxed text-body">
                 <li>✓ {zh ? '如果你自己有房出租，可以在同一个账号上开通房东身份；租客与经纪身份不受影响，右上角菜单随时切换。' : 'If you rent out your own unit, turn on the landlord hat on this same account; your other hats stay, switch in the top-right menu.'}</li>
-                {hats.agent && <li>ⓘ {zh ? '经纪不能代替房东使用房东工作台：Stayloop 目前没有「代管房东账户」。替房东办事时，请由房东本人账号完成；经纪代客筛查会在代表协议记录上线后开放。' : 'Agents cannot use the landlord workspace on a landlord’s behalf — Stayloop has no delegated landlord accounts yet. Acting for a landlord happens in the landlord’s own account; agent screening for clients opens once representation agreements are recorded.'}</li>}
+                {hats.agent && <li>ⓘ {zh ? '经纪不能代替房东使用房东工作台：Stayloop 目前没有「代管房东账户」，替房东办事请由房东本人账号完成。经纪为客户做租客筛查不需要房东身份：RECO 注册核验通过后，在「客户」表记录代表协议与 Information Guide 的日期，再从客户那一行点「发起筛查」。' : 'Agents cannot use the landlord workspace on a landlord’s behalf — Stayloop has no delegated landlord accounts; acting for a landlord happens in the landlord’s own account. Screening for a client needs no landlord hat: once your RECO registration is verified, record the representation agreement and Information Guide dates in Clients, then use “Screen” on that client’s row.'}</li>}
                 {hats.agent && <li>ⓘ {zh ? '你自己作为房东出租时，发布房源和提交申请前会提示你送达 TRESA s.32 注册人披露。' : 'When you rent out your own unit, you will be prompted to deliver the TRESA s.32 registrant disclosure before publishing or applying.'}</li>}
               </ul>
               {err && <p className="mt-4 text-[13px] text-red-700">{err}</p>}

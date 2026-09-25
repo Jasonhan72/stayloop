@@ -33,7 +33,10 @@ export function clientTasks(rows: { id: string; name: string; stage: ClientStage
     if (c.stage === 'closed') continue
     if (!paperworkComplete(c)) {
       const miss = [!c.representation_agreement_at ? { zh: '书面代表协议', en: 'the written representation agreement' } : null, !c.info_guide_given_at ? { zh: 'RECO Information Guide', en: 'the RECO Information Guide' } : null].filter(Boolean) as { zh: string; en: string }[]
-      out.push({ id: `paper:${c.id}`, clientId: c.id, tone: 'warn', zh: `${c.name}：记录${miss.map((m) => m.zh).join('与')}的日期（TRESA，开展租赁服务之前）`, en: `${c.name}: record the date of ${miss.map((m) => m.en).join(' and ')} (TRESA, before leasing work)`, href: '/agent/clients' })
+      const what = miss.map((m) => m.zh).join('与')
+      // CJK ↔ Latin spacing, as in the rest of the UI ("记录 RECO Information Guide 的日期").
+      const padded = `${/^[A-Za-z]/.test(what) ? ' ' : ''}${what}${/[A-Za-z]$/.test(what) ? ' ' : ''}`
+      out.push({ id: `paper:${c.id}`, clientId: c.id, tone: 'warn', zh: `${c.name}：记录${padded}的日期（TRESA，开展租赁服务之前）`, en: `${c.name}: record the date of ${miss.map((m) => m.en).join(' and ')} (TRESA, before leasing work)`, href: '/agent/clients' })
     }
     const quiet = daysQuiet(c, today)
     if (c.stage !== 'leased' && quiet >= 7) {

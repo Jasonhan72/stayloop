@@ -291,3 +291,20 @@ describe('found while walking the landlord test account (2026-09-24)', () => {
     expect(read('app/dashboard/listings/new/page.tsx')).toContain("form.monthly_rent.trim() ? `$${form.monthly_rent}` : NOT_PROVIDED[lang]")
   })
 })
+
+describe('found while walking the agent test account (2026-09-24)', () => {
+  it('a live-registered agent screens for clients inside the agent workspace, no landlord hat needed', () => {
+    const s = read('app/screening/app/page.tsx')
+    expect(s).toContain("agentLive && (!hats.landlord || asAgent) ? 'agent' : 'landlord'")
+    expect(read('components/agent/ClientBook.tsx')).toContain('href="/screening/app?as=agent"')
+    const become = read('app/landlord/become/page.tsx')
+    expect(become).not.toContain('经纪代客筛查会在代表协议记录上线后开放')
+    expect(become).toContain('从客户那一行点「发起筛查」')
+  })
+  it('client-table task text spaces CJK and Latin', async () => {
+    const { clientTasks } = await import('@/lib/agent/clientBook')
+    const now = new Date().toISOString()
+    const [t] = clientTasks([{ id: 'x', name: 'Ann', stage: 'searching', client_role: 'tenant', representation_agreement_at: '2026-09-01', info_guide_given_at: null, last_contact_at: now, updated_at: now }])
+    expect(t.zh).toContain('记录 RECO Information Guide 的日期')
+  })
+})
