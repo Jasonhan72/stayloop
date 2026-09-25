@@ -10,8 +10,22 @@ import type { ActivityRow } from './activityLog'
 export type { ActivityRow } from './activityLog'
 export { activityGroups, activityIcon, fmtActivityTime } from './activityLog'
 
+/** Dispatched after anything that writes an audit row from the client (a turn, an approval, an undo). */
+export const ACTIVITY_CHANGED_EVENT = 'sl-activity-changed'
+export function notifyActivityChanged(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(ACTIVITY_CHANGED_EVENT))
+}
+
 export function useActivityLog(live: boolean, limit = 30): ActivityRow[] | null {
   const [rows, setRows] = useState<ActivityRow[] | null>(null)
+  // Re-read after the session writes a new row (a turn a moment ago showed
+  // up only after a reload — walk-through 2026-09-25).
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const h = () => setTick((t) => t + 1)
+    window.addEventListener(ACTIVITY_CHANGED_EVENT, h)
+    return () => window.removeEventListener(ACTIVITY_CHANGED_EVENT, h)
+  }, [])
   useEffect(() => {
     if (!live) { setRows([]); return }
     let cancelled = false
@@ -25,7 +39,7 @@ export function useActivityLog(live: boolean, limit = 30): ActivityRow[] | null 
       .limit(limit)
       .then(({ data }) => { if (!cancelled) setRows((data ?? []) as ActivityRow[]) })
     return () => { cancelled = true }
-  }, [live, limit])
+  }, [live, limit, tick])
   return rows
 }
 

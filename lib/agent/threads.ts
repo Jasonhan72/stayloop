@@ -63,10 +63,14 @@ export async function saveThread(client: SupabaseClient, id: string, messages: C
   if (error) console.warn('[threads] save failed', error.message)
 }
 
-/** The thread that was current at a moment in time — for activity rows written before thread ids were logged. */
+/** The thread that was current at a moment in time — for activity rows written
+ *  before thread ids were logged. Rows older than every thread map to the
+ *  earliest one: that is the pre-thread localStorage history migrated in. */
 export async function threadAt(client: SupabaseClient, role: AgentRole, iso: string): Promise<string | null> {
   const { data } = await client.from('agent_threads').select('id').eq('role', role).lte('created_at', iso).order('created_at', { ascending: false }).limit(1).maybeSingle()
-  return (data as { id: string } | null)?.id ?? null
+  if (data) return (data as { id: string }).id
+  const { data: first } = await client.from('agent_threads').select('id').eq('role', role).order('created_at', { ascending: true }).limit(1).maybeSingle()
+  return (first as { id: string } | null)?.id ?? null
 }
 
 // ---- per-browser "current thread" pointer ---------------------------------

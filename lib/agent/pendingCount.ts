@@ -29,5 +29,9 @@ export function fetchPendingCount(role: string): Promise<number> {
 export const PENDING_CHANGED_EVENT = 'sl-pending-changed'
 export function notifyPendingChanged(): void {
   inflight.clear()
-  if (typeof window !== 'undefined') window.dispatchEvent(new Event(PENDING_CHANGED_EVENT))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(PENDING_CHANGED_EVENT))
+    // A decision is also an audit row the activity panel should show now.
+    window.dispatchEvent(new Event('sl-activity-changed'))
+  }
 }

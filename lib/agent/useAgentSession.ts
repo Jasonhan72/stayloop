@@ -18,6 +18,7 @@ import { runAgentTurn, WORKFLOW_STAGES } from './orchestrator'
 import { demoSession } from './demo'
 import { getAIName, setAIName, getStoredAIName, getDefaultName } from '@/lib/aiName'
 import { createThread, latestThread, loadThread, readPointer, saveThread, writePointer } from './threads'
+import { notifyActivityChanged } from './useActivityLog'
 
 const CHAT_KEY_PREFIX = 'stayloop-agent-chat-'
 
@@ -626,6 +627,8 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           memoryWrites = turn.memoryWrites
           proposedAction = turn.proposedAction
           nextStage = turn.nextStage
+          // The turn's audit row is written by now — let the activity panel re-read.
+          notifyActivityChanged()
           listings = turn.listings
           listingsSource = turn.listingsSource
           listingsNotice = turn.listingsNotice
