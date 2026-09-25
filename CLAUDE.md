@@ -1816,3 +1816,9 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
 （`bird` 日志里没有项目路径），别再提 `.nosync`。磁盘：`~/.openclaw` 42 GB + 两份备份 16 GB、Claude 桌面 `vm_bundles` 20 GB、`~/.npm` 15 GB、
 各类缓存 11 GB——只有 npm / brew 缓存是我可以清的。**这台机上部署一律 `nohup bash ./ship2-v53.command > log &` + `until grep` 监视器**，
 600 秒工具超时不够用；构建前先 `top -o mem` 看有没有不是我们的 node 进程超过 2 GB。
+
+## 版本命名（2026-09-24 · 用户决定）
+
+从 2026-09-24 起，**下一个开发版本叫 V0.6，正式发布版叫 V1.0**。此前的「v5.3」是内部迭代号：git 分支 `v5.3-launch`、部署脚本 `ship2-v53.command`、
+页脚「v5.3」、`design/v53-*` 手册都保持不变（部署脚本与 GitHub 默认分支依赖分支名）；新工作在计划、CLAUDE.md 小节与提交信息里一律称 V0.6。
+改页脚等用户可见的版本字样前先问。
