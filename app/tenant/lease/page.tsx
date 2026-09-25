@@ -29,8 +29,8 @@ const CLAUSES = [
       en: 'Rent is CAD $2,800/month, due by the 1st of each month. From the day after it is late the landlord may serve an N4, ending no earlier than 7 days after service (since 2026-09-21).',
     },
     explain: {
-      zh: '解释: 这是 Ontario 标准 RTA 第 109 条要求,延期 5 天是法律允许的 grace period。',
-      en: 'explains: This follows Ontario standard RTA s.109; the 5-day delay is a legally permitted grace period.',
+      zh: '解释: 安省没有法定的迟付宽限期——租金到期次日房东就可以送达 N4；N4 的终止日至少在送达后 7 天(2026-09-21 起)。按时付清最稳妥。',
+      en: 'explains: Ontario has no statutory grace period — an N4 may be served the day after rent is late; its termination date must be at least 7 days after service (since 2026-09-21). Paying on time is the safe course.',
     },
   },
   {
@@ -54,9 +54,10 @@ const CLAUSES = [
       en: 'One small cat allowed, with a $500 deposit (deducted for wear and tear at move-out).',
     },
     explain: {
-      zh: '注意: Ontario RTA 不允许 no-pet 条款,但允许 reasonable 的损耗费。$500 在合理范围。',
-      en: 'notes: Ontario RTA prohibits no-pet clauses but allows reasonable wear-and-tear charges. $500 is within reason.',
+      zh: '注意: 安省 RTA s.134 不允许收取宠物押金或损耗保证金——只能收最后一月租金押金和钥匙押金,这 $500 条款无效,签字前让房东删掉；"不许养宠"条款同样无效(s.14)。',
+      en: 'notes: Ontario RTA s.134 forbids pet or damage deposits — only a last-month rent deposit and a key deposit are allowed, so the $500 clause is void; ask the landlord to strike it before signing. "No pets" clauses are void too (s.14).',
     },
+    warn: true,
   },
   {
     num: 18,
@@ -383,8 +384,8 @@ function SigningAside({ lang, insights }: { lang: Lang; insights: AIInsight[] })
         </div>
         <ul className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-body-2">
           <li>{zh ? '✓ 月租 $2,800 · 每月 1 号前' : '✓ Rent $2,800 · due by the 1st'}</li>
-          <li>{zh ? '✓ 押金 $2,800 · Stripe 托管(非 damage deposit)' : '✓ Deposit $2,800 · held in Stripe escrow (not a damage deposit)'}</li>
-          <li>{zh ? '✓ 一只猫 · $500 损耗保证金' : '✓ One cat · $500 wear-and-tear deposit'}</li>
+          <li>{zh ? '✓ 押金 $2,800 · 只抵最后一月租金(RTA s.106)' : '✓ Deposit $2,800 · applies to the last month only (RTA s.106)'}</li>
+          <li>{zh ? '⚠ 一只猫 · $500 保证金条款无效(RTA s.134),请房东删掉' : '⚠ One cat · the $500 deposit clause is void (RTA s.134) — ask to strike it'}</li>
           <li>{zh ? '✓ 提前退租 60 天通知' : '✓ 60 days notice for early termination'}</li>
         </ul>
       </AsideBlock>

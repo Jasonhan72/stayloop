@@ -3,6 +3,7 @@
 export const runtime = 'edge'
 
 import { useState, useRef, useEffect } from 'react'
+import { prepareUploads } from '@/lib/screening/prepareUpload'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/Header'
@@ -20,7 +21,8 @@ const FILE_KINDS: { kind: FileKind; label: { zh: string; en: string }; hint: { z
   { kind: 'bank_statement',     label: { zh: '银行对账单', en: 'Bank statement' },   hint: { zh: '最新一份，能看到工资到账', en: 'Most recent, showing payroll deposits' } },
   { kind: 'employment_letter',  label: { zh: '在职证明信', en: 'Employment letter' },   hint: { zh: '可选 — 来自雇主', en: 'Optional — from your employer' } },
 ]
-const MAX_BYTES = 10 * 1024 * 1024
+// Same cap as the tenant-files bucket (25 MB since 2026-08-25); the page used to say ten.
+const MAX_BYTES = 25 * 1024 * 1024
 
 export default function ApplyPage() {
   const params = useParams<{ slug: string }>()
@@ -117,7 +119,7 @@ export default function ApplyPage() {
     const incoming = Array.from(fileList)
     for (const f of incoming) {
       if (f.size > MAX_BYTES) {
-        setError(zh ? `${f.name} 超过 10 MB。` : `${f.name} is over 10 MB.`)
+        setError(zh ? `${f.name} 超过 25 MB。` : `${f.name} is over 25 MB.`)
         return
       }
     }
@@ -221,8 +223,19 @@ export default function ApplyPage() {
     )
 
     for (let i = 0; i < allEntries.length; i++) {
-      const { kind, file } = allEntries[i]
-      setUploadProgress(zh ? `正在上传 ${i + 1} / ${allEntries.length}: ${file.name}` : `Uploading ${i + 1} / ${allEntries.length}: ${file.name}`)
+      const { kind, file: raw } = allEntries[i]
+      setUploadProgress(zh ? `正在上传 ${i + 1} / ${allEntries.length}: ${raw.name}` : `Uploading ${i + 1} / ${allEntries.length}: ${raw.name}`)
+      // Same preparation as the screening upload: big photos are downscaled
+      // before they go to the bucket (and later to the models), one at a time
+      // so the kind stays attached to its file.
+      const prep = await prepareUploads([raw])
+      if (!prep.accepted[0] && prep.rejected[0]) {
+        setLoading(false)
+        setUploadProgress(null)
+        setError(zh ? `${raw.name} 太大，压缩后仍超过 25 MB，请换一份。` : `${raw.name} is still over 25 MB after compression — please use a smaller file.`)
+        return
+      }
+      const file = prep.accepted[0]?.file ?? raw
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
       const path = `${inserted.id}/${kind}/${Date.now()}_${safeName}`
       const { error: upErr } = await supabase.storage
@@ -442,8 +455,8 @@ export default function ApplyPage() {
             <Section tag="05" title={zh ? '证明文件 (建议上传)' : 'Supporting documents (recommended)'}>
               <p className="mb-4 text-[12.5px] leading-relaxed text-body-2">
                 {zh
-                  ? '上传文件可让房东用 AI 即时核验你的资料。PDF / JPG / PNG · 单个最大 10 MB。'
-                  : 'Uploading documents lets the landlord verify your details instantly with AI. PDF / JPG / PNG · 10 MB max each.'}
+                  ? '上传文件可让房东用 AI 即时核验你的资料。PDF / JPG / PNG · 单个最大 25 MB（大照片会自动压缩）。'
+                  : 'Uploading documents lets the landlord verify your details instantly with AI. PDF / JPG / PNG · 25 MB max each (large photos are compressed automatically).'}
               </p>
               <div className="space-y-3">
                 {FILE_KINDS.map(({ kind, label, hint }) => (

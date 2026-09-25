@@ -2036,3 +2036,13 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
 - **已发布房源的编辑页缺「租赁条件」**（租期 / 宠物 / 吸烟 / 家具 / 租金包含只在草稿编辑页有）→ `[id]/edit` 补齐同一段，落同名列。
 - **对话回滚箭头**：用户要 Muse 那种深色圆形 ↓ → 40px 墨蓝半透明圆 + 白箭头，离底 >120px 即显示（原白色 36px、160px）。
 - **活动面板的注释显示问候语**：面板在 turn 审计写入后立刻重读，而线程 800ms 去抖后才保存 → `persistThread` 保存完再 `notifyActivityChanged()`。
+- **租客号第二轮（同日）**：找房（Bay Street Corridor ≤$2,800）第一张卡就是刚发布的 1001 Bay #1618（VERIFIED）+ 5 套 Realtor + 行情卡；看房请求 →
+  `showing_intents` 行 + 房东 `showing_request` 卡；申请表（预填姓名邮箱）→ `applications` 行 → 房东队列「待筛查」。修掉的：
+  ① **`applicant_applications` 视图可写（真漏洞）**：`security_invoker=false` + 默认权限给了 authenticated INSERT/UPDATE/DELETE，租客能把自己的申请
+  UPDATE 成 approved（回滚事务实测）→ 迁移 `20260925_applicant_applications_readonly_listing.sql`（已应用 prod）撤销全部写权限，并
+  LEFT JOIN listings 带出 `listing_slug/address/unit/active` 快照——已下架房源对租客的公开 RLS 不可见，追踪条原来显示「—」，现在显示地址 +「已下架」；
+  ② `/tenant/lease` 示范租约的法律解读是错的（「延期 5 天是法律允许的 grace period」「$500 宠物保证金在合理范围」「押金 Stripe 托管」）→ 按 RTA
+  s.134 / s.106 / N4 规则改写，示范也不能说错法；③ 申请页上传上限文案 10 MB、代码 10 MB，桶是 25 MB → 统一 25 MB 并走 `prepareUploads`
+  （大照片先压缩）；④ `/tenant/payments` 是 DEMO_GATE 却没有 liveSlot——进度页数着「1 期待付」，付款页说「还没有租金记录」→ 新
+  `components/tenant/MyRent.tsx`（成员 → household → `rent_payments`）；⑤ `/h/[id]` 成员列表印对方 uid 前 8 位 → 「对方」；⑥ 想法页「已按…盖章门槛过滤」
+  （trust_tier 已清空）→「已按你的预算与区域过滤」。

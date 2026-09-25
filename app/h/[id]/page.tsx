@@ -312,7 +312,7 @@ export default function HouseholdHub() {
               {members.map((m) => (
                 <div key={m.user_id} className="flex items-center gap-3 text-[13px]">
                   <span className="rounded-md bg-surface-chip px-2 py-0.5 font-mono text-[10px] font-bold">{zh ? ROLE_ZH[m.role] ?? m.role : m.role}</span>
-                  <span className="text-body-2">{m.user_id === user?.id ? (zh ? '我' : 'me') : m.user_id.slice(0, 8)}</span>
+                  <span className="text-body-2">{m.user_id === user?.id ? (zh ? '我' : 'me') : (zh ? '对方' : 'the other party')}</span>
                   <span className="text-[11px] text-body-3">{new Date(m.joined_at).toLocaleDateString()}</span>
                 </div>
               ))}

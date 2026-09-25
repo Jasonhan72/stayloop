@@ -25,7 +25,11 @@ type Row = {
   screened_at: string | null
   decision_notified_at: string | null
   listing_id: string | null
-  listing: { slug: string; address: string; unit: string | null } | { slug: string; address: string; unit: string | null }[] | null
+  // Listing snapshot carried by the view (the public listings RLS hides an inactive listing from the applicant — it used to render as "—").
+  listing_slug: string | null
+  listing_address: string | null
+  listing_unit: string | null
+  listing_active: boolean | null
 }
 type LeaseRow = { id: string; status: string | null; unit_label: string | null; sent_at: string | null; signed_at: string | null; created_at: string }
 type HhRow = { id: string; current_lease_id: string | null; address: string | null }
@@ -72,7 +76,7 @@ export default function MyApplications({ zh }: { zh: boolean }) {
     const email = auth.user.email ?? ''
     ;(async () => {
       const [{ data: apps }, { data: ls }, { data: hh }, { data: mem }] = await Promise.all([
-        supabase.from('applicant_applications').select('id, status, created_at, move_in_date, viewed_at, screened_at, decision_notified_at, listing_id, listing:listings(slug, address, unit)').order('created_at', { ascending: false }).limit(20),
+        supabase.from('applicant_applications').select('id, status, created_at, move_in_date, viewed_at, screened_at, decision_notified_at, listing_id, listing_slug, listing_address, listing_unit, listing_active').order('created_at', { ascending: false }).limit(20),
         email ? supabase.from('lease_documents').select('id, status, unit_label, sent_at, signed_at, created_at').ilike('tenant_email', email).order('created_at', { ascending: false }).limit(20) : Promise.resolve({ data: [] as LeaseRow[] }),
         supabase.from('households').select('id, current_lease_id, address').limit(20),
         supabase.from('household_members').select('household_id').eq('user_id', uid).limit(20),
@@ -101,7 +105,7 @@ export default function MyApplications({ zh }: { zh: boolean }) {
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">{zh ? '我的申请 · 真实记录' : 'MY APPLICATIONS · LIVE'}</div>
       <div className="mt-3 divide-y divide-line-divider">
         {rows.map((r) => {
-          const l = Array.isArray(r.listing) ? r.listing[0] : r.listing
+          const l = r.listing_address ? { slug: r.listing_slug ?? '', address: r.listing_address, unit: r.listing_unit, active: r.listing_active !== false } : null
           const lease = leaseFor(r, l)
           const hh = lease ? households.find((h) => h.current_lease_id === lease.id) ?? null : null
           const steps = applicationTrack({ ...r, lease, household: hh ? { id: hh.id, joined: joined.has(hh.id) } : null })
@@ -111,7 +115,7 @@ export default function MyApplications({ zh }: { zh: boolean }) {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="font-semibold">
-                    {l ? <Link href={`/listings/${l.slug}`} className="underline underline-offset-2">{l.address}{l.unit ? ` #${l.unit}` : ''}</Link> : '—'}
+                    {l ? (l.active && l.slug ? <Link href={`/listings/${l.slug}`} className="underline underline-offset-2">{l.address}{l.unit ? ` #${l.unit}` : ''}</Link> : <span>{l.address}{l.unit ? ` #${l.unit}` : ''}<span className="ml-1.5 rounded-full bg-surface-chip px-1.5 py-[1px] text-[10.5px] font-semibold text-body-3">{zh ? '已下架' : 'Off market'}</span></span>) : '—'}
                   </div>
                   <div className="mt-0.5 text-[12px] text-body-3">
                     {zh ? '提交 ' : 'Submitted '}{r.created_at.slice(0, 10)}

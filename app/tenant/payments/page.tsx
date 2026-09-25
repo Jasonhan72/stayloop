@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import AIProactive, { type AIInsight } from '@/components/AIProactive'
 import WorkspaceShell from '@/components/WorkspaceShell'
+import MyRent from '@/components/tenant/MyRent'
 import {
   AsideBlock,
   PageHeader,
@@ -112,7 +113,7 @@ export default function TenantPaymentsPage() {
   ]
 
   return (
-    <WorkspaceShell role="tenant" aside={<Aside lang={lang} insights={insights} />}>
+    <WorkspaceShell role="tenant" aside={<Aside lang={lang} insights={insights} />} liveSlot={<MyRent />}>
       <PageHeader
         title={zh ? '租金支付' : 'Rent Payments'}
         sub={<span className="font-mono text-[11px] uppercase tracking-eyebrow text-tenant">RENT PAYMENTS</span>}
