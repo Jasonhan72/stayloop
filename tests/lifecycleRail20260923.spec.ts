@@ -70,7 +70,7 @@ describe('lifecycle stages are derived from rows, not from the model', () => {
     expect(JSON.stringify(lc)).not.toMatch(/\d+%|评分 \d|score \d/)
   })
   it('the rail lives in the phone context strip and on the progress page — never above the conversation (user 2026-09-24); the status line uses the phase', () => {
-    for (const f of ['app/tenant/agent/page.tsx', 'app/landlord/agent/page.tsx', 'app/agent/agent/page.tsx']) {
+    for (const f of ['components/agent/AgentWorkspacePage.tsx']) { // the shared assistant page (2026-09-25)
       const src = readFileSync(f, 'utf8')
       // The web version mixed the workbench (今日 + rail) into the chat page; the user
       // asked for it back: chat as the hero, nothing above it.

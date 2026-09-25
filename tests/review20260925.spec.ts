@@ -122,10 +122,9 @@ describe('conversation threads: loading is not a change; a reply lands in the th
     expect(read('lib/agent/pendingCount.ts')).not.toContain("new Event('sl-activity-changed')")
   })
   it('the saved avatar wins on a live session and is mirrored locally', () => {
-    for (const r of ['tenant', 'landlord', 'agent']) {
-      const p = read(`app/${r}/agent/page.tsx`)
-      expect(p, r).toContain(`if (live && hasData) { setAvatar(dbAvatar); setStoredAvatar('${r}', dbAvatar ?? 'default') }`)
-    }
+    const p = read('components/agent/AgentWorkspacePage.tsx') // the shared assistant page (2026-09-25)
+    expect(p).toContain("if (live && hasData) { setAvatar(dbAvatar); setStoredAvatar(role, dbAvatar ?? 'default') }")
+    expect(p).toContain('else setAvatar(getStoredAvatar(role) ?? dbAvatar)')
   })
   it('draft reconcile: same property means the same street NAME, not its first three letters', () => {
     expect(sameProperty('100 King St W', '100 Kingston Rd')).toBe(false)
@@ -146,7 +145,7 @@ describe('phone: one safe-area-aware bottom bar; sample pages say they are sampl
     const css = read('app/globals.css')
     expect(css).toContain('.sl-phone-col { height: calc(100dvh - 121px - env(safe-area-inset-bottom)); }')
     expect(css).toContain('.sl-phone-pb { padding-bottom: calc(4rem + env(safe-area-inset-bottom)); }')
-    for (const r of ['tenant', 'landlord', 'agent']) expect(read(`app/${r}/agent/page.tsx`), r).toContain('sl-phone-col flex flex-col md:h-[calc(100vh-66px)] md:flex-row')
+    expect(read('components/agent/AgentWorkspacePage.tsx')).toContain('sl-phone-col flex flex-col md:h-[calc(100vh-66px)] md:flex-row')
     expect(read('components/WorkspaceShell.tsx')).toContain("phoneApp ? 'sl-phone-pb min-w-0 flex-1 p-0 md:p-0'")
   })
   it('/x/ideas and /x/progress carry the preview notice for anonymous sessions (CLAUDE.md 示范数据标注)', () => {

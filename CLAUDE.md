@@ -2123,5 +2123,9 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
   已发布房源编辑器可清空照片保存（→ 同发布规则）、缺押金字段（补）、照片不降采样（补）；申请页超限 PDF 转页图只传第一张；`NOTICE_DAYS` 与 `N1_NOTICE_DAYS` 两份；
   死代码（`MobileBottomNav` 登录分支残留、`ORB` 导出、`ScoreCard`、`useMemo`、`applicationStatusLabel`、`activityIcon` 再导出）；演示夹具里的 Plaid → Flinks；
   帽子菜单 `role="menu"` 里的当前项不是 menuitem。
-- **记录不改**：三个 `/x/agent` 页仍是三份 95% 相同的文件（守卫断言归一化后逐字节相同，抽成共享组件是下一步）；`agent_directory` 等 5 个 definer 视图是
-  刻意的（linter 报 ERROR，接受）；`household_members / households / rent_payments / showing_intents` 表级 anon grant 是迁移时的默认权限，RLS 已挡住，未收。
+- **三个 `/x/agent` 页已抽成共享组件（用户 2026-09-25 随后要求）**：`components/agent/AgentWorkspacePage.tsx`（`role` 一个 prop：会话 / 生命周期 /
+  面板 / 头像 / 预览横幅（每帽子只差「读取你真实的 记忆与待办 / 政策与申请 / 任务与客户」一句，`PREVIEW_READS`）/ ContextStrip 的 todoHref），
+  `app/{tenant,landlord,agent}/agent/page.tsx` 各剩一行 `<AgentWorkspacePage role="…" />`。**以后改助手页只改这一个文件**；四份 spec
+  （museWeb / phoneChat / lifecycleRail / templateChips）与 review spec 都改为读共享组件，museWeb 另断言三条路由是 <15 行的薄包装。
+- **记录不改**：`agent_directory` 等 5 个 definer 视图是刻意的（linter 报 ERROR，接受）；`household_members / households / rent_payments /
+  showing_intents` 表级 anon grant 是迁移时的默认权限，RLS 已挡住，未收。

@@ -10,7 +10,10 @@ import { actionTypeLabel, activityGroups, activityIcon, buildActivity, fmtRowTim
 import type { ThreadListRow } from '@/lib/agent/threads'
 
 const read = (p: string) => readFileSync(p, 'utf8')
-const pages = ['app/tenant/agent/page.tsx', 'app/landlord/agent/page.tsx', 'app/agent/agent/page.tsx']
+// Since 2026-09-25 the three routes are thin wrappers around one shared component.
+const shared = 'components/agent/AgentWorkspacePage.tsx'
+const pages = [shared]
+const routes = ['app/tenant/agent/page.tsx', 'app/landlord/agent/page.tsx', 'app/agent/agent/page.tsx']
 
 describe('icon rail (WorkspaceShell, md+)', () => {
   const shell = read('components/WorkspaceShell.tsx')
@@ -94,17 +97,20 @@ describe('three role pages, one layout', () => {
       for (const gone of ['<TodayCard', '<LifecycleRail', 'StatusOverview', 'RecommendationDeck', 'RelatedPagesCard', 'PendingActionsPanel', 'WorkflowStatusPanel']) expect(s, `${p} still has ${gone}`).not.toContain(gone)
     }
   })
-  it('the layout block is identical across the three roles once the role is normalised', () => {
-    const norm = (p: string) => {
-      const s = read(p)
-      // the loading state has its own </WorkspaceShell> earlier in the file — take the last one
-      const block = s.slice(s.indexOf('{!panelOpen && ('), s.lastIndexOf('</WorkspaceShell>'))
-      return block.replace(/ROLE_THEME\.(tenant|landlord|agent)/g, 'ROLE_THEME.X').replace(/role="(tenant|landlord|agent)"/g, 'role="X"')
+  it('the three routes are thin wrappers around the shared page (user 2026-09-25: 把三个助手页抽成共享组件)', () => {
+    for (const [i, r] of routes.entries()) {
+      const s = read(r)
+      const role = ['tenant', 'landlord', 'agent'][i]
+      expect(s, r).toContain("import AgentWorkspacePage from '@/components/agent/AgentWorkspacePage'")
+      expect(s, r).toContain(`<AgentWorkspacePage role="${role}" />`)
+      expect(s.split('\n').length, `${r} should stay a wrapper`).toBeLessThan(15)
+      expect(s, r).not.toContain('useAgentSession(')
     }
-    const [a, b, c] = pages.map(norm)
-    expect(a.length).toBeGreaterThan(500)
-    expect(b).toBe(a)
-    expect(c).toBe(a)
+    const s = read(shared)
+    expect(s).toContain('export default function AgentWorkspacePage({ role }: { role: AgentRole })')
+    expect(s).toContain("const PREVIEW_READS: Record<AgentRole, { zh: string; en: string }>")
+    expect(s).toContain('todoHref={`/${role}/todo`}')
+    expect(s).toContain('<WorkspaceShell role={role} hideAside phoneApp>')
   })
   it('recommendations moved to /x/ideas', () => {
     expect(read('components/mobile/RolePages.tsx')).toContain('<RecommendationDeck items={data.recommendations} />')

@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 
 const read = (p: string) => readFileSync(p, 'utf8')
-const pages = ['app/tenant/agent/page.tsx', 'app/landlord/agent/page.tsx', 'app/agent/agent/page.tsx']
+// The three assistant routes are thin wrappers around one shared component (user 2026-09-25).
+const pages = ['components/agent/AgentWorkspacePage.tsx']
 
 describe('phone assistant screen', () => {
   it('each assistant page is a viewport-high column on phones with the context strip', () => {

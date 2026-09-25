@@ -83,12 +83,11 @@ describe('phone workspace wiring', () => {
     expect(readFileSync('lib/agent/statusLine.ts', 'utf8')).toMatch(/if \(!hasApprovals\) return zh \? '在线 · 读取你的记忆'/) // status line shared with the web panel (2026-09-25)
   })
   it('agent pages: approvals live in the thread; the web panel beside the chat is lg+ only (Muse web layout 2026-09-25)', () => {
-    for (const r of ['tenant', 'landlord', 'agent']) {
-      const s = readFileSync(`app/${r}/agent/page.tsx`, 'utf8')
-      expect(s, r).not.toMatch(/PendingActionsPanel/)
-      expect(s, r).toMatch(/hidden lg:flex lg:w-\[360px\]/)
-      expect(s, r).toMatch(/pendingActions=\{pendingActions\}/)
-    }
+    // one shared component behind the three routes (user 2026-09-25)
+    const s = readFileSync('components/agent/AgentWorkspacePage.tsx', 'utf8')
+    expect(s).not.toMatch(/PendingActionsPanel/)
+    expect(s).toMatch(/hidden lg:flex lg:w-\[360px\]/)
+    expect(s).toMatch(/pendingActions=\{pendingActions\}/)
   })
   it('memories are editable only for live sessions and leave audit events', () => {
     const m = readFileSync('components/agent/PrivateMemorySnapshot.tsx', 'utf8')

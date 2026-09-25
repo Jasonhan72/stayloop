@@ -22,9 +22,8 @@ describe('quick-action templates are edited by the user, not sent as facts', () 
     const hook = readFileSync('lib/agent/usePromptDeepLink.ts', 'utf8')
     expect(hook).toMatch(/params\.get\('send'\) === '1'/)
     expect(hook).toMatch(/if \(wantsSend \|\| !prefill\) void sendMessage\(text\)\s*else prefill\(text\)/)
-    for (const f of ['app/tenant/agent/page.tsx', 'app/landlord/agent/page.tsx', 'app/agent/agent/page.tsx']) {
-      expect(readFileSync(f, 'utf8'), f).toMatch(/usePromptDeepLink\(loading, sendMessage, prefill\)/)
-    }
+    // the three assistant routes share one component (2026-09-25)
+    expect(readFileSync('components/agent/AgentWorkspacePage.tsx', 'utf8')).toMatch(/usePromptDeepLink\(loading, sendMessage, prefill\)/)
     for (const f of ['app/tenant/payments/page.tsx', 'app/tenant/move-in/page.tsx', 'app/landlord/applicants/[id]/page.tsx', 'app/landlord/leases/page.tsx', 'app/disputes/page.tsx', 'app/tenant/applications/page.tsx']) {
       const links = readFileSync(f, 'utf8').match(/prompt=\$\{encodeURIComponent\([\s\S]*?\)\}/g) ?? []
       for (const l of links) expect(l, f).not.toMatch(/Mia Chen|David Park|Thompson|Sarah|\$2,800|\$4,300|DSP-2K8X|Unit 1207/)
