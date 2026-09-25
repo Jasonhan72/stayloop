@@ -18,6 +18,7 @@ import { commercialKind, summarizeCommercial } from '@/lib/agent/commercialSearc
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { buildUserContext, parseLookup, runLookup } from '@/lib/agent/userContext'
 import { needsReflection, reflectUser, USER_MODEL_KEY, userModelToPromptBlock } from '@/lib/agent/reflection'
+import { sanitizeVibe } from '@/lib/agent/assistantProfile'
 import { getRequestContext } from '@cloudflare/next-on-pages'
 import { DEFAULT_MODELS, getModelForUser, getCatalog, findModel, type CatalogModel } from '@/lib/modelConfig'
 import { llmChat, LlmHttpError, LlmKeyMissingError, LlmTruncatedError, type ChatMessage } from '@/lib/llmChat'
@@ -518,9 +519,11 @@ export async function POST(req: Request) {
   // injected on every authed turn so the agent starts out knowing the person.
   type UserModelRow = { value?: unknown; updated_at?: string | null }
   let userModelRow: UserModelRow | null = null
+  // The speaking style the person set on their assistant (assistant_profiles.vibe, RLS self) — tone only.
+  let vibe: string | null = null
   if (!anonymous && sbAuth && turnUserId) {
     try {
-      const [ctx, modelRow] = await Promise.all([
+      const [ctx, modelRow, profileRow] = await Promise.all([
         buildUserContext(sbAuth, role, turnUserId),
         sbAuth
           .from('user_memories')
@@ -529,8 +532,10 @@ export async function POST(req: Request) {
           .eq('role', 'self') // one profile per account (2026-09-25)
           .eq('key', USER_MODEL_KEY)
           .maybeSingle(),
+        sbAuth.from('assistant_profiles').select('vibe').maybeSingle(),
       ])
       userModelRow = (modelRow?.data as UserModelRow | null) ?? null
+      vibe = sanitizeVibe((profileRow?.data as { vibe?: string | null } | null)?.vibe)
       userContextAddendum = ctx + userModelToPromptBlock(userModelRow?.value)
     } catch (e) {
       console.warn('[agent/turn] user context failed', (e as Error).message)
@@ -538,7 +543,7 @@ export async function POST(req: Request) {
   }
 
   const system =
-    buildSystemPrompt(role, agentName, memories, workflow, typeof body.stageLabel === 'string' ? body.stageLabel.slice(0, 80) : undefined, uiLang) +
+    buildSystemPrompt(role, agentName, memories, workflow, typeof body.stageLabel === 'string' ? body.stageLabel.slice(0, 80) : undefined, uiLang, vibe) +
     renewalAddendum +
     landlordAddendum +
     userContextAddendum +

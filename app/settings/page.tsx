@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { activeHat, useHats } from '@/lib/useHats'
-import { saveAssistantName } from '@/lib/agent/assistantProfile'
+import { readAssistantProfile, sanitizeVibe, saveAssistantName, saveAssistantVibe, VIBE_MAX } from '@/lib/agent/assistantProfile'
 import Link from 'next/link'
 import WorkspaceShell, { type WorkspaceRole } from '@/components/WorkspaceShell'
 import { useAuth } from '@/lib/useAuth'
@@ -146,6 +146,12 @@ export default function SettingsPage() {
               >
                 <AssistantNameEditor role={shellRole} zh={zh} user={auth.user} color={color} />
               </QuickAction>
+              <QuickAction
+                label={zh ? '助手的说话风格' : 'How your assistant speaks'}
+                desc={zh ? '一句话，只影响语气与措辞（助手面板的「助手设置」里也能改）' : 'One line — tone and wording only (also in the assistant panel)'}
+              >
+                <VibeEditor zh={zh} user={auth.user} />
+              </QuickAction>
               <Link href="/settings/models" className="flex w-full items-center justify-between rounded-xl border border-line-divider bg-white px-4 py-3 text-left transition hover:bg-surface-chip">
                 <div>
                   <div className="text-[14px] font-semibold">{zh ? 'AI 模型' : 'AI models'}</div>
@@ -241,6 +247,50 @@ function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: bool
             {zh ? '恢复默认' : 'Reset'}
           </button>
         )}
+      </div>
+    </div>
+  )
+}
+
+// The speaking style (assistant_profiles.vibe) — the same field as the panel's
+// 助手设置 tab, here for phones, where the panel is not shown (2026-09-25).
+function VibeEditor({ zh, user }: { zh: boolean; user: any }) {
+  const [value, setValue] = useState('')
+  const [loaded, setLoaded] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    if (!user) { setLoaded(true); return }
+    let cancelled = false
+    readAssistantProfile(getSupabaseBrowser()).then((p) => { if (!cancelled) { setValue(p?.vibe ?? ''); setLoaded(true) } })
+    return () => { cancelled = true }
+  }, [user])
+  const handleSave = async () => {
+    if (!user) return
+    setSaving(true)
+    const next = sanitizeVibe(value)
+    const ok = await saveAssistantVibe(getSupabaseBrowser(), user.id, next)
+    setSaving(false)
+    if (ok) { setValue(next ?? ''); setSaved(true); setTimeout(() => setSaved(false), 2000) }
+  }
+  return (
+    <div className="space-y-3">
+      <textarea
+        value={value}
+        maxLength={VIBE_MAX}
+        rows={2}
+        disabled={!loaded || !user}
+        onChange={(e) => { setValue(e.target.value); setSaved(false) }}
+        placeholder={zh ? '例如：直接、先给结论、少客套' : 'e.g. direct, conclusion first, no small talk'}
+        aria-label={zh ? '说话风格' : 'Speaking style'}
+        className="w-full resize-none rounded-lg border border-line-strong bg-white px-3 py-2.5 text-[16px] leading-snug outline-none focus:border-brand disabled:opacity-60"
+      />
+      <div className="flex items-center gap-3">
+        <button onClick={handleSave} disabled={saving || !user} className="sl-btn-primary !py-2 !px-5 !text-[13px] disabled:opacity-40">
+          {saving ? '...' : saved ? '✓' : (zh ? '保存' : 'Save')}
+        </button>
+        <span className="font-mono text-[11px] text-body-3">{value.length}/{VIBE_MAX}</span>
+        <span className="text-[12px] text-body-3">{zh ? '不改变它遵守的规则和能做的事' : 'Never the rules it follows or what it may do'}</span>
       </div>
     </div>
   )

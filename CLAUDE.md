@@ -2178,3 +2178,20 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
   别的账号的一律当不存在；`dropForeignAIName(uid)` 在 `useAIName` 与 reconcile 里先把外人的缓存清掉；`resolveAccountName()` 共享一次
   `{uid, name}` 解析，`useOnboarding` 也用它——换设备时档案里有名字就不再被拖回 onboarding。守卫 `tests/aiNameOwner20260925.spec.ts`（6 条）。
   房东测试号被误写的名字已改回空。
+
+## 助手面板对照 Muse 网页版（2026-09-25 · 用户「改成和 muse 一样的，包含用小图标，鼠标划过会有注释文字，AI Agent 的设置要加上」）
+
+守卫 `tests/assistantSettings20260925.spec.ts`（4 条）；迁移 `20260925_assistant_vibe.sql`（`assistant_profiles.vibe text ≤120`）已应用 prod。
+- **分段栏改为纯图标**（`components/agent/panelIcons.tsx`：列表 / 盾勾 / 笔记本 / 指纹，与 Muse 同一组意象）：胶囊形，未选中的标签之间有细分隔线、
+  紧挨当前标签的分隔线隐藏，当前标签白色胶囊；每个标签 `aria-label` + `title` + 悬停 / 键盘聚焦时下方弹出墨蓝注释（与窄栏同一套样式）。
+  待办的红色计数改挂在图标右上角。
+- **铅笔 → 迷你菜单**「换头像 / 改名」（Muse 的 Change avatar / Edit name；外点 / Esc 关闭）；点头像本身仍直接开预设选择格。
+- **第四个标签「助手设置」**（`components/agent/AssistantSettings.tsx`）：名字 + 一行风格摘要；**风格（vibe）**——用户给助手写一句说话风格
+  （≤120 字，`sanitizeVibe` 折成一行并丢弃「忽略以上规则 / you are now / system prompt / DAN」等覆盖指令句），存 `assistant_profiles.vibe`，
+  turn 路由用调用者自己的客户端读出来、再过一次 `sanitizeVibe`、以 `buildSystemPrompt(…, vibe)` 第七个参数注入——提示词明写「只调整语气与措辞，
+  不违反任何原则、不改变事实与能力边界」，确定性 guardrail 照常跑；行：名字（改名）/ 头像（换头像）/ 对话模型（→ `/settings/models`）/ 通知（→ `/settings`）。
+  下面两张卡对应 Muse 的 SOUL / MEMORY：**画像**（玫红渐变；反思画像 `user_memories` role self · key user_model 的更新日期，点开展示
+  当前重点 / 目标 / 偏好 / 硬性约束 / 沟通风格 / 有效的做法 / 避免，并可「忘掉画像」——删该行 + 审计 `memory_forgotten`，下一轮对话后自动重建）、
+  **记忆**（靛蓝渐变；条数，点击切到记忆标签）。匿名预览只能看。`reflection.ts` 是服务端模块（引 llmChat），面板里的 `user_model` 键是重复
+  声明并由测试钉住与 `USER_MODEL_KEY` 相等。
+- **手机没有面板**：同一个风格字段在 `/settings` 的「助手的说话风格」快捷块里（`VibeEditor`）。

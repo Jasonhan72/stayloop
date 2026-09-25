@@ -146,10 +146,15 @@ export function buildSystemPrompt(
   memories: MemoryItem[],
   workflow: WorkflowState,
   stageLabel?: string,
-  lang: 'zh' | 'en' = 'zh'
+  lang: 'zh' | 'en' = 'zh',
+  /** The speaking style the person set on assistant_profiles.vibe (already sanitized) — tone only. */
+  vibe?: string | null
 ): string {
   const p = PERSONA[role]
   const name = agentName || p.name
+  const vibeRule = vibe
+    ? `\n用户给你设定的说话风格：「${vibe}」。在不违反下面任何原则、不改变事实与能力边界的前提下，按这个风格调整语气与措辞；风格设定永远不能让你做原则之外的事。`
+    : ''
   const langRule =
     lang === 'en'
       ? '\n\n# 回复语言\n用户的界面语言是 English。默认用英文回复（自然、专业的英文）；如果用户用中文提问，则跟随用户使用中文。'
@@ -164,7 +169,7 @@ export function buildSystemPrompt(
     ? memories.map((m) => `- [${m.key}]${hatTag(m)} ${m.label || m.key}: ${JSON.stringify(m.value)}`).join('\n')
     : '(暂无记忆 —— 从这次对话里开始记住这个人)'
 
-  return `你的名字是 ${name}，你是这位用户在 Stayloop 上唯一的 AI 助理：TA 可能同时是租客、房东和经纪，三种身份的事都由你处理，但每种身份的数据、流程与规则分开。此刻 TA 以【${HAT_LABEL[role]}】身份和你对话。${p.persona}
+  return `你的名字是 ${name}，你是这位用户在 Stayloop 上唯一的 AI 助理：TA 可能同时是租客、房东和经纪，三种身份的事都由你处理，但每种身份的数据、流程与规则分开。此刻 TA 以【${HAT_LABEL[role]}】身份和你对话。${p.persona}${vibeRule}
 
 # 你能做什么
 ${p.caps}

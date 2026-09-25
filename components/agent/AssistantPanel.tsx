@@ -12,7 +12,7 @@
 // 消息，是记录每一个对话" → "要有时间，要有标题和简短的注释，跟右边图一样"),
 // plus the actions that happened outside any conversation; a conversation
 // row reopens it.
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -29,8 +29,10 @@ const HAT: Record<string, { zh: string; en: string }> = { tenant: { zh: '租客'
 import type { AgentRole, AgentStatus, MemoryItem, PendingAction } from '@/lib/agent/types'
 import PrivateMemorySnapshot from './PrivateMemorySnapshot'
 import HatChip from './HatChip'
+import AssistantSettings from './AssistantSettings'
+import { AvatarIcon, FingerprintIcon, ListIcon, MemoryIcon, PencilIcon, ShieldIcon } from './panelIcons'
 
-type Segment = 'activity' | 'todo' | 'memory'
+type Segment = 'activity' | 'todo' | 'memory' | 'settings'
 
 export default function AssistantPanel({ role, agentName, status, statusLine, pendingActions, memories, live, avatar, onAvatarChange, currentThreadId, onOpenThread, onClose }: {
   role: AgentRole
@@ -84,6 +86,17 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
   // Avatar picker: presets are drawn in code (lib/agent/avatars.tsx); the
   // choice goes to assistant_profiles.avatar (cross-device) and localStorage (first paint).
   const [picking, setPicking] = useState(false)
+  // Pencil → a small menu, as on Muse: 换头像 / 改名 (user 2026-09-25). Outside click / Esc closes it.
+  const [menu, setMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!menu) return
+    const onDown = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [menu])
   async function chooseAvatar(key: string | null) {
     setPicking(false)
     onAvatarChange(key)
@@ -108,6 +121,12 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
   }
 
   const working = status === 'working' || status === 'understanding'
+  const TABS: { key: Segment; label: string; icon: ReactNode; badge: number }[] = [
+    { key: 'activity', label: zh ? '活动' : 'Activity', icon: <ListIcon />, badge: 0 },
+    { key: 'todo', label: zh ? '待办' : 'To-do', icon: <ShieldIcon />, badge: pending.length },
+    { key: 'memory', label: zh ? '记忆' : 'Memory', icon: <MemoryIcon />, badge: 0 },
+    { key: 'settings', label: zh ? '助手设置' : 'Assistant settings', icon: <FingerprintIcon />, badge: 0 },
+  ]
   return (
     <div data-testid="assistant-panel" className="flex h-full flex-col bg-white">
       <div className="relative flex-none border-b border-line-soft px-5 pb-4 pt-6 text-center">
@@ -116,7 +135,25 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
           <button type="button" onClick={() => setPicking((v) => !v)} aria-label={zh ? '换头像' : 'Change avatar'} title={zh ? '换头像' : 'Change avatar'} className="block h-full w-full rounded-full shadow-[0_8px_24px_rgba(27,27,60,.18)] transition hover:scale-[1.03]">
             <AssistantAvatar avatar={avatar} role={role} className="h-full w-full" fallback={live ? 'brand' : 'role'} />
           </button>
-          <button type="button" onClick={() => setRenaming(true)} aria-label={zh ? '改名' : 'Rename'} title={zh ? `给 ${name} 改名` : `Rename ${name}`} className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-line-divider bg-white text-[11px] shadow-sm">✎</button>
+          <div ref={menuRef} className="absolute -bottom-1 -right-1">
+            <button
+              type="button"
+              onClick={() => setMenu((v) => !v)}
+              aria-label={zh ? '编辑助手' : 'Edit assistant'}
+              title={zh ? '换头像 / 改名' : 'Change avatar / edit name'}
+              aria-haspopup="menu"
+              aria-expanded={menu}
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-line-divider bg-white text-body shadow-sm transition hover:border-line-strong"
+            >
+              <PencilIcon />
+            </button>
+            {menu && (
+              <div role="menu" className="absolute left-1/2 top-full z-50 mt-1.5 w-[172px] -translate-x-1/2 overflow-hidden rounded-xl border border-line bg-white py-1 text-left shadow-xl">
+                <button type="button" role="menuitem" onClick={() => { setMenu(false); setPicking(true) }} className="flex w-full items-center gap-2.5 px-3 py-2 text-[13.5px] font-semibold text-ink transition hover:bg-surface"><AvatarIcon /> {zh ? '换头像' : 'Change avatar'}</button>
+                <button type="button" role="menuitem" onClick={() => { setMenu(false); setRenaming(true) }} className="flex w-full items-center gap-2.5 px-3 py-2 text-[13.5px] font-semibold text-ink transition hover:bg-surface"><PencilIcon /> {zh ? '改名' : 'Edit name'}</button>
+              </div>
+            )}
+          </div>
         </div>
         {picking && (
           <div data-testid="avatar-picker" className="mx-auto mt-3 max-w-[300px] rounded-xl border border-line-divider bg-white p-2.5 shadow-lg">
@@ -150,15 +187,26 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
         </div>
       </div>
 
-      <div className="mx-5 mt-3.5 grid flex-none grid-cols-3 rounded-[10px] bg-surface-chip p-[3px]" role="tablist">
-        {([
-          ['activity', zh ? '活动' : 'Activity', 0],
-          ['todo', zh ? '待办' : 'To-do', pending.length],
-          ['memory', zh ? '记忆' : 'Memory', 0],
-        ] as [Segment, string, number][]).map(([k, label, n]) => (
-          <button key={k} type="button" role="tab" aria-selected={seg === k} onClick={() => setSeg(k)} className={`rounded-lg py-1.5 text-[12.5px] font-bold transition ${seg === k ? 'bg-white text-body shadow-[0_1px_3px_rgba(27,27,60,.1)]' : 'text-body-3'}`}>
-            {label}{n > 0 && <span className="ml-1 rounded-full bg-warning px-[5px] text-[10px] text-white">{n}</span>}
-          </button>
+      {/* Segmented control as on Muse (user 2026-09-25 "包含用小图标，鼠标划过会有注释文字"):
+          icons only, thin dividers, the name in a tooltip on hover / focus. */}
+      <div className="mx-5 mt-3.5 flex flex-none items-center rounded-full bg-surface-chip p-[3px]" role="tablist">
+        {TABS.map((t, i) => (
+          <Fragment key={t.key}>
+            {i > 0 && seg !== t.key && seg !== TABS[i - 1].key && <span aria-hidden className="h-4 w-px flex-none" style={{ background: '#D3E3EF' }} />}
+            <button
+              type="button"
+              role="tab"
+              aria-selected={seg === t.key}
+              aria-label={t.label}
+              title={t.label}
+              onClick={() => setSeg(t.key)}
+              className={`group relative flex h-8 flex-1 items-center justify-center rounded-full transition ${seg === t.key ? 'bg-white text-body shadow-[0_1px_3px_rgba(27,27,60,.1)]' : 'text-body-3 hover:text-body-2'}`}
+            >
+              {t.icon}
+              {t.badge > 0 && <span className="absolute right-1.5 top-0.5 min-w-[15px] rounded-full bg-warning px-1 text-center text-[10px] font-extrabold leading-[15px] text-white">{t.badge > 99 ? '99+' : t.badge}</span>}
+              <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 hidden -translate-x-1/2 whitespace-nowrap rounded-[7px] px-2.5 py-1.5 text-[12px] font-semibold text-white shadow-lg group-hover:block group-focus-visible:block" style={{ background: '#1B1B3C' }}>{t.label}</span>
+            </button>
+          </Fragment>
         ))}
       </div>
 
@@ -221,6 +269,9 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
           </div>
         )}
         {seg === 'memory' && <PrivateMemorySnapshot agentName={name} memories={memories} role={role} editable={live} />}
+        {seg === 'settings' && (
+          <AssistantSettings role={role} name={name} live={live} memoryCount={memories.length} onRename={() => setRenaming(true)} onChangeAvatar={() => setPicking(true)} onOpenMemory={() => setSeg('memory')} />
+        )}
       </div>
     </div>
   )

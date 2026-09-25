@@ -59,9 +59,10 @@ describe('the conversation is the page', () => {
 describe('assistant panel', () => {
   const panel = read('components/agent/AssistantPanel.tsx')
   it('avatar · name · status, then 活动 / 待办 / 记忆; closable; rename writes the account’s assistant profile (one assistant, 2026-09-25)', () => {
-    expect(panel).toContain("['activity', zh ? '活动' : 'Activity'")
-    expect(panel).toContain("['todo', zh ? '待办' : 'To-do'")
-    expect(panel).toContain("['memory', zh ? '记忆' : 'Memory'")
+    // Icon tabs since the Muse round (2026-09-25): the label lives in aria-label / title / hover tooltip
+    expect(panel).toContain("{ key: 'activity', label: zh ? '活动' : 'Activity', icon: <ListIcon />, badge: 0 }")
+    expect(panel).toContain("{ key: 'todo', label: zh ? '待办' : 'To-do', icon: <ShieldIcon />, badge: pending.length }")
+    expect(panel).toContain("{ key: 'memory', label: zh ? '记忆' : 'Memory', icon: <MemoryIcon />, badge: 0 }")
     expect(panel).toContain('useActivityLog(live, 30, visible)')
     expect(panel).toContain('await saveAssistantName(supabase, auth.user.id, next)')
     expect(panel).not.toContain("from('agent_configs')")
