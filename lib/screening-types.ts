@@ -199,10 +199,14 @@ export interface CrossDocVerification {
     observed_pattern: string
     verdict: 'corroborated' | 'partial' | 'uncorroborated'
     detail: string
+    /** Chinese versions (2026-09-24, SL-L-06) — absent on older reports. */
+    observed_pattern_zh?: string
+    detail_zh?: string
   } | null
   related_party?: {
     suspected: boolean
     signals: string[]
+    signals_zh?: string[]
   } | null
   /**
    * Who signed the employment letter, and the title printed beside the
@@ -226,6 +230,8 @@ export interface CrossDocVerification {
   } | null
   suspicious_transfers?: string[]
   verification_checklist?: string[]
+  suspicious_transfers_zh?: string[]
+  verification_checklist_zh?: string[]
 }
 
 export interface ArmLengthCheck {
@@ -353,6 +359,7 @@ export interface ScoreResult {
   detected_monthly_income?: number | null
   effective_monthly_income?: number | null
   income_evidence?: string | null
+  income_evidence_zh?: string | null
   monthly_rent?: number | null
   income_rent_ratio?: number | null
   extracted_name: string

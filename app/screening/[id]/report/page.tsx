@@ -20,6 +20,7 @@ export const runtime = 'edge'
 // packs at scoring time) with per-column fallbacks — same reconstruction the
 // screening history view uses. Presentation layer only; no scoring logic here.
 
+import { courtNoteZh, courtSourceZh, localizeResult } from '@/lib/screening/localize'
 import { signalLabel } from '@/lib/screening/signalLabels'
 import { useState, useEffect } from 'react'
 import { dissolutionReason } from '@/lib/forensics/employer-checks'
@@ -112,6 +113,7 @@ function reconstructResult(row: any): ScoreResult {
     detected_monthly_income: v3.detected_monthly_income ?? null,
     effective_monthly_income: v3.effective_monthly_income ?? null,
     income_evidence: v3.income_evidence ?? row.ai_dimension_notes?._income_evidence ?? null,
+    income_evidence_zh: v3.income_evidence_zh ?? null,
     monthly_rent: v3.monthly_rent ?? (row.monthly_rent != null ? Number(row.monthly_rent) : null),
     income_rent_ratio: v3.income_rent_ratio ?? (row.income_rent_ratio != null ? Number(row.income_rent_ratio) : null),
     extracted_name: v3.extracted_name || row.ai_extracted_name || row.tenant_name || '',
@@ -297,14 +299,14 @@ export default function ReportPage() {
   if (loadError) return <NotFoundShell zh={zh} />
 
   // Full pipeline snapshot (ai_dimension_notes._v3 + column fallbacks)
-  const r = reconstructResult(screening)
+  // SL-L-06: Chinese text swapped in (model *_zh twins, rubric / court templates).
+  const r = localizeResult(reconstructResult(screening), zh)
   const score = r.overall
   const tier = r.v3_tier ?? 'decline'
   const ti = tierInfo(tier, zh)
   const applicantName = r.extracted_name || (zh ? '申请人' : 'Applicant')
   const dims = r.scores_v3 || {}
   const summary = zh ? (r.summary_zh || r.summary_en || r.summary) : (r.summary_en || r.summary || r.summary_zh)
-  const altSummary = zh ? (r.summary_en || '') : (r.summary_zh || '')
   const forensics = r.forensics_detail
   const courtDetail = r.court_records_detail as { queries: CourtQuery[]; total_hits: number; queried_name: string; databases_searched?: number; partial?: boolean }
   const ltb = (r as { ltb_check?: LtbCheck | null }).ltb_check ?? null
@@ -674,12 +676,6 @@ export default function ReportPage() {
           {summary && (
             <SectionShell id="ai-summary" title={zh ? 'AI 评估摘要' : 'AI SUMMARY'} subtitle={zh ? 'AI 生成的综合分析' : 'Generated analysis'}>
               <p className="text-[14px] leading-relaxed text-body-2">{summary}</p>
-              {altSummary && altSummary !== summary && (
-                <div className="mt-4 rounded-lg border border-line-divider bg-[#FAFAF8] p-4">
-                  <div className="mb-2 font-mono text-[10px] font-bold uppercase text-body-3">{zh ? 'English Summary' : 'Chinese Summary'}</div>
-                  <p className="text-[13px] leading-relaxed text-body-2">{altSummary}</p>
-                </div>
-              )}
             </SectionShell>
           )}
 
@@ -707,7 +703,7 @@ export default function ReportPage() {
                         <span className="text-[12.5px] font-semibold text-body">
                           {DIMENSION_LABELS[h.dim] ? (zh ? DIMENSION_LABELS[h.dim].zh : DIMENSION_LABELS[h.dim].en) : h.dim}
                         </span>
-                        <span className="font-mono text-[10.5px] text-body-3">{h.code}</span>
+                        {!zh && <span className="font-mono text-[10.5px] text-body-3">{h.code}</span>}
                         <span className="w-full text-[12px] text-body-2 sm:w-auto sm:flex-1">{h.observed}</span>
                       </div>
                     ))}
@@ -1480,8 +1476,8 @@ export default function ReportPage() {
                       <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line-divider/60 px-4 py-2.5" style={{ background: col + '06' }}>
                         <Badge label={searchedBadge.label} color={searchedBadge.color} />
                         {resultBadge && <Badge label={resultBadge.label} color={resultBadge.color} />}
-                        <span className="min-w-0 flex-1 text-[13px] text-body-2">{q.source}</span>
-                        {q.note && <span className="w-full text-[11px] text-body-3 sm:w-auto">{q.note}</span>}
+                        <span className="min-w-0 flex-1 text-[13px] text-body-2">{zh ? courtSourceZh(q.source) : q.source}</span>
+                        {q.note && <span className="w-full text-[11px] text-body-3 sm:w-auto">{zh ? courtNoteZh(q.note) : q.note}</span>}
                         {q.url && (
                           <a
                             href={q.url}

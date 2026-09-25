@@ -326,7 +326,7 @@ export default function GraphPage() {
                   {tier === 'approve' ? (zh ? '通过' : 'PASS') : tier === 'conditional' ? (zh ? '待定' : 'COND') : tier === 'decline' ? (zh ? '拒绝' : 'FAIL') : '—'}
                 </div>
                 <div className="mt-1 text-[13px] font-bold text-body">{zh ? '结论' : 'Recommendation'}</div>
-                <div className="mt-0.5 text-[11px] text-body-3">{tier}</div>
+                <div className="mt-0.5 text-[11px] text-body-3">{tier === 'approve' ? (zh ? '优质 · 建议通过' : 'Proceed') : tier === 'conditional' ? (zh ? '待定 · 附加条件' : 'Conditional') : tier === 'decline' ? (zh ? '建议拒绝' : 'Decline') : (zh ? '仅供参考' : 'Information only')}</div>
               </div>
               <div className="rounded-xl border border-line-divider bg-[#FAFAF8] p-4 text-center">
                 <div className="font-mono text-[28px] font-extrabold" style={{ color: '#047857' }}>

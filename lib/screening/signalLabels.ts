@@ -30,6 +30,16 @@ const LABELS: Record<string, L> = {
   stale_documents: { zh: '材料过旧', en: 'Documents are out of date' },
   hr_phone_is_applicant: { zh: 'HR 电话就是申请人自己的电话', en: 'HR phone is the applicant’s own number' },
   volunteered_sin: { zh: '主动提供了 SIN 号', en: 'SIN volunteered' },
+  // corroboration codes (rubric CORROBORATION_CODES — shown under 文件互证)
+  payroll_processor_recognized: { zh: '工资由可识别的代发机构发放', en: 'Pay comes from a recognised payroll processor' },
+  deposits_match_paystub_net: { zh: '银行入账等于工资单实发', en: 'Deposits equal the pay-stub net pay' },
+  employer_registry_active: { zh: '雇主在注册库中处于活跃状态', en: 'Employer active in the corporate registry' },
+  paystub_deductions_at_legal_max: { zh: '工资单扣缴已到法定上限（与真实工资单一致）', en: 'Pay-stub deductions at the statutory maximum' },
+  cross_doc_bonus_corroborated: { zh: '奖金在多份文件中一致', en: 'Bonus corroborated across documents' },
+  bonus_deposit_reconciled: { zh: '奖金入账与工资单对得上', en: 'Bonus deposit reconciles with the pay stub' },
+  cross_doc_income_corroborated: { zh: '收入在多份文件中一致', en: 'Income corroborated across documents' },
+  employer_counterparty_on_statement: { zh: '流水上出现雇主本身的付款', en: 'Employer appears as a counterparty on the statement' },
+  paystub_ytd_one_off_reconciled: { zh: '年累计中的一次性项目已对账', en: 'Year-to-date one-off items reconciled' },
   // forensics_* (prefix stripped before lookup)
   pdf_producer_consumer_tool: { zh: 'PDF 由消费级编辑工具生成', en: 'PDF produced by a consumer editing tool' },
   timestamp_batch_creation: { zh: '多份文件创建时间几乎相同', en: 'Documents created at nearly the same time' },

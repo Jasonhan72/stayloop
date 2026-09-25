@@ -6,6 +6,7 @@
  * fonts natively — no need to embed a 20MB font file.
  */
 
+import { courtNoteZh, courtSourceZh, localizeResult } from '@/lib/screening/localize'
 import type { OntarioPortalMatch, CanLIIMatch, CourtQuery, AiFlag, ScoreResult } from './screening-types'
 import { dissolutionReason } from '@/lib/forensics/employer-checks'
 import { analyzeCreditReport } from '@/lib/screening/creditAnalysis'
@@ -252,6 +253,8 @@ export async function generateScreeningReport(
   opts?: { requestedBy?: string },
 ): Promise<void> {
   const zh = lang === 'zh'
+  // SL-L-06: Chinese text swapped in (model *_zh twins, rubric templates) before any HTML is built.
+  result = localizeResult(result, zh)
   const risk = riskLabel(result.overall, zh)
   const date = new Date().toLocaleDateString('en-CA')
   const courtQueries = result.court_records_detail?.queries || []
@@ -1130,18 +1133,18 @@ export async function generateScreeningReport(
         ? ` <a href="${esc(q.url)}" style="color:#0094C6">${zh ? (q.status === 'ok' ? '完整站内检索' : '一键人工检索') : (q.status === 'ok' ? 'full site search' : 'run the search yourself')}</a>`
         : ''
       html += `<tr>
-        <td style="${rowBg}">${esc(q.source)}</td>
+        <td style="${rowBg}">${esc(zh ? courtSourceZh(q.source) : q.source)}</td>
         <td style="${rowBg};text-align:center">${searchedTxt}</td>
         <td style="${rowBg};text-align:center;font-weight:${hits > 0 ? '700' : '400'};color:${stColorCourt}">${statusTxt}</td>
         <td style="${rowBg};text-align:center;color:${riskColor};font-weight:600;font-size:10px">${hits > 0 ? riskText : '—'}</td>
-        <td style="${rowBg};font-size:8.5px;color:#64748B">${esc(q.note || '')}${manualLink}</td>
+        <td style="${rowBg};font-size:8.5px;color:#64748B">${esc(zh ? courtNoteZh(q.note) : (q.note || ''))}${manualLink}</td>
       </tr>`
     }
     html += `</table>`
 
     const mentionRows = dbRows.filter(q => (q.indexRecords ?? []).length > 0)
     for (const q of mentionRows) {
-      html += `<h3 style="font-size:11px;font-weight:700;color:#1E3A5F;margin:10px 0 6px">${esc(q.source)} — ${zh ? '提及清单（非当事人记录）' : 'mentions (not party records)'}</h3>`
+      html += `<h3 style="font-size:11px;font-weight:700;color:#1E3A5F;margin:10px 0 6px">${esc(zh ? courtSourceZh(q.source) : q.source)} — ${zh ? '提及清单（非当事人记录）' : 'mentions (not party records)'}</h3>`
       for (const m of q.indexRecords!) {
         html += `<div style="font-size:9.5px;margin:0 0 4px"><a href="${esc(m.url)}" style="color:#0094C6">${esc(m.title)}</a>${m.snippet ? ` <span style="color:#64748B">— ${esc(m.snippet)}</span>` : ''}</div>`
       }

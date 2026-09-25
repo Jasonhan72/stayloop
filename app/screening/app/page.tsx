@@ -1,4 +1,5 @@
 'use client'
+import { courtNoteZh, courtSourceZh } from '@/lib/screening/localize'
 import { summaryFor } from '@/lib/screening/summaryText'
 import { useState, useEffect, useRef, useCallback, type ReactNode, type CSSProperties } from 'react'
 import { dissolutionReason } from '@/lib/forensics/employer-checks'
@@ -929,7 +930,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
 
                     {/* Database name */}
                     <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: '#0B1736' }}>
-                      {q.source}
+                      {lang === 'zh' ? courtSourceZh(q.source) : q.source}
                     </span>
 
                     {/* Severity label and hit count */}
@@ -947,11 +948,11 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
                           </span>
                         </>
                       ) : isManualOnly(q) ? (
-                        <a href={q.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ fontSize: 11.5, fontWeight: 600, color: '#0094C6', textDecoration: 'underline' }} title={q.note || ''}>
+                        <a href={q.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ fontSize: 11.5, fontWeight: 600, color: '#0094C6', textDecoration: 'underline' }} title={(lang === 'zh' ? courtNoteZh(q.note) : q.note) || ''}>
                           {lang === 'zh' ? '需人工检索 · 打开预填搜索 ↗' : 'Manual search · open pre-filled query ↗'}
                         </a>
                       ) : unsearched ? (
-                        <span style={{ fontSize: 11.5, fontWeight: 600, color: '#B45309' }} title={q.note || ''}>
+                        <span style={{ fontSize: 11.5, fontWeight: 600, color: '#B45309' }} title={(lang === 'zh' ? courtNoteZh(q.note) : q.note) || ''}>
                           ⏳ {q.status === 'skipped'
                             ? t('screen.result.court.skipped')
                             : /403/.test(q.note || '')
@@ -1001,7 +1002,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
       {totalHits === 0 && notSearched.length > 0 && (
         <div style={{ padding: '14px 16px', background: '#FFFBEB', borderRadius: 8, border: '1px solid #FCD34D80', marginBottom: 12, fontSize: 12, color: '#92400E' }}>
           {lang === 'zh'
-            ? `以下数据源未能完成检索：${notSearched.map(q => q.source).join('、')}。请稍后重新运行筛查，或用「一键人工检索」链接自行核对。`
+            ? `以下数据源未能完成检索：${notSearched.map(q => courtSourceZh(q.source)).join('、')}。请稍后重新运行筛查，或用「一键人工检索」链接自行核对。`
             : `These sources could not be searched: ${notSearched.map(q => q.source).join(', ')}. Re-run the screening later, or use the manual-search links.`}
         </div>
       )}
@@ -1014,7 +1015,7 @@ function CourtRecordDetail({ queries, totalHits, queriedName, tier, courtSummary
               <span style={{ width: 18, height: 18, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, background: '#2A2A5A20', color: '#0094C6', border: '1px solid #2A2A5A40' }}>
                 💎
               </span>
-              <span style={{ flex: 1 }}>{q.source}</span>
+              <span style={{ flex: 1 }}>{lang === 'zh' ? courtSourceZh(q.source) : q.source}</span>
               <span style={{ fontSize: 10, fontWeight: 600, color: '#0094C6' }}>
                 {q.status === 'coming_soon' ? t('screen.result.court.comingSoon') : t('screen.result.court.needPro')}
               </span>
@@ -1978,6 +1979,7 @@ export default function ScreenPage() {
         detected_monthly_income: v3.detected_monthly_income ?? null,
         effective_monthly_income: v3.effective_monthly_income ?? null,
         income_evidence: v3.income_evidence ?? data.ai_dimension_notes?._income_evidence ?? null,
+        income_evidence_zh: v3.income_evidence_zh ?? null,
         monthly_rent: v3.monthly_rent ?? null,
         income_rent_ratio: v3.income_rent_ratio ?? null,
         extracted_name: v3.extracted_name || data.ai_extracted_name || data.tenant_name || '',
@@ -3501,7 +3503,7 @@ export default function ScreenPage() {
                 return (
                   <div className="sl-stats-row" style={{ display: 'flex', justifyContent: 'center', marginTop: 20, color: '#64748B', flexWrap: 'wrap' }}>
                     <div><div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>${rentNum ? rentNum.toLocaleString() : '—'}</div>{t('screen.result.stat.rent')}</div>
-                    <div title={result.income_evidence || undefined}>
+                    <div title={(lang === 'zh' ? result.income_evidence_zh || result.income_evidence : result.income_evidence) || undefined}>
                       <div className="sl-stats-val" style={{ color: '#64748B', fontWeight: 600 }}>
                         {realRatio != null ? `${realRatio.toFixed(1)}x` : 'N/A'}
                       </div>
@@ -3516,7 +3518,7 @@ export default function ScreenPage() {
               {result.effective_monthly_income != null && (
                 <div className="mono" style={{ marginTop: 10, fontSize: 10.5, color: '#64748B' }}>
                   {lang === 'zh' ? '检测到月收入' : 'Detected monthly income'}: <span style={{ color: '#64748B', fontWeight: 600 }}>${result.effective_monthly_income.toLocaleString()}</span>
-                  {result.income_evidence && <span style={{ color: '#475569' }}> · {result.income_evidence}</span>}
+                  {result.income_evidence && <span style={{ color: '#475569' }}> · {lang === 'zh' ? result.income_evidence_zh || result.income_evidence : result.income_evidence}</span>}
                 </div>
               )}
             </div>

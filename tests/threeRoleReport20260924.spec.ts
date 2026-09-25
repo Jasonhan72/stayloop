@@ -186,3 +186,74 @@ describe('SL-L-06 · screening pages speak the UI language', () => {
     expect(r).toContain('tierInfo(tier, zh)')
   })
 })
+
+describe('SL-L-06 · report text in Chinese (rubric, court sources, model free text)', () => {
+  it('every rubric rule line the engine can emit has a Chinese rendering', async () => {
+    const { rubricObservedZh } = await import('@/lib/screening/localize')
+    const cases: Array<[string, string, RegExp]> = [
+      ['income_rent_ratio', '3.25x verified — information only, not a refusal ground', /3\.25 倍/],
+      ['income_verified_no_rent', 'verified $5,200/mo · no target rent — ratio not computed / 未填目标租金 — 未计算收入租金比', /\$5,200/],
+      ['income_documented_no_bank_trail', '$6,000/mo on 2 reconciling payroll-system stubs · no personal-account trail yet', /2 张/],
+      ['income_unverified', 'claimed $4,000/mo, no personal-account trail · no target rent — ratio not computed', /申报月收入 \$4,000.*未填目标租金/],
+      ['employment_tenure', '42 months in role', /^在职 42 个月$/],
+      ['no_credit_report', 'no bureau report supplied', /^未提供征信报告$/],
+      ['bureau_score', '723 (Equifax)', /信用分 723（Equifax）/],
+      ['credit_report_aging', 'report is 7 months old — request a current pull', /7 个月.*重新拉取/],
+      ['revolving_utilisation', '85% of $12,000 revolving', /\$12,000.*85%/],
+      ['thin_file', '1 tradeline(s), 8 months of history — short history is information, not a negative', /1 个信贷账户、8 个月/],
+      ['no_landlord_reference', 'no prior address or landlord given', /^未提供过往地址或房东$/],
+      ['rent_payments_observed', '$2,400 recurring in 3 statement month(s)', /3 个月.*\$2,400/],
+      ['documents_present', '3/4 required kinds (id_document, pay_stub, bank_statement)', /4 类材料有 3 类（证件、工资单、银行流水）/],
+      ['corroborations', 'payroll_processor_recognized, deposits_match_paystub_net', /代发机构.*实发/],
+      ['identity_consistent', 'ID-document name matches the applicant name', /一致/],
+      ['cross_doc_contradiction', 'cross_doc_income_mismatch (high), residence_timeline_contradiction (medium)', /（高）.*居住时间线.*（中）/],
+      ['no_external_verification', 'documents are consistent with each other; no third-party check yet', /第三方核验/],
+    ]
+    for (const [code, en, re] of cases) {
+      const zh = rubricObservedZh(code, en)
+      expect(zh, code).toMatch(re)
+      expect(zh, code).toMatch(/[一-龥]/)
+    }
+    // Unknown shapes fall back to the stored text instead of disappearing.
+    expect(rubricObservedZh('some_future_rule', 'x y z')).toBe('x y z')
+  })
+  it('court sources and notes render in Chinese without changing the stored source', async () => {
+    const { courtSourceZh, courtNoteZh } = await import('@/lib/screening/localize')
+    expect(courtSourceZh('Ontario Courts Portal — Civil & Small Claims')).toBe('安省法院门户 · 民事与小额法庭')
+    expect(courtSourceZh('LTB Order Catalogue — Ontario Open Data (Jane Doe)')).toBe('LTB 判令目录（安省开放数据）（Jane Doe）')
+    expect(courtNoteZh("No matches in Ontario Courts Portal (116 name-search results returned; none matched the applicant's exact name after verification)")).toMatch(/116 条结果/)
+    expect(courtNoteZh('No matches in Ontario Courts Portal')).toBe('安省法院门户无匹配')
+    expect(courtNoteZh('Full-text search of canlii.org via its public web index: no page mentions this exact name.')).toMatch(/没有任何页面/)
+    expect(courtNoteZh('No LTB order in the published catalogue names this person as a responding tenant (catalogue currently covers 2026-01-01 to 2026-05-31, 40,844 orders).')).toMatch(/2026-01-01 至 2026-05-31 共 40,844 份/)
+    expect(courtNoteZh('2 published order(s) name this person as a responding tenant (L1). None is at an address the applicant declared, so this may be a namesake.')).toMatch(/2 份.*同名/)
+    // The report logic branches on the English source; renderers only translate at display.
+    const route = read('app/screening/app/page.tsx')
+    expect(route).toContain("q.source === 'CanLII' && q.status === 'unavailable'")
+    expect(route).toContain("lang === 'zh' ? courtSourceZh(q.source) : q.source")
+  })
+  it('localizeResult swaps model *_zh twins in, and only when the lists line up', async () => {
+    const { localizeResult } = await import('@/lib/screening/localize')
+    const r = {
+      income_evidence: '2 paystubs', income_evidence_zh: '两张工资单',
+      rubric: { hits: [{ code: 'employment_tenure', observed: '42 months in role' }] },
+      cross_doc_verification: {
+        income_corroboration: { observed_pattern: 'p', detail: 'd', observed_pattern_zh: '模式', detail_zh: '说明' },
+        related_party: { signals: ['a', 'b'], signals_zh: ['甲'] },
+        verification_checklist: ['call X'], verification_checklist_zh: ['致电 X'],
+      },
+    }
+    const z = localizeResult(r, true)
+    expect(z.income_evidence).toBe('两张工资单')
+    expect(z.rubric.hits[0].observed).toBe('在职 42 个月')
+    expect(z.cross_doc_verification.income_corroboration.detail).toBe('说明')
+    expect(z.cross_doc_verification.related_party.signals).toEqual(['a', 'b']) // length mismatch → keep English
+    expect(z.cross_doc_verification.verification_checklist).toEqual(['致电 X'])
+    expect(localizeResult(r, false)).toBe(r)
+    for (const p of ['app/screening/[id]/report/page.tsx', 'lib/generateReport.ts']) expect(read(p)).toContain('localizeResult(')
+  })
+  it('the model is asked for the Chinese twins; the report no longer shows a second-language summary box', () => {
+    const route = read('app/api/screen-score/route.ts')
+    for (const k of ['"income_evidence_zh"', '"observed_pattern_zh"', '"detail_zh"', '"signals_zh"', '"suspicious_transfers_zh"', '"verification_checklist_zh"']) expect(route).toContain(k)
+    expect(read('app/screening/[id]/report/page.tsx')).not.toContain('altSummary')
+  })
+})

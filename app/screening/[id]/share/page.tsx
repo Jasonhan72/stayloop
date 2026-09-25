@@ -50,7 +50,7 @@ export default function ScreeningSharePage() {
           </p>
           <p className="mt-3 text-[13px] leading-relaxed text-body-3">
             {zh
-              ? '报告含申请人的个人信息（PIPEDA）。只发给参与这次租赁决定的人，不要转发给无关的人，也不要发给申请人以外的第三方用于其他目的。'
+              ? '报告含申请人的个人信息（受 PIPEDA 保护）。只发给参与这次租赁决定的人，不要转给无关的人，也不要用于这次租赁以外的目的。'
               : 'The report contains the applicant’s personal information (PIPEDA). Share it only with people involved in this rental decision, and never for another purpose.'}
           </p>
           <div className="mt-6 flex flex-col gap-2 sm:flex-row">

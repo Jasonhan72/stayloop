@@ -1288,6 +1288,7 @@ SPEED RULES — output length is the main latency driver. Stay extremely lean:
 - flags: 2-3 items, bilingual, text_en ≤8 words, text_zh ≤12 chars
 - action_items: 1-2 items MAX. Each has title + details in BOTH languages. title ≤6 words / ≤10 chars, details ≤18 words / ≤30 chars.
 - summary_en ≤15 words, summary_zh ≤30 chars (single sentence is fine)
+- Every *_zh field is the Chinese version of its English twin, same facts, same order; keep names, file names, amounts, phone numbers and quoted document text exactly as printed
 - reviewer_note ≤15 English words
 - sub_coverage: ONLY include keys whose value is "action_pending" or "missing". Omit all "measured" keys — backend defaults missing keys to measured.
 
@@ -1296,11 +1297,12 @@ EMIT ONLY this JSON — no markdown, no fences, no preamble.
  "extracted_names":["FULL NAME 1","FULL NAME 2"],
  "detected_monthly_income":<number or null>,
  "income_evidence":"... or null (≤10 words)",
+ "income_evidence_zh":"同上的中文 ≤20 字，或 null",
  "detected_document_kinds":["..."],
  "bank_min_balance":<number or null>,
  "identity_match_score":<0-100 or null>,
  "credit_report":{"present":<true ONLY if a GENUINE consumer credit report (Equifax/TransUnion/SingleKey/FrontLobby/Borrowell) was uploaded; else false>,"subject_name":"<the person's name printed on the report header — with several applicants transcribe the PRIMARY applicant's report and say whose it is>","source_file":"<file name of the report transcribed>","bureau":"Equifax|TransUnion|Dual|other|null","credit_score":<300-900 integer or null>,"score_band":"Poor|Fair|Good|Very Good|Excellent|null","report_date":"YYYY-MM-DD or as shown or null","employment":{"current":"employer name as printed in the report's Employment section or null","previous":"or null"},"tradelines":[{"creditor":"","type":"Revolving|Installment|Open|Mortgage|Lease|other","date_opened":"","responsibility":"Individual|Joint|Authorized|null (the account responsibility/association column as printed)","balance":<number or null>,"credit_limit":<the ASSIGNED limit as printed, or null — distinct from high_credit>,"high_credit":<highest balance carried, or null>,"past_due":<number or null>,"payment_status":"","late_30_60_90":"0/0/0"}],"collections":[{"creditor":"","date_assigned":"","original_amount":<number or null>,"balance":<number or null>}],"bankruptcies":[{"date_filed":"","type":"","amount":<number or null>,"disposition":""}],"inquiries":[{"date":"","creditor":"","hard":<true if the report marks it as a hard inquiry (Equifax column \"May affect scores\" = Yes; TransUnion \"hard\"), false if marked soft/No, null if the report does not say>,"kind":"credit|account_review|non_credit|null — TransUnion lists Credit Related, Account Review and Non-Credit Related inquiries in separate tables: transcribe ALL of them (a collection agency under Non-Credit Related is the only place a debt in collection may show)"}],"total_debt":<number or null>,"monthly_debt_payments":<number or null>,"analysis_en":"REQUIRED when present=true, else null. 3-5 sentences, <=90 words, citing SPECIFIC accounts by creditor name: worst payment statuses, past-due amounts, utilisation on named cards, collections/bankruptcy context, inquiry velocity, and the trajectory (improving/stable/deteriorating from the late-payment history). Plain factual reading, no advice.","analysis_zh":"present=true 时必填，否则 null。3-5 句、<=160 字，点名具体账户：最差状态、逾期金额、哪张卡利用率多少、催收/破产背景、查询频率、趋势（好转/稳定/恶化）。只陈述事实，不给建议。"},
- "cross_doc_verification":{"bank_accounts":[{"holder_name":"","entity_type":"personal|business","is_applicant":<bool — true ONLY if holder name matches applicant>,"statement_period":"as shown or null"}],"income_corroboration":{"claimed_monthly":<number or null>,"personal_payroll_seen":<bool>,"observed_pattern":"≤25 words — what deposits ACTUALLY recur","verdict":"corroborated|partial|uncorroborated","detail":"≤35 words, plain truth"},"related_party":{"suspected":<bool>,"signals":["one signal per entry, name the people"]},"employment_letter_signatory":{"name":"the person who SIGNED the employment/offer letter, exactly as signed, or null","title":"their printed title beside the signature (e.g. Director/Owner, HR Manager) or null"},"application_summary":{"applying_rent":<number or null>,"prev_residences":[{"address":"","period":"","landlord_name":"","landlord_phone":""}],"vacating_reason":"as stated or null","vehicles":["..."],"blank_sections":["form sections left empty"]},"suspicious_transfers":["amount + counterparty + which application name it matches"],"verification_checklist":["3-6 executable steps, include phone numbers found in docs"]},
+ "cross_doc_verification":{"bank_accounts":[{"holder_name":"","entity_type":"personal|business","is_applicant":<bool — true ONLY if holder name matches applicant>,"statement_period":"as shown or null"}],"income_corroboration":{"claimed_monthly":<number or null>,"personal_payroll_seen":<bool>,"observed_pattern":"≤25 words — what deposits ACTUALLY recur","observed_pattern_zh":"同上中文 ≤50 字","verdict":"corroborated|partial|uncorroborated","detail":"≤35 words, plain truth","detail_zh":"同上中文 ≤70 字"},"related_party":{"suspected":<bool>,"signals":["one signal per entry, name the people"],"signals_zh":["same signals in Chinese, SAME ORDER, one per entry"]},"employment_letter_signatory":{"name":"the person who SIGNED the employment/offer letter, exactly as signed, or null","title":"their printed title beside the signature (e.g. Director/Owner, HR Manager) or null"},"application_summary":{"applying_rent":<number or null>,"prev_residences":[{"address":"","period":"","landlord_name":"","landlord_phone":""}],"vacating_reason":"as stated or null","vehicles":["..."],"blank_sections":["form sections left empty"]},"suspicious_transfers":["amount + counterparty + which application name it matches"],"suspicious_transfers_zh":["same items in Chinese, SAME ORDER"],"verification_checklist":["3-6 executable steps, include phone numbers found in docs"],"verification_checklist_zh":["same steps in Chinese, SAME ORDER and count"]},
  "scores":{"ability_to_pay":<0-100>,"credit_health":<0-100>,"rental_history":<0-100>,"verification":<0-100>,"communication":<0-100>},
  "sub_coverage":{"only_non_measured_keys":"action_pending|missing"},
  "details_en":{"ability_to_pay":"","credit_health":"","rental_history":"","verification":"","communication":""},
@@ -1928,12 +1930,15 @@ If the uploaded evidence does not support the dimension, score it per the rubric
             observed_pattern: str(ic.observed_pattern),
             verdict: icVerdict,
             detail: str(ic.detail),
+            // Chinese twins (SL-L-06): the report is read in Chinese.
+            observed_pattern_zh: str(ic.observed_pattern_zh) || undefined,
+            detail_zh: str(ic.detail_zh) || undefined,
           }
         : null
 
       const rp = raw.related_party
       const relatedParty = (rp && typeof rp === 'object')
-        ? { suspected: rp.suspected === true, signals: strArr(rp.signals, 8) }
+        ? { suspected: rp.suspected === true, signals: strArr(rp.signals, 8), signals_zh: strArr(rp.signals_zh, 8) }
         : null
 
       const ap = raw.application_summary
@@ -1957,6 +1962,8 @@ If the uploaded evidence does not support the dimension, score it per the rubric
 
       const suspiciousTransfers = strArr(raw.suspicious_transfers, 10)
       const verificationChecklist = strArr(raw.verification_checklist, 8)
+      const suspiciousTransfersZh = strArr(raw.suspicious_transfers_zh, 10)
+      const verificationChecklistZh = strArr(raw.verification_checklist_zh, 8)
 
       // Empty across the board → treat as absent so old-report semantics hold.
       if (
@@ -1982,6 +1989,10 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         application_summary: applicationSummary,
         suspicious_transfers: suspiciousTransfers,
         verification_checklist: verificationChecklist,
+        // Only kept when the lengths line up — a Chinese list that does not
+        // map item-for-item onto the English one would mislabel steps.
+        ...(suspiciousTransfersZh.length === suspiciousTransfers.length && suspiciousTransfers.length ? { suspicious_transfers_zh: suspiciousTransfersZh } : {}),
+        ...(verificationChecklistZh.length === verificationChecklist.length && verificationChecklist.length ? { verification_checklist_zh: verificationChecklistZh } : {}),
       }
     })()
 
@@ -2013,6 +2024,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         ic.verdict = 'corroborated'
         ic.personal_payroll_seen = true
         ic.detail = `${ic.detail || ''} [backend: payroll deposits come from a recognised payroll processor and equal the pay-stub net pay — outsourced payroll, treated as corroborated]`.trim().slice(0, 400)
+        ic.detail_zh = `${ic.detail_zh || ''}〔系统核对：入账来自可识别的代发工资机构，金额等于工资单实发——属外包发薪，按已佐证处理〕`.trim().slice(0, 400)
       }
     }
 
@@ -2049,6 +2061,10 @@ If the uploaded evidence does not support the dimension, score it per the rubric
           detail: ratio === null
             ? 'Applicant-authorised bank connection; no self-reported income to compare.'
             : `Bank-verified recurring deposits are ${Math.round(ratio * 100)}% of the self-reported $${Math.round(claimed!)}/mo.`,
+          observed_pattern_zh: `银行直连核实（Flinks，${bankFacts.window_days} 天）：每月约 $${Math.round(est)} 固定入账`,
+          detail_zh: ratio === null
+            ? '申请人授权的银行直连；没有自报收入可比。'
+            : `银行核实的固定入账是自报月收入 $${Math.round(claimed!)} 的 ${Math.round(ratio * 100)}%。`,
         }
         if (!crossDocVerification) crossDocVerification = base
       }
@@ -3437,6 +3453,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
         detected_monthly_income: detectedIncome,
         effective_monthly_income: effectiveIncome,
         income_evidence: parsed.income_evidence || null,
+        income_evidence_zh: (parsed as { income_evidence_zh?: string }).income_evidence_zh || null,
         monthly_rent: effectiveRent || null,
         income_rent_ratio: computedRatio,
         court_records_detail: courtDetail,
@@ -3539,6 +3556,7 @@ If the uploaded evidence does not support the dimension, score it per the rubric
       detected_monthly_income: detectedIncome,
       effective_monthly_income: effectiveIncome,
       income_evidence: parsed.income_evidence || null,
+      income_evidence_zh: (parsed as { income_evidence_zh?: string }).income_evidence_zh || null,
       bank_min_balance: typeof parsed.bank_min_balance === 'number' ? parsed.bank_min_balance : null,
       identity_match_score: identityMatch,
       credit_report: creditReport,

@@ -1910,3 +1910,13 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
   （`forensics_` 前缀自动剥离），未知代码显示为可读形式；③ `/screening/[id]/done` 与 `/graph` 两页此前**整页写死英文**，现已双语；
   报告页结论标签（PROCEED/CONDITIONAL/DECLINE）中文下与结果卡同一说法（优质 · 建议通过 / 待定 · 附加条件 / 建议拒绝）；④ `/share`
   原是一个只会 `alert('coming soon')` 的英文假表单，改为如实的双语说明页（分享链接尚未上线 → 去报告页下载 PDF，附 PIPEDA 提醒）。
+  **第二轮（用测试房东号在生产上逐页核对后）**：报告页在中文下仍有大量英文，来源三类，处理在 `lib/screening/localize.ts`：
+  ① 我们自己代码写的固定英文句式——评分规则每条的「依据」（`rubric.ts` 46 种 add() 模板）、法院三个数据源的名称与结果说明
+  （`runCourtRecordCheck` / `summarizeLtb`）——`rubricObservedZh(code, observed)` / `courtSourceZh` / `courtNoteZh` 按句式从英文里
+  取回数字再拼中文，新旧报告都生效、不改存量数据；**`CourtQuery.source` 永远不改写**（渲染逻辑按英文值分支），只在显示时翻译；
+  未知句式原样回退。② 模型只写英文的自由文本——收入依据、收入佐证的实际观察与说明、关联方信号、可疑资金流、核验清单——
+  提示词新增 `*_zh` 孪生字段（同序同数，名字 / 金额 / 电话 / 引文原样），解析时保存（清单类数量对不上就不存）；Flinks 与代发工资
+  两处确定性覆写也写中文；`localizeResult(r, zh)` 在报告页、结果页、打印 PDF 三个入口统一换入。历史报告一次性补译：179 份，
+  claude-opus-5（effort low、结构化输出、`fallbacks: "default"`），脚本与写入前的逐行备份在会话 scratchpad `zhfill/`（`backup.jsonl`
+  可整行还原 `ai_dimension_notes`），约 4 美元。③ 报告页不再附「English Summary」第二语言摘要框；评分规则行在中文下不显示内部代码；
+  关系图「结论」下不再印原始 `conditional`。守卫同一 spec「report text in Chinese」段。
