@@ -1,8 +1,9 @@
 'use client'
 
 // The assistant's own settings — Muse's fourth (fingerprint) tab (user
-// 2026-09-25: "AI Agent 的设置要加上"): name · avatar · speaking style ("vibe")
-// · which model answers · notifications, then two cards the way Muse shows
+// 2026-09-25: "AI Agent 的设置要加上"): speaking style ("vibe") · which model
+// answers · notifications (name and avatar are edited from the pencil beside
+// the avatar, so they have no rows here), then two cards the way Muse shows
 // SOUL / MEMORY: 画像 (what it has learned about the person — the reflection
 // profile, lib/agent/reflection.ts) and 记忆 (what it remembers). Everything
 // here is the signed-in person's own row (RLS self); preview sessions only look.
@@ -13,7 +14,7 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { readAssistantProfile, sanitizeVibe, saveAssistantVibe, VIBE_MAX } from '@/lib/agent/assistantProfile'
 import { writeAuditEvent } from '@/lib/agent/audit'
-import { AvatarIcon, PencilIcon } from './panelIcons'
+import { PencilIcon } from './panelIcons'
 import type { AgentRole } from '@/lib/agent/types'
 
 /** The row lib/agent/reflection.ts writes (USER_MODEL_KEY there — that module is server-only, so the key is repeated here and pinned by a test). */
@@ -31,13 +32,11 @@ function fmtDate(iso: string | null | undefined, zh: boolean): string {
   return d.toLocaleDateString(zh ? 'zh-CN' : 'en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
 
-export default function AssistantSettings({ role, name, live, memoryCount, onRename, onChangeAvatar, onOpenMemory }: {
+export default function AssistantSettings({ role, name, live, memoryCount, onOpenMemory }: {
   role: AgentRole
   name: string
   live: boolean
   memoryCount: number
-  onRename: () => void
-  onChangeAvatar: () => void
   onOpenMemory: () => void
 }) {
   const { lang } = useT()
@@ -155,15 +154,8 @@ export default function AssistantSettings({ role, name, live, memoryCount, onRen
         )}
         <p className="mt-2 text-[11px] leading-relaxed text-body-3">{zh ? '只影响语气与措辞，不改变它遵守的规则和能做的事。' : 'Tone and wording only — never the rules it follows or what it may do.'}</p>
 
+        {/* Name and avatar are edited from the pencil beside the avatar (user 2026-09-25: "这里不用设置名字和头像的修改的条了"). */}
         <div className="mt-3 divide-y divide-line-soft border-t border-line-soft">
-          <div className={row}>
-            <span className="text-body-2">{zh ? '名字' : 'Name'}</span>
-            <button type="button" onClick={onRename} disabled={!live} className={action}><span className="inline-flex items-center gap-1"><PencilIcon /> {zh ? '改名' : 'Edit name'}</span></button>
-          </div>
-          <div className={row}>
-            <span className="text-body-2">{zh ? '头像' : 'Avatar'}</span>
-            <button type="button" onClick={onChangeAvatar} className={action}><span className="inline-flex items-center gap-1"><AvatarIcon /> {zh ? '换头像' : 'Change avatar'}</span></button>
-          </div>
           <div className={row}>
             <span className="text-body-2">{zh ? '对话模型' : 'Model'}</span>
             <Link href="/settings/models" className={action}>{zh ? '在设置里选择 →' : 'Choose in settings →'}</Link>

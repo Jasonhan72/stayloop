@@ -32,11 +32,12 @@ describe('assistant panel, Muse round', () => {
     expect(panel).toContain("onClick={() => { setMenu(false); setPicking(true) }} className=\"flex w-full items-center gap-2.5 px-3 py-2 text-[13.5px] font-semibold text-ink transition hover:bg-surface\"><AvatarIcon /> {zh ? '换头像' : 'Change avatar'}")
     expect(panel).toContain("onClick={() => { setMenu(false); setRenaming(true) }} className=\"flex w-full items-center gap-2.5 px-3 py-2 text-[13.5px] font-semibold text-ink transition hover:bg-surface\"><PencilIcon /> {zh ? '改名' : 'Edit name'}")
     expect(panel).toContain("if (e.key === 'Escape') setMenu(false)")
-    expect(panel).toContain("<AssistantSettings role={role} name={name} live={live} memoryCount={memories.length} onRename={() => setRenaming(true)} onChangeAvatar={() => setPicking(true)} onOpenMemory={() => setSeg('memory')} />")
+    expect(panel).toContain("<AssistantSettings role={role} name={name} live={live} memoryCount={memories.length} onOpenMemory={() => setSeg('memory')} />")
   })
-  it('the settings tab: vibe editor (assistant_profiles.vibe), name / avatar / model / notifications rows, 画像 and 记忆 cards', () => {
+  it('the settings tab: vibe editor (assistant_profiles.vibe), model / notifications rows — no name or avatar rows (the pencil does those) — 画像 and 记忆 cards', () => {
     const s = read('components/agent/AssistantSettings.tsx')
     expect(s).toContain('const ok = await saveAssistantVibe(supabase, uid, next)')
+    expect(s).not.toMatch(/onRename|onChangeAvatar|'改名'|'换头像'/)
     expect(s).toContain('maxLength={VIBE_MAX}')
     expect(s).toContain('href="/settings/models"')
     expect(s).toContain('href="/settings"')

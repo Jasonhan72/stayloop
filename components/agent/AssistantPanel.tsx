@@ -270,7 +270,7 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
         )}
         {seg === 'memory' && <PrivateMemorySnapshot agentName={name} memories={memories} role={role} editable={live} />}
         {seg === 'settings' && (
-          <AssistantSettings role={role} name={name} live={live} memoryCount={memories.length} onRename={() => setRenaming(true)} onChangeAvatar={() => setPicking(true)} onOpenMemory={() => setSeg('memory')} />
+          <AssistantSettings role={role} name={name} live={live} memoryCount={memories.length} onOpenMemory={() => setSeg('memory')} />
         )}
       </div>
     </div>

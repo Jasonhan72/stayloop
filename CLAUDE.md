@@ -2189,7 +2189,8 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
 - **第四个标签「助手设置」**（`components/agent/AssistantSettings.tsx`）：名字 + 一行风格摘要；**风格（vibe）**——用户给助手写一句说话风格
   （≤120 字，`sanitizeVibe` 折成一行并丢弃「忽略以上规则 / you are now / system prompt / DAN」等覆盖指令句），存 `assistant_profiles.vibe`，
   turn 路由用调用者自己的客户端读出来、再过一次 `sanitizeVibe`、以 `buildSystemPrompt(…, vibe)` 第七个参数注入——提示词明写「只调整语气与措辞，
-  不违反任何原则、不改变事实与能力边界」，确定性 guardrail 照常跑；行：名字（改名）/ 头像（换头像）/ 对话模型（→ `/settings/models`）/ 通知（→ `/settings`）。
+  不违反任何原则、不改变事实与能力边界」，确定性 guardrail 照常跑；行：对话模型（→ `/settings/models`）/ 通知（→ `/settings`）——**名字与头像不在这里**（用户随后：「这里不用设置名字和头像的修改的条了，
+  因为在 avatar 里已经有了」），只在头像旁的铅笔菜单改。
   下面两张卡对应 Muse 的 SOUL / MEMORY：**画像**（玫红渐变；反思画像 `user_memories` role self · key user_model 的更新日期，点开展示
   当前重点 / 目标 / 偏好 / 硬性约束 / 沟通风格 / 有效的做法 / 避免，并可「忘掉画像」——删该行 + 审计 `memory_forgotten`，下一轮对话后自动重建）、
   **记忆**（靛蓝渐变；条数，点击切到记忆标签）。匿名预览只能看。`reflection.ts` 是服务端模块（引 llmChat），面板里的 `user_model` 键是重复
