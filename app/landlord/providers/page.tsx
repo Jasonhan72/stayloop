@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
 import { CITIES, coverageFor, TRADES, type Trade } from '@/lib/marketplace/trades'
 import { providerMetrics, type WoRow } from '@/lib/marketplace/workOrders'
+import DispatchPolicyCard, { type PolicyProvider } from '@/components/marketplace/DispatchPolicyCard'
 
 type Provider = { id: string; legal_name: string; trade_name: string | null; trades: string[]; service_cities: string[]; pricing_mode: string; call_out_fee: number | null; hourly_rate: number | null; contact_email: string | null; contact_phone: string | null; website: string | null; verified_at: string | null }
 type Cred = { provider_id: string; kind: string; expires_at: string | null; verified_at: string | null }
@@ -56,6 +57,10 @@ export default function LandlordProvidersPage() {
     const myJobs = mine.filter((m) => m.provider_id === p.id)
     return { p, cov, avg, n: rv.length, metrics: providerMetrics(myJobs as WoRow[]) }
   }), [providers, creds, reviews, mine, trade, city])
+  const policyProviders = useMemo<PolicyProvider[]>(() => providers.map((p) => {
+    const pc = creds.filter((c) => c.provider_id === p.id)
+    return { id: p.id, name: p.trade_name || p.legal_name, coveredTrades: (p.trades as Trade[]).filter((t) => coverageFor(t, pc).ok) }
+  }), [providers, creds])
   const contacts = useMemo(() => {
     const m = new Map<string, { name: string | null; jobs: number; last: string }>()
     for (const w of mine) { if (!w.external_email) continue; const cur = m.get(w.external_email); m.set(w.external_email, { name: w.external_name || cur?.name || null, jobs: (cur?.jobs ?? 0) + 1, last: cur?.last ?? w.created_at }) }
@@ -65,6 +70,7 @@ export default function LandlordProvidersPage() {
   return (
     <WorkspaceShell role="landlord" hideAside>
       <PageHeader title={zh ? '服务商' : 'Service providers'} sub={<><span className="font-mono text-[11px] uppercase tracking-eyebrow text-body-3">LANDLORD · PROVIDERS</span><span className="mx-1.5 text-body-3">·</span>{zh ? '精选网络里的每一家都由 Stayloop 人工对照公开注册库核验资质；到期即停派单。派单从在管租约的报修工单发起。' : 'Every provider in the curated network is checked by hand against the public registers; expired credentials stop dispatch. Dispatch starts from a ticket on a managed tenancy.'}</>} />
+      <DispatchPolicyCard providers={policyProviders} zh={zh} />
       <div className="mb-3 flex flex-wrap gap-2">
         <select value={trade} onChange={(e) => setTrade(e.target.value as Trade | 'all')} className="rounded-lg border border-line-divider bg-white px-2 py-1.5 text-[12.5px]"><option value="all">{zh ? '全部工种' : 'All trades'}</option>{TRADES.map((t) => <option key={t.key} value={t.key}>{zh ? t.zh : t.en}</option>)}</select>
         <select value={city} onChange={(e) => setCity(e.target.value)} className="rounded-lg border border-line-divider bg-white px-2 py-1.5 text-[12.5px]"><option value="all">{zh ? '全部城市' : 'All cities'}</option>{CITIES.map((c) => <option key={c} value={c}>{c}</option>)}</select>

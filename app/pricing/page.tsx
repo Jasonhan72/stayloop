@@ -83,6 +83,7 @@ const PLANS: RolePlan[] = [
           { zh: '每月 5 次租客筛查（含取证与信用分析）', en: '5 tenant screenings a month (forensics + credit analysis included)' },
           { zh: '深度核查按次解锁 $14.99', en: 'Deep checks unlock per applicant at $14.99' },
           { zh: '接收在线申请', en: 'Receive online applications' },
+          { zh: '维修工单 + 派给你自己的联系人', en: 'Repair tickets + dispatch to your own contacts' },
         ],
       },
       {
@@ -100,6 +101,7 @@ const PLANS: RolePlan[] = [
           { zh: 'AI Agent 全功能', en: 'Full AI agent' },
           { zh: '验证 / 筛查全含', en: 'Verification / screening included' },
           { zh: '租约起草 + 一键续约', en: 'Lease drafting + 1-click renewals' },
+          { zh: '维修派单：已核验服务商网络 + 派单策略（紧急件自动派、预授权）· 不抽成，付款你与服务商直接结算', en: 'Repairs: verified provider network + dispatch policy (auto-dispatch emergencies, pre-approval) · no commission, you pay the provider directly' },
           { zh: '财务面板（即将推出）', en: 'Finance dashboard (coming soon)' },
         ],
         highlight: true,

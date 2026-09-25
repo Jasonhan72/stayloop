@@ -63,7 +63,7 @@ export default function DispatchModal({ ticketId, category, priority, city, zh, 
     const body = mode === 'network' ? { ticket_id: ticketId, provider_id: pick, entry_permission: entry, emergency, trade } : { ticket_id: ticketId, external_email: own.email.trim(), external_name: own.name.trim(), entry_permission: entry, emergency, trade }
     const res = await fetch('/api/work-orders/dispatch', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
     const j = (await res.json().catch(() => ({}))) as { error?: string }
-    if (!res.ok) { setErr(j.error || `HTTP ${res.status}`); setBusy(false); return }
+    if (!res.ok) { setErr(j.error === 'pro_required' ? (zh ? '已核验服务商网络是 Pro 功能。派给你自己的联系人在所有计划都可用。' : 'The verified provider network is a Pro feature. Dispatching to your own contact works on every plan.') : (j.error || `HTTP ${res.status}`)); setBusy(false); return }
     await onDone(); setBusy(false); onClose()
   }
   const input = 'rounded-md border border-line-divider bg-white px-2.5 py-1.5 text-[13px]'

@@ -7,6 +7,9 @@ import { sendEmail, renderAgentMessageEmail } from '@/lib/email'
 import { notifyUser } from '@/lib/push/notify'
 import { canAct, entryNoticeText, entryWindowProblem, invoiceWithinEstimate, TICKET_STATUS_FOR, validateQuote, type ActorKind, type WoAction, type WorkOrderStatus } from './workOrders'
 import { providerEligible, tradeForCategory, TRADES, type Trade } from './trades'
+import { inInternalTestWindow } from '@/lib/billing/freeWindow'
+import { pickLandlordRow } from '@/lib/billing/subscriptionState'
+import { normalizePolicy, rankCandidates, rankReason, shouldAutoApprove, shouldAutoDispatch, type Candidate, type DispatchPolicy } from './dispatchPolicy'
 
 export type Admin = SupabaseClient
 export const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.stayloop.ai').replace(/\/$/, '')
@@ -69,6 +72,14 @@ export type CreateInput = {
   actor?: ActorKind
 }
 
+/** Curated-network dispatch (and therefore auto-dispatch) needs Pro / Team, or the internal test window. */
+export async function networkDispatchAllowed(admin: Admin, landlordAuthId: string): Promise<boolean> {
+  if (inInternalTestWindow()) return true
+  const { data: rows } = await admin.from('landlords').select('id, auth_id, plan').or(`id.eq.${landlordAuthId},auth_id.eq.${landlordAuthId}`)
+  const plan = (pickLandlordRow(rows, landlordAuthId)?.plan as string | undefined) || 'free'
+  return plan === 'pro' || plan === 'team'
+}
+
 /** Step ③: create the offer and invite the contractor (email + push for providers with an account). */
 export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ ok: true; wo: WorkOrderRow } | { ok: false; error: string; status: number }> {
   const ctx = await ticketContext(admin, i.ticketId, i.landlordAuthId)
@@ -78,6 +89,9 @@ export async function createWorkOrder(admin: Admin, i: CreateInput): Promise<{ o
   if (open && open.length) return { ok: false, error: 'this ticket already has an open work order', status: 409 }
   type ProviderLite = { id: string; auth_id: string; legal_name: string; trade_name: string | null; contact_email: string | null; status: string }
   let provider: ProviderLite | null = null
+  // P2 (V0.6): the curated network is a Pro feature (free in the test month);
+  // dispatching to the landlord's own contact stays free on every plan.
+  if (i.providerId && !(await networkDispatchAllowed(admin, i.landlordAuthId))) return { ok: false, error: 'pro_required', status: 402 }
   if (i.providerId) {
     const { data } = await admin.from('service_providers').select('id, auth_id, legal_name, trade_name, contact_email, status').eq('id', i.providerId).maybeSingle()
     const row = (data as ProviderLite | null) ?? null
@@ -174,6 +188,7 @@ export async function actOnWorkOrder(admin: Admin, i: ActInput): Promise<{ ok: t
       const win = entryWindowProblem({ emergency: wo.emergency, scheduleStart: wo.schedule_start, scheduleEnd: wo.schedule_end })
       if (win) return { ok: false, error: `entry_window_${win}`, status: 422 }
       Object.assign(patch, { approved_amount: wo.quote_amount, approved_at: now })
+      if (p.auto_policy === true) evPayload.auto_policy = true
       break
     }
     case 'reject_quote':
@@ -254,6 +269,22 @@ async function sideEffects(admin: Admin, wo: WorkOrderRow, i: ActInput): Promise
     const money = (n: number | null) => (n == null ? '—' : `$${Number(n).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
     const landlordUrl = `/h/${wo.household_id}?tab=maintenance`
 
+    if ((i.action === 'accept' || i.action === 'quote') && wo.emergency) {
+      // P2 (V0.6): emergency pre-authorisation. The landlord approved, in
+      // advance, emergency quotes up to a cap; approve as the row's landlord
+      // (same checks as a click) and tell them. The CPA 10% rule still binds
+      // the invoice to this amount. Over the cap → the normal card below.
+      const policy = await loadDispatchPolicy(admin, wo.landlord_auth_id)
+      if (shouldAutoApprove(policy, wo)) {
+        const r = await actOnWorkOrder(admin, { woId: wo.id, action: 'approve_quote', by: 'landlord', actorId: wo.landlord_auth_id, payload: { expected_amount: wo.quote_amount, auto_policy: true } })
+        if (r.ok) {
+          await admin.from('agent_audit_events').insert({ actor_id: wo.landlord_auth_id, actor_type: 'system', action: 'work_order_quote_auto_approved', target_type: 'work_order', target_id: wo.id, metadata: { amount: wo.quote_amount, cap: policy.emergency_cap } })
+          void notifyUser(admin, wo.landlord_auth_id, { kind: 'event', title: `紧急报价 ${money(wo.quote_amount)} 已按预授权批准 / Pre-approved`, body: `${prov.name} · ${ctx.ticket.title}`, url: landlordUrl })
+          return
+        }
+        console.warn('[marketplace] emergency auto-approve failed, falling back to a card:', r.error)
+      }
+    }
     if (i.action === 'accept' || i.action === 'quote') {
       // Step ⑤ card for the landlord: approve the quote (executor sends the entry notice).
       const { data: existing } = await admin.from('agent_pending_actions').select('id').eq('user_id', wo.landlord_auth_id).eq('action_type', 'approve_quote').eq('status', 'pending').contains('metadata', { work_order_id: wo.id }).limit(1)
@@ -340,6 +371,35 @@ export async function peekByToken(admin: Admin, token: string): Promise<{ wo: Wo
   return { wo, ticket: { title: ctx.ticket.title, description: ctx.ticket.description, category: ctx.ticket.category, priority: ctx.ticket.priority }, address: { city: ctx.household.city, full: accepted ? [ctx.household.address, ctx.household.unit ? `#${ctx.household.unit}` : null, ctx.household.city].filter(Boolean).join(', ') : null }, landlordEmail }
 }
 
+/** The landlord's dispatch policy row (defaults when none). */
+export async function loadDispatchPolicy(admin: Admin, landlordAuthId: string): Promise<DispatchPolicy> {
+  const { data } = await admin.from('dispatch_policies').select('mode, emergency_auto_approve, emergency_cap, preferred').eq('landlord_auth_id', landlordAuthId).maybeSingle()
+  return normalizePolicy(data as never)
+}
+
+/** Track record behind the ranking: this landlord's finished jobs per provider, ratings, acceptance. */
+async function candidateStats(admin: Admin, landlordAuthId: string, cands: Candidate[]): Promise<Candidate[]> {
+  const ids = cands.map((c) => c.provider_id)
+  if (!ids.length) return cands
+  const [{ data: wos }, { data: revs }] = await Promise.all([
+    admin.from('work_orders').select('provider_id, landlord_auth_id, status').in('provider_id', ids).limit(2000),
+    admin.from('provider_reviews').select('provider_id, overall').in('provider_id', ids).limit(2000),
+  ])
+  return cands.map((c) => {
+    const mine = ((wos ?? []) as { provider_id: string; landlord_auth_id: string; status: string }[]).filter((w) => w.provider_id === c.provider_id)
+    const offers = mine.filter((w) => w.status !== 'offered')
+    const accepted = offers.filter((w) => !['declined', 'expired'].includes(w.status))
+    const rs = ((revs ?? []) as { provider_id: string; overall: number }[]).filter((r) => r.provider_id === c.provider_id)
+    return {
+      ...c,
+      landlordJobsDone: mine.filter((w) => w.landlord_auth_id === landlordAuthId && ['accepted', 'paid', 'closed'].includes(w.status)).length,
+      rating: rs.length ? rs.reduce((x, r) => x + Number(r.overall), 0) / rs.length : null,
+      reviews: rs.length,
+      acceptRate: offers.length >= 3 ? accepted.length / offers.length : null,
+    }
+  })
+}
+
 /** Services marketplace step ③: after a ticket lands, suggest the dispatch to
  *  the landlord as a card. Never auto-dispatches. Shared by the maintenance
  *  executor and /api/maintenance/notify. */
@@ -349,18 +409,36 @@ export async function suggestDispatch(admin: Admin, landlordAuthId: string, tick
     if (!ctx) return
     const trade = tradeForCategory(ctx.ticket.category)
     const { data: provs } = await admin.from('service_providers').select('id, legal_name, trade_name, status, trades, service_cities').eq('status', 'verified').contains('trades', [trade]).limit(20)
-    const candidates: { provider_id: string; name: string }[] = []
-    for (const p of (provs ?? []) as { id: string; legal_name: string; trade_name: string | null; status: string; trades: string[]; service_cities: string[] }[]) {
+    const network = await networkDispatchAllowed(admin, landlordAuthId)
+    const eligible: Candidate[] = []
+    if (network) for (const p of (provs ?? []) as { id: string; legal_name: string; trade_name: string | null; status: string; trades: string[]; service_cities: string[] }[]) {
       const { data: creds } = await admin.from('provider_credentials').select('kind, expires_at, verified_at').eq('provider_id', p.id)
-      if (providerEligible(p, (creds ?? []) as { kind: string; expires_at: string | null; verified_at: string | null }[], trade, ctx.household.city).ok) candidates.push({ provider_id: p.id, name: p.trade_name || p.legal_name })
-      if (candidates.length >= 5) break
+      if (providerEligible(p, (creds ?? []) as { kind: string; expires_at: string | null; verified_at: string | null }[], trade, ctx.household.city).ok) eligible.push({ provider_id: p.id, name: p.trade_name || p.legal_name })
     }
+    // P2 (V0.6): rank by the landlord's preference and track record, then
+    // follow their dispatch policy. Auto-dispatch goes through createWorkOrder,
+    // i.e. the same landlord check and eligibility rule as a manual dispatch.
+    const policy = await loadDispatchPolicy(admin, landlordAuthId)
+    const preferredId = policy.preferred[trade] ?? null
+    const ranked = rankCandidates(await candidateStats(admin, landlordAuthId, eligible), preferredId)
+    const candidates = ranked.slice(0, 5).map((c) => ({ provider_id: c.provider_id, name: c.name, reason: rankReason(c, preferredId) }))
+    const emergency = ctx.ticket.priority === 'high'
     const tradeLabel = TRADES.find((t) => t.key === trade)
     const unit = [ctx.household.address, ctx.household.unit ? `#${ctx.household.unit}` : null].filter(Boolean).join(' ')
+    if (shouldAutoDispatch(policy, emergency, candidates.length)) {
+      const top = candidates[0]
+      const r = await createWorkOrder(admin, { ticketId, landlordAuthId, providerId: top.provider_id, trade, emergency, actor: 'system' })
+      if (r.ok) {
+        await admin.from('agent_audit_events').insert({ actor_id: landlordAuthId, actor_type: 'system', action: 'work_order_auto_dispatched', target_type: 'work_order', target_id: r.wo.id, metadata: { ticket_id: ticketId, provider_id: top.provider_id, reason: top.reason, mode: policy.mode, emergency } })
+        void notifyUser(admin, landlordAuthId, { kind: 'event', title: `已按你的派单策略派给 ${top.name} / Auto-dispatched`, body: `${ctx.ticket.title} · ${unit}`, url: `/h/${ctx.household.id}?tab=maintenance` })
+        return
+      }
+      console.warn('[marketplace] auto-dispatch failed, falling back to a card:', r.error)
+    }
     await admin.from('agent_pending_actions').insert({
       user_id: landlordAuthId, role: 'landlord', action_type: 'dispatch_work_order',
       title: `派单：${ctx.ticket.title} · ${unit}`,
-      summary: `租客的报修「${ctx.ticket.title}」需要${tradeLabel?.zh ?? '维修'}。` + (candidates.length ? `精选网络里有 ${candidates.length} 家资质在有效期内的服务商可派：${candidates.map((c) => c.name).join('、')}。批准 = 向第一位发出派单邀请（可在工单页改派或派给自己的联系人）。` : '精选网络里暂时没有覆盖这个工种与区域的已核验服务商——请在工单页把它派给你自己的联系人（只需一个邮箱）。') + (ctx.ticket.priority === 'high' ? ' 紧急件：进入按 RTA s.26 可不提前通知。' : ' 非紧急：批准报价时我会给租客发 24 小时进入通知（RTA s.27）。'),
+      summary: `租客的报修「${ctx.ticket.title}」需要${tradeLabel?.zh ?? '维修'}。` + (candidates.length ? `精选网络里有 ${candidates.length} 家资质在有效期内的服务商可派，排第一的是 ${candidates[0].name}（${candidates[0].reason}）${candidates.length > 1 ? `，其余：${candidates.slice(1).map((c) => c.name).join('、')}` : ''}。批准 = 向第一位发出派单邀请（可在工单页改派或派给自己的联系人）。` : (network ? '精选网络里暂时没有覆盖这个工种与区域的已核验服务商——请在工单页把它派给你自己的联系人（只需一个邮箱）。' : '已核验服务商网络是 Pro 功能——请在工单页把它派给你自己的联系人（只需一个邮箱，所有计划都可用），或升级 Pro。')) + (emergency ? ' 紧急件：进入按 RTA s.26 可不提前通知。' : ' 非紧急：批准报价时我会给租客发 24 小时进入通知（RTA s.27）。'),
       recipient_label: candidates[0]?.name ?? null, data_scope: ['工单内容', '地址（接单后）'], excluded_data: ['租约', '筛查报告', '租金记录'], risk_level: 'low', status: 'pending', requires_approval: true,
       metadata: { ticket_id: ticketId, household_id: ctx.household.id, candidates, provider_id: candidates[0]?.provider_id ?? null, source: 'work_order' },
     })

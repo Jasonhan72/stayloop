@@ -1841,3 +1841,25 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
 - **生命周期 rail 一趟取数**：`lifecycle_facts_landlord()` / `lifecycle_facts_tenant()`（**SECURITY INVOKER**，调用者 RLS，
   anon 无权；迁移 `20260924_lifecycle_facts_rpc.sql`）把房东四波、租客两波串行请求合成一个 RPC；`useLifecycle` 先调 RPC，
   出错回退到原逐表加载。租客侧申请仍经无分数视图 `applicant_applications`。
+
+## 服务市场 P2 · 非资金部分（2026-09-24 · V0.6）
+
+用户拍板：**暂缓代收 / 抽成 / Stripe Connect**（生产尚无真实工单，抽成率要在真实数据上定）；HST 未注册，平台费不收税；
+短信不做（服务商已有邮件 + 推送）。落地（守卫 `tests/dispatchPolicy.spec.ts`，迁移 `20260924_dispatch_policies.sql` 已应用 prod）：
+- **派单策略** `dispatch_policies`（每房东一行，本人 RLS，anon 无权）+ 纯规则 `lib/marketplace/dispatchPolicy.ts`：
+  `mode` = `suggest`（默认，原行为：派单建议卡）/ `auto_emergency`（priority high 的报修立即派给排第一的服务商）/ `auto_all`；
+  `preferred`（工种 → 服务商 id）；**紧急报价预授权** `emergency_auto_approve` + `emergency_cap`（0–2000，默认 500）：
+  紧急件报价 > 0 且 ≤ 上限时以该行房东身份经 `actOnWorkOrder('approve_quote')` 直接批准（同样的检查、事件 payload
+  `auto_policy:true`、租客收到 s.26 进入通知），不再出批准卡；超上限 / 非紧急永远要房东点头；CPA 10% 仍约束账单。
+- **候选排序** `rankCandidates`：首选 → 该房东已验收的单数 → 评分（≥2 条才算）→ 接单率（≥3 单才算）→ 名称；
+  `rankReason` 写进卡片与审计。`suggestDispatch` 先取全部合格服务商再排序取前 5；自动派单走 `createWorkOrder(actor:'system')`
+  （同样的房东与资格检查），失败回退为卡片；审计 `work_order_auto_dispatched` / `work_order_quote_auto_approved`，推送房东。
+- **精选网络是 Pro 功能**：`networkDispatchAllowed`（测试窗口内或 plan pro/team）——`createWorkOrder` 对 providerId 派单返回
+  402 `pro_required`，`suggestDispatch` 在非 Pro 时不列网络候选并提示派给自己的联系人；**派给自己的联系人所有计划都可用**。
+  定价页：起步档加「维修工单 + 派给你自己的联系人」，Pro 加「已核验服务商网络 + 派单策略 · 不抽成」。
+- **界面**：`components/marketplace/DispatchPolicyCard.tsx` 在 `/landlord/providers` 顶部（三种模式单选、预授权开关 + 上限、
+  各工种首选下拉，只列资质齐全的服务商）；派单弹窗把 `pro_required` 译成人话。
+- **生产实测**（`.forensics-tmp/p2-e2e.mts`，service role 直调服务端函数，`[TEST]` 数据已取消）：紧急件自动派给 `[TEST] Maple
+  Plumbing`、无卡片；$150 紧急报价在 $400 上限内自动批准（事件 `system:offered → provider:accept → landlord:approve_quote(auto)`，
+  进入通知已发）；非紧急件出卡片且理由「你以前派过 1 单并验收」；$900 超上限出正常批准卡。
+- **仍未做（P2 资金部分，等真实工单量）**：Connect Express 服务商入驻 → 代收 → 抽成 → 转账、发票与 HST、争议冻结付款、服务商短信。
