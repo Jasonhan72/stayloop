@@ -116,7 +116,8 @@ export function IdeasPage({ role }: { role: AgentRole }) {
     role,
     lang,
     agentName: data.agent.agent_name,
-    memories: data.memories,
+    // Ideas are per hat: a landlord's page must not suggest the tenant-side budget (one assistant, separate hats).
+    memories: data.memories.filter((m) => !m.role || m.role === role || m.role === 'self'),
     workflow: data.workflow,
     pendingActions: data.pendingActions,
     recommendations: data.recommendations,

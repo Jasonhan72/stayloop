@@ -213,7 +213,7 @@ function exportCsv(apps: Applicant[], zh: boolean) {
 
 export default function LandlordApplicantsPage() {
   const { lang } = useT()
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   const { user, loading: authLoading } = useAuth()
   const [rows, setRows] = useState<AppRow[] | null>(null)
 
@@ -543,7 +543,7 @@ function PolicyCard({
   showHits: boolean
 }) {
   const zh = lang === 'zh'
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   return (
     <SectionCard
       className="mb-3"
@@ -639,7 +639,7 @@ function RailAside({
   showFunnel: boolean
 }) {
   const zh = lang === 'zh'
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   const top = FUNNEL[0].n
   const qualifiedRate = Math.round((FUNNEL[2].n / FUNNEL[1].n) * 100)
   return (

@@ -3,7 +3,8 @@
 //
 // Mechanism (three tiers):
 //   1. Per-turn memory_writes (existing): granular facts the model saves live.
-//   2. THIS MODULE — a periodic reflection pass per active user+role: read the
+//   2. THIS MODULE — a periodic reflection pass per active user (one profile
+//      across every hat since 2026-09-25, stored under role 'self'): read the
 //      recent conversation trail (agent_audit_events turn metadata), the raw
 //      memories, and the approve/reject record, then have a cheap model
 //      SYNTHESISE a durable user model — goals, preferences, constraints,
@@ -25,7 +26,6 @@ import { stripNul } from '@/lib/screening/jsonSafe'
 import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '@/lib/modelConfig'
 import { llmChat } from '@/lib/llmChat'
 import { parseModelJson } from '@/lib/screening/jsonRepair'
-import type { AgentRole } from './types'
 
 export const USER_MODEL_KEY = 'user_model'
 const REFLECT_WINDOW_HOURS = 36
@@ -44,7 +44,7 @@ export interface UserModel {
   turns_analyzed: number
 }
 
-const REFLECT_PROMPT = `你是一个"用户理解引擎"。下面是某位 Stayloop 用户（角色：{ROLE}）最近与 AI 管家的对话记录、TA 已保存的记忆、以及 TA 对 AI 提议的批准/拒绝记录。
+const REFLECT_PROMPT = `你是一个"用户理解引擎"。下面是某位 Stayloop 用户（身份：{ROLE}）最近与 AI 助理的对话记录、TA 已保存的记忆、以及 TA 对 AI 提议的批准/拒绝记录。
 
 任务：把零散信息提炼成一份稳定的「用户画像」，让 AI 管家越来越懂这个人。规则：
 1. 只写有证据支撑的判断，不猜测；矛盾时以最新的证据为准。
@@ -107,18 +107,21 @@ export function needsReflection(row: { updated_at?: string | null } | null | und
   if (!row || !row.updated_at) return true
   const t = Date.parse(row.updated_at)
   if (!Number.isFinite(t)) return true
-  return now - t > 20 * 3_600_000 // at most ~once a day per user+role
+  return now - t > 20 * 3_600_000 // at most ~once a day per user
 }
 
-/** One user's reflection: gather evidence → synthesize → upsert the user_model memory. */
-export async function reflectUser(admin: SupabaseClient, userId: string, role: AgentRole): Promise<boolean> {
+const HAT_ZH: Record<string, string> = { tenant: '租客', landlord: '房东', agent: '经纪' }
+const TURN_ACTIONS = ['tenant_agent_turn', 'landlord_agent_turn', 'agent_agent_turn']
+
+/** One user's reflection across every hat: gather evidence → synthesize → upsert the user_model memory (role 'self'). */
+export async function reflectUser(admin: SupabaseClient, userId: string): Promise<boolean> {
   const since = new Date(Date.now() - 14 * 86_400_000).toISOString()
   const [turnsQ, memsQ, apprQ] = await Promise.all([
-    admin.from('agent_audit_events').select('action,metadata,created_at').eq('actor_id', userId).eq('action', `${role}_agent_turn`).gte('created_at', since).order('created_at', { ascending: false }).limit(MAX_TURNS),
-    admin.from('user_memories').select('memory_type,key,label,value,updated_at').eq('user_id', userId).eq('role', role).neq('key', USER_MODEL_KEY).order('updated_at', { ascending: false }).limit(60),
+    admin.from('agent_audit_events').select('action,metadata,created_at').eq('actor_id', userId).in('action', TURN_ACTIONS).gte('created_at', since).order('created_at', { ascending: false }).limit(MAX_TURNS),
+    admin.from('user_memories').select('memory_type,key,label,value,updated_at,role').eq('user_id', userId).neq('key', USER_MODEL_KEY).order('updated_at', { ascending: false }).limit(80),
     admin.from('approval_events').select('action_type,status,created_at').eq('user_id', userId).gte('created_at', since).order('created_at', { ascending: false }).limit(30),
   ])
-  const turns = (turnsQ.data ?? []) as Array<{ metadata?: Record<string, unknown>; created_at?: string }>
+  const turns = (turnsQ.data ?? []) as Array<{ action?: string; metadata?: Record<string, unknown>; created_at?: string }>
   if (turns.length < 3) return false // not enough signal to learn from yet
   const convo = turns
     .slice()
@@ -127,17 +130,18 @@ export async function reflectUser(admin: SupabaseClient, userId: string, role: A
       const md = t.metadata || {}
       const msg = typeof md.message === 'string' ? md.message : ''
       const reply = typeof md.reply === 'string' ? md.reply : ''
-      return `[${String(t.created_at).slice(0, 10)}] 用户: ${msg}${reply ? `\n  管家: ${reply.slice(0, 200)}` : ''}`
+      const hat = HAT_ZH[String(t.action || '').replace('_agent_turn', '')] || ''
+      return `[${String(t.created_at).slice(0, 10)}${hat ? ` · ${hat}` : ''}] 用户: ${msg}${reply ? `\n  助理: ${reply.slice(0, 200)}` : ''}`
     })
     .join('\n')
-  const mems = ((memsQ.data ?? []) as Array<{ key: string; label?: string; value?: unknown }>).map((m) => `- ${m.label || m.key}: ${JSON.stringify(m.value).slice(0, 160)}`).join('\n') || '(无)'
+  const mems = ((memsQ.data ?? []) as Array<{ key: string; label?: string; value?: unknown; role?: string }>).map((m) => `- ${HAT_ZH[m.role || ''] ? `[${HAT_ZH[m.role || '']}] ` : ''}${m.label || m.key}: ${JSON.stringify(m.value).slice(0, 160)}`).join('\n') || '(无)'
   const appr = ((apprQ.data ?? []) as Array<{ action_type?: string; status?: string }>).map((a) => `- ${a.action_type}: ${a.status}`).join('\n') || '(无)'
 
   const modelId = await getModel('turn')
   const def = (await getModelDefAsync(modelId)) ?? getModelDef(DEFAULT_MODELS.turn)!
   const { text } = await llmChat({
     model: def,
-    system: REFLECT_PROMPT.replace('{ROLE}', role),
+    system: REFLECT_PROMPT.replace('{ROLE}', '租客 / 房东 / 经纪 —— 同一个人可能同时有几种身份;画像写这个人本身,各身份的目标与约束分开写'),
     messages: [{ role: 'user', content: `## 最近对话（旧→新）\n${convo.slice(0, 12_000)}\n\n## 已保存的记忆\n${mems.slice(0, 4_000)}\n\n## 提议批准/拒绝记录\n${appr.slice(0, 1_500)}` }],
     maxTokens: def.provider === 'openai-compat' ? 2500 : 1200,
     temperature: 0.2,
@@ -151,7 +155,7 @@ export async function reflectUser(admin: SupabaseClient, userId: string, role: A
     // true forever, so every later turn re-ran this 12k-char call. Stamp an
     // empty profile (renders to nothing) so the staleness window applies.
     await admin.from('user_memories').upsert(
-      { user_id: userId, role, memory_type: 'system', key: USER_MODEL_KEY, label: '用户画像', value: { updated_at: new Date().toISOString().slice(0, 10), turns_analyzed: turns.length }, source: 'reflection', updated_at: new Date().toISOString() },
+      { user_id: userId, role: 'self', memory_type: 'system', key: USER_MODEL_KEY, label: '用户画像', value: { updated_at: new Date().toISOString().slice(0, 10), turns_analyzed: turns.length }, source: 'reflection', updated_at: new Date().toISOString() },
       { onConflict: 'user_id,role,memory_type,key' },
     )
     return false
@@ -159,7 +163,7 @@ export async function reflectUser(admin: SupabaseClient, userId: string, role: A
   const { error } = await admin.from('user_memories').upsert(
     {
       user_id: userId,
-      role,
+      role: 'self',
       memory_type: 'system',
       key: USER_MODEL_KEY,
       label: '用户画像（自动学习）',
@@ -186,17 +190,16 @@ export async function runReflectionSweep(admin: SupabaseClient): Promise<{ refle
     .like('action', '%_agent_turn')
     .gte('created_at', since)
     .limit(2000)
-  const pairs = new Map<string, { userId: string; role: AgentRole }>()
+  const users = new Set<string>()
   for (const row of (data ?? []) as Array<{ actor_id: string; action: string }>) {
-    const role = row.action.replace('_agent_turn', '') as AgentRole
-    if (!['tenant', 'landlord', 'agent'].includes(role)) continue
-    pairs.set(`${row.actor_id}:${role}`, { userId: row.actor_id, role })
+    if (!TURN_ACTIONS.includes(row.action)) continue
+    users.add(row.actor_id)
   }
   let reflected = 0
   let skipped = 0
-  for (const { userId, role } of Array.from(pairs.values()).slice(0, MAX_USERS_PER_RUN)) {
+  for (const userId of Array.from(users).slice(0, MAX_USERS_PER_RUN)) {
     try {
-      ;(await reflectUser(admin, userId, role)) ? reflected++ : skipped++
+      ;(await reflectUser(admin, userId)) ? reflected++ : skipped++
     } catch (e) {
       skipped++
       console.warn('[reflection] user failed', userId.slice(0, 8), (e as Error).message)

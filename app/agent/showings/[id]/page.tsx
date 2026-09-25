@@ -81,7 +81,7 @@ export default function ShowingLivePage() {
   const { id } = useParams<{ id: string }>()
   const { lang } = useT()
   const zh = lang === 'zh'
-  const aiName = useAIName('agent')
+  const aiName = useAIName()
   const showing = SHOWINGS[id] ?? SHOWINGS['sh-1207-mia']
   return (
     <WorkspaceShell role="agent" hideAside>

@@ -99,7 +99,7 @@ const SLOTS = [
 export default function TenantApplications() {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const aiName = useAIName('tenant')
+  const aiName = useAIName()
   const [archived, setArchived] = useState<string[]>([])
   const apps = APPS.filter((a) => !archived.includes(a.addr))
   const archivedApps = APPS.filter((a) => archived.includes(a.addr))

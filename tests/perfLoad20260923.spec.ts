@@ -21,10 +21,11 @@ describe('page-load round trips', () => {
     expect(s).toContain('if (inflight && inflight.uid === uid) return inflight.p')
     expect(s).toContain('inflight = null }')
   })
-  it('assistant names come from one agent_configs query for all roles', () => {
+  it('the assistant name comes from one profile query per session (one assistant per account, 2026-09-25)', () => {
     const s = read('lib/aiName.ts')
-    expect(s).toContain(".select('role, agent_name')")
-    expect(s).not.toMatch(/\.select\('agent_name'\)/)
+    expect(s).toContain('let nameResolve: Promise<string | null> | null = null')
+    expect(s).toContain('const profile = await readAssistantProfile(supabase)')
+    expect(s).not.toContain("from('agent_configs')")
   })
   it('Header and phone tabs read the pending badge through the shared fetch', () => {
     expect(read('components/Header.tsx')).toContain('fetchPendingCount(currentRole)')
@@ -39,7 +40,7 @@ describe('page-load round trips', () => {
   })
   it('agent session reads run alongside the bootstrap RPC', () => {
     const s = read('lib/agent/session-loader.ts')
-    expect(s).toContain("const [{ data: sessRow, error: bootErr }, { data: cfgByRole }, { data: task }, memories, pendingActions] =")
+    expect(s).toContain("const [{ data: sessRow, error: bootErr }, { data: cfgByRole }, { data: task }, memories, pendingActions, profile] =")
     expect(s).toContain('(cfgByRole as { id: string }).id === session.agent_config_id')
   })
   it('tenants row lookup is shared and the status tiles start on user, not on live', () => {

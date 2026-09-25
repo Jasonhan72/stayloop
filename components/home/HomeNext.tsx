@@ -166,14 +166,9 @@ export default function HomeNext() {
     setRole(activeHat(hats, auth.role))
     pinnedRole.current = true
   }, [signedIn, hats.loading, hats.landlord, hats.agent, auth.role])
-  const tenantName = useAIName('tenant')
-  const landlordName = useAIName('landlord')
-  const agentName = useAIName('agent')
-  const names: Record<AgentRole, string | null> = {
-    tenant: customName(tenantName),
-    landlord: customName(landlordName),
-    agent: customName(agentName),
-  }
+  // One assistant per account (2026-09-25): the same name under every hat.
+  const assistantName = customName(useAIName())
+  const names: Record<AgentRole, string | null> = { tenant: assistantName, landlord: assistantName, agent: assistantName }
 
   // Deep link from role / screening pages: `/?role=landlord&ask=<question>` opens
   // the hero conversation on that role and sends the question once (2026-09-22,
@@ -225,8 +220,8 @@ export default function HomeNext() {
             </h1>
             <p className="mx-auto mt-3 hidden max-w-[640px] text-[16px] leading-relaxed text-body-2 sm:block">
               {zh
-                ? <>Stayloop 为租客、房东、经纪各提供一个<b className="text-body">独立的 AI Agent</b>：你说一句，它去办，关键决定由你确认。下面这个就是——不用注册，直接说。</>
-                : <>Stayloop gives tenants, landlords and agents each a <b className="text-body">dedicated AI agent</b>: say it, it gets done, you confirm the key decisions. This is it — no signup, just talk.</>}
+                ? <>Stayloop 给你一个<b className="text-body">独立的 AI 助理</b>：租客、房东、经纪的事它都会办，你说一句，它去办，关键决定由你确认。下面这个就是——不用注册，直接说。</>
+                : <>Stayloop gives you one <b className="text-body">dedicated AI assistant</b> for everything a tenant, landlord or agent does: say it, it gets done, you confirm the key decisions. This is it — no signup, just talk.</>}
             </p>
             <p className="mt-1 text-[12.5px] leading-snug text-body-3 sm:hidden">
               {zh ? '不用注册，直接对它说。' : 'No signup — just talk to it.'}
@@ -239,7 +234,7 @@ export default function HomeNext() {
               <div className="mb-2 flex flex-wrap items-center justify-center gap-2 text-[12.5px] text-body-3 sm:mb-2.5">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 font-semibold text-body" style={{ border: '1px solid #D3E3EF' }}>
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#00ACE4' }} />
-                  {pick(ROLE_LABEL[role], lang)}{names[role] ? ` · ${names[role]}` : ''}
+                  {pick(ROLE_LABEL[role], lang)}
                 </span>
                 <span>{zh ? '换身份在右上角菜单' : 'Switch hats in the top-right menu'}</span>
               </div>
@@ -253,7 +248,7 @@ export default function HomeNext() {
                   className="rounded-full px-3 py-1 text-[12.5px] font-bold transition sm:px-4 sm:py-2 sm:text-[13.5px]"
                   style={role === r ? { background: '#1B1B3C', color: '#fff' } : { background: '#fff', color: '#1B1B3C', border: '1px solid #D3E3EF' }}
                 >
-                  {pick(ROLE_LABEL[r], lang)}{names[r] ? ` · ${names[r]}` : ''}
+                  {pick(ROLE_LABEL[r], lang)}
                 </button>
               ))}
             </div>
@@ -381,7 +376,7 @@ export default function HomeNext() {
 
 // One live session per role; remounted (key=role) when the role switches.
 function AssistantPanel({ role, name, queued, onQueuedSent }: { role: AgentRole; name: string | null; queued: { role: AgentRole; prompt: string } | null; onQueuedSent: () => void }) {
-  const { loading, data, status, messages, sendMessage, markListingsShown } = useAgentSession(role)
+  const { loading, live, data, status, messages, sendMessage, markListingsShown } = useAgentSession(role)
   const sentRef = useRef<string | null>(null)
   useEffect(() => {
     if (loading || !queued || queued.role !== role) return
@@ -394,7 +389,7 @@ function AssistantPanel({ role, name, queued, onQueuedSent }: { role: AgentRole;
   if (loading || !data) {
     return <div className="h-full animate-pulse rounded-2xl border border-line-divider bg-white" />
   }
-  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} status={status} messages={messages} onSend={sendMessage} onListingsShown={markListingsShown} fill compactHeader />
+  return <AgentChat role={role} agentName={name ?? data.agent.agent_name} avatar={data.agent.avatar ?? null} avatarFallback={live ? 'brand' : 'role'} status={status} messages={messages} onSend={sendMessage} onListingsShown={markListingsShown} fill compactHeader />
 }
 
 function Pain({ who, text, onTry, tryLabel }: { who: string; text: string; onTry: () => void; tryLabel: string }) {

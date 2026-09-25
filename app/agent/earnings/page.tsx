@@ -549,7 +549,7 @@ function GoalFigure({
 function Aside({ hasReal, ytdGross }: { hasReal: boolean; ytdGross: number }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const aiName = useAIName('agent')
+  const aiName = useAIName()
   return (
     <div>
       <AsideBlock title={zh ? 'AI 建议' : 'AI SUGGESTIONS'}>

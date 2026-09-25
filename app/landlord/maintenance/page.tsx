@@ -110,7 +110,7 @@ const PRIORITY_STYLE: Record<string, { tone: PillTone; label: { zh: string; en: 
 
 export default function LandlordMaintenancePage() {
   const { lang } = useT()
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   const open = TICKETS.filter((t) => t.status === 'open')
   const inProgress = TICKETS.filter((t) => t.status === 'in-progress')
   const resolved = TICKETS.filter((t) => t.status === 'resolved')
@@ -379,7 +379,7 @@ function TicketCard({ t, lang }: { t: (typeof TICKETS)[number]; lang: Lang }) {
 }
 
 function Aside({ lang, insights }: { lang: Lang; insights: AIInsight[] }) {
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   const zh = lang === 'zh'
   return (
     <div>

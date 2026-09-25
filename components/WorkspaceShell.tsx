@@ -59,8 +59,8 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
     ctaZh: '导入已签租约 →', ctaEn: 'Import a signed lease →', href: '/leases/import',
   },
   '/tenant/applications': {
-    zh: '还没有租房申请。让 Luna 按你的预算和区域先找几套,再一键申请。', en: 'No applications yet. Let Luna shortlist homes for your budget and area first.',
-    ctaZh: '让 Luna 开始找房 →', ctaEn: 'Let Luna start searching →', href: '/tenant/agent',
+    zh: '还没有租房申请。让助手按你的预算和区域先找几套,再一键申请。', en: 'No applications yet. Let your assistant shortlist homes for your budget and area first.',
+    ctaZh: '让助手开始找房 →', ctaEn: 'Let your assistant start searching →', href: '/tenant/agent',
   },
   '/tenant/payments': {
     zh: '还没有租金记录。加入或导入你的在管租约后,每月租金在这里留痕——准时记录会进入你的租客护照。', en: 'No rent records yet. Join or import your managed tenancy and every month leaves a record here.',
@@ -84,15 +84,15 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
   },
   '/agent/clients': {
     zh: '上面是你的真实客户表：加第一位客户，并记录代表协议与 Information Guide 的日期。下面的样例只是演示。', en: 'Your real client table is above: add the first client and record the agreement and Information Guide dates. The samples below are a demo.',
-    ctaZh: '和 Brief 开工 →', ctaEn: 'Start with Brief →', href: '/agent/agent',
+    ctaZh: '和助手开工 →', ctaEn: 'Start with your assistant →', href: '/agent/agent',
   },
   '/agent/calendar': {
-    zh: '还没有带看日程。让 Brief 帮你安排第一场。', en: 'No showings yet. Let Brief schedule your first.',
-    ctaZh: '打开 Brief →', ctaEn: 'Open Brief →', href: '/agent/agent',
+    zh: '还没有带看日程。让助手帮你安排第一场。', en: 'No showings yet. Let your assistant schedule your first.',
+    ctaZh: '打开助手 →', ctaEn: 'Open your assistant →', href: '/agent/agent',
   },
   '/agent/earnings': {
     zh: '还没有结算记录。完成的转介与筛查服务会在这里对账。', en: 'No settlements yet. Completed referrals and screenings reconcile here.',
-    ctaZh: '打开 Brief →', ctaEn: 'Open Brief →', href: '/agent/agent',
+    ctaZh: '打开助手 →', ctaEn: 'Open your assistant →', href: '/agent/agent',
   },
   '/tenant/passport/sharing': {
     zh: '还没有授权记录。第一次分享护照后，谁能看到什么会列在这里。', en: 'No grants yet. Once you share your Passport, who can see what is listed here.',
@@ -100,19 +100,19 @@ const DEMO_GATE: Record<string, { zh: string; en: string; ctaZh: string; ctaEn: 
   },
   '/tenant/audit': {
     zh: '还没有审计记录。助手替你做的每件事都会在这里留痕。', en: 'No audit events yet. Everything your assistant does for you is logged here.',
-    ctaZh: '打开 Luna →', ctaEn: 'Open Luna →', href: '/tenant/agent',
+    ctaZh: '打开助手 →', ctaEn: 'Open your assistant →', href: '/tenant/agent',
   },
   '/landlord/audit': {
     zh: '还没有审计记录。助手替你做的每件事都会在这里留痕。', en: 'No audit events yet. Everything your assistant does for you is logged here.',
-    ctaZh: '打开 Logic →', ctaEn: 'Open Logic →', href: '/landlord/agent',
+    ctaZh: '打开助手 →', ctaEn: 'Open your assistant →', href: '/landlord/agent',
   },
   '/agent/audit': {
     zh: '还没有审计记录。助手替你做的每件事都会在这里留痕。', en: 'No audit events yet. Everything your assistant does for you is logged here.',
-    ctaZh: '打开 Brief →', ctaEn: 'Open Brief →', href: '/agent/agent',
+    ctaZh: '打开助手 →', ctaEn: 'Open your assistant →', href: '/agent/agent',
   },
   '/agent/showings/*': {
-    zh: '还没有带看任务。让 Brief 帮你接第一场。', en: 'No showings yet. Let Brief book your first.',
-    ctaZh: '打开 Brief →', ctaEn: 'Open Brief →', href: '/agent/agent',
+    zh: '还没有带看任务。让助手帮你接第一场。', en: 'No showings yet. Let your assistant book your first.',
+    ctaZh: '打开助手 →', ctaEn: 'Open your assistant →', href: '/agent/agent',
   },
 }
 
@@ -257,7 +257,7 @@ function AgentLockedState({ status, zh }: { status: string; zh: boolean }) {
       </p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <Link href="/agent/verify" className="rounded-xl px-6 py-3 text-[14px] font-bold text-white" style={{ background: '#00ACE4' }}>{zh ? (status === 'pending' ? '查看认证状态' : '去认证') : (status === 'pending' ? 'View status' : 'Get verified')}</Link>
-        <Link href="/agent/agent" className="rounded-xl border border-line-divider px-5 py-3 text-[13px] font-semibold text-body-2">{zh ? '先和 Brief 聊聊' : 'Talk to Brief meanwhile'}</Link>
+        <Link href="/agent/agent" className="rounded-xl border border-line-divider px-5 py-3 text-[13px] font-semibold text-body-2">{zh ? '先和助手聊聊' : 'Talk to your assistant meanwhile'}</Link>
       </div>
     </div>
   )

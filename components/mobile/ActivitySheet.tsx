@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 // Tap the assistant's avatar → what it has been doing (2026-09-22, Muse
 // benchmark item C: "you can't trust what you can't see"). One row per
 // conversation (with the decisions taken inside it folded in) plus the
@@ -23,13 +24,17 @@ export function ActivitySheet({ role, agentName, live, memoryCount, currentThrea
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const items = useActivityLog(live, role, 20)
+  const items = useActivityLog(live, 20)
+  const router = useRouter()
 
   const open = (it: ActivityItem) => {
     if (!it.threadId || !onOpenThread) return
     onClose()
+    // A conversation held under another hat continues on that hat's page (one assistant, separate hats — 2026-09-25).
+    if (it.kind === 'thread' && it.role && it.role !== role) { router.push(`/${it.role}/agent?thread=${it.threadId}`); return }
     void onOpenThread(it.threadId)
   }
+  const HAT: Record<string, { zh: string; en: string }> = { tenant: { zh: '租客', en: 'tenant' }, landlord: { zh: '房东', en: 'landlord' }, agent: { zh: '经纪', en: 'agent' } }
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/35 sm:items-center sm:p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={zh ? `${agentName} 的活动日志` : `${agentName}'s activity log`}>
@@ -62,6 +67,7 @@ export function ActivitySheet({ role, agentName, live, memoryCount, currentThrea
                   <span className="flex items-center gap-1.5">
                     <span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>
                     {current && <span className="flex-none rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? '当前' : 'now'}</span>}
+                    {it.kind === 'thread' && it.role !== role && HAT[it.role] && <span className="flex-none rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? HAT[it.role].zh : HAT[it.role].en}</span>}
                   </span>
                   {note && <span className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-body-3">{note}</span>}
                   <span className="mt-0.5 block font-mono text-[10.5px] text-body-3">{fmtRowTime(it.at, lang)}{it.kind === 'action' && it.actor_type === 'user' ? (zh ? ' · 你' : ' · you') : ''}</span>

@@ -99,7 +99,7 @@ type AppDetail = {
 function RealApplicantDetail({ id }: { id: string }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   const { user, loading: authLoading } = useAuth()
   const [app, setApp] = useState<AppDetail | null | 'missing'>(null)
   const [busy, setBusy] = useState(false)
@@ -547,7 +547,7 @@ const FILES = [
 
 function DemoApplicantDetail({ id }: { id: string }) {
   const { lang } = useT()
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   return (
     <WorkspaceShell role="landlord" hideAside>
       <SampleBanner

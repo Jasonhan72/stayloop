@@ -113,18 +113,18 @@ describe('conversation threads: loading is not a change; a reply lands in the th
     expect(chat).toMatch(/setDecided\(\[\]\)\s+setListingOffset\(\{\}\)\s+setChipDraft\(null\)\s+\}, \[currentThreadId\]\)/)
   })
   it('hidden panels do not fetch; the activity event name has one home', () => {
-    expect(read('lib/agent/useActivityLog.ts')).toContain('export function useActivityLog(live: boolean, role: AgentRole, limit = 30, enabled = true)')
+    expect(read('lib/agent/useActivityLog.ts')).toContain('export function useActivityLog(live: boolean, limit = 30, enabled = true)')
     const panel = read('components/agent/AssistantPanel.tsx')
     expect(panel).toContain("window.matchMedia('(min-width: 1024px)')")
-    expect(panel).toContain('useActivityLog(live, role, 30, visible)')
+    expect(panel).toContain('useActivityLog(live, 30, visible)')
     expect(panel).toContain("!avatar || avatar === 'default'")
     expect(read('lib/agent/pendingCount.ts')).toContain("import { ACTIVITY_CHANGED_EVENT } from './useActivityLog'")
     expect(read('lib/agent/pendingCount.ts')).not.toContain("new Event('sl-activity-changed')")
   })
   it('the saved avatar wins on a live session and is mirrored locally', () => {
     const p = read('components/agent/AgentWorkspacePage.tsx') // the shared assistant page (2026-09-25)
-    expect(p).toContain("if (live && hasData) { setAvatar(dbAvatar); setStoredAvatar(role, dbAvatar ?? 'default') }")
-    expect(p).toContain('else setAvatar(getStoredAvatar(role) ?? dbAvatar)')
+    expect(p).toContain("if (live && hasData) { setAvatar(dbAvatar); setStoredAvatar(dbAvatar ?? 'default') }")
+    expect(p).toContain('else setAvatar(getStoredAvatar() ?? dbAvatar)')
   })
   it('draft reconcile: same property means the same street NAME, not its first three letters', () => {
     expect(sameProperty('100 King St W', '100 Kingston Rd')).toBe(false)

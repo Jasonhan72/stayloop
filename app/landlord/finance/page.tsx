@@ -370,7 +370,7 @@ export default function LandlordFinancePage() {
 }
 
 function Aside({ lang, insights }: { lang: Lang; insights: AIInsight[] }) {
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   const zh = lang === 'zh'
   return (
     <div>

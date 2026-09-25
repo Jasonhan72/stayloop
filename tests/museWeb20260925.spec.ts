@@ -58,12 +58,13 @@ describe('the conversation is the page', () => {
 
 describe('assistant panel', () => {
   const panel = read('components/agent/AssistantPanel.tsx')
-  it('avatar · name · status, then 活动 / 待办 / 记忆; closable; rename writes the user’s own agent_configs row', () => {
+  it('avatar · name · status, then 活动 / 待办 / 记忆; closable; rename writes the account’s assistant profile (one assistant, 2026-09-25)', () => {
     expect(panel).toContain("['activity', zh ? '活动' : 'Activity'")
     expect(panel).toContain("['todo', zh ? '待办' : 'To-do'")
     expect(panel).toContain("['memory', zh ? '记忆' : 'Memory'")
-    expect(panel).toContain('useActivityLog(live, role, 30, visible)')
-    expect(panel).toContain("from('agent_configs').update({ agent_name: next }).eq('user_id', auth.user.id).eq('role', role)")
+    expect(panel).toContain('useActivityLog(live, 30, visible)')
+    expect(panel).toContain('await saveAssistantName(supabase, auth.user.id, next)')
+    expect(panel).not.toContain("from('agent_configs')")
     expect(panel).toContain('onClick={onClose}')
     expect(panel).toContain('<PrivateMemorySnapshot agentName={name} memories={memories} role={role} editable={live} />')
   })
@@ -81,7 +82,7 @@ describe('assistant panel', () => {
   })
   it('the phone sheet and the web panel read the same log', () => {
     const sheet = read('components/mobile/ActivitySheet.tsx')
-    expect(sheet).toContain('useActivityLog(live, role, 20)')
+    expect(sheet).toContain('useActivityLog(live, 20)')
     expect(sheet).not.toContain("from('agent_audit_events')")
   })
 })
@@ -126,7 +127,7 @@ describe('pure helpers', () => {
   })
   it('activity log: one row per conversation, decisions folded into it, other actions on their own; grouped today / yesterday / earlier', () => {
     const now = new Date('2026-09-25T15:00:00-04:00')
-    const thread = (id: string, at: string): ThreadListRow => ({ id, title: `t-${id}`, summary: null, turn_count: 2, message_count: 5, created_at: at, updated_at: at, last_message_at: at })
+    const thread = (id: string, at: string): ThreadListRow => ({ id, role: 'tenant', title: `t-${id}`, summary: null, turn_count: 2, message_count: 5, created_at: at, updated_at: at, last_message_at: at })
     const ev = (id: string, iso: string, action: string, thread_id: string | null = null) => ({ id, action, actor_type: 'user', created_at: iso, metadata: thread_id ? { thread_id } : {} })
     const items = buildActivity(
       [thread('A', '2026-09-25T14:02:00-04:00'), thread('B', '2026-09-24T22:20:00-04:00'), thread('C', '2026-09-20T09:00:00-04:00')],
@@ -196,7 +197,7 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
     expect(isAvatarPreset('nope')).toBe(false)
     const panel = read('components/agent/AssistantPanel.tsx')
     expect(panel).toContain('data-testid="avatar-picker"')
-    expect(panel).toContain("update({ avatar: key })")
+    expect(panel).toContain("saveAssistantAvatar(supabase, auth.user.id, key)")
     const chat = read('components/agent/AgentChat.tsx')
     expect(chat).not.toContain('style={{ background: ORB[role] }}')
     expect((chat.match(/<AssistantAvatar /g) || []).length).toBeGreaterThanOrEqual(3)
@@ -228,7 +229,7 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
     // reads conversations, not turn events, and every decision carries the
     // conversation it was taken in so the log can fold it into that row.
     const log = read('lib/agent/useActivityLog.ts')
-    expect(log).toContain('listThreads(supabase, role, limit)')
+    expect(log).toContain('listThreads(supabase, limit)') // every hat's conversations in one log (2026-09-25)
     expect(log).toContain(".not('action', 'ilike', '%turn')")
     const threads = read('lib/agent/threads.ts')
     expect(threads).toContain('summary: threadSummary(messages), turn_count: userTurns(messages)')

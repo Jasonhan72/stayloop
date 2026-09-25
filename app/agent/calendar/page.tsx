@@ -101,7 +101,7 @@ function slotHref(s: Slot, lang: Lang): string {
 export default function AgentCalendarPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const aiName = useAIName('agent')
+  const aiName = useAIName()
   const today = SLOTS.filter((s) => s.day === TODAY_INDEX).sort((a, b) => a.start - b.start)
   const openHours = OPEN_WINDOWS.reduce((s, w) => s + w.hours, 0)
 

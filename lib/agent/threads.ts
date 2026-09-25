@@ -11,7 +11,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export type ThreadRow = { id: string; title: string | null; messages: ChatMessage[]; created_at: string; updated_at: string }
 /** A conversation as the activity log lists it — no messages, just what it amounted to. */
-export type ThreadListRow = { id: string; title: string | null; summary: string | null; turn_count: number; message_count: number; created_at: string; updated_at: string; last_message_at: string | null }
+export type ThreadListRow = { id: string; role: string; title: string | null; summary: string | null; turn_count: number; message_count: number; created_at: string; updated_at: string; last_message_at: string | null }
 
 export function stripForStorage(messages: ChatMessage[]): ChatMessage[] {
   return messages.slice(-MAX_STORED_MESSAGES).map((m) => ({
@@ -97,16 +97,18 @@ export async function appendToThread(client: SupabaseClient, id: string, extra: 
   await saveThread(client, id, [...t.messages, ...extra])
 }
 
-/** The user's conversations for one role, newest first — the activity log's rows. */
-export async function listThreads(client: SupabaseClient, role: AgentRole, limit = 30): Promise<ThreadListRow[]> {
+/** The user's conversations under every hat, newest first — the activity log's
+ *  rows (one assistant per account, 2026-09-25; `role` says which hat a
+ *  conversation ran under, so the log can reopen it on that hat's page). */
+export async function listThreads(client: SupabaseClient, limit = 30): Promise<ThreadListRow[]> {
   const { data } = await client
     .from('agent_threads')
-    .select('id, title, summary, turn_count, message_count, created_at, updated_at, last_message_at')
-    .eq('role', role)
+    .select('id, role, title, summary, turn_count, message_count, created_at, updated_at, last_message_at')
     .order('updated_at', { ascending: false })
     .limit(limit)
   return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
     id: String(r.id),
+    role: String(r.role),
     title: (r.title as string | null) ?? null,
     summary: (r.summary as string | null) ?? null,
     turn_count: Number(r.turn_count ?? 0),

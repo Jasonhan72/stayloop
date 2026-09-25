@@ -51,7 +51,7 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
     r === 'tenant' ? true : r === 'landlord' ? hats.landlord : hats.agent !== null)
 
   // The menu names hats, never assistants: 「当前：房东」「房东工作台」「租客 / 房东 / 经纪」
-  // (user 2026-09-25: the assistant names — Atlas, Nova, Brief — made it unclear who the
+  // (user 2026-09-25: the assistant names — Atlas, Nova and the like — made it unclear who the
   // user is; the 2026-09-22 assistant-named workspace entry is gone).
   // The hamburger's red dot used to be decorative (always on when signed in);
   // now it means "cards waiting for you" on the current hat.

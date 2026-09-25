@@ -526,7 +526,7 @@ export async function POST(req: Request) {
           .from('user_memories')
           .select('value,updated_at')
           .eq('user_id', turnUserId)
-          .eq('role', role)
+          .eq('role', 'self') // one profile per account (2026-09-25)
           .eq('key', USER_MODEL_KEY)
           .maybeSingle(),
       ])
@@ -1064,10 +1064,10 @@ export async function POST(req: Request) {
           controller.close()
           // Self-learning trigger: after the reply is on the wire, refresh this
           // user's long-term model in the background — at most ~once a day per
-          // user+role (needsReflection gate). Runs on the caller's own RLS
-          // client, so it can only ever read/write what the user can.
+          // user (needsReflection gate; one profile across every hat). Runs on
+          // the caller's own RLS client, so it can only ever read/write what the user can.
           if (!anonymous && sbAuth && turnUserId && needsReflection(userModelRow)) {
-            const p = reflectUser(sbAuth, turnUserId, role).catch((e) =>
+            const p = reflectUser(sbAuth, turnUserId).catch((e) =>
               console.warn('[agent/turn] background reflection failed', (e as Error).message),
             )
             try {

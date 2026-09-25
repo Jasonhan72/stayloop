@@ -3,7 +3,8 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, Suspense } from 'react'
 import OnboardingStage from '@/components/OnboardingStage'
-import { setAIName } from '@/lib/aiName'
+import { GENERIC_AI_NAME, setAIName } from '@/lib/aiName'
+import { saveAssistantName } from '@/lib/agent/assistantProfile'
 import { useAuth } from '@/lib/useAuth'
 import { supabase } from '@/lib/supabase'
 import { invalidateHats } from '@/lib/useHats'
@@ -11,6 +12,9 @@ import { useOnboarded } from '@/lib/useOnboarding'
 import { useT } from '@/lib/i18n'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import type { AgentRole } from '@/lib/agent/types'
+
+// One assistant per account (2026-09-25): the same name under every hat, so one list of picks.
+const SUGGESTIONS = ['Nova', 'Atlas', 'Mia', 'Aria', 'Echo', 'Scout', '小鹿', '木木', '清和', '豆包', '小布', '领航']
 
 const ROLE_CONFIG: Record<AgentRole, {
   default: string
@@ -26,8 +30,8 @@ const ROLE_CONFIG: Record<AgentRole, {
   cta: { zh: (n: string) => string; en: (n: string) => string }
 }> = {
   tenant: {
-    default: 'Luna',
-    suggestions: ['Luna', 'Mia', 'Aria', '小鹿', '木木', 'Echo', 'Nova', '豆包'],
+    default: GENERIC_AI_NAME,
+    suggestions: SUGGESTIONS,
     color: ROLE_THEME.tenant.accent,
     colorLight: ROLE_THEME.tenant.lightRgba,
     accent: ROLE_THEME.tenant.onboardingAccent,
@@ -53,8 +57,8 @@ const ROLE_CONFIG: Record<AgentRole, {
     },
   },
   landlord: {
-    default: 'Logic',
-    suggestions: ['Logic', 'Atlas', 'Slate', '逻辑', '清和', 'Orion', 'Apex', '稳哥'],
+    default: GENERIC_AI_NAME,
+    suggestions: SUGGESTIONS,
     color: ROLE_THEME.landlord.accent,
     colorLight: ROLE_THEME.landlord.lightRgba,
     accent: ROLE_THEME.landlord.onboardingAccent,
@@ -80,8 +84,8 @@ const ROLE_CONFIG: Record<AgentRole, {
     },
   },
   agent: {
-    default: 'Brief',
-    suggestions: ['Brief', 'Scout', 'Relay', '飞书', '小布', 'Dash', 'Pace', '领航'],
+    default: GENERIC_AI_NAME,
+    suggestions: SUGGESTIONS,
     color: ROLE_THEME.agent.accent,
     colorLight: ROLE_THEME.agent.lightRgba,
     accent: ROLE_THEME.agent.onboardingAccent,
@@ -139,9 +143,9 @@ function NamePageInner() {
     try { window.sessionStorage.setItem('sl-onboarding-role', role) } catch {}
   }, [role])
 
-  // Already onboarded for this role → skip the naming flow entirely. A
-  // logged-in landlord clicking "免费发布房源" must not be re-asked to name
-  // Logic every time.
+  // Already named the assistant (any hat — it is one assistant) → skip the
+  // naming flow entirely. A logged-in landlord clicking "免费发布房源" must
+  // not be re-asked to name it every time.
   const { ready, onboarded, home } = useOnboarded(role)
   useEffect(() => {
     if (ready && onboarded) router.replace(home)
@@ -157,7 +161,9 @@ function NamePageInner() {
   const submit = (name?: string) => {
     if (submitting) return
     setSubmitting(true)
-    setAIName(name ?? final, role)
+    const chosen = name ?? final
+    setAIName(chosen)
+    if (user && chosen !== GENERIC_AI_NAME) void saveAssistantName(supabase, user.id, chosen)
     setRole(role)
     // First-time SIGNED-IN landlords land on the aha moment, not a chat
     // shell. Production data (2026-08-12): 33 signups/30d but 3 active
@@ -198,10 +204,13 @@ function NamePageInner() {
       />
 
       <h1 style={{ fontSize: 'clamp(24px, 6.5vw, 30px)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.18 }}>
-        {zh ? '为你的 AI 助手起名' : 'Name your AI assistant'}
+        {zh ? '为你的 AI 助理起名' : 'Name your AI assistant'}
       </h1>
-      <p style={{ fontSize: 14.5, color: '#3F3F46', lineHeight: 1.6, margin: '12px 0 22px' }}>
+      <p style={{ fontSize: 14.5, color: '#3F3F46', lineHeight: 1.6, margin: '12px 0 8px' }}>
         {cfg.desc[lang]}
+      </p>
+      <p style={{ fontSize: 12.5, color: '#71717A', lineHeight: 1.55, margin: '0 0 22px' }}>
+        {zh ? '它是你在 Stayloop 上唯一的助理：租客、房东、经纪的事都由它处理，各身份分开记录。' : 'It is your one assistant on Stayloop: tenant, landlord and agent matters all go to it, each hat kept separate.'}
       </p>
 
       {/* @-prefixed name input */}

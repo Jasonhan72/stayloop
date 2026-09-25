@@ -154,7 +154,7 @@ const FILTERS: { key: Category | 'all'; label: Bi }[] = [
 
 export default function AuditLog({ role }: { role: WorkspaceRole }) {
   const { lang } = useT()
-  const aiName = useAIName(role)
+  const aiName = useAIName()
   const [active, setActive] = useState<Category | 'all'>('all')
 
   const days = DAYS(aiName).map((d) => ({

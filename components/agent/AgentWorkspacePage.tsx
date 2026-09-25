@@ -48,9 +48,9 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
   // so a choice made on another device never showed (review 2026-09-25). Demo sessions use the browser's.
   const hasData = !!data
   useEffect(() => {
-    if (live && hasData) { setAvatar(dbAvatar); setStoredAvatar(role, dbAvatar ?? 'default') }
-    else setAvatar(getStoredAvatar(role) ?? dbAvatar)
-  }, [dbAvatar, live, hasData, role])
+    if (live && hasData) { setAvatar(dbAvatar); setStoredAvatar(dbAvatar ?? 'default') }
+    else setAvatar(getStoredAvatar() ?? dbAvatar)
+  }, [dbAvatar, live, hasData])
 
   if (loading || !data) {
     return (
@@ -83,7 +83,7 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
           {live && <div className="md:hidden"><ContextStrip lifecycle={lifecycle} pending={pending.map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref={`/${role}/todo`} lang={lang} onPrompt={prefill} /></div>}
           {!panelOpen && (
             <button type="button" onClick={() => setPanelOpen(true)} aria-label={zh ? '打开助手面板' : 'Open the assistant panel'} className="absolute right-4 top-3 z-10 hidden items-center gap-2 rounded-full border border-line-divider bg-white py-1 pl-1 pr-3 text-[12.5px] font-bold text-body-2 shadow-sm transition hover:border-line-strong lg:flex">
-              <AssistantAvatar avatar={avatar} role={role} className="h-6 w-6" />
+              <AssistantAvatar avatar={avatar} role={role} className="h-6 w-6" fallback={live ? 'brand' : 'role'} />
               {agent.agent_name}{pendingCount > 0 ? (zh ? ` · 等你点头 ${pendingCount} 件` : ` · ${pendingCount} waiting`) : ''}
             </button>
           )}
@@ -94,6 +94,7 @@ export default function AgentWorkspacePage({ role }: { role: AgentRole }) {
               draft={draft}
               phaseLabel={stageLabel || null}
               avatar={avatar}
+              avatarFallback={live ? 'brand' : 'role'}
               threadLoading={threadLoading} currentThreadId={threadId} onOpenThread={openThread}
               role={role}
               agentName={agent.agent_name}

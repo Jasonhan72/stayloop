@@ -152,7 +152,7 @@ export default function PlatformPage() {
         {/* what runs through all three */}
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           {[
-            { h: { zh: '一条对话', en: 'One conversation' }, p: { zh: '租客 Luna、房东 Logic、经纪 Brief——各自只对你负责；记忆、阶段与画像跨阶段延续。', en: 'Luna for tenants, Logic for landlords, Brief for agents — each answers only to you; memory, stage and profile carry across.' } },
+            { h: { zh: '一条对话', en: 'One conversation' }, p: { zh: '一个 AI 助理跟着你的三种身份：租客、房东、经纪的事都由它办，只对你负责；记忆与画像跨身份延续，各身份的流程与数据分开。', en: 'One assistant across your hats — tenant, landlord, agent — answering only to you; memory and profile carry across, each hat keeps its own flow and data.' } },
             { h: { zh: '一条审批链', en: 'One approval chain' }, p: { zh: '发信、发租约、发续约函先变成卡片：预览正文 → 批准 → 60 秒可撤销 → 执行 → 审计。', en: 'Emails, leases and renewal letters become cards: preview → approve → 60-second undo → execute → audit.' } },
             { h: { zh: '一套规则', en: 'One rule set' }, p: { zh: '安省 RTA、OHRC 与《消费者报告法》的规则是单一来源，发布检查、租约草稿、通知信和 API 引用同一份。', en: 'Ontario RTA, OHRC and Consumer Reporting Act rules live in one place, cited by publish checks, lease drafts, notices and the API alike.' } },
           ].map((b) => (

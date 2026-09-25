@@ -59,7 +59,7 @@ const CLOSED_BY_CLIENT = CLOSED_DEALS.filter((d) => d.clientKey)
 export default function AgentClientsPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const aiName = useAIName('agent')
+  const aiName = useAIName()
   const [sortByStamps, setSortByStamps] = useState(false)
   // Real rows (agent_clients) render first; the design-canon roster below is
   // shown only while the agent has none, and is labelled as a sample.
@@ -288,7 +288,7 @@ export default function AgentClientsPage() {
 
 function Aside({ lang, quietest }: { lang: Lang; quietest: { name: string; silent: number } }) {
   const zh = lang === 'zh'
-  const aiName = useAIName('agent')
+  const aiName = useAIName()
   return (
     <div>
       <AsideBlock title={zh ? 'AI 建议' : 'AI SUGGESTIONS'}>

@@ -77,6 +77,8 @@ export type MemoryItem = {
   value: unknown
   confidence: number
   memory_type: string
+  /** The hat this fact was learned under ('self' = the whole-person profile). */
+  role?: string
 }
 
 export type AgentResult = {

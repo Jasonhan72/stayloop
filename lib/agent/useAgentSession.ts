@@ -19,6 +19,7 @@ import { demoSession } from './demo'
 import { getAIName, setAIName, getStoredAIName, getDefaultName } from '@/lib/aiName'
 import { appendToThread, createThread, latestThread, loadThread, readPointer, saveThread, writePointer } from './threads'
 import { notifyActivityChanged } from './useActivityLog'
+import { saveAssistantName } from './assistantProfile'
 import { reconcileDraft } from './draftReconcile'
 
 const CHAT_KEY_PREFIX = 'stayloop-agent-chat-'
@@ -72,23 +73,22 @@ function restoreMessages(role: AgentRole, scope: string): ChatMessage[] | null {
   return null
 }
 
-// Two-way sync of the agent's name between this device (localStorage)
-// and the durable store (agent_configs.agent_name), so a name chosen on one
-// device shows up on every device after login.
+// Sync of the assistant's name between this device (localStorage) and the
+// account's profile (assistant_profiles.name): the saved name wins across
+// devices; a name that only exists on this device (chosen before the profile
+// table existed, or while offline) is saved once.
 async function reconcileAgentName(
   client: ReturnType<typeof getSupabaseBrowser>,
   sess: AgentSessionResponse,
-  role: AgentRole
+  _role: AgentRole
 ): Promise<void> {
-  const cfgId = sess.agent.id
-  const dbName = sess.agent.agent_name
-  const local = getStoredAIName(role)
-  const defaultName = getDefaultName(role)
+  const dbName = sess.agent.agent_name && sess.agent.agent_name !== getDefaultName() ? sess.agent.agent_name : null
+  const local = getStoredAIName()
   try {
-    if (local && local !== dbName) {
-      await client.from('agent_configs').update({ agent_name: local }).eq('id', cfgId)
-    } else if (!local && dbName && dbName !== defaultName) {
-      setAIName(dbName, role)
+    if (dbName) {
+      if (local !== dbName) setAIName(dbName)
+    } else if (local && local !== getDefaultName()) {
+      await saveAssistantName(client, sess.agent.user_id, local)
     }
   } catch (e) {
     console.warn('[agent] name reconcile failed', (e as Error).message)
@@ -192,7 +192,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       for (const m of next) for (const l of (m.listings ?? []).slice(0, m.listingsPage ?? LISTINGS_PAGE)) shownListings.current.add(l.address.toLowerCase())
     } else {
       msgSeq.current = 0
-      next = [{ id: nextId(), role: 'agent', text: greeting(role, agentNameRef.current || getDefaultName(role), langRef.current) }]
+      next = [{ id: nextId(), role: 'agent', text: greeting(role, agentNameRef.current || getDefaultName(), langRef.current) }]
     }
     lastAppliedRef.current = next
     setMessages(next)
@@ -250,11 +250,11 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       const scopeChanged = chatScopeRef.current !== nextScope
       settled.current = true
       chatScopeRef.current = nextScope
-      // The agent is named by the user at onboarding (localStorage).
-      // The session's agent_name defaults to ROLE_META — override it so the
-      // workspace, input bar, memory aside, and LLM all use the chosen name.
-      const chosen = getAIName(role)
-      if (chosen) d = { ...d, agent: { ...d.agent, agent_name: chosen } }
+      // A name cached on this device (onboarding writes it before the profile
+      // row lands) shows immediately; the loader already put the account's
+      // saved name on d.agent, so nothing overrides that with the generic label.
+      const chosen = getStoredAIName()
+      if (chosen && chosen !== getDefaultName()) d = { ...d, agent: { ...d.agent, agent_name: chosen } }
       agentNameRef.current = d.agent.agent_name
       const hadTyped = messagesRef.current.length > 1
       // All state updates batched by React 18+ automatic batching

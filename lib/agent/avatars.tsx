@@ -39,18 +39,22 @@ export function isAvatarPreset(key: string | null | undefined): key is string {
   return !!key && AVATAR_PRESETS.some((p) => p.key === key)
 }
 
-const storeKey = (role: AgentRole) => `sl-avatar-${role}`
-export function getStoredAvatar(role: AgentRole): string | null {
-  try { const v = localStorage.getItem(storeKey(role)); return isAvatarPreset(v) ? v : v === 'default' ? 'default' : null } catch { return null }
+// One assistant per account (2026-09-25): one stored choice, not one per hat.
+const STORE_KEY = 'sl-avatar'
+/** The personal assistant's face when no preset is chosen; the role orbs stay for the demo personas. */
+export const DEFAULT_ASSISTANT_AVATAR = 'sphere-blue'
+export function getStoredAvatar(): string | null {
+  try { const v = localStorage.getItem(STORE_KEY); return isAvatarPreset(v) ? v : v === 'default' ? 'default' : null } catch { return null }
 }
-export function setStoredAvatar(role: AgentRole, key: string | null): void {
-  try { if (key) localStorage.setItem(storeKey(role), key); else localStorage.removeItem(storeKey(role)) } catch { /* private mode */ }
+export function setStoredAvatar(key: string | null): void {
+  try { if (key) localStorage.setItem(STORE_KEY, key); else localStorage.removeItem(STORE_KEY) } catch { /* private mode */ }
 }
 
 /** Renders the chosen preset (or the role orb) inside a circle; size comes from className. */
-export function AssistantAvatar({ avatar, role, className = '', style }: { avatar?: string | null; role: AgentRole; className?: string; style?: CSSProperties }) {
+export function AssistantAvatar({ avatar, role, className = '', style, fallback = 'role' }: { avatar?: string | null; role: AgentRole; className?: string; style?: CSSProperties; fallback?: 'role' | 'brand' }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
-  const key = isAvatarPreset(avatar) ? avatar : null
+  // 'brand' = the signed-in user's one assistant (same face under every hat); 'role' = a demo persona's orb.
+  const key = isAvatarPreset(avatar) ? avatar : fallback === 'brand' ? DEFAULT_ASSISTANT_AVATAR : null
   if (!key) {
     return <span aria-hidden className={`inline-block rounded-full ${className}`} style={{ background: ROLE_THEME[role].avatarGradient, ...style }} />
   }

@@ -127,7 +127,7 @@ export default function TenantMaintenancePage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const { lang } = useT()
   const zh = lang === 'zh'
-  const aiName = useAIName('tenant')
+  const aiName = useAIName()
   const openCount = TICKETS.filter((t) => t.status !== 'done').length
   // Resolved tickets move to the history table at the bottom of the page.
   const activeTickets: typeof TICKETS = TICKETS.filter((t) => t.status !== 'done')

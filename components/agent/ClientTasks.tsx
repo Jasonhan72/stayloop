@@ -34,7 +34,7 @@ export default function ClientTasks({ zh }: { zh: boolean }) {
               <span className={'h-2 w-2 flex-none rounded-full ' + (t.tone === 'warn' ? 'bg-amber-500' : 'bg-brand')} />
               <span className="min-w-0 flex-1">{zh ? t.zh : t.en}</span>
               {t.prompt
-                ? <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? t.prompt.zh : t.prompt.en)}`} className="flex-none rounded-lg border border-line-divider px-2.5 py-1 text-[12px] font-semibold">{zh ? '交给 Brief' : 'Hand to Brief'}</Link>
+                ? <Link href={`/agent/agent?prompt=${encodeURIComponent(zh ? t.prompt.zh : t.prompt.en)}`} className="flex-none rounded-lg border border-line-divider px-2.5 py-1 text-[12px] font-semibold">{zh ? '交给助手' : 'Hand to the assistant'}</Link>
                 : t.href ? <Link href={t.href} className="flex-none rounded-lg border border-line-divider px-2.5 py-1 text-[12px] font-semibold">{zh ? '去客户表' : 'Client table'}</Link> : null}
             </div>
           ))}

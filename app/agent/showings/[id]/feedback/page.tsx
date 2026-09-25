@@ -63,7 +63,7 @@ export default function ShowingFeedbackPage() {
   const { id } = useParams<{ id: string }>()
   const { lang } = useT()
   const zh = lang === 'zh'
-  const aiName = useAIName('agent')
+  const aiName = useAIName()
   const [reaction, setReaction] = useState<string>('喜欢')
   const [stars, setStars] = useState(4)
   const [nextStep, setNextStep] = useState<string>('想申请')

@@ -87,7 +87,7 @@ export default function ListingsPage() {
   const zh = lang === 'zh'
   const router = useRouter()
   const { user } = useAuth()
-  const storedAiName = useAIName('tenant')
+  const storedAiName = useAIName()
   const aiName = user ? storedAiName : 'AI'
 
   const [all, setAll] = useState<DBListing[]>([])

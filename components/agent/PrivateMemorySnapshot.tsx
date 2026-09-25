@@ -38,6 +38,8 @@ function humanize(v: string): string {
 }
 
 const VISIBLE_CAP = 6
+// One assistant per account (2026-09-25): facts learned under another hat are shown with that hat.
+const HAT_TAG: Record<string, { zh: string; en: string }> = { tenant: { zh: '租客', en: 'tenant' }, landlord: { zh: '房东', en: 'landlord' }, agent: { zh: '经纪', en: 'agent' } }
 
 export default function PrivateMemorySnapshot({
   agentName,
@@ -72,10 +74,10 @@ export default function PrivateMemorySnapshot({
       const { data: u } = await supabase.auth.getUser()
       const uid = u.user?.id
       if (!uid) return
-      const { error } = await supabase.from('user_memories').delete().eq('user_id', uid).eq('role', role).eq('memory_type', m.memory_type).eq('key', m.key)
+      const { error } = await supabase.from('user_memories').delete().eq('user_id', uid).eq('role', m.role ?? role).eq('memory_type', m.memory_type).eq('key', m.key)
       if (error) { alert(error.message); return }
       setMemories((prev) => prev.filter((x) => !(x.key === m.key && x.memory_type === m.memory_type)))
-      void writeAuditEvent(supabase, { actorId: uid, action: 'memory_forgotten', targetType: 'user_memory', metadata: { key: m.key, memory_type: m.memory_type, role } })
+      void writeAuditEvent(supabase, { actorId: uid, action: 'memory_forgotten', targetType: 'user_memory', metadata: { key: m.key, memory_type: m.memory_type, role: m.role ?? role } })
     } finally { setBusy(null) }
   }
   async function saveEdit(m: MemoryItem) {
@@ -87,11 +89,11 @@ export default function PrivateMemorySnapshot({
       const { data: u } = await supabase.auth.getUser()
       const uid = u.user?.id
       if (!uid) return
-      const { error } = await supabase.from('user_memories').update({ value: v, source: 'user_edit', updated_at: new Date().toISOString() }).eq('user_id', uid).eq('role', role).eq('memory_type', m.memory_type).eq('key', m.key)
+      const { error } = await supabase.from('user_memories').update({ value: v, source: 'user_edit', updated_at: new Date().toISOString() }).eq('user_id', uid).eq('role', m.role ?? role).eq('memory_type', m.memory_type).eq('key', m.key)
       if (error) { alert(error.message); return }
       setMemories((prev) => prev.map((x) => (x.key === m.key && x.memory_type === m.memory_type ? { ...x, value: v } : x)))
       setEditing(null)
-      void writeAuditEvent(supabase, { actorId: uid, action: 'memory_edited', targetType: 'user_memory', metadata: { key: m.key, memory_type: m.memory_type, role } })
+      void writeAuditEvent(supabase, { actorId: uid, action: 'memory_edited', targetType: 'user_memory', metadata: { key: m.key, memory_type: m.memory_type, role: m.role ?? role } })
     } finally { setBusy(null) }
   }
 
@@ -124,7 +126,7 @@ export default function PrivateMemorySnapshot({
         {shown.map((m) => {
           const meta = TYPE_META[m.memory_type] || TYPE_META.semantic
           return (
-            <div key={`${m.memory_type}:${m.key}`} className="flex items-start gap-2.5">
+            <div key={`${m.role ?? ''}:${m.memory_type}:${m.key}`} className="flex items-start gap-2.5">
               <span
                 className="mt-[3px] flex-none rounded px-1.5 py-[2px] font-mono text-[9px] font-bold"
                 style={{ background: `${meta.color}14`, color: meta.color }}
@@ -133,6 +135,7 @@ export default function PrivateMemorySnapshot({
               </span>
               <div className="min-w-0 flex-1">
                 <span className="text-[12.5px] font-bold leading-snug">{m.label}</span>
+                {m.role && m.role !== role && m.role !== 'self' && HAT_TAG[m.role] && <span className="ml-1.5 rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? HAT_TAG[m.role].zh : HAT_TAG[m.role].en}</span>}
                 {editing === m.key ? (
                   <div className="mt-1 flex gap-1.5">
                     <input value={draft} onChange={(e) => setDraft(e.target.value)} className="sl-input !py-1 !text-[13px] min-w-0 flex-1" autoFocus />

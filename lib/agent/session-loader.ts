@@ -12,6 +12,7 @@ import type {
 } from './types'
 import { getUserMemories } from './memory'
 import { getPendingActions } from './approval-engine'
+import { readAssistantProfile } from './assistantProfile'
 import {
   ROLE_META,
   buildRecommendations,
@@ -45,7 +46,7 @@ export async function loadAgentSession(
     8000,
     'bootstrap_agent_session'
   )
-  const [{ data: sessRow, error: bootErr }, { data: cfgByRole }, { data: task }, memories, pendingActions] =
+  const [{ data: sessRow, error: bootErr }, { data: cfgByRole }, { data: task }, memories, pendingActions, profile] =
     await Promise.all([
       bootP,
       client
@@ -63,8 +64,10 @@ export async function loadAgentSession(
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
-      getUserMemories(client, role),
+      // One assistant per account (2026-09-25): it knows every hat's facts.
+      getUserMemories(client),
       getPendingActions(client, role, 'pending'),
+      readAssistantProfile(client),
     ])
   if (bootErr) throw new Error(`bootstrap failed: ${bootErr.message}`)
   const session = sessRow as AgentSession
@@ -82,7 +85,7 @@ export async function loadAgentSession(
     cfg = data
   }
 
-  const agent: AgentConfig = (cfg as AgentConfig) ?? {
+  const base: AgentConfig = (cfg as AgentConfig) ?? {
     id: session.agent_config_id,
     user_id: session.user_id,
     agent_name: ROLE_META[role].name,
@@ -92,6 +95,10 @@ export async function loadAgentSession(
     automation_level: 'approval_required',
     memory_enabled: true,
   }
+  // The assistant is the account's, not the hat's: its name and face come from
+  // assistant_profiles; agent_configs.agent_name (a per-hat persona default) is
+  // no longer shown anywhere.
+  const agent: AgentConfig = { ...base, agent_name: profile?.name || ROLE_META[role].name, avatar: profile?.avatar ?? null }
 
   const workflow: WorkflowState = {
     workflow_type: task?.workflow_type ?? ROLE_META[role].workflowType,

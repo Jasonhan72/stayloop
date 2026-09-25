@@ -47,7 +47,7 @@ export default function NewListingPage() {
   const router = useRouter()
   const { lang } = useT()
   const { landlord, loading: authLoading } = useLandlord()
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   const [step, setStep] = useState(1)
   const [importQuery, setImportQuery] = useState('')
   const [submitting, setSubmitting] = useState(false)

@@ -14,6 +14,8 @@ export type ThreadItem = {
   kind: 'thread'
   id: string
   threadId: string
+  /** The hat the conversation ran under — it reopens on that hat's page. */
+  role: string
   title: string | null
   summary: string | null
   turns: number
@@ -39,7 +41,7 @@ export function buildActivity(threads: ThreadListRow[], events: ActivityRow[]): 
   const byThread = new Map<string, ThreadItem>()
   for (const t of threads) {
     byThread.set(t.id, {
-      kind: 'thread', id: `t:${t.id}`, threadId: t.id, title: t.title, summary: t.summary, turns: t.turn_count,
+      kind: 'thread', id: `t:${t.id}`, threadId: t.id, role: t.role, title: t.title, summary: t.summary, turns: t.turn_count,
       at: t.last_message_at ?? t.updated_at, approved: 0, rejected: 0, executed: 0, undone: 0,
     })
   }

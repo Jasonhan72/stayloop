@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { activeHat, useHats } from '@/lib/useHats'
+import { saveAssistantName } from '@/lib/agent/assistantProfile'
 import Link from 'next/link'
 import WorkspaceShell, { type WorkspaceRole } from '@/components/WorkspaceShell'
 import { useAuth } from '@/lib/useAuth'
 import { useI18n } from '@/lib/i18n'
-import { getAIName, setAIName, getDefaultName } from '@/lib/aiName'
+import { getAIName, getDefaultName, invalidateAiName, setAIName } from '@/lib/aiName'
 import { getSupabaseBrowser } from '@/lib/supabase'
 import { ROLE_THEME } from '@/lib/roleTheme'
 import SubscriptionCard from '@/components/settings/SubscriptionCard'
@@ -34,7 +35,7 @@ export default function SettingsPage() {
   const color = ROLE_COLORS[shellRole] || ROLE_THEME.tenant.accent
 
   const initial = (auth.fullName || auth.email || 'U').slice(0, 1).toUpperCase()
-  const aiName = getAIName(shellRole)
+  const aiName = getAIName()
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -122,7 +123,7 @@ export default function SettingsPage() {
               <div className="mt-4 space-y-3">
                 <InfoRow icon="✉" label={zh ? '邮箱' : 'Email'} value={auth.email || '—'} />
                 <InfoRow icon="🌐" label={zh ? '语言' : 'Language'} value={zh ? '中文 · English' : 'Chinese · English'} />
-                <InfoRow icon="🤖" label={zh ? 'AI 助手' : 'AI Assistant'} value={aiName || getDefaultName(shellRole)} />
+                <InfoRow icon="🤖" label={zh ? 'AI 助手' : 'AI Assistant'} value={aiName || getDefaultName()} />
                 <InfoRow icon="🔒" label={zh ? '登录方式' : 'Sign-in'} value={signInMethods(auth.user, zh)} />
               </div>
             </div>
@@ -141,7 +142,7 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <QuickAction
                 label={zh ? '修改 AI 助手名字' : 'Change AI assistant name'}
-                desc={zh ? `当前：${aiName || getDefaultName(shellRole)}` : `Current: ${aiName || getDefaultName(shellRole)}`}
+                desc={zh ? `当前：${aiName || getDefaultName()}` : `Current: ${aiName || getDefaultName()}`}
               >
                 <AssistantNameEditor role={shellRole} zh={zh} user={auth.user} color={color} />
               </QuickAction>
@@ -192,8 +193,8 @@ function QuickAction({ label, desc, children }: { label: string; desc: string; c
 }
 
 function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: boolean; user: any; color: string }) {
-  const currentName = getAIName(role)
-  const defaultName = getDefaultName(role)
+  const currentName = getAIName()
+  const defaultName = getDefaultName()
   const [value, setValue] = useState(currentName)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -201,17 +202,12 @@ function AssistantNameEditor({ role, zh, user, color }: { role: string; zh: bool
   const handleSave = async () => {
     const trimmed = value.trim() || defaultName
     setSaving(true)
-    setAIName(trimmed, role)
+    setAIName(trimmed)
     if (user) {
       try {
-        const client = getSupabaseBrowser()
-        // upsert, not update: for a role the user never visited there is no
-        // agent_configs row, so update() matched 0 rows while the UI showed
-        // a saved checkmark and the name evaporated cross-device.
-        await client.from('agent_configs').upsert(
-          { user_id: user.id, role, agent_name: trimmed },
-          { onConflict: 'user_id,role' },
-        )
+        // One assistant per account (2026-09-25): the name lives on assistant_profiles.
+        await saveAssistantName(getSupabaseBrowser(), user.id, trimmed)
+        invalidateAiName()
       } catch {}
     }
     setSaving(false)

@@ -85,6 +85,7 @@ export default function AgentChat({
   currentThreadId = null,
   onOpenThread,
   compactHeader = false,
+  avatarFallback = 'role',
 }: {
   role: AgentRole
   agentName: string
@@ -131,6 +132,8 @@ export default function AgentChat({
    *  so the conversation gets more of the first screen. (A one-row header was
    *  tried and rejected the same day: "还是原来的布置比较好".) */
   compactHeader?: boolean
+  /** 'brand' = the signed-in user's one assistant (same face under every hat); 'role' = a demo persona's orb. */
+  avatarFallback?: 'role' | 'brand'
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
@@ -194,7 +197,7 @@ export default function AgentChat({
           aria-label={canOpenSheet ? (zh ? `${agentName} 的活动日志` : `${agentName}'s activity log`) : undefined}
           className={`flex-none rounded-full ${compactHeader ? 'h-10 w-10 md:h-11 md:w-11' : 'h-11 w-11 md:h-14 md:w-14'} ${canOpenSheet ? 'shadow-[0_4px_14px_rgba(27,27,60,.16)]' : 'cursor-default'}`}
         >
-          <AssistantAvatar avatar={avatar} role={role} className="h-full w-full" />
+          <AssistantAvatar avatar={avatar} role={role} className="h-full w-full" fallback={avatarFallback} />
         </button>
         <div className="flex min-w-0 max-w-full flex-col items-center">
           <div className={`rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:text-[14px] ${compactHeader ? 'mt-1' : 'mt-1.5 md:mt-2'}`}>{agentName}</div>
@@ -212,7 +215,7 @@ export default function AgentChat({
         {messages.map((m) => (
           <div key={m.id} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
             {m.role === 'agent' && (
-              <AssistantAvatar avatar={avatar} role={role} className={`mr-2 mt-0.5 h-7 w-7 flex-none ${hero ? 'md:hidden' : ''}`} />
+              <AssistantAvatar avatar={avatar} role={role} className={`mr-2 mt-0.5 h-7 w-7 flex-none ${hero ? 'md:hidden' : ''}`} fallback={avatarFallback} />
             )}
             <div
               className={
@@ -442,7 +445,7 @@ export default function AgentChat({
         )}
         {thinking && (
           <div className="flex justify-start">
-            <AssistantAvatar avatar={avatar} role={role} className={`mr-2 mt-0.5 h-7 w-7 flex-none ${hero ? 'md:hidden' : ''}`} />
+            <AssistantAvatar avatar={avatar} role={role} className={`mr-2 mt-0.5 h-7 w-7 flex-none ${hero ? 'md:hidden' : ''}`} fallback={avatarFallback} />
             <ThinkingIndicator status={status} lang={lang} />
           </div>
         )}

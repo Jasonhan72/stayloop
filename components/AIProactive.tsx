@@ -45,7 +45,7 @@ export default function AIProactive({
 }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const aiName = useAIName(role)
+  const aiName = useAIName()
   const t = themeFor(role)
   if (!insights.length) return null
 

@@ -227,7 +227,7 @@ export default function LandlordLeasesPage() {
   const { lang } = useT()
   const router = useRouter()
   const { landlord, loading: authLoading } = useLandlord()
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
 
   // Real leases from lease_documents (RLS-scoped). While the user has none,
   // the design-canon demo fixtures render with an explicit 示范数据 notice.
@@ -421,7 +421,7 @@ export default function LandlordLeasesPage() {
 }
 
 function RenewalPack({ lang }: { lang: Lang }) {
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   const [selected, setSelected] = useState<number | null>(null)
   const [confirmed, setConfirmed] = useState(false)
   const [declined, setDeclined] = useState(false)
@@ -597,7 +597,7 @@ function LeaseEntryModal({ lang, landlordId, onClose, onSaved }: {
   onSaved: () => void
 }) {
   const zh = lang === 'zh'
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   const [f, setF] = useState({ tenant_name: '', tenant_email: '', unit_label: '', monthly_rent: '', start_date: '', end_date: '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -686,7 +686,7 @@ function LeaseEntryModal({ lang, landlordId, onClose, onSaved }: {
  */
 function ExpiryTimeline({ lang, leases, liveMode }: { lang: Lang; leases: LeaseItem[]; liveMode: boolean }) {
   const zh = lang === 'zh'
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   const dated = leases
     .map((l) => ({ l, end: parseDateOnly(l.end) }))
     .filter((x): x is { l: LeaseItem; end: Date } => x.end !== null)
@@ -911,7 +911,7 @@ function LeaseSection({
 
 function RailAside({ lang, aiNotice, activity }: { lang: Lang; aiNotice?: ReactNode; activity: { time: string; text: string }[] | null }) {
   const zh = lang === 'zh'
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   return (
     <div>
       {aiNotice && <AsideBlock title={zh ? 'AI 建议' : 'AI SUGGESTIONS'}>{aiNotice}</AsideBlock>}

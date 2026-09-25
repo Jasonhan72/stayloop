@@ -23,7 +23,7 @@ type CatalogEntry = { id: string; label: string; note: string; provider: 'anthro
 type CatalogResponse = { slots: ModelSlot[]; defaults: Partial<Record<ModelSlot, string>>; models: CatalogEntry[]; prefs: Partial<Record<ModelSlot, string>> }
 
 const SLOT_COPY: Record<string, { zh: string; en: string; descZh: string; descEn: string }> = {
-  turn: { zh: '对话助手', en: 'Assistant conversations', descZh: 'Luna / Logic / Brief 每一轮对话用的模型', descEn: 'The model behind every Luna / Logic / Brief turn' },
+  turn: { zh: '对话助手', en: 'Assistant conversations', descZh: '助理每一轮对话用的模型', descEn: 'The model behind every assistant turn' },
   screening: { zh: '租客筛查', en: 'Tenant screening', descZh: '筛查评分与整体一致性审查用的模型（材料分类与取证抽取由系统固定）', descEn: 'Scoring + coherence review (classification and forensics extraction stay system-managed)' },
 }
 const COST: Record<string, { zh: string; en: string }> = { 低: { zh: '费用低', en: 'low cost' }, 中: { zh: '费用中', en: 'mid cost' }, 高: { zh: '费用高', en: 'high cost' } }

@@ -3,20 +3,22 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { stripNul } from '@/lib/screening/jsonSafe'
 import type { AgentRole, MemoryItem } from './types'
 
+/** The person's memories. One assistant per account (2026-09-25): without a
+ *  role every hat's facts come back, each tagged with the hat it was learned
+ *  under (`role`; 'self' = the whole-person reflection profile). */
 export async function getUserMemories(
   client: SupabaseClient,
-  role: AgentRole
+  role?: AgentRole
 ): Promise<MemoryItem[]> {
-  const { data, error } = await client
-    .from('user_memories')
-    .select('key,label,value,confidence,memory_type')
-    .eq('role', role)
+  let q = client.from('user_memories').select('key,label,value,confidence,memory_type,role')
+  if (role) q = q.eq('role', role)
+  const { data, error } = await q
     .order('updated_at', { ascending: false })
     // Every row here is serialized into every future system prompt — an
-    // unbounded read grows token cost linearly forever. Keep the 60 most
+    // unbounded read grows token cost linearly forever. Keep the most
     // recently touched memories (upserts refresh updated_at, so actively
     // used facts stay in the window).
-    .limit(60)
+    .limit(role ? 60 : 80)
 
   if (error) {
     console.warn('[memory] read failed', error.message)
@@ -29,6 +31,7 @@ export async function getUserMemories(
     value: m.value,
     confidence: Number(m.confidence ?? 1),
     memory_type: m.memory_type,
+    role: m.role,
   }))
 }
 

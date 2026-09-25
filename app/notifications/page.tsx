@@ -126,10 +126,7 @@ export default function NotificationsPage() {
   const { lang } = useT()
   const { role } = useAuth()
   const shellRole = (role || 'tenant') as 'tenant' | 'landlord' | 'agent'
-  const tenantAi = useAIName('tenant')
-  const landlordAi = useAIName('landlord')
-  const agentAi = useAIName('agent')
-  const aiNames = Array.from(new Set([tenantAi, landlordAi, agentAi])).join(' / ')
+  const aiNames = useAIName() // one assistant per account (2026-09-25)
   return (
     <WorkspaceShell role={shellRole} hideAside>
       <div className="mx-auto max-w-[920px]">
@@ -151,7 +148,7 @@ export default function NotificationsPage() {
             {lang === 'zh' ? '⚠ 需要你 1-CLICK' : '⚠ NEEDS YOU · 1-CLICK'}
           </div>
           <div className="mt-3.5 space-y-2.5">
-            {ACTION_REQUIRED(tenantAi).map((n, i) => (
+            {ACTION_REQUIRED(aiNames).map((n, i) => (
               <ActionRow key={i} item={n} lang={lang} />
             ))}
           </div>

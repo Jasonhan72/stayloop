@@ -9,7 +9,6 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { listThreads } from './threads'
 import { buildActivity, type ActivityItem, type ActivityRow } from './activityLog'
-import type { AgentRole } from './types'
 
 export type { ActionItem, ActivityItem, ActivityRow, ThreadItem } from './activityLog'
 export { activityGroups, fmtRowTime, itemIcon, itemNote } from './activityLog'
@@ -23,7 +22,7 @@ export function notifyActivityChanged(): void {
 /** `enabled` lets a panel that is mounted but hidden (the web assistant panel
  *  below lg) skip the two queries — review 2026-09-25: every phone load of
  *  /x/agent fetched the log for a panel nobody could see. */
-export function useActivityLog(live: boolean, role: AgentRole, limit = 30, enabled = true): ActivityItem[] | null {
+export function useActivityLog(live: boolean, limit = 30, enabled = true): ActivityItem[] | null {
   const [items, setItems] = useState<ActivityItem[] | null>(null)
   // Re-read after the session writes a new row (a turn a moment ago showed
   // up only after a reload — walk-through 2026-09-25).
@@ -48,10 +47,10 @@ export function useActivityLog(live: boolean, role: AgentRole, limit = 30, enabl
       .not('action', 'ilike', '%turn')
       .limit(limit * 2)
       .then(({ data }) => (data ?? []) as ActivityRow[])
-    Promise.all([listThreads(supabase, role, limit), events])
+    Promise.all([listThreads(supabase, limit), events])
       .then(([threads, evs]) => { if (!cancelled) setItems(buildActivity(threads, evs)) })
       .catch(() => { if (!cancelled) setItems([]) })
     return () => { cancelled = true }
-  }, [live, role, limit, tick, enabled])
+  }, [live, limit, tick, enabled])
   return items
 }

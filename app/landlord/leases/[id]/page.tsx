@@ -38,7 +38,7 @@ type DbLease = {
 function RealLeaseDetail({ id }: { id: string }) {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   const [lease, setLease] = useState<DbLease | null | 'missing'>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -499,7 +499,7 @@ function KpiCard({ label, value, accent }: { label: string; value: string; accen
 
 function DetailAside({ lease, lang }: { lease: typeof LEASES[string]; lang: Lang }) {
   const zh = lang === 'zh'
-  const aiName = useAIName('landlord')
+  const aiName = useAIName()
   return (
     <div>
       <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrowLg text-body-3">

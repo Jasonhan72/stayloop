@@ -144,7 +144,7 @@ const HISTORY = [
 export default function AgentTasksPage() {
   const { lang } = useT()
   const zh = lang === 'zh'
-  const aiName = useAIName('agent')
+  const aiName = useAIName()
   const filters = zh
     ? ['全部', '看房', '审核', '租约', 'brief 包']
     : ['All', 'Showings', 'Screening', 'Leases', 'Prep packs']
@@ -386,7 +386,7 @@ export default function AgentTasksPage() {
 
 function Aside({ lang }: { lang: Lang }) {
   const zh = lang === 'zh'
-  const aiName = useAIName('agent')
+  const aiName = useAIName()
   const route = [
     { time: '09:30', where: { zh: '训练点', en: 'Training spot' }, leg: null as string | null },
     { time: '11:00', where: { zh: 'Unit 1207 · King West 带看', en: 'Unit 1207 · King West showing' }, leg: '12 min' },

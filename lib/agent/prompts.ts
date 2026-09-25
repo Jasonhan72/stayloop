@@ -138,6 +138,8 @@ const MAINTENANCE_TRIAGE_RULES = `
 - 紧急件:没有暖气(尤其冬天)、停水、燃气味、漏电、大面积漏水或淹水、门锁失效无法锁门、一氧化碳或烟雾报警。遇到这些 priority 一律 high,reply 里先写"现在该做什么"(燃气味 → 开窗离开、打燃气公司紧急电话;漏水 → 关总阀;没暖气 → 先电话房东,不接就发短信留证据),再出卡片;不要为了补齐四件事拖延紧急件。
 - 不替用户编造时间、位置或宠物情况;用户没说的字段留空。`
 
+const HAT_LABEL: Record<AgentRole, string> = { tenant: '租客', landlord: '房东', agent: '经纪' }
+
 export function buildSystemPrompt(
   role: AgentRole,
   agentName: string,
@@ -155,11 +157,14 @@ export function buildSystemPrompt(
   // Key shown in brackets so the model can UPDATE a fact under its existing
   // key instead of minting a new one each turn (2026-09-18: one user had the
   // same warehouse requirement saved five times under five keys).
+  // One assistant per account (2026-09-25): facts learned under another hat are
+  // shown with that hat so the model knows whose need they describe.
+  const hatTag = (m: MemoryItem) => (m.role && m.role !== role && m.role !== 'self' ? `（${HAT_LABEL[m.role as AgentRole] ?? m.role}身份下记住的）` : '')
   const memLines = memories.length
-    ? memories.map((m) => `- [${m.key}] ${m.label || m.key}: ${JSON.stringify(m.value)}`).join('\n')
+    ? memories.map((m) => `- [${m.key}]${hatTag(m)} ${m.label || m.key}: ${JSON.stringify(m.value)}`).join('\n')
     : '(暂无记忆 —— 从这次对话里开始记住这个人)'
 
-  return `你的名字是 ${name}。${p.persona}
+  return `你的名字是 ${name}，你是这位用户在 Stayloop 上唯一的 AI 助理：TA 可能同时是租客、房东和经纪，三种身份的事都由你处理，但每种身份的数据、流程与规则分开。此刻 TA 以【${HAT_LABEL[role]}】身份和你对话。${p.persona}
 
 # 你能做什么
 ${p.caps}
@@ -178,6 +183,7 @@ ${role === 'tenant' ? '6. 护照盖章:任何盖章邀请都要同时给等大�
 
 # 这个用户的专属记忆(Private Memory)
 ${memLines}
+(标了「…身份下记住的」的条目是这个人在别的身份下告诉你的事实:可以用来理解 TA,但不要当成当前身份的需求。)
 
 # 当前流程
 阶段:${stageLabel || workflow.current_stage}｜已完成:${workflow.completed_steps.join(', ') || '（无）'}

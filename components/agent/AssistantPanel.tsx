@@ -14,6 +14,7 @@
 // row reopens it.
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/useAuth'
 import { useT } from '@/lib/i18n'
@@ -21,6 +22,10 @@ import { setAIName } from '@/lib/aiName'
 import { auditActionLabel } from '@/lib/agent/ideas'
 import { activityGroups, fmtRowTime, itemIcon, itemNote, useActivityLog, type ActivityItem } from '@/lib/agent/useActivityLog'
 import { AVATAR_PRESETS, AssistantAvatar, setStoredAvatar } from '@/lib/agent/avatars'
+import { saveAssistantAvatar, saveAssistantName } from '@/lib/agent/assistantProfile'
+import { invalidateAiName } from '@/lib/aiName'
+
+const HAT: Record<string, { zh: string; en: string }> = { tenant: { zh: '租客', en: 'tenant' }, landlord: { zh: '房东', en: 'landlord' }, agent: { zh: '经纪', en: 'agent' } }
 import type { AgentRole, AgentStatus, MemoryItem, PendingAction } from '@/lib/agent/types'
 import PrivateMemorySnapshot from './PrivateMemorySnapshot'
 
@@ -56,11 +61,11 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
     mq.addEventListener('change', sync)
     return () => mq.removeEventListener('change', sync)
   }, [])
-  const rows = useActivityLog(live, role, 30, visible)
+  const rows = useActivityLog(live, 30, visible)
   const groups = rows ? activityGroups(rows, lang) : []
 
-  // Rename in place: the name is the user's (agent_configs RLS = self); the
-  // page's own copy refreshes on the next load, the local cache right away.
+  // Rename in place: the name is the account's (assistant_profiles RLS = self);
+  // the page's own copy refreshes on the next load, the local cache right away.
   const [renaming, setRenaming] = useState(false)
   const [nameDraft, setNameDraft] = useState(agentName)
   const [name, setName] = useState(agentName)
@@ -70,24 +75,29 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
     setRenaming(false)
     if (!next || next === name) return
     setName(next)
-    setAIName(next, role)
-    if (live && auth.user) await supabase.from('agent_configs').update({ agent_name: next }).eq('user_id', auth.user.id).eq('role', role)
+    setAIName(next)
+    invalidateAiName()
+    if (live && auth.user) await saveAssistantName(supabase, auth.user.id, next)
   }
 
   // Avatar picker: presets are drawn in code (lib/agent/avatars.tsx); the
-  // choice goes to agent_configs.avatar (cross-device) and localStorage (first paint).
+  // choice goes to assistant_profiles.avatar (cross-device) and localStorage (first paint).
   const [picking, setPicking] = useState(false)
   async function chooseAvatar(key: string | null) {
     setPicking(false)
     onAvatarChange(key)
-    setStoredAvatar(role, key ?? 'default')
-    if (live && auth.user) await supabase.from('agent_configs').update({ avatar: key }).eq('user_id', auth.user.id).eq('role', role)
+    setStoredAvatar(key ?? 'default')
+    if (live && auth.user) await saveAssistantAvatar(supabase, auth.user.id, key)
   }
 
-  // A conversation row → reopen it. Actions outside any conversation only list.
+  // A conversation row → reopen it. A conversation held under another hat
+  // continues on that hat's page (its tools and data); actions outside any
+  // conversation only list.
+  const router = useRouter()
   const [opening, setOpening] = useState<string | null>(null)
   async function openItem(it: ActivityItem) {
     if (!it.threadId) return
+    if (it.kind === 'thread' && it.role && it.role !== role) { router.push(`/${it.role}/agent?thread=${it.threadId}`); return }
     setOpening(it.id)
     try {
       await onOpenThread(it.threadId)
@@ -103,7 +113,7 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
         <button type="button" onClick={onClose} aria-label={zh ? '收起助手面板' : 'Hide the assistant panel'} title={zh ? '收起（可从右上角头像重新打开）' : 'Hide (reopen from the avatar top-right)'} className="absolute right-3 top-2.5 flex h-8 w-8 items-center justify-center rounded-lg text-[20px] text-body-3 transition hover:bg-surface-chip hover:text-body">×</button>
         <div className="relative mx-auto h-[72px] w-[72px]">
           <button type="button" onClick={() => setPicking((v) => !v)} aria-label={zh ? '换头像' : 'Change avatar'} title={zh ? '换头像' : 'Change avatar'} className="block h-full w-full rounded-full shadow-[0_8px_24px_rgba(27,27,60,.18)] transition hover:scale-[1.03]">
-            <AssistantAvatar avatar={avatar} role={role} className="h-full w-full" />
+            <AssistantAvatar avatar={avatar} role={role} className="h-full w-full" fallback={live ? 'brand' : 'role'} />
           </button>
           <button type="button" onClick={() => setRenaming(true)} aria-label={zh ? '改名' : 'Rename'} title={zh ? `给 ${name} 改名` : `Rename ${name}`} className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-line-divider bg-white text-[11px] shadow-sm">✎</button>
         </div>
@@ -112,7 +122,7 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
             <div className="mb-1.5 font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">{zh ? '选一个头像' : 'Pick an avatar'}</div>
             <div className="grid grid-cols-6 gap-1.5">
               <button type="button" onClick={() => void chooseAvatar(null)} title={zh ? '默认' : 'Default'} aria-label={zh ? '默认头像' : 'Default avatar'} className={`flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-surface-chip ${!avatar || avatar === 'default' ? 'ring-2 ring-brand ring-offset-1' : ''}`}>
-                <AssistantAvatar avatar={null} role={role} className="h-8 w-8" />
+                <AssistantAvatar avatar={null} role={role} className="h-8 w-8" fallback={live ? 'brand' : 'role'} />
               </button>
               {AVATAR_PRESETS.map((p) => (
                 <button key={p.key} type="button" onClick={() => void chooseAvatar(p.key)} title={zh ? p.zh : p.en} aria-label={zh ? p.zh : p.en} className={`flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-surface-chip ${avatar === p.key ? 'ring-2 ring-brand ring-offset-1' : ''}`}>
@@ -172,6 +182,7 @@ export default function AssistantPanel({ role, agentName, status, statusLine, pe
                       <span className="flex items-center gap-1.5">
                         <span className="min-w-0 flex-1 truncate text-[13px] leading-snug text-body">{label}</span>
                         {current && <span className="flex-none rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? '当前' : 'now'}</span>}
+                        {it.kind === 'thread' && it.role !== role && HAT[it.role] && <span className="flex-none rounded-full bg-surface-chip px-1.5 py-[1px] text-[10px] font-bold text-body-3">{zh ? HAT[it.role].zh : HAT[it.role].en}</span>}
                       </span>
                       {note && <span className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-body-3">{note}</span>}
                       <span className="mt-0.5 block font-mono text-[10.5px] text-body-3">{fmtRowTime(it.at, lang)}{it.kind === 'action' && it.actor_type === 'user' ? (zh ? ' · 你' : ' · you') : ''}</span>

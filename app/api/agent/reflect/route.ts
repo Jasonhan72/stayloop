@@ -10,7 +10,6 @@ import { underHourlyLimit } from '@/lib/rateLimit'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { reflectUser, runReflectionSweep } from '@/lib/agent/reflection'
-import type { AgentRole } from '@/lib/agent/types'
 
 export const runtime = 'edge'
 
@@ -47,10 +46,8 @@ export async function POST(req: Request) {
   const { data: ud, error: ue } = await sb.auth.getUser()
   if (ue || !ud?.user || ud.user.is_anonymous) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  let body: { role?: unknown } = {}
-  try { body = await req.json() } catch { /* empty body ok */ }
-  const role = typeof body.role === 'string' && ['tenant', 'landlord', 'agent'].includes(body.role) ? (body.role as AgentRole) : null
-  if (!role) return NextResponse.json({ error: 'role required (tenant|landlord|agent)' }, { status: 400 })
+  // One profile per account (2026-09-25): a role in the body is accepted from older clients and ignored.
+  try { await req.json() } catch { /* empty body ok */ }
 
   // Self mode is user-triggered and bypasses the staleness window, so it
   // gets its own durable per-hour budget (review 2026-09-14).
@@ -61,8 +58,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Rate limit exceeded — retry later' }, { status: 429, headers: { 'Retry-After': '600' } })
   }
   try {
-    const reflected = await reflectUser(sb, ud.user.id, role)
-    return NextResponse.json({ mode: 'self', role, reflected })
+    const reflected = await reflectUser(sb, ud.user.id)
+    return NextResponse.json({ mode: 'self', reflected })
   } catch (e) {
     console.error('[agent/reflect] failed', (e as Error).message)
     return NextResponse.json({ error: 'reflection failed' }, { status: 500 })

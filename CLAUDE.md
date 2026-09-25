@@ -2145,3 +2145,25 @@ B 房源详情与 enrich 路由、C 租客房东数据层）+ 我自己的模块
 - **只压缩留白**：H1 52 → 44px、导语 17 → 16px、顶部内边距 64 → 44px、各段间距减 4–8px；`AgentChat` 的 `compactHeader` prop = 同一居中布置但
   头像 56 → 44px、上下内边距与间距减半（头部约 130 → 105px），只有首页传它。
 - **卡片高度从固定 600px 改为「到折叠线为止」**：`max(400px, 100vh − 390px)`（390 ≈ 页头 66 + 标题区 + 身份行），手机高度公式不变。
+
+## 一个用户一个 AI 助理（2026-09-25 · 用户决定「一用户就只有一个 AI 助理，他能处理所有三个角色的事情，角色还是分开的」）
+
+此前每顶帽子各一个助手：`agent_configs` 每 (user, role) 一行各起名各选头像、记忆与反思画像按身份、线程按身份、菜单里三个名字。现在**身份感一人一份，
+角色（帽子）仍分开**（守卫 `tests/oneAssistant20260925.spec.ts`；迁移 `20260925_one_assistant.sql` 已应用 prod）：
+- **名字 + 头像**：新表 `assistant_profiles`（`user_id` 主键，本人 RLS，anon 无权），从 `agent_configs` 回填——只取用户自己起的名（Luna / Logic / Brief /
+  AI Agent 这些默认名永不成为人的名字），多顶帽子有不同名字时取最近有对话的那顶（jasonhan72 → Atlas）。`lib/agent/assistantProfile.ts`
+  （`readAssistantProfile / saveAssistantName / saveAssistantAvatar`）是唯一写入口；`lib/aiName.ts` 改为账号级（`useAIName()` 无参数、localStorage
+  键 `sl-ai-name`，退出时连旧的三把 per-role 键一起清），`lib/agent/avatars.tsx` 同理（`sl-avatar`）。**`agent_configs.agent_name / avatar` 不再被读。**
+  没起名的账号显示通用「AI Agent」；起名在 onboarding 只做一次（任一身份进入都跳过已起名的账号），`/settings` 与面板改名写同一行。
+- **一张脸**：`AssistantAvatar` 新 prop `fallback='brand'`——登录用户没选预设时是品牌蓝球（`DEFAULT_ASSISTANT_AVATAR`），三顶帽子同一张脸；
+  匿名演示的三个人设仍用各自的角色渐变球（`fallback='role'`）。`AgentChat` 经 `avatarFallback` 透传。
+- **记忆**：`getUserMemories(client)` 不带 role 时读全部身份（每条带 `role`），`session-loader` 就这么读；提示词把别的身份下记住的条目标成
+  「（租客身份下记住的）」并说明「可用来理解 TA，不要当成当前身份的需求」；写入仍按当前身份。想法页只用当前身份（+ self）的记忆；
+  记忆面板显示全部并标身份，改 / 忘掉按该条自己的身份写。
+- **反思画像一人一份**：`user_memories.role` 允许 `'self'`，`reflectUser(admin, userId)` 读三种身份的对话轨迹（每条标身份）与全部记忆，写
+  `user_model` 到 role `self`；turn 路由只读 `self` 行；旧的按身份画像已删，下一轮对话自动重建；`/api/agent/reflect` 不再要求 role。
+- **线程与活动**：`agent_threads.role` 保留（对话在哪顶帽子下进行，决定工具与数据），但活动日志列出全部身份的对话并给其他身份的行加小标；
+  点别的身份的对话 → 跳到那顶帽子的 `/x/agent?thread=<id>`。每个 `/x/agent` 页打开时仍只恢复本身份最近的线程。
+- **不变**：待批卡、工作流阶段、生命周期 rail、Header 菜单里的身份切换全部按帽子；提示词的身份规则（OHRC / RTA / RECO）按帽子注入。
+- **文案**：首页导语「为租客、房东、经纪各提供一个独立的 AI Agent」→「给你一个独立的 AI 助理：租客、房东、经纪的事它都会办」；工作台空态、窄栏说明、
+  三个 layout 标题、模型设置页、`/platform`、客户表里的「让 Luna / Logic / Brief …」全部改成「助手」。匿名首页演示保留三个人设（`lib/agent/demo.ts`）。
