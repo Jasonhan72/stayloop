@@ -9,6 +9,7 @@ import { getSupabaseBrowser } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { ROLE_HOME } from '@/lib/useOnboarding'
+import { homeForHats, type HatsLite } from '@/lib/landlordHat'
 
 type AuthTab = 'password' | 'magic-link'
 
@@ -46,7 +47,9 @@ export default function LoginPage() {
     const q2 = new URLSearchParams(window.location.search)
     const redirect = q2.get('next') ?? q2.get('redirect')
     const safe = redirect && redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/\\') ? redirect : null
-    router.replace(safe ?? (role ? ROLE_HOME[role] : '/dashboard'))
+    if (safe) { router.replace(safe); return }
+    // Land on a workspace this account actually holds (SL-T-08).
+    void Promise.resolve(getSupabaseBrowser().rpc('my_hats')).then(({ data }) => router.replace(homeForHats(role, data as HatsLite)), () => router.replace(role ? ROLE_HOME[role] : '/tenant/agent'))
   }, [authLoading, user, role, router])
 
   const [tab, setTab] = useState<AuthTab>('password')

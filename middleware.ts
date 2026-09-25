@@ -50,6 +50,13 @@ export function middleware(request: NextRequest) {
       url.pathname = '/settings'
       return withSecurityHeaders(NextResponse.redirect(url, 308))
     }
+    // /landlord/applications is the guessed plural (three-role test report
+    // 2026-09-24, SL-L-04); the page is /landlord/applicants.
+    const apps = url.pathname.match(/^\/landlord\/applications(\/.*)?$/)
+    if (apps) {
+      url.pathname = '/landlord/applicants' + (apps[1] || '')
+      return withSecurityHeaders(NextResponse.redirect(url, 308))
+    }
     // Trust API was renamed Stayloop API (2026-09-23); old links keep working.
     if (/^\/trust-api(\/docs)?\/?$/.test(url.pathname)) {
       url.pathname = url.pathname.replace('/trust-api', '/stayloop-api')

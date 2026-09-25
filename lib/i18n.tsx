@@ -146,7 +146,7 @@ export const DICT = {
   'screen.files.auto.sources.free': { en: 'and query CanLII LTB public rulings automatically', zh: '自动查询 CanLII LTB 公开裁决 — 全程自动' },
   'screen.submit': { en: '🔍 Start AI Risk Analysis', zh: '🔍 开始 AI 风控分析' },
   'screen.submit.pro': { en: ' · Pro', zh: ' · Pro' },
-  'screen.err.min': { en: 'Please upload at least one file or enter an applicant name', zh: '请至少上传一个文件或填写申请人姓名' },
+  'screen.err.min': { en: 'Upload at least one document — a name alone cannot be assessed', zh: '请至少上传一份材料——只凭姓名无法评估' },
   'screen.err.tooBig': { en: '{name} is over 25 MB — split the PDF and upload it in parts', zh: '{name} 超过 25 MB —— 请把 PDF 拆开分次上传' },
   // A photo that is still oversized after downscaling means the browser could
   // not decode it (HEIC on desktop Chrome is the usual case).

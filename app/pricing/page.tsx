@@ -271,7 +271,7 @@ export default function PricingPage() {
       <main>
         {inWindow && (
           <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-[13px] font-semibold text-amber-900">
-            {lang === 'zh' ? `内部测试期：到 ${INTERNAL_TEST_FREE_UNTIL_LABEL.zh} 为止，下面已上线的功能对所有账号免费，无需订阅或解锁。标「即将推出」的模块尚未上线，不在免费范围内，也不会另收费。` : `Internal test period: until ${INTERNAL_TEST_FREE_UNTIL_LABEL.en} every feature below that is live is free for every account — no subscription or unlock needed. Modules marked "coming soon" are not live yet; they are neither included nor charged for.`}
+            {lang === 'zh' ? `限时免费：到 ${INTERNAL_TEST_FREE_UNTIL_LABEL.zh} 为止，下面已上线的功能对所有账号免费，无需订阅或解锁。标「即将推出」的模块尚未上线，不在免费范围内，也不会另收费。` : `Free for a limited time: until ${INTERNAL_TEST_FREE_UNTIL_LABEL.en} every feature below that is live is free for every account — no subscription or unlock needed. Modules marked "coming soon" are not live yet; they are neither included nor charged for.`}
           </div>
         )}
         <section

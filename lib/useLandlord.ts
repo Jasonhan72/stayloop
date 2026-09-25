@@ -22,13 +22,15 @@ interface UseLandlordReturn {
 
 /**
  * Reads the current Supabase auth session and resolves it to the
- * Stayloop `landlords` row (creating one via the `claim_landlord`
- * RPC on first login). Redirects to /login if there's no session.
+ * Stayloop `landlords` row. Redirects to /login without a session and to
+ * /landlord/become when signed in without a landlord hat (the row is only
+ * created by an explicit act — never by visiting a page).
  */
 export function useLandlord(): UseLandlordReturn {
   const router = useRouter()
   const [landlord, setLandlord] = useState<LandlordSession | null>(null)
   const [loading, setLoading] = useState(true)
+  const [signedIn, setSignedIn] = useState(false)
 
   const refresh = useCallback(async (cancelled?: { current: boolean }) => {
     setLoading(true)
@@ -38,9 +40,11 @@ export function useLandlord(): UseLandlordReturn {
       } = await supabase.auth.getSession()
       if (cancelled?.current) return
       if (!session) {
+        setSignedIn(false)
         setLandlord(null)
         return
       }
+      setSignedIn(true)
 
       const authId = session.user.id
       const email = session.user.email || ''
@@ -59,15 +63,12 @@ export function useLandlord(): UseLandlordReturn {
         return
       }
 
-      // Claim via SECURITY DEFINER RPC (idempotent INSERT ON CONFLICT)
-      const { data: claimed, error } = await supabase.rpc('claim_landlord')
-      if (cancelled?.current) return
-      if (!error && claimed) {
-        const claimedId = typeof claimed === 'object' && claimed !== null ? (claimed as { id: string }).id : claimed
-        setLandlord({ authId, email, landlordId: claimedId as string, fullName: metaName })
-      } else {
-        console.warn('claim_landlord failed', error?.message)
-        setLandlord(null)
+      // No landlords row = no landlord hat. Never claim on page load (three-role
+      // test report 2026-09-24): send the signed-in user to the explicit
+      // "become a landlord" page instead; it comes back here afterwards.
+      setLandlord(null)
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/landlord/become')) {
+        router.replace('/landlord/become?next=' + encodeURIComponent(window.location.pathname + window.location.search))
       }
     } finally {
       if (!cancelled?.current) setLoading(false)
@@ -88,7 +89,7 @@ export function useLandlord(): UseLandlordReturn {
 
   // Redirect unauthenticated users to /login
   useEffect(() => {
-    if (!loading && !landlord) {
+    if (!loading && !landlord && !signedIn) {
       // Defer one tick so SSR doesn't redirect during hydration
       const timer = setTimeout(() => {
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
@@ -97,7 +98,7 @@ export function useLandlord(): UseLandlordReturn {
       }, 200)
       return () => clearTimeout(timer)
     }
-  }, [loading, landlord, router])
+  }, [loading, landlord, signedIn, router])
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()

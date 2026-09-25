@@ -5,6 +5,8 @@ import { useState, useEffect, Suspense } from 'react'
 import OnboardingStage from '@/components/OnboardingStage'
 import { setAIName } from '@/lib/aiName'
 import { useAuth } from '@/lib/useAuth'
+import { supabase } from '@/lib/supabase'
+import { invalidateHats } from '@/lib/useHats'
 import { useOnboarded } from '@/lib/useOnboarding'
 import { useT } from '@/lib/i18n'
 import { ROLE_THEME } from '@/lib/roleTheme'
@@ -167,7 +169,13 @@ function NamePageInner() {
     // 2026-09-22). They get the workspace they were promised: it runs in
     // preview mode without an account and carries its own sign-in banner.
     const signedIn = !!user && !authLoading
-    router.push(role === 'landlord' && signedIn ? '/screening/app' : AGENT_HOME[role])
+    // Choosing "landlord" here IS the explicit opt-in: grant the hat now
+    // (pages no longer claim it on load — three-role test report 2026-09-24).
+    if (role === 'landlord' && signedIn) {
+      void Promise.resolve(supabase.rpc('claim_landlord')).then(() => { invalidateHats(); router.push('/screening/app') }, () => router.push('/landlord/become?next=/screening/app'))
+      return
+    }
+    router.push(AGENT_HOME[role])
   }
 
   return (

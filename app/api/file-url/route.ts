@@ -49,7 +49,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'sign failed' }, { status: 500 })
     }
 
-    return NextResponse.json({ url: signed.signedUrl })
+    // "你查看 = 在 audit log 留痕" is promised on the applicant page; keep it true
+    // (three-role test report 2026-09-24, SL-L-01). Best effort — never blocks the view.
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+      await admin.from('agent_audit_events').insert({ actor_id: user.id, actor_type: 'user', action: 'application_file_viewed', target_type: 'application', target_id: application_id, metadata: { kind: segs[1], file: segs[2].slice(0, 120) } }).then(() => undefined, () => undefined)
+    }
+    const ext = (segs[2].split('.').pop() || '').toLowerCase()
+    const kind = ext === 'pdf' ? 'pdf' : ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) ? 'image' : ['heic', 'heif'].includes(ext) ? 'heic' : 'other'
+    return NextResponse.json({ url: signed.signedUrl, kind, expires_in: 600 })
   } catch (e: any) {
     console.error('[file-url] uncaught:', e)
     captureException(e, { route: 'file-url', level: 'error' })

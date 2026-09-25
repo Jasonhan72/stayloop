@@ -829,6 +829,22 @@ async function handleScreenScore(req: NextRequest): Promise<Response> {
       }
     }
 
+    // Low-evidence safety valve (three-role test report 2026-09-24, SL-T-01):
+    // a run with no documents and no applicant-authorised verification used to
+    // go through the model and come back as "37/100 · possible forgery". With
+    // nothing to read there is nothing to score — no number, no fraud label.
+    {
+      const nFiles = Array.isArray(screening.files) ? screening.files.length : 0
+      const v = screening.verification as { id?: unknown; bank?: unknown; credit?: unknown } | null
+      if (nFiles === 0 && !(v && (v.id || v.bank || v.credit))) {
+        await supabase.from('screenings').update({ status: 'error', error: 'no_documents' }).eq('id', screening_id)
+        return NextResponse.json({
+          error: '没有可评估的材料：请至少上传一份文件（申请表、证件、收入证明、银行流水或信用报告）。只凭姓名无法评估，也不会生成分数。 / Nothing to assess: upload at least one document. A name alone cannot be scored.',
+          code: 'no_documents',
+        }, { status: 422 })
+      }
+    }
+
     // Fetch landlord plan separately (landlord_id may be authId or profileId)
     let plan = 'free'
     // All UUIDs this landlord's screenings may be keyed under: legacy rows

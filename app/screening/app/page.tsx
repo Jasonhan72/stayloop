@@ -2305,7 +2305,7 @@ export default function ScreenPage() {
     // Registered accounts only - the register gate page covers the UI, this is
     // the in-function backstop.
     if (landlord.isAnonymous) return
-    if (!existing && files.length === 0 && !applicantName.trim()) {
+    if (!existing && files.length === 0) {
       setError(t('screen.err.min'))
       return
     }
@@ -3180,7 +3180,7 @@ export default function ScreenPage() {
                     and does not work here — the button is near the bottom of
                     its parent, so it would have almost no travel to stick over. */}
                 {(() => {
-                  const isDisabled = (files.length === 0 && !applicantName.trim()) || classifying || preparing
+                  const isDisabled = files.length === 0 || classifying || preparing
                   return (
                     <div>
                     <button
@@ -4207,7 +4207,7 @@ export default function ScreenPage() {
               )}
             </div>
             {(() => {
-              const isDisabled = (files.length === 0 && !applicantName.trim()) || classifying || preparing
+              const isDisabled = files.length === 0 || classifying || preparing
               return (
                 <button
                   onClick={() => runAnalysis()}

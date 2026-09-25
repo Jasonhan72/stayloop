@@ -358,7 +358,7 @@ export default function LandlordApplicantsPage() {
             <span className="mx-1.5 text-body-3">·</span>
             {liveMode
               ? lang === 'zh'
-                ? '按流程阶段分组：待筛查 → 已评分待决定 → 已决定。评分只是参考信息，录取与婉拒由你决定。点开任一申请查看材料与完整报告。'
+                ? '按阶段分组：待筛查 → 待决定 → 已决定。评分仅供参考，录取由你决定。'
                 : 'Grouped by stage: to screen → scored, your decision → decided. The score is information only; you decide. Open any application for the documents and the full report.'
               : lang === 'zh'
                 ? '按你的 需银行章 / 信用 ≥ 720 / DTI ≤ 35% 政策，已分入 3 组。点开任一申请查看完整六维评分 + 文件。'

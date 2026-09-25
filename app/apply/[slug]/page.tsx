@@ -63,22 +63,39 @@ export default function ApplyPage() {
   })
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }))
+  // Prefill what the account already knows (SL-T-03) — only empty fields,
+  // never overwriting what the applicant typed.
+  useEffect(() => {
+    const u = auth.user as { email?: string | null; is_anonymous?: boolean; user_metadata?: Record<string, unknown> } | null
+    if (!u || u.is_anonymous) return
+    const full = String(u.user_metadata?.full_name || u.user_metadata?.name || '').trim()
+    const parts = full.split(/\s+/).filter(Boolean)
+    setForm((f) => ({
+      ...f,
+      email: f.email || u.email || '',
+      first_name: f.first_name || (parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0] || ''),
+      last_name: f.last_name || (parts.length > 1 ? parts[parts.length - 1] : ''),
+    }))
+  }, [auth.user])
 
   // Early slug validation on load — same visibility query as the submit path,
   // so an invalid/unpublished listing shows a branded notice instead of a form
   // that can only fail at submit time.
   const [listingCheck, setListingCheck] = useState<'checking' | 'ok' | 'notfound'>('checking')
+  // What the applicant is applying for (three-role test report 2026-09-24, SL-T-02).
+  const [summary, setSummary] = useState<{ address: string; unit: string | null; city: string | null; monthly_rent: number | null; bedrooms: number | null; bathrooms: number | null; images: string[] | null; title: string | null } | null>(null)
   useEffect(() => {
     if (!params?.slug) return
     let cancelled = false
     ;(async () => {
       const { data: listing, error: qErr } = await supabase
         .from('listings')
-        .select('id, landlord_id')
+        .select('id, landlord_id, address, unit, city, monthly_rent, bedrooms, bathrooms, images, title')
         .eq('slug', params.slug)
         .eq('is_active', true)
         .or(LISTING_VISIBILITY_OR)
         .maybeSingle()
+      if (!cancelled && listing) setSummary(listing as never)
       if (!cancelled && listing && (listing as { landlord_id?: string | null }).landlord_id && !auth.loading && auth.user) {
         const uid = auth.user.id
         const lid = (listing as { landlord_id: string }).landlord_id
@@ -354,7 +371,21 @@ export default function ApplyPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-10 space-y-5">
+          {summary && (
+            <div data-testid="apply-listing-summary" className="mt-8 flex items-center gap-4 rounded-2xl border border-line-divider bg-white p-3 sm:p-4">
+              {summary.images?.[0]
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={summary.images[0]} alt="" className="h-16 w-20 flex-none rounded-lg object-cover sm:h-20 sm:w-28" />
+                : <div className="h-16 w-20 flex-none rounded-lg bg-surface-chip sm:h-20 sm:w-28" />}
+              <div className="min-w-0">
+                <div className="font-mono text-[10.5px] font-bold uppercase tracking-eyebrow text-body-3">{zh ? '你在申请' : 'Applying for'}</div>
+                <div className="truncate text-[15px] font-bold">{summary.address}{summary.unit ? ` #${summary.unit}` : ''}{summary.city ? ` · ${summary.city}` : ''}</div>
+                <div className="text-[13px] text-body-2">{summary.monthly_rent != null ? `$${Number(summary.monthly_rent).toLocaleString('en-CA')}/${zh ? '月' : 'mo'}` : ''}{summary.bedrooms != null ? ` · ${summary.bedrooms} ${zh ? '卧' : 'bd'}` : ''}{summary.bathrooms != null ? ` · ${Number(summary.bathrooms)} ${zh ? '卫' : 'ba'}` : ''}</div>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-5">
             <Section tag="01" title={zh ? '个人信息' : 'Personal info'}>
               <Grid>
                 <Field label={zh ? '名 *' : 'First name *'}><Input required value={form.first_name} onChange={(e: any) => set('first_name', e.target.value)} /></Field>
@@ -469,7 +500,7 @@ export default function ApplyPage() {
               </div>
               <p className="mt-2 text-[12.5px] leading-relaxed text-body-2">
                 {zh
-                  ? '提交即代表你授权房东和 Stayloop 核实信息、联系上家、查询 Ontario 公开法庭记录，以及（如勾选）拉取你的信用报告。数据保留 90 天后销毁，遵守 Ontario Human Rights Code。'
+                  ? '提交即代表你授权房东和 Stayloop 核实信息、联系上家、查询 Ontario 公开法庭记录，以及（如勾选）拉取你的信用报告。数据保留 90 天后销毁，遵守《安大略省人权法典》。'
                   : 'By submitting, you authorize the landlord and Stayloop to verify your information, contact prior landlords, search Ontario public court records, and (if checked) pull your credit report. Data is deleted after 90 days, in compliance with the Ontario Human Rights Code.'}
               </p>
               <label className="mt-4 flex cursor-pointer items-start gap-2 text-[14px]">

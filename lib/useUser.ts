@@ -274,7 +274,7 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
             // Profile not resolved yet — leave blank rather than substituting
             // authId (profileId ≠ authId; a wrong id would mis-scope queries).
             profileId: '',
-            role: 'landlord',
+            role: 'tenant',
             fullName: '',
             plan: 'free',
             isAnonymous: false,
@@ -287,36 +287,19 @@ export function useUser(opts: UseUserOptions = {}): UseUserReturn {
           return
         }
 
-        _claimAttempted[authId] = true
-        const { data: claimData, error: claimError } = await supabase.rpc('claim_landlord')
-
-        if (claimError) {
-          console.error('Claim landlord error:', claimError)
-          if (isMounted) {
-            setLoading(false)
-          }
-          return
-        }
-
-        // Create session with claimed profile
-        if (claimData) {
-          const session: UserSession = {
-            authId,
-            email,
-            profileId: claimData.id || '',
-            role: claimData.role || 'landlord',
-            fullName: claimData.full_name || '',
-            plan: claimData.plan || 'free',
-            isAnonymous: false,
-          }
+        // No landlords row = no landlord hat (three-role test report
+        // 2026-09-24, SL-A-01 / SL-T-06): merely opening a landlord page used to
+        // call claim_landlord here and silently turn tenants and agents into
+        // landlords. The hat is now granted only by an explicit act —
+        // /landlord/become, onboarding as a landlord, publishing, or paying.
+        {
+          const session: UserSession = { authId, email, profileId: '', role: 'tenant', fullName: '', plan: 'free', isAnonymous: false }
           cachedUser = session
           if (isMounted) {
             setUser(session)
+            setLoading(false)
           }
-        }
-
-        if (isMounted) {
-          setLoading(false)
+          return
         }
       } catch (err) {
         console.error('useUser error:', err)

@@ -1863,3 +1863,28 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
   Plumbing`、无卡片；$150 紧急报价在 $400 上限内自动批准（事件 `system:offered → provider:accept → landlord:approve_quote(auto)`，
   进入通知已发）；非紧急件出卡片且理由「你以前派过 1 单并验收」；$900 超上限出正常批准卡。
 - **仍未做（P2 资金部分，等真实工单量）**：Connect Express 服务商入驻 → 代收 → 抽成 → 转账、发票与 HST、争议冻结付款、服务商短信。
+
+## 三角色模拟测试报告（2026-09-24 · `~/Downloads/stayloop-3role-test-report.pdf`）
+
+外部 QA 用三个测试账号在桌面端走查，3 个 P1 + 18 个 P2 + 公开站观察。先复现再改，守卫 `tests/threeRoleReport20260924.spec.ts`。
+- **SL-T-01 零证据出分（属实）**：租客测试号 0 个文件跑出 37/100 decline +「可能造假」。`screen-score` 在签名文件之前：
+  无文件且无本人授权核验 → 行置 `error: no_documents`、返回 422「没有可评估的材料」，不调模型、不出分；发起按钮必须有文件
+  （只填姓名不再可点）。那条 37 分记录已改成 error（未删）。
+- **SL-L-01 申请材料打不开（属实）**：签名与权限都正常，是 `await` 两次后才 `window.open`，用户激活已过期、浏览器静默拦截。
+  改为页内 `components/landlord/FilePreviewModal.tsx`（点击即开，加载 / 401 / 403 / 400 / 网络错误 + 重试，图片与 PDF 内嵌，
+  HEIC 等给真 `<a target=_blank>`）；`/api/file-url` 写审计 `application_file_viewed`（页面一直写着「查看即留痕」但此前没记）。
+- **SL-A-01 / T-06 / T-08 / A-03 根因是同一个：访问即获得房东身份。** `useLandlord` / `useUser` 在页面加载时调 `claim_landlord`，
+  租客测试号在跑筛查那一刻、经纪测试号在打开 `/landlord/agent` 那一刻各被建了一行 landlords。现在：页面加载**永不** claim；
+  `WorkspaceShell` 对 role=landlord、已登录、无房东帽子 → `/landlord/become?next=`（`lib/landlordHat.ts safeNext` 只收站内路径）；
+  该页说明房东身份是什么、经纪不能代管房东账户，点击才 `claim_landlord`。明确开通的入口只剩：`/landlord/become`、
+  onboarding 选房东（已登录时先 claim 再进筛查页）、发布房源（`listingPublish`）、Stripe 付款。登录 / 回调落地改用
+  `homeForHats`：浏览器里记住的上一个角色必须是本账号持有的帽子才用。两个测试号上自动建出的 landlords 行（0 房源）已删。
+- **P2 已改**：T-02 申请页顶部显示房源照片 / 地址 / 租金 / 户型；T-03 登录后预填姓名邮箱（只填空字段）；T-04 授权文案
+  「《安大略省人权法典》」；T-05 决定 / 撤销待批卡后 `notifyPendingChanged()` 事件让 Header 与手机底栏立即重取红点；
+  L-04 `/landlord/applications(/*)` 308 到 `/landlord/applicants`；L-08 导入页示例地址改多伦多格式；A-02 设置页登录方式按账号
+  identities 显示（「邮箱（密码或登录链接）」/ Google），不再写死 Magic Link；A-05 侧栏 title「设置」。
+- **公开站**：`[TEST] 100 Test Ave` 房源 `is_active=false`（行保留）；8 Colvestone Road（Realtor 导入，标题「5+3 卧」）卧室数
+  3 → 8（价格 $13,800 / 7 浴是真实豪宅数据，非错误）；定价页与订阅卡「内部测试期」→「限时免费」；申请人列表副标题缩短。
+- **未改 / 待定**：T-07 独立消息收件箱、L-02 今日与待批重复、L-03 发布前中英文案预览、L-05 归档、L-06 筛查摘要里的英文（模型
+  输出）、L-07 `/screening` 营销页与工作台导航、A-04 经纪任务门控与客户数口径、页脚「v5.3」（改版本字样需用户拍板）、
+  真实评价 / 运营数据（没有可核实来源前不放）。

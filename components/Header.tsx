@@ -11,7 +11,7 @@ import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/useAuth'
 import { useAdmin } from '@/lib/useAdmin'
 import { useHats } from '@/lib/useHats'
-import { fetchPendingCount } from '@/lib/agent/pendingCount'
+import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
 import { useAIName } from '@/lib/aiName'
 import { supabase } from '@/lib/supabase'
 import { ROLE_THEME, type RoleKey } from '@/lib/roleTheme'
@@ -60,8 +60,10 @@ export default function Header({ variant = 'solid', mobileNav = true }: HeaderPr
   useEffect(() => {
     if (auth.loading || !auth.user) { setPendingCount(0); return }
     let cancelled = false
-    fetchPendingCount(currentRole).then((n) => { if (!cancelled) setPendingCount(n) })
-    return () => { cancelled = true }
+    const load = () => fetchPendingCount(currentRole).then((n) => { if (!cancelled) setPendingCount(n) })
+    void load()
+    window.addEventListener(PENDING_CHANGED_EVENT, load)
+    return () => { cancelled = true; window.removeEventListener(PENDING_CHANGED_EVENT, load) }
   }, [auth.loading, auth.user, currentRole, pathname])
 
   const handleRoleSwitch = (newRole: string) => {

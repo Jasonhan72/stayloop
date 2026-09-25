@@ -120,7 +120,7 @@ export default function SettingsPage() {
                 <InfoRow icon="✉" label={zh ? '邮箱' : 'Email'} value={auth.email || '—'} />
                 <InfoRow icon="🌐" label={zh ? '语言' : 'Language'} value={zh ? '中文 · English' : 'Chinese · English'} />
                 <InfoRow icon="🤖" label={zh ? 'AI 助手' : 'AI Assistant'} value={aiName || getDefaultName(shellRole)} />
-                <InfoRow icon="🔒" label={zh ? '登录方式' : 'Sign-in'} value="Magic Link" />
+                <InfoRow icon="🔒" label={zh ? '登录方式' : 'Sign-in'} value={signInMethods(auth.user, zh)} />
               </div>
             </div>
 
@@ -269,4 +269,17 @@ function resizeAvatar(file: File, size: number, quality: number): Promise<string
     }
     reader.readAsDataURL(file)
   })
+}
+
+// What sign-in methods this account actually has (three-role test report
+// 2026-09-24, SL-A-02: it always said "Magic Link"). Supabase records "email"
+// for both password and emailed-link sign-in, so we do not pretend to know which.
+function signInMethods(user: unknown, zh: boolean): string {
+  const u = user as { app_metadata?: { providers?: string[]; provider?: string }; identities?: { provider?: string }[] } | null
+  const set = new Set<string>([...(u?.app_metadata?.providers ?? []), u?.app_metadata?.provider ?? '', ...((u?.identities ?? []).map((i) => i.provider ?? ''))].filter(Boolean))
+  const out: string[] = []
+  if (set.has('email')) out.push(zh ? '邮箱（密码或登录链接）' : 'Email (password or sign-in link)')
+  if (set.has('google')) out.push('Google')
+  for (const p of set) if (p !== 'email' && p !== 'google') out.push(p)
+  return out.length ? out.join(' · ') : '—'
 }

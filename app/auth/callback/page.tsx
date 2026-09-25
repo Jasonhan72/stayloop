@@ -1,4 +1,5 @@
 'use client'
+import { homeForHats, type HatsLite } from '@/lib/landlordHat'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -79,7 +80,10 @@ export default function AuthCallback() {
         if (safeNext) {
           dest = safeNext
         } else if (stored && AGENT_HOME[stored]) {
-          dest = AGENT_HOME[stored]
+          // The remembered role may belong to a previous account on this
+          // browser — only use it if this account holds that hat (SL-T-08).
+          const { data: hats } = await supabase.rpc('my_hats')
+          dest = homeForHats(stored, hats as HatsLite)
         } else {
           // Scope to the authenticated user explicitly (don't rely on RLS
           // alone) and pick the most recent config so the role is deterministic.

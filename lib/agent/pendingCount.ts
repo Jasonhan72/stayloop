@@ -22,3 +22,12 @@ export function fetchPendingCount(role: string): Promise<number> {
   inflight.set(role, { at: Date.now(), p })
   return p
 }
+
+/** A card was decided / undone somewhere: drop the shared answer and tell
+ *  every badge (Header, phone tabs) to refetch now instead of on the next
+ *  navigation (three-role test report 2026-09-24, SL-T-05). */
+export const PENDING_CHANGED_EVENT = 'sl-pending-changed'
+export function notifyPendingChanged(): void {
+  inflight.clear()
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(PENDING_CHANGED_EVENT))
+}

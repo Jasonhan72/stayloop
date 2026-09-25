@@ -2,6 +2,7 @@
 
 export const runtime = 'edge'
 
+import FilePreviewModal from '@/components/landlord/FilePreviewModal'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -238,18 +239,7 @@ function RealApplicantDetail({ id }: { id: string }) {
     [app, user],
   )
 
-  const openFile = useCallback(async (path: string) => {
-    const { data: sess } = await getSupabaseBrowser().auth.getSession()
-    const token = sess?.session?.access_token
-    if (!token) return
-    const res = await fetch('/api/file-url', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ path }),
-    })
-    const j = (await res.json()) as { url?: string }
-    if (j.url) window.open(j.url, '_blank', 'noopener')
-  }, [])
+  const [preview, setPreview] = useState<{ path: string; name: string } | null>(null)
 
   if (app === null) {
     return (
@@ -503,7 +493,7 @@ function RealApplicantDetail({ id }: { id: string }) {
                 {files.map((f) => (
                   <button
                     key={f.path}
-                    onClick={() => openFile(f.path)}
+                    onClick={() => setPreview({ path: f.path, name: f.name })}
                     className="flex w-full items-center gap-3 rounded-lg bg-surface-chip px-3 py-2 text-left text-[12.5px] transition hover:bg-line-divider/60"
                   >
                     <span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-brand">
@@ -520,6 +510,7 @@ function RealApplicantDetail({ id }: { id: string }) {
             <p className="mt-3 text-[11.5px] font-mono text-body-3">
               {zh ? '所有文件加密保存 · 你查看 = 在 audit log 留痕' : 'All files stored encrypted · your view = logged in the audit log'}
             </p>
+            {preview && <FilePreviewModal path={preview.path} name={preview.name} zh={zh} onClose={() => setPreview(null)} />}
           </div>
         </div>
       </div>

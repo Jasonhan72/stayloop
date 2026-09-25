@@ -5,6 +5,7 @@
 // if the data fetch stalls / the migration isn't applied) falls back to a
 // local demo session so the page ALWAYS renders. Guaranteed to leave the
 // loading state within a few seconds — it can never hang on a skeleton.
+import { notifyPendingChanged } from '@/lib/agent/pendingCount'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { LISTINGS_PAGE } from '@/lib/agent/listingPaging'
 import { getSupabaseBrowser } from '@/lib/supabase'
@@ -322,6 +323,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
       if (!live) return
       try {
         await decidePendingAction(getSupabaseBrowser(), actionId, decision, note)
+        notifyPendingChanged()
       } catch (e) {
         setError((e as Error).message)
         // Roll back: restore the card and the prior status so the UI never
@@ -666,6 +668,7 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     try {
       const sb = getSupabaseBrowser()
       const { data: row } = await sb.from('agent_pending_actions').update({ status: 'pending' }).eq('id', actionId).eq('status', 'approved').is('executed_at', null).select('*').maybeSingle()
+      notifyPendingChanged()
       if (row) {
         setData((prev) => (prev ? { ...prev, pendingActions: [row as AgentSessionResponse['pendingActions'][number], ...prev.pendingActions.filter((a) => a.id !== actionId)] } : prev))
         setStatus('approval')

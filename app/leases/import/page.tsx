@@ -267,7 +267,7 @@ export default function LeaseImportPage() {
                 {note && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-800">⚠ {note}</p>}
 
                 <label className={label}>{zh ? '房屋地址 *' : 'Address *'}</label>
-                <input className={input} value={form.address} onChange={set('address')} placeholder="123 Main St" />
+                <input className={input} value={form.address} onChange={set('address')} placeholder={zh ? "例：88 Harbour St" : "e.g. 88 Harbour St"} />
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={label}>{zh ? '单元号' : 'Unit'}</label>

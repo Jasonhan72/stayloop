@@ -2,9 +2,10 @@
 
 import { isRegistrationLive } from '@/lib/agentProfile'
 import { ReactNode, useEffect, useState } from 'react'
-import { fetchPendingCount } from '@/lib/agent/pendingCount'
+import { fetchPendingCount, PENDING_CHANGED_EVENT } from '@/lib/agent/pendingCount'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useHats } from '@/lib/useHats'
 import Header from './Header'
 import { useI18n } from '@/lib/i18n'
 import { ROLE_THEME } from '@/lib/roleTheme'
@@ -293,7 +294,28 @@ function AgentLockedState({ status, zh }: { status: string; zh: boolean }) {
   )
 }
 
+// The landlord workspace is for accounts that hold the landlord hat (three-role
+// test report 2026-09-24, SL-A-01 / SL-T-06 / SL-T-08). A signed-in tenant or
+// agent without one is sent to /landlord/become — an explicit opt-in — rather
+// than silently shown (and, before, silently granted) the landlord tools.
+// Anonymous visitors keep the preview.
+function useLandlordHatGuard(role: WorkspaceRole): boolean {
+  const auth = useAuth()
+  const hats = useHats()
+  const router = useRouter()
+  const path = usePathnameSafe()
+  const signedIn = !!auth.user && !(auth.user as { is_anonymous?: boolean }).is_anonymous
+  const blocked = role === 'landlord' && signedIn && !hats.loading && !hats.landlord
+  useEffect(() => {
+    if (!blocked) return
+    const q = typeof window !== 'undefined' ? window.location.search : ''
+    router.replace('/landlord/become?next=' + encodeURIComponent(path + q))
+  }, [blocked, path, router])
+  return blocked
+}
+
 export default function WorkspaceShell({ role, aside, children, hideAside, liveSlot, phoneApp = false }: Props) {
+  const hatBlocked = useLandlordHatGuard(role)
   const { gate, sampleNote, showDemo, setShowDemo } = useDemoGate()
   const agentStatus = useAgentVerification(role)
   const shellPath = usePathnameSafe()
@@ -317,7 +339,9 @@ export default function WorkspaceShell({ role, aside, children, hideAside, liveS
                 {role === 'agent' && <AgentVerificationBanner status={agentStatus} zh={lang === 'zh'} />}
               </div>
             )}
-            {role === 'agent' && agentStatus !== 'loading' && !isRegistrationLive(agentStatus) && isAgentOnlyRoute(shellPath)
+            {hatBlocked
+              ? <div className="py-24 text-center font-mono text-[13px] text-body-3">…</div>
+              : role === 'agent' && agentStatus !== 'loading' && !isRegistrationLive(agentStatus) && isAgentOnlyRoute(shellPath)
               ? <AgentLockedState status={agentStatus} zh={lang === 'zh'} />
               : <DemoGate gate={gate} showDemo={showDemo} setShowDemo={setShowDemo} liveSlot={liveSlot}>{children}</DemoGate>}
           </div>
@@ -391,7 +415,7 @@ function Rail({ role }: { role: WorkspaceRole }) {
       <div className="hidden md:mt-auto md:block" />
       <Link
         href="/settings"
-        title={en ? 'Settings and subscription' : '设置与订阅'}
+        title={en ? 'Settings' : '设置'}
         className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg text-[16px] transition md:h-[42px] md:w-auto md:flex-none md:flex-row md:justify-start md:gap-3 md:px-[14px] md:text-[13.5px] md:font-semibold"
         style={onSettings ? { background: 'rgba(255,255,255,0.10)', color: '#ffffff' } : { color: '#c7d2e3' }}
       >
@@ -416,8 +440,10 @@ function PhoneTabs({ role, items }: { role: WorkspaceRole; items: RailItem[] }) 
   useEffect(() => {
     if (auth.loading || !auth.user) { setPendingCount(0); return }
     let cancelled = false
-    fetchPendingCount(role).then((n) => { if (!cancelled) setPendingCount(n) })
-    return () => { cancelled = true }
+    const load = () => fetchPendingCount(role).then((n) => { if (!cancelled) setPendingCount(n) })
+    void load()
+    window.addEventListener(PENDING_CHANGED_EVENT, load)
+    return () => { cancelled = true; window.removeEventListener(PENDING_CHANGED_EVENT, load) }
   }, [auth.loading, auth.user, role, path])
   useEffect(() => { setMore(false) }, [path])
   // Install hint + service-worker registration live here because every

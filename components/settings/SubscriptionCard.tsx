@@ -150,7 +150,7 @@ export default function SubscriptionCard({ userId, zh }: { userId: string; zh: b
     <div className="overflow-hidden rounded-2xl border border-line-divider bg-white shadow-card">
       {inInternalTestWindow() && (
         <div className="border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-[12.5px] text-amber-900">
-          {zh ? `内部测试期：到 ${INTERNAL_TEST_FREE_UNTIL_LABEL.zh} 为止，所有功能对所有账号免费，无需订阅。` : `Internal test period: every feature is free for every account until ${INTERNAL_TEST_FREE_UNTIL_LABEL.en} — no subscription needed.`}
+          {zh ? `限时免费：到 ${INTERNAL_TEST_FREE_UNTIL_LABEL.zh} 为止，所有功能对所有账号免费，无需订阅。` : `Free for a limited time: every feature is free for every account until ${INTERNAL_TEST_FREE_UNTIL_LABEL.en} — no subscription needed.`}
         </div>
       )}
       <div className="flex flex-wrap items-start justify-between gap-4 px-5 pb-4 pt-5">
