@@ -60,7 +60,10 @@ describe('SL-A-01 / SL-T-06 / SL-T-08 · the landlord hat is explicit', () => {
     expect(homeForHats('tenant', { landlord: true })).toBe('/tenant/agent')
     expect(homeForHats(null, { landlord: true })).toBe('/landlord/agent')
     expect(read('app/login/page.tsx')).toContain('homeForHats(role, data as HatsLite)')
-    expect(read('app/auth/callback/page.tsx')).toContain('homeForHats(stored, hats as HatsLite)')
+    const cb = read('app/auth/callback/page.tsx')
+    expect(cb).toContain('homeForHats(candidate, hats as HatsLite)')
+    // agent_configs / signup role are candidates too — never a landing page on their own
+    expect(cb).not.toMatch(/dest = AGENT_HOME\[role\]/)
   })
 })
 

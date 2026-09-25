@@ -92,7 +92,7 @@ export default function Inbox({ role }: { role: 'tenant' | 'landlord' }) {
               {intents.map((i) => { const st = intentStatus(i.status); return (
                 <div key={i.id} className="flex flex-wrap items-center gap-2 py-2.5 text-[13px]">
                   <span className="font-semibold">{i.kind === 'question' ? (zh ? '提问' : 'Question') : (zh ? '看房' : 'Showing')}</span>
-                  {i.listing?.slug ? <Link href={`/listings/${i.listing.slug}`} className="min-w-0 flex-1 truncate hover:underline">{i.listing.address}{i.listing.unit ? ` #${i.listing.unit}` : ''}</Link> : <span className="min-w-0 flex-1 truncate">{i.listing?.address ?? '—'}</span>}
+                  {i.listing?.slug ? <Link href={`/listings/${i.listing.slug}`} className="min-w-0 flex-1 truncate hover:underline">{i.listing.address}{i.listing.unit ? ` #${i.listing.unit}` : ''}</Link> : <span className="min-w-0 flex-1 truncate text-body-3">{i.listing?.address ?? (zh ? '房源已下架' : 'Listing no longer available')}</span>}
                   <StatusPill tone={st.tone}>{zh ? st.zh : st.en}</StatusPill>
                   <span className="font-mono text-[11px] text-body-3">{fmt(i.created_at)}</span>
                 </div>

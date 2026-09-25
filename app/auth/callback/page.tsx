@@ -77,18 +77,17 @@ export default function AuthCallback() {
         // Returning users (role known) skip naming entirely.
         let dest = safeNext ?? '/onboarding/name'
         const stored = window.localStorage.getItem('sl-active-role')
-        if (safeNext) {
-          dest = safeNext
-        } else if (stored && AGENT_HOME[stored]) {
-          // The remembered role may belong to a previous account on this
-          // browser — only use it if this account holds that hat (SL-T-08).
-          const { data: hats } = await supabase.rpc('my_hats')
-          dest = homeForHats(stored, hats as HatsLite)
-        } else {
-          // Scope to the authenticated user explicitly (don't rely on RLS
-          // alone) and pick the most recent config so the role is deterministic.
+        if (!safeNext) {
+          // Every source of "which role" — the role remembered in this browser
+          // (may belong to a previous account), the account's most recently
+          // used agent config, the role picked at signup — is only a candidate.
+          // The landing page must be a hat the account actually holds (my_hats):
+          // a tenant whose latest agent config was "landlord" (from before the
+          // landlord hat became explicit) was sent to /landlord/agent
+          // (three-role test walk-through 2026-09-24, SL-T-08).
           const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
+          let candidate: string | undefined = stored && AGENT_HOME[stored] ? stored : undefined
+          if (!candidate && user) {
             const { data: cfg } = await supabase
               .from('agent_configs')
               .select('role')
@@ -97,20 +96,20 @@ export default function AuthCallback() {
               .limit(1)
               .maybeSingle()
             // Fall back to the role the user picked at signup (AuthModal
-            // writes it to user_metadata; nothing read it before, so a
-            // landlord choosing 房东 in the modal was defaulted into
-            // tenant onboarding).
+            // writes it to user_metadata).
             const metaRole = (user.user_metadata as { role?: string } | undefined)?.role
-            const role = (cfg as { role?: string } | null)?.role || (metaRole && AGENT_HOME[metaRole] ? metaRole : undefined)
-            if (role && AGENT_HOME[role]) {
-              window.localStorage.setItem('sl-active-role', role)
-              dest = AGENT_HOME[role]
-            } else {
-              // Brand new user — check if they came with a role intent
-              const intentRole = new URLSearchParams(window.location.search).get('role')
-              if (intentRole && AGENT_HOME[intentRole]) {
-                dest = `/onboarding/name?role=${intentRole}`
-              }
+            candidate = (cfg as { role?: string } | null)?.role || (metaRole && AGENT_HOME[metaRole] ? metaRole : undefined)
+          }
+          if (candidate && AGENT_HOME[candidate]) {
+            const { data: hats } = await supabase.rpc('my_hats')
+            dest = homeForHats(candidate, hats as HatsLite)
+            const landed = (Object.keys(AGENT_HOME) as string[]).find((r) => AGENT_HOME[r] === dest)
+            if (landed) window.localStorage.setItem('sl-active-role', landed)
+          } else {
+            // Brand new user — check if they came with a role intent
+            const intentRole = new URLSearchParams(window.location.search).get('role')
+            if (intentRole && AGENT_HOME[intentRole]) {
+              dest = `/onboarding/name?role=${intentRole}`
             }
           }
         }
