@@ -743,7 +743,7 @@ export default function ListingDetailPage() {
             {/* Section 5 — 位置与交通: the transit list beside the listing's own map (user 2026-09-25: "交通这边要带地图，和房源位置在一起") */}
             {insight !== null && (
               <Section title={zh ? '位置与交通' : 'Location & transit'} eyebrow="LOCATION">
-                <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
+                <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
                   <div>
                     {insight === undefined ? (
                       <div className="text-[13.5px] text-body-3">{zh ? '正在查附近站点…' : 'Looking up nearby stations…'}</div>
@@ -752,14 +752,15 @@ export default function ListingDetailPage() {
                     ) : (
                       <div className="divide-y divide-line-divider rounded-[12px] border border-line-divider bg-white">
                         {insight.transit.stations.map((st) => (
-                          <div key={`${st.kind}-${st.name}`} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13.5px]">
-                            <span className="flex min-w-0 items-center gap-2.5">
+                          <div key={`${st.kind}-${st.name}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 px-4 py-2.5 text-[13.5px]">
+                            {/* Names wrap and the distance drops to its own line when the list sits beside the map — "M…" is not a station name (prod check 2026-09-25). */}
+                            <span className="flex min-w-0 flex-1 items-center gap-2.5">
                               <span className={`flex-none rounded-md px-1.5 py-[2px] font-mono text-[10px] font-bold text-white ${st.kind === 'subway' ? 'bg-[#1B1B3C]' : st.kind === 'go' ? 'bg-emerald-700' : st.kind === 'streetcar' ? 'bg-red-700' : 'bg-body-3'}`}>
                                 {st.kind === 'subway' ? (zh ? '地铁' : 'SUBWAY') : st.kind === 'go' ? 'GO' : st.kind === 'streetcar' ? (zh ? '有轨电车' : 'STREETCAR') : (zh ? '轨道' : 'RAIL')}
                               </span>
-                              <span className="truncate text-body">{st.name}{st.lines && st.lines.length ? <span className="ml-1.5 text-body-3">{st.lines.join(' · ')}</span> : null}</span>
+                              <span className="min-w-0 break-words text-body">{st.name}{st.lines && st.lines.length ? <span className="ml-1.5 text-body-3">{st.lines.join(' · ')}</span> : null}</span>
                             </span>
-                            <span className="flex-none font-mono text-[12px] text-body-3">{fmtDistance(st.distance_m, lang)} · {zh ? `步行约 ${walkMinutes(st.distance_m)} 分钟` : `~${walkMinutes(st.distance_m)} min walk`}</span>
+                            <span className="flex-none whitespace-nowrap font-mono text-[12px] text-body-3">{fmtDistance(st.distance_m, lang)} · {zh ? `步行约 ${walkMinutes(st.distance_m)} 分钟` : `~${walkMinutes(st.distance_m)} min walk`}</span>
                           </div>
                         ))}
                       </div>
