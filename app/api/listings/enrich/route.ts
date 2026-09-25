@@ -6,9 +6,13 @@
 // neighbourhood's asking-rent medians. Public listings only, rate limited per
 // IP, nothing the caller sends is stored.
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { underHourlyLimit } from '@/lib/rateLimit'
 import { median, pickTransit, type ListingTransit } from '@/lib/listingInsights'
+import { DEFAULT_MODELS, getModel, getModelDef, getModelDefAsync } from '@/lib/modelConfig'
+import { llmChat } from '@/lib/llmChat'
+import { parseModelJson } from '@/lib/screening/jsonRepair'
+import { stripNul } from '@/lib/screening/jsonSafe'
 
 export const runtime = 'edge'
 
@@ -32,6 +36,52 @@ async function geocode(q: string): Promise<{ lat: number; lng: number } | null> 
     const lat = Number(rows[0].lat), lng = Number(rows[0].lon)
     return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null
   } catch { return null }
+}
+
+// "关于社区" prose (StreetEasy "About Murray Hill"): written once per
+// (city, neighbourhood) from facts we hold, cached in neighborhood_profiles,
+// labelled as AI-written on the page. The prompt forbids numbers, years,
+// prices, safety or demographic claims (OHRC) — the numbers next to it come
+// from our own tables, not from the model.
+const PROFILE_PROMPT = `You write short, neutral neighbourhood primers for a Toronto-area rental site.
+Use only well-known, general knowledge about the named neighbourhood plus the facts given. Do NOT include numbers, years, prices, rents, distances, statistics, crime or safety claims, or anything about who lives there by ethnicity, income, religion, family status or age (Ontario Human Rights Code). No superlatives, no marketing tone.
+Write 3–4 sentences on: the area's character and streetscape, everyday conveniences (groceries, parks, culture, campuses or offices nearby if well known), and how people get around (name the transit lines or stations from the facts).
+Return only JSON: {"zh": "<Simplified Chinese>", "en": "<English>"}`
+
+async function neighbourhoodProfile(svc: SupabaseClient, city: string, name: string, facts: Record<string, unknown>): Promise<{ zh: string; en: string; generated_at: string } | null> {
+  const { data: cached } = await svc.from('neighborhood_profiles').select('zh, en, generated_at').eq('city', city).eq('name', name).maybeSingle()
+  if (cached) return cached as { zh: string; en: string; generated_at: string }
+  try {
+    const modelId = await getModel('turn')
+    const def = (await getModelDefAsync(modelId)) ?? getModelDef(DEFAULT_MODELS.turn)!
+    const { text } = await llmChat({
+      model: def,
+      system: PROFILE_PROMPT,
+      messages: [{ role: 'user', content: `Neighbourhood: ${name}, ${city}, Ontario\nFacts (for grounding only): ${JSON.stringify(facts).slice(0, 2000)}` }],
+      maxTokens: 900,
+      temperature: 0.3,
+      jsonMode: def.provider === 'openai-compat',
+      prefillJson: def.provider === 'anthropic',
+      signal: AbortSignal.timeout(40_000),
+      meta: { slot: 'turn', source: 'listings/enrich' },
+    })
+    const parsed = parseModelJson(text) as { zh?: unknown; en?: unknown } | null
+    const zh = typeof parsed?.zh === 'string' ? stripNul(parsed.zh).trim().slice(0, 900) : ''
+    const en = typeof parsed?.en === 'string' ? stripNul(parsed.en).trim().slice(0, 1200) : ''
+    // Money, percentages, years or big figures in the prose mean the model ignored
+    // the brief — do not publish it (transit line numbers such as "Line 1" are fine).
+    const hardNumber = /\$\s?\d|\d\s?%|\b(19|20)\d{2}\b|\d{1,3}(,\d{3})+|\b\d{4,}\b/
+    if (!zh || !en || hardNumber.test(zh) || hardNumber.test(en)) {
+      console.warn('[listings/enrich] profile rejected', { zh: zh.slice(0, 80), en: en.slice(0, 80), raw: text.slice(0, 240), keys: parsed ? Object.keys(parsed) : null })
+      return null
+    }
+    const row = { city, name, zh, en, model: def.id, facts, generated_at: new Date().toISOString() }
+    await svc.from('neighborhood_profiles').upsert(row, { onConflict: 'city,name' })
+    return { zh, en, generated_at: row.generated_at }
+  } catch (e) {
+    console.warn('[listings/enrich] profile failed', (e as Error).message)
+    return null
+  }
 }
 
 async function nearbyTransit(lat: number, lng: number): Promise<ListingTransit | null> {
@@ -90,10 +140,17 @@ export async function POST(req: Request) {
   ])
   const rows = ((peers ?? []) as { monthly_rent: number; bedrooms: number | null }[]).filter((r) => r.monthly_rent > 0)
   const sameBeds = rows.filter((r) => (r.bedrooms ?? -1) === (l.bedrooms ?? -2))
+  const profile = l.neighborhood
+    ? await neighbourhoodProfile(svc, l.city, l.neighborhood, {
+        transit: (transit?.stations ?? []).slice(0, 6).map((st) => ({ name: st.name, kind: st.kind, lines: st.lines })),
+        listings_in_sample: rows.length,
+      })
+    : null
   return NextResponse.json(
     {
       lat, lng,
       transit: transit ?? { stations: [] },
+      profile,
       building: { other_active: others ?? 0 },
       neighborhood: {
         scope: l.neighborhood ? 'neighborhood' : 'city',

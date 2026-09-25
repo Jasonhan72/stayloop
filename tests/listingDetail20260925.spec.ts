@@ -53,7 +53,7 @@ describe('listing insight helpers', () => {
 describe('page, route and migration', () => {
   it('the page shows the new sections and asks the enrich route once per listing', () => {
     const page = read('app/listings/[slug]/page.tsx')
-    for (const eyebrow of ['eyebrow="POLICIES"', 'eyebrow="PRICE HISTORY"', 'eyebrow="TRANSIT"', 'eyebrow="NEIGHBOURHOOD"']) expect(page).toContain(eyebrow)
+    for (const eyebrow of ['eyebrow="POLICIES"', 'eyebrow="PRICE HISTORY"', 'eyebrow="LOCATION"', 'eyebrow="NEIGHBOURHOOD"']) expect(page).toContain(eyebrow)
     expect(page).toContain("fetch('/api/listings/enrich', { method: 'POST'")
     expect(page).toContain("readTrrebBenchmark(listing.bedrooms ?? 1, [listing.neighborhood, listing.city]")
     expect(page).toContain('groupFeatures({ amenities: listing.amenities, building_features: listing.building_features, appliances: listing.appliances }, lang)')
@@ -75,5 +75,37 @@ describe('page, route and migration', () => {
     expect(sql).toContain("jsonb_build_object('date', current_date, 'price', new.monthly_rent, 'prev', old.monthly_rent, 'event', 'changed')")
     expect(sql).toContain('add column if not exists transit jsonb')
     expect(sql).toContain('revoke execute on function public.listings_price_history() from anon, authenticated')
+  })
+})
+
+describe('second round (user 2026-09-25: Airbnb header, neighbourhood block, map with transit, StreetEasy similar cards)', () => {
+  const page = read('app/listings/[slug]/page.tsx')
+  it('title block above the photos: crumb · address as the only H1 · badge · one-line summary; share and save untouched', () => {
+    expect(page).toContain('<h1 className="mt-2 text-[30px] font-extrabold tracking-tight sm:text-[36px]">{listing.address}{listing.unit ? ` #${listing.unit}` : \'\'}</h1>')
+    expect((page.match(/<h1 /g) || []).length).toBe(2) // the listing title + the not-found state
+    expect(page).toContain("{zh ? '分享' : 'Share'}")
+    expect(page).toContain("{fav ? (zh ? '取消收藏' : 'Saved') : (zh ? '收藏' : 'Save')}")
+    expect(page).toContain("zh ? '整套公寓' : 'Entire apartment'")
+  })
+  it('one neighbourhood block: AI primer (labelled) + asking / leased / this-listing tiles', () => {
+    expect(page).toContain("{zh ? 'AI 根据公开资料整理的社区简介 · 不含数字与人群描述 · 仅供了解'")
+    expect(page).toContain("{zh ? '出租 · 挂牌价' : 'Rentals · asking'}")
+    expect(page).toContain("{zh ? '出租 · 成交均价' : 'Rentals · leased'}")
+    expect(page).toContain("{zh ? '这套房源' : 'This listing'}")
+    const r = read('app/api/listings/enrich/route.ts')
+    expect(r).toContain("from('neighborhood_profiles')")
+    expect(r).toContain('Do NOT include numbers, years, prices')
+    expect(r).toContain("if (!zh || !en || /\\d/.test(zh) || /\\d/.test(en)) return null")
+    expect(read('supabase/migrations/20260925_neighborhood_profiles.sql')).toContain('revoke all on public.neighborhood_profiles from anon, authenticated, public')
+  })
+  it('location and transit share one section with the listing map; similar homes are full cards with a heart, ranked by area → beds → rent', () => {
+    expect(page).toContain('eyebrow="LOCATION"')
+    expect(page).not.toContain('eyebrow="TRANSIT"')
+    expect(page).toContain('<ListingLocationMap lat={insight.lat} lng={insight.lng}')
+    expect(read('components/ListingsMap.tsx')).toContain('export function loadGoogleMaps(')
+    expect(page).toContain("{zh ? '相似房源' : 'Similar homes'}")
+    expect(page).toContain('onClick={() => toggle(snapS)}')
+    expect(page).not.toContain("sl-eyebrow\">{zh ? '类似房源'")
+    expect(page).toContain(".filter((x) => x.images && x.images.length > 0).sort((a, b) => score(a) - score(b)).slice(0, 3)")
   })
 })

@@ -5,7 +5,7 @@
 import type { Lang } from '@/lib/i18n'
 
 export type PriceEvent = { date: string; price: number; prev?: number | null; event?: string }
-export type TransitStop = { name: string; kind: 'subway' | 'go' | 'streetcar' | 'rail'; lines?: string[]; distance_m: number }
+export type TransitStop = { name: string; kind: 'subway' | 'go' | 'streetcar' | 'rail'; lines?: string[]; distance_m: number; lat?: number; lng?: number }
 export type ListingTransit = { stations: TransitStop[]; fetched_at?: string }
 
 /** Days since the listing went live (published_at, else created_at). */
@@ -150,7 +150,7 @@ export function pickTransit(nodes: { lat: number; lon: number; tags?: Record<str
     if (kind !== 'streetcar' && d > 1500) continue
     const key = `${kind}:${name.toLowerCase()}`
     const cur = byName.get(key)
-    if (!cur || cur.distance_m > d) byName.set(key, { name, kind, lines: transitLines(tags), distance_m: d })
+    if (!cur || cur.distance_m > d) byName.set(key, { name, kind, lines: transitLines(tags), distance_m: d, lat: n.lat, lng: n.lon })
   }
   const all = [...byName.values()].sort((a, b) => a.distance_m - b.distance_m)
   const stations = all.filter((s) => s.kind !== 'streetcar').slice(0, 5)

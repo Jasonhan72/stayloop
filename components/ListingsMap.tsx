@@ -89,7 +89,7 @@ function tagIcon(google: any, label: string, isActive: boolean) {
 let scriptLoaded = false
 let scriptLoading: Promise<void> | null = null
 
-function loadGoogleMaps(apiKey: string): Promise<void> {
+export function loadGoogleMaps(apiKey: string): Promise<void> {
   if (scriptLoaded) return Promise.resolve()
   if (scriptLoading) return scriptLoading
   scriptLoading = new Promise((resolve, reject) => {

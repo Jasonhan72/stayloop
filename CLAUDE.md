@@ -2071,3 +2071,11 @@ About the building（单元数 / 层数 / 年份 / 同楼在租）、Property hi
   页面另用公开表 `trreb_rent_stats` 经 `readTrrebBenchmark` 取该户型的 TRREB 成交均价（区先 district 后 All TRREB Areas，注明「成交，非挂牌」）
   并给出本套相对均价的百分比。dev 实测 1001 Bay #1618：Wellesley 260 m、Museum / Bay / Bloor-Yonge / College、TRREB Toronto C01 2026 Q1 1 房 $2,438。
 - **没做**：净有效租金（没有 incentive 字段）、单元数（没有数据）、学校 / 公园（没有可靠来源）。
+- **第二轮（用户给了 Airbnb / StreetEasy 四张参考图）**：① 标题块移到照片上方（面包屑 首页 / 房源 / 地址 · 地址 #单元作唯一 H1 · 完整地址 +
+  VERIFIED 徽章 · 一行摘要「整套公寓 · 1 + den 间卧室 · 1 间浴室 · 799 ft²」），分享 / 收藏按钮不动，价格块降为 div；② 「关于社区」整合成一块：
+  AI 社区简介（`neighborhood_profiles` 表，每个 (city, neighbourhood) 由 `/api/listings/enrich` 用 turn 槽模型按我们持有的事实——站点、样本数——
+  生成一次并缓存；提示词禁数字 / 年份 / 价格 / 治安 / 人群描述，产出含数字即不发布；页面标「AI 根据公开资料整理 · 不含数字与人群描述」）+
+  三张瓦片「出租·挂牌价（样本中位）/ 出租·成交均价（TRREB）/ 这套房源（相对两者的百分比）」；没有出售数据，不放；③ 「位置与交通」一节：左边
+  站点列表，右边 `components/ListingLocationMap.tsx`（复用 `ListingsMap` 导出的 `loadGoogleMaps`，红标 = 房源、圆点 = 站点，按站点自动取景）；
+  ④ 「相似房源」从右栏的小列表改为页面底部三张 StreetEasy 式大卡（照片 + 张数、类型 · 社区、地址、租金、卧 / 卫 / ft²、挂牌方、❤ 收藏走同一套
+  `useFavorites`），选择改为 同社区 → 同户型 → 租金最接近 排序，无照片的不入选，手机端横向滑动。

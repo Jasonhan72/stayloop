@@ -4,6 +4,7 @@ export const runtime = 'edge'
 
 import Link from 'next/link'
 import { parkingStat } from '@/lib/listingDisplay'
+import ListingLocationMap from '@/components/ListingLocationMap'
 import { readTrrebBenchmark, type TrrebBenchmark } from '@/lib/agent/trrebRent'
 import { daysOnMarket, fmtDistance, groupFeatures, lastPriceChange, pricePerSqft, walkMinutes, type ListingTransit, type PriceEvent } from '@/lib/listingInsights'
 import { useParams } from 'next/navigation'
@@ -119,6 +120,7 @@ type Insight = {
   lat: number | null
   lng: number | null
   transit: ListingTransit
+  profile: { zh: string; en: string; generated_at: string } | null
   building: { other_active: number }
   neighborhood: { scope: 'neighborhood' | 'city'; name: string; all: { n: number; median: number | null }; same_beds: { n: number; median: number | null } }
 }
@@ -278,8 +280,16 @@ export default function ListingDetailPage() {
           .eq('is_active', true)
           .or(LISTING_VISIBILITY_OR)
           .neq('id', (data as any).id)
-          .limit(3)
-        if (!cancelled) setSimilar((rest || []) as DBListing[])
+          .limit(24)
+        if (!cancelled) {
+          // Similar = same neighbourhood, then same bedroom count, then closest rent (StreetEasy "Similar homes").
+          const me = data as DBListing
+          const score = (x: DBListing) =>
+            (x.neighborhood && me.neighborhood && x.neighborhood.toLowerCase() === me.neighborhood.toLowerCase() ? 0 : 2) +
+            ((x.bedrooms ?? -1) === (me.bedrooms ?? -2) ? 0 : 1) +
+            Math.min(3, (Math.abs(x.monthly_rent - me.monthly_rent) / Math.max(1, me.monthly_rent)) * 4)
+          setSimilar(((rest || []) as DBListing[]).filter((x) => x.images && x.images.length > 0).sort((a, b) => score(a) - score(b)).slice(0, 3))
+        }
       }
     })()
     return () => {
@@ -334,13 +344,31 @@ export default function ListingDetailPage() {
       <main className="bg-surface">
         {/* Breadcrumb + back */}
         <div className="mx-auto max-w-[1320px] px-6 pt-5 sm:px-8 lg:px-12">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <Link
-              href="/listings"
-              className="font-mono text-[11px] uppercase tracking-eyebrowLg text-body-3 transition hover:text-brand"
-            >
-              {zh ? '← 返回房源列表 / LISTINGS' : '← Back to listings / LISTINGS'}
-            </Link>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            {/* Title block above the photos (Airbnb reference, user 2026-09-25): crumb · address as the H1 · full address + badge · one-line summary */}
+            <div className="min-w-0">
+              <nav aria-label={zh ? '位置' : 'Breadcrumb'} className="flex flex-wrap items-center gap-1.5 text-[13px] text-body-3">
+                <Link href="/" className="transition hover:text-brand">{zh ? '首页' : 'Home'}</Link>
+                <span>/</span>
+                <Link href="/listings" className="transition hover:text-brand">{zh ? '房源' : 'Listings'}</Link>
+                <span>/</span>
+                <span className="text-body-2">{listing.address}{listing.unit ? ` #${listing.unit}` : ''}</span>
+              </nav>
+              <h1 className="mt-2 text-[30px] font-extrabold tracking-tight sm:text-[36px]">{listing.address}{listing.unit ? ` #${listing.unit}` : ''}</h1>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[15px] text-body-2">
+                <span>{listing.address}{listing.unit ? ` #${listing.unit}` : ''}, {listing.neighborhood ? `${listing.neighborhood}, ` : ''}{listing.city}</span>
+                <span>·</span>
+                <VerificationBadge listing={listing} variant="detail" zh={zh} />
+              </div>
+              <div className="mt-1.5 text-[15px] text-body-2">
+                {[
+                  ({ apartment: zh ? '整套公寓' : 'Entire apartment', condo: zh ? '整套公寓 (Condo)' : 'Entire condo', house: zh ? '整套独立屋' : 'Entire house', townhouse: zh ? '整套联排' : 'Entire townhouse', basement: zh ? '地下室套间' : 'Basement suite', duplex: zh ? '整套 Duplex' : 'Entire duplex' } as Record<string, string>)[listing.property_type || ''] || (zh ? '整套住宅' : 'Entire home'),
+                  listing.bedrooms === 0 ? 'Studio' : `${listing.bedrooms ?? '—'}${listing.has_den ? ' + den' : ''} ${zh ? '间卧室' : (listing.bedrooms === 1 ? 'bedroom' : 'bedrooms')}`,
+                  listing.bathrooms != null ? `${listing.bathrooms} ${zh ? '间浴室' : (Number(listing.bathrooms) === 1 ? 'bathroom' : 'bathrooms')}` : null,
+                  listing.sqft ? `${listing.sqft} ft²` : null,
+                ].filter(Boolean).join(' · ')}
+              </div>
+            </div>
           {/* Share + Save — Airbnb-style light actions, top-right of the title row */}
           <div className="relative flex shrink-0 items-center gap-1 pt-2">
             <button
@@ -473,14 +501,13 @@ export default function ListingDetailPage() {
                     {zh ? `AI · ${listing.match_score}% 匹配` : `AI · ${listing.match_score}% match`}
                   </span>
                 )}
-                <VerificationBadge listing={listing} variant="detail" zh={zh} />
               </div>
 
               <div className="mt-3">
-                <h1 className="text-[36px] font-extrabold tracking-tight sm:text-[44px]">
+                <div className="text-[34px] font-extrabold tracking-tight sm:text-[40px]">
                   ${listing.monthly_rent.toLocaleString()}
                   <span className="ml-2 text-[18px] font-medium text-body-3">{zh ? '/ 月' : '/ month'}</span>
-                </h1>
+                </div>
               </div>
               <div className="mt-2 text-[15px] text-body-2">
                 {listing.address}
@@ -713,76 +740,101 @@ export default function ListingDetailPage() {
               </Section>
             )}
 
-            {/* Section 5 — 交通 (nearest subway / GO / streetcar from OpenStreetMap, cached on the row) */}
+            {/* Section 5 — 位置与交通: the transit list beside the listing's own map (user 2026-09-25: "交通这边要带地图，和房源位置在一起") */}
             {insight !== null && (
-              <Section title={zh ? '交通' : 'Transit'} eyebrow="TRANSIT">
-                {insight === undefined ? (
-                  <div className="text-[13.5px] text-body-3">{zh ? '正在查附近站点…' : 'Looking up nearby stations…'}</div>
-                ) : insight.transit.stations.length === 0 ? (
-                  <div className="text-[13.5px] text-body-3">{zh ? '1.5 km 内没有地铁 / GO 车站记录（OpenStreetMap 数据）。' : 'No subway or GO station on record within 1.5 km (OpenStreetMap data).'}</div>
-                ) : (
-                  <div className="divide-y divide-line-divider rounded-[12px] border border-line-divider bg-white">
-                    {insight.transit.stations.map((st) => (
-                      <div key={`${st.kind}-${st.name}`} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13.5px]">
-                        <span className="flex min-w-0 items-center gap-2.5">
-                          <span className={`flex-none rounded-md px-1.5 py-[2px] font-mono text-[10px] font-bold text-white ${st.kind === 'subway' ? 'bg-[#1B1B3C]' : st.kind === 'go' ? 'bg-emerald-700' : st.kind === 'streetcar' ? 'bg-red-700' : 'bg-body-3'}`}>
-                            {st.kind === 'subway' ? (zh ? '地铁' : 'SUBWAY') : st.kind === 'go' ? 'GO' : st.kind === 'streetcar' ? (zh ? '有轨电车' : 'STREETCAR') : (zh ? '轨道' : 'RAIL')}
-                          </span>
-                          <span className="truncate text-body">{st.name}{st.lines && st.lines.length ? <span className="ml-1.5 text-body-3">{st.lines.join(' · ')}</span> : null}</span>
-                        </span>
-                        <span className="flex-none font-mono text-[12px] text-body-3">{fmtDistance(st.distance_m, lang)} · {zh ? `步行约 ${walkMinutes(st.distance_m)} 分钟` : `~${walkMinutes(st.distance_m)} min walk`}</span>
+              <Section title={zh ? '位置与交通' : 'Location & transit'} eyebrow="LOCATION">
+                <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
+                  <div>
+                    {insight === undefined ? (
+                      <div className="text-[13.5px] text-body-3">{zh ? '正在查附近站点…' : 'Looking up nearby stations…'}</div>
+                    ) : insight.transit.stations.length === 0 ? (
+                      <div className="text-[13.5px] text-body-3">{zh ? '1.5 km 内没有地铁 / GO 车站记录（OpenStreetMap 数据）。' : 'No subway or GO station on record within 1.5 km (OpenStreetMap data).'}</div>
+                    ) : (
+                      <div className="divide-y divide-line-divider rounded-[12px] border border-line-divider bg-white">
+                        {insight.transit.stations.map((st) => (
+                          <div key={`${st.kind}-${st.name}`} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13.5px]">
+                            <span className="flex min-w-0 items-center gap-2.5">
+                              <span className={`flex-none rounded-md px-1.5 py-[2px] font-mono text-[10px] font-bold text-white ${st.kind === 'subway' ? 'bg-[#1B1B3C]' : st.kind === 'go' ? 'bg-emerald-700' : st.kind === 'streetcar' ? 'bg-red-700' : 'bg-body-3'}`}>
+                                {st.kind === 'subway' ? (zh ? '地铁' : 'SUBWAY') : st.kind === 'go' ? 'GO' : st.kind === 'streetcar' ? (zh ? '有轨电车' : 'STREETCAR') : (zh ? '轨道' : 'RAIL')}
+                              </span>
+                              <span className="truncate text-body">{st.name}{st.lines && st.lines.length ? <span className="ml-1.5 text-body-3">{st.lines.join(' · ')}</span> : null}</span>
+                            </span>
+                            <span className="flex-none font-mono text-[12px] text-body-3">{fmtDistance(st.distance_m, lang)} · {zh ? `步行约 ${walkMinutes(st.distance_m)} 分钟` : `~${walkMinutes(st.distance_m)} min walk`}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-body-3">
+                      <span>{zh ? '直线距离 · 站点数据 © OpenStreetMap 贡献者' : 'Straight-line distance · station data © OpenStreetMap contributors'}</span>
+                      {insight?.lat != null && insight?.lng != null && (
+                        <a href={`https://www.google.com/maps/search/?api=1&query=${insight.lat},${insight.lng}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-strong">{zh ? '在 Google 地图打开 ↗' : 'Open in Google Maps ↗'}</a>
+                      )}
+                    </div>
+                    <div className="mt-3 text-[13px] text-body-2">
+                      <span className="font-semibold text-body">{listing.address}{listing.unit ? ` #${listing.unit}` : ''}</span>
+                      {' · '}{listing.neighborhood ? `${listing.neighborhood} · ` : ''}{listing.city}{listing.postal_code ? ` · ${listing.postal_code}` : ''}
+                    </div>
                   </div>
-                )}
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-body-3">
-                  <span>{zh ? '直线距离 · 数据 © OpenStreetMap 贡献者' : 'Straight-line distance · data © OpenStreetMap contributors'}</span>
-                  {insight?.lat != null && insight?.lng != null && (
-                    <a href={`https://www.google.com/maps/search/?api=1&query=${insight.lat},${insight.lng}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-strong">{zh ? '在 Google 地图打开 ↗' : 'Open in Google Maps ↗'}</a>
+                  {insight && insight.lat != null && insight.lng != null && (
+                    <ListingLocationMap lat={insight.lat} lng={insight.lng} label={`${listing.address}${listing.unit ? ` #${listing.unit}` : ''}`} stations={insight.transit.stations} zh={zh} />
                   )}
                 </div>
               </Section>
             )}
 
-            {/* Section 6 — 关于社区: asking-rent medians from our own listings + the TRREB official benchmark */}
-            {(insight?.neighborhood || benchmark) && (
-              <Section title={zh ? `关于 ${listing.neighborhood || listing.city}` : `About ${listing.neighborhood || listing.city}`} eyebrow="NEIGHBOURHOOD">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {insight?.neighborhood && insight.neighborhood.all.n > 0 && (
-                    <div className="rounded-[12px] border border-line-divider bg-white p-4">
-                      <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? '同区在租挂牌价 · Stayloop + Realtor.ca 样本' : 'Asking rents nearby · Stayloop + Realtor.ca sample'}</div>
-                      {insight.neighborhood.same_beds.n > 0 && insight.neighborhood.same_beds.median != null && (
-                        <div className="mt-2 text-[15px] font-bold">
-                          {zh ? `${listing.bedrooms === 0 ? 'Studio' : `${listing.bedrooms} 房`} 中位 $${insight.neighborhood.same_beds.median.toLocaleString()}` : `${listing.bedrooms === 0 ? 'Studio' : `${listing.bedrooms}-bed`} median $${insight.neighborhood.same_beds.median.toLocaleString()}`}
-                          <span className="ml-2 text-[12px] font-medium text-body-3">· {zh ? `${insight.neighborhood.same_beds.n} 套` : `${insight.neighborhood.same_beds.n} listings`}</span>
-                        </div>
-                      )}
-                      {insight.neighborhood.all.median != null && (
-                        <div className="mt-1 text-[12.5px] text-body-2">{zh ? `全部户型 ${insight.neighborhood.all.n} 套 · 中位 $${insight.neighborhood.all.median.toLocaleString()}` : `All sizes: ${insight.neighborhood.all.n} listings · median $${insight.neighborhood.all.median.toLocaleString()}`}</div>
-                      )}
-                      {insight.neighborhood.same_beds.median != null && (
-                        <div className="mt-1 text-[12px] text-body-3">
-                          {(() => { const d = Math.round(((listing.monthly_rent - insight.neighborhood.same_beds.median!) / insight.neighborhood.same_beds.median!) * 100); return zh ? `这套 ${d === 0 ? '与中位持平' : d > 0 ? `高于中位 ${d}%` : `低于中位 ${Math.abs(d)}%`}` : `This listing is ${d === 0 ? 'at the median' : d > 0 ? `${d}% above` : `${Math.abs(d)}% below`}` })()}
-                        </div>
-                      )}
+            {/* Section 6 — 关于社区 (StreetEasy "About Murray Hill", one block): AI primer · asking · leased · this listing */}
+            {(insight?.profile || (insight?.neighborhood && insight.neighborhood.all.n > 0) || benchmark) && (() => {
+              const bedLabel = listing.bedrooms === 0 ? 'Studio' : zh ? `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''} 房` : `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''}-bed`
+              const same = insight?.neighborhood?.same_beds
+              const all = insight?.neighborhood?.all
+              const rel = (v: number, what: string) => {
+                const d = Math.round(((listing.monthly_rent - v) / v) * 100)
+                if (zh) return d === 0 ? `与${what}持平` : `比${what}${d > 0 ? '高' : '低'} ${Math.abs(d)}%`
+                return d === 0 ? `at the ${what}` : `${Math.abs(d)}% ${d > 0 ? 'above' : 'below'} the ${what}`
+              }
+              const yoy = benchmark && benchmark.prev_avg ? Math.round(((benchmark.avg - benchmark.prev_avg) / benchmark.prev_avg) * 1000) / 10 : null
+              return (
+                <Section title={zh ? `关于 ${listing.neighborhood || listing.city}` : `About ${listing.neighborhood || listing.city}`} eyebrow="NEIGHBOURHOOD">
+                  {insight?.profile && (
+                    <div className="mb-5">
+                      <p className="text-[14.5px] leading-relaxed text-body-2">{zh ? insight.profile.zh : insight.profile.en}</p>
+                      <div className="mt-1.5 text-[11.5px] text-body-3">{zh ? 'AI 根据公开资料整理的社区简介 · 不含数字与人群描述 · 仅供了解' : 'AI-written primer from public knowledge · no figures or demographics · for orientation only'}</div>
                     </div>
                   )}
-                  {benchmark && (
-                    <div className="rounded-[12px] border border-line-divider bg-white p-4">
-                      <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? `官方基准 · TRREB ${benchmark.area} · ${benchmark.period}` : `Official benchmark · TRREB ${benchmark.area} · ${benchmark.period}`}</div>
-                      <div className="mt-2 text-[15px] font-bold">
-                        {zh ? `${listing.bedrooms === 0 ? 'Studio' : `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''} 房`} ${listing.property_type === 'townhouse' ? '联排' : '公寓'}成交均价 $${benchmark.avg.toLocaleString()}` : `${listing.bedrooms === 0 ? 'Studio' : `${Math.min(listing.bedrooms ?? 1, 3)}${(listing.bedrooms ?? 1) >= 3 ? '+' : ''}-bed`} ${listing.property_type === 'townhouse' ? 'townhouse' : 'apartment'} average lease $${benchmark.avg.toLocaleString()}`}
-                        {benchmark.prev_avg != null && benchmark.prev_avg > 0 && (
-                          <span className={`ml-2 text-[12px] font-medium ${benchmark.avg >= benchmark.prev_avg ? 'text-red-600' : 'text-emerald-700'}`}>{zh ? '同比 ' : 'YoY '}{benchmark.avg >= benchmark.prev_avg ? '+' : ''}{Math.round(((benchmark.avg - benchmark.prev_avg) / benchmark.prev_avg) * 1000) / 10}%</span>
-                        )}
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    {all && all.n > 0 && (
+                      <div className="rounded-[12px] border border-line-divider bg-white p-4">
+                        <div className="text-[13px] font-bold">{zh ? '出租 · 挂牌价' : 'Rentals · asking'}</div>
+                        <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? 'Stayloop + Realtor.ca 在租样本' : 'Stayloop + Realtor.ca listings'}</div>
+                        <div className="mt-2 text-[12px] text-body-3">{same && same.median != null ? bedLabel : (zh ? '全部户型' : 'All sizes')}</div>
+                        <div className="text-[22px] font-extrabold leading-tight">${((same && same.median != null ? same.median : all.median) ?? 0).toLocaleString()}</div>
+                        <div className="text-[11.5px] text-body-3">{zh ? `中位 · ${same && same.median != null ? same.n : all.n} 套在租` : `median · ${same && same.median != null ? same.n : all.n} listed`}</div>
                       </div>
-                      <div className="mt-1 text-[12.5px] text-body-2">{zh ? `${benchmark.leased?.toLocaleString() ?? '—'} 宗成交 · 这套挂牌价${listing.monthly_rent >= benchmark.avg ? '高于' : '低于'}均价 ${Math.abs(Math.round(((listing.monthly_rent - benchmark.avg) / benchmark.avg) * 100))}%` : `${benchmark.leased?.toLocaleString() ?? '—'} leased · this asking rent is ${Math.abs(Math.round(((listing.monthly_rent - benchmark.avg) / benchmark.avg) * 100))}% ${listing.monthly_rent >= benchmark.avg ? 'above' : 'below'} the average`}</div>
-                      <div className="mt-1 text-[11.5px] text-body-3">{zh ? '来源：TRREB 季度租赁市场报告（成交，非挂牌）' : 'Source: TRREB quarterly rental market report (leased, not asking)'}</div>
+                    )}
+                    {benchmark && (
+                      <div className="rounded-[12px] border border-line-divider bg-white p-4">
+                        <div className="text-[13px] font-bold">{zh ? '出租 · 成交均价' : 'Rentals · leased'}</div>
+                        <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">TRREB {benchmark.area} · {benchmark.period}</div>
+                        <div className="mt-2 text-[12px] text-body-3">{bedLabel} · {listing.property_type === 'townhouse' ? (zh ? '联排' : 'townhouse') : (zh ? '公寓' : 'apartment')}</div>
+                        <div className="text-[22px] font-extrabold leading-tight">${benchmark.avg.toLocaleString()}</div>
+                        <div className="text-[11.5px] text-body-3">{benchmark.leased?.toLocaleString() ?? '—'} {zh ? '宗成交' : 'leased'}{yoy != null ? <span className={`ml-1.5 ${yoy >= 0 ? 'text-red-600' : 'text-emerald-700'}`}>{zh ? '同比 ' : 'YoY '}{yoy >= 0 ? '+' : ''}{yoy}%</span> : null}</div>
+                      </div>
+                    )}
+                    <div className="rounded-[12px] border border-line-divider bg-white p-4">
+                      <div className="text-[13px] font-bold">{zh ? '这套房源' : 'This listing'}</div>
+                      <div className="mt-0.5 font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{zh ? '相对同区' : 'vs the area'}</div>
+                      <div className="mt-2 text-[22px] font-extrabold leading-tight">${listing.monthly_rent.toLocaleString()}</div>
+                      <ul className="mt-1 space-y-0.5 text-[11.5px] text-body-3">
+                        {same && same.median != null && <li>{rel(same.median, zh ? '同区中位挂牌价' : 'area median asking')}</li>}
+                        {benchmark && <li>{rel(benchmark.avg, zh ? 'TRREB 成交均价' : 'TRREB leased average')}</li>}
+                        {!(same && same.median != null) && !benchmark && <li>{zh ? '暂无同区对比数据' : 'No area comparison yet'}</li>}
+                      </ul>
                     </div>
-                  )}
-                </div>
-              </Section>
-            )}
+                  </div>
+                  <div className="mt-2 text-[11.5px] text-body-3">{zh ? '挂牌价来自 Stayloop 与 Realtor.ca 在租房源；成交均价来自 TRREB 季度租赁市场报告（成交，非挂牌）。' : 'Asking rents from Stayloop and Realtor.ca listings; leased averages from the TRREB quarterly rental report (leased, not asking).'}</div>
+                </Section>
+              )
+            })()}
 
             {/* Section 5 — 房客信用门槛 · 房东设置 */}
             {tier != null && tierInfo && (
@@ -945,54 +997,59 @@ export default function ListingDetailPage() {
               </Link>
             </div>
 
-            {/* Similar listings */}
-            {similar.length > 0 && (
-              <div className="sl-card p-5">
-                <span className="sl-eyebrow">{zh ? '类似房源' : 'Similar listings'}</span>
-                <div className="mt-3 space-y-3">
-                  {similar.map((s) => (
-                    <Link
-                      key={s.id}
-                      href={`/listings/${s.slug}`}
-                      className="flex items-center gap-3 rounded-[10px] border border-transparent p-1 transition hover:border-line-divider hover:bg-surface"
-                    >
-                      <span
-                        style={{
-                          width: 64,
-                          height: 48,
-                          borderRadius: 6,
-                          background:
-                            s.images && s.images.length > 0
-                              ? `url(${s.images[0]}) center/cover no-repeat`
-                              : `linear-gradient(135deg,${s.thumb_a || '#D4C4A8'},${
-                                  s.thumb_b || '#94815C'
-                                })`,
-                          flexShrink: 0,
-                        }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13px] font-bold">
-                          ${s.monthly_rent.toLocaleString()}
-                          <span className="ml-1 text-[11px] font-medium text-body-3">
-                            {zh ? '/月' : '/mo'}
-                          </span>
-                        </div>
-                        <div className="truncate text-[11.5px] text-body-2">
-                          {s.bedrooms === 0 ? 'Studio' : `${s.bedrooms}B`} · {s.neighborhood}
-                        </div>
-                        {s.trust_tier != null && (
-                          <div className="font-mono text-[9.5px] uppercase tracking-eyebrowLg text-body-3">
-                            {zh ? `需 ${stampForTier(s.trust_tier).zh}` : `${stampForTier(s.trust_tier).en} required`}
-                          </div>
-                        )}
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
           </aside>
         </section>
+
+        {/* Similar homes — full cards (StreetEasy layout, user 2026-09-25): photo · type + area · address · rent · beds/baths/ft² · lister · heart */}
+        {similar.length > 0 && (
+          <section className="mx-auto max-w-[1320px] px-6 pb-20 sm:px-8 lg:px-12">
+            <h2 className="text-[24px] font-extrabold tracking-tight">{zh ? '相似房源' : 'Similar homes'}</h2>
+            <p className="mt-1 text-[12.5px] text-body-3">{zh ? '同区或同户型、租金相近的在租房源' : 'Nearby or same-size listings at a similar rent'}</p>
+            <div className="mt-4 flex snap-x gap-4 overflow-x-auto pb-2 lg:grid lg:grid-cols-3 lg:overflow-visible">
+              {similar.map((sl) => {
+                const snapS = favSnapshot(sl)
+                const on = isFav(snapS.key)
+                const type = ({ apartment: zh ? '出租公寓' : 'Rental apartment', condo: 'Condo', house: zh ? '独立屋' : 'House', townhouse: zh ? '联排' : 'Townhouse', basement: zh ? '地下室套间' : 'Basement suite', duplex: 'Duplex' } as Record<string, string>)[sl.property_type || ''] || (zh ? '出租单元' : 'Rental unit')
+                return (
+                  <div key={sl.id} className="w-[280px] flex-none snap-start overflow-hidden rounded-[14px] border border-line-divider bg-white lg:w-auto">
+                    <Link
+                      href={`/listings/${sl.slug}`}
+                      className="relative block aspect-[16/10] bg-surface-muted"
+                      style={{ background: sl.images && sl.images[0] ? `url(${sl.images[0]}) center/cover no-repeat` : `linear-gradient(135deg,${sl.thumb_a || '#D4C4A8'},${sl.thumb_b || '#94815C'})` }}
+                    >
+                      {(sl.images?.length ?? 0) > 0 && <span className="absolute bottom-2 left-2 rounded-md bg-black/55 px-2 py-0.5 font-mono text-[10.5px] text-white">📷 {sl.images!.length}</span>}
+                      {sl.source === 'realtor' && <span className="absolute right-2 top-2 rounded-md bg-white/90 px-2 py-0.5 font-mono text-[10px] font-bold text-body-2">REALTOR.CA</span>}
+                    </Link>
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{type} · {sl.neighborhood || sl.city}</div>
+                          <Link href={`/listings/${sl.slug}`} className="mt-0.5 block truncate text-[15px] font-bold text-brand-strong hover:underline">{sl.address}{sl.unit ? ` #${sl.unit}` : ''}</Link>
+                        </div>
+                        <button
+                          type="button"
+                          aria-pressed={on}
+                          aria-label={zh ? (on ? '取消收藏' : '收藏') : (on ? 'Unsave' : 'Save')}
+                          onClick={() => toggle(snapS)}
+                          className="flex h-9 w-9 flex-none items-center justify-center rounded-full border border-line-divider bg-white text-body-3 transition hover:border-line-strong"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill={on ? '#FB7185' : 'none'} stroke={on ? '#FB7185' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                        </button>
+                      </div>
+                      <div className="mt-2 text-[22px] font-extrabold leading-tight">${sl.monthly_rent.toLocaleString()}<span className="ml-1 text-[12px] font-medium text-body-3">{zh ? '/ 月' : '/ month'}</span></div>
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12.5px] text-body-2">
+                        <span>🛏 {sl.bedrooms === 0 ? 'Studio' : `${sl.bedrooms ?? '—'}${sl.has_den ? '+den' : ''} ${zh ? '卧' : 'bed'}`}</span>
+                        <span>🛁 {sl.bathrooms ?? '—'} {zh ? '卫' : 'bath'}</span>
+                        <span>📐 {sl.sqft ? `${sl.sqft} ft²` : '— ft²'}</span>
+                      </div>
+                      <div className="mt-2 text-[11.5px] text-body-3">{sl.brokerage ? (zh ? `挂牌：${sl.brokerage}` : `Listing by ${sl.brokerage}`) : (zh ? '房东直租' : 'Direct from landlord')}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
         {intentKind && (
           <ShowingRequestModal
