@@ -14,7 +14,7 @@ describe('phone assistant screen', () => {
     for (const p of pages) {
       const s = read(p)
       expect(s).toContain('hideAside phoneApp>')
-      expect(s).toContain('flex h-[calc(100dvh-120px)] flex-col md:grid md:h-auto')
+      expect(s).toContain('flex h-[calc(100dvh-121px)] flex-col md:grid md:h-auto')
       expect(s).toContain('<div className="md:hidden"><ContextStrip')
       expect(s).toContain('phoneFill')
       // 今日 and the compact rail are md+ only; the strip carries them on phones

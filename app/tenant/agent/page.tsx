@@ -57,7 +57,7 @@ export default function TenantAgentPage() {
           [context strip] + [chat] filling the viewport between header (56px)
           and the tab bar (64px); 今日 and the rail collapse into the strip.
           md+: the previous grid. */}
-      <div className="flex h-[calc(100dvh-120px)] flex-col md:grid md:h-auto md:gap-6 lg:grid-cols-[1fr_380px]">
+      <div className="flex h-[calc(100dvh-121px)] flex-col md:grid md:h-auto md:gap-6 lg:grid-cols-[1fr_380px]">
         {live && <div className="md:hidden"><ContextStrip lifecycle={lifecycle} pending={pendingActions.filter((a) => a.status === 'pending').map((a) => ({ id: a.id, action_type: a.action_type, title: a.title }))} todoHref="/tenant/todo" lang={lang} onPrompt={prefill} /></div>}
         {/* Conversation */}
         {/* Phone (Muse benchmark 2026-09-22): the chat bleeds edge to edge,

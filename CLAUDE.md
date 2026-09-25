@@ -1800,7 +1800,7 @@ state 直接按浏览器语言渲染，英文访客每个页面都报 React #418
 
 375×812 实测（租客测试账号）：页头 67 + 今日卡 179 + 生命周期 rail 161 + 居中头像块 123 = **530px 才到第一条气泡**，对话框从 459px
 开始、页面还要整体滚动，输入条 129px。按 Muse「一条长对话为主屏」改（守卫 `tests/phoneChat20260924.spec.ts`，md 以上不变）：
-- **三个 `/x/agent` 页在手机上是一根固定高度的列**：`h-[calc(100dvh-120px)]`（页头 56 + 底栏 64），`WorkspaceShell` 新 prop
+- **三个 `/x/agent` 页在手机上是一根固定高度的列**：`h-[calc(100dvh-121px)]`（页头 56 + 1px 边线 + 底栏 64），`WorkspaceShell` 新 prop
   `phoneApp` 去掉内容区内边距（`p-0 pb-16`，md 起恢复）；`AgentChat` 新 prop `phoneFill`（`h-full`，md 起才有卡片边框）。
 - **今日 + rail 折成一条 44px 的 `components/mobile/ContextStrip.tsx`**：「今日 N 件 · 第一条 · 〈当前阶段〉 ▶」，点开在原位展开同一个
   `TodayCard` + `LifecycleRail compact`（最高 55vh 可滚），点里面的「交给助手」自动收起。桌面端两块照旧。
