@@ -35,9 +35,11 @@ describe('phone assistant screen', () => {
     expect(shell).toContain("phoneApp ? 'min-w-0 flex-1 p-0 pb-16 md:px-7 md:py-9 md:pb-9 lg:px-12'")
     expect(read('components/Header.tsx')).toContain('flex h-14 max-w-[1240px] items-center justify-between px-5 sm:px-8 md:h-[66px]')
   })
-  it('chat header is a single row and phoneFill fills the parent below md', () => {
+  it('chat header: centred avatar + name pill on phones (Muse reference), one row from md; phoneFill fills the parent', () => {
     const s = read('components/agent/AgentChat.tsx')
     expect(s).not.toContain("'flex-col text-center sm:flex-row sm:text-left'")
+    expect(s).toContain('flex flex-none flex-col items-center px-4 pb-2 pt-3 md:flex-row')
+    expect(s).toContain('h-11 w-11 md:h-9 md:w-9')
     expect(s).toContain("phoneFill ? 'h-full md:h-[70vh] md:rounded-2xl md:border md:border-line-divider md:shadow-sm lg:h-full'")
     expect(s).toContain('border-t border-line-divider p-2 md:p-3')
   })

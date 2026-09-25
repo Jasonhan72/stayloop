@@ -151,20 +151,21 @@ export default function AgentChat({
 
   return (
     <div className={`flex flex-col overflow-hidden bg-white ${fill ? 'h-full rounded-2xl border border-line-divider shadow-sm' : phoneFill ? 'h-full md:h-[70vh] md:rounded-2xl md:border md:border-line-divider md:shadow-sm lg:h-full' : canOpenSheet ? 'h-[calc(100dvh-150px)] sm:h-[70vh] sm:rounded-2xl sm:border sm:border-line-divider sm:shadow-sm lg:h-full' : 'h-[70vh] rounded-2xl border border-line-divider shadow-sm lg:h-full'}`}>
-      {/* header — one row everywhere (phone 2026-09-24: the centred hero cost
-          123px of a 812px screen); the avatar / status line open the activity log */}
-      <div className="flex items-center gap-3 border-b border-line-divider px-4 py-2.5 md:px-5 md:py-3.5">
+      {/* header — phone: centred avatar + name pill + status (Muse reference,
+          user 2026-09-24 "头像和名字还是在中间比较好"), kept compact (~80px,
+          not the old 123px hero); md+: one row. Avatar / status open the activity log */}
+      <div className="flex flex-none flex-col items-center px-4 pb-2 pt-3 md:flex-row md:gap-3 md:border-b md:border-line-divider md:px-5 md:py-3.5">
         <button
           type="button"
           onClick={() => canOpenSheet && setSheet(true)}
           disabled={!canOpenSheet}
           aria-label={canOpenSheet ? (zh ? `${agentName} 的活动日志` : `${agentName}'s activity log`) : undefined}
-          className={`flex-none rounded-full ${canOpenSheet ? 'h-9 w-9 shadow-[0_4px_14px_rgba(27,27,60,.16)] md:shadow-none' : 'h-9 w-9 cursor-default'}`}
+          className={`flex-none rounded-full h-11 w-11 md:h-9 md:w-9 ${canOpenSheet ? 'shadow-[0_4px_14px_rgba(27,27,60,.16)] md:shadow-none' : 'cursor-default'}`}
           style={{ background: ORB[role] }}
         />
-        <div className="min-w-0">
-          <div className="text-[15px] font-bold leading-tight tracking-tight">{agentName}</div>
-          <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`flex items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
+        <div className="flex min-w-0 max-w-full flex-col items-center md:items-start">
+          <div className="-mt-2 rounded-full border border-line-divider bg-white px-3 py-[2px] text-[13px] font-bold leading-tight tracking-tight shadow-sm md:mt-0 md:border-0 md:bg-transparent md:px-0 md:py-0 md:text-[15px] md:shadow-none">{agentName}</div>
+          <button type="button" onClick={() => canOpenSheet && setSheet(true)} disabled={!canOpenSheet} className={`mt-1 flex max-w-full items-center gap-1.5 font-mono text-[10.5px] tracking-eyebrow text-body-3 md:mt-0 ${canOpenSheet ? 'normal-case' : 'uppercase'}`}>
             <span className={`h-1.5 w-1.5 flex-none rounded-full ${status === 'working' || status === 'understanding' ? 'animate-pulse' : ''}`} style={{ background: pending.length ? '#F59E0B' : '#34D399' }} /> <span className="truncate">{statusLine}</span>
           </button>
         </div>
