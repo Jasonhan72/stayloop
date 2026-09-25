@@ -47,7 +47,6 @@ describe('listing detail page tells the truth about what it has', () => {
     expect(page).toContain('parkingStat(listing.parking, zh)')
     expect(page).not.toContain("'平面图'")
     expect(page).not.toContain('listing.photo_count || 24')
-    expect(page).toContain("{listing.virtual_tour_url && (")
     expect(page).not.toContain("toUpperCase()} ···")
     expect(page).not.toContain("'AI Agent'")
   })

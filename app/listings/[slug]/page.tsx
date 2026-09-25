@@ -337,6 +337,13 @@ export default function ListingDetailPage() {
   const tierInfo = tier != null ? tierLabel[tier] : null
   const snap = favSnapshot(listing)
   const fav = isFav(snap.key)
+  // "整套公寓 (Condo) · 1 间卧室 · 1 间浴室 · 799 ft²" — the first line under the photos (Airbnb).
+  const summaryLine = [
+    ({ apartment: zh ? '整套公寓' : 'Entire apartment', condo: zh ? '整套公寓 (Condo)' : 'Entire condo', house: zh ? '整套独立屋' : 'Entire house', townhouse: zh ? '整套联排' : 'Entire townhouse', basement: zh ? '地下室套间' : 'Basement suite', duplex: zh ? '整套 Duplex' : 'Entire duplex' } as Record<string, string>)[listing.property_type || ''] || (zh ? '整套住宅' : 'Entire home'),
+    listing.bedrooms === 0 ? 'Studio' : `${listing.bedrooms ?? '—'}${listing.has_den ? ' + den' : ''} ${zh ? '间卧室' : (listing.bedrooms === 1 ? 'bedroom' : 'bedrooms')}`,
+    listing.bathrooms != null ? `${listing.bathrooms} ${zh ? '间浴室' : (Number(listing.bathrooms) === 1 ? 'bathroom' : 'bathrooms')}` : null,
+    listing.sqft ? `${listing.sqft} ft²` : null,
+  ].filter(Boolean).join(' · ')
 
   return (
     <>
@@ -344,37 +351,16 @@ export default function ListingDetailPage() {
       <main className="bg-surface">
         {/* Breadcrumb + back */}
         <div className="mx-auto max-w-[1320px] px-6 pt-5 sm:px-8 lg:px-12">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            {/* Title block above the photos (Airbnb reference, user 2026-09-25): crumb · address as the H1 · full address + badge · one-line summary */}
-            <div className="min-w-0">
-              <nav aria-label={zh ? '位置' : 'Breadcrumb'} className="flex flex-wrap items-center gap-1.5 text-[13px] text-body-3">
-                <Link href="/" className="transition hover:text-brand">{zh ? '首页' : 'Home'}</Link>
-                <span>/</span>
-                <Link href="/listings" className="transition hover:text-brand">{zh ? '房源' : 'Listings'}</Link>
-                <span>/</span>
-                <span className="text-body-2">{listing.address}{listing.unit ? ` #${listing.unit}` : ''}</span>
-              </nav>
-              <h1 className="mt-2 text-[30px] font-extrabold tracking-tight sm:text-[36px]">{listing.address}{listing.unit ? ` #${listing.unit}` : ''}</h1>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[15px] text-body-2">
-                <span>{listing.address}{listing.unit ? ` #${listing.unit}` : ''}, {listing.neighborhood ? `${listing.neighborhood}, ` : ''}{listing.city}</span>
-                <span>·</span>
-                <VerificationBadge listing={listing} variant="detail" zh={zh} />
-              </div>
-              <div className="mt-1.5 text-[15px] text-body-2">
-                {[
-                  ({ apartment: zh ? '整套公寓' : 'Entire apartment', condo: zh ? '整套公寓 (Condo)' : 'Entire condo', house: zh ? '整套独立屋' : 'Entire house', townhouse: zh ? '整套联排' : 'Entire townhouse', basement: zh ? '地下室套间' : 'Basement suite', duplex: zh ? '整套 Duplex' : 'Entire duplex' } as Record<string, string>)[listing.property_type || ''] || (zh ? '整套住宅' : 'Entire home'),
-                  listing.bedrooms === 0 ? 'Studio' : `${listing.bedrooms ?? '—'}${listing.has_den ? ' + den' : ''} ${zh ? '间卧室' : (listing.bedrooms === 1 ? 'bedroom' : 'bedrooms')}`,
-                  listing.bathrooms != null ? `${listing.bathrooms} ${zh ? '间浴室' : (Number(listing.bathrooms) === 1 ? 'bathroom' : 'bathrooms')}` : null,
-                  listing.sqft ? `${listing.sqft} ft²` : null,
-                ].filter(Boolean).join(' · ')}
-              </div>
-            </div>
+          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+            {/* Airbnb title row (user 2026-09-25): the address is the H1, Share / Save sit on the same
+                line, and the photos follow immediately — no crumb, no subtitle in between. */}
+            <h1 className="min-w-0 text-[26px] font-bold tracking-tight sm:text-[30px]">{listing.address}{listing.unit ? ` #${listing.unit}` : ''}</h1>
           {/* Share + Save — Airbnb-style light actions, top-right of the title row */}
-          <div className="relative flex shrink-0 items-center gap-1 pt-2">
+          <div className="relative flex shrink-0 items-center gap-1">
             <button
               type="button"
               onClick={onShare}
-              className="inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[14px] font-semibold text-body-2 transition hover:bg-surface-2 hover:text-body hover:underline underline-offset-2"
+              className="inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[14px] font-semibold text-body underline underline-offset-4 transition hover:bg-surface-2"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 15V3" />
@@ -387,7 +373,7 @@ export default function ListingDetailPage() {
               type="button"
               aria-pressed={fav}
               onClick={() => toggle(snap)}
-              className="inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[14px] font-semibold text-body-2 transition hover:bg-surface-2 hover:text-body hover:underline underline-offset-2"
+              className="inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-[14px] font-semibold text-body underline underline-offset-4 transition hover:bg-surface-2"
             >
               <svg
                 width="16"
@@ -413,14 +399,14 @@ export default function ListingDetailPage() {
         </div>
 
         {/* Photo gallery — 1 lead + 4 thumbs */}
-        <section className="mx-auto mt-3 max-w-[1320px] px-6 sm:px-8 lg:px-12">
+        <section className="mx-auto mt-4 max-w-[1320px] px-6 sm:px-8 lg:px-12">
           {(() => {
             const imgs = listing.images || []
             const lead = imgs[0]
             const thumbs = [imgs[1], imgs[2], imgs[3], imgs[4]]
             return (
               <div
-                className="grid grid-cols-2 gap-2 overflow-hidden rounded-[16px] sm:[grid-template-columns:1.5fr_1fr_1fr] sm:[grid-template-rows:210px_210px]"
+                className="relative grid grid-cols-2 gap-2 overflow-hidden rounded-[16px] sm:[grid-template-columns:1.5fr_1fr_1fr] sm:[grid-template-rows:232px_232px]"
                 style={{ gridAutoRows: '140px' }}
               >
                 <div
@@ -434,9 +420,6 @@ export default function ListingDetailPage() {
                 >
                   {!lead && <div className="absolute inset-0 bg-black/10" />}
                   <PromoBadge badge={listing.badge} variant="hero" />
-                  <div className="absolute bottom-4 left-4 rounded-md bg-black/55 px-2.5 py-1 font-mono text-[11px] text-white">
-                    1 / {listing.photo_count || imgs.length || 1}
-                  </div>
                 </div>
                 {thumbs.map((url, i) => (
                   <div
@@ -448,30 +431,21 @@ export default function ListingDetailPage() {
                         : `linear-gradient(${135 + i * 22}deg,${a},${b})`,
                     }}
                     onClick={() => { if (imgs.length) { setGalleryIdx(i + 1); setGalleryOpen(true) } }}
-                  >
-                    {i === 3 && (
-                      <button
-                        type="button"
-                        className="absolute inset-0 flex items-center justify-center bg-black/35 font-mono text-[12px] font-semibold text-white"
-                        onClick={(e) => { e.stopPropagation(); setGalleryIdx(0); setGalleryOpen(true) }}
-                      >
-                        {zh ? `+ 看全部 ${listing.photo_count || imgs.length || 24} 张 →` : `+ View all ${listing.photo_count || imgs.length || 24} →`}
-                      </button>
-                    )}
-                  </div>
+                  />
                 ))}
+                {imgs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => { setGalleryIdx(0); setGalleryOpen(true) }}
+                    className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-[8px] border border-ink bg-white px-4 py-2 text-[14px] font-semibold text-ink shadow-sm transition hover:bg-surface"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden><circle cx="3" cy="3" r="1.4" /><circle cx="8" cy="3" r="1.4" /><circle cx="13" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="8" cy="8" r="1.4" /><circle cx="13" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="8" cy="13" r="1.4" /><circle cx="13" cy="13" r="1.4" /></svg>
+                    {zh ? '查看全部照片' : 'Show all photos'}
+                  </button>
+                )}
               </div>
             )
           })()}
-          <div className="mt-3 flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-eyebrowLg text-body-3">
-            <span>📷 {listing.images?.length || listing.photo_count || 0} {zh ? '张照片' : 'photos'}</span>
-            {listing.virtual_tour_url && (
-              <>
-                <span>·</span>
-                <span>{zh ? 'VR 看房' : 'VR tour'}</span>
-              </>
-            )}
-          </div>
         </section>
 
         {/* Two-column body */}
@@ -482,7 +456,12 @@ export default function ListingDetailPage() {
           <div className="min-w-0">
             {/* Title block */}
             <div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 text-[15px] text-body-2">
+                <span>{summaryLine}</span>
+                <span>·</span>
+                <VerificationBadge listing={listing} variant="detail" zh={zh} />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 {tier != null && tierInfo && <span className={`tier-badge t${tier}`}>{tierInfo.name[lang]}</span>}
                 {listing.match_score && listing.match_score >= 85 && (
                   <span

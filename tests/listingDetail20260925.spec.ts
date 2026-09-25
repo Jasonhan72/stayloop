@@ -81,7 +81,11 @@ describe('page, route and migration', () => {
 describe('second round (user 2026-09-25: Airbnb header, neighbourhood block, map with transit, StreetEasy similar cards)', () => {
   const page = read('app/listings/[slug]/page.tsx')
   it('title block above the photos: crumb · address as the only H1 · badge · one-line summary; share and save untouched', () => {
-    expect(page).toContain('<h1 className="mt-2 text-[30px] font-extrabold tracking-tight sm:text-[36px]">{listing.address}{listing.unit ? ` #${listing.unit}` : \'\'}</h1>')
+    expect(page).toContain('<h1 className="min-w-0 text-[26px] font-bold tracking-tight sm:text-[30px]">{listing.address}{listing.unit ? ` #${listing.unit}` : \'\'}</h1>')
+    // Airbnb exactly (user, round 3): no crumb above the title, Share / Save on the title row, one white 查看全部照片 pill on the mosaic
+    expect(page).not.toContain("aria-label={zh ? '位置' : 'Breadcrumb'}")
+    expect(page).toContain("{zh ? '查看全部照片' : 'Show all photos'}")
+    expect(page).not.toContain('1 / {listing.photo_count')
     expect((page.match(/<h1 /g) || []).length).toBe(2) // the listing title + the not-found state
     expect(page).toContain("{zh ? '分享' : 'Share'}")
     expect(page).toContain("{fav ? (zh ? '取消收藏' : 'Saved') : (zh ? '收藏' : 'Save')}")
