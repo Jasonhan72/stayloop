@@ -179,7 +179,7 @@ describe('follow-ups (user 2026-09-25: rail "+", jump-to-latest, 3D avatars, act
   })
   it('a ↓ button appears once the thread is scrolled up and jumps to the newest message', () => {
     const chat = read('components/agent/AgentChat.tsx')
-    expect(chat).toContain('el.scrollHeight - el.scrollTop - el.clientHeight > 160')
+    expect(chat).toContain('el.scrollHeight - el.scrollTop - el.clientHeight > 120')
     expect(chat).toContain("aria-label={zh ? '回到最新消息' : 'Jump to the latest message'}")
     expect(chat).toContain('<div ref={threadRef} onScroll={onThreadScroll}')
   })

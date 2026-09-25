@@ -19,6 +19,7 @@ import { demoSession } from './demo'
 import { getAIName, setAIName, getStoredAIName, getDefaultName } from '@/lib/aiName'
 import { createThread, latestThread, loadThread, readPointer, saveThread, writePointer } from './threads'
 import { notifyActivityChanged } from './useActivityLog'
+import { reconcileDraft } from './draftReconcile'
 
 const CHAT_KEY_PREFIX = 'stayloop-agent-chat-'
 
@@ -301,6 +302,9 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
     if (msgs.length <= 1) return
     const id = await ensureThread(msgs)
     if (id) await saveThread(getSupabaseBrowser(), id, messagesRef.current)
+    // The activity panel re-read right after the turn, before this debounced
+    // save — its note still showed the greeting (2026-09-25). Tell it again.
+    if (id) notifyActivityChanged()
   }, [ensureThread])
   const persistRef = useRef(persistThread)
   persistRef.current = persistThread
@@ -641,6 +645,12 @@ export function useAgentSession(role: AgentRole): UseAgentSession {
           // If draft has no images, attach accumulated images from prior URL turns.
           if (draftListing && (!draftListing.images || !draftListing.images.length) && urlImagesRef.current.length) {
             draftListing = { ...draftListing, images: urlImagesRef.current }
+          }
+          // A re-draft of the same property keeps the facts extracted earlier
+          // unless this message changed them (fact drift, 2026-09-25).
+          if (draftListing) {
+            const prevDraft = [...messagesRef.current].reverse().find((m) => m.role === 'agent' && m.draftListing)?.draftListing
+            draftListing = reconcileDraft(prevDraft, draftListing, message)
           }
           // Remember what we showed so the next search returns fresh results.
           // Only the page the user can see counts as shown; the held-back page is

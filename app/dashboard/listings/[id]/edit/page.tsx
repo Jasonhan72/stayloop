@@ -42,7 +42,24 @@ type Form = {
   amenities: string[]
   has_den: boolean
   is_active: boolean
+  // Lease terms — the draft editor had these since 2026-09-22; the published
+  // editor did not, so pets / smoking / utilities could not be changed after
+  // publishing (walk-through 2026-09-25).
+  lease_term: string
+  pets_allowed: string
+  smoking_policy: string
+  furnished: '' | 'yes' | 'no'
+  utilities_included: string[]
 }
+
+const UTILITY_OPTIONS: { id: string; zh: string; en: string }[] = [
+  { id: 'hydro', zh: '电', en: 'Hydro' },
+  { id: 'water', zh: '水', en: 'Water' },
+  { id: 'heat', zh: '暖气', en: 'Heat' },
+  { id: 'gas', zh: '燃气', en: 'Gas' },
+  { id: 'internet', zh: '网络', en: 'Internet' },
+  { id: 'cable', zh: '有线电视', en: 'Cable' },
+]
 
 export default function EditPublishedListingPage() {
   const params = useParams()
@@ -92,6 +109,11 @@ export default function EditPublishedListingPage() {
           amenities: Array.isArray(data.amenities) ? data.amenities : [],
           has_den: !!data.has_den,
           is_active: data.is_active !== false,
+          lease_term: data.lease_term || '',
+          pets_allowed: data.pets_allowed || '',
+          smoking_policy: data.smoking_policy || '',
+          furnished: data.furnished == null ? '' : data.furnished ? 'yes' : 'no',
+          utilities_included: Array.isArray(data.utilities_included) ? data.utilities_included : [],
         })
         setPhotos(Array.isArray(data.images) ? data.images : [])
         setLoading(false)
@@ -168,6 +190,11 @@ export default function EditPublishedListingPage() {
         amenities: form.amenities,
         has_den: form.has_den,
         is_active: form.is_active,
+        lease_term: form.lease_term || null,
+        pets_allowed: form.pets_allowed || null,
+        smoking_policy: form.smoking_policy || null,
+        furnished: form.furnished === '' ? null : form.furnished === 'yes',
+        utilities_included: form.utilities_included,
         images: photos,
         photo_count: photos.length,
       }).eq('id', id)
@@ -283,6 +310,53 @@ export default function EditPublishedListingPage() {
               <input type="checkbox" checked={form.has_den} onChange={(e) => set('has_den', e.target.checked)} className="h-4 w-4 rounded border-line-strong accent-brand" />
               {zh ? '有 Den' : 'Has den'}
             </label>
+          </div>
+        </section>
+
+        {/* Lease terms — same fields as the draft editor */}
+        <section className="mt-8">
+          <h2 className="text-[18px] font-bold">{zh ? '租赁条件' : 'Lease terms'}</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-4">
+            <LabelField label={zh ? '租期' : 'Lease term'}>
+              <input className="sl-input" value={form.lease_term} onChange={(e) => set('lease_term', e.target.value)} placeholder={zh ? '如：12 个月 / 可短租' : 'e.g. 12 months / short-term OK'} />
+            </LabelField>
+            <LabelField label={zh ? '宠物' : 'Pets'}>
+              <select className="sl-input" value={form.pets_allowed} onChange={(e) => set('pets_allowed', e.target.value)}>
+                <option value="">{zh ? '未说明' : 'Not stated'}</option>
+                <option value="yes">{zh ? '允许' : 'Allowed'}</option>
+                <option value="restricted">{zh ? '有限制' : 'With restrictions'}</option>
+              </select>
+            </LabelField>
+            <LabelField label={zh ? '吸烟' : 'Smoking'}>
+              <select className="sl-input" value={form.smoking_policy} onChange={(e) => set('smoking_policy', e.target.value)}>
+                <option value="">{zh ? '未说明' : 'Not stated'}</option>
+                <option value="no">{zh ? '禁止' : 'No smoking'}</option>
+                <option value="outdoor_only">{zh ? '仅室外' : 'Outdoors only'}</option>
+                <option value="yes">{zh ? '允许' : 'Allowed'}</option>
+              </select>
+            </LabelField>
+            <LabelField label={zh ? '家具' : 'Furnished'}>
+              <select className="sl-input" value={form.furnished} onChange={(e) => set('furnished', e.target.value as '' | 'yes' | 'no')}>
+                <option value="">{zh ? '未说明' : 'Not stated'}</option>
+                <option value="yes">{zh ? '带家具' : 'Furnished'}</option>
+                <option value="no">{zh ? '不带家具' : 'Unfurnished'}</option>
+              </select>
+            </LabelField>
+          </div>
+          <div className="mt-4">
+            <div className="text-[12.5px] font-medium text-body-2">{zh ? '租金包含' : 'Included in rent'}</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {UTILITY_OPTIONS.map((u) => {
+                const on = form.utilities_included.includes(u.id)
+                return (
+                  <button key={u.id} type="button" onClick={() => set('utilities_included', on ? form.utilities_included.filter((x) => x !== u.id) : [...form.utilities_included, u.id])}
+                    className={'rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium transition ' + (on ? 'border-brand bg-brand/10 text-brand' : 'border-line-strong bg-white text-body hover:border-brand')}>
+                    {on ? '✓ ' : ''}{u[zh ? 'zh' : 'en']}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-[12px] text-body-3">{zh ? '安省 RTA 下「禁止养宠」条款无效，所以宠物只能写「允许 / 有限制」；吸烟政策可以由房东设定。' : '"No pets" clauses are void under the Ontario RTA, so pets can only be "allowed / with restrictions"; a smoking policy is the landlord\'s to set.'}</p>
           </div>
         </section>
 

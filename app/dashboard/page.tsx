@@ -262,21 +262,36 @@ export default function Dashboard() {
 
           <AIProactive
             role="landlord"
-            insights={[
-              {
+            insights={(() => {
+              // Real, not the design sample: the oldest live listing with no
+              // application after a week (the card used to name another
+              // landlord's Estelle Avenue listing with invented numbers — 2026-09-25).
+              const now = Date.now()
+              const stale = listings
+                .filter((l) => l.is_active)
+                .map((l) => ({
+                  l,
+                  days: Math.floor((now - new Date((l as { published_at?: string | null }).published_at || l.created_at || Date.now()).getTime()) / 86_400_000),
+                  apps: applications.filter((a) => (a as { listing_id?: string | null }).listing_id === l.id || (a as { listing?: { id?: string } | null }).listing?.id === l.id).length,
+                }))
+                .filter((x) => x.days >= 7 && x.apps === 0)
+                .sort((a, b) => b.days - a.days)[0]
+              if (!stale) return []
+              const label = `${stale.l.address}${stale.l.unit ? ` #${stale.l.unit}` : ''}`
+              return [{
                 text: {
-                  zh: '89 Estelle 挂牌 12 天还没有意向。定价高于同类约 8%，或文案曝光不足 — {ai} 可以诊断并给出调整建议。',
-                  en: '89 Estelle has been listed 12 days with no intents. It prices ~8% above comparables, or the copy is underexposed — {ai} can diagnose it.',
+                  zh: `「${label}」上架 ${stale.days} 天还没有申请。{ai} 可以从定价、文案、照片三方面诊断并给出调整建议。`,
+                  en: `"${label}" has been live for ${stale.days} days with no application yet. {ai} can diagnose pricing, copy and photos and suggest fixes.`,
                 },
                 action: {
                   label: { zh: '诊断这套房源', en: 'Diagnose this listing' },
                   prompt: {
-                    zh: '帮我诊断 89 Estelle Avenue 为什么没有申请：定价、文案、照片，给出具体调整建议。',
-                    en: 'Diagnose why 89 Estelle Avenue gets no applications — pricing, copy, photos — with concrete fixes.',
+                    zh: `帮我诊断 ${label} 为什么还没有申请：定价、文案、照片，给出具体调整建议。`,
+                    en: `Diagnose why ${label} has no applications yet — pricing, copy, photos — with concrete fixes.`,
                   },
                 },
-              },
-            ]}
+              }]
+            })()}
           />
 
           {/* Stats */}

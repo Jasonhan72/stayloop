@@ -3,6 +3,7 @@
 export const runtime = 'edge'
 
 import Link from 'next/link'
+import { parkingStat } from '@/lib/listingDisplay'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/lib/useAuth'
@@ -400,11 +401,13 @@ export default function ListingDetailPage() {
             )
           })()}
           <div className="mt-3 flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-eyebrowLg text-body-3">
-            <span>📷 {listing.photo_count || 24} {zh ? '张照片' : 'photos'}</span>
-            <span>·</span>
-            <span>{zh ? 'VR 看房' : 'VR tour'}</span>
-            <span>·</span>
-            <span>{zh ? '平面图' : 'Floor plan'}</span>
+            <span>📷 {listing.images?.length || listing.photo_count || 0} {zh ? '张照片' : 'photos'}</span>
+            {listing.virtual_tour_url && (
+              <>
+                <span>·</span>
+                <span>{zh ? 'VR 看房' : 'VR tour'}</span>
+              </>
+            )}
           </div>
         </section>
 
@@ -486,7 +489,7 @@ export default function ListingDetailPage() {
                   value={
                     listing.parking_spaces
                       ? `${listing.parking_spaces}${zh ? ' 个' : ''}`
-                      : listing.parking ? (zh ? '有' : 'Yes') : (zh ? '无' : 'No')
+                      : parkingStat(listing.parking, zh)
                   }
                 />
               </div>
@@ -628,7 +631,7 @@ export default function ListingDetailPage() {
                 )}
                 <BuildingFact
                   label={zh ? '邮编' : 'Postal code'}
-                  value={listing.postal_code || `${listing.city.slice(0, 3).toUpperCase()} ···`}
+                  value={listing.postal_code || (zh ? '未提供' : 'Not provided')}
                 />
               </div>
               {listing.virtual_tour_url && /^https?:\/\//i.test(listing.virtual_tour_url) && (
@@ -786,7 +789,7 @@ export default function ListingDetailPage() {
                 />
                 <div>
                   <div className="text-[14px] font-bold">
-                    {listing.broker_name || 'AI Agent'}
+                    {listing.broker_name || (zh ? '房东' : 'Landlord')}
                   </div>
                   <div className="font-mono text-[10.5px] uppercase tracking-eyebrow text-body-3">
                     {listing.brokerage
@@ -802,7 +805,7 @@ export default function ListingDetailPage() {
                 href={`/tenant/agent?prompt=${encodeURIComponent(zh ? `我想咨询 ${listing.address} 这个房源，帮我联系${listing.broker_name ? `经纪 ${listing.broker_name}` : '房东'}` : `I'd like to ask about the listing at ${listing.address} — connect me with ${listing.broker_name ? `agent ${listing.broker_name}` : 'the landlord'}`)}&send=1`}
                 className="mt-4 block w-full rounded-[10px] border border-line-strong bg-white py-[10px] text-center text-[13px] font-semibold text-body transition hover:border-brand hover:text-brand"
               >
-                {zh ? '和 AI Agent 对话' : 'Chat with AI Agent'}
+                {zh ? '让我的助手替我联系' : 'Ask through my assistant'}
               </Link>
             </div>
 

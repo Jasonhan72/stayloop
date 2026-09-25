@@ -2008,3 +2008,31 @@ launchd 代理 `ai.openclaw.gateway` 50 分钟内从 1.3 GB 涨到 5.8 GB，swap
   `agent_pending_actions.metadata`，`decide_pending_action` RPC 把它抄进审批审计事件（迁移 `20260925_agent_threads_summary.sql`，
   已应用 prod，同时加 `summary` / `turn_count` 两列并回填），execute 路由的 `finalizeExecution` 与 `undo` 的审计行也带。手机端
   `ActivitySheet` 同一份数据，对话行可点回到该对话（`AgentChat` 新 prop `currentThreadId` / `onOpenThread`）。`threadAt` 已删。
+
+## 房东测试号全站走查 · 第一轮（2026-09-25 · 用户「所有的权限都授权给你，自己发布、测试、改进，直到满意为止」）
+
+登录方式：Claude 不输密码——用 service role 调 Auth Admin `generate_link`（type=magiclink）给测试号铸一次性登录链接，浏览器打开即登录
+（链接文件在会话 scratchpad，密钥只走 header 文件）。**Supabase MCP 的 `execute_sql` 角色被 `guard_listing_trust_fields` 当成直连客户端**——
+用它 UPDATE `verification_status` 会被静默还原；管理员核验一律走 REST + service role（`PATCH /rest/v1/listings`）。
+- **两套 Realtor.ca 房源经真实流程发布并核验**：`1001-bay-st-mugm2yal`（1001 Bay St #1618 · $2,700 · 1+den · 799 ft² · 8 图）、
+  `280-dundas-street-w-mugm71ht`（280 Dundas St W #515 · $2,250 · 499 ft² · 8 图）。路径 = 发布向导「贴链接 → 解析」→ 跳到 Logic 对话并预填
+  「帮我导入这个房源…」→ turn 路由经 Jina 读页 → 草稿卡（照片随 `urlImages` 带回）→ 卡上「编辑」或直接「发布房源」→ pending → 核验。两条路都通。
+- **草稿事实漂移（真缺陷，已修）**：第二轮「补充：面积 799…」让模型重出草稿时把 $2,700 改成 $2,800、丢了 den——它只剩 200 字的历史，
+  页面内容早不在上下文里。`lib/agent/draftReconcile.ts reconcileDraft(prev, next, message)`：同一物业（门牌 + 街名前三字）的再草稿，
+  租金 / 卧 / 浴 / 面积 / 单元 / 地址只有在用户这句话里提到新值时才允许变，被删的照片 / 配套 / den 一律恢复；挂在 `useAgentSession` 的
+  live 分支。守卫 `tests/walkthrough20260925.spec.ts`。
+- **房源详情页说谎的地方（已修）**：`parking` 是自由文本「不含车位（可选租 $100/月）」却渲染成「车位 有」→ `lib/listingDisplay.ts parkingStat`
+  （不含 / 可另租 / 有 / 未提供）；媒体条写死「📷 24 张照片 · VR 看房 · 平面图」→ 真实照片数，VR 只在有 `virtual_tour_url` 时出现，平面图删除；
+  邮编缺失显示「TOR ···」→「未提供」；联系人「AI Agent · 和 AI Agent 对话」→「房东 · 让我的助手替我联系」。
+- **`listings.trust_tier` 列默认值 2**：没有任何界面写它，却让每套房源（含 Realtor 导入）都挂「需 收入章 · 房东设置」和一整块「房客信用门槛」。
+  迁移 `20260925_listings_trust_tier_default.sql`（已应用 prod）删默认值并清空 13 行；页面逻辑本来就按 null 隐藏。
+- **工作台里的设计样例冒充真数据（已修）**：`/dashboard` 的「LOGIC 主动发现」写死「89 Estelle 挂牌 12 天…定价高于同类 8%」（那是别人的房源）→
+  改为按房东自己的房源算：上架 ≥7 天且 0 份申请的最老一套，没有就不渲染；`/landlord/leases` 的「最近活动」是虚构的 L-205 / Kevin Tran /
+  Anna L. → 改读本人 `agent_audit_events` 里的租约类事件（无则「暂无」），租约行的原始 uuid 改显示 `L-XXXX`；发布向导导入块仍写「拖 PDF …
+  自动改写双语文案、给定价建议」→ 改成只承诺存在的事。
+- **换账号后 /settings 显示上一个账号的身份**：`sl-active-role` 是全局键，经纪号退出后房东号登录看到「经纪 · Brief · 去认证」。
+  现在按账号分键 `sl-active-role:<uid>`（`roleStorageKey`），退出清掉全部同前缀键，回调页也按 uid 读写。
+- **续约卡与生命周期 rail 的 N1 截止日差一天**（09-20 vs 09-21）：`renewalStages` 两处都改用 `n1DeadlineFor(到期日 + 1)`（涨租生效日的前 90 天）。
+- **已发布房源的编辑页缺「租赁条件」**（租期 / 宠物 / 吸烟 / 家具 / 租金包含只在草稿编辑页有）→ `[id]/edit` 补齐同一段，落同名列。
+- **对话回滚箭头**：用户要 Muse 那种深色圆形 ↓ → 40px 墨蓝半透明圆 + 白箭头，离底 >120px 即显示（原白色 36px、160px）。
+- **活动面板的注释显示问候语**：面板在 turn 审计写入后立刻重读，而线程 800ms 去抖后才保存 → `persistThread` 保存完再 `notifyActivityChanged()`。

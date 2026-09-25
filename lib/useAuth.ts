@@ -20,6 +20,9 @@ export interface AuthState {
 }
 
 const ROLE_KEY = 'sl-active-role'
+/** The remembered hat is per account: a landlord signing in after an agent on
+ *  the same browser was shown the agent identity on /settings (2026-09-25). */
+export const roleStorageKey = (uid?: string | null): string => (uid ? `${ROLE_KEY}:${uid}` : ROLE_KEY)
 
 /**
  * V5 client-side auth hook. Reads Supabase session and exposes the
@@ -45,9 +48,9 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
     const supabase = getSupabaseBrowser()
     let cancelled = false
 
-    const readRole = (): Role => {
-      if (typeof window === 'undefined') return null
-      const v = window.localStorage.getItem(ROLE_KEY) as Role
+    const readRole = (uid?: string | null): Role => {
+      if (typeof window === 'undefined' || !uid) return null
+      const v = window.localStorage.getItem(roleStorageKey(uid)) as Role
       return v === 'tenant' || v === 'landlord' || v === 'agent' ? v : null
     }
 
@@ -61,7 +64,7 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
       setState((prev) => {
         const sameUser = !!prev.user && !!s?.user && prev.user.id === s.user.id
         const sameToken = prev.session?.access_token === s?.access_token
-        const role = readRole()
+        const role = readRole(s?.user?.id)
         if (!prev.loading && sameUser && sameToken && event !== 'USER_UPDATED' && prev.role === role) return prev
         if (!prev.loading && !prev.user && !s && prev.role === role) return prev
         const user = sameUser && event !== 'USER_UPDATED' ? prev.user : (s?.user ?? null)
@@ -87,7 +90,7 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
       // Clear the persisted role on sign-out so it can't bleed into the next
       // user who logs in on the same browser.
       if (event === 'SIGNED_OUT' && typeof window !== 'undefined') {
-        window.localStorage.removeItem(ROLE_KEY)
+        for (const k of Object.keys(window.localStorage)) if (k === ROLE_KEY || k.startsWith(`${ROLE_KEY}:`)) window.localStorage.removeItem(k)
       }
       apply(s ?? null, event)
     })
@@ -99,11 +102,13 @@ export function useAuth(): AuthState & { setRole: (r: Role) => void; signOut: ()
   }, [])
 
   const setRole = (r: Role) => {
-    if (typeof window !== 'undefined') {
-      if (r) window.localStorage.setItem(ROLE_KEY, r)
-      else window.localStorage.removeItem(ROLE_KEY)
-    }
-    setState((prev) => ({ ...prev, role: r }))
+    setState((prev) => {
+      if (typeof window !== 'undefined' && prev.user) {
+        if (r) window.localStorage.setItem(roleStorageKey(prev.user.id), r)
+        else window.localStorage.removeItem(roleStorageKey(prev.user.id))
+      }
+      return { ...prev, role: r }
+    })
   }
 
   const signOut = async () => {

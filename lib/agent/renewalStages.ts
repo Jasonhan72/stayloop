@@ -16,7 +16,7 @@
 // Idempotency is by (lease_id, stage): each stage is proposed at most once
 // per lease, ever — decided or not, we never re-nag.
 import { daysBetween, isoDate, parseDateOnly, todayUtc } from '@/lib/dates'
-import { guidelineFor } from '@/lib/ontario/rules'
+import { guidelineFor, n1DeadlineFor } from '@/lib/ontario/rules'
 
 // The guideline is per calendar year of the increase's effective date (RTA
 // s.120; 2026 = 2.1%, 2027 = 1.9%) — see lib/ontario/rules.ts RENT_GUIDELINE.
@@ -88,7 +88,10 @@ export function buildRenewalProposal(userId: string, l: RenewalLease, today: Dat
   const g = guidelineFor(isoDate(new Date((parseDateOnly(l.end_date) ?? todayUtc(today)).getTime() + 86_400_000)))
   const raised = Math.round(rent * (1 + g.pct / 100) * 100) / 100
   const end = parseDateOnly(l.end_date) ?? todayUtc(today)
-  const noticeDeadline = new Date(end.getTime() - NOTICE_DAYS * 86_400_000)
+  // Same clock as the lifecycle rail: the increase takes effect the day after
+  // the term ends and the N1 must land 90 days before THAT day (RTA s.116) —
+  // the card said 09-20 while the rail said 09-21 (walk-through 2026-09-25).
+  const noticeDeadline = new Date(`${n1DeadlineFor(isoDate(new Date(end.getTime() + 86_400_000)))}T00:00:00Z`)
   const daysToEnd = daysBetween(todayUtc(today), end)
   const tenant = l.tenant_name || '租客'
   const mkt = marketLineText(market)
@@ -130,7 +133,10 @@ export function buildRenewalProposal(userId: string, l: RenewalLease, today: Dat
 
 export function buildCheckpointProposal(userId: string, l: RenewalLease, today: Date, stage: '60d' | '30d'): RenewalProposal {
   const end = parseDateOnly(l.end_date) ?? todayUtc(today)
-  const noticeDeadline = new Date(end.getTime() - NOTICE_DAYS * 86_400_000)
+  // Same clock as the lifecycle rail: the increase takes effect the day after
+  // the term ends and the N1 must land 90 days before THAT day (RTA s.116) —
+  // the card said 09-20 while the rail said 09-21 (walk-through 2026-09-25).
+  const noticeDeadline = new Date(`${n1DeadlineFor(isoDate(new Date(end.getTime() + 86_400_000)))}T00:00:00Z`)
   const daysToEnd = daysBetween(todayUtc(today), end)
   const daysToNotice = daysBetween(todayUtc(today), noticeDeadline)
   const tenant = l.tenant_name || '租客'

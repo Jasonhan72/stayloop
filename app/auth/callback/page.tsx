@@ -1,5 +1,6 @@
 'use client'
 import { homeForHats, type HatsLite } from '@/lib/landlordHat'
+import { roleStorageKey } from '@/lib/useAuth'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -76,7 +77,10 @@ export default function AuthCallback() {
         // First-time users name their agent, then go straight to the chat.
         // Returning users (role known) skip naming entirely.
         let dest = safeNext ?? '/onboarding/name'
-        const stored = window.localStorage.getItem('sl-active-role')
+        // The remembered hat is per account (roleStorageKey): read it only
+        // for the user who just signed in.
+        const { data: { user: signedIn } } = await supabase.auth.getUser()
+        const stored = signedIn ? window.localStorage.getItem(roleStorageKey(signedIn.id)) : null
         if (!safeNext) {
           // Every source of "which role" — the role remembered in this browser
           // (may belong to a previous account), the account's most recently
@@ -104,7 +108,7 @@ export default function AuthCallback() {
             const { data: hats } = await supabase.rpc('my_hats')
             dest = homeForHats(candidate, hats as HatsLite)
             const landed = (Object.keys(AGENT_HOME) as string[]).find((r) => AGENT_HOME[r] === dest)
-            if (landed) window.localStorage.setItem('sl-active-role', landed)
+            if (landed && signedIn) window.localStorage.setItem(roleStorageKey(signedIn.id), landed)
           } else {
             // Brand new user — check if they came with a role intent
             const intentRole = new URLSearchParams(window.location.search).get('role')

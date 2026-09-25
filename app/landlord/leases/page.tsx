@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import Link from 'next/link'
+import { auditActionLabel } from '@/lib/agent/ideas'
 import { useRouter } from 'next/navigation'
 import WorkspaceShell from '@/components/WorkspaceShell'
 import { GUIDELINE_TEXT, N4_TERMINATION_DAYS, N4_OLD_FORMS_REJECTED_AFTER, TORONTO_RENOVATION_LICENCE } from '@/lib/ontario/rules'
@@ -201,12 +202,8 @@ const N_FORMS: { code: string; title: { zh: string; en: string }; rule: { zh: st
   },
 ]
 
-const ACTIVITY = (aiName: string) => [
-  { time: { zh: '今天 09:14', en: 'Today 09:14' }, text: { zh: `${aiName} 已生成 L-205 续约草稿（Ontario LTB 标准租约），等待你审阅。`, en: `${aiName} has drafted the L-205 renewal (Ontario LTB Standard Lease), awaiting your review.` } },
-  { time: { zh: '昨天 16:30', en: 'Yesterday 16:30' }, text: { zh: 'L-198 转入 month-to-month。Kevin Tran 同意上调 $80/月。', en: 'L-198 moved to month-to-month. Kevin Tran agreed to a $80/mo increase.' } },
-  { time: { zh: '5/4 11:00', en: '5/4 11:00' }, text: { zh: 'L-209 已发送给 Anna L. e-sign。', en: 'L-209 sent to Anna L. for e-sign.' } },
-  { time: { zh: '5/2 10:00', en: '5/2 10:00' }, text: { zh: 'L-202 第 11 个月按时入账 — 护照信任记录 +1。', en: 'L-202 month 11 paid on time — trust record +1.' } },
-]
+/** Display code for a real lease row (uuid) — the timeline and table used to print the raw uuid. */
+const leaseCode = (id: string): string => (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(id) ? `L-${id.slice(0, 4).toUpperCase()}` : id)
 
 function downloadCSV(lang: Lang, rows: LeaseItem[]) {
   const header = lang === 'zh'
@@ -246,6 +243,30 @@ export default function LandlordLeasesPage() {
   }, [landlord, aiName])
   useEffect(() => { void loadLeases() }, [loadLeases])
 
+  // Recent lease events, from the user's own audit rows (RLS).
+  const [activity, setActivity] = useState<{ time: string; text: string }[] | null>(null)
+  useEffect(() => {
+    if (!landlord) return
+    let cancelled = false
+    supabase
+      .from('agent_audit_events')
+      .select('id, action, created_at, metadata')
+      .order('created_at', { ascending: false })
+      .limit(80)
+      .then(({ data }) => {
+        if (cancelled) return
+        const rows = ((data ?? []) as { action: string; created_at: string; metadata: Record<string, unknown> | null }[])
+          .filter((r) => /lease|renewal|household_created|rent_reminder|esign/i.test(r.action) && !/session/i.test(r.action))
+          .slice(0, 5)
+          .map((r) => ({
+            time: new Date(r.created_at).toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-CA', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }),
+            text: auditActionLabel(r.action, lang, r.metadata || undefined),
+          }))
+        setActivity(rows)
+      })
+    return () => { cancelled = true }
+  }, [landlord, lang])
+
   const liveMode = (realLeases?.length ?? 0) > 0
   const rows: LeaseItem[] = liveMode ? realLeases! : LEASES
   const active = rows.filter((l) => l.status === 'active')
@@ -280,7 +301,7 @@ export default function LandlordLeasesPage() {
     ) : null
 
   return (
-    <WorkspaceShell role="landlord" aside={<RailAside lang={lang} aiNotice={renewalNotice} />}>
+    <WorkspaceShell role="landlord" aside={<RailAside lang={lang} aiNotice={renewalNotice} activity={activity} />}>
       <HouseholdList />
       {!liveMode && !authLoading && (
         <div className="mb-3 rounded-xl border border-line-strong bg-surface-chip px-4 py-2.5 font-mono text-[11px] leading-relaxed text-body-3">
@@ -733,7 +754,7 @@ function ExpiryTimeline({ lang, leases, liveMode }: { lang: Lang; leases: LeaseI
                 </div>
                 {s.items.map((l) => (
                   <div key={l.id} className="mt-1.5">
-                    <div className="font-mono text-[10px] font-bold">{l.id}</div>
+                    <div className="font-mono text-[10px] font-bold">{leaseCode(l.id)}</div>
                     <div className="text-[10.5px] leading-tight text-body-2">{l.unit}</div>
                     <div className="font-mono text-[10.5px] font-semibold">${l.rent.toLocaleString()}</div>
                   </div>
@@ -816,7 +837,7 @@ function LeaseSection({
                   <div className="text-[13px] font-semibold">{l.tenant}</div>
                   <div className="text-[12px] text-body-2">{l.unit}</div>
                   <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">
-                    {l.id} · {l.start} → {l.end}
+                    {leaseCode(l.id)} · {l.start} → {l.end}
                   </div>
                 </Td>
                 <Td align="right" mono>
@@ -878,24 +899,28 @@ function LeaseSection({
   )
 }
 
-function RailAside({ lang, aiNotice }: { lang: Lang; aiNotice?: ReactNode }) {
+function RailAside({ lang, aiNotice, activity }: { lang: Lang; aiNotice?: ReactNode; activity: { time: string; text: string }[] | null }) {
   const zh = lang === 'zh'
   const aiName = useAIName('landlord')
   return (
     <div>
       {aiNotice && <AsideBlock title={zh ? 'AI 建议' : 'AI SUGGESTIONS'}>{aiNotice}</AsideBlock>}
 
+      {/* Real lease events from the audit log — the design sample (L-205 /
+          Kevin Tran / Anna L.) sat next to real leases until 2026-09-25. */}
       <AsideBlock title={zh ? '最近活动' : 'Recent activity'}>
-        <ul className="space-y-3.5">
-          {ACTIVITY(aiName).map((a, i) => (
-            <li key={i} className="border-l-2 border-line-divider pl-3">
-              <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">
-                {a.time[lang]}
-              </div>
-              <div className="mt-1 text-[12.5px] leading-relaxed text-body-2">{a.text[lang]}</div>
-            </li>
-          ))}
-        </ul>
+        {activity && activity.length > 0 ? (
+          <ul className="space-y-3.5">
+            {activity.map((a, i) => (
+              <li key={i} className="border-l-2 border-line-divider pl-3">
+                <div className="font-mono text-[10px] uppercase tracking-eyebrow text-body-3">{a.time}</div>
+                <div className="mt-1 text-[12.5px] leading-relaxed text-body-2">{a.text}</div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="text-[12.5px] leading-relaxed text-body-3">{zh ? '暂无 — 续约函、租约发送、双签等真实记录会列在这里。' : 'Nothing yet — renewal letters, lease sends and signatures will be listed here.'}</div>
+        )}
       </AsideBlock>
 
       <AsideBlock title={zh ? 'N 表单工具箱' : 'N-form toolbox'}>

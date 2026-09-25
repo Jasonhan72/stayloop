@@ -158,7 +158,7 @@ export default function AgentChat({
   const onThreadScroll = () => {
     const el = threadRef.current
     if (!el) return
-    setShowJump(el.scrollHeight - el.scrollTop - el.clientHeight > 160)
+    setShowJump(el.scrollHeight - el.scrollTop - el.clientHeight > 120)
   }
   const thinking = status === 'understanding' || status === 'working'
   // Listing cards come in pages of six; the server sends up to two pages per
@@ -444,9 +444,10 @@ export default function AgentChat({
           type="button"
           onClick={() => endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })}
           aria-label={zh ? '回到最新消息' : 'Jump to the latest message'}
-          className="absolute bottom-3 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-line-divider bg-white text-body-2 shadow-md transition hover:border-line-strong"
+          className="absolute bottom-4 left-1/2 z-10 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full text-white shadow-lg ring-1 ring-white/30 transition hover:opacity-90"
+          style={{ background: 'rgba(27,27,60,0.85)' }}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
         </button>
       )}
       </div>

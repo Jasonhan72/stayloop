@@ -209,8 +209,8 @@ export default function NewListingPage() {
                 </h2>
                 <p className="mt-1 text-[13px] text-body-2">
                   {lang === 'zh'
-                    ? `让 ${aiName} 直接搬走你在别处的旧 listing，或贴链接 / 输 MLS# / 拖 PDF。${aiName} 会自动改写 EN+中文双语文案、整理照片、给定价建议。`
-                    : `Let ${aiName} pull your existing listing from elsewhere, or paste a link / enter an MLS# / drop a PDF. ${aiName} rewrites the copy in EN + Chinese, organizes the photos, and suggests pricing.`}
+                    ? `把 Realtor.ca 链接 / MLS® 编号 / 公开房源页交给 ${aiName}：它读页面、整理成挂牌草稿并带回照片，你逐项确认后再发布。`
+                    : `Hand ${aiName} a Realtor.ca link, an MLS® number or a public listing page: it reads the page, drafts the listing and brings the photos along; you confirm field by field before publishing.`}
                 </p>
               </div>
             </div>
